@@ -147,6 +147,9 @@ const (
 	// Port is a L4 port
 	Port = "port"
 
+	// PortName is a k8s ContainerPort Name
+	PortName = "portName"
+
 	// Family is the L3 protocol family
 	Family = "family"
 

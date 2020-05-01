@@ -45,19 +45,23 @@ import (
 )
 
 // ProxyID returns a unique string to identify a proxy mapping.
-func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
-	return policy.ProxyIDFromFilter(e.ID, l4)
+func (e *Endpoint) ProxyID(npMap policy.NamedPortsMap, l4 *policy.L4Filter) (string, error) {
+	return policy.ProxyIDFromFilter(e.ID, npMap, l4)
 }
 
 // lookupRedirectPort returns the redirect L4 proxy port for the given L4
 // policy map key, in host byte order. Returns 0 if not found or the
 // filter doesn't require a redirect.
 // Must be called with Endpoint.Mutex held.
-func (e *Endpoint) LookupRedirectPort(l4Filter *policy.L4Filter) uint16 {
+func (e *Endpoint) LookupRedirectPortLocked(npMap policy.NamedPortsMap, l4Filter *policy.L4Filter) uint16 {
 	if !l4Filter.IsRedirect() {
 		return 0
 	}
-	proxyID := e.ProxyID(l4Filter)
+	proxyID, err := e.ProxyID(npMap, l4Filter)
+	if err != nil {
+		e.getLogger().WithError(err).Warn("ProxyID failed")
+		return 0
+	}
 	return e.realizedRedirects[proxyID]
 }
 
@@ -84,7 +88,7 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 	}
 
 	// Publish the updated policy to L7 proxies.
-	return e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
+	return e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy.L4Policy, e.desiredPolicy.NamedPortsMap, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
 }
 
 func (e *Endpoint) useCurrentNetworkPolicy(proxyWaitGroup *completion.WaitGroup) {
@@ -177,7 +181,8 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 		e.getLogger().WithError(err).Warning("Failed to update policy")
 		return err
 	}
-	calculatedPolicy := e.selectorPolicy.Consume(e)
+	calculatedPolicy := e.selectorPolicy.Consume(e, e.k8sPorts)
+
 	stats.policyCalculation.End(true)
 
 	// This marks the e.desiredPolicy different from the previously realized policy
@@ -495,8 +500,8 @@ func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegener
 }
 
 // Regenerate forces the regeneration of endpoint programs & policy
-// Should only be called with e.state == StateWaitingToRegenerate or with
-// e.state == StateWaitingForIdentity
+// Should only be called with e.state at StateWaitingToRegenerate,
+// StateWaitingForIdentity, or StateRestoring
 func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
 	done := make(chan bool, 1)
 

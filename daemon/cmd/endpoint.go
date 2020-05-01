@@ -154,24 +154,24 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 // endpoint metadata. It implements endpoint.MetadataResolverCB.
 // The returned pod is deepcopied which means the its fields can be written
 // into.
-func (d *Daemon) fetchK8sLabelsAndAnnotations(nsName, podName string) (*types.Pod, labels.Labels, labels.Labels, map[string]string, error) {
+func (d *Daemon) fetchK8sLabelsAndAnnotations(nsName, podName string) (*types.Pod, []types.ContainerPort, labels.Labels, labels.Labels, map[string]string, error) {
 	p, err := d.k8sWatcher.GetCachedPod(nsName, podName)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 	ns, err := d.k8sWatcher.GetCachedNamespace(nsName)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
-	lbls, annotations, err := k8s.GetPodMetadata(ns, p)
+	containerPorts, lbls, annotations, err := k8s.GetPodMetadata(ns, p)
 	if err != nil {
-		return nil, nil, nil, nil, err
+		return nil, nil, nil, nil, nil, err
 	}
 
 	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
 	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
-	return p, identityLabels, infoLabels, annotations, nil
+	return p, containerPorts, identityLabels, infoLabels, annotations, nil
 }
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
@@ -265,11 +265,14 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	}
 
 	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
-		pod, identityLabels, info, _, err := d.fetchK8sLabelsAndAnnotations(ep.K8sNamespace, ep.K8sPodName)
+		pod, cp, identityLabels, info, _, err := d.fetchK8sLabelsAndAnnotations(ep.K8sNamespace, ep.K8sPodName)
 		if err != nil {
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {
 			ep.SetPod(pod)
+			if err := ep.SetNamedPorts(cp); err != nil {
+				return invalidDataError(ep, fmt.Errorf("Invalid ContainerPorts %v: %s", cp, err))
+			}
 			addLabels.MergeLabels(identityLabels)
 			infoLabels.MergeLabels(info)
 		}

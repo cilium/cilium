@@ -57,6 +57,10 @@ type EndpointPolicy struct {
 	// referring to a shared selectorPolicy!
 	*selectorPolicy
 
+	// NamedPortsMap maps PortNames in L4Filters to port numbers. This mapping
+	// is endpoint specific. Can be nil!
+	NamedPortsMap NamedPortsMap
+
 	// PolicyMapState contains the state of this policy as it relates to the
 	// datapath. In the future, this will be factored out of this object to
 	// decouple the policy as it relates to the datapath vs. its userspace
@@ -75,7 +79,8 @@ type EndpointPolicy struct {
 
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
-	LookupRedirectPort(l4 *L4Filter) uint16
+	GetID() uint64
+	LookupRedirectPortLocked(npMap NamedPortsMap, l4 *L4Filter) uint16
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
@@ -108,9 +113,11 @@ func (p *selectorPolicy) Detach() {
 // SelectorCache. These can subsequently be plumbed into the datapath.
 //
 // Must be performed while holding the Repository lock.
-func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner) *EndpointPolicy {
+// PolicyOwner (aka Endpoint) is also locked during this call.
+func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, npMap NamedPortsMap) *EndpointPolicy {
 	calculatedPolicy := &EndpointPolicy{
 		selectorPolicy: p,
+		NamedPortsMap:  npMap,
 		PolicyMapState: make(MapState),
 		PolicyOwner:    policyOwner,
 	}
@@ -154,11 +161,18 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries() {
 
 func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
 	for _, filter := range l4PolicyMap {
-		keysFromFilter := filter.ToMapState(direction)
+		lookupDone := false
+		proxyport := uint16(0)
+		keysFromFilter := filter.ToMapState(p.NamedPortsMap, direction)
 		for keyFromFilter, entry := range keysFromFilter {
 			// Fix up the proxy port for entries that need proxy redirection
 			if entry.IsRedirectEntry() {
-				entry.ProxyPort = p.PolicyOwner.LookupRedirectPort(filter)
+				if !lookupDone {
+					// only lookup once for each filter
+					proxyport = p.PolicyOwner.LookupRedirectPortLocked(p.NamedPortsMap, filter)
+					lookupDone = true
+				}
+				entry.ProxyPort = proxyport
 				// If the currently allocated proxy port is 0, this is a new
 				// redirect, for which no port has been allocated yet. Ignore
 				// it for now. This will be configured by

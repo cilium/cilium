@@ -155,6 +155,30 @@ func (s *PolicyAPITestSuite) TestIsLabelBasedIngress(c *C) {
 				}
 			},
 		},
+		{
+			name: "rule-with-named-port",
+			setupArgs: func() args {
+				return args{
+					&IngressRule{
+						ToPorts: []PortRule{
+							{
+								Ports: []PortProtocol{
+									{
+										Port:     "port-80",
+										Protocol: ProtoTCP,
+									},
+								},
+							},
+						},
+					},
+				}
+			},
+			setupWanted: func() wanted {
+				return wanted{
+					isLabelBased: true,
+				}
+			},
+		},
 	}
 
 	for _, tt := range tests {

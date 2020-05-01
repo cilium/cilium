@@ -25,10 +25,12 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -180,7 +182,8 @@ const (
 type L4Filter struct {
 	// Port is the destination port to allow. Port 0 indicates that all traffic
 	// is allowed at L4.
-	Port int `json:"port"`
+	Port     int    `json:"port"`
+	PortName string `json:"port-name,omitempty"`
 	// Protocol is the L4 protocol to allow or NONE
 	Protocol api.L4Proto `json:"protocol"`
 	// U8Proto is the Protocol in numeric format, or 0 for NONE
@@ -240,6 +243,31 @@ func (l4 *L4Filter) GetPort() uint16 {
 	return uint16(l4.Port)
 }
 
+// NamedPort represents a mapping from a port name to the port number and protocol
+type NamedPort struct {
+	Proto uint8  // 0 for any
+	Port  uint16 // non-0
+}
+
+type NamedPortsMap map[string]NamedPort
+
+func (npm NamedPortsMap) GetNamedPort(name string, proto uint8) (port uint16, err error) {
+	if npm == nil {
+		return 0, fmt.Errorf("nil map")
+	}
+	np, ok := npm[name]
+	if !ok {
+		return 0, fmt.Errorf("named port %s not found in %v", name, npm)
+	}
+	if np.Proto != 0 && proto != np.Proto {
+		return 0, fmt.Errorf("incompatible proto")
+	}
+	if np.Port == 0 {
+		return 0, fmt.Errorf("named port has zero value")
+	}
+	return np.Port, nil
+}
+
 // ToMapState converts filter into a MapState with two possible values:
 // - Entry with ProxyPort = 0: No proxy redirection is needed for this key
 // - Entry with any other port #: Proxy redirection is required for this key,
@@ -248,11 +276,32 @@ func (l4 *L4Filter) GetPort() uint16 {
 // Note: It is possible for two selectors to select the same security ID.
 // To give priority for L7 redirection (e.g., for visibility purposes), we use
 // RedirectPreferredInsert() instead of directly inserting the value to the map.
-func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapState {
+func (l4 *L4Filter) ToMapState(npMap NamedPortsMap, direction trafficdirection.TrafficDirection) MapState {
 	port := uint16(l4.Port)
 	proto := uint8(l4.U8Proto)
 
+	logger := log
+	if option.Config.Debug {
+		logger = log.WithFields(logrus.Fields{
+			logfields.Port:             port,
+			logfields.PortName:         l4.PortName,
+			logfields.Protocol:         proto,
+			logfields.TrafficDirection: direction,
+		})
+	}
+
 	keysToAdd := MapState{}
+
+	// resolve named port
+	if port == 0 && l4.PortName != "" {
+		var err error
+		port, err = npMap.GetNamedPort(l4.PortName, proto)
+		if err != nil {
+			logger.Debugf("ToMapState: Skipping named port: %s", err)
+			return keysToAdd
+		}
+	}
+
 	keyToAdd := Key{
 		Identity:         0,    // Set in the loop below (if not wildcard)
 		DestPort:         port, // NOTE: Port is in host byte-order!
@@ -282,13 +331,7 @@ func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapS
 		//
 		// have wildcard?        this is a L3L4 key?  not the "no" case?
 		if l4.wildcard != nil && cs != l4.wildcard && !(l7 != nil && wildcardL7Policy == nil) {
-			log.WithFields(logrus.Fields{
-				logfields.EndpointSelector: cs,
-				logfields.PolicyID:         cs.GetSelections(),
-				logfields.Port:             port,
-				logfields.Protocol:         proto,
-				logfields.TrafficDirection: direction,
-			}).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
+			logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: Skipping L3/L4 key due to existing L4-only key")
 			continue
 		}
 
@@ -299,27 +342,21 @@ func (l4 *L4Filter) ToMapState(direction trafficdirection.TrafficDirection) MapS
 
 			if port == 0 {
 				// Allow-all
-				log.WithFields(logrus.Fields{
-					logfields.TrafficDirection: direction,
-				}).Debug("ToMapState: allow all")
+				logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: allow all")
 			} else {
 				// L4 allow
-				log.WithFields(logrus.Fields{
-					logfields.Port:             port,
-					logfields.Protocol:         proto,
-					logfields.TrafficDirection: direction,
-				}).Debug("ToMapState: L4 allow all")
+				logger.WithField(logfields.EndpointSelector, cs).Debug("ToMapState: L4 allow all")
 			}
 			continue
 		}
 
 		identities := cs.GetSelections()
-		log.WithFields(logrus.Fields{
-			logfields.TrafficDirection: direction,
-			logfields.EndpointSelector: cs,
-			logfields.PolicyID:         identities,
-		}).Debug("ToMapState: Allowed remote IDs")
-
+		if option.Config.Debug {
+			logger.WithFields(logrus.Fields{
+				logfields.EndpointSelector: cs,
+				logfields.PolicyID:         identities,
+			}).Debug("ToMapState: Allowed remote IDs")
+		}
 		for _, id := range identities {
 			keyToAdd.Identity = id.Uint32()
 			keysToAdd.RedirectPreferredInsert(keyToAdd, entry)
@@ -464,13 +501,21 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, fqdns api.FQDNSelectorSlice) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 
-	// already validated via PortRule.Validate()
-	p, _ := strconv.ParseUint(port.Port, 0, 16)
-	// already validated via L4Proto.Validate()
+	portName := ""
+	p := uint64(0)
+	if iana.IsSvcName(port.Port) {
+		portName = port.Port
+	} else {
+		// already validated via PortRule.Validate()
+		p, _ = strconv.ParseUint(port.Port, 0, 16)
+	}
+
+	// already validated via L4Proto.Validate(), never "ANY"
 	u8p, _ := u8proto.ParseProtocol(string(protocol))
 
 	l4 := &L4Filter{
-		Port:               int(p),
+		Port:               int(p),   // 0 for L3-only rules and named ports
+		PortName:           portName, // non-"" for named ports
 		Protocol:           protocol,
 		U8Proto:            u8p,
 		L7RulesPerSelector: make(L7DataMap),
@@ -811,6 +856,25 @@ func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentit
 
 	l4.mutex.RLock()
 	for epPolicy := range l4.users {
+		// resolve named port
+		if port == 0 && l4Filter.PortName != "" {
+			var err error
+			port, err = epPolicy.NamedPortsMap.GetNamedPort(l4Filter.PortName, proto)
+			if err != nil {
+				if option.Config.Debug {
+					logger := log.WithFields(logrus.Fields{
+						logfields.Port:             port,
+						logfields.PortName:         l4Filter.PortName,
+						logfields.Protocol:         proto,
+						logfields.TrafficDirection: direction,
+						logfields.EndpointID:       epPolicy.PolicyOwner.GetID(),
+					})
+					logger.WithError(err).Debug("AccumulateMapChanges: Skipping named port")
+				}
+				continue
+			}
+		}
+
 		epPolicy.policyMapChanges.AccumulateMapChanges(adds, deletes, port, proto, direction, redirect, derivedFrom)
 	}
 	l4.mutex.RUnlock()

@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,6 +32,9 @@ type PortProtocol struct {
 	// Port is an L4 port number. For now the string will be strictly
 	// parsed as a single uint16. In the future, this field may support
 	// ranges in the form "1024-2048
+	// Port can also be a port name, which must contain at least one [a-z],
+	// and may also contain [0-9] and '-' anywhere exept adjacent to another
+	// '-' or in the beginning or the end.
 	Port string `json:"port"`
 
 	// Protocol is the L4 protocol. If omitted or empty, any protocol
@@ -39,12 +42,15 @@ type PortProtocol struct {
 	//
 	// Matching on ICMP is not supported.
 	//
+	// Named port specified for a container may narrow this down, but may not
+	// contradict this.
 	// +optional
 	Protocol L4Proto `json:"protocol,omitempty"`
 }
 
 // Covers returns true if the ports and protocol specified in the received
 // PortProtocol are equal to or a superset of the ports and protocol in 'other'.
+// Named ports only cover other named ports with exactly the same name.
 func (p PortProtocol) Covers(other PortProtocol) bool {
 	if p.Port != other.Port {
 		return false

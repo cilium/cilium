@@ -15,7 +15,6 @@
 package endpoint
 
 import (
-	"fmt"
 	"reflect"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -28,7 +27,7 @@ import (
 type EndpointProxy interface {
 	CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, localEndpoint logger.EndpointUpdater, wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc)
 	RemoveRedirect(id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc)
-	UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error)
+	UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, npMap policy.NamedPortsMap, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error)
 	UseCurrentNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, wg *completion.WaitGroup)
 	RemoveNetworkPolicy(ep logger.EndpointInfoSource)
 }
@@ -38,15 +37,6 @@ func (e *Endpoint) SetProxy(p EndpointProxy) {
 	e.unconditionalLock()
 	defer e.unlock()
 	e.proxy = p
-}
-
-// updateProxyRedirect updates the redirect rules in the proxy for a particular
-// endpoint using the provided L4 filter. Returns the allocated proxy port
-func (e *Endpoint) updateProxyRedirect(l4 *policy.L4Filter, proxyWaitGroup *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
-	if e.isProxyDisabled() {
-		return 0, fmt.Errorf("can't redirect, proxy disabled"), nil, nil
-	}
-	return e.proxy.CreateOrUpdateRedirect(l4, e.ProxyID(l4), e, proxyWaitGroup)
 }
 
 func (e *Endpoint) removeNetworkPolicy() {
@@ -74,7 +64,7 @@ func (f *FakeEndpointProxy) RemoveRedirect(id string, wg *completion.WaitGroup) 
 }
 
 // UpdateNetworkPolicy does nothing.
-func (f *FakeEndpointProxy) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
+func (f *FakeEndpointProxy) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, npMap policy.NamedPortsMap, ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
 	return nil, nil
 }
 
