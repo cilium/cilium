@@ -439,6 +439,9 @@ microk8s: check-microk8s
 	@echo "Or, redeploy the Cilium pods:"
 	@echo "    microk8s.kubectl -n kube-system delete pod -l k8s-app=cilium"
 
+ci-precheck: precheck
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf build_all
+
 precheck: ineffassign logging-subsys-field
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
@@ -452,7 +455,6 @@ endif
 	$(QUIET) contrib/scripts/check-missing-tags-in-tests.sh
 	@$(ECHO_CHECK) contrib/scripts/check-assert-deep-equals.sh
 	$(QUIET) contrib/scripts/check-assert-deep-equals.sh
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf build_all
 
 pprof-help:
 	@echo "Available pprof targets:"
