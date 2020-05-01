@@ -498,6 +498,9 @@ func (k *K8sWatcher) deletePodHostData(pod *types.Pod) (bool, error) {
 }
 
 func validIPs(ipStrs []string) error {
+	if len(ipStrs) == 0 {
+		return fmt.Errorf("empty PodIPs")
+	}
 	for _, ipStr := range ipStrs {
 		podIP := net.ParseIP(ipStr)
 		if podIP == nil {
