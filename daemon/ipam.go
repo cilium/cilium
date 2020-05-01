@@ -15,7 +15,6 @@
 package main
 
 import (
-	"errors"
 	"fmt"
 	"net"
 	"strings"
@@ -30,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -184,7 +182,7 @@ func (d *Daemon) allocateDatapathIPs(family datapath.NodeAddressingFamily) (rout
 	if routerIP != nil {
 		err = d.ipam.AllocateIPWithoutSyncUpstream(routerIP, "router")
 		if err != nil {
-			log.Warningf("Router IP could not be re-allocated. Need to re-allocate. This will cause brief network disruption")
+			log.Warn("Router IP could not be re-allocated. Need to re-allocate. This will cause brief network disruption")
 
 			// The restored router IP is not part of the allocation range.
 			// This indicates that the allocation range has changed.
@@ -228,7 +226,7 @@ func (d *Daemon) allocateHealthIPs() error {
 			// endpoint traffic out of the ENIs.
 			if option.Config.IPAM == option.IPAMENI {
 				if err := d.parseHealthEndpointInfo(result); err != nil {
-					log.Warningf("Unable to allocate health information for ENI: %s", err)
+					log.WithError(err).Warn("Unable to allocate health information for ENI")
 				}
 			}
 		}
@@ -373,39 +371,9 @@ func (d *Daemon) bootstrapIPAM() {
 }
 
 func (d *Daemon) parseHealthEndpointInfo(result *ipam.AllocationResult) error {
-	if d.healthEndpointRouting == nil {
-		d.healthEndpointRouting = &enirouting.RoutingInfo{}
-	}
-
-	if ip := net.ParseIP(result.GatewayIP); ip != nil {
-		log.Debugf("IPv4 health gateway address: %s", ip)
-
-		d.healthEndpointRouting.IPv4Gateway = ip
-	} else {
-		return errors.New("IPv4 health gateway address could not be parsed")
-	}
-
-	if len(result.CIDRs) == 0 {
-		return errors.New("IPv4 health CIDR missing")
-	}
-
-	for _, c := range result.CIDRs {
-		if _, cidr, err := net.ParseCIDR(c); cidr != nil && err == nil {
-			d.healthEndpointRouting.IPv4CIDRs = append(d.healthEndpointRouting.IPv4CIDRs, *cidr)
-		} else {
-			return fmt.Errorf("IPv4 health CIDR could not be parsed: %v", err)
-		}
-	}
-
-	log.Debugf("IPv4 health CIDRs: %s", d.healthEndpointRouting.IPv4CIDRs)
-
-	if mac, err := mac.ParseMAC(result.Master); mac != nil && err == nil {
-		log.Debugf("Health master interface MAC: %s", mac)
-
-		d.healthEndpointRouting.MasterIfMAC = mac
-	} else {
-		return fmt.Errorf("health master interface MAC could not be parsed: %v", err)
-	}
-
-	return nil
+	var err error
+	d.healthEndpointRouting, err = enirouting.NewRoutingInfo(result.GatewayIP,
+		result.CIDRs,
+		result.Master)
+	return err
 }

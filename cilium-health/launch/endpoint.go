@@ -25,7 +25,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	enirouting "github.com/cilium/cilium/pkg/aws/eni/routing"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -243,7 +242,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	epMgr EndpointAdder,
 	proxy endpoint.EndpointProxy,
 	allocator cache.IdentityAllocator,
-	eniHealthRouting *enirouting.RoutingInfo) (*Client, error) {
+	routingConfig routingConfigurer) (*Client, error) {
 
 	var (
 		cmd  = launcher.Launcher{}
@@ -346,8 +345,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	if option.Config.IPAM == option.IPAMENI {
-		if err := enirouting.Install(healthIP,
-			eniHealthRouting,
+		if err := routingConfig.Configure(healthIP,
 			mtuConfig.GetDeviceMTU(),
 			option.Config.Masquerade); err != nil {
 
@@ -373,4 +371,8 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	metrics.SubprocessStart.WithLabelValues(ciliumHealth).Inc()
 
 	return client, nil
+}
+
+type routingConfigurer interface {
+	Configure(ip net.IP, mtu int, masq bool) error
 }
