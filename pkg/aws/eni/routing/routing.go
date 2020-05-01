@@ -33,36 +33,15 @@ var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "eni-routing")
 )
 
-// RoutingInfo represents information that's required to enable
-// connectivity via the local rule and route tables while in ENI mode. The
-// information in this struct is used to create rules and routes which direct
-// traffic out of the ENI devices (egress).
-//
-// This struct is mostly derived from the `ipam.AllocationResult` as the
-// information comes from IPAM.
-type RoutingInfo struct {
-	// IPv4Gateway is the gateway where outbound/egress traffic is directed.
-	IPv4Gateway net.IP
-
-	// IPv4CIDRs is a list of CIDRs which the ENI device has access to. In most
-	// cases, it'll at least contain the CIDR of the IPv4Gateway IP address.
-	IPv4CIDRs []net.IPNet
-
-	// MasterIfMAC is the MAC address of the master interface that egress
-	// traffic is directed to. This is the MAC of the ENI itself which
-	// corresponds to the IPv4Gateway IP addr.
-	MasterIfMAC mac.MAC
-}
-
-// Install sets up the rules and routes needed when running in ENI mode. These
-// rules and routes direct egress traffic out of the ENI device and ingress
-// traffic back to the endpoint (`ip`).
+// Configure sets up the rules and routes needed when running in ENI mode.
+// These rules and routes direct egress traffic out of the ENI device and
+// ingress traffic back to the endpoint (`ip`).
 //
 // ip: The endpoint IP address to direct traffic out / from ENI device.
 // info: The ENI device routing info used to create rules and routes.
 // mtu: The ENI device MTU.
 // masq: Whether masquerading is enabled.
-func Install(ip net.IP, info *RoutingInfo, mtu int, masq bool) error {
+func (info *RoutingInfo) Configure(ip net.IP, mtu int, masq bool) error {
 	ifindex, err := retrieveIfIndexFromMAC(info.MasterIfMAC, mtu)
 	if err != nil {
 		return fmt.Errorf("unable to find ifindex for interface MAC: %s", err)
