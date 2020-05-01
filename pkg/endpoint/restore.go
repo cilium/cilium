@@ -73,7 +73,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, basePath
 			for i := 0; i < 2 && fileExists != nil; i++ {
 				time.Sleep(100 * time.Millisecond)
 				_, err := os.Stat(cHeaderFile)
-				if fileExists != err {
+				if (fileExists == nil) != (err == nil) {
 					scopedLog.WithError(err).Warn("BUG: stat() has unstable behavior")
 				}
 				fileExists = err
