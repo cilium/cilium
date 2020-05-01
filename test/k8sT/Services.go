@@ -1034,6 +1034,9 @@ var _ = Describe("K8sServicesTest", func() {
 
 					It("Tests NodePort with sessionAffinity", func() {
 						testSessionAffinity(false)
+					})
+
+					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests NodePort with sessionAffinity from outside", func() {
 						testSessionAffinity(true)
 					})
 
@@ -1064,6 +1067,9 @@ var _ = Describe("K8sServicesTest", func() {
 
 					It("Tests NodePort with sessionAffinity", func() {
 						testSessionAffinity(false)
+					})
+
+					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests NodePort with sessionAffinity from outside", func() {
 						testSessionAffinity(true)
 					})
 
