@@ -185,6 +185,9 @@ const (
 	// DatapathMode is the default value for the datapath mode.
 	DatapathMode = "veth"
 
+	// EnableBPFTProxy is the default value for EnableBPFTProxy
+	EnableBPFTProxy = false
+
 	// EnableXTSocketFallback is the default value for EnableXTSocketFallback
 	EnableXTSocketFallback = true
 
