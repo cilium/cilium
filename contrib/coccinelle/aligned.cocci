@@ -10,7 +10,14 @@
 // Comments:
 // Options: --include-headers
 
-@rule@
+@initialize:python@
+@@
+
+cnt = 0
+
+
+@rule disable optional_attributes@
+attribute name __align_stack_8;
 expression e1, e2;
 identifier x;
 position p;
@@ -18,9 +25,11 @@ position p;
 
 (
   struct \(icmphdr\|icmp6hdr\|ipv6_opt_hdr\|dsr_opt_v6\) x@p
++ __align_stack_8
   ;
 |
   struct \(icmphdr\|icmp6hdr\|ipv6_opt_hdr\|dsr_opt_v6\) x@p
++ __align_stack_8
   = ...;
 )
   // We want to match the above declaration if there *exists* even one path
@@ -42,3 +51,12 @@ p << rule.p;
 @@
 
 print "* file %s: missing __align_stack_8 on %s on line %s" % (p[0].file, x, p[0].line)
+cnt += 1
+
+
+@finalize:python@
+@@
+
+if cnt > 0:
+  print "Use the following command to fix the above issues:"
+  print "spatch --sp-file contrib/coccinelle/aligned.cocci --include-headers --very-quiet --in-place bpf/\n"
