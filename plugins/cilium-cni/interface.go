@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	enirouting "github.com/cilium/cilium/pkg/aws/eni/routing"
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/mac"
 
 	"github.com/containernetworking/cni/pkg/types/current"
 )
@@ -42,25 +41,14 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 		cidrs = append(cidrs, *cidr)
 	}
 
-	if ipam.MasterMac == "" {
-		return fmt.Errorf("ENI master interface MAC address is not set")
-	}
-
-	mac, err := mac.ParseMAC(ipam.MasterMac)
+	routingInfo, err := enirouting.NewRoutingInfo(ipam.Gateway, ipam.Cidrs, ipam.MasterMac)
 	if err != nil {
-		return fmt.Errorf("unable to parse master interface MAC address %s", ipam.MasterMac)
+		return fmt.Errorf("unable to parse routing info: %v", err)
 	}
 
-	gatewayIP := net.ParseIP(ipam.Gateway)
-	if gatewayIP == nil {
-		return fmt.Errorf("unable to parse gateway IP %s", ipam.Gateway)
-	}
-
-	if err := enirouting.Install(ipConfig.Address.IP, &enirouting.RoutingInfo{
-		IPv4Gateway: gatewayIP,
-		IPv4CIDRs:   cidrs,
-		MasterIfMAC: mac,
-	}, int(conf.DeviceMTU), conf.Masquerade); err != nil {
+	if err := routingInfo.Configure(ipConfig.Address.IP,
+		int(conf.DeviceMTU),
+		conf.Masquerade); err != nil {
 		return fmt.Errorf("unable to install ip rules and routes: %s", err)
 	}
 
