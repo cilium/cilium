@@ -11,8 +11,8 @@
 #endif
 
 /**
- * ctx_redirect_to_proxy configures the ctx with the proxy mark and proxy port
- * number to ensure that the stack redirects the packet into the proxy.
+ * __ctx_redirect_to_proxy configures the ctx with the proxy mark and proxy
+ * port number to ensure that the stack redirects the packet into the proxy.
  *
  * It is called from both ingress and egress side of endpoint devices.
  *
@@ -40,8 +40,9 @@
  *   before passing the traffic up to the stack towards the proxy.
  */
 static __always_inline int
-ctx_redirect_to_proxy(struct __ctx_buff *ctx, __be16 proxy_port,
-		      bool from_host __maybe_unused)
+__ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
+			__be16 proxy_port, bool from_host __maybe_unused,
+			bool ipv4 __maybe_unused)
 {
 	ctx->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
 
@@ -58,6 +59,24 @@ ctx_redirect_to_proxy(struct __ctx_buff *ctx, __be16 proxy_port,
 	return CTX_ACT_OK;
 #endif
 }
+
+#ifdef ENABLE_IPV4
+static __always_inline int
+ctx_redirect_to_proxy4(struct __ctx_buff *ctx, void *tuple __maybe_unused,
+		       __be16 proxy_port, bool from_host __maybe_unused)
+{
+	return __ctx_redirect_to_proxy(ctx, tuple, proxy_port, from_host, true);
+}
+#endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
+static __always_inline int
+ctx_redirect_to_proxy6(struct __ctx_buff *ctx, void *tuple __maybe_unused,
+		       __be16 proxy_port, bool from_host __maybe_unused)
+{
+	return __ctx_redirect_to_proxy(ctx, tuple, proxy_port, from_host, false);
+}
+#endif /* ENABLE_IPV6 */
 
 /**
  * ctx_redirect_to_proxy_first() applies changes to the context to forward

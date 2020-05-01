@@ -146,7 +146,7 @@ skip_service_lookup:
 	/* Check it this is return traffic to an ingress proxy. */
 	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect) {
 		/* Stack will do a socket match and deliver locally. */
-		return ctx_redirect_to_proxy(ctx, 0, false);
+		return ctx_redirect_to_proxy6(ctx, tuple, 0, false);
 	}
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -250,7 +250,7 @@ ct_recreate6:
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
 				  0, 0, reason, monitor);
-		return ctx_redirect_to_proxy(ctx, verdict, false);
+		return ctx_redirect_to_proxy6(ctx, tuple, verdict, false);
 	}
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -520,7 +520,7 @@ skip_service_lookup:
 	/* Check it this is return traffic to an ingress proxy. */
 	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect) {
 		/* Stack will do a socket match and deliver locally. */
-		return ctx_redirect_to_proxy(ctx, 0, false);
+		return ctx_redirect_to_proxy4(ctx, &tuple, 0, false);
 	}
 
 	/* Determine the destination category for policy fallback. */
@@ -622,7 +622,7 @@ ct_recreate4:
 		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
 				  0, 0, reason, monitor);
-		return ctx_redirect_to_proxy(ctx, verdict, false);
+		return ctx_redirect_to_proxy4(ctx, &tuple, verdict, false);
 	}
 
 	/* After L4 write in port mapping: revalidate for direct packet access */
@@ -851,7 +851,7 @@ out:
 #ifdef ENABLE_IPV6
 static __always_inline int
 ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
-	    __u16 *proxy_port)
+	    struct ipv6_ct_tuple *tuple_out, __u16 *proxy_port)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -905,6 +905,8 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		 */
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
 				  0, ifindex, 0, monitor);
+		if (tuple_out)
+			*tuple_out = tuple;
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
 
@@ -968,6 +970,8 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		*proxy_port = verdict;
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
 				  0, ifindex, *reason, monitor);
+		if (tuple_out)
+			*tuple_out = tuple;
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
 	/* Not redirected to host / proxy. */
@@ -985,6 +989,7 @@ declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
 		    CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
 int tail_ipv6_policy(struct __ctx_buff *ctx)
 {
+	struct ipv6_ct_tuple tuple = {};
 	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
@@ -994,9 +999,9 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
-	ret = ipv6_policy(ctx, ifindex, src_label, &reason, &proxy_port);
+	ret = ipv6_policy(ctx, ifindex, src_label, &reason, &tuple, &proxy_port);
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
-		ret = ctx_redirect_to_proxy(ctx, proxy_port, from_host);
+		ret = ctx_redirect_to_proxy6(ctx, &tuple, proxy_port, from_host);
 	if (IS_ERR(ret))
 		return send_drop_notify(ctx, src_label, SECLABEL, LXC_ID,
 					ret, CTX_ACT_DROP, METRIC_INGRESS);
@@ -1055,7 +1060,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = ipv6_policy(ctx, 0, src_identity, &reason, &proxy_port);
+	ret = ipv6_policy(ctx, 0, src_identity, &reason, NULL, &proxy_port);
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy_hairpin(ctx, proxy_port);
 out:
@@ -1069,7 +1074,7 @@ out:
 #ifdef ENABLE_IPV4
 static __always_inline int
 ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
-	    __u16 *proxy_port)
+	    struct ipv4_ct_tuple *tuple_out, __u16 *proxy_port)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -1126,6 +1131,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		 */
 		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
 				  0, ifindex, 0, monitor);
+		if (tuple_out)
+			*tuple_out = tuple;
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
 
@@ -1198,6 +1205,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		*proxy_port = verdict;
 		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
 				  0, ifindex, *reason, monitor);
+		if (tuple_out)
+			*tuple_out = tuple;
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
 	/* Not redirected to host / proxy. */
@@ -1215,6 +1224,7 @@ declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
 		    CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
 int tail_ipv4_policy(struct __ctx_buff *ctx)
 {
+	struct ipv4_ct_tuple tuple = {};
 	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	__u32 src_label = ctx_load_meta(ctx, CB_SRC_LABEL);
 	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
@@ -1224,9 +1234,9 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
-	ret = ipv4_policy(ctx, ifindex, src_label, &reason, &proxy_port);
+	ret = ipv4_policy(ctx, ifindex, src_label, &reason, &tuple, &proxy_port);
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
-		ret = ctx_redirect_to_proxy(ctx, proxy_port, from_host);
+		ret = ctx_redirect_to_proxy4(ctx, &tuple, proxy_port, from_host);
 	if (IS_ERR(ret))
 		return send_drop_notify(ctx, src_label, SECLABEL, LXC_ID,
 					ret, CTX_ACT_DROP, METRIC_INGRESS);
@@ -1284,7 +1294,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = ipv4_policy(ctx, 0, src_identity, &reason, &proxy_port);
+	ret = ipv4_policy(ctx, 0, src_identity, &reason, NULL, &proxy_port);
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy_hairpin(ctx, proxy_port);
 out:
