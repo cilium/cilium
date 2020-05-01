@@ -571,6 +571,7 @@ func calculateCounters(s *scope, focusedOnly bool) (int, bool) {
 // FailWithToggle wraps `ginkgo.Fail` function to have a option to disable the
 // panic when something fails when is running on AfterEach.
 func FailWithToggle(message string, callerSkip ...int) {
+	GinkgoPrint("FAIL: " + message)
 
 	if len(callerSkip) > 0 {
 		callerSkip[0] = callerSkip[0] + 1
