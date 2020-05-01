@@ -43,12 +43,6 @@ contribute to Cilium:
 
 For `unit_testing`, you will need to run ``docker`` without privileges. You can usually achieve this by adding your current user to the ``docker`` group.
 
-To build the documentation, you will need to install its dependencies:
-
-::
-
-    $ sudo pip3 install -r Documentation/requirements.txt
-
 Finally, in order to run Cilium locally on VMs, you need:
 
 +----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
@@ -288,6 +282,10 @@ Making Changes
 #. See :ref:`unit_testing` on how to run unit tests.
 #. See :ref:`testsuite` for information how to run the end to end integration
    tests
+#. If you are making documentation changes, you can generate documentation files
+   and serve them locally on ``http://localhost:9081`` by running ``make render-docs``.
+   This make target works both inside and outside the Vagrant VM, assuming that ``docker``
+   is running in the environment.
 
 Add/update a golang dependency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
