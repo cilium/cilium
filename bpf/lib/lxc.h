@@ -81,7 +81,7 @@ ctx_redirect_to_proxy_hairpin(struct __ctx_buff *ctx, __be16 proxy_port)
 	if (IS_ERR(ret))
 		return ret;
 
-	cilium_dbg(ctx, DBG_CAPTURE_PROXY_POST, proxy_port, 0);
+	cilium_dbg(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port, 0);
 
 	return redirect(HOST_IFINDEX, 0);
 }
