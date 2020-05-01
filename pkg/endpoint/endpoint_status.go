@@ -327,6 +327,7 @@ func (e *Endpoint) GetCiliumEndpointStatus(conf EndpointStatusConfiguration) *ci
 		Networking:          getEndpointNetworking(modelStatus),
 		State:               compressEndpointState(modelStatus.State),
 		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetIPsecKeyIdentity())},
+		NamedPorts:          modelStatus.NamedPorts,
 	}
 
 	if conf.EndpointStatusIsEnabled(option.EndpointStatusControllers) {

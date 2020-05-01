@@ -54,7 +54,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.17"
+	CustomResourceDefinitionSchemaVersion = "1.18"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -1132,13 +1132,16 @@ var (
 		},
 		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 			"port": {
-				Description: "Port is an L4 port number. For now the string will be strictly " +
-					"parsed as a single uint16. In the future, this field may support ranges " +
+				Description: "Port is an L4 port number or a port name. For now the string will be strictly " +
+					"parsed as a single uint16 or a valid port name, which consists of at most 15 alphanumeric " +
+					"characters of which at least one is not a number, as well as non-consecutive dashes " +
+					"('-') except for in the beginning or the end. In the future, this field may support ranges " +
 					"in the form \"1024-2048",
 				Type: "string",
-				// uint16 string regex
+				// uint16 or port name string regex
 				Pattern: `^(6553[0-5]|655[0-2][0-9]|65[0-4][0-9]{2}|6[0-4][0-9]{3}|` +
-					`[1-5][0-9]{4}|[0-9]{1,4})$`,
+					`[1-5][0-9]{4}|[0-9]{1,4}|` +
+					`([a-zA-Z0-9]-?)*[a-zA-Z](-?[a-zA-Z0-9])*)$`,
 			},
 			"protocol": {
 				Description: `Protocol is the L4 protocol. If omitted or empty, any protocol ` +

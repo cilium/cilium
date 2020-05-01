@@ -387,6 +387,8 @@ type EndpointStatus struct {
 	// - disconnecting
 	// - disconnected
 	State string `json:"state,omitempty"`
+
+	NamedPorts models.NamedPorts `json:"named-ports,omitempty"`
 }
 
 // EndpointStatusLogEntries is the maximum number of log entries in EndpointStatus.Log
