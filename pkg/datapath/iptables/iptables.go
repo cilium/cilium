@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -350,6 +350,7 @@ var transientChain = customChain{
 type IptablesManager struct {
 	haveIp6tables        bool
 	haveSocketMatch      bool
+	haveBPFSocketAssign  bool
 	ipEarlyDemuxDisabled bool
 	waitArgs             []string
 }
@@ -420,6 +421,7 @@ func (m *IptablesManager) Init() {
 	} else {
 		m.haveSocketMatch = true
 	}
+	m.haveBPFSocketAssign = option.Config.EnableBPFTProxy
 
 	v, err := getVersion("iptables")
 	if err == nil {
@@ -691,6 +693,11 @@ func (m *IptablesManager) iptProxyRules(cmd string, proxyPort uint16, ingress bo
 }
 
 func (m *IptablesManager) InstallProxyRules(proxyPort uint16, ingress bool, name string) error {
+	if m.haveBPFSocketAssign {
+		log.WithField("port", proxyPort).
+			Debug("Skipping proxy rule install due to BPF support")
+		return nil
+	}
 	return m.iptProxyRules("-A", proxyPort, ingress, name)
 }
 

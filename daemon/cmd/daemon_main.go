@@ -346,6 +346,9 @@ func init() {
 	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
 	option.BindEnv(option.EnableAutoDirectRoutingName)
 
+	flags.Bool(option.EnableBPFTProxy, defaults.EnableBPFTProxy, "Enable BPF-based proxy redirection, if support available")
+	option.BindEnv(option.EnableBPFTProxy)
+
 	flags.Bool(option.EnableXTSocketFallbackName, defaults.EnableXTSocketFallback, "Enable fallback for missing xt_socket module")
 	option.BindEnv(option.EnableXTSocketFallbackName)
 
@@ -1198,6 +1201,15 @@ func initEnv(cmd *cobra.Command) {
 			if !supportedMapTypes.HaveLruHashMapType {
 				option.Config.EnableIPv4FragmentsTracking = false
 				log.Info("Disabled support for IPv4 fragments due to missing kernel support for BPF LRU maps")
+			}
+		}
+	}
+
+	if option.Config.EnableBPFTProxy {
+		if h := probes.NewProbeManager().GetHelpers("sched_act"); h != nil {
+			if _, ok := h["bpf_sk_assign"]; !ok {
+				option.Config.EnableBPFTProxy = false
+				log.Info("Disabled support for BPF TProxy due to missing kernel support for socket assign (Linux 5.7 or later)")
 			}
 		}
 	}
