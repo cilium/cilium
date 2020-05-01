@@ -22,4 +22,4 @@ services:
   precheck:
     extends:
       service: base_image
-    command: "bash -c 'cd /go/src/github.com/cilium/cilium/; make precheck || exit 1'"
+    command: "bash -c 'cd /go/src/github.com/cilium/cilium/; make ci-precheck || exit 1'"
