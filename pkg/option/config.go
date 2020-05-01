@@ -589,6 +589,9 @@ const (
 	// PreAllocateMapsName is the name of the option PreAllocateMaps
 	PreAllocateMapsName = "preallocate-bpf-maps"
 
+	// EnableBPFTProxy option supports enabling or disabling BPF TProxy.
+	EnableBPFTProxy = "enable-bpf-tproxy"
+
 	// EnableXTSocketFallbackName is the name of the EnableXTSocketFallback option
 	EnableXTSocketFallbackName = "enable-xt-socket-fallback"
 
@@ -1608,6 +1611,10 @@ type DaemonConfig struct {
 	// sysctl option if `xt_socket` kernel module is not available.
 	EnableXTSocketFallback bool
 
+	// EnableBPFTProxy enables implementing proxy redirection via BPF
+	// mechanisms rather than iptables rules.
+	EnableBPFTProxy bool
+
 	// EnableAutoDirectRouting enables installation of direct routes to
 	// other nodes when available
 	EnableAutoDirectRouting bool
@@ -2327,6 +2334,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
 	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
 	c.K8sHeartbeatTimeout = viper.GetDuration(K8sHeartbeatTimeout)
+	c.EnableBPFTProxy = viper.GetBool(EnableBPFTProxy)
 	c.EnableXTSocketFallback = viper.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
 	c.EnableEndpointRoutes = viper.GetBool(EnableEndpointRoutes)
