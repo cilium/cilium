@@ -1507,9 +1507,8 @@ func APICanModify(e *Endpoint) error {
 	return nil
 }
 
-// MetadataResolverCB provides an implementation for resolving the endpoint
-// metadata for an endpoint such as the associated labels and annotations.
-type MetadataResolverCB func(ns, podName string) (pod *types.Pod, _ []types.ContainerPort, identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
+// LabelResolverCB provides an implementation for resolving the endpoint labels.
+type LabelResolverCB func(ns, podName string) (pod *types.Pod, identityLabels labels.Labels, infoLabels labels.Labels, err error)
 
 // RunMetadataResolver starts a controller associated with the received
 // endpoint which will periodically attempt to resolve the metadata for the
@@ -1519,7 +1518,7 @@ type MetadataResolverCB func(ns, podName string) (pod *types.Pod, _ []types.Cont
 //
 // This assumes that after the initial successful resolution, other mechanisms
 // will handle updates (such as pkg/k8s/watchers informers).
-func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
+func (e *Endpoint) RunMetadataResolver(resolveLabels LabelResolverCB) {
 	done := make(chan struct{})
 	controllerName := fmt.Sprintf("resolve-labels-%s", e.GetK8sNamespaceAndPodName())
 	go func() {
@@ -1531,18 +1530,18 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
 				ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
-				pod, cp, identityLabels, info, _, err := resolveMetadata(ns, podName)
+				pod, identityLabels, info, err := resolveLabels(ns, podName)
 				if err != nil {
 					e.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
 					return err
 				}
 				e.SetPod(pod)
-				e.SetNamedPorts(cp)
+				e.SetNamedPorts(pod.GetContainerPorts())
 				e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
-					if err != nil {
-						return "", err
-					}
+					// We can reuse the pod resolved above, as if the annotations have
+					// changed again in the meanwhile, the watcher will queue up another
+					// visibility policy update.
+					annotations := pod.GetAnnotations()
 					return annotations[annotation.ProxyVisibility], nil
 				})
 				e.UpdateLabels(ctx, identityLabels, info, true)

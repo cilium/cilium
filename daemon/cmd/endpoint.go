@@ -150,28 +150,28 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 	return &putEndpointID{d: d}
 }
 
-// fetchK8sLabelsAndAnnotations wraps the k8s package to fetch and provide
-// endpoint metadata. It implements endpoint.MetadataResolverCB.
+// fetchK8sLabels wraps the k8s package to fetch and provide the
+// pod and it's labels. It implements endpoint.LabelResolverCB.
 // The returned pod is deepcopied which means the its fields can be written
 // into.
-func (d *Daemon) fetchK8sLabelsAndAnnotations(nsName, podName string) (*types.Pod, []types.ContainerPort, labels.Labels, labels.Labels, map[string]string, error) {
+func (d *Daemon) fetchK8sLabels(nsName, podName string) (*types.Pod, labels.Labels, labels.Labels, error) {
 	p, err := d.k8sWatcher.GetCachedPod(nsName, podName)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 	ns, err := d.k8sWatcher.GetCachedNamespace(nsName)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 
-	containerPorts, lbls, annotations, err := k8s.GetPodMetadata(ns, p)
+	lbls, err := k8s.GetPodLabels(ns, p)
 	if err != nil {
-		return nil, nil, nil, nil, nil, err
+		return nil, nil, nil, err
 	}
 
 	k8sLbls := labels.Map2Labels(lbls, labels.LabelSourceK8s)
 	identityLabels, infoLabels := labelsfilter.Filter(k8sLbls)
-	return p, containerPorts, identityLabels, infoLabels, annotations, nil
+	return p, identityLabels, infoLabels, nil
 }
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
@@ -265,11 +265,12 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	}
 
 	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
-		pod, cp, identityLabels, info, _, err := d.fetchK8sLabelsAndAnnotations(ep.K8sNamespace, ep.K8sPodName)
+		pod, identityLabels, info, err := d.fetchK8sLabels(ep.K8sNamespace, ep.K8sPodName)
 		if err != nil {
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {
 			ep.SetPod(pod)
+			cp := pod.GetContainerPorts()
 			if err := ep.SetNamedPorts(cp); err != nil {
 				return invalidDataError(ep, fmt.Errorf("Invalid ContainerPorts %v: %s", cp, err))
 			}
@@ -295,10 +296,10 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	// resolve the labels.
 	k8sLabelsConfigured := true
 	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
-		// If there are labels, but no pod namespace, then it's
+		// If there are labels, but no pod namespace label, then it's
 		// likely that there are no k8s labels at all. Resolve.
 		if _, k8sLabelsConfigured = addLabels[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
-			ep.RunMetadataResolver(d.fetchK8sLabelsAndAnnotations)
+			ep.RunMetadataResolver(d.fetchK8sLabels)
 		}
 	}
 

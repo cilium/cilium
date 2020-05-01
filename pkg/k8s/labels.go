@@ -93,9 +93,8 @@ func isInjectedWithIstioSidecarProxy(scopedLog *logrus.Entry, pod *types.Pod) bo
 	return false
 }
 
-// GetPodMetadata returns the labels and annotations of the pod with the given
-// namespace / name.
-func GetPodMetadata(k8sNs *types.Namespace, pod *types.Pod) (containerPorts []types.ContainerPort, lbls map[string]string, retAnno map[string]string, retErr error) {
+// GetPodLabels returns the labels of the pod with the labels of the k8sNs.
+func GetPodLabels(k8sNs *types.Namespace, pod *types.Pod) (lbls map[string]string, retErr error) {
 	namespace := pod.Namespace
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNamespace: namespace,
@@ -103,7 +102,6 @@ func GetPodMetadata(k8sNs *types.Namespace, pod *types.Pod) (containerPorts []ty
 	})
 	scopedLog.Debug("Connecting to k8s local stores to retrieve labels for pod")
 
-	annotations := pod.GetAnnotations()
 	k8sLabels := pod.GetLabels()
 	if k8sLabels == nil {
 		k8sLabels = map[string]string{}
@@ -130,11 +128,5 @@ func GetPodMetadata(k8sNs *types.Namespace, pod *types.Pod) (containerPorts []ty
 
 	k8sLabels[k8sConst.PolicyLabelCluster] = option.Config.ClusterName
 
-	for _, containers := range pod.SpecContainers {
-		for _, cp := range containers.ContainerPorts {
-			containerPorts = append(containerPorts, cp)
-		}
-	}
-
-	return containerPorts, k8sLabels, annotations, nil
+	return k8sLabels, nil
 }

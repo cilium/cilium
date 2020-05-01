@@ -77,6 +77,15 @@ type Pod struct {
 	SpecContainers []PodContainer
 }
 
+func (p *Pod) GetContainerPorts() (containerPorts []ContainerPort) {
+	for _, containers := range p.SpecContainers {
+		for _, cp := range containers.ContainerPorts {
+			containerPorts = append(containerPorts, cp)
+		}
+	}
+	return containerPorts
+}
+
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Node struct {
 	metav1.TypeMeta

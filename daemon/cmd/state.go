@@ -91,7 +91,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 				return
 			}
 
-			ep.RunMetadataResolver(d.fetchK8sLabelsAndAnnotations)
+			ep.RunMetadataResolver(d.fetchK8sLabels)
 		}()
 	}
 
