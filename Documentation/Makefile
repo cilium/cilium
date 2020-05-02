@@ -18,6 +18,7 @@ builder-image: Dockerfile requirements.txt
 DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
 		--workdir /src/Documentation \
 		--volume $(CURDIR)/..:/src \
+		--env SKIP_LINT=$(SKIP_LINT) \
 		--user "$(shell id -u):$(shell id -g)" \
 			cilium/docs-builder
 

@@ -7,36 +7,16 @@
 Documentation
 =============
 
-Building
-~~~~~~~~
-
-The documentation has several dependencies which can be installed using pip:
-
-::
-
-    $ pip install -r Documentation/requirements.txt
-
-.. note:
-
-   If you are using the vagrant development environment, these requirements are
-   usually already installed.
-
 Whenever making changes to Cilium documentation you should check that you did not introduce any new warnings or errors, and also check that your changes look as you intended.  To do this you can build the docs:
-
-::
-
-    $ make -C Documentation html
-
-After this you can browse the updated docs as HTML starting at
-``Documentation\_build\html\index.html``.
-
-Alternatively you can use a Docker container to build the pages:
 
 ::
 
     $ make render-docs
 
-This builds the docs in a container and builds and starts a web server with
-your document changes.
+This generates documentation files and starts a web server using a Docker container. You can
+view the updated documentation by opening either ``Documentation/_build/html/index.html`` or
+http://localhost:9081 in a browser.
 
-Now the documentation page should be browsable on http://localhost:9080.
+.. note:: ``make render-docs`` is relatively slow since it performs syntax and spelling checks.
+          You can run ``make render-docs SKIP_LINT=1`` to render the documentation without performing
+          these checks while you iterate on updating the documentation.
