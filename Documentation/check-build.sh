@@ -52,8 +52,11 @@ hint_about_wordlist_update() {
         "Documentation/update-spelling_wordlist.sh" "${new_words}"
 }
 
-echo "Validating documentation (syntax, spelling)..."
-if build_with_spellchecker ; then
+if [ -n "${SKIP_LINT-}" ]; then
+  echo "Skipping syntax and spelling validations..."
+else
+  echo "Validating documentation (syntax, spelling)..."
+  if build_with_spellchecker ; then
     status_ok=0
     if filter_warnings > /dev/null ;  then
         printf "\nPlease fix the following documentation warnings:\n"
@@ -70,6 +73,7 @@ if build_with_spellchecker ; then
     if [ "${status_ok}" -ne 0 ] ; then
         exit 1
     fi
+  fi
 fi
 
 # TODO: Fix broken links and re-enable this
