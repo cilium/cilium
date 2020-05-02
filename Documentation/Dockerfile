@@ -1,4 +1,4 @@
-FROM docker.io/library/python:3.7.5-alpine3.10
+FROM docker.io/library/python:3.7.7-alpine3.11
 
 LABEL maintainer="maintainer@cilium.io"
 
