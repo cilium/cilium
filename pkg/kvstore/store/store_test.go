@@ -23,7 +23,6 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
@@ -33,7 +32,8 @@ import (
 )
 
 const (
-	testPrefix = "store-tests"
+	testPrefix           = "store-tests"
+	sharedKeyDeleteDelay = time.Second
 )
 
 func Test(t *testing.T) {
@@ -70,7 +70,7 @@ func (e *StoreConsulSuite) SetUpTest(c *C) {
 func (e *StoreConsulSuite) TearDownTest(c *C) {
 	kvstore.Client().DeletePrefix(context.TODO(), testPrefix)
 	kvstore.Client().Close()
-	time.Sleep(defaults.NodeDeleteDelay + 5*time.Second)
+	time.Sleep(sharedKeyDeleteDelay + 5*time.Second)
 }
 
 type TestType struct {
@@ -168,7 +168,7 @@ func expect(check func() bool) error {
 			return nil
 		}
 
-		if time.Since(start) > defaults.NodeDeleteDelay+10*time.Second {
+		if time.Since(start) > sharedKeyDeleteDelay+5*time.Second {
 			return fmt.Errorf("timeout while waiting for expected value")
 		}
 
@@ -178,7 +178,12 @@ func expect(check func() bool) error {
 
 func (s *StoreSuite) TestStoreOperations(c *C) {
 	// Basic creation should result in default values
-	store, err := JoinSharedStore(Configuration{Prefix: rand.RandomString(), KeyCreator: newTestType, Observer: &observer{}})
+	store, err := JoinSharedStore(Configuration{
+		Prefix:               rand.RandomString(),
+		KeyCreator:           newTestType,
+		Observer:             &observer{},
+		SharedKeyDeleteDelay: sharedKeyDeleteDelay,
+	})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
 	defer store.Close(context.TODO())

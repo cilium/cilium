@@ -120,7 +120,7 @@ ifeq ($(SKIP_KVSTORES),"false")
 		-p 8501:8443 \
 		-e 'CONSUL_LOCAL_CONFIG={"skip_leave_on_interrupt": true, "disable_update_check": true}' \
 		-v /tmp/cilium-consul-certs:/cilium-consul/ \
-		consul:1.1.0 \
+		$(CONSUL_IMAGE) \
 		agent -client=0.0.0.0 -server -bootstrap-expect 1 -config-file=/cilium-consul/consul-config.json
 endif
 
