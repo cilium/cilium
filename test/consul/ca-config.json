@@ -1,34 +1,37 @@
 {
-    "signing": {
-	"default": {
-	    "expiry": "43800h"
-	},
-	"profiles": {
-	    "server": {
-		"expiry": "43800h",
-		"usages": [
-		    "signing",
-		    "key encipherment",
-		    "server auth"
-		]
-	    },
-	    "client": {
-		"expiry": "43800h",
-		"usages": [
-		    "signing",
-		    "key encipherment",
-		    "client auth"
-		]
-	    },
-	    "peer": {
-		"expiry": "43800h",
-		"usages": [
-		    "signing",
-		    "key encipherment",
-		    "server auth",
-		    "client auth"
-		]
-	    }
-	}
+  "signing": {
+    "default": {
+      "expiry": "43800h"
+    },
+    "profiles": {
+      "server": {
+        "expiry": "43800h",
+        "usages": [
+          "signing",
+          "key encipherment",
+          "server auth",
+          "any"
+        ]
+      },
+      "client": {
+        "expiry": "43800h",
+        "usages": [
+          "signing",
+          "key encipherment",
+          "client auth",
+          "any"
+        ]
+      },
+      "peer": {
+        "expiry": "43800h",
+        "usages": [
+          "signing",
+          "key encipherment",
+          "server auth",
+          "client auth",
+          "any"
+        ]
+      }
     }
+  }
 }
