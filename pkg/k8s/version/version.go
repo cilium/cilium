@@ -17,18 +17,27 @@
 package version
 
 import (
+	"context"
 	"fmt"
+	"net/http"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	go_version "github.com/blang/semver"
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
 
-// ServerCapabilities is a list of server capabilities derived based on version
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "k8s")
+
+// ServerCapabilities is a list of server capabilities derived based on
+// version, the Kubernetes discovery API, or probing of individual API
+// endpoints.
 type ServerCapabilities struct {
 	// Patch is the ability to use PATCH to modify a resource
 	Patch bool
@@ -130,21 +139,63 @@ func Force(version string) error {
 	return nil
 }
 
+func fallbackDiscovery(client kubernetes.Interface) error {
+	_, err := client.DiscoveryV1beta1().EndpointSlices("default").Get(context.TODO(), "kubernetes", metav1.GetOptions{})
+	if err == nil {
+		cached.mutex.Lock()
+		cached.capabilities.EndpointSlice = true
+		cached.mutex.Unlock()
+		return nil
+	}
+
+	switch t := err.(type) {
+	case *errors.StatusError:
+		if t.ErrStatus.Code == http.StatusNotFound {
+			log.WithError(err).Info("Unable to retrieve EndpointSlices for default/kubernetes. Disabling EndpointSlices")
+			// StatusNotFound is a safe error, EndpointSlices are
+			// disabled and the agent can continue
+			return nil
+		}
+	}
+
+	// Unknown error, we can't derive whether to enable or disable
+	// EndpointSlices and need to error out
+	return fmt.Errorf("unable to validate EndpointSlices support: %s", err)
+}
+
 // Update retrieves the version of the Kubernetes apiserver and derives the
 // capabilities. This function must be called after connectivity to the
 // apiserver has been established.
+//
+// Discovery of capabilities only works if the discovery API of the apiserver
+// is functional. If it is not available, a warning is logged and the discovery
+// falls back to probing individual API endpoints.
 func Update(client kubernetes.Interface) error {
 	sv, err := client.Discovery().ServerVersion()
 	if err != nil {
 		return err
 	}
 
+	// Discovery of API groups requires the API services of the apiserver
+	// to be healthy. Such API services can depend on the readiness of
+	// regular pods which require Cilium to function correctly. By treating
+	// failure to discover API groups as fatal, a critical loop can be
+	// entered in which Cilium cannot start because the API groups can't be
+	// discovered and th API groups will only become discoverable once
+	// Cilium is up.
 	apiGroups, apiResourceLists, err := client.Discovery().ServerGroupsAndResources()
 	if err != nil {
-		return err
+		// It doesn't make sense to retry the retrieval of this
+		// information at a later point because the capabilities are
+		// primiarly used while the agent is starting up. Instead, fall
+		// back to probing API endpoints directly.
+		log.WithError(err).Warning("Unable to discover API groups and resources")
+		if err := fallbackDiscovery(client); err != nil {
+			return err
+		}
+	} else {
+		updateServerGroupsAndResources(apiGroups, apiResourceLists)
 	}
-
-	updateServerGroupsAndResources(apiGroups, apiResourceLists)
 
 	// Try GitVersion first. In case of error fallback to MajorMinor
 	if sv.GitVersion != "" {
