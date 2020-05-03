@@ -110,3 +110,7 @@ type CiliumEndpoint struct {
 	Networking *v2.EndpointNetworking
 	Encryption *v2.EncryptionSpec
 }
+
+type Configuration interface {
+	K8sAPIDiscoveryEnabled() bool
+}

@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -113,7 +114,7 @@ func useNodeCIDR(n *node.Node) {
 
 // Init initializes the Kubernetes package. It is required to call Configure()
 // beforehand.
-func Init() error {
+func Init(conf k8sconfig.Configuration) error {
 	k8sRestClient, closeAllDefaultClientConns, err := createDefaultClient()
 	if err != nil {
 		return fmt.Errorf("unable to create k8s client: %s", err)
@@ -151,7 +152,7 @@ func Init() error {
 		)
 	}
 
-	if err := k8sversion.Update(Client()); err != nil {
+	if err := k8sversion.Update(Client(), conf); err != nil {
 		return err
 	}
 

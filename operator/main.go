@@ -135,6 +135,8 @@ func init() {
 	flags.DurationVar(&identityGCInterval, "identity-gc-interval", defaults.KVstoreLeaseTTL, "GC interval for security identities")
 	flags.DurationVar(&kvNodeGCInterval, "nodes-gc-interval", time.Minute*2, "GC interval for nodes store in the kvstore")
 	flags.Int64Var(&eniParallelWorkers, "eni-parallel-workers", defaults.ENIParallelWorkers, "Maximum number of parallel workers used by ENI allocator")
+	flags.Bool(option.K8sEnableAPIDiscovery, defaults.K8sEnableAPIDiscovery, "Enable discovery of Kubernetes API groups and resources with the discovery API")
+	option.BindEnv(option.K8sEnableAPIDiscovery)
 	flags.String(option.K8sNamespaceName, "", "Name of the Kubernetes namespace in which Cilium Operator is deployed in")
 	option.BindEnv(option.K8sNamespaceName)
 	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, fmt.Sprintf("Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it"))
@@ -243,13 +245,13 @@ func runOperator(cmd *cobra.Command) {
 	}
 
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath, float32(k8sClientQPSLimit), k8sClientBurst)
-	if err := k8s.Init(); err != nil {
+	if err := k8s.Init(option.Config); err != nil {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}
 	close(k8sInitDone)
 
 	ciliumK8sClient = k8s.CiliumClient()
-	k8sversion.Update(k8s.Client())
+	k8sversion.Update(k8s.Client(), option.Config)
 	if !k8sversion.Capabilities().MinimalVersionMet {
 		log.Fatalf("Minimal kubernetes version not met: %s < %s",
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)

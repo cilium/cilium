@@ -357,4 +357,8 @@ const (
 	// IPAMExpiration is the timeout after which an IP subject to expiratio
 	// is being released again if no endpoint is being created in time.
 	IPAMExpiration = 3 * time.Minute
+
+	// K8sEnableAPIDiscovery defines whether Kuberntes API groups and
+	// resources should be probed using the discovery API
+	K8sEnableAPIDiscovery = false
 )
