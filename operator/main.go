@@ -137,13 +137,13 @@ func runOperator(cmd *cobra.Command) {
 		float32(option.Config.K8sClientQPSLimit),
 		option.Config.K8sClientBurst,
 	)
-	if err := k8s.Init(); err != nil {
+	if err := k8s.Init(option.Config); err != nil {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}
 	close(k8sInitDone)
 
 	ciliumK8sClient = k8s.CiliumClient()
-	k8sversion.Update(k8s.Client())
+	k8sversion.Update(k8s.Client(), option.Config)
 	if !k8sversion.Capabilities().MinimalVersionMet {
 		log.Fatalf("Minimal kubernetes version not met: %s < %s",
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)

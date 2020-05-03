@@ -121,3 +121,7 @@ type CiliumEndpoint struct {
 	Encryption *v2.EncryptionSpec
 	NamedPorts models.NamedPorts
 }
+
+type Configuration interface {
+	K8sAPIDiscoveryEnabled() bool
+}

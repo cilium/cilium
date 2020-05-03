@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
+	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -65,7 +66,7 @@ func validateCNPs() error {
 
 	k8s.Configure(k8sAPIServer, k8sKubeConfigPath, float32(k8sClientQPSLimit), k8sClientBurst)
 
-	if err := k8s.Init(); err != nil {
+	if err := k8s.Init(k8sconfig.NewDefaultConfiguration()); err != nil {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}
 
