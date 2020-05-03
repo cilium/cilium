@@ -33,6 +33,7 @@ import (
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
+	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
@@ -431,7 +432,7 @@ func benchmarkCNPNodeStatusController(integrationTest bool, nNodes int, nParalle
 
 	restConfig, err := CreateConfig()
 	c.Assert(err, IsNil)
-	err = Init()
+	err = Init(k8sconfig.NewDefaultConfiguration())
 	c.Assert(err, IsNil)
 
 	// One client per node

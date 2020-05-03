@@ -776,6 +776,9 @@ const (
 	// FragmentsMapEntriesName configures max entries for BPF fragments
 	// tracking map.
 	FragmentsMapEntriesName = "bpf-fragments-map-max"
+
+	// K8sEnableAPIDiscovery
+	K8sEnableAPIDiscovery = "enable-k8s-api-discovery"
 )
 
 // HelpFlagSections to format the Cilium Agent help template.
@@ -835,6 +838,7 @@ var HelpFlagSections = []FlagsSection{
 			K8sHeartbeatTimeout,
 			EnableExternalIPs,
 			K8sEnableEndpointSlice,
+			K8sEnableAPIDiscovery,
 			EnableHostPort,
 			AutoCreateCiliumNodeResource,
 			DisableCNPStatusUpdates,
@@ -1776,6 +1780,8 @@ type DaemonConfig struct {
 	// sizeofPolicyElement is the size of an element (key + value) in the
 	// policy map.
 	sizeofPolicyElement int
+
+	k8sEnableAPIDiscovery bool
 }
 
 var (
@@ -1813,6 +1819,7 @@ var (
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
 		EnableWellKnownIdentities:    defaults.EnableEndpointRoutes,
 		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
+		k8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
 	}
 )
 
@@ -1935,6 +1942,12 @@ func (c *DaemonConfig) LocalClusterName() string {
 // deployed in
 func (c *DaemonConfig) CiliumNamespaceName() string {
 	return c.K8sNamespace
+}
+
+// K8sAPIDiscoveryEnabled returns true if API discovery of API groups and
+// resources is enabled
+func (c *DaemonConfig) K8sAPIDiscoveryEnabled() bool {
+	return c.k8sEnableAPIDiscovery
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
@@ -2190,6 +2203,7 @@ func (c *DaemonConfig) Populate() {
 	c.K8sClientBurst = viper.GetInt(K8sClientBurst)
 	c.K8sClientQPSLimit = viper.GetFloat64(K8sClientQPSLimit)
 	c.K8sEnableK8sEndpointSlice = viper.GetBool(K8sEnableEndpointSlice)
+	c.k8sEnableAPIDiscovery = viper.GetBool(K8sEnableAPIDiscovery)
 	c.K8sKubeConfigPath = viper.GetString(K8sKubeConfigPath)
 	c.K8sRequireIPv4PodCIDR = viper.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = viper.GetBool(K8sRequireIPv6PodCIDRName)

@@ -333,6 +333,9 @@ func init() {
 	flags.Bool(option.K8sEnableEndpointSlice, defaults.K8sEnableEndpointSlice, "Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it")
 	option.BindEnv(option.K8sEnableEndpointSlice)
 
+	flags.Bool(option.K8sEnableAPIDiscovery, defaults.K8sEnableAPIDiscovery, "Enable discovery of Kubernetes API groups and resources with the discovery API")
+	option.BindEnv(option.K8sEnableAPIDiscovery)
+
 	flags.Bool(option.EnableL7Proxy, defaults.EnableL7Proxy, "Enable L7 proxy for L7 policy enforcement")
 	option.BindEnv(option.EnableL7Proxy)
 
