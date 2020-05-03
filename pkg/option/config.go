@@ -703,6 +703,9 @@ const (
 
 	// EndpointStatusState enables CiliumEndpoint.Status.State
 	EndpointStatusState = "state"
+
+	// K8sEnableAPIDiscovery
+	K8sEnableAPIDiscovery = "enable-k8s-api-discovery"
 )
 
 // Default string arguments
@@ -1402,6 +1405,8 @@ type DaemonConfig struct {
 	// EndpointStatus enables population of information in the
 	// CiliumEndpoint.Status resource
 	EndpointStatus map[string]struct{}
+
+	k8sEnableAPIDiscovery bool
 }
 
 var (
@@ -1439,6 +1444,7 @@ var (
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
 		EnableWellKnownIdentities:    defaults.EnableEndpointRoutes,
 		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
+		k8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
 	}
 )
 
@@ -1524,6 +1530,12 @@ func (c *DaemonConfig) IsFlannelMasterDeviceSet() bool {
 func (c *DaemonConfig) EndpointStatusIsEnabled(option string) bool {
 	_, ok := c.EndpointStatus[option]
 	return ok
+}
+
+// K8sAPIDiscoveryEnabled returns true if API discovery of API groups and
+// resources is enabled
+func (c *DaemonConfig) K8sAPIDiscoveryEnabled() bool {
+	return c.k8sEnableAPIDiscovery
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
@@ -1808,6 +1820,7 @@ func (c *DaemonConfig) Populate() {
 	c.IPv6ServiceRange = viper.GetString(IPv6ServiceRange)
 	c.K8sAPIServer = viper.GetString(K8sAPIServer)
 	c.K8sEnableK8sEndpointSlice = viper.GetBool(K8sEnableEndpointSlice)
+	c.k8sEnableAPIDiscovery = viper.GetBool(K8sEnableAPIDiscovery)
 	c.K8sKubeConfigPath = viper.GetString(K8sKubeConfigPath)
 	c.K8sRequireIPv4PodCIDR = viper.GetBool(K8sRequireIPv4PodCIDRName)
 	c.K8sRequireIPv6PodCIDR = viper.GetBool(K8sRequireIPv6PodCIDRName)
