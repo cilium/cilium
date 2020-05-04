@@ -432,16 +432,13 @@ global:
       enabled: false 
     # Default unix domain socket path to listen to when Hubble is enabled. Default to "/var/run/cilium/hubble.sock".
     socketPath: /var/run/cilium/hubble.sock
-    # List of additional addresses to listen to, for example:
+    # An additional address to listen to, for example:
     #
-    #   listenAddresses:
-    #   - ":50051"
-    #   - ":50052"
+    #   listenAddress: ":4244"
     #
-    # You can specify the list of metrics from the helm CLI:
-    #
-    #   --set global.hubble.listenAddresses={:50051,:50052}
-    listenAddresses: []
+    # Set this field ":4244" if you are enabling hubble-relay, as it assumes that Hubble is listening
+    # on port 4244.
+    listenAddress: ""
     # Buffer size of the channel Hubble uses to receive monitor events. If this value is not set,
     # the queue size is set to the default monitor queue size.
     eventQueueSize: ~

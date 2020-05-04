@@ -99,7 +99,7 @@ cilium-agent [flags]
       --http-retry-timeout uint                       Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
       --hubble-event-queue-size int                   Buffer size of the channel to receive monitor events.
       --hubble-flow-buffer-size int                   Maximum number of flows in Hubble's buffer. The actual buffer size gets rounded up to the next power of 2, e.g. 4095 => 4096 (default 4095)
-      --hubble-listen-addresses strings               List of additional addresses for Hubble server to listen to
+      --hubble-listen-address string                  An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics strings                        List of Hubble metrics to enable.
       --hubble-metrics-server string                  Address to serve Hubble metrics on.
       --hubble-socket-path string                     Set hubble's socket path to listen for connections (default "/var/run/cilium/hubble.sock")

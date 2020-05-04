@@ -725,8 +725,8 @@ const (
 	// HubbleSocketPath specifies the UNIX domain socket for Hubble server to listen to.
 	HubbleSocketPath = "hubble-socket-path"
 
-	// HubbleListenAddresses specifies addresses for Hubble server to listen to.
-	HubbleListenAddresses = "hubble-listen-addresses"
+	// HubbleListenAddress specifies address for Hubble server to listen to.
+	HubbleListenAddress = "hubble-listen-address"
 
 	// HubbleFlowBufferSize specifies the maximum number of flows in Hubble's buffer.
 	HubbleFlowBufferSize = "hubble-flow-buffer-size"
@@ -968,7 +968,7 @@ var HelpFlagSections = []FlagsSection{
 		Flags: []string{
 			EnableHubble,
 			HubbleSocketPath,
-			HubbleListenAddresses,
+			HubbleListenAddress,
 			HubbleFlowBufferSize,
 			HubbleEventQueueSize,
 			HubbleMetricsServer,
@@ -1733,8 +1733,8 @@ type DaemonConfig struct {
 	// HubbleSocketPath specifies the UNIX domain socket for Hubble server to listen to.
 	HubbleSocketPath string
 
-	// HubbleListenAddresses specifies addresses for Hubble to listen to.
-	HubbleListenAddresses []string
+	// HubbleListenAddress specifies address for Hubble to listen to.
+	HubbleListenAddress string
 
 	// HubbleFlowBufferSize specifies the maximum number of flows in Hubble's buffer.
 	HubbleFlowBufferSize int
@@ -2422,7 +2422,7 @@ func (c *DaemonConfig) Populate() {
 	// Hubble options.
 	c.EnableHubble = viper.GetBool(EnableHubble)
 	c.HubbleSocketPath = viper.GetString(HubbleSocketPath)
-	c.HubbleListenAddresses = viper.GetStringSlice(HubbleListenAddresses)
+	c.HubbleListenAddress = viper.GetString(HubbleListenAddress)
 	c.HubbleFlowBufferSize = viper.GetInt(HubbleFlowBufferSize)
 	c.HubbleEventQueueSize = viper.GetInt(HubbleEventQueueSize)
 	if c.HubbleEventQueueSize == 0 {

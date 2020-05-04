@@ -752,8 +752,8 @@ func init() {
 	flags.String(option.HubbleSocketPath, defaults.HubbleSockPath, "Set hubble's socket path to listen for connections")
 	option.BindEnv(option.HubbleSocketPath)
 
-	flags.StringSlice(option.HubbleListenAddresses, []string{}, "List of additional addresses for Hubble server to listen to")
-	option.BindEnv(option.HubbleListenAddresses)
+	flags.String(option.HubbleListenAddress, "", `An additional address for Hubble server to listen to, e.g. ":4244"`)
+	option.BindEnv(option.HubbleListenAddress)
 
 	flags.Int(option.HubbleFlowBufferSize, 4095, "Maximum number of flows in Hubble's buffer. The actual buffer size gets rounded up to the next power of 2, e.g. 4095 => 4096")
 	option.BindEnv(option.HubbleFlowBufferSize)

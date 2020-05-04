@@ -70,7 +70,6 @@ func (s *Server) Serve() error {
 	s.initGRPCServer()
 	for name, listener := range s.opts.Listeners {
 		go func(name string, listener net.Listener) {
-			s.log.WithField("listener", name).Info("Starting gRPC server on listener")
 			if err := s.srv.Serve(listener); err != nil {
 				s.log.WithError(err).Error("failed to close grpc server")
 			}
