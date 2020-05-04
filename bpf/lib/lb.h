@@ -1016,7 +1016,7 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr,
 #ifdef ENABLE_SESSION_AFFINITY
 static __always_inline __u32
 __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
-			  union lb4_affinity_client_id *id)
+			  const union lb4_affinity_client_id *id)
 {
 	__u32 now = bpf_ktime_get_sec();
 	struct lb_affinity_match match = {
@@ -1057,7 +1057,8 @@ lb4_affinity_backend_id_by_addr(const struct lb4_service *svc,
 
 static __always_inline void
 __lb4_update_affinity(const struct lb4_service *svc, bool netns_cookie,
-		      union lb4_affinity_client_id *id, __u32 backend_id)
+		      const union lb4_affinity_client_id *id,
+		      __u32 backend_id)
 {
 	__u32 now = bpf_ktime_get_sec();
 	struct lb4_affinity_key key = {
@@ -1082,7 +1083,7 @@ lb4_update_affinity_by_addr(const struct lb4_service *svc,
 
 static __always_inline void
 __lb4_delete_affinity(const struct lb4_service *svc, bool netns_cookie,
-		      union lb4_affinity_client_id *id)
+		      const union lb4_affinity_client_id *id)
 {
 	struct lb4_affinity_key key = {
 		.rev_nat_id	= svc->rev_nat_index,
