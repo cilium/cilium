@@ -19,6 +19,7 @@
 package types
 
 import (
+	models "github.com/cilium/cilium/api/v1/models"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "k8s.io/api/core/v1"
 	v1beta1 "k8s.io/api/discovery/v1beta1"
@@ -45,6 +46,17 @@ func (in *CiliumEndpoint) DeepCopyInto(out *CiliumEndpoint) {
 		in, out := &in.Encryption, &out.Encryption
 		*out = new(v2.EncryptionSpec)
 		**out = **in
+	}
+	if in.NamedPorts != nil {
+		in, out := &in.NamedPorts, &out.NamedPorts
+		*out = make(models.NamedPorts, len(*in))
+		for i := range *in {
+			if (*in)[i] != nil {
+				in, out := &(*in)[i], &(*out)[i]
+				*out = new(models.Port)
+				**out = **in
+			}
+		}
 	}
 	return
 }
