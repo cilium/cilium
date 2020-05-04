@@ -37,6 +37,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		kubectl      *helpers.Kubectl
 		monitorLog   = "monitor-aggregation.log"
 		privateIface string
+		defaultIface string
 		err          error
 	)
 
@@ -45,6 +46,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 		deploymentManager.SetKubectl(kubectl)
 		privateIface, err = kubectl.GetPrivateIface()
 		Expect(err).Should(BeNil(), "Cannot determine private iface")
+		defaultIface, err = kubectl.GetDefaultIface()
+		Expect(err).Should(BeNil(), "Cannot determine default iface")
 	})
 
 	BeforeEach(func() {
@@ -268,8 +271,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 
 		SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "Check BPF masquerading", func() {
-			defaultIface, err := kubectl.GetDefaultIface()
-			Expect(err).Should(BeNil(), "Failed to retrieve default iface")
 			deploymentManager.DeployCilium(map[string]string{
 				"global.bpfMasquerade":   "true",
 				"global.nodePort.device": fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface),
@@ -327,9 +328,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 
 		SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "Check BPF masquerading", func() {
-			defaultIface, err := kubectl.GetDefaultIface()
-			Expect(err).Should(BeNil(), "Failed to retrieve default iface")
-
 			deploymentManager.DeployCilium(map[string]string{
 				"global.bpfMasquerade":        "true",
 				"global.nodePort.device":      fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface),
@@ -369,14 +367,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 			tmpEchoPodPath      string
 			tmpConfigMapDirPath string
 			tmpConfigMapPath    string
-			defaultIface        string
-			err                 error
 		)
 
 		BeforeAll(func() {
-			defaultIface, err = kubectl.GetDefaultIface()
-			Expect(err).Should(BeNil(), "Failed to retrieve default iface")
-
 			// Deploy echoserver on the node which does not run Cilium to test
 			// BPF masquerading. The pod will run in the host netns, so no CNI
 			// is required for the pod on that host.
@@ -457,8 +450,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 
 		It("VXLAN", func() {
-			defaultIface, err := kubectl.GetDefaultIface()
-			Expect(err).Should(BeNil(), "Failed to retrieve default iface")
 			deploymentManager.DeployCilium(map[string]string{
 				"global.nodePort.device":        fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface),
 				"global.bpfMasquerade":          "true",
