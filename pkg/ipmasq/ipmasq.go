@@ -16,6 +16,7 @@ package ipmasq
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
@@ -23,7 +24,7 @@ import (
 	"strings"
 	"time"
 
-	"gopkg.in/yaml.v2"
+	"k8s.io/apimachinery/pkg/util/yaml"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/logging"
@@ -38,10 +39,11 @@ var (
 // ipnet is a wrapper type for net.IPNet to enable de-serialization of CIDRs
 type Ipnet net.IPNet
 
-func (c *Ipnet) UnmarshalYAML(unmarshal func(interface{}) error) error {
-	var str string
-	if err := unmarshal(&str); err != nil {
-		return err
+func (c *Ipnet) UnmarshalJSON(json []byte) error {
+	str := string(json)
+
+	if json[0] != '"' {
+		return fmt.Errorf("Invalid CIDR: %s", str)
 	}
 
 	ip, n, err := net.ParseCIDR(strings.Trim(str, `"`))
@@ -54,12 +56,11 @@ func (c *Ipnet) UnmarshalYAML(unmarshal func(interface{}) error) error {
 
 	*c = Ipnet(*n)
 	return nil
-
 }
 
 // config represents the ip-masq-agent configuration file encoded as YAML
 type config struct {
-	NonMasqCIDRs []Ipnet `yaml:"nonMasqueradeCIDRs"`
+	NonMasqCIDRs []Ipnet `json:"nonMasqueradeCIDRs"`
 }
 
 // IPMasqMap is an interface describing methods for manipulating an ipmasq map
@@ -146,8 +147,13 @@ func (a *IPMasqAgent) readConfig() error {
 		return fmt.Errorf("Failed to read %s: %s", a.configPath, err)
 	}
 
-	if err := yaml.Unmarshal(raw, &cfg); err != nil {
-		return fmt.Errorf("Failed to de-serialize yaml: %s", err)
+	jsonStr, err := yaml.ToJSON(raw)
+	if err != nil {
+		return fmt.Errorf("Failed to convert to json: %s", err)
+	}
+
+	if err := json.Unmarshal([]byte(jsonStr), &cfg); err != nil {
+		return fmt.Errorf("Failed to de-serialize json: %s", err)
 	}
 
 	nonMasqCIDRs := map[string]net.IPNet{}
