@@ -435,12 +435,8 @@ data:
     {{.}}
   {{- end }}
 {{- end }}
-  # A space separated list of additional addresses for Hubble server to listen to (e.g. ":50051 :50052").
-{{- if and .Values.global.hubble.ui.enabled (not (has "0.0.0.0:50051" .Values.global.hubble.listenAddresses)) }}
-  hubble-listen-addresses: {{ append .Values.global.hubble.listenAddresses "0.0.0.0:50051" | join " " | quote }}
-{{- else }}
-  hubble-listen-addresses: {{ .Values.global.hubble.listenAddresses | join " " | quote }}
-{{- end }}
+  # An additional address for Hubble server to listen to (e.g. ":4244").
+  hubble-listen-address: {{ .Values.global.hubble.listenAddress | quote }}
 {{- end }}
 
   # A space separated list of iptables chains to disable when installing feeder rules.
