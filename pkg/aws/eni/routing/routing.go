@@ -42,6 +42,12 @@ var (
 // mtu: The ENI device MTU.
 // masq: Whether masquerading is enabled.
 func (info *RoutingInfo) Configure(ip net.IP, mtu int, masq bool) error {
+	if ip.To4() == nil {
+		log.WithFields(logrus.Fields{
+			"endpointIP": ip,
+		}).Warning("Unable to configure rules and routes because IP is not an IPv4 address")
+		return errors.New("IP not compatible")
+	}
 	ifindex, err := retrieveIfIndexFromMAC(info.MasterIfMAC, mtu)
 	if err != nil {
 		return fmt.Errorf("unable to find ifindex for interface MAC: %s", err)
@@ -119,6 +125,12 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, masq bool) error {
 // with this ID, and because this table ID equals the ENI ifindex, it's stable
 // to rely on and therefore can be reused.
 func Delete(ip net.IP) error {
+	if ip.To4() == nil {
+		log.WithFields(logrus.Fields{
+			"endpointIP": ip,
+		}).Warning("Unable to delete rules because IP is not an IPv4 address")
+		return errors.New("IP not compatible")
+	}
 	ipWithMask := net.IPNet{
 		IP:   ip,
 		Mask: net.CIDRMask(32, 32),

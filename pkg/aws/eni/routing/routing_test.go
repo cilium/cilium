@@ -51,6 +51,23 @@ func (e *ENIRoutingSuite) TestConfigure(c *C) {
 	runFuncInNetNS(c, func() { runConfigureThenDelete(c, ri, ip, 1500, true) }, masterMAC)
 }
 
+func (e *ENIRoutingSuite) TestConfigureRoutewithIncompatibleIP(c *C) {
+	_, ri := getFakes(c)
+	ipv6 := net.ParseIP("fd00::2").To16()
+	c.Assert(ipv6, NotNil)
+	err := ri.Configure(ipv6, 1500, true)
+	c.Assert(err, NotNil)
+	c.Assert(err, ErrorMatches, "IP not compatible")
+}
+
+func (e *ENIRoutingSuite) TestDeleteRoutewithIncompatibleIP(c *C) {
+	ipv6 := net.ParseIP("fd00::2").To16()
+	c.Assert(ipv6, NotNil)
+	err := Delete(ipv6)
+	c.Assert(err, NotNil)
+	c.Assert(err, ErrorMatches, "IP not compatible")
+}
+
 func (e *ENIRoutingSuite) TestDelete(c *C) {
 	fakeIP, fakeRoutingInfo := getFakes(c)
 	masterMAC := fakeRoutingInfo.MasterIfMAC
