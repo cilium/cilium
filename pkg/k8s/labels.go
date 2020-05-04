@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ import (
 	"regexp"
 
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -55,8 +56,8 @@ var (
 
 // isInjectedWithIstioSidecarProxy returns whether the given pod has been
 // injected by Istio with a sidecar proxy that is compatible with Cilium.
-func isInjectedWithIstioSidecarProxy(scopedLog *logrus.Entry, pod *types.Pod) bool {
-	istioStatusString, ok := pod.GetAnnotations()[AnnotationIstioSidecarStatus]
+func isInjectedWithIstioSidecarProxy(scopedLog *logrus.Entry, pod *slim_corev1.Pod) bool {
+	istioStatusString, ok := pod.Annotations[AnnotationIstioSidecarStatus]
 	if !ok {
 		// Istio's injection annotation was not found.
 		scopedLog.Debugf("No %s annotation", AnnotationIstioSidecarStatus)
@@ -68,7 +69,7 @@ func isInjectedWithIstioSidecarProxy(scopedLog *logrus.Entry, pod *types.Pod) bo
 
 	// Check that there's an "istio-proxy" container that uses an image
 	// compatible with Cilium.
-	for _, container := range pod.SpecContainers {
+	for _, container := range pod.Spec.Containers {
 		if container.Name != "istio-proxy" {
 			continue
 		}
@@ -79,8 +80,8 @@ func isInjectedWithIstioSidecarProxy(scopedLog *logrus.Entry, pod *types.Pod) bo
 		}
 		scopedLog.Debugf("istio-proxy container runs Cilium-compatible image: %s", container.Image)
 
-		for _, mountPath := range container.VolumeMountsPaths {
-			if mountPath != "/var/run/cilium" {
+		for _, mountPath := range container.VolumeMounts {
+			if mountPath.MountPath != "/var/run/cilium" {
 				continue
 			}
 			scopedLog.Debug("istio-proxy container has volume mounted into /var/run/cilium")
@@ -95,7 +96,7 @@ func isInjectedWithIstioSidecarProxy(scopedLog *logrus.Entry, pod *types.Pod) bo
 
 // GetPodMetadata returns the labels and annotations of the pod with the given
 // namespace / name.
-func GetPodMetadata(k8sNs *types.Namespace, pod *types.Pod) (containerPorts []types.ContainerPort, lbls map[string]string, retAnno map[string]string, retErr error) {
+func GetPodMetadata(k8sNs *types.Namespace, pod *slim_corev1.Pod) (containerPorts []slim_corev1.ContainerPort, lbls map[string]string, retAnno map[string]string, retErr error) {
 	namespace := pod.Namespace
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNamespace: namespace,
@@ -103,8 +104,8 @@ func GetPodMetadata(k8sNs *types.Namespace, pod *types.Pod) (containerPorts []ty
 	})
 	scopedLog.Debug("Connecting to k8s local stores to retrieve labels for pod")
 
-	annotations := pod.GetAnnotations()
-	k8sLabels := pod.GetLabels()
+	annotations := pod.Annotations
+	k8sLabels := pod.Labels
 	if k8sLabels == nil {
 		k8sLabels = map[string]string{}
 	}
@@ -113,8 +114,8 @@ func GetPodMetadata(k8sNs *types.Namespace, pod *types.Pod) (containerPorts []ty
 	}
 	k8sLabels[k8sConst.PodNamespaceLabel] = namespace
 
-	if pod.SpecServiceAccountName != "" {
-		k8sLabels[k8sConst.PolicyLabelServiceAccount] = pod.SpecServiceAccountName
+	if pod.Spec.ServiceAccountName != "" {
+		k8sLabels[k8sConst.PolicyLabelServiceAccount] = pod.Spec.ServiceAccountName
 	} else {
 		delete(k8sLabels, k8sConst.PolicyLabelServiceAccount)
 	}
@@ -130,8 +131,8 @@ func GetPodMetadata(k8sNs *types.Namespace, pod *types.Pod) (containerPorts []ty
 
 	k8sLabels[k8sConst.PolicyLabelCluster] = option.Config.ClusterName
 
-	for _, containers := range pod.SpecContainers {
-		for _, cp := range containers.ContainerPorts {
+	for _, containers := range pod.Spec.Containers {
+		for _, cp := range containers.Ports {
 			containerPorts = append(containerPorts, cp)
 		}
 	}

@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -23,6 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -296,8 +298,8 @@ func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 
 func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 	type args struct {
-		o1 *types.Pod
-		o2 *types.Pod
+		o1 *slim_corev1.Pod
+		o2 *slim_corev1.Pod
 	}
 	tests := []struct {
 		name string
@@ -308,13 +310,13 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 		{
 			name: "Pods with the same name",
 			args: args{
-				o1: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 					},
 				},
-				o2: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 					},
 				},
@@ -324,19 +326,31 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 		{
 			name: "Pods with the different spec",
 			args: args{
-				o1: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 					},
-					StatusHostIP: "127.0.0.1",
-					StatusPodIPs: []string{"127.0.0.2"},
+					Status: slim_corev1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIPs: []slim_corev1.PodIP{
+							{
+								IP: "127.0.0.2",
+							},
+						},
+					},
 				},
-				o2: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 					},
-					StatusHostIP: "127.0.0.1",
-					StatusPodIPs: []string{"127.0.0.1"},
+					Status: slim_corev1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIPs: []slim_corev1.PodIP{
+							{
+								IP: "127.0.0.1",
+							},
+						},
+					},
 				},
 			},
 			want: false,
@@ -344,19 +358,31 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 		{
 			name: "Pods with the same spec",
 			args: args{
-				o1: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 					},
-					StatusHostIP: "127.0.0.1",
-					StatusPodIPs: []string{"127.0.0.2"},
+					Status: slim_corev1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIPs: []slim_corev1.PodIP{
+							{
+								IP: "127.0.0.2",
+							},
+						},
+					},
 				},
-				o2: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 					},
-					StatusHostIP: "127.0.0.1",
-					StatusPodIPs: []string{"127.0.0.2"},
+					Status: slim_corev1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIPs: []slim_corev1.PodIP{
+							{
+								IP: "127.0.0.2",
+							},
+						},
+					},
 				},
 			},
 			want: true,
@@ -364,22 +390,34 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 		{
 			name: "Pods with the same spec but different labels",
 			args: args{
-				o1: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 						Labels: map[string]string{
 							"foo": "bar",
 						},
 					},
-					StatusHostIP: "127.0.0.1",
-					StatusPodIPs: []string{"127.0.0.2"},
+					Status: slim_corev1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIPs: []slim_corev1.PodIP{
+							{
+								IP: "127.0.0.2",
+							},
+						},
+					},
 				},
-				o2: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 					},
-					StatusHostIP: "127.0.0.1",
-					StatusPodIPs: []string{"127.0.0.2"},
+					Status: slim_corev1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIPs: []slim_corev1.PodIP{
+							{
+								IP: "127.0.0.2",
+							},
+						},
+					},
 				},
 			},
 			want: false,
@@ -387,25 +425,37 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 		{
 			name: "Pods with the same spec and same labels",
 			args: args{
-				o1: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 						Labels: map[string]string{
 							"foo": "bar",
 						},
 					},
-					StatusHostIP: "127.0.0.1",
-					StatusPodIPs: []string{"127.0.0.2"},
+					Status: slim_corev1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIPs: []slim_corev1.PodIP{
+							{
+								IP: "127.0.0.2",
+							},
+						},
+					},
 				},
-				o2: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 						Labels: map[string]string{
 							"foo": "bar",
 						},
 					},
-					StatusHostIP: "127.0.0.1",
-					StatusPodIPs: []string{"127.0.0.2"},
+					Status: slim_corev1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIPs: []slim_corev1.PodIP{
+							{
+								IP: "127.0.0.2",
+							},
+						},
+					},
 				},
 			},
 			want: true,
@@ -413,18 +463,24 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 		{
 			name: "Pods with differing proxy-visibility annotations",
 			args: args{
-				o1: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 						Labels: map[string]string{
 							"foo": "bar",
 						},
 					},
-					StatusHostIP: "127.0.0.1",
-					StatusPodIPs: []string{"127.0.0.2"},
+					Status: slim_corev1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIPs: []slim_corev1.PodIP{
+							{
+								IP: "127.0.0.2",
+							},
+						},
+					},
 				},
-				o2: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 						Labels: map[string]string{
 							"foo": "bar",
@@ -433,8 +489,14 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 							annotation.ProxyVisibility: "80/HTTP",
 						},
 					},
-					StatusHostIP: "127.0.0.1",
-					StatusPodIPs: []string{"127.0.0.2"},
+					Status: slim_corev1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIPs: []slim_corev1.PodIP{
+							{
+								IP: "127.0.0.2",
+							},
+						},
+					},
 				},
 			},
 			want: false,
@@ -442,18 +504,24 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 		{
 			name: "Pods with irrelevant annotations",
 			args: args{
-				o1: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 						Labels: map[string]string{
 							"foo": "bar",
 						},
 					},
-					StatusHostIP: "127.0.0.1",
-					StatusPodIPs: []string{"127.0.0.2"},
+					Status: slim_corev1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIPs: []slim_corev1.PodIP{
+							{
+								IP: "127.0.0.2",
+							},
+						},
+					},
 				},
-				o2: &types.Pod{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Pod{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "pod1",
 						Labels: map[string]string{
 							"foo": "bar",
@@ -462,8 +530,14 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 							"useless": "80/HTTP",
 						},
 					},
-					StatusHostIP: "127.0.0.1",
-					StatusPodIPs: []string{"127.0.0.2"},
+					Status: slim_corev1.PodStatus{
+						HostIP: "127.0.0.1",
+						PodIPs: []slim_corev1.PodIP{
+							{
+								IP: "127.0.0.2",
+							},
+						},
+					},
 				},
 			},
 			want: true,
@@ -1137,62 +1211,6 @@ func (s *K8sSuite) Test_ConvertToCNP(c *C) {
 	}
 	for _, tt := range tests {
 		got := ConvertToCNP(tt.args.obj)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
-	}
-}
-
-func (s *K8sSuite) Test_ConvertToK8sPod(c *C) {
-	type args struct {
-		obj interface{}
-	}
-	tests := []struct {
-		name string
-		args args
-		want interface{}
-	}{
-		{
-			name: "normal conversion",
-			args: args{
-				obj: &v1.Pod{},
-			},
-			want: &types.Pod{},
-		},
-		{
-			name: "delete final state unknown conversion",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: &v1.Pod{},
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: &types.Pod{},
-			},
-		},
-		{
-			name: "unknown object type in delete final state unknown conversion",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: 100,
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: 100,
-			},
-		},
-		{
-			name: "unknown object type in conversion",
-			args: args{
-				obj: 100,
-			},
-			want: 100,
-		},
-	}
-	for _, tt := range tests {
-		got := ConvertToPod(tt.args.obj)
 		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }

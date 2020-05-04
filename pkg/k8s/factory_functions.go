@@ -16,15 +16,14 @@ package k8s
 
 import (
 	"reflect"
-	"sort"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/datapath"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/strings"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/discovery/v1beta1"
@@ -82,8 +81,8 @@ func ObjToSlimCNP(obj interface{}) *types.SlimCNP {
 	return cnp
 }
 
-func ObjTov1Pod(obj interface{}) *types.Pod {
-	pod, ok := obj.(*types.Pod)
+func ObjTov1Pod(obj interface{}) *slim_corev1.Pod {
+	pod, ok := obj.(*slim_corev1.Pod)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Pod")
@@ -193,50 +192,71 @@ func AnnotationsEqual(relevantAnnotations []string, anno1, anno2 map[string]stri
 	return true
 }
 
-func EqualV1PodContainers(c1, c2 types.PodContainer) bool {
+func EqualV1PodContainers(c1, c2 slim_corev1.Container) bool {
 	if c1.Name != c2.Name ||
 		c1.Image != c2.Image {
 		return false
 	}
 
-	if len(c1.VolumeMountsPaths) != len(c2.VolumeMountsPaths) {
+	if len(c1.VolumeMounts) != len(c2.VolumeMounts) {
 		return false
 	}
-	for i, vlmMount1 := range c1.VolumeMountsPaths {
-		if vlmMount1 != c2.VolumeMountsPaths[i] {
+	for i, vlmMount1 := range c1.VolumeMounts {
+		if vlmMount1.MountPath != c2.VolumeMounts[i].MountPath {
 			return false
 		}
 	}
 	return true
 }
 
-func EqualV1Pod(pod1, pod2 *types.Pod) bool {
+// EqualPodIPs returns true if both slices are equal.
+func EqualPodIPs(a, b []slim_corev1.PodIP) bool {
+	// If one is nil, the other must also be nil.
+	if (a == nil) != (b == nil) {
+		return false
+	}
+
+	if len(a) != len(b) {
+		return false
+	}
+
+	for i := range a {
+		if a[i] != b[i] {
+			return false
+		}
+	}
+
+	return true
+}
+
+func EqualV1Pod(pod1, pod2 *slim_corev1.Pod) bool {
 	// We only care about the HostIP, the PodIP and the labels of the pods.
-	if pod1.StatusHostIP != pod2.StatusHostIP ||
-		pod1.SpecServiceAccountName != pod2.SpecServiceAccountName ||
-		pod1.SpecHostNetwork != pod2.SpecHostNetwork {
+	if pod1.Status.PodIP != pod2.Status.PodIP ||
+		pod1.Status.HostIP != pod2.Status.HostIP ||
+		pod1.Spec.ServiceAccountName != pod2.Spec.ServiceAccountName ||
+		pod1.Spec.HostNetwork != pod2.Spec.HostNetwork {
 		return false
 	}
 
-	if !strings.EqualStrings(pod1.StatusPodIPs, pod2.StatusPodIPs) {
+	if !EqualPodIPs(pod1.Status.PodIPs, pod2.Status.PodIPs) {
 		return false
 	}
 
-	if !AnnotationsEqual([]string{annotation.ProxyVisibility}, pod1.GetAnnotations(), pod2.GetAnnotations()) {
+	if !AnnotationsEqual([]string{annotation.ProxyVisibility}, pod1.Annotations, pod2.Annotations) {
 		return false
 	}
 
-	oldPodLabels := pod1.GetLabels()
-	newPodLabels := pod2.GetLabels()
+	oldPodLabels := pod1.Labels
+	newPodLabels := pod2.Labels
 	if !comparator.MapStringEquals(oldPodLabels, newPodLabels) {
 		return false
 	}
 
-	if len(pod1.SpecContainers) != len(pod2.SpecContainers) {
+	if len(pod1.Spec.Containers) != len(pod2.Spec.Containers) {
 		return false
 	}
-	for i, c1 := range pod1.SpecContainers {
-		if !EqualV1PodContainers(c1, pod2.SpecContainers[i]) {
+	for i, c1 := range pod1.Spec.Containers {
+		if !EqualV1PodContainers(c1, pod2.Spec.Containers[i]) {
 			return false
 		}
 	}
@@ -542,108 +562,6 @@ func ConvertToCNP(obj interface{}) interface{} {
 			},
 		}
 		*cnp = cilium_v2.CiliumNetworkPolicy{}
-		return dfsu
-	default:
-		return obj
-	}
-}
-
-func getPodIPs(podStats v1.PodStatus) []string {
-	// make it a set first
-	ipsMap := make(map[string]struct{}, 1+len(podStats.PodIPs))
-	if podStats.PodIP != "" {
-		ipsMap[podStats.PodIP] = struct{}{}
-	}
-	for _, podIP := range podStats.PodIPs {
-		if podIP.IP != "" {
-			ipsMap[podIP.IP] = struct{}{}
-		}
-	}
-
-	if len(ipsMap) == 0 {
-		return nil
-	}
-
-	ips := make([]string, 0, len(ipsMap))
-	for ipStr := range ipsMap {
-		ips = append(ips, ipStr)
-	}
-	sort.Strings(ips)
-	return ips
-}
-
-func k8sContainerToTypesContainer(k8sContainers []v1.Container) []types.PodContainer {
-	var containers []types.PodContainer
-	for _, c := range k8sContainers {
-		var vmps []string
-		var ports []types.ContainerPort
-		for _, cvm := range c.VolumeMounts {
-			vmps = append(vmps, cvm.MountPath)
-		}
-		for _, port := range c.Ports {
-			cp := types.ContainerPort{
-				Protocol:      string(port.Protocol),
-				ContainerPort: port.ContainerPort,
-				HostPort:      port.HostPort,
-				HostIP:        port.HostIP,
-				Name:          port.Name,
-			}
-			ports = append(ports, cp)
-		}
-		pc := types.PodContainer{
-			Name:              c.Name,
-			Image:             c.Image,
-			VolumeMountsPaths: vmps,
-			ContainerPorts:    ports,
-		}
-		containers = append(containers, pc)
-	}
-	return containers
-}
-
-// ConvertToPod converts a *v1.Pod into a
-// *types.Pod or a cache.DeletedFinalStateUnknown into
-// a cache.DeletedFinalStateUnknown with a *types.Pod in its Obj.
-// If the given obj can't be cast into either *v1.Pod
-// nor cache.DeletedFinalStateUnknown, the original obj is returned.
-// WARNING calling this function will set *all* fields of the given Pod as
-// empty.
-func ConvertToPod(obj interface{}) interface{} {
-	switch concreteObj := obj.(type) {
-	case *v1.Pod:
-		containers := k8sContainerToTypesContainer(concreteObj.Spec.Containers)
-		containers = append(containers, k8sContainerToTypesContainer(concreteObj.Spec.InitContainers)...)
-		p := &types.Pod{
-			TypeMeta:               concreteObj.TypeMeta,
-			ObjectMeta:             concreteObj.ObjectMeta,
-			StatusPodIPs:           getPodIPs(concreteObj.Status),
-			StatusHostIP:           concreteObj.Status.HostIP,
-			SpecServiceAccountName: concreteObj.Spec.ServiceAccountName,
-			SpecHostNetwork:        concreteObj.Spec.HostNetwork,
-			SpecContainers:         containers,
-		}
-		*concreteObj = v1.Pod{}
-		return p
-	case cache.DeletedFinalStateUnknown:
-		pod, ok := concreteObj.Obj.(*v1.Pod)
-		if !ok {
-			return obj
-		}
-		containers := k8sContainerToTypesContainer(pod.Spec.Containers)
-		containers = append(containers, k8sContainerToTypesContainer(pod.Spec.InitContainers)...)
-		dfsu := cache.DeletedFinalStateUnknown{
-			Key: concreteObj.Key,
-			Obj: &types.Pod{
-				TypeMeta:               pod.TypeMeta,
-				ObjectMeta:             pod.ObjectMeta,
-				StatusPodIPs:           getPodIPs(pod.Status),
-				StatusHostIP:           pod.Status.HostIP,
-				SpecServiceAccountName: pod.Spec.ServiceAccountName,
-				SpecHostNetwork:        pod.Spec.HostNetwork,
-				SpecContainers:         containers,
-			},
-		}
-		*pod = v1.Pod{}
 		return dfsu
 	default:
 		return obj

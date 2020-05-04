@@ -462,7 +462,7 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 
 	// kubernetes pods
 	asyncControllers.Add(1)
-	go k.podsInit(k8s.Client(), asyncControllers)
+	go k.podsInit(k8s.WatcherCli(), asyncControllers)
 
 	// kubernetes namespaces
 	asyncControllers.Add(1)

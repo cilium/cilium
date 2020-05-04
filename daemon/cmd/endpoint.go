@@ -30,7 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -154,7 +154,7 @@ func NewPutEndpointIDHandler(d *Daemon) PutEndpointIDHandler {
 // endpoint metadata. It implements endpoint.MetadataResolverCB.
 // The returned pod is deepcopied which means the its fields can be written
 // into.
-func (d *Daemon) fetchK8sLabelsAndAnnotations(nsName, podName string) (*types.Pod, []types.ContainerPort, labels.Labels, labels.Labels, map[string]string, error) {
+func (d *Daemon) fetchK8sLabelsAndAnnotations(nsName, podName string) (*slim_corev1.Pod, []slim_corev1.ContainerPort, labels.Labels, labels.Labels, map[string]string, error) {
 	p, err := d.k8sWatcher.GetCachedPod(nsName, podName)
 	if err != nil {
 		return nil, nil, nil, nil, nil, err

@@ -49,34 +49,6 @@ type SlimCNP struct {
 	*v2.CiliumNetworkPolicy
 }
 
-type ContainerPort struct {
-	Name          string
-	Protocol      string
-	ContainerPort int32
-	HostPort      int32
-	HostIP        string
-}
-
-type PodContainer struct {
-	Name              string
-	Image             string
-	VolumeMountsPaths []string
-	ContainerPorts    []ContainerPort
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type Pod struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-	StatusPodIPs           []string
-	StatusHostIP           string
-	SpecServiceAccountName string
-	SpecHostNetwork        bool
-
-	// For Istio & hostPort mapping we need to keep these:
-	SpecContainers []PodContainer
-}
-
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Node struct {
 	metav1.TypeMeta

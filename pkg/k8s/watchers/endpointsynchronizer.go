@@ -151,7 +151,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 										APIVersion: "v1",
 										Kind:       "Pod",
 										Name:       pod.GetObjectMeta().GetName(),
-										UID:        pod.GetObjectMeta().GetUID(),
+										UID:        types.UID(pod.ObjectMeta.UID),
 									},
 								},
 							},
