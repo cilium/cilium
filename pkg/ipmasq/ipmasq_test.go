@@ -113,6 +113,19 @@ func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
 	_, ok = i.ipMasqMap.cidrs["2.2.0.0/16"]
 	c.Assert(ok, check.Equals, true)
 
+	// Write new config in JSON
+	_, err = i.configFile.Seek(0, 0)
+	c.Assert(err, check.IsNil)
+	_, err = i.configFile.WriteString(`{"nonMasqueradeCIDRs": ["8.8.0.0/16", "1.1.2.3/16"]}`)
+	c.Assert(err, check.IsNil)
+	time.Sleep(300 * time.Millisecond)
+
+	c.Assert(len(i.ipMasqMap.cidrs), check.Equals, 2)
+	_, ok = i.ipMasqMap.cidrs["8.8.0.0/16"]
+	c.Assert(ok, check.Equals, true)
+	_, ok = i.ipMasqMap.cidrs["1.1.0.0/16"]
+	c.Assert(ok, check.Equals, true)
+
 	// Delete file, should remove the CIDRs
 	err = os.Remove(i.configFile.Name())
 	c.Assert(err, check.IsNil)
