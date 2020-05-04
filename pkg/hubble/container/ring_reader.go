@@ -39,27 +39,36 @@ func NewRingReader(ring *Ring, start uint64) *RingReader {
 }
 
 // Previous reads the event at the current position and decrement the read
-// position. When no more event can be read, Previous returns nil.
-func (r *RingReader) Previous() *v1.Event {
-	var e *v1.Event
-	// when the ring is not full, ring.read() may return <nil>, true
-	// in such a case, one should continue reading
-	for ok := true; e == nil && ok; r.idx-- {
-		e, ok = r.ring.read(r.idx)
+// position. Returns ErrInvalidRead if there are no older entries.
+func (r *RingReader) Previous() (*v1.Event, error) {
+	// We only expect ErrInvalidRead to be returned when reading backwards,
+	// therefore we don't try to handle any errors here.
+	e, err := r.ring.read(r.idx)
+	if err != nil {
+		return nil, err
 	}
-	return e
+	r.idx--
+	return e, nil
 }
 
 // Next reads the event at the current position and increment the read position.
-// When no more event can be read, Next returns nil.
-func (r *RingReader) Next() *v1.Event {
-	var e *v1.Event
-	// when the ring is not full, ring.read() may return <nil>, true
-	// in such a case, one should continue reading
-	for ok := true; e == nil && ok; r.idx++ {
-		e, ok = r.ring.read(r.idx)
+// Returns io.EOF if there are no more entries. May return ErrInvalidRead
+// if the writer overtook this RingReader.
+func (r *RingReader) Next() (*v1.Event, error) {
+	// There are two possible errors returned by read():
+	//
+	// Reader ahead of writer (io.EOF): We have read past the writer.
+	// In this case, we want to return nil and don't bump the index, as we have
+	// read all existing values that exist now.
+	// Writer ahead of reader (ErrInvalidRead): The writer has already
+	// overwritten the values we wanted to read. In this case, we want to
+	// propagate the error, as trying to catch up would be very racy.
+	e, err := r.ring.read(r.idx)
+	if err != nil {
+		return nil, err
 	}
-	return e
+	r.idx++
+	return e, nil
 }
 
 // NextFollow reads the event at the current position and increment the read

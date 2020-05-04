@@ -16,6 +16,7 @@ package observer
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"strings"
@@ -29,7 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
-	"github.com/cilium/cilium/pkg/hubble/parser/errors"
+	parserErrors "github.com/cilium/cilium/pkg/hubble/parser/errors"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -152,7 +153,7 @@ nextEvent:
 
 		flow, err := decodeFlow(s.payloadParser, pl)
 		if err != nil {
-			if !errors.IsErrInvalidType(err) {
+			if !parserErrors.IsErrInvalidType(err) {
 				s.log.WithError(err).WithField("data", pl.Data).Debug("failed to decode payload")
 			}
 			continue
@@ -392,13 +393,21 @@ func (r *flowsReader) Next(ctx context.Context) (*pb.Flow, error) {
 		default:
 		}
 		var e *v1.Event
+		var err error
 		if r.follow {
 			e = r.ringReader.NextFollow(ctx)
 		} else {
 			if r.maxFlows > 0 && (r.flowsCount >= r.maxFlows) {
 				return nil, io.EOF
 			}
-			e = r.ringReader.Next()
+			e, err = r.ringReader.Next()
+			if err != nil {
+				if err == container.ErrInvalidRead {
+					// this error is sent over the wire and presented to the user
+					return nil, errors.New("requested data has been overwritten and is no longer available")
+				}
+				return nil, err
+			}
 		}
 		if e == nil {
 			return nil, io.EOF
@@ -450,9 +459,12 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 	// In order to avoid buffering events, we have to rewind first to find the
 	// correct index, then create a new reader that starts from there
 	for i := ring.Len(); i > 0; i, idx = i-1, idx-1 {
-		e := reader.Previous()
-		if e == nil {
+		e, err := reader.Previous()
+		if err == container.ErrInvalidRead {
+			idx++ // we went backward 1 too far
 			break
+		} else if err != nil {
+			return nil, err
 		}
 		_, ok := e.Event.(*pb.Flow)
 		if !ok || !filters.Apply(whitelist, blacklist, e) {
