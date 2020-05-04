@@ -29,7 +29,7 @@ spec:
         kubernetes.io/cluster-service: "true"
     spec:
       containers:
-{{- if .Values.global.sleepAfterInit }}
+{{- if .Values.sleepAfterInit }}
       - command: [ "/bin/bash", "-c", "--" ]
         args: [ "while true; do sleep 30; done;" ]
         livenessProbe:
