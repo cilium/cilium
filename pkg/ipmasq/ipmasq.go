@@ -15,18 +15,17 @@
 package ipmasq
 
 import (
-	"context"
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
 	"net"
 	"os"
+	"path/filepath"
 	"strings"
-	"time"
 
+	"github.com/fsnotify/fsnotify"
 	"k8s.io/apimachinery/pkg/util/yaml"
 
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ipmasq"
@@ -76,35 +75,86 @@ type IPMasqAgent struct {
 	nonMasqCIDRsFromConfig map[string]net.IPNet
 	nonMasqCIDRsInMap      map[string]net.IPNet
 	ipMasqMap              IPMasqMap
+	watcher                *fsnotify.Watcher
+	stop                   chan struct{}
+	handlerFinished        chan struct{}
 }
 
-// Start starts the "ip-masq-agent" controller which is used to sync the ipmasq
-// BPF maps.
-func Start(configPath string, syncPeriod time.Duration) {
-	start(configPath, syncPeriod, &ipmasq.IPMasqBPFMap{}, controller.NewManager())
+func NewIPMasqAgent(configPath string) (*IPMasqAgent, error) {
+	return newIPMasqAgent(configPath, &ipmasq.IPMasqBPFMap{})
 }
 
-func start(configPath string, syncPeriod time.Duration,
-	ipMasqMap IPMasqMap, manager *controller.Manager) {
+func newIPMasqAgent(configPath string, ipMasqMap IPMasqMap) (*IPMasqAgent, error) {
+	watcher, err := fsnotify.NewWatcher()
+	if err != nil {
+		return nil, fmt.Errorf("Failed to create fsnotify watcher: %s", err)
+	}
+
+	configDir := filepath.Dir(configPath)
+	// The directory of the config should exist at this time, otherwise
+	// the watcher will fail to add
+	if err := watcher.Add(configDir); err != nil {
+		watcher.Close()
+		return nil, fmt.Errorf("Failed to add %q dir to fsnotify watcher: %s", configDir, err)
+	}
 
 	a := &IPMasqAgent{
 		configPath:        configPath,
 		nonMasqCIDRsInMap: map[string]net.IPNet{},
 		ipMasqMap:         ipMasqMap,
+		watcher:           watcher,
 	}
 
+	return a, nil
+}
+
+// Start starts the ip-masq-agent goroutine which tracks the config file and
+// updates the BPF map accordingly.
+func (a *IPMasqAgent) Start() {
 	if err := a.restore(); err != nil {
-		log.WithError(err).Warn("ip-masq-agent failed to restore")
+		log.WithError(err).Warn("Failed to restore")
+	}
+	if err := a.Update(); err != nil {
+		log.WithError(err).Warn("Failed to update")
 	}
 
-	manager.UpdateController("ip-masq-agent",
-		controller.ControllerParams{
-			DoFunc: func(ctx context.Context) error {
-				return a.Update()
-			},
-			RunInterval: syncPeriod,
-		},
-	)
+	a.stop = make(chan struct{})
+	a.handlerFinished = make(chan struct{})
+
+	go func() {
+		for {
+			select {
+			case event := <-a.watcher.Events:
+				log.Debugf("Received fsnotify event: %+v", event)
+
+				if event.Name != a.configPath {
+					continue
+				}
+
+				switch event.Op {
+				case fsnotify.Create, fsnotify.Write, fsnotify.Chmod, fsnotify.Remove, fsnotify.Rename:
+					if err := a.Update(); err != nil {
+						log.WithError(err).Warn("Failed to update")
+					}
+				default:
+					log.Warnf("Watcher received unknown event: %s. Ignoring.", event)
+				}
+			case err := <-a.watcher.Errors:
+				log.WithError(err).Warn("Watcher received an error")
+			case <-a.stop:
+				log.Info("Stopping ip-masq-agent")
+				close(a.handlerFinished)
+				return
+			}
+		}
+	}()
+}
+
+// Stop stops the ip-masq-agent goroutine and the watcher.
+func (a *IPMasqAgent) Stop() {
+	close(a.stop)
+	<-a.handlerFinished
+	a.watcher.Close()
 }
 
 // Update updates the ipmasq BPF map entries with ones from the config file.
@@ -152,7 +202,7 @@ func (a *IPMasqAgent) readConfig() error {
 		return fmt.Errorf("Failed to convert to json: %s", err)
 	}
 
-	if err := json.Unmarshal([]byte(jsonStr), &cfg); err != nil {
+	if err := json.Unmarshal(jsonStr, &cfg); err != nil {
 		return fmt.Errorf("Failed to de-serialize json: %s", err)
 	}
 

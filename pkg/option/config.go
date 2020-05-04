@@ -276,9 +276,6 @@ const (
 	// IPMasqAgentConfigPath is the configuration file path
 	IPMasqAgentConfigPath = "ip-masq-agent-config-path"
 
-	// IPMasqAgentSyncPeriod is the configuration file synchronization period
-	IPMasqAgentSyncPeriod = "ip-masq-agent-sync-period"
-
 	// InstallIptRules sets whether Cilium should install any iptables in general
 	InstallIptRules = "install-iptables-rules"
 
@@ -1454,7 +1451,6 @@ type DaemonConfig struct {
 	EnableBPFMasquerade    bool
 	EnableIPMasqAgent      bool
 	IPMasqAgentConfigPath  string
-	IPMasqAgentSyncPeriod  time.Duration
 	InstallIptRules        bool
 	MonitorAggregation     string
 	PreAllocateMaps        bool
@@ -2231,7 +2227,6 @@ func (c *DaemonConfig) Populate() {
 	c.EnableBPFMasquerade = viper.GetBool(EnableBPFMasquerade)
 	c.EnableIPMasqAgent = viper.GetBool(EnableIPMasqAgent)
 	c.IPMasqAgentConfigPath = viper.GetString(IPMasqAgentConfigPath)
-	c.IPMasqAgentSyncPeriod = viper.GetDuration(IPMasqAgentSyncPeriod)
 	c.InstallIptRules = viper.GetBool(InstallIptRules)
 	c.IPSecKeyFile = viper.GetString(IPSecKeyFileName)
 	c.ModePreFilter = viper.GetString(PrefilterMode)
