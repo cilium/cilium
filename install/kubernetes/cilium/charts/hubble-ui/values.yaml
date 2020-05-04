@@ -18,7 +18,10 @@ replicas: 1
 #         cpu: 100m
 #         memory: 64Mi
 resources: {}
-  
+
+serviceAccount:
+  annotations: {}
+
 ingress:
   enabled: false
   annotations: {}
