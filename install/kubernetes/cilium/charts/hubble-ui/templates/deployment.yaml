@@ -26,9 +26,9 @@ spec:
             - name: HUBBLE
               value: "true"
             - name: HUBBLE_SERVICE
-              value: "hubble-grpc.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+              value: "hubble-relay.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
             - name: HUBBLE_PORT
-              value: "50051"
+              value: "80"
           ports:
             - containerPort: 12000
               name: http
