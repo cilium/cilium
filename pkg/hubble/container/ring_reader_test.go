@@ -19,6 +19,7 @@ package container
 import (
 	"context"
 	"fmt"
+	"io"
 	"testing"
 	"time"
 
@@ -35,9 +36,10 @@ func TestRingReader_Previous(t *testing.T) {
 		ring.Write(&v1.Event{Timestamp: &timestamp.Timestamp{Seconds: int64(i)}})
 	}
 	tests := []struct {
-		start uint64
-		count int
-		want  []*v1.Event
+		start   uint64
+		count   int
+		want    []*v1.Event
+		wantErr error
 	}{
 		{
 			start: 13,
@@ -70,15 +72,19 @@ func TestRingReader_Previous(t *testing.T) {
 			},
 		}, {
 			start: 0,
-			count: 2,
+			count: 1,
 			want: []*v1.Event{
 				{Timestamp: &timestamp.Timestamp{Seconds: 0}},
-				nil,
 			},
 		}, {
-			start: 14,
-			count: 1,
-			want:  []*v1.Event{nil},
+			start:   14,
+			count:   1,
+			wantErr: io.EOF,
+		},
+		{
+			start:   ^uint64(0),
+			count:   1,
+			wantErr: ErrInvalidRead,
 		},
 	}
 	for _, tt := range tests {
@@ -87,7 +93,14 @@ func TestRingReader_Previous(t *testing.T) {
 			reader := NewRingReader(ring, tt.start)
 			var got []*v1.Event
 			for i := 0; i < tt.count; i++ {
-				got = append(got, reader.Previous())
+				event, err := reader.Previous()
+				if err != tt.wantErr {
+					t.Errorf(`"%s" error = %v, wantErr %v`, name, err, tt.wantErr)
+				}
+				if err != nil {
+					return
+				}
+				got = append(got, event)
 			}
 			assert.Equal(t, tt.want, got)
 		})
@@ -101,9 +114,10 @@ func TestRingReader_Next(t *testing.T) {
 	}
 
 	tests := []struct {
-		start uint64
-		count int
-		want  []*v1.Event
+		start   uint64
+		count   int
+		want    []*v1.Event
+		wantErr error
 	}{
 		{
 			start: 0,
@@ -135,9 +149,13 @@ func TestRingReader_Next(t *testing.T) {
 				{Timestamp: &timestamp.Timestamp{Seconds: 13}},
 			},
 		}, {
-			start: 14,
-			count: 1,
-			want:  []*v1.Event{nil},
+			start:   ^uint64(0),
+			count:   1,
+			wantErr: ErrInvalidRead,
+		}, {
+			start:   14,
+			count:   1,
+			wantErr: io.EOF,
 		},
 	}
 	for _, tt := range tests {
@@ -146,7 +164,14 @@ func TestRingReader_Next(t *testing.T) {
 			reader := NewRingReader(ring, tt.start)
 			var got []*v1.Event
 			for i := 0; i < tt.count; i++ {
-				got = append(got, reader.Next())
+				event, err := reader.Next()
+				if err != tt.wantErr {
+					t.Errorf(`"%s" error = %v, wantErr %v`, name, err, tt.wantErr)
+				}
+				if err != nil {
+					return
+				}
+				got = append(got, event)
 			}
 			assert.Equal(t, tt.want, got)
 		})
