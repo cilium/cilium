@@ -47,6 +47,8 @@ UTC_DATE=$(shell date -u "+%Y-%m-%d")
 GO_VERSION := $(shell cat GO_VERSION)
 GOARCH := $(shell $(GO) env GOARCH)
 
+comma:= ,
+
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
 	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
 	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR) \
@@ -60,18 +62,39 @@ TEST_UNITTEST_LDFLAGS= -ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulD
 define generate_k8s_api
 	cd "./vendor/k8s.io/code-generator" && \
 	GO111MODULE=off bash ./generate-groups.sh $(1) \
-	    github.com/cilium/cilium/pkg/k8s/client \
 	    $(2) \
 	    $(3) \
+	    $(4) \
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
 endef
 
 define generate_k8s_api_all
-	$(call generate_k8s_api,all,$(1),$(2))
+	$(call generate_k8s_api,all,github.com/cilium/cilium/pkg/k8s/client,$(1),$(2))
 endef
 
 define generate_k8s_api_deepcopy
-	$(call generate_k8s_api,deepcopy,$(1),$(2))
+	$(call generate_k8s_api,deepcopy,github.com/cilium/cilium/pkg/k8s/client,$(1),$(2))
+endef
+
+define generate_k8s_api_deepcopy_client
+	$(call generate_k8s_api,deepcopy$(comma)client,github.com/cilium/cilium/pkg/k8s/slim/k8s/client,$(1),$(2))
+endef
+
+define generate_k8s_protobuf
+	PATH="$(PWD)/tools:$(PATH)" ./tools/go-to-protobuf \
+		--apimachinery-packages='-k8s.io/apimachinery/pkg/util/intstr,$\
+                                -k8s.io/apimachinery/pkg/api/resource,$\
+                                -k8s.io/apimachinery/pkg/runtime/schema,$\
+                                -k8s.io/apimachinery/pkg/runtime,$\
+                                -k8s.io/apimachinery/pkg/apis/meta/v1,$\
+                                -k8s.io/apimachinery/pkg/apis/meta/v1beta1,$\
+                                -k8s.io/apimachinery/pkg/apis/testapigroup/v1'\
+		--drop-embedded-fields="github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1.TypeMeta" \
+		--proto-import="$(PWD)" \
+		--proto-import="$(PWD)/vendor" \
+		--proto-import="$(PWD)/tools/protobuf" \
+		--packages=$(1) \
+	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
 endef
 
 all: precheck build postcheck
@@ -334,6 +357,15 @@ generate-health-api: api/v1/health/openapi.yaml
 		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml
 
 generate-k8s-api:
+	$(call generate_k8s_protobuf,$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1$(comma)$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1)
+	$(call generate_k8s_api_deepcopy_client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"\
+	core:v1\
+	")
+	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"\
+	meta:v1\
+	")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg,"\
 	aws:types\
 	azure:types\

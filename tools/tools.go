@@ -19,4 +19,10 @@ package tools
 import (
 	_ "k8s.io/code-generator"
 	_ "k8s.io/code-generator/cmd/client-gen"
+
+	// Used for protobuf generation of pkg/k8s/types/slim/k8s
+	_ "github.com/gogo/protobuf/gogoproto"
+	_ "golang.org/x/tools/cmd/goimports"
+	_ "k8s.io/code-generator/cmd/go-to-protobuf"
+	_ "k8s.io/code-generator/cmd/go-to-protobuf/protoc-gen-gogo"
 )
