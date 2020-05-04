@@ -12,9 +12,9 @@ HUBBLE_GO_TARGETS := $(HUBBLE_PROTO_SOURCES:.proto=.pb.go) $(HUBBLE_PROTO_SOURCE
 
 HUBBLE_PROTO_PATH := .
 
-HUBBLE_PROTOC_PLUGINS := --plugin=./protoc-gen-go
-HUBBLE_PROTOC_PLUGINS += --plugin=./protoc-gen-go-json
-HUBBLE_PROTOC_PLUGINS += --plugin=./protoc-gen-validate
+HUBBLE_PROTOC_PLUGINS := --plugin=../../tools/protoc-gen-go
+HUBBLE_PROTOC_PLUGINS += --plugin=../../tools/protoc-gen-go-json
+HUBBLE_PROTOC_PLUGINS += --plugin=../../tools/protoc-gen-validate
 
 PROTO_DEPS = \
 	-I external
