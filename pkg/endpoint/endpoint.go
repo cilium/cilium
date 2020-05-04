@@ -41,7 +41,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
-	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -214,7 +214,7 @@ type Endpoint struct {
 	K8sNamespace string
 
 	// pod
-	pod *types.Pod
+	pod *slim_corev1.Pod
 
 	// k8sPorts contains container ports associated in the pod.
 	// It is used to enforce k8s network policies with port names.
@@ -1057,14 +1057,14 @@ func (e *Endpoint) GetK8sNamespace() string {
 }
 
 // SetPod sets the pod related to this endpoint.
-func (e *Endpoint) SetPod(pod *types.Pod) {
+func (e *Endpoint) SetPod(pod *slim_corev1.Pod) {
 	e.unconditionalLock()
 	e.pod = pod
 	e.unlock()
 }
 
 // GetPod retrieves the pod related to this endpoint
-func (e *Endpoint) GetPod() *types.Pod {
+func (e *Endpoint) GetPod() *slim_corev1.Pod {
 	e.unconditionalRLock()
 	pod := e.pod
 	e.runlock()
@@ -1086,13 +1086,13 @@ func (e *Endpoint) SetK8sNamespace(name string) {
 // so that the map can be used concurrently without keeping locks.
 // Reading the 'e.k8sPorts' member (the "map pointer") *itself* requires the endpoint lock!
 // Can't really error out as that might break backwards compatibility.
-func (e *Endpoint) SetNamedPorts(containerPorts []types.ContainerPort) error {
+func (e *Endpoint) SetNamedPorts(containerPorts []slim_corev1.ContainerPort) error {
 	k8sPorts := make(policy.NamedPortsMap, len(containerPorts))
 	for _, cp := range containerPorts {
 		if cp.Name == "" {
 			continue // silently skip unnamed ports
 		}
-		err := k8sPorts.AddPort(cp.Name, int(cp.ContainerPort), cp.Protocol)
+		err := k8sPorts.AddPort(cp.Name, int(cp.ContainerPort), string(cp.Protocol))
 		if err != nil {
 			e.getLogger().WithError(err).Warning("Adding named port failed")
 			continue
@@ -1509,7 +1509,7 @@ func APICanModify(e *Endpoint) error {
 
 // MetadataResolverCB provides an implementation for resolving the endpoint
 // metadata for an endpoint such as the associated labels and annotations.
-type MetadataResolverCB func(ns, podName string) (pod *types.Pod, _ []types.ContainerPort, identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
+type MetadataResolverCB func(ns, podName string) (pod *slim_corev1.Pod, _ []slim_corev1.ContainerPort, identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
 
 // RunMetadataResolver starts a controller associated with the received
 // endpoint which will periodically attempt to resolve the metadata for the

@@ -19,6 +19,7 @@ import (
 	"errors"
 	"fmt"
 	"net"
+	"sort"
 	"strings"
 	"sync"
 
@@ -30,7 +31,8 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -47,7 +49,6 @@ import (
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/client-go/kubernetes"
@@ -58,7 +59,7 @@ func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fiel
 	return informer.NewInformer(
 		cache.NewListWatchFromClient(getter,
 			"pods", v1.NamespaceAll, fieldSelector),
-		&v1.Pod{},
+		&slim_corev1.Pod{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -95,7 +96,7 @@ func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fiel
 				k.K8sEventReceived(metricPod, metricDelete, valid, false)
 			},
 		},
-		k8s.ConvertToPod,
+		nil,
 	)
 }
 
@@ -178,12 +179,13 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 	}
 }
 
-func (k *K8sWatcher) addK8sPodV1(pod *types.Pod) error {
+func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
-		"podIPs":               pod.StatusPodIPs,
-		"hostIP":               pod.StatusHostIP,
+		"podIP":                pod.Status.PodIP,
+		"podIPs":               pod.Status.PodIPs,
+		"hostIP":               pod.Status.PodIP,
 	})
 
 	skipped, err := k.updatePodHostData(pod)
@@ -204,7 +206,7 @@ func (k *K8sWatcher) addK8sPodV1(pod *types.Pod) error {
 	return err
 }
 
-func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
+func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error {
 	if oldK8sPod == nil || newK8sPod == nil {
 		return nil
 	}
@@ -215,13 +217,13 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 	k.addK8sPodV1(newK8sPod)
 
 	// Check annotation updates.
-	oldAnno := oldK8sPod.GetAnnotations()
-	newAnno := newK8sPod.GetAnnotations()
+	oldAnno := oldK8sPod.ObjectMeta.Annotations
+	newAnno := newK8sPod.ObjectMeta.Annotations
 	annotationsChanged := !k8s.AnnotationsEqual([]string{annotation.ProxyVisibility}, oldAnno, newAnno)
 
 	// Check label updates too.
-	oldPodLabels := oldK8sPod.GetLabels()
-	newPodLabels := newK8sPod.GetLabels()
+	oldPodLabels := oldK8sPod.ObjectMeta.Labels
+	newPodLabels := newK8sPod.ObjectMeta.Labels
 	labelsChanged := !comparator.MapStringEquals(oldPodLabels, newPodLabels)
 
 	// Nothing changed.
@@ -250,7 +252,7 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 			if err != nil {
 				return "", nil
 			}
-			return p.Annotations[annotation.ProxyVisibility], nil
+			return p.ObjectMeta.Annotations[annotation.ProxyVisibility], nil
 		})
 		realizePodAnnotationUpdate(podEP)
 	}
@@ -291,12 +293,13 @@ func updateEndpointLabels(ep *endpoint.Endpoint, oldLbls, newLbls map[string]str
 
 }
 
-func (k *K8sWatcher) deleteK8sPodV1(pod *types.Pod) error {
+func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
-		"podIPs":               pod.StatusPodIPs,
-		"hostIP":               pod.StatusHostIP,
+		"podIP":                pod.Status.PodIP,
+		"podIPs":               pod.Status.PodIPs,
+		"hostIP":               pod.Status.HostIP,
 	})
 
 	skipped, err := k.deletePodHostData(pod)
@@ -311,18 +314,18 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *types.Pod) error {
 	return err
 }
 
-func genServiceMappings(pod *types.Pod) []loadbalancer.SVC {
+func genServiceMappings(pod *slim_corev1.Pod, podIPs []string) []loadbalancer.SVC {
 	var svcs []loadbalancer.SVC
-	for _, c := range pod.SpecContainers {
-		for _, p := range c.ContainerPorts {
+	for _, c := range pod.Spec.Containers {
+		for _, p := range c.Ports {
 			if p.HostPort == 0 {
 				continue
 			}
 			feIP := net.ParseIP(p.HostIP)
 			if feIP == nil {
-				feIP = net.ParseIP(pod.StatusHostIP)
+				feIP = net.ParseIP(pod.Status.HostIP)
 			}
-			proto, err := loadbalancer.NewL4Type(p.Protocol)
+			proto, err := loadbalancer.NewL4Type(string(p.Protocol))
 			if err != nil {
 				continue
 			}
@@ -336,8 +339,8 @@ func genServiceMappings(pod *types.Pod) []loadbalancer.SVC {
 				},
 				ID: loadbalancer.ID(0),
 			}
-			bes := make([]loadbalancer.Backend, 0, len(pod.StatusPodIPs))
-			for _, podIP := range pod.StatusPodIPs {
+			bes := make([]loadbalancer.Backend, 0, len(podIPs))
+			for _, podIP := range podIPs {
 				be := loadbalancer.Backend{
 					L3n4Addr: loadbalancer.L3n4Addr{
 						IP: net.ParseIP(podIP),
@@ -365,12 +368,12 @@ func genServiceMappings(pod *types.Pod) []loadbalancer.SVC {
 	return svcs
 }
 
-func (k *K8sWatcher) UpsertHostPortMapping(pod *types.Pod) error {
+func (k *K8sWatcher) UpsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string) error {
 	if option.Config.DisableK8sServices || !option.Config.EnableHostPort {
 		return nil
 	}
 
-	svcs := genServiceMappings(pod)
+	svcs := genServiceMappings(pod, podIPs)
 	if len(svcs) == 0 {
 		return nil
 	}
@@ -378,14 +381,14 @@ func (k *K8sWatcher) UpsertHostPortMapping(pod *types.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
-		"podIPs":               pod.StatusPodIPs,
-		"hostIP":               pod.StatusHostIP,
+		"podIPs":               podIPs,
+		"hostIP":               pod.Status.HostIP,
 	})
 
-	hostIP := net.ParseIP(pod.StatusHostIP)
+	hostIP := net.ParseIP(pod.Status.HostIP)
 	if hostIP == nil {
 		logger.Error("Cannot upsert HostPort service for the podIP due to missing hostIP")
-		return fmt.Errorf("no/invalid HostIP: %s", pod.StatusHostIP)
+		return fmt.Errorf("no/invalid HostIP: %s", pod.Status.HostIP)
 	}
 
 	for _, dpSvc := range svcs {
@@ -400,12 +403,12 @@ func (k *K8sWatcher) UpsertHostPortMapping(pod *types.Pod) error {
 	return nil
 }
 
-func (k *K8sWatcher) DeleteHostPortMapping(pod *types.Pod) error {
+func (k *K8sWatcher) DeleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string) error {
 	if option.Config.DisableK8sServices || !option.Config.EnableHostPort {
 		return nil
 	}
 
-	svcs := genServiceMappings(pod)
+	svcs := genServiceMappings(pod, podIPs)
 	if len(svcs) == 0 {
 		return nil
 	}
@@ -413,14 +416,14 @@ func (k *K8sWatcher) DeleteHostPortMapping(pod *types.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
-		"podIPs":               pod.StatusPodIPs,
-		"hostIP":               pod.StatusHostIP,
+		"podIPs":               podIPs,
+		"hostIP":               pod.Status.HostIP,
 	})
 
-	hostIP := net.ParseIP(pod.StatusHostIP)
+	hostIP := net.ParseIP(pod.Status.HostIP)
 	if hostIP == nil {
 		logger.Error("Cannot delete HostPort service for the podIP due to missing hostIP")
-		return fmt.Errorf("no/invalid HostIP: %s", pod.StatusHostIP)
+		return fmt.Errorf("no/invalid HostIP: %s", pod.Status.HostIP)
 	}
 
 	for _, dpSvc := range svcs {
@@ -433,24 +436,24 @@ func (k *K8sWatcher) DeleteHostPortMapping(pod *types.Pod) error {
 	return nil
 }
 
-func (k *K8sWatcher) updatePodHostData(pod *types.Pod) (bool, error) {
-	if pod.SpecHostNetwork {
+func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod) (bool, error) {
+	if pod.Spec.HostNetwork {
 		return true, fmt.Errorf("pod is using host networking")
 	}
 
-	err := validIPs(pod.StatusPodIPs)
+	podIPs, err := validIPs(pod.Status)
 	if err != nil {
 		return true, err
 	}
 
-	err = k.UpsertHostPortMapping(pod)
+	err = k.UpsertHostPortMapping(pod, podIPs)
 	if err != nil {
-		return true, fmt.Errorf("cannot upsert hostPort for PodIPs: %s", pod.StatusPodIPs)
+		return true, fmt.Errorf("cannot upsert hostPort for PodIPs: %s", podIPs)
 	}
 
-	hostIP := net.ParseIP(pod.StatusHostIP)
+	hostIP := net.ParseIP(pod.Status.HostIP)
 	if hostIP == nil {
-		return true, fmt.Errorf("no/invalid HostIP: %s", pod.StatusHostIP)
+		return true, fmt.Errorf("no/invalid HostIP: %s", pod.Status.HostIP)
 	}
 
 	hostKey := node.GetIPsecKeyIdentity()
@@ -461,12 +464,12 @@ func (k *K8sWatcher) updatePodHostData(pod *types.Pod) (bool, error) {
 	}
 
 	// Store Named ports, if any.
-	for _, container := range pod.SpecContainers {
-		for _, port := range container.ContainerPorts {
+	for _, container := range pod.Spec.Containers {
+		for _, port := range container.Ports {
 			if port.Name == "" {
 				continue
 			}
-			p, err := u8proto.ParseProtocol(port.Protocol)
+			p, err := u8proto.ParseProtocol(string(port.Protocol))
 			if err != nil {
 				return true, fmt.Errorf("ContainerPort: invalid protocol: %s", port.Protocol)
 			}
@@ -484,7 +487,7 @@ func (k *K8sWatcher) updatePodHostData(pod *types.Pod) (bool, error) {
 	}
 
 	var errs []string
-	for _, podIP := range pod.StatusPodIPs {
+	for _, podIP := range podIPs {
 		// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
 		// later updated once the allocator has determined the real identity.
 		// If the endpoint remains unmanaged, the identity remains untouched.
@@ -507,24 +510,24 @@ func (k *K8sWatcher) updatePodHostData(pod *types.Pod) (bool, error) {
 	return false, nil
 }
 
-func (k *K8sWatcher) deletePodHostData(pod *types.Pod) (bool, error) {
-	if pod.SpecHostNetwork {
+func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
+	if pod.Spec.HostNetwork {
 		return true, fmt.Errorf("pod is using host networking")
 	}
 
-	err := validIPs(pod.StatusPodIPs)
+	podIPs, err := validIPs(pod.Status)
 	if err != nil {
 		return true, err
 	}
 
-	k.DeleteHostPortMapping(pod)
+	k.DeleteHostPortMapping(pod, podIPs)
 
 	var (
 		errs    []string
 		skipped bool
 	)
 
-	for _, podIP := range pod.StatusPodIPs {
+	for _, podIP := range podIPs {
 		// a small race condition exists here as deletion could occur in
 		// parallel based on another event but it doesn't matter as the
 		// identity is going away
@@ -551,18 +554,28 @@ func (k *K8sWatcher) deletePodHostData(pod *types.Pod) (bool, error) {
 	return skipped, nil
 }
 
-func validIPs(ipStrs []string) error {
-	if len(ipStrs) == 0 {
-		return fmt.Errorf("empty PodIPs")
+func validIPs(podStatus slim_corev1.PodStatus) ([]string, error) {
+	if len(podStatus.PodIPs) == 0 && len(podStatus.PodIP) == 0 {
+		return nil, fmt.Errorf("empty PodIPs")
 	}
-	for _, ipStr := range ipStrs {
-		podIP := net.ParseIP(ipStr)
-		if podIP == nil {
-			return fmt.Errorf("no/invalid PodIP: %s", ipStr)
+
+	// make it a set first to avoid repeated IP addresses
+	ipsMap := make(map[string]struct{}, 1+len(podStatus.PodIPs))
+	if podStatus.PodIP != "" {
+		ipsMap[podStatus.PodIP] = struct{}{}
+	}
+	for _, podIP := range podStatus.PodIPs {
+		if podIP.IP != "" {
+			ipsMap[podIP.IP] = struct{}{}
 		}
 	}
 
-	return nil
+	ips := make([]string, 0, len(ipsMap))
+	for ipStr := range ipsMap {
+		ips = append(ips, ipStr)
+	}
+	sort.Strings(ips)
+	return ips, nil
 }
 
 // GetCachedPod returns a pod from the local store. Depending if the Cilium
@@ -571,14 +584,14 @@ func validIPs(ipStrs []string) error {
 // If `option.Config.K8sEventHandover` is:
 //  - true: returns only local pods received by the pod watcher.
 //  - false: returns any pod in the cluster received by the pod watcher.
-func (k *K8sWatcher) GetCachedPod(namespace, name string) (*types.Pod, error) {
+func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
 	<-k.controllersStarted
 	k.WaitForCacheSync(k8sAPIGroupPodV1Core)
 	<-k.podStoreSet
 	k.podStoreMU.RLock()
 	defer k.podStoreMU.RUnlock()
-	pName := &types.Pod{
-		ObjectMeta: meta_v1.ObjectMeta{
+	pName := &slim_corev1.Pod{
+		ObjectMeta: slim_metav1.ObjectMeta{
 			Name:      name,
 			Namespace: namespace,
 		},
@@ -593,5 +606,5 @@ func (k *K8sWatcher) GetCachedPod(namespace, name string) (*types.Pod, error) {
 			Resource: "pod",
 		}, name)
 	}
-	return podInterface.(*types.Pod).DeepCopy(), nil
+	return podInterface.(*slim_corev1.Pod).DeepCopy(), nil
 }

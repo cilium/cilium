@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -93,7 +93,12 @@ func NewInformerWithStore(
 			// from oldest to newest
 			for _, d := range obj.(cache.Deltas) {
 
-				obj := convertFunc(d.Object)
+				var obj interface{}
+				if convertFunc != nil {
+					obj = convertFunc(d.Object)
+				} else {
+					obj = d.Object
+				}
 
 				// In CI we detect if the objects were modified and panic
 				// this is a no-op in production environments.
