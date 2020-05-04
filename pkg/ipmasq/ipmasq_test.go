@@ -26,7 +26,6 @@ import (
 
 	"gopkg.in/check.v1"
 
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/lock"
 )
 
@@ -90,28 +89,28 @@ func (m *ipMasqMapMock) dumpToSet() map[string]struct{} {
 }
 
 type IPMasqTestSuite struct {
-	ipMasqMap  *ipMasqMapMock
-	manager    *controller.Manager
-	configFile *os.File
+	ipMasqMap   *ipMasqMapMock
+	ipMasqAgent *IPMasqAgent
+	configFile  *os.File
 }
 
 var _ = check.Suite(&IPMasqTestSuite{})
 
 func (i *IPMasqTestSuite) SetUpTest(c *check.C) {
 	i.ipMasqMap = &ipMasqMapMock{cidrs: map[string]net.IPNet{}}
-	i.manager = controller.NewManager()
 
 	configFile, err := ioutil.TempFile("", "ipmasq-test")
 	c.Assert(err, check.IsNil)
 	i.configFile = configFile
 
-	start(configFile.Name(), 100*time.Millisecond, i.ipMasqMap, i.manager)
+	agent, err := newIPMasqAgent(configFile.Name(), i.ipMasqMap)
+	c.Assert(err, check.IsNil)
+	i.ipMasqAgent = agent
+	i.ipMasqAgent.Start()
 }
 
 func (i *IPMasqTestSuite) TearDownTest(c *check.C) {
-	err := i.manager.RemoveController("ip-masq-agent")
-	c.Assert(err, check.IsNil)
-
+	i.ipMasqAgent.Stop()
 	os.Remove(i.configFile.Name())
 }
 
@@ -158,28 +157,47 @@ func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
 	// Delete file, should remove the CIDRs
 	err = os.Remove(i.configFile.Name())
 	c.Assert(err, check.IsNil)
+	err = i.configFile.Close()
+	c.Assert(err, check.IsNil)
 	time.Sleep(300 * time.Millisecond)
 	ipnets = i.ipMasqMap.dumpToSet()
 	c.Assert(len(ipnets), check.Equals, 0)
 }
 
 func (i *IPMasqTestSuite) TestRestore(c *check.C) {
-	err := i.manager.RemoveController("ip-masq-agent")
-	c.Assert(err, check.IsNil)
+	// Stop ip-masq-agent goroutine (we can't use i.ipMasqMap.Stop(), as it stops
+	// the watcher)
+	close(i.ipMasqAgent.stop)
 
 	_, cidr, _ := net.ParseCIDR("3.3.3.0/24")
 	i.ipMasqMap.cidrs[cidr.String()] = *cidr
 	_, cidr, _ = net.ParseCIDR("4.4.0.0/16")
 	i.ipMasqMap.cidrs[cidr.String()] = *cidr
 
-	_, err = i.configFile.WriteString("nonMasqueradeCIDRs:\n- 4.4.0.0/16")
+	_, err := i.configFile.WriteString("nonMasqueradeCIDRs:\n- 4.4.0.0/16")
 	c.Assert(err, check.IsNil)
 
-	start(i.configFile.Name(), 100*time.Millisecond, i.ipMasqMap, i.manager)
+	i.ipMasqAgent.Start()
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets := i.ipMasqMap.dumpToSet()
 	c.Assert(len(ipnets), check.Equals, 1)
 	_, ok := ipnets["4.4.0.0/16"]
+	c.Assert(ok, check.Equals, true)
+
+	// Now stop the goroutine, and also remove the maps. It should bootstrap from
+	// the config
+	close(i.ipMasqAgent.stop)
+	i.ipMasqMap = &ipMasqMapMock{cidrs: map[string]net.IPNet{}}
+	i.ipMasqAgent.ipMasqMap = i.ipMasqMap
+	_, err = i.configFile.Seek(0, 0)
+	c.Assert(err, check.IsNil)
+	_, err = i.configFile.WriteString("nonMasqueradeCIDRs:\n- 3.3.0.0/16")
+	c.Assert(err, check.IsNil)
+	i.ipMasqAgent.Start()
+
+	ipnets = i.ipMasqMap.dumpToSet()
+	c.Assert(len(ipnets), check.Equals, 1)
+	_, ok = ipnets["3.3.0.0/16"]
 	c.Assert(ok, check.Equals, true)
 }

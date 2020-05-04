@@ -108,7 +108,6 @@ cilium-agent [flags]
       --install-iptables-rules                        Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading) (default true)
       --ip-allocation-timeout duration                Time after which an incomplete CIDR allocation is considered failed (default 2m0s)
       --ip-masq-agent-config-path string              ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
-      --ip-masq-agent-sync-period duration            ip-masq-agent configuration file synchronization period (default 1m0s)
       --ipam string                                   Backend to use for IPAM (default "hostscope-legacy")
       --ipsec-key-file string                         Path to IPSec key file
       --ipv4-node string                              IPv4 address of node (default "auto")

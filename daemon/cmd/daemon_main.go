@@ -547,9 +547,6 @@ func init() {
 	flags.String(option.IPMasqAgentConfigPath, "/etc/config/ip-masq-agent", "ip-masq-agent configuration file path")
 	option.BindEnv(option.IPMasqAgentConfigPath)
 
-	flags.Duration(option.IPMasqAgentSyncPeriod, 60*time.Second, "ip-masq-agent configuration file synchronization period")
-	option.BindEnv(option.IPMasqAgentSyncPeriod)
-
 	flags.Bool(option.InstallIptRules, true, "Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading)")
 	option.BindEnv(option.InstallIptRules)
 
@@ -1295,8 +1292,11 @@ func runDaemon() {
 	}
 
 	if option.Config.EnableIPMasqAgent {
-		ipmasq.Start(option.Config.IPMasqAgentConfigPath,
-			option.Config.IPMasqAgentSyncPeriod)
+		ipmasqAgent, err := ipmasq.NewIPMasqAgent(option.Config.IPMasqAgentConfigPath)
+		if err != nil {
+			log.WithError(err).Fatal("Failed to create ip-masq-agent")
+		}
+		ipmasqAgent.Start()
 	}
 
 	if !option.Config.DryMode {
