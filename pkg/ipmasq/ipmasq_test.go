@@ -27,6 +27,7 @@ import (
 	"gopkg.in/check.v1"
 
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 func Test(t *testing.T) {
@@ -34,33 +35,58 @@ func Test(t *testing.T) {
 }
 
 type ipMasqMapMock struct {
+	lock.RWMutex
 	cidrs map[string]net.IPNet
 }
 
 func (m *ipMasqMapMock) Update(cidr net.IPNet) error {
+	m.Lock()
+	defer m.Unlock()
+
 	cidrStr := cidr.String()
 	if _, ok := m.cidrs[cidrStr]; ok {
 		return fmt.Errorf("CIDR already exists: %s", cidrStr)
 	}
 	m.cidrs[cidrStr] = cidr
+
 	return nil
 }
 
 func (m *ipMasqMapMock) Delete(cidr net.IPNet) error {
+	m.Lock()
+	defer m.Unlock()
+
 	cidrStr := cidr.String()
 	if _, ok := m.cidrs[cidrStr]; !ok {
 		return fmt.Errorf("CIDR not found: %s", cidrStr)
 	}
 	delete(m.cidrs, cidrStr)
+
 	return nil
 }
 
 func (m *ipMasqMapMock) Dump() ([]net.IPNet, error) {
+	m.RLock()
+	defer m.RUnlock()
+
 	cidrs := make([]net.IPNet, 0, len(m.cidrs))
 	for _, cidr := range m.cidrs {
 		cidrs = append(cidrs, cidr)
 	}
+
 	return cidrs, nil
+}
+
+func (m *ipMasqMapMock) dumpToSet() map[string]struct{} {
+	m.RLock()
+	defer m.RUnlock()
+
+	cidrs := make(map[string]struct{}, len(m.cidrs))
+	for cidrStr := range m.cidrs {
+		cidrs[cidrStr] = struct{}{}
+	}
+
+	return cidrs
 }
 
 type IPMasqTestSuite struct {
@@ -94,10 +120,11 @@ func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
 	c.Assert(err, check.IsNil)
 	time.Sleep(300 * time.Millisecond)
 
-	c.Assert(len(i.ipMasqMap.cidrs), check.Equals, 2)
-	_, ok := i.ipMasqMap.cidrs["1.1.1.1/32"]
+	ipnets := i.ipMasqMap.dumpToSet()
+	c.Assert(len(ipnets), check.Equals, 2)
+	_, ok := ipnets["1.1.1.1/32"]
 	c.Assert(ok, check.Equals, true)
-	_, ok = i.ipMasqMap.cidrs["2.2.0.0/16"]
+	_, ok = ipnets["2.2.0.0/16"]
 	c.Assert(ok, check.Equals, true)
 
 	// Write new config
@@ -107,10 +134,11 @@ func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
 	c.Assert(err, check.IsNil)
 	time.Sleep(300 * time.Millisecond)
 
-	c.Assert(len(i.ipMasqMap.cidrs), check.Equals, 2)
-	_, ok = i.ipMasqMap.cidrs["8.8.0.0/16"]
+	ipnets = i.ipMasqMap.dumpToSet()
+	c.Assert(len(ipnets), check.Equals, 2)
+	_, ok = ipnets["8.8.0.0/16"]
 	c.Assert(ok, check.Equals, true)
-	_, ok = i.ipMasqMap.cidrs["2.2.0.0/16"]
+	_, ok = ipnets["2.2.0.0/16"]
 	c.Assert(ok, check.Equals, true)
 
 	// Write new config in JSON
@@ -120,17 +148,19 @@ func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
 	c.Assert(err, check.IsNil)
 	time.Sleep(300 * time.Millisecond)
 
-	c.Assert(len(i.ipMasqMap.cidrs), check.Equals, 2)
-	_, ok = i.ipMasqMap.cidrs["8.8.0.0/16"]
+	ipnets = i.ipMasqMap.dumpToSet()
+	c.Assert(len(ipnets), check.Equals, 2)
+	_, ok = ipnets["8.8.0.0/16"]
 	c.Assert(ok, check.Equals, true)
-	_, ok = i.ipMasqMap.cidrs["1.1.0.0/16"]
+	_, ok = ipnets["1.1.0.0/16"]
 	c.Assert(ok, check.Equals, true)
 
 	// Delete file, should remove the CIDRs
 	err = os.Remove(i.configFile.Name())
 	c.Assert(err, check.IsNil)
 	time.Sleep(300 * time.Millisecond)
-	c.Assert(len(i.ipMasqMap.cidrs), check.Equals, 0)
+	ipnets = i.ipMasqMap.dumpToSet()
+	c.Assert(len(ipnets), check.Equals, 0)
 }
 
 func (i *IPMasqTestSuite) TestRestore(c *check.C) {
@@ -148,7 +178,8 @@ func (i *IPMasqTestSuite) TestRestore(c *check.C) {
 	start(i.configFile.Name(), 100*time.Millisecond, i.ipMasqMap, i.manager)
 	time.Sleep(300 * time.Millisecond)
 
-	c.Assert(len(i.ipMasqMap.cidrs), check.Equals, 1)
-	_, ok := i.ipMasqMap.cidrs["4.4.0.0/16"]
+	ipnets := i.ipMasqMap.dumpToSet()
+	c.Assert(len(ipnets), check.Equals, 1)
+	_, ok := ipnets["4.4.0.0/16"]
 	c.Assert(ok, check.Equals, true)
 }
