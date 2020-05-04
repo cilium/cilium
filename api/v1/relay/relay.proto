@@ -29,9 +29,9 @@ service HubbleRelay {
 message GetEventsRequest{
     // EventType specifies which types of events to subscribe to. If unspecified, the
     // request is subscribed to all the event types.
-    repeated EventType event_types = 1;
-    repeated EventFilter blacklist = 2;
-    repeated EventFilter whitelist = 3;
+    repeated RelayEventType event_types = 1;
+    repeated RelayEventFilter blacklist = 2;
+    repeated RelayEventFilter whitelist = 3;
     google.protobuf.Timestamp since = 4;
 }
 
@@ -40,27 +40,21 @@ message GetEventsResponse{
     google.protobuf.Timestamp timestamp = 2;
     oneof event {
         flow.Flow flow = 3;
-        K8sNamespaceAdded k8s_namespace_added = 4;
-        K8sNamespaceDeleted k8s_namespace_deleted = 5;
-        ServiceAdded service_added = 6;
-        ServiceAdded service_deleted = 7;
-        // This is needed in case the relay server knows that the service exists,
-        // but it doesn't know when it got created. I didn't add the exists event
-        // for k8s namespace because the creation timestamp is always known.
-        ServiceExists service_exists = 8;
+        K8sNamespaceState k8s_namespace_state = 4;
+        ServiceState service_state = 5;
         // It's unclear how we can define what it means for service links to get
         // added/deleted. For now I'm deferring the decision for whether a particular
         // link should be included in the service map to the client. Maybe the server
         // can periodically send service_link events for active links to keep-alive,
         // and the client can expire older links based on their timestamp.
-        ServiceLink service_link_exists = 9;
+        ServiceLinkState  service_link_state = 6;
     }
 }
 
 // Here I added different filter types for different events. Another option is to reuse
 // and extend FlowFilter to filter all the events, but I worry that it might become too
 // confusing in terms of figuring out which filter fields apply to which events.
-message EventFilter {
+message RelayEventFilter {
     oneof filter {
         flow.FlowFilter flow_filter = 2;
         ServiceFilter service_filter = 3;
@@ -68,15 +62,12 @@ message EventFilter {
     }
 }
 
-enum EventType {
+enum RelayEventType {
     UNKNOWN_EVENT = 0;
     FLOW = 1;
-    K8S_NAMESPACE_ADDED = 2;
-    K8S_NAMESPACE_DELETED = 3;
-    SERVICE_ADDED = 4;
-    SERVICE_DELETED = 5;
-    SERVICE_EXISTS = 6;
-    SERVICE_LINK_EXISTS = 7;
+    K8S_NAMESPACE_STATE = 2;
+    SERVICE_STATE = 3;
+    SERVICE_LINK_STATE = 4;
 }
 
 message K8sNamespace {
@@ -85,12 +76,9 @@ message K8sNamespace {
     google.protobuf.Timestamp creation_timestamp = 3;
 }
 
-message K8sNamespaceAdded {
+message K8sNamespaceState {
     K8sNamespace namespace = 1;
-}
-
-message K8sNamespaceDeleted {
-    K8sNamespace namespace = 1;
+    StateChange type = 2;
 }
 
 // IP protocols. The values of enums do not correspond to actual IP protocol numbers.
@@ -103,7 +91,7 @@ enum IPProtocol {
 }
 
 // Come up with a better name for Service.
-message Service {
+message RelayService {
     // An opaque ID that uniquely identifies the service.
     string id = 1;
     string name = 2;
@@ -119,17 +107,9 @@ message Service {
     google.protobuf.Timestamp creation_timestamp = 9;
 }
 
-
-message ServiceAdded {
-    Service service = 1;
-}
-
-message ServiceDeleted {
-    Service service = 1;
-}
-
-message ServiceExists {
-    Service service = 1;
+message ServiceState {
+    RelayService service = 1;
+    StateChange type = 2;
 }
 
 message ServiceFilter {
@@ -148,8 +128,9 @@ message ServiceLink {
     flow.Verdict verdict = 6;
 }
 
-message ServiceLinkExists {
+message ServiceLinkState {
     ServiceLink service_link = 1;
+    StateChange type = 2;
 }
 
 message ServiceLinkFilter {
@@ -160,3 +141,12 @@ message ServiceLinkFilter {
     repeated flow.Verdict verdict = 4;
 }
 
+enum StateChange {
+    UNKNOWN_STATE_CHANGE = 0;
+    ADDED = 1;
+    MODIFIED = 2;
+    DELETED = 3;
+    // This is needed in case the relay server knows that the service exists,
+    // but it doesn't know when it got created.
+    EXISTS = 4;
+}

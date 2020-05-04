@@ -179,72 +179,36 @@ func (m *GetEventsResponse) Validate() error {
 			}
 		}
 
-	case *GetEventsResponse_K8SNamespaceAdded:
+	case *GetEventsResponse_K8SNamespaceState:
 
-		if v, ok := interface{}(m.GetK8SNamespaceAdded()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetK8SNamespaceState()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GetEventsResponseValidationError{
-					field:  "K8SNamespaceAdded",
+					field:  "K8SNamespaceState",
 					reason: "embedded message failed validation",
 					cause:  err,
 				}
 			}
 		}
 
-	case *GetEventsResponse_K8SNamespaceDeleted:
+	case *GetEventsResponse_ServiceState:
 
-		if v, ok := interface{}(m.GetK8SNamespaceDeleted()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetServiceState()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GetEventsResponseValidationError{
-					field:  "K8SNamespaceDeleted",
+					field:  "ServiceState",
 					reason: "embedded message failed validation",
 					cause:  err,
 				}
 			}
 		}
 
-	case *GetEventsResponse_ServiceAdded:
+	case *GetEventsResponse_ServiceLinkState:
 
-		if v, ok := interface{}(m.GetServiceAdded()).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetServiceLinkState()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return GetEventsResponseValidationError{
-					field:  "ServiceAdded",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
-	case *GetEventsResponse_ServiceDeleted:
-
-		if v, ok := interface{}(m.GetServiceDeleted()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return GetEventsResponseValidationError{
-					field:  "ServiceDeleted",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
-	case *GetEventsResponse_ServiceExists:
-
-		if v, ok := interface{}(m.GetServiceExists()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return GetEventsResponseValidationError{
-					field:  "ServiceExists",
-					reason: "embedded message failed validation",
-					cause:  err,
-				}
-			}
-		}
-
-	case *GetEventsResponse_ServiceLinkExists:
-
-		if v, ok := interface{}(m.GetServiceLinkExists()).(interface{ Validate() error }); ok {
-			if err := v.Validate(); err != nil {
-				return GetEventsResponseValidationError{
-					field:  "ServiceLinkExists",
+					field:  "ServiceLinkState",
 					reason: "embedded message failed validation",
 					cause:  err,
 				}
@@ -312,51 +276,46 @@ var _ interface {
 	ErrorName() string
 } = GetEventsResponseValidationError{}
 
-// Validate checks the field values on EventFilter with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
-func (m *EventFilter) Validate() error {
+// Validate checks the field values on RelayEventFilter with the rules defined
+// in the proto definition for this message. If any rules are violated, an
+// error is returned.
+func (m *RelayEventFilter) Validate() error {
 	if m == nil {
 		return nil
 	}
 
-	for idx, item := range m.GetFlowFilter() {
-		_, _ = idx, item
+	switch m.Filter.(type) {
 
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+	case *RelayEventFilter_FlowFilter:
+
+		if v, ok := interface{}(m.GetFlowFilter()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
-				return EventFilterValidationError{
-					field:  fmt.Sprintf("FlowFilter[%v]", idx),
+				return RelayEventFilterValidationError{
+					field:  "FlowFilter",
 					reason: "embedded message failed validation",
 					cause:  err,
 				}
 			}
 		}
 
-	}
+	case *RelayEventFilter_ServiceFilter:
 
-	for idx, item := range m.GetServiceFilter() {
-		_, _ = idx, item
-
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetServiceFilter()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
-				return EventFilterValidationError{
-					field:  fmt.Sprintf("ServiceFilter[%v]", idx),
+				return RelayEventFilterValidationError{
+					field:  "ServiceFilter",
 					reason: "embedded message failed validation",
 					cause:  err,
 				}
 			}
 		}
 
-	}
+	case *RelayEventFilter_ServiceLinkFilter:
 
-	for idx, item := range m.GetServiceLinkFilter() {
-		_, _ = idx, item
-
-		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+		if v, ok := interface{}(m.GetServiceLinkFilter()).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
-				return EventFilterValidationError{
-					field:  fmt.Sprintf("ServiceLinkFilter[%v]", idx),
+				return RelayEventFilterValidationError{
+					field:  "ServiceLinkFilter",
 					reason: "embedded message failed validation",
 					cause:  err,
 				}
@@ -368,9 +327,9 @@ func (m *EventFilter) Validate() error {
 	return nil
 }
 
-// EventFilterValidationError is the validation error returned by
-// EventFilter.Validate if the designated constraints aren't met.
-type EventFilterValidationError struct {
+// RelayEventFilterValidationError is the validation error returned by
+// RelayEventFilter.Validate if the designated constraints aren't met.
+type RelayEventFilterValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -378,22 +337,22 @@ type EventFilterValidationError struct {
 }
 
 // Field function returns field value.
-func (e EventFilterValidationError) Field() string { return e.field }
+func (e RelayEventFilterValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e EventFilterValidationError) Reason() string { return e.reason }
+func (e RelayEventFilterValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e EventFilterValidationError) Cause() error { return e.cause }
+func (e RelayEventFilterValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e EventFilterValidationError) Key() bool { return e.key }
+func (e RelayEventFilterValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e EventFilterValidationError) ErrorName() string { return "EventFilterValidationError" }
+func (e RelayEventFilterValidationError) ErrorName() string { return "RelayEventFilterValidationError" }
 
 // Error satisfies the builtin error interface
-func (e EventFilterValidationError) Error() string {
+func (e RelayEventFilterValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -405,14 +364,14 @@ func (e EventFilterValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sEventFilter.%s: %s%s",
+		"invalid %sRelayEventFilter.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = EventFilterValidationError{}
+var _ error = RelayEventFilterValidationError{}
 
 var _ interface {
 	Field() string
@@ -420,7 +379,7 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = EventFilterValidationError{}
+} = RelayEventFilterValidationError{}
 
 // Validate checks the field values on K8SNamespace with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
@@ -501,17 +460,17 @@ var _ interface {
 	ErrorName() string
 } = K8SNamespaceValidationError{}
 
-// Validate checks the field values on K8SNamespaceAdded with the rules defined
+// Validate checks the field values on K8SNamespaceState with the rules defined
 // in the proto definition for this message. If any rules are violated, an
 // error is returned.
-func (m *K8SNamespaceAdded) Validate() error {
+func (m *K8SNamespaceState) Validate() error {
 	if m == nil {
 		return nil
 	}
 
 	if v, ok := interface{}(m.GetNamespace()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
-			return K8SNamespaceAddedValidationError{
+			return K8SNamespaceStateValidationError{
 				field:  "Namespace",
 				reason: "embedded message failed validation",
 				cause:  err,
@@ -519,12 +478,14 @@ func (m *K8SNamespaceAdded) Validate() error {
 		}
 	}
 
+	// no validation rules for Type
+
 	return nil
 }
 
-// K8SNamespaceAddedValidationError is the validation error returned by
-// K8SNamespaceAdded.Validate if the designated constraints aren't met.
-type K8SNamespaceAddedValidationError struct {
+// K8SNamespaceStateValidationError is the validation error returned by
+// K8SNamespaceState.Validate if the designated constraints aren't met.
+type K8SNamespaceStateValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -532,24 +493,24 @@ type K8SNamespaceAddedValidationError struct {
 }
 
 // Field function returns field value.
-func (e K8SNamespaceAddedValidationError) Field() string { return e.field }
+func (e K8SNamespaceStateValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e K8SNamespaceAddedValidationError) Reason() string { return e.reason }
+func (e K8SNamespaceStateValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e K8SNamespaceAddedValidationError) Cause() error { return e.cause }
+func (e K8SNamespaceStateValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e K8SNamespaceAddedValidationError) Key() bool { return e.key }
+func (e K8SNamespaceStateValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e K8SNamespaceAddedValidationError) ErrorName() string {
-	return "K8SNamespaceAddedValidationError"
+func (e K8SNamespaceStateValidationError) ErrorName() string {
+	return "K8SNamespaceStateValidationError"
 }
 
 // Error satisfies the builtin error interface
-func (e K8SNamespaceAddedValidationError) Error() string {
+func (e K8SNamespaceStateValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -561,14 +522,14 @@ func (e K8SNamespaceAddedValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sK8SNamespaceAdded.%s: %s%s",
+		"invalid %sK8SNamespaceState.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = K8SNamespaceAddedValidationError{}
+var _ error = K8SNamespaceStateValidationError{}
 
 var _ interface {
 	Field() string
@@ -576,88 +537,12 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = K8SNamespaceAddedValidationError{}
+} = K8SNamespaceStateValidationError{}
 
-// Validate checks the field values on K8SNamespaceDeleted with the rules
-// defined in the proto definition for this message. If any rules are
-// violated, an error is returned.
-func (m *K8SNamespaceDeleted) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	if v, ok := interface{}(m.GetNamespace()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return K8SNamespaceDeletedValidationError{
-				field:  "Namespace",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	return nil
-}
-
-// K8SNamespaceDeletedValidationError is the validation error returned by
-// K8SNamespaceDeleted.Validate if the designated constraints aren't met.
-type K8SNamespaceDeletedValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e K8SNamespaceDeletedValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e K8SNamespaceDeletedValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e K8SNamespaceDeletedValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e K8SNamespaceDeletedValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e K8SNamespaceDeletedValidationError) ErrorName() string {
-	return "K8SNamespaceDeletedValidationError"
-}
-
-// Error satisfies the builtin error interface
-func (e K8SNamespaceDeletedValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sK8SNamespaceDeleted.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = K8SNamespaceDeletedValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = K8SNamespaceDeletedValidationError{}
-
-// Validate checks the field values on Service with the rules defined in the
-// proto definition for this message. If any rules are violated, an error is returned.
-func (m *Service) Validate() error {
+// Validate checks the field values on RelayService with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *RelayService) Validate() error {
 	if m == nil {
 		return nil
 	}
@@ -676,7 +561,7 @@ func (m *Service) Validate() error {
 
 	if v, ok := interface{}(m.GetCreationTimestamp()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
-			return ServiceValidationError{
+			return RelayServiceValidationError{
 				field:  "CreationTimestamp",
 				reason: "embedded message failed validation",
 				cause:  err,
@@ -687,9 +572,9 @@ func (m *Service) Validate() error {
 	return nil
 }
 
-// ServiceValidationError is the validation error returned by Service.Validate
-// if the designated constraints aren't met.
-type ServiceValidationError struct {
+// RelayServiceValidationError is the validation error returned by
+// RelayService.Validate if the designated constraints aren't met.
+type RelayServiceValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -697,22 +582,22 @@ type ServiceValidationError struct {
 }
 
 // Field function returns field value.
-func (e ServiceValidationError) Field() string { return e.field }
+func (e RelayServiceValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e ServiceValidationError) Reason() string { return e.reason }
+func (e RelayServiceValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e ServiceValidationError) Cause() error { return e.cause }
+func (e RelayServiceValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e ServiceValidationError) Key() bool { return e.key }
+func (e RelayServiceValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e ServiceValidationError) ErrorName() string { return "ServiceValidationError" }
+func (e RelayServiceValidationError) ErrorName() string { return "RelayServiceValidationError" }
 
 // Error satisfies the builtin error interface
-func (e ServiceValidationError) Error() string {
+func (e RelayServiceValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -724,14 +609,14 @@ func (e ServiceValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sService.%s: %s%s",
+		"invalid %sRelayService.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = ServiceValidationError{}
+var _ error = RelayServiceValidationError{}
 
 var _ interface {
 	Field() string
@@ -739,19 +624,19 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = ServiceValidationError{}
+} = RelayServiceValidationError{}
 
-// Validate checks the field values on ServiceAdded with the rules defined in
+// Validate checks the field values on ServiceState with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
 // is returned.
-func (m *ServiceAdded) Validate() error {
+func (m *ServiceState) Validate() error {
 	if m == nil {
 		return nil
 	}
 
 	if v, ok := interface{}(m.GetService()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
-			return ServiceAddedValidationError{
+			return ServiceStateValidationError{
 				field:  "Service",
 				reason: "embedded message failed validation",
 				cause:  err,
@@ -759,12 +644,14 @@ func (m *ServiceAdded) Validate() error {
 		}
 	}
 
+	// no validation rules for Type
+
 	return nil
 }
 
-// ServiceAddedValidationError is the validation error returned by
-// ServiceAdded.Validate if the designated constraints aren't met.
-type ServiceAddedValidationError struct {
+// ServiceStateValidationError is the validation error returned by
+// ServiceState.Validate if the designated constraints aren't met.
+type ServiceStateValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -772,22 +659,22 @@ type ServiceAddedValidationError struct {
 }
 
 // Field function returns field value.
-func (e ServiceAddedValidationError) Field() string { return e.field }
+func (e ServiceStateValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e ServiceAddedValidationError) Reason() string { return e.reason }
+func (e ServiceStateValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e ServiceAddedValidationError) Cause() error { return e.cause }
+func (e ServiceStateValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e ServiceAddedValidationError) Key() bool { return e.key }
+func (e ServiceStateValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e ServiceAddedValidationError) ErrorName() string { return "ServiceAddedValidationError" }
+func (e ServiceStateValidationError) ErrorName() string { return "ServiceStateValidationError" }
 
 // Error satisfies the builtin error interface
-func (e ServiceAddedValidationError) Error() string {
+func (e ServiceStateValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -799,14 +686,14 @@ func (e ServiceAddedValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sServiceAdded.%s: %s%s",
+		"invalid %sServiceState.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = ServiceAddedValidationError{}
+var _ error = ServiceStateValidationError{}
 
 var _ interface {
 	Field() string
@@ -814,157 +701,7 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = ServiceAddedValidationError{}
-
-// Validate checks the field values on ServiceDeleted with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
-func (m *ServiceDeleted) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	if v, ok := interface{}(m.GetService()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ServiceDeletedValidationError{
-				field:  "Service",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	return nil
-}
-
-// ServiceDeletedValidationError is the validation error returned by
-// ServiceDeleted.Validate if the designated constraints aren't met.
-type ServiceDeletedValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e ServiceDeletedValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e ServiceDeletedValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e ServiceDeletedValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e ServiceDeletedValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e ServiceDeletedValidationError) ErrorName() string { return "ServiceDeletedValidationError" }
-
-// Error satisfies the builtin error interface
-func (e ServiceDeletedValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sServiceDeleted.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = ServiceDeletedValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = ServiceDeletedValidationError{}
-
-// Validate checks the field values on ServiceExists with the rules defined in
-// the proto definition for this message. If any rules are violated, an error
-// is returned.
-func (m *ServiceExists) Validate() error {
-	if m == nil {
-		return nil
-	}
-
-	if v, ok := interface{}(m.GetService()).(interface{ Validate() error }); ok {
-		if err := v.Validate(); err != nil {
-			return ServiceExistsValidationError{
-				field:  "Service",
-				reason: "embedded message failed validation",
-				cause:  err,
-			}
-		}
-	}
-
-	return nil
-}
-
-// ServiceExistsValidationError is the validation error returned by
-// ServiceExists.Validate if the designated constraints aren't met.
-type ServiceExistsValidationError struct {
-	field  string
-	reason string
-	cause  error
-	key    bool
-}
-
-// Field function returns field value.
-func (e ServiceExistsValidationError) Field() string { return e.field }
-
-// Reason function returns reason value.
-func (e ServiceExistsValidationError) Reason() string { return e.reason }
-
-// Cause function returns cause value.
-func (e ServiceExistsValidationError) Cause() error { return e.cause }
-
-// Key function returns key value.
-func (e ServiceExistsValidationError) Key() bool { return e.key }
-
-// ErrorName returns error name.
-func (e ServiceExistsValidationError) ErrorName() string { return "ServiceExistsValidationError" }
-
-// Error satisfies the builtin error interface
-func (e ServiceExistsValidationError) Error() string {
-	cause := ""
-	if e.cause != nil {
-		cause = fmt.Sprintf(" | caused by: %v", e.cause)
-	}
-
-	key := ""
-	if e.key {
-		key = "key for "
-	}
-
-	return fmt.Sprintf(
-		"invalid %sServiceExists.%s: %s%s",
-		key,
-		e.field,
-		e.reason,
-		cause)
-}
-
-var _ error = ServiceExistsValidationError{}
-
-var _ interface {
-	Field() string
-	Reason() string
-	Key() bool
-	Cause() error
-	ErrorName() string
-} = ServiceExistsValidationError{}
+} = ServiceStateValidationError{}
 
 // Validate checks the field values on ServiceFilter with the rules defined in
 // the proto definition for this message. If any rules are violated, an error
@@ -973,8 +710,6 @@ func (m *ServiceFilter) Validate() error {
 	if m == nil {
 		return nil
 	}
-
-	// no validation rules for Namespace
 
 	return nil
 }
@@ -1110,17 +845,17 @@ var _ interface {
 	ErrorName() string
 } = ServiceLinkValidationError{}
 
-// Validate checks the field values on ServiceLinkExists with the rules defined
+// Validate checks the field values on ServiceLinkState with the rules defined
 // in the proto definition for this message. If any rules are violated, an
 // error is returned.
-func (m *ServiceLinkExists) Validate() error {
+func (m *ServiceLinkState) Validate() error {
 	if m == nil {
 		return nil
 	}
 
 	if v, ok := interface{}(m.GetServiceLink()).(interface{ Validate() error }); ok {
 		if err := v.Validate(); err != nil {
-			return ServiceLinkExistsValidationError{
+			return ServiceLinkStateValidationError{
 				field:  "ServiceLink",
 				reason: "embedded message failed validation",
 				cause:  err,
@@ -1128,12 +863,14 @@ func (m *ServiceLinkExists) Validate() error {
 		}
 	}
 
+	// no validation rules for Type
+
 	return nil
 }
 
-// ServiceLinkExistsValidationError is the validation error returned by
-// ServiceLinkExists.Validate if the designated constraints aren't met.
-type ServiceLinkExistsValidationError struct {
+// ServiceLinkStateValidationError is the validation error returned by
+// ServiceLinkState.Validate if the designated constraints aren't met.
+type ServiceLinkStateValidationError struct {
 	field  string
 	reason string
 	cause  error
@@ -1141,24 +878,22 @@ type ServiceLinkExistsValidationError struct {
 }
 
 // Field function returns field value.
-func (e ServiceLinkExistsValidationError) Field() string { return e.field }
+func (e ServiceLinkStateValidationError) Field() string { return e.field }
 
 // Reason function returns reason value.
-func (e ServiceLinkExistsValidationError) Reason() string { return e.reason }
+func (e ServiceLinkStateValidationError) Reason() string { return e.reason }
 
 // Cause function returns cause value.
-func (e ServiceLinkExistsValidationError) Cause() error { return e.cause }
+func (e ServiceLinkStateValidationError) Cause() error { return e.cause }
 
 // Key function returns key value.
-func (e ServiceLinkExistsValidationError) Key() bool { return e.key }
+func (e ServiceLinkStateValidationError) Key() bool { return e.key }
 
 // ErrorName returns error name.
-func (e ServiceLinkExistsValidationError) ErrorName() string {
-	return "ServiceLinkExistsValidationError"
-}
+func (e ServiceLinkStateValidationError) ErrorName() string { return "ServiceLinkStateValidationError" }
 
 // Error satisfies the builtin error interface
-func (e ServiceLinkExistsValidationError) Error() string {
+func (e ServiceLinkStateValidationError) Error() string {
 	cause := ""
 	if e.cause != nil {
 		cause = fmt.Sprintf(" | caused by: %v", e.cause)
@@ -1170,14 +905,14 @@ func (e ServiceLinkExistsValidationError) Error() string {
 	}
 
 	return fmt.Sprintf(
-		"invalid %sServiceLinkExists.%s: %s%s",
+		"invalid %sServiceLinkState.%s: %s%s",
 		key,
 		e.field,
 		e.reason,
 		cause)
 }
 
-var _ error = ServiceLinkExistsValidationError{}
+var _ error = ServiceLinkStateValidationError{}
 
 var _ interface {
 	Field() string
@@ -1185,7 +920,7 @@ var _ interface {
 	Key() bool
 	Cause() error
 	ErrorName() string
-} = ServiceLinkExistsValidationError{}
+} = ServiceLinkStateValidationError{}
 
 // Validate checks the field values on ServiceLinkFilter with the rules defined
 // in the proto definition for this message. If any rules are violated, an
