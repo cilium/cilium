@@ -4,6 +4,10 @@ image: cilium
 # update process.
 maxUnavailable: 2
 
+# Specifies annotation for service accounts
+serviceAccount:
+  annotations: {}
+
 # Enables monitor sidecar container for specified event types
 monitor:
   enabled: false
