@@ -118,7 +118,12 @@ func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
 // visibility policy.
 type EndpointPolicyVisibilityEvent struct {
 	ep     *Endpoint
-	annoCB AnnotationsResolverCB
+	policy *policy.VisibilityPolicy
+}
+
+// EndpointPolicyVisibilityEvent contains the results of an endpoint visibility policy event.
+type EndpointPolicyVisibilityEventResult struct {
+	regenNeeded bool
 }
 
 // Handle handles the policy visibility update.
@@ -128,54 +133,43 @@ func (ev *EndpointPolicyVisibilityEvent) Handle(res chan interface{}) {
 	if err := e.lockAlive(); err != nil {
 		// If the endpoint is being deleted, we don't need to update its
 		// visibility policy.
-		res <- &EndpointRegenerationResult{
-			err: nil,
+		res <- &EndpointPolicyVisibilityEventResult{
+			regenNeeded: false,
 		}
 		return
 	}
 
-	defer func() {
-		// Ensure that policy computation is performed so that endpoint
-		// desiredPolicy and realizedPolicy pointers are different. This state
-		// is needed to update endpoint policy maps with the policy map state
-		// generated from the visibility policy. This can, and should be more
-		// elegant in the future.
-		e.forcePolicyComputation()
-		e.unlock()
-	}()
-
-	var (
-		nvp *policy.VisibilityPolicy
-		err error
-	)
-
-	proxyVisibility, err := ev.annoCB(e.K8sNamespace, e.K8sPodName)
-	if err != nil {
-		res <- &EndpointRegenerationResult{
-			err: err,
-		}
-		return
+	oldAnno := ""
+	if e.visibilityPolicy != nil {
+		oldAnno = e.visibilityPolicy.Anno
 	}
-	if proxyVisibility != "" {
-		e.getLogger().Debug("creating visibility policy")
-		nvp, err = policy.NewVisibilityPolicy(proxyVisibility)
-		if err != nil {
-			e.getLogger().WithError(err).Warning("unable to parse annotations into visibility policy; disabling visibility policy for endpoint")
-			e.visibilityPolicy = &policy.VisibilityPolicy{
-				Ingress: make(policy.DirectionalVisibilityPolicy),
-				Egress:  make(policy.DirectionalVisibilityPolicy),
-				Error:   err,
-			}
-			res <- &EndpointRegenerationResult{
-				err: nil,
-			}
-			return
+	newAnno := ""
+	if ev.policy != nil {
+		newAnno = ev.policy.Anno
+	}
+
+	regenNeeded := newAnno != oldAnno
+	// Only force next regeneration if the visibility annotation actually changed
+	// For this a nil VisibilityPolicy is equivalent to an empty annotation string.
+	// This avoids one forced regeneration for a new endpoint when there is no
+	// visibility annotation.
+	if regenNeeded {
+		e.visibilityPolicy = ev.policy // may be nil
+		if e.desiredPolicy.IngressPolicyEnabled && e.desiredPolicy.EgressPolicyEnabled {
+			// Visibility policy is ingnored as long as policy is enforced
+			// so we do not need to force regeneration.
+			// TODO: This needs to be changed when visibility policy can be combined with
+			// policy enforcement.
+			regenNeeded = false
+		} else {
+			e.forcePolicyComputation()
 		}
 	}
+	e.unlock()
 
-	e.visibilityPolicy = nvp
-	res <- &EndpointRegenerationResult{
-		err: nil,
+	res <- &EndpointPolicyVisibilityEventResult{
+		regenNeeded: regenNeeded,
 	}
+
 	return
 }

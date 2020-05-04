@@ -1537,14 +1537,16 @@ func (e *Endpoint) RunMetadataResolver(resolveLabels LabelResolverCB) {
 				}
 				e.SetPod(pod)
 				e.SetNamedPorts(pod.GetContainerPorts())
-				e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-					// We can reuse the pod resolved above, as if the annotations have
-					// changed again in the meanwhile, the watcher will queue up another
-					// visibility policy update.
-					annotations := pod.GetAnnotations()
-					return annotations[annotation.ProxyVisibility], nil
-				})
-				e.UpdateLabels(ctx, identityLabels, info, true)
+				var regenNeeded bool
+				regenNeeded, err = e.UpdateVisibilityPolicy(pod.GetAnnotations()[annotation.ProxyVisibility])
+				if err != nil {
+					e.Logger(controllerName).WithError(err).Warning("Unable update visibility policy")
+					return err
+				}
+				regenTriggered := e.UpdateLabels(ctx, identityLabels, info, true)
+				if regenNeeded && !regenTriggered {
+					e.RealizePodAnnotationUpdate(ctx)
+				}
 				close(done)
 				return nil
 			},
@@ -1552,6 +1554,21 @@ func (e *Endpoint) RunMetadataResolver(resolveLabels LabelResolverCB) {
 			Context:     e.aliveCtx,
 		},
 	)
+}
+
+func (e *Endpoint) RealizePodAnnotationUpdate(ctx context.Context) {
+	regenMetadata := &regeneration.ExternalRegenerationMetadata{
+		Reason:            "annotations updated",
+		ParentContext:     ctx,
+		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+	}
+	// No need to log an error if the state transition didn't succeed,
+	// if it didn't succeed that means the endpoint is being deleted, or
+	// another regeneration has already been queued up for this endpoint.
+	regen, _ := e.SetRegenerateStateIfAlive(regenMetadata)
+	if regen {
+		e.Regenerate(regenMetadata)
+	}
 }
 
 // ModifyIdentityLabels changes the custom and orchestration identity labels of an endpoint.

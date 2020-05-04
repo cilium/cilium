@@ -21,31 +21,44 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/allocator"
 	"github.com/cilium/cilium/pkg/u8proto"
 
-	"gopkg.in/check.v1"
+	. "gopkg.in/check.v1"
 )
 
-func (s *EndpointSuite) TestUpdateVisibilityPolicy(c *check.C) {
+func (s *EndpointSuite) TestUpdateVisibilityPolicy(c *C) {
 	ep := NewEndpointWithState(&DummyOwner{repo: policy.NewPolicyRepository(nil, nil)}, nil, &allocator.FakeIdentityAllocator{}, 12345, StateReady)
-	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {
-		return "", nil
-	})
-	c.Assert(ep.visibilityPolicy, check.IsNil)
+	regenNeeded, err := ep.UpdateVisibilityPolicy("")
+	c.Assert(err, IsNil)
+	c.Assert(regenNeeded, Equals, false)
+	c.Assert(ep.visibilityPolicy, IsNil)
 
-	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-		return "<Ingress/80/TCP/HTTP>", nil
-	})
+	regenNeeded, err = ep.UpdateVisibilityPolicy("<Ingress/80/TCP/HTTP>")
+	c.Assert(err, IsNil)
+	c.Assert(regenNeeded, Equals, true)
 
-	c.Assert(ep.visibilityPolicy, check.Not(check.Equals), nil)
-	c.Assert(ep.visibilityPolicy.Ingress["80/TCP"], check.DeepEquals, &policy.VisibilityMetadata{
+	c.Assert(ep.visibilityPolicy, Not(IsNil))
+	c.Assert(ep.visibilityPolicy.Ingress["80/TCP"], DeepEquals, &policy.VisibilityMetadata{
 		Parser:  policy.ParserTypeHTTP,
 		Port:    uint16(80),
 		Proto:   u8proto.TCP,
 		Ingress: true,
 	})
 
+	// Check that error is a no-op
+	ovp := ep.visibilityPolicy
+	regenNeeded, err = ep.UpdateVisibilityPolicy("<Inkress/80/TCP/HTTP>")
+	c.Assert(err, Not(IsNil))
+	c.Assert(regenNeeded, Equals, false)
+	c.Assert(ep.visibilityPolicy, Equals, ovp)
+
 	// Check that updating after previously having value works.
-	ep.UpdateVisibilityPolicy(func(_, _ string) (string, error) {
-		return "", nil
-	})
-	c.Assert(ep.visibilityPolicy, check.IsNil)
+	regenNeeded, err = ep.UpdateVisibilityPolicy("")
+	c.Assert(err, IsNil)
+	c.Assert(regenNeeded, Equals, true)
+	c.Assert(ep.visibilityPolicy, IsNil)
+
+	// Check that no change is a no-op
+	regenNeeded, err = ep.UpdateVisibilityPolicy("")
+	c.Assert(err, IsNil)
+	c.Assert(regenNeeded, Equals, false)
+	c.Assert(ep.visibilityPolicy, IsNil)
 }

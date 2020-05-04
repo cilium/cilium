@@ -34,14 +34,15 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/u8proto"
-	"gopkg.in/check.v1"
+
+	. "gopkg.in/check.v1"
 )
 
 type RedirectSuite struct{}
 
 // suite can be used by testing.T benchmarks or tests as a mock regeneration.Owner
 var redirectSuite = RedirectSuite{}
-var _ = check.Suite(&redirectSuite)
+var _ = Suite(&redirectSuite)
 
 // RedirectSuiteProxy implements EndpointProxy. It is used for testing the
 // functions related to generating proxy redirects for a given Endpoint.
@@ -126,7 +127,7 @@ func (d *DummyOwner) GetNodeSuffix() string {
 // UpdateIdentities does nothing.
 func (d *DummyOwner) UpdateIdentities(added, deleted cache.IdentityCache) {}
 
-func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
+func (s *RedirectSuite) TestAddVisibilityRedirects(c *C) {
 	// Setup dependencies for endpoint.
 	kvstore.SetupDummy("etcd")
 	defer kvstore.Client().Close()
@@ -163,64 +164,70 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	epIdentity, _, err := mgr.AllocateIdentity(context.Background(), qaBarLbls, true)
-	c.Assert(err, check.IsNil)
+	c.Assert(err, IsNil)
 	ep.SetIdentity(epIdentity, true)
 
 	firstAnno := "<Ingress/80/TCP/HTTP>"
-	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-		return firstAnno, nil
-	})
+	regenNeeded, err := ep.UpdateVisibilityPolicy(firstAnno)
+	c.Assert(err, IsNil)
+	c.Assert(regenNeeded, Equals, true)
+	c.Assert(ep.visibilityPolicy, Not(IsNil))
+
 	err = ep.regeneratePolicy()
-	c.Assert(err, check.IsNil)
+	c.Assert(err, IsNil)
 
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
 	cmp := completion.NewWaitGroup(ctx)
 
 	_, err, _, _ = ep.addNewRedirects(cmp)
-	c.Assert(err, check.IsNil)
+	c.Assert(err, IsNil)
 	v, ok := ep.desiredPolicy.PolicyMapState[policy.Key{
 		Identity:         0,
 		DestPort:         uint16(80),
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}]
-	c.Assert(ok, check.Equals, true)
-	c.Assert(v.ProxyPort, check.Equals, httpPort)
+	c.Assert(ok, Equals, true)
+	c.Assert(v.ProxyPort, Equals, httpPort)
 
 	secondAnno := "<Ingress/80/TCP/Kafka>"
 
-	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-		return secondAnno, nil
-	})
+	regenNeeded, err = ep.UpdateVisibilityPolicy(secondAnno)
+	c.Assert(err, IsNil)
+	c.Assert(regenNeeded, Equals, true)
+	c.Assert(ep.visibilityPolicy, Not(IsNil))
+
 	d, err, _, _ := ep.addNewRedirects(cmp)
-	c.Assert(err, check.IsNil)
+	c.Assert(err, IsNil)
 	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
 		Identity:         0,
 		DestPort:         uint16(80),
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}]
-	c.Assert(ok, check.Equals, true)
+	c.Assert(ok, Equals, true)
 	// Check that proxyport was updated accordingly.
-	c.Assert(v.ProxyPort, check.Equals, kafkaPort)
+	c.Assert(v.ProxyPort, Equals, kafkaPort)
 
 	thirdAnno := "<Ingress/80/TCP/Kafka>,<Egress/80/TCP/HTTP>"
 
 	// Check that multiple values in annotation are handled correctly.
-	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-		return thirdAnno, nil
-	})
+	regenNeeded, err = ep.UpdateVisibilityPolicy(thirdAnno)
+	c.Assert(err, IsNil)
+	c.Assert(regenNeeded, Equals, true)
+	c.Assert(ep.visibilityPolicy, Not(IsNil))
+
 	_, err, _, _ = ep.addNewRedirects(cmp)
-	c.Assert(err, check.IsNil)
+	c.Assert(err, IsNil)
 	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
 		Identity:         0,
 		DestPort:         uint16(80),
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}]
-	c.Assert(ok, check.Equals, true)
-	c.Assert(v.ProxyPort, check.Equals, kafkaPort)
+	c.Assert(ok, Equals, true)
+	c.Assert(v.ProxyPort, Equals, kafkaPort)
 
 	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
 		Identity:         0,
@@ -228,8 +235,8 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}]
-	c.Assert(ok, check.Equals, true)
-	c.Assert(v.ProxyPort, check.Equals, kafkaPort)
+	c.Assert(ok, Equals, true)
+	c.Assert(v.ProxyPort, Equals, kafkaPort)
 
 	v, ok = ep.desiredPolicy.PolicyMapState[policy.Key{
 		Identity:         0,
@@ -237,27 +244,29 @@ func (s *RedirectSuite) TestAddVisibilityRedirects(c *check.C) {
 		Nexthdr:          uint8(u8proto.TCP),
 		TrafficDirection: trafficdirection.Egress.Uint8(),
 	}]
-	c.Assert(ok, check.Equals, true)
-	c.Assert(v.ProxyPort, check.Equals, httpPort)
+	c.Assert(ok, Equals, true)
+	c.Assert(v.ProxyPort, Equals, httpPort)
 	pID := policy.ProxyID(ep.ID, false, u8proto.TCP.String(), uint16(80))
 	p, ok := ep.realizedRedirects[pID]
-	c.Assert(ok, check.Equals, true)
-	c.Assert(p, check.Equals, httpPort)
+	c.Assert(ok, Equals, true)
+	c.Assert(p, Equals, httpPort)
 
 	// Check that the egress redirect is removed when the redirects have been
 	// updated.
 	ep.removeOldRedirects(d, cmp)
 	// Egress redirect should be removed.
 	_, ok = ep.realizedRedirects[pID]
-	c.Assert(ok, check.Equals, false)
+	c.Assert(ok, Equals, false)
 
 	// Check that all redirects are removed when no visibility policy applies.
 	noAnno := ""
-	ep.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-		return noAnno, nil
-	})
+	regenNeeded, err = ep.UpdateVisibilityPolicy(noAnno)
+	c.Assert(err, IsNil)
+	c.Assert(regenNeeded, Equals, true)
+	c.Assert(ep.visibilityPolicy, IsNil)
+
 	d, err, _, _ = ep.addNewRedirects(cmp)
-	c.Assert(err, check.IsNil)
+	c.Assert(err, IsNil)
 	ep.removeOldRedirects(d, cmp)
-	c.Assert(len(ep.realizedRedirects), check.Equals, 0)
+	c.Assert(len(ep.realizedRedirects), Equals, 0)
 }

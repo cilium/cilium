@@ -63,6 +63,7 @@ func NewVisibilityPolicy(anno string) (*VisibilityPolicy, error) {
 	nvp := &VisibilityPolicy{
 		Ingress: make(DirectionalVisibilityPolicy),
 		Egress:  make(DirectionalVisibilityPolicy),
+		Anno:    anno,
 	}
 
 	// TODO: look into using regex groups.
@@ -196,6 +197,7 @@ type DirectionalVisibilityPolicy map[string]*VisibilityMetadata
 type VisibilityPolicy struct {
 	Ingress DirectionalVisibilityPolicy
 	Egress  DirectionalVisibilityPolicy
+	Anno    string
 	Error   error
 }
 

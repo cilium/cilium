@@ -774,18 +774,34 @@ type AnnotationsResolverCB func(ns, podName string) (proxyVisibility string, err
 // UpdateVisibilityPolicy updates the visibility policy of this endpoint to
 // reflect the state stored in the provided proxy visibility annotation. If anno
 // is empty, then the VisibilityPolicy for the Endpoint will be empty, and will
-// have no effect. If the proxy visibility annotation cannot be parsed, an empty
-// visibility policy is assigned to the Endpoint.
-func (e *Endpoint) UpdateVisibilityPolicy(annoCB AnnotationsResolverCB) {
-	ch, err := e.eventQueue.Enqueue(eventqueue.NewEvent(&EndpointPolicyVisibilityEvent{
+// have no effect. If the proxy visibility annotation cannot be parsed, an error
+// is returned and the endpoint's current visibility policy is not changed.
+func (e *Endpoint) UpdateVisibilityPolicy(anno string) (regenNeeded bool, err error) {
+	var nvp *policy.VisibilityPolicy
+	if anno != "" {
+		e.getLogger().Debug("creating visibility policy")
+		nvp, err = policy.NewVisibilityPolicy(anno)
+		if err != nil {
+			return false, err
+		}
+	}
+
+	var ch <-chan interface{}
+	ch, err = e.eventQueue.Enqueue(eventqueue.NewEvent(&EndpointPolicyVisibilityEvent{
 		ep:     e,
-		annoCB: annoCB,
+		policy: nvp, // may be nil
 	}))
 	if err != nil {
-		e.getLogger().WithError(err).Error("Unable to enqueue endpoint policy visibility event")
-		return
+		return false, err
 	}
-	<-ch
+
+	// Wait for the result
+	rawRes := <-ch
+
+	if res, ok := rawRes.(*EndpointPolicyVisibilityEventResult); ok {
+		return res.regenNeeded, nil
+	}
+	return false, fmt.Errorf("Invalid return type: %v", rawRes)
 }
 
 // GetRealizedPolicyRuleLabelsForKey returns the list of policy rule labels

@@ -25,7 +25,6 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -215,9 +214,9 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 	k.addK8sPodV1(newK8sPod)
 
 	// Check annotation updates.
-	oldAnno := oldK8sPod.GetAnnotations()
-	newAnno := newK8sPod.GetAnnotations()
-	annotationsChanged := !k8s.AnnotationsEqual([]string{annotation.ProxyVisibility}, oldAnno, newAnno)
+	oldAnno := oldK8sPod.GetAnnotations()[annotation.ProxyVisibility]
+	newAnno := newK8sPod.GetAnnotations()[annotation.ProxyVisibility]
+	annotationsChanged := oldAnno != newAnno
 
 	// Check label updates too.
 	oldPodLabels := oldK8sPod.GetLabels()
@@ -233,7 +232,7 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 
 	podEP := k.endpointManager.LookupPodName(podNSName)
 	if podEP == nil {
-		log.WithField("pod", podNSName).Debugf("Endpoint not found running for the given pod")
+		log.WithField("pod", podNSName).Debug("Endpoint not found running for the given pod")
 		return nil
 	}
 
@@ -245,30 +244,16 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 	}
 
 	if annotationsChanged {
-		podEP.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
-			p, err := k.GetCachedPod(ns, podName)
-			if err != nil {
-				return "", nil
-			}
-			return p.Annotations[annotation.ProxyVisibility], nil
-		})
-		realizePodAnnotationUpdate(podEP)
+		regenNeeded, err := podEP.UpdateVisibilityPolicy(newAnno)
+		if err != nil {
+			log.WithField("pod", podNSName).Debugf("Unable update visibility policy: %s", err)
+			return err
+		}
+		if regenNeeded {
+			podEP.RealizePodAnnotationUpdate(nil)
+		}
 	}
 	return nil
-}
-
-func realizePodAnnotationUpdate(podEP *endpoint.Endpoint) {
-	regenMetadata := &regeneration.ExternalRegenerationMetadata{
-		Reason:            "annotations updated",
-		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-	}
-	// No need to log an error if the state transition didn't succeed,
-	// if it didn't succeed that means the endpoint is being deleted, or
-	// another regeneration has already been queued up for this endpoint.
-	regen, _ := podEP.SetRegenerateStateIfAlive(regenMetadata)
-	if regen {
-		podEP.Regenerate(regenMetadata)
-	}
 }
 
 func updateEndpointLabels(ep *endpoint.Endpoint, oldLbls, newLbls map[string]string) error {

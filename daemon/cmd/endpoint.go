@@ -294,11 +294,12 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	// is available or has received the notification that includes the
 	// static pod's labels. In this case, start a controller to attempt to
 	// resolve the labels.
-	k8sLabelsConfigured := true
+	runningMetadataResolver := false
 	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
 		// If there are labels, but no pod namespace label, then it's
 		// likely that there are no k8s labels at all. Resolve.
-		if _, k8sLabelsConfigured = addLabels[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
+		if _, k8sLabelsConfigured := addLabels[k8sConst.PodNamespaceLabel]; !k8sLabelsConfigured {
+			runningMetadataResolver = true
 			ep.RunMetadataResolver(d.fetchK8sLabels)
 		}
 	}
@@ -319,15 +320,20 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	// the endpoint manager because the endpoint manager create the endpoint
 	// queue of the endpoint. If we execute this function before the endpoint
 	// manager creates the endpoint queue the operation will fail.
-	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() && k8sLabelsConfigured {
-		ep.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
-			p, err := d.k8sWatcher.GetCachedPod(ns, podName)
-			if err != nil {
-				return "", err
+	// Do not compete with Metadata resolver. Otherwise we could install an old
+	// visibility policy here.
+	if !runningMetadataResolver {
+		pod := ep.GetPod()
+		if pod != nil {
+			anno := pod.GetAnnotations()[annotation.ProxyVisibility]
+			// Not needed when a new endpoint has an empty annotation
+			if anno != "" {
+				// Initial regen is triggered below
+				if _, err = ep.UpdateVisibilityPolicy(anno); err != nil {
+					return d.errorDuringCreation(ep, fmt.Errorf("Cannot update visibility annotation: %s", err))
+				}
 			}
-
-			return p.Annotations[annotation.ProxyVisibility], nil
-		})
+		}
 	}
 
 	regenTriggered := ep.UpdateLabels(ctx, addLabels, infoLabels, true)
