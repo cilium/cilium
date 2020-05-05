@@ -804,8 +804,8 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 
 func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 	type args struct {
-		o1 *types.Namespace
-		o2 *types.Namespace
+		o1 *slim_corev1.Namespace
+		o2 *slim_corev1.Namespace
 	}
 	tests := []struct {
 		name string
@@ -815,13 +815,13 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 		{
 			name: "Namespaces with the same name",
 			args: args{
-				o1: &types.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Namespace{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Namespace1",
 					},
 				},
-				o2: &types.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Namespace{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Namespace1",
 					},
 				},
@@ -831,13 +831,13 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 		{
 			name: "Namespaces with the different names",
 			args: args{
-				o1: &types.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Namespace{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Namespace1",
 					},
 				},
-				o2: &types.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Namespace{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Namespace2",
 					},
 				},
@@ -847,16 +847,16 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 		{
 			name: "Namespaces with the same labels",
 			args: args{
-				o1: &types.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Namespace{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Namespace1",
 						Labels: map[string]string{
 							"prod": "true",
 						},
 					},
 				},
-				o2: &types.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Namespace{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Namespace1",
 						Labels: map[string]string{
 							"prod": "true",
@@ -869,16 +869,16 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 		{
 			name: "Namespaces with the different labels",
 			args: args{
-				o1: &types.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Namespace{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Namespace1",
 						Labels: map[string]string{
 							"prod": "true",
 						},
 					},
 				},
-				o2: &types.Namespace{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Namespace{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Namespace1",
 						Labels: map[string]string{
 							"prod": "false",
@@ -1286,62 +1286,6 @@ func (s *K8sSuite) Test_ConvertToNode(c *C) {
 	}
 	for _, tt := range tests {
 		got := ConvertToNode(tt.args.obj)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
-	}
-}
-
-func (s *K8sSuite) Test_ConvertToNamespace(c *C) {
-	type args struct {
-		obj interface{}
-	}
-	tests := []struct {
-		name string
-		args args
-		want interface{}
-	}{
-		{
-			name: "normal conversion",
-			args: args{
-				obj: &v1.Namespace{},
-			},
-			want: &types.Namespace{},
-		},
-		{
-			name: "delete final state unknown conversion",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: &v1.Namespace{},
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: &types.Namespace{},
-			},
-		},
-		{
-			name: "unknown object type in delete final state unknown conversion",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: 100,
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: 100,
-			},
-		},
-		{
-			name: "unknown object type in conversion",
-			args: args{
-				obj: 100,
-			},
-			want: 100,
-		},
-	}
-	for _, tt := range tests {
-		got := ConvertToNamespace(tt.args.obj)
 		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }

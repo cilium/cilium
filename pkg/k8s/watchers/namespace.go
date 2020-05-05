@@ -21,7 +21,8 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -29,7 +30,6 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	k8s_errors "k8s.io/apimachinery/pkg/api/errors"
-	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -41,7 +41,7 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, asyncControl
 	namespaceStore, namespaceController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
 			"namespaces", v1.NamespaceAll, fields.Everything()),
-		&v1.Namespace{},
+		&slim_corev1.Namespace{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			// AddFunc does not matter since the endpoint will fetch
@@ -65,7 +65,7 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, asyncControl
 				}
 			},
 		},
-		k8s.ConvertToNamespace,
+		nil,
 	)
 
 	k.namespaceStore = namespaceStore
@@ -75,7 +75,7 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, asyncControl
 	namespaceController.Run(wait.NeverStop)
 }
 
-func (k *K8sWatcher) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
+func (k *K8sWatcher) updateK8sV1Namespace(oldNS, newNS *slim_corev1.Namespace) error {
 	oldNSLabels := map[string]string{}
 	newNSLabels := map[string]string{}
 
@@ -112,11 +112,11 @@ func (k *K8sWatcher) updateK8sV1Namespace(oldNS, newNS *types.Namespace) error {
 }
 
 // GetCachedNamespace returns a namespace from the local store.
-func (k *K8sWatcher) GetCachedNamespace(namespace string) (*types.Namespace, error) {
+func (k *K8sWatcher) GetCachedNamespace(namespace string) (*slim_corev1.Namespace, error) {
 	<-k.controllersStarted
 	k.WaitForCacheSync(k8sAPIGroupNamespaceV1Core)
-	nsName := &types.Namespace{
-		ObjectMeta: meta_v1.ObjectMeta{
+	nsName := &slim_corev1.Namespace{
+		ObjectMeta: slim_metav1.ObjectMeta{
 			Name: namespace,
 		},
 	}
@@ -130,5 +130,5 @@ func (k *K8sWatcher) GetCachedNamespace(namespace string) (*types.Namespace, err
 			Resource: "namespace",
 		}, namespace)
 	}
-	return namespaceInterface.(*types.Namespace).DeepCopy(), nil
+	return namespaceInterface.(*slim_corev1.Namespace).DeepCopy(), nil
 }

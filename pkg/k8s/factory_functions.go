@@ -102,8 +102,8 @@ func ObjToV1Node(obj interface{}) *slim_corev1.Node {
 	return node
 }
 
-func ObjToV1Namespace(obj interface{}) *types.Namespace {
-	ns, ok := obj.(*types.Namespace)
+func ObjToV1Namespace(obj interface{}) *slim_corev1.Namespace {
+	ns, ok := obj.(*slim_corev1.Namespace)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Namespace")
@@ -300,7 +300,7 @@ func EqualV1Node(node1, node2 *slim_corev1.Node) bool {
 	return true
 }
 
-func EqualV1Namespace(ns1, ns2 *types.Namespace) bool {
+func EqualV1Namespace(ns1, ns2 *slim_corev1.Namespace) bool {
 	// we only care about namespace labels.
 	return ns1.Name == ns2.Name &&
 		comparator.MapStringEquals(ns1.GetLabels(), ns2.GetLabels())
@@ -675,41 +675,6 @@ func ConvertToNode(obj interface{}) interface{} {
 			},
 		}
 		*node = v1.Node{}
-		return dfsu
-	default:
-		return obj
-	}
-}
-
-// ConvertToNamespace converts a *v1.Namespace into a
-// *types.Namespace or a cache.DeletedFinalStateUnknown into
-// a cache.DeletedFinalStateUnknown with a *types.Namespace in its Obj.
-// If the given obj can't be cast into either *v1.Namespace
-// nor cache.DeletedFinalStateUnknown, the original obj is returned.
-// WARNING calling this function will set *all* fields of the given Namespace as
-// empty.
-func ConvertToNamespace(obj interface{}) interface{} {
-	switch concreteObj := obj.(type) {
-	case *v1.Namespace:
-		p := &types.Namespace{
-			TypeMeta:   concreteObj.TypeMeta,
-			ObjectMeta: concreteObj.ObjectMeta,
-		}
-		*concreteObj = v1.Namespace{}
-		return p
-	case cache.DeletedFinalStateUnknown:
-		namespace, ok := concreteObj.Obj.(*v1.Namespace)
-		if !ok {
-			return obj
-		}
-		dfsu := cache.DeletedFinalStateUnknown{
-			Key: concreteObj.Key,
-			Obj: &types.Namespace{
-				TypeMeta:   namespace.TypeMeta,
-				ObjectMeta: namespace.ObjectMeta,
-			},
-		}
-		*namespace = v1.Namespace{}
 		return dfsu
 	default:
 		return obj

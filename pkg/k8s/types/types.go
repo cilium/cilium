@@ -50,12 +50,6 @@ type SlimCNP struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type Namespace struct {
-	metav1.TypeMeta
-	metav1.ObjectMeta
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Identity struct {
 	*v2.CiliumIdentity
 }
