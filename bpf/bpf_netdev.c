@@ -50,6 +50,7 @@
 #include "lib/nat.h"
 #include "lib/lb.h"
 #include "lib/nodeport.h"
+#include "lib/eps.h"
 
 #if defined FROM_HOST && (defined ENABLE_IPV4 || defined ENABLE_IPV6)
 static inline int rewrite_dmac_to_host(struct __sk_buff *skb, __u32 src_identity)
@@ -161,7 +162,7 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 src_identity)
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_identity)) {
 		union v6addr *src = (union v6addr *) &ip6->saddr;
-		info = ipcache_lookup6(&IPCACHE_MAP, src, V6_CACHE_KEY_LEN);
+		info = lookup_ip6_remote_endpoint(src);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
 			if (sec_label)
@@ -320,7 +321,7 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 src_identity)
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_identity)) {
-		info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr, V4_CACHE_KEY_LEN);
+		info = lookup_ip4_remote_endpoint(ip4->saddr);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
 			if (sec_label) {
