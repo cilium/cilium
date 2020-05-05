@@ -26,6 +26,19 @@ RUN update-alternatives \
       --slave /usr/sbin/ip6tables-save ip6tables-save /usr/sbin/iptables-wrapper
 
 #
+# Go-based tools for runtime image
+#
+FROM docker.io/library/golang:1.14.2 as gops
+WORKDIR /tmp
+RUN go get -d github.com/google/gops && \
+    cd /go/src/github.com/google/gops && \
+    git checkout -b v0.3.6 v0.3.6 && \
+    git --no-pager remote -v && \
+    git --no-pager log -1 && \
+    go install && \
+    strip /go/bin/gops
+
+#
 # LLVM, bpftool, iproute2 and loopback for runtime image (cilium/packaging repo)
 #
 FROM runtime-base as tools
@@ -40,19 +53,7 @@ RUN apt-get update && \
 COPY --from=quay.io/cilium/cilium-llvm:2020-05-05 /bin/clang /bin/llc /bin/
 COPY --from=quay.io/cilium/cilium-bpftool:2020-05-05 /bin/bpftool /bin/
 COPY --from=quay.io/cilium/cilium-iproute2:2020-05-05 /bin/tc /bin/ip /bin/
-
-#
-# Go-based tools for runtime image
-#
-FROM docker.io/library/golang:1.14.2 as gops
-WORKDIR /tmp
-RUN go get -d github.com/google/gops && \
-    cd /go/src/github.com/google/gops && \
-    git checkout -b v0.3.6 v0.3.6 && \
-    git --no-pager remote -v && \
-    git --no-pager log -1 && \
-    go install && \
-    strip /go/bin/gops
+COPY --from=gops /go/bin/gops /bin/
 
 #
 # Stripped cilium runtime base image
@@ -60,7 +61,6 @@ RUN go get -d github.com/google/gops && \
 FROM runtime-base
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /bin
-COPY --from=tools /bin/tc /bin/ip /bin/bpftool /bin/clang /bin/llc ./
-COPY --from=gops /go/bin/gops ./
+COPY --from=tools /bin/tc /bin/ip /bin/bpftool /bin/clang /bin/llc /bin/gops ./
 WORKDIR /cni
 COPY --from=tools /tmp/loopback ./
