@@ -304,7 +304,7 @@ function write_cilium_cfg() {
     ipv6_addr="${3}"
     filename="${4}"
 
-    cilium_options=" --debug --pprof --enable-k8s-event-handover --k8s-require-ipv4-pod-cidr --auto-direct-node-routes"
+    cilium_options=" --debug --pprof --enable-hubble --enable-k8s-event-handover --k8s-require-ipv4-pod-cidr --auto-direct-node-routes"
     cilium_operator_options=" --debug"
 
     if [[ "${IPV4}" -eq "1" ]]; then
