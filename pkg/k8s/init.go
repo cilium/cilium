@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	cilium_v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
-	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
@@ -84,7 +84,7 @@ func retrieveNodeInformation(nodeName string) (*nodeTypes.Node, error) {
 		// make a request from the local store instead.
 		return nil, fmt.Errorf("invalid k8s node: %s", k8sNode)
 	}
-	typesNode := nodeInterface.(*types.Node)
+	typesNode := nodeInterface.(*slim_corev1.Node)
 
 	// The source is left unspecified as this node resource should never be
 	// used to update state

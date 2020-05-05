@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -40,7 +40,7 @@ import (
 // ParseNodeAddressType converts a Kubernetes NodeAddressType to a Cilium
 // NodeAddressType. If the Kubernetes NodeAddressType does not have a
 // corresponding Cilium AddressType, returns an error.
-func ParseNodeAddressType(k8sAddress corev1.NodeAddressType) (addressing.AddressType, error) {
+func ParseNodeAddressType(k8sAddress slim_corev1.NodeAddressType) (addressing.AddressType, error) {
 
 	var err error
 	convertedAddr := addressing.AddressType(k8sAddress)
@@ -54,17 +54,17 @@ func ParseNodeAddressType(k8sAddress corev1.NodeAddressType) (addressing.Address
 }
 
 // ParseNode parses a kubernetes node to a cilium node
-func ParseNode(k8sNode *types.Node, source source.Source) *nodeTypes.Node {
+func ParseNode(k8sNode *slim_corev1.Node, source source.Source) *nodeTypes.Node {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName:  k8sNode.Name,
 		logfields.K8sNodeID: k8sNode.UID,
 	})
 	addrs := []nodeTypes.Address{}
-	for _, addr := range k8sNode.StatusAddresses {
+	for _, addr := range k8sNode.Status.Addresses {
 		// We only care about this address types,
 		// we ignore all other types.
 		switch addr.Type {
-		case corev1.NodeInternalIP, corev1.NodeExternalIP:
+		case slim_corev1.NodeInternalIP, slim_corev1.NodeExternalIP:
 		default:
 			continue
 		}
@@ -128,13 +128,13 @@ func ParseNode(k8sNode *types.Node, source source.Source) *nodeTypes.Node {
 		EncryptionKey: encryptKey,
 	}
 
-	if len(k8sNode.SpecPodCIDRs) != 0 {
-		if len(k8sNode.SpecPodCIDRs) > 2 {
-			scopedLog.WithField("podCIDR", k8sNode.SpecPodCIDRs).Errorf("Invalid PodCIDRs expected 1 or 2 PodCIDRs, received %d", len(k8sNode.SpecPodCIDRs))
+	if len(k8sNode.Spec.PodCIDRs) != 0 {
+		if len(k8sNode.Spec.PodCIDRs) > 2 {
+			scopedLog.WithField("podCIDR", k8sNode.Spec.PodCIDRs).Errorf("Invalid PodCIDRs expected 1 or 2 PodCIDRs, received %d", len(k8sNode.Spec.PodCIDRs))
 		} else {
-			for _, podCIDR := range k8sNode.SpecPodCIDRs {
+			for _, podCIDR := range k8sNode.Spec.PodCIDRs {
 				if allocCIDR, err := cidr.ParseCIDR(podCIDR); err != nil {
-					scopedLog.WithError(err).WithField("podCIDR", k8sNode.SpecPodCIDR).Warn("Invalid PodCIDR value for node")
+					scopedLog.WithError(err).WithField("podCIDR", k8sNode.Spec.PodCIDR).Warn("Invalid PodCIDR value for node")
 				} else {
 					if allocCIDR.IP.To4() != nil {
 						newNode.IPv4AllocCIDR = allocCIDR
@@ -144,9 +144,9 @@ func ParseNode(k8sNode *types.Node, source source.Source) *nodeTypes.Node {
 				}
 			}
 		}
-	} else if len(k8sNode.SpecPodCIDR) != 0 {
-		if allocCIDR, err := cidr.ParseCIDR(k8sNode.SpecPodCIDR); err != nil {
-			scopedLog.WithError(err).WithField(logfields.V4Prefix, k8sNode.SpecPodCIDR).Warn("Invalid PodCIDR value for node")
+	} else if len(k8sNode.Spec.PodCIDR) != 0 {
+		if allocCIDR, err := cidr.ParseCIDR(k8sNode.Spec.PodCIDR); err != nil {
+			scopedLog.WithError(err).WithField(logfields.V4Prefix, k8sNode.Spec.PodCIDR).Warn("Invalid PodCIDR value for node")
 		} else {
 			if allocCIDR.IP.To4() != nil {
 				newNode.IPv4AllocCIDR = allocCIDR

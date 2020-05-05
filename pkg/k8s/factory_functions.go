@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -91,8 +92,8 @@ func ObjTov1Pod(obj interface{}) *slim_corev1.Pod {
 	return pod
 }
 
-func ObjToV1Node(obj interface{}) *types.Node {
-	node, ok := obj.(*types.Node)
+func ObjToV1Node(obj interface{}) *slim_corev1.Node {
+	node, ok := obj.(*slim_corev1.Node)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Node")
@@ -263,7 +264,7 @@ func EqualV1Pod(pod1, pod2 *slim_corev1.Pod) bool {
 	return true
 }
 
-func EqualV1Node(node1, node2 *types.Node) bool {
+func EqualV1Node(node1, node2 *slim_corev1.Node) bool {
 	if node1.GetObjectMeta().GetName() != node2.GetObjectMeta().GetName() {
 		return false
 	}
@@ -281,11 +282,11 @@ func EqualV1Node(node1, node2 *types.Node) bool {
 			return false
 		}
 	}
-	if len(node1.SpecTaints) != len(node2.SpecTaints) {
+	if len(node1.Spec.Taints) != len(node2.Spec.Taints) {
 		return false
 	}
-	for i, taint2 := range node2.SpecTaints {
-		taint1 := node1.SpecTaints[i]
+	for i, taint2 := range node2.Spec.Taints {
+		taint1 := node1.Spec.Taints[i]
 		if !taint1.MatchTaint(&taint2) {
 			return false
 		}
@@ -568,6 +569,49 @@ func ConvertToCNP(obj interface{}) interface{} {
 	}
 }
 
+func convertToAddress(v1Addrs []v1.NodeAddress) []slim_corev1.NodeAddress {
+	if v1Addrs == nil {
+		return nil
+	}
+
+	addrs := make([]slim_corev1.NodeAddress, 0, len(v1Addrs))
+	for _, addr := range v1Addrs {
+		addrs = append(
+			addrs,
+			slim_corev1.NodeAddress{
+				Type:    slim_corev1.NodeAddressType(addr.Type),
+				Address: addr.Address,
+			},
+		)
+	}
+	return addrs
+}
+
+func convertToTaints(v1Taints []v1.Taint) []slim_corev1.Taint {
+	if v1Taints == nil {
+		return nil
+	}
+
+	taints := make([]slim_corev1.Taint, 0, len(v1Taints))
+	for _, taint := range v1Taints {
+		var ta *slim_metav1.Time
+		if taint.TimeAdded != nil {
+			t := slim_metav1.NewTime(taint.TimeAdded.Time)
+			ta = &t
+		}
+		taints = append(
+			taints,
+			slim_corev1.Taint{
+				Key:       taint.Key,
+				Value:     taint.Value,
+				Effect:    slim_corev1.TaintEffect(taint.Effect),
+				TimeAdded: ta,
+			},
+		)
+	}
+	return taints
+}
+
 // ConvertToNode converts a *v1.Node into a
 // *types.Node or a cache.DeletedFinalStateUnknown into
 // a cache.DeletedFinalStateUnknown with a *types.Node in its Obj.
@@ -578,13 +622,26 @@ func ConvertToCNP(obj interface{}) interface{} {
 func ConvertToNode(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *v1.Node:
-		p := &types.Node{
-			TypeMeta:        concreteObj.TypeMeta,
-			ObjectMeta:      concreteObj.ObjectMeta,
-			StatusAddresses: concreteObj.Status.Addresses,
-			SpecPodCIDR:     concreteObj.Spec.PodCIDR,
-			SpecPodCIDRs:    concreteObj.Spec.PodCIDRs,
-			SpecTaints:      concreteObj.Spec.Taints,
+		p := &slim_corev1.Node{
+			TypeMeta: slim_metav1.TypeMeta{
+				Kind:       concreteObj.TypeMeta.Kind,
+				APIVersion: concreteObj.TypeMeta.APIVersion,
+			},
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name:        concreteObj.ObjectMeta.Name,
+				Namespace:   concreteObj.ObjectMeta.Namespace,
+				UID:         concreteObj.ObjectMeta.UID,
+				Labels:      concreteObj.ObjectMeta.Labels,
+				Annotations: concreteObj.ObjectMeta.Annotations,
+			},
+			Spec: slim_corev1.NodeSpec{
+				PodCIDR:  concreteObj.Spec.PodCIDR,
+				PodCIDRs: concreteObj.Spec.PodCIDRs,
+				Taints:   convertToTaints(concreteObj.Spec.Taints),
+			},
+			Status: slim_corev1.NodeStatus{
+				Addresses: convertToAddress(concreteObj.Status.Addresses),
+			},
 		}
 		*concreteObj = v1.Node{}
 		return p
@@ -595,13 +652,26 @@ func ConvertToNode(obj interface{}) interface{} {
 		}
 		dfsu := cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
-			Obj: &types.Node{
-				TypeMeta:        node.TypeMeta,
-				ObjectMeta:      node.ObjectMeta,
-				StatusAddresses: node.Status.Addresses,
-				SpecPodCIDR:     node.Spec.PodCIDR,
-				SpecPodCIDRs:    node.Spec.PodCIDRs,
-				SpecTaints:      node.Spec.Taints,
+			Obj: &slim_corev1.Node{
+				TypeMeta: slim_metav1.TypeMeta{
+					Kind:       node.TypeMeta.Kind,
+					APIVersion: node.TypeMeta.APIVersion,
+				},
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Name:        node.ObjectMeta.Name,
+					Namespace:   node.ObjectMeta.Namespace,
+					UID:         node.ObjectMeta.UID,
+					Labels:      node.ObjectMeta.Labels,
+					Annotations: node.ObjectMeta.Annotations,
+				},
+				Spec: slim_corev1.NodeSpec{
+					PodCIDR:  node.Spec.PodCIDR,
+					PodCIDRs: node.Spec.PodCIDRs,
+					Taints:   convertToTaints(node.Spec.Taints),
+				},
+				Status: slim_corev1.NodeStatus{
+					Addresses: convertToAddress(node.Status.Addresses),
+				},
 			},
 		}
 		*node = v1.Node{}

@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
-	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/testutils"
@@ -83,7 +83,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 			return true, n1copy, nil
 		})
 
-	node1Slim := ConvertToNode(node1.DeepCopy()).(*types.Node)
+	node1Slim := ConvertToNode(node1.DeepCopy()).(*slim_corev1.Node)
 	node1Cilium := ParseNode(node1Slim, source.Unspec)
 
 	useNodeCIDR(node1Cilium)
@@ -153,7 +153,7 @@ func (s *K8sSuite) TestUseNodeCIDR(c *C) {
 			return true, n2Copy, nil
 		})
 
-	node2Slim := ConvertToNode(node2.DeepCopy()).(*types.Node)
+	node2Slim := ConvertToNode(node2.DeepCopy()).(*slim_corev1.Node)
 	node2Cilium := ParseNode(node2Slim, source.Unspec)
 	useNodeCIDR(node2Cilium)
 

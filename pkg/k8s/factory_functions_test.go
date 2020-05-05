@@ -551,8 +551,8 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 
 func (s *K8sSuite) Test_EqualV1Node(c *C) {
 	type args struct {
-		o1 *types.Node
-		o2 *types.Node
+		o1 *slim_corev1.Node
+		o2 *slim_corev1.Node
 	}
 	tests := []struct {
 		name string
@@ -562,13 +562,13 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the same name",
 			args: args{
-				o1: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 					},
 				},
-				o2: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 					},
 				},
@@ -578,13 +578,13 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the different names",
 			args: args{
-				o1: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 					},
 				},
-				o2: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node2",
 					},
 				},
@@ -594,17 +594,21 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the different spec should return true as we don't care about the spec",
 			args: args{
-				o1: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 					},
-					SpecPodCIDR: "192.168.0.0/10",
+					Spec: slim_corev1.NodeSpec{
+						PodCIDR: "192.168.0.0/10",
+					},
 				},
-				o2: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 					},
-					SpecPodCIDR: "127.0.0.1/10",
+					Spec: slim_corev1.NodeSpec{
+						PodCIDR: "127.0.0.1/10",
+					},
 				},
 			},
 			want: true,
@@ -612,16 +616,16 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the same annotations",
 			args: args{
-				o1: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 						Annotations: map[string]string{
 							annotation.CiliumHostIP: "127.0.0.1",
 						},
 					},
 				},
-				o2: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 						Annotations: map[string]string{
 							annotation.CiliumHostIP: "127.0.0.1",
@@ -634,16 +638,16 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the different annotations",
 			args: args{
-				o1: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 						Annotations: map[string]string{
 							annotation.CiliumHostIP: "127.0.0.1",
 						},
 					},
 				},
-				o2: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 						Annotations: map[string]string{
 							annotation.CiliumHostIP: "127.0.0.2",
@@ -656,23 +660,27 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the same annotations and different specs should return true because he don't care about the spec",
 			args: args{
-				o1: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 						Annotations: map[string]string{
 							annotation.CiliumHostIP: "127.0.0.1",
 						},
 					},
-					SpecPodCIDR: "192.168.0.0/10",
+					Spec: slim_corev1.NodeSpec{
+						PodCIDR: "192.168.0.0/10",
+					},
 				},
-				o2: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 						Annotations: map[string]string{
 							annotation.CiliumHostIP: "127.0.0.1",
 						},
 					},
-					SpecPodCIDR: "127.0.0.1/10",
+					Spec: slim_corev1.NodeSpec{
+						PodCIDR: "127.0.0.1/10",
+					},
 				},
 			},
 			want: true,
@@ -680,31 +688,35 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the same taints and different specs should return true because he don't care about the spec",
 			args: args{
-				o1: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 					},
-					SpecTaints: []core_v1.Taint{
-						{
-							Key:    "key",
-							Value:  "value",
-							Effect: "no-effect",
+					Spec: slim_corev1.NodeSpec{
+						PodCIDR: "192.168.0.0/10",
+						Taints: []slim_corev1.Taint{
+							{
+								Key:    "key",
+								Value:  "value",
+								Effect: "no-effect",
+							},
 						},
 					},
-					SpecPodCIDR: "192.168.0.0/10",
 				},
-				o2: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 					},
-					SpecTaints: []core_v1.Taint{
-						{
-							Key:    "key",
-							Value:  "value",
-							Effect: "no-effect",
+					Spec: slim_corev1.NodeSpec{
+						PodCIDR: "127.0.0.1/10",
+						Taints: []slim_corev1.Taint{
+							{
+								Key:    "key",
+								Value:  "value",
+								Effect: "no-effect",
+							},
 						},
 					},
-					SpecPodCIDR: "127.0.0.1/10",
 				},
 			},
 			want: true,
@@ -712,33 +724,37 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the same taints and different specs should return true because he don't care about the spec",
 			args: args{
-				o1: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 					},
-					SpecTaints: []core_v1.Taint{
-						{
-							Key:       "key",
-							Value:     "value",
-							Effect:    "no-effect",
-							TimeAdded: func() *metav1.Time { return &metav1.Time{Time: time.Unix(1, 1)} }(),
+					Spec: slim_corev1.NodeSpec{
+						PodCIDR: "192.168.0.0/10",
+						Taints: []slim_corev1.Taint{
+							{
+								Key:       "key",
+								Value:     "value",
+								Effect:    "no-effect",
+								TimeAdded: func() *slim_metav1.Time { return &slim_metav1.Time{Time: time.Unix(1, 1)} }(),
+							},
 						},
 					},
-					SpecPodCIDR: "192.168.0.0/10",
 				},
-				o2: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 					},
-					SpecTaints: []core_v1.Taint{
-						{
-							Key:       "key",
-							Value:     "value",
-							Effect:    "no-effect",
-							TimeAdded: func() *metav1.Time { return &metav1.Time{Time: time.Unix(1, 1)} }(),
+					Spec: slim_corev1.NodeSpec{
+						PodCIDR: "127.0.0.1/10",
+						Taints: []slim_corev1.Taint{
+							{
+								Key:       "key",
+								Value:     "value",
+								Effect:    "no-effect",
+								TimeAdded: func() *slim_metav1.Time { return &slim_metav1.Time{Time: time.Unix(1, 1)} }(),
+							},
 						},
 					},
-					SpecPodCIDR: "127.0.0.1/10",
 				},
 			},
 			want: true,
@@ -746,32 +762,35 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		{
 			name: "Nodes with the different taints and different specs should return true because he don't care about the spec",
 			args: args{
-				o1: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o1: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
 					},
-					SpecTaints: []core_v1.Taint{
-						{
-							Key:    "key",
-							Value:  "value",
-							Effect: "no-effect",
+					Spec: slim_corev1.NodeSpec{
+						PodCIDR: "192.168.0.0/10",
+						Taints: []slim_corev1.Taint{
+							{
+								Key:    "key",
+								Value:  "value",
+								Effect: "no-effect",
+							},
 						},
 					},
-					SpecPodCIDR: "192.168.0.0/10",
 				},
-				o2: &types.Node{
-					ObjectMeta: metav1.ObjectMeta{
+				o2: &slim_corev1.Node{
+					ObjectMeta: slim_metav1.ObjectMeta{
 						Name: "Node1",
-					},
-					SpecTaints: []core_v1.Taint{
-						{
-							Key:       "key",
-							Value:     "value",
-							Effect:    "no-effect",
-							TimeAdded: func() *metav1.Time { return &metav1.Time{Time: time.Unix(1, 1)} }(),
+					}, Spec: slim_corev1.NodeSpec{
+						PodCIDR: "127.0.0.1/10",
+						Taints: []slim_corev1.Taint{
+							{
+								Key:       "key",
+								Value:     "value",
+								Effect:    "no-effect",
+								TimeAdded: func() *slim_metav1.Time { return &slim_metav1.Time{Time: time.Unix(1, 1)} }(),
+							},
 						},
 					},
-					SpecPodCIDR: "127.0.0.1/10",
 				},
 			},
 			want: false,
@@ -1229,7 +1248,7 @@ func (s *K8sSuite) Test_ConvertToNode(c *C) {
 			args: args{
 				obj: &v1.Node{},
 			},
-			want: &types.Node{},
+			want: &slim_corev1.Node{},
 		},
 		{
 			name: "delete final state unknown conversion",
@@ -1241,7 +1260,7 @@ func (s *K8sSuite) Test_ConvertToNode(c *C) {
 			},
 			want: cache.DeletedFinalStateUnknown{
 				Key: "foo",
-				Obj: &types.Node{},
+				Obj: &slim_corev1.Node{},
 			},
 		},
 		{
