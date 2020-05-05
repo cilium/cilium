@@ -26,6 +26,10 @@ type FakeCoreV1 struct {
 	*testing.Fake
 }
 
+func (c *FakeCoreV1) Namespaces() v1.NamespaceInterface {
+	return &FakeNamespaces{c}
+}
+
 func (c *FakeCoreV1) Nodes() v1.NodeInterface {
 	return &FakeNodes{c}
 }

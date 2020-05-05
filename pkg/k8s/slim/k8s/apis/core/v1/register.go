@@ -47,6 +47,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&PodList{},
 		&Node{},
 		&NodeList{},
+		&Namespace{},
+		&NamespaceList{},
 	)
 
 	// Add common types
