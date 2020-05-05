@@ -21,3 +21,5 @@ type NamespaceExpansion interface{}
 type NodeExpansion interface{}
 
 type PodExpansion interface{}
+
+type ServiceExpansion interface{}

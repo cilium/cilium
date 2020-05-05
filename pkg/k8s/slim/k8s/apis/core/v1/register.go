@@ -49,6 +49,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&NodeList{},
 		&Namespace{},
 		&NamespaceList{},
+		&Service{},
+		&ServiceList{},
 	)
 
 	// Add common types

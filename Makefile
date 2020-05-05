@@ -359,7 +359,8 @@ generate-health-api: api/v1/health/openapi.yaml
 generate-k8s-api:
 	$(call generate_k8s_protobuf,$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1$(comma)$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1)
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1$(comma)$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr)
 	$(call generate_k8s_api_deepcopy_client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"\
 	core:v1\
 	")
