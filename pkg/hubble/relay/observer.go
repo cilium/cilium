@@ -17,30 +17,17 @@ package relay
 import (
 	"context"
 	"io"
-	"time"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/sirupsen/logrus"
 
 	"golang.org/x/sync/errgroup"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 // ensure that Server implements the observer.ObserverServer interface.
 var _ observerpb.ObserverServer = (*Server)(nil)
-
-func newObserverClient(target string, dialTimeout time.Duration) (observerpb.ObserverClient, *grpc.ClientConn, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
-	defer cancel()
-	//FIXME: remove WithInsecure once mutual TLS is implemented
-	conn, err := grpc.DialContext(ctx, target, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		return nil, nil, err
-	}
-	return observerpb.NewObserverClient(conn), conn, nil
-}
 
 // GetFlows implements observer.ObserverServer.GetFlows by proxying requests to
 // the hubble instance the proxy is connected to.
@@ -61,25 +48,22 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 	flows := make(chan *observerpb.GetFlowsResponse, 10*len(peers))
 	for _, p := range peers {
 		p := p
+		if p.conn == nil || p.connErr != nil {
+			s.log.WithField("address", p.Address.String()).Infof(
+				"No connection to peer %s, skipping", p.Name,
+			)
+			go s.connectPeer(p.Name, p.Address.String())
+			continue
+		}
 		g.Go(func() error {
-			//FIXME: establishing a new connection to every peer for every
-			// request is costly. Possible solutions:
-			// - selective connection: only connect to peers that have the
-			//   requested information (it still has the cost of connect/disconnect per
-			//   GetFlows request but it's at least limited in terms of scope).
-			// - Maintain a connection with all peers and reconnect when necessary.
-			cl, conn, err := newObserverClient(p.Address.String(), s.opts.DialTimeout)
+			client := observerpb.NewObserverClient(p.conn)
+			c, err := client.GetFlows(ctx, req)
 			if err != nil {
 				s.log.WithFields(logrus.Fields{
 					"error": err,
 					"peer":  p,
-				}).Error("Failed to connect to peer")
+				}).Warning("Failed to retrieve flows from peer")
 				return nil
-			}
-			defer conn.Close()
-			c, err := cl.GetFlows(ctx, req)
-			if err != nil {
-				return err
 			}
 			for {
 				flow, err := c.Recv()
@@ -137,28 +121,21 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 	statuses := make(chan *observerpb.ServerStatusResponse, len(peers))
 	for _, p := range peers {
 		p := p
+		if p.conn == nil || p.connErr != nil {
+			s.log.WithField("address", p.Address.String()).Infof(
+				"No connection to peer %s, skipping", p.Name,
+			)
+			go s.connectPeer(p.Name, p.Address.String())
+			continue
+		}
 		g.Go(func() error {
-			//FIXME: establishing a new connection to every peer for every
-			// request is costly. Possible solutions:
-			// - selective connection: only connect to peers that have the
-			//   requested information (it still has the cost of connect/disconnect per
-			//   ServerStatus request but it's at least limited in terms of scope).
-			// - Maintain a connection with all peers and reconnect when necessary.
-			cl, conn, err := newObserverClient(p.Address.String(), s.opts.DialTimeout)
+			client := observerpb.NewObserverClient(p.conn)
+			status, err := client.ServerStatus(ctx, req)
 			if err != nil {
 				s.log.WithFields(logrus.Fields{
 					"error": err,
 					"peer":  p,
-				}).Error("Failed to connect to peer")
-				return nil
-			}
-			defer conn.Close()
-			status, err := cl.ServerStatus(ctx, req)
-			if err != nil {
-				s.log.WithFields(logrus.Fields{
-					"error": err,
-					"peer":  p,
-				}).Error("Failed to retrieve server status")
+				}).Warning("Failed to retrieve server status")
 				return nil
 			}
 			select {

@@ -32,12 +32,18 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
+type hubblePeer struct {
+	peer.Peer
+	conn    *grpc.ClientConn
+	connErr error
+}
+
 // Server is a proxy that connects to a running instance of hubble gRPC server
 // via unix domain socket.
 type Server struct {
 	server *grpc.Server
 	log    logrus.FieldLogger
-	peers  map[string]peer.Peer
+	peers  map[string]*hubblePeer
 	opts   relayoption.Options
 	mu     lock.Mutex
 	stop   chan struct{}
@@ -55,7 +61,7 @@ func NewServer(options ...relayoption.Option) (*Server, error) {
 	logging.ConfigureLogLevel(opts.Debug)
 	return &Server{
 		log:   logger,
-		peers: make(map[string]peer.Peer),
+		peers: make(map[string]*hubblePeer),
 		stop:  make(chan struct{}),
 		opts:  opts,
 	}, nil

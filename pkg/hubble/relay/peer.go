@@ -25,11 +25,15 @@ import (
 	"google.golang.org/grpc"
 )
 
-func newPeerClient(target string, dialTimeout time.Duration) (peerpb.PeerClient, *grpc.ClientConn, error) {
+func newConn(target string, dialTimeout time.Duration, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
 	defer cancel()
+	return grpc.DialContext(ctx, target, opts...)
+}
+
+func newPeerClient(target string, dialTimeout time.Duration) (peerpb.PeerClient, *grpc.ClientConn, error) {
 	// the connection is assumed to be local
-	conn, err := grpc.DialContext(ctx, target, grpc.WithInsecure(), grpc.WithBlock())
+	conn, err := newConn(target, dialTimeout, grpc.WithInsecure(), grpc.WithBlock())
 	if err != nil {
 		return nil, nil, err
 	}
@@ -106,19 +110,81 @@ connect:
 	}
 }
 
+func (s *Server) connectPeer(name, addr string) {
+	s.log.WithFields(logrus.Fields{
+		"address":      addr,
+		"dial timeout": s.opts.DialTimeout,
+	}).Debugf("Connecting peer %s...", name)
+
+	//FIXME: remove WithInsecure once mutual TLS is implemented
+	conn, connErr := newConn(addr, s.opts.DialTimeout, grpc.WithInsecure(), grpc.WithBlock())
+	var err error
+	s.mu.Lock()
+	if hp, ok := s.peers[name]; ok {
+		if hp.conn != nil { // make sure to close existing connection, if any
+			err = hp.conn.Close()
+		}
+		hp.conn = conn
+		hp.connErr = connErr
+	}
+	s.mu.Unlock()
+
+	if err != nil {
+		s.log.WithFields(logrus.Fields{
+			"error": err,
+		}).Warningf("Failed to properly close gRPC client connection to peer %s", name)
+	}
+	if connErr != nil {
+		s.log.WithFields(logrus.Fields{
+			"address":      addr,
+			"dial timeout": s.opts.DialTimeout,
+			"error":        connErr,
+		}).Warningf("Failed to create gRPC client connection to peer %s", name)
+	} else {
+		s.log.Debugf("Peer %s connected", name)
+	}
+}
+
+func (s *Server) disconnectPeer(name string) {
+	s.log.Debugf("Disconnecting peer %s...", name)
+
+	var err error
+	s.mu.Lock()
+	if hp, ok := s.peers[name]; ok && hp.conn != nil {
+		err = hp.conn.Close()
+		hp.conn = nil
+	}
+	s.mu.Unlock()
+
+	if err != nil {
+		s.log.WithFields(logrus.Fields{
+			"error": err,
+		}).Warningf("Failed to properly close gRPC client connection to peer %s", name)
+	}
+	s.log.Debugf("Peer %s disconnected", name)
+}
+
 func (s *Server) addPeer(p *peer.Peer) {
 	if p == nil {
 		return
 	}
+
+	hp := &hubblePeer{*p, nil, nil}
 	s.mu.Lock()
-	s.peers[p.Name] = *p
+	s.peers[p.Name] = hp
 	s.mu.Unlock()
+
+	// we don't want to block while waiting to establish a connection with the
+	// peer thus attempt to connect in the background
+	go s.connectPeer(p.Name, p.Address.String())
 }
 
 func (s *Server) deletePeer(p *peer.Peer) {
 	if p == nil {
 		return
 	}
+
+	s.disconnectPeer(p.Name)
 	s.mu.Lock()
 	delete(s.peers, p.Name)
 	s.mu.Unlock()
@@ -128,16 +194,17 @@ func (s *Server) updatePeer(p *peer.Peer) {
 	if p == nil {
 		return
 	}
-	s.mu.Lock()
-	s.peers[p.Name] = *p
-	s.mu.Unlock()
+
+	s.disconnectPeer(p.Name)
+	s.addPeer(p)
 }
 
-func (s *Server) peerList() []peer.Peer {
+func (s *Server) peerList() []hubblePeer {
 	s.mu.Lock()
-	p := make([]peer.Peer, 0, len(s.peers))
+	p := make([]hubblePeer, 0, len(s.peers))
 	for _, v := range s.peers {
-		p = append(p, v)
+		// note: there shouldn't be null entries in the map
+		p = append(p, *v)
 	}
 	s.mu.Unlock()
 	return p
