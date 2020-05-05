@@ -26,6 +26,10 @@ type FakeCoreV1 struct {
 	*testing.Fake
 }
 
+func (c *FakeCoreV1) Nodes() v1.NodeInterface {
+	return &FakeNodes{c}
+}
+
 func (c *FakeCoreV1) Pods(namespace string) v1.PodInterface {
 	return &FakePods{c, namespace}
 }

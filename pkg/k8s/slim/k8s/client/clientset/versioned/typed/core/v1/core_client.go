@@ -24,12 +24,17 @@ import (
 
 type CoreV1Interface interface {
 	RESTClient() rest.Interface
+	NodesGetter
 	PodsGetter
 }
 
 // CoreV1Client is used to interact with features provided by the core group.
 type CoreV1Client struct {
 	restClient rest.Interface
+}
+
+func (c *CoreV1Client) Nodes() NodeInterface {
+	return newNodes(c)
 }
 
 func (c *CoreV1Client) Pods(namespace string) PodInterface {
