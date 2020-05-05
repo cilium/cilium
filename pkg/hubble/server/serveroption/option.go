@@ -33,38 +33,15 @@ import (
 
 // Options stores all the configuration values for the hubble server.
 type Options struct {
-	Listeners       map[string]net.Listener
-	HealthService   healthpb.HealthServer
-	ObserverService observerpb.ObserverServer
-	PeerService     peerpb.PeerServer
+	TCPListener        net.Listener
+	UnixSocketListener net.Listener
+	HealthService      healthpb.HealthServer
+	ObserverService    observerpb.ObserverServer
+	PeerService        peerpb.PeerServer
 }
 
 // Option customizes then configuration of the hubble server.
 type Option func(o *Options) error
-
-// WithListeners configures listeners. Addresses that are prefixed with
-// 'unix://' are assumed to be UNIX domain sockets, in which case appropriate
-// permissions are tentatively set and the group owner is set to socketGroup.
-// Otherwise, the address is assumed to be TCP.
-func WithListeners(addresses []string) Option {
-	return func(o *Options) error {
-		var opt Option
-		for _, address := range addresses {
-			if strings.HasPrefix(address, "unix://") {
-				opt = WithUnixSocketListener(address)
-			} else {
-				opt = WithTCPListener(address)
-			}
-			if err := opt(o); err != nil {
-				for _, l := range o.Listeners {
-					l.Close()
-				}
-				return err
-			}
-		}
-		return nil
-	}
-}
 
 // WithTCPListener configures a TCP listener with the address.
 func WithTCPListener(address string) Option {
@@ -73,11 +50,11 @@ func WithTCPListener(address string) Option {
 		if err != nil {
 			return err
 		}
-		if _, exist := o.Listeners[address]; exist {
+		if o.TCPListener != nil {
 			socket.Close()
 			return fmt.Errorf("listener already configured: %s", address)
 		}
-		o.Listeners[address] = socket
+		o.TCPListener = socket
 		return nil
 	}
 }
@@ -98,12 +75,12 @@ func WithUnixSocketListener(path string) Option {
 				return err
 			}
 		}
-		if _, exist := o.Listeners[path]; exist {
+		if o.UnixSocketListener != nil {
 			socket.Close()
 			unix.Unlink(socketPath)
 			return fmt.Errorf("listener already configured: %s", path)
 		}
-		o.Listeners[path] = socket
+		o.UnixSocketListener = socket
 		return nil
 	}
 }

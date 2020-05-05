@@ -16,7 +16,6 @@ package cmd
 
 import (
 	"context"
-	"strings"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -127,11 +126,9 @@ func (d *Daemon) launchHubble() {
 	address := option.Config.HubbleListenAddress
 	if address != "" {
 		// TODO: remove warning once mutual TLS has been implemented
-		if !strings.HasPrefix(address, "unix://") {
-			logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
-		}
+		logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
 		srv, err := server.NewServer(logger,
-			serveroption.WithListeners([]string{address}),
+			serveroption.WithTCPListener(address),
 			serveroption.WithHealthService(),
 			serveroption.WithObserverService(d.hubbleObserver),
 		)

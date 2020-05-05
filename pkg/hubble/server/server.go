@@ -38,9 +38,7 @@ type Server struct {
 
 // NewServer creates a new hubble gRPC server.
 func NewServer(log *logrus.Entry, options ...serveroption.Option) (*Server, error) {
-	opts := serveroption.Options{
-		Listeners: make(map[string]net.Listener),
-	}
+	opts := serveroption.Options{}
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
@@ -68,12 +66,16 @@ func (s *Server) initGRPCServer() {
 // listeners. Stop should be called to stop the server.
 func (s *Server) Serve() error {
 	s.initGRPCServer()
-	for name, listener := range s.opts.Listeners {
-		go func(name string, listener net.Listener) {
-			if err := s.srv.Serve(listener); err != nil {
-				s.log.WithError(err).Error("failed to close grpc server")
-			}
-		}(name, listener)
+	for _, listener := range []net.Listener{s.opts.UnixSocketListener, s.opts.TCPListener} {
+		if listener != nil {
+			go func(listener net.Listener) {
+				if err := s.srv.Serve(listener); err != nil {
+					s.log.WithError(err).
+						WithField("address", listener.Addr().String()).
+						Error("failed to start grpc server")
+				}
+			}(listener)
+		}
 	}
 	return nil
 }
