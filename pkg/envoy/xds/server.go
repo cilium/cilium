@@ -126,7 +126,7 @@ func NewServer(resourceTypes map[string]*ResourceTypeConfiguration,
 func getXDSRequestFields(req *envoy_api_v2.DiscoveryRequest) logrus.Fields {
 	return logrus.Fields{
 		logfields.XDSAckedVersion: req.GetVersionInfo(),
-		logfields.XDSClientNode:   req.GetNode(),
+		logfields.XDSClientNode:   req.GetNode().GetId(),
 		logfields.XDSTypeURL:      req.GetTypeUrl(),
 		logfields.XDSNonce:        req.GetResponseNonce(),
 	}
