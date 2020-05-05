@@ -34,6 +34,7 @@
 #include "lib/nat.h"
 #include "lib/lb.h"
 #include "lib/nodeport.h"
+#include "lib/eps.h"
 
 #if defined FROM_HOST && (defined ENABLE_IPV4 || defined ENABLE_IPV6)
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
@@ -310,7 +311,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(src_identity)) {
-		info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr, V4_CACHE_KEY_LEN);
+		info = lookup_ip4_remote_endpoint(ip4->saddr);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
 			if (sec_label) {
