@@ -27,6 +27,7 @@ type CoreV1Interface interface {
 	NamespacesGetter
 	NodesGetter
 	PodsGetter
+	ServicesGetter
 }
 
 // CoreV1Client is used to interact with features provided by the core group.
@@ -44,6 +45,10 @@ func (c *CoreV1Client) Nodes() NodeInterface {
 
 func (c *CoreV1Client) Pods(namespace string) PodInterface {
 	return newPods(c, namespace)
+}
+
+func (c *CoreV1Client) Services(namespace string) ServiceInterface {
+	return newServices(c, namespace)
 }
 
 // NewForConfig creates a new CoreV1Client for the given config.

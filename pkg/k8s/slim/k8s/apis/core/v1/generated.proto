@@ -26,6 +26,15 @@ import "k8s.io/apimachinery/pkg/runtime/schema/generated.proto";
 // Package-wide variables from generator "generated".
 option go_package = "v1";
 
+// ClientIPConfig represents the configurations of Client IP based session affinity.
+message ClientIPConfig {
+  // timeoutSeconds specifies the seconds of ClientIP type session sticky time.
+  // The value must be >0 && <=86400(for 1 day) if ServiceAffinity == "ClientIP".
+  // Default value is 10800(for 3 hours).
+  // +optional
+  optional int32 timeoutSeconds = 1;
+}
+
 // A single application container that you want to run within a pod.
 message Container {
   // Name of the container specified as a DNS_LABEL.
@@ -96,6 +105,23 @@ message ContainerPort {
 message EphemeralContainers {
   // +optional
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
+}
+
+// LoadBalancerIngress represents the status of a load-balancer ingress point:
+// traffic intended for the service should be sent to an ingress point.
+message LoadBalancerIngress {
+  // IP is set for load-balancer ingress points that are IP based
+  // (typically GCE or OpenStack load-balancers)
+  // +optional
+  optional string ip = 1;
+}
+
+// LoadBalancerStatus represents the status of a load-balancer.
+message LoadBalancerStatus {
+  // Ingress is a list containing ingress points for the load-balancer.
+  // Traffic intended for the service should be sent to these ingress points.
+  // +optional
+  repeated LoadBalancerIngress ingress = 1;
 }
 
 // Namespace provides a scope for Names.
@@ -294,6 +320,168 @@ message PodStatus {
   // +patchStrategy=merge
   // +patchMergeKey=ip
   repeated PodIP podIPs = 12;
+}
+
+// Service is a named abstraction of software service (for example, mysql) consisting of local port
+// (for example 3306) that the proxy listens on, and the selector that determines which pods
+// will answer requests sent through the proxy.
+message Service {
+  // Standard object's metadata.
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
+
+  // Spec defines the behavior of a service.
+  // https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+  // +optional
+  optional ServiceSpec spec = 2;
+
+  // Most recently observed status of the service.
+  // Populated by the system.
+  // Read-only.
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+  // +optional
+  optional ServiceStatus status = 3;
+}
+
+// ServiceList holds a list of services.
+message ServiceList {
+  // Standard list metadata.
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
+
+  // List of services
+  repeated Service items = 2;
+}
+
+// ServicePort contains information on service's port.
+message ServicePort {
+  // The name of this port within the service. This must be a DNS_LABEL.
+  // All ports within a ServiceSpec must have unique names. When considering
+  // the endpoints for a Service, this must match the 'name' field in the
+  // EndpointPort.
+  // Optional if only one ServicePort is defined on this service.
+  // +optional
+  optional string name = 1;
+
+  // The IP protocol for this port. Supports "TCP", "UDP", and "SCTP".
+  // Default is TCP.
+  // +optional
+  optional string protocol = 2;
+
+  // The port that will be exposed by this service.
+  optional int32 port = 3;
+
+  // The port on each node on which this service is exposed when type=NodePort or LoadBalancer.
+  // Usually assigned by the system. If specified, it will be allocated to the service
+  // if unused or else creation of the service will fail.
+  // Default is to auto-allocate a port if the ServiceType of this Service requires one.
+  // More info: https://kubernetes.io/docs/concepts/services-networking/service/#type-nodeport
+  // +optional
+  optional int32 nodePort = 5;
+}
+
+// ServiceSpec describes the attributes that a user creates on a service.
+message ServiceSpec {
+  // The list of ports that are exposed by this service.
+  // More info: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
+  // +patchMergeKey=port
+  // +patchStrategy=merge
+  // +listType=map
+  // +listMapKey=port
+  // +listMapKey=protocol
+  repeated ServicePort ports = 1;
+
+  // Route service traffic to pods with label keys and values matching this
+  // selector. If empty or not present, the service is assumed to have an
+  // external process managing its endpoints, which Kubernetes will not
+  // modify. Only applies to types ClusterIP, NodePort, and LoadBalancer.
+  // Ignored if type is ExternalName.
+  // More info: https://kubernetes.io/docs/concepts/services-networking/service/
+  // +optional
+  map<string, string> selector = 2;
+
+  // clusterIP is the IP address of the service and is usually assigned
+  // randomly by the master. If an address is specified manually and is not in
+  // use by others, it will be allocated to the service; otherwise, creation
+  // of the service will fail. This field can not be changed through updates.
+  // Valid values are "None", empty string (""), or a valid IP address. "None"
+  // can be specified for headless services when proxying is not required.
+  // Only applies to types ClusterIP, NodePort, and LoadBalancer. Ignored if
+  // type is ExternalName.
+  // More info: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
+  // +optional
+  optional string clusterIP = 3;
+
+  // type determines how the Service is exposed. Defaults to ClusterIP. Valid
+  // options are ExternalName, ClusterIP, NodePort, and LoadBalancer.
+  // "ExternalName" maps to the specified externalName.
+  // "ClusterIP" allocates a cluster-internal IP address for load-balancing to
+  // endpoints. Endpoints are determined by the selector or if that is not
+  // specified, by manual construction of an Endpoints object. If clusterIP is
+  // "None", no virtual IP is allocated and the endpoints are published as a
+  // set of endpoints rather than a stable IP.
+  // "NodePort" builds on ClusterIP and allocates a port on every node which
+  // routes to the clusterIP.
+  // "LoadBalancer" builds on NodePort and creates an
+  // external load-balancer (if supported in the current cloud) which routes
+  // to the clusterIP.
+  // More info: https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types
+  // +optional
+  optional string type = 4;
+
+  // externalIPs is a list of IP addresses for which nodes in the cluster
+  // will also accept traffic for this service.  These IPs are not managed by
+  // Kubernetes.  The user is responsible for ensuring that traffic arrives
+  // at a node with this IP.  A common example is external load-balancers
+  // that are not part of the Kubernetes system.
+  // +optional
+  repeated string externalIPs = 5;
+
+  // Supports "ClientIP" and "None". Used to maintain session affinity.
+  // Enable client IP based session affinity.
+  // Must be ClientIP or None.
+  // Defaults to None.
+  // More info: https://kubernetes.io/docs/concepts/services-networking/service/#virtual-ips-and-service-proxies
+  // +optional
+  optional string sessionAffinity = 7;
+
+  // externalTrafficPolicy denotes if this Service desires to route external
+  // traffic to node-local or cluster-wide endpoints. "Local" preserves the
+  // client source IP and avoids a second hop for LoadBalancer and Nodeport
+  // type services, but risks potentially imbalanced traffic spreading.
+  // "Cluster" obscures the client source IP and may cause a second hop to
+  // another node, but should have good overall load-spreading.
+  // +optional
+  optional string externalTrafficPolicy = 11;
+
+  // healthCheckNodePort specifies the healthcheck nodePort for the service.
+  // If not specified, HealthCheckNodePort is created by the service api
+  // backend with the allocated nodePort. Will use user-specified nodePort value
+  // if specified by the client. Only effects when Type is set to LoadBalancer
+  // and ExternalTrafficPolicy is set to Local.
+  // +optional
+  optional int32 healthCheckNodePort = 12;
+
+  // sessionAffinityConfig contains the configurations of session affinity.
+  // +optional
+  optional SessionAffinityConfig sessionAffinityConfig = 14;
+}
+
+// ServiceStatus represents the current status of a service.
+message ServiceStatus {
+  // LoadBalancer contains the current status of the load-balancer,
+  // if one is present.
+  // +optional
+  optional LoadBalancerStatus loadBalancer = 1;
+}
+
+// SessionAffinityConfig represents the configurations of session affinity.
+message SessionAffinityConfig {
+  // clientIP contains the configurations of Client IP based session affinity.
+  // +optional
+  optional ClientIPConfig clientIP = 1;
 }
 
 // The node this Taint is attached to has the "effect" on

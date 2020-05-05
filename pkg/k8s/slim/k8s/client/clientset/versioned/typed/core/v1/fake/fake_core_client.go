@@ -38,6 +38,10 @@ func (c *FakeCoreV1) Pods(namespace string) v1.PodInterface {
 	return &FakePods{c, namespace}
 }
 
+func (c *FakeCoreV1) Services(namespace string) v1.ServiceInterface {
+	return &FakeServices{c, namespace}
+}
+
 // RESTClient returns a RESTClient that is used to communicate
 // with API server by this client implementation.
 func (c *FakeCoreV1) RESTClient() rest.Interface {
