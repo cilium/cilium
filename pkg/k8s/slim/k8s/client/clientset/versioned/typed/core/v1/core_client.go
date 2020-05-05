@@ -24,6 +24,7 @@ import (
 
 type CoreV1Interface interface {
 	RESTClient() rest.Interface
+	EndpointsGetter
 	NamespacesGetter
 	NodesGetter
 	PodsGetter
@@ -33,6 +34,10 @@ type CoreV1Interface interface {
 // CoreV1Client is used to interact with features provided by the core group.
 type CoreV1Client struct {
 	restClient rest.Interface
+}
+
+func (c *CoreV1Client) Endpoints(namespace string) EndpointsInterface {
+	return newEndpoints(c, namespace)
 }
 
 func (c *CoreV1Client) Namespaces() NamespaceInterface {
