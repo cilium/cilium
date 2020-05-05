@@ -617,3 +617,103 @@ type ServiceList struct {
 	// List of services
 	Items []Service `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
+
+// +genclient
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// Endpoints is a collection of endpoints that implement the actual service. Example:
+//   Name: "mysvc",
+//   Subsets: [
+//     {
+//       Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
+//       Ports: [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
+//     },
+//     {
+//       Addresses: [{"ip": "10.10.3.3"}],
+//       Ports: [{"name": "a", "port": 93}, {"name": "b", "port": 76}]
+//     },
+//  ]
+type Endpoints struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
+	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// The set of all endpoints is the union of all subsets. Addresses are placed into
+	// subsets according to the IPs they share. A single address with multiple ports,
+	// some of which are ready and some of which are not (because they come from
+	// different containers) will result in the address being displayed in different
+	// subsets for the different ports. No address will appear in both Addresses and
+	// NotReadyAddresses in the same subset.
+	// Sets of addresses and ports that comprise a service.
+	// +optional
+	Subsets []EndpointSubset `json:"subsets,omitempty" protobuf:"bytes,2,rep,name=subsets"`
+}
+
+// EndpointSubset is a group of addresses with a common set of ports. The
+// expanded set of endpoints is the Cartesian product of Addresses x Ports.
+// For example, given:
+//   {
+//     Addresses: [{"ip": "10.10.1.1"}, {"ip": "10.10.2.2"}],
+//     Ports:     [{"name": "a", "port": 8675}, {"name": "b", "port": 309}]
+//   }
+// The resulting set of endpoints can be viewed as:
+//     a: [ 10.10.1.1:8675, 10.10.2.2:8675 ],
+//     b: [ 10.10.1.1:309, 10.10.2.2:309 ]
+type EndpointSubset struct {
+	// IP addresses which offer the related ports that are marked as ready. These endpoints
+	// should be considered safe for load balancers and clients to utilize.
+	// +optional
+	Addresses []EndpointAddress `json:"addresses,omitempty" protobuf:"bytes,1,rep,name=addresses"`
+	// Port numbers available on the related IP addresses.
+	// +optional
+	Ports []EndpointPort `json:"ports,omitempty" protobuf:"bytes,3,rep,name=ports"`
+}
+
+// EndpointAddress is a tuple that describes single IP address.
+type EndpointAddress struct {
+	// The IP of this endpoint.
+	// May not be loopback (127.0.0.0/8), link-local (169.254.0.0/16),
+	// or link-local multicast ((224.0.0.0/24).
+	// IPv6 is also accepted but not fully supported on all platforms. Also, certain
+	// kubernetes components, like kube-proxy, are not IPv6 ready.
+	// TODO: This should allow hostname or IP, See #4447.
+	IP string `json:"ip" protobuf:"bytes,1,opt,name=ip"`
+	// Optional: Node hosting this endpoint. This can be used to determine endpoints local to a node.
+	// +optional
+	NodeName *string `json:"nodeName,omitempty" protobuf:"bytes,4,opt,name=nodeName"`
+}
+
+// EndpointPort is a tuple that describes a single port.
+type EndpointPort struct {
+	// The name of this port.  This must match the 'name' field in the
+	// corresponding ServicePort.
+	// Must be a DNS_LABEL.
+	// Optional only if one port is defined.
+	// +optional
+	Name string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
+
+	// The port number of the endpoint.
+	Port int32 `json:"port" protobuf:"varint,2,opt,name=port"`
+
+	// The IP protocol for this port.
+	// Must be UDP, TCP, or SCTP.
+	// Default is TCP.
+	// +optional
+	Protocol Protocol `json:"protocol,omitempty" protobuf:"bytes,3,opt,name=protocol,casttype=Protocol"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// EndpointsList is a list of endpoints.
+type EndpointsList struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
+	slim_metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// List of endpoints.
+	Items []Endpoints `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
