@@ -2337,8 +2337,8 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 				ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 				defer cancel()
 				desiredRevision := revisions[ciliumPod] + 1
-				res := kub.CiliumExecContext(ctx, ciliumPod, fmt.Sprintf("cilium policy wait %d --max-wait-time %f", desiredRevision, ShortCommandTimeout.Seconds()))
-				if !(res.GetExitCode() != 0) {
+				res := kub.CiliumExecContext(ctx, ciliumPod, fmt.Sprintf("cilium policy wait %d --max-wait-time %d", desiredRevision, int(ShortCommandTimeout.Seconds())))
+				if res.GetExitCode() != 0 {
 					kub.Logger().Infof("Failed to wait for policy revision %d on pod %s", desiredRevision, ciliumPod)
 					return false
 				}
