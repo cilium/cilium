@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 // Copyright 2017 Lyft, Inc.
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
@@ -21,8 +21,9 @@ import (
 	"sort"
 	"time"
 
+	"github.com/cilium/cilium/pkg/controller"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/trigger"
 
@@ -30,39 +31,12 @@ import (
 	"golang.org/x/sync/semaphore"
 )
 
-// k8sImplementation defines the interface used to interact with the k8s
+// CiliumNodeGetterUpdater defines the interface used to interact with the k8s
 // apiserver to retrieve and update the CiliumNode custom resource
-type k8sImplementation interface {
+type CiliumNodeGetterUpdater interface {
 	Update(origResource, newResource *v2.CiliumNode) (*v2.CiliumNode, error)
 	UpdateStatus(origResource, newResource *v2.CiliumNode) (*v2.CiliumNode, error)
 	Get(name string) (*v2.CiliumNode, error)
-}
-
-// AllocationLimits defines the pre-allocation limits in which IPAM operations
-// are performed. This defines the size of the buffer a node will maintain to
-// have IPs available for immediate use without requiring to perform IP
-// allocation via an external component.
-type AllocationLimits interface {
-	// GetMaxAboveWatermark returns the maximum number of addresses to
-	// allocate beyond the addresses needed to reach the PreAllocate
-	// watermark.  Going above the watermark can help reduce the number of
-	// API calls to allocate IPs, e.g. when a new interface is allocated,
-	// as many secondary IPs as possible are allocated. Limiting the amount
-	// can help reduce waste of IPs.
-	GetMaxAboveWatermark() int
-
-	// GetPreAllocate returns the number of IP addresses that must be
-	// available for immediate use by the node. It defines the buffer of
-	// addresses available immediately without requiring cilium-operator to
-	// get involved.
-	GetPreAllocate() int
-
-	// GetMinAllocate returns the minimum number of IPs that must be
-	// allocated when the node is first bootstrapped. It defines the
-	// minimum base socket of addresses that must be available. After
-	// reaching this watermark, the PreAllocate and MaxAboveWatermark logic
-	// takes over to continue allocating IPs.
-	GetMinAllocate() int
 }
 
 // NodeOperations is the interface an IPAM implementation must provide in order
@@ -73,26 +47,12 @@ type AllocationLimits interface {
 // NodeOperations implementation which performs operations in the context of
 // that node.
 type NodeOperations interface {
-	AllocationLimits
-
 	// UpdateNode is called when an update to the CiliumNode is received.
-	// Node.mutex will remain locked while UpdateNode is being called.
 	UpdatedNode(obj *v2.CiliumNode)
 
 	// PopulateStatusFields is called to give the implementation a chance
 	// to populate any implementation specific fields in CiliumNode.Status.
-	// Node.mutex will remain locked while this function is called.
 	PopulateStatusFields(resource *v2.CiliumNode)
-
-	// PopulateSpecFields is called to give the implementation a chance
-	// to populate any implementation specific fields in CiliumNode.Spec.
-	// Node.mutex will remain locked while this function is called.
-	PopulateSpecFields(resource *v2.CiliumNode)
-
-	// LogFields is called to extend the logrus logger with implementation
-	// specific fields.  Node.mutex will remain locked while this function
-	// is called.
-	LogFields(log *logrus.Entry) *logrus.Entry
 
 	// CreateInterface is called to create a new interface. This is only
 	// done if PrepareIPAllocation indicates that no more IPs are available
@@ -100,21 +60,18 @@ type NodeOperations interface {
 	// interfaces are available for creation
 	// (AllocationAction.AvailableInterfaces > 0). This function must
 	// create the interface *and* allocate up to
-	// AllocationAction.MaxIPsToAllocate.  Node.mutex will remain locked
-	// while this function is called.
+	// AllocationAction.MaxIPsToAllocate.
 	CreateInterface(ctx context.Context, allocation *AllocationAction, scopedLog *logrus.Entry) (int, string, error)
 
 	// ResyncInterfacesAndIPs is called to synchronize the latest list of
 	// interfaces and IPs associated with the node. This function is called
 	// sparingly as this information is kept in sync based on the success
 	// of the functions AllocateIPs(), ReleaseIPs() and CreateInterface().
-	// Node.mutex will remain locked while this function is called.
 	ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, error)
 
 	// PrepareIPAllocation is called to calculate the number of IPs that
 	// can be allocated on the node and whether a new network interface
-	// must be attached to the node. Node.mutex will remain locked while
-	// this function is called.
+	// must be attached to the node.
 	PrepareIPAllocation(scopedLog *logrus.Entry) (*AllocationAction, error)
 
 	// AllocateIPs is called after invoking PrepareIPAllocation and needs
@@ -129,6 +86,10 @@ type NodeOperations interface {
 	// ReleaseIPs is called after invoking PrepareIPRelease and needs to
 	// perform the release of IPs.
 	ReleaseIPs(ctx context.Context, release *ReleaseAction) error
+
+	// GetMaximumAllocatableIPv4 returns the maximum amount of IPv4 addresses
+	// that can be allocated to the instance
+	GetMaximumAllocatableIPv4() int
 }
 
 // AllocationImplementation is the interface an implementation must provide.
@@ -174,7 +135,7 @@ type NodeManager struct {
 	mutex            lock.RWMutex
 	nodes            nodeMap
 	instancesAPI     AllocationImplementation
-	k8sAPI           k8sImplementation
+	k8sAPI           CiliumNodeGetterUpdater
 	metricsAPI       MetricsAPI
 	resyncTrigger    *trigger.Trigger
 	parallelWorkers  int64
@@ -182,7 +143,7 @@ type NodeManager struct {
 }
 
 // NewNodeManager returns a new NodeManager
-func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI k8sImplementation, metrics MetricsAPI, parallelWorkers int64, releaseExcessIPs bool) (*NodeManager, error) {
+func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI CiliumNodeGetterUpdater, metrics MetricsAPI, parallelWorkers int64, releaseExcessIPs bool) (*NodeManager, error) {
 	if parallelWorkers < 1 {
 		parallelWorkers = 1
 	}
@@ -212,6 +173,31 @@ func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI k8sImplementat
 	mngr.resyncTrigger = resyncTrigger
 
 	return mngr, nil
+}
+
+// Start kicks of the NodeManager by performing the initial state
+// synchronization and starting the background sync go routine
+func (n *NodeManager) Start(ctx context.Context) {
+	// Trigger the initial resync in a blocking manner
+	n.instancesAPI.Resync(ctx)
+
+	// Start an interval based  background resync for safety, it will
+	// synchronize the state regularly and resolve eventual deficit if the
+	// event driven trigger fails, and also release excess IP addresses
+	// if release-excess-ips is enabled
+	go func() {
+		time.Sleep(time.Minute)
+		mngr := controller.NewManager()
+		mngr.UpdateController("ipam-node-interval-refresh",
+			controller.ControllerParams{
+				RunInterval: time.Minute,
+				DoFunc: func(ctx context.Context) error {
+					syncTime := n.instancesAPI.Resync(ctx)
+					n.Resync(ctx, syncTime)
+					return nil
+				},
+			})
+	}()
 }
 
 // GetNames returns the list of all node names
@@ -346,39 +332,34 @@ type resyncStats struct {
 }
 
 func (n *NodeManager) resyncNode(ctx context.Context, node *Node, stats *resyncStats, syncTime time.Time) {
-	node.mutex.Lock()
-
-	if syncTime.After(node.resyncNeeded) {
-		node.loggerLocked().Debug("Resetting resyncNeeded")
-		node.resyncNeeded = time.Time{}
-	}
-
-	node.recalculateLocked()
+	node.updateLastResync(syncTime)
+	node.recalculate()
 	allocationNeeded := node.allocationNeeded()
 	releaseNeeded := node.releaseNeeded()
 	if allocationNeeded || releaseNeeded {
-		node.waitingForPoolMaintenance = true
+		node.requirePoolMaintenance()
 		node.poolMaintainer.Trigger()
 	}
 
+	nodeStats := node.Stats()
+
 	stats.mutex.Lock()
-	stats.totalUsed += node.stats.UsedIPs
-	availableOnNode := node.stats.AvailableIPs - node.stats.UsedIPs
+	stats.totalUsed += nodeStats.UsedIPs
+	availableOnNode := nodeStats.AvailableIPs - nodeStats.UsedIPs
 	stats.totalAvailable += availableOnNode
-	stats.totalNeeded += node.stats.NeededIPs
-	stats.remainingInterfaces += node.stats.RemainingInterfaces
+	stats.totalNeeded += nodeStats.NeededIPs
+	stats.remainingInterfaces += nodeStats.RemainingInterfaces
 	stats.nodes++
 
 	if allocationNeeded {
 		stats.nodesInDeficit++
 	}
 
-	if node.stats.RemainingInterfaces == 0 && availableOnNode == 0 {
+	if nodeStats.RemainingInterfaces == 0 && availableOnNode == 0 {
 		stats.nodesAtCapacity++
 	}
 
 	stats.mutex.Unlock()
-	node.mutex.Unlock()
 
 	node.k8sSync.Trigger()
 }

@@ -33,17 +33,21 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
+	"github.com/cilium/cilium/pkg/maps/eventsmap"
+	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
+	"github.com/cilium/cilium/pkg/maps/ipmasq"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
+	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/signal"
 
 	"github.com/vishvananda/netlink"
 )
@@ -69,15 +73,19 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	hostIP := node.GetIPv6()
 
 	fmt.Fprintf(fw, "/*\n")
-	fmt.Fprintf(fw, " cilium.v6.external.str %s\n", node.GetIPv6().String())
-	fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", node.GetIPv6Router().String())
-	fmt.Fprintf(fw, " cilium.v6.nodeport.str %s\n", node.GetNodePortIPv6().String())
-	fmt.Fprintf(fw, "\n")
+	if option.Config.EnableIPv6 {
+		fmt.Fprintf(fw, " cilium.v6.external.str %s\n", node.GetIPv6().String())
+		fmt.Fprintf(fw, " cilium.v6.internal.str %s\n", node.GetIPv6Router().String())
+		fmt.Fprintf(fw, " cilium.v6.nodeport.str %s\n", node.GetNodePortIPv6().String())
+		fmt.Fprintf(fw, "\n")
+	}
 	fmt.Fprintf(fw, " cilium.v4.external.str %s\n", node.GetExternalIPv4().String())
 	fmt.Fprintf(fw, " cilium.v4.internal.str %s\n", node.GetInternalIPv4().String())
 	fmt.Fprintf(fw, " cilium.v4.nodeport.str %s\n", node.GetNodePortIPv4().String())
 	fmt.Fprintf(fw, "\n")
-	fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router()))
+	if option.Config.EnableIPv6 {
+		fw.WriteString(dumpRaw(defaults.RestoreV6Addr, node.GetIPv6Router()))
+	}
 	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, node.GetInternalIPv4()))
 	fmt.Fprintf(fw, " */\n\n")
 
@@ -103,14 +111,22 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			ipv4NP := node.GetNodePortIPv4()
 			cDefinesMap["IPV4_NODEPORT"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4NP, reflect.Uint32).(uint32))
 		}
+
+		if option.Config.EnableIPv4FragmentsTracking {
+			cDefinesMap["ENABLE_IPV4_FRAGMENTS"] = "1"
+			cDefinesMap["IPV4_FRAG_DATAGRAMS_MAP"] = fragmap.MapName
+			cDefinesMap["CILIUM_IPV4_FRAG_MAP_MAX_ENTRIES"] = fmt.Sprintf("%d", option.Config.FragmentsMapEntries)
+		}
 	}
 
 	if nat46Range := option.Config.NAT46Prefix; nat46Range != nil {
 		fw.WriteString(FmtDefineAddress("NAT46_PREFIX", nat46Range.IP))
 	}
 
-	extraMacrosMap["HOST_IP"] = hostIP.String()
-	fw.WriteString(defineIPv6("HOST_IP", hostIP))
+	if option.Config.EnableIPv6 {
+		extraMacrosMap["HOST_IP"] = hostIP.String()
+		fw.WriteString(defineIPv6("HOST_IP", hostIP))
+	}
 
 	cDefinesMap["HOST_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameHost))
 	cDefinesMap["WORLD_ID"] = fmt.Sprintf("%d", identity.GetReservedID(labels.IDNameWorld))
@@ -128,7 +144,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["POLICY_MAP_SIZE"] = fmt.Sprintf("%d", policymap.MaxEntries)
 	cDefinesMap["IPCACHE_MAP"] = ipcachemap.Name
 	cDefinesMap["IPCACHE_MAP_SIZE"] = fmt.Sprintf("%d", ipcachemap.MaxEntries)
-	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.ProgArrayMaxEntries)
+	cDefinesMap["POLICY_PROG_MAP_SIZE"] = fmt.Sprintf("%d", policymap.PolicyCallMaxEntries)
 	cDefinesMap["SOCKOPS_MAP_SIZE"] = fmt.Sprintf("%d", sockmap.MaxEntries)
 	cDefinesMap["ENCRYPT_MAP"] = encrypt.MapName
 	cDefinesMap["CT_CONNECTION_LIFETIME_TCP"] = fmt.Sprintf("%d", int64(option.Config.CTMapEntriesTimeoutTCP.Seconds()))
@@ -148,18 +164,31 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["PREALLOCATE_MAPS"] = "1"
 	}
 
-	cDefinesMap["EVENTS_MAP"] = "cilium_events"
-	cDefinesMap["SIGNAL_MAP"] = signal.SignalMapName
-	cDefinesMap["POLICY_CALL_MAP"] = policymap.CallMapName
+	cDefinesMap["EVENTS_MAP"] = eventsmap.MapName
+	cDefinesMap["SIGNAL_MAP"] = signalmap.MapName
+	cDefinesMap["POLICY_CALL_MAP"] = policymap.PolicyCallMapName
 	cDefinesMap["EP_POLICY_MAP"] = eppolicymap.MapName
 	cDefinesMap["LB6_REVERSE_NAT_MAP"] = "cilium_lb6_reverse_nat"
 	cDefinesMap["LB6_SERVICES_MAP_V2"] = "cilium_lb6_services_v2"
 	cDefinesMap["LB6_BACKEND_MAP"] = "cilium_lb6_backends"
-	cDefinesMap["LB6_REVERSE_NAT_SK_MAP"] = "cilium_lb6_reverse_sk"
+	cDefinesMap["LB6_REVERSE_NAT_SK_MAP"] = lbmap.SockRevNat6MapName
+	cDefinesMap["LB6_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", lbmap.SockRevNat6MapSize)
 	cDefinesMap["LB4_REVERSE_NAT_MAP"] = "cilium_lb4_reverse_nat"
 	cDefinesMap["LB4_SERVICES_MAP_V2"] = "cilium_lb4_services_v2"
 	cDefinesMap["LB4_BACKEND_MAP"] = "cilium_lb4_backends"
-	cDefinesMap["LB4_REVERSE_NAT_SK_MAP"] = "cilium_lb4_reverse_sk"
+	cDefinesMap["LB4_REVERSE_NAT_SK_MAP"] = lbmap.SockRevNat4MapName
+	cDefinesMap["LB4_REVERSE_NAT_SK_MAP_SIZE"] = fmt.Sprintf("%d", lbmap.SockRevNat4MapSize)
+
+	if option.Config.EnableSessionAffinity {
+		cDefinesMap["ENABLE_SESSION_AFFINITY"] = "1"
+		cDefinesMap["LB_AFFINITY_MATCH_MAP"] = lbmap.AffinityMatchMapName
+		if option.Config.EnableIPv4 {
+			cDefinesMap["LB4_AFFINITY_MAP"] = lbmap.Affinity4MapName
+		}
+		if option.Config.EnableIPv6 {
+			cDefinesMap["LB6_AFFINITY_MAP"] = lbmap.Affinity6MapName
+		}
+	}
 
 	cDefinesMap["TRACE_PAYLOAD_LEN"] = fmt.Sprintf("%dULL", option.Config.TracePayloadlen)
 	cDefinesMap["MTU"] = fmt.Sprintf("%d", cfg.MtuConfig.GetDeviceMTU())
@@ -184,6 +213,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENCRYPT_NODE"] = "1"
 	}
 
+	if option.Config.DevicePreFilter != "undefined" {
+		cDefinesMap["ENABLE_PREFILTER"] = "1"
+	}
+
 	if !option.Config.DisableK8sServices {
 		cDefinesMap["ENABLE_SERVICES"] = "1"
 	}
@@ -204,10 +237,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_NODEPORT"] = "1"
 
 		if option.Config.EnableIPv4 {
-			cDefinesMap["NODEPORT_NEIGH4"] = "cilium_nodeport_neigh4"
+			cDefinesMap["NODEPORT_NEIGH4"] = neighborsmap.Map4Name
 		}
 		if option.Config.EnableIPv6 {
-			cDefinesMap["NODEPORT_NEIGH6"] = "cilium_nodeport_neigh6"
+			cDefinesMap["NODEPORT_NEIGH6"] = neighborsmap.Map6Name
 		}
 		if option.Config.NodePortMode == option.NodePortModeDSR ||
 			option.Config.NodePortMode == option.NodePortModeHybrid {
@@ -216,8 +249,14 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
 			}
 		}
+		if option.Config.NodePortAcceleration != option.NodePortAccelerationNone {
+			cDefinesMap["ENABLE_NODEPORT_ACCELERATION"] = "1"
+		}
 		if option.Config.EnableExternalIPs {
 			cDefinesMap["ENABLE_EXTERNAL_IP"] = "1"
+		}
+		if option.Config.EnableHostPort {
+			cDefinesMap["ENABLE_HOSTPORT"] = "1"
 		}
 
 		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)
@@ -241,8 +280,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	if option.Config.IsPodSubnetsDefined() {
 		cDefinesMap["IP_POOLS"] = "1"
 	}
-	haveMasquerade := !option.Config.InstallIptRules && option.Config.Masquerade
-	if haveMasquerade || option.Config.EnableNodePort {
+	if option.Config.EnableNodePort {
 		if option.Config.EnableIPv4 {
 			cDefinesMap["SNAT_MAPPING_IPV4"] = nat.MapNameSnat4Global
 			cDefinesMap["SNAT_MAPPING_IPV4_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
@@ -252,30 +290,25 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["SNAT_MAPPING_IPV6"] = nat.MapNameSnat6Global
 			cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
 		}
-	}
-	if haveMasquerade {
-		cDefinesMap["ENABLE_MASQUERADE"] = "1"
-		cDefinesMap["SNAT_MAPPING_MIN_PORT"] = fmt.Sprintf("%d", nat.MinPortSnatDefault)
-		cDefinesMap["SNAT_MAPPING_MAX_PORT"] = fmt.Sprintf("%d", nat.MaxPortSnatDefault)
 
-		// SNAT_DIRECTION is defined by init.sh
-		if option.Config.EnableIPv4 {
-			ipv4Addr := node.GetExternalIPv4()
-			cDefinesMap["SNAT_IPV4_EXTERNAL"] = fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(ipv4Addr, reflect.Uint32).(uint32))
+		if option.Config.EnableBPFMasquerade {
+			cDefinesMap["ENABLE_MASQUERADE"] = "1"
 		}
 
-		if option.Config.EnableIPv6 {
-			extraMacrosMap["SNAT_IPV6_EXTERNAL"] = hostIP.String()
-			fw.WriteString(defineIPv6("SNAT_IPV6_EXTERNAL", hostIP))
+		if option.Config.EnableIPMasqAgent {
+			cDefinesMap["ENABLE_IP_MASQ_AGENT"] = "1"
+			cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapName
 		}
-	}
 
-	if (!option.Config.InstallIptRules && option.Config.Masquerade) || option.Config.EnableNodePort {
 		ctmap.WriteBPFMacros(fw, nil)
 	}
 
 	if option.Config.PolicyAuditMode {
 		cDefinesMap["POLICY_AUDIT_MODE"] = "1"
+	}
+
+	if option.Config.AllowICMPFragNeeded {
+		cDefinesMap["ALLOW_ICMP_FRAG_NEEDED"] = "1"
 	}
 
 	// Since golang maps are unordered, we sort the keys in the map
@@ -307,10 +340,6 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		// to the writer.
 		encodedConfig := base64.StdEncoding.EncodeToString(jsonBytes)
 		fmt.Fprintf(fw, "\n// JSON_OUTPUT: %s\n", encodedConfig)
-	}
-
-	if option.Config.AllowICMPFragNeeded {
-		fmt.Fprintf(fw, "#define ALLOW_ICMP_FRAG_NEEDED 1\n")
 	}
 
 	return fw.Flush()
@@ -350,7 +379,25 @@ func (h *HeaderfileWriter) WriteNetdevConfig(w io.Writer, cfg datapath.DeviceCon
 // writeStaticData writes the endpoint-specific static data defines to the
 // specified writer. This must be kept in sync with loader.ELFSubstitutions().
 func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConfiguration) {
-	fmt.Fprint(fw, defineIPv6("LXC_IP", e.IPv6Address()))
+	// We want to ensure that the template BPF program always has "LXC_IP"
+	// defined and present as a symbol in the resulting object file after
+	// compilation, regardless of whether IPv6 is disabled. Because the type
+	// templateCfg hardcodes a dummy IPv6 address (and adheres to the
+	// datapath.EndpointConfiguration interface), we can rely on it always
+	// having an IPv6 addr. Endpoints however may not have IPv6 addrs if IPv6
+	// is disabled. Hence this check prevents us from omitting the "LXC_IP"
+	// symbol from the template BPF program. Without this, the following
+	// scenario is possible:
+	//   1) Enable IPv6 in cilium
+	//   2) Create an endpoint (ensure endpoint has an IPv6 addr)
+	//   3) Disable IPv6 and restart cilium
+	// This results in a template BPF object without an "LXC_IP" defined,
+	// __but__ the endpoint still has "LXC_IP" defined. This causes a later
+	// call to loader.ELFSubstitutions() to fail on missing a symbol "LXC_IP".
+	if e.IPv6Address() != nil {
+		fmt.Fprint(fw, defineIPv6("LXC_IP", e.IPv6Address()))
+	}
+
 	fmt.Fprint(fw, defineIPv4("LXC_IPV4", e.IPv4Address()))
 
 	fmt.Fprint(fw, defineMAC("NODE_MAC", e.GetNodeMAC()))
@@ -359,6 +406,7 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 	secID := e.GetIdentity().Uint32()
 	fmt.Fprintf(fw, defineUint32("SECLABEL", secID))
 	fmt.Fprintf(fw, defineUint32("SECLABEL_NB", byteorder.HostToNetwork(secID).(uint32)))
+	fmt.Fprintf(fw, defineUint32("POLICY_VERDICT_LOG_FILTER", e.GetPolicyVerdictLogFilter()))
 
 	epID := uint16(e.GetID())
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", bpf.LocalMapName(policymap.MapName, epID))

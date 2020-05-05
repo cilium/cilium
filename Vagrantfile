@@ -10,9 +10,10 @@ $SERVER_VERSION= (ENV['SERVER_VERSION'] || $SERVER_VERSION)
 $NETNEXT_SERVER_BOX = (ENV['NETNEXT_SERVER_BOX'] || $NETNEXT_SERVER_BOX)
 $NETNEXT_SERVER_VERSION= (ENV['NETNEXT_SERVER_VERSION'] || $NETNEXT_SERVER_VERSION)
 
-if ENV['NETNEXT'] == "true"
+if ENV['NETNEXT'] == "true" || ENV['NETNEXT'] == "1" then
     $SERVER_BOX = $NETNEXT_SERVER_BOX
     $SERVER_VERSION = $NETNEXT_SERVER_VERSION
+    $vm_kernel = '+'
 end
 
 Vagrant.require_version ">= 2.0.0"
@@ -40,30 +41,30 @@ echo "----------------------------------------------------------------"
 export PATH=/home/vagrant/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 
 echo "editing journald configuration"
-sudo bash -c "echo RateLimitIntervalSec=1s >> /etc/systemd/journald.conf"
-sudo bash -c "echo RateLimitBurst=10000 >> /etc/systemd/journald.conf"
+bash -c "echo RateLimitIntervalSec=1s >> /etc/systemd/journald.conf"
+bash -c "echo RateLimitBurst=10000 >> /etc/systemd/journald.conf"
 echo "restarting systemd-journald"
-sudo systemctl restart systemd-journald
+systemctl restart systemd-journald
 echo "getting status of systemd-journald"
-sudo service systemd-journald status
+service systemd-journald status
 echo "done configuring journald"
 
-sudo service docker restart
+service docker restart
 echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
-sudo chown -R vagrant:vagrant /home/vagrant 2>/dev/null || true
+chown -R vagrant:vagrant /home/vagrant 2>/dev/null || true
 curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bpf-map
 chmod +x bpf-map
 mv bpf-map /usr/bin
 SCRIPT
 
+$makeclean = ENV['MAKECLEAN'] ? "export MAKECLEAN=1" : ""
 $build = <<SCRIPT
 set -o errexit
 set -o nounset
 set -o pipefail
 
-pip3 install -r ~/go/src/github.com/cilium/cilium/Documentation/requirements.txt
-
 export PATH=/home/vagrant/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
+#{$makeclean}
 ~/go/src/github.com/cilium/cilium/common/build.sh
 rm -fr ~/go/bin/cilium*
 SCRIPT
@@ -123,6 +124,16 @@ end
 ENV["LC_ALL"] = "en_US.UTF-8"
 ENV["LC_CTYPE"] = "en_US.UTF-8"
 
+if ENV['CILIUM_SCRIPT'] != 'true' then
+    Vagrant.configure(2) do |config|
+        config.vm.define "runtime1"
+        config.vm.define "k8s1"
+        config.vm.define "k8s2"
+        config.vm.define "k8s1+"
+        config.vm.define "k8s2+"
+    end
+end
+
 Vagrant.configure(2) do |config|
     config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
     config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
@@ -143,10 +154,11 @@ Vagrant.configure(2) do |config|
         vb.cpus = ENV['VM_CPUS'].to_i
     end
 
-    master_vm_name = "#{$vm_base_name}1#{$build_id_name}"
+    master_vm_name = "#{$vm_base_name}1#{$build_id_name}#{$vm_kernel}"
     config.vm.define master_vm_name, primary: true do |cm|
         node_ip = "#{$master_ip}"
-		cm.vm.network "forwarded_port", guest: 6443, host: 7443, auto_correct: true
+        cm.vm.network "forwarded_port", guest: 6443, host: 7443, auto_correct: true
+        cm.vm.network "forwarded_port", guest: 9081, host: 9081, auto_correct: true
         cm.vm.network "private_network", ip: "#{$master_ip}",
             virtualbox__intnet: "cilium-test-#{$build_id}",
             :libvirt__guest_ipv6 => "yes",
@@ -199,7 +211,7 @@ Vagrant.configure(2) do |config|
 
     $num_workers.times do |n|
         # n starts with 0
-        node_vm_name = "#{$vm_base_name}#{n+2}#{$build_id_name}"
+        node_vm_name = "#{$vm_base_name}#{n+2}#{$build_id_name}#{$vm_kernel}"
         node_hostname = "#{$vm_base_name}#{n+2}"
         config.vm.define node_vm_name do |node|
             node_ip = $workers_ipv4_addrs[n]
@@ -221,7 +233,7 @@ Vagrant.configure(2) do |config|
                     node_ip = "#{ipv6_addr}"
                 end
             end
-            node.vm.hostname = "#{$vm_base_name}#{n+2}"
+            node.vm.hostname = "#{node_hostname}"
             if ENV['CILIUM_TEMP'] then
                 if ENV["K8S"] then
                     k8sinstall = "#{ENV['CILIUM_TEMP']}/cilium-k8s-install-1st-part.sh"

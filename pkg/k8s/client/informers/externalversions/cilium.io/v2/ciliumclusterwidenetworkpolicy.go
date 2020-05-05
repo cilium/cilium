@@ -17,6 +17,7 @@
 package v2
 
 import (
+	"context"
 	time "time"
 
 	ciliumiov2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -58,13 +59,13 @@ func NewFilteredCiliumClusterwideNetworkPolicyInformer(client versioned.Interfac
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2().CiliumClusterwideNetworkPolicies().List(options)
+				return client.CiliumV2().CiliumClusterwideNetworkPolicies().List(context.TODO(), options)
 			},
 			WatchFunc: func(options v1.ListOptions) (watch.Interface, error) {
 				if tweakListOptions != nil {
 					tweakListOptions(&options)
 				}
-				return client.CiliumV2().CiliumClusterwideNetworkPolicies().Watch(options)
+				return client.CiliumV2().CiliumClusterwideNetworkPolicies().Watch(context.TODO(), options)
 			},
 		},
 		&ciliumiov2.CiliumClusterwideNetworkPolicy{},

@@ -1395,7 +1395,7 @@ func (ds *PolicyTestSuite) TestIngressAllowAll(c *C) {
 	checkIngress(c, repo, &ctxAToC80, api.Allowed)
 
 	ctxAToC90 := ctxAToC
-	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	ctxAToC90.DPorts = []*models.Port{{Name: "port-90", Protocol: models.PortProtocolTCP}}
 	checkIngress(c, repo, &ctxAToC90, api.Allowed)
 }
 
@@ -1433,6 +1433,40 @@ func (ds *PolicyTestSuite) TestIngressAllowAllL4Overlap(c *C) {
 	checkIngress(c, repo, &ctxAToC90, api.Allowed)
 }
 
+func (ds *PolicyTestSuite) TestIngressAllowAllL4OverlapNamedPort(c *C) {
+	repo := parseAndAddRules(c, api.Rules{
+		&api.Rule{
+			EndpointSelector: endpointSelectorC,
+			Ingress: []api.IngressRule{
+				{
+					// Allow all L3&L4 ingress rule
+					FromEndpoints: []api.EndpointSelector{
+						api.WildcardEndpointSelector,
+					},
+				},
+				{
+					// This rule is a subset of the above
+					// rule and should *NOT* restrict to
+					// port 80 only
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "port-80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+		},
+	})
+
+	ctxAToC80 := ctxAToC
+	ctxAToC80.DPorts = []*models.Port{{Name: "port-80", Protocol: models.PortProtocolTCP}}
+	checkIngress(c, repo, &ctxAToC80, api.Allowed)
+
+	ctxAToC90 := ctxAToC
+	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkIngress(c, repo, &ctxAToC90, api.Allowed)
+}
+
 func (ds *PolicyTestSuite) TestIngressL4AllowAll(c *C) {
 	repo := parseAndAddRules(c, api.Rules{
 		&api.Rule{
@@ -1457,12 +1491,62 @@ func (ds *PolicyTestSuite) TestIngressL4AllowAll(c *C) {
 	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
 	checkIngress(c, repo, &ctxAToC90, api.Denied)
 
+	ctxAToCNamed90 := ctxAToC
+	ctxAToCNamed90.DPorts = []*models.Port{{Name: "port-90", Protocol: models.PortProtocolTCP}}
+	checkIngress(c, repo, &ctxAToCNamed90, api.Denied)
+
 	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ctxAToC80)
 	c.Assert(err, IsNil)
 
 	filter, ok := l4IngressPolicy["80/TCP"]
 	c.Assert(ok, Equals, true)
 	c.Assert(filter.Port, Equals, 80)
+	c.Assert(filter.Ingress, Equals, true)
+
+	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
+	c.Assert(filter.L7RulesPerSelector[wildcardCachedSelector], IsNil)
+	l4IngressPolicy.Detach(repo.GetSelectorCache())
+}
+
+func (ds *PolicyTestSuite) TestIngressL4AllowAllNamedPort(c *C) {
+	repo := parseAndAddRules(c, api.Rules{
+		&api.Rule{
+			EndpointSelector: endpointSelectorC,
+			Ingress: []api.IngressRule{
+				{
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{Port: "port-80", Protocol: api.ProtoTCP},
+						},
+					}},
+				},
+			},
+		},
+	})
+
+	ctxAToCNamed80 := ctxAToC
+	ctxAToCNamed80.DPorts = []*models.Port{{Name: "port-80", Protocol: models.PortProtocolTCP}}
+	checkIngress(c, repo, &ctxAToCNamed80, api.Allowed)
+
+	ctxAToC80 := ctxAToC
+	ctxAToC80.DPorts = []*models.Port{{Port: 80, Protocol: models.PortProtocolTCP}}
+	checkIngress(c, repo, &ctxAToC80, api.Denied)
+
+	ctxAToC90 := ctxAToC
+	ctxAToC90.DPorts = []*models.Port{{Port: 90, Protocol: models.PortProtocolTCP}}
+	checkIngress(c, repo, &ctxAToC90, api.Denied)
+
+	ctxAToCNamed90 := ctxAToC
+	ctxAToCNamed90.DPorts = []*models.Port{{Name: "port-90", Protocol: models.PortProtocolTCP}}
+	checkIngress(c, repo, &ctxAToCNamed90, api.Denied)
+
+	l4IngressPolicy, err := repo.ResolveL4IngressPolicy(&ctxAToCNamed80)
+	c.Assert(err, IsNil)
+
+	filter, ok := l4IngressPolicy["port-80/TCP"]
+	c.Assert(ok, Equals, true)
+	c.Assert(filter.Port, Equals, 0)
+	c.Assert(filter.PortName, Equals, "port-80")
 	c.Assert(filter.Ingress, Equals, true)
 
 	c.Assert(len(filter.L7RulesPerSelector), Equals, 1)

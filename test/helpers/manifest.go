@@ -1,0 +1,273 @@
+// Copyright 2020 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package helpers
+
+import (
+	"fmt"
+	"strings"
+	"sync"
+	"time"
+
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
+)
+
+// NamespaceName represents a Kubernetes namespace name
+type NamespaceName string
+
+// IsRandom returns true if the namespace name has been generated with
+// GenerateNamespaceForTest
+func (n NamespaceName) IsRandom() bool { return strings.HasPrefix(string(n), "202") }
+func (n NamespaceName) String() string { return string(n) }
+
+// Manifest represents a deployment manifest that can consist of an any number
+// of Deployments, DaemonSets, Pods, etc.
+type Manifest struct {
+	// Filename is the file (not path) of the manifest. This must point to
+	// a file that contains any number of Deployments, DaemonSets, ...
+	Filename string
+
+	// NumDaemonSet is the number of DaemonSets in the manifest
+	NumDaemonSet int
+
+	// NumPods is the number of pods expected in the manifest, not counting
+	// any DaemonSets
+	NumPods int
+
+	// LabelSelector is the selector required to select *ALL* pods created
+	// from this manifest
+	LabelSelector string
+}
+
+// Deploy deploys the manifest. It will call ginkgoext.Fail() if any aspect of
+// that fails.
+func (m Manifest) Deploy(kubectl *Kubectl, namespace string) *Deployment {
+	deploy, err := m.deploy(kubectl, namespace)
+	if err != nil {
+		ginkgoext.Failf("Unable to deploy manifest %s: %s", m.Filename, err)
+	}
+
+	return deploy
+}
+
+func (m Manifest) deploy(kubectl *Kubectl, namespace string) (*Deployment, error) {
+	ginkgoext.By("Deploying %s in namespace %s", m.Filename, namespace)
+
+	numNodes := kubectl.GetNumCiliumNodes()
+	if numNodes == 0 {
+		return nil, fmt.Errorf("No available nodes to deploy")
+	}
+
+	path := ManifestGet(kubectl.BasePath(), m.Filename)
+	res := kubectl.Apply(ApplyOptions{Namespace: namespace, FilePath: path})
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("Unable to deploy manifest %s: %s", path, res.CombineOutput().String())
+	}
+
+	d := &Deployment{
+		manifest:  m,
+		kubectl:   kubectl,
+		numNodes:  numNodes,
+		namespace: NamespaceName(namespace),
+		path:      path,
+	}
+
+	return d, nil
+}
+
+// Deployment is a deployed manifest. The deployment binds the manifest to a
+// particular namespace and records the number of nodes the deployment is
+// spread over.
+type Deployment struct {
+	kubectl   *Kubectl
+	manifest  Manifest
+	numNodes  int
+	namespace NamespaceName
+	path      string
+}
+
+// numExpectedPods returns the number of expected pods the deployment resulted
+// in
+func (d *Deployment) numExpectedPods() int {
+	return (d.numNodes * d.manifest.NumDaemonSet) + d.manifest.NumPods
+}
+
+// WaitUntilReady waits until all pods of the deployment are up and in ready
+// state
+func (d *Deployment) WaitUntilReady() {
+	expectedPods := d.numExpectedPods()
+	if expectedPods == 0 {
+		return
+	}
+
+	ginkgoext.By("Waiting for %s for %d pods of deployment %s to become ready",
+		HelperTimeout, expectedPods, d.manifest.Filename)
+
+	if err := d.kubectl.WaitforNPods(string(d.namespace), "", expectedPods, HelperTimeout); err != nil {
+		ginkgoext.Failf("Pods are not ready in time: %s", err)
+	}
+}
+
+// Delete deletes the deployment
+func (d *Deployment) Delete() {
+	ginkgoext.By("Deleting deployment %s", d.manifest.Filename)
+	d.kubectl.DeleteInNamespace(string(d.namespace), d.path)
+}
+
+// DeploymentManager manages a set of deployments
+type DeploymentManager struct {
+	kubectl        *Kubectl
+	deployments    map[string]*Deployment
+	ciliumDeployed bool
+}
+
+// NewDeploymentManager returns a new deployment manager
+func NewDeploymentManager() *DeploymentManager {
+	return &DeploymentManager{
+		deployments: map[string]*Deployment{},
+	}
+}
+
+// SetKubectl sets the kubectl client to use
+func (m *DeploymentManager) SetKubectl(kubectl *Kubectl) {
+	m.kubectl = kubectl
+}
+
+// DeployRandomNamespaceShared is like DeployRandomNamespace but will check if
+// the Manifest has already been deployed in any namespace. If so, returns the
+// namespace the existing deployment is running in. If not, the manifest is
+// deployed using DeployRandomNamespace.
+func (m *DeploymentManager) DeployRandomNamespaceShared(manifest Manifest) string {
+	if d, ok := m.deployments[manifest.Filename]; ok {
+		return string(d.namespace)
+	}
+
+	return m.DeployRandomNamespace(manifest)
+}
+
+// Deploy deploys a manifest into a random namespace using the deployment
+// manager and stores the deployment in the manager
+func (m *DeploymentManager) DeployRandomNamespace(manifest Manifest) string {
+	namespace := GenerateNamespaceForTest("")
+
+	res := m.kubectl.NamespaceCreate(namespace)
+	if !res.WasSuccessful() {
+		ginkgoext.Failf("Unable to create namespace %s: %s",
+			namespace, res.OutputPrettyPrint())
+	}
+
+	d, err := manifest.deploy(m.kubectl, namespace)
+	if err != nil {
+		ginkgoext.By("Deleting namespace %s", namespace)
+		m.kubectl.NamespaceDelete(namespace)
+
+		ginkgoext.Failf("Unable to deploy manifest %s: %s", manifest.Filename, err)
+	}
+
+	m.deployments[manifest.Filename] = d
+
+	return namespace
+}
+
+// Deploy deploys a manifest using the deployment manager and stores the
+// deployment in the manager
+func (m *DeploymentManager) Deploy(namespace string, manifest Manifest) {
+	d, err := manifest.deploy(m.kubectl, namespace)
+	if err != nil {
+		ginkgoext.Failf("Unable to deploy manifest %s: %s", manifest.Filename, err)
+	}
+
+	m.deployments[manifest.Filename] = d
+}
+
+// DeleteAll deletes all deployments which have previously been deployed using
+// this deployment manager
+func (m *DeploymentManager) DeleteAll() {
+	var (
+		deleted = 0
+		wg      sync.WaitGroup
+	)
+
+	wg.Add(len(m.deployments))
+	for _, d := range m.deployments {
+		// Issue all delete triggers in parallel
+		go func(d *Deployment) {
+			d.Delete()
+			wg.Done()
+		}(d)
+		deleted++
+	}
+
+	namespaces := map[NamespaceName]struct{}{}
+	for _, d := range m.deployments {
+		if d.namespace.IsRandom() {
+			namespaces[d.namespace] = struct{}{}
+		}
+	}
+
+	wg.Wait()
+	m.deployments = map[string]*Deployment{}
+
+	wg.Add(len(namespaces))
+	for namespace := range namespaces {
+		ginkgoext.By("Deleting namespace %s", namespace)
+		go func(namespace NamespaceName) {
+			m.kubectl.NamespaceDelete(string(namespace))
+			wg.Done()
+		}(namespace)
+	}
+
+	if deleted > 0 {
+		m.kubectl.WaitCleanAllTerminatingPods(2 * time.Minute)
+	}
+	wg.Wait()
+}
+
+// DeleteCilium deletes a Cilium deployment that was previously deployed with
+// DeployCilium()
+func (m *DeploymentManager) DeleteCilium() {
+	if m.ciliumDeployed {
+		ginkgoext.By("Deleting Cilium")
+		m.kubectl.Delete("cilium.yaml")
+		m.kubectl.WaitCleanAllTerminatingPods(2 * time.Minute)
+	}
+}
+
+// WaitUntilReady waits until all deployments managed by this manager are up
+// and ready
+func (m *DeploymentManager) WaitUntilReady() {
+	for _, d := range m.deployments {
+		d.WaitUntilReady()
+	}
+}
+
+type CiliumDeployFunc func(kubectl *Kubectl, ciliumFilename string, options map[string]string)
+
+// DeploytCilium deploys Cilium using the provided options and waits for it to
+// become ready
+func (m *DeploymentManager) DeployCilium(options map[string]string, deploy CiliumDeployFunc) {
+	deploy(m.kubectl, TimestampFilename("cilium.yaml"), options)
+
+	_, err := m.kubectl.CiliumNodesWait()
+	if err != nil {
+		ginkgoext.Failf("Kubernetes nodes were not annotated by Cilium")
+	}
+
+	ginkgoext.By("Making sure all endpoints are in ready state")
+	if err = m.kubectl.CiliumEndpointWaitReady(); err != nil {
+		ginkgoext.Failf("Failure while waiting for all cilium endpoints to reach ready state: %s", err)
+	}
+
+	m.ciliumDeployed = true
+}

@@ -275,7 +275,7 @@ func (n *DebugMsg) subTypeString() string {
 	case DbgIcmp6Ns:
 		return fmt.Sprintf("ICMPv6 neighbour soliciation for address %x:%x", n.Arg1, n.Arg2)
 	case DbgIcmp6TimeExceeded:
-		return fmt.Sprintf("Sending ICMPv6 time exceeded")
+		return "Sending ICMPv6 time exceeded"
 	case DbgDecap:
 		return fmt.Sprintf("Tunnel decap: id=%d flowlabel=%x", n.Arg1, n.Arg2)
 	case DbgPortMap:
@@ -309,7 +309,7 @@ func (n *DebugMsg) subTypeString() string {
 	case DbgLb4LookupMaster:
 		return fmt.Sprintf("Master service lookup, addr=%s key.dport=%d", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
 	case DbgLb4LookupMasterFail:
-		return fmt.Sprintf("Master service lookup failed")
+		return "Master service lookup failed"
 	case DbgLb4LookupSlaveSuccess:
 		return fmt.Sprintf("Slave service lookup result: target=%s port=%d", ip4Str(n.Arg1), byteorder.NetworkToHost(uint16(n.Arg2)))
 	case DbgLb4ReverseNat:

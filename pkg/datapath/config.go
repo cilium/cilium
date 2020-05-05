@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -37,11 +37,9 @@ type DeviceConfiguration interface {
 	GetOptions() *option.IntOptions
 }
 
-// EndpointConfiguration provides datapath implementations a clean interface
-// to access endpoint-specific configuration when configuring the datapath.
-type EndpointConfiguration interface {
-	DeviceConfiguration
-
+// LoadTimeConfiguration provides datapath implementations a clean interface
+// to access endpoint-specific configuration that can be changed at load time.
+type LoadTimeConfiguration interface {
 	// GetID returns a locally-significant endpoint identification number.
 	GetID() uint64
 	// StringID returns the string-formatted version of the ID from GetID().
@@ -52,6 +50,13 @@ type EndpointConfiguration interface {
 	IPv4Address() addressing.CiliumIPv4
 	IPv6Address() addressing.CiliumIPv6
 	GetNodeMAC() mac.MAC
+}
+
+// CompileTimeConfiguration provides datapath implementations a clean interface
+// to access endpoint-specific configuration that can only be changed at
+// compile time.
+type CompileTimeConfiguration interface {
+	DeviceConfiguration
 
 	// TODO: Move this detail into the datapath
 	HasIpvlanDataPath() bool
@@ -74,6 +79,16 @@ type EndpointConfiguration interface {
 	// per endpoint route installed in the host's routing table to point to
 	// the endpoint's interface
 	RequireEndpointRoute() bool
+
+	// GetPolicyVerdictLogFilter returns the PolicyVerdictLogFilter for the endpoint
+	GetPolicyVerdictLogFilter() uint32
+}
+
+// EndpointConfiguration provides datapath implementations a clean interface
+// to access endpoint-specific configuration when configuring the datapath.
+type EndpointConfiguration interface {
+	CompileTimeConfiguration
+	LoadTimeConfiguration
 }
 
 // ConfigWriter is anything which writes the configuration for various datapath

@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _k8s_install_gke:
 
@@ -21,27 +21,25 @@ GKE Requirements
 
    export GKE_PROJECT=gke-clusters
    gcloud projects create $GKE_PROJECT
+   gcloud config set project $GKE_PROJECT
 
 
 3. Enable the GKE API for the project if not already done
 
 ::
 
-   gcloud services enable --project $GKE_PROJECT container.googleapis.com
+   gcloud services enable container.googleapis.com
 
 Create a GKE Cluster
 ====================
 
 You can apply any method to create a GKE cluster. The example given here is
-using the `Google Cloud SDK <https://cloud.google.com/sdk/>`_. This guide
-will create a single-zone cluster in ``europe-west4-a``; feel free to change
-the zone to one that is closer to where you are. You can create a regional
-cluster with ``--region europe-west4`` also.
+using the `Google Cloud SDK <https://cloud.google.com/sdk/>`_.
 
 .. code:: bash
 
-    gcloud container --project $GKE_PROJECT clusters create cluster1 \
-       --username admin --image-type COS --num-nodes 2 --zone europe-west4-a
+    export CLUSTER_NAME=cluster1
+    gcloud container clusters create $CLUSTER_NAME --image-type COS --num-nodes 2
 
 When done, you should be able to access your cluster like this:
 
@@ -52,25 +50,15 @@ When done, you should be able to access your cluster like this:
     gke-cluster1-default-pool-a63a765c-flr2   Ready    <none>   6m    v1.11.7-gke.4
     gke-cluster1-default-pool-a63a765c-z73c   Ready    <none>   6m    v1.11.7-gke.4
 
-Create an admin role binding
-============================
+Deploy Cilium
+=============
 
-In a new GKE cluster an admin role binding needs to be created explicitly in
-order to associate the Google identity (e.g. a personal account, or corporate
-G Suite account), with a Kubernetes identity. To do this run the following
-commands. You might want to run ``gcloud config get-value core/account``
-first, if you have multiple accounts and want to check if you are using the
-correct one (see `GKE RBAC documentation`_ for more info).
-
-.. _GKE RBAC documentation: https://cloud.google.com/kubernetes-engine/docs/how-to/role-based-access-control
+Extract the Cluster CIDR to enable native-routing:
 
 .. code:: bash
 
-    account="$(gcloud config get-value core/account 2>/dev/null)"
-    kubectl create clusterrolebinding cluster-admin-binding --clusterrole cluster-admin --user ${account}
-
-Deploy Cilium
-=============
+    NATIVE_CIDR=$(gcloud container clusters describe $CLUSTER_NAME | grep -i clusterIpv4Cidr | awk '{print $2}')
+    echo $NATIVE_CIDR
 
 .. include:: k8s-install-download-release.rst
 
@@ -88,7 +76,9 @@ below. This will ensure all pods are managed by Cilium.
       --set global.nodeinit.enabled=true \\
       --set nodeinit.reconfigureKubelet=true \\
       --set nodeinit.removeCbrBridge=true \\
-      --set global.cni.binPath=/home/kubernetes/bin
+      --set global.cni.binPath=/home/kubernetes/bin \\
+      --set global.gke.enabled=true \\
+      --set global.native-routing-cidr=$NATIVE_CIDR
 
 The NodeInit DaemonSet is required to prepare the GKE nodes as nodes are added
 to the cluster. The NodeInit DaemonSet will perform the following actions:

@@ -30,33 +30,40 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/serializer"
 
+	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
-	"gopkg.in/fsnotify.v1"
 )
 
 const templateWatcherQueueSize = 10
 
 var ignoredELFPrefixes = []string{
-	"2/",                    // Calls within the endpoint
-	"HOST_IP",               // Global
-	"IPV6_NODEPORT",         // Global
-	"ROUTER_IP",             // Global
-	"SNAT_IPV6_EXTERNAL",    // Global
-	"cilium_ct",             // All CT maps, including local
-	"cilium_encrypt_state",  // Global
-	"cilium_events",         // Global
-	"cilium_ipcache",        // Global
-	"cilium_lb",             // Global
-	"cilium_lxc",            // Global
-	"cilium_metrics",        // Global
-	"cilium_nodeport_neigh", // All nodeport neigh maps
-	"cilium_policy",         // Global
-	"cilium_proxy",          // Global
-	"cilium_signals",        // Global
-	"cilium_snat",           // All SNAT maps
-	"cilium_tunnel",         // Global
-	"from-container",        // Prog name
-	"to-container",          // Prog name
+	"2/",                         // Calls within the endpoint
+	"HOST_IP",                    // Global
+	"IPV6_NODEPORT",              // Global
+	"ROUTER_IP",                  // Global
+	"SNAT_IPV6_EXTERNAL",         // Global
+	"cilium_call_policy",         // Global
+	"cilium_ct",                  // All CT maps, including local
+	"cilium_encrypt_state",       // Global
+	"cilium_events",              // Global
+	"cilium_ipcache",             // Global
+	"cilium_lb",                  // Global
+	"cilium_lxc",                 // Global
+	"cilium_metrics",             // Global
+	"cilium_nodeport_neigh",      // All nodeport neigh maps
+	"cilium_policy",              // All policy maps
+	"cilium_proxy",               // Global
+	"cilium_signals",             // Global
+	"cilium_snat",                // All SNAT maps
+	"cilium_tunnel",              // Global
+	"cilium_ipv4_frag_datagrams", // Global
+	"cilium_ipmasq",              // Global
+	"from-container",             // Prog name
+	"to-container",               // Prog name
+	// Endpoint IPv6 address. It's possible for the template object to have
+	// these symbols while the endpoint doesn't, if IPv6 was just enabled and
+	// the endpoint restored.
+	"LXC_IP_",
 }
 
 // RestoreTemplates populates the object cache from templates on the filesystem

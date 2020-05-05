@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"net"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -68,24 +67,18 @@ type IPIdentityPair struct {
 	Metadata     string          `json:"Metadata"`
 	K8sNamespace string          `json:"K8sNamespace,omitempty"`
 	K8sPodName   string          `json:"K8sPodName,omitempty"`
+	NamedPorts   []NamedPort     `json:"NamedPorts,omitempty"`
 }
 
-func NewIdentityFromModel(base *models.Identity) *Identity {
-	if base == nil {
-		return nil
-	}
-
-	id := &Identity{
-		ID:     NumericIdentity(base.ID),
-		Labels: make(labels.Labels),
-	}
-	for _, v := range base.Labels {
-		lbl := labels.ParseLabel(v)
-		id.Labels[lbl.Key] = lbl
-	}
-	id.Sanitize()
-
-	return id
+// NamedPort is a mapping from a port name to a port number and protocol.
+//
+// WARNING - STABLE API
+// This structure is written as JSON to the key-value store. Do NOT modify this
+// structure in ways which are not JSON forward compatible.
+type NamedPort struct {
+	Name     string `json:"Name"`
+	Port     uint16 `json:"Port"`
+	Protocol string `json:"Protocol"`
 }
 
 // Sanitize takes a partially initialized Identity (for example, deserialized
@@ -114,24 +107,6 @@ func (id *Identity) StringID() string {
 // StringID returns the identity identifier as string
 func (id *Identity) String() string {
 	return id.ID.StringID()
-}
-
-func (id *Identity) GetModel() *models.Identity {
-	if id == nil {
-		return nil
-	}
-
-	ret := &models.Identity{
-		ID:           int64(id.ID),
-		Labels:       []string{},
-		LabelsSHA256: "",
-	}
-
-	for _, v := range id.Labels {
-		ret.Labels = append(ret.Labels, v.String())
-	}
-	ret.LabelsSHA256 = id.GetLabelsSHA256()
-	return ret
 }
 
 // IsReserved returns whether the identity represents a reserved identity

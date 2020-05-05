@@ -45,7 +45,7 @@ coverage-all.html
 .idea/
 *.plist
 
-cilium/bash_autocomplete
+*_bash_completion
 *.swo
 outgoing
 

@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _getting_help:
 
@@ -36,7 +36,7 @@ GitHub
 **Bug Tracker**: All the issues are addressed in the `GitHub issue tracker
 <https://github.com/cilium/cilium/issues>`_.  If you want to report a bug or a
 new feature please file the issue according to the `GitHub template
-<https://github.com/cilium/cilium/blob/master/.github/issue_template.md>`_.
+<https://github.com/cilium/cilium/blob/master/.github/ISSUE_TEMPLATE/issue_template.md>`_.
 
 **Contributing**: If you want to contribute, reading the :ref:`dev_guide` should
 help you.

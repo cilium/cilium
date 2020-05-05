@@ -32,6 +32,7 @@ func (s *BPFTestSuite) TestDefaultMapFlags(c *C) {
 	c.Assert(GetPreAllocateMapFlags(MapTypeLPMTrie), Equals, uint32(BPF_F_NO_PREALLOC))
 	c.Assert(GetPreAllocateMapFlags(MapTypeArray), Equals, uint32(0))
 	c.Assert(GetPreAllocateMapFlags(MapTypeLRUHash), Equals, uint32(0))
+	DisableMapPreAllocation()
 }
 
 func (s *BPFTestSuite) TestPreallocationFlags(c *C) {

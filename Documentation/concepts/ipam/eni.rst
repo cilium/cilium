@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _ipam_eni:
 
@@ -17,8 +17,8 @@ communicating with the AWS EC2 API.
 
 The architecture ensures that only a single operator communicates with the EC2
 service API to avoid rate-limiting issues in large clusters. A pre-allocation
-watermark allows to maintain a number of IP addresses to be available for use
-on nodes at all time without requiring to contact the EC2 API when a new pod is
+watermark is used to maintain a number of IP addresses to be available for use
+on nodes at all time without needing to contact the EC2 API when a new pod is
 scheduled in the cluster.
 
 ************
@@ -31,10 +31,10 @@ Architecture
 The AWS ENI allocator builds on top of the CRD-backed allocator. Each node
 creates a ``ciliumnodes.cilium.io`` custom resource matching the node name when
 Cilium starts up for the first time on that node. It contacts the EC2 metadata
-API to retrieve instance ID, instance type, and VPC information and populates
-the custom resource with this information. ENI allocation parameters are
-provided as agent configuration option and are passed into the custom resource
-as well.
+API to retrieve the instance ID, instance type, and VPC information, then it
+populates the custom resource with this information. ENI allocation parameters
+are provided as agent configuration option and are passed into the custom
+resource as well.
 
 The Cilium operator listens for new ``ciliumnodes.cilium.io`` custom resources
 and starts managing the IPAM aspect automatically. It scans the EC2 instances
@@ -42,7 +42,7 @@ for existing ENIs with associated IPs and makes them available via the
 ``spec.ipam.available`` field. It will then constantly monitor the used IP
 addresses in the ``status.ipam.used`` field and automatically create ENIs and
 allocate more IPs as needed to meet the IP pre-allocation watermark. This ensures
-that there are always IPs available
+that there are always IPs available.
 
 The selection of subnets to use for allocation as well as attachment of
 security groups to new ENIs can be controlled separately for each node. This
@@ -80,12 +80,6 @@ ENI Allocation Parameters
 The following parameters are available to control the ENI creation and IP
 allocation:
 
-
-``InstanceID``
-  The AWS EC2 instance identifier matching the node.
-
-  *This field is automatically populated when using ``--auto-create-cilium-node-resource``*
-
 ``InstanceType``
   The AWS EC2 instance type
 
@@ -110,6 +104,14 @@ allocation:
   MaxAboveWatermark logic takes over to continue allocating IPs.
 
   If unspecified, no minimum number of IPs is required.
+
+``spec.ipam.max-allocate``
+  The maximum number of IPs that can be allocated to the node.
+  When the current amount of allocated IPs will approach this value,
+  the considered value for PreAllocate will decrease down to 0 in order to
+  not attempt to allocate more addresses than defined.
+
+  If unspecified, no maximum number of IPs will be enforced.
 
 ``spec.ipam.pre-allocate``
   The number of IP addresses that must be available for allocation at all
@@ -213,13 +215,13 @@ calculation is performed:
 
 .. code-block:: go
 
-     spec.eni.pre-allocate - (len(spec.ipam.available) - len(status.ipam.used))
+     spec.ipam.pre-allocate - (len(spec.ipam.available) - len(status.ipam.used))
 
 For excess IP calculation:
 
 .. code-block:: go
 
-     (len(spec.ipam.available) - len(status.ipam.used)) - (spec.eni.pre-allocate + spec.eni.max-above-watermark)
+     (len(spec.ipam.available) - len(status.ipam.used)) - (spec.ipam.pre-allocate + spec.ipam.max-above-watermark)
 
 Upon detection of a deficit, the node is added to the list of nodes which
 require IP address allocation. When a deficit is detected using the interval
@@ -258,10 +260,10 @@ ENI:
 
 .. code-block:: go
 
-      min(AvailableOnSubnet, min(AvailableOnENI, NeededAddresses + spec.eni.max-above-watermark))
+      min(AvailableOnSubnet, min(AvailableOnENI, NeededAddresses + spec.ipam.max-above-watermark))
 
 This means that the number of IPs allocated in a single allocation cycle can be
-less than what is required to fulfill ``spec.eni.pre-allocate``.
+less than what is required to fulfill ``spec.ipam.pre-allocate``.
 
 In order to allocate the IPs, the method ``AssignPrivateIpAddresses`` of the
 EC2 service API is called. When no more ENIs are available meeting the above
@@ -278,7 +280,7 @@ are available for release on the ENI:
 
 .. code-block:: go
 
-      min(FreeOnENI, (FreeIPs - spec.eni.pre-allocate - spec.eni.max-above-watermark))
+      min(FreeOnENI, (FreeIPs - spec.ipam.pre-allocate - spec.ipam.max-above-watermark))
 
 Operator releases IPs from the selected ENI, if there is still excess free IP
 not released, operator will attempt to release in next release cycle.
@@ -306,7 +308,7 @@ matches the following criteria:
 
 If multiple subnets match, the subnet with the most available addresses is selected.
 
-After selecting the ENI, the interface index is determine. For this purpose,
+After selecting the ENI, the interface index is determined. For this purpose,
 all existing ENIs are scanned and the first unused index greater than
 ``spec.eni.first-interface-index`` is selected.
 

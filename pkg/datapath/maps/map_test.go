@@ -93,7 +93,6 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
 				"cilium_ct_any4_00001",
-				"cilium_ep_config_00001",
 			},
 			removedPaths:    []string{},
 			removedMappings: []int{},
@@ -110,7 +109,6 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
 				"cilium_ct_any4_00001",
-				"cilium_ep_config_00001",
 			},
 			removedPaths: []string{
 				"cilium_policy_00001",
@@ -118,7 +116,6 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
 				"cilium_ct_any4_00001",
-				"cilium_ep_config_00001",
 			},
 			removedMappings: []int{
 				1,
@@ -136,7 +133,6 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
 				"cilium_ct_any4_00001",
-				"cilium_ep_config_00001",
 			},
 			removedPaths: []string{
 				"cilium_policy_00042",
@@ -155,7 +151,6 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
 				"cilium_ct_any4_00001",
-				"cilium_ep_config_00001",
 			},
 			removedPaths: []string{
 				"cilium_policy_00001",
@@ -164,7 +159,6 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
 				"cilium_ct_any4_00001",
-				"cilium_ep_config_00001",
 			},
 			removedMappings: []int{
 				1,
@@ -184,14 +178,12 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ct4_1",
 				"cilium_ct_any6_1",
 				"cilium_ct_any4_1",
-				"cilium_ep_config_1",
 				"cilium_policy_00001",
 				"cilium_policy_00042",
 				"cilium_ct6_00001",
 				"cilium_ct4_00001",
 				"cilium_ct_any6_00001",
 				"cilium_ct_any4_00001",
-				"cilium_ep_config_00001",
 			},
 			removedPaths: []string{
 				"cilium_policy_1",
@@ -200,7 +192,6 @@ func (s *MapTestSuite) TestCollectStaleMapGarbage(c *C) {
 				"cilium_ct4_1",
 				"cilium_ct_any6_1",
 				"cilium_ct_any4_1",
-				"cilium_ep_config_1",
 			},
 			removedMappings: []int{},
 		},

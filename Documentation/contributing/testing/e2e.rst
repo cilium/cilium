@@ -2,7 +2,7 @@
   
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _testsuite:
 
@@ -12,7 +12,7 @@ End-To-End Testing Framework
 Introduction
 ~~~~~~~~~~~~
 
-Cilium uses `Ginkgo <https://onsi.github.io/ginkgo>`_ as a testing framework for
+Cilium uses `Ginkgo`_ as a testing framework for
 writing end-to-end tests which test Cilium all the way from the API level (e.g.
 importing policies, CLI) to the datapath (i.e, whether policy that is imported
 is enforced accordingly in the datapath).  The tests in the ``test`` directory
@@ -26,7 +26,7 @@ well as running `example tests
 Ginkgo workflow.
 
 These test scripts will invoke ``vagrant`` to create virtual machine(s) to
-run the tests. The tests make heavy use of the Ginkgo `focus <https://onsi.github.io/ginkgo/#focused-specs>`_ concept to
+run the tests. The tests make heavy use of the Ginkgo `focus`_ concept to
 determine which VMs are necessary to run particular tests. All test names
 *must* begin with one of the following prefixes:
 
@@ -34,6 +34,9 @@ determine which VMs are necessary to run particular tests. All test names
 * ``K8s``: Create a small multi-node kubernetes environment for testing
   features beyond a single host, and for testing kubernetes-specific features.
 * ``Nightly``: sets up a multinode Kubernetes cluster to run scale, performance, and chaos testing for Cilium.
+
+.. _Ginkgo: https://onsi.github.io/ginkgo/
+.. _focus: `Focused Specs`_
 
 Running End-To-End Tests
 ~~~~~~~~~~~~~~~~~~~~~~~~
@@ -129,6 +132,7 @@ The Kubernetes tests support the following Kubernetes versions:
 * 1.15
 * 1.16
 * 1.17
+* 1.18
 
 By default, the Vagrant VMs are provisioned with Kubernetes 1.13. To run with any other
 supported version of Kubernetes, run the test suite with the following format:
@@ -139,7 +143,7 @@ supported version of Kubernetes, run the test suite with the following format:
 
 .. note::
 
-   When provisioning VMs with the net-next kernel (``NETNEXT=true``) on
+   When provisioning VMs with the net-next kernel (``NETNEXT=1``) on
    VirtualBox which version does not match a version of the VM image
    VirtualBox Guest Additions, Vagrant will install a new version of
    the Additions with ``mount.vboxsf``. The latter is not compatible with
@@ -206,14 +210,19 @@ framework in the ``test/`` directory and interact with ginkgo directly:
     
 
 For more information about other built-in options to Ginkgo, consult the
-`Ginkgo documentation <https://onsi.github.io/ginkgo/>`_.
+`Ginkgo documentation`_.
+
+.. _Ginkgo documentation: Ginkgo_
 
 Running Specific Tests Within a Test Suite
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 If you want to run one specified test, there are a few options:
 
-* By modifying code: add the prefix "FIt" on the test you want to run; this marks the test as focused. Ginkgo will skip other tests and will only run the "focused" test. For more information, consult the `Focused Specs <https://onsi.github.io/ginkgo/#focused-specs>`_ documentation from Ginkgo.
+* By modifying code: add the prefix "FIt" on the test you want to run; this
+  marks the test as focused. Ginkgo will skip other tests and will only run the
+  "focused" test. For more information, consult the `Focused Specs`_
+  documentation from Ginkgo.
 
 ::
 
@@ -235,6 +244,8 @@ If you want to run one specified test, there are a few options:
 
 This will focus on tests prefixed with "Run*", and within that focus, run any
 test that starts with "L7".
+
+.. _Focused Specs: https://onsi.github.io/ginkgo/#focused-specs
 
 Compiling the tests without running them
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
@@ -278,20 +289,17 @@ useful for testing Cilium.
 BeforeAll
 ^^^^^^^^^
 
-This function will run before all `BeforeEach
-<https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach>`_ within a
-`Describe or Context
-<https://onsi.github.io/ginkgo/#organizing-specs-with-containers-describe-and-context>`_.
+This function will run before all `BeforeEach`_ within a `Describe or Context`_.
 This method is an equivalent to ``SetUp`` or initialize functions in common
 unit test frameworks.
+
+.. _BeforeEach: https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach
+.. _Describe or Context: https://onsi.github.io/ginkgo/#organizing-specs-with-containers-describe-and-context
 
 AfterAll
 ^^^^^^^^
 
-This method will run after all `AfterEach
-<https://onsi.github.io/ginkgo/#extracting-common-setup-beforeeach>`_ functions
-defined in a `Describe or Context
-<https://onsi.github.io/ginkgo/#organizing-specs-with-containers-describe-and-context>`_.
+This method will run after all `AfterEach`_ functions defined in a `Describe or Context`_.
 This method is used for tearing down objects created which are used by all
 ``Its`` within the given ``Context`` or ``Describe``. It is ran after all Its
 have ran, this method is a equivalent to ``tearDown`` or ``finalize`` methods in
@@ -299,6 +307,8 @@ common unit test frameworks.
 
 A good use case for using ``AfterAll`` method is to remove containers or pods
 that are needed for multiple ``Its`` in the given ``Context`` or ``Describe``.
+
+.. _AfterEach: BeforeEach_
 
 JustAfterEach
 ^^^^^^^^^^^^^
@@ -509,6 +519,31 @@ cluster.
 Be sure to pass ``--cilium.passCLIEnvironment=true`` to allow kubectl to invoke ``aws-iam-authenticator``
 
 .. note:: The kubernetes version varies between AWS regions. Be sure to check with ``kubectl version``
+
+Adding new Managed Kubernetes providers
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+All Managed Kubernetes test support relies on using a pre-configured kubeconfig
+file.  This isn't always adequate, however, and adding defaults specific to
+each provider is possible. The `commit adding GKE <https://github.com/cilium/cilium/commit/c2d8445fd725c515a635c8c3ad3be901a08084eb>`_
+support is a good reference.
+
+1- Add a map of helm settings to act as an override for this provider in
+`test/helpers/kubectl.go <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L80-L102>`_.
+These should be the helm settings used when generating cilium specs for this provider.
+
+2- Add a unique `CI Integration constant <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L66-L67>`_.
+This value is passed in when invoking ginkgo via the ``CNI_INTEGRATON``
+environment variable.
+
+3- Update the `helm overrides <https://github.com/cilium/cilium/blob/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers/kubectl.go#L138-L147>`_
+mapping with the constant and the helm settings.
+
+4- For cases where a test should be skipped use the ``SkipIfIntegration``. To
+skip whole contexts, use ``SkipContextIf``. More complex logic can be expressed
+with functions like ``IsIntegration``. These functions are all part of the
+`test/helpers <https://github.com/cilium/cilium/tree/26dec4c4f4311df2b1a6c909b27ff7fe6e46929f/test/helpers>`_
+package.
 
 Running End-To-End Tests In Other Environments via SSH
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

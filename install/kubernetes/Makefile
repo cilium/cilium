@@ -1,5 +1,7 @@
+# Copyright 2017-2019 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 include ../../Makefile.defs
-include $(ROOT_DIR)/Makefile.quiet
 
 MANAGED_ETCD_VERSION := "v2.0.7"
 

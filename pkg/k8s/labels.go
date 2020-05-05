@@ -95,7 +95,7 @@ func isInjectedWithIstioSidecarProxy(scopedLog *logrus.Entry, pod *types.Pod) bo
 
 // GetPodMetadata returns the labels and annotations of the pod with the given
 // namespace / name.
-func GetPodMetadata(k8sNs *types.Namespace, pod *types.Pod) (lbls map[string]string, retAnno map[string]string, retErr error) {
+func GetPodMetadata(k8sNs *types.Namespace, pod *types.Pod) (containerPorts []types.ContainerPort, lbls map[string]string, retAnno map[string]string, retErr error) {
 	namespace := pod.Namespace
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sNamespace: namespace,
@@ -130,5 +130,11 @@ func GetPodMetadata(k8sNs *types.Namespace, pod *types.Pod) (lbls map[string]str
 
 	k8sLabels[k8sConst.PolicyLabelCluster] = option.Config.ClusterName
 
-	return k8sLabels, annotations, nil
+	for _, containers := range pod.SpecContainers {
+		for _, cp := range containers.ContainerPorts {
+			containerPorts = append(containerPorts, cp)
+		}
+	}
+
+	return containerPorts, k8sLabels, annotations, nil
 }

@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _k8s_policy:
 
@@ -50,7 +50,7 @@ Known missing features for Kubernetes Network Policy:
 +==============================+==============================================+
 | Use of named ports           | https://github.com/cilium/cilium/issues/2942 |
 +------------------------------+----------------------------------------------+
-| Ingress CIDR-based L4 policy | https://github.com/cilium/cilium/issues/1684 |
+| Ingress CIDR-based L4 policy | https://github.com/cilium/cilium/issues/4129 |
 +------------------------------+----------------------------------------------+
 
 .. _CiliumNetworkPolicy:

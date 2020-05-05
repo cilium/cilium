@@ -35,7 +35,7 @@ pipeline {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         VM_MEMORY = "5120"
-        K8S_VERSION="1.17"
+        K8S_VERSION="1.18"
         SERVER_BOX = "cilium/ubuntu"
         CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
     }
@@ -47,6 +47,16 @@ pipeline {
     }
 
     stages {
+        stage('Set build name') {
+            when {
+                not {environment name: 'GIT_BRANCH', value: 'origin/master'}
+            }
+            steps {
+                   script {
+                       currentBuild.displayName = env.getProperty('ghprbPullTitle') + '  ' + env.getProperty('ghprbPullLink') + '  ' + currentBuild.displayName
+                   }
+            }
+        }
         stage('Checkout') {
             steps {
                 sh 'env'

@@ -48,7 +48,9 @@ func (m *proxyUpdaterMock) GetLabels() []string                   { return m.lab
 func (m *proxyUpdaterMock) GetEgressPolicyEnabledLocked() bool    { return true }
 func (m *proxyUpdaterMock) GetIngressPolicyEnabledLocked() bool   { return true }
 func (m *proxyUpdaterMock) GetIdentity() identity.NumericIdentity { return m.identity }
-func (m *proxyUpdaterMock) ProxyID(l4 *policy.L4Filter) string    { return "" }
+func (m *proxyUpdaterMock) ProxyID(npMap policy.NamedPortsMap, l4 *policy.L4Filter) (string, error) {
+	return "", nil
+}
 func (m *proxyUpdaterMock) GetLabelsSHA() string {
 	return labels.NewLabelsFromModel(m.labels).SHA256Sum()
 }

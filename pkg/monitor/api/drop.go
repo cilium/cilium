@@ -76,6 +76,7 @@ var errors = map[uint8]string{
 	172: "Unknown sender",
 	173: "NAT not needed",
 	174: "Is a ClusterIP",
+	175: "First logical datagram fragment not found",
 }
 
 // DropReason prints the drop reason in a human readable string

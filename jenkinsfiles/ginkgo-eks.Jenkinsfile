@@ -7,7 +7,7 @@ pipeline {
 
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
-        GINKGO_TIMEOUT="108m"
+        GINKGO_TIMEOUT="180m"
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         GOPATH="${WORKSPACE}"
         AWS_ACCESS_KEY_ID=credentials('eks-secret-key-id')
@@ -21,6 +21,16 @@ pipeline {
     }
 
     stages {
+        stage('Set build name') {
+            when {
+                not {environment name: 'GIT_BRANCH', value: 'origin/master'}
+            }
+            steps {
+                   script {
+                       currentBuild.displayName = env.getProperty('ghprbPullTitle') + '  ' + env.getProperty('ghprbPullLink') + '  ' + currentBuild.displayName
+                   }
+            }
+        }
         stage('Checkout') {
             options {
                 timeout(time: 20, unit: 'MINUTES')

@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 ******
 Docker
@@ -40,5 +40,5 @@ Follow this guide for a step by step introduction on how to use Cilium with
    ../gettingstarted/docker
 
 
-.. _libnetwork: https://github.com/docker/libnetwork/blob/master/docs/design.md
+.. _libnetwork: https://github.com/moby/libnetwork/blob/master/docs/design.md
 .. _`Docker Compose`: https://docs.docker.com/compose/

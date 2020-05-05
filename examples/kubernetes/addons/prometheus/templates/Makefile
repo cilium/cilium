@@ -1,5 +1,7 @@
-include ../../../../../Makefile.defs
+# Copyright 2017-2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
 
+include ../../../../../Makefile.defs
 
 DESTINATION= "../monitoring-example.yaml"
 

@@ -76,12 +76,12 @@ func (k *CTMapTestSuite) Benchmark_MapUpdate(c *C) {
 		c.Assert(err, IsNil)
 	}
 
-	a1 := make([]tuple.TupleKey, 1)
+	a1 := make([]CtKey, 1)
 	a2 := make([]*CtEntry, 1)
 
 	// Also account the cost of casting from MapKey to TupleKey
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
-		key := k.(tuple.TupleKey)
+		key := k.(CtKey)
 		value := v.(*CtEntry)
 		a1[0] = key
 		a2[0] = value

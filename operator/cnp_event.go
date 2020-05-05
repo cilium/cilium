@@ -88,27 +88,40 @@ func enableCNPWatcher() error {
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
-					groups.AddDerivativeCNPIfNeeded(cnp.CiliumNetworkPolicy)
+				if cnp := k8s.ObjToSlimCNP(obj); cnp != nil {
+
+					// We need to deepcopy this structure because we are writing
+					// fields.
+					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
+					cnpCpy := cnp.DeepCopy()
+
+					groups.AddDerivativeCNPIfNeeded(cnpCpy.CiliumNetworkPolicy)
 					if kvstoreEnabled() {
-						cnpStatusMgr.StartStatusHandler(cnp)
+						cnpStatusMgr.StartStatusHandler(cnpCpy)
 					}
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				if oldCNP := k8s.CopyObjToV2CNP(oldObj); oldCNP != nil {
-					if newCNP := k8s.CopyObjToV2CNP(newObj); newCNP != nil {
+				if oldCNP := k8s.ObjToSlimCNP(oldObj); oldCNP != nil {
+					if newCNP := k8s.ObjToSlimCNP(newObj); newCNP != nil {
 						if k8s.EqualV2CNP(oldCNP, newCNP) {
 							return
 						}
-						groups.UpdateDerivativeCNPIfNeeded(newCNP.CiliumNetworkPolicy, oldCNP.CiliumNetworkPolicy)
+
+						// We need to deepcopy this structure because we are writing
+						// fields.
+						// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
+						newCNPCpy := newCNP.DeepCopy()
+						oldCNPCpy := oldCNP.DeepCopy()
+
+						groups.UpdateDerivativeCNPIfNeeded(newCNPCpy.CiliumNetworkPolicy, oldCNPCpy.CiliumNetworkPolicy)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
-				cnp := k8s.CopyObjToV2CNP(obj)
+				cnp := k8s.ObjToSlimCNP(obj)
 				if cnp == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 					if !ok {
@@ -117,7 +130,7 @@ func enableCNPWatcher() error {
 					// Delete was not observed by the watcher but is
 					// removed from kube-apiserver. This is the last
 					// known state and the object no longer exists.
-					cnp = k8s.CopyObjToV2CNP(deletedObj.Obj)
+					cnp = k8s.ObjToSlimCNP(deletedObj.Obj)
 					if cnp == nil {
 						return
 					}

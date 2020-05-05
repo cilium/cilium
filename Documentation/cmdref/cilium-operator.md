@@ -27,6 +27,7 @@ cilium-operator [flags]
       --config string                           Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                       Configuration directory that contains a file for each option
   -D, --debug                                   Enable debugging mode
+      --enable-k8s-api-discovery                Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice               Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
       --enable-metrics                          Enable Prometheus metrics
       --eni-tags map                            ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default map[])
@@ -49,6 +50,8 @@ cilium-operator [flags]
       --operator-api-serve-addr string          Address to serve API requests (default "localhost:9234")
       --operator-prometheus-serve-addr string   Address to serve Prometheus metrics (default ":6942")
       --parallel-alloc-workers int              Maximum number of parallel IPAM workers (default 50)
+      --subnet-ids-filter strings               Subnets IDs (separated by commas)
+      --subnet-tags-filter stringToString       Subnets tags in the form of k1=v1,k2=v2 (multiple k/v pairs can also be passed by repeating the CLI flag (default [])
       --synchronize-k8s-nodes                   Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
       --synchronize-k8s-services                Synchronize Kubernetes services to kvstore (default true)
       --unmanaged-pod-watcher-interval int      Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)

@@ -1,0 +1,75 @@
+{{- if .Values.global.hubble.enabled }}
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: {{ .Chart.Name }}
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: {{ .Chart.Name }}
+spec:
+  replicas: {{ .Values.numReplicas }}
+  selector:
+    matchLabels:
+      k8s-app: {{ .Chart.Name }}
+  template:
+    metadata:
+      labels:
+        k8s-app: {{ .Chart.Name }}
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+                - key: "k8s-app"
+                  operator: In
+                  values:
+                    - cilium
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: hubble-relay
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}"
+{{- else }}
+          image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- end }}
+          imagePullPolicy: {{ .Values.global.pullPolicy }}
+          command:
+            - "hubble-relay"
+          args:
+            - "serve"
+            - "--peer-service=unix://{{ .Values.global.hubble.socketPath }}"
+            - "--listen-address={{ .Values.listenHost }}:{{ .Values.listenPort }}"
+{{- if .Values.dialTimeout }}
+            - "--dial-timeout={{ .Values.dialTimeout }}"
+{{- end }}
+{{- if .Values.retryTimeout }}
+            - "--retry-timeout={{ .Values.retryTimeout }}"
+{{- end }}
+          ports:
+            - name: grpc
+              containerPort: {{ .Values.listenPort }}
+          readinessProbe:
+            tcpSocket:
+              port: grpc
+          livenessProbe:
+            tcpSocket:
+              port: grpc
+{{- if .Values.resources }}
+          resources:
+{{- toYaml .Values.resources | trim | nindent 10 }}
+{{- end }}
+          volumeMounts:
+          - mountPath: {{ dir .Values.global.hubble.socketPath }}
+            name: hubble-sock-dir
+            readOnly: true
+      restartPolicy: Always
+      terminationGracePeriodSeconds: 0
+      tolerations:
+      - operator: Exists
+      volumes:
+      - hostPath:
+          path: {{ dir .Values.global.hubble.socketPath }}
+          type: Directory
+        name: hubble-sock-dir
+{{- end }}

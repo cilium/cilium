@@ -36,9 +36,11 @@ Elasticsearch
 FIt
 Facebook
 Fastabend
+Fosdem
 GCE
 Gartrell
 Geneve
+GiB
 Github
 Golang
 Gospodarek
@@ -47,8 +49,11 @@ Grafana
 Gunawardena
 Holzheu
 Huapeng
+hubble
+hubble-relay
 Hypercalls
 IP
+ipam
 IPsec
 IPv
 Integrations
@@ -115,6 +120,7 @@ RuleParser
 Runtime
 Runtimes
 SIG
+SR-IOV
 Sep
 Sharma
 Shirokov
@@ -138,6 +144,7 @@ Tracepoints
 Twilio
 Userspace
 VM
+VPC
 Vagrantcloud
 Vagrantfile
 Verifier
@@ -159,8 +166,10 @@ amd
 analytics
 api
 apiKeys
+apiVersion
 apiserver
 arithmetics
+artii
 asm
 au
 authenticator
@@ -204,8 +213,10 @@ cli
 cls
 clustermesh
 cni
+cnp
 codebase
 conf
+contrib
 config
 conntrack
 containerd
@@ -221,6 +232,7 @@ crypto
 cryptographic
 daemonset
 datacenter
+datagrams
 datapath
 datastore
 datastream
@@ -255,6 +267,7 @@ elfutils
 endian
 endianness
 endpointSelector
+endpointmanager
 etcd
 ethernet
 ethtool
@@ -272,6 +285,7 @@ fqdn
 fromCIDR
 fromCIDRSet
 fromEndpoints
+fromEntities
 frontend
 fs
 fwmark
@@ -281,6 +295,7 @@ gcloud
 getpeername
 gettingstarted
 github
+gke
 glibc
 globals
 gluecon
@@ -293,10 +308,15 @@ hardcoded
 hardcoding
 hashtable
 hashtables
+herokuapp
 hexData
 hoc
+hostPort
+hostport
+hostscope
 hq
 https
+hubble
 hugepages
 hypervisor
 hypervisors
@@ -313,11 +333,13 @@ integrations
 io
 ip
 ipcache
+ipmasq
 iproute
 ipsec
 iptables
 ipvlan
 istio
+istioctl
 iteratively
 ixgbe
 ixgbevf
@@ -328,6 +350,7 @@ jgt
 jle
 jlt
 jne
+jq
 js
 jset
 jsge
@@ -351,6 +374,7 @@ kubeadm
 kubeconfig
 kubectl
 kubelet
+kubeproxy
 kubernetes
 kubespray
 kvstore
@@ -380,7 +404,9 @@ loopback
 luke
 lwt
 macOS
+matchLabels
 matchPattern
+masq
 mc
 mediabot
 memcache
@@ -391,6 +417,7 @@ microk
 microservice
 microservices
 minikube
+misconfigures
 mlx
 mov
 mul
@@ -399,6 +426,7 @@ multicore
 multinode
 musl
 myCA
+myapp
 mysql
 namespace
 namespaced
@@ -422,6 +450,7 @@ observability
 onData
 onwards
 opcodes
+openapi
 openSUSE
 openssl
 orchestrator
@@ -518,7 +547,6 @@ supergalatic
 superset
 svc
 sw
-swapi
 sys
 syscall
 sysctl

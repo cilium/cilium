@@ -2,7 +2,7 @@
   
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _dev_env:
 
@@ -15,32 +15,35 @@ Requirements
 You need to have the following tools available in order to effectively
 contribute to Cilium:
 
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-| Dependency                                                                       | Version / Commit ID      | Download Command                                                              |
-+==================================================================================+==========================+===============================================================================+
-|  git                                                                             | latest                   | N/A (OS-specific)                                                             |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-|  clang                                                                           | >= 7.0                   | N/A (OS-specific)                                                             |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-|  llvm                                                                            | >= 7.0                   | N/A (OS-specific)                                                             |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-|  libelf-devel                                                                    | latest                   | N/A (OS-specific)                                                             |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-| `go <https://golang.org/dl/>`_                                                   | |GO_RELEASE|             | N/A (OS-specific)                                                             |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-+ `ginkgo <https://github.com/onsi/ginkgo>`__                                      | >= 1.4.0                 | ``go get -u github.com/onsi/ginkgo/ginkgo``                                   |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-+ `gomega <https://github.com/onsi/gomega>`_                                       | >= 1.2.0                 | ``go get -u github.com/onsi/gomega``                                          |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-+ `ineffassign <https://github.com/gordonklaus/ineffassign>`_                      | >= ``1003c8b``           | ``go get -u github.com/gordonklaus/ineffassign``                              |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-+ `Docker <https://docs.docker.com/engine/installation/>`_                         | OS-Dependent             | N/A (OS-specific)                                                             |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
-+ `Docker-Compose <https://docs.docker.com/compose/install/>`_                     | OS-Dependent             | N/A (OS-specific)                                                             |
-+----------------------------------------------------------------------------------+--------------------------+-------------------------------------------------------------------------------+
++--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
+| Dependency                                                   | Version / Commit ID         | Download Command                                 |
++==============================================================+=============================+==================================================+
+|  git                                                         | latest                      | N/A (OS-specific)                                |
++--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
+|  clang                                                       | >= 7.0 (latest recommended) | N/A (OS-specific)                                |
++--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
+|  llvm                                                        | >= 7.0 (latest recommended) | N/A (OS-specific)                                |
++--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
+|  libelf-devel                                                | latest                      | N/A (OS-specific)                                |
++--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
+| `go <https://golang.org/dl/>`_                               | |GO_RELEASE|                | N/A (OS-specific)                                |
++--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
++ `ginkgo <https://github.com/onsi/ginkgo>`__                  | >= 1.4.0                    | ``go get -u github.com/onsi/ginkgo/ginkgo``      |
++--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
++ `gomega <https://github.com/onsi/gomega>`_                   | >= 1.2.0                    | ``go get -u github.com/onsi/gomega``             |
++--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
++ `ineffassign <https://github.com/gordonklaus/ineffassign>`_  | >= ``1003c8b``              | ``go get -u github.com/gordonklaus/ineffassign`` |
++--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
++ `Docker <https://docs.docker.com/engine/installation/>`_     | OS-Dependent                | N/A (OS-specific)                                |
++--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
++ `Docker-Compose <https://docs.docker.com/compose/install/>`_ | OS-Dependent                | N/A (OS-specific)                                |
++--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
++ python3-pip                                                  | latest                      | N/A (OS-specific)                                |
++--------------------------------------------------------------+-----------------------------+--------------------------------------------------+
 
+For `unit_testing`, you will need to run ``docker`` without privileges. You can usually achieve this by adding your current user to the ``docker`` group.
 
-To run Cilium locally on VMs, you need:
+Finally, in order to run Cilium locally on VMs, you need:
 
 +----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
 | Dependency                                                                       | Version / Commit ID   | Download Command                                                               |
@@ -49,12 +52,6 @@ To run Cilium locally on VMs, you need:
 +----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
 | `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_ (if not using libvirt) | >= 5.2                | N/A (OS-specific)                                                              |
 +----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
-
-Finally, in order to build the documentation, you should have Sphinx installed:
-
-::
-
-    $ sudo pip install sphinx
 
 You should start with the `gs_guide`, which walks you through the set-up, such
 as installing Vagrant, getting the Cilium sources, and going through some
@@ -95,6 +92,8 @@ brought up by vagrant:
   default 0.
 * ``RELOAD=1``: Issue a ``vagrant reload`` instead of ``vagrant up``, useful
   to resume halted VMs.
+* ``NO_PROVISION=1``: Avoid provisioning Cilium inside the VM. Supports quick
+  restart without recompiling all of Cilium.
 * ``NFS=1``: Use NFS for vagrant shared directories instead of rsync.
 * ``K8S=1``: Build & install kubernetes on the nodes. ``k8s1`` is the master
   node, which contains both master components: etcd, kube-controller-manager,
@@ -102,12 +101,16 @@ brought up by vagrant:
   kube-proxy, kubectl and Cilium. When used in combination with ``NWORKERS=1`` a
   second node is created, where ``k8s2`` will be a kubernetes node, which
   contains: kubelet, kube-proxy, kubectl and cilium.
+* ``NETNEXT=1``: Run with net-next kernel.
 * ``IPV4=1``: Run Cilium with IPv4 enabled.
 * ``RUNTIME=x``: Sets up the container runtime to be used inside a kubernetes
   cluster. Valid options are: ``docker``, ``containerd`` and ``crio``. If not
   set, it defaults to ``docker``.
 * ``VAGRANT_DEFAULT_PROVIDER={virtualbox \| libvirt \| ...}``
 * ``VM_SET_PROXY=https://127.0.0.1:80/`` Sets up VM's ``https_proxy``.
+* ``INSTALL=1``: Restarts the installation of Cilium, Kubernetes, etc. Only
+  useful when the installation was interrupted.
+* ``MAKECLEAN=1``: Execute ``make clean`` before building cilium in the VM.
 
 If you want to start the VM with cilium enabled with ``containerd``, with
 kubernetes installed and plus a worker, run:
@@ -279,6 +282,10 @@ Making Changes
 #. See :ref:`unit_testing` on how to run unit tests.
 #. See :ref:`testsuite` for information how to run the end to end integration
    tests
+#. If you are making documentation changes, you can generate documentation files
+   and serve them locally on ``http://localhost:9081`` by running ``make render-docs``.
+   This make target works both inside and outside the Vagrant VM, assuming that ``docker``
+   is running in the environment.
 
 Add/update a golang dependency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -308,6 +315,55 @@ Updating k8s is a special case, for that one needs to do:
     $ make generate-k8s-api
     $ git add go.mod go.sum vendor/
 
+Optional: Docker and IPv6
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Note that these instructions are useful to you if you care about having IPv6
+addresses for your Docker containers.
+
+If you'd like IPv6 addresses, you will need to follow these steps:
+
+1) Edit ``/etc/docker/daemon.json`` and set the ``ipv6`` key to ``true``.
+
+::
+
+    {
+      "ipv6": true
+    }
+
+
+If that doesn't work alone, try assigning a fixed range. Many people have
+reported trouble with IPv6 and Docker. `Source here.
+<https://github.com/moby/moby/issues/29443#issuecomment-495808871>`_
+
+::
+
+    {
+      "ipv6": true,
+      "fixed-cidr-v6": "2001:db8:1::/64"
+    }
+
+
+And then:
+
+::
+
+    ip -6 route add 2001:db8:1::/64 dev docker0
+    sysctl net.ipv6.conf.default.forwarding=1
+    sysctl net.ipv6.conf.all.forwarding=1
+
+
+2) Restart the docker daemon to pick up the new configuration.
+
+3) The new command for creating a network managed by Cilium:
+
+::
+
+    $ docker network create --ipv6 --driver cilium --ipam-driver cilium cilium-net
+
+
+Now new containers will have an IPv6 address assigned to them.
+
 Debugging
 ~~~~~~~~~
 
@@ -320,14 +376,35 @@ from the BPF based datapath. Debugging messages are sent if either the
 mode of the agent can be enabled by starting ``cilium-agent`` with the option
 ``--debug`` enabled or by running ``cilium config debug=true`` for an already
 running agent. Debugging of an individual endpoint can be enabled by running
-``cilium endpoint config ID debug=true``
+``cilium endpoint config ID debug=true``. Running ``cilium monitor -v`` will
+print the normal form of monitor output along with debug messages:
 
+.. code:: shell-session
 
-.. code:: bash
+   $ cilium endpoint config 731 debug=true
+   Endpoint 731 configuration updated successfully
+   $ cilium monitor -v
+   Press Ctrl-C to quit
+   level=info msg="Initializing dissection cache..." subsys=monitor
+   <- endpoint 745 flow 0x6851276 identity 4->0 state new ifindex 0 orig-ip 0.0.0.0: 8e:3c:a3:67:cc:1e -> 16:f9:cd:dc:87:e5 ARP
+   -> lxc_health: 16:f9:cd:dc:87:e5 -> 8e:3c:a3:67:cc:1e ARP
+   CPU 00: MARK 0xbbe3d555 FROM 0 DEBUG: Inheriting identity=1 from stack
+   <- host flow 0xbbe3d555 identity 1->0 state new ifindex 0 orig-ip 0.0.0.0: 10.11.251.76:57896 -> 10.11.166.21:4240 tcp ACK
+   CPU 00: MARK 0xbbe3d555 FROM 0 DEBUG: Successfully mapped daddr=10.11.251.76 to identity=1
+   CPU 00: MARK 0xbbe3d555 FROM 0 DEBUG: Attempting local delivery for container id 745 from seclabel 1
+   CPU 00: MARK 0xbbe3d555 FROM 745 DEBUG: Conntrack lookup 1/2: src=10.11.251.76:57896 dst=10.11.166.21:4240
+   CPU 00: MARK 0xbbe3d555 FROM 745 DEBUG: Conntrack lookup 2/2: nexthdr=6 flags=0
+   CPU 00: MARK 0xbbe3d555 FROM 745 DEBUG: CT entry found lifetime=21925, revnat=0
+   CPU 00: MARK 0xbbe3d555 FROM 745 DEBUG: CT verdict: Established, revnat=0
+   -> endpoint 745 flow 0xbbe3d555 identity 1->4 state established ifindex lxc_health orig-ip 10.11.251.76: 10.11.251.76:57896 -> 10.11.166.21:4240 tcp ACK
+
+Passing ``-v -v`` supports deeper detail, for example:
+
+.. code:: shell-session
 
     $ cilium endpoint config 3978 debug=true
     Endpoint 3978 configuration updated successfully
-    $ cilium monitor -v --hex
+    $ cilium monitor -v -v --hex
     Listening for events on 2 CPUs with 64x4096 of shared memory
     Press Ctrl-C to quit
     ------------------------------------------------------------------------------
@@ -373,20 +450,9 @@ Running ``cilium endpoint get`` for one of the endpoints will provide a
 description of known state about it, which includes BPF verification logs.
 
 The files under ``/var/run/cilium/state`` provide context about how the BPF
-datapath is managed and set up. The .log files will describe the BPF
-requirements and features that Cilium detected and used to generate the BPF
-programs. The .h files describe specific configurations used for BPF program
-compilation. The numbered directories describe endpoint-specific state,
-including header configuration files and BPF binaries.
-
-.. code:: bash
-
-    # for log in /var/run/cilium/state/*.log; do echo "cat $log"; cat $log; done
-    cat /var/run/cilium/state/bpf_features.log
-    BPF/probes: CONFIG_CGROUP_BPF=y is not in kernel configuration
-    BPF/probes: CONFIG_LWTUNNEL_BPF=y is not in kernel configuration
-    HAVE_LPM_MAP_TYPE: Your kernel doesn't support LPM trie maps for BPF, thus disabling CIDR policies. Recommendation is to run 4.11+ kernels.
-    HAVE_LRU_MAP_TYPE: Your kernel doesn't support LRU maps for BPF, thus switching back to using hash table for the cilium connection tracker. Recommendation is to run 4.10+ kernels.
+datapath is managed and set up. The .h files describe specific configurations
+used for BPF program compilation. The numbered directories describe
+endpoint-specific state, including header configuration files and BPF binaries.
 
 Current BPF map state for particular programs is held under ``/sys/fs/bpf/``,
 and the `bpf-map <https://github.com/cilium/bpf-map>`_ utility can be useful

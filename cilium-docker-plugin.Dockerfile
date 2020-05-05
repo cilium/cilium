@@ -1,13 +1,15 @@
-FROM docker.io/library/golang:1.14 as builder
+FROM docker.io/library/golang:1.14.2 as builder
+ARG CILIUM_SHA=""
+LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
 ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/plugins/cilium-docker
 ARG LOCKDEBUG
-ARG V
-RUN make CGO_ENABLED=0 GOOS=linux LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 EXTRA_GOBUILD_FLAGS="-a -installsuffix cgo"
-RUN strip cilium-docker
+RUN make LOCKDEBUG=$LOCKDEBUG
 
 FROM scratch
+ARG CILIUM_SHA=""
+LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /go/src/github.com/cilium/cilium/plugins/cilium-docker/cilium-docker /usr/bin/cilium-docker
 WORKDIR /

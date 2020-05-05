@@ -85,14 +85,14 @@ func (k *kafkaTestSuite) TestCorrelationGC(c *C) {
 	time.Sleep(100 * time.Millisecond)
 
 	// Let initial GC run complete
-	for cc.numGcRuns < 1 {
+	for cc.NumGcRuns() < 1 {
 		time.Sleep(1 * time.Millisecond)
 	}
 
 	cc.HandleRequest(request1, nil)
 
 	// Let another GC run pass
-	for cc.numGcRuns < 2 {
+	for cc.NumGcRuns() < 2 {
 		time.Sleep(1 * time.Millisecond)
 	}
 
@@ -101,7 +101,7 @@ func (k *kafkaTestSuite) TestCorrelationGC(c *C) {
 	c.Assert(cc.correlate(response1.GetCorrelationID()), Not(IsNil))
 
 	// wait for the garbage collector to expire the request
-	for cc.numExpired == 0 {
+	for cc.NumExpired() == 0 {
 		time.Sleep(1 * time.Millisecond)
 	}
 

@@ -22,7 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/option"
+	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 
 	. "gopkg.in/check.v1"
 )
@@ -47,17 +47,7 @@ type IdentityCacheTestSuite struct{}
 
 var _ = Suite(&IdentityCacheTestSuite{})
 
-func (s *IdentityCacheTestSuite) SetUpTest(c *C) {
-	option.Config.K8sNamespace = "kube-system"
-}
-
 func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
-	bak := option.Config.ClusterName
-	option.Config.ClusterName = "default"
-	defer func() {
-		option.Config.ClusterName = bak
-	}()
-
 	mgr := NewCachingIdentityAllocator(newDummyOwner())
 	<-mgr.InitIdentityAllocator(nil, nil)
 
@@ -75,7 +65,7 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentity(c *C) {
 	c.Assert(id, Not(IsNil))
 	c.Assert(id.ID, Equals, worldID)
 
-	identity.InitWellKnownIdentities()
+	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 
 	id = mgr.LookupIdentity(context.TODO(), kvstoreLabels)
 	c.Assert(id, Not(IsNil))

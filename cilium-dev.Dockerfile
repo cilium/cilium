@@ -3,7 +3,7 @@
 # development environmennt
 FROM quay.io/cilium/cilium-envoy:63de0bd958d05d82e2396125dcf6286d92464c56 as cilium-envoy
 
-FROM quay.io/cilium/cilium-runtime:2020-02-27
+FROM quay.io/cilium/cilium-runtime:2020-04-22
 LABEL maintainer="maintainer@cilium.io"
 RUN apt-get install make -y
 WORKDIR /go/src/github.com/cilium/cilium
@@ -27,9 +27,7 @@ RUN for i in proxylib envoy plugins/cilium-cni bpf cilium daemon cilium-health b
      do LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
             SKIP_DOCS=true DESTDIR= \
             make -C $i install; done
-RUN cd /root && groupadd -f cilium \
-	&& echo ". /etc/profile.d/bash_completion.sh" >> /root/.bashrc \
-    && cilium completion bash >> /root/.bashrc \
-    && sysctl -w kernel.core_pattern=/tmp/core.%e.%p.%t
+RUN groupadd -f cilium \
+    && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
 ENV INITSYSTEM="SYSTEMD"
 CMD ["/usr/bin/cilium"]

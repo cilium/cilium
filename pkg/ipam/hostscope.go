@@ -50,6 +50,14 @@ func (h *hostScopeAllocator) Allocate(ip net.IP, owner string) (*AllocationResul
 	return &AllocationResult{IP: ip}, nil
 }
 
+func (h *hostScopeAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string) (*AllocationResult, error) {
+	if err := h.allocator.Allocate(ip); err != nil {
+		return nil, err
+	}
+
+	return &AllocationResult{IP: ip}, nil
+}
+
 func (h *hostScopeAllocator) Release(ip net.IP) error {
 	return h.allocator.Release(ip)
 }
@@ -63,12 +71,21 @@ func (h *hostScopeAllocator) AllocateNext(owner string) (*AllocationResult, erro
 	return &AllocationResult{IP: ip}, nil
 }
 
+func (h *hostScopeAllocator) AllocateNextWithoutSyncUpstream(owner string) (*AllocationResult, error) {
+	ip, err := h.allocator.AllocateNext()
+	if err != nil {
+		return nil, err
+	}
+
+	return &AllocationResult{IP: ip}, nil
+}
+
 func (h *hostScopeAllocator) Dump() (map[string]string, string) {
 	var origIP *big.Int
 	alloc := map[string]string{}
 	_, data, err := h.allocator.Snapshot()
 	if err != nil {
-		return nil, fmt.Sprintf("Unable to get a snapshot of the allocator")
+		return nil, "Unable to get a snapshot of the allocator"
 	}
 	if h.allocCIDR.IP.To4() != nil {
 		origIP = big.NewInt(0).SetBytes(h.allocCIDR.IP.To4())
@@ -88,3 +105,6 @@ func (h *hostScopeAllocator) Dump() (map[string]string, string) {
 
 	return alloc, status
 }
+
+// RestoreFinished marks the status of restoration as done
+func (h *hostScopeAllocator) RestoreFinished() {}

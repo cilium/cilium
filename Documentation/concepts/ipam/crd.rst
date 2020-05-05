@@ -2,13 +2,13 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _concepts_ipam_crd:
 
-#######################
-CRD-Backed (Kubernetes)
-#######################
+##########
+CRD-Backed
+##########
 
 The CRD-backed IPAM mode provides an extendable interface to control the IP
 address management via a Kubernetes Custom Resource Definition (CRD). This
@@ -38,7 +38,7 @@ Upon allocation of an IP in the allocation pool, the IP is added to the
 
    The node status update is limited to run at most once every 15 seconds.
    Therefore, if several pods are scheduled at the same time, the update of the
-   status section can bag behind.
+   status section can lag behind.
 
 *************
 Configuration

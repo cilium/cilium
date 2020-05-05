@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -32,8 +32,9 @@ import (
 const (
 	CallsMapName = "cilium_calls_"
 
-	templateSecurityID = identity.ReservedIdentityWorld
-	templateLxcID      = uint16(65535)
+	templateSecurityID          = identity.ReservedIdentityWorld
+	templateLxcID               = uint16(65535)
+	templatePolicyVerdictFilter = uint32(0xffff)
 )
 
 var (
@@ -69,7 +70,10 @@ var (
 // program directly to a device, that there are no unintended consequences such
 // as allowing traffic to leak out with routable addresses.
 type templateCfg struct {
-	datapath.EndpointConfiguration
+	// CompileTimeConfiguration passes through directly to the underlying
+	// endpoint configuration, while the rest of the EndpointConfiguration
+	// interface is implemented directly here through receiver functions.
+	datapath.CompileTimeConfiguration
 	stats *metrics.SpanStat
 }
 
@@ -117,17 +121,24 @@ func (t *templateCfg) IPv6Address() addressing.CiliumIPv6 {
 	return addressing.CiliumIPv6(templateIPv6)
 }
 
+// GetPolicyVerdictLogFilter returns an uint32 filter to ensure
+// that the filter is non-zero as per the requirements
+// described in the structure definition.
+func (t *templateCfg) GetPolicyVerdictLogFilter() uint32 {
+	return templatePolicyVerdictFilter
+}
+
 // wrap takes an endpoint configuration and optional stats tracker and wraps
 // it inside a templateCfg which hides static data from callers that wish to
 // generate header files based on the configuration, substituting it for
 // template data.
-func wrap(cfg datapath.EndpointConfiguration, stats *metrics.SpanStat) *templateCfg {
+func wrap(cfg datapath.CompileTimeConfiguration, stats *metrics.SpanStat) *templateCfg {
 	if stats == nil {
 		stats = &metrics.SpanStat{}
 	}
 	return &templateCfg{
-		EndpointConfiguration: cfg,
-		stats:                 stats,
+		CompileTimeConfiguration: cfg,
+		stats:                    stats,
 	}
 }
 
@@ -205,7 +216,7 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 	identity := ep.GetIdentity().Uint32()
 	result["SECLABEL"] = identity
 	result["SECLABEL_NB"] = byteorder.HostToNetwork(identity).(uint32)
-
+	result["POLICY_VERDICT_LOG_FILTER"] = ep.GetPolicyVerdictLogFilter()
 	return result
 
 }

@@ -381,6 +381,8 @@ type CtKey6Global struct {
 	tuple.TupleKey6Global
 }
 
+const SizeofCtKey6Global = int(unsafe.Sizeof(CtKey6Global{}))
+
 // NewValue creates a new bpf.MapValue.
 func (k *CtKey6Global) NewValue() bpf.MapValue { return &CtEntry{} }
 
@@ -483,16 +485,21 @@ type CtEntry struct {
 	LastRxReport     uint32 `align:"last_rx_report"`
 }
 
+const SizeofCtEntry = int(unsafe.Sizeof(CtEntry{}))
+
 // GetValuePtr returns the unsafe.Pointer for s.
 func (c *CtEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(c) }
 
 const (
-	RxClosing  = 1 << 0
-	TxClosing  = 1 << 1
-	Nat64      = 1 << 2
-	LBLoopback = 1 << 3
-	SeenNonSyn = 1 << 4
-	NodePort   = 1 << 5
+	RxClosing = 1 << iota
+	TxClosing
+	Nat64
+	LBLoopback
+	SeenNonSyn
+	NodePort
+	ProxyRedirect
+	DSR
+	MaxFlags
 )
 
 func (c *CtEntry) flagsString() string {
@@ -516,6 +523,18 @@ func (c *CtEntry) flagsString() string {
 	}
 	if (c.Flags & NodePort) != 0 {
 		buffer.WriteString("NodePort ")
+	}
+	if (c.Flags & ProxyRedirect) != 0 {
+		buffer.WriteString("ProxyRedirect ")
+	}
+	if (c.Flags & DSR) != 0 {
+		buffer.WriteString("DSR ")
+	}
+
+	unknownFlags := c.Flags
+	unknownFlags &^= MaxFlags - 1
+	if unknownFlags != 0 {
+		buffer.WriteString(fmt.Sprintf("Unknown=%#04x ", unknownFlags))
 	}
 	buffer.WriteString("]")
 	return buffer.String()

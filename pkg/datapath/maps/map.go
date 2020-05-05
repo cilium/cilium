@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -101,8 +101,6 @@ func (ms *MapSweeper) walk(path string, _ os.FileInfo, _ error) error {
 		ctmap.MapNameAny6,
 		ctmap.MapNameAny4,
 		loader.CallsMapName,
-		// Remove this line after v1.7
-		"cilium_ep_config_",
 		endpoint.IpvlanMapName,
 	}
 
@@ -161,6 +159,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb4_reverse_sk",
 			"cilium_snat_v4_external",
 			"cilium_proxy4"}...)
+	}
+
+	if !option.Config.EnableIPv4FragmentsTracking {
+		maps = append(maps, "cilium_ipv4_frag_datagrams")
 	}
 
 	// Can be removed with Cilium 1.8

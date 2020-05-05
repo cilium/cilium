@@ -17,13 +17,13 @@
 package eni
 
 import (
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/operator/option"
 
 	"gopkg.in/check.v1"
 )
 
 func (e *ENISuite) TestGetLimits(c *check.C) {
-	option.Config.AwsInstanceLimitMapping = map[string]string{"a2.custom2": "4,5,6"}
+	option.Config.AWSInstanceLimitMapping = map[string]string{"a2.custom2": "4,5,6"}
 
 	_, ok := getLimits("unknown")
 	c.Assert(ok, check.Equals, false)
@@ -33,7 +33,7 @@ func (e *ENISuite) TestGetLimits(c *check.C) {
 	c.Assert(l.Adapters, check.Not(check.Equals), 0)
 	c.Assert(l.IPv4, check.Not(check.Equals), 0)
 
-	UpdateLimitsFromUserDefinedMappings(option.Config.AwsInstanceLimitMapping)
+	UpdateLimitsFromUserDefinedMappings(option.Config.AWSInstanceLimitMapping)
 	l, ok = getLimits("a2.custom2")
 	c.Assert(ok, check.Equals, true)
 	c.Assert(l.Adapters, check.Equals, 4)

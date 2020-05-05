@@ -1,31 +1,33 @@
+# Copyright 2017-2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 include ../Makefile.defs
 
-SUBDIRS = responder
-TARGET = cilium-health
+TARGET := cilium-health
+SUBDIRS := responder
 
-.PHONY: all $(SUBDIRS) install clean
+.PHONY: all $(TARGET) $(SUBDIRS) clean install
 
 all: $(TARGET) $(SUBDIRS)
 
-SOURCES := $(shell find ../api/v1/health ../pkg/health cmd . \
-	\( -name '*.go' ! -name '*_test.go' $(foreach dir,$(SUBDIRS),! -path './$(dir)/*') \) )
-$(TARGET): $(SOURCES)
+$(TARGET):
 	@$(ECHO_GO)
-	$(QUIET)$(GO) build $(GOBUILD) -o $(TARGET)
-
-$(SUBDIRS): force
-	@ $(MAKE) -C $@ all
+	$(QUIET)$(GO_BUILD) -o $@
 
 clean:
 	@$(ECHO_CLEAN)
-	$(QUIET)for i in $(SUBDIRS); do $(MAKE) -C $$i clean; done
+	$(QUIET)for i in $(SUBDIRS); do $(MAKE) $(SUBMAKEOPTS) -C $$i clean; done
 	-$(QUIET)rm -f $(TARGET)
-	$(QUIET)$(GO) clean $(GOCLEAN)
+	$(QUIET)$(GO_CLEAN)
 
 install:
-	$(QUIET)for i in $(SUBDIRS); do $(MAKE) -C $$i install; done
+	$(QUIET)for i in $(SUBDIRS); do $(MAKE) $(SUBMAKEOPTS) -C $$i install; done
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+
+
+$(SUBDIRS): force
+	@ $(MAKE) $(SUBMAKEOPTS) -C $@ all
 
 .PHONY: force
 force :;

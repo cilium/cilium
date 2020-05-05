@@ -48,7 +48,7 @@ func (s *PolicyTestSuite) TestCreateL4Filter(c *C) {
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		filter, err := createL4IngressFilter(testPolicyContext, eps, false, portrule, tuple, tuple.Protocol, nil)
+		filter, err := createL4IngressFilter(testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil)
 		c.Assert(err, IsNil)
 		c.Assert(len(filter.L7RulesPerSelector), Equals, 1)
 		c.Assert(filter.IsEnvoyRedirect(), Equals, true)
@@ -87,7 +87,7 @@ func (s *PolicyTestSuite) TestCreateL4FilterMissingSecret(c *C) {
 		// Regardless of ingress/egress, we should end up with
 		// a single L7 rule whether the selector is wildcarded
 		// or if it is based on specific labels.
-		_, err := createL4IngressFilter(testPolicyContext, eps, false, portrule, tuple, tuple.Protocol, nil)
+		_, err := createL4IngressFilter(testPolicyContext, eps, nil, portrule, tuple, tuple.Protocol, nil)
 		c.Assert(err, Not(IsNil))
 
 		_, err = createL4EgressFilter(testPolicyContext, eps, portrule, tuple, tuple.Protocol, nil, nil)

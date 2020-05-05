@@ -107,9 +107,9 @@ func statusDaemon() {
 		sr := resp.Payload
 		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
 		pkg.FormatStatusResponse(w, sr, allAddresses, allControllers, allNodes, allRedirects, allClusters)
-		w.Flush()
 
 		if isUnhealthy(sr) {
+			w.Flush()
 			os.Exit(1)
 		}
 

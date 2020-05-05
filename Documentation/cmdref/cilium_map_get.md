@@ -2,11 +2,11 @@
 
 ## cilium map get
 
-Display BPF map information
+Display cached content of given BPF map
 
 ### Synopsis
 
-Display BPF map information
+Display cached content of given BPF map
 
 ```
 cilium map get <name> [flags]
@@ -35,5 +35,5 @@ cilium map get cilium_ipcache
 
 ### SEE ALSO
 
-* [cilium map](../cilium_map)	 - Access BPF maps
+* [cilium map](../cilium_map)	 - Access userspace cached content of BPF maps
 

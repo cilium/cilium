@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _arch_ip_connectivity:
 .. _multi host networking:
@@ -107,8 +107,8 @@ This is typically achieved using two methods:
           GitHub issue if you experience any problems.
 
 
-.. _AWS VPC Route Tables: http://docs.aws.amazon.com/AmazonVPC/latest/UserGuide/VPC_Route_Tables.html
-.. _GCE Routes: https://cloud.google.com/compute/docs/reference/latest/routes
+.. _AWS VPC Route Tables: https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Route_Tables.html
+.. _GCE Routes: https://cloud.google.com/compute/docs/reference/rest/v1/routes
 
 There are two possible approaches to performing network forwarding for
 container-to-container traffic:

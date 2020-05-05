@@ -19,10 +19,10 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-a"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-a"]
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-a"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-a"]
 ---
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
@@ -47,4 +47,12 @@ spec:
     toPorts:
     - ports:
       - port: "53"
+        protocol: UDP
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s:dns.operator.openshift.io/daemonset-dns: default
+    toPorts:
+    - ports:
+      - port: "5353"
         protocol: UDP

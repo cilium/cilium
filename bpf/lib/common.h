@@ -11,10 +11,8 @@
 #include <linux/ipv6.h>
 #include <linux/in.h>
 
-#include <bpf_features.h>
-
 // FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
-// #ifndef HAVE_LRU_MAP_TYPE
+// #ifndef HAVE_LRU_HASH_MAP_TYPE
 // #define NEEDS_TIMEOUT 1
 // #endif
 #define NEEDS_TIMEOUT 1
@@ -47,6 +45,9 @@
 #  define ENABLE_ENCAP_HOST_REMAP 1
 # endif
 #endif
+
+/* XDP to SKB transferred meta data. */
+#define XFER_PKT_NO_SVC		1 /* Skip upper service handling. */
 
 /* These are shared with test/bpf/check-complexity.sh, when modifying any of
  * the below, that script should also be updated. */
@@ -87,31 +88,28 @@ union v6addr {
 		__u64 d2;
 	};
         __u8 addr[16];
-} __attribute__((packed));
+} __packed;
 
 static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 					       __u16 *proto)
 {
 	void *data = ctx_data(ctx);
 	void *data_end = ctx_data_end(ctx);
+	struct ethhdr *eth = data;
 
 	if (data + ETH_HLEN > data_end)
 		return false;
-
-	struct ethhdr *eth = data;
 	*proto = eth->h_proto;
-
 	if (bpf_ntohs(*proto) < ETH_P_802_3_MIN)
 		return false; // non-Ethernet II unsupported
-
 	return true;
 }
 
 static __always_inline __maybe_unused bool
 __revalidate_data(struct __ctx_buff *ctx, void **data_, void **data_end_,
-		  void **l3, const size_t l3_len, const bool pull)
+		  void **l3, const __u32 l3_len, const bool pull)
 {
-	const size_t tot_len = ETH_HLEN + l3_len;
+	const __u32 tot_len = ETH_HLEN + l3_len;
 	void *data_end;
 	void *data;
 
@@ -178,7 +176,7 @@ struct endpoint_key {
 	__u8 family;
 	__u8 key;
 	__u16 pad5;
-} __attribute__((packed));
+} __packed;
 
 #define ENDPOINT_F_HOST		1 /* Special endpoint representing local host */
 
@@ -264,6 +262,17 @@ enum {
 	__u16		len_cap;	/* Length of captured bytes */	\
 	__u16		version;	/* Capture header version */
 
+#define __notify_common_hdr(t, s) 	\
+	.type		= (t),		\
+	.subtype	= (s),		\
+	.source		= EVENT_SOURCE,	\
+	.hash		= get_hash_recalc(ctx)
+
+#define __notify_pktcap_hdr(o, c)	\
+	.len_orig	= (o),		\
+	.len_cap	= (c),		\
+	.version	= NOTIFY_CAPTURE_VER
+
 /* Capture notifications version. Must be incremented when format changes. */
 #define NOTIFY_CAPTURE_VER 1
 
@@ -334,6 +343,7 @@ enum {
 #define DROP_UNKNOWN_SENDER	-172
 #define DROP_NAT_NOT_NEEDED	-173 /* Mapped as drop code, though drop not necessary. */
 #define DROP_IS_CLUSTER_IP	-174
+#define DROP_FRAG_NOT_FOUND	-175
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 
@@ -380,7 +390,10 @@ enum {
 #define MARK_MAGIC_KEY_ID		0xF000
 #define MARK_MAGIC_KEY_MASK		0xFF00
 
-#define MARK_MAGIC_SNAT_DONE		0x0500
+/* IPSec cannot be configured with NodePort BPF today, hence non-conflicting
+ * overlap with MARK_MAGIC_KEY_ID.
+ */
+#define MARK_MAGIC_SNAT_DONE		0x1500
 
 /* IPv4 option used to carry service addr and port for DSR. Lower 16bits set to
  * zero so that they can be OR'd with service port.
@@ -415,12 +428,12 @@ enum {
 /* encrypt_key is the index into the encrypt map */
 struct encrypt_key {
 	__u32 ctx;
-} __attribute__((packed));
+} __packed;
 
 /* encrypt_config is the current encryption context on the node */
 struct encrypt_config {
 	__u8 encrypt_key;
-} __attribute__((packed));
+} __packed;
 
 /**
  * or_encrypt_key - mask and shift key into encryption format
@@ -497,7 +510,7 @@ struct ipv6_ct_tuple {
 	__be16		sport;
 	__u8		nexthdr;
 	__u8		flags;
-} __attribute__((packed));
+} __packed;
 
 struct ipv4_ct_tuple {
 	/* Address fields are reversed, i.e.,
@@ -510,7 +523,7 @@ struct ipv4_ct_tuple {
 	__be16		sport;
 	__u8		nexthdr;
 	__u8		flags;
-} __attribute__((packed));
+} __packed;
 
 struct ct_entry {
 	__u64 rx_packets;
@@ -553,13 +566,18 @@ struct lb6_key {
 
 /* See lb4_service comments */
 struct lb6_service {
-	__u32 backend_id;
+	union {
+		__u32 backend_id;	/* Backend ID in lb6_backends */
+		__u32 affinity_timeout;	/* In seconds, only for master svc */
+	};
 	__u16 count;
 	__u16 rev_nat_index;
 	__u8 external:1,	/* K8s External IPs */
 	     nodeport:1,	/* K8s NodePort service */
 	     local_scope:1,	/* K8s externalTrafficPolicy=Local */
-	     reserved:5;
+	     hostport:1,	/* K8s hostPort forwarding */
+	     affinity:1,	/* K8s sessionAffinity=clientIP */
+	     reserved:3;
 	__u8 pad[3];
 };
 
@@ -574,7 +592,20 @@ struct lb6_backend {
 struct lb6_reverse_nat {
 	union v6addr address;
 	__be16 port;
-} __attribute__((packed));
+} __packed;
+
+struct ipv6_revnat_tuple {
+	__u64 cookie;
+	union v6addr address;
+	__be16 port;
+	__u16 pad;
+};
+
+struct ipv6_revnat_entry {
+	union v6addr address;
+	__be16 port;
+	__u16 rev_nat_index;
+};
 
 struct lb4_key {
 	__be32 address;		/* Service virtual IPv4 address */
@@ -585,7 +616,10 @@ struct lb4_key {
 };
 
 struct lb4_service {
-	__u32 backend_id;	/* Backend ID in lb4_backends */
+	union {
+		__u32 backend_id;		/* Backend ID in lb4_backends */
+		__u32 affinity_timeout;		/* In seconds, only for master svc */
+	};
 	/* For the master service, count denotes number of service endpoints.
 	 * For service endpoints, zero. (Previously, legacy service ID)
 	 */
@@ -594,7 +628,9 @@ struct lb4_service {
 	__u8 external:1,	/* K8s External IPs */
 	     nodeport:1,	/* K8s NodePort service */
 	     local_scope:1,	/* K8s externalTrafficPolicy=Local */
-	     reserved:5;
+	     hostport:1,	/* K8s hostPort forwarding */
+	     affinity:1,	/* K8s sessionAffinity=clientIP */
+	     reserved:3;
 	__u8 pad[3];
 };
 
@@ -608,7 +644,60 @@ struct lb4_backend {
 struct lb4_reverse_nat {
 	__be32 address;
 	__be16 port;
-} __attribute__((packed));
+} __packed;
+
+struct ipv4_revnat_tuple {
+	__u64 cookie;
+	__be32 address;
+	__be16 port;
+	__u16 pad;
+};
+
+struct ipv4_revnat_entry {
+	__be32 address;
+	__be16 port;
+	__u16 rev_nat_index;
+};
+
+union lb4_affinity_client_id {
+	__u32 client_ip;
+	__u64 client_cookie; /* netns cookie */
+} __packed;
+
+struct lb4_affinity_key {
+	union lb4_affinity_client_id client_id;
+	__u16 rev_nat_id;
+	__u8 netns_cookie:1,
+	     reserved:7;
+	__u8 pad1;
+	__u32 pad2;
+} __packed;
+
+union lb6_affinity_client_id {
+	union v6addr client_ip;
+	__u64 client_cookie; /* netns cookie */
+} __packed;
+
+struct lb6_affinity_key {
+	union lb6_affinity_client_id client_id;
+	__u16 rev_nat_id;
+	__u8 netns_cookie:1,
+	     reserved:7;
+	__u8 pad1;
+	__u32 pad2;
+} __packed;
+
+struct lb_affinity_val {
+	__u64 last_used;
+	__u32 backend_id;
+	__u32 pad;
+} __packed;
+
+struct lb_affinity_match {
+	__u32 backend_id;
+	__u16 rev_nat_id;
+	__u16 pad;
+} __packed;
 
 struct ct_state {
 	__u16 rev_nat_index;
@@ -617,7 +706,6 @@ struct ct_state {
 	      proxy_redirect:1, // Connection is redirected to a proxy
 	      dsr:1,
 	      reserved:12;
-	__be16 orig_dport;
 	__be32 addr;
 	__be32 svc_addr;
 	__u32 src_sec_id;
@@ -638,6 +726,21 @@ static __always_inline int redirect_peer(int ifindex __maybe_unused,
 	return CTX_ACT_OK;
 #endif /* ENABLE_HOST_REDIRECT */
 }
+
+struct lpm_v4_key {
+	struct bpf_lpm_trie_key lpm;
+	__u8 addr[4];
+};
+
+struct lpm_v6_key {
+	struct bpf_lpm_trie_key lpm;
+	__u8 addr[16];
+};
+
+struct lpm_val {
+	/* Just dummy for now. */
+	__u8 flags;
+};
 
 #include "overloadable.h"
 

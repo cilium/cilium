@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/identity"
+	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
@@ -84,17 +85,17 @@ func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 	m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 		if gi, ok := val.(GlobalIdentity); ok {
 			identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), gi.LabelArray)
-			identities = append(identities, identity.GetModel())
+			identities = append(identities, identitymodel.CreateModel(identity))
 		}
 
 	})
 	// append user reserved identities
 	for _, v := range identity.ReservedIdentityCache {
-		identities = append(identities, v.GetModel())
+		identities = append(identities, identitymodel.CreateModel(v))
 	}
 
 	for _, v := range m.localIdentities.GetIdentities() {
-		identities = append(identities, v.GetModel())
+		identities = append(identities, identitymodel.CreateModel(v))
 	}
 
 	return identities

@@ -40,6 +40,10 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: spec.nodeName
+{{- if .Values.global.ci.kubeCacheMutationDetector }}
+        - name: KUBE_CACHE_MUTATION_DETECTOR
+          value: "true"
+{{- end }}
         - name: CILIUM_K8S_NAMESPACE
           valueFrom:
             fieldRef:
@@ -154,7 +158,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
 {{- end }}
       restartPolicy: Always
-{{- if and (eq .Release.Namespace "kube-system") (or (gt .Capabilities.KubeVersion.Minor "10") (gt .Capabilities.KubeVersion.Major "1"))}}
+{{- if or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (gt .Capabilities.KubeVersion.Minor "16") (gt .Capabilities.KubeVersion.Major "1")}}
       priorityClassName: system-cluster-critical
 {{- end }}
       serviceAccount: cilium-operator

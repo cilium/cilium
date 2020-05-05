@@ -22,11 +22,14 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
-	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	"github.com/cilium/cilium/pkg/controller"
+	cilium_v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
+	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 
@@ -38,7 +41,7 @@ const (
 	nodeRetrievalMaxRetries = 15
 )
 
-func waitForNodeInformation(ctx context.Context, nodeName string) *node.Node {
+func waitForNodeInformation(ctx context.Context, nodeName string) *nodeTypes.Node {
 	backoff := backoff.Exponential{
 		Min:    time.Duration(200) * time.Millisecond,
 		Factor: 2.0,
@@ -59,7 +62,7 @@ func waitForNodeInformation(ctx context.Context, nodeName string) *node.Node {
 	return nil
 }
 
-func retrieveNodeInformation(nodeName string) (*node.Node, error) {
+func retrieveNodeInformation(nodeName string) (*nodeTypes.Node, error) {
 	requireIPv4CIDR := option.Config.K8sRequireIPv4PodCIDR
 	requireIPv6CIDR := option.Config.K8sRequireIPv6PodCIDR
 
@@ -101,7 +104,7 @@ func retrieveNodeInformation(nodeName string) (*node.Node, error) {
 
 // useNodeCIDR sets the ipv4-range and ipv6-range values values from the
 // addresses defined in the given node.
-func useNodeCIDR(n *node.Node) {
+func useNodeCIDR(n *nodeTypes.Node) {
 	if n.IPv4AllocCIDR != nil && option.Config.EnableIPv4 {
 		node.SetIPv4AllocRange(n.IPv4AllocCIDR)
 	}
@@ -112,8 +115,8 @@ func useNodeCIDR(n *node.Node) {
 
 // Init initializes the Kubernetes package. It is required to call Configure()
 // beforehand.
-func Init() error {
-	closeAllDefaultClientConns, err := createDefaultClient()
+func Init(conf k8sconfig.Configuration) error {
+	k8sRestClient, closeAllDefaultClientConns, err := createDefaultClient()
 	if err != nil {
 		return fmt.Errorf("unable to create k8s client: %s", err)
 	}
@@ -123,12 +126,34 @@ func Init() error {
 		return fmt.Errorf("unable to create cilium k8s client: %s", err)
 	}
 
-	runHeartbeat([]func(){
-		closeAllDefaultClientConns,
-		closeAllCiliumClientConns,
-	}, make(chan struct{}))
+	heartBeat := func(ctx context.Context) error {
+		// Kubernetes does a get node of the node that kubelet is running [0]. This seems excessive in
+		// our case because the amount of data transferred is bigger than doing a Get of /healthz.
+		// For this reason we have picked to perform a get on `/healthz` instead a get of a node.
+		//
+		// [0] https://github.com/kubernetes/kubernetes/blob/v1.17.3/pkg/kubelet/kubelet_node_status.go#L423
+		res := k8sRestClient.Get().Resource("healthz").Do(ctx)
+		return res.Error()
+	}
 
-	if err := k8sversion.Update(Client()); err != nil {
+	if option.Config.K8sHeartbeatTimeout != 0 {
+		controller.NewManager().UpdateController("k8s-heartbeat",
+			controller.ControllerParams{
+				DoFunc: func(context.Context) error {
+					runHeartbeat(
+						heartBeat,
+						option.Config.K8sHeartbeatTimeout,
+						closeAllDefaultClientConns,
+						closeAllCiliumClientConns,
+					)
+					return nil
+				},
+				RunInterval: option.Config.K8sHeartbeatTimeout,
+			},
+		)
+	}
+
+	if err := k8sversion.Update(Client(), conf); err != nil {
 		return err
 	}
 
@@ -140,7 +165,7 @@ func Init() error {
 	if nodeName := os.Getenv(EnvNodeNameSpec); nodeName != "" {
 		// Use of the environment variable overwrites the node-name
 		// automatically derived
-		node.SetName(nodeName)
+		nodeTypes.SetName(nodeName)
 
 		if n := waitForNodeInformation(context.TODO(), nodeName); n != nil {
 			nodeIP4 := n.GetNodeIP(false)
@@ -202,7 +227,7 @@ func RegisterCRDs() error {
 		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %s", err)
 	}
 
-	err = cilium_v2.CreateCustomResourceDefinitions(apiextensionsclientset)
+	err = cilium_v2_client.CreateCustomResourceDefinitions(apiextensionsclientset)
 	if err != nil {
 		return fmt.Errorf("Unable to create custom resource definition: %s", err)
 	}

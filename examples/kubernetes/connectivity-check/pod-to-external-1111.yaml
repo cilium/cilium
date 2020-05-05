@@ -19,7 +19,7 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "1.1.1.1"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "1.1.1.1"]
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "1.1.1.1"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "1.1.1.1"]

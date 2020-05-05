@@ -90,7 +90,11 @@ func (s *SearchContext) String() string {
 		to = append(to, toLabel.String())
 	}
 	for _, dport := range s.DPorts {
-		dports = append(dports, fmt.Sprintf("%d/%s", dport.Port, dport.Protocol))
+		if dport.Name != "" {
+			dports = append(dports, fmt.Sprintf("%s/%s", dport.Name, dport.Protocol))
+		} else {
+			dports = append(dports, fmt.Sprintf("%d/%s", dport.Port, dport.Protocol))
+		}
 	}
 	ret := fmt.Sprintf("From: [%s]", strings.Join(from, ", "))
 	ret += fmt.Sprintf(" => To: [%s]", strings.Join(to, ", "))

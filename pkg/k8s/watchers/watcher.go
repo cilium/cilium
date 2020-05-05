@@ -20,6 +20,7 @@ import (
 	"net"
 	"net/url"
 	"strconv"
+	"strings"
 	"sync"
 	"time"
 
@@ -34,11 +35,10 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/serializer"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -82,8 +82,13 @@ func init() {
 		k8s.K8sErrorHandler,
 	}
 
-	k8sMetric := &k8sMetrics{}
-	k8s_metrics.Register(k8sMetric, k8sMetric)
+	k8s_metrics.Register(k8s_metrics.RegisterOpts{
+		ClientCertExpiry:      nil,
+		ClientCertRotationAge: nil,
+		RequestLatency:        &k8sMetrics{},
+		RateLimiterLatency:    nil,
+		RequestResult:         &k8sMetrics{},
+	})
 }
 
 var (
@@ -105,8 +110,8 @@ type endpointManager interface {
 }
 
 type nodeDiscoverManager interface {
-	NodeDeleted(n node.Node)
-	NodeUpdated(n node.Node)
+	NodeDeleted(n nodeTypes.Node)
+	NodeUpdated(n nodeTypes.Node)
 	ClusterSizeDependantInterval(baseInterval time.Duration) time.Duration
 }
 
@@ -124,6 +129,7 @@ type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
 	UpsertService(frontend loadbalancer.L3n4AddrID, backends []loadbalancer.Backend,
 		svcType loadbalancer.SVCType, svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
+		sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 		svcHealthCheckNodePort uint16, svcName, svcNamespace string) (bool, loadbalancer.ID, error)
 }
 
@@ -235,6 +241,16 @@ func (*k8sMetrics) Observe(verb string, u url.URL, latency time.Duration) {
 
 func (*k8sMetrics) Increment(code string, method string, host string) {
 	metrics.KubernetesAPICalls.WithLabelValues(host, method, code).Inc()
+	// The 'code' is set to '<error>' in case an error is returned from k8s
+	// more info:
+	// https://github.com/kubernetes/client-go/blob/v0.18.0-rc.1/rest/request.go#L700-L703
+	if code != "<error>" {
+		// Consider success if status code is 2xx or 4xx
+		if strings.HasPrefix(code, "2") ||
+			strings.HasPrefix(code, "4") {
+			k8smetrics.LastSuccessInteraction.Reset()
+		}
+	}
 	k8smetrics.LastInteraction.Reset()
 }
 
@@ -292,8 +308,10 @@ func (k *K8sWatcher) blockWaitGroupToSyncResources(
 			k.k8sResourceSyncedStopWait[resourceName] = true
 			k.k8sResourceSyncedMu.Unlock()
 		}
-		swg.Stop()
-		swg.Wait()
+		if swg != nil {
+			swg.Stop()
+			swg.Wait()
+		}
 		close(ch)
 	}()
 }
@@ -405,61 +423,50 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	asyncControllers := &sync.WaitGroup{}
 
 	// kubernetes network policies
-	serKNPs := serializer.NewFunctionQueue(queueSize)
 	swgKNP := lock.NewStoppableWaitGroup()
-	k.networkPoliciesInit(k8s.Client(), serKNPs, swgKNP)
+	k.networkPoliciesInit(k8s.Client(), swgKNP)
 
 	// kubernetes services
-	serSvcs := serializer.NewFunctionQueue(queueSize)
 	swgSvcs := lock.NewStoppableWaitGroup()
-	k.servicesInit(k8s.Client(), serSvcs, swgSvcs)
+	k.servicesInit(k8s.Client(), swgSvcs)
 
 	// kubernetes endpoints
-	serEps := serializer.NewFunctionQueue(queueSize)
 	swgEps := lock.NewStoppableWaitGroup()
 
 	// We only enable either "Endpoints" or "EndpointSlice"
 	switch {
 	case k8s.SupportsEndpointSlice():
-		connected := k.endpointSlicesInit(k8s.Client(), serEps, swgEps)
+		connected := k.endpointSlicesInit(k8s.Client(), swgEps)
 		// the cluster has endpoint slices so we should not check for v1.Endpoints
 		if connected {
 			break
 		}
 		fallthrough
 	default:
-		k.endpointsInit(k8s.Client(), serEps, swgEps)
+		k.endpointsInit(k8s.Client(), swgEps)
 	}
 
 	// cilium network policies
-	serCNPs := serializer.NewFunctionQueue(queueSize)
-	swgCNPs := lock.NewStoppableWaitGroup()
-	k.ciliumNetworkPoliciesInit(ciliumNPClient, serCNPs, swgCNPs)
+	k.ciliumNetworkPoliciesInit(ciliumNPClient)
 
 	// cilium clusterwide network policy
-	serCCNPs := serializer.NewFunctionQueue(queueSize)
-	swgCCNPs := lock.NewStoppableWaitGroup()
-	k.ciliumClusterwideNetworkPoliciesInit(ciliumNPClient, serCCNPs, swgCCNPs)
+	k.ciliumClusterwideNetworkPoliciesInit(ciliumNPClient)
 
 	// cilium nodes
 	asyncControllers.Add(1)
-	serNodes := serializer.NewFunctionQueue(queueSize)
-	go k.ciliumNodeInit(ciliumNPClient, serNodes, asyncControllers)
+	go k.ciliumNodeInit(ciliumNPClient, asyncControllers)
 
 	// cilium endpoints
 	asyncControllers.Add(1)
-	serCiliumEndpoints := serializer.NewFunctionQueue(queueSize)
-	go k.ciliumEndpointsInit(ciliumNPClient, serCiliumEndpoints, asyncControllers)
+	go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
 
 	// kubernetes pods
 	asyncControllers.Add(1)
-	serPods := serializer.NewFunctionQueue(queueSize)
-	go k.podsInit(k8s.Client(), serPods, asyncControllers)
+	go k.podsInit(k8s.Client(), asyncControllers)
 
 	// kubernetes namespaces
 	asyncControllers.Add(1)
-	serNamespaces := serializer.NewFunctionQueue(queueSize)
-	go k.namespacesInit(k8s.Client(), serNamespaces, asyncControllers)
+	go k.namespacesInit(k8s.Client(), asyncControllers)
 
 	asyncControllers.Wait()
 	close(k.controllersStarted)
@@ -601,7 +608,7 @@ func genCartesianProduct(
 	bes *k8s.Endpoints,
 ) []loadbalancer.SVC {
 
-	var svcs []loadbalancer.SVC
+	svcs := make([]loadbalancer.SVC, 0, len(ports))
 
 	for fePortName, fePort := range ports {
 		var besValues []loadbalancer.Backend
@@ -675,6 +682,8 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 	for i := range svcs {
 		svcs[i].TrafficPolicy = svc.TrafficPolicy
 		svcs[i].HealthCheckNodePort = svc.HealthCheckNodePort
+		svcs[i].SessionAffinity = svc.SessionAffinity
+		svcs[i].SessionAffinityTimeoutSec = svc.SessionAffinityTimeoutSec
 	}
 
 	return svcs
@@ -733,7 +742,10 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 
 	for _, dpSvc := range svcs {
 		if _, _, err := k.svcManager.UpsertService(dpSvc.Frontend, dpSvc.Backends, dpSvc.Type,
-			dpSvc.TrafficPolicy, dpSvc.HealthCheckNodePort, svcID.Name, svcID.Namespace); err != nil {
+			dpSvc.TrafficPolicy,
+			dpSvc.SessionAffinity, dpSvc.SessionAffinityTimeoutSec,
+			dpSvc.HealthCheckNodePort,
+			svcID.Name, svcID.Namespace); err != nil {
 			scopedLog.WithError(err).Error("Error while inserting service in LB map")
 		}
 	}

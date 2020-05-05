@@ -22,8 +22,9 @@ sphinxcontrib-openapi==0.3.2
 sphinxcontrib-websupport==1.1.0
 typing==3.6.6
 urllib3==1.24.2
-sphinx-tabs==1.1.7
+sphinx-tabs==1.1.13
 recommonmark==0.4.0
-sphinxcontrib-spelling==4.2.0
+sphinxcontrib-spelling==4.2.1
 sphinx-version-warning==1.1.2
 semver==2.9.0
+yamllint==1.22.0

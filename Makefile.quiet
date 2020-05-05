@@ -1,3 +1,6 @@
+# Copyright 2017-2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 ifeq ($(ROOT_DIR),)
 	ROOT_DIR ?= $(shell dirname $(realpath $(lastword $(MAKEFILE_LIST))))
 	RELATIVE_DIR ?= $(shell echo $(realpath .) | sed "s;$(ROOT_DIR)[/]*;;")
@@ -10,7 +13,7 @@ ifeq ($(V),0)
 	ECHO_CHECK=echo "  CHECK $(RELATIVE_DIR)"
 	ECHO_GINKGO=echo "  GINKG $(RELATIVE_DIR)"
 	ECHO_CLEAN=echo "  CLEAN $(RELATIVE_DIR)"
-	SPHINXOPTS+="-q"
+	SUBMAKEOPTS="-s"
 else
 	# The whitespace at below EOLs is required for verbose case!
 	ECHO_CC=: 
@@ -19,5 +22,5 @@ else
 	ECHO_CHECK=: 
 	ECHO_GINKGO=: 
 	ECHO_CLEAN=: 
+	SUBMAKEOPTS=
 endif
-

@@ -15,8 +15,9 @@ cilium policy validate <path> [flags]
 ### Options
 
 ```
-  -h, --help    help for validate
-      --print   Print policy after validation
+  -h, --help      help for validate
+      --print     Print policy after validation
+  -v, --verbose   Enable verbose output (default true)
 ```
 
 ### Options inherited from parent commands

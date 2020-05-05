@@ -1,20 +1,22 @@
+# Copyright 2017-2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 include ../../Makefile.defs
 
-all: cilium-cni
+TARGET := cilium-cni
 
-TARGET=cilium-cni
+.PHONY: all $(TARGET) clean install
+
+all: $(TARGET)
+
+$(TARGET):
+	@$(ECHO_GO)
+	$(QUIET)$(GO_BUILD) -o $@
 
 clean:
 	@$(ECHO_CLEAN)
-	$(QUIET)$(GO) clean $(GOCLEAN)
 	-$(QUIET)rm -f $(TARGET)
-
-SOURCES := $(shell find ../../api/v1/models ../../common ../../pkg/client ../../pkg/endpoint . -name '*.go')
-
-$(TARGET): $(SOURCES)
-	@$(ECHO_GO)
-	# Compile without cgo to allow use of cilium-cni on non-glibc platforms - see GH-5055
-	$(QUIET)CGO_ENABLED=0 $(GO) build $(GOBUILD) -o $(TARGET)
+	$(QUIET)$(GO_CLEAN)
 
 install:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(CNICONFDIR)

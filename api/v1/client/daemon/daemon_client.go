@@ -136,7 +136,7 @@ GetHealthz gets health of cilium daemon
 
 Returns health and status information of the Cilium daemon and related
 components such as the local container runtime, connected datastore,
-Kubernetes integration.
+Kubernetes integration and Hubble.
 
 */
 func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {

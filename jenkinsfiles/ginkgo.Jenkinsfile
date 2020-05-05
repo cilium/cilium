@@ -9,17 +9,31 @@ pipeline {
         PROJ_PATH = "src/github.com/cilium/cilium"
         VM_MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
-        NETNEXT=setIfLabel("ci/net-next", "true", "false")
-        GINKGO_TIMEOUT="300m"
+        NETNEXT=setIfLabel("ci/net-next", "1", "0")
+        GINKGO_TIMEOUT="360m"
     }
 
     options {
-        timeout(time: 300, unit: 'MINUTES')
+        timeout(time: 360, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
 
     stages {
+        stage('Set build name') {
+            when {
+                allOf {
+                    not {environment name: 'GIT_BRANCH', value: 'origin/master'};
+                    not {environment name: 'GIT_BRANCH', value: 'master'};
+                    not {branch 'master'}
+                }
+            }
+            steps {
+                   script {
+                       currentBuild.displayName = env.getProperty('ghprbPullTitle') + '  ' + env.getProperty('ghprbPullLink') + '  ' + currentBuild.displayName
+                   }
+            }
+        }
         stage('Checkout') {
             options {
                 timeout(time: 30, unit: 'MINUTES')
@@ -133,13 +147,12 @@ pipeline {
                         TESTED_SUITE="k8s-1.11"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        NETNEXT="true"
+                        NETNEXT="1"
                         K8S_VERSION="1.11"
                         K8S_NODES="3"
                         NO_CILIUM_ON_NODE="k8s3"
                         KUBEPROXY="0"
                         KUBECONFIG="vagrant-kubeconfig"
-                         //setting it here so we don't compile Cilium in vagrant nodes (already done on local node registry)
                     }
                     steps {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
@@ -147,7 +160,7 @@ pipeline {
                         retry(3) {
                             timeout(time: 45, unit: 'MINUTES'){
                                 dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
                                 }
                             }
                         }
@@ -162,12 +175,12 @@ pipeline {
                         }
                     }
                 }
-                stage('Boot vms K8s-1.17') {
+                stage('Boot vms K8s-1.18') {
                     environment {
-                        TESTED_SUITE="k8s-1.17"
+                        TESTED_SUITE="k8s-1.18"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        K8S_VERSION="1.17"
+                        K8S_VERSION="1.18"
                         KUBECONFIG="vagrant-kubeconfig"
                     }
                     steps {
@@ -176,7 +189,7 @@ pipeline {
                         retry(3) {
                             timeout(time: 45, unit: 'MINUTES'){
                                 dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip)" ./vagrant-ci-start.sh'
+                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
                                 }
                             }
                         }
@@ -185,7 +198,7 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.17 vm provisioning fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.18 vm provisioning fail\n' + currentBuild.displayName
                                 }
                             }
                         }
@@ -195,7 +208,7 @@ pipeline {
         }
         stage ("BDD-Test-PR"){
             options {
-                timeout(time: 130, unit: 'MINUTES')
+                timeout(time: 180, unit: 'MINUTES')
             }
             environment {
                 FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
@@ -233,7 +246,7 @@ pipeline {
                         TESTED_SUITE="k8s-1.11"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-                        NETNEXT="true"
+                        NETNEXT="1"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                         K8S_VERSION="1.11"
                         K8S_NODES="3"
@@ -260,13 +273,13 @@ pipeline {
                         }
                     }
                 }
-                stage('BDD-Test-PR-K8s-1.17') {
+                stage('BDD-Test-PR-K8s-1.18') {
                     environment {
-                        TESTED_SUITE="k8s-1.17"
+                        TESTED_SUITE="k8s-1.18"
                         GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                         KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
-                        K8S_VERSION="1.17"
+                        K8S_VERSION="1.18"
                     }
                     steps {
                         sh 'cd ${TESTDIR}; HOME=${GOPATH} ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | sed "s/Runtime.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
@@ -282,7 +295,7 @@ pipeline {
                         unsuccessful {
                             script {
                                 if  (!currentBuild.displayName.contains('fail')) {
-                                    currentBuild.displayName = 'K8s 1.17 fail\n' + currentBuild.displayName
+                                    currentBuild.displayName = 'K8s 1.18 fail\n' + currentBuild.displayName
                                 }
                             }
                         }

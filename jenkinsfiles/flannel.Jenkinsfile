@@ -10,9 +10,9 @@ pipeline {
         TESTDIR = "${WORKSPACE}/${PROJ_PATH}/"
         VM_MEMORY = "4096"
         SERVER_BOX = "cilium/ubuntu"
-        NETNEXT=setIfLabel("ci/net-next", "true", "false")
+        NETNEXT=setIfLabel("ci/net-next", "1", "0")
         CNI_INTEGRATION="flannel"
-        GINKGO_TIMEOUT="73m"
+        GINKGO_TIMEOUT="75m"
     }
 
     options {
@@ -22,6 +22,16 @@ pipeline {
     }
 
     stages {
+        stage('Set build name') {
+            when {
+                not {environment name: 'GIT_BRANCH', value: 'origin/master'}
+            }
+            steps {
+                   script {
+                       currentBuild.displayName = env.getProperty('ghprbPullTitle') + '  ' + env.getProperty('ghprbPullLink') + '  ' + currentBuild.displayName
+                   }
+            }
+        }
         stage('Checkout') {
             options {
                 timeout(time: 20, unit: 'MINUTES')

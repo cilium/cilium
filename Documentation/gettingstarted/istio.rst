@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 ***************************
 Getting Started Using Istio
@@ -22,167 +22,52 @@ environment running on your machine.
    instructions provided here for the other GSGs. 5 GB and 4 CPUs
    should be enough for this GSG (``--memory=5120 --cpus=4``).
 
-Step 2: Install Istio
-=====================
+Step 2: Install cilium-istioctl
+===============================
 
 .. note::
 
    Make sure that Cilium is running in your cluster before proceeding.
 
-Install the `Helm client <https://helm.sh/docs/intro/install/>`_.
+Download the `cilium enhanced istioctl version 1.5.2 <https://github.com/cilium/istio/releases/tag/1.5.2>`_:
 
-Download `Istio version 1.5.0
-<https://github.com/istio/istio/releases/tag/1.5.0>`_:
+.. tabs::
+  .. group-tab:: Linux
 
-::
+    .. parsed-literal::
 
-   export ISTIO_VERSION=1.5.0
-   curl -L https://git.io/getLatestIstio | sh -
-   export ISTIO_HOME=`pwd`/istio-${ISTIO_VERSION}
-   export PATH="$PATH:${ISTIO_HOME}/bin"
-   istioctl verify-install
+     curl -L https://github.com/cilium/istio/releases/download/1.5.2/cilium-istioctl-1.5.2-linux.tar.gz | tar xz
+
+  .. group-tab:: OSX
+
+    .. parsed-literal::
+
+     curl -L https://github.com/cilium/istio/releases/download/1.5.2/cilium-istioctl-1.5.2-osx.tar.gz | tar xz
 
 .. note::
 
    Cilium integration, as presented in this Getting Started Guide, has
-   been tested with Kubernetes releases 1.14, 1.15, 1.16, and
-   1.17. Note that this does *not* work with K8s 1.13.
+   been tested with Kubernetes releases 1.14, 1.15, 1.16, 1.17, and
+   1.18. Note that this does *not* work with K8s 1.13.
 
-Create a copy of Istio's Helm charts in order to customize them:
-
-::
-
-    rm -rf istio-cilium-helm
-    cp -r ${ISTIO_HOME}/install/kubernetes/helm/istio istio-cilium-helm
-
-Configure the Cilium-specific variant of Pilot to inject the
-Cilium network policy filters into each Istio sidecar proxy:
-
-.. parsed-literal::
-
-    curl -s \ |SCM_WEB|\/examples/kubernetes-istio/cilium-pilot.awk > cilium-pilot.awk
+Deploy the default Istio configuration profile onto Kubernetes:
 
 ::
 
-    awk -f cilium-pilot.awk \
-          < ${ISTIO_HOME}/install/kubernetes/helm/istio/charts/pilot/templates/deployment.yaml \
-          > istio-cilium-helm/charts/pilot/templates/deployment.yaml
+    ./cilium-istioctl manifest apply -y
 
-Configure the Istio's sidecar injection to setup the transparent proxy mode
-(TPROXY) as required by Cilium's proxy filters:
+Add a namespace label to instruct Istio to automatically inject Envoy sidecar proxies when you deploy your application later:
 
 ::
 
-    sed -e 's,#interceptionMode: .*,interceptionMode: TPROXY,' \
-        < ${ISTIO_HOME}/install/kubernetes/helm/istio/templates/configmap.yaml \
-        > istio-cilium-helm/templates/configmap.yaml
-
-Modify the Istio sidecar injection template to add an init container
-that waits until DNS works and to mount Cilium's API Unix domain
-sockets into each sidecar to allow Cilium's Envoy filters to query the
-Cilium agent for policy configuration:
-
-.. parsed-literal::
-
-    curl -s \ |SCM_WEB|\/examples/kubernetes-istio/cilium-kube-inject.awk > cilium-kube-inject.awk
-
-::
-
-    awk -f cilium-kube-inject.awk \
-        < ${ISTIO_HOME}/install/kubernetes/helm/istio/files/injection-template.yaml \
-        > istio-cilium-helm/files/injection-template.yaml
-
-Create an Istio deployment spec, which configures the Cilium-specific variant
-of Pilot, and disables unused services:
-
-.. tabs::
-  .. group-tab:: Helm 2
-
-    .. parsed-literal::
-
-     helm template istio-cilium-helm --name istio --namespace istio-system \
-        --set pilot.image=docker.io/cilium/istio_pilot:${ISTIO_VERSION} \
-        --set sidecarInjectorWebhook.enabled=false \
-        --set global.controlPlaneSecurityEnabled=true \
-        --set global.mtls.enabled=true \
-        --set global.proxy.image=docker.io/cilium/istio_proxy:${ISTIO_VERSION} \
-        --set global.proxy_init.image=docker.io/cilium/istio_proxy:${ISTIO_VERSION} \
-        --set ingress.enabled=false \
-        --set egressgateway.enabled=false \
-        > istio-cilium.yaml
-
-  .. group-tab:: Helm 3
-
-    .. parsed-literal::
-
-     helm template istio istio-cilium-helm --namespace istio-system \
-        --set pilot.image=docker.io/cilium/istio_pilot:${ISTIO_VERSION} \
-        --set sidecarInjectorWebhook.enabled=false \
-        --set global.controlPlaneSecurityEnabled=true \
-        --set global.mtls.enabled=true \
-        --set global.proxy.image=docker.io/cilium/istio_proxy:${ISTIO_VERSION} \
-        --set global.proxy_init.image=docker.io/cilium/istio_proxy:${ISTIO_VERSION} \
-        --set ingress.enabled=false \
-        --set egressgateway.enabled=false \
-        > istio-cilium.yaml
-
-Deploy Istio onto Kubernetes:
-
-.. tabs::
-  .. group-tab:: Helm 2
-
-    .. parsed-literal::
-
-     kubectl create namespace istio-system
-     helm template ${ISTIO_HOME}/install/kubernetes/helm/istio-init --name istio-init --namespace istio-system | kubectl apply -f -
-
-  .. group-tab:: Helm 3
-
-    .. parsed-literal::
-
-     kubectl create namespace istio-system
-     helm template istio-init ${ISTIO_HOME}/install/kubernetes/helm/istio-init --namespace istio-system | kubectl apply -f -
-
-Verify that 25 Istio CRDs have been created:
-
-::
-
-    watch "kubectl get crds | grep 'istio.io\|certmanager.k8s.io' | wc -l"
-
-.. note::
-
-   This will get stuck at 0 if Cilium is not running in your cluster!
-
-When the above returns '25', you can stop it with ``CTRL-c`` and deploy Istio:
-
-::
-
-    kubectl apply -f istio-cilium.yaml
-
-Check the progress of the deployment (every service should have an
-``AVAILABLE`` count of ``1``):
-
-::
-
-    watch "kubectl get deployments -n istio-system"
-    NAME                   READY   UP-TO-DATE   AVAILABLE   AGE
-    istio-citadel          1/1     1            1           3m20s
-    istio-galley           1/1     1            1           3m20s
-    istio-ingressgateway   1/1     1            1           3m20s
-    istio-pilot            1/1     1            1           3m20s
-    istio-policy           1/1     1            1           3m20s
-    istio-telemetry        1/1     1            1           3m20s
-    prometheus             1/1     1            1           3m20s
-
-Once all Istio pods are ready, we are ready to install the demo
-application.
+    kubectl label namespace default istio-injection=enabled
 
 Step 3: Deploy the Bookinfo Application V1
 ==========================================
 
 Now that we have Cilium and Istio deployed, we can deploy version
 ``v1`` of the services of the `Istio Bookinfo sample application
-<https://istio.io/docs/examples/bookinfo.html>`_.
+<https://istio.io/docs/examples/bookinfo/>`_.
 
 While the upstream `Istio Bookinfo Application example for Kubernetes
 <https://istio.io/docs/examples/bookinfo/#if-you-are-running-on-kubernetes>`_
@@ -217,9 +102,7 @@ To deploy the application with manual sidecar injection, run:
 .. parsed-literal::
 
     for service in productpage-service productpage-v1 details-v1 reviews-v1; do \\
-          curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
-          istioctl kube-inject -f - | \\
-          kubectl create --validate=false -f - ; done
+          kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml ; done
 
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
@@ -248,9 +131,9 @@ Check the progress of the deployment (every service should have an
 
 Create an Istio ingress gateway for the productpage service:
 
-::
+.. parsed-literal::
 
-    kubectl apply -f ${ISTIO_HOME}/samples/bookinfo/networking/bookinfo-gateway.yaml
+    kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-gateway.yaml
 
 To obtain the URL to the frontend productpage service, run:
 
@@ -291,17 +174,14 @@ Apply this route rule:
 
 .. parsed-literal::
 
-    curl -s \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v1.yaml | \\
-          kubectl apply -f -
+    kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v1.yaml
 
 Deploy the ``ratings v1`` and ``reviews v2`` services:
 
 .. parsed-literal::
 
     for service in ratings-v1 reviews-v2; do \\
-          curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml | \\
-          istioctl kube-inject -f - | \\
-          kubectl create --validate=false -f - ; done
+          kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-${service}.yaml ; done
 
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):
@@ -359,8 +239,7 @@ Apply this route rule:
 
 .. parsed-literal::
 
-    curl -s \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v1-v2.yaml | \\
-          kubectl apply -f -
+    kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v1-v2.yaml
 
 Check in your web browser that stars are appearing in the Book Reviews
 roughly 50% of the time.  This may require refreshing the page for a
@@ -384,8 +263,7 @@ Apply this route rule:
 
 .. parsed-literal::
 
-    curl -s \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v2.yaml | \\
-          kubectl apply -f -
+    kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-istio/route-rule-reviews-v2.yaml
 
 Refresh the product page in your web browser several times to verify
 that stars are now appearing in the Book Reviews on every page
@@ -450,17 +328,11 @@ deploy a Kafka broker:
 
 .. parsed-literal::
 
-    curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1-destrule.yaml | \\
-          kubectl create -f -
-
-.. TODO: Re-enable sidecar injection after we support Kafka with mTLS.
-    $ curl -s \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml | \\
-          istioctl kube-inject -f - | \\
-          kubectl create --validate=false -f -
+    kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1-destrule.yaml
 
 .. parsed-literal::
 
-    kubectl create -f \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml
+    kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-istio/kafka-v1.yaml
 
 Wait until the ``kafka-v1-0`` pod is ready, i.e. until it has a
 ``READY`` count of ``1/1``:
@@ -485,9 +357,7 @@ CiliumNetworkPolicy and delete ``productpage v1``:
 
 .. parsed-literal::
 
-    curl -s \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-v2.yaml | \\
-        istioctl kube-inject -f - | \\
-        kubectl create --validate=false -f -
+    kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-istio/bookinfo-productpage-v2.yaml
 
 .. parsed-literal::
 
@@ -509,9 +379,7 @@ this service:
 
 .. parsed-literal::
 
-    curl -s \ |SCM_WEB|\/examples/kubernetes-istio/authaudit-logger-v1.yaml | \\
-        istioctl kube-inject -f - | \\
-        kubectl apply --validate=false -f -
+    kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-istio/authaudit-logger-v1.yaml
 
 Check the progress of the deployment (every service should have an
 ``AVAILABLE`` count of ``1``):

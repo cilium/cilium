@@ -15,6 +15,7 @@
 package client
 
 import (
+	"context"
 	"fmt"
 	"io"
 	"net"
@@ -32,7 +33,6 @@ import (
 
 	runtime_client "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
-	"golang.org/x/net/context"
 )
 
 type Client struct {
@@ -269,7 +269,12 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 					mode = strings.Title(mode)
 				}
 				features = append(features,
-					fmt.Sprintf("NodePort (%s, %d-%d)", mode, np.PortMin, np.PortMax))
+					fmt.Sprintf("NodePort (%s, %d-%d, XDP: %s)",
+						mode, np.PortMin, np.PortMax, np.Acceleration))
+			}
+
+			if sr.KubeProxyReplacement.Features.HostPort.Enabled {
+				features = append(features, "HostPort")
 			}
 
 			if sr.KubeProxyReplacement.Features.ExternalIPs.Enabled {
@@ -407,5 +412,36 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 		}
 	} else {
 		fmt.Fprintf(w, "Proxy Status:\tNo managed proxy redirect\n")
+	}
+
+	if sr.Hubble != nil {
+		var fields []string
+
+		state := sr.Hubble.State
+		if sr.Hubble.Msg != "" {
+			state = fmt.Sprintf("%s %s", state, sr.Hubble.Msg)
+		}
+		fields = append(fields, state)
+
+		if o := sr.Hubble.Observer; o != nil {
+			var observer []string
+
+			if o.MaxFlows > 0 {
+				observer = append(observer, fmt.Sprintf("Current/Max Flows: %d/%d (%.2f%%)",
+					o.CurrentFlows, o.MaxFlows, (float64(o.CurrentFlows)/float64(o.MaxFlows))*100))
+			}
+			if o.Uptime > 0 {
+				observer = append(observer, fmt.Sprintf("Flows/s: %.2f",
+					float64(o.SeenFlows)/time.Duration(o.Uptime).Seconds()))
+			}
+
+			fields = append(fields, strings.Join(observer, ", "))
+		}
+
+		if sr.Hubble.Metrics != nil {
+			fields = append(fields, fmt.Sprintf("Metrics: %s", sr.Hubble.Metrics.State))
+		}
+
+		fmt.Fprintf(w, "Hubble:\t%s\n", strings.Join(fields, "\t"))
 	}
 }

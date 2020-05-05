@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,11 +25,9 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
-	coreV1 "k8s.io/api/core/v1"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -86,7 +84,7 @@ func updateNodeAnnotation(c kubernetes.Interface, nodeName string, encryptKey ui
 	}
 	patch := []byte(fmt.Sprintf(`{"metadata":{"annotations":%s}}`, raw))
 
-	_, err = c.CoreV1().Nodes().Patch(nodeName, types.StrategicMergePatchType, patch)
+	_, err = c.CoreV1().Nodes().Patch(context.TODO(), nodeName, types.StrategicMergePatchType, patch, v1.PatchOptions{})
 
 	return err
 }
@@ -113,9 +111,8 @@ func (k8sCli K8sClient) AnnotateNode(nodeName string, encryptKey uint8, v4CIDR, 
 				err := updateNodeAnnotation(k8sCli, nodeName, encryptKey, v4CIDR, v6CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP)
 				if err != nil {
 					scopedLog.WithFields(logrus.Fields{}).WithError(err).Warn("Unable to patch node resource with annotation")
-					return err
 				}
-				return SetNodeNetworkUnavailableFalse(k8sCli, nodeName)
+				return err
 			},
 		})
 
@@ -128,15 +125,7 @@ func (k8sCli K8sClient) GetSecrets(ctx context.Context, ns, name string) (map[st
 		return nil, fmt.Errorf("GetSecrets: No k8s, cannot access k8s secrets")
 	}
 
-	result := &coreV1.Secret{}
-	err := k8sCli.CoreV1().RESTClient().Get().
-		Context(ctx).
-		Namespace(ns).
-		Resource("secrets").
-		Name(name).
-		VersionedParams(&v1.GetOptions{}, scheme.ParameterCodec).
-		Do().
-		Into(result)
+	result, err := k8sCli.CoreV1().Secrets(ns).Get(ctx, name, v1.GetOptions{})
 	if err != nil {
 		return nil, err
 	}

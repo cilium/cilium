@@ -18,7 +18,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/service"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"github.com/sirupsen/logrus"
 )
@@ -27,17 +27,17 @@ import (
 // services. The functions have to merge service updates and deletions with
 // local services to provide a shared view.
 type ServiceMerger interface {
-	MergeExternalServiceUpdate(service *service.ClusterService, swg *lock.StoppableWaitGroup)
-	MergeExternalServiceDelete(service *service.ClusterService, swg *lock.StoppableWaitGroup)
+	MergeExternalServiceUpdate(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup)
+	MergeExternalServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup)
 }
 
 type globalService struct {
-	clusterServices map[string]*service.ClusterService
+	clusterServices map[string]*serviceStore.ClusterService
 }
 
 func newGlobalService() *globalService {
 	return &globalService{
-		clusterServices: map[string]*service.ClusterService{},
+		clusterServices: map[string]*serviceStore.ClusterService{},
 	}
 }
 
@@ -52,7 +52,7 @@ func newGlobalServiceCache() *globalServiceCache {
 	}
 }
 
-func (c *globalServiceCache) onUpdate(svc *service.ClusterService) {
+func (c *globalServiceCache) onUpdate(svc *serviceStore.ClusterService) {
 	c.mutex.Lock()
 
 	scopedLog := log.WithFields(logrus.Fields{
@@ -97,7 +97,7 @@ func (c *globalServiceCache) delete(globalService *globalService, clusterName, s
 	}
 }
 
-func (c *globalServiceCache) onDelete(svc *service.ClusterService) {
+func (c *globalServiceCache) onDelete(svc *serviceStore.ClusterService) {
 	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
 	scopedLog.Debug("Delete event for service")
 
@@ -138,7 +138,7 @@ type remoteServiceObserver struct {
 
 // OnUpdate is called when a service in a remote cluster is updated
 func (r *remoteServiceObserver) OnUpdate(key store.Key) {
-	if svc, ok := key.(*service.ClusterService); ok {
+	if svc, ok := key.(*serviceStore.ClusterService); ok {
 		scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
 		scopedLog.Debugf("Update event of remote service %#v", svc)
 
@@ -158,7 +158,7 @@ func (r *remoteServiceObserver) OnUpdate(key store.Key) {
 
 // OnDelete is called when a service in a remote cluster is deleted
 func (r *remoteServiceObserver) OnDelete(key store.NamedKey) {
-	if svc, ok := key.(*service.ClusterService); ok {
+	if svc, ok := key.(*serviceStore.ClusterService); ok {
 		scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: svc.String()})
 		scopedLog.Debugf("Update event of remote service %#v", svc)
 

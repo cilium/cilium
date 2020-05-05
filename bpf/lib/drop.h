@@ -32,31 +32,27 @@ struct drop_notify {
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_DROP_NOTIFY)
 int __send_drop_notify(struct __ctx_buff *ctx)
 {
-	__u64 ctx_len = (__u64)ctx_full_len(ctx);
-	__u64 cap_len = min((__u64)TRACE_PAYLOAD_LEN, (__u64)ctx_len);
-	__u32 hash = get_hash_recalc(ctx);
-	struct drop_notify msg = {
-		.type = CILIUM_NOTIFY_DROP,
-		.source = EVENT_SOURCE,
-		.hash = hash,
-		.len_orig = ctx_len,
-		.len_cap = cap_len,
-		.version = NOTIFY_CAPTURE_VER,
-		.src_label = ctx_load_meta(ctx, 0),
-		.dst_label = ctx_load_meta(ctx, 1),
-		.dst_id = ctx_load_meta(ctx, 3),
-		.unused = 0,
-	};
 	/* Mask needed to calm verifier. */
 	int error = ctx_load_meta(ctx, 2) & 0xFFFFFFFF;
+	__u64 ctx_len = ctx_full_len(ctx);
+	__u64 cap_len = min_t(__u64, TRACE_PAYLOAD_LEN, ctx_len);
+	struct drop_notify msg;
 
 	if (error < 0)
 		error = -error;
-	msg.subtype = error;
+
+	msg = (typeof(msg)) {
+		__notify_common_hdr(CILIUM_NOTIFY_DROP, error),
+		__notify_pktcap_hdr(ctx_len, cap_len),
+		.src_label	= ctx_load_meta(ctx, 0),
+		.dst_label	= ctx_load_meta(ctx, 1),
+		.dst_id		= ctx_load_meta(ctx, 3),
+	};
 
 	ctx_event_output(ctx, &EVENTS_MAP,
 			 (cap_len << 32) | BPF_F_CURRENT_CPU,
 			 &msg, sizeof(msg));
+
 	return ctx_load_meta(ctx, 4);
 }
 

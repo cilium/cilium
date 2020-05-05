@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _admin_system_reqs:
 
@@ -24,7 +24,7 @@ system must meet these requirements:
 When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
 
-- `clang+LLVM`_ >=5.0 (Recommended: >=7.0)
+- `clang+LLVM`_ >= 5.0 (Recommended: >=10.0)
 - iproute2_ with BPF templating patches [#iproute2_foot]_
 
 .. _`clang+LLVM`: https://llvm.org
@@ -54,23 +54,36 @@ Linux Distribution Compatibility Matrix
 The following table lists Linux distributions that are known to work
 well with Cilium.
 
-===================== ====================
-Distribution          Minimum Version
-===================== ====================
-CoreOS_               stable (>= 1298.5.0)
-Debian_               >= 9 Stretch
-`Fedora Atomic/Core`_ >= 25
-LinuxKit_             all
-Ubuntu_               >= 16.04.2, >= 16.10
-Opensuse_             Tumbleweed, >=Leap 15.0
-===================== ====================
+========================== ====================
+Distribution               Minimum Version
+========================== ====================
+`Amazon Linux 2`_          all
+`Container-Optimized OS`_  all
+`CentOS`_                  >= 7.0 [#centos_foot]_
+CoreOS_                    stable (>= 1298.5.0)
+Debian_                    >= 9 Stretch
+`Fedora Atomic/Core`_      >= 25
+LinuxKit_                  all
+`RedHat Enterprise Linux`_ >= 8.0
+Ubuntu_                    >= 16.04.2, >= 16.10
+Opensuse_                  Tumbleweed, >=Leap 15.0
+RancherOS_                 >= 1.5.5
+========================== ====================
 
+.. _Amazon Linux 2: https://aws.amazon.com/amazon-linux-2/
+.. _CentOS: https://centos.org
+.. _Container-Optimized OS: https://cloud.google.com/container-optimized-os/docs
 .. _CoreOS: https://coreos.com/releases/
 .. _Debian: https://wiki.debian.org/DebianStretch
 .. _Fedora Atomic/Core: http://www.projectatomic.io/blog/2017/03/fedora_atomic_2week_2/
 .. _LinuxKit: https://github.com/linuxkit/linuxkit/tree/master/kernel
+.. _RedHat Enterprise Linux: https://www.redhat.com/en/technologies/linux-platforms/enterprise-linux
 .. _Ubuntu: https://wiki.ubuntu.com/YakketyYak/ReleaseNotes#Linux_kernel_4.8
 .. _Opensuse: https://www.opensuse.org/
+.. _RancherOS: https://rancher.com/rancher-os/
+
+.. [#centos_foot] CentOS 7 requires a third-party kernel provided by `ElRepo <http://elrepo.org/tiki/tiki-index.php>`_
+    whereas CentOS 8 ships with a supported kernel.
 
 .. note:: The above list is based on feedback by users. If you find an unlisted
           Linux distribution that works well, please let us know by opening a
@@ -135,6 +148,22 @@ by adding the following to the helm configuration command line:
    helm install cilium |CHART_RELEASE| \\
      ...
      --set global.enableXTSocketFallback=false
+
+Advanced Features and Required Kernel Version
+=============================================
+Cilium requires Linux kernel 4.9.17 or higher, however development on additional
+kernel features and functionality continues to progress in the Linux community.
+Some Cilium features and functionality are dependent on newer kernel versions.
+These additional Cilium features and functionality are enabled by upgrading to
+a later kernel version as detailed below:
+
+======================= ===============================
+Cilium Feature          Minimum Kernel Version
+======================= ===============================
+:ref:`cidr_limitations` >= 4.11
+:ref:`host-services`    >= 4.19.57, >= 5.1.16,  >= 5.2
+:ref:`kubeproxy-free`   >= 4.19.57, >= 5.1.16,  >= 5.2
+======================= ===============================
 
 .. _req_kvstore:
 
@@ -255,9 +284,9 @@ ICMP 8/0                 egress          ``worker-sg`` (self) health checks
 2379-2380/tcp            egress          ``master-sg``        etcd access
 ======================== =============== ==================== ===============
 
-.. note:: If you use a shared SG for the masters and workers, you can condense 
-          these rules into ingress/egress to self. If you are using Direct 
-          Routing mode, you can condense all rules into ingress/egress ANY 
+.. note:: If you use a shared SG for the masters and workers, you can condense
+          these rules into ingress/egress to self. If you are using Direct
+          Routing mode, you can condense all rules into ingress/egress ANY
           port/protocol to/from self.
 
 Privileges

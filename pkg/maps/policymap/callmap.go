@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -71,7 +71,7 @@ func RemoveGlobalMapping(id uint32) error {
 // descriptors, which allows tail calling into the policy datapath code from
 // other BPF programs.
 func OpenCallMap() (*PolicyPlumbingMap, error) {
-	m, err := bpf.OpenMap(CallMapName)
+	m, err := bpf.OpenMap(PolicyCallMapName)
 	if err != nil {
 		return nil, err
 	}

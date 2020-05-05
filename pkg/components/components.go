@@ -25,7 +25,7 @@ const (
 	// CiliumOperatortName is the name of cilium-operator process name.
 	CiliumOperatortName = "cilium-operator"
 	// CiliumDaemonTestName is the name of test binary for daemon package.
-	CiliumDaemonTestName = "daemon.test"
+	CiliumDaemonTestName = "cmd.test"
 )
 
 // IsCiliumAgent checks whether the current process is cilium-agent (daemon).

@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 
@@ -33,8 +34,13 @@ var bpfCtListCmd = &cobra.Command{
 	Short:   "List connection tracking entries",
 	PreRun:  requireEndpointIDorGlobal,
 	Run: func(cmd *cobra.Command, args []string) {
+		maps := getMaps(args[0])
+		ctMaps := make([]interface{}, len(maps))
+		for i, m := range maps {
+			ctMaps[i] = m
+		}
 		common.RequireRootPrivilege("cilium bpf ct list")
-		dumpCt(args[0])
+		dumpCt(ctMaps, args[0])
 	},
 }
 
@@ -43,24 +49,27 @@ func init() {
 	command.AddJSONOutput(bpfCtListCmd)
 }
 
-func dumpCt(eID string) {
-	var maps []*ctmap.Map
+func getMaps(eID string) []*ctmap.Map {
 	if eID == "global" {
-		maps = ctmap.GlobalMaps(true, true)
-	} else {
-		id, _ := strconv.Atoi(eID)
-		maps = ctmap.LocalMaps(&dummyEndpoint{ID: id}, true, true)
+		return ctmap.GlobalMaps(true, true)
 	}
+	id, _ := strconv.Atoi(eID)
+	return ctmap.LocalMaps(&dummyEndpoint{ID: id}, true, true)
+}
+
+func dumpCt(maps []interface{}, args ...interface{}) {
+	entries := make([]ctmap.CtMapRecord, 0)
+	eID := args[0]
 
 	for _, m := range maps {
-		path, err := m.Path()
+		path, err := m.(ctmap.CtMap).Path()
 		if err == nil {
-			err = m.Open()
+			err = m.(ctmap.CtMap).Open()
 		}
 		if err != nil {
 			if os.IsNotExist(err) {
 				msg := "Unable to open %s: %s."
-				if eID != "global" {
+				if eID.(string) != "global" {
 					msg = "Unable to open %s: %s: please try using \"cilium bpf ct list global\"."
 				}
 				fmt.Fprintf(os.Stderr, msg+" Skipping.\n", path, err)
@@ -68,17 +77,28 @@ func dumpCt(eID string) {
 			}
 			Fatalf("Unable to open %s: %s", path, err)
 		}
-		defer m.Close()
+		defer m.(ctmap.CtMap).Close()
+		// Plain output prints immediately, JSON output holds until it
+		// collected values from all maps to have one consistent object
 		if command.OutputJSON() {
-			if err := command.PrintOutput(m); err != nil {
-				os.Exit(1)
+			callback := func(key bpf.MapKey, value bpf.MapValue) {
+				record := ctmap.CtMapRecord{Key: key.(ctmap.CtKey), Value: *value.(*ctmap.CtEntry)}
+				entries = append(entries, record)
+			}
+			if err = m.(ctmap.CtMap).DumpWithCallback(callback); err != nil {
+				Fatalf("Error while collecting BPF map entries: %s", err)
 			}
 		} else {
-			out, err := m.DumpEntries()
+			out, err := m.(ctmap.CtMap).DumpEntries()
 			if err != nil {
 				Fatalf("Error while dumping BPF Map: %s", err)
 			}
 			fmt.Println(out)
+		}
+	}
+	if command.OutputJSON() {
+		if err := command.PrintOutput(entries); err != nil {
+			os.Exit(1)
 		}
 	}
 }

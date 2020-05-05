@@ -19,7 +19,7 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-b"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-b"]
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

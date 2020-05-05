@@ -33,11 +33,12 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
+	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils/allocator"
@@ -74,7 +75,7 @@ var _ = Suite(&suite)
 func (s *EndpointSuite) SetUpSuite(c *C) {
 	s.repo = policy.NewPolicyRepository(nil, nil)
 	// GetConfig the default labels prefix filter
-	err := labels.ParseLabelPrefixCfg(nil, "")
+	err := labelsfilter.ParseLabelPrefixCfg(nil, "")
 	if err != nil {
 		panic("ParseLabelPrefixCfg() failed")
 	}
@@ -103,7 +104,7 @@ func (s *EndpointSuite) Datapath() datapath.Datapath {
 func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
 	kvstore.SetupDummy("etcd")
-	identity.InitWellKnownIdentities()
+	identity.InitWellKnownIdentities(&fakeConfig.Config{})
 	// The nils are only used by k8s CRD identities. We default to kvstore.
 	mgr := cache.NewCachingIdentityAllocator(&allocator.IdentityAllocatorOwnerMock{})
 	<-mgr.InitIdentityAllocator(nil, nil)
@@ -443,7 +444,8 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 func (s *EndpointSuite) TestProxyID(c *C) {
 	e := &Endpoint{ID: 123, policyRevision: 0}
 
-	id := e.ProxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true})
+	id, err := e.ProxyID(nil, &policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true})
+	c.Assert(err, IsNil)
 	endpointID, ingress, protocol, port, err := policy.ParseProxyID(id)
 	c.Assert(endpointID, Equals, uint16(123))
 	c.Assert(ingress, Equals, true)
@@ -669,7 +671,7 @@ func (d *dummyManager) AllocateID(id uint16) (uint16, error) {
 	return uint16(1), nil
 }
 
-func (d *dummyManager) RunK8sCiliumEndpointSync(*Endpoint) {
+func (d *dummyManager) RunK8sCiliumEndpointSync(*Endpoint, EndpointStatusConfiguration) {
 }
 
 func (d *dummyManager) UpdateReferences(map[id.PrefixType]string, *Endpoint) {

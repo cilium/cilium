@@ -1,3 +1,6 @@
+# Copyright 2017-2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 OUT := connectivity-check.yaml
 SRC := $(wildcard *.yaml)
 SRC := $(filter-out $(OUT), $(SRC))

@@ -16,6 +16,7 @@ package k8s
 
 import (
 	"reflect"
+	"sort"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
@@ -23,6 +24,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/strings"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/discovery/v1beta1"
@@ -30,84 +32,84 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func CopyObjToV1NetworkPolicy(obj interface{}) *types.NetworkPolicy {
+func ObjToV1NetworkPolicy(obj interface{}) *types.NetworkPolicy {
 	k8sNP, ok := obj.(*types.NetworkPolicy)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 NetworkPolicy")
 		return nil
 	}
-	return k8sNP.DeepCopy()
+	return k8sNP
 }
 
-func CopyObjToV1Services(obj interface{}) *types.Service {
+func ObjToV1Services(obj interface{}) *types.Service {
 	svc, ok := obj.(*types.Service)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Service")
 		return nil
 	}
-	return svc.DeepCopy()
+	return svc
 }
 
-func CopyObjToV1Endpoints(obj interface{}) *types.Endpoints {
+func ObjToV1Endpoints(obj interface{}) *types.Endpoints {
 	ep, ok := obj.(*types.Endpoints)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Endpoints")
 		return nil
 	}
-	return ep.DeepCopy()
+	return ep
 }
 
-func CopyObjToV1EndpointSlice(obj interface{}) *types.EndpointSlice {
+func ObjToV1EndpointSlice(obj interface{}) *types.EndpointSlice {
 	ep, ok := obj.(*types.EndpointSlice)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 EndpointSlice")
 		return nil
 	}
-	return ep.DeepCopy()
+	return ep
 }
 
-func CopyObjToV2CNP(obj interface{}) *types.SlimCNP {
+func ObjToSlimCNP(obj interface{}) *types.SlimCNP {
 	cnp, ok := obj.(*types.SlimCNP)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v2 CiliumNetworkPolicy")
 		return nil
 	}
-	return cnp.DeepCopy()
+	return cnp
 }
 
-func CopyObjToV1Pod(obj interface{}) *types.Pod {
+func ObjTov1Pod(obj interface{}) *types.Pod {
 	pod, ok := obj.(*types.Pod)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Pod")
 		return nil
 	}
-	return pod.DeepCopy()
+	return pod
 }
 
-func CopyObjToV1Node(obj interface{}) *types.Node {
+func ObjToV1Node(obj interface{}) *types.Node {
 	node, ok := obj.(*types.Node)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Node")
 		return nil
 	}
-	return node.DeepCopy()
+	return node
 }
 
-func CopyObjToV1Namespace(obj interface{}) *types.Namespace {
+func ObjToV1Namespace(obj interface{}) *types.Namespace {
 	ns, ok := obj.(*types.Namespace)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Namespace")
 		return nil
 	}
-	return ns.DeepCopy()
+	return ns
 }
 
 func EqualV1NetworkPolicy(np1, np2 *types.NetworkPolicy) bool {
@@ -210,10 +212,13 @@ func EqualV1PodContainers(c1, c2 types.PodContainer) bool {
 
 func EqualV1Pod(pod1, pod2 *types.Pod) bool {
 	// We only care about the HostIP, the PodIP and the labels of the pods.
-	if pod1.StatusPodIP != pod2.StatusPodIP ||
-		pod1.StatusHostIP != pod2.StatusHostIP ||
+	if pod1.StatusHostIP != pod2.StatusHostIP ||
 		pod1.SpecServiceAccountName != pod2.SpecServiceAccountName ||
 		pod1.SpecHostNetwork != pod2.SpecHostNetwork {
+		return false
+	}
+
+	if !strings.EqualStrings(pod1.StatusPodIPs, pod2.StatusPodIPs) {
 		return false
 	}
 
@@ -543,6 +548,59 @@ func ConvertToCNP(obj interface{}) interface{} {
 	}
 }
 
+func getPodIPs(podStats v1.PodStatus) []string {
+	// make it a set first
+	ipsMap := make(map[string]struct{}, 1+len(podStats.PodIPs))
+	if podStats.PodIP != "" {
+		ipsMap[podStats.PodIP] = struct{}{}
+	}
+	for _, podIP := range podStats.PodIPs {
+		if podIP.IP != "" {
+			ipsMap[podIP.IP] = struct{}{}
+		}
+	}
+
+	if len(ipsMap) == 0 {
+		return nil
+	}
+
+	ips := make([]string, 0, len(ipsMap))
+	for ipStr := range ipsMap {
+		ips = append(ips, ipStr)
+	}
+	sort.Strings(ips)
+	return ips
+}
+
+func k8sContainerToTypesContainer(k8sContainers []v1.Container) []types.PodContainer {
+	var containers []types.PodContainer
+	for _, c := range k8sContainers {
+		var vmps []string
+		var ports []types.ContainerPort
+		for _, cvm := range c.VolumeMounts {
+			vmps = append(vmps, cvm.MountPath)
+		}
+		for _, port := range c.Ports {
+			cp := types.ContainerPort{
+				Protocol:      string(port.Protocol),
+				ContainerPort: port.ContainerPort,
+				HostPort:      port.HostPort,
+				HostIP:        port.HostIP,
+				Name:          port.Name,
+			}
+			ports = append(ports, cp)
+		}
+		pc := types.PodContainer{
+			Name:              c.Name,
+			Image:             c.Image,
+			VolumeMountsPaths: vmps,
+			ContainerPorts:    ports,
+		}
+		containers = append(containers, pc)
+	}
+	return containers
+}
+
 // ConvertToPod converts a *v1.Pod into a
 // *types.Pod or a cache.DeletedFinalStateUnknown into
 // a cache.DeletedFinalStateUnknown with a *types.Pod in its Obj.
@@ -553,23 +611,12 @@ func ConvertToCNP(obj interface{}) interface{} {
 func ConvertToPod(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *v1.Pod:
-		var containers []types.PodContainer
-		for _, c := range concreteObj.Spec.Containers {
-			var vmps []string
-			for _, cvm := range c.VolumeMounts {
-				vmps = append(vmps, cvm.MountPath)
-			}
-			pc := types.PodContainer{
-				Name:              c.Name,
-				Image:             c.Image,
-				VolumeMountsPaths: vmps,
-			}
-			containers = append(containers, pc)
-		}
+		containers := k8sContainerToTypesContainer(concreteObj.Spec.Containers)
+		containers = append(containers, k8sContainerToTypesContainer(concreteObj.Spec.InitContainers)...)
 		p := &types.Pod{
 			TypeMeta:               concreteObj.TypeMeta,
 			ObjectMeta:             concreteObj.ObjectMeta,
-			StatusPodIP:            concreteObj.Status.PodIP,
+			StatusPodIPs:           getPodIPs(concreteObj.Status),
 			StatusHostIP:           concreteObj.Status.HostIP,
 			SpecServiceAccountName: concreteObj.Spec.ServiceAccountName,
 			SpecHostNetwork:        concreteObj.Spec.HostNetwork,
@@ -582,25 +629,14 @@ func ConvertToPod(obj interface{}) interface{} {
 		if !ok {
 			return obj
 		}
-		var containers []types.PodContainer
-		for _, c := range pod.Spec.Containers {
-			var vmps []string
-			for _, cvm := range c.VolumeMounts {
-				vmps = append(vmps, cvm.MountPath)
-			}
-			pc := types.PodContainer{
-				Name:              c.Name,
-				Image:             c.Image,
-				VolumeMountsPaths: vmps,
-			}
-			containers = append(containers, pc)
-		}
+		containers := k8sContainerToTypesContainer(pod.Spec.Containers)
+		containers = append(containers, k8sContainerToTypesContainer(pod.Spec.InitContainers)...)
 		dfsu := cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
 			Obj: &types.Pod{
 				TypeMeta:               pod.TypeMeta,
 				ObjectMeta:             pod.ObjectMeta,
-				StatusPodIP:            pod.Status.PodIP,
+				StatusPodIPs:           getPodIPs(pod.Status),
 				StatusHostIP:           pod.Status.HostIP,
 				SpecServiceAccountName: pod.Spec.ServiceAccountName,
 				SpecHostNetwork:        pod.Spec.HostNetwork,
@@ -716,16 +752,16 @@ func ConvertToCiliumNode(obj interface{}) interface{} {
 	}
 }
 
-// CopyObjToCiliumNode attempts to cast object to a CiliumNode object and
+// ObjToCiliumNode attempts to cast object to a CiliumNode object and
 // returns a deep copy if the castin succeeds. Otherwise, nil is returned.
-func CopyObjToCiliumNode(obj interface{}) *cilium_v2.CiliumNode {
+func ObjToCiliumNode(obj interface{}) *cilium_v2.CiliumNode {
 	cn, ok := obj.(*cilium_v2.CiliumNode)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid CiliumNode")
 		return nil
 	}
-	return cn.DeepCopy()
+	return cn
 }
 
 // ConvertToCiliumEndpoint converts a *cilium_v2.CiliumEndpoint into a
@@ -739,9 +775,10 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 		p := &types.CiliumEndpoint{
 			TypeMeta:   concreteObj.TypeMeta,
 			ObjectMeta: concreteObj.ObjectMeta,
-			Encryption: concreteObj.Status.Encryption.DeepCopy(),
-			Identity:   concreteObj.Status.Identity.DeepCopy(),
-			Networking: concreteObj.Status.Networking.DeepCopy(),
+			Encryption: &concreteObj.Status.Encryption,
+			Identity:   concreteObj.Status.Identity,
+			Networking: concreteObj.Status.Networking,
+			NamedPorts: concreteObj.Status.NamedPorts,
 		}
 		*concreteObj = cilium_v2.CiliumEndpoint{}
 		return p
@@ -755,9 +792,10 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 			Obj: &types.CiliumEndpoint{
 				TypeMeta:   ciliumEndpoint.TypeMeta,
 				ObjectMeta: ciliumEndpoint.ObjectMeta,
-				Encryption: ciliumEndpoint.Status.Encryption.DeepCopy(),
-				Identity:   ciliumEndpoint.Status.Identity.DeepCopy(),
-				Networking: ciliumEndpoint.Status.Networking.DeepCopy(),
+				Encryption: &ciliumEndpoint.Status.Encryption,
+				Identity:   ciliumEndpoint.Status.Identity,
+				Networking: ciliumEndpoint.Status.Networking,
+				NamedPorts: ciliumEndpoint.Status.NamedPorts,
 			},
 		}
 		*ciliumEndpoint = cilium_v2.CiliumEndpoint{}
@@ -767,14 +805,14 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 	}
 }
 
-// CopyObjToCiliumEndpoint attempts to cast object to a CiliumEndpoint object
+// ObjToCiliumEndpoint attempts to cast object to a CiliumEndpoint object
 // and returns a deep copy if the castin succeeds. Otherwise, nil is returned.
-func CopyObjToCiliumEndpoint(obj interface{}) *types.CiliumEndpoint {
+func ObjToCiliumEndpoint(obj interface{}) *types.CiliumEndpoint {
 	ce, ok := obj.(*types.CiliumEndpoint)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid CiliumEndpoint")
 		return nil
 	}
-	return ce.DeepCopy()
+	return ce
 }

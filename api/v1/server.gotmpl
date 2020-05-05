@@ -22,9 +22,6 @@ import (
 
 
   "github.com/go-openapi/swag"
-  {{ if .UseGoStructFlags }}flags "github.com/jessevdk/go-flags"
-  {{ end -}}
-  "github.com/go-openapi/runtime/flagext"
   {{ if .UsePFlags }}flag "github.com/spf13/pflag"
   {{ end -}}
   "golang.org/x/net/netutil"
@@ -58,7 +55,7 @@ var ({{ if .ExcludeSpec }}
   {{ end }}enabledListeners []string
   cleanupTimeout   time.Duration
   gracefulTimeout  time.Duration
-  maxHeaderSize    flagext.ByteSize
+  maxHeaderSize    int
 
   socketPath string
 
@@ -81,7 +78,7 @@ var ({{ if .ExcludeSpec }}
 )
 
 func init() {
-  maxHeaderSize = flagext.ByteSize(1000000){{ if .ExcludeSpec }}
+  maxHeaderSize = 1000000{{ if .ExcludeSpec }}
   flag.StringVarP(&specFile, "spec", "", "", "the swagger specification to serve")
   {{ end }}
 
@@ -190,34 +187,34 @@ func (s *Server) ConfigureFlags() {
 
 // Server for the {{ humanize .Name }} API
 type Server struct {
-	EnabledListeners []string{{ if .UseGoStructFlags }} `long:"scheme" description:"the listeners to enable, this can be repeated and defaults to the schemes in the swagger spec"`{{ end }}
-	CleanupTimeout   time.Duration{{ if .UseGoStructFlags }}    `long:"cleanup-timeout" description:"grace period for which to wait before killing idle connections" default:"10s"`{{ end }}
-	GracefulTimeout  time.Duration{{ if .UseGoStructFlags }}    `long:"graceful-timeout" description:"grace period for which to wait before shutting down the server" default:"15s"`{{ end }}
-	MaxHeaderSize    flagext.ByteSize{{ if .UseGoStructFlags }} `long:"max-header-size" description:"controls the maximum number of bytes the server will read parsing the request header's keys and values, including the request line. It does not limit the size of the request body." default:"1MiB"`{{ end }}
+	EnabledListeners []string
+	CleanupTimeout   time.Duration
+	GracefulTimeout  time.Duration
+	MaxHeaderSize    int
 
-	SocketPath {{ if .UsePFlags }}string{{ else }}flags.Filename `long:"socket-path" description:"the unix socket to listen on" default:"/var/run/{{ dasherize .Name }}.sock"`{{ end }}
+	SocketPath string
 	domainSocketL net.Listener
 
-	Host string{{ if .UseGoStructFlags }} `long:"host" description:"the IP to listen on" default:"localhost" env:"HOST"`{{ end }}
-	Port int{{ if .UseGoStructFlags }}    `long:"port" description:"the port to listen on for insecure connections, defaults to a random value" env:"PORT"`{{ end }}
-	ListenLimit  int{{ if .UseGoStructFlags }}           `long:"listen-limit" description:"limit the number of outstanding requests"`{{ end }}
-	KeepAlive    time.Duration{{ if .UseGoStructFlags }} `long:"keep-alive" description:"sets the TCP keep-alive timeouts on accepted connections. It prunes dead TCP connections ( e.g. closing laptop mid-download)" default:"3m"`{{ end }}
-	ReadTimeout  time.Duration{{ if .UseGoStructFlags }} `long:"read-timeout" description:"maximum duration before timing out read of the request" default:"30s"`{{ end }}
-	WriteTimeout time.Duration{{ if .UseGoStructFlags }} `long:"write-timeout" description:"maximum duration before timing out write of the response" default:"60s"`{{ end }}
+	Host string
+	Port int
+	ListenLimit  int
+	KeepAlive    time.Duration
+	ReadTimeout  time.Duration
+	WriteTimeout time.Duration
 	httpServerL   net.Listener
 
-	TLSHost           string{{ if .UseGoStructFlags }}         `long:"tls-host" description:"the IP to listen on for tls, when not specified it's the same as --host" env:"TLS_HOST"`{{ end }}
-	TLSPort           int{{ if .UseGoStructFlags }}            `long:"tls-port" description:"the port to listen on for secure connections, defaults to a random value" env:"TLS_PORT"`{{ end }}
-	TLSCertificate    {{ if .UsePFlags }}string{{ else }}flags.Filename `long:"tls-certificate" description:"the certificate to use for secure connections" env:"TLS_CERTIFICATE"`{{ end }}
-	TLSCertificateKey {{ if .UsePFlags }}string{{ else }}flags.Filename `long:"tls-key" description:"the private key to use for secure connections" env:"TLS_PRIVATE_KEY"`{{ end }}
-	TLSCACertificate  {{ if .UsePFlags }}string{{ else }}flags.Filename `long:"tls-ca" description:"the certificate authority file to be used with mutual tls auth" env:"TLS_CA_CERTIFICATE"`{{ end }}
-	TLSListenLimit    int{{ if .UseGoStructFlags }}            `long:"tls-listen-limit" description:"limit the number of outstanding requests"`{{ end }}
-	TLSKeepAlive      time.Duration{{ if .UseGoStructFlags }}  `long:"tls-keep-alive" description:"sets the TCP keep-alive timeouts on accepted connections. It prunes dead TCP connections ( e.g. closing laptop mid-download)"`{{ end }}
-	TLSReadTimeout    time.Duration{{ if .UseGoStructFlags }}  `long:"tls-read-timeout" description:"maximum duration before timing out read of the request"`{{ end }}
-	TLSWriteTimeout   time.Duration{{ if .UseGoStructFlags }}  `long:"tls-write-timeout" description:"maximum duration before timing out write of the response"`{{ end }}
+	TLSHost           string
+	TLSPort           int
+	TLSCertificate    string
+	TLSCertificateKey string
+	TLSCACertificate  string
+	TLSListenLimit    int
+	TLSKeepAlive      time.Duration
+	TLSReadTimeout    time.Duration
+	TLSWriteTimeout   time.Duration
 	httpsServerL  net.Listener
 
-	{{ if .ExcludeSpec }}Spec {{ if .UsePFlags }}string{{ else }}flags.Filename `long:"spec" description:"the swagger specification to serve"`{{ end }}{{ end }}
+	{{ if .ExcludeSpec }}Spec string{{ end }}
 	api               *{{ .Package }}.{{ pascalize .Name }}API
 	handler           http.Handler
 	hasListeners      bool
@@ -301,7 +298,7 @@ func (s *Server) Serve() (err error) {
 
 	if s.hasScheme(schemeUnix) {
 		domainSocket := new(http.Server)
-		domainSocket.MaxHeaderBytes = int(s.MaxHeaderSize)
+		domainSocket.MaxHeaderBytes = s.MaxHeaderSize
 		domainSocket.Handler = s.handler
 		if int64(s.CleanupTimeout) > 0 {
 			domainSocket.IdleTimeout = s.CleanupTimeout
@@ -329,7 +326,7 @@ func (s *Server) Serve() (err error) {
 
 	if s.hasScheme(schemeHTTP) {
 		httpServer := new(http.Server)
-		httpServer.MaxHeaderBytes = int(s.MaxHeaderSize)
+		httpServer.MaxHeaderBytes = s.MaxHeaderSize
 		httpServer.ReadTimeout = s.ReadTimeout
 		httpServer.WriteTimeout = s.WriteTimeout
 		httpServer.SetKeepAlivesEnabled(int64(s.KeepAlive) > 0)
@@ -359,7 +356,7 @@ func (s *Server) Serve() (err error) {
 
 	if s.hasScheme(schemeHTTPS) {
 		httpsServer := new(http.Server)
-		httpsServer.MaxHeaderBytes = int(s.MaxHeaderSize)
+		httpsServer.MaxHeaderBytes = s.MaxHeaderSize
 		httpsServer.ReadTimeout = s.TLSReadTimeout
 		httpsServer.WriteTimeout = s.TLSWriteTimeout
 		httpsServer.SetKeepAlivesEnabled(int64(s.TLSKeepAlive) > 0)
@@ -399,7 +396,7 @@ func (s *Server) Serve() (err error) {
 		// build standard config from server options
 		if s.TLSCertificate != "" && s.TLSCertificateKey != "" {
 			httpsServer.TLSConfig.Certificates = make([]tls.Certificate, 1)
-			httpsServer.TLSConfig.Certificates[0], err = tls.LoadX509KeyPair({{ if .UseGoStructFlags }}string({{ end }}s.TLSCertificate{{ if .UseGoStructFlags }}){{ end }}, {{ if .UseGoStructFlags }}string({{ end }}s.TLSCertificateKey{{ if .UseGoStructFlags }}){{ end }})
+			httpsServer.TLSConfig.Certificates[0], err = tls.LoadX509KeyPair(s.TLSCertificate, s.TLSCertificateKey)
 			if err != nil {
 				return err
 			}
@@ -407,7 +404,7 @@ func (s *Server) Serve() (err error) {
 
 		if s.TLSCACertificate != "" {
 			// include specified CA certificate
-			caCert, caCertErr := ioutil.ReadFile({{ if .UseGoStructFlags }}string({{ end }}s.TLSCACertificate{{ if .UseGoStructFlags }}){{ end }})
+			caCert, caCertErr := ioutil.ReadFile(s.TLSCACertificate)
 			if caCertErr != nil {
 				return caCertErr
 			}

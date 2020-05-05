@@ -35,6 +35,7 @@ type SVCType string
 
 const (
 	SVCTypeNone         = SVCType("NONE")
+	SVCTypeHostPort     = SVCType("HostPort")
 	SVCTypeClusterIP    = SVCType("ClusterIP")
 	SVCTypeNodePort     = SVCType("NodePort")
 	SVCTypeExternalIPs  = SVCType("ExternalIPs")
@@ -55,19 +56,23 @@ const (
 type ServiceFlags uint8
 
 const (
-	serviceFlagNone        = 0
-	serviceFlagExternalIPs = 1
-	serviceFlagNodePort    = 2
-	serviceFlagLocalScope  = 4
+	serviceFlagNone            = 0
+	serviceFlagExternalIPs     = 1
+	serviceFlagNodePort        = 2
+	serviceFlagLocalScope      = 4
+	serviceFlagHostPort        = 8
+	serviceFlagSessionAffinity = 16
 )
 
 // CreateSvcFlag returns the ServiceFlags for all given SVCTypes.
-func CreateSvcFlag(svcLocal bool, svcTypes ...SVCType) ServiceFlags {
+func CreateSvcFlag(svcLocal, sessionAffinity bool, svcTypes ...SVCType) ServiceFlags {
 	var flags ServiceFlags
 	for _, svcType := range svcTypes {
 		switch svcType {
 		case SVCTypeExternalIPs:
 			flags |= serviceFlagExternalIPs
+		case SVCTypeHostPort:
+			flags |= serviceFlagHostPort
 		case SVCTypeNodePort:
 			flags |= serviceFlagNodePort
 		}
@@ -75,12 +80,16 @@ func CreateSvcFlag(svcLocal bool, svcTypes ...SVCType) ServiceFlags {
 	if svcLocal {
 		flags |= serviceFlagLocalScope
 	}
+	if sessionAffinity {
+		flags |= serviceFlagSessionAffinity
+	}
+
 	return flags
 }
 
 // IsSvcType returns true if the serviceFlags is the given SVCType.
-func (s ServiceFlags) IsSvcType(svcLocal bool, svcType SVCType) bool {
-	return s != 0 && (s&CreateSvcFlag(svcLocal, svcType) == s)
+func (s ServiceFlags) IsSvcType(svcLocal, sessionAffinity bool, svcType SVCType) bool {
+	return s != 0 && (s&CreateSvcFlag(svcLocal, sessionAffinity, svcType) == s)
 }
 
 // SVCType returns a service type from the flags
@@ -88,6 +97,8 @@ func (s ServiceFlags) SVCType() SVCType {
 	switch {
 	case s&serviceFlagExternalIPs != 0:
 		return SVCTypeExternalIPs
+	case s&serviceFlagHostPort != 0:
+		return SVCTypeHostPort
 	case s&serviceFlagNodePort != 0:
 		return SVCTypeNodePort
 	default:
@@ -109,9 +120,9 @@ func (s ServiceFlags) SVCTrafficPolicy() SVCTrafficPolicy {
 func (s ServiceFlags) String() string {
 	var strTypes []string
 	typeSet := false
-	sType := s & (serviceFlagExternalIPs | serviceFlagNodePort)
-	for _, svcType := range []SVCType{SVCTypeExternalIPs, SVCTypeNodePort} {
-		if sType.IsSvcType(false, svcType) {
+	sType := s & (serviceFlagExternalIPs | serviceFlagHostPort | serviceFlagNodePort)
+	for _, svcType := range []SVCType{SVCTypeExternalIPs, SVCTypeHostPort, SVCTypeNodePort} {
+		if sType.IsSvcType(false, false, svcType) {
 			strTypes = append(strTypes, string(svcType))
 			typeSet = true
 		}
@@ -121,6 +132,9 @@ func (s ServiceFlags) String() string {
 	}
 	if s&serviceFlagLocalScope != 0 {
 		strTypes = append(strTypes, string(SVCTrafficPolicyLocal))
+	}
+	if s&serviceFlagSessionAffinity != 0 {
+		strTypes = append(strTypes, "sessionAffinity")
 	}
 	return strings.Join(strTypes, ", ")
 }
@@ -174,13 +188,15 @@ func (b *Backend) String() string {
 
 // SVC is a structure for storing service details.
 type SVC struct {
-	Frontend            L3n4AddrID       // SVC frontend addr and an allocated ID
-	Backends            []Backend        // List of service backends
-	Type                SVCType          // Service type
-	TrafficPolicy       SVCTrafficPolicy // Service traffic policy
-	HealthCheckNodePort uint16           // Service health check node port
-	Name                string           // Service name
-	Namespace           string           // Service namespace
+	Frontend                  L3n4AddrID       // SVC frontend addr and an allocated ID
+	Backends                  []Backend        // List of service backends
+	Type                      SVCType          // Service type
+	TrafficPolicy             SVCTrafficPolicy // Service traffic policy
+	SessionAffinity           bool
+	SessionAffinityTimeoutSec uint32
+	HealthCheckNodePort       uint16 // Service health check node port
+	Name                      string // Service name
+	Namespace                 string // Service namespace
 }
 
 func (s *SVC) GetModel() *models.Service {

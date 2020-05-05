@@ -1,5 +1,7 @@
 #!/bin/bash
 
+set -x
+
 cd ${TESTDIR}
 
 TEST_RESULTS="test_results"

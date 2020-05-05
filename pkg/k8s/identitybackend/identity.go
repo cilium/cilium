@@ -33,8 +33,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/sirupsen/logrus"
 
+	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -107,7 +107,7 @@ func (c *crdBackend) AllocateID(ctx context.Context, id idpool.ID, key allocator
 		},
 	}
 
-	_, err := c.Client.CiliumV2().CiliumIdentities().Create(identity)
+	_, err := c.Client.CiliumV2().CiliumIdentities().Create(ctx, identity, metav1.CreateOptions{})
 	return err
 }
 
@@ -129,15 +129,17 @@ type JSONPatch struct {
 // being garbage collected.
 // Note: the lock field is not supported with the k8s CRD allocator.
 func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, lock kvstore.KVLocker) error {
-	identity := c.get(ctx, key)
-	if identity == nil {
+	identity, exists, err := c.getById(ctx, id)
+	if err != nil {
+		return err
+	}
+	if !exists {
 		return fmt.Errorf("identity does not exist")
 	}
 
 	capabilities := k8sversion.Capabilities()
 	identityOps := c.Client.CiliumV2().CiliumIdentities()
 
-	var err error
 	if capabilities.Patch {
 		var patch []byte
 		patch, err = json.Marshal([]JSONPatch{
@@ -160,7 +162,7 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 			return err
 		}
 
-		_, err = identityOps.Patch(identity.GetName(), k8sTypes.JSONPatchType, patch, "status")
+		_, err = identityOps.Patch(ctx, identity.GetName(), k8sTypes.JSONPatchType, patch, metav1.PatchOptions{}, "status")
 		if err != nil {
 			patch, err = json.Marshal([]JSONPatch{
 				{
@@ -172,7 +174,7 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 			if err != nil {
 				return err
 			}
-			_, err = identityOps.Patch(identity.GetName(), k8sTypes.JSONPatchType, patch, "status")
+			_, err = identityOps.Patch(ctx, identity.GetName(), k8sTypes.JSONPatchType, patch, metav1.PatchOptions{}, "status")
 		}
 
 		if err == nil {
@@ -192,7 +194,7 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 	}
 
 	if capabilities.UpdateStatus {
-		_, err = identityOps.UpdateStatus(identityCopy.CiliumIdentity)
+		_, err = identityOps.UpdateStatus(ctx, identityCopy.CiliumIdentity, metav1.UpdateOptions{})
 		if err == nil {
 			return nil
 		}
@@ -200,7 +202,7 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 		/* fall through and attempt Update() */
 	}
 
-	_, err = identityOps.Update(identityCopy.CiliumIdentity)
+	_, err = identityOps.Update(ctx, identityCopy.CiliumIdentity, metav1.UpdateOptions{})
 	return err
 }
 
@@ -217,10 +219,9 @@ func (c *crdBackend) RunGC(ctx context.Context, staleKeysPrevRound map[string]ui
 // reliablyMissing is true.
 // Note: the lock field is not supported with the k8s CRD allocator.
 func (c *crdBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.AllocatorKey, reliablyMissing bool) error {
-	var err error
-
-	if err := c.AcquireReference(ctx, id, key, nil); err == nil {
-		log.WithError(err).WithFields(logrus.Fields{
+	err := c.AcquireReference(ctx, id, key, nil)
+	if err == nil {
+		log.WithFields(logrus.Fields{
 			logfields.Identity: id,
 			logfields.Labels:   key,
 		}).Debug("Acquired reference for identity")
@@ -229,7 +230,7 @@ func (c *crdBackend) UpdateKey(ctx context.Context, id idpool.ID, key allocator.
 
 	// The CRD (aka the master key) is missing. Try to recover by recreating it
 	// if reliablyMissing is set.
-	log.WithFields(logrus.Fields{
+	log.WithError(err).WithFields(logrus.Fields{
 		logfields.Identity: id,
 		logfields.Labels:   key,
 	}).Warning("Unable update CRD identity information with a reference for this node")
@@ -268,6 +269,8 @@ func (c *crdLock) Comparator() interface{} {
 	return nil
 }
 
+// get returns the first identity found for the given set of labels as we might
+// have duplicated entries identities for the same set of labels.
 func (c *crdBackend) get(ctx context.Context, key allocator.AllocatorKey) *types.Identity {
 	if c.Store == nil {
 		return nil
@@ -287,7 +290,7 @@ func (c *crdBackend) get(ctx context.Context, key allocator.AllocatorKey) *types
 	return nil
 }
 
-// Get returns the ID which is allocated to a key in the identity CRDs in
+// Get returns the first ID which is allocated to a key in the identity CRDs in
 // kubernetes.
 // Note: the lock field is not supported with the k8s CRD allocator.
 func (c *crdBackend) Get(ctx context.Context, key allocator.AllocatorKey) (idpool.ID, error) {
@@ -308,12 +311,11 @@ func (c *crdBackend) GetIfLocked(ctx context.Context, key allocator.AllocatorKey
 	return c.Get(ctx, key)
 }
 
-// GetByID returns the key associated with an ID. Returns nil if no key is
-// associated with the ID.
-// Note: the lock field is not supported with the k8s CRD allocator.
-func (c *crdBackend) GetByID(ctx context.Context, id idpool.ID) (allocator.AllocatorKey, error) {
+// getById fetches the identities from the local store. Returns a nil `err` and
+// false `exists` if an Identity is not found for the given `id`.
+func (c *crdBackend) getById(ctx context.Context, id idpool.ID) (idty *types.Identity, exists bool, err error) {
 	if c.Store == nil {
-		return nil, fmt.Errorf("store is not available yet")
+		return nil, false, fmt.Errorf("store is not available yet")
 	}
 
 	identityTemplate := &types.Identity{
@@ -326,33 +328,48 @@ func (c *crdBackend) GetByID(ctx context.Context, id idpool.ID) (allocator.Alloc
 
 	obj, exists, err := c.Store.Get(identityTemplate)
 	if err != nil {
+		return nil, exists, err
+	}
+	if !exists {
+		return nil, exists, nil
+	}
+
+	identity, ok := obj.(*types.Identity)
+	if !ok {
+		return nil, false, fmt.Errorf("invalid object")
+	}
+	return identity, true, nil
+}
+
+// GetByID returns the key associated with an ID. Returns nil if no key is
+// associated with the ID.
+// Note: the lock field is not supported with the k8s CRD allocator.
+func (c *crdBackend) GetByID(ctx context.Context, id idpool.ID) (allocator.AllocatorKey, error) {
+	identity, exists, err := c.getById(ctx, id)
+	if err != nil {
 		return nil, err
 	}
 	if !exists {
 		return nil, nil
 	}
 
-	identity, ok := obj.(*types.Identity)
-	if !ok {
-		return nil, fmt.Errorf("invalid object")
-	}
-
 	return c.KeyType.PutKeyFromMap(identity.SecurityLabels), nil
 }
 
-// Release dissociates this node from using the identity bound to key. When an
-// identity has no references it may be garbage collected.
-func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) (err error) {
-	identity := c.get(ctx, key)
-	if identity == nil {
+// Release dissociates this node from using the identity bound to the given ID.
+// When an identity has no references it may be garbage collected.
+func (c *crdBackend) Release(ctx context.Context, id idpool.ID, key allocator.AllocatorKey) (err error) {
+	identity, exists, err := c.getById(ctx, id)
+	if err != nil {
+		return err
+	}
+	if !exists || identity == nil {
 		return fmt.Errorf("unable to release identity %s: identity does not exist", key)
 	}
 
 	if _, ok := identity.Status.Nodes[c.NodeName]; !ok {
 		return fmt.Errorf("unable to release identity %s: identity is unused", key)
 	}
-
-	delete(identity.Status.Nodes, c.NodeName)
 
 	capabilities := k8sversion.Capabilities()
 
@@ -368,7 +385,7 @@ func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) (e
 		if err != nil {
 			return err
 		}
-		_, err = identityOps.Patch(identity.GetName(), k8sTypes.JSONPatchType, patch, "status")
+		_, err = identityOps.Patch(ctx, identity.GetName(), k8sTypes.JSONPatchType, patch, metav1.PatchOptions{}, "status")
 		if err == nil {
 			return nil
 		}
@@ -377,12 +394,10 @@ func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) (e
 	}
 
 	identityCopy := identity.DeepCopy()
-	if identityCopy.Status.Nodes == nil {
-		return nil
-	}
+	delete(identityCopy.Status.Nodes, c.NodeName)
 
 	if capabilities.UpdateStatus {
-		_, err = identityOps.UpdateStatus(identityCopy.CiliumIdentity)
+		_, err = identityOps.UpdateStatus(ctx, identityCopy.CiliumIdentity, metav1.UpdateOptions{})
 		if err == nil {
 			return nil
 		}
@@ -390,7 +405,7 @@ func (c *crdBackend) Release(ctx context.Context, key allocator.AllocatorKey) (e
 		/* fall through and attempt Update() */
 	}
 
-	_, err = identityOps.Update(identityCopy.CiliumIdentity)
+	_, err = identityOps.Update(ctx, identityCopy.CiliumIdentity, metav1.UpdateOptions{})
 	return err
 }
 

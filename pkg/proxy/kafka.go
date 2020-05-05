@@ -331,7 +331,7 @@ func (k *kafkaRedirect) handleRequest(pair *connectionPair, req *kafka.RequestMe
 		}
 
 		record.log(accesslog.VerdictDenied,
-			kafka.ErrTopicAuthorizationFailed, fmt.Sprint("Kafka request is denied by policy"))
+			kafka.ErrTopicAuthorizationFailed, "Kafka request is denied by policy")
 
 		pair.Rx.Enqueue(resp.GetRaw())
 		return

@@ -86,6 +86,10 @@ spec:
             fieldRef:
               apiVersion: v1
               fieldPath: spec.nodeName
+{{- if .Values.global.ci.kubeCacheMutationDetector }}
+        - name: KUBE_CACHE_MUTATION_DETECTOR
+          value: "true"
+{{- end }}
         - name: CILIUM_K8S_NAMESPACE
           valueFrom:
             fieldRef:
@@ -117,14 +121,6 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-{{- if gt (len .Values.global.hubble.listenAddresses) 0 }}
-        # Hubble uses this group for its unix domain sockets.
-        - name: HUBBLE_GROUP_NAME
-          value: "cilium"
-        # Default Hubble gRPC endpoint for observe/status commands.
-        - name: HUBBLE_DEFAULT_SOCKET_PATH
-          value: {{ .Values.global.hubble.listenAddresses | first | quote }}
-{{- end }}
 {{- if .Values.global.k8sServiceHost }}
         - name: KUBERNETES_SERVICE_HOST
           value: {{ .Values.global.k8sServiceHost | quote }}
@@ -156,12 +152,20 @@ spec:
           {{- toYaml .Values.resources | trim | nindent 10 }}
 {{- end }}
         name: cilium-agent
-{{- if .Values.global.prometheus.enabled }}
+{{- if or .Values.global.prometheus.enabled .Values.global.hubble.metricsServer }}
         ports:
+{{- if .Values.global.prometheus.enabled }}                
         - containerPort: {{ .Values.global.prometheus.port }}
           hostPort: {{ .Values.global.prometheus.port }}
           name: prometheus
           protocol: TCP
+{{- end }}
+{{- if .Values.global.hubble.metricsServer }}
+        - containerPort: {{ regexReplaceAll ":([0-9]+)$" .Values.global.hubble.metricsServer "${1}" }}
+          hostPort: {{ regexReplaceAll ":([0-9]+)$" .Values.global.hubble.metricsServer "${1}" }} 
+          name: hubble-metrics
+          protocol: TCP
+{{- end }}
 {{- end }}
         securityContext:
           capabilities:
@@ -197,6 +201,11 @@ spec:
         - mountPath: /tmp/cilium/config-map
           name: cilium-config-path
           readOnly: true
+{{- if and .Values.global.ipMasqAgent .Values.global.ipMasqAgent.enabled }}
+        - mountPath: /etc/config
+          name: ip-masq-agent
+          readOnly: true
+{{- end }}
 {{- if .Values.global.cni.configMap }}
         - mountPath: {{ .Values.global.cni.confFileMountPath }}
           name: cni-configuration
@@ -307,7 +316,7 @@ spec:
           {{- toYaml .Values.initResources | trim | nindent 10 }}
 {{- end }}
       restartPolicy: Always
-{{- if and (eq .Release.Namespace "kube-system") (or (gt .Capabilities.KubeVersion.Minor "10") (gt .Capabilities.KubeVersion.Major "1"))}}
+{{- if or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (gt .Capabilities.KubeVersion.Minor "16") (gt .Capabilities.KubeVersion.Major "1")}}
       priorityClassName: system-node-critical
 {{- end }}
       serviceAccount: cilium
@@ -388,6 +397,15 @@ spec:
       - configMap:
           name: cilium-config
         name: cilium-config-path
+{{- if and .Values.global.ipMasqAgent .Values.global.ipMasqAgent.enabled }}
+      - configMap:
+          name: ip-masq-agent
+          optional: true
+          items:
+          - key: config
+            path: ip-masq-agent
+        name: ip-masq-agent
+{{- end }}
 {{- if .Values.global.encryption.enabled }}
       - name: cilium-ipsec-secrets
         secret:

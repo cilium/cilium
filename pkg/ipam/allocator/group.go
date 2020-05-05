@@ -20,9 +20,16 @@ import (
 
 	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
+	"github.com/sirupsen/logrus"
 )
 
-var errPoolNotExists = errors.New("pool does not exist")
+var (
+	errPoolNotExists = errors.New("pool does not exist")
+	log              = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator")
+)
 
 // PoolGroupAllocator is an allocator to allocate from a group of subnets
 type PoolGroupAllocator struct {
@@ -48,6 +55,30 @@ func NewPoolGroupAllocator(subnets types.SubnetMap) (*PoolGroupAllocator, error)
 	}
 
 	return g, nil
+}
+
+// AddressIterator is the required interface to allow iterating over a
+// structure which holds a set of addresses
+type AddressIterator interface {
+	ForeachAddress(instanceID string, fn types.AddressIterator) error
+}
+
+// ReserveAddresses reserves all addresses returned by an AddressIterator.
+// Invalid IPs or failures to allocate are logged
+func (g *PoolGroupAllocator) ReserveAddresses(iterator AddressIterator) {
+	iterator.ForeachAddress("", func(instanceID, interfaceID, ipString, poolID string, address types.Address) error {
+		ip := net.ParseIP(ipString)
+		if ip != nil {
+			if err := g.Allocate(types.PoolID(poolID), ip); err != nil {
+				log.WithFields(logrus.Fields{"instance": instanceID, "interface": interfaceID, "ip": ipString}).
+					WithError(err).Warning("Unable to allocate IP in internal allocator")
+			}
+		} else {
+			log.WithFields(logrus.Fields{"instance": instanceID, "interface": interfaceID, "ip": ipString}).
+				Warning("Unable to parse IP")
+		}
+		return nil
+	})
 }
 
 // GetPoolQuota returns the number of available IPs in all IP pools
@@ -76,7 +107,22 @@ func (g *PoolGroupAllocator) AllocateMany(poolID types.PoolID, num int) ([]net.I
 
 // Allocate allocates a paritcular IP in a particular pool
 func (g *PoolGroupAllocator) Allocate(poolID types.PoolID, ip net.IP) error {
-	allocator := g.getAllocator(poolID)
+	var allocator *PoolAllocator
+
+	switch poolID {
+	case types.PoolUnspec:
+		g.mutex.RLock()
+		for _, a := range g.allocators {
+			if a.AllocationCIDR.IPNet.Contains(ip) {
+				allocator = a
+				break
+			}
+		}
+		g.mutex.RUnlock()
+	default:
+		allocator = g.getAllocator(poolID)
+	}
+
 	if allocator == nil {
 		return errPoolNotExists
 	}

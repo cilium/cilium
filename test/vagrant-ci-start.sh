@@ -17,25 +17,30 @@ for i in $(seq 1 $K8S_NODES); do
     vagrant up k8s${i}-${K8S_VERSION} --provision
 done
 
-echo "getting vagrant kubeconfig from provisioned vagrant cluster"
-./get-vagrant-kubeconfig.sh > vagrant-kubeconfig
+if [ -n "${KUBECONFIG}" ]; then
+    echo "getting vagrant kubeconfig from provisioned vagrant cluster"
+    ./get-vagrant-kubeconfig.sh > ${KUBECONFIG}
+    KUBECTL="kubectl"
+else
+    echo "using vagrant ssh k8s1-${K8S_VERSION} for kubectl"
+    # No kube config, run kubectl in k8s1 via ssh
+    KUBECTL="vagrant ssh k8s1-${K8S_VERSION} -- kubectl"
+fi
 
 echo "checking whether kubeconfig works for vagrant cluster"
-
 NEXT_WAIT_TIME=0
-until kubectl get nodes || [ $NEXT_WAIT_TIME -eq 12 ]; do
+until ${KUBECTL} get nodes || [ $NEXT_WAIT_TIME -eq 12 ]; do
    ((NEXT_WAIT_TIME++))
    sleep 5
 done
 
 export HOME=${GOPATH}
-kubectl get nodes
+${KUBECTL} get nodes
 
 echo "adding local docker registry to cluster"
-helm template registry-adder k8sT/manifests/registry-adder --set IP="$(./print-node-ip.sh)" > registry-adder.yaml
-kubectl apply -f registry-adder.yaml
+helm template registry-adder k8sT/manifests/registry-adder --set IP="$(./print-node-ip.sh)" | ${KUBECTL} apply -f -
 
 echo "labeling nodes"
 for i in $(seq 1 $K8S_NODES); do
-    kubectl label node k8s${i} cilium.io/ci-node=k8s${i}
+    ${KUBECTL} label node k8s${i} cilium.io/ci-node=k8s${i} --overwrite
 done

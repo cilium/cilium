@@ -18,9 +18,9 @@ import (
 	"context"
 	"fmt"
 	"io"
+	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"strings"
 	"sync"
 	"time"
@@ -48,6 +48,7 @@ type Executor interface {
 	ExecuteContext(ctx context.Context, cmd string, stdout io.Writer, stderr io.Writer) error
 	String() string
 	BasePath() string
+	RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error
 	setBasePath()
 
 	Logger() *logrus.Entry
@@ -80,21 +81,14 @@ func (s *LocalExecutor) CloseSSHClient() {
 	return
 }
 
-// setBasePath is a no-op
 func (s *LocalExecutor) setBasePath() {
-	gopath := os.Getenv("GOPATH")
-	if gopath != "" {
-		s.basePath = filepath.Join(gopath, CiliumPath)
+	wd, err := os.Getwd()
+	if err != nil {
+		ginkgoext.Fail(fmt.Sprintf("Cannot set base path: %s", err.Error()), 1)
 		return
 	}
+	s.basePath = wd
 
-	home := os.Getenv("HOME")
-	if home == "" {
-		return
-	}
-
-	s.basePath = filepath.Join(home, "go", CiliumPath)
-	return
 }
 
 func (s LocalExecutor) getLocalCmd(ctx context.Context, command string, stdout io.Writer, stderr io.Writer) *exec.Cmd {
@@ -176,6 +170,7 @@ func (s *LocalExecutor) ExecContext(ctx context.Context, cmd string, options ...
 	}
 
 	log.Debugf("running command: %s", cmd)
+	fmt.Fprintln(SSHMetaLogs, cmd)
 	stdout := new(Buffer)
 	stderr := new(Buffer)
 	start := time.Now()
@@ -257,4 +252,20 @@ func (s *LocalExecutor) ExecInBackground(ctx context.Context, cmd string, option
 
 func (s *LocalExecutor) BasePath() string {
 	return s.basePath
+}
+
+// RenderTemplateToFile renders a text/template string into a target filename
+// with specific persmisions. Returns an error if the template cannot be
+// validated or the file cannot be created.
+func (s *LocalExecutor) RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error {
+	content, err := RenderTemplate(tmplt)
+	if err != nil {
+		return err
+	}
+
+	err = ioutil.WriteFile(filename, content.Bytes(), perm)
+	if err != nil {
+		return err
+	}
+	return nil
 }

@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/test/helpers/logutils"
 
 	"github.com/asaskevich/govalidator"
+	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 )
@@ -84,21 +85,26 @@ var (
 	// below. These overrides represent a desire to set the default for all
 	// tests, instead of test-specific variations.
 	defaultHelmOptions = map[string]string{
-		"global.registry":               "k8s1:5000/cilium",
-		"agent.image":                   "cilium-dev",
-		"preflight.image":               "cilium-dev",
-		"global.tag":                    "latest",
-		"operator.image":                "operator",
-		"managed-etcd.registry":         "docker.io/cilium",
-		"global.debug.enabled":          "true",
-		"global.k8s.requireIPv4PodCIDR": "true",
-		"global.pprof.enabled":          "true",
-		"global.logSystemLoad":          "true",
-		"global.bpf.preallocateMaps":    "true",
-		"global.etcd.leaseTTL":          "30s",
-		"global.ipv4.enabled":           "true",
-		"global.ipv6.enabled":           "true",
-		"global.psp.enabled":            "true",
+		"global.registry":                     "k8s1:5000/cilium",
+		"agent.image":                         "cilium-dev",
+		"preflight.image":                     "cilium-dev", // Set again in init to match agent.image!
+		"global.tag":                          "latest",
+		"operator.image":                      "operator",
+		"managed-etcd.registry":               "docker.io/cilium",
+		"global.debug.enabled":                "true",
+		"global.k8s.requireIPv4PodCIDR":       "true",
+		"global.pprof.enabled":                "true",
+		"global.logSystemLoad":                "true",
+		"global.bpf.preallocateMaps":          "true",
+		"global.etcd.leaseTTL":                "30s",
+		"global.ipv4.enabled":                 "true",
+		"global.ipv6.enabled":                 "true",
+		"global.psp.enabled":                  "true",
+		"global.ci.kubeCacheMutationDetector": "true",
+		// Disable by default, so that 4.9 CI build does not panic due to
+		// missing LRU support. On 4.19 and net-next we enable it with
+		// kubeProxyReplacement=strict.
+		"global.sessionAffinity.enabled": "false",
 	}
 
 	flannelHelmOverrides = map[string]string{
@@ -121,15 +127,16 @@ var (
 		"nodeinit.reconfigureKubelet": "true",
 		"nodeinit.removeCbrBridge":    "true",
 		"global.cni.binPath":          "/home/kubernetes/bin",
+		"global.nodePort.mode":        "snat",
+		"global.gke.enabled":          "true",
+		"global.nativeRoutingCIDR":    "10.0.0.0/8",
 	}
 
 	microk8sHelmOverrides = map[string]string{
-		"global.cni.confPath":                 "/var/snap/microk8s/current/args/cni-network",
-		"global.cni.binPath":                  "/var/snap/microk8s/current/opt/cni/bin",
-		"global.cni.customConf":               "true",
-		"global.containerRuntime.integration": "containerd",
-		"global.containerRuntime.socketPath":  "/var/snap/microk8s/common/run/containerd.sock",
-		"global.daemon.runPath":               "/var/snap/microk8s/current/var/run/cilium",
+		"global.cni.confPath":   "/var/snap/microk8s/current/args/cni-network",
+		"global.cni.binPath":    "/var/snap/microk8s/current/opt/cni/bin",
+		"global.cni.customConf": "true",
+		"global.daemon.runPath": "/var/snap/microk8s/current/var/run/cilium",
 	}
 	minikubeHelmOverrides = map[string]string{
 		"global.ipv6.enabled":           "false",
@@ -159,7 +166,28 @@ func HelmOverride(option string) string {
 	return ""
 }
 
+// NativeRoutingEnabled returns true when native routing is enabled for a
+// particular CNI_INTEGRATION
+func NativeRoutingEnabled() bool {
+	tunnelDisabled := HelmOverride("global.tunnel") == "disabled"
+	gkeEnabled := HelmOverride("global.gke.enabled") == "true"
+	return tunnelDisabled || gkeEnabled
+}
+
 func init() {
+	// Set defaults to match passed-in fully-qualified image
+	// If these are further set via CLI, they will be overwritten below
+	if v := os.Getenv("CILIUM_IMAGE"); v != "" {
+		registry, image, version, isFullyQualified := SplitContainerURL(v)
+		if isFullyQualified {
+			defaultHelmOptions["global.tag"] = version
+			// This always works because SplitContainerURL would not return
+			// isFullyQualified == true otherwise
+			parts := strings.SplitN(image, "/", 1)
+			defaultHelmOptions["global.registry"] = registry + "/" + parts[0]
+		}
+	}
+
 	// Copy over envronment variables that are passed in.
 	for envVar, helmVar := range map[string]string{
 		"CILIUM_REGISTRY":       "global.registry",
@@ -171,6 +199,9 @@ func init() {
 			defaultHelmOptions[helmVar] = v
 		}
 	}
+
+	// preflight must match the cilium agent image (that's the point)
+	defaultHelmOptions["preflight.image"] = defaultHelmOptions["agent.image"]
 }
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -272,18 +303,91 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 	return k
 }
 
-// LabelNodes labels nodes in vagrant env. If you are running tests on different cluster you need to label your nodes by yourself
-func (kub *Kubectl) LabelNodes() {
-	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s1 cilium.io/ci-node=k8s1", KubectlCmd))
-	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s2 cilium.io/ci-node=k8s2", KubectlCmd))
-	kub.ExecMiddle(fmt.Sprintf("%s label --overwrite node k8s3 cilium.io/ci-node=k8s3", KubectlCmd))
+// DeleteAllInNamespace deletes all namespaces except the ones provided in the
+// exception list
+func (kub *Kubectl) DeleteAllNamespacesExcept(except []string) error {
+	cmd := KubectlCmd + " get namespace -o json | jq -r '[ .items[].metadata.name ]'"
+	res := kub.ExecShort(cmd)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("unable to retrieve all namespaces with '%s': %s", cmd, res.OutputPrettyPrint())
+	}
+
+	var namespaceList []string
+	if err := res.Unmarshal(&namespaceList); err != nil {
+		return fmt.Errorf("unable to unmarshal string slice '%#v': %s", namespaceList, err)
+	}
+
+	exceptMap := map[string]struct{}{}
+	for _, e := range except {
+		exceptMap[e] = struct{}{}
+	}
+
+	for _, namespace := range namespaceList {
+		if _, ok := exceptMap[namespace]; !ok {
+			kub.NamespaceDelete(namespace)
+		}
+	}
+
+	return nil
+}
+
+// PrepareCluster will prepare the cluster to run tests. It will:
+// - Delete all existing namespaces
+// - Label all nodes so the tests can use them
+func (kub *Kubectl) PrepareCluster() {
+	ginkgoext.By("Preparing cluster")
+	err := kub.DeleteAllNamespacesExcept([]string{
+		KubeSystemNamespace,
+		GetCiliumNamespace(GetCurrentIntegration()),
+		"default",
+		"kube-node-lease",
+		"kube-public",
+	})
+	if err != nil {
+		ginkgoext.Failf("Unable to delete non-essential namespaces: %s", err)
+	}
+
+	ginkgoext.By("Labelling nodes")
+	if err = kub.labelNodes(); err != nil {
+		ginkgoext.Failf("unable label nodes: %s", err)
+	}
+}
+
+// labelNodes labels all Kubernetes nodes for use by the CI tests
+func (kub *Kubectl) labelNodes() error {
+	cmd := KubectlCmd + " get nodes -o json | jq -r '[ .items[].metadata.name ]'"
+	res := kub.ExecShort(cmd)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("unable to retrieve all nodes with '%s': %s", cmd, res.OutputPrettyPrint())
+	}
+
+	var nodesList []string
+	if err := res.Unmarshal(&nodesList); err != nil {
+		return fmt.Errorf("unable to unmarshal string slice '%#v': %s", nodesList, err)
+	}
+
+	index := 1
+	for _, nodeName := range nodesList {
+		cmd := fmt.Sprintf("%s label --overwrite node %s cilium.io/ci-node=k8s%d", KubectlCmd, nodeName, index)
+		res := kub.ExecShort(cmd)
+		if !res.WasSuccessful() {
+			return fmt.Errorf("unable to label node with '%s': %s", cmd, res.OutputPrettyPrint())
+		}
+		index++
+	}
 
 	node := GetNodeWithoutCilium()
 	if node != "" {
 		// Prevent scheduling any pods on the node, as it will be used as an external client
 		// to send requests to k8s{1,2}
-		kub.ExecMiddle(fmt.Sprintf("%s taint nodes %s key=value:NoSchedule", KubectlCmd, node))
+		cmd := fmt.Sprintf("%s taint --overwrite nodes %s key=value:NoSchedule", KubectlCmd, node)
+		res := kub.ExecMiddle(cmd)
+		if !res.WasSuccessful() {
+			return fmt.Errorf("unable to taint node with '%s': %s", cmd, res.OutputPrettyPrint())
+		}
 	}
+
+	return nil
 }
 
 // CepGet returns the endpoint model for the given pod name in the specified
@@ -344,7 +448,7 @@ func (kub *Kubectl) CopyFileToPod(namespace string, pod string, fromFile, toFile
 // leads to TopicAuthorizationException or any other error. Hence the
 // function needs to also take into account the stderr messages returned.
 func (kub *Kubectl) ExecKafkaPodCmd(namespace string, pod string, arg string) error {
-	command := fmt.Sprintf("%s exec -n %s %s sh -- %s", KubectlCmd, namespace, pod, arg)
+	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, pod, arg)
 	res := kub.Exec(command)
 	if !res.WasSuccessful() {
 		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed %s",
@@ -463,6 +567,28 @@ func (kub *Kubectl) GetPodsNodes(namespace string, filter string) (map[string]st
 		return nil, fmt.Errorf("cannot retrieve pods: %s", res.CombineOutput())
 	}
 	return res.KVOutput(), nil
+}
+
+func (kub *Kubectl) GetPodOnNodeWithOffset(nodeName string, podFilter string, callOffset int) (string, string) {
+	var podName string
+
+	callOffset++
+
+	podsNodes, err := kub.GetPodsNodes(DefaultNamespace, fmt.Sprintf("-l %s", podFilter))
+	gomega.ExpectWithOffset(callOffset, err).Should(gomega.BeNil(), "Cannot retrieve pods nodes with filter %q", podFilter)
+	gomega.Expect(podsNodes).ShouldNot(gomega.BeEmpty(), "No pod found in namespace %s with filter %q", DefaultNamespace, podFilter)
+	for pod, node := range podsNodes {
+		if node == nodeName {
+			podName = pod
+			break
+		}
+	}
+	gomega.ExpectWithOffset(callOffset, podName).ShouldNot(gomega.BeEmpty(), "Cannot retrieve pod on node %s with filter %q", nodeName, podFilter)
+	podsIPs, err := kub.GetPodsIPs(DefaultNamespace, podFilter)
+	gomega.ExpectWithOffset(callOffset, err).Should(gomega.BeNil(), "Cannot retrieve pods IPs with filter %q", podFilter)
+	gomega.Expect(podsIPs).ShouldNot(gomega.BeEmpty(), "No pod IP found in namespace %s with filter %q", DefaultNamespace, podFilter)
+	podIP := podsIPs[podName]
+	return podName, podIP
 }
 
 // GetSvcIP returns the cluster IP for the given service. If the service
@@ -704,35 +830,14 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 		fmt.Sprintf("%s -n %s logs %s", KubectlCmd, namespace, pod))
 }
 
-// MonitorStart runs cilium monitor in the background and dumps the contents
-// into a log file for later debugging
-func (kub *Kubectl) MonitorStart(namespace, pod, filename string) func() error {
-	cmd := fmt.Sprintf("%s exec -n %s %s -- cilium monitor -v", KubectlCmd, namespace, pod)
+// MonitorStart runs cilium monitor in the background and returns the command
+// result, CmdRes, along with a cancel function. The cancel function is used to
+// stop the monitor.
+func (kub *Kubectl) MonitorStart(namespace, pod string) (res *CmdRes, cancel func()) {
+	cmd := fmt.Sprintf("%s exec -n %s %s -- cilium monitor -vv", KubectlCmd, namespace, pod)
 	ctx, cancel := context.WithCancel(context.Background())
-	res := kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
 
-	cb := func() error {
-		cancel()
-		<-ctx.Done()
-		testPath, err := CreateReportDirectory()
-		if err != nil {
-			kub.Logger().WithError(err).Errorf(
-				"cannot create test results path '%s'", testPath)
-			return err
-		}
-
-		err = WriteOrAppendToFile(
-			filepath.Join(testPath, filename),
-			res.CombineOutput().Bytes(),
-			LogPerm)
-		if err != nil {
-			log.WithError(err).Errorf("cannot create monitor log file %s", filename)
-			return err
-		}
-		return nil
-	}
-
-	return cb
+	return kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true}), cancel
 }
 
 // BackgroundReport dumps the result of the given commands on cilium pods each
@@ -746,7 +851,7 @@ func (kub *Kubectl) BackgroundReport(commands ...string) (context.CancelFunc, er
 	retrieveInfo := func() {
 		for _, pod := range pods {
 			for _, cmd := range commands {
-				kub.CiliumExec(pod, cmd)
+				kub.CiliumExecContext(context.TODO(), pod, cmd)
 			}
 		}
 	}
@@ -850,11 +955,10 @@ func (kub *Kubectl) NamespaceCreate(name string) *CmdRes {
 // NamespaceDelete deletes a given Kubernetes namespace
 func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 	ginkgoext.By("Deleting namespace %s", name)
-	res := kub.DeleteAllInNamespace(name)
-	if !res.WasSuccessful() {
-		kub.Logger().Infof("Error while deleting all objects from %s ns: %s", name, res.GetError())
+	if err := kub.DeleteAllInNamespace(name); err != nil {
+		kub.Logger().Infof("Error while deleting all objects from %s ns: %s", name, err)
 	}
-	res = kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
+	res := kub.ExecShort(fmt.Sprintf("%s delete namespace %s", KubectlCmd, name))
 	if !res.WasSuccessful() {
 		kub.Logger().Infof("Error while deleting ns %s: %s", name, res.GetError())
 	}
@@ -864,10 +968,20 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 }
 
 // DeleteAllInNamespace deletes all k8s objects in a namespace
-func (kub *Kubectl) DeleteAllInNamespace(name string) *CmdRes {
+func (kub *Kubectl) DeleteAllInNamespace(name string) error {
 	// we are getting all namespaced resources from k8s apiserver, and delete all objects of these types in a provided namespace
-	return kub.ExecShort(fmt.Sprintf("%s delete $(%s api-resources --namespaced=true --verbs=delete -o name | tr '\n' ',' | sed -e 's/,$//') -n %s --all",
-		KubectlCmd, KubectlCmd, name))
+	cmd := fmt.Sprintf("%s delete $(%s api-resources --namespaced=true --verbs=delete -o name | tr '\n' ',' | sed -e 's/,$//') -n %s --all", KubectlCmd, KubectlCmd, name)
+	if res := kub.ExecShort(cmd); !res.WasSuccessful() {
+		return fmt.Errorf("unable to run '%s': %s", cmd, res.OutputPrettyPrint())
+	}
+
+	return nil
+}
+
+// NamespaceLabel sets a label in a Kubernetes namespace
+func (kub *Kubectl) NamespaceLabel(namespace string, label string) *CmdRes {
+	ginkgoext.By("Setting label %s in namespace %s", label, namespace)
+	return kub.ExecShort(fmt.Sprintf("%s label --overwrite namespace %s %s", KubectlCmd, namespace, label))
 }
 
 // WaitforPods waits up until timeout seconds have elapsed for all pods in the
@@ -1084,6 +1198,14 @@ func (kub *Kubectl) CreateResource(resource, resourceName string) *CmdRes {
 func (kub *Kubectl) DeleteResource(resource, resourceName string) *CmdRes {
 	kub.Logger().Debug(fmt.Sprintf("deleting resource %s with name %s", resource, resourceName))
 	return kub.Exec(fmt.Sprintf("kubectl delete %s %s", resource, resourceName))
+}
+
+// DeleteInNamespace deletes the Kubernetes manifest at path filepath in a
+// particular namespace
+func (kub *Kubectl) DeleteInNamespace(namespace, filePath string) *CmdRes {
+	kub.Logger().Debugf("deleting %s in namespace %s", filePath, namespace)
+	return kub.ExecShort(
+		fmt.Sprintf("%s -n %s delete -f  %s", KubectlCmd, namespace, filePath))
 }
 
 // Delete deletes the Kubernetes manifest at path filepath.
@@ -1402,6 +1524,13 @@ func addIfNotOverwritten(options map[string]string, field, value string) map[str
 }
 
 func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
+	if integration := GetCurrentIntegration(); integration != "" {
+		overrides := helmOverrides[integration]
+		for key, value := range overrides {
+			options = addIfNotOverwritten(options, key, value)
+		}
+
+	}
 	for key, value := range defaultHelmOptions {
 		options = addIfNotOverwritten(options, key, value)
 	}
@@ -1440,12 +1569,6 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
-	if integration := GetCurrentIntegration(); integration != "" {
-		overrides := helmOverrides[integration]
-		for k, v := range overrides {
-			options[k] = v
-		}
-	}
 	return nil
 }
 
@@ -1498,10 +1621,10 @@ func (kub *Kubectl) DeleteCiliumOperator() error {
 	// incomplete teardown.
 
 	_ = kub.DeleteResource("deployment", fmt.Sprintf("-n %s cilium-operator", GetCiliumNamespace(GetCurrentIntegration())))
-	return kub.waitToDeleteCiliumOperator()
+	return kub.waitToDelete("Cilium Operator", CiliumOperatorLabel)
 }
 
-func (kub *Kubectl) waitToDeleteCiliumOperator() error {
+func (kub *Kubectl) waitToDelete(name, label string) error {
 	var (
 		pods []string
 		err  error
@@ -1515,13 +1638,16 @@ func (kub *Kubectl) waitToDeleteCiliumOperator() error {
 
 		select {
 		case <-ctx.Done():
-			return fmt.Errorf("timed out waiting to delete Cilium Operator: pods still remaining: %s", pods)
+			return fmt.Errorf("timed out waiting to delete %s: pods still remaining: %s", name, pods)
 		default:
 		}
 
-		pods, err = kub.GetPodNamesContext(ctx, GetCiliumNamespace(GetCurrentIntegration()), "io.cilium/app=cilium")
+		pods, err = kub.GetPodNamesContext(ctx, GetCiliumNamespace(GetCurrentIntegration()), label)
+		if err != nil {
+			return err
+		}
 		status = len(pods)
-		kub.Logger().Infof("Cilium Operator pods terminating '%d' err='%v' pods='%v'", status, err, pods)
+		kub.Logger().Infof("%s pods terminating '%d' err='%v' pods='%v'", name, status, err, pods)
 		if status == 0 {
 			return nil
 		}
@@ -1535,36 +1661,7 @@ func (kub *Kubectl) DeleteCiliumDS() error {
 	// incomplete teardown.
 
 	_ = kub.DeleteResource("ds", fmt.Sprintf("-n %s cilium", GetCiliumNamespace(GetCurrentIntegration())))
-	return kub.waitToDeleteCilium()
-}
-
-func (kub *Kubectl) waitToDeleteCilium() error {
-	var (
-		pods []string
-		err  error
-	)
-
-	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
-	defer cancel()
-
-	status := 1
-	for status > 0 {
-
-		select {
-		case <-ctx.Done():
-			return fmt.Errorf("timed out waiting to delete Cilium: pods still remaining: %s", pods)
-		default:
-		}
-
-		pods, err = kub.GetCiliumPodsContext(ctx, GetCiliumNamespace(GetCurrentIntegration()))
-		status := len(pods)
-		kub.Logger().Infof("Cilium pods terminating '%d' err='%v' pods='%v'", status, err, pods)
-		if status == 0 {
-			return nil
-		}
-		time.Sleep(1 * time.Second)
-	}
-	return nil
+	return kub.waitToDelete("Cilium", CiliumAgentLabel)
 }
 
 // ciliumUninstallHelm uninstalls Cilium with the Helm options provided.
@@ -1873,12 +1970,16 @@ func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd strin
 	return res
 }
 
-// CiliumExec runs cmd in the specified Cilium pod.
-// Deprecated: use CiliumExecContext instead
-func (kub *Kubectl) CiliumExec(pod string, cmd string) *CmdRes {
-	ctx, cancel := context.WithTimeout(context.Background(), HelperTimeout)
-	defer cancel()
-	return kub.CiliumExecContext(ctx, pod, cmd)
+// CiliumExecMustSucceed runs cmd in the specified Cilium pod.
+// it causes a test failure if the command was not successful.
+func (kub *Kubectl) CiliumExecMustSucceed(ctx context.Context, pod, cmd string, optionalDescription ...interface{}) *CmdRes {
+	res := kub.CiliumExecContext(ctx, pod, cmd)
+	if !res.WasSuccessful() {
+		res.SendToLog(false)
+	}
+	gomega.ExpectWithOffset(1, res).Should(
+		CMDSuccess(), optionalDescription...)
+	return res
 }
 
 // CiliumExecUntilMatch executes the specified command repeatedly for the
@@ -1963,6 +2064,25 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 	return true, nil
 }
 
+// LoadedPolicyInFirstAgent returns the policy as loaded in the first cilium
+// agent that is found in the cluster
+func (kub *Kubectl) LoadedPolicyInFirstAgent() (string, error) {
+	pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	if err != nil {
+		return "", fmt.Errorf("cannot retrieve cilium pods: %s", err)
+	}
+	for _, pod := range pods {
+		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+		defer cancel()
+		res := kub.CiliumExecContext(ctx, pod, "cilium policy get")
+		if !res.WasSuccessful() {
+			return "", fmt.Errorf("cannot execute cilium policy get: %s", res.Output())
+		}
+		return res.CombineOutput().String(), nil
+	}
+	return "", fmt.Errorf("no running cilium pods")
+}
+
 // WaitPolicyDeleted waits for policy policyName to be deleted from the
 // cilium-agent running in pod. Returns an error if policyName was unable to
 // be deleted after some amount of time.
@@ -1978,6 +2098,30 @@ func (kub *Kubectl) WaitPolicyDeleted(pod string, policyName string) error {
 	}
 
 	return WithTimeout(body, fmt.Sprintf("Policy %s was not deleted in time", policyName), &TimeoutConfig{Timeout: HelperTimeout})
+}
+
+// WaitForCiliumEndpointDeleted waits until the given pod is removed from
+// the cilium endpoint list on the given node.
+func (kub *Kubectl) WaitForCiliumEndpointDeleted(node, namespace, pod string) error {
+	ciliumPod, err := kub.GetCiliumPodOnNode(namespace, node)
+	if err != nil {
+		return err
+	}
+
+	body := func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+		defer cancel()
+		cmd := fmt.Sprintf(
+			`cilium endpoint list -o json | jq -r '.[] | select (.status."external-identifiers"."pod-name" == "%s/%s")'`,
+			namespace, pod)
+		res := kub.CiliumExecContext(ctx, ciliumPod, cmd)
+		return !res.WasSuccessful()
+	}
+
+	return WithTimeout(body,
+		fmt.Sprintf("Cilium endpoint %s/%s on node %s was not deleted in time",
+			namespace, pod, node),
+		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
 // CiliumIsPolicyLoaded returns true if the policy is loaded in the given
@@ -2022,7 +2166,22 @@ type ResourceLifeCycleAction string
 // imported before the timeout is
 // exceeded.
 func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout time.Duration) (string, error) {
-	numNodes := kub.GetNumCiliumNodes()
+	pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	if err != nil {
+		kub.Logger().WithError(err).Error("cannot retrieve cilium pods")
+		return "", fmt.Errorf("Cannot get cilium pods: %s", err)
+	}
+	numNodes := len(pods)
+
+	revisions := make(map[string]int)
+	for _, pod := range pods {
+		revision, err := kub.CiliumPolicyRevision(pod)
+		if err != nil {
+			kub.Logger().WithError(err).Error("cannot retrieve cilium pod policy revision")
+			return "", fmt.Errorf("Cannot retrieve cilium pod policy revision: %s", err)
+		}
+		revisions[pod] = revision
+	}
 
 	// Test filter: https://jqplay.org/s/EgNzc06Cgn
 	jqFilter := fmt.Sprintf(
@@ -2051,7 +2210,6 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 		if !res.WasSuccessful() {
 			kub.Logger().WithError(res.GetErr("")).Error("cannot get cnp status")
 			return false
-
 		}
 
 		err := res.Unmarshal(&data)
@@ -2069,7 +2227,7 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 		return true
 	}
 
-	err := WithTimeout(
+	err = WithTimeout(
 		body,
 		"cannot change state of resource correctly; command timed out",
 		&TimeoutConfig{Timeout: timeout})
@@ -2086,15 +2244,19 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 			return true
 		}
 
-		pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
-		if err != nil {
-			kub.Logger().WithError(err).Error("cannot retrieve cilium pods")
-			return false
-		}
 		for _, item := range result {
 			for _, ciliumPod := range pods {
 				if !kub.CiliumIsPolicyLoaded(ciliumPod, item) {
 					kub.Logger().Infof("Policy '%s' is not ready on Cilium pod '%s'", item, ciliumPod)
+					return false
+				}
+
+				ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+				defer cancel()
+				desiredRevision := revisions[ciliumPod] + 1
+				res := kub.CiliumExecContext(ctx, ciliumPod, fmt.Sprintf("cilium policy wait %d --max-wait-time %f", desiredRevision, ShortCommandTimeout.Seconds()))
+				if !(res.GetExitCode() != 0) {
+					kub.Logger().Infof("Failed to wait for policy revision %d on pod %s", desiredRevision, ciliumPod)
 					return false
 				}
 			}
@@ -2324,17 +2486,24 @@ func (kub *Kubectl) CiliumCheckReport(ctx context.Context) {
 	}
 }
 
-// ValidateNoErrorsInLogs checks in cilium logs since the given duration (By
-// default `CurrentGinkgoTestDescription().Duration`) do not contain `panic`,
-// `deadlocks` or `segmentation faults` messages. In case of any of these
-// messages, it'll mark the test as failed.
+// ValidateNoErrorsInLogs checks that cilium logs since the given duration (By
+// default `CurrentGinkgoTestDescription().Duration`) do not contain any of the
+// known-bad messages (e.g., `deadlocks` or `segmentation faults`). In case of
+// any of these messages, it'll mark the test as failed.
 func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
+	blacklist := GetBadLogMessages()
+	kub.ValidateListOfErrorsInLogs(duration, blacklist)
+}
+
+// ValidateListOfErrorsInLogs is similar to ValidateNoErrorsInLogs, but
+// takes a blacklist of bad log messages instead of using the default list.
+func (kub *Kubectl) ValidateListOfErrorsInLogs(duration time.Duration, blacklist map[string][]string) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
 	var logs string
-	cmd := fmt.Sprintf("%s -n %s logs --timestamps=true -l k8s-app=cilium --since=%vs",
+	cmd := fmt.Sprintf("%s -n %s logs --tail=-1 --timestamps=true -l k8s-app=cilium --since=%vs",
 		KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()), duration.Seconds())
 	res := kub.ExecContext(ctx, fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
 	if res.WasSuccessful() {
@@ -2360,7 +2529,7 @@ func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
 		}
 	}()
 
-	failIfContainsBadLogMsg(logs)
+	failIfContainsBadLogMsg(logs, blacklist)
 
 	fmt.Fprintf(CheckLogs, logutils.LogErrorsSummary(logs))
 }
@@ -2567,6 +2736,7 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 		"kubectl describe pods --all-namespaces":                     "pods_status.txt",
 		"kubectl get replicationcontroller --all-namespaces -o json": "replicationcontroller.txt",
 		"kubectl get deployment --all-namespaces -o json":            "deployment.txt",
+		"kubectl get crd ciliumnetworkpolicies.cilium.io -o json":    "cilium-network-policies-crd.json",
 
 		fmt.Sprintf("kubectl get cm cilium-config -n %s -o json", GetCiliumNamespace(GetCurrentIntegration())): "cilium-config.json",
 	}
@@ -2641,6 +2811,16 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 	}
 
 	return res.Output().String(), nil
+}
+
+// GetNodeInfo provides the node name and IP address based on the label
+// (eg helpers.K8s1 or helpers.K8s2)
+func (kub *Kubectl) GetNodeInfo(label string) (nodeName, nodeIP string) {
+	nodeName, err := kub.GetNodeNameByLabel(label)
+	gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), "Cannot get node by label "+label)
+	nodeIP, err = kub.GetNodeIPByLabel(label, false)
+	gomega.ExpectWithOffset(1, err).Should(gomega.BeNil(), "Can not retrieve Node IP for "+label)
+	return nodeName, nodeIP
 }
 
 // GetCiliumPodOnNodeWithLabel returns the name of the Cilium pod that is running on node with cilium.io/ci-node label
@@ -2729,7 +2909,7 @@ func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
 	for _, pod := range ciliumPods {
-		status := kub.CiliumExec(pod, "cilium status --all-health --all-nodes")
+		status := kub.CiliumExecContext(context.TODO(), pod, "cilium status --all-health --all-nodes")
 		if !status.WasSuccessful() {
 			return fmt.Errorf("cilium-agent '%s' is unhealthy: %s", pod, status.OutputPrettyPrint())
 		}
@@ -2753,7 +2933,7 @@ func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
 	for _, pod := range ciliumPods {
-		status := kub.CiliumExec(pod, fmt.Sprintf(
+		status := kub.CiliumExecContext(context.TODO(), pod, fmt.Sprintf(
 			"cilium status --all-controllers -o jsonpath='%s'", controllersFilter))
 		if !status.WasSuccessful() {
 			return fmt.Errorf("cilium-agent '%s': Cannot run cilium status: %s",
@@ -2761,7 +2941,7 @@ func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 		}
 		for controller, status := range status.KVOutput() {
 			if status != "0" {
-				failmsg := kub.CiliumExec(pod, "cilium status --all-controllers")
+				failmsg := kub.CiliumExecContext(context.TODO(), pod, "cilium status --all-controllers")
 				return fmt.Errorf("cilium-agent '%s': controller %s is failing: %s",
 					pod, controller, failmsg.OutputPrettyPrint())
 			}
@@ -2786,7 +2966,7 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
 	for _, pod := range ciliumPods {
-		status := kub.CiliumExec(pod, "cilium-health status -o json --probe")
+		status := kub.CiliumExecContext(context.TODO(), pod, "cilium-health status -o json --probe")
 		if !status.WasSuccessful() {
 			return fmt.Errorf(
 				"Cluster connectivity is unhealthy on '%s': %s",
@@ -2876,7 +3056,7 @@ func (kub *Kubectl) fillServiceCache() error {
 	for _, pod := range ciliumPods {
 		podCache := ciliumPodServiceCache{name: pod}
 
-		ciliumServicesRes := kub.CiliumExec(pod, ciliumSvcCmd)
+		ciliumServicesRes := kub.CiliumExecContext(context.TODO(), pod, ciliumSvcCmd)
 		err := ciliumServicesRes.GetErr(
 			fmt.Sprintf("Unable to retrieve Cilium services on %s", pod))
 		if err != nil {
@@ -2888,7 +3068,7 @@ func (kub *Kubectl) fillServiceCache() error {
 			return fmt.Errorf("Unable to unmarshal Cilium services: %s", err.Error())
 		}
 
-		ciliumLbRes := kub.CiliumExec(pod, ciliumBpfLbCmd)
+		ciliumLbRes := kub.CiliumExecContext(context.TODO(), pod, ciliumBpfLbCmd)
 		err = ciliumLbRes.GetErr(
 			fmt.Sprintf("Unable to retrieve Cilium bpf lb list on %s", pod))
 		if err != nil {
@@ -2907,11 +3087,21 @@ func (kub *Kubectl) fillServiceCache() error {
 
 // KubeDNSPreFlightCheck makes sure that kube-dns is plumbed into Cilium.
 func (kub *Kubectl) KubeDNSPreFlightCheck() error {
-	err := kub.fillServiceCache()
-	if err != nil {
-		return err
+	var dnsErr error
+	body := func() bool {
+		dnsErr = kub.fillServiceCache()
+		if dnsErr != nil {
+			return false
+		}
+		dnsErr = kub.servicePreFlightCheck("kube-dns", KubeSystemNamespace)
+		return dnsErr == nil
 	}
-	return kub.servicePreFlightCheck("kube-dns", KubeSystemNamespace)
+
+	err := WithTimeout(body, "DNS not ready within timeout", &TimeoutConfig{Timeout: HelperTimeout})
+	if err != nil {
+		return fmt.Errorf("kube-dns service not ready: %s", dnsErr)
+	}
+	return nil
 }
 
 // servicePreFlightCheck makes sure that k8s service with given name and
@@ -3163,10 +3353,11 @@ func serviceKey(s v1.Service) string {
 func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.Endpoints, k8sServicesFound map[string]bool) error {
 	var k8sService *v1.Service
 
-	// TODO(brb) validate NodePort and LoadBalancer services
+	// TODO(brb) validate NodePort, LoadBalancer and HostPort services
 	if cSvc.Status.Realized.Flags != nil {
 		switch cSvc.Status.Realized.Flags.Type {
 		case models.ServiceSpecFlagsTypeNodePort,
+			models.ServiceSpecFlagsTypeHostPort,
 			models.ServiceSpecFlagsTypeExternalIPs:
 			return nil
 		case "LoadBalancer":
@@ -3262,9 +3453,10 @@ func addrsEqual(addr1, addr2 *models.BackendAddress) bool {
 // prefixing with timestamp
 func GenerateNamespaceForTest(seed string) string {
 	lowered := strings.ToLower(ginkgoext.CurrentGinkgoTestDescription().FullTestText)
-	// K8s namespaces cannot have spaces or underscores.
+	// K8s namespaces cannot have spaces, underscores or slashes.
 	replaced := strings.Replace(lowered, " ", "", -1)
 	replaced = strings.Replace(replaced, "_", "", -1)
+	replaced = strings.Replace(replaced, "/", "", -1)
 
 	timestamped := time.Now().Format("200601021504") + seed + replaced
 

@@ -76,7 +76,7 @@ cluster_api_server_ip=${K8S_CLUSTER_API_SERVER_IP:-"172.20.0.1"}
 #cluster_dns_ip=${K8S_CLUSTER_DNS_IP:-"FD03::A"}
 #cluster_api_server_ip=${K8S_CLUSTER_API_SERVER_IP:-"FD03::1"}
 
-k8s_version="v1.17.3"
+k8s_version="v1.18.2"
 etcd_version="v3.4.2"
 
 function restore_flag {
@@ -106,7 +106,10 @@ function download_to {
     if [ ! -f "${cache_dir}/${component}" ]; then
         log "Downloading ${component}..."
 
-        ${WGET} -O "${cache_dir}/${component}" -nv "${url}"
+        rm -f "/tmp/${component}"
+        ${WGET} -O "/tmp/${component}" -nv "${url}"
+        # Hide 'failed to preserve ownership' error
+        mv "/tmp/${component}" "${cache_dir}/${component}" 2>/dev/null
 
         log "Downloading ${component}... Done!"
     fi

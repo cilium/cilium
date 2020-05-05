@@ -28,10 +28,9 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/sirupsen/logrus"
@@ -93,7 +92,7 @@ func (r *ruleImportMetadataCache) get(cnp *types.SlimCNP) (policyImportMetadata,
 	return policyImportMeta, ok
 }
 
-func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClient, serCNPs *serializer.FunctionQueue, swgCNPs *lock.StoppableWaitGroup) {
+func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClient) {
 	var (
 		cnpEventStore    cache.Store
 		cnpConverterFunc informer.ConvertFunc
@@ -118,49 +117,51 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricCNP, metricCreate, valid, equal) }()
-				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
+				if cnp := k8s.ObjToSlimCNP(obj); cnp != nil {
 					valid = true
-					swgCNPs.Add()
-					serCNPs.Enqueue(func() error {
-						defer swgCNPs.Done()
-						if cnp.RequiresDerivative() {
-							return nil
-						}
-						err := k.addCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, cnp)
-						k.K8sEventProcessed(metricCNP, metricCreate, err == nil)
-						return nil
-					}, serializer.NoRetry)
+					if cnp.RequiresDerivative() {
+						return
+					}
+
+					// We need to deepcopy this structure because we are writing
+					// fields.
+					// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
+					cnpCpy := cnp.DeepCopy()
+
+					err := k.addCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, cnpCpy)
+					k.K8sEventProcessed(metricCNP, metricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricCNP, metricUpdate, valid, equal) }()
-				if oldCNP := k8s.CopyObjToV2CNP(oldObj); oldCNP != nil {
-					valid = true
-					if newCNP := k8s.CopyObjToV2CNP(newObj); newCNP != nil {
+				if oldCNP := k8s.ObjToSlimCNP(oldObj); oldCNP != nil {
+					if newCNP := k8s.ObjToSlimCNP(newObj); newCNP != nil {
+						valid = true
 						if k8s.EqualV2CNP(oldCNP, newCNP) {
 							equal = true
 							return
 						}
 
-						swgCNPs.Add()
-						serCNPs.Enqueue(func() error {
-							defer swgCNPs.Done()
-							if newCNP.RequiresDerivative() {
-								return nil
-							}
+						if newCNP.RequiresDerivative() {
+							return
+						}
 
-							err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, oldCNP, newCNP)
-							k.K8sEventProcessed(metricCNP, metricUpdate, err == nil)
-							return nil
-						}, serializer.NoRetry)
+						// We need to deepcopy this structure because we are writing
+						// fields.
+						// See https://github.com/cilium/cilium/blob/27fee207f5422c95479422162e9ea0d2f2b6c770/pkg/policy/api/ingress.go#L112-L134
+						oldCNPCpy := oldCNP.DeepCopy()
+						newCNPCpy := newCNP.DeepCopy()
+
+						err := k.updateCiliumNetworkPolicyV2(ciliumNPClient, cnpEventStore, oldCNPCpy, newCNPCpy)
+						k.K8sEventProcessed(metricCNP, metricUpdate, err == nil)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricCNP, metricDelete, valid, equal) }()
-				cnp := k8s.CopyObjToV2CNP(obj)
+				cnp := k8s.ObjToSlimCNP(obj)
 				if cnp == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 					if !ok {
@@ -169,25 +170,20 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 					// Delete was not observed by the watcher but is
 					// removed from kube-apiserver. This is the last
 					// known state and the object no longer exists.
-					cnp = k8s.CopyObjToV2CNP(deletedObj.Obj)
+					cnp = k8s.ObjToSlimCNP(deletedObj.Obj)
 					if cnp == nil {
 						return
 					}
 				}
 				valid = true
-				swgCNPs.Add()
-				serCNPs.Enqueue(func() error {
-					defer swgCNPs.Done()
-					err := k.deleteCiliumNetworkPolicyV2(cnp)
-					k.K8sEventProcessed(metricCNP, metricDelete, err == nil)
-					return nil
-				}, serializer.NoRetry)
+				err := k.deleteCiliumNetworkPolicyV2(cnp)
+				k.K8sEventProcessed(metricCNP, metricDelete, err == nil)
 			},
 		},
 		cnpConverterFunc,
 		cnpStore,
 	)
-	k.blockWaitGroupToSyncResources(wait.NeverStop, swgCNPs, ciliumV2Controller, k8sAPIGroupCiliumNetworkPolicyV2)
+	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, ciliumV2Controller, k8sAPIGroupCiliumNetworkPolicyV2)
 	go ciliumV2Controller.Run(wait.NeverStop)
 	k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNetworkPolicyV2)
 }
@@ -229,7 +225,7 @@ func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface
 		updateContext := &k8s.CNPStatusUpdateContext{
 			CiliumNPClient:              ciliumNPClient,
 			CiliumV2Store:               ciliumV2Store,
-			NodeName:                    node.GetName(),
+			NodeName:                    nodeTypes.GetName(),
 			NodeManager:                 k.nodeDiscoverManager,
 			UpdateDuration:              spanstat.Start(),
 			WaitForEndpointsAtPolicyRev: k.endpointManager.WaitForEndpointsAtPolicyRev,
@@ -348,7 +344,7 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient c
 	updateContext := &k8s.CNPStatusUpdateContext{
 		CiliumNPClient:              ciliumNPClient,
 		CiliumV2Store:               ciliumV2Store,
-		NodeName:                    node.GetName(),
+		NodeName:                    nodeTypes.GetName(),
 		NodeManager:                 k.nodeDiscoverManager,
 		UpdateDuration:              spanstat.Start(),
 		WaitForEndpointsAtPolicyRev: k.endpointManager.WaitForEndpointsAtPolicyRev,

@@ -16,7 +16,6 @@ package tuple
 
 import (
 	"bytes"
-	"fmt"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -66,5 +65,5 @@ func (t *TupleValStub) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(t) }
 
 // String stub method.
 func (t *TupleValStub) String() string {
-	return fmt.Sprintf("<TupleValStub>")
+	return "<TupleValStub>"
 }

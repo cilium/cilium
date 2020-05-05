@@ -1225,7 +1225,7 @@ var _ = Describe("RuntimePolicies", func() {
 			// docker network inspect bridge | jq -r '.[0]."IPAM"."Config"[0]."Gateway"'
 			res = vm.NetworkGet("bridge")
 			res.ExpectSuccess("No docker bridge available for testing egress CIDR within host")
-			filter := fmt.Sprintf(`{ [0].IPAM.Config[0].Gateway }`)
+			filter := `{ [0].IPAM.Config[0].Gateway }`
 			obj, err := res.FindResults(filter)
 			Expect(err).NotTo(HaveOccurred(), "Error occurred while finding docker bridge IP")
 			Expect(obj).To(HaveLen(1), "Unexpectedly found more than one IPAM config element for docker bridge")
@@ -1544,6 +1544,10 @@ var _ = Describe("RuntimePolicies", func() {
 					"No ingress policy log record",
 				)
 				monitorRes.ExpectContains(fmt.Sprintf("-> endpoint %s ", endpointID), "No ingress traffic to endpoint")
+
+				By("Testing cilium endpoint list output")
+				res = vm.Exec("cilium endpoint list")
+				res.ExpectMatchesRegexp(endpointID+"\\s*Disabled \\(Audit\\)\\s*Disabled \\(Audit\\)", "Endpoint is not in audit mode")
 			})
 
 			It("tests egress", func() {
@@ -1563,6 +1567,10 @@ var _ = Describe("RuntimePolicies", func() {
 					"No egress policy log record",
 				)
 				monitorRes.ExpectContains(fmt.Sprintf("-> endpoint %s ", endpointID), "No reply traffic to endpoint")
+
+				By("Testing cilium endpoint list output")
+				res := vm.Exec("cilium endpoint list")
+				res.ExpectMatchesRegexp(endpointID+"\\s*Disabled \\(Audit\\)\\s*Disabled \\(Audit\\)", "Endpoint is not in audit mode")
 			})
 		})
 	})
@@ -1607,7 +1615,7 @@ var _ = Describe("RuntimePolicies", func() {
 			res.ExpectSuccess("Cannot ping endpoint with init policy")
 
 			By("Testing cilium monitor output")
-			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID))
+			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID), helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "Allow on ingress failed")
 			monitorRes.ExpectDoesNotMatchRegexp(fmt.Sprintf(`xx drop \(Policy denied\) flow [^ ]+ to endpoint %s, identity 1->[^0]`, endpointID), "Unexpected drop")
 		})
@@ -1632,7 +1640,7 @@ var _ = Describe("RuntimePolicies", func() {
 			Expect(egressEpModel).NotTo(BeNil(), "nil model returned for endpoint %s", endpointID)
 
 			By("Testing cilium monitor output")
-			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID))
+			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID), helpers.HelperTimeout)
 			Expect(err).To(BeNil(), "Allow on egress failed")
 			monitorRes.ExpectDoesNotMatchRegexp(fmt.Sprintf(`xx drop \(Policy denied\) flow [^ ]+ to endpoint %s, identity 1->[^0]`, endpointID), "Unexpected drop")
 		})
@@ -1719,7 +1727,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 	It("Invalid Policies", func() {
 
 		testInvalidPolicy := func(data string) {
-			err := helpers.RenderTemplateToFile(invalidJSON, data, 0777)
+			err := vm.RenderTemplateToFile(invalidJSON, data, 0777)
 			Expect(err).Should(BeNil())
 
 			path := vm.GetFilePath(invalidJSON)
@@ -1729,11 +1737,11 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		}
 		By("Invalid Json")
 
-		invalidJSON := fmt.Sprintf(`
+		invalidJSON := `
 		[{
 			"endpointSelector": {
 				"matchLabels":{"id.httpd1":""}
-			},`)
+			},`
 		testInvalidPolicy(invalidJSON)
 	})
 
@@ -1752,7 +1760,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		)
 
 		BeforeEach(func() {
-			err := helpers.RenderTemplateToFile(policyJSON, policy, 0777)
+			err := vm.RenderTemplateToFile(policyJSON, policy, 0777)
 			Expect(err).Should(BeNil())
 
 			path := vm.GetFilePath(policyJSON)
@@ -1806,7 +1814,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 
 		By("Importing policy that allows ingress to %q from the host and %q", httpd1Label, httpd2Label)
 
-		allowHttpd1IngressHostHttpd2 := fmt.Sprintf(`
+		allowHttpd1IngressHostHttpd2 := `
 			[{
     			"endpointSelector": {"matchLabels":{"id.httpd1":""}},
     			"ingress": [{
@@ -1815,7 +1823,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
             			{"matchLabels":{"id.httpd2":""}}
 					]
     			}]
-			}]`)
+			}]`
 
 		_, err := vm.PolicyRenderAndImport(allowHttpd1IngressHostHttpd2)
 		Expect(err).Should(BeNil(), "Error importing policy: %s", err)
@@ -1870,7 +1878,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		res = vm.PolicyDelAll()
 		res.ExpectSuccess("Unable to delete all policies")
 
-		allowHttpd1IngressHttpd2 := fmt.Sprintf(`
+		allowHttpd1IngressHttpd2 := `
 			[{
     			"endpointSelector": {"matchLabels":{"id.httpd1":""}},
     			"ingress": [{
@@ -1878,7 +1886,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
             			{"matchLabels":{"id.httpd2":""}}
 					]
     			}]
-			}]`)
+			}]`
 
 		_, err = vm.PolicyRenderAndImport(allowHttpd1IngressHttpd2)
 		Expect(err).Should(BeNil(), "Error importing policy: %s", err)

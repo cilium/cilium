@@ -19,7 +19,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/serializer"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -28,7 +27,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, serSvcs *serializer.FunctionQueue, swgSvcs *lock.StoppableWaitGroup) {
+func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, swgSvcs *lock.StoppableWaitGroup) {
 
 	_, svcController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
@@ -39,42 +38,32 @@ func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, serSvcs *seria
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricService, metricCreate, valid, equal) }()
-				if k8sSvc := k8s.CopyObjToV1Services(obj); k8sSvc != nil {
+				if k8sSvc := k8s.ObjToV1Services(obj); k8sSvc != nil {
 					valid = true
-					swgSvcs.Add()
-					serSvcs.Enqueue(func() error {
-						defer swgSvcs.Done()
-						err := k.addK8sServiceV1(k8sSvc, swgSvcs)
-						k.K8sEventProcessed(metricService, metricCreate, err == nil)
-						return nil
-					}, serializer.NoRetry)
+					err := k.addK8sServiceV1(k8sSvc, swgSvcs)
+					k.K8sEventProcessed(metricService, metricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricService, metricUpdate, valid, equal) }()
-				if oldk8sSvc := k8s.CopyObjToV1Services(oldObj); oldk8sSvc != nil {
-					valid = true
-					if newk8sSvc := k8s.CopyObjToV1Services(newObj); newk8sSvc != nil {
+				if oldk8sSvc := k8s.ObjToV1Services(oldObj); oldk8sSvc != nil {
+					if newk8sSvc := k8s.ObjToV1Services(newObj); newk8sSvc != nil {
+						valid = true
 						if k8s.EqualV1Services(oldk8sSvc, newk8sSvc, k.datapath.LocalNodeAddressing()) {
 							equal = true
 							return
 						}
 
-						swgSvcs.Add()
-						serSvcs.Enqueue(func() error {
-							defer swgSvcs.Done()
-							err := k.updateK8sServiceV1(oldk8sSvc, newk8sSvc, swgSvcs)
-							k.K8sEventProcessed(metricService, metricUpdate, err == nil)
-							return nil
-						}, serializer.NoRetry)
+						err := k.updateK8sServiceV1(oldk8sSvc, newk8sSvc, swgSvcs)
+						k.K8sEventProcessed(metricService, metricUpdate, err == nil)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricService, metricDelete, valid, equal) }()
-				k8sSvc := k8s.CopyObjToV1Services(obj)
+				k8sSvc := k8s.ObjToV1Services(obj)
 				if k8sSvc == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 					if !ok {
@@ -83,20 +72,15 @@ func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, serSvcs *seria
 					// Delete was not observed by the watcher but is
 					// removed from kube-apiserver. This is the last
 					// known state and the object no longer exists.
-					k8sSvc = k8s.CopyObjToV1Services(deletedObj.Obj)
+					k8sSvc = k8s.ObjToV1Services(deletedObj.Obj)
 					if k8sSvc == nil {
 						return
 					}
 				}
 
 				valid = true
-				swgSvcs.Add()
-				serSvcs.Enqueue(func() error {
-					defer swgSvcs.Done()
-					err := k.deleteK8sServiceV1(k8sSvc, swgSvcs)
-					k.K8sEventProcessed(metricService, metricDelete, err == nil)
-					return nil
-				}, serializer.NoRetry)
+				err := k.deleteK8sServiceV1(k8sSvc, swgSvcs)
+				k.K8sEventProcessed(metricService, metricDelete, err == nil)
 			},
 		},
 		k8s.ConvertToK8sService,

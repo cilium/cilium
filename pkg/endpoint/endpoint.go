@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/annotation"
+	enirouting "github.com/cilium/cilium/pkg/aws/eni/routing"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -39,7 +40,8 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -211,6 +213,13 @@ type Endpoint struct {
 	// K8sNamespace is the Kubernetes namespace of the endpoint
 	K8sNamespace string
 
+	// pod
+	pod *types.Pod
+
+	// k8sPorts contains container ports associated in the pod.
+	// It is used to enforce k8s network policies with port names.
+	k8sPorts policy.NamedPortsMap
+
 	// policyRevision is the policy revision this endpoint is currently on
 	// to modify this field please use endpoint.setPolicyRevision instead
 	policyRevision uint64
@@ -278,6 +287,12 @@ type Endpoint struct {
 	visibilityPolicy *policy.VisibilityPolicy
 
 	eventQueue *eventqueue.EventQueue
+
+	// skippedRegenerationLevel is the DatapathRegenerationLevel of the regeneration event that
+	// was skipped due to another regeneration event already being queued, as indicated by
+	// state. A lower-level current regeneration is bumped to this level to cover for the
+	// skipped regeneration levels.
+	skippedRegenerationLevel regeneration.DatapathRegenerationLevel
 
 	// DatapathConfiguration is the endpoint's datapath configuration as
 	// passed in via the plugin that created the endpoint, e.g. the CNI
@@ -833,7 +848,8 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 	// Note: This "retry" behaviour is better suited to a controller, and can be
 	// moved there once we have an endpoint regeneration controller.
 	regenCtx := &regeneration.ExternalRegenerationMetadata{
-		Reason: "endpoint was updated via API",
+		Reason:            "endpoint was updated via API",
+		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 	}
 
 	// If configuration options are provided, we only regenerate if necessary.
@@ -865,19 +881,14 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 		for {
 			select {
 			case <-ticker.C:
-				if err := e.lockAlive(); err != nil {
+				regen, err := e.SetRegenerateStateIfAlive(regenCtx)
+				if err != nil {
 					return err
 				}
-				// Check endpoint state before attempting configuration update because
-				// configuration updates can only be applied when the endpoint is in
-				// specific states. See GH-3058.
-				stateTransitionSucceeded := e.setState(StateWaitingToRegenerate, regenCtx.Reason)
-				if stateTransitionSucceeded {
-					e.unlock()
+				if regen {
 					e.Regenerate(regenCtx)
 					return nil
 				}
-				e.unlock()
 			case <-timeout:
 				e.getLogger().Warning("timed out waiting for endpoint state to change")
 				return UpdateStateChangeError{fmt.Sprintf("unable to regenerate endpoint program because state transition to %s was unsuccessful; check `cilium endpoint log %d` for more information", StateWaitingToRegenerate, e.ID)}
@@ -1022,16 +1033,6 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	return errors
 }
 
-// RegenerateWait should only be called when endpoint's state has successfully
-// been changed to "waiting-to-regenerate"
-func (e *Endpoint) RegenerateWait(reason string) error {
-	if !<-e.Regenerate(&regeneration.ExternalRegenerationMetadata{Reason: reason}) {
-		return fmt.Errorf("error while regenerating endpoint."+
-			" For more info run: 'cilium endpoint get %d'", e.ID)
-	}
-	return nil
-}
-
 // GetContainerName returns the name of the container for the endpoint.
 func (e *Endpoint) GetContainerName() string {
 	e.unconditionalRLock()
@@ -1055,6 +1056,21 @@ func (e *Endpoint) GetK8sNamespace() string {
 	return ns
 }
 
+// SetPod sets the pod related to this endpoint.
+func (e *Endpoint) SetPod(pod *types.Pod) {
+	e.unconditionalLock()
+	e.pod = pod
+	e.unlock()
+}
+
+// GetPod retrieves the pod related to this endpoint
+func (e *Endpoint) GetPod() *types.Pod {
+	e.unconditionalRLock()
+	pod := e.pod
+	e.runlock()
+	return pod
+}
+
 // SetK8sNamespace modifies the endpoint's pod name
 func (e *Endpoint) SetK8sNamespace(name string) {
 	e.unconditionalLock()
@@ -1063,6 +1079,32 @@ func (e *Endpoint) SetK8sNamespace(name string) {
 		logfields.K8sPodName: e.getK8sNamespaceAndPodName(),
 	})
 	e.unlock()
+}
+
+// SetNamedPorts sets the k8s container ports specified by kubernetes.
+// Note that once put in place, the new k8sPorts is never changed,
+// so that the map can be used concurrently without keeping locks.
+// Reading the 'e.k8sPorts' member (the "map pointer") *itself* requires the endpoint lock!
+// Can't really error out as that might break backwards compatibility.
+func (e *Endpoint) SetNamedPorts(containerPorts []types.ContainerPort) error {
+	k8sPorts := make(policy.NamedPortsMap, len(containerPorts))
+	for _, cp := range containerPorts {
+		if cp.Name == "" {
+			continue // silently skip unnamed ports
+		}
+		err := k8sPorts.AddPort(cp.Name, int(cp.ContainerPort), cp.Protocol)
+		if err != nil {
+			e.getLogger().WithError(err).Warning("Adding named port failed")
+			continue
+		}
+	}
+	if len(k8sPorts) == 0 {
+		k8sPorts = nil // nil map with no storage
+	}
+	e.mutex.Lock()
+	e.k8sPorts = k8sPorts
+	e.mutex.Unlock()
+	return nil
 }
 
 // K8sNamespaceAndPodNameIsSet returns true if the pod name is set
@@ -1467,7 +1509,7 @@ func APICanModify(e *Endpoint) error {
 
 // MetadataResolverCB provides an implementation for resolving the endpoint
 // metadata for an endpoint such as the associated labels and annotations.
-type MetadataResolverCB func(ns, podName string) (identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
+type MetadataResolverCB func(ns, podName string) (pod *types.Pod, _ []types.ContainerPort, identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
 
 // RunMetadataResolver starts a controller associated with the received
 // endpoint which will periodically attempt to resolve the metadata for the
@@ -1489,13 +1531,15 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
 				ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
-				identityLabels, info, _, err := resolveMetadata(ns, podName)
+				pod, cp, identityLabels, info, _, err := resolveMetadata(ns, podName)
 				if err != nil {
 					e.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
 					return err
 				}
+				e.SetPod(pod)
+				e.SetNamedPorts(cp)
 				e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
-					_, _, annotations, err := resolveMetadata(ns, podName)
+					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
 					if err != nil {
 						return "", err
 					}
@@ -1567,9 +1611,11 @@ func (e *Endpoint) IsInit() bool {
 // container runtime layer will periodically synchronize labels.
 //
 // If a net label changed was performed, the endpoint will receive a new
-// identity and will be regenerated. Both of these operations will happen in
-// the background.
-func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels pkgLabels.Labels, blocking bool) {
+// security identity and will be regenerated. Both of these operations will
+// run first synchronously if 'blocking' is true, and then in the background.
+//
+// Returns 'true' if endpoint regeneration was triggered.
+func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels pkgLabels.Labels, blocking bool) (regenTriggered bool) {
 	log.WithFields(logrus.Fields{
 		logfields.ContainerID:    e.GetShortContainerID(),
 		logfields.EndpointID:     e.StringID(),
@@ -1579,7 +1625,7 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels 
 
 	if err := e.lockAlive(); err != nil {
 		e.logDisconnectedMutexAction(err, "when trying to refresh endpoint labels")
-		return
+		return false
 	}
 
 	e.replaceInformationLabels(infoLabels)
@@ -1587,8 +1633,10 @@ func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels 
 	rev := e.replaceIdentityLabels(identityLabels)
 	e.unlock()
 	if rev != 0 {
-		e.runIdentityResolver(ctx, rev, blocking)
+		return e.runIdentityResolver(ctx, rev, blocking)
 	}
+
+	return false
 }
 
 func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
@@ -1605,13 +1653,14 @@ func (e *Endpoint) identityResolutionIsObsolete(myChangeRev int) bool {
 // are currently configured on the endpoint.
 //
 // Must be called with e.Mutex NOT held.
-func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blocking bool) {
-	if err := e.rlockAlive(); err != nil {
+func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blocking bool) (regenTriggered bool) {
+	err := e.rlockAlive()
+	if err != nil {
 		// If a labels update and an endpoint delete API request arrive
 		// in quick succession, this could occur; in that case, there's
 		// no point updating the controller.
 		e.getLogger().WithError(err).Info("Cannot run labels resolver")
-		return
+		return false
 	}
 	newLabels := e.OpLabels.IdentityLabels()
 	e.runlock()
@@ -1620,14 +1669,14 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blo
 	// If we are certain we can resolve the identity without accessing the KV
 	// store, do it first synchronously right now. This can reduce the number
 	// of regenerations for the endpoint during its initialization.
+	regenTriggered = false
 	if blocking || identity.IdentityAllocationIsLocal(newLabels) {
 		scopedLog.Info("Resolving identity labels (blocking)")
-
-		err := e.identityLabelsChanged(ctx, myChangeRev)
+		regenTriggered, err = e.identityLabelsChanged(ctx, myChangeRev)
 		switch err {
 		case ErrNotAlive:
 			scopedLog.Debug("not changing endpoint identity because endpoint is in process of being removed")
-			return
+			return false
 		default:
 			if err != nil {
 				scopedLog.WithError(err).Warn("Error changing endpoint identity")
@@ -1641,7 +1690,7 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blo
 	e.controllers.UpdateController(ctrlName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				err := e.identityLabelsChanged(ctx, myChangeRev)
+				_, err := e.identityLabelsChanged(ctx, myChangeRev)
 				switch err {
 				case ErrNotAlive:
 					e.getLogger().Debug("not changing endpoint identity because endpoint is in process of being removed")
@@ -1654,11 +1703,14 @@ func (e *Endpoint) runIdentityResolver(ctx context.Context, myChangeRev int, blo
 			Context:     e.aliveCtx,
 		},
 	)
+
+	return regenTriggered
 }
 
-func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) error {
-	if err := e.rlockAlive(); err != nil {
-		return ErrNotAlive
+func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) (regenTriggered bool, err error) {
+	// e.setState() called below, can't take a read lock.
+	if err := e.lockAlive(); err != nil {
+		return false, ErrNotAlive
 	}
 	newLabels := e.OpLabels.IdentityLabels()
 	elog := e.getLogger().WithFields(logrus.Fields{
@@ -1668,9 +1720,9 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 
 	// Since we unlocked the endpoint and re-locked, the label update may already be obsolete
 	if e.identityResolutionIsObsolete(myChangeRev) {
-		e.runlock()
+		e.unlock()
 		elog.Debug("Endpoint identity has changed, aborting resolution routine in favour of new one")
-		return nil
+		return false, nil
 	}
 
 	if e.SecurityIdentity != nil && e.SecurityIdentity.Labels.Equals(newLabels) {
@@ -1678,13 +1730,13 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 		if e.getState() == StateWaitingForIdentity {
 			e.setState(StateReady, "Set identity for this endpoint")
 		}
-		e.runlock()
+		e.unlock()
 		elog.Debug("Endpoint labels unchanged, skipping resolution of identity")
-		return nil
+		return false, nil
 	}
 
 	// Unlock the endpoint mutex for the possibly long lasting kvstore operation
-	e.runlock()
+	e.unlock()
 	elog.Debug("Resolving identity for labels")
 
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
@@ -1694,7 +1746,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	if err != nil {
 		err = fmt.Errorf("unable to resolve identity: %s", err)
 		e.LogStatus(Other, Warning, fmt.Sprintf("%s (will retry)", err.Error()))
-		return err
+		return false, err
 	}
 
 	// When releasing identities after allocation due to either failure of
@@ -1716,7 +1768,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 
 	if err := e.lockAlive(); err != nil {
 		releaseNewlyAllocatedIdentity()
-		return err
+		return false, err
 	}
 
 	// Since we unlocked the endpoint and re-locked, the label update may already be obsolete
@@ -1725,7 +1777,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 
 		releaseNewlyAllocatedIdentity()
 
-		return nil
+		return false, nil
 	}
 
 	// If endpoint has an old identity, defer release of it to the end of
@@ -1748,14 +1800,14 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 
 			if err := e.lockAlive(); err != nil {
 				releaseNewlyAllocatedIdentity()
-				return err
+				return false, err
 			}
 
 			// Since we unlocked the endpoint and re-locked, the label update may already be obsolete
 			if e.identityResolutionIsObsolete(myChangeRev) {
 				e.unlock()
 				releaseNewlyAllocatedIdentity()
-				return nil
+				return false, nil
 			}
 		}
 	}
@@ -1774,6 +1826,10 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	}
 
 	readyToRegenerate := false
+	regenMetadata := &regeneration.ExternalRegenerationMetadata{
+		Reason:            "updated security labels",
+		RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
+	}
 
 	// Regeneration is only triggered once the endpoint ID has been
 	// assigned. This ensures that on the initial creation, the endpoint is
@@ -1784,7 +1840,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	// called, the controller calling identityLabelsChanged() will trigger
 	// the regeneration as soon as the identity is known.
 	if e.ID != 0 {
-		readyToRegenerate = e.setState(StateWaitingToRegenerate, "Triggering regeneration due to new identity")
+		readyToRegenerate = e.setRegenerateStateLocked(regenMetadata)
 	}
 
 	// Unconditionally force policy recomputation after a new identity has been
@@ -1794,10 +1850,10 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	e.unlock()
 
 	if readyToRegenerate {
-		e.Regenerate(&regeneration.ExternalRegenerationMetadata{Reason: "updated security labels"})
+		e.Regenerate(regenMetadata)
 	}
 
-	return nil
+	return readyToRegenerate, nil
 }
 
 // SetPolicyRevision sets the endpoint's policy revision with the given
@@ -2072,6 +2128,21 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 		}
 	}
 
+	if option.Config.IPAM == option.IPAMENI {
+		e.getLogger().WithFields(logrus.Fields{
+			"ep":     e.GetID(),
+			"ipAddr": e.GetIPv4Address(),
+		}).Debug("Deleting endpoint ENI rules")
+
+		// This is a best-effort attempt to cleanup. We expect there to be one
+		// ingress rule and one egress rule. If we find more than one rule in
+		// either case, then the rules will be left as-is because there was
+		// likely manual intervention.
+		if err := enirouting.Delete(e.IPv4.IP()); err != nil {
+			errs = append(errs, fmt.Errorf("unable to delete endpoint ENI rules: %s", err))
+		}
+	}
+
 	completionCtx, cancel := context.WithTimeout(context.Background(), 10*time.Second)
 	proxyWaitGroup := completion.NewWaitGroup(completionCtx)
 
@@ -2107,56 +2178,11 @@ func (e *Endpoint) GetProxyInfoByFields() (uint64, string, string, []string, str
 	return e.GetID(), e.GetIPv4Address(), e.GetIPv6Address(), e.GetLabels(), e.GetLabelsSHA(), uint64(e.GetIdentity()), err
 }
 
-// RegenerateAfterCreation handles the first regeneration of an endpoint after
-// it is created.
-// After a call to `Regenerate` on the endpoint is made, `endpointStartFunc`
-// is invoked - this can be used as a callback to expose the endpoint to other
-// subsystems if needed.
-// If syncBuild is true, this function waits for specific conditions until
-// returning:
+// WaitForFirstRegeneration waits for specific conditions before returning:
 // * if the endpoint has a sidecar proxy, it waits for the endpoint's BPF
 // program to be generated for the first time.
 // * otherwise, waits for the endpoint to complete its first full regeneration.
-func (e *Endpoint) RegenerateAfterCreation(ctx context.Context, syncBuild bool) error {
-	if err := e.lockAlive(); err != nil {
-		return fmt.Errorf("endpoint was deleted while processing the request")
-	}
-
-	build := e.getState() == StateReady
-	if build {
-		e.setState(StateWaitingToRegenerate, "Identity is known at endpoint creation time")
-	}
-	e.unlock()
-
-	if build {
-		// Do not synchronously regenerate the endpoint when first creating it.
-		// We have custom logic later for waiting for specific checkpoints to be
-		// reached upon regeneration later (checking for when BPF programs have
-		// been compiled), as opposed to waiting for the entire regeneration to
-		// be complete (including proxies being configured). This is done to
-		// avoid a chicken-and-egg problem with L7 policies are imported which
-		// select the endpoint being generated, as when such policies are
-		// imported, regeneration blocks on waiting for proxies to be
-		// configured. When Cilium is used with Istio, though, the proxy is
-		// started as a sidecar, and is not launched yet when this specific code
-		// is executed; if we waited for regeneration to be complete, including
-		// proxy configuration, this code would effectively deadlock addition
-		// of endpoints.
-		e.Regenerate(&regeneration.ExternalRegenerationMetadata{
-			Reason:        "Initial build on endpoint creation",
-			ParentContext: ctx,
-		})
-	}
-
-	// Wait for endpoint to be in "ready" state if specified in API call.
-	if !syncBuild {
-		return nil
-	}
-
-	return e.waitForFirstRegeneration(ctx)
-}
-
-func (e *Endpoint) waitForFirstRegeneration(ctx context.Context) error {
+func (e *Endpoint) WaitForFirstRegeneration(ctx context.Context) error {
 	e.getLogger().Info("Waiting for endpoint to be generated")
 
 	// Default timeout for PUT /endpoint/{id} is 60 seconds, so put timeout

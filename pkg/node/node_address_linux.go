@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,7 +36,7 @@ func firstGlobalAddr(intf string, preferredIP net.IP, family int) (net.IP, error
 	var ipLen int
 	var err error
 
-	ipsToExclude := ip.GetExcludedIPs()
+	ipsToExclude := GetExcludedIPs()
 	linkScopeMax := unix.RT_SCOPE_UNIVERSE
 	if family == netlink.FAMILY_V4 {
 		ipLen = 4

@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/identity"
+	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -138,7 +139,7 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 				fmt.Fprintf(os.Stderr, "Was impossible to retrieve label ID %d: %s\n",
 					id, err)
 			} else {
-				labelsID[id] = identity.NewIdentityFromModel(lbls)
+				labelsID[id] = identitymodel.NewIdentityFromModel(lbls)
 			}
 		}
 

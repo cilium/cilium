@@ -28,13 +28,16 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // GetLabelsModel returns the labels of the endpoint in their representation
@@ -138,7 +141,7 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 
 	if base.Labels != nil {
 		lbls := labels.NewLabelsFromModel(base.Labels)
-		identityLabels, infoLabels := labels.FilterLabels(lbls)
+		identityLabels, infoLabels := labelsfilter.Filter(lbls)
 		ep.OpLabels.OrchestrationIdentity = identityLabels
 		ep.OpLabels.OrchestrationInfo = infoLabels
 	}
@@ -197,7 +200,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			// FIXME GH-3280 When we begin implementing revision numbers this will
 			// diverge from models.Endpoint.Spec to reflect the in-datapath config
 			Realized: spec,
-			Identity: e.SecurityIdentity.GetModel(),
+			Identity: identitymodel.CreateModel(e.SecurityIdentity),
 			Labels:   lblMdl,
 			Networking: &models.EndpointNetworking{
 				Addressing: []*models.AddressPair{{
@@ -225,6 +228,7 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 			Controllers: controllerMdl,
 			State:       currentState, // TODO: Validate
 			Health:      e.getHealthModel(),
+			NamedPorts:  e.getNamedPortsModel(),
 		},
 	}
 
@@ -294,6 +298,31 @@ func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 	return e.getHealthModel()
+}
+
+// getNamedPortsModel returns the endpoint's NamedPorts object.
+//
+// Must be called with e.Mutex locked.
+func (e *Endpoint) getNamedPortsModel() (np models.NamedPorts) {
+	k8sPorts := e.k8sPorts
+	np = make(models.NamedPorts, 0, len(k8sPorts))
+	for name, value := range k8sPorts {
+		np = append(np, &models.Port{
+			Name:     name,
+			Port:     value.Port,
+			Protocol: u8proto.U8proto(value.Proto).String(),
+		})
+	}
+	return np
+}
+
+// GetNamedPortsModel returns the endpoint's NamedPorts object.
+func (e *Endpoint) GetNamedPortsModel() models.NamedPorts {
+	if err := e.rlockAlive(); err != nil {
+		return nil
+	}
+	defer e.runlock()
+	return e.getNamedPortsModel()
 }
 
 // GetModel returns the API model of endpoint e.
@@ -438,6 +467,18 @@ func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	case e.realizedPolicy.EgressPolicyEnabled:
 		policyEnabled = models.EndpointPolicyEnabledEgress
 	}
+
+	if e.Options.IsEnabled(option.PolicyAuditMode) {
+		switch policyEnabled {
+		case models.EndpointPolicyEnabledIngress:
+			return models.EndpointPolicyEnabledAuditIngress
+		case models.EndpointPolicyEnabledEgress:
+			return models.EndpointPolicyEnabledAuditEgress
+		case models.EndpointPolicyEnabledBoth:
+			return models.EndpointPolicyEnabledAuditBoth
+		}
+	}
+
 	return policyEnabled
 }
 
@@ -551,6 +592,12 @@ func (e *Endpoint) ProcessChangeRequest(newEp *Endpoint, validPatchTransitionSta
 			reason = "Waiting on endpoint regeneration because identity is known while handling API PATCH"
 		case StateWaitingForIdentity:
 			reason = "Waiting on endpoint initial program regeneration while handling API PATCH"
+		default:
+			// Caller skips regeneration if reason == "". Bump the skipped regeneration level so that next
+			// regeneration will realise endpoint changes.
+			if e.skippedRegenerationLevel < regeneration.RegenerateWithDatapathRewrite {
+				e.skippedRegenerationLevel = regeneration.RegenerateWithDatapathRewrite
+			}
 		}
 	}
 

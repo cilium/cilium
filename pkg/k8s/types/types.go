@@ -15,6 +15,7 @@
 package types
 
 import (
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 
 	"k8s.io/api/core/v1"
@@ -48,22 +49,31 @@ type SlimCNP struct {
 	*v2.CiliumNetworkPolicy
 }
 
+type ContainerPort struct {
+	Name          string
+	Protocol      string
+	ContainerPort int32
+	HostPort      int32
+	HostIP        string
+}
+
 type PodContainer struct {
 	Name              string
 	Image             string
 	VolumeMountsPaths []string
+	ContainerPorts    []ContainerPort
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Pod struct {
 	metav1.TypeMeta
 	metav1.ObjectMeta
-	StatusPodIP            string
+	StatusPodIPs           []string
 	StatusHostIP           string
 	SpecServiceAccountName string
 	SpecHostNetwork        bool
 
-	// For Istio we need to keep these:
+	// For Istio & hostPort mapping we need to keep these:
 	SpecContainers []PodContainer
 }
 
@@ -109,4 +119,9 @@ type CiliumEndpoint struct {
 	Identity   *v2.EndpointIdentity
 	Networking *v2.EndpointNetworking
 	Encryption *v2.EncryptionSpec
+	NamedPorts models.NamedPorts
+}
+
+type Configuration interface {
+	K8sAPIDiscoveryEnabled() bool
 }

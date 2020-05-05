@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/revert"
@@ -44,19 +45,23 @@ import (
 )
 
 // ProxyID returns a unique string to identify a proxy mapping.
-func (e *Endpoint) ProxyID(l4 *policy.L4Filter) string {
-	return policy.ProxyIDFromFilter(e.ID, l4)
+func (e *Endpoint) ProxyID(npMap policy.NamedPortsMap, l4 *policy.L4Filter) (string, error) {
+	return policy.ProxyIDFromFilter(e.ID, npMap, l4)
 }
 
 // lookupRedirectPort returns the redirect L4 proxy port for the given L4
 // policy map key, in host byte order. Returns 0 if not found or the
 // filter doesn't require a redirect.
 // Must be called with Endpoint.Mutex held.
-func (e *Endpoint) LookupRedirectPort(l4Filter *policy.L4Filter) uint16 {
+func (e *Endpoint) LookupRedirectPortLocked(npMap policy.NamedPortsMap, l4Filter *policy.L4Filter) uint16 {
 	if !l4Filter.IsRedirect() {
 		return 0
 	}
-	proxyID := e.ProxyID(l4Filter)
+	proxyID, err := e.ProxyID(npMap, l4Filter)
+	if err != nil {
+		e.getLogger().WithError(err).Warn("ProxyID failed")
+		return 0
+	}
 	return e.realizedRedirects[proxyID]
 }
 
@@ -83,7 +88,7 @@ func (e *Endpoint) updateNetworkPolicy(proxyWaitGroup *completion.WaitGroup) (re
 	}
 
 	// Publish the updated policy to L7 proxies.
-	return e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy.L4Policy, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
+	return e.proxy.UpdateNetworkPolicy(e, e.desiredPolicy.L4Policy, e.desiredPolicy.NamedPortsMap, e.desiredPolicy.IngressPolicyEnabled, e.desiredPolicy.EgressPolicyEnabled, proxyWaitGroup)
 }
 
 func (e *Endpoint) useCurrentNetworkPolicy(proxyWaitGroup *completion.WaitGroup) {
@@ -176,7 +181,8 @@ func (e *Endpoint) regeneratePolicy() (retErr error) {
 		e.getLogger().WithError(err).Warning("Failed to update policy")
 		return err
 	}
-	calculatedPolicy := e.selectorPolicy.Consume(e)
+	calculatedPolicy := e.selectorPolicy.Consume(e, ipcache.IPIdentityCache.GetNamedPorts())
+
 	stats.policyCalculation.End(true)
 
 	// This marks the e.desiredPolicy different from the previously realized policy
@@ -247,7 +253,7 @@ func (e *Endpoint) updateAndOverrideEndpointOptions(opts option.OptionMap) (opts
 // Called with e.Mutex UNlocked
 func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 	var revision uint64
-	var compilationExecuted bool
+	var stateDirComplete bool
 	var err error
 
 	context.Stats = regenerationStatistics{}
@@ -286,6 +292,14 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 
 		return fmt.Errorf("Skipping build due to invalid state: %s", e.state)
 	}
+
+	// Bump priority if higher priority event was skipped.
+	// This must be done in the same critical section as the state transition above.
+	if e.skippedRegenerationLevel > context.datapathRegenerationContext.regenerationLevel {
+		context.datapathRegenerationContext.regenerationLevel = e.skippedRegenerationLevel
+	}
+	// reset to the default lowest level
+	e.skippedRegenerationLevel = regeneration.Invalid
 
 	e.unlock()
 
@@ -338,7 +352,7 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		e.unlock()
 	}()
 
-	revision, compilationExecuted, err = e.regenerateBPF(context)
+	revision, stateDirComplete, err = e.regenerateBPF(context)
 	if err != nil {
 		failDir := e.FailedDirectoryPath()
 		e.getLogger().WithFields(logrus.Fields{
@@ -351,13 +365,13 @@ func (e *Endpoint) regenerate(context *regenerationContext) (retErr error) {
 		return err
 	}
 
-	return e.updateRealizedState(stats, origDir, revision, compilationExecuted)
+	return e.updateRealizedState(stats, origDir, revision, stateDirComplete)
 }
 
 // updateRealizedState sets any realized state fields within the endpoint to
 // be the desired state of the endpoint. This is only called after a successful
 // regeneration of the endpoint.
-func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir string, revision uint64, compilationExecuted bool) error {
+func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir string, revision uint64, stateDirComplete bool) error {
 	// Update desired policy for endpoint because policy has now been realized
 	// in the datapath. PolicyMap state is not updated here, because that is
 	// performed in endpoint.syncPolicyMap().
@@ -373,7 +387,7 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	// Depending upon result of BPF regeneration (compilation executed),
 	// shift endpoint directories to match said BPF regeneration
 	// results.
-	err = e.synchronizeDirectories(origDir, compilationExecuted)
+	err = e.synchronizeDirectories(origDir, stateDirComplete)
 	if err != nil {
 		return fmt.Errorf("error synchronizing endpoint BPF program directories: %s", err)
 	}
@@ -427,6 +441,43 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 	e.LogStatusOK(BPF, "Successfully regenerated endpoint program (Reason: "+context.Reason+")")
 }
 
+// SetRegenerateStateIfAlive tries to change the state of the endpoint for pending regeneration.
+// Returns 'true' if 'e.Regenerate()' should be called after releasing the endpoint lock.
+// Return 'false' if returned error is non-nil.
+func (e *Endpoint) SetRegenerateStateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) (bool, error) {
+	regen := false
+	err := e.lockAlive()
+	if err != nil {
+		e.LogStatus(Policy, Failure, "Error while handling policy updates for endpoint: "+err.Error())
+	} else {
+		regen = e.setRegenerateStateLocked(regenMetadata)
+		e.unlock()
+	}
+	return regen, err
+}
+
+// setRegenerateStateLocked tries to change the state of the endpoint for pending regeneration.
+// returns 'true' if 'e.Regenerate()' should be called after releasing the endpoint lock.
+func (e *Endpoint) setRegenerateStateLocked(regenMetadata *regeneration.ExternalRegenerationMetadata) bool {
+	var regen bool
+	state := e.getState()
+	switch state {
+	case StateRestoring, StateWaitingToRegenerate:
+		// Bump the skipped regeneration level if needed so that the existing/queued
+		// regeneration can regenerate on the required level.
+		if regenMetadata.RegenerationLevel > e.skippedRegenerationLevel {
+			e.skippedRegenerationLevel = regenMetadata.RegenerationLevel
+			e.logStatusLocked(Other, OK, fmt.Sprintf("Skipped duplicate endpoint regeneration level %s trigger due to %s", regenMetadata.RegenerationLevel.String(), regenMetadata.Reason))
+		} else {
+			e.logStatusLocked(Other, OK, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
+		}
+		regen = false
+	default:
+		regen = e.setState(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
+	}
+	return regen
+}
+
 // RegenerateIfAlive queue a regeneration of this endpoint into the build queue
 // of the endpoint and returns a channel that is closed when the regeneration of
 // the endpoint is complete. The channel returns:
@@ -434,24 +485,13 @@ func (e *Endpoint) updateRegenerationStatistics(context *regenerationContext, er
 //  - true if the regeneration succeed
 //  - nothing and the channel is closed if the regeneration did not happen
 func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
-	if err := e.lockAlive(); err != nil {
+	regen, err := e.SetRegenerateStateIfAlive(regenMetadata)
+	if err != nil {
 		log.WithError(err).Warnf("Endpoint disappeared while queued to be regenerated: %s", regenMetadata.Reason)
-		e.LogStatus(Policy, Failure, "Error while handling policy updates for endpoint: "+err.Error())
-	} else {
-		var regen bool
-		state := e.getState()
-		switch state {
-		case StateRestoring, StateWaitingToRegenerate:
-			e.setState(state, fmt.Sprintf("Skipped duplicate endpoint regeneration trigger due to %s", regenMetadata.Reason))
-			regen = false
-		default:
-			regen = e.setState(StateWaitingToRegenerate, fmt.Sprintf("Triggering endpoint regeneration due to %s", regenMetadata.Reason))
-		}
-		e.unlock()
-		if regen {
-			// Regenerate logs status according to the build success/failure
-			return e.Regenerate(regenMetadata)
-		}
+	}
+	if regen {
+		// Regenerate logs status according to the build success/failure
+		return e.Regenerate(regenMetadata)
 	}
 
 	ch := make(chan bool)
@@ -460,8 +500,8 @@ func (e *Endpoint) RegenerateIfAlive(regenMetadata *regeneration.ExternalRegener
 }
 
 // Regenerate forces the regeneration of endpoint programs & policy
-// Should only be called with e.state == StateWaitingToRegenerate or with
-// e.state == StateWaitingForIdentity
+// Should only be called with e.state at StateWaitingToRegenerate,
+// StateWaitingForIdentity, or StateRestoring
 func (e *Endpoint) Regenerate(regenMetadata *regeneration.ExternalRegenerationMetadata) <-chan bool {
 	done := make(chan bool, 1)
 
@@ -560,20 +600,7 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 				return nil
 			}
 
-			if err := e.lockAlive(); err != nil {
-				// We don't need to regenerate because the endpoint is d
-				// disconnecting / is disconnected, exit gracefully.
-				return nil
-			}
-
-			stateTransitionSucceeded := e.setState(StateWaitingToRegenerate, reasonRegenRetry)
-			e.unlock()
-			if !stateTransitionSucceeded {
-				// Another regeneration has already been enqueued.
-				return nil
-			}
-
-			r := &regeneration.ExternalRegenerationMetadata{
+			regenMetadata := &regeneration.ExternalRegenerationMetadata{
 				// TODO (ianvernon) - is there a way we can plumb a parent
 				// context to a controller (e.g., endpoint.aliveCtx)?
 				ParentContext: ctx,
@@ -582,7 +609,15 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 				// of the failure, simply that something failed.
 				RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
 			}
-			if success := <-e.Regenerate(r); success {
+			regen, _ := e.SetRegenerateStateIfAlive(regenMetadata)
+			if !regen {
+				// We don't need to regenerate because the endpoint is d
+				// disconnecting / is disconnected, or another regeneration has
+				// already been enqueued. Exit gracefully.
+				return nil
+			}
+
+			if success := <-e.Regenerate(regenMetadata); success {
 				return nil
 			}
 			return fmt.Errorf("regeneration recovery failed")
@@ -612,7 +647,7 @@ func (e *Endpoint) notifyEndpointRegeneration(err error) {
 // FormatGlobalEndpointID returns the global ID of endpoint in the format
 // / <global ID Prefix>:<cluster name>:<node name>:<endpoint ID> as a string.
 func (e *Endpoint) FormatGlobalEndpointID() string {
-	localNodeName := node.GetName()
+	localNodeName := nodeTypes.GetName()
 	metadata := []string{endpointid.CiliumGlobalIdPrefix.String(), ipcache.AddressSpace, localNodeName, strconv.Itoa(int(e.ID))}
 	return strings.Join(metadata, ":")
 }
@@ -645,12 +680,13 @@ func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
 				metadata := e.FormatGlobalEndpointID()
 				k8sNamespace := e.K8sNamespace
 				k8sPodName := e.K8sPodName
+				namedPorts := e.k8sPorts
 
 				// Release lock as we do not want to have long-lasting key-value
 				// store operations resulting in lock being held for a long time.
 				e.runlock()
 
-				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName); err != nil {
+				if err := ipcache.UpsertIPToKVStore(ctx, IP, hostIP, ID, key, metadata, k8sNamespace, k8sPodName, namedPorts); err != nil {
 					return fmt.Errorf("unable to add endpoint IP mapping '%s'->'%d': %s", IP.String(), ID, err)
 				}
 				return nil
@@ -750,4 +786,24 @@ func (e *Endpoint) UpdateVisibilityPolicy(annoCB AnnotationsResolverCB) {
 		return
 	}
 	<-ch
+}
+
+// GetRealizedPolicyRuleLabelsForKey returns the list of policy rule labels
+// which match a given flow key (in host byte-order). The returned
+// LabelArrayList must not be modified. This function is exported to be
+// accessed by code outside of the Cilium code base (e.g. Hubble).
+func (e *Endpoint) GetRealizedPolicyRuleLabelsForKey(key policy.Key) (
+	derivedFrom labels.LabelArrayList,
+	revision uint64,
+	ok bool,
+) {
+	e.mutex.RLock()
+	defer e.mutex.RUnlock()
+
+	entry, ok := e.realizedPolicy.PolicyMapState[key]
+	if !ok {
+		return nil, 0, false
+	}
+
+	return entry.DerivedFromRules, e.policyRevision, true
 }

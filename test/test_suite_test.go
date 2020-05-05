@@ -39,14 +39,13 @@ import (
 var (
 	log             = logging.DefaultLogger
 	DefaultSettings = map[string]string{
-		"K8S_VERSION": "1.17",
+		"K8S_VERSION": "1.18",
 	}
 	k8sNodesEnv         = "K8S_NODES"
 	commandsLogFileName = "cmds.log"
 )
 
 func init() {
-
 	// Open socket for using gops to get stacktraces in case the tests deadlock.
 	if err := gops.Listen(gops.Options{}); err != nil {
 		errorString := fmt.Sprintf("unable to start gops: %s", err)
@@ -274,8 +273,7 @@ var _ = BeforeAll(func() {
 			}
 		}
 		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-
-		kubectl.LabelNodes()
+		kubectl.PrepareCluster()
 
 		kubectl.ApplyDefault(kubectl.GetFilePath("../examples/kubernetes/addons/prometheus/prometheus.yaml"))
 

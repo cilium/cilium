@@ -194,7 +194,6 @@ func getNetworkPrefix(ipNet *net.IPNet) *net.IP {
 }
 
 func removeCIDR(allowCIDR, removeCIDR *net.IPNet) ([]*net.IPNet, error) {
-	var allows []*net.IPNet
 	var allowIsIpv4, removeIsIpv4 bool
 	var allowBitLen int
 
@@ -240,6 +239,7 @@ func removeCIDR(allowCIDR, removeCIDR *net.IPNet) ([]*net.IPNet, error) {
 	// Create CIDR prefixes with mask size of Y+1, Y+2 ... X where Y is the mask
 	// length of the CIDR prefix B from which we are excluding a CIDR prefix A
 	// with mask length X.
+	allows := make([]*net.IPNet, 0, removeSize-allowSize)
 	for i := (allowBitLen - allowSize - 1); i >= (allowBitLen - removeSize); i-- {
 		// The mask for each CIDR prefix is simply the ith bit flipped, and then
 		// zero'ing out all subsequent bits (the host identifier part of the
@@ -755,11 +755,8 @@ func initPrivatePrefixes() {
 	}
 }
 
-var excludedIPs []net.IP
-
 func init() {
 	initPrivatePrefixes()
-	initExcludedIPs()
 }
 
 // IsExcluded returns whether a given IP is must be excluded
@@ -782,12 +779,6 @@ func IsPublicAddr(ip net.IP) bool {
 		}
 	}
 	return true
-}
-
-// GetExcludedIPs returns a list of IPs from netdevices that Cilium
-// needs to exclude to operate
-func GetExcludedIPs() []net.IP {
-	return excludedIPs
 }
 
 // GetCIDRPrefixesFromIPs returns all of the ips as a slice of *net.IPNet.

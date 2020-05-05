@@ -32,7 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -80,12 +80,12 @@ func (f *fakeEndpointManager) WaitForEndpointsAtPolicyRev(ctx context.Context, r
 }
 
 type fakeNodeDiscoverManager struct {
-	OnNodeDeleted                  func(n node.Node)
-	OnNodeUpdated                  func(n node.Node)
+	OnNodeDeleted                  func(n nodeTypes.Node)
+	OnNodeUpdated                  func(n nodeTypes.Node)
 	OnClusterSizeDependantInterval func(baseInterval time.Duration) time.Duration
 }
 
-func (f *fakeNodeDiscoverManager) NodeDeleted(n node.Node) {
+func (f *fakeNodeDiscoverManager) NodeDeleted(n nodeTypes.Node) {
 	if f.OnNodeDeleted != nil {
 		f.OnNodeDeleted(n)
 		return
@@ -93,7 +93,7 @@ func (f *fakeNodeDiscoverManager) NodeDeleted(n node.Node) {
 	panic("OnNodeDeleted(node) was called and is not set!")
 }
 
-func (f *fakeNodeDiscoverManager) NodeUpdated(n node.Node) {
+func (f *fakeNodeDiscoverManager) NodeUpdated(n nodeTypes.Node) {
 	if f.OnNodeUpdated != nil {
 		f.OnNodeUpdated(n)
 		return
@@ -153,6 +153,7 @@ type fakeSvcManager struct {
 		backends []loadbalancer.Backend,
 		svcType loadbalancer.SVCType,
 		svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
+		sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 		svcHealthCheckNodePort uint16,
 		svcName, svcNamespace string) (bool, loadbalancer.ID, error)
 }
@@ -168,12 +169,15 @@ func (f *fakeSvcManager) UpsertService(frontend loadbalancer.L3n4AddrID,
 	backends []loadbalancer.Backend,
 	svcType loadbalancer.SVCType,
 	svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
+	sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 	svcHealthCheckNodePort uint16,
 	svcName, svcNamespace string) (bool, loadbalancer.ID, error) {
 	if f.OnUpsertService != nil {
-		return f.OnUpsertService(frontend, backends, svcType, svcTrafficPolicy, svcHealthCheckNodePort, svcName, svcNamespace)
+		return f.OnUpsertService(frontend, backends, svcType, svcTrafficPolicy,
+			sessionAffinity, sessionAffinityTimeoutSec, svcHealthCheckNodePort,
+			svcName, svcNamespace)
 	}
-	panic("OnUpsertService(loadbalancer.L3n4AddrID, []loadbalancer.Backend, loadbalancer.SVCType, loadbalancer.SVCTrafficPolicy, uint16, string, string) (bool, loadbalancer.ID, error) was called and is not set!")
+	panic("OnUpsertService() was called and is not set!")
 }
 
 func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
@@ -522,6 +526,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 			bes []loadbalancer.Backend,
 			svcType loadbalancer.SVCType,
 			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
+			sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 			svcHealthCheckNodePort uint16,
 			svcName,
 			namespace string) (
@@ -693,6 +698,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 			bes []loadbalancer.Backend,
 			svcType loadbalancer.SVCType,
 			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
+			sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 			svcHealthCheckNodePort uint16,
 			svcName,
 			namespace string) (
@@ -1144,6 +1150,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 			bes []loadbalancer.Backend,
 			svcType loadbalancer.SVCType,
 			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
+			sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 			svcHealthCheckNodePort uint16,
 			svcName,
 			namespace string) (
@@ -1457,6 +1464,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 			bes []loadbalancer.Backend,
 			svcType loadbalancer.SVCType,
 			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
+			sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 			svcHealthCheckNodePort uint16,
 			svcName,
 			namespace string) (
@@ -1762,6 +1770,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 			bes []loadbalancer.Backend,
 			svcType loadbalancer.SVCType,
 			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
+			sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 			svcHealthCheckNodePort uint16,
 			svcName,
 			namespace string) (
@@ -2621,6 +2630,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 			bes []loadbalancer.Backend,
 			svcType loadbalancer.SVCType,
 			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
+			sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 			svcHealthCheckNodePort uint16,
 			svcName,
 			namespace string) (

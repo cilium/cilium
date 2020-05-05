@@ -21,21 +21,21 @@ import (
 	"sync"
 	"time"
 
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore/store"
-	"github.com/cilium/cilium/pkg/node"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/serializer"
 	"github.com/cilium/cilium/pkg/source"
 
-	"k8s.io/api/core/v1"
 	core_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -44,10 +44,8 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func runNodeWatcher() error {
+func runNodeWatcher(nodeManager *ipam.NodeManager) error {
 	log.Info("Starting to synchronize k8s nodes to kvstore...")
-
-	serNodes := serializer.NewFunctionQueue(1024)
 
 	ciliumNodeStore, err := store.JoinSharedStore(store.Configuration{
 		Prefix:     nodeStore.NodeStorePrefix,
@@ -59,36 +57,30 @@ func runNodeWatcher() error {
 
 	k8sNodeStore, nodeController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
-			"nodes", v1.NamespaceAll, fields.Everything()),
-		&v1.Node{},
+			"nodes", core_v1.NamespaceAll, fields.Everything()),
+		&core_v1.Node{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				if n := k8s.CopyObjToV1Node(obj); n != nil {
-					serNodes.Enqueue(func() error {
-						nodeNew := k8s.ParseNode(n, source.Kubernetes)
-						ciliumNodeStore.UpdateKeySync(context.TODO(), nodeNew)
-						return nil
-					}, serializer.NoRetry)
+				if n := k8s.ObjToV1Node(obj); n != nil {
+					nodeNew := k8s.ParseNode(n, source.Kubernetes)
+					ciliumNodeStore.UpdateKeySync(context.TODO(), nodeNew)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if oldNode := k8s.CopyObjToV1Node(oldObj); oldNode != nil {
-					if newNode := k8s.CopyObjToV1Node(newObj); newNode != nil {
+				if oldNode := k8s.ObjToV1Node(oldObj); oldNode != nil {
+					if newNode := k8s.ObjToV1Node(newObj); newNode != nil {
 						if k8s.EqualV1Node(oldNode, newNode) {
 							return
 						}
 
-						serNodes.Enqueue(func() error {
-							newNode := k8s.ParseNode(newNode, source.Kubernetes)
-							ciliumNodeStore.UpdateKeySync(context.TODO(), newNode)
-							return nil
-						}, serializer.NoRetry)
+						newNode := k8s.ParseNode(newNode, source.Kubernetes)
+						ciliumNodeStore.UpdateKeySync(context.TODO(), newNode)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				n := k8s.CopyObjToV1Node(obj)
+				n := k8s.ObjToV1Node(obj)
 				if n == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 					if !ok {
@@ -97,17 +89,14 @@ func runNodeWatcher() error {
 					// Delete was not observed by the watcher but is
 					// removed from kube-apiserver. This is the last
 					// known state and the object no longer exists.
-					n = k8s.CopyObjToV1Node(deletedObj.Obj)
+					n = k8s.ObjToV1Node(deletedObj.Obj)
 					if n == nil {
 						return
 					}
 				}
-				serNodes.Enqueue(func() error {
-					deletedNode := k8s.ParseNode(n, source.Kubernetes)
-					ciliumNodeStore.DeleteLocalKey(context.TODO(), deletedNode)
-					deleteCiliumNode(n.Name)
-					return nil
-				}, serializer.NoRetry)
+				deletedNode := k8s.ParseNode(n, source.Kubernetes)
+				ciliumNodeStore.DeleteLocalKey(context.TODO(), deletedNode)
+				deleteCiliumNode(nodeManager, n.Name)
 			},
 		},
 		k8s.ConvertToNode,
@@ -117,50 +106,47 @@ func runNodeWatcher() error {
 	go func() {
 		cache.WaitForCacheSync(wait.NeverStop, nodeController.HasSynced)
 
-		serNodes.Enqueue(func() error {
-			// Since we serialize all events received from k8s we know that
-			// at this point the list in k8sNodeStore should be the source of truth
-			// and we need to delete all nodes in the kvNodeStore that are *not*
-			// present in the k8sNodeStore.
+		// Since we processed all events received from k8s we know that
+		// at this point the list in k8sNodeStore should be the source of truth
+		// and we need to delete all nodes in the kvNodeStore that are *not*
+		// present in the k8sNodeStore.
 
-			switch option.Config.IPAM {
-			case option.IPAMENI, option.IPAMAzure:
-				nodes, err := ciliumK8sClient.CiliumV2().CiliumNodes().List(meta_v1.ListOptions{})
-				if err != nil {
-					log.WithError(err).Warning("Unable to list CiliumNodes. Won't clean up stale CiliumNodes")
-				} else {
-					for _, node := range nodes.Items {
-						if _, ok, err := k8sNodeStore.GetByKey(node.Name); !ok && err == nil {
-							deleteCiliumNode(node.Name)
-						}
+		switch option.Config.IPAM {
+		case option.IPAMENI, option.IPAMAzure:
+			nodes, err := ciliumK8sClient.CiliumV2().CiliumNodes().List(context.TODO(), meta_v1.ListOptions{})
+			if err != nil {
+				log.WithError(err).Warning("Unable to list CiliumNodes. Won't clean up stale CiliumNodes")
+			} else {
+				for _, node := range nodes.Items {
+					if _, ok, err := k8sNodeStore.GetByKey(node.Name); !ok && err == nil {
+						deleteCiliumNode(nodeManager, node.Name)
 					}
 				}
 			}
+		}
 
-			listOfK8sNodes := k8sNodeStore.ListKeys()
+		listOfK8sNodes := k8sNodeStore.ListKeys()
 
-			kvStoreNodes := ciliumNodeStore.SharedKeysMap()
-			for _, k8sNode := range listOfK8sNodes {
-				// The remaining kvStoreNodes are leftovers
-				kvStoreNodeName := node.GetKeyNodeName(option.Config.ClusterName, k8sNode)
-				delete(kvStoreNodes, kvStoreNodeName)
+		kvStoreNodes := ciliumNodeStore.SharedKeysMap()
+		for _, k8sNode := range listOfK8sNodes {
+			// The remaining kvStoreNodes are leftovers
+			kvStoreNodeName := nodeTypes.GetKeyNodeName(option.Config.ClusterName, k8sNode)
+			delete(kvStoreNodes, kvStoreNodeName)
+		}
+
+		for _, kvStoreNode := range kvStoreNodes {
+			if strings.HasPrefix(kvStoreNode.GetKeyName(), option.Config.ClusterName) {
+				ciliumNodeStore.DeleteLocalKey(context.TODO(), kvStoreNode)
 			}
+		}
 
-			for _, kvStoreNode := range kvStoreNodes {
-				if strings.HasPrefix(kvStoreNode.GetKeyName(), option.Config.ClusterName) {
-					ciliumNodeStore.DeleteLocalKey(context.TODO(), kvStoreNode)
-				}
-			}
-
-			return nil
-		}, serializer.NoRetry)
 	}()
 
-	if option.Config.EnableCNPNodeStatusGC && option.Config.CNPNodeStatusGCInterval != 0 {
+	if operatorOption.Config.EnableCNPNodeStatusGC && operatorOption.Config.CNPNodeStatusGCInterval != 0 {
 		go runCNPNodeStatusGC("cnp-node-gc", false, ciliumNodeStore)
 	}
 
-	if option.Config.EnableCCNPNodeStatusGC && option.Config.CNPNodeStatusGCInterval != 0 {
+	if operatorOption.Config.EnableCCNPNodeStatusGC && operatorOption.Config.CNPNodeStatusGCInterval != 0 {
 		go runCNPNodeStatusGC("ccnp-node-gc", true, ciliumNodeStore)
 	}
 
@@ -183,9 +169,9 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 
 	controller.NewManager().UpdateController(name,
 		controller.ControllerParams{
-			RunInterval: option.Config.CNPNodeStatusGCInterval,
+			RunInterval: operatorOption.Config.CNPNodeStatusGCInterval,
 			DoFunc: func(ctx context.Context) error {
-				lastRun := time.Now().Add(-option.Config.NodesGCInterval)
+				lastRun := time.Now().Add(-operatorOption.Config.NodesGCInterval)
 				k8sCapabilities := k8sversion.Capabilities()
 				continueID := ""
 				wg := sync.WaitGroup{}
@@ -195,10 +181,11 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 				for {
 					var cnpItemsList []cilium_v2.CiliumNetworkPolicy
 					if clusterwide {
-						ccnpList, err := ciliumK8sClient.CiliumV2().CiliumClusterwideNetworkPolicies().List(meta_v1.ListOptions{
-							Limit:    10,
-							Continue: continueID,
-						})
+						ccnpList, err := ciliumK8sClient.CiliumV2().CiliumClusterwideNetworkPolicies().List(ctx,
+							meta_v1.ListOptions{
+								Limit:    10,
+								Continue: continueID,
+							})
 						if err != nil {
 							return err
 						}
@@ -210,10 +197,11 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 						}
 						continueID = ccnpList.Continue
 					} else {
-						cnpList, err := ciliumK8sClient.CiliumV2().CiliumNetworkPolicies(core_v1.NamespaceAll).List(meta_v1.ListOptions{
-							Limit:    10,
-							Continue: continueID,
-						})
+						cnpList, err := ciliumK8sClient.CiliumV2().CiliumNetworkPolicies(core_v1.NamespaceAll).List(ctx,
+							meta_v1.ListOptions{
+								Limit:    10,
+								Continue: continueID,
+							})
 						if err != nil {
 							return err
 						}
@@ -226,7 +214,7 @@ func runCNPNodeStatusGC(name string, clusterwide bool, ciliumNodeStore *store.Sh
 						needsUpdate := false
 						nodesToDelete := map[string]cilium_v2.Timestamp{}
 						for n, status := range cnp.Status.Nodes {
-							kvStoreNodeName := node.GetKeyNodeName(option.Config.ClusterName, n)
+							kvStoreNodeName := nodeTypes.GetKeyNodeName(option.Config.ClusterName, n)
 							if _, exists := kvStoreNodes[kvStoreNodeName]; !exists {
 								// To avoid concurrency issues where a is
 								// created and adds its CNP Status before the operator
@@ -307,9 +295,11 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 			// If the namespace is empty the policy is the clusterwide policy
 			// and not the namespaced CiliumNetworkPolicy.
 			if ns == "" {
-				_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Patch(cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, "status")
+				_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Patch(context.TODO(),
+					cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, meta_v1.PatchOptions{}, "status")
 			} else {
-				_, err = ciliumClient.CiliumNetworkPolicies(ns).Patch(cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, "status")
+				_, err = ciliumClient.CiliumNetworkPolicies(ns).Patch(context.TODO(),
+					cnp.GetName(), types.JSONPatchType, removeStatusNodeJSON, meta_v1.PatchOptions{}, "status")
 			}
 			if err != nil {
 				// We can leave the errors as debug as the GC happens on a best effort
@@ -332,9 +322,9 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 				CiliumNetworkPolicy: cnp,
 				Status:              cnp.Status,
 			}
-			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().UpdateStatus(ccnp)
+			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().UpdateStatus(context.TODO(), ccnp, meta_v1.UpdateOptions{})
 		} else {
-			_, err = ciliumClient.CiliumNetworkPolicies(ns).UpdateStatus(cnp)
+			_, err = ciliumClient.CiliumNetworkPolicies(ns).UpdateStatus(context.TODO(), cnp, meta_v1.UpdateOptions{})
 		}
 		if err != nil {
 			// We can leave the errors as debug as the GC happens on a best effort
@@ -348,9 +338,9 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 				CiliumNetworkPolicy: cnp,
 				Status:              cnp.Status,
 			}
-			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Update(ccnp)
+			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Update(context.TODO(), ccnp, meta_v1.UpdateOptions{})
 		} else {
-			_, err = ciliumClient.CiliumNetworkPolicies(ns).Update(cnp)
+			_, err = ciliumClient.CiliumNetworkPolicies(ns).Update(context.TODO(), cnp, meta_v1.UpdateOptions{})
 		}
 		if err != nil {
 			// We can leave the errors as debug as the GC happens on a best effort

@@ -91,10 +91,11 @@ else:
     chart_release = 'cilium/cilium --version ' + release
     tags.add('stable')
 relinfo = semver.parse_version_info(release)
-next_release = '%d.%d' % (relinfo.major, relinfo.minor)
+current_release = '%d.%d' % (relinfo.major, relinfo.minor)
 if relinfo.patch == 90:
     next_release = '%d.%d' % (relinfo.major, relinfo.minor + 1)
-current_release = release[0:3]
+else:
+    next_release = current_release
 githubusercontent = 'https://raw.githubusercontent.com/cilium/cilium/'
 scm_web = githubusercontent + branch
 jenkins_branch = 'https://jenkins.cilium.io/view/Cilium-v' + current_release

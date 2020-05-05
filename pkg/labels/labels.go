@@ -442,7 +442,7 @@ func (l Label) FormatForKVStore() string {
 // DO NOT BREAK THE FORMAT OF THIS. THE RETURNED STRING IS USED AS KEY IN
 // THE KEY-VALUE STORE.
 func (l Labels) SortedList() []byte {
-	var keys []string
+	keys := make([]string, 0, len(l))
 	for k := range l {
 		keys = append(keys, k)
 	}

@@ -68,3 +68,10 @@ func (t *CidrTestSuite) TestIllegalMustParseCIDR(c *check.C) {
 	c1 := MustParseCIDR("Illegal")
 	c.Assert(c1, check.IsNil)
 }
+
+func (t *CidrTestSuite) TestAvailableIPs(c *check.C) {
+	cidr := MustParseCIDR("10.0.0.0/8")
+	c.Assert(cidr.AvailableIPs(), check.Equals, 16777216)
+	cidr = MustParseCIDR("1.1.1.1/32")
+	c.Assert(cidr.AvailableIPs(), check.Equals, 1)
+}

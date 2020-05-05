@@ -61,14 +61,18 @@ then
       fi
 
     elif [[ "$(hostname)" == "k8s1" && "${CILIUM_REGISTRY}" != "" ]]; then
-        pull_image_and_push_to_local_registry ${CILIUM_REGISTRY}/${CILIUM_IMAGE} ${REGISTRY} ${CILIUM_TAG}
-        pull_image_and_push_to_local_registry ${CILIUM_REGISTRY}/${CILIUM_OPERATOR_IMAGE} ${REGISTRY} ${CILIUM_OPERATOR_TAG}
+		if [[ ${CILIUM_IMAGE} != "" ]]; then
+			pull_image_and_push_to_local_registry ${CILIUM_REGISTRY}/${CILIUM_IMAGE} ${REGISTRY} ${CILIUM_TAG}
+		fi
+		if [[ ${CILIUM_OPERATOR_IMAGE} != "" ]]; then
+			pull_image_and_push_to_local_registry ${CILIUM_REGISTRY}/${CILIUM_OPERATOR_IMAGE} ${REGISTRY} ${CILIUM_OPERATOR_TAG}
+		fi
     else
         echo "Not on master K8S node; no need to compile Cilium container"
     fi
 else
     echo "compiling cilium..."
-    sudo -u vagrant -H -E make LOCKDEBUG=1 SKIP_DOCS=true
+    sudo -u vagrant -H -E make LOCKDEBUG=1 SKIP_K8S_CODE_GEN_CHECK=false SKIP_DOCS=true
     echo "installing cilium..."
     make install
     mkdir -p /etc/sysconfig/

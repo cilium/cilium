@@ -14,6 +14,12 @@
 
 package types
 
+import (
+	"strings"
+
+	"github.com/cilium/cilium/pkg/ipam/types"
+)
+
 const (
 	// ProviderPrefix is the prefix used to indicate that a k8s ProviderID
 	// represents an Azure resource
@@ -30,19 +36,21 @@ const (
 	StateSucceeded = "succeeded"
 )
 
-// AzureSpec is the Azure specific configuration of a node.
+// AzureSpec is the Azure specification of a node running via the Azure IPAM
 //
-// The Azure configuration can either be provided explicitly by the user or the
+// The Azure specification can either be provided explicitly by the user or the
 // cilium agent running on the node can be instructed to create the CiliumNode
-// custom resource along with an Azure configuration when the node registers
+// custom resource along with an Azure specification when the node registers
 // itself to the Kubernetes cluster.
-//
 // This struct is embedded into v2.CiliumNode
 //
 // +k8s:deepcopy-gen=true
 type AzureSpec struct {
-	// InstanceID is the Azure specific identifier of the node.
-	InstanceID string `json:"instance-id,omitempty"`
+	// InterfaceName is the name of the interface the cilium-operator
+	// will use to allocate all the IPs on
+	//
+	// +optional
+	InterfaceName string `json:"interface-name,omitempty"`
 }
 
 // AzureStatus is the status of Azure addressing of the node
@@ -78,6 +86,11 @@ type AzureInterface struct {
 	// +optional
 	ID string `json:"id,omitempty"`
 
+	// Name is the name of the interface
+	//
+	// +optional
+	Name string `json:"name,omitempty"`
+
 	// MAC is the mac address
 	//
 	// +optional
@@ -88,53 +101,79 @@ type AzureInterface struct {
 	// +optional
 	State string `json:"state,omitempty"`
 
-	// Addresses is the list of all IPs associated with the ENI, including
-	// all secondary addresses
+	// Addresses is the list of all IPs associated with the interface,
+	// including all secondary addresses
 	//
 	// +optional
 	Addresses []AzureAddress `json:"addresses,omitempty"`
 
 	// SecurityGroup is the security group associated with the interface
 	SecurityGroup string `json:"security-group,omitempty"`
+
+	// vmssName is the name of the virtual machine scale set. This field is
+	// set by extractIDs()
+	vmssName string
+
+	// vmID is the ID of the virtual machine
+	vmID string
+
+	// resourceGroup is the resource group the interface belongs to
+	resourceGroup string
 }
 
-// Instance is the minimal representation of a Azure instance as needed by the
-// IPAM plugin
-type Instance struct {
-	// interfaces is a map of all interfaces attached to the instance
-	// indexed by the ID
-	Interfaces map[string]*AzureInterface
+// InterfaceID returns the identifier of the interface
+func (a *AzureInterface) InterfaceID() string {
+	return a.ID
 }
 
-// InstanceMap is the list of all instances indexed by instance ID
-type InstanceMap map[string]*Instance
-
-// Update updates the definition of an Azure interface for a particular
-// instance. If the interface is already known, the definition is updated,
-// otherwise the interface is added to the instance.
-func (m InstanceMap) Update(instanceID string, iface *AzureInterface) {
-	i, ok := m[instanceID]
-	if !ok {
-		i = &Instance{}
-		m[instanceID] = i
+func (a *AzureInterface) extractIDs() {
+	switch {
+	// //subscriptions/xxx/resourceGroups/yyy/providers/Microsoft.Compute/virtualMachineScaleSets/ssss/virtualMachines/vvv/networkInterfaces/iii
+	case strings.Contains(a.ID, "virtualMachineScaleSets"):
+		segs := strings.Split(a.ID, "/")
+		if len(segs) >= 5 {
+			a.resourceGroup = segs[4]
+		}
+		if len(segs) >= 9 {
+			a.vmssName = segs[8]
+		}
+		if len(segs) >= 11 {
+			a.vmID = segs[10]
+		}
 	}
-
-	if i.Interfaces == nil {
-		i.Interfaces = map[string]*AzureInterface{}
-	}
-
-	i.Interfaces[iface.ID] = iface
 }
 
-// Get returns the list of interfaces for a particular instance ID. The
-// returned interfaces are deep copied and can be safely accessed but will
-// become stale.
-func (m InstanceMap) Get(instanceID string) (interfaces []*AzureInterface) {
-	if instance, ok := m[instanceID]; ok {
-		for _, iface := range instance.Interfaces {
-			interfaces = append(interfaces, iface.DeepCopy())
+// ResourceGroup returns the resource group the interface belongs to
+func (a *AzureInterface) ResourceGroup() string {
+	if a.resourceGroup == "" {
+		a.extractIDs()
+	}
+	return a.resourceGroup
+}
+
+// VMScaleSetName returns the VM scale set name the interface belongs to
+func (a *AzureInterface) VMScaleSetName() string {
+	if a.vmssName == "" {
+		a.extractIDs()
+	}
+	return a.vmssName
+}
+
+// VMID returns the VM ID the interface belongs to
+func (a *AzureInterface) VMID() string {
+	if a.vmID == "" {
+		a.extractIDs()
+	}
+	return a.vmID
+}
+
+// ForeachAddress iterates over all addresses and calls fn
+func (a *AzureInterface) ForeachAddress(id string, fn types.AddressIterator) error {
+	for _, address := range a.Addresses {
+		if err := fn(id, a.ID, address.IP, address.Subnet, address); err != nil {
+			return err
 		}
 	}
 
-	return
+	return nil
 }

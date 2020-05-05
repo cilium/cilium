@@ -30,16 +30,17 @@ spec:
         imagePullPolicy: IfNotPresent
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "localhost"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "localhost"]
 ---
 apiVersion: v1
 kind: Service
 metadata:
   name: echo-b
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
   - port: 80
+    nodePort: 31313
   selector:
     name: echo-b
 ---
@@ -73,9 +74,61 @@ spec:
       - name: echo-container
         image: docker.io/cilium/json-mock:1.0
         imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 80
+          hostPort: 40000
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "localhost"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "localhost"]
+---
+# The echo-b-host pod runs in host networking on the same node as echo-b.
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: echo-b-host
+spec:
+  selector:
+    matchLabels:
+      name: echo-b-host
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        name: echo-b-host
+    spec:
+      hostNetwork: true
+      containers:
+      - name: echo-container
+        image: docker.io/cilium/json-mock:1.0
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: PORT
+          value: "41000"
+        readinessProbe:
+          exec:
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "localhost:41000"]
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: "kubernetes.io/hostname"
+---
+# Connecting to "echo-b-host-headless" will provide service discovery to the
+# node IP on which echo-b* is running
+apiVersion: v1
+kind: Service
+metadata:
+  name: echo-b-host-headless
+spec:
+  type: ClusterIP
+  clusterIP: None
+  selector:
+    name: echo-b-host
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -100,7 +153,7 @@ spec:
         command: ["/bin/ash", "-c", "sleep 1000000000"]
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-b"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-b"]
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -135,7 +188,7 @@ spec:
         command: ["/bin/ash", "-c", "sleep 1000000000"]
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-b-headless"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-headless"]
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -168,10 +221,10 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-a"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-a"]
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-a"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-a"]
 ---
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
@@ -197,6 +250,14 @@ spec:
     - ports:
       - port: "53"
         protocol: UDP
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s:dns.operator.openshift.io/daemonset-dns: default
+    toPorts:
+    - ports:
+      - port: "5353"
+        protocol: UDP
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -220,11 +281,11 @@ spec:
         livenessProbe:
           timeoutSeconds: 7
           exec:
-            command: ["ash", "-c", "! curl -sS --connect-timeout 5 -o /dev/null echo-a"]
+            command: ["ash", "-c", "! curl -sS --fail --connect-timeout 5 -o /dev/null echo-a"]
         readinessProbe:
           timeoutSeconds: 7
           exec:
-            command: ["ash", "-c", "! curl -sS --connect-timeout 5 -o /dev/null echo-a"]
+            command: ["ash", "-c", "! curl -sS --fail --connect-timeout 5 -o /dev/null echo-a"]
 ---
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
@@ -242,6 +303,14 @@ spec:
     toPorts:
     - ports:
       - port: "53"
+        protocol: UDP
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s:dns.operator.openshift.io/daemonset-dns: default
+    toPorts:
+    - ports:
+      - port: "5353"
         protocol: UDP
 ---
 apiVersion: apps/v1
@@ -265,7 +334,85 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-a"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-a"]
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-to-b-intra-node-hostport
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: pod-to-b-intra-node-hostport
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-intra-node-hostport
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent 
+        livenessProbe:
+          exec:
+            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:40000" ]
+        readinessProbe:
+          exec:
+            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:40000" ]
+        name: pod-to-b-intra-node-hostport
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-to-b-intra-node-nodeport
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: pod-to-b-intra-node-nodeport
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-intra-node-nodeport
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent 
+        livenessProbe:
+          exec:
+            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:31313" ]
+        readinessProbe:
+          exec:
+            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:31313" ]
+        name: pod-to-b-intra-node-hostport
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -288,7 +435,7 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-b"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-b"]
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -321,7 +468,7 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-b"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-b"]
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -354,7 +501,7 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-b-headless"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-headless"]
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -365,6 +512,84 @@ spec:
                 values:
                 - echo-b
             topologyKey: "kubernetes.io/hostname"
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-to-b-multi-node-hostport
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: pod-to-b-multi-node-hostport
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-multi-node-hostport
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:40000" ]
+        readinessProbe:
+          exec:
+            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:40000" ]
+        name: pod-to-b-multi-node-hostport
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: pod-to-b-multi-node-nodeport
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      name: pod-to-b-multi-node-nodeport
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-multi-node-nodeport
+    spec:
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+      containers:
+      - command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        livenessProbe:
+          exec:
+            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:31313" ]
+        readinessProbe:
+          exec:
+            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:31313" ]
+        name: pod-to-b-multi-node-nodeport
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -387,10 +612,10 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "1.1.1.1"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "1.1.1.1"]
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "1.1.1.1"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "1.1.1.1"]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -413,10 +638,10 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
 ---
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
@@ -435,6 +660,17 @@ spec:
     - ports:
       - port: "53"
         protocol: ANY
+      rules:
+        dns:
+        - matchPattern: "*"
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s:dns.operator.openshift.io/daemonset-dns: default
+    toPorts:
+    - ports:
+      - port: "5353"
+        protocol: UDP
       rules:
         dns:
         - matchPattern: "*"

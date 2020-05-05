@@ -1,22 +1,27 @@
+# Copyright 2017-2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 include ../../Makefile.defs
 
-TARGET=cilium-docker
+TARGET := cilium-docker
+
+.PHONY: all $(TARGET) clean install
 
 all: $(TARGET)
 
-SOURCES := $(shell find ../../api/v1 ../../common ../../pkg/client ../../pkg/endpoint driver . -name '*.go')
-
-$(TARGET): $(SOURCES)
+$(TARGET):
 	@$(ECHO_GO)
-	$(QUIET) CGO_ENABLED=0 $(GO) build $(GOBUILD) -o $(TARGET)
-
-run:
-	./cilium-docker -d
+	$(QUIET)$(GO_BUILD) -o $@
 
 clean:
 	@$(ECHO_CLEAN)
-	$(QUIET)$(GO) clean $(GOCLEAN)
-	-$(QUIET) rm -f $(TARGET)
+	-$(QUIET)rm -f $(TARGET)
+	$(QUIET)$(GO_CLEAN)
 
 install:
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)
+
+.PHONY: run
+run:
+	./cilium-docker -d

@@ -2,13 +2,13 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _gs_http:
 
-********************************
-HTTP/REST API call authorization
-********************************
+************************************************
+Identity-Aware and HTTP-Aware Policy Enforcement
+************************************************
 
 .. include:: gsg_requirements.rst
 

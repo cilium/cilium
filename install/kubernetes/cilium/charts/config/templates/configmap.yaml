@@ -9,7 +9,11 @@ data:
   # storage. This can either be provided with an external kvstore or with the
   # help of cilium-etcd-operator which operates an etcd cluster automatically.
   kvstore: etcd
+{{- if .Values.global.etcd.k8sService }}
+  kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config", "etcd.operator": "true"}'
+{{- else }}
   kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config"}'
+{{- end }}
 
   # This etcd-config contains the etcd endpoints of your cluster. If you use
   # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
@@ -41,6 +45,13 @@ data:
   #   the kvstore by commenting out the identity-allocation-mode below, or
   #   setting it to "kvstore".
   identity-allocation-mode: {{ .Values.global.identityAllocationMode }}
+
+  # identity-change-grace-period is the grace period that needs to pass
+  # before an endpoint that has changed its identity will start using
+  # that new identity. During the grace period, the new identity has
+  # already been allocated and other nodes in the cluster have a chance
+  # to whitelist the new upcoming identity of the endpoint.
+  identity-change-grace-period: {{ .Values.global.identityChangeGracePeriod | quote }}
 
   # If you want to run cilium in debug mode change this value to true
   debug: {{ .Values.global.debug.enabled | quote }}
@@ -141,6 +152,10 @@ data:
   # table.
   bpf-nat-global-max: "{{ .Values.global.bpf.natMax }}"
 
+  # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
+  # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
+  bpf-map-dynamic-size-ratio: "{{ .Values.global.bpf.mapDynamicSizeRatio }}"
+
   # Pre-allocation of map entries allows per-packet latency to be reduced, at
   # the expense of up-front memory allocation for the entries in the maps. The
   # default value below will minimize memory usage in the default installation;
@@ -177,6 +192,14 @@ data:
   # Unique ID of the cluster. Must be unique across all conneted clusters and
   # in the range of 1 and 255. Only relevant when building a mesh of clusters.
   cluster-id: "{{ .Values.global.cluster.id }}"
+{{- end }}
+
+{{- if .Values.global.gke.enabled }}
+  ipam: "kubernetes"
+  tunnel: "disabled"
+  enable-endpoint-routes: "true"
+  blacklist-conflicting-routes: "false"
+  enable-local-node-route: "false"
 {{- end }}
 
 {{- if .Values.global.eni }}
@@ -257,8 +280,13 @@ data:
 {{- end }}
 
   masquerade: {{ .Values.global.masquerade | quote }}
+  enable-bpf-masquerade: {{ .Values.global.bpfMasquerade | quote }}
 {{- if .Values.global.egressMasqueradeInterfaces }}
   egress-masquerade-interfaces: {{ .Values.global.egressMasqueradeInterfaces }}
+{{- end }}
+{{- if and .Values.global.ipMasqAgent .Values.global.ipMasqAgent.enabled }}
+  enable-ip-masq-agent: "true"
+  ip-masq-agent-sync-period: {{ .Values.global.ipMasqAgent.syncPeriod | quote }}
 {{- end }}
 
 {{- if .Values.global.encryption.enabled }}
@@ -280,21 +308,35 @@ data:
   enable-xt-socket-fallback: {{ .Values.global.enableXTSocketFallback | quote }}
   install-iptables-rules: {{ .Values.global.installIptablesRules | quote }}
   auto-direct-node-routes: {{ .Values.global.autoDirectNodeRoutes | quote }}
+{{- if .Values.global.nativeRoutingCIDR }}
+  native-routing-cidr: {{ .Values.global.nativeRoutingCIDR }}
+{{- end }}
 
 {{- if .Values.global.kubeProxyReplacement }}
   kube-proxy-replacement:  {{ .Values.global.kubeProxyReplacement | quote }}
 {{- end}}
 {{- if .Values.global.hostServices }}
+{{- if .Values.global.hostServices.enabled }}
   enable-host-reachable-services: {{ .Values.global.hostServices.enabled | quote }}
+{{- end }}
 {{- if ne .Values.global.hostServices.protocols "tcp,udp" }}
   host-reachable-services-protos: {{ .Values.global.hostServices.protocols }}
 {{- end }}
 {{- end }}
+{{- if .Values.global.hostPort }}
+{{- if eq .Values.global.kubeProxyReplacement "partial" }}
+  enable-host-port: {{ .Values.global.hostPort.enabled | quote }}
+{{- end }}
+{{- end }}
 {{- if .Values.global.externalIPs }}
+{{- if eq .Values.global.kubeProxyReplacement "partial" }}
   enable-external-ips: {{ .Values.global.externalIPs.enabled | quote }}
 {{- end }}
+{{- end }}
 {{- if .Values.global.nodePort }}
+{{- if eq .Values.global.kubeProxyReplacement "partial" }}
   enable-node-port: {{ .Values.global.nodePort.enabled | quote }}
+{{- end }}
 {{- if .Values.global.nodePort.range }}
   node-port-range: {{ .Values.global.nodePort.range | quote }}
 {{- end }}
@@ -304,6 +346,14 @@ data:
 {{- if .Values.global.nodePort.mode }}
   node-port-mode: {{ .Values.global.nodePort.mode | quote }}
 {{- end }}
+{{- if .Values.global.nodePort.acceleration }}
+  node-port-acceleration: {{ .Values.global.nodePort.acceleration | quote }}
+{{- end }}
+  node-port-bind-protection: {{ .Values.global.nodePort.bindProtection | quote }}
+  enable-auto-protect-node-port-range: {{ .Values.global.nodePort.autoProtectPortRange | quote }}
+{{- end }}
+{{- if .Values.global.sessionAffinity }}
+  enable-session-affinity: {{ .Values.global.sessionAffinity.enabled | quote }}
 {{- end }}
 
 {{- if and .Values.global.pprof .Values.global.pprof.enabled }}
@@ -328,8 +378,11 @@ data:
 {{- if .Values.global.kubeConfigPath }}
   k8s-kubeconfig-path: {{ .Values.global.kubeConfigPath | quote }}
 {{- end }}
-{{- if not (eq .Values.global.cni.chainingMode "none") }}
-  # Chaining mode was enabled, disabling health checking
+{{- if or (eq .Values.global.cni.chainingMode "portmap") (eq .Values.global.cni.chainingMode "none") }}
+  # Chaining mode is set to portmap, enable health checking
+  enable-endpoint-health-checking: "true"
+{{- else}}
+  # Disable health checking, when chaining mode is not set to portmap or none
   enable-endpoint-health-checking: "false"
 {{- end }}
 {{- if or .Values.global.wellKnownIdentities.enabled .Values.global.etcd.managed }}
@@ -347,28 +400,39 @@ data:
 {{- else }}
   operator-api-serve-addr: '[::1]:9234'
 {{- end }}
-{{ if gt (len .Values.global.hubble.listenAddresses) 0 }}
-  # A space separated list of addresses for Hubble server to listen to. Currently only unix
-  # domain sockets are supported. Hubble gRPC endpoint will be disabled if this field is not
-  # set.
-  hubble-listen-addresses: {{ .Values.global.hubble.listenAddresses | join " " | quote }}
-{{ if .Values.global.hubble.eventQueueSize }}
+
+  # Enable Hubble gRPC service.
+  enable-hubble: {{ .Values.global.hubble.enabled  | quote }}
+{{- if .Values.global.hubble.enabled }}
+  # UNIX domain socket for Hubble server to listen to.
+  hubble-socket-path:  {{ .Values.global.hubble.socketPath | quote }}
+{{- if .Values.global.hubble.eventQueueSize }}
   # Buffer size of the channel for Hubble to receive monitor events. If this field is not set,
   # the buffer size is set to the default monitor queue size.
   hubble-event-queue-size: {{ .Values.global.hubble.eventQueueSize | quote }}
 {{- end }}
-{{ if .Values.global.hubble.flowBufferSize }}
+{{- if .Values.global.hubble.flowBufferSize }}
   # Size of the buffer to store recent flows.
   hubble-flow-buffer-size: {{ .Values.global.hubble.flowBufferSize | quote }}
 {{- end }}
-{{ if .Values.global.hubble.metricsServer }}
+{{- if .Values.global.hubble.metricsServer }}
   # Address to expose Hubble metrics (e.g. ":7070"). Metrics server will be disabled if this
   # field is not set.
   hubble-metrics-server: {{ .Values.global.hubble.metricsServer | quote }}
-
   # A space separated list of metrics to enable. See [0] for available metrics.
   #
   # https://github.com/cilium/hubble/blob/master/Documentation/metrics.md
-  hubble-metrics: {{ .Values.global.hubble.metrics | join " " | quote }}
+  hubble-metrics: {{- range .Values.global.hubble.metrics.enabled }}
+    {{.}}
   {{- end }}
 {{- end }}
+  # A space separated list of additional addresses for Hubble server to listen to (e.g. ":50051 :50052").
+{{- if and .Values.global.hubble.ui.enabled (not (has "0.0.0.0:50051" .Values.global.hubble.listenAddresses)) }}
+  hubble-listen-addresses: {{ append .Values.global.hubble.listenAddresses "0.0.0.0:50051" | join " " | quote }}
+{{- else }}
+  hubble-listen-addresses: {{ .Values.global.hubble.listenAddresses | join " " | quote }}
+{{- end }}
+{{- end }}
+
+  # A space separated list of iptables chains to disable when installing feeder rules.
+  disable-iptables-feeder-rules: {{ .Values.global.disableIptablesFeederRules | join " " | quote }}

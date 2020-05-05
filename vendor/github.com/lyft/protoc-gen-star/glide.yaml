@@ -1,0 +1,11 @@
+package: github.com/lyft/protoc-gen-star
+import:
+- package: github.com/golang/protobuf
+  version: ^1.1.0
+- package: github.com/spf13/afero
+- package: golang.org/x/text
+- package: golang.org/x/sync
+  subpackages:
+  - errgroup
+testImport:
+- package: github.com/stretchr/testify

@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"path/filepath"
 	"strings"
@@ -32,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
@@ -60,36 +60,29 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, basePath
 	possibleEPs := map[uint16]*Endpoint{}
 	for _, epDirName := range completeEPDirNames {
 		epDir := filepath.Join(basePath, epDirName)
-		readDir := func() string {
-			scopedLog := log.WithFields(logrus.Fields{
-				logfields.EndpointID: epDirName,
-				logfields.Path:       filepath.Join(epDir, common.CHeaderFileName),
-			})
-			scopedLog.Debug("Reading directory")
-			epFiles, err := ioutil.ReadDir(epDir)
-			if err != nil {
-				scopedLog.WithError(err).Warn("Error while reading directory. Ignoring it...")
-				return ""
-			}
-			cHeaderFile := common.FindEPConfigCHeader(epDir, epFiles)
-			if cHeaderFile == "" {
-				return ""
-			}
-			return cHeaderFile
-		}
-		// There's an odd issue where the first read dir doesn't work.
-		cHeaderFile := readDir()
-		if cHeaderFile == "" {
-			cHeaderFile = readDir()
-		}
-
+		cHeaderFile := filepath.Join(epDir, common.CHeaderFileName)
 		scopedLog := log.WithFields(logrus.Fields{
 			logfields.EndpointID: epDirName,
 			logfields.Path:       cHeaderFile,
 		})
+		// This function checks the presence of a bug previously observed: the
+		// file was sometimes only found after the second check.
+		// We can remove this if we haven't seen the issue occur after a while.
+		headerFileExists := func() error {
+			_, fileExists := os.Stat(cHeaderFile)
+			for i := 0; i < 2 && fileExists != nil; i++ {
+				time.Sleep(100 * time.Millisecond)
+				_, err := os.Stat(cHeaderFile)
+				if (fileExists == nil) != (err == nil) {
+					scopedLog.WithError(err).Warn("BUG: stat() has unstable behavior")
+				}
+				fileExists = err
+			}
+			return fileExists
+		}
 
-		if cHeaderFile == "" {
-			scopedLog.Warning("C header file not found. Ignoring endpoint")
+		if err := headerFileExists(); err != nil {
+			scopedLog.WithError(err).Warn("C header file not found. Ignoring endpoint")
 			continue
 		}
 
@@ -165,7 +158,8 @@ func (e *Endpoint) RegenerateAfterRestore() error {
 	scopedLog := log.WithField(logfields.EndpointID, e.ID)
 
 	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
-		Reason: "syncing state to host",
+		Reason:            "syncing state to host",
+		RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
 	}
 	if buildSuccess := <-e.Regenerate(regenerationMetadata); !buildSuccess {
 		scopedLog.Warn("Failed while regenerating endpoint")
@@ -186,7 +180,7 @@ func (e *Endpoint) restoreIdentity() error {
 	}
 	scopedLog := log.WithField(logfields.EndpointID, e.ID)
 	// Filter the restored labels with the new daemon's filter
-	l, _ := labels.FilterLabels(e.OpLabels.AllLabels())
+	l, _ := labelsfilter.Filter(e.OpLabels.AllLabels())
 	e.runlock()
 
 	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)

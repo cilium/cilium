@@ -1,20 +1,23 @@
-# GOBUILD relies on the order of makefile list to get VERSION file
+# Copyright 2017-2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 include ../Makefile.defs
 
-TARGET=cilium-operator
-SOURCES := $(shell find ../pkg . \( -name '*.go'  ! -name '*_test.go' \))
-$(TARGET): $(SOURCES)
-	@$(ECHO_GO)
-	$(QUIET) CGO_ENABLED=0 $(GO) build $(GOBUILD) -o $(TARGET)
+TARGET := cilium-operator
+
+.PHONY: all $(TARGET) clean install
 
 all: $(TARGET)
 
+$(TARGET):
+	@$(ECHO_GO)
+	$(QUIET)$(GO_BUILD) -o $@
+
 clean:
 	@$(ECHO_CLEAN)
-	$(QUIET)rm -f $(TARGET)
-	$(GO) clean $(GOCLEAN)
+	-$(QUIET)rm -f $(TARGET)
+	$(QUIET)$(GO_CLEAN)
 
 install:
-	groupadd -f cilium
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
 	$(QUIET)$(INSTALL) -m 0755 $(TARGET) $(DESTDIR)$(BINDIR)

@@ -227,7 +227,8 @@ export K8S_SERVICE_CLUSTER_IP_RANGE="${k8s_service_cluster_ip_range}"
 export K8S_CLUSTER_API_SERVER_IP="${k8s_cluster_api_server_ip}"
 export K8S_CLUSTER_DNS_IP="${k8s_cluster_dns_ip}"
 export RUNTIME="${RUNTIME}"
-# Only do installation if RELOAD is not set
+export INSTALL="${INSTALL}"
+# Always do installation if RELOAD is not set
 if [ -z "${RELOAD}" ]; then
     export INSTALL="1"
 fi
@@ -274,7 +275,8 @@ export K8S_CLUSTER_DNS_IP="${k8s_cluster_dns_ip}"
 export RUNTIME="${RUNTIME}"
 export K8STAG="${VM_BASENAME}"
 export NWORKERS="${NWORKERS}"
-# Only do installation if RELOAD is not set
+export INSTALL="${INSTALL}"
+# Always do installation if RELOAD is not set
 if [ -z "${RELOAD}" ]; then
     export INSTALL="1"
 fi
@@ -331,27 +333,14 @@ function write_cilium_cfg() {
         cilium_options+=" --kvstore consul"
         cilium_operator_options+=" --kvstore consul"
     fi
-    # container runtime options
-    case "${RUNTIME}" in
-        "containerd" | "containerD")
-            cilium_options+=" --container-runtime=containerd --container-runtime-endpoint=containerd=/var/run/containerd/containerd.sock"
-            cat <<EOF >> "$filename"
-sed -i '4s+.*++' /lib/systemd/system/cilium.service
-EOF
-            ;;
-        "crio" | "cri-o")
-            cilium_options+=" --container-runtime=crio --container-runtime-endpoint=crio=/var/run/crio/crio.sock"
-            ;;
-        *)
-            cilium_options+=" --container-runtime=docker --container-runtime-endpoint=docker=unix:///var/run/docker.sock"
-            ;;
-    esac
 
     cilium_options+=" ${TUNNEL_MODE_STRING}"
 
 cat <<EOF >> "$filename"
 sleep 2s
-echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
+if [ -n "\${K8S}" ]; then
+    echo "K8S_NODE_NAME=\$(hostname)" >> /etc/sysconfig/cilium
+fi
 echo 'CILIUM_OPTS="${cilium_options}"' >> /etc/sysconfig/cilium
 echo 'CILIUM_OPERATOR_OPTS="${cilium_operator_options}"' >> /etc/sysconfig/cilium
 echo 'PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin' >> /etc/sysconfig/cilium
@@ -601,14 +590,16 @@ create_k8s_config
 
 cd "${dir}/../.."
 
+PROVISION_ARGS=""
+if [ -n "${NO_PROVISION}" ]; then
+    PROVISION_ARGS="--no-provision"
+fi
 if [ -n "${RELOAD}" ]; then
-    vagrant reload
-elif [ -n "${NO_PROVISION}" ]; then
-    vagrant up --no-provision
+    vagrant reload $PROVISION_ARGS
 elif [ -n "${PROVISION}" ]; then
     vagrant provision
 else
-    vagrant up
+    vagrant up $PROVISION_ARGS
     if [ "$?" -eq "0" -a -n "${K8S}" ]; then
         host_port=$(vagrant port --guest 6443)
         vagrant ssh k8s1 -- cat /home/vagrant/.kube/config | sed "s;server:.*:6443;server: https://k8s1:$host_port;g" > vagrant.kubeconfig

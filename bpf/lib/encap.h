@@ -22,11 +22,12 @@ encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	 * cb[4] hints will not survive a veth pair xmit to ingress
 	 * however so below encap_and_redirect_ipsec will not work.
 	 * Instead pass hints via cb[0], cb[4] (cb is not cleared
-	 * by dev_ctx_forward) and catch hints with bpf_ipsec prog
-	 * that will populate mark/cb as expected by xfrm and 2nd
+	 * by dev_ctx_forward) and catch hints with bpf_hostdev_ingress
+	 * prog that will populate mark/cb as expected by xfrm and 2nd
 	 * traversal into bpf_netdev. Remember we can't use cb[0-3]
 	 * in both cases because xfrm layer would overwrite them. We
-	 * use cb[4] here so it doesn't need to be reset by bpf_ipsec.
+	 * use cb[4] here so it doesn't need to be reset by
+	 * bpf_hostdev_ingress.
 	 */
 	ctx_store_meta(ctx, 0, or_encrypt_key(key));
 	ctx_store_meta(ctx, 1, seclabel);
@@ -45,8 +46,8 @@ encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	 * label is stashed in the mark and extracted in bpf_netdev
 	 * to send ctx onto tunnel for encap.
 	 */
-	set_encrypt_key(ctx, key);
-	set_identity(ctx, seclabel);
+	set_encrypt_key_mark(ctx, key);
+	set_identity_mark(ctx, seclabel);
 	ctx_store_meta(ctx, 4, tunnel_endpoint);
 	return IPSEC_ENDPOINT;
 }
@@ -156,7 +157,8 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  */
 static __always_inline int
 encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-			       __u8 key, __u32 seclabel, __u32 monitor)
+			       __u8 key __maybe_unused, __u32 seclabel,
+			       __u32 monitor)
 {
 #ifdef ENABLE_IPSEC
 	if (key)
@@ -177,8 +179,8 @@ encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
  */
 static __always_inline int
 encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
-		       __u8 encrypt_key, struct endpoint_key *key, __u32 seclabel,
-		       __u32 monitor)
+		       __u8 encrypt_key __maybe_unused,
+		       struct endpoint_key *key, __u32 seclabel, __u32 monitor)
 {
 	struct endpoint_key *tunnel;
 

@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"net"
 	"path"
+	"sort"
 	"strings"
 	"sync"
 	"time"
@@ -29,7 +30,9 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
 )
@@ -105,7 +108,20 @@ func newKVReferenceCounter(s store) *kvReferenceCounter {
 // UpsertIPToKVStore updates / inserts the provided IP->Identity mapping into the
 // kvstore, which will subsequently trigger an event in NewIPIdentityWatcher().
 func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.NumericIdentity, key uint8,
-	metadata, k8sNamespace, k8sPodName string) error {
+	metadata, k8sNamespace, k8sPodName string, npm policy.NamedPortsMap) error {
+	// Sort named ports into a slice
+	namedPorts := make([]identity.NamedPort, 0, len(npm))
+	for name, value := range npm {
+		namedPorts = append(namedPorts, identity.NamedPort{
+			Name:     name,
+			Port:     value.Port,
+			Protocol: u8proto.U8proto(value.Proto).String(),
+		})
+	}
+	sort.Slice(namedPorts, func(i, j int) bool {
+		return namedPorts[i].Name < namedPorts[j].Name
+	})
+
 	ipKey := path.Join(IPIdentitiesPath, AddressSpace, IP.String())
 	ipIDPair := identity.IPIdentityPair{
 		IP:           IP,
@@ -115,6 +131,7 @@ func UpsertIPToKVStore(ctx context.Context, IP, hostIP net.IP, ID identity.Numer
 		Key:          key,
 		K8sNamespace: k8sNamespace,
 		K8sPodName:   k8sPodName,
+		NamedPorts:   namedPorts,
 	}
 
 	marshaledIPIDPair, err := json.Marshal(ipIDPair)
@@ -270,10 +287,18 @@ restart:
 					continue
 				}
 				var k8sMeta *K8sMetadata
-				if ipIDPair.K8sNamespace != "" || ipIDPair.K8sPodName != "" {
+				if ipIDPair.K8sNamespace != "" || ipIDPair.K8sPodName != "" || len(ipIDPair.NamedPorts) > 0 {
 					k8sMeta = &K8sMetadata{
-						Namespace: ipIDPair.K8sNamespace,
-						PodName:   ipIDPair.K8sPodName,
+						Namespace:  ipIDPair.K8sNamespace,
+						PodName:    ipIDPair.K8sPodName,
+						NamedPorts: make(policy.NamedPortsMap, len(ipIDPair.NamedPorts)),
+					}
+					for _, np := range ipIDPair.NamedPorts {
+						err = k8sMeta.NamedPorts.AddPort(np.Name, int(np.Port), np.Protocol)
+						if err != nil {
+							log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
+								WithError(err).Error("Parsing named port failed")
+						}
 					}
 				}
 

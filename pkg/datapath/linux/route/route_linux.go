@@ -21,7 +21,10 @@ import (
 	"net"
 	"time"
 
+	"github.com/cilium/cilium/pkg/option"
+
 	"github.com/vishvananda/netlink"
+	"golang.org/x/sys/unix"
 )
 
 const (
@@ -328,6 +331,42 @@ type Rule struct {
 	Table int
 }
 
+// String returns the string representation of a Rule (adhering to the Stringer
+// interface).
+func (r Rule) String() string {
+	var (
+		str  string
+		from string
+		to   string
+	)
+
+	str += fmt.Sprintf("%d: ", r.Priority)
+
+	if r.From != nil {
+		from = r.From.String()
+	} else {
+		from = "all"
+	}
+
+	if r.To != nil {
+		to = r.To.String()
+	} else {
+		to = "all"
+	}
+
+	if r.Table == unix.RT_TABLE_MAIN {
+		str += fmt.Sprintf("from %s to %s lookup main", from, to)
+	} else {
+		str += fmt.Sprintf("from %s to %s lookup %d", from, to, r.Table)
+	}
+
+	if r.Mark != 0 {
+		str += fmt.Sprintf(" mark 0x%x mask 0x%x", r.Mark, r.Mask)
+	}
+
+	return str
+}
+
 func lookupRule(spec Rule, family int) (bool, error) {
 	rules, err := netlink.RuleList(family)
 	if err != nil {
@@ -355,6 +394,84 @@ func lookupRule(spec Rule, family int) (bool, error) {
 		}
 	}
 	return false, nil
+}
+
+// ListRules will list IP routing rules on Linux, filtered by `filter`. When
+// `filter` is nil, this function will return all rules, "unfiltered". This
+// function is meant to replicate the behavior of `ip rule list`.
+func ListRules(family int, filter *Rule) ([]netlink.Rule, error) {
+	rules, err := netlink.RuleList(family)
+	if err != nil {
+		return nil, err
+	}
+
+	if filter == nil {
+		return rules, nil
+	}
+
+	const (
+		// RT_FILTER_PRIORITY is a flag that can be specified to signal
+		// filtering against rules with 'Priority' specified. Note: this count
+		// starts from where netlink stops, see
+		// https://github.com/vishvananda/netlink/blob/d71301a47b607450337d920f260f3dc76481298e/route_linux.go#L25
+		//
+		// TODO: Remove this function when the upstream PR has been merged:
+		// https://github.com/vishvananda/netlink/pull/538
+		RT_FILTER_PRIORITY uint64 = 1 << (12 + 1 + iota)
+
+		// RT_FILTER_MARK is a flag that can be specified to signal
+		// filtering against rules with 'Mark' specified.
+		RT_FILTER_MARK
+
+		// RT_FILTER_MASK is a flag that can be specified to signal filtering
+		// against rules with 'Mask' specified.
+		RT_FILTER_MASK
+	)
+
+	var mask uint64
+	if filter.From != nil {
+		mask |= netlink.RT_FILTER_SRC
+	}
+	if filter.To != nil {
+		mask |= netlink.RT_FILTER_DST
+	}
+	if filter.Table != 0 {
+		mask |= netlink.RT_FILTER_TABLE
+	}
+	if filter.Priority != 0 {
+		mask |= RT_FILTER_PRIORITY
+	}
+	if filter.Mark != 0 {
+		mask |= RT_FILTER_MARK
+	}
+	if filter.Mask != 0 {
+		mask |= RT_FILTER_MASK
+	}
+
+	candidates := make([]netlink.Rule, 0, len(rules))
+	for _, rule := range rules {
+		switch {
+		case mask&netlink.RT_FILTER_SRC != 0 &&
+			(rule.Src == nil || rule.Src.String() != filter.From.String()):
+			continue
+		case mask&netlink.RT_FILTER_DST != 0 &&
+			(rule.Dst == nil || rule.Dst.String() != filter.To.String()):
+			continue
+		case mask&netlink.RT_FILTER_TABLE != 0 &&
+			filter.Table != unix.RT_TABLE_UNSPEC && rule.Table != filter.Table:
+			continue
+		case mask&RT_FILTER_PRIORITY != 0 && rule.Priority != filter.Priority:
+			continue
+		case mask&RT_FILTER_MARK != 0 && rule.Mark != filter.Mark:
+			continue
+		case mask&RT_FILTER_MASK != 0 && rule.Mask != filter.Mask:
+			continue
+		}
+
+		candidates = append(candidates, rule)
+	}
+
+	return candidates, nil
 }
 
 // ReplaceRule add or replace rule in the routing table using a mark to indicate
@@ -408,4 +525,56 @@ func deleteRule(spec Rule, family int) error {
 	rule.Dst = spec.To
 	rule.Family = family
 	return netlink.RuleDel(rule)
+}
+
+func lookupDefaultRoute(family int) (netlink.Route, error) {
+	linkIndex := 0
+
+	routes, err := netlink.RouteListFiltered(family, &netlink.Route{Dst: nil}, netlink.RT_FILTER_DST)
+	if err != nil {
+		return netlink.Route{}, fmt.Errorf("Unable to list direct routes: %s", err)
+	}
+
+	if len(routes) == 0 {
+		return netlink.Route{}, fmt.Errorf("Default route not found for family %d", family)
+	}
+
+	for _, route := range routes {
+		if linkIndex != 0 && linkIndex != route.LinkIndex {
+			return netlink.Route{}, fmt.Errorf("Found default routes with different netdev ifindices: %v vs %v",
+				linkIndex, route.LinkIndex)
+		}
+		linkIndex = route.LinkIndex
+	}
+
+	log.Debugf("Found default route on node %v", routes[0])
+	return routes[0], nil
+}
+
+// NodeDeviceWithDefaultRoute returns the node's device which handles the
+// default route in the current namespace
+func NodeDeviceWithDefaultRoute() (netlink.Link, error) {
+	linkIndex := 0
+	if option.Config.EnableIPv4 {
+		route, err := lookupDefaultRoute(netlink.FAMILY_V4)
+		if err != nil {
+			return nil, err
+		}
+		linkIndex = route.LinkIndex
+	}
+	if option.Config.EnableIPv6 {
+		route, err := lookupDefaultRoute(netlink.FAMILY_V6)
+		if err != nil {
+			return nil, err
+		}
+		if linkIndex != 0 && linkIndex != route.LinkIndex {
+			return nil, fmt.Errorf("IPv4/IPv6 have different link indices")
+		}
+		linkIndex = route.LinkIndex
+	}
+	link, err := netlink.LinkByIndex(linkIndex)
+	if err != nil {
+		return nil, err
+	}
+	return link, nil
 }

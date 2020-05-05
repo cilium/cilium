@@ -25,7 +25,7 @@ import (
 
 type endpointManager interface {
 	AllocateID(id uint16) (uint16, error)
-	RunK8sCiliumEndpointSync(*Endpoint)
+	RunK8sCiliumEndpointSync(*Endpoint, EndpointStatusConfiguration)
 	UpdateReferences(map[id.PrefixType]string, *Endpoint)
 	UpdateIDReference(*Endpoint)
 	RemoveReferences(map[id.PrefixType]string)
@@ -36,8 +36,14 @@ type endpointManager interface {
 // Expose exposes the endpoint to the endpointmanager. After this function
 // is called, the endpoint may be accessed by any lookup in the endpointmanager.
 func (e *Endpoint) Expose(mgr endpointManager) error {
+	// No need to check liveness as an endpoint can only be deleted via the
+	// API after it has been inserted into the manager.
+	// 'e.ID' written below, read lock is not enough.
+	e.unconditionalLock()
+
 	newID, err := mgr.AllocateID(e.ID)
 	if err != nil {
+		e.unlock()
 		return err
 	}
 	defer close(e.exposed)
@@ -57,14 +63,12 @@ func (e *Endpoint) Expose(mgr endpointManager) error {
 
 	// No need to check liveness as an endpoint can only be deleted via the
 	// API after it has been inserted into the manager.
-	e.unconditionalRLock()
 	mgr.UpdateIDReference(e)
 	e.updateReferences(mgr)
-	e.runlock()
-
 	e.getLogger().Info("New endpoint")
+	e.unlock()
 
-	mgr.RunK8sCiliumEndpointSync(e)
+	mgr.RunK8sCiliumEndpointSync(e, option.Config)
 	return nil
 }
 
@@ -147,7 +151,7 @@ func (e *Endpoint) Unexpose(mgr endpointManager) <-chan struct{} {
 			//
 			// Avoid irritating warning messages.
 			state := ep.GetState()
-			if state != StateRestoring && state != StateDisconnecting {
+			if state != StateRestoring && state != StateDisconnecting && state != StateDisconnected {
 				log.WithError(err).WithField("state", state).Warning("Unable to release endpoint ID")
 			}
 		}

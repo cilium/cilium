@@ -23,7 +23,7 @@
 
 #include "bpf_sockops.h"
 
-static __always_inline void sk_extract4_key(struct bpf_sock_ops *ops,
+static __always_inline void sk_extract4_key(const struct bpf_sock_ops *ops,
 					    struct sock_key *key)
 {
 	key->dip4 = ops->remote_ip4;
@@ -39,7 +39,7 @@ static __always_inline void sk_extract4_key(struct bpf_sock_ops *ops,
 }
 
 static __always_inline void sk_lb4_key(struct lb4_key *lb4,
-					  struct sock_key *key)
+					  const struct sock_key *key)
 {
 	/* SK MSG is always egress, so use daddr */
 	lb4->address = key->dip4;
@@ -66,7 +66,7 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	 * pulled in as needed.
 	 */
 	sk_lb4_key(&lb4_key, &key);
-	svc = __lb4_lookup_service(&lb4_key);
+	svc = lb4_lookup_service(&lb4_key);
 	if (svc)
 		return;
 

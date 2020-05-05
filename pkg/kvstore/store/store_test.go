@@ -23,17 +23,17 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/rand"
 
 	. "gopkg.in/check.v1"
 )
 
 const (
-	testPrefix = "store-tests"
+	testPrefix           = "store-tests"
+	sharedKeyDeleteDelay = time.Second
 )
 
 func Test(t *testing.T) {
@@ -70,7 +70,7 @@ func (e *StoreConsulSuite) SetUpTest(c *C) {
 func (e *StoreConsulSuite) TearDownTest(c *C) {
 	kvstore.Client().DeletePrefix(context.TODO(), testPrefix)
 	kvstore.Client().Close()
-	time.Sleep(defaults.NodeDeleteDelay + 5*time.Second)
+	time.Sleep(sharedKeyDeleteDelay + 5*time.Second)
 }
 
 type TestType struct {
@@ -142,19 +142,19 @@ func (s *StoreSuite) TestStoreCreation(c *C) {
 	c.Assert(store, IsNil)
 
 	// Missing KeyCreator must result in error
-	store, err = JoinSharedStore(Configuration{Prefix: testutils.RandomRune()})
+	store, err = JoinSharedStore(Configuration{Prefix: rand.RandomString()})
 	c.Assert(err, ErrorMatches, "KeyCreator must be specified")
 	c.Assert(store, IsNil)
 
 	// Basic creation should result in default values
-	store, err = JoinSharedStore(Configuration{Prefix: testutils.RandomRune(), KeyCreator: newTestType})
+	store, err = JoinSharedStore(Configuration{Prefix: rand.RandomString(), KeyCreator: newTestType})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
 	c.Assert(store.conf.SynchronizationInterval, Equals, option.Config.KVstorePeriodicSync)
 	store.Close(context.TODO())
 
 	// Test with kvstore client specified
-	store, err = JoinSharedStore(Configuration{Prefix: testutils.RandomRune(), KeyCreator: newTestType, Backend: kvstore.Client()})
+	store, err = JoinSharedStore(Configuration{Prefix: rand.RandomString(), KeyCreator: newTestType, Backend: kvstore.Client()})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
 	c.Assert(store.conf.SynchronizationInterval, Equals, option.Config.KVstorePeriodicSync)
@@ -168,7 +168,7 @@ func expect(check func() bool) error {
 			return nil
 		}
 
-		if time.Since(start) > defaults.NodeDeleteDelay+10*time.Second {
+		if time.Since(start) > sharedKeyDeleteDelay+5*time.Second {
 			return fmt.Errorf("timeout while waiting for expected value")
 		}
 
@@ -178,7 +178,12 @@ func expect(check func() bool) error {
 
 func (s *StoreSuite) TestStoreOperations(c *C) {
 	// Basic creation should result in default values
-	store, err := JoinSharedStore(Configuration{Prefix: testutils.RandomRune(), KeyCreator: newTestType, Observer: &observer{}})
+	store, err := JoinSharedStore(Configuration{
+		Prefix:               rand.RandomString(),
+		KeyCreator:           newTestType,
+		Observer:             &observer{},
+		SharedKeyDeleteDelay: sharedKeyDeleteDelay,
+	})
 	c.Assert(err, IsNil)
 	c.Assert(store, Not(IsNil))
 	defer store.Close(context.TODO())
@@ -221,7 +226,7 @@ func (s *StoreSuite) TestStoreOperations(c *C) {
 func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 	// Create a store with a very short periodic sync interval
 	store, err := JoinSharedStore(Configuration{
-		Prefix:                  testutils.RandomRune(),
+		Prefix:                  rand.RandomString(),
 		KeyCreator:              newTestType,
 		SynchronizationInterval: 10 * time.Millisecond,
 		Observer:                &observer{},
@@ -250,7 +255,7 @@ func (s *StoreSuite) TestStorePeriodicSync(c *C) {
 
 func (s *StoreSuite) TestStoreLocalKeyProtection(c *C) {
 	store, err := JoinSharedStore(Configuration{
-		Prefix:                  testutils.RandomRune(),
+		Prefix:                  rand.RandomString(),
 		KeyCreator:              newTestType,
 		SynchronizationInterval: time.Hour, // ensure that periodic sync does not interfer
 		Observer:                &observer{},
@@ -267,9 +272,10 @@ func (s *StoreSuite) TestStoreLocalKeyProtection(c *C) {
 	c.Assert(expect(func() bool { return localKey1.updated() >= 1 }), IsNil)
 	// delete all keys
 	kvstore.Client().DeletePrefix(context.TODO(), store.conf.Prefix)
+	time.Sleep(10 * time.Millisecond)
 	c.Assert(expect(func() bool {
 		v, err := kvstore.Client().Get(context.TODO(), store.keyPath(&localKey1))
-		return err == nil && v == nil
+		return err == nil && v != nil
 	}), IsNil)
 }
 
@@ -301,12 +307,12 @@ func setupStoreCollaboration(c *C, storePrefix, keyPrefix string) *SharedStore {
 }
 
 func (s *StoreSuite) TestStoreCollaboration(c *C) {
-	storePrefix := testutils.RandomRune()
+	storePrefix := rand.RandomString()
 
-	collab1 := setupStoreCollaboration(c, storePrefix, testutils.RandomRune())
+	collab1 := setupStoreCollaboration(c, storePrefix, rand.RandomString())
 	defer collab1.Close(context.TODO())
 
-	collab2 := setupStoreCollaboration(c, storePrefix, testutils.RandomRune())
+	collab2 := setupStoreCollaboration(c, storePrefix, rand.RandomString())
 	defer collab2.Close(context.TODO())
 
 	c.Assert(expect(func() bool {

@@ -2,7 +2,7 @@
   
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _container_images:
 
@@ -147,4 +147,3 @@ Nightly images are stored on dockerhub tagged with following format: ``YYYYMMDD-
 Job number is added to tag for the unlikely event of two consecutive nightly builds being built on the same date.
 
 .. _cilium/nightly: https://hub.docker.com/r/cilium/nightly/
-.. _Cilium-Nightly-Tests Job: https://jenkins.cilium.io/job/Cilium-Master-Nightly-Tests-All/

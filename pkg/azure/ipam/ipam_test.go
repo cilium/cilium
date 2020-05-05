@@ -117,9 +117,7 @@ func newCiliumNode(node, instanceID string, preAllocate, minAllocate int) *v2.Ci
 	cn := &v2.CiliumNode{
 		ObjectMeta: metav1.ObjectMeta{Name: node, Namespace: "default"},
 		Spec: v2.NodeSpec{
-			Azure: types.AzureSpec{
-				InstanceID: instanceID,
-			},
+			InstanceID: instanceID,
 			IPAM: ipamTypes.IPAMSpec{
 				Pool:        ipamTypes.AllocationMap{},
 				PreAllocate: preAllocate,
@@ -169,24 +167,23 @@ func (e *IPAMSuite) TestIpamPreAllocate8(c *check.C) {
 	instances := NewInstancesManager(api)
 	c.Assert(instances, check.Not(check.IsNil))
 
-	api.UpdateInstances(types.InstanceMap{
-		"i-1": &types.Instance{
-			Interfaces: map[string]*types.AzureInterface{
-				"intf-1": {
-					ID:            "intf-1",
-					SecurityGroup: "sg1",
-					Addresses: []types.AzureAddress{
-						{
-							IP:     "1.1.1.1",
-							Subnet: "subnet-1",
-							State:  types.StateSucceeded,
-						},
-					},
-					State: types.StateSucceeded,
+	m := ipamTypes.NewInstanceMap()
+	m.Update("vm1", ipamTypes.InterfaceRevision{
+		Resource: &types.AzureInterface{
+			ID:            "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11",
+			Name:          "eth0",
+			SecurityGroup: "sg1",
+			Addresses: []types.AzureAddress{
+				{
+					IP:     "1.1.1.1",
+					Subnet: "subnet-1",
+					State:  types.StateSucceeded,
 				},
 			},
+			State: types.StateSucceeded,
 		},
 	})
+	api.UpdateInstances(m)
 
 	instances.Resync(context.TODO())
 
@@ -195,7 +192,7 @@ func (e *IPAMSuite) TestIpamPreAllocate8(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	cn := newCiliumNode("node1", "i-1", preAllocate, minAllocate)
+	cn := newCiliumNode("node1", "vm1", preAllocate, minAllocate)
 	statusRevision := k8sapi.statusRevision()
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
@@ -230,24 +227,23 @@ func (e *IPAMSuite) TestIpamMinAllocate10(c *check.C) {
 	instances := NewInstancesManager(api)
 	c.Assert(instances, check.Not(check.IsNil))
 
-	api.UpdateInstances(types.InstanceMap{
-		"i-1": &types.Instance{
-			Interfaces: map[string]*types.AzureInterface{
-				"intf-1": {
-					ID:            "intf-1",
-					SecurityGroup: "sg1",
-					Addresses: []types.AzureAddress{
-						{
-							IP:     "1.1.1.1",
-							Subnet: "subnet-1",
-							State:  types.StateSucceeded,
-						},
-					},
-					State: types.StateSucceeded,
+	m := ipamTypes.NewInstanceMap()
+	m.Update("vm1", ipamTypes.InterfaceRevision{
+		Resource: &types.AzureInterface{
+			ID:            "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11",
+			Name:          "eth0",
+			SecurityGroup: "sg1",
+			Addresses: []types.AzureAddress{
+				{
+					IP:     "1.1.1.1",
+					Subnet: "subnet-1",
+					State:  types.StateSucceeded,
 				},
 			},
+			State: types.StateSucceeded,
 		},
 	})
+	api.UpdateInstances(m)
 
 	instances.Resync(context.TODO())
 
@@ -256,7 +252,7 @@ func (e *IPAMSuite) TestIpamMinAllocate10(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(mngr, check.Not(check.IsNil))
 
-	cn := newCiliumNode("node1", "i-1", preAllocate, minAllocate)
+	cn := newCiliumNode("node1", "vm1", preAllocate, minAllocate)
 	statusRevision := k8sapi.statusRevision()
 	mngr.Update(cn)
 	c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, "node1", 0) }, 5*time.Second), check.IsNil)
@@ -279,6 +275,10 @@ func (e *IPAMSuite) TestIpamMinAllocate10(c *check.C) {
 	c.Assert(node, check.Not(check.IsNil))
 	c.Assert(node.Stats().AvailableIPs, check.Equals, toUse+preAllocate)
 	c.Assert(node.Stats().UsedIPs, check.Equals, toUse)
+
+	quota := instances.GetPoolQuota()
+	c.Assert(len(quota), check.Equals, 1)
+	c.Assert(quota["subnet-1"].AvailableIPs, check.Equals, (1<<16)-16)
 }
 
 type nodeState struct {
@@ -305,22 +305,26 @@ func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	state := make([]*nodeState, numNodes)
-	allInstances := types.InstanceMap{}
+	allInstances := ipamTypes.NewInstanceMap()
 
 	for i := range state {
-		allInstances.Update(fmt.Sprintf("i-%d", i), &types.AzureInterface{
-			ID:            fmt.Sprintf("intf-%d", i),
-			SecurityGroup: "sg1",
-			Addresses:     []types.AzureAddress{},
-			State:         types.StateSucceeded,
+		allInstances.Update(fmt.Sprintf("vm%d", i), ipamTypes.InterfaceRevision{
+			Resource: &types.AzureInterface{
+				ID:            fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i),
+				Name:          "eth0",
+				SecurityGroup: "sg1",
+				Addresses:     []types.AzureAddress{},
+				State:         types.StateSucceeded,
+			},
 		})
+
 	}
 
 	api.UpdateInstances(allInstances)
 	instances.Resync(context.TODO())
 
 	for i := range state {
-		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-%d", i)}
+		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("vm%d", i)}
 		state[i].cn = newCiliumNode(state[i].name, state[i].instanceName, 1, minAllocate)
 		mngr.Update(state[i].cn)
 	}
@@ -375,16 +379,19 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 	c.Assert(mngr, check.Not(check.IsNil))
 
 	state := make([]*nodeState, c.N)
-	allInstances := types.InstanceMap{}
+	allInstances := ipamTypes.NewInstanceMap()
 
 	c.ResetTimer()
 
 	for i := range state {
-		allInstances.Update(fmt.Sprintf("i-%d", i), &types.AzureInterface{
-			ID:            fmt.Sprintf("intf-%d", i),
-			SecurityGroup: "sg1",
-			Addresses:     []types.AzureAddress{},
-			State:         types.StateSucceeded,
+		allInstances.Update(fmt.Sprintf("vm%d", i), ipamTypes.InterfaceRevision{
+			Resource: &types.AzureInterface{
+				ID:            fmt.Sprintf("/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm%d/networkInterfaces/vmss11", i),
+				Name:          "eth0",
+				SecurityGroup: "sg1",
+				Addresses:     []types.AzureAddress{},
+				State:         types.StateSucceeded,
+			},
 		})
 	}
 
@@ -392,7 +399,7 @@ func benchmarkAllocWorker(c *check.C, workers int64, delay time.Duration, rateLi
 	instances.Resync(context.Background())
 
 	for i := range state {
-		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("i-%d", i)}
+		state[i] = &nodeState{name: fmt.Sprintf("node%d", i), instanceName: fmt.Sprintf("vm%d", i)}
 		state[i].cn = newCiliumNode(state[i].name, state[i].instanceName, 1, 10)
 		mngr.Update(state[i].cn)
 	}

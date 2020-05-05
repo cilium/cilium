@@ -31,7 +31,7 @@ import (
 
 // EC2API is the API surface used of the EC2 API
 type EC2API interface {
-	GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (types.InstanceMap, error)
+	GetInstances(ctx context.Context, vpcs ipamTypes.VirtualNetworkMap, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error)
 	GetSubnets(ctx context.Context) (ipamTypes.SubnetMap, error)
 	GetVpcs(ctx context.Context) (ipamTypes.VirtualNetworkMap, error)
 	GetSecurityGroups(ctx context.Context) (types.SecurityGroupMap, error)
@@ -48,7 +48,7 @@ type EC2API interface {
 // by calling resync() regularly.
 type InstancesManager struct {
 	mutex          lock.RWMutex
-	instances      types.InstanceMap
+	instances      *ipamTypes.InstanceMap
 	subnets        ipamTypes.SubnetMap
 	vpcs           ipamTypes.VirtualNetworkMap
 	securityGroups types.SecurityGroupMap
@@ -59,7 +59,7 @@ type InstancesManager struct {
 // NewInstancesManager returns a new instances manager
 func NewInstancesManager(api EC2API, eniTags map[string]string) *InstancesManager {
 	return &InstancesManager{
-		instances: types.InstanceMap{},
+		instances: ipamTypes.NewInstanceMap(),
 		api:       api,
 		eniTags:   eniTags,
 	}
@@ -175,7 +175,7 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	}
 
 	log.WithFields(logrus.Fields{
-		"numENIs":           len(instances),
+		"numInstances":      instances.NumInstances(),
 		"numVPCs":           len(vpcs),
 		"numSubnets":        len(subnets),
 		"numSecurityGroups": len(securityGroups),
@@ -191,34 +191,12 @@ func (m *InstancesManager) Resync(ctx context.Context) time.Time {
 	return resyncStart
 }
 
-// GetENI returns the ENI of an instance at a particular interface index
-func (m *InstancesManager) GetENI(instanceID string, index int) *eniTypes.ENI {
-	for _, eni := range m.getENIs(instanceID) {
-		if eni.Number == index {
-			return eni
-		}
-	}
-
-	return nil
-}
-
-// GetENIs returns the list of ENIs associated with a particular instance
-func (m *InstancesManager) GetENIs(instanceID string) []*eniTypes.ENI {
-	return m.getENIs(instanceID)
-}
-
-// getENIs returns the list of ENIs associated with a particular instance
-func (m *InstancesManager) getENIs(instanceID string) []*eniTypes.ENI {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	return m.instances.Get(instanceID)
-}
-
 // UpdateENI updates the ENI definition of an ENI for a particular instance. If
 // the ENI is already known, the definition is updated, otherwise the ENI is
 // added to the instance.
 func (m *InstancesManager) UpdateENI(instanceID string, eni *eniTypes.ENI) {
 	m.mutex.Lock()
-	m.instances.Update(instanceID, eni)
+	eniRevision := ipamTypes.InterfaceRevision{Resource: eni}
+	m.instances.Update(instanceID, eniRevision)
 	m.mutex.Unlock()
 }

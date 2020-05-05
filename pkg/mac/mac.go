@@ -34,10 +34,10 @@ func (m MAC) String() string {
 func ParseMAC(s string) (MAC, error) {
 	ha, err := net.ParseMAC(s)
 	if err != nil {
-		return MAC{}, err
+		return nil, err
 	}
 	if len(ha) != 6 {
-		return MAC{}, fmt.Errorf("invalid MAC address %s", s)
+		return nil, fmt.Errorf("invalid MAC address %s", s)
 	}
 
 	return MAC(ha), nil

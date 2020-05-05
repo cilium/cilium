@@ -36,7 +36,7 @@
 #include "lib/nodeport.h"
 #include "lib/eps.h"
 
-#if defined FROM_HOST && (defined ENABLE_IPV4 || defined ENABLE_IPV6)
+#if defined(FROM_HOST) && (defined(ENABLE_IPV4) || defined(ENABLE_IPV6))
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
 						__u32 src_identity)
 {
@@ -54,31 +54,11 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
 }
 #endif
 
-#if defined ENABLE_IPV4 || defined ENABLE_IPV6
-static __always_inline
-__u32 finalize_sec_ctx(__u32 secctx, __u32 src_identity __maybe_unused)
-{
-#ifdef ENABLE_SECCTX_FROM_IPCACHE
-	/* If we could not derive the secctx from the packet itself but
-	 * from the ipcache instead, then use the ipcache identity. E.g.
-	 * used in ipvlan master device's datapath on ingress.
-	 */
-	if (secctx == WORLD_ID && !identity_is_reserved(src_identity))
-		secctx = src_identity;
-#endif /* ENABLE_SECCTX_FROM_IPCACHE */
-	return secctx;
-}
-#endif
-
 #ifdef ENABLE_IPV6
-static __always_inline __u32 derive_sec_ctx(struct __ctx_buff *ctx __maybe_unused,
-					    const union v6addr *node_ip,
-					    struct ipv6hdr *ip6, __u32 *identity)
+#ifndef FROM_HOST
+static __always_inline __u32
+derive_src_id(const union v6addr *node_ip, struct ipv6hdr *ip6, __u32 *identity)
 {
-#ifdef FIXED_SRC_SECCTX
-	*identity = FIXED_SRC_SECCTX;
-	return 0;
-#else
 	if (ipv6_match_prefix_64((union v6addr *) &ip6->saddr, node_ip)) {
 		/* Read initial 4 bytes of header and then extract flowlabel */
 		__u32 *tmp = (__u32 *) ip6;
@@ -89,19 +69,57 @@ static __always_inline __u32 derive_sec_ctx(struct __ctx_buff *ctx __maybe_unuse
 		 * source from a remote node can be droppped. */
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
-	} else {
-		*identity = WORLD_ID;
+	}
+	return 0;
+}
+#endif
+
+static __always_inline __u32
+resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
+	       __u32 srcid_from_proxy)
+{
+	__u32 src_id = WORLD_ID, srcid_from_ipcache = srcid_from_proxy;
+	struct remote_endpoint_info *info = NULL;
+	union v6addr *src;
+
+#ifndef FROM_HOST
+	union v6addr node_ip = {};
+	int ret;
+
+	BPF_V6(node_ip, ROUTER_IP);
+	ret = derive_src_id(&node_ip, ip6, &src_id);
+	if (IS_ERR(ret))
+		return ret;
+#endif
+
+	/* Packets from the proxy will already have a real identity. */
+	if (identity_is_reserved(srcid_from_ipcache)) {
+		src = (union v6addr *) &ip6->saddr;
+		info = ipcache_lookup6(&IPCACHE_MAP, src, V6_CACHE_KEY_LEN);
+		if (info != NULL && info->sec_label)
+			srcid_from_ipcache = info->sec_label;
+		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+			   ((__u32 *) src)[3], srcid_from_ipcache);
 	}
 
-	return 0;
+#ifdef FROM_HOST
+	src_id = srcid_from_ipcache;
+#elif ENABLE_SECCTX_FROM_IPCACHE
+	/* If we could not derive the secctx from the packet itself but
+	 * from the ipcache instead, then use the ipcache identity. E.g.
+	 * used in ipvlan master device's datapath on ingress.
+	 */
+	if (src_id == WORLD_ID && !identity_is_reserved(srcid_from_ipcache))
+		src_id = srcid_from_ipcache;
 #endif
+
+	return src_id;
 }
 
 static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
-				       __u32 src_identity)
+				       __u32 srcid_from_proxy)
 {
 	struct remote_endpoint_info *info = NULL;
-	union v6addr node_ip = { };
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
@@ -114,10 +132,12 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 
 #ifdef ENABLE_NODEPORT
-	if (!bpf_skip_nodeport(ctx)) {
-		int ret = nodeport_lb6(ctx, src_identity);
-		if (ret < 0)
-			return ret;
+	if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC) {
+		if (!bpf_skip_nodeport(ctx)) {
+			ret = nodeport_lb6(ctx, srcid_from_proxy);
+			if (ret < 0)
+				return ret;
+		}
 	}
 #if defined(ENCAP_IFINDEX) || defined(NO_REDIRECT)
 	/* See IPv4 case for NO_REDIRECT comments */
@@ -135,37 +155,16 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 #ifdef HANDLE_NS
 	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
-		int ret = icmp6_handle(ctx, ETH_HLEN, ip6, METRIC_INGRESS);
+		ret = icmp6_handle(ctx, ETH_HLEN, ip6, METRIC_INGRESS);
 		if (IS_ERR(ret))
 			return ret;
 	}
 #endif
 
-	BPF_V6(node_ip, ROUTER_IP);
-	ret = derive_sec_ctx(ctx, &node_ip, ip6, &secctx);
-	if (IS_ERR(ret))
-		return ret;
+	secctx = resolve_srcid_ipv6(ctx, ip6, srcid_from_proxy);
 
-	/* Packets from the proxy will already have a real identity. */
-	if (identity_is_reserved(src_identity)) {
-		union v6addr *src = (union v6addr *) &ip6->saddr;
-		info = ipcache_lookup6(&IPCACHE_MAP, src, V6_CACHE_KEY_LEN);
-		if (info != NULL) {
-			__u32 sec_label = info->sec_label;
-			if (sec_label)
-				src_identity = info->sec_label;
-		}
-		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
-			   ((__u32 *) src)[3], src_identity);
-	}
-
-	secctx = finalize_sec_ctx(secctx, src_identity);
 #ifdef FROM_HOST
 	if (1) {
-		int ret;
-
-		secctx = src_identity;
-
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination mac address to the MAC of cilium_net */
 		ret = rewrite_dmac_to_host(ctx, secctx);
@@ -235,11 +234,11 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	if (info && info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
 
-		set_encrypt_key_cb(ctx, key);
+		set_encrypt_key_meta(ctx, key);
 #ifdef IP_POOLS
 		set_encrypt_dip(ctx, info->tunnel_endpoint);
 #else
-		set_identity_cb(ctx, secctx);
+		set_identity_meta(ctx, secctx);
 #endif
 	}
 #endif
@@ -263,19 +262,54 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
-static __always_inline
-__u32 derive_ipv4_sec_ctx(struct __ctx_buff *ctx __maybe_unused,
-			  struct iphdr *ip4 __maybe_unused)
+static __always_inline __u32
+resolve_srcid_ipv4(struct __ctx_buff *ctx, const struct iphdr *ip4,
+		   __u32 srcid_from_proxy)
 {
-#ifdef FIXED_SRC_SECCTX
-	return FIXED_SRC_SECCTX;
-#else
-	return WORLD_ID;
+	__u32 src_id = WORLD_ID, srcid_from_ipcache = srcid_from_proxy;
+	struct remote_endpoint_info *info = NULL;
+
+	/* Packets from the proxy will already have a real identity. */
+	if (identity_is_reserved(srcid_from_ipcache)) {
+		info = lookup_ip4_remote_endpoint(ip4->saddr);
+		if (info != NULL) {
+			__u32 sec_label = info->sec_label;
+			if (sec_label) {
+				/* When SNAT is enabled on traffic ingressing
+				 * into Cilium, all traffic from the world will
+				 * have a source IP of the host. It will only
+				 * actually be from the host if
+				 * "srcid_from_proxy" (passed into this
+				 * function) reports the src as the host. So we
+				 * can ignore the ipcache if it reports the
+				 * source as HOST_ID.
+				 */
+#ifndef ENABLE_EXTRA_HOST_DEV
+				if (sec_label != HOST_ID)
 #endif
+					srcid_from_ipcache = sec_label;
+			}
+		}
+		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+			   ip4->saddr, srcid_from_ipcache);
+	}
+
+#ifdef FROM_HOST
+	src_id = srcid_from_ipcache;
+#elif ENABLE_SECCTX_FROM_IPCACHE
+	/* If we could not derive the secctx from the packet itself but
+	 * from the ipcache instead, then use the ipcache identity. E.g.
+	 * used in ipvlan master device's datapath on ingress.
+	 */
+	if (!identity_is_reserved(srcid_from_ipcache))
+		src_id = srcid_from_ipcache;
+#endif
+
+	return src_id;
 }
 
 static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
-				       __u32 src_identity)
+				       __u32 srcid_from_proxy)
 {
 	struct remote_endpoint_info *info = NULL;
 	struct ipv4_ct_tuple tuple = {};
@@ -288,10 +322,12 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 
 #ifdef ENABLE_NODEPORT
-	if (!bpf_skip_nodeport(ctx)) {
-		int ret = nodeport_lb4(ctx, src_identity);
-		if (ret < 0)
-			return ret;
+	if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC) {
+		if (!bpf_skip_nodeport(ctx)) {
+			int ret = nodeport_lb4(ctx, srcid_from_proxy);
+			if (ret < 0)
+				return ret;
+		}
 	}
 #if defined(ENCAP_IFINDEX) || defined(NO_REDIRECT)
 	/* We cannot redirect a packet to a local endpoint in the direct
@@ -306,39 +342,13 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 #endif /* ENABLE_NODEPORT */
 
-	secctx = derive_ipv4_sec_ctx(ctx, ip4);
 	tuple.nexthdr = ip4->protocol;
 
-	/* Packets from the proxy will already have a real identity. */
-	if (identity_is_reserved(src_identity)) {
-		info = lookup_ip4_remote_endpoint(ip4->saddr);
-		if (info != NULL) {
-			__u32 sec_label = info->sec_label;
-			if (sec_label) {
-				/* When SNAT is enabled on traffic ingressing
-				 * into Cilium, all traffic from the world will
-				 * have a source IP of the host. It will only
-				 * actually be from the host if "src_identity"
-				 * (passed into this function) reports the src
-				 * as the host. So we can ignore the ipcache
-				 * if it reports the source as HOST_ID.
-				 */
-#ifndef ENABLE_EXTRA_HOST_DEV
-				if (sec_label != HOST_ID)
-#endif
-					src_identity = sec_label;
-			}
-		}
-		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
-			   ip4->saddr, src_identity);
-	}
+	secctx = resolve_srcid_ipv4(ctx, ip4, srcid_from_proxy);
 
-	secctx = finalize_sec_ctx(secctx, src_identity);
 #ifdef FROM_HOST
 	if (1) {
 		int ret;
-
-		secctx = src_identity;
 
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination mac address to the MAC of cilium_net */
@@ -418,11 +428,11 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	if (info && info->key && info->tunnel_endpoint) {
 		__u8 key = get_min_encrypt_key(info->key);
 
-		set_encrypt_key_cb(ctx, key);
+		set_encrypt_key_meta(ctx, key);
 #ifdef IP_POOLS
 		set_encrypt_dip(ctx, info->tunnel_endpoint);
 #else
-		set_identity_cb(ctx, secctx);
+		set_identity_meta(ctx, secctx);
 #endif
 	}
 #endif
@@ -440,7 +450,8 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 
 	ret = handle_ipv4(ctx, proxy_identity);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, proxy_identity, ret, CTX_ACT_DROP, METRIC_INGRESS);
+		return send_drop_notify_error(ctx, proxy_identity,
+					      ret, CTX_ACT_DROP, METRIC_INGRESS);
 	return ret;
 }
 
@@ -448,7 +459,8 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_IPSEC
 #ifndef ENCAP_IFINDEX
-static __always_inline int do_netdev_encrypt_pools(struct __ctx_buff *ctx)
+static __always_inline int
+do_netdev_encrypt_pools(struct __ctx_buff *ctx __maybe_unused)
 {
 	int ret = 0;
 #ifdef IP_POOLS
@@ -500,20 +512,19 @@ static __always_inline int do_netdev_encrypt_pools(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 drop_err:
-#endif // IP_POOLS
+#endif /* IP_POOLS */
 	return ret;
 }
 
-static __always_inline int do_netdev_encrypt_fib(struct __ctx_buff *ctx,
-						 __u16 proto,
-						 int *encrypt_iface)
+static __always_inline int
+do_netdev_encrypt_fib(struct __ctx_buff *ctx __maybe_unused,
+		      __u16 proto __maybe_unused,
+		      int *encrypt_iface __maybe_unused)
 {
 	int ret = 0;
-
-#ifdef HAVE_FIB_LOOKUP
+#ifdef BPF_HAVE_FIB_LOOKUP
 	struct bpf_fib_lookup fib_params = {};
 	void *data, *data_end;
-	__be32 sum;
 	int err;
 
 	if (proto ==  bpf_htons(ETH_P_IP)) {
@@ -558,7 +569,7 @@ static __always_inline int do_netdev_encrypt_fib(struct __ctx_buff *ctx,
 	}
 	*encrypt_iface = fib_params.ifindex;
 drop_err_fib:
-#endif /* HAVE_FIB_LOOKUP */
+#endif /* BPF_HAVE_FIB_LOOKUP */
 	return ret;
 }
 
@@ -567,7 +578,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 	int encrypt_iface = 0;
 	int ret = 0;
 
-#if defined(ENCRYPT_NODE) || defined(HAVE_FIB_LOOKUP)
+#if defined(ENCRYPT_NODE) || defined(BPF_HAVE_FIB_LOOKUP)
 	encrypt_iface = ENCRYPT_IFACE;
 #endif
 	ret = do_netdev_encrypt_pools(ctx);
@@ -578,8 +589,8 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 	if (ret)
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
 
-	bpf_clear_cb(ctx);
-#if defined(ENCRYPT_NODE) || defined(HAVE_FIB_LOOKUP)
+	bpf_clear_meta(ctx);
+#if defined(ENCRYPT_NODE) || defined(BPF_HAVE_FIB_LOOKUP)
 	return redirect(encrypt_iface, 0);
 #else
 	return CTX_ACT_OK;
@@ -595,7 +606,7 @@ static __always_inline int do_netdev_encrypt_encap(struct __ctx_buff *ctx)
 	tunnel_endpoint = ctx_load_meta(ctx, 4);
 	ctx->mark = 0;
 
-	bpf_clear_cb(ctx);
+	bpf_clear_meta(ctx);
 	return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, TRACE_PAYLOAD_LEN);
 }
 
@@ -608,7 +619,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 
 static __always_inline int do_netdev(struct __ctx_buff *ctx, __u16 proto)
 {
-	__u32 identity = 0;
+	__u32 __maybe_unused identity = 0;
 	int ret;
 
 #ifdef ENABLE_IPSEC
@@ -619,7 +630,7 @@ static __always_inline int do_netdev(struct __ctx_buff *ctx, __u16 proto)
 			return do_netdev_encrypt(ctx, proto);
 	}
 #endif
-	bpf_clear_cb(ctx);
+	bpf_clear_meta(ctx);
 	bpf_skip_nodeport_clear(ctx);
 
 #ifdef FROM_HOST
@@ -685,15 +696,6 @@ int from_netdev(struct __ctx_buff *ctx)
 		/* Pass unknown traffic to the stack */
 		return CTX_ACT_OK;
 
-#ifdef ENABLE_MASQUERADE
-	cilium_dbg_capture(ctx, DBG_CAPTURE_SNAT_PRE, ctx_get_ifindex(ctx));
-	ret = snat_process(ctx, BPF_PKT_DIR);
-	if (ret != CTX_ACT_OK) {
-		return ret;
-	}
-	cilium_dbg_capture(ctx, DBG_CAPTURE_SNAT_POST, ctx_get_ifindex(ctx));
-#endif /* ENABLE_MASQUERADE */
-
 	return do_netdev(ctx, proto);
 }
 
@@ -704,22 +706,15 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	 * workaround.
 	 */
 	int ret = CTX_ACT_OK;
-#if defined(ENABLE_NODEPORT) && (!defined(ENABLE_DSR) || (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)))
+#if defined(ENABLE_NODEPORT) && \
+	(!defined(ENABLE_DSR) || \
+	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)))
 	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE)
 		return CTX_ACT_OK;
 	ret = nodeport_nat_fwd(ctx, false);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
-#elif defined(ENABLE_MASQUERADE)
-	__u16 proto;
-	if (!validate_ethertype(ctx, &proto))
-		/* Pass unknown traffic to the stack */
-		return CTX_ACT_OK;
-	cilium_dbg_capture(ctx, DBG_CAPTURE_SNAT_PRE, ctx_get_ifindex(ctx));
-	ret = snat_process(ctx, BPF_PKT_DIR);
-	if (!ret)
-		cilium_dbg_capture(ctx, DBG_CAPTURE_SNAT_POST, ctx_get_ifindex(ctx));
-#endif /* ENABLE_MASQUERADE */
+#endif
 	return ret;
 }
 

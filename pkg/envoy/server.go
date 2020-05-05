@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -878,7 +879,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 	}
 }
 
-func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool) []*cilium.PortNetworkPolicy {
+func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, npMap policy.NamedPortsMap, policyEnforced bool) []*cilium.PortNetworkPolicy {
 	if !policyEnforced {
 		// Return an allow-all policy.
 		return allowAllPortNetworkPolicy
@@ -889,7 +890,8 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 	}
 
 	PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(l4Policy))
-
+	// map to locate entries already on the same port
+	pnps := make(map[string]*cilium.PortNetworkPolicy, len(l4Policy))
 	for _, l4 := range l4Policy {
 		var protocol envoy_api_v2_core.SocketAddress_Protocol
 		switch l4.Protocol {
@@ -899,19 +901,26 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 			protocol = envoy_api_v2_core.SocketAddress_UDP
 		}
 
-		pnp := &cilium.PortNetworkPolicy{
-			Port:     uint32(l4.Port),
-			Protocol: protocol,
-			Rules:    make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerSelector)),
+		port := uint16(l4.Port)
+		if port == 0 && l4.PortName != "" {
+			var err error
+			port, err = npMap.GetNamedPort(l4.PortName, uint8(l4.U8Proto))
+			if err != nil {
+				log.WithError(err).WithField(logfields.PortName, l4.PortName).Debug("getDirectionNetworkPolicy: Skipping named port")
+				continue
+			}
 		}
+
+		rules := make([]*cilium.PortNetworkPolicyRule, 0, len(l4.L7RulesPerSelector))
 		allowAll := false
+
 		// Assume none of the rules have side-effects so that rule evaluation can
 		// be stopped as soon as the first allowing rule is found. 'canShortCircuit'
 		// is set to 'false' below if any rules with side effects are encountered,
 		// causing all the applicable rules to be evaluated instead.
 		canShortCircuit := true
 
-		if l4.Port == 0 {
+		if port == 0 {
 			// L3-only rule, must generate L7 allow-all in case there are other
 			// port-specific rules. Otherwise traffic from allowed remotes could be dropped.
 			rule := getWildcardNetworkPolicyRule(l4.L7RulesPerSelector)
@@ -921,7 +930,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 					// the other rules.
 					allowAll = true
 				}
-				pnp.Rules = append(pnp.Rules, rule)
+				rules = append(rules, rule)
 			}
 		} else {
 			for sel, l7 := range l4.L7RulesPerSelector {
@@ -935,27 +944,39 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 						// the other rules.
 						allowAll = true
 					}
-					pnp.Rules = append(pnp.Rules, rule)
+					rules = append(rules, rule)
 				}
 			}
 		}
 		// Short-circuit rules if a rule allows all and all other rules can be short-circuited
 		if allowAll && canShortCircuit {
 			log.Debug("Short circuiting HTTP rules due to rule allowing all and no other rules needing attention")
-			pnp.Rules = nil
+			rules = nil
 		}
 
 		// No rule for this port matches any remote identity.
 		// This means that no traffic was explicitly allowed for this port.
 		// In this case, just don't generate any PortNetworkPolicy for this
 		// port.
-		if !allowAll && len(pnp.Rules) == 0 {
+		if !allowAll && len(rules) == 0 {
 			continue
 		}
 
+		// Add rules to a new or existing entry for this port
+		key := fmt.Sprintf("%d/%s", port, l4.Protocol)
+		pnp, exists := pnps[key]
+		if !exists {
+			pnp = &cilium.PortNetworkPolicy{
+				Port:     uint32(port),
+				Protocol: protocol,
+				Rules:    rules,
+			}
+			pnps[key] = pnp
+			PerPortPolicies = append(PerPortPolicies, pnp)
+		} else {
+			pnp.Rules = append(pnp.Rules, rules...)
+		}
 		SortPortNetworkPolicyRules(pnp.Rules)
-
-		PerPortPolicies = append(PerPortPolicies, pnp)
 	}
 
 	if len(PerPortPolicies) == 0 {
@@ -969,7 +990,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, policyEnforced bool)
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
 func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName string, policy *policy.L4Policy,
-	ingressPolicyEnforced, egressPolicyEnforced bool) *cilium.NetworkPolicy {
+	npMap policy.NamedPortsMap, ingressPolicyEnforced, egressPolicyEnforced bool) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
 		Name:             name,
 		Policy:           uint64(id),
@@ -978,8 +999,8 @@ func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName st
 
 	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
 	if policy != nil {
-		p.IngressPerPortPolicies = getDirectionNetworkPolicy(policy.Ingress, ingressPolicyEnforced)
-		p.EgressPerPortPolicies = getDirectionNetworkPolicy(policy.Egress, egressPolicyEnforced)
+		p.IngressPerPortPolicies = getDirectionNetworkPolicy(policy.Ingress, npMap, ingressPolicyEnforced)
+		p.EgressPerPortPolicies = getDirectionNetworkPolicy(policy.Egress, npMap, egressPolicyEnforced)
 	}
 
 	return p
@@ -1018,7 +1039,7 @@ func getNodeIDs(ep logger.EndpointUpdater, policy *policy.L4Policy) []string {
 // to L7 proxies.
 // When the proxy acknowledges the network policy update, it will result in
 // a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
-func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
+func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, npMap policy.NamedPortsMap,
 	ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -1028,12 +1049,12 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		ep.GetIPv6Address(),
 		ep.GetIPv4Address(),
 	}
-	var policies []*cilium.NetworkPolicy
+	policies := make([]*cilium.NetworkPolicy, 0, len(ips))
 	for _, ip := range ips {
 		if ip == "" {
 			continue
 		}
-		networkPolicy := getNetworkPolicy(ip, ep.GetIdentity(), ep.ConntrackNameLocked(), policy,
+		networkPolicy := getNetworkPolicy(ip, ep.GetIdentity(), ep.ConntrackNameLocked(), policy, npMap,
 			ingressPolicyEnforced, egressPolicyEnforced)
 		err := networkPolicy.Validate()
 		if err != nil {

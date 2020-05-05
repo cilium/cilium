@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -429,7 +429,7 @@ func (m *Map) OpenParallel() (bool, error) {
 // support for this map type, then the map will be opened as MapTypeHash
 // instead. Note that the BPF code that interacts with this map *MUST* be
 // structured in such a way that the map is declared as the same type based on
-// the same probe logic (eg HAVE_LRU_MAP_TYPE, HAVE_LPM_MAP_TYPE).
+// the same probe logic (eg HAVE_LRU_HASH_MAP_TYPE, HAVE_LPM_TRIE_MAP_TYPE).
 //
 // For code that uses an LPMTrie, the BPF code must also use macros to retain
 // the "longest prefix match" behaviour on top of the hash maps, for example
@@ -450,6 +450,16 @@ func (m *Map) OpenOrCreateUnpinned() (bool, error) {
 	defer m.lock.Unlock()
 
 	return m.openOrCreate(false)
+}
+
+// Create is similar to OpenOrCreate, but closes the map after creating or
+// opening it.
+func (m *Map) Create() (bool, error) {
+	isNew, err := m.OpenOrCreate()
+	if err != nil {
+		return isNew, err
+	}
+	return isNew, m.Close()
 }
 
 func (m *Map) openOrCreate(pin bool) (bool, error) {

@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,11 +15,12 @@
 package types
 
 import (
-	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 )
 
 // SecurityGroup is the representation of an AWS Security Group
+//
+// +k8s:deepcopy-gen=true
 type SecurityGroup struct {
 	// ID is the SecurityGroup ID
 	ID string
@@ -29,55 +30,6 @@ type SecurityGroup struct {
 
 	// Tags are the tags of the security group
 	Tags ipamTypes.Tags
-}
-
-// instance is the minimal representation of an AWS instance as needed by the
-// ENI allocator
-type instance struct {
-	// enis is a map of all ENIs attached to the instance indexed by the
-	// ENI ID
-	enis map[string]*eniTypes.ENI
-}
-
-// InstanceMap is the list of all instances indexed by instance ID
-type InstanceMap map[string]*instance
-
-// Add adds an instance definition to the instance map. instanceMap may not be
-// subject to concurrent access while add() is used.
-func (m InstanceMap) Add(instanceID string, eni *eniTypes.ENI) {
-	i, ok := m[instanceID]
-	if !ok {
-		i = &instance{}
-		m[instanceID] = i
-	}
-
-	if i.enis == nil {
-		i.enis = map[string]*eniTypes.ENI{}
-	}
-
-	i.enis[eni.ID] = eni
-}
-
-// Update updates the ENI definition of an ENI for a particular instance. If
-// the ENI is already known, the definition is updated, otherwise the ENI is
-// added to the instance.
-func (m InstanceMap) Update(instanceID string, eni *eniTypes.ENI) {
-	if i, ok := m[instanceID]; ok {
-		i.enis[eni.ID] = eni
-	} else {
-		m.Add(instanceID, eni)
-	}
-}
-
-// Get returns the list of ENIs for a particular instance ID
-func (m InstanceMap) Get(instanceID string) (enis []*eniTypes.ENI) {
-	if instance, ok := m[instanceID]; ok {
-		for _, e := range instance.enis {
-			enis = append(enis, e.DeepCopy())
-		}
-	}
-
-	return
 }
 
 // SecurityGroupMap indexes AWS Security Groups by security group ID

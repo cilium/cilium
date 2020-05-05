@@ -147,6 +147,12 @@ const (
 	// Port is a L4 port
 	Port = "port"
 
+	// PortName is a k8s ContainerPort Name
+	PortName = "portName"
+
+	// NamedPorts is a set of named ports
+	NamedPorts = "namedPorts"
+
 	// Family is the L3 protocol family
 	Family = "family"
 
@@ -158,6 +164,9 @@ const (
 
 	// V6Prefix is a IPv6 subnet/CIDR prefix
 	V6Prefix = "v6Prefix"
+
+	// CIDR is a IPv4/IPv4 subnet/CIDR
+	CIDR = "cidr"
 
 	// Interface is an interface id/name on the system
 	Interface = "interface"
@@ -182,6 +191,13 @@ const (
 
 	// ServiceNamespace is the orchestration framework namespace of a service name
 	ServiceNamespace = "serviceNamespace"
+
+	// SessionAffinity indicates whether the ClientIP session affinity is enabled
+	// for the service
+	SessionAffinity = "sessionAffinity"
+
+	// SessionAffinityTimeout is a timeout for the session affinity
+	SessionAffinityTimeout = "sessionAffinityTimeout"
 
 	// ClusterName is the name of the cluster
 	ClusterName = "clusterName"

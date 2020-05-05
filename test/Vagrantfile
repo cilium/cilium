@@ -13,7 +13,7 @@ $NETNEXT_SERVER_VERSION= (ENV['NETNEXT_SERVER_VERSION'] || $NETNEXT_SERVER_VERSI
 
 $BUILD_NUMBER = ENV['BUILD_NUMBER'] || "0"
 $JOB_NAME = ENV['JOB_BASE_NAME'] || "LOCAL"
-$K8S_VERSION = ENV['K8S_VERSION'] || "1.17"
+$K8S_VERSION = ENV['K8S_VERSION'] || "1.18"
 $K8S_NODES = (ENV['K8S_NODES'] || "2").to_i
 $NFS = ENV['NFS']=="1"? true : false
 $IPv6=(ENV['IPv6'] || "0")
@@ -31,9 +31,12 @@ $KUBEPROXY = (ENV['KUBEPROXY'] || "1")
 $MEMORY = (ENV['VM_MEMORY'] || "4096").to_i
 $CPU = (ENV['VM_CPUS'] || "2").to_i
 
-if ENV['NETNEXT'] == "true"
+if ENV['NETNEXT'] == "true" || ENV['NETNEXT'] == "1" || ENV['KERNEL'] == "net-next" then
     $SERVER_BOX = $NETNEXT_SERVER_BOX
     $SERVER_VERSION = $NETNEXT_SERVER_VERSION
+elsif ENV['KERNEL'] != nil && ENV['KERNEL'] != "" then
+    $SERVER_BOX = instance_variable_get("@v"+ ENV['KERNEL'] + "_SERVER_BOX")
+    $SERVER_VERSION = instance_variable_get("@v"+ ENV['KERNEL'] + "_SERVER_VERSION")
 end
 
 ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"

@@ -1,8 +1,8 @@
 .. only:: not (epub or latex or html)
-  
+
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _backport_process:
 
@@ -15,7 +15,7 @@ Backport Criteria
 -----------------
 
 Committers may nominate PRs that have been merged into master as candidates for
-backport into stable_releases if they affect the stable production usage
+backport into stable releases if they affect the stable production usage
 of community users.
 
 Backport criteria for current minor release
@@ -55,8 +55,8 @@ process for backporting these PRs:
 One-time setup
 ~~~~~~~~~~~~~~
 
-#. The scripts referred to below need to be run in Linux, they do not
-   work on OSX.  You can use the cilium dev VM for this, but you need
+#. The scripts referred to below need to be run on Linux, they do not
+   work on macOS. You can use the cilium dev VM for this, but you need
    to configure git to have your name and email address to be used in
    the commit messages:
 
@@ -65,8 +65,8 @@ One-time setup
       $ git config --global user.name "John Doe"
       $ git config --global user.email johndoe@example.com
 
-#. Make sure you have your a GitHub developer access token
-   available. For details, see `contrib/backporting/README.md
+#. Make sure you have a GitHub developer access token with the ``public_repos``
+   scope available. For details, see `contrib/backporting/README.md
    <https://github.com/cilium/cilium/blob/master/contrib/backporting/README.md>`_
 
 #. This guide makes use of several tools to automate the backporting process.
@@ -80,11 +80,13 @@ One-time setup
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
    | git                                                          | Yes       | N/A (OS-specific)                                       |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
+   | jq                                                           | Yes       | N/A (OS-specific)                                       |
+   +--------------------------------------------------------------+-----------+---------------------------------------------------------+
    | python3                                                      | No        | `Python Downloads <https://www.python.org/downloads/>`_ |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
    | `PyGithub <https://pypi.org/project/PyGithub/>`_             | No        | ``pip3 install PyGithub``                               |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
-   | `Github command-line tools <https://github.com/node-gh/gh>`_ | No        | ``npm install -g gh``                                   |
+   | `Github hub CLI <https://github.com/github/hub>`_            | No        | N/A (OS-specific)                                       |
    +--------------------------------------------------------------+-----------+---------------------------------------------------------+
 
 Preparation
@@ -119,9 +121,9 @@ Creating the backports branch
    .. note::
 
       This command will leave behind a file in the current directory with a
-      name based upon the current date in the form ``YYYY-MM-DD.txt`` which
-      contains a prepared backport pull-request description so you don't need
-      to write one yourself.
+      name based upon the release version and the current date in the form
+      ``vRELEASE-backport-YYYY-MM-DD.txt`` which contains a prepared backport
+      pull-request description so you don't need to write one yourself.
 
 #. Cherry-pick the commits using the master git SHAs listed, starting
    from the oldest (top), working your way down and fixing any merge
@@ -152,8 +154,20 @@ Creating the backports branch
 Creating the backport pull request
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The backport pull-request may be created via the GitHub web interface, or
-alternatively you can use CLI tools to achieve these steps.
+The backport pull-request may be created via CLI tools, or alternatively
+you can use the GitHub web interface to achieve these steps.
+
+Via command-line tools
+^^^^^^^^^^^^^^^^^^^^^^
+
+These steps require all of the tools described in the :ref:`backport_setup`
+section above. It pushes the git tree, creates the pull request and updates
+the labels for the PRs that are backported, based on the
+``vRELEASE-backport-YYYY-MM-DD.txt`` file in the current directory.
+
+   .. code-block:: bash
+
+      # contrib/backporting/submit-backport
 
 Via GitHub web interface
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -162,7 +176,8 @@ Via GitHub web interface
    backporting to. Note that by default Github creates PRs against the
    ``master`` branch, so you will need to change it. The title and
    description for the pull request should be based upon the
-   ``YYYY-MM-DD.txt`` file that was generated by the scripts above.
+   ``vRELEASE-backport-YYYY-MM-DD.txt`` file that was generated by the scripts
+   above.
 
 #. Label the new backport PR with the backport label for the stable branch such
    as ``backport/X.Y`` as well as ``kind/backports`` so that it is easy to find
@@ -174,19 +189,13 @@ Via GitHub web interface
    the ``start-backport`` script above (``GITHUB_TOKEN`` needs to be set for
    this to work).
 
-Via command-line tools
-^^^^^^^^^^^^^^^^^^^^^^
+Running the CI against the pull request
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-These steps require all of the tools described in the :ref:`backport_setup`
-section above. Note that the list of PRs to pass to the ``set-labels.py``
-script are listed at the end of the ``YYYY-MM-DD.txt`` file.
-
-   .. code-block:: bash
-
-      # Create a pull-request on Github
-      $ gh pull-request -b vX.Y -l backport/vX.Y -F YYYY-MM-DD.txt
-      # Set PR 1234's v1.0 backporting labels to pending
-      $ contrib/backporting/set-labels.py 1234 pending 1.0
+To validate a cross-section of various tests against the PRs, backport PRs
+should be validated in the CI by running all CI targets. This can be triggered
+by adding a comment to the PR with exactly the text ``never-tell-me-the-odds``.
+The comment must not contain any other characters.
 
 After the backports are merged
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

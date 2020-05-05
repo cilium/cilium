@@ -1,7 +1,7 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /* Copyright (C) 2016-2020 Authors of Cilium */
 
-#if !defined __LIB_ICMP6__ && defined ENABLE_IPV6
+#if !defined(__LIB_ICMP6__) && defined(ENABLE_IPV6)
 #define __LIB_ICMP6__
 
 #include <linux/icmpv6.h>
@@ -73,7 +73,7 @@ static __always_inline int icmp6_send_reply(struct __ctx_buff *ctx, int nh_off)
 static __always_inline int __icmp6_send_echo_reply(struct __ctx_buff *ctx,
 						   int nh_off)
 {
-	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old;
+	struct icmp6hdr icmp6hdr __align_stack_8 = {}, icmp6hdr_old __align_stack_8;
 	int csum_off = nh_off + ICMP6_CSUM_OFFSET;
 	__be32 sum;
 
@@ -141,7 +141,7 @@ static __always_inline int icmp6_send_echo_reply(struct __ctx_buff *ctx,
 static __always_inline int send_icmp6_ndisc_adv(struct __ctx_buff *ctx,
 						int nh_off, union macaddr *mac)
 {
-	struct icmp6hdr icmp6hdr = {}, icmp6hdr_old;
+	struct icmp6hdr icmp6hdr __align_stack_8 = {}, icmp6hdr_old __align_stack_8;
 	__u8 opts[8], opts_old[8];
 	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
 	__be32 sum;
@@ -205,7 +205,7 @@ static __always_inline __be32 compute_icmp6_csum(char data[80], __u16 payload_le
 	return sum;
 }
 
-#ifdef HAVE_SKB_CHANGE_TAIL
+#ifdef BPF_HAVE_CHANGE_TAIL
 static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 						      int nh_off)
 {
@@ -290,16 +290,17 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 #endif
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_SEND_ICMP6_TIME_EXCEEDED)
-int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx)
+int tail_icmp6_send_time_exceeded(struct __ctx_buff *ctx __maybe_unused)
 {
-#ifdef HAVE_SKB_CHANGE_TAIL
+#ifdef BPF_HAVE_CHANGE_TAIL
 	int ret, nh_off = ctx_load_meta(ctx, 0);
 	__u8 direction  = ctx_load_meta(ctx, 1);
 
 	ctx_store_meta(ctx, 0, 0);
 	ret = __icmp6_send_time_exceeded(ctx, nh_off);
 	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, direction);
+		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
+					      direction);
 	return ret;
 #else
 	return 0;

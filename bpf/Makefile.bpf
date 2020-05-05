@@ -1,12 +1,22 @@
-FLAGS := -I/usr/include/$(shell uname -m)-linux-gnu -I$(ROOT_DIR)/bpf/include -I$(ROOT_DIR)/bpf -D__NR_CPUS__=$(shell nproc) -O2 -g
+# Copyright 2017-2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
 
-CLANG_FLAGS := ${FLAGS} -target bpf -emit-llvm
+FLAGS := -I$(ROOT_DIR)/bpf/include -I$(ROOT_DIR)/bpf -D__NR_CPUS__=$(shell nproc) -O2 -g
+
+CLANG_FLAGS := ${FLAGS} -target bpf -std=gnu89 -nostdinc -emit-llvm
 # eBPF verifier enforces unaligned access checks where necessary, so don't
 # let clang complain too early.
-CLANG_FLAGS += -Wall -Wextra -Werror -Wno-address-of-packed-member -Wno-unknown-warning-option
+CLANG_FLAGS += -Wall -Wextra -Werror -Wshadow
+CLANG_FLAGS += -Wno-address-of-packed-member
+CLANG_FLAGS += -Wno-unknown-warning-option
+CLANG_FLAGS += -Wno-gnu-variable-sized-type-not-at-end
+CLANG_FLAGS += -Wdeclaration-after-statement
 LLC_FLAGS   := -march=bpf -mcpu=probe -mattr=dwarfris
 
-LIB := $(shell find $(ROOT_DIR)/bpf -name '*.h')
+# BUILD_PERMUTATIONS_DEP is a dummy file dependency that ensures all targets
+# are rebuilt when the 'build_all' target is run.
+BUILD_PERMUTATIONS_DEP := .rebuild_all
+LIB := $(shell find $(ROOT_DIR)/bpf -name '*.h') $(BUILD_PERMUTATIONS_DEP)
 BPF_C := $(patsubst %.o,%.c,$(BPF))
 BPF_ASM := $(patsubst %.o,%.s,$(BPF))
 
@@ -18,6 +28,11 @@ HOSTCC ?= gcc
 # the 'all' target first (which we expect to be overridden by the includer).
 all:
 
+$(BUILD_PERMUTATIONS_DEP):
+	@touch $(BUILD_PERMUTATIONS_DEP)
+
+force:
+
 %.ll: %.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${CLANG_FLAGS} -c $< -o $@
@@ -26,21 +41,24 @@ all:
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} $(LLC_FLAGS) -filetype=asm -o $@ $(patsubst %.s,%.ll,$@)
 
-check:
+coccicheck:
+	$(QUIET) $(foreach TARGET,$(shell find $(ROOT_DIR)/contrib/coccinelle/ -name '*.cocci'), \
+		spatch --no-show-diff --sp-file ${TARGET} --include-headers --very-quiet --dir . ; )
+
+check: coccicheck
 	@$(ECHO_CHECK)/*.c
-	$(QUIET) spatch --sp-file $(ROOT_DIR)/contrib/coccinelle/null.cocci --dir . --include-headers
 	$(QUIET) sparse -Wsparse-all ${FLAGS} $(ROOT_DIR)/$(RELATIVE_DIR)/*.c
 	$(QUIET) $(CLANG) ${CLANG_FLAGS} --analyze $(ROOT_DIR)/$(RELATIVE_DIR)/*.c
 	$(QUIET) $(foreach SUBDIR,$(SUBDIRS), \
-		$(MAKE) -C $(SUBDIR) $@)
+		$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR) $@)
 
 preprocess: $(LIB)
 	$(QUIET) $(foreach TARGET,$(shell find $(ROOT_DIR)/$(RELATIVE_DIR)/ -name 'bpf_*.c'), \
 		echo "  GEN   $(patsubst %.c,%.i,${TARGET})"; \
 		${CLANG} $(FLAGS) -E -target bpf -c ${TARGET} -o $(patsubst %.c,%.i,${TARGET}); )
 	$(QUIET) $(foreach SUBDIR,$(SUBDIRS), \
-		$(MAKE) -C $(SUBDIR) $@)
+		$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR) $@)
 
 assembly: $(BPF_C) $(LIB) $(BPF_ASM)
 	$(QUIET) $(foreach SUBDIR,$(SUBDIRS), \
-		$(MAKE) -C $(SUBDIR) $@)
+		$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR) $@)

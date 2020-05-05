@@ -28,7 +28,7 @@ struct sock_key {
 	__u16 pad8;
 	__u32 sport;
 	__u32 dport;
-} __attribute__((packed));
+} __packed;
 
 struct bpf_elf_map __section_maps SOCK_OPS_MAP = {
 	.type           = BPF_MAP_TYPE_SOCKHASH,

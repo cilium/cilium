@@ -1,18 +1,4 @@
 ---
-# Source: cilium/charts/agent/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: cilium
-  namespace: kube-system
----
-# Source: cilium/charts/operator/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: cilium-operator
-  namespace: kube-system
----
 # Source: cilium/charts/config/templates/configmap.yaml
 apiVersion: v1
 kind: ConfigMap
@@ -32,6 +18,13 @@ data:
   #   the kvstore by commenting out the identity-allocation-mode below, or
   #   setting it to "kvstore".
   identity-allocation-mode: crd
+
+  # identity-change-grace-period is the grace period that needs to pass
+  # before an endpoint that has changed its identity will start using
+  # that new identity. During the grace period, the new identity has
+  # already been allocated and other nodes in the cluster have a chance
+  # to whitelist the new upcoming identity of the endpoint.
+  identity-change-grace-period: "5s"
 
   # If you want to run cilium in debug mode change this value to true
   debug: "false"
@@ -61,7 +54,7 @@ data:
   # Only effective when monitor aggregation is set to "medium" or higher.
   monitor-aggregation-flags: all
 
-  # ct-global-max-entries-* specifies the maximum number of connections
+  # bpf-ct-global-*-max specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair
   # of maps uses these values for IPv4 connections, and another pair of maps
   # use these values for IPv6 connections.
@@ -77,7 +70,11 @@ data:
 
   # bpf-nat-global-max specified the maximum number of entries in the BPF NAT
   # table.
-  bpf-nat-global-max: "841429"
+  bpf-nat-global-max: "524288"
+
+  # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
+  # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
+  bpf-map-dynamic-size-ratio: "0.03"
 
   # Pre-allocation of map entries allows per-packet latency to be reduced, at
   # the expense of up-front memory allocation for the entries in the maps. The
@@ -136,20 +133,42 @@ data:
   wait-bpf-mount: "false"
 
   masquerade: "true"
+  enable-bpf-masquerade: "false"
   enable-xt-socket-fallback: "true"
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"
   kube-proxy-replacement:  "probe"
-  enable-host-reachable-services: "false"
-  enable-external-ips: "false"
-  enable-node-port: "false"
-  node-port-mode: "hybrid"
+  node-port-bind-protection: "true"
+  enable-auto-protect-node-port-range: "true"
+  enable-session-affinity: "true"
+  # Chaining mode is set to portmap, enable health checking
+  enable-endpoint-health-checking: "true"
   enable-well-known-identities: "false"
   enable-remote-node-identity: "true"
 
   synchronize-k8s-nodes: "true"
   policy-audit-mode: "false"
   operator-api-serve-addr: '127.0.0.1:9234'
+
+  # Enable Hubble gRPC service.
+  enable-hubble: "false"
+
+  # A space separated list of iptables chains to disable when installing feeder rules.
+  disable-iptables-feeder-rules: ""
+---
+# Source: cilium/charts/agent/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cilium
+  namespace: kube-system
+---
+# Source: cilium/charts/operator/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: cilium-operator
+  namespace: kube-system
 ---
 # Source: cilium/charts/agent/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1

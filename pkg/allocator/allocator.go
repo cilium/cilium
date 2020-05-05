@@ -206,7 +206,7 @@ type Backend interface {
 	// Release releases the use of an ID associated with the provided key. It
 	// does not guard against concurrent calls to
 	// releases.Release(ctx context.Context, key AllocatorKey) (err error)
-	Release(ctx context.Context, key AllocatorKey) (err error)
+	Release(ctx context.Context, id idpool.ID, key AllocatorKey) (err error)
 
 	// UpdateKey refreshes the record that this node is using this key -> id
 	// mapping. When reliablyMissing is set it will also recreate missing master or
@@ -596,15 +596,6 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		return 0, false, fmt.Errorf("allocation was cancelled while waiting for initial key list to be received: %s", ctx.Err())
 	}
 
-	// Check our list of local keys already in use and increment the
-	// refcnt. The returned key must be released afterwards. No kvstore
-	// operation was performed for this allocation
-	if val := a.localKeys.use(k); val != idpool.NoID {
-		kvstore.Trace("Reusing local id", nil, logrus.Fields{fieldID: val, fieldKey: key})
-		a.mainCache.insert(key, val)
-		return val, false, nil
-	}
-
 	kvstore.Trace("Allocating from kvstore", nil, logrus.Fields{fieldKey: key})
 
 	// make a copy of the template and customize it
@@ -612,6 +603,19 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 	boff.Name = key.String()
 
 	for attempt := 0; attempt < maxAllocAttempts; attempt++ {
+		// Check our list of local keys already in use and increment the
+		// refcnt. The returned key must be released afterwards. No kvstore
+		// operation was performed for this allocation.
+		// We also do this on every loop as a different Allocate call might have
+		// allocated the key while we are attempting to allocate in this
+		// execution thread. It does not hurt to check if localKeys contains a
+		// reference for the key that we are attempting to allocate.
+		if val := a.localKeys.use(k); val != idpool.NoID {
+			kvstore.Trace("Reusing local id", nil, logrus.Fields{fieldID: val, fieldKey: key})
+			a.mainCache.insert(key, val)
+			return val, false, nil
+		}
+
 		// FIXME: Add non-locking variant
 		value, isNew, err = a.lockedAllocate(ctx, key)
 		if err == nil {
@@ -699,12 +703,17 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 
 	// release the key locally, if it was the last use, remove the node
 	// specific value key to remove the global reference mark
-	lastUse, err = a.localKeys.release(k)
+	var id idpool.ID
+	lastUse, id, err = a.localKeys.release(k)
 	if err != nil {
 		return lastUse, err
 	}
 	if lastUse {
-		a.backend.Release(ctx, key)
+		// Since in CRD mode we don't have a way to map which identity is being
+		// used by a node, we need to also pass the ID to the release function.
+		// This allows the CRD store to find the right identity by its ID and
+		// remove the node reference on that identity.
+		a.backend.Release(ctx, id, key)
 	}
 
 	return lastUse, err

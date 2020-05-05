@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -86,11 +86,15 @@ const (
 	// MaxTime specifies the last possible time for GCFilter.Time
 	MaxTime = math.MaxUint32
 
-	noAction = iota
-	deleteEntry
-
 	metricsAlive   = "alive"
 	metricsDeleted = "deleted"
+)
+
+type action int
+
+const (
+	noAction action = iota
+	deleteEntry
 )
 
 var globalDeleteLock [mapTypeMax]lock.Mutex
@@ -112,6 +116,24 @@ type mapAttributes struct {
 	natMap     NatMap
 }
 
+// CtMap interface represents a CT map, and can be reused to implement mock
+// maps for unit tests.
+type CtMap interface {
+	Open() error
+	Close() error
+	Path() (string, error)
+	DumpEntries() (string, error)
+	DumpWithCallback(bpf.DumpCallback) error
+}
+
+// A "Record" designates a map entry (key + value), but avoid "entry" because of
+// possible confusion with "CtEntry" (actually the value part).
+// This type is used for JSON dump and mock maps.
+type CtMapRecord struct {
+	Key   CtKey
+	Value CtEntry
+}
+
 func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxEntries int, nat NatMap) {
 	mapInfo[m] = mapAttributes{
 		bpfDefine: define,
@@ -119,7 +141,7 @@ func setupMapInfo(m mapType, define string, mapKey bpf.MapKey, keySize int, maxE
 		keySize:   keySize,
 		// the value type is CtEntry for all CT maps
 		mapValue:   &CtEntry{},
-		valueSize:  int(unsafe.Sizeof(CtEntry{})),
+		valueSize:  SizeofCtEntry,
 		maxEntries: maxEntries,
 		parser:     bpf.ConvertKeyValue,
 		natMap:     nat,
@@ -190,6 +212,7 @@ type CtEndpoint interface {
 }
 
 // Map represents an instance of a BPF connection tracking map.
+// It also implements the CtMap interface.
 type Map struct {
 	bpf.Map
 
@@ -228,9 +251,7 @@ type GCFilter struct {
 // EmitCTEntryCBFunc is the type used for the EmitCTEntryCB callback in GCFilter
 type EmitCTEntryCBFunc func(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
 
-// ToString iterates through Map m and writes the values of the ct entries in m
-// to a string.
-func (m *Map) DumpEntries() (string, error) {
+func doDumpEntries(m CtMap) (string, error) {
 	var buffer bytes.Buffer
 
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
@@ -245,6 +266,12 @@ func (m *Map) DumpEntries() (string, error) {
 	// DumpWithCallback() must be called before buffer.String().
 	err := m.DumpWithCallback(cb)
 	return buffer.String(), err
+}
+
+// DumpEntries iterates through Map m and writes the values of the ct entries
+// in m to a string.
+func (m *Map) DumpEntries() (string, error) {
+	return doDumpEntries(m)
 }
 
 // newMap creates a new CT map of the specified type with the specified name.
@@ -426,7 +453,7 @@ func doGC4(m *Map, filter *GCFilter) gcStats {
 	return stats
 }
 
-func (f *GCFilter) doFiltering(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) (action int) {
+func (f *GCFilter) doFiltering(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry) action {
 	if f.RemoveExpired && entry.Lifetime < f.Time {
 		return deleteEntry
 	}

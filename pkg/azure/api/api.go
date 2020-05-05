@@ -16,7 +16,7 @@ package api
 
 import (
 	"context"
-	"net"
+	"fmt"
 	"strings"
 	"time"
 
@@ -26,11 +26,13 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/spanstat"
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-09-01/network"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
+	"github.com/Azure/go-autorest/autorest/to"
 )
 
 const (
@@ -39,11 +41,12 @@ const (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "azure-api")
 
-// Client represents an EC2 API client
+// Client represents an Azure API client
 type Client struct {
 	resourceGroup   string
 	interfaces      network.InterfacesClient
 	virtualnetworks network.VirtualNetworksClient
+	vmss            compute.VirtualMachineScaleSetVMsClient
 	vmscalesets     compute.VirtualMachineScaleSetsClient
 	limiter         *helpers.ApiLimiter
 	metricsAPI      MetricsAPI
@@ -55,27 +58,33 @@ type MetricsAPI interface {
 	ObserveRateLimit(operation string, duration time.Duration)
 }
 
-// NewClient returns a new EC2 client
+// NewClient returns a new Azure client
 func NewClient(subscriptionID, resourceGroup string, metrics MetricsAPI, rateLimit float64, burst int) (*Client, error) {
 	c := &Client{
 		resourceGroup:   resourceGroup,
 		interfaces:      network.NewInterfacesClient(subscriptionID),
 		virtualnetworks: network.NewVirtualNetworksClient(subscriptionID),
+		vmss:            compute.NewVirtualMachineScaleSetVMsClient(subscriptionID),
 		vmscalesets:     compute.NewVirtualMachineScaleSetsClient(subscriptionID),
 		metricsAPI:      metrics,
 		limiter:         helpers.NewApiLimiter(metrics, rateLimit, burst),
 	}
 
-	// Authorizer based on environment variables
-	authorizer, err := auth.NewAuthorizerFromEnvironment()
+	// Authorizer based on file first and then environment variables
+	authorizer, err := auth.NewAuthorizerFromFile(compute.DefaultBaseURI)
 	if err != nil {
-		return nil, err
+		authorizer, err = auth.NewAuthorizerFromEnvironment()
+		if err != nil {
+			return nil, err
+		}
 	}
 
 	c.interfaces.Authorizer = authorizer
 	c.interfaces.AddToUserAgent(userAgent)
 	c.virtualnetworks.Authorizer = authorizer
 	c.virtualnetworks.AddToUserAgent(userAgent)
+	c.vmss.Authorizer = authorizer
+	c.vmss.AddToUserAgent(userAgent)
 	c.vmscalesets.Authorizer = authorizer
 	c.vmscalesets.AddToUserAgent(userAgent)
 
@@ -154,6 +163,10 @@ func parseInterface(iface *network.Interface) (instanceID string, i *types.Azure
 		i.ID = *iface.ID
 	}
 
+	if iface.Name != nil {
+		i.Name = *iface.Name
+	}
+
 	if iface.NetworkSecurityGroup != nil {
 		if iface.NetworkSecurityGroup.ID != nil {
 			i.SecurityGroup = *iface.NetworkSecurityGroup.ID
@@ -180,10 +193,10 @@ func parseInterface(iface *network.Interface) (instanceID string, i *types.Azure
 	return
 }
 
-// GetInstances returns the list of all instances including their ENIs as
-// instanceMap
-func (c *Client) GetInstances(ctx context.Context) (types.InstanceMap, error) {
-	instances := types.InstanceMap{}
+// GetInstances returns the list of all instances including all attached
+// interfaces as instanceMap
+func (c *Client) GetInstances(ctx context.Context) (*ipamTypes.InstanceMap, error) {
+	instances := ipamTypes.NewInstanceMap()
 
 	networkInterfaces, err := c.describeNetworkInterfaces(ctx)
 	if err != nil {
@@ -192,7 +205,7 @@ func (c *Client) GetInstances(ctx context.Context) (types.InstanceMap, error) {
 
 	for _, iface := range networkInterfaces {
 		if id, azureInterface := parseInterface(&iface); id != "" {
-			instances.Update(id, azureInterface)
+			instances.Update(id, ipamTypes.InterfaceRevision{Resource: azureInterface})
 		}
 	}
 
@@ -201,8 +214,6 @@ func (c *Client) GetInstances(ctx context.Context) (types.InstanceMap, error) {
 
 // describeVpcs lists all VPCs
 func (c *Client) describeVpcs(ctx context.Context) ([]network.VirtualNetwork, error) {
-	var vpcs []network.VirtualNetwork
-
 	c.limiter.Limit(ctx, "VirtualNetworks.List")
 
 	sinceStart := spanstat.Start()
@@ -212,6 +223,7 @@ func (c *Client) describeVpcs(ctx context.Context) ([]network.VirtualNetwork, er
 		return nil, err
 	}
 
+	var vpcs []network.VirtualNetwork
 	for result.NotDone() {
 		if err != nil {
 			return nil, err
@@ -236,6 +248,9 @@ func parseSubnet(subnet *network.Subnet) (s *ipamTypes.Subnet) {
 			return nil
 		}
 		s.CIDR = c
+		if subnet.IPConfigurations != nil {
+			s.AvailableAddresses = c.AvailableIPs() - len(*subnet.IPConfigurations)
+		}
 	}
 
 	return
@@ -274,32 +289,58 @@ func (c *Client) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetwor
 	return vpcs, subnets, nil
 }
 
-// AssignPrivateIpAddresses assigns the IPs to the interface as specified by
-// the interfaceID. The provided IPs must belong to the subnet as specified by
-// the subnet ID.
-func (c *Client) AssignPrivateIpAddresses(ctx context.Context, subnetID, interfaceID string, ips []net.IP) error {
-	var ipConfigurations []network.InterfaceIPConfiguration
+func generateIpConfigName() string {
+	return rand.RandomStringWithPrefix("Cilium-", 8)
+}
 
-	for _, ip := range ips {
-		ipString := ip.String()
+// AssignPrivateIpAddresses assigns the IPs to the interface as specified by
+// the interfaceName.
+func (c *Client) AssignPrivateIpAddresses(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error {
+	var netIfConfig *compute.VirtualMachineScaleSetNetworkConfiguration
+
+	result, err := c.vmss.Get(ctx, c.resourceGroup, vmssName, instanceID, compute.InstanceView)
+	if err != nil {
+		return fmt.Errorf("failed to get VM %s from VMSS %s: %s", instanceID, vmssName, err)
+	}
+
+	// Search for the existing network interface configuration
+	if result.NetworkProfileConfiguration != nil {
+		for _, networkInterfaceConfiguration := range *result.NetworkProfileConfiguration.NetworkInterfaceConfigurations {
+			if to.String(networkInterfaceConfiguration.Name) == interfaceName {
+				netIfConfig = &networkInterfaceConfiguration
+				break
+			}
+		}
+	}
+
+	if netIfConfig == nil {
+		return fmt.Errorf("interface %s does not exist in VM %s", interfaceName, instanceID)
+	}
+
+	ipConfigurations := make([]compute.VirtualMachineScaleSetIPConfiguration, 0, addresses)
+	for i := 0; i <= addresses; i++ {
 		ipConfigurations = append(ipConfigurations,
-			network.InterfaceIPConfiguration{
-				InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
-					PrivateIPAddress: &ipString,
-					Subnet:           &network.Subnet{ID: &subnetID},
+			compute.VirtualMachineScaleSetIPConfiguration{
+				Name: to.StringPtr(generateIpConfigName()),
+				VirtualMachineScaleSetIPConfigurationProperties: &compute.VirtualMachineScaleSetIPConfigurationProperties{
+					PrivateIPAddressVersion: compute.IPv4,
+					Subnet:                  &compute.APIEntityReference{ID: to.StringPtr(subnetID)},
 				},
 			},
 		)
-
 	}
 
-	ifaceParams := network.Interface{
-		ID: &interfaceID,
-		InterfacePropertiesFormat: &network.InterfacePropertiesFormat{
-			IPConfigurations: &ipConfigurations,
-		},
+	ipConfigurations = append(*netIfConfig.IPConfigurations, ipConfigurations...)
+	netIfConfig.IPConfigurations = &ipConfigurations
+
+	future, err := c.vmss.Update(ctx, c.resourceGroup, vmssName, instanceID, result)
+	if err != nil {
+		return fmt.Errorf("unable to update virtualmachinescaleset: %s", err)
 	}
 
-	_, err := c.interfaces.CreateOrUpdate(ctx, c.resourceGroup, interfaceID, ifaceParams)
-	return err
+	if err := future.WaitForCompletionRef(ctx, c.vmss.Client); err != nil {
+		return fmt.Errorf("error while waiting for virtualmachinescalesets.Update() to complete: %s", err)
+	}
+
+	return nil
 }

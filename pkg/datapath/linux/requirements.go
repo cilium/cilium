@@ -16,10 +16,8 @@ package linux
 
 import (
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/exec"
-	"path/filepath"
 	"regexp"
 	"strings"
 
@@ -106,36 +104,6 @@ func getClangVersion(filePath string) (go_version.Version, error) {
 	return versioncheck.Version(v)
 }
 
-func checkBPFLogs(logType string, fatal bool) {
-	bpfLogFile := logType + ".log"
-	bpfLogPath := filepath.Join(option.Config.StateDir, bpfLogFile)
-
-	if _, err := os.Stat(bpfLogPath); os.IsNotExist(err) {
-		log.Infof("%s check: OK!", logType)
-	} else if err == nil {
-		bpfFeaturesLog, err := ioutil.ReadFile(bpfLogPath)
-		if err != nil {
-			log.WithError(err).WithField(logfields.Path, bpfLogPath).Fatalf("%s check: NOT OK. Unable to read", logType)
-		}
-		printer := log.Debugf
-		if fatal {
-			printer = log.Errorf
-			printer("%s check: NOT OK", logType)
-		} else {
-			printer("%s check: Some features may be limited:", logType)
-		}
-		lines := strings.Trim(string(bpfFeaturesLog), "\n")
-		for _, line := range strings.Split(lines, "\n") {
-			printer(line)
-		}
-		if fatal {
-			log.Fatalf("%s check failed.", logType)
-		}
-	} else {
-		log.WithError(err).WithField(logfields.Path, bpfLogPath).Fatalf("%s check: NOT OK. Unable to read", logType)
-	}
-}
-
 // CheckMinRequirements checks that minimum kernel requirements are met for
 // configuring the BPF datapath. If not, fatally exits.
 func CheckMinRequirements() {
@@ -203,23 +171,15 @@ func CheckMinRequirements() {
 	if _, err := os.Stat(option.Config.BpfDir); os.IsNotExist(err) {
 		log.WithError(err).Fatalf("BPF template directory: NOT OK. Please run 'make install-bpf'")
 	}
-	probeScript := filepath.Join(option.Config.BpfDir, "run_probes.sh")
-	if err := exec.Command(probeScript, option.Config.BpfDir, option.Config.StateDir).Run(); err != nil {
-		log.WithError(err).Fatal("BPF Verifier: NOT OK. Unable to run checker for bpf_features")
-	}
-	featuresFilePath := filepath.Join(globalsDir, "bpf_features.h")
-	if _, err := os.Stat(featuresFilePath); os.IsNotExist(err) {
-		log.WithError(err).WithField(logfields.Path, globalsDir).Fatal("BPF Verifier: NOT OK. Unable to read bpf_features.h")
-	}
-
-	checkBPFLogs("bpf_requirements", true)
-	checkBPFLogs("bpf_features", false)
 
 	// bpftool checks
 	if !option.Config.DryMode {
 		probeManager := probes.NewProbeManager()
 		if err := probeManager.SystemConfigProbes(); err != nil {
 			log.WithError(err).Warning("BPF system config check: NOT OK.")
+		}
+		if err := probeManager.CreateHeadersFile(); err != nil {
+			log.WithError(err).Fatal("BPF check: NOT OK.")
 		}
 	}
 }

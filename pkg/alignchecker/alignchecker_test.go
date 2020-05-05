@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -111,7 +111,7 @@ func (t *AlignCheckerSuite) TestCheckStructAlignments(c *C) {
 	}
 
 	for _, tt := range testCases {
-		err := CheckStructAlignments(path, toCheck{tt.cName: tt.goTypes})
+		err := CheckStructAlignments(path, toCheck{tt.cName: tt.goTypes}, true)
 		if tt.err == "" {
 			c.Assert(err, IsNil)
 		} else {

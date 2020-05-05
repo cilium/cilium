@@ -56,25 +56,25 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 	return CTX_ACT_OK;
 }
 
+#ifndef SKIP_POLICY_MAP
 #ifdef ENABLE_IPV6
 static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel,
-					       struct endpoint_info *ep,
+					       const struct endpoint_info *ep,
 					       __u8 direction)
 {
+	mac_t router_mac = ep->node_mac;
+	mac_t lxc_mac = ep->mac;
 	int ret;
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
-
-	mac_t lxc_mac = ep->mac;
-	mac_t router_mac = ep->node_mac;
 
 	/* This will invalidate the size check */
 	ret = ipv6_l3(ctx, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac, direction);
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-#if defined LOCAL_DELIVERY_METRICS
+#ifdef LOCAL_DELIVERY_METRICS
 	/*
 	 * Special LXC case for updating egress forwarding metrics.
 	 * Note that the packet could still be dropped but it would show up
@@ -83,7 +83,8 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
 #endif
 
-#if defined USE_BPF_PROG_FOR_INGRESS_POLICY && !defined FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
+#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
+	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
 	ctx->mark = (seclabel << 16) | MARK_MAGIC_IDENTITY;
 	return redirect_peer(ep->ifindex, 0);
 #else
@@ -97,21 +98,20 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_off,
 					       __u32 seclabel, struct iphdr *ip4,
-					       struct endpoint_info *ep,
+					       const struct endpoint_info *ep,
 					       __u8 direction __maybe_unused)
 {
+	mac_t router_mac = ep->node_mac;
+	mac_t lxc_mac = ep->mac;
 	int ret;
 
 	cilium_dbg(ctx, DBG_LOCAL_DELIVERY, ep->lxc_id, seclabel);
-
-	mac_t lxc_mac = ep->mac;
-	mac_t router_mac = ep->node_mac;
 
 	ret = ipv4_l3(ctx, l3_off, (__u8 *) &router_mac, (__u8 *) &lxc_mac, ip4);
 	if (ret != CTX_ACT_OK)
 		return ret;
 
-#if defined LOCAL_DELIVERY_METRICS
+#ifdef LOCAL_DELIVERY_METRICS
 	/*
 	 * Special LXC case for updating egress forwarding metrics.
 	 * Note that the packet could still be dropped but it would show up
@@ -120,7 +120,8 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	update_metrics(ctx_full_len(ctx), direction, REASON_FORWARDED);
 #endif
 
-#if defined USE_BPF_PROG_FOR_INGRESS_POLICY && !defined FORCE_LOCAL_POLICY_EVAL_AT_SOURCE
+#if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
+	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
 	ctx->mark = (seclabel << 16) | MARK_MAGIC_IDENTITY;
 	return redirect_peer(ep->ifindex, 0);
 #else
@@ -130,6 +131,7 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	return DROP_MISSED_TAIL_CALL;
 #endif
 }
+#endif /* SKIP_POLICY_MAP */
 
 static __always_inline __u8 get_encrypt_key(__u32 ctx)
 {

@@ -17,6 +17,7 @@ package identitymanager
 import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -187,7 +188,7 @@ func (idm *IdentityManager) GetIdentityModels() []*models.IdentityEndpoints {
 
 	for _, v := range idm.identities {
 		identities = append(identities, &models.IdentityEndpoints{
-			Identity: v.identity.GetModel(),
+			Identity: model.CreateModel(v.identity),
 			RefCount: int64(v.refCount),
 		})
 	}

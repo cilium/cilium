@@ -30,7 +30,7 @@ func (ins *Instance) CheckInsertPolicyText(c *C, version string, policies []stri
 
 func (ins *Instance) InsertPolicyText(version string, policies []string, expectFail string) error {
 	typeUrl := "type.googleapis.com/cilium.NetworkPolicy"
-	var resources []*any.Any
+	resources := make([]*any.Any, 0, len(policies))
 
 	for _, policy := range policies {
 		pb := new(cilium.NetworkPolicy)

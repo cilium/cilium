@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _ipvlan:
 
@@ -25,6 +25,7 @@ datapath instead of the default veth-based one.
     - L7 policy enforcement
     - NAT64
     - IPVLAN with tunneling
+    - BPF-based masquerading
 
 .. note::
 
@@ -66,20 +67,14 @@ ipvlan is operated in L3S mode such that netfilter in host namespace
 is not bypassed. Optionally, the agent can also be set up for masquerading
 all traffic leaving the ipvlan master device if ``global.masquerade`` is set
 to ``"true"``. Note that in order for L3S mode to work correctly, a kernel
-with the following fix is required: `d5256083f62e <https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/commit/?id=d5256083f62e2720f75bb3c5a928a0afe47d6bc3>`_ .
+with the following fix is required: `d5256083f62e <https://git.kernel.org/pub/scm/linux/kernel/git/netdev/net.git/commit/?id=d5256083f62e2720f75bb3c5a928a0afe47d6bc3>`_ .
 This fix is included in stable kernels ``v4.9.155``, ``4.14.98``, ``4.19.20``,
 ``4.20.6`` or higher. Without this kernel fix, ipvlan in L3S mode cannot
 connect to kube-apiserver.
 
 Masquerading with iptables in L3-only mode is not possible since netfilter
 hooks are bypassed in the kernel in this mode, hence L3S (symmetric) had
-to be introduced in the kernel at the cost of performance. However, Cilium
-supports its own BPF-based masquerading which does not rely in any way on
-iptables masquerading. If the ``global.installIptablesRules`` parameter is set
-to ``"false"`` and ``global.masquerade`` set to ``"true"``, then Cilium will
-use the more efficient BPF-based masquerading where ipvlan can remain in
-L3 mode as well (instead of L3S). A Linux kernel v4.16 or higher would be
-required for BPF-based masquerading.
+to be introduced in the kernel at the cost of performance.
 
 Example ConfigMap extract for ipvlan in pure L3 mode:
 
@@ -105,20 +100,6 @@ masquerading all traffic leaving the node:
      --set global.ipvlan.masterDevice=bond0 \\
      --set global.tunnel=disabled \\
      --set global.masquerade=true \\
-     --set global.autoDirectNodeRoutes=true
-
-Example ConfigMap extract for ipvlan in L3 mode with more efficient
-BPF-based masquerading instead of iptables-based:
-
-.. parsed-literal::
-
-   helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set global.datapathMode=ipvlan \\
-     --set global.ipvlan.masterDevice=bond0 \\
-     --set global.tunnel=disabled \\
-     --set global.masquerade=true \\
-     --set global.installIptablesRules=false \\
      --set global.autoDirectNodeRoutes=true
 
 Verify that it has come up correctly:

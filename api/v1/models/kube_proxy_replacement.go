@@ -139,6 +139,9 @@ type KubeProxyReplacementFeatures struct {
 	// external i ps
 	ExternalIPs *KubeProxyReplacementFeaturesExternalIPs `json:"externalIPs,omitempty"`
 
+	// host port
+	HostPort *KubeProxyReplacementFeaturesHostPort `json:"hostPort,omitempty"`
+
 	// host reachable services
 	HostReachableServices *KubeProxyReplacementFeaturesHostReachableServices `json:"hostReachableServices,omitempty"`
 
@@ -151,6 +154,10 @@ func (m *KubeProxyReplacementFeatures) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateExternalIPs(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateHostPort(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -178,6 +185,24 @@ func (m *KubeProxyReplacementFeatures) validateExternalIPs(formats strfmt.Regist
 		if err := m.ExternalIPs.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("features" + "." + "externalIPs")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *KubeProxyReplacementFeatures) validateHostPort(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.HostPort) { // not required
+		return nil
+	}
+
+	if m.HostPort != nil {
+		if err := m.HostPort.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("features" + "." + "hostPort")
 			}
 			return err
 		}
@@ -272,6 +297,38 @@ func (m *KubeProxyReplacementFeaturesExternalIPs) UnmarshalBinary(b []byte) erro
 	return nil
 }
 
+// KubeProxyReplacementFeaturesHostPort kube proxy replacement features host port
+// swagger:model KubeProxyReplacementFeaturesHostPort
+// +k8s:deepcopy-gen=true
+type KubeProxyReplacementFeaturesHostPort struct {
+
+	// enabled
+	Enabled bool `json:"enabled,omitempty"`
+}
+
+// Validate validates this kube proxy replacement features host port
+func (m *KubeProxyReplacementFeaturesHostPort) Validate(formats strfmt.Registry) error {
+	return nil
+}
+
+// MarshalBinary interface implementation
+func (m *KubeProxyReplacementFeaturesHostPort) MarshalBinary() ([]byte, error) {
+	if m == nil {
+		return nil, nil
+	}
+	return swag.WriteJSON(m)
+}
+
+// UnmarshalBinary interface implementation
+func (m *KubeProxyReplacementFeaturesHostPort) UnmarshalBinary(b []byte) error {
+	var res KubeProxyReplacementFeaturesHostPort
+	if err := swag.ReadJSON(b, &res); err != nil {
+		return err
+	}
+	*m = res
+	return nil
+}
+
 // KubeProxyReplacementFeaturesHostReachableServices kube proxy replacement features host reachable services
 // swagger:model KubeProxyReplacementFeaturesHostReachableServices
 // +k8s:deepcopy-gen=true
@@ -312,6 +369,10 @@ func (m *KubeProxyReplacementFeaturesHostReachableServices) UnmarshalBinary(b []
 // +k8s:deepcopy-gen=true
 type KubeProxyReplacementFeaturesNodePort struct {
 
+	// acceleration
+	// Enum: [NONE NATIVE GENERIC]
+	Acceleration string `json:"acceleration,omitempty"`
+
 	// enabled
 	Enabled bool `json:"enabled,omitempty"`
 
@@ -330,6 +391,10 @@ type KubeProxyReplacementFeaturesNodePort struct {
 func (m *KubeProxyReplacementFeaturesNodePort) Validate(formats strfmt.Registry) error {
 	var res []error
 
+	if err := m.validateAcceleration(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateMode(formats); err != nil {
 		res = append(res, err)
 	}
@@ -337,6 +402,52 @@ func (m *KubeProxyReplacementFeaturesNodePort) Validate(formats strfmt.Registry)
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+var kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["NONE","NATIVE","GENERIC"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum = append(kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum, v)
+	}
+}
+
+const (
+
+	// KubeProxyReplacementFeaturesNodePortAccelerationNONE captures enum value "NONE"
+	KubeProxyReplacementFeaturesNodePortAccelerationNONE string = "NONE"
+
+	// KubeProxyReplacementFeaturesNodePortAccelerationNATIVE captures enum value "NATIVE"
+	KubeProxyReplacementFeaturesNodePortAccelerationNATIVE string = "NATIVE"
+
+	// KubeProxyReplacementFeaturesNodePortAccelerationGENERIC captures enum value "GENERIC"
+	KubeProxyReplacementFeaturesNodePortAccelerationGENERIC string = "GENERIC"
+)
+
+// prop value enum
+func (m *KubeProxyReplacementFeaturesNodePort) validateAccelerationEnum(path, location string, value string) error {
+	if err := validate.Enum(path, location, value, kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *KubeProxyReplacementFeaturesNodePort) validateAcceleration(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Acceleration) { // not required
+		return nil
+	}
+
+	// value enum
+	if err := m.validateAccelerationEnum("features"+"."+"nodePort"+"."+"acceleration", "body", m.Acceleration); err != nil {
+		return err
+	}
+
 	return nil
 }
 

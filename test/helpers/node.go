@@ -35,7 +35,8 @@ var (
 	SSHMetaLogs = ginkgoext.NewWriter(new(Buffer))
 )
 
-// SSHMeta contains metadata to SSH into a remote location to run tests
+// SSHMeta contains metadata to SSH into a remote location to run tests,
+// implements Executor interface
 type SSHMeta struct {
 	sshClient *SSHClient
 	env       []string
@@ -318,4 +319,21 @@ func (s *SSHMeta) ExecInBackground(ctx context.Context, cmd string, options ...E
 	}(res)
 
 	return res
+}
+
+// RenderTemplateToFile renders a text/template string into a target filename
+// with specific persmisions. Returns an error if the template cannot be
+// validated or the file cannot be created.
+func (s *SSHMeta) RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error {
+	content, err := RenderTemplate(tmplt)
+	if err != nil {
+		return err
+	}
+
+	cmd := fmt.Sprintf("install -m %o <(echo '%s') %s\n", perm, content, filepath.Join(s.basePath, filename))
+	res := s.Exec(cmd)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("%s", res.CombineOutput())
+	}
+	return nil
 }

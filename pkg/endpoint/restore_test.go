@@ -90,7 +90,8 @@ func (ds *EndpointSuite) endpointCreator(id uint16, secID identity.NumericIdenti
 
 var (
 	regenerationMetadata = &regeneration.ExternalRegenerationMetadata{
-		Reason: "test",
+		Reason:            "test",
+		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
 	}
 )
 
@@ -145,7 +146,7 @@ func (ds *EndpointSuite) TestReadEPsFromDirNames(c *C) {
 	c.Assert(len(eps), Equals, len(epsWanted))
 
 	sort.Slice(epsWanted, func(i, j int) bool { return epsWanted[i].ID < epsWanted[j].ID })
-	var restoredEPs []*Endpoint
+	restoredEPs := make([]*Endpoint, 0, len(eps))
 	for _, ep := range eps {
 		restoredEPs = append(restoredEPs, ep)
 	}

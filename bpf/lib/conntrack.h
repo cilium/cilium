@@ -9,6 +9,7 @@
 
 #include "common.h"
 #include "utils.h"
+#include "ipv4.h"
 #include "ipv6.h"
 #include "dbg.h"
 #include "l4.h"
@@ -176,7 +177,8 @@ static __always_inline bool ct_entry_alive(const struct ct_entry *entry)
 }
 
 /* Helper for holding 2nd service entry alive in nodeport case. */
-static __always_inline bool __ct_entry_keep_alive(void *map, void *tuple)
+static __always_inline bool __ct_entry_keep_alive(const void *map,
+		                                  const void *tuple)
 {
 	struct ct_entry *entry;
 
@@ -198,8 +200,8 @@ static __always_inline bool __ct_entry_keep_alive(void *map, void *tuple)
 	return false;
 }
 
-static __always_inline __u8 __ct_lookup(void *map, struct __ctx_buff *ctx,
-					void *tuple, int action, int dir,
+static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
+					const void *tuple, int action, int dir,
 					struct ct_state *ct_state,
 					bool is_tcp, union tcp_flags seen_flags,
 					__u32 *monitor)
@@ -313,9 +315,11 @@ static __always_inline void ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 }
 
 /* Offset must point to IPv6 */
-static __always_inline int ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, int l4_off, int dir,
-				      struct ct_state *ct_state, __u32 *monitor)
+static __always_inline int ct_lookup6(const void *map,
+				      struct ipv6_ct_tuple *tuple,
+				      struct __ctx_buff *ctx, int l4_off,
+				      int dir, struct ct_state *ct_state,
+				      __u32 *monitor)
 {
 	int ret = CT_NEW, action = ACTION_UNSPEC;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
@@ -466,6 +470,28 @@ static __always_inline void ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 	ct_flip_tuple_dir4(tuple);
 }
 
+static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
+						    int off,
+						    struct ipv4_ct_tuple *tuple)
+{
+#ifdef ENABLE_IPV4_FRAGMENTS
+	void *data, *data_end;
+	struct iphdr *ip4;
+
+	/* This function is called from ct_lookup4(), which is sometimes called
+	 * after data has been invalidated (see handle_ipv4_from_lxc())
+	 */
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	if (unlikely(ipv4_is_fragment(ip4)))
+		return ipv4_handle_fragment(ctx, ip4, off,
+					    (struct ipv4_frag_l4ports *)&tuple->dport);
+#endif
+	/* load sport + dport into tuple */
+	return ctx_load_bytes(ctx, off, &tuple->dport, 4);
+}
+
 static __always_inline void ct4_cilium_dbg_tuple(struct __ctx_buff *ctx, __u8 type,
 						 const struct ipv4_ct_tuple *tuple,
 						 __u32 rev_nat_index, int dir)
@@ -475,7 +501,8 @@ static __always_inline void ct4_cilium_dbg_tuple(struct __ctx_buff *ctx, __u8 ty
 }
 
 /* Offset must point to IPv4 header */
-static __always_inline int ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
+static __always_inline int ct_lookup4(const void *map,
+				      struct ipv4_ct_tuple *tuple,
 				      struct __ctx_buff *ctx, int off, int dir,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
@@ -547,14 +574,12 @@ static __always_inline int ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
 				action = ACTION_CREATE;
 		}
 
-		/* load sport + dport into tuple */
-		if (ctx_load_bytes(ctx, off, &tuple->dport, 4) < 0)
+		if (ipv4_ct_extract_l4_ports(ctx, off, tuple) < 0)
 			return DROP_CT_INVALID_HDR;
 		break;
 
 	case IPPROTO_UDP:
-		/* load sport + dport into tuple */
-		if (ctx_load_bytes(ctx, off, &tuple->dport, 4) < 0)
+		if (ipv4_ct_extract_l4_ports(ctx, off, tuple) < 0)
 			return DROP_CT_INVALID_HDR;
 
 		action = ACTION_CREATE;
@@ -600,9 +625,9 @@ out:
 	return ret;
 }
 
-static __always_inline void ct_update6_backend_id(void *map,
-						  struct ipv6_ct_tuple *tuple,
-						  struct ct_state *state)
+static __always_inline void
+ct_update6_backend_id(const void *map, const struct ipv6_ct_tuple *tuple,
+		      const struct ct_state *state)
 {
 	struct ct_entry *entry;
 
@@ -617,8 +642,8 @@ static __always_inline void ct_update6_backend_id(void *map,
 }
 
 static __always_inline void
-ct_update6_rev_nat_index(void *map, struct ipv6_ct_tuple *tuple,
-			 struct ct_state *state)
+ct_update6_rev_nat_index(const void *map, const struct ipv6_ct_tuple *tuple,
+			 const struct ct_state *state)
 {
 	struct ct_entry *entry;
 
@@ -631,9 +656,10 @@ ct_update6_rev_nat_index(void *map, struct ipv6_ct_tuple *tuple,
 }
 
 /* Offset must point to IPv6 */
-static __always_inline int ct_create6(void *map, struct ipv6_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, int dir,
-				      struct ct_state *ct_state,
+static __always_inline int ct_create6(const void *map_main, const void *map_related,
+				      struct ipv6_ct_tuple *tuple,
+				      struct __ctx_buff *ctx, const int dir,
+				      const struct ct_state *ct_state,
 				      bool proxy_redirect)
 {
 	/* Create entry in original direction */
@@ -643,7 +669,7 @@ static __always_inline int ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 
 	/* Note if this is a proxy connection so that replies can be redirected back to the proxy. */
 	entry.proxy_redirect = proxy_redirect;
-	
+
 	/* See the ct_create4 comments re the rx_bytes hack */
 	if (dir == CT_SERVICE) {
 		entry.backend_id = 0;
@@ -669,36 +695,32 @@ static __always_inline int ct_create6(void *map, struct ipv6_ct_tuple *tuple,
 	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index, ct_state->src_sec_id, 0);
 
 	entry.src_sec_id = ct_state->src_sec_id;
-	if (map_update_elem(map, tuple, &entry, 0) < 0)
+	if (map_update_elem(map_main, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
-	/* Create an ICMPv6 entry to relate errors */
-	struct ipv6_ct_tuple icmp_tuple = {
-		.nexthdr = IPPROTO_ICMPV6,
-		.sport = 0,
-		.dport = 0,
-		.flags = tuple->flags | TUPLE_F_RELATED,
-	};
+	if (map_related != NULL) {
+		/* Create an ICMPv6 entry to relate errors */
+		struct ipv6_ct_tuple icmp_tuple = {
+			.nexthdr = IPPROTO_ICMPV6,
+			.sport = 0,
+			.dport = 0,
+			.flags = tuple->flags | TUPLE_F_RELATED,
+		};
 
-	entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
+		entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
 
-	ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
-	ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
+		ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
+		ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
 
-	/* FIXME: We could do a lookup and check if an L3 entry already exists */
-	if (map_update_elem(map, &icmp_tuple, &entry, 0) < 0) {
-		/* Previous map update succeeded, we could delete it
-		 * but we might as well just let it time out.
-		 */
-		return DROP_CT_CREATE_FAILED;
+		if (map_update_elem(map_related, &icmp_tuple, &entry, 0) < 0)
+			return DROP_CT_CREATE_FAILED;
 	}
-
 	return 0;
 }
 
-static __always_inline void ct_update4_backend_id(void *map,
-						  struct ipv4_ct_tuple *tuple,
-						  struct ct_state *state)
+static __always_inline void ct_update4_backend_id(const void *map,
+						  const struct ipv4_ct_tuple *tuple,
+						  const struct ct_state *state)
 {
 	struct ct_entry *entry;
 
@@ -713,8 +735,8 @@ static __always_inline void ct_update4_backend_id(void *map,
 }
 
 static __always_inline void
-ct_update4_rev_nat_index(void *map, struct ipv4_ct_tuple *tuple,
-			 struct ct_state *state)
+ct_update4_rev_nat_index(const void *map, const struct ipv4_ct_tuple *tuple,
+			 const struct ct_state *state)
 {
 	struct ct_entry *entry;
 
@@ -726,9 +748,11 @@ ct_update4_rev_nat_index(void *map, struct ipv4_ct_tuple *tuple,
 	return;
 }
 
-static __always_inline int ct_create4(void *map, struct ipv4_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, int dir,
-				      struct ct_state *ct_state,
+static __always_inline int ct_create4(const void *map_main,
+				      const void *map_related,
+				      struct ipv4_ct_tuple *tuple,
+				      struct __ctx_buff *ctx, const int dir,
+				      const struct ct_state *ct_state,
 				      bool proxy_redirect)
 {
 	/* Create entry in original direction */
@@ -738,7 +762,7 @@ static __always_inline int ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 
 	/* Note if this is a proxy connection so that replies can be redirected back to the proxy. */
 	entry.proxy_redirect = proxy_redirect;
-	
+
 	entry.lb_loopback = ct_state->loopback;
 	entry.node_port = ct_state->node_port;
 	entry.dsr = ct_state->dsr;
@@ -777,7 +801,7 @@ static __always_inline int ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index, ct_state->src_sec_id, ct_state->addr);
 
 	entry.src_sec_id = ct_state->src_sec_id;
-	if (map_update_elem(map, tuple, &entry, 0) < 0)
+	if (map_update_elem(map_main, tuple, &entry, 0) < 0)
 		return DROP_CT_CREATE_FAILED;
 
 	if (ct_state->addr && ct_state->loopback) {
@@ -800,81 +824,101 @@ static __always_inline int ct_create4(void *map, struct ipv4_ct_tuple *tuple,
 			tuple->daddr = ct_state->addr;
 		}
 
-		if (map_update_elem(map, tuple, &entry, 0) < 0)
+		if (map_update_elem(map_main, tuple, &entry, 0) < 0)
 			return DROP_CT_CREATE_FAILED;
 		tuple->saddr = saddr;
 		tuple->daddr = daddr;
 		tuple->flags = flags;
 	}
 
-	/* Create an ICMP entry to relate errors */
-	struct ipv4_ct_tuple icmp_tuple = {
-		.daddr = tuple->daddr,
-		.saddr = tuple->saddr,
-		.nexthdr = IPPROTO_ICMP,
-		.sport = 0,
-		.dport = 0,
-		.flags = tuple->flags | TUPLE_F_RELATED,
-	};
+	if (map_related != NULL) {
+		/* Create an ICMP entry to relate errors */
+		struct ipv4_ct_tuple icmp_tuple = {
+			.daddr = tuple->daddr,
+			.saddr = tuple->saddr,
+			.nexthdr = IPPROTO_ICMP,
+			.sport = 0,
+			.dport = 0,
+			.flags = tuple->flags | TUPLE_F_RELATED,
+		};
 
-	entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
-
-	/* FIXME: We could do a lookup and check if an L3 entry already exists */
-	if (map_update_elem(map, &icmp_tuple, &entry, 0) < 0)
-		return DROP_CT_CREATE_FAILED;
-
+		entry.seen_non_syn = true; /* For ICMP, there is no SYN. */
+		/* Previous map update succeeded, we could delete it in case
+		 * the below throws an error, but we might as well just let
+		 * it time out.
+		 */
+		if (map_update_elem(map_related, &icmp_tuple, &entry, 0) < 0)
+			return DROP_CT_CREATE_FAILED;
+	}
 	return 0;
 }
 #else /* !CONNTRACK */
-static __always_inline int ct_lookup6(void *map, struct ipv6_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, int off, int dir,
-				      struct ct_state *ct_state, __u32 *monitor)
+static __always_inline int
+ct_lookup6(const void *map __maybe_unused,
+	   struct ipv6_ct_tuple *tuple __maybe_unused,
+	   struct __ctx_buff *ctx __maybe_unused, int off __maybe_unused,
+	   int dir __maybe_unused, struct ct_state *ct_state __maybe_unused,
+	   __u32 *monitor __maybe_unused)
 {
 	return 0;
 }
 
-static __always_inline int ct_lookup4(void *map, struct ipv4_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, int off, int dir,
-				      struct ct_state *ct_state, __u32 *monitor)
+static __always_inline int
+ct_lookup4(const void *map __maybe_unused,
+	   struct ipv4_ct_tuple *tuple __maybe_unused,
+	   struct __ctx_buff *ctx __maybe_unused, int off __maybe_unused,
+	   int dir __maybe_unused, struct ct_state *ct_state __maybe_unused,
+	   __u32 *monitor __maybe_unused)
 {
 	return 0;
 }
 
-static __always_inline void ct_update6_backend_id(void *map,
-						  struct ipv6_ct_tuple *tuple,
-						  struct ct_state *state)
+static __always_inline void
+ct_update6_backend_id(const void *map __maybe_unused,
+		      const struct ipv6_ct_tuple *tuple __maybe_unused,
+		      const struct ct_state *state __maybe_unused)
 {
 }
 
 static __always_inline void
-ct_update6_rev_nat_index(void *map, struct ipv6_ct_tuple *tuple,
-			 struct ct_state *state)
+ct_update6_rev_nat_index(const void *map __maybe_unused,
+			 const struct ipv6_ct_tuple *tuple __maybe_unused,
+			 const struct ct_state *state __maybe_unused)
 {
 }
 
-static __always_inline int ct_create6(void *map, struct ipv6_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, int dir,
-				      struct ct_state *ct_state,
-				      bool from_proxy)
+static __always_inline int
+ct_create6(const void *map_main __maybe_unused,
+	   const void *map_related __maybe_unused,
+	   struct ipv6_ct_tuple *tuple __maybe_unused,
+	   struct __ctx_buff *ctx __maybe_unused, const int dir __maybe_unused,
+	   struct ct_state *ct_state __maybe_unused,
+	   bool from_proxy __maybe_unused)
 {
 	return 0;
 }
 
-static __always_inline void ct_update4_backend_id(void *map,
-						  struct ipv4_ct_tuple *tuple,
-					          struct ct_state *state)
+static __always_inline void
+ct_update4_backend_id(const void *map __maybe_unused,
+		      const struct ipv4_ct_tuple *tuple __maybe_unused,
+		      const struct ct_state *state __maybe_unused)
 {
 }
 
 static __always_inline void
-ct_update4_rev_nat_index(void *map, struct ipv4_ct_tuple *tuple,
-			 struct ct_state *state)
+ct_update4_rev_nat_index(const void *map __maybe_unused,
+			 const struct ipv4_ct_tuple *tuple __maybe_unused,
+			 const struct ct_state *state __maybe_unused)
 {
 }
 
-static __always_inline int ct_create4(void *map, struct ipv4_ct_tuple *tuple,
-				      struct __ctx_buff *ctx, int dir,
-				      struct ct_state *ct_state, bool from_proxy)
+static __always_inline int
+ct_create4(const void *map_main __maybe_unused,
+	   const void *map_related __maybe_unused,
+	   struct ipv4_ct_tuple *tuple __maybe_unused,
+	   struct __ctx_buff *ctx __maybe_unused, const int dir __maybe_unused,
+	   const struct ct_state *ct_state __maybe_unused,
+	   bool proxy_redirect __maybe_unused)
 {
 	return 0;
 }

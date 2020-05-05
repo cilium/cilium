@@ -14,16 +14,14 @@ cd "${certs_dir}"
 master="k8s1"
 
 if [ -n "${INSTALL}" ]; then
-    log "Downloading cfssl utility..."
-    cfssl_url="https://pkg.cfssl.org/R1.2/cfssl_linux-amd64"
-    cfssljson_url="https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64"
-    ${WGET} -nv ${cfssl_url}
-    ${WGET} -nv ${cfssljson_url}
-    log "Downloading cfssl utility... Done!"
-    chmod +x cfssl_linux-amd64
-    sudo mv cfssl_linux-amd64 /usr/bin/cfssl
-    chmod +x cfssljson_linux-amd64
-    sudo mv cfssljson_linux-amd64 /usr/bin/cfssljson
+    download_to "${cache_dir}/cfssl" "cfssl_linux-amd64" \
+        "https://pkg.cfssl.org/R1.2/cfssl_linux-amd64"
+    chmod +x "${cache_dir}/cfssl/cfssl_linux-amd64"
+    sudo mv "${cache_dir}/cfssl/cfssl_linux-amd64" /usr/bin/cfssl
+    download_to "${cache_dir}/cfssl" "cfssljson_linux-amd64" \
+        "https://pkg.cfssl.org/R1.2/cfssljson_linux-amd64"
+    chmod +x "${cache_dir}/cfssl/cfssljson_linux-amd64"
+    sudo mv "${cache_dir}/cfssl/cfssljson_linux-amd64" /usr/bin/cfssljson
 fi
 
 

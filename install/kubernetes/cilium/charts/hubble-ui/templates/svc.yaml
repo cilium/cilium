@@ -1,0 +1,15 @@
+{{- if .Values.global.hubble.ui.enabled }}
+kind: Service
+apiVersion: v1
+metadata:
+  namespace: {{ .Release.Namespace }}
+  name: hubble-ui
+spec:
+  selector:
+    k8s-app: hubble-ui
+  ports:
+    - name: http
+      port: 12000
+      targetPort: 12000
+  type: ClusterIP
+{{- end }}

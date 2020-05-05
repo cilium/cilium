@@ -78,13 +78,6 @@ func (s *LoaderTestSuite) TearDownSuite(c *C) {
 }
 
 func (s *LoaderTestSuite) TearDownTest(c *C) {
-	// Old map names as created by older versions of these tests
-	//
-	// FIXME GH-6701: Remove for 1.5.0
-	os.Remove("/sys/fs/bpf/tc/globals/cilium_policy_foo")
-	os.Remove("/sys/fs/bpf/tc/globals/cilium_calls_111")
-	os.Remove("/sys/fs/bpf/tc/globals/cilium_ep_config_111")
-
 	files, err := filepath.Glob("/sys/fs/bpf/tc/globals/test_*")
 	if err != nil {
 		panic(err)

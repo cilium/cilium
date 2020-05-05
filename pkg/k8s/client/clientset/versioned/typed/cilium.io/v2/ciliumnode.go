@@ -17,6 +17,7 @@
 package v2
 
 import (
+	"context"
 	"time"
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -35,15 +36,15 @@ type CiliumNodesGetter interface {
 
 // CiliumNodeInterface has methods to work with CiliumNode resources.
 type CiliumNodeInterface interface {
-	Create(*v2.CiliumNode) (*v2.CiliumNode, error)
-	Update(*v2.CiliumNode) (*v2.CiliumNode, error)
-	UpdateStatus(*v2.CiliumNode) (*v2.CiliumNode, error)
-	Delete(name string, options *v1.DeleteOptions) error
-	DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error
-	Get(name string, options v1.GetOptions) (*v2.CiliumNode, error)
-	List(opts v1.ListOptions) (*v2.CiliumNodeList, error)
-	Watch(opts v1.ListOptions) (watch.Interface, error)
-	Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v2.CiliumNode, err error)
+	Create(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.CreateOptions) (*v2.CiliumNode, error)
+	Update(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error)
+	UpdateStatus(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (*v2.CiliumNode, error)
+	Delete(ctx context.Context, name string, opts v1.DeleteOptions) error
+	DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error
+	Get(ctx context.Context, name string, opts v1.GetOptions) (*v2.CiliumNode, error)
+	List(ctx context.Context, opts v1.ListOptions) (*v2.CiliumNodeList, error)
+	Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error)
+	Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumNode, err error)
 	CiliumNodeExpansion
 }
 
@@ -60,19 +61,19 @@ func newCiliumNodes(c *CiliumV2Client) *ciliumNodes {
 }
 
 // Get takes name of the ciliumNode, and returns the corresponding ciliumNode object, and an error if there is any.
-func (c *ciliumNodes) Get(name string, options v1.GetOptions) (result *v2.CiliumNode, err error) {
+func (c *ciliumNodes) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumNode, err error) {
 	result = &v2.CiliumNode{}
 	err = c.client.Get().
 		Resource("ciliumnodes").
 		Name(name).
 		VersionedParams(&options, scheme.ParameterCodec).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // List takes label and field selectors, and returns the list of CiliumNodes that match those selectors.
-func (c *ciliumNodes) List(opts v1.ListOptions) (result *v2.CiliumNodeList, err error) {
+func (c *ciliumNodes) List(ctx context.Context, opts v1.ListOptions) (result *v2.CiliumNodeList, err error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -82,13 +83,13 @@ func (c *ciliumNodes) List(opts v1.ListOptions) (result *v2.CiliumNodeList, err 
 		Resource("ciliumnodes").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Watch returns a watch.Interface that watches the requested ciliumNodes.
-func (c *ciliumNodes) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *ciliumNodes) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	var timeout time.Duration
 	if opts.TimeoutSeconds != nil {
 		timeout = time.Duration(*opts.TimeoutSeconds) * time.Second
@@ -98,81 +99,84 @@ func (c *ciliumNodes) Watch(opts v1.ListOptions) (watch.Interface, error) {
 		Resource("ciliumnodes").
 		VersionedParams(&opts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Watch()
+		Watch(ctx)
 }
 
 // Create takes the representation of a ciliumNode and creates it.  Returns the server's representation of the ciliumNode, and an error, if there is any.
-func (c *ciliumNodes) Create(ciliumNode *v2.CiliumNode) (result *v2.CiliumNode, err error) {
+func (c *ciliumNodes) Create(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.CreateOptions) (result *v2.CiliumNode, err error) {
 	result = &v2.CiliumNode{}
 	err = c.client.Post().
 		Resource("ciliumnodes").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(ciliumNode).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Update takes the representation of a ciliumNode and updates it. Returns the server's representation of the ciliumNode, and an error, if there is any.
-func (c *ciliumNodes) Update(ciliumNode *v2.CiliumNode) (result *v2.CiliumNode, err error) {
+func (c *ciliumNodes) Update(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (result *v2.CiliumNode, err error) {
 	result = &v2.CiliumNode{}
 	err = c.client.Put().
 		Resource("ciliumnodes").
 		Name(ciliumNode.Name).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(ciliumNode).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-
-func (c *ciliumNodes) UpdateStatus(ciliumNode *v2.CiliumNode) (result *v2.CiliumNode, err error) {
+func (c *ciliumNodes) UpdateStatus(ctx context.Context, ciliumNode *v2.CiliumNode, opts v1.UpdateOptions) (result *v2.CiliumNode, err error) {
 	result = &v2.CiliumNode{}
 	err = c.client.Put().
 		Resource("ciliumnodes").
 		Name(ciliumNode.Name).
 		SubResource("status").
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(ciliumNode).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }
 
 // Delete takes name of the ciliumNode and deletes it. Returns an error if one occurs.
-func (c *ciliumNodes) Delete(name string, options *v1.DeleteOptions) error {
+func (c *ciliumNodes) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	return c.client.Delete().
 		Resource("ciliumnodes").
 		Name(name).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *ciliumNodes) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
+func (c *ciliumNodes) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
 	var timeout time.Duration
-	if listOptions.TimeoutSeconds != nil {
-		timeout = time.Duration(*listOptions.TimeoutSeconds) * time.Second
+	if listOpts.TimeoutSeconds != nil {
+		timeout = time.Duration(*listOpts.TimeoutSeconds) * time.Second
 	}
 	return c.client.Delete().
 		Resource("ciliumnodes").
-		VersionedParams(&listOptions, scheme.ParameterCodec).
+		VersionedParams(&listOpts, scheme.ParameterCodec).
 		Timeout(timeout).
-		Body(options).
-		Do().
+		Body(&opts).
+		Do(ctx).
 		Error()
 }
 
 // Patch applies the patch and returns the patched ciliumNode.
-func (c *ciliumNodes) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v2.CiliumNode, err error) {
+func (c *ciliumNodes) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumNode, err error) {
 	result = &v2.CiliumNode{}
 	err = c.client.Patch(pt).
 		Resource("ciliumnodes").
-		SubResource(subresources...).
 		Name(name).
+		SubResource(subresources...).
+		VersionedParams(&opts, scheme.ParameterCodec).
 		Body(data).
-		Do().
+		Do(ctx).
 		Into(result)
 	return
 }

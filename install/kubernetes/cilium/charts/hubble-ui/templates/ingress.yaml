@@ -1,0 +1,29 @@
+{{- if and .Values.global.hubble.ui.enabled .Values.ingress.enabled -}}
+{{- $ingressPath := .Values.ingress.path -}}
+apiVersion: extensions/v1beta1
+kind: Ingress
+metadata:
+  name: hubble-ui
+  namespace: {{ .Release.Namespace }}
+  labels:
+    k8s-app: hubble-ui
+{{- with .Values.ingress.annotations }}
+  annotations:
+{{ toYaml . | indent 4 }}
+{{- end }}
+spec:
+{{- if .Values.ingress.tls }}
+  tls:
+{{ toYaml .Values.ingress.tls | indent 4 }}
+{{- end }}
+  rules:
+  {{- range .Values.ingress.hosts }}
+    - host: {{ . }}
+      http:
+        paths:
+          - path: {{ $ingressPath }}
+            backend:
+              serviceName: hubble-ui
+              servicePort: http
+  {{- end }}
+{{- end }}

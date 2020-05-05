@@ -24,10 +24,10 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 
-	"github.com/cilium/cilium/pkg/defaults"
 	. "gopkg.in/check.v1"
 	"k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -458,8 +458,8 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 			cache.ResourceEventHandlerFuncs{
 				AddFunc: func(obj interface{}) {},
 				UpdateFunc: func(oldObj, newObj interface{}) {
-					if oldK8sNP := k8s.CopyObjToV1Node(oldObj); oldK8sNP != nil {
-						if newK8sNP := k8s.CopyObjToV1Node(newObj); newK8sNP != nil {
+					if oldK8sNP := k8s.ObjToV1Node(oldObj); oldK8sNP != nil {
+						if newK8sNP := k8s.ObjToV1Node(newObj); newK8sNP != nil {
 							if k8s.EqualV1Node(oldK8sNP, newK8sNP) {
 								return
 							}
@@ -467,7 +467,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
-					k8sNP := k8s.CopyObjToV1Node(obj)
+					k8sNP := k8s.ObjToV1Node(obj)
 					if k8sNP == nil {
 						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 						if !ok {
@@ -476,7 +476,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 						// Delete was not observed by the watcher but is
 						// removed from kube-apiserver. This is the last
 						// known state and the object no longer exists.
-						k8sNP = k8s.CopyObjToV1Node(deletedObj.Obj)
+						k8sNP = k8s.ObjToV1Node(deletedObj.Obj)
 						if k8sNP == nil {
 							return
 						}

@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,6 +54,14 @@ const (
 
 	// SockPathEnv is the environment variable to overwrite SockPath
 	SockPathEnv = "CILIUM_SOCK"
+
+	// HubbleSockPath is the path to the UNIX domain socket exposing the Hubble
+	// API to clients locally.
+	HubbleSockPath = RuntimePath + "/hubble.sock"
+
+	// HubbleSockPathEnv is the environment variable to overwrite
+	// HubbleSockPath.
+	HubbleSockPathEnv = "HUBBLE_SOCK"
 
 	// MonitorSockPath1_2 is the path to the UNIX domain socket used to
 	// distribute BPF and agent events to listeners.
@@ -292,9 +300,9 @@ const (
 	// It is calculated as Min(int64 positive max, etcd MaxLeaseTTL, consul MaxLeaseTTL)
 	KVstoreLeaseMaxTTL = 86400 * time.Second
 
-	// ENIPreAllocation is the default value for
-	// CiliumNode.Spec.ENI.PreAllocate if no value is set
-	ENIPreAllocation = 8
+	// IPAMPreAllocation is the default value for
+	// CiliumNode.Spec.IPAM.PreAllocate if no value is set
+	IPAMPreAllocation = 8
 
 	// ENIFirstInterfaceIndex is the default value for
 	// CiliumNode.Spec.ENI.FirstInterfaceIndex if no value is set
@@ -354,4 +362,16 @@ const (
 	// IPAMExpiration is the timeout after which an IP subject to expiratio
 	// is being released again if no endpoint is being created in time.
 	IPAMExpiration = 3 * time.Minute
+
+	// EnableIPv4FragmentsTracking enables IPv4 fragments tracking for
+	// L4-based lookups
+	EnableIPv4FragmentsTracking = true
+
+	// FragmentsMapEntries is the default number of entries allowed in an
+	// the map used to track datagram fragments.
+	FragmentsMapEntries = 8192
+
+	// K8sEnableAPIDiscovery defines whether Kuberntes API groups and
+	// resources should be probed using the discovery API
+	K8sEnableAPIDiscovery = false
 )

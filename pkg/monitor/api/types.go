@@ -434,3 +434,45 @@ func ServiceDeleteRepr(
 	repr, err := json.Marshal(notification)
 	return string(repr), err
 }
+
+const (
+	// PolicyIngress is the value of Flags&PolicyNotifyFlagDirection for ingress traffic
+	PolicyIngress = 1
+
+	// PolicyEgress is the value of Flags&PolicyNotifyFlagDirection for egress traffic
+	PolicyEgress = 2
+
+	// PolicyMatchNone is the value of MatchType indicatating no policy match
+	PolicyMatchNone = 0
+
+	// PolicyMatchL3Only is the value of MatchType indicating a L3-only match
+	PolicyMatchL3Only = 1
+
+	// PolicyMatchL3L4 is the value of MatchType indicating a L3+L4 match
+	PolicyMatchL3L4 = 2
+
+	// PolicyMatchL4Only is the value of MatchType indicating a L4-only match
+	PolicyMatchL4Only = 3
+
+	// PolicyMatchAll is the value of MatchType indicating an allow-all match
+	PolicyMatchAll = 4
+)
+
+type PolicyMatchType int
+
+func (m PolicyMatchType) String() string {
+	switch m {
+	case PolicyMatchL3Only:
+		return "L3-Only"
+	case PolicyMatchL3L4:
+		return "L3-L4"
+	case PolicyMatchL4Only:
+		return "L4-Only"
+	case PolicyMatchAll:
+		return "all"
+	case PolicyMatchNone:
+		return "none"
+
+	}
+	return "unknown"
+}

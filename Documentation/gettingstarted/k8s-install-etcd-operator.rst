@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _k8s_install_etcd_operator:
 
@@ -98,9 +98,10 @@ Troubleshooting
 
    * ``kube-dns`` or ``coredns``
    * ``cilium-xxx``
+   * ``cilium-operator-xxx``
    * ``cilium-etcd-operator``
    * ``etcd-operator``
-   * ``etcd-xxx``
+   * ``cilium-etcd-xxx``
 
    All timeouts are configured that this will typically work out smoothly even
    if some of the pods restart once or twice. In case any of the above pods get

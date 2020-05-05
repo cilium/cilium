@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/aws/types"
+	"github.com/cilium/cilium/pkg/checker"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 
 	"gopkg.in/check.v1"
@@ -72,6 +73,22 @@ func (e *MockSuite) TestMock(c *check.C) {
 	c.Assert(ok, check.Equals, false)
 	_, ok = api.enis["i-1"][eniID2]
 	c.Assert(ok, check.Equals, false)
+
+	sg1 := &types.SecurityGroup{
+		ID:    "sg1",
+		VpcID: "vpc-1",
+		Tags:  map[string]string{"k1": "v1"},
+	}
+	sg2 := &types.SecurityGroup{
+		ID:    "sg2",
+		VpcID: "vpc-1",
+		Tags:  map[string]string{"k1": "v1"},
+	}
+	api.UpdateSecurityGroups([]*types.SecurityGroup{sg1, sg2})
+
+	sgMap, err := api.GetSecurityGroups(context.TODO())
+	c.Assert(err, check.IsNil)
+	c.Assert(sgMap, checker.DeepEquals, types.SecurityGroupMap{"sg1": sg1, "sg2": sg2})
 }
 
 func (e *MockSuite) TestSetMockError(c *check.C) {

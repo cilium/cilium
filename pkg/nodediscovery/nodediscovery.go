@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodemanager "github.com/cilium/cilium/pkg/node/manager"
 	nodestore "github.com/cilium/cilium/pkg/node/store"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 
@@ -56,7 +57,7 @@ type NodeDiscovery struct {
 	Manager     *nodemanager.Manager
 	LocalConfig datapath.LocalNodeConfiguration
 	Registrar   nodestore.NodeRegistrar
-	LocalNode   node.Node
+	LocalNode   nodeTypes.Node
 	Registered  chan struct{}
 	NetConf     *cnitypes.NetConf
 }
@@ -107,7 +108,7 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 			IPv4PodSubnets:          option.Config.IPv4PodSubnets,
 			IPv6PodSubnets:          option.Config.IPv6PodSubnets,
 		},
-		LocalNode: node.Node{
+		LocalNode: nodeTypes.Node{
 			Source: source.Local,
 		},
 		Registered: make(chan struct{}),
@@ -121,35 +122,35 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.LocalNode.Name = nodeName
 	n.LocalNode.Cluster = option.Config.ClusterName
-	n.LocalNode.IPAddresses = []node.Address{}
+	n.LocalNode.IPAddresses = []nodeTypes.Address{}
 	n.LocalNode.IPv4AllocCIDR = node.GetIPv4AllocRange()
 	n.LocalNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
 	n.LocalNode.ClusterID = option.Config.ClusterID
 	n.LocalNode.EncryptionKey = node.GetIPsecKeyIdentity()
 
 	if node.GetExternalIPv4() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, node.Address{
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeInternalIP,
 			IP:   node.GetExternalIPv4(),
 		})
 	}
 
 	if node.GetIPv6() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, node.Address{
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeInternalIP,
 			IP:   node.GetIPv6(),
 		})
 	}
 
 	if node.GetInternalIPv4() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, node.Address{
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
 			IP:   node.GetInternalIPv4(),
 		})
 	}
 
 	if node.GetIPv6Router() != nil {
-		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, node.Address{
+		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
 			Type: addressing.NodeCiliumInternalIP,
 			IP:   node.GetIPv6Router(),
 		})
@@ -178,12 +179,6 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		}
 	}()
 
-	if k8s.IsEnabled() {
-		// Creation or update of the CiliumNode can be done in the
-		// background, nothing depends on the completion of this.
-		go n.UpdateCiliumNodeResource()
-	}
-
 	if option.Config.KVStore != "" {
 		go func() {
 			<-n.Registered
@@ -198,6 +193,12 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 					},
 				})
 		}()
+	}
+
+	if k8s.IsEnabled() {
+		// CRD IPAM endpoint restoration depends on the completion of this
+		// to avoid custom resource update conflicts.
+		n.UpdateCiliumNodeResource()
 	}
 }
 
@@ -216,12 +217,12 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 	ciliumClient := k8s.CiliumClient()
 
 	performUpdate := true
-	nodeResource, err := ciliumClient.CiliumV2().CiliumNodes().Get(node.GetName(), metav1.GetOptions{})
+	nodeResource, err := ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), nodeTypes.GetName(), metav1.GetOptions{})
 	if err != nil {
 		performUpdate = false
 		nodeResource = &ciliumv2.CiliumNode{
 			ObjectMeta: metav1.ObjectMeta{
-				Name: node.GetName(),
+				Name: nodeTypes.GetName(),
 			},
 		}
 	}
@@ -230,13 +231,13 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 
 	// Tie the CiliumNode custom resource lifecycle to the lifecycle of the
 	// Kubernetes node
-	if k8sNode, err := k8s.GetNode(k8s.Client(), node.GetName()); err != nil {
+	if k8sNode, err := k8s.GetNode(k8s.Client(), nodeTypes.GetName()); err != nil {
 		log.WithError(err).Warning("Kubernetes node resource representing own node is not available, cannot set OwnerReference")
 	} else {
 		nodeResource.ObjectMeta.OwnerReferences = []metav1.OwnerReference{{
 			APIVersion: "v1",
 			Kind:       "Node",
-			Name:       node.GetName(),
+			Name:       nodeTypes.GetName(),
 			UID:        k8sNode.UID,
 		}}
 		providerID = k8sNode.Spec.ProviderID
@@ -282,7 +283,6 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 
 		nodeResource.Spec.ENI.VpcID = vpcID
 		nodeResource.Spec.ENI.FirstInterfaceIndex = getInt(defaults.ENIFirstInterfaceIndex)
-		nodeResource.Spec.ENI.PreAllocate = defaults.ENIPreAllocation
 
 		if c := n.NetConf; c != nil {
 			if c.IPAM.MinAllocate != 0 {
@@ -316,7 +316,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 			nodeResource.Spec.ENI.DeleteOnTermination = c.ENI.DeleteOnTermination
 		}
 
-		nodeResource.Spec.ENI.InstanceID = instanceID
+		nodeResource.Spec.InstanceID = instanceID
 		nodeResource.Spec.ENI.InstanceType = instanceType
 		nodeResource.Spec.ENI.AvailabilityZone = availabilityZone
 
@@ -327,17 +327,33 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 		if !strings.HasPrefix(providerID, azureTypes.ProviderPrefix) {
 			log.WithError(err).Fatalf("Spec.ProviderID in k8s node resource must have prefix %s", azureTypes.ProviderPrefix)
 		}
-		nodeResource.Spec.Azure = azureTypes.AzureSpec{}
-		nodeResource.Spec.Azure.InstanceID = strings.TrimPrefix(providerID, azureTypes.ProviderPrefix)
+		// The Azure controller in Kubernetes creates a mix of upper
+		// and lower case when filling in the ProviderID and is
+		// therefore not providing the exact representation of what is
+		// returned by the Azure API. Convert it to lower case for
+		// consistent results.
+		nodeResource.Spec.InstanceID = strings.ToLower(strings.TrimPrefix(providerID, azureTypes.ProviderPrefix))
+
+		if c := n.NetConf; c != nil {
+			if c.IPAM.MinAllocate != 0 {
+				nodeResource.Spec.IPAM.MinAllocate = c.IPAM.MinAllocate
+			}
+			if c.IPAM.PreAllocate != 0 {
+				nodeResource.Spec.IPAM.PreAllocate = c.IPAM.PreAllocate
+			}
+			if c.Azure.InterfaceName != "" {
+				nodeResource.Spec.Azure.InterfaceName = c.Azure.InterfaceName
+			}
+		}
 	}
 
 	if performUpdate {
-		_, err = ciliumClient.CiliumV2().CiliumNodes().Update(nodeResource)
+		_, err = ciliumClient.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{})
 		if err != nil {
 			log.WithError(err).Fatal("Unable to update CiliumNode resource")
 		}
 	} else {
-		if _, err = ciliumClient.CiliumV2().CiliumNodes().Create(nodeResource); err != nil {
+		if _, err = ciliumClient.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
 			log.WithError(err).Fatal("Unable to create CiliumNode resource")
 		} else {
 			log.Info("Successfully created CiliumNode resource")

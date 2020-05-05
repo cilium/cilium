@@ -20,8 +20,10 @@ import (
 	"os"
 	"os/signal"
 
-	"github.com/cilium/cilium/pkg/aws/eni"
+	operatorMetrics "github.com/cilium/cilium/operator/metrics"
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/components"
+	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/types"
@@ -70,6 +72,7 @@ var (
 func initEnv() {
 	// Prepopulate option.Config with options from CLI.
 	option.Config.Populate()
+	operatorOption.Config.Populate()
 
 	// add hooks after setting up metrics in the option.Confog
 	logging.DefaultLogger.Hooks.Add(metrics.NewLoggingHook(components.CiliumOperatortName))
@@ -108,25 +111,24 @@ func kvstoreEnabled() bool {
 	}
 
 	return option.Config.IdentityAllocationMode == option.IdentityAllocationModeKVstore ||
-		option.Config.SyncK8sServices ||
-		option.Config.SyncK8sNodes
+		operatorOption.Config.SyncK8sServices ||
+		operatorOption.Config.SyncK8sNodes
 }
 
 func getAPIServerAddr() []string {
-	if option.Config.OperatorAPIServeAddr == "" {
+	if operatorOption.Config.OperatorAPIServeAddr == "" {
 		return []string{fmt.Sprintf("127.0.0.1:%d", apiServerPort), fmt.Sprintf("[::1]:%d", apiServerPort)}
 	}
-	return []string{option.Config.OperatorAPIServeAddr}
+	return []string{operatorOption.Config.OperatorAPIServeAddr}
 }
 
 func runOperator(cmd *cobra.Command) {
-
 	log.Infof("Cilium Operator %s", version.Version)
 	k8sInitDone := make(chan struct{})
 	go startServer(shutdownSignal, k8sInitDone, getAPIServerAddr()...)
 
-	if option.Config.EnableMetrics {
-		registerMetrics()
+	if operatorOption.Config.EnableMetrics {
+		operatorMetrics.Register()
 	}
 
 	k8s.Configure(
@@ -135,13 +137,13 @@ func runOperator(cmd *cobra.Command) {
 		float32(option.Config.K8sClientQPSLimit),
 		option.Config.K8sClientBurst,
 	)
-	if err := k8s.Init(); err != nil {
+	if err := k8s.Init(option.Config); err != nil {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}
 	close(k8sInitDone)
 
 	ciliumK8sClient = k8s.CiliumClient()
-	k8sversion.Update(k8s.Client())
+	k8sversion.Update(k8s.Client(), option.Config)
 	if !k8sversion.Capabilities().MinimalVersionMet {
 		log.Fatalf("Minimal kubernetes version not met: %s < %s",
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
@@ -152,39 +154,52 @@ func runOperator(cmd *cobra.Command) {
 	// etcd from reaching out kube-dns in EKS.
 	if option.Config.DisableCiliumEndpointCRD {
 		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
-	} else if option.Config.UnmanagedPodWatcherInterval != 0 {
+	} else if operatorOption.Config.UnmanagedPodWatcherInterval != 0 {
 		enableUnmanagedKubeDNSController()
 	}
 
+	var (
+		nodeManager *ipam.NodeManager
+		err         error
+	)
+
 	switch option.Config.IPAM {
 	case option.IPAMENI:
-		if err := eni.UpdateLimitsFromUserDefinedMappings(option.Config.AwsInstanceLimitMapping); err != nil {
-			log.WithError(err).Fatal("Parse aws-instance-limit-mapping failed")
-		}
-		if option.Config.UpdateEC2AdapterLimitViaAPI {
-			if err := eni.UpdateLimitsFromEC2API(context.TODO()); err != nil {
-				log.WithError(err).Error("Unable to update instance type to adapter limits from EC2 API")
-			}
-		}
-		if err := startENIAllocator(
-			option.Config.IPAMAPIQPSLimit,
-			option.Config.IPAMAPIBurst,
-			option.Config.ENITags); err != nil {
-			log.WithError(err).Fatal("Unable to start ENI allocator")
+		ipamAllocatorAWS, providerBuiltin := allocatorProviders["aws"]
+		if !providerBuiltin {
+			log.WithError(err).Fatal("AWS ENI allocator is not supported by this version of cilium-operator")
 		}
 
-		startSynchronizingCiliumNodes()
+		if err := ipamAllocatorAWS.Init(); err != nil {
+			log.WithError(err).Fatal("Unable to init AWS ENI allocator")
+		}
 
+		nodeManager, err = ipamAllocatorAWS.Start(&ciliumNodeUpdateImplementation{})
+		if err != nil {
+			log.WithError(err).Fatal("Unable to start AWS ENI allocator")
+		}
+
+		startSynchronizingCiliumNodes(nodeManager)
 	case option.IPAMAzure:
-		if err := startAzureAllocator(option.Config.IPAMAPIQPSLimit, option.Config.IPAMAPIBurst); err != nil {
+		ipamAllocatorAzure, providerBuiltin := allocatorProviders["azure"]
+		if !providerBuiltin {
+			log.WithError(err).Fatal("Azure allocator is not supported by this version of cilium-operator")
+		}
+
+		if err := ipamAllocatorAzure.Init(); err != nil {
+			log.WithError(err).Fatal("Unable to init Azure allocator")
+		}
+
+		nodeManager, err = ipamAllocatorAzure.Start(&ciliumNodeUpdateImplementation{})
+		if err != nil {
 			log.WithError(err).Fatal("Unable to start Azure allocator")
 		}
 
-		startSynchronizingCiliumNodes()
+		startSynchronizingCiliumNodes(nodeManager)
 	}
 
 	if kvstoreEnabled() {
-		if option.Config.SyncK8sServices {
+		if operatorOption.Config.SyncK8sServices {
 			startSynchronizingServices()
 		}
 
@@ -193,7 +208,7 @@ func runOperator(cmd *cobra.Command) {
 			"kvstore": option.Config.KVStore,
 			"address": option.Config.KVStoreOpt[fmt.Sprintf("%s.address", option.Config.KVStore)],
 		})
-		if option.Config.SyncK8sServices {
+		if operatorOption.Config.SyncK8sServices {
 			// If K8s is enabled we can do the service translation automagically by
 			// looking at services from k8s and retrieve the service IP from that.
 			// This makes cilium to not depend on kube dns to interact with etcd
@@ -219,7 +234,7 @@ func runOperator(cmd *cobra.Command) {
 							logfields.ServiceName:      name,
 							logfields.ServiceNamespace: namespace,
 						}).Info("Retrieving service spec from k8s to perform automatic etcd service translation")
-						k8sSvc, err := k8s.Client().CoreV1().Services(namespace).Get(name, metav1.GetOptions{})
+						k8sSvc, err := k8s.Client().CoreV1().Services(namespace).Get(context.TODO(), name, metav1.GetOptions{})
 						switch {
 						case err == nil:
 							// Create another service cache that contains the
@@ -255,8 +270,8 @@ func runOperator(cmd *cobra.Command) {
 			scopedLog.WithError(err).Fatal("Unable to setup kvstore")
 		}
 
-		if option.Config.SyncK8sNodes {
-			if err := runNodeWatcher(); err != nil {
+		if operatorOption.Config.SyncK8sNodes {
+			if err := runNodeWatcher(nodeManager); err != nil {
 				log.WithError(err).Error("Unable to setup node watcher")
 			}
 		}
@@ -266,22 +281,26 @@ func runOperator(cmd *cobra.Command) {
 
 	switch option.Config.IdentityAllocationMode {
 	case option.IdentityAllocationModeCRD:
+		if !k8s.IsEnabled() {
+			log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
+		}
+
 		startManagingK8sIdentities()
 
-		if option.Config.IdentityGCInterval != 0 {
+		if operatorOption.Config.IdentityGCInterval != 0 {
 			go startCRDIdentityGC()
 		}
 	case option.IdentityAllocationModeKVstore:
-		if option.Config.IdentityGCInterval != 0 {
+		if operatorOption.Config.IdentityGCInterval != 0 {
 			startKvstoreIdentityGC()
 		}
 	}
 
-	if option.Config.EnableCEPGC && option.Config.EndpointGCInterval != 0 {
+	if operatorOption.Config.EnableCEPGC && operatorOption.Config.EndpointGCInterval != 0 {
 		enableCiliumEndpointSyncGC()
 	}
 
-	err := enableCNPWatcher()
+	err = enableCNPWatcher()
 	if err != nil {
 		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")

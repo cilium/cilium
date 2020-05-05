@@ -1,6 +1,11 @@
+# Copyright 2017-2019 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 include ../Makefile.defs
 
-SUBDIRS = alignchecker maptool
+SUBDIRS := alignchecker maptool
+
+.PHONY: all $(SUBDIRS) clean install
 
 all: $(SUBDIRS)
 
@@ -15,4 +20,3 @@ install:
 
 .PHONY: force
 force :;
-

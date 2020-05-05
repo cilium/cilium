@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,6 +15,7 @@
 package k8s
 
 import (
+	"context"
 	"encoding/json"
 	"fmt"
 	"net"
@@ -22,15 +23,16 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/node/addressing"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/kubernetes"
 )
@@ -38,7 +40,7 @@ import (
 // ParseNodeAddressType converts a Kubernetes NodeAddressType to a Cilium
 // NodeAddressType. If the Kubernetes NodeAddressType does not have a
 // corresponding Cilium AddressType, returns an error.
-func ParseNodeAddressType(k8sAddress v1.NodeAddressType) (addressing.AddressType, error) {
+func ParseNodeAddressType(k8sAddress corev1.NodeAddressType) (addressing.AddressType, error) {
 
 	var err error
 	convertedAddr := addressing.AddressType(k8sAddress)
@@ -52,22 +54,22 @@ func ParseNodeAddressType(k8sAddress v1.NodeAddressType) (addressing.AddressType
 }
 
 // ParseNode parses a kubernetes node to a cilium node
-func ParseNode(k8sNode *types.Node, source source.Source) *node.Node {
+func ParseNode(k8sNode *types.Node, source source.Source) *nodeTypes.Node {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.NodeName:  k8sNode.Name,
 		logfields.K8sNodeID: k8sNode.UID,
 	})
-	addrs := []node.Address{}
+	addrs := []nodeTypes.Address{}
 	for _, addr := range k8sNode.StatusAddresses {
 		// We only care about this address types,
 		// we ignore all other types.
 		switch addr.Type {
-		case v1.NodeInternalIP, v1.NodeExternalIP:
+		case corev1.NodeInternalIP, corev1.NodeExternalIP:
 		default:
 			continue
 		}
 		// If the address is not set let's not parse it at all.
-		// This can be the case for v1.NodeExternalIPs
+		// This can be the case for corev1.NodeExternalIPs
 		if addr.Address == "" {
 			continue
 		}
@@ -86,7 +88,7 @@ func ParseNode(k8sNode *types.Node, source source.Source) *node.Node {
 			scopedLog.WithError(err).Warn("invalid address type for node")
 		}
 
-		na := node.Address{
+		na := nodeTypes.Address{
 			Type: addressType,
 			IP:   ip,
 		}
@@ -99,7 +101,7 @@ func ParseNode(k8sNode *types.Node, source source.Source) *node.Node {
 		} else if ip := net.ParseIP(ciliumInternalIP); ip == nil {
 			scopedLog.Debugf("ParseIP %s error", ciliumInternalIP)
 		} else {
-			na := node.Address{
+			na := nodeTypes.Address{
 				Type: addressing.NodeCiliumInternalIP,
 				IP:   ip,
 			}
@@ -118,7 +120,7 @@ func ParseNode(k8sNode *types.Node, source source.Source) *node.Node {
 		}
 	}
 
-	newNode := &node.Node{
+	newNode := &nodeTypes.Node{
 		Name:          k8sNode.Name,
 		Cluster:       option.Config.ClusterName,
 		IPAddresses:   addrs,
@@ -207,28 +209,41 @@ func ParseNode(k8sNode *types.Node, source source.Source) *node.Node {
 
 // GetNode returns the kubernetes nodeName's node information from the
 // kubernetes api server
-func GetNode(c kubernetes.Interface, nodeName string) (*v1.Node, error) {
+func GetNode(c kubernetes.Interface, nodeName string) (*corev1.Node, error) {
 	// Try to retrieve node's cidr and addresses from k8s's configuration
-	return c.CoreV1().Nodes().Get(nodeName, metav1.GetOptions{})
+	return c.CoreV1().Nodes().Get(context.TODO(), nodeName, metav1.GetOptions{})
 }
 
-// SetNodeNetworkUnavailableFalse sets Kubernetes NodeNetworkUnavailable to
+// setNodeNetworkUnavailableFalse sets Kubernetes NodeNetworkUnavailable to
 // false as Cilium is managing the network connectivity.
 // https://kubernetes.io/docs/concepts/architecture/nodes/#condition
-func SetNodeNetworkUnavailableFalse(c kubernetes.Interface, nodeName string) error {
-	condition := v1.NodeCondition{
-		Type:               v1.NodeNetworkUnavailable,
-		Status:             v1.ConditionFalse,
+func setNodeNetworkUnavailableFalse(c kubernetes.Interface, nodeName string) error {
+	condition := corev1.NodeCondition{
+		Type:               corev1.NodeNetworkUnavailable,
+		Status:             corev1.ConditionFalse,
 		Reason:             "CiliumIsUp",
 		Message:            "Cilium is running on this node",
 		LastTransitionTime: metav1.Now(),
 		LastHeartbeatTime:  metav1.Now(),
 	}
-	raw, err := json.Marshal(&[]v1.NodeCondition{condition})
+	raw, err := json.Marshal(&[]corev1.NodeCondition{condition})
 	if err != nil {
 		return err
 	}
 	patch := []byte(fmt.Sprintf(`{"status":{"conditions":%s}}`, raw))
-	_, err = c.CoreV1().Nodes().PatchStatus(nodeName, patch)
+	_, err = c.CoreV1().Nodes().PatchStatus(context.TODO(), nodeName, patch)
 	return err
+}
+
+// MarkNodeReady marks the Kubernetes node resource as ready from a networking
+// perspective
+func (k8sCli K8sClient) MarkNodeReady(nodeName string) {
+	log.WithField(logfields.NodeName, nodeName).Debug("Setting NetworkUnavailable=false")
+
+	controller.NewManager().UpdateController("mark-k8s-node-as-available",
+		controller.ControllerParams{
+			DoFunc: func(_ context.Context) error {
+				return setNodeNetworkUnavailableFalse(k8sCli, nodeName)
+			},
+		})
 }

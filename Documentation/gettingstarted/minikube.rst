@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _gs_minikube:
 
@@ -10,7 +10,7 @@
 Getting Started Using Minikube
 ******************************
 
-This guide uses `minikube <https://kubernetes.io/docs/getting-started-guides/minikube/>`_
+This guide uses `minikube <https://kubernetes.io/docs/setup/learning-environment/minikube/>`_
 to demonstrate deployment and operation of Cilium in a single-node Kubernetes cluster.
 The minikube VM requires approximately 5GB of RAM and supports hypervisors like VirtualBox
 that run on Linux, macOS, and Windows.
@@ -60,6 +60,10 @@ Install Cilium as `DaemonSet
 <https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/>`_ into
 your new Kubernetes cluster. The DaemonSet will automatically install itself as
 Kubernetes CNI plugin.
+
+.. note::
+
+   In case of installing Cilium with CRIO, please see :ref:`crio-instructions` instructions.
 
 .. parsed-literal::
 

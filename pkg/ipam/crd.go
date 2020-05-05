@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,26 +15,30 @@
 package ipam
 
 import (
+	"context"
 	"fmt"
 	"net"
 	"reflect"
 	"sync"
 	"time"
 
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/cidr"
+	"github.com/cilium/cilium/pkg/ip"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	corev1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -73,6 +77,10 @@ type nodeStore struct {
 	// family
 	allocationPoolSize map[Family]int
 
+	// signal for completion of restoration
+	restoreFinished  chan bool
+	restoreCloseOnce sync.Once
+
 	conf Configuration
 }
 
@@ -86,6 +94,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 		allocationPoolSize: map[Family]int{},
 		conf:               conf,
 	}
+	store.restoreFinished = make(chan bool)
 	ciliumClient := k8s.CiliumClient()
 
 	t, err := trigger.NewTrigger(trigger.Parameters{
@@ -106,7 +115,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 	ciliumNodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	ciliumNodeInformer := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(ciliumClient.CiliumV2().RESTClient(),
-			"ciliumnodes", v1.NamespaceAll, ciliumNodeSelector),
+			"ciliumnodes", corev1.NamespaceAll, ciliumNodeSelector),
 		&ciliumv2.CiliumNode{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -175,7 +184,12 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 		time.Sleep(5 * time.Second)
 	}
 
-	store.refreshTrigger.TriggerWithReason("initial sync")
+	go func() {
+		// Initial upstream sync must wait for the allocated IPs
+		// to be restored
+		<-store.restoreFinished
+		store.refreshTrigger.TriggerWithReason("initial sync")
+	}()
 
 	return store
 }
@@ -229,7 +243,24 @@ func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAva
 
 		if n.conf.IPAMMode() == option.IPAMENI {
 			if vpcCIDR := deriveVpcCIDR(n.ownNode); vpcCIDR != nil {
-				n.conf.SetIPv4NativeRoutingCIDR(vpcCIDR)
+				if nativeCIDR := n.conf.IPv4NativeRoutingCIDR(); nativeCIDR != nil {
+					logFields := logrus.Fields{
+						"vpc-cidr":                   vpcCIDR.String(),
+						option.IPv4NativeRoutingCIDR: nativeCIDR.String(),
+					}
+
+					ranges4, _ := ip.CoalesceCIDRs([]*net.IPNet{nativeCIDR.IPNet, vpcCIDR.IPNet})
+					if len(ranges4) != 1 {
+						log.WithFields(logFields).Fatal("Native routing CIDR does not contain VPC CIDR.")
+					} else {
+						log.WithFields(logFields).Info("Ignoring autodetected VPC CIDR.")
+					}
+				} else {
+					log.WithFields(logrus.Fields{
+						"vpc-cidr": vpcCIDR.String(),
+					}).Info("Using autodetected VPC CIDR.")
+					n.conf.SetIPv4NativeRoutingCIDR(vpcCIDR)
+				}
 			} else {
 				minimumReached = false
 			}
@@ -312,9 +343,9 @@ func (n *nodeStore) refreshNode() error {
 	ciliumClient := k8s.CiliumClient()
 	switch {
 	case k8sCapabilities.UpdateStatus:
-		_, err = ciliumClient.CiliumV2().CiliumNodes().UpdateStatus(node)
+		_, err = ciliumClient.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
 	default:
-		_, err = ciliumClient.CiliumV2().CiliumNodes().Update(node)
+		_, err = ciliumClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 	}
 
 	return err
@@ -402,7 +433,7 @@ type crdAllocator struct {
 // newCRDAllocator creates a new CRD-backed IP allocator
 func newCRDAllocator(family Family, c Configuration, owner Owner, k8sEventReg K8sEventRegister) Allocator {
 	initNodeStore.Do(func() {
-		sharedNodeStore = newNodeStore(node.GetName(), c, owner, k8sEventReg)
+		sharedNodeStore = newNodeStore(nodeTypes.GetName(), c, owner, k8sEventReg)
 	})
 
 	allocator := &crdAllocator{
@@ -451,6 +482,10 @@ func (a *crdAllocator) buildAllocationResult(ip net.IP, ipInfo *ipamTypes.Alloca
 				result.Master = eni.MAC
 				result.CIDRs = []string{eni.VPC.PrimaryCIDR}
 				result.CIDRs = append(result.CIDRs, eni.VPC.CIDRs...)
+				// Add manually configured Native Routing CIDR
+				if a.conf.IPv4NativeRoutingCIDR() != nil {
+					result.CIDRs = append(result.CIDRs, a.conf.IPv4NativeRoutingCIDR().String())
+				}
 				if eni.Subnet.CIDR != "" {
 					result.GatewayIP = deriveGatewayIP(eni)
 				}
@@ -498,6 +533,30 @@ func (a *crdAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, err
 	}
 
 	a.markAllocated(ip, owner, *ipInfo)
+	// Update custom resource to reflect the newly allocated IP.
+	a.store.refreshTrigger.TriggerWithReason(fmt.Sprintf("allocation of IP %s", ip.String()))
+
+	return a.buildAllocationResult(ip, ipInfo)
+}
+
+// AllocateWithoutSyncUpstream will attempt to find the specified IP in the
+// custom resource and allocate it if it is available. If the IP is
+// unavailable or already allocated, an error is returned. The custom resource
+// will not be updated.
+func (a *crdAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string) (*AllocationResult, error) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	if _, ok := a.allocated[ip.String()]; ok {
+		return nil, fmt.Errorf("IP already in use")
+	}
+
+	ipInfo, err := a.store.allocate(ip)
+	if err != nil {
+		return nil, err
+	}
+
+	a.markAllocated(ip, owner, *ipInfo)
 
 	return a.buildAllocationResult(ip, ipInfo)
 }
@@ -514,23 +573,41 @@ func (a *crdAllocator) Release(ip net.IP) error {
 	}
 
 	delete(a.allocated, ip.String())
+	// Update custom resource to reflect the newly released IP.
 	a.store.refreshTrigger.TriggerWithReason(fmt.Sprintf("release of IP %s", ip.String()))
 
 	return nil
 }
 
-// markAllocated marks a particular IP as allocated and triggers the custom
-// resource update
+// markAllocated marks a particular IP as allocated
 func (a *crdAllocator) markAllocated(ip net.IP, owner string, ipInfo ipamTypes.AllocationIP) {
 	ipInfo.Owner = owner
 	a.allocated[ip.String()] = ipInfo
-	a.store.refreshTrigger.TriggerWithReason(fmt.Sprintf("allocation of IP %s", ip.String()))
 }
 
 // AllocateNext allocates the next available IP as offered by the custom
 // resource or return an error if no IP is available. The custom resource will
 // be updated to reflect the newly allocated IP.
 func (a *crdAllocator) AllocateNext(owner string) (*AllocationResult, error) {
+	a.mutex.Lock()
+	defer a.mutex.Unlock()
+
+	ip, ipInfo, err := a.store.allocateNext(a.allocated, a.family)
+	if err != nil {
+		return nil, err
+	}
+
+	a.markAllocated(ip, owner, *ipInfo)
+	// Update custom resource to reflect the newly allocated IP.
+	a.store.refreshTrigger.TriggerWithReason(fmt.Sprintf("allocation of IP %s", ip.String()))
+
+	return a.buildAllocationResult(ip, ipInfo)
+}
+
+// AllocateNextWithoutSyncUpstream allocates the next available IP as offered
+// by the custom resource or return an error if no IP is available. The custom
+// resource will not be updated.
+func (a *crdAllocator) AllocateNextWithoutSyncUpstream(owner string) (*AllocationResult, error) {
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
@@ -565,4 +642,11 @@ func (a *crdAllocator) Dump() (map[string]string, string) {
 
 	status := fmt.Sprintf("%d/%d allocated", len(allocs), a.totalPoolSize())
 	return allocs, status
+}
+
+// RestoreFinished marks the status of restoration as done
+func (a *crdAllocator) RestoreFinished() {
+	a.store.restoreCloseOnce.Do(func() {
+		close(a.store.restoreFinished)
+	})
 }

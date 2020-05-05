@@ -87,6 +87,8 @@ spec:
         command: [ "sleep" ]
         args:
           - "1000h"
+      # k8sT/Services.go:"Checks service on same node" requires the pod to be
+      # scheduled on the same node as app1
       nodeSelector:
         "cilium.io/ci-node": k8s1
 ---

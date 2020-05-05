@@ -3,14 +3,14 @@
 
 Vagrant.require_version ">= 2.0.0"
 
-cilium_version = (ENV['CILIUM_VERSION'] || "v1.7.0")
+cilium_version = (ENV['CILIUM_VERSION'] || "v1.7.2")
 cilium_opts = (ENV['CILIUM_OPTS'] || "--enable-ipv6=false --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 -t vxlan")
-cilium_tag = (ENV['CILIUM_TAG'] || "v1.7.0")
+cilium_tag = (ENV['CILIUM_TAG'] || "v1.7.2")
 
 # This runs only once when vagrant box is provisioned for the first time
 $bootstrap = <<SCRIPT
 # install docker-compose
-curl -sS -L "https://github.com/docker/compose/releases/download/1.23.2/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
+curl -sS -L "https://github.com/docker/compose/releases/download/1.25.5/docker-compose-$(uname -s)-$(uname -m)" -o /usr/local/bin/docker-compose
 chmod +x /usr/local/bin/docker-compose
 
 # install cilium client

@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/serializer"
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -29,7 +28,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, serEps *serializer.FunctionQueue, swgEps *lock.StoppableWaitGroup) {
+func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup) {
 
 	_, endpointController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
@@ -42,42 +41,32 @@ func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, serEps *seria
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricEndpoint, metricCreate, valid, equal) }()
-				if k8sEP := k8s.CopyObjToV1Endpoints(obj); k8sEP != nil {
+				if k8sEP := k8s.ObjToV1Endpoints(obj); k8sEP != nil {
 					valid = true
-					swgEps.Add()
-					serEps.Enqueue(func() error {
-						defer swgEps.Done()
-						err := k.addK8sEndpointV1(k8sEP, swgEps)
-						k.K8sEventProcessed(metricEndpoint, metricCreate, err == nil)
-						return nil
-					}, serializer.NoRetry)
+					err := k.addK8sEndpointV1(k8sEP, swgEps)
+					k.K8sEventProcessed(metricEndpoint, metricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricEndpoint, metricUpdate, valid, equal) }()
-				if oldk8sEP := k8s.CopyObjToV1Endpoints(oldObj); oldk8sEP != nil {
-					valid = true
-					if newk8sEP := k8s.CopyObjToV1Endpoints(newObj); newk8sEP != nil {
+				if oldk8sEP := k8s.ObjToV1Endpoints(oldObj); oldk8sEP != nil {
+					if newk8sEP := k8s.ObjToV1Endpoints(newObj); newk8sEP != nil {
+						valid = true
 						if k8s.EqualV1Endpoints(oldk8sEP, newk8sEP) {
 							equal = true
 							return
 						}
 
-						swgEps.Add()
-						serEps.Enqueue(func() error {
-							defer swgEps.Done()
-							err := k.updateK8sEndpointV1(oldk8sEP, newk8sEP, swgEps)
-							k.K8sEventProcessed(metricEndpoint, metricUpdate, err == nil)
-							return nil
-						}, serializer.NoRetry)
+						err := k.updateK8sEndpointV1(oldk8sEP, newk8sEP, swgEps)
+						k.K8sEventProcessed(metricEndpoint, metricUpdate, err == nil)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricEndpoint, metricDelete, valid, equal) }()
-				k8sEP := k8s.CopyObjToV1Endpoints(obj)
+				k8sEP := k8s.ObjToV1Endpoints(obj)
 				if k8sEP == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 					if !ok {
@@ -86,19 +75,14 @@ func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, serEps *seria
 					// Delete was not observed by the watcher but is
 					// removed from kube-apiserver. This is the last
 					// known state and the object no longer exists.
-					k8sEP = k8s.CopyObjToV1Endpoints(deletedObj.Obj)
+					k8sEP = k8s.ObjToV1Endpoints(deletedObj.Obj)
 					if k8sEP == nil {
 						return
 					}
 				}
 				valid = true
-				swgEps.Add()
-				serEps.Enqueue(func() error {
-					defer swgEps.Done()
-					err := k.deleteK8sEndpointV1(k8sEP, swgEps)
-					k.K8sEventProcessed(metricEndpoint, metricDelete, err == nil)
-					return nil
-				}, serializer.NoRetry)
+				err := k.deleteK8sEndpointV1(k8sEP, swgEps)
+				k.K8sEventProcessed(metricEndpoint, metricDelete, err == nil)
 			},
 		},
 		k8s.ConvertToK8sEndpoints,

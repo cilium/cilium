@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _kops_guide:
 .. _k8s_install_kops:
@@ -21,7 +21,7 @@ Prerequisites
 =============
 
 * `aws cli <https://aws.amazon.com/cli/>`_
-* `kubectl <https://kubernetes.io/docs/tasks/tools/install-kubectl>`_
+* `kubectl <https://kubernetes.io/docs/tasks/tools/install-kubectl/>`_
 * aws account with permissions:
   * AmazonEC2FullAccess
   * AmazonRoute53FullAccess

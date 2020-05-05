@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -16,8 +16,10 @@ package watchers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
+	"strings"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -32,16 +34,19 @@ import (
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/serializer"
+	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/api/errors"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
@@ -49,75 +54,96 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serializer.FunctionQueue, asyncControllers *sync.WaitGroup) {
+func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fields.Selector) (cache.Store, cache.Controller) {
+	return informer.NewInformer(
+		cache.NewListWatchFromClient(getter,
+			"pods", v1.NamespaceAll, fieldSelector),
+		&v1.Pod{},
+		0,
+		cache.ResourceEventHandlerFuncs{
+			AddFunc: func(obj interface{}) {
+				var valid bool
+				if pod := k8s.ObjTov1Pod(obj); pod != nil {
+					valid = true
+					err := k.addK8sPodV1(pod)
+					k.K8sEventProcessed(metricPod, metricCreate, err == nil)
+				}
+				k.K8sEventReceived(metricPod, metricCreate, valid, false)
+			},
+			UpdateFunc: func(oldObj, newObj interface{}) {
+				var valid, equal bool
+				if oldPod := k8s.ObjTov1Pod(oldObj); oldPod != nil {
+					if newPod := k8s.ObjTov1Pod(newObj); newPod != nil {
+						valid = true
+						if k8s.EqualV1Pod(oldPod, newPod) {
+							equal = true
+						} else {
+							err := k.updateK8sPodV1(oldPod, newPod)
+							k.K8sEventProcessed(metricPod, metricUpdate, err == nil)
+						}
+					}
+				}
+				k.K8sEventReceived(metricPod, metricUpdate, valid, equal)
+			},
+			DeleteFunc: func(obj interface{}) {
+				var valid bool
+				if pod := k8s.ObjTov1Pod(obj); pod != nil {
+					valid = true
+					err := k.deleteK8sPodV1(pod)
+					k.K8sEventProcessed(metricPod, metricDelete, err == nil)
+				}
+				k.K8sEventReceived(metricPod, metricDelete, valid, false)
+			},
+		},
+		k8s.ConvertToPod,
+	)
+}
+
+func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *sync.WaitGroup) {
 	var once sync.Once
+	watchNodePods := func() chan struct{} {
+		// Only watch for pod events for our node.
+		podStore, podController := k.createPodController(
+			k8sClient.CoreV1().RESTClient(),
+			fields.ParseSelectorOrDie("spec.nodeName="+nodeTypes.GetName()))
+		isConnected := make(chan struct{})
+		k.podStoreMU.Lock()
+		k.podStore = podStore
+		k.podStoreMU.Unlock()
+		k.podStoreOnce.Do(func() {
+			close(k.podStoreSet)
+		})
+
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController, k8sAPIGroupPodV1Core)
+		once.Do(func() {
+			asyncControllers.Done()
+			k.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
+		})
+		go podController.Run(isConnected)
+		return isConnected
+	}
+
+	// We will watch for pods on th entire cluster to keep existing
+	// functionality untouched. If we are running with CiliumEndpoint CRD
+	// enabled then it means that we can simply watch for pods that are created
+	// for this node.
+	if !option.Config.DisableCiliumEndpointCRD {
+		watchNodePods()
+		return
+	}
+
+	// If CiliumEndpointCRD is disabled, we will fallback on watching all pods
+	// and then watching on the pods created for this node if the
+	// K8sEventHandover is enabled.
 	for {
-		swgPods := lock.NewStoppableWaitGroup()
-		createPodController := func(fieldSelector fields.Selector) (cache.Store, cache.Controller) {
-			return informer.NewInformer(
-				cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-					"pods", v1.NamespaceAll, fieldSelector),
-				&v1.Pod{},
-				0,
-				cache.ResourceEventHandlerFuncs{
-					AddFunc: func(obj interface{}) {
-						var valid, equal bool
-						defer func() { k.K8sEventReceived(metricPod, metricCreate, valid, equal) }()
-						if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
-							valid = true
-							swgPods.Add()
-							serPods.Enqueue(func() error {
-								defer swgPods.Done()
-								err := k.addK8sPodV1(pod)
-								k.K8sEventProcessed(metricPod, metricCreate, err == nil)
-								return nil
-							}, serializer.NoRetry)
-						}
-					},
-					UpdateFunc: func(oldObj, newObj interface{}) {
-						var valid, equal bool
-						defer func() { k.K8sEventReceived(metricPod, metricUpdate, valid, equal) }()
-						if oldPod := k8s.CopyObjToV1Pod(oldObj); oldPod != nil {
-							valid = true
-							if newPod := k8s.CopyObjToV1Pod(newObj); newPod != nil {
-								if k8s.EqualV1Pod(oldPod, newPod) {
-									equal = true
-									return
-								}
-								swgPods.Add()
-								serPods.Enqueue(func() error {
-									defer swgPods.Done()
-									err := k.updateK8sPodV1(oldPod, newPod)
-									k.K8sEventProcessed(metricPod, metricUpdate, err == nil)
-									return nil
-								}, serializer.NoRetry)
-							}
-						}
-					},
-					DeleteFunc: func(obj interface{}) {
-						var valid, equal bool
-						defer func() { k.K8sEventReceived(metricPod, metricDelete, valid, equal) }()
-						if pod := k8s.CopyObjToV1Pod(obj); pod != nil {
-							valid = true
-							swgPods.Add()
-							serPods.Enqueue(func() error {
-								defer swgPods.Done()
-								err := k.deleteK8sPodV1(pod)
-								k.K8sEventProcessed(metricPod, metricDelete, err == nil)
-								return nil
-							}, serializer.NoRetry)
-						}
-					},
-				},
-				k8s.ConvertToPod,
-			)
-		}
-		podStore, podController := createPodController(fields.Everything())
+		podStore, podController := k.createPodController(
+			k8sClient.CoreV1().RESTClient(),
+			fields.Everything())
 
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
-		k.blockWaitGroupToSyncResources(isConnected, swgPods, podController, k8sAPIGroupPodV1Core)
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController, k8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
 			k.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
@@ -141,16 +167,8 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, serPods *serialize
 		<-kvstore.Client().Connected(context.TODO())
 		close(isConnected)
 
-		log.WithField(logfields.Node, node.GetName()).Info("Connected to KVStore, watching for pod events on node")
-		// Only watch for pod events for our node.
-		podStore, podController = createPodController(fields.ParseSelectorOrDie("spec.nodeName=" + node.GetName()))
-		isConnected = make(chan struct{})
-		k.podStoreMU.Lock()
-		k.podStore = podStore
-		k.podStoreMU.Unlock()
-
-		k.blockWaitGroupToSyncResources(isConnected, swgPods, podController, k8sAPIGroupPodV1Core)
-		go podController.Run(isConnected)
+		log.WithField(logfields.Node, nodeTypes.GetName()).Info("Connected to KVStore, watching for pod events on node")
+		isConnected = watchNodePods()
 
 		// Create a new pod controller when we are disconnected with the
 		// kvstore
@@ -164,11 +182,11 @@ func (k *K8sWatcher) addK8sPodV1(pod *types.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
-		"podIP":                pod.StatusPodIP,
+		"podIPs":               pod.StatusPodIPs,
 		"hostIP":               pod.StatusHostIP,
 	})
 
-	skipped, err := k.updatePodHostIP(pod)
+	skipped, err := k.updatePodHostData(pod)
 	switch {
 	case skipped:
 		logger.WithError(err).Debug("Skipped ipcache map update on pod add")
@@ -240,23 +258,24 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 }
 
 func realizePodAnnotationUpdate(podEP *endpoint.Endpoint) {
+	regenMetadata := &regeneration.ExternalRegenerationMetadata{
+		Reason:            "annotations updated",
+		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+	}
 	// No need to log an error if the state transition didn't succeed,
 	// if it didn't succeed that means the endpoint is being deleted, or
 	// another regeneration has already been queued up for this endpoint.
-	stateTransitionSucceeded := podEP.SetState(endpoint.StateWaitingToRegenerate, "annotations updated")
-	if stateTransitionSucceeded {
-		podEP.Regenerate(&regeneration.ExternalRegenerationMetadata{
-			Reason:            "annotations updated",
-			RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-		})
+	regen, _ := podEP.SetRegenerateStateIfAlive(regenMetadata)
+	if regen {
+		podEP.Regenerate(regenMetadata)
 	}
 }
 
 func updateEndpointLabels(ep *endpoint.Endpoint, oldLbls, newLbls map[string]string) error {
 	newLabels := labels.Map2Labels(newLbls, labels.LabelSourceK8s)
-	newIdtyLabels, _ := labels.FilterLabels(newLabels)
+	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
 	oldLabels := labels.Map2Labels(oldLbls, labels.LabelSourceK8s)
-	oldIdtyLabels, _ := labels.FilterLabels(oldLabels)
+	oldIdtyLabels, _ := labelsfilter.Filter(oldLabels)
 
 	err := ep.ModifyIdentityLabels(newIdtyLabels, oldIdtyLabels)
 	if err != nil {
@@ -276,11 +295,11 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *types.Pod) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
-		"podIP":                pod.StatusPodIP,
+		"podIPs":               pod.StatusPodIPs,
 		"hostIP":               pod.StatusHostIP,
 	})
 
-	skipped, err := k.deletePodHostIP(pod)
+	skipped, err := k.deletePodHostData(pod)
 	switch {
 	case skipped:
 		logger.WithError(err).Debug("Skipped ipcache map delete on pod delete")
@@ -292,19 +311,146 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *types.Pod) error {
 	return err
 }
 
-func (k *K8sWatcher) updatePodHostIP(pod *types.Pod) (bool, error) {
+func genServiceMappings(pod *types.Pod) []loadbalancer.SVC {
+	var svcs []loadbalancer.SVC
+	for _, c := range pod.SpecContainers {
+		for _, p := range c.ContainerPorts {
+			if p.HostPort == 0 {
+				continue
+			}
+			feIP := net.ParseIP(p.HostIP)
+			if feIP == nil {
+				feIP = net.ParseIP(pod.StatusHostIP)
+			}
+			proto, err := loadbalancer.NewL4Type(p.Protocol)
+			if err != nil {
+				continue
+			}
+			fe := loadbalancer.L3n4AddrID{
+				L3n4Addr: loadbalancer.L3n4Addr{
+					IP: feIP,
+					L4Addr: loadbalancer.L4Addr{
+						Protocol: proto,
+						Port:     uint16(p.HostPort),
+					},
+				},
+				ID: loadbalancer.ID(0),
+			}
+			bes := make([]loadbalancer.Backend, 0, len(pod.StatusPodIPs))
+			for _, podIP := range pod.StatusPodIPs {
+				be := loadbalancer.Backend{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: net.ParseIP(podIP),
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: proto,
+							Port:     uint16(p.ContainerPort),
+						},
+					},
+				}
+				bes = append(bes, be)
+			}
+			svcs = append(svcs,
+				loadbalancer.SVC{
+					Frontend: fe,
+					Backends: bes,
+					Type:     loadbalancer.SVCTypeHostPort,
+					// We don't have the node name available here, but in
+					// any case in the BPF data path we drop any potential
+					// non-local backends anyway (which should never exist).
+					TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+				})
+		}
+	}
+
+	return svcs
+}
+
+func (k *K8sWatcher) UpsertHostPortMapping(pod *types.Pod) error {
+	if option.Config.DisableK8sServices || !option.Config.EnableHostPort {
+		return nil
+	}
+
+	svcs := genServiceMappings(pod)
+	if len(svcs) == 0 {
+		return nil
+	}
+
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sPodName:   pod.ObjectMeta.Name,
+		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+		"podIPs":               pod.StatusPodIPs,
+		"hostIP":               pod.StatusHostIP,
+	})
+
+	hostIP := net.ParseIP(pod.StatusHostIP)
+	if hostIP == nil {
+		logger.Error("Cannot upsert HostPort service for the podIP due to missing hostIP")
+		return fmt.Errorf("no/invalid HostIP: %s", pod.StatusHostIP)
+	}
+
+	for _, dpSvc := range svcs {
+		if _, _, err := k.svcManager.UpsertService(dpSvc.Frontend, dpSvc.Backends, dpSvc.Type,
+			dpSvc.TrafficPolicy, false, 0, dpSvc.HealthCheckNodePort, pod.ObjectMeta.Name+"-host-port",
+			pod.ObjectMeta.Namespace); err != nil {
+			logger.WithError(err).Error("Error while inserting service in LB map")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (k *K8sWatcher) DeleteHostPortMapping(pod *types.Pod) error {
+	if option.Config.DisableK8sServices || !option.Config.EnableHostPort {
+		return nil
+	}
+
+	svcs := genServiceMappings(pod)
+	if len(svcs) == 0 {
+		return nil
+	}
+
+	logger := log.WithFields(logrus.Fields{
+		logfields.K8sPodName:   pod.ObjectMeta.Name,
+		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
+		"podIPs":               pod.StatusPodIPs,
+		"hostIP":               pod.StatusHostIP,
+	})
+
+	hostIP := net.ParseIP(pod.StatusHostIP)
+	if hostIP == nil {
+		logger.Error("Cannot delete HostPort service for the podIP due to missing hostIP")
+		return fmt.Errorf("no/invalid HostIP: %s", pod.StatusHostIP)
+	}
+
+	for _, dpSvc := range svcs {
+		if _, err := k.svcManager.DeleteService(dpSvc.Frontend.L3n4Addr); err != nil {
+			logger.WithError(err).Error("Error while deleting service in LB map")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (k *K8sWatcher) updatePodHostData(pod *types.Pod) (bool, error) {
 	if pod.SpecHostNetwork {
 		return true, fmt.Errorf("pod is using host networking")
+	}
+
+	err := validIPs(pod.StatusPodIPs)
+	if err != nil {
+		return true, err
+	}
+
+	err = k.UpsertHostPortMapping(pod)
+	if err != nil {
+		return true, fmt.Errorf("cannot upsert hostPort for PodIPs: %s", pod.StatusPodIPs)
 	}
 
 	hostIP := net.ParseIP(pod.StatusHostIP)
 	if hostIP == nil {
 		return true, fmt.Errorf("no/invalid HostIP: %s", pod.StatusHostIP)
-	}
-
-	podIP := net.ParseIP(pod.StatusPodIP)
-	if podIP == nil {
-		return true, fmt.Errorf("no/invalid PodIP: %s", pod.StatusPodIP)
 	}
 
 	hostKey := node.GetIPsecKeyIdentity()
@@ -314,45 +460,109 @@ func (k *K8sWatcher) updatePodHostIP(pod *types.Pod) (bool, error) {
 		PodName:   pod.Name,
 	}
 
-	// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
-	// later updated once the allocator has determined the real identity.
-	// If the endpoint remains unmanaged, the identity remains untouched.
-	selfOwned := ipcache.IPIdentityCache.Upsert(pod.StatusPodIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
-		ID:     identity.ReservedIdentityUnmanaged,
-		Source: source.Kubernetes,
-	})
-	if !selfOwned {
-		return true, fmt.Errorf("ipcache entry owned by kvstore or agent")
+	// Store Named ports, if any.
+	for _, container := range pod.SpecContainers {
+		for _, port := range container.ContainerPorts {
+			if port.Name == "" {
+				continue
+			}
+			p, err := u8proto.ParseProtocol(port.Protocol)
+			if err != nil {
+				return true, fmt.Errorf("ContainerPort: invalid protocol: %s", port.Protocol)
+			}
+			if port.ContainerPort < 1 || port.ContainerPort > 65535 {
+				return true, fmt.Errorf("ContainerPort: invalid port: %d", port.ContainerPort)
+			}
+			if k8sMeta.NamedPorts == nil {
+				k8sMeta.NamedPorts = make(policy.NamedPortsMap)
+			}
+			k8sMeta.NamedPorts[port.Name] = policy.NamedPort{
+				Proto: uint8(p),
+				Port:  uint16(port.ContainerPort),
+			}
+		}
+	}
+
+	var errs []string
+	for _, podIP := range pod.StatusPodIPs {
+		// Initial mapping of podIP <-> hostIP <-> identity. The mapping is
+		// later updated once the allocator has determined the real identity.
+		// If the endpoint remains unmanaged, the identity remains untouched.
+		selfOwned, namedPortsChanged := ipcache.IPIdentityCache.Upsert(podIP, hostIP, hostKey, k8sMeta, ipcache.Identity{
+			ID:     identity.ReservedIdentityUnmanaged,
+			Source: source.Kubernetes,
+		})
+		// This happens at most once due to k8sMeta being the same for all podIPs in this loop
+		if namedPortsChanged {
+			k.policyManager.TriggerPolicyUpdates(true, "Named ports added or updated")
+		}
+		if !selfOwned {
+			errs = append(errs, fmt.Sprintf("ipcache entry for podIP %s owned by kvstore or agent", podIP))
+		}
+	}
+	if len(errs) != 0 {
+		return true, errors.New(strings.Join(errs, ", "))
 	}
 
 	return false, nil
 }
 
-func (k *K8sWatcher) deletePodHostIP(pod *types.Pod) (bool, error) {
+func (k *K8sWatcher) deletePodHostData(pod *types.Pod) (bool, error) {
 	if pod.SpecHostNetwork {
 		return true, fmt.Errorf("pod is using host networking")
 	}
 
-	podIP := net.ParseIP(pod.StatusPodIP)
-	if podIP == nil {
-		return true, fmt.Errorf("no/invalid PodIP: %s", pod.StatusPodIP)
+	err := validIPs(pod.StatusPodIPs)
+	if err != nil {
+		return true, err
 	}
 
-	// a small race condition exists here as deletion could occur in
-	// parallel based on another event but it doesn't matter as the
-	// identity is going away
-	id, exists := ipcache.IPIdentityCache.LookupByIP(pod.StatusPodIP)
-	if !exists {
-		return true, fmt.Errorf("identity for IP does not exist in case")
+	k.DeleteHostPortMapping(pod)
+
+	var (
+		errs    []string
+		skipped bool
+	)
+
+	for _, podIP := range pod.StatusPodIPs {
+		// a small race condition exists here as deletion could occur in
+		// parallel based on another event but it doesn't matter as the
+		// identity is going away
+		id, exists := ipcache.IPIdentityCache.LookupByIP(podIP)
+		if !exists {
+			skipped = true
+			errs = append(errs, fmt.Sprintf("identity for IP %s does not exist in case", podIP))
+			continue
+		}
+
+		if id.Source != source.Kubernetes {
+			skipped = true
+			errs = append(errs, fmt.Sprintf("ipcache entry for IP %s not owned by kubernetes source", podIP))
+			continue
+		}
+
+		ipcache.IPIdentityCache.Delete(podIP, source.Kubernetes)
 	}
 
-	if id.Source != source.Kubernetes {
-		return true, fmt.Errorf("ipcache entry not owned by kubernetes source")
+	if len(errs) != 0 {
+		return skipped, errors.New(strings.Join(errs, ", "))
 	}
 
-	ipcache.IPIdentityCache.Delete(pod.StatusPodIP, source.Kubernetes)
+	return skipped, nil
+}
 
-	return false, nil
+func validIPs(ipStrs []string) error {
+	if len(ipStrs) == 0 {
+		return fmt.Errorf("empty PodIPs")
+	}
+	for _, ipStr := range ipStrs {
+		podIP := net.ParseIP(ipStr)
+		if podIP == nil {
+			return fmt.Errorf("no/invalid PodIP: %s", ipStr)
+		}
+	}
+
+	return nil
 }
 
 // GetCachedPod returns a pod from the local store. Depending if the Cilium
@@ -378,7 +588,7 @@ func (k *K8sWatcher) GetCachedPod(namespace, name string) (*types.Pod, error) {
 		return nil, err
 	}
 	if !exists {
-		return nil, errors.NewNotFound(schema.GroupResource{
+		return nil, k8sErrors.NewNotFound(schema.GroupResource{
 			Group:    "core",
 			Resource: "pod",
 		}, name)

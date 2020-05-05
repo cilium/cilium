@@ -21,7 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"github.com/davecgh/go-spew/spew"
 	"github.com/sirupsen/logrus"
@@ -367,7 +367,7 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 // MergeExternalServiceUpdate merges a cluster service of a remote cluster into
 // the local service cache. The service endpoints are stored as external endpoints
 // and are correlated on demand with local services via correlateEndpoints().
-func (s *ServiceCache) MergeExternalServiceUpdate(service *service.ClusterService, swg *lock.StoppableWaitGroup) {
+func (s *ServiceCache) MergeExternalServiceUpdate(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
 	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
 	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
 
@@ -418,7 +418,7 @@ func (s *ServiceCache) MergeExternalServiceUpdate(service *service.ClusterServic
 // remote cluster into the local service cache. The service endpoints are
 // stored as external endpoints and are correlated on demand with local
 // services via correlateEndpoints().
-func (s *ServiceCache) MergeExternalServiceDelete(service *service.ClusterService, swg *lock.StoppableWaitGroup) {
+func (s *ServiceCache) MergeExternalServiceDelete(service *serviceStore.ClusterService, swg *lock.StoppableWaitGroup) {
 	scopedLog := log.WithFields(logrus.Fields{logfields.ServiceName: service.String()})
 	id := ServiceID{Name: service.Name, Namespace: service.Namespace}
 

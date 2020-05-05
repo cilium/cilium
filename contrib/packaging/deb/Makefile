@@ -1,3 +1,6 @@
+# Copyright 2017-2019 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 include ../../../Makefile.defs
 
 BUILDDIR := "$(CURDIR)/cilium-$(VERSION)"
@@ -5,7 +8,6 @@ BASEDIR := "$(CURDIR)/../../../"
 BRANCH := $(shell git rev-parse --abbrev-ref HEAD)
 
 build: clean
-
 	mkdir -p output
 	(cd $(BASEDIR) && git bundle create $(CURDIR)/version_$(VERSION) $(BRANCH) --tags)
 	(cd $(CURDIR) && git clone $(CURDIR)/version_$(VERSION) cilium -b $(BRANCH))

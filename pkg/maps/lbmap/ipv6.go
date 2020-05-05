@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,14 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/u8proto"
+)
+
+const (
+	// SockRevNat6MapName is the BPF map name.
+	SockRevNat6MapName = "cilium_lb6_reverse_sk"
+
+	// SockRevNat6MapSize is the maximum number of entries in the BPF map.
+	SockRevNat6MapSize = 256 * 1024
 )
 
 var (
@@ -111,16 +119,6 @@ type RevNat6Value struct {
 	Port    uint16     `align:"port"`
 }
 
-func NewRevNat6Value(ip net.IP, port uint16) *RevNat6Value {
-	revNat := RevNat6Value{
-		Port: port,
-	}
-
-	copy(revNat.Address[:], ip.To16())
-
-	return &revNat
-}
-
 func (v *RevNat6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 func (v *RevNat6Value) String() string              { return fmt.Sprintf("%s:%d", v.Address, v.Port) }
 
@@ -192,16 +190,6 @@ type Service6Value struct {
 	Pad       pad3uint8 `align:"pad"`
 }
 
-func NewService6Value(count uint16, backendID loadbalancer.BackendID, revNat uint16) *Service6Value {
-	svc := Service6Value{
-		Count:     count,
-		BackendID: uint32(backendID),
-		RevNat:    revNat,
-	}
-
-	return &svc
-}
-
 func (s *Service6Value) String() string {
 	return fmt.Sprintf("%d (%d) [FLAGS: 0x%x]", s.BackendID, s.RevNat, s.Flags)
 }
@@ -215,6 +203,11 @@ func (s *Service6Value) GetRevNat() int       { return int(s.RevNat) }
 func (s *Service6Value) RevNatKey() RevNatKey { return &RevNat6Key{s.RevNat} }
 func (s *Service6Value) SetFlags(flags uint8) { s.Flags = flags }
 func (s *Service6Value) GetFlags() uint8      { return s.Flags }
+
+func (s *Service6Value) SetSessionAffinityTimeoutSec(t uint32) {
+	// See (* Service4Value).SetSessionAffinityTimeoutSec() for comment
+	s.BackendID = t
+}
 
 func (s *Service6Value) SetBackendID(id loadbalancer.BackendID) {
 	s.BackendID = uint32(id)
@@ -306,3 +299,60 @@ func NewBackend6(id loadbalancer.BackendID, ip net.IP, port uint16, proto u8prot
 func (b *Backend6) Map() *bpf.Map          { return Backend6Map }
 func (b *Backend6) GetKey() BackendKey     { return b.Key }
 func (b *Backend6) GetValue() BackendValue { return b.Value }
+
+// SockRevNat6Key is the tuple with address, port and cookie used as key in
+// the reverse NAT sock map.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+type SockRevNat6Key struct {
+	cookie  uint64     `align:"cookie"`
+	address types.IPv6 `align:"address"`
+	port    int16      `align:"port"`
+	pad     int16      `align:"pad"`
+}
+
+// SockRevNat6Value is an entry in the reverse NAT sock map.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
+type SockRevNat6Value struct {
+	address     types.IPv6 `align:"address"`
+	port        int16      `align:"port"`
+	revNatIndex uint16     `align:"rev_nat_index"`
+}
+
+// GetKeyPtr returns the unsafe pointer to the BPF key
+func (k *SockRevNat6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+
+// GetValuePtr returns the unsafe pointer to the BPF value
+func (v *SockRevNat6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+
+// String converts the key into a human readable string format.
+func (k *SockRevNat6Key) String() string {
+	return fmt.Sprintf("[%s]:%d, %d", k.address, k.port, k.cookie)
+}
+
+// String converts the value into a human readable string format.
+func (v *SockRevNat6Value) String() string {
+	return fmt.Sprintf("[%s]:%d, %d", v.address, v.port, v.revNatIndex)
+}
+
+// NewValue returns a new empty instance of the structure representing the BPF
+// map value.
+func (k SockRevNat6Key) NewValue() bpf.MapValue { return &SockRevNat6Value{} }
+
+// CreateSockRevNat6Map creates the reverse NAT sock map.
+func CreateSockRevNat6Map() error {
+	sockRevNat6Map := bpf.NewMap(SockRevNat6MapName,
+		bpf.MapTypeLRUHash,
+		&SockRevNat6Key{},
+		int(unsafe.Sizeof(SockRevNat6Key{})),
+		&SockRevNat6Value{},
+		int(unsafe.Sizeof(SockRevNat6Value{})),
+		SockRevNat6MapSize,
+		0,
+		0,
+		bpf.ConvertKeyValue,
+	)
+	_, err := sockRevNat6Map.Create()
+	return err
+}

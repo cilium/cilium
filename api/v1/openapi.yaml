@@ -37,7 +37,7 @@ paths:
       description: |
         Returns health and status information of the Cilium daemon and related
         components such as the local container runtime, connected datastore,
-        Kubernetes integration.
+        Kubernetes integration and Hubble.
       tags:
       - daemon
       parameters:
@@ -1121,6 +1121,9 @@ definitions:
       health:
         description: Summary overall endpoint & subcomponent health
         "$ref": "#/definitions/EndpointHealth"
+      namedPorts:
+        description: List of named ports that can be used in Network Policy
+        "$ref": "#/definitions/NamedPorts"
   EndpointState:
     description: State of endpoint
     type: string
@@ -1543,6 +1546,9 @@ definitions:
       container-runtime:
         description: Status of local container runtime
         "$ref": "#/definitions/Status"
+      hubble:
+        description: Status of Hubble server
+        "$ref": "#/definitions/HubbleStatus"
       kubernetes:
         description: Status of Kubernetes integration
         "$ref": "#/definitions/K8sStatus"
@@ -1595,6 +1601,50 @@ definitions:
       msg:
         type: string
         description: Human readable status/error/warning message
+  HubbleStatus:
+    description: Status of the Hubble server
+    type: object
+    properties:
+      state:
+        type: string
+        description: State the component is in
+        enum:
+          - Ok
+          - Warning
+          - Failure
+          - Disabled
+      msg:
+        type: string
+        description: Human readable status/error/warning message
+      observer:
+        type: object
+        description: Status of the Hubble observer
+        properties:
+          max-flows:
+            type: integer
+            description: Maximum number of flows this Hubble observer is able to store
+          current-flows:
+            type: integer
+            description: Current number of flows this Hubble observer stores
+          seen-flows:
+            type: integer
+            description: Total number of flows this Hubble observer has seen
+          uptime:
+            type: string
+            format: duration
+            description: Uptime of this Hubble observer instance
+      metrics:
+        type: object
+        description: Status of the Hubble metrics server
+        properties:
+          state:
+            type: string
+            description: State of the Hubble metrics
+            enum:
+              - Ok
+              - Warning
+              - Failure
+              - Disabled
   K8sStatus:
     description: Status of Kubernetes integration
     type: object
@@ -1639,10 +1689,21 @@ definitions:
                 - SNAT
                 - DSR
                 - HYBRID
+              acceleration:
+                type: string
+                enum:
+                - NONE
+                - NATIVE
+                - GENERIC
               portMin:
                 type: integer
               portMax:
                 type: integer
+          hostPort:
+            type: object
+            properties:
+              enabled:
+                type: boolean
           externalIPs:
             type: object
             properties:
@@ -1966,6 +2027,9 @@ definitions:
         description: Layer 4 port number
         type: integer
         format: uint16
+      name:
+        description: Optional layer 4 port name
+        type: string
   SelectorCache:
     description: cache of which identities match selectors in the policy repository
     type: array
@@ -2089,6 +2153,7 @@ definitions:
             - ClusterIP
             - NodePort
             - ExternalIPs
+            - HostPort
           trafficPolicy:
             description: Service traffic policy
             type: string
@@ -2392,3 +2457,10 @@ definitions:
       name:
         description: Name assigned to the IP (e.g. Kubernetes pod name)
         type: string
+  NamedPorts:
+    description: |
+      List of named Layer 4 port and protocol pairs which will be used in Network
+      Policy specs.
+    type: array
+    items:
+      "$ref": "#/definitions/Port"

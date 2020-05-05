@@ -19,10 +19,10 @@ set -e
 get_remote () {
   local remote
   remote=$(git remote -v | \
-    grep "git@github.com:cilium/cilium.git\|https://github.com/cilium/cilium" | \
+    grep "github.com[/:]cilium/cilium" | \
     head -n1 | cut -f1)
   if [ -z "$remote" ]; then
-      echo "No remote git@github:cilium/cilium.git or https://github.com/cilium/cilium found" 1>&2
+      echo "No remote git@github.com:cilium/cilium.git or https://github.com/cilium/cilium found" 1>&2
       return 1
   fi
   echo "$remote"

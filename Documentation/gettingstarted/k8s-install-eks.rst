@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _k8s_install_eks:
 
@@ -22,9 +22,9 @@ Prerequisites
 -------------
 
 Ensure your AWS credentials are located in ``~/.aws/credentials`` or are stored
-as `environment variables <https://docs.aws.amazon.com/cli/latest/userguide/cli-environment.html>`_ .
+as `environment variables <https://docs.aws.amazon.com/cli/latest/userguide/cli-configure-envvars.html>`_ .
 
-Next, install `eksctl <https://github.com/weaveworks/eksctl>`_ :
+Next, install `eksctl`_ :
 
 .. tabs::
   .. group-tab:: Linux
@@ -49,12 +49,13 @@ Ensure that aws-iam-authenticator is installed and in the executable path:
 If not, install it based on the `AWS IAM authenticator documentation
 <https://docs.aws.amazon.com/eks/latest/userguide/install-aws-iam-authenticator.html>`_ .
 
+.. _eksctl: https://github.com/weaveworks/eksctl
+
 Create the cluster
 ------------------
 
-Create an EKS cluster with ``eksctl`` see the `eksctl Documentation
-<https://github.com/weaveworks/eksctl>`_ for details on how to set credentials,
-change region, VPC, cluster size, etc.
+Create an EKS cluster with ``eksctl`` see the `eksctl Documentation`_ for
+details on how to set credentials, change region, VPC, cluster size, etc.
 
    .. code:: bash
 
@@ -68,6 +69,8 @@ You should see something like this:
 	[ℹ]  setting availability zones to [us-west-2b us-west-2a us-west-2c]
 	[...]
 	[✔]  EKS cluster "test-cluster" in "us-west-2" region is ready
+
+.. _eksctl Documentation: eksctl_
 
 Delete VPC CNI (``aws-node`` DaemonSet)
 =======================================
@@ -89,6 +92,20 @@ Deploy Cilium release via Helm:
      --set global.egressMasqueradeInterfaces=eth0 \\
      --set global.tunnel=disabled \\
      --set global.nodeinit.enabled=true
+
+.. note::
+
+   This helm command sets ``global.eni=true`` and ``global.tunnel=disabled``,
+   meaning that Cilium will allocate a fully-routable AWS ENI IP address for each pod,
+   similar to the behavior of the
+   `Amazon VPC CNI plugin <https://docs.aws.amazon.com/eks/latest/userguide/pod-networking.html>`_.
+
+   Cilium can alternatively run in EKS using an overlay mode that gives pods non-VPC-routable IPs.
+   This allows running more pods per Kubernetes worker node than the ENI limit, but means
+   that pod connectivity to resources outside the cluster (e.g., VMs in the VPC or AWS managed
+   services) is masqueraded (i.e., SNAT) by Cilium to use the VPC IP address of the Kubernetes worker node.
+   Excluding the lines for ``global.eni=true`` and ``global.tunnel=disabled`` from the
+   helm command will configure Cilium to use overlay routing mode (which is the helm default).
 
 .. include:: aws-scale-up-cluster.rst
 .. include:: k8s-install-validate.rst

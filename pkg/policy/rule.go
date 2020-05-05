@@ -232,12 +232,12 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
 //
-// If any rules contain L7 rules that select Host and we should accept
-// all traffic from host (hostWildcardL7 == true) the L7 rules will be
-// translated into L7 wildcards (ie, traffic will be forwarded to the
-// proxy for endpoints matching those labels, but the proxy will allow
-// all such traffic).
-func mergeIngressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoints api.EndpointSelectorSlice, hostWildcardL7 bool,
+// If any rules contain L7 rules that select Host or Remote Node and we should
+// accept all traffic from host, the L7 rules will be translated into L7
+// wildcards via 'hostWildcardL7'. That is to say, traffic will be
+// forwarded to the proxy for endpoints matching those labels, but the proxy
+// will allow all such traffic.
+func mergeIngressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoints api.EndpointSelectorSlice, hostWildcardL7 []string,
 	r api.PortRule, p api.PortProtocol, proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 	// Create a new L4Filter
 	filterToMerge, err := createL4IngressFilter(policyCtx, endpoints, hostWildcardL7, r, p, proto, ruleLabels)
@@ -297,8 +297,12 @@ func rulePortsCoverSearchContext(ports []api.PortProtocol, ctx *SearchContext) b
 	for _, p := range ports {
 		for _, dp := range ctx.DPorts {
 			tracePort := api.PortProtocol{
-				Port:     fmt.Sprintf("%d", dp.Port),
 				Protocol: api.L4Proto(dp.Protocol),
+			}
+			if dp.Name != "" {
+				tracePort.Port = dp.Name
+			} else {
+				tracePort.Port = fmt.Sprintf("%d", dp.Port)
 			}
 			if p.Covers(tracePort) {
 				return true
@@ -327,7 +331,13 @@ func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api
 	// restrictions on these endpoints into L7 allow-all so that the
 	// traffic is always allowed, but is also always redirected through the
 	// proxy
-	hostWildcardL7 := option.Config.AlwaysAllowLocalhost()
+	hostWildcardL7 := make([]string, 0, 2)
+	if option.Config.AlwaysAllowLocalhost() {
+		hostWildcardL7 = append(hostWildcardL7, labels.IDNameHost)
+		if !option.Config.EnableRemoteNodeIdentity {
+			hostWildcardL7 = append(hostWildcardL7, labels.IDNameRemoteNode)
+		}
+	}
 
 	var (
 		cnt int

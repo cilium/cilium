@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,7 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/test/config"
-	"github.com/cilium/cilium/test/ginkgo-ext"
+	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers/logutils"
 
 	"github.com/sirupsen/logrus"
@@ -161,7 +161,7 @@ func (s *SSHMeta) WaitEndpointsDeleted() bool {
 	// cilium-health endpoint is always running.
 	desiredState := "1"
 	body := func() bool {
-		cmd := fmt.Sprintf(`cilium endpoint list -o json | jq '. | length'`)
+		cmd := `cilium endpoint list -o json | jq '. | length'`
 		res := s.Exec(cmd)
 		numEndpointsRunning := strings.TrimSpace(res.GetStdOut())
 		if numEndpointsRunning == desiredState {
@@ -348,7 +348,7 @@ func (s *SSHMeta) BasePath() string {
 // called the command will stop and monitor's output is saved on
 // `monitorLogFileName` file.
 func (s *SSHMeta) MonitorStart() func() error {
-	cmd := "cilium monitor -v | ts '[%Y-%m-%d %H:%M:%S]'"
+	cmd := "cilium monitor -vv | ts '[%Y-%m-%d %H:%M:%S]'"
 	ctx, cancel := context.WithCancel(context.Background())
 	res := s.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true})
 
@@ -419,7 +419,7 @@ func (s *SSHMeta) SetPolicyEnforcement(status string) *CmdRes {
 	// We check before setting PolicyEnforcement; if we do not, EndpointWait
 	// will fail due to the status of the endpoints not changing.
 	log.Infof("setting %s=%s", PolicyEnforcement, status)
-	res := s.ExecCilium(fmt.Sprintf("config -o json | jq -r '.status.realized[\"policy-enforcement\"]'"))
+	res := s.ExecCilium("config -o json | jq -r '.status.realized[\"policy-enforcement\"]'")
 	if res.SingleOut() == status {
 		return res
 	}
@@ -552,7 +552,7 @@ func (s *SSHMeta) PolicyImport(path string) error {
 func (s *SSHMeta) PolicyRenderAndImport(policy string) (int, error) {
 	filename := fmt.Sprintf("policy_%s.json", MakeUID())
 	s.logger.Debugf("PolicyRenderAndImport: render policy to '%s'", filename)
-	err := RenderTemplateToFile(filename, policy, os.ModePerm)
+	err := s.RenderTemplateToFile(filename, policy, os.ModePerm)
 	if err != nil {
 		s.logger.Errorf("PolicyRenderAndImport: cannot create policy file on '%s'", filename)
 		return 0, fmt.Errorf("cannot render the policy:  %s", err)
@@ -650,7 +650,8 @@ func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
 		}
 	}()
 
-	failIfContainsBadLogMsg(logs)
+	blacklist := GetBadLogMessages()
+	failIfContainsBadLogMsg(logs, blacklist)
 
 	fmt.Fprintf(CheckLogs, logutils.LogErrorsSummary(logs))
 }
@@ -884,13 +885,14 @@ PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load %s
 INITSYSTEM=SYSTEMD`
 
-	err := RenderTemplateToFile("cilium", fmt.Sprintf(systemdTemplate, ciliumOpts), os.ModePerm)
+	ciliumConfig := "cilium.conf.ginkgo"
+	err := s.RenderTemplateToFile(ciliumConfig, fmt.Sprintf(systemdTemplate, ciliumOpts), os.ModePerm)
 	if err != nil {
 		return err
 	}
-	defer os.Remove("cilium")
 
-	res := s.Exec("sudo cp /vagrant/cilium /etc/sysconfig/cilium")
+	confPath := filepath.Join("/home/vagrant/go/src/github.com/cilium/cilium/test", ciliumConfig)
+	res := s.Exec(fmt.Sprintf("sudo cp %s /etc/sysconfig/cilium", confPath))
 	if !res.WasSuccessful() {
 		return fmt.Errorf("%s", res.CombineOutput())
 	}

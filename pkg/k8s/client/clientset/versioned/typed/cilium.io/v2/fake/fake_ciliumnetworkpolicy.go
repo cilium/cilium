@@ -17,6 +17,8 @@
 package fake
 
 import (
+	"context"
+
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	labels "k8s.io/apimachinery/pkg/labels"
@@ -37,7 +39,7 @@ var ciliumnetworkpoliciesResource = schema.GroupVersionResource{Group: "cilium.i
 var ciliumnetworkpoliciesKind = schema.GroupVersionKind{Group: "cilium.io", Version: "v2", Kind: "CiliumNetworkPolicy"}
 
 // Get takes name of the ciliumNetworkPolicy, and returns the corresponding ciliumNetworkPolicy object, and an error if there is any.
-func (c *FakeCiliumNetworkPolicies) Get(name string, options v1.GetOptions) (result *v2.CiliumNetworkPolicy, err error) {
+func (c *FakeCiliumNetworkPolicies) Get(ctx context.Context, name string, options v1.GetOptions) (result *v2.CiliumNetworkPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewGetAction(ciliumnetworkpoliciesResource, c.ns, name), &v2.CiliumNetworkPolicy{})
 
@@ -48,7 +50,7 @@ func (c *FakeCiliumNetworkPolicies) Get(name string, options v1.GetOptions) (res
 }
 
 // List takes label and field selectors, and returns the list of CiliumNetworkPolicies that match those selectors.
-func (c *FakeCiliumNetworkPolicies) List(opts v1.ListOptions) (result *v2.CiliumNetworkPolicyList, err error) {
+func (c *FakeCiliumNetworkPolicies) List(ctx context.Context, opts v1.ListOptions) (result *v2.CiliumNetworkPolicyList, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewListAction(ciliumnetworkpoliciesResource, ciliumnetworkpoliciesKind, c.ns, opts), &v2.CiliumNetworkPolicyList{})
 
@@ -70,14 +72,14 @@ func (c *FakeCiliumNetworkPolicies) List(opts v1.ListOptions) (result *v2.Cilium
 }
 
 // Watch returns a watch.Interface that watches the requested ciliumNetworkPolicies.
-func (c *FakeCiliumNetworkPolicies) Watch(opts v1.ListOptions) (watch.Interface, error) {
+func (c *FakeCiliumNetworkPolicies) Watch(ctx context.Context, opts v1.ListOptions) (watch.Interface, error) {
 	return c.Fake.
 		InvokesWatch(testing.NewWatchAction(ciliumnetworkpoliciesResource, c.ns, opts))
 
 }
 
 // Create takes the representation of a ciliumNetworkPolicy and creates it.  Returns the server's representation of the ciliumNetworkPolicy, and an error, if there is any.
-func (c *FakeCiliumNetworkPolicies) Create(ciliumNetworkPolicy *v2.CiliumNetworkPolicy) (result *v2.CiliumNetworkPolicy, err error) {
+func (c *FakeCiliumNetworkPolicies) Create(ctx context.Context, ciliumNetworkPolicy *v2.CiliumNetworkPolicy, opts v1.CreateOptions) (result *v2.CiliumNetworkPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewCreateAction(ciliumnetworkpoliciesResource, c.ns, ciliumNetworkPolicy), &v2.CiliumNetworkPolicy{})
 
@@ -88,7 +90,7 @@ func (c *FakeCiliumNetworkPolicies) Create(ciliumNetworkPolicy *v2.CiliumNetwork
 }
 
 // Update takes the representation of a ciliumNetworkPolicy and updates it. Returns the server's representation of the ciliumNetworkPolicy, and an error, if there is any.
-func (c *FakeCiliumNetworkPolicies) Update(ciliumNetworkPolicy *v2.CiliumNetworkPolicy) (result *v2.CiliumNetworkPolicy, err error) {
+func (c *FakeCiliumNetworkPolicies) Update(ctx context.Context, ciliumNetworkPolicy *v2.CiliumNetworkPolicy, opts v1.UpdateOptions) (result *v2.CiliumNetworkPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateAction(ciliumnetworkpoliciesResource, c.ns, ciliumNetworkPolicy), &v2.CiliumNetworkPolicy{})
 
@@ -100,7 +102,7 @@ func (c *FakeCiliumNetworkPolicies) Update(ciliumNetworkPolicy *v2.CiliumNetwork
 
 // UpdateStatus was generated because the type contains a Status member.
 // Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCiliumNetworkPolicies) UpdateStatus(ciliumNetworkPolicy *v2.CiliumNetworkPolicy) (*v2.CiliumNetworkPolicy, error) {
+func (c *FakeCiliumNetworkPolicies) UpdateStatus(ctx context.Context, ciliumNetworkPolicy *v2.CiliumNetworkPolicy, opts v1.UpdateOptions) (*v2.CiliumNetworkPolicy, error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewUpdateSubresourceAction(ciliumnetworkpoliciesResource, "status", c.ns, ciliumNetworkPolicy), &v2.CiliumNetworkPolicy{})
 
@@ -111,7 +113,7 @@ func (c *FakeCiliumNetworkPolicies) UpdateStatus(ciliumNetworkPolicy *v2.CiliumN
 }
 
 // Delete takes name of the ciliumNetworkPolicy and deletes it. Returns an error if one occurs.
-func (c *FakeCiliumNetworkPolicies) Delete(name string, options *v1.DeleteOptions) error {
+func (c *FakeCiliumNetworkPolicies) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
 		Invokes(testing.NewDeleteAction(ciliumnetworkpoliciesResource, c.ns, name), &v2.CiliumNetworkPolicy{})
 
@@ -119,15 +121,15 @@ func (c *FakeCiliumNetworkPolicies) Delete(name string, options *v1.DeleteOption
 }
 
 // DeleteCollection deletes a collection of objects.
-func (c *FakeCiliumNetworkPolicies) DeleteCollection(options *v1.DeleteOptions, listOptions v1.ListOptions) error {
-	action := testing.NewDeleteCollectionAction(ciliumnetworkpoliciesResource, c.ns, listOptions)
+func (c *FakeCiliumNetworkPolicies) DeleteCollection(ctx context.Context, opts v1.DeleteOptions, listOpts v1.ListOptions) error {
+	action := testing.NewDeleteCollectionAction(ciliumnetworkpoliciesResource, c.ns, listOpts)
 
 	_, err := c.Fake.Invokes(action, &v2.CiliumNetworkPolicyList{})
 	return err
 }
 
 // Patch applies the patch and returns the patched ciliumNetworkPolicy.
-func (c *FakeCiliumNetworkPolicies) Patch(name string, pt types.PatchType, data []byte, subresources ...string) (result *v2.CiliumNetworkPolicy, err error) {
+func (c *FakeCiliumNetworkPolicies) Patch(ctx context.Context, name string, pt types.PatchType, data []byte, opts v1.PatchOptions, subresources ...string) (result *v2.CiliumNetworkPolicy, err error) {
 	obj, err := c.Fake.
 		Invokes(testing.NewPatchSubresourceAction(ciliumnetworkpoliciesResource, c.ns, name, pt, data, subresources...), &v2.CiliumNetworkPolicy{})
 

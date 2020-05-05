@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/testutils"
+	"github.com/cilium/cilium/pkg/rand"
 
 	. "gopkg.in/check.v1"
 )
@@ -148,11 +148,12 @@ func (d *dummyBackend) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey,
 	return nil, nil
 }
 
-func (d *dummyBackend) Release(ctx context.Context, key AllocatorKey) error {
+func (d *dummyBackend) Release(ctx context.Context, id idpool.ID, key AllocatorKey) error {
 	d.mutex.Lock()
 	defer d.mutex.Unlock()
-	for id, k := range d.identities {
-		if k.GetKey() == key.GetKey() {
+	for idtyID, k := range d.identities {
+		if k.GetKey() == key.GetKey() &&
+			idtyID == id {
 			delete(d.identities, id)
 			if d.handler != nil {
 				d.handler.OnDelete(id, k)
@@ -205,7 +206,7 @@ func (t TestAllocatorKey) PutKeyFromMap(m map[string]string) AllocatorKey {
 }
 
 func randomTestName() string {
-	return testutils.RandomRuneWithPrefix(testPrefix, 12)
+	return rand.RandomStringWithPrefix(testPrefix, 12)
 }
 
 func (s *AllocatorSuite) TestSelectID(c *C) {
@@ -221,7 +222,9 @@ func (s *AllocatorSuite) TestSelectID(c *C) {
 		c.Assert(id, Not(Equals), idpool.NoID)
 		c.Assert(val, Equals, id.String())
 		c.Assert(id, Equals, unmaskedID)
+		a.mainCache.mutex.Lock()
 		a.mainCache.cache[id] = TestAllocatorKey(fmt.Sprintf("key-%d", i))
+		a.mainCache.mutex.Unlock()
 	}
 
 	// we should be out of IDs

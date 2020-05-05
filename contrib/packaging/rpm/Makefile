@@ -1,3 +1,6 @@
+# Copyright 2017-2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 include ../../../Makefile.defs
 
 VERSION := $(shell git tag -l --sort=-v:refname | sed 's/v\([^-].*\)/\1/g' | head -1)

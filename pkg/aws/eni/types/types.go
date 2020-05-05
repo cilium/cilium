@@ -14,6 +14,10 @@
 
 package types
 
+import (
+	"github.com/cilium/cilium/pkg/ipam/types"
+)
+
 // ENISpec is the ENI specification of a node. This specification is considered
 // by the cilium-operator to act as an IPAM operator and makes ENI IPs available
 // via the IPAMSpec section.
@@ -25,6 +29,8 @@ package types
 type ENISpec struct {
 	// InstanceID is the AWS InstanceId of the node. The InstanceID is used
 	// to retrieve AWS metadata for the node.
+	//
+	// OBSOLETE: This field is obsolete, please use Spec.InstanceID
 	InstanceID string `json:"instance-id,omitempty"`
 
 	// InstanceType is the AWS EC2 instance type, e.g. "m5.large"
@@ -158,6 +164,22 @@ type ENI struct {
 
 	// SecurityGroups are the security groups associated with the ENI
 	SecurityGroups []string `json:"security-groups,omitempty"`
+}
+
+// InterfaceID returns the identifier of the interface
+func (e *ENI) InterfaceID() string {
+	return e.ID
+}
+
+// ForeachAddress iterates over all addresses and calls fn
+func (e *ENI) ForeachAddress(id string, fn types.AddressIterator) error {
+	for _, address := range e.Addresses {
+		if err := fn(id, e.ID, address, "", address); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // ENIStatus is the status of ENI addressing of the node

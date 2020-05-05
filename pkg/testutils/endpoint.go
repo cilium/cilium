@@ -15,9 +15,9 @@
 package testutils
 
 import (
-	identityMdl "github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common/addressing"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -25,10 +25,7 @@ import (
 )
 
 var (
-	defaultIdentity = identity.NewIdentityFromModel(&identityMdl.Identity{
-		ID:     42,
-		Labels: []string{"foo"},
-	})
+	defaultIdentity = identity.NewIdentity(42, labels.NewLabelsFromModel([]string{"foo"}))
 )
 
 type TestEndpoint struct {
@@ -36,6 +33,7 @@ type TestEndpoint struct {
 	Identity *identity.Identity
 	Opts     *option.IntOptions
 	MAC      mac.MAC
+	IPv6     addressing.CiliumIPv6
 }
 
 func NewTestEndpoint() TestEndpoint {
@@ -55,6 +53,7 @@ func (e *TestEndpoint) RequireARPPassthrough() bool             { return false }
 func (e *TestEndpoint) RequireEgressProg() bool                 { return false }
 func (e *TestEndpoint) RequireRouting() bool                    { return false }
 func (e *TestEndpoint) RequireEndpointRoute() bool              { return false }
+func (e *TestEndpoint) GetPolicyVerdictLogFilter() uint32       { return 0xffff }
 func (e *TestEndpoint) GetCIDRPrefixLengths() ([]int, []int)    { return nil, nil }
 func (e *TestEndpoint) GetID() uint64                           { return e.Id }
 func (e *TestEndpoint) StringID() string                        { return "42" }
@@ -68,8 +67,7 @@ func (e *TestEndpoint) IPv4Address() addressing.CiliumIPv4 {
 	return addr
 }
 func (e *TestEndpoint) IPv6Address() addressing.CiliumIPv6 {
-	addr, _ := addressing.NewCiliumIPv6("2001:db08:0bad:cafe:600d:bee2:0bad:cafe")
-	return addr
+	return e.IPv6
 }
 
 func (e *TestEndpoint) InterfaceName() string {
@@ -81,10 +79,7 @@ func (e *TestEndpoint) Logger(subsystem string) *logrus.Entry {
 }
 
 func (e *TestEndpoint) SetIdentity(secID int64, newEndpoint bool) {
-	e.Identity = identity.NewIdentityFromModel(&identityMdl.Identity{
-		ID:     secID,
-		Labels: []string{"bar"},
-	})
+	e.Identity = identity.NewIdentity(identity.NumericIdentity(secID), labels.NewLabelsFromModel([]string{"bar"}))
 }
 
 func (e *TestEndpoint) StateDir() string {

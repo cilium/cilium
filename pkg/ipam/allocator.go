@@ -60,6 +60,27 @@ func (ipam *IPAM) lookupIPsByOwner(owner string) (ips []net.IP) {
 
 // AllocateIP allocates a IP address.
 func (ipam *IPAM) AllocateIP(ip net.IP, owner string) (err error) {
+	needSyncUpstream := true
+	return ipam.allocateIP(ip, owner, needSyncUpstream)
+}
+
+// AllocateIPWithoutSyncUpstream allocates a IP address without syncing upstream.
+func (ipam *IPAM) AllocateIPWithoutSyncUpstream(ip net.IP, owner string) (err error) {
+	needSyncUpstream := false
+	return ipam.allocateIP(ip, owner, needSyncUpstream)
+}
+
+// AllocateIPString is identical to AllocateIP but takes a string
+func (ipam *IPAM) AllocateIPString(ipAddr, owner string) error {
+	ip := net.ParseIP(ipAddr)
+	if ip == nil {
+		return fmt.Errorf("Invalid IP address: %s", ipAddr)
+	}
+
+	return ipam.AllocateIP(ip, owner)
+}
+
+func (ipam *IPAM) allocateIP(ip net.IP, owner string, needSyncUpstream bool) (err error) {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
@@ -75,8 +96,14 @@ func (ipam *IPAM) AllocateIP(ip net.IP, owner string) (err error) {
 			return
 		}
 
-		if _, err = ipam.IPv4Allocator.Allocate(ip, owner); err != nil {
-			return
+		if needSyncUpstream {
+			if _, err = ipam.IPv4Allocator.Allocate(ip, owner); err != nil {
+				return
+			}
+		} else {
+			if _, err = ipam.IPv4Allocator.AllocateWithoutSyncUpstream(ip, owner); err != nil {
+				return
+			}
 		}
 	} else {
 		family = familyIPv6
@@ -85,8 +112,14 @@ func (ipam *IPAM) AllocateIP(ip net.IP, owner string) (err error) {
 			return
 		}
 
-		if _, err = ipam.IPv6Allocator.Allocate(ip, owner); err != nil {
-			return
+		if needSyncUpstream {
+			if _, err = ipam.IPv6Allocator.Allocate(ip, owner); err != nil {
+				return
+			}
+		} else {
+			if _, err = ipam.IPv6Allocator.AllocateWithoutSyncUpstream(ip, owner); err != nil {
+				return
+			}
 		}
 	}
 
@@ -100,24 +133,30 @@ func (ipam *IPAM) AllocateIP(ip net.IP, owner string) (err error) {
 	return
 }
 
-// AllocateIPString is identical to AllocateIP but takes a string
-func (ipam *IPAM) AllocateIPString(ipAddr, owner string) error {
-	ip := net.ParseIP(ipAddr)
-	if ip == nil {
-		return fmt.Errorf("Invalid IP address: %s", ipAddr)
+func (ipam *IPAM) allocateNextFamily(family Family, owner string, needSyncUpstream bool) (result *AllocationResult, err error) {
+	var allocator Allocator
+	switch family {
+	case IPv6:
+		allocator = ipam.IPv6Allocator
+	case IPv4:
+		allocator = ipam.IPv4Allocator
+
+	default:
+		err = fmt.Errorf("unknown address \"%s\" family requested", family)
+		return
 	}
 
-	return ipam.AllocateIP(ip, owner)
-}
-
-func (ipam *IPAM) allocateNextFamily(family Family, allocator Allocator, owner string) (result *AllocationResult, err error) {
 	if allocator == nil {
 		err = fmt.Errorf("%s allocator not available", family)
 		return
 	}
 
 	for {
-		result, err = allocator.AllocateNext(owner)
+		if needSyncUpstream {
+			result, err = allocator.AllocateNext(owner)
+		} else {
+			result, err = allocator.AllocateNextWithoutSyncUpstream(owner)
+		}
 		if err != nil {
 			return
 		}
@@ -144,16 +183,20 @@ func (ipam *IPAM) AllocateNextFamily(family Family, owner string) (result *Alloc
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
-	switch family {
-	case IPv6:
-		result, err = ipam.allocateNextFamily(family, ipam.IPv6Allocator, owner)
-	case IPv4:
-		result, err = ipam.allocateNextFamily(family, ipam.IPv4Allocator, owner)
+	needSyncUpstream := true
 
-	default:
-		err = fmt.Errorf("unknown address \"%s\" family requested", family)
-	}
-	return
+	return ipam.allocateNextFamily(family, owner, needSyncUpstream)
+}
+
+// AllocateNextFamilyWithoutSyncUpstream allocates the next IP of the requested address family
+// without syncing upstream
+func (ipam *IPAM) AllocateNextFamilyWithoutSyncUpstream(family Family, owner string) (result *AllocationResult, err error) {
+	ipam.allocatorMutex.Lock()
+	defer ipam.allocatorMutex.Unlock()
+
+	needSyncUpstream := false
+
+	return ipam.allocateNextFamily(family, owner, needSyncUpstream)
 }
 
 // AllocateNext allocates the next available IPv4 and IPv6 address out of the

@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,11 +21,15 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
+	"github.com/cilium/cilium/pkg/maps/eventsmap"
+	"github.com/cilium/cilium/pkg/maps/fragmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/maps/signalmap"
 	"github.com/cilium/cilium/pkg/maps/sockmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 )
@@ -60,6 +64,14 @@ func CheckStructAlignments(path string) error {
 		"policy_key":           {reflect.TypeOf(policymap.PolicyKey{})},
 		"policy_entry":         {reflect.TypeOf(policymap.PolicyEntry{})},
 		"sock_key":             {reflect.TypeOf(sockmap.SockmapKey{})},
+		"ipv4_revnat_tuple":    {reflect.TypeOf(lbmap.SockRevNat4Key{})},
+		"ipv4_revnat_entry":    {reflect.TypeOf(lbmap.SockRevNat4Value{})},
+		"ipv6_revnat_tuple":    {reflect.TypeOf(lbmap.SockRevNat6Key{})},
+		"ipv6_revnat_entry":    {reflect.TypeOf(lbmap.SockRevNat6Value{})},
+		"v6addr":               {reflect.TypeOf(neighborsmap.Key6{})},
+		"macaddr":              {reflect.TypeOf(neighborsmap.Value{})},
+		"ipv4_frag_id":         {reflect.TypeOf(fragmap.FragmentKey{})},
+		"ipv4_frag_l4ports":    {reflect.TypeOf(fragmap.FragmentValue{})},
 		// TODO: alignchecker does not support nested structs yet.
 		// "ipv4_nat_entry":    {reflect.TypeOf(nat.NatEntry4{})},
 		// "ipv6_nat_entry":    {reflect.TypeOf(nat.NatEntry6{})},
@@ -68,6 +80,34 @@ func CheckStructAlignments(path string) error {
 			reflect.TypeOf(eppolicymap.EndpointKey{}),
 			reflect.TypeOf(tunnel.TunnelEndpoint{}),
 		},
+		"lb4_affinity_key":  {reflect.TypeOf(lbmap.Affinity4Key{})},
+		"lb6_affinity_key":  {reflect.TypeOf(lbmap.Affinity6Key{})},
+		"lb_affinity_match": {reflect.TypeOf(lbmap.AffinityMatchKey{})},
+		"lb_affinity_val":   {reflect.TypeOf(lbmap.AffinityValue{})},
 	}
-	return check.CheckStructAlignments(path, toCheck)
+	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
+		return err
+	}
+	toCheckSizes := map[string][]reflect.Type{
+		"__u16": {
+			reflect.TypeOf(lbmap.Backend4Key{}),
+			reflect.TypeOf(lbmap.Backend6Key{}),
+			reflect.TypeOf(lbmap.RevNat4Key{}),
+			reflect.TypeOf(lbmap.RevNat6Key{}),
+		},
+		"__u32": {
+			reflect.TypeOf(signalmap.Key{}),
+			reflect.TypeOf(signalmap.Value{}),
+			reflect.TypeOf(eventsmap.Key{}),
+			reflect.TypeOf(eventsmap.Value{}),
+			reflect.TypeOf(policymap.CallKey{}),
+			reflect.TypeOf(policymap.CallValue{}),
+		},
+		"int": {
+			reflect.TypeOf(sockmap.SockmapValue{}),
+			reflect.TypeOf(eppolicymap.EPPolicyValue{}),
+		},
+		"__be32": {reflect.TypeOf(neighborsmap.Key4{})},
+	}
+	return check.CheckStructAlignments(path, toCheckSizes, false)
 }

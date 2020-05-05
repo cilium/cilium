@@ -90,7 +90,7 @@ func (k Key) String() string {
 		ipStr := k.IP.String()
 		return fmt.Sprintf("%s/%d", ipStr, prefixLen)
 	}
-	return fmt.Sprintf("<unknown>")
+	return "<unknown>"
 }
 
 // getPrefixLen determines the length that should be set inside the Key so that

@@ -37,12 +37,7 @@ package linux_defaults
 //
 // Cilium Mark (4 bits):
 // M M M M
-// 1 0 1 0 Ingress proxy
-// 1 0 1 1 Egress proxy
-// 1 1 0 0 From host
-// 0 0 1 0 To Ingress Proxy
-// 0 0 1 1 To Egress proxy
-// 0 1 0 1 BPF SNAT done
+// (see MARK_MAGIC_* in bpf/lib/common.h)
 const (
 	// MagicMarkHostMask can be used to fetch the host/proxy-relevant magic
 	// bits from a mark.
@@ -72,6 +67,11 @@ const (
 	// MagicMarkHost determines that the traffic is sourced from the local
 	// host and not from a proxy.
 	MagicMarkHost int = 0x0C00
+
+	// MagicMarkIdentity determines that the traffic carries a security
+	// identity in the skb->mark
+	MagicMarkIdentity int = 0x0F00
+
 	// MagicMarkK8sMasq determines that the traffic should be masqueraded
 	// by kube-proxy in kubernetes environments.
 	MagicMarkK8sMasq int = 0x4000

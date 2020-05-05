@@ -29,4 +29,4 @@ spec:
         imagePullPolicy: IfNotPresent
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "localhost"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "localhost"]

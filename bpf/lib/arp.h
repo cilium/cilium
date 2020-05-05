@@ -18,7 +18,8 @@ struct arp_eth {
 } __attribute__((packed));
 
 /* Check if packet is ARP request for IP */
-static __always_inline int arp_check(struct ethhdr *eth, struct arphdr *arp,
+static __always_inline int arp_check(struct ethhdr *eth,
+				     const struct arphdr *arp,
 				     union macaddr *mac)
 {
 	union macaddr *dmac = (union macaddr *) &eth->h_dest;
@@ -30,7 +31,8 @@ static __always_inline int arp_check(struct ethhdr *eth, struct arphdr *arp,
 
 static __always_inline int
 arp_prepare_response(struct __ctx_buff *ctx, struct ethhdr *eth,
-		     struct arp_eth *arp_eth, __be32 ip, union macaddr *mac)
+		     const struct arp_eth *arp_eth, __be32 ip,
+		     union macaddr *mac)
 {
 	union macaddr smac = *(union macaddr *) &eth->h_source;
 	__be32 sip = arp_eth->ar_sip;

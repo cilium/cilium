@@ -23,10 +23,10 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/service"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"gopkg.in/check.v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/discovery/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -329,7 +329,7 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEndpoints()
 				svcEP.Backends["172.0.0.1"] = &Backend{
-					Ports: service.PortConfiguration{
+					Ports: serviceStore.PortConfiguration{
 						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 					},
 					NodeName: nodeName,
@@ -376,7 +376,7 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEndpoints()
 				svcEP.Backends["172.0.0.1"] = &Backend{
-					Ports: service.PortConfiguration{
+					Ports: serviceStore.PortConfiguration{
 						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
 					},
@@ -427,14 +427,14 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEndpoints()
 				svcEP.Backends["172.0.0.1"] = &Backend{
-					Ports: service.PortConfiguration{
+					Ports: serviceStore.PortConfiguration{
 						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
 					},
 					NodeName: nodeName,
 				}
 				svcEP.Backends["172.0.0.2"] = &Backend{
-					Ports: service.PortConfiguration{
+					Ports: serviceStore.PortConfiguration{
 						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
 					},
@@ -489,14 +489,14 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEndpoints()
 				svcEP.Backends["172.0.0.1"] = &Backend{
-					Ports: service.PortConfiguration{
+					Ports: serviceStore.PortConfiguration{
 						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
 					},
 					NodeName: nodeName,
 				}
 				svcEP.Backends["172.0.0.2"] = &Backend{
-					Ports: service.PortConfiguration{
+					Ports: serviceStore.PortConfiguration{
 						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
 					},
@@ -615,7 +615,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEndpoints()
 				svcEP.Backends["172.0.0.1"] = &Backend{
-					Ports: service.PortConfiguration{
+					Ports: serviceStore.PortConfiguration{
 						"http-test-svc": loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 					},
 					NodeName: nodeName,
@@ -663,7 +663,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEndpoints()
 				svcEP.Backends["172.0.0.1"] = &Backend{
-					Ports: service.PortConfiguration{
+					Ports: serviceStore.PortConfiguration{
 						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
 					},
@@ -717,14 +717,14 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEndpoints()
 				svcEP.Backends["172.0.0.1"] = &Backend{
-					Ports: service.PortConfiguration{
+					Ports: serviceStore.PortConfiguration{
 						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
 					},
 					NodeName: nodeName,
 				}
 				svcEP.Backends["172.0.0.2"] = &Backend{
-					Ports: service.PortConfiguration{
+					Ports: serviceStore.PortConfiguration{
 						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
 					},
@@ -784,14 +784,14 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			setupWanted: func() *Endpoints {
 				svcEP := newEndpoints()
 				svcEP.Backends["172.0.0.1"] = &Backend{
-					Ports: service.PortConfiguration{
+					Ports: serviceStore.PortConfiguration{
 						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
 					},
 					NodeName: nodeName,
 				}
 				svcEP.Backends["172.0.0.2"] = &Backend{
-					Ports: service.PortConfiguration{
+					Ports: serviceStore.PortConfiguration{
 						"http-test-svc":   loadbalancer.NewL4Addr(loadbalancer.TCP, 8080),
 						"http-test-svc-2": loadbalancer.NewL4Addr(loadbalancer.TCP, 8081),
 					},

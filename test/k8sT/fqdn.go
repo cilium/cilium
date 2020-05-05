@@ -45,14 +45,27 @@ var _ = Describe("K8sFQDNTest", func() {
 	)
 
 	BeforeAll(func() {
-		// In case the IPs changed, update them here
-		addrs, err := net.LookupHost("vagrant-cache.ci.cilium.io")
-		Expect(err).Should(BeNil(), "Error getting IPs for test")
-		worldTargetIP = addrs[0]
+		// In case the IPs changed from above, update them here
+		var lookupErr error
+		err := helpers.WithTimeout(func() bool {
+			var addrs []string
+			addrs, lookupErr = net.LookupHost("vagrant-cache.ci.cilium.io")
+			if lookupErr != nil {
+				lookupErr = fmt.Errorf("error looking up vagrant-cache.ci.cilium.io: %s", lookupErr)
+				return false
+			}
+			worldTargetIP = addrs[0]
 
-		addrs, err = net.LookupHost("jenkins.cilium.io")
-		Expect(err).Should(BeNil(), "Error getting IPs for test")
-		worldInvalidTargetIP = addrs[0]
+			addrs, lookupErr = net.LookupHost("jenkins.cilium.io")
+			if lookupErr != nil {
+				lookupErr = fmt.Errorf("error looking up jenkins.cilium.io: %s", lookupErr)
+				return false
+			}
+			worldInvalidTargetIP = addrs[0]
+
+			return true
+		}, "Could not get vagrant-cache.ci.cilium.io and jenkins.cilium.io IPs", &helpers.TimeoutConfig{Timeout: helpers.MidCommandTimeout})
+		Expect(err).Should(BeNil(), "Error obtaining IPs for test: %s", lookupErr)
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoManifest = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")

@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,6 +24,9 @@ var (
 	// LastInteraction is the time at which the last apiserver interaction
 	// occurred
 	LastInteraction eventTimestamper
+	// LastSuccessInteraction is the time at which we have received a successful
+	// k8s apiserver reply (i.e. a response code 2xx or 4xx).
+	LastSuccessInteraction eventTimestamper
 )
 
 type eventTimestamper struct {

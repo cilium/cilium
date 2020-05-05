@@ -605,7 +605,7 @@ func init() {
     },
     "/healthz": {
       "get": {
-        "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration.\n",
+        "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration and Hubble.\n",
         "tags": [
           "daemon"
         ],
@@ -2151,6 +2151,10 @@ func init() {
           "description": "Most recent status log. See endpoint/{id}/log for the complete log.",
           "$ref": "#/definitions/EndpointStatusLog"
         },
+        "namedPorts": {
+          "description": "List of named ports that can be used in Network Policy",
+          "$ref": "#/definitions/NamedPorts"
+        },
         "networking": {
           "description": "Networking properties of the endpoint",
           "$ref": "#/definitions/EndpointNetworking"
@@ -2224,6 +2228,65 @@ func init() {
             "tcp",
             "udp",
             "any"
+          ]
+        }
+      }
+    },
+    "HubbleStatus": {
+      "description": "Status of the Hubble server",
+      "type": "object",
+      "properties": {
+        "metrics": {
+          "description": "Status of the Hubble metrics server",
+          "type": "object",
+          "properties": {
+            "state": {
+              "description": "State of the Hubble metrics",
+              "type": "string",
+              "enum": [
+                "Ok",
+                "Warning",
+                "Failure",
+                "Disabled"
+              ]
+            }
+          }
+        },
+        "msg": {
+          "description": "Human readable status/error/warning message",
+          "type": "string"
+        },
+        "observer": {
+          "description": "Status of the Hubble observer",
+          "type": "object",
+          "properties": {
+            "current-flows": {
+              "description": "Current number of flows this Hubble observer stores",
+              "type": "integer"
+            },
+            "max-flows": {
+              "description": "Maximum number of flows this Hubble observer is able to store",
+              "type": "integer"
+            },
+            "seen-flows": {
+              "description": "Total number of flows this Hubble observer has seen",
+              "type": "integer"
+            },
+            "uptime": {
+              "description": "Uptime of this Hubble observer instance",
+              "type": "string",
+              "format": "duration"
+            }
+          }
+        },
+        "state": {
+          "description": "State the component is in",
+          "type": "string",
+          "enum": [
+            "Ok",
+            "Warning",
+            "Failure",
+            "Disabled"
           ]
         }
       }
@@ -2457,6 +2520,14 @@ func init() {
                 }
               }
             },
+            "hostPort": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "hostReachableServices": {
               "type": "object",
               "properties": {
@@ -2474,6 +2545,14 @@ func init() {
             "nodePort": {
               "type": "object",
               "properties": {
+                "acceleration": {
+                  "type": "string",
+                  "enum": [
+                    "NONE",
+                    "NATIVE",
+                    "GENERIC"
+                  ]
+                },
                 "enabled": {
                   "type": "boolean"
                 },
@@ -2667,6 +2746,13 @@ func init() {
         }
       }
     },
+    "NamedPorts": {
+      "description": "List of named Layer 4 port and protocol pairs which will be used in Network\nPolicy specs.\n",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Port"
+      }
+    },
     "NodeAddressing": {
       "description": "Addressing information of a node for all address families",
       "type": "object",
@@ -2774,6 +2860,10 @@ func init() {
       "description": "Layer 4 port / protocol pair",
       "type": "object",
       "properties": {
+        "name": {
+          "description": "Optional layer 4 port name",
+          "type": "string"
+        },
         "port": {
           "description": "Layer 4 port number",
           "type": "integer",
@@ -3043,7 +3133,8 @@ func init() {
               "enum": [
                 "ClusterIP",
                 "NodePort",
-                "ExternalIPs"
+                "ExternalIPs",
+                "HostPort"
               ]
             }
           }
@@ -3114,6 +3205,10 @@ func init() {
         "controllers": {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
+        },
+        "hubble": {
+          "description": "Status of Hubble server",
+          "$ref": "#/definitions/HubbleStatus"
         },
         "ipam": {
           "description": "Status of IP address management",
@@ -3997,7 +4092,7 @@ func init() {
     },
     "/healthz": {
       "get": {
-        "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration.\n",
+        "description": "Returns health and status information of the Cilium daemon and related\ncomponents such as the local container runtime, connected datastore,\nKubernetes integration and Hubble.\n",
         "tags": [
           "daemon"
         ],
@@ -5620,6 +5715,10 @@ func init() {
           "description": "Most recent status log. See endpoint/{id}/log for the complete log.",
           "$ref": "#/definitions/EndpointStatusLog"
         },
+        "namedPorts": {
+          "description": "List of named ports that can be used in Network Policy",
+          "$ref": "#/definitions/NamedPorts"
+        },
         "networking": {
           "description": "Networking properties of the endpoint",
           "$ref": "#/definitions/EndpointNetworking"
@@ -5693,6 +5792,65 @@ func init() {
             "tcp",
             "udp",
             "any"
+          ]
+        }
+      }
+    },
+    "HubbleStatus": {
+      "description": "Status of the Hubble server",
+      "type": "object",
+      "properties": {
+        "metrics": {
+          "description": "Status of the Hubble metrics server",
+          "type": "object",
+          "properties": {
+            "state": {
+              "description": "State of the Hubble metrics",
+              "type": "string",
+              "enum": [
+                "Ok",
+                "Warning",
+                "Failure",
+                "Disabled"
+              ]
+            }
+          }
+        },
+        "msg": {
+          "description": "Human readable status/error/warning message",
+          "type": "string"
+        },
+        "observer": {
+          "description": "Status of the Hubble observer",
+          "type": "object",
+          "properties": {
+            "current-flows": {
+              "description": "Current number of flows this Hubble observer stores",
+              "type": "integer"
+            },
+            "max-flows": {
+              "description": "Maximum number of flows this Hubble observer is able to store",
+              "type": "integer"
+            },
+            "seen-flows": {
+              "description": "Total number of flows this Hubble observer has seen",
+              "type": "integer"
+            },
+            "uptime": {
+              "description": "Uptime of this Hubble observer instance",
+              "type": "string",
+              "format": "duration"
+            }
+          }
+        },
+        "state": {
+          "description": "State the component is in",
+          "type": "string",
+          "enum": [
+            "Ok",
+            "Warning",
+            "Failure",
+            "Disabled"
           ]
         }
       }
@@ -5926,6 +6084,14 @@ func init() {
                 }
               }
             },
+            "hostPort": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "hostReachableServices": {
               "type": "object",
               "properties": {
@@ -5943,6 +6109,14 @@ func init() {
             "nodePort": {
               "type": "object",
               "properties": {
+                "acceleration": {
+                  "type": "string",
+                  "enum": [
+                    "NONE",
+                    "NATIVE",
+                    "GENERIC"
+                  ]
+                },
                 "enabled": {
                   "type": "boolean"
                 },
@@ -6136,6 +6310,13 @@ func init() {
         }
       }
     },
+    "NamedPorts": {
+      "description": "List of named Layer 4 port and protocol pairs which will be used in Network\nPolicy specs.\n",
+      "type": "array",
+      "items": {
+        "$ref": "#/definitions/Port"
+      }
+    },
     "NodeAddressing": {
       "description": "Addressing information of a node for all address families",
       "type": "object",
@@ -6243,6 +6424,10 @@ func init() {
       "description": "Layer 4 port / protocol pair",
       "type": "object",
       "properties": {
+        "name": {
+          "description": "Optional layer 4 port name",
+          "type": "string"
+        },
         "port": {
           "description": "Layer 4 port number",
           "type": "integer",
@@ -6512,7 +6697,8 @@ func init() {
               "enum": [
                 "ClusterIP",
                 "NodePort",
-                "ExternalIPs"
+                "ExternalIPs",
+                "HostPort"
               ]
             }
           }
@@ -6583,6 +6769,10 @@ func init() {
         "controllers": {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
+        },
+        "hubble": {
+          "description": "Status of Hubble server",
+          "$ref": "#/definitions/HubbleStatus"
         },
         "ipam": {
           "description": "Status of IP address management",

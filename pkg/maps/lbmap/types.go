@@ -75,6 +75,9 @@ type ServiceValue interface {
 	// Get flags
 	GetFlags() uint8
 
+	// Set timeout for sessionAffinity=clientIP
+	SetSessionAffinityTimeoutSec(t uint32)
+
 	// Set backend identifier
 	SetBackendID(id loadbalancer.BackendID)
 
@@ -147,6 +150,10 @@ type RevNatValue interface {
 	// ToNetwork converts fields to network byte order.
 	ToNetwork() RevNatValue
 }
+
+// BackendIDByServiceIDSet is the type of a set for checking whether a backend
+// belongs to a given service
+type BackendIDByServiceIDSet map[uint16]map[uint16]struct{} // svc ID => backend ID
 
 func svcFrontend(svcKey ServiceKey, svcValue ServiceValue) *loadbalancer.L3n4AddrID {
 	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, svcKey.GetAddress(), svcKey.GetPort())

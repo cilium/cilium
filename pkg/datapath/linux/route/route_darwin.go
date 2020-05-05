@@ -20,15 +20,25 @@ import (
 	"fmt"
 
 	"github.com/cilium/cilium/pkg/mtu"
+
+	"github.com/vishvananda/netlink"
 )
 
-// Replace adds or replaces the specified route if necessary. Does nothing
-// for Darwin-based builds.
+// errUnsupportedOp is a common error
+var errUnsupportedOp = fmt.Errorf("Route operations not supported on Darwin")
+
+// Replace is not supported on Darwin and will return an error at runtime.
 func Replace(route Route, mtuConfig mtu.Configuration) error {
-	return fmt.Errorf("Operation not supported ")
+	return errUnsupportedOp
 }
 
-// Delete removes a route. Does nothing for Darwin-based builds.
+// Delete is not supported on Darwin and will return an error at runtime.
 func Delete(route Route) error {
-	return fmt.Errorf("Operation not supported ")
+	return errUnsupportedOp
+}
+
+// NodeDeviceWithDefaultRoute is not supported on Darwin and will return
+// an error at runtime.
+func NodeDeviceWithDefaultRoute() (netlink.Link, error) {
+	return nil, errUnsupportedOp
 }

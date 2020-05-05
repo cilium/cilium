@@ -1,5 +1,11 @@
 #!/bin/bash
 
+# Comment for the '--set global.identityChangeGracePeriod="0s"'
+# We need to change the identity as quickly as possible as there
+# is a k8s upstream test that relies on the policy to be enforced
+# once a new label is added to a pod. If we delay the identity change
+# process the test will fail.
+
 helm template install/kubernetes/cilium \
   --namespace=kube-system \
   --set global.registry=k8s1:5000/cilium \
@@ -14,6 +20,7 @@ helm template install/kubernetes/cilium \
   --set global.etcd.leaseTTL=30s \
   --set global.ipv4.enabled=true \
   --set global.ipv6.enabled=true \
+  --set global.identityChangeGracePeriod="0s" \
   > cilium.yaml
 
 kubectl apply -f cilium.yaml
@@ -53,7 +60,7 @@ git clone https://github.com/kubernetes/kubernetes.git -b ${KUBERNETES_VERSION} 
 cd kubernetes
 
 # Kubernetes is only compiling with golang 1.13.4 for versions >=1.17
-GO_VERSION="1.13.8"
+GO_VERSION="1.14.2"
 sudo rm -fr /usr/local/go
 curl -LO https://dl.google.com/go/go${GO_VERSION}.linux-amd64.tar.gz
 sudo tar -C /usr/local -xzf go${GO_VERSION}.linux-amd64.tar.gz
@@ -66,4 +73,4 @@ export KUBE_MASTER=192.168.36.11
 export KUBE_MASTER_IP=192.168.36.11
 export KUBE_MASTER_URL="https://192.168.36.11:6443"
 
-${HOME}/go/bin/kubetest --test --test_args="--ginkgo.focus=NetworkPolicy --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.allow.egress.access.to.server.in.CIDR.block)|(should.allow.ingress.access.from.updated.pod)|(named.port)"
+${HOME}/go/bin/kubetest --test --test_args="--ginkgo.focus=NetworkPolicy.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.allow.egress.access.to.server.in.CIDR.block)|(should.allow.ingress.access.from.updated.pod)"

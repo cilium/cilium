@@ -28,7 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/service"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -111,6 +111,16 @@ func ParseService(svc *types.Service, nodeAddressing datapath.NodeAddressing) (S
 		trafficPolicy, uint16(svc.Spec.HealthCheckNodePort), svc.Labels, svc.Spec.Selector)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
+
+	if svc.Spec.SessionAffinity == v1.ServiceAffinityClientIP {
+		svcInfo.SessionAffinity = true
+		if cfg := svc.Spec.SessionAffinityConfig; cfg != nil && cfg.ClientIP != nil && cfg.ClientIP.TimeoutSeconds != nil {
+			svcInfo.SessionAffinityTimeoutSec = uint32(*cfg.ClientIP.TimeoutSeconds)
+		}
+		if svcInfo.SessionAffinityTimeoutSec == 0 {
+			svcInfo.SessionAffinityTimeoutSec = uint32(v1.DefaultClientIPServiceAffinitySeconds)
+		}
+	}
 
 	for _, port := range svc.Spec.Ports {
 		p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
@@ -232,6 +242,11 @@ type Service struct {
 	LoadBalancerIPs map[string]net.IP
 	Labels          map[string]string
 	Selector        map[string]string
+
+	// SessionAffinity denotes whether service has the clientIP session affinity
+	SessionAffinity bool
+	// SessionAffinityTimeoutSeconds denotes session affinity timeout
+	SessionAffinityTimeoutSec uint32
 }
 
 // String returns the string representation of a service resource
@@ -387,10 +402,10 @@ func (s *Service) UniquePorts() map[uint16]bool {
 	return uniqPorts
 }
 
-// NewClusterService returns the service.ClusterService representing a
+// NewClusterService returns the serviceStore.ClusterService representing a
 // Kubernetes Service
-func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoints) service.ClusterService {
-	svc := service.NewClusterService(id.Name, id.Namespace)
+func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoints) serviceStore.ClusterService {
+	svc := serviceStore.NewClusterService(id.Name, id.Namespace)
 
 	for key, value := range k8sService.Labels {
 		svc.Labels[key] = value
@@ -400,15 +415,15 @@ func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoint
 		svc.Selector[key] = value
 	}
 
-	portConfig := service.PortConfiguration{}
+	portConfig := serviceStore.PortConfiguration{}
 	for portName, port := range k8sService.Ports {
 		portConfig[string(portName)] = port
 	}
 
-	svc.Frontends = map[string]service.PortConfiguration{}
+	svc.Frontends = map[string]serviceStore.PortConfiguration{}
 	svc.Frontends[k8sService.FrontendIP.String()] = portConfig
 
-	svc.Backends = map[string]service.PortConfiguration{}
+	svc.Backends = map[string]serviceStore.PortConfiguration{}
 	for ipString, backend := range k8sEndpoints.Backends {
 		svc.Backends[ipString] = backend.Ports
 	}

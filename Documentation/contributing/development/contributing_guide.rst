@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 
 .. _howto_contribute:
@@ -13,7 +13,7 @@ How To Contribute
 Clone and Provision Environment
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-#. Make sure you have a `GitHub account <https://github.com/signup/free>`_
+#. Make sure you have a `GitHub account <https://github.com/join>`_
 #. Clone the cilium repository
 
    ::
@@ -31,7 +31,7 @@ Submitting a pull request
 ~~~~~~~~~~~~~~~~~~~~~~~~~
 
 Contributions must be submitted in the form of pull requests against the github
-repository at: `<https://github.com/cilium/cilium>`_
+repository at: https://github.com/cilium/cilium.
 
 #. Fork the Cilium repository to your own personal GitHub space or request
    access to a Cilium developer account on Slack
@@ -68,7 +68,7 @@ requirements have been met:
 
         Fixes: #4191
 
-        Signed-off-by: Joe Stringer <joe@covalent.io>
+        Signed-off-by: Joe Stringer <joe@cilium.io>
 
    .. note:
 

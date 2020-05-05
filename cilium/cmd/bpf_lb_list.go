@@ -71,7 +71,7 @@ func dumpSVC(serviceList map[string][]string) {
 		backendID := svcVal.GetBackendID()
 		flags := loadbalancer.ServiceFlags(svcVal.GetFlags())
 
-		if backendID == 0 {
+		if svcKey.GetSlave() == 0 {
 			ip := "0.0.0.0"
 			if svcKey.IsIPv6() {
 				ip = "[::]"

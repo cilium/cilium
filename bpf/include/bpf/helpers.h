@@ -31,16 +31,17 @@
 #endif
 
 /* Map access/manipulation */
-static void *BPF_FUNC(map_lookup_elem, void *map, const void *key);
-static int BPF_FUNC(map_update_elem, void *map, const void *key,
+static void *BPF_FUNC(map_lookup_elem, const void *map, const void *key);
+static int BPF_FUNC(map_update_elem, const void *map, const void *key,
 		    const void *value, __u32 flags);
-static int BPF_FUNC(map_delete_elem, void *map, const void *key);
+static int BPF_FUNC(map_delete_elem, const void *map, const void *key);
 
 /* Time access */
 static __u64 BPF_FUNC(ktime_get_ns);
 
-/* Sockets */
+/* We have cookies! ;-) */
 static __u64 BPF_FUNC(get_socket_cookie, void *ctx);
+static __u64 BPF_FUNC(get_netns_cookie, void *ctx);
 
 /* Debugging */
 static __printf(1,3) void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
@@ -56,7 +57,7 @@ static __printf(1,3) void BPF_FUNC(trace_printk, const char *fmt, int fmt_size, 
 static __u32 BPF_FUNC(get_prandom_u32);
 
 /* Checksumming */
-static int BPF_FUNC(csum_diff, void *from, __u32 from_size, void *to,
+static int BPF_FUNC(csum_diff, const void *from, __u32 from_size, void *to,
 		    __u32 to_size, __u32 seed);
 
 /* Tail calls */

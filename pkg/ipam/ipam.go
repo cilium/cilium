@@ -19,13 +19,11 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
-	"github.com/vishvananda/netlink"
 )
 
 var (
@@ -73,6 +71,10 @@ type Configuration interface {
 	// SetIPv4NativeRoutingCIDR is called by the IPAM module to announce
 	// the native IPv4 routing CIDR if it exists
 	SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR)
+
+	// IPv4NativeRoutingCIDR is called by the IPAM module retrieve
+	// the native IPv4 routing CIDR if it exists
+	IPv4NativeRoutingCIDR() *cidr.CIDR
 }
 
 // Owner is the interface the owner of an IPAM allocator has to implement
@@ -141,44 +143,6 @@ func nextIP(ip net.IP) {
 		if ip[j] > 0 {
 			break
 		}
-	}
-}
-
-func (ipam *IPAM) reserveLocalRoutes() {
-	log.Debug("Checking local routes for conflicts...")
-
-	link, err := netlink.LinkByName(defaults.HostDevice)
-	if err != nil || link == nil {
-		log.WithError(err).Warnf("Unable to find net_device %s", defaults.HostDevice)
-		return
-	}
-
-	routes, err := netlink.RouteList(nil, netlink.FAMILY_V4)
-	if err != nil {
-		log.WithError(err).Warn("Unable to retrieve local routes")
-		return
-	}
-
-	for _, r := range routes {
-		// ignore routes which point to defaults.HostDevice
-		if r.LinkIndex == link.Attrs().Index {
-			log.WithField("route", r).Debugf("Ignoring route: points to %s", defaults.HostDevice)
-			continue
-		}
-
-		if r.Dst == nil {
-			log.WithField("route", r).Debug("Ignoring route: no destination address")
-			continue
-		}
-
-		// ignore black hole route
-		if r.Src == nil && r.Gw == nil {
-			log.WithField("route", r).Debugf("Ignoring route: black hole")
-			continue
-		}
-
-		log.WithField("route", r.Dst).Info("Blacklisting local route as no-alloc")
-		ipam.BlacklistIPNet(*r.Dst, "local route: "+r.Dst.String())
 	}
 }
 

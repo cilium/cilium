@@ -19,11 +19,11 @@ package mock
 import (
 	"context"
 	"errors"
-	"net"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/azure/types"
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/cidr"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 
 	"gopkg.in/check.v1"
@@ -38,39 +38,50 @@ type MockSuite struct{}
 var _ = check.Suite(&MockSuite{})
 
 func (e *MockSuite) TestMock(c *check.C) {
-	api := NewAPI([]*ipamTypes.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}})
+	subnet := &ipamTypes.Subnet{ID: "s-1", CIDR: cidr.MustParseCIDR("10.0.0.0/16"), AvailableAddresses: 65534}
+	api := NewAPI([]*ipamTypes.Subnet{subnet}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}})
 	c.Assert(api, check.Not(check.IsNil))
 
 	instances, err := api.GetInstances(context.Background())
 	c.Assert(err, check.IsNil)
-	c.Assert(len(instances), check.Equals, 0)
+	c.Assert(instances.NumInstances(), check.Equals, 0)
 
 	vnets, subnets, err := api.GetVpcsAndSubnets(context.Background())
 	c.Assert(err, check.IsNil)
 	c.Assert(len(vnets), check.Equals, 1)
 	c.Assert(vnets["v-1"], checker.DeepEquals, &ipamTypes.VirtualNetwork{ID: "v-1"})
 	c.Assert(len(subnets), check.Equals, 1)
-	c.Assert(subnets["s-1"], checker.DeepEquals, &ipamTypes.Subnet{ID: "s-1", AvailableAddresses: 100})
+	c.Assert(subnets["s-1"], checker.DeepEquals, subnet)
 
-	instances = types.InstanceMap{}
-	instances.Update("i-1", &types.AzureInterface{ID: "intf-1"})
+	ifaceID := "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Compute/virtualMachineScaleSets/vmss11/virtualMachines/vm1/networkInterfaces/vmss11"
+	instances = ipamTypes.NewInstanceMap()
+	instances.Update("vm1", ipamTypes.InterfaceRevision{
+		Resource: &types.AzureInterface{ID: ifaceID, Name: "eth0"},
+	})
 	api.UpdateInstances(instances)
 	instances, err = api.GetInstances(context.Background())
 	c.Assert(err, check.IsNil)
-	c.Assert(len(instances), check.Equals, 1)
-	c.Assert(instances.Get("i-1")[0], checker.DeepEquals, &types.AzureInterface{ID: "intf-1"})
+	c.Assert(instances.NumInstances(), check.Equals, 1)
+	instances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.InterfaceRevision) error {
+		c.Assert(instanceID, check.Equals, "vm1")
+		c.Assert(interfaceID, check.Equals, ifaceID)
+		return nil
+	})
 
-	err = api.AssignPrivateIpAddresses(context.Background(), "s-1", "intf-1", []net.IP{net.ParseIP("1.1.1.1"), net.ParseIP("2.2.2.2")})
+	err = api.AssignPrivateIpAddresses(context.Background(), "vm1", "vmss1", "s-1", "eth0", 2)
 	c.Assert(err, check.IsNil)
 	instances, err = api.GetInstances(context.Background())
 	c.Assert(err, check.IsNil)
-	c.Assert(len(instances), check.Equals, 1)
-	c.Assert(instances.Get("i-1")[0], checker.DeepEquals, &types.AzureInterface{
-		ID: "intf-1",
-		Addresses: []types.AzureAddress{
-			{IP: "1.1.1.1", Subnet: "s-1", State: types.StateSucceeded},
-			{IP: "2.2.2.2", Subnet: "s-1", State: types.StateSucceeded},
-		}})
+	c.Assert(instances.NumInstances(), check.Equals, 1)
+	instances.ForeachInterface("", func(instanceID, interfaceID string, revision ipamTypes.InterfaceRevision) error {
+		c.Assert(instanceID, check.Equals, "vm1")
+		c.Assert(interfaceID, check.Equals, ifaceID)
+
+		iface, ok := revision.Resource.(*types.AzureInterface)
+		c.Assert(ok, check.Equals, true)
+		c.Assert(len(iface.Addresses), check.Equals, 2)
+		return nil
+	})
 }
 
 func (e *MockSuite) TestSetMockError(c *check.C) {
@@ -88,12 +99,13 @@ func (e *MockSuite) TestSetMockError(c *check.C) {
 	c.Assert(err, check.Equals, mockError)
 
 	api.SetMockError(AssignPrivateIpAddresses, mockError)
-	err = api.AssignPrivateIpAddresses(context.Background(), "s-1", "i-1", []net.IP{})
+	err = api.AssignPrivateIpAddresses(context.Background(), "vmss1", "i-1", "s-1", "eth0", 0)
 	c.Assert(err, check.Equals, mockError)
 }
 
 func (e *MockSuite) TestSetLimiter(c *check.C) {
-	api := NewAPI([]*ipamTypes.Subnet{{ID: "s-1", AvailableAddresses: 100}}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}})
+	subnet := &ipamTypes.Subnet{ID: "s-1", CIDR: cidr.MustParseCIDR("10.0.0.0/16"), AvailableAddresses: 100}
+	api := NewAPI([]*ipamTypes.Subnet{subnet}, []*ipamTypes.VirtualNetwork{{ID: "v-1"}})
 	c.Assert(api, check.Not(check.IsNil))
 
 	api.SetLimiter(10.0, 2)

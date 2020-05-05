@@ -18,11 +18,13 @@ spec:
         command: ["/bin/ash", "-c", "sleep 1000000000"]
         imagePullPolicy: IfNotPresent
         livenessProbe:
+          timeoutSeconds: 7
           exec:
-            command: ["ash", "-c", "! curl -sS --connect-timeout 5 -o /dev/null echo-a"]
+            command: ["ash", "-c", "! curl -sS --fail --connect-timeout 5 -o /dev/null echo-a"]
         readinessProbe:
+          timeoutSeconds: 7
           exec:
-            command: ["ash", "-c", "! curl -sS --connect-timeout 5 -o /dev/null echo-a"]
+            command: ["ash", "-c", "! curl -sS --fail --connect-timeout 5 -o /dev/null echo-a"]
 ---
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
@@ -40,4 +42,12 @@ spec:
     toPorts:
     - ports:
       - port: "53"
+        protocol: UDP
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s:dns.operator.openshift.io/daemonset-dns: default
+    toPorts:
+    - ports:
+      - port: "5353"
         protocol: UDP

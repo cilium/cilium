@@ -1,10 +1,18 @@
 apiVersion: apiextensions.k8s.io/v1beta1
 kind: CustomResourceDefinition
 metadata:
+  labels:
+    io.cilium.k8s.crd.schema.version: "1.17"
   name: ciliumnetworkpolicies.cilium.io
 spec:
-  conversion:
-    strategy: None
+  additionalPrinterColumns:
+  - JSONPath: .metadata.creationTimestamp
+    description: |-
+      CreationTimestamp is a timestamp representing the server time when this object was created. It is not guaranteed to be set in happens-before order across separate operations. Clients may not set this value. It is represented in RFC3339 form and is in UTC.
+
+      Populated by the system. Read-only. Null for lists. More info: https://git.k8s.io/community/contributors/devel/api-conventions.md#metadata
+    name: Age
+    type: date
   group: cilium.io
   names:
     kind: CiliumNetworkPolicy
@@ -24,9 +32,7 @@ spec:
           description: CIDR is a CIDR prefix / IP Block.
           oneOf:
           - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-            type: string
           - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-            type: string
           type: string
         CIDRRule:
           description: CIDRRule is a rule that specifies a CIDR prefix to/from which
@@ -37,9 +43,7 @@ spec:
               description: CIDR is a CIDR prefix / IP Block.
               oneOf:
               - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                type: string
               - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                type: string
               type: string
             except:
               description: ExceptCIDRs is a list of IP blocks which the endpoint subject
@@ -51,13 +55,12 @@ spec:
                 description: CIDR is a CIDR prefix / IP Block.
                 oneOf:
                 - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                  type: string
                 - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                  type: string
                 type: string
               type: array
           required:
           - cidr
+          type: object
         EgressRule:
           description: |-
             EgressRule contains all rule types which can be applied at egress, i.e. network traffic that originates inside the endpoint and exits the endpoint selected by the endpointSelector.
@@ -79,9 +82,7 @@ spec:
                 description: CIDR is a CIDR prefix / IP Block.
                 oneOf:
                 - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                  type: string
                 - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                  type: string
                 type: string
               type: array
             toCIDRSet:
@@ -99,9 +100,7 @@ spec:
                     description: CIDR is a CIDR prefix / IP Block.
                     oneOf:
                     - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                      type: string
                     - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                      type: string
                     type: string
                   except:
                     description: ExceptCIDRs is a list of IP blocks which the endpoint
@@ -113,13 +112,12 @@ spec:
                       description: CIDR is a CIDR prefix / IP Block.
                       oneOf:
                       - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                        type: string
                       - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                        type: string
                       type: string
                     type: array
                 required:
                 - cidr
+                type: object
               type: array
             toEndpoints:
               description: |-
@@ -163,6 +161,7 @@ spec:
                       required:
                       - key
                       - operator
+                      type: object
                     type: array
                   matchLabels:
                     description: matchLabels is a map of {key,value} pairs. A single
@@ -171,6 +170,7 @@ spec:
                       is "In", and the values array contains only "value". The requirements
                       are ANDed.
                     type: object
+                type: object
               type: array
             toEntities:
               description: ToEntities is a list of special entities to which the endpoint
@@ -180,40 +180,47 @@ spec:
                 type: string
               type: array
             toFQDNs:
-                description: "ToFQDNs is a list of rules matching fqdns that endpoint\n\t\t\t\tis
-                  allowed to communicate with"
-                items:
-                  description: FQDNRule is a rule that specifies an fully qualified
-                    domain name to which outside communication is allowed
-                  properties:
-                    matchName:
-                      description: MatchName matches fqdn name
-                      pattern: ^([-a-zA-Z0-9_]+[.]?)+$
-                      type: string
-                    matchPattern:
-                      description: MatchPattern matches fqdn by pattern
-                      pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
-                      type: string
-                type: array
+              description: "ToFQDNs is a list of rules matching fqdns that endpoint\n\t\t\t\tis
+                allowed to communicate with"
+              items:
+                description: FQDNRule is a rule that specifies an fully qualified
+                  domain name to which outside communication is allowed
+                properties:
+                  matchName:
+                    description: MatchName matches fqdn name
+                    pattern: ^([-a-zA-Z0-9_]+[.]?)+$
+                    type: string
+                  matchPattern:
+                    description: MatchPattern matches fqdn by pattern
+                    pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
+                    type: string
+                type: object
+              type: array
             toGroups:
               description: "ToGroups is a list of constraints that will\n\t\t\t\tgather
                 data from third-party providers and create a new\n\t\t\t\tderived
                 policy."
               properties:
-                AWS:
+                aws:
                   properties:
-                    Region:
+                    region:
                       description: "Region is the key that will filter the AWS EC2\n\t\t\t\tinstances
                         in the given region"
                       type: string
-                    SecurityGroupsIds:
+                    securityGroupsIds:
                       description: "SecurityGroupsIds is the list of AWS security\n\t\t\t\tgroup
                         IDs that will filter the instances IPs from the AWS API"
+                      items:
+                        type: string
                       type: array
-                    SecurityGroupsNames:
+                    securityGroupsNames:
                       description: "SecurityGroupsNames is the list of  AWS security\n\t\t\t\tgroup
                         names that will filter the instances IPs from the AWS API"
+                      items:
+                        type: string
                       type: array
+                  type: object
+              type: object
             toPorts:
               description: |-
                 ToPorts is a list of destination ports identified by port number and protocol which the endpoint subject to the rule is allowed to connect to.
@@ -223,9 +230,54 @@ spec:
                 description: PortRule is a list of ports/protocol combinations with
                   optional Layer 7 rules which must be met.
                 properties:
+                  originatingTLS:
+                    description: OriginatingTLS is the TLS context for the connections
+                      originated by the L7 proxy.  For egress policy this specifies
+                      the client-side TLS parameters for the upstream connection originating
+                      from the L7 proxy to the remote destination. For ingress policy
+                      this specifies the client-side TLS parameters for the connection
+                      from the L7 proxy to the local POD.
+                    properties:
+                      certificate:
+                        description: Certificate is the file name or secret item name
+                          for the certificate chain. If omitted, 'tls.crt' is assumed,
+                          if it exists. If given, the item must exist.If specified
+                          for an originating TLS context, then this is used as a client
+                          certificate.
+                        type: string
+                      privateKey:
+                        description: PrivateKey is the file name or secret item name
+                          for the private key matching the certificate chain. If omitted,
+                          'tls.key' is assumed, if it exists. If given, the item must
+                          exist.
+                        type: string
+                      secret:
+                        description: Secret contains the certificates and private
+                          key for the TLS context.
+                        properties:
+                          name:
+                            description: Name is the name of the secret.
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace in which the secret
+                              exists. If namespace is omitted, the namespace of the
+                              enclosing rule is assumed, or "", if none applies.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      trustedCA:
+                        description: TrustedCA is the file name or secret item name
+                          for the trusted CA used to verify the certificate of the
+                          remote party. If specified for a terminating TLS context,
+                          then a client certificate is required. If omitted, 'ca.crt'
+                          is assumed, if it exists. If given, the item must exist.
+                        type: string
+                    required:
+                    - secret
+                    type: object
                   ports:
-                    description: |-
-                      Ports is a list of L4 port/protocol.
+                    description: Ports is a list of L4 port/protocol.
                     items:
                       description: PortProtocol specifies an L4 port with an optional
                         transport protocol
@@ -247,6 +299,7 @@ spec:
                           type: string
                       required:
                       - port
+                      type: object
                     type: array
                   rules:
                     description: Rules is a list of additional port level rules which
@@ -257,8 +310,8 @@ spec:
                         description: DNS specific rules
                         items:
                           description: FQDNRule is a rule that specifies an fully
-                            qualified domain name to which outside communication
-                            is allowed
+                            qualified domain name to which outside communication is
+                            allowed
                           properties:
                             matchName:
                               description: MatchName matches fqdn name
@@ -268,6 +321,7 @@ spec:
                               description: MatchPattern matches fqdn by pattern
                               pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                               type: string
+                          type: object
                         type: array
                       http:
                         description: HTTP specific rules.
@@ -277,6 +331,56 @@ spec:
 
                             All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional "path" part of a URL as defined by RFC 3986.
                           properties:
+                            headerMatches:
+                              description: HeaderMatches is a list of HTTP headers
+                                which must be present and match against the given
+                                or referenced values or expressions. If omitted or
+                                empty, requests are allowed regardless of headers
+                                present.
+                              items:
+                                properties:
+                                  mismatch:
+                                    description: Mismatch identifies what to do in
+                                      case there is no match. The default is to drop
+                                      the request. Otherwise the overall rule is still
+                                      considered as matching, but the mismatches are
+                                      logged in the access log.
+                                    enum:
+                                    - LOG
+                                    - ADD
+                                    - DELETE
+                                    - REPLACE
+                                    type: string
+                                  name:
+                                    description: Name identifies the header.
+                                    type: string
+                                  secret:
+                                    description: Secret refers to a secret that contains
+                                      the value that must be present in the request.
+                                    properties:
+                                      name:
+                                        description: Name is the name of the secret.
+                                        type: string
+                                      namespace:
+                                        description: Namespace is the namespace in
+                                          which the secret exists. If namespace is
+                                          omitted, the namespace of the enclosing
+                                          rule is assumed, or "", if none applies.
+                                        type: string
+                                    required:
+                                    - name
+                                    type: object
+                                  value:
+                                    description: Value contains the header value that
+                                      must be present in the request. If both Secret
+                                      and Value are specified, the Secret takes precedence,
+                                      if it exists; i.e., the Value will only be used
+                                      if the Secret cannot be found or accessed.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              type: array
                             headers:
                               description: Headers is a list of HTTP headers which
                                 must be present in the request. If omitted or empty,
@@ -303,6 +407,7 @@ spec:
 
                                 If omitted or empty, all paths are all allowed.
                               type: string
+                          type: object
                         type: array
                       kafka:
                         description: Kafka-specific rules.
@@ -357,6 +462,7 @@ spec:
                                 If omitted or empty, all topics are allowed.
                               maxLength: 255
                               type: string
+                          type: object
                         type: array
                       l7:
                         description: Generic Key-Value pair rules.
@@ -366,10 +472,60 @@ spec:
                             to the parser to define what to do with the map data.
                             If omitted or empty, all requests are allowed. Both keys
                             and values must be strings.
+                          type: object
                         type: array
                       l7proto:
                         description: Parser type name that uses Key-Value pair rules.
                         type: string
+                    type: object
+                  terminatingTLS:
+                    description: TerminatingTLS is the TLS context for the connection
+                      terminated by the L7 proxy.  For egress policy this specifies
+                      the server-side TLS parameters to be applied on the connections
+                      originated from the local POD and terminated by the L7 proxy.
+                      For ingress policy this specifies the server-side TLS parameters
+                      to be applied on the connections originated from a remote source
+                      and terminated by the L7 proxy.
+                    properties:
+                      certificate:
+                        description: Certificate is the file name or secret item name
+                          for the certificate chain. If omitted, 'tls.crt' is assumed,
+                          if it exists. If given, the item must exist.If specified
+                          for an originating TLS context, then this is used as a client
+                          certificate.
+                        type: string
+                      privateKey:
+                        description: PrivateKey is the file name or secret item name
+                          for the private key matching the certificate chain. If omitted,
+                          'tls.key' is assumed, if it exists. If given, the item must
+                          exist.
+                        type: string
+                      secret:
+                        description: Secret contains the certificates and private
+                          key for the TLS context.
+                        properties:
+                          name:
+                            description: Name is the name of the secret.
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace in which the secret
+                              exists. If namespace is omitted, the namespace of the
+                              enclosing rule is assumed, or "", if none applies.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      trustedCA:
+                        description: TrustedCA is the file name or secret item name
+                          for the trusted CA used to verify the certificate of the
+                          remote party. If specified for a terminating TLS context,
+                          then a client certificate is required. If omitted, 'ca.crt'
+                          is assumed, if it exists. If given, the item must exist.
+                        type: string
+                    required:
+                    - secret
+                    type: object
+                type: object
               type: array
             toRequires:
               description: |-
@@ -413,6 +569,7 @@ spec:
                       required:
                       - key
                       - operator
+                      type: object
                     type: array
                   matchLabels:
                     description: matchLabels is a map of {key,value} pairs. A single
@@ -421,6 +578,7 @@ spec:
                       is "In", and the values array contains only "value". The requirements
                       are ANDed.
                     type: object
+                type: object
               type: array
             toServices:
               description: |-
@@ -438,6 +596,7 @@ spec:
                         type: string
                       serviceName:
                         type: string
+                    type: object
                   k8sServiceSelector:
                     description: K8sServiceSelector selects services by k8s labels.
                       Not supported yet
@@ -485,6 +644,7 @@ spec:
                               required:
                               - key
                               - operator
+                              type: object
                             type: array
                           matchLabels:
                             description: matchLabels is a map of {key,value} pairs.
@@ -493,9 +653,13 @@ spec:
                               "key", the operator is "In", and the values array contains
                               only "value". The requirements are ANDed.
                             type: object
+                        type: object
                     required:
                     - selector
+                    type: object
+                type: object
               type: array
+          type: object
         EndpointSelector:
           description: A label selector is a label query over a set of resources.
             The result of matchLabels and matchExpressions are ANDed. An empty label
@@ -531,6 +695,7 @@ spec:
                 required:
                 - key
                 - operator
+                type: object
               type: array
             matchLabels:
               description: matchLabels is a map of {key,value} pairs. A single {key,value}
@@ -538,6 +703,7 @@ spec:
                 whose key field is "key", the operator is "In", and the values array
                 contains only "value". The requirements are ANDed.
               type: object
+          type: object
         IngressRule:
           description: |-
             IngressRule contains all rule types which can be applied at ingress, i.e. network traffic that originates outside of the endpoint and is entering the endpoint selected by the endpointSelector.
@@ -566,9 +732,7 @@ spec:
                 description: CIDR is a CIDR prefix / IP Block.
                 oneOf:
                 - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                  type: string
                 - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                  type: string
                 type: string
               type: array
             fromCIDRSet:
@@ -586,9 +750,7 @@ spec:
                     description: CIDR is a CIDR prefix / IP Block.
                     oneOf:
                     - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                      type: string
                     - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                      type: string
                     type: string
                   except:
                     description: ExceptCIDRs is a list of IP blocks which the endpoint
@@ -600,13 +762,12 @@ spec:
                       description: CIDR is a CIDR prefix / IP Block.
                       oneOf:
                       - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                        type: string
                       - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                        type: string
                       type: string
                     type: array
                 required:
                 - cidr
+                type: object
               type: array
             fromEndpoints:
               description: |-
@@ -650,6 +811,7 @@ spec:
                       required:
                       - key
                       - operator
+                      type: object
                     type: array
                   matchLabels:
                     description: matchLabels is a map of {key,value} pairs. A single
@@ -658,6 +820,7 @@ spec:
                       is "In", and the values array contains only "value". The requirements
                       are ANDed.
                     type: object
+                type: object
               type: array
             fromEntities:
               description: FromEntities is a list of special entities which the endpoint
@@ -708,6 +871,7 @@ spec:
                       required:
                       - key
                       - operator
+                      type: object
                     type: array
                   matchLabels:
                     description: matchLabels is a map of {key,value} pairs. A single
@@ -716,6 +880,7 @@ spec:
                       is "In", and the values array contains only "value". The requirements
                       are ANDed.
                     type: object
+                type: object
               type: array
             toPorts:
               description: |-
@@ -726,9 +891,54 @@ spec:
                 description: PortRule is a list of ports/protocol combinations with
                   optional Layer 7 rules which must be met.
                 properties:
+                  originatingTLS:
+                    description: OriginatingTLS is the TLS context for the connections
+                      originated by the L7 proxy.  For egress policy this specifies
+                      the client-side TLS parameters for the upstream connection originating
+                      from the L7 proxy to the remote destination. For ingress policy
+                      this specifies the client-side TLS parameters for the connection
+                      from the L7 proxy to the local POD.
+                    properties:
+                      certificate:
+                        description: Certificate is the file name or secret item name
+                          for the certificate chain. If omitted, 'tls.crt' is assumed,
+                          if it exists. If given, the item must exist.If specified
+                          for an originating TLS context, then this is used as a client
+                          certificate.
+                        type: string
+                      privateKey:
+                        description: PrivateKey is the file name or secret item name
+                          for the private key matching the certificate chain. If omitted,
+                          'tls.key' is assumed, if it exists. If given, the item must
+                          exist.
+                        type: string
+                      secret:
+                        description: Secret contains the certificates and private
+                          key for the TLS context.
+                        properties:
+                          name:
+                            description: Name is the name of the secret.
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace in which the secret
+                              exists. If namespace is omitted, the namespace of the
+                              enclosing rule is assumed, or "", if none applies.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      trustedCA:
+                        description: TrustedCA is the file name or secret item name
+                          for the trusted CA used to verify the certificate of the
+                          remote party. If specified for a terminating TLS context,
+                          then a client certificate is required. If omitted, 'ca.crt'
+                          is assumed, if it exists. If given, the item must exist.
+                        type: string
+                    required:
+                    - secret
+                    type: object
                   ports:
-                    description: |-
-                      Ports is a list of L4 port/protocol.
+                    description: Ports is a list of L4 port/protocol.
                     items:
                       description: PortProtocol specifies an L4 port with an optional
                         transport protocol
@@ -750,6 +960,7 @@ spec:
                           type: string
                       required:
                       - port
+                      type: object
                     type: array
                   rules:
                     description: Rules is a list of additional port level rules which
@@ -760,8 +971,8 @@ spec:
                         description: DNS specific rules
                         items:
                           description: FQDNRule is a rule that specifies an fully
-                            qualified domain name to which outside communication
-                            is allowed
+                            qualified domain name to which outside communication is
+                            allowed
                           properties:
                             matchName:
                               description: MatchName matches fqdn name
@@ -771,6 +982,7 @@ spec:
                               description: MatchPattern matches fqdn by pattern
                               pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                               type: string
+                          type: object
                         type: array
                       http:
                         description: HTTP specific rules.
@@ -780,6 +992,56 @@ spec:
 
                             All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional "path" part of a URL as defined by RFC 3986.
                           properties:
+                            headerMatches:
+                              description: HeaderMatches is a list of HTTP headers
+                                which must be present and match against the given
+                                or referenced values or expressions. If omitted or
+                                empty, requests are allowed regardless of headers
+                                present.
+                              items:
+                                properties:
+                                  mismatch:
+                                    description: Mismatch identifies what to do in
+                                      case there is no match. The default is to drop
+                                      the request. Otherwise the overall rule is still
+                                      considered as matching, but the mismatches are
+                                      logged in the access log.
+                                    enum:
+                                    - LOG
+                                    - ADD
+                                    - DELETE
+                                    - REPLACE
+                                    type: string
+                                  name:
+                                    description: Name identifies the header.
+                                    type: string
+                                  secret:
+                                    description: Secret refers to a secret that contains
+                                      the value that must be present in the request.
+                                    properties:
+                                      name:
+                                        description: Name is the name of the secret.
+                                        type: string
+                                      namespace:
+                                        description: Namespace is the namespace in
+                                          which the secret exists. If namespace is
+                                          omitted, the namespace of the enclosing
+                                          rule is assumed, or "", if none applies.
+                                        type: string
+                                    required:
+                                    - name
+                                    type: object
+                                  value:
+                                    description: Value contains the header value that
+                                      must be present in the request. If both Secret
+                                      and Value are specified, the Secret takes precedence,
+                                      if it exists; i.e., the Value will only be used
+                                      if the Secret cannot be found or accessed.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              type: array
                             headers:
                               description: Headers is a list of HTTP headers which
                                 must be present in the request. If omitted or empty,
@@ -806,6 +1068,7 @@ spec:
 
                                 If omitted or empty, all paths are all allowed.
                               type: string
+                          type: object
                         type: array
                       kafka:
                         description: Kafka-specific rules.
@@ -860,6 +1123,7 @@ spec:
                                 If omitted or empty, all topics are allowed.
                               maxLength: 255
                               type: string
+                          type: object
                         type: array
                       l7:
                         description: Generic Key-Value pair rules.
@@ -869,11 +1133,62 @@ spec:
                             to the parser to define what to do with the map data.
                             If omitted or empty, all requests are allowed. Both keys
                             and values must be strings.
+                          type: object
                         type: array
                       l7proto:
                         description: Parser type name that uses Key-Value pair rules.
                         type: string
+                    type: object
+                  terminatingTLS:
+                    description: TerminatingTLS is the TLS context for the connection
+                      terminated by the L7 proxy.  For egress policy this specifies
+                      the server-side TLS parameters to be applied on the connections
+                      originated from the local POD and terminated by the L7 proxy.
+                      For ingress policy this specifies the server-side TLS parameters
+                      to be applied on the connections originated from a remote source
+                      and terminated by the L7 proxy.
+                    properties:
+                      certificate:
+                        description: Certificate is the file name or secret item name
+                          for the certificate chain. If omitted, 'tls.crt' is assumed,
+                          if it exists. If given, the item must exist.If specified
+                          for an originating TLS context, then this is used as a client
+                          certificate.
+                        type: string
+                      privateKey:
+                        description: PrivateKey is the file name or secret item name
+                          for the private key matching the certificate chain. If omitted,
+                          'tls.key' is assumed, if it exists. If given, the item must
+                          exist.
+                        type: string
+                      secret:
+                        description: Secret contains the certificates and private
+                          key for the TLS context.
+                        properties:
+                          name:
+                            description: Name is the name of the secret.
+                            type: string
+                          namespace:
+                            description: Namespace is the namespace in which the secret
+                              exists. If namespace is omitted, the namespace of the
+                              enclosing rule is assumed, or "", if none applies.
+                            type: string
+                        required:
+                        - name
+                        type: object
+                      trustedCA:
+                        description: TrustedCA is the file name or secret item name
+                          for the trusted CA used to verify the certificate of the
+                          remote party. If specified for a terminating TLS context,
+                          then a client certificate is required. If omitted, 'ca.crt'
+                          is assumed, if it exists. If given, the item must exist.
+                        type: string
+                    required:
+                    - secret
+                    type: object
+                type: object
               type: array
+          type: object
         K8sServiceNamespace:
           description: K8sServiceNamespace is an abstraction for the k8s service +
             namespace types.
@@ -882,6 +1197,7 @@ spec:
               type: string
             serviceName:
               type: string
+          type: object
         L7Rules:
           description: L7Rules is a union of port level rule types. Mixing of different
             port level rule types is disallowed, so exactly one of the following must
@@ -902,6 +1218,7 @@ spec:
                     description: MatchPattern matches fqdn by pattern
                     pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                     type: string
+                type: object
               type: array
             http:
               description: HTTP specific rules.
@@ -911,6 +1228,52 @@ spec:
 
                   All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional "path" part of a URL as defined by RFC 3986.
                 properties:
+                  headerMatches:
+                    description: HeaderMatches is a list of HTTP headers which must
+                      be present and match against the given or referenced values
+                      or expressions. If omitted or empty, requests are allowed regardless
+                      of headers present.
+                    items:
+                      properties:
+                        mismatch:
+                          description: Mismatch identifies what to do in case there
+                            is no match. The default is to drop the request. Otherwise
+                            the overall rule is still considered as matching, but
+                            the mismatches are logged in the access log.
+                          enum:
+                          - LOG
+                          - ADD
+                          - DELETE
+                          - REPLACE
+                          type: string
+                        name:
+                          description: Name identifies the header.
+                          type: string
+                        secret:
+                          description: Secret refers to a secret that contains the
+                            value that must be present in the request.
+                          properties:
+                            name:
+                              description: Name is the name of the secret.
+                              type: string
+                            namespace:
+                              description: Namespace is the namespace in which the
+                                secret exists. If namespace is omitted, the namespace
+                                of the enclosing rule is assumed, or "", if none applies.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        value:
+                          description: Value contains the header value that must be
+                            present in the request. If both Secret and Value are specified,
+                            the Secret takes precedence, if it exists; i.e., the Value
+                            will only be used if the Secret cannot be found or accessed.
+                          type: string
+                      required:
+                      - name
+                      type: object
+                    type: array
                   headers:
                     description: Headers is a list of HTTP headers which must be present
                       in the request. If omitted or empty, requests are allowed regardless
@@ -937,6 +1300,7 @@ spec:
 
                       If omitted or empty, all paths are all allowed.
                     type: string
+                type: object
               type: array
             kafka:
               description: Kafka-specific rules.
@@ -989,6 +1353,7 @@ spec:
                       If omitted or empty, all topics are allowed.
                     maxLength: 255
                     type: string
+                type: object
               type: array
             l7:
               description: Generic Key-Value pair rules.
@@ -997,10 +1362,12 @@ spec:
                   to the parser referenced in l7proto. It is up to the parser to define
                   what to do with the map data. If omitted or empty, all requests
                   are allowed. Both keys and values must be strings.
+                type: object
               type: array
             l7proto:
               description: Parser type name that uses Key-Value pair rules.
               type: string
+          type: object
         Label:
           description: Label is the cilium's representation of a container label.
           properties:
@@ -1014,6 +1381,7 @@ spec:
               type: string
           required:
           - key
+          type: object
         LabelSelector:
           description: A label selector is a label query over a set of resources.
             The result of matchLabels and matchExpressions are ANDed. An empty label
@@ -1049,6 +1417,7 @@ spec:
                 required:
                 - key
                 - operator
+                type: object
               type: array
             matchLabels:
               description: matchLabels is a map of {key,value} pairs. A single {key,value}
@@ -1056,6 +1425,7 @@ spec:
                 whose key field is "key", the operator is "In", and the values array
                 contains only "value". The requirements are ANDed.
               type: object
+          type: object
         LabelSelectorRequirement:
           description: A label selector requirement is a selector that contains values,
             a key, and an operator that relates the key and values.
@@ -1083,6 +1453,7 @@ spec:
           required:
           - key
           - operator
+          type: object
         PortProtocol:
           description: PortProtocol specifies an L4 port with an optional transport
             protocol
@@ -1104,13 +1475,57 @@ spec:
               type: string
           required:
           - port
+          type: object
         PortRule:
           description: PortRule is a list of ports/protocol combinations with optional
             Layer 7 rules which must be met.
           properties:
+            originatingTLS:
+              description: OriginatingTLS is the TLS context for the connections originated
+                by the L7 proxy.  For egress policy this specifies the client-side
+                TLS parameters for the upstream connection originating from the L7
+                proxy to the remote destination. For ingress policy this specifies
+                the client-side TLS parameters for the connection from the L7 proxy
+                to the local POD.
+              properties:
+                certificate:
+                  description: Certificate is the file name or secret item name for
+                    the certificate chain. If omitted, 'tls.crt' is assumed, if it
+                    exists. If given, the item must exist.If specified for an originating
+                    TLS context, then this is used as a client certificate.
+                  type: string
+                privateKey:
+                  description: PrivateKey is the file name or secret item name for
+                    the private key matching the certificate chain. If omitted, 'tls.key'
+                    is assumed, if it exists. If given, the item must exist.
+                  type: string
+                secret:
+                  description: Secret contains the certificates and private key for
+                    the TLS context.
+                  properties:
+                    name:
+                      description: Name is the name of the secret.
+                      type: string
+                    namespace:
+                      description: Namespace is the namespace in which the secret
+                        exists. If namespace is omitted, the namespace of the enclosing
+                        rule is assumed, or "", if none applies.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                trustedCA:
+                  description: TrustedCA is the file name or secret item name for
+                    the trusted CA used to verify the certificate of the remote party.
+                    If specified for a terminating TLS context, then a client certificate
+                    is required. If omitted, 'ca.crt' is assumed, if it exists. If
+                    given, the item must exist.
+                  type: string
+              required:
+              - secret
+              type: object
             ports:
-              description: |-
-                Ports is a list of L4 port/protocol.
+              description: Ports is a list of L4 port/protocol.
               items:
                 description: PortProtocol specifies an L4 port with an optional transport
                   protocol
@@ -1132,6 +1547,7 @@ spec:
                     type: string
                 required:
                 - port
+                type: object
               type: array
             rules:
               description: Rules is a list of additional port level rules which must
@@ -1152,6 +1568,7 @@ spec:
                         description: MatchPattern matches fqdn by pattern
                         pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                         type: string
+                    type: object
                   type: array
                 http:
                   description: HTTP specific rules.
@@ -1161,6 +1578,55 @@ spec:
 
                       All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional "path" part of a URL as defined by RFC 3986.
                     properties:
+                      headerMatches:
+                        description: HeaderMatches is a list of HTTP headers which
+                          must be present and match against the given or referenced
+                          values or expressions. If omitted or empty, requests are
+                          allowed regardless of headers present.
+                        items:
+                          properties:
+                            mismatch:
+                              description: Mismatch identifies what to do in case
+                                there is no match. The default is to drop the request.
+                                Otherwise the overall rule is still considered as
+                                matching, but the mismatches are logged in the access
+                                log.
+                              enum:
+                              - LOG
+                              - ADD
+                              - DELETE
+                              - REPLACE
+                              type: string
+                            name:
+                              description: Name identifies the header.
+                              type: string
+                            secret:
+                              description: Secret refers to a secret that contains
+                                the value that must be present in the request.
+                              properties:
+                                name:
+                                  description: Name is the name of the secret.
+                                  type: string
+                                namespace:
+                                  description: Namespace is the namespace in which
+                                    the secret exists. If namespace is omitted, the
+                                    namespace of the enclosing rule is assumed, or
+                                    "", if none applies.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            value:
+                              description: Value contains the header value that must
+                                be present in the request. If both Secret and Value
+                                are specified, the Secret takes precedence, if it
+                                exists; i.e., the Value will only be used if the Secret
+                                cannot be found or accessed.
+                              type: string
+                          required:
+                          - name
+                          type: object
+                        type: array
                       headers:
                         description: Headers is a list of HTTP headers which must
                           be present in the request. If omitted or empty, requests
@@ -1187,6 +1653,7 @@ spec:
 
                           If omitted or empty, all paths are all allowed.
                         type: string
+                    type: object
                   type: array
                 kafka:
                   description: Kafka-specific rules.
@@ -1240,6 +1707,7 @@ spec:
                           If omitted or empty, all topics are allowed.
                         maxLength: 255
                         type: string
+                    type: object
                   type: array
                 l7:
                   description: Generic Key-Value pair rules.
@@ -1249,16 +1717,108 @@ spec:
                       parser to define what to do with the map data. If omitted or
                       empty, all requests are allowed. Both keys and values must be
                       strings.
+                    type: object
                   type: array
                 l7proto:
                   description: Parser type name that uses Key-Value pair rules.
                   type: string
+              type: object
+            terminatingTLS:
+              description: TerminatingTLS is the TLS context for the connection terminated
+                by the L7 proxy.  For egress policy this specifies the server-side
+                TLS parameters to be applied on the connections originated from the
+                local POD and terminated by the L7 proxy. For ingress policy this
+                specifies the server-side TLS parameters to be applied on the connections
+                originated from a remote source and terminated by the L7 proxy.
+              properties:
+                certificate:
+                  description: Certificate is the file name or secret item name for
+                    the certificate chain. If omitted, 'tls.crt' is assumed, if it
+                    exists. If given, the item must exist.If specified for an originating
+                    TLS context, then this is used as a client certificate.
+                  type: string
+                privateKey:
+                  description: PrivateKey is the file name or secret item name for
+                    the private key matching the certificate chain. If omitted, 'tls.key'
+                    is assumed, if it exists. If given, the item must exist.
+                  type: string
+                secret:
+                  description: Secret contains the certificates and private key for
+                    the TLS context.
+                  properties:
+                    name:
+                      description: Name is the name of the secret.
+                      type: string
+                    namespace:
+                      description: Namespace is the namespace in which the secret
+                        exists. If namespace is omitted, the namespace of the enclosing
+                        rule is assumed, or "", if none applies.
+                      type: string
+                  required:
+                  - name
+                  type: object
+                trustedCA:
+                  description: TrustedCA is the file name or secret item name for
+                    the trusted CA used to verify the certificate of the remote party.
+                    If specified for a terminating TLS context, then a client certificate
+                    is required. If omitted, 'ca.crt' is assumed, if it exists. If
+                    given, the item must exist.
+                  type: string
+              required:
+              - secret
+              type: object
+          type: object
         PortRuleHTTP:
           description: |-
             PortRuleHTTP is a list of HTTP protocol constraints. All fields are optional, if all fields are empty or missing, the rule does not have any effect.
 
             All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional "path" part of a URL as defined by RFC 3986.
           properties:
+            headerMatches:
+              description: HeaderMatches is a list of HTTP headers which must be present
+                and match against the given or referenced values or expressions. If
+                omitted or empty, requests are allowed regardless of headers present.
+              items:
+                properties:
+                  mismatch:
+                    description: Mismatch identifies what to do in case there is no
+                      match. The default is to drop the request. Otherwise the overall
+                      rule is still considered as matching, but the mismatches are
+                      logged in the access log.
+                    enum:
+                    - LOG
+                    - ADD
+                    - DELETE
+                    - REPLACE
+                    type: string
+                  name:
+                    description: Name identifies the header.
+                    type: string
+                  secret:
+                    description: Secret refers to a secret that contains the value
+                      that must be present in the request.
+                    properties:
+                      name:
+                        description: Name is the name of the secret.
+                        type: string
+                      namespace:
+                        description: Namespace is the namespace in which the secret
+                          exists. If namespace is omitted, the namespace of the enclosing
+                          rule is assumed, or "", if none applies.
+                        type: string
+                    required:
+                    - name
+                    type: object
+                  value:
+                    description: Value contains the header value that must be present
+                      in the request. If both Secret and Value are specified, the
+                      Secret takes precedence, if it exists; i.e., the Value will
+                      only be used if the Secret cannot be found or accessed.
+                    type: string
+                required:
+                - name
+                type: object
+              type: array
             headers:
               description: Headers is a list of HTTP headers which must be present
                 in the request. If omitted or empty, requests are allowed regardless
@@ -1285,6 +1845,7 @@ spec:
 
                 If omitted or empty, all paths are all allowed.
               type: string
+          type: object
         PortRuleKafka:
           description: PortRuleKafka is a list of Kafka protocol constraints. All
             fields are optional, if all fields are empty or missing, the rule will
@@ -1333,11 +1894,13 @@ spec:
                 If omitted or empty, all topics are allowed.
               maxLength: 255
               type: string
+          type: object
         PortRuleL7:
           description: PortRuleL7 is a map of {key,value} pairs which is passed to
             the parser referenced in l7proto. It is up to the parser to define what
             to do with the map data. If omitted or empty, all requests are allowed.
             Both keys and values must be strings.
+          type: object
         Rule:
           description: |-
             Rule is a policy rule which must be applied to all endpoints which match the labels contained in the endpointSelector
@@ -1375,9 +1938,7 @@ spec:
                       description: CIDR is a CIDR prefix / IP Block.
                       oneOf:
                       - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                        type: string
                       - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                        type: string
                       type: string
                     type: array
                   toCIDRSet:
@@ -1395,9 +1956,7 @@ spec:
                           description: CIDR is a CIDR prefix / IP Block.
                           oneOf:
                           - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                            type: string
                           - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                            type: string
                           type: string
                         except:
                           description: ExceptCIDRs is a list of IP blocks which the
@@ -1410,13 +1969,12 @@ spec:
                             description: CIDR is a CIDR prefix / IP Block.
                             oneOf:
                             - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                              type: string
                             - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                              type: string
                             type: string
                           type: array
                       required:
                       - cidr
+                      type: object
                     type: array
                   toEndpoints:
                     description: |-
@@ -1460,6 +2018,7 @@ spec:
                             required:
                             - key
                             - operator
+                            type: object
                           type: array
                         matchLabels:
                           description: matchLabels is a map of {key,value} pairs.
@@ -1468,6 +2027,7 @@ spec:
                             "key", the operator is "In", and the values array contains
                             only "value". The requirements are ANDed.
                           type: object
+                      type: object
                     type: array
                   toEntities:
                     description: ToEntities is a list of special entities to which
@@ -1477,8 +2037,8 @@ spec:
                       type: string
                     type: array
                   toFQDNs:
-                    description: "ToFQDNs is a list of rules matching fqdns that
-                      endpoint\n\t\t\t\tis allowed to communicate with"
+                    description: "ToFQDNs is a list of rules matching fqdns that endpoint\n\t\t\t\tis
+                      allowed to communicate with"
                     items:
                       description: FQDNRule is a rule that specifies an fully qualified
                         domain name to which outside communication is allowed
@@ -1491,28 +2051,35 @@ spec:
                           description: MatchPattern matches fqdn by pattern
                           pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                           type: string
+                      type: object
                     type: array
                   toGroups:
                     description: "ToGroups is a list of constraints that will\n\t\t\t\tgather
                       data from third-party providers and create a new\n\t\t\t\tderived
                       policy."
                     properties:
-                      AWS:
+                      aws:
                         properties:
-                          Region:
+                          region:
                             description: "Region is the key that will filter the AWS
                               EC2\n\t\t\t\tinstances in the given region"
                             type: string
-                          SecurityGroupsIds:
+                          securityGroupsIds:
                             description: "SecurityGroupsIds is the list of AWS security\n\t\t\t\tgroup
                               IDs that will filter the instances IPs from the AWS
                               API"
+                            items:
+                              type: string
                             type: array
-                          SecurityGroupsNames:
+                          securityGroupsNames:
                             description: "SecurityGroupsNames is the list of  AWS
                               security\n\t\t\t\tgroup names that will filter the instances
                               IPs from the AWS API"
+                            items:
+                              type: string
                             type: array
+                        type: object
+                    type: object
                   toPorts:
                     description: |-
                       ToPorts is a list of destination ports identified by port number and protocol which the endpoint subject to the rule is allowed to connect to.
@@ -1522,9 +2089,57 @@ spec:
                       description: PortRule is a list of ports/protocol combinations
                         with optional Layer 7 rules which must be met.
                       properties:
+                        originatingTLS:
+                          description: OriginatingTLS is the TLS context for the connections
+                            originated by the L7 proxy.  For egress policy this specifies
+                            the client-side TLS parameters for the upstream connection
+                            originating from the L7 proxy to the remote destination.
+                            For ingress policy this specifies the client-side TLS
+                            parameters for the connection from the L7 proxy to the
+                            local POD.
+                          properties:
+                            certificate:
+                              description: Certificate is the file name or secret
+                                item name for the certificate chain. If omitted, 'tls.crt'
+                                is assumed, if it exists. If given, the item must
+                                exist.If specified for an originating TLS context,
+                                then this is used as a client certificate.
+                              type: string
+                            privateKey:
+                              description: PrivateKey is the file name or secret item
+                                name for the private key matching the certificate
+                                chain. If omitted, 'tls.key' is assumed, if it exists.
+                                If given, the item must exist.
+                              type: string
+                            secret:
+                              description: Secret contains the certificates and private
+                                key for the TLS context.
+                              properties:
+                                name:
+                                  description: Name is the name of the secret.
+                                  type: string
+                                namespace:
+                                  description: Namespace is the namespace in which
+                                    the secret exists. If namespace is omitted, the
+                                    namespace of the enclosing rule is assumed, or
+                                    "", if none applies.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            trustedCA:
+                              description: TrustedCA is the file name or secret item
+                                name for the trusted CA used to verify the certificate
+                                of the remote party. If specified for a terminating
+                                TLS context, then a client certificate is required.
+                                If omitted, 'ca.crt' is assumed, if it exists. If
+                                given, the item must exist.
+                              type: string
+                          required:
+                          - secret
+                          type: object
                         ports:
-                          description: |-
-                            Ports is a list of L4 port/protocol.
+                          description: Ports is a list of L4 port/protocol.
                           items:
                             description: PortProtocol specifies an L4 port with an
                               optional transport protocol
@@ -1548,6 +2163,7 @@ spec:
                                 type: string
                             required:
                             - port
+                            type: object
                           type: array
                         rules:
                           description: Rules is a list of additional port level rules
@@ -1569,6 +2185,7 @@ spec:
                                     description: MatchPattern matches fqdn by pattern
                                     pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                     type: string
+                                type: object
                               type: array
                             http:
                               description: HTTP specific rules.
@@ -1578,6 +2195,60 @@ spec:
 
                                   All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional "path" part of a URL as defined by RFC 3986.
                                 properties:
+                                  headerMatches:
+                                    description: HeaderMatches is a list of HTTP headers
+                                      which must be present and match against the
+                                      given or referenced values or expressions. If
+                                      omitted or empty, requests are allowed regardless
+                                      of headers present.
+                                    items:
+                                      properties:
+                                        mismatch:
+                                          description: Mismatch identifies what to
+                                            do in case there is no match. The default
+                                            is to drop the request. Otherwise the
+                                            overall rule is still considered as matching,
+                                            but the mismatches are logged in the access
+                                            log.
+                                          enum:
+                                          - LOG
+                                          - ADD
+                                          - DELETE
+                                          - REPLACE
+                                          type: string
+                                        name:
+                                          description: Name identifies the header.
+                                          type: string
+                                        secret:
+                                          description: Secret refers to a secret that
+                                            contains the value that must be present
+                                            in the request.
+                                          properties:
+                                            name:
+                                              description: Name is the name of the
+                                                secret.
+                                              type: string
+                                            namespace:
+                                              description: Namespace is the namespace
+                                                in which the secret exists. If namespace
+                                                is omitted, the namespace of the enclosing
+                                                rule is assumed, or "", if none applies.
+                                              type: string
+                                          required:
+                                          - name
+                                          type: object
+                                        value:
+                                          description: Value contains the header value
+                                            that must be present in the request. If
+                                            both Secret and Value are specified, the
+                                            Secret takes precedence, if it exists;
+                                            i.e., the Value will only be used if the
+                                            Secret cannot be found or accessed.
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    type: array
                                   headers:
                                     description: Headers is a list of HTTP headers
                                       which must be present in the request. If omitted
@@ -1605,6 +2276,7 @@ spec:
 
                                       If omitted or empty, all paths are all allowed.
                                     type: string
+                                type: object
                               type: array
                             kafka:
                               description: Kafka-specific rules.
@@ -1661,6 +2333,7 @@ spec:
                                       If omitted or empty, all topics are allowed.
                                     maxLength: 255
                                     type: string
+                                type: object
                               type: array
                             l7:
                               description: Generic Key-Value pair rules.
@@ -1670,11 +2343,63 @@ spec:
                                   It is up to the parser to define what to do with
                                   the map data. If omitted or empty, all requests
                                   are allowed. Both keys and values must be strings.
+                                type: object
                               type: array
                             l7proto:
                               description: Parser type name that uses Key-Value pair
                                 rules.
                               type: string
+                          type: object
+                        terminatingTLS:
+                          description: TerminatingTLS is the TLS context for the connection
+                            terminated by the L7 proxy.  For egress policy this specifies
+                            the server-side TLS parameters to be applied on the connections
+                            originated from the local POD and terminated by the L7
+                            proxy. For ingress policy this specifies the server-side
+                            TLS parameters to be applied on the connections originated
+                            from a remote source and terminated by the L7 proxy.
+                          properties:
+                            certificate:
+                              description: Certificate is the file name or secret
+                                item name for the certificate chain. If omitted, 'tls.crt'
+                                is assumed, if it exists. If given, the item must
+                                exist.If specified for an originating TLS context,
+                                then this is used as a client certificate.
+                              type: string
+                            privateKey:
+                              description: PrivateKey is the file name or secret item
+                                name for the private key matching the certificate
+                                chain. If omitted, 'tls.key' is assumed, if it exists.
+                                If given, the item must exist.
+                              type: string
+                            secret:
+                              description: Secret contains the certificates and private
+                                key for the TLS context.
+                              properties:
+                                name:
+                                  description: Name is the name of the secret.
+                                  type: string
+                                namespace:
+                                  description: Namespace is the namespace in which
+                                    the secret exists. If namespace is omitted, the
+                                    namespace of the enclosing rule is assumed, or
+                                    "", if none applies.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            trustedCA:
+                              description: TrustedCA is the file name or secret item
+                                name for the trusted CA used to verify the certificate
+                                of the remote party. If specified for a terminating
+                                TLS context, then a client certificate is required.
+                                If omitted, 'ca.crt' is assumed, if it exists. If
+                                given, the item must exist.
+                              type: string
+                          required:
+                          - secret
+                          type: object
+                      type: object
                     type: array
                   toRequires:
                     description: |-
@@ -1718,6 +2443,7 @@ spec:
                             required:
                             - key
                             - operator
+                            type: object
                           type: array
                         matchLabels:
                           description: matchLabels is a map of {key,value} pairs.
@@ -1726,6 +2452,7 @@ spec:
                             "key", the operator is "In", and the values array contains
                             only "value". The requirements are ANDed.
                           type: object
+                      type: object
                     type: array
                   toServices:
                     description: |-
@@ -1743,6 +2470,7 @@ spec:
                               type: string
                             serviceName:
                               type: string
+                          type: object
                         k8sServiceSelector:
                           description: K8sServiceSelector selects services by k8s
                             labels. Not supported yet
@@ -1791,6 +2519,7 @@ spec:
                                     required:
                                     - key
                                     - operator
+                                    type: object
                                   type: array
                                 matchLabels:
                                   description: matchLabels is a map of {key,value}
@@ -1800,9 +2529,13 @@ spec:
                                     and the values array contains only "value". The
                                     requirements are ANDed.
                                   type: object
+                              type: object
                           required:
                           - selector
+                          type: object
+                      type: object
                     type: array
+                type: object
               type: array
             endpointSelector:
               description: EndpointSelector selects all endpoints which should be
@@ -1841,6 +2574,7 @@ spec:
                     required:
                     - key
                     - operator
+                    type: object
                   type: array
                 matchLabels:
                   description: matchLabels is a map of {key,value} pairs. A single
@@ -1849,6 +2583,7 @@ spec:
                     "In", and the values array contains only "value". The requirements
                     are ANDed.
                   type: object
+              type: object
             ingress:
               description: Ingress is a list of IngressRule which are enforced at
                 ingress. If omitted or empty, this rule does not apply at ingress.
@@ -1880,9 +2615,7 @@ spec:
                       description: CIDR is a CIDR prefix / IP Block.
                       oneOf:
                       - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                        type: string
                       - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                        type: string
                       type: string
                     type: array
                   fromCIDRSet:
@@ -1900,9 +2633,7 @@ spec:
                           description: CIDR is a CIDR prefix / IP Block.
                           oneOf:
                           - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                            type: string
                           - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                            type: string
                           type: string
                         except:
                           description: ExceptCIDRs is a list of IP blocks which the
@@ -1915,13 +2646,12 @@ spec:
                             description: CIDR is a CIDR prefix / IP Block.
                             oneOf:
                             - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                              type: string
                             - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                              type: string
                             type: string
                           type: array
                       required:
                       - cidr
+                      type: object
                     type: array
                   fromEndpoints:
                     description: |-
@@ -1965,6 +2695,7 @@ spec:
                             required:
                             - key
                             - operator
+                            type: object
                           type: array
                         matchLabels:
                           description: matchLabels is a map of {key,value} pairs.
@@ -1973,6 +2704,7 @@ spec:
                             "key", the operator is "In", and the values array contains
                             only "value". The requirements are ANDed.
                           type: object
+                      type: object
                     type: array
                   fromEntities:
                     description: FromEntities is a list of special entities which
@@ -2024,6 +2756,7 @@ spec:
                             required:
                             - key
                             - operator
+                            type: object
                           type: array
                         matchLabels:
                           description: matchLabels is a map of {key,value} pairs.
@@ -2032,6 +2765,7 @@ spec:
                             "key", the operator is "In", and the values array contains
                             only "value". The requirements are ANDed.
                           type: object
+                      type: object
                     type: array
                   toPorts:
                     description: |-
@@ -2042,9 +2776,57 @@ spec:
                       description: PortRule is a list of ports/protocol combinations
                         with optional Layer 7 rules which must be met.
                       properties:
+                        originatingTLS:
+                          description: OriginatingTLS is the TLS context for the connections
+                            originated by the L7 proxy.  For egress policy this specifies
+                            the client-side TLS parameters for the upstream connection
+                            originating from the L7 proxy to the remote destination.
+                            For ingress policy this specifies the client-side TLS
+                            parameters for the connection from the L7 proxy to the
+                            local POD.
+                          properties:
+                            certificate:
+                              description: Certificate is the file name or secret
+                                item name for the certificate chain. If omitted, 'tls.crt'
+                                is assumed, if it exists. If given, the item must
+                                exist.If specified for an originating TLS context,
+                                then this is used as a client certificate.
+                              type: string
+                            privateKey:
+                              description: PrivateKey is the file name or secret item
+                                name for the private key matching the certificate
+                                chain. If omitted, 'tls.key' is assumed, if it exists.
+                                If given, the item must exist.
+                              type: string
+                            secret:
+                              description: Secret contains the certificates and private
+                                key for the TLS context.
+                              properties:
+                                name:
+                                  description: Name is the name of the secret.
+                                  type: string
+                                namespace:
+                                  description: Namespace is the namespace in which
+                                    the secret exists. If namespace is omitted, the
+                                    namespace of the enclosing rule is assumed, or
+                                    "", if none applies.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            trustedCA:
+                              description: TrustedCA is the file name or secret item
+                                name for the trusted CA used to verify the certificate
+                                of the remote party. If specified for a terminating
+                                TLS context, then a client certificate is required.
+                                If omitted, 'ca.crt' is assumed, if it exists. If
+                                given, the item must exist.
+                              type: string
+                          required:
+                          - secret
+                          type: object
                         ports:
-                          description: |-
-                            Ports is a list of L4 port/protocol.
+                          description: Ports is a list of L4 port/protocol.
                           items:
                             description: PortProtocol specifies an L4 port with an
                               optional transport protocol
@@ -2068,6 +2850,7 @@ spec:
                                 type: string
                             required:
                             - port
+                            type: object
                           type: array
                         rules:
                           description: Rules is a list of additional port level rules
@@ -2089,6 +2872,7 @@ spec:
                                     description: MatchPattern matches fqdn by pattern
                                     pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                     type: string
+                                type: object
                               type: array
                             http:
                               description: HTTP specific rules.
@@ -2098,6 +2882,60 @@ spec:
 
                                   All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional "path" part of a URL as defined by RFC 3986.
                                 properties:
+                                  headerMatches:
+                                    description: HeaderMatches is a list of HTTP headers
+                                      which must be present and match against the
+                                      given or referenced values or expressions. If
+                                      omitted or empty, requests are allowed regardless
+                                      of headers present.
+                                    items:
+                                      properties:
+                                        mismatch:
+                                          description: Mismatch identifies what to
+                                            do in case there is no match. The default
+                                            is to drop the request. Otherwise the
+                                            overall rule is still considered as matching,
+                                            but the mismatches are logged in the access
+                                            log.
+                                          enum:
+                                          - LOG
+                                          - ADD
+                                          - DELETE
+                                          - REPLACE
+                                          type: string
+                                        name:
+                                          description: Name identifies the header.
+                                          type: string
+                                        secret:
+                                          description: Secret refers to a secret that
+                                            contains the value that must be present
+                                            in the request.
+                                          properties:
+                                            name:
+                                              description: Name is the name of the
+                                                secret.
+                                              type: string
+                                            namespace:
+                                              description: Namespace is the namespace
+                                                in which the secret exists. If namespace
+                                                is omitted, the namespace of the enclosing
+                                                rule is assumed, or "", if none applies.
+                                              type: string
+                                          required:
+                                          - name
+                                          type: object
+                                        value:
+                                          description: Value contains the header value
+                                            that must be present in the request. If
+                                            both Secret and Value are specified, the
+                                            Secret takes precedence, if it exists;
+                                            i.e., the Value will only be used if the
+                                            Secret cannot be found or accessed.
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    type: array
                                   headers:
                                     description: Headers is a list of HTTP headers
                                       which must be present in the request. If omitted
@@ -2125,6 +2963,7 @@ spec:
 
                                       If omitted or empty, all paths are all allowed.
                                     type: string
+                                type: object
                               type: array
                             kafka:
                               description: Kafka-specific rules.
@@ -2181,6 +3020,7 @@ spec:
                                       If omitted or empty, all topics are allowed.
                                     maxLength: 255
                                     type: string
+                                type: object
                               type: array
                             l7:
                               description: Generic Key-Value pair rules.
@@ -2190,12 +3030,65 @@ spec:
                                   It is up to the parser to define what to do with
                                   the map data. If omitted or empty, all requests
                                   are allowed. Both keys and values must be strings.
+                                type: object
                               type: array
                             l7proto:
                               description: Parser type name that uses Key-Value pair
                                 rules.
                               type: string
+                          type: object
+                        terminatingTLS:
+                          description: TerminatingTLS is the TLS context for the connection
+                            terminated by the L7 proxy.  For egress policy this specifies
+                            the server-side TLS parameters to be applied on the connections
+                            originated from the local POD and terminated by the L7
+                            proxy. For ingress policy this specifies the server-side
+                            TLS parameters to be applied on the connections originated
+                            from a remote source and terminated by the L7 proxy.
+                          properties:
+                            certificate:
+                              description: Certificate is the file name or secret
+                                item name for the certificate chain. If omitted, 'tls.crt'
+                                is assumed, if it exists. If given, the item must
+                                exist.If specified for an originating TLS context,
+                                then this is used as a client certificate.
+                              type: string
+                            privateKey:
+                              description: PrivateKey is the file name or secret item
+                                name for the private key matching the certificate
+                                chain. If omitted, 'tls.key' is assumed, if it exists.
+                                If given, the item must exist.
+                              type: string
+                            secret:
+                              description: Secret contains the certificates and private
+                                key for the TLS context.
+                              properties:
+                                name:
+                                  description: Name is the name of the secret.
+                                  type: string
+                                namespace:
+                                  description: Namespace is the namespace in which
+                                    the secret exists. If namespace is omitted, the
+                                    namespace of the enclosing rule is assumed, or
+                                    "", if none applies.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            trustedCA:
+                              description: TrustedCA is the file name or secret item
+                                name for the trusted CA used to verify the certificate
+                                of the remote party. If specified for a terminating
+                                TLS context, then a client certificate is required.
+                                If omitted, 'ca.crt' is assumed, if it exists. If
+                                given, the item must exist.
+                              type: string
+                          required:
+                          - secret
+                          type: object
+                      type: object
                     type: array
+                type: object
               type: array
             labels:
               description: Labels is a list of optional strings which can be used
@@ -2215,9 +3108,11 @@ spec:
                     type: string
                 required:
                 - key
+                type: object
               type: array
           required:
           - endpointSelector
+          type: object
         Service:
           description: Service wraps around selectors for services
           properties:
@@ -2229,6 +3124,7 @@ spec:
                   type: string
                 serviceName:
                   type: string
+              type: object
             k8sServiceSelector:
               description: K8sServiceSelector selects services by k8s labels. Not
                 supported yet
@@ -2275,6 +3171,7 @@ spec:
                         required:
                         - key
                         - operator
+                        type: object
                       type: array
                     matchLabels:
                       description: matchLabels is a map of {key,value} pairs. A single
@@ -2283,8 +3180,11 @@ spec:
                         is "In", and the values array contains only "value". The requirements
                         are ANDed.
                       type: object
+                  type: object
               required:
               - selector
+              type: object
+          type: object
         ServiceSelector:
           description: ServiceSelector is a label selector for k8s services
           properties:
@@ -2329,6 +3229,7 @@ spec:
                     required:
                     - key
                     - operator
+                    type: object
                   type: array
                 matchLabels:
                   description: matchLabels is a map of {key,value} pairs. A single
@@ -2337,8 +3238,10 @@ spec:
                     "In", and the values array contains only "value". The requirements
                     are ANDed.
                   type: object
+              type: object
           required:
           - selector
+          type: object
         spec:
           description: |-
             Rule is a policy rule which must be applied to all endpoints which match the labels contained in the endpointSelector
@@ -2376,9 +3279,7 @@ spec:
                       description: CIDR is a CIDR prefix / IP Block.
                       oneOf:
                       - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                        type: string
                       - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                        type: string
                       type: string
                     type: array
                   toCIDRSet:
@@ -2396,9 +3297,7 @@ spec:
                           description: CIDR is a CIDR prefix / IP Block.
                           oneOf:
                           - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                            type: string
                           - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                            type: string
                           type: string
                         except:
                           description: ExceptCIDRs is a list of IP blocks which the
@@ -2411,13 +3310,12 @@ spec:
                             description: CIDR is a CIDR prefix / IP Block.
                             oneOf:
                             - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                              type: string
                             - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                              type: string
                             type: string
                           type: array
                       required:
                       - cidr
+                      type: object
                     type: array
                   toEndpoints:
                     description: |-
@@ -2464,6 +3362,7 @@ spec:
                             required:
                             - key
                             - operator
+                            type: object
                           type: array
                         matchLabels:
                           description: matchLabels is a map of {key,value} pairs.
@@ -2472,6 +3371,7 @@ spec:
                             "key", the operator is "In", and the values array contains
                             only "value". The requirements are ANDed.
                           type: object
+                      type: object
                     type: array
                   toEntities:
                     description: ToEntities is a list of special entities to which
@@ -2481,8 +3381,8 @@ spec:
                       type: string
                     type: array
                   toFQDNs:
-                    description: "ToFQDNs is a list of rules matching fqdns that
-                      endpoint\n\t\t\t\tis allowed to communicate with"
+                    description: "ToFQDNs is a list of rules matching fqdns that endpoint\n\t\t\t\tis
+                      allowed to communicate with"
                     items:
                       description: FQDNRule is a rule that specifies an fully qualified
                         domain name to which outside communication is allowed
@@ -2495,28 +3395,35 @@ spec:
                           description: MatchPattern matches fqdn by pattern
                           pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                           type: string
+                      type: object
                     type: array
                   toGroups:
                     description: "ToGroups is a list of constraints that will\n\t\t\t\tgather
                       data from third-party providers and create a new\n\t\t\t\tderived
                       policy."
                     properties:
-                      AWS:
+                      aws:
                         properties:
-                          Region:
+                          region:
                             description: "Region is the key that will filter the AWS
                               EC2\n\t\t\t\tinstances in the given region"
                             type: string
-                          SecurityGroupsIds:
+                          securityGroupsIds:
                             description: "SecurityGroupsIds is the list of AWS security\n\t\t\t\tgroup
                               IDs that will filter the instances IPs from the AWS
                               API"
+                            items:
+                              type: string
                             type: array
-                          SecurityGroupsNames:
+                          securityGroupsNames:
                             description: "SecurityGroupsNames is the list of  AWS
                               security\n\t\t\t\tgroup names that will filter the instances
                               IPs from the AWS API"
+                            items:
+                              type: string
                             type: array
+                        type: object
+                    type: object
                   toPorts:
                     description: |-
                       ToPorts is a list of destination ports identified by port number and protocol which the endpoint subject to the rule is allowed to connect to.
@@ -2526,9 +3433,57 @@ spec:
                       description: PortRule is a list of ports/protocol combinations
                         with optional Layer 7 rules which must be met.
                       properties:
+                        originatingTLS:
+                          description: OriginatingTLS is the TLS context for the connections
+                            originated by the L7 proxy.  For egress policy this specifies
+                            the client-side TLS parameters for the upstream connection
+                            originating from the L7 proxy to the remote destination.
+                            For ingress policy this specifies the client-side TLS
+                            parameters for the connection from the L7 proxy to the
+                            local POD.
+                          properties:
+                            certificate:
+                              description: Certificate is the file name or secret
+                                item name for the certificate chain. If omitted, 'tls.crt'
+                                is assumed, if it exists. If given, the item must
+                                exist.If specified for an originating TLS context,
+                                then this is used as a client certificate.
+                              type: string
+                            privateKey:
+                              description: PrivateKey is the file name or secret item
+                                name for the private key matching the certificate
+                                chain. If omitted, 'tls.key' is assumed, if it exists.
+                                If given, the item must exist.
+                              type: string
+                            secret:
+                              description: Secret contains the certificates and private
+                                key for the TLS context.
+                              properties:
+                                name:
+                                  description: Name is the name of the secret.
+                                  type: string
+                                namespace:
+                                  description: Namespace is the namespace in which
+                                    the secret exists. If namespace is omitted, the
+                                    namespace of the enclosing rule is assumed, or
+                                    "", if none applies.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            trustedCA:
+                              description: TrustedCA is the file name or secret item
+                                name for the trusted CA used to verify the certificate
+                                of the remote party. If specified for a terminating
+                                TLS context, then a client certificate is required.
+                                If omitted, 'ca.crt' is assumed, if it exists. If
+                                given, the item must exist.
+                              type: string
+                          required:
+                          - secret
+                          type: object
                         ports:
-                          description: |-
-                            Ports is a list of L4 port/protocol.
+                          description: Ports is a list of L4 port/protocol.
                           items:
                             description: PortProtocol specifies an L4 port with an
                               optional transport protocol
@@ -2552,6 +3507,7 @@ spec:
                                 type: string
                             required:
                             - port
+                            type: object
                           type: array
                         rules:
                           description: L7Rules is a union of port level rule types.
@@ -2574,6 +3530,7 @@ spec:
                                     description: MatchPattern matches fqdn by pattern
                                     pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                     type: string
+                                type: object
                               type: array
                             http:
                               description: HTTP specific rules.
@@ -2583,6 +3540,60 @@ spec:
 
                                   All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional "path" part of a URL as defined by RFC 3986.
                                 properties:
+                                  headerMatches:
+                                    description: HeaderMatches is a list of HTTP headers
+                                      which must be present and match against the
+                                      given or referenced values or expressions. If
+                                      omitted or empty, requests are allowed regardless
+                                      of headers present.
+                                    items:
+                                      properties:
+                                        mismatch:
+                                          description: Mismatch identifies what to
+                                            do in case there is no match. The default
+                                            is to drop the request. Otherwise the
+                                            overall rule is still considered as matching,
+                                            but the mismatches are logged in the access
+                                            log.
+                                          enum:
+                                          - LOG
+                                          - ADD
+                                          - DELETE
+                                          - REPLACE
+                                          type: string
+                                        name:
+                                          description: Name identifies the header.
+                                          type: string
+                                        secret:
+                                          description: Secret refers to a secret that
+                                            contains the value that must be present
+                                            in the request.
+                                          properties:
+                                            name:
+                                              description: Name is the name of the
+                                                secret.
+                                              type: string
+                                            namespace:
+                                              description: Namespace is the namespace
+                                                in which the secret exists. If namespace
+                                                is omitted, the namespace of the enclosing
+                                                rule is assumed, or "", if none applies.
+                                              type: string
+                                          required:
+                                          - name
+                                          type: object
+                                        value:
+                                          description: Value contains the header value
+                                            that must be present in the request. If
+                                            both Secret and Value are specified, the
+                                            Secret takes precedence, if it exists;
+                                            i.e., the Value will only be used if the
+                                            Secret cannot be found or accessed.
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    type: array
                                   headers:
                                     description: Headers is a list of HTTP headers
                                       which must be present in the request. If omitted
@@ -2610,6 +3621,7 @@ spec:
 
                                       If omitted or empty, all paths are all allowed.
                                     type: string
+                                type: object
                               type: array
                             kafka:
                               description: Kafka-specific rules.
@@ -2666,6 +3678,7 @@ spec:
                                       If omitted or empty, all topics are allowed.
                                     maxLength: 255
                                     type: string
+                                type: object
                               type: array
                             l7:
                               description: Generic Key-Value pair rules.
@@ -2675,11 +3688,63 @@ spec:
                                   It is up to the parser to define what to do with
                                   the map data. If omitted or empty, all requests
                                   are allowed. Both keys and values must be strings.
+                                type: object
                               type: array
                             l7proto:
                               description: Parser type name that uses Key-Value pair
                                 rules.
                               type: string
+                          type: object
+                        terminatingTLS:
+                          description: TerminatingTLS is the TLS context for the connection
+                            terminated by the L7 proxy.  For egress policy this specifies
+                            the server-side TLS parameters to be applied on the connections
+                            originated from the local POD and terminated by the L7
+                            proxy. For ingress policy this specifies the server-side
+                            TLS parameters to be applied on the connections originated
+                            from a remote source and terminated by the L7 proxy.
+                          properties:
+                            certificate:
+                              description: Certificate is the file name or secret
+                                item name for the certificate chain. If omitted, 'tls.crt'
+                                is assumed, if it exists. If given, the item must
+                                exist.If specified for an originating TLS context,
+                                then this is used as a client certificate.
+                              type: string
+                            privateKey:
+                              description: PrivateKey is the file name or secret item
+                                name for the private key matching the certificate
+                                chain. If omitted, 'tls.key' is assumed, if it exists.
+                                If given, the item must exist.
+                              type: string
+                            secret:
+                              description: Secret contains the certificates and private
+                                key for the TLS context.
+                              properties:
+                                name:
+                                  description: Name is the name of the secret.
+                                  type: string
+                                namespace:
+                                  description: Namespace is the namespace in which
+                                    the secret exists. If namespace is omitted, the
+                                    namespace of the enclosing rule is assumed, or
+                                    "", if none applies.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            trustedCA:
+                              description: TrustedCA is the file name or secret item
+                                name for the trusted CA used to verify the certificate
+                                of the remote party. If specified for a terminating
+                                TLS context, then a client certificate is required.
+                                If omitted, 'ca.crt' is assumed, if it exists. If
+                                given, the item must exist.
+                              type: string
+                          required:
+                          - secret
+                          type: object
+                      type: object
                     type: array
                   toRequires:
                     description: |-
@@ -2726,6 +3791,7 @@ spec:
                             required:
                             - key
                             - operator
+                            type: object
                           type: array
                         matchLabels:
                           description: matchLabels is a map of {key,value} pairs.
@@ -2734,6 +3800,7 @@ spec:
                             "key", the operator is "In", and the values array contains
                             only "value". The requirements are ANDed.
                           type: object
+                      type: object
                     type: array
                   toServices:
                     description: |-
@@ -2751,6 +3818,7 @@ spec:
                               type: string
                             serviceName:
                               type: string
+                          type: object
                         k8sServiceSelector:
                           description: ServiceSelector is a label selector for k8s
                             services
@@ -2799,6 +3867,7 @@ spec:
                                     required:
                                     - key
                                     - operator
+                                    type: object
                                   type: array
                                 matchLabels:
                                   description: matchLabels is a map of {key,value}
@@ -2808,9 +3877,13 @@ spec:
                                     and the values array contains only "value". The
                                     requirements are ANDed.
                                   type: object
+                              type: object
                           required:
                           - selector
+                          type: object
+                      type: object
                     type: array
+                type: object
               type: array
             endpointSelector:
               description: A label selector is a label query over a set of resources.
@@ -2851,6 +3924,7 @@ spec:
                     required:
                     - key
                     - operator
+                    type: object
                   type: array
                 matchLabels:
                   description: matchLabels is a map of {key,value} pairs. A single
@@ -2859,6 +3933,7 @@ spec:
                     "In", and the values array contains only "value". The requirements
                     are ANDed.
                   type: object
+              type: object
             ingress:
               description: Ingress is a list of IngressRule which are enforced at
                 ingress. If omitted or empty, this rule does not apply at ingress.
@@ -2890,9 +3965,7 @@ spec:
                       description: CIDR is a CIDR prefix / IP Block.
                       oneOf:
                       - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                        type: string
                       - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                        type: string
                       type: string
                     type: array
                   fromCIDRSet:
@@ -2910,9 +3983,7 @@ spec:
                           description: CIDR is a CIDR prefix / IP Block.
                           oneOf:
                           - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                            type: string
                           - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                            type: string
                           type: string
                         except:
                           description: ExceptCIDRs is a list of IP blocks which the
@@ -2925,13 +3996,12 @@ spec:
                             description: CIDR is a CIDR prefix / IP Block.
                             oneOf:
                             - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                              type: string
                             - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                              type: string
                             type: string
                           type: array
                       required:
                       - cidr
+                      type: object
                     type: array
                   fromEndpoints:
                     description: |-
@@ -2978,6 +4048,7 @@ spec:
                             required:
                             - key
                             - operator
+                            type: object
                           type: array
                         matchLabels:
                           description: matchLabels is a map of {key,value} pairs.
@@ -2986,6 +4057,7 @@ spec:
                             "key", the operator is "In", and the values array contains
                             only "value". The requirements are ANDed.
                           type: object
+                      type: object
                     type: array
                   fromEntities:
                     description: FromEntities is a list of special entities which
@@ -3040,6 +4112,7 @@ spec:
                             required:
                             - key
                             - operator
+                            type: object
                           type: array
                         matchLabels:
                           description: matchLabels is a map of {key,value} pairs.
@@ -3048,6 +4121,7 @@ spec:
                             "key", the operator is "In", and the values array contains
                             only "value". The requirements are ANDed.
                           type: object
+                      type: object
                     type: array
                   toPorts:
                     description: |-
@@ -3058,9 +4132,57 @@ spec:
                       description: PortRule is a list of ports/protocol combinations
                         with optional Layer 7 rules which must be met.
                       properties:
+                        originatingTLS:
+                          description: OriginatingTLS is the TLS context for the connections
+                            originated by the L7 proxy.  For egress policy this specifies
+                            the client-side TLS parameters for the upstream connection
+                            originating from the L7 proxy to the remote destination.
+                            For ingress policy this specifies the client-side TLS
+                            parameters for the connection from the L7 proxy to the
+                            local POD.
+                          properties:
+                            certificate:
+                              description: Certificate is the file name or secret
+                                item name for the certificate chain. If omitted, 'tls.crt'
+                                is assumed, if it exists. If given, the item must
+                                exist.If specified for an originating TLS context,
+                                then this is used as a client certificate.
+                              type: string
+                            privateKey:
+                              description: PrivateKey is the file name or secret item
+                                name for the private key matching the certificate
+                                chain. If omitted, 'tls.key' is assumed, if it exists.
+                                If given, the item must exist.
+                              type: string
+                            secret:
+                              description: Secret contains the certificates and private
+                                key for the TLS context.
+                              properties:
+                                name:
+                                  description: Name is the name of the secret.
+                                  type: string
+                                namespace:
+                                  description: Namespace is the namespace in which
+                                    the secret exists. If namespace is omitted, the
+                                    namespace of the enclosing rule is assumed, or
+                                    "", if none applies.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            trustedCA:
+                              description: TrustedCA is the file name or secret item
+                                name for the trusted CA used to verify the certificate
+                                of the remote party. If specified for a terminating
+                                TLS context, then a client certificate is required.
+                                If omitted, 'ca.crt' is assumed, if it exists. If
+                                given, the item must exist.
+                              type: string
+                          required:
+                          - secret
+                          type: object
                         ports:
-                          description: |-
-                            Ports is a list of L4 port/protocol.
+                          description: Ports is a list of L4 port/protocol.
                           items:
                             description: PortProtocol specifies an L4 port with an
                               optional transport protocol
@@ -3084,6 +4206,7 @@ spec:
                                 type: string
                             required:
                             - port
+                            type: object
                           type: array
                         rules:
                           description: L7Rules is a union of port level rule types.
@@ -3106,6 +4229,7 @@ spec:
                                     description: MatchPattern matches fqdn by pattern
                                     pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                     type: string
+                                type: object
                               type: array
                             http:
                               description: HTTP specific rules.
@@ -3115,6 +4239,60 @@ spec:
 
                                   All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional "path" part of a URL as defined by RFC 3986.
                                 properties:
+                                  headerMatches:
+                                    description: HeaderMatches is a list of HTTP headers
+                                      which must be present and match against the
+                                      given or referenced values or expressions. If
+                                      omitted or empty, requests are allowed regardless
+                                      of headers present.
+                                    items:
+                                      properties:
+                                        mismatch:
+                                          description: Mismatch identifies what to
+                                            do in case there is no match. The default
+                                            is to drop the request. Otherwise the
+                                            overall rule is still considered as matching,
+                                            but the mismatches are logged in the access
+                                            log.
+                                          enum:
+                                          - LOG
+                                          - ADD
+                                          - DELETE
+                                          - REPLACE
+                                          type: string
+                                        name:
+                                          description: Name identifies the header.
+                                          type: string
+                                        secret:
+                                          description: Secret refers to a secret that
+                                            contains the value that must be present
+                                            in the request.
+                                          properties:
+                                            name:
+                                              description: Name is the name of the
+                                                secret.
+                                              type: string
+                                            namespace:
+                                              description: Namespace is the namespace
+                                                in which the secret exists. If namespace
+                                                is omitted, the namespace of the enclosing
+                                                rule is assumed, or "", if none applies.
+                                              type: string
+                                          required:
+                                          - name
+                                          type: object
+                                        value:
+                                          description: Value contains the header value
+                                            that must be present in the request. If
+                                            both Secret and Value are specified, the
+                                            Secret takes precedence, if it exists;
+                                            i.e., the Value will only be used if the
+                                            Secret cannot be found or accessed.
+                                          type: string
+                                      required:
+                                      - name
+                                      type: object
+                                    type: array
                                   headers:
                                     description: Headers is a list of HTTP headers
                                       which must be present in the request. If omitted
@@ -3142,6 +4320,7 @@ spec:
 
                                       If omitted or empty, all paths are all allowed.
                                     type: string
+                                type: object
                               type: array
                             kafka:
                               description: Kafka-specific rules.
@@ -3198,6 +4377,7 @@ spec:
                                       If omitted or empty, all topics are allowed.
                                     maxLength: 255
                                     type: string
+                                type: object
                               type: array
                             l7:
                               description: Generic Key-Value pair rules.
@@ -3207,12 +4387,65 @@ spec:
                                   It is up to the parser to define what to do with
                                   the map data. If omitted or empty, all requests
                                   are allowed. Both keys and values must be strings.
+                                type: object
                               type: array
                             l7proto:
                               description: Parser type name that uses Key-Value pair
                                 rules.
                               type: string
+                          type: object
+                        terminatingTLS:
+                          description: TerminatingTLS is the TLS context for the connection
+                            terminated by the L7 proxy.  For egress policy this specifies
+                            the server-side TLS parameters to be applied on the connections
+                            originated from the local POD and terminated by the L7
+                            proxy. For ingress policy this specifies the server-side
+                            TLS parameters to be applied on the connections originated
+                            from a remote source and terminated by the L7 proxy.
+                          properties:
+                            certificate:
+                              description: Certificate is the file name or secret
+                                item name for the certificate chain. If omitted, 'tls.crt'
+                                is assumed, if it exists. If given, the item must
+                                exist.If specified for an originating TLS context,
+                                then this is used as a client certificate.
+                              type: string
+                            privateKey:
+                              description: PrivateKey is the file name or secret item
+                                name for the private key matching the certificate
+                                chain. If omitted, 'tls.key' is assumed, if it exists.
+                                If given, the item must exist.
+                              type: string
+                            secret:
+                              description: Secret contains the certificates and private
+                                key for the TLS context.
+                              properties:
+                                name:
+                                  description: Name is the name of the secret.
+                                  type: string
+                                namespace:
+                                  description: Namespace is the namespace in which
+                                    the secret exists. If namespace is omitted, the
+                                    namespace of the enclosing rule is assumed, or
+                                    "", if none applies.
+                                  type: string
+                              required:
+                              - name
+                              type: object
+                            trustedCA:
+                              description: TrustedCA is the file name or secret item
+                                name for the trusted CA used to verify the certificate
+                                of the remote party. If specified for a terminating
+                                TLS context, then a client certificate is required.
+                                If omitted, 'ca.crt' is assumed, if it exists. If
+                                given, the item must exist.
+                              type: string
+                          required:
+                          - secret
+                          type: object
+                      type: object
                     type: array
+                type: object
               type: array
             labels:
               description: Labels is a list of optional strings which can be used
@@ -3232,9 +4465,11 @@ spec:
                     type: string
                 required:
                 - key
+                type: object
               type: array
           required:
           - endpointSelector
+          type: object
         specs:
           description: Specs is a list of desired Cilium specific rule specification.
           items:
@@ -3269,9 +4504,7 @@ spec:
                         description: CIDR is a CIDR prefix / IP Block.
                         oneOf:
                         - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                          type: string
                         - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                          type: string
                         type: string
                       type: array
                     toCIDRSet:
@@ -3289,9 +4522,7 @@ spec:
                             description: CIDR is a CIDR prefix / IP Block.
                             oneOf:
                             - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                              type: string
                             - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                              type: string
                             type: string
                           except:
                             description: ExceptCIDRs is a list of IP blocks which
@@ -3304,13 +4535,12 @@ spec:
                               description: CIDR is a CIDR prefix / IP Block.
                               oneOf:
                               - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                                type: string
                               - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                                type: string
                               type: string
                             type: array
                         required:
                         - cidr
+                        type: object
                       type: array
                     toEndpoints:
                       description: |-
@@ -3358,6 +4588,7 @@ spec:
                               required:
                               - key
                               - operator
+                              type: object
                             type: array
                           matchLabels:
                             description: matchLabels is a map of {key,value} pairs.
@@ -3366,6 +4597,7 @@ spec:
                               "key", the operator is "In", and the values array contains
                               only "value". The requirements are ANDed.
                             type: object
+                        type: object
                       type: array
                     toEntities:
                       description: ToEntities is a list of special entities to which
@@ -3378,9 +4610,8 @@ spec:
                       description: "ToFQDNs is a list of rules matching fqdns that
                         endpoint\n\t\t\t\tis allowed to communicate with"
                       items:
-                        description: FQDNRule is a rule that specifies an fully
-                          qualified domain name to which outside communication is
-                          allowed
+                        description: FQDNRule is a rule that specifies an fully qualified
+                          domain name to which outside communication is allowed
                         properties:
                           matchName:
                             description: MatchName matches fqdn name
@@ -3390,28 +4621,35 @@ spec:
                             description: MatchPattern matches fqdn by pattern
                             pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                             type: string
+                        type: object
                       type: array
                     toGroups:
                       description: "ToGroups is a list of constraints that will\n\t\t\t\tgather
                         data from third-party providers and create a new\n\t\t\t\tderived
                         policy."
                       properties:
-                        AWS:
+                        aws:
                           properties:
-                            Region:
+                            region:
                               description: "Region is the key that will filter the
                                 AWS EC2\n\t\t\t\tinstances in the given region"
                               type: string
-                            SecurityGroupsIds:
+                            securityGroupsIds:
                               description: "SecurityGroupsIds is the list of AWS security\n\t\t\t\tgroup
                                 IDs that will filter the instances IPs from the AWS
                                 API"
+                              items:
+                                type: string
                               type: array
-                            SecurityGroupsNames:
+                            securityGroupsNames:
                               description: "SecurityGroupsNames is the list of  AWS
                                 security\n\t\t\t\tgroup names that will filter the
                                 instances IPs from the AWS API"
+                              items:
+                                type: string
                               type: array
+                          type: object
+                      type: object
                     toPorts:
                       description: |-
                         ToPorts is a list of destination ports identified by port number and protocol which the endpoint subject to the rule is allowed to connect to.
@@ -3421,9 +4659,57 @@ spec:
                         description: PortRule is a list of ports/protocol combinations
                           with optional Layer 7 rules which must be met.
                         properties:
+                          originatingTLS:
+                            description: OriginatingTLS is the TLS context for the
+                              connections originated by the L7 proxy.  For egress
+                              policy this specifies the client-side TLS parameters
+                              for the upstream connection originating from the L7
+                              proxy to the remote destination. For ingress policy
+                              this specifies the client-side TLS parameters for the
+                              connection from the L7 proxy to the local POD.
+                            properties:
+                              certificate:
+                                description: Certificate is the file name or secret
+                                  item name for the certificate chain. If omitted,
+                                  'tls.crt' is assumed, if it exists. If given, the
+                                  item must exist.If specified for an originating
+                                  TLS context, then this is used as a client certificate.
+                                type: string
+                              privateKey:
+                                description: PrivateKey is the file name or secret
+                                  item name for the private key matching the certificate
+                                  chain. If omitted, 'tls.key' is assumed, if it exists.
+                                  If given, the item must exist.
+                                type: string
+                              secret:
+                                description: Secret contains the certificates and
+                                  private key for the TLS context.
+                                properties:
+                                  name:
+                                    description: Name is the name of the secret.
+                                    type: string
+                                  namespace:
+                                    description: Namespace is the namespace in which
+                                      the secret exists. If namespace is omitted,
+                                      the namespace of the enclosing rule is assumed,
+                                      or "", if none applies.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              trustedCA:
+                                description: TrustedCA is the file name or secret
+                                  item name for the trusted CA used to verify the
+                                  certificate of the remote party. If specified for
+                                  a terminating TLS context, then a client certificate
+                                  is required. If omitted, 'ca.crt' is assumed, if
+                                  it exists. If given, the item must exist.
+                                type: string
+                            required:
+                            - secret
+                            type: object
                           ports:
-                            description: |-
-                              Ports is a list of L4 port/protocol.
+                            description: Ports is a list of L4 port/protocol.
                             items:
                               description: PortProtocol specifies an L4 port with
                                 an optional transport protocol
@@ -3447,6 +4733,7 @@ spec:
                                   type: string
                               required:
                               - port
+                              type: object
                             type: array
                           rules:
                             description: L7Rules is a union of port level rule types.
@@ -3458,19 +4745,19 @@ spec:
                               dns:
                                 description: DNS specific rules
                                 items:
-                                  description: FQDNRule is a rule that specifies
-                                    an fully qualified domain name to which outside
-                                    communication is allowed
+                                  description: FQDNRule is a rule that specifies an
+                                    fully qualified domain name to which outside communication
+                                    is allowed
                                   properties:
                                     matchName:
                                       description: MatchName matches fqdn name
                                       pattern: ^([-a-zA-Z0-9_]+[.]?)+$
                                       type: string
                                     matchPattern:
-                                      description: MatchPattern matches fqdn by
-                                        pattern
+                                      description: MatchPattern matches fqdn by pattern
                                       pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                       type: string
+                                  type: object
                                 type: array
                               http:
                                 description: HTTP specific rules.
@@ -3480,6 +4767,61 @@ spec:
 
                                     All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional "path" part of a URL as defined by RFC 3986.
                                   properties:
+                                    headerMatches:
+                                      description: HeaderMatches is a list of HTTP
+                                        headers which must be present and match against
+                                        the given or referenced values or expressions.
+                                        If omitted or empty, requests are allowed
+                                        regardless of headers present.
+                                      items:
+                                        properties:
+                                          mismatch:
+                                            description: Mismatch identifies what
+                                              to do in case there is no match. The
+                                              default is to drop the request. Otherwise
+                                              the overall rule is still considered
+                                              as matching, but the mismatches are
+                                              logged in the access log.
+                                            enum:
+                                            - LOG
+                                            - ADD
+                                            - DELETE
+                                            - REPLACE
+                                            type: string
+                                          name:
+                                            description: Name identifies the header.
+                                            type: string
+                                          secret:
+                                            description: Secret refers to a secret
+                                              that contains the value that must be
+                                              present in the request.
+                                            properties:
+                                              name:
+                                                description: Name is the name of the
+                                                  secret.
+                                                type: string
+                                              namespace:
+                                                description: Namespace is the namespace
+                                                  in which the secret exists. If namespace
+                                                  is omitted, the namespace of the
+                                                  enclosing rule is assumed, or "",
+                                                  if none applies.
+                                                type: string
+                                            required:
+                                            - name
+                                            type: object
+                                          value:
+                                            description: Value contains the header
+                                              value that must be present in the request.
+                                              If both Secret and Value are specified,
+                                              the Secret takes precedence, if it exists;
+                                              i.e., the Value will only be used if
+                                              the Secret cannot be found or accessed.
+                                            type: string
+                                        required:
+                                        - name
+                                        type: object
+                                      type: array
                                     headers:
                                       description: Headers is a list of HTTP headers
                                         which must be present in the request. If omitted
@@ -3507,6 +4849,7 @@ spec:
 
                                         If omitted or empty, all paths are all allowed.
                                       type: string
+                                  type: object
                                 type: array
                               kafka:
                                 description: Kafka-specific rules.
@@ -3564,6 +4907,7 @@ spec:
                                         If omitted or empty, all topics are allowed.
                                       maxLength: 255
                                       type: string
+                                  type: object
                                 type: array
                               l7:
                                 description: Generic Key-Value pair rules.
@@ -3574,11 +4918,64 @@ spec:
                                     to do with the map data. If omitted or empty,
                                     all requests are allowed. Both keys and values
                                     must be strings.
+                                  type: object
                                 type: array
                               l7proto:
                                 description: Parser type name that uses Key-Value
                                   pair rules.
                                 type: string
+                            type: object
+                          terminatingTLS:
+                            description: TerminatingTLS is the TLS context for the
+                              connection terminated by the L7 proxy.  For egress policy
+                              this specifies the server-side TLS parameters to be
+                              applied on the connections originated from the local
+                              POD and terminated by the L7 proxy. For ingress policy
+                              this specifies the server-side TLS parameters to be
+                              applied on the connections originated from a remote
+                              source and terminated by the L7 proxy.
+                            properties:
+                              certificate:
+                                description: Certificate is the file name or secret
+                                  item name for the certificate chain. If omitted,
+                                  'tls.crt' is assumed, if it exists. If given, the
+                                  item must exist.If specified for an originating
+                                  TLS context, then this is used as a client certificate.
+                                type: string
+                              privateKey:
+                                description: PrivateKey is the file name or secret
+                                  item name for the private key matching the certificate
+                                  chain. If omitted, 'tls.key' is assumed, if it exists.
+                                  If given, the item must exist.
+                                type: string
+                              secret:
+                                description: Secret contains the certificates and
+                                  private key for the TLS context.
+                                properties:
+                                  name:
+                                    description: Name is the name of the secret.
+                                    type: string
+                                  namespace:
+                                    description: Namespace is the namespace in which
+                                      the secret exists. If namespace is omitted,
+                                      the namespace of the enclosing rule is assumed,
+                                      or "", if none applies.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              trustedCA:
+                                description: TrustedCA is the file name or secret
+                                  item name for the trusted CA used to verify the
+                                  certificate of the remote party. If specified for
+                                  a terminating TLS context, then a client certificate
+                                  is required. If omitted, 'ca.crt' is assumed, if
+                                  it exists. If given, the item must exist.
+                                type: string
+                            required:
+                            - secret
+                            type: object
+                        type: object
                       type: array
                     toRequires:
                       description: |-
@@ -3626,6 +5023,7 @@ spec:
                               required:
                               - key
                               - operator
+                              type: object
                             type: array
                           matchLabels:
                             description: matchLabels is a map of {key,value} pairs.
@@ -3634,6 +5032,7 @@ spec:
                               "key", the operator is "In", and the values array contains
                               only "value". The requirements are ANDed.
                             type: object
+                        type: object
                       type: array
                     toServices:
                       description: |-
@@ -3651,6 +5050,7 @@ spec:
                                 type: string
                               serviceName:
                                 type: string
+                            type: object
                           k8sServiceSelector:
                             description: ServiceSelector is a label selector for k8s
                               services
@@ -3700,6 +5100,7 @@ spec:
                                       required:
                                       - key
                                       - operator
+                                      type: object
                                     type: array
                                   matchLabels:
                                     description: matchLabels is a map of {key,value}
@@ -3709,9 +5110,13 @@ spec:
                                       and the values array contains only "value".
                                       The requirements are ANDed.
                                     type: object
+                                type: object
                             required:
                             - selector
+                            type: object
+                        type: object
                       type: array
+                  type: object
                 type: array
               endpointSelector:
                 description: A label selector is a label query over a set of resources.
@@ -3753,6 +5158,7 @@ spec:
                       required:
                       - key
                       - operator
+                      type: object
                     type: array
                   matchLabels:
                     description: matchLabels is a map of {key,value} pairs. A single
@@ -3761,6 +5167,7 @@ spec:
                       is "In", and the values array contains only "value". The requirements
                       are ANDed.
                     type: object
+                type: object
               ingress:
                 description: Ingress is a list of IngressRule which are enforced at
                   ingress. If omitted or empty, this rule does not apply at ingress.
@@ -3792,9 +5199,7 @@ spec:
                         description: CIDR is a CIDR prefix / IP Block.
                         oneOf:
                         - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                          type: string
                         - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                          type: string
                         type: string
                       type: array
                     fromCIDRSet:
@@ -3812,9 +5217,7 @@ spec:
                             description: CIDR is a CIDR prefix / IP Block.
                             oneOf:
                             - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                              type: string
                             - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                              type: string
                             type: string
                           except:
                             description: ExceptCIDRs is a list of IP blocks which
@@ -3827,13 +5230,12 @@ spec:
                               description: CIDR is a CIDR prefix / IP Block.
                               oneOf:
                               - pattern: ^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$
-                                type: string
                               - pattern: ^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$
-                                type: string
                               type: string
                             type: array
                         required:
                         - cidr
+                        type: object
                       type: array
                     fromEndpoints:
                       description: |-
@@ -3881,6 +5283,7 @@ spec:
                               required:
                               - key
                               - operator
+                              type: object
                             type: array
                           matchLabels:
                             description: matchLabels is a map of {key,value} pairs.
@@ -3889,6 +5292,7 @@ spec:
                               "key", the operator is "In", and the values array contains
                               only "value". The requirements are ANDed.
                             type: object
+                        type: object
                       type: array
                     fromEntities:
                       description: FromEntities is a list of special entities which
@@ -3944,6 +5348,7 @@ spec:
                               required:
                               - key
                               - operator
+                              type: object
                             type: array
                           matchLabels:
                             description: matchLabels is a map of {key,value} pairs.
@@ -3952,6 +5357,7 @@ spec:
                               "key", the operator is "In", and the values array contains
                               only "value". The requirements are ANDed.
                             type: object
+                        type: object
                       type: array
                     toPorts:
                       description: |-
@@ -3962,9 +5368,57 @@ spec:
                         description: PortRule is a list of ports/protocol combinations
                           with optional Layer 7 rules which must be met.
                         properties:
+                          originatingTLS:
+                            description: OriginatingTLS is the TLS context for the
+                              connections originated by the L7 proxy.  For egress
+                              policy this specifies the client-side TLS parameters
+                              for the upstream connection originating from the L7
+                              proxy to the remote destination. For ingress policy
+                              this specifies the client-side TLS parameters for the
+                              connection from the L7 proxy to the local POD.
+                            properties:
+                              certificate:
+                                description: Certificate is the file name or secret
+                                  item name for the certificate chain. If omitted,
+                                  'tls.crt' is assumed, if it exists. If given, the
+                                  item must exist.If specified for an originating
+                                  TLS context, then this is used as a client certificate.
+                                type: string
+                              privateKey:
+                                description: PrivateKey is the file name or secret
+                                  item name for the private key matching the certificate
+                                  chain. If omitted, 'tls.key' is assumed, if it exists.
+                                  If given, the item must exist.
+                                type: string
+                              secret:
+                                description: Secret contains the certificates and
+                                  private key for the TLS context.
+                                properties:
+                                  name:
+                                    description: Name is the name of the secret.
+                                    type: string
+                                  namespace:
+                                    description: Namespace is the namespace in which
+                                      the secret exists. If namespace is omitted,
+                                      the namespace of the enclosing rule is assumed,
+                                      or "", if none applies.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              trustedCA:
+                                description: TrustedCA is the file name or secret
+                                  item name for the trusted CA used to verify the
+                                  certificate of the remote party. If specified for
+                                  a terminating TLS context, then a client certificate
+                                  is required. If omitted, 'ca.crt' is assumed, if
+                                  it exists. If given, the item must exist.
+                                type: string
+                            required:
+                            - secret
+                            type: object
                           ports:
-                            description: |-
-                              Ports is a list of L4 port/protocol.
+                            description: Ports is a list of L4 port/protocol.
                             items:
                               description: PortProtocol specifies an L4 port with
                                 an optional transport protocol
@@ -3988,6 +5442,7 @@ spec:
                                   type: string
                               required:
                               - port
+                              type: object
                             type: array
                           rules:
                             description: L7Rules is a union of port level rule types.
@@ -3999,19 +5454,19 @@ spec:
                               dns:
                                 description: DNS specific rules
                                 items:
-                                  description: FQDNRule is a rule that specifies
-                                    an fully qualified domain name to which outside
-                                    communication is allowed
+                                  description: FQDNRule is a rule that specifies an
+                                    fully qualified domain name to which outside communication
+                                    is allowed
                                   properties:
                                     matchName:
                                       description: MatchName matches fqdn name
                                       pattern: ^([-a-zA-Z0-9_]+[.]?)+$
                                       type: string
                                     matchPattern:
-                                      description: MatchPattern matches fqdn by
-                                        pattern
+                                      description: MatchPattern matches fqdn by pattern
                                       pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
                                       type: string
+                                  type: object
                                 type: array
                               http:
                                 description: HTTP specific rules.
@@ -4021,6 +5476,61 @@ spec:
 
                                     All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional "path" part of a URL as defined by RFC 3986.
                                   properties:
+                                    headerMatches:
+                                      description: HeaderMatches is a list of HTTP
+                                        headers which must be present and match against
+                                        the given or referenced values or expressions.
+                                        If omitted or empty, requests are allowed
+                                        regardless of headers present.
+                                      items:
+                                        properties:
+                                          mismatch:
+                                            description: Mismatch identifies what
+                                              to do in case there is no match. The
+                                              default is to drop the request. Otherwise
+                                              the overall rule is still considered
+                                              as matching, but the mismatches are
+                                              logged in the access log.
+                                            enum:
+                                            - LOG
+                                            - ADD
+                                            - DELETE
+                                            - REPLACE
+                                            type: string
+                                          name:
+                                            description: Name identifies the header.
+                                            type: string
+                                          secret:
+                                            description: Secret refers to a secret
+                                              that contains the value that must be
+                                              present in the request.
+                                            properties:
+                                              name:
+                                                description: Name is the name of the
+                                                  secret.
+                                                type: string
+                                              namespace:
+                                                description: Namespace is the namespace
+                                                  in which the secret exists. If namespace
+                                                  is omitted, the namespace of the
+                                                  enclosing rule is assumed, or "",
+                                                  if none applies.
+                                                type: string
+                                            required:
+                                            - name
+                                            type: object
+                                          value:
+                                            description: Value contains the header
+                                              value that must be present in the request.
+                                              If both Secret and Value are specified,
+                                              the Secret takes precedence, if it exists;
+                                              i.e., the Value will only be used if
+                                              the Secret cannot be found or accessed.
+                                            type: string
+                                        required:
+                                        - name
+                                        type: object
+                                      type: array
                                     headers:
                                       description: Headers is a list of HTTP headers
                                         which must be present in the request. If omitted
@@ -4048,6 +5558,7 @@ spec:
 
                                         If omitted or empty, all paths are all allowed.
                                       type: string
+                                  type: object
                                 type: array
                               kafka:
                                 description: Kafka-specific rules.
@@ -4105,6 +5616,7 @@ spec:
                                         If omitted or empty, all topics are allowed.
                                       maxLength: 255
                                       type: string
+                                  type: object
                                 type: array
                               l7:
                                 description: Generic Key-Value pair rules.
@@ -4115,12 +5627,66 @@ spec:
                                     to do with the map data. If omitted or empty,
                                     all requests are allowed. Both keys and values
                                     must be strings.
+                                  type: object
                                 type: array
                               l7proto:
                                 description: Parser type name that uses Key-Value
                                   pair rules.
                                 type: string
+                            type: object
+                          terminatingTLS:
+                            description: TerminatingTLS is the TLS context for the
+                              connection terminated by the L7 proxy.  For egress policy
+                              this specifies the server-side TLS parameters to be
+                              applied on the connections originated from the local
+                              POD and terminated by the L7 proxy. For ingress policy
+                              this specifies the server-side TLS parameters to be
+                              applied on the connections originated from a remote
+                              source and terminated by the L7 proxy.
+                            properties:
+                              certificate:
+                                description: Certificate is the file name or secret
+                                  item name for the certificate chain. If omitted,
+                                  'tls.crt' is assumed, if it exists. If given, the
+                                  item must exist.If specified for an originating
+                                  TLS context, then this is used as a client certificate.
+                                type: string
+                              privateKey:
+                                description: PrivateKey is the file name or secret
+                                  item name for the private key matching the certificate
+                                  chain. If omitted, 'tls.key' is assumed, if it exists.
+                                  If given, the item must exist.
+                                type: string
+                              secret:
+                                description: Secret contains the certificates and
+                                  private key for the TLS context.
+                                properties:
+                                  name:
+                                    description: Name is the name of the secret.
+                                    type: string
+                                  namespace:
+                                    description: Namespace is the namespace in which
+                                      the secret exists. If namespace is omitted,
+                                      the namespace of the enclosing rule is assumed,
+                                      or "", if none applies.
+                                    type: string
+                                required:
+                                - name
+                                type: object
+                              trustedCA:
+                                description: TrustedCA is the file name or secret
+                                  item name for the trusted CA used to verify the
+                                  certificate of the remote party. If specified for
+                                  a terminating TLS context, then a client certificate
+                                  is required. If omitted, 'ca.crt' is assumed, if
+                                  it exists. If given, the item must exist.
+                                type: string
+                            required:
+                            - secret
+                            type: object
+                        type: object
                       type: array
+                  type: object
                 type: array
               labels:
                 description: Labels is a list of optional strings which can be used
@@ -4141,6 +5707,7 @@ spec:
                       type: string
                   required:
                   - key
+                  type: object
                 type: array
             required:
             - endpointSelector
@@ -4151,4 +5718,3 @@ spec:
   - name: v2
     served: true
     storage: true
-

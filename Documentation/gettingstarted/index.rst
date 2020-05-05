@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _gs_guide:
 
@@ -29,8 +29,8 @@ Installation
    k8s-installers
    cni-chaining
 
-Security Tutorials
-------------------
+Network Policy Security Tutorials
+---------------------------------
 
 .. toctree::
    :maxdepth: 1

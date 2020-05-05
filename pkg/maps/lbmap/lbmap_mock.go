@@ -22,20 +22,23 @@ import (
 )
 
 type LBMockMap struct {
-	BackendByID map[uint16]*lb.Backend
-	ServiceByID map[uint16]*lb.SVC
+	BackendByID   map[uint16]*lb.Backend
+	ServiceByID   map[uint16]*lb.SVC
+	AffinityMatch BackendIDByServiceIDSet
 }
 
 func NewLBMockMap() *LBMockMap {
 	return &LBMockMap{
-		BackendByID: map[uint16]*lb.Backend{},
-		ServiceByID: map[uint16]*lb.SVC{},
+		BackendByID:   map[uint16]*lb.Backend{},
+		ServiceByID:   map[uint16]*lb.SVC{},
+		AffinityMatch: BackendIDByServiceIDSet{},
 	}
 }
 
 func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
 	backendIDs []uint16, prevCount int, ipv6 bool, svcType lb.SVCType,
-	svcLocal bool) error {
+	svcLocal bool,
+	sessionAffinity bool, sessionAffinityTimeoutSec uint32) error {
 
 	backends := make([]lb.Backend, len(backendIDs))
 	for i, backendID := range backendIDs {
@@ -56,6 +59,8 @@ func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
 		}
 	}
 	svc.Backends = backends
+	svc.SessionAffinity = sessionAffinity
+	svc.SessionAffinityTimeoutSec = sessionAffinityTimeoutSec
 
 	m.ServiceByID[id] = svc
 
@@ -111,4 +116,35 @@ func (m *LBMockMap) DumpBackendMaps() ([]*lb.Backend, error) {
 		list = append(list, backend)
 	}
 	return list, nil
+}
+
+func (m *LBMockMap) AddAffinityMatch(revNATID uint16, backendID uint16) error {
+	if _, ok := m.AffinityMatch[revNATID]; !ok {
+		m.AffinityMatch[revNATID] = map[uint16]struct{}{}
+	}
+	if _, ok := m.AffinityMatch[revNATID][backendID]; ok {
+		return fmt.Errorf("Backend %d already exists in %d affinity map",
+			backendID, revNATID)
+	}
+	m.AffinityMatch[revNATID][backendID] = struct{}{}
+	return nil
+}
+
+func (m *LBMockMap) DeleteAffinityMatch(revNATID uint16, backendID uint16) error {
+	if _, ok := m.AffinityMatch[revNATID]; !ok {
+		return fmt.Errorf("Affinity map for %d does not exist", revNATID)
+	}
+	if _, ok := m.AffinityMatch[revNATID][backendID]; !ok {
+		return fmt.Errorf("Backend %d does not exist in %d affinity map",
+			backendID, revNATID)
+	}
+	delete(m.AffinityMatch[revNATID], backendID)
+	if len(m.AffinityMatch[revNATID]) == 0 {
+		delete(m.AffinityMatch, revNATID)
+	}
+	return nil
+}
+
+func (m *LBMockMap) DumpAffinityMatches() (BackendIDByServiceIDSet, error) {
+	return m.AffinityMatch, nil
 }

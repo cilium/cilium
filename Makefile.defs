@@ -1,3 +1,6 @@
+# Copyright 2017-2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 SHELL := /bin/bash
 .SHELLFLAGS := -eu -o pipefail -c
 
@@ -14,14 +17,33 @@ LOCALSTATEDIR?=/var
 RUNDIR?=/var/run
 CONFDIR?=/etc
 
-GOLIST ?= GO111MODULE=off
-ifeq ($(GO),)
-	GO = go
-endif
-
 INSTALL = install
 
-CGO_DISABLED = CGO_ENABLED=0
+CONTAINER_ENGINE?=docker
+
+# Set DOCKER_IMAGE_TAG with "latest" by default
+ifeq ($(DOCKER_IMAGE_TAG),)
+    DOCKER_IMAGE_TAG="latest"
+endif
+
+ifeq ($(shell uname -m),aarch64)
+    ETCD_IMAGE=quay.io/coreos/etcd:v3.3.20-arm64
+else
+    ETCD_IMAGE=quay.io/coreos/etcd:v3.3.20
+endif
+
+CONSUL_IMAGE=consul:1.7.2
+
+GO ?= go
+
+# go build/test/clean flags
+# these are declared here so they are treated explicitly
+# as non-immediate variables
+GO_BUILD_FLAGS = 
+GO_TEST_FLAGS = 
+GO_CLEAN_FLAGS = 
+GO_BUILD_LDFLAGS = 
+
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
 VERSION_MAJOR = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION | cut -d. -f1)
 # Use git only if in a Git repo
@@ -30,23 +52,27 @@ ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git),)
 else
 	GIT_VERSION = $(shell cat $(ROOT_DIR)/GIT_VERSION)
 endif
-BUILD = $(VERSION) $(GIT_VERSION) $(shell $(GO) version)
-GOLDFLAGS = -X "github.com/cilium/cilium/pkg/version.Version=$(BUILD)"
+FULL_BUILD_VERSION = $(VERSION) $(GIT_VERSION) $(shell $(GO) version)
+GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/version.Version=$(FULL_BUILD_VERSION)"
+
+ifeq ($(NOSTRIP),)
+	# Note: these options will not remove annotations needed for stack
+	# traces, so panic backtraces will still be readable.
+	#
+	# -w: Omit the DWARF symbol table.
+	# -s: Omit the symbol table and debug information.
+	GO_BUILD_LDFLAGS += -s -w
+endif
 
 CILIUM_ENVOY_SHA=$(shell grep -o "FROM.*cilium/cilium-envoy:[0-9a-fA-F]*" $(ROOT_DIR)/Dockerfile | cut -d : -f 2)
-GOLDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
+GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
 
 BPF_FILES_EVAL := $(shell git ls-files $(ROOT_DIR)/bpf/ | grep -v .gitignore | tr "\n" ' ')
 BPF_FILES ?= $(BPF_FILES_EVAL)
 BPF_SRCFILES := $(subst ../,,$(BPF_FILES))
 
 CILIUM_DATAPATH_SHA=$(shell cat $(BPF_FILES) | sha1sum | awk '{print $$1}')
-GOLDFLAGS += -X "github.com/cilium/cilium/pkg/datapath/loader.DatapathSHA=$(CILIUM_DATAPATH_SHA)"
-
-# Set DOCKER_IMAGE_TAG with "latest" by default
-ifeq ($(DOCKER_IMAGE_TAG),)
-    DOCKER_IMAGE_TAG="latest"
-endif
+GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/datapath/loader.DatapathSHA=$(CILIUM_DATAPATH_SHA)"
 
 # Set -mod=vendor if running >= go 1.13 or if GO111MODULE is set.
 # A go build is being executed with go modules if:
@@ -54,37 +80,37 @@ endif
 # * The go command is invoked in a directory outside of the $GOPATH/src tree
 #   and the environment variable GO111MODULE unset (or explicitly set to 'auto').
 ifeq ($(GO111MODULE),on)
-    GOFLAGS ?= -mod=vendor
-    GOCLEAN ?= -mod=vendor
+    GO_BUILD_FLAGS += -mod=vendor
+    GO_TEST_FLAGS += -mod=vendor
+    GO_CLEAN_FLAGS += -mod=vendor
 endif
+
 # Compile with '-mod=vendor' if go >= 1.13
 GO_MAJOR_VERSION_GE_1 := $(shell expr `$(GO) version | grep -E 'go[0-9]{1}+' -o | sed 's/go//g'` \>= 1)
 ifeq ($(GO_MAJOR_VERSION_GE_1),1)
     GO_MINOR_VERSION_GE_13 := $(shell expr `$(GO) version | grep -E 'go[^ ]+' -o | sed 's/go1.//g'` \>= 13)
     ifeq ($(GO_MINOR_VERSION_GE_13),1)
-        GOFLAGS ?= -mod=vendor
-        GOCLEAN ?= -mod=vendor
+        GO_BUILD_FLAGS += -mod=vendor
+        GO_TEST_FLAGS += -mod=vendor
+        GO_CLEAN_FLAGS += -mod=vendor
     endif
 endif
 
-GOBUILD = $(GOFLAGS) -ldflags '$(GOLDFLAGS)' $(EXTRA_GOBUILD_FLAGS)
-
-# Uncomment to enable race detection
-#GOBUILD += -race
-
-# Uncomment to enable deadlock detection
-#GOBUILD += -tags lockdebug
+ifneq ($(RACE),)
+    GO_BUILD_FLAGS += -race
+    GO_TEST_FLAGS += -race
+endif
 
 ifneq ($(LOCKDEBUG),)
-    GOBUILD += -tags lockdebug
+    GO_BUILD_FLAGS += -tags lockdebug
 endif
 
-# Container engine
-CONTAINER_ENGINE?=docker
-CONTAINER_ENGINE_FULL=$(QUIET)$(CONTAINER_ENGINE)
+GO_BUILD_FLAGS += -ldflags '$(GO_BUILD_LDFLAGS) $(EXTRA_GO_BUILD_LDFLAGS)' $(EXTRA_GO_BUILD_FLAGS)
 
-ifeq ($(shell uname -m),aarch64)
-    ETCD_IMAGE=quay.io/coreos/etcd:v3.2.17-arm64
-else
-    ETCD_IMAGE=quay.io/coreos/etcd:v3.2.17
-endif
+GO_BUILD = CGO_ENABLED=0 $(GO) build $(GO_BUILD_FLAGS)
+GO_BUILD_WITH_CGO = CGO_ENABLED=1 $(GO) build $(GO_BUILD_FLAGS)
+GO_TEST = $(GO) test $(GO_TEST_FLAGS)
+GO_CLEAN = $(GO) clean $(GO_TEST_FLAGS)
+# TODO: remove `GO111MODULE=off` once Go 1.13 is deprecated by Go maintainers
+GO_VET = GO111MODULE=off $(GO) vet
+GO_LIST = GO111MODULE=off $(GO) list

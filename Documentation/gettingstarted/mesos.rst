@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _gsg_mesos:
 
@@ -75,7 +75,9 @@ When the script completes successfully, it will print:
 
 If the script exits with an error message, do not attempt to proceed with the
 tutorial, as later steps will not work properly.   Instead, contact us on the
-`Cilium Slack channel <https://cilium.herokuapp.com>`_.
+`Cilium Slack channel`_.
+
+.. _Cilium Slack channel: https://cilium.herokuapp.com
 
 Step 3: Accessing the VM
 ========================
@@ -354,4 +356,4 @@ Troubleshooting
 ===============
 
 For assistance on any of the Getting Started Guides, please reach out and ask a question on the `Cilium
-Slack channel <https://cilium.herokuapp.com>`_.
+Slack channel`_.

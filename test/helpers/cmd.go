@@ -120,6 +120,14 @@ func (res *CmdRes) ExpectContains(data string, optionalDescription ...interface{
 		gomega.ContainSubstring(data), optionalDescription...)
 }
 
+// ExpectMatchesRegexp asserts that the stdout of the executed command
+// matches the regexp. It accepts an optional parameter that can be
+// used to annotate failure messages.
+func (res *CmdRes) ExpectMatchesRegexp(regexp string, optionalDescription ...interface{}) bool {
+	return gomega.ExpectWithOffset(1, res.Output().String()).To(
+		gomega.MatchRegexp(regexp), optionalDescription...)
+}
+
 // ExpectDoesNotContain asserts that a string is not contained in the stdout of
 // the executed command. It accepts an optional parameter that can be used to
 // annotate failure messages.
@@ -286,7 +294,7 @@ func (res *CmdRes) GetDebugMessage() string {
 // If the timeout is reached it will return an error.
 func (res *CmdRes) WaitUntilMatch(substr string) error {
 	body := func() bool {
-		return strings.Contains(res.Output().String(), substr)
+		return strings.Contains(res.OutputPrettyPrint(), substr)
 	}
 
 	return WithTimeout(
@@ -297,7 +305,7 @@ func (res *CmdRes) WaitUntilMatch(substr string) error {
 
 // WaitUntilMatchRegexp waits until the `CmdRes.stdout` matches the given regexp.
 // If the timeout is reached it will return an error.
-func (res *CmdRes) WaitUntilMatchRegexp(expr string) error {
+func (res *CmdRes) WaitUntilMatchRegexp(expr string, timeout time.Duration) error {
 	r := regexp.MustCompile(expr)
 	body := func() bool {
 		return r.Match(res.Output().Bytes())
@@ -306,7 +314,7 @@ func (res *CmdRes) WaitUntilMatchRegexp(expr string) error {
 	return WithTimeout(
 		body,
 		fmt.Sprintf("The output doesn't match regexp %q after timeout", expr),
-		&TimeoutConfig{Timeout: HelperTimeout})
+		&TimeoutConfig{Timeout: timeout})
 }
 
 // WaitUntilFinish waits until the command context completes correctly

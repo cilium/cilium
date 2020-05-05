@@ -25,10 +25,10 @@ import (
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/service"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"gopkg.in/check.v1"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -673,15 +673,15 @@ func (s *K8sSuite) TestNewClusterService(c *check.C) {
 	})
 
 	clusterService := NewClusterService(id, svc, endpoints)
-	c.Assert(clusterService, check.DeepEquals, service.ClusterService{
+	c.Assert(clusterService, check.DeepEquals, serviceStore.ClusterService{
 		Name:      "foo",
 		Namespace: "bar",
 		Labels:    map[string]string{"foo": "bar"},
 		Selector:  map[string]string{"foo": "bar"},
-		Frontends: map[string]service.PortConfiguration{
+		Frontends: map[string]serviceStore.PortConfiguration{
 			"127.0.0.1": {},
 		},
-		Backends: map[string]service.PortConfiguration{
+		Backends: map[string]serviceStore.PortConfiguration{
 			"2.2.2.2": {
 				"http-test-svc": {Protocol: loadbalancer.TCP, Port: 8080},
 			},

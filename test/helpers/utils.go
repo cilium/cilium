@@ -21,13 +21,14 @@ import (
 	"html/template"
 	"io"
 	"io/ioutil"
-	"math/rand"
 	"os"
 	"path/filepath"
+	"regexp"
 	"strconv"
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
@@ -39,7 +40,7 @@ import (
 )
 
 // ensure that our random numbers are seeded differently on each run
-var randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
+var randGen = rand.NewSafeRand(time.Now().UnixNano())
 
 // IsRunningOnJenkins detects if the currently running Ginkgo application is
 // most likely running in a Jenkins environment. Returns true if certain
@@ -82,25 +83,19 @@ func MakeUID() string {
 	return fmt.Sprintf("%08x", randGen.Uint32())
 }
 
-// RenderTemplateToFile renders a text/template string into a target filename
-// with specific persmisions. Returns eturn an error if the template cannot be
-// validated or the file cannot be created.
-func RenderTemplateToFile(filename string, tmplt string, perm os.FileMode) error {
+// RenderTemplate renders a text/template string into a buffer.
+// Returns eturn an error if the template cannot be validated.
+func RenderTemplate(tmplt string) (*bytes.Buffer, error) {
 	t, err := template.New("").Parse(tmplt)
 	if err != nil {
-		return err
+		return nil, err
 	}
 	content := new(bytes.Buffer)
 	err = t.Execute(content, nil)
 	if err != nil {
-		return err
+		return nil, err
 	}
-
-	err = ioutil.WriteFile(filename, content.Bytes(), perm)
-	if err != nil {
-		return err
-	}
-	return nil
+	return content, nil
 }
 
 // TimeoutConfig represents the configuration for the timeout of a command.
@@ -127,6 +122,23 @@ func (c *TimeoutConfig) Validate() error {
 // the timeout in config is reached. Returns an error if the timeout is
 // exceeded for body to execute successfully.
 func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
+	err := RepeatUntilTrue(body, config)
+	if err != nil {
+		return fmt.Errorf("%s: %s", msg, err)
+	}
+
+	return nil
+}
+
+// RepeatUntilTrueDefaultTimeout calls RepeatUntilTrue with the default timeout
+// HelperTimeout
+func RepeatUntilTrueDefaultTimeout(body func() bool) error {
+	return RepeatUntilTrue(body, &TimeoutConfig{Timeout: HelperTimeout})
+}
+
+// RepeatUntilTrue repeatedly calls body until body returns true or the timeout
+// expires
+func RepeatUntilTrue(body func() bool, config *TimeoutConfig) error {
 	if err := config.Validate(); err != nil {
 		return err
 	}
@@ -160,7 +172,7 @@ func WithTimeout(body func() bool, msg string, config *TimeoutConfig) error {
 				go asyncBody(bodyChan)
 			}
 		case <-done:
-			return fmt.Errorf("Timeout reached: %s", msg)
+			return fmt.Errorf("%s timeout expired", config.Timeout)
 		}
 	}
 }
@@ -225,6 +237,8 @@ func HoldEnvironment(description ...string) {
 	fmt.Fprintf(os.Stdout, "\n\nPausing test for debug, use vagrant to access test setup.")
 	fmt.Fprintf(os.Stdout, "\nRun \"kill -SIGCONT %d\" to continue.\n", pid)
 	unix.Kill(pid, unix.SIGSTOP)
+	time.Sleep(time.Millisecond)
+	fmt.Fprintf(os.Stdout, "Test resumed.\n")
 }
 
 // Fail is a Ginkgo failure handler which raises a SIGSTOP for the test process
@@ -278,6 +292,25 @@ func CreateLogFile(filename string, data []byte) error {
 	finalPath := filepath.Join(path, filename)
 	err = ioutil.WriteFile(finalPath, data, LogPerm)
 	return err
+}
+
+// WriteToReportFile writes data to filename. It appends to existing files.
+func WriteToReportFile(data []byte, filename string) error {
+	testPath, err := CreateReportDirectory()
+	if err != nil {
+		log.WithError(err).Errorf("cannot create test results path '%s'", testPath)
+		return err
+	}
+
+	err = WriteOrAppendToFile(
+		filepath.Join(testPath, filename),
+		data,
+		LogPerm)
+	if err != nil {
+		log.WithError(err).Errorf("cannot create monitor log file %s", filename)
+		return err
+	}
+	return nil
 }
 
 // reportMap saves the output of the given commands to the specified filename.
@@ -425,11 +458,12 @@ func CanRunK8sVersion(ciliumVersion, k8sVersionStr string) (bool, error) {
 }
 
 // failIfContainsBadLogMsg makes a test case to fail if any message from
-// given log messages contains an entry from badLogMessages (map key) AND
+// given log messages contains an entry from the blacklist (map key) AND
 // does not contain ignore messages (map value).
-func failIfContainsBadLogMsg(logs string) {
+func failIfContainsBadLogMsg(logs string, blacklist map[string][]string) {
+	nFailures := 0
 	for _, msg := range strings.Split(logs, "\n") {
-		for fail, ignoreMessages := range badLogMessages {
+		for fail, ignoreMessages := range blacklist {
 			if strings.Contains(msg, fail) {
 				ok := false
 				for _, ignore := range ignoreMessages {
@@ -440,22 +474,28 @@ func failIfContainsBadLogMsg(logs string) {
 				}
 				if !ok {
 					fmt.Fprintf(CheckLogs, "⚠️  Found a %q in logs\n", fail)
-					ginkgoext.Fail(fmt.Sprintf("Found a %q in Cilium Logs", fail))
+					nFailures++
 				}
 			}
 		}
 	}
+	if nFailures > 0 {
+		Fail(fmt.Sprintf("Found %d Cilium logs matching list of errors that must be investigated", nFailures))
+	}
 }
 
-// RunsOnNetNext checks whether a test case is running on the net next machine
-// which means running on the latest (probably) unreleased kernel
-func RunsOnNetNext() bool {
-	return os.Getenv("NETNEXT") == "true"
+// RunsOnNetNextOr419Kernel checks whether a test case is running on the net-next
+// kernel (depending on the image, it's the latest kernel either from net-next.git
+// or bpf-next.git tree), or on the > 4.19.57 kernel.
+func RunsOnNetNextOr419Kernel() bool {
+	netNext := os.Getenv("NETNEXT")
+	return netNext == "true" || netNext == "1" || os.Getenv("KERNEL") == "419"
 }
 
-// DoesNotRunOnNetNext is the complement function of RunsOnNetNext.
-func DoesNotRunOnNetNext() bool {
-	return !RunsOnNetNext()
+// DoesNotRunOnNetNextOr419Kernel is the complement function of
+// RunsOnNetNextOr419Kernel.
+func DoesNotRunOnNetNextOr419Kernel() bool {
+	return !RunsOnNetNextOr419Kernel()
 }
 
 // DoesNotHaveHosts returns a function which returns true if a CI job
@@ -494,4 +534,45 @@ func DoesNotExistNodeWithoutCilium() bool {
 // GetNodeWithoutCilium returns a name of a node which does not run cilium.
 func GetNodeWithoutCilium() string {
 	return os.Getenv("NO_CILIUM_ON_NODE")
+}
+
+// ContainerURLRE matches and splits container image URLs. The protocol and tag
+// are optional.
+// Note: The groups can be simplified but that is less readable.
+// Group #    Contains
+//    1       http protocol
+//    2       registry domain
+//    3       registry path
+//    4       - tag w/ ":"
+//    5       tag
+var containerURLRE = regexp.MustCompile(`(https?://)?([^/]+)/([^:]+)(:(.+))?`)
+
+// SplitContainerURL returns url split into the registry (with protocol), image
+// path and tag.
+// If this split is successful success is true.
+// Note: tag may be empty when not present. success is true in this case.
+func SplitContainerURL(url string) (registry, image, tag string, success bool) {
+	parts := containerURLRE.FindStringSubmatch(url)
+	if parts == nil {
+		return "", "", "", false
+	}
+
+	registryProto := parts[1]
+	registryDomain := parts[2]
+	registry = registryProto + registryDomain
+
+	image = parts[3]
+	tag = parts[5]
+
+	return registry, image, tag, true
+}
+
+// GetLatestImageVersion infers which docker tag should be used
+func GetLatestImageVersion() string {
+	_, _, tag, success := SplitContainerURL(config.CiliumTestConfig.CiliumImage)
+
+	if success && len(tag) > 0 {
+		return tag
+	}
+	return "latest"
 }

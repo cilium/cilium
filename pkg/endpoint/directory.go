@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -64,7 +64,7 @@ func (e *Endpoint) backupDirectoryPath() string {
 // Returns the original regenerationError if regenerationError was non-nil,
 // or if any updates to directories for the endpoint's directories fails.
 // Must be called with endpoint.Mutex held.
-func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bool) error {
+func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool) error {
 	scopedLog := e.getLogger()
 	scopedLog.Debug("synchronizing directories")
 
@@ -115,8 +115,8 @@ func (e *Endpoint) synchronizeDirectories(origDir string, compilationExecuted bo
 
 		// If the compilation was skipped then we need to copy the old
 		// bpf objects into the new directory
-		if !compilationExecuted {
-			scopedLog.Debug("compilation was skipped; moving old BPF objects into new directory")
+		if !stateDirComplete {
+			scopedLog.Debug("some BPF state files were not recreated; moving old BPF objects into new directory")
 			err := common.MoveNewFilesTo(backupDir, origDir)
 			if err != nil {
 				log.WithError(err).Debugf("unable to copy old bpf object "+

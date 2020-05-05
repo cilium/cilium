@@ -18,6 +18,9 @@ spec:
       - operator: Exists
       hostPID: true
       hostNetwork: true
+{{- if or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (gt .Capabilities.KubeVersion.Minor "16") (gt .Capabilities.KubeVersion.Major "1")}}
+      priorityClassName: system-node-critical
+{{- end }}
       containers:
         - name: node-init
           image: gcr.io/google-containers/startup-script:v1
@@ -112,6 +115,7 @@ spec:
               What=bpffs
               Where=/sys/fs/bpf
               Type=bpf
+              Options=rw,nosuid,nodev,noexec,relatime,mode=700
 
               [Install]
               WantedBy=multi-user.target

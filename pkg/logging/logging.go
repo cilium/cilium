@@ -17,6 +17,7 @@ package logging
 import (
 	"bufio"
 	"bytes"
+	"flag"
 	"fmt"
 	"log/syslog"
 	"os"
@@ -29,6 +30,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	logrus_syslog "github.com/sirupsen/logrus/hooks/syslog"
+	"k8s.io/klog"
 )
 
 const (
@@ -74,6 +76,26 @@ var (
 
 	logOptions = LogOptions{}
 )
+
+func init() {
+	log := DefaultLogger.WithField(logfields.LogSubsys, "klog")
+
+	// Make sure that klog logging variables are initialized so that we can
+	// update them from this file.
+	klog.InitFlags(nil)
+
+	// Make sure klog does not log to stderr as we want it to control the output
+	// of klog so we want klog to log the errors to each writer of each level.
+	flag.Set("logtostderr", "false")
+	// We don't need all headers because logurs will already print them if
+	// necessary.
+	flag.Set("skip_headers", "true")
+
+	klog.SetOutputBySeverity("INFO", log.WriterLevel(logrus.InfoLevel))
+	klog.SetOutputBySeverity("WARNING", log.WriterLevel(logrus.WarnLevel))
+	klog.SetOutputBySeverity("ERROR", log.WriterLevel(logrus.ErrorLevel))
+	klog.SetOutputBySeverity("FATAL", log.WriterLevel(logrus.FatalLevel))
+}
 
 // LogOptions maps configuration key-value pairs related to logging.
 type LogOptions map[string]string

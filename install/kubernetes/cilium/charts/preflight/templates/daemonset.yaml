@@ -82,7 +82,7 @@ spec:
         - image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.pullPolicy }}
-          name: cilium-pre-flight-check
+          name: cilium-pre-flight-fqdn-precache
           command: ["/bin/sh"]
           args:
           - -c
@@ -101,6 +101,15 @@ spec:
               - /tmp/read-tofqdns-precachey
             initialDelaySeconds: 5
             periodSeconds: 5
+          env:
+{{- if .Values.global.k8sServiceHost }}
+          - name: KUBERNETES_SERVICE_HOST
+            value: {{ .Values.global.k8sServiceHost | quote }}
+{{- end }}
+{{- if .Values.global.k8sServicePort }}
+          - name: KUBERNETES_SERVICE_PORT
+            value: {{ .Values.global.k8sServicePort | quote }}
+{{- end }}
           volumeMounts:
           - mountPath: /var/run/cilium
             name: cilium-run

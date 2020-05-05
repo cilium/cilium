@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 *******************
 Envoy Go Extensions
@@ -79,7 +79,7 @@ These specs help you understand protocol aspects like:
   
 Sometimes, the protocol spec does not give you a full sense of the set of commands that can be sent over the protocol.  In that 
 case, looking at higher-level user documentation can fill in some of these knowledge gaps.  Here are examples for 
-`Redis Commands <https://redis.io/commands>`_ and `Cassandra CQL Commands  <https://docs.datastax.com/en/cql/3.1/cql/cql_reference/cqlCommandsTOC.html>`_ .  
+`Redis Commands <https://redis.io/commands>`_ and `Cassandra CQL Commands <https://docs.datastax.com/en/archived/cql/3.1/cql/cql_reference/cqlCommandsTOC.html>`_ .
  
 Another great trick is to use `Wireshark <https://www.wireshark.org>`_  to capture raw packet data between
 a client and server.   For many protocols, the `Wireshark Sample Captures <https://wiki.wireshark.org/SampleCaptures>`_ 
@@ -523,7 +523,7 @@ and adding the ''--debug-verbose=flow'' flag.
 
   $ sudo service cilium stop 
   
-  $ sudo /usr/bin/cilium-agent --debug --auto-direct-node-routes --ipv4-range 10.11.0.0/16 --kvstore-opt consul.address=192.168.33.11:8500 --kvstore consul --container-runtime=docker --container-runtime-endpoint=unix:///var/run/docker.sock -t vxlan --fixed-identity-mapping=128=kv-store --fixed-identity-mapping=129=kube-dns --debug-verbose=flow
+  $ sudo /usr/bin/cilium-agent --debug --auto-direct-node-routes --ipv4-range 10.11.0.0/16 --kvstore-opt consul.address=192.168.33.11:8500 --kvstore consul -t vxlan --fixed-identity-mapping=128=kv-store --fixed-identity-mapping=129=kube-dns --debug-verbose=flow
 
 
 Step 13: Add Runtime Tests

@@ -1,27 +1,25 @@
-FROM docker.io/library/python:3.7.5-alpine3.10
+FROM docker.io/library/python:3.7.7-alpine3.11
 
 LABEL maintainer="maintainer@cilium.io"
 
-ENV DOCS_DIR=/srv/Documentation
-ENV API_DIR=/srv/api
-
-ADD ./requirements.txt $DOCS_DIR/requirements.txt
-
-ENV PACKAGES="\
+RUN apk add --no-cache --virtual --update \
+    aspell-en \
     bash \
     ca-certificates \
-    make \
-    git \
-    python \
-    py-pip \
-    sphinx-python \
     enchant \
-    aspell-en \
-"
-RUN apk add --no-cache --virtual --update $PACKAGES && \
-    pip install --upgrade pip && \
-    pip install -r $DOCS_DIR/requirements.txt
+    git \
+    libc6-compat \
+    py-pip \
+    python \
+    sphinx-python \
+    && true
 
-WORKDIR $DOCS_DIR
-ADD _api $API_DIR
-ADD . $DOCS_DIR
+ADD ./requirements.txt /tmp/requirements.txt
+RUN pip install -r /tmp/requirements.txt
+
+ENV HOME=/tmp
+
+## Workaround odd behaviour of sphinx versionwarning extension. It wants to
+## write runtime data inside a system directory.
+## We do rely on this extension, so we cannot just drop it.
+RUN install -m 0777 -d /usr/local/lib/python3.7/site-packages/versionwarning/_static/data

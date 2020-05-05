@@ -19,4 +19,4 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "-o", "/dev/null", "echo-a"]
+            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "echo-a"]

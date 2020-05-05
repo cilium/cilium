@@ -2,13 +2,13 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 ..       This has been bluntly copied from the excellent committer guidelines
          written for the Open vSwitch project and has then been adapted. It is
          based on the following files:
-         https://github.com/openvswitch/ovs/blob/master/Documentation/committer-grant-revocation.rst
-         https://github.com/openvswitch/ovs/blob/master/Documentation/committer-responsibilities.rst
+         https://github.com/openvswitch/ovs/blob/master/Documentation/internals/committer-grant-revocation.rst
+         https://github.com/openvswitch/ovs/blob/master/Documentation/internals/committer-responsibilities.rst
 
 ..       Licensed under the Apache License, Version 2.0 (the "License"); you may
          not use this file except in compliance with the License. You may obtain

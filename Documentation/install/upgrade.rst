@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _admin_upgrade:
 
@@ -20,14 +20,17 @@ free to ping us on the `Slack channel`.
 
 .. _pre_flight:
 
-Running a pre-flight DaemonSet (Optional)
-=========================================
+Running pre-flight check (Required)
+===================================
 
 When rolling out an upgrade with Kubernetes, Kubernetes will first terminate the
 pod followed by pulling the new image version and then finally spin up the new
 image. In order to reduce the downtime of the agent, the new image version can
 be pre-pulled. It also verifies that the new image version can be pulled and
-avoids ErrImagePull errors during the rollout.
+avoids ErrImagePull errors during the rollout. If you are running in :ref:`kubeproxy-free`
+mode you need to also pass on the Kubernetes API Server IP and /
+or the Kubernetes API Server Port when generating the ``cilium-preflight.yaml``
+file.
 
 .. tabs::
   .. group-tab:: kubectl
@@ -40,7 +43,7 @@ avoids ErrImagePull errors during the rollout.
         --set config.enabled=false \\
         --set operator.enabled=false \\
         > cilium-preflight.yaml
-      kubectl create cilium-preflight.yaml
+      kubectl create -f cilium-preflight.yaml
 
   .. group-tab:: Helm
 
@@ -53,6 +56,33 @@ avoids ErrImagePull errors during the rollout.
         --set config.enabled=false \\
         --set operator.enabled=false
 
+  .. group-tab:: kubectl (kubeproxy-free)
+
+    .. parsed-literal::
+
+      helm template |CHART_RELEASE| \\
+        --set preflight.enabled=true \\
+        --set agent.enabled=false \\
+        --set config.enabled=false \\
+        --set operator.enabled=false \\
+        --set global.k8sServiceHost=API_SERVER_IP \\
+        --set global.k8sServicePort=API_SERVER_PORT \\
+        > cilium-preflight.yaml
+      kubectl create -f cilium-preflight.yaml
+
+  .. group-tab:: Helm (kubeproxy-free)
+
+    .. parsed-literal::
+
+      helm install cilium-preflight |CHART_RELEASE| \\
+        --namespace=kube-system \\
+        --set preflight.enabled=true \\
+        --set agent.enabled=false \\
+        --set config.enabled=false \\
+        --set operator.enabled=false \\
+        --set global.k8sServiceHost=API_SERVER_IP \\
+        --set global.k8sServicePort=API_SERVER_PORT
+
 After running the cilium-pre-flight.yaml, make sure the number of READY pods
 is the same number of Cilium pods running.
 
@@ -63,8 +93,24 @@ is the same number of Cilium pods running.
     cilium                    2         2         2       2            2           <none>          1h20m
     cilium-pre-flight-check   2         2         2       2            2           <none>          7m15s
 
-Once the number of READY pods are the same, you can delete cilium-pre-flight-check
-`DaemonSet` and proceed with the upgrade.
+Once the number of READY pods are the same, make sure the Cilium PreFlight
+deployment is also marked as READY 1/1. In case it shows READY 0/1 please see
+:ref:`cnp_validation`.
+
+.. code-block:: shell-session
+
+    kubectl get deployment -n kube-system cilium-pre-flight-check -w
+    NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+    cilium-pre-flight-check   1/1     1            0           12s
+
+.. _cleanup_preflight_check:
+
+Clean up pre-flight check
+-------------------------
+
+Once the number of READY for the preflight `DaemonSet` is the same as the number
+of cilium pods running and the preflight ``Deployment`` is marked as READY ``1/1``
+you can delete the cilium-preflight and proceed with the upgrade.
 
 .. tabs::
   .. group-tab:: kubectl
@@ -388,6 +434,24 @@ Upgrading from >=1.7.0 to 1.8.y
       helm upgrade cilium --namespace=kube-system \\
       --set global.bpf.natMax=841429
 
+New ConfigMap Options
+~~~~~~~~~~~~~~~~~~~~~
+
+  * ``bpf-map-dynamic-size-ratio`` has been added to allow sizing of the TCP CT,
+    non-TCP CT, NAT and policy BPF maps based on the total system memory. This
+    option allows to specify a ratio (0.0-1.0) of total system memory to use for
+    these maps. On new installations, this ratio is set to 0.03 by default,
+    leading to 3% of the total system memory to be allocated for these maps. On
+    a node with 4 GiB of total system memory this ratio corresponds
+    approximately to the default BPF map sizes. A value of 0.0 will disable
+    sizing of the BPF maps based on system memory. Any BPF map sizes configured
+    manually using the ``ctTcpMax``, ``ctAnyMax``, ``natMax`` options will take
+    precedence over the dynamically determined value.
+
+    On upgrades of existing installations, this option is disable by default,
+    i.e. it is set to 0.0. Users wanting to use this feature need to enable it
+    explicitly in their `ConfigMap`, see section :ref:`upgrade_configmap`.
+
 Deprecated options
 ~~~~~~~~~~~~~~~~~~
 
@@ -398,6 +462,10 @@ Deprecated options
   1.6. The ``access-log`` option to log to a file has been removed.
 * ``--disable-k8s-services`` option from cilium-agent has been deprecated
   and will be removed in Cilium 1.9.
+* ``--tofqdns-enable-poller``: This option has been deprecated and will be
+  removed in Cilium 1.9
+* ``--tofqdns-enable-poller-events``: This option has been deprecated and will
+  be removed in Cilium 1.9
 
 Renamed Metrics
 ~~~~~~~~~~~~~~~
@@ -455,6 +523,10 @@ Removed options
 
 * ``enable-legacy-services``: This option was deprecated in Cilium 1.6 and is
   now removed.
+* The options ``container-runtime`` and ``container-runtime-endpoint`` were
+  deprecated in Cilium 1.7 and are now removed.
+* The ``conntrack-garbage-collector-interval`` option deprecated in Cilium 1.6
+  is now removed. Please use ``conntrack-gc-interval`` instead.
 
 Removed helm options
 ~~~~~~~~~~~~~~~~~~~~
@@ -474,13 +546,19 @@ Removed resource fields
 
 .. _1.7_required_changes:
 
-IMPORTANT: Changes required before upgrading to 1.7.0
+IMPORTANT: Changes required before upgrading to 1.7.x
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
 .. warning::
 
-   Do not upgrade to 1.7.0 before reading the following section and completing
+   Do not upgrade to 1.7.x before reading the following section and completing
    the required steps.
+
+   In particular, if you are using network policy and upgrading from 1.6.x or earlier
+   to 1.7.x or later, you MUST read the 1.7 :ref:`configmap_remote_node_identity`
+   section about the
+   ``enable-remote-node-identity`` flag to avoid potential disruption
+   to connectivity between host networking pods and Cilium-managed pods.
 
 * Cilium has bumped the minimal kubernetes version supported to v1.11.0.
 
@@ -569,8 +647,94 @@ IMPORTANT: Changes required before upgrading to 1.7.0
   connections that previously outlived DNS entries are now better supported,
   and will not be disconnected when the corresponding DNS entry expires.
 
+.. _configmap_remote_node_identity:
+
 New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
+
+  * ``enable-remote-node-identity`` has been added to enable a new identity
+    for remote cluster nodes and to associate all IPs of a node with that new
+    identity. This allows for network policies that distinguish between
+    connections from host networking pods or other processes on the local
+    Kubernetes worker node from those on remote worker nodes.
+
+    After enabling this option, all communication to and from non-local
+    Kubernetes nodes must be whitelisted with a ``toEntity`` or ``fromEntity``
+    rule listing the entity ``remote-node``. The existing entity ``cluster``
+    continues to work and now includes the entity ``remote-node``.  Existing
+    policy rules whitelisting ``host`` will only affect the local node going
+    forward. Existing CIDR-based rules to whitelist node IPs other than the
+    Cilium internal IP (IP assigned to the ``cilium_host`` interface), will no
+    longer take effect.
+
+    This is important because Kubernetes Network Policy dictates that network
+    connectivity from the local host must always be allowed, even for pods that
+    have a default deny rule for ingress connectivity.   This is so that
+    network liveness and readiness probes from kubelet will not be dropped by
+    network policy.  Prior to 1.7.x, Cilium achieved this by always allowing
+    ingress host network connectivity from any host in the cluster.  With 1.7
+    and ``enable-remote-node-identity=true``, Cilium will only automatically
+    allow connectivity from the local node, thereby providing a better default
+    security posture.
+
+    The option is enabled by default for new deployments when generated via
+    Helm, in order to gain the benefits of improved security. The Helm option
+    is ``--set global.remoteNodeIdentity``. This option can be disabled in
+    order to maintain full compatibility with Cilium 1.6.x policy enforcement.
+    **Be aware** that upgrading a cluster to 1.7.x by using helm to generate a
+    new Cilium config that leaves ``enable-remote-node-identity`` set as the
+    default value of ``true`` **can break network connectivity.**
+
+    The reason for this is that
+    with Cilium 1.6.x, the source identity of ANY connection from a host-networking pod or from
+    other processes on a Kubernetes worker node would be the  ``host`` identity.   Thus, a
+    Cilium 1.6.x or earlier environment with network policy enforced may be implicitly
+    relying on the ``allow everything from host identity`` behavior to
+    whitelist traffic from host networking to other Cilium-managed pods.
+    With the shift to 1.7.x, if ``enable-remote-node-identity=true``
+    these connections will be denied by policy if they are coming from
+    a host-networking pod or process on another Kubernetes worker node, since the source
+    will be given the ``remote-node`` identity (which is not automatically
+    allowed) rather than the ``host`` identity (which is automatically allowed).
+
+    An indicator that this is happening would be drops visible in Hubble or
+    Cilium monitor with a source identity equal to 6 (the numeric value for the
+    new ``remote-node`` identity.   For example:
+
+    ::
+
+       xx drop (Policy denied) flow 0x6d7b6dd0 to endpoint 1657, identity 6->51566: 172.16.9.243:47278 -> 172.16.8.21:9093 tcp SYN
+
+    There are two ways to address this.  One can set
+    ``enable-remote-node-identity=false`` in the `ConfigMap` to retain the
+    Cilium 1.6.x behavior.  However, this is not ideal, as it means there is no
+    way to prevent communication between host-networking pods and
+    Cilium-managed pods, since all such connectivity is allowed automatically
+    because it is from the ``host`` identity.
+
+    The other option is to keep ``enable-remote-node-identity=true`` and
+    create policy rules that explicitly whitelist connections between
+    the ``remote-host`` identity and pods that should be reachable from host-networking pods
+    or other processes that may be running on a remote Kubernetes worker node.   An example of
+    such a rule is:
+
+
+    ::
+
+       apiVersion: "cilium.io/v2"
+       kind: CiliumNetworkPolicy
+       metadata:
+         name: "allow-from-remote-nodes"
+       spec:
+         endpointSelector:
+           matchLabels:
+             app: myapp
+         ingress:
+         - fromEntities:
+           - remote-node
+
+    See :ref:`policy-remote-node` for more examples of remote-node policies.
+
 
   * ``enable-well-known-identities`` has been added to control the
     initialization of the well-known identities. Well-known identities have
@@ -584,22 +748,6 @@ New ConfigMap Options
     managed etcd mode to reduce the number of policy identities whitelisted for
     each endpoint.
 
-  * ``enable-remote-node-identity`` has been added to enable a new identity
-    for remote cluster nodes. This allows to treat local and remote cluster
-    nodes differently from a policy perspective. The option is enabled by
-    default for new deployments when generated via Helm. The option is disabled
-    for existing cluster to avoid breaking compatibility in case a cluster is
-    using policy rules allowing from host which expect to allow traffic from
-    all cluster nodes.
-
-    Unless you have policy rules allowing from host which expect to allow
-    traffic from all cluster nodes instead of just the local node, it is a good
-    idea to enable this option as you upgrade as it improves the default
-    security posture of your cluster. If you have policy rules matching on host
-    with the intent of allow from all cluster nodes, it is recommended to
-    modify those policy rules to explicitly allow the entity ``remote-node``
-    and then enable this flag as you upgrade.
-
   * ``kube-proxy-replacement`` has been added to control which features should
     be enabled for the kube-proxy BPF replacement. The option is set to
     ``probe`` by default for new deployments when generated via Helm. This
@@ -611,6 +759,13 @@ New ConfigMap Options
 
     For users who previously were running with ``nodePort.enabled=true`` it is
     recommended to set the option to ``strict`` before upgrading.
+
+  * ``enable-auto-protect-node-port-range`` has been added to enable
+    auto-appending of a NodePort port range to
+    ``net.ipv4.ip_local_reserved_ports`` if it overlaps with an ephemeral port
+    range from ``net.ipv4.ip_local_port_range``. The option is enabled by
+    default. See :ref:`kubeproxy-free` for the explanation why the overlap can
+    be harmful.
 
 Removed options
 ~~~~~~~~~~~~~~~~~~
@@ -1077,7 +1232,7 @@ labels.
 
 The steps below assume a stable cluster with no new identities created during
 the rollout. Once a cilium using CRD-backed identities is running, it may begin
-allocating identities in a way that conflicts with older ones in the kvstore. 
+allocating identities in a way that conflicts with older ones in the kvstore.
 
 The cilium preflight manifest requires etcd support and can be built with:
 
@@ -1092,7 +1247,7 @@ The cilium preflight manifest requires etcd support and can be built with:
       --set global.etcd.enabled=true \
       --set global.etcd.ssl=true \
       > cilium-preflight.yaml
-    kubectl create cilium-preflight.yaml
+    kubectl create -f cilium-preflight.yaml
 
 
 Example migration
@@ -1139,9 +1294,119 @@ Example migration
 
 Clearing CRD identities
 ~~~~~~~~~~~~~~~~~~~~~~~
- 
+
 If a migration has gone wrong, it possible to start with a clean slate. Ensure that no cilium instances are running with identity-allocation-mode crd and execute:
 
 .. code-block:: shell-session
 
       $ kubectl delete ciliumid --all
+
+.. _cnp_validation:
+
+CNP Validation
+--------------
+
+Running the CNP Validator will make sure the policies deployed in the cluster
+are valid. It is important to run this validation before an upgrade so it will
+make sure Cilium has a correct behavior after upgrade. Avoiding doing this
+validation might cause Cilium from updating its ``NodeStatus`` in those invalid
+Network Policies as well as in the worst case scenario it might give a false
+sense of security to the user if a policy is badly formatted and Cilium is not
+enforcing that policy due a bad validation schema. This CNP Validator is
+automatically executed as part of the pre-flight check :ref:`pre_flight`.
+
+Start by deployment the ``cilium-pre-flight-check`` and check if the the
+``Deployment`` shows READY 1/1, if it does not check the pod logs.
+
+.. code-block:: shell-session
+
+      $ kubectl get deployment -n kube-system cilium-pre-flight-check -w
+      NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+      cilium-pre-flight-check   0/1     1            0           12s
+
+      $ kubectl logs -n kube-system deployment/cilium-pre-flight-check -c cnp-validator --previous
+      level=info msg="Setting up kubernetes client"
+      level=info msg="Establishing connection to apiserver" host="https://172.20.0.1:443" subsys=k8s
+      level=info msg="Connected to apiserver" subsys=k8s
+      level=info msg="Validating CiliumNetworkPolicy 'default/cidr-rule': OK!
+      level=error msg="Validating CiliumNetworkPolicy 'default/cnp-update': unexpected validation error: spec.labels: Invalid value: \"string\": spec.labels in body must be of type object: \"string\""
+      level=error msg="Found invalid CiliumNetworkPolicy"
+
+In this example, we can see the ``CiliumNetworkPolicy`` in the ``default``
+namespace with the name ``cnp-update`` is not valid for the Cilium version we
+are trying to upgrade. In order to fix this policy we need to edit it, we can
+do this by saving the policy locally and modify it. For this example it seems
+the ``.spec.labels`` has set an array of strings which is not correct as per
+the official schema.
+
+.. code-block:: shell-session
+
+      $ kubectl get cnp -n default cnp-update -o yaml > cnp-bad.yaml
+      $ cat cnp-bad.yaml
+        apiVersion: cilium.io/v2
+        kind: CiliumNetworkPolicy
+        [...]
+        spec:
+          endpointSelector:
+            matchLabels:
+              id: app1
+          ingress:
+          - fromEndpoints:
+            - matchLabels:
+                id: app2
+            toPorts:
+            - ports:
+              - port: "80"
+                protocol: TCP
+          labels:
+          - custom=true
+        [...]
+
+To fix this policy we need to set the ``.spec.labels`` with the right format and
+commit these changes into kubernetes.
+
+.. code-block:: shell-session
+
+      $ cat cnp-bad.yaml
+        apiVersion: cilium.io/v2
+        kind: CiliumNetworkPolicy
+        [...]
+        spec:
+          endpointSelector:
+            matchLabels:
+              id: app1
+          ingress:
+          - fromEndpoints:
+            - matchLabels:
+                id: app2
+            toPorts:
+            - ports:
+              - port: "80"
+                protocol: TCP
+          labels:
+          - key: "custom"
+            value: "true"
+        [...]
+      $
+      $ kubectl apply -f ./cnp-bad.yaml
+
+After applying the fixed policy we can delete the pod that was validating the
+policies so that kubernetes creates a new pod immediately to verify if the fixed
+policies are now valid.
+
+.. code-block:: shell-session
+
+      $ kubectl delete pod -n kube-system -l k8s-app=cilium-pre-flight-check-deployment
+      pod "cilium-pre-flight-check-86dfb69668-ngbql" deleted
+      $ kubectl get deployment -n kube-system cilium-pre-flight-check
+      NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
+      cilium-pre-flight-check   1/1     1            1           55m
+      $ kubectl logs -n kube-system deployment/cilium-pre-flight-check -c cnp-validator
+      level=info msg="Setting up kubernetes client"
+      level=info msg="Establishing connection to apiserver" host="https://172.20.0.1:443" subsys=k8s
+      level=info msg="Connected to apiserver" subsys=k8s
+      level=info msg="Validating CiliumNetworkPolicy 'default/cidr-rule': OK!
+      level=info msg="Validating CiliumNetworkPolicy 'default/cnp-update': OK!
+      level=info msg="All CCNPs and CNPs valid!"
+
+Once they are valid you can continue with the upgrade process. :ref:`cleanup_preflight_check`

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -52,7 +53,7 @@ func createDerivativeCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy
 			Namespace: cnp.ObjectMeta.Namespace,
 			OwnerReferences: []v1.OwnerReference{{
 				APIVersion:         cilium_v2.SchemeGroupVersion.String(),
-				Kind:               cilium_v2.CNPKindDefinition,
+				Kind:               cilium_client_v2.CNPKindDefinition,
 				Name:               cnp.ObjectMeta.Name,
 				UID:                cnp.ObjectMeta.UID,
 				BlockOwnerDeletion: &blockOwnerDeletionPtr,
@@ -98,15 +99,15 @@ func denyEgressRule() *api.Rule {
 
 func updateOrCreateCNP(cnp *cilium_v2.CiliumNetworkPolicy) (*cilium_v2.CiliumNetworkPolicy, error) {
 	k8sCNP, err := k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).
-		Get(cnp.ObjectMeta.Name, v1.GetOptions{})
+		Get(context.TODO(), cnp.ObjectMeta.Name, v1.GetOptions{})
 	if err == nil {
 		k8sCNP.ObjectMeta.Labels = cnp.ObjectMeta.Labels
 		k8sCNP.Spec = cnp.Spec
 		k8sCNP.Specs = cnp.Specs
 		k8sCNP.Status = cilium_v2.CiliumNetworkPolicyStatus{}
-		return k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).Update(k8sCNP)
+		return k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).Update(context.TODO(), k8sCNP, v1.UpdateOptions{})
 	}
-	return k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).Create(cnp)
+	return k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).Create(context.TODO(), cnp, v1.CreateOptions{})
 }
 
 func updateDerivativeStatus(cnp *cilium_v2.CiliumNetworkPolicy, derivativeName string, err error) error {
@@ -126,7 +127,7 @@ func updateDerivativeStatus(cnp *cilium_v2.CiliumNetworkPolicy, derivativeName s
 	// the status correctly fetch the last version to avoid updates issues.
 	k8sCNPStatus, clientErr := k8s.CiliumClient().CiliumV2().
 		CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).
-		Get(cnp.ObjectMeta.Name, v1.GetOptions{})
+		Get(context.TODO(), cnp.ObjectMeta.Name, v1.GetOptions{})
 	if clientErr != nil {
 		return fmt.Errorf("Cannot get Kubernetes policy: %s", clientErr)
 	}
@@ -140,6 +141,6 @@ func updateDerivativeStatus(cnp *cilium_v2.CiliumNetworkPolicy, derivativeName s
 	k8sCNPStatus.SetDerivedPolicyStatus(derivativeName, status)
 	groupsCNPCache.UpdateCNP(k8sCNPStatus)
 	// TODO: switch to JSON Patch
-	_, err = k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).UpdateStatus(cnp)
+	_, err = k8s.CiliumClient().CiliumV2().CiliumNetworkPolicies(cnp.ObjectMeta.Namespace).UpdateStatus(context.TODO(), cnp, v1.UpdateOptions{})
 	return err
 }

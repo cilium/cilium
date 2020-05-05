@@ -194,12 +194,12 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		}
 
 		bindConfig := fmt.Sprintf(bindCiliumTestTemplate, getMapValues(worldIps)...)
-		err := helpers.RenderTemplateToFile(bindDBCilium, bindConfig, os.ModePerm)
+		err := vm.RenderTemplateToFile(bindDBCilium, bindConfig, os.ModePerm)
 		Expect(err).To(BeNil(), "bind file can't be created")
 
 		// // Installed DNSSEC domain
 		bindConfig = fmt.Sprintf(bindDNSSECTestTemplate, getMapValues(worldIps)...)
-		err = helpers.RenderTemplateToFile(bindDBDNSSSEC, bindConfig, os.ModePerm)
+		err = vm.RenderTemplateToFile(bindDBDNSSSEC, bindConfig, os.ModePerm)
 		Expect(err).To(BeNil(), "bind file can't be created")
 
 		for name, image := range ciliumOutsideImages {
@@ -211,10 +211,10 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 			outsideIps[name] = ip.String()
 		}
 		bindConfig = fmt.Sprintf(bindOutsideTestTemplate, getMapValues(outsideIps)...)
-		err = helpers.RenderTemplateToFile(bindDBOutside, bindConfig, os.ModePerm)
+		err = vm.RenderTemplateToFile(bindDBOutside, bindConfig, os.ModePerm)
 		Expect(err).To(BeNil(), "bind file can't be created")
 
-		err = helpers.RenderTemplateToFile(bindNamedConf, bind9ZoneConfig, os.ModePerm)
+		err = vm.RenderTemplateToFile(bindNamedConf, bind9ZoneConfig, os.ModePerm)
 		Expect(err).To(BeNil(), "Bind named.conf  local file can't be created")
 
 		vm.ExecWithSudo("mkdir -m777 -p /data")
@@ -1099,7 +1099,7 @@ INITSYSTEM=SYSTEMD`
 func getMapValues(m map[string]string) []interface{} {
 
 	values := make([]interface{}, len(m))
-	var keys []string
+	keys := make([]string, 0, len(m))
 	for k := range m {
 		keys = append(keys, k)
 	}

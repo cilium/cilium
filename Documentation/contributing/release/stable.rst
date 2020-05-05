@@ -2,7 +2,7 @@
   
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _generic_release_process:
 
@@ -176,12 +176,12 @@ If you intent to release a new feature release, see the
    Please reach out on the ``#development`` channel on Slack for assistance with
    this task.
 
-#. Update the ``stable`` tags for ``cilium``, ``cilium-operator``, and
-   ``cilium-docker-plugin`` on DockerHub.
+#. Update the ``stable`` tags for ``cilium``, ``cilium-operator``,
+   ``cilium-docker-plugin`` and ``hubble-relay`` on DockerHub.
 
 #. Update the external tools and guides to point to the released Cilium version:
 
-    * `kubeadm <https://kubernetes.io/docs/setup/independent/create-cluster-kubeadm/>`_
+    * `kubeadm <https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/>`_
     * `kops <https://github.com/kubernetes/kops/>`_
     * `kubespray <https://github.com/kubernetes-sigs/kubespray/>`_
 

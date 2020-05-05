@@ -1,17 +1,21 @@
+// This jenkinsfile sets tag based on git commit hash. Built docker image is tagged accordingly and pushed to local docker registry (living on the node)
+// This allows multiple jobs to use the same registry.
+
 @Library('cilium') _
 
 pipeline {
     agent {
-        label 'baremetal'
+        label 'gke'
     }
 
     environment {
         PROJ_PATH = "src/github.com/cilium/cilium"
-        GINKGO_TIMEOUT="108m"
+        GINKGO_TIMEOUT="180m"
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         GOPATH="${WORKSPACE}"
         GKE_KEY=credentials('gke-key')
-        GKE_ZONE="us-west1-a"
+        TAG="${GIT_COMMIT}"
+        HOME="${WORKSPACE}"
     }
 
     options {
@@ -21,6 +25,16 @@ pipeline {
     }
 
     stages {
+        stage('Set build name') {
+            when {
+                not {environment name: 'GIT_BRANCH', value: 'origin/master'}
+            }
+            steps {
+                   script {
+                       currentBuild.displayName = env.getProperty('ghprbPullTitle') + '  ' + env.getProperty('ghprbPullLink') + '  ' + currentBuild.displayName
+                   }
+            }
+        }
         stage('Checkout') {
             options {
                 timeout(time: 20, unit: 'MINUTES')
@@ -31,7 +45,6 @@ pipeline {
                 checkout scm
                 sh 'mkdir -p ${PROJ_PATH}'
                 sh 'ls -A | grep -v src | xargs mv -t ${PROJ_PATH}'
-                sh '/usr/local/bin/cleanup || true'
             }
         }
         stage('Precheck') {
@@ -60,6 +73,7 @@ pipeline {
                 dir("/tmp") {
                     withCredentials([file(credentialsId: 'gke-key', variable: 'KEY_PATH')]) {
                         sh 'gcloud auth activate-service-account --key-file ${KEY_PATH}'
+                        sh 'gcloud config set project cilium-ci'
                     }
                 }
             }
@@ -67,11 +81,8 @@ pipeline {
         stage('Make Cilium images and prepare gke cluster') {
             parallel {
                 stage('Make Cilium images') {
-                    environment {
-                        TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
-                    }
                     steps {
-                        sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) latest'
+                        sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) ${TAG}'
                     }
                     post {
                         unsuccessful {
@@ -116,16 +127,33 @@ pipeline {
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
                 KUBECONFIG="${TESTDIR}/gke/gke-kubeconfig"
                 CNI_INTEGRATION="gke"
+                CILIUM_IMAGE = """${sh(
+                        returnStdout: true,
+                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/cilium:${TAG}'
+                        )}"""
+                CILIUM_OPERATOR_IMAGE= """${sh(
+                        returnStdout: true,
+                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/operator:${TAG}'
+                        )}"""
+                K8S_VERSION= """${sh(
+                        returnStdout: true,
+                        script: 'cat ${TESTDIR}/gke/cluster-version'
+                        )}"""
+                FOCUS= """${sh(
+                        returnStdout: true,
+                        script: 'echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/" | tr -d \'\n\''
+                        )}"""
             }
             steps {
                 dir("${TESTDIR}"){
-                    sh 'K8S_VERSION=$(${TESTDIR}/gke/get-cluster-version.sh) CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator:latest ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s*/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/gke/gke-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
+                    sh 'env'
+                    sh 'ginkgo --focus="${FOCUS}" -v -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh) -cilium.image=${CILIUM_IMAGE} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.holdEnvironment=false'
                 }
             }
             post {
                 always {
                     sh 'cd ${TESTDIR}; ./archive_test_results_eks.sh || true'
-                    archiveArtifacts artifacts: 'src/github.com/cilium/cilium/*.zip'
+                    archiveArtifacts artifacts: '**/*.zip'
                     junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'src/github.com/cilium/cilium/test/*.xml'
                 }
                 unsuccessful {
@@ -140,6 +168,7 @@ pipeline {
   }
     post {
         always {
+            sh 'cd ${TESTDIR}; ./clean-local-registry-tag.sh $(./print-node-ip.sh) ${TAG} || true'
             sh 'cd ${TESTDIR}/gke; ./release-cluster.sh || true'
             cleanWs()
             sh '/usr/local/bin/cleanup || true'

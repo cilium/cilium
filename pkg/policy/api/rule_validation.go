@@ -21,6 +21,7 @@ import (
 	"strconv"
 	"strings"
 
+	"github.com/cilium/cilium/pkg/iana"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -409,15 +410,22 @@ func (pp *PortProtocol) sanitize() error {
 		return fmt.Errorf("Port must be specified")
 	}
 
-	p, err := strconv.ParseUint(pp.Port, 0, 16)
-	if err != nil {
-		return fmt.Errorf("Unable to parse port: %s", err)
+	// Port names are formatted as IANA Service Names.  This means that
+	// some legal numeric literals are no longer considered numbers, e.g,
+	// 0x10 is now considered a name rather than number 16.
+	if iana.IsSvcName(pp.Port) {
+		pp.Port = strings.ToLower(pp.Port) // Normalize for case insensitive comparison
+	} else {
+		p, err := strconv.ParseUint(pp.Port, 0, 16)
+		if err != nil {
+			return fmt.Errorf("Unable to parse port: %s", err)
+		}
+		if p == 0 {
+			return fmt.Errorf("Port cannot be 0")
+		}
 	}
 
-	if p == 0 {
-		return fmt.Errorf("Port cannot be 0")
-	}
-
+	var err error
 	pp.Protocol, err = ParseL4Proto(string(pp.Protocol))
 	if err != nil {
 		return err

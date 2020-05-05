@@ -62,19 +62,6 @@ func (m MAC) String() string {
 	)
 }
 
-// ParseMAC parses s only as an IEEE 802 MAC-48.
-func ParseMAC(s string) (MAC, error) {
-	ha, err := net.ParseMAC(s)
-	if err != nil {
-		return 0, err
-	}
-	if len(ha) != 6 {
-		return 0, fmt.Errorf("invalid MAC address %s", s)
-	}
-	return MAC(ha[5])<<40 | MAC(ha[4])<<32 | MAC(ha[3])<<24 |
-		MAC(ha[2])<<16 | MAC(ha[1])<<8 | MAC(ha[0]), nil
-}
-
 const (
 	// EndpointFlagHost indicates that this endpoint represents the host
 	EndpointFlagHost = 1
@@ -111,7 +98,6 @@ func GetBPFKeys(e EndpointFrontend) []*EndpointKey {
 // Must only be called if init() succeeded.
 func GetBPFValue(e EndpointFrontend) (*EndpointInfo, error) {
 	mac, err := e.LXCMac().Uint64()
-
 	if err != nil {
 		return nil, fmt.Errorf("invalid LXC MAC: %v", err)
 	}
@@ -189,7 +175,7 @@ func (v *EndpointInfo) IsHost() bool {
 // String returns the human readable representation of an EndpointInfo
 func (v *EndpointInfo) String() string {
 	if v.Flags&EndpointFlagHost != 0 {
-		return fmt.Sprintf("(localhost)")
+		return "(localhost)"
 	}
 
 	return fmt.Sprintf("id=%-5d flags=0x%04X ifindex=%-3d mac=%s nodemac=%s",

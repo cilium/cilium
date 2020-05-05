@@ -19,6 +19,7 @@ import (
 	"context"
 	"time"
 
+	"github.com/cilium/cilium/pkg/defaults"
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
@@ -57,6 +58,9 @@ type Node struct {
 	// not running. This state is detected based on error messages returned
 	// when modifying instance state
 	instanceRunning bool
+
+	// instanceStoppedRunning records when an instance was most recently set to not running
+	instanceStoppedRunning time.Time
 
 	// waitingForPoolMaintenance is true when the node is subject to an
 	// IP allocation or release which must be performed before another
@@ -127,6 +131,9 @@ func (n *Node) IsRunning() bool {
 func (n *Node) SetRunningLocked(running bool) {
 	n.loggerLocked().Infof("Set running %t", running)
 	n.instanceRunning = running
+	if !n.instanceRunning {
+		n.instanceStoppedRunning = time.Now()
+	}
 }
 
 // Stats returns a copy of the node statistics
@@ -153,41 +160,99 @@ func (n *Node) logger() *logrus.Entry {
 	return n.loggerLocked()
 }
 
-func (n *Node) loggerLocked() *logrus.Entry {
-	if n == nil {
-		return log
+func (n *Node) loggerLocked() (logger *logrus.Entry) {
+	logger = log
+
+	if n != nil {
+		logger = logger.WithField(fieldName, n.name)
+		if n.resource != nil {
+			logger = logger.WithField("instanceID", n.resource.InstanceID())
+		}
+	}
+	return
+}
+
+// getMaxAboveWatermark returns the max-above-watermark setting for an AWS node
+//
+// n.mutex must be held when calling this function
+func (n *Node) getMaxAboveWatermark() int {
+	if n.resource.Spec.IPAM.MaxAboveWatermark != 0 {
+		return n.resource.Spec.IPAM.MaxAboveWatermark
+	}
+	// OBSOLETE: This can be removed in Cilium 1.9
+	return n.resource.Spec.ENI.MaxAboveWatermark
+}
+
+// getPreAllocate returns the pre-allocation setting for an AWS node
+//
+// n.mutex must be held when calling this function
+func (n *Node) getPreAllocate() int {
+	if n.resource.Spec.IPAM.PreAllocate != 0 {
+		return n.resource.Spec.IPAM.PreAllocate
+	}
+	// OBSOLETE: This can be removed in Cilium 1.9
+	if n.resource.Spec.ENI.PreAllocate != 0 {
+		return n.resource.Spec.ENI.PreAllocate
+	}
+	return defaults.IPAMPreAllocation
+}
+
+// getMinAllocate returns the minimum-allocation setting of an AWS node
+//
+// n.mutex must be held when calling this function
+func (n *Node) getMinAllocate() int {
+	if n.resource.Spec.IPAM.MinAllocate != 0 {
+		return n.resource.Spec.IPAM.MinAllocate
+	}
+	// OBSOLETE: This can be removed in Cilium 1.9
+	return n.resource.Spec.ENI.MinAllocate
+}
+
+// getMaxAllocate returns the maximum-allocation setting of an AWS node
+func (n *Node) getMaxAllocate() int {
+	instanceMax := n.ops.GetMaximumAllocatableIPv4()
+	if n.resource.Spec.IPAM.MaxAllocate > 0 {
+		if n.resource.Spec.IPAM.MaxAllocate > instanceMax {
+			n.loggerLocked().Warningf("max-allocate (%d) is higher than the instance type limits (%d)", n.resource.Spec.IPAM.MaxAllocate, instanceMax)
+		}
+		return n.resource.Spec.IPAM.MaxAllocate
 	}
 
-	logger := log.WithField(fieldName, n.name)
-	return n.ops.LogFields(logger)
+	return instanceMax
 }
 
 // GetNeededAddresses returns the number of needed addresses that need to be
 // allocated or released. A positive number is returned to indicate allocation.
 // A negative number is returned to indicate release of addresses.
 func (n *Node) GetNeededAddresses() int {
-	n.mutex.RLock()
-	defer n.mutex.RUnlock()
-
-	if n.stats.NeededIPs > 0 {
-		return n.stats.NeededIPs
+	stats := n.Stats()
+	if stats.NeededIPs > 0 {
+		return stats.NeededIPs
 	}
-	if n.manager.releaseExcessIPs && n.stats.ExcessIPs > 0 {
+	if n.manager.releaseExcessIPs && stats.ExcessIPs > 0 {
 		// Nodes are sorted by needed addresses, return negative values of excessIPs
 		// so that nodes with IP deficit are resolved first
-		return n.stats.ExcessIPs * -1
+		return stats.ExcessIPs * -1
 	}
 	return 0
 }
 
-func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate int) (neededIPs int) {
+func calculateNeededIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAllocate int) (neededIPs int) {
 	neededIPs = preAllocate - (availableIPs - usedIPs)
-	if neededIPs < 0 {
-		neededIPs = 0
-	}
 
 	if minAllocate > 0 {
 		neededIPs = math.IntMax(neededIPs, minAllocate-availableIPs)
+	}
+
+	// If maxAllocate is set (> 0) and neededIPs is higher than the
+	// maxAllocate value, we only return the amount of IPs that can
+	// still be allocated
+	if maxAllocate > 0 && (availableIPs+neededIPs) > maxAllocate {
+		neededIPs = maxAllocate - availableIPs
+	}
+
+	if neededIPs < 0 {
+		neededIPs = 0
 	}
 
 	return
@@ -220,6 +285,28 @@ func calculateExcessIPs(availableIPs, usedIPs, preAllocate, minAllocate, maxAbov
 	return
 }
 
+func (n *Node) requirePoolMaintenance() {
+	n.mutex.Lock()
+	n.waitingForPoolMaintenance = true
+	n.mutex.Unlock()
+}
+
+func (n *Node) poolMaintenanceComplete() {
+	n.mutex.Lock()
+	n.waitingForPoolMaintenance = false
+	n.mutex.Unlock()
+}
+
+// InstanceID returns the instance ID of the node
+func (n *Node) InstanceID() (id string) {
+	n.mutex.RLock()
+	if n.resource != nil {
+		id = n.resource.InstanceID()
+	}
+	n.mutex.RUnlock()
+	return
+}
+
 // UpdatedResource is called when an update to the CiliumNode has been
 // received. The IPAM layer will attempt to immediately resolve any IP deficits
 // and also trigger the background sync to continue working in the background
@@ -229,29 +316,44 @@ func (n *Node) UpdatedResource(resource *v2.CiliumNode) bool {
 	// dependent on caller not using the resource after this call.
 	resource = resource.DeepCopy()
 
-	n.mutex.Lock()
 	n.ops.UpdatedNode(resource)
 
+	n.mutex.Lock()
 	// Any modification to the custom resource is seen as a sign that the
 	// instance is alive
-	if !n.instanceRunning {
-		n.instanceRunning = true
-	}
+	n.instanceRunning = true
 	n.resource = resource
-	n.recalculateLocked()
+	n.mutex.Unlock()
+
+	n.recalculate()
 	allocationNeeded := n.allocationNeeded()
 	if allocationNeeded {
-		n.waitingForPoolMaintenance = true
+		n.requirePoolMaintenance()
 		n.poolMaintainer.Trigger()
 	}
-	n.mutex.Unlock()
 
 	return allocationNeeded
 }
 
-func (n *Node) recalculateLocked() {
-	scopedLog := n.loggerLocked()
+func (n *Node) resourceAttached() (attached bool) {
+	n.mutex.RLock()
+	attached = n.resource != nil
+	n.mutex.RUnlock()
+	return
+}
+
+func (n *Node) recalculate() {
+	// Skip any recalculation if the CiliumNode resource does not exist yet
+	if !n.resourceAttached() {
+		return
+	}
+	scopedLog := n.logger()
+
 	a, err := n.ops.ResyncInterfacesAndIPs(context.TODO(), scopedLog)
+
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
 	if err != nil {
 		scopedLog.Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
 		// Avoid any further action
@@ -263,8 +365,8 @@ func (n *Node) recalculateLocked() {
 	n.available = a
 	n.stats.UsedIPs = len(n.resource.Status.IPAM.Used)
 	n.stats.AvailableIPs = len(n.available)
-	n.stats.NeededIPs = calculateNeededIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.ops.GetPreAllocate(), n.ops.GetMinAllocate())
-	n.stats.ExcessIPs = calculateExcessIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.ops.GetPreAllocate(), n.ops.GetMinAllocate(), n.ops.GetMaxAboveWatermark())
+	n.stats.NeededIPs = calculateNeededIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAllocate())
+	n.stats.ExcessIPs = calculateExcessIPs(n.stats.AvailableIPs, n.stats.UsedIPs, n.getPreAllocate(), n.getMinAllocate(), n.getMaxAboveWatermark())
 
 	scopedLog.WithFields(logrus.Fields{
 		"available":                 n.stats.AvailableIPs,
@@ -277,13 +379,19 @@ func (n *Node) recalculateLocked() {
 }
 
 // allocationNeeded returns true if this node requires IPs to be allocated
-func (n *Node) allocationNeeded() bool {
-	return !n.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.NeededIPs > 0
+func (n *Node) allocationNeeded() (needed bool) {
+	n.mutex.RLock()
+	needed = !n.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.NeededIPs > 0
+	n.mutex.RUnlock()
+	return
 }
 
 // releaseNeeded returns true if this node requires IPs to be released
-func (n *Node) releaseNeeded() bool {
-	return n.manager.releaseExcessIPs && !n.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.ExcessIPs > 0
+func (n *Node) releaseNeeded() (needed bool) {
+	n.mutex.RLock()
+	needed = n.manager.releaseExcessIPs && !n.waitingForPoolMaintenance && n.resyncNeeded.IsZero() && n.stats.ExcessIPs > 0
+	n.mutex.RUnlock()
+	return
 }
 
 // Pool returns the IP allocation pool available to the node
@@ -310,24 +418,23 @@ func (n *Node) ResourceCopy() *v2.CiliumNode {
 // of secondary IPs are assigned to the interface up to the maximum number of
 // addresses as allowed by the instance.
 func (n *Node) createInterface(ctx context.Context, a *AllocationAction) error {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
 	if a.AvailableInterfaces == 0 {
 		// This is not a failure scenario, warn once per hour but do
 		// not track as interface allocation failure. There is a
 		// separate metric to track nodes running at capacity.
+		n.mutex.Lock()
 		if time.Since(n.lastMaxAdapterWarning) > warningInterval {
 			n.loggerLocked().Warning("Instance is out of interfaces")
 			n.lastMaxAdapterWarning = time.Now()
 		}
+		n.mutex.Unlock()
 		return nil
 	}
 
-	scopedLog := n.loggerLocked()
+	scopedLog := n.logger()
 	toAllocate, errCondition, err := n.ops.CreateInterface(ctx, a, scopedLog)
 	if err != nil {
-		scopedLog.Warningf("Unable to create interface on instance %s: %s", n.name, err)
+		scopedLog.Warningf("Unable to create interface on instance: %s", err)
 		n.manager.metricsAPI.IncAllocationAttempt(errCondition, string(a.PoolID))
 		return err
 	}
@@ -349,6 +456,9 @@ type AllocationAction struct {
 	// context is needed or a new interface must be created.
 	InterfaceID string
 
+	// Interface is the interface to allocate IPs on
+	Interface ipamTypes.InterfaceRevision
+
 	// PoolID is the IPAM pool identifier to allocate the IPs from. This
 	// can correspond to a subnet ID or it can also left blank or set to a
 	// value such as "global" to indicate a single address pool.
@@ -364,7 +474,7 @@ type AllocationAction struct {
 	// NodeOperations.AllocateIPs() is called and defines the maximum
 	// number of IPs to allocate in order to stay within the boundaries as
 	// defined by NodeOperations.{ MinAllocate() | PreAllocate() |
-	// GetMaxAboveWatermark() }.
+	// getMaxAboveWatermark() }.
 	MaxIPsToAllocate int
 
 	// AvailableInterfaces is the number of interfaces available to be created
@@ -402,20 +512,19 @@ type maintenanceAction struct {
 func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 	var err error
 
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
 	a := &maintenanceAction{}
-	scopedLog := n.loggerLocked()
+
+	scopedLog := n.logger()
+	stats := n.Stats()
 
 	// Validate that the node still requires addresses to be released, the
 	// request may have been resolved in the meantime.
-	if n.manager.releaseExcessIPs && n.stats.ExcessIPs > 0 {
-		a.release = n.ops.PrepareIPRelease(n.stats.ExcessIPs, scopedLog)
+	if n.manager.releaseExcessIPs && stats.ExcessIPs > 0 {
+		a.release = n.ops.PrepareIPRelease(stats.ExcessIPs, scopedLog)
 		scopedLog = scopedLog.WithFields(logrus.Fields{
-			"available":         n.stats.AvailableIPs,
-			"used":              n.stats.UsedIPs,
-			"excess":            n.stats.ExcessIPs,
+			"available":         stats.AvailableIPs,
+			"used":              stats.UsedIPs,
+			"excess":            stats.ExcessIPs,
 			"releasing":         a.release.IPsToRelease,
 			"selectedInterface": a.release.InterfaceID,
 			"selectedPoolID":    a.release.PoolID,
@@ -426,7 +535,7 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 
 	// Validate that the node still requires addresses to be allocated, the
 	// request may have been resolved in the meantime.
-	if n.stats.NeededIPs == 0 {
+	if stats.NeededIPs == 0 {
 		return nil, nil
 	}
 
@@ -435,10 +544,15 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 		return nil, err
 	}
 
-	a.allocation.MaxIPsToAllocate = n.stats.NeededIPs + n.ops.GetMaxAboveWatermark()
+	n.mutex.RLock()
+	a.allocation.MaxIPsToAllocate = stats.NeededIPs + n.getMaxAboveWatermark()
+	n.mutex.RUnlock()
 
 	if a.allocation != nil {
+		n.mutex.Lock()
 		n.stats.RemainingInterfaces = a.allocation.AvailableInterfaces
+		stats = n.stats
+		n.mutex.Unlock()
 		scopedLog = scopedLog.WithFields(logrus.Fields{
 			"selectedInterface":      a.allocation.InterfaceID,
 			"selectedPoolID":         a.allocation.PoolID,
@@ -449,10 +563,10 @@ func (n *Node) determineMaintenanceAction() (*maintenanceAction, error) {
 	}
 
 	scopedLog.WithFields(logrus.Fields{
-		"available":           n.stats.AvailableIPs,
-		"used":                n.stats.UsedIPs,
-		"neededIPs":           n.stats.NeededIPs,
-		"remainingInterfaces": n.stats.RemainingInterfaces,
+		"available":           stats.AvailableIPs,
+		"used":                stats.UsedIPs,
+		"neededIPs":           stats.NeededIPs,
+		"remainingInterfaces": stats.RemainingInterfaces,
 	}).Info("Resolving IP deficit of node")
 
 	return a, nil
@@ -514,28 +628,45 @@ func (n *Node) maintainIPPool(ctx context.Context) error {
 	return n.createInterface(ctx, a.allocation)
 }
 
+func (n *Node) isInstanceRunning() (isRunning bool) {
+	n.mutex.RLock()
+	isRunning = n.instanceRunning
+	n.mutex.RUnlock()
+	return
+}
+
+func (n *Node) requireResync() {
+	n.mutex.Lock()
+	n.resyncNeeded = time.Now()
+	n.mutex.Unlock()
+}
+
+func (n *Node) updateLastResync(syncTime time.Time) {
+	n.mutex.Lock()
+	if syncTime.After(n.resyncNeeded) {
+		n.loggerLocked().Debug("Resetting resyncNeeded")
+		n.resyncNeeded = time.Time{}
+	}
+	n.mutex.Unlock()
+}
+
 // MaintainIPPool attempts to allocate or release all required IPs to fulfill
 // the needed gap. If required, interfaces are created.
 func (n *Node) MaintainIPPool(ctx context.Context) error {
-	// If the instance is no longer running, don't attempt any deficit
+	// If the instance has stopped running for less than a minute, don't attempt any deficit
 	// resolution and wait for the custom resource to be updated as a sign
 	// of life.
-	n.mutex.RLock()
-	if !n.instanceRunning {
-		n.mutex.RUnlock()
+	if !n.isInstanceRunning() && n.instanceStoppedRunning.Add(time.Minute).After(time.Now()) {
 		return nil
 	}
-	n.mutex.RUnlock()
 
 	err := n.maintainIPPool(ctx)
-	n.mutex.Lock()
 	if err == nil {
-		n.loggerLocked().Debug("Setting resync needed")
-		n.resyncNeeded = time.Now()
+		n.logger().Debug("Setting resync needed")
+		n.requireResync()
 	}
-	n.recalculateLocked()
-	n.waitingForPoolMaintenance = false
-	n.mutex.Unlock()
+	n.poolMaintenanceComplete()
+	n.recalculate()
 	n.manager.resyncTrigger.Trigger()
 	return err
 }
@@ -599,7 +730,10 @@ func (n *Node) syncToAPIServer() (err error) {
 		node.Spec.IPAM.Pool = n.Pool()
 		scopedLog.WithField("poolSize", len(node.Spec.IPAM.Pool)).Debug("Updating node in apiserver")
 
-		n.ops.PopulateSpecFields(node)
+		if node.Spec.IPAM.PreAllocate == 0 {
+			node.Spec.IPAM.PreAllocate = defaults.IPAMPreAllocation
+		}
+
 		updatedNode, err = n.manager.k8sAPI.Update(node, origNode)
 		if updatedNode != nil && updatedNode.Name != "" {
 			node = updatedNode.DeepCopy()

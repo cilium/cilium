@@ -17,18 +17,13 @@ package RuntimeTest
 import (
 	"context"
 	"fmt"
-	"math/rand"
 	"strings"
-	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
 )
-
-// ensure that our random numbers are seeded differently on each run
-var randGen = rand.New(rand.NewSource(time.Now().UnixNano()))
 
 const (
 	// MonitorDropNotification represents the DropNotification configuration
@@ -92,7 +87,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			monitorConfig()
 
 			ctx, cancel := context.WithCancel(context.Background())
-			res := vm.ExecInBackground(ctx, "cilium monitor -v")
+			res := vm.ExecInBackground(ctx, "cilium monitor -vv")
 			defer cancel()
 
 			areEndpointsReady := vm.WaitEndpointsReady()
@@ -130,7 +125,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 
 				ctx, cancel := context.WithCancel(context.Background())
 				defer cancel()
-				res := vm.ExecInBackground(ctx, fmt.Sprintf("cilium monitor --type %s -v", k))
+				res := vm.ExecInBackground(ctx, fmt.Sprintf("cilium monitor --type %s -vv", k))
 
 				vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 				vm.ContainerExec(helpers.App3, helpers.Ping(helpers.Httpd1))
@@ -143,7 +138,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			}
 
 			By("all types together")
-			command := "cilium monitor -v"
+			command := "cilium monitor -vv"
 			for k := range eventTypes {
 				command = command + " --type " + k
 			}
@@ -182,7 +177,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			defer cancel()
 
 			res := vm.ExecInBackground(ctx, fmt.Sprintf(
-				"cilium monitor --type debug --from %s -v", endpoints[helpers.App1]))
+				"cilium monitor --type debug --from %s -vv", endpoints[helpers.App1]))
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 
 			filter := fmt.Sprintf("FROM %s DEBUG:", endpoints[helpers.App1])
@@ -207,7 +202,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			res := vm.ExecInBackground(ctx, fmt.Sprintf(
-				"cilium monitor -v --to %s", endpoints[helpers.Httpd1]))
+				"cilium monitor -vv --to %s", endpoints[helpers.Httpd1]))
 
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			vm.ContainerExec(helpers.App2, helpers.Ping(helpers.Httpd1))
@@ -231,7 +226,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
 			res := vm.ExecInBackground(ctx, fmt.Sprintf(
-				"cilium monitor -v --related-to %s", endpoints[helpers.Httpd1]))
+				"cilium monitor -vv --related-to %s", endpoints[helpers.Httpd1]))
 
 			vm.WaitEndpointsReady()
 			vm.ContainerExec(helpers.App1, helpers.CurlFail("http://httpd1/public"))
@@ -310,7 +305,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			ExpectPolicyEnforcementUpdated(vm, helpers.PolicyEnforcementAlways)
 
 			ctx, cancel := context.WithCancel(context.Background())
-			res := vm.ExecInBackground(ctx, "cilium monitor -v")
+			res := vm.ExecInBackground(ctx, "cilium monitor -vv")
 
 			vm.ContainerExec(helpers.App1, helpers.Ping(helpers.Httpd1))
 			vm.ContainerExec(helpers.Httpd1, helpers.Ping(helpers.App1))

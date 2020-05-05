@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _arch_guide:
 
@@ -45,7 +45,7 @@ hook see :ref:`bpf_guide`.
   tc ingress hook can be coupled with above XDP hook. When this is done it
   is reasonable to assume that the majority of the traffic at this
   point is legitimate and destined for the host.
-  
+
   Containers typically use a virtual device called a veth pair which acts
   as a virtual wire connecting the container to the host. By attaching to
   the TC ingress hook of the host side of this veth pair Cilium can monitor
@@ -54,7 +54,7 @@ hook see :ref:`bpf_guide`.
   network traffic to the host side virtual devices with another BPF program
   attached to the tc ingress hook as well Cilium can monitor and enforce
   policy on all traffic entering or exiting the node.
-  
+
   Depending on the use case, containers may also be connected through ipvlan
   devices instead of a veth pair. In this mode, the physical device in the
   host is the ipvlan master where virtual ipvlan devices in slave mode are
@@ -228,7 +228,7 @@ with e.g. ``--datapath-mode=ipvlan --ipvlan-master-device=bond0`` where the
 latter typically specifies the physical networking device which then also acts
 as the ipvlan master device. Note that in case ipvlan datapath mode is deployed
 in L3S mode with Kubernetes, make sure to have a stable kernel running with the
-following ipvlan fix included: `d5256083f62e <https://git.kernel.org/pub/scm/linux/kernel/git/davem/net.git/commit/?id=d5256083f62e2720f75bb3c5a928a0afe47d6bc3>`_.
+following ipvlan fix included: `d5256083f62e <https://git.kernel.org/pub/scm/linux/kernel/git/netdev/net.git/commit/?id=d5256083f62e2720f75bb3c5a928a0afe47d6bc3>`_.
 
 This completes the datapath overview. More BPF specifics can be found in the
 :ref:`bpf_guide`. Additional details on how to extend the L7 Policy
@@ -248,14 +248,27 @@ code. Configuration options will be added on request if demand arises.
 ======================== ================ =============== =====================================================
 Map Name                 Scope            Default Limit   Scale Implications
 ======================== ================ =============== =====================================================
-Connection Tracking      node or endpoint 1M TCP/256K UDP Max 1M concurrent TCP connections, max 256K expected UDP answers
+Connection Tracking      node or endpoint 1M TCP/256k UDP Max 1M concurrent TCP connections, max 256k expected UDP answers
+NAT                      node             512k            Max 512k NAT entries
 Endpoints                node             64k             Max 64k local endpoints + host IPs per node
-IP cache                 node             512K            Max 256K endpoints (IPv4+IPv6), max 512k endpoints (IPv4 or IPv6) across all clusters
+IP cache                 node             512k            Max 256k endpoints (IPv4+IPv6), max 512k endpoints (IPv4 or IPv6) across all clusters
 Load Balancer            node             64k             Max 64k cumulative backends across all services across all clusters
 Policy                   endpoint         16k             Max 16k allowed identity + port + protocol pairs for specific endpoint
 Proxy Map                node             512k            Max 512k concurrent redirected TCP connections to proxy
 Tunnel                   node             64k             Max 32k nodes (IPv4+IPv6) or 64k nodes (IPv4 or IPv6) across all clusters
+IPv4 Fragmentation       node             8k              Max 8k fragmented datagrams in flight simultaneously on the node
 ======================== ================ =============== =====================================================
+
+For some BPF maps, the upper capacity limit can be overridden using command
+line options for ``cilium-agent``. A given capacity can be set using
+``--bpf-ct-global-tcp-max``, ``--bpf-ct-global-any-max``,
+``--bpf-nat-global-max``, ``--bpf-policy-map-max``, and
+``--bpf-fragments-map-max``.
+
+Using ``--bpf-map-dynamic-size-ratio`` the upper capacity limits of the
+connection tracking, NAT, and policy maps are determined at agent startup based
+on the given ratio of the total system memory. For example a given ratio of 0.03
+leads to 3% of the total system memory to be used for these maps.
 
 Kubernetes Integration
 ======================

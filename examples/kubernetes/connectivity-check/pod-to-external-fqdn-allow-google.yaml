@@ -19,10 +19,10 @@ spec:
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
+            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
 ---
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
@@ -41,6 +41,17 @@ spec:
     - ports:
       - port: "53"
         protocol: ANY
+      rules:
+        dns:
+        - matchPattern: "*"
+  - toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s:dns.operator.openshift.io/daemonset-dns: default
+    toPorts:
+    - ports:
+      - port: "5353"
+        protocol: UDP
       rules:
         dns:
         - matchPattern: "*"

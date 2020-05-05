@@ -1,22 +1,25 @@
-include ../Makefile.quiet
+# Copyright 2017-2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
 include ../Makefile.defs
 
-PROXYLIB_GOLDFLAGS=$(GOLDFLAGS) -extldflags -Wl,-soname,libcilium.so.$(VERSION_MAJOR)
-PROXYLIB_GOBUILD=-ldflags '$(PROXYLIB_GOLDFLAGS)'
+EXTRA_GO_BUILD_LDFLAGS = -extldflags -Wl,-soname,libcilium.so.$(VERSION_MAJOR)
 
-TARGET=libcilium.so
-DEPS := $(shell find ../pkg accesslog npds test . \( -name '*.go' ! -name '*_test.go' \))
-$(TARGET): $(DEPS)
-	@$(ECHO_GO)
-	$(QUIET)$(GO) build $(GOBUILD) $(PROXYLIB_GOBUILD) -o $@.$(VERSION_MAJOR) -buildmode=c-shared
-	$(QUIET)ln -sf $@.$(VERSION_MAJOR) $@ || cp $@.$(VERSION_MAJOR) $@
+TARGET := libcilium.so
+
+.PHONY: all $(TARGET) clean install
 
 all: $(TARGET)
+
+$(TARGET):
+	@$(ECHO_GO)
+	$(QUIET)$(GO_BUILD_WITH_CGO) -o $@.$(VERSION_MAJOR) -buildmode=c-shared
+	$(QUIET)ln -sf $@.$(VERSION_MAJOR) $@ || cp $@.$(VERSION_MAJOR) $@
 
 clean:
 	@$(ECHO_CLEAN)
 	-$(QUIET)rm -f $(TARGET)
-	$(QUIET)$(GO) clean $(GOCLEAN)
+	$(QUIET)$(GO_CLEAN)
 
 install:
 	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(LIBDIR)

@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/go-openapi/loads"
-	"github.com/jessevdk/go-flags"
 )
 
 var (
@@ -306,7 +305,7 @@ func (s *Server) newServer(spec *loads.Document) *healthApi.Server {
 
 	srv := healthApi.NewServer(api)
 	srv.EnabledListeners = []string{"unix"}
-	srv.SocketPath = flags.Filename(defaults.SockPath)
+	srv.SocketPath = defaults.SockPath
 
 	srv.ConfigureAPI()
 

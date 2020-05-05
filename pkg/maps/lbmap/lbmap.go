@@ -49,7 +49,8 @@ type LBBPFMap struct{}
 func (*LBBPFMap) UpsertService(
 	svcID uint16, svcIP net.IP, svcPort uint16,
 	backendIDs []uint16, prevBackendCount int,
-	ipv6 bool, svcType loadbalancer.SVCType, svcLocal bool) error {
+	ipv6 bool, svcType loadbalancer.SVCType, svcLocal bool,
+	sessionAffinity bool, sessionAffinityTimeoutSec uint32) error {
 
 	var svcKey ServiceKey
 
@@ -87,7 +88,9 @@ func (*LBBPFMap) UpsertService(
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, len(backendIDs), int(svcID), svcType, svcLocal); err != nil {
+	if err := updateMasterService(svcKey, len(backendIDs), int(svcID), svcType, svcLocal,
+		sessionAffinity, sessionAffinityTimeoutSec); err != nil {
+
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
 	}
@@ -185,6 +188,44 @@ func (*LBBPFMap) DeleteBackendByID(id uint16, ipv6 bool) error {
 	}
 
 	return nil
+}
+
+// DeleteAffinityMatch removes the affinity match for the given svc and backend ID
+// tuple from the BPF map
+func (*LBBPFMap) DeleteAffinityMatch(revNATID uint16, backendID uint16) error {
+	return AffinityMatchMap.Delete(
+		NewAffinityMatchKey(revNATID, uint32(backendID)).ToNetwork())
+}
+
+// AddAffinityMatch adds the given affinity match to the BPF map.
+func (*LBBPFMap) AddAffinityMatch(revNATID uint16, backendID uint16) error {
+	return AffinityMatchMap.Update(
+		NewAffinityMatchKey(revNATID, uint32(backendID)).ToNetwork(),
+		&AffinityMatchValue{})
+}
+
+// DumpAffinityMatches returns the affinity match map represented as a nested
+// map which first key is svc ID and the second - backend ID.
+func (*LBBPFMap) DumpAffinityMatches() (BackendIDByServiceIDSet, error) {
+	matches := BackendIDByServiceIDSet{}
+
+	parse := func(key bpf.MapKey, value bpf.MapValue) {
+		matchKey := key.DeepCopyMapKey().(*AffinityMatchKey)
+		svcID := matchKey.RevNATID
+		backendID := uint16(matchKey.BackendID) // currently backend_id is u16
+
+		if _, ok := matches[svcID]; !ok {
+			matches[svcID] = map[uint16]struct{}{}
+		}
+		matches[svcID][backendID] = struct{}{}
+	}
+
+	err := AffinityMatchMap.DumpWithCallback(parse)
+	if err != nil {
+		return nil, err
+	}
+
+	return matches, nil
 }
 
 func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
@@ -322,12 +363,17 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 	return lbBackends, nil
 }
 
-func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loadbalancer.SVCType, svcLocal bool) error {
+func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loadbalancer.SVCType,
+	svcLocal bool, sessionAffinity bool, sessionAffinityTimeoutSec uint32) error {
+
 	fe.SetSlave(0)
 	zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetRevNat(revNATID)
-	zeroValue.SetFlags(loadbalancer.CreateSvcFlag(svcLocal, svcType).UInt8())
+	zeroValue.SetFlags(loadbalancer.CreateSvcFlag(svcLocal, sessionAffinity, svcType).UInt8())
+	if sessionAffinity {
+		zeroValue.SetSessionAffinityTimeoutSec(sessionAffinityTimeoutSec)
+	}
 
 	return updateServiceEndpoint(fe, zeroValue)
 }

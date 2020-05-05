@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,9 @@ package cmd
 import (
 	"context"
 	"fmt"
+	"io"
 	"io/ioutil"
+	"net/http"
 	"os"
 	"os/exec"
 	"path/filepath"
@@ -25,6 +27,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/defaults"
 
 	"github.com/spf13/cobra"
@@ -72,10 +75,16 @@ var (
 	dryRunMode     bool
 	enableMarkdown bool
 	archivePrefix  string
+	getPProf       bool
+	pprofPort      int
+	traceSeconds   int
 )
 
 func init() {
 	BugtoolRootCmd.Flags().BoolVar(&archive, "archive", true, "Create archive when false skips deletion of the output directory")
+	BugtoolRootCmd.Flags().BoolVar(&getPProf, "get-pprof", false, "When set, only gets the pprof traces from the cilium-agent binary")
+	BugtoolRootCmd.Flags().IntVar(&pprofPort, "pprof-port", 6060, "Port on which pprof server is exposed")
+	BugtoolRootCmd.Flags().IntVar(&traceSeconds, "pprof-trace-seconds", 180, "Amount of seconds used for pprof CPU traces")
 	BugtoolRootCmd.Flags().StringVarP(&archiveType, "archiveType", "o", "tar", "Archive type: tar | gz")
 	BugtoolRootCmd.Flags().BoolVar(&k8s, "k8s-mode", false, "Require Kubernetes pods to be found or fail")
 	BugtoolRootCmd.Flags().BoolVar(&dryRunMode, "dry-run", false, "Create configuration file of all commands that would have been executed")
@@ -89,13 +98,13 @@ func init() {
 	BugtoolRootCmd.Flags().StringVarP(&archivePrefix, "archive-prefix", "", "", "String to prefix to name of archive if created (e.g., with cilium pod-name)")
 }
 
-func getVerifyCiliumPods() []string {
-	// By default try to pick either Kubernetes or non-k8s (host mode). If
-	// we find Cilium pod(s) then it's k8s-mode otherwise host mode.
-	// Passing extra flags can override the default.
-	k8sPods, err := getCiliumPods(k8sNamespace, k8sLabel)
-	switch {
-	case k8s:
+func getVerifyCiliumPods() (k8sPods []string) {
+	if k8s {
+		var err error
+		// By default try to pick either Kubernetes or non-k8s (host mode). If
+		// we find Cilium pod(s) then it's k8s-mode otherwise host mode.
+		// Passing extra flags can override the default.
+		k8sPods, err = getCiliumPods(k8sNamespace, k8sLabel)
 		// When the k8s flag is set, perform extra checks that we actually do have pods or fail.
 		if err != nil {
 			fmt.Fprintf(os.Stderr, "Error: %s\nFailed to find pods, is kube-apiserver running?\n", err)
@@ -105,7 +114,8 @@ func getVerifyCiliumPods() []string {
 			fmt.Fprint(os.Stderr, "Found no pods, is kube-apiserver running?\n")
 			os.Exit(1)
 		}
-	case os.Getuid() != 0 && len(k8sPods) == 0:
+	}
+	if os.Getuid() != 0 && !k8s && len(k8sPods) == 0 {
 		// When the k8s flag is not set and the user is not root,
 		// debuginfo and BPF related commands can fail.
 		fmt.Printf("Warning, some of the BPF commands might fail when run as not root\n")
@@ -179,18 +189,26 @@ func runTool() {
 		return
 	}
 
-	// Check if there is a user supplied configuration
-	if config, _ := loadConfigFile(configPath); config != nil {
-		// All of of the commands run are from the configuration file
-		commands = config.Commands
-	}
-	if len(commands) == 0 {
-		// Found no configuration file or empty so fall back to default commands.
-		commands = defaultCommands(confDir, cmdDir, k8sPods)
-	}
-	defer printDisclaimer()
+	if getPProf {
+		err := pprofTraces(cmdDir)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Failed to create debug directory %s\n", err)
+			os.Exit(1)
+		}
+	} else {
+		// Check if there is a user supplied configuration
+		if config, _ := loadConfigFile(configPath); config != nil {
+			// All of of the commands run are from the configuration file
+			commands = config.Commands
+		}
+		if len(commands) == 0 {
+			// Found no configuration file or empty so fall back to default commands.
+			commands = defaultCommands(confDir, cmdDir, k8sPods)
+		}
+		defer printDisclaimer()
 
-	runAll(commands, cmdDir, k8sPods)
+		runAll(commands, cmdDir, k8sPods)
+	}
 
 	removeIfEmpty(cmdDir)
 	removeIfEmpty(confDir)
@@ -394,10 +412,9 @@ func getCiliumPods(namespace, label string) ([]string, error) {
 	if err != nil {
 		return nil, err
 	}
-	var ciliumPods []string
 
 	lines := strings.Split(output, "\n")
-
+	ciliumPods := make([]string, 0, len(lines))
 	for _, l := range lines {
 		if !strings.HasPrefix(l, "cilium") {
 			continue
@@ -410,4 +427,65 @@ func getCiliumPods(namespace, label string) ([]string, error) {
 	}
 
 	return ciliumPods, nil
+}
+
+func pprofTraces(rootDir string) error {
+	var wg sync.WaitGroup
+	var profileErr error
+	pprofHost := fmt.Sprintf("localhost:%d", pprofPort)
+	wg.Add(1)
+	go func() {
+		url := fmt.Sprintf("http://%s/debug/pprof/profile?seconds=%d", pprofHost, traceSeconds)
+		dir := filepath.Join(rootDir, "pprof-cpu")
+		profileErr = downloadToFile(url, dir)
+		wg.Done()
+	}()
+
+	url := fmt.Sprintf("http://%s/debug/pprof/trace?seconds=%d", pprofHost, traceSeconds)
+	dir := filepath.Join(rootDir, "pprof-trace")
+	err := downloadToFile(url, dir)
+	if err != nil {
+		return err
+	}
+
+	url = fmt.Sprintf("http://%s/debug/pprof/heap?debug=1", pprofHost)
+	dir = filepath.Join(rootDir, "pprof-heap")
+	err = downloadToFile(url, dir)
+	if err != nil {
+		return err
+	}
+
+	cmd := fmt.Sprintf("gops stack $(pidof %s)", components.CiliumAgentName)
+	writeCmdToFile(rootDir, cmd, nil, enableMarkdown)
+
+	cmd = fmt.Sprintf("gops stats $(pidof %s)", components.CiliumAgentName)
+	writeCmdToFile(rootDir, cmd, nil, enableMarkdown)
+
+	cmd = fmt.Sprintf("gops memstats $(pidof %s)", components.CiliumAgentName)
+	writeCmdToFile(rootDir, cmd, nil, enableMarkdown)
+
+	wg.Wait()
+	if profileErr != nil {
+		return profileErr
+	}
+	return nil
+}
+
+func downloadToFile(url, file string) error {
+	out, err := os.Create(file)
+	if err != nil {
+		return err
+	}
+	defer out.Close()
+
+	resp, err := http.Get(url)
+	if err != nil {
+		return err
+	}
+	defer resp.Body.Close()
+	if resp.StatusCode != http.StatusOK {
+		return fmt.Errorf("bad status: %s", resp.Status)
+	}
+	_, err = io.Copy(out, resp.Body)
+	return err
 }

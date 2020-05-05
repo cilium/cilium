@@ -37,6 +37,16 @@ pipeline {
     }
 
     stages {
+        stage('Set build name') {
+            when {
+                not {environment name: 'GIT_BRANCH', value: 'origin/master'}
+            }
+            steps {
+                   script {
+                       currentBuild.displayName = env.getProperty('ghprbPullTitle') + '  ' + env.getProperty('ghprbPullLink') + '  ' + currentBuild.displayName
+                   }
+            }
+        }
         stage('Docs') {
             options {
                 timeout(time: 20, unit: 'MINUTES')
@@ -44,7 +54,7 @@ pipeline {
             steps {
                 Status("PENDING", "${env.JOB_NAME}")
                 checkout scm
-                sh "make test-docs"
+                sh "make -C Documentation html"
             }
         }
     }

@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
+	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -61,7 +62,7 @@ type EndpointManager struct {
 // EndpointResourceSynchronizer is an interface which synchronizes CiliumEndpoint
 // resources with Kubernetes.
 type EndpointResourceSynchronizer interface {
-	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint)
+	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration)
 }
 
 // NewEndpointManager creates a new EndpointManager.
@@ -156,12 +157,12 @@ func (mgr *EndpointManager) InitMetrics() {
 func (mgr *EndpointManager) AllocateID(currID uint16) (uint16, error) {
 	var newID uint16
 	if currID != 0 {
-		if err := endpointid.Reuse(currID); err != nil {
+		if err := idallocator.Reuse(currID); err != nil {
 			return 0, fmt.Errorf("unable to reuse endpoint ID: %s", err)
 		}
 		newID = currID
 	} else {
-		id := endpointid.Allocate()
+		id := idallocator.Allocate()
 		if id == uint16(0) {
 			return 0, fmt.Errorf("no more endpoint IDs available")
 		}
@@ -278,11 +279,12 @@ func (mgr *EndpointManager) LookupPodName(name string) *endpoint.Endpoint {
 // ReleaseID releases the ID of the specified endpoint from the EndpointManager.
 // Returns an error if the ID cannot be released.
 func (mgr *EndpointManager) ReleaseID(ep *endpoint.Endpoint) error {
-	return endpointid.Release(ep.ID)
+	return idallocator.Release(ep.ID)
 }
 
 // WaitEndpointRemoved waits until all operations associated with Remove of
 // the endpoint have been completed.
+// Note: only used for unit tests
 func (mgr *EndpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
 	<-ep.Unexpose(mgr)
 }
@@ -291,7 +293,7 @@ func (mgr *EndpointManager) WaitEndpointRemoved(ep *endpoint.Endpoint) {
 func (mgr *EndpointManager) RemoveAll() {
 	mgr.mutex.Lock()
 	defer mgr.mutex.Unlock()
-	endpointid.ReallocatePool()
+	idallocator.ReallocatePool()
 	mgr.endpoints = map[uint16]*endpoint.Endpoint{}
 	mgr.endpointsAux = map[string]*endpoint.Endpoint{}
 }

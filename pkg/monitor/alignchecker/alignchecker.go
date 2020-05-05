@@ -32,5 +32,5 @@ func CheckStructAlignments(path string) error {
 		"debug_capture_msg":     {reflect.TypeOf(monitor.DebugCapture{})},
 		"policy_verdict_notify": {reflect.TypeOf(monitor.PolicyVerdictNotify{})},
 	}
-	return check.CheckStructAlignments(path, toCheck)
+	return check.CheckStructAlignments(path, toCheck, true)
 }

@@ -22,7 +22,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/serializer"
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
@@ -33,7 +32,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, serKNPs *serializer.FunctionQueue, swgKNPs *lock.StoppableWaitGroup) {
+func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, swgKNPs *lock.StoppableWaitGroup) {
 
 	_, policyController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.NetworkingV1().RESTClient(),
@@ -44,42 +43,32 @@ func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, serKNPs
 			AddFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricKNP, metricCreate, valid, equal) }()
-				if k8sNP := k8s.CopyObjToV1NetworkPolicy(obj); k8sNP != nil {
+				if k8sNP := k8s.ObjToV1NetworkPolicy(obj); k8sNP != nil {
 					valid = true
-					swgKNPs.Add()
-					serKNPs.Enqueue(func() error {
-						defer swgKNPs.Done()
-						err := k.addK8sNetworkPolicyV1(k8sNP)
-						k.K8sEventProcessed(metricKNP, metricCreate, err == nil)
-						return nil
-					}, serializer.NoRetry)
+					err := k.addK8sNetworkPolicyV1(k8sNP)
+					k.K8sEventProcessed(metricKNP, metricCreate, err == nil)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricKNP, metricUpdate, valid, equal) }()
-				if oldK8sNP := k8s.CopyObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
-					valid = true
-					if newK8sNP := k8s.CopyObjToV1NetworkPolicy(newObj); newK8sNP != nil {
+				if oldK8sNP := k8s.ObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
+					if newK8sNP := k8s.ObjToV1NetworkPolicy(newObj); newK8sNP != nil {
+						valid = true
 						if k8s.EqualV1NetworkPolicy(oldK8sNP, newK8sNP) {
 							equal = true
 							return
 						}
 
-						swgKNPs.Add()
-						serKNPs.Enqueue(func() error {
-							defer swgKNPs.Done()
-							err := k.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
-							k.K8sEventProcessed(metricKNP, metricUpdate, err == nil)
-							return nil
-						}, serializer.NoRetry)
+						err := k.updateK8sNetworkPolicyV1(oldK8sNP, newK8sNP)
+						k.K8sEventProcessed(metricKNP, metricUpdate, err == nil)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
 				var valid, equal bool
 				defer func() { k.K8sEventReceived(metricKNP, metricDelete, valid, equal) }()
-				k8sNP := k8s.CopyObjToV1NetworkPolicy(obj)
+				k8sNP := k8s.ObjToV1NetworkPolicy(obj)
 				if k8sNP == nil {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 					if !ok {
@@ -88,20 +77,15 @@ func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, serKNPs
 					// Delete was not observed by the watcher but is
 					// removed from kube-apiserver. This is the last
 					// known state and the object no longer exists.
-					k8sNP = k8s.CopyObjToV1NetworkPolicy(deletedObj.Obj)
+					k8sNP = k8s.ObjToV1NetworkPolicy(deletedObj.Obj)
 					if k8sNP == nil {
 						return
 					}
 				}
 
 				valid = true
-				swgKNPs.Add()
-				serKNPs.Enqueue(func() error {
-					defer swgKNPs.Done()
-					err := k.deleteK8sNetworkPolicyV1(k8sNP)
-					k.K8sEventProcessed(metricKNP, metricDelete, err == nil)
-					return nil
-				}, serializer.NoRetry)
+				err := k.deleteK8sNetworkPolicyV1(k8sNP)
+				k.K8sEventProcessed(metricKNP, metricDelete, err == nil)
 			},
 		},
 		k8s.ConvertToNetworkPolicy,

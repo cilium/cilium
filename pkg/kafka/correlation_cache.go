@@ -106,6 +106,22 @@ func NewCorrelationCache() *CorrelationCache {
 	return cc
 }
 
+// NumGcRuns returns the number of garbage collector runs
+func (cc *CorrelationCache) NumGcRuns() (num uint64) {
+	cc.mutex.RLock()
+	num = cc.numGcRuns
+	cc.mutex.RUnlock()
+	return
+}
+
+// NumExpired returns the number of expired entries
+func (cc *CorrelationCache) NumExpired() (num uint64) {
+	cc.mutex.RLock()
+	num = cc.numExpired
+	cc.mutex.RUnlock()
+	return
+}
+
 // DeleteCache releases the cache and stops the garbage collector. This
 // function must be called when the cache is no longer required, otherwise go
 // routines are leaked.

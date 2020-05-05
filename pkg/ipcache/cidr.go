@@ -54,10 +54,10 @@ func AllocateCIDRsForIPs(prefixes []net.IP) ([]*identity.Identity, error) {
 
 func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 	// maintain list of used identities to undo on error
-	var usedIdentities []*identity.Identity
+	usedIdentities := make([]*identity.Identity, 0, len(prefixes))
 
 	// maintain list of newly allocated identities to update ipcache
-	allocatedIdentities := map[string]*identity.Identity{}
+	allocatedIdentities := make(map[string]*identity.Identity, len(prefixes))
 	newlyAllocatedIdentities := map[string]*identity.Identity{}
 
 	for _, prefix := range prefixes {

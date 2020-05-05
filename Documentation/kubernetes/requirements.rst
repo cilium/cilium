@@ -2,7 +2,7 @@
 
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _k8s_requirements:
 
@@ -23,6 +23,7 @@ system for this version of Cilium:
 * 1.15
 * 1.16
 * 1.17
+* 1.18
 
 System Requirements
 ===================
@@ -43,6 +44,16 @@ the `Kubernets CNI network-plugins documentation <https://kubernetes.io/docs/con
 
 Mounted BPF filesystem
 ======================
+
+.. Note::
+
+        Some distributions mount the bpf filesystem automatically. Check if the
+        bpf filesystem is mounted by running the command.
+
+        .. code:: shell-session
+
+                  mount | grep /sys/fs/bpf
+                  # if present should output, e.g. "none on /sys/fs/bpf type bpf"...
 
 This step is **required for production** environments but optional for testing
 and development. It allows the ``cilium-agent`` to pin BPF resources to a

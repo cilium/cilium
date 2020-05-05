@@ -45,17 +45,18 @@ const (
 	initArgIPv6NodeIP
 	initArgMode
 	initArgDevice
-	initArgDevicePreFilter
-	initArgModePreFilter
+	initArgXDPDevice
+	initArgXDPMode
 	initArgMTU
 	initArgIPSec
-	initArgMasquerade
 	initArgEncryptInterface
 	initArgHostReachableServices
 	initArgHostReachableServicesUDP
 	initArgCgroupRoot
 	initArgBpffsRoot
 	initArgNodePort
+	initArgNodePortBind
+	initBPFCPU
 	initArgMax
 )
 
@@ -131,14 +132,17 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		return err
 	}
 
-	scopedLog := log.WithField(logfields.XDPDevice, option.Config.DevicePreFilter)
-	if option.Config.DevicePreFilter != "undefined" {
-		if err := prefilter.ProbePreFilter(option.Config.DevicePreFilter, option.Config.ModePreFilter); err != nil {
-			scopedLog.WithError(err).Warn("Turning off prefilter")
-			option.Config.DevicePreFilter = "undefined"
-		}
+	if option.Config.XDPDevice != "undefined" {
+		args[initArgXDPDevice] = option.Config.XDPDevice
+		args[initArgXDPMode] = option.Config.XDPMode
+	} else {
+		args[initArgXDPDevice] = "<nil>"
+		args[initArgXDPMode] = "<nil>"
 	}
+
 	if option.Config.DevicePreFilter != "undefined" {
+		scopedLog := log.WithField(logfields.XDPDevice, option.Config.XDPDevice)
+
 		preFilter, err := prefilter.NewPreFilter()
 		if err != nil {
 			scopedLog.WithError(ret).Warn("Unable to init prefilter")
@@ -151,12 +155,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		}
 
 		o.SetPrefilter(preFilter)
-
-		args[initArgDevicePreFilter] = option.Config.DevicePreFilter
-		args[initArgModePreFilter] = option.Config.ModePreFilter
-	} else {
-		args[initArgDevicePreFilter] = "<nil>"
-		args[initArgModePreFilter] = "<nil>"
 	}
 
 	args[initArgLib] = option.Config.BpfDir
@@ -187,12 +185,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgIPSec] = "true"
 	} else {
 		args[initArgIPSec] = "false"
-	}
-
-	if !option.Config.InstallIptRules && option.Config.Masquerade {
-		args[initArgMasquerade] = "true"
-	} else {
-		args[initArgMasquerade] = "false"
 	}
 
 	if option.Config.EnableHostReachableServices {
@@ -252,7 +244,15 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		args[initArgNodePort] = "false"
 	}
 
-	log.Info("Setting up base BPF datapath")
+	if option.Config.NodePortBindProtection {
+		args[initArgNodePortBind] = "true"
+	} else {
+		args[initArgNodePortBind] = "false"
+	}
+
+	args[initBPFCPU] = GetBPFCPU()
+
+	log.Infof("Setting up base BPF datapath (BPF %s instruction set)", args[initBPFCPU])
 
 	for _, s := range sysSettings {
 		log.Infof("Setting sysctl %s=%s", s.name, s.val)

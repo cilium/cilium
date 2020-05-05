@@ -1,0 +1,15 @@
+name: Documentation Updates
+
+on:
+  - pull_request
+
+jobs:
+    build-html:
+        name: Validate & Build HTML
+        runs-on: ubuntu-18.04
+        steps:
+            - uses: actions/checkout@v1
+            - uses: docker://cilium/docs-builder:latest
+              with:
+                entrypoint: ./Documentation/check-build.sh
+                args: html

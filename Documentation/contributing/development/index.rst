@@ -2,7 +2,7 @@
   
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
-    http://docs.cilium.io
+    https://docs.cilium.io
 
 .. _dev_guide:
 
@@ -21,3 +21,5 @@ understand the workflow of getting these changes reviewed and merged upstream.
    contributing_guide
    dev_setup
    images
+   codeoverview
+   debugging

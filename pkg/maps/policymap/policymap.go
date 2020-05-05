@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,28 +17,30 @@ package policymap
 import (
 	"bytes"
 	"fmt"
+	"strconv"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 const (
-	// CallMapName is the name of the map to do tail calls into policy
-	// enforcement programs
-	CallMapName = "cilium_policy"
+	// PolicyCallMapName is the name of the map to do tail calls into policy
+	// enforcement programs.
+	PolicyCallMapName = "cilium_call_policy"
 
 	// MapName is the prefix for endpoint-specific policy maps which map
 	// identity+ports+direction to whether the policy allows communication
 	// with that identity on that port for that direction.
-	MapName = CallMapName + "_"
+	MapName = "cilium_policy_"
 
-	// ProgArrayMaxEntries is the upper limit of entries in the program
+	// PolicyCallMaxEntries is the upper limit of entries in the program
 	// array for the tail calls to jump into the endpoint specific policy
-	// programs. This number *MUST* be identical to the maximum endponit ID.
-	ProgArrayMaxEntries = ^uint16(0)
+	// programs. This number *MUST* be identical to the maximum endpoint ID.
+	PolicyCallMaxEntries = ^uint16(0)
 
 	// AllPorts is used to ignore the L4 ports in PolicyMap lookups; all ports
 	// are allowed. In the datapath, this is represented with the value 0 in the
@@ -48,8 +50,9 @@ const (
 
 var (
 	// MaxEntries is the upper limit of entries in the per endpoint policy
-	// table
-	MaxEntries = 16384
+	// table. It is set by InitMapInfo(), but unit tests use the initial
+	// value below.
+	MaxEntries = defaults.PolicyMapEntries
 )
 
 type PolicyMap struct {
@@ -71,6 +74,9 @@ type PolicyKey struct {
 	TrafficDirection uint8  `align:"egress"`
 }
 
+// SizeofPolicyKey is the size of type PolicyKey.
+const SizeofPolicyKey = int(unsafe.Sizeof(PolicyKey{}))
+
 // PolicyEntry represents an entry in the BPF policy map for an endpoint. It must
 // match the layout of policy_entry in bpf/lib/common.h.
 // +k8s:deepcopy-gen=true
@@ -83,6 +89,39 @@ type PolicyEntry struct {
 	Packets   uint64 `align:"packets"`
 	Bytes     uint64 `align:"bytes"`
 }
+
+// SizeofPolicyEntry is the size of type PolicyEntry.
+const SizeofPolicyEntry = int(unsafe.Sizeof(PolicyEntry{}))
+
+// CallKey is the index into the prog array map.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
+type CallKey struct {
+	index uint32
+}
+
+// CallValue is the program ID in the prog array map.
+// +k8s:deepcopy-gen=true
+// +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
+type CallValue struct {
+	progID uint32
+}
+
+// GetKeyPtr returns the unsafe pointer to the BPF key
+func (k *CallKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
+
+// GetValuePtr returns the unsafe pointer to the BPF value
+func (v *CallValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
+
+// String converts the key into a human readable string format.
+func (k *CallKey) String() string { return strconv.FormatUint(uint64(k.index), 10) }
+
+// String converts the value into a human readable string format.
+func (v *CallValue) String() string { return strconv.FormatUint(uint64(v.progID), 10) }
+
+// NewValue returns a new empty instance of the structure representing the BPF
+// map value.
+func (k CallKey) NewValue() bpf.MapValue { return &CallValue{} }
 
 func (pe *PolicyEntry) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(pe) }
 func (pe *PolicyEntry) NewValue() bpf.MapValue      { return &PolicyEntry{} }
@@ -259,9 +298,9 @@ func newMap(path string) *PolicyMap {
 			path,
 			mapType,
 			&PolicyKey{},
-			int(unsafe.Sizeof(PolicyKey{})),
+			SizeofPolicyKey,
 			&PolicyEntry{},
-			int(unsafe.Sizeof(PolicyEntry{})),
+			SizeofPolicyEntry,
 			MaxEntries,
 			flags, 0,
 			bpf.ConvertKeyValue,
@@ -278,6 +317,12 @@ func OpenOrCreate(path string) (*PolicyMap, bool, error) {
 	return m, isNewMap, err
 }
 
+// Create creates a policy map at the specified path.
+func Create(path string) (bool, error) {
+	m := newMap(path)
+	return m.Create()
+}
+
 // Open opens the policymap at the specified path.
 func Open(path string) (*PolicyMap, error) {
 	m := newMap(path)
@@ -290,4 +335,21 @@ func Open(path string) (*PolicyMap, error) {
 // InitMapInfo updates the map info defaults for policy maps.
 func InitMapInfo(maxEntries int) {
 	MaxEntries = maxEntries
+}
+
+// InitCallMap creates the policy call map in the kernel.
+func InitCallMap() error {
+	policyCallMap := bpf.NewMap(PolicyCallMapName,
+		bpf.MapTypeProgArray,
+		&CallKey{},
+		int(unsafe.Sizeof(CallKey{})),
+		&CallValue{},
+		int(unsafe.Sizeof(CallValue{})),
+		int(PolicyCallMaxEntries),
+		0,
+		0,
+		bpf.ConvertKeyValue,
+	)
+	_, err := policyCallMap.Create()
+	return err
 }

@@ -34,7 +34,7 @@ Key                                                          Value
 ``cilium/state/nodes/v1/<cluster>/<node>``                   node.Node_
 ============================================================ ====================
 
-.. _node.Node: https://godoc.org/github.com/cilium/cilium/pkg/node#Node
+.. _node.Node: https://godoc.org/github.com/cilium/cilium/pkg/node/types#Node
 
 All node keys are attached to a lease owned by the agent of the respective
 node.
@@ -49,10 +49,10 @@ required to implement multi cluster service discovery.
 ============================================================= ====================
 Key                                                           Value
 ============================================================= ====================
-``cilium/state/services/v1/<cluster>/<namespace>/<service>``  service.ClusterService_
+``cilium/state/services/v1/<cluster>/<namespace>/<service>``  serviceStore.ClusterService_
 ============================================================= ====================
 
-.. _service.ClusterService: https://godoc.org/github.com/cilium/cilium/pkg/service#ClusterService
+.. _serviceStore.ClusterService: https://godoc.org/github.com/cilium/cilium/pkg/service/store#ClusterService
 
 Identities
 ----------

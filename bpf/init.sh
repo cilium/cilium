@@ -1,6 +1,6 @@
 #!/bin/bash
 #
-# Copyright 2016-2019 Authors of Cilium
+# Copyright 2016-2020 Authors of Cilium
 #
 # Licensed under the Apache License, Version 2.0 (the "License");
 # you may not use this file except in compliance with the License.
@@ -25,13 +25,14 @@ XDP_DEV=$7
 XDP_MODE=$8
 MTU=$9
 IPSEC=${10}
-MASQ=${11}
-ENCRYPT_DEV=${12}
-HOSTLB=${13}
-HOSTLB_UDP=${14}
-CGROUP_ROOT=${15}
-BPFFS_ROOT=${16}
-NODE_PORT=${17}
+ENCRYPT_DEV=${11}
+HOSTLB=${12}
+HOSTLB_UDP=${13}
+CGROUP_ROOT=${14}
+BPFFS_ROOT=${15}
+NODE_PORT=${16}
+NODE_PORT_BIND=${17}
+MCPU=${18}
 
 ID_HOST=1
 ID_WORLD=2
@@ -45,8 +46,8 @@ set -e
 set -x
 set -o pipefail
 
-if [[ ! $(command -v cilium) ]]; then
-	echo "Can't be initialized because 'cilium' is not in the path."
+if [[ ! $(command -v cilium-map-migrate) ]]; then
+	echo "Can't be initialized because 'cilium-map-migrate' is not in the path."
 	exit 1
 fi
 
@@ -55,8 +56,6 @@ rm $RUNDIR/encap.state 2> /dev/null || true
 
 # This directory was created by the daemon and contains the per container header file
 DIR="$PWD/globals"
-
-MACHINE=$(uname -m)
 
 function setup_dev()
 {
@@ -269,16 +268,27 @@ function bpf_compile()
 	TYPE=$3
 	EXTRA_OPTS=$4
 
-	clang -O2 -g -target bpf -emit-llvm				\
-	      -Wno-address-of-packed-member -Wno-unknown-warning-option	\
-	      -I/usr/include/${MACHINE}-linux-gnu                       \
+	clang -O2 -target bpf -std=gnu89 -nostdinc -emit-llvm		\
+	      -Wall -Wextra -Werror -Wshadow				\
+	      -Wno-address-of-packed-member				\
+	      -Wno-unknown-warning-option				\
+	      -Wno-gnu-variable-sized-type-not-at-end			\
+	      -Wdeclaration-after-statement				\
 	      -I. -I$DIR -I$LIB -I$LIB/include				\
 	      -D__NR_CPUS__=$(nproc)					\
-	      -DENABLE_ARP_RESPONDER					\
-	      -DHANDLE_NS						\
+	      -DENABLE_ARP_RESPONDER=1					\
+	      -DHANDLE_NS=1						\
 	      $EXTRA_OPTS						\
 	      -c $LIB/$IN -o - |					\
-	llc -march=bpf -mcpu=probe -mattr=dwarfris -filetype=$TYPE -o $OUT
+	llc -march=bpf -mcpu=$MCPU -mattr=dwarfris -filetype=$TYPE -o $OUT
+}
+
+function xdp_unload()
+{
+	DEV=$1
+	MODE=$2
+
+	ip link set dev $DEV $MODE off 2> /dev/null || true
 }
 
 function xdp_load()
@@ -291,13 +301,14 @@ function xdp_load()
 	SEC=$6
 	CIDR_MAP=$7
 
-	bpf_compile $IN $OUT obj "$OPTS"
+	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
+	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
 
-	ip link set dev $DEV $MODE off
+	bpf_compile $IN $OUT obj "$OPTS -DNODE_MAC=${NODE_MAC}"
 	rm -f "$CILIUM_BPF_MNT/xdp/globals/$CIDR_MAP" 2> /dev/null || true
 	cilium-map-migrate -s $OUT
 	set +e
-	ip link set dev $DEV $MODE obj $OUT sec $SEC
+	ip -force link set dev $DEV $MODE obj $OUT sec $SEC
 	RETCODE=$?
 	set -e
 	cilium-map-migrate -e $OUT -r $RETCODE
@@ -325,13 +336,7 @@ function bpf_load()
 	NODE_MAC=$(ip link show $DEV | grep ether | awk '{print $2}')
 	NODE_MAC="{.addr=$(mac2array $NODE_MAC)}"
 
-	if [ "$WHERE" == "ingress" ]; then
-		OPTS_DIR="-DBPF_PKT_DIR=1"
-	else
-		OPTS_DIR="-DBPF_PKT_DIR=0"
-	fi
-
-	OPTS="${OPTS} ${OPTS_DIR} -DNODE_MAC=${NODE_MAC} -DCALLS_MAP=${CALLS_MAP}"
+	OPTS="${OPTS} -DNODE_MAC=${NODE_MAC} -DCALLS_MAP=${CALLS_MAP}"
 	bpf_compile $IN $OUT obj "$OPTS"
 	tc qdisc replace dev $DEV clsact || true
 	[ -z "$(tc filter show dev $DEV $WHERE | grep -v 'pref 1 bpf chain 0 $\|pref 1 bpf chain 0 handle 0x1')" ] || tc filter del dev $DEV $WHERE
@@ -356,7 +361,7 @@ function bpf_load_cgroups()
 	CGRP=$8
 	BPFMNT=$9
 
-	OPTS="${OPTS} ${OPTS_DIR} -DCALLS_MAP=${CALLS_MAP}"
+	OPTS="${OPTS} -DCALLS_MAP=${CALLS_MAP}"
 	bpf_compile $IN $OUT obj "$OPTS"
 
 	TMP_FILE="$BPFMNT/tc/globals/cilium_cgroups_$WHERE"
@@ -399,8 +404,6 @@ function encap_fail()
 	(>&2 ip link show type $MODE)
 	exit 1
 }
-
-$LIB/run_probes.sh $LIB $RUNDIR
 
 # Base device setup
 case "${MODE}" in
@@ -519,9 +522,9 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	echo "#define ENCAP_IFINDEX $ENCAP_IDX" >> $RUNDIR/globals/node_config.h
 
 	CALLS_MAP="cilium_calls_overlay_${ID_WORLD}"
-	COPTS="-DSECLABEL=${ID_WORLD}"
+	COPTS="-DSECLABEL=${ID_WORLD} -DFROM_ENCAP_DEV=1"
 	if [ "$NODE_PORT" = "true" ]; then
-		COPTS="${COPTS} -DLB_L3 -DLB_L4"
+		COPTS="${COPTS} -DLB_L3 -DLB_L4 -DDISABLE_LOOPBACK_LB"
 	fi
 	bpf_load $ENCAP_DEV "$COPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
 	bpf_load $ENCAP_DEV "$COPTS" "egress" bpf_overlay.c bpf_overlay.o to-overlay ${CALLS_MAP}
@@ -542,11 +545,11 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] ||
 		CALLS_MAP=cilium_calls_netdev_${ID_WORLD}
 		COPTS="-DSECLABEL=${ID_WORLD}"
 		if [ "$NODE_PORT" = "true" ]; then
-			COPTS="${COPTS} -DLB_L3 -DLB_L4"
+			COPTS="${COPTS} -DLB_L3 -DLB_L4 -DDISABLE_LOOPBACK_LB"
 		fi
 
 		bpf_load $NATIVE_DEV "$COPTS" "ingress" bpf_netdev.c bpf_netdev.o "from-netdev" $CALLS_MAP
-		if [ "$MASQ" = "true" ] || [ "$NODE_PORT" = "true" ]; then
+		if [ "$NODE_PORT" = "true" ]; then
 			bpf_load $NATIVE_DEV "$COPTS" "egress" bpf_netdev.c bpf_netdev.o "to-netdev" $CALLS_MAP
 		else
 			bpf_unload $NATIVE_DEV "egress"
@@ -584,7 +587,7 @@ if [ "$HOSTLB" = "true" ]; then
 	COPTS="-DLB_L3 -DLB_L4"
 	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ] && [ -f /proc/sys/net/ipv6/conf/all/forwarding ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 from-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		if [ "$NODE_PORT" = "true" ]; then
+		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind6 post-bind-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		else
 			bpf_clear_cgroups $CGROUP_ROOT post_bind6
@@ -599,7 +602,7 @@ if [ "$HOSTLB" = "true" ]; then
 	fi
 	if [ "$IP4_HOST" != "<nil>" ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 from-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-		if [ "$NODE_PORT" = "true" ]; then
+		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind4 post-bind-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		else
 			bpf_clear_cgroups $CGROUP_ROOT post_bind4
@@ -625,14 +628,13 @@ fi
 
 # bpf_host.o requires to see an updated node_config.h which includes ENCAP_IFINDEX
 CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
-COPTS="-DFROM_HOST -DFIXED_SRC_SECCTX=${ID_HOST} -DSECLABEL=${ID_HOST}"
+COPTS="-DFROM_HOST -DSECLABEL=${ID_HOST}"
 if [ "$MODE" == "ipvlan" ]; then
 	COPTS+=" -DENABLE_EXTRA_HOST_DEV"
 fi
 bpf_load $HOST_DEV1 "$COPTS" "egress" bpf_netdev.c bpf_host.o from-netdev $CALLS_MAP
 bpf_load $HOST_DEV1 "" "ingress" bpf_hostdev_ingress.c bpf_hostdev_ingress.o to-host $CALLS_MAP
-# bpf_ipsec.o is also needed by proxy redirects, so we load it unconditionally
-bpf_load $HOST_DEV2 "" "ingress" bpf_ipsec.c bpf_ipsec.o from-netdev $CALLS_MAP
+bpf_load $HOST_DEV2 "" "ingress" bpf_hostdev_ingress.c bpf_hostdev_ingress.o to-host $CALLS_MAP
 if [ "$IPSEC" == "true" ]; then
 	if [ "$ENCRYPT_DEV" != "<nil>" ]; then
 		bpf_load $ENCRYPT_DEV "" "ingress" bpf_network.c bpf_network.o from-network $CALLS_MAP
@@ -642,12 +644,28 @@ if [ "$HOST_DEV1" != "$HOST_DEV2" ]; then
 	bpf_unload $HOST_DEV2 "egress"
 fi
 
+# Remove bpf_xdp.o from previously used devices
+for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep -v cilium); do
+	[ "$iface" == "$XDP_DEV" ] && continue
+	for mode in xdpdrv xdpgeneric; do
+		xdp_unload "$iface" "$mode"
+	done
+done
+
 if [ "$XDP_DEV" != "<nil>" ]; then
+	if ip -one link show dev $XDP_DEV | grep -v -q $XDP_MODE; then
+		for mode in xdpdrv xdpgeneric; do
+			xdp_unload "$XDP_DEV" "$mode"
+		done
+	fi
 	CIDR_MAP="cilium_cidr_v*"
-	COPTS=""
-	xdp_load $XDP_DEV $XDP_MODE "$COPTS" bpf_prefilter.c bpf_prefilter.o from-netdev $CIDR_MAP
+	COPTS="-DSECLABEL=${ID_WORLD} -DCALLS_MAP=cilium_calls_xdp"
+	if [ "$NODE_PORT" = "true" ]; then
+		COPTS="${COPTS} -DLB_L3 -DLB_L4 -DDISABLE_LOOPBACK_LB"
+	fi
+	xdp_load $XDP_DEV $XDP_MODE "$COPTS" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
 fi
 
 # Compile dummy BPF file containing all shared struct definitions used by
 # pkg/alignchecker to validate C and Go equivalent struct alignments
-bpf_compile bpf_alignchecker.c bpf_alignchecker.o obj ""
+bpf_compile bpf_alignchecker.c bpf_alignchecker.o obj "-g"
