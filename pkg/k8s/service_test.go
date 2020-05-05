@@ -24,6 +24,8 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
@@ -33,55 +35,53 @@ import (
 )
 
 func (s *K8sSuite) TestGetAnnotationIncludeExternal(c *check.C) {
-	svc := &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
+	svc := &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Name: "foo",
-	}}}
+	}}
 	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, false)
 
-	svc = &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"io.cilium/global-service": "True"},
-	}}}
+	}}
 	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, true)
 
-	svc = &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"io.cilium/global-service": "false"},
-	}}}
+	}}
 	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, false)
 
-	svc = &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"io.cilium/global-service": ""},
-	}}}
+	}}
 	c.Assert(getAnnotationIncludeExternal(svc), check.Equals, false)
 }
 
 func (s *K8sSuite) TestGetAnnotationShared(c *check.C) {
-	svc := &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
+	svc := &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Name: "foo",
-	}}}
+	}}
 	c.Assert(getAnnotationShared(svc), check.Equals, false)
-	svc = &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"io.cilium/global-service": "true"},
-	}}}
+	}}
 	c.Assert(getAnnotationShared(svc), check.Equals, true)
 
-	svc = &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"io.cilium/shared-service": "True"},
-	}}}
+	}}
 	c.Assert(getAnnotationShared(svc), check.Equals, true)
 
-	svc = &types.Service{Service: &v1.Service{ObjectMeta: metav1.ObjectMeta{
+	svc = &slim_corev1.Service{ObjectMeta: slim_metav1.ObjectMeta{
 		Annotations: map[string]string{"io.cilium/global-service": "true", "io.cilium/shared-service": "false"},
-	}}}
+	}}
 	c.Assert(getAnnotationShared(svc), check.Equals, false)
 }
 
 func (s *K8sSuite) TestParseServiceID(c *check.C) {
-	svc := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-			},
+	svc := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
 		},
 	}
 
@@ -89,22 +89,20 @@ func (s *K8sSuite) TestParseServiceID(c *check.C) {
 }
 
 func (s *K8sSuite) TestParseService(c *check.C) {
-	k8sSvc := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Labels: map[string]string{
-					"foo": "bar",
-				},
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
 			},
-			Spec: v1.ServiceSpec{
-				ClusterIP: "127.0.0.1",
-				Selector: map[string]string{
-					"foo": "bar",
-				},
-				Type: v1.ServiceTypeClusterIP,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Selector: map[string]string{
+				"foo": "bar",
 			},
+			Type: slim_corev1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -119,19 +117,17 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		NodePorts:     map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 	})
 
-	k8sSvc = &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Labels: map[string]string{
-					"foo": "bar",
-				},
+	k8sSvc = &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
 			},
-			Spec: v1.ServiceSpec{
-				ClusterIP: "none",
-				Type:      v1.ServiceTypeClusterIP,
-			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "none",
+			Type:      slim_corev1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -145,20 +141,18 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		NodePorts:     map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
 	})
 
-	k8sSvc = &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Labels: map[string]string{
-					"foo": "bar",
-				},
+	k8sSvc = &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
 			},
-			Spec: v1.ServiceSpec{
-				ClusterIP:             "127.0.0.1",
-				Type:                  v1.ServiceTypeNodePort,
-				ExternalTrafficPolicy: v1.ServiceExternalTrafficPolicyTypeLocal,
-			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP:             "127.0.0.1",
+			Type:                  slim_corev1.ServiceTypeNodePort,
+			ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyTypeLocal,
 		},
 	}
 
@@ -608,22 +602,20 @@ func TestService_Equals(t *testing.T) {
 }
 
 func (s *K8sSuite) TestServiceString(c *check.C) {
-	k8sSvc := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Labels: map[string]string{
-					"foo": "bar",
-				},
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
 			},
-			Spec: v1.ServiceSpec{
-				ClusterIP: "127.0.0.1",
-				Selector: map[string]string{
-					"foo": "bar",
-				},
-				Type: v1.ServiceTypeClusterIP,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Selector: map[string]string{
+				"foo": "bar",
 			},
+			Type: slim_corev1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -632,24 +624,23 @@ func (s *K8sSuite) TestServiceString(c *check.C) {
 }
 
 func (s *K8sSuite) TestNewClusterService(c *check.C) {
-	id, svc := ParseService(&types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
+	id, svc := ParseService(
+		&slim_corev1.Service{
+			ObjectMeta: slim_metav1.ObjectMeta{
 				Name:      "foo",
 				Namespace: "bar",
 				Labels: map[string]string{
 					"foo": "bar",
 				},
 			},
-			Spec: v1.ServiceSpec{
+			Spec: slim_corev1.ServiceSpec{
 				ClusterIP: "127.0.0.1",
 				Selector: map[string]string{
 					"foo": "bar",
 				},
-				Type: v1.ServiceTypeClusterIP,
+				Type: slim_corev1.ServiceTypeClusterIP,
 			},
-		},
-	}, fakeDatapath.NewNodeAddressing())
+		}, fakeDatapath.NewNodeAddressing())
 
 	_, endpoints := ParseEndpoints(&types.Endpoints{
 		Endpoints: &v1.Endpoints{

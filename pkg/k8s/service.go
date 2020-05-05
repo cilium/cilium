@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -34,7 +34,7 @@ import (
 	"k8s.io/api/core/v1"
 )
 
-func getAnnotationIncludeExternal(svc *types.Service) bool {
+func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
 	if value, ok := svc.ObjectMeta.Annotations[annotation.GlobalService]; ok {
 		return strings.ToLower(value) == "true"
 	}
@@ -42,7 +42,7 @@ func getAnnotationIncludeExternal(svc *types.Service) bool {
 	return false
 }
 
-func getAnnotationShared(svc *types.Service) bool {
+func getAnnotationShared(svc *slim_corev1.Service) bool {
 	if value, ok := svc.ObjectMeta.Annotations[annotation.SharedService]; ok {
 		return strings.ToLower(value) == "true"
 	}
@@ -51,7 +51,7 @@ func getAnnotationShared(svc *types.Service) bool {
 }
 
 // ParseServiceID parses a Kubernetes service and returns the ServiceID
-func ParseServiceID(svc *types.Service) ServiceID {
+func ParseServiceID(svc *slim_corev1.Service) ServiceID {
 	return ServiceID{
 		Name:      svc.ObjectMeta.Name,
 		Namespace: svc.ObjectMeta.Namespace,
@@ -59,7 +59,7 @@ func ParseServiceID(svc *types.Service) ServiceID {
 }
 
 // ParseService parses a Kubernetes service and returns a Service
-func ParseService(svc *types.Service, nodeAddressing datapath.NodeAddressing) (ServiceID, *Service) {
+func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressing) (ServiceID, *Service) {
 	scopedLog := log.WithFields(logrus.Fields{
 		logfields.K8sSvcName:    svc.ObjectMeta.Name,
 		logfields.K8sNamespace:  svc.ObjectMeta.Namespace,
@@ -71,10 +71,10 @@ func ParseService(svc *types.Service, nodeAddressing datapath.NodeAddressing) (S
 	svcID := ParseServiceID(svc)
 
 	switch svc.Spec.Type {
-	case v1.ServiceTypeClusterIP, v1.ServiceTypeNodePort, v1.ServiceTypeLoadBalancer:
+	case slim_corev1.ServiceTypeClusterIP, slim_corev1.ServiceTypeNodePort, slim_corev1.ServiceTypeLoadBalancer:
 		break
 
-	case v1.ServiceTypeExternalName:
+	case slim_corev1.ServiceTypeExternalName:
 		// External-name services must be ignored
 		return ServiceID{}, nil
 
@@ -95,7 +95,7 @@ func ParseService(svc *types.Service, nodeAddressing datapath.NodeAddressing) (S
 
 	var trafficPolicy loadbalancer.SVCTrafficPolicy
 	switch svc.Spec.ExternalTrafficPolicy {
-	case v1.ServiceExternalTrafficPolicyTypeLocal:
+	case slim_corev1.ServiceExternalTrafficPolicyTypeLocal:
 		trafficPolicy = loadbalancer.SVCTrafficPolicyLocal
 	default:
 		trafficPolicy = loadbalancer.SVCTrafficPolicyCluster
@@ -112,7 +112,7 @@ func ParseService(svc *types.Service, nodeAddressing datapath.NodeAddressing) (S
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
 
-	if svc.Spec.SessionAffinity == v1.ServiceAffinityClientIP {
+	if svc.Spec.SessionAffinity == slim_corev1.ServiceAffinityClientIP {
 		svcInfo.SessionAffinity = true
 		if cfg := svc.Spec.SessionAffinityConfig; cfg != nil && cfg.ClientIP != nil && cfg.ClientIP.TimeoutSeconds != nil {
 			svcInfo.SessionAffinityTimeoutSec = uint32(*cfg.ClientIP.TimeoutSeconds)
@@ -138,7 +138,7 @@ func ParseService(svc *types.Service, nodeAddressing datapath.NodeAddressing) (S
 		// would introduce more complexity in already too complex LB codebase,
 		// so for now (until we have refactored the LB code) keep NodePort
 		// frontends in Service.NodePorts.
-		if svc.Spec.Type == v1.ServiceTypeNodePort || svc.Spec.Type == v1.ServiceTypeLoadBalancer {
+		if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
 			if option.Config.EnableNodePort && nodeAddressing != nil {
 				if _, ok := svcInfo.NodePorts[portName]; !ok {
 					svcInfo.NodePorts[portName] =

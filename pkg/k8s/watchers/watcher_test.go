@@ -29,6 +29,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -40,7 +42,6 @@ import (
 	. "gopkg.in/check.v1"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/intstr"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -247,19 +248,17 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 	go w.k8sServiceHandler()
 	swg := lock.NewStoppableWaitGroup()
 
-	k8sSvc := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Labels: map[string]string{
-					"foo": "bar",
-				},
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
 			},
-			Spec: v1.ServiceSpec{
-				ClusterIP: "127.0.0.1",
-				Type:      v1.ServiceTypeClusterIP,
-			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Type:      slim_corev1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -276,53 +275,44 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 }
 
 func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
-	k8sSvc := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Labels: map[string]string{
-					"foo": "bar",
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "port-udp-80",
+					Protocol: slim_corev1.ProtocolUDP,
+					Port:     80,
+				},
+				// FIXME: We don't distinguish about the protocol being used
+				//        so we can't tell if a UDP/80 maps to port 8080/udp
+				//        or if TCP/80 maps to port 8081/TCP
+				// {
+				// 	Name:       "port-tcp-80",
+				// 	Protocol:  slim_corev1.ProtocolTCP,
+				// 	Port:       80,
+				// 	TargetPort: intstr.FromString("port-80-t"),
+				// },
+				{
+					Name:     "port-tcp-81",
+					Protocol: slim_corev1.ProtocolTCP,
+					Port:     81,
 				},
 			},
-			Spec: v1.ServiceSpec{
-				Ports: []v1.ServicePort{
-					{
-						Name:       "port-udp-80",
-						Protocol:   v1.ProtocolUDP,
-						Port:       80,
-						TargetPort: intstr.FromString("port-80-u"),
-					},
-					// FIXME: We don't distinguish about the protocol being used
-					//        so we can't tell if a UDP/80 maps to port 8080/udp
-					//        or if TCP/80 maps to port 8081/TCP
-					// {
-					// 	Name:       "port-tcp-80",
-					// 	Protocol:   v1.ProtocolTCP,
-					// 	Port:       80,
-					// 	TargetPort: intstr.FromString("port-80-t"),
-					// },
-					{
-						Name:       "port-tcp-81",
-						Protocol:   v1.ProtocolTCP,
-						Port:       81,
-						TargetPort: intstr.FromInt(81),
-					},
-				},
-				Selector:                 nil,
-				ClusterIP:                "172.0.20.1",
-				Type:                     v1.ServiceTypeClusterIP,
-				ExternalIPs:              nil,
-				SessionAffinity:          "",
-				LoadBalancerIP:           "",
-				LoadBalancerSourceRanges: nil,
-				ExternalName:             "",
-				ExternalTrafficPolicy:    "",
-				HealthCheckNodePort:      0,
-				PublishNotReadyAddresses: false,
-				SessionAffinityConfig:    nil,
-				IPFamily:                 nil,
-			},
+			Selector:              nil,
+			ClusterIP:             "172.0.20.1",
+			Type:                  slim_corev1.ServiceTypeClusterIP,
+			ExternalIPs:           nil,
+			SessionAffinity:       "",
+			ExternalTrafficPolicy: "",
+			HealthCheckNodePort:   0,
+			SessionAffinityConfig: nil,
 		},
 	}
 
@@ -595,27 +585,24 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 }
 
 func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
-	k8sSvc := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Labels: map[string]string{
-					"foo": "bar",
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "port-udp-80",
+					Protocol: slim_corev1.ProtocolUDP,
+					Port:     80,
 				},
 			},
-			Spec: v1.ServiceSpec{
-				Ports: []v1.ServicePort{
-					{
-						Name:       "port-udp-80",
-						Protocol:   v1.ProtocolUDP,
-						Port:       80,
-						TargetPort: intstr.FromString("port-80-u"),
-					},
-				},
-				ClusterIP: "172.0.20.1",
-				Type:      v1.ServiceTypeClusterIP,
-			},
+			ClusterIP: "172.0.20.1",
+			Type:      slim_corev1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -676,7 +663,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 	}
 
 	k8sSvcChanged := k8sSvc.DeepCopy()
-	k8sSvcChanged.Service.Spec.Ports[0].Port = 81
+	k8sSvcChanged.Spec.Ports[0].Port = 81
 
 	upserts := []loadbalancer.SVC{}
 
@@ -747,56 +734,47 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		option.Config.EnableNodePort = enableNodePortBak
 	}()
 
-	k8sSvc := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Labels: map[string]string{
-					"foo": "bar",
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "port-udp-80",
+					Protocol: slim_corev1.ProtocolUDP,
+					Port:     80,
+					NodePort: 18080,
+				},
+				// FIXME: We don't distinguish about the protocol being used
+				//        so we can't tell if a UDP/80 maps to port 8080/udp
+				//        or if TCP/80 maps to port 8081/TCP
+				// {
+				// 	Name:       "port-tcp-80",
+				// 	Protocol:  slim_corev1.ProtocolTCP,
+				// 	Port:       80,
+				// 	TargetPort: intstr.FromString("port-80-t"),
+				//  NodePort:   18080,
+				// },
+				{
+					Name:     "port-tcp-81",
+					Protocol: slim_corev1.ProtocolTCP,
+					Port:     81,
+					NodePort: 18081,
 				},
 			},
-			Spec: v1.ServiceSpec{
-				Ports: []v1.ServicePort{
-					{
-						Name:       "port-udp-80",
-						Protocol:   v1.ProtocolUDP,
-						Port:       80,
-						TargetPort: intstr.FromString("port-80-u"),
-						NodePort:   18080,
-					},
-					// FIXME: We don't distinguish about the protocol being used
-					//        so we can't tell if a UDP/80 maps to port 8080/udp
-					//        or if TCP/80 maps to port 8081/TCP
-					// {
-					// 	Name:       "port-tcp-80",
-					// 	Protocol:   v1.ProtocolTCP,
-					// 	Port:       80,
-					// 	TargetPort: intstr.FromString("port-80-t"),
-					//  NodePort:   18080,
-					// },
-					{
-						Name:       "port-tcp-81",
-						Protocol:   v1.ProtocolTCP,
-						Port:       81,
-						TargetPort: intstr.FromInt(81),
-						NodePort:   18081,
-					},
-				},
-				Selector:                 nil,
-				ClusterIP:                "172.0.20.1",
-				Type:                     v1.ServiceTypeNodePort,
-				ExternalIPs:              nil,
-				SessionAffinity:          "",
-				LoadBalancerIP:           "",
-				LoadBalancerSourceRanges: nil,
-				ExternalName:             "",
-				ExternalTrafficPolicy:    "",
-				HealthCheckNodePort:      0,
-				PublishNotReadyAddresses: false,
-				SessionAffinityConfig:    nil,
-				IPFamily:                 nil,
-			},
+			Selector:              nil,
+			ClusterIP:             "172.0.20.1",
+			Type:                  slim_corev1.ServiceTypeNodePort,
+			ExternalIPs:           nil,
+			SessionAffinity:       "",
+			ExternalTrafficPolicy: "",
+			HealthCheckNodePort:   0,
+			SessionAffinityConfig: nil,
 		},
 	}
 
@@ -1229,65 +1207,57 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		option.Config.EnableNodePort = enableNodePortBak
 	}()
 
-	k8sSvc1stApply := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Labels: map[string]string{
-					"foo": "bar",
+	k8sSvc1stApply := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "port-udp-80",
+					Protocol: slim_corev1.ProtocolUDP,
+					Port:     80,
+					NodePort: 18080,
+				},
+				{
+					Name:     "port-tcp-81",
+					Protocol: slim_corev1.ProtocolTCP,
+					Port:     81,
+					NodePort: 18081,
 				},
 			},
-			Spec: v1.ServiceSpec{
-				Ports: []v1.ServicePort{
-					{
-						Name:       "port-udp-80",
-						Protocol:   v1.ProtocolUDP,
-						Port:       80,
-						TargetPort: intstr.FromString("port-80-u"),
-						NodePort:   18080,
-					},
-					{
-						Name:       "port-tcp-81",
-						Protocol:   v1.ProtocolTCP,
-						Port:       81,
-						TargetPort: intstr.FromInt(81),
-						NodePort:   18081,
-					},
-				},
-				ClusterIP: "172.0.20.1",
-				Type:      v1.ServiceTypeNodePort,
-			},
+			ClusterIP: "172.0.20.1",
+			Type:      slim_corev1.ServiceTypeNodePort,
 		},
 	}
 
-	k8sSvc2ndApply := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Labels: map[string]string{
-					"foo": "bar",
+	k8sSvc2ndApply := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "port-udp-80",
+					Protocol: slim_corev1.ProtocolUDP,
+					Port:     8083,
+				},
+				{
+					Name:     "port-tcp-81",
+					Protocol: slim_corev1.ProtocolTCP,
+					Port:     81,
 				},
 			},
-			Spec: v1.ServiceSpec{
-				Ports: []v1.ServicePort{
-					{
-						Name:       "port-udp-80",
-						Protocol:   v1.ProtocolUDP,
-						Port:       8083,
-						TargetPort: intstr.FromString("port-80-u"),
-					},
-					{
-						Name:       "port-tcp-81",
-						Protocol:   v1.ProtocolTCP,
-						Port:       81,
-						TargetPort: intstr.FromInt(81),
-					},
-				},
-				ClusterIP: "172.0.20.1",
-				Type:      v1.ServiceTypeClusterIP,
-			},
+			ClusterIP: "172.0.20.1",
+			Type:      slim_corev1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -1540,35 +1510,31 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		option.Config.EnableNodePort = enableNodePortBak
 	}()
 
-	k8sSvc1stApply := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Labels: map[string]string{
-					"foo": "bar",
+	k8sSvc1stApply := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "port-udp-80",
+					Protocol: slim_corev1.ProtocolUDP,
+					Port:     80,
+					NodePort: 18080,
+				},
+				{
+					Name:     "port-tcp-81",
+					Protocol: slim_corev1.ProtocolTCP,
+					Port:     81,
+					NodePort: 18081,
 				},
 			},
-			Spec: v1.ServiceSpec{
-				Ports: []v1.ServicePort{
-					{
-						Name:       "port-udp-80",
-						Protocol:   v1.ProtocolUDP,
-						Port:       80,
-						TargetPort: intstr.FromString("port-80-u"),
-						NodePort:   18080,
-					},
-					{
-						Name:       "port-tcp-81",
-						Protocol:   v1.ProtocolTCP,
-						Port:       81,
-						TargetPort: intstr.FromInt(81),
-						NodePort:   18081,
-					},
-				},
-				ClusterIP: "172.0.20.1",
-				Type:      v1.ServiceTypeNodePort,
-			},
+			ClusterIP: "172.0.20.1",
+			Type:      slim_corev1.ServiceTypeNodePort,
 		},
 	}
 
@@ -1841,56 +1807,47 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		option.Config.EnableNodePort = enableNodePortBak
 	}()
 
-	svc1stApply := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Labels: map[string]string{
-					"foo": "bar",
+	svc1stApply := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
+			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "port-udp-80",
+					Protocol: slim_corev1.ProtocolUDP,
+					Port:     80,
+					NodePort: 18080,
+				},
+				// FIXME: We don't distinguish about the protocol being used
+				//        so we can't tell if a UDP/80 maps to port 8080/udp
+				//        or if TCP/80 maps to port 8081/TCP
+				// {
+				// 	Name:       "port-tcp-80",
+				// 	Protocol:  slim_corev1.ProtocolTCP,
+				// 	Port:       80,
+				// 	TargetPort: intstr.FromString("port-80-t"),
+				//  NodePort:   18080,
+				// },
+				{
+					Name:     "port-tcp-81",
+					Protocol: slim_corev1.ProtocolTCP,
+					Port:     81,
+					NodePort: 18081,
 				},
 			},
-			Spec: v1.ServiceSpec{
-				Ports: []v1.ServicePort{
-					{
-						Name:       "port-udp-80",
-						Protocol:   v1.ProtocolUDP,
-						Port:       80,
-						TargetPort: intstr.FromString("port-80-u"),
-						NodePort:   18080,
-					},
-					// FIXME: We don't distinguish about the protocol being used
-					//        so we can't tell if a UDP/80 maps to port 8080/udp
-					//        or if TCP/80 maps to port 8081/TCP
-					// {
-					// 	Name:       "port-tcp-80",
-					// 	Protocol:   v1.ProtocolTCP,
-					// 	Port:       80,
-					// 	TargetPort: intstr.FromString("port-80-t"),
-					//  NodePort:   18080,
-					// },
-					{
-						Name:       "port-tcp-81",
-						Protocol:   v1.ProtocolTCP,
-						Port:       81,
-						TargetPort: intstr.FromInt(81),
-						NodePort:   18081,
-					},
-				},
-				Selector:                 nil,
-				ClusterIP:                "172.0.20.1",
-				Type:                     v1.ServiceTypeNodePort,
-				ExternalIPs:              []string{"127.8.8.8", "127.9.9.9"},
-				SessionAffinity:          "",
-				LoadBalancerIP:           "",
-				LoadBalancerSourceRanges: nil,
-				ExternalName:             "",
-				ExternalTrafficPolicy:    "",
-				HealthCheckNodePort:      0,
-				PublishNotReadyAddresses: false,
-				SessionAffinityConfig:    nil,
-				IPFamily:                 nil,
-			},
+			Selector:              nil,
+			ClusterIP:             "172.0.20.1",
+			Type:                  slim_corev1.ServiceTypeNodePort,
+			ExternalIPs:           []string{"127.8.8.8", "127.9.9.9"},
+			SessionAffinity:       "",
+			ExternalTrafficPolicy: "",
+			HealthCheckNodePort:   0,
+			SessionAffinityConfig: nil,
 		},
 	}
 

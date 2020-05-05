@@ -42,8 +42,8 @@ func ObjToV1NetworkPolicy(obj interface{}) *types.NetworkPolicy {
 	return k8sNP
 }
 
-func ObjToV1Services(obj interface{}) *types.Service {
-	svc, ok := obj.(*types.Service)
+func ObjToV1Services(obj interface{}) *slim_corev1.Service {
+	svc, ok := obj.(*slim_corev1.Service)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Service")
@@ -121,7 +121,7 @@ func EqualV1NetworkPolicy(np1, np2 *types.NetworkPolicy) bool {
 		reflect.DeepEqual(np1.Spec, np2.Spec)
 }
 
-func EqualV1Services(k8sSVC1, k8sSVC2 *types.Service, nodeAddressing datapath.NodeAddressing) bool {
+func EqualV1Services(k8sSVC1, k8sSVC2 *slim_corev1.Service, nodeAddressing datapath.NodeAddressing) bool {
 	// Service annotations are used to mark services as global, shared, etc.
 	if !comparator.MapStringEquals(k8sSVC1.GetAnnotations(), k8sSVC2.GetAnnotations()) {
 		return false
@@ -334,17 +334,93 @@ func ConvertToNetworkPolicy(obj interface{}) interface{} {
 	}
 }
 
+func convertToK8sServicePorts(ports []v1.ServicePort) []slim_corev1.ServicePort {
+	if ports == nil {
+		return nil
+	}
+
+	slimPorts := make([]slim_corev1.ServicePort, 0, len(ports))
+	for _, v1Port := range ports {
+		slimPorts = append(slimPorts,
+			slim_corev1.ServicePort{
+				Name:     v1Port.Name,
+				Protocol: slim_corev1.Protocol(v1Port.Protocol),
+				Port:     v1Port.Port,
+				NodePort: v1Port.NodePort,
+			},
+		)
+	}
+	return slimPorts
+}
+
+func convertToK8sServiceAffinityConfig(saCfg *v1.SessionAffinityConfig) *slim_corev1.SessionAffinityConfig {
+	if saCfg == nil {
+		return nil
+	}
+
+	if saCfg.ClientIP == nil {
+		return &slim_corev1.SessionAffinityConfig{}
+	}
+
+	return &slim_corev1.SessionAffinityConfig{
+		ClientIP: &slim_corev1.ClientIPConfig{
+			TimeoutSeconds: saCfg.ClientIP.TimeoutSeconds,
+		},
+	}
+}
+
+func convertToK8sLoadBalancerIngress(lbIngs []v1.LoadBalancerIngress) []slim_corev1.LoadBalancerIngress {
+	if lbIngs == nil {
+		return nil
+	}
+
+	slimLBIngs := make([]slim_corev1.LoadBalancerIngress, 0, len(lbIngs))
+	for _, lbIng := range lbIngs {
+		slimLBIngs = append(slimLBIngs,
+			slim_corev1.LoadBalancerIngress{
+				IP: lbIng.IP,
+			},
+		)
+	}
+	return slimLBIngs
+}
+
 // ConvertToK8sService converts a *v1.Service into a
-// *types.Service or a cache.DeletedFinalStateUnknown into
-// a cache.DeletedFinalStateUnknown with a *types.Service in its Obj.
-// If the given obj can't be cast into either *v1.Service
+// *slim_corev1.Service or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *slim_corev1.Service in its Obj.
+// If the given obj can't be cast into either *slim_corev1.Service
 // nor cache.DeletedFinalStateUnknown, the original obj is returned.
 func ConvertToK8sService(obj interface{}) interface{} {
-	// TODO check which fields we really need
 	switch concreteObj := obj.(type) {
 	case *v1.Service:
-		return &types.Service{
-			Service: concreteObj,
+		return &slim_corev1.Service{
+			TypeMeta: slim_metav1.TypeMeta{
+				Kind:       concreteObj.TypeMeta.Kind,
+				APIVersion: concreteObj.TypeMeta.APIVersion,
+			},
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name:        concreteObj.ObjectMeta.Name,
+				Namespace:   concreteObj.ObjectMeta.Namespace,
+				UID:         concreteObj.ObjectMeta.UID,
+				Labels:      concreteObj.ObjectMeta.Labels,
+				Annotations: concreteObj.ObjectMeta.Annotations,
+			},
+			Spec: slim_corev1.ServiceSpec{
+				Ports:                 convertToK8sServicePorts(concreteObj.Spec.Ports),
+				Selector:              concreteObj.Spec.Selector,
+				ClusterIP:             concreteObj.Spec.ClusterIP,
+				Type:                  slim_corev1.ServiceType(concreteObj.Spec.Type),
+				ExternalIPs:           concreteObj.Spec.ExternalIPs,
+				SessionAffinity:       slim_corev1.ServiceAffinity(concreteObj.Spec.SessionAffinity),
+				ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyType(concreteObj.Spec.ExternalTrafficPolicy),
+				HealthCheckNodePort:   concreteObj.Spec.HealthCheckNodePort,
+				SessionAffinityConfig: convertToK8sServiceAffinityConfig(concreteObj.Spec.SessionAffinityConfig),
+			},
+			Status: slim_corev1.ServiceStatus{
+				LoadBalancer: slim_corev1.LoadBalancerStatus{
+					Ingress: convertToK8sLoadBalancerIngress(concreteObj.Status.LoadBalancer.Ingress),
+				},
+			},
 		}
 	case cache.DeletedFinalStateUnknown:
 		svc, ok := concreteObj.Obj.(*v1.Service)
@@ -353,8 +429,34 @@ func ConvertToK8sService(obj interface{}) interface{} {
 		}
 		return cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
-			Obj: &types.Service{
-				Service: svc,
+			Obj: &slim_corev1.Service{
+				TypeMeta: slim_metav1.TypeMeta{
+					Kind:       svc.TypeMeta.Kind,
+					APIVersion: svc.TypeMeta.APIVersion,
+				},
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Name:        svc.ObjectMeta.Name,
+					Namespace:   svc.ObjectMeta.Namespace,
+					UID:         svc.ObjectMeta.UID,
+					Labels:      svc.ObjectMeta.Labels,
+					Annotations: svc.ObjectMeta.Annotations,
+				},
+				Spec: slim_corev1.ServiceSpec{
+					Ports:                 convertToK8sServicePorts(svc.Spec.Ports),
+					Selector:              svc.Spec.Selector,
+					ClusterIP:             svc.Spec.ClusterIP,
+					Type:                  slim_corev1.ServiceType(svc.Spec.Type),
+					ExternalIPs:           svc.Spec.ExternalIPs,
+					SessionAffinity:       slim_corev1.ServiceAffinity(svc.Spec.SessionAffinity),
+					ExternalTrafficPolicy: slim_corev1.ServiceExternalTrafficPolicyType(svc.Spec.ExternalTrafficPolicy),
+					HealthCheckNodePort:   svc.Spec.HealthCheckNodePort,
+					SessionAffinityConfig: convertToK8sServiceAffinityConfig(svc.Spec.SessionAffinityConfig),
+				},
+				Status: slim_corev1.ServiceStatus{
+					LoadBalancer: slim_corev1.LoadBalancerStatus{
+						Ingress: convertToK8sLoadBalancerIngress(svc.Status.LoadBalancer.Ingress),
+					},
+				},
 			},
 		}
 	default:

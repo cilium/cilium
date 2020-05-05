@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/k8s"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
@@ -241,7 +240,13 @@ func runOperator(cmd *cobra.Command) {
 							// k8s service for etcd. As soon the k8s caches are
 							// synced, this hijack will stop happening.
 							sc := k8s.NewServiceCache(nil)
-							sc.UpdateService(&types.Service{Service: k8sSvc}, nil)
+							slimSvcObj := k8s.ConvertToK8sService(k8sSvc)
+							slimSvc := k8s.ObjToV1Services(slimSvcObj)
+							if slimSvc == nil {
+								// This will never happen but still log it
+								scopedLog.Warnf("BUG: invalid k8s service: %s", slimSvcObj)
+							}
+							sc.UpdateService(slimSvc, nil)
 							svcGetter = &serviceGetter{
 								shortCutK8sCache: &sc,
 								k8sCache:         &k8sSvcCache,

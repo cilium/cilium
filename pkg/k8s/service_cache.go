@@ -17,6 +17,7 @@ package k8s
 import (
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -119,7 +120,7 @@ func (s *ServiceCache) GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
 // ServiceCache. Returns the ServiceID unless the Kubernetes service could not
 // be parsed and a bool to indicate whether the service was changed in the
 // cache or not.
-func (s *ServiceCache) UpdateService(k8sSvc *types.Service, swg *lock.StoppableWaitGroup) ServiceID {
+func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.StoppableWaitGroup) ServiceID {
 	svcID, newService := ParseService(k8sSvc, s.nodeAddressing)
 	if newService == nil {
 		return svcID
@@ -156,7 +157,7 @@ func (s *ServiceCache) UpdateService(k8sSvc *types.Service, swg *lock.StoppableW
 
 // DeleteService parses a Kubernetes service and removes it from the
 // ServiceCache
-func (s *ServiceCache) DeleteService(k8sSvc *types.Service, swg *lock.StoppableWaitGroup) {
+func (s *ServiceCache) DeleteService(k8sSvc *slim_corev1.Service, swg *lock.StoppableWaitGroup) {
 	svcID := ParseServiceID(k8sSvc)
 
 	s.mutex.Lock()
