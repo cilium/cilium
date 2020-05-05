@@ -39,6 +39,15 @@ type EphemeralContainers struct {
 // Protocol defines network protocols supported for things like container ports.
 type Protocol string
 
+const (
+	// ProtocolTCP is the TCP protocol.
+	ProtocolTCP Protocol = "TCP"
+	// ProtocolUDP is the UDP protocol.
+	ProtocolUDP Protocol = "UDP"
+	// ProtocolSCTP is the SCTP protocol.
+	ProtocolSCTP Protocol = "SCTP"
+)
+
 // +genclient
 // +genclient:method=GetEphemeralContainers,verb=get,subresource=ephemeralcontainers,result=EphemeralContainers
 // +genclient:method=UpdateEphemeralContainers,verb=update,subresource=ephemeralcontainers,input=EphemeralContainers,result=EphemeralContainers
@@ -204,4 +213,135 @@ type PodStatus struct {
 	// +patchStrategy=merge
 	// +patchMergeKey=ip
 	PodIPs []PodIP `json:"podIPs,omitempty" protobuf:"bytes,12,rep,name=podIPs" patchStrategy:"merge" patchMergeKey:"ip"`
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// Node is a worker node in Kubernetes.
+// Each node will have a unique identifier in the cache (i.e. in etcd).
+type Node struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
+	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Spec defines the behavior of a node.
+	// https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// +optional
+	Spec NodeSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+
+	// Most recently observed status of the node.
+	// Populated by the system.
+	// Read-only.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// +optional
+	Status NodeStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+// NodeSpec describes the attributes that a node is created with.
+type NodeSpec struct {
+	// PodCIDR represents the pod IP range assigned to the node.
+	// +optional
+	PodCIDR string `json:"podCIDR,omitempty" protobuf:"bytes,1,opt,name=podCIDR"`
+
+	// podCIDRs represents the IP ranges assigned to the node for usage by Pods on that node. If this
+	// field is specified, the 0th entry must match the podCIDR field. It may contain at most 1 value for
+	// each of IPv4 and IPv6.
+	// +optional
+	// +patchStrategy=merge
+	PodCIDRs []string `json:"podCIDRs,omitempty" protobuf:"bytes,7,opt,name=podCIDRs" patchStrategy:"merge"`
+	// If specified, the node's taints.
+	// +optional
+	Taints []Taint `json:"taints,omitempty" protobuf:"bytes,5,opt,name=taints"`
+}
+
+// NodeStatus is information about the current status of a node.
+type NodeStatus struct {
+	// List of addresses reachable to the node.
+	// Queried from cloud provider, if available.
+	// More info: https://kubernetes.io/docs/concepts/nodes/node/#addresses
+	// Note: This field is declared as mergeable, but the merge key is not sufficiently
+	// unique, which can cause data corruption when it is merged. Callers should instead
+	// use a full-replacement patch. See http://pr.k8s.io/79391 for an example.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	Addresses []NodeAddress `json:"addresses,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,5,rep,name=addresses"`
+}
+
+type NodeAddressType string
+
+// These are valid address type of node.
+const (
+	NodeHostName    NodeAddressType = "Hostname"
+	NodeExternalIP  NodeAddressType = "ExternalIP"
+	NodeInternalIP  NodeAddressType = "InternalIP"
+	NodeExternalDNS NodeAddressType = "ExternalDNS"
+	NodeInternalDNS NodeAddressType = "InternalDNS"
+)
+
+// NodeAddress contains information for the node's address.
+type NodeAddress struct {
+	// Node address type, one of Hostname, ExternalIP or InternalIP.
+	Type NodeAddressType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=NodeAddressType"`
+	// The node address.
+	Address string `json:"address" protobuf:"bytes,2,opt,name=address"`
+}
+
+// The node this Taint is attached to has the "effect" on
+// any pod that does not tolerate the Taint.
+type Taint struct {
+	// Required. The taint key to be applied to a node.
+	Key string `json:"key" protobuf:"bytes,1,opt,name=key"`
+	// The taint value corresponding to the taint key.
+	// +optional
+	Value string `json:"value,omitempty" protobuf:"bytes,2,opt,name=value"`
+	// Required. The effect of the taint on pods
+	// that do not tolerate the taint.
+	// Valid effects are NoSchedule, PreferNoSchedule and NoExecute.
+	Effect TaintEffect `json:"effect" protobuf:"bytes,3,opt,name=effect,casttype=TaintEffect"`
+	// TimeAdded represents the time at which the taint was added.
+	// It is only written for NoExecute taints.
+	// +optional
+	TimeAdded *slim_metav1.Time `json:"timeAdded,omitempty" protobuf:"bytes,4,opt,name=timeAdded"`
+}
+
+type TaintEffect string
+
+const (
+	// Do not allow new pods to schedule onto the node unless they tolerate the taint,
+	// but allow all pods submitted to Kubelet without going through the scheduler
+	// to start, and allow all already-running pods to continue running.
+	// Enforced by the scheduler.
+	TaintEffectNoSchedule TaintEffect = "NoSchedule"
+	// Like TaintEffectNoSchedule, but the scheduler tries not to schedule
+	// new pods onto the node, rather than prohibiting new pods from scheduling
+	// onto the node entirely. Enforced by the scheduler.
+	TaintEffectPreferNoSchedule TaintEffect = "PreferNoSchedule"
+	// NOT YET IMPLEMENTED. TODO: Uncomment field once it is implemented.
+	// Like TaintEffectNoSchedule, but additionally do not allow pods submitted to
+	// Kubelet without going through the scheduler to start.
+	// Enforced by Kubelet and the scheduler.
+	// TaintEffectNoScheduleNoAdmit TaintEffect = "NoScheduleNoAdmit"
+
+	// Evict any already-running pods that do not tolerate the taint.
+	// Currently enforced by NodeController.
+	TaintEffectNoExecute TaintEffect = "NoExecute"
+)
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NodeList is the whole list of all Nodes which have been registered with master.
+type NodeList struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
+	slim_metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// List of nodes
+	Items []Node `json:"items" protobuf:"bytes,2,rep,name=items"`
 }

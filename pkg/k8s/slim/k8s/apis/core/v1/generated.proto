@@ -98,6 +98,79 @@ message EphemeralContainers {
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
 }
 
+// Node is a worker node in Kubernetes.
+// Each node will have a unique identifier in the cache (i.e. in etcd).
+message Node {
+  // Standard object's metadata.
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ObjectMeta metadata = 1;
+
+  // Spec defines the behavior of a node.
+  // https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+  // +optional
+  optional NodeSpec spec = 2;
+
+  // Most recently observed status of the node.
+  // Populated by the system.
+  // Read-only.
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+  // +optional
+  optional NodeStatus status = 3;
+}
+
+// NodeAddress contains information for the node's address.
+message NodeAddress {
+  // Node address type, one of Hostname, ExternalIP or InternalIP.
+  optional string type = 1;
+
+  // The node address.
+  optional string address = 2;
+}
+
+// NodeList is the whole list of all Nodes which have been registered with master.
+message NodeList {
+  // Standard list metadata.
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
+
+  // List of nodes
+  repeated Node items = 2;
+}
+
+// NodeSpec describes the attributes that a node is created with.
+message NodeSpec {
+  // PodCIDR represents the pod IP range assigned to the node.
+  // +optional
+  optional string podCIDR = 1;
+
+  // podCIDRs represents the IP ranges assigned to the node for usage by Pods on that node. If this
+  // field is specified, the 0th entry must match the podCIDR field. It may contain at most 1 value for
+  // each of IPv4 and IPv6.
+  // +optional
+  // +patchStrategy=merge
+  repeated string podCIDRs = 7;
+
+  // If specified, the node's taints.
+  // +optional
+  repeated Taint taints = 5;
+}
+
+// NodeStatus is information about the current status of a node.
+message NodeStatus {
+  // List of addresses reachable to the node.
+  // Queried from cloud provider, if available.
+  // More info: https://kubernetes.io/docs/concepts/nodes/node/#addresses
+  // Note: This field is declared as mergeable, but the merge key is not sufficiently
+  // unique, which can cause data corruption when it is merged. Callers should instead
+  // use a full-replacement patch. See http://pr.k8s.io/79391 for an example.
+  // +optional
+  // +patchMergeKey=type
+  // +patchStrategy=merge
+  repeated NodeAddress addresses = 5;
+}
+
 // Pod is a collection of containers that can run on a host. This resource is created
 // by clients and scheduled onto hosts.
 message Pod {
@@ -200,6 +273,27 @@ message PodStatus {
   // +patchStrategy=merge
   // +patchMergeKey=ip
   repeated PodIP podIPs = 12;
+}
+
+// The node this Taint is attached to has the "effect" on
+// any pod that does not tolerate the Taint.
+message Taint {
+  // Required. The taint key to be applied to a node.
+  optional string key = 1;
+
+  // The taint value corresponding to the taint key.
+  // +optional
+  optional string value = 2;
+
+  // Required. The effect of the taint on pods
+  // that do not tolerate the taint.
+  // Valid effects are NoSchedule, PreferNoSchedule and NoExecute.
+  optional string effect = 3;
+
+  // TimeAdded represents the time at which the taint was added.
+  // It is only written for NoExecute taints.
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time timeAdded = 4;
 }
 
 // VolumeMount describes a mounting of a Volume within a container.

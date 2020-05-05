@@ -104,6 +104,42 @@ message ObjectMeta {
   map<string, string> annotations = 12;
 }
 
+// Time is a wrapper around time.Time which supports correct
+// marshaling to YAML and JSON.  Wrappers are provided for many
+// of the factory methods that the time package offers.
+//
+// +protobuf.options.marshal=false
+// +protobuf.as=Timestamp
+// +protobuf.options.(gogoproto.goproto_stringer)=false
+message Time {
+  // Represents seconds of UTC time since Unix epoch
+  // 1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
+  // 9999-12-31T23:59:59Z inclusive.
+  optional int64 seconds = 1;
+
+  // Non-negative fractions of a second at nanosecond resolution. Negative
+  // second values with fractions must still have non-negative nanos values
+  // that count forward in time. Must be from 0 to 999,999,999
+  // inclusive. This field may be limited in precision depending on context.
+  optional int32 nanos = 2;
+}
+
+// Timestamp is a struct that is equivalent to Time, but intended for
+// protobuf marshalling/unmarshalling. It is generated into a serialization
+// that matches Time. Do not use in Go structs.
+message Timestamp {
+  // Represents seconds of UTC time since Unix epoch
+  // 1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to
+  // 9999-12-31T23:59:59Z inclusive.
+  optional int64 seconds = 1;
+
+  // Non-negative fractions of a second at nanosecond resolution. Negative
+  // second values with fractions must still have non-negative nanos values
+  // that count forward in time. Must be from 0 to 999,999,999
+  // inclusive. This field may be limited in precision depending on context.
+  optional int32 nanos = 2;
+}
+
 // TypeMeta describes an individual object in an API response or request
 // with strings representing the type of the object and its API schema version.
 // Structures that are versioned or persisted should inline TypeMeta.
