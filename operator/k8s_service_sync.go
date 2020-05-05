@@ -181,7 +181,7 @@ func startSynchronizingServices() {
 		}
 		fallthrough
 	default:
-		endpointController = endpointsInit(k8s.Client(), swgEps)
+		endpointController = endpointsInit(k8s.WatcherCli(), swgEps)
 		go endpointController.Run(wait.NeverStop)
 	}
 
@@ -209,7 +209,7 @@ func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGro
 			// Don't get any events from kubernetes endpoints.
 			fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager"),
 		),
-		&v1.Endpoints{},
+		&slim_corev1.Endpoints{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -248,7 +248,7 @@ func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGro
 				k8sSvcCache.DeleteEndpoints(k8sEP, swgEps)
 			},
 		},
-		k8s.ConvertToK8sEndpoints,
+		nil,
 	)
 	return endpointController
 }

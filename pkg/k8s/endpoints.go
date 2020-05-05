@@ -26,6 +26,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
@@ -137,7 +138,7 @@ func (e *Endpoints) CIDRPrefixes() ([]*net.IPNet, error) {
 }
 
 // ParseEndpointsID parses a Kubernetes endpoints and returns the ServiceID
-func ParseEndpointsID(svc *types.Endpoints) ServiceID {
+func ParseEndpointsID(svc *slim_corev1.Endpoints) ServiceID {
 	return ServiceID{
 		Name:      svc.ObjectMeta.Name,
 		Namespace: svc.ObjectMeta.Namespace,
@@ -145,7 +146,7 @@ func ParseEndpointsID(svc *types.Endpoints) ServiceID {
 }
 
 // ParseEndpoints parses a Kubernetes Endpoints resource
-func ParseEndpoints(ep *types.Endpoints) (ServiceID, *Endpoints) {
+func ParseEndpoints(ep *slim_corev1.Endpoints) (ServiceID, *Endpoints) {
 	endpoints := newEndpoints()
 
 	for _, sub := range ep.Subsets {

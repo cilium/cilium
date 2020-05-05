@@ -28,7 +28,6 @@ import (
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
@@ -40,8 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
-	v1 "k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -183,21 +180,19 @@ func (f *fakeSvcManager) UpsertService(frontend loadbalancer.L3n4AddrID,
 
 func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 
-	ep1stApply := &types.Endpoints{
-		Endpoints: &v1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-			Subsets: []v1.EndpointSubset{
-				{
-					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
-					Ports: []v1.EndpointPort{
-						{
-							Name:     "http-test-svc",
-							Port:     8080,
-							Protocol: v1.ProtocolTCP,
-						},
+	ep1stApply := &slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{{IP: "2.2.2.2"}},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "http-test-svc",
+						Port:     8080,
+						Protocol: slim_corev1.ProtocolTCP,
 					},
 				},
 			},
@@ -207,7 +202,7 @@ func (s *K8sWatcherSuite) TestUpdateToServiceEndpointsGH9525(c *C) {
 	ep2ndApply := ep1stApply.DeepCopy()
 	ep2ndApply.Subsets[0].Addresses = append(
 		ep2ndApply.Subsets[0].Addresses,
-		v1.EndpointAddress{IP: "3.3.3.3"},
+		slim_corev1.EndpointAddress{IP: "3.3.3.3"},
 	)
 
 	policyManagerCalls := 0
@@ -316,34 +311,32 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		},
 	}
 
-	ep1stApply := &types.Endpoints{
-		Endpoints: &v1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-			Subsets: []v1.EndpointSubset{
-				{
-					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
-					Ports: []v1.EndpointPort{
-						{
-							Name:     "port-udp-80",
-							Port:     8080,
-							Protocol: v1.ProtocolUDP,
-						},
-						// FIXME: We don't distinguish about the protocol being used
-						//        so we can't tell if a UDP/80 maps to port 8080/udp
-						//        or if TCP/80 maps to port 8081/TCP
-						// {
-						// 	Name:     "port-tcp-80",
-						// 	Protocol: v1.ProtocolTCP,
-						// 	Port:     8081,
-						// },
-						{
-							Name:     "port-tcp-81",
-							Protocol: v1.ProtocolTCP,
-							Port:     81,
-						},
+	ep1stApply := &slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{{IP: "2.2.2.2"}},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "port-udp-80",
+						Port:     8080,
+						Protocol: slim_corev1.ProtocolUDP,
+					},
+					// FIXME: We don't distinguish about the protocol being used
+					//        so we can't tell if a UDP/80 maps to port 8080/udp
+					//        or if TCP/80 maps to port 8081/TCP
+					// {
+					// 	Name:     "port-tcp-80",
+					// 	Protocol:slim_corev1.ProtocolTCP,
+					// 	Port:     8081,
+					// },
+					{
+						Name:     "port-tcp-81",
+						Protocol: slim_corev1.ProtocolTCP,
+						Port:     81,
 					},
 				},
 			},
@@ -407,7 +400,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 	ep2ndApply := ep1stApply.DeepCopy()
 	ep2ndApply.Subsets[0].Addresses = append(
 		ep2ndApply.Subsets[0].Addresses,
-		v1.EndpointAddress{IP: "3.3.3.3"},
+		slim_corev1.EndpointAddress{IP: "3.3.3.3"},
 	)
 
 	upsert2ndWanted := map[string]loadbalancer.SVC{
@@ -606,21 +599,19 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		},
 	}
 
-	ep1stApply := &types.Endpoints{
-		Endpoints: &v1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-			Subsets: []v1.EndpointSubset{
-				{
-					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
-					Ports: []v1.EndpointPort{
-						{
-							Name:     "port-udp-80",
-							Port:     8080,
-							Protocol: v1.ProtocolUDP,
-						},
+	ep1stApply := &slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{{IP: "2.2.2.2"}},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "port-udp-80",
+						Port:     8080,
+						Protocol: slim_corev1.ProtocolUDP,
 					},
 				},
 			},
@@ -778,34 +769,32 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		},
 	}
 
-	ep1stApply := &types.Endpoints{
-		Endpoints: &v1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-			Subsets: []v1.EndpointSubset{
-				{
-					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
-					Ports: []v1.EndpointPort{
-						{
-							Name:     "port-udp-80",
-							Port:     8080,
-							Protocol: v1.ProtocolUDP,
-						},
-						// FIXME: We don't distinguish about the protocol being used
-						//        so we can't tell if a UDP/80 maps to port 8080/udp
-						//        or if TCP/80 maps to port 8081/TCP
-						// {
-						// 	Name:     "port-tcp-80",
-						// 	Protocol: v1.ProtocolTCP,
-						// 	Port:     8081,
-						// },
-						{
-							Name:     "port-tcp-81",
-							Protocol: v1.ProtocolTCP,
-							Port:     8081,
-						},
+	ep1stApply := &slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{{IP: "2.2.2.2"}},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "port-udp-80",
+						Port:     8080,
+						Protocol: slim_corev1.ProtocolUDP,
+					},
+					// FIXME: We don't distinguish about the protocol being used
+					//        so we can't tell if a UDP/80 maps to port 8080/udp
+					//        or if TCP/80 maps to port 8081/TCP
+					// {
+					// 	Name:     "port-tcp-80",
+					// 	Protocol:slim_corev1.ProtocolTCP,
+					// 	Port:     8081,
+					// },
+					{
+						Name:     "port-tcp-81",
+						Protocol: slim_corev1.ProtocolTCP,
+						Port:     8081,
 					},
 				},
 			},
@@ -937,7 +926,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 	ep2ndApply := ep1stApply.DeepCopy()
 	ep2ndApply.Subsets[0].Addresses = append(
 		ep2ndApply.Subsets[0].Addresses,
-		v1.EndpointAddress{IP: "3.3.3.3"},
+		slim_corev1.EndpointAddress{IP: "3.3.3.3"},
 	)
 
 	upsert2ndWanted := map[string]loadbalancer.SVC{
@@ -1261,26 +1250,24 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		},
 	}
 
-	ep1stApply := &types.Endpoints{
-		Endpoints: &v1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-			Subsets: []v1.EndpointSubset{
-				{
-					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
-					Ports: []v1.EndpointPort{
-						{
-							Name:     "port-udp-80",
-							Port:     8080,
-							Protocol: v1.ProtocolUDP,
-						},
-						{
-							Name:     "port-tcp-81",
-							Protocol: v1.ProtocolTCP,
-							Port:     8081,
-						},
+	ep1stApply := &slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{{IP: "2.2.2.2"}},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "port-udp-80",
+						Port:     8080,
+						Protocol: slim_corev1.ProtocolUDP,
+					},
+					{
+						Name:     "port-tcp-81",
+						Protocol: slim_corev1.ProtocolTCP,
+						Port:     8081,
 					},
 				},
 			},
@@ -1538,47 +1525,43 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		},
 	}
 
-	ep1stApply := &types.Endpoints{
-		Endpoints: &v1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-			Subsets: []v1.EndpointSubset{
-				{
-					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
-					Ports: []v1.EndpointPort{
-						{
-							Name:     "port-udp-80",
-							Port:     8080,
-							Protocol: v1.ProtocolUDP,
-						},
-						{
-							Name:     "port-tcp-81",
-							Protocol: v1.ProtocolTCP,
-							Port:     8081,
-						},
+	ep1stApply := &slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{{IP: "2.2.2.2"}},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "port-udp-80",
+						Port:     8080,
+						Protocol: slim_corev1.ProtocolUDP,
+					},
+					{
+						Name:     "port-tcp-81",
+						Protocol: slim_corev1.ProtocolTCP,
+						Port:     8081,
 					},
 				},
 			},
 		},
 	}
 
-	ep2ndApply := &types.Endpoints{
-		Endpoints: &v1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-			Subsets: []v1.EndpointSubset{
-				{
-					Addresses: []v1.EndpointAddress{{IP: "3.3.3.3"}},
-					Ports: []v1.EndpointPort{
-						{
-							Name:     "port-udp-80",
-							Port:     8080,
-							Protocol: v1.ProtocolUDP,
-						},
+	ep2ndApply := &slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{{IP: "3.3.3.3"}},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "port-udp-80",
+						Port:     8080,
+						Protocol: slim_corev1.ProtocolUDP,
 					},
 				},
 			},
@@ -1854,34 +1837,32 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 	svc2ndApply := svc1stApply.DeepCopy()
 	svc2ndApply.Spec.ExternalIPs = []string{"127.8.8.8"}
 
-	ep1stApply := &types.Endpoints{
-		Endpoints: &v1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-			Subsets: []v1.EndpointSubset{
-				{
-					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
-					Ports: []v1.EndpointPort{
-						{
-							Name:     "port-udp-80",
-							Port:     8080,
-							Protocol: v1.ProtocolUDP,
-						},
-						// FIXME: We don't distinguish about the protocol being used
-						//        so we can't tell if a UDP/80 maps to port 8080/udp
-						//        or if TCP/80 maps to port 8081/TCP
-						// {
-						// 	Name:     "port-tcp-80",
-						// 	Protocol: v1.ProtocolTCP,
-						// 	Port:     8081,
-						// },
-						{
-							Name:     "port-tcp-81",
-							Protocol: v1.ProtocolTCP,
-							Port:     8081,
-						},
+	ep1stApply := &slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{{IP: "2.2.2.2"}},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "port-udp-80",
+						Port:     8080,
+						Protocol: slim_corev1.ProtocolUDP,
+					},
+					// FIXME: We don't distinguish about the protocol being used
+					//        so we can't tell if a UDP/80 maps to port 8080/udp
+					//        or if TCP/80 maps to port 8081/TCP
+					// {
+					// 	Name:     "port-tcp-80",
+					// 	Protocol:slim_corev1.ProtocolTCP,
+					// 	Port:     8081,
+					// },
+					{
+						Name:     "port-tcp-81",
+						Protocol: slim_corev1.ProtocolTCP,
+						Port:     8081,
 					},
 				},
 			},
@@ -1891,7 +1872,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 	ep2ndApply := ep1stApply.DeepCopy()
 	ep2ndApply.Subsets[0].Addresses = append(
 		ep2ndApply.Subsets[0].Addresses,
-		v1.EndpointAddress{IP: "3.3.3.3"},
+		slim_corev1.EndpointAddress{IP: "3.3.3.3"},
 	)
 
 	clusterIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, 0)

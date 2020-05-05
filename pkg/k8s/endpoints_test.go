@@ -22,6 +22,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
@@ -270,7 +272,7 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 	nodeName := "k8s1"
 
 	type args struct {
-		eps *types.Endpoints
+		eps *slim_corev1.Endpoints
 	}
 	tests := []struct {
 		name        string
@@ -281,12 +283,10 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			name: "empty endpoint",
 			setupArgs: func() args {
 				return args{
-					eps: &types.Endpoints{
-						Endpoints: &v1.Endpoints{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "foo",
-								Namespace: "bar",
-							},
+					eps: &slim_corev1.Endpoints{
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
 						},
 					},
 				}
@@ -299,26 +299,24 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			name: "endpoint with an address and port",
 			setupArgs: func() args {
 				return args{
-					eps: &types.Endpoints{
-						Endpoints: &v1.Endpoints{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "foo",
-								Namespace: "bar",
-							},
-							Subsets: []v1.EndpointSubset{
-								{
-									Addresses: []v1.EndpointAddress{
-										{
-											IP:       "172.0.0.1",
-											NodeName: &nodeName,
-										},
+					eps: &slim_corev1.Endpoints{
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Subsets: []slim_corev1.EndpointSubset{
+							{
+								Addresses: []slim_corev1.EndpointAddress{
+									{
+										IP:       "172.0.0.1",
+										NodeName: &nodeName,
 									},
-									Ports: []v1.EndpointPort{
-										{
-											Name:     "http-test-svc",
-											Port:     8080,
-											Protocol: v1.ProtocolTCP,
-										},
+								},
+								Ports: []slim_corev1.EndpointPort{
+									{
+										Name:     "http-test-svc",
+										Port:     8080,
+										Protocol: slim_corev1.ProtocolTCP,
 									},
 								},
 							},
@@ -341,31 +339,29 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			name: "endpoint with an address and 2 ports",
 			setupArgs: func() args {
 				return args{
-					eps: &types.Endpoints{
-						Endpoints: &v1.Endpoints{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "foo",
-								Namespace: "bar",
-							},
-							Subsets: []v1.EndpointSubset{
-								{
-									Addresses: []v1.EndpointAddress{
-										{
-											IP:       "172.0.0.1",
-											NodeName: &nodeName,
-										},
+					eps: &slim_corev1.Endpoints{
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Subsets: []slim_corev1.EndpointSubset{
+							{
+								Addresses: []slim_corev1.EndpointAddress{
+									{
+										IP:       "172.0.0.1",
+										NodeName: &nodeName,
 									},
-									Ports: []v1.EndpointPort{
-										{
-											Name:     "http-test-svc",
-											Port:     8080,
-											Protocol: v1.ProtocolTCP,
-										},
-										{
-											Name:     "http-test-svc-2",
-											Port:     8081,
-											Protocol: v1.ProtocolTCP,
-										},
+								},
+								Ports: []slim_corev1.EndpointPort{
+									{
+										Name:     "http-test-svc",
+										Port:     8080,
+										Protocol: slim_corev1.ProtocolTCP,
+									},
+									{
+										Name:     "http-test-svc-2",
+										Port:     8081,
+										Protocol: slim_corev1.ProtocolTCP,
 									},
 								},
 							},
@@ -389,34 +385,32 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			name: "endpoint with 2 addresses and 2 ports",
 			setupArgs: func() args {
 				return args{
-					eps: &types.Endpoints{
-						Endpoints: &v1.Endpoints{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "foo",
-								Namespace: "bar",
-							},
-							Subsets: []v1.EndpointSubset{
-								{
-									Addresses: []v1.EndpointAddress{
-										{
-											IP:       "172.0.0.1",
-											NodeName: &nodeName,
-										},
-										{
-											IP: "172.0.0.2",
-										},
+					eps: &slim_corev1.Endpoints{
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Subsets: []slim_corev1.EndpointSubset{
+							{
+								Addresses: []slim_corev1.EndpointAddress{
+									{
+										IP:       "172.0.0.1",
+										NodeName: &nodeName,
 									},
-									Ports: []v1.EndpointPort{
-										{
-											Name:     "http-test-svc",
-											Port:     8080,
-											Protocol: v1.ProtocolTCP,
-										},
-										{
-											Name:     "http-test-svc-2",
-											Port:     8081,
-											Protocol: v1.ProtocolTCP,
-										},
+									{
+										IP: "172.0.0.2",
+									},
+								},
+								Ports: []slim_corev1.EndpointPort{
+									{
+										Name:     "http-test-svc",
+										Port:     8080,
+										Protocol: slim_corev1.ProtocolTCP,
+									},
+									{
+										Name:     "http-test-svc-2",
+										Port:     8081,
+										Protocol: slim_corev1.ProtocolTCP,
 									},
 								},
 							},
@@ -446,39 +440,32 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 			name: "endpoint with 2 addresses, 1 address not ready and 2 ports",
 			setupArgs: func() args {
 				return args{
-					eps: &types.Endpoints{
-						Endpoints: &v1.Endpoints{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "foo",
-								Namespace: "bar",
-							},
-							Subsets: []v1.EndpointSubset{
-								{
-									NotReadyAddresses: []v1.EndpointAddress{
-										{
-											IP: "172.0.0.3",
-										},
+					eps: &slim_corev1.Endpoints{
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Subsets: []slim_corev1.EndpointSubset{
+							{
+								Addresses: []slim_corev1.EndpointAddress{
+									{
+										IP:       "172.0.0.1",
+										NodeName: &nodeName,
 									},
-									Addresses: []v1.EndpointAddress{
-										{
-											IP:       "172.0.0.1",
-											NodeName: &nodeName,
-										},
-										{
-											IP: "172.0.0.2",
-										},
+									{
+										IP: "172.0.0.2",
 									},
-									Ports: []v1.EndpointPort{
-										{
-											Name:     "http-test-svc",
-											Port:     8080,
-											Protocol: v1.ProtocolTCP,
-										},
-										{
-											Name:     "http-test-svc-2",
-											Port:     8081,
-											Protocol: v1.ProtocolTCP,
-										},
+								},
+								Ports: []slim_corev1.EndpointPort{
+									{
+										Name:     "http-test-svc",
+										Port:     8080,
+										Protocol: slim_corev1.ProtocolTCP,
+									},
+									{
+										Name:     "http-test-svc-2",
+										Port:     8081,
+										Protocol: slim_corev1.ProtocolTCP,
 									},
 								},
 							},
@@ -514,33 +501,31 @@ func (s *K8sSuite) Test_parseK8sEPv1(c *check.C) {
 }
 
 func (s *K8sSuite) TestEndpointsString(c *check.C) {
-	endpoints := &types.Endpoints{
-		Endpoints: &v1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-			Subsets: []v1.EndpointSubset{
-				{
-					Addresses: []v1.EndpointAddress{
-						{
-							IP: "172.0.0.2",
-						},
-						{
-							IP: "172.0.0.1",
-						},
+	endpoints := &slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{
+					{
+						IP: "172.0.0.2",
 					},
-					Ports: []v1.EndpointPort{
-						{
-							Name:     "http-test-svc-2",
-							Port:     8081,
-							Protocol: v1.ProtocolTCP,
-						},
-						{
-							Name:     "http-test-svc",
-							Port:     8080,
-							Protocol: v1.ProtocolTCP,
-						},
+					{
+						IP: "172.0.0.1",
+					},
+				},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "http-test-svc-2",
+						Port:     8081,
+						Protocol: slim_corev1.ProtocolTCP,
+					},
+					{
+						Name:     "http-test-svc",
+						Port:     8080,
+						Protocol: slim_corev1.ProtocolTCP,
 					},
 				},
 			},

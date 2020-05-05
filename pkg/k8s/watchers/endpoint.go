@@ -17,7 +17,7 @@ package watchers
 import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -35,7 +35,7 @@ func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.
 			"endpoints", v1.NamespaceAll,
 			fields.ParseSelectorOrDie(option.Config.K8sWatcherEndpointSelector),
 		),
-		&v1.Endpoints{},
+		&slim_corev1.Endpoints{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -85,24 +85,24 @@ func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.
 				k.K8sEventProcessed(metricEndpoint, metricDelete, err == nil)
 			},
 		},
-		k8s.ConvertToK8sEndpoints,
+		nil,
 	)
 	k.blockWaitGroupToSyncResources(wait.NeverStop, swgEps, endpointController, K8sAPIGroupEndpointV1Core)
 	go endpointController.Run(wait.NeverStop)
 	k.k8sAPIGroups.addAPI(K8sAPIGroupEndpointV1Core)
 }
 
-func (k *K8sWatcher) addK8sEndpointV1(ep *types.Endpoints, swg *lock.StoppableWaitGroup) error {
+func (k *K8sWatcher) addK8sEndpointV1(ep *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) error {
 	k.K8sSvcCache.UpdateEndpoints(ep, swg)
 	return nil
 }
 
-func (k *K8sWatcher) updateK8sEndpointV1(oldEP, newEP *types.Endpoints, swg *lock.StoppableWaitGroup) error {
+func (k *K8sWatcher) updateK8sEndpointV1(oldEP, newEP *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) error {
 	k.K8sSvcCache.UpdateEndpoints(newEP, swg)
 	return nil
 }
 
-func (k *K8sWatcher) deleteK8sEndpointV1(ep *types.Endpoints, swg *lock.StoppableWaitGroup) error {
+func (k *K8sWatcher) deleteK8sEndpointV1(ep *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) error {
 	k.K8sSvcCache.DeleteEndpoints(ep, swg)
 	return nil
 }

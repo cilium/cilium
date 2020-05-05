@@ -150,8 +150,8 @@ func (s *K8sSuite) Test_EqualV2CNP(c *C) {
 
 func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 	type args struct {
-		o1 *types.Endpoints
-		o2 *types.Endpoints
+		o1 *slim_corev1.Endpoints
+		o2 *slim_corev1.Endpoints
 	}
 	tests := []struct {
 		name string
@@ -161,18 +161,14 @@ func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 		{
 			name: "EPs with the same name",
 			args: args{
-				o1: &types.Endpoints{
-					Endpoints: &core_v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "rule1",
-						},
+				o1: &slim_corev1.Endpoints{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name: "rule1",
 					},
 				},
-				o2: &types.Endpoints{
-					Endpoints: &core_v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "rule1",
-						},
+				o2: &slim_corev1.Endpoints{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name: "rule1",
 					},
 				},
 			},
@@ -181,27 +177,23 @@ func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 		{
 			name: "EPs with the different spec",
 			args: args{
-				o1: &types.Endpoints{
-					Endpoints: &core_v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "rule1",
-						},
-						Subsets: []core_v1.EndpointSubset{
-							{
-								Addresses: []core_v1.EndpointAddress{
-									{
-										IP: "172.0.0.1",
-									},
+				o1: &slim_corev1.Endpoints{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name: "rule1",
+					},
+					Subsets: []slim_corev1.EndpointSubset{
+						{
+							Addresses: []slim_corev1.EndpointAddress{
+								{
+									IP: "172.0.0.1",
 								},
 							},
 						},
 					},
 				},
-				o2: &types.Endpoints{
-					Endpoints: &core_v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "rule1",
-						},
+				o2: &slim_corev1.Endpoints{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name: "rule1",
 					},
 				},
 			},
@@ -210,33 +202,29 @@ func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 		{
 			name: "EPs with the same spec",
 			args: args{
-				o1: &types.Endpoints{
-					Endpoints: &core_v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "rule1",
-						},
-						Subsets: []core_v1.EndpointSubset{
-							{
-								Addresses: []core_v1.EndpointAddress{
-									{
-										IP: "172.0.0.1",
-									},
+				o1: &slim_corev1.Endpoints{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name: "rule1",
+					},
+					Subsets: []slim_corev1.EndpointSubset{
+						{
+							Addresses: []slim_corev1.EndpointAddress{
+								{
+									IP: "172.0.0.1",
 								},
 							},
 						},
 					},
 				},
-				o2: &types.Endpoints{
-					Endpoints: &core_v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "rule1",
-						},
-						Subsets: []core_v1.EndpointSubset{
-							{
-								Addresses: []core_v1.EndpointAddress{
-									{
-										IP: "172.0.0.1",
-									},
+				o2: &slim_corev1.Endpoints{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name: "rule1",
+					},
+					Subsets: []slim_corev1.EndpointSubset{
+						{
+							Addresses: []slim_corev1.EndpointAddress{
+								{
+									IP: "172.0.0.1",
 								},
 							},
 						},
@@ -248,39 +236,35 @@ func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 		{
 			name: "EPs with the same spec (multiple IPs)",
 			args: args{
-				o1: &types.Endpoints{
-					Endpoints: &core_v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "rule1",
-						},
-						Subsets: []core_v1.EndpointSubset{
-							{
-								Addresses: []core_v1.EndpointAddress{
-									{
-										IP: "172.0.0.1",
-									},
-									{
-										IP: "172.0.0.2",
-									},
+				o1: &slim_corev1.Endpoints{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name: "rule1",
+					},
+					Subsets: []slim_corev1.EndpointSubset{
+						{
+							Addresses: []slim_corev1.EndpointAddress{
+								{
+									IP: "172.0.0.1",
+								},
+								{
+									IP: "172.0.0.2",
 								},
 							},
 						},
 					},
 				},
-				o2: &types.Endpoints{
-					Endpoints: &core_v1.Endpoints{
-						ObjectMeta: metav1.ObjectMeta{
-							Name: "rule1",
-						},
-						Subsets: []core_v1.EndpointSubset{
-							{
-								Addresses: []core_v1.EndpointAddress{
-									{
-										IP: "172.0.0.1",
-									},
-									{
-										IP: "172.0.0.2",
-									},
+				o2: &slim_corev1.Endpoints{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name: "rule1",
+					},
+					Subsets: []slim_corev1.EndpointSubset{
+						{
+							Addresses: []slim_corev1.EndpointAddress{
+								{
+									IP: "172.0.0.1",
+								},
+								{
+									IP: "172.0.0.2",
 								},
 							},
 						},
@@ -1042,66 +1026,6 @@ func (s *K8sSuite) Test_ConvertToK8sService(c *C) {
 	}
 	for _, tt := range tests {
 		got := ConvertToK8sService(tt.args.obj)
-		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
-	}
-}
-
-func (s *K8sSuite) Test_ConvertToK8sEndpoints(c *C) {
-	type args struct {
-		obj interface{}
-	}
-	tests := []struct {
-		name string
-		args args
-		want interface{}
-	}{
-		{
-			name: "normal conversion",
-			args: args{
-				obj: &v1.Endpoints{},
-			},
-			want: &types.Endpoints{
-				Endpoints: &v1.Endpoints{},
-			},
-		},
-		{
-			name: "delete final state unknown conversion",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: &v1.Endpoints{},
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: &types.Endpoints{
-					Endpoints: &v1.Endpoints{},
-				},
-			},
-		},
-		{
-			name: "unknown object type in delete final state unknown conversion",
-			args: args{
-				obj: cache.DeletedFinalStateUnknown{
-					Key: "foo",
-					Obj: 100,
-				},
-			},
-			want: cache.DeletedFinalStateUnknown{
-				Key: "foo",
-				Obj: 100,
-			},
-		},
-		{
-			name: "unknown object type in conversion",
-			args: args{
-				obj: 100,
-			},
-			want: 100,
-		},
-	}
-	for _, tt := range tests {
-		got := ConvertToK8sEndpoints(tt.args.obj)
 		c.Assert(got, checker.DeepEquals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
