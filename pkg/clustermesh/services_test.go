@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -41,8 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/testutils/allocator"
 
 	. "gopkg.in/check.v1"
-	"k8s.io/api/core/v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var etcdConfig = []byte(fmt.Sprintf("endpoints:\n- %s\n", kvstore.EtcdDummyAddress()))
@@ -168,21 +165,19 @@ func (s *ClusterMeshServicesTestSuite) TestClusterMeshServicesGlobal(c *C) {
 			event.Endpoints.Backends["20.0.185.196"] != nil
 	})
 
-	k8sEndpoints := &types.Endpoints{
-		Endpoints: &v1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "default",
-			},
-			Subsets: []v1.EndpointSubset{
-				{
-					Addresses: []v1.EndpointAddress{{IP: "30.0.185.196"}},
-					Ports: []v1.EndpointPort{
-						{
-							Name:     "http",
-							Port:     100,
-							Protocol: v1.ProtocolTCP,
-						},
+	k8sEndpoints := &slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "default",
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{{IP: "30.0.185.196"}},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "http",
+						Port:     100,
+						Protocol: slim_corev1.ProtocolTCP,
 					},
 				},
 			},

@@ -443,7 +443,7 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 		}
 		fallthrough
 	default:
-		k.endpointsInit(k8s.Client(), swgEps)
+		k.endpointsInit(k8s.WatcherCli(), swgEps)
 	}
 
 	// cilium network policies

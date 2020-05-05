@@ -114,21 +114,19 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 }
 
 func (s *K8sSuite) TestServiceCacheEndpoints(c *check.C) {
-	k8sEndpoints := &types.Endpoints{
-		Endpoints: &v1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-			Subsets: []v1.EndpointSubset{
-				{
-					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
-					Ports: []v1.EndpointPort{
-						{
-							Name:     "http-test-svc",
-							Port:     8080,
-							Protocol: v1.ProtocolTCP,
-						},
+	k8sEndpoints := &slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{{IP: "2.2.2.2"}},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "http-test-svc",
+						Port:     8080,
+						Protocol: slim_corev1.ProtocolTCP,
 					},
 				},
 			},
@@ -355,21 +353,19 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 	swgSvcs := lock.NewStoppableWaitGroup()
 	svcID := svcCache.UpdateService(k8sSvc, swgSvcs)
 
-	k8sEndpoints := &types.Endpoints{
-		Endpoints: &v1.Endpoints{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-			},
-			Subsets: []v1.EndpointSubset{
-				{
-					Addresses: []v1.EndpointAddress{{IP: "2.2.2.2"}},
-					Ports: []v1.EndpointPort{
-						{
-							Name:     "http-test-svc",
-							Port:     8080,
-							Protocol: v1.ProtocolTCP,
-						},
+	k8sEndpoints := &slim_corev1.Endpoints{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+		},
+		Subsets: []slim_corev1.EndpointSubset{
+			{
+				Addresses: []slim_corev1.EndpointAddress{{IP: "2.2.2.2"}},
+				Ports: []slim_corev1.EndpointPort{
+					{
+						Name:     "http-test-svc",
+						Port:     8080,
+						Protocol: slim_corev1.ProtocolTCP,
 					},
 				},
 			},

@@ -52,8 +52,8 @@ func ObjToV1Services(obj interface{}) *slim_corev1.Service {
 	return svc
 }
 
-func ObjToV1Endpoints(obj interface{}) *types.Endpoints {
-	ep, ok := obj.(*types.Endpoints)
+func ObjToV1Endpoints(obj interface{}) *slim_corev1.Endpoints {
+	ep, ok := obj.(*slim_corev1.Endpoints)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 Endpoints")
@@ -139,7 +139,7 @@ func EqualV1Services(k8sSVC1, k8sSVC2 *slim_corev1.Service, nodeAddressing datap
 	return svc1.DeepEquals(svc2)
 }
 
-func EqualV1Endpoints(ep1, ep2 *types.Endpoints) bool {
+func EqualV1Endpoints(ep1, ep2 *slim_corev1.Endpoints) bool {
 	// We only care about the Name, Namespace and Subsets of a particular
 	// endpoint.
 	return ep1.Name == ep2.Name &&
@@ -457,34 +457,6 @@ func ConvertToK8sService(obj interface{}) interface{} {
 						Ingress: convertToK8sLoadBalancerIngress(svc.Status.LoadBalancer.Ingress),
 					},
 				},
-			},
-		}
-	default:
-		return obj
-	}
-}
-
-// ConvertToK8sEndpoints converts a *v1.Endpoints into a
-// *types.Endpoints or a cache.DeletedFinalStateUnknown into
-// a cache.DeletedFinalStateUnknown with a *types.Endpoints in its Obj.
-// If the given obj can't be cast into either *v1.Endpoints
-// nor cache.DeletedFinalStateUnknown, the original obj is returned.
-func ConvertToK8sEndpoints(obj interface{}) interface{} {
-	// TODO check which fields we really need
-	switch concreteObj := obj.(type) {
-	case *v1.Endpoints:
-		return &types.Endpoints{
-			Endpoints: concreteObj,
-		}
-	case cache.DeletedFinalStateUnknown:
-		eps, ok := concreteObj.Obj.(*v1.Endpoints)
-		if !ok {
-			return obj
-		}
-		return cache.DeletedFinalStateUnknown{
-			Key: concreteObj.Key,
-			Obj: &types.Endpoints{
-				Endpoints: eps,
 			},
 		}
 	default:

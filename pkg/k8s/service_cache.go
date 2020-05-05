@@ -212,7 +212,7 @@ func (s *ServiceCache) updateEndpoints(svcID ServiceID, newEndpoints *Endpoints,
 // ServiceCache. Returns the ServiceID unless the Kubernetes endpoints could not
 // be parsed and a bool to indicate whether the endpoints was changed in the
 // cache or not.
-func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *types.Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
 	svcID, newEndpoints := ParseEndpoints(k8sEndpoints)
 
 	return s.updateEndpoints(svcID, newEndpoints, swg)
@@ -254,7 +254,7 @@ func (s *ServiceCache) deleteEndpoints(svcID ServiceID, swg *lock.StoppableWaitG
 
 // DeleteEndpoints parses a Kubernetes endpoints and removes it from the
 // ServiceCache
-func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *types.Endpoints, swg *lock.StoppableWaitGroup) ServiceID {
+func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) ServiceID {
 	svcID := ParseEndpointsID(k8sEndpoints)
 
 	return s.deleteEndpoints(svcID, swg)
