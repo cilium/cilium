@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -115,9 +116,9 @@ func startSynchronizingServices() {
 
 	// Watch for v1.Service changes and push changes into ServiceCache
 	_, svcController := informer.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+		cache.NewListWatchFromClient(k8s.WatcherCli().CoreV1().RESTClient(),
 			"services", v1.NamespaceAll, fields.Everything()),
-		&v1.Service{},
+		&slim_corev1.Service{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -160,7 +161,7 @@ func startSynchronizingServices() {
 				k8sSvcCache.DeleteService(k8sSvc, swgSvcs)
 			},
 		},
-		k8s.ConvertToK8sService,
+	nil,
 	)
 
 	go svcController.Run(wait.NeverStop)

@@ -897,8 +897,8 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 
 func (s *K8sSuite) Test_EqualV1Service(c *C) {
 	type args struct {
-		o1 *types.Service
-		o2 *types.Service
+		o1 *slim_corev1.Service
+		o2 *slim_corev1.Service
 	}
 	tests := []struct {
 		name string
@@ -908,19 +908,15 @@ func (s *K8sSuite) Test_EqualV1Service(c *C) {
 		{
 			name: "Service with different annotations",
 			args: args{
-				o1: &types.Service{
-					Service: &core_v1.Service{
-						ObjectMeta: metav1.ObjectMeta{
-							Annotations: map[string]string{},
-						},
+				o1: &slim_corev1.Service{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Annotations: map[string]string{},
 					},
 				},
-				o2: &types.Service{
-					Service: &core_v1.Service{
-						ObjectMeta: metav1.ObjectMeta{
-							Annotations: map[string]string{
-								"io.cilium/shared-service": "true",
-							},
+				o2: &slim_corev1.Service{
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Annotations: map[string]string{
+							"io.cilium/shared-service": "true",
 						},
 					},
 				},
@@ -1008,9 +1004,7 @@ func (s *K8sSuite) Test_ConvertToK8sService(c *C) {
 			args: args{
 				obj: &v1.Service{},
 			},
-			want: &types.Service{
-				Service: &v1.Service{},
-			},
+			want: &slim_corev1.Service{},
 		},
 		{
 			name: "delete final state unknown conversion",
@@ -1022,9 +1016,7 @@ func (s *K8sSuite) Test_ConvertToK8sService(c *C) {
 			},
 			want: cache.DeletedFinalStateUnknown{
 				Key: "foo",
-				Obj: &types.Service{
-					Service: &v1.Service{},
-				},
+				Obj: &slim_corev1.Service{},
 			},
 		},
 		{

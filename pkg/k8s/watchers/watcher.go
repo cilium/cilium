@@ -428,7 +428,7 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 
 	// kubernetes services
 	swgSvcs := lock.NewStoppableWaitGroup()
-	k.servicesInit(k8s.Client(), swgSvcs)
+	k.servicesInit(k8s.WatcherCli(), swgSvcs)
 
 	// kubernetes endpoints
 	swgEps := lock.NewStoppableWaitGroup()

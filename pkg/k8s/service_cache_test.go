@@ -23,6 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
@@ -186,22 +188,20 @@ func testServiceCache(c *check.C,
 
 	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
-	k8sSvc := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Labels: map[string]string{
-					"foo": "bar",
-				},
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Labels: map[string]string{
+				"foo": "bar",
 			},
-			Spec: v1.ServiceSpec{
-				ClusterIP: "127.0.0.1",
-				Selector: map[string]string{
-					"foo": "bar",
-				},
-				Type: v1.ServiceTypeClusterIP,
+		},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Selector: map[string]string{
+				"foo": "bar",
 			},
+			Type: slim_corev1.ServiceTypeClusterIP,
 		},
 	}
 
@@ -331,24 +331,22 @@ func (s *K8sSuite) TestCacheActionString(c *check.C) {
 func (s *K8sSuite) TestServiceMerging(c *check.C) {
 	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
-	k8sSvc := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Annotations: map[string]string{
-					"io.cilium/global-service": "true",
-				},
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Annotations: map[string]string{
+				"io.cilium/global-service": "true",
 			},
-			Spec: v1.ServiceSpec{
-				ClusterIP: "127.0.0.1",
-				Type:      v1.ServiceTypeClusterIP,
-				Ports: []v1.ServicePort{
-					{
-						Name:     "foo",
-						Protocol: v1.ProtocolTCP,
-						Port:     80,
-					},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Type:      slim_corev1.ServiceTypeClusterIP,
+			Ports: []slim_corev1.ServicePort{
+				{
+					Name:     "foo",
+					Protocol: slim_corev1.ProtocolTCP,
+					Port:     80,
 				},
 			},
 		},
@@ -480,9 +478,9 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 	}
 
 	// Adding the service later must trigger an update
-	svcID2 := svcCache.UpdateService(&types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
+	svcID2 := svcCache.UpdateService(
+		&slim_corev1.Service{
+			ObjectMeta: slim_metav1.ObjectMeta{
 				Name:      "foo2",
 				Namespace: "bar",
 				Labels: map[string]string{
@@ -492,15 +490,14 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 					"io.cilium/global-service": "true",
 				},
 			},
-			Spec: v1.ServiceSpec{
+			Spec: slim_corev1.ServiceSpec{
 				ClusterIP: "127.0.0.2",
 				Selector: map[string]string{
 					"foo": "bar",
 				},
-				Type: v1.ServiceTypeClusterIP,
+				Type: slim_corev1.ServiceTypeClusterIP,
 			},
 		},
-	},
 		swgSvcs,
 	)
 
@@ -596,19 +593,17 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 func (s *K8sSuite) TestNonSharedServie(c *check.C) {
 	svcCache := NewServiceCache(fakeDatapath.NewNodeAddressing())
 
-	k8sSvc := &types.Service{
-		Service: &v1.Service{
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo",
-				Namespace: "bar",
-				Annotations: map[string]string{
-					"io.cilium/global-service": "false",
-				},
+	k8sSvc := &slim_corev1.Service{
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo",
+			Namespace: "bar",
+			Annotations: map[string]string{
+				"io.cilium/global-service": "false",
 			},
-			Spec: v1.ServiceSpec{
-				ClusterIP: "127.0.0.1",
-				Type:      v1.ServiceTypeClusterIP,
-			},
+		},
+		Spec: slim_corev1.ServiceSpec{
+			ClusterIP: "127.0.0.1",
+			Type:      slim_corev1.ServiceTypeClusterIP,
 		},
 	}
 

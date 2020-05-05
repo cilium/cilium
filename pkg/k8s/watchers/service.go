@@ -17,7 +17,7 @@ package watchers
 import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/lock"
 
 	v1 "k8s.io/api/core/v1"
@@ -32,7 +32,7 @@ func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, swgSvcs *lock.
 	_, svcController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
 			"services", v1.NamespaceAll, fields.Everything()),
-		&v1.Service{},
+		&slim_corev1.Service{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -83,23 +83,23 @@ func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, swgSvcs *lock.
 				k.K8sEventProcessed(metricService, metricDelete, err == nil)
 			},
 		},
-		k8s.ConvertToK8sService,
+		nil,
 	)
 	k.blockWaitGroupToSyncResources(wait.NeverStop, swgSvcs, svcController, K8sAPIGroupServiceV1Core)
 	go svcController.Run(wait.NeverStop)
 	k.k8sAPIGroups.addAPI(K8sAPIGroupServiceV1Core)
 }
 
-func (k *K8sWatcher) addK8sServiceV1(svc *types.Service, swg *lock.StoppableWaitGroup) error {
+func (k *K8sWatcher) addK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) error {
 	k.K8sSvcCache.UpdateService(svc, swg)
 	return nil
 }
 
-func (k *K8sWatcher) updateK8sServiceV1(oldSvc, newSvc *types.Service, swg *lock.StoppableWaitGroup) error {
+func (k *K8sWatcher) updateK8sServiceV1(oldSvc, newSvc *slim_corev1.Service, swg *lock.StoppableWaitGroup) error {
 	return k.addK8sServiceV1(newSvc, swg)
 }
 
-func (k *K8sWatcher) deleteK8sServiceV1(svc *types.Service, swg *lock.StoppableWaitGroup) error {
+func (k *K8sWatcher) deleteK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) error {
 	k.K8sSvcCache.DeleteService(svc, swg)
 	return nil
 }

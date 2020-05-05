@@ -30,11 +30,6 @@ type NetworkPolicy struct {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-type Service struct {
-	*v1.Service
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 type Endpoints struct {
 	*v1.Endpoints
 }
