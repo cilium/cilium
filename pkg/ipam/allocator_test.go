@@ -20,7 +20,7 @@ import (
 	"net"
 	"time"
 
-	"github.com/cilium/cilium/common/addressing"
+	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/datapath/fake"
 
 	. "gopkg.in/check.v1"

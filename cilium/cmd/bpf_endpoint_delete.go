@@ -17,7 +17,7 @@ package cmd
 import (
 	"net"
 
-	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 
 	"github.com/spf13/cobra"
