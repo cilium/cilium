@@ -28,6 +28,7 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -56,9 +57,9 @@ func runNodeWatcher(nodeManager *ipam.NodeManager) error {
 	}
 
 	k8sNodeStore, nodeController := informer.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
+		cache.NewListWatchFromClient(k8s.WatcherCli().CoreV1().RESTClient(),
 			"nodes", core_v1.NamespaceAll, fields.Everything()),
-		&core_v1.Node{},
+		&slim_corev1.Node{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -99,7 +100,7 @@ func runNodeWatcher(nodeManager *ipam.NodeManager) error {
 				deleteCiliumNode(nodeManager, n.Name)
 			},
 		},
-		k8s.ConvertToNode,
+		nil,
 	)
 	go nodeController.Run(wait.NeverStop)
 
