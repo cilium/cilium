@@ -29,9 +29,10 @@ with Kubernetes:
   by Cilium. The specification is same as that of `CiliumNetworkPolicy` with
   no specified namespace.
 
-It is recommended to only use one of the above policy types at a time to
-minimize unintended effects arising from the interaction between the
-policies.
+Cilium supports running multiple of these policy types at the same time.
+However caution should be applied when using multiple policy types at the same time,
+as it can be confusing to understand the complete set of allowed traffic across multiple policy types.
+If close attention is not applied this may lead to unintended policy allow behavior.
 
 .. _NetworkPolicy:
 .. _networkpolicy_state:
