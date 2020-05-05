@@ -16,6 +16,8 @@
 
 package v1
 
+type NamespaceExpansion interface{}
+
 type NodeExpansion interface{}
 
 type PodExpansion interface{}

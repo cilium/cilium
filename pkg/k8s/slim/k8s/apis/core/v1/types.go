@@ -345,3 +345,33 @@ type NodeList struct {
 	// List of nodes
 	Items []Node `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
+
+// +genclient
+// +genclient:nonNamespaced
+// +genclient:skipVerbs=deleteCollection
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// Namespace provides a scope for Names.
+// Use of multiple namespaces is optional.
+type Namespace struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
+	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NamespaceList is a list of Namespaces.
+type NamespaceList struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
+	slim_metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Items is the list of Namespace objects in the list.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+	Items []Namespace `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
