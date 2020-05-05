@@ -21,7 +21,6 @@ RUN apt-get update && \
     apt-get upgrade -y --no-install-recommends && \
     apt-get install -y --no-install-recommends \
       # Base Cilium-build dependencies
-      apt-utils \
       binutils \
       coreutils \
       curl \
@@ -29,15 +28,11 @@ RUN apt-get update && \
       git \
       libc6-dev \
       libelf-dev \
-      m4 \
       make \
-      pkg-config \
-      python \
       rsync \
       unzip \
       wget \
-      zip \
-      zlib1g-dev && \
+      zip && \
     apt-get purge --auto-remove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
