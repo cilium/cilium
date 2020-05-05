@@ -240,6 +240,38 @@ func (p *ProbeManager) SystemConfigProbes() error {
 	return nil
 }
 
+// GetRequiredConfig performs a check of mandatory kernel configuration options. It
+// returns a map indicating which required kernel paramaters are enabled - and which are not.
+// GetRequiredConfig is being used by CLI "cilium kernel-check".
+func (p *ProbeManager) GetRequiredConfig() map[KernelParam]bool {
+	config := p.features.SystemConfig
+	kernelParams := make(map[KernelParam]bool)
+
+	kernelParams["CONFIG_BPF"] = config.ConfigBpf.Enabled()
+	kernelParams["CONFIG_BPF_SYSCALL"] = config.ConfigBpfSyscall.Enabled()
+	kernelParams["CONFIG_NET_SCH_INGRESS"] = config.ConfigNetSchIngress.Enabled()
+	kernelParams["CONFIG_NET_CLS_BPF"] = config.ConfigNetClsBpf.Enabled()
+	kernelParams["CONFIG_NET_CLS_ACT"] = config.ConfigNetClsAct.Enabled()
+	kernelParams["CONFIG_BPF_JIT"] = config.ConfigBpfJit.Enabled()
+	kernelParams["CONFIG_HAVE_EBPF_JIT"] = config.ConfigHaveEbpfJit.Enabled()
+
+	return kernelParams
+}
+
+// GetOptionalConfig performs a check of *optional* kernel configuration options. It
+// returns a map indicating which optional/non-mandatory kernel paramaters are enabled.
+// GetOptionalConfig is being used by CLI "cilium kernel-check".
+func (p *ProbeManager) GetOptionalConfig() map[KernelParam]bool {
+	config := p.features.SystemConfig
+	kernelParams := make(map[KernelParam]bool)
+
+	kernelParams["CONFIG_CGROUP_BPF"] = config.ConfigCgroupBpf.Enabled()
+	kernelParams["CONFIG_LWTUNNEL_BPF"] = config.ConfigLwtunnelBpf.Enabled()
+	kernelParams["CONFIG_BPF_EVENTS"] = config.ConfigBpfEvents.Enabled()
+
+	return kernelParams
+}
+
 // GetMapTypes returns information about supported BPF map types.
 func (p *ProbeManager) GetMapTypes() *MapTypes {
 	return &p.features.MapTypes
