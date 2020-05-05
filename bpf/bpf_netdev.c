@@ -34,6 +34,7 @@
 #include "lib/nat.h"
 #include "lib/lb.h"
 #include "lib/nodeport.h"
+#include "lib/eps.h"
 
 #if defined(FROM_HOST) && (defined(ENABLE_IPV4) || defined(ENABLE_IPV6))
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
@@ -94,7 +95,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(srcid_from_ipcache)) {
 		src = (union v6addr *) &ip6->saddr;
-		info = ipcache_lookup6(&IPCACHE_MAP, src, V6_CACHE_KEY_LEN);
+		info = lookup_ip6_remote_endpoint(src);
 		if (info != NULL && info->sec_label)
 			srcid_from_ipcache = info->sec_label;
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
@@ -270,7 +271,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, const struct iphdr *ip4,
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(srcid_from_ipcache)) {
-		info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr, V4_CACHE_KEY_LEN);
+		info = lookup_ip4_remote_endpoint(ip4->saddr);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
 			if (sec_label) {
