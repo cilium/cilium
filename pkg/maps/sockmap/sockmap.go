@@ -19,10 +19,10 @@ import (
 	"sync"
 	"unsafe"
 
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 // SockmapKey is the 5-tuple used to lookup a socket

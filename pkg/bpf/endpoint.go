@@ -19,7 +19,7 @@ import (
 	"net"
 	"unsafe"
 
-	"github.com/cilium/cilium/common/types"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 // Must be in sync with ENDPOINT_KEY_* in <bpf/lib/common.h>

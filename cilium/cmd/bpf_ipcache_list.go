@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"os"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/command"
+	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/maps/ipcache"
 
 	"github.com/spf13/cobra"

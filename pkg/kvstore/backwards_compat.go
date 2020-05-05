@@ -17,7 +17,7 @@ package kvstore
 import (
 	"context"
 
-	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/common"
 )
 
 // deleteLegacyPrefixes removes old kvstore prefixes of non-persistent keys

@@ -17,9 +17,9 @@ package neighborsmap
 import (
 	"unsafe"
 
-	"github.com/cilium/cilium/common/types"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/types"
 )
 
 const (

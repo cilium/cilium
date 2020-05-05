@@ -17,8 +17,8 @@ package cmd
 import (
 	"os"
 
-	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/command"
+	"github.com/cilium/cilium/pkg/common"
 	"github.com/spf13/cobra"
 )
 

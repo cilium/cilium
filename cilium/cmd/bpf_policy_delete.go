@@ -15,7 +15,7 @@
 package cmd
 
 import (
-	"github.com/cilium/cilium/common"
+	"github.com/cilium/cilium/pkg/common"
 
 	"github.com/spf13/cobra"
 )
