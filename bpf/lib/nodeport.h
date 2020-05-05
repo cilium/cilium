@@ -575,6 +575,8 @@ redo_local:
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT);
 		}
 		return DROP_MISSED_TAIL_CALL;
+	} else {
+		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 	}
 
 	return CTX_ACT_OK;
@@ -1181,6 +1183,8 @@ redo_local:
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT);
 		}
 		return DROP_MISSED_TAIL_CALL;
+	} else {
+		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 	}
 
 	return CTX_ACT_OK;
