@@ -20,9 +20,11 @@ LIB := $(shell find $(ROOT_DIR)/bpf -name '*.h') $(BUILD_PERMUTATIONS_DEP)
 BPF_C := $(patsubst %.o,%.c,$(BPF))
 BPF_ASM := $(patsubst %.o,%.s,$(BPF))
 
-CLANG  ?= clang
-LLC    ?= llc
-HOSTCC ?= gcc
+CLANG ?= clang
+LLC   ?= llc
+
+HOST_CC    ?= gcc
+HOST_STRIP ?= strip
 
 # Define all at the top here so that Makefiles which include this one will hit
 # the 'all' target first (which we expect to be overridden by the includer).
