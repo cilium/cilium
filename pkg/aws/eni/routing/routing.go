@@ -15,6 +15,7 @@
 package enirouting
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -168,6 +169,7 @@ func Delete(ip net.IP) error {
 	if err := deleteRule(egress); err != nil {
 		return fmt.Errorf("unable to delete egress rule with ip %s: %v", ipWithMask.String(), err)
 	}
+
 	scopedLog.WithField("rule", egress).Debug("Deleted egress rule")
 
 	return nil
@@ -186,7 +188,7 @@ func deleteRule(r route.Rule) error {
 			"candidates": rules,
 			"rule":       r,
 		}).Warning("Found too many rules matching, skipping deletion")
-		return nil
+		return errors.New("unexpected number of rules found to delete")
 	case length == 1:
 		return route.DeleteRule(r)
 	}
@@ -195,7 +197,7 @@ func deleteRule(r route.Rule) error {
 		"rule": r,
 	}).Warning("No rule matching found")
 
-	return nil
+	return errors.New("no rule found to delete")
 }
 
 // retrieveIfIndexFromMAC finds the corresponding device index (ifindex) for a
