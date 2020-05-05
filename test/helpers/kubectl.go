@@ -291,6 +291,11 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 		defaultHelmOptions["global.registry"] = config.CiliumTestConfig.Registry + "/cilium"
 	}
 
+	// Make sure the namespace Cilium uses exists.
+	if err := k.EnsureNamespaceExists(CiliumNamespace); err != nil {
+		ginkgoext.Failf("failed to ensure the namespace %s exists: %s", CiliumNamespace, err)
+	}
+
 	res := k.Apply(ApplyOptions{FilePath: filepath.Join(k.BasePath(), manifestsPath, "log-gatherer.yaml"), Namespace: LogGathererNamespace})
 	if !res.WasSuccessful() {
 		ginkgoext.Fail(fmt.Sprintf("Cannot connect to k8s cluster, output:\n%s", res.CombineOutput().String()), 1)
@@ -1014,6 +1019,16 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 	return kub.ExecShort(fmt.Sprintf(
 		"%[1]s get namespace %[2]s -o json | tr -d \"\\n\" | sed \"s/\\\"finalizers\\\": \\[[^]]\\+\\]/\\\"finalizers\\\": []/\" | %[1]s replace --raw /api/v1/namespaces/%[2]s/finalize -f -", KubectlCmd, name))
 
+}
+
+// EnsureNamespaceExists creates a namespace, ignoring the AlreadyExists error.
+func (kub *Kubectl) EnsureNamespaceExists(name string) error {
+	ginkgoext.By("Ensuring the namespace %s exists", name)
+	res := kub.ExecShort(fmt.Sprintf("%s create namespace %s", KubectlCmd, name))
+	if !res.success && !strings.Contains(res.GetStdErr(), "AlreadyExists") {
+		return res.err
+	}
+	return nil
 }
 
 // DeleteAllInNamespace deletes all k8s objects in a namespace
