@@ -617,11 +617,11 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 	return &cilium.HttpNetworkPolicyRule{Headers: headers, HeaderMatches: headerMatches}, len(headerMatches) == 0
 }
 
-func createBootstrap(filePath string, name, cluster, version string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {
+func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {
 	connectTimeout := int64(option.Config.ProxyConnectTimeout) // in seconds
 
 	bs := &envoy_config_bootstrap_v2.Bootstrap{
-		Node: &envoy_api_v2_core.Node{Id: name, Cluster: cluster, Metadata: nil, Locality: nil, BuildVersion: version},
+		Node: &envoy_api_v2_core.Node{Id: nodeId, Cluster: cluster},
 		StaticResources: &envoy_config_bootstrap_v2.Bootstrap_StaticResources{
 			Clusters: []*envoy_api_v2.Cluster{
 				{
