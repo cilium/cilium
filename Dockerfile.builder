@@ -28,11 +28,7 @@ RUN apt-get update && \
       git \
       libc6-dev \
       libelf-dev \
-      make \
-      rsync \
-      unzip \
-      wget \
-      zip && \
+      make && \
     apt-get purge --auto-remove && \
     apt-get clean && \
     rm -rf /var/lib/apt/lists/* /tmp/* /var/tmp/*
