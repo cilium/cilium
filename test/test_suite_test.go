@@ -102,7 +102,7 @@ func TestTest(t *testing.T) {
 		[]ginkgo.Reporter{junitReporter})
 }
 
-func goReportVagrantStatus() chan bool {
+func goReportSetupStatus() chan bool {
 	if ginkgoconfig.DefaultReporterConfig.Verbose ||
 		ginkgoconfig.DefaultReporterConfig.Succinct {
 		// Dev told us they want more/less information than default. Skip.
@@ -126,7 +126,7 @@ func goReportVagrantStatus() chan bool {
 			default:
 				out = string(rune(int('◜') + iter%4))
 			}
-			fmt.Printf("\rSpinning up vagrant VMs... %s", out)
+			fmt.Printf("\rSetting up test suite... %s", out)
 			if done {
 				return
 			}
@@ -184,7 +184,7 @@ var _ = BeforeAll(func() {
 		return
 	}
 
-	if progressChan := goReportVagrantStatus(); progressChan != nil {
+	if progressChan := goReportSetupStatus(); progressChan != nil {
 		defer func() { progressChan <- err == nil }()
 	}
 
