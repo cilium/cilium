@@ -12,7 +12,7 @@ RUN go get -d github.com/google/gops && \
     git checkout -b v0.3.6 v0.3.6 && \
     git --no-pager remote -v && \
     git --no-pager log -1 && \
-    go install && \
+    CGO_ENABLED=0 go install && \
     strip /go/bin/gops
 
 FROM scratch
