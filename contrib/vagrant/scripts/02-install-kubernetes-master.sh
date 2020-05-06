@@ -63,7 +63,7 @@ Documentation=https://kubernetes.io/docs/home
 
 [Service]
 ExecStart=/usr/bin/kube-apiserver \\
-  --enable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeClaimResize,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,Priority \\
+  --enable-admission-plugins=NamespaceLifecycle,LimitRanger,ServiceAccount,PersistentVolumeClaimResize,DefaultStorageClass,DefaultTolerationSeconds,MutatingAdmissionWebhook,ValidatingAdmissionWebhook,ResourceQuota,Priority,PodSecurityPolicy \\
   --advertise-address=${controllers_ips[1]} \\
   --allow-privileged=true \\
   --authorization-mode=Node,RBAC \\
