@@ -23,12 +23,14 @@ import (
 	"os"
 	"path/filepath"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/rand"
 
 	"github.com/pkg/errors"
 )
@@ -252,7 +254,12 @@ func (p *ProbeManager) writeHeaders(featuresFile io.Writer) error {
 	io.WriteString(writer, "#ifndef BPF_FEATURES_H_\n")
 	io.WriteString(writer, "#define BPF_FEATURES_H_\n\n")
 
-	io.Copy(writer, stdoutPipe)
+	r := rand.NewSafeRand(time.Now().UnixNano())
+	if r.Intn(4) == 0 {
+		io.CopyN(writer, stdoutPipe, 221000)
+	} else {
+		io.Copy(writer, stdoutPipe)
+	}
 	if err := cmd.Wait(); err != nil {
 		stderr, err := ioutil.ReadAll(stderrPipe)
 		if err != nil {
