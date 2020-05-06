@@ -471,24 +471,19 @@ Not all tests can succeed on GKE. Many do, however and may be useful.
 1- Setup a cluster as in :ref:`k8s_install_gke` or utilize an existing
 cluster.
 
+.. note:: You do not need to deploy Cilium in this step, as the End-To-End
+          Testing Framework handles the deployment of Cilium.
+
 .. note:: The tests require machines larger than ``n1-standard-4``. This can be
           set with ``--machine-type n1-standard-4`` on cluster creation.
 
 
-2- Label 2 nodes for testing with ``cilium.io/ci-node=k8s1`` and
-``cilium.io/ci-node=k8s2``
-
-::
-
-  kubectl label node gke-my-cluster-default-pool-b011879a-6j26 cilium.io/ci-node=k8s1
-  kubectl label node gke-my-cluster-default-pool-b011879a-b1r2 cilium.io/ci-node=k8s2
-
-3- Invoke the tests from ``cilium/test`` with options set as explained in
+2- Invoke the tests from ``cilium/test`` with options set as explained in
 `Running End-To-End Tests In Other Environments via kubeconfig`_
 
 ::
 
-  CNI_INTEGRATION=gke K8S_VERSION=1.13 CILIUM_IMAGE="quay.io/cilium/cilium:latest" CILIUM_OPERATOR_IMAGE="quay.io/cilium/operator:latest" ginkgo --focus="K8s*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium:latest" -cilium.operator-image="quay.io/cilium/operator:latest" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=gke K8S_VERSION=1.13 CILIUM_IMAGE="quay.io/cilium/cilium:latest" CILIUM_OPERATOR_IMAGE="quay.io/cilium/operator:latest" ginkgo -v --focus="K8sDemo*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium:latest" -cilium.operator-image="quay.io/cilium/operator:latest" -cilium.passCLIEnvironment=true
 
 .. note:: The kubernetes version defaults to 1.13 but can be configured with
           versions between 1.13 and 1.15. Check with ``kubectl version`` 
@@ -501,20 +496,12 @@ Not all tests can succeed on EKS. Many do, however and may be useful.
 1- Setup a cluster as in :ref:`k8s_install_eks` or utilize an existing
 cluster.
 
-2- Label 2 nodes for testing with ``cilium.io/ci-node=k8s1`` and
-``cilium.io/ci-node=k8s2``
-
-::
-
-  kubectl label node ip-192-168-6-126.us-west-2.compute.internal cilium.io/ci-node=k8s1
-  kubectl label node ip-192-168-68-145.us-west-2.compute.internal cilium.io/ci-node=k8s2
-
-3- Invoke the tests from ``cilium/test`` with options set as explained in
+2- Invoke the tests from ``cilium/test`` with options set as explained in
 `Running End-To-End Tests In Other Environments via kubeconfig`_
 
 ::
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.14 CILIUM_IMAGE="quay.io/cilium/cilium:latest" CILIUM_OPERATOR_IMAGE="quay.io/cilium/operator:latest" ginkgo --focus="K8s*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium:latest" -cilium.operator-image="quay.io/cilium/operator:latest" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=eks K8S_VERSION=1.14 CILIUM_IMAGE="quay.io/cilium/cilium:latest" CILIUM_OPERATOR_IMAGE="quay.io/cilium/operator:latest" ginkgo -v --focus="K8sDemo*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium:latest" -cilium.operator-image="quay.io/cilium/operator:latest" -cilium.passCLIEnvironment=true
 
 Be sure to pass ``--cilium.passCLIEnvironment=true`` to allow kubectl to invoke ``aws-iam-authenticator``
 
