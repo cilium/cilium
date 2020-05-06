@@ -15,5 +15,3 @@ RUN apk add -t .build_apks curl autoconf automake gcc libc-dev ocaml ocaml-dev o
     cd .. && rm -r coccinelle-$COCCINELLE_VERSION && \
     strip `which spatch` && \
     apk del .build_apks
-
-ENTRYPOINT ["./contrib/coccinelle/check-cocci.sh"]

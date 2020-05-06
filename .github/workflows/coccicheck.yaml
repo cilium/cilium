@@ -10,3 +10,5 @@ jobs:
         steps:
             - uses: actions/checkout@v2
             - uses: docker://cilium/coccicheck:latest
+              with:
+                entrypoint: ./contrib/coccinelle/check-cocci.sh
