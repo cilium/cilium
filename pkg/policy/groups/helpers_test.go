@@ -23,10 +23,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -38,7 +38,7 @@ func getSamplePolicy(name, ns string) *cilium_v2.CiliumNetworkPolicy {
 	cnp.ObjectMeta.UID = types.UID("123")
 	cnp.Spec = &api.Rule{
 		EndpointSelector: api.EndpointSelector{
-			LabelSelector: &metav1.LabelSelector{
+			LabelSelector: &slim_metav1.LabelSelector{
 				MatchLabels: map[string]string{
 					"test": "true",
 				},

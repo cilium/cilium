@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,9 +22,9 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/checker"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 
 	. "gopkg.in/check.v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (s *PolicyAPITestSuite) TestRequiresDerivativeRuleWithoutToGroups(c *C) {
@@ -44,7 +44,7 @@ func (s *PolicyAPITestSuite) TestCreateDerivativeRuleWithoutToGroups(c *C) {
 	eg := &EgressRule{
 		ToEndpoints: []EndpointSelector{
 			{
-				LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+				LabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{
 					"test": "true",
 				},
 				},
@@ -130,7 +130,7 @@ func (s *PolicyAPITestSuite) TestIsLabelBasedEgress(c *C) {
 					eg: &EgressRule{
 						ToEndpoints: []EndpointSelector{
 							{
-								LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+								LabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{
 									"test": "true",
 								},
 								},
@@ -186,7 +186,7 @@ func (s *PolicyAPITestSuite) TestIsLabelBasedEgress(c *C) {
 					&EgressRule{
 						ToRequires: []EndpointSelector{
 							{
-								LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+								LabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{
 									"test": "true",
 								},
 								},

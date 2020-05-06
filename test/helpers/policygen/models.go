@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"time"
 
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/helpers/constants"
@@ -35,7 +36,6 @@ import (
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/gomega"
 	log "github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var timeout = 10 * time.Minute
@@ -607,7 +607,7 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 		}
 		specs = append(specs, api.Rule{
 			EndpointSelector: api.EndpointSelector{
-				LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+				LabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{
 					"id": t.DestPod,
 				}},
 			},
@@ -629,7 +629,7 @@ func (t *TestSpec) CreateCiliumNetworkPolicy() (string, error) {
 
 		specs = append(specs, api.Rule{
 			EndpointSelector: api.EndpointSelector{
-				LabelSelector: &metav1.LabelSelector{MatchLabels: map[string]string{
+				LabelSelector: &slim_metav1.LabelSelector{MatchLabels: map[string]string{
 					"id": t.SrcPod,
 				}},
 			},

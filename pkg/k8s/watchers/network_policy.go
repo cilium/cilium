@@ -17,7 +17,7 @@ package watchers
 import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/k8s/types"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/networking/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -25,7 +25,6 @@ import (
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -37,7 +36,7 @@ func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, swgKNPs
 	_, policyController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.NetworkingV1().RESTClient(),
 			"networkpolicies", v1.NamespaceAll, fields.Everything()),
-		&networkingv1.NetworkPolicy{},
+		&slim_networkingv1.NetworkPolicy{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -88,7 +87,7 @@ func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, swgKNPs
 				k.K8sEventProcessed(metricKNP, metricDelete, err == nil)
 			},
 		},
-		k8s.ConvertToNetworkPolicy,
+		nil,
 	)
 	k.blockWaitGroupToSyncResources(wait.NeverStop, swgKNPs, policyController, k8sAPIGroupNetworkingV1Core)
 	go policyController.Run(wait.NeverStop)
@@ -96,9 +95,9 @@ func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, swgKNPs
 	k.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
 }
 
-func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
+func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy) error {
 	scopedLog := log.WithField(logfields.K8sAPIVersion, k8sNP.TypeMeta.APIVersion)
-	rules, err := k8s.ParseNetworkPolicy(k8sNP.NetworkPolicy)
+	rules, err := k8s.ParseNetworkPolicy(k8sNP)
 	if err != nil {
 		scopedLog.WithError(err).WithFields(logrus.Fields{
 			logfields.CiliumNetworkPolicy: logfields.Repr(k8sNP),
@@ -119,7 +118,7 @@ func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
 	return nil
 }
 
-func (k *K8sWatcher) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *types.NetworkPolicy) error {
+func (k *K8sWatcher) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *slim_networkingv1.NetworkPolicy) error {
 	log.WithFields(logrus.Fields{
 		logfields.K8sAPIVersion:                 oldk8sNP.TypeMeta.APIVersion,
 		logfields.K8sNetworkPolicyName + ".old": oldk8sNP.ObjectMeta.Name,
@@ -131,8 +130,8 @@ func (k *K8sWatcher) updateK8sNetworkPolicyV1(oldk8sNP, newk8sNP *types.NetworkP
 	return k.addK8sNetworkPolicyV1(newk8sNP)
 }
 
-func (k *K8sWatcher) deleteK8sNetworkPolicyV1(k8sNP *types.NetworkPolicy) error {
-	labels := k8s.GetPolicyLabelsv1(k8sNP.NetworkPolicy)
+func (k *K8sWatcher) deleteK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy) error {
+	labels := k8s.GetPolicyLabelsv1(k8sNP)
 
 	if labels == nil {
 		log.Fatalf("provided v1 NetworkPolicy is nil, so cannot delete it")

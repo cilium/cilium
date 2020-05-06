@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
@@ -266,7 +267,7 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 		map[string]string{
 			fmt.Sprintf("%s.role", labels.LabelSourceAny): "backend",
 		},
-		[]metav1.LabelSelectorRequirement{{
+		[]slim_metav1.LabelSelectorRequirement{{
 			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
 			Operator: "NotIn",
 			Values:   []string{"production"},
@@ -300,7 +301,7 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 			fmt.Sprintf("%s.role", labels.LabelSourceAny):                           "backend",
 			fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel): "default",
 		},
-		[]metav1.LabelSelectorRequirement{{
+		[]slim_metav1.LabelSelectorRequirement{{
 			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
 			Operator: "NotIn",
 			Values:   []string{"production"},
@@ -335,7 +336,7 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 		map[string]string{
 			fmt.Sprintf("%s.role", labels.LabelSourceAny): "backend",
 		},
-		[]metav1.LabelSelectorRequirement{{
+		[]slim_metav1.LabelSelectorRequirement{{
 			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
 			Operator: "NotIn",
 			Values:   []string{"production"},
@@ -369,7 +370,7 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 			fmt.Sprintf("%s.role", labels.LabelSourceAny):                           "backend",
 			fmt.Sprintf("%s.%s", labels.LabelSourceK8s, k8sConst.PodNamespaceLabel): "default",
 		},
-		[]metav1.LabelSelectorRequirement{{
+		[]slim_metav1.LabelSelectorRequirement{{
 			Key:      fmt.Sprintf("%s.role", labels.LabelSourceAny),
 			Operator: "NotIn",
 			Values:   []string{"production"},

@@ -26,12 +26,12 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (ds *PolicyTestSuite) TestComputePolicyEnforcementAndRules(c *C) {
@@ -898,10 +898,10 @@ func (ds *PolicyTestSuite) TestL3DependentL4IngressFromRequires(c *C) {
 	policy, err := repo.ResolveL4IngressPolicy(ctx)
 	c.Assert(err, IsNil)
 
-	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []v1.LabelSelectorRequirement{
+	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []slim_metav1.LabelSelectorRequirement{
 		{
 			Key:      "any.id",
-			Operator: v1.LabelSelectorOpIn,
+			Operator: slim_metav1.LabelSelectorOpIn,
 			Values:   []string{"bar2"},
 		},
 	})
@@ -967,17 +967,17 @@ func (ds *PolicyTestSuite) TestL3DependentL4EgressFromRequires(c *C) {
 	policy, err := repo.ResolveL4EgressPolicy(ctx.WithLogger(logBuffer))
 	c.Assert(err, IsNil)
 
-	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []v1.LabelSelectorRequirement{
+	expectedSelector := api.NewESFromMatchRequirements(map[string]string{"any.id": "bar1"}, []slim_metav1.LabelSelectorRequirement{
 		{
 			Key:      "any.id",
-			Operator: v1.LabelSelectorOpIn,
+			Operator: slim_metav1.LabelSelectorOpIn,
 			Values:   []string{"bar2"},
 		},
 	})
-	expectedSelector2 := api.NewESFromMatchRequirements(map[string]string{}, []v1.LabelSelectorRequirement{
+	expectedSelector2 := api.NewESFromMatchRequirements(map[string]string{}, []slim_metav1.LabelSelectorRequirement{
 		{
 			Key:      "any.id",
-			Operator: v1.LabelSelectorOpIn,
+			Operator: slim_metav1.LabelSelectorOpIn,
 			Values:   []string{"bar2"},
 		},
 	})

@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,12 +19,13 @@ import (
 	"fmt"
 	"strings"
 
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	validation "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1/validation"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
+
 	k8sLbls "k8s.io/apimachinery/pkg/labels"
 )
 
@@ -32,7 +33,7 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-api")
 
 // EndpointSelector is a wrapper for k8s LabelSelector.
 type EndpointSelector struct {
-	*metav1.LabelSelector
+	*slim_metav1.LabelSelector
 
 	// requirements provides a cache for a k8s-friendly format of the
 	// LabelSelector, which allows more efficient matching in Matches().
@@ -52,7 +53,7 @@ func (n *EndpointSelector) LabelSelectorString() string {
 	if n != nil && n.LabelSelector == nil {
 		return "<all>"
 	}
-	return metav1.FormatLabelSelector(n.LabelSelector)
+	return slim_metav1.FormatLabelSelector(n.LabelSelector)
 }
 
 // String returns a string representation of EndpointSelector.
@@ -69,7 +70,7 @@ func (n EndpointSelector) CachedString() string {
 
 // UnmarshalJSON unmarshals the endpoint selector from the byte array.
 func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
-	n.LabelSelector = &metav1.LabelSelector{}
+	n.LabelSelector = &slim_metav1.LabelSelector{}
 	err := json.Unmarshal(b, n.LabelSelector)
 	if err != nil {
 		return err
@@ -82,7 +83,7 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 		n.MatchLabels = ml
 	}
 	if n.MatchExpressions != nil {
-		newMatchExpr := make([]metav1.LabelSelectorRequirement, len(n.MatchExpressions))
+		newMatchExpr := make([]slim_metav1.LabelSelectorRequirement, len(n.MatchExpressions))
 		for i, v := range n.MatchExpressions {
 			v.Key = labels.GetExtendedKeyFrom(v.Key)
 			newMatchExpr[i] = v
@@ -96,7 +97,7 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 
 // MarshalJSON returns a JSON representation of the byte array.
 func (n EndpointSelector) MarshalJSON() ([]byte, error) {
-	ls := metav1.LabelSelector{}
+	ls := slim_metav1.LabelSelector{}
 
 	if n.LabelSelector == nil {
 		return json.Marshal(ls)
@@ -110,7 +111,7 @@ func (n EndpointSelector) MarshalJSON() ([]byte, error) {
 		ls.MatchLabels = newLabels
 	}
 	if n.MatchExpressions != nil {
-		newMatchExpr := make([]metav1.LabelSelectorRequirement, len(n.MatchExpressions))
+		newMatchExpr := make([]slim_metav1.LabelSelectorRequirement, len(n.MatchExpressions))
 		for i, v := range n.MatchExpressions {
 			v.Key = labels.GetCiliumKeyFrom(v.Key)
 			newMatchExpr[i] = v
@@ -157,7 +158,7 @@ func (n EndpointSelector) GetMatch(key string) ([]string, bool) {
 		return []string{value}, true
 	}
 	for _, v := range n.MatchExpressions {
-		if v.Key == key && v.Operator == metav1.LabelSelectorOpIn {
+		if v.Key == key && v.Operator == slim_metav1.LabelSelectorOpIn {
 			return v.Values, true
 		}
 	}
@@ -171,8 +172,8 @@ func (n EndpointSelector) GetMatch(key string) ([]string, bool) {
 // This validates the labels, which can be expensive (and may fail..)
 // If there's an error, the selector will be nil and the Matches()
 // implementation will refuse to match any labels.
-func labelSelectorToRequirements(labelSelector *metav1.LabelSelector) *k8sLbls.Requirements {
-	selector, err := metav1.LabelSelectorAsSelector(labelSelector)
+func labelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) *k8sLbls.Requirements {
+	selector, err := slim_metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
 		metrics.PolicyImportErrors.Inc()
 		log.WithError(err).WithField(logfields.EndpointLabelSelector,
@@ -203,8 +204,8 @@ func NewESFromLabels(lbls ...labels.Label) EndpointSelector {
 //
 // If the caller intends to reuse 'matchLabels' or 'reqs' after creating the
 // EndpointSelector, they must make a copy of the parameter.
-func NewESFromMatchRequirements(matchLabels map[string]string, reqs []metav1.LabelSelectorRequirement) EndpointSelector {
-	labelSelector := &metav1.LabelSelector{
+func NewESFromMatchRequirements(matchLabels map[string]string, reqs []slim_metav1.LabelSelectorRequirement) EndpointSelector {
+	labelSelector := &slim_metav1.LabelSelector{
 		MatchLabels:      matchLabels,
 		MatchExpressions: reqs,
 	}
@@ -247,10 +248,10 @@ var (
 
 // NewESFromK8sLabelSelector returns a new endpoint selector from the label
 // where it the given srcPrefix will be encoded in the label's keys.
-func NewESFromK8sLabelSelector(srcPrefix string, lss ...*metav1.LabelSelector) EndpointSelector {
+func NewESFromK8sLabelSelector(srcPrefix string, lss ...*slim_metav1.LabelSelector) EndpointSelector {
 	var (
 		matchLabels      map[string]string
-		matchExpressions []metav1.LabelSelectorRequirement
+		matchExpressions []slim_metav1.LabelSelectorRequirement
 	)
 	for _, ls := range lss {
 		if ls == nil {
@@ -266,7 +267,7 @@ func NewESFromK8sLabelSelector(srcPrefix string, lss ...*metav1.LabelSelector) E
 		}
 		if ls.MatchExpressions != nil {
 			if matchExpressions == nil {
-				matchExpressions = make([]metav1.LabelSelectorRequirement, 0, len(ls.MatchExpressions))
+				matchExpressions = make([]slim_metav1.LabelSelectorRequirement, 0, len(ls.MatchExpressions))
 			}
 			for _, v := range ls.MatchExpressions {
 				v.Key = srcPrefix + v.Key
@@ -318,15 +319,15 @@ func (n *EndpointSelector) IsWildcard() bool {
 // ConvertToLabelSelectorRequirementSlice converts the MatchLabels and
 // MatchExpressions within the specified EndpointSelector into a list of
 // LabelSelectorRequirements.
-func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []metav1.LabelSelectorRequirement {
-	requirements := make([]metav1.LabelSelectorRequirement, 0, len(n.MatchExpressions)+len(n.MatchLabels))
+func (n *EndpointSelector) ConvertToLabelSelectorRequirementSlice() []slim_metav1.LabelSelectorRequirement {
+	requirements := make([]slim_metav1.LabelSelectorRequirement, 0, len(n.MatchExpressions)+len(n.MatchLabels))
 	// Append already existing match expressions.
 	requirements = append(requirements, n.MatchExpressions...)
 	// Convert each MatchLables to LabelSelectorRequirement.
 	for key, value := range n.MatchLabels {
-		requirementFromMatchLabels := metav1.LabelSelectorRequirement{
+		requirementFromMatchLabels := slim_metav1.LabelSelectorRequirement{
 			Key:      key,
-			Operator: metav1.LabelSelectorOpIn,
+			Operator: slim_metav1.LabelSelectorOpIn,
 			Values:   []string{value},
 		}
 		requirements = append(requirements, requirementFromMatchLabels)

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,10 +21,10 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 
 	. "gopkg.in/check.v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sLbls "k8s.io/apimachinery/pkg/labels"
 	"k8s.io/apimachinery/pkg/selection"
 )
@@ -53,12 +53,12 @@ func (s *PolicyAPITestSuite) TestSelectsAllEndpoints(c *C) {
 }
 
 func (s *PolicyAPITestSuite) TestLabelSelectorToRequirements(c *C) {
-	labelSelector := &metav1.LabelSelector{
+	labelSelector := &slim_metav1.LabelSelector{
 		MatchLabels: map[string]string{
 			"any.foo": "bar",
 			"k8s.baz": "alice",
 		},
-		MatchExpressions: []metav1.LabelSelectorRequirement{
+		MatchExpressions: []slim_metav1.LabelSelectorRequirement{
 			{
 				Key:      "any.foo",
 				Operator: "NotIn",

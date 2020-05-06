@@ -24,16 +24,16 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/networking/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	v1 "k8s.io/api/core/v1"
-	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
-func ObjToV1NetworkPolicy(obj interface{}) *types.NetworkPolicy {
-	k8sNP, ok := obj.(*types.NetworkPolicy)
+func ObjToV1NetworkPolicy(obj interface{}) *slim_networkingv1.NetworkPolicy {
+	k8sNP, ok := obj.(*slim_networkingv1.NetworkPolicy)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 NetworkPolicy")
@@ -112,7 +112,7 @@ func ObjToV1Namespace(obj interface{}) *slim_corev1.Namespace {
 	return ns
 }
 
-func EqualV1NetworkPolicy(np1, np2 *types.NetworkPolicy) bool {
+func EqualV1NetworkPolicy(np1, np2 *slim_networkingv1.NetworkPolicy) bool {
 	// As Cilium uses all of the Spec from a NP it's not probably not worth
 	// it to create a dedicated deep equal	 function to compare both network
 	// policies.
@@ -304,34 +304,6 @@ func EqualV1Namespace(ns1, ns2 *slim_corev1.Namespace) bool {
 	// we only care about namespace labels.
 	return ns1.Name == ns2.Name &&
 		comparator.MapStringEquals(ns1.GetLabels(), ns2.GetLabels())
-}
-
-// ConvertToNetworkPolicy converts a *networkingv1.NetworkPolicy into a
-// *types.NetworkPolicy or a cache.DeletedFinalStateUnknown into
-// a cache.DeletedFinalStateUnknown with a *types.NetworkPolicy in its Obj.
-// If the given obj can't be cast into either *networkingv1.NetworkPolicy
-// nor cache.DeletedFinalStateUnknown, the original obj is returned.
-func ConvertToNetworkPolicy(obj interface{}) interface{} {
-	// TODO check which fields we really need
-	switch concreteObj := obj.(type) {
-	case *networkingv1.NetworkPolicy:
-		return &types.NetworkPolicy{
-			NetworkPolicy: concreteObj,
-		}
-	case cache.DeletedFinalStateUnknown:
-		netPol, ok := concreteObj.Obj.(*networkingv1.NetworkPolicy)
-		if !ok {
-			return obj
-		}
-		return cache.DeletedFinalStateUnknown{
-			Key: concreteObj.Key,
-			Obj: &types.NetworkPolicy{
-				NetworkPolicy: netPol,
-			},
-		}
-	default:
-		return obj
-	}
 }
 
 func convertToK8sServicePorts(ports []v1.ServicePort) []slim_corev1.ServicePort {
