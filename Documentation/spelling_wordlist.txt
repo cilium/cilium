@@ -48,6 +48,7 @@ Graf
 Grafana
 Gunawardena
 Holzheu
+Homebrew
 Huapeng
 Hypercalls
 IP
@@ -404,9 +405,9 @@ loopback
 luke
 lwt
 macOS
+masq
 matchLabels
 matchPattern
-masq
 mc
 mediabot
 memcache
@@ -626,4 +627,5 @@ xml
 xoring
 xwing
 yaml
+yml
 zsh
