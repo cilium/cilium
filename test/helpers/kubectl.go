@@ -352,6 +352,45 @@ func (kub *Kubectl) WaitForCiliumReadiness() error {
 	}, &TimeoutConfig{Timeout: 4 * time.Minute})
 }
 
+// DeleteResourceInAnyNamespace deletes all objects with the provided name of
+// the specified resource type in all namespaces.
+func (kub *Kubectl) DeleteResourcesInAnyNamespace(resource string, names []string) error {
+	cmd := KubectlCmd + " get " + resource + " --all-namespaces -o json | jq -r '[ .items[].metadata | (.namespace + \"/\" + .name) ]'"
+	res := kub.ExecShort(cmd)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("unable to retrieve %s in all namespaces '%s': %s", resource, cmd, res.OutputPrettyPrint())
+	}
+
+	var allNames []string
+	if err := res.Unmarshal(&allNames); err != nil {
+		return fmt.Errorf("unable to unmarshal string slice '%#v': %s", res.OutputPrettyPrint(), err)
+	}
+
+	namesMap := map[string]struct{}{}
+	for _, name := range names {
+		namesMap[name] = struct{}{}
+	}
+
+	for _, combinedName := range allNames {
+		parts := strings.SplitN(combinedName, "/", 2)
+		if len(parts) != 2 {
+			return fmt.Errorf("The %s idenfifier '%s' is not in the form <namespace>/<name>", resource, combinedName)
+		}
+		namespace, name := parts[0], parts[1]
+		if _, ok := namesMap[name]; ok {
+			ginkgoext.By("Deleting %s %s in namespace %s", resource, name, namespace)
+			cmd = KubectlCmd + " -n " + namespace + " delete " + resource + " " + name
+			res = kub.ExecShort(cmd)
+			if !res.WasSuccessful() {
+				return fmt.Errorf("unable to delete %s %s in namespaces %s with command '%s': %s",
+					resource, name, namespace, cmd, res.OutputPrettyPrint())
+			}
+		}
+	}
+
+	return nil
+}
+
 // DeleteAllInNamespace deletes all namespaces except the ones provided in the
 // exception list
 func (kub *Kubectl) DeleteAllNamespacesExcept(except []string) error {
