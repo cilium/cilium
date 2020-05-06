@@ -79,6 +79,9 @@ data:
   #
   # Only effective when monitor aggregation is set to "medium" or higher.
   monitor-aggregation-flags: all
+
+  # Configure blacklisting of local routes not owned by Cilium.
+  blacklist-conflicting-routes: "true"
   # bpf-policy-map-max specified the maximum number of entries in endpoint
   # policy map (per endpoint)
   bpf-policy-map-max: "16384"
