@@ -22,6 +22,8 @@ import (
 	fakecorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1/fake"
 	discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1beta1"
 	fakediscoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1beta1/fake"
+	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/networking/v1"
+	fakemetav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/networking/v1/fake"
 	"k8s.io/apimachinery/pkg/runtime"
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/discovery"
@@ -84,4 +86,9 @@ func (c *Clientset) CoreV1() corev1.CoreV1Interface {
 // DiscoveryV1beta1 retrieves the DiscoveryV1beta1Client
 func (c *Clientset) DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface {
 	return &fakediscoveryv1beta1.FakeDiscoveryV1beta1{Fake: &c.Fake}
+}
+
+// MetaV1 retrieves the MetaV1Client
+func (c *Clientset) MetaV1() metav1.MetaV1Interface {
+	return &fakemetav1.FakeMetaV1{Fake: &c.Fake}
 }
