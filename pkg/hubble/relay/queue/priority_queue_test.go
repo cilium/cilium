@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package container
+package queue
 
 import (
 	"testing"
