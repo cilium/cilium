@@ -121,8 +121,16 @@ PRIV_TEST_PKGS ?= $(PRIV_TEST_PKGS_EVAL)
 tests-privileged:
 	# cilium-map-migrate is a dependency of some unit tests.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf cilium-map-migrate
-	$(QUIET)$(foreach pkg,$(PRIV_TEST_PKGS),\
-		$(GO_TEST) $(TEST_LDFLAGS) github.com/cilium/cilium/$(pkg) $(GOTEST_PRIV_OPTS) || exit 1;)
+
+	$(QUIET) echo "mode: count" > coverage-all-tmp.out
+	$(QUIET) echo "mode: count" > coverage.out
+	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(PRIV_TEST_PKGS)); do \
+		$(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS) \
+		|| exit 1; \
+		tail -n +2 coverage.out >> coverage-all-tmp.out; \
+	done
+	$(MAKE) generate-cov
+	@rmdir ./daemon/1 ./daemon/1_backup 2> /dev/null || true
 
 start-kvstores:
 ifeq ($(SKIP_KVSTORES),"false")
