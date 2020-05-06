@@ -91,6 +91,63 @@ func getTCPInfo() string {
 	return info
 }
 
+// ConnectionInfo contains tuple information and icmp code for a connection
+type ConnectionInfo struct {
+	SrcIP    net.IP
+	DstIP    net.IP
+	SrcPort  uint16
+	DstPort  uint16
+	Proto    string
+	IcmpCode string
+}
+
+// getConnectionInfoFromCache assume dissectLock is obtained at the caller and data is already
+// parsed to cache.decoded
+func getConnectionInfoFromCache() (c *ConnectionInfo, hasIP, hasEth bool) {
+	c = &ConnectionInfo{}
+	for _, typ := range cache.decoded {
+		switch typ {
+		case layers.LayerTypeEthernet:
+			hasEth = true
+		case layers.LayerTypeIPv4:
+			hasIP = true
+			c.SrcIP, c.DstIP = cache.ip4.SrcIP, cache.ip4.DstIP
+		case layers.LayerTypeIPv6:
+			hasIP = true
+			c.SrcIP, c.DstIP = cache.ip6.SrcIP, cache.ip6.DstIP
+		case layers.LayerTypeTCP:
+			c.Proto = "tcp"
+			c.SrcPort, c.DstPort = uint16(cache.tcp.SrcPort), uint16(cache.tcp.DstPort)
+		case layers.LayerTypeUDP:
+			c.Proto = "udp"
+			c.SrcPort, c.DstPort = uint16(cache.udp.SrcPort), uint16(cache.udp.DstPort)
+		case layers.LayerTypeIPSecAH:
+			c.Proto = "IPsecAH"
+		case layers.LayerTypeIPSecESP:
+			c.Proto = "IPsecESP"
+		case layers.LayerTypeICMPv4:
+			c.Proto = "icmp"
+			c.IcmpCode = cache.icmp4.TypeCode.String()
+		case layers.LayerTypeICMPv6:
+			c.Proto = "icmp"
+			c.IcmpCode = cache.icmp6.TypeCode.String()
+		}
+	}
+	return c, hasIP, hasEth
+}
+
+// GetConnectionInfo returns the ConnectionInfo structure from data
+func GetConnectionInfo(data []byte) *ConnectionInfo {
+	dissectLock.Lock()
+	defer dissectLock.Unlock()
+
+	initParser()
+	parser.DecodeLayers(data, &cache.decoded)
+
+	c, _, _ := getConnectionInfoFromCache()
+	return c
+}
+
 // GetConnectionSummary decodes the data into layers and returns a connection
 // summary in the format:
 //
@@ -103,39 +160,10 @@ func GetConnectionSummary(data []byte) string {
 	initParser()
 	parser.DecodeLayers(data, &cache.decoded)
 
-	var (
-		srcIP, dstIP     net.IP
-		srcPort, dstPort string
-		icmpCode, proto  string
-		hasIP, hasEth    bool
-	)
-
-	for _, typ := range cache.decoded {
-		switch typ {
-		case layers.LayerTypeEthernet:
-			hasEth = true
-		case layers.LayerTypeIPv4:
-			hasIP = true
-			srcIP, dstIP = cache.ip4.SrcIP, cache.ip4.DstIP
-		case layers.LayerTypeIPv6:
-			hasIP = true
-			srcIP, dstIP = cache.ip6.SrcIP, cache.ip6.DstIP
-		case layers.LayerTypeTCP:
-			proto = "tcp"
-			srcPort, dstPort = strconv.Itoa(int(cache.tcp.SrcPort)), strconv.Itoa(int(cache.tcp.DstPort))
-		case layers.LayerTypeUDP:
-			proto = "udp"
-			srcPort, dstPort = strconv.Itoa(int(cache.udp.SrcPort)), strconv.Itoa(int(cache.udp.DstPort))
-		case layers.LayerTypeIPSecAH:
-			proto = "IPsecAH"
-		case layers.LayerTypeIPSecESP:
-			proto = "IPsecESP"
-		case layers.LayerTypeICMPv4:
-			icmpCode = cache.icmp4.TypeCode.String()
-		case layers.LayerTypeICMPv6:
-			icmpCode = cache.icmp6.TypeCode.String()
-		}
-	}
+	c, hasIP, hasEth := getConnectionInfoFromCache()
+	srcIP, dstIP := c.SrcIP, c.DstIP
+	srcPort, dstPort := strconv.Itoa(int(c.SrcPort)), strconv.Itoa(int(c.DstPort))
+	icmpCode, proto := c.IcmpCode, c.Proto
 
 	switch {
 	case icmpCode != "":
