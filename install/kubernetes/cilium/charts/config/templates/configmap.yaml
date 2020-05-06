@@ -151,6 +151,9 @@ data:
   # Only effective when monitor aggregation is set to "medium" or higher.
   monitor-aggregation-flags: {{ .Values.global.bpf.monitorFlags }}
 
+  # Configure blacklisting of local routes not owned by Cilium.
+  blacklist-conflicting-routes: "{{ .Values.global.blacklistConflictingRoutes }}"
+
 {{- if or .Values.global.bpf.ctTcpMax .Values.global.bpf.ctAnyMax }}
   # bpf-ct-global-*-max specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair

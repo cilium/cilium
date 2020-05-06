@@ -146,6 +146,10 @@ global:
     enabled: false
     port: 6942
 
+  # blacklistConflictingRoutes instructs the cilium-agent whether to blacklist
+  # IP allocations conflicting with local non-cilium routes.
+  blacklistConflictingRoutes: true
+
   # enableXTSocketFallback enables the fallback compatibility solution
   # when the xt_socket kernel module is missing and it is needed for
   # the datapath L7 redirection to work properly.  See documentation
