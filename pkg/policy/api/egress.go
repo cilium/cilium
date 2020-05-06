@@ -17,7 +17,7 @@ package api
 import (
 	"context"
 
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // EgressRule contains all rule types which can be applied at egress, i.e.
@@ -179,7 +179,7 @@ func (e *EgressRule) SetAggregatedSelectors() {
 
 // GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
 // all L3 source selectors of the ingress rule
-func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirements []metav1.LabelSelectorRequirement) EndpointSelectorSlice {
+func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement) EndpointSelectorSlice {
 	if e.aggregatedSelectors == nil {
 		e.SetAggregatedSelectors()
 	}

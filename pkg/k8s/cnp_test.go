@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/fake"
 	informer "github.com/cilium/cilium/pkg/k8s/client/informers/externalversions"
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
@@ -116,7 +117,7 @@ func testUpdateCNPNodeStatusK8s(integrationTest bool, k8sVersion string, c *C) {
 			},
 			Spec: &api.Rule{
 				EndpointSelector: api.EndpointSelector{
-					LabelSelector: &metav1.LabelSelector{
+					LabelSelector: &slim_metav1.LabelSelector{
 						MatchLabels: map[string]string{
 							"foo": "bar",
 						},
@@ -422,7 +423,7 @@ func benchmarkCNPNodeStatusController(integrationTest bool, nNodes int, nParalle
 			},
 			Spec: &api.Rule{
 				EndpointSelector: api.EndpointSelector{
-					LabelSelector: &metav1.LabelSelector{
+					LabelSelector: &slim_metav1.LabelSelector{
 						MatchLabels: map[string]string{"foo": "bar"},
 					},
 				},
@@ -545,7 +546,7 @@ func (k *K8sIntegrationSuite) benchmarkUpdateCNPNodeStatus(integrationTest bool,
 			},
 			Spec: &api.Rule{
 				EndpointSelector: api.EndpointSelector{
-					LabelSelector: &metav1.LabelSelector{
+					LabelSelector: &slim_metav1.LabelSelector{
 						MatchLabels: map[string]string{"foo": "bar"},
 					},
 				},

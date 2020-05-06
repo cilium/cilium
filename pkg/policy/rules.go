@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +17,7 @@ package policy
 import (
 	"fmt"
 
-	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // ruleSlice is a wrapper around a slice of *rule, which allows for functions
@@ -32,7 +32,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *Sear
 
 	state := traceState{}
 	var matchedRules ruleSlice
-	var requirements []v1.LabelSelectorRequirement
+	var requirements []slim_metav1.LabelSelectorRequirement
 
 	// Iterate over all FromRequires which select ctx.To. These requirements
 	// will be appended to each EndpointSelector's MatchExpressions in
@@ -80,7 +80,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext, ctx *Searc
 
 	state := traceState{}
 	var matchedRules ruleSlice
-	var requirements []v1.LabelSelectorRequirement
+	var requirements []slim_metav1.LabelSelectorRequirement
 
 	// Iterate over all ToRequires which select ctx.To. These requirements will
 	// be appended to each EndpointSelector's MatchExpressions in each

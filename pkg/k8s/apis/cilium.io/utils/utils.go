@@ -16,13 +16,13 @@ package utils
 
 import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/sirupsen/logrus"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -77,7 +77,7 @@ func GetPolicyLabels(ns, name string, uid types.UID, derivedFrom string) labels.
 // adding the relevant matches for namespaces based on the provided options.
 // If no namespace is provided then it is assumed that the selector is global to the cluster
 // this is when translating selectors for CiliumClusterwideNetworkPolicy.
-func getEndpointSelector(namespace string, labelSelector *metav1.LabelSelector, addK8sPrefix, matchesInit bool) api.EndpointSelector {
+func getEndpointSelector(namespace string, labelSelector *slim_metav1.LabelSelector, addK8sPrefix, matchesInit bool) api.EndpointSelector {
 	es := api.NewESFromK8sLabelSelector("", labelSelector)
 
 	// The k8s prefix must not be added to reserved labels.

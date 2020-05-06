@@ -15,7 +15,7 @@
 package api
 
 import (
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // IngressRule contains all rule types which can be applied at ingress,
@@ -135,7 +135,7 @@ func (i *IngressRule) SetAggregatedSelectors() {
 
 // GetSourceEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
 // all L3 source selectors of the ingress rule
-func (i *IngressRule) GetSourceEndpointSelectorsWithRequirements(requirements []metav1.LabelSelectorRequirement) EndpointSelectorSlice {
+func (i *IngressRule) GetSourceEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement) EndpointSelectorSlice {
 	if i.aggregatedSelectors == nil {
 		i.SetAggregatedSelectors()
 	}

@@ -22,11 +22,11 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 )
 
@@ -66,7 +66,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			// added.
 			name: "parse-in-namespace",
 			args: args{
-				namespace: metav1.NamespaceDefault,
+				namespace: slim_metav1.NamespaceDefault,
 				uid:       uuid,
 				rule: &api.Rule{
 					EndpointSelector: api.NewESFromMatchRequirements(
@@ -115,7 +115,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			// by the namespace where the rule was inserted.
 			name: "parse-in-namespace-with-ns-selector",
 			args: args{
-				namespace: metav1.NamespaceDefault,
+				namespace: slim_metav1.NamespaceDefault,
 				uid:       uuid,
 				rule: &api.Rule{
 					EndpointSelector: api.NewESFromMatchRequirements(
@@ -165,7 +165,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			// is for init policies.
 			name: "parse-init-policy",
 			args: args{
-				namespace: metav1.NamespaceDefault,
+				namespace: slim_metav1.NamespaceDefault,
 				uid:       uuid,
 				rule: &api.Rule{
 					EndpointSelector: api.NewESFromMatchRequirements(
@@ -215,7 +215,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 		{
 			name: "set-any-source-for-namespace",
 			args: args{
-				namespace: metav1.NamespaceDefault,
+				namespace: slim_metav1.NamespaceDefault,
 				uid:       uuid,
 				rule: &api.Rule{
 					EndpointSelector: api.NewESFromMatchRequirements(
@@ -228,7 +228,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						{
 							FromEndpoints: []api.EndpointSelector{
 								{
-									LabelSelector: &metav1.LabelSelector{
+									LabelSelector: &slim_metav1.LabelSelector{
 										MatchLabels: map[string]string{
 											podAnyPrefixLbl: "ns-2",
 										},
@@ -253,7 +253,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 						FromEndpoints: []api.EndpointSelector{
 							api.NewESFromK8sLabelSelector(
 								labels.LabelSourceAnyKeyPrefix,
-								&metav1.LabelSelector{
+								&slim_metav1.LabelSelector{
 									MatchLabels: map[string]string{
 										k8sConst.PodNamespaceLabel: "ns-2",
 									},

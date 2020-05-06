@@ -33,6 +33,7 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
@@ -46,9 +47,7 @@ import (
 	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher"
-
 	"github.com/golang/protobuf/ptypes/wrappers"
-
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
@@ -995,7 +994,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 							},
 							Spec: &api.Rule{
 								EndpointSelector: api.EndpointSelector{
-									LabelSelector: &metav1.LabelSelector{
+									LabelSelector: &slim_metav1.LabelSelector{
 										MatchLabels: map[string]string{
 											"env": "cluster-1",
 										},
@@ -1012,7 +1011,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				r.AddList(api.Rules{
 					api.NewRule().
 						WithEndpointSelector(api.EndpointSelector{
-							LabelSelector: &metav1.LabelSelector{
+							LabelSelector: &slim_metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"env": "cluster-1",
 									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
@@ -1043,7 +1042,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				r.AddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
-							LabelSelector: &metav1.LabelSelector{
+							LabelSelector: &slim_metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"env": "cluster-1",
 									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
@@ -1067,7 +1066,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 							},
 							Spec: &api.Rule{
 								EndpointSelector: api.EndpointSelector{
-									LabelSelector: &metav1.LabelSelector{
+									LabelSelector: &slim_metav1.LabelSelector{
 										MatchLabels: map[string]string{
 											"env": "cluster-1",
 										},
@@ -1084,7 +1083,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				r.AddList(api.Rules{
 					api.NewRule().
 						WithEndpointSelector(api.EndpointSelector{
-							LabelSelector: &metav1.LabelSelector{
+							LabelSelector: &slim_metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"env": "cluster-1",
 									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
@@ -1113,7 +1112,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				r.AddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
-							LabelSelector: &metav1.LabelSelector{
+							LabelSelector: &slim_metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"env": "cluster-1",
 									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
@@ -1137,7 +1136,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 							},
 							Spec: &api.Rule{
 								EndpointSelector: api.EndpointSelector{
-									LabelSelector: &metav1.LabelSelector{
+									LabelSelector: &slim_metav1.LabelSelector{
 										MatchLabels: map[string]string{
 											"env": "cluster-1",
 										},
@@ -1157,7 +1156,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				r.AddList(api.Rules{
 					api.NewRule().
 						WithEndpointSelector(api.EndpointSelector{
-							LabelSelector: &metav1.LabelSelector{
+							LabelSelector: &slim_metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"env": "cluster-1",
 									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
@@ -1181,7 +1180,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 				r.AddList(api.Rules{
 					{
 						EndpointSelector: api.EndpointSelector{
-							LabelSelector: &metav1.LabelSelector{
+							LabelSelector: &slim_metav1.LabelSelector{
 								MatchLabels: map[string]string{
 									"env": "cluster-1",
 									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
@@ -1192,7 +1191,7 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 							{
 								FromEndpoints: []api.EndpointSelector{
 									{
-										LabelSelector: &metav1.LabelSelector{
+										LabelSelector: &slim_metav1.LabelSelector{
 											MatchLabels: map[string]string{
 												"env": "cluster-1",
 												labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
