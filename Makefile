@@ -121,9 +121,7 @@ PRIV_TEST_PKGS ?= $(PRIV_TEST_PKGS_EVAL)
 tests-privileged:
 	# cilium-map-migrate is a dependency of some unit tests.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf cilium-map-migrate
-
-	$(QUIET) echo "mode: count" > coverage-all-tmp.out
-	$(QUIET) echo "mode: count" > coverage.out
+	$(MAKE) init-coverage
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(PRIV_TEST_PKGS)); do \
 		$(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS) \
 		|| exit 1; \
@@ -178,6 +176,10 @@ generate-cov:
 	$(QUIET)$(GO) tool cover -html=coverage-all.out -o=coverage-all.html
 	$(QUIET) rm coverage.out coverage-all-tmp.out
 
+init-coverage:
+	$(QUIET) echo "mode: count" > coverage-all-tmp.out
+	$(QUIET) echo "mode: count" > coverage.out
+
 unit-tests: start-kvstores
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C tools/maptool/
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C test/bpf/
@@ -185,8 +187,7 @@ unit-tests: start-kvstores
 ifeq ($(SKIP_VET),"false")
 	$(MAKE) govet
 endif
-	$(QUIET) echo "mode: count" > coverage-all-tmp.out
-	$(QUIET) echo "mode: count" > coverage.out
+	$(MAKE) init-coverage
 	# It seems that in some env if the path is large enough for the full list
 	# of files, the full bash command in that target gets too big for bash and
 	# hence will trigger an error of too many arguments. As a workaround, we
