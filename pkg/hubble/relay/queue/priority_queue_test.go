@@ -19,71 +19,71 @@ package queue
 import (
 	"testing"
 
-	"github.com/cilium/cilium/pkg/hubble/api/v1"
+	observerpb "github.com/cilium/cilium/api/v1/observer"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/assert"
 )
 
 var (
-	e0 = &v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 1}}
-	e1 = &v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 1, Nanos: 1}}
-	e2 = &v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 2}}
-	e3 = &v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 3}}
-	e4 = &v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 4}}
-	e5 = &v1.Event{Timestamp: &timestamp.Timestamp{Seconds: 5}}
+	resp0 = &observerpb.GetFlowsResponse{Time: &timestamp.Timestamp{Seconds: 1}}
+	resp1 = &observerpb.GetFlowsResponse{Time: &timestamp.Timestamp{Seconds: 1, Nanos: 1}}
+	resp2 = &observerpb.GetFlowsResponse{Time: &timestamp.Timestamp{Seconds: 2}}
+	resp3 = &observerpb.GetFlowsResponse{Time: &timestamp.Timestamp{Seconds: 3}}
+	resp4 = &observerpb.GetFlowsResponse{Time: &timestamp.Timestamp{Seconds: 4}}
+	resp5 = &observerpb.GetFlowsResponse{Time: &timestamp.Timestamp{Seconds: 5}}
 )
 
 func TestPriorityQueue(t *testing.T) {
 	pq := NewPriorityQueue(42)
 	assert.Equal(t, pq.Len(), 0)
 
-	// push some events to the queue
-	pq.Push(e1)
-	pq.Push(e2)
+	// push some objects to the queue
+	pq.Push(resp1)
+	pq.Push(resp2)
 
-	// try poping out these 2 events, the oldest one should pop out first
+	// try poping out these 2 objects, the oldest one should pop out first
 	event := pq.Pop()
-	assert.Equal(t, event, e1)
+	assert.Equal(t, event, resp1)
 	event = pq.Pop()
-	assert.Equal(t, event, e2)
+	assert.Equal(t, event, resp2)
 
 	// calling pop on an empty priority queue should return nil
 	assert.Equal(t, pq.Len(), 0)
 	event = pq.Pop()
 	assert.Nil(t, event)
 
-	// let's push some events in seemingly random order
-	pq.Push(e5)
-	pq.Push(e3)
-	pq.Push(e1)
-	pq.Push(e4)
-	pq.Push(e2)
+	// let's push some objects in seemingly random order
+	pq.Push(resp5)
+	pq.Push(resp3)
+	pq.Push(resp1)
+	pq.Push(resp4)
+	pq.Push(resp2)
 	assert.Equal(t, pq.Len(), 5)
 
 	// now, when popped out, they should pop out in chronological order
 	event = pq.Pop()
-	assert.Equal(t, event, e1)
+	assert.Equal(t, event, resp1)
 	event = pq.Pop()
-	assert.Equal(t, event, e2)
+	assert.Equal(t, event, resp2)
 	event = pq.Pop()
-	assert.Equal(t, event, e3)
+	assert.Equal(t, event, resp3)
 	event = pq.Pop()
-	assert.Equal(t, event, e4)
+	assert.Equal(t, event, resp4)
 	event = pq.Pop()
-	assert.Equal(t, event, e5)
+	assert.Equal(t, event, resp5)
 	assert.Equal(t, pq.Len(), 0)
 }
 
-func TestPriorityQueue_WithEventsInTheSameSecond(t *testing.T) {
+func TestPriorityQueue_WithobjectsInTheSameSecond(t *testing.T) {
 	pq := NewPriorityQueue(2)
-	pq.Push(e1)
-	pq.Push(e0)
+	pq.Push(resp1)
+	pq.Push(resp0)
 	assert.Equal(t, pq.Len(), 2)
 	event := pq.Pop()
-	assert.Equal(t, event, e0)
+	assert.Equal(t, event, resp0)
 	event = pq.Pop()
-	assert.Equal(t, event, e1)
+	assert.Equal(t, event, resp1)
 }
 
 func TestPriorityQueue_WithInitialCapacity0(t *testing.T) {
@@ -94,7 +94,7 @@ func TestPriorityQueue_WithInitialCapacity0(t *testing.T) {
 func TestPriorityQueue_GrowingOverInitialCapacity(t *testing.T) {
 	pq := NewPriorityQueue(1)
 	assert.Equal(t, pq.Len(), 0)
-	pq.Push(e1)
-	pq.Push(e2)
+	pq.Push(resp1)
+	pq.Push(resp2)
 	assert.Equal(t, pq.Len(), 2)
 }

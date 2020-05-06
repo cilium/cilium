@@ -17,12 +17,12 @@ package queue
 import (
 	"container/heap"
 
-	"github.com/cilium/cilium/pkg/hubble/api/v1"
+	observerpb "github.com/cilium/cilium/api/v1/observer"
 )
 
-// PriorityQueue is a priority queue of events that implements heap.Interface.
-// Events are ordered based on their timestamp value, the oldest event having
-// the higher priority.
+// PriorityQueue is a priority queue of observerpb.GetFlowsResponse. It
+// implements heap.Interface. GetFlowsResponse objects are ordered based on
+// their timestamp value; the older the timestamp, the higher the priority.
 //
 // This implementation is loosely based on the priority queue example in
 // "container/heap".
@@ -30,7 +30,7 @@ type PriorityQueue struct {
 	h minHeap
 }
 
-type minHeap []*v1.Event
+type minHeap []*observerpb.GetFlowsResponse
 
 // Ensure that minHeap implements heap.Interface.
 var _ heap.Interface = (*minHeap)(nil)
@@ -42,21 +42,21 @@ func NewPriorityQueue(n int) *PriorityQueue {
 	return &PriorityQueue{h}
 }
 
-// Len is the number of events in the queue.
+// Len is the number of objects in the queue.
 func (pq PriorityQueue) Len() int {
 	return pq.h.Len()
 }
 
-// Push adds event e to the queue.
-func (pq *PriorityQueue) Push(e *v1.Event) {
-	heap.Push(&pq.h, e)
+// Push adds object resp to the queue.
+func (pq *PriorityQueue) Push(resp *observerpb.GetFlowsResponse) {
+	heap.Push(&pq.h, resp)
 }
 
-// Pop removes and returns the oldest event in the queue. Pop returns nil if
+// Pop removes and returns the oldest object in the queue. Pop returns nil when
 // the queue is empty.
-func (pq *PriorityQueue) Pop() *v1.Event {
-	event := heap.Pop(&pq.h).(*v1.Event)
-	return event
+func (pq *PriorityQueue) Pop() *observerpb.GetFlowsResponse {
+	resp := heap.Pop(&pq.h).(*observerpb.GetFlowsResponse)
+	return resp
 }
 
 func (h minHeap) Len() int {
@@ -64,10 +64,10 @@ func (h minHeap) Len() int {
 }
 
 func (h minHeap) Less(i, j int) bool {
-	if h[i].Timestamp.GetSeconds() == h[j].Timestamp.GetSeconds() {
-		return h[i].Timestamp.GetNanos() < h[j].Timestamp.GetNanos()
+	if h[i].GetTime().GetSeconds() == h[j].GetTime().GetSeconds() {
+		return h[i].GetTime().GetNanos() < h[j].GetTime().GetNanos()
 	}
-	return h[i].Timestamp.GetSeconds() < h[j].Timestamp.GetSeconds()
+	return h[i].GetTime().GetSeconds() < h[j].GetTime().GetSeconds()
 }
 
 func (h minHeap) Swap(i, j int) {
@@ -78,18 +78,18 @@ func (h minHeap) Swap(i, j int) {
 }
 
 func (h *minHeap) Push(x interface{}) {
-	event := x.(*v1.Event)
-	*h = append(*h, event)
+	resp := x.(*observerpb.GetFlowsResponse)
+	*h = append(*h, resp)
 }
 
 func (h *minHeap) Pop() interface{} {
 	old := *h
 	n := len(old)
 	if n == 0 {
-		return (*v1.Event)(nil)
+		return (*observerpb.GetFlowsResponse)(nil)
 	}
-	event := old[n-1]
+	resp := old[n-1]
 	old[n-1] = nil // avoid memory leak
 	*h = old[0 : n-1]
-	return event
+	return resp
 }
