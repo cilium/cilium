@@ -6,6 +6,52 @@ kind: ServiceAccount
 metadata:
   name: cilium
 ---
+apiVersion: policy/v1beta1
+kind: PodSecurityPolicy
+metadata:
+  name: log-gatherer-psp
+spec:
+  allowedCapabilities:
+  - NET_ADMIN
+  - SYS_MODULE
+  - SYS_ADMIN
+  fsGroup:
+    rule: RunAsAny
+  hostNetwork: true
+  hostPID: true
+  privileged: true
+  runAsUser:
+    rule: RunAsAny
+  seLinux:
+    rule: RunAsAny
+  supplementalGroups:
+    rule: RunAsAny
+  volumes:
+  - '*'
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: log-gatherer-psp
+rules:
+- apiGroups: ['policy']
+  resources: ['podsecuritypolicies']
+  verbs:     ['use']
+  resourceNames:
+  - log-gatherer-psp
+---
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: log-gatherer-psp
+roleRef:
+  kind: Role
+  name: log-gatherer-psp
+  apiGroup: rbac.authorization.k8s.io
+subjects:
+- kind: ServiceAccount
+  name: cilium
+---
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -31,7 +77,7 @@ spec:
         command:
         - sleep
         image: docker.io/cilium/log-gatherer:v1.0
-        imagePullPolicy: Always
+        imagePullPolicy: IfNotPresent
         name: log-gatherer
         securityContext:
           capabilities:
@@ -49,7 +95,6 @@ spec:
       hostNetwork: true
       hostPID: true
       restartPolicy: Always
-      serviceAccount: cilium
       serviceAccountName: cilium
       terminationGracePeriodSeconds: 1
       tolerations:
