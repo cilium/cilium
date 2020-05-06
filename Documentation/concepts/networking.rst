@@ -46,8 +46,23 @@ When no configuration is provided, Cilium automatically runs in this mode.
 
 In this mode, all cluster nodes form a mesh of tunnels using the UDP based
 encapsulation protocols `VXLAN` or `Geneve`. All container-to-container network
-traffic is routed through these tunnels. This mode has several major
-advantages:
+traffic is routed through these tunnels. 
+
+The overlay used by the mesh of tunnels is managed by the protocol of 
+your choice (`VXLAN` by default). It's up to the overlay implementation and
+the kernel's routing table to route traffic to the other nodes' overlays. 
+It's likely that the encapsulation protocol will pick up the default layer
+3 infrastructure for the host. 
+
+If you would like all traffic in cilium tunnels to go through a specific 
+network interface (e.g.: a private network for security purposes), 
+you should configure the host's default endpoint accordingly 
+(e.g.: the IP of the node in a Kubernetes setup). You may check 
+the endpoints used by cilium to set up the tunneling with
+the command [cilium bpf tunnel list](https://docs.cilium.io/en/stable/cmdref/cilium_bpf_tunnel_list/).
+
+
+This mode has several major advantages:
 
 - **Simplicity:** The network which connects the cluster nodes does not need to
   be made aware of the *cluster prefix*. Cluster nodes can spawn multiple
