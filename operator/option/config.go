@@ -21,6 +21,11 @@ import (
 )
 
 const (
+	// EndpointGCIntervalDefault is the default time for the CEP GC
+	EndpointGCIntervalDefault = 5 * time.Minute
+)
+
+const (
 	// CNPNodeStatusGCInterval is the GC interval for nodes which have been
 	// removed from the cluster in CiliumNetworkPolicy and
 	// CiliumClusterwideNetworkPolicy Status.

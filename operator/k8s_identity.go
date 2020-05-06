@@ -20,6 +20,7 @@ import (
 
 	"github.com/cilium/cilium/operator/identity"
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -62,14 +63,20 @@ var identityHeartbeat *identity.IdentityHeartbeatStore
 // identityGCIteration is a single iteration of a garbage collection. It will
 // delete identities that have not had its heartbeat lifesign updated since
 // option.Config.IdentityHeartbeatTimeout
-func identityGCIteration() {
+func identityGCIteration(ctx context.Context) {
 	log.Debug("Running CRD identity garbage collector")
 
 	if identityStore == nil {
 		log.Debug("Identity store cache is not ready yet")
 		return
 	}
+	select {
+	case <-watchers.CiliumEndpointsSynced:
+	case <-ctx.Done():
+		return
+	}
 
+	timeNow := time.Now()
 	for _, identityObject := range identityStore.List() {
 		identity, ok := identityObject.(*types.Identity)
 		if !ok {
@@ -78,6 +85,12 @@ func identityGCIteration() {
 			continue
 		}
 
+		// The identity is definitely alive if there's a CE using it.
+		if watchers.HasCEWithIdentity(identity.Name) {
+			// If the identity is alive then mark it as alive
+			identityHeartbeat.MarkAlive(identity.Name, timeNow)
+			continue
+		}
 		if !identityHeartbeat.IsAlive(identity.Name) {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: identity,
@@ -92,7 +105,7 @@ func identityGCIteration() {
 
 func startCRDIdentityGC() {
 	if operatorOption.Config.EndpointGCInterval == 0 {
-		log.Fatal("The CiliumIdentity garabge collector requires the CiliumEndpoint garbage collector to be enabled")
+		log.Fatal("The CiliumIdentity garbage collector requires the CiliumEndpoint garbage collector to be enabled")
 	}
 
 	log.Infof("Starting CRD identity garbage collector with %s interval...", operatorOption.Config.IdentityGCInterval)
@@ -101,8 +114,8 @@ func startCRDIdentityGC() {
 		controller.ControllerParams{
 			RunInterval: operatorOption.Config.IdentityGCInterval,
 			DoFunc: func(ctx context.Context) error {
-				identityGCIteration()
-				return nil
+				identityGCIteration(ctx)
+				return ctx.Err()
 			},
 		})
 }
