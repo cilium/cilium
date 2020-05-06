@@ -58,6 +58,7 @@ Dockerfile* @cilium/build
 /daemon/cmd/state.go @cilium/endpoint
 /daemon/cmd/sysctl_linux.go @cilium/bpf
 /Documentation/ @cilium/docs
+/Documentation/cmdref @cilium/nonexistantteam
 /Documentation/bpf.rst @cilium/bpf
 /Documentation/contributing/ @cilium/contributing
 /Documentation/envoy/ @cilium/proxy
