@@ -21,6 +21,7 @@ import (
 
 	corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/core/v1"
 	discoveryv1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/discovery/v1beta1"
+	metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/typed/networking/v1"
 	discovery "k8s.io/client-go/discovery"
 	rest "k8s.io/client-go/rest"
 	flowcontrol "k8s.io/client-go/util/flowcontrol"
@@ -30,6 +31,7 @@ type Interface interface {
 	Discovery() discovery.DiscoveryInterface
 	CoreV1() corev1.CoreV1Interface
 	DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface
+	MetaV1() metav1.MetaV1Interface
 }
 
 // Clientset contains the clients for groups. Each group has exactly one
@@ -38,6 +40,7 @@ type Clientset struct {
 	*discovery.DiscoveryClient
 	coreV1           *corev1.CoreV1Client
 	discoveryV1beta1 *discoveryv1beta1.DiscoveryV1beta1Client
+	metaV1           *metav1.MetaV1Client
 }
 
 // CoreV1 retrieves the CoreV1Client
@@ -48,6 +51,11 @@ func (c *Clientset) CoreV1() corev1.CoreV1Interface {
 // DiscoveryV1beta1 retrieves the DiscoveryV1beta1Client
 func (c *Clientset) DiscoveryV1beta1() discoveryv1beta1.DiscoveryV1beta1Interface {
 	return c.discoveryV1beta1
+}
+
+// MetaV1 retrieves the MetaV1Client
+func (c *Clientset) MetaV1() metav1.MetaV1Interface {
+	return c.metaV1
 }
 
 // Discovery retrieves the DiscoveryClient
@@ -79,6 +87,10 @@ func NewForConfig(c *rest.Config) (*Clientset, error) {
 	if err != nil {
 		return nil, err
 	}
+	cs.metaV1, err = metav1.NewForConfig(&configShallowCopy)
+	if err != nil {
+		return nil, err
+	}
 
 	cs.DiscoveryClient, err = discovery.NewDiscoveryClientForConfig(&configShallowCopy)
 	if err != nil {
@@ -93,6 +105,7 @@ func NewForConfigOrDie(c *rest.Config) *Clientset {
 	var cs Clientset
 	cs.coreV1 = corev1.NewForConfigOrDie(c)
 	cs.discoveryV1beta1 = discoveryv1beta1.NewForConfigOrDie(c)
+	cs.metaV1 = metav1.NewForConfigOrDie(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClientForConfigOrDie(c)
 	return &cs
@@ -103,6 +116,7 @@ func New(c rest.Interface) *Clientset {
 	var cs Clientset
 	cs.coreV1 = corev1.New(c)
 	cs.discoveryV1beta1 = discoveryv1beta1.New(c)
+	cs.metaV1 = metav1.New(c)
 
 	cs.DiscoveryClient = discovery.NewDiscoveryClient(c)
 	return &cs
