@@ -29,6 +29,7 @@ export KUBEADM_OPTIONS=""
 export K8S_FULL_VERSION=""
 export CONTROLLER_FEATURE_GATES=""
 export API_SERVER_FEATURE_GATES=""
+export API_SERVER_ENABLE_ADMISSION_PLUGINS=""
 export DNS_DEPLOYMENT="${PROVISIONSRC}/manifest/dns_deployment.yaml"
 export KUBEDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/kubedns_deployment.yaml"
 export COREDNS_DEPLOYMENT="${PROVISIONSRC}/manifest/${K8S_VERSION}/coredns_deployment.yaml"
@@ -163,6 +164,7 @@ controllerManager:
 apiServer:
   extraArgs:
     "feature-gates": "{{ .API_SERVER_FEATURE_GATES }}"
+    "enable-admission-plugins": "{{ .API_SERVER_ENABLE_ADMISSION_PLUGINS }}"
 EOF
 )
 
@@ -197,6 +199,7 @@ controllerManager:
 apiServer:
   extraArgs:
     "feature-gates": "{{ .API_SERVER_FEATURE_GATES }}"
+    "enable-admission-plugins": "{{ .API_SERVER_ENABLE_ADMISSION_PLUGINS }}"
 EOF
 )
 
@@ -288,6 +291,7 @@ case $K8S_VERSION in
         KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
         CONTROLLER_FEATURE_GATES="EndpointSlice=true"
         API_SERVER_FEATURE_GATES="EndpointSlice=true"
+        API_SERVER_ENABLE_ADMISSION_PLUGINS="PodSecurityPolicy"
         ;;
     "1.18")
         # kubeadm 1.18 requires conntrack to be installed, we can remove this
@@ -302,6 +306,7 @@ case $K8S_VERSION in
         KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
         CONTROLLER_FEATURE_GATES="EndpointSlice=true"
         API_SERVER_FEATURE_GATES="EndpointSlice=true"
+        API_SERVER_ENABLE_ADMISSION_PLUGINS="PodSecurityPolicy"
         ;;
 esac
 
