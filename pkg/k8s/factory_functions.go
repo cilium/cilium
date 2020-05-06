@@ -22,12 +22,12 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/discovery/v1beta1"
 	networkingv1 "k8s.io/api/networking/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -62,8 +62,8 @@ func ObjToV1Endpoints(obj interface{}) *slim_corev1.Endpoints {
 	return ep
 }
 
-func ObjToV1EndpointSlice(obj interface{}) *types.EndpointSlice {
-	ep, ok := obj.(*types.EndpointSlice)
+func ObjToV1EndpointSlice(obj interface{}) *slim_discover_v1beta1.EndpointSlice {
+	ep, ok := obj.(*slim_discover_v1beta1.EndpointSlice)
 	if !ok {
 		log.WithField(logfields.Object, logfields.Repr(obj)).
 			Warn("Ignoring invalid k8s v1 EndpointSlice")
@@ -147,7 +147,7 @@ func EqualV1Endpoints(ep1, ep2 *slim_corev1.Endpoints) bool {
 		reflect.DeepEqual(ep1.Subsets, ep2.Subsets)
 }
 
-func EqualV1EndpointSlice(ep1, ep2 *types.EndpointSlice) bool {
+func EqualV1EndpointSlice(ep1, ep2 *slim_discover_v1beta1.EndpointSlice) bool {
 	// We only care about the Name, Namespace and Subsets of a particular
 	// endpoint.
 	// AddressType is omitted because it's immutable after EndpointSlice's
@@ -457,34 +457,6 @@ func ConvertToK8sService(obj interface{}) interface{} {
 						Ingress: convertToK8sLoadBalancerIngress(svc.Status.LoadBalancer.Ingress),
 					},
 				},
-			},
-		}
-	default:
-		return obj
-	}
-}
-
-// ConvertToK8sEndpointSlice converts a *v1beta1.EndpointSlice into a
-// *types.Endpoints or a cache.DeletedFinalStateUnknown into
-// a cache.DeletedFinalStateUnknown with a *types.Endpoints in its Obj.
-// If the given obj can't be cast into either *v1.Endpoints
-// nor cache.DeletedFinalStateUnknown, the original obj is returned.
-func ConvertToK8sEndpointSlice(obj interface{}) interface{} {
-	// TODO check which fields we really need
-	switch concreteObj := obj.(type) {
-	case *v1beta1.EndpointSlice:
-		return &types.EndpointSlice{
-			EndpointSlice: concreteObj,
-		}
-	case cache.DeletedFinalStateUnknown:
-		eps, ok := concreteObj.Obj.(*v1beta1.EndpointSlice)
-		if !ok {
-			return obj
-		}
-		return cache.DeletedFinalStateUnknown{
-			Key: concreteObj.Key,
-			Obj: &types.EndpointSlice{
-				EndpointSlice: eps,
 			},
 		}
 	default:

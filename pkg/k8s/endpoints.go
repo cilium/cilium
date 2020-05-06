@@ -25,14 +25,13 @@ import (
 	"k8s.io/client-go/tools/cache"
 
 	"github.com/cilium/cilium/pkg/ip"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/option"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
-	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/discovery/v1beta1"
 )
 
@@ -173,7 +172,7 @@ func ParseEndpoints(ep *slim_corev1.Endpoints) (ServiceID, *Endpoints) {
 
 // ParseEndpointSliceID parses a Kubernetes endpoints slice and returns the
 // ServiceID
-func ParseEndpointSliceID(svc *types.EndpointSlice) ServiceID {
+func ParseEndpointSliceID(svc *slim_discover_v1beta1.EndpointSlice) ServiceID {
 	return ServiceID{
 		Name:      svc.ObjectMeta.GetLabels()[v1beta1.LabelServiceName],
 		Namespace: svc.ObjectMeta.Namespace,
@@ -181,7 +180,7 @@ func ParseEndpointSliceID(svc *types.EndpointSlice) ServiceID {
 }
 
 // ParseEndpointSlice parses a Kubernetes Endpoints resource
-func ParseEndpointSlice(ep *types.EndpointSlice) (ServiceID, *Endpoints) {
+func ParseEndpointSlice(ep *slim_discover_v1beta1.EndpointSlice) (ServiceID, *Endpoints) {
 	endpoints := newEndpoints()
 
 	for _, sub := range ep.Endpoints {
@@ -217,13 +216,13 @@ func ParseEndpointSlice(ep *types.EndpointSlice) (ServiceID, *Endpoints) {
 
 // parseEndpointPort returns the port name and the port parsed as a L4Addr from
 // the given port.
-func parseEndpointPort(port v1beta1.EndpointPort) (string, *loadbalancer.L4Addr) {
+func parseEndpointPort(port slim_discover_v1beta1.EndpointPort) (string, *loadbalancer.L4Addr) {
 	proto := loadbalancer.TCP
 	if port.Protocol != nil {
 		switch *port.Protocol {
-		case v1.ProtocolTCP:
+		case slim_corev1.ProtocolTCP:
 			proto = loadbalancer.TCP
-		case v1.ProtocolUDP:
+		case slim_corev1.ProtocolUDP:
 			proto = loadbalancer.UDP
 		default:
 			return "", nil

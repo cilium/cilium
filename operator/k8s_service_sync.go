@@ -19,12 +19,12 @@ import (
 	"sync"
 	"time"
 
-	"k8s.io/api/discovery/v1beta1"
 	"k8s.io/client-go/kubernetes"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -161,7 +161,7 @@ func startSynchronizingServices() {
 				k8sSvcCache.DeleteService(k8sSvc, swgSvcs)
 			},
 		},
-	nil,
+		nil,
 	)
 
 	go svcController.Run(wait.NeverStop)
@@ -174,7 +174,7 @@ func startSynchronizingServices() {
 	switch {
 	case k8s.SupportsEndpointSlice():
 		var endpointSliceEnabled bool
-		endpointController, endpointSliceEnabled = endpointSlicesInit(k8s.Client(), swgEps)
+		endpointController, endpointSliceEnabled = endpointSlicesInit(k8s.WatcherCli(), swgEps)
 		// the cluster has endpoint slices so we should not check for v1.Endpoints
 		if endpointSliceEnabled {
 			break
@@ -262,7 +262,7 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 	_, endpointController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.DiscoveryV1beta1().RESTClient(),
 			"endpointslices", v1.NamespaceAll, fields.Everything()),
-		&v1beta1.EndpointSlice{},
+		&slim_discover_v1beta1.EndpointSlice{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -306,7 +306,7 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 				k8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
 			},
 		},
-		k8s.ConvertToK8sEndpointSlice,
+		nil,
 	)
 	ecr := make(chan struct{})
 	go endpointController.Run(ecr)

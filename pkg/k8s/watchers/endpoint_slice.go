@@ -17,15 +17,15 @@ package watchers
 import (
 	"sync"
 
+	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/informer"
+	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1"
+	"github.com/cilium/cilium/pkg/lock"
+
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/discovery/v1beta1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
-
-	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/lock"
 )
 
 // endpointSlicesInit returns true if the cluster contains endpoint slices.
@@ -38,7 +38,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 	_, endpointController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.DiscoveryV1beta1().RESTClient(),
 			"endpointslices", v1.NamespaceAll, fields.Everything()),
-		&v1beta1.EndpointSlice{},
+		&slim_discover_v1beta1.EndpointSlice{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
@@ -93,7 +93,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 				k.K8sEventProcessed(metricEndpointSlice, metricDelete, true)
 			},
 		},
-		k8s.ConvertToK8sEndpointSlice,
+		nil,
 	)
 	ecr := make(chan struct{})
 	k.blockWaitGroupToSyncResources(ecr, swgEps, endpointController, K8sAPIGroupEndpointSliceV1Beta1Discovery)
