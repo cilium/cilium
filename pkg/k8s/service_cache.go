@@ -16,8 +16,8 @@ package k8s
 
 import (
 	"github.com/cilium/cilium/pkg/datapath"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -218,7 +218,7 @@ func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg 
 	return s.updateEndpoints(svcID, newEndpoints, swg)
 }
 
-func (s *ServiceCache) UpdateEndpointSlices(epSlice *types.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+func (s *ServiceCache) UpdateEndpointSlices(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
 	svcID, newEndpoints := ParseEndpointSlice(epSlice)
 
 	return s.updateEndpoints(svcID, newEndpoints, swg)
@@ -260,7 +260,7 @@ func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg 
 	return s.deleteEndpoints(svcID, swg)
 }
 
-func (s *ServiceCache) DeleteEndpointSlices(epSlice *types.EndpointSlice, swg *lock.StoppableWaitGroup) ServiceID {
+func (s *ServiceCache) DeleteEndpointSlices(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) ServiceID {
 	svcID := ParseEndpointSliceID(epSlice)
 
 	return s.deleteEndpoints(svcID, swg)

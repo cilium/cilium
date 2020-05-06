@@ -22,8 +22,8 @@ import (
 
 	"github.com/cilium/cilium/pkg/checker"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -33,9 +33,6 @@ import (
 
 	"gopkg.in/check.v1"
 	. "gopkg.in/check.v1"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/discovery/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
@@ -144,29 +141,27 @@ func (s *K8sSuite) TestServiceCacheEndpoints(c *check.C) {
 }
 
 func (s *K8sSuite) TestServiceCacheEndpointSlice(c *check.C) {
-	k8sEndpointSlice := &types.EndpointSlice{
-		EndpointSlice: &v1beta1.EndpointSlice{
-			AddressType: v1beta1.AddressTypeIPv4,
-			ObjectMeta: metav1.ObjectMeta{
-				Name:      "foo-afbh9",
-				Namespace: "bar",
-				Labels: map[string]string{
-					v1beta1.LabelServiceName: "foo",
+	k8sEndpointSlice := &slim_discovery_v1beta1.EndpointSlice{
+		AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
+		ObjectMeta: slim_metav1.ObjectMeta{
+			Name:      "foo-afbh9",
+			Namespace: "bar",
+			Labels: map[string]string{
+				slim_discovery_v1beta1.LabelServiceName: "foo",
+			},
+		},
+		Endpoints: []slim_discovery_v1beta1.Endpoint{
+			{
+				Addresses: []string{
+					"2.2.2.2",
 				},
 			},
-			Endpoints: []v1beta1.Endpoint{
-				{
-					Addresses: []string{
-						"2.2.2.2",
-					},
-				},
-			},
-			Ports: []v1beta1.EndpointPort{
-				{
-					Name:     func() *string { a := "http-test-svc"; return &a }(),
-					Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
-					Port:     func() *int32 { a := int32(8080); return &a }(),
-				},
+		},
+		Ports: []slim_discovery_v1beta1.EndpointPort{
+			{
+				Name:     func() *string { a := "http-test-svc"; return &a }(),
+				Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+				Port:     func() *int32 { a := int32(8080); return &a }(),
 			},
 		},
 	}

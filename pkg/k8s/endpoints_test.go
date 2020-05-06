@@ -21,16 +21,13 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"gopkg.in/check.v1"
-	v1 "k8s.io/api/core/v1"
-	"k8s.io/api/discovery/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 func TestEndpoints_DeepEqual(t *testing.T) {
@@ -540,7 +537,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 	nodeName := "k8s1"
 
 	type args struct {
-		eps *types.EndpointSlice
+		eps *slim_discovery_v1beta1.EndpointSlice
 	}
 	tests := []struct {
 		name        string
@@ -551,12 +548,10 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			name: "empty endpoint",
 			setupArgs: func() args {
 				return args{
-					eps: &types.EndpointSlice{
-						EndpointSlice: &v1beta1.EndpointSlice{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "foo",
-								Namespace: "bar",
-							},
+					eps: &slim_discovery_v1beta1.EndpointSlice{
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
 						},
 					},
 				}
@@ -569,29 +564,27 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			name: "endpoint with an address and port",
 			setupArgs: func() args {
 				return args{
-					eps: &types.EndpointSlice{
-						EndpointSlice: &v1beta1.EndpointSlice{
-							AddressType: v1beta1.AddressTypeIPv4,
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "foo",
-								Namespace: "bar",
-							},
-							Endpoints: []v1beta1.Endpoint{
-								{
-									Addresses: []string{
-										"172.0.0.1",
-									},
-									Topology: map[string]string{
-										"kubernetes.io/hostname": nodeName,
-									},
+					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Endpoints: []slim_discovery_v1beta1.Endpoint{
+							{
+								Addresses: []string{
+									"172.0.0.1",
+								},
+								Topology: map[string]string{
+									"kubernetes.io/hostname": nodeName,
 								},
 							},
-							Ports: []v1beta1.EndpointPort{
-								{
-									Name:     func() *string { a := "http-test-svc"; return &a }(),
-									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
-									Port:     func() *int32 { a := int32(8080); return &a }(),
-								},
+						},
+						Ports: []slim_discovery_v1beta1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
 							},
 						},
 					},
@@ -612,34 +605,32 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			name: "endpoint with an address and 2 ports",
 			setupArgs: func() args {
 				return args{
-					eps: &types.EndpointSlice{
-						EndpointSlice: &v1beta1.EndpointSlice{
-							AddressType: v1beta1.AddressTypeIPv4,
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "foo",
-								Namespace: "bar",
-							},
-							Endpoints: []v1beta1.Endpoint{
-								{
-									Addresses: []string{
-										"172.0.0.1",
-									},
-									Topology: map[string]string{
-										"kubernetes.io/hostname": nodeName,
-									},
+					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Endpoints: []slim_discovery_v1beta1.Endpoint{
+							{
+								Addresses: []string{
+									"172.0.0.1",
+								},
+								Topology: map[string]string{
+									"kubernetes.io/hostname": nodeName,
 								},
 							},
-							Ports: []v1beta1.EndpointPort{
-								{
-									Name:     func() *string { a := "http-test-svc"; return &a }(),
-									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
-									Port:     func() *int32 { a := int32(8080); return &a }(),
-								},
-								{
-									Name:     func() *string { a := "http-test-svc-2"; return &a }(),
-									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
-									Port:     func() *int32 { a := int32(8081); return &a }(),
-								},
+						},
+						Ports: []slim_discovery_v1beta1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+							{
+								Name:     func() *string { a := "http-test-svc-2"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8081); return &a }(),
 							},
 						},
 					},
@@ -661,39 +652,37 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			name: "endpoint with 2 addresses and 2 ports",
 			setupArgs: func() args {
 				return args{
-					eps: &types.EndpointSlice{
-						EndpointSlice: &v1beta1.EndpointSlice{
-							AddressType: v1beta1.AddressTypeIPv4,
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "foo",
-								Namespace: "bar",
-							},
-							Endpoints: []v1beta1.Endpoint{
-								{
-									Addresses: []string{
-										"172.0.0.1",
-									},
-									Topology: map[string]string{
-										"kubernetes.io/hostname": nodeName,
-									},
+					eps: &slim_discovery_v1beta1.EndpointSlice{
+						AddressType: slim_discovery_v1beta1.AddressTypeIPv4,
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Endpoints: []slim_discovery_v1beta1.Endpoint{
+							{
+								Addresses: []string{
+									"172.0.0.1",
 								},
-								{
-									Addresses: []string{
-										"172.0.0.2",
-									},
+								Topology: map[string]string{
+									"kubernetes.io/hostname": nodeName,
 								},
 							},
-							Ports: []v1beta1.EndpointPort{
-								{
-									Name:     func() *string { a := "http-test-svc"; return &a }(),
-									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
-									Port:     func() *int32 { a := int32(8080); return &a }(),
+							{
+								Addresses: []string{
+									"172.0.0.2",
 								},
-								{
-									Name:     func() *string { a := "http-test-svc-2"; return &a }(),
-									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
-									Port:     func() *int32 { a := int32(8081); return &a }(),
-								},
+							},
+						},
+						Ports: []slim_discovery_v1beta1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+							{
+								Name:     func() *string { a := "http-test-svc-2"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8081); return &a }(),
 							},
 						},
 					},
@@ -721,46 +710,44 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 			name: "endpoint with 2 addresses, 1 address not ready and 2 ports",
 			setupArgs: func() args {
 				return args{
-					eps: &types.EndpointSlice{
-						EndpointSlice: &v1beta1.EndpointSlice{
-							ObjectMeta: metav1.ObjectMeta{
-								Name:      "foo",
-								Namespace: "bar",
-							},
-							Endpoints: []v1beta1.Endpoint{
-								{
-									Addresses: []string{
-										"172.0.0.1",
-									},
-									Topology: map[string]string{
-										"kubernetes.io/hostname": nodeName,
-									},
+					eps: &slim_discovery_v1beta1.EndpointSlice{
+						ObjectMeta: slim_metav1.ObjectMeta{
+							Name:      "foo",
+							Namespace: "bar",
+						},
+						Endpoints: []slim_discovery_v1beta1.Endpoint{
+							{
+								Addresses: []string{
+									"172.0.0.1",
 								},
-								{
-									Addresses: []string{
-										"172.0.0.2",
-									},
-								},
-								{
-									Conditions: v1beta1.EndpointConditions{
-										Ready: func() *bool { a := false; return &a }(),
-									},
-									Addresses: []string{
-										"172.0.0.3",
-									},
+								Topology: map[string]string{
+									"kubernetes.io/hostname": nodeName,
 								},
 							},
-							Ports: []v1beta1.EndpointPort{
-								{
-									Name:     func() *string { a := "http-test-svc"; return &a }(),
-									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
-									Port:     func() *int32 { a := int32(8080); return &a }(),
+							{
+								Addresses: []string{
+									"172.0.0.2",
 								},
-								{
-									Name:     func() *string { a := "http-test-svc-2"; return &a }(),
-									Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
-									Port:     func() *int32 { a := int32(8081); return &a }(),
+							},
+							{
+								Conditions: slim_discovery_v1beta1.EndpointConditions{
+									Ready: func() *bool { a := false; return &a }(),
 								},
+								Addresses: []string{
+									"172.0.0.3",
+								},
+							},
+						},
+						Ports: []slim_discovery_v1beta1.EndpointPort{
+							{
+								Name:     func() *string { a := "http-test-svc"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8080); return &a }(),
+							},
+							{
+								Name:     func() *string { a := "http-test-svc-2"; return &a }(),
+								Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
+								Port:     func() *int32 { a := int32(8081); return &a }(),
 							},
 						},
 					},
@@ -795,7 +782,7 @@ func (s *K8sSuite) Test_parseK8sEPSlicev1Beta1(c *check.C) {
 
 func Test_parseEndpointPort(t *testing.T) {
 	type args struct {
-		port v1beta1.EndpointPort
+		port slim_discovery_v1beta1.EndpointPort
 	}
 	tests := []struct {
 		name     string
@@ -806,9 +793,9 @@ func Test_parseEndpointPort(t *testing.T) {
 		{
 			name: "tcp-port",
 			args: args{
-				port: v1beta1.EndpointPort{
+				port: slim_discovery_v1beta1.EndpointPort{
 					Name:     func() *string { a := "http-test-svc"; return &a }(),
-					Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
+					Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolTCP; return &a }(),
 					Port:     func() *int32 { a := int32(8080); return &a }(),
 				},
 			},
@@ -821,9 +808,9 @@ func Test_parseEndpointPort(t *testing.T) {
 		{
 			name: "udp-port",
 			args: args{
-				port: v1beta1.EndpointPort{
+				port: slim_discovery_v1beta1.EndpointPort{
 					Name:     func() *string { a := "http-test-svc"; return &a }(),
-					Protocol: func() *v1.Protocol { a := v1.ProtocolUDP; return &a }(),
+					Protocol: func() *slim_corev1.Protocol { a := slim_corev1.ProtocolUDP; return &a }(),
 					Port:     func() *int32 { a := int32(8080); return &a }(),
 				},
 			},
@@ -836,7 +823,7 @@ func Test_parseEndpointPort(t *testing.T) {
 		{
 			name: "unset-protocol-should-have-tcp-port",
 			args: args{
-				port: v1beta1.EndpointPort{
+				port: slim_discovery_v1beta1.EndpointPort{
 					Name: func() *string { a := "http-test-svc"; return &a }(),
 					Port: func() *int32 { a := int32(8080); return &a }(),
 				},
@@ -850,7 +837,7 @@ func Test_parseEndpointPort(t *testing.T) {
 		{
 			name: "unset-port-number-should-fail",
 			args: args{
-				port: v1beta1.EndpointPort{
+				port: slim_discovery_v1beta1.EndpointPort{
 					Name: func() *string { a := "http-test-svc"; return &a }(),
 				},
 			},

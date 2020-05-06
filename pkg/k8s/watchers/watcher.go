@@ -436,7 +436,7 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	// We only enable either "Endpoints" or "EndpointSlice"
 	switch {
 	case k8s.SupportsEndpointSlice():
-		connected := k.endpointSlicesInit(k8s.Client(), swgEps)
+		connected := k.endpointSlicesInit(k8s.WatcherCli(), swgEps)
 		// the cluster has endpoint slices so we should not check for v1.Endpoints
 		if connected {
 			break
