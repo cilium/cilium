@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/allocator"
 	"github.com/cilium/cilium/pkg/idpool"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/informer"
@@ -41,6 +42,11 @@ import (
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "crd-allocator")
+)
+
+const (
+	k8sPrefix               = labels.LabelSourceK8s + ":"
+	k8sNamespaceLabelPrefix = labels.LabelSourceK8s + ":" + k8sConst.PodNamespaceMetaLabels + labels.PathDelimiter
 )
 
 func NewCRDBackend(c CRDBackendConfiguration) (allocator.Backend, error) {
@@ -68,11 +74,13 @@ func (c *crdBackend) DeleteAllKeys(ctx context.Context) {
 // the canonical labels of the identity, but used to ease interaction with the
 // CRD object.
 func sanitizeK8sLabels(old map[string]string) (selected, skipped map[string]string) {
-	k8sPrefix := labels.LabelSourceK8s + ":"
 	skipped = make(map[string]string, len(old))
 	selected = make(map[string]string, len(old))
 	for k, v := range old {
-		if !strings.HasPrefix(k, k8sPrefix) {
+		// Skip non-k8s labels.
+		// Skip synthesized labels for k8s namespace labels, since they contain user input which can result in the label
+		// name being longer than 63 characters.
+		if !strings.HasPrefix(k, k8sPrefix) || strings.HasPrefix(k, k8sNamespaceLabelPrefix) {
 			skipped[k] = v
 			continue // skip non-k8s labels
 		}
