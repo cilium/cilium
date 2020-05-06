@@ -165,9 +165,8 @@ func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
 }
 
 func (i *IPMasqTestSuite) TestRestore(c *check.C) {
-	// Stop ip-masq-agent goroutine (we can't use i.ipMasqMap.Stop(), as it stops
-	// the watcher)
-	close(i.ipMasqAgent.stop)
+	// Check that stale entry is removed from the map after restore
+	i.ipMasqAgent.Stop()
 
 	_, cidr, _ := net.ParseCIDR("3.3.3.0/24")
 	i.ipMasqMap.cidrs[cidr.String()] = *cidr
@@ -177,6 +176,8 @@ func (i *IPMasqTestSuite) TestRestore(c *check.C) {
 	_, err := i.configFile.WriteString("nonMasqueradeCIDRs:\n- 4.4.0.0/16")
 	c.Assert(err, check.IsNil)
 
+	i.ipMasqAgent, err = newIPMasqAgent(i.configFile.Name(), i.ipMasqMap)
+	c.Assert(err, check.IsNil)
 	i.ipMasqAgent.Start()
 	time.Sleep(300 * time.Millisecond)
 
@@ -187,12 +188,14 @@ func (i *IPMasqTestSuite) TestRestore(c *check.C) {
 
 	// Now stop the goroutine, and also remove the maps. It should bootstrap from
 	// the config
-	close(i.ipMasqAgent.stop)
+	i.ipMasqAgent.Stop()
 	i.ipMasqMap = &ipMasqMapMock{cidrs: map[string]net.IPNet{}}
 	i.ipMasqAgent.ipMasqMap = i.ipMasqMap
 	_, err = i.configFile.Seek(0, 0)
 	c.Assert(err, check.IsNil)
 	_, err = i.configFile.WriteString("nonMasqueradeCIDRs:\n- 3.3.0.0/16")
+	c.Assert(err, check.IsNil)
+	i.ipMasqAgent, err = newIPMasqAgent(i.configFile.Name(), i.ipMasqMap)
 	c.Assert(err, check.IsNil)
 	i.ipMasqAgent.Start()
 
