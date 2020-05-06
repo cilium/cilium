@@ -16,17 +16,15 @@ package main
 
 import (
 	"context"
-	"strconv"
-	"time"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
+	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
-	core_v1 "k8s.io/api/core/v1"
-	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -35,9 +33,7 @@ import (
 // objects are created by the sync-to-k8s-ciliumendpoint controller on each
 // Endpoint.
 // The general steps are:
-//   - get list of nodes
-//   - only run with probability 1/nodes
-//   - get list of CEPs
+//   - list all CEPs in the cluster
 //   - for each CEP
 //       delete CEP if the corresponding pod does not exist
 // CiliumEndpoint objects have the same name as the pod they represent
@@ -51,81 +47,50 @@ func enableCiliumEndpointSyncGC() {
 
 	ciliumClient := ciliumK8sClient.CiliumV2()
 
+	// This functions will block until the resources are synced with k8s.
+	watchers.CiliumEndpointsInit(ciliumClient)
+	watchers.PodsInit(k8s.WatcherCli())
+
 	// this dummy manager is needed only to add this controller to the global list
 	controller.NewManager().UpdateController(controllerName,
 		controller.ControllerParams{
 			RunInterval: operatorOption.Config.EndpointGCInterval,
 			DoFunc: func(ctx context.Context) error {
-				var (
-					listOpts = meta_v1.ListOptions{Limit: 10}
-					loopStop = time.Now().Add(operatorOption.Config.EndpointGCInterval)
-				)
+				// For each CEP we fetched, check if we know about it
+				for _, cepObj := range watchers.CiliumEndpointStore.List() {
+					cep, ok := cepObj.(*cilium_v2.CiliumEndpoint)
+					if !ok {
+						log.WithField(logfields.Object, cepObj).
+							Errorf("Saw %T object while expecting *cilium_v2.CiliumEndpoint", cepObj)
+						continue
+					}
 
-				pods, err := k8s.Client().CoreV1().Pods("").List(ctx, meta_v1.ListOptions{})
-				if err != nil {
-					return err
-				}
-
-				podsCache := map[string]*core_v1.Pod{}
-				for _, pod := range pods.Items {
-					podsCache[pod.Namespace+"/"+pod.Name] = &pod
-				}
-
-				timeNow := time.Now()
-			perCEPFetch:
-				for time.Now().Before(loopStop) { // Guard against no-break bugs
-					time.Sleep(time.Second) // Throttle lookups in case of a busy loop
-
-					ceps, err := ciliumClient.CiliumEndpoints(meta_v1.NamespaceAll).List(ctx, listOpts)
-					switch {
-					case err != nil && k8serrors.IsResourceExpired(err) && ceps.Continue != "":
-						// This combination means we saw a 410 ResourceExpired error but we
-						// can iterate on the now-current snapshot. We need to refetch,
-						// however.
-						// See https://github.com/kubernetes/apimachinery/blob/master/pkg/apis/meta/v1/types.go#L350-L381
-						// or the docs for k8s.io/apimachinery/pkg/apis/meta/v1.ListOptions
-						// vendored into this repo.
-						listOpts.Continue = ceps.Continue
-						continue perCEPFetch
-
-					case err != nil:
-						scopedLog.WithError(err).Debug("Cannot list CEPs")
+					cepFullName := cep.Namespace + "/" + cep.Name
+					_, exists, err := watchers.PodStore.GetByKey(cepFullName)
+					if err != nil {
+						scopedLog.WithError(err).Warn("Unable to get pod from store")
+						continue
+					}
+					if !exists {
+						// FIXME: this is fragile as we might have received the
+						// CEP notification first but not the pod notification
+						// so we need to have a similar mechanism that we have
+						// for the keep alive of security identities.
+						scopedLog = scopedLog.WithFields(logrus.Fields{
+							logfields.EndpointID: cep.Status.ID,
+							logfields.K8sPodName: cepFullName,
+						})
+						scopedLog.Debug("Orphaned CiliumEndpoint is being garbage collected")
+						PropagationPolicy := meta_v1.DeletePropagationBackground // because these are const strings but the API wants pointers
+						err := ciliumClient.CiliumEndpoints(cep.Namespace).Delete(
+							ctx,
+							cep.Name,
+							meta_v1.DeleteOptions{PropagationPolicy: &PropagationPolicy})
+						if err != nil {
+							scopedLog.WithError(err).Debug("Unable to delete orphaned CEP")
+						}
 						return err
 					}
-
-					// setup listOpts for the next iteration
-					listOpts.Continue = ceps.Continue
-
-					// For each CEP we fetched, check if we know about it
-					for _, cep := range ceps.Items {
-						if cep.Status.Identity != nil {
-							identityHeartbeat.MarkAlive(strconv.FormatInt(cep.Status.Identity.ID, 10), timeNow)
-						}
-
-						cepFullName := cep.Namespace + "/" + cep.Name
-						_, exists := podsCache[cepFullName]
-						if !exists {
-							// delete
-							scopedLog = scopedLog.WithFields(logrus.Fields{
-								logfields.EndpointID: cep.Status.ID,
-								logfields.K8sPodName: cepFullName,
-							})
-							scopedLog.Debug("Orphaned CiliumEndpoint is being garbage collected")
-							PropagationPolicy := meta_v1.DeletePropagationBackground // because these are const strings but the API wants pointers
-							if err := ciliumClient.CiliumEndpoints(cep.Namespace).Delete(
-								ctx,
-								cep.Name,
-								meta_v1.DeleteOptions{PropagationPolicy: &PropagationPolicy}); err != nil {
-								scopedLog.WithError(err).Debug("Unable to delete orphaned CEP")
-								return err
-							}
-						}
-					}
-					if ceps.Continue != "" {
-						// there is more data, continue
-						continue perCEPFetch
-					}
-					break perCEPFetch // break out as a safe default to avoid spammy loops
 				}
 				return nil
 			},

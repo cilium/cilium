@@ -19,7 +19,7 @@ cilium-operator [flags]
       --aws-release-excess-ips                  Enable releasing excess free IP addresses from AWS ENI.
       --azure-resource-group string             Resource group to use for Azure IPAM
       --azure-subscription-id string            Subscription ID to access Azure API
-      --cilium-endpoint-gc-interval duration    GC interval for cilium endpoints (default 10m0s)
+      --cilium-endpoint-gc-interval duration    GC interval for cilium endpoints (default 5m0s)
       --cluster-id int                          Unique identifier of the cluster
       --cluster-name string                     Name of the cluster (default "default")
       --cnp-node-status-gc-interval duration    GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status (default 2m0s)
@@ -34,7 +34,7 @@ cilium-operator [flags]
   -h, --help                                    help for cilium-operator
       --identity-allocation-mode string         Method to use for identity allocation (default "kvstore")
       --identity-gc-interval duration           GC interval for security identities (default 15m0s)
-      --identity-heartbeat-timeout duration     Timeout after which identity expires on lack of heartbeat (default 31m0s)
+      --identity-heartbeat-timeout duration     Timeout after which identity expires on lack of heartbeat (default 30m0s)
       --ipam string                             Backend to use for IPAM (default "hostscope-legacy")
       --k8s-api-server string                   Kubernetes API server URL
       --k8s-client-burst int                    Burst value allowed for the K8s client
