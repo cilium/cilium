@@ -38,8 +38,11 @@ type Manifest struct {
 	// a file that contains any number of Deployments, DaemonSets, ...
 	Filename string
 
-	// NumDaemonSet is the number of DaemonSets in the manifest
-	NumDaemonSet int
+	// DaemonSetNames is the list of all daemonset names in the manifest
+	DaemonSetNames []string
+
+	// DeploymentNames is the list of all deployment names in the manifest
+	DeploymentNames []string
 
 	// NumPods is the number of pods expected in the manifest, not counting
 	// any DaemonSets
@@ -48,6 +51,14 @@ type Manifest struct {
 	// LabelSelector is the selector required to select *ALL* pods created
 	// from this manifest
 	LabelSelector string
+
+	// Singleton marks a manifest as singleton. A singleton manifest can be
+	// deployed exactly once into the cluster, regardless of the namespace
+	// the manifest is deployed into. Singletons are required if the
+	// deployment is using HostPorts, NodePorts or other resources which
+	// may conflict if the deployment is scheduled multiple times onto the
+	// same node.
+	Singleton bool
 }
 
 // Deploy deploys the manifest. It will call ginkgoext.Fail() if any aspect of
@@ -61,8 +72,34 @@ func (m Manifest) Deploy(kubectl *Kubectl, namespace string) *Deployment {
 	return deploy
 }
 
+// deleteInAnyNamespace is used to delete all resources of the manifest in all
+// namespaces. This is required to implement singleton manifests. For the most
+// part, this will have no effect as PrepareCluster() will delete any leftover
+// temporary namespaces before starting the tests. This deletion is a safety
+// net for any deployment leaks between tests and in case a test deploys into a
+// non-random namespace.
+func (m Manifest) deleteInAnyNamespace(kubectl *Kubectl) {
+	if len(m.DaemonSetNames) > 0 {
+		if err := kubectl.DeleteResourcesInAnyNamespace("daemonset", m.DaemonSetNames); err != nil {
+			ginkgoext.Failf("Unable to delete existing daemonsets [%s] while deploying singleton manifest: %s",
+				m.DaemonSetNames, err)
+		}
+	}
+
+	if len(m.DeploymentNames) > 0 {
+		if err := kubectl.DeleteResourcesInAnyNamespace("deployment", m.DeploymentNames); err != nil {
+			ginkgoext.Failf("Unable to delete existing deployments [%s] while deploying singleton manifest: %s",
+				m.DeploymentNames, err)
+		}
+	}
+}
+
 func (m Manifest) deploy(kubectl *Kubectl, namespace string) (*Deployment, error) {
 	ginkgoext.By("Deploying %s in namespace %s", m.Filename, namespace)
+
+	if m.Singleton {
+		m.deleteInAnyNamespace(kubectl)
+	}
 
 	numNodes := kubectl.GetNumCiliumNodes()
 	if numNodes == 0 {
@@ -100,7 +137,7 @@ type Deployment struct {
 // numExpectedPods returns the number of expected pods the deployment resulted
 // in
 func (d *Deployment) numExpectedPods() int {
-	return (d.numNodes * d.manifest.NumDaemonSet) + d.manifest.NumPods
+	return (d.numNodes * len(d.manifest.DaemonSetNames)) + d.manifest.NumPods
 }
 
 // WaitUntilReady waits until all pods of the deployment are up and in ready

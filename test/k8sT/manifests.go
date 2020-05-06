@@ -22,9 +22,11 @@ var (
 	deploymentManager = helpers.NewDeploymentManager()
 
 	DemoDaemonSet = helpers.Manifest{
-		Filename:     "demo_ds.yaml",
-		NumDaemonSet: 2,
-		NumPods:      1,
+		Filename:        "demo_ds.yaml",
+		DaemonSetNames:  []string{"testds", "testclient"},
+		DeploymentNames: []string{"test-k8s2"},
+		NumPods:         1,
+		Singleton:       true,
 	}
 
 	NetperfPods = helpers.Manifest{
