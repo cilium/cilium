@@ -58,5 +58,8 @@ cnt += 1
 @@
 
 if cnt > 0:
-  print "Use the following command to fix the above issues:"
-  print "spatch --sp-file contrib/coccinelle/aligned.cocci --include-headers --very-quiet --in-place bpf/\n"
+  print """Use the following command to fix the above issues:
+docker run --rm --user 1000 --workdir /workspace -v `pwd`:/workspace \\
+    -it coccicheck spatch --sp-file contrib/coccinelle/aligned.cocci \\
+    --include-headers --very-quiet --in-place bpf/\n
+"""
