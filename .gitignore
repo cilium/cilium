@@ -49,6 +49,7 @@ outgoing
 *cscope.in.out
 *cscope.po.out
 *tags
+.gdb_history
 
 man/
 
@@ -58,6 +59,8 @@ test/*_manifest.yaml
 test/*_policy.json
 test/*.xml
 test/.vagrant
+test/*.log
+test/bpf/_results
 
 # Emacs backup files
 *~
@@ -65,7 +68,6 @@ test/.vagrant
 # Temporary files that allow build containers/VMs work without git
 GIT_VERSION
 
-test/bpf/_results
-
 # generated from make targets
 *.ok
+*.build_all
