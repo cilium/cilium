@@ -119,7 +119,6 @@ var _ = Describe("K8sHubbleTest", func() {
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-			"global.hubble.enabled":     "true",
 			"global.hubble.cli.enabled": "true",
 		})
 
