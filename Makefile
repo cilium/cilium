@@ -360,8 +360,10 @@ generate-k8s-api:
 	$(call generate_k8s_protobuf,$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1$(comma)$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr)
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr$(comma)$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1)
 	$(call generate_k8s_api_deepcopy_client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"\
+	discovery:v1beta1\
 	core:v1\
 	")
 	$(call generate_k8s_api_deepcopy,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"\
