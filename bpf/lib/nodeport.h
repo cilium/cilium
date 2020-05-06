@@ -451,9 +451,9 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	struct lb6_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
+	union macaddr smac, *mac;
 	bool backend_local;
 	__u32 monitor = 0;
-	union macaddr smac;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -557,9 +557,12 @@ redo_local:
 		return DROP_INVALID;
 	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
 		return DROP_INVALID;
-	ret = map_update_elem(&NODEPORT_NEIGH6, &ip6->saddr, &smac, 0);
-	if (ret < 0) {
-		return ret;
+
+	mac = map_lookup_elem(&NODEPORT_NEIGH6, &ip6->saddr);
+	if (!mac || eth_addrcmp(mac, &smac)) {
+		ret = map_update_elem(&NODEPORT_NEIGH6, &ip6->saddr, &smac, 0);
+		if (ret < 0)
+			return ret;
 	}
 
 	if (!backend_local) {
@@ -1062,9 +1065,9 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
 	struct ct_state ct_state = {};
+	union macaddr smac, *mac;
 	bool backend_local;
 	__u32 monitor = 0;
-	union macaddr smac;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1168,9 +1171,12 @@ redo_local:
 		return DROP_INVALID;
 	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
 		return DROP_INVALID;
-	ret = map_update_elem(&NODEPORT_NEIGH4, &ip4->saddr, &smac, 0);
-	if (ret < 0) {
-		return ret;
+
+	mac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->saddr);
+	if (!mac || eth_addrcmp(mac, &smac)) {
+		ret = map_update_elem(&NODEPORT_NEIGH4, &ip4->saddr, &smac, 0);
+		if (ret < 0)
+			return ret;
 	}
 
 	if (!backend_local) {
