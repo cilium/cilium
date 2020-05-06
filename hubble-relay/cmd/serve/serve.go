@@ -22,13 +22,15 @@ import (
 
 	"github.com/cilium/cilium/pkg/hubble/relay"
 	"github.com/cilium/cilium/pkg/hubble/relay/relayoption"
-	"golang.org/x/sys/unix"
 
+	"github.com/google/gops/agent"
 	"github.com/spf13/cobra"
+	"golang.org/x/sys/unix"
 )
 
 type flags struct {
 	debug         bool
+	gops          bool
 	dialTimeout   time.Duration
 	listenAddress string
 	peerService   string
@@ -48,6 +50,9 @@ func New() *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(
 		&f.debug, "debug", "D", false, "Run in debug mode",
+	)
+	cmd.Flags().BoolVar(
+		&f.gops, "gops", true, "Run gops agent",
 	)
 	cmd.Flags().DurationVar(
 		&f.dialTimeout, "dial-timeout",
@@ -77,6 +82,11 @@ func runServe(f flags) error {
 	}
 	if f.debug {
 		opts = append(opts, relayoption.WithDebug())
+	}
+	if f.gops {
+		if err := agent.Listen(agent.Options{}); err != nil {
+			return fmt.Errorf("failed to start gops agent: %v", err)
+		}
 	}
 	srv, err := relay.NewServer(opts...)
 	if err != nil {
