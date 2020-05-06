@@ -127,10 +127,6 @@ func (a *IPMasqAgent) Start() {
 			case event := <-a.watcher.Events:
 				log.Debugf("Received fsnotify event: %+v", event)
 
-				if event.Name != a.configPath {
-					continue
-				}
-
 				switch event.Op {
 				case fsnotify.Create, fsnotify.Write, fsnotify.Chmod, fsnotify.Remove, fsnotify.Rename:
 					if err := a.Update(); err != nil {
