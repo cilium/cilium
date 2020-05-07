@@ -24,9 +24,11 @@ import (
 
 // Default is the reference point for default values.
 var Default = Options{
-	HubbleTarget:  "unix://" + defaults.HubbleSockPath,
-	DialTimeout:   5 * time.Second,
-	RetryTimeout:  30 * time.Second,
-	ListenAddress: fmt.Sprintf(":%d", hubbledefaults.RelayPort),
-	Debug:         false,
+	HubbleTarget:       "unix://" + defaults.HubbleSockPath,
+	DialTimeout:        5 * time.Second,
+	RetryTimeout:       30 * time.Second,
+	ListenAddress:      fmt.Sprintf(":%d", hubbledefaults.RelayPort),
+	Debug:              false,
+	BufferMaxLen:       100,
+	BufferDrainTimeout: 1 * time.Second,
 }

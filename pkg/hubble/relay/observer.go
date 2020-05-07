@@ -17,8 +17,10 @@ package relay
 import (
 	"context"
 	"io"
+	"time"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+	"github.com/cilium/cilium/pkg/hubble/relay/queue"
 	"github.com/sirupsen/logrus"
 
 	"golang.org/x/sync/errgroup"
@@ -34,7 +36,6 @@ var _ observerpb.ObserverServer = (*Server)(nil)
 func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Observer_GetFlowsServer) error {
 	ctx, cancel := context.WithCancel(context.Background())
 	defer cancel()
-	g, ctx := errgroup.WithContext(ctx)
 	go func() {
 		select {
 		case <-s.stop:
@@ -43,9 +44,16 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 		}
 	}()
 
-	//TODO: figure out what makes a reasonnable channel size
 	peers := s.peerList()
-	flows := make(chan *observerpb.GetFlowsResponse, 10*len(peers))
+	qlen := s.opts.BufferMaxLen // we don't want to buffer too many flows
+	if nqlen := req.GetNumber() * uint64(len(peers)); nqlen > 0 && nqlen < uint64(qlen) {
+		// don't make the queue bigger than necessary as it would be a problem
+		// with the priority queue (we pop out when the queue is full)
+		qlen = int(nqlen)
+	}
+
+	g, gctx := errgroup.WithContext(ctx)
+	flows := make(chan *observerpb.GetFlowsResponse, qlen)
 	for _, p := range peers {
 		p := p
 		if p.conn == nil || p.connErr != nil {
@@ -57,7 +65,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 		}
 		g.Go(func() error {
 			client := observerpb.NewObserverClient(p.conn)
-			c, err := client.GetFlows(ctx, req)
+			c, err := client.GetFlows(gctx, req)
 			if err != nil {
 				s.log.WithFields(logrus.Fields{
 					"error": err,
@@ -73,7 +81,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 				case nil:
 					select {
 					case flows <- flow:
-					case <-ctx.Done():
+					case <-gctx.Done():
 						return nil
 					}
 				default:
@@ -92,12 +100,61 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 		g.Wait()
 		close(flows)
 	}()
-	//TODO: flows are sent in the order they are received. One should make use
-	// of pkg/hubble/container/PriorityQueue to re-order flows (to the extent of
-	// what seems reasonnable)
-	for flow := range flows {
-		if err := stream.Send(flow); err != nil {
-			return err
+
+	pq := queue.NewPriorityQueue(qlen)
+	sortedFlows := make(chan *observerpb.GetFlowsResponse, qlen)
+	go func() {
+		defer close(sortedFlows)
+	flowsLoop:
+		for {
+			select {
+			case flow, ok := <-flows:
+				if !ok {
+					break flowsLoop
+				}
+				if pq.Len() == qlen {
+					f := pq.Pop()
+					select {
+					case sortedFlows <- f:
+					case <-ctx.Done():
+						return
+					}
+				}
+				pq.Push(flow)
+			case <-time.After(s.opts.BufferDrainTimeout): // make sure to drain the queue when no new flow responses are received
+				if f := pq.Pop(); f != nil {
+					select {
+					case sortedFlows <- f:
+					case <-ctx.Done():
+						return
+					}
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+		// drain the queue
+		for f := pq.Pop(); f != nil; f = pq.Pop() {
+			select {
+			case sortedFlows <- f:
+			case <-ctx.Done():
+				return
+			}
+		}
+	}()
+
+sortedFlowsLoop:
+	for {
+		select {
+		case flow, ok := <-sortedFlows:
+			if !ok {
+				break sortedFlowsLoop
+			}
+			if err := stream.Send(flow); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			break sortedFlowsLoop
 		}
 	}
 	return g.Wait()
