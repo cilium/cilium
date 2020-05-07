@@ -21,8 +21,6 @@ import (
 	"net"
 	"time"
 
-	"github.com/cilium/cilium/pkg/option"
-
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
 )
@@ -553,16 +551,16 @@ func lookupDefaultRoute(family int) (netlink.Route, error) {
 
 // NodeDeviceWithDefaultRoute returns the node's device which handles the
 // default route in the current namespace
-func NodeDeviceWithDefaultRoute() (netlink.Link, error) {
+func NodeDeviceWithDefaultRoute(enableIPv4, enableIPv6 bool) (netlink.Link, error) {
 	linkIndex := 0
-	if option.Config.EnableIPv4 {
+	if enableIPv4 {
 		route, err := lookupDefaultRoute(netlink.FAMILY_V4)
 		if err != nil {
 			return nil, err
 		}
 		linkIndex = route.LinkIndex
 	}
-	if option.Config.EnableIPv6 {
+	if enableIPv6 {
 		route, err := lookupDefaultRoute(netlink.FAMILY_V6)
 		if err != nil {
 			return nil, err

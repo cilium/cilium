@@ -1148,7 +1148,7 @@ func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate nodeTypes.N
 // NodeDeviceNameWithDefaultRoute returns the node's device name which
 // handles the default route in the current namespace
 func NodeDeviceNameWithDefaultRoute() (string, error) {
-	link, err := route.NodeDeviceWithDefaultRoute()
+	link, err := route.NodeDeviceWithDefaultRoute(option.Config.EnableIPv4, option.Config.EnableIPv6)
 	if err != nil {
 		return "", err
 	}
