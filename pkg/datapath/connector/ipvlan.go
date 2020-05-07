@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/containernetworking/plugins/pkg/ns"
 
 	"github.com/vishvananda/netlink"
@@ -245,9 +244,9 @@ func createIpvlanSlave(lxcIfName string, mtu, masterDev int, mode string, ep *mo
 	}
 
 	switch mode {
-	case option.OperationModeL3:
+	case OperationModeL3:
 		ipvlanMode = netlink.IPVLAN_MODE_L3
-	case option.OperationModeL3S:
+	case OperationModeL3S:
 		ipvlanMode = netlink.IPVLAN_MODE_L3S
 	default:
 		return nil, nil, fmt.Errorf("invalid or unsupported ipvlan operation mode: %s", mode)

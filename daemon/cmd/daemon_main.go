@@ -36,6 +36,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
@@ -1078,9 +1079,9 @@ func initEnv(cmd *cobra.Command) {
 				Fatal("Cannot find device interface")
 		}
 		option.Config.Ipvlan.MasterDeviceIndex = link.Attrs().Index
-		option.Config.Ipvlan.OperationMode = option.OperationModeL3
+		option.Config.Ipvlan.OperationMode = connector.OperationModeL3
 		if option.Config.InstallIptRules {
-			option.Config.Ipvlan.OperationMode = option.OperationModeL3S
+			option.Config.Ipvlan.OperationMode = connector.OperationModeL3S
 		}
 	default:
 		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
