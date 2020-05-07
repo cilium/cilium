@@ -146,4 +146,5 @@ Vagrantfile @cilium/ci
 /Vagrantfile @cilium/contributing
 /go.sum @cilium/vendor
 /go.mod @cilium/vendor
+/vagrant_box_defaults.rb @cilium/ci
 /vendor/ @cilium/vendor
