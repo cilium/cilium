@@ -3391,15 +3391,6 @@ func (kub *Kubectl) DeleteETCDOperator() {
 	}
 }
 
-// reportMap saves the output of the given commands to the specified filename.
-// Function needs a directory path where the files are going to be written
-// commands are run on all pods matching selector in given namespace
-func (kub *Kubectl) reportMap(path string, reportCmds map[string]string, ns, selector string) {
-	ctx, cancel := context.WithCancel(context.Background())
-	defer cancel()
-	kub.reportMapContext(ctx, path, reportCmds, ns, selector)
-}
-
 // reportMapContext saves the output of the given commands to the specified filename.
 // Function needs a directory path where the files are going to be written
 // commands are run on all pods matching selector
