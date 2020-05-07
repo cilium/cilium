@@ -797,6 +797,7 @@ var HelpFlagSections = []FlagsSection{
 			CTMapEntriesTimeoutSVCAnyName,
 			NATMapEntriesGlobalName,
 			PolicyMapEntriesName,
+			MapEntriesGlobalDynamicSizeRatioName,
 			PreAllocateMapsName,
 			BPFCompileDebugName,
 			FragmentsMapEntriesName,
