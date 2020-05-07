@@ -87,6 +87,11 @@ Users (Alphabetically)
       U: CiliumNetworkPolicy, Hubble, Service Load Balancing.
       Q: @Gowtham
 
+    * N: SAP Concur
+      D: SAP Concur is using Cilium in production clusters (self-hosted k8s on AWS)
+      U: CNI
+      Q: @dale
+
     * N: Sphere Knowledge
       D: Sphere Knowledge is using Cilium in AWS (self-hosted k8s & EKS)
       U: ENI Networking, Network policies, Service load-balancing, Hubble
