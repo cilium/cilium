@@ -122,7 +122,7 @@ Jenkinsfile.nightly @cilium/ci
 /pkg/monitor/payload @cilium/api
 /pkg/mountinfo @cilium/bpf
 /pkg/mtu @cilium/bpf
-/pkg/option @cilium/cli
+/pkg/option @cilium/agent @cilium/cli
 /pkg/pidfile @cilium/agent
 /pkg/policy @cilium/policy
 /pkg/policy/api/ @cilium/api
