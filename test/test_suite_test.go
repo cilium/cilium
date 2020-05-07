@@ -86,6 +86,9 @@ func TestTest(t *testing.T) {
 		helpers.UserDefinedScope = config.CiliumTestConfig.TestScope
 		fmt.Printf("User specified the scope:  %q\n", config.CiliumTestConfig.TestScope)
 	}
+	if integration := helpers.GetCurrentIntegration(); integration != "" {
+		fmt.Printf("Using CNI_INTEGRATION=%q\n", integration)
+	}
 
 	configLogsOutput()
 	ShowCommands()
