@@ -173,7 +173,6 @@ var _ = Describe("K8sServicesTest", func() {
 		)
 
 		BeforeAll(func() {
-
 			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 			echoSVCYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
 		})
@@ -183,6 +182,8 @@ var _ = Describe("K8sServicesTest", func() {
 			res.ExpectSuccess("unable to apply %s", demoYAML)
 			res = kubectl.ApplyDefault(echoSVCYAML)
 			res.ExpectSuccess("unable to apply %s", echoSVCYAML)
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
 		})
 
 		AfterEach(func() {
@@ -193,8 +194,6 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 
 		It("Checks service on same node", func() {
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
-			Expect(err).Should(BeNil())
 			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
 			Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
@@ -234,8 +233,6 @@ var _ = Describe("K8sServicesTest", func() {
 		}, 300)
 
 		It("Checks service accessing itself (hairpin flow)", func() {
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
-			Expect(err).Should(BeNil())
 			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, echoServiceName)
 			Expect(err).Should(BeNil(), "Cannot get service %q ClusterIP", echoServiceName)
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
@@ -255,14 +252,12 @@ var _ = Describe("K8sServicesTest", func() {
 
 			BeforeEach(func() {
 				// Installs the IPv6 equivalent of app1-service (demo.yaml)
-				err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l id=app1", helpers.HelperTimeout)
-				Expect(err).Should(BeNil())
 				httpBackends := ciliumIPv6Backends("-l k8s:id=app1,k8s:io.kubernetes.pod.namespace=default", "80")
 				ciliumAddService(10080, net.JoinHostPort(demoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
 				tftpBackends := ciliumIPv6Backends("-l k8s:id=app1,k8s:io.kubernetes.pod.namespace=default", "69")
 				ciliumAddService(10069, net.JoinHostPort(demoClusterIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
 				// Installs the IPv6 equivalent of echo (echo-svc.yaml)
-				err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
+				err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
 				Expect(err).Should(BeNil())
 				httpBackends = ciliumIPv6Backends("-l k8s:name=echo,k8s:io.kubernetes.pod.namespace=default", "80")
 				ciliumAddService(20080, net.JoinHostPort(echoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
@@ -309,6 +304,7 @@ var _ = Describe("K8sServicesTest", func() {
 			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
 			res := kubectl.ApplyDefault(demoYAML)
 			res.ExpectSuccess("Unable to apply %s", demoYAML)
+			waitPodsDs()
 		})
 
 		AfterAll(func() {
@@ -319,7 +315,6 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 
 		It("Checks ClusterIP Connectivity", func() {
-			waitPodsDs()
 			service := "testds-service"
 
 			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
@@ -338,7 +333,6 @@ var _ = Describe("K8sServicesTest", func() {
 
 			BeforeAll(func() {
 				// Install rules for testds-service (demo_ds.yaml)
-				waitPodsDs()
 				httpBackends := ciliumIPv6Backends("-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "80")
 				ciliumAddService(31080, net.JoinHostPort(testDSIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
 				tftpBackends := ciliumIPv6Backends("-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "69")
@@ -587,8 +581,6 @@ var _ = Describe("K8sServicesTest", func() {
 				secondaryK8s1IPv4, _ = getIPv4Andv6AddrForIface(k8s1Name, helpers.SecondaryIface)
 				secondaryK8s2IPv4, _ = getIPv4Andv6AddrForIface(k8s2Name, helpers.SecondaryIface)
 			}
-
-			waitPodsDs()
 
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 			Expect(err).Should(BeNil(), "Can not retrieve service")
@@ -980,8 +972,6 @@ var _ = Describe("K8sServicesTest", func() {
 			k8s1Name, k8s1IP := kubectl.GetNodeInfo(helpers.K8s1)
 			k8s2Name, k8s2IP := kubectl.GetNodeInfo(helpers.K8s2)
 			kubeProxy := !helpers.RunsWithoutKubeProxy()
-
-			waitPodsDs()
 
 			// Get testDSClient and testDS pods running on k8s1.
 			// This is because we search for new packets in the
@@ -1571,6 +1561,10 @@ var _ = Describe("K8sServicesTest", func() {
 				res := kubectl.Create(resourcePath)
 				res.ExpectSuccess("unable to create resource %q", resourcePath)
 			}
+
+			By("Waiting for pods to be ready")
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bookinfo", helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 		})
 
 		AfterEach(func() {
@@ -1649,11 +1643,7 @@ var _ = Describe("K8sServicesTest", func() {
 				return target
 			}
 
-			By("Waiting for pods to be ready")
-			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=bookinfo", helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
-
-			err = kubectl.CiliumEndpointWaitReady()
+			err := kubectl.CiliumEndpointWaitReady()
 			ExpectWithOffset(1, err).To(BeNil(), "Endpoints are not ready after timeout")
 
 			By("Waiting for services to be ready")
