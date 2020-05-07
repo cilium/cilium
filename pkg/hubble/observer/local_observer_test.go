@@ -19,6 +19,7 @@ package observer
 
 import (
 	"context"
+	"fmt"
 	"testing"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -80,6 +81,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	fakeServer := &testutils.FakeGetFlowsServer{
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
 			assert.Equal(t, response.GetTime(), response.GetFlow().GetTime())
+			assert.Equal(t, response.GetNodeName(), response.GetFlow().GetNodeName())
 			i++
 			return nil
 		},
@@ -103,9 +105,10 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
 		pl := &flowpb.Payload{
-			Time: &timestamp.Timestamp{Seconds: int64(i)},
-			Type: flowpb.EventType_EventSample,
-			Data: data,
+			Time:     &timestamp.Timestamp{Seconds: int64(i)},
+			Type:     flowpb.EventType_EventSample,
+			Data:     data,
+			HostName: fmt.Sprintf("node #%03d", i),
 		}
 		m <- pl
 	}
@@ -174,9 +177,10 @@ func TestHooks(t *testing.T) {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
 		pl := &flowpb.Payload{
-			Time: &timestamp.Timestamp{Seconds: int64(i)},
-			Type: flowpb.EventType_EventSample,
-			Data: data,
+			Time:     &timestamp.Timestamp{Seconds: int64(i)},
+			Type:     flowpb.EventType_EventSample,
+			Data:     data,
+			HostName: fmt.Sprintf("node #%03d", i),
 		}
 		m <- pl
 	}
@@ -193,6 +197,7 @@ func TestLocalObserverServer_OnFlowDelivery(t *testing.T) {
 	fakeServer := &testutils.FakeGetFlowsServer{
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
 			assert.Equal(t, response.GetTime(), response.GetFlow().GetTime())
+			assert.Equal(t, response.GetNodeName(), response.GetFlow().GetNodeName())
 			flowsReceived++
 			return nil
 		},
@@ -226,9 +231,10 @@ func TestLocalObserverServer_OnFlowDelivery(t *testing.T) {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
 		pl := &flowpb.Payload{
-			Time: &timestamp.Timestamp{Seconds: int64(i)},
-			Type: flowpb.EventType_EventSample,
-			Data: data,
+			Time:     &timestamp.Timestamp{Seconds: int64(i)},
+			Type:     flowpb.EventType_EventSample,
+			Data:     data,
+			HostName: fmt.Sprintf("node #%03d", i),
 		}
 		m <- pl
 	}
@@ -248,6 +254,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	fakeServer := &testutils.FakeGetFlowsServer{
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
 			assert.Equal(t, response.GetTime(), response.GetFlow().GetTime())
+			assert.Equal(t, response.GetNodeName(), response.GetFlow().GetNodeName())
 			flowsReceived++
 			return nil
 		},
@@ -287,9 +294,10 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
 		pl := &flowpb.Payload{
-			Time: &timestamp.Timestamp{Seconds: int64(i)},
-			Type: flowpb.EventType_EventSample,
-			Data: data,
+			Time:     &timestamp.Timestamp{Seconds: int64(i)},
+			Type:     flowpb.EventType_EventSample,
+			Data:     data,
+			HostName: fmt.Sprintf("node #%03d", i),
 		}
 		m <- pl
 	}
