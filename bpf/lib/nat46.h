@@ -179,6 +179,7 @@ static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
 		default:
 			return DROP_UNKNOWN_ICMP6_CODE;
 		}
+		break;
 	case ICMPV6_PKT_TOOBIG:
 		icmp4.type = ICMP_DEST_UNREACH;
 		icmp4.code = ICMP_FRAG_NEEDED;
@@ -205,6 +206,7 @@ static inline int icmp6_to_icmp4(struct __sk_buff *skb, int nh_off)
 		default:
 			return DROP_UNKNOWN_ICMP6_CODE;
 		}
+		break;
 	default:
 		return DROP_UNKNOWN_ICMP6_TYPE;
 	}
