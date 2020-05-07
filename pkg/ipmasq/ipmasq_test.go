@@ -89,9 +89,9 @@ func (m *ipMasqMapMock) dumpToSet() map[string]struct{} {
 }
 
 type IPMasqTestSuite struct {
-	ipMasqMap   *ipMasqMapMock
-	ipMasqAgent *IPMasqAgent
-	configFile  *os.File
+	ipMasqMap      *ipMasqMapMock
+	ipMasqAgent    *IPMasqAgent
+	configFilePath string
 }
 
 var _ = check.Suite(&IPMasqTestSuite{})
@@ -101,9 +101,9 @@ func (i *IPMasqTestSuite) SetUpTest(c *check.C) {
 
 	configFile, err := ioutil.TempFile("", "ipmasq-test")
 	c.Assert(err, check.IsNil)
-	i.configFile = configFile
+	i.configFilePath = configFile.Name()
 
-	agent, err := newIPMasqAgent(configFile.Name(), i.ipMasqMap)
+	agent, err := newIPMasqAgent(i.configFilePath, i.ipMasqMap)
 	c.Assert(err, check.IsNil)
 	i.ipMasqAgent = agent
 	i.ipMasqAgent.Start()
@@ -111,40 +111,51 @@ func (i *IPMasqTestSuite) SetUpTest(c *check.C) {
 
 func (i *IPMasqTestSuite) TearDownTest(c *check.C) {
 	i.ipMasqAgent.Stop()
-	os.Remove(i.configFile.Name())
+	os.Remove(i.configFilePath)
+}
+
+func (i *IPMasqTestSuite) writeConfig(cfg string, c *check.C) {
+	err := ioutil.WriteFile(i.configFilePath, []byte(cfg), 0644)
+	c.Assert(err, check.IsNil)
 }
 
 func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
-	_, err := i.configFile.WriteString("nonMasqueradeCIDRs:\n- 1.1.1.1/32\n- 2.2.2.2/16")
-	c.Assert(err, check.IsNil)
+	i.writeConfig("nonMasqueradeCIDRs:\n- 1.1.1.1/32\n- 2.2.2.2/16", c)
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets := i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 2)
+	c.Assert(len(ipnets), check.Equals, 3)
 	_, ok := ipnets["1.1.1.1/32"]
 	c.Assert(ok, check.Equals, true)
 	_, ok = ipnets["2.2.0.0/16"]
 	c.Assert(ok, check.Equals, true)
+	_, ok = ipnets[linkLocalCIDRStr]
+	c.Assert(ok, check.Equals, true)
 
 	// Write new config
-	_, err = i.configFile.Seek(0, 0)
-	c.Assert(err, check.IsNil)
-	_, err = i.configFile.WriteString("nonMasqueradeCIDRs:\n- 8.8.0.0/16\n- 2.2.2.2/16")
-	c.Assert(err, check.IsNil)
+	i.writeConfig("nonMasqueradeCIDRs:\n- 8.8.0.0/16\n- 2.2.2.2/16", c)
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 2)
+	c.Assert(len(ipnets), check.Equals, 3)
 	_, ok = ipnets["8.8.0.0/16"]
 	c.Assert(ok, check.Equals, true)
 	_, ok = ipnets["2.2.0.0/16"]
 	c.Assert(ok, check.Equals, true)
+	_, ok = ipnets[linkLocalCIDRStr]
+	c.Assert(ok, check.Equals, true)
+
+	// Write config with no CIDRs
+	i.writeConfig("nonMasqueradeCIDRs:\n", c)
+	time.Sleep(300 * time.Millisecond)
+
+	ipnets = i.ipMasqMap.dumpToSet()
+	c.Assert(len(ipnets), check.Equals, 1)
+	_, ok = ipnets[linkLocalCIDRStr]
+	c.Assert(ok, check.Equals, true)
 
 	// Write new config in JSON
-	_, err = i.configFile.Seek(0, 0)
-	c.Assert(err, check.IsNil)
-	_, err = i.configFile.WriteString(`{"nonMasqueradeCIDRs": ["8.8.0.0/16", "1.1.2.3/16"]}`)
-	c.Assert(err, check.IsNil)
+	i.writeConfig(`{"nonMasqueradeCIDRs": ["8.8.0.0/16", "1.1.2.3/16"], "masqLinkLocal": true}`, c)
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets = i.ipMasqMap.dumpToSet()
@@ -154,17 +165,23 @@ func (i *IPMasqTestSuite) TestUpdate(c *check.C) {
 	_, ok = ipnets["1.1.0.0/16"]
 	c.Assert(ok, check.Equals, true)
 
-	// Delete file, should remove the CIDRs
-	err = os.Remove(i.configFile.Name())
-	c.Assert(err, check.IsNil)
-	err = i.configFile.Close()
+	// Delete file, should remove the CIDRs and add default nonMasq CIDRs
+	err := os.Remove(i.configFilePath)
 	c.Assert(err, check.IsNil)
 	time.Sleep(300 * time.Millisecond)
 	ipnets = i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 0)
+	c.Assert(len(ipnets), check.Equals, len(defaultNonMasqCIDRs)+1)
+	for cidrStr := range defaultNonMasqCIDRs {
+		_, ok := ipnets[cidrStr]
+		c.Assert(ok, check.Equals, true)
+	}
+	_, ok = ipnets[linkLocalCIDRStr]
+	c.Assert(ok, check.Equals, true)
 }
 
 func (i *IPMasqTestSuite) TestRestore(c *check.C) {
+	var err error
+
 	// Check that stale entry is removed from the map after restore
 	i.ipMasqAgent.Stop()
 
@@ -172,18 +189,18 @@ func (i *IPMasqTestSuite) TestRestore(c *check.C) {
 	i.ipMasqMap.cidrs[cidr.String()] = *cidr
 	_, cidr, _ = net.ParseCIDR("4.4.0.0/16")
 	i.ipMasqMap.cidrs[cidr.String()] = *cidr
+	i.writeConfig("nonMasqueradeCIDRs:\n- 4.4.0.0/16", c)
 
-	_, err := i.configFile.WriteString("nonMasqueradeCIDRs:\n- 4.4.0.0/16")
-	c.Assert(err, check.IsNil)
-
-	i.ipMasqAgent, err = newIPMasqAgent(i.configFile.Name(), i.ipMasqMap)
+	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
 	c.Assert(err, check.IsNil)
 	i.ipMasqAgent.Start()
 	time.Sleep(300 * time.Millisecond)
 
 	ipnets := i.ipMasqMap.dumpToSet()
-	c.Assert(len(ipnets), check.Equals, 1)
+	c.Assert(len(ipnets), check.Equals, 2)
 	_, ok := ipnets["4.4.0.0/16"]
+	c.Assert(ok, check.Equals, true)
+	_, ok = ipnets[linkLocalCIDRStr]
 	c.Assert(ok, check.Equals, true)
 
 	// Now stop the goroutine, and also remove the maps. It should bootstrap from
@@ -191,11 +208,8 @@ func (i *IPMasqTestSuite) TestRestore(c *check.C) {
 	i.ipMasqAgent.Stop()
 	i.ipMasqMap = &ipMasqMapMock{cidrs: map[string]net.IPNet{}}
 	i.ipMasqAgent.ipMasqMap = i.ipMasqMap
-	_, err = i.configFile.Seek(0, 0)
-	c.Assert(err, check.IsNil)
-	_, err = i.configFile.WriteString("nonMasqueradeCIDRs:\n- 3.3.0.0/16")
-	c.Assert(err, check.IsNil)
-	i.ipMasqAgent, err = newIPMasqAgent(i.configFile.Name(), i.ipMasqMap)
+	i.writeConfig("nonMasqueradeCIDRs:\n- 3.3.0.0/16\nmasqLinkLocal: true", c)
+	i.ipMasqAgent, err = newIPMasqAgent(i.configFilePath, i.ipMasqMap)
 	c.Assert(err, check.IsNil)
 	i.ipMasqAgent.Start()
 
