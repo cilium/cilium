@@ -913,7 +913,7 @@ var _ = Describe("K8sServicesTest", func() {
 				GinkgoPrint("Skipping externalTrafficPolicy=Local test from external node")
 			}
 
-			// Checks that requests to k8s2 succeed, while requests to k8s1 are dropped
+			// Checks that requests to k8s2 succeed, while external requests to k8s1 are dropped
 			err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local-k8s2").Unmarshal(&data)
 			ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service")
 
