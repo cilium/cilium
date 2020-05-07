@@ -23,7 +23,7 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = XDescribe("RuntimeMemcache", func() {
+var _ = Describe("RuntimeMemcache", func() {
 
 	var (
 		vm         *helpers.SSHMeta
