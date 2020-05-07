@@ -39,6 +39,6 @@ func Delete(route Route) error {
 
 // NodeDeviceWithDefaultRoute is not supported on Darwin and will return
 // an error at runtime.
-func NodeDeviceWithDefaultRoute() (netlink.Link, error) {
+func NodeDeviceWithDefaultRoute(enableIPv4, enableIPv6 bool) (netlink.Link, error) {
 	return nil, errUnsupportedOp
 }
