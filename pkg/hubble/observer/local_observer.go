@@ -305,7 +305,8 @@ nextFlow:
 		}
 
 		err = server.Send(&observerpb.GetFlowsResponse{
-			Time: flow.GetTime(),
+			Time:     flow.GetTime(),
+			NodeName: flow.GetNodeName(),
 			ResponseTypes: &observerpb.GetFlowsResponse_Flow{
 				Flow: flow,
 			},
