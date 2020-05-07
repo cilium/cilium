@@ -33,6 +33,24 @@ import (
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipmasq")
+
+	// The following reserved by RFCs IP addr ranges are used by
+	// https://github.com/kubernetes-sigs/ip-masq-agent
+	defaultNonMasqCIDRs = map[string]net.IPNet{
+		"10.0.0.0/8":      mustParseCIDR("10.0.0.0/8"),
+		"172.16.0.0/12":   mustParseCIDR("172.16.0.0/12"),
+		"192.168.0.0/16":  mustParseCIDR("192.168.0.0/16"),
+		"100.64.0.0/10":   mustParseCIDR("100.64.0.0/10"),
+		"192.0.0.0/24":    mustParseCIDR("192.0.0.0/24"),
+		"192.0.2.0/24":    mustParseCIDR("192.0.2.0/24"),
+		"192.88.99.0/24":  mustParseCIDR("192.88.99.0/24"),
+		"198.18.0.0/15":   mustParseCIDR("198.18.0.0/15"),
+		"198.51.100.0/24": mustParseCIDR("198.51.100.0/24"),
+		"203.0.113.0/24":  mustParseCIDR("203.0.113.0/24"),
+		"240.0.0.0/4":     mustParseCIDR("240.0.0.0/4"),
+	}
+	linkLocalCIDRStr = "169.254.0.0/16"
+	linkLocalCIDR    = mustParseCIDR(linkLocalCIDRStr)
 )
 
 // ipnet is a wrapper type for net.IPNet to enable de-serialization of CIDRs
@@ -45,21 +63,30 @@ func (c *Ipnet) UnmarshalJSON(json []byte) error {
 		return fmt.Errorf("Invalid CIDR: %s", str)
 	}
 
-	ip, n, err := net.ParseCIDR(strings.Trim(str, `"`))
+	n, err := parseCIDRv4(strings.Trim(str, `"`))
 	if err != nil {
-		return fmt.Errorf("Invalid CIDR %s: %s", str, err)
-	}
-	if ip.To4() == nil {
-		return fmt.Errorf("Invalid CIDR %s: only IPv4 is supported", str)
+		return err
 	}
 
 	*c = Ipnet(*n)
 	return nil
 }
 
+func parseCIDRv4(c string) (*net.IPNet, error) {
+	ip, n, err := net.ParseCIDR(c)
+	if err != nil {
+		return nil, fmt.Errorf("Invalid CIDR %s: %s", c, err)
+	}
+	if ip.To4() == nil {
+		return nil, fmt.Errorf("Invalid CIDR %s: only IPv4 is supported", c)
+	}
+	return n, nil
+}
+
 // config represents the ip-masq-agent configuration file encoded as YAML
 type config struct {
-	NonMasqCIDRs []Ipnet `json:"nonMasqueradeCIDRs"`
+	NonMasqCIDRs  []Ipnet `json:"nonMasqueradeCIDRs"`
+	MasqLinkLocal bool    `json:"masqLinkLocal"`
 }
 
 // IPMasqMap is an interface describing methods for manipulating an ipmasq map
@@ -72,6 +99,7 @@ type IPMasqMap interface {
 // IPMasqAgent represents a state of the ip-masq-agent
 type IPMasqAgent struct {
 	configPath             string
+	masqLinkLocal          bool
 	nonMasqCIDRsFromConfig map[string]net.IPNet
 	nonMasqCIDRsInMap      map[string]net.IPNet
 	ipMasqMap              IPMasqMap
@@ -99,10 +127,11 @@ func newIPMasqAgent(configPath string, ipMasqMap IPMasqMap) (*IPMasqAgent, error
 	}
 
 	a := &IPMasqAgent{
-		configPath:        configPath,
-		nonMasqCIDRsInMap: map[string]net.IPNet{},
-		ipMasqMap:         ipMasqMap,
-		watcher:           watcher,
+		configPath:             configPath,
+		nonMasqCIDRsFromConfig: map[string]net.IPNet{},
+		nonMasqCIDRsInMap:      map[string]net.IPNet{},
+		ipMasqMap:              ipMasqMap,
+		watcher:                watcher,
 	}
 
 	return a, nil
@@ -155,8 +184,20 @@ func (a *IPMasqAgent) Stop() {
 
 // Update updates the ipmasq BPF map entries with ones from the config file.
 func (a *IPMasqAgent) Update() error {
-	if err := a.readConfig(); err != nil {
+	isEmpty, err := a.readConfig()
+	if err != nil {
 		return err
+	}
+
+	// Set default nonMasq CIDRS if user hasn't specified any
+	if isEmpty {
+		for cidrStr, cidr := range defaultNonMasqCIDRs {
+			a.nonMasqCIDRsFromConfig[cidrStr] = cidr
+		}
+	}
+
+	if !a.masqLinkLocal {
+		a.nonMasqCIDRsFromConfig[linkLocalCIDRStr] = linkLocalCIDR
 	}
 
 	for cidrStr, cidr := range a.nonMasqCIDRsFromConfig {
@@ -180,7 +221,7 @@ func (a *IPMasqAgent) Update() error {
 
 // readConfig reads the config file and populates IPMasqAgent.nonMasqCIDRsFromConfig
 // with the CIDRs from the file.
-func (a *IPMasqAgent) readConfig() error {
+func (a *IPMasqAgent) readConfig() (bool, error) {
 	var cfg config
 
 	raw, err := ioutil.ReadFile(a.configPath)
@@ -188,18 +229,25 @@ func (a *IPMasqAgent) readConfig() error {
 		if os.IsNotExist(err) {
 			log.WithField(logfields.Path, a.configPath).Info("Config file not found")
 			a.nonMasqCIDRsFromConfig = map[string]net.IPNet{}
-			return nil
+			a.masqLinkLocal = false
+			return true, nil
 		}
-		return fmt.Errorf("Failed to read %s: %s", a.configPath, err)
+		return false, fmt.Errorf("Failed to read %s: %s", a.configPath, err)
+	}
+
+	if len(raw) == 0 {
+		a.nonMasqCIDRsFromConfig = map[string]net.IPNet{}
+		a.masqLinkLocal = false
+		return true, nil
 	}
 
 	jsonStr, err := yaml.ToJSON(raw)
 	if err != nil {
-		return fmt.Errorf("Failed to convert to json: %s", err)
+		return false, fmt.Errorf("Failed to convert to json: %s", err)
 	}
 
 	if err := json.Unmarshal(jsonStr, &cfg); err != nil {
-		return fmt.Errorf("Failed to de-serialize json: %s", err)
+		return false, fmt.Errorf("Failed to de-serialize json: %s", err)
 	}
 
 	nonMasqCIDRs := map[string]net.IPNet{}
@@ -208,8 +256,9 @@ func (a *IPMasqAgent) readConfig() error {
 		nonMasqCIDRs[n.String()] = n
 	}
 	a.nonMasqCIDRsFromConfig = nonMasqCIDRs
+	a.masqLinkLocal = cfg.MasqLinkLocal
 
-	return nil
+	return false, nil
 }
 
 // restore dumps the ipmasq BPF map and populates IPMasqAgent.nonMasqCIDRsInMap
@@ -227,4 +276,12 @@ func (a *IPMasqAgent) restore() error {
 	a.nonMasqCIDRsInMap = cidrs
 
 	return nil
+}
+
+func mustParseCIDR(c string) net.IPNet {
+	n, err := parseCIDRv4(c)
+	if err != nil {
+		panic(err)
+	}
+	return *n
 }

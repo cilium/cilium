@@ -367,7 +367,19 @@ var _ = Describe("K8sDatapathConfig", func() {
 			tmpEchoPodPath      string
 			tmpConfigMapDirPath string
 			tmpConfigMapPath    string
+			tmpConfigYAMLPath   string
 		)
+
+		installConfig := func(cidrsInYaml string) {
+			ns := helpers.GetCiliumNamespace(helpers.GetCurrentIntegration())
+			kubectl.ExecMiddle(fmt.Sprintf("echo 'nonMasqueradeCIDRs:\n%s' > %s",
+				cidrsInYaml, tmpConfigMapPath)).ExpectSuccess()
+			kubectl.CreateResource("configmap",
+				fmt.Sprintf("ip-masq-agent --from-file=%s --namespace=%s -o yaml --dry-run > %s",
+					tmpConfigMapDirPath, ns, tmpConfigYAMLPath)).
+				ExpectSuccess("Failed to create ip-masq-agent configmap file")
+			kubectl.ApplyDefault(tmpConfigYAMLPath).ExpectSuccess("Failed to apply configmap")
+		}
 
 		BeforeAll(func() {
 			// Deploy echoserver on the node which does not run Cilium to test
@@ -388,21 +400,31 @@ var _ = Describe("K8sDatapathConfig", func() {
 			res.ExpectSuccess()
 			tmpConfigMapDirPath = strings.Trim(res.GetStdOut(), "\n")
 			tmpConfigMapPath = filepath.Join(tmpConfigMapDirPath, "config")
+			res = kubectl.ExecMiddle("mktemp")
+			res.ExpectSuccess()
+			tmpConfigYAMLPath = strings.Trim(res.GetStdOut(), "\n")
+
+			// Deploy empty ip-masq-agent config to prevent the ipmasq agent from
+			// adding the default nonMasq CIDRs which include the echoserver's
+			// node IP. This is needed, as the first test case expects the request
+			// to be masqueraded.
+			installConfig("")
 		})
 
 		AfterEach(func() {
-			if tmpConfigMapPath != "" {
-				ns := helpers.GetCiliumNamespace(helpers.GetCurrentIntegration())
-				kubectl.DeleteResource("configmap", fmt.Sprintf("ip-masq-agent --namespace=%s", ns))
-			}
+			// Don't remove so that the default nonMasq CIDRs are not installed
+			installConfig("")
 		})
 
 		AfterAll(func() {
+			ns := helpers.GetCiliumNamespace(helpers.GetCurrentIntegration())
+			kubectl.DeleteResource("configmap", fmt.Sprintf("ip-masq-agent --namespace=%s", ns))
+
 			if tmpEchoPodPath != "" {
 				kubectl.Delete(tmpEchoPodPath)
 			}
 
-			for _, path := range []string{tmpEchoPodPath, tmpConfigMapPath, tmpConfigMapDirPath} {
+			for _, path := range []string{tmpEchoPodPath, tmpConfigMapPath, tmpConfigMapDirPath, tmpConfigYAMLPath} {
 				if path != "" {
 					os.Remove(path)
 				}
@@ -417,17 +439,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 				fmt.Sprintf("http://%s:80", nodeIP), true, false)).Should(BeTrue(),
 				"Connectivity test to http://%s failed", nodeIP)
 
-			// Deploy ip-masq-agent configmap to prevent masquerading to the node IP
+			// Update ip-masq-agent config to prevent masquerading to the node IP
 			// which is running the echoserver.
-			kubectl.ExecMiddle(fmt.Sprintf("echo 'nonMasqueradeCIDRs:\n- %s/32' > %s", nodeIP, tmpConfigMapPath)).
-				ExpectSuccess()
-			ns := helpers.GetCiliumNamespace(helpers.GetCurrentIntegration())
-			kubectl.CreateResource("configmap",
-				fmt.Sprintf("ip-masq-agent --from-file=%s --namespace=%s", tmpConfigMapDirPath, ns)).
-				ExpectSuccess("Failed to provision ip-masq-agent configmap")
+			installConfig(fmt.Sprintf("- %s/32", nodeIP))
 
-			// Wait until the ip-masq-agent configmap is mounted into cilium-agent pods,
-			// and the pods have read the new configuration
+			// Wait until the ip-masq-agent config update is handled by the agent
 			time.Sleep(90 * time.Second)
 
 			// Check that connections from the client pods are not masqueraded
