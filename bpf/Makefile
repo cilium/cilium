@@ -10,7 +10,7 @@ SUBDIRS = sockops
 BPF_SIMPLE = bpf_network.o bpf_alignchecker.o bpf_hostdev_ingress.o
 BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_netdev.o bpf_xdp.o $(BPF_SIMPLE)
 
-TARGET=cilium-map-migrate
+TARGET=cilium-map-migrate cilium-probe-kernel-hz
 
 include ./Makefile.bpf
 
