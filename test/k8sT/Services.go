@@ -458,9 +458,9 @@ var _ = Describe("K8sServicesTest", func() {
 				blockCount = 1
 			)
 			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s1)
-			Expect(err).Should(BeNil(), fmt.Sprintf("Cannot get cilium pod on k8s1"))
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 			ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
-			Expect(err).Should(BeNil(), fmt.Sprintf("Cannot get cilium pod on k8s2"))
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
 
 			_, dstPodIPK8s1 := kubectl.GetPodOnNodeWithOffset(helpers.K8s1, testDS, 1)
 			_, dstPodIPK8s2 := kubectl.GetPodOnNodeWithOffset(helpers.K8s2, testDS, 1)
