@@ -10,15 +10,18 @@
 Installation using Rancher Kubernetes Engine
 ********************************************
 
-The guide walks you through integrating Cilium CNI with Kubernetes clusters
-deployed using Rancher Kubernetes Engine (RKE). The guide uses:
+This guide walks you through integrating Cilium CNI with Kubernetes clusters
+deployed using Rancher Kubernetes Engine (RKE). This guide uses:
 
   - Rancher Kubernetes Engine v1.0.8
   - `Helm`_ Version 3
+  - Hosts (1 or more) Running a supported Linux Operating System
+  - `Docker`_
 
 Please consult `RKE Requirements`_ and Cilium :ref:`admin_system_reqs`.
 
 .. _RKE Requirements: https://rancher.com/docs/rke/latest/en/os/
+.. _Docker: https://docker.io
 .. _Helm: https://helm.sh
 
 Installing Rancher Kubernetes Engine
@@ -42,6 +45,9 @@ If you have a previous version of RKE installed, you can update it:
 Prepare the Kubernetes Cluster
 ==============================
 
+Prepare your Linux Hosts
+------------------------
+
 Prepare your hosts with a supported operating system and Docker runtime. This
 is outside the scope of this guide.
 
@@ -51,20 +57,20 @@ Prepare a RKE Configuration
 Once your nodes are running and have been configured with the docker runtime,
 the next step is to generate a `RKE Configuration File <https://rancher.com/docs/rke/latest/en/installation/#creating-the-cluster-configuration-file>`_
 
-You can create a new cluster.yaml file using prompts:
+Create a new cluster.yml file using prompts:
 
 .. code:: bash
 
-  $ rke config --name cluster.yaml
+  $ rke config --name cluster.yml
 
-You can also use the `minimal example <https://rancher.com/docs/rke/latest/en/example-yamls/#minimal-cluster-yaml-example>`_
+You will need to provide IP Address and SSH connection information along with
+any SSH keys used to access the hosts.
 
-When specifying the Network Provider Type enter none.
-
-.. code-block:: yaml
-
-  {network: {plugin: none}}
-
+When specifying the Network Provider Type enter "none" - note this option is
+not listed in the prompt but is supported and documented in the
+`official RKE documentation <https://rancher.com/docs/rke/latest/en/config-options/add-ons/network-plugins/custom-network-plugin-example/>`_.
+Rather than provide an inline configuration for the network provider, we will
+install it using Helm once the cluster is running.
 
 Launch the RKE Cluster
 ----------------------
@@ -75,49 +81,29 @@ Once the configuration file is in place, launch the RKE Kubernetes cluster:
 
   $ rke up
 
-If your config uses a filename different than cluster.yaml:
+If your config uses a filename different than cluster.yml:
 
 .. code:: bash
 
-  $ rke up --config <filename>
+  $ rke up --config filename.yml
 
 Once the cluster is launched, the installer will create a file in the local
-directory named kube_config_<FILE_NAME>.yml which can be used to access the
-Kubernetes API server.
+directory named ```kube_config_cluster.yml``` which can be used to access the
+Kubernetes API server. If your input file name was different than the default,
+your kubeconfig file will be named ```kube_config_filename.yml```.
 
 .. code:: bash
 
   $ export KUBECONFIG=$PWD/kube_config_cluster.yml
   $ kubectl get nodes
 
+It is expected to see the nodes in a NotReady state prior to installing Cilium.
+
 Installing Cilium
 =================
 
-Cilium installation requires `Helm`_ version 3. You can install Helm according
-to the `Helm Installation Guide <https://docs.helm.sh/docs/intro/install/>`_.
-
-Next, add the Cilium helm repository:
-
-.. code:: bash
-
-  $ helm repo add cilium https://helm.cilium.io
-
-Finally, install Cilium as your CNI:
-
-.. tabs::
-  .. group-tab:: Helm
-
-    .. code:: bash
-
-     $ helm install --namespace kube-system cilium cilium/cilium
-
-  .. group-tab:: kubectl
-
-    .. code:: bash
-
-      $ helm template --namespace kube-system cilium/cilium > cilium.yaml
-      $ kubectl apply -f cilium.yaml
-
+.. include:: k8s-install-download-release.rst
+.. include:: k8s-install-restart-pods.rst
 .. include:: k8s-install-validate.rst
 .. include:: hubble-install.rst
 .. include:: getting-started-next-steps.rst
