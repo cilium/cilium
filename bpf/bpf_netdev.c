@@ -703,7 +703,6 @@ static __always_inline int do_netdev(struct __ctx_buff *ctx, __u16 proto,
  */
 int __always_inline handle_netdev(struct __ctx_buff *ctx, bool from_host)
 {
-	int ret = ret;
 	__u16 proto;
 
 	if (!validate_ethertype(ctx, &proto)) {

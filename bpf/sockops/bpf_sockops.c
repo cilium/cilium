@@ -23,6 +23,7 @@
 
 #include "bpf_sockops.h"
 
+#ifdef ENABLE_IPV4
 static __always_inline void sk_extract4_key(const struct bpf_sock_ops *ops,
 					    struct sock_key *key)
 {
@@ -115,6 +116,7 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 
 	sock_hash_update(skops, &SOCK_OPS_MAP, &key, BPF_NOEXIST);
 }
+#endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPV6
 static inline void bpf_sock_ops_ipv6(struct bpf_sock_ops *skops)
