@@ -3174,14 +3174,14 @@ func (kub *Kubectl) DumpCiliumCommandOutput(ctx context.Context, namespace strin
 			}
 
 			archiveName := filepath.Join(logsPath, fmt.Sprintf("bugtool-%s", pod))
-			res = kub.ExecContext(ctx, fmt.Sprintf("mkdir -p %s", archiveName))
+			res = kub.ExecContext(ctx, fmt.Sprintf("mkdir -p \"%s\"", archiveName))
 			if !res.WasSuccessful() {
 				logger.WithField("cmd", res.GetCmd()).Errorf(
 					"cannot create bugtool archive folder: %s", res.CombineOutput())
 				continue
 			}
 
-			cmd := fmt.Sprintf("tar -xf /tmp/%s -C %s --strip-components=1", line, archiveName)
+			cmd := fmt.Sprintf("tar -xf /tmp/%s -C \"%s\" --strip-components=1", line, archiveName)
 			res = kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
 			if !res.WasSuccessful() {
 				logger.WithField("cmd", cmd).Errorf(
