@@ -9,6 +9,7 @@
 
 #include "lib/utils.h"
 #include "lib/common.h"
+
 #include "node_config.h"
 
 #define CONNTRACK
@@ -17,8 +18,10 @@
 #define ntohl bpf_ntohl
 
 /* Declare before lib/conntrack.h or die! */
-static __u32 __now = 0;
-#define bpf_ktime_get_sec() __now
+static __u64 __now = 0;
+
+#define ktime_get_ns()	(__now * NSEC_PER_SEC)
+#define jiffies64()	(__now)
 
 #include "tests/conntrack_test.h"
 #include "tests/builtin_test.h"

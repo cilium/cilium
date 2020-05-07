@@ -20,4 +20,11 @@
 # define BPF_HAVE_SOCKET_COOKIE 1
 #endif
 
+#if HAVE_PROG_TYPE_HELPER(cgroup_sock_addr, bpf_jiffies64) && \
+    HAVE_PROG_TYPE_HELPER(cgroup_sock,      bpf_jiffies64) && \
+    HAVE_PROG_TYPE_HELPER(sched_cls,        bpf_jiffies64) && \
+    HAVE_PROG_TYPE_HELPER(xdp,              bpf_jiffies64)
+# define BPF_HAVE_JIFFIES 1
+#endif
+
 #endif /* ____BPF_FEATURES____ */
