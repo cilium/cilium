@@ -100,6 +100,7 @@ Jenkinsfile.nightly @cilium/ci
 /pkg/ipam/allocator/azure/ @cilium/ipam @cilium/azure
 /pkg/ipam/allocator/operator/ @cilium/ipam @cilium/operator
 /pkg/ipcache/ @cilium/ipcache
+/pkg/ipmasq @cilium/agent
 /pkg/k8s/ @cilium/kubernetes
 /pkg/k8s/apis/cilium.io/v2/ @cilium/api
 /pkg/k8s/client/clientset/versioned/ @cilium/api
