@@ -19,9 +19,9 @@ package main
 import (
 	// These dependencies should be included only when this file is included in the build.
 	allocatorAzure "github.com/cilium/cilium/pkg/ipam/allocator/azure" // Azure allocator task.
-	"github.com/cilium/cilium/pkg/option"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 )
 
 func init() {
-	allocatorProviders[option.IPAMAzure] = &allocatorAzure.AllocatorAzure{}
+	allocatorProviders[ipamOption.IPAMAzure] = &allocatorAzure.AllocatorAzure{}
 }

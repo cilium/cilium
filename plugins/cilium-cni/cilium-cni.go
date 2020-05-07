@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -485,7 +486,8 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		res.Routes = append(res.Routes, routes...)
 	}
 
-	if conf.IpamMode == option.IPAMENI || conf.IpamMode == option.IPAMAzure {
+	switch conf.IpamMode {
+	case ipamOption.IPAMENI, ipamOption.IPAMAzure:
 		err = interfaceAdd(ipConfig, ipam.IPV4, conf)
 		if err != nil {
 			err = fmt.Errorf("unable to setup interface datapath: %s", err)

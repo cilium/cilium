@@ -28,6 +28,7 @@ import (
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -225,7 +226,7 @@ func (d *Daemon) allocateHealthIPs() error {
 			// In ENI mode, we require the gateway, CIDRs, and the ENI MAC addr
 			// in order to set up rules and routes on the local node to direct
 			// endpoint traffic out of the ENIs.
-			if option.Config.IPAM == option.IPAMENI {
+			if option.Config.IPAM == ipamOption.IPAMENI {
 				if err := d.parseHealthEndpointInfo(result); err != nil {
 					log.WithError(err).Warn("Unable to allocate health information for ENI")
 				}

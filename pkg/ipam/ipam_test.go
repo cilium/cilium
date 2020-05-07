@@ -25,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/fake"
-	"github.com/cilium/cilium/pkg/option"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 
 	. "gopkg.in/check.v1"
 )
@@ -53,7 +53,7 @@ type testConfiguration struct{}
 func (t *testConfiguration) IPv4Enabled() bool                        { return true }
 func (t *testConfiguration) IPv6Enabled() bool                        { return true }
 func (t *testConfiguration) HealthCheckingEnabled() bool              { return true }
-func (t *testConfiguration) IPAMMode() string                         { return option.IPAMHostScopeLegacy }
+func (t *testConfiguration) IPAMMode() string                         { return ipamOption.IPAMHostScopeLegacy }
 func (t *testConfiguration) BlacklistConflictingRoutesEnabled() bool  { return false }
 func (t *testConfiguration) SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR) {}
 func (t *testConfiguration) IPv4NativeRoutingCIDR() *cidr.CIDR        { return nil }

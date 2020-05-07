@@ -25,6 +25,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/components"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
@@ -164,7 +165,7 @@ func runOperator(cmd *cobra.Command) {
 		err         error
 	)
 	switch ipamMode := option.Config.IPAM; ipamMode {
-	case option.IPAMAzure, option.IPAMENI, option.IPAMOperator:
+	case ipamOption.IPAMAzure, ipamOption.IPAMENI, ipamOption.IPAMOperator:
 		alloc, providerBuiltin := allocatorProviders[ipamMode]
 		if !providerBuiltin {
 			log.Fatalf("%s allocator is not supported by this version of cilium-operator", ipamMode)
@@ -183,7 +184,7 @@ func runOperator(cmd *cobra.Command) {
 		nodeManager = &nm
 
 		switch ipamMode {
-		case option.IPAMOperator:
+		case ipamOption.IPAMOperator:
 			// We will use CiliumNodes as the source of truth for the podCIDRs.
 			// Once the CiliumNodes are synchronized with the operator we will
 			// be able to watch for K8s Node events which they will be used

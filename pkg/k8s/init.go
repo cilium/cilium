@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	cilium_v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
@@ -67,7 +68,7 @@ func retrieveNodeInformation(nodeName string) (*nodeTypes.Node, error) {
 	requireIPv6CIDR := option.Config.K8sRequireIPv6PodCIDR
 	var n *nodeTypes.Node
 
-	if option.Config.IPAM == option.IPAMOperator {
+	if option.Config.IPAM == ipamOption.IPAMOperator {
 		ciliumNode, err := CiliumClient().CiliumV2().CiliumNodes().Get(context.TODO(), nodeName, v1.GetOptions{})
 		if err != nil {
 			// If no CIDR is required, retrieving the node information is
