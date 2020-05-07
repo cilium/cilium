@@ -76,7 +76,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	queueSize := 0
 	req := &observerpb.GetFlowsRequest{Number: uint64(10)}
 	i := 0
-	fakeServer := &FakeGetFlowsServer{
+	fakeServer := &testutils.FakeGetFlowsServer{
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
 			i++
 			return nil
@@ -188,7 +188,7 @@ func TestLocalObserverServer_OnFlowDelivery(t *testing.T) {
 	queueSize := 0
 	req := &observerpb.GetFlowsRequest{Number: uint64(100)}
 	flowsReceived := 0
-	fakeServer := &FakeGetFlowsServer{
+	fakeServer := &testutils.FakeGetFlowsServer{
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
 			flowsReceived++
 			return nil
@@ -242,7 +242,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	queueSize := 0
 	req := &observerpb.GetFlowsRequest{Number: uint64(100)}
 	flowsReceived := 0
-	fakeServer := &FakeGetFlowsServer{
+	fakeServer := &testutils.FakeGetFlowsServer{
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
 			flowsReceived++
 			return nil

@@ -1,4 +1,17 @@
-// Copyright 2019 Isovalent
+// Copyright 2019 Authors of Hubble
+// Copyright 2020 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
 
 package testutils
 
@@ -6,13 +19,27 @@ import (
 	"net"
 	"time"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
+	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/ipcache"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 )
+
+type FakeGetFlowsServer struct {
+	OnSend func(response *observerpb.GetFlowsResponse) error
+	*FakeGRPCServerStream
+}
+
+func (s *FakeGetFlowsServer) Send(response *observerpb.GetFlowsResponse) error {
+	if s.OnSend != nil {
+		// TODO: completely convert this into using flowpb.Flow
+		return s.OnSend(response)
+	}
+	panic("OnSend not set")
+}
 
 // FakeFQDNCache is used for unit tests that needs FQDNCache and/or DNSGetter.
 type FakeFQDNCache struct {
@@ -96,11 +123,11 @@ var NoopIPGetter = FakeIPGetter{
 
 // FakeServiceGetter is used for unit tests that need ServiceGetter.
 type FakeServiceGetter struct {
-	OnGetServiceByAddr func(ip net.IP, port uint16) (service pb.Service, ok bool)
+	OnGetServiceByAddr func(ip net.IP, port uint16) (service flowpb.Service, ok bool)
 }
 
 // GetServiceByAddr implements FakeServiceGetter.GetServiceByAddr.
-func (f *FakeServiceGetter) GetServiceByAddr(ip net.IP, port uint16) (service pb.Service, ok bool) {
+func (f *FakeServiceGetter) GetServiceByAddr(ip net.IP, port uint16) (service flowpb.Service, ok bool) {
 	if f.OnGetServiceByAddr != nil {
 		return f.OnGetServiceByAddr(ip, port)
 	}
@@ -109,8 +136,8 @@ func (f *FakeServiceGetter) GetServiceByAddr(ip net.IP, port uint16) (service pb
 
 // NoopServiceGetter always returns an empty response.
 var NoopServiceGetter = FakeServiceGetter{
-	OnGetServiceByAddr: func(ip net.IP, port uint16) (service pb.Service, ok bool) {
-		return pb.Service{}, false
+	OnGetServiceByAddr: func(ip net.IP, port uint16) (service flowpb.Service, ok bool) {
+		return flowpb.Service{}, false
 	},
 }
 
@@ -266,33 +293,33 @@ func (c *FakeCiliumClient) GetServiceCache() ([]*models.Service, error) {
 // return values exposed in the fields.
 type FakeFlow struct {
 	Time               *timestamp.Timestamp
-	Verdict            pb.Verdict
+	Verdict            flowpb.Verdict
 	DropReason         uint32
-	Ethernet           *pb.Ethernet
-	IP                 *pb.IP
-	L4                 *pb.Layer4
-	Source             *pb.Endpoint
-	Destination        *pb.Endpoint
-	Type               pb.FlowType
+	Ethernet           *flowpb.Ethernet
+	IP                 *flowpb.IP
+	L4                 *flowpb.Layer4
+	Source             *flowpb.Endpoint
+	Destination        *flowpb.Endpoint
+	Type               flowpb.FlowType
 	NodeName           string
 	SourceNames        []string
 	DestinationNames   []string
-	L7                 *pb.Layer7
+	L7                 *flowpb.Layer7
 	Reply              bool
-	EventType          *pb.CiliumEventType
-	SourceService      *pb.Service
-	DestinationService *pb.Service
-	TrafficDirection   pb.TrafficDirection
+	EventType          *flowpb.CiliumEventType
+	SourceService      *flowpb.Service
+	DestinationService *flowpb.Service
+	TrafficDirection   flowpb.TrafficDirection
 	PolicyMatchType    uint32
 }
 
-// Reset implements pb.Message for the FakeFlow.
+// Reset implements flowpb.Message for the FakeFlow.
 func (f *FakeFlow) Reset() {}
 
-// ProtoMessage implements pb.Message for the FakeFlow.
+// ProtoMessage implements flowpb.Message for the FakeFlow.
 func (f *FakeFlow) ProtoMessage() {}
 
-// String implements pb.Message for the FakeFlow.
+// String implements flowpb.Message for the FakeFlow.
 func (f *FakeFlow) String() string { return "fake flow message" }
 
 // GetTime implements v1.Flow for the FakeFlow.
@@ -301,7 +328,7 @@ func (f *FakeFlow) GetTime() *timestamp.Timestamp {
 }
 
 // GetVerdict implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetVerdict() pb.Verdict {
+func (f *FakeFlow) GetVerdict() flowpb.Verdict {
 	return f.Verdict
 }
 
@@ -311,32 +338,32 @@ func (f *FakeFlow) GetDropReason() uint32 {
 }
 
 // GetEthernet implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetEthernet() *pb.Ethernet {
+func (f *FakeFlow) GetEthernet() *flowpb.Ethernet {
 	return f.Ethernet
 }
 
 // GetIP implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetIP() *pb.IP {
+func (f *FakeFlow) GetIP() *flowpb.IP {
 	return f.IP
 }
 
 // GetL4 implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetL4() *pb.Layer4 {
+func (f *FakeFlow) GetL4() *flowpb.Layer4 {
 	return f.L4
 }
 
 // GetSource implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetSource() *pb.Endpoint {
+func (f *FakeFlow) GetSource() *flowpb.Endpoint {
 	return f.Source
 }
 
 // GetDestination implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetDestination() *pb.Endpoint {
+func (f *FakeFlow) GetDestination() *flowpb.Endpoint {
 	return f.Destination
 }
 
 // GetType implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetType() pb.FlowType {
+func (f *FakeFlow) GetType() flowpb.FlowType {
 	return f.Type
 }
 
@@ -356,7 +383,7 @@ func (f *FakeFlow) GetDestinationNames() []string {
 }
 
 // GetL7 implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetL7() *pb.Layer7 {
+func (f *FakeFlow) GetL7() *flowpb.Layer7 {
 	return f.L7
 }
 
@@ -366,22 +393,22 @@ func (f *FakeFlow) GetReply() bool {
 }
 
 // GetEventType implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetEventType() *pb.CiliumEventType {
+func (f *FakeFlow) GetEventType() *flowpb.CiliumEventType {
 	return f.EventType
 }
 
 // GetSourceService implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetSourceService() *pb.Service {
+func (f *FakeFlow) GetSourceService() *flowpb.Service {
 	return f.SourceService
 }
 
 // GetDestinationService implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetDestinationService() *pb.Service {
+func (f *FakeFlow) GetDestinationService() *flowpb.Service {
 	return f.DestinationService
 }
 
 // GetTrafficDirection implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetTrafficDirection() pb.TrafficDirection {
+func (f *FakeFlow) GetTrafficDirection() flowpb.TrafficDirection {
 	return f.TrafficDirection
 }
 
