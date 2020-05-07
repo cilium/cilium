@@ -3037,16 +3037,13 @@ func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
 	if err != nil {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
+	reNoQuorum := regexp.MustCompile(`^.*KVStore:.*has-quorum=false.*$`)
 	for _, pod := range ciliumPods {
 		status := kub.CiliumExecContext(context.TODO(), pod, "cilium status --all-health --all-nodes")
 		if !status.WasSuccessful() {
 			return fmt.Errorf("cilium-agent '%s' is unhealthy: %s", pod, status.OutputPrettyPrint())
 		}
-		noQuorum, err := regexp.Match(`^.*KVStore:.*has-quorum=false.*$`, status.Output().Bytes())
-		if err != nil {
-			return fmt.Errorf("Failed to check for kvstore quorum: %s", err.Error())
-		}
-		if noQuorum {
+		if reNoQuorum.Match(status.Output().Bytes()) {
 			return fmt.Errorf("KVStore doesn't have quorum: %s", status.OutputPrettyPrint())
 		}
 	}
