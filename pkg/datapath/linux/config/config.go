@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
@@ -149,7 +150,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["CT_REPORT_INTERVAL"] = fmt.Sprintf("%d", int64(option.Config.MonitorAggregationInterval.Seconds()))
 	cDefinesMap["CT_REPORT_FLAGS"] = fmt.Sprintf("%#04x", int64(option.Config.MonitorAggregationFlags))
 
-	if option.Config.DatapathMode == option.DatapathModeIpvlan {
+	if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
 		cDefinesMap["ENABLE_SECCTX_FROM_IPCACHE"] = "1"
 		cDefinesMap["ENABLE_EXTRA_HOST_DEV"] = "1"
 	}

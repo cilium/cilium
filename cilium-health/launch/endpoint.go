@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -200,7 +201,7 @@ func CleanupEndpoint() {
 	// deletion of associated interfaces immediately (e.g. when a process in the
 	// namespace marked for deletion has not yet been terminated).
 	switch option.Config.DatapathMode {
-	case option.DatapathModeVeth:
+	case datapathOption.DatapathModeVeth:
 		for _, iface := range []string{legacyVethName, vethName} {
 			scopedLog := log.WithField(logfields.Veth, iface)
 			if link, err := netlink.LinkByName(iface); err == nil {
@@ -212,7 +213,7 @@ func CleanupEndpoint() {
 				scopedLog.WithError(err).Debug("Didn't find existing device")
 			}
 		}
-	case option.DatapathModeIpvlan:
+	case datapathOption.DatapathModeIpvlan:
 		if err := netns.RemoveIfFromNetNSWithNameIfBothExist(netNSName, epIfaceName); err != nil {
 			log.WithError(err).WithField(logfields.Ipvlan, epIfaceName).
 				Info("Couldn't delete cilium-health ipvlan slave device")
@@ -280,7 +281,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 	}
 
 	switch option.Config.DatapathMode {
-	case option.DatapathModeVeth:
+	case datapathOption.DatapathModeVeth:
 		_, epLink, err := connector.SetupVethWithNames(vethName, epIfaceName, mtuConfig.GetDeviceMTU(), info)
 		if err != nil {
 			return nil, fmt.Errorf("Error while creating veth: %s", err)
@@ -290,7 +291,7 @@ func LaunchAsEndpoint(baseCtx context.Context,
 			return nil, fmt.Errorf("failed to move device %q to health namespace: %s", epIfaceName, err)
 		}
 
-	case option.DatapathModeIpvlan:
+	case datapathOption.DatapathModeIpvlan:
 		mapFD, err := connector.CreateAndSetupIpvlanSlave("",
 			epIfaceName, netNS, mtuConfig.GetDeviceMTU(),
 			option.Config.Ipvlan.MasterDeviceIndex,

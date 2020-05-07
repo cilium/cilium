@@ -29,12 +29,12 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	endpointIDPkg "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 
 	apiTypes "github.com/docker/docker/api/types"
 	"github.com/docker/docker/api/types/events"
@@ -399,11 +399,11 @@ func (driver *driver) createEndpoint(w http.ResponseWriter, r *http.Request) {
 	}
 
 	switch driver.conf.DatapathMode {
-	case option.DatapathModeVeth:
+	case datapathOption.DatapathModeVeth:
 		var veth *netlink.Veth
 		veth, _, _, err = connector.SetupVeth(create.EndpointID, int(driver.conf.DeviceMTU), endpoint)
 		defer removeLinkOnErr(veth)
-	case option.DatapathModeIpvlan:
+	case datapathOption.DatapathModeIpvlan:
 		var ipvlan *netlink.IPVlan
 		ipvlan, _, _, err = connector.CreateIpvlanSlave(
 			create.EndpointID, int(driver.conf.DeviceMTU),
@@ -452,9 +452,9 @@ func (driver *driver) deleteEndpoint(w http.ResponseWriter, r *http.Request) {
 	log.WithField(logfields.Request, logfields.Repr(&del)).Debug("Delete endpoint request")
 
 	switch driver.conf.DatapathMode {
-	case option.DatapathModeVeth:
+	case datapathOption.DatapathModeVeth:
 		ifName = connector.Endpoint2IfName(del.EndpointID)
-	case option.DatapathModeIpvlan:
+	case datapathOption.DatapathModeIpvlan:
 		ifName = connector.Endpoint2TempIfName(del.EndpointID)
 	}
 
