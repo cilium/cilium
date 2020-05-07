@@ -15,17 +15,20 @@
 package relayoption
 
 import (
+	"fmt"
 	"strings"
 	"time"
 )
 
 // Options stores all the configuration values for the hubble-relay server.
 type Options struct {
-	HubbleTarget  string
-	DialTimeout   time.Duration
-	RetryTimeout  time.Duration
-	ListenAddress string
-	Debug         bool
+	HubbleTarget       string
+	DialTimeout        time.Duration
+	RetryTimeout       time.Duration
+	ListenAddress      string
+	Debug              bool
+	BufferMaxLen       int
+	BufferDrainTimeout time.Duration
 }
 
 // Option customizes the configuration of the hubble-relay server.
@@ -73,6 +76,38 @@ func WithListenAddress(a string) Option {
 func WithDebug() Option {
 	return func(o *Options) error {
 		o.Debug = true
+		return nil
+	}
+}
+
+// WithBufferMaxLen sets the maximum number of flows that can be buffered
+// before being sent to the client. This affects operations such as flows
+// sorting. The provided value must be greater than 0 and is to be understood
+// per client request. Therefore, it is advised to keep the value moderate (a
+// value between 30 and 100 should constitute a good choice in most cases).
+func WithBufferMaxLen(i int) Option {
+	return func(o *Options) error {
+		if i <= 0 {
+			return fmt.Errorf("value for BufferMaxLen must be greater than 0: %d", i)
+		}
+		o.BufferMaxLen = i
+		return nil
+	}
+}
+
+// WithBufferDrainTimeout sets the buffer drain timeout value. For flows
+// requests where the total number of flows cannot be determined (typically for
+// flows requests in follow mode), a flow is taken out of the buffer and sent
+// to the client after duration d if the buffer is not full. This value must be
+// greater than 0. Setting this value too low would render the flows sorting
+// operation ineffective. A value between 500 milliseconds and 3 seconds should
+// be constitute a good choice in most cases.
+func WithBufferDrainTimeout(d time.Duration) Option {
+	return func(o *Options) error {
+		if d <= 0 {
+			return fmt.Errorf("value for BufferDrainTimeout must be greater than 0: %d", d)
+		}
+		o.BufferDrainTimeout = d
 		return nil
 	}
 }
