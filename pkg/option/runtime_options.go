@@ -16,6 +16,8 @@ package option
 
 import (
 	"errors"
+
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 )
 
 const (
@@ -114,7 +116,7 @@ var (
 				if !Config.EnableIPv6 {
 					return ErrNAT46ReqIPv6
 				}
-				if Config.DatapathMode == DatapathModeIpvlan {
+				if Config.DatapathMode == datapathOption.DatapathModeIpvlan {
 					return ErrNAT46ReqVeth
 				}
 			}

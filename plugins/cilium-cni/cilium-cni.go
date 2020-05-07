@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -34,7 +35,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/netns"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/uuid"
 	"github.com/cilium/cilium/pkg/version"
@@ -377,7 +377,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	switch conf.DatapathMode {
-	case option.DatapathModeVeth:
+	case datapathOption.DatapathModeVeth:
 		var (
 			veth      *netlink.Veth
 			peer      *netlink.Link
@@ -406,7 +406,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 			err = fmt.Errorf("unable to set up veth on container side: %s", err)
 			return
 		}
-	case option.DatapathModeIpvlan:
+	case datapathOption.DatapathModeIpvlan:
 		ipvlanConf := *conf.IpvlanConfiguration
 		index := int(ipvlanConf.MasterDeviceIndex)
 

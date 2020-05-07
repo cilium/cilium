@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/alignchecker"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/datapath/prefilter"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -218,7 +219,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 			}
 		}
 
-		if option.Config.DatapathMode == option.DatapathModeIpvlan {
+		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
 			mode = "ipvlan"
 		} else {
 			mode = "direct"

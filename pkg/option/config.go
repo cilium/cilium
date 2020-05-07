@@ -1012,16 +1012,6 @@ var (
 	MonitorAggregationFlagsDefault = []string{"syn", "fin", "rst"}
 )
 
-// Available option for DaemonConfig.DatapathMode
-const (
-	// DatapathModeVeth specifies veth datapath mode (i.e. containers are
-	// attached to a network via veth pairs)
-	DatapathModeVeth = "veth"
-
-	// DatapathModeIpvlan specifies ipvlan datapath mode
-	DatapathModeIpvlan = "ipvlan"
-)
-
 // Available option for DaemonConfig.Tunnel
 const (
 	// TunnelVXLAN specifies VXLAN encapsulation
