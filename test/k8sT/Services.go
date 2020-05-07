@@ -36,7 +36,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 		ciliumFilename         string
 		serviceName                               = "app1-service"
-		backgroundCancel       context.CancelFunc = func() { return }
+		backgroundCancel       context.CancelFunc = func() {}
 		backgroundError        error
 		enableBackgroundReport = true
 		ciliumPodK8s1          string

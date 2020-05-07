@@ -268,7 +268,6 @@ func (res *CmdRes) ExpectEqual(expected string, optionalDescription ...interface
 // Reset resets res's stdout buffer to be empty.
 func (res *CmdRes) Reset() {
 	res.stdout.Reset()
-	return
 }
 
 // SingleOut returns res's stdout as a string without any newline characters
@@ -281,8 +280,7 @@ func (res *CmdRes) SingleOut() string {
 // Unmarshal unmarshalls res's stdout into data. It assumes that the stdout of
 // res is in JSON format. Returns an error if the unmarshalling fails.
 func (res *CmdRes) Unmarshal(data interface{}) error {
-	err := json.Unmarshal(res.stdout.Bytes(), data)
-	return err
+	return json.Unmarshal(res.stdout.Bytes(), data)
 }
 
 // GetDebugMessage returns executed command and its output

@@ -62,7 +62,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowEgress       string
 		cnpMatchExpression   string
 		app1Service                             = "app1-service"
-		backgroundCancel     context.CancelFunc = func() { return }
+		backgroundCancel     context.CancelFunc = func() {}
 		backgroundError      error
 		apps                 = []string{helpers.App1, helpers.App2, helpers.App3}
 		daemonCfg            map[string]string

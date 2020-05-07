@@ -78,7 +78,6 @@ func (s *LocalExecutor) String() string {
 
 // CloseSSHClient is a no-op
 func (s *LocalExecutor) CloseSSHClient() {
-	return
 }
 
 func (s *LocalExecutor) setBasePath() {

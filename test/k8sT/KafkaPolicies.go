@@ -29,7 +29,7 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 
 	var (
 		kubectl          *helpers.Kubectl
-		backgroundCancel context.CancelFunc = func() { return }
+		backgroundCancel context.CancelFunc = func() {}
 		backgroundError  error
 
 		// these two are set in BeforeAll

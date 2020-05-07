@@ -367,7 +367,7 @@ var _ = Describe("NightlyExamples", func() {
 		var (
 			kubectl *helpers.Kubectl
 
-			cleanupCallback = func() { return }
+			cleanupCallback = func() {}
 		)
 
 		BeforeAll(func() {

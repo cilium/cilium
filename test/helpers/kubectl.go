@@ -1968,7 +1968,6 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 				return
 			}
 			valid = true
-			return
 		}
 		wg.Add(len(ciliumPods))
 		for _, pod := range ciliumPods {

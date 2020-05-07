@@ -279,7 +279,6 @@ var _ = BeforeAll(func() {
 
 		go kubectl.PprofReport()
 	}
-	return
 })
 
 var _ = AfterSuite(func() {
@@ -297,7 +296,6 @@ var _ = AfterSuite(func() {
 		helpers.DestroyVM(helpers.K8s1VMName())
 		helpers.DestroyVM(helpers.K8s2VMName())
 	}
-	return
 })
 
 func getOrSetEnvVar(key, value string) {
