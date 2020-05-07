@@ -63,7 +63,7 @@ var _ = Describe("NightlyPolicies", func() {
 			testSpecs := policygen.GeneratedTestSpec()
 			for _, test := range testSpecs {
 				func(testSpec policygen.TestSpec) {
-					It(fmt.Sprintf("%s", testSpec), func() {
+					It(testSpec.String(), func() {
 						testSpec.RunTest(kubectl)
 					})
 				}(test)

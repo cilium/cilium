@@ -55,7 +55,7 @@ var _ = Describe("RuntimeVerifier", func() {
 		GinkgoPrint("===================== TEST FAILED =====================")
 		commands := []string{"clang --version", "uname -a"}
 		for _, cmd := range commands {
-			res := vm.ExecWithSudo(fmt.Sprintf("%s", cmd))
+			res := vm.ExecWithSudo(cmd)
 			GinkgoPrint(res.GetDebugMessage())
 		}
 		GinkgoPrint("===================== EXITING REPORT GENERATION =====================\n")

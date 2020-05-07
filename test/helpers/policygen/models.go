@@ -403,7 +403,7 @@ func (t *TestSpec) Destroy(delay time.Duration, base string) error {
 	manifestToDestroy := []string{
 		t.GetManifestsPath(base),
 		fmt.Sprintf("%s/%s", base, t.NetworkPolicyName()),
-		fmt.Sprintf("%s", t.Destination.GetManifestPath(t, base)),
+		t.Destination.GetManifestPath(t, base),
 	}
 
 	done := time.After(delay)
