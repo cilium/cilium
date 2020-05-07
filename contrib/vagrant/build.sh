@@ -3,7 +3,7 @@
 set -e
 
 pushd `dirname $0` > /dev/null
-P="`pwd`/.."
+P="`pwd`/../.."
 popd > /dev/null
 
 cd "$P"

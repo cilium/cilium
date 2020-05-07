@@ -65,7 +65,7 @@ set -o pipefail
 
 export PATH=/home/vagrant/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 #{$makeclean}
-~/go/src/github.com/cilium/cilium/pkg/common/build.sh
+~/go/src/github.com/cilium/cilium/contrib/vagrant/build.sh
 rm -fr ~/go/bin/cilium*
 SCRIPT
 
