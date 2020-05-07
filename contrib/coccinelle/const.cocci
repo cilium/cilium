@@ -65,7 +65,7 @@ cnt += 1
 
 if cnt > 0:
   print """Use the following command to fix the above issues:
-docker run --rm --user 1000 --workdir /workspace -v `pwd`:/workspace \\
-    -it coccicheck spatch --sp-file contrib/coccinelle/const.cocci   \\
+docker run --rm --user 1000 --workdir /workspace -v `pwd`:/workspace                \\
+    -it docker.io/cilium/coccicheck spatch --sp-file contrib/coccinelle/const.cocci \\
     --include-headers --very-quiet --in-place bpf/\n
 """
