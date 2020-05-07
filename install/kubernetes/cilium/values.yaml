@@ -91,8 +91,8 @@ global:
   debug:
     enabled: false
 
-    # verbose allows additional levels of debug/trace messaging
-    #verbose: flow
+  # verbose allows additional levels of debug/trace messaging
+  # verbose: flow
 
   # prometheus enables
   prometheus:
@@ -191,8 +191,8 @@ global:
     # clustermesh
     name: default
 
-    # id is a 8 bits unique cluster identifier when setting up clustermesh
-    #id: "1"
+  # id is a 8 bits unique cluster identifier when setting up clustermesh
+  # id: "1"
 
   # tunnel is the encapsulation configuration for communication between nodes
   # Possible values:
@@ -213,7 +213,7 @@ global:
 
     # socketPath can be used to configure the path to the container runtime
     # control socket, if it is on a non-standard path.
-    #socketPath:
+    # socketPath:
 
   # bpf is the BPF datapath specific configuration
   bpf:
@@ -375,11 +375,11 @@ global:
 
   azure:
     enabled: false
-    #resourceGroup: group1
-    #subscriptionID: 00000000-0000-0000-0000-000000000000
-    #tenantID: 00000000-0000-0000-0000-000000000000
-    #clientID: 00000000-0000-0000-0000-000000000000
-    #clientSecret: 00000000-0000-0000-0000-000000000000
+    # resourceGroup: group1
+    # subscriptionID: 00000000-0000-0000-0000-000000000000
+    # tenantID: 00000000-0000-0000-0000-000000000000
+    # clientID: 00000000-0000-0000-0000-000000000000
+    # clientSecret: 00000000-0000-0000-0000-000000000000
 
   # cleanState instructs the cilium-agent DaemonSet to clean all state in the
   # initContainer
@@ -429,7 +429,7 @@ global:
   hubble:
     enabled: false
     ui:
-      enabled: false 
+      enabled: false
     # Default unix domain socket path to listen to when Hubble is enabled. Default to "/var/run/cilium/hubble.sock".
     socketPath: /var/run/cilium/hubble.sock
     # List of additional addresses to listen to, for example:
@@ -469,7 +469,7 @@ global:
     # documentation about Hubble's metric collection.
     metrics:
       enabled:
-       - drop
+        - drop
       serviceMonitor:
         enabled: false
     # Configures the hubble-cli subchart
