@@ -96,7 +96,10 @@ int tail_lb_ipv4(struct __ctx_buff *ctx)
 {
 	int ret = CTX_ACT_OK;
 
+	cilium_dbg(ctx, DBG_CAPTURE_DELIVERY, 555, 0);
+
 	if (!bpf_skip_nodeport(ctx)) {
+		cilium_dbg(ctx, DBG_CAPTURE_DELIVERY, 556, 0);
 		ret = nodeport_lb4(ctx, 0);
 		if (IS_ERR(ret))
 			return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,

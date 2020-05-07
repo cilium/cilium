@@ -990,6 +990,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		 * done inside a tail call here.
 		 */
 		if (dir == NAT_DIR_INGRESS) {
+			cilium_dbg(ctx, DBG_CAPTURE_DELIVERY, 333, 0);
 			bpf_skip_nodeport_set(ctx);
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_LXC);
 			ret = DROP_MISSED_TAIL_CALL;

@@ -1025,6 +1025,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 
+	cilium_dbg(ctx, DBG_CAPTURE_DELIVERY, 111, 0);
+
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 

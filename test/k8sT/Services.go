@@ -1188,6 +1188,7 @@ var _ = Describe("K8sServicesTest", func() {
 				})
 
 				Context("XDP", func() {
+					//SkipContextIf(func() bool { return true }, "XDP", func() {
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and SNAT", func() {
 						DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{

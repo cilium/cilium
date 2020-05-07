@@ -323,6 +323,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
+	cilium_dbg(ctx, DBG_CAPTURE_DELIVERY, 444, 0);
+
 #ifdef ENABLE_NODEPORT
 	if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC) {
 		if (!bpf_skip_nodeport(ctx)) {
@@ -376,6 +378,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 			return CTX_ACT_OK;
 #endif
 
+		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 888);
 		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep,
 					   METRIC_INGRESS, from_host);
 	}
@@ -415,6 +418,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 #ifdef FROM_HOST
 	if (info == NULL || info->sec_label == WORLD_ID) {
+		cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 777);
 		/* We have received a packet for which no ipcache entry exists,
 		 * we do not know what to do with this packet, drop it.
 		 *
@@ -439,6 +443,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 #endif
 	}
 #endif
+	cilium_dbg(ctx, DBG_CAPTURE_DELIVERY, 222, 0);
 	return CTX_ACT_OK;
 #endif
 }

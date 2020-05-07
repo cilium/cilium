@@ -128,6 +128,7 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	ctx->mark = (seclabel << 16) | MARK_MAGIC_IDENTITY;
 	return redirect_peer(ep->ifindex, 0);
 #else
+	cilium_dbg(ctx, DBG_CAPTURE_DELIVERY, 999, 0);
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
 	ctx_store_meta(ctx, CB_IFINDEX, ep->ifindex);
 	ctx_store_meta(ctx, CB_FROM_HOST, from_host ? 1 : 0);
