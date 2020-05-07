@@ -1,4 +1,5 @@
 // Copyright 2020 Authors of Hubble
+// Copyright 2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -78,6 +79,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	i := 0
 	fakeServer := &testutils.FakeGetFlowsServer{
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
+			assert.Equal(t, response.GetTime(), response.GetFlow().GetTime())
 			i++
 			return nil
 		},
@@ -190,6 +192,7 @@ func TestLocalObserverServer_OnFlowDelivery(t *testing.T) {
 	flowsReceived := 0
 	fakeServer := &testutils.FakeGetFlowsServer{
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
+			assert.Equal(t, response.GetTime(), response.GetFlow().GetTime())
 			flowsReceived++
 			return nil
 		},
@@ -244,6 +247,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	flowsReceived := 0
 	fakeServer := &testutils.FakeGetFlowsServer{
 		OnSend: func(response *observerpb.GetFlowsResponse) error {
+			assert.Equal(t, response.GetTime(), response.GetFlow().GetTime())
 			flowsReceived++
 			return nil
 		},

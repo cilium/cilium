@@ -1,4 +1,5 @@
 // Copyright 2020 Authors of Hubble
+// Copyright 2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -304,6 +305,7 @@ nextFlow:
 		}
 
 		err = server.Send(&observerpb.GetFlowsResponse{
+			Time: flow.GetTime(),
 			ResponseTypes: &observerpb.GetFlowsResponse_Flow{
 				Flow: flow,
 			},
