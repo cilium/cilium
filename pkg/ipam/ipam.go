@@ -19,9 +19,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
 )
@@ -108,7 +108,7 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration, owner Owne
 	}
 
 	switch c.IPAMMode() {
-	case option.IPAMHostScopeLegacy, option.IPAMKubernetes, option.IPAMOperator:
+	case ipamOption.IPAMHostScopeLegacy, ipamOption.IPAMKubernetes, ipamOption.IPAMOperator:
 		log.WithFields(logrus.Fields{
 			logfields.V4Prefix: nodeAddressing.IPv4().AllocationCIDR(),
 			logfields.V6Prefix: nodeAddressing.IPv6().AllocationCIDR(),
@@ -121,7 +121,7 @@ func NewIPAM(nodeAddressing datapath.NodeAddressing, c Configuration, owner Owne
 		if c.IPv4Enabled() {
 			ipam.IPv4Allocator = newHostScopeAllocator(nodeAddressing.IPv4().AllocationCIDR().IPNet)
 		}
-	case option.IPAMCRD, option.IPAMENI, option.IPAMAzure:
+	case ipamOption.IPAMCRD, ipamOption.IPAMENI, ipamOption.IPAMAzure:
 		log.Info("Initializing CRD-based IPAM")
 		if c.IPv6Enabled() {
 			ipam.IPv6Allocator = newCRDAllocator(IPv6, c, owner, k8sEventReg)

@@ -27,6 +27,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/defaults"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/google/go-cmp/cmp"
 	flag "github.com/spf13/pflag"
 	"github.com/spf13/viper"
@@ -236,8 +237,8 @@ func (s *OptionSuite) TestEnabledFunctions(c *C) {
 	c.Assert(d.BlacklistConflictingRoutesEnabled(), Equals, true)
 	d = &DaemonConfig{}
 	c.Assert(d.IPAMMode(), Equals, "")
-	d = &DaemonConfig{IPAM: IPAMENI}
-	c.Assert(d.IPAMMode(), Equals, IPAMENI)
+	d = &DaemonConfig{IPAM: ipamOption.IPAMENI}
+	c.Assert(d.IPAMMode(), Equals, ipamOption.IPAMENI)
 }
 
 func (s *OptionSuite) TestLocalAddressExclusion(c *C) {
@@ -479,7 +480,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				Masquerade:            true,
 				Tunnel:                TunnelDisabled,
-				IPAM:                  IPAMAzure,
+				IPAM:                  ipamOption.IPAMAzure,
 				ipv4NativeRoutingCIDR: cidr.MustParseCIDR("10.127.64.0/18"),
 			},
 			wantErr: false,
@@ -489,7 +490,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				Masquerade: false,
 				Tunnel:     TunnelDisabled,
-				IPAM:       IPAMAzure,
+				IPAM:       ipamOption.IPAMAzure,
 			},
 			wantErr: false,
 		},
@@ -498,7 +499,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				Masquerade: true,
 				Tunnel:     TunnelVXLAN,
-				IPAM:       IPAMAzure,
+				IPAM:       ipamOption.IPAMAzure,
 			},
 			wantErr: false,
 		},
@@ -507,7 +508,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				Masquerade: true,
 				Tunnel:     TunnelDisabled,
-				IPAM:       IPAMENI,
+				IPAM:       ipamOption.IPAMENI,
 			},
 			wantErr: false,
 		},
@@ -516,7 +517,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			d: &DaemonConfig{
 				Masquerade: true,
 				Tunnel:     TunnelDisabled,
-				IPAM:       IPAMAzure,
+				IPAM:       ipamOption.IPAMAzure,
 			},
 			wantErr: true,
 		},

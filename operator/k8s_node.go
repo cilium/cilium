@@ -24,6 +24,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
@@ -103,7 +104,7 @@ func runNodeWatcher(nodeManager *allocator.NodeEventHandler) error {
 		// present in the k8sNodeStore.
 
 		switch option.Config.IPAM {
-		case option.IPAMENI, option.IPAMAzure:
+		case ipamOption.IPAMENI, ipamOption.IPAMAzure:
 			nodes, err := ciliumK8sClient.CiliumV2().CiliumNodes().List(context.TODO(), meta_v1.ListOptions{})
 			if err != nil {
 				log.WithError(err).Warning("Unable to list CiliumNodes. Won't clean up stale CiliumNodes")

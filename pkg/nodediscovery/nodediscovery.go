@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	k8sTypes "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
@@ -64,7 +65,7 @@ type NodeDiscovery struct {
 }
 
 func enableLocalNodeRoute() bool {
-	return option.Config.EnableLocalNodeRoute && !option.Config.IsFlannelMasterDeviceSet() && option.Config.IPAM != option.IPAMENI
+	return option.Config.EnableLocalNodeRoute && !option.Config.IsFlannelMasterDeviceSet() && option.Config.IPAM != ipamOption.IPAMENI
 }
 
 func getInt(i int) *int {
@@ -282,7 +283,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 	}
 
 	switch option.Config.IPAM {
-	case option.IPAMOperator:
+	case ipamOption.IPAMOperator:
 		// We want to keep the podCIDRs untouched in this IPAM mode because
 		// the operator will verify if it can assign such podCIDRs.
 		// If the user was running in non-IPAM Operator mode and then switched
@@ -315,7 +316,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 	}
 
 	switch option.Config.IPAM {
-	case option.IPAMENI:
+	case ipamOption.IPAMENI:
 		// set ENI field in the node only when the ENI ipam is specified
 		nodeResource.Spec.ENI = eniTypes.ENISpec{}
 		instanceID, instanceType, availabilityZone, vpcID, err := metadata.GetInstanceMetadata()
@@ -362,7 +363,7 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 		nodeResource.Spec.ENI.InstanceType = instanceType
 		nodeResource.Spec.ENI.AvailabilityZone = availabilityZone
 
-	case option.IPAMAzure:
+	case ipamOption.IPAMAzure:
 		if providerID == "" {
 			log.WithError(err).Fatal("Spec.ProviderID in k8s node resource must be set for Azure IPAM")
 		}

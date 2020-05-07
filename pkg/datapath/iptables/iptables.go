@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/defaults"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/modules"
 	"github.com/cilium/cilium/pkg/node"
@@ -689,7 +690,7 @@ func (m *IptablesManager) remoteSnatDstAddrExclusion() string {
 
 func getDeliveryInterface(ifName string) string {
 	deliveryInterface := ifName
-	if option.Config.IPAM == option.IPAMENI || option.Config.EnableEndpointRoutes {
+	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.EnableEndpointRoutes {
 		deliveryInterface = "lxc+"
 	}
 	return deliveryInterface

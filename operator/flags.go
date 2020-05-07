@@ -21,6 +21,7 @@ import (
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/defaults"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/spf13/cobra"
@@ -137,7 +138,7 @@ func init() {
 	flags.Bool(operatorOption.EnableMetrics, false, "Enable Prometheus metrics")
 	option.BindEnv(operatorOption.EnableMetrics)
 
-	flags.String(option.IPAM, option.IPAMHostScopeLegacy, "Backend to use for IPAM")
+	flags.String(option.IPAM, ipamOption.IPAMHostScopeLegacy, "Backend to use for IPAM")
 	option.BindEnv(option.IPAM)
 
 	flags.Duration(operatorOption.IdentityHeartbeatTimeout, 2*defaults.KVstoreLeaseTTL, "Timeout after which identity expires on lack of heartbeat")
@@ -148,13 +149,13 @@ func init() {
 
 	flags.String(operatorOption.IPAMOperatorV4CIDR, "",
 		fmt.Sprintf("IPv4 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, option.IPAMOperator,
+			option.IPAM, ipamOption.IPAMOperator,
 			option.EnableIPv4Name, "true"))
 	option.BindEnv(operatorOption.IPAMOperatorV4CIDR)
 
 	flags.Int(operatorOption.NodeCIDRMaskSizeIPv4, 24,
 		fmt.Sprintf("Mask size for each IPv4 podCIDR per node. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, option.IPAMOperator,
+			option.IPAM, ipamOption.IPAMOperator,
 			option.EnableIPv4Name, "true"))
 	option.BindEnv(operatorOption.NodeCIDRMaskSizeIPv4)
 
@@ -163,13 +164,13 @@ func init() {
 
 	flags.String(operatorOption.IPAMOperatorV6CIDR, "",
 		fmt.Sprintf("IPv6 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, option.IPAMOperator,
+			option.IPAM, ipamOption.IPAMOperator,
 			option.EnableIPv6Name, "true"))
 	option.BindEnv(operatorOption.IPAMOperatorV6CIDR)
 
 	flags.Int(operatorOption.NodeCIDRMaskSizeIPv6, 112,
 		fmt.Sprintf("Mask size for each IPv6 podCIDR per node. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, option.IPAMOperator,
+			option.IPAM, ipamOption.IPAMOperator,
 			option.EnableIPv6Name, "true"))
 	option.BindEnv(operatorOption.NodeCIDRMaskSizeIPv6)
 

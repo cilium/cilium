@@ -19,9 +19,9 @@ package main
 import (
 	// These dependencies should be included only when this file is included in the build.
 	allocatorOperator "github.com/cilium/cilium/pkg/ipam/allocator/operator" // Operator allocator.
-	"github.com/cilium/cilium/pkg/option"
+	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 )
 
 func init() {
-	allocatorProviders[option.IPAMOperator] = &allocatorOperator.AllocatorOperator{}
+	allocatorProviders[ipamOption.IPAMOperator] = &allocatorOperator.AllocatorOperator{}
 }
