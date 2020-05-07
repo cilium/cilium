@@ -432,7 +432,6 @@ govet:
     ./bugtool/... \
     ./cilium/... \
     ./cilium-health/... \
-    ./common/... \
     ./daemon/... \
     ./hubble-relay/... \
     ./operator/... \
