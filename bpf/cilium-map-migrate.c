@@ -278,7 +278,7 @@ static int bpf_derive_elf_map_from_fdinfo(int fd, struct bpf_elf_map *map)
 			map->size_value = val;
 		else if (sscanf(buff, "max_entries:\t%u", &val) == 1)
 			map->max_elem = val;
-		else if (sscanf(buff, "map_flags:\t%i", &val) == 1)
+		else if (sscanf(buff, "map_flags:\t%x", &val) == 1)
 			map->flags = val;
 	}
 
@@ -300,7 +300,7 @@ typedef int (*bpf_handle_state_t)(struct bpf_elf_ctx *ctx,
 
 char fs_base[PATH_MAX + 1];
 
-void fs_base_init()
+void fs_base_init(void)
 {
 	const char *mnt_env = getenv(BPF_ENV_MNT);
 
@@ -451,7 +451,7 @@ static int bpf_fetch_maps_end(struct bpf_elf_ctx *ctx, bpf_handle_state_t cb,
 	const char *name;
 
 	if (sym_num == 0 || sym_num > 64) {
-		fprintf(stderr, "%u maps not supported in current map section!\n",
+		fprintf(stderr, "%d maps not supported in current map section!\n",
 			sym_num);
 		return -EINVAL;
 	}

@@ -130,7 +130,6 @@ static __always_inline void ipv6_addr_clear_suffix(union v6addr *addr,
 	addr->p3 &= GET_PREFIX(prefix);
 	prefix -= 32;
 	addr->p4 &= GET_PREFIX(prefix);
-	prefix -= 32;
 }
 
 static __always_inline int ipv6_match_prefix_64(const union v6addr *addr,
