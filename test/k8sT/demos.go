@@ -41,7 +41,7 @@ var _ = Describe("K8sDemosTest", func() {
 		kubectl        *helpers.Kubectl
 		ciliumFilename string
 
-		backgroundCancel context.CancelFunc = func() { return }
+		backgroundCancel context.CancelFunc = func() {}
 		backgroundError  error
 
 		deathStarYAMLLink = getStarWarsResourceLink("01-deathstar.yaml")

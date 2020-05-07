@@ -126,7 +126,6 @@ func (s *SSHMeta) setBasePath() {
 	}
 
 	s.basePath = filepath.Join(home, "go", CiliumPath)
-	return
 }
 
 // ExecuteContext executes the given `cmd` and writes the cmd's stdout and

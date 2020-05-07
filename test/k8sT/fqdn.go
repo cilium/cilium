@@ -28,7 +28,7 @@ import (
 var _ = Describe("K8sFQDNTest", func() {
 	var (
 		kubectl          *helpers.Kubectl
-		backgroundCancel context.CancelFunc = func() { return }
+		backgroundCancel context.CancelFunc = func() {}
 		backgroundError  error
 
 		demoManifest   = ""

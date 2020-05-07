@@ -327,10 +327,8 @@ var _ = Describe("RuntimeMonitorTest", func() {
 					switch fields[i] {
 					case "FROM":
 						fromID = fields[i+1]
-						break
 					case "id":
 						toID = fields[i+1]
-						break
 					}
 				}
 				if fromID == "" || toID == "" {

@@ -53,7 +53,7 @@ var _ = Describe("K8sUpdates", func() {
 	var (
 		kubectl *helpers.Kubectl
 
-		cleanupCallback = func() { return }
+		cleanupCallback = func() {}
 	)
 
 	BeforeAll(func() {
