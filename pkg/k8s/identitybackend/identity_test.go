@@ -20,9 +20,9 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1/validation"
 
 	. "gopkg.in/check.v1"
-	"k8s.io/apimachinery/pkg/apis/meta/v1/validation"
 	"k8s.io/apimachinery/pkg/util/validation/field"
 )
 
