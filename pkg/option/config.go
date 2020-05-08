@@ -267,6 +267,9 @@ const (
 	// Masquerade are the packets from endpoints leaving the host
 	Masquerade = "masquerade"
 
+	// EnableBPFClockProbe selects a more efficient source clock (jiffies vs ktime)
+	EnableBPFClockProbe = "enable-bpf-clock-probe"
+
 	// Masquerade packets from endpoints leaving the host with BPF instead of iptables
 	EnableBPFMasquerade = "enable-bpf-masquerade"
 
@@ -1450,6 +1453,7 @@ type DaemonConfig struct {
 	// leaving the host.
 	Masquerade             bool
 	EnableBPFMasquerade    bool
+	EnableBPFClockProbe    bool
 	EnableIPMasqAgent      bool
 	IPMasqAgentConfigPath  string
 	InstallIptRules        bool
@@ -2229,6 +2233,7 @@ func (c *DaemonConfig) Populate() {
 	c.LoopbackIPv4 = viper.GetString(LoopbackIPv4)
 	c.Masquerade = viper.GetBool(Masquerade)
 	c.EnableBPFMasquerade = viper.GetBool(EnableBPFMasquerade)
+	c.EnableBPFClockProbe = viper.GetBool(EnableBPFClockProbe)
 	c.EnableIPMasqAgent = viper.GetBool(EnableIPMasqAgent)
 	c.IPMasqAgentConfigPath = viper.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = viper.GetBool(InstallIptRules)

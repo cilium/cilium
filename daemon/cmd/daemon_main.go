@@ -211,6 +211,9 @@ func init() {
 	flags.String(option.BPFRoot, "", "Path to BPF filesystem")
 	option.BindEnv(option.BPFRoot)
 
+	flags.Bool(option.EnableBPFClockProbe, false, "Enable BPF clock source probing for more efficient tick retrieval")
+	option.BindEnv(option.EnableBPFClockProbe)
+
 	flags.String(option.CGroupRoot, "", "Path to Cgroup2 filesystem")
 	option.BindEnv(option.CGroupRoot)
 
@@ -1509,8 +1512,8 @@ func initSockmapOption() {
 }
 
 func initClockSourceOption() {
-	if !option.Config.DryMode &&
-		option.Config.ClockSource == option.ClockSourceKtime {
+	option.Config.ClockSource = option.ClockSourceKtime
+	if !option.Config.DryMode && option.Config.EnableBPFClockProbe {
 		if h := probes.NewProbeManager().GetHelpers("xdp"); h != nil {
 			if _, ok := h["bpf_jiffies64"]; ok {
 				t, err := bpf.GetJtime()

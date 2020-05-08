@@ -126,6 +126,8 @@ data:
   custom-cni-conf: "{{ .Values.global.cni.customConf }}"
 {{- end }}
 
+  enable-bpf-clock-probe: {{ .Values.global.bpf.clockProbe | quote }}
+
   # If you want cilium monitor to aggregate tracing for packets, set this level
   # to "low", "medium", or "maximum". The higher the level, the less packets
   # that will be seen in monitor output.

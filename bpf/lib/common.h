@@ -11,6 +11,8 @@
 #include <linux/ipv6.h>
 #include <linux/in.h>
 
+#include "mono.h"
+
 // FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
 // #ifndef HAVE_LRU_HASH_MAP_TYPE
 // #define NEEDS_TIMEOUT 1
