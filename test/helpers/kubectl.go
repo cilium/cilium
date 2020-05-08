@@ -1593,13 +1593,26 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		if err != nil {
 			return err
 		}
+		devices := privateIface
 
 		opts := map[string]string{
 			"global.kubeProxyReplacement": "strict",
-			"global.nodePort.device":      privateIface,
 			"global.k8sServiceHost":       nodeIP,
 			"global.k8sServicePort":       "6443",
 		}
+
+		if RunsOnNetNextOr419Kernel() {
+			// Enable BPF masquerading
+			defaultIface, err := kub.GetDefaultIface()
+			if err != nil {
+				return err
+			}
+			devices = fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
+			opts["global.bpfMasquerade"] = "true"
+		}
+
+		opts["global.nodePort.device"] = devices
+
 		for key, value := range opts {
 			options = addIfNotOverwritten(options, key, value)
 		}
