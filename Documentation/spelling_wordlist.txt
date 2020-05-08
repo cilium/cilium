@@ -396,6 +396,7 @@ llvm
 loadbalancer
 loadbalancers
 loadbalancing
+localhost
 lockless
 logfile
 logout
@@ -404,9 +405,9 @@ loopback
 luke
 lwt
 macOS
+masq
 matchLabels
 matchPattern
-masq
 mc
 mediabot
 memcache
