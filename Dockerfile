@@ -24,6 +24,10 @@ COPY . ./
 ARG LOCKDEBUG
 ARG V
 ARG LIBNETWORK_PLUGIN
+
+ARG GIT_CHECKOUT
+RUN test -z $GIT_CHECKOUT || git checkout
+
 #
 # Please do not add any dependency updates before the 'make install' here,
 # as that will mess with caching for incremental builds!
@@ -47,9 +51,9 @@ LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /tmp/install /
 COPY --from=cilium-envoy / /
-COPY plugins/cilium-cni/cni-install.sh /cni-install.sh
-COPY plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
-COPY contrib/packaging/docker/init-container.sh /init-container.sh
+COPY --from=builder /go/src/github.com/cilium/cilium/plugins/cilium-cni/cni-install.sh /cni-install.sh
+COPY --from=builder /go/src/github.com/cilium/cilium/plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
+COPY --from=builder /go/src/github.com/cilium/cilium/contrib/packaging/docker/init-container.sh /init-container.sh
 WORKDIR /home/cilium
 RUN groupadd -f cilium \
     && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc

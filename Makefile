@@ -227,10 +227,14 @@ tags: $(GOLANG_SRCFILES) $(BPF_SRCFILES) cscope.files
 clean-container:
 	-$(QUIET) for i in $(SUBDIRS); do $(MAKE) $(SUBMAKEOPTS) -C $$i clean; done
 
-clean: clean-container
+clean: clean-container clean-build
 	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb clean
 	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm clean
 	-$(QUIET) rm -f GIT_VERSION
+	-$(QUIET) docker builder prune --filter type=exec.cachemount -f
+
+clean-build:
+	-$(QUIET) rm -rf _build
 
 install-bpf:
 	$(QUIET)$(INSTALL) -m 0750 -d $(DESTDIR)$(LOCALSTATEDIR)/lib/cilium
@@ -256,7 +260,7 @@ docker-cilium-image-for-developers:
 	     --build-arg LOCKDEBUG=\
 	     --build-arg V=\
 	     --build-arg LIBNETWORK_PLUGIN=\
-	     -t "cilium/cilium-dev:"latest"" . -f ./cilium-dev.Dockerfile
+	     -t "$(DOCKER_DEV_ACCOUNT)/cilium-dev:latest" . -f ./cilium-dev.Dockerfile
 
 docker-image: clean docker-image-no-clean docker-operator-image docker-plugin-image docker-hubble-relay-image
 
@@ -275,15 +279,38 @@ docker-cilium-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium $(DOCKER_IMAGE_TAG)
 	$(QUIET) contrib/scripts/push_manifest.sh cilium $(DOCKER_IMAGE_TAG)
 
-dev-docker-image: GIT_VERSION
-	$(QUIET)$(CONTAINER_ENGINE) build \
+DOCKER_BUILDKIT =
+DEV_DOCKERFILE_FILTER =
+ifeq ($(DOCKER_DEV_NOCACHE),)
+	DOCKER_BUILDKIT := DOCKER_BUILDKIT=1
+	DEV_DOCKERFILE_FILTER := | sed -e "1s|^\#.*|\# syntax = docker/dockerfile:experimental|" -e "s|^RUN\(.*\)make|RUN --mount=type=cache,target=/root/.cache/go-build\1make|"
+endif
+DEV_BUILD_DIR := _build/cilium-dev
+DEV_DOCKERFILE := $(DEV_BUILD_DIR).Dockerfile
+
+$(DEV_DOCKERFILE): Dockerfile Makefile
+	-mkdir -p $(dir $@)
+	cat $< $(DEV_DOCKERFILE_FILTER) > $@
+
+check-status:
+ifneq ($(shell git status --porcelain),)
+	git status
+	echo These changes will not be included in build, aborting. Define IGNORE_GIT_STATUS to build anyway.
+	test $(IGNORE_GIT_STATUS)
+endif
+
+dev-docker-image: check-status clean-build $(DEV_DOCKERFILE) GIT_VERSION
+	git clone --no-checkout --no-local --depth 1 . $(DEV_BUILD_DIR)
+	$(QUIET)$(DOCKER_BUILDKIT) $(CONTAINER_ENGINE) build -f $(DEV_DOCKERFILE) \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg V=${V} \
+		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
+		--build-arg GIT_CHECKOUT=1 \
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
-		-t "cilium/cilium-dev:$(DOCKER_IMAGE_TAG)" .
-	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-dev:$(DOCKER_IMAGE_TAG) cilium/cilium-dev:$(DOCKER_IMAGE_TAG)-${GOARCH}
+		-t $(DOCKER_DEV_ACCOUNT)/cilium-dev:$(DOCKER_IMAGE_TAG) $(DEV_BUILD_DIR)
+	$(QUIET)$(CONTAINER_ENGINE) tag $(DOCKER_DEV_ACCOUNT)/cilium-dev:$(DOCKER_IMAGE_TAG) $(DOCKER_DEV_ACCOUNT)/cilium-dev:$(DOCKER_IMAGE_TAG)-${GOARCH}
 	$(QUIET)echo "Push like this when ready:"
-	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/cilium-dev:$(DOCKER_IMAGE_TAG)-${GOARCH}"
+	$(QUIET)echo "${CONTAINER_ENGINE} push $(DOCKER_DEV_ACCOUNT)/cilium-dev:$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
 docker-cilium-dev-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-dev $(DOCKER_IMAGE_TAG)
@@ -581,5 +608,5 @@ update-test-go-version:
 	$(QUIET) sed -i 's/GOLANG_VERSION=.*/GOLANG_VERSION="$(GO_VERSION)"/g' test/packet/scripts/install.sh
 	@echo "Updated go version in test scripts to $(GO_VERSION)"
 
-.PHONY: force generate-api generate-health-api install
+.PHONY: force generate-api generate-health-api install check-status dev-docker-image
 force :;
