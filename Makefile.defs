@@ -21,6 +21,11 @@ INSTALL = install
 
 CONTAINER_ENGINE?=docker
 
+# Set DOCKER_DEV_ACCOUNT with "cilium" by default
+ifeq ($(DOCKER_DEV_ACCOUNT),)
+    DOCKER_DEV_ACCOUNT="cilium"
+endif
+
 # Set DOCKER_IMAGE_TAG with "latest" by default
 ifeq ($(DOCKER_IMAGE_TAG),)
     DOCKER_IMAGE_TAG="latest"
