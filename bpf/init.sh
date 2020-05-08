@@ -566,7 +566,7 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] ||
 
 		NP_COPTS=""
 
-		if [ "$MODE" = "direct" ] && [ "$NODE_PORT" = "true" ] ; then
+		if [ "$NODE_PORT" = "true" ] ; then
 			# First device from the list is used for direct routing between nodes
 			DIRECT_ROUTING_DEV=$(echo "${NATIVE_DEVS}" | cut -d\; -f1)
 			DIRECT_ROUTING_DEV_IDX=$(cat /sys/class/net/${DIRECT_ROUTING_DEV}/ifindex)
