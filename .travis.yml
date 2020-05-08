@@ -19,6 +19,7 @@ addons:
   apt:
     packages:
       - kernel-package
+      - gnupg
 
 before_install: ./.travis/prepare.sh
 
