@@ -40,3 +40,10 @@ var (
 		"cwr":  TCP_CWR,
 	}
 )
+
+type BPFClockSource int
+
+const (
+	ClockSourceKtime BPFClockSource = iota
+	ClockSourceJiffies
+)

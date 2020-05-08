@@ -1096,6 +1096,7 @@ func initEnv(cmd *cobra.Command) {
 			log.WithError(err).Fatal("Failed to initialize NodePort addrs")
 		}
 	}
+	initClockSourceOption()
 	initSockmapOption()
 
 	if option.Config.Masquerade && option.Config.EnableBPFMasquerade {
@@ -1505,6 +1506,20 @@ func initSockmapOption() {
 	}
 	log.Warn("BPF Sock ops not supported by kernel. Disabling '--sockops-enable' feature.")
 	option.Config.SockopsEnable = false
+}
+
+func initClockSourceOption() {
+	if !option.Config.DryMode &&
+		option.Config.ClockSource == option.ClockSourceKtime {
+		if h := probes.NewProbeManager().GetHelpers("xdp"); h != nil {
+			if _, ok := h["bpf_jiffies64"]; ok {
+				t, err := bpf.GetJtime()
+				if err == nil && t > 0 {
+					option.Config.ClockSource = option.ClockSourceJiffies
+				}
+			}
+		}
+	}
 }
 
 func initKubeProxyReplacementOptions() {

@@ -282,7 +282,9 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	args[initBPFCPU] = GetBPFCPU()
 
-	log.Infof("Setting up base BPF datapath (BPF %s instruction set)", args[initBPFCPU])
+	clockSource := []string{"ktime", "jiffies"}
+	log.Infof("Setting up base BPF datapath (BPF %s instruction set, %s clock source)",
+		args[initBPFCPU], clockSource[option.Config.ClockSource])
 
 	for _, s := range sysSettings {
 		log.Infof("Setting sysctl %s=%s", s.name, s.val)

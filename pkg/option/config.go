@@ -1668,6 +1668,9 @@ type DaemonConfig struct {
 	// EnableSessionAffinity enables a support for service sessionAffinity
 	EnableSessionAffinity bool
 
+	// Selection of BPF main clock source (ktime vs jiffies)
+	ClockSource BPFClockSource
+
 	// excludeLocalAddresses excludes certain addresses to be recognized as
 	// a local address
 	excludeLocalAddresses []*net.IPNet
@@ -2273,6 +2276,8 @@ func (c *DaemonConfig) Populate() {
 	if err := c.calculateBPFMapSizes(); err != nil {
 		log.Fatal(err)
 	}
+
+	c.ClockSource = ClockSourceKtime
 
 	// toFQDNs options
 	// When the poller is enabled, the default MinTTL is lowered. This is to
