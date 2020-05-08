@@ -310,6 +310,35 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
+
+		Context("with L7 policy", func() {
+			var (
+				demoPolicy string
+			)
+
+			BeforeAll(func() {
+				deploymentManager.DeployCilium(map[string]string{
+					"global.tunnel":                 "disabled",
+					"global.k8s.requireIPv4PodCIDR": "true",
+					"global.endpointRoutes.enabled": "false",
+				}, DeployCiliumOptionsAndDNS)
+				demoPolicy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
+			})
+
+			AfterAll(func() {
+				// Explicitly ignore result of deletion of resources to avoid incomplete
+				// teardown if any step fails.
+				_ = kubectl.Delete(demoPolicy)
+			})
+
+			It("checks connectivity", func() {
+				By(fmt.Sprintf("Applying policy %s", demoPolicy))
+				_, err := kubectl.CiliumPolicyAction(helpers.DefaultNamespace, demoPolicy, helpers.KubectlApply, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", demoPolicy, err))
+				Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+				Expect(testPodConnectivitySameNodes(kubectl)).Should(BeTrue(), "Connectivity test on same node failed")
+			})
+		})
 	})
 
 	Context("AutoDirectNodeRoutes", func() {
