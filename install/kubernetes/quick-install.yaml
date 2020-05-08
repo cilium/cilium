@@ -364,11 +364,11 @@ spec:
         command:
         - cilium-agent
         livenessProbe:
-          exec:
-            command:
-            - cilium
-            - status
-            - --brief
+          httpGet:
+            host: '127.0.0.1'
+            path: /healthz
+            port: 9876
+            scheme: HTTP
           failureThreshold: 10
           # The initial delay for the liveness probe is intentionally large to
           # avoid an endless kill & restart cycle if in the event that the initial
@@ -378,11 +378,11 @@ spec:
           successThreshold: 1
           timeoutSeconds: 5
         readinessProbe:
-          exec:
-            command:
-            - cilium
-            - status
-            - --brief
+          httpGet:
+            host: '127.0.0.1'
+            path: /healthz
+            port: 9876
+            scheme: HTTP
           failureThreshold: 3
           initialDelaySeconds: 5
           periodSeconds: 30

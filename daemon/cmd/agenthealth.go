@@ -52,7 +52,7 @@ func (d *Daemon) startAgentHealthHTTPService(addr string) {
 	lc := net.ListenConfig{Control: setsockoptReuseAddrAndPort}
 	ln, err := lc.Listen(context.Background(), "tcp", addr)
 	if err != nil {
-		log.Fatal(err)
+		log.WithError(err).Fatalf("Unable to listen on %s for healthz status API server", addr)
 	}
 
 	mux := http.NewServeMux()
@@ -82,7 +82,7 @@ func (d *Daemon) startAgentHealthHTTPService(addr string) {
 		if err == http.ErrServerClosed {
 			log.Info("healthz status API server shutdown")
 		} else if err != nil {
-			log.WithError(err).Fatal("Unable to start status healthz status API server")
+			log.WithError(err).Fatal("Unable to start healthz status API server")
 		}
 	}()
 	log.Infof("Started healthz status API server on address %s", addr)
