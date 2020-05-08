@@ -129,7 +129,6 @@ global:
   # ipMasqAgent enables and controls BPF ip-masq-agent
   ipMasqAgent:
     enabled: false
-    syncPeriod: 60s
 
   # autoDirectNodeRoutes enables installation of PodCIDR routes between worker
   # nodes if worker nodes share a common L2 network segment.
