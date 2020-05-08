@@ -104,6 +104,10 @@ pipeline {
                     steps {
                         dir("${TESTDIR}/gke") {
                             sh './select-cluster.sh'
+                            script {
+                                def name = readFile file: 'cluster-name'
+                                currentBuild.displayName = currentBuild.displayName + " running on " + name
+                            }
                         }
                     }
                     post {
