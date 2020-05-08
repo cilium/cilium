@@ -29,7 +29,7 @@ while [ $locked -ne 0 ]; do
 
     kubectl annotate deployment lock lock=1
     if [ -n "${BUILD_URL+x}" ] ; then
-      kubectl annotate deployment lock "jenkins-build-url=${BUILD_URL}"
+      kubectl annotate deployment lock --overwrite "jenkins-build-url=${BUILD_URL}"
     fi
     locked=$?
     echo $locked
