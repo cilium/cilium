@@ -23,8 +23,17 @@
 
 /* Jiffies */
 #define bpf_jiffies_to_sec(j)	\
-	({ __u64 __x = j / KERNEL_HZ; __x; })
+	({ __u64 __x = (j) / KERNEL_HZ; __x; })
 #define bpf_sec_to_jiffies(s)	\
-	({ __u64 __x = s * KERNEL_HZ; __x; })
+	({ __u64 __x = (s) * KERNEL_HZ; __x; })
+
+#ifdef BPF_HAVE_JIFFIES
+# define BPF_MONO_SCALER	8
+# define bpf_mono_now()		(jiffies >> BPF_MONO_SCALER)
+# define bpf_sec_to_mono(s)	(bpf_sec_to_jiffies(s) >> BPF_MONO_SCALER)
+#else
+# define bpf_mono_now()		bpf_ktime_get_sec()
+# define bpf_sec_to_mono(s)	(s)
+#endif /* BPF_HAVE_JIFFIES */
 
 #endif /* __LIB_TIME_H_ */

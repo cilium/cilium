@@ -73,7 +73,7 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 						 union tcp_flags flags,
 						 __u8 report_mask)
 {
-	__u32 now = bpf_ktime_get_sec();
+	__u32 now = bpf_mono_now();
 	__u8 accumulated_flags;
 	__u8 seen_flags = flags.lower_bits & report_mask;
 	__u32 last_report;
@@ -120,7 +120,7 @@ static __always_inline __u32 __ct_update_timeout(struct ct_entry *entry,
 	 * otherwise be sent if the MONITOR_AGGREGATION level is set to none
 	 * (ie, sending a notification for every packet).
 	 */
-	if (last_report + CT_REPORT_INTERVAL < now ||
+	if (last_report + bpf_sec_to_mono(CT_REPORT_INTERVAL) < now ||
 	    accumulated_flags != seen_flags) {
 		/* verifier workaround: we don't use reference here. */
 		if (dir == CT_INGRESS) {
@@ -146,18 +146,18 @@ static __always_inline __u32 ct_update_timeout(struct ct_entry *entry,
 					       union tcp_flags seen_flags)
 {
 	__u32 lifetime = dir == CT_SERVICE ?
-			 CT_SERVICE_LIFETIME_NONTCP :
-			 CT_CONNECTION_LIFETIME_NONTCP;
+			 bpf_sec_to_mono(CT_SERVICE_LIFETIME_NONTCP) :
+			 bpf_sec_to_mono(CT_CONNECTION_LIFETIME_NONTCP);
 	bool syn = seen_flags.value & TCP_FLAG_SYN;
 
 	if (tcp) {
 		entry->seen_non_syn |= !syn;
 		if (entry->seen_non_syn) {
 			lifetime = dir == CT_SERVICE ?
-				   CT_SERVICE_LIFETIME_TCP :
-				   CT_CONNECTION_LIFETIME_TCP;
+				   bpf_sec_to_mono(CT_SERVICE_LIFETIME_TCP) :
+				   bpf_sec_to_mono(CT_CONNECTION_LIFETIME_TCP);
 		} else {
-			lifetime = CT_SYN_TIMEOUT;
+			lifetime = bpf_sec_to_mono(CT_SYN_TIMEOUT);
 		}
 	}
 
@@ -187,9 +187,9 @@ static __always_inline bool __ct_entry_keep_alive(const void *map,
 		if (entry->node_port) {
 #ifdef NEEDS_TIMEOUT
 			__u32 lifetime = (entry->seen_non_syn ?
-					  CT_SERVICE_LIFETIME_TCP :
-					  CT_SERVICE_LIFETIME_NONTCP) +
-					 bpf_ktime_get_sec();
+					  bpf_sec_to_mono(CT_SERVICE_LIFETIME_TCP) :
+					  bpf_sec_to_mono(CT_SERVICE_LIFETIME_NONTCP)) +
+					 bpf_mono_now();
 			WRITE_ONCE(entry->lifetime, lifetime);
 #endif
 			if (!ct_entry_alive(entry))
@@ -260,8 +260,8 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			*monitor = TRACE_PAYLOAD_LEN;
 			if (ct_entry_alive(entry))
 				break;
-			__ct_update_timeout(entry, CT_CLOSE_TIMEOUT, dir,
-					    seen_flags, CT_REPORT_FLAGS);
+			__ct_update_timeout(entry, bpf_sec_to_mono(CT_CLOSE_TIMEOUT),
+					    dir, seen_flags, CT_REPORT_FLAGS);
 			break;
 		}
 
