@@ -289,6 +289,19 @@ ICMP 8/0                 egress          ``worker-sg`` (self) health checks
           Routing mode, you can condense all rules into ingress/egress ANY
           port/protocol to/from self.
 
+The following ports should also be available on each node:
+
+======================== ==========================================
+Port Range / Protocol    Description
+======================== ==========================================
+4240/tcp                 cluster health checks (``cilium-health``)
+4244/tcp                 hubble server
+4245/tcp                 hubble relay
+6942/tcp                 operator Prometheus metrics
+9090/tcp                 cilium-agent Prometheus metrics
+9876/tcp                 cilium-agent health status API
+======================== ==========================================
+
 Privileges
 ==========
 
