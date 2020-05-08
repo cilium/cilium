@@ -57,6 +57,9 @@ type FlagsSection struct {
 }
 
 const (
+	// AgentHealthPort is the TCP port for the agent health status API.
+	AgentHealthPort = "agent-health-port"
+
 	// AgentLabels are additional labels to identify this agent
 	AgentLabels = "agent-labels"
 
@@ -1253,6 +1256,9 @@ type DaemonConfig struct {
 	// Monitor contains the configuration for the node monitor.
 	Monitor *models.MonitorStatus
 
+	// AgentHealthPort is the TCP port for the agent health status API.
+	AgentHealthPort int
+
 	// AgentLabels contains additional labels to identify this agent in monitor events.
 	AgentLabels []string
 
@@ -2140,6 +2146,7 @@ func (c *DaemonConfig) parseExcludedLocalAddresses(s []string) error {
 func (c *DaemonConfig) Populate() {
 	var err error
 
+	c.AgentHealthPort = viper.GetInt(AgentHealthPort)
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
 	c.AllowICMPFragNeeded = viper.GetBool(AllowICMPFragNeeded)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)

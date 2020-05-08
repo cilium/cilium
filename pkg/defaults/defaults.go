@@ -19,6 +19,9 @@ import (
 )
 
 const (
+	// AgentHealthPort is the default value for option.AgentHealthPort
+	AgentHealthPort = 9876
+
 	// IPv6ClusterAllocCIDR is the default value for option.IPv6ClusterAllocCIDR
 	IPv6ClusterAllocCIDR = IPv6ClusterAllocCIDRBase + "/64"
 

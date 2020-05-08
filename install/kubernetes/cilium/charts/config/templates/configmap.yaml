@@ -69,6 +69,12 @@ data:
   debug-verbose: "{{ .Values.global.debug.verbose }}"
 {{- end }}
 
+{{- if .Values.global.agent.healthPort }}
+  # Set the TCP port for the agent health status API. This is not the port used
+  # for cilium-health.
+  agent-health-port: "{{ .Values.global.agent.healthPort }}"
+{{- end }}
+
 {{- if .Values.global.prometheus.enabled }}
   # If you want metrics enabled in all of your Cilium agents, set the port for
   # which the Cilium agents will have their metrics exposed.

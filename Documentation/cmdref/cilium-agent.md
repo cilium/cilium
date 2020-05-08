@@ -15,6 +15,7 @@ cilium-agent [flags]
 ### Options
 
 ```
+      --agent-health-port int                         TCP port for agent health status API (default 9876)
       --agent-labels strings                          Additional labels to identify this agent
       --allow-icmp-frag-needed                        Allow ICMP Fragmentation Needed type packets for purposes like TCP Path MTU. (default true)
       --allow-localhost string                        Policy when to allow local stack to reach local endpoints { auto | always | policy } (default "auto")

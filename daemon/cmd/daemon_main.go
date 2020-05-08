@@ -190,6 +190,9 @@ func init() {
 	})
 
 	// Env bindings
+	flags.Int(option.AgentHealthPort, defaults.AgentHealthPort, "TCP port for agent health status API")
+	option.BindEnv(option.AgentHealthPort)
+
 	flags.StringSlice(option.AgentLabels, []string{}, "Additional labels to identify this agent")
 	option.BindEnv(option.AgentLabels)
 
@@ -1332,6 +1335,8 @@ func runDaemon() {
 	d.startStatusCollector()
 
 	metricsErrs := initMetrics()
+
+	d.startAgentHealthHTTPService(fmt.Sprintf("localhost:%d", option.Config.AgentHealthPort))
 
 	bootstrapStats.initAPI.Start()
 	srv := server.NewServer(d.instantiateAPI())
