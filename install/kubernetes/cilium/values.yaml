@@ -254,6 +254,10 @@ global:
     # first time
     monitorFlags: "all"
 
+    # clockProbe enables the probing and potential of a more efficient clock
+    # source for the BPF datapath
+    clockProbe: true
+
   # encryption is the encryption specific configuration
   encryption:
     # enabled enables encryption
