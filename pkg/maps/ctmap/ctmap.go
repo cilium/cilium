@@ -495,9 +495,14 @@ func doGC(m *Map, filter *GCFilter) int {
 // It returns how many items were deleted from m.
 func GC(m *Map, filter *GCFilter) int {
 	if filter.RemoveExpired {
-		t, _ := bpf.GetMtime()
-		tsec := t / 1000000000
-		filter.Time = uint32(tsec)
+		var t uint64
+		if option.Config.ClockSource == option.ClockSourceKtime {
+			t, _ = bpf.GetMtime()
+			t = t / 1000000000
+		} else {
+			t, _ = bpf.GetJtime()
+		}
+		filter.Time = uint32(t)
 	}
 
 	return doGC(m, filter)
