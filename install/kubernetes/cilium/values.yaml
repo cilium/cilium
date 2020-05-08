@@ -94,6 +94,10 @@ global:
   # verbose allows additional levels of debug/trace messaging
   # verbose: flow
 
+  agent:
+    # TCP port for the agent health API. This is not the port for cilium-health.
+    healthPort: 9876
+
   # prometheus enables
   prometheus:
     enabled: false
