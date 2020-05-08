@@ -1,7 +1,10 @@
 name: Documentation Updates
 
 on:
-  - pull_request
+  pull_request: {}
+  push:
+    branches:
+      - master
 
 jobs:
     build-html:
