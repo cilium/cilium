@@ -296,8 +296,6 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 			AllowWatchBookmarks: true,
 		}
 
-		// start the clock before sending the request, since some proxies won't flush headers until after the first watch event is sent
-		start := r.clock.Now()
 		w, err := r.listerWatcher.Watch(options)
 		if err != nil {
 			switch err {
@@ -319,7 +317,7 @@ func (r *Reflector) ListAndWatch(stopCh <-chan struct{}) error {
 			return nil
 		}
 
-		if err := r.watchHandler(start, w, &resourceVersion, resyncerrc, stopCh); err != nil {
+		if err := r.watchHandler(w, &resourceVersion, resyncerrc, stopCh); err != nil {
 			if err != errorStopRequested {
 				switch {
 				case apierrs.IsResourceExpired(err):
@@ -343,7 +341,8 @@ func (r *Reflector) syncWith(items []runtime.Object, resourceVersion string) err
 }
 
 // watchHandler watches w and keeps *resourceVersion up to date.
-func (r *Reflector) watchHandler(start time.Time, w watch.Interface, resourceVersion *string, errc chan error, stopCh <-chan struct{}) error {
+func (r *Reflector) watchHandler(w watch.Interface, resourceVersion *string, errc chan error, stopCh <-chan struct{}) error {
+	start := r.clock.Now()
 	eventCount := 0
 
 	// Stopping the watcher should be idempotent and if we return from this function there's no way
