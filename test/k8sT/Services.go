@@ -52,6 +52,18 @@ var _ = Describe("K8sServicesTest", func() {
 		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", path, err))
 	}
 
+	// This is wrapped this way since BeforeAll sets kubectl and we must only
+	// run this after BeforeAll has completed. This happens during the actual
+	// Context/It/By calls.
+	getNodeInfo := func(label string) (nodeName, nodeIP string) {
+		// Nodes are used in testNodePort and testExternalTrafficPolicyLocal below
+		nodeName, err := kubectl.GetNodeNameByLabel(label)
+		Expect(err).To(BeNil(), "Cannot get node by label "+label)
+		nodeIP, err = kubectl.GetNodeIPByLabel(label)
+		Expect(err).Should(BeNil(), "Can not retrieve Node IP for "+label)
+		return nodeName, nodeIP
+	}
+
 	BeforeAll(func() {
 		var err error
 
@@ -189,8 +201,7 @@ var _ = Describe("K8sServicesTest", func() {
 				"cluster-ip-same-node.log")
 			defer monitorStop()
 
-			k8s1Name, _ := kubectl.GetNodeInfo(helpers.K8s1)
-
+			k8s1Name, _ := getNodeInfo(helpers.K8s1)
 			status, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
 				helpers.CurlFail("http://%s/", clusterIP))
 			Expect(err).To(BeNil(), "Cannot run curl in host netns")
@@ -254,7 +265,7 @@ var _ = Describe("K8sServicesTest", func() {
 			})
 
 			It("Checks service on same node", func() {
-				k8s1Name, _ := kubectl.GetNodeInfo(helpers.K8s1)
+				k8s1Name, _ := getNodeInfo(helpers.K8s1)
 				status, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
 					helpers.CurlFail(`"http://[%s]/"`, demoClusterIPv6))
 				Expect(err).To(BeNil(), "Cannot run curl in host netns")
@@ -401,7 +412,7 @@ var _ = Describe("K8sServicesTest", func() {
 					if checkSourceIP {
 						cmd += " | grep client_address="
 					}
-					clientNodeName, clientIP := kubectl.GetNodeInfo(helpers.GetNodeWithoutCilium())
+					clientNodeName, clientIP := getNodeInfo(helpers.GetNodeWithoutCilium())
 					res, err := kubectl.ExecInHostNetNS(context.TODO(), clientNodeName, cmd)
 					Expect(err).Should(BeNil(), "Cannot exec in k8s3 host netns")
 					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
@@ -420,8 +431,8 @@ var _ = Describe("K8sServicesTest", func() {
 
 		testNodePort := func(bpfNodePort bool) {
 			var data v1.Service
-			k8s1Name, k8s1IP := kubectl.GetNodeInfo(helpers.K8s1)
-			k8s2Name, k8s2IP := kubectl.GetNodeInfo(helpers.K8s2)
+			k8s1Name, k8s1IP := getNodeInfo(helpers.K8s1)
+			k8s2Name, k8s2IP := getNodeInfo(helpers.K8s2)
 
 			waitPodsDs()
 
@@ -569,8 +580,8 @@ var _ = Describe("K8sServicesTest", func() {
 				tftpURL string
 			)
 
-			k8s1Name, k8s1IP := kubectl.GetNodeInfo(helpers.K8s1)
-			k8s2Name, k8s2IP := kubectl.GetNodeInfo(helpers.K8s2)
+			k8s1Name, k8s1IP := getNodeInfo(helpers.K8s1)
+			k8s2Name, k8s2IP := getNodeInfo(helpers.K8s2)
 
 			// Checks requests are not SNATed when externalTrafficPolicy=Local
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local").Unmarshal(&data)
@@ -608,8 +619,8 @@ var _ = Describe("K8sServicesTest", func() {
 
 		testHealthCheckNodePort := func() {
 			var data v1.Service
-			k8s1Name, k8s1IP := kubectl.GetNodeInfo(helpers.K8s1)
-			k8s2Name, k8s2IP := kubectl.GetNodeInfo(helpers.K8s2)
+			k8s1Name, k8s1IP := getNodeInfo(helpers.K8s1)
+			k8s2Name, k8s2IP := getNodeInfo(helpers.K8s2)
 
 			// Service with HealthCheckNodePort that only has backends on k8s2
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-lb-local-k8s2").Unmarshal(&data)
@@ -762,7 +773,7 @@ var _ = Describe("K8sServicesTest", func() {
 					var data v1.Service
 					err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 					Expect(err).Should(BeNil(), "Cannot retrieve service")
-					_, k8s1IP := kubectl.GetNodeInfo(helpers.K8s1)
+					_, k8s1IP := getNodeInfo(helpers.K8s1)
 					url := getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 					doRequestsFromThirdHost(url, 10, true)
 
