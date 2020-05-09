@@ -72,8 +72,7 @@ type nodeStore struct {
 	allocationPoolSize map[Family]int
 
 	// signal for completion of restoration
-	restoreFinished  chan bool
-	restoreCloseOnce sync.Once
+	restoreFinished chan bool
 }
 
 // newNodeStore initializes a new store which reflects the CiliumNode custom
@@ -593,7 +592,5 @@ func (a *crdAllocator) Dump() (map[string]string, string) {
 
 // RestoreFinished marks the status of restoration as done
 func (a *crdAllocator) RestoreFinished() {
-	a.store.restoreCloseOnce.Do(func() {
-		close(a.store.restoreFinished)
-	})
+	close(a.store.restoreFinished)
 }
