@@ -868,12 +868,6 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
-	// This check is here instead of in DaemonConfig.Populate (invoked at the
-	// start of this function as option.Config.Populate) to avoid an import loop.
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !k8s.IsEnabled() {
-		log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
-	}
-
 	if option.Config.PProf {
 		pprof.Enable()
 	}
