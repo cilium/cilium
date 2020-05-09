@@ -129,10 +129,9 @@ func (lk *localKeys) use(key string) idpool.ID {
 	return idpool.NoID
 }
 
-// release releases the refcnt of a key. It returns the ID associated with the
-// given key. When the last reference was released, the key is deleted and the
-// returned lastUse value is true.
-func (lk *localKeys) release(key string) (lastUse bool, id idpool.ID, err error) {
+// release releases the refcnt of a key. When the last reference was released,
+// the key is deleted and the returned lastUse value is true.
+func (lk *localKeys) release(key string) (lastUse bool, err error) {
 	lk.Lock()
 	defer lk.Unlock()
 	if k, ok := lk.keys[key]; ok {
@@ -141,13 +140,13 @@ func (lk *localKeys) release(key string) (lastUse bool, id idpool.ID, err error)
 		if k.refcnt == 0 {
 			delete(lk.keys, key)
 			delete(lk.ids, k.val)
-			return true, k.val, nil
+			return true, nil
 		}
 
-		return false, k.val, nil
+		return false, nil
 	}
 
-	return false, idpool.NoID, fmt.Errorf("unable to find key in local cache")
+	return false, fmt.Errorf("unable to find key in local cache")
 }
 
 func (lk *localKeys) getVerifiedIDs() map[idpool.ID]AllocatorKey {
