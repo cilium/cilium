@@ -2233,18 +2233,11 @@ func (kub *Kubectl) CiliumCheckReport(ctx context.Context) {
 	}
 }
 
-// ValidateNoErrorsInLogs checks that cilium logs since the given duration (By
-// default `CurrentGinkgoTestDescription().Duration`) do not contain any of the
-// known-bad messages (e.g., `deadlocks` or `segmentation faults`). In case of
-// any of these messages, it'll mark the test as failed.
+// ValidateNoErrorsInLogs checks in cilium logs since the given duration (By
+// default `CurrentGinkgoTestDescription().Duration`) do not contain `panic`,
+// `deadlocks` or `segmentation faults` messages. In case of any of these
+// messages, it'll mark the test as failed.
 func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
-	blacklist := GetBadLogMessages()
-	kub.ValidateListOfErrorsInLogs(duration, blacklist)
-}
-
-// ValidateListOfErrorsInLogs is similar to ValidateNoErrorsInLogs, but
-// takes a blacklist of bad log messages instead of using the default list.
-func (kub *Kubectl) ValidateListOfErrorsInLogs(duration time.Duration, blacklist map[string][]string) {
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
@@ -2276,7 +2269,7 @@ func (kub *Kubectl) ValidateListOfErrorsInLogs(duration time.Duration, blacklist
 		}
 	}()
 
-	failIfContainsBadLogMsg(logs, blacklist)
+	failIfContainsBadLogMsg(logs)
 
 	fmt.Fprintf(CheckLogs, logutils.LogErrorsSummary(logs))
 }

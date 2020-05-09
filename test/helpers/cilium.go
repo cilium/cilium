@@ -650,8 +650,7 @@ func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
 		}
 	}()
 
-	blacklist := GetBadLogMessages()
-	failIfContainsBadLogMsg(logs, blacklist)
+	failIfContainsBadLogMsg(logs)
 
 	fmt.Fprintf(CheckLogs, logutils.LogErrorsSummary(logs))
 }
