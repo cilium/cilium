@@ -37,7 +37,12 @@ package linux_defaults
 //
 // Cilium Mark (4 bits):
 // M M M M
-// (see MARK_MAGIC_* in bpf/lib/common.h)
+// 1 0 1 0 Ingress proxy
+// 1 0 1 1 Egress proxy
+// 1 1 0 0 From host
+// 0 0 1 0 To Ingress Proxy
+// 0 0 1 1 To Egress proxy
+// 0 1 0 1 BPF SNAT done
 const (
 	// MagicMarkHostMask can be used to fetch the host/proxy-relevant magic
 	// bits from a mark.
