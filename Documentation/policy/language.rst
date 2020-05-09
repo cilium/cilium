@@ -327,7 +327,7 @@ Access to/from local host
 Allow all endpoints with the label ``env=dev`` to access the host that is
 serving the particular endpoint.
 
-.. note:: Kubernetes will automatically allow all communication from the
+.. note:: Kubernetes will automatically allow all communication from and to the
 	  local host of all local endpoints. You can run the agent with the
 	  option ``--allow-localhost=policy`` to disable this behavior which
 	  will give you control over this via policy.
@@ -346,27 +346,6 @@ serving the particular endpoint.
 
         .. literalinclude:: ../../examples/policies/l3/entities/host.json
 
-.. _policy-remote-node:
-
-Access to/from all nodes in the cluster
-~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
-
-Allow all endpoints with the label ``env=dev`` to receive traffic from any host
-in the cluster that Cilium is running on.
-
-.. only:: html
-
-   .. tabs::
-     .. group-tab:: k8s YAML
-
-        .. literalinclude:: ../../examples/policies/l3/entities/nodes.yaml
-     .. group-tab:: JSON
-
-        .. literalinclude:: ../../examples/policies/l3/entities/nodes.json
-
-.. only:: epub or latex
-
-        .. literalinclude:: ../../examples/policies/l3/entities/nodes.json
 
 Access to/from outside cluster
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

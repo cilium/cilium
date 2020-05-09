@@ -437,13 +437,13 @@ New ConfigMap Options
     will only automatically allow connectivity from the local node, thereby providing
     a better default security posture.
 
-    The option is enabled by default for new deployments when generated via
-    Helm, in order to gain the benefits of improved security. The Helm option
-    is ``--set global.remoteNodeIdentity``. This option can be disabled in
-    order to maintain full compatibility with Cilium 1.6.x policy enforcement.
-    **Be aware** that upgrading a cluster to 1.7.x by using helm to generate a
-    new Cilium config that leaves ``enable-remote-node-identity`` set as the
-    default value of ``true`` **can break network connectivity.**
+    The option is enabled by
+    default for new deployments when generated via Helm, in order to gain the benefits
+    of improved security. The option can be disabled
+    in order to maintain full compatibility with Cilium 1.6.x policy enforcement.
+    **Be aware** that upgrading a cluster to 1.7.x by using helm to generate a new Cilium config
+    that leaves ``enable-remote-node-identity`` set as the default value
+    of ``true`` **can break network connectivity.**
 
     The reason for this is that
     with Cilium 1.6.x, the source identity of ANY connection from a host-networking pod or from
@@ -461,16 +461,16 @@ New ConfigMap Options
     Cilium monitor with a source identity equal to 6 (the numeric value for the
     new ``remote-node`` identity.   For example:
 
-    ::
 
-       xx drop (Policy denied) flow 0x6d7b6dd0 to endpoint 1657, identity 6->51566: 172.16.9.243:47278 -> 172.16.8.21:9093 tcp SYN
+    .. parsed-literal::
 
-    There are two ways to address this.  One can set
-    ``enable-remote-node-identity=false`` in the `ConfigMap` to retain the
-    Cilium 1.6.x behavior.  However, this is not ideal, as it means there is no
-    way to prevent communication between host-networking pods and
-    Cilium-managed pods, since all such connectivity is allowed automatically
-    because it is from the ``host`` identity.
+      xx drop (Policy denied) flow 0x6d7b6dd0 to endpoint 1657, identity 6->51566: 172.16.9.243:47278 -> 172.16.8.21:9093 tcp SYN
+
+
+    There are two ways to address this.  One can set ``enable-remote-node-identity=false``
+    to retain the Cilium 1.6.x behavior.  However, this is not ideal, as it means there is
+    no way to prevent communication between host-networking pods and Cilium-managed pods,
+    since all such connectivity is allowed automatically because it is from the ``host`` identity.
 
     The other option is to keep ``enable-remote-node-identity=true`` and
     create policy rules that explicitly whitelist connections between
@@ -479,21 +479,19 @@ New ConfigMap Options
     such a rule is:
 
 
-    ::
+    .. parsed-literal::
 
-       apiVersion: "cilium.io/v2"
-       kind: CiliumNetworkPolicy
-       metadata:
-         name: "allow-from-remote-nodes"
-       spec:
-         endpointSelector:
-           matchLabels:
-             app: myapp
-         ingress:
-         - fromEntities:
-           - remote-node
-
-    See :ref:`policy-remote-node` for more examples of remote-node policies.
+      apiVersion: "cilium.io/v2"
+      kind: CiliumNetworkPolicy
+      metadata:
+        name: "allow-from-remote-nodes"
+      spec:
+        endpointSelector:
+          matchLabels:
+            app: myapp
+        ingress:
+        - fromEntities:
+          - remote-node
 
 
   * ``enable-well-known-identities`` has been added to control the
