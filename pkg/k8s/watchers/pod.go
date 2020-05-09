@@ -240,16 +240,15 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *types.Pod) error {
 }
 
 func realizePodAnnotationUpdate(podEP *endpoint.Endpoint) {
-	regenMetadata := &regeneration.ExternalRegenerationMetadata{
-		Reason:            "annotations updated",
-		RegenerationLevel: regeneration.RegenerateWithoutDatapath,
-	}
 	// No need to log an error if the state transition didn't succeed,
 	// if it didn't succeed that means the endpoint is being deleted, or
 	// another regeneration has already been queued up for this endpoint.
-	regen, _ := podEP.SetRegenerateStateIfAlive(regenMetadata)
-	if regen {
-		podEP.Regenerate(regenMetadata)
+	stateTransitionSucceeded := podEP.SetState(endpoint.StateWaitingToRegenerate, "annotations updated")
+	if stateTransitionSucceeded {
+		podEP.Regenerate(&regeneration.ExternalRegenerationMetadata{
+			Reason:            "annotations updated",
+			RegenerationLevel: regeneration.RegenerateWithoutDatapath,
+		})
 	}
 }
 

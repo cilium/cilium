@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
-	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
@@ -294,16 +293,9 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		}
 	}
 
-	// e.ID assigned here
 	err = d.endpointManager.AddEndpoint(d, ep, "Create endpoint from API PUT")
 	if err != nil {
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
-	}
-
-	// Now that we have ep.ID we can pin the map from this point. This
-	// also has to happen before the first build takes place.
-	if err = ep.PinDatapathMap(); err != nil {
-		return d.errorDuringCreation(ep, fmt.Errorf("unable to pin datapath maps: %s", err))
 	}
 
 	// We need to update the the visibility policy after adding the endpoint in
@@ -321,7 +313,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		})
 	}
 
-	regenTriggered := ep.UpdateLabels(ctx, addLabels, infoLabels, true)
+	ep.UpdateLabels(ctx, addLabels, infoLabels, true)
 
 	select {
 	case <-ctx.Done():
@@ -329,25 +321,14 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	default:
 	}
 
-	if !regenTriggered {
-		regenMetadata := &regeneration.ExternalRegenerationMetadata{
-			Reason:            "Initial build on endpoint creation",
-			ParentContext:     ctx,
-			RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
-		}
-		build, err := ep.SetRegenerateStateIfAlive(regenMetadata)
-		if err != nil {
-			return d.errorDuringCreation(ep, err)
-		}
-		if build {
-			ep.Regenerate(regenMetadata)
-		}
+	// Now that we have ep.ID we can pin the map from this point. This
+	// also has to happen before the first build took place.
+	if err = ep.PinDatapathMap(); err != nil {
+		return d.errorDuringCreation(ep, fmt.Errorf("unable to pin datapath maps: %s", err))
 	}
 
-	if epTemplate.SyncBuildEndpoint {
-		if err := ep.WaitForFirstRegeneration(ctx); err != nil {
-			return d.errorDuringCreation(ep, err)
-		}
+	if err := ep.RegenerateAfterCreation(ctx, epTemplate.SyncBuildEndpoint); err != nil {
+		return d.errorDuringCreation(ep, err)
 	}
 
 	// The endpoint has been successfully created, stop the expiration
@@ -458,14 +439,8 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 	}
 
 	if reason != "" {
-		regenMetadata := &regeneration.ExternalRegenerationMetadata{
-			Reason:            reason,
-			RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
-		}
-		if !<-ep.Regenerate(regenMetadata) {
-			return api.Error(PatchEndpointIDFailedCode,
-				fmt.Errorf("error while regenerating endpoint."+
-					" For more info run: 'cilium endpoint get %d'", ep.ID))
+		if err := ep.RegenerateWait(reason); err != nil {
+			return api.Error(PatchEndpointIDFailedCode, err)
 		}
 		// FIXME: Special return code to indicate regeneration happened?
 	}
