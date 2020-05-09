@@ -73,61 +73,9 @@ spec:
       - name: echo-container
         image: docker.io/cilium/json-mock:1.0
         imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 80
-          hostPort: 40000
         readinessProbe:
           exec:
             command: ["curl", "-sS", "--fail", "-o", "/dev/null", "localhost"]
----
-# The echo-b-host pod runs in host networking on the same node as echo-b.
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: echo-b-host
-spec:
-  selector:
-    matchLabels:
-      name: echo-b-host
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        name: echo-b-host
-    spec:
-      hostNetwork: true
-      containers:
-      - name: echo-container
-        image: docker.io/cilium/json-mock:1.0
-        imagePullPolicy: IfNotPresent
-        env:
-        - name: PORT
-          value: "41000"
-        readinessProbe:
-          exec:
-            command: ["curl", "-sS", "--fail", "-o", "/dev/null", "localhost:41000"]
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: name
-                operator: In
-                values:
-                - echo-b
-            topologyKey: "kubernetes.io/hostname"
----
-# Connecting to "echo-b-host-headless" will provide service discovery to the
-# node IP on which echo-b* is running
-apiVersion: v1
-kind: Service
-metadata:
-  name: echo-b-host-headless
-spec:
-  type: ClusterIP
-  clusterIP: None
-  selector:
-    name: echo-b-host
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -336,45 +284,6 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: pod-to-b-intra-node-hostport
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: pod-to-b-intra-node-hostport
-  template:
-    metadata:
-      labels:
-        name: pod-to-b-intra-node-hostport
-    spec:
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: name
-                operator: In
-                values:
-                - echo-b
-            topologyKey: kubernetes.io/hostname
-      containers:
-      - command:
-        - /bin/ash
-        - -c
-        - sleep 1000000000
-        image: docker.io/byrnedo/alpine-curl:0.1.8
-        imagePullPolicy: IfNotPresent 
-        livenessProbe:
-          exec:
-            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:40000" ]
-        readinessProbe:
-          exec:
-            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:40000" ]
-        name: pod-to-b-intra-node-hostport
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
   name: pod-to-b-intra-node
 spec:
   selector:
@@ -470,45 +379,6 @@ spec:
                 values:
                 - echo-b
             topologyKey: "kubernetes.io/hostname"
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: pod-to-b-multi-node-hostport
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      name: pod-to-b-multi-node-hostport
-  template:
-    metadata:
-      labels:
-        name: pod-to-b-multi-node-hostport
-    spec:
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: name
-                operator: In
-                values:
-                - echo-b
-            topologyKey: kubernetes.io/hostname
-      containers:
-      - command:
-        - /bin/ash
-        - -c
-        - sleep 1000000000
-        image: docker.io/byrnedo/alpine-curl:0.1.8
-        imagePullPolicy: IfNotPresent
-        livenessProbe:
-          exec:
-            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:40000" ]
-        readinessProbe:
-          exec:
-            command: [ "curl", "-sS", "--fail", "-o", "/dev/null", "echo-b-host-headless:40000" ]
-        name: pod-to-b-multi-node-hostport
 ---
 apiVersion: apps/v1
 kind: Deployment
