@@ -92,27 +92,13 @@ func DeployCiliumAndDNS(vm *helpers.Kubectl, ciliumFilename string) {
 	DeployCiliumOptionsAndDNS(vm, ciliumFilename, map[string]string{})
 }
 
-func redeployCilium(vm *helpers.Kubectl, ciliumFilename string, options map[string]string) {
+// DeployCiliumOptionsAndDNS deploys DNS and cilium with options into the kubernetes cluster
+func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, options map[string]string) {
 	By("Installing Cilium")
 	err := vm.CiliumInstall(ciliumFilename, options)
 	Expect(err).To(BeNil(), "Cilium cannot be installed")
 
 	ExpectCiliumRunning(vm)
-}
-
-// RedeployCilium reinstantiates the Cilium DS and ensures it is running.
-//
-// This helper is only appropriate for reconfiguring Cilium in the middle of
-// an existing testsuite that calls DeployCiliumAndDNS(...).
-func RedeployCilium(vm *helpers.Kubectl, ciliumFilename string, options map[string]string) {
-	redeployCilium(vm, ciliumFilename, options)
-	ExpectCiliumReady(vm)
-	ExpectCiliumOperatorReady(vm)
-}
-
-// DeployCiliumOptionsAndDNS deploys DNS and cilium with options into the kubernetes cluster
-func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, options map[string]string) {
-	redeployCilium(vm, ciliumFilename, options)
 
 	By("Installing DNS Deployment")
 	switch helpers.GetCurrentIntegration() {
