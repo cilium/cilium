@@ -3,7 +3,7 @@
 set -e
 
 HOST=$(hostname)
-export HELM_VERSION="3.1.1"
+export HELM_VERSION="2.14.2"
 export TOKEN="258062.5d84c017c9b2796c"
 export CILIUM_CONFIG_DIR="/opt/cilium"
 export PROVISIONSRC="/tmp/provision/"
@@ -50,7 +50,6 @@ if [[ ! $(helm version | grep ${HELM_VERSION}) ]]; then
   tar xzvf helm-v${HELM_VERSION}-linux-amd64.tar.gz
   mv linux-amd64/helm /usr/local/bin/
 fi
-helm version
 
 # Install serial ttyS0 server
 cat <<EOF > /etc/systemd/system/serial-getty@ttyS0.service
