@@ -206,7 +206,7 @@ type Backend interface {
 	// Release releases the use of an ID associated with the provided key. It
 	// does not guard against concurrent calls to
 	// releases.Release(ctx context.Context, key AllocatorKey) (err error)
-	Release(ctx context.Context, id idpool.ID, key AllocatorKey) (err error)
+	Release(ctx context.Context, key AllocatorKey) (err error)
 
 	// UpdateKey refreshes the record that this node is using this key -> id
 	// mapping. When reliablyMissing is set it will also recreate missing master or
@@ -703,17 +703,12 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 
 	// release the key locally, if it was the last use, remove the node
 	// specific value key to remove the global reference mark
-	var id idpool.ID
-	lastUse, id, err = a.localKeys.release(k)
+	lastUse, _, err = a.localKeys.release(k)
 	if err != nil {
 		return lastUse, err
 	}
 	if lastUse {
-		// Since in CRD mode we don't have a way to map which identity is being
-		// used by a node, we need to also pass the ID to the release function.
-		// This allows the CRD store to find the right identity by its ID and
-		// remove the node reference on that identity.
-		a.backend.Release(ctx, id, key)
+		a.backend.Release(ctx, key)
 	}
 
 	return lastUse, err
