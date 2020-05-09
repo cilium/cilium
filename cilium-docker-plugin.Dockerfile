@@ -5,7 +5,8 @@ LABEL maintainer="maintainer@cilium.io"
 ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/plugins/cilium-docker
 ARG LOCKDEBUG
-RUN make LOCKDEBUG=$LOCKDEBUG
+ARG NOSTRIP
+RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG
 
 FROM scratch
 ARG CILIUM_SHA=""

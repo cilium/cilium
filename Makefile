@@ -266,6 +266,7 @@ docker-image: clean docker-image-no-clean docker-operator-image docker-plugin-im
 
 docker-image-no-clean: GIT_VERSION
 	$(QUIET)$(CONTAINER_ENGINE) build \
+		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg V=${V} \
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
@@ -302,6 +303,7 @@ endif
 dev-docker-image: check-status clean-build $(DEV_DOCKERFILE) GIT_VERSION
 	git clone --no-checkout --no-local --depth 1 . $(DEV_BUILD_DIR)
 	$(QUIET)$(DOCKER_BUILDKIT) $(CONTAINER_ENGINE) build -f $(DEV_DOCKERFILE) \
+		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg V=${V} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
@@ -318,6 +320,7 @@ docker-cilium-dev-manifest:
 
 docker-operator-image: GIT_VERSION
 	$(QUIET)$(CONTAINER_ENGINE) build \
+		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		-f cilium-operator.Dockerfile \
@@ -331,6 +334,7 @@ docker-operator-manifest:
 
 docker-plugin-image: GIT_VERSION
 	$(QUIET)$(CONTAINER_ENGINE) build \
+		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEUBG} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		-f cilium-docker-plugin.Dockerfile \
@@ -360,7 +364,10 @@ docker-cilium-builder-manifest:
 	$(QUIET) contrib/scripts/push_manifest.sh cilium-builder $(UTC_DATE)
 
 docker-hubble-relay-image:
-	$(QUIET)$(CONTAINER_ENGINE) build -f hubble-relay.Dockerfile -t "cilium/hubble-relay:$(DOCKER_IMAGE_TAG)" .
+	$(QUIET)$(CONTAINER_ENGINE) build \
+		--build-arg NOSTRIP=${NOSTRIP} \
+		-f hubble-relay.Dockerfile \
+		-t "cilium/hubble-relay:$(DOCKER_IMAGE_TAG)" .
 	$(QUIET)$(CONTAINER_ENGINE) tag cilium/hubble-relay:$(DOCKER_IMAGE_TAG) cilium/hubble-relay:$(DOCKER_IMAGE_TAG)-${GOARCH}
 	$(QUIET)echo "Push like this when ready:"
 	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/hubble-relay:$(DOCKER_IMAGE_TAG)-${GOARCH}"
