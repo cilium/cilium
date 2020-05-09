@@ -4,8 +4,9 @@ LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
 ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/operator
+ARG NOSTRIP
 ARG LOCKDEBUG
-RUN make LOCKDEBUG=$LOCKDEBUG EXTRA_GO_BUILD_FLAGS="-tags operator_aws,operator_azure"
+RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG EXTRA_GO_BUILD_FLAGS="-tags operator_aws,operator_azure"
 
 FROM docker.io/library/alpine:3.9.3 as certs
 ARG CILIUM_SHA=""

@@ -21,6 +21,7 @@ LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
 WORKDIR /go/src/github.com/cilium/cilium
 COPY . ./
+ARG NOSTRIP
 ARG LOCKDEBUG
 ARG V
 ARG LIBNETWORK_PLUGIN
@@ -32,7 +33,7 @@ RUN test -z $GIT_CHECKOUT || git checkout
 # Please do not add any dependency updates before the 'make install' here,
 # as that will mess with caching for incremental builds!
 #
-RUN make LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
+RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
     SKIP_DOCS=true DESTDIR=/tmp/install clean-container build-container install-container
 
 #
