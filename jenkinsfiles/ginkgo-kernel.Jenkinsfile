@@ -10,12 +10,12 @@ pipeline {
         VM_MEMORY = "8192"
         K8S_VERSION="1.17"
         TESTED_SUITE="k8s-${K8S_VERSION}"
-        GINKGO_TIMEOUT="300m"
+        GINKGO_TIMEOUT="600m"
         DEFAULT_KERNEL="419"
     }
 
     options {
-        timeout(time: 300, unit: 'MINUTES')
+        timeout(time: 600, unit: 'MINUTES')
         timestamps()
         ansiColor('xterm')
     }
@@ -23,7 +23,7 @@ pipeline {
     stages {
         stage('Checkout') {
             options {
-                timeout(time: 30, unit: 'MINUTES')
+                timeout(time: 60, unit: 'MINUTES')
             }
 
             steps {
@@ -36,7 +36,7 @@ pipeline {
         }
         stage('Precheck') {
             options {
-                timeout(time: 30, unit: 'MINUTES')
+                timeout(time: 60, unit: 'MINUTES')
             }
 
             environment {
@@ -91,7 +91,7 @@ pipeline {
         }
         stage ("Copy code and boot vms"){
             options {
-                timeout(time: 30, unit: 'MINUTES')
+                timeout(time: 60, unit: 'MINUTES')
             }
 
             environment {
@@ -105,7 +105,7 @@ pipeline {
                 sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                 sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                 retry(3) {
-                    timeout(time: 45, unit: 'MINUTES'){
+                    timeout(time: 90, unit: 'MINUTES'){
                         dir("${TESTDIR}") {
                             sh 'KERNEL=$(python get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=version | sed "s/^$/${DEFAULT_KERNEL}/") CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
                         }
@@ -124,7 +124,7 @@ pipeline {
         }
         stage ("BDD-Test-PR"){
             options {
-                timeout(time: 130, unit: 'MINUTES')
+                timeout(time: 260, unit: 'MINUTES')
             }
             environment {
                 GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
