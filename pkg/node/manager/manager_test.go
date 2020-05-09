@@ -388,12 +388,6 @@ func (s *managerTestSuite) TestIpcache(c *check.C) {
 	case <-time.After(5 * time.Second):
 		c.Errorf("timeout while waiting for ipcache delete for IP 1.1.1.1")
 	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
 }
 
 func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
@@ -462,12 +456,6 @@ func (s *managerTestSuite) TestRemoteNodeIdentities(c *check.C) {
 	case <-time.After(5 * time.Second):
 		c.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
 	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
-	default:
-	}
 }
 
 func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
@@ -535,11 +523,5 @@ func (s *managerTestSuite) TestNodeEncryption(c *check.C) {
 		c.Assert(event, checker.DeepEquals, nodeEvent{event: "delete", ip: net.ParseIP("f00d::1")})
 	case <-time.After(5 * time.Second):
 		c.Errorf("timeout while waiting for ipcache delete for IP f00d::1")
-	}
-
-	select {
-	case event := <-ipcacheMock.events:
-		c.Errorf("unexected ipcache interaction %+v", event)
-	default:
 	}
 }
