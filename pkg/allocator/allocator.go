@@ -596,6 +596,15 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		return 0, false, fmt.Errorf("allocation was cancelled while waiting for initial key list to be received: %s", ctx.Err())
 	}
 
+	// Check our list of local keys already in use and increment the
+	// refcnt. The returned key must be released afterwards. No kvstore
+	// operation was performed for this allocation
+	if val := a.localKeys.use(k); val != idpool.NoID {
+		kvstore.Trace("Reusing local id", nil, logrus.Fields{fieldID: val, fieldKey: key})
+		a.mainCache.insert(key, val)
+		return val, false, nil
+	}
+
 	kvstore.Trace("Allocating from kvstore", nil, logrus.Fields{fieldKey: key})
 
 	// make a copy of the template and customize it
@@ -603,19 +612,6 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 	boff.Name = key.String()
 
 	for attempt := 0; attempt < maxAllocAttempts; attempt++ {
-		// Check our list of local keys already in use and increment the
-		// refcnt. The returned key must be released afterwards. No kvstore
-		// operation was performed for this allocation.
-		// We also do this on every loop as a different Allocate call might have
-		// allocated the key while we are attempting to allocate in this
-		// execution thread. It does not hurt to check if localKeys contains a
-		// reference for the key that we are attempting to allocate.
-		if val := a.localKeys.use(k); val != idpool.NoID {
-			kvstore.Trace("Reusing local id", nil, logrus.Fields{fieldID: val, fieldKey: key})
-			a.mainCache.insert(key, val)
-			return val, false, nil
-		}
-
 		// FIXME: Add non-locking variant
 		value, isNew, err = a.lockedAllocate(ctx, key)
 		if err == nil {
@@ -628,6 +624,16 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 			fieldKey:          key,
 			logfields.Attempt: attempt,
 		})
+
+		// A different Allocate call might have allocated the key while we were
+		// attempting to allocate in this execution thread. It does not hurt
+		// to check if localKeys contains a reference for the key that we are
+		// attempting to allocate.
+		if val := a.localKeys.use(k); val != idpool.NoID {
+			kvstore.Trace("Reusing local id", nil, logrus.Fields{fieldID: val, fieldKey: key})
+			a.mainCache.insert(key, val)
+			return val, false, nil
+		}
 
 		select {
 		case <-ctx.Done():
