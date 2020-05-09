@@ -65,7 +65,6 @@ var _ = Describe("K8sPolicyTest", func() {
 		backgroundCancel     context.CancelFunc = func() { return }
 		backgroundError      error
 		apps                 = []string{helpers.App1, helpers.App2, helpers.App3}
-		daemonCfg            map[string]string
 	)
 
 	BeforeAll(func() {
@@ -93,11 +92,10 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-egress.yaml")
 		cnpMatchExpression = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions.yaml")
 
-		daemonCfg = map[string]string{
+		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 			"global.tls.secretsBackend": "k8s",
 			"global.debug.verbose":      "flow",
-		}
-		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, daemonCfg)
+		})
 	})
 
 	AfterEach(func() {
@@ -126,15 +124,6 @@ var _ = Describe("K8sPolicyTest", func() {
 		backgroundCancel()
 	})
 
-	// getMatcher returns a helper.CMDSucess() matcher for success or
-	// failure situations.
-	getMatcher := func(val bool) types.GomegaMatcher {
-		if val {
-			return helpers.CMDSuccess()
-		}
-		return Not(helpers.CMDSuccess())
-	}
-
 	Context("Basic Test", func() {
 		var (
 			ciliumPod        string
@@ -148,6 +137,15 @@ var _ = Describe("K8sPolicyTest", func() {
 				namespaceForTest, file, helpers.KubectlApply, helpers.HelperTimeout)
 			ExpectWithOffset(1, err).Should(BeNil(),
 				"policy %s cannot be applied in %q namespace", file, namespaceForTest)
+		}
+
+		// getMatcher returns a helper.CMDSucess() matcher for success or
+		// failure situations.
+		getMatcher := func(val bool) types.GomegaMatcher {
+			if val {
+				return helpers.CMDSuccess()
+			}
+			return Not(helpers.CMDSuccess())
 		}
 
 		validateConnectivity := func(expectWorldSuccess, expectClusterSuccess bool) {
@@ -966,144 +964,6 @@ var _ = Describe("K8sPolicyTest", func() {
 			})
 		})
 
-	})
-
-	Context("Multi-node policy test", func() {
-		const (
-			testDS = "zgroup=testDS"
-
-			// This currently matches GetPodOnNodeWithOffset().
-			testNamespace = helpers.DefaultNamespace
-		)
-		var demoYAML string
-
-		BeforeAll(func() {
-			By("Deploying demo daemonset")
-			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
-			res := kubectl.ApplyDefault(demoYAML)
-			res.ExpectSuccess("Unable to apply %s", demoYAML)
-
-			err := kubectl.WaitforPods(testNamespace, fmt.Sprintf("-l %s", testDS), helpers.HelperTimeout)
-			Expect(err).Should(BeNil())
-		})
-
-		AfterAll(func() {
-			// Explicitly ignore result of deletion of resources to
-			// avoid incomplete teardown if any step fails.
-			_ = kubectl.Delete(demoYAML)
-			ExpectAllPodsTerminated(kubectl)
-		})
-
-		AfterEach(func() {
-			By("Cleaning up after the test")
-			cmd := fmt.Sprintf("%s delete --all cnp,netpol -n %s", helpers.KubectlCmd, testNamespace)
-			_ = kubectl.Exec(cmd)
-		})
-
-		Context("validates fromEntities policies", func() {
-			const (
-				HostConnectivityAllow       = true
-				RemoteNodeConnectivityDeny  = false
-				RemoteNodeConnectivityAllow = true
-			)
-
-			var (
-				cnpFromEntitiesHost       string
-				cnpFromEntitiesRemoteNode string
-				// TODO: Add fromEntities tests (GH-10979)
-				//cnpFromEntitiesCluster    string
-				//cnpFromEntitiesWorld      string
-				//cnpFromEntitiesAll        string
-
-				k8s1Name, k8s2Name   string
-				k8s1PodIP, k8s2PodIP string
-			)
-
-			BeforeAll(func() {
-				cnpFromEntitiesHost = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-host.yaml")
-				cnpFromEntitiesRemoteNode = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-remote-node.yaml")
-				k8s1Name, _ = kubectl.GetNodeInfo(helpers.K8s1)
-				k8s2Name, _ = kubectl.GetNodeInfo(helpers.K8s2)
-				_, k8s1PodIP = kubectl.GetPodOnNodeWithOffset(k8s1Name, testDS, 0)
-				_, k8s2PodIP = kubectl.GetPodOnNodeWithOffset(k8s2Name, testDS, 0)
-			})
-
-			AfterAll(func() {
-				By("Redeploying Cilium with default configuration")
-				RedeployCilium(kubectl, ciliumFilename, daemonCfg)
-			})
-
-			validateNodeConnectivity := func(expectHostSuccess, expectRemoteNodeSuccess bool) {
-				By("Checking ingress connectivity from k8s1 node to k8s1 pod (host)")
-				res, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
-					helpers.CurlFail(k8s1PodIP))
-				Expect(err).To(BeNil(), "Cannot run curl in host netns")
-				ExpectWithOffset(1, res).To(getMatcher(expectHostSuccess),
-					"HTTP ingress connectivity to pod %q from local host", k8s1PodIP)
-
-				By("Checking ingress connectivity from k8s1 node to k8s2 pod (remote-node)")
-				res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
-					helpers.CurlFail(k8s2PodIP))
-				Expect(err).To(BeNil(), "Cannot run curl in host netns")
-				ExpectWithOffset(1, res).To(getMatcher(expectRemoteNodeSuccess),
-					"HTTP ingress connectivity to pod %q from remote node", k8s2PodIP)
-			}
-
-			importPolicy := func(file, name string) {
-				_, err := kubectl.CiliumPolicyAction(
-					testNamespace, file, helpers.KubectlApply, helpers.HelperTimeout)
-				ExpectWithOffset(1, err).Should(BeNil(),
-					"policy %s cannot be applied in %q namespace", file, testNamespace)
-			}
-
-			Context("with remote-node identity disabled", func() {
-				BeforeAll(func() {
-					By("Reconfiguring Cilium to disable remote-node identity")
-					newCfg := map[string]string{
-						"global.remoteNodeIdentity": "false",
-					}
-					for k, v := range daemonCfg {
-						newCfg[k] = v
-					}
-					RedeployCilium(kubectl, ciliumFilename, newCfg)
-				})
-
-				It("Allows from all hosts with cnp fromEntities host policy", func() {
-					By("Installing fromEntities host policy")
-					importPolicy(cnpFromEntitiesHost, "from-entities-host")
-
-					By("Checking policy correctness")
-					validateNodeConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow)
-				})
-			})
-
-			Context("with remote-node identity enabled", func() {
-				BeforeAll(func() {
-					By("Reconfiguring Cilium to enable remote-node identity")
-					newCfg := map[string]string{
-						"global.remoteNodeIdentity": "true",
-					}
-					for k, v := range daemonCfg {
-						newCfg[k] = v
-					}
-					RedeployCilium(kubectl, ciliumFilename, newCfg)
-				})
-
-				It("Validates fromEntities remote-node policy", func() {
-					By("Installing default-deny ingress policy")
-					importPolicy(cnpDenyIngress, "default-deny-ingress")
-
-					By("Checking that remote-node is disallowed by default")
-					validateNodeConnectivity(HostConnectivityAllow, RemoteNodeConnectivityDeny)
-
-					By("Installing fromEntities remote-node policy")
-					importPolicy(cnpFromEntitiesRemoteNode, "from-entities-remote-node")
-
-					By("Checking policy correctness")
-					validateNodeConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow)
-				})
-			})
-		})
 	})
 
 	Context("GuestBook Examples", func() {
