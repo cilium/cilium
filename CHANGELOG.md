@@ -1,46 +1,5 @@
 # Changelog
 
-## v1.7.3
-
-Summary of Changes
-------------------
-
-**Minor Changes:**
-* bump k8s dependencies and test to v1.17.5 (#11046, @aanm)
-* helm: add option to enable automatic etcd name resolution (Backport PR #11109, Upstream PR #10918, @aanm)
-* Istio integration is simplified with Cilium build of istioctl. (Backport PR #10966, Upstream PR #10851, @jrajahalme)
-* pkg/logging: redirect klog output to logrus (Backport PR #11109, Upstream PR #10961, @aanm)
-
-**Bugfixes:**
-* bpf: fix nodeport to avoid sending loopback address out to wire (Backport PR #10884, Upstream PR #10841, @borkmann)
-* CRD: fix allocation logic of identities with the same set of labels (Backport PR #11109, Upstream PR #11040, @aanm)
-* daemon: Fatal on startup when Identity CRD is enabled without k8s (Backport PR #11109, Upstream PR #11015, @raybejjani)
-* daemon: Fix the "close of closed channel" panic (Backport PR #11200, Upstream PR #11056, @Sen666666)
-* datapath: Fix wrong rev-NAT xlation due to stale conntrack entry (Backport PR #11109, Upstream PR #10984, @brb)
-* Do not depend on `KUBERNETES_SERVICE_HOST` nor `KUBERNETES_SERVICE_PORT` environment variables to detect if cilium is running in k8s mode (Backport PR #11109, Upstream PR #11021, @aanm)
-* Do not skip datapath rewrites when an otherwise duplicate endpoint regeneration requires it. (Backport PR #11038, Upstream PR #10949, @jrajahalme)
-* endpoint: Avoid transient drops during policy map update (Backport PR #11038, Upstream PR #10936, @jrajahalme)
-* Fix issue where --enable-remote-node-identity=false causes policy drops (Backport PR #11038, Upstream PR #11006, @joestringer)
-* Log more information for error 'Unable update CRD identity information with a reference for this node' (Backport PR #10966, Upstream PR #10923, @aanm)
-* Restore node IP behavior of Cilium < 1.7 (Backport PR #11109, Upstream PR #11057, @tgraf)
-
-**CI Changes:**
-* ci: bump 4.19 image version (Backport PR #10966, Upstream PR #10722, @nebril)
-* ci: fix argument retrieval script for kernel specific builds on master (Backport PR #10966, Upstream PR #10932, @nebril)
-* ci: increase vm memory in kernel specific build (Backport PR #10966, Upstream PR #10916, @nebril)
-* Fix node ip script path (Backport PR #10966, Upstream PR #10685, @nebril)
-* Run tests on 4.19 kernel (Backport PR #10966, Upstream PR #10634, @nebril)
-* test: Install Helm 3 (Backport PR #11109, Upstream PR #10378, @jrajahalme)
-* test: Run kubectl in test VM for older K8s releases (Backport PR #11109, Upstream PR #11072, @jrajahalme)
-
-**Misc Changes:**
-* Add helm NOTES to the root folder (Backport PR #11109, Upstream PR #10902, @soumynathan)
-* bpf: remap MARK_MAGIC_SNAT_DONE marker to avoid conflicts (Backport PR #11109, Upstream PR #11008, @borkmann)
-* Clarify CRI-O installation (Backport PR #10966, Upstream PR #10920, @aanm)
-* expand 1.7.x upgrade guide on enable-remote-node-identity (Backport PR #10966, Upstream PR #10853, @danwent)
-* Makefile: Fix --yaml arg for microk8s (Backport PR #10884, Upstream PR #10839, @joestringer)
-* Update Go to 1.13.10 (#10911, @tklauser)
-
 ## v1.7.2
 
 Summary of Changes
