@@ -165,8 +165,7 @@ func (e *Endpoint) RegenerateAfterRestore() error {
 	scopedLog := log.WithField(logfields.EndpointID, e.ID)
 
 	regenerationMetadata := &regeneration.ExternalRegenerationMetadata{
-		Reason:            "syncing state to host",
-		RegenerationLevel: regeneration.RegenerateWithDatapathRewrite,
+		Reason: "syncing state to host",
 	}
 	if buildSuccess := <-e.Regenerate(regenerationMetadata); !buildSuccess {
 		scopedLog.Warn("Failed while regenerating endpoint")

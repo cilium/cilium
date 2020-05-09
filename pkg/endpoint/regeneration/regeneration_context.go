@@ -23,12 +23,9 @@ import (
 type DatapathRegenerationLevel int
 
 const (
-	// Invalid is the default level to enforce explicit setting of
-	// the regeneration level.
-	Invalid DatapathRegenerationLevel = iota
 	// RegenerateWithoutDatapath indicates that datapath rebuild or reload
 	// is not required to implement this regeneration.
-	RegenerateWithoutDatapath
+	RegenerateWithoutDatapath DatapathRegenerationLevel = iota
 	// RegenerateWithDatapathLoad indicates that the datapath must be
 	// reloaded but not recompiled to implement this regeneration.
 	RegenerateWithDatapathLoad
@@ -43,8 +40,6 @@ const (
 // String converts a DatapathRegenerationLevel into a human-readable string.
 func (r DatapathRegenerationLevel) String() string {
 	switch r {
-	case Invalid:
-		return "invalid"
 	case RegenerateWithoutDatapath:
 		return "no-rebuild"
 	case RegenerateWithDatapathLoad:
