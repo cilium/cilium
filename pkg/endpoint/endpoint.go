@@ -30,11 +30,11 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/annotation"
-	enirouting "github.com/cilium/cilium/pkg/aws/eni/routing"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/link"
+	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -2172,18 +2172,18 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 		}
 	}
 
-	if option.Config.IPAM == option.IPAMENI {
+	if option.Config.IPAM == option.IPAMENI || option.Config.IPAM == option.IPAMAzure {
 		e.getLogger().WithFields(logrus.Fields{
 			"ep":     e.GetID(),
 			"ipAddr": e.GetIPv4Address(),
-		}).Debug("Deleting endpoint ENI rules")
+		}).Debug("Deleting endpoint routing rules")
 
 		// This is a best-effort attempt to cleanup. We expect there to be one
 		// ingress rule and one egress rule. If we find more than one rule in
 		// either case, then the rules will be left as-is because there was
 		// likely manual intervention.
-		if err := enirouting.Delete(e.IPv4.IP()); err != nil {
-			errs = append(errs, fmt.Errorf("unable to delete endpoint ENI rules: %s", err))
+		if err := linuxrouting.Delete(e.IPv4.IP()); err != nil {
+			errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %s", err))
 		}
 	}
 

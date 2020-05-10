@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package enirouting
+package linuxrouting
 
 import (
 	"errors"
@@ -30,16 +30,17 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "eni-routing")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "linux-routing")
 )
 
-// Configure sets up the rules and routes needed when running in ENI mode.
-// These rules and routes direct egress traffic out of the ENI device and
+// Configure sets up the rules and routes needed when running in ENI or
+// Azure IPAM mode.
+// These rules and routes direct egress traffic out of the interface and
 // ingress traffic back to the endpoint (`ip`).
 //
-// ip: The endpoint IP address to direct traffic out / from ENI device.
-// info: The ENI device routing info used to create rules and routes.
-// mtu: The ENI device MTU.
+// ip: The endpoint IP address to direct traffic out / from interface.
+// info: The interface routing info used to create rules and routes.
+// mtu: The interface MTU.
 // masq: Whether masquerading is enabled.
 func (info *RoutingInfo) Configure(ip net.IP, mtu int, masq bool) error {
 	if ip.To4() == nil {
@@ -58,7 +59,7 @@ func (info *RoutingInfo) Configure(ip net.IP, mtu int, masq bool) error {
 		Mask: net.CIDRMask(32, 32),
 	}
 
-	// Route all traffic to the ENI address via the main routing table
+	// Route all traffic to the interface address via the main routing table
 	if err := route.ReplaceRule(route.Rule{
 		Priority: linux_defaults.RulePriorityIngress,
 		To:       &ipWithMask,
