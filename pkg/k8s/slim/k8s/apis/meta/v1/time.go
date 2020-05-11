@@ -41,6 +41,16 @@ func (t *Time) DeepCopyInto(out *Time) {
 	*out = *t
 }
 
+func (in *Time) DeepEqual(other *Time) bool {
+	switch {
+	case (in == nil) != (other == nil):
+		return false
+	case (in == nil) && (other == nil):
+		return true
+	}
+	return in.Time.Equal(other.Time)
+}
+
 // NewTime returns a wrapped instance of the provided time
 func NewTime(time time.Time) Time {
 	return Time{time}

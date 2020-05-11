@@ -13,6 +13,7 @@
 // limitations under the License.
 
 // +k8s:deepcopy-gen=package,register
+// +deepequal-gen=package
 
 // Package types contains slimmer versions of k8s types.
 // +groupName=discovery

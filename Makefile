@@ -430,7 +430,10 @@ generate-k8s-api:
 	networking:v1\
 	core:v1")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\
+	util:intstr\
 	meta:v1")
+	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/k8s/slim/k8s,"$\
+	apis:labels")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg,"$\
 	aws:types\
 	azure:types\
@@ -461,6 +464,7 @@ generate-k8s-api:
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium,"$\
 	pkg:bpf\
 	pkg:k8s\
+	pkg:labels\
 	pkg:loadbalancer\
 	pkg:tuple")
 

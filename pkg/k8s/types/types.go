@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,11 +22,13 @@ import (
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=true
 type SlimCNP struct {
 	*v2.CiliumNetworkPolicy
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen=false
 type Identity struct {
 	*v2.CiliumIdentity
 }
@@ -45,8 +47,11 @@ func ConvertToIdentity(obj interface{}) interface{} {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen:private-method=true
 type CiliumEndpoint struct {
+	// +deepequal-gen=false
 	metav1.TypeMeta
+	// +deepequal-gen=false
 	metav1.ObjectMeta
 	Identity   *v2.EndpointIdentity
 	Networking *v2.EndpointNetworking
@@ -56,4 +61,19 @@ type CiliumEndpoint struct {
 
 type Configuration interface {
 	K8sAPIDiscoveryEnabled() bool
+}
+
+func (in *CiliumEndpoint) DeepEqual(other *CiliumEndpoint) bool {
+	if other == nil {
+		return false
+	}
+
+	if in.Name != other.Name {
+		return false
+	}
+	if in.Namespace != other.Namespace {
+		return false
+	}
+
+	return in.deepEqual(other)
 }

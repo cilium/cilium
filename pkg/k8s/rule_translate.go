@@ -19,10 +19,9 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/ipcache"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-
-	"k8s.io/apimachinery/pkg/labels"
 )
 
 var _ policy.Translator = RuleTranslator{}
