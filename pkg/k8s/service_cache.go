@@ -224,18 +224,14 @@ func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *types.Endpoints) ServiceID 
 
 	service, serviceOK := s.services[svcID]
 	delete(s.endpoints, svcID)
-	endpoints, serviceReady := s.correlateEndpoints(svcID)
+	endpoints, _ := s.correlateEndpoints(svcID)
 
 	if serviceOK {
 		event := ServiceEvent{
-			Action:    DeleteService,
+			Action:    UpdateService,
 			ID:        svcID,
 			Service:   service,
 			Endpoints: endpoints,
-		}
-
-		if serviceReady {
-			event.Action = UpdateService
 		}
 
 		s.Events <- event
