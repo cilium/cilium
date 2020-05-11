@@ -74,12 +74,22 @@ func ObjToV1Services(obj interface{}) *slim_corev1.Service {
 
 func ObjToV1Endpoints(obj interface{}) *slim_corev1.Endpoints {
 	ep, ok := obj.(*slim_corev1.Endpoints)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1 Endpoints")
-		return nil
+	if ok {
+		return ep
 	}
-	return ep
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		ep, ok := deletedObj.Obj.(*slim_corev1.Endpoints)
+		if ok {
+			return ep
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid k8s v1 Endpoints")
+	return nil
 }
 
 func ObjToV1EndpointSlice(obj interface{}) *slim_discover_v1beta1.EndpointSlice {
