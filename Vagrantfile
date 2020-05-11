@@ -51,6 +51,7 @@ echo "done configuring journald"
 
 service docker restart
 echo 'cd ~/go/src/github.com/cilium/cilium' >> /home/vagrant/.bashrc
+echo 'export GOPATH=$(go env GOPATH)' >> /home/vagrant/.bashrc
 chown -R vagrant:vagrant /home/vagrant 2>/dev/null || true
 curl -SsL https://github.com/cilium/bpf-map/releases/download/v1.0/bpf-map -o bpf-map
 chmod +x bpf-map
