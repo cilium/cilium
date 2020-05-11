@@ -44,38 +44,21 @@ func startSynchronizingCiliumNodes(nodeManager *ipam.NodeManager) {
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				if node, ok := obj.(*v2.CiliumNode); ok {
+				if node := k8s.ObjToCiliumNode(obj); node != nil {
 					// node is deep copied before it is stored in pkg/aws/eni
 					nodeManager.Update(node)
-				} else {
-					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if node, ok := newObj.(*v2.CiliumNode); ok {
+				if node := k8s.ObjToCiliumNode(newObj); node != nil {
 					// node is deep copied before it is stored in pkg/aws/eni
 					nodeManager.Update(node)
-				} else {
-					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(newObj), newObj)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-				if ok {
-					// Delete was not observed by the
-					// watcher but is removed from
-					// kube-apiserver. This is the last
-					// known state and the object no longer
-					// exists.
-					if node, ok := deletedObj.Obj.(*v2.CiliumNode); ok {
-						nodeManager.Delete(node.Name)
-						return
-					}
-				} else if node, ok := obj.(*v2.CiliumNode); ok {
+				if node := k8s.ObjToCiliumNode(obj); node != nil {
 					nodeManager.Delete(node.Name)
-					return
 				}
-				log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(obj), obj)
 			},
 		},
 		k8s.ConvertToCiliumNode,
