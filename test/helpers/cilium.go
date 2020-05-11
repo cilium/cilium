@@ -903,6 +903,10 @@ INITSYSTEM=SYSTEMD`
 	return nil
 }
 
+func (s *SSHMeta) SetUpCiliumWithHubble() error {
+	return s.SetUpCiliumWithOptions("--enable-hubble --tofqdns-enable-poller=true")
+}
+
 func (s *SSHMeta) SetUpCiliumWithSockops() error {
 	return s.SetUpCiliumWithOptions("--sockops-enable --tofqdns-enable-poller=true")
 }
