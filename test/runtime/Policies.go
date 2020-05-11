@@ -69,7 +69,7 @@ var _ = Describe("RuntimePolicies", func() {
 		// Make sure that Cilium is started with appropriate CLI options
 		// (specifically to exclude the local addresses that are populated for
 		// CIDR policy tests).
-		Expect(vm.SetUpCilium()).To(BeNil())
+		Expect(vm.SetUpCiliumWithHubble()).To(BeNil())
 		ExpectCiliumReady(vm)
 		vm.SampleContainersActions(helpers.Create, helpers.CiliumDockerNetwork)
 		vm.PolicyDelAll()
@@ -1524,9 +1524,9 @@ var _ = Describe("RuntimePolicies", func() {
 			})
 
 			It("tests ingress", func() {
+				By("Starting hubble observe in background")
 				ctx, cancel := context.WithCancel(context.Background())
-				By("Starting cilium monitor in background")
-				monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace --type policy-verdict")
+				hubbleRes := vm.HubbleObserveFollow(ctx, "--type", "policy-verdict", "--type", "trace:to-endpoint", "--protocol", "ICMPv4")
 				defer cancel()
 
 				By("Creating an endpoint")
@@ -1536,14 +1536,17 @@ var _ = Describe("RuntimePolicies", func() {
 				res := vm.Exec(helpers.Ping(endpointIP.IPV4))
 				res.ExpectSuccess("Not able to ping endpoint with no ingress policy")
 
-				By("Testing cilium monitor output")
-				err := monitorRes.WaitUntilMatch("Policy verdict log")
+				By("Testing hubble observe output")
+				// Checks for a ingress policy verdict event (type 5)
+				err := hubbleRes.WaitUntilMatchFilterLine(
+					`{.source.labels} -> {.destination.ID} {.destination.labels} {.IP.destination} : {.verdict} {.event_type.type}`,
+					fmt.Sprintf("[reserved:host] -> %s [container:somelabel] %s : FORWARDED 5", endpointID, endpointIP.IPV4))
 				Expect(err).To(BeNil(), "Default policy verdict on ingress failed")
-				monitorRes.ExpectContains(
-					fmt.Sprintf("local EP ID %s, remote ID 1, dst port 0, proto 1, ingress true, action allow", endpointID),
-					"No ingress policy log record",
-				)
-				monitorRes.ExpectContains(fmt.Sprintf("-> endpoint %s ", endpointID), "No ingress traffic to endpoint")
+				// Checks for the subsequent trace:to-endpoint event (type 4)
+				err = hubbleRes.WaitUntilMatchFilterLine(
+					`{.source.labels} -> {.destination.ID} {.destination.labels} {.IP.destination} : {.event_type.type}`,
+					fmt.Sprintf("[reserved:host] -> %s [container:somelabel] %s : 4", endpointID, endpointIP.IPV4))
+				Expect(err).To(BeNil(), "No ingress traffic to endpoint")
 
 				By("Testing cilium endpoint list output")
 				res = vm.Exec("cilium endpoint list")
@@ -1551,22 +1554,32 @@ var _ = Describe("RuntimePolicies", func() {
 			})
 
 			It("tests egress", func() {
-				By("Starting cilium monitor in background")
+				hostIP := "10.0.2.15"
+
+				By("Starting hubble observe in background")
 				ctx, cancel := context.WithCancel(context.Background())
-				monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace --type policy-verdict")
+				hubbleRes := vm.HubbleObserveFollow(ctx, "--type", "policy-verdict", "--type", "trace:to-endpoint", "--protocol", "ICMPv4")
 				defer cancel()
 
 				By("Creating an endpoint")
-				endpointID, _ := createEndpoint("ping", "10.0.2.15")
+				endpointID, _ := createEndpoint("ping", hostIP)
 
-				By("Testing cilium monitor output")
-				err := monitorRes.WaitUntilMatch("Policy verdict log")
+				// We start pinging fast enough that the endpoint still has identity "init" / 5.
+				// In PolicyAuditMode, this means that the ping will succeed. Therefore we don't
+				// check for the source labels in the output (they can by either [reserved:init]
+				// or [container:somelabel]), only the endpoint ID.
+				// Checks for a ingress policy verdict event (type 5)
+				By("Testing hubble observe output")
+				err := hubbleRes.WaitUntilMatchFilterLine(
+					`{.source.ID} -> {.destination.labels} {.IP.destination} : {.verdict} {.event_type.type}`,
+					fmt.Sprintf("%s -> [reserved:host] %s : FORWARDED 5", endpointID, hostIP))
 				Expect(err).To(BeNil(), "Default policy verdict on egress failed")
-				monitorRes.ExpectContains(
-					fmt.Sprintf("ID %s, remote ID 1, dst port 0, proto 1, ingress false, action allow", endpointID),
-					"No egress policy log record",
-				)
-				monitorRes.ExpectContains(fmt.Sprintf("-> endpoint %s ", endpointID), "No reply traffic to endpoint")
+
+				// Checks for the subsequent trace:to-endpoint reply (type 4)
+				err = hubbleRes.WaitUntilMatchFilterLine(
+					`{.source.labels} {.IP.source} -> {.destination.ID} : {.verdict} {.reply} {.event_type.type}`,
+					fmt.Sprintf("[reserved:host] %s -> %s : FORWARDED true 4", hostIP, endpointID))
+				Expect(err).To(BeNil(), "No ingress traffic to endpoint")
 
 				By("Testing cilium endpoint list output")
 				res := vm.Exec("cilium endpoint list")
