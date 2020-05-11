@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/hubble/relay"
 	"github.com/cilium/cilium/pkg/hubble/relay/relayoption"
+	"github.com/cilium/cilium/pkg/pprof"
 
 	"github.com/google/gops/agent"
 	"github.com/spf13/cobra"
@@ -30,6 +31,7 @@ import (
 
 type flags struct {
 	debug         bool
+	pprof         bool
 	gops          bool
 	dialTimeout   time.Duration
 	listenAddress string
@@ -50,6 +52,9 @@ func New() *cobra.Command {
 	}
 	cmd.Flags().BoolVarP(
 		&f.debug, "debug", "D", false, "Run in debug mode",
+	)
+	cmd.Flags().BoolVar(
+		&f.pprof, "pprof", false, "Enable serving the pprof debugging API",
 	)
 	cmd.Flags().BoolVar(
 		&f.gops, "gops", true, "Run gops agent",
@@ -82,6 +87,9 @@ func runServe(f flags) error {
 	}
 	if f.debug {
 		opts = append(opts, relayoption.WithDebug())
+	}
+	if f.pprof {
+		pprof.Enable()
 	}
 	if f.gops {
 		if err := agent.Listen(agent.Options{}); err != nil {
