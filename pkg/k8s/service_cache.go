@@ -230,20 +230,16 @@ func (s *ServiceCache) deleteEndpoints(svcID ServiceID, swg *lock.StoppableWaitG
 
 	svc, serviceOK := s.services[svcID]
 	delete(s.endpoints, svcID)
-	endpoints, serviceReady := s.correlateEndpoints(svcID)
+	endpoints, _ := s.correlateEndpoints(svcID)
 
 	if serviceOK {
 		swg.Add()
 		event := ServiceEvent{
-			Action:    DeleteService,
+			Action:    UpdateService,
 			ID:        svcID,
 			Service:   svc,
 			Endpoints: endpoints,
 			SWG:       swg,
-		}
-
-		if serviceReady {
-			event.Action = UpdateService
 		}
 
 		s.Events <- event
