@@ -20,6 +20,7 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
@@ -34,6 +35,16 @@ var (
 
 	// PodStoreSynced is closed once the PodStore is synced with k8s.
 	PodStoreSynced = make(chan struct{})
+
+	// UnmanagedPodStore has a minimal copy of the unmanaged kube-dns pods running
+	// in the cluster.
+	// Warning: The pods stored in the cache are not intended to be used for Update
+	// operations in k8s as some of its fields were are not populated.
+	UnmanagedPodStore cache.Store
+
+	// UnmanagedPodStoreSynced is closed once the UnmanagedPodStore is synced
+	// with k8s.
+	UnmanagedPodStoreSynced = make(chan struct{})
 )
 
 func PodsInit(k8sClient kubernetes.Interface) {
@@ -81,6 +92,74 @@ func convertToPod(obj interface{}) interface{} {
 					Name:            pod.Name,
 					Namespace:       pod.Namespace,
 					ResourceVersion: pod.ResourceVersion,
+				},
+			},
+		}
+		// Small GC optimization
+		*pod = slim_corev1.Pod{}
+		return dfsu
+	default:
+		return obj
+	}
+}
+
+func UnmanagedPodsInit(k8sClient kubernetes.Interface) {
+	var unmanagedPodInformer cache.Controller
+	UnmanagedPodStore, unmanagedPodInformer = informer.NewInformer(
+		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
+			"pods", v1.NamespaceAll, func(options *metav1.ListOptions) {
+				options.LabelSelector = "k8s-app=kube-dns"
+				options.FieldSelector = "status.phase=Running"
+			}),
+		&slim_corev1.Pod{},
+		0,
+		cache.ResourceEventHandlerFuncs{},
+		convertToUnmanagedPod,
+	)
+	go unmanagedPodInformer.Run(wait.NeverStop)
+
+	cache.WaitForCacheSync(wait.NeverStop, unmanagedPodInformer.HasSynced)
+	close(UnmanagedPodStoreSynced)
+}
+
+func convertToUnmanagedPod(obj interface{}) interface{} {
+	switch concreteObj := obj.(type) {
+	case *slim_corev1.Pod:
+		p := &slim_corev1.Pod{
+			TypeMeta: concreteObj.TypeMeta,
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name:            concreteObj.Name,
+				Namespace:       concreteObj.Namespace,
+				ResourceVersion: concreteObj.ResourceVersion,
+			},
+			Spec: slim_corev1.PodSpec{
+				HostNetwork: concreteObj.Spec.HostNetwork,
+			},
+			Status: slim_corev1.PodStatus{
+				StartTime: concreteObj.Status.StartTime,
+			},
+		}
+		*concreteObj = slim_corev1.Pod{}
+		return p
+	case cache.DeletedFinalStateUnknown:
+		pod, ok := concreteObj.Obj.(*slim_corev1.Pod)
+		if !ok {
+			return obj
+		}
+		dfsu := cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: &slim_corev1.Pod{
+				TypeMeta: pod.TypeMeta,
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Name:            pod.Name,
+					Namespace:       pod.Namespace,
+					ResourceVersion: pod.ResourceVersion,
+				},
+				Spec: slim_corev1.PodSpec{
+					HostNetwork: pod.Spec.HostNetwork,
+				},
+				Status: slim_corev1.PodStatus{
+					StartTime: pod.Status.StartTime,
 				},
 			},
 		}

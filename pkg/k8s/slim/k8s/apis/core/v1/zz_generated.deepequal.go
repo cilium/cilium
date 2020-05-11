@@ -687,6 +687,14 @@ func (in *PodStatus) DeepEqual(other *PodStatus) bool {
 		}
 	}
 
+	if (in.StartTime == nil) != (other.StartTime == nil) {
+		return false
+	} else if in.StartTime != nil {
+		if !in.StartTime.DeepEqual(other.StartTime) {
+			return false
+		}
+	}
+
 	return true
 }
 

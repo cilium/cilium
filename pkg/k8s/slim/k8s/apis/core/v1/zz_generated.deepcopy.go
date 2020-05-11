@@ -579,6 +579,10 @@ func (in *PodStatus) DeepCopyInto(out *PodStatus) {
 		*out = make([]PodIP, len(*in))
 		copy(*out, *in)
 	}
+	if in.StartTime != nil {
+		in, out := &in.StartTime, &out.StartTime
+		*out = (*in).DeepCopy()
+	}
 	return
 }
 
