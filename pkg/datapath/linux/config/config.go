@@ -89,6 +89,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	fw.WriteString(dumpRaw(defaults.RestoreV4Addr, node.GetInternalIPv4()))
 	fmt.Fprintf(fw, " */\n\n")
 
+	cDefinesMap["KERNEL_HZ"] = fmt.Sprintf("%d", option.Config.KernelHz)
+
 	if option.Config.EnableIPv6 {
 		extraMacrosMap["ROUTER_IP"] = routerIP.String()
 		fw.WriteString(defineIPv6("ROUTER_IP", routerIP))

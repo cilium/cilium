@@ -5,7 +5,7 @@
 #define __LIB_MONO_H_
 
 /* Moved out from time.h to avoid circular header dependency. */
-#if defined(BPF_HAVE_JIFFIES) && defined(ENABLE_JIFFIES)
+#if defined(BPF_HAVE_JIFFIES) && defined(ENABLE_JIFFIES) && KERNEL_HZ != 1
 # define BPF_MONO_SCALER	8
 # define bpf_mono_now()		(jiffies >> BPF_MONO_SCALER)
 # define bpf_sec_to_mono(s)	(bpf_sec_to_jiffies(s) >> BPF_MONO_SCALER)

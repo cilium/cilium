@@ -1675,6 +1675,9 @@ type DaemonConfig struct {
 	// Selection of BPF main clock source (ktime vs jiffies)
 	ClockSource BPFClockSource
 
+	// KernelHz is the HZ rate the kernel is operating in
+	KernelHz int
+
 	// excludeLocalAddresses excludes certain addresses to be recognized as
 	// a local address
 	excludeLocalAddresses []*net.IPNet
