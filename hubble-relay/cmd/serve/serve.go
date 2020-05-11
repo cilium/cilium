@@ -97,6 +97,9 @@ func runServe(f flags) error {
 		signal.Notify(sigs, unix.SIGINT, unix.SIGTERM)
 		<-sigs
 		srv.Stop()
+		if f.gops {
+			agent.Close()
+		}
 	}()
 	return srv.Serve()
 }

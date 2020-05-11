@@ -88,6 +88,7 @@ func main() {
 
 	go func() {
 		<-signals
+		gops.Close()
 		close(shutdownSignal)
 	}()
 

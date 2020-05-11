@@ -85,6 +85,8 @@ func main() {
 		cmdDel,
 		cniVersion.PluginSupports("0.1.0", "0.2.0", "0.3.0", "0.3.1"),
 		"Cilium CNI plugin "+version.Version)
+
+	gops.Close()
 }
 
 func ipv6IsEnabled(ipam *models.IPAMResponse) bool {
