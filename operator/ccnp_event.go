@@ -115,17 +115,7 @@ func enableCCNPWatcher() error {
 				metrics.EventTSK8s.SetToCurrentTime()
 				cnp := k8s.ObjToSlimCNP(obj)
 				if cnp == nil {
-					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-					if !ok {
-						return
-					}
-					// Delete was not observed by the watcher but is
-					// removed from kube-apiserver. This is the last
-					// known state and the object no longer exists.
-					cnp = k8s.ObjToSlimCNP(deletedObj.Obj)
-					if cnp == nil {
-						return
-					}
+					return
 				}
 				// The derivative policy will be deleted by the parent but need
 				// to delete the cnp from the pooling.

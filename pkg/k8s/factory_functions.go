@@ -114,12 +114,22 @@ func ObjToV1EndpointSlice(obj interface{}) *slim_discover_v1beta1.EndpointSlice 
 
 func ObjToSlimCNP(obj interface{}) *types.SlimCNP {
 	cnp, ok := obj.(*types.SlimCNP)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v2 CiliumNetworkPolicy")
-		return nil
+	if ok {
+		return cnp
 	}
-	return cnp
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		cnp, ok := deletedObj.Obj.(*types.SlimCNP)
+		if ok {
+			return cnp
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid k8s v2 CiliumNetworkPolicy")
+	return nil
 }
 
 func ObjTov1Pod(obj interface{}) *slim_corev1.Pod {
