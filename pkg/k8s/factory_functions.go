@@ -154,12 +154,22 @@ func ObjTov1Pod(obj interface{}) *slim_corev1.Pod {
 
 func ObjToV1Node(obj interface{}) *slim_corev1.Node {
 	node, ok := obj.(*slim_corev1.Node)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1 Node")
-		return nil
+	if ok {
+		return node
 	}
-	return node
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		node, ok := deletedObj.Obj.(*slim_corev1.Node)
+		if ok {
+			return node
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid k8s v1 Node")
+	return nil
 }
 
 func ObjToV1Namespace(obj interface{}) *slim_corev1.Namespace {

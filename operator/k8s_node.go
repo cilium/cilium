@@ -83,17 +83,7 @@ func runNodeWatcher(nodeManager *ipam.NodeManager) error {
 			DeleteFunc: func(obj interface{}) {
 				n := k8s.ObjToV1Node(obj)
 				if n == nil {
-					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-					if !ok {
-						return
-					}
-					// Delete was not observed by the watcher but is
-					// removed from kube-apiserver. This is the last
-					// known state and the object no longer exists.
-					n = k8s.ObjToV1Node(deletedObj.Obj)
-					if n == nil {
-						return
-					}
+					return
 				}
 				deletedNode := k8s.ParseNode(n, source.Kubernetes)
 				ciliumNodeStore.DeleteLocalKey(context.TODO(), deletedNode)
