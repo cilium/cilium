@@ -22,6 +22,7 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
+	"strconv"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -93,6 +94,7 @@ type SystemConfig struct {
 	ConfigBpfilter               KernelParam `json:"CONFIG_BPFILTER"`
 	ConfigBpfilterUmh            KernelParam `json:"CONFIG_BPFILTER_UMH"`
 	ConfigTestBpf                KernelParam `json:"CONFIG_TEST_BPF"`
+	ConfigKernelHz               KernelParam `json:"CONFIG_HZ"`
 }
 
 // MapTypes contains bools indicating which types of BPF maps the currently
@@ -154,6 +156,39 @@ func NewProbeManager() *ProbeManager {
 	}
 	once.Do(newProbeManager)
 	return probeManager
+}
+
+func (p *ProbeManager) probeSystemKernelHz() (int, error) {
+	out, err := exec.WithTimeout(
+		defaults.ExecTimeout,
+		"cilium-probe-kernel-hz",
+	).Output(log, false)
+	if err != nil {
+		return 0, fmt.Errorf("Cannot probe CONFIG_HZ")
+	}
+	hz := 0
+	warp := 0
+	n, _ := fmt.Sscanf(string(out), "%d, %d\n", &hz, &warp)
+	if n == 2 && hz > 0 && hz < 100000 {
+		return hz, nil
+	}
+	return 0, fmt.Errorf("Invalid probed CONFIG_HZ value")
+}
+
+// SystemKernelHz returns the HZ value that the kernel has been configured with.
+func (p *ProbeManager) SystemKernelHz() (int, error) {
+	config := p.features.SystemConfig
+	if config.ConfigKernelHz == "" {
+		return p.probeSystemKernelHz()
+	}
+	hz, err := strconv.Atoi(string(config.ConfigKernelHz))
+	if err != nil {
+		return 0, err
+	}
+	if hz > 0 && hz < 100000 {
+		return hz, nil
+	}
+	return 0, fmt.Errorf("Invalid CONFIG_HZ value")
 }
 
 // SystemConfigProbes performs a check of kernel configuration parameters. It

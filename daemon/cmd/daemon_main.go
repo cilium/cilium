@@ -1513,12 +1513,24 @@ func initSockmapOption() {
 
 func initClockSourceOption() {
 	option.Config.ClockSource = option.ClockSourceKtime
-	if !option.Config.DryMode && option.Config.EnableBPFClockProbe {
-		if h := probes.NewProbeManager().GetHelpers("xdp"); h != nil {
-			if _, ok := h["bpf_jiffies64"]; ok {
-				t, err := bpf.GetJtime()
-				if err == nil && t > 0 {
-					option.Config.ClockSource = option.ClockSourceJiffies
+	option.Config.KernelHz = 1 // Known invalid non-zero to avoid div by zero.
+	if !option.Config.DryMode {
+		hz, err := probes.NewProbeManager().SystemKernelHz()
+		if err != nil {
+			log.Warnf("Auto-disabling %q feature since KERNEL_HZ cannot be determined",
+				option.EnableBPFClockProbe)
+			option.Config.EnableBPFClockProbe = false
+		} else {
+			option.Config.KernelHz = hz
+		}
+
+		if option.Config.EnableBPFClockProbe {
+			if h := probes.NewProbeManager().GetHelpers("xdp"); h != nil {
+				if _, ok := h["bpf_jiffies64"]; ok {
+					t, err := bpf.GetJtime()
+					if err == nil && t > 0 {
+						option.Config.ClockSource = option.ClockSourceJiffies
+					}
 				}
 			}
 		}
