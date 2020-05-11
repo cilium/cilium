@@ -26,6 +26,21 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+func warnToLog(cmd *exec.Cmd, filters []string, out []byte, scopedLog *logrus.Entry, err error) {
+	scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
+	scanner := bufio.NewScanner(bytes.NewReader(out))
+scan:
+	for scanner.Scan() {
+		text := scanner.Text()
+		for _, filter := range filters {
+			if strings.Contains(text, filter) {
+				continue scan
+			}
+		}
+		scopedLog.Warn(text)
+	}
+}
+
 // combinedOutput is the core implementation of catching deadline exceeded
 // options and logging errors, with an optional set of filtered outputs.
 func combinedOutput(ctx context.Context, cmd *exec.Cmd, filters []string, scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
@@ -34,22 +49,21 @@ func combinedOutput(ctx context.Context, cmd *exec.Cmd, filters []string, scoped
 		scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
 		return nil, fmt.Errorf("Command execution failed for %s: %s", cmd.Args, ctx.Err())
 	}
-	if err != nil {
-		if verbose {
-			scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
+	if err != nil && verbose {
+		warnToLog(cmd, filters, out, scopedLog, err)
+	}
+	return out, err
+}
 
-			scanner := bufio.NewScanner(bytes.NewReader(out))
-		scan:
-			for scanner.Scan() {
-				text := scanner.Text()
-				for _, filter := range filters {
-					if strings.Contains(text, filter) {
-						continue scan
-					}
-				}
-				scopedLog.Warn(text)
-			}
-		}
+// output is the equivalent to combinedOutput with only capturing stdout
+func output(ctx context.Context, cmd *exec.Cmd, filters []string, scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
+	out, err := cmd.Output()
+	if ctx.Err() != nil {
+		scopedLog.WithError(err).WithField("cmd", cmd.Args).Error("Command execution failed")
+		return nil, fmt.Errorf("Command execution failed for %s: %s", cmd.Args, ctx.Err())
+	}
+	if err != nil && verbose {
+		warnToLog(cmd, filters, out, scopedLog, err)
 	}
 	return out, err
 }
@@ -108,6 +122,19 @@ func (c *Cmd) WithFilters(filters ...string) *Cmd {
 // Logs any errors that occur to the specified logger.
 func (c *Cmd) CombinedOutput(scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
 	out, err := combinedOutput(c.ctx, c.Cmd, c.filters, scopedLog, verbose)
+	if c.cancelFn != nil {
+		c.cancelFn()
+	}
+	return out, err
+}
+
+// Output runs the command and returns only standard output, but not the
+// standard error. Unlike the standard library, if the context is exceeded,
+// it will return an error indicating so.
+//
+// Logs any errors that occur to the specified logger.
+func (c *Cmd) Output(scopedLog *logrus.Entry, verbose bool) ([]byte, error) {
+	out, err := output(c.ctx, c.Cmd, c.filters, scopedLog, verbose)
 	if c.cancelFn != nil {
 		c.cancelFn()
 	}
