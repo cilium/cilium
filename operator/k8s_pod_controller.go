@@ -20,10 +20,11 @@ import (
 	"time"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 
-	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -37,6 +38,10 @@ var (
 )
 
 func enableUnmanagedKubeDNSController() {
+	// These functions will block until the resources are synced with k8s.
+	watchers.CiliumEndpointsInit(k8s.CiliumClient().CiliumV2())
+	watchers.UnmanagedPodsInit(k8s.WatcherCli())
+
 	controller.NewManager().UpdateController("restart-unmanaged-kube-dns",
 		controller.ControllerParams{
 			RunInterval: time.Duration(operatorOption.Config.UnmanagedPodWatcherInterval) * time.Second,
@@ -46,27 +51,21 @@ func enableUnmanagedKubeDNSController() {
 						delete(lastPodRestart, podName)
 					}
 				}
-
-				pods, err := k8s.Client().CoreV1().Pods("").List(ctx,
-					metav1.ListOptions{
-						LabelSelector: "k8s-app=kube-dns",
-						FieldSelector: "status.phase=Running",
-					})
-				if err != nil {
-					return err
-				}
-
-				for _, pod := range pods.Items {
+				for _, podItem := range watchers.UnmanagedPodStore.List() {
+					pod, ok := podItem.(*slim_corev1.Pod)
+					if !ok {
+						log.Errorf("unexpected type mapping: found %T, expected %T", pod, &slim_corev1.Pod{})
+						continue
+					}
 					if pod.Spec.HostNetwork {
 						continue
 					}
-					cep, err := ciliumK8sClient.CiliumV2().CiliumEndpoints(pod.Namespace).Get(ctx,
-						pod.Name, metav1.GetOptions{})
+					cep, exists, err := watchers.HasCE(pod.Namespace, pod.Name)
 					podID := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
 					switch {
 					case err == nil:
 						log.Debugf("Found kube-dns pod %s with identity %d", podID, cep.Status.ID)
-					case errors.IsNotFound(err):
+					case !exists:
 						log.Debugf("Found unmanaged kube-dns pod %s", podID)
 						if startTime := pod.Status.StartTime; startTime != nil {
 							if age := time.Since((*startTime).Time); age > unmanagedKubeDnsMinimalAge {
