@@ -132,6 +132,10 @@ data:
   bpf-ct-global-tcp-max: "{{ .Values.global.bpf.ctTcpMax }}"
   bpf-ct-global-any-max: "{{ .Values.global.bpf.ctAnyMax }}"
 
+  # bpf-policy-map-max specified the maximum number of entries in endpoint
+  # policy map (per endpoint)
+  bpf-policy-map-max: "{{ .Values.global.bpf.policyMapMax }}"
+
   # Pre-allocation of map entries allows per-packet latency to be reduced, at
   # the expense of up-front memory allocation for the entries in the maps. The
   # default value below will minimize memory usage in the default installation;

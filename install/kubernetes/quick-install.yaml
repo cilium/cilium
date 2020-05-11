@@ -61,6 +61,10 @@ data:
   bpf-ct-global-tcp-max: "524288"
   bpf-ct-global-any-max: "262144"
 
+  # bpf-policy-map-max specified the maximum number of entries in endpoint
+  # policy map (per endpoint)
+  bpf-policy-map-max: "16384"
+
   # Pre-allocation of map entries allows per-packet latency to be reduced, at
   # the expense of up-front memory allocation for the entries in the maps. The
   # default value below will minimize memory usage in the default installation;

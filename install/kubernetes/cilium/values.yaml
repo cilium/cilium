@@ -206,7 +206,10 @@ global:
     # tracking table
     ctAnyMax: 262144
 
-    # montiorAggregation is the level of aggregation for datapath trace events
+    # policyMapMax is the maximum number of entries in endpoint policy map (per endpoint)
+    policyMapMax: 16384
+
+    # monitorAggregation is the level of aggregation for datapath trace events
     monitorAggregation: medium
 
     # monitorInterval is the typical time between monitor notifications for
