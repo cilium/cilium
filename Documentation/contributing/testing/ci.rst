@@ -169,6 +169,7 @@ We are currently testing following kernel - k8s version pairs in our CI:
 
 .. _trigger_phrases:
 
+
 Triggering Pull-Request Builds With Jenkins
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -184,11 +185,17 @@ illustrating which subset of tests the job runs.
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | Jenkins Job                                                                                                    | Trigger Phrases   | Required To Merge? |
 +================================================================================================================+===================+====================+
-| `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | test-me-please,   | Yes                |
-|                                                                                                                | restart-ginkgo    |                    |
+| `K8s-1.18-kernel-4.9 <https://jenkins.cilium.io/job/Cilium-PR-K8s-newest-kernel-4.9/>`_                        | test-me-please,   | Yes                |
+|                                                                                                                | retest-4.9        |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
-| `Cilium-PR-Ginkgo-Tests-Kernel <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel/>`_                | test-me-please,   | Yes                |
-|                                                                                                                | test-with-kernel  |                    |
+| `K8s-1.17-Kernel-4.19 <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Kernel/>`_                         | test-me-please,   | Yes                |
+|                                                                                                                | retest-4.19       |                    |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `K8s-1.11-Kernel-netnext <https://jenkins.cilium.io/job/Cilium-PR-K8s-oldest-net-next/>`_                      | test-me-please,   | Yes                |
+|                                                                                                                | retest-net-next   |                    |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Runtime-4.9 <https://jenkins.cilium.io/job/Cilium-PR-Runtime-4.9/>`_                                          | test-me-please,   | Yes                |
+|                                                                                                                | retest-runtime    |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-Ginkgo-Tests-Focus <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Validated-Focus/>`_   | test-focus        | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
@@ -216,6 +223,7 @@ are the following:
   ``test-me-please`` target to only run on the net-next kernel. It is purely
   for testing on a different kernel, to merge a PR it must pass the CI
   without this flag.
+
 
 
 Using Jenkins for testing
@@ -468,3 +476,5 @@ simplify our Jenkinsfiles. The exported methods are:
   that specific Label.
 - **Status(String status, String context)**: set pull request check status on
   the given context, example ``Status("SUCCESS", "$JOB_BASE_NAME")``
+
+
