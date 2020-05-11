@@ -65,17 +65,7 @@ func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, swgSvcs *lock.
 				defer func() { k.K8sEventReceived(metricService, metricDelete, valid, equal) }()
 				k8sSvc := k8s.ObjToV1Services(obj)
 				if k8sSvc == nil {
-					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-					if !ok {
-						return
-					}
-					// Delete was not observed by the watcher but is
-					// removed from kube-apiserver. This is the last
-					// known state and the object no longer exists.
-					k8sSvc = k8s.ObjToV1Services(deletedObj.Obj)
-					if k8sSvc == nil {
-						return
-					}
+					return
 				}
 
 				valid = true

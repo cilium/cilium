@@ -54,12 +54,22 @@ func ObjToV1NetworkPolicy(obj interface{}) *slim_networkingv1.NetworkPolicy {
 
 func ObjToV1Services(obj interface{}) *slim_corev1.Service {
 	svc, ok := obj.(*slim_corev1.Service)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1 Service")
-		return nil
+	if ok {
+		return svc
 	}
-	return svc
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		svc, ok := deletedObj.Obj.(*slim_corev1.Service)
+		if ok {
+			return svc
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid k8s v1 Service")
+	return nil
 }
 
 func ObjToV1Endpoints(obj interface{}) *slim_corev1.Endpoints {
