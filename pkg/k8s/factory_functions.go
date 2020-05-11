@@ -134,12 +134,22 @@ func ObjToSlimCNP(obj interface{}) *types.SlimCNP {
 
 func ObjTov1Pod(obj interface{}) *slim_corev1.Pod {
 	pod, ok := obj.(*slim_corev1.Pod)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1 Pod")
-		return nil
+	if ok {
+		return pod
 	}
-	return pod
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		pod, ok := deletedObj.Obj.(*slim_corev1.Pod)
+		if ok {
+			return pod
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid k8s v1 Pod")
+	return nil
 }
 
 func ObjToV1Node(obj interface{}) *slim_corev1.Node {
