@@ -69,17 +69,7 @@ func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, swgKNPs
 				defer func() { k.K8sEventReceived(metricKNP, metricDelete, valid, equal) }()
 				k8sNP := k8s.ObjToV1NetworkPolicy(obj)
 				if k8sNP == nil {
-					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-					if !ok {
-						return
-					}
-					// Delete was not observed by the watcher but is
-					// removed from kube-apiserver. This is the last
-					// known state and the object no longer exists.
-					k8sNP = k8s.ObjToV1NetworkPolicy(deletedObj.Obj)
-					if k8sNP == nil {
-						return
-					}
+					return
 				}
 
 				valid = true
