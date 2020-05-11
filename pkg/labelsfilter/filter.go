@@ -42,6 +42,7 @@ const (
 // LabelPrefix is the cilium's representation of a container label.
 // +k8s:deepcopy-gen=false
 // +k8s:openapi-gen=false
+// +deepequal-gen=false
 type LabelPrefix struct {
 	// Ignore if true will cause this prefix to be ignored insted of being accepted
 	Ignore bool   `json:"invert"`

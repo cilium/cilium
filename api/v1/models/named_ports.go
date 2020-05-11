@@ -18,6 +18,7 @@ import (
 // Policy specs.
 //
 // swagger:model NamedPorts
+// +deepequal-gen=true
 type NamedPorts []*Port
 
 // Validate validates this named ports

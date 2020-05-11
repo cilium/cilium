@@ -12,5 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// +deepequal-gen=package
+
 // Package api defines the API of the Cilium network policy interface
 package labels

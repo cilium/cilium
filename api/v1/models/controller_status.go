@@ -123,6 +123,7 @@ func (m *ControllerStatus) UnmarshalBinary(b []byte) error {
 
 // ControllerStatusConfiguration Configuration of controller
 // swagger:model ControllerStatusConfiguration
+// +deepequal-gen=true
 type ControllerStatusConfiguration struct {
 
 	// Retry on error

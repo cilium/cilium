@@ -21,12 +21,12 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
+	k8sLbls "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 	"github.com/cilium/cilium/pkg/labels"
 
 	. "gopkg.in/check.v1"
-	k8sLbls "k8s.io/apimachinery/pkg/labels"
-	"k8s.io/apimachinery/pkg/selection"
 )
 
 var _ = Suite(&PolicyAPITestSuite{})

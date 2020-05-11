@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -14,6 +14,7 @@
 
 // +k8s:deepcopy-gen=package
 // +k8s:openapi-gen=true
+// +deepequal-gen=package
 
 // Package api defines the API of the Cilium network policy interface
 // +groupName=policy

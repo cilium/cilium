@@ -34,6 +34,27 @@ type CIDR struct {
 	*net.IPNet
 }
 
+// DeepEqual is an deepequal function, deeply comparing the receiver with other.
+// in must be non-nil.
+func (in *CIDR) DeepEqual(other *CIDR) bool {
+	if other == nil {
+		return false
+	}
+
+	if (in.IPNet == nil) != (other.IPNet == nil) {
+		return false
+	} else if in.IPNet != nil {
+		if !in.IPNet.IP.Equal(other.IPNet.IP) {
+			return false
+		}
+		inOnes, inBits := in.IPNet.Mask.Size()
+		otherOnes, otherBits := other.IPNet.Mask.Size()
+		return inOnes == otherOnes && inBits == otherBits
+	}
+
+	return true
+}
+
 // DeepCopy creates a deep copy of a CIDR
 func (n *CIDR) DeepCopy() *CIDR {
 	if n == nil {

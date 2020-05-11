@@ -19,6 +19,7 @@ package v2
 import (
 	"encoding/json"
 	"fmt"
+	"reflect"
 	"testing"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
@@ -410,4 +411,104 @@ func (s *CiliumV2Suite) TestCiliumNodeInstanceID(c *C) {
 	c.Assert((&CiliumNode{Spec: NodeSpec{InstanceID: "foo"}}).InstanceID(), Equals, "foo")
 	c.Assert((&CiliumNode{Spec: NodeSpec{InstanceID: "foo", ENI: eniTypes.ENISpec{InstanceID: "bar"}}}).InstanceID(), Equals, "foo")
 	c.Assert((&CiliumNode{Spec: NodeSpec{ENI: eniTypes.ENISpec{InstanceID: "bar"}}}).InstanceID(), Equals, "bar")
+}
+
+func BenchmarkSpecEquals(b *testing.B) {
+	r := &CiliumNetworkPolicy{
+		Spec: &api.Rule{
+			EndpointSelector: api.EndpointSelector{
+				LabelSelector: &slim_metav1.LabelSelector{
+					MatchLabels: map[string]string{
+						"foo3": "bar3",
+						"foo4": "bar4",
+					},
+					MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+						{
+							Key:      "any.foo",
+							Operator: "NotIn",
+							Values:   []string{"default"},
+						},
+					},
+				},
+			},
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: []api.EndpointSelector{
+						{
+							LabelSelector: &slim_metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"foo3": "bar3",
+									"foo4": "bar4",
+								},
+								MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+									{
+										Key:      "any.foo",
+										Operator: "NotIn",
+										Values:   []string{"default"},
+									},
+								},
+							},
+						},
+					},
+					ToPorts: []api.PortRule{{
+						Ports: []api.PortProtocol{
+							{
+								Port:     "8080",
+								Protocol: "TCP",
+							},
+						},
+						TerminatingTLS: &api.TLSContext{
+							Secret: &api.Secret{
+								Namespace: "",
+								Name:      "",
+							},
+							TrustedCA:   "",
+							Certificate: "",
+							PrivateKey:  "",
+						},
+						OriginatingTLS: &api.TLSContext{
+							Secret: &api.Secret{
+								Namespace: "",
+								Name:      "",
+							},
+							TrustedCA:   "",
+							Certificate: "",
+							PrivateKey:  "",
+						},
+						Rules: &api.L7Rules{
+							HTTP: []api.PortRuleHTTP{
+								{
+									Path:   "path",
+									Method: "method",
+									Host:   "host",
+								},
+							},
+						},
+					}},
+					FromCIDR:     nil,
+					FromCIDRSet:  nil,
+					FromEntities: nil,
+				},
+			},
+		},
+	}
+	o := r.DeepCopy()
+	if !r.DeepEqual(o) {
+		b.Error("Both structures should be equal!")
+	}
+	b.Run("Reflected SpecEquals", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			reflect.DeepEqual(r.Spec, o.Spec)
+			reflect.DeepEqual(r.Specs, o.Specs)
+		}
+	})
+	b.Run("Generated SpecEquals", func(b *testing.B) {
+		b.ReportAllocs()
+		b.ResetTimer()
+		for i := 0; i < b.N; i++ {
+			r.DeepEqual(o)
+		}
+	})
 }

@@ -233,6 +233,8 @@ type PoolQuota struct {
 type PoolQuotaMap map[PoolID]PoolQuota
 
 // Interface is the implementation of a IPAM relevant network interface
+// +k8s:deepcopy-gen=false
+// +deepequal-gen=false
 type Interface interface {
 	// InterfaceID must return the identifier of the interface
 	InterfaceID() string
@@ -247,6 +249,7 @@ type Interface interface {
 // and the resource itself.
 //
 // +k8s:deepcopy-gen=false
+// +deepequal-gen=false
 type InterfaceRevision struct {
 	// Resource is the interface resource
 	Resource Interface
@@ -262,6 +265,7 @@ type InterfaceRevision struct {
 // per-node IPAM logic
 //
 // +k8s:deepcopy-gen=false
+// +deepequal-gen=false
 type Instance struct {
 	// interfaces is a map of all interfaces attached to the instance
 	// indexed by the interface ID
@@ -271,6 +275,7 @@ type Instance struct {
 // InstanceMap is the list of all instances indexed by instance ID
 //
 // +k8s:deepcopy-gen=false
+// +deepequal-gen=false
 type InstanceMap struct {
 	mutex lock.RWMutex
 	data  map[string]*Instance
