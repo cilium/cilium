@@ -18,8 +18,6 @@ import (
 	"encoding/json"
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
-
 	"github.com/go-openapi/validate"
 	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
@@ -33,11 +31,15 @@ type NPValidator struct {
 	ccnpValidator *validate.SchemaValidator
 }
 
+var cnpCRV = &apiextensionsv1beta1.CustomResourceValidation{
+	OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{},
+}
+
 func NewNPValidator() (*NPValidator, error) {
 	// There are some default variables set by the CustomResourceValidation
-	// Marshaller so we need to marshal and unmarshal the CNPCRV to have those
+	// Marshaller so we need to marshal and unmarshal the cnpCRV to have those
 	// default values, the same way k8s api-server has it.
-	cnpCRVJSONBytes, err := json.Marshal(client.CNPCRV)
+	cnpCRVJSONBytes, err := json.Marshal(cnpCRV)
 	if err != nil {
 		return nil, fmt.Errorf("BUG: unable to marshall CNPCRV: %w", err)
 	}
@@ -62,9 +64,9 @@ func NewNPValidator() (*NPValidator, error) {
 	}
 
 	// There are some default variables set by the CustomResourceValidation
-	// Marshaller so we need to marshal and unmarshal the CNPCRV to have those
+	// Marshaller so we need to marshal and unmarshal the cnpCRV to have those
 	// default values, the same way k8s api-server has it.
-	ccnpCRVJSONBytes, err := json.Marshal(client.CCNPCRV)
+	ccnpCRVJSONBytes, err := json.Marshal(cnpCRV)
 	if err != nil {
 		return nil, fmt.Errorf("BUG: unable to marshall CCNPCRV: %w", err)
 	}

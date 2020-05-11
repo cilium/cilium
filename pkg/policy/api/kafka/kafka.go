@@ -41,7 +41,8 @@ type PortRule struct {
 	// If omitted or empty, and if APIKey is not specified, then all keys are
 	// allowed.
 	//
-	// +optional
+	// +kubebuilder:validation:Enum=produce;consume
+	// +kubebuilder:validation:Optional
 	Role string `json:"role,omitempty"`
 
 	// APIKey is a case-insensitive string matched against the key of a
@@ -50,7 +51,7 @@ type PortRule struct {
 	//
 	// If omitted or empty, and if Role is not specified, then all keys are allowed.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	APIKey string `json:"apiKey,omitempty"`
 
 	// APIVersion is the version matched against the api version of the
@@ -59,7 +60,7 @@ type PortRule struct {
 	//
 	// If omitted or empty, all versions are allowed.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	APIVersion string `json:"apiVersion,omitempty"`
 
 	// ClientID is the client identifier as provided in the request.
@@ -75,7 +76,7 @@ type PortRule struct {
 	//
 	// If omitted or empty, all client identifiers are allowed.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ClientID string `json:"clientID,omitempty"`
 
 	// Topic is the topic name contained in the message. If a Kafka request
@@ -93,7 +94,8 @@ type PortRule struct {
 	//
 	// If omitted or empty, all topics are allowed.
 	//
-	// +optional
+	// +kubebuilder:validation:MaxLength=255
+	// +kubebuilder:validation:Optional
 	Topic string `json:"topic,omitempty"`
 }
 

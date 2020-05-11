@@ -43,7 +43,7 @@ type EgressRule struct {
 	// Any endpoint with the label "role=frontend" can communicate with any
 	// endpoint carrying the label "role=backend".
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ToEndpoints []EndpointSelector `json:"toEndpoints,omitempty"`
 
 	// ToRequires is a list of additional constraints which must be met
@@ -56,7 +56,7 @@ type EgressRule struct {
 	// Any Endpoint with the label "team=A" requires any endpoint to which it
 	// communicates to also carry the label "team=A".
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ToRequires []EndpointSelector `json:"toRequires,omitempty"`
 
 	// ToPorts is a list of destination ports identified by port number and
@@ -67,7 +67,7 @@ type EgressRule struct {
 	// Any endpoint with the label "role=frontend" is allowed to initiate
 	// connections to destination port 8080/tcp
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ToPorts []PortRule `json:"toPorts,omitempty"`
 
 	// ToCIDR is a list of IP blocks which the endpoint subject to the rule
@@ -82,7 +82,7 @@ type EgressRule struct {
 	// Any endpoint with the label "app=database-proxy" is allowed to
 	// initiate connections to 10.2.3.0/24
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ToCIDR CIDRSlice `json:"toCIDR,omitempty"`
 
 	// ToCIDRSet is a list of IP blocks which the endpoint subject to the rule
@@ -98,14 +98,14 @@ type EgressRule struct {
 	// Any endpoint with the label "app=database-proxy" is allowed to
 	// initiate connections to 10.2.3.0/24 except from IPs in subnet 10.2.3.0/28.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ToCIDRSet CIDRRuleSlice `json:"toCIDRSet,omitempty"`
 
 	// ToEntities is a list of special entities to which the endpoint subject
 	// to the rule is allowed to initiate connections. Supported entities are
 	// `world`, `cluster` and `host`
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ToEntities EntitySlice `json:"toEntities,omitempty"`
 
 	// ToServices is a list of services to which the endpoint subject
@@ -114,7 +114,8 @@ type EgressRule struct {
 	// Example:
 	// Any endpoint with the label "app=backend-app" is allowed to
 	// initiate connections to all cidrs backing the "external-service" service
-	// + optional
+	//
+	// +kubebuilder:validation:Optional
 	ToServices []Service `json:"toServices,omitempty"`
 
 	// ToFQDN allows whitelisting DNS names in place of IPs. The IPs that result
@@ -140,7 +141,7 @@ type EgressRule struct {
 	// regeneration. This may result in delayed updates to the policy for an
 	// endpoint when the data changes often or the system is under load.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ToFQDNs FQDNSelectorSlice `json:"toFQDNs,omitempty"`
 
 	// ToGroups is a directive that allows the integration with multiple outside
@@ -152,7 +153,8 @@ type EgressRule struct {
 	// - aws:
 	//     securityGroupsIds:
 	//     - 'sg-XXXXXXXXXXXXX'
-	// +optional
+	//
+	// +kubebuilder:validation:Optional
 	ToGroups []ToGroups `json:"toGroups,omitempty"`
 
 	// TODO: Move this to the policy package

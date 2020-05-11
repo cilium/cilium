@@ -32,7 +32,7 @@ var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "policy-api")
 
 // EndpointSelector is a wrapper for k8s LabelSelector.
 type EndpointSelector struct {
-	*slim_metav1.LabelSelector
+	*slim_metav1.LabelSelector `json:",inline"`
 
 	// TODO: The following fields were exported to stop govet warnings. The
 	// govet warnings were because the CRD generation tool needs every struct

@@ -32,8 +32,9 @@ message LabelSelector {
   // +optional
   map<string, string> matchLabels = 1;
 
-  // matchExpressions is a list of label selector requirements. The requirements are ANDed.
-  // +optional
+  // MatchExpressions is a list of label selector requirements. The requirements are ANDed.
+  //
+  // +kubebuilder:validation:Optional
   repeated LabelSelectorRequirement matchExpressions = 2;
 }
 
@@ -47,13 +48,16 @@ message LabelSelectorRequirement {
 
   // operator represents a key's relationship to a set of values.
   // Valid operators are In, NotIn, Exists and DoesNotExist.
+  //
+  // +kubebuilder:validation:Enum=In;NotIn;Exists;DoesNotExist
   optional string operator = 2;
 
   // values is an array of string values. If the operator is In or NotIn,
   // the values array must be non-empty. If the operator is Exists or DoesNotExist,
   // the values array must be empty. This array is replaced during a strategic
   // merge patch.
-  // +optional
+  //
+  // +kubebuilder:validation:Optional
   repeated string values = 3;
 }
 
@@ -160,6 +164,9 @@ message ObjectMeta {
 // +protobuf.options.marshal=false
 // +protobuf.as=Timestamp
 // +protobuf.options.(gogoproto.goproto_stringer)=false
+//
+// +kubebuilder:validation:Format=date-time
+// +kubebuilder:validation:Type=string
 message Time {
   // Represents seconds of UTC time since Unix epoch
   // 1970-01-01T00:00:00Z. Must be from 0001-01-01T00:00:00Z to

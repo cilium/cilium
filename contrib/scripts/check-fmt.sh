@@ -8,7 +8,8 @@ diff="$(find . ! \( -path './contrib' -prune \) \
         ! \( -path './_build' -prune \) \
         ! \( -path './.git' -prune \) \
         ! \( -path '*.validate.go' -prune \) \
-        -type f -name '*.go' | xargs gofmt -d -l -s )"
+        -type f -name '*.go' | grep -Ev "(pkg/k8s/apis/cilium.io/v2/client/bindata.go)" | \
+        xargs gofmt -d -l -s )"
 
 if [ -n "$diff" ]; then
 	echo "Unformatted Go source code:"

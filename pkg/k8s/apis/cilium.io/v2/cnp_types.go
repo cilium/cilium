@@ -51,8 +51,9 @@ type CiliumNetworkPolicy struct {
 	Specs api.Rules `json:"specs,omitempty"`
 
 	// Status is the status of the Cilium policy rule
-	// +optional
+	//
 	// +deepequal-gen=false
+	// +kubebuilder:validation:Optional
 	Status CiliumNetworkPolicyStatus `json:"status"`
 }
 
