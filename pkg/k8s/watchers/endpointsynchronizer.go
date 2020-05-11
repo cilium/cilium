@@ -18,7 +18,6 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"time"
 
 	"github.com/cilium/cilium/pkg/controller"
@@ -113,7 +112,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				// Serialize the endpoint into a model. It is compared with the one
 				// from before, only updating on changes.
 				mdl := e.GetCiliumEndpointStatus(conf)
-				if reflect.DeepEqual(mdl, lastMdl) {
+				if mdl.DeepEqual(lastMdl) {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
 					return nil
 				}

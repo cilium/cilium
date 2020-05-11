@@ -54,7 +54,7 @@ func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, swgKNPs
 				if oldK8sNP := k8s.ObjToV1NetworkPolicy(oldObj); oldK8sNP != nil {
 					if newK8sNP := k8s.ObjToV1NetworkPolicy(newObj); newK8sNP != nil {
 						valid = true
-						if k8s.EqualV1NetworkPolicy(oldK8sNP, newK8sNP) {
+						if oldK8sNP.DeepEqual(newK8sNP) {
 							equal = true
 							return
 						}

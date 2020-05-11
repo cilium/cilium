@@ -53,7 +53,7 @@ func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.
 				if oldk8sEP := k8s.ObjToV1Endpoints(oldObj); oldk8sEP != nil {
 					if newk8sEP := k8s.ObjToV1Endpoints(newObj); newk8sEP != nil {
 						valid = true
-						if k8s.EqualV1Endpoints(oldk8sEP, newk8sEP) {
+						if oldk8sEP.DeepEqual(newk8sEP) {
 							equal = true
 							return
 						}

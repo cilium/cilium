@@ -72,7 +72,7 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 				if oldCNP := k8s.ObjToSlimCNP(oldObj); oldCNP != nil {
 					if newCNP := k8s.ObjToSlimCNP(newObj); newCNP != nil {
 						valid = true
-						if k8s.EqualV2CNP(oldCNP, newCNP) {
+						if oldCNP.DeepEqual(newCNP) {
 							equal = true
 							return
 						}

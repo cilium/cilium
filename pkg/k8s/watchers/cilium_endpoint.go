@@ -62,11 +62,10 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 					if oldCE := k8s.ObjToCiliumEndpoint(oldObj); oldCE != nil {
 						if newCE := k8s.ObjToCiliumEndpoint(newObj); newCE != nil {
 							valid = true
-							// TODO add equalness
-							// if oldCE.DeepEqual(newCE) {
-							// 	equal = true
-							// 	return
-							// }
+							if oldCE.DeepEqual(newCE) {
+								equal = true
+								return
+							}
 							k.endpointUpdated(newCE)
 							k.K8sEventProcessed(metricCiliumEndpoint, metricUpdate, true)
 						}

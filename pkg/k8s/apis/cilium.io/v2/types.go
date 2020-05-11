@@ -234,14 +234,6 @@ func (r *CiliumNetworkPolicy) SetDerivedPolicyStatus(derivativePolicyName string
 	r.Status.DerivativePolicies[derivativePolicyName] = status
 }
 
-// SpecEquals returns true if the spec and specs metadata is the sa
-func (r *CiliumNetworkPolicy) SpecEquals(o *CiliumNetworkPolicy) bool {
-	if o == nil {
-		return r == nil
-	}
-	return r.Spec.DeepEquals(o.Spec) && r.Specs.DeepEquals(o.Specs)
-}
-
 // AnnotationsEquals returns true if ObjectMeta.Annotations of each
 // CiliumNetworkPolicy are equivalent (i.e., they contain equivalent key-value
 // pairs).

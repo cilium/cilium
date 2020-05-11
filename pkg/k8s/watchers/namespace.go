@@ -54,7 +54,7 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, asyncControl
 				if oldNS := k8s.ObjToV1Namespace(oldObj); oldNS != nil {
 					if newNS := k8s.ObjToV1Namespace(newObj); newNS != nil {
 						valid = true
-						if k8s.EqualV1Namespace(oldNS, newNS) {
+						if oldNS.DeepEqual(newNS) {
 							equal = true
 							return
 						}

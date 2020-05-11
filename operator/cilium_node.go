@@ -16,7 +16,6 @@ package main
 
 import (
 	"context"
-	"reflect"
 
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -100,11 +99,11 @@ func (c *ciliumNodeUpdateImplementation) UpdateStatus(origNode, node *v2.CiliumN
 	k8sCapabilities := k8sversion.Capabilities()
 	switch {
 	case k8sCapabilities.UpdateStatus:
-		if origNode == nil || !reflect.DeepEqual(origNode.Status, node.Status) {
+		if origNode == nil || !origNode.Status.DeepEqual(&node.Status) {
 			return ciliumK8sClient.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
 		}
 	default:
-		if origNode == nil || !reflect.DeepEqual(origNode.Status, node.Status) {
+		if origNode == nil || !origNode.Status.DeepEqual(&node.Status) {
 			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 		}
 	}
@@ -117,11 +116,11 @@ func (c *ciliumNodeUpdateImplementation) Update(origNode, node *v2.CiliumNode) (
 	k8sCapabilities := k8sversion.Capabilities()
 	switch {
 	case k8sCapabilities.UpdateStatus:
-		if origNode == nil || !reflect.DeepEqual(origNode.Spec, node.Spec) {
+		if origNode == nil || !origNode.Spec.DeepEqual(&node.Spec) {
 			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 		}
 	default:
-		if origNode == nil || !reflect.DeepEqual(origNode, node) {
+		if origNode == nil || !origNode.DeepEqual(node) {
 			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 		}
 	}

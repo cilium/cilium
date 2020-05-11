@@ -76,7 +76,7 @@ func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fiel
 				if oldPod := k8s.ObjTov1Pod(oldObj); oldPod != nil {
 					if newPod := k8s.ObjTov1Pod(newObj); newPod != nil {
 						valid = true
-						if k8s.EqualV1Pod(oldPod, newPod) {
+						if oldPod.DeepEqual(newPod) {
 							equal = true
 						} else {
 							err := k.updateK8sPodV1(oldPod, newPod)
