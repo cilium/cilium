@@ -31,11 +31,25 @@ var (
 	// allowedPatternChars tests that the MatchPattern field contains only the
 	// characters we want in our wilcard scheme.
 	allowedPatternChars = regexp.MustCompile("^[-a-zA-Z0-9.*]+$") // the * inside the [] is a literal *
+
+	// FQDNMatchNameRegexString is a regex string which matches what's expected
+	// in the MatchName field in the FQDNSelector. This should be kept in-sync
+	// with the marker comment for validation. There's no way to use a Golang
+	// variable in the marker comment, so it's left up to the developer.
+	FQDNMatchNameRegexString = `^([-a-zA-Z0-9_]+[.]?)+$`
+
+	// FQDNMatchPatternRegexString is a regex string which matches what's expected
+	// in the MatchPattern field in the FQDNSelector. This should be kept in-sync
+	// with the marker comment for validation. There's no way to use a Golang
+	// variable in the marker comment, so it's left up to the developer.
+	FQDNMatchPatternRegexString = `^([-a-zA-Z0-9_*]+[.]?)+$`
 )
 
 type FQDNSelector struct {
 	// MatchName matches literal DNS names. A trailing "." is automatically added
 	// when missing.
+	//
+	// +kubebuilder:validation:Pattern=`^([-a-zA-Z0-9_]+[.]?)+$`
 	MatchName string `json:"matchName,omitempty"`
 
 	// MatchPattern allows using wildcards to match DNS names. All wildcards are
@@ -54,6 +68,8 @@ type FQDNSelector struct {
 	// begins with "sub"
 	//   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,
 	//   blog.cilium.io, cilium.io and google.com do not
+	//
+	// +kubebuilder:validation:Pattern=`^([-a-zA-Z0-9_*]+[.]?)+$`
 	MatchPattern string `json:"matchPattern,omitempty"`
 }
 

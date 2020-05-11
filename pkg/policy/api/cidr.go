@@ -23,6 +23,8 @@ import (
 	cidrpkg "github.com/cilium/cilium/pkg/labels/cidr"
 )
 
+// +kubebuilder:validation:Pattern=`^(?:(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\.){3}(?:25[0-5]|2[0-4][0-9]|[01]?[0-9][0-9]?)\/([0-9]|[1-2][0-9]|3[0-2])$|^s*((([0-9A-Fa-f]{1,4}:){7}(:|([0-9A-Fa-f]{1,4})))|(([0-9A-Fa-f]{1,4}:){6}:([0-9A-Fa-f]{1,4})?)|(([0-9A-Fa-f]{1,4}:){5}(((:[0-9A-Fa-f]{1,4}){0,1}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){4}(((:[0-9A-Fa-f]{1,4}){0,2}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){3}(((:[0-9A-Fa-f]{1,4}){0,3}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){2}(((:[0-9A-Fa-f]{1,4}){0,4}):([0-9A-Fa-f]{1,4})?))|(([0-9A-Fa-f]{1,4}:){1}(((:[0-9A-Fa-f]{1,4}){0,5}):([0-9A-Fa-f]{1,4})?))|(:(:|((:[0-9A-Fa-f]{1,4}){1,7}))))(%.+)?s*/([0-9]|[1-9][0-9]|1[0-1][0-9]|12[0-8])$`
+
 // CIDR specifies a block of IP addresses.
 // Example: 192.0.2.1/32
 type CIDR string
@@ -46,6 +48,7 @@ func (c *CIDR) MatchesAll() bool {
 type CIDRRule struct {
 	// CIDR is a CIDR prefix / IP Block.
 	//
+	// +kubebuilder:validation:Required
 	Cidr CIDR `json:"cidr"`
 
 	// ExceptCIDRs is a list of IP blocks which the endpoint subject to the rule
@@ -54,7 +57,7 @@ type CIDRRule struct {
 	// this CIDRRule, and do not apply to any other CIDR prefixes in any other
 	// CIDRRules.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	ExceptCIDRs []CIDR `json:"except,omitempty"`
 
 	// Generated indicates whether the rule was generated based on other rules

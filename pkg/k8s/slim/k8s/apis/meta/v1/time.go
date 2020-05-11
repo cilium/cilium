@@ -29,6 +29,9 @@ import (
 // +protobuf.options.marshal=false
 // +protobuf.as=Timestamp
 // +protobuf.options.(gogoproto.goproto_stringer)=false
+//
+// +kubebuilder:validation:Format=date-time
+// +kubebuilder:validation:Type=string
 type Time struct {
 	time.Time `protobuf:"-" json:"-"`
 }
