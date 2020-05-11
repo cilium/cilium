@@ -38,26 +38,26 @@ type Rule struct {
 	// this rule. EndpointSelector and NodeSelector cannot be both empty and
 	// are mutually exclusive.
 	//
-	// +optional
+	// +kubebuilder:validation:OneOf
 	EndpointSelector EndpointSelector `json:"endpointSelector,omitempty"`
 
 	// NodeSelector selects all nodes which should be subject to this rule.
 	// EndpointSelector and NodeSelector cannot be both empty and are mutually
 	// exclusive. Can only be used in CiliumClusterwideNetworkPolicies.
 	//
-	// +optional
+	// +kubebuilder:validation:OneOf
 	NodeSelector EndpointSelector `json:"nodeSelector,omitempty"`
 
 	// Ingress is a list of IngressRule which are enforced at ingress.
 	// If omitted or empty, this rule does not apply at ingress.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Ingress []IngressRule `json:"ingress,omitempty"`
 
 	// Egress is a list of EgressRule which are enforced at egress.
 	// If omitted or empty, this rule does not apply at egress.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Egress []EgressRule `json:"egress,omitempty"`
 
 	// Labels is a list of optional strings which can be used to
@@ -65,14 +65,14 @@ type Rule struct {
 	// or delete strings based on labels. Labels are not required to be
 	// unique, multiple rules can have overlapping or identical labels.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Labels labels.LabelArray `json:"labels,omitempty"`
 
 	// Description is a free form string, it can be used by the creator of
 	// the rule to store human readable explanation of the purpose of this
 	// rule. Rules cannot be identified by comment.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Description string `json:"description,omitempty"`
 }
 

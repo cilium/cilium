@@ -40,6 +40,9 @@ type HeaderMatch struct {
 	// Mismatch identifies what to do in case there is no match. The default is
 	// to drop the request. Otherwise the overall rule is still considered as
 	// matching, but the mismatches are logged in the access log.
+	//
+	// +kubebuilder:validation:Enum=LOG;ADD;DELETE;REPLACE
+	// +kubebuilder:validation:Optional
 	Mismatch MismatchAction `json:"mismatch,omitempty"`
 
 	// Name identifies the header.
@@ -49,14 +52,14 @@ type HeaderMatch struct {
 	// The secret must only contain one entry. If the referred secret does not
 	// exist, and there is no "Value" specified, the match will fail.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Secret *Secret `json:"secret,omitempty"`
 
 	// Value matches the exact value of the header. Can be specified either
 	// alone or together with "Secret"; will be used as the header value if the
 	// secret can not be found in the latter case.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Value string `json:"value,omitempty"`
 }
 
@@ -76,7 +79,7 @@ type PortRuleHTTP struct {
 	//
 	// If omitted or empty, all paths are all allowed.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Path string `json:"path,omitempty"`
 
 	// Method is an extended POSIX regex matched against the method of a
@@ -84,7 +87,7 @@ type PortRuleHTTP struct {
 	//
 	// If omitted or empty, all methods are allowed.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Method string `json:"method,omitempty"`
 
 	// Host is an extended POSIX regex matched against the host header of a
@@ -92,21 +95,22 @@ type PortRuleHTTP struct {
 	//
 	// If omitted or empty, the value of the host header is ignored.
 	//
-	// +optional
+	// +kubebuilder:validation:Format=idn-hostname
+	// +kubebuilder:validation:Optional
 	Host string `json:"host,omitempty"`
 
 	// Headers is a list of HTTP headers which must be present in the
 	// request. If omitted or empty, requests are allowed regardless of
 	// headers present.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Headers []string `json:"headers,omitempty"`
 
 	// HeaderMatches is a list of HTTP headers which must be
 	// present and match against the given values. Mismatch field can be used
 	// to specify what to do when there is no match.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	HeaderMatches []*HeaderMatch `json:"headerMatches,omitempty"`
 }
 

@@ -31,6 +31,8 @@ TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell echo $(GOFILES) | \
 TESTPKGS ?= $(TESTPKGS_EVAL)
 GOLANGVERSION := $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
+K8S_CRD_EVAL := $(shell git ls-files $(ROOT_DIR)/examples/crds | grep -v .gitignore | tr "\n" ' ')
+K8S_CRD_FILES ?= $(K8S_CRD_EVAL)
 
 SWAGGER_VERSION := v0.25.0
 SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
@@ -284,6 +286,15 @@ GIT_VERSION: force
 
 include Makefile.docker
 
+CRD_OPTIONS ?= "crd:trivialVersions=true"
+# Generate manifests e.g. CRD, RBAC etc.
+manifests:
+	$(eval TMPDIR := $(shell mktemp -d))
+	cd "./vendor/sigs.k8s.io/controller-tools/cmd/controller-gen" && \
+	go run ./... $(CRD_OPTIONS) paths="$(PWD)/pkg/k8s/apis/cilium.io/v2" output:crd:artifacts:config="$(TMPDIR)";
+	mv ${TMPDIR}/cilium.io_ciliumnetworkpolicies.yaml ./examples/crds/ciliumnetworkpolicies.yaml
+	rm -rf $(TMPDIR)
+
 build-deb:
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb
 
@@ -380,6 +391,18 @@ generate-k8s-api:
 	pkg:labels\
 	pkg:loadbalancer\
 	pkg:tuple")
+
+# Hardcode the modification time as to not change on every invocation.
+K8S_VALIDATION := $(QUIET) go-bindata -pkg client -mode 0640 -modtime 1450269211
+
+.PHONY: check-bindata
+check-bindata: bindata.go
+	@echo "  CHECK contrib/scripts/bindata.sh"
+	$(QUIET) ./contrib/scripts/bindata.sh $(GO_BINDATA_SHA1SUM)
+
+go-bindata: $(K8S_CRD_FILES)
+	@$(ECHO_GEN) $@
+	$(K8S_VALIDATION) -o ./pkg/k8s/apis/cilium.io/v2/client/bindata.go $(K8S_CRD_FILES)
 
 vps:
 	VBoxManage list runningvms

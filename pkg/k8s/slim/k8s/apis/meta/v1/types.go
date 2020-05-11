@@ -174,8 +174,10 @@ type LabelSelector struct {
 	// operator is "In", and the values array contains only "value". The requirements are ANDed.
 	// +optional
 	MatchLabels map[string]string `json:"matchLabels,omitempty" protobuf:"bytes,1,rep,name=matchLabels"`
-	// matchExpressions is a list of label selector requirements. The requirements are ANDed.
-	// +optional
+
+	// MatchExpressions is a list of label selector requirements. The requirements are ANDed.
+	//
+	// +kubebuilder:validation:Optional
 	MatchExpressions []LabelSelectorRequirement `json:"matchExpressions,omitempty" protobuf:"bytes,2,rep,name=matchExpressions"`
 }
 
@@ -188,12 +190,15 @@ type LabelSelectorRequirement struct {
 	Key string `json:"key" patchStrategy:"merge" patchMergeKey:"key" protobuf:"bytes,1,opt,name=key"`
 	// operator represents a key's relationship to a set of values.
 	// Valid operators are In, NotIn, Exists and DoesNotExist.
+	//
+	// +kubebuilder:validation:Enum=In;NotIn;Exists;DoesNotExist
 	Operator LabelSelectorOperator `json:"operator" protobuf:"bytes,2,opt,name=operator,casttype=LabelSelectorOperator"`
 	// values is an array of string values. If the operator is In or NotIn,
 	// the values array must be non-empty. If the operator is Exists or DoesNotExist,
 	// the values array must be empty. This array is replaced during a strategic
 	// merge patch.
-	// +optional
+	//
+	// +kubebuilder:validation:Optional
 	Values []string `json:"values,omitempty" protobuf:"bytes,3,rep,name=values"`
 }
 

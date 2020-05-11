@@ -115,6 +115,8 @@ type Label struct {
 	Key   string `json:"key"`
 	Value string `json:"value,omitempty"`
 	// Source can be one of the above values (e.g.: LabelSourceContainer).
+	//
+	// +kubebuilder:validation:Optional
 	Source string `json:"source"`
 }
 

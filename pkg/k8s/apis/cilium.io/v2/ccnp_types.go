@@ -45,10 +45,12 @@ type CiliumClusterwideNetworkPolicy struct {
 	*CiliumNetworkPolicy `json:",inline"`
 
 	// Status is the status of the Cilium policy rule.
-	// +optional
+	//
 	// The reason this field exists in this structure is due a bug in the k8s
 	// code-generator that doesn't create a `UpdateStatus` method because the
 	// field does not exist in the structure.
+	//
+	// +kubebuilder:validation:Optional
 	Status CiliumNetworkPolicyStatus `json:"status"`
 }
 
