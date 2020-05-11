@@ -208,11 +208,11 @@ func (s *K8sSuite) TestServiceCache(c *check.C) {
 		return true
 	}, 2*time.Second), check.IsNil)
 
-	// Deleting the endpoints will result in a service delete event
+	// Deleting the endpoints will result in a service update event
 	svcCache.DeleteEndpoints(k8sEndpoints)
 	c.Assert(testutils.WaitUntil(func() bool {
 		event := <-svcCache.Events
-		c.Assert(event.Action, check.Equals, DeleteService)
+		c.Assert(event.Action, check.Equals, UpdateService)
 		c.Assert(event.ID, check.Equals, svcID)
 		return true
 	}, 2*time.Second), check.IsNil)
