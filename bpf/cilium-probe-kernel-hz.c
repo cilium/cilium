@@ -11,6 +11,7 @@
 #include <time.h>
 #include <stdint.h>
 #include <stdlib.h>
+#include <stdbool.h>
 
 #include <sys/resource.h>
 
@@ -109,10 +110,11 @@ static int fetch_kern_jiffies(const struct cpu_jiffies *curr)
 }
 
 static int dump_kern_jiffies(const struct cpu_jiffies *fixed,
-			     const struct cpu_jiffies *result)
+			     const struct cpu_jiffies *result,
+			     bool macro)
 {
 	uint64_t delta, warp = 0;
-	int i, j, ret = 0;
+	int i, j, ret = -1;
 	int64_t x;
 
 	for (i = 0; i < result->cpus; i++) {
@@ -134,21 +136,36 @@ static int dump_kern_jiffies(const struct cpu_jiffies *fixed,
 		}
 	}
 
-	printf("#define KERNEL_HZ %lu\t/* warp: %lu jiffies */\n", fixed->jiffies[0], warp);
+	if (macro)
+		printf("#define KERNEL_HZ %lu\t/* warp: %lu jiffies */\n", fixed->jiffies[0], warp);
+	else
+		printf("%lu, %lu\n", fixed->jiffies[0], warp);
+	ret = 0;
 out:
 	free(fixed->jiffies);
 	free(result->jiffies);
 	return ret;
 }
 
-int main(void)
+int main(int argc, char **argv)
 {
 	struct cpu_jiffies before, after;
 	struct timespec tv = {
 		.tv_sec  = 1,
 		.tv_nsec = 0,
 	};
-	int sig, ret, tries = 4;
+	int opt, sig, ret, tries = 4;
+	bool macro = false;
+
+	while ((opt = getopt(argc, argv, "m")) != -1) {
+		switch (opt) {
+		case 'm':
+			macro = true;
+			break;
+		default:
+			return -1;
+		}
+	}
 
 	if (pin_to_cpu(0)) {
 		fprintf(stderr, "Cannot pin to CPU 0: %s\n", strerror(errno));
@@ -170,6 +187,6 @@ int main(void)
 	} while (!ret && sig && errno == EINTR && --tries >= 0);
 
 	if (!ret && !sig)
-		dump_kern_jiffies(&before, &after);
+		ret = dump_kern_jiffies(&before, &after, macro);
 	return ret;
 }
