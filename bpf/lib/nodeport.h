@@ -751,12 +751,23 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 		if (ip4->saddr == addr) {
 			return true;
 		}
-#ifdef ENABLE_MASQUERADE
+
+#ifdef ENABLE_MASQUERADE /* SNAT local pod to world packets */
 		/* Do not MASQ when this function is executed from bpf_overlay
 		 * (encap=true denotes this fact). Otherwise, a packet will be
 		 * SNAT'd to cilium_host IP addr. */
 		if (encap)
 			return false;
+
+#ifdef IPV4_NATIVE_ROUTING_CIDR
+		/* Do not MASQ if a dst IP belongs to a global PodCIDR. The
+		 * check is performed before we determine that a packet is
+		 * sent from a local pod, as this check is cheaper than
+		 * the map lookup done in the latter check. */
+		if (ipv4_is_in_subnet(ip4->daddr, IPV4_NATIVE_ROUTING_CIDR,
+				      IPV4_NATIVE_ROUTING_CIDR_LEN))
+			return false;
+#endif
 
 		if ((ep = __lookup_ip4_endpoint(ip4->saddr)) != NULL &&
 		    !(ep->flags & ENDPOINT_F_HOST)) {
