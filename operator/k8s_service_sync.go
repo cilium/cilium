@@ -271,17 +271,7 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 				metrics.EventTSK8s.SetToCurrentTime()
 				k8sEP := k8s.ObjToV1EndpointSlice(obj)
 				if k8sEP == nil {
-					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-					if !ok {
-						return
-					}
-					// Delete was not observed by the watcher but is
-					// removed from kube-apiserver. This is the last
-					// known state and the object no longer exists.
-					k8sEP = k8s.ObjToV1EndpointSlice(deletedObj.Obj)
-					if k8sEP == nil {
-						return
-					}
+					return
 				}
 				k8sSvcCache.DeleteEndpointSlices(k8sEP, swgEps)
 			},
