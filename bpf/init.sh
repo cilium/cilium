@@ -437,7 +437,7 @@ case "${MODE}" in
         ;;
 esac
 
-cilium-probe-kernel-hz >> $RUNDIR/globals/node_config.h
+cilium-probe-kernel-hz -m >> $RUNDIR/globals/node_config.h
 
 # node_config.h header generation
 case "${MODE}" in

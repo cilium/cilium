@@ -1,4 +1,5 @@
 cilium-map-migrate
+cilium-probe-kernel-hz
 *.i
 *.s
 .rebuild_all
