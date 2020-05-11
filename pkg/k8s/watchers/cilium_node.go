@@ -46,7 +46,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 				AddFunc: func(obj interface{}) {
 					var valid, equal bool
 					defer func() { k.K8sEventReceived(metricCiliumNode, metricCreate, valid, equal) }()
-					if ciliumNode, ok := obj.(*cilium_v2.CiliumNode); ok {
+					if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
 						valid = true
 						n := nodeTypes.ParseCiliumNode(ciliumNode)
 						if n.IsLocal() {
@@ -59,7 +59,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 				UpdateFunc: func(oldObj, newObj interface{}) {
 					var valid, equal bool
 					defer func() { k.K8sEventReceived(metricCiliumNode, metricUpdate, valid, equal) }()
-					if ciliumNode, ok := newObj.(*cilium_v2.CiliumNode); ok {
+					if ciliumNode := k8s.ObjToCiliumNode(newObj); ciliumNode != nil {
 						valid = true
 						n := nodeTypes.ParseCiliumNode(ciliumNode)
 						if n.IsLocal() {
@@ -74,17 +74,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 					defer func() { k.K8sEventReceived(metricCiliumNode, metricDelete, valid, equal) }()
 					ciliumNode := k8s.ObjToCiliumNode(obj)
 					if ciliumNode == nil {
-						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-						if !ok {
-							return
-						}
-						// Delete was not observed by the watcher but is
-						// removed from kube-apiserver. This is the last
-						// known state and the object no longer exists.
-						ciliumNode = k8s.ObjToCiliumNode(deletedObj.Obj)
-						if ciliumNode == nil {
-							return
-						}
+						return
 					}
 					valid = true
 					n := nodeTypes.ParseCiliumNode(ciliumNode)
