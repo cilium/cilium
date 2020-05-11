@@ -145,17 +145,7 @@ func startSynchronizingServices() {
 				metrics.EventTSK8s.SetToCurrentTime()
 				k8sSvc := k8s.ObjToV1Services(obj)
 				if k8sSvc == nil {
-					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-					if !ok {
-						return
-					}
-					// Delete was not observed by the watcher but is
-					// removed from kube-apiserver. This is the last
-					// known state and the object no longer exists.
-					k8sSvc = k8s.ObjToV1Services(deletedObj.Obj)
-					if k8sSvc == nil {
-						return
-					}
+					return
 				}
 				log.Debugf("Received service deletion %+v", k8sSvc)
 				k8sSvcCache.DeleteService(k8sSvc, swgSvcs)
