@@ -77,17 +77,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 					defer func() { k.K8sEventReceived(metricCiliumEndpoint, metricDelete, valid, equal) }()
 					ciliumEndpoint := k8s.ObjToCiliumEndpoint(obj)
 					if ciliumEndpoint == nil {
-						deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-						if !ok {
-							return
-						}
-						// Delete was not observed by the watcher but is
-						// removed from kube-apiserver. This is the last
-						// known state and the object no longer exists.
-						ciliumEndpoint = k8s.ObjToCiliumEndpoint(deletedObj.Obj)
-						if ciliumEndpoint == nil {
-							return
-						}
+						return
 					}
 					valid = true
 					k.endpointDeleted(ciliumEndpoint)
