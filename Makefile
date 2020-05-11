@@ -87,8 +87,7 @@ define generate_k8s_protobuf
                                 -k8s.io/apimachinery/pkg/runtime/schema,$\
                                 -k8s.io/apimachinery/pkg/runtime,$\
                                 -k8s.io/apimachinery/pkg/apis/meta/v1,$\
-                                -k8s.io/apimachinery/pkg/apis/meta/v1beta1,$\
-                                -k8s.io/apimachinery/pkg/apis/testapigroup/v1'\
+                                -k8s.io/apimachinery/pkg/apis/meta/v1beta1'\
 		--drop-embedded-fields="github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1.TypeMeta" \
 		--proto-import="$(PWD)" \
 		--proto-import="$(PWD)/vendor" \
