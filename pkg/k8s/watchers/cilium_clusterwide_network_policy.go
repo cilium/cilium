@@ -97,17 +97,7 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 				defer func() { k.K8sEventReceived(metricCCNP, metricDelete, valid, equal) }()
 				cnp := k8s.ObjToSlimCNP(obj)
 				if cnp == nil {
-					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-					if !ok {
-						return
-					}
-					// Delete was not observed by the watcher but is
-					// removed from kube-apiserver. This is the last
-					// known state and the object no longer exists.
-					cnp = k8s.ObjToSlimCNP(deletedObj.Obj)
-					if cnp == nil {
-						return
-					}
+					return
 				}
 				valid = true
 				err := k.deleteCiliumNetworkPolicyV2(cnp)
