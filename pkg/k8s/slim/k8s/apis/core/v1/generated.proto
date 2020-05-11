@@ -415,6 +415,11 @@ message PodStatus {
   // +patchStrategy=merge
   // +patchMergeKey=ip
   repeated PodIP podIPs = 12;
+
+  // RFC 3339 date and time at which the object was acknowledged by the Kubelet.
+  // This is before the Kubelet pulled the container image(s) for the pod.
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startTime = 7;
 }
 
 // Service is a named abstraction of software service (for example, mysql) consisting of local port

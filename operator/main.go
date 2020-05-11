@@ -157,7 +157,7 @@ func runOperator(cmd *cobra.Command) {
 	if option.Config.DisableCiliumEndpointCRD {
 		log.Infof("KubeDNS unmanaged pods controller disabled as %q option is set to 'disabled' in Cilium ConfigMap", option.DisableCiliumEndpointCRDName)
 	} else if operatorOption.Config.UnmanagedPodWatcherInterval != 0 {
-		enableUnmanagedKubeDNSController()
+		go enableUnmanagedKubeDNSController()
 	}
 
 	var (
