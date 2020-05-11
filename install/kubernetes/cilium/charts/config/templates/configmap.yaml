@@ -169,6 +169,10 @@ data:
   # table.
   bpf-nat-global-max: "{{ .Values.global.bpf.natMax }}"
 
+  # bpf-policy-map-max specified the maximum number of entries in endpoint
+  # policy map (per endpoint)
+  bpf-policy-map-max: "{{ .Values.global.bpf.policyMapMax }}"
+
   # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
   # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
   bpf-map-dynamic-size-ratio: "{{ .Values.global.bpf.mapDynamicSizeRatio }}"
