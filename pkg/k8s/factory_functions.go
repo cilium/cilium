@@ -174,12 +174,22 @@ func ObjToV1Node(obj interface{}) *slim_corev1.Node {
 
 func ObjToV1Namespace(obj interface{}) *slim_corev1.Namespace {
 	ns, ok := obj.(*slim_corev1.Namespace)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid k8s v1 Namespace")
-		return nil
+	if ok {
+		return ns
 	}
-	return ns
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		ns, ok := deletedObj.Obj.(*slim_corev1.Namespace)
+		if ok {
+			return ns
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid k8s v1 Namespace")
+	return nil
 }
 
 func EqualV1NetworkPolicy(np1, np2 *slim_networkingv1.NetworkPolicy) bool {
