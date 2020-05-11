@@ -142,7 +142,7 @@ func (s *K8sSuite) Test_EqualV2CNP(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := EqualV2CNP(tt.args.o1, tt.args.o2)
+		got := tt.args.o1.DeepEqual(tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
@@ -274,7 +274,7 @@ func (s *K8sSuite) Test_EqualV1Endpoints(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := EqualV1Endpoints(tt.args.o1, tt.args.o2)
+		got := tt.args.o1.DeepEqual(tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
@@ -523,11 +523,11 @@ func (s *K8sSuite) Test_EqualV1Pod(c *C) {
 					},
 				},
 			},
-			want: true,
+			want: false,
 		},
 	}
 	for _, tt := range tests {
-		got := EqualV1Pod(tt.args.o1, tt.args.o2)
+		got := tt.args.o1.DeepEqual(tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
@@ -575,7 +575,7 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 			want: false,
 		},
 		{
-			name: "Nodes with the different spec should return true as we don't care about the spec",
+			name: "Nodes with the different spec should return false",
 			args: args{
 				o1: &slim_corev1.Node{
 					ObjectMeta: slim_metav1.ObjectMeta{
@@ -594,7 +594,7 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 					},
 				},
 			},
-			want: true,
+			want: false,
 		},
 		{
 			name: "Nodes with the same annotations",
@@ -641,7 +641,7 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 			want: false,
 		},
 		{
-			name: "Nodes with the same annotations and different specs should return true because he don't care about the spec",
+			name: "Nodes with the same annotations and different specs should return false",
 			args: args{
 				o1: &slim_corev1.Node{
 					ObjectMeta: slim_metav1.ObjectMeta{
@@ -666,10 +666,10 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 					},
 				},
 			},
-			want: true,
+			want: false,
 		},
 		{
-			name: "Nodes with the same taints and different specs should return true because he don't care about the spec",
+			name: "Nodes with the same taints and different specs should return false",
 			args: args{
 				o1: &slim_corev1.Node{
 					ObjectMeta: slim_metav1.ObjectMeta{
@@ -702,10 +702,10 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 					},
 				},
 			},
-			want: true,
+			want: false,
 		},
 		{
-			name: "Nodes with the same taints and different specs should return true because he don't care about the spec",
+			name: "Nodes with the same taints and different specs should false",
 			args: args{
 				o1: &slim_corev1.Node{
 					ObjectMeta: slim_metav1.ObjectMeta{
@@ -740,10 +740,10 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 					},
 				},
 			},
-			want: true,
+			want: false,
 		},
 		{
-			name: "Nodes with the different taints and different specs should return true because he don't care about the spec",
+			name: "Nodes with the different taints and different specs should return false",
 			args: args{
 				o1: &slim_corev1.Node{
 					ObjectMeta: slim_metav1.ObjectMeta{
@@ -780,7 +780,7 @@ func (s *K8sSuite) Test_EqualV1Node(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := EqualV1Node(tt.args.o1, tt.args.o2)
+		got := tt.args.o1.DeepEqual(tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }
@@ -873,7 +873,7 @@ func (s *K8sSuite) Test_EqualV1Namespace(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		got := EqualV1Namespace(tt.args.o1, tt.args.o2)
+		got := tt.args.o1.DeepEqual(tt.args.o2)
 		c.Assert(got, Equals, tt.want, Commentf("Test Name: %s", tt.name))
 	}
 }

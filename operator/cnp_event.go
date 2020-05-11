@@ -105,7 +105,7 @@ func enableCNPWatcher() error {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if oldCNP := k8s.ObjToSlimCNP(oldObj); oldCNP != nil {
 					if newCNP := k8s.ObjToSlimCNP(newObj); newCNP != nil {
-						if k8s.EqualV2CNP(oldCNP, newCNP) {
+						if oldCNP.DeepEqual(newCNP) {
 							return
 						}
 

@@ -138,7 +138,7 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 				if oldCNP := k8s.ObjToSlimCNP(oldObj); oldCNP != nil {
 					if newCNP := k8s.ObjToSlimCNP(newObj); newCNP != nil {
 						valid = true
-						if k8s.EqualV2CNP(oldCNP, newCNP) {
+						if oldCNP.DeepEqual(newCNP) {
 							equal = true
 							return
 						}
@@ -288,7 +288,7 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interf
 
 	// Do not add rule into policy repository if the spec remains unchanged.
 	if !option.Config.DisableCNPStatusUpdates {
-		if oldRuleCpy.SpecEquals(newRuleCpy.CiliumNetworkPolicy) {
+		if oldRuleCpy.Spec.DeepEqual(newRuleCpy.CiliumNetworkPolicy.Spec) {
 			if !oldRuleCpy.AnnotationsEquals(newRuleCpy.CiliumNetworkPolicy) {
 
 				// Update annotations within a controller so the status of the update

@@ -71,7 +71,7 @@ func runNodeWatcher(nodeManager *allocator.NodeEventHandler) error {
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				if oldNode := k8s.ObjToV1Node(oldObj); oldNode != nil {
 					if newNode := k8s.ObjToV1Node(newObj); newNode != nil {
-						if k8s.EqualV1Node(oldNode, newNode) {
+						if oldNode.DeepEqual(newNode) {
 							return
 						}
 

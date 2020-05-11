@@ -460,7 +460,7 @@ func (k *K8sIntegrationSuite) benchmarkInformer(nCycles int, newInformer bool, c
 				UpdateFunc: func(oldObj, newObj interface{}) {
 					if oldK8sNP := k8s.ObjToV1Node(oldObj); oldK8sNP != nil {
 						if newK8sNP := k8s.ObjToV1Node(newObj); newK8sNP != nil {
-							if k8s.EqualV1Node(oldK8sNP, newK8sNP) {
+							if oldK8sNP.DeepEqual(newK8sNP) {
 								return
 							}
 						}

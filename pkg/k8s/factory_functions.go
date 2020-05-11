@@ -15,9 +15,6 @@
 package k8s
 
 import (
-	"reflect"
-
-	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/datapath"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -192,15 +189,6 @@ func ObjToV1Namespace(obj interface{}) *slim_corev1.Namespace {
 	return nil
 }
 
-func EqualV1NetworkPolicy(np1, np2 *slim_networkingv1.NetworkPolicy) bool {
-	// As Cilium uses all of the Spec from a NP it's not probably not worth
-	// it to create a dedicated deep equal	 function to compare both network
-	// policies.
-	return np1.Name == np2.Name &&
-		np1.Namespace == np2.Namespace &&
-		reflect.DeepEqual(np1.Spec, np2.Spec)
-}
-
 func EqualV1Services(k8sSVC1, k8sSVC2 *slim_corev1.Service, nodeAddressing datapath.NodeAddressing) bool {
 	// Service annotations are used to mark services as global, shared, etc.
 	if !comparator.MapStringEquals(k8sSVC1.GetAnnotations(), k8sSVC2.GetAnnotations()) {
@@ -219,49 +207,6 @@ func EqualV1Services(k8sSVC1, k8sSVC2 *slim_corev1.Service, nodeAddressing datap
 	return svc1.DeepEquals(svc2)
 }
 
-func EqualV1Endpoints(ep1, ep2 *slim_corev1.Endpoints) bool {
-	// We only care about the Name, Namespace and Subsets of a particular
-	// endpoint.
-	return ep1.Name == ep2.Name &&
-		ep1.Namespace == ep2.Namespace &&
-		reflect.DeepEqual(ep1.Subsets, ep2.Subsets)
-}
-
-func EqualV1EndpointSlice(ep1, ep2 *slim_discover_v1beta1.EndpointSlice) bool {
-	// We only care about the Name, Namespace and Subsets of a particular
-	// endpoint.
-	// AddressType is omitted because it's immutable after EndpointSlice's
-	// creation.
-	return ep1.Name == ep2.Name &&
-		ep1.Namespace == ep2.Namespace &&
-		reflect.DeepEqual(ep1.Endpoints, ep2.Endpoints) &&
-		reflect.DeepEqual(ep1.Ports, ep2.Ports)
-}
-
-func EqualV2CNP(cnp1, cnp2 *types.SlimCNP) bool {
-	if !(cnp1.Name == cnp2.Name && cnp1.Namespace == cnp2.Namespace) {
-		return false
-	}
-
-	// Ignore v1.LastAppliedConfigAnnotation annotation
-	lastAppliedCfgAnnotation1, ok1 := cnp1.GetAnnotations()[v1.LastAppliedConfigAnnotation]
-	lastAppliedCfgAnnotation2, ok2 := cnp2.GetAnnotations()[v1.LastAppliedConfigAnnotation]
-	defer func() {
-		if ok1 && cnp1.GetAnnotations() != nil {
-			cnp1.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation1
-		}
-		if ok2 && cnp2.GetAnnotations() != nil {
-			cnp2.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation2
-		}
-	}()
-	delete(cnp1.GetAnnotations(), v1.LastAppliedConfigAnnotation)
-	delete(cnp2.GetAnnotations(), v1.LastAppliedConfigAnnotation)
-
-	return comparator.MapStringEquals(cnp1.GetAnnotations(), cnp2.GetAnnotations()) &&
-		reflect.DeepEqual(cnp1.Spec, cnp2.Spec) &&
-		reflect.DeepEqual(cnp1.Specs, cnp2.Specs)
-}
-
 // AnnotationsEqual returns whether the annotation with any key in
 // relevantAnnotations is equal in anno1 and anno2.
 func AnnotationsEqual(relevantAnnotations []string, anno1, anno2 map[string]string) bool {
@@ -271,119 +216,6 @@ func AnnotationsEqual(relevantAnnotations []string, anno1, anno2 map[string]stri
 		}
 	}
 	return true
-}
-
-func EqualV1PodContainers(c1, c2 slim_corev1.Container) bool {
-	if c1.Name != c2.Name ||
-		c1.Image != c2.Image {
-		return false
-	}
-
-	if len(c1.VolumeMounts) != len(c2.VolumeMounts) {
-		return false
-	}
-	for i, vlmMount1 := range c1.VolumeMounts {
-		if vlmMount1.MountPath != c2.VolumeMounts[i].MountPath {
-			return false
-		}
-	}
-	return true
-}
-
-// EqualPodIPs returns true if both slices are equal.
-func EqualPodIPs(a, b []slim_corev1.PodIP) bool {
-	// If one is nil, the other must also be nil.
-	if (a == nil) != (b == nil) {
-		return false
-	}
-
-	if len(a) != len(b) {
-		return false
-	}
-
-	for i := range a {
-		if a[i] != b[i] {
-			return false
-		}
-	}
-
-	return true
-}
-
-func EqualV1Pod(pod1, pod2 *slim_corev1.Pod) bool {
-	// We only care about the HostIP, the PodIP and the labels of the pods.
-	if pod1.Status.PodIP != pod2.Status.PodIP ||
-		pod1.Status.HostIP != pod2.Status.HostIP ||
-		pod1.Spec.ServiceAccountName != pod2.Spec.ServiceAccountName ||
-		pod1.Spec.HostNetwork != pod2.Spec.HostNetwork {
-		return false
-	}
-
-	if !EqualPodIPs(pod1.Status.PodIPs, pod2.Status.PodIPs) {
-		return false
-	}
-
-	if !AnnotationsEqual([]string{annotation.ProxyVisibility}, pod1.Annotations, pod2.Annotations) {
-		return false
-	}
-
-	oldPodLabels := pod1.Labels
-	newPodLabels := pod2.Labels
-	if !comparator.MapStringEquals(oldPodLabels, newPodLabels) {
-		return false
-	}
-
-	if len(pod1.Spec.Containers) != len(pod2.Spec.Containers) {
-		return false
-	}
-	for i, c1 := range pod1.Spec.Containers {
-		if !EqualV1PodContainers(c1, pod2.Spec.Containers[i]) {
-			return false
-		}
-	}
-	return true
-}
-
-func EqualV1Node(node1, node2 *slim_corev1.Node) bool {
-	if node1.GetObjectMeta().GetName() != node2.GetObjectMeta().GetName() {
-		return false
-	}
-
-	anno1 := node1.GetAnnotations()
-	anno2 := node2.GetAnnotations()
-	annotationsWeCareAbout := []string{
-		annotation.CiliumHostIP,
-		annotation.CiliumHostIPv6,
-		annotation.V4HealthName,
-		annotation.V6HealthName,
-	}
-	for _, an := range annotationsWeCareAbout {
-		if anno1[an] != anno2[an] {
-			return false
-		}
-	}
-	if len(node1.Spec.Taints) != len(node2.Spec.Taints) {
-		return false
-	}
-	for i, taint2 := range node2.Spec.Taints {
-		taint1 := node1.Spec.Taints[i]
-		if !taint1.MatchTaint(&taint2) {
-			return false
-		}
-		if taint1.Value != taint2.Value {
-			return false
-		}
-		if !taint1.TimeAdded.Equal(taint2.TimeAdded) {
-			return false
-		}
-	}
-	return true
-}
-
-func EqualV1Namespace(ns1, ns2 *slim_corev1.Namespace) bool {
-	// we only care about namespace labels.
-	return ns1.Name == ns2.Name &&
-		comparator.MapStringEquals(ns1.GetLabels(), ns2.GetLabels())
 }
 
 func convertToK8sServicePorts(ports []v1.ServicePort) []slim_corev1.ServicePort {

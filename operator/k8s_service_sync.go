@@ -132,7 +132,7 @@ func startSynchronizingServices() {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if oldk8sSvc := k8s.ObjToV1Services(oldObj); oldk8sSvc != nil {
 					if newk8sSvc := k8s.ObjToV1Services(newObj); newk8sSvc != nil {
-						if k8s.EqualV1Services(oldk8sSvc, newk8sSvc, nil) {
+						if oldk8sSvc.DeepEqual(newk8sSvc) {
 							return
 						}
 
@@ -212,7 +212,7 @@ func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGro
 				metrics.EventTSK8s.SetToCurrentTime()
 				if oldk8sEP := k8s.ObjToV1Endpoints(oldObj); oldk8sEP != nil {
 					if newk8sEP := k8s.ObjToV1Endpoints(newObj); newk8sEP != nil {
-						if k8s.EqualV1Endpoints(oldk8sEP, newk8sEP) {
+						if oldk8sEP.DeepEqual(newk8sEP) {
 							return
 						}
 						k8sSvcCache.UpdateEndpoints(newk8sEP, swgEps)
@@ -260,7 +260,7 @@ func endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWa
 				metrics.EventTSK8s.SetToCurrentTime()
 				if oldk8sEP := k8s.ObjToV1EndpointSlice(oldObj); oldk8sEP != nil {
 					if newk8sEP := k8s.ObjToV1EndpointSlice(newObj); newk8sEP != nil {
-						if k8s.EqualV1EndpointSlice(oldk8sEP, newk8sEP) {
+						if oldk8sEP.DeepEqual(newk8sEP) {
 							return
 						}
 						k8sSvcCache.UpdateEndpointSlices(newk8sEP, swgEps)

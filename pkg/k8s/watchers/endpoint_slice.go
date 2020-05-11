@@ -61,7 +61,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 				if oldk8sEP := k8s.ObjToV1EndpointSlice(oldObj); oldk8sEP != nil {
 					if newk8sEP := k8s.ObjToV1EndpointSlice(newObj); newk8sEP != nil {
 						valid = true
-						if k8s.EqualV1EndpointSlice(oldk8sEP, newk8sEP) {
+						if oldk8sEP.DeepEqual(newk8sEP) {
 							equal = true
 							return
 						}
