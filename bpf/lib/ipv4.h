@@ -71,6 +71,12 @@ static __always_inline bool ipv4_is_fragment(const struct iphdr *ip4)
 	return ip4->frag_off & bpf_htons(0x3FFF);
 }
 
+static __always_inline bool ipv4_is_in_subnet(__be32 addr,
+					      __be32 subnet, int prefixlen)
+{
+	return (addr & bpf_htonl(~((1<<(32-prefixlen))-1))) == subnet;
+}
+
 #ifdef ENABLE_IPV4_FRAGMENTS
 static __always_inline bool ipv4_is_not_first_fragment(const struct iphdr *ip4)
 {
