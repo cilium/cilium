@@ -23,6 +23,8 @@ import (
 	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/pidfile"
+
+	gops "github.com/google/gops/agent"
 )
 
 var (
@@ -56,6 +58,7 @@ func registerSigHandler() <-chan struct{} {
 
 // Clean cleans up everything created by this package.
 func Clean() {
+	gops.Close()
 	close(cleanUPSig)
 	cleanUPWg.Wait()
 }
