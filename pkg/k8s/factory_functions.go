@@ -870,10 +870,20 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 // and returns a deep copy if the castin succeeds. Otherwise, nil is returned.
 func ObjToCiliumEndpoint(obj interface{}) *types.CiliumEndpoint {
 	ce, ok := obj.(*types.CiliumEndpoint)
-	if !ok {
-		log.WithField(logfields.Object, logfields.Repr(obj)).
-			Warn("Ignoring invalid CiliumEndpoint")
-		return nil
+	if ok {
+		return ce
 	}
-	return ce
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		ce, ok := deletedObj.Obj.(*types.CiliumEndpoint)
+		if ok {
+			return ce
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid v2 CiliumEndpoint")
+	return nil
 }
