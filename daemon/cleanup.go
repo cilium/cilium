@@ -23,6 +23,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/pidfile"
+	gops "github.com/google/gops/agent"
 )
 
 var cleaner = &daemonCleanup{
@@ -90,6 +91,7 @@ func (d *daemonCleanup) registerSigHandler() <-chan struct{} {
 
 // Clean cleans up everything created by this package.
 func (d *daemonCleanup) Clean() {
+	gops.Close()
 	close(d.cleanUPSig)
 	d.cleanUPWg.Wait()
 }
