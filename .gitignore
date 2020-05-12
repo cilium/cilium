@@ -11,8 +11,6 @@
 # Folders
 _obj
 _test
-tests/cilium-files
-test/test_results
 _build/
 
 # Architecture specific extensions/prefixes
@@ -53,12 +51,13 @@ outgoing
 
 man/
 
-test/tmp.yaml
-test/*_service_manifest.json
-test/*_manifest.yaml
-test/*_policy.json
-test/*.xml
+tests/cilium-files
+test/test_results
 test/.vagrant
+test/tmp.yaml
+test/*_manifest.yaml
+test/*.xml
+test/*.json
 test/*.log
 test/bpf/_results
 test/cilium-[0-9a-f]*.yaml
@@ -66,9 +65,10 @@ test/cilium-[0-9a-f]*.yaml
 # Emacs backup files
 *~
 
-# Temporary files that allow build containers/VMs work without git
-GIT_VERSION
-
 # generated from make targets
 *.ok
 *.build_all
+
+# Temporary files that allow build containers/VMs work without git
+# Not to be ignored by docker.
+GIT_VERSION
