@@ -47,9 +47,11 @@ function annotate_section_names {
 	    -e "s/\(section '2\/19'\)/\1 (tail_call ENCAP_NODEPORT_NAT)/" \
 	    -e "s/\(section '2\/20'\)/\1 (tail_call IPV4_NODEPORT_DSR)/" \
 	    -e "s/\(section '2\/21'\)/\1 (tail_call IPV6_NODEPORT_DSR)/"
+	    -e "s/\(section '2\/22'\)/\1 (tail_call IPV4_FROM_HOST)/" \
+	    -e "s/\(section '2\/23'\)/\1 (tail_call IPV6_FROM_HOST)/"
 }
 
-if ! grep -q "CILIUM_CALL_SIZE.*22" "$BPFDIR/lib/common.h" ; then
+if ! grep -q "CILIUM_CALL_SIZE.*24" "$BPFDIR/lib/common.h" ; then
 	echo "This script is out of date compared to CILIUM_CALL_SIZE." 1>&2
 	exit 1
 fi

@@ -18,11 +18,6 @@
 
 #define CB_SRC_IDENTITY	0
 
-/* No nodeport on cilium_host interface. */
-#ifdef FROM_HOST
-# undef ENABLE_NODEPORT
-#endif
-
 #ifdef ENABLE_NODEPORT
  /* Define dummy values to make bpf_{lxc,overlay}.c to compile */
 #ifndef NATIVE_DEV_IFINDEX
