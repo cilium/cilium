@@ -195,7 +195,7 @@ func prepareEndpointDirs() (cleanup func(), err error) {
 		return func() {}, err
 	}
 	return func() {
-		os.RemoveAll(fmt.Sprintf("%s/lxc_config.h", testEPDir))
+		os.RemoveAll(fmt.Sprintf("%s/ep_config.h", testEPDir))
 		time.Sleep(1 * time.Second)
 		os.RemoveAll(testEPDir)
 		os.RemoveAll(fmt.Sprintf("%s_backup", testEPDir))

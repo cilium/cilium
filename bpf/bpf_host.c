@@ -5,7 +5,13 @@
 #include <bpf/api.h>
 
 #include <node_config.h>
-#include <netdev_config.h>
+#ifdef POD_ENDPOINT
+# include <netdev_config.h>
+#else
+# include <ep_config.h>
+# define EVENT_SOURCE HOST_EP_ID
+#endif
+
 
 /* These are configuartion options which have a default value in their
  * respective header files and must thus be defined beforehand:
@@ -304,7 +310,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 				 * source as HOST_ID.
 				 */
 #ifndef ENABLE_EXTRA_HOST_DEV
-				if (sec_label != HOST_ID)
+				if (from_host && sec_label != HOST_ID)
 #endif
 					srcid_from_ipcache = sec_label;
 			}

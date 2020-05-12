@@ -26,6 +26,7 @@ import (
 
 var (
 	defaultIdentity = identity.NewIdentity(42, labels.NewLabelsFromModel([]string{"foo"}))
+	hostIdentity    = identity.NewIdentity(identity.ReservedIdentityHost, labels.LabelHost)
 )
 
 type TestEndpoint struct {
@@ -34,6 +35,7 @@ type TestEndpoint struct {
 	Opts     *option.IntOptions
 	MAC      mac.MAC
 	IPv6     addressing.CiliumIPv6
+	isHost   bool
 }
 
 func NewTestEndpoint() TestEndpoint {
@@ -44,6 +46,18 @@ func NewTestEndpoint() TestEndpoint {
 		Identity: defaultIdentity,
 		MAC:      mac.MAC([]byte{0x02, 0x00, 0x60, 0x0D, 0xF0, 0x0D}),
 		Opts:     opts,
+	}
+}
+
+func NewTestHostEndpoint() TestEndpoint {
+	opts := option.NewIntOptions(&option.OptionLibrary{})
+	opts.SetBool("TEST_OPTION", true)
+	return TestEndpoint{
+		Id:       uint64(identity.ReservedIdentityHost),
+		Identity: hostIdentity,
+		MAC:      mac.MAC([]byte{0x01, 0x02, 0x03, 0x04, 0x05, 0x06}),
+		Opts:     opts,
+		isHost:   true,
 	}
 }
 
@@ -61,6 +75,7 @@ func (e *TestEndpoint) GetIdentity() identity.NumericIdentity   { return e.Ident
 func (e *TestEndpoint) GetSecurityIdentity() *identity.Identity { return e.Identity }
 func (e *TestEndpoint) GetNodeMAC() mac.MAC                     { return e.MAC }
 func (e *TestEndpoint) GetOptions() *option.IntOptions          { return e.Opts }
+func (e *TestEndpoint) IsHost() bool                            { return e.isHost }
 
 func (e *TestEndpoint) IPv4Address() addressing.CiliumIPv4 {
 	addr, _ := addressing.NewCiliumIPv4("192.0.2.3")

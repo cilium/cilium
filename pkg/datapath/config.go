@@ -82,6 +82,9 @@ type CompileTimeConfiguration interface {
 
 	// GetPolicyVerdictLogFilter returns the PolicyVerdictLogFilter for the endpoint
 	GetPolicyVerdictLogFilter() uint32
+
+	// IsHost returns true if the endpoint is the host endpoint.
+	IsHost() bool
 }
 
 // EndpointConfiguration provides datapath implementations a clean interface

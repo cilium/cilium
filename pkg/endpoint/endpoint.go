@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
@@ -196,7 +197,7 @@ type Endpoint struct {
 	// confirm that no existing connection is using them.
 	DNSZombies *fqdn.DNSZombieMappings
 
-	// dnsHistoryTrigger is the trigger to write down the lxc_config.h to make
+	// dnsHistoryTrigger is the trigger to write down the ep_config.h to make
 	// sure that restores when DNS policy is in there are correct
 	dnsHistoryTrigger *trigger.Trigger
 
@@ -308,6 +309,8 @@ type Endpoint struct {
 	exposed chan struct{}
 
 	allocator cache.IdentityAllocator
+
+	isHost bool
 }
 
 // SetAllocator sets the identity allocator for this endpoint.
@@ -332,6 +335,10 @@ func (e *Endpoint) GetIfIndex() int {
 // LXCMac returns the LXCMac for this endpoint.
 func (e *Endpoint) LXCMac() mac.MAC {
 	return e.mac
+}
+
+func (e *Endpoint) IsHost() bool {
+	return e.isHost
 }
 
 // closeBPFProgramChannel closes the channel that signals whether the endpoint
@@ -441,6 +448,30 @@ func createEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cac
 	ep.SetDefaultOpts(option.Config.Opts)
 
 	return ep
+}
+
+// CreateHostEndpoint creates the endpoint corresponding to the host.
+func CreateHostEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cache.IdentityAllocator) (*Endpoint, error) {
+	ifName := option.Config.HostDevice
+	if option.Config.IsFlannelMasterDeviceSet() {
+		ifName = option.Config.FlannelMasterDevice
+	}
+
+	mac, err := link.GetHardwareAddr(ifName)
+	if err != nil {
+		return nil, err
+	}
+
+	ep := createEndpoint(owner, proxy, allocator, 0, ifName)
+	ep.isHost = true
+	ep.nodeMAC = mac
+	ep.DatapathConfiguration = models.EndpointDatapathConfiguration{
+		RequireEgressProg: true,
+	}
+
+	ep.setState(StateWaitingForIdentity, "Endpoint creation")
+
+	return ep, nil
 }
 
 // GetID returns the endpoint's ID as a 64-bit unsigned integer.
@@ -750,6 +781,9 @@ func parseEndpoint(ctx context.Context, owner regeneration.Owner, strEp string) 
 	ctx, cancel := context.WithCancel(ctx)
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
+
+	// If host label is present, it's the host endpoint.
+	ep.isHost = ep.HasLabels(labels.LabelHost)
 
 	// We need to check for nil in Status, CurrentStatuses and Log, since in
 	// some use cases, status will be not nil and Cilium will eventually
@@ -2033,7 +2067,7 @@ func (e *Endpoint) syncEndpointHeaderFile(reasons []string) {
 }
 
 // SyncEndpointHeaderFile it bumps the current DNS History information for the
-// endpoint in the lxc_config.h file.
+// endpoint in the ep_config.h file.
 func (e *Endpoint) SyncEndpointHeaderFile() error {
 	if err := e.lockAlive(); err != nil {
 		// endpoint was removed in the meanwhile, return

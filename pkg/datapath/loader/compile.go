@@ -50,6 +50,13 @@ const (
 	endpointObj      = endpointPrefix + ".o"
 	endpointObjDebug = endpointPrefix + ".dbg.o"
 	endpointAsm      = endpointPrefix + string(outputAssembly)
+
+	hostEndpointPrefix       = "bpf_host"
+	hostEndpointNetdevPrefix = "bpf_netdev_"
+	hostEndpointProg         = hostEndpointPrefix + "." + string(outputSource)
+	hostEndpointObj          = hostEndpointPrefix + ".o"
+	hostEndpointObjDebug     = hostEndpointPrefix + ".dbg.o"
+	hostEndpointAsm          = hostEndpointPrefix + string(outputAssembly)
 )
 
 var (
@@ -112,9 +119,31 @@ var (
 			OutputType: outputSource,
 		},
 	}
-	datapathProg = &progInfo{
+	debugHostProgs = []*progInfo{
+		{
+			Source:     hostEndpointProg,
+			Output:     hostEndpointObjDebug,
+			OutputType: outputObject,
+		},
+		{
+			Source:     hostEndpointProg,
+			Output:     hostEndpointAsm,
+			OutputType: outputAssembly,
+		},
+		{
+			Source:     hostEndpointProg,
+			Output:     hostEndpointProg,
+			OutputType: outputSource,
+		},
+	}
+	epProg = &progInfo{
 		Source:     endpointProg,
 		Output:     endpointObj,
+		OutputType: outputObject,
+	}
+	hostEpProg = &progInfo{
+		Source:     hostEndpointProg,
+		Output:     hostEndpointObj,
 		OutputType: outputObject,
 	}
 )
@@ -291,7 +320,7 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 // * Preprocessed C
 // * Assembly
 // * Object compiled with debug symbols
-func compileDatapath(ctx context.Context, dirs *directoryInfo, debug bool, logger *logrus.Entry) error {
+func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost, debug bool, logger *logrus.Entry) error {
 	scopedLog := logger.WithField(logfields.Debug, debug)
 
 	versionCmd := exec.CommandContext(ctx, compiler, "--version")
@@ -311,7 +340,11 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, debug bool, logge
 
 	// Write out assembly and preprocessing files for debugging purposes
 	if debug {
-		for _, p := range debugProgs {
+		progs := debugProgs
+		if isHost {
+			progs = debugHostProgs
+		}
+		for _, p := range progs {
 			if err := compile(ctx, p, dirs, debug); err != nil {
 				// Only log an error here if the context was not canceled or not
 				// timed out; this log message should only represent failures
@@ -326,12 +359,16 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, debug bool, logge
 	}
 
 	// Compile the new program
-	if err := compile(ctx, datapathProg, dirs, debug); err != nil {
+	prog := epProg
+	if isHost {
+		prog = hostEpProg
+	}
+	if err := compile(ctx, prog, dirs, debug); err != nil {
 		// Only log an error here if the context was not canceled or not timed
 		// out; this log message should only represent failures with respect to
 		// compiling the program.
 		if ctx.Err() == nil {
-			scopedLog.WithField(logfields.Params, logfields.Repr(datapathProg)).
+			scopedLog.WithField(logfields.Params, logfields.Repr(prog)).
 				WithError(err).Warn("JoinEP: Failed to compile")
 		}
 		return err
@@ -358,12 +395,12 @@ func Compile(ctx context.Context, src string, out string) error {
 }
 
 // compileTemplate compiles a BPF program generating a template object file.
-func compileTemplate(ctx context.Context, out string) error {
+func compileTemplate(ctx context.Context, out string, isHost bool) error {
 	dirs := directoryInfo{
 		Library: option.Config.BpfDir,
 		Runtime: option.Config.StateDir,
 		Output:  out,
 		State:   out,
 	}
-	return compileDatapath(ctx, &dirs, option.Config.BPFCompilationDebug, log)
+	return compileDatapath(ctx, &dirs, isHost, option.Config.BPFCompilationDebug, log)
 }

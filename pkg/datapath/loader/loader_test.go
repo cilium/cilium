@@ -48,6 +48,7 @@ var (
 
 	dirInfo *directoryInfo
 	ep      = testutils.NewTestEndpoint()
+	hostEp  = testutils.NewTestHostEndpoint()
 	bpfDir  = filepath.Join(testutils.CiliumRootDir, "bpf")
 )
 
@@ -155,15 +156,26 @@ func getDirs(tmpDir string) *directoryInfo {
 	}
 }
 
-// TestCompileAndLoad checks that the datapath can be compiled and loaded.
-func (s *LoaderTestSuite) TestCompileAndLoad(c *C) {
+func (s *LoaderTestSuite) testCompileAndLoad(c *C, ep *testutils.TestEndpoint) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 	stats := &metrics.SpanStat{}
 
 	l := &Loader{}
-	err := l.compileAndLoad(ctx, &ep, dirInfo, stats)
+	err := l.compileAndLoad(ctx, ep, dirInfo, stats)
 	c.Assert(err, IsNil)
+}
+
+// TestCompileAndLoadDefaultEndpoint checks that the datapath can be compiled
+// and loaded.
+func (s *LoaderTestSuite) TestCompileAndLoadDefaultEndpoint(c *C) {
+	s.testCompileAndLoad(c, &ep)
+}
+
+// TestCompileAndLoadHostEndpoint is the same as
+// TestCompileAndLoadDefaultEndpoint, but for the host endpoint.
+func (s *LoaderTestSuite) TestCompileAndLoadHostEndpoint(c *C) {
+	s.testCompileAndLoad(c, &hostEp)
 }
 
 // TestReload compiles and attaches the datapath multiple times.
@@ -171,7 +183,7 @@ func (s *LoaderTestSuite) TestReload(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
-	err := compileDatapath(ctx, dirInfo, true, log)
+	err := compileDatapath(ctx, dirInfo, false, true, log)
 	c.Assert(err, IsNil)
 
 	objPath := fmt.Sprintf("%s/%s", dirInfo.Output, endpointObj)
@@ -183,9 +195,7 @@ func (s *LoaderTestSuite) TestReload(c *C) {
 	c.Assert(err, IsNil)
 }
 
-// TestCompileFailure attempts to compile then cancels the context and ensures
-// that the failure paths may be hit.
-func (s *LoaderTestSuite) TestCompileFailure(c *C) {
+func (s *LoaderTestSuite) testCompileFailure(c *C, ep *testutils.TestEndpoint) {
 	ctx, cancel := context.WithTimeout(context.Background(), contextTimeout)
 	defer cancel()
 
@@ -205,9 +215,21 @@ func (s *LoaderTestSuite) TestCompileFailure(c *C) {
 	var err error
 	stats := &metrics.SpanStat{}
 	for err == nil && time.Now().Before(timeout) {
-		err = l.compileAndLoad(ctx, &ep, dirInfo, stats)
+		err = l.compileAndLoad(ctx, ep, dirInfo, stats)
 	}
 	c.Assert(err, NotNil)
+}
+
+// TestCompileFailureDefaultEndpoint attempts to compile then cancels the
+// context and ensures that the failure paths may be hit.
+func (s *LoaderTestSuite) TestCompileFailureDefaultEndpoint(c *C) {
+	s.testCompileFailure(c, &ep)
+}
+
+// TestCompileFailureHostEndpoint is the same as
+// TestCompileFailureDefaultEndpoint, but for the host endpoint.
+func (s *LoaderTestSuite) TestCompileFailureHostEndpoint(c *C) {
+	s.testCompileFailure(c, &hostEp)
 }
 
 // BenchmarkCompileOnly benchmarks the just the entire compilation process.
@@ -218,7 +240,7 @@ func BenchmarkCompileOnly(b *testing.B) {
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
 		debug := false // Otherwise we compile lots more.
-		if err := compileDatapath(ctx, dirInfo, debug, log); err != nil {
+		if err := compileDatapath(ctx, dirInfo, false, debug, log); err != nil {
 			b.Fatal(err)
 		}
 	}
@@ -246,7 +268,7 @@ func BenchmarkReplaceDatapath(b *testing.B) {
 	ctx, cancel := context.WithTimeout(context.Background(), benchTimeout)
 	defer cancel()
 
-	if err := compileDatapath(ctx, dirInfo, false, log); err != nil {
+	if err := compileDatapath(ctx, dirInfo, false, false, log); err != nil {
 		b.Fatal(err)
 	}
 

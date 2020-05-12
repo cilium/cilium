@@ -44,7 +44,7 @@ const (
 	// BPF code generation to exceed the verifier instruction limit.
 	// It applies to Linux versions that lack support for LPM, ie < v4.11.
 	//
-	// This is based upon the defines in bpf/lxc_config.h, which in turn
+	// This is based upon the defines in bpf/ep_config.h, which in turn
 	// are derived by building the bpf/ directory and running the script
 	// test/bpf/verifier-test.sh, then adjusting the number of unique
 	// prefix lengths until the script passes.

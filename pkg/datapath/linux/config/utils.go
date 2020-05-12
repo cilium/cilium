@@ -50,7 +50,8 @@ func defineIPv6(name string, addr []byte) string {
 	if len(addr) != net.IPv6len {
 		return fmt.Sprintf("/* BUG: bad ip define %s %s */\n", name, common.GoArray2C(addr))
 	}
-	return fmt.Sprintf("DEFINE_IPV6(%s, %s);\n", name, common.GoArray2C(addr))
+	return fmt.Sprintf("DEFINE_IPV6(%s, %s);\n#define %s_V\n",
+		name, common.GoArray2C(addr), name)
 }
 
 func dumpRaw(name string, addr []byte) string {

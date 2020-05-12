@@ -193,3 +193,7 @@ func (ep *epInfoCache) RequireEndpointRoute() bool {
 func (ep *epInfoCache) GetPolicyVerdictLogFilter() uint32 {
 	return ep.policyVerdictLogFilter
 }
+
+func (ep *epInfoCache) IsHost() bool {
+	return ep.endpoint.IsHost()
+}
