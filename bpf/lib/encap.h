@@ -22,12 +22,12 @@ encap_and_redirect_nomark_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	 * cb[4] hints will not survive a veth pair xmit to ingress
 	 * however so below encap_and_redirect_ipsec will not work.
 	 * Instead pass hints via cb[0], cb[4] (cb is not cleared
-	 * by dev_ctx_forward) and catch hints with bpf_hostdev_ingress
+	 * by dev_ctx_forward) and catch hints with bpf_host
 	 * prog that will populate mark/cb as expected by xfrm and 2nd
-	 * traversal into bpf_netdev. Remember we can't use cb[0-3]
+	 * traversal into bpf_host. Remember we can't use cb[0-3]
 	 * in both cases because xfrm layer would overwrite them. We
 	 * use cb[4] here so it doesn't need to be reset by
-	 * bpf_hostdev_ingress.
+	 * bpf_host.
 	 */
 	ctx_store_meta(ctx, CB_ENCRYPT_MAGIC, or_encrypt_key(key));
 	ctx_store_meta(ctx, CB_ENCRYPT_IDENTITY, seclabel);
@@ -43,7 +43,7 @@ encap_and_redirect_ipsec(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	 * MARK_MAGIC_ENCRYPT bit set. During the process though we
 	 * lose the lxc context (seclabel and tunnel endpoint). The
 	 * tunnel endpoint can be looked up from daddr but the sec
-	 * label is stashed in the mark and extracted in bpf_netdev
+	 * label is stashed in the mark and extracted in bpf_host
 	 * to send ctx onto tunnel for encap.
 	 */
 	set_encrypt_key_mark(ctx, key);
