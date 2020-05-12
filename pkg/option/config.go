@@ -1234,8 +1234,7 @@ type DaemonConfig struct {
 	// left behind by previous Cilium runs.
 	EnableHostIPRestore bool
 
-	KeepConfig    bool // Keep configuration of existing endpoints when starting up.
-	KeepTemplates bool // Do not overwrite the template files
+	KeepConfig bool // Keep configuration of existing endpoints when starting up.
 
 	// AllowLocalhost defines when to allows the local stack to local endpoints
 	// values: { auto | always | policy }
@@ -2219,7 +2218,6 @@ func (c *DaemonConfig) Populate() {
 	c.K8sEventHandover = viper.GetBool(K8sEventHandover)
 	c.K8sWatcherQueueSize = uint(viper.GetInt(K8sWatcherQueueSize))
 	c.K8sWatcherEndpointSelector = viper.GetString(K8sWatcherEndpointSelector)
-	c.KeepTemplates = viper.GetBool(KeepBPFTemplates)
 	c.KeepConfig = viper.GetBool(KeepConfig)
 	c.KVStore = viper.GetString(KVStore)
 	c.KVstoreLeaseTTL = viper.GetDuration(KVstoreLeaseTTL)
