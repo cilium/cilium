@@ -33,10 +33,16 @@ const (
 	// CHeaderFileName is the name of the C header file for BPF programs for a
 	// particular endpoint.
 	CHeaderFileName = "ep_config.h"
+	// OldCHeaderFileName is the previous name of the C header file for BPF
+	// programs for a particular endpoint. It can be removed once Cilium v1.8
+	// is the oldest supported version.
+	OldCHeaderFileName = "lxc_config.h"
 	// NetdevHeaderFileName is the name of the header file used for bpf_host.c and bpf_overlay.c.
 	NetdevHeaderFileName = "netdev_config.h"
 	// PreFilterHeaderFileName is the name of the header file used for bpf_xdp.c.
 	PreFilterHeaderFileName = "filter_config.h"
+	// HostObjFileName is the name of the host object file.
+	HostObjFileName = "bpf_host.o"
 	// CiliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
 	// base64 form.
 	CiliumCHeaderPrefix = "CILIUM_BASE64_"
