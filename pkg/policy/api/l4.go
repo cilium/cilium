@@ -67,8 +67,8 @@ func (p PortProtocol) Covers(other PortProtocol) bool {
 
 // Secret is a reference to a secret, backed by k8s or local file system.
 type Secret struct {
-	// Namespace is the namespace in which the secret exists.
-	// Context of use determines the default value if left out (e.g., "default")
+	// Namespace is the namespace in which the secret exists. Context of use
+	// determines the default value if left out (e.g., "default").
 	//
 	// +optional
 	Namespace string `json:"namespace,omitempty"`
@@ -81,26 +81,28 @@ type Secret struct {
 // or via filepath. If both are set, directory is given priority over
 // k8sSecrets.
 type TLSContext struct {
-	// Secret is the secret that contains the certificates and private key for the TLS context.
+	// Secret is the secret that contains the certificates and private key for
+	// the TLS context.
 	// By default, Cilium will search in this secret for the following items:
-	//  - 'ca.crt' - Which represents the trusted CA to verify remote source.
+	//  - 'ca.crt'  - Which represents the trusted CA to verify remote source.
 	//  - 'tls.crt' - Which represents the public key certificate.
-	//  - 'tls.key' - Which represents the private key matching the public key certificate.
+	//  - 'tls.key' - Which represents the private key matching the public key
+	//                certificate.
 	Secret *Secret `json:"secret,omitempty"`
 
 	// TrustedCA is the file name or k8s secret item name for the trusted CA.
-	// If omitted, 'ca.crt' is assumed, if it exists.
-	// If given, the item must exist.
+	// If omitted, 'ca.crt' is assumed, if it exists. If given, the item must
+	// exist.
 	TrustedCA string `json:"trustedCA,omitempty"`
 
-	// Certificate is the file name or k8s secret item name for the certificate chain.
-	// If omitted, 'tls.crt' is assumed, if it exists.
-	// If given, the item must exist.
+	// Certificate is the file name or k8s secret item name for the certificate
+	// chain. If omitted, 'tls.crt' is assumed, if it exists. If given, the
+	// item must exist.
 	Certificate string `json:"certificate,omitempty"`
 
-	// PrivateKey is the file name or k8s secret item name for the private key matching the certificate chain.
-	// If omitted, 'tls.key' is assumed, if it exists.
-	// If given, the item must exist.
+	// PrivateKey is the file name or k8s secret item name for the private key
+	// matching the certificate chain. If omitted, 'tls.key' is assumed, if it
+	// exists. If given, the item must exist.
 	PrivateKey string `json:"privateKey,omitempty"`
 }
 
@@ -159,12 +161,12 @@ type L7Rules struct {
 	// +optional
 	DNS []PortRuleDNS `json:"dns,omitempty"`
 
-	// Name of the L7 protocol for which the Key-value pair rules apply
+	// Name of the L7 protocol for which the Key-value pair rules apply.
 	//
 	// +optional
 	L7Proto string `json:"l7proto,omitempty"`
 
-	// Key-value pair rules
+	// Key-value pair rules.
 	//
 	// +optional
 	L7 []PortRuleL7 `json:"l7,omitempty"`
