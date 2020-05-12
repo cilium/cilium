@@ -40,6 +40,6 @@ if [ "${#node_pools[@]}" -ne 1 ] ; then
   exit 1
 fi
 
-gcloud container clusters resize --project "${project}" --region "${region}" --node-pool "${node_pools[1]}" --num-nodes 2 --quiet "${cluster_uri}"
+gcloud container clusters resize --project "${project}" --region "${region}" --node-pool "${node_pools[1]}" --num-nodes 0 --quiet "${cluster_uri}"
 
 rm -f "${script_dir}/cluster-uri" "${script_dir}/cluster-name" "${script_dir}/cluster-version"
