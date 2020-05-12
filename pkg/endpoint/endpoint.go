@@ -402,19 +402,31 @@ func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup)
 
 // NewEndpointWithState creates a new endpoint useful for testing purposes
 func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, state string) *Endpoint {
+	ep := createEndpoint(owner, proxy, allocator, ID, "")
+	ep.state = state
+	ep.eventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize)
+
+	ep.UpdateLogger(nil)
+
+	ep.eventQueue.Run()
+
+	return ep
+}
+
+func createEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cache.IdentityAllocator, ID uint16, ifName string) *Endpoint {
 	ep := &Endpoint{
 		owner:           owner,
-		proxy:           proxy,
 		ID:              ID,
+		proxy:           proxy,
+		ifName:          ifName,
 		OpLabels:        pkgLabels.NewOpLabels(),
-		status:          NewEndpointStatus(),
 		DNSHistory:      fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		DNSZombies:      fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes),
-		state:           state,
+		state:           "",
+		status:          NewEndpointStatus(),
 		hasBPFProgram:   make(chan struct{}, 0),
-		controllers:     controller.NewManager(),
-		eventQueue:      eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", ID), option.Config.EndpointQueueSize),
 		desiredPolicy:   policy.NewEndpointPolicy(owner.GetPolicyRepository()),
+		controllers:     controller.NewManager(),
 		regenFailedChan: make(chan struct{}, 1),
 		allocator:       allocator,
 		exposed:         make(chan struct{}),
@@ -423,12 +435,10 @@ func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocat
 	ctx, cancel := context.WithCancel(context.Background())
 	ep.aliveCancel = cancel
 	ep.aliveCtx = ctx
+
 	ep.realizedPolicy = ep.desiredPolicy
 
 	ep.SetDefaultOpts(option.Config.Opts)
-	ep.UpdateLogger(nil)
-
-	ep.eventQueue.Run()
 
 	return ep
 }
