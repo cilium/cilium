@@ -442,8 +442,7 @@ This mode expects:
 - A test focus with ``--focus``. ``--focus="K8s*"`` selects all kubernetes tests.
 
 - Cilium images as full URLs specified with the ``--cilium.image`` and
-  ``--cilium.operator-image`` options, with matching ``CILIUM_IMAGE`` and
-  ``CILIUM_OPERATOR_IMAGE`` environment variables.
+  ``--cilium.operator-image`` options.
 
 - A working kubeconfig with the ``--cilium.kubeconfig`` option
 
@@ -461,7 +460,7 @@ An example invocation is
 
 ::
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.13 CILIUM_IMAGE="quay.io/cilium/cilium:latest" CILIUM_OPERATOR_IMAGE="quay.io/cilium/operator:latest" ginkgo --focus="K8s*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium:latest" -cilium.operator-image="quay.io/cilium/operator:latest" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=eks K8S_VERSION=1.13 ginkgo --focus="K8s*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium:latest" -cilium.operator-image="quay.io/cilium/operator:latest" -cilium.passCLIEnvironment=true
 
 GKE (experimental)
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -483,7 +482,7 @@ cluster.
 
 ::
 
-  CNI_INTEGRATION=gke K8S_VERSION=1.13 CILIUM_IMAGE="quay.io/cilium/cilium:latest" CILIUM_OPERATOR_IMAGE="quay.io/cilium/operator:latest" ginkgo -v --focus="K8sDemo*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium:latest" -cilium.operator-image="quay.io/cilium/operator:latest" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=gke K8S_VERSION=1.13 ginkgo -v --focus="K8sDemo*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium:latest" -cilium.operator-image="quay.io/cilium/operator:latest" -cilium.passCLIEnvironment=true
 
 .. note:: The kubernetes version defaults to 1.13 but can be configured with
           versions between 1.13 and 1.15. Check with ``kubectl version`` 
@@ -501,7 +500,7 @@ cluster.
 
 ::
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.14 CILIUM_IMAGE="quay.io/cilium/cilium:latest" CILIUM_OPERATOR_IMAGE="quay.io/cilium/operator:latest" ginkgo -v --focus="K8sDemo*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium:latest" -cilium.operator-image="quay.io/cilium/operator:latest" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=eks K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="quay.io/cilium/cilium:latest" -cilium.operator-image="quay.io/cilium/operator:latest" -cilium.passCLIEnvironment=true
 
 Be sure to pass ``--cilium.passCLIEnvironment=true`` to allow kubectl to invoke ``aws-iam-authenticator``
 
