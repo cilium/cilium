@@ -17,6 +17,7 @@ package k8sTest
 import (
 	"context"
 	"fmt"
+	"net"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/annotation"
@@ -39,9 +40,10 @@ var _ = Describe("K8sHubbleTest", func() {
 
 		demoPath string
 
-		app1Service = "app1-service"
-		app1Labels  = "id=app1,zgroup=testapp"
-		apps        = []string{helpers.App1, helpers.App2, helpers.App3}
+		app1Service    = "app1-service"
+		app1Labels     = "id=app1,zgroup=testapp"
+		apps           = []string{helpers.App1, helpers.App2, helpers.App3}
+		prometheusPort = "9091"
 	)
 
 	addVisibilityAnnotation := func(ns, podLabels, direction, port, l4proto, l7proto string) {
@@ -84,7 +86,9 @@ var _ = Describe("K8sHubbleTest", func() {
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-			"global.hubble.cli.enabled": "true",
+			"global.hubble.cli.enabled":     "true",
+			"global.hubble.metricsServer":   fmt.Sprintf(":%s", prometheusPort),
+			"global.hubble.metrics.enabled": `"{dns:query;ignoreAAAA,drop,tcp,flow,port-distribution,icmp,http}"`,
 		})
 
 		err := kubectl.WaitforPods(hubbleNamespace, hubbleSelector, helpers.HelperTimeout)
@@ -156,6 +160,13 @@ var _ = Describe("K8sHubbleTest", func() {
 
 			err := follow.WaitUntilMatchFilterLineTimeout(`{$.Type}`, "L3_L4", helpers.ShortCommandTimeout)
 			Expect(err).To(BeNil(), fmt.Sprintf("hubble observe query timed out on %q", follow.OutputPrettyPrint()))
+
+			// Basic check for L4 Prometheus metrics.
+			_, nodeIP := kubectl.GetNodeInfo(helpers.K8s1)
+			metricsUrl := fmt.Sprintf("%s/metrics", net.JoinHostPort(nodeIP, prometheusPort))
+			res = kubectl.ExecPodCmd(hubbleNamespace, hubblePodK8s1, helpers.CurlFail(metricsUrl))
+			res.ExpectSuccess("%s/%s cannot curl metrics %q", hubblePodK8s1, hubblePodK8s1, app1ClusterIP)
+			res.ExpectContains(`hubble_flows_processed_total{subtype="to-endpoint",type="Trace",verdict="FORWARDED"}`)
 		})
 
 		It("Test L7 Flow", func() {
@@ -174,6 +185,13 @@ var _ = Describe("K8sHubbleTest", func() {
 
 			err := follow.WaitUntilMatchFilterLineTimeout(`{$.Type}`, "L7", helpers.ShortCommandTimeout)
 			Expect(err).To(BeNil(), fmt.Sprintf("hubble observe query timed out on %q", follow.OutputPrettyPrint()))
+
+			// Basic check for L7 Prometheus metrics.
+			_, nodeIP := kubectl.GetNodeInfo(helpers.K8s1)
+			metricsUrl := fmt.Sprintf("%s/metrics", net.JoinHostPort(nodeIP, prometheusPort))
+			res = kubectl.ExecPodCmd(hubbleNamespace, hubblePodK8s1, helpers.CurlFail(metricsUrl))
+			res.ExpectSuccess("%s/%s cannot curl metrics %q", hubbleNamespace, hubblePodK8s1, app1ClusterIP)
+			res.ExpectContains(`hubble_flows_processed_total{subtype="HTTP",type="L7",verdict="FORWARDED"}`)
 		})
 	})
 })
