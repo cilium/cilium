@@ -59,14 +59,20 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 				UpdateFunc: func(oldObj, newObj interface{}) {
 					var valid, equal bool
 					defer func() { k.K8sEventReceived(metricCiliumNode, metricUpdate, valid, equal) }()
-					if ciliumNode := k8s.ObjToCiliumNode(newObj); ciliumNode != nil {
-						valid = true
-						n := nodeTypes.ParseCiliumNode(ciliumNode)
-						if n.IsLocal() {
-							return
+					if oldCN := k8s.ObjToCiliumNode(oldObj); oldCN != nil {
+						if ciliumNode := k8s.ObjToCiliumNode(newObj); ciliumNode != nil {
+							valid = true
+							if oldCN.DeepEqual(ciliumNode) {
+								equal = true
+								return
+							}
+							n := nodeTypes.ParseCiliumNode(ciliumNode)
+							if n.IsLocal() {
+								return
+							}
+							k.nodeDiscoverManager.NodeUpdated(n)
+							k.K8sEventProcessed(metricCiliumNode, metricUpdate, true)
 						}
-						k.nodeDiscoverManager.NodeUpdated(n)
-						k.K8sEventProcessed(metricCiliumNode, metricUpdate, true)
 					}
 				},
 				DeleteFunc: func(obj interface{}) {
