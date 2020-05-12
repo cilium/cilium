@@ -85,10 +85,11 @@ type PortRule struct {
 	// This constraint is ignored if the matched request message type
 	// doesn't contain any topic. Maximum size of Topic can be 249
 	// characters as per recent Kafka spec and allowed characters are
-	// a-z, A-Z, 0-9, -, . and _
+	// a-z, A-Z, 0-9, -, . and _.
+	//
 	// Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
 	// version the length was changed from 255 to 249. For compatibility
-	// reasons we are using 255
+	// reasons we are using 255.
 	//
 	// If omitted or empty, all topics are allowed.
 	//

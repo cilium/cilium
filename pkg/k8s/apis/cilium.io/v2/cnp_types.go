@@ -32,10 +32,10 @@ import (
 
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// CiliumNetworkPolicy is a Kubernetes third-party resource with an extended version
-// of NetworkPolicy
 // +deepequal-gen:private-method=true
+
+// CiliumNetworkPolicy is a Kubernetes third-party resource with an extended
+// version of NetworkPolicy.
 type CiliumNetworkPolicy struct {
 	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
@@ -93,8 +93,9 @@ func sharedCNPDeepEqual(in, other *CiliumNetworkPolicy) bool {
 	return comparator.MapStringEquals(in.GetAnnotations(), other.GetAnnotations())
 }
 
-// CiliumNetworkPolicyStatus is the status of a Cilium policy rule
 // +deepequal-gen=true
+
+// CiliumNetworkPolicyStatus is the status of a Cilium policy rule.
 type CiliumNetworkPolicyStatus struct {
 	// Nodes is the Cilium policy status for each node
 	Nodes map[string]CiliumNetworkPolicyNodeStatus `json:"nodes,omitempty"`
@@ -104,9 +105,10 @@ type CiliumNetworkPolicyStatus struct {
 	DerivativePolicies map[string]CiliumNetworkPolicyNodeStatus `json:"derivativePolicies,omitempty"`
 }
 
-// CiliumNetworkPolicyNodeStatus is the status of a Cilium policy rule for a
-// specific node
 // +deepequal-gen=true
+
+// CiliumNetworkPolicyNodeStatus is the status of a Cilium policy rule for a
+// specific node.
 type CiliumNetworkPolicyNodeStatus struct {
 	// OK is true when the policy has been parsed and imported successfully
 	// into the in-memory policy repository on the node.
@@ -138,7 +140,7 @@ type CiliumNetworkPolicyNodeStatus struct {
 }
 
 // CreateCNPNodeStatus returns a CiliumNetworkPolicyNodeStatus created from the
-// provided fields
+// provided fields.
 func CreateCNPNodeStatus(enforcing, ok bool, cnpError error, rev uint64, annotations map[string]string) CiliumNetworkPolicyNodeStatus {
 	cnpns := CiliumNetworkPolicyNodeStatus{
 		Enforcing:   enforcing,
@@ -177,7 +179,7 @@ func (r *CiliumNetworkPolicy) GetPolicyStatus(nodeName string) CiliumNetworkPoli
 	return r.Status.Nodes[nodeName]
 }
 
-// SetPolicyStatus sets the given policy status for the given nodes' map
+// SetPolicyStatus sets the given policy status for the given nodes' map.
 func (r *CiliumNetworkPolicy) SetPolicyStatus(nodeName string, cnpns CiliumNetworkPolicyNodeStatus) {
 	if r.Status.Nodes == nil {
 		r.Status.Nodes = map[string]CiliumNetworkPolicyNodeStatus{}
@@ -279,10 +281,10 @@ func (r *CiliumNetworkPolicy) RequiresDerivative() bool {
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// CiliumNetworkPolicyList is a list of CiliumNetworkPolicy objects
 // +k8s:openapi-gen=false
 // +deepequal-gen=false
+
+// CiliumNetworkPolicyList is a list of CiliumNetworkPolicy objects.
 type CiliumNetworkPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`

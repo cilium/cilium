@@ -110,11 +110,11 @@ const (
 	LabelSourceCiliumGenerated = "cilium-generated"
 )
 
-// Label is the cilium's representation of a container label.
+// Label is the Cilium's representation of a container label.
 type Label struct {
 	Key   string `json:"key"`
 	Value string `json:"value,omitempty"`
-	// Source can be one of the values present in const.go (e.g.: LabelSourceContainer)
+	// Source can be one of the above values (e.g.: LabelSourceContainer).
 	Source string `json:"source"`
 }
 
