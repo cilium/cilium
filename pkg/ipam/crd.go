@@ -133,12 +133,20 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 			UpdateFunc: func(oldObj, newObj interface{}) {
 				var valid, equal bool
 				defer func() { k8sEventReg.K8sEventReceived("CiliumNode", "update", valid, equal) }()
-				if node, ok := newObj.(*ciliumv2.CiliumNode); ok {
-					valid = true
-					store.updateLocalNodeResource(node.DeepCopy())
-					k8sEventReg.K8sEventProcessed("CiliumNode", "update", true)
+				if oldNode, ok := oldObj.(*ciliumv2.CiliumNode); ok {
+					if newNode, ok := newObj.(*ciliumv2.CiliumNode); ok {
+						if oldNode.DeepEqual(newNode) {
+							equal = true
+							return
+						}
+						valid = true
+						store.updateLocalNodeResource(newNode.DeepCopy())
+						k8sEventReg.K8sEventProcessed("CiliumNode", "update", true)
+					} else {
+						log.Warningf("Unknown CiliumNode object type %T received: %+v", oldNode, oldNode)
+					}
 				} else {
-					log.Warningf("Unknown CiliumNode object type %s received: %+v", reflect.TypeOf(newObj), newObj)
+					log.Warningf("Unknown CiliumNode object type %T received: %+v", oldNode, oldNode)
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
@@ -152,10 +160,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 				k8sEventReg.K8sEventReceived("CiliumNode", "delete", true, false)
 			},
 		},
-		func(obj interface{}) interface{} {
-			cnp, _ := obj.(*ciliumv2.CiliumNode)
-			return cnp
-		},
+		nil,
 		ciliumNodeStore,
 	)
 

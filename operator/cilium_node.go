@@ -53,9 +53,14 @@ func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler) {
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if node := k8s.ObjToCiliumNode(newObj); node != nil {
-					// node is deep copied before it is stored in pkg/aws/eni
-					nodeManager.Update(node)
+				if oldNode := k8s.ObjToCiliumNode(oldObj); oldNode != nil {
+					if node := k8s.ObjToCiliumNode(newObj); node != nil {
+						if oldNode.DeepEqual(node) {
+							return
+						}
+						// node is deep copied before it is stored in pkg/aws/eni
+						nodeManager.Update(node)
+					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
