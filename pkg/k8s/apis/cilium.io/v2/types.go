@@ -554,17 +554,19 @@ type EndpointIdentity struct {
 // after that. It deletes its entry when no longer using this identity.
 // cilium-operator uses the list of nodes in status to reference count
 // users of this identity, and to expire stale usage.
-// +deepequal-gen=false
 type CiliumIdentity struct {
 	// +k8s:openapi-gen=false
+	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
 	// +k8s:openapi-gen=false
+	// +deepequal-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
 	// SecurityLabels is the source-of-truth set of labels for this identity.
 	SecurityLabels map[string]string `json:"security-labels"`
 
 	// Status is deprecated and no longer used, it will be removed in Cilium 1.9
+	// +deepequal-gen=false
 	Status IdentityStatus `json:"status"`
 }
 

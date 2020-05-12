@@ -24,7 +24,6 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
@@ -39,7 +38,7 @@ var identityStore cache.Store
 
 // deleteIdentity deletes an identity. It includes the resource version and
 // will error if the object has since been changed.
-func deleteIdentity(identity *types.Identity) error {
+func deleteIdentity(identity *v2.CiliumIdentity) error {
 	err := ciliumK8sClient.CiliumV2().CiliumIdentities().Delete(
 		context.TODO(),
 		identity.Name,
@@ -78,7 +77,7 @@ func identityGCIteration(ctx context.Context) {
 
 	timeNow := time.Now()
 	for _, identityObject := range identityStore.List() {
-		identity, ok := identityObject.(*types.Identity)
+		identity, ok := identityObject.(*v2.CiliumIdentity)
 		if !ok {
 			log.WithField(logfields.Object, identityObject).
 				Errorf("Saw %T object while expecting k8s/types.Identity", identityObject)
@@ -131,23 +130,28 @@ func startManagingK8sIdentities() {
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				if identity, ok := obj.(*types.Identity); ok {
+				if identity, ok := obj.(*v2.CiliumIdentity); ok {
 					// A new identity is always alive
 					identityHeartbeat.MarkAlive(identity.Name, time.Now())
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if identity, ok := newObj.(*types.Identity); ok {
-					// Any update to the identity marks it as alive
-					identityHeartbeat.MarkAlive(identity.Name, time.Now())
+				if oldIdty, ok := oldObj.(*v2.CiliumIdentity); ok {
+					if newIdty, ok := newObj.(*v2.CiliumIdentity); ok {
+						if oldIdty.DeepEqual(newIdty) {
+							return
+						}
+						// Any update to the identity marks it as alive
+						identityHeartbeat.MarkAlive(newIdty.Name, time.Now())
+					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				identity, ok := obj.(*types.Identity)
+				identity, ok := obj.(*v2.CiliumIdentity)
 				if !ok {
 					deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
 					if ok {
-						identity, ok = deletedObj.Obj.(*types.Identity)
+						identity, ok = deletedObj.Obj.(*v2.CiliumIdentity)
 					}
 					if !ok {
 						return
@@ -161,7 +165,7 @@ func startManagingK8sIdentities() {
 				identityHeartbeat.Delete(identity.Name)
 			},
 		},
-		types.ConvertToIdentity,
+		nil,
 		identityStore,
 	)
 

@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
@@ -187,13 +186,13 @@ func (c *crdLock) Comparator() interface{} {
 
 // get returns the first identity found for the given set of labels as we might
 // have duplicated entries identities for the same set of labels.
-func (c *crdBackend) get(ctx context.Context, key allocator.AllocatorKey) *types.Identity {
+func (c *crdBackend) get(ctx context.Context, key allocator.AllocatorKey) *v2.CiliumIdentity {
 	if c.Store == nil {
 		return nil
 	}
 
 	for _, identityObject := range c.Store.List() {
-		identity, ok := identityObject.(*types.Identity)
+		identity, ok := identityObject.(*v2.CiliumIdentity)
 		if !ok {
 			return nil
 		}
@@ -229,16 +228,14 @@ func (c *crdBackend) GetIfLocked(ctx context.Context, key allocator.AllocatorKey
 
 // getById fetches the identities from the local store. Returns a nil `err` and
 // false `exists` if an Identity is not found for the given `id`.
-func (c *crdBackend) getById(ctx context.Context, id idpool.ID) (idty *types.Identity, exists bool, err error) {
+func (c *crdBackend) getById(ctx context.Context, id idpool.ID) (idty *v2.CiliumIdentity, exists bool, err error) {
 	if c.Store == nil {
 		return nil, false, fmt.Errorf("store is not available yet")
 	}
 
-	identityTemplate := &types.Identity{
-		CiliumIdentity: &v2.CiliumIdentity{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: id.String(),
-			},
+	identityTemplate := &v2.CiliumIdentity{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: id.String(),
 		},
 	}
 
@@ -250,7 +247,7 @@ func (c *crdBackend) getById(ctx context.Context, id idpool.ID) (idty *types.Ide
 		return nil, exists, nil
 	}
 
-	identity, ok := obj.(*types.Identity)
+	identity, ok := obj.(*v2.CiliumIdentity)
 	if !ok {
 		return nil, false, fmt.Errorf("invalid object")
 	}
@@ -291,16 +288,21 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				if identity, ok := obj.(*types.Identity); ok {
+				if identity, ok := obj.(*v2.CiliumIdentity); ok {
 					if id, err := strconv.ParseUint(identity.Name, 10, 64); err == nil {
 						handler.OnAdd(idpool.ID(id), c.KeyType.PutKeyFromMap(identity.SecurityLabels))
 					}
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if identity, ok := newObj.(*types.Identity); ok {
-					if id, err := strconv.ParseUint(identity.Name, 10, 64); err == nil {
-						handler.OnModify(idpool.ID(id), c.KeyType.PutKeyFromMap(identity.SecurityLabels))
+				if oldIdentity, ok := newObj.(*v2.CiliumIdentity); ok {
+					if newIdentity, ok := newObj.(*v2.CiliumIdentity); ok {
+						if oldIdentity.DeepEqual(newIdentity) {
+							return
+						}
+						if id, err := strconv.ParseUint(newIdentity.Name, 10, 64); err == nil {
+							handler.OnModify(idpool.ID(id), c.KeyType.PutKeyFromMap(newIdentity.SecurityLabels))
+						}
 					}
 				}
 			},
@@ -311,7 +313,7 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 					obj = deleteObj.Obj
 				}
 
-				if identity, ok := obj.(*types.Identity); ok {
+				if identity, ok := obj.(*v2.CiliumIdentity); ok {
 					if id, err := strconv.ParseUint(identity.Name, 10, 64); err == nil {
 						handler.OnDelete(idpool.ID(id), c.KeyType.PutKeyFromMap(identity.SecurityLabels))
 					}
@@ -320,7 +322,7 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 				}
 			},
 		},
-		types.ConvertToIdentity,
+		nil,
 		c.Store,
 	)
 
