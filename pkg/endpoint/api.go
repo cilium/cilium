@@ -305,8 +305,17 @@ func (e *Endpoint) GetHealthModel() *models.EndpointHealth {
 // Must be called with e.Mutex locked.
 func (e *Endpoint) getNamedPortsModel() (np models.NamedPorts) {
 	k8sPorts := e.k8sPorts
+	// keep named ports ordered to avoid the unnecessary updates to
+	// kube-apiserver
+	names := make([]string, 0, len(k8sPorts))
+	for name := range k8sPorts {
+		names = append(names, name)
+	}
+	sort.Strings(names)
+
 	np = make(models.NamedPorts, 0, len(k8sPorts))
-	for name, value := range k8sPorts {
+	for _, name := range names {
+		value := k8sPorts[name]
 		np = append(np, &models.Port{
 			Name:     name,
 			Port:     value.Port,
