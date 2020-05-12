@@ -5,7 +5,7 @@ include ../Makefile.defs
 
 # Build all ipam managers in development environments
 ifeq ($(PKG_BUILD),)
-	EXTRA_GO_BUILD_FLAGS += -tags operator_aws,operator_azure,ipam_provider_operator
+	EXTRA_GO_BUILD_FLAGS += -tags ipam_provider_aws,ipam_provider_azure,ipam_provider_operator
 endif
 
 TARGET := cilium-operator

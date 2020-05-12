@@ -6,7 +6,7 @@ ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/operator
 ARG NOSTRIP
 ARG LOCKDEBUG
-RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG EXTRA_GO_BUILD_FLAGS="-tags operator_aws,operator_azure,ipam_provider_operator"
+RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG EXTRA_GO_BUILD_FLAGS="-tags ipam_provider_aws,ipam_provider_azure,ipam_provider_operator"
 
 FROM docker.io/library/alpine:3.9.3 as certs
 ARG CILIUM_SHA=""
