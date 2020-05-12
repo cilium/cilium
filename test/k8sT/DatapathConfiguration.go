@@ -34,20 +34,13 @@ import (
 var _ = Describe("K8sDatapathConfig", func() {
 
 	var (
-		kubectl      *helpers.Kubectl
-		monitorLog   = "monitor-aggregation.log"
-		privateIface string
-		defaultIface string
-		err          error
+		kubectl    *helpers.Kubectl
+		monitorLog = "monitor-aggregation.log"
 	)
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		deploymentManager.SetKubectl(kubectl)
-		privateIface, err = kubectl.GetPrivateIface()
-		Expect(err).Should(BeNil(), "Cannot determine private iface")
-		defaultIface, err = kubectl.GetDefaultIface()
-		Expect(err).Should(BeNil(), "Cannot determine default iface")
 	})
 
 	BeforeEach(func() {
@@ -272,9 +265,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "Check BPF masquerading", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"global.bpfMasquerade":   "true",
-				"global.nodePort.device": fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface),
-				"global.tunnel":          "vxlan",
+				"global.tunnel":        "vxlan",
+				"global.bpfMasquerade": "true",
 			}, DeployCiliumOptionsAndDNS)
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
@@ -329,10 +321,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "Check BPF masquerading", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"global.bpfMasquerade":        "true",
-				"global.nodePort.device":      fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface),
 				"global.tunnel":               "disabled",
 				"global.autoDirectNodeRoutes": "true",
+				"global.bpfMasquerade":        "true",
 			}, DeployCiliumOptionsAndDNS)
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
@@ -454,12 +445,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("DirectRouting", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"global.nodePort.device":        fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface),
-				"global.bpfMasquerade":          "true",
-				"global.ipMasqAgent.enabled":    "true",
-				"global.ipMasqAgent.syncPeriod": "1s",
-				"global.tunnel":                 "disabled",
-				"global.autoDirectNodeRoutes":   "true",
+				"global.ipMasqAgent.enabled":  "true",
+				"global.tunnel":               "disabled",
+				"global.autoDirectNodeRoutes": "true",
 			}, DeployCiliumOptionsAndDNS)
 
 			testIPMasqAgent()
@@ -467,11 +455,8 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("VXLAN", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"global.nodePort.device":        fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface),
-				"global.bpfMasquerade":          "true",
-				"global.ipMasqAgent.enabled":    "true",
-				"global.ipMasqAgent.syncPeriod": "1s",
-				"global.tunnel":                 "vxlan",
+				"global.ipMasqAgent.enabled": "true",
+				"global.tunnel":              "vxlan",
 			}, DeployCiliumOptionsAndDNS)
 
 			testIPMasqAgent()
