@@ -86,6 +86,25 @@ func (s *IdentityManagerTestSuite) TestIdentityManagerLifecycle(c *C) {
 	c.Assert(idm.identities[barIdentity.ID].refCount, Equals, uint(2))
 }
 
+func (s *IdentityManagerTestSuite) TestHostIdentityLifecycle(c *C) {
+	idm := NewIdentityManager()
+	c.Assert(idm.identities, Not(IsNil))
+
+	hostIdentity := identity.NewIdentity(identity.ReservedIdentityHost, labels.LabelHost)
+	_, exists := idm.identities[hostIdentity.ID]
+	c.Assert(exists, Equals, false)
+
+	idm.Add(hostIdentity)
+	c.Assert(idm.identities[hostIdentity.ID].refCount, Equals, uint(1))
+
+	newHostLabels := labels.NewLabelsFromModel([]string{"id=foo"})
+	newHostLabels.MergeLabels(labels.LabelHost)
+	newHostIdentity := identity.NewIdentity(identity.ReservedIdentityHost, newHostLabels)
+	idm.RemoveOldAddNew(hostIdentity, newHostIdentity)
+	c.Assert(idm.identities[hostIdentity.ID].refCount, Equals, uint(1))
+	c.Assert(idm.identities[hostIdentity.ID].identity, checker.DeepEquals, newHostIdentity)
+}
+
 type identityManagerObserver struct {
 	added   []identity.NumericIdentity
 	removed []identity.NumericIdentity

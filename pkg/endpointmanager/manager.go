@@ -27,7 +27,9 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -474,10 +476,24 @@ func (mgr *EndpointManager) AddHostEndpoint(ctx context.Context, owner regenerat
 		return err
 	}
 
+	epLabels := labels.Labels{}
+	epLabels.MergeLabels(labels.LabelHost)
+
+	if k8s.IsEnabled() {
+		// Retrieve k8s labels.
+		if k8sNode, err := k8s.GetNode(k8s.Client(), nodeName); err != nil {
+			log.WithError(err).Warning("Kubernetes node resource representing own node is not available, cannot set Labels")
+		} else {
+			newLabels := labels.Map2Labels(k8sNode.GetLabels(), labels.LabelSourceK8s)
+			newIdtyLabels, _ := labelsfilter.Filter(newLabels)
+			epLabels.MergeLabels(newIdtyLabels)
+		}
+	}
+
 	// Give the endpoint a security identity
 	newCtx, cancel := context.WithTimeout(ctx, launchTime)
 	defer cancel()
-	ep.UpdateLabels(newCtx, labels.LabelHost, nil, true)
+	ep.UpdateLabels(newCtx, epLabels, nil, true)
 	if newCtx.Err() == context.DeadlineExceeded {
 		log.WithError(newCtx.Err()).Warning("Timed out while updating security identify for host endpoint")
 	}

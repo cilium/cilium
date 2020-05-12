@@ -115,7 +115,11 @@ func (s *IdentityCacheTestSuite) TestLookupReservedIdentityByLabels(c *C) {
 					"id.foo":                   labels.ParseLabel("id.foo"),
 				},
 			},
-			want: nil,
+			want: identity.NewIdentity(identity.ReservedIdentityHost, labels.Labels{
+				labels.LabelSourceReserved: labels.ParseLabel("reserved:host"),
+				"id.foo":                   labels.ParseLabel("id.foo"),
+			},
+			),
 		},
 		{
 			name: "well-known-kvstore",
