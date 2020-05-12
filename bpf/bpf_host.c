@@ -77,13 +77,18 @@ derive_src_id(const union v6addr *node_ip, struct ipv6hdr *ip6, __u32 *identity)
 }
 
 static __always_inline __u32
-resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
-		   __u32 srcid_from_proxy, bool from_host)
+resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
+		   bool from_host)
 {
 	__u32 src_id = WORLD_ID, srcid_from_ipcache = srcid_from_proxy;
 	struct remote_endpoint_info *info = NULL;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
 	union v6addr *src;
 	int ret;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
 
 	if (!from_host) {
 		union v6addr node_ip = {};
@@ -118,8 +123,8 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, struct ipv6hdr *ip6,
 	return src_id;
 }
 
-static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
-				       __u32 srcid_from_proxy, bool from_host)
+static __always_inline int
+handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 {
 	struct remote_endpoint_info *info = NULL;
 	void *data, *data_end;
@@ -128,7 +133,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	int ret, l3_off = ETH_HLEN, hdrlen;
 	struct endpoint_info *ep;
 	__u8 nexthdr;
-	__u32 secctx;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -137,7 +141,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	if (!from_host) {
 		if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC &&
 		    !bpf_skip_nodeport(ctx)) {
-			ret = nodeport_lb6(ctx, srcid_from_proxy);
+			ret = nodeport_lb6(ctx, secctx);
 			if (ret < 0)
 				return ret;
 		}
@@ -163,8 +167,6 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 			return ret;
 	}
 #endif
-
-	secctx = resolve_srcid_ipv6(ctx, ip6, srcid_from_proxy, from_host);
 
 	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
@@ -275,11 +277,16 @@ int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 
 #ifdef ENABLE_IPV4
 static __always_inline __u32
-resolve_srcid_ipv4(struct __ctx_buff *ctx, const struct iphdr *ip4,
-		   __u32 srcid_from_proxy, bool from_host)
+resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
+		   bool from_host)
 {
 	__u32 src_id = WORLD_ID, srcid_from_ipcache = srcid_from_proxy;
 	struct remote_endpoint_info *info = NULL;
+	void *data, *data_end;
+	struct iphdr *ip4;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(srcid_from_ipcache)) {
@@ -320,15 +327,14 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, const struct iphdr *ip4,
 	return src_id;
 }
 
-static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
-				       __u32 srcid_from_proxy, bool from_host)
+static __always_inline int
+handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 {
 	struct remote_endpoint_info *info = NULL;
 	struct ipv4_ct_tuple tuple = {};
 	struct endpoint_info *ep;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	__u32 secctx;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -337,7 +343,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 	if (!from_host) {
 		if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC &&
 		    !bpf_skip_nodeport(ctx)) {
-			int ret = nodeport_lb4(ctx, srcid_from_proxy);
+			int ret = nodeport_lb4(ctx, secctx);
 			if (ret < 0)
 				return ret;
 		}
@@ -356,8 +362,6 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx,
 #endif /* ENABLE_NODEPORT */
 
 	tuple.nexthdr = ip4->protocol;
-
-	secctx = resolve_srcid_ipv4(ctx, ip4, srcid_from_proxy, from_host);
 
 	if (from_host) {
 		int ret;
@@ -679,6 +683,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, bool from_host)
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
+		identity = resolve_srcid_ipv6(ctx, identity, from_host);
 		ctx_store_meta(ctx, CB_SRC_IDENTITY, identity);
 		if (from_host)
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_HOST);
@@ -690,6 +695,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, bool from_host)
 #endif
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
+		identity = resolve_srcid_ipv4(ctx, identity, from_host);
 		ctx_store_meta(ctx, CB_SRC_IDENTITY, identity);
 		if (from_host)
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_HOST);
