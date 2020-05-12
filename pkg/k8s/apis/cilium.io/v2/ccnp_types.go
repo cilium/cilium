@@ -22,6 +22,8 @@ import (
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +deepequal-gen:private-method=true
+// +kubebuilder:resource:singular="ciliumclusterwidenetworkpolicy",path="ciliumclusterwidenetworkpolicies",scope="Cluster",shortName={ccnp}
+// +kubebuilder:subresource:status
 
 // CiliumClusterwideNetworkPolicy is a Kubernetes third-party resource with an
 // modified version of CiliumNetworkPolicy which is cluster scoped rather than
