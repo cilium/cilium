@@ -16,6 +16,9 @@
 /* Include policy_can_access_ingress() */
 #define REQUIRES_CAN_ACCESS
 
+/* CB_PROXY_MAGIC overlaps with CB_ENCRYPT_MAGIC */
+#define ENCRYPT_OR_PROXY_MAGIC 0
+
 #include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/arp.h"
@@ -25,6 +28,7 @@
 #include "lib/icmp6.h"
 #include "lib/eth.h"
 #include "lib/dbg.h"
+#include "lib/proxy.h"
 #include "lib/trace.h"
 #include "lib/identity.h"
 #include "lib/l3.h"
@@ -744,6 +748,36 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 #endif
+	return ret;
+}
+
+__section("to-host")
+int to_host(struct __ctx_buff *ctx)
+{
+	__u32 magic = ctx_load_meta(ctx, ENCRYPT_OR_PROXY_MAGIC);
+	int ret = CTX_ACT_OK;
+	__u32 src_label = 0;
+	bool traced = false;
+
+	if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
+		ctx->mark = magic; // CB_ENCRYPT_MAGIC
+		src_label = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
+		set_identity_mark(ctx, src_label);
+	} else if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
+		/* Upper 16 bits may carry proxy port number */
+		__be16 port = magic >> 16;
+
+		ctx_store_meta(ctx, 0, CB_PROXY_MAGIC);
+		ctx_redirect_to_proxy_first(ctx, port);
+		/* We already traced this in the previous prog with
+		 * more background context, skip trace here. */
+		traced = true;
+	}
+
+	if (!traced)
+		send_trace_notify(ctx, TRACE_TO_STACK, src_label, 0, 0,
+				  CILIUM_IFINDEX, ret, 0);
+
 	return ret;
 }
 

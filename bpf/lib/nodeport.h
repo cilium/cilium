@@ -1244,7 +1244,7 @@ redo_local:
  * tail_nodeport_nat_ipv4().
  *
  * CILIUM_CALL_IPV{4,6}_NODEPORT_REVNAT is plugged into CILIUM_MAP_CALLS
- * of the bpf_netdev, bpf_overlay and of the bpf_lxc.
+ * of the bpf_host, bpf_overlay and of the bpf_lxc.
  */
 static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex)
 {

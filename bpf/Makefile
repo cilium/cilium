@@ -7,8 +7,8 @@ include ../Makefile.defs
 
 SUBDIRS = sockops
 
-BPF_SIMPLE = bpf_network.o bpf_alignchecker.o bpf_hostdev_ingress.o
-BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_netdev.o bpf_xdp.o $(BPF_SIMPLE)
+BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
+BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_xdp.o $(BPF_SIMPLE)
 
 TARGET=cilium-map-migrate cilium-probe-kernel-hz
 
@@ -112,7 +112,7 @@ NETDEV_OPTIONS = $(LB_OPTIONS) \
 
 MAX_NETDEV_OPTIONS = $(MAX_LB_OPTIONS)
 
-bpf_netdev.ll: bpf_netdev.c $(LIB)
+bpf_host.ll: bpf_host.c $(LIB)
 	$(QUIET) set -e; \
 	if [ $(BUILD_PERMUTATIONS) != "" ]; then \
 		$(foreach OPTS,$(NETDEV_OPTIONS), \
@@ -123,7 +123,7 @@ bpf_netdev.ll: bpf_netdev.c $(LIB)
 	@$(ECHO_CC)
 	$(QUIET) ${CLANG} ${MAX_NETDEV_OPTIONS} ${CLANG_FLAGS} -c $< -o $@
 
-bpf_netdev.o: bpf_netdev.ll
+bpf_host.o: bpf_host.ll
 	@$(ECHO_CC)
 	$(QUIET) ${LLC} ${LLC_FLAGS} -filetype=obj -o $@ $(patsubst %.o,%.ll,$@)
 
