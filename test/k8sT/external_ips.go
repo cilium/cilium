@@ -243,6 +243,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 					"global.autoDirectNodeRoutes": "true",
 					"global.nodePort.device":      external_ips.PublicInterfaceName,
 					"global.nodePort.enabled":     "true",
+					"global.bpfMasquerade":        "false",
 				})
 			})
 			DescribeTable("From pod running on node-1 to services being backed by a pod running on node-1",
@@ -287,6 +288,7 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 					"global.tunnel":           "vxlan",
 					"global.nodePort.device":  external_ips.PublicInterfaceName,
 					"global.nodePort.enabled": "true",
+					"global.bpfMasquerade":    "false",
 				})
 			})
 			DescribeTable("From pod running on node-1 to services being backed by a pod running on node-1",
