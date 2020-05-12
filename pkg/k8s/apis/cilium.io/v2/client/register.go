@@ -115,13 +115,18 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 	return createUpdateCRD(clientset, "CiliumNetworkPolicy/v2", res)
 }
 
-// createCGNPCRD creates and updates the CiliumGlobalNetworkPolicies CRD. It should be called
-// on agent startup but is idempotent and safe to call again.
+// createCCNPCRD creates and updates the CiliumClusterwideNetworkPolicy CRD. It
+// should be called on agent startup but is idempotent and safe to call again.
 func createCCNPCRD(clientset apiextensionsclient.Interface) error {
-	var (
-		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
-		CustomResourceDefinitionShortNames = []string{"ccnp"}
-	)
+	crdBytes, err := examplesCrdsCiliumclusterwidenetworkpoliciesYamlBytes()
+	if err != nil {
+		return err
+	}
+	ciliumCRD := apiextensionsv1beta1.CustomResourceDefinition{}
+	err = yaml.Unmarshal(crdBytes, &ciliumCRD)
+	if err != nil {
+		return err
+	}
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
@@ -134,18 +139,14 @@ func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 			Group:   k8sconstv2.CustomResourceDefinitionGroup,
 			Version: k8sconstv2.CustomResourceDefinitionVersion,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     k8sconstv2.CCNPPluralName,
-				Singular:   k8sconstv2.CCNPSingularName,
-				ShortNames: CustomResourceDefinitionShortNames,
-				Kind:       k8sconstv2.CCNPKindDefinition,
+				Kind:       ciliumCRD.Spec.Names.Kind,
+				Plural:     ciliumCRD.Spec.Names.Plural,
+				ShortNames: ciliumCRD.Spec.Names.ShortNames,
+				Singular:   ciliumCRD.Spec.Names.Singular,
 			},
-			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
-				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
-			},
-			Scope: apiextensionsv1beta1.ClusterScoped,
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{},
-			},
+			Subresources: ciliumCRD.Spec.Subresources,
+			Scope:        ciliumCRD.Spec.Scope,
+			Validation:   ciliumCRD.Spec.Validation,
 		},
 	}
 	return createUpdateCRD(clientset, "CiliumClusterwideNetworkPolicy/v2", res)
