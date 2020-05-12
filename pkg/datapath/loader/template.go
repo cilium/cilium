@@ -25,13 +25,12 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 )
 
 const (
-	CallsMapName = "cilium_calls_"
-
 	templateSecurityID          = identity.ReservedIdentityWorld
 	templateLxcID               = uint16(65535)
 	templatePolicyVerdictFilter = uint32(0xffff)
@@ -45,7 +44,7 @@ var (
 
 	elfMapPrefixes = []string{
 		policymap.MapName,
-		CallsMapName,
+		callsmap.MapName,
 	}
 	elfCtMapPrefixes = []string{
 		ctmap.MapNameTCP4,

@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
 	"github.com/cilium/cilium/pkg/elf"
+	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/testutils"
 
@@ -278,7 +279,7 @@ func BenchmarkCompileOrLoad(b *testing.B) {
 
 	elfMapPrefixes = []string{
 		fmt.Sprintf("test_%s", policymap.MapName),
-		fmt.Sprintf("test_%s", CallsMapName),
+		fmt.Sprintf("test_%s", callsmap.MapName),
 	}
 
 	sourceFile := filepath.Join(bpfDir, endpointProg)

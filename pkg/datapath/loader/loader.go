@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
@@ -289,5 +290,5 @@ func (l *Loader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error
 
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
 func (l *Loader) CallsMapPath(id uint16) string {
-	return bpf.LocalMapPath(CallsMapName, id)
+	return bpf.LocalMapPath(callsmap.MapName, id)
 }
