@@ -32,6 +32,7 @@ import (
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
+	"sigs.k8s.io/yaml"
 )
 
 const (
@@ -79,10 +80,15 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 // createCNPCRD creates and updates the CiliumNetworkPolicies CRD. It should be called
 // on agent startup but is idempotent and safe to call again.
 func createCNPCRD(clientset apiextensionsclient.Interface) error {
-	var (
-		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
-		CustomResourceDefinitionShortNames = []string{"cnp", "ciliumnp"}
-	)
+	crdBytes, err := examplesCrdsCiliumnetworkpoliciesYamlBytes()
+	if err != nil {
+		return err
+	}
+	ciliumCRD := apiextensionsv1beta1.CustomResourceDefinition{}
+	err = yaml.Unmarshal(crdBytes, &ciliumCRD)
+	if err != nil {
+		return err
+	}
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
@@ -95,18 +101,15 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 			Group:   k8sconstv2.CustomResourceDefinitionGroup,
 			Version: k8sconstv2.CustomResourceDefinitionVersion,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     k8sconstv2.CNPPluralName,
-				Singular:   k8sconstv2.CNPSingularName,
-				ShortNames: CustomResourceDefinitionShortNames,
-				Kind:       k8sconstv2.CNPKindDefinition,
+				Kind:       ciliumCRD.Spec.Names.Kind,
+				Plural:     ciliumCRD.Spec.Names.Plural,
+				ShortNames: ciliumCRD.Spec.Names.ShortNames,
+				Singular:   ciliumCRD.Spec.Names.Singular,
 			},
-			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
-				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
-			},
-			Scope: apiextensionsv1beta1.NamespaceScoped,
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{},
-			},
+			AdditionalPrinterColumns: ciliumCRD.Spec.AdditionalPrinterColumns,
+			Subresources:             ciliumCRD.Spec.Subresources,
+			Scope:                    ciliumCRD.Spec.Scope,
+			Validation:               ciliumCRD.Spec.Validation,
 		},
 	}
 	return createUpdateCRD(clientset, "CiliumNetworkPolicy/v2", res)

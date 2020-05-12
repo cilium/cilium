@@ -33,6 +33,9 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +deepequal-gen:private-method=true
+// +kubebuilder:resource:singular="ciliumnetworkpolicy",path="ciliumnetworkpolicies",scope="Namespaced",shortName={cnp,ciliumnp}
+// +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
+// +kubebuilder:subresource:status
 
 // CiliumNetworkPolicy is a Kubernetes third-party resource with an extended
 // version of NetworkPolicy.

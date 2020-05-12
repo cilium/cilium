@@ -21,6 +21,8 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 )
 
+// +kubebuilder:validation:Type=object
+
 // Rule is a policy rule which must be applied to all endpoints which match the
 // labels contained in the endpointSelector
 //
@@ -32,6 +34,7 @@ import (
 //
 // Either ingress, egress, or both can be provided. If both ingress and egress
 // are omitted, the rule has no effect.
+//
 // +deepequal-gen:private-method=true
 type Rule struct {
 	// EndpointSelector selects all endpoints which should be subject to
