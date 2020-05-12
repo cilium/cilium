@@ -29,32 +29,41 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=false
+// +kubebuilder:resource:singular="ciliumendpoint",path="ciliumendpoints",scope="Namespaced",shortName={cep,ciliumep}
+// +kubebuilder:printcolumn:JSONPath=".status.id",description="Cilium endpoint id",name="Endpoint ID",type=integer
+// +kubebuilder:printcolumn:JSONPath=".status.identity.id",description="Cilium identity id",name="Identity ID",type=integer
+// +kubebuilder:printcolumn:JSONPath=".status.policy.ingress.enforcing",description="Ingress enforcement in the endpoint",name="Ingress Enforcement",type=boolean
+// +kubebuilder:printcolumn:JSONPath=".status.policy.egress.enforcing",description="Egress enforcement in the endpoint",name="Egress Enforcement",type=boolean
+// +kubebuilder:printcolumn:JSONPath=".status.visibility-policy-status",description="Status of visibility policy in the endpoint",name="Visibility Policy",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.state",description="Endpoint current state",name="Endpoint State",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv4",description="Endpoint IPv4 address",name="IPv4",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv6",description="Endpoint IPv6 address",name="IPv6",type=string
+// +kubebuilder:subresource:status
 
 // CiliumEndpoint is the status of a Cilium policy rule.
 type CiliumEndpoint struct {
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
+	// +kubebuilder:validation:Optional
 	Status EndpointStatus `json:"status"`
 }
 
 // EndpointStatus is the status of a Cilium endpoint.
 type EndpointStatus struct {
-	// The cilium-agent-local ID of the endpoint
+	// ID is the cilium-agent-local ID of the endpoint.
 	ID int64 `json:"id,omitempty"`
 
-	// Controllers is the list of failing controllers for this endpoint
+	// Controllers is the list of failing controllers for this endpoint.
 	Controllers ControllerList `json:"controllers,omitempty"`
 
 	// ExternalIdentifiers is a set of identifiers to identify the endpoint
 	// apart from the pod name. This includes container runtime IDs.
 	ExternalIdentifiers *models.EndpointIdentifiers `json:"external-identifiers,omitempty"`
 
-	// Summary overall endpoint & subcomponent health
+	// Health is the overall endpoint & subcomponent health.
 	Health *models.EndpointHealth `json:"health,omitempty"`
 
 	// Identity is the security identity associated with the endpoint
@@ -63,7 +72,7 @@ type EndpointStatus struct {
 	// Log is the list of the last few warning and error log entries
 	Log []*models.EndpointStatusChange `json:"log,omitempty"`
 
-	// Networking properties of the endpoint
+	// Networking is the networking properties of the endpoint.
 	//
 	// +kubebuilder:validation:Optional
 	Networking *EndpointNetworking `json:"networking,omitempty"`
@@ -77,18 +86,9 @@ type EndpointStatus struct {
 
 	VisibilityPolicyStatus *string `json:"visibility-policy-status,omitempty"`
 
-	// State is the state of the endpoint
+	// State is the state of the endpoint.
 	//
-	// States are:
-	// - creating
-	// - waiting-for-identity
-	// - not-ready
-	// - waiting-to-regenerate
-	// - regenerating
-	// - restoring
-	// - ready
-	// - disconnecting
-	// - disconnected
+	// +kubebuilder:validation:Enum=creating;waiting-for-identity;not-ready;waiting-to-regenerate;regenerating;restoring;ready;disconnecting;disconnected;invalid
 	State string `json:"state,omitempty"`
 
 	NamedPorts models.NamedPorts `json:"named-ports,omitempty"`
@@ -388,8 +388,8 @@ type HealthAddressingSpec struct {
 
 // EncryptionSpec defines the encryption relevant configuration of a node.
 type EncryptionSpec struct {
-	// Key is the index to the key to use for encryption or 0 if encryption
-	// is disabled
+	// Key is the index to the key to use for encryption or 0 if encryption is
+	// disabled.
 	//
 	// +kubebuilder:validation:Optional
 	Key int `json:"key,omitempty"`
