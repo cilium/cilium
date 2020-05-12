@@ -575,7 +575,7 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] ||
 				NP_COPTS="${NP_COPTS} -DIPV4_DIRECT_ROUTING=${v4_addrs[$DIRECT_ROUTING_DEV]}"
 			fi
 			if [ "$IP6_HOST" != "<nil>" ]; then
-				NP_COPTS="${NP_COPTS} -DIPV6_DIRECT_ROUTING={.addr={${v6_addrs[$DIRECT_ROUTING_DEV]}}}"
+				NP_COPTS="${NP_COPTS} -DIPV6_DIRECT_ROUTING_VAL={.addr={${v6_addrs[$DIRECT_ROUTING_DEV]}}}"
 			fi
 		fi
 
@@ -704,7 +704,7 @@ if [ "$XDP_DEV" != "<nil>" ]; then
 			COPTS="${COPTS} -DIPV4_NODEPORT=${v4_addrs[$XDP_DEV]}"
 		fi
 		if [ "$IP6_HOST" != "<nil>" ]; then
-			COPTS="${COPTS} -DIPV6_NODEPORT={.addr={${v6_addrs[$XDP_DEV]}}}"
+			COPTS="${COPTS} -DIPV6_NODEPORT_VAL={.addr={${v6_addrs[$XDP_DEV]}}}"
 		fi
 	fi
 	xdp_load $XDP_DEV $XDP_MODE "$COPTS" bpf_xdp.c bpf_xdp.o from-netdev $CIDR_MAP
