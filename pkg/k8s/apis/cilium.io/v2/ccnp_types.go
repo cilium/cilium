@@ -23,8 +23,9 @@ import (
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +deepequal-gen:private-method=true
 
-// CiliumClusterwideNetworkPolicy is a Kubernetes third-party resource with an modified version
-// of CiliumNetworkPolicy which is cluster scoped rather than namespace scoped.
+// CiliumClusterwideNetworkPolicy is a Kubernetes third-party resource with an
+// modified version of CiliumNetworkPolicy which is cluster scoped rather than
+// namespace scoped.
 type CiliumClusterwideNetworkPolicy struct {
 	// Note: The following two fields are required (regardless of embedding
 	// CiliumNetworkPolicy below which bring these in), because controller-gen
@@ -43,11 +44,11 @@ type CiliumClusterwideNetworkPolicy struct {
 	// https://github.com/kubernetes-sigs/controller-tools/issues/244
 	*CiliumNetworkPolicy `json:",inline"`
 
-	// Status is the status of the Cilium policy rule
+	// Status is the status of the Cilium policy rule.
 	// +optional
-	// The reason this field exists in this structure is due a bug in the k8s code-generator
-	// that doesn't create a `UpdateStatus` method because the field does not exist in
-	// the structure.
+	// The reason this field exists in this structure is due a bug in the k8s
+	// code-generator that doesn't create a `UpdateStatus` method because the
+	// field does not exist in the structure.
 	Status CiliumNetworkPolicyStatus `json:"status"`
 }
 
@@ -58,14 +59,15 @@ func (in *CiliumClusterwideNetworkPolicy) DeepEqual(other *CiliumClusterwideNetw
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// CiliumClusterwideNetworkPolicyList is a list of CiliumClusterwideNetworkPolicy objects
 // +k8s:openapi-gen=false
 // +deepequal-gen=false
+
+// CiliumClusterwideNetworkPolicyList is a list of
+// CiliumClusterwideNetworkPolicy objects.
 type CiliumClusterwideNetworkPolicyList struct {
 	metav1.TypeMeta `json:",inline"`
 	metav1.ListMeta `json:"metadata"`
 
-	// Items is a list of CiliumClusterwideNetworkPolicy
+	// Items is a list of CiliumClusterwideNetworkPolicies.
 	Items []CiliumClusterwideNetworkPolicy `json:"items"`
 }

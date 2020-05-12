@@ -37,25 +37,25 @@ const (
 // a regex.  If none of the optional fields is present, then the
 // header value is not matched, only presence of the header is enough.
 type HeaderMatch struct {
-	// Mismatch identifies what to do in case there is no match. The
-	// default is to drop the request. Otherwise the overall rule is still
-	// considered as matching, but the mismatches
-	// are logged in the access log.
+	// Mismatch identifies what to do in case there is no match. The default is
+	// to drop the request. Otherwise the overall rule is still considered as
+	// matching, but the mismatches are logged in the access log.
 	Mismatch MismatchAction `json:"mismatch,omitempty"`
 
-	// Name identifies the header
+	// Name identifies the header.
 	Name string `json:"name"`
 
 	// Secret refers to a secret that contains the value to be matched against.
-	// The secret must only contain one entry.
-	// If the referred secret does not exist, and there is no "Value" specified, the match will fail.
+	// The secret must only contain one entry. If the referred secret does not
+	// exist, and there is no "Value" specified, the match will fail.
 	//
 	// +optional
 	Secret *Secret `json:"secret,omitempty"`
 
-	// Value matches the exact value of the header.
-	// Can be specified either alone or together with "Secret"; will be used as the header value if
-	// the secret can not be found in the latter case.
+	// Value matches the exact value of the header. Can be specified either
+	// alone or together with "Secret"; will be used as the header value if the
+	// secret can not be found in the latter case.
+	//
 	// +optional
 	Value string `json:"value,omitempty"`
 }
