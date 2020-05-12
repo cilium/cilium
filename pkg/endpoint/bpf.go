@@ -134,13 +134,27 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	f, err := os.Create(headerPath)
 	if err != nil {
 		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
-
 	}
 	defer f.Close()
 
 	if err = e.writeInformationalComments(f); err != nil {
 		return err
 	}
+
+	// Create symlink with old header filename, to allow downgrade to pre-1.8
+	// Cilium. Can be removed once v1.8 is the oldest supported release.
+	// We don't add the symlink for the host endpoint so that it is not
+	// restored when downgrading to <1.8.
+	if !e.IsHost() {
+		oldHeaderPath := filepath.Join(prefix, common.OldCHeaderFileName)
+		if _, err := os.Stat(oldHeaderPath); err != nil {
+			// The symlink doesn't already exists.
+			if err := os.Symlink(common.CHeaderFileName, oldHeaderPath); err != nil {
+				e.getLogger().WithError(err).Error("Failed to create C header file symlink")
+			}
+		}
+	}
+
 	return e.owner.Datapath().WriteEndpointConfig(f, e)
 }
 
