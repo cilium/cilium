@@ -182,7 +182,12 @@ var _ = Describe("K8sServicesTest", func() {
 			res.ExpectSuccess("unable to apply %s", demoYAML)
 			res = kubectl.ApplyDefault(echoSVCYAML)
 			res.ExpectSuccess("unable to apply %s", echoSVCYAML)
+
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l id=app1", helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
 			Expect(err).Should(BeNil())
 		})
 
@@ -257,8 +262,6 @@ var _ = Describe("K8sServicesTest", func() {
 				tftpBackends := ciliumIPv6Backends("-l k8s:id=app1,k8s:io.kubernetes.pod.namespace=default", "69")
 				ciliumAddService(10069, net.JoinHostPort(demoClusterIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
 				// Installs the IPv6 equivalent of echo (echo-svc.yaml)
-				err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
-				Expect(err).Should(BeNil())
 				httpBackends = ciliumIPv6Backends("-l k8s:name=echo,k8s:io.kubernetes.pod.namespace=default", "80")
 				ciliumAddService(20080, net.JoinHostPort(echoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
 				tftpBackends = ciliumIPv6Backends("-l k8s:name=echo,k8s:io.kubernetes.pod.namespace=default", "69")
