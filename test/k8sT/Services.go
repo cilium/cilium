@@ -175,9 +175,7 @@ var _ = Describe("K8sServicesTest", func() {
 		BeforeAll(func() {
 			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 			echoSVCYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
-		})
 
-		BeforeEach(func() {
 			res := kubectl.ApplyDefault(demoYAML)
 			res.ExpectSuccess("unable to apply %s", demoYAML)
 			res = kubectl.ApplyDefault(echoSVCYAML)
@@ -191,7 +189,7 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(err).Should(BeNil())
 		})
 
-		AfterEach(func() {
+		AfterAll(func() {
 			// Explicitly ignore result of deletion of resources to avoid incomplete
 			// teardown if any step fails.
 			_ = kubectl.Delete(demoYAML)
@@ -255,7 +253,7 @@ var _ = Describe("K8sServicesTest", func() {
 			demoClusterIPv6 := "fd03::100"
 			echoClusterIPv6 := "fd03::200"
 
-			BeforeEach(func() {
+			BeforeAll(func() {
 				// Installs the IPv6 equivalent of app1-service (demo.yaml)
 				httpBackends := ciliumIPv6Backends("-l k8s:id=app1,k8s:io.kubernetes.pod.namespace=default", "80")
 				ciliumAddService(10080, net.JoinHostPort(demoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
@@ -268,7 +266,7 @@ var _ = Describe("K8sServicesTest", func() {
 				ciliumAddService(20069, net.JoinHostPort(echoClusterIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
 			})
 
-			AfterEach(func() {
+			AfterAll(func() {
 				ciliumDelService(10080)
 				ciliumDelService(10069)
 				ciliumDelService(20080)
@@ -1551,7 +1549,7 @@ var _ = Describe("K8sServicesTest", func() {
 			policyPath                     string
 		)
 
-		BeforeEach(func() {
+		BeforeAll(func() {
 
 			bookinfoV1YAML = helpers.ManifestGet(kubectl.BasePath(), "bookinfo-v1.yaml")
 			bookinfoV2YAML = helpers.ManifestGet(kubectl.BasePath(), "bookinfo-v2.yaml")
@@ -1570,14 +1568,14 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(err).Should(BeNil(), "Pods are not ready after timeout")
 		})
 
-		AfterEach(func() {
+		AfterAll(func() {
 
-			// Explicitly do not check result to avoid having assertions in AfterEach.
+			// Explicitly do not check result to avoid having assertions in AfterAll.
 			_ = kubectl.Delete(policyPath)
 
 			for _, resourcePath := range resourceYAMLs {
 				By("Deleting resource %s", resourcePath)
-				// Explicitly do not check result to avoid having assertions in AfterEach.
+				// Explicitly do not check result to avoid having assertions in AfterAll.
 				_ = kubectl.Delete(resourcePath)
 			}
 		})
