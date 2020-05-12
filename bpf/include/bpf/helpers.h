@@ -63,7 +63,7 @@ static int BPF_FUNC(csum_diff, const void *from, __u32 from_size, void *to,
 		    __u32 to_size, __u32 seed);
 
 /* Tail calls */
-static void BPF_FUNC(tail_call, void *ctx, void *map, __u32 index);
+static void BPF_FUNC(tail_call, void *ctx, const void *map, __u32 index);
 
 /* System helpers */
 static __u32 BPF_FUNC(get_smp_processor_id);

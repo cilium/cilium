@@ -14,6 +14,7 @@
 #include "helpers.h"
 #include "builtins.h"
 #include "verifier.h"
+#include "tailcall.h"
 #include "errno.h"
 
 #define PIN_NONE		0
