@@ -153,6 +153,8 @@ func reportCreateVMFailure(vm string, err error) {
 }
 
 var _ = BeforeAll(func() {
+	helpers.Init()
+	By("Starting tests: command line parameters: %+v environment variables: %v", config.CiliumTestConfig, os.Environ())
 	go func() {
 		defer GinkgoRecover()
 		time.Sleep(config.CiliumTestConfig.Timeout)
@@ -221,22 +223,6 @@ var _ = BeforeAll(func() {
 		// When finish, start to build cilium in background
 		// Start k8s2
 		// Wait until compilation finished, and pull cilium image on k8s2
-
-		if config.CiliumTestConfig.CiliumImage != "" {
-			os.Setenv("CILIUM_IMAGE", config.CiliumTestConfig.CiliumImage)
-		}
-
-		if config.CiliumTestConfig.CiliumOperatorImage != "" {
-			os.Setenv("CILIUM_OPERATOR_IMAGE", config.CiliumTestConfig.CiliumOperatorImage)
-		}
-
-		if config.CiliumTestConfig.Registry != "" {
-			os.Setenv("CILIUM_REGISTRY", config.CiliumTestConfig.Registry)
-		}
-
-		if config.CiliumTestConfig.ProvisionK8s == false {
-			os.Setenv("SKIP_K8S_PROVISION", "true")
-		}
 
 		// Name for K8s VMs depends on K8s version that is running.
 

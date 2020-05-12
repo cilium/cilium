@@ -179,7 +179,23 @@ func NativeRoutingEnabled() bool {
 	return tunnelDisabled || gkeEnabled
 }
 
-func init() {
+func Init() {
+	if config.CiliumTestConfig.CiliumImage != "" {
+		os.Setenv("CILIUM_IMAGE", config.CiliumTestConfig.CiliumImage)
+	}
+
+	if config.CiliumTestConfig.CiliumOperatorImage != "" {
+		os.Setenv("CILIUM_OPERATOR_IMAGE", config.CiliumTestConfig.CiliumOperatorImage)
+	}
+
+	if config.CiliumTestConfig.Registry != "" {
+		os.Setenv("CILIUM_REGISTRY", config.CiliumTestConfig.Registry)
+	}
+
+	if config.CiliumTestConfig.ProvisionK8s == false {
+		os.Setenv("SKIP_K8S_PROVISION", "true")
+	}
+
 	// Set defaults to match passed-in fully-qualified image
 	// If these are further set via CLI, they will be overwritten below
 	if v := os.Getenv("CILIUM_IMAGE"); v != "" {
