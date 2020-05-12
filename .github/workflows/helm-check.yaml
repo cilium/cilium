@@ -1,9 +1,10 @@
 name: Helm Lint and Test Charts
 
 on:
-  pull_request:
-    paths:
-      - 'install/kubernetes/**'
+  pull_request: {}
+  push:
+    branches:
+      - master
 
 jobs:
   quick-install:
