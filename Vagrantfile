@@ -266,8 +266,7 @@ Vagrant.configure(2) do |config|
         # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 2049 -j ACCEPT
         # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 20048 -j ACCEPT
     else
-        mount_type = ""
-        config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium', type: mount_type
+        config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium'
     end
 
     if ENV['USER_MOUNTS'] then
@@ -299,7 +298,7 @@ Vagrant.configure(2) do |config|
             if ENV["NFS"] then
                 config.vm.synced_folder "#{user_mount_from}", "#{user_mount_to}", type: "nfs", nfs_udp: false
             else
-                config.vm.synced_folder "#{user_mount_from}", "#{user_mount_to}", type: mount_type
+                config.vm.synced_folder "#{user_mount_from}", "#{user_mount_to}"
             end
         end
     end
