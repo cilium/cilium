@@ -165,7 +165,7 @@ var _ = Describe("RuntimeKafka", func() {
 		Expect(err).Should(BeNil(), "Cannot get endpoint list")
 		Expect(endPoints[helpers.Enabled]).To(Equal(1),
 			"Check number of endpoints with policy enforcement enabled")
-		Expect(endPoints[helpers.Disabled]).To(Equal(2),
+		Expect(endPoints[helpers.Disabled]).To(Equal(3),
 			"Check number of endpoints with policy enforcement disabled")
 
 		By("Allowed topic")
@@ -194,7 +194,7 @@ var _ = Describe("RuntimeKafka", func() {
 		endPoints, err := vm.PolicyEndpointsSummary()
 		Expect(err).Should(BeNil(), "Expect nil. Failed to apply policy on all endpoints with error :%s", err)
 		Expect(endPoints[helpers.Enabled]).To(Equal(1), "Expected 1 endpoint to be policy enabled. Policy enforcement failed")
-		Expect(endPoints[helpers.Disabled]).To(Equal(2), "Expected 2 endpoint to be policy disabled. Policy enforcement failed")
+		Expect(endPoints[helpers.Disabled]).To(Equal(3), "Expected 3 endpoint to be policy disabled. Policy enforcement failed")
 
 		By("Sending produce request on kafka topic `allowedTopic`")
 		for i := 1; i <= MaxMessages; i++ {

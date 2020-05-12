@@ -307,7 +307,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 //
 //
 // WARNING - STABLE API
-// This structure is written as JSON to StateDir/{ID}/lxc_config.h to allow to
+// This structure is written as JSON to StateDir/{ID}/ep_config.h to allow to
 // restore endpoints when the agent is being restarted. The restore operation
 // will read the file and re-create all endpoints with all fields which are not
 // marked as private to JSON marshal. Do NOT modify this structure in ways which

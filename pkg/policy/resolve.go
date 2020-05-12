@@ -114,7 +114,7 @@ func (p *selectorPolicy) Detach() {
 //
 // Must be performed while holding the Repository lock.
 // PolicyOwner (aka Endpoint) is also locked during this call.
-func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, npMap NamedPortsMap) *EndpointPolicy {
+func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, npMap NamedPortsMap, isHost bool) *EndpointPolicy {
 	calculatedPolicy := &EndpointPolicy{
 		selectorPolicy: p,
 		NamedPortsMap:  npMap,
@@ -143,7 +143,9 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, npMap NamedPorts
 	// PolicyMapCanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
 	calculatedPolicy.computeDesiredL4PolicyMapEntries()
-	calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress(p.L4Policy)
+	if !isHost {
+		calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress(p.L4Policy)
+	}
 
 	return calculatedPolicy
 }

@@ -60,6 +60,10 @@ var ignoredELFPrefixes = []string{
 	"cilium_ipmasq",              // Global
 	"from-container",             // Prog name
 	"to-container",               // Prog name
+	"from-netdev",                // Prog name
+	"from-host",                  // Prog name
+	"to-netdev",                  // Prog name
+	"to-host",                    // Prog name
 	// Endpoint IPv6 address. It's possible for the template object to have
 	// these symbols while the endpoint doesn't, if IPv6 was just enabled and
 	// the endpoint restored.
@@ -190,9 +194,14 @@ func (o *objectCache) delete(hash string) {
 // build attempts to compile and cache a datapath template object file
 // corresponding to the specified endpoint configuration.
 func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) error {
+	isHost := cfg.IsHost()
 	templatePath := filepath.Join(o.workingDirectory, defaults.TemplatesDir, hash)
 	headerPath := filepath.Join(templatePath, common.CHeaderFileName)
-	objectPath := filepath.Join(templatePath, endpointObj)
+	epObj := endpointObj
+	if isHost {
+		epObj = hostEndpointObj
+	}
+	objectPath := filepath.Join(templatePath, epObj)
 
 	if err := os.MkdirAll(templatePath, defaults.StateDirRights); err != nil {
 		return &os.PathError{
@@ -220,7 +229,7 @@ func (o *objectCache) build(ctx context.Context, cfg *templateCfg, hash string) 
 	}
 
 	cfg.stats.BpfCompilation.Start()
-	err = compileTemplate(ctx, templatePath)
+	err = compileTemplate(ctx, templatePath, isHost)
 	cfg.stats.BpfCompilation.End(err == nil)
 	if err != nil {
 		return &os.PathError{

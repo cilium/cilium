@@ -5,7 +5,7 @@
 #include <bpf/api.h>
 
 #include <node_config.h>
-#include <lxc_config.h>
+#include <ep_config.h>
 
 #include <linux/icmpv6.h>
 

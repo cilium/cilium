@@ -1291,6 +1291,14 @@ func runDaemon() {
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)
 
+	if !d.endpointManager.HostEndpointExists() {
+		log.Info("Creating host endpoint")
+		if err := d.endpointManager.AddHostEndpoint(d.ctx, d, d.l7Proxy, d.identityAllocator,
+			"Create host endpoint", nodeTypes.GetName()); err != nil {
+			log.WithError(err).Fatal("Unable to create host endpoint")
+		}
+	}
+
 	if option.Config.IsFlannelMasterDeviceSet() {
 		if option.Config.EnableEndpointHealthChecking {
 			log.Warn("Running Cilium in flannel mode doesn't support endpoint connectivity health checking. Disabling endpoint connectivity health check.")

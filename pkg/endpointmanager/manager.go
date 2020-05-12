@@ -26,6 +26,8 @@ import (
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
+	"github.com/cilium/cilium/pkg/identity/cache"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -41,6 +43,7 @@ import (
 var (
 	log         = logging.DefaultLogger.WithField(logfields.LogSubsys, "endpoint-manager")
 	metricsOnce sync.Once
+	launchTime  = 30 * time.Second
 )
 
 // EndpointManager is a structure designed for containing state about the
@@ -460,6 +463,28 @@ func (mgr *EndpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 	return nil
 }
 
+func (mgr *EndpointManager) AddHostEndpoint(ctx context.Context, owner regeneration.Owner,
+	proxy endpoint.EndpointProxy, allocator cache.IdentityAllocator, reason string, nodeName string) error {
+	ep, err := endpoint.CreateHostEndpoint(owner, proxy, allocator)
+	if err != nil {
+		return err
+	}
+
+	if err := mgr.AddEndpoint(owner, ep, reason); err != nil {
+		return err
+	}
+
+	// Give the endpoint a security identity
+	newCtx, cancel := context.WithTimeout(ctx, launchTime)
+	defer cancel()
+	ep.UpdateLabels(newCtx, labels.LabelHost, nil, true)
+	if newCtx.Err() == context.DeadlineExceeded {
+		log.WithError(newCtx.Err()).Warning("Timed out while updating security identify for host endpoint")
+	}
+
+	return nil
+}
+
 // WaitForEndpointsAtPolicyRev waits for all endpoints which existed at the time
 // this function is called to be at a given policy revision.
 // New endpoints appearing while waiting are ignored.
@@ -493,4 +518,16 @@ func (mgr *EndpointManager) CallbackForEndpointsAtPolicyRev(ctx context.Context,
 // EndpointExists returns whether the endpoint with id exists.
 func (mgr *EndpointManager) EndpointExists(id uint16) bool {
 	return mgr.LookupCiliumID(id) != nil
+}
+
+// HostEndpointExists returns true if the host endpoint exists.
+func (mgr *EndpointManager) HostEndpointExists() bool {
+	mgr.mutex.RLock()
+	defer mgr.mutex.RUnlock()
+	for _, ep := range mgr.endpoints {
+		if ep.IsHost() {
+			return true
+		}
+	}
+	return false
 }

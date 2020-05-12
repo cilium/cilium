@@ -559,16 +559,18 @@ func (e *Endpoint) regenerateBPF(regenContext *regenerationContext) (revnum uint
 		return datapathRegenCtxt.epInfoCache.revision, compilationExecuted, err
 	}
 
-	// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
-	stats.mapSync.Start()
-	epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache, e.policyMap)
-	err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
-	stats.mapSync.End(err == nil)
-	if epErr != nil {
-		e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to sync EpToPolicy Map continue with Sockmap support: %s", epErr))
-	}
-	if err != nil {
-		return 0, compilationExecuted, fmt.Errorf("Exposing new BPF failed: %s", err)
+	if !datapathRegenCtxt.epInfoCache.IsHost() {
+		// Hook the endpoint into the endpoint and endpoint to policy tables then expose it
+		stats.mapSync.Start()
+		epErr := eppolicymap.WriteEndpoint(datapathRegenCtxt.epInfoCache, e.policyMap)
+		err = lxcmap.WriteEndpoint(datapathRegenCtxt.epInfoCache)
+		stats.mapSync.End(err == nil)
+		if epErr != nil {
+			e.logStatusLocked(BPF, Warning, fmt.Sprintf("Unable to sync EpToPolicy Map continue with Sockmap support: %s", epErr))
+		}
+		if err != nil {
+			return 0, compilationExecuted, fmt.Errorf("Exposing new BPF failed: %s", err)
+		}
 	}
 
 	// Signal that BPF program has been generated.

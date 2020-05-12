@@ -17,4 +17,8 @@ package callsmap
 const (
 	// MapName is the prefix of the BPF map.
 	MapName = "cilium_calls_"
+	// HostMapName and NetdevMapName are name prefixes for the host
+	// datapath BPF maps. They must be different but have the same length.
+	HostMapName   = MapName + "hostns_"
+	NetdevMapName = MapName + "netdev_"
 )

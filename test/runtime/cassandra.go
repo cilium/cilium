@@ -134,7 +134,7 @@ var _ = Describe("RuntimeCassandra", func() {
 		Expect(err).Should(BeNil(), "Cannot get endpoint list")
 		Expect(endPoints[helpers.Enabled]).To(Equal(1),
 			"Check number of endpoints with policy enforcement enabled")
-		Expect(endPoints[helpers.Disabled]).To(Equal(1),
+		Expect(endPoints[helpers.Disabled]).To(Equal(2),
 			"Check number of endpoints with policy enforcement disabled")
 
 		By("Inserting Value into Cassandra (no policy)")
@@ -156,7 +156,7 @@ var _ = Describe("RuntimeCassandra", func() {
 		Expect(err).Should(BeNil(), "Cannot get endpoint list")
 		Expect(endPoints[helpers.Enabled]).To(Equal(1),
 			"Check number of endpoints with policy enforcement enabled")
-		Expect(endPoints[helpers.Disabled]).To(Equal(1),
+		Expect(endPoints[helpers.Disabled]).To(Equal(2),
 			"Check number of endpoints with policy enforcement disabled")
 
 		By("Inserting Value into Cassandra (denied by policy)")

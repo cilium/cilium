@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 const (
@@ -146,9 +147,12 @@ func wrap(cfg datapath.CompileTimeConfiguration, stats *metrics.SpanStat) *templ
 // endpoint.
 func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
 	result := make(map[string]string)
-
 	epID := uint16(ep.GetID())
+
 	for _, name := range elfMapPrefixes {
+		if ep.IsHost() && name == callsmap.MapName {
+			name = callsmap.HostMapName
+		}
 		templateStr := bpf.LocalMapName(name, templateLxcID)
 		desiredStr := bpf.LocalMapName(name, epID)
 		result[templateStr] = desiredStr
@@ -161,7 +165,9 @@ func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
 		}
 	}
 
-	result[policymap.CallString(templateLxcID)] = policymap.CallString(epID)
+	if !ep.IsHost() {
+		result[policymap.CallString(templateLxcID)] = policymap.CallString(epID)
+	}
 	return result
 }
 
@@ -211,7 +217,34 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 	mac := ep.GetNodeMAC()
 	result["NODE_MAC_1"] = sliceToBe32(mac[0:4])
 	result["NODE_MAC_2"] = uint32(sliceToBe16(mac[4:6]))
-	result["LXC_ID"] = uint32(ep.GetID())
+
+	// These values are defined in nodeport.h regardless even for bpf_lxc (so
+	// regardless of whether it's the host endpoint).
+	if option.Config.EnableNodePort && option.Config.EnableIPv6 {
+		result["IPV6_DIRECT_ROUTING_1"] = 0
+		result["IPV6_DIRECT_ROUTING_2"] = 0
+		result["IPV6_DIRECT_ROUTING_3"] = 0
+		result["IPV6_DIRECT_ROUTING_4"] = 0
+		result["IPV6_NODEPORT_1"] = 0
+		result["IPV6_NODEPORT_2"] = 0
+		result["IPV6_NODEPORT_3"] = 0
+		result["IPV6_NODEPORT_4"] = 0
+	}
+
+	if ep.IsHost() {
+		if option.Config.EnableNodePort {
+			result["DIRECT_ROUTING_DEV_IFINDEX"] = 0
+			result["NATIVE_DEV_IFINDEX"] = 0
+			if option.Config.EnableIPv4 {
+				result["IPV4_DIRECT_ROUTING"] = 0
+				result["IPV4_NODEPORT"] = 0
+			}
+		}
+		result["HOST_EP_ID"] = uint32(ep.GetID())
+	} else {
+		result["LXC_ID"] = uint32(ep.GetID())
+	}
+
 	identity := ep.GetIdentity().Uint32()
 	result["SECLABEL"] = identity
 	result["SECLABEL_NB"] = byteorder.HostToNetwork(identity).(uint32)

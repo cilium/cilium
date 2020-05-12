@@ -26,8 +26,9 @@
 #if defined(ENABLE_IPV4) && !defined(IPV4_NODEPORT)
 #define IPV4_NODEPORT 0
 #endif
-#if defined(ENABLE_IPV6) && !defined(IPV6_NODEPORT)
-#define IPV6_NODEPORT { .addr = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } }
+#if defined(ENABLE_IPV6) && !defined(IPV6_NODEPORT_V)
+DEFINE_IPV6(IPV6_NODEPORT, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0);
+# define IPV6_NODEPORT_V
 #endif
 #ifndef DIRECT_ROUTING_DEV_IFINDEX
 #define DIRECT_ROUTING_DEV_IFINDEX 0
@@ -35,8 +36,9 @@
 #if defined(ENABLE_IPV4) && !defined(IPV4_DIRECT_ROUTING)
 #define IPV4_DIRECT_ROUTING 0
 #endif
-#if defined(ENABLE_IPV6) && !defined(IPV6_DIRECT_ROUTING)
-#define IPV6_DIRECT_ROUTING { .addr = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } }
+#if defined(ENABLE_IPV6) && !defined(IPV6_DIRECT_ROUTING_V)
+DEFINE_IPV6(IPV6_DIRECT_ROUTING, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0);
+# define IPV6_DIRECT_ROUTING_V
 #endif
 #endif /* ENABLE_NODEPORT */
 
@@ -364,10 +366,8 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 	};
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
-	union v6addr tmp = IPV6_DIRECT_ROUTING;
 
-
-	target.addr = tmp;
+	BPF_V6(target.addr, IPV6_DIRECT_ROUTING);
 #ifdef ENCAP_IFINDEX
 	if (dir == NAT_DIR_EGRESS) {
 		struct remote_endpoint_info *info;
@@ -1379,14 +1379,9 @@ static __always_inline int nodeport_nat_fwd(struct __ctx_buff *ctx,
 #ifdef ENCAP_IFINDEX
 		if (encap)
 			BPF_V6(addr, ROUTER_IP);
-		else {
+		else
 #endif
-			union v6addr tmp = IPV6_NODEPORT;
-
-			addr = tmp;
-#ifdef ENCAP_IFINDEX
-		}
-#endif
+			BPF_V6(addr, IPV6_NODEPORT);
 		return nodeport_nat_ipv6_fwd(ctx, &addr);
 	}
 #endif /* ENABLE_IPV6 */

@@ -24,4 +24,5 @@ type Endpoint interface {
 	Logger(subsystem string) *logrus.Entry
 	StateDir() string
 	MapPath() string
+	IsHost() bool
 }
