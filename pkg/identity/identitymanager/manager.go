@@ -113,7 +113,9 @@ func (idm *IdentityManager) RemoveOldAddNew(old, new *identity.Identity) {
 	if old == nil && new == nil {
 		return
 	}
-	if old != nil && new != nil && old.ID == new.ID {
+	// The host endpoint will always retain its reserved ID, but its labels may
+	// change so we need to update its identity.
+	if old != nil && new != nil && old.ID == new.ID && new.ID != identity.ReservedIdentityHost {
 		return
 	}
 

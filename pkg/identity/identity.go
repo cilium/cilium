@@ -235,15 +235,26 @@ func LookupReservedIdentityByLabels(lbls labels.Labels) *Identity {
 			// If a fixed identity was not found then we return nil to avoid
 			// falling to a reserved identity.
 			return nil
-		// If it doesn't contain a fixed-identity then make sure the set of
-		// labels only contains a single label and that label is of the reserved
-		// type. This is to prevent users from adding cilium-reserved labels
-		// into the workloads.
+
 		case lbl.Source == labels.LabelSourceReserved:
+			// If it contains the reserved, local host identity, return it with
+			// the new list of labels. This is to ensure the local node retains
+			// this identity regardless of label changes.
+			id := GetReservedID(lbl.Key)
+			if id == ReservedIdentityHost {
+				identity := NewIdentity(ReservedIdentityHost, lbls)
+				// Pre-calculate the SHA256 hash.
+				identity.GetLabelsSHA256()
+				return identity
+			}
+
+			// If it doesn't contain a fixed-identity then make sure the set of
+			// labels only contains a single label and that label is of the
+			// reserved type. This is to prevent users from adding
+			// cilium-reserved labels into the workloads.
 			if len(lbls) != 1 {
 				return nil
 			}
-			id := GetReservedID(lbl.Key)
 			if id != IdentityUnknown && !IsUserReservedIdentity(id) {
 				return LookupReservedIdentity(id)
 			}
