@@ -24,9 +24,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/addressing"
-	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
-	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	"github.com/cilium/cilium/pkg/labels"
@@ -69,37 +67,15 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 		return nil, nil
 	}
 
-	ep := &Endpoint{
-		owner:            owner,
-		proxy:            proxy,
-		ID:               uint16(base.ID),
-		containerName:    base.ContainerName,
-		containerID:      base.ContainerID,
-		dockerNetworkID:  base.DockerNetworkID,
-		dockerEndpointID: base.DockerEndpointID,
-		ifName:           base.InterfaceName,
-		K8sPodName:       base.K8sPodName,
-		K8sNamespace:     base.K8sNamespace,
-		datapathMapID:    int(base.DatapathMapID),
-		ifIndex:          int(base.InterfaceIndex),
-		OpLabels:         labels.NewOpLabels(),
-		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
-		DNSZombies:       fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes),
-		state:            "",
-		status:           NewEndpointStatus(),
-		hasBPFProgram:    make(chan struct{}, 0),
-		desiredPolicy:    policy.NewEndpointPolicy(owner.GetPolicyRepository()),
-		controllers:      controller.NewManager(),
-		regenFailedChan:  make(chan struct{}, 1),
-		allocator:        allocator,
-		exposed:          make(chan struct{}),
-	}
-
-	ctx, cancel := context.WithCancel(ctx)
-	ep.aliveCancel = cancel
-	ep.aliveCtx = ctx
-
-	ep.realizedPolicy = ep.desiredPolicy
+	ep := createEndpoint(owner, proxy, allocator, uint16(base.ID), base.InterfaceName)
+	ep.ifIndex = int(base.InterfaceIndex)
+	ep.containerName = base.ContainerName
+	ep.containerID = base.ContainerID
+	ep.dockerNetworkID = base.DockerNetworkID
+	ep.dockerEndpointID = base.DockerEndpointID
+	ep.K8sPodName = base.K8sPodName
+	ep.K8sNamespace = base.K8sNamespace
+	ep.datapathMapID = int(base.DatapathMapID)
 
 	if base.Mac != "" {
 		m, err := mac.ParseMAC(base.Mac)
@@ -145,8 +121,6 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 		ep.OpLabels.OrchestrationIdentity = identityLabels
 		ep.OpLabels.OrchestrationInfo = infoLabels
 	}
-
-	ep.SetDefaultOpts(option.Config.Opts)
 
 	ep.setState(string(base.State), "Endpoint creation")
 
