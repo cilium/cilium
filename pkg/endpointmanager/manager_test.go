@@ -79,6 +79,10 @@ func (s *EndpointManagerSuite) GetCompilationLock() *lock.RWMutex {
 	return nil
 }
 
+func (s *EndpointManagerSuite) GetCIDRPrefixLengths() (s6, s4 []int) {
+	return nil, nil
+}
+
 func (s *EndpointManagerSuite) SendNotification(typ monitorAPI.AgentNotification, text string) error {
 	return nil
 }
