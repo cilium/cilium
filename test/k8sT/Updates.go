@@ -123,6 +123,11 @@ var _ = Describe("K8sUpdates", func() {
 // oldVersion.  It returns two callbacks, the first one is the assertfunction
 // that need to run, and the second one are the cleanup actions
 func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVersion, oldImageVersion, newHelmChartVersion, newImageVersion string) (func(), func()) {
+	var (
+		privateIface string // only used when running w/o kube-proxy
+		err          error
+	)
+
 	canRun, err := helpers.CanRunK8sVersion(oldImageVersion, helpers.GetCurrentK8SEnv())
 	ExpectWithOffset(1, err).To(BeNil(), "Unable to get k8s constraints for %s", oldImageVersion)
 	if !canRun {
@@ -133,6 +138,11 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 	}
 
 	SkipIfIntegration(helpers.CIIntegrationFlannel)
+
+	if helpers.RunsWithoutKubeProxy() {
+		privateIface, err = kubectl.GetPrivateIface()
+		ExpectWithOffset(1, err).To(BeNil(), "Unable to determine private iface")
+	}
 
 	apps := []string{helpers.App1, helpers.App2, helpers.App3}
 	app1Service := "app1-service"
@@ -154,6 +164,11 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"global.tag":           imageTag,
 			"agent.sleepAfterInit": "true",
 			"operator.enabled":     "false ",
+		}
+		// Cilium < v1.8 doesn't support multi-dev, so set only one device.
+		// If not set, then overwriteHelmOptions() will set two devices.
+		if helpers.RunsWithoutKubeProxy() {
+			opts["global.nodePort.device"] = privateIface
 		}
 		if registry != "" {
 			opts["global.registry"] = registry
@@ -219,19 +234,23 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		cleanupCiliumState("cilium/cilium", oldHelmChartVersion, "cilium", oldImageVersion, "docker.io/cilium")
 
 		By("Deploying Cilium %s", oldHelmChartVersion)
+
+		opts := map[string]string{
+			"global.tag":      oldImageVersion,
+			"global.registry": "docker.io/cilium",
+			"agent.image":     "cilium",
+			"operator.image":  "operator",
+		}
+		if helpers.RunsWithoutKubeProxy() {
+			opts["global.nodePort.device"] = privateIface
+		}
 		cmd, err = kubectl.RunHelm(
 			"install",
 			"cilium/cilium",
 			"cilium",
 			oldHelmChartVersion,
 			helpers.CiliumNamespace,
-			map[string]string{
-				"global.tag":      oldImageVersion,
-				"global.registry": "docker.io/cilium",
-				"agent.image":     "cilium",
-				"operator.image":  "operator",
-			},
-		)
+			opts)
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be deployed", oldHelmChartVersion)
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Cilium %q was not able to be deployed", oldHelmChartVersion)
 
@@ -368,21 +387,25 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		}
 
 		By("Install Cilium pre-flight check DaemonSet")
+
+		opts = map[string]string{
+			"preflight.enabled":       "true ",
+			"agent.enabled":           "false ",
+			"config.enabled":          "false ",
+			"operator.enabled":        "false ",
+			"global.tag":              newImageVersion,
+			"global.nodeinit.enabled": "false",
+		}
+		if helpers.RunsWithoutKubeProxy() {
+			opts["global.nodePort.device"] = privateIface
+		}
 		cmd, err = kubectl.RunHelm(
 			"install",
 			filepath.Join(kubectl.BasePath(), helpers.HelmTemplate),
 			"cilium-preflight",
 			newHelmChartVersion,
 			helpers.CiliumNamespace,
-			map[string]string{
-				"preflight.enabled":       "true ",
-				"agent.enabled":           "false ",
-				"config.enabled":          "false ",
-				"operator.enabled":        "false ",
-				"global.tag":              newImageVersion,
-				"global.nodeinit.enabled": "false",
-			},
-		)
+			opts)
 		ExpectWithOffset(1, err).To(BeNil(), "Unable to deploy preflight manifest")
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Unable to deploy preflight manifest")
 		ExpectCiliumPreFlightInstallReady(kubectl)
@@ -398,7 +421,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		// kvstore-based allocator to CRD-based allocator is not currently
 		// supported at this time.
 		By("Upgrading Cilium to %s", newHelmChartVersion)
-		opts := map[string]string{
+		opts = map[string]string{
 			"global.tag": newImageVersion,
 		}
 		// We have removed the labels since >= 1.7 and we are only testing
