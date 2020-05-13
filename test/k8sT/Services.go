@@ -1241,6 +1241,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 
 					testDSR(64000)
+					testNodePort(true, false, false) // no need to test from outside, as testDSR did it
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with direct routing, DSR and BPF MASQ", func() {
@@ -1252,6 +1253,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 
 					testDSR(64001)
+					testNodePort(true, false, false) // no need to test from outside, as testDSR did it
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and SNAT", func() {
@@ -1284,16 +1286,6 @@ var _ = Describe("K8sServicesTest", func() {
 					testNodePortExternal(true, true)
 				})
 
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with TC, direct routing and SNAT", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"global.nodePort.acceleration": "none",
-						"global.nodePort.mode":         "snat",
-						"global.tunnel":                "disabled",
-						"global.autoDirectNodeRoutes":  "true",
-					})
-					testNodePortExternal(false, false)
-				})
-
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with TC, direct routing and Hybrid", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 						"global.nodePort.acceleration": "none",
@@ -1302,16 +1294,6 @@ var _ = Describe("K8sServicesTest", func() {
 						"global.autoDirectNodeRoutes":  "true",
 					})
 					testNodePortExternal(true, false)
-				})
-
-				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with TC, direct routing and DSR", func() {
-					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"global.nodePort.acceleration": "none",
-						"global.nodePort.mode":         "dsr",
-						"global.tunnel":                "disabled",
-						"global.autoDirectNodeRoutes":  "true",
-					})
-					testNodePortExternal(true, true)
 				})
 			})
 
