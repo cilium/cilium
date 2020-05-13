@@ -365,6 +365,15 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 
 	d.policy.Mutex.Unlock()
 
+	if newPrefixLengths && !bpfIPCache.BackedByLPM() {
+		// bpf_host needs to be recompiled whenever CIDR policy changed.
+		if hostEp := d.endpointManager.GetHostEndpoint(); hostEp != nil {
+			logger.Debug("CIDR policy has changed; regenerating host endpoint")
+			endpointsToRegen.Insert(hostEp)
+			endpointsToBumpRevision.Delete(hostEp)
+		}
+	}
+
 	// Begin tracking the time taken to deploy newRev to the datapath. The start
 	// time is from before the locking above, and thus includes all waits and
 	// processing in this function.
@@ -593,6 +602,13 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 		log.Debug("CIDR policy has changed; recompiling base programs")
 		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy, d.ipam); err != nil {
 			log.WithError(err).Error("Unable to recompile base programs")
+		}
+
+		// bpf_host needs to be recompiled whenever CIDR policy changed.
+		if hostEp := d.endpointManager.GetHostEndpoint(); hostEp != nil {
+			log.Debug("CIDR policy has changed; regenerating host endpoint")
+			endpointsToRegen.Insert(hostEp)
+			epsToBumpRevision.Delete(hostEp)
 		}
 	}
 

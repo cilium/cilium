@@ -91,6 +91,10 @@ func (s *proxyTestSuite) GetCompilationLock() *lock.RWMutex {
 	return nil
 }
 
+func (s *proxyTestSuite) GetCIDRPrefixLengths() (s6, s4 []int) {
+	return nil, nil
+}
+
 func (s *proxyTestSuite) SendNotification(typ monitorAPI.AgentNotification, text string) error {
 	return nil
 }

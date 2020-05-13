@@ -520,14 +520,19 @@ func (mgr *EndpointManager) EndpointExists(id uint16) bool {
 	return mgr.LookupCiliumID(id) != nil
 }
 
-// HostEndpointExists returns true if the host endpoint exists.
-func (mgr *EndpointManager) HostEndpointExists() bool {
+// GetHostEndpoint returns the host endpoint.
+func (mgr *EndpointManager) GetHostEndpoint() *endpoint.Endpoint {
 	mgr.mutex.RLock()
 	defer mgr.mutex.RUnlock()
 	for _, ep := range mgr.endpoints {
 		if ep.IsHost() {
-			return true
+			return ep
 		}
 	}
-	return false
+	return nil
+}
+
+// HostEndpointExists returns true if the host endpoint exists.
+func (mgr *EndpointManager) HostEndpointExists() bool {
+	return mgr.GetHostEndpoint() != nil
 }

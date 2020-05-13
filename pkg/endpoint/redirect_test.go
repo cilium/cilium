@@ -108,6 +108,11 @@ func (d *DummyOwner) GetCompilationLock() *lock.RWMutex {
 	return nil
 }
 
+// GetCIDRPrefixLengths does nothing.
+func (d *DummyOwner) GetCIDRPrefixLengths() (s6, s4 []int) {
+	return nil, nil
+}
+
 // SendNotification does nothing.
 func (d *DummyOwner) SendNotification(typ monitorAPI.AgentNotification, text string) error {
 	return nil
