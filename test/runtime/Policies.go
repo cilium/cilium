@@ -1475,9 +1475,9 @@ var _ = Describe("RuntimePolicies", func() {
 		}
 
 		It("tests ingress", func() {
+			By("Starting hubble observe in background")
 			ctx, cancel := context.WithCancel(context.Background())
-			By("Starting cilium monitor in background")
-			monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace")
+			hubbleRes := vm.HubbleObserveFollow(ctx, "--type", "drop", "--type", "trace", "--protocol", "ICMPv4")
 			defer cancel()
 
 			By("Creating an endpoint")
@@ -1491,26 +1491,37 @@ var _ = Describe("RuntimePolicies", func() {
 			res := vm.Exec(helpers.Ping(endpointIP.IPV4))
 			res.ExpectFail("Unexpectedly able to ping endpoint with no ingress policy")
 
-			By("Testing cilium monitor output")
-			err := monitorRes.WaitUntilMatch("xx drop (Policy denied")
+			By("Testing hubble observe output")
+			err := hubbleRes.WaitUntilMatchFilterLine(
+				`{.source.labels} -> {.destination.ID} {.destination.labels} {.IP.destination} : {.verdict}`,
+				fmt.Sprintf("[reserved:host] -> %s [container:somelabel] %s : DROPPED", endpointID, endpointIP.IPV4))
 			Expect(err).To(BeNil(), "Default drop on ingress failed")
-			monitorRes.ExpectDoesNotContain(fmt.Sprintf("-> endpoint %s ", endpointID),
+			hubbleRes.ExpectDoesNotContainFilterLine(
+				`{.source.labels} -> {.destination.ID} {.destination.labels} {.IP.destination} : {.verdict}`,
+				fmt.Sprintf("[reserved:host] -> %s [container:somelabel] %s : FORWARDED", endpointID, endpointIP.IPV4),
 				"Unexpected ingress traffic to endpoint")
 		})
 
 		It("tests egress", func() {
-			By("Starting cilium monitor in background")
+			hostIP := "10.0.2.15"
+
+			By("Starting hubble observe in background")
 			ctx, cancel := context.WithCancel(context.Background())
-			monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace")
+			hubbleRes := vm.HubbleObserveFollow(ctx, "--type", "drop", "--type", "trace", "--protocol", "ICMPv4")
 			defer cancel()
 
 			By("Creating an endpoint")
-			endpointID, _ := createEndpoint("ping", "10.0.2.15")
+			endpointID, _ := createEndpoint("ping", hostIP)
 
-			By("Testing cilium monitor output")
-			err := monitorRes.WaitUntilMatch("xx drop (Policy denied")
+			By("Testing hubble observe output")
+			err := hubbleRes.WaitUntilMatchFilterLine(
+				`{.source.ID} {.source.labels} -> {.destination.labels} {.IP.destination} : {.verdict}`,
+				fmt.Sprintf("%s [container:somelabel] -> [reserved:host] %s : DROPPED", endpointID, hostIP))
 			Expect(err).To(BeNil(), "Default drop on egress failed")
-			monitorRes.ExpectDoesNotContain(fmt.Sprintf("-> endpoint %s ", endpointID),
+
+			hubbleRes.ExpectDoesNotContainFilterLine(
+				`{.source.labels} {.IP.source} -> {.destination.ID} : {.verdict} {.reply}`,
+				fmt.Sprintf("[reserved:host] %s -> %s : FORWARDED true", hostIP, endpointID),
 				"Unexpected reply traffic to endpoint")
 		})
 
