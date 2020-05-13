@@ -193,6 +193,8 @@ type EndpointIdentity struct {
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:singular="ciliumidentity",path="ciliumidentities",scope="Cluster",shortName={ciliumid}
+// +kubebuilder:subresource:status
 
 // CiliumIdentity is a CRD that represents an identity managed by Cilium.
 // It is intended as a backing store for identity allocation, acting as the
@@ -214,10 +216,8 @@ type EndpointIdentity struct {
 // cilium-operator uses the list of nodes in status to reference count
 // users of this identity, and to expire stale usage.
 type CiliumIdentity struct {
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
