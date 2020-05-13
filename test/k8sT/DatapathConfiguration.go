@@ -261,16 +261,12 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"global.autoDirectNodeRoutes": "true",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
 
-		SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "Check BPF masquerading", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"global.tunnel":        "vxlan",
-				"global.bpfMasquerade": "true",
-			}, DeployCiliumOptionsAndDNS)
-
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).Should(BeTrue(), "Connectivity test to http://google.com failed")
+			if helpers.RunsOnNetNextOr419Kernel() {
+				By("Test BPF masquerade")
+				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).
+					Should(BeTrue(), "Connectivity test to http://google.com failed")
+			}
 		})
 	})
 
@@ -317,17 +313,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}, DeployCiliumOptionsAndDNS)
 
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-		})
-
-		SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "Check BPF masquerading", func() {
-			deploymentManager.DeployCilium(map[string]string{
-				"global.tunnel":               "disabled",
-				"global.autoDirectNodeRoutes": "true",
-				"global.bpfMasquerade":        "true",
-			}, DeployCiliumOptionsAndDNS)
-
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
-			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).Should(BeTrue(), "Connectivity test to http://google.com failed")
+			if helpers.RunsOnNetNextOr419Kernel() {
+				By("Test BPF masquerade")
+				Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).
+					Should(BeTrue(), "Connectivity test to http://google.com failed")
+			}
 		})
 
 		It("Check direct connectivity with per endpoint routes", func() {
