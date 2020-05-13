@@ -50,6 +50,9 @@ const (
 
 	// CIDCRDName is the full name of the CID CRD.
 	CIDCRDName = k8sconstv2.CIDKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
+
+	// CNCRDName is the full name of the CN CRD.
+	CNCRDName = k8sconstv2.CNKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 )
 
 var (
@@ -110,6 +113,8 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1beta1.CustomResourceDefin
 		crdBytes, err = examplesCrdsCiliumendpointsYamlBytes()
 	case CIDCRDName:
 		crdBytes, err = examplesCrdsCiliumidentitiesYamlBytes()
+	case CNCRDName:
+		crdBytes, err = examplesCrdsCiliumnodesYamlBytes()
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -222,140 +227,31 @@ func createCEPCRD(clientset apiextensionsclient.Interface) error {
 // createNodeCRD creates and updates the CiliumNode CRD. It should be called on
 // agent startup but is idempotent and safe to call again.
 func createNodeCRD(clientset apiextensionsclient.Interface) error {
-	var (
-		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
-		CustomResourceDefinitionShortNames = []string{"cn", "ciliumn"}
-	)
+	ciliumCRD := GetPregeneratedCRD(CNCRDName)
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: k8sconstv2.CNName,
+			Labels: map[string]string{
+				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
+			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   k8sconstv2.CustomResourceDefinitionGroup,
 			Version: k8sconstv2.CustomResourceDefinitionVersion,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     k8sconstv2.CNPluralName,
-				Singular:   k8sconstv2.CNSingularName,
-				ShortNames: CustomResourceDefinitionShortNames,
-				Kind:       k8sconstv2.CNKindDefinition,
+				Plural:     ciliumCRD.Spec.Names.Plural,
+				Singular:   ciliumCRD.Spec.Names.Singular,
+				ShortNames: ciliumCRD.Spec.Names.ShortNames,
+				Kind:       ciliumCRD.Spec.Names.Kind,
 			},
-			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
-				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
-			},
-			Scope: apiextensionsv1beta1.ClusterScoped,
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
-					Description: "CiliumNode represents the k8s node from the view of Cilium.",
-					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-						"spec": {
-							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-								"azure": {
-									Type: "object",
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"instance-id": {
-											Type:        "string",
-											Description: "instance-id is the Azure specific identifier of the node",
-										},
-										"interface-name": {
-											Type:        "string",
-											Description: "interface-name represents the name of the interface on which additional IP addreses will be allocated",
-										},
-									},
-								},
-								"eni": {
-									Type: "object",
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"min-allocate": {
-											Type:        "integer",
-											Minimum:     getFloat64(0),
-											Description: "min-allocate is the minimum number of IPs that will be allocated before the cilium-agent will write the CNI config.",
-										},
-										"max-allocate": {
-											Type:        "integer",
-											Minimum:     getFloat64(0),
-											Description: "max-allocate is the maximum number of IPs that will be allocated to the node.",
-										},
-										"pre-allocate": {
-											Type:        "integer",
-											Minimum:     getFloat64(0),
-											Description: "pre-allocate defines the number of IP addresses that must be available for allocation at all times.",
-										},
-										"max-above-watermark": {
-											Type:        "integer",
-											Minimum:     getFloat64(0),
-											Description: "max-above-watermark defines the number of addresses to allocate beyond what is needed to reach the PreAllocate watermark.",
-										},
-										"first-interface-index": {
-											Type:        "integer",
-											Description: "first-interface-index represents the start EC2 interface index at which the ENI will be attached at.",
-											Minimum:     getFloat64(0),
-										},
-										"security-groups": {
-											Type:        "array",
-											Description: "security-groups represents the list of AWS EC2 security groups which will be attached to the ENI.",
-											Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
-												Schema: &apiextensionsv1beta1.JSONSchemaProps{
-													Type: "string",
-												},
-											},
-										},
-										"security-group-tags": {
-											Type:        "object",
-											Description: "security-group-tags represents a filter to narrow down the security group ids which will be attached on the allocated ENI",
-										},
-										"subnet-tags": {
-											Type:        "object",
-											Description: "subnet-tags represents a filter to narrow down the available subnets in which the ENI will be allocated",
-										},
-										"vpc-id": {
-											Type:        "string",
-											Description: "vpc-id represents the AWS EC2 vpc-id in which the ENI will be allocated.",
-										},
-										"availability-zone": {
-											Type:        "string",
-											Description: "availability-zone represents the AWS availability-zone in which the ENI will be allocated.",
-										},
-										"delete-on-termination": {
-											Type:        "boolean",
-											Description: "delete-on-termination marks the ENI to be deleted when the EC2 instance is terminated.",
-										},
-									},
-								},
-								"ipam": {
-									Type: "object",
-									Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-										"min-allocate": {
-											Type:        "integer",
-											Minimum:     getFloat64(0),
-											Description: "min-allocate is the minimum number of IPs that will be allocated before the cilium-agent will write the CNI config.",
-										},
-										"max-allocate": {
-											Type:        "integer",
-											Minimum:     getFloat64(0),
-											Description: "max-allocate is the maximum number of IPs that will be allocated to the node.",
-										},
-										"pre-allocate": {
-											Type:        "integer",
-											Minimum:     getFloat64(0),
-											Description: "pre-allocate is number of IP addresses that must be available for allocation at all times.",
-										},
-										"max-above-watermark": {
-											Type:        "integer",
-											Minimum:     getFloat64(0),
-											Description: "max-above-watermark defines the number of addresses to allocate beyond what is needed to reach the PreAllocate watermark.",
-										},
-									},
-								},
-							},
-						},
-					},
-				},
-			},
+			Subresources: ciliumCRD.Spec.Subresources,
+			Scope:        ciliumCRD.Spec.Scope,
+			Validation:   ciliumCRD.Spec.Validation,
 		},
 	}
 
-	return createUpdateCRD(clientset, "v2.CiliumNode", res)
+	return createUpdateCRD(clientset, CNCRDName, res)
 }
 
 // createIdentityCRD creates and updates the CiliumIdentity CRD. It should be

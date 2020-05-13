@@ -49,7 +49,7 @@ type AzureSpec struct {
 	// InterfaceName is the name of the interface the cilium-operator
 	// will use to allocate all the IPs on
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	InterfaceName string `json:"interface-name,omitempty"`
 }
 
