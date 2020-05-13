@@ -1612,9 +1612,9 @@ var _ = Describe("RuntimePolicies", func() {
 		})
 
 		It("Init Ingress Policy Test", func() {
-			By("Starting cilium monitor in background")
+			By("Starting hubble observe in background")
 			ctx, cancel := context.WithCancel(context.Background())
-			monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace")
+			hubbleRes := vm.HubbleObserveFollow(ctx, "--type", "drop", "--type", "trace", "--protocol", "ICMPv4")
 			defer cancel()
 
 			By("Creating an endpoint")
@@ -1638,18 +1638,25 @@ var _ = Describe("RuntimePolicies", func() {
 			res = vm.Exec(helpers.Ping(endpointIP.IPV4))
 			res.ExpectSuccess("Cannot ping endpoint with init policy")
 
-			By("Testing cilium monitor output")
-			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID), helpers.HelperTimeout)
+			By("Testing hubble observe output")
+			err = hubbleRes.WaitUntilMatchFilterLineTimeout(
+				`{.source.labels} -> {.destination.ID} {.IP.destination} : {.verdict}`,
+				fmt.Sprintf("[reserved:host] -> %s %s : FORWARDED", endpointID, endpointIP.IPV4), 10*time.Second)
 			Expect(err).To(BeNil(), "Allow on ingress failed")
-			monitorRes.ExpectDoesNotMatchRegexp(fmt.Sprintf(`xx drop \(Policy denied\) flow [^ ]+ to endpoint %s, identity 1->[^0]`, endpointID), "Unexpected drop")
+
+			// Drop Reason 133 is "Policy denied"
+			hubbleRes.ExpectDoesNotContainFilterLine(
+				`{.source.labels} -> {.destination.ID} {.IP.destination} : {.verdict} {.drop_reason}`,
+				fmt.Sprintf("[reserved:host] -> %s %s : DROPPED 133", endpointID, endpointIP.IPV4),
+				"Unexpected drop")
 		})
 
 		It("Init Egress Policy Test", func() {
 			hostIP := "10.0.2.15"
 
-			By("Starting cilium monitor in background")
+			By("Starting hubble observe in background")
 			ctx, cancel := context.WithCancel(context.Background())
-			monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type drop --type trace")
+			hubbleRes := vm.HubbleObserveFollow(ctx, "--type", "drop", "--type", "trace", "--protocol", "ICMPv4")
 			defer cancel()
 
 			By("Creating an endpoint")
@@ -1663,10 +1670,18 @@ var _ = Describe("RuntimePolicies", func() {
 			egressEpModel := vm.EndpointGet(endpointID)
 			Expect(egressEpModel).NotTo(BeNil(), "nil model returned for endpoint %s", endpointID)
 
-			By("Testing cilium monitor output")
-			err = monitorRes.WaitUntilMatchRegexp(fmt.Sprintf(`-> endpoint %s flow [^ ]+ identity 1->`, endpointID), helpers.HelperTimeout)
-			Expect(err).To(BeNil(), "Allow on egress failed")
-			monitorRes.ExpectDoesNotMatchRegexp(fmt.Sprintf(`xx drop \(Policy denied\) flow [^ ]+ to endpoint %s, identity 1->[^0]`, endpointID), "Unexpected drop")
+			By("Testing hubble observe output")
+			err = hubbleRes.WaitUntilMatchFilterLineTimeout(
+				`{.source.ID} {.source.labels} -> {.destination.labels} {.IP.destination} : {.verdict}`,
+				fmt.Sprintf("%s [container:somelabel] -> [reserved:host] %s : FORWARDED", endpointID, hostIP),
+				10*time.Second)
+			Expect(err).To(BeNil(), "Allow on ingress failed")
+
+			// Drop Reason 133 is "Policy denied"
+			hubbleRes.ExpectDoesNotContainFilterLine(
+				`{.source.ID} {.source.labels} -> {.destination.labels} {.IP.destination} : {.verdict} {.drop_reason}`,
+				fmt.Sprintf("%s [container:somelabel] -> [reserved:host] %s : DROPPED 133", endpointID, hostIP),
+				"Unexpected drop")
 		})
 	})
 
