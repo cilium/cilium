@@ -295,6 +295,7 @@ manifests:
 	mv ${TMPDIR}/cilium.io_ciliumnetworkpolicies.yaml ./examples/crds/ciliumnetworkpolicies.yaml
 	mv ${TMPDIR}/cilium.io_ciliumclusterwidenetworkpolicies.yaml ./examples/crds/ciliumclusterwidenetworkpolicies.yaml
 	mv ${TMPDIR}/cilium.io_ciliumendpoints.yaml ./examples/crds/ciliumendpoints.yaml
+	mv ${TMPDIR}/cilium.io_ciliumidentities.yaml ./examples/crds/ciliumidentities.yaml
 	rm -rf $(TMPDIR)
 
 build-deb:
