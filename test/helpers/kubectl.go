@@ -2230,30 +2230,6 @@ func (kub *Kubectl) WaitPolicyDeleted(pod string, policyName string) error {
 	return WithTimeout(body, fmt.Sprintf("Policy %s was not deleted in time", policyName), &TimeoutConfig{Timeout: HelperTimeout})
 }
 
-// WaitForCiliumEndpointDeleted waits until the given pod is removed from
-// the cilium endpoint list on the given node.
-func (kub *Kubectl) WaitForCiliumEndpointDeleted(node, namespace, pod string) error {
-	ciliumPod, err := kub.GetCiliumPodOnNode(namespace, node)
-	if err != nil {
-		return err
-	}
-
-	body := func() bool {
-		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
-		defer cancel()
-		cmd := fmt.Sprintf(
-			`cilium endpoint list -o json | jq -r '.[] | select (.status."external-identifiers"."pod-name" == "%s/%s")'`,
-			namespace, pod)
-		res := kub.CiliumExecContext(ctx, ciliumPod, cmd)
-		return !res.WasSuccessful()
-	}
-
-	return WithTimeout(body,
-		fmt.Sprintf("Cilium endpoint %s/%s on node %s was not deleted in time",
-			namespace, pod, node),
-		&TimeoutConfig{Timeout: HelperTimeout})
-}
-
 // CiliumIsPolicyLoaded returns true if the policy is loaded in the given
 // cilium Pod. it returns false in case that the policy is not in place
 func (kub *Kubectl) CiliumIsPolicyLoaded(pod string, policyCmd string) bool {
@@ -3520,6 +3496,26 @@ func (kub *Kubectl) HubbleObserve(ns, pod string, args string) *CmdRes {
 // 'ns/pod' in the background. The process is stopped when ctx is cancelled.
 func (kub *Kubectl) HubbleObserveFollow(ctx context.Context, ns, pod string, args string) *CmdRes {
 	return kub.ExecPodCmdBackground(ctx, ns, pod, fmt.Sprintf("hubble observe --follow --output=json %s", args))
+}
+
+// WaitForIPCacheEntry waits until the given ipAddr appears in "cilium bpf ipcache list"
+// on the given node.
+func (kub *Kubectl) WaitForIPCacheEntry(node, ipAddr string) error {
+	ciliumPod, err := kub.GetCiliumPodOnNode(GetCiliumNamespace(GetCurrentIntegration()), node)
+	if err != nil {
+		return err
+	}
+
+	body := func() bool {
+		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+		defer cancel()
+		cmd := fmt.Sprintf(`cilium bpf ipcache list | grep -q %s`, ipAddr)
+		return kub.CiliumExecContext(ctx, ciliumPod, cmd).WasSuccessful()
+	}
+
+	return WithTimeout(body,
+		fmt.Sprintf("ipcache entry for %s was not found in time", ipAddr),
+		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
 func serviceKey(s v1.Service) string {
