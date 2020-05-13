@@ -1187,7 +1187,14 @@ func (kub *Kubectl) NamespaceLabel(namespace string, label string) *CmdRes {
 // the aforementioned desired state within timeout seconds. Returns false and
 // an error if the command failed or the timeout was exceeded.
 func (kub *Kubectl) WaitforPods(namespace string, filter string, timeout time.Duration) error {
-	return kub.waitForNPods(checkReady, namespace, filter, 0, timeout)
+	ginkgoext.By("WaitforPods(namespace=%q, filter=%q)", namespace, filter)
+	err := kub.waitForNPods(checkReady, namespace, filter, 0, timeout)
+	ginkgoext.By("WaitforPods(namespace=%q, filter=%q) => %v", namespace, filter, err)
+	if err != nil {
+		desc := kub.ExecShort(fmt.Sprintf("%s describe pods -n %s %s", KubectlCmd, namespace, filter))
+		ginkgoext.By(desc.GetDebugMessage())
+	}
+	return err
 }
 
 // checkPodStatusFunc returns true if the pod is in the desired state, or false
@@ -1225,7 +1232,14 @@ func checkReady(pod v1.Pod) bool {
 // When minRequired is 0, the function will derive required pod count from number
 // of pods in the cluster for every iteration.
 func (kub *Kubectl) WaitforNPodsRunning(namespace string, filter string, minRequired int, timeout time.Duration) error {
-	return kub.waitForNPods(checkRunning, namespace, filter, minRequired, timeout)
+	ginkgoext.By("WaitforNPodsRunning(namespace=%q, filter=%q)", namespace, filter)
+	err := kub.waitForNPods(checkRunning, namespace, filter, minRequired, timeout)
+	ginkgoext.By("WaitforNPods(namespace=%q, filter=%q) => %v", namespace, filter, err)
+	if err != nil {
+		desc := kub.ExecShort(fmt.Sprintf("%s describe pods -n %s %s", KubectlCmd, namespace, filter))
+		ginkgoext.By(desc.GetDebugMessage())
+	}
+	return err
 }
 
 // WaitforNPods waits up until timeout seconds have elapsed for at least
@@ -1237,7 +1251,14 @@ func (kub *Kubectl) WaitforNPodsRunning(namespace string, filter string, minRequ
 // When minRequired is 0, the function will derive required pod count from number
 // of pods in the cluster for every iteration.
 func (kub *Kubectl) WaitforNPods(namespace string, filter string, minRequired int, timeout time.Duration) error {
-	return kub.waitForNPods(checkReady, namespace, filter, minRequired, timeout)
+	ginkgoext.By("WaitforNPods(namespace=%q, filter=%q)", namespace, filter)
+	err := kub.waitForNPods(checkReady, namespace, filter, minRequired, timeout)
+	ginkgoext.By("WaitforNPods(namespace=%q, filter=%q) => %v", namespace, filter, err)
+	if err != nil {
+		desc := kub.ExecShort(fmt.Sprintf("%s describe pods -n %s %s", KubectlCmd, namespace, filter))
+		ginkgoext.By(desc.GetDebugMessage())
+	}
+	return err
 }
 
 func (kub *Kubectl) waitForNPods(checkStatus checkPodStatusFunc, namespace string, filter string, minRequired int, timeout time.Duration) error {
