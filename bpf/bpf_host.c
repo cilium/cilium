@@ -1097,7 +1097,16 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, bool from_host)
 #ifdef HOST_REDIRECT_TO_INGRESS
 		if (proto == bpf_htons(ETH_P_ARP)) {
 			union macaddr mac = HOST_IFINDEX_MAC;
-			return arp_respond(ctx, &mac, BPF_F_INGRESS);
+			union macaddr smac;
+			__be32 sip;
+			__be32 tip;
+
+			/* Pass any unknown ARP requests to the Linux stack */
+			if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
+				return CTX_ACT_OK;
+
+			return arp_respond(ctx, &mac, tip, &smac, sip,
+					   BPF_F_INGRESS);
 		}
 #endif
 

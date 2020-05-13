@@ -745,7 +745,28 @@ __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_ARP)
 int tail_handle_arp(struct __ctx_buff *ctx)
 {
 	union macaddr mac = NODE_MAC;
-	return arp_respond(ctx, &mac, 0);
+	union macaddr smac;
+	__be32 sip;
+	__be32 tip;
+
+	/* Pass any unknown ARP requests to the Linux stack */
+	if (!arp_validate(ctx, &mac, &smac, &sip, &tip))
+		return CTX_ACT_OK;
+
+	/*
+	 * The endpoint is expected to make ARP requests for its gateway IP.
+	 * Most of the time, the gateway IP configured on the endpoint is
+	 * IPV4_GATEWAY but it may not be the case if after cilium agent reload
+	 * a different gateway is chosen. In such a case, existing endpoints
+	 * will have an old gateway configured. Since we don't know the IP of
+	 * previous gateways, we answer requests for all IPs with the exception
+	 * of the LXC IP (to avoid specific problems, like IP duplicate address
+	 * detection checks that might run within the container).
+	 */
+	if (tip == LXC_IPV4)
+		return CTX_ACT_OK;
+
+	return arp_respond(ctx, &mac, tip, &smac, sip, 0);
 }
 #endif /* ENABLE_ARP_RESPONDER */
 #endif /* ENABLE_IPV4 */
