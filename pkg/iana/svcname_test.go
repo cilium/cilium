@@ -17,12 +17,17 @@
 package iana
 
 import (
+	"testing"
+
 	. "gopkg.in/check.v1"
 )
 
 type IANATestSuite struct{}
 
 var _ = Suite(&IANATestSuite{})
+
+// Hook up gocheck into the "go test" runner.
+func Test(t *testing.T) { TestingT(t) }
 
 func (s *IANATestSuite) TestIsSvcName(c *C) {
 	c.Assert(IsSvcName(""), Equals, false)                 // Too short
