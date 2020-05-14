@@ -561,7 +561,8 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, prevBackendCount int,
 		}
 
 		s.deleteBackendsFromAffinityMatchMap(svc.frontend.ID, toDeleteAffinity)
-		s.addBackendsToAffinityMatchMap(svc.frontend.ID, toAddAffinity)
+		// New affinity matches (toAddAffinity) will be added after the new
+		// backends have been added.
 	}
 
 	// Add new backends into BPF maps
@@ -599,6 +600,10 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, prevBackendCount int,
 		svc.sessionAffinity, svc.sessionAffinityTimeoutSec)
 	if err != nil {
 		return err
+	}
+
+	if option.Config.EnableSessionAffinity {
+		s.addBackendsToAffinityMatchMap(svc.frontend.ID, toAddAffinity)
 	}
 
 	// Remove backends not used by any service from BPF maps
