@@ -768,6 +768,7 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 		}
 
 #ifdef ENABLE_MASQUERADE /* SNAT local pod to world packets */
+
 		/* Do not MASQ when this function is executed from bpf_overlay
 		 * (encap=true denotes this fact). Otherwise, a packet will be
 		 * SNAT'd to cilium_host IP addr. */
@@ -784,6 +785,7 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 			return false;
 #endif
 
+		/* Check whether packet is from a local endpoint */
 		if ((ep = __lookup_ip4_endpoint(ip4->saddr)) != NULL &&
 		    !(ep->flags & ENDPOINT_F_HOST)) {
 			struct remote_endpoint_info *info;
@@ -793,14 +795,15 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 					       V4_CACHE_KEY_LEN);
 			if (info != NULL) {
 #ifdef ENABLE_IP_MASQ_AGENT
+				/* Do not SNAT if dst belongs to any
+				 * ip-masq-agent subnet */
 				struct lpm_v4_key pfx;
 				pfx.lpm.prefixlen = 32;
 				memcpy(pfx.lpm.data, &ip4->daddr, sizeof(pfx.addr));
 				if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
 					return false;
 #endif
-				if (info->sec_label == WORLD_ID)
-					return true;
+				if (info->sec_label == REMOTE_NODE_ID)
 #ifdef ENCAP_IFINDEX
 				/* In the tunnel mode, a packet from a local ep
 				 * to a remote node is not encap'd, and is sent
@@ -810,9 +813,14 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 				 * packets by default from unknown subnets) or
 				 * by the remote node if its native dev's
 				 * rp_filter=1. */
-				if (info->sec_label == REMOTE_NODE_ID)
+
 					return true;
-#endif
+#else
+				/* Do not SNAT if dst is a remote node */
+					return false;
+#endif /* ENCAP_IFINDEX */
+
+				return true;
 			}
 		}
 #endif /*ENABLE_MASQUERADE */
