@@ -84,7 +84,7 @@ func formatStatusResponse(w io.Writer, nodes []*models.NodeElement) {
 
 	if len(nodesOutput) > 1 {
 		tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
-		fmt.Fprintf(tab, nodesOutputHeader)
+		fmt.Fprint(tab, nodesOutputHeader)
 		sort.Strings(nodesOutput)
 		for _, s := range nodesOutput {
 			fmt.Fprint(tab, s)

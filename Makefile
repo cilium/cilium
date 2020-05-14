@@ -402,9 +402,9 @@ govet:
     ./test/k8sT/... \
     ./tools/...
 
-ineffassign:
-	@$(ECHO_CHECK) ineffassign
-	$(QUIET) ineffassign .
+lint:
+	@$(ECHO_CHECK) golangci-lint
+	$(QUIET) golangci-lint run
 
 logging-subsys-field:
 	@$(ECHO_CHECK) contrib/scripts/check-logging-subsys-field.sh
@@ -436,7 +436,7 @@ microk8s: check-microk8s
 ci-precheck: precheck
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf build_all
 
-precheck: ineffassign logging-subsys-field
+precheck: logging-subsys-field
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
 	$(QUIET) contrib/scripts/check-k8s-code-gen.sh

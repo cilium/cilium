@@ -78,7 +78,7 @@ func getTemplateSHA(epID string) string {
 	if err != nil {
 		return brokenSHA
 	}
-	if f, err = os.Stat(template); err != nil {
+	if _, err = os.Stat(template); err != nil {
 		return brokenSHA
 	}
 	return filepath.Base(filepath.Dir(template))

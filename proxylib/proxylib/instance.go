@@ -20,7 +20,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/lock"
 
-	"github.com/cilium/proxy/go/cilium/api"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
 	"github.com/golang/protobuf/proto"
 	log "github.com/sirupsen/logrus"
@@ -130,7 +130,7 @@ func CloseInstance(id uint64) uint64 {
 	if ins, ok := instances[id]; ok {
 		ins.openCount--
 		count = ins.openCount
-		if count <= 0 {
+		if count == 0 {
 			if ins.policyClient != nil {
 				ins.policyClient.Close()
 			}

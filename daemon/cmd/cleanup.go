@@ -83,6 +83,7 @@ func (d *daemonCleanup) registerSigHandler() <-chan struct{} {
 			pidfile.Clean()
 			d.Clean()
 			d.cleanupFuncs.Run()
+			// nolint
 			break
 		}
 		close(interrupt)
