@@ -9,7 +9,7 @@ include ../Makefile.quiet
 default: html
 
 clean:
-	-$(QUIET)rm -rf _build
+	-$(QUIET)rm -rf _build _preview Pipfile Pipfile.lock
 
 builder-image: Dockerfile requirements.txt
 	$(QUIET)tar c requirements.txt Dockerfile \
@@ -61,3 +61,13 @@ run-server: stop-server
 
 stop-server:
 	-$(QUIET)$(CONTAINER_ENGINE) container rm --force --volumes docs-cilium
+
+pipenv:
+	@which pipenv > /dev/null || (echo "Please install pipenv: https://pipenv.pypa.io/en/latest/#install-pipenv-today"; exit 1)
+
+pipenv-install: pipenv
+	pipenv --rm || true
+	pipenv install --three -r requirements.txt
+
+live-preview: pipenv
+	pipenv run sphinx-autobuild -B $(SPHINX_OPTS) -i *.swp -Q . _preview

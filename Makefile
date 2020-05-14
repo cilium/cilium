@@ -596,6 +596,9 @@ update-authors:
 render-docs:
 	$(MAKE) -C Documentation html run-server
 
+render-docs-live-preview:
+	$(MAKE) -C Documentation pipenv-install live-preview
+
 manpages:
 	-rm -r man
 	mkdir -p man
