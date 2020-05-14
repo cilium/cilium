@@ -56,8 +56,8 @@ func (meta *ObjectMeta) GetGenerateName() string           { return "" }
 func (meta *ObjectMeta) SetGenerateName(string)            {}
 func (meta *ObjectMeta) GetUID() types.UID                 { return meta.UID }
 func (meta *ObjectMeta) SetUID(uid types.UID)              { meta.UID = uid }
-func (meta *ObjectMeta) GetResourceVersion() string        { return "" }
-func (meta *ObjectMeta) SetResourceVersion(_ string)       {}
+func (meta *ObjectMeta) GetResourceVersion() string        { return meta.ResourceVersion }
+func (meta *ObjectMeta) SetResourceVersion(ver string)     { meta.ResourceVersion = ver }
 func (meta *ObjectMeta) GetGeneration() int64              { return 0 }
 func (meta *ObjectMeta) SetGeneration(_ int64)             {}
 func (meta *ObjectMeta) GetSelfLink() string               { return "" }
