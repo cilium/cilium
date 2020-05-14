@@ -39,7 +39,13 @@ using the `Google Cloud SDK <https://cloud.google.com/sdk/>`_.
 .. code:: bash
 
     export CLUSTER_NAME=cluster1
-    gcloud container clusters create $CLUSTER_NAME --image-type COS --num-nodes 2
+    gcloud container clusters create $CLUSTER_NAME --image-type COS --num-nodes 2 --machine-type n1-standard-4
+
+Retrieve the credentials to access the cluster:
+
+.. code:: bash
+
+    gcloud container clusters get-credentials tgraf-test
 
 When done, you should be able to access your cluster like this:
 
