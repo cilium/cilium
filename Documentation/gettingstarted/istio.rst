@@ -29,20 +29,20 @@ Step 2: Install cilium-istioctl
 
    Make sure that Cilium is running in your cluster before proceeding.
 
-Download the `cilium enhanced istioctl version 1.5.2 <https://github.com/cilium/istio/releases/tag/1.5.2>`_:
+Download the `cilium enhanced istioctl version 1.5.4 <https://github.com/cilium/istio/releases/tag/1.5.4>`_:
 
 .. tabs::
   .. group-tab:: Linux
 
     .. parsed-literal::
 
-     curl -L https://github.com/cilium/istio/releases/download/1.5.2/cilium-istioctl-1.5.2-linux.tar.gz | tar xz
+     curl -L https://github.com/cilium/istio/releases/download/1.5.4/cilium-istioctl-1.5.4-linux.tar.gz | tar xz
 
   .. group-tab:: OSX
 
     .. parsed-literal::
 
-     curl -L https://github.com/cilium/istio/releases/download/1.5.2/cilium-istioctl-1.5.2-osx.tar.gz | tar xz
+     curl -L https://github.com/cilium/istio/releases/download/1.5.4/cilium-istioctl-1.5.4-osx.tar.gz | tar xz
 
 .. note::
 
