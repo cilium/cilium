@@ -23,8 +23,8 @@ import (
 
 func (meta *ListMeta) GetResourceVersion() string        { return meta.ResourceVersion }
 func (meta *ListMeta) SetResourceVersion(version string) { meta.ResourceVersion = version }
-func (meta *ListMeta) GetSelfLink() string               { return "" }
-func (meta *ListMeta) SetSelfLink(_ string)              {}
+func (meta *ListMeta) GetSelfLink() string               { panic("not implemented") }
+func (meta *ListMeta) SetSelfLink(_ string)              { panic("not implemented") }
 func (meta *ListMeta) GetContinue() string               { return meta.Continue }
 func (meta *ListMeta) SetContinue(c string)              { meta.Continue = c }
 func (meta *ListMeta) GetRemainingItemCount() *int64     { return meta.RemainingItemCount }
@@ -52,41 +52,41 @@ func (meta *ObjectMeta) GetNamespace() string              { return meta.Namespa
 func (meta *ObjectMeta) SetNamespace(namespace string)     { meta.Namespace = namespace }
 func (meta *ObjectMeta) GetName() string                   { return meta.Name }
 func (meta *ObjectMeta) SetName(name string)               { meta.Name = name }
-func (meta *ObjectMeta) GetGenerateName() string           { return "" }
-func (meta *ObjectMeta) SetGenerateName(string)            {}
+func (meta *ObjectMeta) GetGenerateName() string           { panic("not implemented") }
+func (meta *ObjectMeta) SetGenerateName(string)            { panic("not implemented") }
 func (meta *ObjectMeta) GetUID() types.UID                 { return meta.UID }
 func (meta *ObjectMeta) SetUID(uid types.UID)              { meta.UID = uid }
 func (meta *ObjectMeta) GetResourceVersion() string        { return meta.ResourceVersion }
 func (meta *ObjectMeta) SetResourceVersion(ver string)     { meta.ResourceVersion = ver }
-func (meta *ObjectMeta) GetGeneration() int64              { return 0 }
-func (meta *ObjectMeta) SetGeneration(_ int64)             {}
-func (meta *ObjectMeta) GetSelfLink() string               { return "" }
-func (meta *ObjectMeta) SetSelfLink(_ string)              {}
-func (meta *ObjectMeta) GetCreationTimestamp() metav1.Time { return metav1.Time{} }
+func (meta *ObjectMeta) GetGeneration() int64              { panic("not implemented") }
+func (meta *ObjectMeta) SetGeneration(_ int64)             { panic("not implemented") }
+func (meta *ObjectMeta) GetSelfLink() string               { panic("not implemented") }
+func (meta *ObjectMeta) SetSelfLink(_ string)              { panic("not implemented") }
+func (meta *ObjectMeta) GetCreationTimestamp() metav1.Time { panic("not implemented") }
 func (meta *ObjectMeta) SetCreationTimestamp(_ metav1.Time) {
-
+	panic("not implemented")
 }
-func (meta *ObjectMeta) GetDeletionTimestamp() *metav1.Time { return &metav1.Time{} }
+func (meta *ObjectMeta) GetDeletionTimestamp() *metav1.Time { panic("not implemented") }
 func (meta *ObjectMeta) SetDeletionTimestamp(_ *metav1.Time) {
-
+	panic("not implemented")
 }
 func (meta *ObjectMeta) GetDeletionGracePeriodSeconds() *int64 {
-	return func() *int64 { a := int64(0); return &a }()
+	panic("not implemented")
 }
 func (meta *ObjectMeta) SetDeletionGracePeriodSeconds(_ *int64) {
-
+	panic("not implemented")
 }
 func (meta *ObjectMeta) GetLabels() map[string]string                 { return meta.Labels }
 func (meta *ObjectMeta) SetLabels(labels map[string]string)           { meta.Labels = labels }
 func (meta *ObjectMeta) GetAnnotations() map[string]string            { return meta.Annotations }
 func (meta *ObjectMeta) SetAnnotations(annotations map[string]string) { meta.Annotations = annotations }
-func (meta *ObjectMeta) GetFinalizers() []string                      { return nil }
-func (meta *ObjectMeta) SetFinalizers(_ []string)                     {}
-func (meta *ObjectMeta) GetOwnerReferences() []metav1.OwnerReference  { return nil }
+func (meta *ObjectMeta) GetFinalizers() []string                      { panic("not implemented") }
+func (meta *ObjectMeta) SetFinalizers(_ []string)                     { panic("not implemented") }
+func (meta *ObjectMeta) GetOwnerReferences() []metav1.OwnerReference  { panic("not implemented") }
 func (meta *ObjectMeta) SetOwnerReferences(_ []metav1.OwnerReference) {
-
+	panic("not implemented")
 }
-func (meta *ObjectMeta) GetClusterName() string                         { return "" }
-func (meta *ObjectMeta) SetClusterName(_ string)                        {}
-func (meta *ObjectMeta) GetManagedFields() []metav1.ManagedFieldsEntry  { return nil }
-func (meta *ObjectMeta) SetManagedFields(_ []metav1.ManagedFieldsEntry) {}
+func (meta *ObjectMeta) GetClusterName() string                         { panic("not implemented") }
+func (meta *ObjectMeta) SetClusterName(_ string)                        { panic("not implemented") }
+func (meta *ObjectMeta) GetManagedFields() []metav1.ManagedFieldsEntry  { panic("not implemented") }
+func (meta *ObjectMeta) SetManagedFields(_ []metav1.ManagedFieldsEntry) { panic("not implemented") }
