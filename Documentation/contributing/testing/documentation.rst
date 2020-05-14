@@ -7,7 +7,18 @@
 Documentation
 =============
 
-Whenever making changes to Cilium documentation you should check that you did not introduce any new warnings or errors, and also check that your changes look as you intended.  To do this you can build the docs:
+First, start a local document server that automatically refreshes when you save files for
+real-time preview. After installing `pipenv <https://pipenv.pypa.io/en/latest/#install-pipenv-today>`_,
+run:
+
+::
+
+    $ make render-docs-live-preview
+
+and preview the documentation at http://localhost:8000/ as you make changes. After making changes to
+Cilium documentation you should check that you did not introduce any new warnings or errors, and also
+check that your changes look as you intended one last time before opening a pull request. To do this
+you can build the docs:
 
 ::
 
@@ -16,7 +27,3 @@ Whenever making changes to Cilium documentation you should check that you did no
 This generates documentation files and starts a web server using a Docker container. You can
 view the updated documentation by opening either ``Documentation/_build/html/index.html`` or
 http://localhost:9081 in a browser.
-
-.. note:: ``make render-docs`` is relatively slow since it performs syntax and spelling checks.
-          You can run ``make render-docs SKIP_LINT=1`` to render the documentation without performing
-          these checks while you iterate on updating the documentation.

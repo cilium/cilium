@@ -1,2 +1,5 @@
 _build
 _api
+_preview
+Pipfile
+Pipfile.lock
