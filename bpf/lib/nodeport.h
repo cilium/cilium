@@ -775,13 +775,14 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 		if (encap)
 			return false;
 
-#ifdef IPV4_NATIVE_ROUTING_CIDR
-		/* Do not MASQ if a dst IP belongs to a global PodCIDR. The
-		 * check is performed before we determine that a packet is
+#ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
+		/* Do not MASQ if a dst IP belongs to a pods CIDR
+		 * (native-routing-cidr if specified, otherwise local pod CIDR).
+		 * The check is performed before we determine that a packet is
 		 * sent from a local pod, as this check is cheaper than
 		 * the map lookup done in the latter check. */
-		if (ipv4_is_in_subnet(ip4->daddr, IPV4_NATIVE_ROUTING_CIDR,
-				      IPV4_NATIVE_ROUTING_CIDR_LEN))
+		if (ipv4_is_in_subnet(ip4->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
+				      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
 			return false;
 #endif
 
@@ -803,8 +804,7 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 				if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
 					return false;
 #endif
-				if (info->sec_label == REMOTE_NODE_ID)
-#ifdef ENCAP_IFINDEX
+#ifndef ENCAP_IFINDEX
 				/* In the tunnel mode, a packet from a local ep
 				 * to a remote node is not encap'd, and is sent
 				 * via a native dev. Therefore, such packet has
@@ -813,12 +813,9 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 				 * packets by default from unknown subnets) or
 				 * by the remote node if its native dev's
 				 * rp_filter=1. */
-
-					return true;
-#else
-				/* Do not SNAT if dst is a remote node */
+				if (info->sec_label == REMOTE_NODE_ID)
 					return false;
-#endif /* ENCAP_IFINDEX */
+#endif
 
 				return true;
 			}
