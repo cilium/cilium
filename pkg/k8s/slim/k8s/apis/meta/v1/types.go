@@ -117,6 +117,20 @@ type ObjectMeta struct {
 	// +optional
 	UID types.UID `json:"uid,omitempty" protobuf:"bytes,5,opt,name=uid,casttype=k8s.io/kubernetes/pkg/types.UID"`
 
+	// An opaque value that represents the internal version of this object that can
+	// be used by clients to determine when objects have changed. May be used for optimistic
+	// concurrency, change detection, and the watch operation on a resource or set of resources.
+	// Clients must treat these values as opaque and passed unmodified back to the server.
+	// They may only be valid for a particular resource or set of resources.
+	//
+	// Populated by the system.
+	// Read-only.
+	// Value must be treated as opaque by clients and .
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#concurrency-control-and-consistency
+	// +optional
+	// +deepequal-gen=false
+	ResourceVersion string `json:"resourceVersion,omitempty" protobuf:"bytes,6,opt,name=resourceVersion"`
+
 	// Map of string keys and values that can be used to organize and categorize
 	// (scope and select) objects. May match selectors of replication controllers
 	// and services.
