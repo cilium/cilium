@@ -75,7 +75,7 @@ func (p *prober) copyResultRLocked(ip string) *models.PathStatus {
 	}
 	for res, value := range paths {
 		if value != nil {
-			*res = &*value
+			*res = value
 		}
 	}
 	return result

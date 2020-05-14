@@ -485,9 +485,9 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 	fmt.Fprint(fw, defineMAC("NODE_MAC", e.GetNodeMAC()))
 
 	secID := e.GetIdentityLocked().Uint32()
-	fmt.Fprintf(fw, defineUint32("SECLABEL", secID))
-	fmt.Fprintf(fw, defineUint32("SECLABEL_NB", byteorder.HostToNetwork(secID).(uint32)))
-	fmt.Fprintf(fw, defineUint32("POLICY_VERDICT_LOG_FILTER", e.GetPolicyVerdictLogFilter()))
+	fmt.Fprint(fw, defineUint32("SECLABEL", secID))
+	fmt.Fprint(fw, defineUint32("SECLABEL_NB", byteorder.HostToNetwork(secID).(uint32)))
+	fmt.Fprint(fw, defineUint32("POLICY_VERDICT_LOG_FILTER", e.GetPolicyVerdictLogFilter()))
 
 	epID := uint16(e.GetID())
 	fmt.Fprintf(fw, "#define POLICY_MAP %s\n", bpf.LocalMapName(policymap.MapName, epID))

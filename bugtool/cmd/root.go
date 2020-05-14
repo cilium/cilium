@@ -377,7 +377,7 @@ func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool
 	// Write prompt as header and the output as body, and / or error but delete empty output.
 	output, err := execCommand(prompt)
 	if err != nil {
-		fmt.Fprintf(f, fmt.Sprintf("> Error while running '%s':  %s\n\n", prompt, err))
+		fmt.Fprintf(f, "> Error while running '%s':  %s\n\n", prompt, err)
 	}
 	// We deliberately continue in case there was a error but the output
 	// produced might have useful information

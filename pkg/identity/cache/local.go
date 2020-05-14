@@ -120,8 +120,7 @@ func (l *localIdentityCache) release(id *identity.Identity) bool {
 	l.mutex.Lock()
 	defer l.mutex.Unlock()
 
-	stringRepresentation := string(id.Labels.SortedList())
-	if id, ok := l.identitiesByLabels[stringRepresentation]; ok {
+	if id, ok := l.identitiesByLabels[string(id.Labels.SortedList())]; ok {
 		switch {
 		case id.ReferenceCount > 1:
 			id.ReferenceCount--
@@ -155,8 +154,7 @@ func (l *localIdentityCache) lookup(lbls labels.Labels) *identity.Identity {
 	l.mutex.RLock()
 	defer l.mutex.RUnlock()
 
-	stringRepresentation := string(lbls.SortedList())
-	if id, ok := l.identitiesByLabels[stringRepresentation]; ok {
+	if id, ok := l.identitiesByLabels[string(lbls.SortedList())]; ok {
 		return id
 	}
 

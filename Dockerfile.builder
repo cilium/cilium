@@ -37,5 +37,4 @@ RUN apt-get update && \
 # Install Go
 #
 RUN curl -sfL https://dl.google.com/go/go${GO_VERSION}.linux-${ARCH}.tar.gz | tar -xzC /usr/local && \
-    GO111MODULE=on go get github.com/gordonklaus/ineffassign@1003c8bd00dc2869cb5ca5282e6ce33834fed514 && \
     go clean -cache -modcache

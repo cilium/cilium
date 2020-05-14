@@ -104,7 +104,6 @@ func migrateIdentities() {
 	listCancel()
 
 	log.Info("Migrating identities to CRD")
-	badKeys := make([]allocator.AllocatorKey, 0)                       // keys that have real errors
 	alreadyAllocatedKeys := make(map[idpool.ID]allocator.AllocatorKey) // IDs that are already allocated, maybe with different labels
 
 	for id, key := range kvstoreIDs {
@@ -120,8 +119,7 @@ func migrateIdentities() {
 			alreadyAllocatedKeys[id] = key
 
 		case err != nil:
-			scopedLog.WithError(err).Error("Cannot allocate CRD ID. This key will be allocated with a new numeric identity")
-			badKeys = append(badKeys, key)
+			scopedLog.WithField(logfields.Key, key).WithError(err).Error("Cannot allocate CRD ID. This key will be allocated with a new numeric identity")
 
 		default:
 			scopedLog.Info("Migrated identity")

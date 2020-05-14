@@ -836,7 +836,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			// do not return error for chain creation that are linked to disabled feeder rules
 			skipFeeder := false
 			for _, disabledChain := range option.Config.DisableIptablesFeederRules {
-				if strings.ToLower(c.hook) == strings.ToLower(disabledChain) {
+				if strings.EqualFold(c.hook, disabledChain) {
 					skipFeeder = true
 					break
 				}
@@ -1046,7 +1046,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 		// do not install feeder for chains that are set to be disabled
 		skipFeeder := false
 		for _, disabledChain := range option.Config.DisableIptablesFeederRules {
-			if strings.ToLower(c.hook) == strings.ToLower(disabledChain) {
+			if strings.EqualFold(c.hook, disabledChain) {
 				log.WithField("chain", c.hook).Infof("Skipping the install of feeder rule")
 				skipFeeder = true
 				break

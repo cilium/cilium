@@ -64,9 +64,6 @@ set -o errexit
 set -o nounset
 set -o pipefail
 
-# Can be removed once PR #11528 with the golangci-lint replacement is merged.
-go get -u github.com/gordonklaus/ineffassign
-
 export PATH=/home/vagrant/go/bin:/usr/local/sbin:/usr/local/bin:/usr/sbin:/usr/bin:/sbin:/bin:/usr/games:/usr/local/games
 #{$makeclean}
 ~/go/src/github.com/cilium/cilium/contrib/vagrant/build.sh

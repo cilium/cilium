@@ -22,6 +22,16 @@ jobs:
           go mod vendor
           git diff --exit-code
 
+  golangci:
+    name: lint
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: golangci-lint
+        uses: golangci/golangci-lint-action@v1.2.1
+        with:
+          version: v1.27
+
   generate-k8s-api:
     runs-on: ubuntu-latest
     steps:
