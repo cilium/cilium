@@ -430,7 +430,7 @@ func wrapContextFunc(fn func(string, func()) bool, focused bool) func(string, fu
 		if currentScope == nil {
 			return fn(text, body)
 		}
-		newScope := &scope{text: text, parent: currentScope, focused: focused}
+		newScope := &scope{text: currentScope.text + " " + text, parent: currentScope, focused: focused}
 		currentScope.children = append(currentScope.children, newScope)
 		currentScope = newScope
 		res := fn(text, body)
@@ -463,7 +463,7 @@ func wrapItFunc(fn func(string, interface{}, ...float64) bool, focused bool) fun
 		if currentScope == nil {
 			return fn(text, body, timeout...)
 		}
-		if focused || isTestFocussed(text) {
+		if focused || isTestFocused(currentScope.text+" "+text) {
 			currentScope.focusedTests++
 		} else {
 			currentScope.normalTests++
@@ -486,7 +486,7 @@ func wrapMeasureFunc(fn func(text string, body interface{}, samples int) bool, f
 		if currentScope == nil {
 			return fn(text, body, samples)
 		}
-		if focused || isTestFocussed(text) {
+		if focused || isTestFocused(currentScope.text+" "+text) {
 			currentScope.focusedTests++
 		} else {
 			currentScope.normalTests++
@@ -495,15 +495,15 @@ func wrapMeasureFunc(fn func(text string, body interface{}, samples int) bool, f
 	}
 }
 
-// isTestFocussed checks the value of FocusString and return true if the given
-// text name is focussed, returns false if the test is not focussed.
-func isTestFocussed(text string) bool {
+// isTestFocused checks the value of FocusString and return true if the given
+// text name is focussed, returns false if the test is not focused.
+func isTestFocused(text string) bool {
 	if config.GinkgoConfig.FocusString == "" {
 		return false
 	}
 
 	focusFilter := regexp.MustCompile(config.GinkgoConfig.FocusString)
-	return focusFilter.Match([]byte(text))
+	return focusFilter.MatchString(text)
 }
 
 func applyAdvice(f interface{}, before, after func()) interface{} {
