@@ -25,6 +25,7 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
+	"sync"
 	"sync/atomic"
 	"time"
 
@@ -36,6 +37,7 @@ type scope struct {
 	parent        *scope
 	children      []*scope
 	counter       int32
+	mutex         *sync.Mutex
 	before        []func()
 	after         []func()
 	afterEach     []func()
@@ -50,12 +52,13 @@ type scope struct {
 }
 
 var (
-	currentScope = &scope{text: "EntireTestsuite"}
-	rootScope    = currentScope
-	// countersInitialized protects repeat calls of calculate counters on
-	// rootScope. This relies on ginkgo being single-threaded to set the value
-	// safely.
-	countersInitialized bool
+	currentScope = &scope{
+		text:    "EntireTestsuite",
+		counter: -1,
+		mutex:   &sync.Mutex{},
+	}
+
+	rootScope = currentScope
 
 	// failEnabled for tests that have failed on JustAfterEach function we need
 	// to handle differently, because `ginkgo.Fail` do a panic, and all the
@@ -114,6 +117,39 @@ func init() {
 
 	config.Flags(commandFlags, "ginkgo", true)
 	commandFlags.Parse(args)
+}
+
+func (s *scope) isUnset() bool {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return (s.counter == -1)
+}
+
+func (s *scope) isZero() bool {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	return (s.counter == 0)
+}
+
+func (s *scope) setSafely(val int) {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.counter = int32(val)
+}
+
+func (s *scope) decrementSafely() {
+	s.mutex.Lock()
+	defer s.mutex.Unlock()
+	s.counter--
+	if s.counter < 0 {
+		panic(fmt.Sprintf("ERROR: unexpected negative scope counter value: %d", s.counter))
+	}
+}
+
+func CurrnetScopeCounter() int32 {
+	currentScope.mutex.Lock()
+	defer currentScope.mutex.Unlock()
+	return currentScope.counter
 }
 
 // By allows you to better document large Its.
@@ -310,7 +346,7 @@ func RunAfterEach(cs *scope) {
 	}
 
 	// Decrement the test number due test or BeforeEach has been run.
-	atomic.AddInt32(&cs.counter, -1)
+	cs.decrementSafely()
 
 	// Disabling the `ginkgo.Fail` function to avoid the panic and be able to
 	// gather all the logs.
@@ -344,14 +380,11 @@ func RunAfterEach(cs *scope) {
 	}
 
 	// Only run afterAll when all the counters are 0 and all afterEach are executed
-	after := func() {
-		if cs.counter == 0 && cs.after != nil {
-			for _, after := range cs.after {
-				after()
-			}
+	if cs.isZero() && cs.after != nil {
+		for _, after := range cs.after {
+			after()
 		}
 	}
-	after()
 
 	cb := afterEachCB[testName]
 	if cb != nil {
@@ -430,7 +463,13 @@ func wrapContextFunc(fn func(string, func()) bool, focused bool) func(string, fu
 		if currentScope == nil {
 			return fn(text, body)
 		}
-		newScope := &scope{text: currentScope.text + " " + text, parent: currentScope, focused: focused}
+		newScope := &scope{
+			text:    currentScope.text + " " + text,
+			parent:  currentScope,
+			focused: focused,
+			mutex:   &sync.Mutex{},
+			counter: -1,
+		}
 		currentScope.children = append(currentScope.children, newScope)
 		currentScope = newScope
 		res := fn(text, body)
@@ -453,10 +492,11 @@ func wrapNilContextFunc(fn func(string, func()) bool) func(string, func()) bool 
 // execute AfterAll. This is tracked via scope.focusedTests and .normalTests.
 // This function is similar to wrapMeasureFunc.
 func wrapItFunc(fn func(string, interface{}, ...float64) bool, focused bool) func(string, interface{}, ...float64) bool {
-	if !countersInitialized {
-		countersInitialized = true
+	if rootScope.isUnset() {
+		rootScope.setSafely(0)
 		BeforeSuite(func() {
-			calculateCounters(rootScope, false)
+			c, _ := calculateCounters(rootScope, false)
+			rootScope.setSafely(c)
 		})
 	}
 	return func(text string, body interface{}, timeout ...float64) bool {
@@ -476,10 +516,11 @@ func wrapItFunc(fn func(string, interface{}, ...float64) bool, focused bool) fun
 // execute AfterAll. This is tracked via scope.focusedTests and .normalTests.
 // This function is similar to wrapItFunc.
 func wrapMeasureFunc(fn func(text string, body interface{}, samples int) bool, focused bool) func(text string, body interface{}, samples int) bool {
-	if !countersInitialized {
-		countersInitialized = true
+	if rootScope.isUnset() {
+		rootScope.setSafely(0)
 		BeforeSuite(func() {
-			calculateCounters(rootScope, false)
+			c, _ := calculateCounters(rootScope, false)
+			rootScope.setSafely(c)
 		})
 	}
 	return func(text string, body interface{}, samples int) bool {
@@ -538,10 +579,15 @@ func wrapTest(f interface{}) interface{} {
 func calculateCounters(s *scope, focusedOnly bool) (int, bool) {
 	count := s.focusedTests
 	haveFocused := s.focusedTests > 0
-	var focusedChildren int
+	focusedChildren := 0
 	for _, child := range s.children {
 		if child.focused {
+			if !child.isUnset() {
+				panic("unexepcted redundant recursive call")
+			}
+			child.setSafely(0)
 			c, _ := calculateCounters(child, false)
+			child.setSafely(c)
 			focusedChildren += c
 		}
 	}
@@ -549,10 +595,15 @@ func calculateCounters(s *scope, focusedOnly bool) (int, bool) {
 		haveFocused = true
 		count += focusedChildren
 	}
-	var normalChildren int
+	normalChildren := 0
 	for _, child := range s.children {
 		if !child.focused {
+			if !child.isUnset() {
+				panic("unexepcted redundant recursive call")
+			}
+			child.setSafely(0)
 			c, f := calculateCounters(child, focusedOnly || haveFocused)
+			child.setSafely(c)
 			if f {
 				haveFocused = true
 				count += c
@@ -564,7 +615,6 @@ func calculateCounters(s *scope, focusedOnly bool) (int, bool) {
 	if !focusedOnly && !haveFocused {
 		count += s.normalTests + normalChildren
 	}
-	s.counter = int32(count)
 	return count, haveFocused
 }
 
