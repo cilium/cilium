@@ -498,3 +498,8 @@ global:
       clusterPoolIPv4MaskSize: 24
       clusterPoolIPv6PodCIDR: "fd00::/104"
       clusterPoolIPv6MaskSize: 120
+
+  proxy:
+    # Regular expression matching compatible Istio sidecar istio-proxy
+    # container image names
+    sidecarImageRegex: "cilium/istio_proxy"
