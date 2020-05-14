@@ -33,6 +33,7 @@
 #include "lib/trace.h"
 #include "lib/csum.h"
 #include "lib/encap.h"
+#include "lib/eps.h"
 #include "lib/nat.h"
 #include "lib/nodeport.h"
 #include "lib/policy_log.h"
@@ -994,7 +995,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 		union v6addr *src = (union v6addr *) &ip6->saddr;
 		struct remote_endpoint_info *info;
 
-		info = ipcache_lookup6(&IPCACHE_MAP, src, V6_CACHE_KEY_LEN);
+		info = lookup_ip6_remote_endpoint(src);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
 			if (sec_label) {
@@ -1213,7 +1214,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 	if (identity_is_reserved(src_identity)) {
 		struct remote_endpoint_info *info;
 
-		info = ipcache_lookup4(&IPCACHE_MAP, ip4->saddr, V4_CACHE_KEY_LEN);
+		info = lookup_ip4_remote_endpoint(ip4->saddr);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
 			if (sec_label) {
