@@ -1,4 +1,4 @@
-FROM docker.io/library/golang:1.14.2 as builder
+FROM docker.io/library/golang:1.14.3 as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
