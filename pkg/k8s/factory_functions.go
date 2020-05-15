@@ -666,8 +666,20 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 	switch concreteObj := obj.(type) {
 	case *cilium_v2.CiliumEndpoint:
 		p := &types.CiliumEndpoint{
-			TypeMeta:   concreteObj.TypeMeta,
-			ObjectMeta: concreteObj.ObjectMeta,
+			TypeMeta: slim_metav1.TypeMeta{
+				Kind:       concreteObj.TypeMeta.Kind,
+				APIVersion: concreteObj.TypeMeta.APIVersion,
+			},
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name:            concreteObj.ObjectMeta.Name,
+				Namespace:       concreteObj.ObjectMeta.Namespace,
+				UID:             concreteObj.ObjectMeta.UID,
+				ResourceVersion: concreteObj.ObjectMeta.ResourceVersion,
+				// We don't need to store labels nor annotations because
+				// they are not used by the CEP handlers.
+				Labels:      nil,
+				Annotations: nil,
+			},
 			Encryption: &concreteObj.Status.Encryption,
 			Identity:   concreteObj.Status.Identity,
 			Networking: concreteObj.Status.Networking,
@@ -682,9 +694,20 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 		}
 		dfsu := cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
-			Obj: &types.CiliumEndpoint{
-				TypeMeta:   ciliumEndpoint.TypeMeta,
-				ObjectMeta: ciliumEndpoint.ObjectMeta,
+			Obj: &types.CiliumEndpoint{TypeMeta: slim_metav1.TypeMeta{
+				Kind:       ciliumEndpoint.TypeMeta.Kind,
+				APIVersion: ciliumEndpoint.TypeMeta.APIVersion,
+			},
+				ObjectMeta: slim_metav1.ObjectMeta{
+					Name:            ciliumEndpoint.ObjectMeta.Name,
+					Namespace:       ciliumEndpoint.ObjectMeta.Namespace,
+					UID:             ciliumEndpoint.ObjectMeta.UID,
+					ResourceVersion: ciliumEndpoint.ObjectMeta.ResourceVersion,
+					// We don't need to store labels nor annotations because
+					// they are not used by the CEP handlers.
+					Labels:      nil,
+					Annotations: nil,
+				},
 				Encryption: &ciliumEndpoint.Status.Encryption,
 				Identity:   ciliumEndpoint.Status.Identity,
 				Networking: ciliumEndpoint.Status.Networking,
