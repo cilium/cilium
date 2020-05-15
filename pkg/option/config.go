@@ -221,6 +221,9 @@ const (
 	// LabelPrefixFile is the valid label prefixes file path
 	LabelPrefixFile = "label-prefix-file"
 
+	// EnableHostFirewall enables network policies for the host
+	EnableHostFirewall = "enable-host-firewall"
+
 	// EnableHostPort enables HostPort forwarding implemented by Cilium in BPF
 	EnableHostPort = "enable-host-port"
 
@@ -1627,6 +1630,9 @@ type DaemonConfig struct {
 	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
 	EnableExternalIPs bool
 
+	// EnableHostFirewall enables network policies for the host
+	EnableHostFirewall bool
+
 	// K8sEnableEndpointSlice enables k8s endpoint slice feature that is used
 	// in kubernetes.
 	K8sEnableK8sEndpointSlice bool
@@ -2156,6 +2162,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = viper.GetString(KubeProxyReplacement)
 	c.EnableSessionAffinity = viper.GetBool(EnableSessionAffinity)
+	c.EnableHostFirewall = viper.GetBool(EnableHostFirewall)
 	c.EncryptInterface = viper.GetString(EncryptInterface)
 	c.EncryptNode = viper.GetBool(EncryptNode)
 	c.EnvoyLogPath = viper.GetString(EnvoyLog)
