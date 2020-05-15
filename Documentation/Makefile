@@ -37,11 +37,17 @@ ifeq ($(V),0)
 SPHINX_OPTS += -q
 endif
 
-epub latex html: builder-image
+copy-api:
 	@$(ECHO_GEN)_api
 	$(QUIET)cp -r ../api _api
+
+epub latex html: builder-image copy-api
 	@$(ECHO_GEN)_build/$@
 	$(QUIET)$(DOCKER_RUN) ./check-build.sh $(@) $(SPHINX_OPTS)
+
+html-netlify: copy-api
+	@$(ECHO_GEN)_build/$@
+	$(QUIET) ./check-build.sh html $(SPHINX_OPTS)
 
 DOCS_PORT = 9081
 
