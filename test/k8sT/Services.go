@@ -134,23 +134,18 @@ var _ = Describe("K8sServicesTest", func() {
 	}
 
 	testCurlRequest := func(clientPodLabel, url string) {
-		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
-		ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", testDSClient)
 		// A DS with client is running in each node. So we try from each node
 		// that can connect to the service.  To make sure that the cross-node
 		// service connectivity is correct we tried 10 times, so balance in the
 		// two nodes
+		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
+		ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", testDSClient)
+		count := 10
+		cmd := fmt.Sprintf(`/bin/sh -c 'for i in $(seq 1 %d); do %s; done'`, count, helpers.CurlFailNoStats(url))
 		for _, pod := range pods {
-			tries := 10
-			By("Making %d curl requests from %q to %q", tries, pod, url)
-			for i := 1; i <= tries; i++ {
-				res := kubectl.ExecPodCmd(
-					helpers.DefaultNamespace, pod,
-					helpers.CurlFail(url))
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-					"Pod %q can not connect to service %q (failed in request %d/%d)",
-					pod, url, i, tries)
-			}
+			By("Making %d curl requests from %s pod to service %s", count, pod, url)
+			res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, cmd)
+			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Request from %s pod to service %s failed", pod, url)
 		}
 	}
 
@@ -376,14 +371,13 @@ var _ = Describe("K8sServicesTest", func() {
 		}
 
 		doRequests := func(url string, count int, fromPod string) {
-			By("Making %d curl requests from %s to %q", count, fromPod, url)
-			for i := 1; i <= count; i++ {
-				res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlFail(url))
-				ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-					"%s host can not connect to service %q (failed in request %d/%d)",
-					fromPod, url, i, count)
-			}
+			By("Making %d curl requests from pod (host netns) %s to %q", count, fromPod, url)
+			cmd := fmt.Sprintf(`/bin/sh -c 'for i in $(seq 1 %d); do %s; done'`, count,
+				helpers.CurlFailNoStats(url))
+			res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, cmd)
+			ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
+			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+				"Request from %s to service %s failed", fromPod, url)
 		}
 
 		failRequests := func(url string, count int, fromPod string) {
