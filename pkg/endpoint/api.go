@@ -127,16 +127,44 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 	return ep, nil
 }
 
+func (e *Endpoint) getModelEndpointIdentitiersRLocked() *models.EndpointIdentifiers {
+	return &models.EndpointIdentifiers{
+		ContainerID:      e.containerID,
+		ContainerName:    e.containerName,
+		DockerEndpointID: e.dockerEndpointID,
+		DockerNetworkID:  e.dockerNetworkID,
+		PodName:          e.getK8sNamespaceAndPodName(),
+		K8sPodName:       e.K8sPodName,
+		K8sNamespace:     e.K8sNamespace,
+	}
+}
+
+func (e *Endpoint) getModelNetworkingRLocked() *models.EndpointNetworking {
+	return &models.EndpointNetworking{
+		Addressing: []*models.AddressPair{{
+			IPV4: e.IPv4.String(),
+			IPV6: e.IPv6.String(),
+		}},
+		InterfaceIndex: int64(e.ifIndex),
+		InterfaceName:  e.ifName,
+		Mac:            e.mac.String(),
+		HostMac:        e.nodeMAC.String(),
+	}
+}
+
+func (e *Endpoint) getModelCurrentStateRLocked() models.EndpointState {
+	currentState := models.EndpointState(e.state)
+	if currentState == models.EndpointStateReady && e.status.CurrentStatus() != OK {
+		return models.EndpointStateNotReady
+	}
+	return currentState
+}
+
 // GetModelRLocked returns the API model of endpoint e.
 // e.mutex must be RLocked.
 func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 	if e == nil {
 		return nil
-	}
-
-	currentState := models.EndpointState(e.state)
-	if currentState == models.EndpointStateReady && e.status.CurrentStatus() != OK {
-		currentState = models.EndpointStateNotReady
 	}
 
 	// This returns the most recent log entry for this endpoint. It is backwards
@@ -173,34 +201,17 @@ func (e *Endpoint) GetModelRLocked() *models.Endpoint {
 		Status: &models.EndpointStatus{
 			// FIXME GH-3280 When we begin implementing revision numbers this will
 			// diverge from models.Endpoint.Spec to reflect the in-datapath config
-			Realized: spec,
-			Identity: identitymodel.CreateModel(e.SecurityIdentity),
-			Labels:   lblMdl,
-			Networking: &models.EndpointNetworking{
-				Addressing: []*models.AddressPair{{
-					IPV4: e.IPv4.String(),
-					IPV6: e.IPv6.String(),
-				}},
-				InterfaceIndex: int64(e.ifIndex),
-				InterfaceName:  e.ifName,
-				Mac:            e.mac.String(),
-				HostMac:        e.nodeMAC.String(),
-			},
-			ExternalIdentifiers: &models.EndpointIdentifiers{
-				ContainerID:      e.containerID,
-				ContainerName:    e.containerName,
-				DockerEndpointID: e.dockerEndpointID,
-				DockerNetworkID:  e.dockerNetworkID,
-				PodName:          e.getK8sNamespaceAndPodName(),
-				K8sPodName:       e.K8sPodName,
-				K8sNamespace:     e.K8sNamespace,
-			},
+			Realized:            spec,
+			Identity:            identitymodel.CreateModel(e.SecurityIdentity),
+			Labels:              lblMdl,
+			Networking:          e.getModelNetworkingRLocked(),
+			ExternalIdentifiers: e.getModelEndpointIdentitiersRLocked(),
 			// FIXME GH-3280 When we begin returning endpoint revisions this should
 			// change to return the configured and in-datapath policies.
 			Policy:      e.GetPolicyModel(),
 			Log:         statusLog,
 			Controllers: controllerMdl,
-			State:       currentState, // TODO: Validate
+			State:       e.getModelCurrentStateRLocked(), // TODO: Validate
 			Health:      e.getHealthModel(),
 			NamedPorts:  e.getNamedPortsModel(),
 		},
