@@ -101,8 +101,52 @@ func deriveStatus(err error) string {
 	return "OK"
 }
 
-// describeNetworkInterfaces lists all Azure Interfaces
+// describeNetworkInterfaces lists all Azure Interfaces in the client's resource group
 func (c *Client) describeNetworkInterfaces(ctx context.Context) ([]network.Interface, error) {
+	networkInterfaces, err := c.vmssNetworkInterfaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	vmInterfaces, err := c.vmNetworkInterfaces(ctx)
+	if err != nil {
+		return nil, err
+	}
+
+	return append(networkInterfaces, vmInterfaces...), nil
+}
+
+// vmNetworkInterfaces list all interfaces of non-VMSS instances in the client's resource group
+func (c *Client) vmNetworkInterfaces(ctx context.Context) ([]network.Interface, error) {
+	var networkInterfaces []network.Interface
+
+	c.limiter.Limit(ctx, "Interfaces.ListComplete")
+	sinceStart := spanstat.Start()
+	result, err := c.interfaces.ListComplete(ctx, c.resourceGroup)
+	c.metricsAPI.ObserveAPICall("Interfaces.ListComplete", deriveStatus(err), sinceStart.Seconds())
+	if err != nil {
+		return nil, err
+	}
+
+	for result.NotDone() {
+		if err != nil {
+			return nil, err
+		}
+		err = result.Next()
+
+		intf := result.Value()
+
+		if intf.Name == nil {
+			continue
+		}
+		networkInterfaces = append(networkInterfaces, intf)
+	}
+
+	return networkInterfaces, nil
+}
+
+// vmssNetworkInterfaces list all interfaces from VMS in Scale Sets in the client's resource group
+func (c *Client) vmssNetworkInterfaces(ctx context.Context) ([]network.Interface, error) {
 	var networkInterfaces []network.Interface
 
 	c.limiter.Limit(ctx, "VirtualMachineScaleSets.ListAll")
