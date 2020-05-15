@@ -309,7 +309,7 @@ endif
 DEV_BUILD_DIR := _build/cilium-dev
 DEV_DOCKERFILE := $(DEV_BUILD_DIR).Dockerfile
 
-$(DEV_DOCKERFILE): Dockerfile Makefile
+dev-dockerfile: Dockerfile Makefile
 	-mkdir -p $(dir $@)
 	cat $< $(DEV_DOCKERFILE_FILTER) > $@
 
@@ -320,7 +320,7 @@ ifneq ($(shell git status --porcelain),)
 	test $(IGNORE_GIT_STATUS)
 endif
 
-dev-docker-image: check-status clean-build $(DEV_DOCKERFILE) GIT_VERSION
+dev-docker-image: check-status clean-build dev-dockerfile GIT_VERSION
 	git clone --no-checkout --no-local --depth 1 . $(DEV_BUILD_DIR)
 	$(QUIET)$(DOCKER_BUILDKIT) $(CONTAINER_ENGINE) build -f $(DEV_DOCKERFILE) \
 		--build-arg NOSTRIP=${NOSTRIP} \
@@ -635,5 +635,5 @@ update-test-go-version:
 	$(QUIET) sed -i 's/GOLANG_VERSION=.*/GOLANG_VERSION="$(GO_VERSION)"/g' test/packet/scripts/install.sh
 	@echo "Updated go version in test scripts to $(GO_VERSION)"
 
-.PHONY: force generate-api generate-health-api install check-status dev-docker-image
+.PHONY: force generate-api generate-health-api install check-status dev-docker-image dev-dockerfile
 force :;
