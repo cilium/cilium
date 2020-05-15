@@ -314,10 +314,7 @@ func createUpdateCRD(clientset apiextensionsclient.Interface,
 
 	scopedLog.Debug("Checking if CRD (CustomResourceDefinition) needs update...")
 
-	if crd.Spec.Validation != nil &&
-		clusterCRD.Labels[k8sconstv2.CustomResourceDefinitionSchemaVersionKey] != "" &&
-		needsUpdate(clusterCRD) {
-
+	if crd.Spec.Validation != nil && needsUpdate(clusterCRD) {
 		scopedLog.Info("Updating CRD (CustomResourceDefinition)...")
 
 		// Update the CRD with the validation schema.
