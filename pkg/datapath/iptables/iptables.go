@@ -109,24 +109,6 @@ func getFeedRule(name, args string) []string {
 	return append(argsList, ruleTail...)
 }
 
-// KernelHasNetfilter probes whether iptables related modules are present in
-// the kernel and returns true if indeed the case, else false.
-func KernelHasNetfilter() bool {
-	modulesManager := &modules.ModulesManager{}
-	if err := modulesManager.Init(); err != nil {
-		return true
-	}
-	if found, _ := modulesManager.FindModules(
-		"ip_tables", "iptable_mangle", "iptable_raw", "iptable_filter"); found {
-		return true
-	}
-	if found, _ := modulesManager.FindModules(
-		"ip6_tables", "ip6table_mangle", "ip6table_raw", "ip6table_filter"); found {
-		return true
-	}
-	return false
-}
-
 func (c *customChain) add(waitArgs []string) error {
 	var err error
 	if option.Config.EnableIPv4 {
