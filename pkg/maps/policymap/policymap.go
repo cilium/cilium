@@ -290,6 +290,18 @@ func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
 	return entries, err
 }
 
+func (pm *PolicyMap) DumpKeysToSlice() ([]PolicyKey, error) {
+	var policyKeys []PolicyKey
+
+	cb := func(key bpf.MapKey, value bpf.MapValue) {
+		keyDump := *key.DeepCopyMapKey().(*PolicyKey)
+		policyKeys = append(policyKeys, keyDump)
+	}
+	err := pm.DumpWithCallback(cb)
+
+	return policyKeys, err
+}
+
 func newMap(path string) *PolicyMap {
 	mapType := bpf.MapTypeHash
 	flags := bpf.GetPreAllocateMapFlags(mapType)
