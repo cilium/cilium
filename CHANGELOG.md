@@ -1,5 +1,54 @@
 # Changelog
 
+## v1.7.4
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* Switch to native-routing in GKE guide (Backport PR #11233, Upstream PR #11079, @tgraf)
+
+**Minor Changes:**
+* helm: add bpf-policy-map-max option (Backport PR #11524, Upstream PR #11478, @alex1989hu)
+* Istio integration has been updated to release 1.5.2 (Backport PR #11312, Upstream PR #11280, @jrajahalme)
+* policymap, fragmap: clean up doc, map size configuration (Backport PR #11233, Upstream PR #10964, @qmonnet)
+* Properly tear down gops agent on shutdown (Backport PR #11524, Upstream PR #11471, @tklauser)
+
+**Bugfixes:**
+* Auto detect EndpointSlice support by checking enabled APIs in Kubernetes. (Backport PR #11233, Upstream PR #11206, @Weil0ng)
+* BPF: fix missing "break" in nat46 switch, and minor cleanup (Backport PR #11441, Upstream PR #11410, @qmonnet)
+* bpf: Preserve source identity for hairpin via stack (Backport PR #11239, Upstream PR #10926, @tgraf)
+* datapath/iptables: Masquerade hairpin traffic that traversed the stack (Backport PR #11239, Upstream PR #10928, @tgraf)
+* Fix Docker getting started guide example. (Backport PR #11233, Upstream PR #11023, @tklauser)
+* Fix fromCIDR policy on kernels 4.10 or older and extend test coverage (Backport PR #11414, Upstream PR #11333, @willdeuschle)
+* Fix issue where cilium-health cannot healthcheck remote endpoint in ENI mode (Backport PR #11233, Upstream PR #11073, @christarazi)
+* k8s: Do not send DeleteService event upon DeleteEndpoints (Backport PR #11488, Upstream PR #11467, @brb)
+* k8s: Provide fallback for EndpointSlices detection if discovery API is not available (Backport PR #11233, Upstream PR #11253, @tgraf)
+* pkg/k8s: add missing support for multi-stack (Backport PR #11459, Upstream PR #11240, @aanm)
+* Remove stale rules for endpoints upon deletion in ENI mode (Backport PR #11441, Upstream PR #11163, @christarazi)
+* set explicit liveness/readiness probe timeout for deny connectivity checks (Backport PR #11441, Upstream PR #10581, @danwent)
+* Setting the agent.sleepAfterInit helm chart value to True will correctly configure the agent to sleep after Init (Backport PR #11441, Upstream PR #11203, @seanmwinn)
+
+**Misc Changes:**
+* cilium: add NodePortBindProtection to allow for opting out bind rejection (Backport PR #11233, Upstream PR #11188, @borkmann)
+* daemon: set k8s options as soon as possible (Backport PR #11233, Upstream PR #11101, @aanm)
+* dns: Log WriteMsgIP details. (Backport PR #11233, Upstream PR #11037, @jrajahalme)
+* doc: Fix the kubectl create option in upgrade.rst (Backport PR #11441, Upstream PR #11271, @soumynathan)
+* doc: Update EKS documentation to delete aws-node (Backport PR #11441, Upstream PR #10461, @errordeveloper)
+* Docs policy title rename (Backport PR #11441, Upstream PR #10854, @danwent)
+* Docs:  Update EKS GSG to clarify deployment in ENI vs. overlay mode (Backport PR #11441, Upstream PR #11068, @danwent)
+* docs: Cilium multi-node (and mesh) Kind Guide (Backport PR #11441, Upstream PR #11157, @dctrwatson)
+* docs: clarify recommendation around managing multiple policy types (Backport PR #11441, Upstream PR #11343, @genbit)
+* docs: de-duplicate AWS cluster scale up instructions (Backport PR #11441, Upstream PR #10175, @tklauser)
+* docs: Pin Hubble version to v0.5 branch (Backport PR #11233, Upstream PR #11121, @gandro)
+* envoy: Reduce logging verbosity. (Backport PR #11441, Upstream PR #11349, @jrajahalme)
+* Improve Helm post-setup NOTES (Backport PR #11488, Upstream PR #11269, @soumynathan)
+* k8s/watchers: do not consider pods with empty podIPs (Backport PR #11459, Upstream PR #11282, @aanm)
+* Refactor enirouting package to reduce code interdependence and add test coverage (Backport PR #11441, Upstream PR #11208, @christarazi)
+* Use GO_VERSION as single source for the used Go version (Backport PR #11441, Upstream PR #10163, @tklauser)
+* v1.7 Backport backporting scripts (#11451, @christarazi)
+* Validate when Cilium is in ENI mode that IPv4 is enabled (Backport PR #11441, Upstream PR #11328, @soumynathan)
+
 ## v1.7.3
 
 Summary of Changes
