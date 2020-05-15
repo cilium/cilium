@@ -17,8 +17,7 @@ package types
 import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -31,9 +30,9 @@ type SlimCNP struct {
 // +deepequal-gen:private-method=true
 type CiliumEndpoint struct {
 	// +deepequal-gen=false
-	metav1.TypeMeta
+	slim_metav1.TypeMeta
 	// +deepequal-gen=false
-	metav1.ObjectMeta
+	slim_metav1.ObjectMeta
 	Identity   *v2.EndpointIdentity
 	Networking *v2.EndpointNetworking
 	Encryption *v2.EncryptionSpec
