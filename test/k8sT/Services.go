@@ -20,6 +20,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"sync"
 	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -580,115 +581,152 @@ var _ = Describe("K8sServicesTest", func() {
 
 		testNodePort := func(bpfNodePort, testSecondaryNodePortIP, testFromOutside bool) {
 			var (
-				data                                 v1.Service
-				secondaryK8s1IPv4, secondaryK8s2IPv4 string
+				err                                       error
+				data                                      v1.Service
+				wg                                        sync.WaitGroup
+				secondaryK8s1IPv4, secondaryK8s2IPv4      string
+				localCiliumHostIPv4, remoteCiliumHostIPv4 string
 			)
 
+			err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
+			Expect(err).Should(BeNil(), "Can not retrieve service")
+
+			// These are going to be tested from pods running in their own net namespaces
+			testURLsFromPods := []string{
+				getHTTPLink(data.Spec.ClusterIP, data.Spec.Ports[0].Port),
+				getTFTPLink(data.Spec.ClusterIP, data.Spec.Ports[1].Port),
+
+				getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort),
+				getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort),
+
+				getHTTPLink("::ffff:"+k8s1IP, data.Spec.Ports[0].NodePort),
+				getTFTPLink("::ffff:"+k8s1IP, data.Spec.Ports[1].NodePort),
+
+				getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort),
+				getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort),
+
+				getHTTPLink("::ffff:"+k8s2IP, data.Spec.Ports[0].NodePort),
+				getTFTPLink("::ffff:"+k8s2IP, data.Spec.Ports[1].NodePort),
+			}
+			if bpfNodePort {
+				localCiliumHostIPv4, err = kubectl.GetCiliumHostIPv4(context.TODO(), k8s1NodeName)
+				Expect(err).Should(BeNil(), "Cannot retrieve k8s1 cilium_host ipv4")
+				remoteCiliumHostIPv4, err = kubectl.GetCiliumHostIPv4(context.TODO(), k8s2NodeName)
+				Expect(err).Should(BeNil(), "Cannot retrieve k8s2 cilium_host ipv4")
+
+				testURLsFromPods = append(testURLsFromPods, []string{
+					getHTTPLink(localCiliumHostIPv4, data.Spec.Ports[0].NodePort),
+					getTFTPLink(localCiliumHostIPv4, data.Spec.Ports[1].NodePort),
+
+					getHTTPLink("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[0].NodePort),
+					getTFTPLink("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[1].NodePort),
+
+					getHTTPLink(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort),
+					getTFTPLink(remoteCiliumHostIPv4, data.Spec.Ports[1].NodePort),
+
+					getHTTPLink("::ffff:"+remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort),
+					getTFTPLink("::ffff:"+remoteCiliumHostIPv4, data.Spec.Ports[1].NodePort),
+				}...)
+
+			}
+
+			// There are tested from pods running in the host net namespace
+			testURLsFromHosts := []string{
+				getHTTPLink("127.0.0.1", data.Spec.Ports[0].NodePort),
+				getTFTPLink("127.0.0.1", data.Spec.Ports[1].NodePort),
+
+				getHTTPLink("::ffff:127.0.0.1", data.Spec.Ports[0].NodePort),
+				getTFTPLink("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort),
+
+				getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort),
+				getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort),
+
+				getHTTPLink("::ffff:"+k8s1IP, data.Spec.Ports[0].NodePort),
+				getTFTPLink("::ffff:"+k8s1IP, data.Spec.Ports[1].NodePort),
+
+				getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort),
+				getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort),
+
+				getHTTPLink("::ffff:"+k8s2IP, data.Spec.Ports[0].NodePort),
+				getTFTPLink("::ffff:"+k8s2IP, data.Spec.Ports[1].NodePort),
+			}
+			if bpfNodePort {
+				testURLsFromHosts = append(testURLsFromHosts, []string{
+					getHTTPLink(localCiliumHostIPv4, data.Spec.Ports[0].NodePort),
+					getTFTPLink(localCiliumHostIPv4, data.Spec.Ports[1].NodePort),
+
+					getHTTPLink("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[0].NodePort),
+					getTFTPLink("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[1].NodePort),
+
+					getHTTPLink(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort),
+					getTFTPLink(remoteCiliumHostIPv4, data.Spec.Ports[1].NodePort),
+
+					getHTTPLink("::ffff:"+remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort),
+					getTFTPLink("::ffff:"+remoteCiliumHostIPv4, data.Spec.Ports[1].NodePort),
+				}...)
+			}
 			if testSecondaryNodePortIP {
 				secondaryK8s1IPv4, _ = getIPv4Andv6AddrForIface(k8s1NodeName, helpers.SecondaryIface)
 				secondaryK8s2IPv4, _ = getIPv4Andv6AddrForIface(k8s2NodeName, helpers.SecondaryIface)
+
+				testURLsFromHosts = append(testURLsFromHosts, []string{
+					getHTTPLink(secondaryK8s1IPv4, data.Spec.Ports[0].NodePort),
+					getTFTPLink(secondaryK8s1IPv4, data.Spec.Ports[1].NodePort),
+
+					getHTTPLink(secondaryK8s2IPv4, data.Spec.Ports[0].NodePort),
+					getTFTPLink(secondaryK8s2IPv4, data.Spec.Ports[1].NodePort),
+				}...)
 			}
 
-			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
-			Expect(err).Should(BeNil(), "Can not retrieve service")
-			httpURL := getHTTPLink(data.Spec.ClusterIP, data.Spec.Ports[0].Port)
-			tftpURL := getTFTPLink(data.Spec.ClusterIP, data.Spec.Ports[1].Port)
-			testCurlRequest(testDSClient, httpURL)
-			testCurlRequest(testDSClient, tftpURL)
+			testURLsFromOutside := []string{}
+			if testFromOutside {
+				// These are tested from external node which does not run
+				// cilium-agent (so it's not a subject to bpf_sock)
+				testURLsFromOutside = []string{
+					getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort),
+					getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort),
 
-			// From host via localhost IP
-			// TODO: IPv6
+					getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort),
+					getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort),
+				}
+				if testSecondaryNodePortIP {
+					testURLsFromOutside = append(testURLsFromOutside, []string{
+						getHTTPLink(secondaryK8s1IPv4, data.Spec.Ports[0].NodePort),
+						getTFTPLink(secondaryK8s1IPv4, data.Spec.Ports[1].NodePort),
+
+						getHTTPLink(secondaryK8s2IPv4, data.Spec.Ports[0].NodePort),
+						getTFTPLink(secondaryK8s2IPv4, data.Spec.Ports[1].NodePort),
+					}...)
+				}
+			}
+
 			count := 10
-			httpURL = getHTTPLink("127.0.0.1", data.Spec.Ports[0].NodePort)
-			tftpURL = getTFTPLink("127.0.0.1", data.Spec.Ports[1].NodePort)
-			doRequests(httpURL, count, k8s1NodeName)
-			doRequests(tftpURL, count, k8s1NodeName)
-
-			httpURL = getHTTPLink("::ffff:127.0.0.1", data.Spec.Ports[0].NodePort)
-			tftpURL = getTFTPLink("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort)
-			doRequests(httpURL, count, k8s1NodeName)
-			doRequests(tftpURL, count, k8s1NodeName)
-
-			httpURL = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
-			tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
-			doRequests(httpURL, count, k8s1NodeName)
-			doRequests(tftpURL, count, k8s1NodeName)
-			if testFromOutside {
-				doRequestsFromThirdHost(httpURL, count, false)
-				doRequestsFromThirdHost(tftpURL, count, false)
+			for _, url := range testURLsFromPods {
+				wg.Add(1)
+				go func(url string) {
+					defer wg.Done()
+					testCurlRequest(testDSClient, url)
+				}(url)
 			}
-
-			httpURL = getHTTPLink("::ffff:"+k8s1IP, data.Spec.Ports[0].NodePort)
-			tftpURL = getTFTPLink("::ffff:"+k8s1IP, data.Spec.Ports[1].NodePort)
-			doRequests(httpURL, count, k8s1NodeName)
-			doRequests(tftpURL, count, k8s1NodeName)
-
-			httpURL = getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort)
-			tftpURL = getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort)
-			doRequests(httpURL, count, k8s1NodeName)
-			doRequests(tftpURL, count, k8s1NodeName)
-			if testFromOutside {
-				doRequestsFromThirdHost(httpURL, count, false)
-				doRequestsFromThirdHost(tftpURL, count, false)
+			for _, url := range testURLsFromHosts {
+				wg.Add(1)
+				go func(url string) {
+					defer wg.Done()
+					doRequests(url, count, k8s1NodeName)
+				}(url)
 			}
-
-			httpURL = getHTTPLink("::ffff:"+k8s2IP, data.Spec.Ports[0].NodePort)
-			tftpURL = getTFTPLink("::ffff:"+k8s2IP, data.Spec.Ports[1].NodePort)
-			doRequests(httpURL, count, k8s1NodeName)
-			doRequests(tftpURL, count, k8s1NodeName)
-
-			// From pod via node IPs
-			httpURL = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
-			tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
-			testCurlRequest(testDSClient, tftpURL)
-			testCurlRequest(testDSClient, httpURL)
-
-			httpURL = getHTTPLink("::ffff:"+k8s1IP, data.Spec.Ports[0].NodePort)
-			tftpURL = getTFTPLink("::ffff:"+k8s1IP, data.Spec.Ports[1].NodePort)
-			testCurlRequest(testDSClient, tftpURL)
-			testCurlRequest(testDSClient, httpURL)
-
-			httpURL = getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort)
-			tftpURL = getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort)
-			testCurlRequest(testDSClient, httpURL)
-			testCurlRequest(testDSClient, tftpURL)
-
-			httpURL = getHTTPLink("::ffff:"+k8s2IP, data.Spec.Ports[0].NodePort)
-			tftpURL = getTFTPLink("::ffff:"+k8s2IP, data.Spec.Ports[1].NodePort)
-			testCurlRequest(testDSClient, httpURL)
-			testCurlRequest(testDSClient, tftpURL)
+			for _, url := range testURLsFromOutside {
+				wg.Add(1)
+				go func(url string) {
+					defer wg.Done()
+					doRequestsFromThirdHost(url, count, false)
+				}(url)
+			}
+			// TODO: IPv6
 
 			if bpfNodePort {
-				// From host via local cilium_host
-				localCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), k8s1NodeName)
-				Expect(err).Should(BeNil(), "Cannot retrieve local cilium_host ipv4")
-				httpURL = getHTTPLink(localCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				tftpURL = getTFTPLink(localCiliumHostIPv4, data.Spec.Ports[1].NodePort)
-				doRequests(httpURL, count, k8s1NodeName)
-				doRequests(tftpURL, count, k8s1NodeName)
-
-				httpURL = getHTTPLink("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				tftpURL = getTFTPLink("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[1].NodePort)
-				doRequests(httpURL, count, k8s1NodeName)
-				doRequests(tftpURL, count, k8s1NodeName)
-
-				// From host via remote cilium_host
-				remoteCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), k8s2NodeName)
-				Expect(err).Should(BeNil(), "Cannot retrieve remote cilium_host ipv4")
-
-				httpURL = getHTTPLink(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				tftpURL = getTFTPLink(remoteCiliumHostIPv4, data.Spec.Ports[1].NodePort)
-				doRequests(httpURL, count, k8s1NodeName)
-				doRequests(tftpURL, count, k8s1NodeName)
-
-				httpURL = getHTTPLink("::ffff:"+remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				tftpURL = getTFTPLink("::ffff:"+remoteCiliumHostIPv4, data.Spec.Ports[1].NodePort)
-				doRequests(httpURL, count, k8s1NodeName)
-				doRequests(tftpURL, count, k8s1NodeName)
-
-				// From pod via loopback (host reachable services)
-				httpURL = getHTTPLink("127.0.0.1", data.Spec.Ports[0].NodePort)
-				tftpURL = getTFTPLink("127.0.0.1", data.Spec.Ports[1].NodePort)
+				httpURL := getHTTPLink("127.0.0.1", data.Spec.Ports[0].NodePort)
+				tftpURL := getTFTPLink("127.0.0.1", data.Spec.Ports[1].NodePort)
 				testCurlRequestFail(testDSClient, httpURL)
 				testCurlRequestFail(testDSClient, tftpURL)
 
@@ -696,48 +734,6 @@ var _ = Describe("K8sServicesTest", func() {
 				tftpURL = getTFTPLink("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort)
 				testCurlRequestFail(testDSClient, httpURL)
 				testCurlRequestFail(testDSClient, tftpURL)
-
-				// From pod via local cilium_host
-				httpURL = getHTTPLink(localCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				tftpURL = getTFTPLink(localCiliumHostIPv4, data.Spec.Ports[1].NodePort)
-				testCurlRequest(testDSClient, httpURL)
-				testCurlRequest(testDSClient, tftpURL)
-
-				httpURL = getHTTPLink("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				tftpURL = getTFTPLink("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[1].NodePort)
-				testCurlRequest(testDSClient, httpURL)
-				testCurlRequest(testDSClient, tftpURL)
-
-				// From pod via remote cilium_host
-				httpURL = getHTTPLink(remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				tftpURL = getTFTPLink(remoteCiliumHostIPv4, data.Spec.Ports[1].NodePort)
-				testCurlRequest(testDSClient, httpURL)
-				testCurlRequest(testDSClient, tftpURL)
-
-				httpURL = getHTTPLink("::ffff:"+remoteCiliumHostIPv4, data.Spec.Ports[0].NodePort)
-				tftpURL = getTFTPLink("::ffff:"+remoteCiliumHostIPv4, data.Spec.Ports[1].NodePort)
-				testCurlRequest(testDSClient, httpURL)
-				testCurlRequest(testDSClient, tftpURL)
-
-				if testSecondaryNodePortIP {
-					httpURL = getHTTPLink(secondaryK8s1IPv4, data.Spec.Ports[0].NodePort)
-					tftpURL = getTFTPLink(secondaryK8s1IPv4, data.Spec.Ports[1].NodePort)
-					doRequests(httpURL, count, k8s1NodeName)
-					doRequests(tftpURL, count, k8s1NodeName)
-					if testFromOutside {
-						doRequestsFromThirdHost(httpURL, count, false)
-						doRequestsFromThirdHost(tftpURL, count, false)
-					}
-
-					httpURL = getHTTPLink(secondaryK8s2IPv4, data.Spec.Ports[0].NodePort)
-					tftpURL = getTFTPLink(secondaryK8s2IPv4, data.Spec.Ports[1].NodePort)
-					doRequests(httpURL, count, k8s2NodeName)
-					doRequests(tftpURL, count, k8s2NodeName)
-					if testFromOutside {
-						doRequestsFromThirdHost(httpURL, count, false)
-						doRequestsFromThirdHost(tftpURL, count, false)
-					}
-				}
 
 				// Ensure the NodePort cannot be bound from any redirected address
 				failBind(localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
@@ -752,6 +748,8 @@ var _ = Describe("K8sServicesTest", func() {
 				failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
 				failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
 			}
+
+			wg.Wait()
 		}
 
 		testNodePortExternal := func(checkTCP, checkUDP bool) {
