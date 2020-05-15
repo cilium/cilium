@@ -61,6 +61,7 @@ test/*.json
 test/*.log
 test/bpf/_results
 test/cilium-[0-9a-f]*.yaml
+test/*tmp
 
 # Emacs backup files
 *~
