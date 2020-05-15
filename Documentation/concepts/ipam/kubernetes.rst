@@ -56,9 +56,6 @@ Configuration
 
 The following ConfigMap options exist to configure Kubernetes hostscope:
 
- * ``ipam: kubernetes``: Enables Kubernetes IPAM mode. Enabling this option will
-   automatically enable ``k8s-require-ipv4-pod-cidr`` if ``enable-ipv4`` is
-   ``true`` and ``k8s-require-ipv6-pod-cidr`` if ``enable-ipv6`` is ``true``.
  * ``k8s-require-ipv4-pod-cidr: true``: instructs the Cilium agent to wait until
    an IPv4 PodCIDR is made available via the Kubernetes node resource.
  * ``k8s-require-ipv6-pod-cidr: true``: instructs the Cilium agent to wait until
