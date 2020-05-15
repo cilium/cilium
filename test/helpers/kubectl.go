@@ -187,6 +187,10 @@ func Init() {
 		os.Setenv("CILIUM_OPERATOR_IMAGE", config.CiliumTestConfig.CiliumOperatorImage)
 	}
 
+	if config.CiliumTestConfig.HubbleRelayImage != "" {
+		os.Setenv("HUBBLE_RELAY_IMAGE", config.CiliumTestConfig.HubbleRelayImage)
+	}
+
 	if config.CiliumTestConfig.Registry != "" {
 		os.Setenv("CILIUM_REGISTRY", config.CiliumTestConfig.Registry)
 	}

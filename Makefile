@@ -386,6 +386,7 @@ docker-cilium-builder-manifest:
 docker-hubble-relay-image:
 	$(QUIET)$(CONTAINER_ENGINE) build \
 		--build-arg NOSTRIP=${NOSTRIP} \
+		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		-f hubble-relay.Dockerfile \
 		-t "cilium/hubble-relay:$(DOCKER_IMAGE_TAG)" .
 	$(QUIET)$(CONTAINER_ENGINE) tag cilium/hubble-relay:$(DOCKER_IMAGE_TAG) cilium/hubble-relay:$(DOCKER_IMAGE_TAG)-${GOARCH}

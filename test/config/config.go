@@ -34,6 +34,7 @@ type CiliumTestConfigType struct {
 	SkipLogGathering    bool
 	CiliumImage         string
 	CiliumOperatorImage string
+	HubbleRelayImage    string
 	ProvisionK8s        bool
 	Timeout             time.Duration
 	Kubeconfig          string
@@ -65,6 +66,8 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Specifies which image of cilium to use during tests")
 	flag.StringVar(&c.CiliumOperatorImage, "cilium.operator-image", "",
 		"Specifies which image of cilium-operator to use during tests")
+	flag.StringVar(&c.HubbleRelayImage, "cilium.hubble-relay-image", "",
+		"Specifies which image of hubble-relay to use during tests")
 	flag.BoolVar(&c.ProvisionK8s, "cilium.provision-k8s", true,
 		"Specifies whether Kubernetes should be deployed and installed via kubeadm or not")
 	flag.DurationVar(&c.Timeout, "cilium.timeout", 24*time.Hour,

@@ -85,29 +85,10 @@ function pull_image_and_push_to_local_registry {
   echo "done pulling ${IMG}"
 
   echo "tagging ${IMG} with tag ${TAG_WITH_REG}"
-  docker tag "${IMG}" ${TAG_WITH_REG}
+  docker tag "${IMG}" "${TAG_WITH_REG}"
   echo "done tagging ${IMG} with tag ${TAG_WITH_REG}"
 
   echo "pushing ${TAG_WITH_REG}"
-  docker push ${TAG_WITH_REG}
+  docker push "${TAG_WITH_REG}"
   echo "done pushing ${TAG_WITH_REG}"
-}
-
-function build_cilium_image {
-  echo "building cilium image..."
-  make LOCKDEBUG=1 docker-image-no-clean
-  echo "tagging cilium image..."
-  docker tag cilium/cilium k8s1:5000/cilium/cilium-dev
-  echo "pushing cilium image..."
-  docker push k8s1:5000/cilium/cilium-dev
-}
-
-function build_operator_image {
-  # build cilium-operator image
-  echo "building cilium-operator image..."
-  make LOCKDEBUG=1 docker-operator-image
-  echo "tagging cilium-operator image..."
-  docker tag cilium/operator k8s1:5000/cilium/operator
-  echo "pushing cilium-operator image..."
-  docker push k8s1:5000/cilium/operator
 }
