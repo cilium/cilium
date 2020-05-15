@@ -92,8 +92,9 @@ func convertToCiliumEndpoint(obj interface{}) interface{} {
 		p := &cilium_api_v2.CiliumEndpoint{
 			TypeMeta: concreteObj.TypeMeta,
 			ObjectMeta: metav1.ObjectMeta{
-				Name:      concreteObj.Name,
-				Namespace: concreteObj.Namespace,
+				Name:            concreteObj.Name,
+				Namespace:       concreteObj.Namespace,
+				ResourceVersion: concreteObj.ResourceVersion,
 			},
 			Status: cilium_api_v2.EndpointStatus{
 				Identity: concreteObj.Status.Identity,
@@ -111,8 +112,9 @@ func convertToCiliumEndpoint(obj interface{}) interface{} {
 			Obj: &cilium_api_v2.CiliumEndpoint{
 				TypeMeta: ciliumEndpoint.TypeMeta,
 				ObjectMeta: metav1.ObjectMeta{
-					Name:      ciliumEndpoint.Name,
-					Namespace: ciliumEndpoint.Namespace,
+					Name:            ciliumEndpoint.Name,
+					Namespace:       ciliumEndpoint.Namespace,
+					ResourceVersion: ciliumEndpoint.ResourceVersion,
 				},
 				Status: cilium_api_v2.EndpointStatus{
 					Identity: ciliumEndpoint.Status.Identity,
