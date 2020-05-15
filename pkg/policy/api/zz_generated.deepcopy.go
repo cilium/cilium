@@ -644,6 +644,7 @@ func (in PortRuleL7) DeepCopy() PortRuleL7 {
 func (in *Rule) DeepCopyInto(out *Rule) {
 	*out = *in
 	in.EndpointSelector.DeepCopyInto(&out.EndpointSelector)
+	in.NodeSelector.DeepCopyInto(&out.NodeSelector)
 	if in.Ingress != nil {
 		in, out := &in.Ingress, &out.Ingress
 		*out = make([]IngressRule, len(*in))

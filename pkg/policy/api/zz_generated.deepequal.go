@@ -894,6 +894,10 @@ func (in *Rule) deepEqual(other *Rule) bool {
 		return false
 	}
 
+	if !in.NodeSelector.DeepEqual(&other.NodeSelector) {
+		return false
+	}
+
 	if ((in.Ingress != nil) && (other.Ingress != nil)) || ((in.Ingress == nil) != (other.Ingress == nil)) {
 		in, other := &in.Ingress, &other.Ingress
 		if other == nil {

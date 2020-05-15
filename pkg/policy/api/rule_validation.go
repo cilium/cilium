@@ -46,23 +46,46 @@ func (r Rule) Sanitize() error {
 		}
 	}
 
-	if r.EndpointSelector.LabelSelector == nil {
-		return fmt.Errorf("rule cannot have nil EndpointSelector")
+	if r.EndpointSelector.LabelSelector == nil && r.NodeSelector.LabelSelector == nil {
+		return fmt.Errorf("rule must have one of EndpointSelector or NodeSelector")
+	}
+	if r.EndpointSelector.LabelSelector != nil && r.NodeSelector.LabelSelector != nil {
+		return fmt.Errorf("rule cannot have both EndpointSelector and NodeSelector")
 	}
 
-	if err := r.EndpointSelector.sanitize(); err != nil {
-		return err
+	if r.EndpointSelector.LabelSelector != nil {
+		if err := r.EndpointSelector.sanitize(); err != nil {
+			return err
+		}
+	}
+
+	var hostPolicy bool
+	if r.NodeSelector.LabelSelector != nil {
+		if err := r.NodeSelector.sanitize(); err != nil {
+			return err
+		}
+		hostPolicy = true
 	}
 
 	for i := range r.Ingress {
 		if err := r.Ingress[i].sanitize(); err != nil {
 			return err
 		}
+		if hostPolicy {
+			if len(countL7Rules(r.Ingress[i].ToPorts)) > 0 {
+				return fmt.Errorf("host policies do not support L7 rules yet")
+			}
+		}
 	}
 
 	for i := range r.Egress {
 		if err := r.Egress[i].sanitize(); err != nil {
 			return err
+		}
+		if hostPolicy {
+			if len(countL7Rules(r.Egress[i].ToPorts)) > 0 {
+				return fmt.Errorf("host policies do not support L7 rules yet")
+			}
 		}
 	}
 

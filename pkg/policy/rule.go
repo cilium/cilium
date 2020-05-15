@@ -57,6 +57,13 @@ func (r *rule) String() string {
 	return fmt.Sprintf("%v", r.EndpointSelector)
 }
 
+func (r *rule) getSelector() *api.EndpointSelector {
+	if r.NodeSelector.LabelSelector != nil {
+		return &r.NodeSelector
+	}
+	return &r.EndpointSelector
+}
+
 func (epd *PerSelectorPolicy) appendL7WildcardRule(ctx *SearchContext) *PerSelectorPolicy {
 	// Wildcard rule only needs to be appended if some rules already exist
 	switch {
@@ -424,7 +431,7 @@ func (state *traceState) unSelectRule(ctx *SearchContext, labels labels.LabelArr
 // as requirements form conjunctions across all rules.
 func (r *rule) resolveIngressPolicy(policyCtx PolicyContext, ctx *SearchContext, state *traceState, result L4PolicyMap, requirements []slim_metav1.LabelSelectorRequirement) (L4PolicyMap, error) {
 	if !ctx.rulesSelect {
-		if !r.EndpointSelector.Matches(ctx.To) {
+		if !r.getSelector().Matches(ctx.To) {
 			state.unSelectRule(ctx, ctx.To, r)
 			return nil, nil
 		}
@@ -478,7 +485,7 @@ func mergeCIDR(ctx *SearchContext, dir string, ipRules []api.CIDR, ruleLabels la
 func (r *rule) resolveCIDRPolicy(ctx *SearchContext, state *traceState, result *CIDRPolicy) *CIDRPolicy {
 	// Don't select rule if it doesn't apply to the given context.
 	if !ctx.rulesSelect {
-		if !r.EndpointSelector.Matches(ctx.To) {
+		if !r.getSelector().Matches(ctx.To) {
 			state.unSelectRule(ctx, ctx.To, r)
 			return nil
 		}
@@ -538,8 +545,13 @@ func (r *rule) matches(securityIdentity *identity.Identity) bool {
 	if ruleMatches, cached := r.metadata.IdentitySelected[securityIdentity.ID]; cached {
 		return ruleMatches
 	}
+	isNode := securityIdentity.ID == identity.ReservedIdentityHost
+	if (r.NodeSelector.LabelSelector != nil) != isNode {
+		r.metadata.IdentitySelected[securityIdentity.ID] = false
+		return ruleMatches
+	}
 	// Fall back to costly matching.
-	if ruleMatches = r.EndpointSelector.Matches(securityIdentity.LabelArray); ruleMatches {
+	if ruleMatches = r.getSelector().Matches(securityIdentity.LabelArray); ruleMatches {
 		// Update cache so we don't have to do costly matching again.
 		r.metadata.IdentitySelected[securityIdentity.ID] = true
 	} else {
@@ -661,7 +673,7 @@ func mergeEgressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoints
 
 func (r *rule) resolveEgressPolicy(policyCtx PolicyContext, ctx *SearchContext, state *traceState, result L4PolicyMap, requirements []slim_metav1.LabelSelectorRequirement) (L4PolicyMap, error) {
 	if !ctx.rulesSelect {
-		if !r.EndpointSelector.Matches(ctx.From) {
+		if !r.getSelector().Matches(ctx.From) {
 			state.unSelectRule(ctx, ctx.From, r)
 			return nil, nil
 		}

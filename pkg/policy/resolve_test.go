@@ -54,6 +54,10 @@ func (d *dummyEndpoint) GetID16() uint16 {
 	return d.ID
 }
 
+func (d *dummyEndpoint) IsHost() bool {
+	return false
+}
+
 func (d *dummyEndpoint) GetSecurityIdentity() (*identity.Identity, error) {
 	return d.SecurityIdentity, nil
 }

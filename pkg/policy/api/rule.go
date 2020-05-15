@@ -15,7 +15,9 @@
 package api
 
 import (
+	"bytes"
 	"context"
+	"encoding/json"
 
 	"github.com/cilium/cilium/pkg/labels"
 )
@@ -34,8 +36,18 @@ import (
 // +deepequal-gen:private-method=true
 type Rule struct {
 	// EndpointSelector selects all endpoints which should be subject to
-	// this rule. Cannot be empty.
-	EndpointSelector EndpointSelector `json:"endpointSelector"`
+	// this rule. EndpointSelector and NodeSelector cannot be both empty and
+	// are mutually exclusive.
+	//
+	// +optional
+	EndpointSelector EndpointSelector `json:"endpointSelector,omitempty"`
+
+	// NodeSelector selects all nodes which should be subject to this rule.
+	// EndpointSelector and NodeSelector cannot be both empty and are mutually
+	// exclusive.
+	//
+	// +optional
+	NodeSelector EndpointSelector `json:"nodeSelector,omitempty"`
 
 	// Ingress is a list of IngressRule which are enforced at ingress.
 	// If omitted or empty, this rule does not apply at ingress.
@@ -63,6 +75,70 @@ type Rule struct {
 	//
 	// +optional
 	Description string `json:"description,omitempty"`
+}
+
+// MarshalJSON returns the JSON encoding of Rule r. We need to overwrite it to
+// enforce omitempty on the EndpointSelector nested structures.
+func (r *Rule) MarshalJSON() ([]byte, error) {
+	var buf bytes.Buffer
+	buf.WriteByte('{')
+
+	if r.EndpointSelector.LabelSelector != nil {
+		jsonValue, err := json.Marshal(r.EndpointSelector)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write([]byte(`"endpointSelector":`))
+		buf.Write(jsonValue)
+	}
+
+	if r.NodeSelector.LabelSelector != nil {
+		jsonValue, err := json.Marshal(r.NodeSelector)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write([]byte(`"nodeSelector":`))
+		buf.Write(jsonValue)
+	}
+
+	if r.Ingress != nil {
+		jsonValue, err := json.Marshal(r.Ingress)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write([]byte(`,"ingress":`))
+		buf.Write(jsonValue)
+	}
+
+	if r.Egress != nil {
+		jsonValue, err := json.Marshal(r.Egress)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write([]byte(`,"egress":`))
+		buf.Write(jsonValue)
+	}
+
+	if r.Labels != nil {
+		jsonValue, err := json.Marshal(r.Labels)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write([]byte(`,"labels":`))
+		buf.Write(jsonValue)
+	}
+
+	if r.Description != "" {
+		jsonValue, err := json.Marshal(r.Description)
+		if err != nil {
+			return nil, err
+		}
+		buf.Write([]byte(`,"description":`))
+		buf.Write(jsonValue)
+	}
+
+	buf.WriteByte('}')
+	return buf.Bytes(), nil
 }
 
 func (r *Rule) DeepEqual(o *Rule) bool {

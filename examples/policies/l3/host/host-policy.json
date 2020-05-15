@@ -1,0 +1,41 @@
+[
+  {
+    "nodeSelector": {},
+    "ingress": [
+      {
+        "toPorts": [
+          {
+            "ports": [
+              {"port": "6443", "protocol": "TCP"},
+              {"port": "22", "protocol": "TCP"}
+            ]
+          }
+        ]
+      }
+    ],
+    "egress": [
+      {
+        "toPorts": [
+          {
+            "ports": [
+              {"port": "4240", "protocol": "TCP"},
+              {"port": "8080", "protocol": "TCP"}
+            ]
+          }
+        ]
+      },
+      {
+        "toCIDR": [
+          "8.8.0.0/16"
+        ],
+        "toPorts": [
+          {
+            "ports": [
+              {"port": "53", "protocol": "UDP"}
+            ]
+          }
+        ]
+      }
+    ]
+  }
+]
