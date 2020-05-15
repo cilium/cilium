@@ -54,7 +54,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.18"
+	CustomResourceDefinitionSchemaVersion = "1.19"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -1442,15 +1442,20 @@ var (
 	Rule = apiextensionsv1beta1.JSONSchemaProps{
 		Type: "object",
 		Description: "Rule is a policy rule which must be applied to all endpoints which match " +
-			"the labels contained in the endpointSelector\n\nEach rule is split into an " +
-			"ingress section which contains all rules applicable at ingress, and an egress " +
-			"section applicable at egress. For rule types such as `L4Rule` and `CIDR` which " +
-			"can be applied at both ingress and egress, both ingress and egress side have to " +
-			"either specifically allow the connection or one side has to be omitted.\n\n" +
-			"Either ingress, egress, or both can be provided. If both ingress and egress are " +
-			"omitted, the rule has no effect.",
-		Required: []string{
-			"endpointSelector",
+			"the labels contained in the endpointSelector or all nodes which match the labels " +
+			"contained in the nodeSelector.\n\nEach rule is split into an ingress section " +
+			"which contains all rules applicable at ingress, and an egress section applicable " +
+			"at egress. For rule types such as `L4Rule` and `CIDR` which can be applied at both " +
+			"ingress and egress, both ingress and egress side have to either specifically allow " +
+			"the connection or one side has to be omitted.\n\nEither ingress, egress, or both " +
+			"can be provided. If both ingress and egress are omitted, the rule has no effect.",
+		OneOf: []apiextensionsv1beta1.JSONSchemaProps{
+			{
+				Required: []string{"endpointSelector"},
+			},
+			{
+				Required: []string{"nodeSelector"},
+			},
 		},
 		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 			"Description": {
@@ -1468,6 +1473,7 @@ var (
 				},
 			},
 			"endpointSelector": EndpointSelector,
+			"nodeSelector":     EndpointSelector,
 			"ingress": {
 				Description: "Ingress is a list of IngressRule which are enforced at ingress. " +
 					"If omitted or empty, this rule does not apply at ingress.",
@@ -1534,8 +1540,13 @@ func init() {
 
 	ruleProps := Rule.Properties["endpointSelector"]
 	ruleProps.Description = "EndpointSelector selects all endpoints which should be subject " +
-		"to this rule. Cannot be empty."
+		"to this rule. Cannot be empty if nodeSelector is empty."
 	Rule.Properties["endpointSelector"] = ruleProps
+
+	ruleProps = Rule.Properties["nodeSelector"]
+	ruleProps.Description = "NodeSelector selects all nodes which should be subject " +
+		"to this rule. Cannot be empty if endpointSelector is empty."
+	Rule.Properties["nodeSelector"] = ruleProps
 
 	serviceProps := Service.Properties["k8sServiceSelector"]
 	serviceProps.Description = "K8sServiceSelector selects services by k8s labels. " +

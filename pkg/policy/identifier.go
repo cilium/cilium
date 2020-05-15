@@ -25,10 +25,12 @@ import (
 // * a node-local ID stored as a uint16
 // * a security identity
 // * a means of incrementing its policy revision
+// * a means of checking if it represents a node or a pod.
 type Endpoint interface {
 	GetID16() uint16
 	GetSecurityIdentity() (*identity.Identity, error)
 	PolicyRevisionBumpEvent(rev uint64)
+	IsHost() bool
 }
 
 // EndpointSet is used to be able to group together a given set of Endpoints

@@ -2241,16 +2241,27 @@ func (ds *PolicyTestSuite) TestL3L4L7Merge(c *C) {
 }
 
 func (ds *PolicyTestSuite) TestMatches(c *C) {
-	repo := parseAndAddRules(c, api.Rules{&api.Rule{
-		EndpointSelector: endpointSelectorA,
-		Ingress: []api.IngressRule{
-			{
-				FromEndpoints: []api.EndpointSelector{endpointSelectorC},
+	repo := parseAndAddRules(c, api.Rules{
+		&api.Rule{
+			EndpointSelector: endpointSelectorA,
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorC},
+				},
 			},
 		},
-	}})
+		&api.Rule{
+			NodeSelector: endpointSelectorA,
+			Ingress: []api.IngressRule{
+				{
+					FromEndpoints: []api.EndpointSelector{endpointSelectorC},
+				},
+			},
+		},
+	})
 
-	addedRule := repo.rules[0]
+	epRule := repo.rules[0]
+	hostRule := repo.rules[1]
 
 	selectedEpLabels := labels.ParseSelectLabel("id=a")
 	selectedIdentity := identity2.NewIdentity(54321, labels.Labels{selectedEpLabels.Key: selectedEpLabels})
@@ -2258,23 +2269,41 @@ func (ds *PolicyTestSuite) TestMatches(c *C) {
 	notSelectedEpLabels := labels.ParseSelectLabel("id=b")
 	notSelectedIdentity := identity2.NewIdentity(9876, labels.Labels{notSelectedEpLabels.Key: notSelectedEpLabels})
 
+	hostLabels := labels.Labels{selectedEpLabels.Key: selectedEpLabels}
+	hostLabels.MergeLabels(labels.LabelHost)
+	hostIdentity := identity2.NewIdentity(identity.ReservedIdentityHost, hostLabels)
+
 	// notSelectedEndpoint is not selected by rule, so we it shouldn't be added
 	// to EndpointsSelected.
-	c.Assert(addedRule.matches(notSelectedIdentity), Equals, false)
-	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{notSelectedIdentity.ID: false})
+	c.Assert(epRule.matches(notSelectedIdentity), Equals, false)
+	c.Assert(epRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{notSelectedIdentity.ID: false})
 
 	// selectedEndpoint is selected by rule, so we it should be added to
 	// EndpointsSelected.
-	c.Assert(addedRule.matches(selectedIdentity), Equals, true)
-	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false})
+	c.Assert(epRule.matches(selectedIdentity), Equals, true)
+	c.Assert(epRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false})
 
 	// Test again to check for caching working correctly.
-	c.Assert(addedRule.matches(selectedIdentity), Equals, true)
-	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false})
+	c.Assert(epRule.matches(selectedIdentity), Equals, true)
+	c.Assert(epRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false})
 
 	// Possible scenario where an endpoint is deleted, and soon after another
 	// endpoint is added with the same ID, but with a different identity. Matching
 	// needs to handle this case correctly.
-	c.Assert(addedRule.matches(notSelectedIdentity), Equals, false)
-	c.Assert(addedRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false})
+	c.Assert(epRule.matches(notSelectedIdentity), Equals, false)
+	c.Assert(epRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false})
+
+	// host endpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
+	c.Assert(epRule.matches(hostIdentity), Equals, false)
+	c.Assert(epRule.metadata.IdentitySelected, checker.DeepEquals,
+		map[identity.NumericIdentity]bool{selectedIdentity.ID: true, notSelectedIdentity.ID: false, hostIdentity.ID: false})
+
+	// selectedEndpoint is not selected by rule, so we it shouldn't be added to EndpointsSelected.
+	c.Assert(hostRule.matches(selectedIdentity), Equals, false)
+	c.Assert(hostRule.metadata.IdentitySelected, checker.DeepEquals, map[identity.NumericIdentity]bool{selectedIdentity.ID: false})
+
+	// host endpoint is selected by rule, so we it should be added to EndpointsSelected.
+	c.Assert(hostRule.matches(hostIdentity), Equals, true)
+	c.Assert(hostRule.metadata.IdentitySelected, checker.DeepEquals,
+		map[identity.NumericIdentity]bool{selectedIdentity.ID: false, hostIdentity.ID: true})
 }

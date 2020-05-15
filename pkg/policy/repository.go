@@ -495,7 +495,7 @@ func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool
 	ingressMatch = false
 	egressMatch = false
 	for _, r := range p.rules {
-		rulesMatch := r.EndpointSelector.Matches(lbls)
+		rulesMatch := r.getSelector().Matches(lbls)
 		if rulesMatch {
 			if len(r.Ingress) > 0 {
 				ingressMatch = true
@@ -522,6 +522,11 @@ func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (ingr
 	ingressMatch = false
 	egressMatch = false
 	for _, r := range p.rules {
+		isNode := securityIdentity.ID == identity.ReservedIdentityHost
+		selectsNode := r.NodeSelector.LabelSelector != nil
+		if selectsNode != isNode {
+			continue
+		}
 		if ruleMatches := r.matches(securityIdentity); ruleMatches {
 			// Don't need to update whether ingressMatch is true if it already
 			// has been determined to be true - allows us to not have to check

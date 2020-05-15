@@ -39,7 +39,7 @@ func (rules ruleSlice) resolveL4IngressPolicy(policyCtx PolicyContext, ctx *Sear
 	// each FromEndpoints for all ingress rules. This ensures that FromRequires
 	// is taken into account when evaluating policy at L4.
 	for _, r := range rules {
-		if ctx.rulesSelect || r.EndpointSelector.Matches(ctx.To) {
+		if ctx.rulesSelect || r.getSelector().Matches(ctx.To) {
 			matchedRules = append(matchedRules, r)
 			for _, ingressRule := range r.Ingress {
 				for _, requirement := range ingressRule.FromRequires {
@@ -87,7 +87,7 @@ func (rules ruleSlice) resolveL4EgressPolicy(policyCtx PolicyContext, ctx *Searc
 	// ToEndpoints for all egress rules. This ensures that ToRequires is
 	// taken into account when evaluating policy at L4.
 	for _, r := range rules {
-		if ctx.rulesSelect || r.EndpointSelector.Matches(ctx.From) {
+		if ctx.rulesSelect || r.getSelector().Matches(ctx.From) {
 			matchedRules = append(matchedRules, r)
 			for _, egressRule := range r.Egress {
 				for _, requirement := range egressRule.ToRequires {
@@ -157,6 +157,10 @@ func (rules ruleSlice) updateEndpointsCaches(ep Endpoint) (bool, error) {
 	}
 	endpointSelected := false
 	for _, r := range rules {
+		// NodeSelector can only match nodes, EndpointSelector only pods.
+		if (r.NodeSelector.LabelSelector != nil) != ep.IsHost() {
+			continue
+		}
 		// Update the matches cache of each rule, and note if
 		// the ep is selected by any of them.
 		if ruleMatches := r.matches(securityIdentity); ruleMatches {

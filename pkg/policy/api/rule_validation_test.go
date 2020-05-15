@@ -421,6 +421,62 @@ func (s *PolicyAPITestSuite) TestL7Rules(c *C) {
 	c.Assert(err, Not(IsNil))
 }
 
+// This test ensures that host policies with L7 rules are rejected.
+func (s *PolicyAPITestSuite) TestL7RulesWithNodeSelector(c *C) {
+	invalidL7RuleIngress := Rule{
+		NodeSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "80", Protocol: ProtoTCP},
+					},
+					Rules: &L7Rules{
+						HTTP: []PortRuleHTTP{
+							{Method: "PUT", Path: "/"},
+						},
+					},
+				}},
+			},
+		},
+	}
+	err := invalidL7RuleIngress.Sanitize()
+	c.Assert(err.Error(), Equals, "host policies do not support L7 rules yet")
+
+	invalidL7RuleEgress := Rule{
+		NodeSelector: WildcardEndpointSelector,
+		Egress: []EgressRule{
+			{
+				ToEndpoints: []EndpointSelector{WildcardEndpointSelector},
+				ToPorts: []PortRule{{
+					Ports: []PortProtocol{
+						{Port: "53", Protocol: ProtoUDP},
+					},
+					Rules: &L7Rules{
+						DNS: []PortRuleDNS{
+							{MatchName: "domain.com"},
+						},
+					},
+				}},
+			},
+		},
+	}
+	err = invalidL7RuleEgress.Sanitize()
+	c.Assert(err.Error(), Equals, "host policies do not support L7 rules yet")
+
+	validL7RuleIngress := Rule{
+		NodeSelector: WildcardEndpointSelector,
+		Ingress: []IngressRule{
+			{
+				FromEndpoints: []EndpointSelector{WildcardEndpointSelector},
+			},
+		},
+	}
+	err = validL7RuleIngress.Sanitize()
+	c.Assert(err, IsNil)
+}
+
 func (s *PolicyAPITestSuite) TestInvalidEndpointSelectors(c *C) {
 
 	// Operator in MatchExpressions is invalid, so sanitization should fail.
@@ -495,6 +551,41 @@ func (s *PolicyAPITestSuite) TestInvalidEndpointSelectors(c *C) {
 	err = invalidEpSelectorEgressToReq.Sanitize()
 	c.Assert(err, Not(IsNil))
 
+}
+
+func (s *PolicyAPITestSuite) TestNodeSelector(c *C) {
+	// Operator in MatchExpressions is invalid, so sanitization should fail.
+	labelSel := &slim_metav1.LabelSelector{
+		MatchLabels: map[string]string{
+			"any.foo": "bar",
+			"k8s.baz": "alice",
+		},
+		MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+			{
+				Key:      "any.foo",
+				Operator: "asdfasdfasdf",
+				Values:   []string{"default"},
+			},
+		},
+	}
+	invalidSel := NewESFromK8sLabelSelector(labels.LabelSourceK8sKeyPrefix, labelSel)
+	invalidNodeSelectorRule := Rule{
+		NodeSelector: invalidSel,
+	}
+	err := invalidNodeSelectorRule.Sanitize()
+	c.Assert(err.Error(), Equals,
+		"invalid label selector: matchExpressions[0].operator: Invalid value: \"asdfasdfasdf\": not a valid selector operator")
+
+	invalidRuleBothSelectors := Rule{
+		EndpointSelector: WildcardEndpointSelector,
+		NodeSelector:     WildcardEndpointSelector,
+	}
+	err = invalidRuleBothSelectors.Sanitize()
+	c.Assert(err.Error(), Equals, "rule cannot have both EndpointSelector and NodeSelector")
+
+	invalidRuleNoSelector := Rule{}
+	err = invalidRuleNoSelector.Sanitize()
+	c.Assert(err.Error(), Equals, "rule must have one of EndpointSelector or NodeSelector")
 }
 
 func (s *PolicyAPITestSuite) TestTooManyPortsRule(c *C) {
