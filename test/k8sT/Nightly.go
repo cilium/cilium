@@ -395,8 +395,6 @@ var _ = Describe("NightlyExamples", func() {
 			kubectl.Exec(fmt.Sprintf(
 				"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
-			kubectl.DeleteETCDOperator()
-
 			ExpectAllPodsTerminated(kubectl)
 		})
 
