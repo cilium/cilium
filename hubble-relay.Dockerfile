@@ -1,4 +1,4 @@
-FROM docker.io/library/golang:1.14.2 as builder
+FROM docker.io/library/golang:1.14.3 as builder
 ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/hubble-relay
 ARG NOSTRIP
@@ -7,7 +7,7 @@ RUN make NOSTRIP=$NOSTRIP
 FROM docker.io/library/alpine:3.11 as certs
 RUN apk --update add ca-certificates
 
-FROM docker.io/library/golang:1.14.2 as gops
+FROM docker.io/library/golang:1.14.3 as gops
 RUN go get -d github.com/google/gops && \
     cd /go/src/github.com/google/gops && \
     git checkout -b v0.3.6 v0.3.6 && \
