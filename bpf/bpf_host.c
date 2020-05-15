@@ -90,6 +90,28 @@ derive_src_id(const union v6addr *node_ip, struct ipv6hdr *ip6, __u32 *identity)
 	return 0;
 }
 
+# ifdef ENABLE_HOST_FIREWALL
+static __always_inline __u32
+ipcache_lookup_srcid6(struct __ctx_buff *ctx)
+{
+	struct remote_endpoint_info *info = NULL;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	__u32 srcid = 0;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	info = lookup_ip6_remote_endpoint((union v6addr *) &ip6->saddr);
+	if (info != NULL)
+		srcid = info->sec_label;
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+		   ip6->saddr.s6_addr32[3], srcid);
+
+	return srcid;
+}
+# endif /* ENABLE_HOST_FIREWALL */
+
 static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 		   bool from_host)
@@ -137,6 +159,171 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	return src_id;
 }
 
+#ifdef ENABLE_HOST_FIREWALL
+static __always_inline int
+ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 srcID)
+{
+	int ret, verdict, l3_off = ETH_HLEN, l4_off, hdrlen;
+	struct ct_state ct_state_new = {}, ct_state = {};
+	__u8 policy_match_type = POLICY_MATCH_NONE;
+	struct remote_endpoint_info *info;
+	struct ipv6_ct_tuple tuple = {};
+	__u32 dstID = 0, monitor = 0;
+	union v6addr orig_dip;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+
+	/* Only enforce host policies for packets from host IPs. */
+	if (srcID != HOST_ID)
+		return CTX_ACT_OK;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	/* Lookup connection in conntrack map. */
+	tuple.nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
+	ipv6_addr_copy(&orig_dip, (union v6addr *) &ip6->daddr);
+	hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &tuple.nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+	l4_off = l3_off + hdrlen;
+	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
+			 &ct_state, &monitor);
+	if (ret < 0)
+		return ret;
+
+	/* Retrieve destination identity. */
+	info = lookup_ip6_remote_endpoint(&orig_dip);
+	if (info != NULL && info->sec_label)
+		dstID = info->sec_label;
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+		   orig_dip.p4, dstID);
+
+	/* Perform policy lookup. */
+	verdict = policy_can_egress6(ctx, &tuple, srcID, dstID,
+				     &policy_match_type);
+
+	/* Reply traffic and related are allowed regardless of policy verdict. */
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+		send_policy_verdict_notify(ctx, dstID, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 1,
+					   verdict, policy_match_type);
+		return verdict;
+	}
+
+	switch (ret) {
+	case CT_NEW:
+		send_policy_verdict_notify(ctx, dstID, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 1,
+					   verdict, policy_match_type);
+		ct_state_new.src_sec_id = HOST_ID;
+		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple,
+				 ctx, CT_EGRESS, &ct_state_new, verdict > 0);
+		if (IS_ERR(ret))
+			return ret;
+		break;
+
+	case CT_ESTABLISHED:
+	case CT_RELATED:
+	case CT_REPLY:
+		break;
+
+	default:
+		return DROP_UNKNOWN_CT;
+	}
+
+	return CTX_ACT_OK;
+}
+
+static __always_inline int
+ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *srcID)
+{
+	struct ct_state ct_state_new = {}, ct_state = {};
+	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u32 monitor = 0, dstID = WORLD_ID;
+	struct remote_endpoint_info *info;
+	int ret, verdict, l4_off, hdrlen;
+	struct ipv6_ct_tuple tuple = {};
+	union v6addr orig_sip;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	/* Retrieve destination identity. */
+	ipv6_addr_copy(&tuple.daddr, (union v6addr *) &ip6->daddr);
+	info = lookup_ip6_remote_endpoint(&tuple.daddr);
+	if (info != NULL && info->sec_label)
+		dstID = info->sec_label;
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+		   tuple.daddr.p4, dstID);
+
+	/* Only enforce host policies for packets to host IPs. */
+	if (dstID != HOST_ID)
+		return CTX_ACT_OK;
+
+	/* Lookup connection in conntrack map. */
+	tuple.nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *) &ip6->saddr);
+	ipv6_addr_copy(&orig_sip, (union v6addr *) &ip6->saddr);
+	hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &tuple.nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+	l4_off = ETH_HLEN + hdrlen;
+	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
+			 &ct_state, &monitor);
+	if (ret < 0)
+		return ret;
+
+	/* Retrieve source identity. */
+	info = lookup_ip6_remote_endpoint(&orig_sip);
+	if (info != NULL && info->sec_label)
+		*srcID = info->sec_label;
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED6 : DBG_IP_ID_MAP_FAILED6,
+		   orig_sip.p4, *srcID);
+
+	/* Perform policy lookup */
+	verdict = policy_can_access_ingress(ctx, *srcID, dstID, tuple.dport,
+					    tuple.nexthdr, false,
+					    &policy_match_type);
+
+	/* Reply traffic and related are allowed regardless of policy verdict. */
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+		send_policy_verdict_notify(ctx, *srcID, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 1,
+					   verdict, policy_match_type);
+		return verdict;
+	}
+
+	switch (ret) {
+	case CT_NEW:
+		send_policy_verdict_notify(ctx, *srcID, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 1,
+					   verdict, policy_match_type);
+
+		/* Create new entry for connection in conntrack map. */
+		ct_state_new.src_sec_id = *srcID;
+		ct_state_new.node_port = ct_state.node_port;
+		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple,
+				 ctx, CT_INGRESS, &ct_state_new, verdict > 0);
+		if (IS_ERR(ret))
+			return ret;
+
+	case CT_ESTABLISHED:
+	case CT_RELATED:
+	case CT_REPLY:
+		break;
+
+	default:
+		return DROP_UNKNOWN_CT;
+	}
+
+	return CTX_ACT_OK;
+}
+#endif /* ENABLE_HOST_FIREWALL */
+
 static __always_inline int
 handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 {
@@ -145,6 +332,8 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
 	int ret, l3_off = ETH_HLEN, hdrlen;
+	__u32 __maybe_unused remoteID = WORLD_ID;
+	bool skip_redirect = false;
 	struct endpoint_info *ep;
 	__u8 nexthdr;
 
@@ -161,7 +350,11 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 		}
 #if defined(ENCAP_IFINDEX) || defined(NO_REDIRECT)
 		/* See IPv4 case for NO_REDIRECT comments */
+# ifdef ENABLE_HOST_FIREWALL
+		skip_redirect = true;
+# else
 		return CTX_ACT_OK;
+# endif
 #endif /* ENCAP_IFINDEX || NO_REDIRECT */
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -175,14 +368,14 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 		return hdrlen;
 
 #ifdef HANDLE_NS
-	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
+	if (!skip_redirect && unlikely(nexthdr == IPPROTO_ICMPV6)) {
 		ret = icmp6_handle(ctx, ETH_HLEN, ip6, METRIC_INGRESS);
 		if (IS_ERR(ret))
 			return ret;
 	}
 #endif
 
-	if (from_host) {
+	if (from_host && !skip_redirect) {
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination mac address to the MAC of cilium_net */
 		ret = rewrite_dmac_to_host(ctx, secctx);
@@ -193,6 +386,20 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 	}
+
+#ifdef ENABLE_HOST_FIREWALL
+	if (from_host)
+		ret = ipv6_host_policy_egress(ctx, secctx);
+	else
+		ret = ipv6_host_policy_ingress(ctx, &remoteID);
+	if (IS_ERR(ret))
+		return ret;
+	if (skip_redirect)
+		return CTX_ACT_OK;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+#endif /* ENABLE_HOST_FIREWALL */
 
 	/* Lookup IPv4 address in list of local endpoints */
 	if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
@@ -1018,14 +1225,16 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		// TODO ipv6_host_policy_ingress.
-		ret = CTX_ACT_OK;
+		/* to-netdev is attached to the egress path of the native
+		 * device. */
+		srcID = ipcache_lookup_srcid6(ctx);
+		ret = ipv6_host_policy_egress(ctx, srcID);
 		break;
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		// to-netdev is attached to the egress path of the native
-		// device.
+		/* to-netdev is attached to the egress path of the native
+		 * device. */
 		srcID = ipcache_lookup_srcid4(ctx);
 		ret = ipv4_host_policy_egress(ctx, srcID);
 		break;
@@ -1090,8 +1299,7 @@ int to_host(struct __ctx_buff *ctx)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		// TODO ipv6_host_policy_ingress.
-		ret = CTX_ACT_OK;
+		ret = ipv6_host_policy_ingress(ctx, &srcID);
 		break;
 # endif
 # ifdef ENABLE_IPV4
