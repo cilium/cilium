@@ -75,6 +75,10 @@ func TestMain(m *testing.M) {
 	os.Exit(exitCode)
 }
 
+func (pm *PolicyMapTestSuite) TearDownTest(c *C) {
+	testMap.DeleteAll()
+}
+
 func (pm *PolicyMapTestSuite) TestPolicyMapDumpToSlice(c *C) {
 	c.Assert(testMap, NotNil)
 
@@ -97,6 +101,32 @@ func (pm *PolicyMapTestSuite) TestPolicyMapDumpToSlice(c *C) {
 	c.Assert(err, IsNil)
 
 	dump, err = testMap.DumpToSlice()
+	c.Assert(err, IsNil)
+	c.Assert(len(dump), Equals, 2)
+}
+
+func (pm *PolicyMapTestSuite) TestPolicyMapDumpKeysToSlice(c *C) {
+	c.Assert(testMap, NotNil)
+
+	fooEntry := newKey(1, 1, 1, 1)
+	err := testMap.AllowKey(fooEntry, 0)
+	c.Assert(err, IsNil)
+
+	dump, err := testMap.DumpKeysToSlice()
+	c.Assert(err, IsNil)
+	c.Assert(len(dump), Equals, 1)
+
+	// FIXME: It's weird that AllowKey() does the implicit byteorder
+	//        conversion above. But not really a bug, so work around it.
+	fooEntry = fooEntry.ToNetwork()
+	c.Assert(dump[0], checker.DeepEquals, fooEntry)
+
+	// Special case: allow-all entry
+	barEntry := newKey(0, 0, 0, 0)
+	err = testMap.AllowKey(barEntry, 0)
+	c.Assert(err, IsNil)
+
+	dump, err = testMap.DumpKeysToSlice()
 	c.Assert(err, IsNil)
 	c.Assert(len(dump), Equals, 2)
 }

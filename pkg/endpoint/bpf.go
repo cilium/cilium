@@ -1229,7 +1229,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 		return fmt.Errorf("not syncing PolicyMap state for endpoint because PolicyMap is nil")
 	}
 
-	currentMapContents, err := e.policyMap.DumpToSlice()
+	currentMapContents, err := e.policyMap.DumpKeysToSlice()
 
 	// If map is unable to be dumped, attempt to close map and open it again.
 	// See GH-4229.
@@ -1250,7 +1250,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 		}
 
 		// Try to dump again, fail if error occurs.
-		currentMapContents, err = e.policyMap.DumpToSlice()
+		currentMapContents, err = e.policyMap.DumpKeysToSlice()
 		if err != nil {
 			return err
 		}
@@ -1260,7 +1260,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 
 	for _, entry := range currentMapContents {
 		// Convert key to host-byte order for lookup in the desiredMapState.
-		keyHostOrder := entry.Key.ToHost()
+		keyHostOrder := entry.ToHost()
 
 		// Convert from policymap.Key to policy.Key
 		keyToDelete := policy.Key{
@@ -1272,7 +1272,7 @@ func (e *Endpoint) syncPolicyMapWithDump() error {
 
 		// If key that is in policy map is not in desired state, just remove it.
 		if _, ok := e.desiredPolicy.PolicyMapState[keyToDelete]; !ok {
-			e.getLogger().WithField(logfields.BPFMapKey, entry.Key.String()).Debug("syncPolicyMapWithDump removing a bpf policy entry not in the desired state")
+			e.getLogger().WithField(logfields.BPFMapKey, entry.String()).Debug("syncPolicyMapWithDump removing a bpf policy entry not in the desired state")
 			if !e.deletePolicyKey(keyToDelete, false, nil) {
 				errors++
 			}
