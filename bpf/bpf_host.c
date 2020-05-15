@@ -25,6 +25,10 @@
 /* CB_PROXY_MAGIC overlaps with CB_ENCRYPT_MAGIC */
 #define ENCRYPT_OR_PROXY_MAGIC 0
 
+#ifdef POD_ENDPOINT
+# undef ENABLE_HOST_FIREWALL
+#endif
+
 #include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/arp.h"
@@ -45,6 +49,10 @@
 #include "lib/lb.h"
 #include "lib/nodeport.h"
 #include "lib/eps.h"
+#ifdef ENABLE_HOST_FIREWALL
+# include "lib/policy.h"
+# include "lib/policy_log.h"
+#endif
 
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
@@ -282,6 +290,28 @@ int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
+# ifdef ENABLE_HOST_FIREWALL
+static __always_inline __u32
+ipcache_lookup_srcid4(struct __ctx_buff *ctx)
+{
+	struct remote_endpoint_info *info = NULL;
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__u32 srcid = 0;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	info = lookup_ip4_remote_endpoint(ip4->saddr);
+	if (info != NULL)
+		srcid = info->sec_label;
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+		   ip4->saddr, srcid);
+
+	return srcid;
+}
+# endif /* ENABLE_HOST_FIREWALL */
+
 static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 		   bool from_host)
@@ -333,14 +363,181 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	return src_id;
 }
 
+#ifdef ENABLE_HOST_FIREWALL
+static __always_inline int
+ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 srcID)
+{
+	struct ct_state ct_state_new = {}, ct_state = {};
+	int ret, verdict, l4_off, l3_off = ETH_HLEN;
+	__u8 policy_match_type = POLICY_MATCH_NONE;
+	struct remote_endpoint_info *info;
+	struct ipv4_ct_tuple tuple = {};
+	__u32 dstID = 0, monitor = 0;
+	void *data, *data_end;
+	struct iphdr *ip4;
+
+	/* Only enforce host policies for packets from host IPs. */
+	if (srcID != HOST_ID)
+		return CTX_ACT_OK;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	/* Lookup connection in conntrack map. */
+	tuple.nexthdr = ip4->protocol;
+	tuple.daddr = ip4->daddr;
+	tuple.saddr = ip4->saddr;
+	l4_off = l3_off + ipv4_hdrlen(ip4);
+	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
+			 &ct_state, &monitor);
+	if (ret < 0)
+		return ret;
+
+	/* Retrieve destination identity. */
+	info = lookup_ip4_remote_endpoint(ip4->daddr);
+	if (info != NULL && info->sec_label)
+		dstID = info->sec_label;
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+		   ip4->daddr, dstID);
+
+	/* Perform policy lookup. */
+	verdict = policy_can_egress4(ctx, &tuple, srcID, dstID,
+				     &policy_match_type);
+
+	/* Reply traffic and related are allowed regardless of policy verdict. */
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+		send_policy_verdict_notify(ctx, dstID, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 0,
+					   verdict, policy_match_type);
+		return verdict;
+	}
+
+	switch (ret) {
+	case CT_NEW:
+		send_policy_verdict_notify(ctx, dstID, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 0,
+					   verdict, policy_match_type);
+		ct_state_new.src_sec_id = HOST_ID;
+		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple,
+				 ctx, CT_EGRESS, &ct_state_new, verdict > 0);
+		if (IS_ERR(ret))
+			return ret;
+		break;
+
+	case CT_ESTABLISHED:
+	case CT_RELATED:
+	case CT_REPLY:
+		break;
+
+	default:
+		return DROP_UNKNOWN_CT;
+	}
+
+	return CTX_ACT_OK;
+}
+
+static __always_inline int
+ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *srcID)
+{
+	struct ct_state ct_state_new = {}, ct_state = {};
+	int ret, verdict, l4_off, l3_off = ETH_HLEN;
+	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u32 monitor = 0, dstID = WORLD_ID;
+	struct remote_endpoint_info *info;
+	struct ipv4_ct_tuple tuple = {};
+	bool is_untracked_fragment = false;
+	void *data, *data_end;
+	struct iphdr *ip4;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	/* Retrieve destination identity. */
+	info = lookup_ip4_remote_endpoint(ip4->daddr);
+	if (info != NULL && info->sec_label)
+		dstID = info->sec_label;
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+		   ip4->daddr, dstID);
+
+	/* Only enforce host policies for packets to host IPs. */
+	if (dstID != HOST_ID)
+		return CTX_ACT_OK;
+
+	/* Lookup connection in conntrack map. */
+	tuple.nexthdr = ip4->protocol;
+	tuple.daddr = ip4->daddr;
+	tuple.saddr = ip4->saddr;
+	l4_off = l3_off + ipv4_hdrlen(ip4);
+#ifndef IPV4_FRAGMENTS
+	/* Indicate that this is a datagram fragment for which we cannot
+	 * retrieve L4 ports. Do not set flag if we support fragmentation.
+	 */
+	is_untracked_fragment = ipv4_is_fragment(ip4);
+#endif
+	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_INGRESS,
+			 &ct_state, &monitor);
+	if (ret < 0)
+		return ret;
+
+	/* Retrieve source identity. */
+	info = lookup_ip4_remote_endpoint(ip4->saddr);
+	if (info != NULL && info->sec_label)
+		*srcID = info->sec_label;
+	cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
+		   ip4->saddr, *srcID);
+
+	/* Perform policy lookup */
+	verdict = policy_can_access_ingress(ctx, *srcID, dstID, tuple.dport,
+					    tuple.nexthdr,
+					    is_untracked_fragment,
+					    &policy_match_type);
+
+	/* Reply traffic and related are allowed regardless of policy verdict. */
+	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
+		send_policy_verdict_notify(ctx, *srcID, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 0,
+					   verdict, policy_match_type);
+		return verdict;
+	}
+
+	switch (ret) {
+	case CT_NEW:
+		send_policy_verdict_notify(ctx, *srcID, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 0,
+					   verdict, policy_match_type);
+
+		/* Create new entry for connection in conntrack map. */
+		ct_state_new.src_sec_id = *srcID;
+		ct_state_new.node_port = ct_state.node_port;
+		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple,
+				 ctx, CT_INGRESS, &ct_state_new, verdict > 0);
+		if (IS_ERR(ret))
+			return ret;
+
+	case CT_ESTABLISHED:
+	case CT_RELATED:
+	case CT_REPLY:
+		break;
+
+	default:
+		return DROP_UNKNOWN_CT;
+	}
+
+	return CTX_ACT_OK;
+}
+#endif /* ENABLE_HOST_FIREWALL */
+
 static __always_inline int
 handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 {
 	struct remote_endpoint_info *info = NULL;
+	__u32 __maybe_unused remoteID = 0;
 	struct ipv4_ct_tuple tuple = {};
+	bool skip_redirect = false;
 	struct endpoint_info *ep;
 	void *data, *data_end;
 	struct iphdr *ip4;
+	int ret;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -349,7 +546,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 	if (!from_host) {
 		if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC &&
 		    !bpf_skip_nodeport(ctx)) {
-			int ret = nodeport_lb4(ctx, secctx);
+			ret = nodeport_lb4(ctx, secctx);
 			if (ret < 0)
 				return ret;
 		}
@@ -359,7 +556,11 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 		 * This makes a second reply from the endpoint to be MASQUERADEd
 		 * or to be DROPed by k8s's "--ctstate INVALID -j DROP"
 		 * depending via which interface it was inputed. */
+# ifdef ENABLE_HOST_FIREWALL
+		skip_redirect = true;
+# else
 		return CTX_ACT_OK;
+#endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENCAP_IFINDEX || NO_REDIRECT */
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -369,9 +570,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 
 	tuple.nexthdr = ip4->protocol;
 
-	if (from_host) {
-		int ret;
-
+	if (from_host && !skip_redirect) {
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination mac address to the MAC of cilium_net */
 		ret = rewrite_dmac_to_host(ctx, secctx);
@@ -382,6 +581,22 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 	}
+
+#ifdef ENABLE_HOST_FIREWALL
+	if (from_host)
+		/* We're on the egress path of cilium_host. */
+		ret = ipv4_host_policy_egress(ctx, secctx);
+	else
+		/* We're on the ingress path of the native device. */
+		ret = ipv4_host_policy_ingress(ctx, &remoteID);
+	if (IS_ERR(ret))
+		return ret;
+	if (skip_redirect)
+		return CTX_ACT_OK;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+#endif /* ENABLE_HOST_FIREWALL */
 
 	/* Lookup IPv4 address in list of local endpoints and host IPs */
 	if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
@@ -402,9 +617,9 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 #ifdef ENCAP_IFINDEX
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
 	if (info != NULL && info->tunnel_endpoint != 0) {
-		int ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
-							 info->key,
-							 secctx, TRACE_PAYLOAD_LEN);
+		ret = encap_and_redirect_with_nodeid(ctx, info->tunnel_endpoint,
+						     info->key, secctx,
+						     TRACE_PAYLOAD_LEN);
 
 		if (ret == IPSEC_ENDPOINT)
 			return CTX_ACT_OK;
@@ -413,7 +628,6 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 	} else {
 		/* IPv4 lookup key: daddr & IPV4_MASK */
 		struct endpoint_key key = {};
-		int ret;
 
 		key.ip4 = ip4->daddr & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;
@@ -716,8 +930,13 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, bool from_host)
 		                              CTX_ACT_OK, METRIC_INGRESS);
 #endif
 	default:
+#ifdef ENABLE_HOST_FIREWALL
+		ret = send_drop_notify_error(ctx, identity, DROP_UNKNOWN_L3,
+					     CTX_ACT_DROP, METRIC_INGRESS);
+#else
 		/* Pass unknown traffic to the stack */
 		ret = CTX_ACT_OK;
+#endif /* ENABLE_HOST_FIREWALL */
 	}
 
 	return ret;
@@ -736,10 +955,17 @@ handle_netdev(struct __ctx_buff *ctx, bool from_host)
 	__u16 proto;
 
 	if (!validate_ethertype(ctx, &proto)) {
+#ifdef ENABLE_HOST_FIREWALL
+		int ret = DROP_UNSUPPORTED_L2;
+
+		return send_drop_notify(ctx, SECLABEL, WORLD_ID, 0, ret,
+					CTX_ACT_DROP, METRIC_EGRESS);
+#else
 		send_trace_notify(ctx, TRACE_TO_STACK, HOST_ID, 0, 0, 0,
 				  REASON_FORWARDED, 0);
 		/* Pass unknown traffic to the stack */
 		return CTX_ACT_OK;
+#endif /* ENABLE_HOST_FIREWALL */
 	}
 
 	return do_netdev(ctx, proto, from_host);
@@ -760,19 +986,63 @@ int from_host(struct __ctx_buff *ctx)
 __section("to-netdev")
 int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 {
-	/* Cannot compile the section out entriely, test/bpf/verifier-test.sh
-	 * workaround.
-	 */
+	__u32 __maybe_unused remoteID = WORLD_ID, srcID = 0;
+	__u16 __maybe_unused proto = 0;
 	int ret = CTX_ACT_OK;
+
 #if defined(ENABLE_NODEPORT) && \
 	(!defined(ENABLE_DSR) || \
 	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)))
-	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE)
-		return CTX_ACT_OK;
-	ret = nodeport_nat_fwd(ctx, false);
-	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
+		ret = nodeport_nat_fwd(ctx, false);
+		if (IS_ERR(ret))
+			return send_drop_notify_error(ctx, 0, ret,
+						      CTX_ACT_DROP,
+						      METRIC_EGRESS);
+	}
 #endif
+
+#ifdef ENABLE_HOST_FIREWALL
+	if (!proto && !validate_ethertype(ctx, &proto)) {
+		ret = DROP_UNSUPPORTED_L2;
+		goto out;
+	}
+
+	policy_clear_mark(ctx);
+
+	switch (proto) {
+# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
+	case bpf_htons(ETH_P_ARP):
+		ret = CTX_ACT_OK;
+		break;
+# endif
+# ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		// TODO ipv6_host_policy_ingress.
+		ret = CTX_ACT_OK;
+		break;
+# endif
+# ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		// to-netdev is attached to the egress path of the native
+		// device.
+		srcID = ipcache_lookup_srcid4(ctx);
+		ret = ipv4_host_policy_egress(ctx, srcID);
+		break;
+# endif
+	default:
+		ret = DROP_UNKNOWN_L3;
+		break;
+	}
+
+out:
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, srcID, ret, CTX_ACT_DROP,
+					      METRIC_EGRESS);
+#else
+	ret = CTX_ACT_OK;
+#endif /* ENABLE_HOST_FIREWALL */
+
 	return ret;
 }
 
@@ -780,14 +1050,15 @@ __section("to-host")
 int to_host(struct __ctx_buff *ctx)
 {
 	__u32 magic = ctx_load_meta(ctx, ENCRYPT_OR_PROXY_MAGIC);
+	__u16 __maybe_unused proto = 0;
 	int ret = CTX_ACT_OK;
-	__u32 src_label = 0;
 	bool traced = false;
+	__u32 srcID = 0;
 
 	if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
 		ctx->mark = magic; // CB_ENCRYPT_MAGIC
-		src_label = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
-		set_identity_mark(ctx, src_label);
+		srcID = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
+		set_identity_mark(ctx, srcID);
 	} else if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {
 		/* Upper 16 bits may carry proxy port number */
 		__be16 port = magic >> 16;
@@ -800,8 +1071,46 @@ int to_host(struct __ctx_buff *ctx)
 	}
 
 	if (!traced)
-		send_trace_notify(ctx, TRACE_TO_STACK, src_label, 0, 0,
+		send_trace_notify(ctx, TRACE_TO_STACK, srcID, 0, 0,
 				  CILIUM_IFINDEX, ret, 0);
+
+#ifdef ENABLE_HOST_FIREWALL
+	if (!validate_ethertype(ctx, &proto)) {
+		ret = DROP_UNSUPPORTED_L2;
+		goto out;
+	}
+
+	policy_clear_mark(ctx);
+
+	switch (proto) {
+# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
+	case bpf_htons(ETH_P_ARP):
+		ret = CTX_ACT_OK;
+		break;
+# endif
+# ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6):
+		// TODO ipv6_host_policy_ingress.
+		ret = CTX_ACT_OK;
+		break;
+# endif
+# ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP):
+		ret = ipv4_host_policy_ingress(ctx, &srcID);
+		break;
+# endif
+	default:
+		ret = DROP_UNKNOWN_L3;
+		break;
+	}
+
+out:
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, srcID, ret, CTX_ACT_DROP,
+					      METRIC_INGRESS);
+#else
+	ret = CTX_ACT_OK;
+#endif /* ENABLE_HOST_FIREWALL */
 
 	return ret;
 }

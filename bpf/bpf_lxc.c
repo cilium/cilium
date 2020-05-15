@@ -4,8 +4,8 @@
 #include <bpf/ctx/skb.h>
 #include <bpf/api.h>
 
-#include <node_config.h>
 #include <ep_config.h>
+#include <node_config.h>
 
 #include <linux/icmpv6.h>
 
