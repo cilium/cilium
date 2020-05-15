@@ -61,8 +61,9 @@ func convertToPod(obj interface{}) interface{} {
 		p := &slim_corev1.Pod{
 			TypeMeta: concreteObj.TypeMeta,
 			ObjectMeta: slim_metav1.ObjectMeta{
-				Name:      concreteObj.Name,
-				Namespace: concreteObj.Namespace,
+				Name:            concreteObj.Name,
+				Namespace:       concreteObj.Namespace,
+				ResourceVersion: concreteObj.ResourceVersion,
 			},
 		}
 		*concreteObj = slim_corev1.Pod{}
@@ -77,8 +78,9 @@ func convertToPod(obj interface{}) interface{} {
 			Obj: &slim_corev1.Pod{
 				TypeMeta: pod.TypeMeta,
 				ObjectMeta: slim_metav1.ObjectMeta{
-					Name:      pod.Name,
-					Namespace: pod.Namespace,
+					Name:            pod.Name,
+					Namespace:       pod.Namespace,
+					ResourceVersion: pod.ResourceVersion,
 				},
 			},
 		}
