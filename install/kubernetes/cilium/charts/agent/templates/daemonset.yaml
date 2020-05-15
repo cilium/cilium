@@ -60,6 +60,9 @@ spec:
             path: /healthz
             port: {{ .Values.global.agent.healthPort }}
             scheme: HTTP
+            httpHeaders:
+            - name: "brief"
+              value: "true"
           failureThreshold: 10
           # The initial delay for the liveness probe is intentionally large to
           # avoid an endless kill & restart cycle if in the event that the initial
@@ -74,6 +77,9 @@ spec:
             path: /healthz
             port: {{ .Values.global.agent.healthPort }}
             scheme: HTTP
+            httpHeaders:
+            - name: "brief"
+              value: "true"
           failureThreshold: 3
           initialDelaySeconds: 5
           periodSeconds: 30
