@@ -437,7 +437,7 @@ Upgrading from >=1.7.0 to 1.8.y
 New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
 
-  * ``bpf-map-dynamic-size-ratio`` has been added to allow sizing of the TCP CT,
+  * ``mapDynamicSizeRatio`` has been added to allow sizing of the TCP CT,
     non-TCP CT, NAT and policy BPF maps based on the total system memory. This
     option allows to specify a ratio (0.0-1.0) of total system memory to use for
     these maps. On new installations, this ratio is set to 0.03 by default,
@@ -445,8 +445,9 @@ New ConfigMap Options
     a node with 4 GiB of total system memory this ratio corresponds
     approximately to the default BPF map sizes. A value of 0.0 will disable
     sizing of the BPF maps based on system memory. Any BPF map sizes configured
-    manually using the ``ctTcpMax``, ``ctAnyMax``, ``natMax`` options will take
-    precedence over the dynamically determined value.
+    manually using the ``ctTcpMax``, ``ctAnyMax``, ``natMax``, or
+    ``policyMapMax`` options will take precedence over the dynamically
+    determined value.
 
     On upgrades of existing installations, this option is disabled by default,
     i.e. it is set to 0.0. Users wanting to use this feature need to enable it
