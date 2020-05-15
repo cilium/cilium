@@ -526,6 +526,9 @@ func init() {
 	flags.Bool(option.EnableSessionAffinity, false, "Enable support for service session affinity")
 	option.BindEnv(option.EnableSessionAffinity)
 
+	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
+	option.BindEnv(option.EnableHostFirewall)
+
 	flags.String(option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")
 	option.BindEnv(option.LibDir)
 
@@ -1099,6 +1102,7 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.EncryptInterface = link
 	}
 
+	checkHostFirewallWithEgressLB()
 	initKubeProxyReplacementOptions()
 	if option.Config.EnableNodePort {
 		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
@@ -1130,6 +1134,17 @@ func initEnv(cmd *cobra.Command) {
 		if !probe.HaveFullLPM() {
 			log.Fatal("BPF ip-masq-agent needs kernel 4.16 or newer")
 		}
+	}
+
+	if option.Config.EnableHostFirewall && len(option.Config.Devices) == 0 {
+		device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
+		if err != nil {
+			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
+			log.WithError(err).Fatalf(msg, option.Device)
+		}
+		log.WithField(logfields.Interface, device).
+			Info("Using auto-derived device for host firewall")
+		option.Config.Devices = []string{device}
 	}
 
 	// If there is one device specified, use it to derive better default
@@ -1550,6 +1565,30 @@ func initClockSourceOption() {
 				}
 			}
 		}
+	}
+}
+
+func checkHostFirewallWithEgressLB() {
+	// Egress LB is enabled in datapath under condition:
+	// ENABLE_SERVICES && (!ENABLE_HOST_SERVICES_FULL || \
+	//                    (ENABLE_EXTERNAL_IP && !BPF_HAVE_NETNS_COOKIE))
+	// We can't enable both egress LB and host firewall on kernels <4.14 due to
+	// the verifier complexity limit, at 96k instructions.
+	var netnsCookieSupport bool
+	pm := probes.NewProbeManager()
+	h1, h2 := pm.GetHelpers("cgroup_sock_addr"), pm.GetHelpers("cgroup_sock")
+	if _, ok := h1["bpf_get_netns_cookie"]; ok {
+		if _, ok := h2["bpf_get_netns_cookie"]; ok {
+			netnsCookieSupport = true
+		}
+	}
+	egressLBEnabled := !option.Config.DisableK8sServices &&
+		(!option.Config.EnableHostServicesTCP || !option.Config.EnableHostServicesUDP ||
+			(option.Config.EnableExternalIPs && !netnsCookieSupport))
+	if option.Config.EnableHostFirewall && egressLBEnabled {
+		log.Warn("Enabling both BPF-based east-west load balancing and the host firewall isn't supported yet. Disabling east-west load balancing.")
+		option.Config.DisableK8sServices = true
+		option.Config.KubeProxyReplacement = option.KubeProxyReplacementDisabled
 	}
 }
 

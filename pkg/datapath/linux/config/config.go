@@ -261,6 +261,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
 	}
 
+	if option.Config.EnableHostFirewall {
+		cDefinesMap["ENABLE_HOST_FIREWALL"] = "1"
+	}
+
 	if option.Config.EncryptInterface != "" {
 		link, err := netlink.LinkByName(option.Config.EncryptInterface)
 		if err == nil {
