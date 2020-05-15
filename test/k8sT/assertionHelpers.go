@@ -56,6 +56,22 @@ func ExpectCiliumOperatorReady(vm *helpers.Kubectl) {
 	ExpectWithOffset(1, err).Should(BeNil(), "Cilium operator was not able to get into ready state")
 }
 
+// ExpectHubbleCLIReady is a wrapper around helpers/WaitForPods. It asserts
+// that the error returned by that function is nil.
+func ExpectHubbleCLIReady(vm *helpers.Kubectl, ns string) {
+	By("Waiting for hubble-cli to be ready")
+	err := vm.WaitforPods(ns, "-l k8s-app=hubble-cli", longTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), "hubble-cli was not able to get into ready state")
+}
+
+// ExpectHubbleRelayReady is a wrapper around helpers/WaitForPods. It asserts
+// that the error returned by that function is nil.
+func ExpectHubbleRelayReady(vm *helpers.Kubectl, ns string) {
+	By("Waiting for hubble-relay to be ready")
+	err := vm.WaitforPods(ns, "-l k8s-app=hubble-relay", longTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(), "hubble-relay was not able to get into ready state")
+}
+
 // ExpectAllPodsTerminated is a wrapper around helpers/WaitCleanAllTerminatingPods.
 // It asserts that the error returned by that function is nil.
 func ExpectAllPodsTerminated(vm *helpers.Kubectl) {
