@@ -83,8 +83,6 @@ var _ = Describe("K8sUpdates", func() {
 		kubectl.Exec(fmt.Sprintf(
 			"%s delete --all pods,svc,cnp -n %s", helpers.KubectlCmd, helpers.DefaultNamespace))
 
-		kubectl.DeleteETCDOperator()
-
 		ExpectAllPodsTerminated(kubectl)
 	})
 
@@ -190,8 +188,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		kubectl.Delete(l7Policy)
 		kubectl.Delete(demoPath)
 
-		kubectl.DeleteETCDOperator()
-
 		if res := kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath())); !res.WasSuccessful() {
 			log.Warningf("Unable to delete CoreDNS deployment: %s", res.OutputPrettyPrint())
 		}
@@ -201,7 +197,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 	}
 
 	testfunc := func() {
-		By("Deleting Cilium, CoreDNS, and etcd-operator...")
+		By("Deleting Cilium and CoreDNS...")
 		// Making sure that we deleted the  cilium ds. No assert
 		// message because maybe is not present
 		if res := kubectl.DeleteResource("ds", fmt.Sprintf("-n %s cilium", helpers.CiliumNamespace)); !res.WasSuccessful() {
@@ -213,11 +209,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		if res := kubectl.Delete(helpers.DNSDeployment(kubectl.BasePath())); !res.WasSuccessful() {
 			log.Warningf("Unable to delete CoreDNS deployment: %s", res.OutputPrettyPrint())
 		}
-
-		// Delete all etcd pods otherwise they will be kept running but
-		// the bpf endpoints will be cleaned up when we restart cilium
-		// with a clean state a couple lines bellow
-		kubectl.DeleteETCDOperator()
 
 		By("Waiting for pods to be terminated..")
 		ExpectAllPodsTerminated(kubectl)

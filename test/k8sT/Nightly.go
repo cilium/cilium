@@ -368,10 +368,6 @@ var _ = Describe("NightlyExamples", func() {
 			_ = kubectl.DeleteResource(
 				"deploy", fmt.Sprintf("-n %s cilium-operator", helpers.CiliumNamespace))
 
-			// Delete etcd operator because sometimes when install from
-			// clean-state the quorum is lost.
-			// ETCD operator maybe is not installed at all, so no assert here.
-			kubectl.DeleteETCDOperator()
 			ExpectAllPodsTerminated(kubectl)
 
 		})

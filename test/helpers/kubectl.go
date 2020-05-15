@@ -1327,94 +1327,6 @@ func (kub *Kubectl) DeployPatch(original, patchFileName string) error {
 	return nil
 }
 
-// ciliumInstall installs all Cilium descriptors into kubernetes.
-// dsPatchName corresponds to the DaemonSet patch, found by
-// getK8sDescriptorPatch, that will be applied to the original Cilium DaemonSet
-// descriptor, found by getK8sDescriptor.
-// cmPatchName corresponds to the ConfigMap patch, found by
-// getK8sDescriptorPatch, that will be applied to the original Cilium ConfigMap
-// descriptor, found by getK8sDescriptor.
-// Returns an error if any patch or if any original descriptors files were not
-// found.
-func (kub *Kubectl) ciliumInstall(ciliumFilename, dsPatchName, cmPatchName string, getK8sDescriptor, getK8sDescriptorPatch func(filename string) string) error {
-	cmPathname := getK8sDescriptor("cilium-cm.yaml")
-	if cmPathname == "" {
-		return fmt.Errorf("Cilium ConfigMap descriptor not found")
-	}
-	dsPathname := getK8sDescriptor("cilium-ds.yaml")
-	if dsPathname == "" {
-		return fmt.Errorf("Cilium DaemonSet descriptor not found")
-	}
-	rbacPathname := getK8sDescriptor("cilium-rbac.yaml")
-	if rbacPathname == "" {
-		return fmt.Errorf("Cilium RBAC descriptor not found")
-	}
-
-	deployOriginal := func(original string) error {
-		// debugYaml only dumps the full created yaml file to the test output if
-		// the cilium manifest can not be created correctly.
-		debugYaml := func(original string) {
-			kub.Apply(ApplyOptions{
-				FilePath: original,
-				DryRun:   true,
-				Output:   "yaml",
-			})
-		}
-
-		// validation 1st
-		res := kub.Apply(ApplyOptions{
-			FilePath: original,
-			DryRun:   true,
-		})
-		if !res.WasSuccessful() {
-			debugYaml(original)
-			return res.GetErr("Cilium manifest validation fails")
-		}
-
-		res = kub.ApplyDefault(original)
-		if !res.WasSuccessful() {
-			debugYaml(original)
-			return res.GetErr("Cannot apply Cilium manifest")
-		}
-		return nil
-	}
-
-	if err := deployOriginal(rbacPathname); err != nil {
-		return err
-	}
-
-	if err := kub.DeployPatch(cmPathname, getK8sDescriptorPatch(cmPatchName)); err != nil {
-		return err
-	}
-
-	if err := kub.DeployPatch(dsPathname, getK8sDescriptorPatch(dsPatchName)); err != nil {
-		return err
-	}
-
-	cmdRes := kub.ApplyDefault(getK8sDescriptor(ciliumEtcdOperatorSA))
-	if !cmdRes.WasSuccessful() {
-		return fmt.Errorf("Unable to deploy descriptor of etcd-operator SA %s: %s", ciliumEtcdOperatorSA, cmdRes.OutputPrettyPrint())
-	}
-
-	cmdRes = kub.ApplyDefault(getK8sDescriptor(ciliumEtcdOperatorRBAC))
-	if !cmdRes.WasSuccessful() {
-		return fmt.Errorf("Unable to deploy descriptor of etcd-operator RBAC %s: %s", ciliumEtcdOperatorRBAC, cmdRes.OutputPrettyPrint())
-	}
-
-	cmdRes = kub.ApplyDefault(getK8sDescriptor(ciliumEtcdOperator))
-	if !cmdRes.WasSuccessful() {
-		return fmt.Errorf("Unable to deploy descriptor of etcd-operator %s: %s", ciliumEtcdOperator, cmdRes.OutputPrettyPrint())
-	}
-
-	_ = kub.ApplyDefault(getK8sDescriptor("cilium-operator-sa.yaml"))
-	err := kub.DeployPatch(getK8sDescriptor("cilium-operator.yaml"), getK8sDescriptorPatch("cilium-operator-patch.yaml"))
-	if err != nil {
-		return fmt.Errorf("Unable to deploy descriptor of cilium-operators: %s", err)
-	}
-
-	return nil
-}
-
 func addIfNotOverwritten(options map[string]string, field, value string) map[string]string {
 	if _, ok := options[field]; !ok {
 		options[field] = value
@@ -1588,54 +1500,6 @@ func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, o
 // CiliumUninstall uninstalls Cilium with the provided Helm options.
 func (kub *Kubectl) CiliumUninstall(filename string, options map[string]string) error {
 	return kub.ciliumUninstallHelm(filename, options)
-}
-
-// CiliumInstallVersion installs all Cilium descriptors into kubernetes for
-// a given Cilium Version tag.
-// dsPatchName corresponds to the DaemonSet patch that will be applied to the
-// original Cilium DaemonSet descriptor of that given Cilium Version tag.
-// cmPatchName corresponds to the ConfigMap patch that will be applied to the
-// original Cilium ConfigMap descriptor of that given Cilium Version tag.
-// Returns an error if any patch or if any original descriptors files were not
-// found.
-func (kub *Kubectl) CiliumInstallVersion(ciliumFilename, dsPatchName, cmPatchName, versionTag string) error {
-	getK8sDescriptorPatch := func(filename string) string {
-		// try dependent Cilium, k8s and integration version patch file
-		ginkgoVersionedPath := filepath.Join(manifestsPath, versionTag, GetCurrentK8SEnv(), GetCurrentIntegration(), filename)
-		_, err := os.Stat(ginkgoVersionedPath)
-		if err == nil {
-			return filepath.Join(kub.BasePath(), ginkgoVersionedPath)
-		}
-		// try dependent Cilium version and integration patch file
-		ginkgoVersionedPath = filepath.Join(manifestsPath, versionTag, GetCurrentIntegration(), filename)
-		_, err = os.Stat(ginkgoVersionedPath)
-		if err == nil {
-			return filepath.Join(kub.BasePath(), ginkgoVersionedPath)
-		}
-		// try dependent Cilium and k8s version patch file
-		ginkgoVersionedPath = filepath.Join(manifestsPath, versionTag, GetCurrentK8SEnv(), filename)
-		_, err = os.Stat(ginkgoVersionedPath)
-		if err == nil {
-			return filepath.Join(kub.BasePath(), ginkgoVersionedPath)
-		}
-		// try dependent Cilium version patch file
-		ginkgoVersionedPath = filepath.Join(manifestsPath, versionTag, filename)
-		_, err = os.Stat(ginkgoVersionedPath)
-		if err == nil {
-			return filepath.Join(kub.BasePath(), ginkgoVersionedPath)
-		}
-		// try dependent integration patch file
-		ginkgoVersionedPath = filepath.Join(manifestsPath, GetCurrentIntegration(), filename)
-		_, err = os.Stat(ginkgoVersionedPath)
-		if err == nil {
-			return filepath.Join(kub.BasePath(), ginkgoVersionedPath)
-		}
-		return filepath.Join(kub.BasePath(), manifestsPath, filename)
-	}
-	getK8sDescriptor := func(filename string) string {
-		return fmt.Sprintf("https://raw.githubusercontent.com/cilium/cilium/%s/examples/kubernetes/%s/%s", versionTag, GetCurrentK8SEnv(), filename)
-	}
-	return kub.ciliumInstall(ciliumFilename, dsPatchName, cmPatchName, getK8sDescriptor, getK8sDescriptorPatch)
 }
 
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,
@@ -2190,40 +2054,6 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 	}
 }
 
-// EtcdOperatorReport dump etcd pods data into the report directory to be able
-// to debug etcd operator status in case of fail test.
-func (kub *Kubectl) EtcdOperatorReport(ctx context.Context, reportCmds map[string]string) {
-	if reportCmds == nil {
-		reportCmds = make(map[string]string)
-	}
-
-	pods, err := kub.GetPodNamesContext(ctx, GetCiliumNamespace(GetCurrentIntegration()), "etcd_cluster=cilium-etcd")
-	if err != nil {
-		kub.Logger().WithError(err).Error("No etcd pods")
-		return
-	}
-
-	etcdctl := "etcdctl --endpoints=https://%s.cilium-etcd.%s.svc:2379 " +
-		"--cert-file /etc/etcdtls/member/peer-tls/peer.crt " +
-		"--key-file /etc/etcdtls/member/peer-tls/peer.key " +
-		"--ca-file /etc/etcdtls/member/peer-tls/peer-ca.crt " +
-		" %s"
-
-	etcdDumpCommands := map[string]string{
-		"member list":    "etcd_%s_member_list",
-		"cluster-health": "etcd_%s_cluster_health",
-	}
-
-	for _, pod := range pods {
-		for cmd, reportFile := range etcdDumpCommands {
-			etcdCmd := fmt.Sprintf(etcdctl, pod, CiliumNamespace, cmd)
-			command := fmt.Sprintf("%s -n %s exec -ti %s -- %s",
-				KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()), pod, etcdCmd)
-			reportCmds[command] = fmt.Sprintf(reportFile, pod)
-		}
-	}
-}
-
 // CiliumCheckReport prints a few checks on the Junit output to provide more
 // context to users. The list of checks that prints are the following:
 // - Number of Kubernetes and Cilium policies installed.
@@ -2551,7 +2381,6 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 	}
 
 	kub.GeneratePodLogGatheringCommands(ctx, reportCmds)
-	kub.EtcdOperatorReport(ctx, reportCmds)
 
 	res := kub.ExecContext(ctx, fmt.Sprintf(`%s api-resources | grep -v "^NAME" | awk '{print $1}'`, KubectlCmd))
 	if res.WasSuccessful() {
@@ -3039,41 +2868,6 @@ func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 		}
 	}
 	return nil
-}
-
-// DeleteETCDOperator delete the etcd-operator from the cluster pointed by kub.
-func (kub *Kubectl) DeleteETCDOperator() {
-	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete crd etcdclusters.etcd.database.coreos.com", KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()))); !res.WasSuccessful() {
-		log.Warningf("Unable to delete etcdclusters.etcd.database.coreos.com CRD: %s", res.OutputPrettyPrint())
-	}
-
-	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete deployment cilium-etcd-operator", KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()))); !res.WasSuccessful() {
-		log.Warningf("Unable to delete cilium-etcd-operator Deployment: %s", res.OutputPrettyPrint())
-	}
-
-	if res := kub.ExecShort(fmt.Sprintf("%s delete clusterrolebinding cilium-etcd-operator", KubectlCmd)); !res.WasSuccessful() {
-		log.Warningf("Unable to delete cilium-etcd-operator ClusterRoleBinding: %s", res.OutputPrettyPrint())
-	}
-
-	if res := kub.ExecShort(fmt.Sprintf("%s delete clusterrole cilium-etcd-operator", KubectlCmd)); !res.WasSuccessful() {
-		log.Warningf("Unable to delete cilium-etcd-operator ClusterRole: %s", res.OutputPrettyPrint())
-	}
-
-	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete serviceaccount cilium-etcd-operator", KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()))); !res.WasSuccessful() {
-		log.Warningf("Unable to delete cilium-etcd-operator ServiceAccount: %s", res.OutputPrettyPrint())
-	}
-
-	if res := kub.ExecShort(fmt.Sprintf("%s delete clusterrolebinding etcd-operator", KubectlCmd)); !res.WasSuccessful() {
-		log.Warningf("Unable to delete etcd-operator ClusterRoleBinding: %s", res.OutputPrettyPrint())
-	}
-
-	if res := kub.ExecShort(fmt.Sprintf("%s delete clusterrole etcd-operator", KubectlCmd)); !res.WasSuccessful() {
-		log.Warningf("Unable to delete etcd-operator ClusterRole: %s", res.OutputPrettyPrint())
-	}
-
-	if res := kub.ExecShort(fmt.Sprintf("%s -n %s delete serviceaccount cilium-etcd-sa", KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()))); !res.WasSuccessful() {
-		log.Warningf("Unable to delete cilium-etcd-sa ServiceAccount: %s", res.OutputPrettyPrint())
-	}
 }
 
 // reportMap saves the output of the given commands to the specified filename.
