@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
+	identitymodel "github.com/cilium/cilium/pkg/identity/model"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/node"
@@ -31,8 +32,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
-func getEndpointStatusControllers(status *models.EndpointStatus) (controllers cilium_v2.ControllerList) {
-	for _, c := range status.Controllers {
+func getEndpointStatusControllers(mdlControllers models.ControllerStatuses) (controllers cilium_v2.ControllerList) {
+	for _, c := range mdlControllers {
 		if c.Status == nil {
 			continue
 		}
@@ -109,42 +110,42 @@ func (e *Endpoint) getEndpointStatusLog() (log []*models.EndpointStatusChange) {
 	return
 }
 
-func getEndpointIdentity(status *models.EndpointStatus) (identity *cilium_v2.EndpointIdentity) {
-	if status.Identity != nil {
-		identity = &cilium_v2.EndpointIdentity{
-			ID: status.Identity.ID,
-		}
-
-		identity.Labels = make([]string, len(status.Identity.Labels))
-		copy(identity.Labels, status.Identity.Labels)
-		sort.Strings(identity.Labels)
+func getEndpointIdentity(mdlIdentity *models.Identity) (identity *cilium_v2.EndpointIdentity) {
+	if mdlIdentity == nil {
+		return
 	}
+	identity = &cilium_v2.EndpointIdentity{
+		ID: mdlIdentity.ID,
+	}
+
+	identity.Labels = make([]string, len(mdlIdentity.Labels))
+	copy(identity.Labels, mdlIdentity.Labels)
+	sort.Strings(identity.Labels)
 	return
 }
 
-func getEndpointNetworking(status *models.EndpointStatus) (networking *cilium_v2.EndpointNetworking) {
-	if status.Networking != nil {
-		networking = &cilium_v2.EndpointNetworking{
-			Addressing: make(cilium_v2.AddressPairList, len(status.Networking.Addressing)),
-		}
-
-		if option.Config.EnableIPv4 {
-			networking.NodeIP = node.GetExternalIPv4().String()
-		} else {
-			networking.NodeIP = node.GetIPv6().String()
-		}
-
-		i := 0
-		for _, pair := range status.Networking.Addressing {
-			networking.Addressing[i] = &cilium_v2.AddressPair{
-				IPV4: pair.IPV4,
-				IPV6: pair.IPV6,
-			}
-			i++
-		}
-
-		networking.Addressing.Sort()
+func getEndpointNetworking(mdlNetworking *models.EndpointNetworking) (networking *cilium_v2.EndpointNetworking) {
+	if mdlNetworking == nil {
+		return nil
 	}
+	networking = &cilium_v2.EndpointNetworking{
+		Addressing: make(cilium_v2.AddressPairList, len(mdlNetworking.Addressing)),
+	}
+
+	if option.Config.EnableIPv4 {
+		networking.NodeIP = node.GetExternalIPv4().String()
+	} else {
+		networking.NodeIP = node.GetIPv6().String()
+	}
+
+	for i, pair := range mdlNetworking.Addressing {
+		networking.Addressing[i] = &cilium_v2.AddressPair{
+			IPV4: pair.IPV4,
+			IPV6: pair.IPV6,
+		}
+	}
+
+	networking.Addressing.Sort()
 	return
 }
 
@@ -317,21 +318,19 @@ func (e *Endpoint) GetCiliumEndpointStatus(conf EndpointStatusConfiguration) *ci
 	e.mutex.RLock()
 	defer e.mutex.RUnlock()
 
-	model := e.GetModelRLocked()
-	modelStatus := model.Status
-
 	status := &cilium_v2.EndpointStatus{
 		ID:                  int64(e.ID),
-		ExternalIdentifiers: modelStatus.ExternalIdentifiers,
-		Identity:            getEndpointIdentity(modelStatus),
-		Networking:          getEndpointNetworking(modelStatus),
-		State:               compressEndpointState(modelStatus.State),
+		ExternalIdentifiers: e.getModelEndpointIdentitiersRLocked(),
+		Identity:            getEndpointIdentity(identitymodel.CreateModel(e.SecurityIdentity)),
+		Networking:          getEndpointNetworking(e.getModelNetworkingRLocked()),
+		State:               compressEndpointState(e.getModelCurrentStateRLocked()),
 		Encryption:          cilium_v2.EncryptionSpec{Key: int(node.GetIPsecKeyIdentity())},
-		NamedPorts:          modelStatus.NamedPorts,
+		NamedPorts:          e.getNamedPortsModel(),
 	}
 
 	if conf.EndpointStatusIsEnabled(option.EndpointStatusControllers) {
-		status.Controllers = getEndpointStatusControllers(modelStatus)
+		controllerMdl := e.controllers.GetStatusModel()
+		status.Controllers = getEndpointStatusControllers(controllerMdl)
 	}
 
 	if conf.EndpointStatusIsEnabled(option.EndpointStatusPolicy) {
@@ -340,7 +339,7 @@ func (e *Endpoint) GetCiliumEndpointStatus(conf EndpointStatusConfiguration) *ci
 	}
 
 	if conf.EndpointStatusIsEnabled(option.EndpointStatusHealth) {
-		status.Health = modelStatus.Health
+		status.Health = e.getHealthModel()
 	}
 
 	if conf.EndpointStatusIsEnabled(option.EndpointStatusLog) {
@@ -348,7 +347,7 @@ func (e *Endpoint) GetCiliumEndpointStatus(conf EndpointStatusConfiguration) *ci
 	}
 
 	if conf.EndpointStatusIsEnabled(option.EndpointStatusState) {
-		status.State = string(modelStatus.State)
+		status.State = compressEndpointState(e.getModelCurrentStateRLocked())
 	}
 
 	return status
