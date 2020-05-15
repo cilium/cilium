@@ -1,13 +1,19 @@
 FROM docker.io/library/golang:1.14.3 as builder
+ARG CILIUM_SHA=""
+LABEL cilium-sha=${CILIUM_SHA}
 ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/hubble-relay
 ARG NOSTRIP
 RUN make NOSTRIP=$NOSTRIP
 
 FROM docker.io/library/alpine:3.11 as certs
+ARG CILIUM_SHA=""
+LABEL cilium-sha=${CILIUM_SHA}
 RUN apk --update add ca-certificates
 
 FROM docker.io/library/golang:1.14.3 as gops
+ARG CILIUM_SHA=""
+LABEL cilium-sha=${CILIUM_SHA}
 RUN go get -d github.com/google/gops && \
     cd /go/src/github.com/google/gops && \
     git checkout -b v0.3.6 v0.3.6 && \
@@ -17,6 +23,8 @@ RUN go get -d github.com/google/gops && \
     strip /go/bin/gops
 
 FROM scratch
+ARG CILIUM_SHA=""
+LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /go/src/github.com/cilium/cilium/hubble-relay/hubble-relay /usr/bin/hubble-relay
 COPY --from=certs /etc/ssl/certs/ca-certificates.crt /etc/ssl/certs/ca-certificates.crt

@@ -11,13 +11,14 @@ fi
 
 BUSYBOX_VERSION=1.31.1
 
-docker pull docker.io/library/busybox:$BUSYBOX_VERSION
+docker pull "docker.io/library/busybox:$BUSYBOX_VERSION"
 
-docker tag busybox:$BUSYBOX_VERSION $1/cilium/cilium:$2
-docker tag busybox:$BUSYBOX_VERSION $1/cilium/cilium-dev:$2
-docker tag busybox:$BUSYBOX_VERSION $1/cilium/operator:$2
+docker tag "busybox:${BUSYBOX_VERSION}" "$1/cilium/cilium:$2"
+docker tag "busybox:${BUSYBOX_VERSION}" "$1/cilium/cilium-dev:$2"
+docker tag "busybox:${BUSYBOX_VERSION}" "$1/cilium/operator:$2"
+docker tag "busybox:${BUSYBOX_VERSION}" "$1/cilium/hubble-relay:$2"
 
-docker push $1/cilium/cilium:$2
-docker push $1/cilium/cilium-dev:$2
-docker push $1/cilium/operator:$2
-
+docker push "$1/cilium/cilium:$2"
+docker push "$1/cilium/cilium-dev:$2"
+docker push "$1/cilium/operator:$2"
+docker push "$1/cilium/hubble-relay:$2"
