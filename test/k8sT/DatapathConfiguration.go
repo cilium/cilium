@@ -62,7 +62,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	AfterFailed(func() {
 		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium bpf tunnel list",
+			"cilium status",
 			"cilium endpoint list")
 	})
 
@@ -580,14 +580,18 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	Context("ManagedEtcd", func() {
-		AfterAll(func() {
-			deleteETCDOperator(kubectl)
-		})
-		It("Check connectivity with managed etcd", func() {
+	Context("Etcd", func() {
+		It("Check connectivity", func() {
+			deploymentManager.Deploy(helpers.CiliumNamespace, StatelessEtcd)
+			deploymentManager.WaitUntilReady()
+
+			host, port, err := kubectl.GetServiceHostPort(helpers.CiliumNamespace, "stateless-etcd")
+			Expect(err).Should(BeNil(), "Unable to retrieve ClusterIP and port for stateless-etcd service")
+
+			etcdService := fmt.Sprintf("http://%s:%d", host, port)
 			opts := map[string]string{
-				"global.etcd.enabled": "true",
-				"global.etcd.managed": "true",
+				"global.etcd.enabled":      "true",
+				"global.etcd.endpoints[0]": etcdService,
 			}
 			if helpers.ExistNodeWithoutCilium() {
 				opts["global.synchronizeK8sNodes"] = "false"
