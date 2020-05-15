@@ -78,7 +78,6 @@ var debuginfoCmd = &cobra.Command{
 
 var (
 	outputToFile   bool
-	html           string
 	filePerCommand bool
 	outputOpts     []string
 	outputDir      string

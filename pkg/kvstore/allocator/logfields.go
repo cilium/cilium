@@ -20,5 +20,4 @@ const (
 	fieldPrefix  = "prefix"
 	fieldValue   = "value"
 	fieldLeaseID = "leaseID"
-	fieldRefCnt  = "refcnt"
 )

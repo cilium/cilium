@@ -24,6 +24,5 @@ var (
 )
 
 const (
-	fieldName  = "name"
 	fieldEniID = "eniID"
 )

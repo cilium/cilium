@@ -33,7 +33,6 @@ import (
 const targetName = "cilium-health"
 
 var (
-	cfgFile   string
 	client    *clientPkg.Client
 	cmdRefDir string
 	log       = logging.DefaultLogger.WithField(logfields.LogSubsys, targetName)

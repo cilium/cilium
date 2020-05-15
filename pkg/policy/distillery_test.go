@@ -262,9 +262,7 @@ var (
 	}
 
 	// Misc other bpf key fields for convenience / readability.
-	l7RedirectNone_ = uint16(0)
-	l7RedirectProxy = uint16(1)
-	dirIngress      = trafficdirection.Ingress.Uint8()
+	dirIngress = trafficdirection.Ingress.Uint8()
 	// Desired map keys for L3, L3-dependent L4, L4
 	mapKeyAllowFoo__ = Key{identityFoo, 0, 0, dirIngress}
 	mapKeyAllowBar__ = Key{identityBar, 0, 0, dirIngress}

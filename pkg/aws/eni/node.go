@@ -19,7 +19,6 @@ import (
 	"context"
 	"fmt"
 	"strings"
-	"time"
 
 	eniTypes "github.com/cilium/cilium/pkg/aws/eni/types"
 	"github.com/cilium/cilium/pkg/ipam"
@@ -33,10 +32,6 @@ import (
 )
 
 const (
-	// warningInterval is the interval for warnings which should be done
-	// once and then repeated if the warning persists.
-	warningInterval = time.Hour
-
 	// maxAttachRetries is the maximum number of attachment retries
 	maxAttachRetries = 5
 
