@@ -41,7 +41,6 @@ var (
 // field names used while logging
 const (
 	fieldMarker          = "marker"
-	fieldSocket          = "socket"
 	fieldFd              = "fd"
 	fieldProxyRedirectID = "id"
 

@@ -36,7 +36,6 @@ import (
 var (
 	k8sapi     = &k8sMock{}
 	metricsapi = metricsmock.NewMockMetrics()
-	eniTags    = map[string]string{}
 )
 
 const testPoolID = ipamTypes.PoolID("global")

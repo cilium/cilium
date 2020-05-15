@@ -27,18 +27,6 @@ import (
 )
 
 var (
-	// cilium.io dns target, no rule name => no rule labels
-	rule1 = makeRule("", "cilium.io")
-
-	// cilium.io dns target, no rule name => no rule labels
-	rule2 = makeRule("", "cilium.io")
-
-	// cilium.io, github.com dns targets
-	rule3 = makeRule("rule3", "cilium.io", "github.com")
-
-	// github.com dns target
-	rule4 = makeRule("rule4", "github.com")
-
 	ipLookups = map[string]*DNSIPRecords{
 		dns.Fqdn("cilium.io"): {
 			TTL: 60,

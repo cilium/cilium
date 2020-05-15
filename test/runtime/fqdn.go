@@ -133,11 +133,10 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		OutsideHttpd2     = "OutsideHttpd2"
 		OutsideHttpd3     = "OutsideHttpd3"
 
-		bindDBCilium     = "db.cilium.test"
-		bindDBOutside    = "db.outside.test"
-		bindDBDNSSSEC    = "db.dnssec.test"
-		bindNamedConf    = "named.conf.local"
-		bindNamedOptions = "named.conf.options"
+		bindDBCilium  = "db.cilium.test"
+		bindDBOutside = "db.outside.test"
+		bindDBDNSSSEC = "db.dnssec.test"
+		bindNamedConf = "named.conf.local"
 
 		world1Domain = "world1.cilium.test"
 		world1Target = "http://world1.cilium.test"

@@ -48,14 +48,12 @@ var (
 	cleanAll bool
 	cleanBPF bool
 	force    bool
-	runPath  string
 )
 
 const (
-	allFlagName     = "all-state"
-	bpfFlagName     = "bpf-state"
-	forceFlagName   = "force"
-	runPathFlagName = "run-path"
+	allFlagName   = "all-state"
+	bpfFlagName   = "bpf-state"
+	forceFlagName = "force"
 
 	cleanCiliumEnvVar = "CLEAN_CILIUM_STATE"
 	cleanBpfEnvVar    = "CLEAN_CILIUM_BPF_STATE"
