@@ -171,7 +171,8 @@ skip_service_lookup:
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
-	verdict = policy_can_egress6(ctx, tuple, *dstID, &policy_match_type);
+	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dstID,
+				     &policy_match_type);
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *dstID, tuple->dport, tuple->nexthdr,
 						POLICY_EGRESS, 1, verdict, policy_match_type);
@@ -525,7 +526,8 @@ skip_service_lookup:
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
-	verdict = policy_can_egress4(ctx, &tuple, *dstID, &policy_match_type);
+	verdict = policy_can_egress4(ctx, &tuple, SECLABEL, *dstID,
+				     &policy_match_type);
 
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *dstID, tuple.dport, tuple.nexthdr,
@@ -866,8 +868,9 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 			return ret2;
 	}
 
-	verdict = policy_can_access_ingress(ctx, src_label, tuple.dport,
-			tuple.nexthdr, false, &policy_match_type);
+	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
+					    tuple.dport, tuple.nexthdr, false,
+					    &policy_match_type);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
@@ -1084,8 +1087,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 			return ret2;
 	}
 
-	verdict = policy_can_access_ingress(ctx, src_label, tuple.dport,
-					    tuple.nexthdr,
+	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
+					    tuple.dport, tuple.nexthdr,
 					    is_untracked_fragment,
 					    &policy_match_type);
 
