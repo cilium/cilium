@@ -8,7 +8,7 @@
 set -eu
 
 if grep -IPRns 'c.Assert\(.*, (check\.)?DeepEquals, .*\)' \
-        --exclude-dir=vendor \
+        --exclude-dir={.git,_build,vendor} \
         --include=*.go; then
     echo "Found tests which use DeepEquals checker imported from check.v1."
     echo "Cilium implements its own DeepEquals checker which can be imported from:"

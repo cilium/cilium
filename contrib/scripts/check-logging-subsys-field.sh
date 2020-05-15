@@ -11,15 +11,14 @@
 # - pkg/debugdetection
 # - test/
 # - vendor/
+# - _build/
 # are excluded, because instances of DefaultLogger in those modules have their
 # specific usage which doesn't break the Prometheus logging hook.
 
 set -eu
 
 if grep -IPRns '(?!.*LogSubsys)log[ ]*= logging\.DefaultLogger.*' \
-        --exclude-dir=test \
-        --exclude-dir=pkg/debugdetection \
-        --exclude-dir=vendor \
+        --exclude-dir={.git,_build,vendor,test,pkg/debugdetection} \
         --include=*.go .; then
     echo "Logging entry instances have to contain the LogSubsys field. Example of"
     echo "properly configured entry instance:"

@@ -5,6 +5,7 @@ set -o pipefail
 
 diff="$(find . ! \( -path './contrib' -prune \) \
         ! \( -path './vendor' -prune \) \
+        ! \( -path './_build' -prune \) \
         ! \( -path './.git' -prune \) \
         ! \( -path '*.validate.go' -prune \) \
         -type f -name '*.go' | xargs gofmt -d -l -s )"

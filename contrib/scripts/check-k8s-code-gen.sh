@@ -4,9 +4,9 @@ set -e
 set -o pipefail
 
 # Delete all zz_generated.deepcopy.go files
-find . -not -path "./vendor/*" -iname "*zz_generated.deepcopy.go" -exec rm  {} \;
+find . -not -path "./vendor/*" -not -path "./_build/*" -iname "*zz_generated.deepcopy.go" -exec rm  {} \;
 # Delete all zz_generated.deepequal.go files
-find . -not -path "./vendor/*" -iname "*zz_generated.deepequal.go" -exec rm  {} \;
+find . -not -path "./vendor/*" -not -path "./_build/*" -iname "*zz_generated.deepequal.go" -exec rm  {} \;
 
 # Generate all files
 make generate-k8s-api
