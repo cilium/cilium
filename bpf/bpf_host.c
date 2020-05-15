@@ -151,10 +151,9 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 			if (ret < 0)
 				return ret;
 		}
-#if defined(ENCAP_IFINDEX) || defined(NO_REDIRECT)
-		/* See IPv4 case for NO_REDIRECT comments */
+#ifdef ENCAP_IFINDEX
 		return CTX_ACT_OK;
-#endif /* ENCAP_IFINDEX || NO_REDIRECT */
+#endif
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
@@ -353,14 +352,9 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 			if (ret < 0)
 				return ret;
 		}
-#if defined(ENCAP_IFINDEX) || defined(NO_REDIRECT)
-		/* We cannot redirect a packet to a local endpoint in the direct
-		 * routing mode, as the redirect bypasses nf_conntrack table.
-		 * This makes a second reply from the endpoint to be MASQUERADEd
-		 * or to be DROPed by k8s's "--ctstate INVALID -j DROP"
-		 * depending via which interface it was inputed. */
+#ifdef ENCAP_IFINDEX
 		return CTX_ACT_OK;
-#endif /* ENCAP_IFINDEX || NO_REDIRECT */
+#endif
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
