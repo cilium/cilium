@@ -8,6 +8,8 @@
 for l in rand\.NewSource; do
   m=$(find . -name "*.go" \
 	  -not -name "*_test.go" \
+	  -not -path "./.git/*" \
+	  -not -path "./_build/*" \
 	  -not -path "./contrib/*" \
 	  -not -path "./pkg/rand/*" \
 	  -not -path "./vendor/*" \
