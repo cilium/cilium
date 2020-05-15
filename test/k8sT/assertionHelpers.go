@@ -160,11 +160,3 @@ func SkipItIfNoKubeProxy() {
 		Skip("kube-proxy is disabled (NodePort BPF is enabled). Skipping test.")
 	}
 }
-
-func deleteETCDOperator(kubectl *helpers.Kubectl) {
-	// Do not assert on success in AfterEach intentionally to avoid
-	// incomplete teardown.
-	_ = kubectl.DeleteResource("deploy", fmt.Sprintf("-n %s -l io.cilium/app=etcd-operator", helpers.CiliumNamespace))
-	_ = kubectl.DeleteResource("pod", fmt.Sprintf("-n %s -l io.cilium/app=etcd-operator", helpers.CiliumNamespace))
-	_ = kubectl.WaitCleanAllTerminatingPods(helpers.HelperTimeout)
-}

@@ -253,16 +253,6 @@ var (
 	IsCiliumV1_8 = versioncheck.MustCompile(">=1.7.90 <1.9.0")
 )
 
-// CiliumDefaultDSPatch is the default Cilium DaemonSet patch to be used in all tests.
-const CiliumDefaultDSPatch = "cilium-ds-patch.yaml"
-
-// CiliumConfigMapPatch is the default Cilium ConfigMap patch to be used in all tests.
-const CiliumConfigMapPatch = "cilium-cm-patch.yaml"
-
-// CiliumConfigMapPatchKvstoreAllocator is equivalent to CiliumConfigMapPatch
-// except it uses the kvstore-based allocator instead of the CRD-based allocator.
-const CiliumConfigMapPatchKvstoreAllocator = "cilium-cm-kvstore-allocator-patch.yaml"
-
 // badLogMessages is a map which key is a part of a log message which indicates
 // a failure if the message does not contain any part from value list.
 var badLogMessages = map[string][]string{
@@ -310,12 +300,6 @@ var ciliumKubCLICommands = map[string]string{
 var ciliumKubCLICommandsKVStore = map[string]string{
 	"cilium kvstore get cilium --recursive": "kvstore_get.txt",
 }
-
-const (
-	ciliumEtcdOperatorSA   = "cilium-etcd-operator-sa.yaml"
-	ciliumEtcdOperatorRBAC = "cilium-etcd-operator-rbac.yaml"
-	ciliumEtcdOperator     = "cilium-etcd-operator.yaml"
-)
 
 // K8s1VMName is the name of the Kubernetes master node when running K8s tests.
 func K8s1VMName() string {
