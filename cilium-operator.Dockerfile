@@ -1,3 +1,5 @@
+# (first line comment needed for DOCKER_BUILDKIT use)
+#
 FROM docker.io/library/golang:1.14.3 as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}

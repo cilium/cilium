@@ -1,3 +1,4 @@
+# (first line comment needed for DOCKER_BUILDKIT use)
 #
 # cilium-envoy from github.com/cilium/proxy
 #
@@ -25,10 +26,6 @@ ARG NOSTRIP
 ARG LOCKDEBUG
 ARG V
 ARG LIBNETWORK_PLUGIN
-
-ARG GIT_CHECKOUT
-RUN test -z $GIT_CHECKOUT || git checkout
-
 #
 # Please do not add any dependency updates before the 'make install' here,
 # as that will mess with caching for incremental builds!
