@@ -200,7 +200,6 @@ func newConsulClient(ctx context.Context, config *consulAPI.Config, opts *ExtraO
 	}
 
 	boff := backoff.Exponential{Min: time.Duration(100) * time.Millisecond}
-	log.Info("Waiting for consul to elect a leader")
 
 	for i := 0; i < maxRetries; i++ {
 		var leader string
@@ -214,6 +213,7 @@ func newConsulClient(ctx context.Context, config *consulAPI.Config, opts *ExtraO
 				err = errors.New("timeout while waiting for leader to be elected")
 			}
 		}
+		log.Info("Waiting for consul to elect a leader")
 		boff.Wait(ctx)
 	}
 
@@ -284,7 +284,7 @@ func (c *consulClient) LockPath(ctx context.Context, path string) (KVLocker, err
 		switch {
 		case err != nil:
 			return nil, err
-		case ch == nil && err == nil:
+		case ch == nil:
 			Trace("Acquiring lock timed out, retrying", nil, logrus.Fields{fieldKey: path, logfields.Attempt: retries})
 		default:
 			return &ConsulLocker{Lock: lockKey}, err
