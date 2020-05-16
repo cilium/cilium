@@ -1,0 +1,79 @@
+# Copyright 2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+ifdef DOCKER_BUILDKIT
+
+# Export with value expected by docker
+export DOCKER_BUILDKIT=1
+
+# Clean the build directory and cache
+clean-build:
+	-$(QUIET) rm -rf $(BUILD_DIR)
+	-$(QUIET) docker builder prune --filter type=exec.cachemount -f
+
+veryclean: clean-build
+
+# Overrides for the main Dockerfile
+DOCKER_BUILD_DIR := $(BUILD_DIR)/context
+CILIUM_DOCKERFILE := $(BUILD_DIR)/cilium.Dockerfile
+OPERATOR_DOCKERFILE := $(BUILD_DIR)/cilium-operator.Dockerfile
+DOCKER_PLUGIN_DOCKERFILE := $(BUILD_DIR)/cilium-docker-plugin.Dockerfile
+HUBBLE_RELAY_DOCKERFILE := $(BUILD_DIR)/hubble-relay.Dockerfile
+
+BUILDKIT_DOCKERFILE_FILTER := | sed -e "1s|^\#.*|\# syntax = docker/dockerfile:experimental|" -e "s|^RUN\(.*\)make|RUN --mount=type=cache,target=/root/.cache/go-build\1make|"
+
+# _build/.git is a shallow bare clone of the main repo
+$(BUILD_DIR)/.git:
+	-mkdir -p $(dir $@)
+	git clone --bare --no-local --depth 1 . $@
+
+#
+# Create _build context:
+# $(DOCKER_BUILD_DIR)/.git will be a file (rather than directory) that contains git specific
+# symbolic link to _build/.git (--separate-git-dir)
+#
+$(DOCKER_BUILD_DIR): $(BUILD_DIR)/.git
+	git init --separate-git-dir=$(BUILD_DIR)/.git $@
+
+#
+# Update the docker build context by:
+# 1. shallow fetch from the main repo to _build/.git
+# 2. check out FETCH_HEAD into _build/context. Hard reset seems to be a best way of doing this.
+# 3. remove the .git file from _build/context/.git so that make running in docker knows this is
+#    no a git repo (as _build/.git is NOT part of the docker context)
+#
+# Dependencies:
+# - check that git status is clean
+# - make sure docker build context exists
+# - update GIT_VERSION in the build context if needed
+# - update BPF_SRCFILES in the build context if needed
+#
+build-context-update: check-status $(DOCKER_BUILD_DIR) $(DOCKER_BUILD_DIR)/GIT_VERSION $(DOCKER_BUILD_DIR)/BPF_SRCFILES
+	@echo "gitdir: ../.git" > $(DOCKER_BUILD_DIR)/.git
+	cd $(BUILD_DIR) && git fetch --depth=1 --no-tags
+	cd $(DOCKER_BUILD_DIR) && git reset --hard FETCH_HEAD && git clean -fd
+	@rm $(DOCKER_BUILD_DIR)/.git
+
+#
+# Docker build context does not contain the actual git repo, so we need to pass
+# GIT_VERSION and/or BPF_SRCFILES to the build context separately.
+#
+$(DOCKER_BUILD_DIR)/GIT_VERSION: GIT_VERSION $(DOCKER_BUILD_DIR)
+	cp $< $@
+$(DOCKER_BUILD_DIR)/BPF_SRCFILES: BPF_SRCFILES $(DOCKER_BUILD_DIR)
+	cp $< $@
+
+# Bare 'Dockerfile' needs a special rule
+$(CILIUM_DOCKERFILE): Dockerfile force
+	@-mkdir -p $(dir $@)
+	@cat $< $(BUILDKIT_DOCKERFILE_FILTER) > $@
+
+# Generic rule for '*.Dockerfile'
+$(BUILD_DIR)/%.Dockerfile: %.Dockerfile force
+	@-mkdir -p $(dir $@)
+	@cat $< $(BUILDKIT_DOCKERFILE_FILTER) > $@
+
+check-status:
+	@if [ -n "`git status --porcelain`" ] ; then git status && echo "These changes will not be included in build, aborting. Define IGNORE_GIT_STATUS to build anyway." && test $(IGNORE_GIT_STATUS); fi
+
+endif
