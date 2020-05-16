@@ -73,3 +73,4 @@ test/*tmp
 # Temporary files that allow build containers/VMs work without git
 # Not to be ignored by docker.
 GIT_VERSION
+BPF_SRCFILES
