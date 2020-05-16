@@ -250,7 +250,6 @@ clean-container:
 clean: clean-container clean-build
 	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/deb clean
 	-$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C ./contrib/packaging/rpm clean
-	-$(QUIET) rm -f GIT_VERSION
 	-$(QUIET) docker builder prune --filter type=exec.cachemount -f
 
 clean-build:
@@ -270,8 +269,12 @@ install-container: install-bpf
 	for i in $(SUBDIRS_CILIUM_CONTAINER); do $(MAKE) $(SUBMAKEOPTS) -C $$i install; done
 
 # Workaround for not having git in the build environment
-GIT_VERSION: .git
-	echo "$(GIT_VERSION)" >GIT_VERSION
+# Touch the file only if needed
+GIT_VERSION: force
+	@if [ "$(GIT_VERSION)" != "`cat 2>/dev/null GIT_VERSION`" ] ; then echo "$(GIT_VERSION)" >GIT_VERSION; fi
+
+BPF_SRCFILES: force
+	@if [ "$(BPF_SRCFILES)" != "`cat 2>/dev/null BPF_SRCFILES`" ] ; then echo "$(BPF_SRCFILES)" >BPF_SRCFILES; fi
 
 docker-cilium-image-for-developers:
 	# DOCKER_BUILDKIT allows for faster build as well as the ability to use
