@@ -55,7 +55,7 @@ Vagrant.configure(2) do |config|
 
     # install docker runtime
     config.vm.provision :docker, images: [
-	"consul:0.8.3",
+	"consul:1.1.0",
 	"cilium/cilium:#{cilium_tag}"
     ]
 

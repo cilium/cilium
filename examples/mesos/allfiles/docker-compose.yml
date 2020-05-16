@@ -25,5 +25,5 @@ services:
       - "8500:8500"
     environment:
       - "CONSUL_LOCAL_CONFIG={\"skip_leave_on_interrupt\": true}"
-    image: docker.io/consul:0.8.3
+    image: docker.io/consul:1.1.0
     command: agent -client=0.0.0.0 -server -bootstrap-expect 1
