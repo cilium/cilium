@@ -115,7 +115,7 @@ brought up by vagrant:
 * ``MAKECLEAN=1``: Execute ``make clean`` before building cilium in the VM.
 
 If you want to start the VM with cilium enabled with ``containerd``, with
-kubernetes installed and plus a worker, run:+----------------------------------------------------------------------------------+--------------------------+---------------------------------+
+kubernetes installed and plus a worker, run:
 
 ::
 
