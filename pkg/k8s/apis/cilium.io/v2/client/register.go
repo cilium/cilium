@@ -20,7 +20,7 @@ import (
 	"fmt"
 	"time"
 
-	k8sconst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
+	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -31,7 +31,6 @@ import (
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/runtime/schema"
 	"k8s.io/apimachinery/pkg/util/wait"
 )
 
@@ -46,41 +45,13 @@ var (
 )
 
 const (
-	// CustomResourceDefinitionGroup is the name of the third party resource group
-	CustomResourceDefinitionGroup = k8sconst.GroupName
-
-	// CustomResourceDefinitionVersion is the current version of the resource
-	CustomResourceDefinitionVersion = "v2"
-
-	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
-	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.20"
-
-	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
-	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
-
-	// CNPKindDefinition is the kind name for Cilium Network Policy
-	CNPKindDefinition = "CiliumNetworkPolicy"
-
 	fqdnNameRegex = `^([-a-zA-Z0-9_]+[.]?)+$`
 
 	fqdnPatternRegex = `^([-a-zA-Z0-9_*]+[.]?)+$`
-
-	// CCNPKindDefinition is the kind name for Cilium Cluster wide Network Policy
-	CCNPKindDefinition = "CiliumClusterwideNetworkPolicy"
-
-	// CNKindDefinition is the kind name for Cilium Node
-	CNKindDefinition = "CiliumNode"
 )
 
-// SchemeGroupVersion is group version used to register these objects
-var SchemeGroupVersion = schema.GroupVersion{
-	Group:   CustomResourceDefinitionGroup,
-	Version: CustomResourceDefinitionVersion,
-}
-
 var (
-	comparableCRDSchemaVersion = versioncheck.MustVersion(CustomResourceDefinitionSchemaVersion)
+	comparableCRDSchemaVersion = versioncheck.MustVersion(k8sconstv2.CustomResourceDefinitionSchemaVersion)
 )
 
 // CreateCustomResourceDefinitions creates our CRD objects in the kubernetes
@@ -115,36 +86,25 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 // on agent startup but is idempotent and safe to call again.
 func createCNPCRD(clientset apiextensionsclient.Interface) error {
 	var (
-		// CustomResourceDefinitionSingularName is the singular name of custom resource definition
-		CustomResourceDefinitionSingularName = "ciliumnetworkpolicy"
-
-		// CustomResourceDefinitionPluralName is the plural name of custom resource definition
-		CustomResourceDefinitionPluralName = "ciliumnetworkpolicies"
-
 		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
 		CustomResourceDefinitionShortNames = []string{"cnp", "ciliumnp"}
-
-		// CustomResourceDefinitionKind is the Kind name of custom resource definition
-		CustomResourceDefinitionKind = CNPKindDefinition
-
-		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
 	)
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: CRDName,
+			Name: k8sconstv2.CNPName,
 			Labels: map[string]string{
-				CustomResourceDefinitionSchemaVersionKey: CustomResourceDefinitionSchemaVersion,
+				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
 			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   SchemeGroupVersion.Group,
-			Version: SchemeGroupVersion.Version,
+			Group:   k8sconstv2.CustomResourceDefinitionGroup,
+			Version: k8sconstv2.CustomResourceDefinitionVersion,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     CustomResourceDefinitionPluralName,
-				Singular:   CustomResourceDefinitionSingularName,
+				Plural:     k8sconstv2.CNPPluralName,
+				Singular:   k8sconstv2.CNPSingularName,
 				ShortNames: CustomResourceDefinitionShortNames,
-				Kind:       CustomResourceDefinitionKind,
+				Kind:       k8sconstv2.CNPKindDefinition,
 			},
 			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
@@ -167,19 +127,8 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 // on agent startup but is idempotent and safe to call again.
 func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 	var (
-		// CustomResourceDefinitionSingularName is the singular name of custom resource definition
-		CustomResourceDefinitionSingularName = "ciliumclusterwidenetworkpolicy"
-
-		// CustomResourceDefinitionPluralName is the plural name of custom resource definition
-		CustomResourceDefinitionPluralName = "ciliumclusterwidenetworkpolicies"
-
 		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
 		CustomResourceDefinitionShortNames = []string{"ccnp"}
-
-		// CustomResourceDefinitionKind is the Kind name of custom resource definition
-		CustomResourceDefinitionKind = CCNPKindDefinition
-
-		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
 	)
 
 	CCNPCRV := CNPCRV.DeepCopy()
@@ -205,19 +154,19 @@ func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: CRDName,
+			Name: k8sconstv2.CCNPName,
 			Labels: map[string]string{
-				CustomResourceDefinitionSchemaVersionKey: CustomResourceDefinitionSchemaVersion,
+				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
 			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   SchemeGroupVersion.Group,
-			Version: SchemeGroupVersion.Version,
+			Group:   k8sconstv2.CustomResourceDefinitionGroup,
+			Version: k8sconstv2.CustomResourceDefinitionVersion,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     CustomResourceDefinitionPluralName,
-				Singular:   CustomResourceDefinitionSingularName,
+				Plural:     k8sconstv2.CCNPPluralName,
+				Singular:   k8sconstv2.CCNPSingularName,
 				ShortNames: CustomResourceDefinitionShortNames,
-				Kind:       CustomResourceDefinitionKind,
+				Kind:       k8sconstv2.CCNPKindDefinition,
 			},
 			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
@@ -240,33 +189,22 @@ func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 // on agent startup but is idempotent and safe to call again.
 func createCEPCRD(clientset apiextensionsclient.Interface) error {
 	var (
-		// CustomResourceDefinitionSingularName is the singular name of custom resource definition
-		CustomResourceDefinitionSingularName = "ciliumendpoint"
-
-		// CustomResourceDefinitionPluralName is the plural name of custom resource definition
-		CustomResourceDefinitionPluralName = "ciliumendpoints"
-
 		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
 		CustomResourceDefinitionShortNames = []string{"cep", "ciliumep"}
-
-		// CustomResourceDefinitionKind is the Kind name of custom resource definition
-		CustomResourceDefinitionKind = "CiliumEndpoint"
-
-		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
 	)
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: CRDName,
+			Name: k8sconstv2.CEPName,
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   SchemeGroupVersion.Group,
-			Version: SchemeGroupVersion.Version,
+			Group:   k8sconstv2.CustomResourceDefinitionGroup,
+			Version: k8sconstv2.CustomResourceDefinitionVersion,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     CustomResourceDefinitionPluralName,
-				Singular:   CustomResourceDefinitionSingularName,
+				Plural:     k8sconstv2.CEPPluralName,
+				Singular:   k8sconstv2.CEPSingularName,
 				ShortNames: CustomResourceDefinitionShortNames,
-				Kind:       CustomResourceDefinitionKind,
+				Kind:       k8sconstv2.CEPKindDefinition,
 			},
 			AdditionalPrinterColumns: []apiextensionsv1beta1.CustomResourceColumnDefinition{
 				{
@@ -333,33 +271,22 @@ func createCEPCRD(clientset apiextensionsclient.Interface) error {
 // agent startup but is idempotent and safe to call again.
 func createNodeCRD(clientset apiextensionsclient.Interface) error {
 	var (
-		// CustomResourceDefinitionSingularName is the singular name of custom resource definition
-		CustomResourceDefinitionSingularName = "ciliumnode"
-
-		// CustomResourceDefinitionPluralName is the plural name of custom resource definition
-		CustomResourceDefinitionPluralName = "ciliumnodes"
-
 		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
 		CustomResourceDefinitionShortNames = []string{"cn", "ciliumn"}
-
-		// CustomResourceDefinitionKind is the Kind name of custom resource definition
-		CustomResourceDefinitionKind = CNKindDefinition
-
-		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
 	)
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: CRDName,
+			Name: k8sconstv2.CNName,
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   SchemeGroupVersion.Group,
-			Version: SchemeGroupVersion.Version,
+			Group:   k8sconstv2.CustomResourceDefinitionGroup,
+			Version: k8sconstv2.CustomResourceDefinitionVersion,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     CustomResourceDefinitionPluralName,
-				Singular:   CustomResourceDefinitionSingularName,
+				Plural:     k8sconstv2.CNPluralName,
+				Singular:   k8sconstv2.CNSingularName,
 				ShortNames: CustomResourceDefinitionShortNames,
-				Kind:       CustomResourceDefinitionKind,
+				Kind:       k8sconstv2.CNKindDefinition,
 			},
 			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
@@ -484,33 +411,22 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 func createIdentityCRD(clientset apiextensionsclient.Interface) error {
 
 	var (
-		// CustomResourceDefinitionSingularName is the singular name of custom resource definition
-		CustomResourceDefinitionSingularName = "ciliumidentity"
-
-		// CustomResourceDefinitionPluralName is the plural name of custom resource definition
-		CustomResourceDefinitionPluralName = "ciliumidentities"
-
 		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
 		CustomResourceDefinitionShortNames = []string{"ciliumid"}
-
-		// CustomResourceDefinitionKind is the Kind name of custom resource definition
-		CustomResourceDefinitionKind = "CiliumIdentity"
-
-		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
 	)
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
-			Name: CRDName,
+			Name: k8sconstv2.CIDName,
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   SchemeGroupVersion.Group,
-			Version: SchemeGroupVersion.Version,
+			Group:   k8sconstv2.CustomResourceDefinitionGroup,
+			Version: k8sconstv2.CustomResourceDefinitionVersion,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     CustomResourceDefinitionPluralName,
-				Singular:   CustomResourceDefinitionSingularName,
+				Plural:     k8sconstv2.CIDPluralName,
+				Singular:   k8sconstv2.CIDSingularName,
 				ShortNames: CustomResourceDefinitionShortNames,
-				Kind:       CustomResourceDefinitionKind,
+				Kind:       k8sconstv2.CIDKindDefinition,
 			},
 			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
@@ -543,7 +459,7 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 
 	scopedLog.Debug("Checking if CRD (CustomResourceDefinition) needs update...")
 	if crd.Spec.Validation != nil &&
-		clusterCRD.Labels[CustomResourceDefinitionSchemaVersionKey] != "" &&
+		clusterCRD.Labels[k8sconstv2.CustomResourceDefinitionSchemaVersionKey] != "" &&
 		needsUpdate(clusterCRD) {
 		scopedLog.Info("Updating CRD (CustomResourceDefinition)...")
 		// Update the CRD with the validation schema.
@@ -618,7 +534,7 @@ func needsUpdate(clusterCRD *apiextensionsv1beta1.CustomResourceDefinition) bool
 		// no validation detected
 		return true
 	}
-	v, ok := clusterCRD.Labels[CustomResourceDefinitionSchemaVersionKey]
+	v, ok := clusterCRD.Labels[k8sconstv2.CustomResourceDefinitionSchemaVersionKey]
 	if !ok {
 		// no schema version detected
 		return true

@@ -20,7 +20,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	cilium_client_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -53,7 +52,7 @@ func createDerivativeCNP(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy
 			Namespace: cnp.ObjectMeta.Namespace,
 			OwnerReferences: []v1.OwnerReference{{
 				APIVersion:         cilium_v2.SchemeGroupVersion.String(),
-				Kind:               cilium_client_v2.CNPKindDefinition,
+				Kind:               cilium_v2.CNPKindDefinition,
 				Name:               cnp.ObjectMeta.Name,
 				UID:                cnp.ObjectMeta.UID,
 				BlockOwnerDeletion: &blockOwnerDeletionPtr,
