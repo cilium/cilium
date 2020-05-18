@@ -118,7 +118,9 @@ func (id *Identity) IsReserved() bool {
 // IsFixed returns whether the identity represents a fixed identity
 // (true), or not (false).
 func (id *Identity) IsFixed() bool {
-	return LookupReservedIdentity(id.ID) != nil && IsUserReservedIdentity(id.ID)
+	return LookupReservedIdentity(id.ID) != nil &&
+		(id.ID == ReservedIdentityHost || id.ID == ReservedIdentityHealth ||
+			IsUserReservedIdentity(id.ID))
 }
 
 // IsWellKnown returns whether the identity represents a well known identity
