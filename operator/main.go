@@ -256,7 +256,6 @@ func runOperator(cmd *cobra.Command) {
 								shortCutK8sCache: &sc,
 								k8sCache:         &k8sSvcCache,
 							}
-							break
 						case errors.IsNotFound(err):
 							scopedLog.Error("Service not found in k8s")
 						default:
@@ -327,5 +326,4 @@ func runOperator(cmd *cobra.Command) {
 	<-shutdownSignal
 	// graceful exit
 	log.Info("Received termination signal. Shutting down")
-	return
 }
