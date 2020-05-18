@@ -503,3 +503,9 @@ global:
     # Regular expression matching compatible Istio sidecar istio-proxy
     # container image names
     sidecarImageRegex: "cilium/istio_proxy"
+
+  endpointHealthChecking:
+    enabled: true
+
+  healthChecking:
+    enabled: true
