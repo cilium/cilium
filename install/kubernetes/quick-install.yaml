@@ -185,6 +185,7 @@ data:
   ipam: "cluster-pool"
   cluster-pool-ipv4-cidr: "10.0.0.0/8"
   cluster-pool-ipv4-mask-size: "24"
+  disable-cnp-status-updates: "true"
 ---
 # Source: cilium/charts/agent/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1

@@ -509,3 +509,6 @@ global:
 
   healthChecking:
     enabled: true
+
+  cnpStatusUpdates:
+    enabled: false
