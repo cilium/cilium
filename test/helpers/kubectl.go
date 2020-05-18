@@ -109,6 +109,9 @@ var (
 		// Enable embedded Hubble, both on unix socket and TCP port 4244.
 		"global.hubble.enabled":       "true",
 		"global.hubble.listenAddress": ":4244",
+
+		// We need CNP node status to know when a policy is being enforced
+		"global.cnpStatusUpdates.enabled": "true",
 	}
 
 	flannelHelmOverrides = map[string]string{

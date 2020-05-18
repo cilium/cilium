@@ -342,6 +342,15 @@ IMPORTANT: Changes required before upgrading to 1.8.0
   .. note:: The ENI IPAM mode automatically derives the native routing CIDR so
             no action is required.
 
+  The CiliumNetworkPolicy Status includes information which allows to derive
+  when all nodes in a cluster are enforcing a particular ``CiliumNetworkPolicy``.
+  For large clusters running CRD mode, this visibility is costly as it requires
+  all nodes to participate. In order to ensure scalability, ``CiliumNetworkPolicy``
+  status visibility has been disabled for all new deployments. If you want to
+  enable it, set the ConfigMap option ``disable-cnp-status-updates`` to false by
+  using Helm ``--set global.cnpStatusUpdates.enabled=true`` or by editing the
+  ``ConfigMap`` directly.
+
 Upgrading from >=1.7.0 to 1.8.y
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
