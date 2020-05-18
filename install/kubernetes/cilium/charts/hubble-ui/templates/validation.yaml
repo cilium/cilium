@@ -1,0 +1,8 @@
+{{- if .Values.global.hubble.ui.enabled }}
+  {{- if not .Values.global.hubble.enabled }}
+    {{ fail "hubble-ui requires global.hubble.enabled=true" }}
+  {{- end }}
+  {{- if not .Values.global.hubble.relay.enabled }}
+    {{ fail "hubble-ui requires global.hubble.relay.enabled=true" }}
+  {{- end }}
+{{- end }}
