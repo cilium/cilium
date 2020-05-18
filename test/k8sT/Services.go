@@ -729,21 +729,32 @@ var _ = Describe("K8sServicesTest", func() {
 				testCurlRequestFail(testDSClient, httpURL)
 				testCurlRequestFail(testDSClient, tftpURL)
 
-				// Ensure the NodePort cannot be bound from any redirected address
-				failBind(localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
-				failBind(localCiliumHostIPv4, data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
-				failBind("127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
-				failBind("127.0.0.1", data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
-				failBind("", data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
-				failBind("", data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
-
-				failBind("::ffff:127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
-				failBind("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
-				failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
-				failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
 			}
 
 			wg.Wait()
+		}
+
+		testFailBind := func() {
+			var data v1.Service
+			var localCiliumHostIPv4 string
+
+			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
+			Expect(err).Should(BeNil(), "Can not retrieve service")
+			localCiliumHostIPv4, err = kubectl.GetCiliumHostIPv4(context.TODO(), k8s1NodeName)
+			Expect(err).Should(BeNil(), "Cannot retrieve k8s1 cilium_host ipv4")
+
+			// Ensure the NodePort cannot be bound from any redirected address
+			failBind(localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
+			failBind(localCiliumHostIPv4, data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
+			failBind("127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
+			failBind("127.0.0.1", data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
+			failBind("", data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
+			failBind("", data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
+
+			failBind("::ffff:127.0.0.1", data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
+			failBind("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
+			failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
+			failBind("::ffff:"+localCiliumHostIPv4, data.Spec.Ports[1].NodePort, "udp", k8s1NodeName)
 		}
 
 		testNodePortExternal := func(checkTCP, checkUDP bool) {
@@ -1101,6 +1112,10 @@ var _ = Describe("K8sServicesTest", func() {
 						testHealthCheckNodePort()
 					})
 
+					It("Tests that binding to NodePort port fails", func() {
+						testFailBind()
+					})
+
 					It("Tests HostPort", func() {
 						testHostPort()
 					})
@@ -1141,6 +1156,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 					It("Tests HealthCheckNodePort", func() {
 						testHealthCheckNodePort()
+					})
+
+					It("Tests that binding to NodePort port fails", func() {
+						testFailBind()
 					})
 
 					It("Tests HostPort", func() {
