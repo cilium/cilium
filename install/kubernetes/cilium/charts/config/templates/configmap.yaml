@@ -464,7 +464,7 @@ data:
 
   # A space separated list of iptables chains to disable when installing feeder rules.
   disable-iptables-feeder-rules: {{ .Values.global.disableIptablesFeederRules | join " " | quote }}
-{{ if .Values.global.ipam }}
+{{ if and .Values.global.ipam (not (or .Values.global.gke.enabled ( or .Values.global.eni .Values.global.azure.enabled ))) }}
   ipam: {{ .Values.global.ipam.mode | quote }}
 {{- if eq .Values.global.ipam.mode "cluster-pool" }}
 {{- if .Values.global.ipv4.enabled }}
