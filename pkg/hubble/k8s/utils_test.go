@@ -17,7 +17,6 @@
 package k8s
 
 import (
-	"reflect"
 	"testing"
 )
 
@@ -68,52 +67,6 @@ func TestParseNamespaceName(t *testing.T) {
 			}
 			if gotPod != tt.wantName {
 				t.Errorf("ParseNamespaceName() gotPod = %v, wantName %v", gotPod, tt.wantName)
-			}
-		})
-	}
-}
-
-func TestParseNamespaceNames(t *testing.T) {
-	type args struct {
-		namespaceNames []string
-	}
-	tests := []struct {
-		name      string
-		args      args
-		wantNS    []string
-		wantNames []string
-	}{
-		{
-			args: args{
-				namespaceNames: []string{
-					"default/pod-1",
-					"default/",
-					"pod-1",
-					"",
-				},
-			},
-			wantNS: []string{
-				"default",
-				"default",
-				"default",
-				"",
-			},
-			wantNames: []string{
-				"pod-1",
-				"",
-				"pod-1",
-				"",
-			},
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			gotNS, gotNames := ParseNamespaceNames(tt.args.namespaceNames)
-			if !reflect.DeepEqual(gotNS, tt.wantNS) {
-				t.Errorf("ParseNamespaceNames() gotNS = %v, wantNS %v", gotNS, tt.wantNS)
-			}
-			if !reflect.DeepEqual(gotNames, tt.wantNames) {
-				t.Errorf("ParseNamespaceNames() gotPod = %v, wantName %v", gotNames, tt.wantNames)
 			}
 		})
 	}
