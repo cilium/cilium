@@ -200,7 +200,7 @@ var _ = Describe("K8sServicesTest", func() {
 			_ = kubectl.Delete(echoSVCYAML)
 		})
 
-		It("Checks service on same node", func() {
+		SkipItIf(helpers.RunsWithoutKubeProxy, "Checks service on same node", func() {
 			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
 			Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
@@ -238,7 +238,7 @@ var _ = Describe("K8sServicesTest", func() {
 				testCurlRequest("id=app2", httpSVCURL)
 				testCurlRequest("id=app2", tftpSVCURL)
 			}
-		}, 300)
+		})
 
 		It("Checks service accessing itself (hairpin flow)", func() {
 			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, echoServiceName)
@@ -319,7 +319,7 @@ var _ = Describe("K8sServicesTest", func() {
 			ExpectAllPodsTerminated(kubectl)
 		})
 
-		It("Checks ClusterIP Connectivity", func() {
+		SkipItIf(helpers.RunsWithoutKubeProxy, "Checks ClusterIP Connectivity", func() {
 			service := "testds-service"
 
 			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
@@ -624,6 +624,9 @@ var _ = Describe("K8sServicesTest", func() {
 
 			// There are tested from pods running in the host net namespace
 			testURLsFromHosts := []string{
+				getHTTPLink(data.Spec.ClusterIP, data.Spec.Ports[0].Port),
+				getTFTPLink(data.Spec.ClusterIP, data.Spec.Ports[1].Port),
+
 				getHTTPLink("127.0.0.1", data.Spec.Ports[0].NodePort),
 				getTFTPLink("127.0.0.1", data.Spec.Ports[1].NodePort),
 
