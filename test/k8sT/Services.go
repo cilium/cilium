@@ -699,6 +699,7 @@ var _ = Describe("K8sServicesTest", func() {
 			for _, url := range testURLsFromPods {
 				wg.Add(1)
 				go func(url string) {
+					defer GinkgoRecover()
 					defer wg.Done()
 					testCurlRequest(testDSClient, url)
 				}(url)
@@ -706,6 +707,7 @@ var _ = Describe("K8sServicesTest", func() {
 			for _, url := range testURLsFromHosts {
 				wg.Add(1)
 				go func(url string) {
+					defer GinkgoRecover()
 					defer wg.Done()
 					doRequests(url, count, k8s1NodeName)
 				}(url)
@@ -713,6 +715,7 @@ var _ = Describe("K8sServicesTest", func() {
 			for _, url := range testURLsFromOutside {
 				wg.Add(1)
 				go func(url string) {
+					defer GinkgoRecover()
 					defer wg.Done()
 					doRequestsFromThirdHost(url, count, false)
 				}(url)
