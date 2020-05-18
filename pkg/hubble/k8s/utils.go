@@ -32,18 +32,3 @@ func ParseNamespaceName(namespaceName string) (string, string) {
 		return "default", ns
 	}
 }
-
-// ParseNamespaceNames returns the object's namespace and name. If namespace is
-// not specified, the namespace "default" is returned.
-func ParseNamespaceNames(namespaceNames []string) ([]string, []string) {
-	pods := make([]string, 0, len(namespaceNames))
-	nss := make([]string, 0, len(namespaceNames))
-
-	for _, namespaceName := range namespaceNames {
-		ns, pod := ParseNamespaceName(namespaceName)
-		nss = append(nss, ns)
-		pods = append(pods, pod)
-	}
-
-	return nss, pods
-}
