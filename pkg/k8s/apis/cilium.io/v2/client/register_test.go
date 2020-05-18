@@ -19,6 +19,8 @@ package client
 import (
 	"regexp"
 
+	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+
 	. "gopkg.in/check.v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -32,7 +34,7 @@ func (s *CiliumV2RegisterSuite) getTestUpToDateDefinition() *apiextensionsv1beta
 	return &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
-				CustomResourceDefinitionSchemaVersionKey: CustomResourceDefinitionSchemaVersion,
+				ciliumv2.CustomResourceDefinitionSchemaVersionKey: ciliumv2.CustomResourceDefinitionSchemaVersion,
 			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
@@ -68,7 +70,7 @@ func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoVersionLabel(c *C) {
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateOlderVersion(c *C) {
 	crd := s.getTestUpToDateDefinition()
 
-	crd.Labels[CustomResourceDefinitionSchemaVersionKey] = "0.9"
+	crd.Labels[ciliumv2.CustomResourceDefinitionSchemaVersionKey] = "0.9"
 
 	c.Assert(needsUpdate(crd), Equals, true)
 }
@@ -76,7 +78,7 @@ func (s *CiliumV2RegisterSuite) TestNeedsUpdateOlderVersion(c *C) {
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateCorruptedVersion(c *C) {
 	crd := s.getTestUpToDateDefinition()
 
-	crd.Labels[CustomResourceDefinitionSchemaVersionKey] = "totally-not-semver"
+	crd.Labels[ciliumv2.CustomResourceDefinitionSchemaVersionKey] = "totally-not-semver"
 
 	c.Assert(needsUpdate(crd), Equals, true)
 }
