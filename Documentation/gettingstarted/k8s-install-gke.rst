@@ -45,7 +45,7 @@ Retrieve the credentials to access the cluster:
 
 .. code:: bash
 
-    gcloud container clusters get-credentials tgraf-test
+    gcloud container clusters get-credentials $CLUSTER_NAME
 
 When done, you should be able to access your cluster like this:
 
