@@ -175,7 +175,7 @@ data:
 {{- end }}
 
 {{- if .Values.global.gke.enabled }}
-  ipam: "kubernetes"
+  k8s-require-ipv4-pod-cidr: "true"
   tunnel: "disabled"
   enable-endpoint-routes: "true"
   blacklist-conflicting-routes: "false"
