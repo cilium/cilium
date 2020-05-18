@@ -268,7 +268,7 @@ func (s *LocalObserverServer) GetFlows(
 			"buffer_size":     ring.Cap(),
 			"whitelist":       logFilters(req.Whitelist),
 			"blacklist":       logFilters(req.Blacklist),
-			"took":            time.Now().Sub(start),
+			"took":            time.Since(start),
 		}).Debug("GetFlows finished")
 	}()
 
