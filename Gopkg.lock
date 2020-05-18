@@ -1910,6 +1910,7 @@
     "github.com/optiopay/kafka",
     "github.com/optiopay/kafka/proto",
     "github.com/pborman/uuid",
+    "github.com/pkg/errors",
     "github.com/pmezard/go-difflib/difflib",
     "github.com/prometheus/client_golang/prometheus",
     "github.com/prometheus/client_golang/prometheus/promhttp",
