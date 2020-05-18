@@ -604,9 +604,7 @@ for iface in $(ip -o -a l | awk '{print $2}' | cut -d: -f1 | cut -d@ -f1 | grep 
 	done
 	$found && continue
 	for where in ingress egress; do
-		# bpf_netdev.o was renamed in Cilium v1.8. The following code can be
-		# removed once v1.8 is the oldest supported version.
-		if tc filter show dev "$iface" "$where" | grep -q "bpf_netdev.o"; then
+		if tc filter show dev "$iface" "$where" | grep -q "bpf_netdev[^\.]*.o"; then
 			echo "Removing bpf_netdev.o from $where of $iface"
 			tc filter del dev "$iface" "$where" || true
 		fi
