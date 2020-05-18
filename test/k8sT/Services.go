@@ -1037,9 +1037,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 		SkipContextIf(
 			func() bool {
-				return helpers.IsIntegration(helpers.CIIntegrationEKS) ||
-					helpers.IsIntegration(helpers.CIIntegrationGKE) || // Re-enable when GH-11235 is fixed
-					helpers.RunsWithoutKubeProxy()
+				return true // GH-11578
+				//return helpers.IsIntegration(helpers.CIIntegrationEKS) ||
+				//helpers.IsIntegration(helpers.CIIntegrationGKE) || // Re-enable when GH-11235 is fixed
+				//helpers.RunsWithoutKubeProxy()
 			},
 			"with L7 policy", func() {
 				var (
