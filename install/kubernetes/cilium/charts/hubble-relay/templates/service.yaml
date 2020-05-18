@@ -1,4 +1,3 @@
-{{- if .Values.global.hubble.enabled }}
 kind: Service
 apiVersion: v1
 metadata:
@@ -14,4 +13,3 @@ spec:
   - protocol: TCP
     port: {{ .Values.servicePort }}
     targetPort: {{ .Values.listenPort }}
-{{- end }}

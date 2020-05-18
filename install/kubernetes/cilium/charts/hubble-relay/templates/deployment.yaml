@@ -1,4 +1,3 @@
-{{- if .Values.global.hubble.enabled }}
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -72,4 +71,3 @@ spec:
           path: {{ dir .Values.global.hubble.socketPath }}
           type: Directory
         name: hubble-sock-dir
-{{- end }}

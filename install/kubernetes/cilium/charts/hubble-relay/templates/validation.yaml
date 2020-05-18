@@ -1,0 +1,5 @@
+{{- if .Values.global.hubble.relay.enabled }}
+  {{- if not .Values.global.hubble.enabled }}
+    {{ fail "hubble-relay requires global.hubble.enabled=true" }}
+  {{- end }}
+{{- end }}
