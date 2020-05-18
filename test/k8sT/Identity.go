@@ -32,10 +32,6 @@ var _ = Describe("K8sIdentity", func() {
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 	})
 
-	BeforeEach(func() {
-		kubectl.NodeCleanMetadata()
-	})
-
 	AfterEach(func() {
 		kubectl.DeleteCiliumDS()
 		ExpectAllPodsTerminated(kubectl)

@@ -30,7 +30,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/annotation"
 	cnpv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
@@ -1036,27 +1035,6 @@ func (kub *Kubectl) PprofReport() {
 
 		}
 	}
-}
-
-// NodeCleanMetadata annotates each node in the Kubernetes cluster with the
-// annotation.V4CIDRName and annotation.V6CIDRName annotations. It returns an
-// error if the nodes cannot be retrieved via the Kubernetes API.
-func (kub *Kubectl) NodeCleanMetadata() error {
-	metadata := []string{
-		annotation.V4CIDRName,
-		annotation.V6CIDRName,
-	}
-
-	data := kub.ExecShort(fmt.Sprintf("%s get nodes -o jsonpath='{.items[*].metadata.name}'", KubectlCmd))
-	if !data.WasSuccessful() {
-		return fmt.Errorf("could not get nodes via %s: %s", KubectlCmd, data.CombineOutput())
-	}
-	for _, node := range strings.Split(data.Output().String(), " ") {
-		for _, label := range metadata {
-			kub.ExecShort(fmt.Sprintf("%s annotate --overwrite nodes %s %s=''", KubectlCmd, node, label))
-		}
-	}
-	return nil
 }
 
 // NamespaceCreate creates a new Kubernetes namespace with the given name

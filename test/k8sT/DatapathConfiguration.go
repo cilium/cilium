@@ -50,10 +50,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 		Expect(err).Should(BeNil(), "Cannot determine default iface")
 	})
 
-	BeforeEach(func() {
-		kubectl.NodeCleanMetadata()
-	})
-
 	AfterEach(func() {
 		deploymentManager.DeleteAll()
 		// FIXME(tgraf) Is this really needed?
