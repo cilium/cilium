@@ -494,7 +494,8 @@ func createIdentityCRD(clientset apiextensionsclient.Interface) error {
 			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
 			},
-			Scope: apiextensionsv1beta1.ClusterScoped,
+			Scope:      apiextensionsv1beta1.ClusterScoped,
+			Validation: &ciliumIdentityCRV,
 		},
 	}
 
@@ -627,6 +628,13 @@ var (
 	// creating them, it is better to be permissive and have some data, if buggy,
 	// than to have no data in k8s.
 	cepCRV = apiextensionsv1beta1.CustomResourceValidation{
+		OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{},
+	}
+
+	// ciliumIdentityCRV is a minimal validation for CiliumIdentity objects.
+	// It is empty because CiliumIdentity objects do not have a Spec, thus we
+	// are validating that we have an empty Spec.
+	ciliumIdentityCRV = apiextensionsv1beta1.CustomResourceValidation{
 		OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{},
 	}
 
