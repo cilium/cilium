@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/seven"
 	"github.com/cilium/cilium/pkg/hubble/parser/threefour"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+
+	"github.com/sirupsen/logrus"
 )
 
 // Parser for all flows
@@ -32,6 +34,7 @@ type Parser struct {
 
 // New creates a new parser
 func New(
+	log logrus.FieldLogger,
 	endpointGetter getters.EndpointGetter,
 	identityGetter getters.IdentityGetter,
 	dnsGetter getters.DNSGetter,
@@ -40,12 +43,12 @@ func New(
 	opts ...options.Option,
 ) (*Parser, error) {
 
-	l34, err := threefour.New(endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter)
+	l34, err := threefour.New(log, endpointGetter, identityGetter, dnsGetter, ipGetter, serviceGetter)
 	if err != nil {
 		return nil, err
 	}
 
-	l7, err := seven.New(dnsGetter, ipGetter, serviceGetter, opts...)
+	l7, err := seven.New(log, dnsGetter, ipGetter, serviceGetter, opts...)
 	if err != nil {
 		return nil, err
 	}

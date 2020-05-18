@@ -36,10 +36,12 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/gopacket/layers"
 	lru "github.com/hashicorp/golang-lru"
+	"github.com/sirupsen/logrus"
 )
 
 // Parser is a parser for L7 payloads
 type Parser struct {
+	log           logrus.FieldLogger
 	cache         *lru.Cache
 	dnsGetter     getters.DNSGetter
 	ipGetter      getters.IPGetter
@@ -47,7 +49,7 @@ type Parser struct {
 }
 
 // New returns a new L7 parser
-func New(dnsGetter getters.DNSGetter, ipGetter getters.IPGetter, serviceGetter getters.ServiceGetter, opts ...options.Option) (*Parser, error) {
+func New(log logrus.FieldLogger, dnsGetter getters.DNSGetter, ipGetter getters.IPGetter, serviceGetter getters.ServiceGetter, opts ...options.Option) (*Parser, error) {
 	args := &options.Options{
 		CacheSize: 10000,
 	}
@@ -62,6 +64,7 @@ func New(dnsGetter getters.DNSGetter, ipGetter getters.IPGetter, serviceGetter g
 	}
 
 	return &Parser{
+		log:           log,
 		cache:         cache,
 		dnsGetter:     dnsGetter,
 		ipGetter:      ipGetter,

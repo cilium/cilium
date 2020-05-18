@@ -19,6 +19,7 @@ package seven
 import (
 	"bytes"
 	"encoding/gob"
+	"io/ioutil"
 	"net"
 	"net/http"
 	"net/url"
@@ -36,9 +37,12 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
+
+var log *logrus.Logger
 
 var (
 	fakeTimestamp = "2006-01-02T15:04:05.999999999Z"
@@ -62,6 +66,11 @@ var (
 		Labels:   []string{"k3=v3", "k4=v4"},
 	}
 )
+
+func init() {
+	log = logrus.New()
+	log.SetOutput(ioutil.Discard)
+}
 
 func encodeL7Record(t require.TestingT, lr *accesslog.LogRecord) []byte {
 	buf := &bytes.Buffer{}
@@ -143,7 +152,7 @@ func TestDecodeL7HTTPRecord(t *testing.T) {
 		Nanos:   4884,
 	}
 	nodeName := "k8s1"
-	parser, err := New(dnsGetter, IPGetter, serviceGetter)
+	parser, err := New(log, dnsGetter, IPGetter, serviceGetter)
 	require.NoError(t, err)
 
 	f := &pb.Flow{}
@@ -222,7 +231,7 @@ func TestDecodeL7DNSRecord(t *testing.T) {
 		Nanos:   4884,
 	}
 	nodeName := "k8s1"
-	parser, err := New(dnsGetter, ipGetter, serviceGetter)
+	parser, err := New(log, dnsGetter, ipGetter, serviceGetter)
 	require.NoError(t, err)
 
 	f := &pb.Flow{}
@@ -308,7 +317,7 @@ func BenchmarkL7Decode(b *testing.B) {
 		Nanos:   4884,
 	}
 	nodeName := "k8s1"
-	parser, err := New(dnsGetter, ipGetter, serviceGetter)
+	parser, err := New(log, dnsGetter, ipGetter, serviceGetter)
 	require.NoError(b, err)
 
 	f := &pb.Flow{}
@@ -344,7 +353,7 @@ func TestDecodeResponseTime(t *testing.T) {
 	requestTimestamp := time.Unix(0, 0).Format(time.RFC3339Nano)
 	responseTimestamp := time.Unix(1, 0).Format(time.RFC3339Nano)
 
-	parser, err := New(nil, nil, nil)
+	parser, err := New(log, nil, nil, nil)
 	require.NoError(t, err)
 
 	requestPayload := &pb.Payload{

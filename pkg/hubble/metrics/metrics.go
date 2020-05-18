@@ -70,7 +70,7 @@ func Init(address string, enabled api.Map) (<-chan error, error) {
 
 // EnableMetrics starts the metrics server with a given list of metrics. This is the
 // function Cilium uses to configure Hubble metrics in embedded mode.
-func EnableMetrics(log *logrus.Entry, metricsServer string, m []string) error {
+func EnableMetrics(log logrus.FieldLogger, metricsServer string, m []string) error {
 	errChan, err := Init(metricsServer, api.ParseMetricList(m))
 	if err != nil {
 		return fmt.Errorf("unable to setup metrics: %v", err)

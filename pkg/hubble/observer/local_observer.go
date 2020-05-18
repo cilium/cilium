@@ -59,7 +59,7 @@ type GRPCServer interface {
 	// in unit testing.
 	GetStopped() chan struct{}
 	// GetLogger returns the logger assigned to this gRPC server.
-	GetLogger() *logrus.Entry
+	GetLogger() logrus.FieldLogger
 }
 
 // LocalObserverServer is an implementation of the server.Observer interface
@@ -77,7 +77,7 @@ type LocalObserverServer struct {
 	// channel is empty, once it's closed.
 	stopped chan struct{}
 
-	log *logrus.Entry
+	log logrus.FieldLogger
 
 	// channel to receive events from observer server.
 	eventschan chan *observerpb.GetFlowsResponse
@@ -97,7 +97,7 @@ type LocalObserverServer struct {
 // NewLocalServer returns a new local observer server.
 func NewLocalServer(
 	payloadParser *parser.Parser,
-	logger *logrus.Entry,
+	logger logrus.FieldLogger,
 	options ...observeroption.Option,
 ) (*LocalObserverServer, error) {
 	opts := observeroption.Default // start with defaults
@@ -198,7 +198,7 @@ func (s *LocalObserverServer) GetRingBuffer() *container.Ring {
 }
 
 // GetLogger implements GRPCServer.GetLogger.
-func (s *LocalObserverServer) GetLogger() *logrus.Entry {
+func (s *LocalObserverServer) GetLogger() logrus.FieldLogger {
 	return s.log
 }
 
@@ -358,7 +358,7 @@ type flowsReader struct {
 // newFlowsReader creates a new flowsReader that uses the given RingReader to
 // read through the ring buffer. Only flows that match the request criterias
 // are returned.
-func newFlowsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, log *logrus.Entry, whitelist, blacklist filters.FilterFuncs) (*flowsReader, error) {
+func newFlowsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, log logrus.FieldLogger, whitelist, blacklist filters.FilterFuncs) (*flowsReader, error) {
 	log.WithFields(logrus.Fields{
 		"req":       req,
 		"whitelist": whitelist,

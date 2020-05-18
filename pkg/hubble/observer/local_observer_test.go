@@ -20,11 +20,11 @@ package observer
 import (
 	"context"
 	"fmt"
+	"io/ioutil"
 	"testing"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
-	"github.com/cilium/cilium/pkg/hubble/logger"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
@@ -32,12 +32,21 @@ import (
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
 )
 
+var log *logrus.Logger
+
+func init() {
+	log = logrus.New()
+	log.SetOutput(ioutil.Discard)
+}
+
 func noopParser(t *testing.T) *parser.Parser {
 	pp, err := parser.New(
+		log,
 		&testutils.NoopEndpointGetter,
 		&testutils.NoopIdentityGetter,
 		&testutils.NoopDNSGetter,
@@ -50,7 +59,7 @@ func noopParser(t *testing.T) *parser.Parser {
 
 func TestNewLocalServer(t *testing.T) {
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, logger.GetLogger())
+	s, err := NewLocalServer(pp, log)
 	require.NoError(t, err)
 	assert.NotNil(t, s.GetStopped())
 	assert.NotNil(t, s.GetPayloadParser())
@@ -64,7 +73,7 @@ func TestLocalObserverServer_ServerStatus(t *testing.T) {
 	// results in the actual flow capacity of 2.
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, logger.GetLogger(), observeroption.WithMaxFlows(1))
+	s, err := NewLocalServer(pp, log, observeroption.WithMaxFlows(1))
 	require.NoError(t, err)
 	res, err := s.ServerStatus(context.Background(), &observerpb.ServerStatusRequest{})
 	require.NoError(t, err)
@@ -93,7 +102,7 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, logger.GetLogger(),
+	s, err := NewLocalServer(pp, log,
 		observeroption.WithMaxFlows(numFlows),
 		observeroption.WithMonitorBuffer(queueSize),
 	)
@@ -160,7 +169,7 @@ func TestHooks(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, logger.GetLogger(),
+	s, err := NewLocalServer(pp, log,
 		observeroption.WithMaxFlows(numFlows),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithCiliumDaemon(ciliumDaemon),
@@ -218,7 +227,7 @@ func TestLocalObserverServer_OnFlowDelivery(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, logger.GetLogger(),
+	s, err := NewLocalServer(pp, log,
 		observeroption.WithMaxFlows(numFlows),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithOnFlowDeliveryFunc(onFlowDelivery),
@@ -280,7 +289,7 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	}
 
 	pp := noopParser(t)
-	s, err := NewLocalServer(pp, logger.GetLogger(),
+	s, err := NewLocalServer(pp, log,
 		observeroption.WithMaxFlows(numFlows),
 		observeroption.WithMonitorBuffer(queueSize),
 		observeroption.WithOnFlowDeliveryFunc(onFlowDelivery),

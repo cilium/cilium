@@ -32,7 +32,7 @@ type CiliumDaemon interface {
 // Server gives access to the Hubble server
 type Server interface {
 	GetOptions() Options
-	GetLogger() *logrus.Entry
+	GetLogger() logrus.FieldLogger
 }
 
 // Options stores all the configurations values for the hubble server.

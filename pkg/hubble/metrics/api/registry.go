@@ -17,7 +17,6 @@ package api
 import (
 	"fmt"
 
-	"github.com/cilium/cilium/pkg/hubble/logger"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -26,13 +25,16 @@ import (
 
 // Registry holds a set of registered metric handlers
 type Registry struct {
+	log      logrus.FieldLogger
 	mutex    lock.Mutex
 	handlers map[string]Plugin
 }
 
 // NewRegistry returns a new Registry
-func NewRegistry() *Registry {
-	return &Registry{}
+func NewRegistry(log logrus.FieldLogger) *Registry {
+	return &Registry{
+		log: log,
+	}
 }
 
 // Register registers a metrics handler plugin with the manager. After
@@ -51,14 +53,10 @@ func (r *Registry) Register(name string, p Plugin) {
 // Only metrics handlers which have been previously registered via the
 // Register() function can be configured.
 func (r *Registry) ConfigureHandlers(registry *prometheus.Registry, enabled Map) (Handlers, error) {
-	var (
-		initialized Handlers
-		log         = logger.GetLogger()
-	)
-
 	r.mutex.Lock()
 	defer r.mutex.Unlock()
 
+	initialized := make(Handlers, 0, len(enabled))
 	for name, opts := range enabled {
 		plugin, ok := r.handlers[name]
 		if !ok {
@@ -69,7 +67,7 @@ func (r *Registry) ConfigureHandlers(registry *prometheus.Registry, enabled Map)
 		if err := handler.Init(registry, opts); err != nil {
 			return nil, fmt.Errorf("unable to initialize metric '%s': %s", name, err)
 		}
-		log.WithFields(logrus.Fields{"name": name, "status": handler.Status()}).Info("Configured metrics plugin")
+		r.log.WithFields(logrus.Fields{"name": name, "status": handler.Status()}).Info("Configured metrics plugin")
 
 		initialized = append(initialized, handler)
 	}
