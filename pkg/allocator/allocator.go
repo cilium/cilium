@@ -16,7 +16,6 @@ package allocator
 
 import (
 	"context"
-	"errors"
 	"fmt"
 	"time"
 
@@ -28,12 +27,16 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/uuid"
+	"github.com/pkg/errors"
 
 	"github.com/sirupsen/logrus"
 )
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "allocator")
+
+	// ErrIdentityNonExistent is returned if the pod security identity does not exist
+	ErrIdentityNonExistent = errors.New("identity does not exist")
 )
 
 const (
@@ -495,7 +498,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 		if err = a.backend.AcquireReference(ctx, value, key, lock); err != nil {
 			a.localKeys.release(k)
-			return 0, false, fmt.Errorf("unable to create slave key '%s': %s", k, err)
+			return 0, false, errors.Wrapf(err, "unable to create slave key '%s'", k)
 		}
 
 		// mark the key as verified in the local cache
@@ -560,7 +563,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		// exposed and may be in use by other nodes. The garbage
 		// collector will release it again.
 		releaseKeyAndID()
-		return 0, false, fmt.Errorf("slave key creation failed '%s': %s", k, err)
+		return 0, false, errors.Wrapf(err, "slave key creation failed '%s'", k)
 	}
 
 	// mark the key as verified in the local cache
@@ -634,7 +637,11 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 			scopedLog.WithError(ctx.Err()).Warning("Ongoing key allocation has been cancelled")
 			return 0, false, fmt.Errorf("key allocation cancelled: %s", ctx.Err())
 		default:
-			scopedLog.WithError(err).Warning("Key allocation attempt failed")
+			// Do not log a warning if the error is caused by ErrIdentityNonExistent
+			// and has not reached the maxAllocAttempts
+			if errors.Cause(err) != ErrIdentityNonExistent || attempt == maxAllocAttempts {
+				scopedLog.WithError(err).Warning("Key allocation attempt failed")
+			}
 		}
 
 		kvstore.Trace("Allocation attempt failed", err, logrus.Fields{fieldKey: key, logfields.Attempt: attempt})

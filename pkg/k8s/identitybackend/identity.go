@@ -134,7 +134,7 @@ func (c *crdBackend) AcquireReference(ctx context.Context, id idpool.ID, key all
 		return err
 	}
 	if !exists {
-		return fmt.Errorf("identity does not exist")
+		return allocator.ErrIdentityNonExistent
 	}
 
 	capabilities := k8sversion.Capabilities()
