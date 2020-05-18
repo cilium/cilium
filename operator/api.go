@@ -17,10 +17,13 @@ package main
 import (
 	"context"
 	"fmt"
+	"net"
 	"net/http"
+	"syscall"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/kvstore"
+	"golang.org/x/sys/unix"
 )
 
 // startServer starts an api server listening on the given address.
@@ -49,8 +52,14 @@ func startServer(shutdownSignal <-chan struct{}, allSystemsGo <-chan struct{}, a
 		srv := &http.Server{Addr: addr}
 		errCh := make(chan error, 1)
 
+		lc := net.ListenConfig{Control: setsockoptReuseAddrAndPort}
+		ln, err := lc.Listen(context.Background(), "tcp", addr)
+		if err != nil {
+			log.WithError(err).Fatalf("Unable to listen on %s for healthz apiserver", addr)
+		}
+
 		go func() {
-			err := srv.ListenAndServe()
+			err := srv.Serve(ln)
 			if err != nil {
 				errCh <- err
 				errs <- err
@@ -116,4 +125,25 @@ func checkStatus() error {
 	}
 
 	return nil
+}
+
+// setsockoptReuseAddrAndPort sets SO_REUSEADDR and SO_REUSEPORT
+func setsockoptReuseAddrAndPort(network, address string, c syscall.RawConn) error {
+	var soerr error
+	if err := c.Control(func(su uintptr) {
+		s := int(su)
+		// Allow reuse of recently-used addresses. This socket option is
+		// set by default on listeners in Go's net package, see
+		// net setDefaultListenerSockopts
+		soerr = unix.SetsockoptInt(s, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
+		if soerr != nil {
+			return
+		}
+		// Allow reuse of recently-used ports. This gives the agent a
+		// better change to re-bind upon restarts.
+		soerr = unix.SetsockoptInt(s, unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+	}); err != nil {
+		return err
+	}
+	return soerr
 }
