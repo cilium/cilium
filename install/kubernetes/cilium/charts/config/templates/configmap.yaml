@@ -405,12 +405,17 @@ data:
 {{- if .Values.global.kubeConfigPath }}
   k8s-kubeconfig-path: {{ .Values.global.kubeConfigPath | quote }}
 {{- end }}
-{{- if or (eq .Values.global.cni.chainingMode "portmap") (eq .Values.global.cni.chainingMode "none") }}
+{{- if and ( .Values.global.endpointHealthChecking.enabled ) (or (eq .Values.global.cni.chainingMode "portmap") (eq .Values.global.cni.chainingMode "none")) }}
   # Chaining mode is set to portmap, enable health checking
   enable-endpoint-health-checking: "true"
 {{- else}}
   # Disable health checking, when chaining mode is not set to portmap or none
   enable-endpoint-health-checking: "false"
+{{- end }}
+{{- if .Values.global.healthChecking.enabled }}
+  enable-health-checking: "true"
+{{- else}}
+  enable-health-checking: "false"
 {{- end }}
 {{- if or .Values.global.wellKnownIdentities.enabled .Values.global.etcd.managed }}
   enable-well-known-identities: "true"
