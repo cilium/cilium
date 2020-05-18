@@ -31,13 +31,13 @@ import (
 
 // Server is hubble's gRPC server.
 type Server struct {
-	log  *logrus.Entry
+	log  logrus.FieldLogger
 	srv  *grpc.Server
 	opts serveroption.Options
 }
 
 // NewServer creates a new hubble gRPC server.
-func NewServer(log *logrus.Entry, options ...serveroption.Option) (*Server, error) {
+func NewServer(log logrus.FieldLogger, options ...serveroption.Option) (*Server, error) {
 	opts := serveroption.Options{}
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {

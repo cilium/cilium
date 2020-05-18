@@ -17,11 +17,13 @@
 package api
 
 import (
+	"io/ioutil"
 	"testing"
 
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 
 	"github.com/prometheus/client_golang/prometheus"
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -54,7 +56,9 @@ func (t *testHandler) ProcessFlow(p v1.Flow) {
 }
 
 func TestRegister(t *testing.T) {
-	r := NewRegistry()
+	log := logrus.New()
+	log.SetOutput(ioutil.Discard)
+	r := NewRegistry(log)
 
 	r.Register("test", &testPlugin{})
 

@@ -24,7 +24,6 @@ import (
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/hubble/logger"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
@@ -34,10 +33,12 @@ import (
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
+	"github.com/sirupsen/logrus"
 )
 
 // Parser is a parser for L3/L4 payloads
 type Parser struct {
+	log            logrus.FieldLogger
 	endpointGetter getters.EndpointGetter
 	identityGetter getters.IdentityGetter
 	dnsGetter      getters.DNSGetter
@@ -64,6 +65,7 @@ type packet struct {
 
 // New returns a new L3/L4 parser
 func New(
+	log logrus.FieldLogger,
 	endpointGetter getters.EndpointGetter,
 	identityGetter getters.IdentityGetter,
 	dnsGetter getters.DNSGetter,
@@ -77,6 +79,7 @@ func New(
 		&packet.ICMPv4, &packet.ICMPv6, &packet.TCP, &packet.UDP)
 
 	return &Parser{
+		log:            log,
 		dnsGetter:      dnsGetter,
 		endpointGetter: endpointGetter,
 		identityGetter: identityGetter,
@@ -190,7 +193,7 @@ func (p *Parser) resolveNames(epID uint32, ip net.IP) (names []string) {
 	return nil
 }
 
-func filterCidrLabels(labels []string) []string {
+func filterCidrLabels(log logrus.FieldLogger, labels []string) []string {
 	// Cilium might return a bunch of cidr labels with different prefix length. Filter out all
 	// but the longest prefix cidr label, which can be useful for troubleshooting. This also
 	// relies on the fact that when a Cilium security identity has multiple CIDR labels, longer
@@ -199,7 +202,6 @@ func filterCidrLabels(labels []string) []string {
 	var filteredLabels []string
 	var max *net.IPNet
 	var maxStr string
-	log := logger.GetLogger()
 	for _, label := range labels {
 		if strings.HasPrefix(label, cidrPrefix) {
 			currLabel := label[len(cidrPrefix):]
@@ -228,9 +230,9 @@ func filterCidrLabels(labels []string) []string {
 	return filteredLabels
 }
 
-func sortAndFilterLabels(labels []string, securityIdentity uint32) []string {
+func sortAndFilterLabels(log logrus.FieldLogger, labels []string, securityIdentity uint32) []string {
 	if securityIdentity&uint32(identity.LocalIdentityFlag) != 0 {
-		labels = filterCidrLabels(labels)
+		labels = filterCidrLabels(log, labels)
 	}
 	sort.Strings(labels)
 	return labels
@@ -244,7 +246,7 @@ func (p *Parser) resolveEndpoint(ip net.IP, securityIdentity uint32) *pb.Endpoin
 				ID:        uint32(ep.GetID()),
 				Identity:  uint32(ep.GetIdentity()),
 				Namespace: ep.GetK8sNamespace(),
-				Labels:    sortAndFilterLabels(ep.GetLabels(), securityIdentity),
+				Labels:    sortAndFilterLabels(p.log, ep.GetLabels(), securityIdentity),
 				PodName:   ep.GetK8sPodName(),
 			}
 		}
@@ -261,11 +263,10 @@ func (p *Parser) resolveEndpoint(ip net.IP, securityIdentity uint32) *pb.Endpoin
 	var labels []string
 	if p.identityGetter != nil {
 		if id, err := p.identityGetter.GetIdentity(securityIdentity); err != nil {
-			logger.GetLogger().
-				WithError(err).WithField("identity", securityIdentity).
+			p.log.WithError(err).WithField("identity", securityIdentity).
 				Warn("failed to resolve identity")
 		} else {
-			labels = sortAndFilterLabels(id.Labels, securityIdentity)
+			labels = sortAndFilterLabels(p.log, id.Labels, securityIdentity)
 		}
 	}
 
