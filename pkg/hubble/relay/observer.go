@@ -24,12 +24,98 @@ import (
 	"github.com/sirupsen/logrus"
 
 	"golang.org/x/sync/errgroup"
+	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/status"
 )
 
 // ensure that Server implements the observer.ObserverServer interface.
 var _ observerpb.ObserverServer = (*Server)(nil)
+
+func retrieveFlowsFromPeer(
+	ctx context.Context,
+	conn *grpc.ClientConn,
+	req *observerpb.GetFlowsRequest,
+	flows chan<- *observerpb.GetFlowsResponse,
+) error {
+	client := observerpb.NewObserverClient(conn)
+	c, err := client.GetFlows(ctx, req)
+	if err != nil {
+		return err
+	}
+	for {
+		flow, err := c.Recv()
+		switch err {
+		case io.EOF, context.Canceled:
+			return nil
+		case nil:
+			select {
+			case flows <- flow:
+			case <-ctx.Done():
+				return nil
+			}
+		default:
+			if status.Code(err) != codes.Canceled {
+				return err
+			}
+			return nil
+		}
+	}
+}
+
+func sortFlows(
+	ctx context.Context,
+	flows <-chan *observerpb.GetFlowsResponse,
+	qlen int,
+	bufferDrainTimeout time.Duration,
+) <-chan *observerpb.GetFlowsResponse {
+	pq := queue.NewPriorityQueue(qlen)
+	sortedFlows := make(chan *observerpb.GetFlowsResponse, qlen)
+
+	go func() {
+		defer close(sortedFlows)
+
+	flowsLoop:
+		for {
+			select {
+			case flow, ok := <-flows:
+				if !ok {
+					break flowsLoop
+				}
+				if pq.Len() == qlen {
+					f := pq.Pop()
+					select {
+					case sortedFlows <- f:
+					case <-ctx.Done():
+						return
+					}
+				}
+				pq.Push(flow)
+			case <-time.After(bufferDrainTimeout): // make sure to drain the queue when no new flow responses are received
+				if f := pq.Pop(); f != nil {
+					select {
+					case sortedFlows <- f:
+					case <-ctx.Done():
+						return
+					}
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+		// drain the queue
+		for f := pq.Pop(); f != nil; f = pq.Pop() {
+			select {
+			case sortedFlows <- f:
+			case <-ctx.Done():
+				return
+			}
+		}
+
+	}()
+
+	return sortedFlows
+}
 
 // GetFlows implements observer.ObserverServer.GetFlows by proxying requests to
 // the hubble instance the proxy is connected to.
@@ -64,36 +150,17 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 			continue
 		}
 		g.Go(func() error {
-			client := observerpb.NewObserverClient(p.conn)
-			c, err := client.GetFlows(gctx, req)
+			// retrieveFlowsFromPeer returns blocks until the peer finishes
+			// the request by closing the connection, an error occurs,
+			// or gctx expires.
+			err := retrieveFlowsFromPeer(gctx, p.conn, req, flows)
 			if err != nil {
 				s.log.WithFields(logrus.Fields{
 					"error": err,
 					"peer":  p,
 				}).Warning("Failed to retrieve flows from peer")
-				return nil
 			}
-			for {
-				flow, err := c.Recv()
-				switch err {
-				case io.EOF, context.Canceled:
-					return nil
-				case nil:
-					select {
-					case flows <- flow:
-					case <-gctx.Done():
-						return nil
-					}
-				default:
-					if status.Code(err) != codes.Canceled {
-						s.log.WithFields(logrus.Fields{
-							"error": err,
-							"peer":  p,
-						}).Error("Failed to receive flows from peer")
-					}
-					return nil
-				}
-			}
+			return nil
 		})
 	}
 	go func() {
@@ -101,47 +168,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 		close(flows)
 	}()
 
-	pq := queue.NewPriorityQueue(qlen)
-	sortedFlows := make(chan *observerpb.GetFlowsResponse, qlen)
-	go func() {
-		defer close(sortedFlows)
-	flowsLoop:
-		for {
-			select {
-			case flow, ok := <-flows:
-				if !ok {
-					break flowsLoop
-				}
-				if pq.Len() == qlen {
-					f := pq.Pop()
-					select {
-					case sortedFlows <- f:
-					case <-ctx.Done():
-						return
-					}
-				}
-				pq.Push(flow)
-			case <-time.After(s.opts.BufferDrainTimeout): // make sure to drain the queue when no new flow responses are received
-				if f := pq.Pop(); f != nil {
-					select {
-					case sortedFlows <- f:
-					case <-ctx.Done():
-						return
-					}
-				}
-			case <-ctx.Done():
-				return
-			}
-		}
-		// drain the queue
-		for f := pq.Pop(); f != nil; f = pq.Pop() {
-			select {
-			case sortedFlows <- f:
-			case <-ctx.Done():
-				return
-			}
-		}
-	}()
+	sortedFlows := sortFlows(ctx, flows, qlen, s.opts.BufferDrainTimeout)
 
 sortedFlowsLoop:
 	for {
