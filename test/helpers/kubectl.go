@@ -137,6 +137,7 @@ var (
 	}
 
 	microk8sHelmOverrides = map[string]string{
+		"global.ipv6.enabled":   "false",
 		"global.cni.confPath":   "/var/snap/microk8s/current/args/cni-network",
 		"global.cni.binPath":    "/var/snap/microk8s/current/opt/cni/bin",
 		"global.cni.customConf": "true",
