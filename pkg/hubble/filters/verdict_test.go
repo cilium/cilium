@@ -19,7 +19,7 @@ package filters
 import (
 	"testing"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -27,10 +27,10 @@ import (
 
 func TestVerdictFilter(t *testing.T) {
 	ev := &v1.Event{
-		Event: &pb.Flow{
-			Verdict: pb.Verdict_FORWARDED,
+		Event: &flowpb.Flow{
+			Verdict: flowpb.Verdict_FORWARDED,
 		},
 	}
-	assert.True(t, filterByVerdicts([]pb.Verdict{pb.Verdict_FORWARDED})(ev))
-	assert.False(t, filterByVerdicts([]pb.Verdict{pb.Verdict_DROPPED})(ev))
+	assert.True(t, filterByVerdicts([]flowpb.Verdict{flowpb.Verdict_FORWARDED})(ev))
+	assert.False(t, filterByVerdicts([]flowpb.Verdict{flowpb.Verdict_DROPPED})(ev))
 }

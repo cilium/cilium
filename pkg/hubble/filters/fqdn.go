@@ -20,7 +20,7 @@ import (
 	"regexp"
 	"strings"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
@@ -114,7 +114,7 @@ func filterByDNSQueries(queryPatterns []string) (FilterFunc, error) {
 type FQDNFilter struct{}
 
 // OnBuildFilter builds a FQDN filter
-func (f *FQDNFilter) OnBuildFilter(ctx context.Context, ff *pb.FlowFilter) ([]FilterFunc, error) {
+func (f *FQDNFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]FilterFunc, error) {
 	var fs []FilterFunc
 
 	if ff.GetSourceFqdn() != nil {

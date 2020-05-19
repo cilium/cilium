@@ -19,7 +19,6 @@ import (
 
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/identity"
-	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 )
@@ -79,17 +78,4 @@ func (ev *Event) GetFlow() Flow {
 		return f
 	}
 	return nil
-}
-
-// Endpoints is a slice of endpoints and their cached dns queries protected by a mutex.
-type Endpoints struct {
-	mutex lock.RWMutex
-	eps   []*Endpoint
-}
-
-// NewEndpoints returns a new *Endpoints.
-func NewEndpoints() *Endpoints {
-	return &Endpoints{
-		eps: []*Endpoint{},
-	}
 }

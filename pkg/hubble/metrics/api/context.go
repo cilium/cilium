@@ -20,7 +20,7 @@ import (
 	"sort"
 	"strings"
 
-	"github.com/cilium/cilium/pkg/hubble/api/v1"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
 // ContextIdentifier describes the identification method of a transmission or

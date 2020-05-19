@@ -20,13 +20,13 @@ import (
 	"context"
 	"testing"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
 func TestPortFilter(t *testing.T) {
 	type args struct {
-		f  []*pb.FlowFilter
+		f  []*flowpb.FlowFilter
 		ev *v1.Event
 	}
 	tests := []struct {
@@ -38,12 +38,12 @@ func TestPortFilter(t *testing.T) {
 		{
 			name: "udp",
 			args: args{
-				f: []*pb.FlowFilter{{
+				f: []*flowpb.FlowFilter{{
 					SourcePort:      []string{"12345"},
 					DestinationPort: []string{"53"},
 				}},
-				ev: &v1.Event{Event: &pb.Flow{
-					L4: &pb.Layer4{Protocol: &pb.Layer4_UDP{UDP: &pb.UDP{
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_UDP{UDP: &flowpb.UDP{
 						SourcePort:      12345,
 						DestinationPort: 53,
 					}}},
@@ -54,12 +54,12 @@ func TestPortFilter(t *testing.T) {
 		{
 			name: "tcp",
 			args: args{
-				f: []*pb.FlowFilter{{
+				f: []*flowpb.FlowFilter{{
 					SourcePort:      []string{"32320"},
 					DestinationPort: []string{"80"},
 				}},
-				ev: &v1.Event{Event: &pb.Flow{
-					L4: &pb.Layer4{Protocol: &pb.Layer4_TCP{TCP: &pb.TCP{
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
 						SourcePort:      32320,
 						DestinationPort: 80,
 					}}},
@@ -70,11 +70,11 @@ func TestPortFilter(t *testing.T) {
 		{
 			name: "wrong direction",
 			args: args{
-				f: []*pb.FlowFilter{{
+				f: []*flowpb.FlowFilter{{
 					DestinationPort: []string{"80"},
 				}},
-				ev: &v1.Event{Event: &pb.Flow{
-					L4: &pb.Layer4{Protocol: &pb.Layer4_TCP{TCP: &pb.TCP{
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
 						SourcePort:      80,
 						DestinationPort: 32320,
 					}}},
@@ -85,11 +85,11 @@ func TestPortFilter(t *testing.T) {
 		{
 			name: "no port",
 			args: args{
-				f: []*pb.FlowFilter{{
+				f: []*flowpb.FlowFilter{{
 					DestinationPort: []string{"0"},
 				}},
-				ev: &v1.Event{Event: &pb.Flow{
-					L4: &pb.Layer4{Protocol: &pb.Layer4_ICMPv4{ICMPv4: &pb.ICMPv4{}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_ICMPv4{ICMPv4: &flowpb.ICMPv4{}}},
 				}},
 			},
 			want: false,
@@ -97,7 +97,7 @@ func TestPortFilter(t *testing.T) {
 		{
 			name: "invalid port",
 			args: args{
-				f: []*pb.FlowFilter{{SourcePort: []string{"999999"}}},
+				f: []*flowpb.FlowFilter{{SourcePort: []string{"999999"}}},
 			},
 			wantErr: true,
 		},

@@ -21,12 +21,12 @@ import (
 	"regexp"
 	"strings"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
-func httpMatchCompatibleEventFilter(types []*pb.EventTypeFilter) bool {
+func httpMatchCompatibleEventFilter(types []*flowpb.EventTypeFilter) bool {
 	if len(types) == 0 {
 		return true
 	}
@@ -86,7 +86,7 @@ func filterByHTTPStatusCode(statusCodePrefixes []string) (FilterFunc, error) {
 type HTTPFilter struct{}
 
 // OnBuildFilter builds a HTTP filter
-func (h *HTTPFilter) OnBuildFilter(ctx context.Context, ff *pb.FlowFilter) ([]FilterFunc, error) {
+func (h *HTTPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]FilterFunc, error) {
 	var fs []FilterFunc
 
 	if ff.GetHttpStatusCode() != nil {

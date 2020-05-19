@@ -21,13 +21,13 @@ import (
 	"reflect"
 	"testing"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
 func TestLabelSelectorFilter(t *testing.T) {
 	type args struct {
-		f  []*pb.FlowFilter
+		f  []*flowpb.FlowFilter
 		ev []*v1.Event
 	}
 	tests := []struct {
@@ -39,32 +39,32 @@ func TestLabelSelectorFilter(t *testing.T) {
 		{
 			name: "label filter without value",
 			args: args{
-				f: []*pb.FlowFilter{{SourceLabel: []string{"label1", "label2"}}},
+				f: []*flowpb.FlowFilter{{SourceLabel: []string{"label1", "label2"}}},
 				ev: []*v1.Event{
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label1"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label1=val1"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label2", "label3", "label4=val4"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label3"},
 							},
 						},
@@ -81,60 +81,60 @@ func TestLabelSelectorFilter(t *testing.T) {
 		{
 			name: "label filter with value",
 			args: args{
-				f: []*pb.FlowFilter{{SourceLabel: []string{"label1=val1", "label2=val2"}}},
+				f: []*flowpb.FlowFilter{{SourceLabel: []string{"label1=val1", "label2=val2"}}},
 				ev: []*v1.Event{
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label1"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label1=val1"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label1=val2", "label2=val1", "label3"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label2=val2", "label3"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label3=val1"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{""},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: nil,
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label1=val1=toomuch"},
 							},
 						},
@@ -155,39 +155,39 @@ func TestLabelSelectorFilter(t *testing.T) {
 		{
 			name: "complex label label filter",
 			args: args{
-				f: []*pb.FlowFilter{{SourceLabel: []string{"label1 in (val1, val2), label3 notin ()"}}},
+				f: []*flowpb.FlowFilter{{SourceLabel: []string{"label1 in (val1, val2), label3 notin ()"}}},
 				ev: []*v1.Event{
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label1"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label1=val1"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label1=val2", "label2=val1", "label3=val3"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label2=val2", "label3"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label1=val1", "label3=val3"},
 							},
 						},
@@ -205,7 +205,7 @@ func TestLabelSelectorFilter(t *testing.T) {
 		{
 			name: "source and destination label filter",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						SourceLabel:      []string{"src1, src2=val2"},
 						DestinationLabel: []string{"dst1, dst2=val2"},
@@ -213,45 +213,45 @@ func TestLabelSelectorFilter(t *testing.T) {
 				},
 				ev: []*v1.Event{
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"src1", "src2=val2"},
 							},
-							Destination: &pb.Endpoint{
+							Destination: &flowpb.Endpoint{
 								Labels: []string{"dst1", "dst2=val2"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"label1=val1"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Destination: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Destination: &flowpb.Endpoint{
 								Labels: []string{"dst1", "dst2=val2"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"dst1", "dst2=val2"},
 							},
-							Destination: &pb.Endpoint{
+							Destination: &flowpb.Endpoint{
 								Labels: []string{"src1", "src2=val2"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"src1"},
 							},
-							Destination: &pb.Endpoint{
+							Destination: &flowpb.Endpoint{
 								Labels: []string{"dst1"},
 							},
 						},
@@ -269,29 +269,29 @@ func TestLabelSelectorFilter(t *testing.T) {
 		{
 			name: "matchall filter",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						SourceLabel: []string{""},
 					},
 				},
 				ev: []*v1.Event{
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"src1", "src2=val2"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: nil,
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{""},
 							},
 						},
@@ -307,36 +307,36 @@ func TestLabelSelectorFilter(t *testing.T) {
 		{
 			name: "cilium fixed prefix filters",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						SourceLabel: []string{"k8s:app=bar", "foo", "reserved:host"},
 					},
 				},
 				ev: []*v1.Event{
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"k8s:app=bar"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"k8s:foo=baz"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"k8s.app=bar"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"container:foo=bar", "reserved:host"},
 							},
 						},
@@ -353,29 +353,29 @@ func TestLabelSelectorFilter(t *testing.T) {
 		{
 			name: "cilium any prefix filters",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						SourceLabel: []string{"any:key"},
 					},
 				},
 				ev: []*v1.Event{
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"key"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"reserved:key"},
 							},
 						},
 					},
 					{
-						Event: &pb.Flow{
-							Source: &pb.Endpoint{
+						Event: &flowpb.Flow{
+							Source: &flowpb.Endpoint{
 								Labels: []string{"any.key"},
 							},
 						},
@@ -391,7 +391,7 @@ func TestLabelSelectorFilter(t *testing.T) {
 		{
 			name: "invalid source filter",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						SourceLabel: []string{"()"},
 					},
@@ -402,7 +402,7 @@ func TestLabelSelectorFilter(t *testing.T) {
 		{
 			name: "invalid destination filter",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						DestinationLabel: []string{"="},
 					},

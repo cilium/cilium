@@ -23,7 +23,7 @@ import (
 	"strings"
 	"time"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/container"
@@ -49,9 +49,9 @@ type GRPCServer interface {
 	// Start starts the server and blocks.
 	Start()
 	// GetEventsChannel returns the channel to push monitor events to.
-	GetEventsChannel() chan *pb.Payload
+	GetEventsChannel() chan *flowpb.Payload
 	// SetEventsChannel sets the events channel. For unit testing only.
-	SetEventsChannel(chan *pb.Payload)
+	SetEventsChannel(chan *flowpb.Payload)
 	///GetRingBuffer returns the underlying ring buffer to parsed events.
 	GetRingBuffer() *container.Ring
 	// GetStopped returns a channel that gets closed at the end of the
@@ -71,7 +71,7 @@ type LocalObserverServer struct {
 
 	// events is the channel used by the writer(s) to send the flow data
 	// into the observer server.
-	events chan *pb.Payload
+	events chan *flowpb.Payload
 
 	// stopped is mostly used in unit tests to signalize when the events
 	// channel is empty, once it's closed.
@@ -82,7 +82,7 @@ type LocalObserverServer struct {
 	// channel to receive events from observer server.
 	eventschan chan *observerpb.GetFlowsResponse
 
-	// payloadParser decodes pb.Payload into pb.Flow
+	// payloadParser decodes flowpb.Payload into flowpb.Flow
 	payloadParser *parser.Parser
 
 	opts observeroption.Options
@@ -116,7 +116,7 @@ func NewLocalServer(
 	s := &LocalObserverServer{
 		log:           logger,
 		ring:          container.NewRing(opts.MaxFlows),
-		events:        make(chan *pb.Payload, opts.MonitorBuffer),
+		events:        make(chan *flowpb.Payload, opts.MonitorBuffer),
 		stopped:       make(chan struct{}),
 		eventschan:    make(chan *observerpb.GetFlowsResponse, 100), // option here?
 		payloadParser: payloadParser,
@@ -182,13 +182,13 @@ nextEvent:
 	close(s.GetStopped())
 }
 
-// GetEventsChannel returns the event channel to receive pb.Payload events.
-func (s *LocalObserverServer) GetEventsChannel() chan *pb.Payload {
+// GetEventsChannel returns the event channel to receive flowpb.Payload events.
+func (s *LocalObserverServer) GetEventsChannel() chan *flowpb.Payload {
 	return s.events
 }
 
 // SetEventsChannel implements GRPCServer.SetEventsChannel.
-func (s *LocalObserverServer) SetEventsChannel(events chan *pb.Payload) {
+func (s *LocalObserverServer) SetEventsChannel(events chan *flowpb.Payload) {
 	s.events = events
 }
 
@@ -325,7 +325,7 @@ func getUntil(req *observerpb.GetFlowsRequest, defaultTime *timestamp.Timestamp)
 	return ptypes.Timestamp(until)
 }
 
-func logFilters(filters []*pb.FlowFilter) string {
+func logFilters(filters []*flowpb.FlowFilter) string {
 	var s []string
 	for _, f := range filters {
 		s = append(s, f.String())
@@ -333,9 +333,9 @@ func logFilters(filters []*pb.FlowFilter) string {
 	return "{" + strings.Join(s, ",") + "}"
 }
 
-func decodeFlow(payloadParser *parser.Parser, pl *pb.Payload) (*pb.Flow, error) {
+func decodeFlow(payloadParser *parser.Parser, pl *flowpb.Payload) (*flowpb.Flow, error) {
 	// TODO: Pool these instead of allocating new flows each time.
-	f := &pb.Flow{}
+	f := &flowpb.Flow{}
 	err := payloadParser.Decode(pl, f)
 	if err != nil {
 		return nil, err
@@ -388,7 +388,7 @@ func newFlowsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, lo
 }
 
 // Next returns the next flow that matches the request criterias.
-func (r *flowsReader) Next(ctx context.Context) (*pb.Flow, error) {
+func (r *flowsReader) Next(ctx context.Context) (*flowpb.Flow, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -427,7 +427,7 @@ func (r *flowsReader) Next(ctx context.Context) (*pb.Flow, error) {
 				continue
 			}
 		}
-		flow, ok := e.Event.(*pb.Flow)
+		flow, ok := e.Event.(*flowpb.Flow)
 		if ok && filters.Apply(r.whitelist, r.blacklist, e) {
 			r.flowsCount++
 			return flow, nil
@@ -469,7 +469,7 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 		} else if err != nil {
 			return nil, err
 		}
-		_, ok := e.Event.(*pb.Flow)
+		_, ok := e.Event.(*flowpb.Flow)
 		if !ok || !filters.Apply(whitelist, blacklist, e) {
 			continue
 		}

@@ -18,8 +18,8 @@ import (
 	"fmt"
 	"strings"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/api/v1"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -121,7 +121,7 @@ func (d *dnsHandler) ProcessFlow(flow v1.Flow) {
 	}
 	labels = append(labels, labelValues...)
 
-	if flow.GetVerdict() == pb.Verdict_DROPPED {
+	if flow.GetVerdict() == flowpb.Verdict_DROPPED {
 		d.queries.WithLabelValues(labels...).Inc()
 		labels[0] = "Policy denied"
 		d.responses.WithLabelValues(labels...).Inc()

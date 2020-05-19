@@ -20,7 +20,7 @@ import (
 	"context"
 	"testing"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 
 	"github.com/stretchr/testify/assert"
@@ -28,7 +28,7 @@ import (
 
 func TestFQDNFilter(t *testing.T) {
 	type args struct {
-		f  []*pb.FlowFilter
+		f  []*flowpb.FlowFilter
 		ev []*v1.Event
 	}
 	tests := []struct {
@@ -40,14 +40,14 @@ func TestFQDNFilter(t *testing.T) {
 		{
 			name: "source fqdn",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{SourceFqdn: []string{"cilium.io", "ebpf.io"}},
 				},
 				ev: []*v1.Event{
-					{Event: &pb.Flow{SourceNames: []string{"cilium.io"}}},
-					{Event: &pb.Flow{SourceNames: []string{"ebpf.io"}}},
-					{Event: &pb.Flow{DestinationNames: []string{"cilium.io"}}},
-					{Event: &pb.Flow{DestinationNames: []string{"ebpf.io"}}},
+					{Event: &flowpb.Flow{SourceNames: []string{"cilium.io"}}},
+					{Event: &flowpb.Flow{SourceNames: []string{"ebpf.io"}}},
+					{Event: &flowpb.Flow{DestinationNames: []string{"cilium.io"}}},
+					{Event: &flowpb.Flow{DestinationNames: []string{"ebpf.io"}}},
 				},
 			},
 			want: []bool{
@@ -60,14 +60,14 @@ func TestFQDNFilter(t *testing.T) {
 		{
 			name: "destination fqdn",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{DestinationFqdn: []string{"cilium.io", "ebpf.io"}},
 				},
 				ev: []*v1.Event{
-					{Event: &pb.Flow{SourceNames: []string{"cilium.io"}}},
-					{Event: &pb.Flow{SourceNames: []string{"ebpf.io"}}},
-					{Event: &pb.Flow{DestinationNames: []string{"cilium.io"}}},
-					{Event: &pb.Flow{DestinationNames: []string{"ebpf.io"}}},
+					{Event: &flowpb.Flow{SourceNames: []string{"cilium.io"}}},
+					{Event: &flowpb.Flow{SourceNames: []string{"ebpf.io"}}},
+					{Event: &flowpb.Flow{DestinationNames: []string{"cilium.io"}}},
+					{Event: &flowpb.Flow{DestinationNames: []string{"ebpf.io"}}},
 				},
 			},
 			want: []bool{
@@ -80,22 +80,22 @@ func TestFQDNFilter(t *testing.T) {
 		{
 			name: "source and destination fqdn",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						SourceFqdn:      []string{"cilium.io", "docs.cilium.io"},
 						DestinationFqdn: []string{"ebpf.io"},
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &pb.Flow{
+					{Event: &flowpb.Flow{
 						SourceNames:      []string{"cilium.io"},
 						DestinationNames: []string{"ebpf.io"},
 					}},
-					{Event: &pb.Flow{
+					{Event: &flowpb.Flow{
 						SourceNames:      []string{"ebpf.io"},
 						DestinationNames: []string{"cilium.io"},
 					}},
-					{Event: &pb.Flow{
+					{Event: &flowpb.Flow{
 						SourceNames:      []string{"deathstar.empire.svc.cluster.local", "docs.cilium.io"},
 						DestinationNames: []string{"ebpf.io"},
 					}},
@@ -110,26 +110,26 @@ func TestFQDNFilter(t *testing.T) {
 		{
 			name: "source or destination fqdn",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{SourceFqdn: []string{"cilium.io", "docs.cilium.io"}},
 					{DestinationFqdn: []string{"ebpf.io"}},
 				},
 				ev: []*v1.Event{
-					{Event: &pb.Flow{
+					{Event: &flowpb.Flow{
 						SourceNames:      []string{"cilium.io"},
 						DestinationNames: []string{"ebpf.io"},
 					}},
-					{Event: &pb.Flow{
+					{Event: &flowpb.Flow{
 						SourceNames:      []string{"ebpf.io"},
 						DestinationNames: []string{"cilium.io"},
 					}},
-					{Event: &pb.Flow{
+					{Event: &flowpb.Flow{
 						SourceNames: []string{"deathstar.empire.svc.cluster.local", "docs.cilium.io"},
 					}},
-					{Event: &pb.Flow{
+					{Event: &flowpb.Flow{
 						DestinationNames: []string{"ebpf.io"},
 					}},
-					{Event: &pb.Flow{
+					{Event: &flowpb.Flow{
 						SourceNames:      []string{"deathstar.empire.svc.cluster.local", "docs.cilium.io"},
 						DestinationNames: []string{"ebpf.io"},
 					}},
@@ -146,16 +146,16 @@ func TestFQDNFilter(t *testing.T) {
 		{
 			name: "invalid data",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{SourceFqdn: []string{"cilium.io."}},
 				},
 				ev: []*v1.Event{
 					nil,
 					{},
-					{Event: &pb.Flow{}},
-					{Event: &pb.Flow{SourceNames: []string{"cilium.io."}}}, // should not have trailing dot
-					{Event: &pb.Flow{SourceNames: []string{"www.cilium.io"}}},
-					{Event: &pb.Flow{SourceNames: []string{""}}},
+					{Event: &flowpb.Flow{}},
+					{Event: &flowpb.Flow{SourceNames: []string{"cilium.io."}}}, // should not have trailing dot
+					{Event: &flowpb.Flow{SourceNames: []string{"www.cilium.io"}}},
+					{Event: &flowpb.Flow{SourceNames: []string{""}}},
 				},
 			},
 			want: []bool{
@@ -170,7 +170,7 @@ func TestFQDNFilter(t *testing.T) {
 		{
 			name: "invalid source fqdn filter",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{SourceFqdn: []string{""}},
 				},
 			},
@@ -179,7 +179,7 @@ func TestFQDNFilter(t *testing.T) {
 		{
 			name: "invalid destination fqdn filter",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{DestinationFqdn: []string{"."}},
 				},
 			},
@@ -188,18 +188,18 @@ func TestFQDNFilter(t *testing.T) {
 		{
 			name: "wildcard filters",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{SourceFqdn: []string{"*.cilium.io", "*.org."}},
 					{DestinationFqdn: []string{"*"}},
 				},
 				ev: []*v1.Event{
-					{Event: &pb.Flow{SourceNames: []string{"www.cilium.io"}}},
-					{Event: &pb.Flow{SourceNames: []string{"multiple.domains.org"}}},
-					{Event: &pb.Flow{SourceNames: []string{"cilium.io"}}},
-					{Event: &pb.Flow{SourceNames: []string{"tiefighter", "empire.org"}}},
-					{Event: &pb.Flow{DestinationNames: []string{}}},
-					{Event: &pb.Flow{DestinationNames: []string{"anything.really"}}},
-					{Event: &pb.Flow{DestinationNames: []string{""}}},
+					{Event: &flowpb.Flow{SourceNames: []string{"www.cilium.io"}}},
+					{Event: &flowpb.Flow{SourceNames: []string{"multiple.domains.org"}}},
+					{Event: &flowpb.Flow{SourceNames: []string{"cilium.io"}}},
+					{Event: &flowpb.Flow{SourceNames: []string{"tiefighter", "empire.org"}}},
+					{Event: &flowpb.Flow{DestinationNames: []string{}}},
+					{Event: &flowpb.Flow{DestinationNames: []string{"anything.really"}}},
+					{Event: &flowpb.Flow{DestinationNames: []string{""}}},
 				},
 			},
 			want: []bool{
@@ -231,7 +231,7 @@ func TestFQDNFilter(t *testing.T) {
 
 func Test_filterByDNSQuery(t *testing.T) {
 	type args struct {
-		f  []*pb.FlowFilter
+		f  []*flowpb.FlowFilter
 		ev *v1.Event
 	}
 	tests := []struct {
@@ -243,8 +243,8 @@ func Test_filterByDNSQuery(t *testing.T) {
 		{
 			name: "not-dns",
 			args: args{
-				f:  []*pb.FlowFilter{{DnsQuery: []string{".*"}}},
-				ev: &v1.Event{Event: &pb.Flow{}},
+				f:  []*flowpb.FlowFilter{{DnsQuery: []string{".*"}}},
+				ev: &v1.Event{Event: &flowpb.Flow{}},
 			},
 			wantErr: false,
 			want:    false,
@@ -252,18 +252,18 @@ func Test_filterByDNSQuery(t *testing.T) {
 		{
 			name: "invalid-regex",
 			args: args{
-				f: []*pb.FlowFilter{{DnsQuery: []string{"*"}}},
+				f: []*flowpb.FlowFilter{{DnsQuery: []string{"*"}}},
 			},
 			wantErr: true,
 		},
 		{
 			name: "positive",
 			args: args{
-				f: []*pb.FlowFilter{{DnsQuery: []string{".*\\.com$", ".*\\.io"}}},
-				ev: &v1.Event{Event: &pb.Flow{
-					L7: &pb.Layer7{
-						Record: &pb.Layer7_Dns{
-							Dns: &pb.DNS{
+				f: []*flowpb.FlowFilter{{DnsQuery: []string{".*\\.com$", ".*\\.io"}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L7: &flowpb.Layer7{
+						Record: &flowpb.Layer7_Dns{
+							Dns: &flowpb.DNS{
 								Query: "cilium.io",
 							},
 						},
@@ -275,11 +275,11 @@ func Test_filterByDNSQuery(t *testing.T) {
 		{
 			name: "positive",
 			args: args{
-				f: []*pb.FlowFilter{{DnsQuery: []string{".*\\.com$", ".*\\.io"}}},
-				ev: &v1.Event{Event: &pb.Flow{
-					L7: &pb.Layer7{
-						Record: &pb.Layer7_Dns{
-							Dns: &pb.DNS{
+				f: []*flowpb.FlowFilter{{DnsQuery: []string{".*\\.com$", ".*\\.io"}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L7: &flowpb.Layer7{
+						Record: &flowpb.Layer7_Dns{
+							Dns: &flowpb.DNS{
 								Query: "cilium.io",
 							},
 						},
@@ -292,11 +292,11 @@ func Test_filterByDNSQuery(t *testing.T) {
 		{
 			name: "negative",
 			args: args{
-				f: []*pb.FlowFilter{{DnsQuery: []string{".*\\.com$", ".*\\.net"}}},
-				ev: &v1.Event{Event: &pb.Flow{
-					L7: &pb.Layer7{
-						Record: &pb.Layer7_Dns{
-							Dns: &pb.DNS{
+				f: []*flowpb.FlowFilter{{DnsQuery: []string{".*\\.com$", ".*\\.net"}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L7: &flowpb.Layer7{
+						Record: &flowpb.Layer7_Dns{
+							Dns: &flowpb.DNS{
 								Query: "cilium.io",
 							},
 						},

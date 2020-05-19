@@ -20,13 +20,13 @@ import (
 	"context"
 	"testing"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
 func TestFlowProtocolFilter(t *testing.T) {
 	type args struct {
-		f  []*pb.FlowFilter
+		f  []*flowpb.FlowFilter
 		ev *v1.Event
 	}
 	tests := []struct {
@@ -38,9 +38,9 @@ func TestFlowProtocolFilter(t *testing.T) {
 		{
 			name: "udp",
 			args: args{
-				f: []*pb.FlowFilter{{Protocol: []string{"udp"}}},
-				ev: &v1.Event{Event: &pb.Flow{
-					L4: &pb.Layer4{Protocol: &pb.Layer4_UDP{UDP: &pb.UDP{}}},
+				f: []*flowpb.FlowFilter{{Protocol: []string{"udp"}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_UDP{UDP: &flowpb.UDP{}}},
 				}},
 			},
 			want: true,
@@ -48,10 +48,10 @@ func TestFlowProtocolFilter(t *testing.T) {
 		{
 			name: "http",
 			args: args{
-				f: []*pb.FlowFilter{{Protocol: []string{"http"}}},
-				ev: &v1.Event{Event: &pb.Flow{
-					L4: &pb.Layer4{Protocol: &pb.Layer4_TCP{TCP: &pb.TCP{}}},
-					L7: &pb.Layer7{Record: &pb.Layer7_Http{Http: &pb.HTTP{}}},
+				f: []*flowpb.FlowFilter{{Protocol: []string{"http"}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{}}},
+					L7: &flowpb.Layer7{Record: &flowpb.Layer7_Http{Http: &flowpb.HTTP{}}},
 				}},
 			},
 			want: true,
@@ -59,9 +59,9 @@ func TestFlowProtocolFilter(t *testing.T) {
 		{
 			name: "icmp (v4)",
 			args: args{
-				f: []*pb.FlowFilter{{Protocol: []string{"icmp"}}},
-				ev: &v1.Event{Event: &pb.Flow{
-					L4: &pb.Layer4{Protocol: &pb.Layer4_ICMPv4{ICMPv4: &pb.ICMPv4{}}},
+				f: []*flowpb.FlowFilter{{Protocol: []string{"icmp"}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_ICMPv4{ICMPv4: &flowpb.ICMPv4{}}},
 				}},
 			},
 			want: true,
@@ -69,9 +69,9 @@ func TestFlowProtocolFilter(t *testing.T) {
 		{
 			name: "icmp (v6)",
 			args: args{
-				f: []*pb.FlowFilter{{Protocol: []string{"icmp"}}},
-				ev: &v1.Event{Event: &pb.Flow{
-					L4: &pb.Layer4{Protocol: &pb.Layer4_ICMPv6{ICMPv6: &pb.ICMPv6{}}},
+				f: []*flowpb.FlowFilter{{Protocol: []string{"icmp"}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_ICMPv6{ICMPv6: &flowpb.ICMPv6{}}},
 				}},
 			},
 			want: true,
@@ -79,9 +79,9 @@ func TestFlowProtocolFilter(t *testing.T) {
 		{
 			name: "multiple protocols",
 			args: args{
-				f: []*pb.FlowFilter{{Protocol: []string{"tcp", "kafka"}}},
-				ev: &v1.Event{Event: &pb.Flow{
-					L4: &pb.Layer4{Protocol: &pb.Layer4_TCP{TCP: &pb.TCP{}}},
+				f: []*flowpb.FlowFilter{{Protocol: []string{"tcp", "kafka"}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{}}},
 				}},
 			},
 			want: true,
@@ -89,7 +89,7 @@ func TestFlowProtocolFilter(t *testing.T) {
 		{
 			name: "invalid protocols",
 			args: args{
-				f: []*pb.FlowFilter{{Protocol: []string{"not a protocol"}}},
+				f: []*flowpb.FlowFilter{{Protocol: []string{"not a protocol"}}},
 			},
 			wantErr: true,
 		},

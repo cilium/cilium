@@ -17,7 +17,7 @@ package api
 import (
 	"strings"
 
-	"github.com/cilium/cilium/pkg/hubble/api/v1"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 
 	"github.com/prometheus/client_golang/prometheus"
 )
