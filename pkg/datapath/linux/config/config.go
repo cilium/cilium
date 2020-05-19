@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io"
+	"net"
 	"reflect"
 	"sort"
 
@@ -28,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
+	"github.com/cilium/cilium/pkg/datapath/link"
 	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
@@ -261,6 +263,38 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
 	}
 
+	if len(option.Config.Devices) > 0 {
+		// First device from the list is used for direct routing between nodes
+		directRoutingIface := option.Config.Devices[0]
+		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
+		if err != nil {
+			return err
+		}
+		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = fmt.Sprintf("%d", directRoutingIfIndex)
+
+		if option.Config.EnableIPv4 {
+			nodePortIPv4Addrs := node.GetNodePortIPv4AddrsWithDevices()
+			ipv4 := byteorder.HostSliceToNetwork(nodePortIPv4Addrs[directRoutingIface], reflect.Uint32).(uint32)
+			cDefinesMap["IPV4_DIRECT_ROUTING"] = fmt.Sprintf("%d", ipv4)
+		}
+
+		if option.Config.EnableIPv6 {
+			directRoutingIPv6 := node.GetNodePortIPv6AddrsWithDevices()[directRoutingIface]
+			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
+			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
+		}
+	} else {
+		var directRoutingIPv6 net.IP
+		cDefinesMap["DIRECT_ROUTING_DEV_IFINDEX"] = "0"
+		if option.Config.EnableIPv4 {
+			cDefinesMap["IPV4_DIRECT_ROUTING"] = "0"
+		}
+		if option.Config.EnableIPv6 {
+			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
+			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
+		}
+	}
+
 	if option.Config.EnableHostFirewall {
 		cDefinesMap["ENABLE_HOST_FIREWALL"] = "1"
 	}
@@ -404,16 +438,13 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 			// these values with zero for the host device and with the actual
 			// values for the native devices.
 			fmt.Fprint(fw, "/* Fake values, replaced by 0 for host device and by actual values for native devices. */\n")
-			fmt.Fprint(fw, defineUint32("DIRECT_ROUTING_DEV_IFINDEX", 1))
 			fmt.Fprint(fw, defineUint32("NATIVE_DEV_IFINDEX", 1))
 			if option.Config.EnableIPv6 {
 				placeholderIPv6 := []byte{1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1, 1}
-				fmt.Fprint(fw, defineIPv6("IPV6_DIRECT_ROUTING", placeholderIPv6))
 				fmt.Fprint(fw, defineIPv6("IPV6_NODEPORT", placeholderIPv6))
 			}
 			if option.Config.EnableIPv4 {
 				placeholderIPv4 := []byte{1, 1, 1, 1}
-				fmt.Fprint(fw, defineIPv4("IPV4_DIRECT_ROUTING", placeholderIPv4))
 				fmt.Fprint(fw, defineIPv4("IPV4_NODEPORT", placeholderIPv4))
 			}
 			fmt.Fprint(fw, "\n")

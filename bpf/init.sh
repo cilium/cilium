@@ -564,21 +564,6 @@ if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] ||
 			done
 		fi
 
-		NP_COPTS=""
-
-		if [ "$NODE_PORT" = "true" ] ; then
-			# First device from the list is used for direct routing between nodes
-			DIRECT_ROUTING_DEV=$(echo "${NATIVE_DEVS}" | cut -d\; -f1)
-			DIRECT_ROUTING_DEV_IDX=$(cat /sys/class/net/${DIRECT_ROUTING_DEV}/ifindex)
-			NP_COPTS="${NP_COPTS} -DDIRECT_ROUTING_DEV_IFINDEX=${DIRECT_ROUTING_DEV_IDX}"
-			if [ "$IP4_HOST" != "<nil>" ]; then
-				NP_COPTS="${NP_COPTS} -DIPV4_DIRECT_ROUTING=${v4_addrs[$DIRECT_ROUTING_DEV]}"
-			fi
-			if [ "$IP6_HOST" != "<nil>" ]; then
-				NP_COPTS="${NP_COPTS} -DIPV6_DIRECT_ROUTING_VAL={.addr={${v6_addrs[$DIRECT_ROUTING_DEV]}}}"
-			fi
-		fi
-
 		echo "$NATIVE_DEVS" > $RUNDIR/device.state
 	fi
 else
@@ -696,7 +681,7 @@ if [ "$XDP_DEV" != "<nil>" ]; then
 	fi
 	if [ "$NODE_PORT" = "true" ]; then
 		NATIVE_DEV_IDX=$(cat /sys/class/net/${XDP_DEV}/ifindex)
-		COPTS="${COPTS} ${NP_COPTS} -DNATIVE_DEV_IFINDEX=${NATIVE_DEV_IDX}"
+		COPTS="${COPTS} -DNATIVE_DEV_IFINDEX=${NATIVE_DEV_IDX}"
 		# Currently it assumes that XDP_DEV is listed among NATIVE_DEVS
 		if [ "$IP4_HOST" != "<nil>" ]; then
 			COPTS="${COPTS} -DIPV4_NODEPORT=${v4_addrs[$XDP_DEV]}"

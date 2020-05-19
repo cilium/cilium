@@ -30,16 +30,6 @@
 DEFINE_IPV6(IPV6_NODEPORT, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0);
 # define IPV6_NODEPORT_V
 #endif
-#ifndef DIRECT_ROUTING_DEV_IFINDEX
-#define DIRECT_ROUTING_DEV_IFINDEX 0
-#endif
-#if defined(ENABLE_IPV4) && !defined(IPV4_DIRECT_ROUTING)
-#define IPV4_DIRECT_ROUTING 0
-#endif
-#if defined(ENABLE_IPV6) && !defined(IPV6_DIRECT_ROUTING_V)
-DEFINE_IPV6(IPV6_DIRECT_ROUTING, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0x0, 0x1, 0x0, 0x1, 0x0, 0x0);
-# define IPV6_DIRECT_ROUTING_V
-#endif
 #endif /* ENABLE_NODEPORT */
 
 #ifdef IPV6_NODEPORT_VAL
@@ -50,16 +40,6 @@ DEFINE_IPV6(IPV6_DIRECT_ROUTING, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 
 	})
 #else
 # define BPF_V6_NODEPORT(dst)	BPF_V6(dst, IPV6_NODEPORT)
-#endif
-
-#ifdef IPV6_DIRECT_ROUTING_VAL
-# define BPF_V6_DIRECT_ROUTING(dst)				\
-	({						\
-		union v6addr tmp = IPV6_DIRECT_ROUTING_VAL;	\
-		dst = tmp;				\
-	})
-#else
-# define BPF_V6_DIRECT_ROUTING(dst)	BPF_V6(dst, IPV6_DIRECT_ROUTING)
 #endif
 
 static __always_inline __maybe_unused void
@@ -378,6 +358,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 {
 	int ifindex = DIRECT_ROUTING_DEV_IFINDEX;
 	int ret, dir = ctx_load_meta(ctx, CB_NAT);
+	union v6addr tmp = IPV6_DIRECT_ROUTING;
 	struct bpf_fib_lookup fib_params = {};
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
@@ -387,7 +368,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 
-	BPF_V6_DIRECT_ROUTING(target.addr);
+	target.addr = tmp;
 #ifdef ENCAP_IFINDEX
 	if (dir == NAT_DIR_EGRESS) {
 		struct remote_endpoint_info *info;

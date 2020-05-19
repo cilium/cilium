@@ -127,6 +127,16 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #endif
 #endif
 
+#ifdef ENABLE_NODEPORT
+# define DIRECT_ROUTING_DEV_IFINDEX 0
+# ifdef ENABLE_IPV4
+#  define IPV4_DIRECT_ROUTING 0
+# endif
+# ifdef ENABLE_IPV6
+#  define IPV6_DIRECT_ROUTING { .addr = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } }
+# endif
+#endif
+
 /* It appears that we can support around the below number of prefixes in an
  * unrolled loop for LPM CIDR handling in older kernels along with the rest of
  * the logic in the datapath, hence the defines below. This number was arrived
