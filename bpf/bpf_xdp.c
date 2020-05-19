@@ -71,7 +71,6 @@ struct bpf_elf_map __section_maps CIDR6_LMAP_NAME = {
 static __always_inline __maybe_unused int
 bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
 {
-	/* Undo meta data, so GRO can perform natural aggregation. */
 	if (verdict == CTX_ACT_OK) {
 		__u32 meta_xfer = ctx_load_meta(ctx, XFER_MARKER);
 
@@ -79,10 +78,13 @@ bpf_xdp_exit(struct __ctx_buff *ctx, const int verdict)
 		 * does not break packet trains in GRO.
 		 */
 		if (meta_xfer) {
-			ctx_adjust_meta(ctx, META_PIVOT - sizeof(__u32));
-			ctx_store_meta(ctx, 0, meta_xfer);
-		} else {
-			ctx_adjust_meta(ctx, META_PIVOT);
+			if (!ctx_adjust_meta(ctx, -(int)sizeof(meta_xfer))) {
+				__u32 *data_meta = ctx_data_meta(ctx);
+				__u32 *data = ctx_data(ctx);
+
+				if (!ctx_no_room(data_meta + 1, data))
+					data_meta[0] = meta_xfer;
+			}
 		}
 	}
 
@@ -223,8 +225,6 @@ static __always_inline int check_filters(struct __ctx_buff *ctx)
 	__u16 proto;
 
 	if (!validate_ethertype(ctx, &proto))
-		return CTX_ACT_OK;
-	if (ctx_adjust_meta(ctx, -META_PIVOT))
 		return CTX_ACT_OK;
 
 	ctx_store_meta(ctx, XFER_MARKER, 0);
