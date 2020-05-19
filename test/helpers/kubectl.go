@@ -158,6 +158,23 @@ var (
 		CIIntegrationMicrok8s: microk8sHelmOverrides,
 		CIIntegrationMinikube: minikubeHelmOverrides,
 	}
+
+	// resourcesToClean is the list of resources which should be cleaned
+	// from default namespace before tests are being run. It's not possible
+	// to delete all resources as services like "kubernetes" must be
+	// preserved. This helps reduce contamination between tests if tests
+	// are leaking resources into the default namespace for some reason.
+	resourcesToClean = []string{
+		"deployment",
+		"daemonset",
+		"rs",
+		"rc",
+		"statefulset",
+		"pods",
+		"netpol",
+		"cnp",
+		"cep",
+	}
 )
 
 // HelmOverride returns the value of a Helm override option for the currently
@@ -325,6 +342,9 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 		return nil
 	}
 
+	// Clean any leftover resources in the default namespace
+	k.CleanNamespace(DefaultNamespace)
+
 	return k
 }
 
@@ -413,6 +433,71 @@ func (kub *Kubectl) DeleteResourcesInAnyNamespace(resource string, names []strin
 	}
 
 	return nil
+}
+
+// ParallelResourceDelete deletes all instances of a resource in a namespace
+// based on the list of names provided. Waits until all delete API calls
+// return.
+func (kub *Kubectl) ParallelResourceDelete(namespace, resource string, names []string) {
+	ginkgoext.By("Deleting %s [%s] in namespace %s", resource, strings.Join(names, ","), namespace)
+	var wg sync.WaitGroup
+	for _, name := range names {
+		wg.Add(1)
+		go func(name string) {
+			cmd := fmt.Sprintf("%s -n %s delete %s %s",
+				KubectlCmd, namespace, resource, name)
+			res := kub.ExecShort(cmd)
+			if !res.WasSuccessful() {
+				ginkgoext.By("Unable to delete %s %s with '%s': %s",
+					resource, name, cmd, res.OutputPrettyPrint())
+
+			}
+			wg.Done()
+		}(name)
+	}
+	ginkgoext.By("Waiting for %d deletes to return (%s)",
+		len(names), strings.Join(names, ","))
+	wg.Wait()
+}
+
+// DeleteAllResourceInNamespace deletes all instances of a resource in a namespace
+func (kub *Kubectl) DeleteAllResourceInNamespace(namespace, resource string) {
+	cmd := fmt.Sprintf("%s -n %s get %s -o json | jq -r '[ .items[].metadata.name ]'",
+		KubectlCmd, namespace, resource)
+	res := kub.ExecShort(cmd)
+	if !res.WasSuccessful() {
+		ginkgoext.By("Unable to retrieve list of resource '%s' with '%s': %s",
+			resource, cmd, res.stdout.Bytes())
+		return
+	}
+
+	if len(res.stdout.Bytes()) > 0 {
+		var nameList []string
+		if err := res.Unmarshal(&nameList); err != nil {
+			ginkgoext.By("Unable to unmarshal string slice '%#v': %s",
+				res.OutputPrettyPrint(), err)
+			return
+		}
+
+		if len(nameList) > 0 {
+			kub.ParallelResourceDelete(namespace, resource, nameList)
+		}
+	}
+}
+
+// CleanNamespace removes all artifacts from a namespace
+func (kub *Kubectl) CleanNamespace(namespace string) {
+	var wg sync.WaitGroup
+
+	for _, resource := range resourcesToClean {
+		wg.Add(1)
+		go func(resource string) {
+			kub.DeleteAllResourceInNamespace(namespace, resource)
+			wg.Done()
+
+		}(resource)
+	}
+	wg.Wait()
 }
 
 // DeleteAllInNamespace deletes all namespaces except the ones provided in the
