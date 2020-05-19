@@ -544,6 +544,7 @@ func (kub *Kubectl) PrepareCluster() {
 		"default",
 		"kube-node-lease",
 		"kube-public",
+		"container-registry",
 	})
 	if err != nil {
 		ginkgoext.Failf("Unable to delete non-essential namespaces: %s", err)
