@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -18,6 +18,7 @@ package tools
 
 import (
 	_ "github.com/cilium/deepequal-gen"
+	_ "github.com/go-bindata/go-bindata/v3"
 	_ "k8s.io/code-generator"
 	_ "k8s.io/code-generator/cmd/client-gen"
 	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
