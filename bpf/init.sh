@@ -654,11 +654,9 @@ else
 	bpf_clear_cgroups $CGROUP_ROOT recvmsg6
 fi
 
-COPTS="-DPOD_ENDPOINT=1 -DSECLABEL=${ID_WORLD}"
-CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
-bpf_load $HOST_DEV2 "$COPTS" "ingress" bpf_host.c bpf_host.o to-host $CALLS_MAP
 if [ "$IPSEC" == "true" ]; then
 	if [ "$ENCRYPT_DEV" != "<nil>" ]; then
+		CALLS_MAP="cilium_calls_netdev_ns_${ID_HOST}"
 		bpf_load $ENCRYPT_DEV "" "ingress" bpf_network.c bpf_network.o from-network $CALLS_MAP
 	fi
 fi
