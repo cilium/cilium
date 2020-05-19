@@ -7,6 +7,20 @@ on:
       - master
 
 jobs:
+  preflight-clusterrole:
+    runs-on: ubuntu-latest
+    steps:
+      - uses: actions/checkout@v2
+      - name: Check pre-flight clusterrole
+        run: |
+          cd install/kubernetes/cilium/charts
+          echo "Checking for differences between preflight and agent clusterrole"
+          diff \
+             -I '^[ ]\{2\}name: cilium.*' \
+             -I '^Keep file in synced with.*' \
+             agent/templates/clusterrole.yaml \
+             preflight/templates/clusterrole.yaml
+
   quick-install:
     runs-on: ubuntu-latest
     steps:
