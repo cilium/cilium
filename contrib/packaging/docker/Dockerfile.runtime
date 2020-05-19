@@ -51,8 +51,8 @@ RUN apt-get update && \
     tar -xvf cni.tar.gz ./loopback && \
     strip -s ./loopback
 COPY --from=quay.io/cilium/cilium-llvm:2020-05-05 /bin/clang /bin/llc /bin/
-COPY --from=quay.io/cilium/cilium-bpftool:2020-05-05 /bin/bpftool /bin/
-COPY --from=quay.io/cilium/cilium-iproute2:2020-05-05 /bin/tc /bin/ip /bin/
+COPY --from=quay.io/cilium/cilium-bpftool:2020-05-20 /bin/bpftool /bin/
+COPY --from=quay.io/cilium/cilium-iproute2:2020-05-20 /bin/tc /bin/ip /bin/
 COPY --from=gops /go/bin/gops /bin/
 
 #
