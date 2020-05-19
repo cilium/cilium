@@ -156,26 +156,12 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	}
 
 	if option.Config.EnableNodePort {
-		// First device from the list is used for direct routing between nodes
-		directRoutingIface := option.Config.Devices[0]
-		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
-		if err != nil {
-			return err
-		}
-		opts["DIRECT_ROUTING_DEV_IFINDEX"] = directRoutingIfIndex
 		opts["NATIVE_DEV_IFINDEX"] = ifIndex
 		if option.Config.EnableIPv4 {
-			ipv4 := nodePortIPv4Addrs[directRoutingIface]
-			opts["IPV4_DIRECT_ROUTING"] = byteorder.HostSliceToNetwork(ipv4, reflect.Uint32).(uint32)
-			ipv4 = nodePortIPv4Addrs[ifName]
+			ipv4 := nodePortIPv4Addrs[ifName]
 			opts["IPV4_NODEPORT"] = byteorder.HostSliceToNetwork(ipv4, reflect.Uint32).(uint32)
 		}
 		if option.Config.EnableIPv6 {
-			directRoutingIPv6 := nodePortIPv6Addrs[directRoutingIface]
-			opts["IPV6_DIRECT_ROUTING_1"] = sliceToBe32(directRoutingIPv6[0:4])
-			opts["IPV6_DIRECT_ROUTING_2"] = sliceToBe32(directRoutingIPv6[4:8])
-			opts["IPV6_DIRECT_ROUTING_3"] = sliceToBe32(directRoutingIPv6[8:12])
-			opts["IPV6_DIRECT_ROUTING_4"] = sliceToBe32(directRoutingIPv6[12:16])
 			nodePortIPv6 := nodePortIPv6Addrs[ifName]
 			opts["IPV6_NODEPORT_1"] = sliceToBe32(nodePortIPv6[0:4])
 			opts["IPV6_NODEPORT_2"] = sliceToBe32(nodePortIPv6[4:8])

@@ -221,10 +221,6 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 	// These values are defined in nodeport.h regardless even for bpf_lxc (so
 	// regardless of whether it's the host endpoint).
 	if option.Config.EnableNodePort && option.Config.EnableIPv6 {
-		result["IPV6_DIRECT_ROUTING_1"] = 0
-		result["IPV6_DIRECT_ROUTING_2"] = 0
-		result["IPV6_DIRECT_ROUTING_3"] = 0
-		result["IPV6_DIRECT_ROUTING_4"] = 0
 		result["IPV6_NODEPORT_1"] = 0
 		result["IPV6_NODEPORT_2"] = 0
 		result["IPV6_NODEPORT_3"] = 0
@@ -233,10 +229,8 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 
 	if ep.IsHost() {
 		if option.Config.EnableNodePort {
-			result["DIRECT_ROUTING_DEV_IFINDEX"] = 0
 			result["NATIVE_DEV_IFINDEX"] = 0
 			if option.Config.EnableIPv4 {
-				result["IPV4_DIRECT_ROUTING"] = 0
 				result["IPV4_NODEPORT"] = 0
 			}
 		}
