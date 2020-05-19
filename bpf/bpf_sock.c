@@ -155,8 +155,9 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb4_key *lkey,
 					       __u16 rev_nat_id)
 {
+	struct ipv4_revnat_entry rval = {}, *tmp;
 	struct ipv4_revnat_tuple rkey = {};
-	struct ipv4_revnat_entry rval = {};
+	int ret = 0;
 
 	rkey.cookie = sock_local_cookie(ctx);
 	rkey.address = backend->address;
@@ -166,8 +167,11 @@ static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 	rval.port = lkey->dport;
 	rval.rev_nat_index = rev_nat_id;
 
-	return map_update_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey,
-			       &rval, 0);
+	tmp = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey);
+	if (!tmp || memcmp(tmp, &rval, sizeof(rval)))
+		ret = map_update_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey,
+				      &rval, 0);
+	return ret;
 }
 #else
 static __always_inline
@@ -455,8 +459,9 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb6_key *lkey,
 					       __u16 rev_nat_index)
 {
+	struct ipv6_revnat_entry rval = {}, *tmp;
 	struct ipv6_revnat_tuple rkey = {};
-	struct ipv6_revnat_entry rval = {};
+	int ret = 0;
 
 	rkey.cookie = sock_local_cookie(ctx);
 	rkey.address = backend->address;
@@ -466,8 +471,11 @@ static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 	rval.port = lkey->dport;
 	rval.rev_nat_index = rev_nat_index;
 
-	return map_update_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey,
-			       &rval, 0);
+	tmp = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey);
+	if (!tmp || memcmp(tmp, &rval, sizeof(rval)))
+		ret = map_update_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey,
+				      &rval, 0);
+	return ret;
 }
 #else
 static __always_inline
