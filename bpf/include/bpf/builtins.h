@@ -16,6 +16,7 @@
 #define __it(x, op) (x -= sizeof(__u##op))
 #define __it_set(a, op) (*(__u##op *)__it(a, op)) = 0
 #define __it_mov(a, b, op) (*(__u##op *)__it(a, op)) = (*(__u##op *)__it(b, op))
+#define __it_xor(a, b, r, op) r |= (*(__u##op *)__it(a, op)) ^ (*(__u##op *)__it(b, op))
 
 static __always_inline __maybe_unused void
 __bpf_memset_builtin(void *d, __u8 c, __u64 len)
@@ -240,13 +241,86 @@ static __always_inline __nobuiltin("memcpy") void memcpy(void *d, const void *s,
 	return __bpf_memcpy(d, s, len);
 }
 
+static __always_inline __maybe_unused __u64
+__bpf_memcmp_builtin(const void *x, const void *y, __u64 len)
+{
+	/* Explicit opt-in for __builtin_memcmp(). */
+	return __builtin_memcmp(x, y, len);
+}
+
+static __always_inline __u64 __bpf_memcmp(const void *x, const void *y,
+					  __u64 len)
+{
+#if __clang_major__ >= 10
+	__u64 r = 0;
+
+	if (!__builtin_constant_p(len))
+		__throw_build_bug();
+
+	x += len;
+	y += len;
+
+	switch (len) {
+	case 32:         __it_xor(x, y, r, 64);
+	case 24: jmp_24: __it_xor(x, y, r, 64);
+	case 16: jmp_16: __it_xor(x, y, r, 64);
+	case  8: jmp_8:  __it_xor(x, y, r, 64);
+		break;
+
+	case 30: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32); goto jmp_24;
+	case 22: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32); goto jmp_16;
+	case 14: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32); goto jmp_8;
+	case  6: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32);
+		 break;
+
+	case 28: __it_xor(x, y, r, 32); goto jmp_24;
+	case 20: __it_xor(x, y, r, 32); goto jmp_16;
+	case 12: __it_xor(x, y, r, 32); goto jmp_8;
+	case  4: __it_xor(x, y, r, 32);
+		 break;
+
+	case 26: __it_xor(x, y, r, 16); goto jmp_24;
+	case 18: __it_xor(x, y, r, 16); goto jmp_16;
+	case 10: __it_xor(x, y, r, 16); goto jmp_8;
+	case  2: __it_xor(x, y, r, 16);
+		 break;
+
+	case  1: __it_xor(x, y, r, 8);
+		break;
+
+	default:
+		__throw_build_bug();
+	}
+
+	return r;
+#else
+	return __bpf_memcmp_builtin(x, y, len);
+#endif
+}
+
+static __always_inline __maybe_unused __u64
+__bpf_no_builtin_memcmp(const void *x __maybe_unused,
+			const void *y __maybe_unused, __u64 len __maybe_unused)
+{
+	__throw_build_bug();
+	return 0;
+}
+
+/* Redirect any direct use in our code to throw an error. */
+#define __builtin_memcmp	__bpf_no_builtin_memcmp
+
+/* Modified for our needs in that we only return either zero (x and y
+ * are equal) or non-zero (x and y are non-equal).
+ */
+static __always_inline __nobuiltin("memcmp") __u64 memcmp(const void *x,
+							  const void *y,
+							  __u64 len)
+{
+	return __bpf_memcmp(x, y, len);
+}
+
 #ifndef memmove
 # define memmove(D, S, N)	__builtin_memmove((D), (S), (N))
-#endif
-
-/* NOTE: https://llvm.org/bugs/show_bug.cgi?id=26218 */
-#ifndef memcmp
-# define memcmp(A, B, N)	__builtin_memcmp((A), (B), (N))
 #endif
 
 #endif /* __non_bpf_context */
