@@ -12,6 +12,8 @@
 #include "common.h"
 #include "../helpers_xdp.h"
 #include "../builtins.h"
+#include "../section.h"
+#include "../loader.h"
 
 #define CTX_ACT_OK			XDP_PASS
 #define CTX_ACT_DROP			XDP_DROP
@@ -270,31 +272,33 @@ ctx_full_len(const struct xdp_md *ctx)
 	return ctx_data_end(ctx) - ctx_data(ctx);
 }
 
-static __always_inline __maybe_unused void
-ctx_store_meta(struct xdp_md *ctx, const __u64 off, __u32 datum)
-{
-	__u32 *data_meta = ctx_data_meta(ctx);
-	void *data = ctx_data(ctx);
+struct bpf_elf_map __section_maps cilium_xdp_scratch = {
+	.type		= BPF_MAP_TYPE_PERCPU_ARRAY,
+	.size_key	= sizeof(int),
+	.size_value	= META_PIVOT,
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= 1,
+};
 
-	if (!ctx_no_room(data_meta + off + 1, data)) {
+static __always_inline __maybe_unused void
+ctx_store_meta(struct xdp_md *ctx __maybe_unused, const __u64 off, __u32 datum)
+{
+	__u32 zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
+
+	if (always_succeeds(data_meta))
 		data_meta[off] = datum;
-	} else {
-		build_bug_on((off + 1) * sizeof(__u32) > META_PIVOT);
-	}
+	build_bug_on((off + 1) * sizeof(__u32) > META_PIVOT);
 }
 
 static __always_inline __maybe_unused __u32
-ctx_load_meta(const struct xdp_md *ctx, const __u64 off)
+ctx_load_meta(const struct xdp_md *ctx __maybe_unused, const __u64 off)
 {
-	__u32 *data_meta = ctx_data_meta(ctx);
-	void *data = ctx_data(ctx);
+	__u32 zero = 0, *data_meta = map_lookup_elem(&cilium_xdp_scratch, &zero);
 
-	if (!ctx_no_room(data_meta + off + 1, data)) {
+	if (always_succeeds(data_meta))
 		return data_meta[off];
-	} else {
-		build_bug_on((off + 1) * sizeof(__u32) > META_PIVOT);
-		return 0;
-	}
+	build_bug_on((off + 1) * sizeof(__u32) > META_PIVOT);
+	return 0;
 }
 
 static __always_inline __maybe_unused __u32
