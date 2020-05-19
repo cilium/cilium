@@ -331,6 +331,18 @@ func (m *GetFlowsResponse) Validate() error {
 			}
 		}
 
+	case *GetFlowsResponse_NodeStatus:
+
+		if v, ok := interface{}(m.GetNodeStatus()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GetFlowsResponseValidationError{
+					field:  "NodeStatus",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil

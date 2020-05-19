@@ -6,7 +6,8 @@ PROTOC ?= protoc
 HUBBLE_PROTO_SOURCES := \
 	./flow/flow.proto \
 	./peer/peer.proto \
-	./observer/observer.proto
+	./observer/observer.proto \
+	./relay/relay.proto
 
 HUBBLE_GO_TARGETS := $(HUBBLE_PROTO_SOURCES:.proto=.pb.go) $(HUBBLE_PROTO_SOURCES:.proto=.pb.validate.go)
 
@@ -22,6 +23,7 @@ PROTO_DEPS = \
 RAW_GO_MAPPINGS += google/protobuf/timestamp.proto=github.com/golang/protobuf/ptypes/timestamp/
 RAW_GO_MAPPINGS += flow/flow.proto=github.com/cilium/cilium/api/v1/flow/
 RAW_GO_MAPPINGS += observer/observer.proto=github.com/cilium/cilium/api/v1/observer/
+RAW_GO_MAPPINGS += relay/relay.proto=github.com/cilium/cilium/api/v1/relay/
 
 # Add mapping separators and remove the trailing slash
 # but first create "/ " and ",M"

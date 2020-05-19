@@ -16,6 +16,7 @@ syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
 import public "flow/flow.proto";
+import "relay/relay.proto";
 
 package observer;
 
@@ -90,6 +91,9 @@ message GetFlowsRequest {
 message GetFlowsResponse {
     oneof response_types{
         flow.Flow flow = 1;
+        // node_status informs clients about the state of the nodes
+        // participating in this particular GetFlows request.
+        relay.NodeStatusEvent node_status = 2;
     }
     // Name of the node where this event was observed.
     string node_name = 1000;
