@@ -38,6 +38,7 @@ file.
     .. parsed-literal::
 
       helm template |CHART_RELEASE| \\
+        --namespace=kube-system \\
         --set preflight.enabled=true \\
         --set agent.enabled=false \\
         --set config.enabled=false \\
@@ -61,6 +62,7 @@ file.
     .. parsed-literal::
 
       helm template |CHART_RELEASE| \\
+        --namespace=kube-system \\
         --set preflight.enabled=true \\
         --set agent.enabled=false \\
         --set config.enabled=false \\
