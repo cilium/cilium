@@ -52,6 +52,7 @@ spec:
               - /tmp/ready-validate-cnp
             initialDelaySeconds: 5
             periodSeconds: 5
+{{- if or ( ( not ( empty ( .Values.global.k8sServiceHost))) ( ( not ( empty ( .Values.global.k8sServicePort ))))) }}
           env:
 {{- if .Values.global.k8sServiceHost }}
           - name: KUBERNETES_SERVICE_HOST
@@ -60,6 +61,7 @@ spec:
 {{- if .Values.global.k8sServicePort }}
           - name: KUBERNETES_SERVICE_PORT
             value: {{ .Values.global.k8sServicePort | quote }}
+{{- end }}
 {{- end }}
 {{- end }}
       hostNetwork: true
