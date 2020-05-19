@@ -26,6 +26,7 @@ require (
 	github.com/docker/libnetwork v0.0.0-20190128195551-d8d4c8cf03d7
 	github.com/envoyproxy/protoc-gen-validate v0.4.0
 	github.com/fsnotify/fsnotify v1.4.10-0.20200417215612-7f4cf4dd2b52
+	github.com/go-bindata/go-bindata/v3 v3.1.3
 	github.com/go-openapi/errors v0.19.6
 	github.com/go-openapi/loads v0.19.5
 	github.com/go-openapi/runtime v0.19.20
