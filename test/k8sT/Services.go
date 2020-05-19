@@ -1198,7 +1198,7 @@ var _ = Describe("K8sServicesTest", func() {
 						doRequestsFromThirdHostWithLocalPort(svc2URL, 1, false, 64002)
 					})
 
-					SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with MetalLB", func() {
+					SkipContextIf(helpers.DoesNotSupportMetalLB, "Tests with MetalLB, GH#10763", func() {
 						var (
 							metalLB string
 						)
