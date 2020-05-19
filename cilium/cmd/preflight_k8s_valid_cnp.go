@@ -32,6 +32,8 @@ import (
 	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
+	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -52,7 +54,10 @@ has an exit code -1 is returned.`,
 	},
 }
 
-const validateK8sPoliciesTimeout = 5 * time.Minute
+const (
+	validateK8sPoliciesTimeout = 5 * time.Minute
+	ciliumGroup                = "cilium.io"
+)
 
 func validateCNPs() error {
 	// The internal packages log things. Make sure they follow the setup of of
@@ -70,13 +75,22 @@ func validateCNPs() error {
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}
 
+	restConfig, err := k8s.CreateConfig()
+	if err != nil {
+		return fmt.Errorf("Unable to create rest configuration for k8s CRD: %w", err)
+	}
+	apiExtensionsClient, err := apiextensionsclient.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("Unable to create API extensions clientset for k8s CRD: %w", err)
+	}
+
 	ctx, initCancel := context.WithTimeout(context.Background(), validateK8sPoliciesTimeout)
 	defer initCancel()
-	cnpErr := validateNPResources(ctx, "ciliumnetworkpolicies", "CiliumNetworkPolicy")
+	cnpErr := validateNPResources(ctx, apiExtensionsClient, "ciliumnetworkpolicies", "CiliumNetworkPolicy")
 
 	ctx, initCancel2 := context.WithTimeout(context.Background(), validateK8sPoliciesTimeout)
 	defer initCancel2()
-	ccnpErr := validateNPResources(ctx, "ciliumclusterwidenetworkpolicies", "CiliumClusterwideNetworkPolicy")
+	ccnpErr := validateNPResources(ctx, apiExtensionsClient, "ciliumclusterwidenetworkpolicies", "CiliumClusterwideNetworkPolicy")
 
 	if cnpErr != nil {
 		return cnpErr
@@ -88,9 +102,19 @@ func validateCNPs() error {
 	return nil
 }
 
-func validateNPResources(ctx context.Context, name, shortName string) error {
+func validateNPResources(ctx context.Context, apiExtensionsClient *apiextensionsclient.Clientset, name, shortName string) error {
+	// check if the crd is installed at all
+	_, err := apiExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get(ctx, name+"."+ciliumGroup, metav1.GetOptions{})
+	switch {
+	case err == nil:
+	case k8sErrors.IsNotFound(err):
+		return nil
+	default:
+		return err
+	}
+
 	var internal apiextensionsinternal.CustomResourceValidation
-	err := v1beta1.Convert_v1beta1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(
+	err = v1beta1.Convert_v1beta1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(
 		&v2_client.CNPCRV,
 		&internal,
 		nil,
