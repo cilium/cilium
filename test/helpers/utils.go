@@ -531,6 +531,11 @@ func DoesNotExistNodeWithoutCilium() bool {
 	return !ExistNodeWithoutCilium()
 }
 
+// DoesNotSupportMetalLB tells whether our CI can run MetalLB
+func DoesNotSupportMetalLB() bool {
+	return true
+}
+
 // GetNodeWithoutCilium returns a name of a node which does not run cilium.
 func GetNodeWithoutCilium() string {
 	return os.Getenv("NO_CILIUM_ON_NODE")
