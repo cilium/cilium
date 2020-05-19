@@ -224,6 +224,9 @@ github.com/fatih/color
 github.com/fsnotify/fsnotify
 # github.com/ghodss/yaml v1.0.0
 github.com/ghodss/yaml
+# github.com/go-bindata/go-bindata/v3 v3.1.3
+## explicit
+github.com/go-bindata/go-bindata/v3
 # github.com/go-logr/logr v0.2.0
 github.com/go-logr/logr
 # github.com/go-ole/go-ole v1.2.4
@@ -403,6 +406,9 @@ github.com/json-iterator/go
 # github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd
 ## explicit
 github.com/kevinburke/ssh_config
+# github.com/kisielk/errcheck v1.2.0
+github.com/kisielk/errcheck
+github.com/kisielk/errcheck/internal/errcheck
 # github.com/konsorten/go-windows-terminal-sequences v1.0.3
 github.com/konsorten/go-windows-terminal-sequences
 # github.com/kr/pretty v0.2.0
