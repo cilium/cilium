@@ -33,6 +33,8 @@ const (
 	// HostDevice is the name of the device that connects the cilium IP
 	// space with the host's networking model
 	HostDevice = "cilium_host"
+	// SecondHostDevice is the name of the second interface of the host veth pair.
+	SecondHostDevice = "cilium_net"
 )
 
 var (

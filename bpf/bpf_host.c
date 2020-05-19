@@ -5,13 +5,9 @@
 #include <bpf/api.h>
 
 #include <node_config.h>
-#ifdef POD_ENDPOINT
-# include <netdev_config.h>
-#else
-# include <ep_config.h>
-# define EVENT_SOURCE HOST_EP_ID
-#endif
+#include <ep_config.h>
 
+#define EVENT_SOURCE HOST_EP_ID
 
 /* These are configuartion options which have a default value in their
  * respective header files and must thus be defined beforehand:

@@ -29,9 +29,11 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
 	"github.com/cilium/cilium/pkg/datapath/loader/metrics"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 
 	"github.com/vishvananda/netlink"
@@ -72,11 +74,21 @@ func (s *LoaderTestSuite) SetUpSuite(c *C) {
 	sourceFile := filepath.Join(bpfDir, endpointProg)
 	err = os.Symlink(sourceFile, endpointProg)
 	c.Assert(err, IsNil)
+	sourceFile = filepath.Join(bpfDir, hostEndpointProg)
+	err = os.Symlink(sourceFile, hostEndpointProg)
+	c.Assert(err, IsNil)
+
+	// Set datapath in ipvlan mode to avoid loading the second master device.
+	// Loading that second device requires a proper compilation of the
+	// bpf_host.o object file with the adtual endpoint configurations, and not
+	// just the template compilation as we test here.
+	option.Config.DatapathMode = datapathOption.DatapathModeIpvlan
 }
 
 func (s *LoaderTestSuite) TearDownSuite(c *C) {
 	SetTestIncludes(nil)
 	os.RemoveAll(endpointProg)
+	os.RemoveAll(hostEndpointProg)
 }
 
 func (s *LoaderTestSuite) TearDownTest(c *C) {
