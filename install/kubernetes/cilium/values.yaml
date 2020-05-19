@@ -210,6 +210,11 @@ global:
     # binPath si the path to the CNI binary directory on the host
     binPath: /opt/cni/bin
 
+    # readCniConf allows you to specifiy the path to a CNI config to read from on agent start
+    # This can be useful it you want to manage your CNI configuration outside of a Kubernetes
+    # This parameter is mutually exclusive with the following configMap parameter
+    # readCniConf: /host/etc/cni/net.d/05-cilium.conf
+
     # configMap when defined, will mount the provided value as ConfigMap  and
     # interpret the cniConf variable as CNI configuration file and write it
     # when the agent starts up
