@@ -17,7 +17,7 @@ package getters
 import (
 	"net"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/ipcache"
@@ -50,5 +50,5 @@ type IPGetter interface {
 
 // ServiceGetter fetches service metadata.
 type ServiceGetter interface {
-	GetServiceByAddr(ip net.IP, port uint16) (service pb.Service, ok bool)
+	GetServiceByAddr(ip net.IP, port uint16) (service flowpb.Service, ok bool)
 }

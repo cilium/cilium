@@ -20,13 +20,13 @@ import (
 	"context"
 	"testing"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
 func Test_filterByReplyField(t *testing.T) {
 	type args struct {
-		f  []*pb.FlowFilter
+		f  []*flowpb.FlowFilter
 		ev *v1.Event
 	}
 	tests := []struct {
@@ -38,7 +38,7 @@ func Test_filterByReplyField(t *testing.T) {
 		{
 			name: "nil flow",
 			args: args{
-				f:  []*pb.FlowFilter{{Reply: []bool{true}}},
+				f:  []*flowpb.FlowFilter{{Reply: []bool{true}}},
 				ev: &v1.Event{},
 			},
 			want: false,
@@ -46,48 +46,48 @@ func Test_filterByReplyField(t *testing.T) {
 		{
 			name: "empty-param",
 			args: args{
-				f:  []*pb.FlowFilter{{Reply: []bool{}}},
-				ev: &v1.Event{Event: &pb.Flow{Reply: true}},
+				f:  []*flowpb.FlowFilter{{Reply: []bool{}}},
+				ev: &v1.Event{Event: &flowpb.Flow{Reply: true}},
 			},
 			want: true,
 		},
 		{
 			name: "empty-param-2",
 			args: args{
-				f:  []*pb.FlowFilter{{Reply: []bool{}}},
-				ev: &v1.Event{Event: &pb.Flow{Reply: false}},
+				f:  []*flowpb.FlowFilter{{Reply: []bool{}}},
+				ev: &v1.Event{Event: &flowpb.Flow{Reply: false}},
 			},
 			want: true,
 		},
 		{
 			name: "no-reply",
 			args: args{
-				f:  []*pb.FlowFilter{{Reply: []bool{false}}},
-				ev: &v1.Event{Event: &pb.Flow{Reply: false}},
+				f:  []*flowpb.FlowFilter{{Reply: []bool{false}}},
+				ev: &v1.Event{Event: &flowpb.Flow{Reply: false}},
 			},
 			want: true,
 		},
 		{
 			name: "reply",
 			args: args{
-				f:  []*pb.FlowFilter{{Reply: []bool{true}}},
-				ev: &v1.Event{Event: &pb.Flow{Reply: true}},
+				f:  []*flowpb.FlowFilter{{Reply: []bool{true}}},
+				ev: &v1.Event{Event: &flowpb.Flow{Reply: true}},
 			},
 			want: true,
 		},
 		{
 			name: "no-match",
 			args: args{
-				f:  []*pb.FlowFilter{{Reply: []bool{true}}},
-				ev: &v1.Event{Event: &pb.Flow{Reply: false}},
+				f:  []*flowpb.FlowFilter{{Reply: []bool{true}}},
+				ev: &v1.Event{Event: &flowpb.Flow{Reply: false}},
 			},
 			want: false,
 		},
 		{
 			name: "no-match-2",
 			args: args{
-				f:  []*pb.FlowFilter{{Reply: []bool{false}}},
-				ev: &v1.Event{Event: &pb.Flow{Reply: true}},
+				f:  []*flowpb.FlowFilter{{Reply: []bool{false}}},
+				ev: &v1.Event{Event: &flowpb.Flow{Reply: true}},
 			},
 			want: false,
 		},

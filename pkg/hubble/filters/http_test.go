@@ -20,20 +20,20 @@ import (
 	"context"
 	"testing"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
 func TestHttpStatusCodeFilter(t *testing.T) {
-	httpFlow := func(http *pb.HTTP) *v1.Event {
+	httpFlow := func(http *flowpb.HTTP) *v1.Event {
 		return &v1.Event{
-			Event: &pb.Flow{
-				EventType: &pb.CiliumEventType{
+			Event: &flowpb.Flow{
+				EventType: &flowpb.CiliumEventType{
 					Type: api.MessageTypeAccessLog,
 				},
-				L7: &pb.Layer7{
-					Record: &pb.Layer7_Http{
+				L7: &flowpb.Layer7{
+					Record: &flowpb.Layer7_Http{
 						Http: http,
 					},
 				}},
@@ -41,7 +41,7 @@ func TestHttpStatusCodeFilter(t *testing.T) {
 	}
 
 	type args struct {
-		f  []*pb.FlowFilter
+		f  []*flowpb.FlowFilter
 		ev []*v1.Event
 	}
 	tests := []struct {
@@ -53,17 +53,17 @@ func TestHttpStatusCodeFilter(t *testing.T) {
 		{
 			name: "status code full",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						HttpStatusCode: []string{"200", "302"},
-						EventType:      []*pb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+						EventType:      []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&pb.HTTP{Code: 200}),
-					httpFlow(&pb.HTTP{Code: 302}),
-					httpFlow(&pb.HTTP{Code: 404}),
-					httpFlow(&pb.HTTP{Code: 500}),
+					httpFlow(&flowpb.HTTP{Code: 200}),
+					httpFlow(&flowpb.HTTP{Code: 302}),
+					httpFlow(&flowpb.HTTP{Code: 404}),
+					httpFlow(&flowpb.HTTP{Code: 500}),
 				},
 			},
 			want: []bool{
@@ -77,22 +77,22 @@ func TestHttpStatusCodeFilter(t *testing.T) {
 		{
 			name: "status code prefix",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						HttpStatusCode: []string{"40+", "5+"},
-						EventType:      []*pb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+						EventType:      []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&pb.HTTP{Code: 302}),
-					httpFlow(&pb.HTTP{Code: 400}),
-					httpFlow(&pb.HTTP{Code: 404}),
-					httpFlow(&pb.HTTP{Code: 410}),
-					httpFlow(&pb.HTTP{Code: 004}),
-					httpFlow(&pb.HTTP{Code: 500}),
-					httpFlow(&pb.HTTP{Code: 501}),
-					httpFlow(&pb.HTTP{Code: 510}),
-					httpFlow(&pb.HTTP{Code: 050}),
+					httpFlow(&flowpb.HTTP{Code: 302}),
+					httpFlow(&flowpb.HTTP{Code: 400}),
+					httpFlow(&flowpb.HTTP{Code: 404}),
+					httpFlow(&flowpb.HTTP{Code: 410}),
+					httpFlow(&flowpb.HTTP{Code: 004}),
+					httpFlow(&flowpb.HTTP{Code: 500}),
+					httpFlow(&flowpb.HTTP{Code: 501}),
+					httpFlow(&flowpb.HTTP{Code: 510}),
+					httpFlow(&flowpb.HTTP{Code: 050}),
 				},
 			},
 			want: []bool{
@@ -111,16 +111,16 @@ func TestHttpStatusCodeFilter(t *testing.T) {
 		{
 			name: "invalid data",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						HttpStatusCode: []string{"200"},
-						EventType:      []*pb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+						EventType:      []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
 					},
 				},
 				ev: []*v1.Event{
-					{Event: &pb.Flow{}},
-					httpFlow(&pb.HTTP{}),
-					httpFlow(&pb.HTTP{Code: 777}),
+					{Event: &flowpb.Flow{}},
+					httpFlow(&flowpb.HTTP{}),
+					httpFlow(&flowpb.HTTP{Code: 777}),
 				},
 			},
 			want: []bool{
@@ -133,10 +133,10 @@ func TestHttpStatusCodeFilter(t *testing.T) {
 		{
 			name: "invalid empty filter",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						HttpStatusCode: []string{""},
-						EventType:      []*pb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+						EventType:      []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
 					},
 				},
 			},
@@ -145,10 +145,10 @@ func TestHttpStatusCodeFilter(t *testing.T) {
 		{
 			name: "invalid catch-all prefix",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						HttpStatusCode: []string{"+"},
-						EventType:      []*pb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+						EventType:      []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
 					},
 				},
 			},
@@ -157,10 +157,10 @@ func TestHttpStatusCodeFilter(t *testing.T) {
 		{
 			name: "invalid status code",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						HttpStatusCode: []string{"909"},
-						EventType:      []*pb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+						EventType:      []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
 					},
 				},
 			},
@@ -169,10 +169,10 @@ func TestHttpStatusCodeFilter(t *testing.T) {
 		{
 			name: "invalid status code prefix",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						HttpStatusCode: []string{"3++"},
-						EventType:      []*pb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+						EventType:      []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
 					},
 				},
 			},
@@ -181,10 +181,10 @@ func TestHttpStatusCodeFilter(t *testing.T) {
 		{
 			name: "invalid status code prefix",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						HttpStatusCode: []string{"3+0"},
-						EventType:      []*pb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+						EventType:      []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
 					},
 				},
 			},
@@ -193,14 +193,14 @@ func TestHttpStatusCodeFilter(t *testing.T) {
 		{
 			name: "empty event type filter",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						HttpStatusCode: []string{"200"},
-						EventType:      []*pb.EventTypeFilter{},
+						EventType:      []*flowpb.EventTypeFilter{},
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&pb.HTTP{Code: 200}),
+					httpFlow(&flowpb.HTTP{Code: 200}),
 				},
 			},
 			want: []bool{
@@ -211,17 +211,17 @@ func TestHttpStatusCodeFilter(t *testing.T) {
 		{
 			name: "compatible event type filter",
 			args: args{
-				f: []*pb.FlowFilter{
+				f: []*flowpb.FlowFilter{
 					{
 						HttpStatusCode: []string{"200"},
-						EventType: []*pb.EventTypeFilter{
+						EventType: []*flowpb.EventTypeFilter{
 							{Type: api.MessageTypeAccessLog},
 							{Type: api.MessageTypeTrace},
 						},
 					},
 				},
 				ev: []*v1.Event{
-					httpFlow(&pb.HTTP{Code: 200}),
+					httpFlow(&flowpb.HTTP{Code: 200}),
 				},
 			},
 			want: []bool{

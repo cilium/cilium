@@ -23,7 +23,7 @@ import (
 	"testing"
 	"time"
 
-	"github.com/cilium/cilium/pkg/hubble/api/v1"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/stretchr/testify/assert"

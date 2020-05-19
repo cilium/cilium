@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"strconv"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
@@ -71,7 +71,7 @@ func filterByPort(portStrs []string, getPort func(*v1.Event) (port uint16, ok bo
 type PortFilter struct{}
 
 // OnBuildFilter builds a L4 port filter
-func (p *PortFilter) OnBuildFilter(ctx context.Context, ff *pb.FlowFilter) ([]FilterFunc, error) {
+func (p *PortFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]FilterFunc, error) {
 	var fs []FilterFunc
 
 	if ff.GetSourcePort() != nil {

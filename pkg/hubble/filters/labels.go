@@ -19,7 +19,7 @@ import (
 	"fmt"
 	"regexp"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	k8sLabels "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	ciliumLabels "github.com/cilium/cilium/pkg/labels"
@@ -82,7 +82,7 @@ func FilterByLabelSelectors(labelSelectors []string, getLabels func(*v1.Event) k
 type LabelsFilter struct{}
 
 // OnBuildFilter builds a labels filter
-func (l *LabelsFilter) OnBuildFilter(ctx context.Context, ff *pb.FlowFilter) ([]FilterFunc, error) {
+func (l *LabelsFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]FilterFunc, error) {
 	var fs []FilterFunc
 
 	if ff.GetSourceLabel() != nil {

@@ -18,8 +18,8 @@ import (
 	"strconv"
 	"time"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/api/v1"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -76,9 +76,9 @@ func (h *httpHandler) ProcessFlow(flow v1.Flow) {
 		return
 	}
 	labelValues := h.context.GetLabelValues(flow)
-	if l7.Type == pb.L7FlowType_REQUEST {
+	if l7.Type == flowpb.L7FlowType_REQUEST {
 		h.requests.WithLabelValues(append(labelValues, http.Method, http.Protocol)...).Inc()
-	} else if l7.Type == pb.L7FlowType_RESPONSE {
+	} else if l7.Type == flowpb.L7FlowType_RESPONSE {
 		status := strconv.Itoa(int(http.Code))
 		h.responses.WithLabelValues(append(labelValues, status, http.Method)...).Inc()
 		h.duration.WithLabelValues(append(labelValues, http.Method)...).Observe(float64(l7.LatencyNs) / float64(time.Second))

@@ -1,4 +1,5 @@
 // Copyright 2019 Authors of Hubble
+// Copyright 2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -17,7 +18,4 @@ package v1
 const (
 	// ObserverServiceName is the name of the observer service for the grpc health check
 	ObserverServiceName = "hubble.server.Observer"
-
-	// K8sNamespaceTag is the label tag which denotes the namespace.
-	K8sNamespaceTag = "k8s:io.kubernetes.pod.namespace"
 )

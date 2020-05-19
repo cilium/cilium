@@ -17,8 +17,8 @@ package portdistribution
 import (
 	"fmt"
 
-	pb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/api/v1"
+	flowpb "github.com/cilium/cilium/api/v1/flow"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -54,7 +54,7 @@ func (h *portDistributionHandler) Status() string {
 }
 
 func (h *portDistributionHandler) ProcessFlow(flow v1.Flow) {
-	if flow.GetVerdict() != pb.Verdict_FORWARDED || flow.GetL4() == nil || flow.GetReply() {
+	if flow.GetVerdict() != flowpb.Verdict_FORWARDED || flow.GetL4() == nil || flow.GetReply() {
 		return
 	}
 

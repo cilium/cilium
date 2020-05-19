@@ -15,7 +15,7 @@
 package icmp
 
 import (
-	"github.com/cilium/cilium/pkg/hubble/api/v1"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/metrics/api"
 
 	"github.com/google/gopacket/layers"
