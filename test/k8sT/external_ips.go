@@ -185,8 +185,6 @@ var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
 			return
 		}
 		_ = kubectl.NamespaceDelete(namespaceTest)
-		kubectl.DeleteCiliumDS()
-		ExpectAllPodsTerminated(kubectl)
 		kubectl.CloseSSHClient()
 	})
 

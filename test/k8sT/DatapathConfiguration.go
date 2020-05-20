@@ -45,8 +45,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	AfterEach(func() {
 		deploymentManager.DeleteAll()
-		// FIXME(tgraf) Is this really needed?
-		deploymentManager.DeleteCilium()
 	})
 
 	AfterFailed(func() {
@@ -56,7 +54,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	AfterAll(func() {
-		DeployCiliumAndDNS(kubectl, helpers.TimestampFilename("cilium.yaml"))
 		kubectl.CloseSSHClient()
 	})
 

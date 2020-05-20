@@ -34,7 +34,6 @@ var _ = Describe("K8sConformance", func() {
 
 	AfterEach(func() {
 		kubectl.Delete(connectivityCheckYaml)
-		kubectl.DeleteCiliumDS()
 		ExpectAllPodsTerminated(kubectl)
 	})
 
@@ -44,7 +43,6 @@ var _ = Describe("K8sConformance", func() {
 	})
 
 	AfterAll(func() {
-		DeployCiliumAndDNS(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 

@@ -62,8 +62,6 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 	})
 
 	AfterAll(func() {
-		kubectl.DeleteCiliumDS()
-		ExpectAllPodsTerminated(kubectl)
 		kubectl.CloseSSHClient()
 	})
 

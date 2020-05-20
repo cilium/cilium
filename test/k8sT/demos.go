@@ -82,8 +82,6 @@ var _ = Describe("K8sDemosTest", func() {
 	})
 
 	AfterAll(func() {
-		kubectl.DeleteCiliumDS()
-		ExpectAllPodsTerminated(kubectl)
 		kubectl.CloseSSHClient()
 	})
 
