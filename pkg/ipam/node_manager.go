@@ -165,7 +165,9 @@ func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI CiliumNodeGett
 		MetricsObserver: metrics.ResyncTrigger(),
 		TriggerFunc: func(reasons []string) {
 			syncTime := instancesAPI.Resync(context.TODO())
-			mngr.Resync(context.TODO(), syncTime)
+			if !syncTime.IsZero() {
+				mngr.Resync(context.TODO(), syncTime)
+			}
 		},
 	})
 	if err != nil {
@@ -195,7 +197,9 @@ func (n *NodeManager) Start(ctx context.Context) {
 				RunInterval: time.Minute,
 				DoFunc: func(ctx context.Context) error {
 					syncTime := n.instancesAPI.Resync(ctx)
-					n.Resync(ctx, syncTime)
+					if !syncTime.IsZero() {
+						n.Resync(ctx, syncTime)
+					}
 					return nil
 				},
 			})
