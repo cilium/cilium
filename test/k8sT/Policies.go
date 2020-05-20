@@ -98,6 +98,9 @@ var _ = Describe("K8sPolicyTest", func() {
 		daemonCfg = map[string]string{
 			"global.tls.secretsBackend": "k8s",
 			"global.debug.verbose":      "flow",
+			// enable hubble server and the CLI client
+			"global.hubble.enabled":     "true",
+			"global.hubble.cli.enabled": "true",
 		}
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, daemonCfg)
 	})
@@ -865,14 +868,13 @@ var _ = Describe("K8sPolicyTest", func() {
 			var (
 				// track which app1 pod we care about, and its corresponding
 				// cilium pod.
-				app1Pod         string
-				app2Pod         string
-				ciliumPod       string
-				nodeName        string
-				monitorFileName = "monitor-%s.log"
-				appPods         map[string]string
-				app1PodIP       string
-				worldTarget     = "http://vagrant-cache.ci.cilium.io"
+				app1Pod     string
+				app2Pod     string
+				ciliumPod   string
+				nodeName    string
+				appPods     map[string]string
+				app1PodIP   string
+				worldTarget = "http://vagrant-cache.ci.cilium.io"
 			)
 
 			BeforeAll(func() {
@@ -927,10 +929,11 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			checkProxyRedirection := func(resource string, redirected bool, parser policy.L7ParserType) {
 				var (
-					not                  = " "
-					reStr                string
-					curlCmd              string
-					monitorOutputTimeout = 10 * time.Second
+					not           = " "
+					filter        string // jsonpath filter
+					expect        string // expected result
+					curlCmd       string
+					hubbleTimeout = 10 * time.Second
 				)
 
 				if !redirected {
@@ -939,23 +942,49 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				switch parser {
 				case policy.ParserTypeDNS:
-					reStr = "Request dns from.*Forwarded DNS Query:.*"
+					// response DNS L7 flow
+					filter = "{.destination.namespace} {.l7.type} {.l7.dns.query}"
+					expect = fmt.Sprintf(
+						"%s RESPONSE %s",
+						namespaceForTest,
+						"vagrant-cache.ci.cilium.io.",
+					)
 					curlCmd = helpers.CurlFail(resource)
 				case policy.ParserTypeHTTP:
-					reStr = fmt.Sprintf("verdict Forwarded GET http://%s/public", resource)
+					filter = "{.destination.namespace} {.l7.type} {.l7.http.url} {.l7.http.code} {.l7.http.method}"
+					expect = fmt.Sprintf(
+						"%s RESPONSE %s 200 GET",
+						namespaceForTest,
+						fmt.Sprintf("http://%s/public", resource),
+					)
 					curlCmd = helpers.CurlFail(fmt.Sprintf("http://%s/public", resource))
 				default:
 					Fail(fmt.Sprintf("invalid parser type for proxy visibility: %s", parser))
 				}
 
-				monitorFile := fmt.Sprintf(monitorFileName, uuid.NewUUID().String())
+				observeFile := fmt.Sprintf("hubble-observe-%s", uuid.NewUUID().String())
 
-				By("Starting monitor and generating traffic which should%s redirect to proxy", not)
-				monitorRes, monitorCancel := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPod)
+				// curl commands are issued from the first k8s worker where all
+				// the app instances are running
+				hubblePod1, err := kubectl.GetHubbleClientPodOnNodeWithLabel(
+					helpers.CiliumNamespace, helpers.K8s1,
+				)
+				Expect(err).Should(BeNil(), "unable to find hubble-cli pod on %s", helpers.K8s1)
+
+				By("Starting hubble observe and generating traffic which should%s redirect to proxy", not)
+				ctx, cancel := context.WithCancel(context.Background())
+				hubbleRes := kubectl.HubbleObserveFollow(
+					ctx, helpers.CiliumNamespace, hubblePod1,
+					// since 0s is important here so no historic events from the
+					// buffer are shown, only follow from the current time
+					"--type l7 --since 0s",
+				)
+
+				// clean up at the end of the test
 				defer func() {
-					monitorCancel()
-					monitorRes.WaitUntilFinish()
-					helpers.WriteToReportFile(monitorRes.CombineOutput().Bytes(), monitorFile)
+					cancel()
+					hubbleRes.WaitUntilFinish()
+					helpers.WriteToReportFile(hubbleRes.CombineOutput().Bytes(), observeFile)
 				}()
 
 				// Let the monitor get started since it is started in the background.
@@ -968,7 +997,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				res.ExpectSuccess("%q cannot curl %q", appPods[helpers.App2], resource)
 
 				By("Checking that aforementioned traffic was%sredirected to the proxy", not)
-				err := monitorRes.WaitUntilMatchRegexp(reStr, monitorOutputTimeout)
+				err = hubbleRes.WaitUntilMatchFilterLineTimeout(filter, expect, hubbleTimeout)
 				if redirected {
 					ExpectWithOffset(1, err).To(BeNil(), "traffic was not redirected to the proxy when it should have been")
 				} else {
