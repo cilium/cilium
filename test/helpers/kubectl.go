@@ -1777,6 +1777,44 @@ func (kub *Kubectl) ValidateKubernetesDNS() error {
 	return nil
 }
 
+// RestartUnmanagedPodsInNamespace restarts all pods in a namespace which are:
+// * not host networking
+// * not managed by Cilium already
+func (kub *Kubectl) RestartUnmanagedPodsInNamespace(namespace string, excludePodPrefix ...string) {
+	podList := &v1.PodList{}
+	cmd := KubectlCmd + " -n " + namespace + " get pods -o json"
+	res := kub.ExecShort(cmd)
+	if !res.WasSuccessful() {
+		ginkgoext.Failf("Unable to retrieve all pods to restart unmanaged pods with '%s': %s", cmd, res.OutputPrettyPrint())
+	}
+	if err := res.Unmarshal(podList); err != nil {
+		ginkgoext.Failf("Unable to unmarshal podlist: %s", err)
+	}
+
+iteratePods:
+	for _, pod := range podList.Items {
+		if pod.Spec.HostNetwork {
+			continue
+		}
+
+		for _, prefix := range excludePodPrefix {
+			if strings.HasPrefix(pod.Name, prefix) {
+				continue iteratePods
+			}
+		}
+
+		ep, err := kub.GetCiliumEndpoint(namespace, pod.Name)
+		if err != nil || ep.Identity == nil || ep.Identity.ID == 0 {
+			ginkgoext.By("Restarting unmanaged pod %s/%s", namespace, pod.Name)
+			cmd = KubectlCmd + " -n " + namespace + " delete pod " + pod.Name
+			res = kub.ExecShort(cmd)
+			if !res.WasSuccessful() {
+				ginkgoext.Failf("Unable to restart unmanaged pod with '%s': %s", cmd, res.OutputPrettyPrint())
+			}
+		}
+	}
+}
+
 // RedeployKubernetesDnsIfNecessary validates if the Kubernetes DNS is
 // functional and re-deploys it if it is not and then waits for it to deploy
 // successfully and become operational. See ValidateKubernetesDNS() for the
