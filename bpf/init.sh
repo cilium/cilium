@@ -358,10 +358,9 @@ function bpf_load_cgroups()
 	OUT=$3
 	PROG_TYPE=$4
 	WHERE=$5
-	SEC=$6
-	CALLS_MAP=$7
-	CGRP=$8
-	BPFMNT=$9
+	CALLS_MAP=$6
+	CGRP=$7
+	BPFMNT=$8
 
 	OPTS="${OPTS} -DCALLS_MAP=${CALLS_MAP}"
 	bpf_compile $IN $OUT obj "$OPTS"
@@ -371,7 +370,7 @@ function bpf_load_cgroups()
 
 	cilium-map-migrate -s $OUT
 	set +e
-	tc exec bpf pin $TMP_FILE obj $OUT type $PROG_TYPE attach_type $WHERE sec $SEC
+	tc exec bpf pin $TMP_FILE obj $OUT type $PROG_TYPE attach_type $WHERE sec $WHERE
 	RETCODE=$?
 	set -e
 	cilium-map-migrate -e $OUT -r $RETCODE
@@ -608,30 +607,30 @@ if [ "$HOSTLB" = "true" ]; then
 	CALLS_MAP="cilium_calls_lb"
 	COPTS="-DLB_L3 -DLB_L4"
 	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ] && [ -f /proc/sys/net/ipv6/conf/all/forwarding ]; then
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 from-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind6 post-bind-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		else
 			bpf_clear_cgroups $CGROUP_ROOT post_bind6
 		fi
 		if [ "$HOSTLB_UDP" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 snd-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg6 rcv-sock6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		else
 			bpf_clear_cgroups $CGROUP_ROOT sendmsg6
 			bpf_clear_cgroups $CGROUP_ROOT recvmsg6
 		fi
 	fi
 	if [ "$IP4_HOST" != "<nil>" ]; then
-		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 from-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind4 post-bind-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		else
 			bpf_clear_cgroups $CGROUP_ROOT post_bind4
 		fi
 		if [ "$HOSTLB_UDP" = "true" ]; then
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 snd-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
-			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg4 rcv-sock4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr sendmsg4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr recvmsg4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		else
 			bpf_clear_cgroups $CGROUP_ROOT sendmsg4
 			bpf_clear_cgroups $CGROUP_ROOT recvmsg4
