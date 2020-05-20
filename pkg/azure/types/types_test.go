@@ -80,8 +80,8 @@ func (e *TypesSuite) TestExtractIDs(c *check.C) {
 		ID: "/subscriptions/xxx/resourceGroups/az-test-rg/providers/Microsoft.Network/networkInterfaces/pods-interface",
 	}
 
-	c.Assert(vmssIntf.ResourceGroup(), check.Equals, "MC_aks-test_aks-test_westeurope")
-	c.Assert(vmssIntf.VMID(), check.Equals, "3")
-	c.Assert(vmssIntf.VMScaleSetName(), check.Equals, "aks-nodepool1-10706209-vmss")
-	c.Assert(vmIntf.ResourceGroup(), check.Equals, "az-test-rg")
+	c.Assert(vmssIntf.GetResourceGroup(), check.Equals, "MC_aks-test_aks-test_westeurope")
+	c.Assert(vmssIntf.GetVMID(), check.Equals, "3")
+	c.Assert(vmssIntf.GetVMScaleSetName(), check.Equals, "aks-nodepool1-10706209-vmss")
+	c.Assert(vmIntf.GetResourceGroup(), check.Equals, "az-test-rg")
 }

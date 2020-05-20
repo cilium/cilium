@@ -180,8 +180,8 @@ func (in *EgressRule) DeepCopyInto(out *EgressRule) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
-	if in.aggregatedSelectors != nil {
-		in, out := &in.aggregatedSelectors, &out.aggregatedSelectors
+	if in.AggregatedSelectors != nil {
+		in, out := &in.AggregatedSelectors, &out.AggregatedSelectors
 		*out = make(EndpointSelectorSlice, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
@@ -208,8 +208,8 @@ func (in *EndpointSelector) DeepCopyInto(out *EndpointSelector) {
 		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.requirements != nil {
-		in, out := &in.requirements, &out.requirements
+	if in.Requirements != nil {
+		in, out := &in.Requirements, &out.Requirements
 		*out = new(labels.Requirements)
 		if **in != nil {
 			in, out := *in, *out
@@ -372,8 +372,8 @@ func (in *IngressRule) DeepCopyInto(out *IngressRule) {
 		*out = make(EntitySlice, len(*in))
 		copy(*out, *in)
 	}
-	if in.aggregatedSelectors != nil {
-		in, out := &in.aggregatedSelectors, &out.aggregatedSelectors
+	if in.AggregatedSelectors != nil {
+		in, out := &in.AggregatedSelectors, &out.AggregatedSelectors
 		*out = make(EndpointSelectorSlice, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])
@@ -702,8 +702,8 @@ func (in *ServiceSelector) DeepCopyInto(out *ServiceSelector) {
 		*out = new(v1.LabelSelector)
 		(*in).DeepCopyInto(*out)
 	}
-	if in.requirements != nil {
-		in, out := &in.requirements, &out.requirements
+	if in.Requirements != nil {
+		in, out := &in.Requirements, &out.Requirements
 		*out = new(labels.Requirements)
 		if **in != nil {
 			in, out := *in, *out

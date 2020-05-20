@@ -138,10 +138,10 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 		return fmt.Errorf("invalid interface object")
 	}
 
-	if iface.VMScaleSetName() == "" {
+	if iface.GetVMScaleSetName() == "" {
 		return n.manager.api.AssignPrivateIpAddressesVM(ctx, string(a.PoolID), iface.Name, a.AvailableForAllocation)
 	} else {
-		return n.manager.api.AssignPrivateIpAddressesVMSS(ctx, iface.VMID(), iface.VMScaleSetName(), string(a.PoolID), iface.Name, a.AvailableForAllocation)
+		return n.manager.api.AssignPrivateIpAddressesVMSS(ctx, iface.GetVMID(), iface.GetVMScaleSetName(), string(a.PoolID), iface.Name, a.AvailableForAllocation)
 	}
 }
 
