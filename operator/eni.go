@@ -143,8 +143,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 	}
 
 	// Initial blocking synchronization of all ENIs and subnets
-	resyncTime := instances.Resync(context.TODO())
-	if resyncTime.IsZero() {
+	if _, ok := nodeManager.InstancesAPIResync(context.TODO()); !ok {
 		return fmt.Errorf("Initial synchronization with instances API failed")
 	}
 
@@ -159,8 +158,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 			controller.ControllerParams{
 				RunInterval: time.Minute,
 				DoFunc: func(ctx context.Context) error {
-					syncTime := instances.Resync(ctx)
-					if !syncTime.IsZero() {
+					if syncTime, ok := nodeManager.InstancesAPIResync(context.TODO()); ok {
 						nodeManager.Resync(ctx, syncTime)
 					}
 					return nil
