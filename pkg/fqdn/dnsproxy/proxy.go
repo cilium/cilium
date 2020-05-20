@@ -205,7 +205,7 @@ type LookupSecIDByIPFunc func(ip net.IP) (secID ipcache.Identity, exists bool)
 
 // NotifyOnDNSMsgFunc handles propagating DNS response data
 // See DNSProxy.LookupEndpointIDByIP for usage.
-type NotifyOnDNSMsgFunc func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat ProxyRequestContext) error
+type NotifyOnDNSMsgFunc func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *ProxyRequestContext) error
 
 // ProxyRequestContext proxy dns request context struct to send in the callback
 type ProxyRequestContext struct {
@@ -370,7 +370,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.WithError(err).Error("cannot extract endpoint IP from DNS request")
 		stat.Err = fmt.Errorf("Cannot extract endpoint IP from DNS request: %s", err)
 		stat.ProcessingTime.End(false)
-		p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, "", request, protocol, false, stat)
+		p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, "", request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
@@ -379,7 +379,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.WithError(err).Error("cannot extract endpoint ID from DNS request")
 		stat.Err = fmt.Errorf("Cannot extract endpoint ID from DNS request: %s", err)
 		stat.ProcessingTime.End(false)
-		p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, "", request, protocol, false, stat)
+		p.NotifyOnDNSMsg(time.Now(), nil, epIPPort, "", request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
@@ -391,7 +391,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		log.WithError(err).Error("cannot extract destination IP:port from DNS request")
 		stat.Err = fmt.Errorf("Cannot extract destination IP:port from DNS request: %s", err)
 		stat.ProcessingTime.End(false)
-		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, stat)
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
@@ -401,7 +401,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.WithField("server", targetServerAddr).Debug("cannot find server ip in ipcache")
 		stat.Err = fmt.Errorf("cannot find security identity for server ip=%s", targetServerIP)
 		stat.ProcessingTime.End(false)
-		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, stat)
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
@@ -418,7 +418,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.WithError(err).Error("Rejecting DNS query from endpoint due to error")
 		stat.Err = fmt.Errorf("Rejecting DNS query from endpoint due to error: %s", err)
 		stat.ProcessingTime.End(false)
-		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, stat)
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
 		return
 
@@ -426,12 +426,12 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.Debug("Rejecting DNS query from endpoint due to policy")
 		stat.Err = p.sendRefused(scopedLog, w, request)
 		stat.ProcessingTime.End(true)
-		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, stat)
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, &stat)
 		return
 	}
 
 	scopedLog.Debug("Forwarding DNS request for a name that is allowed")
-	p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, true, stat)
+	p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, true, &stat)
 
 	// Keep the same L4 protocol. This handles DNS re-requests over TCP, for
 	// requests that were too large for UDP.
@@ -445,7 +445,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		scopedLog.Error("Cannot parse DNS proxy client network to select forward client")
 		stat.Err = fmt.Errorf("Cannot parse DNS proxy client network to select forward client: %s", err)
 		stat.ProcessingTime.End(false)
-		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, stat)
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, &stat)
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
@@ -464,7 +464,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 			p.sendRefused(scopedLog, w, request)
 			stat.Err = fmt.Errorf("Cannot forward proxied DNS lookup: %s", err)
 		}
-		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, stat)
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, &stat)
 		return
 	}
 
@@ -472,7 +472,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	stat.Success = true
 
 	scopedLog.Debug("Notifying with DNS response to original DNS query")
-	p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, response, protocol, true, stat)
+	p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, response, protocol, true, &stat)
 
 	scopedLog.Debug("Responding to original DNS query")
 	// restore the ID to the one in the initial request so it matches what the requester expects.
@@ -482,7 +482,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	if err != nil {
 		scopedLog.WithError(err).Error("Cannot forward proxied DNS response")
 		stat.Err = fmt.Errorf("Cannot forward proxied DNS response: %s", err)
-		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, response, protocol, true, stat)
+		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, response, protocol, true, &stat)
 	}
 }
 

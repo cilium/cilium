@@ -405,7 +405,7 @@ func (d *Daemon) lookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, e
 //   can lookup the endpoint related to it
 // epIPPort and serverAddr should match the original request, where epAddr is
 // the source for egress (the only case current).
-func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat dnsproxy.ProxyRequestContext) error {
+func (d *Daemon) notifyOnDNSMsg(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat *dnsproxy.ProxyRequestContext) error {
 	var protoID = u8proto.ProtoIDs[strings.ToLower(protocol)]
 	var verdict accesslog.FlowVerdict
 	var reason string

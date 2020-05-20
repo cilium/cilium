@@ -212,9 +212,9 @@ func (e *Endpoint) updatePolicyRegenerationStatistics(stats *policyRegenerationS
 	stats.SendMetrics()
 
 	fields := logrus.Fields{
-		"waitingForIdentityCache":    stats.waitingForIdentityCache,
-		"waitingForPolicyRepository": stats.waitingForPolicyRepository,
-		"policyCalculation":          stats.policyCalculation,
+		"waitingForIdentityCache":    &stats.waitingForIdentityCache,
+		"waitingForPolicyRepository": &stats.waitingForPolicyRepository,
+		"policyCalculation":          &stats.policyCalculation,
 		"forcedRegeneration":         forceRegeneration,
 	}
 	scopedLog := e.getLogger().WithFields(fields)
