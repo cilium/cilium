@@ -20,6 +20,7 @@ import (
 	"encoding/json"
 	"fmt"
 	"io/ioutil"
+	"net"
 	"os"
 	"path/filepath"
 	"regexp"
@@ -593,27 +594,27 @@ func (kub *Kubectl) labelNodes() error {
 	return nil
 }
 
-// CepGet returns the endpoint model for the given pod name in the specified
-// namespaces. If the pod is not present it returns nil
-func (kub *Kubectl) CepGet(namespace string, pod string) *cnpv2.EndpointStatus {
-	log := kub.Logger().WithFields(logrus.Fields{
-		"cep":       pod,
-		"namespace": namespace})
-
+// GetCiliumEndpoint returns the CiliumEndpoint for the specified pod.
+func (kub *Kubectl) GetCiliumEndpoint(namespace string, pod string) (*cnpv2.EndpointStatus, error) {
+	fullName := namespace + "/" + pod
 	cmd := fmt.Sprintf("%s -n %s get cep %s -o json | jq '.status'", KubectlCmd, namespace, pod)
 	res := kub.ExecShort(cmd)
 	if !res.WasSuccessful() {
-		log.Debug("cep is not present")
-		return nil
+		return nil, fmt.Errorf("unable to run command '%s' to retrieve CiliumEndpoint %s: %s",
+			cmd, fullName, res.OutputPrettyPrint())
+	}
+
+	if len(res.stdout.Bytes()) == 0 {
+		return nil, fmt.Errorf("CiliumEndpoint does not exist")
 	}
 
 	var data *cnpv2.EndpointStatus
 	err := res.Unmarshal(&data)
 	if err != nil {
-		log.WithError(err).Error("cannot Unmarshal json")
-		return nil
+		return nil, fmt.Errorf("unable to unmarshal CiliumEndpoint %s: %s", fullName, err)
 	}
-	return data
+
+	return data, nil
 }
 
 // GetNumCiliumNodes returns the number of Kubernetes nodes running cilium
@@ -1408,6 +1409,405 @@ func (kub *Kubectl) Delete(filePath string) *CmdRes {
 		fmt.Sprintf("%s delete -f  %s", KubectlCmd, filePath))
 }
 
+// PodsHaveCiliumIdentity validates that all pods matching th podSelector have
+// a CiliumEndpoint resource mirroring it and an identity is assigned to it. If
+// any pods do not match this criteria, an error is returned.
+func (kub *Kubectl) PodsHaveCiliumIdentity(namespace, podSelector string) error {
+	res := kub.ExecShort(fmt.Sprintf("%s -n %s get pods -l %s -o json", KubectlCmd, namespace, podSelector))
+	if !res.WasSuccessful() {
+		return fmt.Errorf("unable to retrieve pods for selector %s:  %s", podSelector, res.OutputPrettyPrint())
+	}
+
+	podList := &v1.PodList{}
+	err := res.Unmarshal(podList)
+	if err != nil {
+		return fmt.Errorf("unable to unmarshal pods for selector %s: %s", podSelector, err)
+	}
+
+	for _, pod := range podList.Items {
+		ep, err := kub.GetCiliumEndpoint(namespace, pod.Name)
+		if err != nil {
+			return err
+		}
+
+		if ep == nil {
+			return fmt.Errorf("pod %s/%s has no CiliumEndpoint", namespace, pod.Name)
+		}
+
+		if ep.Identity == nil || ep.Identity.ID == 0 {
+			return fmt.Errorf("pod %s/%s has no CiliumIdentity", namespace, pod.Name)
+		}
+	}
+
+	return nil
+}
+
+// DeploymentIsReady validate that a deployment has at least one replica and
+// that all replicas are:
+// - up-to-date
+// - ready
+//
+// If the above condition is not met, an error is returned. If all replicas are
+// ready, then the number of replicas is returned.
+func (kub *Kubectl) DeploymentIsReady(namespace, deployment string) (int, error) {
+	fullName := namespace + "/" + deployment
+
+	res := kub.ExecShort(fmt.Sprintf("%s -n %s get deployment %s -o json", KubectlCmd, namespace, deployment))
+	if !res.WasSuccessful() {
+		return 0, fmt.Errorf("unable to retrieve deployment %s: %s", fullName, res.OutputPrettyPrint())
+	}
+
+	d := &appsv1.Deployment{}
+	err := res.Unmarshal(d)
+	if err != nil {
+		return 0, fmt.Errorf("unable to unmarshal deployment %s: %s", fullName, err)
+	}
+
+	if d.Status.Replicas == 0 {
+		return 0, fmt.Errorf("replicas count is zero")
+	}
+
+	if d.Status.AvailableReplicas != d.Status.Replicas {
+		return 0, fmt.Errorf("only %d of %d replicas are available", d.Status.AvailableReplicas, d.Status.Replicas)
+	}
+
+	if d.Status.ReadyReplicas != d.Status.Replicas {
+		return 0, fmt.Errorf("only %d of %d replicas are ready", d.Status.ReadyReplicas, d.Status.Replicas)
+	}
+
+	if d.Status.UpdatedReplicas != d.Status.Replicas {
+		return 0, fmt.Errorf("only %d of %d replicas are up-to-date", d.Status.UpdatedReplicas, d.Status.Replicas)
+	}
+
+	return int(d.Status.Replicas), nil
+}
+
+func (kub *Kubectl) GetService(namespace, service string) (*v1.Service, error) {
+	fullName := namespace + "/" + service
+	res := kub.Get(namespace, "service "+service)
+	if !res.WasSuccessful() {
+		return nil, fmt.Errorf("unable to retrieve service %s: %s", fullName, res.OutputPrettyPrint())
+	}
+
+	var serviceObj v1.Service
+	err := res.Unmarshal(&serviceObj)
+	if err != nil {
+		return nil, fmt.Errorf("unable to unmarshal service %s: %s", fullName, err)
+	}
+
+	return &serviceObj, nil
+}
+
+func absoluteServiceName(namespace, service string) string {
+	fullServiceName := service + "." + namespace
+
+	if !strings.HasSuffix(fullServiceName, ServiceSuffix) {
+		fullServiceName = fullServiceName + "." + ServiceSuffix
+	}
+
+	return fullServiceName
+}
+
+func (kub *Kubectl) KubernetesDNSCanResolve(namespace, service string) error {
+	serviceToResolve := absoluteServiceName(namespace, service)
+
+	kubeDnsService, err := kub.GetService(KubeSystemNamespace, "kube-dns")
+	if err != nil {
+		return err
+	}
+
+	if len(kubeDnsService.Spec.Ports) == 0 {
+		return fmt.Errorf("kube-dns service has no ports defined")
+	}
+
+	ctx, cancel := context.WithTimeout(context.Background(), MidCommandTimeout)
+	defer cancel()
+
+	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
+	cmd := fmt.Sprintf("dig +short %s @%s | grep -v -e '^;'", serviceToResolve, kubeDnsService.Spec.ClusterIP)
+	res, err := kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), cmd)
+	if err != nil {
+		return fmt.Errorf("unable to resolve service name %s with DND server %s by running '%s' Cilium pod: %s",
+			serviceToResolve, kubeDnsService.Spec.ClusterIP, cmd, res.OutputPrettyPrint())
+	}
+	if net.ParseIP(res.SingleOut()) == nil {
+		return fmt.Errorf("dig did not return an IP: %s", res.SingleOut())
+	}
+
+	destinationService, err := kub.GetService(namespace, service)
+	if err != nil {
+		return err
+	}
+
+	// If the destination service is headless, there is no ClusterIP, the
+	// IP returned by the dig is the IP of one of the pods.
+	if destinationService.Spec.ClusterIP == v1.ClusterIPNone {
+		cmd := fmt.Sprintf("dig +tcp %s @%s", serviceToResolve, kubeDnsService.Spec.ClusterIP)
+		kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), cmd)
+		if !res.WasSuccessful() {
+			return fmt.Errorf("unable to resolve service name %s by running '%s': %s",
+				serviceToResolve, cmd, res.OutputPrettyPrint())
+		}
+
+		return nil
+	}
+
+	if !strings.Contains(res.SingleOut(), destinationService.Spec.ClusterIP) {
+		return fmt.Errorf("IP returned '%s' does not match the ClusterIP '%s' of the destination service",
+			res.SingleOut(), destinationService.Spec.ClusterIP)
+	}
+
+	return nil
+}
+
+func (kub *Kubectl) validateServicePlumbingInCiliumPod(fullName, ciliumPod string, serviceObj *v1.Service, endpointsObj v1.Endpoints) error {
+	jq := "jq -r '[ .[].status.realized | select(.\"frontend-address\".ip==\"" + serviceObj.Spec.ClusterIP + "\") | . ] '"
+	cmd := "cilium service list -o json | " + jq
+	res := kub.CiliumExecContext(context.Background(), ciliumPod, cmd)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("unable to validate cilium service by running '%s': %s", cmd, res.OutputPrettyPrint())
+	}
+
+	if len(res.stdout.Bytes()) == 0 {
+		return fmt.Errorf("ClusterIP %s not found in service list of cilium pod %s",
+			serviceObj.Spec.ClusterIP, ciliumPod)
+	}
+
+	var realizedServices []models.ServiceSpec
+	err := res.Unmarshal(&realizedServices)
+	if err != nil {
+		return fmt.Errorf("unable to unmarshal service spec '%s': %s", res.OutputPrettyPrint(), err)
+	}
+
+	cmd = "cilium bpf lb list -o json"
+	res = kub.CiliumExecContext(context.Background(), ciliumPod, cmd)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("unable to validate cilium service by running '%s': %s", cmd, res.OutputPrettyPrint())
+	}
+
+	var lbMap map[string][]string
+	err = res.Unmarshal(&lbMap)
+	if err != nil {
+		return fmt.Errorf("unable to unmarshal cilium bpf lb list output: %s", err)
+	}
+
+	for _, port := range serviceObj.Spec.Ports {
+		var foundPort *v1.ServicePort
+		for _, realizedService := range realizedServices {
+			if port.Port == int32(realizedService.FrontendAddress.Port) {
+				foundPort = &port
+				break
+			}
+		}
+		if foundPort == nil {
+			return fmt.Errorf("port %d of service %s (%s) not found in cilium pod %s",
+				port.Port, fullName, serviceObj.Spec.ClusterIP, ciliumPod)
+		}
+
+		if _, ok := lbMap[fmt.Sprintf("%s:%d", serviceObj.Spec.ClusterIP, port.Port)]; !ok {
+			return fmt.Errorf("port %d of service %s (%s) not found in cilium bpf lb list of pod %s",
+				port.Port, fullName, serviceObj.Spec.ClusterIP, ciliumPod)
+		}
+	}
+
+	for _, subset := range endpointsObj.Subsets {
+		for _, addr := range subset.Addresses {
+			for _, port := range subset.Ports {
+				foundBackend, foundBackendLB := false, false
+				for _, realizedService := range realizedServices {
+					frontEnd := realizedService.FrontendAddress
+					lb := lbMap[fmt.Sprintf("%s:%d", frontEnd.IP, frontEnd.Port)]
+
+					for _, backAddr := range realizedService.BackendAddresses {
+						if addr.IP == *backAddr.IP && uint16(port.Port) == backAddr.Port {
+							foundBackend = true
+							for _, backend := range lb {
+								if strings.Contains(backend, fmt.Sprintf("%s:%d", *backAddr.IP, port.Port)) {
+									foundBackendLB = true
+								}
+							}
+						}
+					}
+				}
+				if !foundBackend {
+					return fmt.Errorf("unable to find service backend %s:%d in cilium pod %s",
+						addr.IP, port.Port, ciliumPod)
+				}
+
+				if !foundBackendLB {
+					return fmt.Errorf("unable to find service backend %s:%d in datapath of cilium pod %s",
+						addr.IP, port.Port, ciliumPod)
+				}
+			}
+		}
+	}
+
+	return nil
+}
+
+// ValidateServicePlumbing ensures that a service in a namespace sucessfully
+// plumbed by all Cilium pods in the cluster:
+// - The service and endpoints are found in `cilium service list`
+// - The service and endpoints are found in `cilium bpf lb list`
+func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
+	fullName := namespace + "/" + service
+
+	serviceObj, err := kub.GetService(namespace, service)
+	if err != nil {
+		return err
+	}
+
+	if serviceObj == nil {
+		return fmt.Errorf("%s service not found", fullName)
+	}
+
+	res := kub.Get(namespace, "endpoints "+service)
+	if !res.WasSuccessful() {
+		return fmt.Errorf("unable to retrieve endpoints %s: %s", fullName, res.OutputPrettyPrint())
+	}
+
+	if serviceObj.Spec.ClusterIP == v1.ClusterIPNone {
+		return nil
+	}
+
+	var endpointsObj v1.Endpoints
+	err = res.Unmarshal(&endpointsObj)
+	if err != nil {
+		return fmt.Errorf("unable to unmarshal endpoints %s: %s", fullName, err)
+	}
+
+	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	if err != nil {
+		return err
+	}
+
+	g, _ := errgroup.WithContext(context.TODO())
+	for _, ciliumPod := range ciliumPods {
+		ciliumPod := ciliumPod
+		g.Go(func() error {
+			var err error
+			// The plumbing of Kubernetes services typically lags
+			// behind a little bit if Cilium was just restarted.
+			// Give this a thight timeout to avoid always failing.
+			timeoutErr := RepeatUntilTrue(func() bool {
+				err = kub.validateServicePlumbingInCiliumPod(fullName, ciliumPod, serviceObj, endpointsObj)
+				if err != nil {
+					ginkgoext.By("Checking service %s plumbing in cilium pod %s: %s", fullName, ciliumPod, err)
+				}
+				return err == nil
+			}, &TimeoutConfig{Timeout: 5 * time.Second, Ticker: 1 * time.Second})
+			if err != nil {
+				return err
+			} else if timeoutErr != nil {
+				return timeoutErr
+			}
+			return nil
+		})
+	}
+	if err := g.Wait(); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+// ValidateKubernetesDNS validates that the Kubernetes DNS server has been
+// deployed correctly and can resolve DNS names. The following validations are
+// done:
+//  - The Kuberentes DNS deployment has at least one replica
+//  - All replicas are up-to-date and ready
+//  - All pods matching the deployment are represented by a CiliumEndpoint with an identity
+//  - The kube-system/kube-dns service is correctly pumbed in all Cilium agents
+//  - The service "default/kubernetes" can be resolved via the KubernetesDNS
+//    and the IP returned matches the ClusterIP in the service
+func (kub *Kubectl) ValidateKubernetesDNS() error {
+	// The deployment is always validated first and not in parallel. There
+	// is no point in validating correct plumbing if the DNS is not even up
+	// and running.
+	ginkgoext.By("Checking if deployment is ready")
+	_, err := kub.DeploymentIsReady(KubeSystemNamespace, "kube-dns")
+	if err != nil {
+		_, err = kub.DeploymentIsReady(KubeSystemNamespace, "coredns")
+		if err != nil {
+			return err
+		}
+	}
+
+	var (
+		wg       sync.WaitGroup
+		errQueue = make(chan error, 3)
+	)
+	wg.Add(3)
+
+	go func() {
+		ginkgoext.By("Checking if pods have identity")
+		if err := kub.PodsHaveCiliumIdentity(KubeSystemNamespace, kubeDNSLabel); err != nil {
+			errQueue <- err
+		}
+		wg.Done()
+	}()
+
+	go func() {
+		ginkgoext.By("Checking if DNS can resolve")
+		if err := kub.KubernetesDNSCanResolve("default", "kubernetes"); err != nil {
+			errQueue <- err
+		}
+		wg.Done()
+	}()
+
+	go func() {
+		ginkgoext.By("Checking if kube-dns service is plumbed correctly")
+		if err := kub.ValidateServicePlumbing(KubeSystemNamespace, "kube-dns"); err != nil {
+			errQueue <- err
+		}
+		wg.Done()
+	}()
+
+	wg.Wait()
+
+	select {
+	case err := <-errQueue:
+		return err
+	default:
+	}
+
+	return nil
+}
+
+// RedeployKubernetesDnsIfNecessary validates if the Kubernetes DNS is
+// functional and re-deploys it if it is not and then waits for it to deploy
+// successfully and become operational. See ValidateKubernetesDNS() for the
+// list of conditions that must be met for Kubernetes DNS to be considered
+// operational.
+func (kub *Kubectl) RedeployKubernetesDnsIfNecessary() {
+	ginkgoext.By("Validating if Kubernetes DNS is deployed")
+	err := kub.ValidateKubernetesDNS()
+	if err == nil {
+		ginkgoext.By("Kubernetes DNS is up and operational")
+		return
+	} else {
+		ginkgoext.By("Kubernetes DNS is not ready: %s", err)
+	}
+
+	ginkgoext.By("Restarting Kubernetes DSN (-l %s)", kubeDNSLabel)
+	res := kub.DeleteResource("pod", "-n "+KubeSystemNamespace+" -l "+kubeDNSLabel)
+	if !res.WasSuccessful() {
+		ginkgoext.Failf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
+	}
+
+	ginkgoext.By("Waiting for Kubernetes DNS to become operational")
+	err = RepeatUntilTrueDefaultTimeout(func() bool {
+		err := kub.ValidateKubernetesDNS()
+		if err != nil {
+			ginkgoext.By("Kubernetes DNS is not ready yet: %s", err)
+		}
+		return err == nil
+	})
+	if err != nil {
+		ginkgoext.Fail("Kubernetes DNS did not become ready in time")
+	}
+}
+
 // WaitKubeDNS waits until the kubeDNS pods are ready. In case of exceeding the
 // default timeout it returns an error.
 func (kub *Kubectl) WaitKubeDNS() error {
@@ -1419,12 +1819,11 @@ func (kub *Kubectl) WaitKubeDNS() error {
 // name's format query should be `${name}.${namespace}`. If `svc.cluster.local`
 // is not present, it appends to the given name and it checks the service's FQDN.
 func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) error {
-	svcSuffix := "svc.cluster.local"
 	logger := kub.Logger().WithFields(logrus.Fields{"serviceName": serviceName, "serviceNamespace": serviceNamespace})
 
 	serviceNameWithNamespace := fmt.Sprintf("%s.%s", serviceName, serviceNamespace)
-	if !strings.HasSuffix(serviceNameWithNamespace, svcSuffix) {
-		serviceNameWithNamespace = fmt.Sprintf("%s.%s", serviceNameWithNamespace, svcSuffix)
+	if !strings.HasSuffix(serviceNameWithNamespace, ServiceSuffix) {
+		serviceNameWithNamespace = fmt.Sprintf("%s.%s", serviceNameWithNamespace, ServiceSuffix)
 	}
 	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
 	digCMD := "dig +short %s @%s | grep -v -e '^;'"
@@ -2008,8 +2407,8 @@ func (kub *Kubectl) CiliumEndpointWaitReady() error {
 // WaitForCEPIdentity waits for a particular CEP to have an identity present.
 func (kub *Kubectl) WaitForCEPIdentity(ns, podName string) error {
 	body := func(ctx context.Context) (bool, error) {
-		ep := kub.CepGet(ns, podName)
-		if ep == nil {
+		ep, err := kub.GetCiliumEndpoint(ns, podName)
+		if err != nil || ep == nil {
 			return false, nil
 		}
 		if ep.Identity == nil {
