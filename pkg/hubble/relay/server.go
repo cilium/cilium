@@ -30,6 +30,7 @@ import (
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
+	"google.golang.org/grpc/reflection"
 )
 
 type hubblePeer struct {
@@ -82,6 +83,7 @@ func (s *Server) Serve() error {
 		return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.ListenAddress, err)
 	}
 	go s.syncPeers()
+	reflection.Register(s.server)
 	return s.server.Serve(socket)
 }
 
