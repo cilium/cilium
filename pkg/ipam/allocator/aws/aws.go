@@ -101,7 +101,9 @@ func (*AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (allocato
 		return nil, fmt.Errorf("unable to initialize ENI node manager: %w", err)
 	}
 
-	nodeManager.Start(context.TODO())
+	if err := nodeManager.Start(context.TODO()); err != nil {
+		return nil, err
+	}
 
 	return nodeManager, nil
 }

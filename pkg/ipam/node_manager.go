@@ -181,9 +181,12 @@ func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI CiliumNodeGett
 
 // Start kicks of the NodeManager by performing the initial state
 // synchronization and starting the background sync go routine
-func (n *NodeManager) Start(ctx context.Context) {
+func (n *NodeManager) Start(ctx context.Context) error {
 	// Trigger the initial resync in a blocking manner
-	n.instancesAPI.Resync(ctx)
+	resyncTime := n.instancesAPI.Resync(ctx)
+	if resyncTime.IsZero() {
+		return fmt.Errorf("Initial synchronization with instances API failed")
+	}
 
 	// Start an interval based  background resync for safety, it will
 	// synchronize the state regularly and resolve eventual deficit if the
@@ -204,6 +207,8 @@ func (n *NodeManager) Start(ctx context.Context) {
 				},
 			})
 	}()
+
+	return nil
 }
 
 // GetNames returns the list of all node names
