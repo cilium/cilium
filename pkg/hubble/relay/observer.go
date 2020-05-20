@@ -20,9 +20,12 @@ import (
 	"time"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+	relaypb "github.com/cilium/cilium/api/v1/relay"
 	"github.com/cilium/cilium/pkg/hubble/relay/queue"
-	"github.com/sirupsen/logrus"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
+	"github.com/golang/protobuf/ptypes"
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
@@ -117,6 +120,38 @@ func sortFlows(
 	return sortedFlows
 }
 
+func nodeStatusError(err error, nodeNames ...string) *observerpb.GetFlowsResponse {
+	msg := err.Error()
+	if s, ok := status.FromError(err); ok && s.Code() == codes.Unknown {
+		msg = s.Message()
+	}
+
+	return &observerpb.GetFlowsResponse{
+		NodeName: nodeTypes.GetName(),
+		Time:     ptypes.TimestampNow(),
+		ResponseTypes: &observerpb.GetFlowsResponse_NodeStatus{
+			NodeStatus: &relaypb.NodeStatusEvent{
+				StateChange: relaypb.NodeState_NODE_ERROR,
+				NodeNames:   nodeNames,
+				Message:     msg,
+			},
+		},
+	}
+}
+
+func nodeStatusEvent(state relaypb.NodeState, nodeNames ...string) *observerpb.GetFlowsResponse {
+	return &observerpb.GetFlowsResponse{
+		NodeName: nodeTypes.GetName(),
+		Time:     ptypes.TimestampNow(),
+		ResponseTypes: &observerpb.GetFlowsResponse_NodeStatus{
+			NodeStatus: &relaypb.NodeStatusEvent{
+				StateChange: state,
+				NodeNames:   nodeNames,
+			},
+		},
+	}
+}
+
 // GetFlows implements observer.ObserverServer.GetFlows by proxying requests to
 // the hubble instance the proxy is connected to.
 func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Observer_GetFlowsServer) error {
@@ -140,15 +175,19 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 
 	g, gctx := errgroup.WithContext(ctx)
 	flows := make(chan *observerpb.GetFlowsResponse, qlen)
+	var connectedNodes, unavailableNodes []string
+
 	for _, p := range peers {
 		p := p
 		if p.conn == nil || p.connErr != nil {
 			s.log.WithField("address", p.Address.String()).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
+			unavailableNodes = append(unavailableNodes, p.Name)
 			go s.connectPeer(p.Name, p.Address.String())
 			continue
 		}
+		connectedNodes = append(connectedNodes, p.Name)
 		g.Go(func() error {
 			// retrieveFlowsFromPeer returns blocks until the peer finishes
 			// the request by closing the connection, an error occurs,
@@ -159,6 +198,10 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 					"error": err,
 					"peer":  p,
 				}).Warning("Failed to retrieve flows from peer")
+				select {
+				case flows <- nodeStatusError(err, p.Name):
+				case <-gctx.Done():
+				}
 			}
 			return nil
 		})
@@ -169,6 +212,20 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 	}()
 
 	sortedFlows := sortFlows(ctx, flows, qlen, s.opts.BufferDrainTimeout)
+
+	// inform the client about the nodes from which we expect to receive flows first
+	if len(connectedNodes) > 0 {
+		status := nodeStatusEvent(relaypb.NodeState_NODE_CONNECTED, connectedNodes...)
+		if err := stream.Send(status); err != nil {
+			return err
+		}
+	}
+	if len(unavailableNodes) > 0 {
+		status := nodeStatusEvent(relaypb.NodeState_NODE_UNAVAILABLE, unavailableNodes...)
+		if err := stream.Send(status); err != nil {
+			return err
+		}
+	}
 
 sortedFlowsLoop:
 	for {
