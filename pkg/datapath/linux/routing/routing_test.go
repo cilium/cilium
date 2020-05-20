@@ -120,7 +120,7 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 		},
 	}
 	for _, tt := range tests {
-		c.Log(tt.name)
+		c.Log("Test: " + tt.name)
 		runFuncInNetNS(c, func() {
 			ip := tt.preRun()
 			err := Delete(ip)
@@ -137,19 +137,19 @@ func runFuncInNetNS(c *C, run func(), macAddr mac.MAC) {
 
 	currentNS, err := netns.Get()
 	c.Assert(err, IsNil)
-	c.Logf("Root network ns %v", currentNS.UniqueId())
+	c.Logf("[DEBUG] Root network ns %v", currentNS.UniqueId())
 	defer func() {
 		c.Assert(netns.Set(currentNS), IsNil)
-		c.Logf("Set back to previous network ns %v", currentNS.UniqueId())
+		c.Logf("[DEBUG] Set back to previous network ns %v", currentNS.UniqueId())
 	}()
 
 	networkNS, err := netns.New()
 	c.Assert(err, IsNil)
-	c.Logf("Inside new network ns %v", networkNS.UniqueId())
+	c.Logf("[DEBUG] Inside new network ns %v", networkNS.UniqueId())
 	defer func() {
 		uid := networkNS.UniqueId()
 		c.Assert(networkNS.Close(), IsNil)
-		c.Logf("Closed new network ns %v", uid)
+		c.Logf("[DEBUG] Closed new network ns %v", uid)
 	}()
 
 	ifaceCleanup := createDummyDevice(c, macAddr)
@@ -217,7 +217,7 @@ func listRulesAndRoutes(c *C, family int) ([]netlink.Rule, []netlink.Route) {
 // be used to remove the device for cleanup purposes.
 func createDummyDevice(c *C, macAddr mac.MAC) func() {
 	if linkExistsWithMAC(c, macAddr) {
-		c.Logf("Found device with identical mac addr: %s", macAddr.String())
+		c.Logf("[DEBUG] Found device with identical mac addr: %s", macAddr.String())
 		c.FailNow()
 	}
 
@@ -232,17 +232,17 @@ func createDummyDevice(c *C, macAddr mac.MAC) func() {
 	err := netlink.LinkAdd(dummy)
 	c.Assert(err, IsNil)
 
-	c.Log("Added dummy device")
+	c.Log("[DEBUG] Added dummy device")
 
 	found := linkExistsWithMAC(c, macAddr)
 	if !found {
-		c.Log("Couldn't find device even after creation")
+		c.Log("[DEBUG] Couldn't find device even after creation")
 	}
 	c.Assert(found, Equals, true)
 
 	return func() {
 		c.Assert(netlink.LinkDel(dummy), IsNil)
-		c.Log("Cleaned up dummy device")
+		c.Log("[DEBUG] Cleaned up dummy device")
 	}
 }
 
