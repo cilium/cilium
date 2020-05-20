@@ -108,7 +108,7 @@ var _ = Describe("K8sFQDNTest", func() {
 		_ = kubectl.Exec(fmt.Sprintf("%s delete --all cnp", helpers.KubectlCmd))
 	})
 
-	PIt("Restart Cilium validate that FQDN is still working", func() {
+	It("Restart Cilium validate that FQDN is still working", func() {
 		// Test functionality:
 		// - When Cilium is running) Connectivity from App2 application can
 		// connect to DNS because dns-proxy filter the DNS request. If the
@@ -161,14 +161,22 @@ var _ = Describe("K8sFQDNTest", func() {
 		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
 
 		connectivityTest()
-		By("Deleting cilium pods")
+		By("restarting cilium pods")
 
-		res := kubectl.Exec(fmt.Sprintf("%s -n %s delete pods -l k8s-app=cilium",
-			helpers.KubectlCmd, helpers.CiliumNamespace))
-		res.ExpectSuccess()
+		// kill pid 1 in each cilium pod
+		cmd := fmt.Sprintf("%[1]s get pods -l k8s-app=cilium -n %[2]s |  tail -n +2 | cut -d ' ' -f 1 | xargs -I{} %[1]s exec -n %[2]s {} -- kill 1",
+			helpers.KubectlCmd, helpers.CiliumNamespace)
+		quit, run := kubectl.RepeatCommandInBackground(cmd)
+		channelClosed := false
+		defer func() {
+			if !channelClosed {
+				close(quit)
+			}
+		}()
+		<-run // waiting for first run to finish
 
 		By("Testing connectivity when cilium is restoring using IPS without DNS")
-		res = kubectl.ExecPodCmd(
+		res := kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
 			helpers.CurlFail(worldTargetIP))
 		res.ExpectSuccess("%q cannot curl to %q during restart", helpers.App2, worldTargetIP)
@@ -177,6 +185,9 @@ var _ = Describe("K8sFQDNTest", func() {
 			helpers.DefaultNamespace, appPods[helpers.App2],
 			helpers.CurlFail(worldInvalidTargetIP))
 		res.ExpectFail("%q can  connect when it should not work", helpers.App2)
+
+		channelClosed = true
+		close(quit)
 
 		ExpectAllPodsTerminated(kubectl)
 		ExpectCiliumReady(kubectl)

@@ -3862,6 +3862,34 @@ func (kub *Kubectl) WaitForIPCacheEntry(node, ipAddr string) error {
 		&TimeoutConfig{Timeout: HelperTimeout})
 }
 
+// RepeatCommandInBackground runs command on repeat in goroutine until quit channel
+// is closed and closes run channel when command is first run
+func (kub *Kubectl) RepeatCommandInBackground(cmd string) (quit, run chan struct{}) {
+	quit = make(chan struct{})
+	run = make(chan struct{})
+	go func() {
+		firstRun := true
+		for {
+			select {
+			case <-quit:
+				return
+			default:
+				res := kub.Exec(cmd)
+				if !res.WasSuccessful() {
+					kub.Logger().WithFields(logrus.Fields{
+						"cmd": cmd,
+					}).Warning("Command failed running in the background")
+				}
+				if firstRun {
+					close(run)
+				}
+				firstRun = false
+			}
+		}
+	}()
+	return
+}
+
 func serviceKey(s v1.Service) string {
 	return s.Namespace + "/" + s.Name
 }
