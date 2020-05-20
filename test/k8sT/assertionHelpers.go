@@ -124,22 +124,13 @@ func RedeployCilium(vm *helpers.Kubectl, ciliumFilename string, options map[stri
 func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, options map[string]string) {
 	redeployCilium(vm, ciliumFilename, options)
 
-	By("Installing DNS Deployment")
+	vm.RedeployKubernetesDnsIfNecessary()
+
 	switch helpers.GetCurrentIntegration() {
-	case helpers.CIIntegrationMicrok8s:
-		By(fmt.Sprintf("%s (hint: %s)",
-			"Assuming that microk8s already has DNS deployed...",
-			"Use 'microk8s.enable dns' to create deployment"))
 	case helpers.CIIntegrationGKE:
 		By("Restarting all kube-system pods")
 		if res := vm.DeleteResource("pod", fmt.Sprintf("-n %s --all", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
 			log.Warningf("Unable to delete kube-system pods: %s", res.OutputPrettyPrint())
-		}
-	default:
-		vm.ApplyDefault(helpers.DNSDeployment(vm.BasePath()))
-		By("Restarting DNS Pods")
-		if res := vm.DeleteResource("pod", fmt.Sprintf("-n %s -l k8s-app=kube-dns", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
-			log.Warningf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
 		}
 	}
 
@@ -153,7 +144,6 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 	err := vm.CiliumPreFlightCheck()
 	ExpectWithOffset(1, err).Should(BeNil(), "cilium pre-flight checks failed")
 	ExpectCiliumOperatorReady(vm)
-	ExpectKubeDNSReady(vm)
 
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationGKE:

@@ -107,8 +107,8 @@ type TimeoutConfig struct {
 // Validate ensuires that the parameters for the TimeoutConfig are reasonable
 // for running in tests.
 func (c *TimeoutConfig) Validate() error {
-	if c.Timeout < 10*time.Second {
-		return fmt.Errorf("Timeout too short (must be at least 10 seconds): %v", c.Timeout)
+	if c.Timeout < 5*time.Second {
+		return fmt.Errorf("Timeout too short (must be at least 5 seconds): %v", c.Timeout)
 	}
 	if c.Ticker == 0 {
 		c.Ticker = 5 * time.Second

@@ -235,6 +235,9 @@ const (
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
+
+	// ServiceSuffix is the Kubernetes service suffix
+	ServiceSuffix = "svc.cluster.local"
 )
 
 var (
