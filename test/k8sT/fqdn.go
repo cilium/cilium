@@ -90,7 +90,6 @@ var _ = Describe("K8sFQDNTest", func() {
 
 	AfterAll(func() {
 		_ = kubectl.Delete(demoManifest)
-		kubectl.DeleteCiliumDS()
 		ExpectAllPodsTerminated(kubectl)
 		kubectl.CloseSSHClient()
 	})

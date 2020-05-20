@@ -32,18 +32,12 @@ var _ = Describe("K8sIdentity", func() {
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 	})
 
-	AfterEach(func() {
-		kubectl.DeleteCiliumDS()
-		ExpectAllPodsTerminated(kubectl)
-	})
-
 	AfterFailed(func() {
 		kubectl.CiliumReport(helpers.CiliumNamespace,
 			"cilium endpoint list")
 	})
 
 	AfterAll(func() {
-		DeployCiliumAndDNS(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 

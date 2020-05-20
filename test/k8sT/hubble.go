@@ -112,8 +112,6 @@ var _ = Describe("K8sHubbleTest", func() {
 	})
 
 	AfterAll(func() {
-		kubectl.Delete(ciliumFilename)
-		ExpectAllPodsTerminated(kubectl)
 		kubectl.CloseSSHClient()
 	})
 
