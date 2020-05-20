@@ -301,8 +301,8 @@ func (in *EgressRule) DeepEqual(other *EgressRule) bool {
 		}
 	}
 
-	if ((in.aggregatedSelectors != nil) && (other.aggregatedSelectors != nil)) || ((in.aggregatedSelectors == nil) != (other.aggregatedSelectors == nil)) {
-		in, other := &in.aggregatedSelectors, &other.aggregatedSelectors
+	if ((in.AggregatedSelectors != nil) && (other.AggregatedSelectors != nil)) || ((in.AggregatedSelectors == nil) != (other.AggregatedSelectors == nil)) {
+		in, other := &in.AggregatedSelectors, &other.AggregatedSelectors
 		if other == nil {
 			return false
 		}
@@ -336,15 +336,15 @@ func (in *EndpointSelector) DeepEqual(other *EndpointSelector) bool {
 		}
 	}
 
-	if (in.requirements == nil) != (other.requirements == nil) {
+	if (in.Requirements == nil) != (other.Requirements == nil) {
 		return false
-	} else if in.requirements != nil {
-		if !in.requirements.DeepEqual(other.requirements) {
+	} else if in.Requirements != nil {
+		if !in.Requirements.DeepEqual(other.Requirements) {
 			return false
 		}
 	}
 
-	if in.cachedLabelSelectorString != other.cachedLabelSelectorString {
+	if in.CachedLabelSelectorString != other.CachedLabelSelectorString {
 		return false
 	}
 
@@ -535,8 +535,8 @@ func (in *IngressRule) DeepEqual(other *IngressRule) bool {
 		}
 	}
 
-	if ((in.aggregatedSelectors != nil) && (other.aggregatedSelectors != nil)) || ((in.aggregatedSelectors == nil) != (other.aggregatedSelectors == nil)) {
-		in, other := &in.aggregatedSelectors, &other.aggregatedSelectors
+	if ((in.AggregatedSelectors != nil) && (other.AggregatedSelectors != nil)) || ((in.AggregatedSelectors == nil) != (other.AggregatedSelectors == nil)) {
+		in, other := &in.AggregatedSelectors, &other.AggregatedSelectors
 		if other == nil || !in.DeepEqual(other) {
 			return false
 		}
@@ -974,15 +974,15 @@ func (in *ServiceSelector) DeepEqual(other *ServiceSelector) bool {
 		}
 	}
 
-	if (in.requirements == nil) != (other.requirements == nil) {
+	if (in.Requirements == nil) != (other.Requirements == nil) {
 		return false
-	} else if in.requirements != nil {
-		if !in.requirements.DeepEqual(other.requirements) {
+	} else if in.Requirements != nil {
+		if !in.Requirements.DeepEqual(other.Requirements) {
 			return false
 		}
 	}
 
-	if in.cachedLabelSelectorString != other.cachedLabelSelectorString {
+	if in.CachedLabelSelectorString != other.CachedLabelSelectorString {
 		return false
 	}
 
