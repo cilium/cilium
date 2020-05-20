@@ -26,6 +26,7 @@ BUILDKIT_DOCKERFILE_FILTER := | sed -e "1s|^\#.*|\# syntax = docker/dockerfile:e
 $(BUILD_DIR)/.git:
 	-mkdir -p $(dir $@)
 	git clone --bare --no-local --depth 1 . $@
+	@cd $(dir $@) && git remote set-url origin "$(shell realpath --relative-to $(dir $@) $(ROOT_DIR))"
 
 #
 # Create _build context:
