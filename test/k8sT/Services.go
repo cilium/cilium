@@ -141,7 +141,7 @@ var _ = Describe("K8sServicesTest", func() {
 		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
 		ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", testDSClient)
 		count := 10
-		cmd := fmt.Sprintf(`/bin/sh -c 'for i in $(seq 1 %d); do %s; done'`, count, helpers.CurlFailNoStats(url))
+		cmd := fmt.Sprintf(`/bin/sh -c 'set -e; for i in $(seq 1 %d); do %s; done'`, count, helpers.CurlFailNoStats(url))
 		for _, pod := range pods {
 			By("Making %d curl requests from %s pod to service %s", count, pod, url)
 			res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, cmd)
@@ -372,7 +372,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 		doRequests := func(url string, count int, fromPod string) {
 			By("Making %d curl requests from pod (host netns) %s to %q", count, fromPod, url)
-			cmd := fmt.Sprintf(`/bin/sh -c 'for i in $(seq 1 %d); do %s; done'`, count,
+			cmd := fmt.Sprintf(`/bin/sh -c 'set -e; for i in $(seq 1 %d); do %s; done'`, count,
 				helpers.CurlFailNoStats(url))
 			res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, cmd)
 			ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
