@@ -209,6 +209,11 @@ func listRulesAndRoutes(c *C, family int) ([]netlink.Rule, []netlink.Route) {
 // used as a harness in this test. This function returns a function which can
 // be used to remove the device for cleanup purposes.
 func createDummyDevice(c *C, macAddr mac.MAC) func() {
+	if linkExistsWithMAC(c, macAddr) {
+		c.Logf("Found device with identical mac addr: %s", macAddr.String())
+		c.FailNow()
+	}
+
 	dummy := &netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
 			// NOTE: This name must be less than 16 chars, source:
@@ -221,6 +226,12 @@ func createDummyDevice(c *C, macAddr mac.MAC) func() {
 	c.Assert(err, IsNil)
 
 	c.Log("Added dummy device")
+
+	found := linkExistsWithMAC(c, macAddr)
+	if !found {
+		c.Log("Couldn't find device even after creation")
+	}
+	c.Assert(found, Equals, true)
 
 	return func() {
 		c.Assert(netlink.LinkDel(dummy), IsNil)
@@ -252,4 +263,17 @@ func getFakes(c *C) (net.IP, RoutingInfo) {
 	c.Assert(fakeIP, NotNil)
 
 	return fakeIP, *fakeRoutingInfo
+}
+
+func linkExistsWithMAC(c *C, macAddr mac.MAC) bool {
+	links, err := netlink.LinkList()
+	c.Assert(err, IsNil)
+
+	for _, link := range links {
+		if link.Attrs().HardwareAddr.String() == macAddr.String() {
+			return true
+		}
+	}
+
+	return false
 }
