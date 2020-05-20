@@ -75,15 +75,16 @@ type nodeMap map[string]*Node
 
 // NodeManager manages all nodes with ENIs
 type NodeManager struct {
-	mutex           lock.RWMutex
-	nodes           nodeMap
-	instancesAPI    nodeManagerAPI
-	ec2API          ec2API
-	k8sAPI          k8sAPI
-	metricsAPI      metricsAPI
-	resyncTrigger   *trigger.Trigger
-	parallelWorkers int64
-	eniTags         map[string]string
+	mutex              lock.RWMutex
+	nodes              nodeMap
+	instancesAPI       nodeManagerAPI
+	ec2API             ec2API
+	k8sAPI             k8sAPI
+	metricsAPI         metricsAPI
+	resyncTrigger      *trigger.Trigger
+	parallelWorkers    int64
+	eniTags            map[string]string
+	stableInstancesAPI bool
 }
 
 // NewNodeManager returns a new NodeManager
@@ -107,8 +108,7 @@ func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, m
 		MinInterval:     10 * time.Millisecond,
 		MetricsObserver: metrics.ResyncTrigger(),
 		TriggerFunc: func(reasons []string) {
-			syncTime := instancesAPI.Resync(context.TODO())
-			if !syncTime.IsZero() {
+			if syncTime, ok := mngr.InstancesAPIResync(context.TODO()); ok {
 				mngr.Resync(context.TODO(), syncTime)
 			}
 		},
@@ -119,7 +119,32 @@ func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, m
 
 	mngr.resyncTrigger = resyncTrigger
 
+	// Assume readiness, the initial blocking resync in Start() will update
+	// the readiness
+	mngr.SetInstancesAPIReadiness(true)
+
 	return mngr, nil
+}
+
+func (n *NodeManager) InstancesAPIResync(ctx context.Context) (time.Time, bool) {
+	syncTime := n.instancesAPI.Resync(ctx)
+	success := !syncTime.IsZero()
+	n.SetInstancesAPIReadiness(success)
+	return syncTime, success
+}
+
+// SetInstancesAPIReadiness sets the readiness state of the instances API
+func (n *NodeManager) SetInstancesAPIReadiness(ready bool) {
+	n.mutex.Lock()
+	n.stableInstancesAPI = ready
+	n.mutex.Unlock()
+}
+
+// InstancesAPIIsReady returns true if the instances API is stable and ready
+func (n *NodeManager) InstancesAPIIsReady() bool {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	return n.stableInstancesAPI
 }
 
 // GetNames returns the list of all node names
@@ -162,6 +187,17 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
 			node.logger().WithError(err).Error("Unable to create pool-maintainer trigger")
 			return false
 		}
+
+		retry, err := trigger.NewTrigger(trigger.Parameters{
+			Name:        fmt.Sprintf("eni-pool-maintainer-%s-retry", resource.Name),
+			MinInterval: time.Minute, // large minimal interval to not retry too often
+			TriggerFunc: func(reasons []string) { poolMaintainer.Trigger() },
+		})
+		if err != nil {
+			node.logger().WithError(err).Error("Unable to create pool-maintainer-retry trigger")
+			return false
+		}
+		node.retry = retry
 
 		k8sSync, err := trigger.NewTrigger(trigger.Parameters{
 			Name:            fmt.Sprintf("eni-node-k8s-sync-%s", resource.Name),

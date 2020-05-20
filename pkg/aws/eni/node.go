@@ -95,6 +95,10 @@ type Node struct {
 	// together if the apiserver is slow to respond or subject to rate
 	// limiting.
 	k8sSync *trigger.Trigger
+
+	// retry is the trigger used to retry pool maintenance while the
+	// instances API is unstable
+	retry *trigger.Trigger
 }
 
 type nodeStatistics struct {
@@ -771,6 +775,14 @@ func (n *Node) maintainIpPool(ctx context.Context) error {
 // MaintainIpPool attempts to allocate or release all required IPs to fulfill
 // the needed gap. If required, ENIs are created.
 func (n *Node) MaintainIpPool(ctx context.Context) error {
+	// As long as the instances API is unstable, don't perform any
+	// operation that can mutate state.
+	if !n.manager.InstancesAPIIsReady() {
+		if n.retry != nil {
+			n.retry.Trigger()
+		}
+		return fmt.Errorf("instances API is unstable. Blocking mutating operations. See logs for details.")
+	}
 	// If the instance is no longer running, don't attempt any deficit
 	// resolution and wait for the custom resource to be updated as a sign
 	// of life.
