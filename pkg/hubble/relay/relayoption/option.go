@@ -22,13 +22,15 @@ import (
 
 // Options stores all the configuration values for the hubble-relay server.
 type Options struct {
-	HubbleTarget       string
-	DialTimeout        time.Duration
-	RetryTimeout       time.Duration
-	ListenAddress      string
-	Debug              bool
-	BufferMaxLen       int
-	BufferDrainTimeout time.Duration
+	HubbleTarget  string
+	DialTimeout   time.Duration
+	RetryTimeout  time.Duration
+	ListenAddress string
+	Debug         bool
+
+	BufferMaxLen           int
+	BufferDrainTimeout     time.Duration
+	ErrorAggregationWindow time.Duration
 }
 
 // Option customizes the configuration of the hubble-relay server.
@@ -108,6 +110,20 @@ func WithBufferDrainTimeout(d time.Duration) Option {
 			return fmt.Errorf("value for BufferDrainTimeout must be greater than 0: %d", d)
 		}
 		o.BufferDrainTimeout = d
+		return nil
+	}
+}
+
+// ErrorAggregationWindow sets a time window during which errors with the same
+// error message are coalesced. The aggregated error is forwarded to the
+// downstream consumer either when the window expires or when a new, different
+// error occurs (whichever happens first)
+func WithErrorAggregationWindow(d time.Duration) Option {
+	return func(o *Options) error {
+		if d <= 0 {
+			return fmt.Errorf("value for ErrorAggregationWindow must be greater than 0: %d", d)
+		}
+		o.ErrorAggregationWindow = d
 		return nil
 	}
 }
