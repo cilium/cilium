@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -25,7 +25,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/test/config"
-	. "github.com/cilium/cilium/test/ginkgo-ext"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	gops "github.com/google/gops/agent"
@@ -70,7 +69,7 @@ func configLogsOutput() {
 	log.Formatter = &config.Formatter
 	log.Hooks.Add(&config.LogHook{})
 
-	ginkgoext.GinkgoWriter = NewWriter(log.Out)
+	ginkgoext.GinkgoWriter = ginkgoext.NewWriter(log.Out)
 }
 
 func ShowCommands() {
@@ -96,11 +95,11 @@ func TestTest(t *testing.T) {
 	if config.CiliumTestConfig.HoldEnvironment {
 		RegisterFailHandler(helpers.Fail)
 	} else {
-		RegisterFailHandler(Fail)
+		RegisterFailHandler(ginkgoext.Fail)
 	}
 	junitReporter := ginkgoext.NewJUnitReporter(fmt.Sprintf(
 		"%s.xml", helpers.GetScopeWithVersion()))
-	RunSpecsWithDefaultAndCustomReporters(
+	ginkgoext.RunSpecsWithDefaultAndCustomReporters(
 		t, fmt.Sprintf("Suite-%s", helpers.GetScopeWithVersion()),
 		[]ginkgo.Reporter{junitReporter})
 }
@@ -149,18 +148,18 @@ func reportCreateVMFailure(vm string, err error) {
         =======================================================================
         `, vm, err)
 	ginkgoext.GinkgoPrint(failmsg)
-	Fail(failmsg)
+	ginkgoext.Fail(failmsg)
 }
 
-var _ = BeforeAll(func() {
+var _ = ginkgoext.BeforeAll(func() {
 	helpers.Init()
-	By("Starting tests: command line parameters: %+v environment variables: %v", config.CiliumTestConfig, os.Environ())
+	ginkgoext.By("Starting tests: command line parameters: %+v environment variables: %v", config.CiliumTestConfig, os.Environ())
 	go func() {
-		defer GinkgoRecover()
+		defer ginkgoext.GinkgoRecover()
 		time.Sleep(config.CiliumTestConfig.Timeout)
 		msg := fmt.Sprintf("Test suite timed out after %s", config.CiliumTestConfig.Timeout)
-		By(msg)
-		Fail(msg)
+		ginkgoext.By(msg)
+		ginkgoext.Fail(msg)
 	}()
 
 	var err error
@@ -168,7 +167,7 @@ var _ = BeforeAll(func() {
 	logger := log.WithFields(logrus.Fields{"testName": "BeforeAll"})
 	scope, err := helpers.GetScope()
 	if err != nil {
-		Fail(fmt.Sprintf(
+		ginkgoext.Fail(fmt.Sprintf(
 			"Cannot get the scope for running test, please use --cilium.testScope option: %s",
 			err))
 	}
@@ -233,7 +232,7 @@ var _ = BeforeAll(func() {
 			if nodes != "" {
 				nodesInt, err = strconv.Atoi(nodes)
 				if err != nil {
-					Fail(fmt.Sprintf("%s value is not a number %q", k8sNodesEnv, nodes))
+					ginkgoext.Fail(fmt.Sprintf("%s value is not a number %q", k8sNodesEnv, nodes))
 				}
 			}
 
@@ -270,14 +269,14 @@ var _ = BeforeAll(func() {
 	}
 })
 
-var _ = AfterSuite(func() {
+var _ = ginkgoext.AfterSuite(func() {
 	if !helpers.IsRunningOnJenkins() {
-		GinkgoPrint("AfterSuite: not running on Jenkins; leaving VMs running for debugging")
+		ginkgoext.GinkgoPrint("AfterSuite: not running on Jenkins; leaving VMs running for debugging")
 		return
 	}
 	// Errors are not checked here because it should fail on BeforeAll
 	scope, _ := helpers.GetScope()
-	GinkgoPrint("cleaning up VMs started for %s tests", scope)
+	ginkgoext.GinkgoPrint("cleaning up VMs started for %s tests", scope)
 	switch scope {
 	case helpers.Runtime:
 		helpers.DestroyVM(helpers.Runtime)
@@ -294,11 +293,11 @@ func getOrSetEnvVar(key, value string) {
 	}
 }
 
-var _ = AfterEach(func() {
+var _ = ginkgoext.AfterEach(func() {
 
 	// Send the Checks output to Junit report to be render on Jenkins.
 	defer helpers.CheckLogs.Reset()
-	GinkgoPrint("<Checks>\n%s\n</Checks>\n", helpers.CheckLogs.Buffer.String())
+	ginkgoext.GinkgoPrint("<Checks>\n%s\n</Checks>\n", helpers.CheckLogs.Buffer.String())
 
 	defer config.TestLogWriterReset()
 	err := helpers.CreateLogFile(config.TestLogFileName, config.TestLogWriter.Bytes())
