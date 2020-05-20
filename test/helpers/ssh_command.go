@@ -20,14 +20,11 @@ import (
 	"fmt"
 	"io"
 	"io/ioutil"
-	"net"
-	"os"
 	"strconv"
 	"time"
 
 	"github.com/kevinburke/ssh_config"
 	"golang.org/x/crypto/ssh"
-	"golang.org/x/crypto/ssh/agent"
 )
 
 // SSHCommand stores the data associated with executing a command.
@@ -50,11 +47,6 @@ type SSHClient struct {
 	Port   int               // Port to connect to the target server
 	client *ssh.Client       // Client implements a traditional SSH client that supports shells,
 	// subprocesses, TCP port/streamlocal forwarding and tunneled dialing.
-}
-
-// GetHostPort returns the host port representation of the ssh client
-func (cli *SSHClient) GetHostPort() string {
-	return net.JoinHostPort(cli.Host, strconv.Itoa(cli.Port))
 }
 
 // SSHConfig contains metadata for an SSH session.
@@ -174,20 +166,6 @@ func runCommand(session *ssh.Session, cmd *SSHCommand) (bool, error) {
 		return true, err
 	}
 	return true, nil
-}
-
-// RunCommand runs a SSHCommand using SSHClient client. The returned error is
-// nil if the command runs, has no problems copying stdin, stdout, and stderr,
-// and exits with a zero exit status.
-func (client *SSHClient) RunCommand(cmd *SSHCommand) error {
-	session, err := client.newSession()
-	if err != nil {
-		return err
-	}
-	defer session.Close()
-
-	_, err = runCommand(session, cmd)
-	return err
 }
 
 // RunCommandInBackground runs an SSH command in a similar way to
@@ -318,34 +296,4 @@ func (client *SSHClient) newSession() (*ssh.Session, error) {
 	}
 
 	return session, nil
-}
-
-// SSHAgent returns the ssh.Authmethod using the Public keys. Returns nil if
-// a connection to SSH_AUTH_SHOCK does not succeed.
-func SSHAgent() ssh.AuthMethod {
-	if sshAgent, err := net.Dial("unix", os.Getenv("SSH_AUTH_SOCK")); err == nil {
-		return ssh.PublicKeysCallback(agent.NewClient(sshAgent).Signers)
-	}
-	return nil
-}
-
-// GetSSHClient initializes an SSHClient for the specified host/port/user
-// combination.
-func GetSSHClient(host string, port int, user string) *SSHClient {
-
-	sshConfig := &ssh.ClientConfig{
-		User: user,
-		Auth: []ssh.AuthMethod{
-			SSHAgent(),
-		},
-		HostKeyCallback: ssh.InsecureIgnoreHostKey(),
-		Timeout:         15 * time.Second,
-	}
-
-	return &SSHClient{
-		Config: sshConfig,
-		Host:   host,
-		Port:   port,
-	}
-
 }

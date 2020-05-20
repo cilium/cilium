@@ -24,7 +24,6 @@ import (
 	"os"
 	"path/filepath"
 	"regexp"
-	"strconv"
 	"strings"
 	"time"
 
@@ -63,19 +62,6 @@ func IsRunningOnJenkins() bool {
 // Sleep sleeps for the specified duration in seconds
 func Sleep(delay time.Duration) {
 	time.Sleep(delay * time.Second)
-}
-
-// CountValues returns the count of the occurrences of key in data, as well as
-// the length of data.
-func CountValues(key string, data []string) (int, int) {
-	var result int
-
-	for _, x := range data {
-		if x == key {
-			result++
-		}
-	}
-	return result, len(data)
 }
 
 // MakeUID returns a randomly generated string.
@@ -496,18 +482,6 @@ func RunsOnNetNextOr419Kernel() bool {
 // RunsOnNetNextOr419Kernel.
 func DoesNotRunOnNetNextOr419Kernel() bool {
 	return !RunsOnNetNextOr419Kernel()
-}
-
-// DoesNotHaveHosts returns a function which returns true if a CI job
-// has less VMs than the given count.
-func DoesNotHaveHosts(count int) func() bool {
-	return func() bool {
-		if c, err := strconv.Atoi(os.Getenv("K8S_NODES")); err != nil {
-			return true
-		} else {
-			return c < count
-		}
-	}
 }
 
 // RunsWithKubeProxy returns true if cilium runs together with k8s' kube-proxy.

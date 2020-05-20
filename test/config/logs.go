@@ -47,7 +47,7 @@ func (h *LogHook) Levels() []logrus.Level {
 func (h *LogHook) Fire(entry *logrus.Entry) (err error) {
 	line, err := Formatter.Format(entry)
 	if err == nil {
-		fmt.Fprintf(ginkgo.GinkgoWriter, string(line))
+		fmt.Fprint(ginkgo.GinkgoWriter, string(line))
 	} else {
 		fmt.Fprintf(os.Stderr, "LogHook.Fire: unable to format log entry (%v)", err)
 	}

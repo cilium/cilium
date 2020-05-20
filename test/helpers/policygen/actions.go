@@ -74,11 +74,6 @@ func HTTPActionPublic(srcPod string, dest TargetDetails, kub *helpers.Kubectl) R
 		kub)
 }
 
-// NetPerfAction TODO make this function (GH-2029)
-func NetPerfAction(srcPod string, dest TargetDetails, kub *helpers.Kubectl) ResultType {
-	return ResultType{}
-}
-
 // PingAction executes a ping from the `srcPod` to the dest using Kubectl
 // object. Returns a ResultType corresponding to the exit code of the ping
 // command.

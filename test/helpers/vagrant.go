@@ -35,7 +35,7 @@ import (
 func CreateVM(scope string) error {
 	createCMD := "vagrant up %s --provision"
 
-	for _, v := range Status(scope) {
+	for _, v := range status(scope) {
 		switch v {
 		case "running":
 			createCMD = "vagrant provision %s"
@@ -141,8 +141,8 @@ func getPath(prog string) string {
 	return path
 }
 
-//Status returns a mapping of Vagrant VM name to its status
-func Status(key string) map[string]string {
+//status returns a mapping of Vagrant VM name to its status
+func status(key string) map[string]string {
 	result := map[string]string{}
 
 	cmd := getCmd(fmt.Sprintf("vagrant status %s --machine-readable", key))

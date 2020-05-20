@@ -71,9 +71,6 @@ const (
 	// CiliumAgentLabel is the label used for Cilium
 	CiliumAgentLabel = "k8s-app=cilium"
 
-	// CiliumOperatorLabel is the label used in the Cilium Operator deployment
-	CiliumOperatorLabel = "io.cilium/app=operator"
-
 	// PolicyEnforcement represents the PolicyEnforcement configuration option
 	// for the Cilium agent.
 	PolicyEnforcement = "PolicyEnforcement"
@@ -86,11 +83,6 @@ const (
 	// for Cilium in which traffic is denied by default even when no policy
 	// is imported.
 	PolicyEnforcementAlways = "always"
-
-	// PolicyEnforcementNever represents the PolicyEnforcement mode
-	// for Cilium in which traffic is always allowed even if there is a policy
-	// selecting endpoints.
-	PolicyEnforcementNever = "never"
 
 	// CiliumDockerNetwork is the name of the Docker network which Cilium manages.
 	CiliumDockerNetwork = "cilium-net"
@@ -144,9 +136,6 @@ const (
 	OptionNone                = "none"
 	OptionDisabled            = "Disabled"
 	OptionEnabled             = "Enabled"
-
-	StateTerminating = "Terminating"
-	StateRunning     = "Running"
 
 	PingCount = 5
 

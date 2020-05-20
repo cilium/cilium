@@ -46,14 +46,6 @@ type SSHMeta struct {
 	basePath  string
 }
 
-// CreateSSHMeta returns an SSHMeta with the specified host, port, and user, as
-// well as an according SSHClient.
-func CreateSSHMeta(host string, port int, user string) *SSHMeta {
-	return &SSHMeta{
-		sshClient: GetSSHClient(host, port, user),
-	}
-}
-
 // Logger returns logger for SSHMeta
 func (s *SSHMeta) Logger() *logrus.Entry {
 	return s.logger
@@ -235,29 +227,6 @@ func (s *SSHMeta) ExecContext(ctx context.Context, cmd string, options ...ExecOp
 
 	res.SendToLog(ops.SkipLog)
 	return &res
-}
-
-// GetCopy returns a copy of SSHMeta, useful for parallel requests
-func (s *SSHMeta) GetCopy() *SSHMeta {
-	nodes, err := ImportSSHconfig(s.rawConfig)
-	if err != nil {
-		log.WithError(err).Error("while importing ssh config for meta copy")
-		return nil
-	}
-
-	config := nodes[s.nodeName]
-	if config == nil {
-		log.Errorf("no node %s in imported config", s.nodeName)
-		return nil
-	}
-
-	copy := &SSHMeta{
-		sshClient: config.GetSSHClient(),
-		rawConfig: s.rawConfig,
-		nodeName:  s.nodeName,
-	}
-
-	return copy
 }
 
 // ExecInBackground returns the results of running cmd via SSH in the specified

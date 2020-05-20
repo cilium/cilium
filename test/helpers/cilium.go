@@ -37,12 +37,6 @@ import (
 
 var log = logging.DefaultLogger
 
-const (
-	// MaxRetries is the number of times that a loop should iterate until a
-	// specified condition is not met
-	MaxRetries = 30
-)
-
 // BpfLBList returns the output of `cilium bpf lb list -o json` as a map
 // Key will be the frontend address and the value is an array with all backend
 // addresses
@@ -533,16 +527,6 @@ func (s *SSHMeta) PolicyImportAndWait(path string, timeout time.Duration) (int, 
 		logfields.PolicyRevision: revision,
 	}).Infof("policy import finished and revision increased")
 	return revision, err
-}
-
-// PolicyImport imports a new policy into Cilium.
-func (s *SSHMeta) PolicyImport(path string) error {
-	res := s.ExecCilium(fmt.Sprintf("policy import %s", path))
-	if !res.WasSuccessful() {
-		s.logger.Errorf("could not import policy: %s", res.CombineOutput())
-		return fmt.Errorf("could not import policy %s", path)
-	}
-	return nil
 }
 
 // PolicyRenderAndImport receives an string with a policy, renders it in the

@@ -643,25 +643,6 @@ func (kub *Kubectl) GetCNP(namespace string, cnp string) *cnpv2.CiliumNetworkPol
 	return &result
 }
 
-func (kub *Kubectl) WaitForCRDCount(filter string, count int, timeout time.Duration) error {
-	// Set regexp flag m for multi-line matching, then add the
-	// matches for beginning and end of a line, so that we count
-	// at most one match per line (like "grep <filter> | wc -l")
-	regex := regexp.MustCompile("(?m:^.*(?:" + filter + ").*$)")
-	body := func() bool {
-		res := kub.ExecShort(fmt.Sprintf("%s get crds", KubectlCmd))
-		if !res.WasSuccessful() {
-			log.Error(res.GetErr("kubectl get crds failed"))
-			return false
-		}
-		return len(regex.FindAllString(res.GetStdOut(), -1)) == count
-	}
-	return WithTimeout(
-		body,
-		fmt.Sprintf("timed out waiting for %d CRDs matching filter \"%s\" to be ready", count, filter),
-		&TimeoutConfig{Timeout: timeout})
-}
-
 // GetPods gets all of the pods in the given namespace that match the provided
 // filter.
 func (kub *Kubectl) GetPods(namespace string, filter string) *CmdRes {
@@ -934,13 +915,6 @@ func (kub *Kubectl) GetLoadBalancerIP(namespace string, service string, timeout 
 	}
 
 	return data.Status.LoadBalancer.Ingress[0].IP, nil
-}
-
-// Logs returns a CmdRes with containing the resulting metadata from the
-// execution of `kubectl logs <pod> -n <namespace>`.
-func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
-	return kub.Exec(
-		fmt.Sprintf("%s -n %s logs %s", KubectlCmd, namespace, pod))
 }
 
 // MonitorStart runs cilium monitor in the background and returns the command
@@ -1483,53 +1457,6 @@ func (kub *Kubectl) DeployPatchStdIn(original, patch string) error {
 	return nil
 }
 
-// DeployPatch deploys the original kubernetes descriptor with the given patch.
-func (kub *Kubectl) DeployPatch(original, patchFileName string) error {
-	// debugYaml only dumps the full created yaml file to the test output if
-	// the cilium manifest can not be created correctly.
-	debugYaml := func(original, patch string) {
-		// dry-run is only available since k8s 1.11
-		switch GetCurrentK8SEnv() {
-		case "1.8", "1.9", "1.10":
-			_ = kub.ExecShort(fmt.Sprintf(
-				`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml`,
-				KubectlCmd, original, patch))
-		default:
-			_ = kub.ExecShort(fmt.Sprintf(
-				`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run -o yaml`,
-				KubectlCmd, original, patch))
-		}
-	}
-
-	var res *CmdRes
-	// validation 1st
-	// dry-run is only available since k8s 1.11
-	switch GetCurrentK8SEnv() {
-	case "1.8", "1.9", "1.10":
-	default:
-		res = kub.ExecShort(fmt.Sprintf(
-			`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run`,
-			KubectlCmd, original, patchFileName))
-		if !res.WasSuccessful() {
-			debugYaml(original, patchFileName)
-			return res.GetErr("Cilium patch validation failed")
-		}
-	}
-
-	res = kub.Apply(ApplyOptions{
-		FilePath: "-",
-		Force:    true,
-		Piped: fmt.Sprintf(
-			`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml`,
-			KubectlCmd, original, patchFileName),
-	})
-	if !res.WasSuccessful() {
-		debugYaml(original, patchFileName)
-		return res.GetErr("Cilium manifest patch installation failed")
-	}
-	return nil
-}
-
 func addIfNotOverwritten(options map[string]string, field, value string) map[string]string {
 	if _, ok := options[field]; !ok {
 		options[field] = value
@@ -1629,20 +1556,6 @@ func (kub *Kubectl) GetPrivateIface() (string, error) {
 	return kub.getIfaceByIPAddr(K8s1, ipAddr)
 }
 
-// GetPublicIface returns an interface name of a netdev which has ExternalIP
-// addr.
-// Assumes that all nodes have identical interfaces.
-func (kub *Kubectl) GetPublicIface() (string, error) {
-	ipAddr, err := kub.GetNodeIPByLabel(K8s1, true)
-	if err != nil {
-		return "", err
-	} else if ipAddr == "" {
-		return "", fmt.Errorf("%s does not have ExternalIP", K8s1)
-	}
-
-	return kub.getIfaceByIPAddr(K8s1, ipAddr)
-}
-
 func (kub *Kubectl) waitToDelete(name, label string) error {
 	var (
 		pods []string
@@ -1695,20 +1608,6 @@ func (kub *Kubectl) DeleteCiliumDS() error {
 	return kub.waitToDelete("Cilium", CiliumAgentLabel)
 }
 
-// ciliumUninstallHelm uninstalls Cilium with the Helm options provided.
-func (kub *Kubectl) ciliumUninstallHelm(filename string, options map[string]string) error {
-	if err := kub.generateCiliumYaml(options, filename); err != nil {
-		return err
-	}
-
-	res := kub.Delete(filename)
-	if !res.WasSuccessful() {
-		return res.GetErr("Unable to delete YAML")
-	}
-
-	return nil
-}
-
 // CiliumInstall installs Cilium with the provided Helm options.
 func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) error {
 	if err := kub.generateCiliumYaml(options, filename); err != nil {
@@ -1756,11 +1655,6 @@ func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, o
 		"--version=%s "+
 		"--namespace=%s "+
 		"%s", action, helmName, repo, version, namespace, optionsString)), nil
-}
-
-// CiliumUninstall uninstalls Cilium with the provided Helm options.
-func (kub *Kubectl) CiliumUninstall(filename string, options map[string]string) error {
-	return kub.ciliumUninstallHelm(filename, options)
 }
 
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,

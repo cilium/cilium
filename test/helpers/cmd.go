@@ -35,7 +35,6 @@ import (
 // CmdRes contains a variety of data which results from running a command.
 type CmdRes struct {
 	cmd      string          // Command to run
-	params   []string        // Parameters to provide to command
 	stdout   *Buffer         // Stdout from running cmd
 	stderr   *Buffer         // Stderr from running cmd
 	success  bool            // Whether command successfully executed
@@ -128,32 +127,12 @@ func (res *CmdRes) ExpectMatchesRegexp(regexp string, optionalDescription ...int
 		gomega.MatchRegexp(regexp), optionalDescription...)
 }
 
-// ExpectContainsFilterLine applies the provided JSONPath filter to each line
-// of stdout of the executed command and asserts that the expected string
-// matches at least one of the lines.
-// It accepts an optional parameter that can be used to annotate failure
-// messages.
-func (res *CmdRes) ExpectContainsFilterLine(filter, expected string, optionalDescription ...interface{}) bool {
-	lines, err := res.FilterLines(filter)
-	gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), optionalDescription...)
-	return gomega.ExpectWithOffset(1, expected).Should(
-		gomega.BeElementOf(lines), optionalDescription...)
-}
-
 // ExpectDoesNotContain asserts that a string is not contained in the stdout of
 // the executed command. It accepts an optional parameter that can be used to
 // annotate failure messages.
 func (res *CmdRes) ExpectDoesNotContain(data string, optionalDescription ...interface{}) bool {
 	return gomega.ExpectWithOffset(1, res.Output().String()).ToNot(
 		gomega.ContainSubstring(data), optionalDescription...)
-}
-
-// ExpectDoesNotMatchRegexp asserts that the stdout of the executed command
-// doesn't match the regexp. It accepts an optional parameter that can be used
-// to annotate failure messages.
-func (res *CmdRes) ExpectDoesNotMatchRegexp(regexp string, optionalDescription ...interface{}) bool {
-	return gomega.ExpectWithOffset(1, res.Output().String()).ToNot(
-		gomega.MatchRegexp(regexp), optionalDescription...)
 }
 
 // ExpectDoesNotContainFilterLine applies the provided JSONPath filter to each

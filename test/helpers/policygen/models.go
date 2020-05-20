@@ -504,28 +504,6 @@ func (t *TestSpec) ApplyManifest(base string) (string, error) {
 	return t.GetManifestName(), nil
 }
 
-// GetPodMetadata returns a map with the pod name and the IP for the pods used
-// by the `TestSpec`. Returns an error in case that the pod info cannot
-// be retrieved correctly.
-func (t *TestSpec) GetPodMetadata() (map[string]string, error) {
-	result := make(map[string]string)
-	filter := `{range .items[*]}{@.metadata.name}{"="}{@.status.podIP}{"\n"}{end}`
-
-	res := t.Kub.Get(helpers.DefaultNamespace, fmt.Sprintf("pods -l zgroup=%s", t.Prefix))
-	data, err := res.Filter(filter)
-	if err != nil {
-		return nil, err
-	}
-
-	for _, line := range strings.Split(data.String(), "\n") {
-		vals := strings.Split(line, "=")
-		if len(vals) == 2 {
-			result[vals[0]] = vals[1]
-		}
-	}
-	return result, nil
-}
-
 // CreateCiliumNetworkPolicy returns a CiliumNetworkPolicy based on the
 // `TestSpec` l3, l4 and l7 rules. Returns an error if any of the `PolicyTest`
 // set Template fails or if spec cannot be dump as string
