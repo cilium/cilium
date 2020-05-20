@@ -157,7 +157,9 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 				RunInterval: time.Minute,
 				DoFunc: func(ctx context.Context) error {
 					syncTime := instances.Resync(ctx)
-					nodeManager.Resync(ctx, syncTime)
+					if !syncTime.IsZero() {
+						nodeManager.Resync(ctx, syncTime)
+					}
 					return nil
 				},
 			})

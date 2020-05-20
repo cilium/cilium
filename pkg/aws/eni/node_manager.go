@@ -108,7 +108,9 @@ func NewNodeManager(instancesAPI nodeManagerAPI, ec2API ec2API, k8sAPI k8sAPI, m
 		MetricsObserver: metrics.ResyncTrigger(),
 		TriggerFunc: func(reasons []string) {
 			syncTime := instancesAPI.Resync(context.TODO())
-			mngr.Resync(context.TODO(), syncTime)
+			if !syncTime.IsZero() {
+				mngr.Resync(context.TODO(), syncTime)
+			}
 		},
 	})
 	if err != nil {
