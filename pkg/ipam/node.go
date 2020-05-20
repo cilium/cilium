@@ -17,6 +17,7 @@ package ipam
 
 import (
 	"context"
+	"fmt"
 	"time"
 
 	"github.com/cilium/cilium/pkg/defaults"
@@ -94,6 +95,10 @@ type Node struct {
 
 	// ops is the IPAM implementation to used for this node
 	ops NodeOperations
+
+	// retry is the trigger used to retry pool maintenance while the
+	// instances API is unstable
+	retry *trigger.Trigger
 }
 
 // Statistics represent the IP allocation statistics of a node
@@ -653,6 +658,15 @@ func (n *Node) updateLastResync(syncTime time.Time) {
 // MaintainIPPool attempts to allocate or release all required IPs to fulfill
 // the needed gap. If required, interfaces are created.
 func (n *Node) MaintainIPPool(ctx context.Context) error {
+	// As long as the instances API is unstable, don't perform any
+	// operation that can mutate state.
+	if !n.manager.InstancesAPIIsReady() {
+		if n.retry != nil {
+			n.retry.Trigger()
+		}
+		return fmt.Errorf("instances API is unstable. Blocking mutating operations. See logs for details.")
+	}
+
 	// If the instance has stopped running for less than a minute, don't attempt any deficit
 	// resolution and wait for the custom resource to be updated as a sign
 	// of life.
