@@ -17,9 +17,12 @@
 package spanstat
 
 import (
+	"fmt"
+	"sync"
 	"testing"
 	"time"
 
+	"github.com/stretchr/testify/assert"
 	. "gopkg.in/check.v1"
 )
 
@@ -89,4 +92,101 @@ func (s *SpanStatTestSuite) TestSpanStat(c *C) {
 func (s *SpanStatTestSuite) TestSpanStatSeconds(c *C) {
 	span1 := Start()
 	c.Assert(span1.Seconds(), Not(Equals), float64(0))
+}
+
+func (s *SpanStatTestSuite) TestSpanStatSecondsRaceCondition(c *C) {
+	span1 := Start()
+	var wg sync.WaitGroup
+
+	for i := 0; i < 10; i++ {
+		wg.Add(1)
+		go func(span *SpanStat) {
+			c.Assert(span1.Seconds(), Not(Equals), float64(0))
+		}(span1)
+	}
+	wg.Done()
+}
+
+func TestSpanStatRaceCondition(t *testing.T) {
+	type fields struct {
+		runFunc func(span *SpanStat) float64
+	}
+	tests := []struct {
+		name   string
+		fields fields
+	}{
+		{
+			name: "End function",
+			fields: fields{
+				runFunc: func(span *SpanStat) float64 {
+					return span.End(true).Seconds()
+				},
+			},
+		},
+		{
+			name: "EndError function",
+			fields: fields{
+				runFunc: func(span *SpanStat) float64 {
+					return span.EndError(fmt.Errorf("dummy error")).Seconds()
+				},
+			},
+		},
+		{
+			name: "Seconds function",
+			fields: fields{
+				runFunc: func(span *SpanStat) float64 {
+					return span.Seconds()
+				},
+			},
+		},
+		{
+			name: "Total function",
+			fields: fields{
+				runFunc: func(span *SpanStat) float64 {
+					return span.Total().Seconds() + 1
+				},
+			},
+		},
+		{
+			name: "FailureTotal function",
+			fields: fields{
+				runFunc: func(span *SpanStat) float64 {
+					return span.FailureTotal().Seconds() + 1
+				},
+			},
+		},
+		{
+			name: "SuccessTotal function",
+			fields: fields{
+				runFunc: func(span *SpanStat) float64 {
+					return span.SuccessTotal().Seconds() + 1
+				},
+			},
+		},
+		{
+			name: "Reset function",
+			fields: fields{
+				runFunc: func(span *SpanStat) float64 {
+					span.Reset()
+					return 1
+				},
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			span := Start()
+			var wg sync.WaitGroup
+
+			for i := 0; i < 5; i++ {
+				wg.Add(1)
+				go func(span *SpanStat) {
+					assert.NotEqual(t, tt.fields.runFunc(span), float64(0))
+				}(span)
+			}
+			wg.Done()
+		})
+	}
+
 }
