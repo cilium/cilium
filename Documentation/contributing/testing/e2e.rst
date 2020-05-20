@@ -190,24 +190,37 @@ framework in the ``test/`` directory and interact with ginkgo directly:
     $ cd test/
     $ ginkgo . -- --help | grep -A 1 cilium
       -cilium.SSHConfig string
-    	    Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')
+            Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')
+      -cilium.benchmarks
+            Specifies benchmark tests should be run which may increase test time
       -cilium.holdEnvironment
-    	    On failure, hold the environment in its current state
+            On failure, hold the environment in its current state
+      -cilium.hubble-relay-image string
+            Specifies which image of hubble-relay to use during tests
       -cilium.image string
-        	Specifies which image of cilium to use during tests
+            Specifies which image of cilium to use during tests
+      -cilium.kubeconfig string
+            Kubeconfig to be used for k8s tests
+      -cilium.multinode
+            Enable tests across multiple nodes. If disabled, such tests may silently pass (default true)
       -cilium.operator-image string
-        	Specifies which image of cilium-operator to use during tests
+            Specifies which image of cilium-operator to use during tests
+      -cilium.passCLIEnvironment
+            Pass the environment invoking ginkgo, including PATH, to subcommands
       -cilium.provision
-        	Provision Vagrant boxes and Cilium before running test (default true)
+            Provision Vagrant boxes and Cilium before running test (default true)
       -cilium.provision-k8s
-        	Specifies whether Kubernetes should be deployed and installed via kubeadm or not (default true)
+            Specifies whether Kubernetes should be deployed and installed via kubeadm or not (default true)
+      -cilium.registry string
+            docker registry hostname for Cilium image
       -cilium.showCommands
-        	Output which commands are ran to stdout
+            Output which commands are ran to stdout
       -cilium.skipLogs
-        	skip gathering logs if a test fails
+            skip gathering logs if a test fails
       -cilium.testScope string
-        	Specifies scope of test to be ran (k8s, Nightly, runtime)   
-    
+            Specifies scope of test to be ran (k8s, Nightly, runtime)
+      -cilium.timeout duration
+            Specifies timeout for test run (default 24h0m0s)
 
 For more information about other built-in options to Ginkgo, consult the
 `Ginkgo documentation`_.
