@@ -134,14 +134,15 @@ type nodeMap map[string]*Node
 
 // NodeManager manages all nodes with ENIs
 type NodeManager struct {
-	mutex            lock.RWMutex
-	nodes            nodeMap
-	instancesAPI     AllocationImplementation
-	k8sAPI           CiliumNodeGetterUpdater
-	metricsAPI       MetricsAPI
-	resyncTrigger    *trigger.Trigger
-	parallelWorkers  int64
-	releaseExcessIPs bool
+	mutex              lock.RWMutex
+	nodes              nodeMap
+	instancesAPI       AllocationImplementation
+	k8sAPI             CiliumNodeGetterUpdater
+	metricsAPI         MetricsAPI
+	resyncTrigger      *trigger.Trigger
+	parallelWorkers    int64
+	releaseExcessIPs   bool
+	stableInstancesAPI bool
 }
 
 // NewNodeManager returns a new NodeManager
@@ -164,8 +165,7 @@ func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI CiliumNodeGett
 		MinInterval:     10 * time.Millisecond,
 		MetricsObserver: metrics.ResyncTrigger(),
 		TriggerFunc: func(reasons []string) {
-			syncTime := instancesAPI.Resync(context.TODO())
-			if !syncTime.IsZero() {
+			if syncTime, ok := mngr.instancesAPIResync(context.TODO()); ok {
 				mngr.Resync(context.TODO(), syncTime)
 			}
 		},
@@ -175,16 +175,25 @@ func NewNodeManager(instancesAPI AllocationImplementation, k8sAPI CiliumNodeGett
 	}
 
 	mngr.resyncTrigger = resyncTrigger
+	// Assume readiness, the initial blocking resync in Start() will update
+	// the readiness
+	mngr.SetInstancesAPIReadiness(true)
 
 	return mngr, nil
+}
+
+func (n *NodeManager) instancesAPIResync(ctx context.Context) (time.Time, bool) {
+	syncTime := n.instancesAPI.Resync(ctx)
+	success := !syncTime.IsZero()
+	n.SetInstancesAPIReadiness(success)
+	return syncTime, success
 }
 
 // Start kicks of the NodeManager by performing the initial state
 // synchronization and starting the background sync go routine
 func (n *NodeManager) Start(ctx context.Context) error {
 	// Trigger the initial resync in a blocking manner
-	resyncTime := n.instancesAPI.Resync(ctx)
-	if resyncTime.IsZero() {
+	if _, ok := n.instancesAPIResync(ctx); !ok {
 		return fmt.Errorf("Initial synchronization with instances API failed")
 	}
 
@@ -199,8 +208,7 @@ func (n *NodeManager) Start(ctx context.Context) error {
 			controller.ControllerParams{
 				RunInterval: time.Minute,
 				DoFunc: func(ctx context.Context) error {
-					syncTime := n.instancesAPI.Resync(ctx)
-					if !syncTime.IsZero() {
+					if syncTime, ok := n.instancesAPIResync(ctx); ok {
 						n.Resync(ctx, syncTime)
 					}
 					return nil
@@ -209,6 +217,20 @@ func (n *NodeManager) Start(ctx context.Context) error {
 	}()
 
 	return nil
+}
+
+// SetInstancesAPIReadiness sets the readiness state of the instances API
+func (n *NodeManager) SetInstancesAPIReadiness(ready bool) {
+	n.mutex.Lock()
+	n.stableInstancesAPI = ready
+	n.mutex.Unlock()
+}
+
+// InstancesAPIIsReady returns true if the instances API is stable and ready
+func (n *NodeManager) InstancesAPIIsReady() bool {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+	return n.stableInstancesAPI
 }
 
 // GetNames returns the list of all node names
@@ -256,6 +278,17 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
 			node.logger().WithError(err).Error("Unable to create pool-maintainer trigger")
 			return false
 		}
+
+		retry, err := trigger.NewTrigger(trigger.Parameters{
+			Name:        fmt.Sprintf("ipam-pool-maintainer-%s-retry", resource.Name),
+			MinInterval: time.Minute, // large minimal interval to not retry too often
+			TriggerFunc: func(reasons []string) { poolMaintainer.Trigger() },
+		})
+		if err != nil {
+			node.logger().WithError(err).Error("Unable to create pool-maintainer-retry trigger")
+			return false
+		}
+		node.retry = retry
 
 		k8sSync, err := trigger.NewTrigger(trigger.Parameters{
 			Name:            fmt.Sprintf("ipam-node-k8s-sync-%s", resource.Name),
