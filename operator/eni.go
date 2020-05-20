@@ -143,7 +143,10 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 	}
 
 	// Initial blocking synchronization of all ENIs and subnets
-	instances.Resync(context.TODO())
+	resyncTime := instances.Resync(context.TODO())
+	if resyncTime.IsZero() {
+		return fmt.Errorf("Initial synchronization with instances API failed")
+	}
 
 	// Start an interval based  background resync for safety, it will
 	// synchronize the state regularly and resolve eventual deficit if the
