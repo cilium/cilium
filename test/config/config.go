@@ -40,6 +40,9 @@ type CiliumTestConfigType struct {
 	Kubeconfig          string
 	Registry            string
 	Benchmarks          bool
+	// Multinode enables the running of tests that involve more than one
+	// node. If false, some tests will silently skip multinode checks.
+	Multinode bool
 }
 
 // CiliumTestConfig holds the global configuration of commandline flags
@@ -77,4 +80,6 @@ func (c *CiliumTestConfigType) ParseFlags() {
 	flag.StringVar(&c.Registry, "cilium.registry", "", "docker registry hostname for Cilium image")
 	flag.BoolVar(&c.Benchmarks, "cilium.benchmarks", false,
 		"Specifies benchmark tests should be run which may increase test time")
+	flag.BoolVar(&c.Multinode, "cilium.multinode", true,
+		"Enable tests across multiple nodes. If disabled, such tests may silently pass")
 }

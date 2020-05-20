@@ -88,6 +88,15 @@ func TestTest(t *testing.T) {
 	}
 	if integration := helpers.GetCurrentIntegration(); integration != "" {
 		fmt.Printf("Using CNI_INTEGRATION=%q\n", integration)
+
+		switch integration {
+		case helpers.CIIntegrationMicrok8s:
+			fallthrough
+		case helpers.CIIntegrationMinikube:
+			fmt.Printf("Disabling multinode testing")
+			config.CiliumTestConfig.Multinode = false
+		default:
+		}
 	}
 
 	configLogsOutput()

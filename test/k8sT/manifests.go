@@ -23,6 +23,7 @@ var (
 
 	DemoDaemonSet = helpers.Manifest{
 		Filename:        "demo_ds.yaml",
+		Alternate:       "demo_ds_local.yaml",
 		DaemonSetNames:  []string{"testds", "testclient"},
 		DeploymentNames: []string{"test-k8s2"},
 		NumPods:         1,

@@ -20,6 +20,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 )
 
@@ -37,6 +38,12 @@ type Manifest struct {
 	// Filename is the file (not path) of the manifest. This must point to
 	// a file that contains any number of Deployments, DaemonSets, ...
 	Filename string
+
+	// Alternate is an alternative file (not path) of the manifest that
+	// takes the place of 'Filename' for single-node testing. It is
+	// otherwise equivalent and must point to a file containing resources
+	// to deploy.
+	Alternate string
 
 	// DaemonSetNames is the list of all daemonset names in the manifest
 	DaemonSetNames []string
@@ -61,9 +68,13 @@ type Manifest struct {
 	Singleton bool
 }
 
-// GetFilename resolves the filename for the manifest.
+// GetFilename resolves the filename for the manifest depending on whether the
+// alternate filename is used (ie, single node testing YAMLs)
 func (m Manifest) GetFilename() string {
-	return m.Filename
+	if config.CiliumTestConfig.Multinode {
+		return m.Filename
+	}
+	return m.Alternate
 }
 
 // Deploy deploys the manifest. It will call ginkgoext.Fail() if any aspect of
