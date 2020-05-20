@@ -1077,6 +1077,7 @@ func init() {
 	// TODO: Figure out how to put this into a Namespace
 	// MustRegister(prometheus.NewGoCollector())
 	MustRegister(newStatusCollector())
+	MustRegister(newbpfCollector())
 }
 
 // MustRegister adds the collector to the registry, exposing this metric to
