@@ -479,6 +479,21 @@ Deprecated options
 * ``--tofqdns-enable-poller-events``: This option has been deprecated and will
   be removed in Cilium 1.9
 
+New Metrics
+~~~~~~~~~~~
+
+The following metrics have been added:
+
+* ``bpf_maps_virtual_memory_max_bytes``: Max memory used by BPF maps installed
+  in the system
+* ``bpf_progs_virtual_memory_max_bytes``: Max memory used by BPF programs
+  installed in the system
+
+Both ``bpf_maps_virtual_memory_max_bytes`` and ``bpf_progs_virtual_memory_max_bytes``
+are currently reporting the system-wide memory usage of BPF that is directly
+and not directly managed by Cilium. This might change in the future and only
+report the BPF memory usage directly managed by Cilium.
+
 Renamed Metrics
 ~~~~~~~~~~~~~~~
 

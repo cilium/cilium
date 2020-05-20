@@ -110,7 +110,14 @@ Name                                       Labels                               
 ========================================== ================================================== ========================================================
 ``bpf_syscall_duration_seconds``           ``operation``, ``outcome``                         Duration of BPF system call performed
 ``bpf_map_ops_total``                      ``mapName``, ``operation``, ``outcome``            Number of BPF map operations performed
+``bpf_maps_virtual_memory_max_bytes``                                                         Max memory used by BPF maps installed in the system
+``bpf_progs_virtual_memory_max_bytes``                                                        Max memory used by BPF programs installed in the system
 ========================================== ================================================== ========================================================
+
+Both ``bpf_maps_virtual_memory_max_bytes`` and ``bpf_progs_virtual_memory_max_bytes``
+are currently reporting the system-wide memory usage of BPF that is directly
+and not directly managed by Cilium. This might change in the future and only
+report the BPF memory usage directly managed by Cilium.
 
 Drops/Forwards (L3/L4)
 ~~~~~~~~~~~~~~~~~~~~~~
