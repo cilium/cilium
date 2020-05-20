@@ -40,7 +40,7 @@ type PortRule struct {
 	//
 	// If omitted or empty, and if APIKey is not specified, then all keys are
 	// allowed.
-
+	//
 	// +optional
 	Role string `json:"role,omitempty"`
 

@@ -200,7 +200,7 @@ func (a *API) AssignPrivateIpAddressesVMSS(ctx context.Context, vmName, vmssName
 			return fmt.Errorf("invalid interface object")
 		}
 
-		if intf.Name != interfaceName || intf.VMID() != vmName {
+		if intf.Name != interfaceName || intf.GetVMID() != vmName {
 			return nil
 		}
 

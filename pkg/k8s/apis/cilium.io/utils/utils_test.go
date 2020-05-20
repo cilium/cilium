@@ -291,7 +291,7 @@ func Test_ParseToCiliumRule(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			got := ParseToCiliumRule(tt.args.namespace, tt.name, tt.args.uid, tt.args.rule)
 
-			// Sanitize to set aggregatedSelectors field.
+			// Sanitize to set AggregatedSelectors field.
 			tt.want.Sanitize()
 			args := []interface{}{got, tt.want}
 			names := []string{"obtained", "expected"}

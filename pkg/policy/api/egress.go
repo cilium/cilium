@@ -155,8 +155,18 @@ type EgressRule struct {
 	// +optional
 	ToGroups []ToGroups `json:"toGroups,omitempty"`
 
-	// TODO: Move this to the policy package (https://github.com/cilium/cilium/issues/8353)
-	aggregatedSelectors EndpointSelectorSlice `json:"-"`
+	// TODO: Move this to the policy package
+	// (https://github.com/cilium/cilium/issues/8353)
+
+	// TODO: The following field was exported to stop govet warnings. The govet
+	// warnings were because the CRD generation tool needs every struct field
+	// that's within a CRD, to have a json tag. JSON tags cannot be applied to
+	// unexported fields, hence this change. Refactor these fields out of this
+	// struct. GH issue: https://github.com/cilium/cilium/issues/12697. Once
+	// https://go-review.googlesource.com/c/tools/+/245857 is merged, this
+	// would no longer be required.
+
+	AggregatedSelectors EndpointSelectorSlice `json:"-"`
 }
 
 // SetAggregatedSelectors creates a single slice containing all of the following
@@ -178,16 +188,16 @@ func (e *EgressRule) SetAggregatedSelectors() {
 	res = append(res, e.ToFQDNs.GetAsEndpointSelectors()...)
 	// Goroutines can race setting this, but they will all compute
 	// the same result, so it does not matter.
-	e.aggregatedSelectors = res
+	e.AggregatedSelectors = res
 }
 
 // GetDestinationEndpointSelectorsWithRequirements returns a slice of endpoints selectors covering
 // all L3 source selectors of the ingress rule
 func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirements []slim_metav1.LabelSelectorRequirement) EndpointSelectorSlice {
-	if e.aggregatedSelectors == nil {
+	if e.AggregatedSelectors == nil {
 		e.SetAggregatedSelectors()
 	}
-	res := make(EndpointSelectorSlice, 0, len(e.ToEndpoints)+len(e.aggregatedSelectors))
+	res := make(EndpointSelectorSlice, 0, len(e.ToEndpoints)+len(e.AggregatedSelectors))
 
 	if len(requirements) > 0 && len(e.ToEndpoints) > 0 {
 		for idx := range e.ToEndpoints {
@@ -196,13 +206,13 @@ func (e *EgressRule) GetDestinationEndpointSelectorsWithRequirements(requirement
 			sel.SyncRequirementsWithLabelSelector()
 			// Even though this string is deep copied, we need to override it
 			// because we are updating the contents of the MatchExpressions.
-			sel.cachedLabelSelectorString = sel.LabelSelector.String()
+			sel.CachedLabelSelectorString = sel.LabelSelector.String()
 			res = append(res, sel)
 		}
 	} else {
 		res = append(res, e.ToEndpoints...)
 	}
-	return append(res, e.aggregatedSelectors...)
+	return append(res, e.AggregatedSelectors...)
 }
 
 // AllowsWildcarding returns true if wildcarding should be performed upon
