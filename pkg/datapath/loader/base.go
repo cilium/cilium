@@ -55,6 +55,7 @@ const (
 	initArgEncryptInterface
 	initArgHostReachableServices
 	initArgHostReachableServicesUDP
+	initArgHostReachableServicesPeer
 	initArgCgroupRoot
 	initArgBpffsRoot
 	initArgNodePort
@@ -199,9 +200,15 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		} else {
 			args[initArgHostReachableServicesUDP] = "false"
 		}
+		if option.Config.EnableHostServicesPeer {
+			args[initArgHostReachableServicesPeer] = "true"
+		} else {
+			args[initArgHostReachableServicesPeer] = "false"
+		}
 	} else {
 		args[initArgHostReachableServices] = "false"
 		args[initArgHostReachableServicesUDP] = "false"
+		args[initArgHostReachableServicesPeer] = "false"
 	}
 
 	if option.Config.EncryptInterface != "" {

@@ -28,13 +28,14 @@ IPSEC=${10}
 ENCRYPT_DEV=${11}
 HOSTLB=${12}
 HOSTLB_UDP=${13}
-CGROUP_ROOT=${14}
-BPFFS_ROOT=${15}
-NODE_PORT=${16}
-NODE_PORT_BIND=${17}
-MCPU=${18}
-NODE_PORT_IPV4_ADDRS=${19}
-NODE_PORT_IPV6_ADDRS=${20}
+HOSTLB_PEER=${14}
+CGROUP_ROOT=${15}
+BPFFS_ROOT=${16}
+NODE_PORT=${17}
+NODE_PORT_BIND=${18}
+MCPU=${19}
+NODE_PORT_IPV4_ADDRS=${20}
+NODE_PORT_IPV6_ADDRS=${21}
 
 ID_HOST=1
 ID_WORLD=2
@@ -608,6 +609,9 @@ if [ "$HOSTLB" = "true" ]; then
 	COPTS="-DLB_L3 -DLB_L4"
 	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ] && [ -f /proc/sys/net/ipv6/conf/all/forwarding ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		if [ "$HOSTLB_PEER" = "true" ]; then
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		fi
 		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		else
@@ -623,6 +627,9 @@ if [ "$HOSTLB" = "true" ]; then
 	fi
 	if [ "$IP4_HOST" != "<nil>" ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		if [ "$HOSTLB_PEER" = "true" ]; then
+			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr getpeername4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
+		fi
 		if [ "$NODE_PORT" = "true" ] && [ "$NODE_PORT_BIND" = "true" ]; then
 			bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sock post_bind4 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		else
