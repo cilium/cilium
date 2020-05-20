@@ -152,6 +152,77 @@ func nodeStatusEvent(state relaypb.NodeState, nodeNames ...string) *observerpb.G
 	}
 }
 
+func aggregateErrors(
+	ctx context.Context,
+	responses <-chan *observerpb.GetFlowsResponse,
+	errorAggregationWindow time.Duration,
+) <-chan *observerpb.GetFlowsResponse {
+	aggregated := make(chan *observerpb.GetFlowsResponse, cap(responses))
+
+	var flushPending <-chan time.Time
+	var pendingResponse *observerpb.GetFlowsResponse
+
+	go func() {
+		defer close(aggregated)
+	aggregateErrorsLoop:
+		for {
+			select {
+			case response, ok := <-responses:
+				if !ok {
+					// flush any pending response before exiting
+					if pendingResponse != nil {
+						select {
+						case aggregated <- pendingResponse:
+						case <-ctx.Done():
+						}
+					}
+					return
+				}
+
+				// any non-error responses are directly forwarded
+				current := response.GetNodeStatus()
+				if current.GetStateChange() != relaypb.NodeState_NODE_ERROR {
+					select {
+					case aggregated <- response:
+						continue aggregateErrorsLoop
+					case <-ctx.Done():
+						return
+					}
+				}
+
+				// either merge with pending or flush it
+				if pending := pendingResponse.GetNodeStatus(); pending != nil {
+					if current.GetMessage() == pending.GetMessage() {
+						pending.NodeNames = append(pending.NodeNames, current.NodeNames...)
+						continue aggregateErrorsLoop
+					}
+
+					select {
+					case aggregated <- pendingResponse:
+					case <-ctx.Done():
+						return
+					}
+				}
+
+				pendingResponse = response
+				flushPending = time.After(errorAggregationWindow)
+			case <-flushPending:
+				select {
+				case aggregated <- pendingResponse:
+					pendingResponse = nil
+					flushPending = nil
+				case <-ctx.Done():
+					return
+				}
+			case <-ctx.Done():
+				return
+			}
+		}
+
+	}()
+	return aggregated
+}
+
 // GetFlows implements observer.ObserverServer.GetFlows by proxying requests to
 // the hubble instance the proxy is connected to.
 func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Observer_GetFlowsServer) error {
@@ -211,7 +282,8 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 		close(flows)
 	}()
 
-	sortedFlows := sortFlows(ctx, flows, qlen, s.opts.BufferDrainTimeout)
+	aggregated := aggregateErrors(ctx, flows, s.opts.ErrorAggregationWindow)
+	sortedFlows := sortFlows(ctx, aggregated, qlen, s.opts.BufferDrainTimeout)
 
 	// inform the client about the nodes from which we expect to receive flows first
 	if len(connectedNodes) > 0 {
