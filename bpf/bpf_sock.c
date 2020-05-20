@@ -243,9 +243,9 @@ wildcard_lookup:
 #endif /* ENABLE_NODEPORT */
 }
 
-static __always_inline int __sock4_xlate(struct bpf_sock_addr *ctx,
-					 struct bpf_sock_addr *ctx_full,
-					 const bool udp_only)
+static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
+					     struct bpf_sock_addr *ctx_full,
+					     const bool udp_only)
 {
 	union lb4_affinity_client_id id;
 	const bool in_hostns = ctx_in_hostns(ctx_full, &id.client_cookie);
@@ -342,16 +342,16 @@ update_dst:
 	return 0;
 }
 
-__section("from-sock4")
-int sock4_xlate(struct bpf_sock_addr *ctx)
+__section("connect4")
+int sock4_connect(struct bpf_sock_addr *ctx)
 {
-	__sock4_xlate(ctx, ctx, false);
+	__sock4_xlate_fwd(ctx, ctx, false);
 	return SYS_PROCEED;
 }
 
 #if defined(ENABLE_NODEPORT) || defined(ENABLE_EXTERNAL_IP)
-static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
-					     struct bpf_sock *ctx_full)
+static __always_inline int __sock4_bind(struct bpf_sock *ctx,
+					struct bpf_sock *ctx_full)
 {
 	struct lb4_service *svc;
 	struct lb4_key key = {
@@ -383,10 +383,10 @@ static __always_inline int __sock4_post_bind(struct bpf_sock *ctx,
 	return 0;
 }
 
-__section("post-bind-sock4")
-int sock4_post_bind(struct bpf_sock *ctx)
+__section("post_bind4")
+int sock4_bind(struct bpf_sock *ctx)
 {
-	if (__sock4_post_bind(ctx, ctx) < 0)
+	if (__sock4_bind(ctx, ctx) < 0)
 		return SYS_REJECT;
 
 	return SYS_PROCEED;
@@ -394,14 +394,14 @@ int sock4_post_bind(struct bpf_sock *ctx)
 #endif /* ENABLE_NODEPORT || ENABLE_EXTERNAL_IP */
 
 #ifdef ENABLE_HOST_SERVICES_UDP
-__section("snd-sock4")
-int sock4_xlate_snd(struct bpf_sock_addr *ctx)
+__section("sendmsg4")
+int sock4_sendmsg(struct bpf_sock_addr *ctx)
 {
-	__sock4_xlate(ctx, ctx, true);
+	__sock4_xlate_fwd(ctx, ctx, true);
 	return SYS_PROCEED;
 }
 
-static __always_inline int __sock4_xlate_rcv(struct bpf_sock_addr *ctx,
+static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full)
 {
 	struct ipv4_revnat_entry *rval;
@@ -434,10 +434,10 @@ static __always_inline int __sock4_xlate_rcv(struct bpf_sock_addr *ctx,
 	return -ENXIO;
 }
 
-__section("rcv-sock4")
-int sock4_xlate_rcv(struct bpf_sock_addr *ctx)
+__section("recvmsg4")
+int sock4_recvmsg(struct bpf_sock_addr *ctx)
 {
-	__sock4_xlate_rcv(ctx, ctx);
+	__sock4_xlate_rev(ctx, ctx);
 	return SYS_PROCEED;
 }
 #endif /* ENABLE_HOST_SERVICES_UDP */
@@ -595,7 +595,7 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 	fake_ctx.user_ip4  = addr6.p4;
 	fake_ctx.user_port = ctx_dst_port(ctx);
 
-	ret = __sock4_xlate(&fake_ctx, ctx, udp_only);
+	ret = __sock4_xlate_fwd(&fake_ctx, ctx, udp_only);
 	if (ret < 0)
 		return ret;
 
@@ -610,7 +610,7 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 
 #if defined(ENABLE_NODEPORT) || defined(ENABLE_EXTERNAL_IP)
 static __always_inline int
-sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
+sock6_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 {
 #ifdef ENABLE_IPV4
 	struct bpf_sock fake_ctx;
@@ -625,12 +625,12 @@ sock6_post_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 	fake_ctx.src_ip4  = addr6.p4;
 	fake_ctx.src_port = ctx->src_port;
 
-	return __sock4_post_bind(&fake_ctx, ctx);
+	return __sock4_bind(&fake_ctx, ctx);
 #endif /* ENABLE_IPV4 */
 	return 0;
 }
 
-static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
+static __always_inline int __sock6_bind(struct bpf_sock *ctx)
 {
 	struct lb6_service *svc;
 	struct lb6_key key = {
@@ -648,7 +648,7 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 		key.dport = ctx_src_port(ctx);
 		svc = sock6_nodeport_wildcard_lookup(&key, false, true);
 		if (!svc)
-			return sock6_post_bind_v4_in_v6(ctx);
+			return sock6_bind_v4_in_v6(ctx);
 	}
 
 	if (svc && (lb6_svc_is_nodeport(svc) || lb6_svc_is_external_ip(svc)))
@@ -657,18 +657,18 @@ static __always_inline int __sock6_post_bind(struct bpf_sock *ctx)
 	return 0;
 }
 
-__section("post-bind-sock6")
-int sock6_post_bind(struct bpf_sock *ctx)
+__section("post_bind6")
+int sock6_bind(struct bpf_sock *ctx)
 {
-	if (__sock6_post_bind(ctx) < 0)
+	if (__sock6_bind(ctx) < 0)
 		return SYS_REJECT;
 
 	return SYS_PROCEED;
 }
 #endif /* ENABLE_NODEPORT || ENABLE_EXTERNAL_IP */
 
-static __always_inline int __sock6_xlate(struct bpf_sock_addr *ctx,
-					 const bool udp_only)
+static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
+					     const bool udp_only)
 {
 #ifdef ENABLE_IPV6
 	union lb6_affinity_client_id id;
@@ -756,23 +756,23 @@ update_dst:
 #endif /* ENABLE_IPV6 */
 }
 
-__section("from-sock6")
-int sock6_xlate(struct bpf_sock_addr *ctx)
+__section("connect6")
+int sock6_connect(struct bpf_sock_addr *ctx)
 {
-	__sock6_xlate(ctx, false);
+	__sock6_xlate_fwd(ctx, false);
 	return SYS_PROCEED;
 }
 
 #ifdef ENABLE_HOST_SERVICES_UDP
-__section("snd-sock6")
-static __always_inline int sock6_xlate_snd(struct bpf_sock_addr *ctx)
+__section("sendmsg6")
+int sock6_sendmsg(struct bpf_sock_addr *ctx)
 {
-	__sock6_xlate(ctx, true);
+	__sock6_xlate_fwd(ctx, true);
 	return SYS_PROCEED;
 }
 
 static __always_inline int
-sock6_xlate_rcv_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
+sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 {
 #ifdef ENABLE_IPV4
 	struct bpf_sock_addr fake_ctx;
@@ -788,7 +788,7 @@ sock6_xlate_rcv_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 	fake_ctx.user_ip4  = addr6.p4;
 	fake_ctx.user_port = ctx_dst_port(ctx);
 
-	ret = __sock4_xlate_rcv(&fake_ctx, ctx);
+	ret = __sock4_xlate_rev(&fake_ctx, ctx);
 	if (ret < 0)
 		return ret;
 
@@ -801,7 +801,7 @@ sock6_xlate_rcv_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 	return -ENXIO;
 }
 
-static __always_inline int __sock6_xlate_rcv(struct bpf_sock_addr *ctx)
+static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 {
 #ifdef ENABLE_IPV6
 	struct ipv6_revnat_tuple rkey = {};
@@ -832,13 +832,13 @@ static __always_inline int __sock6_xlate_rcv(struct bpf_sock_addr *ctx)
 	}
 #endif /* ENABLE_IPV6 */
 
-	return sock6_xlate_rcv_v4_in_v6(ctx);
+	return sock6_xlate_rev_v4_in_v6(ctx);
 }
 
-__section("rcv-sock6")
-int sock6_xlate_rcv(struct bpf_sock_addr *ctx)
+__section("recvmsg6")
+int sock6_recvmsg(struct bpf_sock_addr *ctx)
 {
-	__sock6_xlate_rcv(ctx);
+	__sock6_xlate_rev(ctx);
 	return SYS_PROCEED;
 }
 #endif /* ENABLE_HOST_SERVICES_UDP */
