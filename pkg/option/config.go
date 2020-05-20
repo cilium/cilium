@@ -1395,6 +1395,7 @@ type DaemonConfig struct {
 	EnableHostReachableServices   bool
 	EnableHostServicesTCP         bool
 	EnableHostServicesUDP         bool
+	EnableHostServicesPeer        bool
 	EnablePolicy                  string
 	EnableTracing                 bool
 	EnvoyLog                      string

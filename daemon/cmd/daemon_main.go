@@ -1796,6 +1796,12 @@ func initKubeProxyReplacementOptions() {
 		// be v4-in-v6 connections even if the agent has v6 support disabled.
 		probe.HaveIPv6Support()
 
+		option.Config.EnableHostServicesPeer = true
+		if option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_GETPEERNAME) != nil ||
+			option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_GETPEERNAME) != nil {
+			option.Config.EnableHostServicesPeer = false
+		}
+
 		if option.Config.EnableHostServicesTCP &&
 			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT) != nil ||
 				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT) != nil) {

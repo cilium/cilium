@@ -141,7 +141,7 @@ bool sock_proto_enabled(__u32 proto)
 }
 
 #ifdef ENABLE_IPV4
-#ifdef ENABLE_HOST_SERVICES_UDP
+#if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
 struct bpf_elf_map __section_maps LB4_REVERSE_NAT_SK_MAP = {
 	.type		= BPF_MAP_TYPE_LRU_HASH,
 	.size_key	= sizeof(struct ipv4_revnat_tuple),
@@ -182,7 +182,7 @@ int sock4_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 {
 	return -1;
 }
-#endif /* ENABLE_HOST_SERVICES_UDP */
+#endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
 
 static __always_inline bool
 sock4_skip_xlate(struct lb4_service *svc, const bool in_hostns,
@@ -325,17 +325,12 @@ reselect_backend:
 	if (svc->affinity)
 		lb4_update_affinity_by_netns(svc, &id, backend_id);
 
-	/* revnat entry is not required for TCP protocol */
-	if (!udp_only && ctx->protocol == IPPROTO_TCP)
-		goto update_dst;
-
 	if (sock4_update_revnat(ctx_full, backend, &key,
 				svc->rev_nat_index) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
 
-update_dst:
 	ctx->user_ip4 = backend->address;
 	ctx_set_port(ctx, backend->port);
 
@@ -393,14 +388,7 @@ int sock4_bind(struct bpf_sock *ctx)
 }
 #endif /* ENABLE_NODEPORT || ENABLE_EXTERNAL_IP */
 
-#ifdef ENABLE_HOST_SERVICES_UDP
-__section("sendmsg4")
-int sock4_sendmsg(struct bpf_sock_addr *ctx)
-{
-	__sock4_xlate_fwd(ctx, ctx, true);
-	return SYS_PROCEED;
-}
-
+#if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
 static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full)
 {
@@ -434,18 +422,32 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 	return -ENXIO;
 }
 
+__section("sendmsg4")
+int sock4_sendmsg(struct bpf_sock_addr *ctx)
+{
+	__sock4_xlate_fwd(ctx, ctx, true);
+	return SYS_PROCEED;
+}
+
 __section("recvmsg4")
 int sock4_recvmsg(struct bpf_sock_addr *ctx)
 {
 	__sock4_xlate_rev(ctx, ctx);
 	return SYS_PROCEED;
 }
-#endif /* ENABLE_HOST_SERVICES_UDP */
+
+__section("getpeername4")
+int sock4_getpeername(struct bpf_sock_addr *ctx)
+{
+	__sock4_xlate_rev(ctx, ctx);
+	return SYS_PROCEED;
+}
+#endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
 #endif /* ENABLE_IPV4 */
 
 #if defined(ENABLE_IPV6) || defined(ENABLE_IPV4)
 #ifdef ENABLE_IPV6
-#ifdef ENABLE_HOST_SERVICES_UDP
+#if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
 struct bpf_elf_map __section_maps LB6_REVERSE_NAT_SK_MAP = {
 	.type		= BPF_MAP_TYPE_LRU_HASH,
 	.size_key	= sizeof(struct ipv6_revnat_tuple),
@@ -486,7 +488,7 @@ int sock6_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 {
 	return -1;
 }
-#endif /* ENABLE_HOST_SERVICES_UDP */
+#endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
 #endif /* ENABLE_IPV6 */
 
 static __always_inline void ctx_get_v6_address(const struct bpf_sock_addr *ctx,
@@ -737,16 +739,12 @@ reselect_backend:
 	if (svc->affinity)
 		lb6_update_affinity_by_netns(svc, &id, backend_id);
 
-	if (!udp_only && ctx->protocol == IPPROTO_TCP)
-		goto update_dst;
-
 	if (sock6_update_revnat(ctx, backend, &key,
 			        svc->rev_nat_index) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}
 
-update_dst:
 	ctx_set_v6_address(ctx, &backend->address);
 	ctx_set_port(ctx, backend->port);
 
@@ -763,14 +761,7 @@ int sock6_connect(struct bpf_sock_addr *ctx)
 	return SYS_PROCEED;
 }
 
-#ifdef ENABLE_HOST_SERVICES_UDP
-__section("sendmsg6")
-int sock6_sendmsg(struct bpf_sock_addr *ctx)
-{
-	__sock6_xlate_fwd(ctx, true);
-	return SYS_PROCEED;
-}
-
+#if defined(ENABLE_HOST_SERVICES_UDP) || defined(ENABLE_HOST_SERVICES_PEER)
 static __always_inline int
 sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 {
@@ -835,13 +826,27 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 	return sock6_xlate_rev_v4_in_v6(ctx);
 }
 
+__section("sendmsg6")
+int sock6_sendmsg(struct bpf_sock_addr *ctx)
+{
+	__sock6_xlate_fwd(ctx, true);
+	return SYS_PROCEED;
+}
+
 __section("recvmsg6")
 int sock6_recvmsg(struct bpf_sock_addr *ctx)
 {
 	__sock6_xlate_rev(ctx);
 	return SYS_PROCEED;
 }
-#endif /* ENABLE_HOST_SERVICES_UDP */
+
+__section("getpeername6")
+int sock6_getpeername(struct bpf_sock_addr *ctx)
+{
+	__sock6_xlate_rev(ctx);
+	return SYS_PROCEED;
+}
+#endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
 #endif /* ENABLE_IPV6 || ENABLE_IPV4 */
 
 BPF_LICENSE("GPL");
