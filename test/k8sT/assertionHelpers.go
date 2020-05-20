@@ -128,10 +128,7 @@ func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, optio
 
 	switch helpers.GetCurrentIntegration() {
 	case helpers.CIIntegrationGKE:
-		By("Restarting all kube-system pods")
-		if res := vm.DeleteResource("pod", fmt.Sprintf("-n %s --all", helpers.KubeSystemNamespace)); !res.WasSuccessful() {
-			log.Warningf("Unable to delete kube-system pods: %s", res.OutputPrettyPrint())
-		}
+		vm.RestartUnmanagedPodsInNamespace(helpers.KubeSystemNamespace)
 	}
 
 	switch helpers.GetCurrentIntegration() {
