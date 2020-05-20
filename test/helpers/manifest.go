@@ -61,12 +61,17 @@ type Manifest struct {
 	Singleton bool
 }
 
+// GetFilename resolves the filename for the manifest.
+func (m Manifest) GetFilename() string {
+	return m.Filename
+}
+
 // Deploy deploys the manifest. It will call ginkgoext.Fail() if any aspect of
 // that fails.
 func (m Manifest) Deploy(kubectl *Kubectl, namespace string) *Deployment {
 	deploy, err := m.deploy(kubectl, namespace)
 	if err != nil {
-		ginkgoext.Failf("Unable to deploy manifest %s: %s", m.Filename, err)
+		ginkgoext.Failf("Unable to deploy manifest %s: %s", m.GetFilename(), err)
 	}
 
 	return deploy
@@ -95,7 +100,7 @@ func (m Manifest) deleteInAnyNamespace(kubectl *Kubectl) {
 }
 
 func (m Manifest) deploy(kubectl *Kubectl, namespace string) (*Deployment, error) {
-	ginkgoext.By("Deploying %s in namespace %s", m.Filename, namespace)
+	ginkgoext.By("Deploying %s in namespace %s", m.GetFilename(), namespace)
 
 	if m.Singleton {
 		m.deleteInAnyNamespace(kubectl)
@@ -106,7 +111,7 @@ func (m Manifest) deploy(kubectl *Kubectl, namespace string) (*Deployment, error
 		return nil, fmt.Errorf("No available nodes to deploy")
 	}
 
-	path := ManifestGet(kubectl.BasePath(), m.Filename)
+	path := ManifestGet(kubectl.BasePath(), m.GetFilename())
 	res := kubectl.Apply(ApplyOptions{Namespace: namespace, FilePath: path})
 	if !res.WasSuccessful() {
 		return nil, fmt.Errorf("Unable to deploy manifest %s: %s", path, res.CombineOutput().String())
@@ -149,7 +154,7 @@ func (d *Deployment) WaitUntilReady() {
 	}
 
 	ginkgoext.By("Waiting for %s for %d pods of deployment %s to become ready",
-		HelperTimeout, expectedPods, d.manifest.Filename)
+		HelperTimeout, expectedPods, d.manifest.GetFilename())
 
 	if err := d.kubectl.WaitforNPods(string(d.namespace), "", expectedPods, HelperTimeout); err != nil {
 		ginkgoext.Failf("Pods are not ready in time: %s", err)
@@ -158,7 +163,7 @@ func (d *Deployment) WaitUntilReady() {
 
 // Delete deletes the deployment
 func (d *Deployment) Delete() {
-	ginkgoext.By("Deleting deployment %s", d.manifest.Filename)
+	ginkgoext.By("Deleting deployment %s", d.manifest.GetFilename())
 	d.kubectl.DeleteInNamespace(string(d.namespace), d.path)
 }
 
@@ -186,7 +191,7 @@ func (m *DeploymentManager) SetKubectl(kubectl *Kubectl) {
 // namespace the existing deployment is running in. If not, the manifest is
 // deployed using DeployRandomNamespace.
 func (m *DeploymentManager) DeployRandomNamespaceShared(manifest Manifest) string {
-	if d, ok := m.deployments[manifest.Filename]; ok {
+	if d, ok := m.deployments[manifest.GetFilename()]; ok {
 		return string(d.namespace)
 	}
 
@@ -209,10 +214,10 @@ func (m *DeploymentManager) DeployRandomNamespace(manifest Manifest) string {
 		ginkgoext.By("Deleting namespace %s", namespace)
 		m.kubectl.NamespaceDelete(namespace)
 
-		ginkgoext.Failf("Unable to deploy manifest %s: %s", manifest.Filename, err)
+		ginkgoext.Failf("Unable to deploy manifest %s: %s", manifest.GetFilename(), err)
 	}
 
-	m.deployments[manifest.Filename] = d
+	m.deployments[manifest.GetFilename()] = d
 
 	return namespace
 }
