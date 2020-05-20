@@ -198,8 +198,8 @@ func (m *DeploymentManager) DeployRandomNamespaceShared(manifest Manifest) strin
 	return m.DeployRandomNamespace(manifest)
 }
 
-// Deploy deploys a manifest into a random namespace using the deployment
-// manager and stores the deployment in the manager
+// DeployRandomNamespace deploys a manifest into a random namespace using the
+// deployment manager and stores the deployment in the manager
 func (m *DeploymentManager) DeployRandomNamespace(manifest Manifest) string {
 	namespace := GenerateNamespaceForTest("")
 
