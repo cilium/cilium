@@ -39,13 +39,6 @@ type LinuxRoutingSuite struct{}
 var _ = Suite(&LinuxRoutingSuite{})
 
 func (e *LinuxRoutingSuite) TestConfigure(c *C) {
-	currentNS, err := netns.Get()
-	c.Assert(err, IsNil)
-	defer func() {
-		c.Assert(netns.Set(currentNS), IsNil)
-		c.Log("Set back to previous network ns")
-	}()
-
 	ip, ri := getFakes(c)
 	masterMAC := ri.MasterIfMAC
 	runFuncInNetNS(c, func() { runConfigureThenDelete(c, ri, ip, 1500, false) }, masterMAC)
@@ -141,6 +134,14 @@ func runFuncInNetNS(c *C, run func(), macAddr mac.MAC) {
 	// https://github.com/vishvananda/netlink/blob/c79a4b7b40668c3f7867bf256b80b6b2dc65e58e/netns_test.go#L49
 	runtime.LockOSThread() // We need a constant OS thread
 	defer runtime.UnlockOSThread()
+
+	currentNS, err := netns.Get()
+	c.Assert(err, IsNil)
+	c.Logf("Root network ns %v", currentNS.UniqueId())
+	defer func() {
+		c.Assert(netns.Set(currentNS), IsNil)
+		c.Logf("Set back to previous network ns %v", currentNS.UniqueId())
+	}()
 
 	networkNS, err := netns.New()
 	c.Assert(err, IsNil)
