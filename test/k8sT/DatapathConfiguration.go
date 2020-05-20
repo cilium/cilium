@@ -25,6 +25,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -594,8 +595,13 @@ func fetchPodsWithOffset(kubectl *helpers.Kubectl, namespace, name, filter, host
 	pods, err := kubectl.GetPodNames(namespace, filter)
 	ExpectWithOffset(callOffset, err).Should(BeNil(), "Failure while retrieving pod name for %s", filter)
 	if requireMultiNode {
-		ExpectWithOffset(callOffset, len(pods)).Should(BeNumerically(">", 1),
-			fmt.Sprintf("This test requires at least two %s instances, but only one was found", name))
+		if config.CiliumTestConfig.Multinode {
+			ExpectWithOffset(callOffset, len(pods)).Should(BeNumerically(">", 1),
+				fmt.Sprintf("This test requires at least two %s instances, but only one was found", name))
+		} else {
+			By("Ignoring the requirement for clients on multiple nodes")
+			requireMultiNode = false
+		}
 	}
 
 	// Fetch the json description of one of the pods
@@ -659,6 +665,10 @@ func testPodConnectivityAndReturnIP(kubectl *helpers.Kubectl, requireMultiNode b
 }
 
 func testPodHTTPAcrossNodes(kubectl *helpers.Kubectl, namespace string) bool {
+	if !config.CiliumTestConfig.Multinode {
+		By("Skipping multinode HTTP check")
+		return true
+	}
 	result, _ := testPodHTTP(kubectl, namespace, true, 1)
 	return result
 }
@@ -772,16 +782,17 @@ func testPodNetperf(kubectl *helpers.Kubectl, namespace string, requireMultiNode
 }
 
 func monitorConnectivityAcrossNodes(kubectl *helpers.Kubectl) (monitorRes *helpers.CmdRes, monitorCancel func(), targetIP string) {
-	// For local single-node testing, configure requireMultiNode to "false"
-	// and add the labels "cilium.io/ci-node: k8s1" to the node.
-	requireMultiNode := true
+	requireMultinode := config.CiliumTestConfig.Multinode
+	if !config.CiliumTestConfig.Multinode {
+		By("Performing multinode connectivity check within a single node")
+	}
 
 	ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 
 	By(fmt.Sprintf("Launching cilium monitor on %q", ciliumPodK8s1))
 	monitorRes, monitorCancel = kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1)
-	result, targetIP := testPodConnectivityAndReturnIP(kubectl, requireMultiNode, 2)
+	result, targetIP := testPodConnectivityAndReturnIP(kubectl, requireMultinode, 2)
 	ExpectWithOffset(1, result).Should(BeTrue(), "Connectivity test between nodes failed")
 
 	return monitorRes, monitorCancel, targetIP
