@@ -18,6 +18,7 @@ package linuxrouting
 
 import (
 	"net"
+	"runtime"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -136,6 +137,11 @@ func (e *LinuxRoutingSuite) TestDelete(c *C) {
 }
 
 func runFuncInNetNS(c *C, run func(), macAddr mac.MAC) {
+	// Source:
+	// https://github.com/vishvananda/netlink/blob/c79a4b7b40668c3f7867bf256b80b6b2dc65e58e/netns_test.go#L49
+	runtime.LockOSThread() // We need a constant OS thread
+	defer runtime.UnlockOSThread()
+
 	networkNS, err := netns.New()
 	c.Assert(err, IsNil)
 	c.Logf("Inside new network ns %v", networkNS.UniqueId())
