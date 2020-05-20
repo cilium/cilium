@@ -177,7 +177,7 @@ var _ = BeforeAll(func() {
 	case helpers.CIIntegrationFlannel:
 		switch helpers.GetCurrentK8SEnv() {
 		case "1.8":
-			log.Infof("Cilium in %q mode is not supported in Kubernets 1.8 due CNI < 0.6.0", helpers.CIIntegrationFlannel)
+			log.Infof("Cilium in %q mode is not supported in Kubernetes 1.8 due CNI < 0.6.0", helpers.CIIntegrationFlannel)
 			os.Exit(0)
 			return
 		}
@@ -264,7 +264,7 @@ var _ = BeforeAll(func() {
 		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		kubectl.PrepareCluster()
 
-		kubectl.ApplyDefault(kubectl.GetFilePath("../examples/kubernetes/addons/prometheus/prometheus.yaml"))
+		kubectl.ApplyDefault(kubectl.GetFilePath("../examples/kubernetes/addons/prometheus/monitoring-example.yaml"))
 
 		go kubectl.PprofReport()
 	}
