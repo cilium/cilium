@@ -92,6 +92,11 @@ of all nodes in the cluster:
     Proxy Status:           OK, ip 10.15.28.238, 0 redirects, port-range 10000-20000
     Cluster health:   1/1 reachable   (2018-02-27T00:24:34Z)
 
+Detailed information about the status of Cilium can be inspected with the 
+``cilium status --verbose`` command. Verbose output includes detailed IPAM state 
+(allocated addresses), Cilium controller status, and details of the Proxy 
+status.
+
 .. _ts_agent_logs:
 
 Logs
@@ -137,15 +142,53 @@ e.g.:
 Connectivity Problems
 =====================
 
+Cilium connectivity tests
+------------------------------------
+
+The Cilium connectivity test_ deploys a series of services, deployments, and 
+CiliumNetworkPolicy which will use various connectivity paths to connect to 
+each other. Connectivity paths include with and without service load-balancing 
+and various network policy combinations. The pod name indicates the connectivity
+variant and the readiness and liveness gate indicates success or failure of the
+test:
+
+.. _test: https://raw.githubusercontent.com/cilium/cilium/1.7.4/examples/kubernetes/connectivity-check/connectivity-check.yaml
+
+.. code:: bash
+
+    $ kubectl get pods
+    NAME                                                     READY   STATUS             RESTARTS   AGE
+    echo-a-9b85dd869-292s2                                   1/1     Running            0          8m37s
+    echo-b-c7d9f4686-gdwcs                                   1/1     Running            0          8m37s
+    host-to-b-multi-node-clusterip-6d496f7cf9-956jb          1/1     Running            0          8m37s
+    host-to-b-multi-node-headless-bd589bbcf-jwbh2            1/1     Running            0          8m37s
+    pod-to-a-7cc4b6c5b8-9jfjb                                1/1     Running            0          8m36s
+    pod-to-a-allowed-cnp-6cc776bb4d-2cszk                    1/1     Running            0          8m36s
+    pod-to-a-external-1111-5c75bd66db-sxfck                  1/1     Running            0          8m35s
+    pod-to-a-l3-denied-cnp-7fdd9975dd-2pp96                  1/1     Running            0          8m36s
+    pod-to-b-intra-node-9d9d4d6f9-qccfs                      1/1     Running            0          8m35s
+    pod-to-b-multi-node-clusterip-5956c84b7c-hwzfg           1/1     Running            0          8m35s
+    pod-to-b-multi-node-headless-6698899447-xlhfw            1/1     Running            0          8m35s
+    pod-to-external-fqdn-allow-google-cnp-667649bbf6-v6rf8   1/1     Running            0 
+
+Information about test failures can be determined by describing a failed test
+pod
+
+.. code:: bash
+
+    $ kubectl describe pod pod-to-b-intra-node-hostport
+      Warning  Unhealthy  6s (x6 over 56s)   kubelet, agent1    Readiness probe failed: curl: (7) Failed to connect to echo-b-host-headless port 40000: Connection refused
+      Warning  Unhealthy  2s (x3 over 52s)   kubelet, agent1    Liveness probe failed: curl: (7) Failed to connect to echo-b-host-headless port 40000: Connection refused
+
 Checking cluster connectivity health
 ------------------------------------
 
-Cilium allows to rule out network fabric related issues when troubleshooting
+Cilium can rule out network fabric related issues when troubleshooting
 connectivity issues by providing reliable health and latency probes between all
-cluster nodes and between a simulated workload running on each node.
+cluster nodes and a simulated workload running on each node.
 
 By default when Cilium is run, it launches instances of ``cilium-health`` in
-the background to determine overall connectivity status of the cluster. This
+the background to determine the overall connectivity status of the cluster. This
 tool periodically runs bidirectional traffic across multiple paths through the
 cluster and through each node using different protocols to determine the health
 status of each path and protocol. At any point in time, cilium-health may be
@@ -187,8 +230,8 @@ Sometimes you may experience broken connectivity, which may be due to a
 number of different causes. A main cause can be unwanted packet drops on
 the networking level. The tool
 ``cilium monitor`` allows you to quickly inspect and see if and where packet
-drops happen. Following is an example output (use ``kubectl exec`` as in previous
-examples if running with Kubernetes):
+drops happen. Following is an example output (use ``kubectl exec`` as in 
+previous examples if running with Kubernetes):
 
 .. code:: bash
 
@@ -259,21 +302,21 @@ Understand the rendering of your policy
 
 There are always multiple ways to approach a problem. Cilium can provide the
 rendering of the aggregate policy provided to it, leaving you to simply compare
-with what you expect the policy to actually be rather than search (and potentially
-overlook) every policy. At the expense of reading a very large dump of an endpoint,
-this is often a faster path to discovering errant policy requests in the Kubernetes
-API.
+with what you expect the policy to actually be rather than search (and
+potentially overlook) every policy. At the expense of reading a very large dump
+of an endpoint, this is often a faster path to discovering errant policy
+requests in the Kubernetes API.
 
-Start by finding the endpoint you are debugging from the following list. There are
-several cross references for you to use in this list, including the IP address and
-pod labels:
+Start by finding the endpoint you are debugging from the following list. There
+are several cross references for you to use in this list, including the IP
+address and pod labels:
 
 .. code:: bash
 
     kubectl -n kube-system exec -ti cilium-q8wvt -- cilium endpoint list
 
-When you find the correct endpoint, the first column of every row is the endpoint ID.
-Use that to dump the full endpoint information:
+When you find the correct endpoint, the first column of every row is the
+endpoint ID. Use that to dump the full endpoint information:
 
 .. code:: bash
 
@@ -288,12 +331,13 @@ information here. At the top level of the dump, there are two nodes of note:
 * ``spec``: The desired state of the endpoint
 * ``status``: The current state of the endpoint
 
-This is the standard Kubernetes control loop pattern. Cilium is the controller here,
-and it is iteratively working to bring the ``status`` in line with the ``spec``.
+This is the standard Kubernetes control loop pattern. Cilium is the controller
+here, and it is iteratively working to bring the ``status`` in line with the
+``spec``.
 
-Opening the ``status``, we can drill down through ``policy.realized.l4``. Do your
-``ingress`` and ``egress`` rules match what you expect? If not, the reference to the errant
-rules can be found in the ``derived-from-rules`` node.
+Opening the ``status``, we can drill down through ``policy.realized.l4``. Do
+your ``ingress`` and ``egress`` rules match what you expect? If not, the
+reference to the errant rules can be found in the ``derived-from-rules`` node.
 
 Symptom Library
 ===============
