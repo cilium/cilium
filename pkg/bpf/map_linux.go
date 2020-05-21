@@ -890,6 +890,31 @@ func (m *Map) Delete(key MapKey) error {
 	return err
 }
 
+// DeleteButIgnoreMetricErrorCountInc deletes the map entry without incrementing the
+// metric error count for the given key, when the key does not exist.
+func (m *Map) DeleteButIgnoreMetricErrorCountInc(key MapKey, ignoreMetricErrorCount bool) error {
+	m.lock.Lock()
+	defer m.lock.Unlock()
+
+	var err error
+	defer m.deleteCacheEntry(key, err)
+
+	if err = m.Open(); err != nil {
+		return err
+	}
+
+	_, errno := deleteElement(m.fd, key.GetKeyPtr())
+	if option.Config.MetricsConfig.BPFMapOps {
+		if !ignoreMetricErrorCount {
+			metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
+		}
+	}
+	if errno != 0 {
+		err = fmt.Errorf("unable to delete element %s from map %s: %w", key, m.name, errno)
+	}
+	return err
+}
+
 // scopedLogger returns a logger scoped for the map. m.lock must be held.
 func (m *Map) scopedLogger() *logrus.Entry {
 	return log.WithFields(logrus.Fields{logfields.Path: m.path, "name": m.name})

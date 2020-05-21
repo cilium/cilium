@@ -211,8 +211,8 @@ func deleteMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
 		rkey.DestPort = val.Port
 		rkey.Flags = tuple.TUPLE_F_IN
 
-		m.Delete(&key)
-		m.Delete(&rkey)
+		m.DeleteButIgnoreMetricErrorCountInc(&key, true)
+		m.DeleteButIgnoreMetricErrorCountInc(&rkey, true)
 	}
 	return nil
 }
@@ -235,8 +235,8 @@ func deleteMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
 		rkey.DestPort = val.Port
 		rkey.Flags = tuple.TUPLE_F_IN
 
-		m.Delete(&key)
-		m.Delete(&rkey)
+		m.DeleteButIgnoreMetricErrorCountInc(&key, true)
+		m.DeleteButIgnoreMetricErrorCountInc(&rkey, true)
 	}
 	return nil
 }
@@ -249,7 +249,7 @@ func deleteSwappedMapping4(m *Map, ctKey *tuple.TupleKey4Global) error {
 	key.SourcePort = key.DestPort
 	key.DestPort = port
 	key.Flags = tuple.TUPLE_F_OUT
-	m.Delete(&key)
+	m.DeleteButIgnoreMetricErrorCountInc(&key, true)
 
 	return nil
 }
@@ -262,7 +262,7 @@ func deleteSwappedMapping6(m *Map, ctKey *tuple.TupleKey6Global) error {
 	key.SourcePort = key.DestPort
 	key.DestPort = port
 	key.Flags = tuple.TUPLE_F_OUT
-	m.Delete(&key)
+	m.DeleteButIgnoreMetricErrorCountInc(&key, true)
 
 	return nil
 }
