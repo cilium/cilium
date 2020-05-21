@@ -54,7 +54,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.19"
+	CustomResourceDefinitionSchemaVersion = "1.20"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -182,6 +182,27 @@ func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
 	)
 
+	CCNPCRV := CNPCRV.DeepCopy()
+	clusterwideSpec := CCNPCRV.OpenAPIV3Schema.Properties["spec"]
+	clusterwideSpec.Required = nil
+	clusterwideSpec.OneOf = []apiextensionsv1beta1.JSONSchemaProps{
+		{
+			Required: []string{"endpointSelector"},
+		},
+		{
+			Required: []string{"nodeSelector"},
+		},
+	}
+	CCNPCRV.OpenAPIV3Schema.Properties["spec"] = clusterwideSpec
+	CCNPCRV.OpenAPIV3Schema.Properties["specs"] = apiextensionsv1beta1.JSONSchemaProps{
+		Description: "Specs is a list of desired Cilium specific rule specification.",
+		Type:        "array",
+		Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+			Schema: &clusterwideSpec,
+		},
+	}
+	CCNPCRV.OpenAPIV3Schema.Properties["NodeSelector"] = NodeSelector
+
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: CRDName,
@@ -202,7 +223,7 @@ func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
 			},
 			Scope:      apiextensionsv1beta1.ClusterScoped,
-			Validation: &CNPCRV,
+			Validation: CCNPCRV,
 		},
 	}
 	// Kubernetes < 1.12 does not support having the field Type set in the root
@@ -877,7 +898,9 @@ var (
 			},
 		},
 	}
+
 	EndpointSelector = *LabelSelector.DeepCopy()
+	NodeSelector     = *LabelSelector.DeepCopy()
 
 	IngressRule = apiextensionsv1beta1.JSONSchemaProps{
 		Type: "object",
@@ -1449,14 +1472,7 @@ var (
 			"ingress and egress, both ingress and egress side have to either specifically allow " +
 			"the connection or one side has to be omitted.\n\nEither ingress, egress, or both " +
 			"can be provided. If both ingress and egress are omitted, the rule has no effect.",
-		OneOf: []apiextensionsv1beta1.JSONSchemaProps{
-			{
-				Required: []string{"endpointSelector"},
-			},
-			{
-				Required: []string{"nodeSelector"},
-			},
-		},
+		Required: []string{"endpointSelector"},
 		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 			"Description": {
 				Description: "Description is a free form string, it can be used by the creator " +
@@ -1473,7 +1489,6 @@ var (
 				},
 			},
 			"endpointSelector": EndpointSelector,
-			"nodeSelector":     EndpointSelector,
 			"ingress": {
 				Description: "Ingress is a list of IngressRule which are enforced at ingress. " +
 					"If omitted or empty, this rule does not apply at ingress.",
@@ -1542,11 +1557,6 @@ func init() {
 	ruleProps.Description = "EndpointSelector selects all endpoints which should be subject " +
 		"to this rule. Cannot be empty if nodeSelector is empty."
 	Rule.Properties["endpointSelector"] = ruleProps
-
-	ruleProps = Rule.Properties["nodeSelector"]
-	ruleProps.Description = "NodeSelector selects all nodes which should be subject " +
-		"to this rule. Cannot be empty if endpointSelector is empty."
-	Rule.Properties["nodeSelector"] = ruleProps
 
 	serviceProps := Service.Properties["k8sServiceSelector"]
 	serviceProps.Description = "K8sServiceSelector selects services by k8s labels. " +
