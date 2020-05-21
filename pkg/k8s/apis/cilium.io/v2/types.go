@@ -260,7 +260,6 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	if r.Spec != nil {
 		if err := r.Spec.Sanitize(); err != nil {
 			return nil, fmt.Errorf("Invalid CiliumNetworkPolicy spec: %s", err)
-
 		}
 		cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, uid, r.Spec)
 		retRules = append(retRules, cr)
