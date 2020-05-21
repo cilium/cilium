@@ -200,3 +200,11 @@ func (m *InstancesManager) UpdateENI(instanceID string, eni *eniTypes.ENI) {
 	m.instances.Update(instanceID, eniRevision)
 	m.mutex.Unlock()
 }
+
+// ForeachInstance will iterate over each instance inside `instances`, and call
+// `fn`. This function is read-locked for the entire execution.
+func (m *InstancesManager) ForeachInstance(instanceID string, fn ipamTypes.InterfaceIterator) {
+	m.mutex.RLock()
+	defer m.mutex.RUnlock()
+	m.instances.ForeachInterface(instanceID, fn)
+}
