@@ -57,7 +57,7 @@ func ToRegexp(pattern string) string {
 
 	// handle the * match-all case. This will filter down to the end.
 	if pattern == "*" {
-		pattern = "(" + allowedDNSCharsREGroup + "+.)+"
+		return "(^(" + allowedDNSCharsREGroup + "+[.])+$)|(^[.]$)"
 	}
 
 	// base case. * becomes .*, but only for DNS valid characters
