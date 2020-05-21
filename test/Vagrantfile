@@ -103,6 +103,9 @@ Vagrant.configure("2") do |config|
                 :inline => "sed -i 's/^mesg n$/tty -s \\&\\& mesg n/g' /root/.profile"
             server.vm.provision "file", source: "provision/", destination: "/tmp/"
             server.vm.provision "shell" do |sh|
+                sh.path = "./provision/registry.sh"
+            end
+            server.vm.provision "shell" do |sh|
                 sh.path = "./provision/k8s_install.sh"
                 sh.args = [
                     "k8s#{i}", "192.168.36.1#{i}", "#{$K8S_VERSION}",
