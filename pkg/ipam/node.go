@@ -130,10 +130,10 @@ func (n *Node) IsRunning() bool {
 	return n.instanceRunning
 }
 
-// SetRunningLocked sets the running state of the node. This function assumes
-// that the node is locked. It is intended to be used by implementations of
-// NodeOperations which are called with the node in locked state.
-func (n *Node) SetRunningLocked(running bool) {
+func (n *Node) SetRunning(running bool) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
 	n.loggerLocked().Infof("Set running %t", running)
 	n.instanceRunning = running
 	if !n.instanceRunning {

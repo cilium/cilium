@@ -273,7 +273,7 @@ func (n *Node) errorInstanceNotRunning(err error) (notRunning bool) {
 	// deletion event to not have been sent out yet. The next ENI resync
 	// will cause the instance to be marked as inactive.
 	if strings.Contains(err.Error(), "is not 'running'") {
-		n.node.SetRunningLocked(false)
+		n.node.SetRunning(false)
 		log.Info("Marking node as not running")
 	}
 	return
