@@ -81,7 +81,8 @@ func (n *Node) loggerLocked() *logrus.Entry {
 // resource with ENI specific information
 func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 	k8sObj.Status.ENI.ENIs = map[string]eniTypes.ENI{}
-	n.manager.instances.ForeachInterface(n.node.InstanceID(),
+
+	n.manager.ForeachInstance(n.node.InstanceID(),
 		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
 			e, ok := rev.Resource.(*eniTypes.ENI)
 			if ok {
@@ -89,6 +90,7 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 			}
 			return nil
 		})
+
 	return
 }
 
@@ -100,6 +102,9 @@ func (n *Node) getLimits() (ipamTypes.Limits, bool) {
 // PrepareIPRelease prepares the release of ENI IPs.
 func (n *Node) PrepareIPRelease(excessIPs int, scopedLog *logrus.Entry) *ipam.ReleaseAction {
 	r := &ipam.ReleaseAction{}
+
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
 
 	// Iterate over ENIs on this node, select the ENI with the most
 	// addresses available for release
@@ -244,7 +249,8 @@ func (n *Node) getSecurityGroupIDs(ctx context.Context) ([]string, error) {
 	}
 
 	var securityGroups []string
-	n.manager.instances.ForeachInterface(n.node.InstanceID(),
+
+	n.manager.ForeachInstance(n.node.InstanceID(),
 		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
 			e, ok := rev.Resource.(*eniTypes.ENI)
 			if ok && e.Number == 0 {
@@ -430,21 +436,28 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 // ResyncInterfacesAndIPs is called to retrieve and ENIs and IPs as known to
 // the EC2 API and return them
 func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, error) {
-	n.mutex.Lock()
-	defer n.mutex.Unlock()
-
 	available := ipamTypes.AllocationMap{}
-	n.enis = map[string]eniTypes.ENI{}
 
-	n.manager.instances.ForeachInterface(n.node.InstanceID(),
+	n.mutex.Lock()
+	n.enis = map[string]eniTypes.ENI{}
+	ipamNode := n.node
+	n.mutex.Unlock()
+
+	instanceID := ipamNode.InstanceID()
+
+	n.manager.ForeachInstance(instanceID,
 		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
 			e, ok := rev.Resource.(*eniTypes.ENI)
 			if !ok {
 				return nil
 			}
-			n.enis[e.ID] = *e
 
-			if e.Number < *n.k8sObj.Spec.ENI.FirstInterfaceIndex {
+			n.mutex.Lock()
+			n.enis[e.ID] = *e
+			index := *n.k8sObj.Spec.ENI.FirstInterfaceIndex
+			n.mutex.Unlock()
+
+			if e.Number < index {
 				return nil
 			}
 
@@ -454,8 +467,12 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 			return nil
 		})
 
+	n.mutex.RLock()
+	enis := len(n.enis)
+	n.mutex.RUnlock()
+
 	// An ec2 instance has at least one ENI attached, no ENI found implies instance not found.
-	if len(n.enis) == 0 {
+	if enis == 0 {
 		scopedLog.Warning("Instance not found! Please delete corresponding ciliumnode if instance has already been deleted.")
 		return nil, fmt.Errorf("unable to retrieve ENIs")
 	}
