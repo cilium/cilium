@@ -152,7 +152,7 @@ and various network policy combinations. The pod name indicates the connectivity
 variant and the readiness and liveness gate indicates success or failure of the
 test:
 
-.. _test: https://raw.githubusercontent.com/cilium/cilium/1.7.4/examples/kubernetes/connectivity-check/connectivity-check.yaml
+.. _test: \ |SCM_WEB|\/examples/kubernetes/connectivity-check/connectivity-check.yaml
 
 .. code:: bash
 
