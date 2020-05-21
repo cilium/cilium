@@ -154,10 +154,13 @@ tests-privileged:
 	# cilium-map-migrate is a dependency of some unit tests.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf cilium-map-migrate
 	$(MAKE) init-coverage
+	set -e; \
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(PRIV_TEST_PKGS)); do \
-		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS) \
-		|| exit 1; \
-		tail -n +2 coverage.out >> coverage-all-tmp.out; \
+		echo "Starting test in $$pkg..."; \
+		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS); \
+		echo "...done test in $$pkg, accumulating coverage..."; \
+		tail -n +2 coverage.out >> coverage-all-tmp.out || echo "coverage failed"; \
+		echo "...coverage done for $$pkg."; \
 	done
 	$(MAKE) generate-cov
 
@@ -224,9 +227,9 @@ endif
 	# of files, the full bash command in that target gets too big for bash and
 	# hence will trigger an error of too many arguments. As a workaround, we
 	# have to process these packages in different subshells.
+	set -e; \
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
-		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS) \
-		|| exit 1; \
+		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $$pkg $(GOTEST_BASE) $(GOTEST_COVER_OPTS); \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
 	done
 	$(MAKE) generate-cov

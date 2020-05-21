@@ -43,6 +43,7 @@ var _ = Describe("RuntimePrivilegedUnitTests", func() {
 
 	It("Run Tests", func() {
 		path, _ := filepath.Split(vm.BasePath())
+		By("Starting privileged unit tests at %s", path)
 		res := vm.ExecWithSudo(fmt.Sprintf("make -C %s tests-privileged", path))
 		res.ExpectSuccess("Failed to run privileged unit tests")
 	})

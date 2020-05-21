@@ -132,7 +132,7 @@ pipeline {
                 TESTDIR="${GOPATH}/${PROJ_PATH}/test"
             }
             steps {
-                sh 'cd ${TESTDIR}; ginkgo --focus="$(python get-gh-comment-info.py "${ghprbCommentBody}" | sed "s/^$/Runtime.*/" | sed "s/K8s.*/NoTests/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
+                sh 'cd ${TESTDIR}; ginkgo -seed=1590090144 --focus="$(python get-gh-comment-info.py "${ghprbCommentBody}" | sed "s/^$/Runtime.*/" | sed "s/K8s.*/NoTests/")" -v --failFast=true -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
             }
             post {
                 always {
