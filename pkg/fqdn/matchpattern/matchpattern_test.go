@@ -42,7 +42,8 @@ func (ts *MatchPatternTestSuite) TestMatchPatternREConversion(c *C) {
 	for source, target := range map[string]string{
 		"cilium.io.":   "^cilium[.]io[.]$",
 		"*.cilium.io.": "^" + allowedDNSCharsREGroup + "*[.]cilium[.]io[.]$",
-		"*":            "^(" + allowedDNSCharsREGroup + "+[.])+$",
+		"*":            "(^(" + allowedDNSCharsREGroup + "+[.])+$)|(^[.]$)",
+		".":            "^[.]$",
 	} {
 		reStr := ToRegexp(source)
 		_, err := regexp.Compile(reStr)
@@ -79,8 +80,13 @@ func (ts *MatchPatternTestSuite) TestMatchPatternMatching(c *C) {
 		},
 		{
 			pattern: "*",
-			accept:  []string{"io.", "cilium.io.", "svc.cluster.local.", "service.namesace.svc.cluster.local.", "_foobar._tcp.cilium.io."}, // the last is for SRV RFC-2782 and DNS-SD RFC6763
-			reject:  []string{"", ".", ".io.", ".cilium.io.", ".svc.cluster.local.", "cilium.io"},                                          // note no final . on this last one
+			accept:  []string{".", "io.", "cilium.io.", "svc.cluster.local.", "service.namesace.svc.cluster.local.", "_foobar._tcp.cilium.io."}, // the last is for SRV RFC-2782 and DNS-SD RFC6763
+			reject:  []string{"", ".io.", ".cilium.io.", ".svc.cluster.local.", "cilium.io"},                                                    // note no final . on this last one
+		},
+		{
+			pattern: ".",
+			accept:  []string{"."},
+			reject:  []string{"", ".io.", ".cilium.io"},
 		},
 
 		// These are more explicit tests for SRV RFC-2782 and DNS-SD RFC6763
