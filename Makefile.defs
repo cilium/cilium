@@ -44,10 +44,14 @@ GO ?= go
 # go build/test/clean flags
 # these are declared here so they are treated explicitly
 # as non-immediate variables
-GO_BUILD_FLAGS = 
-GO_TEST_FLAGS = 
-GO_CLEAN_FLAGS = 
-GO_BUILD_LDFLAGS = 
+GO_BUILD_FLAGS =
+GO_TEST_FLAGS =
+GO_CLEAN_FLAGS =
+GO_BUILD_LDFLAGS =
+
+# This is declared here as it is needed to change the covermode depending on if
+# RACE is specified.
+GOTEST_COVER_OPTS =
 
 VERSION = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION)
 VERSION_MAJOR = $(shell cat $(dir $(lastword $(MAKEFILE_LIST)))/VERSION | cut -d. -f1)
@@ -109,6 +113,9 @@ endif
 ifneq ($(RACE),)
     GO_BUILD_FLAGS += -race
     GO_TEST_FLAGS += -race
+    GOTEST_COVER_OPTS += -covermode=atomic
+else
+    GOTEST_COVER_OPTS += -covermode=count
 endif
 
 ifneq ($(LOCKDEBUG),)

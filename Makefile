@@ -41,7 +41,7 @@ COVERPKG ?= $(COVERPKG_EVAL)
 GOTEST_BASE := -test.v -timeout 360s
 GOTEST_UNIT_BASE := $(GOTEST_BASE) -check.vv
 GOTEST_PRIV_OPTS := $(GOTEST_UNIT_BASE) -tags=privileged_tests
-GOTEST_COVER_OPTS := -coverprofile=coverage.out -covermode=count -coverpkg $(COVERPKG)
+GOTEST_COVER_OPTS += -coverprofile=coverage.out -coverpkg $(COVERPKG)
 BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
 BENCHFLAGS_EVAL := -bench=$(BENCH) -run=^$ -benchtime=10s
