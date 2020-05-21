@@ -374,8 +374,12 @@ func indexExists(enis map[string]v2.ENI, index int64) bool {
 }
 
 // findNextIndex returns the next available index with the provided index being
-// the first candidate
+// the first candidate. When calling this function, ensure that the mutex is
+// not held as this function read-locks the mutex to protect access to
+// `n.enis`.
 func (n *Node) findNextIndex(index int64) int64 {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
 	for indexExists(n.enis, index) {
 		index++
 	}
