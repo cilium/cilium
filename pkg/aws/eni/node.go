@@ -166,6 +166,9 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 
 	a = &ipam.AllocationAction{}
 
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
 	for key, e := range n.enis {
 		scopedLog.WithFields(logrus.Fields{
 			fieldEniID:     e.ID,
@@ -287,8 +290,12 @@ func indexExists(enis map[string]eniTypes.ENI, index int64) bool {
 }
 
 // findNextIndex returns the next available index with the provided index being
-// the first candidate
+// the first candidate. When calling this function, ensure that the mutex is
+// not held as this function read-locks the mutex to protect access to
+// `n.enis`.
 func (n *Node) findNextIndex(index int64) int64 {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
 	for indexExists(n.enis, index) {
 		index++
 	}
