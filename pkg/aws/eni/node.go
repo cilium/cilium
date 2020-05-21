@@ -66,6 +66,8 @@ type Node struct {
 
 // UpdatedNode is called when an update to the CiliumNode is received.
 func (n *Node) UpdatedNode(obj *v2.CiliumNode) {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
 	n.k8sObj = obj
 }
 
@@ -96,7 +98,10 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 
 // getLimits returns the interface and IP limits of this node
 func (n *Node) getLimits() (ipamTypes.Limits, bool) {
-	return getLimits(n.k8sObj.Spec.ENI.InstanceType)
+	n.mutex.RLock()
+	instType := n.k8sObj.Spec.ENI.InstanceType
+	n.mutex.RUnlock()
+	return getLimits(instType)
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.
