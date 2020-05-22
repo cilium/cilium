@@ -267,14 +267,14 @@ func (p *Proxy) ackProxyPort(pp *ProxyPort) error {
 
 		// Remove old rules, if any and for different port
 		if pp.rulesPort != 0 && pp.rulesPort != pp.proxyPort {
-			scopedLog.Debugf("Removing old proxy port rules for %s:%d", pp.name, pp.rulesPort)
+			scopedLog.Infof("Removing old proxy port rules for %s:%d", pp.name, pp.rulesPort)
 			p.datapathUpdater.RemoveProxyRules(pp.rulesPort, pp.ingress, pp.name)
 			pp.rulesPort = 0
 		}
 		// Add new rules, if needed
 		if pp.rulesPort != pp.proxyPort {
 			// This should always succeed if we have managed to start-up properly
-			scopedLog.Debugf("Adding new proxy port rules for %s:%d", pp.name, pp.proxyPort)
+			scopedLog.Infof("Adding new proxy port rules for %s:%d", pp.name, pp.proxyPort)
 			err := p.datapathUpdater.InstallProxyRules(pp.proxyPort, pp.ingress, pp.name)
 			if err != nil {
 				return fmt.Errorf("Can't install proxy rules for %s: %s", pp.name, err)
