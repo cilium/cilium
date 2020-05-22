@@ -148,7 +148,33 @@ Cilium connectivity tests
 The Cilium connectivity test_ deploys a series of services, deployments, and 
 CiliumNetworkPolicy which will use various connectivity paths to connect to 
 each other. Connectivity paths include with and without service load-balancing 
-and various network policy combinations. The pod name indicates the connectivity
+and various network policy combinations. 
+
+.. Note::
+
+          The connectivity tests this will only work in a namespace with no
+          other pods or network policies applied. If there is a Cilium
+          Clusterwide Network Policy enabled, that may also break this
+          connectivity check.
+          
+To run the connectivity tests create an isolated test namespace called
+``cilium-test`` to deploy the tests with. 
+
+.. code:: bash
+
+    $ kubectl create ns cilium-test
+    $ kubectl apply --namespace=cilium-test -f \ |SCM_WEB|\/examples/kubernetes/connectivity-check/connectivity-check.yaml
+
+The tests cover various functionality of the system. Below we call out each test
+type. If tests pass, it suggests functionality of the referenced subsystem.
+
++---------------------------+----------------------------+-------------------------------+-----------------------------+----------------------------------------+
+| Pod-to-pod (intra-host)   | Pod-to-pod (inter-host)    | Pod-to-service (intra-host)   | Pod-to-service (inter-host) | Pod-to-external resource               | 
++===========================+============================+===============================+=============================+========================================+
+| BPF routing is functional | Dataplane, routing, network| BPF service map lookup        | VXLAN overlay port if used  | Egress, CiliumNetworkPolicy, masquerade|
++---------------------------+----------------------------+-------------------------------+-----------------------------+----------------------------------------+
+
+The pod name indicates the connectivity
 variant and the readiness and liveness gate indicates success or failure of the
 test:
 
