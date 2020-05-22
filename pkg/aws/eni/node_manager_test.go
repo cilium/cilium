@@ -495,7 +495,9 @@ func (e *ENISuite) TestNodeManagerReleaseAddress(c *check.C) {
 	eniNode, castOK := node.Ops().(*Node)
 	c.Assert(castOK, check.Equals, true)
 	obj := node.ResourceCopy()
+	eniNode.mutex.RLock()
 	obj.Status.ENI.ENIs = eniNode.enis
+	eniNode.mutex.RUnlock()
 	node.UpdatedResource(obj)
 	syncTime := instances.Resync(context.TODO())
 	mngr.Resync(context.TODO(), syncTime)
