@@ -36,7 +36,7 @@ const (
 	AllOperations Operation = iota
 	GetInstances
 	GetVpcsAndSubnets
-	AssignPrivateIpAddresses
+	AssignPrivateIpAddressesVMSS
 	MaxOperation
 )
 
@@ -177,14 +177,18 @@ func (a *API) GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMa
 	return vnets, subnets, nil
 }
 
-func (a *API) AssignPrivateIpAddresses(ctx context.Context, vmName, vmssName, subnetID, interfaceName string, addresses int) error {
+func (a *API) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error {
+	return nil
+}
+
+func (a *API) AssignPrivateIpAddressesVMSS(ctx context.Context, vmName, vmssName, subnetID, interfaceName string, addresses int) error {
 	a.rateLimit()
-	a.delaySim.Delay(AssignPrivateIpAddresses)
+	a.delaySim.Delay(AssignPrivateIpAddressesVMSS)
 
 	a.mutex.Lock()
 	defer a.mutex.Unlock()
 
-	if err, ok := a.errors[AssignPrivateIpAddresses]; ok {
+	if err, ok := a.errors[AssignPrivateIpAddressesVMSS]; ok {
 		return err
 	}
 

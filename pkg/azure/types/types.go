@@ -133,6 +133,7 @@ func (a *AzureInterface) InterfaceID() string {
 
 func (a *AzureInterface) extractIDs() {
 	switch {
+	// Interface from a VMSS instance:
 	// //subscriptions/xxx/resourceGroups/yyy/providers/Microsoft.Compute/virtualMachineScaleSets/ssss/virtualMachines/vvv/networkInterfaces/iii
 	case strings.Contains(a.ID, "virtualMachineScaleSets"):
 		segs := strings.Split(a.ID, "/")
@@ -144,6 +145,13 @@ func (a *AzureInterface) extractIDs() {
 		}
 		if len(segs) >= 11 {
 			a.vmID = segs[10]
+		}
+	// Interface from a standalone instance:
+	// //subscriptions/xxx/resourceGroups/yyy/providers/Microsoft.Network/networkInterfaces/iii
+	case strings.Contains(a.ID, "/Microsoft.Network/"):
+		segs := strings.Split(a.ID, "/")
+		if len(segs) >= 5 {
+			a.resourceGroup = segs[4]
 		}
 	}
 }
