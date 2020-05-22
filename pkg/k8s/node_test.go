@@ -38,6 +38,9 @@ func (s *K8sSuite) TestParseNode(c *C) {
 				annotation.V4CIDRName: "10.254.0.0/16",
 				annotation.V6CIDRName: "f00d:aaaa:bbbb:cccc:dddd:eeee::/112",
 			},
+			Labels: map[string]string{
+				"type": "m5.xlarge",
+			},
 		},
 		Spec: slim_corev1.NodeSpec{
 			PodCIDR: "10.1.0.0/16",
@@ -50,6 +53,7 @@ func (s *K8sSuite) TestParseNode(c *C) {
 	c.Assert(n.IPv4AllocCIDR.String(), Equals, "10.1.0.0/16")
 	c.Assert(n.IPv6AllocCIDR, NotNil)
 	c.Assert(n.IPv6AllocCIDR.String(), Equals, "f00d:aaaa:bbbb:cccc:dddd:eeee::/112")
+	c.Assert(n.Labels["type"], Equals, "m5.xlarge")
 
 	// No IPv6 annotation
 	k8sNode = &slim_corev1.Node{

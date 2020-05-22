@@ -71,6 +71,13 @@ func (in *Node) DeepCopyInto(out *Node) {
 		*out = make(net.IP, len(*in))
 		copy(*out, *in)
 	}
+	if in.Labels != nil {
+		in, out := &in.Labels, &out.Labels
+		*out = make(map[string]string, len(*in))
+		for key, val := range *in {
+			(*out)[key] = val
+		}
+	}
 	return
 }
 
