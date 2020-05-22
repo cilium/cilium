@@ -62,6 +62,11 @@ type DatapathUpdater interface {
 type ProxyPort struct {
 	// Listener name (immutable)
 	name string
+	// isStatic is true when the listener on the proxy port is incapable
+	// of stopping and/or being reconfigured with a new proxy port once it has been
+	// first started. Set 'true' by SetProxyPort(), which is only called for
+	// static listeners (currently only DNS proxy).
+	isStatic bool
 	// parser type this port applies to (immutable)
 	parserType policy.L7ParserType
 	// 'true' for ingress, 'false' for egress (immutable)
@@ -299,6 +304,9 @@ func (p *Proxy) releaseProxyPort(name string) error {
 
 	pp.nRedirects--
 	if pp.nRedirects == 0 {
+		if pp.isStatic {
+			return fmt.Errorf("Can't release proxy port: proxy %s on %d has a static listener", name, pp.proxyPort)
+		}
 		delete(allocatedPorts, pp.proxyPort)
 		// Force new port allocation the next time this ProxyPort is used.
 		pp.configured = false
@@ -354,7 +362,8 @@ func GetProxyPort(l7Type policy.L7ParserType, ingress bool) (uint16, string, err
 
 // SetProxyPort() marks the proxy 'name' as successfully created with proxy port 'port' and creates
 // or updates the datapath rules accordingly.
-// May only be called once per proxy.
+// This should only be called for proxies that have a static listener that is already listening on
+// 'port'. May only be called once per proxy.
 func (p *Proxy) SetProxyPort(name string, port uint16) error {
 	proxyPortsMutex.Lock()
 	defer proxyPortsMutex.Unlock()
@@ -366,8 +375,9 @@ func (p *Proxy) SetProxyPort(name string, port uint16) error {
 		return fmt.Errorf("Can't set proxy port to %d: proxy %s is already configured on %d", port, name, pp.proxyPort)
 	}
 	pp.proxyPort = port
-	pp.configured = true
-	return p.ackProxyPort(pp)
+	pp.isStatic = true        // prevents release of the proxy port
+	pp.reservePort()          // marks 'port' as reserved, 'pp' as configured
+	return p.ackProxyPort(pp) // creates datapath rules, increases the reference count
 }
 
 // ReinstallRules is called by daemon reconfiguration to re-install proxy ports rules that
