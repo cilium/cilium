@@ -233,8 +233,10 @@ func allocatePort(port, min, max uint16) (uint16, error) {
 
 // Called with proxyPortsMutex held!
 func (pp *ProxyPort) reservePort() {
-	allocatedPorts[pp.proxyPort] = struct{}{}
-	pp.configured = true
+	if !pp.configured {
+		allocatedPorts[pp.proxyPort] = struct{}{}
+		pp.configured = true
+	}
 }
 
 // Called with proxyPortsMutex held!
