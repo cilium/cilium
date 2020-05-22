@@ -226,6 +226,8 @@ func GetNodeSpec(nodeName string) error {
 		if nodeIP6 != nil {
 			node.SetIPv6(nodeIP6)
 		}
+
+		node.SetLabels(n.Labels)
 	} else {
 		// if node resource could not be received, fail if
 		// PodCIDR requirement has been requested

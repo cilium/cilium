@@ -27,7 +27,6 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager/idallocator"
 	"github.com/cilium/cilium/pkg/identity/cache"
-	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
@@ -35,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/prometheus/client_golang/prometheus"
@@ -479,16 +479,10 @@ func (mgr *EndpointManager) AddHostEndpoint(ctx context.Context, owner regenerat
 	epLabels := labels.Labels{}
 	epLabels.MergeLabels(labels.LabelHost)
 
-	if k8s.IsEnabled() {
-		// Retrieve k8s labels.
-		if k8sNode, err := k8s.GetNode(k8s.Client(), nodeName); err != nil {
-			log.WithError(err).Warning("Kubernetes node resource representing own node is not available, cannot set Labels")
-		} else {
-			newLabels := labels.Map2Labels(k8sNode.GetLabels(), labels.LabelSourceK8s)
-			newIdtyLabels, _ := labelsfilter.Filter(newLabels)
-			epLabels.MergeLabels(newIdtyLabels)
-		}
-	}
+	// Initialize with known node labels.
+	newLabels := labels.Map2Labels(node.GetLabels(), labels.LabelSourceK8s)
+	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
+	epLabels.MergeLabels(newIdtyLabels)
 
 	// Give the endpoint a security identity
 	newCtx, cancel := context.WithTimeout(ctx, launchTime)

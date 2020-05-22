@@ -166,6 +166,9 @@ type Node struct {
 
 	// Key index used for transparent encryption or 0 for no encryption
 	EncryptionKey uint8
+
+	// Node labels
+	Labels map[string]string
 }
 
 // Fullname returns the node's full name including the cluster name if a
