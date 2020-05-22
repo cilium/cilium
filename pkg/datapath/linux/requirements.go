@@ -176,7 +176,7 @@ func CheckMinRequirements() {
 	if !option.Config.DryMode {
 		probeManager := probes.NewProbeManager()
 		if err := probeManager.SystemConfigProbes(); err != nil {
-			log.WithError(err).Warning("BPF system config check: NOT OK.")
+			log.WithError(err).Fatal("BPF system config check: NOT OK.")
 		}
 		if err := probeManager.CreateHeadersFile(); err != nil {
 			log.WithError(err).Fatal("BPF check: NOT OK.")

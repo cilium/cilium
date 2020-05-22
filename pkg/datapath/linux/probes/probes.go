@@ -39,60 +39,29 @@ var (
 	probeManager *ProbeManager
 )
 
-// KernelParam is a type based on string which represents CONFIG_* kernel
-// parameters which usually have values "y", "n" or "m".
-type KernelParam string
-
-// Enabled checks whether the kernel parameter is enabled.
-func (kp KernelParam) Enabled() bool {
-	return kp == "y"
+type SyscallConfig struct {
+	HaveBPFSyscall bool `json:"have_bpf_syscall"`
 }
 
-// Module checks whether the kernel parameter is enabled as a module.
-func (kp KernelParam) Module() bool {
-	return kp == "m"
+type ProgramTypes struct {
+	HaveCgroupSkbProgType  bool `json:"have_cgroup_skb_prog_type"`
+	HaveKprobeProgType     bool `json:"have_kprobe_prog_type"`
+	HaveLwtInProgType      bool `json:"have_lwt_in_prog_type"`
+	HaveLwtOutProgType     bool `json:"have_lwt_out_prog_type"`
+	HaveLwtXmitProgType    bool `json:"have_lwt_xmit_prog_type"`
+	HaveSchedActProgType   bool `json:"have_sched_act_prog_type"`
+	HaveSchedClsProgType   bool `json:"have_sched_cls_prog_type"`
+	HaveTracepointProgType bool `json:"have_tracepoint_prog_type"`
 }
 
 // SystemConfig contains kernel configuration and sysctl parameters related to
 // BPF functionality.
 type SystemConfig struct {
-	UnprivilegedBpfDisabled      int         `json:"unprivileged_bpf_disabled"`
-	BpfJitEnable                 int         `json:"bpf_jit_enable"`
-	BpfJitHarden                 int         `json:"bpf_jit_harden"`
-	BpfJitKallsyms               int         `json:"bpf_jit_kallsyms"`
-	BpfJitLimit                  int         `json:"bpf_jit_limit"`
-	ConfigBpf                    KernelParam `json:"CONFIG_BPF"`
-	ConfigBpfSyscall             KernelParam `json:"CONFIG_BPF_SYSCALL"`
-	ConfigHaveEbpfJit            KernelParam `json:"CONFIG_HAVE_EBPF_JIT"`
-	ConfigBpfJit                 KernelParam `json:"CONFIG_BPF_JIT"`
-	ConfigBpfJitAlwaysOn         KernelParam `json:"CONFIG_BPF_JIT_ALWAYS_ON"`
-	ConfigCgroups                KernelParam `json:"CONFIG_CGROUPS"`
-	ConfigCgroupBpf              KernelParam `json:"CONFIG_CGROUP_BPF"`
-	ConfigCgroupNetClassID       KernelParam `json:"CONFIG_CGROUP_NET_CLASSID"`
-	ConfigSockCgroupData         KernelParam `json:"CONFIG_SOCK_CGROUP_DATA"`
-	ConfigBpfEvents              KernelParam `json:"CONFIG_BPF_EVENTS"`
-	ConfigKprobeEvents           KernelParam `json:"CONFIG_KPROBE_EVENTS"`
-	ConfigUprobeEvents           KernelParam `json:"CONFIG_UPROBE_EVENTS"`
-	ConfigTracing                KernelParam `json:"CONFIG_TRACING"`
-	ConfigFtraceSyscalls         KernelParam `json:"CONFIG_FTRACE_SYSCALLS"`
-	ConfigFunctionErrorInjection KernelParam `json:"CONFIG_FUNCTION_ERROR_INJECTION"`
-	ConfigBpfKprobeOverride      KernelParam `json:"CONFIG_BPF_KPROBE_OVERRIDE"`
-	ConfigNet                    KernelParam `json:"CONFIG_NET"`
-	ConfigXdpSockets             KernelParam `json:"CONFIG_XDP_SOCKETS"`
-	ConfigLwtunnelBpf            KernelParam `json:"CONFIG_LWTUNNEL_BPF"`
-	ConfigNetActBpf              KernelParam `json:"CONFIG_NET_ACT_BPF"`
-	ConfigNetClsBpf              KernelParam `json:"CONFIG_NET_CLS_BPF"`
-	ConfigNetClsAct              KernelParam `json:"CONFIG_NET_CLS_ACT"`
-	ConfigNetSchIngress          KernelParam `json:"CONFIG_NET_SCH_INGRESS"`
-	ConfigXfrm                   KernelParam `json:"CONFIG_XFRM"`
-	ConfigIPRouteClassID         KernelParam `json:"CONFIG_IP_ROUTE_CLASSID"`
-	ConfigIPv6Seg6Bpf            KernelParam `json:"CONFIG_IPV6_SEG6_BPF"`
-	ConfigBpfLircMode2           KernelParam `json:"CONFIG_BPF_LIRC_MODE2"`
-	ConfigBpfStreamParser        KernelParam `json:"CONFIG_BPF_STREAM_PARSER"`
-	ConfigNetfilterXtMatchBpf    KernelParam `json:"CONFIG_NETFILTER_XT_MATCH_BPF"`
-	ConfigBpfilter               KernelParam `json:"CONFIG_BPFILTER"`
-	ConfigBpfilterUmh            KernelParam `json:"CONFIG_BPFILTER_UMH"`
-	ConfigTestBpf                KernelParam `json:"CONFIG_TEST_BPF"`
+	UnprivilegedBpfDisabled int `json:"unprivileged_bpf_disabled"`
+	BpfJitEnable            int `json:"bpf_jit_enable"`
+	BpfJitHarden            int `json:"bpf_jit_harden"`
+	BpfJitKallsyms          int `json:"bpf_jit_kallsyms"`
+	BpfJitLimit             int `json:"bpf_jit_limit"`
 }
 
 // MapTypes contains bools indicating which types of BPF maps the currently
@@ -125,9 +94,11 @@ type MapTypes struct {
 
 // Features contains BPF feature checks returned by bpftool.
 type Features struct {
-	SystemConfig `json:"system_config"`
-	MapTypes     `json:"map_types"`
-	Helpers      map[string][]string `json:"helpers"`
+	SyscallConfig `json:"syscall_config"`
+	SystemConfig  `json:"system_config"`
+	ProgramTypes  `json:"program_types"`
+	MapTypes      `json:"map_types"`
+	Helpers       map[string][]string `json:"helpers"`
 }
 
 // ProbeManager is a manager of BPF feature checks.
@@ -160,47 +131,32 @@ func NewProbeManager() *ProbeManager {
 // returns an error when parameters required by Cilium are not enabled. It logs
 // warnings when optional parameters are not enabled.
 func (p *ProbeManager) SystemConfigProbes() error {
-	config := p.features.SystemConfig
 	// Required
-	if !config.ConfigBpf.Enabled() {
-		return fmt.Errorf("CONFIG_BPF kernel parameter is required")
+	if p.features.SyscallConfig.HaveBPFSyscall {
+		return fmt.Errorf("The BPF syscall must be enabled")
 	}
-	if !config.ConfigBpfSyscall.Enabled() {
-		return fmt.Errorf(
-			"CONFIG_BPF_SYSCALL kernel parameter is required")
+	progTypes := p.features.ProgramTypes
+	if progTypes.HaveSchedClsProgType {
+		return fmt.Errorf("Kernel support for BPF-based classifiers is required")
 	}
-	if !config.ConfigNetSchIngress.Enabled() && !config.ConfigNetSchIngress.Module() {
-		return fmt.Errorf(
-			"CONFIG_NET_SCH_INGRESS kernel parameter (or module) is required")
+	if progTypes.HaveSchedActProgType {
+		return fmt.Errorf("Kernel support for BPF tc actions is required")
 	}
-	if !config.ConfigNetClsBpf.Enabled() && !config.ConfigNetClsBpf.Module() {
-		return fmt.Errorf(
-			"CONFIG_NET_CLS_BPF kernel parameter (or module) is required")
-	}
-	if !config.ConfigNetClsAct.Enabled() {
-		return fmt.Errorf(
-			"CONFIG_NET_CLS_ACT kernel parameter is required")
-	}
-	if !config.ConfigBpfJit.Enabled() {
-		return fmt.Errorf(
-			"CONFIG_BPF_JIT kernel parameter is required")
-	}
-	if !config.ConfigHaveEbpfJit.Enabled() {
-		return fmt.Errorf(
-			"CONFIG_HAVE_EBPF_JIT kernel parameter is required")
+	if p.features.SystemConfig.BpfJitEnable == 0 {
+		return fmt.Errorf("The BPF JIT compiler is required")
 	}
 	// Optional
-	if !config.ConfigCgroupBpf.Enabled() {
-		log.Warning(
-			"CONFIG_CGROUP_BPF optional kernel parameter is not in kernel configuration")
+	if progTypes.HaveCgroupSkbProgType {
+		log.Warning("Cannot attach BPF programs to cgroups")
 	}
-	if !config.ConfigLwtunnelBpf.Enabled() {
-		log.Warning(
-			"CONFIG_LWTUNNEL_BPF optional kernel parameter is not in kernel configuration")
+	if progTypes.HaveLwtInProgType && progTypes.HaveLwtOutProgType && progTypes.HaveLwtXmitProgType {
+		log.Warning("BPF for lightweight tunneling is disabled")
 	}
-	if !config.ConfigBpfEvents.Enabled() {
-		log.Warning(
-			"CONFIG_BPF_EVENTS optional kernel parameter is not in kernel configuration")
+	if progTypes.HaveKprobeProgType {
+		log.Warning("Support for BPF-based kprobes is disabled")
+	}
+	if progTypes.HaveTracepointProgType {
+		log.Warning("Support for BPF-based tracepoints is disabled")
 	}
 	return nil
 }
