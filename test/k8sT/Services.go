@@ -1105,10 +1105,6 @@ var _ = Describe("K8sServicesTest", func() {
 
 				AfterAll(func() {
 					enableBackgroundReport = true
-					kubectl.DeleteCiliumDS()
-					ExpectAllPodsTerminated(kubectl)
-					// Deploy Cilium as the next test expects it to be up and running
-					DeployCiliumAndDNS(kubectl, ciliumFilename)
 				})
 
 				Context("Tests with vxlan", func() {
@@ -1333,6 +1329,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 		// Net-next and not old versions, because of LRU requirement.
 		SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "Supports IPv4 fragments", func() {
+			DeployCiliumAndDNS(kubectl, ciliumFilename)
 			testIPv4FragmentSupport()
 		})
 	})
