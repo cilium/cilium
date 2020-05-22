@@ -23,7 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/cilium/cilium/pkg/hubble/ipcache"
+	"github.com/cilium/cilium/pkg/ipcache"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 )
@@ -103,21 +103,33 @@ var NoopEndpointGetter = FakeEndpointGetter{
 
 // FakeIPGetter is used for unit tests that needs IPGetter.
 type FakeIPGetter struct {
-	OnGetIPIdentity func(ip net.IP) (id ipcache.IPIdentity, ok bool)
+	OnGetK8sMetadata func(ip string) *ipcache.K8sMetadata
+	OnLookupByIP     func(ip string) (ipcache.Identity, bool)
 }
 
-// GetIPIdentity implements FakeIPGetter.GetIPIdentity.
-func (f *FakeIPGetter) GetIPIdentity(ip net.IP) (id ipcache.IPIdentity, ok bool) {
-	if f.OnGetIPIdentity != nil {
-		return f.OnGetIPIdentity(ip)
+// GetK8sMetadata implements FakeIPGetter.GetK8sMetadata.
+func (f *FakeIPGetter) GetK8sMetadata(ip string) *ipcache.K8sMetadata {
+	if f.OnGetK8sMetadata != nil {
+		return f.OnGetK8sMetadata(ip)
 	}
-	panic("OnGetIPIdentity not set")
+	panic("OnGetK8sMetadata not set")
+}
+
+// LookupByIP implements FakeIPGetter.LookupByIP.
+func (f *FakeIPGetter) LookupByIP(ip string) (ipcache.Identity, bool) {
+	if f.OnLookupByIP != nil {
+		return f.OnLookupByIP(ip)
+	}
+	panic("OnLookupByIP not set")
 }
 
 // NoopIPGetter always returns an empty response.
 var NoopIPGetter = FakeIPGetter{
-	OnGetIPIdentity: func(ip net.IP) (id ipcache.IPIdentity, ok bool) {
-		return ipcache.IPIdentity{}, false
+	OnGetK8sMetadata: func(ip string) *ipcache.K8sMetadata {
+		return nil
+	},
+	OnLookupByIP: func(ip string) (ipcache.Identity, bool) {
+		return ipcache.Identity{}, false
 	},
 }
 
