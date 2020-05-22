@@ -15,19 +15,19 @@ locally checked out branch:
 Developer images
 ~~~~~~~~~~~~~~~~
 
-::
-
-    DOCKER_IMAGE_TAG=jane-developer-my-fix make dev-docker-image
-
-You can then push the image tag to the registry for development builds:
+Run ``make dev-docker-image`` to build a Cilium Docker image that contains your
+local changes.
 
 ::
 
-    docker push cilium/cilium-dev:jane-developer-my-fix
+    DOCKER_DEV_ACCOUNT=quay.io/myaccount DOCKER_IMAGE_TAG=jane-developer-my-fix make dev-docker-image
 
-Access to the developer builds registry is restricted but access is granted
-liberally. Join the #development channel in Slack and ask for permission to
-push builds.
+The command above assumes that your username for ``quay.io`` is ``myaccount``.
+You can then push the image tag to your own registry for development builds:
+
+::
+
+    docker push quay.io/myaccount/cilium-dev:jane-developer-my-fix-amd64
 
 Official release images
 ~~~~~~~~~~~~~~~~~~~~~~~
