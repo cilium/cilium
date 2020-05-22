@@ -543,7 +543,8 @@ func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) (error, reve
 }
 
 // removeRedirect removes an existing redirect. p.mutex must be held
-// p.mutex must NOT be held when the returned finalize and revert functions are called!
+// p.mutex must NOT be held when the returned revert function is called!
+// proxyPortsMutex must NOT be held when the returned finalize function is called!
 func (p *Proxy) removeRedirect(id string, wg *completion.WaitGroup) (err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 	log.WithField(fieldProxyRedirectID, id).
 		Debug("Removing proxy redirect")
