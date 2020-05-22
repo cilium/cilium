@@ -15,7 +15,6 @@
 package api
 
 import (
-	"bytes"
 	"context"
 	"encoding/json"
 
@@ -80,65 +79,42 @@ type Rule struct {
 // MarshalJSON returns the JSON encoding of Rule r. We need to overwrite it to
 // enforce omitempty on the EndpointSelector nested structures.
 func (r *Rule) MarshalJSON() ([]byte, error) {
-	var buf bytes.Buffer
-	buf.WriteByte('{')
-
-	if r.EndpointSelector.LabelSelector != nil {
-		jsonValue, err := json.Marshal(r.EndpointSelector)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write([]byte(`"endpointSelector":`))
-		buf.Write(jsonValue)
+	type common struct {
+		Ingress     []IngressRule     `json:"ingress,omitempty"`
+		Egress      []EgressRule      `json:"egress,omitempty"`
+		Labels      labels.LabelArray `json:"labels,omitempty"`
+		Description string            `json:"description,omitempty"`
 	}
 
-	if r.NodeSelector.LabelSelector != nil {
-		jsonValue, err := json.Marshal(r.NodeSelector)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write([]byte(`"nodeSelector":`))
-		buf.Write(jsonValue)
+	var a interface{}
+	ruleCommon := common{
+		Ingress:     r.Ingress,
+		Egress:      r.Egress,
+		Labels:      r.Labels,
+		Description: r.Description,
 	}
 
-	if r.Ingress != nil {
-		jsonValue, err := json.Marshal(r.Ingress)
-		if err != nil {
-			return nil, err
+	// Only one of endpointSelector or nodeSelector is permitted.
+	switch {
+	case r.EndpointSelector.LabelSelector != nil:
+		a = struct {
+			EndpointSelector EndpointSelector `json:"endpointSelector,omitempty"`
+			common
+		}{
+			EndpointSelector: r.EndpointSelector,
+			common:           ruleCommon,
 		}
-		buf.Write([]byte(`,"ingress":`))
-		buf.Write(jsonValue)
+	case r.NodeSelector.LabelSelector != nil:
+		a = struct {
+			NodeSelector EndpointSelector `json:"nodeSelector,omitempty"`
+			common
+		}{
+			NodeSelector: r.NodeSelector,
+			common:       ruleCommon,
+		}
 	}
 
-	if r.Egress != nil {
-		jsonValue, err := json.Marshal(r.Egress)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write([]byte(`,"egress":`))
-		buf.Write(jsonValue)
-	}
-
-	if r.Labels != nil {
-		jsonValue, err := json.Marshal(r.Labels)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write([]byte(`,"labels":`))
-		buf.Write(jsonValue)
-	}
-
-	if r.Description != "" {
-		jsonValue, err := json.Marshal(r.Description)
-		if err != nil {
-			return nil, err
-		}
-		buf.Write([]byte(`,"description":`))
-		buf.Write(jsonValue)
-	}
-
-	buf.WriteByte('}')
-	return buf.Bytes(), nil
+	return json.Marshal(a)
 }
 
 func (r *Rule) DeepEqual(o *Rule) bool {
