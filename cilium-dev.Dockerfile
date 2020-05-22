@@ -5,7 +5,7 @@ FROM quay.io/cilium/cilium-envoy:63de0bd958d05d82e2396125dcf6286d92464c56 as cil
 
 FROM quay.io/cilium/cilium-runtime:2020-05-18
 LABEL maintainer="maintainer@cilium.io"
-RUN apt-get install make -y
+RUN apt-get update && apt-get install make -y
 WORKDIR /go/src/github.com/cilium/cilium
 ARG LOCKDEBUG
 ARG V
