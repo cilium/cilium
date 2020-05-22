@@ -1814,7 +1814,7 @@ func (kub *Kubectl) RestartUnmanagedPodsInNamespace(namespace string, excludePod
 
 iteratePods:
 	for _, pod := range podList.Items {
-		if pod.Spec.HostNetwork {
+		if pod.Spec.HostNetwork || pod.DeletionTimestamp != nil {
 			continue
 		}
 
