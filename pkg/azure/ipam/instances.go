@@ -30,7 +30,8 @@ import (
 type AzureAPI interface {
 	GetInstances(ctx context.Context, subnets ipamTypes.SubnetMap) (*ipamTypes.InstanceMap, error)
 	GetVpcsAndSubnets(ctx context.Context) (ipamTypes.VirtualNetworkMap, ipamTypes.SubnetMap, error)
-	AssignPrivateIpAddresses(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error
+	AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error
+	AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error
 }
 
 // InstancesManager maintains the list of instances. It must be kept up to date
