@@ -68,7 +68,7 @@ func (e *MockSuite) TestMock(c *check.C) {
 		return nil
 	})
 
-	err = api.AssignPrivateIpAddresses(context.Background(), "vm1", "vmss1", "s-1", "eth0", 2)
+	err = api.AssignPrivateIpAddressesVMSS(context.Background(), "vm1", "vmss1", "s-1", "eth0", 2)
 	c.Assert(err, check.IsNil)
 	instances, err = api.GetInstances(context.Background(), ipamTypes.SubnetMap{})
 	c.Assert(err, check.IsNil)
@@ -82,6 +82,20 @@ func (e *MockSuite) TestMock(c *check.C) {
 		c.Assert(len(iface.Addresses), check.Equals, 2)
 		return nil
 	})
+
+	vmIfaceID := "/subscriptions/xxx/resourceGroups/g1/providers/Microsoft.Network/networkInterfaces/vm22-if"
+	vmInstances := ipamTypes.NewInstanceMap()
+	vmInstances.Update("vm2", ipamTypes.InterfaceRevision{
+		Resource: &types.AzureInterface{ID: vmIfaceID, Name: "eth0"},
+	})
+	c.Assert(err, check.IsNil)
+	c.Assert(vmInstances.NumInstances(), check.Equals, 1)
+	vmInstances.ForeachInterface("", func(instanceID, interfaceID string, iface ipamTypes.InterfaceRevision) error {
+		c.Assert(instanceID, check.Equals, "vm2")
+		c.Assert(interfaceID, check.Equals, vmIfaceID)
+		return nil
+	})
+
 }
 
 func (e *MockSuite) TestSetMockError(c *check.C) {
@@ -98,8 +112,8 @@ func (e *MockSuite) TestSetMockError(c *check.C) {
 	_, _, err = api.GetVpcsAndSubnets(context.Background())
 	c.Assert(err, check.Equals, mockError)
 
-	api.SetMockError(AssignPrivateIpAddresses, mockError)
-	err = api.AssignPrivateIpAddresses(context.Background(), "vmss1", "i-1", "s-1", "eth0", 0)
+	api.SetMockError(AssignPrivateIpAddressesVMSS, mockError)
+	err = api.AssignPrivateIpAddressesVMSS(context.Background(), "vmss1", "i-1", "s-1", "eth0", 0)
 	c.Assert(err, check.Equals, mockError)
 }
 
