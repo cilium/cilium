@@ -121,11 +121,11 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 		destinationNames = p.dnsGetter.GetNamesOf(uint32(sourceEndpoint.ID), destinationIP)
 	}
 	if p.ipGetter != nil {
-		if id, ok := p.ipGetter.GetIPIdentity(sourceIP); ok {
-			sourceNamespace, sourcePod = id.Namespace, id.PodName
+		if meta := p.ipGetter.GetK8sMetadata(sourceIP.String()); meta != nil {
+			sourceNamespace, sourcePod = meta.Namespace, meta.PodName
 		}
-		if id, ok := p.ipGetter.GetIPIdentity(destinationIP); ok {
-			destinationNamespace, destinationPod = id.Namespace, id.PodName
+		if meta := p.ipGetter.GetK8sMetadata(destinationIP.String()); meta != nil {
+			destinationNamespace, destinationPod = meta.Namespace, meta.PodName
 		}
 	}
 

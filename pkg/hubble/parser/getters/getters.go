@@ -20,7 +20,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/cilium/cilium/pkg/hubble/ipcache"
+	"github.com/cilium/cilium/pkg/ipcache"
 )
 
 // DNSGetter ...
@@ -44,8 +44,11 @@ type IdentityGetter interface {
 
 // IPGetter fetches per-IP metadata
 type IPGetter interface {
-	// GetIPIdentity fetches information known about a remote IP.
-	GetIPIdentity(ip net.IP) (identity ipcache.IPIdentity, ok bool)
+	// GetK8sMetadata returns Kubernetes metadata for the given IP address.
+	GetK8sMetadata(ip string) *ipcache.K8sMetadata
+	// LookupByIP returns the corresponding security identity that endpoint IP
+	// maps to as well as if the corresponding entry exists.
+	LookupByIP(ip string) (ipcache.Identity, bool)
 }
 
 // ServiceGetter fetches service metadata.

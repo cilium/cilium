@@ -29,11 +29,12 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/byteorder"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/cilium/cilium/pkg/hubble/ipcache"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/gopacket"
@@ -85,12 +86,24 @@ func TestL34Decode(t *testing.T) {
 		},
 	}
 	ipGetter := &testutils.FakeIPGetter{
-		OnGetIPIdentity: func(ip net.IP) (identity ipcache.IPIdentity, ok bool) {
-			// pretend IP belongs to a pod on a remote node
-			if ip.Equal(net.ParseIP("192.168.33.11")) {
-				return ipcache.IPIdentity{Namespace: "remote", PodName: "pod-192.168.33.11"}, true
+		OnGetK8sMetadata: func(ip string) *ipcache.K8sMetadata {
+			if ip == "192.168.33.11" {
+				return &ipcache.K8sMetadata{
+					Namespace: "remote",
+					PodName:   "pod-192.168.33.11",
+				}
 			}
-			return
+			return nil
+		},
+		OnLookupByIP: func(ip string) (ipcache.Identity, bool) {
+			// pretend IP belongs to a pod on a remote node
+			if ip == "192.168.33.11" {
+				return ipcache.Identity{
+					ID:     1234,
+					Source: source.Unspec,
+				}, true
+			}
+			return ipcache.Identity{}, false
 		},
 	}
 	serviceGetter := &testutils.FakeServiceGetter{

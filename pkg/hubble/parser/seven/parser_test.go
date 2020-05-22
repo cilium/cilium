@@ -28,9 +28,8 @@ import (
 	"time"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
-	"github.com/cilium/cilium/pkg/hubble/ipcache"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
-	"github.com/cilium/cilium/pkg/identity"
+	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -124,15 +123,14 @@ func TestDecodeL7HTTPRecord(t *testing.T) {
 		},
 	}
 	IPGetter := &testutils.FakeIPGetter{
-		OnGetIPIdentity: func(ip net.IP) (id ipcache.IPIdentity, ok bool) {
-			if ip.Equal(net.ParseIP(fakeDestinationEndpoint.IPv4)) {
-				return ipcache.IPIdentity{
-					Identity:  identity.NumericIdentity(fakeDestinationEndpoint.Identity),
+		OnGetK8sMetadata: func(ip string) *ipcache.K8sMetadata {
+			if ip == fakeDestinationEndpoint.IPv4 {
+				return &ipcache.K8sMetadata{
 					Namespace: "default",
 					PodName:   "pod-1234",
-				}, true
+				}
 			}
-			return
+			return nil
 		},
 	}
 	serviceGetter := &testutils.FakeServiceGetter{
