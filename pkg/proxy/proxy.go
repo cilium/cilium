@@ -430,6 +430,7 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			var implUpdateRevertFunc revert.RevertFunc
 			implUpdateRevertFunc, err = redir.implementation.UpdateRules(wg, l4)
 			if err != nil {
+				redir.mutex.Unlock()
 				err = fmt.Errorf("unable to update existing redirect: %s", err)
 				return 0, err, nil, nil
 			}
