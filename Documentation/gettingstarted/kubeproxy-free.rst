@@ -21,8 +21,8 @@ For installing ``kubeadm`` and for more provisioning options please refer to
 
    Cilium's kube-proxy replacement depends on the :ref:`host-services` feature,
    therefore a v4.19.57, v5.1.16, v5.2.0 or more recent Linux kernel is required.
-   We recommend a v5.3 or more recent Linux kernel as Cilium can perform additional
-   optimizations in its kube-proxy replacement implementation.
+   We recommend a v5.3 or even more recent Linux kernel such as v5.8 as Cilium
+   can perform additional optimizations in its kube-proxy replacement implementation.
 
    Note that v5.0.y kernels do not have the fix required to run the kube-proxy
    replacement since at this point in time the v5.0.y stable kernel is end-of-life
@@ -602,22 +602,14 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
 Limitations
 ###########
 
-    * NodePort and ExternalIPs services are currently exposed through the native device
-      which has the default route on the host or a user specified device. In tunneling
-      mode, they are additionally exposed through the tunnel interface (``cilium_vxlan``
-      or ``cilium_geneve``). Exposing services through multiple native devices will be
-      supported in upcoming Cilium versions. See `GH issue 9620
-      <https://github.com/cilium/cilium/issues/9620>`__ for additional details.
     * Cilium's BPF kube-proxy replacement currently cannot be used with :ref:`encryption`.
     * Cilium's BPF kube-proxy replacement relies upon the :ref:`host-services` feature
       which uses BPF cgroup hooks to implement the service translation. The getpeername(2)
-      hook is currently missing which will be addressed for newer kernels. It is known
-      to currently not work with libceph deployments.
+      hook address translation in BPF is only available for v5.8 kernels. It is known to
+      currently not work with libceph deployments.
     * Cilium's DSR NodePort mode currently does not operate well in environments with
       TCP Fast Open (TFO) enabled. It is recommended to switch to ``snat`` mode in this
       situation.
-    * Kubernetes Service sessionAffinity is currently not implemented.
-      This will be addressed via `GH issue 9076 <https://github.com/cilium/cilium/issues/9076>`__.
 
 Further Readings
 ################
