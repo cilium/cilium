@@ -152,32 +152,32 @@ struct bpf_elf_map __section_maps LB4_REVERSE_NAT_SK_MAP = {
 
 static __always_inline int sock4_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb4_backend *backend,
-					       const struct lb4_key *lkey,
+					       const struct lb4_key *orig_key,
 					       __u16 rev_nat_id)
 {
-	struct ipv4_revnat_entry rval = {}, *tmp;
-	struct ipv4_revnat_tuple rkey = {};
+	struct ipv4_revnat_entry val = {}, *tmp;
+	struct ipv4_revnat_tuple key = {};
 	int ret = 0;
 
-	rkey.cookie = sock_local_cookie(ctx);
-	rkey.address = backend->address;
-	rkey.port = backend->port;
+	key.cookie = sock_local_cookie(ctx);
+	key.address = backend->address;
+	key.port = backend->port;
 
-	rval.address = lkey->address;
-	rval.port = lkey->dport;
-	rval.rev_nat_index = rev_nat_id;
+	val.address = orig_key->address;
+	val.port = orig_key->dport;
+	val.rev_nat_index = rev_nat_id;
 
-	tmp = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey);
-	if (!tmp || memcmp(tmp, &rval, sizeof(rval)))
-		ret = map_update_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey,
-				      &rval, 0);
+	tmp = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
+	if (!tmp || memcmp(tmp, &val, sizeof(val)))
+		ret = map_update_elem(&LB4_REVERSE_NAT_SK_MAP, &key,
+				      &val, 0);
 	return ret;
 }
 #else
 static __always_inline
 int sock4_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 			struct lb4_backend *backend __maybe_unused,
-			struct lb4_key *lkey __maybe_unused,
+			struct lb4_key *orig_key __maybe_unused,
 			__u16 rev_nat_id __maybe_unused)
 {
 	return -1;
@@ -254,7 +254,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	struct lb4_key key = {
 		.address	= ctx->user_ip4,
 		.dport		= ctx_dst_port(ctx),
-	};
+	}, orig_key = key;
 	struct lb4_service *slave_svc;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
@@ -269,7 +269,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	 */
 	svc = lb4_lookup_service(&key);
 	if (!svc) {
-		key.dport = ctx_dst_port(ctx);
+		key.dport = orig_key.dport;
 		svc = sock4_nodeport_wildcard_lookup(&key, true, in_hostns);
 		if (svc && !lb4_svc_is_nodeport(svc))
 			svc = NULL;
@@ -283,7 +283,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	 * IP address. But do the service translation if the IP
 	 * is from the host.
 	 */
-	if (sock4_skip_xlate(svc, in_hostns, ctx->user_ip4))
+	if (sock4_skip_xlate(svc, in_hostns, orig_key.address))
 		return -EPERM;
 
 	if (svc->affinity) {
@@ -325,7 +325,7 @@ reselect_backend:
 	if (svc->affinity)
 		lb4_update_affinity_by_netns(svc, &id, backend_id);
 
-	if (sock4_update_revnat(ctx_full, backend, &key,
+	if (sock4_update_revnat(ctx_full, backend, &orig_key,
 				svc->rev_nat_index) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
@@ -392,30 +392,39 @@ int sock4_bind(struct bpf_sock *ctx)
 static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full)
 {
-	struct ipv4_revnat_entry *rval;
-	struct ipv4_revnat_tuple rkey = {
+	struct ipv4_revnat_entry *val;
+	struct ipv4_revnat_tuple key = {
 		.cookie		= sock_local_cookie(ctx_full),
 		.address	= ctx->user_ip4,
 		.port		= ctx_dst_port(ctx),
 	};
 
-	rval = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey);
-	if (rval) {
+	val = map_lookup_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
+	if (val) {
 		struct lb4_service *svc;
-		struct lb4_key lkey = {
-			.address	= rval->address,
-			.dport		= rval->port,
+		struct lb4_key svc_key = {
+			.address	= val->address,
+			.dport		= val->port,
 		};
 
-		svc = lb4_lookup_service(&lkey);
-		if (!svc || svc->rev_nat_index != rval->rev_nat_index) {
-			map_delete_elem(&LB4_REVERSE_NAT_SK_MAP, &rkey);
+		svc = lb4_lookup_service(&svc_key);
+		if (!svc) {
+			const bool in_hostns = ctx_in_hostns(ctx_full, NULL);
+
+			svc_key.dport = val->port;
+			svc = sock4_nodeport_wildcard_lookup(&svc_key, true,
+							     in_hostns);
+			if (svc && !lb4_svc_is_nodeport(svc))
+				svc = NULL;
+		}
+		if (!svc || svc->rev_nat_index != val->rev_nat_index) {
+			map_delete_elem(&LB4_REVERSE_NAT_SK_MAP, &key);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
 		}
 
-		ctx->user_ip4 = rval->address;
-		ctx_set_port(ctx, rval->port);
+		ctx->user_ip4 = val->address;
+		ctx_set_port(ctx, val->port);
 		return 0;
 	}
 
@@ -458,32 +467,32 @@ struct bpf_elf_map __section_maps LB6_REVERSE_NAT_SK_MAP = {
 
 static __always_inline int sock6_update_revnat(struct bpf_sock_addr *ctx,
 					       const struct lb6_backend *backend,
-					       const struct lb6_key *lkey,
+					       const struct lb6_key *orig_key,
 					       __u16 rev_nat_index)
 {
-	struct ipv6_revnat_entry rval = {}, *tmp;
-	struct ipv6_revnat_tuple rkey = {};
+	struct ipv6_revnat_entry val = {}, *tmp;
+	struct ipv6_revnat_tuple key = {};
 	int ret = 0;
 
-	rkey.cookie = sock_local_cookie(ctx);
-	rkey.address = backend->address;
-	rkey.port = backend->port;
+	key.cookie = sock_local_cookie(ctx);
+	key.address = backend->address;
+	key.port = backend->port;
 
-	rval.address = lkey->address;
-	rval.port = lkey->dport;
-	rval.rev_nat_index = rev_nat_index;
+	val.address = orig_key->address;
+	val.port = orig_key->dport;
+	val.rev_nat_index = rev_nat_index;
 
-	tmp = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey);
-	if (!tmp || memcmp(tmp, &rval, sizeof(rval)))
-		ret = map_update_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey,
-				      &rval, 0);
+	tmp = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
+	if (!tmp || memcmp(tmp, &val, sizeof(val)))
+		ret = map_update_elem(&LB6_REVERSE_NAT_SK_MAP, &key,
+				      &val, 0);
 	return ret;
 }
 #else
 static __always_inline
 int sock6_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 			struct lb6_backend *backend __maybe_unused,
-			struct lb6_key *lkey __maybe_unused,
+			struct lb6_key *orig_key __maybe_unused,
 			__u16 rev_nat_index __maybe_unused)
 {
 	return -1;
@@ -679,21 +688,20 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	struct lb6_service *svc;
 	struct lb6_key key = {
 		.dport		= ctx_dst_port(ctx),
-	};
+	}, orig_key;
 	struct lb6_service *slave_svc;
-	union v6addr v6_orig;
-	__u32 backend_id = 0;
 	bool backend_from_affinity = false;
+	__u32 backend_id = 0;
 
 	if (!udp_only && !sock_proto_enabled(ctx->protocol))
 		return -ENOTSUP;
 
 	ctx_get_v6_address(ctx, &key.address);
-	v6_orig = key.address;
+	memcpy(&orig_key, &key, sizeof(key));
 
 	svc = lb6_lookup_service(&key);
 	if (!svc) {
-		key.dport = ctx_dst_port(ctx);
+		key.dport = orig_key.dport;
 		svc = sock6_nodeport_wildcard_lookup(&key, true, in_hostns);
 		if (svc && !lb6_svc_is_nodeport(svc))
 			svc = NULL;
@@ -703,7 +711,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (!svc)
 		return -ENXIO;
 
-	if (sock6_skip_xlate(svc, in_hostns, &v6_orig))
+	if (sock6_skip_xlate(svc, in_hostns, &orig_key.address))
 		return -EPERM;
 
 	if (svc->affinity) {
@@ -739,7 +747,7 @@ reselect_backend:
 	if (svc->affinity)
 		lb6_update_affinity_by_netns(svc, &id, backend_id);
 
-	if (sock6_update_revnat(ctx, backend, &key,
+	if (sock6_update_revnat(ctx, backend, &orig_key,
 			        svc->rev_nat_index) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
@@ -795,30 +803,39 @@ sock6_xlate_rev_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused)
 static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 {
 #ifdef ENABLE_IPV6
-	struct ipv6_revnat_tuple rkey = {};
-	struct ipv6_revnat_entry *rval;
+	struct ipv6_revnat_tuple key = {};
+	struct ipv6_revnat_entry *val;
 
-	rkey.cookie = sock_local_cookie(ctx);
-	rkey.port = ctx_dst_port(ctx);
-	ctx_get_v6_address(ctx, &rkey.address);
+	key.cookie = sock_local_cookie(ctx);
+	key.port = ctx_dst_port(ctx);
+	ctx_get_v6_address(ctx, &key.address);
 
-	rval = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey);
-	if (rval) {
+	val = map_lookup_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
+	if (val) {
 		struct lb6_service *svc;
-		struct lb6_key lkey = {
-			.address	= rval->address,
-			.dport		= rval->port,
+		struct lb6_key svc_key = {
+			.address	= val->address,
+			.dport		= val->port,
 		};
 
-		svc = lb6_lookup_service(&lkey);
-		if (!svc || svc->rev_nat_index != rval->rev_nat_index) {
-			map_delete_elem(&LB6_REVERSE_NAT_SK_MAP, &rkey);
+		svc = lb6_lookup_service(&svc_key);
+		if (!svc) {
+			const bool in_hostns = ctx_in_hostns(ctx, NULL);
+
+			svc_key.dport = val->port;
+			svc = sock6_nodeport_wildcard_lookup(&svc_key, true,
+							     in_hostns);
+			if (svc && !lb6_svc_is_nodeport(svc))
+				svc = NULL;
+		}
+		if (!svc || svc->rev_nat_index != val->rev_nat_index) {
+			map_delete_elem(&LB6_REVERSE_NAT_SK_MAP, &key);
 			update_metrics(0, METRIC_INGRESS, REASON_LB_REVNAT_STALE);
 			return -ENOENT;
 		}
 
-		ctx_set_v6_address(ctx, &rval->address);
-		ctx_set_port(ctx, rval->port);
+		ctx_set_v6_address(ctx, &val->address);
+		ctx_set_port(ctx, val->port);
 		return 0;
 	}
 #endif /* ENABLE_IPV6 */
