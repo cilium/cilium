@@ -552,7 +552,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 				 * can ignore the ipcache if it reports the
 				 * source as HOST_ID.
 				 */
-#ifndef ENABLE_EXTRA_HOST_DEV
+#ifdef ENABLE_EXTRA_HOST_DEV
 				if (from_host && sec_label != HOST_ID)
 #endif
 					srcid_from_ipcache = sec_label;
