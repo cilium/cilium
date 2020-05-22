@@ -82,7 +82,7 @@ func (n *Node) PrepareIPAllocation(scopedLog *logrus.Entry) (a *ipam.AllocationA
 				scopedLog.WithFields(logrus.Fields{
 					"ifaceName":    iface.Name,
 					"requiredName": requiredIfaceName,
-				}).Debug("Not considering interface for allocation sice it does not match the required name")
+				}).Debug("Not considering interface for allocation since it does not match the required name")
 				return nil
 			}
 		}
@@ -138,7 +138,11 @@ func (n *Node) AllocateIPs(ctx context.Context, a *ipam.AllocationAction) error 
 		return fmt.Errorf("invalid interface object")
 	}
 
-	return n.manager.api.AssignPrivateIpAddresses(ctx, iface.VMID(), iface.VMScaleSetName(), string(a.PoolID), iface.Name, a.AvailableForAllocation)
+	if iface.VMScaleSetName() == "" {
+		return n.manager.api.AssignPrivateIpAddressesVM(ctx, string(a.PoolID), iface.Name, a.AvailableForAllocation)
+	} else {
+		return n.manager.api.AssignPrivateIpAddressesVMSS(ctx, iface.VMID(), iface.VMScaleSetName(), string(a.PoolID), iface.Name, a.AvailableForAllocation)
+	}
 }
 
 // CreateInterface is called to create a new interface. This operation is

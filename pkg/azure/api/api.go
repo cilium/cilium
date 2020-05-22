@@ -351,9 +351,8 @@ func generateIpConfigName() string {
 	return rand.RandomStringWithPrefix("Cilium-", 8)
 }
 
-// AssignPrivateIpAddresses assigns the IPs to the interface as specified by
-// the interfaceName.
-func (c *Client) AssignPrivateIpAddresses(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error {
+// AssignPrivateIpAddressesVMSS assign a private IP to an interface attached to a VMSS instance
+func (c *Client) AssignPrivateIpAddressesVMSS(ctx context.Context, instanceID, vmssName, subnetID, interfaceName string, addresses int) error {
 	var netIfConfig *compute.VirtualMachineScaleSetNetworkConfiguration
 
 	result, err := c.vmss.Get(ctx, c.resourceGroup, vmssName, instanceID, compute.InstanceView)
@@ -398,6 +397,41 @@ func (c *Client) AssignPrivateIpAddresses(ctx context.Context, instanceID, vmssN
 
 	if err := future.WaitForCompletionRef(ctx, c.vmss.Client); err != nil {
 		return fmt.Errorf("error while waiting for virtualmachinescalesets.Update() to complete: %s", err)
+	}
+
+	return nil
+}
+
+// AssignPrivateIpAddressesVM assign a private IP to an interface attached to a standalone instance
+func (c *Client) AssignPrivateIpAddressesVM(ctx context.Context, subnetID, interfaceName string, addresses int) error {
+	iface, err := c.interfaces.Get(ctx, c.resourceGroup, interfaceName, "")
+	if err != nil {
+		return fmt.Errorf("failed to get standalone instance's interface %s: %s", interfaceName, err)
+	}
+
+	ipConfigurations := make([]network.InterfaceIPConfiguration, 0, addresses)
+	for i := 0; i < addresses; i++ {
+		ipConfigurations = append(ipConfigurations, network.InterfaceIPConfiguration{
+			Name: to.StringPtr(generateIpConfigName()),
+			InterfaceIPConfigurationPropertiesFormat: &network.InterfaceIPConfigurationPropertiesFormat{
+				PrivateIPAllocationMethod: network.Dynamic,
+				Subnet: &network.Subnet{
+					ID: to.StringPtr(subnetID),
+				},
+			},
+		})
+	}
+
+	ipConfigurations = append(*iface.IPConfigurations, ipConfigurations...)
+	iface.IPConfigurations = &ipConfigurations
+
+	future, err := c.interfaces.CreateOrUpdate(ctx, c.resourceGroup, interfaceName, iface)
+	if err != nil {
+		return fmt.Errorf("unable to update interface %s: %s", interfaceName, err)
+	}
+
+	if err := future.WaitForCompletionRef(ctx, c.interfaces.Client); err != nil {
+		return fmt.Errorf("error while waiting for interface.CreateOrUpdate() to complete for %s: %s", interfaceName, err)
 	}
 
 	return nil
