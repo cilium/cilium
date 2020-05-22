@@ -12,6 +12,22 @@ static void __fill_rnd(void *buff, __u32 len)
 		dest[i] = random();
 }
 
+static __always_inline __u32 __cmp_mem(const void *x, const void *y, __u32 len)
+{
+	const __u8 *x8 = x, *y8 = y;
+	__u32 i;
+
+	/* Manual slow version, but doesn't matter for the sake of testing here.
+	 * Mainly to make sure we don't end up using the overridden builtin.
+	 */
+	for (i = 0; i < len; i++) {
+		if (x8[i] != y8[i])
+			return 1;
+	}
+
+	return 0;
+}
+
 #define test___builtin_memzero_single(op, len)					\
 	do {									\
 		__u##op __x[len] __align_stack_8;				\
@@ -21,7 +37,7 @@ static void __fill_rnd(void *buff, __u32 len)
 		__bpf_memzero(__x, sizeof(__x));				\
 		barrier_data(__x);						\
 		barrier_data(__y);						\
-		assert(!__builtin_memcmp(__x, __y, sizeof(__x)));		\
+		assert(!__cmp_mem(__x, __y, sizeof(__x)));			\
 	} while (0)
 
 static void test___builtin_memzero(void)
@@ -42,7 +58,7 @@ static void test___builtin_memzero(void)
 		barrier_data(__x);						\
 		barrier_data(__y);						\
 		barrier_data(__z);						\
-		assert(!__builtin_memcmp(__x, __z, sizeof(__x)));		\
+		assert(!__cmp_mem(__x, __z, sizeof(__x)));			\
 	} while (0)
 
 static void test___builtin_memcpy(void)
