@@ -20,7 +20,7 @@ from the host namespace in addition to pod namespaces.
    required to run host-reachable services with UDP since at this point in time
    the v5.0.y stable kernel is end-of-life (EOL) and not maintained anymore. For
    only enabling TCP-based host-reachable services a v4.17.0 or newer kernel
-   is required.
+   is required. The most optimal kernel with the full feature set is v5.8.
 
 .. include:: k8s-install-download-release.rst
 
@@ -63,11 +63,11 @@ Limitations
 
     * The kernel BPF cgroup hooks operate at connect(2), sendmsg(2) and
       recvmsg(2) system call layers for connecting the application to one
-      of the service backends. Currently getpeername(2) does not yet have
-      a BPF hook for rewriting sock addresses before copying them into
-      user space in which case the application will see the backend address
-      instead of the service address. This limitation will be resolved in
-      future kernels. The missing getpeername(2) hook is known to not work
-      in combination with libceph deployments.
-      See `GH issue 9974 <https://github.com/cilium/cilium/issues/9974>`_
-      for further updates.
+      of the service backends. In the v5.8 Linux kernel, a getpeername(2)
+      hook for BPF has been added in order to also reverse translate the
+      connected sock addresses for application's getpeername(2) calls in
+      Cilium. For kernels older than v5.8 such reverse translation is not
+      taking place for this system call. For the vast majority of applications
+      not having this translation at getpeername(2) does not cause any
+      issues. There is one known case for libceph where its monitor might
+      return an error since expected peer address mismatches.
