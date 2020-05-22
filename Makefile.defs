@@ -120,6 +120,7 @@ endif
 
 ifneq ($(LOCKDEBUG),)
     GO_BUILD_FLAGS += -tags lockdebug
+    GO_TEST_FLAGS += -tags lockdebug
 endif
 
 GO_BUILD_FLAGS += -ldflags '$(GO_BUILD_LDFLAGS) $(EXTRA_GO_BUILD_LDFLAGS)' $(EXTRA_GO_BUILD_FLAGS)
