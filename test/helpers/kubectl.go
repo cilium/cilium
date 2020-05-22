@@ -1828,7 +1828,7 @@ iteratePods:
 		if err != nil || ep.Identity == nil || ep.Identity.ID == 0 {
 			ginkgoext.By("Restarting unmanaged pod %s/%s", namespace, pod.Name)
 			cmd = KubectlCmd + " -n " + namespace + " delete pod " + pod.Name
-			res = kub.ExecShort(cmd)
+			res = kub.Exec(cmd)
 			if !res.WasSuccessful() {
 				ginkgoext.Failf("Unable to restart unmanaged pod with '%s': %s", cmd, res.OutputPrettyPrint())
 			}
