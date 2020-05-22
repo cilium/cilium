@@ -42,6 +42,10 @@ position p;
   ctx_store_bytes(e1, e2, &x, ...)
 |
   memcpy(e1, &x, ...)
+|
+  memcmp(e1, &x, ...)
+|
+  memcmp(&x, e1, ...)
 )
 
 
