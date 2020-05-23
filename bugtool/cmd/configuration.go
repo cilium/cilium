@@ -54,12 +54,7 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip -6 n",
 		"ss -t -p -a -i -s",
 		"ss -u -p -a -i -s",
-		"nstat",
 		"uname -a",
-		"dig",
-		"netstat -a",
-		"pidstat",
-		"arp",
 		"top -b -n 1",
 		"uptime",
 		"dmesg --time-format=iso",
@@ -83,12 +78,6 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_ct_any6_global",
 		"bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_snat_v4_external",
 		"bpftool map dump pinned /sys/fs/bpf/tc/globals/cilium_snat_v6_external",
-		// Versions
-		"docker version",
-		"docker info",
-		// Docker and Kubernetes logs from systemd
-		"journalctl -u cilium*",
-		"journalctl -u kubelet",
 		// iptables
 		"iptables-save -c",
 		"iptables -S",
