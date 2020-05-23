@@ -148,14 +148,22 @@ clean-jenkins-precheck:
 	# remove the networks
 	docker-compose -f test/docker-compose.yml -p $(JOB_BASE_NAME)-$$BUILD_NUMBER down
 
+install-strace:
+	wget https://github.com/strace/strace/releases/download/v5.6/strace-5.6.tar.xz && \
+	tar xf strace-5.6.tar.xz &>/dev/null || echo "tar had errors"; \
+	cd strace-5.6 && \
+	./configure && \
+	make && \
+	make install
+
 PRIV_TEST_PKGS_EVAL := $(shell for pkg in $(TESTPKGS); do echo $$pkg; done | xargs grep --include='*.go' -ril '+build [^!]*privileged_tests' | xargs dirname | sort | uniq)
 PRIV_TEST_PKGS ?= $(PRIV_TEST_PKGS_EVAL)
-tests-privileged:
+tests-privileged: install-strace
 	# cilium-map-migrate is a dependency of some unit tests.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf cilium-map-migrate
 	$(MAKE) init-coverage
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(PRIV_TEST_PKGS)); do \
-		PATH=$(PATH):$(ROOT_DIR)/bpf strace -o tmp.txt $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS) \
+		PATH=$(PATH):$(ROOT_DIR)/bpf strace --seccomp-bpf -enone -f -o tmp.txt $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS) \
 		|| ( cat tmp.txt; exit 1 ) ; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
 	done
