@@ -332,7 +332,7 @@ func (c *Client) AssignPrivateIpAddresses(ctx context.Context, instanceID, vmssN
 	}
 
 	ipConfigurations := make([]compute.VirtualMachineScaleSetIPConfiguration, 0, addresses)
-	for i := 0; i <= addresses; i++ {
+	for i := 0; i < addresses; i++ {
 		ipConfigurations = append(ipConfigurations,
 			compute.VirtualMachineScaleSetIPConfiguration{
 				Name: to.StringPtr(generateIpConfigName()),
