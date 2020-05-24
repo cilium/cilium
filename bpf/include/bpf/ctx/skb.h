@@ -9,6 +9,7 @@
 
 #include "common.h"
 #include "../helpers_skb.h"
+#include "../builtins.h"
 
 #ifndef TC_ACT_OK
 # define TC_ACT_OK		0
@@ -31,7 +32,7 @@
 
 #define META_PIVOT		field_sizeof(struct __sk_buff, cb)
 
-#define ctx_load_bytes		skb_load_bytes
+#define ctx_load_bytes		_skb_load_bytes
 #define ctx_store_bytes		skb_store_bytes
 
 #define ctx_adjust_room		skb_adjust_room
@@ -90,6 +91,37 @@ static __always_inline __maybe_unused __u32
 ctx_get_ifindex(const struct __sk_buff *ctx)
 {
 	return ctx->ifindex;
+}
+
+#define CTX_OFF_MAX 0xff
+#define VAL 1
+
+static __always_inline __maybe_unused int
+_skb_load_bytes(const struct __sk_buff *ctx, __u64 off, void *to, const __u64 len)
+{
+	void *from;
+	int ret;
+	/* LLVM tends to generate code that verifier doesn't understand,
+	 * so force it the way we want it in order to open up a range
+	 * on the reg.
+	 */
+	asm volatile("r1 = *(u32 *)(%[ctx] +76)\n\t"
+		     "r2 = *(u32 *)(%[ctx] +80)\n\t"
+		     "%[off] &= %[offmax]\n\t"
+		     "r1 += %[off]\n\t"
+		     "%[from] = r1\n\t"
+		     "r1 += %[len]\n\t"
+		     "if r1 > r2 goto +2\n\t"
+		     "%[ret] = 0\n\t"
+		     "goto +1\n\t"
+		     "%[ret] = -22\n\t"
+		     : [ret]"=r"(ret), [from]"=r"(from)
+		     : [ctx]"r"(ctx), [off]"r"(off), [len]"ri"(len), [offmax]"i"(CTX_OFF_MAX)
+		     : "r1", "r2");
+
+	if (!ret)
+		memcpy(to, from, len);
+	return ret;
 }
 
 #endif /* __BPF_CTX_SKB_H_ */
