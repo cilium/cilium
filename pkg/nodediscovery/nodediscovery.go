@@ -40,8 +40,9 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -50,6 +51,7 @@ const (
 	AutoCIDR = "auto"
 
 	nodeDiscoverySubsys = "nodediscovery"
+	maxRetryCount       = 5
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
@@ -218,17 +220,47 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 
 	ciliumClient := k8s.CiliumClient()
 
-	performUpdate := true
-	nodeResource, err := ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), nodeTypes.GetName(), metav1.GetOptions{})
-	if err != nil {
-		performUpdate = false
-		nodeResource = &ciliumv2.CiliumNode{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: nodeTypes.GetName(),
-			},
+	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
+		performUpdate := true
+		nodeResource, err := ciliumClient.CiliumV2().CiliumNodes().Get(context.TODO(), nodeTypes.GetName(), metav1.GetOptions{})
+		if err != nil {
+			performUpdate = false
+			nodeResource = &ciliumv2.CiliumNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: nodeTypes.GetName(),
+				},
+			}
+		}
+
+		n.mutateNodeResource(nodeResource)
+
+		if performUpdate {
+			if _, err := ciliumClient.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{}); err != nil {
+				if errors.IsConflict(err) {
+					log.WithError(err).Warn("Unable to update CiliumNode resource, will retry")
+					continue
+				}
+				log.WithError(err).Fatal("Unable to update CiliumNode resource")
+			} else {
+				return
+			}
+		} else {
+			if _, err = ciliumClient.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
+				if errors.IsConflict(err) {
+					log.WithError(err).Warn("Unable to create CiliumNode resource, will retry")
+					continue
+				}
+				log.WithError(err).Fatal("Unable to create CiliumNode resource")
+			} else {
+				log.Info("Successfully created CiliumNode resource")
+				return
+			}
 		}
 	}
+	log.Fatal("Could not create or update CiliumNode resource, despite retries")
+}
 
+func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) {
 	var (
 		providerID       string
 		k8sNodeAddresses []nodeTypes.Address
@@ -365,10 +397,10 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 
 	case ipamOption.IPAMAzure:
 		if providerID == "" {
-			log.WithError(err).Fatal("Spec.ProviderID in k8s node resource must be set for Azure IPAM")
+			log.Fatal("Spec.ProviderID in k8s node resource must be set for Azure IPAM")
 		}
 		if !strings.HasPrefix(providerID, azureTypes.ProviderPrefix) {
-			log.WithError(err).Fatalf("Spec.ProviderID in k8s node resource must have prefix %s", azureTypes.ProviderPrefix)
+			log.Fatalf("Spec.ProviderID in k8s node resource must have prefix %s", azureTypes.ProviderPrefix)
 		}
 		// The Azure controller in Kubernetes creates a mix of upper
 		// and lower case when filling in the ProviderID and is
@@ -387,19 +419,6 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 			if c.Azure.InterfaceName != "" {
 				nodeResource.Spec.Azure.InterfaceName = c.Azure.InterfaceName
 			}
-		}
-	}
-
-	if performUpdate {
-		_, err = ciliumClient.CiliumV2().CiliumNodes().Update(context.TODO(), nodeResource, metav1.UpdateOptions{})
-		if err != nil {
-			log.WithError(err).Fatal("Unable to update CiliumNode resource")
-		}
-	} else {
-		if _, err = ciliumClient.CiliumV2().CiliumNodes().Create(context.TODO(), nodeResource, metav1.CreateOptions{}); err != nil {
-			log.WithError(err).Fatal("Unable to create CiliumNode resource")
-		} else {
-			log.Info("Successfully created CiliumNode resource")
 		}
 	}
 }
