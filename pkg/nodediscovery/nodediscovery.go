@@ -34,8 +34,9 @@ import (
 	nodestore "github.com/cilium/cilium/pkg/node/store"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
-
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
+
+	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -44,6 +45,7 @@ const (
 	AutoCIDR = "auto"
 
 	nodeDiscoverySubsys = "nodediscovery"
+	maxRetryCount       = 5
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, nodeDiscoverySubsys)
@@ -212,17 +214,47 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 
 	ciliumClient := k8s.CiliumClient()
 
-	performUpdate := true
-	nodeResource, err := ciliumClient.CiliumV2().CiliumNodes().Get(node.GetName(), metav1.GetOptions{})
-	if err != nil {
-		performUpdate = false
-		nodeResource = &ciliumv2.CiliumNode{
-			ObjectMeta: metav1.ObjectMeta{
-				Name: node.GetName(),
-			},
+	for retryCount := 0; retryCount < maxRetryCount; retryCount++ {
+		performUpdate := true
+		nodeResource, err := ciliumClient.CiliumV2().CiliumNodes().Get(node.GetName(), metav1.GetOptions{})
+		if err != nil {
+			performUpdate = false
+			nodeResource = &ciliumv2.CiliumNode{
+				ObjectMeta: metav1.ObjectMeta{
+					Name: node.GetName(),
+				},
+			}
+		}
+
+		n.mutateNodeResource(nodeResource)
+
+		if performUpdate {
+			if _, err := ciliumClient.CiliumV2().CiliumNodes().Update(nodeResource); err != nil {
+				if errors.IsConflict(err) {
+					log.WithError(err).Warn("Unable to update CiliumNode resource, will retry")
+					continue
+				}
+				log.WithError(err).Fatal("Unable to update CiliumNode resource")
+			} else {
+				return
+			}
+		} else {
+			if _, err = ciliumClient.CiliumV2().CiliumNodes().Create(nodeResource); err != nil {
+				if errors.IsConflict(err) {
+					log.WithError(err).Warn("Unable to create CiliumNode resource, will retry")
+					continue
+				}
+				log.WithError(err).Fatal("Unable to create CiliumNode resource")
+			} else {
+				log.Info("Successfully created CiliumNode resource")
+				return
+			}
 		}
 	}
+	log.Fatal("Could not create or update CiliumNode resource, despite retries")
+}
 
+func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) {
 	// Tie the CiliumNode custom resource lifecycle to the lifecycle of the
 	// Kubernetes node
 	if k8sNode, err := k8s.GetNode(k8s.Client(), node.GetName()); err != nil {
@@ -308,18 +340,5 @@ func (n *NodeDiscovery) UpdateCiliumNodeResource() {
 		nodeResource.Spec.ENI.InstanceID = instanceID
 		nodeResource.Spec.ENI.InstanceType = instanceType
 		nodeResource.Spec.ENI.AvailabilityZone = availabilityZone
-	}
-
-	if performUpdate {
-		_, err = ciliumClient.CiliumV2().CiliumNodes().Update(nodeResource)
-		if err != nil {
-			log.WithError(err).Fatal("Unable to update CiliumNode resource")
-		}
-	} else {
-		if _, err = ciliumClient.CiliumV2().CiliumNodes().Create(nodeResource); err != nil {
-			log.WithError(err).Fatal("Unable to create CiliumNode resource")
-		} else {
-			log.Info("Successfully created CiliumNode resource")
-		}
 	}
 }
