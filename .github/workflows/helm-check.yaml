@@ -37,18 +37,15 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v1
 
-      - name: Run chart-testing (lint)
-        id: lint
-        uses: helm/chart-testing-action@v1.0.0-rc.2
-        with:
-          command: lint
-          config: install/kubernetes/chart-testing.yaml
+      - name: Run helm lint
+        run: |
+          cd install/kubernetes/cilium
+          helm lint --with-subcharts --values values.yaml
 
       - name: Create kind cluster
         uses: helm/kind-action@v1.0.0-rc.1
         with:
           install_local_path_provisioner: true
-        if: steps.lint.outputs.changed == 'true'
 
       # This test is just to make sure the helm chart can be installed. It will not replace existing integration tests
       - name: Run chart-testing (install)
