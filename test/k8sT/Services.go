@@ -133,7 +133,7 @@ var _ = Describe("K8sServicesTest", func() {
 		}
 	}
 
-	testCurlRequest := func(clientPodLabel, url string) {
+	testCurlFromPods := func(clientPodLabel, url string) {
 		// A DS with client is running in each node. So we try from each node
 		// that can connect to the service.  To make sure that the cross-node
 		// service connectivity is correct we tried 10 times, so balance in the
@@ -149,7 +149,7 @@ var _ = Describe("K8sServicesTest", func() {
 		}
 	}
 
-	testCurlRequestFail := func(clientPodLabel, url string) {
+	testCurlFromPodsFail := func(clientPodLabel, url string) {
 		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
 		ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", testDSClient)
 		for _, pod := range pods {
@@ -235,8 +235,8 @@ var _ = Describe("K8sServicesTest", func() {
 			for i := 0; i < 10; i++ {
 				// Send requests from "app2" pod which runs on the same node as
 				// "app1" pods
-				testCurlRequest("id=app2", httpSVCURL)
-				testCurlRequest("id=app2", tftpSVCURL)
+				testCurlFromPods("id=app2", httpSVCURL)
+				testCurlFromPods("id=app2", tftpSVCURL)
 			}
 		})
 
@@ -246,9 +246,9 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
 			url := fmt.Sprintf("http://%s/", clusterIP)
-			testCurlRequest(echoPodLabel, url)
+			testCurlFromPods(echoPodLabel, url)
 			url = fmt.Sprintf("tftp://%s/hello", clusterIP)
-			testCurlRequest(echoPodLabel, url)
+			testCurlFromPods(echoPodLabel, url)
 		}, 300)
 
 		SkipContextIf(helpers.RunsWithKubeProxy, "IPv6 Connectivity", func() {
@@ -292,9 +292,9 @@ var _ = Describe("K8sServicesTest", func() {
 
 			It("Checks service accessing itself (hairpin flow)", func() {
 				url := fmt.Sprintf(`"http://[%s]/"`, echoClusterIPv6)
-				testCurlRequest(echoPodLabel, url)
+				testCurlFromPods(echoPodLabel, url)
 				url = fmt.Sprintf(`"tftp://[%s]/hello"`, echoClusterIPv6)
-				testCurlRequest(echoPodLabel, url)
+				testCurlFromPods(echoPodLabel, url)
 			})
 		})
 	})
@@ -327,10 +327,10 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
 			url := fmt.Sprintf("http://%s/", clusterIP)
-			testCurlRequest(testDSClient, url)
+			testCurlFromPods(testDSClient, url)
 
 			url = fmt.Sprintf("tftp://%s/hello", clusterIP)
-			testCurlRequest(testDSClient, url)
+			testCurlFromPods(testDSClient, url)
 		})
 
 		SkipContextIf(helpers.RunsWithKubeProxy, "IPv6 Connectivity", func() {
@@ -351,10 +351,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 			It("Checks ClusterIP Connectivity", func() {
 				url := fmt.Sprintf(`"http://[%s]/"`, testDSIPv6)
-				testCurlRequest(testDSClient, url)
+				testCurlFromPods(testDSClient, url)
 
 				url = fmt.Sprintf(`"tftp://[%s]/hello"`, testDSIPv6)
-				testCurlRequest(testDSClient, url)
+				testCurlFromPods(testDSClient, url)
 			})
 		})
 
@@ -370,7 +370,7 @@ var _ = Describe("K8sServicesTest", func() {
 				net.JoinHostPort(host, fmt.Sprintf("%d", port)))
 		}
 
-		doRequests := func(url string, count int, fromPod string) {
+		testCurlFromPodInHostNetNS := func(url string, count int, fromPod string) {
 			By("Making %d curl requests from pod (host netns) %s to %q", count, fromPod, url)
 			cmd := fmt.Sprintf(`/bin/sh -c 'set -e; for i in $(seq 1 %d); do %s; done'`, count,
 				helpers.CurlFailNoStats(url))
@@ -399,7 +399,7 @@ var _ = Describe("K8sServicesTest", func() {
 				"%s host unexpectedly was able to bind on %q:%d, it should fail", fromPod, addr, port)
 		}
 
-		doRequestsExpectingHTTPCode := func(url string, count int, expectedCode string, fromPod string) {
+		testCurlFromPodInHostNetNSExpectingHTTPCode := func(url string, count int, expectedCode string, fromPod string) {
 			By("Making %d HTTP requests from %s to %q, expecting HTTP %s", count, fromPod, url, expectedCode)
 			for i := 1; i <= count; i++ {
 				res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlWithHTTPCode(url))
@@ -411,7 +411,7 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 		}
 
-		doRequestsFromThirdHostWithLocalPort :=
+		testCurlFromOutsideWithLocalPort :=
 			func(url string, count int, checkSourceIP bool, fromPort int) {
 				var cmd string
 
@@ -438,8 +438,8 @@ var _ = Describe("K8sServicesTest", func() {
 				}
 			}
 
-		doRequestsFromThirdHost := func(url string, count int, checkSourceIP bool) {
-			doRequestsFromThirdHostWithLocalPort(url, count, checkSourceIP, 0)
+		testCurlFromOutside := func(url string, count int, checkSourceIP bool) {
+			testCurlFromOutsideWithLocalPort(url, count, checkSourceIP, 0)
 		}
 
 		// srcPod:      Name of pod sending the datagram
@@ -701,7 +701,7 @@ var _ = Describe("K8sServicesTest", func() {
 				go func(url string) {
 					defer GinkgoRecover()
 					defer wg.Done()
-					testCurlRequest(testDSClient, url)
+					testCurlFromPods(testDSClient, url)
 				}(url)
 			}
 			for _, url := range testURLsFromHosts {
@@ -709,7 +709,7 @@ var _ = Describe("K8sServicesTest", func() {
 				go func(url string) {
 					defer GinkgoRecover()
 					defer wg.Done()
-					doRequests(url, count, k8s1NodeName)
+					testCurlFromPodInHostNetNS(url, count, k8s1NodeName)
 				}(url)
 			}
 			for _, url := range testURLsFromOutside {
@@ -717,7 +717,7 @@ var _ = Describe("K8sServicesTest", func() {
 				go func(url string) {
 					defer GinkgoRecover()
 					defer wg.Done()
-					doRequestsFromThirdHost(url, count, false)
+					testCurlFromOutside(url, count, false)
 				}(url)
 			}
 			// TODO: IPv6
@@ -725,13 +725,13 @@ var _ = Describe("K8sServicesTest", func() {
 			if bpfNodePort {
 				httpURL := getHTTPLink("127.0.0.1", data.Spec.Ports[0].NodePort)
 				tftpURL := getTFTPLink("127.0.0.1", data.Spec.Ports[1].NodePort)
-				testCurlRequestFail(testDSClient, httpURL)
-				testCurlRequestFail(testDSClient, tftpURL)
+				testCurlFromPodsFail(testDSClient, httpURL)
+				testCurlFromPodsFail(testDSClient, tftpURL)
 
 				httpURL = getHTTPLink("::ffff:127.0.0.1", data.Spec.Ports[0].NodePort)
 				tftpURL = getTFTPLink("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort)
-				testCurlRequestFail(testDSClient, httpURL)
-				testCurlRequestFail(testDSClient, tftpURL)
+				testCurlFromPodsFail(testDSClient, httpURL)
+				testCurlFromPodsFail(testDSClient, tftpURL)
 
 			}
 
@@ -776,8 +776,8 @@ var _ = Describe("K8sServicesTest", func() {
 			//   won't have the client IP but the service IP (given the request comes
 			//   from the Cilium node to the backend, not from the client directly).
 			//   Same in case of Hybrid mode for UDP.
-			doRequestsFromThirdHost(httpURL, 10, checkTCP)
-			doRequestsFromThirdHost(tftpURL, 10, checkUDP)
+			testCurlFromOutside(httpURL, 10, checkTCP)
+			testCurlFromOutside(tftpURL, 10, checkUDP)
 
 			// Make sure all the rest works as expected as well
 			testNodePort(true, false, false)
@@ -905,8 +905,8 @@ var _ = Describe("K8sServicesTest", func() {
 			if helpers.ExistNodeWithoutCilium() {
 				httpURL = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 				tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
-				doRequestsFromThirdHost(httpURL, count, true)
-				doRequestsFromThirdHost(tftpURL, count, true)
+				testCurlFromOutside(httpURL, count, true)
+				testCurlFromOutside(tftpURL, count, true)
 			} else {
 				GinkgoPrint("Skipping externalTrafficPolicy=Local test from external node")
 			}
@@ -917,10 +917,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 			httpURL = getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort)
-			doRequests(httpURL, count, k8s1NodeName)
-			doRequests(httpURL, count, k8s2NodeName)
-			doRequests(tftpURL, count, k8s1NodeName)
-			doRequests(tftpURL, count, k8s2NodeName)
+			testCurlFromPodInHostNetNS(httpURL, count, k8s1NodeName)
+			testCurlFromPodInHostNetNS(httpURL, count, k8s2NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, k8s1NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, k8s2NodeName)
 
 			httpURL = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
@@ -958,12 +958,12 @@ var _ = Describe("K8sServicesTest", func() {
 			tftpURL = getTFTPLink(k8s2IP, tftpHostPort)
 
 			// ... from same node
-			doRequests(httpURL, count, k8s2NodeName)
-			doRequests(tftpURL, count, k8s2NodeName)
+			testCurlFromPodInHostNetNS(httpURL, count, k8s2NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, k8s2NodeName)
 
 			// ... from different node
-			doRequests(httpURL, count, k8s1NodeName)
-			doRequests(tftpURL, count, k8s1NodeName)
+			testCurlFromPodInHostNetNS(httpURL, count, k8s1NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, k8s1NodeName)
 		}
 
 		testHealthCheckNodePort := func() {
@@ -977,13 +977,13 @@ var _ = Describe("K8sServicesTest", func() {
 
 			// Checks that requests to k8s2 return 200
 			url := getHTTPLink(k8s2IP, data.Spec.HealthCheckNodePort)
-			doRequestsExpectingHTTPCode(url, count, "200", k8s1NodeName)
-			doRequestsExpectingHTTPCode(url, count, "200", k8s2NodeName)
+			testCurlFromPodInHostNetNSExpectingHTTPCode(url, count, "200", k8s1NodeName)
+			testCurlFromPodInHostNetNSExpectingHTTPCode(url, count, "200", k8s2NodeName)
 
 			// Checks that requests to k8s1 return 503 Service Unavailable
 			url = getHTTPLink(k8s1IP, data.Spec.HealthCheckNodePort)
-			doRequestsExpectingHTTPCode(url, count, "503", k8s1NodeName)
-			doRequestsExpectingHTTPCode(url, count, "503", k8s2NodeName)
+			testCurlFromPodInHostNetNSExpectingHTTPCode(url, count, "503", k8s1NodeName)
+			testCurlFromPodInHostNetNSExpectingHTTPCode(url, count, "503", k8s2NodeName)
 		}
 
 		testIPv4FragmentSupport := func() {
@@ -1221,9 +1221,9 @@ var _ = Describe("K8sServicesTest", func() {
 						// via two different NodePort svc to trigger the stale conntrack
 						// entry issue. Once it's fixed, the second request should not
 						// fail.
-						doRequestsFromThirdHostWithLocalPort(svc1URL, 1, false, 64002)
+						testCurlFromOutsideWithLocalPort(svc1URL, 1, false, 64002)
 						time.Sleep(120 * time.Second) // to reuse the source port
-						doRequestsFromThirdHostWithLocalPort(svc2URL, 1, false, 64002)
+						testCurlFromOutsideWithLocalPort(svc2URL, 1, false, 64002)
 					})
 
 					SkipContextIf(helpers.DoesNotSupportMetalLB, "Tests with MetalLB, GH#10763", func() {
@@ -1248,7 +1248,7 @@ var _ = Describe("K8sServicesTest", func() {
 								helpers.DefaultNamespace, "test-lb", 30*time.Second)
 							Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
 
-							doRequestsFromThirdHost("http://"+lbIP, 10, false)
+							testCurlFromOutside("http://"+lbIP, 10, false)
 						})
 					})
 				})
@@ -1258,7 +1258,7 @@ var _ = Describe("K8sServicesTest", func() {
 					err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 					ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
 					url := getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
-					doRequestsFromThirdHost(url, 10, true)
+					testCurlFromOutside(url, 10, true)
 
 					// Test whether DSR NAT entries are evicted by GC
 
@@ -1270,7 +1270,7 @@ var _ = Describe("K8sServicesTest", func() {
 					ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
 					url = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 
-					doRequestsFromThirdHostWithLocalPort(url, 1, true, sourcePortForCTGCtest)
+					testCurlFromOutsideWithLocalPort(url, 1, true, sourcePortForCTGCtest)
 					res := kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium bpf nat list | grep %d", sourcePortForCTGCtest))
 					ExpectWithOffset(1, res.GetStdOut()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
 					// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
