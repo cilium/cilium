@@ -1867,8 +1867,9 @@ func initKubeProxyReplacementOptions() {
 			_, found2 = h["bpf_get_netns_cookie"]
 		}
 		if !(found1 && found2) {
-			log.Warnf("sessionAffinity for host reachable services needs kernel 5.7.0 or newer. " +
-				"Disabling sessionAffinity for cases when a service is accessed from a cluster.")
+			log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
+				"to work properly when accessed from inside cluster: the same service endpoint " +
+				"will be selected from all network namespaces on the host.")
 		}
 	}
 }

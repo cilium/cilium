@@ -569,7 +569,7 @@ static __always_inline __u32
 lb6_affinity_backend_id_by_netns(const struct lb6_service *svc __maybe_unused,
 				 union lb6_affinity_client_id *id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_NETNS_COOKIE)
+#if defined(ENABLE_SESSION_AFFINITY)
 	return __lb6_affinity_backend_id(svc, true, id);
 #else
 	return 0;
@@ -581,7 +581,7 @@ lb6_update_affinity_by_netns(const struct lb6_service *svc __maybe_unused,
 			     union lb6_affinity_client_id *id __maybe_unused,
 			     __u32 backend_id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_NETNS_COOKIE)
+#if defined(ENABLE_SESSION_AFFINITY)
 	__lb6_update_affinity(svc, true, id, backend_id);
 #endif
 }
@@ -590,7 +590,7 @@ static __always_inline void
 lb6_delete_affinity_by_netns(const struct lb6_service *svc __maybe_unused,
 			     union lb6_affinity_client_id *id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_NETNS_COOKIE)
+#if defined(ENABLE_SESSION_AFFINITY)
 	__lb6_delete_affinity(svc, true, id);
 #endif
 }
@@ -1106,7 +1106,7 @@ static __always_inline __u32
 lb4_affinity_backend_id_by_netns(const struct lb4_service *svc __maybe_unused,
 				 union lb4_affinity_client_id *id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_NETNS_COOKIE)
+#if defined(ENABLE_SESSION_AFFINITY)
 	return __lb4_affinity_backend_id(svc, true, id);
 #else
 	return 0;
@@ -1118,7 +1118,7 @@ lb4_update_affinity_by_netns(const struct lb4_service *svc __maybe_unused,
 			     union lb4_affinity_client_id *id __maybe_unused,
 			     __u32 backend_id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_NETNS_COOKIE)
+#if defined(ENABLE_SESSION_AFFINITY)
 	__lb4_update_affinity(svc, true, id, backend_id);
 #endif
 }
@@ -1127,7 +1127,7 @@ static __always_inline void
 lb4_delete_affinity_by_netns(const struct lb4_service *svc __maybe_unused,
 			     union lb4_affinity_client_id *id __maybe_unused)
 {
-#if defined(ENABLE_SESSION_AFFINITY) && defined(BPF_HAVE_NETNS_COOKIE)
+#if defined(ENABLE_SESSION_AFFINITY)
 	__lb4_delete_affinity(svc, true, id);
 #endif
 }
