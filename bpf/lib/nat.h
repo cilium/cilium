@@ -254,7 +254,7 @@ static __always_inline int snat_v4_new_mapping(struct __sk_buff *skb,
 	}
 
 	if (retries > SNAT_SIGNAL_THRES)
-		send_signal_nat_fill_up(skb, SIGNAL_NAT_PROTO_V4);
+		send_signal_nat_fill_up(skb, SIGNAL_PROTO_V4);
 	return !ret ? 0 : DROP_NAT_NO_MAPPING;
 }
 
@@ -718,7 +718,7 @@ static __always_inline int snat_v6_new_mapping(struct __sk_buff *skb,
 	}
 
 	if (retries > SNAT_SIGNAL_THRES)
-		send_signal_nat_fill_up(skb, SIGNAL_NAT_PROTO_V6);
+		send_signal_nat_fill_up(skb, SIGNAL_PROTO_V6);
 	return !ret ? 0 : DROP_NAT_NO_MAPPING;
 }
 
