@@ -36,15 +36,25 @@ import (
 const (
 	// SignalNatFillUp denotes potential congestion on the NAT table
 	SignalNatFillUp = iota
+	// SignalCTFillUp denotes potential congestion on the CT table
+	SignalCTFillUp
 	SignalTypeMax
 )
 
 const (
-	// SignalNatV4 denotes NAT IPv4 table
-	SignalNatV4 = iota
-	// SignalNatV6 denotes NAT IPv6 table
-	SignalNatV6
-	SignalNatMax
+	// SignalProtoV4 denotes IPv4 protocol
+	SignalProtoV4 = iota
+	// SignalProtoV6 denotes IPv6 protocol
+	SignalProtoV6
+	SignalProtoMax
+)
+
+const (
+	// SignalWakeGC triggers wake-up of the CT garbage collector
+	SignalWakeGC = iota
+	// SignalChanInvalid must be last one
+	SignalChanInvalid
+	SignalChanMax
 )
 
 // SignalData holds actual data the BPF program sent along with
@@ -60,17 +70,18 @@ type SignalMsg struct {
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "signal")
 
-	channels [SignalTypeMax]chan<- SignalData
+	channels [SignalChanMax]chan<- SignalData
 
 	once   sync.Once
 	events *perf.Reader
 
 	signalName = [SignalTypeMax]string{
 		SignalNatFillUp: "nat_fill_up",
+		SignalCTFillUp:  "ct_fill_up",
 	}
-	signalNatProto = [SignalNatMax]string{
-		SignalNatV4: "ipv4",
-		SignalNatV6: "ipv6",
+	signalProto = [SignalProtoMax]string{
+		SignalProtoV4: "ipv4",
+		SignalProtoV6: "ipv6",
 	}
 )
 
@@ -79,8 +90,9 @@ func signalCollectMetrics(sig *SignalMsg, signalStatus string) {
 	signalData := ""
 	if sig != nil {
 		signalType = signalName[sig.Which]
-		if sig.Which == SignalNatFillUp {
-			signalData = signalNatProto[sig.Data]
+		if sig.Which == SignalNatFillUp ||
+			sig.Which == SignalCTFillUp {
+			signalData = signalProto[sig.Data]
 		}
 	}
 	metrics.SignalsHandled.WithLabelValues(signalType, signalData, signalStatus).Inc()
@@ -92,8 +104,13 @@ func signalReceive(msg *perf.Record) {
 		log.WithError(err).Warningf("Cannot parse signal from BPF datapath")
 		return
 	}
-	if channels[sig.Which] != nil {
-		channels[sig.Which] <- sig.Data
+	sigChan := SignalChanInvalid
+	switch sig.Which {
+	case SignalNatFillUp, SignalCTFillUp:
+		sigChan = SignalWakeGC
+	}
+	if channels[sigChan] != nil {
+		channels[sigChan] <- sig.Data
 		signalCollectMetrics(&sig, "received")
 	}
 }
@@ -101,7 +118,7 @@ func signalReceive(msg *perf.Record) {
 // MuteChannel tells to not send any new events to a particular channel
 // for a given signal.
 func MuteChannel(signal int) error {
-	if signal != SignalNatFillUp {
+	if signal != SignalWakeGC {
 		return fmt.Errorf("Signal number not supported: %d", signal)
 	}
 	// Right now we only support 1 type of signal, we may extend this in
@@ -117,7 +134,7 @@ func MuteChannel(signal int) error {
 // UnmuteChannel tells to allow sending new events to a particular channel
 // for a given signal.
 func UnmuteChannel(signal int) error {
-	if signal != SignalNatFillUp {
+	if signal != SignalWakeGC {
 		return fmt.Errorf("Signal number not supported: %d", signal)
 	}
 	// See comment in MuteChannel().
@@ -129,7 +146,7 @@ func UnmuteChannel(signal int) error {
 
 // RegisterChannel registers a go channel for a given signal.
 func RegisterChannel(signal int, ch chan<- SignalData) error {
-	if signal >= SignalTypeMax {
+	if signal >= SignalChanInvalid {
 		return fmt.Errorf("Signal number not supported: %d", signal)
 	}
 	if channels[signal] != nil {

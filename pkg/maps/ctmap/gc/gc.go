@@ -106,27 +106,27 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 				close(initialScanComplete)
 				initialScan = false
 
-				signal.RegisterChannel(signal.SignalNatFillUp, wakeup)
+				signal.RegisterChannel(signal.SignalWakeGC, wakeup)
 				signal.SetupSignalListener()
-				signal.MuteChannel(signal.SignalNatFillUp)
+				signal.MuteChannel(signal.SignalWakeGC)
 			}
 
-			signal.UnmuteChannel(signal.SignalNatFillUp)
+			signal.UnmuteChannel(signal.SignalWakeGC)
 			select {
 			case x := <-wakeup:
 				ipv4 = false
 				ipv6 = false
-				if x == signal.SignalNatV4 {
+				if x == signal.SignalProtoV4 {
 					ipv4 = true
-				} else if x == signal.SignalNatV6 {
+				} else if x == signal.SignalProtoV6 {
 					ipv6 = true
 				}
 				// Drain current queue since we just woke up anyway.
 				for len(wakeup) > 0 {
 					x := <-wakeup
-					if x == signal.SignalNatV4 {
+					if x == signal.SignalProtoV4 {
 						ipv4 = true
-					} else if x == signal.SignalNatV6 {
+					} else if x == signal.SignalProtoV6 {
 						ipv6 = true
 					}
 				}
@@ -134,7 +134,7 @@ func Enable(ipv4, ipv6 bool, restoredEndpoints []*endpoint.Endpoint, mgr Endpoin
 				ipv4 = ipv4Orig
 				ipv6 = ipv6Orig
 			}
-			signal.MuteChannel(signal.SignalNatFillUp)
+			signal.MuteChannel(signal.SignalWakeGC)
 		}
 	}()
 
