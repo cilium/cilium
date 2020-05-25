@@ -109,6 +109,11 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return nil
 				}
 
+				if !e.NamedPortsSet() {
+					scopedLog.Debug("Skipping CiliumEndpoint update because does not have k8s ports set")
+					return nil
+				}
+
 				// Serialize the endpoint into a model. It is compared with the one
 				// from before, only updating on changes.
 				mdl := e.GetCiliumEndpointStatus(conf)

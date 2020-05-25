@@ -222,6 +222,9 @@ type Endpoint struct {
 	// It is used to enforce k8s network policies with port names.
 	k8sPorts policy.NamedPortsMap
 
+	// k8sPortsSet keep track when k8sPorts was set at least one time.
+	k8sPortsSet bool
+
 	// policyRevision is the policy revision this endpoint is currently on
 	// to modify this field please use endpoint.setPolicyRevision instead
 	policyRevision uint64
@@ -1148,8 +1151,17 @@ func (e *Endpoint) SetNamedPorts(containerPorts []slim_corev1.ContainerPort) err
 	}
 	e.mutex.Lock()
 	e.k8sPorts = k8sPorts
+	e.k8sPortsSet = true
 	e.mutex.Unlock()
 	return nil
+}
+
+// NamedPortsSet returns true once SetNamedPorts was called
+func (e *Endpoint) NamedPortsSet() (portsSet bool) {
+	e.mutex.RLock()
+	portsSet = e.k8sPortsSet
+	e.mutex.RUnlock()
+	return
 }
 
 // K8sNamespaceAndPodNameIsSet returns true if the pod name is set
