@@ -16,11 +16,12 @@ struct bpf_elf_map __section_maps SIGNAL_MAP = {
 
 enum {
 	SIGNAL_NAT_FILL_UP = 0,
+	SIGNAL_CT_FILL_UP,
 };
 
 enum {
-	SIGNAL_NAT_PROTO_V4 = 0,
-	SIGNAL_NAT_PROTO_V6,
+	SIGNAL_PROTO_V4 = 0,
+	SIGNAL_PROTO_V6,
 };
 
 struct signal_msg {
@@ -44,6 +45,17 @@ static __always_inline void send_signal_nat_fill_up(struct __ctx_buff *ctx,
 {
 	struct signal_msg msg = {
 		.signal_nr	= SIGNAL_NAT_FILL_UP,
+		.proto		= proto,
+	};
+
+	send_signal(ctx, &msg);
+}
+
+static __always_inline void send_signal_ct_fill_up(struct __ctx_buff *ctx,
+						   __u32 proto)
+{
+	struct signal_msg msg = {
+		.signal_nr	= SIGNAL_CT_FILL_UP,
 		.proto		= proto,
 	};
 

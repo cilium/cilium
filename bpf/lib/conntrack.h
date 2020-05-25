@@ -14,6 +14,7 @@
 #include "dbg.h"
 #include "l4.h"
 #include "nat46.h"
+#include "signal.h"
 
 #ifdef CONNTRACK
 enum {
@@ -676,8 +677,10 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	cilium_dbg3(ctx, DBG_CT_CREATED6, entry.rev_nat_index, ct_state->src_sec_id, 0);
 
 	entry.src_sec_id = ct_state->src_sec_id;
-	if (map_update_elem(map_main, tuple, &entry, 0) < 0)
+	if (map_update_elem(map_main, tuple, &entry, 0) < 0) {
+		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V6);
 		return DROP_CT_CREATE_FAILED;
+	}
 
 	if (map_related != NULL) {
 		/* Create an ICMPv6 entry to relate errors */
@@ -693,8 +696,10 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 		ipv6_addr_copy(&icmp_tuple.daddr, &tuple->daddr);
 		ipv6_addr_copy(&icmp_tuple.saddr, &tuple->saddr);
 
-		if (map_update_elem(map_related, &icmp_tuple, &entry, 0) < 0)
+		if (map_update_elem(map_related, &icmp_tuple, &entry, 0) < 0) {
+			send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V6);
 			return DROP_CT_CREATE_FAILED;
+		}
 	}
 	return 0;
 }
@@ -775,8 +780,10 @@ static __always_inline int ct_create4(const void *map_main,
 	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index, ct_state->src_sec_id, ct_state->addr);
 
 	entry.src_sec_id = ct_state->src_sec_id;
-	if (map_update_elem(map_main, tuple, &entry, 0) < 0)
+	if (map_update_elem(map_main, tuple, &entry, 0) < 0) {
+		send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
 		return DROP_CT_CREATE_FAILED;
+	}
 
 	if (ct_state->addr && ct_state->loopback) {
 		__u8 flags = tuple->flags;
@@ -798,8 +805,11 @@ static __always_inline int ct_create4(const void *map_main,
 			tuple->daddr = ct_state->addr;
 		}
 
-		if (map_update_elem(map_main, tuple, &entry, 0) < 0)
+		if (map_update_elem(map_main, tuple, &entry, 0) < 0) {
+			send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
 			return DROP_CT_CREATE_FAILED;
+		}
+
 		tuple->saddr = saddr;
 		tuple->daddr = daddr;
 		tuple->flags = flags;
@@ -821,8 +831,10 @@ static __always_inline int ct_create4(const void *map_main,
 		 * the below throws an error, but we might as well just let
 		 * it time out.
 		 */
-		if (map_update_elem(map_related, &icmp_tuple, &entry, 0) < 0)
+		if (map_update_elem(map_related, &icmp_tuple, &entry, 0) < 0) {
+			send_signal_ct_fill_up(ctx, SIGNAL_PROTO_V4);
 			return DROP_CT_CREATE_FAILED;
+		}
 	}
 	return 0;
 }
