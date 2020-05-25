@@ -238,14 +238,14 @@ ctx_adjust_room(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 		data = ctx_data(ctx);
 		if (len_diff == 8) {
 			if (data + move_len_v4 + len_diff <= data_end)
-				memmove(data, data + len_diff,
-					move_len_v4);
+				__bpf_memmove_fwd(data, data + len_diff,
+						  move_len_v4);
 			else
 				ret = -EFAULT;
 		} else {
 			if (data + move_len_v6 + len_diff <= data_end)
-				memmove(data, data + len_diff,
-					move_len_v6);
+				__bpf_memmove_fwd(data, data + len_diff,
+						  move_len_v6);
 			else
 				ret = -EFAULT;
 		}
