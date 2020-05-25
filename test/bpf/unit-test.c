@@ -40,6 +40,7 @@ int main(int argc, char *argv[])
 	test___builtin_memzero();
 	test___builtin_memcpy();
 	test___builtin_memcmp();
+	test___builtin_memmove();
 
 	return 0;
 }
