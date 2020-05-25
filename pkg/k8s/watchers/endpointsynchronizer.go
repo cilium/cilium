@@ -156,9 +156,6 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 								},
 							},
 						}
-						if mdl != nil {
-							cep.Status = *mdl
-						}
 						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Create(ctx, cep, meta_v1.CreateOptions{})
 						if err != nil {
 							scopedLog.WithError(err).Error("Cannot create CEP")
