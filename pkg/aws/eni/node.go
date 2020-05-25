@@ -99,9 +99,15 @@ func (n *Node) PopulateStatusFields(k8sObj *v2.CiliumNode) {
 // getLimits returns the interface and IP limits of this node
 func (n *Node) getLimits() (ipamTypes.Limits, bool) {
 	n.mutex.RLock()
-	instType := n.k8sObj.Spec.ENI.InstanceType
+	l, b := n.getLimitsLocked()
 	n.mutex.RUnlock()
-	return getLimits(instType)
+	return l, b
+}
+
+// getLimitsLocked is the same function as getLimits, but assumes the n.mutex
+// is read locked.
+func (n *Node) getLimitsLocked() (ipamTypes.Limits, bool) {
+	return getLimits(n.k8sObj.Spec.ENI.InstanceType)
 }
 
 // PrepareIPRelease prepares the release of ENI IPs.
@@ -488,6 +494,9 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 // GetMaximumAllocatableIPv4 returns the maximum amount of IPv4 addresses
 // that can be allocated to the instance
 func (n *Node) GetMaximumAllocatableIPv4() int {
+	n.mutex.RLock()
+	defer n.mutex.RUnlock()
+
 	// Retrieve FirstInterfaceIndex from node spec
 	if n == nil ||
 		n.k8sObj == nil ||
@@ -500,7 +509,7 @@ func (n *Node) GetMaximumAllocatableIPv4() int {
 	firstInterfaceIndex := *n.k8sObj.Spec.ENI.FirstInterfaceIndex
 
 	// Retrieve limits for the instance type
-	limits, limitsAvailable := n.getLimits()
+	limits, limitsAvailable := n.getLimitsLocked()
 	if !limitsAvailable {
 		n.loggerLocked().WithFields(logrus.Fields{
 			"adaptors-limit":        "unknown",
