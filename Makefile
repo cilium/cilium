@@ -150,7 +150,7 @@ clean-jenkins-precheck:
 
 install-strace:
 	wget -q https://github.com/strace/strace/releases/download/v5.6/strace-5.6.tar.xz && \
-	tar xf strace-5.6.tar.xz &>/dev/null || echo "tar had errors"; \
+	tar xf strace-5.6.tar.xz || echo "tar had errors"; \
 	cd strace-5.6 && \
 	./configure &> /dev/null && \
 	make &> /dev/null && \
