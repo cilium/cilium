@@ -204,7 +204,7 @@
 		},
 		{
 			"ImportPath": "k8s.io/kube-openapi",
-			"Rev": "743ec37842bf"
+			"Rev": "594e756bea31"
 		},
 		{
 			"ImportPath": "modernc.org/cc",
