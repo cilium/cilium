@@ -283,11 +283,12 @@ func ConvertToK8sService(obj interface{}) interface{} {
 				APIVersion: concreteObj.TypeMeta.APIVersion,
 			},
 			ObjectMeta: slim_metav1.ObjectMeta{
-				Name:        concreteObj.ObjectMeta.Name,
-				Namespace:   concreteObj.ObjectMeta.Namespace,
-				UID:         concreteObj.ObjectMeta.UID,
-				Labels:      concreteObj.ObjectMeta.Labels,
-				Annotations: concreteObj.ObjectMeta.Annotations,
+				Name:            concreteObj.ObjectMeta.Name,
+				Namespace:       concreteObj.ObjectMeta.Namespace,
+				ResourceVersion: concreteObj.ObjectMeta.ResourceVersion,
+				UID:             concreteObj.ObjectMeta.UID,
+				Labels:          concreteObj.ObjectMeta.Labels,
+				Annotations:     concreteObj.ObjectMeta.Annotations,
 			},
 			Spec: slim_corev1.ServiceSpec{
 				Ports:                 convertToK8sServicePorts(concreteObj.Spec.Ports),
@@ -319,11 +320,12 @@ func ConvertToK8sService(obj interface{}) interface{} {
 					APIVersion: svc.TypeMeta.APIVersion,
 				},
 				ObjectMeta: slim_metav1.ObjectMeta{
-					Name:        svc.ObjectMeta.Name,
-					Namespace:   svc.ObjectMeta.Namespace,
-					UID:         svc.ObjectMeta.UID,
-					Labels:      svc.ObjectMeta.Labels,
-					Annotations: svc.ObjectMeta.Annotations,
+					Name:            svc.ObjectMeta.Name,
+					Namespace:       svc.ObjectMeta.Namespace,
+					ResourceVersion: svc.ObjectMeta.ResourceVersion,
+					UID:             svc.ObjectMeta.UID,
+					Labels:          svc.ObjectMeta.Labels,
+					Annotations:     svc.ObjectMeta.Annotations,
 				},
 				Spec: slim_corev1.ServiceSpec{
 					Ports:                 convertToK8sServicePorts(svc.Spec.Ports),
@@ -558,11 +560,12 @@ func ConvertToNode(obj interface{}) interface{} {
 				APIVersion: concreteObj.TypeMeta.APIVersion,
 			},
 			ObjectMeta: slim_metav1.ObjectMeta{
-				Name:        concreteObj.ObjectMeta.Name,
-				Namespace:   concreteObj.ObjectMeta.Namespace,
-				UID:         concreteObj.ObjectMeta.UID,
-				Labels:      concreteObj.ObjectMeta.Labels,
-				Annotations: concreteObj.ObjectMeta.Annotations,
+				Name:            concreteObj.ObjectMeta.Name,
+				Namespace:       concreteObj.ObjectMeta.Namespace,
+				UID:             concreteObj.ObjectMeta.UID,
+				ResourceVersion: concreteObj.ObjectMeta.ResourceVersion,
+				Labels:          concreteObj.ObjectMeta.Labels,
+				Annotations:     concreteObj.ObjectMeta.Annotations,
 			},
 			Spec: slim_corev1.NodeSpec{
 				PodCIDR:  concreteObj.Spec.PodCIDR,
@@ -588,11 +591,12 @@ func ConvertToNode(obj interface{}) interface{} {
 					APIVersion: node.TypeMeta.APIVersion,
 				},
 				ObjectMeta: slim_metav1.ObjectMeta{
-					Name:        node.ObjectMeta.Name,
-					Namespace:   node.ObjectMeta.Namespace,
-					UID:         node.ObjectMeta.UID,
-					Labels:      node.ObjectMeta.Labels,
-					Annotations: node.ObjectMeta.Annotations,
+					Name:            node.ObjectMeta.Name,
+					Namespace:       node.ObjectMeta.Namespace,
+					UID:             node.ObjectMeta.UID,
+					ResourceVersion: node.ObjectMeta.ResourceVersion,
+					Labels:          node.ObjectMeta.Labels,
+					Annotations:     node.ObjectMeta.Annotations,
 				},
 				Spec: slim_corev1.NodeSpec{
 					PodCIDR:  node.Spec.PodCIDR,
@@ -694,10 +698,11 @@ func ConvertToCiliumEndpoint(obj interface{}) interface{} {
 		}
 		dfsu := cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,
-			Obj: &types.CiliumEndpoint{TypeMeta: slim_metav1.TypeMeta{
-				Kind:       ciliumEndpoint.TypeMeta.Kind,
-				APIVersion: ciliumEndpoint.TypeMeta.APIVersion,
-			},
+			Obj: &types.CiliumEndpoint{
+				TypeMeta: slim_metav1.TypeMeta{
+					Kind:       ciliumEndpoint.TypeMeta.Kind,
+					APIVersion: ciliumEndpoint.TypeMeta.APIVersion,
+				},
 				ObjectMeta: slim_metav1.ObjectMeta{
 					Name:            ciliumEndpoint.ObjectMeta.Name,
 					Namespace:       ciliumEndpoint.ObjectMeta.Namespace,
