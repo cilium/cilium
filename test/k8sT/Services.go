@@ -111,22 +111,22 @@ var _ = Describe("K8sServicesTest", func() {
 				backends = append(backends, net.JoinHostPort(ip, port))
 			}
 		}
-		Expect(backends).To(Not(BeEmpty()), "Cannot find any IPv6 backends")
+		ExpectWithOffset(1, backends).To(Not(BeEmpty()), "Cannot find any IPv6 backends")
 		return backends
 	}
 
 	ciliumAddService := func(id int64, frontend string, backends []string, svcType, trafficPolicy string) {
 		ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
-		Expect(err).To(BeNil(), "Cannot get cilium pods")
+		ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 		for _, pod := range ciliumPods {
 			err := kubectl.CiliumServiceAdd(pod, id, frontend, backends, svcType, trafficPolicy)
-			Expect(err).To(BeNil(), "Failed to add cilium service")
+			ExpectWithOffset(1, err).To(BeNil(), "Failed to add cilium service")
 		}
 	}
 
 	ciliumDelService := func(id int64) {
 		ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
-		Expect(err).To(BeNil(), "Cannot get cilium pods")
+		ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 		for _, pod := range ciliumPods {
 			// ignore result so tear down still continues on failures
 			_ = kubectl.CiliumServiceDel(pod, id)
@@ -394,8 +394,8 @@ var _ = Describe("K8sServicesTest", func() {
 			By("Trying to bind NodePort addr %q:%d on %s", addr, port, fromPod)
 			res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod,
 				helpers.PythonBind(addr, uint16(port), proto))
-			ExpectWithOffset(1, err).To(BeNil(), "Cannot run python in host netns")
-			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
+			ExpectWithOffset(2, err).To(BeNil(), "Cannot run python in host netns")
+			ExpectWithOffset(2, res).ShouldNot(helpers.CMDSuccess(),
 				"%s host unexpectedly was able to bind on %q:%d, it should fail", fromPod, addr, port)
 		}
 
@@ -426,14 +426,14 @@ var _ = Describe("K8sServicesTest", func() {
 						cmd += " | grep client_address="
 					}
 					res, err := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
-					Expect(err).Should(BeNil(), "Cannot exec in k8s3 host netns")
+					ExpectWithOffset(1, err).Should(BeNil(), "Cannot exec in k8s3 host netns")
 					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 						"Can not connect to service %q from outside cluster", url)
 					if checkSourceIP {
 						// Parse the IPs to avoid issues with 4-in-6 formats
 						sourceIP := net.ParseIP(strings.TrimSpace(strings.Split(res.GetStdOut(), "=")[1]))
 						outsideIP := net.ParseIP(outsideIP)
-						Expect(sourceIP).To(Equal(outsideIP))
+						ExpectWithOffset(1, sourceIP).To(Equal(outsideIP))
 					}
 				}
 			}
@@ -455,9 +455,9 @@ var _ = Describe("K8sServicesTest", func() {
 				blockCount = 1
 			)
 			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s1)
-			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+			ExpectWithOffset(2, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 			ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
-			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
+			ExpectWithOffset(2, err).Should(BeNil(), "Cannot get cilium pod on k8s2")
 
 			_, dstPodIPK8s1 := kubectl.GetPodOnNodeWithOffset(helpers.K8s1, testDS, 1)
 			_, dstPodIPK8s2 := kubectl.GetPodOnNodeWithOffset(helpers.K8s2, testDS, 1)
@@ -535,7 +535,7 @@ var _ = Describe("K8sServicesTest", func() {
 			newCountInK8s1, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
 			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, cmdInK8s2)
 			newCountInK8s2, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
-			Expect([]int{newCountInK8s1, newCountInK8s2}).To(SatisfyAny(
+			ExpectWithOffset(2, []int{newCountInK8s1, newCountInK8s2}).To(SatisfyAny(
 				Equal([]int{countInK8s1, countInK8s2 + delta}),
 				Equal([]int{countInK8s1 + delta, countInK8s2}),
 			), "Failed to account for IPv4 fragments to %s (in)", dstIP)
@@ -549,7 +549,7 @@ var _ = Describe("K8sServicesTest", func() {
 				res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s2)
 				newCountOutK8s2, _ = strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
 			}
-			Expect([]int{newCountOutK8s1, newCountOutK8s2}).To(SatisfyAny(
+			ExpectWithOffset(2, []int{newCountOutK8s1, newCountOutK8s2}).To(SatisfyAny(
 				Equal([]int{countOutK8s1, countOutK8s2 + delta}),
 				Equal([]int{countOutK8s1 + delta, countOutK8s2}),
 			), "Failed to account for IPv4 fragments to %s (out)", dstIP)
@@ -558,13 +558,13 @@ var _ = Describe("K8sServicesTest", func() {
 		getIPv4Andv6AddrForIface := func(nodeName, iface string) (string, string) {
 			cmd := fmt.Sprintf("ip -4 -o a s dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)
 			res, err := kubectl.ExecInHostNetNS(context.TODO(), nodeName, cmd)
-			Expect(err).To(BeNil(), cmd)
+			ExpectWithOffset(2, err).To(BeNil(), cmd)
 			res.ExpectSuccess(cmd)
 			ipv4 := strings.Trim(res.GetStdOut(), "\n")
 
 			cmd = fmt.Sprintf("ip -6 -o a s dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)
 			res, err = kubectl.ExecInHostNetNS(context.TODO(), nodeName, cmd)
-			Expect(err).To(BeNil(), cmd)
+			ExpectWithOffset(2, err).To(BeNil(), cmd)
 			res.ExpectSuccess(cmd)
 			ipv6 := strings.Trim(res.GetStdOut(), "\n")
 
@@ -581,7 +581,7 @@ var _ = Describe("K8sServicesTest", func() {
 			)
 
 			err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
-			Expect(err).Should(BeNil(), "Can not retrieve service")
+			ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service")
 
 			// These are going to be tested from pods running in their own net namespaces
 			testURLsFromPods := []string{
@@ -602,9 +602,9 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 			if bpfNodePort {
 				localCiliumHostIPv4, err = kubectl.GetCiliumHostIPv4(context.TODO(), k8s1NodeName)
-				Expect(err).Should(BeNil(), "Cannot retrieve k8s1 cilium_host ipv4")
+				ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve k8s1 cilium_host ipv4")
 				remoteCiliumHostIPv4, err = kubectl.GetCiliumHostIPv4(context.TODO(), k8s2NodeName)
-				Expect(err).Should(BeNil(), "Cannot retrieve k8s2 cilium_host ipv4")
+				ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve k8s2 cilium_host ipv4")
 
 				testURLsFromPods = append(testURLsFromPods, []string{
 					getHTTPLink(localCiliumHostIPv4, data.Spec.Ports[0].NodePort),
@@ -743,9 +743,9 @@ var _ = Describe("K8sServicesTest", func() {
 			var localCiliumHostIPv4 string
 
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
-			Expect(err).Should(BeNil(), "Can not retrieve service")
+			ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service")
 			localCiliumHostIPv4, err = kubectl.GetCiliumHostIPv4(context.TODO(), k8s1NodeName)
-			Expect(err).Should(BeNil(), "Cannot retrieve k8s1 cilium_host ipv4")
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve k8s1 cilium_host ipv4")
 
 			// Ensure the NodePort cannot be bound from any redirected address
 			failBind(localCiliumHostIPv4, data.Spec.Ports[0].NodePort, "tcp", k8s1NodeName)
@@ -765,7 +765,7 @@ var _ = Describe("K8sServicesTest", func() {
 			var data v1.Service
 
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
-			Expect(err).Should(BeNil(), "Cannot retrieve service")
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
 
 			httpURL := getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 			tftpURL := getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
@@ -784,11 +784,11 @@ var _ = Describe("K8sServicesTest", func() {
 
 			// Clear CT tables on both Cilium nodes
 			pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s1)
-			Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
 			kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
 
 			pod, err = kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
-			Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
 			kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
 		}
 
@@ -805,7 +805,7 @@ var _ = Describe("K8sServicesTest", func() {
 			)
 
 			err = kubectl.Get(helpers.DefaultNamespace, "service test-affinity").Unmarshal(&data)
-			Expect(err).Should(BeNil(), "Cannot retrieve service")
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
 
 			httpURL := getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 			cmd := helpers.CurlFail(httpURL) + " | grep 'Hostname:' " // pod name is in the hostname
@@ -825,7 +825,7 @@ var _ = Describe("K8sServicesTest", func() {
 			for i := 1; i <= count; i++ {
 				if fromOutside {
 					res, err = kubectl.ExecInHostNetNS(context.TODO(), from, cmd)
-					Expect(err).Should(BeNil(), "Cannot exec in %s host netns", from)
+					ExpectWithOffset(1, err).Should(BeNil(), "Cannot exec in %s host netns", from)
 				} else {
 					res = kubectl.ExecPodCmd(helpers.DefaultNamespace, from, cmd)
 				}
@@ -837,7 +837,7 @@ var _ = Describe("K8sServicesTest", func() {
 					dstPod = pod
 				} else {
 					// Check that destination pod is always the same
-					Expect(dstPod).To(Equal(pod))
+					ExpectWithOffset(1, dstPod).To(Equal(pod))
 				}
 			}
 
@@ -861,17 +861,17 @@ var _ = Describe("K8sServicesTest", func() {
 			// due to failing fib_lookup).
 			if fromOutside && vxlan {
 				podIPs, err := kubectl.GetPodsIPs(helpers.DefaultNamespace, testDS)
-				Expect(err).Should(BeNil(), "Cannot get pod IP addrs for -l %s pods", testDS)
+				ExpectWithOffset(1, err).Should(BeNil(), "Cannot get pod IP addrs for -l %s pods", testDS)
 				for _, ipAddr := range podIPs {
 					err = kubectl.WaitForIPCacheEntry(k8s1NodeName, ipAddr)
-					Expect(err).Should(BeNil(), "Failed waiting for %s ipcache entry on k8s1", ipAddr)
+					ExpectWithOffset(1, err).Should(BeNil(), "Failed waiting for %s ipcache entry on k8s1", ipAddr)
 				}
 			}
 
 			for i := 1; i <= count; i++ {
 				if fromOutside {
 					res, err = kubectl.ExecInHostNetNS(context.TODO(), from, cmd)
-					Expect(err).Should(BeNil(), "Cannot exec in %s host netns", from)
+					ExpectWithOffset(1, err).Should(BeNil(), "Cannot exec in %s host netns", from)
 				} else {
 					res = kubectl.ExecPodCmd(helpers.DefaultNamespace, from, cmd)
 				}
@@ -880,11 +880,11 @@ var _ = Describe("K8sServicesTest", func() {
 				pod := strings.TrimSpace(strings.Split(res.GetStdOut(), ": ")[1])
 				if i == 1 {
 					// Retrieve the destination pod from the first request
-					Expect(dstPod).ShouldNot(Equal(pod))
+					ExpectWithOffset(1, dstPod).ShouldNot(Equal(pod))
 					dstPod = pod
 				} else {
 					// Check that destination pod is always the same
-					Expect(dstPod).To(Equal(pod))
+					ExpectWithOffset(1, dstPod).To(Equal(pod))
 				}
 			}
 		}
@@ -898,7 +898,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 			// Checks requests are not SNATed when externalTrafficPolicy=Local
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local").Unmarshal(&data)
-			Expect(err).Should(BeNil(), "Can not retrieve service")
+			ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service")
 
 			count := 10
 
@@ -913,7 +913,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 			// Checks that requests to k8s2 succeed, while requests to k8s1 are dropped
 			err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local-k8s2").Unmarshal(&data)
-			Expect(err).Should(BeNil(), "Can not retrieve service")
+			ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service")
 
 			httpURL = getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort)
@@ -945,13 +945,13 @@ var _ = Describe("K8sServicesTest", func() {
 			count := 10
 
 			pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
-			Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
 
 			res := kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep "+k8s2IP+":"+httpHostPortStr+" | grep HostPort")
-			Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+httpHostPortStr)
+			ExpectWithOffset(1, res.GetStdOut()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+httpHostPortStr)
 
 			res = kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep "+k8s2IP+":"+tftpHostPortStr+" | grep HostPort")
-			Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+tftpHostPortStr)
+			ExpectWithOffset(1, res.GetStdOut()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+tftpHostPortStr)
 
 			// Cluster-internal connectivity to HostPort
 			httpURL = getHTTPLink(k8s2IP, httpHostPort)
@@ -971,7 +971,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 			// Service with HealthCheckNodePort that only has backends on k8s2
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-lb-local-k8s2").Unmarshal(&data)
-			Expect(err).Should(BeNil(), "Can not retrieve service")
+			ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service")
 
 			count := 10
 
@@ -999,7 +999,7 @@ var _ = Describe("K8sServicesTest", func() {
 			clientPod, _ := kubectl.GetPodOnNodeWithOffset(helpers.K8s1, testDSClient, 1)
 
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
-			Expect(err).Should(BeNil(), "Cannot retrieve service")
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
 			nodePort := data.Spec.Ports[1].NodePort
 			serverPort := data.Spec.Ports[1].TargetPort.IntValue()
 
@@ -1014,9 +1014,9 @@ var _ = Describe("K8sServicesTest", func() {
 
 			if !kubeProxy {
 				localCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), k8s1NodeName)
-				Expect(err).Should(BeNil(), "Cannot retrieve local cilium_host ipv4")
+				ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve local cilium_host ipv4")
 				remoteCiliumHostIPv4, err := kubectl.GetCiliumHostIPv4(context.TODO(), k8s2NodeName)
-				Expect(err).Should(BeNil(), "Cannot retrieve remote cilium_host ipv4")
+				ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve remote cilium_host ipv4")
 
 				// From pod via local cilium_host
 				doFragmentedRequest(clientPod, srcPort+5, serverPort, localCiliumHostIPv4, nodePort, kubeProxy)
@@ -1256,23 +1256,23 @@ var _ = Describe("K8sServicesTest", func() {
 				testDSR := func(sourcePortForCTGCtest int) {
 					var data v1.Service
 					err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
-					Expect(err).Should(BeNil(), "Cannot retrieve service")
+					ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
 					url := getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 					doRequestsFromThirdHost(url, 10, true)
 
 					// Test whether DSR NAT entries are evicted by GC
 
 					pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
-					Expect(err).Should(BeNil(), "Cannot determine cilium pod name")
+					ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
 					// "test-nodeport-k8s2" because we want to trigger SNAT with a single request:
 					// client -> k8s1 -> endpoint @ k8s2.
 					err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-k8s2").Unmarshal(&data)
-					Expect(err).Should(BeNil(), "Cannot retrieve service")
+					ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
 					url = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 
 					doRequestsFromThirdHostWithLocalPort(url, 1, true, sourcePortForCTGCtest)
 					res := kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium bpf nat list | grep %d", sourcePortForCTGCtest))
-					Expect(res.GetStdOut()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
+					ExpectWithOffset(1, res.GetStdOut()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
 					// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
 					res = kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
 					res = kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium bpf nat list | grep %d", sourcePortForCTGCtest))
