@@ -94,19 +94,6 @@ pipeline {
                 }
             }
         }
-        stage('Nightly-Docker-Image') {
-            when {
-                environment name: 'GIT_BRANCH', value: 'origin/master'
-            }
-            steps {
-                withDockerRegistry([ credentialsId: "NIGHTLY_DOCKER_HUB_CRED", url: "" ]) {
-                    sh 'docker tag cilium/cilium:latest cilium/nightly:latest'
-                    sh 'docker tag cilium/nightly:latest cilium/nightly:${NIGHTLY_TAG}'
-                    sh 'docker push cilium/nightly:${NIGHTLY_TAG}'
-                    sh 'docker push cilium/nightly:latest'
-                }
-            }
-        }
         stage('Nightly-Tests') {
             environment {
                 K8S_NODES=4
