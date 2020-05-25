@@ -270,7 +270,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {
 			ep.SetPod(pod)
-			if err := ep.SetNamedPorts(cp); err != nil {
+			if err := ep.SetK8sMetadata(cp); err != nil {
 				return invalidDataError(ep, fmt.Errorf("Invalid ContainerPorts %v: %s", cp, err))
 			}
 			addLabels.MergeLabels(identityLabels)
