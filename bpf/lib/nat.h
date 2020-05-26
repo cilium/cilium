@@ -241,7 +241,7 @@ static __always_inline int snat_v4_new_mapping(struct __ctx_buff *ctx,
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
 		if (!snat_v4_lookup(&rtuple)) {
-			ostate->common.created = bpf_ktime_get_nsec();
+			ostate->common.created = bpf_mono_now();
 			rstate.common.created = ostate->common.created;
 
 			ret = snat_v4_update(otuple, ostate, &rtuple, &rstate);
@@ -488,7 +488,7 @@ static __always_inline __maybe_unused int snat_v4_create_dsr(struct __ctx_buff *
 		return DROP_NAT_UNSUPP_PROTO;
 	}
 
-	state.common.created = bpf_ktime_get_nsec();
+	state.common.created = bpf_mono_now();
 	state.to_saddr = to_saddr;
 	state.to_sport = to_sport;
 
@@ -717,7 +717,7 @@ static __always_inline int snat_v6_new_mapping(struct __ctx_buff *ctx,
 #pragma unroll
 	for (retries = 0; retries < SNAT_COLLISION_RETRIES; retries++) {
 		if (!snat_v6_lookup(&rtuple)) {
-			ostate->common.created = bpf_ktime_get_nsec();
+			ostate->common.created = bpf_mono_now();
 			rstate.common.created = ostate->common.created;
 
 			ret = snat_v6_update(otuple, ostate, &rtuple, &rstate);
@@ -954,7 +954,7 @@ static __always_inline __maybe_unused int snat_v6_create_dsr(struct __ctx_buff *
 		return DROP_NAT_UNSUPP_PROTO;
 	}
 
-	state.common.created = bpf_ktime_get_nsec();
+	state.common.created = bpf_mono_now();
 	ipv6_addr_copy(&state.to_saddr, to_saddr);
 	state.to_sport = to_sport;
 
