@@ -64,6 +64,14 @@ var (
 	metricsapi = metricsmock.NewMockMetrics()
 )
 
+func (e *ENISuite) SetUpTest(c *check.C) {
+	metricsapi = metricsmock.NewMockMetrics()
+}
+
+func (e *ENISuite) TearDownTest(c *check.C) {
+	metricsapi = nil
+}
+
 func (e *ENISuite) TestGetNodeNames(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*ipamTypes.Subnet{testSubnet}, []*ipamTypes.VirtualNetwork{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api, nil)
