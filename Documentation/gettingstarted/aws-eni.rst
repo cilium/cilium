@@ -25,7 +25,7 @@ EKS cluster using ``eksctl``, see the section :ref:`k8s_install_eks`.
 
 .. code:: bash
 
-   eksctl create cluster -n eni-cluster -N 0
+   eksctl create cluster --name test-cluster --without-nodegroup
 
 Disable VPC CNI (``aws-node`` DaemonSet) (EKS only)
 ===================================================
@@ -62,7 +62,7 @@ Deploy Cilium release via Helm:
    the security groups for pod ENIs are derived from the primary ENI
    (``eth0``).
 
-.. include:: aws-scale-up-cluster.rst
+.. include:: aws-create-nodegroup.rst
 .. include:: k8s-install-validate.rst
 .. include:: hubble-install.rst
 .. include:: getting-started-next-steps.rst
