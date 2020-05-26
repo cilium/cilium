@@ -90,31 +90,59 @@ ipcache_lookup4(struct bpf_elf_map *map, __be32 addr, __u32 prefix)
  * (a list of integers ordered from high to low representing prefix length),
  * performing a lookup in MAP using LOOKUP_FN to find a provided IP of type
  * IPTYPE. */
-#define LPM_LOOKUP_FN(NAME, IPTYPE, PREFIXES, MAP, LOOKUP_FN)		\
-static __always_inline __maybe_unused struct remote_endpoint_info *	\
-NAME(IPTYPE addr)							\
-{									\
-	int prefixes[] = { PREFIXES };					\
-	const int size = (sizeof(prefixes) / sizeof(prefixes[0]));	\
-	struct remote_endpoint_info *info;				\
-	int i;								\
-									\
-_Pragma("unroll")							\
-	for (i = 0; i < size; i++) {					\
-		info = LOOKUP_FN(&MAP, addr, prefixes[i]);		\
-		if (info != NULL)					\
-			return info;					\
-	}								\
-									\
-	return NULL;							\
+#define LPM_LOOKUP_FN(NAME, IPTYPE, PREFIXES, MAP, CLEAR_SUFFIX_FN)		\
+static __always_inline __maybe_unused struct remote_endpoint_info *		\
+NAME(IPTYPE addr)								\
+{										\
+	int prefixes[] = { PREFIXES };						\
+	const int size = (sizeof(prefixes) / sizeof(prefixes[0]));		\
+	struct ipcache_key key;							\
+	struct remote_endpoint_info *info;					\
+	int i;									\
+										\
+	key.family = ENDPOINT_KEY;						\
+	INIT_KEY_IPV4(key);							\
+	key.pad1 = 0;								\
+	key.pad2 = 0;								\
+_Pragma("unroll")								\
+	for (i = 0; i < size; i++) {						\
+		key.lpm_key.prefixlen = IPCACHE_PREFIX_LEN(prefixes[i]);	\
+		CLEAR_SUFFIX_FN(&key, addr, prefixes[i]);			\
+		info = map_lookup_elem(&MAP, &key);				\
+		if (info != NULL)						\
+			return info;						\
+	}									\
+										\
+	return NULL;								\
 }
 #ifdef IPCACHE6_PREFIXES
+# define ENDPOINT_KEY ENDPOINT_KEY_IPV6
+# define INIT_KEY_IPV4(KEY)
+static __always_inline __maybe_unused void
+clear_ip6_suffix(struct ipcache_key *key, union v6addr *addr, __u32 prefix)
+{
+	key->ip6 = *addr;
+	ipv6_addr_clear_suffix(&key->ip6, prefix);
+}
 LPM_LOOKUP_FN(lookup_ip6_remote_endpoint, union v6addr *, IPCACHE6_PREFIXES,
-	      IPCACHE_MAP, ipcache_lookup6)
+	      IPCACHE_MAP, clear_ip6_suffix)
+# undef ENDPOINT_KEY
+# undef INIT_KEY_IPV4
 #endif
 #ifdef IPCACHE4_PREFIXES
+# define ENDPOINT_KEY ENDPOINT_KEY_IPV4
+# define INIT_KEY_IPV4(KEY)	KEY.pad4 = 0;	\
+				KEY.pad5 = 0;	\
+				KEY.pad6 = 0
+static __always_inline __maybe_unused void
+clear_ip4_suffix(struct ipcache_key *key, __be32 addr, __u32 prefix)
+{
+	key->ip4 = addr & GET_PREFIX(prefix);
+}
 LPM_LOOKUP_FN(lookup_ip4_remote_endpoint, __be32, IPCACHE4_PREFIXES,
-	      IPCACHE_MAP, ipcache_lookup4)
+	      IPCACHE_MAP, clear_ip4_suffix)
+# undef ENDPOINT_KEY
+# undef INIT_KEY_IPV4
 #endif
 #undef LPM_LOOKUP_FN
 #else /* HAVE_LPM_TRIE_MAP_TYPE */
