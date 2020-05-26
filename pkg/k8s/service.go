@@ -128,16 +128,12 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 		if _, ok := svcInfo.Ports[portName]; !ok {
 			svcInfo.Ports[portName] = p
 		}
+		// TODO(brb) Get rid of this hack by moving the creation of surrogate
+		// frontends to pkg/service.
+		//
 		// This is a hack;-( In the case of NodePort service, we need to create
-		// three surrogate frontends per IP protocol - one with a zero IP addr used
-		// by the host-lb, one with a public iface IP addr and one with cilium_host
-		// IP addr.
-		// For each frontend we will need to store a service ID used for a reverse
-		// NAT translation and for deleting a service.
-		// Unfortunately, doing this in daemon/{loadbalancer,k8s_watcher}.go
-		// would introduce more complexity in already too complex LB codebase,
-		// so for now (until we have refactored the LB code) keep NodePort
-		// frontends in Service.NodePorts.
+		// surrogate frontends per IP protocol - one with a zero IP addr and
+		// one per each public iface IP addr.
 		if svc.Spec.Type == slim_corev1.ServiceTypeNodePort || svc.Spec.Type == slim_corev1.ServiceTypeLoadBalancer {
 			if option.Config.EnableNodePort && nodeAddressing != nil {
 				if _, ok := svcInfo.NodePorts[portName]; !ok {
