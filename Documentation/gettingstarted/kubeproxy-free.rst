@@ -21,7 +21,7 @@ For installing ``kubeadm`` and for more provisioning options please refer to
 
    Cilium's kube-proxy replacement depends on the :ref:`host-services` feature,
    therefore a v4.19.57, v5.1.16, v5.2.0 or more recent Linux kernel is required.
-   We recommend a v5.3 or even more recent Linux kernel such as v5.8 as Cilium
+   We recommend a v5.3 or even more recent Linux kernel such as v5.7 as Cilium
    can perform additional optimizations in its kube-proxy replacement implementation.
 
    Note that v5.0.y kernels do not have the fix required to run the kube-proxy
@@ -196,11 +196,9 @@ port ``31940``:
     [...]
     4    10.104.239.135:80      ClusterIP      1 => 10.217.0.107:80       
                                                2 => 10.217.0.149:80       
-    5    10.217.0.181:31940     NodePort       1 => 10.217.0.107:80       
+    5    0.0.0.0:31940          NodePort       1 => 10.217.0.107:80       
                                                2 => 10.217.0.149:80       
-    6    0.0.0.0:31940          NodePort       1 => 10.217.0.107:80       
-                                               2 => 10.217.0.149:80       
-    7    192.168.178.29:31940   NodePort       1 => 10.217.0.107:80       
+    6    192.168.178.29:31940   NodePort       1 => 10.217.0.107:80       
                                                2 => 10.217.0.149:80       
 
 At the same time we can inspect through ``iptables`` in the host namespace
@@ -365,8 +363,9 @@ which has the default route on the host. To change the device, set its name in
 the ``global.nodePort.device`` helm option.
 
 In addition, thanks to the :ref:`host-services` feature, the NodePort service can
-be accessed by default from a host or a pod within a cluster via it's public,
-cilium_host device or loopback address, e.g. ``127.0.0.1:NODE_PORT``.
+be accessed by default from a host or a pod within a cluster via its public, any
+local (except for ``docker*`` prefixed names) or loopback address, e.g.
+``127.0.0.1:NODE_PORT``.
 
 If ``kube-apiserver`` was configured to use a non-default NodePort port range,
 then the same range must be passed to Cilium via the ``global.nodePort.range``
