@@ -34,7 +34,12 @@ const (
 	namespaceTest = "external-ips-test"
 )
 
-var _ = Describe("K8sKubeProxyFreeMatrix tests", func() {
+func skipSuite(name string, t func()) bool {
+	return false
+}
+
+// Replace "skipSuite" with "Describe" to enable the suite.
+var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 	var (
 		kubectl             *helpers.Kubectl
 		ciliumFilename      string
