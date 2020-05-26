@@ -324,7 +324,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -ENOENT;
 	}
 
-	if (svc->affinity)
+	if (svc->affinity && !backend_from_affinity)
 		lb4_update_affinity_by_netns(svc, &id, backend_id);
 
 	if (sock4_update_revnat(ctx_full, backend, &orig_key,
@@ -748,7 +748,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -ENOENT;
 	}
 
-	if (svc->affinity)
+	if (svc->affinity && !backend_from_affinity)
 		lb6_update_affinity_by_netns(svc, &id, backend_id);
 
 	if (sock6_update_revnat(ctx, backend, &orig_key,

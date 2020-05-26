@@ -489,13 +489,14 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 
 	val = map_lookup_elem(&LB6_AFFINITY_MAP, &key);
 	if (val != NULL) {
+		__u32 now = bpf_mono_now();
 		struct lb_affinity_match match = {
 			.rev_nat_id	= svc->rev_nat_index,
 			.backend_id	= val->backend_id,
 		};
 
-		if (val->last_used +
-		    bpf_sec_to_mono(svc->affinity_timeout) < bpf_mono_now()) {
+		if (READ_ONCE(val->last_used) +
+		    bpf_sec_to_mono(svc->affinity_timeout) < now) {
 			map_delete_elem(&LB6_AFFINITY_MAP, &key);
 			return 0;
 		}
@@ -505,6 +506,7 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 			return 0;
 		}
 
+		WRITE_ONCE(val->last_used, now);
 		return val->backend_id;
 	}
 
@@ -1028,13 +1030,14 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 
 	val = map_lookup_elem(&LB4_AFFINITY_MAP, &key);
 	if (val != NULL) {
+		__u32 now = bpf_mono_now();
 		struct lb_affinity_match match = {
 			.rev_nat_id	= svc->rev_nat_index,
 			.backend_id	= val->backend_id,
 		};
 
-		if (val->last_used +
-		    bpf_sec_to_mono(svc->affinity_timeout) < bpf_mono_now()) {
+		if (READ_ONCE(val->last_used) +
+		    bpf_sec_to_mono(svc->affinity_timeout) < now) {
 			map_delete_elem(&LB4_AFFINITY_MAP, &key);
 			return 0;
 		}
@@ -1044,6 +1047,7 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 			return 0;
 		}
 
+		WRITE_ONCE(val->last_used, now);
 		return val->backend_id;
 	}
 
