@@ -2247,6 +2247,18 @@ func (kub *Kubectl) DeleteCiliumDS() error {
 	return kub.waitToDelete("Cilium", CiliumAgentLabel)
 }
 
+func (kub *Kubectl) DeleteHubbleClientPods(ns string) error {
+	ginkgoext.By("DeleteHubbleClientPods(namespace=%q)", ns)
+	_ = kub.DeleteResource("ds", fmt.Sprintf("-n %s hubble-cli", ns))
+	return kub.waitToDelete("HubbleClient", HubbleClientLabel)
+}
+
+func (kub *Kubectl) DeleteHubbleRelay(ns string) error {
+	ginkgoext.By("DeleteHubbleRelay(namespace=%q)", ns)
+	_ = kub.DeleteResource("deployment", fmt.Sprintf("-n %s hubble-relay", ns))
+	return kub.waitToDelete("HubbleRelay", HubbleRelayLabel)
+}
+
 // ciliumUninstallHelm uninstalls Cilium with the Helm options provided.
 func (kub *Kubectl) ciliumUninstallHelm(filename string, options map[string]string) error {
 	if err := kub.generateCiliumYaml(options, filename); err != nil {
@@ -3317,7 +3329,7 @@ func (kub *Kubectl) GetHubbleClientPodOnNode(namespace string, node string) (str
 		"-o jsonpath='{.items[?(@.spec.nodeName == \"%s\")].metadata.name}'", node)
 
 	res := kub.ExecShort(fmt.Sprintf(
-		"%s -n %s get pods -l k8s-app=hubble-cli %s", KubectlCmd, namespace, filter))
+		"%s -n %s get pods -l %s %s", KubectlCmd, namespace, HubbleClientLabel, filter))
 	if !res.WasSuccessful() {
 		return "", fmt.Errorf("Hubble pod not found on node '%s': %s", node, res.OutputPrettyPrint())
 	}
