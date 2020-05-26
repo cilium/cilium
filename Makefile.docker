@@ -1,6 +1,7 @@
 # Copyright 2017-2020 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
+UNSTRIPPED=""
 UTC_DATE=$(shell date -u "+%Y-%m-%d")
 
 docker-cilium-image-for-developers:
@@ -14,6 +15,8 @@ docker-cilium-image-for-developers:
 
 docker-image: clean docker-image-no-clean docker-operator-image docker-plugin-image docker-hubble-relay-image
 
+docker-image-unstripped: clean docker-image-no-clean-unstripped docker-operator-image-unstripped docker-plugin-image-unstripped docker-hubble-relay-image-unstripped
+
 docker-image-no-clean: GIT_VERSION $(CILIUM_DOCKERFILE) build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build -f $(CILIUM_DOCKERFILE) \
 		--build-arg NOSTRIP=${NOSTRIP} \
@@ -21,10 +24,14 @@ docker-image-no-clean: GIT_VERSION $(CILIUM_DOCKERFILE) build-context-update
 		--build-arg V=${V} \
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
-		-t "cilium/cilium:$(DOCKER_IMAGE_TAG)" $(DOCKER_BUILD_DIR)
-	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium:$(DOCKER_IMAGE_TAG) cilium/cilium:$(DOCKER_IMAGE_TAG)-${GOARCH}
+		-t "cilium/cilium$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)" $(DOCKER_BUILD_DIR)
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) cilium/cilium$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}
 	@echo "Push like this when ready:"
-	@echo "${CONTAINER_ENGINE} push cilium/cilium:$(DOCKER_IMAGE_TAG)-${GOARCH}"
+	@echo "${CONTAINER_ENGINE} push cilium/cilium$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}"
+
+docker-image-no-clean-unstripped: NOSTRIP=1
+docker-image-no-clean-unstripped: UNSTRIPPED="-unstripped"
+docker-image-no-clean-unstripped: docker-image-no-clean
 
 docker-cilium-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium $(DOCKER_IMAGE_TAG)
@@ -37,10 +44,14 @@ dev-docker-image: GIT_VERSION $(CILIUM_DOCKERFILE) build-context-update
 		--build-arg V=${V} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
-		-t $(DOCKER_DEV_ACCOUNT)/cilium-dev:$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
-	$(QUIET)$(CONTAINER_ENGINE) tag $(DOCKER_DEV_ACCOUNT)/cilium-dev:$(DOCKER_IMAGE_TAG) $(DOCKER_DEV_ACCOUNT)/cilium-dev:$(DOCKER_IMAGE_TAG)-${GOARCH}
+		-t $(DOCKER_DEV_ACCOUNT)/cilium-dev$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
+	$(QUIET)$(CONTAINER_ENGINE) tag $(DOCKER_DEV_ACCOUNT)/cilium-dev$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_DEV_ACCOUNT)/cilium-dev$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}
 	@echo "Push like this when ready:"
-	@echo "${CONTAINER_ENGINE} push $(DOCKER_DEV_ACCOUNT)/cilium-dev:$(DOCKER_IMAGE_TAG)-${GOARCH}"
+	@echo "${CONTAINER_ENGINE} push $(DOCKER_DEV_ACCOUNT)/cilium-dev$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}"
+
+dev-docker-image-unstripped: NOSTRIP=1
+dev-docker-image-unstripped: UNSTRIPPED="-unstripped"
+dev-docker-image-unstripped: dev-docker-image
 
 docker-cilium-dev-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-dev $(DOCKER_IMAGE_TAG)
@@ -52,9 +63,13 @@ docker-operator-image: GIT_VERSION $(OPERATOR_DOCKERFILE) build-context-update
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		-f $(OPERATOR_DOCKERFILE) \
-		-t "cilium/operator:$(DOCKER_IMAGE_TAG)" $(DOCKER_BUILD_DIR)
+		-t "cilium/operator$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)" $(DOCKER_BUILD_DIR)
 	@echo "Push like this when ready:"
-	@echo "${CONTAINER_ENGINE} push cilium/operator:$(DOCKER_IMAGE_TAG)-${GOARCH}"
+	@echo "${CONTAINER_ENGINE} push cilium/operator$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}"
+
+docker-operator-image-unstripped: NOSTRIP=1
+docker-operator-image-unstripped: UNSTRIPPED="-unstripped"
+docker-operator-image-unstripped: docker-operator-image
 
 docker-operator-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh operator $(DOCKER_IMAGE_TAG)
@@ -66,10 +81,14 @@ docker-plugin-image: GIT_VERSION $(DOCKER_PLUGIN_DOCKERFILE) build-context-updat
 		--build-arg LOCKDEBUG=${LOCKDEUBG} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		-f $(DOCKER_PLUGIN_DOCKERFILE) \
-		-t "cilium/docker-plugin:$(DOCKER_IMAGE_TAG)" $(DOCKER_BUILD_DIR)
-	$(QUIET)$(CONTAINER_ENGINE) tag cilium/docker-plugin:$(DOCKER_IMAGE_TAG) cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${GOARCH}
+		-t "cilium/docker-plugin$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)" $(DOCKER_BUILD_DIR)
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/docker-plugin$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) cilium/docker-plugin$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}
 	@echo "Push like this when ready:"
-	@echo "${CONTAINER_ENGINE} push cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${GOARCH}"
+	@echo "${CONTAINER_ENGINE} push cilium/docker-plugin$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}"
+
+docker-plugin-image-unstripped: NOSTRIP=1
+docker-plugin-image-unstripped: UNSTRIPPED="-unstripped"
+docker-plugin-image-unstripped: docker-plugin-image
 
 docker-plugin-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh docker-plugin $(DOCKER_IMAGE_TAG)
@@ -96,7 +115,11 @@ docker-hubble-relay-image: $(HUBBLE_RELAY_DOCKERFILE) build-context-update
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		-f $(HUBBLE_RELAY_DOCKERFILE) \
-		-t "cilium/hubble-relay:$(DOCKER_IMAGE_TAG)" $(DOCKER_BUILD_DIR)
-	$(QUIET)$(CONTAINER_ENGINE) tag cilium/hubble-relay:$(DOCKER_IMAGE_TAG) cilium/hubble-relay:$(DOCKER_IMAGE_TAG)-${GOARCH}
+		-t "cilium/hubble-relay$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)" $(DOCKER_BUILD_DIR)
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/hubble-relay$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) cilium/hubble-relay$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}
 	@echo "Push like this when ready:"
-	@echo "${CONTAINER_ENGINE} push cilium/hubble-relay:$(DOCKER_IMAGE_TAG)-${GOARCH}"
+	@echo "${CONTAINER_ENGINE} push cilium/hubble-relay$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}"
+
+docker-hubble-relay-image-unstripped: NOSTRIP=1
+docker-hubble-relay-image-unstripped: UNSTRIPPED="-unstripped"
+docker-hubble-relay-image-unstripped: docker-hubble-relay-image
