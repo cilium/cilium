@@ -63,6 +63,14 @@ var (
 	eniTags    = map[string]string{}
 )
 
+func (e *ENISuite) SetUpTest(c *check.C) {
+	metricsapi = metricsmock.NewMockMetrics()
+}
+
+func (e *ENISuite) TearDownTest(c *check.C) {
+	metricsapi = nil
+}
+
 func (e *ENISuite) TestGetNodeNames(c *check.C) {
 	ec2api := ec2mock.NewAPI([]*types.Subnet{testSubnet}, []*types.Vpc{testVpc}, testSecurityGroups)
 	instances := NewInstancesManager(ec2api, metricsapi)
@@ -552,7 +560,6 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	}
 
 	ec2api := ec2mock.NewAPI(subnets, []*types.Vpc{testVpc}, testSecurityGroups)
-	metricsapi := metricsmock.NewMockMetrics()
 	instancesManager := NewInstancesManager(ec2api, metricsapi)
 	mngr, err := NewNodeManager(instancesManager, ec2api, k8sapi, metricsapi, 10, eniTags)
 	c.Assert(err, check.IsNil)
