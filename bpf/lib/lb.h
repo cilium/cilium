@@ -479,7 +479,7 @@ static __always_inline __u32
 __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 			  union lb6_affinity_client_id *id)
 {
-	__u32 now = bpf_ktime_get_sec();
+	__u32 now = bpf_mono_now();
 	struct lb_affinity_match match = {
 		.rev_nat_id	= svc->rev_nat_index,
 	};
@@ -493,7 +493,8 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 
 	val = map_lookup_elem(&LB6_AFFINITY_MAP, &key);
 	if (val != NULL) {
-		if (val->last_used + svc->affinity_timeout < now) {
+		if (val->last_used +
+		    bpf_sec_to_mono(svc->affinity_timeout) < now) {
 			map_delete_elem(&LB6_AFFINITY_MAP, &key);
 			return 0;
 		}
@@ -521,7 +522,7 @@ static __always_inline void
 __lb6_update_affinity(const struct lb6_service *svc, bool netns_cookie,
 		      union lb6_affinity_client_id *id, __u32 backend_id)
 {
-	__u32 now = bpf_ktime_get_sec();
+	__u32 now = bpf_mono_now();
 	struct lb6_affinity_key key = {
 		.rev_nat_id	= svc->rev_nat_index,
 		.netns_cookie	= netns_cookie,
@@ -1018,7 +1019,7 @@ static __always_inline __u32
 __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 			  const union lb4_affinity_client_id *id)
 {
-	__u32 now = bpf_ktime_get_sec();
+	__u32 now = bpf_mono_now();
 	struct lb_affinity_match match = {
 		.rev_nat_id	= svc->rev_nat_index,
 	};
@@ -1031,7 +1032,8 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 
 	val = map_lookup_elem(&LB4_AFFINITY_MAP, &key);
 	if (val != NULL) {
-		if (val->last_used + svc->affinity_timeout < now) {
+		if (val->last_used +
+		    bpf_sec_to_mono(svc->affinity_timeout) < now) {
 			map_delete_elem(&LB4_AFFINITY_MAP, &key);
 			return 0;
 		}
@@ -1060,7 +1062,7 @@ __lb4_update_affinity(const struct lb4_service *svc, bool netns_cookie,
 		      const union lb4_affinity_client_id *id,
 		      __u32 backend_id)
 {
-	__u32 now = bpf_ktime_get_sec();
+	__u32 now = bpf_mono_now();
 	struct lb4_affinity_key key = {
 		.rev_nat_id	= svc->rev_nat_index,
 		.netns_cookie	= netns_cookie,
