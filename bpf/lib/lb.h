@@ -479,10 +479,6 @@ static __always_inline __u32
 __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 			  union lb6_affinity_client_id *id)
 {
-	__u32 now = bpf_mono_now();
-	struct lb_affinity_match match = {
-		.rev_nat_id	= svc->rev_nat_index,
-	};
 	struct lb6_affinity_key key = {
 		.rev_nat_id	= svc->rev_nat_index,
 		.netns_cookie	= netns_cookie,
@@ -493,14 +489,18 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 
 	val = map_lookup_elem(&LB6_AFFINITY_MAP, &key);
 	if (val != NULL) {
+		struct lb_affinity_match match = {
+			.rev_nat_id	= svc->rev_nat_index,
+			.backend_id	= val->backend_id,
+		};
+
 		if (val->last_used +
-		    bpf_sec_to_mono(svc->affinity_timeout) < now) {
+		    bpf_sec_to_mono(svc->affinity_timeout) < bpf_mono_now()) {
 			map_delete_elem(&LB6_AFFINITY_MAP, &key);
 			return 0;
 		}
 
-		match.backend_id = val->backend_id;
-		if (map_lookup_elem(&LB_AFFINITY_MATCH_MAP, &match) == NULL) {
+		if (!map_lookup_elem(&LB_AFFINITY_MATCH_MAP, &match)) {
 			map_delete_elem(&LB6_AFFINITY_MAP, &key);
 			return 0;
 		}
@@ -1019,10 +1019,6 @@ static __always_inline __u32
 __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 			  const union lb4_affinity_client_id *id)
 {
-	__u32 now = bpf_mono_now();
-	struct lb_affinity_match match = {
-		.rev_nat_id	= svc->rev_nat_index,
-	};
 	struct lb4_affinity_key key = {
 		.rev_nat_id	= svc->rev_nat_index,
 		.netns_cookie	= netns_cookie,
@@ -1032,14 +1028,18 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 
 	val = map_lookup_elem(&LB4_AFFINITY_MAP, &key);
 	if (val != NULL) {
+		struct lb_affinity_match match = {
+			.rev_nat_id	= svc->rev_nat_index,
+			.backend_id	= val->backend_id,
+		};
+
 		if (val->last_used +
-		    bpf_sec_to_mono(svc->affinity_timeout) < now) {
+		    bpf_sec_to_mono(svc->affinity_timeout) < bpf_mono_now()) {
 			map_delete_elem(&LB4_AFFINITY_MAP, &key);
 			return 0;
 		}
 
-		match.backend_id = val->backend_id;
-		if (map_lookup_elem(&LB_AFFINITY_MATCH_MAP, &match) == NULL) {
+		if (!map_lookup_elem(&LB_AFFINITY_MATCH_MAP, &match)) {
 			map_delete_elem(&LB4_AFFINITY_MAP, &key);
 			return 0;
 		}
