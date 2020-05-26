@@ -1,0 +1,102 @@
+# Copyright 2017-2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+UTC_DATE=$(shell date -u "+%Y-%m-%d")
+
+docker-cilium-image-for-developers:
+	# DOCKER_BUILDKIT allows for faster build as well as the ability to use
+	# a dedicated dockerignore file per Dockerfile.
+	$(QUIET)DOCKER_BUILDKIT=1 $(CONTAINER_ENGINE) build \
+	     --build-arg LOCKDEBUG=\
+	     --build-arg V=\
+	     --build-arg LIBNETWORK_PLUGIN=\
+	     -t "$(DOCKER_DEV_ACCOUNT)/cilium-dev:latest" . -f ./cilium-dev.Dockerfile
+
+docker-image: clean docker-image-no-clean docker-operator-image docker-plugin-image docker-hubble-relay-image
+
+docker-image-no-clean: GIT_VERSION $(CILIUM_DOCKERFILE) build-context-update
+	$(QUIET)$(CONTAINER_ENGINE) build -f $(CILIUM_DOCKERFILE) \
+		--build-arg NOSTRIP=${NOSTRIP} \
+		--build-arg LOCKDEBUG=${LOCKDEBUG} \
+		--build-arg V=${V} \
+		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
+		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
+		-t "cilium/cilium:$(DOCKER_IMAGE_TAG)" $(DOCKER_BUILD_DIR)
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium:$(DOCKER_IMAGE_TAG) cilium/cilium:$(DOCKER_IMAGE_TAG)-${GOARCH}
+	$(QUIET)echo "Push like this when ready:"
+	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/cilium:$(DOCKER_IMAGE_TAG)-${GOARCH}"
+
+docker-cilium-manifest:
+	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium $(DOCKER_IMAGE_TAG)
+	$(QUIET) contrib/scripts/push_manifest.sh cilium $(DOCKER_IMAGE_TAG)
+
+dev-docker-image: GIT_VERSION $(CILIUM_DOCKERFILE) build-context-update
+	$(QUIET)$(CONTAINER_ENGINE) build -f $(CILIUM_DOCKERFILE) \
+		--build-arg NOSTRIP=${NOSTRIP} \
+		--build-arg LOCKDEBUG=${LOCKDEBUG} \
+		--build-arg V=${V} \
+		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
+		--build-arg LIBNETWORK_PLUGIN=${LIBNETWORK_PLUGIN} \
+		-t $(DOCKER_DEV_ACCOUNT)/cilium-dev:$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
+	$(QUIET)$(CONTAINER_ENGINE) tag $(DOCKER_DEV_ACCOUNT)/cilium-dev:$(DOCKER_IMAGE_TAG) $(DOCKER_DEV_ACCOUNT)/cilium-dev:$(DOCKER_IMAGE_TAG)-${GOARCH}
+	$(QUIET)echo "Push like this when ready:"
+	$(QUIET)echo "${CONTAINER_ENGINE} push $(DOCKER_DEV_ACCOUNT)/cilium-dev:$(DOCKER_IMAGE_TAG)-${GOARCH}"
+
+docker-cilium-dev-manifest:
+	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-dev $(DOCKER_IMAGE_TAG)
+	$(QUIET) contrib/scripts/push_manifest.sh cilium-dev $(DOCKER_IMAGE_TAG)
+
+docker-operator-image: GIT_VERSION $(OPERATOR_DOCKERFILE) build-context-update
+	$(QUIET)$(CONTAINER_ENGINE) build \
+		--build-arg NOSTRIP=${NOSTRIP} \
+		--build-arg LOCKDEBUG=${LOCKDEBUG} \
+		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
+		-f $(OPERATOR_DOCKERFILE) \
+		-t "cilium/operator:$(DOCKER_IMAGE_TAG)" $(DOCKER_BUILD_DIR)
+	$(QUIET)echo "Push like this when ready:"
+	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/operator:$(DOCKER_IMAGE_TAG)-${GOARCH}"
+
+docker-operator-manifest:
+	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh operator $(DOCKER_IMAGE_TAG)
+	$(QUIET) contrib/scripts/push_manifest.sh operator $(DOCKER_IMAGE_TAG)
+
+docker-plugin-image: GIT_VERSION $(DOCKER_PLUGIN_DOCKERFILE) build-context-update
+	$(QUIET)$(CONTAINER_ENGINE) build \
+		--build-arg NOSTRIP=${NOSTRIP} \
+		--build-arg LOCKDEBUG=${LOCKDEUBG} \
+		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
+		-f $(DOCKER_PLUGIN_DOCKERFILE) \
+		-t "cilium/docker-plugin:$(DOCKER_IMAGE_TAG)" $(DOCKER_BUILD_DIR)
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/docker-plugin:$(DOCKER_IMAGE_TAG) cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${GOARCH}
+	$(QUIET)echo "Push like this when ready:"
+	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/docker-plugin:$(DOCKER_IMAGE_TAG)-${GOARCH}"
+
+docker-plugin-manifest:
+	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh docker-plugin $(DOCKER_IMAGE_TAG)
+	$(QUIET) contrib/scripts/push_manifest.sh docker-plugin $(DOCKER_IMAGE_TAG)
+
+docker-image-runtime:
+	cd contrib/packaging/docker && $(CONTAINER_ENGINE) build --build-arg ARCH=$(GOARCH) -t "cilium/cilium-runtime:$(UTC_DATE)" -f Dockerfile.runtime .
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-runtime:$(UTC_DATE) cilium/cilium-runtime:$(UTC_DATE)-${GOARCH}
+
+docker-cilium-runtime-manifest:
+	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-runtime $(UTC_DATE)
+	$(QUIET) contrib/scripts/push_manifest.sh cilium-runtime $(UTC_DATE)
+
+docker-image-builder:
+	$(QUIET)$(CONTAINER_ENGINE) build --build-arg ARCH=$(GOARCH) -t "cilium/cilium-builder:$(UTC_DATE)" -f Dockerfile.builder .
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-builder:$(UTC_DATE) cilium/cilium-builder:$(UTC_DATE)-${GOARCH}
+
+docker-cilium-builder-manifest:
+	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-builder $(UTC_DATE)
+	$(QUIET) contrib/scripts/push_manifest.sh cilium-builder $(UTC_DATE)
+
+docker-hubble-relay-image: $(HUBBLE_RELAY_DOCKERFILE) build-context-update
+	$(QUIET)$(CONTAINER_ENGINE) build \
+		--build-arg NOSTRIP=${NOSTRIP} \
+		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
+		-f $(HUBBLE_RELAY_DOCKERFILE) \
+		-t "cilium/hubble-relay:$(DOCKER_IMAGE_TAG)" $(DOCKER_BUILD_DIR)
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/hubble-relay:$(DOCKER_IMAGE_TAG) cilium/hubble-relay:$(DOCKER_IMAGE_TAG)-${GOARCH}
+	$(QUIET)echo "Push like this when ready:"
+	$(QUIET)echo "${CONTAINER_ENGINE} push cilium/hubble-relay:$(DOCKER_IMAGE_TAG)-${GOARCH}"
