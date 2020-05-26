@@ -46,7 +46,7 @@ function annotate_section_names {
 	    -e "s/\(section '2\/18'\)/\1 (tail_call IPV6_NODEPORT_REVNAT)/" \
 	    -e "s/\(section '2\/19'\)/\1 (tail_call ENCAP_NODEPORT_NAT)/" \
 	    -e "s/\(section '2\/20'\)/\1 (tail_call IPV4_NODEPORT_DSR)/" \
-	    -e "s/\(section '2\/21'\)/\1 (tail_call IPV6_NODEPORT_DSR)/"
+	    -e "s/\(section '2\/21'\)/\1 (tail_call IPV6_NODEPORT_DSR)/" \
 	    -e "s/\(section '2\/22'\)/\1 (tail_call IPV4_FROM_HOST)/" \
 	    -e "s/\(section '2\/23'\)/\1 (tail_call IPV6_FROM_HOST)/"
 }
