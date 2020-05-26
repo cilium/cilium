@@ -59,7 +59,7 @@ details on how to set credentials, change region, VPC, cluster size, etc.
 
    .. code:: bash
 
-     eksctl create cluster -n test-cluster -N 0
+     eksctl create cluster --name test-cluster --without-nodegroup
 
 You should see something like this:
 
@@ -108,7 +108,7 @@ Deploy Cilium release via Helm:
    Excluding the lines for ``global.eni=true`` and ``global.tunnel=disabled`` from the
    helm command will configure Cilium to use overlay routing mode (which is the helm default).
 
-.. include:: aws-scale-up-cluster.rst
+.. include:: aws-create-nodegroup.rst
 .. include:: k8s-install-validate.rst
 .. include:: hubble-install.rst
 .. include:: getting-started-next-steps.rst
