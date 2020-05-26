@@ -2082,6 +2082,13 @@ func (kub *Kubectl) DeployPatch(original, patchFileName string) error {
 	return nil
 }
 
+// Patch patches the given object with the given patch (string).
+func (kub *Kubectl) Patch(namespace, objType, objName, patch string) *CmdRes {
+	ginkgoext.By("Patching %s %s in namespace %s", objType, objName, namespace)
+	return kub.ExecShort(fmt.Sprintf("%s -n %s patch %s %s --patch %q",
+		KubectlCmd, namespace, objType, objName, patch))
+}
+
 func addIfNotOverwritten(options map[string]string, field, value string) map[string]string {
 	if _, ok := options[field]; !ok {
 		options[field] = value

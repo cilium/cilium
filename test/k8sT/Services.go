@@ -738,6 +738,52 @@ var _ = Describe("K8sServicesTest", func() {
 			wg.Wait()
 		}
 
+		testExternalIPs := func() {
+			var data v1.Service
+			count := 10
+
+			err := kubectl.Get(helpers.DefaultNamespace, "service test-external-ips").Unmarshal(&data)
+			ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service")
+			svcExternalIP := data.Spec.ExternalIPs[0]
+			// Append k8s1 IP addr to the external IPs for testing whether the svc
+			// can be reached from within a cluster via k8s1 IP addr
+			kubectl.Patch(helpers.DefaultNamespace, "service", "test-external-ips",
+				fmt.Sprintf(`{"spec":{"externalIPs":["%s","%s"]}}`, svcExternalIP, k8s1IP))
+
+			httpURL := getHTTPLink(svcExternalIP, data.Spec.Ports[0].Port)
+			tftpURL := getTFTPLink(svcExternalIP, data.Spec.Ports[1].Port)
+
+			// Add the route on the outside node to the external IP addr
+			cmd := fmt.Sprintf("ip r a %s/32 via %s", svcExternalIP, k8s1IP)
+			res, err := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot exec in outside node %s", outsideNodeName)
+			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+				"Can not exec %q on outside node %s", cmd, outsideNodeName)
+			defer func() {
+				cmd = fmt.Sprintf("ip r d %s/32 via %s", svcExternalIP, k8s1IP)
+				kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
+			}()
+
+			// Should work from outside via the external IP
+			testCurlFromOutside(httpURL, count, false)
+			testCurlFromOutside(tftpURL, count, false)
+			// Same from inside a pod
+			testCurlFromPods(testDSClient, httpURL)
+			testCurlFromPods(testDSClient, tftpURL)
+			// But not from the host netns (to prevent MITM)
+			failRequests(httpURL, 1, k8s1NodeName)
+			failRequests(httpURL, 1, k8s1NodeName)
+			failRequests(httpURL, 1, k8s2NodeName)
+			failRequests(httpURL, 1, k8s2NodeName)
+			// However, it should work via the k8s1 IP addr
+			httpURL = getHTTPLink(k8s1IP, data.Spec.Ports[0].Port)
+			tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].Port)
+			testCurlFromPodInHostNetNS(httpURL, count, k8s1NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, k8s1NodeName)
+			testCurlFromPods(testDSClient, httpURL)
+			testCurlFromPods(testDSClient, tftpURL)
+		}
+
 		testFailBind := func() {
 			var data v1.Service
 			var localCiliumHostIPv4 string
@@ -1140,6 +1186,10 @@ var _ = Describe("K8sServicesTest", func() {
 						testHostPort()
 					})
 
+					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests externalIPs", func() {
+						testExternalIPs()
+					})
+
 					SkipItIf(func() bool { return helpers.GetCurrentIntegration() != "" },
 						"Tests with secondary NodePort device", func() {
 							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
@@ -1184,6 +1234,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 					It("Tests HostPort", func() {
 						testHostPort()
+					})
+
+					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests externalIPs", func() {
+						testExternalIPs()
 					})
 
 					SkipItIf(func() bool { return helpers.GetCurrentIntegration() != "" },
