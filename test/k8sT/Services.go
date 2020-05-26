@@ -380,7 +380,7 @@ var _ = Describe("K8sServicesTest", func() {
 				"Request from %s to service %s failed", fromPod, url)
 		}
 
-		failRequests := func(url string, count int, fromPod string) {
+		testCurlFailFromPodInHostNetNS := func(url string, count int, fromPod string) {
 			By("Making %d curl requests from %s to %q", count, fromPod, url)
 			for i := 1; i <= count; i++ {
 				res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlFail(url, "--max-time 3"))
@@ -734,10 +734,10 @@ var _ = Describe("K8sServicesTest", func() {
 			testCurlFromPods(testDSClient, httpURL)
 			testCurlFromPods(testDSClient, tftpURL)
 			// But not from the host netns (to prevent MITM)
-			failRequests(httpURL, 1, k8s1NodeName)
-			failRequests(httpURL, 1, k8s1NodeName)
-			failRequests(httpURL, 1, k8s2NodeName)
-			failRequests(httpURL, 1, k8s2NodeName)
+			testCurlFailFromPodInHostNetNS(httpURL, 1, k8s1NodeName)
+			testCurlFailFromPodInHostNetNS(httpURL, 1, k8s1NodeName)
+			testCurlFailFromPodInHostNetNS(httpURL, 1, k8s2NodeName)
+			testCurlFailFromPodInHostNetNS(httpURL, 1, k8s2NodeName)
 			// However, it should work via the k8s1 IP addr
 			httpURL = getHTTPLink(k8s1IP, data.Spec.Ports[0].Port)
 			tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].Port)
@@ -926,10 +926,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 			httpURL = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
-			failRequests(httpURL, count, k8s1NodeName)
-			failRequests(httpURL, count, k8s2NodeName)
-			failRequests(tftpURL, count, k8s1NodeName)
-			failRequests(tftpURL, count, k8s2NodeName)
+			testCurlFailFromPodInHostNetNS(httpURL, count, k8s1NodeName)
+			testCurlFailFromPodInHostNetNS(httpURL, count, k8s2NodeName)
+			testCurlFailFromPodInHostNetNS(tftpURL, count, k8s1NodeName)
+			testCurlFailFromPodInHostNetNS(tftpURL, count, k8s2NodeName)
 		}
 
 		testHostPort := func() {
