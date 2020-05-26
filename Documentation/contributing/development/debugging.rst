@@ -325,3 +325,45 @@ An identity missing here can be an error in various places:
   and it would be included in the Policy Map.  In the past, a similar bug
   occurred with the L7 redirect and that would stop this whole process at the
   beginning.
+
+Mutexes / Locks and Data Races
+------------------------------
+
+.. Note::
+
+    This section only applies to Golang code.
+
+There are a few options available to debug Cilium data races and deadlocks.
+
+To debug data races, Golang allows ``-race`` to be passed to the compiler to
+compile Cilium with race detection. Additionally, the flag can be provided to
+``go test`` to detect data races in a testing context.
+
+To compile a Cilium binary with race detection, you can do:
+
+.. code:: bash
+
+    $ make RACE=1
+
+To run unit tests with race detection, you can do:
+
+.. code:: bash
+
+    $ make RACE=1 unit-tests
+
+~~~~~~~~~~~~~~~~~~
+Deadlock detection
+~~~~~~~~~~~~~~~~~~
+
+Cilium can be compiled with a build tag ``lockdebug`` which will provide a
+seamless wrapper over the standard mutex types in Golang, via
+`sasha-s/go-deadlock library <https://github.com/sasha-s/go-deadlock>`_. No
+action is required, besides building the binary with this tag.
+
+For example:
+
+.. code:: bash
+
+    $ make LOCKDEBUG=1
+    $ # Deadlock detection during unit tests:
+    $ make LOCKDEBUG=1 unit-tests
