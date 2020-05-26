@@ -24,7 +24,7 @@ system must meet these requirements:
 When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
 
-- `clang+LLVM`_ >= 5.0 (Recommended: >=10.0)
+- `clang+LLVM`_ >= 10.0
 - iproute2_ with BPF templating patches [#iproute2_foot]_
 
 .. _`clang+LLVM`: https://llvm.org
@@ -41,7 +41,7 @@ Requirement              Minimum Version            In cilium container
 `Linux kernel`_          >= 4.9.17                  no
 Key-Value store (etcd)   >= 3.1.0                   no
 Key-Value store (consul) >= 0.6.4                   no
-clang+LLVM               >= 5.0.0                   yes
+clang+LLVM               >= 10.0                    yes
 iproute2                 >= 5.0.0 [#iproute2_foot]_ yes
 ======================== ========================== ===================
 
