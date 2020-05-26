@@ -95,6 +95,8 @@ Microservices
 Minikube
 Monnet
 Multi
+Mutex
+Mutexes
 Mythbusters
 Namespace
 Namespaces
@@ -453,6 +455,8 @@ multi
 multicore
 multinode
 musl
+mutex
+mutexes
 myCA
 myapp
 mysql
