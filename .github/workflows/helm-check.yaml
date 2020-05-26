@@ -1,4 +1,4 @@
-name: Helm Lint and Test Charts
+name: Smoke test
 
 on:
   pull_request: {}
@@ -30,7 +30,6 @@ jobs:
           cd install/kubernetes
           make all
           git diff --exit-code
-
   lint-test:
     runs-on: ubuntu-latest
     steps:
@@ -42,10 +41,24 @@ jobs:
           cd install/kubernetes/cilium
           helm lint --with-subcharts --values values.yaml
 
+      - name: Build docker images
+        run: |
+          make docker-image-no-clean
+          make docker-operator-image
+
+      - name: Prevent K8s from pulling images
+        run: |
+          sed -i 's;pullPolicy: Always;pullPolicy: Never;g' install/kubernetes/cilium/values.yaml
+
       - name: Create kind cluster
         uses: helm/kind-action@v1.0.0-rc.1
         with:
           version: v0.8.1
+
+      - name: Load local images into kind cluster
+        run: |
+          kind load docker-image --name chart-testing cilium/cilium:latest
+          kind load docker-image --name chart-testing cilium/operator:latest
 
       # This test is just to make sure the helm chart can be installed. It will not replace existing integration tests
       - name: Run chart-testing (install)
@@ -53,3 +66,15 @@ jobs:
         with:
           command: install
           config: install/kubernetes/chart-testing.yaml
+
+      - name: Install ginkgo
+        run: |
+          cd $HOME
+          go get -u github.com/onsi/ginkgo/ginkgo
+          go get -u github.com/onsi/gomega/...
+
+      - name: Run test suite
+        run: |
+          cd test
+          export PATH=$PATH:$HOME/go/bin
+          ginkgo -v --focus="K8sConformance Portmap Chaining Check one node.*" -- -cilium.provision=false -test.v --cilium.kubeconfig=${HOME}/.kube/config -cilium.image=cilium/cilium:latest -cilium.operator-image=cilium/operator:latest
