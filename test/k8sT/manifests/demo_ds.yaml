@@ -231,3 +231,23 @@ spec:
     name: http
   selector:
     zgroup: test-k8s2
+---
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-external-ips
+spec:
+  type: NodePort
+  ports:
+  - port: 20080
+    targetPort: 80
+    protocol: TCP
+    name: http
+  - port: 20069
+    targetPort: 69
+    protocol: UDP
+    name: tftp
+  externalIPs:
+  - 192.0.2.233
+  selector:
+    zgroup: testDS
