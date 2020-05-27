@@ -25,9 +25,10 @@ import (
 	"reflect"
 	"regexp"
 	"strings"
-	"sync"
 	"sync/atomic"
 	"time"
+
+	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
@@ -37,7 +38,7 @@ type scope struct {
 	parent        *scope
 	children      []*scope
 	counter       int32
-	mutex         *sync.Mutex
+	mutex         *lock.Mutex
 	before        []func()
 	after         []func()
 	afterEach     []func()
@@ -55,7 +56,7 @@ var (
 	currentScope = &scope{
 		text:    "EntireTestsuite",
 		counter: -1,
-		mutex:   &sync.Mutex{},
+		mutex:   &lock.Mutex{},
 	}
 
 	rootScope = currentScope
@@ -467,7 +468,7 @@ func wrapContextFunc(fn func(string, func()) bool, focused bool) func(string, fu
 			text:    currentScope.text + " " + text,
 			parent:  currentScope,
 			focused: focused,
-			mutex:   &sync.Mutex{},
+			mutex:   &lock.Mutex{},
 			counter: -1,
 		}
 		currentScope.children = append(currentScope.children, newScope)
