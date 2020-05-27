@@ -104,7 +104,10 @@ global:
   # disabled.
   installIptablesRules: true
 
-  # masquerade enables masquerading of traffic leaving the ndoe for
+  # iptablesLockTimeout defines the iptables "--wait" option when invoked from Cilium.
+  # iptablesLockTimeout: "5s"
+
+  # masquerade enables masquerading of traffic leaving the node for
   # destinations outside of the cluster.
   masquerade: true
 
