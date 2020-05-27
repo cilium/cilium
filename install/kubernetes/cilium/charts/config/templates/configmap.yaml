@@ -275,6 +275,9 @@ data:
 
   enable-xt-socket-fallback: {{ .Values.global.enableXTSocketFallback | quote }}
   install-iptables-rules: {{ .Values.global.installIptablesRules | quote }}
+{{- if .Values.global.iptablesLockTimeout }}
+  iptables-lock-timeout: {{ .Values.global.iptablesLockTimeout | quote }}
+{{- end }}
   auto-direct-node-routes: {{ .Values.global.autoDirectNodeRoutes | quote }}
 {{- if .Values.global.nodePort }}
   enable-node-port: {{ .Values.global.nodePort.enabled | quote }}
