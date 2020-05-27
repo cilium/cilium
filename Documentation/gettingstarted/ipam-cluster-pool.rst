@@ -21,7 +21,7 @@ Enable Cluster-pool IPAM mode
 =============================
 
 #. Setup Cilium for Kubernetes using helm with the options:
-   ``--set global.ipam.mode=cluster-pool``.
+   ``--set config.ipam=cluster-pool``.
 #. Depending if you are using IPv4 and / or IPv6, you might want to adjust
    the ``podCIDR`` allocated for your cluster's pods with the options:
 

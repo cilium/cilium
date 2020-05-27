@@ -37,8 +37,8 @@ Configuration
 *************
 
 The GKE IPAM mode can be enabled by setting the Helm option
-``global.gke.enabled=true`` or by setting the ConfigMap option
-``ipam: kubernetes``.
+``config.ipam=kubernetes`` or by setting the ConfigMap option ``ipam:
+kubernetes``.
 
 ***************
 Troubleshooting
