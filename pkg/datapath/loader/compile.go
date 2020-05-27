@@ -49,14 +49,14 @@ const (
 	endpointProg     = endpointPrefix + "." + string(outputSource)
 	endpointObj      = endpointPrefix + ".o"
 	endpointObjDebug = endpointPrefix + ".dbg.o"
-	endpointAsm      = endpointPrefix + string(outputAssembly)
+	endpointAsm      = endpointPrefix + "." + string(outputAssembly)
 
 	hostEndpointPrefix       = "bpf_host"
 	hostEndpointNetdevPrefix = "bpf_netdev_"
 	hostEndpointProg         = hostEndpointPrefix + "." + string(outputSource)
 	hostEndpointObj          = hostEndpointPrefix + ".o"
 	hostEndpointObjDebug     = hostEndpointPrefix + ".dbg.o"
-	hostEndpointAsm          = hostEndpointPrefix + string(outputAssembly)
+	hostEndpointAsm          = hostEndpointPrefix + "." + string(outputAssembly)
 )
 
 var (
