@@ -292,6 +292,9 @@ global:
     # interface is the interface to use for encryption
     # interface: eth0
 
+  # hostFirewall enables the enforcement of host policies in the BPF datapath
+  hostFirewall: false
+
   # kubeProxyReplacement enables kube-proxy replacement in Cilium BPF datapath
   kubeProxyReplacement: "probe"
 
