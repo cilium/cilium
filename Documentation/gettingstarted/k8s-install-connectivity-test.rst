@@ -15,17 +15,18 @@ indicates success or failure of the test:
 
 .. code:: bash
 
-    kubectl get pods
-    NAME                                                     READY   STATUS             RESTARTS   AGE
-    echo-a-9b85dd869-292s2                                   1/1     Running            0          8m37s
-    echo-b-c7d9f4686-gdwcs                                   1/1     Running            0          8m37s
-    host-to-b-multi-node-clusterip-6d496f7cf9-956jb          1/1     Running            0          8m37s
-    host-to-b-multi-node-headless-bd589bbcf-jwbh2            1/1     Running            0          8m37s
-    pod-to-a-7cc4b6c5b8-9jfjb                                1/1     Running            0          8m36s
-    pod-to-a-allowed-cnp-6cc776bb4d-2cszk                    1/1     Running            0          8m36s
-    pod-to-a-external-1111-5c75bd66db-sxfck                  1/1     Running            0          8m35s
-    pod-to-a-l3-denied-cnp-7fdd9975dd-2pp96                  1/1     Running            0          8m36s
-    pod-to-b-intra-node-9d9d4d6f9-qccfs                      1/1     Running            0          8m35s
-    pod-to-b-multi-node-clusterip-5956c84b7c-hwzfg           1/1     Running            0          8m35s
-    pod-to-b-multi-node-headless-6698899447-xlhfw            1/1     Running            0          8m35s
-    pod-to-external-fqdn-allow-google-cnp-667649bbf6-v6rf8   1/1     Running            0          8m35s
+    NAME                                                    READY   STATUS    RESTARTS   AGE
+    echo-a-5995597649-f5d5g                                 1/1     Running   0          4m51s
+    echo-b-54c9bb5f5c-p6lxf                                 1/1     Running   0          4m50s
+    echo-b-host-67446447f7-chvsp                            1/1     Running   0          4m50s
+    host-to-b-multi-node-clusterip-78f9869d75-l8cf8         1/1     Running   0          4m50s
+    host-to-b-multi-node-headless-798949bd5f-vvfff          1/1     Running   0          4m50s
+    pod-to-a-59b5fcb7f6-gq4hd                               1/1     Running   0          4m50s
+    pod-to-a-allowed-cnp-55f885bf8b-5lxzz                   1/1     Running   0          4m50s
+    pod-to-a-external-1111-7ff666fd8-v5kqb                  1/1     Running   0          4m48s
+    pod-to-a-l3-denied-cnp-64c6c75c5d-xmqhw                 1/1     Running   0          4m50s
+    pod-to-b-intra-node-845f955cdc-5nfrt                    1/1     Running   0          4m49s
+    pod-to-b-multi-node-clusterip-666594b445-bsn4j          1/1     Running   0          4m49s
+    pod-to-b-multi-node-headless-746f84dff5-prk4w           1/1     Running   0          4m49s
+    pod-to-b-multi-node-nodeport-7cb9c6cb8b-ksm4h           1/1     Running   0          4m49s
+    pod-to-external-fqdn-allow-google-cnp-b7b6bcdcb-tg9dh   1/1     Running   0          4m48s
