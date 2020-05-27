@@ -25,16 +25,19 @@ var _ = Describe("K8sConformance", func() {
 	var kubectl *helpers.Kubectl
 	var ciliumFilename string
 	var connectivityCheckYaml string
+	var connectivityCheckYamlSimple string
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		connectivityCheckYaml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-hostport.yaml")
+		connectivityCheckYamlSimple = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-single-node.yaml")
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 	})
 
 	AfterEach(func() {
 		kubectl.Delete(connectivityCheckYaml)
-		ExpectAllPodsTerminated(kubectl)
+		kubectl.Delete(connectivityCheckYamlSimple)
+		ExpectAllPodsInNsTerminated(kubectl, "default")
 	})
 
 	AfterFailed(func() {
@@ -76,5 +79,20 @@ var _ = Describe("K8sConformance", func() {
 			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
 			ExpectWithOffset(1, err).Should(BeNil(), "connectivity-check pods are not ready after timeout")
 		})
+
+		It("Check one node connectivity-check compliance with portmap chaining", func() {
+			SkipIfIntegration(helpers.CIIntegrationFlannel)
+			SkipItIfNoKubeProxy()
+
+			deployCilium(map[string]string{
+				"global.cni.chainingMode": "portmap",
+			})
+
+			kubectl.ApplyDefault(connectivityCheckYamlSimple).ExpectSuccess("cannot install connectivity-check-single-node")
+
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "connectivity-check pods are not ready after timeout")
+		})
+
 	})
 })
