@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -77,17 +77,11 @@ type CmdState struct {
 }
 
 func main() {
-	if err := gops.Listen(gops.Options{}); err != nil {
-		log.WithError(err).Warn("Unable to start gops")
-	}
-
 	skel.PluginMain(cmdAdd,
 		nil,
 		cmdDel,
 		cniVersion.PluginSupports("0.1.0", "0.2.0", "0.3.0", "0.3.1"),
 		"Cilium CNI plugin "+version.Version)
-
-	gops.Close()
 }
 
 func ipv6IsEnabled(ipam *models.IPAMResponse) bool {
@@ -288,6 +282,12 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 	if !n.EnableDebug {
 		logger.Logger.SetLevel(logrus.InfoLevel)
+	} else {
+		if err := gops.Listen(gops.Options{}); err != nil {
+			log.WithError(err).Warn("Unable to start gops")
+		} else {
+			defer gops.Close()
+		}
 	}
 	logger.Debugf("Processing CNI ADD request %#v", args)
 
@@ -550,6 +550,12 @@ func cmdDel(args *skel.CmdArgs) error {
 	}
 	if !n.EnableDebug {
 		logger.Logger.SetLevel(logrus.InfoLevel)
+	} else {
+		if err := gops.Listen(gops.Options{}); err != nil {
+			log.WithError(err).Warn("Unable to start gops")
+		} else {
+			defer gops.Close()
+		}
 	}
 	logger.Debugf("Processing CNI DEL request %#v", args)
 
