@@ -45,7 +45,7 @@ jobs:
       - name: Create kind cluster
         uses: helm/kind-action@v1.0.0-rc.1
         with:
-          install_local_path_provisioner: true
+          version: v0.8.1
 
       # This test is just to make sure the helm chart can be installed. It will not replace existing integration tests
       - name: Run chart-testing (install)
