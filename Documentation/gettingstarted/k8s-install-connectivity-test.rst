@@ -26,17 +26,7 @@ indicates success or failure of the test:
     pod-to-a-external-1111-7ff666fd8-v5kqb                  1/1     Running   0          4m48s
     pod-to-a-l3-denied-cnp-64c6c75c5d-xmqhw                 1/1     Running   0          4m50s
     pod-to-b-intra-node-845f955cdc-5nfrt                    1/1     Running   0          4m49s
-    pod-to-b-intra-node-hostport-6549fc5b88-ngcl5           0/1     Running   4          4m49s
     pod-to-b-multi-node-clusterip-666594b445-bsn4j          1/1     Running   0          4m49s
     pod-to-b-multi-node-headless-746f84dff5-prk4w           1/1     Running   0          4m49s
-    pod-to-b-multi-node-hostport-795964f8c8-79bxp           0/1     Running   4          4m49s
     pod-to-b-multi-node-nodeport-7cb9c6cb8b-ksm4h           1/1     Running   0          4m49s
     pod-to-external-fqdn-allow-google-cnp-b7b6bcdcb-tg9dh   1/1     Running   0          4m48s
-
-.. note::
-
-   Depending on the kernel version you are running on, the HostPort feature may
-   not be enabled by default. If so, the two HostPort related pods will remain
-   in not-ready state and restart. If you are running on Linux kernel < 4.19,
-   and want to use HostPort, follow the instructions in
-   :ref:`k8s_install_portmap` to enable it.
