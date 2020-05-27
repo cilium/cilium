@@ -1,4 +1,4 @@
 [build]
   base = "Documentation/"
   publish = "_build/html"
-  command = "make html-netlify"
+  command = "make html-netlify && rm -rf $NETLIFY_CACHE_DIR && false"
