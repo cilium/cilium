@@ -20,6 +20,7 @@ import (
 	"net"
 	"strconv"
 	"strings"
+	"time"
 
 	"github.com/asaskevich/govalidator"
 	"github.com/cilium/cilium/pkg/annotation"
@@ -80,6 +81,28 @@ var _ = Describe("K8sHubbleTest", func() {
 		By("Removing visibility annotation on pod with labels %s", app1Labels)
 		res := kubectl.Exec(fmt.Sprintf("%s annotate pod -n %s -l %s %s-", helpers.KubectlCmd, ns, podLabels, annotation.ProxyVisibility))
 		res.ExpectSuccess("removing proxy visibility annotation failed")
+	}
+
+	hubbleObserveUntilMatch := func(hubbleNamespace, hubblePod, args, filter, expected string, timeout *helpers.TimeoutConfig) {
+		hubbleObserve := func() bool {
+			res := kubectl.HubbleObserve(hubbleNamespace, hubblePod, args)
+			res.ExpectSuccess("hubble observe invocation failed: %q", res.OutputPrettyPrint())
+
+			lines, err := res.FilterLines(filter)
+			Expect(err).Should(BeNil(), "hubble observe: invalid filter: %q", filter)
+
+			for _, line := range lines {
+				if line.String() == expected {
+					return true
+				}
+			}
+
+			return false
+		}
+
+		err := helpers.RepeatUntilTrue(hubbleObserve, timeout)
+		Expect(err).Should(BeNil(),
+			"hubble observe: filter %q never matched expected string %q", filter, expected)
 	}
 
 	BeforeAll(func() {
@@ -177,18 +200,22 @@ var _ = Describe("K8sHubbleTest", func() {
 		})
 
 		It("Test L3/L4 Flow with hubble-relay", func() {
-			ctx, cancel := context.WithTimeout(context.Background(), helpers.MidCommandTimeout)
-			defer cancel()
-			follow := kubectl.HubbleObserveFollow(ctx, hubbleNamespace, hubblePodK8s1, fmt.Sprintf(
-				"--server %s --last 1 --type trace --from-pod %s/%s --to-namespace %s --to-label %s --to-port %d",
-				hubbleRelayAddress, namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels, app1Port))
-
 			res := kubectl.ExecPodCmd(namespaceForTest, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", app1ClusterIP)))
 			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], app1ClusterIP)
 
-			err := follow.WaitUntilMatchFilterLineTimeout(`{$.Type}`, "L3_L4", helpers.ShortCommandTimeout)
-			Expect(err).To(BeNil(), fmt.Sprintf("hubble observe query timed out on %q", follow.OutputPrettyPrint()))
+			// In case a node was temporarily unavailable, hubble-relay will
+			// reconnect once it receives a new request. Therefore we retry
+			// in a 5 second interval.
+			hubbleObserveUntilMatch(hubbleNamespace, hubblePodK8s1, fmt.Sprintf(
+				"--server %s --last 1 --type trace --from-pod %s/%s --to-namespace %s --to-label %s --to-port %d",
+				hubbleRelayAddress, namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels, app1Port),
+				`{$.Type}`, "L3_L4",
+				&helpers.TimeoutConfig{
+					Ticker:  5 * time.Second,
+					Timeout: helpers.MidCommandTimeout,
+				},
+			)
 		})
 
 		It("Test L7 Flow", func() {
@@ -220,18 +247,22 @@ var _ = Describe("K8sHubbleTest", func() {
 			addVisibilityAnnotation(namespaceForTest, app1Labels, "Ingress", "80", "TCP", "HTTP")
 			defer removeVisbilityAnnotation(namespaceForTest, app1Labels)
 
-			ctx, cancel := context.WithTimeout(context.Background(), helpers.MidCommandTimeout)
-			defer cancel()
-			follow := kubectl.HubbleObserveFollow(ctx, hubbleNamespace, hubblePodK8s1, fmt.Sprintf(
-				"--server %s --last 1 --type l7 --from-pod %s/%s --to-namespace %s --to-label %s --protocol http",
-				hubbleRelayAddress, namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels))
-
 			res := kubectl.ExecPodCmd(namespaceForTest, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", app1ClusterIP)))
 			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], app1ClusterIP)
 
-			err := follow.WaitUntilMatchFilterLineTimeout(`{$.Type}`, "L7", helpers.ShortCommandTimeout)
-			Expect(err).To(BeNil(), fmt.Sprintf("hubble observe query timed out on %q", follow.OutputPrettyPrint()))
+			// In case a node was temporarily unavailable, hubble-relay will
+			// reconnect once it receives a new request. Therefore we retry
+			// in a 5 second interval.
+			hubbleObserveUntilMatch(hubbleNamespace, hubblePodK8s1, fmt.Sprintf(
+				"--server %s --last 1 --type l7 --from-pod %s/%s --to-namespace %s --to-label %s --protocol http",
+				hubbleRelayAddress, namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels),
+				`{$.Type}`, "L7",
+				&helpers.TimeoutConfig{
+					Ticker:  5 * time.Second,
+					Timeout: helpers.MidCommandTimeout,
+				},
+			)
 		})
 	})
 })
