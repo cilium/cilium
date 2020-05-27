@@ -375,15 +375,18 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_NAT)
 int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 {
-	int ifindex = DIRECT_ROUTING_DEV_IFINDEX;
 	int ret, dir = ctx_load_meta(ctx, CB_NAT);
 	union v6addr tmp = IPV6_DIRECT_ROUTING;
-	struct bpf_fib_lookup fib_params = {};
+	struct bpf_fib_lookup fib_params = {
+		.family		= AF_INET6,
+		.ifindex	= DIRECT_ROUTING_DEV_IFINDEX,
+	};
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
+	union macaddr *dmac = NULL;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 
@@ -405,7 +408,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 				return ret;
 
 			BPF_V6(target.addr, ROUTER_IP);
-			ifindex = ENCAP_IFINDEX;
+			fib_params.ifindex = ENCAP_IFINDEX;
 
 			/* fib lookup not necessary when going over tunnel. */
 			if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
@@ -441,7 +444,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 #ifdef ENCAP_IFINDEX
-	if (ifindex == ENCAP_IFINDEX)
+	if (fib_params.ifindex == ENCAP_IFINDEX)
 		goto out_send;
 #endif
 	if (!revalidate_data(ctx, &data, &data_end, &ip6)) {
@@ -449,29 +452,43 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 
-	fib_params.family = AF_INET6;
-	fib_params.ifindex = ifindex;
-	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, (union v6addr *) &ip6->saddr);
-	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, (union v6addr *) &ip6->daddr);
+	if (nodeport_lb_hairpin())
+		dmac = map_lookup_elem(&NODEPORT_NEIGH6, &ip6->daddr);
+	if (dmac) {
+		union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(fib_params.ifindex);
 
-	ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
-			 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-	if (ret != 0) {
-		ret = DROP_NO_FIB;
-		goto drop_err;
-	}
+		if (eth_store_daddr(ctx, dmac->addr, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
+		if (eth_store_saddr(ctx, mac.addr, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
+	} else {
+		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src,
+			       (union v6addr *) &ip6->saddr);
+		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst,
+			       (union v6addr *) &ip6->daddr);
 
-	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
+		ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
+				 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+		if (ret != 0) {
+			ret = DROP_NO_FIB;
+			goto drop_err;
+		}
+
+		if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
+		if (eth_store_saddr(ctx, fib_params.smac, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
 	}
-	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-	ifindex = fib_params.ifindex;
 out_send: __maybe_unused
-	return ctx_redirect(ctx, ifindex, 0);
+	return ctx_redirect(ctx, fib_params.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 				      dir == NAT_DIR_INGRESS ?
@@ -1019,14 +1036,17 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_NAT)
 int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 {
-	int ifindex = DIRECT_ROUTING_DEV_IFINDEX;
 	int ret, dir = ctx_load_meta(ctx, CB_NAT);
-	struct bpf_fib_lookup fib_params = {};
+	struct bpf_fib_lookup fib_params = {
+		.family		= AF_INET,
+		.ifindex	= DIRECT_ROUTING_DEV_IFINDEX,
+	};
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
 		.src_from_world = true,
 	};
+	union macaddr *dmac = NULL;
 	void *data, *data_end;
 	struct iphdr *ip4;
 
@@ -1046,7 +1066,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 				return ret;
 
 			target.addr = IPV4_GATEWAY;
-			ifindex = ENCAP_IFINDEX;
+			fib_params.ifindex = ENCAP_IFINDEX;
 
 			/* fib lookup not necessary when going over tunnel. */
 			if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
@@ -1082,38 +1102,49 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 		goto drop_err;
 	}
 #ifdef ENCAP_IFINDEX
-	if (ifindex == ENCAP_IFINDEX)
+	if (fib_params.ifindex == ENCAP_IFINDEX)
 		goto out_send;
 #endif
-
 	if (!revalidate_data(ctx, &data, &data_end, &ip4)) {
 		ret = DROP_INVALID;
 		goto drop_err;
 	}
 
-	fib_params.family = AF_INET;
-	fib_params.ifindex = ifindex;
-	fib_params.ipv4_src = ip4->saddr;
-	fib_params.ipv4_dst = ip4->daddr;
+	if (nodeport_lb_hairpin())
+		dmac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->daddr);
+	if (dmac) {
+		union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(fib_params.ifindex);
 
-	ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
-			 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-	if (ret != 0) {
-		ret = DROP_NO_FIB;
-		goto drop_err;
-	}
+		if (eth_store_daddr(ctx, dmac->addr, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
+		if (eth_store_saddr(ctx, mac.addr, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
+	} else {
+		fib_params.ipv4_src = ip4->saddr;
+		fib_params.ipv4_dst = ip4->daddr;
 
-	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
+		ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
+				 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+		if (ret != 0) {
+			ret = DROP_NO_FIB;
+			goto drop_err;
+		}
+
+		if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
+		if (eth_store_saddr(ctx, fib_params.smac, 0) < 0) {
+			ret = DROP_WRITE_ERROR;
+			goto drop_err;
+		}
 	}
-	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0) {
-		ret = DROP_WRITE_ERROR;
-		goto drop_err;
-	}
-	ifindex = fib_params.ifindex;
 out_send: __maybe_unused
-	return ctx_redirect(ctx, ifindex, 0);
+	return ctx_redirect(ctx, fib_params.ifindex, 0);
 drop_err:
 	return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP,
 				      dir == NAT_DIR_INGRESS ?
