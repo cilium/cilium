@@ -289,6 +289,8 @@ const (
 	// InstallIptRules sets whether Cilium should install any iptables in general
 	InstallIptRules = "install-iptables-rules"
 
+	IPTablesLockTimeout = "iptables-lock-timeout"
+
 	// IPv6NodeAddr is the IPv6 address of node
 	IPv6NodeAddr = "ipv6-node"
 
@@ -986,6 +988,7 @@ var HelpFlagSections = []FlagsSection{
 			PrependIptablesChainsName,
 			InstallIptRules,
 			DisableIptablesFeederRules,
+			IPTablesLockTimeout,
 		},
 	},
 	{
@@ -1358,6 +1361,10 @@ type DaemonConfig struct {
 	// PrependIptablesChains is the name of the option to enable prepending
 	// iptables chains instead of appending
 	PrependIptablesChains bool
+
+	// IPTablesLockTimeout defines the "-w" iptables option when the
+	// iptables CLI is directly invoked from the Cilium agent.
+	IPTablesLockTimeout time.Duration
 
 	// K8sNamespace is the name of the namespace in which Cilium is
 	// deployed in when running in Kubernetes mode
@@ -2216,6 +2223,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableIPMasqAgent = viper.GetBool(EnableIPMasqAgent)
 	c.IPMasqAgentConfigPath = viper.GetString(IPMasqAgentConfigPath)
 	c.InstallIptRules = viper.GetBool(InstallIptRules)
+	c.IPTablesLockTimeout = viper.GetDuration(IPTablesLockTimeout)
 	c.IPSecKeyFile = viper.GetString(IPSecKeyFileName)
 	c.ModePreFilter = viper.GetString(PrefilterMode)
 	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
