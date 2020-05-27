@@ -248,8 +248,16 @@ static __always_inline __nobuiltin("memcpy") void memcpy(void *d, const void *s,
 static __always_inline __maybe_unused __u64
 __bpf_memcmp_builtin(const void *x, const void *y, __u64 len)
 {
-	/* Explicit opt-in for __builtin_memcmp(). */
-	return __builtin_memcmp(x, y, len);
+	/* Explicit opt-in for __builtin_memcmp(). We use the bcmp builtin
+	 * here for two reasons: i) we only need to know equal or non-equal
+	 * similar as in __bpf_memcmp(), and ii) if __bpf_memcmp() ends up
+	 * selecting __bpf_memcmp_builtin(), clang generats a memcmp loop.
+	 * That is, (*) -> __bpf_memcmp() -> __bpf_memcmp_builtin() ->
+	 * __builtin_memcmp() -> memcmp() -> (*), meaning it will end up
+	 * selecting our memcmp() from here. Remapping to __builtin_bcmp()
+	 * breaks this loop and resolves both needs at once.
+	 */
+	return __builtin_bcmp(x, y, len);
 }
 
 static __always_inline __u64 __bpf_memcmp(const void *x, const void *y,
