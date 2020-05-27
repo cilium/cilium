@@ -25,6 +25,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	cilium_v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/constants"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -190,7 +191,7 @@ func Init(conf k8sconfig.Configuration) error {
 func GetNodeSpec(nodeName string) error {
 	if nodeName == "" {
 		if option.Config.K8sRequireIPv4PodCIDR || option.Config.K8sRequireIPv6PodCIDR {
-			return fmt.Errorf("node name must be specified via environment variable '%s' to retrieve Kubernetes PodCIDR range", EnvNodeNameSpec)
+			return fmt.Errorf("node name must be specified via environment variable '%s' to retrieve Kubernetes PodCIDR range", k8sConst.EnvNodeNameSpec)
 		}
 		return nil
 	}

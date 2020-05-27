@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/constants"
 	"github.com/cilium/cilium/pkg/k8s/identitybackend"
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
@@ -200,7 +201,7 @@ func initK8s(ctx context.Context) (crdBackend allocator.Backend, crdAllocator *a
 		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 	}
 
-	if err := k8s.GetNodeSpec(os.Getenv(k8s.EnvNodeNameSpec)); err != nil {
+	if err := k8s.GetNodeSpec(os.Getenv(k8sConst.EnvNodeNameSpec)); err != nil {
 		log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 	}
 

@@ -47,6 +47,7 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/constants"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
@@ -414,7 +415,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 			d.nodeDiscovery.UpdateCiliumNodeResource()
 		}
 
-		if err := k8s.GetNodeSpec(os.Getenv(k8s.EnvNodeNameSpec)); err != nil {
+		if err := k8s.GetNodeSpec(os.Getenv(k8sConst.EnvNodeNameSpec)); err != nil {
 			log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 		}
 
