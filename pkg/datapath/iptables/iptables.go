@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"regexp"
 	"strings"
+	"time"
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -61,8 +62,7 @@ var (
 )
 
 const (
-	waitString       = "-w"
-	waitSecondsValue = "5"
+	waitString = "-w"
 )
 
 type customChain struct {
@@ -417,7 +417,7 @@ func (m *IptablesManager) Init() {
 	if err == nil {
 		switch {
 		case isWaitSecondsMinVersion(v):
-			m.waitArgs = []string{waitString, waitSecondsValue}
+			m.waitArgs = []string{waitString, fmt.Sprintf("%d", option.Config.IPTablesLockTimeout/time.Second)}
 		case isWaitMinVersion(v):
 			m.waitArgs = []string{waitString}
 		}
