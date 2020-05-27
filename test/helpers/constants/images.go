@@ -37,7 +37,7 @@ const (
 	BusyboxImage = "docker.io/library/busybox:1.28.0"
 
 	// AlpineCurlImage is the image used for invoking curl with a small base image.
-	AlpineCurlImage = "docker.io/byrnedo/alpine-curl:0.1.7"
+	AlpineCurlImage = "docker.io/byrnedo/alpine-curl:0.1.8"
 
 	// MemcachedImage is the image used to test memcached in the runtime tests.
 	MemcacheDImage = "docker.io/library/memcached:1.5.11"
