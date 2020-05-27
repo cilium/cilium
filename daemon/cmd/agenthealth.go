@@ -20,7 +20,6 @@ import (
 	"fmt"
 	"net"
 	"net/http"
-	"syscall"
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/option"
@@ -28,26 +27,6 @@ import (
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
-
-func setsockoptReuseAddrAndPort(network, address string, c syscall.RawConn) error {
-	var soerr error
-	if err := c.Control(func(su uintptr) {
-		s := int(su)
-		// Allow reuse of recently-used addresses. This socket option is
-		// set by default on listeners in Go's net package, see
-		// net setDefaultListenerSockopts
-		soerr = unix.SetsockoptInt(s, unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
-		if soerr != nil {
-			return
-		}
-		// Allow reuse of recently-used ports. This gives the agent a
-		// better change to re-bind upon restarts.
-		soerr = unix.SetsockoptInt(s, unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
-	}); err != nil {
-		return err
-	}
-	return soerr
-}
 
 // startAgentHealthHTTPService registers a handler function for the /healthz status HTTP endpoint
 // exposed on localhost (127.0.0.1 and/or ::1, depending on IPv4/IPv6 options). This
@@ -71,12 +50,12 @@ func (d *Daemon) startAgentHealthHTTPService() {
 			}
 			return false
 		}
-
 		statusCode := http.StatusOK
 		sr := d.getStatus(true)
 		if isUnhealthy(&sr) {
 			statusCode = http.StatusServiceUnavailable
 		}
+
 		w.WriteHeader(statusCode)
 	}))
 

@@ -1098,6 +1098,16 @@ a fixed cookie value as a trade-off. This makes all applications on the host to
 select the same service endpoint for a given service with session affinity configured.
 To disable the feature, set ``config.sessionAffinity=false``.
 
+kube-proxy replacement health check server
+******************************************
+To enable health check server for the kube-proxy replacement, the
+``kubeProxyReplacementHealthzBindAddr`` option has to be set (disabled by
+default). The option accepts the IP address with port for the health check server
+to serve on.
+E.g. to enable for IPv4 interfaces set ``kubeProxyReplacementHealthzBindAddr='0.0.0.0:10256'``,
+for IPv6 - ``kubeProxyReplacementHealthzBindAddr='[::]:10256'``. The health check server is
+accessible via the HTTP ``/healthz`` endpoint.
+
 LoadBalancer Source Ranges Checks
 *********************************
 

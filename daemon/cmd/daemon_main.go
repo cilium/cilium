@@ -524,6 +524,9 @@ func init() {
 		option.KubeProxyReplacementStrict, option.KubeProxyReplacementDisabled))
 	option.BindEnv(option.KubeProxyReplacement)
 
+	flags.String(option.KubeProxyReplacementHealthzBindAddr, defaults.KubeProxyReplacementHealthzBindAddr, "The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.")
+	option.BindEnv(option.KubeProxyReplacementHealthzBindAddr)
+
 	flags.Bool(option.EnableHostPort, true, fmt.Sprintf("Enable k8s hostPort mapping feature (requires enabling %s)", option.EnableNodePort))
 	option.BindEnv(option.EnableHostPort)
 
@@ -1435,6 +1438,11 @@ func runDaemon() {
 	metricsErrs := initMetrics()
 
 	d.startAgentHealthHTTPService()
+	if option.Config.KubeProxyReplacementHealthzBindAddr != "" {
+		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
+			d.startKubeProxyHealthzHTTPService(fmt.Sprintf("%s", option.Config.KubeProxyReplacementHealthzBindAddr))
+		}
+	}
 
 	bootstrapStats.initAPI.Start()
 	srv := server.NewServer(d.instantiateAPI())
