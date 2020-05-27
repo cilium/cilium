@@ -5,7 +5,7 @@
 /initContainers:/ {
 	indent = $0 ; sub(/[^ ].*/, "", indent)
 	print indent "- name: sleep"
-	print indent "  image: busybox:1.28.4"
+	print indent "  image: busybox:1.31.1"
 	print indent "  imagePullPolicy: IfNotPresent"
 	print indent "  command: ['sh', '-c', 'max=120; i=0; until nslookup kube-dns.kube-system.svc.cluster.local; do i=$((i + 1)); if [ $i -eq $max ]; then echo timed-out; exit 1; else sleep 1; fi done ']"
 }

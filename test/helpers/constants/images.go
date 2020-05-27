@@ -34,7 +34,7 @@ const (
 	ZookeeperImage = "docker.io/digitalwonderland/zookeeper:latest"
 
 	// BuxyboxImage is a space efficient-image used for basic testing.
-	BusyboxImage = "docker.io/library/busybox:1.28.0"
+	BusyboxImage = "docker.io/library/busybox:1.31.1"
 
 	// AlpineCurlImage is the image used for invoking curl with a small base image.
 	AlpineCurlImage = "docker.io/byrnedo/alpine-curl:0.1.8"

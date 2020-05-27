@@ -38,7 +38,7 @@ spec:
       serviceAccount: elasticsearch
       initContainers:
       - name: init-sysctl
-        image: docker.io/library/busybox
+        image: docker.io/library/busybox:1.31.1
         imagePullPolicy: IfNotPresent
         command: ["sysctl", "-w", "vm.max_map_count=262144"]
         securityContext:
