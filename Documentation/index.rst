@@ -4,7 +4,7 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-Welcome to Cilium's documentation!
+Welcome to Cilium's Documentation!
 ==================================
 
 The documentation is divided into the following sections:
