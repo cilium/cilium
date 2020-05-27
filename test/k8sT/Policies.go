@@ -1104,6 +1104,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			// avoid incomplete teardown if any step fails.
 			_ = kubectl.Delete(demoYAML)
 			ExpectAllPodsTerminated(kubectl)
+			kubectl.DeleteHubbleClientPods(helpers.CiliumNamespace)
 		})
 
 		AfterEach(func() {
