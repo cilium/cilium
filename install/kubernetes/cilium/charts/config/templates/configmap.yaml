@@ -338,6 +338,10 @@ data:
   native-routing-cidr: {{ .Values.global.nativeRoutingCIDR }}
 {{- end }}
 
+{{- if .Values.global.hostFirewall }}
+  enable-host-firewall: {{ .Values.global.hostFirewall | quote }}
+{{- end}}
+
 {{- if .Values.global.kubeProxyReplacement }}
   kube-proxy-replacement:  {{ .Values.global.kubeProxyReplacement | quote }}
 {{- end}}
