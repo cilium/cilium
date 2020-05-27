@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
+	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/sirupsen/logrus"
 )
 
@@ -162,16 +163,38 @@ func (ipc *IPCache) GetK8sMetadata(ip string) *K8sMetadata {
 	return nil
 }
 
-func (ipc *IPCache) updateNamedPorts() (namedPortsChanged bool) {
+func (ipc *IPCache) updateNamedPorts(newIP string, newNamedPorts policy.NamedPortsMap) (namedPortsChanged bool) {
 	// Collect new named Ports
 	npm := make(policy.NamedPortsMap, len(ipc.namedPorts))
-	for _, km := range ipc.ipToK8sMetadata {
+	for ip, km := range ipc.ipToK8sMetadata {
 		for name, value := range km.NamedPorts {
-			if oldValue, done := npm[name]; done {
-				// Do not process duplicate values
-				if oldValue != value {
-					log.Warning("Confilicting named port definition")
+			if ip != newIP {
+				// Check if there is a conflict between any old named port from other IPs
+				// with any of the newly added (or changed) values
+				if newValue, exists := newNamedPorts[name]; exists && newValue != value {
+					scopedLog := log.WithFields(logrus.Fields{
+						logfields.IPAddr:   newIP,
+						logfields.Identity: ipc.ipToIdentityCache[newIP],
+					})
+					newMeta := ipc.ipToK8sMetadata[newIP]
+					scopedLog = scopedLog.WithFields(logrus.Fields{
+						logfields.K8sPodName:   newMeta.PodName,
+						logfields.K8sNamespace: newMeta.Namespace,
+						logfields.NamedPorts:   newMeta.NamedPorts,
+					})
+					oldMeta := ipc.ipToK8sMetadata[ip]
+					scopedLog = scopedLog.WithFields(logrus.Fields{
+						"other-" + logfields.K8sPodName:   oldMeta.PodName,
+						"other-" + logfields.K8sNamespace: oldMeta.Namespace,
+						"other-" + logfields.NamedPorts:   oldMeta.NamedPorts,
+					})
+					scopedLog.Warningf("Conflicting named port definition: %s: %d/%s != %d/%s", name,
+						newValue.Port, u8proto.U8proto(newValue.Proto).String(),
+						value.Port, u8proto.U8proto(value.Proto).String())
 				}
+			}
+			if _, done := npm[name]; done {
+				// Do not process duplicate values
 				continue
 			}
 			if oldValue, ok := ipc.namedPorts[name]; !ok || oldValue != value {
@@ -343,7 +366,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 		if namedPortsChanged {
 			// It is possible that some other POD defines same values, check if
 			// anything changes over all the PODs.
-			namedPortsChanged = ipc.updateNamedPorts()
+			namedPortsChanged = ipc.updateNamedPorts(ip, newNamedPorts)
 		}
 	}
 
@@ -446,7 +469,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	// Update named ports
 	namedPortsChanged = false
 	if oldK8sMeta != nil && len(oldK8sMeta.NamedPorts) > 0 {
-		namedPortsChanged = ipc.updateNamedPorts()
+		namedPortsChanged = ipc.updateNamedPorts(ip, nil)
 	}
 
 	if callbackListeners {
