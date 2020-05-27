@@ -117,6 +117,11 @@ static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 # endif
 }
 
+static __always_inline bool nodeport_lb_hairpin(void)
+{
+	return is_defined(ENABLE_NODEPORT_ACCELERATION);
+}
+
 static __always_inline void
 bpf_mark_snat_done(struct __ctx_buff *ctx __maybe_unused)
 {
@@ -311,10 +316,14 @@ static __always_inline int xlate_dsr_v6(struct __ctx_buff *ctx,
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_NODEPORT_DSR)
 int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 {
+	struct bpf_fib_lookup fib_params = {
+		.family		= AF_INET6,
+		.ifindex	= DIRECT_ROUTING_DEV_IFINDEX,
+	};
+	union macaddr *dmac = NULL;
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr addr = {};
-	struct bpf_fib_lookup fib_params = {};
 	__be32 dport;
 	int ret;
 
@@ -330,24 +339,34 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	ret = set_dsr_ext6(ctx, ip6, &addr, dport);
 	if (ret)
 		return ret;
-
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
-	fib_params.family = AF_INET6;
-	fib_params.ifindex = DIRECT_ROUTING_DEV_IFINDEX;
-	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src, (union v6addr *) &ip6->saddr);
-	ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst, (union v6addr *) &ip6->daddr);
+	if (nodeport_lb_hairpin())
+		dmac = map_lookup_elem(&NODEPORT_NEIGH6, &ip6->daddr);
+	if (dmac) {
+		union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(fib_params.ifindex);
 
-	ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
-			 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-	if (ret != 0)
-		return DROP_NO_FIB;
+		if (eth_store_daddr(ctx, dmac->addr, 0) < 0)
+			return DROP_WRITE_ERROR;
+		if (eth_store_saddr(ctx, mac.addr, 0) < 0)
+			return DROP_WRITE_ERROR;
+	} else {
+		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_src,
+			       (union v6addr *) &ip6->saddr);
+		ipv6_addr_copy((union v6addr *) &fib_params.ipv6_dst,
+			       (union v6addr *) &ip6->daddr);
 
-	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-		return DROP_WRITE_ERROR;
-	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-		return DROP_WRITE_ERROR;
+		ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
+				 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+		if (ret != 0)
+			return DROP_NO_FIB;
+
+		if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
+			return DROP_WRITE_ERROR;
+		if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
+			return DROP_WRITE_ERROR;
+	}
 
 	return ctx_redirect(ctx, fib_params.ifindex, 0);
 }
@@ -946,9 +965,13 @@ static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_NODEPORT_DSR)
 int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 {
+	struct bpf_fib_lookup fib_params = {
+		.family		= AF_INET,
+		.ifindex	= DIRECT_ROUTING_DEV_IFINDEX,
+	};
+	union macaddr *dmac = NULL;
 	void *data, *data_end;
 	struct iphdr *ip4;
-	struct bpf_fib_lookup fib_params = {};
 	__be32 address;
 	__be16 dport;
 	int ret;
@@ -962,24 +985,32 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	ret = set_dsr_opt4(ctx, ip4, address, dport);
 	if (ret != 0)
 		return DROP_INVALID;
-
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
-	fib_params.family = AF_INET;
-	fib_params.ifindex = DIRECT_ROUTING_DEV_IFINDEX;
-	fib_params.ipv4_src = ip4->saddr;
-	fib_params.ipv4_dst = ip4->daddr;
+	if (nodeport_lb_hairpin())
+		dmac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->daddr);
+	if (dmac) {
+		union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(fib_params.ifindex);
 
-	ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
-			 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
-	if (ret != 0)
-		return DROP_NO_FIB;
+		if (eth_store_daddr(ctx, dmac->addr, 0) < 0)
+			return DROP_WRITE_ERROR;
+		if (eth_store_saddr(ctx, mac.addr, 0) < 0)
+			return DROP_WRITE_ERROR;
+	} else {
+		fib_params.ipv4_src = ip4->saddr;
+		fib_params.ipv4_dst = ip4->daddr;
 
-	if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
-		return DROP_WRITE_ERROR;
-	if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
-		return DROP_WRITE_ERROR;
+		ret = fib_lookup(ctx, &fib_params, sizeof(fib_params),
+				 BPF_FIB_LOOKUP_DIRECT | BPF_FIB_LOOKUP_OUTPUT);
+		if (ret != 0)
+			return DROP_NO_FIB;
+
+		if (eth_store_daddr(ctx, fib_params.dmac, 0) < 0)
+			return DROP_WRITE_ERROR;
+		if (eth_store_saddr(ctx, fib_params.smac, 0) < 0)
+			return DROP_WRITE_ERROR;
+	}
 
 	return ctx_redirect(ctx, fib_params.ifindex, 0);
 }
