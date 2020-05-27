@@ -69,7 +69,7 @@ Dockerfile* @cilium/build
 *.Jenkinsfile @cilium/ci
 /hubble-relay/ @cilium/hubble
 /hubble-relay.Dockerfile @cilium/hubble
-/install/kubernetes/ @cilium/kubernetes @cilium/docs
+/install/kubernetes/ @cilium/kubernetes @cilium/docs @cilium/helm
 jenkinsfiles @cilium/ci
 Jenkinsfile.nightly @cilium/ci
 /operator/ @cilium/operator
