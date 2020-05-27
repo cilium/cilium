@@ -1965,11 +1965,24 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 // WaitCleanAllTerminatingPods waits until all nodes that are in `Terminating`
 // state are deleted correctly in the platform. In case of excedding the
 // given timeout (in seconds) it returns an error
+
 func (kub *Kubectl) WaitCleanAllTerminatingPods(timeout time.Duration) error {
+	return kub.WaitCleanAllTerminatingPodsInNs("", timeout)
+}
+
+// WaitCleanAllTerminatingPodsInNs waits until all nodes that are in `Terminating`
+// state are deleted correctly in the platform. In case of excedding the
+// given timeout (in seconds) it returns an error
+func (kub *Kubectl) WaitCleanAllTerminatingPodsInNs(ns string, timeout time.Duration) error {
 	body := func() bool {
+		if ns == "" {
+			ns = "--all-namespaces"
+		} else {
+			ns = "-n " + ns
+		}
 		res := kub.ExecShort(fmt.Sprintf(
-			"%s get pods --all-namespaces -o jsonpath='{.items[*].metadata.deletionTimestamp}'",
-			KubectlCmd))
+			"%s get pods %s -o jsonpath='{.items[*].metadata.deletionTimestamp}'",
+			KubectlCmd, ns))
 		if !res.WasSuccessful() {
 			return false
 		}
