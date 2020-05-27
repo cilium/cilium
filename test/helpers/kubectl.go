@@ -2139,6 +2139,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		devices := privateIface
 
 		opts := map[string]string{
+			"global.hostFirewall":         "true",
 			"global.kubeProxyReplacement": "strict",
 			"global.k8sServiceHost":       nodeIP,
 			"global.k8sServicePort":       "6443",
