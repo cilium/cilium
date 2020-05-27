@@ -1,4 +1,5 @@
 // Copyright 2019 Authors of Hubble
+// Copyright 2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -193,7 +194,7 @@ func (p *Parser) resolveNames(epID uint32, ip net.IP) (names []string) {
 	return nil
 }
 
-func filterCidrLabels(log logrus.FieldLogger, labels []string) []string {
+func filterCIDRLabels(log logrus.FieldLogger, labels []string) []string {
 	// Cilium might return a bunch of cidr labels with different prefix length. Filter out all
 	// but the longest prefix cidr label, which can be useful for troubleshooting. This also
 	// relies on the fact that when a Cilium security identity has multiple CIDR labels, longer
@@ -204,7 +205,11 @@ func filterCidrLabels(log logrus.FieldLogger, labels []string) []string {
 	var maxStr string
 	for _, label := range labels {
 		if strings.HasPrefix(label, cidrPrefix) {
-			currLabel := label[len(cidrPrefix):]
+			currLabel := strings.TrimPrefix(label, cidrPrefix)
+			// labels for IPv6 addresses are represented with - instead of : as
+			// : cannot be used in labels; make sure to convert it to a valid
+			// IPv6 representation
+			currLabel = strings.Replace(currLabel, "-", ":", -1)
 			_, curr, err := net.ParseCIDR(currLabel)
 			if err != nil {
 				log.WithField("label", label).Warn("got an invalid cidr label")
@@ -232,7 +237,7 @@ func filterCidrLabels(log logrus.FieldLogger, labels []string) []string {
 
 func sortAndFilterLabels(log logrus.FieldLogger, labels []string, securityIdentity uint32) []string {
 	if securityIdentity&uint32(identity.LocalIdentityFlag) != 0 {
-		labels = filterCidrLabels(log, labels)
+		labels = filterCIDRLabels(log, labels)
 	}
 	sort.Strings(labels)
 	return labels
