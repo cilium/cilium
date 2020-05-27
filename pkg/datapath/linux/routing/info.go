@@ -56,7 +56,7 @@ func parse(gateway string, cidrs []string, macAddr string) (*RoutingInfo, error)
 		return nil, fmt.Errorf("invalid ip: %s", gateway)
 	}
 
-	if cidrs == nil || len(cidrs) == 0 {
+	if len(cidrs) == 0 {
 		return nil, errors.New("empty cidrs")
 	}
 

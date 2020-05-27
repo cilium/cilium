@@ -36,12 +36,12 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 	}
 	// Coalesce CIDRs into minimum set needed for route rules
 	ipv4CIDRs, _ := ip.CoalesceCIDRs(allCIDRs)
-	cidrs := make([]net.IPNet, 0, len(ipv4CIDRs))
+	cidrs := make([]string, 0, len(ipv4CIDRs))
 	for _, cidr := range ipv4CIDRs {
-		cidrs = append(cidrs, *cidr)
+		cidrs = append(cidrs, cidr.String())
 	}
 
-	routingInfo, err := linuxrouting.NewRoutingInfo(ipam.Gateway, ipam.Cidrs, ipam.MasterMac)
+	routingInfo, err := linuxrouting.NewRoutingInfo(ipam.Gateway, cidrs, ipam.MasterMac)
 	if err != nil {
 		return fmt.Errorf("unable to parse routing info: %v", err)
 	}
