@@ -1,4 +1,5 @@
 // Copyright 2019 Authors of Hubble
+// Copyright 2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +23,6 @@ import (
 	"fmt"
 	"io/ioutil"
 	"net"
-	"reflect"
 	"testing"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -601,7 +601,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, uint32(localEP), f.GetDestination().GetID())
 }
 
-func Test_filterCidrLabels(t *testing.T) {
+func Test_filterCIDRLabels(t *testing.T) {
 	type args struct {
 		labels []string
 	}
@@ -613,25 +613,54 @@ func Test_filterCidrLabels(t *testing.T) {
 		{
 			name: "mixed",
 			args: args{
-				labels: []string{"b", "cidr:1.1.1.1/23", "a", "d", "cidr:1.1.1.1/24"},
+				labels: []string{
+					"b",
+					"cidr:1.1.1.1/23",
+					"a",
+					"d",
+					"cidr:1.1.1.1/24",
+				},
 			},
 			want: []string{"b", "a", "d", "cidr:1.1.1.1/24"},
-		},
-		{
+		}, {
+			name: "mixed, IPv6",
+			args: args{
+				labels: []string{
+					"b",
+					"cidr:2a00-1450-400a-800--0/85", // - is used instead of : in the address because labels cannot contain :
+					"a",
+					"d",
+					"cidr:2a00-1450-400a-800--0/107",
+				},
+			},
+			want: []string{"b", "a", "d", "cidr:2a00-1450-400a-800--0/107"},
+		}, {
 			name: "no-cidr",
 			args: args{
 				labels: []string{"b", "c", "a"},
 			},
 			want: []string{"b", "c", "a"},
-		},
-		{
+		}, {
 			name: "cidr-only",
 			args: args{
-				labels: []string{"cidr:1.1.1.1/0", "cidr:1.1.1.1/32", "cidr:1.1.1.1/16"},
+				labels: []string{
+					"cidr:1.1.1.1/0",
+					"cidr:1.1.1.1/32",
+					"cidr:1.1.1.1/16",
+				},
 			},
 			want: []string{"cidr:1.1.1.1/32"},
-		},
-		{
+		}, {
+			name: "cidr-only, IPv6",
+			args: args{
+				labels: []string{
+					"cidr:2a00-1450-400a-800--0/85", // - is used instead of : in the address because labels cannot contain :
+					"cidr:2a00-1450-400a-800--0/95",
+					"cidr:2a00-1450-400a-800--0/107",
+				},
+			},
+			want: []string{"cidr:2a00-1450-400a-800--0/107"},
+		}, {
 			name: "empty",
 			args: args{
 				labels: []string{},
@@ -641,9 +670,8 @@ func Test_filterCidrLabels(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := filterCidrLabels(log, tt.args.labels); !reflect.DeepEqual(got, tt.want) {
-				t.Errorf("filterCidrLabels() = %v, want %v", got, tt.want)
-			}
+			got := filterCIDRLabels(log, tt.args.labels)
+			assert.Equal(t, tt.want, got)
 		})
 	}
 }
