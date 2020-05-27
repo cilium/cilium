@@ -183,19 +183,19 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 			return endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, uint16(epID1), endpoint.StateReady), nil
 		},
 		// LookupSecIDByIP
-		func(ip net.IP) (ipcache.Identity, bool, error) {
+		func(ip net.IP) (ipcache.Identity, bool) {
 			DNSServerListenerAddr := (s.dnsServer.Listener.Addr()).(*net.TCPAddr)
 			switch {
 			case ip.String() == DNSServerListenerAddr.IP.String():
 				ident := ipcache.Identity{
 					ID:     dstID1,
 					Source: source.Unspec}
-				return ident, true, nil
+				return ident, true
 			default:
 				ident := ipcache.Identity{
 					ID:     dstID2,
 					Source: source.Unspec}
-				return ident, true, nil
+				return ident, true
 			}
 		},
 		// NotifyOnDNSMsg

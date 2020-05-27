@@ -201,7 +201,7 @@ type LookupEndpointIDByIPFunc func(ip net.IP) (endpoint *endpoint.Endpoint, err 
 // LookupSecIDByIPFunc Func wraps logic to lookup an IP's security ID from the
 // ipcache.
 // See DNSProxy.LookupSecIDByIP for usage.
-type LookupSecIDByIPFunc func(ip net.IP) (secID ipcache.Identity, exists bool, err error)
+type LookupSecIDByIPFunc func(ip net.IP) (secID ipcache.Identity, exists bool)
 
 // NotifyOnDNSMsgFunc handles propagating DNS response data
 // See DNSProxy.LookupEndpointIDByIP for usage.
@@ -396,10 +396,10 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		return
 	}
 
-	serverSecID, exists, err := p.LookupSecIDByIP(targetServerIP)
-	if !exists || err != nil {
-		scopedLog.WithError(err).WithField("server", targetServerAddr).Debug("cannot find server ip in ipcache")
-		stat.Err = fmt.Errorf("Cannot find server ip in ipcache: %s", err)
+	serverSecID, exists := p.LookupSecIDByIP(targetServerIP)
+	if !exists {
+		scopedLog.WithField("server", targetServerAddr).Debug("cannot find server ip in ipcache")
+		stat.Err = fmt.Errorf("cannot find security identity for server ip=%s", targetServerIP)
 		stat.ProcessingTime.End(false)
 		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, stat)
 		p.sendRefused(scopedLog, w, request)
