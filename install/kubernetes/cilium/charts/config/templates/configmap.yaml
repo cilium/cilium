@@ -216,6 +216,7 @@ data:
 {{- end }}
 
 {{- if .Values.global.gke.enabled }}
+
   ipam: "kubernetes"
   tunnel: "disabled"
   enable-endpoint-routes: "true"
@@ -224,14 +225,12 @@ data:
 {{- end }}
 
 {{- if .Values.global.eni }}
-  ipam: "eni"
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
   blacklist-conflicting-routes: "false"
 {{- end }}
 
 {{- if .Values.global.azure.enabled }}
-  ipam: "azure"
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
   blacklist-conflicting-routes: "false"
@@ -391,11 +390,11 @@ data:
 {{- if and .Values.global.k8s .Values.global.k8s.requireIPv4PodCIDR }}
   k8s-require-ipv4-pod-cidr: {{ .Values.global.k8s.requireIPv4PodCIDR | quote }}
 {{- else }}
-{{- if eq .Values.global.ipam.mode "cluster-pool" }}
+{{- if eq .Values.ipam "cluster-pool" }}
   k8s-require-ipv4-pod-cidr: {{ .Values.global.ipv4.enabled | quote}}
 {{- end }}
 {{- end }}
-{{- if eq .Values.global.ipam.mode "cluster-pool" }}
+{{- if eq .Values.ipam "cluster-pool" }}
   k8s-require-ipv6-pod-cidr: {{ .Values.global.ipv6.enabled | quote}}
 {{- end }}
 {{- if and .Values.global.endpointRoutes .Values.global.endpointRoutes.enabled }}
@@ -466,9 +465,8 @@ data:
 
   # A space separated list of iptables chains to disable when installing feeder rules.
   disable-iptables-feeder-rules: {{ .Values.global.disableIptablesFeederRules | join " " | quote }}
-{{ if and .Values.global.ipam (not (or .Values.global.gke.enabled ( or .Values.global.eni .Values.global.azure.enabled ))) }}
-  ipam: {{ .Values.global.ipam.mode | quote }}
-{{- if eq .Values.global.ipam.mode "cluster-pool" }}
+  ipam: {{ default "cluster-pool" .Values.ipam | quote }}
+{{- if eq .Values.ipam "cluster-pool" }}
 {{- if .Values.global.ipv4.enabled }}
   cluster-pool-ipv4-cidr: {{ .Values.global.ipam.operator.clusterPoolIPv4PodCIDR | quote }}
   cluster-pool-ipv4-mask-size: {{ .Values.global.ipam.operator.clusterPoolIPv4MaskSize | quote  }}
@@ -476,7 +474,6 @@ data:
 {{- if .Values.global.ipv6.enabled }}
   cluster-pool-ipv6-cidr: {{ .Values.global.ipam.operator.clusterPoolIPv6PodCIDR | quote }}
   cluster-pool-ipv6-mask-size: {{ .Values.global.ipam.operator.clusterPoolIPv6MaskSize | quote }}
-{{- end }}
 {{- end }}
 {{- end }}
 

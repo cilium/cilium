@@ -495,7 +495,6 @@ global:
     kubeCacheMutationDetector: false
 
   ipam:
-    mode: "cluster-pool"
     operator:
       clusterPoolIPv4PodCIDR: "10.0.0.0/8"
       clusterPoolIPv4MaskSize: 24

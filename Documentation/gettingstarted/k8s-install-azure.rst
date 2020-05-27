@@ -89,6 +89,7 @@ Deploy Cilium release via Helm:
      --set global.azure.clientID=$AZURE_CLIENT_ID \\
      --set global.azure.clientSecret=$AZURE_CLIENT_SECRET \\
      --set global.tunnel=disabled \\
+     --set config.ipam=azure \\
      --set global.masquerade=false \\
      --set global.nodeinit.enabled=true
 

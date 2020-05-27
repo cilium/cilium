@@ -180,7 +180,6 @@ data:
 
   # A space separated list of iptables chains to disable when installing feeder rules.
   disable-iptables-feeder-rules: ""
-
   ipam: "cluster-pool"
   cluster-pool-ipv4-cidr: "10.0.0.0/8"
   cluster-pool-ipv4-mask-size: "24"

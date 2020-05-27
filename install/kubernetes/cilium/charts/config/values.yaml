@@ -1,0 +1,9 @@
+# ipam is the IPAM mode to use.
+#
+# Possible values:
+# - cluster-pool
+# - kubernetes
+# - eni
+# - azure
+# - crd
+ipam: "cluster-pool"
