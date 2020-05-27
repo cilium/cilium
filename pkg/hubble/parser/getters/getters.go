@@ -45,10 +45,10 @@ type IdentityGetter interface {
 // IPGetter fetches per-IP metadata
 type IPGetter interface {
 	// GetK8sMetadata returns Kubernetes metadata for the given IP address.
-	GetK8sMetadata(ip string) *ipcache.K8sMetadata
-	// LookupByIP returns the corresponding security identity that endpoint IP
-	// maps to as well as if the corresponding entry exists.
-	LookupByIP(ip string) (ipcache.Identity, bool)
+	GetK8sMetadata(ip net.IP) *ipcache.K8sMetadata
+	// LookupSecIDByIP returns the corresponding security identity that
+	// endpoint IP maps to as well as if the corresponding entry exists.
+	LookupSecIDByIP(ip net.IP) (ipcache.Identity, bool)
 }
 
 // ServiceGetter fetches service metadata.

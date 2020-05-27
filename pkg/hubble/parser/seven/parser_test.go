@@ -123,8 +123,8 @@ func TestDecodeL7HTTPRecord(t *testing.T) {
 		},
 	}
 	IPGetter := &testutils.FakeIPGetter{
-		OnGetK8sMetadata: func(ip string) *ipcache.K8sMetadata {
-			if ip == fakeDestinationEndpoint.IPv4 {
+		OnGetK8sMetadata: func(ip net.IP) *ipcache.K8sMetadata {
+			if ip.String() == fakeDestinationEndpoint.IPv4 {
 				return &ipcache.K8sMetadata{
 					Namespace: "default",
 					PodName:   "pod-1234",

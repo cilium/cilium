@@ -86,8 +86,8 @@ func TestL34Decode(t *testing.T) {
 		},
 	}
 	ipGetter := &testutils.FakeIPGetter{
-		OnGetK8sMetadata: func(ip string) *ipcache.K8sMetadata {
-			if ip == "192.168.33.11" {
+		OnGetK8sMetadata: func(ip net.IP) *ipcache.K8sMetadata {
+			if ip.String() == "192.168.33.11" {
 				return &ipcache.K8sMetadata{
 					Namespace: "remote",
 					PodName:   "pod-192.168.33.11",
@@ -95,9 +95,9 @@ func TestL34Decode(t *testing.T) {
 			}
 			return nil
 		},
-		OnLookupByIP: func(ip string) (ipcache.Identity, bool) {
+		OnLookupSecIDByIP: func(ip net.IP) (ipcache.Identity, bool) {
 			// pretend IP belongs to a pod on a remote node
-			if ip == "192.168.33.11" {
+			if ip.String() == "192.168.33.11" {
 				return ipcache.Identity{
 					ID:     1234,
 					Source: source.Unspec,
