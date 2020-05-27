@@ -301,7 +301,7 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	if err != nil {
 		return err
 	}
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, option.Config.ToFQDNsEnableDNSCompression, d.lookupEPByIP, d.lookupSecIDByIP, d.notifyOnDNSMsg)
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, option.Config.ToFQDNsEnableDNSCompression, d.lookupEPByIP, d.LookupSecIDByIP, d.notifyOnDNSMsg)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
 		err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
@@ -394,22 +394,39 @@ func (d *Daemon) lookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, e
 	return e, nil
 }
 
-func (d *Daemon) lookupSecIDByIP(ip net.IP) (secID ipcache.Identity, exists bool, err error) {
-	ipv6Prefixes, ipv4Prefixes := d.prefixLengths.ToBPFData()
-	prefixes := ipv4Prefixes
-	if ip.To4() == nil {
-		prefixes = ipv6Prefixes
+// LookupSecIDByIP returns the security ID for the given IP. If the security ID
+// cannot be found, ok is false.
+func (d *Daemon) LookupSecIDByIP(ip net.IP) (id ipcache.Identity, ok bool) {
+	if ip == nil {
+		return ipcache.Identity{}, false
 	}
 
+	if id, ok = ipcache.IPIdentityCache.LookupByIP(ip.String()); ok {
+		return id, ok
+	}
+
+	ipv6Prefixes, ipv4Prefixes := d.GetCIDRPrefixLengths()
+	prefixes := ipv4Prefixes
+	bits := net.IPv4len * 8
+	if ip.To4() == nil {
+		prefixes = ipv6Prefixes
+		bits = net.IPv6len * 8
+	}
 	for _, prefixLen := range prefixes {
-		maskedStr := fmt.Sprintf("%s/%d", ip, prefixLen)
-		_, cidr, _ := net.ParseCIDR(maskedStr)
-		secID, exists = ipcache.IPIdentityCache.LookupByPrefix(cidr.String())
-		if exists == true {
-			break
+		if prefixLen == bits {
+			// IP lookup was already done above; skip it here
+			continue
+		}
+		mask := net.CIDRMask(prefixLen, bits)
+		cidr := net.IPNet{
+			IP:   ip.Mask(mask),
+			Mask: mask,
+		}
+		if id, ok = ipcache.IPIdentityCache.LookupByPrefix(cidr.String()); ok {
+			return id, ok
 		}
 	}
-	return secID, exists, nil
+	return id, false
 }
 
 // NotifyOnDNSMsg handles DNS data in the daemon by emitting monitor
