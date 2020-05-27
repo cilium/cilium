@@ -255,10 +255,10 @@ func (p *Parser) resolveEndpoint(ip net.IP, securityIdentity uint32) *pb.Endpoin
 	// for remote endpoints, assemble the information via ip and identity
 	var namespace, podName string
 	if p.ipGetter != nil {
-		if ipIdentity, ok := p.ipGetter.LookupByIP(ip.String()); ok {
+		if ipIdentity, ok := p.ipGetter.LookupSecIDByIP(ip); ok {
 			securityIdentity = uint32(ipIdentity.ID)
 		}
-		if meta := p.ipGetter.GetK8sMetadata(ip.String()); meta != nil {
+		if meta := p.ipGetter.GetK8sMetadata(ip); meta != nil {
 			namespace, podName = meta.Namespace, meta.PodName
 		}
 	}

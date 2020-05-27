@@ -91,7 +91,7 @@ func (d *Daemon) launchHubble() {
 		return
 	}
 
-	payloadParser, err := parser.New(logger, d, d, d, ipcache.IPIdentityCache, d)
+	payloadParser, err := parser.New(logger, d, d, d, d, d)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return
@@ -221,4 +221,49 @@ func (d *Daemon) GetServiceByAddr(ip net.IP, port uint16) (flowpb.Service, bool)
 		Namespace: namespace,
 		Name:      name,
 	}, true
+}
+
+// GetK8sMetadata returns the Kubernetes metadata for the given IP address.
+// It implements hubble parser's IPGetter.GetK8sMetadata.
+func (d *Daemon) GetK8sMetadata(ip net.IP) *ipcache.K8sMetadata {
+	if ip == nil {
+		return nil
+	}
+	return ipcache.IPIdentityCache.GetK8sMetadata(ip.String())
+}
+
+// LookupSecIDByIP returns the security ID for the given IP. If the security ID
+// cannot be found, ok is false.
+// It implements hubble parser's IPGetter.LookupSecIDByIP.
+func (d *Daemon) LookupSecIDByIP(ip net.IP) (id ipcache.Identity, ok bool) {
+	if ip == nil {
+		return ipcache.Identity{}, false
+	}
+
+	if id, ok = ipcache.IPIdentityCache.LookupByIP(ip.String()); ok {
+		return id, ok
+	}
+
+	ipv6Prefixes, ipv4Prefixes := d.GetCIDRPrefixLengths()
+	prefixes := ipv4Prefixes
+	bits := net.IPv4len * 8
+	if ip.To4() == nil {
+		prefixes = ipv6Prefixes
+		bits = net.IPv6len * 8
+	}
+	for _, prefixLen := range prefixes {
+		if prefixLen == bits {
+			// IP lookup was already done above; skip it here
+			continue
+		}
+		mask := net.CIDRMask(prefixLen, bits)
+		cidr := net.IPNet{
+			IP:   ip.Mask(mask),
+			Mask: mask,
+		}
+		if id, ok = ipcache.IPIdentityCache.LookupByPrefix(cidr.String()); ok {
+			return id, ok
+		}
+	}
+	return id, false
 }

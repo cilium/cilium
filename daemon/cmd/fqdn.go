@@ -394,41 +394,6 @@ func (d *Daemon) lookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, e
 	return e, nil
 }
 
-// LookupSecIDByIP returns the security ID for the given IP. If the security ID
-// cannot be found, ok is false.
-func (d *Daemon) LookupSecIDByIP(ip net.IP) (id ipcache.Identity, ok bool) {
-	if ip == nil {
-		return ipcache.Identity{}, false
-	}
-
-	if id, ok = ipcache.IPIdentityCache.LookupByIP(ip.String()); ok {
-		return id, ok
-	}
-
-	ipv6Prefixes, ipv4Prefixes := d.GetCIDRPrefixLengths()
-	prefixes := ipv4Prefixes
-	bits := net.IPv4len * 8
-	if ip.To4() == nil {
-		prefixes = ipv6Prefixes
-		bits = net.IPv6len * 8
-	}
-	for _, prefixLen := range prefixes {
-		if prefixLen == bits {
-			// IP lookup was already done above; skip it here
-			continue
-		}
-		mask := net.CIDRMask(prefixLen, bits)
-		cidr := net.IPNet{
-			IP:   ip.Mask(mask),
-			Mask: mask,
-		}
-		if id, ok = ipcache.IPIdentityCache.LookupByPrefix(cidr.String()); ok {
-			return id, ok
-		}
-	}
-	return id, false
-}
-
 // NotifyOnDNSMsg handles DNS data in the daemon by emitting monitor
 // events, proxy metrics and storing DNS data in the DNS cache. This may
 // result in rule generation.
