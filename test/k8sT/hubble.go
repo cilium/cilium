@@ -121,6 +121,8 @@ var _ = Describe("K8sHubbleTest", func() {
 	})
 
 	AfterAll(func() {
+		kubectl.DeleteHubbleClientPods(hubbleNamespace)
+		kubectl.DeleteHubbleRelay(hubbleNamespace)
 		kubectl.CloseSSHClient()
 	})
 
@@ -152,8 +154,6 @@ var _ = Describe("K8sHubbleTest", func() {
 		AfterAll(func() {
 			kubectl.Delete(demoPath)
 			kubectl.NamespaceDelete(namespaceForTest)
-			kubectl.DeleteHubbleClientPods(hubbleNamespace)
-			kubectl.DeleteHubbleRelay(hubbleNamespace)
 		})
 
 		It("Test L3/L4 Flow", func() {

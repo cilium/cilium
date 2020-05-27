@@ -2256,6 +2256,7 @@ func (kub *Kubectl) DeleteHubbleClientPods(ns string) error {
 func (kub *Kubectl) DeleteHubbleRelay(ns string) error {
 	ginkgoext.By("DeleteHubbleRelay(namespace=%q)", ns)
 	_ = kub.DeleteResource("deployment", fmt.Sprintf("-n %s hubble-relay", ns))
+	_ = kub.DeleteResource("service", fmt.Sprintf("-n %s hubble-relay", ns))
 	return kub.waitToDelete("HubbleRelay", HubbleRelayLabel)
 }
 
