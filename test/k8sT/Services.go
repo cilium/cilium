@@ -1019,7 +1019,7 @@ var _ = Describe("K8sServicesTest", func() {
 					_ = kubectl.Delete(demoPolicy)
 				})
 
-				It("Tests NodePort with L7 Policy", func() {
+				PIt("Tests NodePort with L7 Policy", func() {
 					applyPolicy(demoPolicy)
 					testNodePort(false, false, false)
 				})
