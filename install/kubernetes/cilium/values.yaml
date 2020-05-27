@@ -735,6 +735,12 @@ keepDeprecatedProbes: false
 # kubeProxyReplacement enables kube-proxy replacement in Cilium BPF datapath
 kubeProxyReplacement: "probe"
 
+# kubeProxyReplacement healthz server bind address
+# To enable set the value to '0.0.0.0:10256' for all ipv4
+# addresses and this '[::]:10256' for all ipv6 addresses.
+# By default it is disabled.
+kubeProxyReplacementHealthzBindAddr: ""
+
 kvstore:
   # Managed enables/disables the Cilium etcd-operator
   managed: false

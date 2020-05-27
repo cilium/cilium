@@ -389,4 +389,7 @@ const (
 	// for the support of Leases in Kubernetes when there is an error in discovering
 	// API groups using Discovery API.
 	K8sEnableLeasesFallbackDiscovery = false
+
+	// KubeProxyReplacementHealthzBindAddr is the default kubeproxyReplacement healthz server bind addr
+	KubeProxyReplacementHealthzBindAddr = ""
 )

@@ -1240,6 +1240,9 @@ const (
 	// KubeProxyReplacementDisabled specified to completely disable kube-proxy
 	// replacement
 	KubeProxyReplacementDisabled = "disabled"
+
+	// KubeProxyReplacement healthz server bind address
+	KubeProxyReplacementHealthzBindAddr = "kube-proxy-replacement-healthz-bind-address"
 )
 
 // GetTunnelModes returns the list of all tunnel modes
@@ -1824,6 +1827,9 @@ type DaemonConfig struct {
 
 	// EnableBandwidthManager enables EDT-based pacing
 	EnableBandwidthManager bool
+
+	// KubeProxyReplacementHealthzBindAddr is the KubeProxyReplacement healthz server bind addr
+	KubeProxyReplacementHealthzBindAddr string
 
 	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
 	EnableExternalIPs bool
@@ -2706,6 +2712,8 @@ func (c *DaemonConfig) Populate() {
 			c.K8sRequireIPv6PodCIDR = true
 		}
 	}
+
+	c.KubeProxyReplacementHealthzBindAddr = viper.GetString(KubeProxyReplacementHealthzBindAddr)
 
 	// Hubble options.
 	c.EnableHubble = viper.GetBool(EnableHubble)

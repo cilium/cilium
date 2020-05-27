@@ -437,6 +437,9 @@ data:
 
 {{- if hasKey .Values "kubeProxyReplacement" }}
   kube-proxy-replacement:  {{ .Values.kubeProxyReplacement | quote }}
+{{- if ne .Values.kubeProxyReplacement "disabled" }}
+  kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
+{{- end }}
 {{- end }}
 {{- if hasKey .Values "hostServices" }}
 {{- if .Values.hostServices.enabled }}
