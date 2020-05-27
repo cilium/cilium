@@ -28,7 +28,7 @@ var _ = Describe("K8sConformance", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		connectivityCheckYaml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check.yaml")
+		connectivityCheckYaml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-hostport.yaml")
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 	})
 
