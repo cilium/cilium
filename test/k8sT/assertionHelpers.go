@@ -79,6 +79,13 @@ func ExpectAllPodsTerminated(vm *helpers.Kubectl) {
 	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")
 }
 
+// ExpectAllPodsInNsTerminated is a wrapper around helpers/WaitCleanAllTerminatingPods.
+// It asserts that the error returned by that function is nil.
+func ExpectAllPodsInNsTerminated(vm *helpers.Kubectl, ns string) {
+	err := vm.WaitCleanAllTerminatingPodsInNs(ns, helpers.HelperTimeout)
+	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")
+}
+
 // ExpectCiliumPreFlightInstallReady is a wrapper around helpers/WaitForNPods.
 // It asserts the error returned by that function is nil.
 func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
