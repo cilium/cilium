@@ -703,6 +703,10 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 		// enabled for the endpoint.
 		return true, true, matchingRules
 	case option.DefaultEnforcement:
+		if lbls.Has(labels.IDNameHost) && !option.Config.EnableHostFirewall {
+			return false, false, nil
+		}
+
 		ingress, egress, matchingRules = p.getMatchingRules(securityIdentity)
 		// If the endpoint has the reserved:init label, i.e. if it has not yet
 		// received any labels, always enforce policy (default deny).
