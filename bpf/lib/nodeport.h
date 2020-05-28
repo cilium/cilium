@@ -349,9 +349,9 @@ int tail_nodeport_ipv6_dsr(struct __ctx_buff *ctx)
 	if (dmac) {
 		union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(fib_params.l.ifindex);
 
-		if (eth_store_daddr(ctx, dmac->addr, 0) < 0)
+		if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0)
 			return DROP_WRITE_ERROR;
-		if (eth_store_saddr(ctx, mac.addr, 0) < 0)
+		if (eth_store_saddr_aligned(ctx, mac.addr, 0) < 0)
 			return DROP_WRITE_ERROR;
 	} else {
 		ipv6_addr_copy((union v6addr *) &fib_params.l.ipv6_src,
@@ -463,11 +463,11 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 	if (dmac) {
 		union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(fib_params.l.ifindex);
 
-		if (eth_store_daddr(ctx, dmac->addr, 0) < 0) {
+		if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0) {
 			ret = DROP_WRITE_ERROR;
 			goto drop_err;
 		}
-		if (eth_store_saddr(ctx, mac.addr, 0) < 0) {
+		if (eth_store_saddr_aligned(ctx, mac.addr, 0) < 0) {
 			ret = DROP_WRITE_ERROR;
 			goto drop_err;
 		}
@@ -722,9 +722,9 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 		if (dmac) {
 			union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(*ifindex);
 
-			if (eth_store_daddr(ctx, dmac->addr, 0) < 0)
+			if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
-			if (eth_store_saddr(ctx, mac.addr, 0) < 0)
+			if (eth_store_saddr_aligned(ctx, mac.addr, 0) < 0)
 				return DROP_WRITE_ERROR;
 		} else {
 			fib_params.family = AF_INET6;
@@ -1021,9 +1021,9 @@ int tail_nodeport_ipv4_dsr(struct __ctx_buff *ctx)
 	if (dmac) {
 		union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(fib_params.l.ifindex);
 
-		if (eth_store_daddr(ctx, dmac->addr, 0) < 0)
+		if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0)
 			return DROP_WRITE_ERROR;
-		if (eth_store_saddr(ctx, mac.addr, 0) < 0)
+		if (eth_store_saddr_aligned(ctx, mac.addr, 0) < 0)
 			return DROP_WRITE_ERROR;
 	} else {
 		fib_params.l.ipv4_src = ip4->saddr;
@@ -1130,11 +1130,11 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 	if (dmac) {
 		union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(fib_params.l.ifindex);
 
-		if (eth_store_daddr(ctx, dmac->addr, 0) < 0) {
+		if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0) {
 			ret = DROP_WRITE_ERROR;
 			goto drop_err;
 		}
-		if (eth_store_saddr(ctx, mac.addr, 0) < 0) {
+		if (eth_store_saddr_aligned(ctx, mac.addr, 0) < 0) {
 			ret = DROP_WRITE_ERROR;
 			goto drop_err;
 		}
@@ -1393,9 +1393,9 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 		if (dmac) {
 			union macaddr mac = NATIVE_DEV_MAC_BY_IFINDEX(*ifindex);
 
-			if (eth_store_daddr(ctx, dmac->addr, 0) < 0)
+			if (eth_store_daddr_aligned(ctx, dmac->addr, 0) < 0)
 				return DROP_WRITE_ERROR;
-			if (eth_store_saddr(ctx, mac.addr, 0) < 0)
+			if (eth_store_saddr_aligned(ctx, mac.addr, 0) < 0)
 				return DROP_WRITE_ERROR;
 		} else {
 			fib_params.family = AF_INET;
