@@ -110,10 +110,16 @@ ifeq ($(GO_MAJOR_VERSION_GE_1),1)
     endif
 endif
 
+GO_BUILD = CGO_ENABLED=0 $(GO) build
+GO_BUILD_WITH_CGO = CGO_ENABLED=1 $(GO) build
+
 ifneq ($(RACE),)
     GO_BUILD_FLAGS += -race
     GO_TEST_FLAGS += -race
     GOTEST_COVER_OPTS += -covermode=atomic
+
+    # GO_BUILD becomes GO_BUILD_WITH_CGO as `-race` requires CGO
+    GO_BUILD = $(GO_BUILD_WITH_CGO)
 else
     GOTEST_COVER_OPTS += -covermode=count
 endif
@@ -125,8 +131,9 @@ endif
 
 GO_BUILD_FLAGS += -ldflags '$(GO_BUILD_LDFLAGS) $(EXTRA_GO_BUILD_LDFLAGS)' $(EXTRA_GO_BUILD_FLAGS)
 
-GO_BUILD = CGO_ENABLED=0 $(GO) build $(GO_BUILD_FLAGS)
-GO_BUILD_WITH_CGO = CGO_ENABLED=1 $(GO) build $(GO_BUILD_FLAGS)
+GO_BUILD += $(GO_BUILD_FLAGS)
+GO_BUILD_WITH_CGO += $(GO_BUILD_FLAGS)
+
 GO_TEST = $(GO) test $(GO_TEST_FLAGS)
 GO_CLEAN = $(GO) clean $(GO_TEST_FLAGS)
 # TODO: remove `GO111MODULE=off` once Go 1.13 is deprecated by Go maintainers
