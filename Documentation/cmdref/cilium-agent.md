@@ -35,6 +35,7 @@ cilium-agent [flags]
       --bpf-fragments-map-max int                     Maximum number of entries in fragments tracking map (default 8192)
       --bpf-map-dynamic-size-ratio float              Ratio (0.0-1.0) of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps. Set to 0.0 to disable dynamic BPF map sizing (default: 0.0)
       --bpf-nat-global-max int                        Maximum number of entries for the global BPF NAT table (default 524288)
+      --bpf-neigh-global-max int                      Maximum number of entries for the global BPF neighbor table (default 524288)
       --bpf-policy-map-max int                        Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-root string                               Path to BPF filesystem
       --certificates-directory string                 Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")

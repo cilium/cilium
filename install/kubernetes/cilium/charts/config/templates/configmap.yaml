@@ -165,9 +165,13 @@ data:
   bpf-ct-global-tcp-max: "{{ .Values.global.bpf.ctTcpMax }}"
   bpf-ct-global-any-max: "{{ .Values.global.bpf.ctAnyMax }}"
 
-  # bpf-nat-global-max specified the maximum number of entries in the BPF NAT
-  # table.
+  # bpf-nat-global-max specified the maximum number of entries in the
+  # BPF NAT table.
   bpf-nat-global-max: "{{ .Values.global.bpf.natMax }}"
+
+  # bpf-neigh-global-max specified the maximum number of entries in the
+  # BPF neighbor table.
+  bpf-neigh-global-max: "{{ .Values.global.bpf.neighMax }}"
 
   # bpf-policy-map-max specified the maximum number of entries in endpoint
   # policy map (per endpoint)

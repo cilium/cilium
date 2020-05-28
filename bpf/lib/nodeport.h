@@ -67,7 +67,7 @@ struct bpf_elf_map __section_maps NODEPORT_NEIGH4 = {
 	.size_key	= sizeof(__be32),		// ipv4 addr
 	.size_value	= sizeof(union macaddr),	// hw addr
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= SNAT_MAPPING_IPV4_SIZE,
+	.max_elem	= NODEPORT_NEIGH4_SIZE,
 };
 #endif /* ENABLE_IPV4 */
 
@@ -77,7 +77,7 @@ struct bpf_elf_map __section_maps NODEPORT_NEIGH6 = {
 	.size_key	= sizeof(union v6addr),		// ipv6 addr
 	.size_value	= sizeof(union macaddr),	// hw addr
 	.pinning	= PIN_GLOBAL_NS,
-	.max_elem	= SNAT_MAPPING_IPV6_SIZE,
+	.max_elem	= NODEPORT_NEIGH6_SIZE,
 };
 
 /* The IPv6 extension should be 8-bytes aligned */

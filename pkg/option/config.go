@@ -490,6 +490,9 @@ const (
 	// NATMapEntriesGlobalName configures max entries for BPF NAT table
 	NATMapEntriesGlobalName = "bpf-nat-global-max"
 
+	// NeighMapEntriesGlobalName configures max entries for BPF neighbor table
+	NeighMapEntriesGlobalName = "bpf-neigh-global-max"
+
 	// PolicyMapEntriesName configures max entries for BPF policymap.
 	PolicyMapEntriesName = "bpf-policy-map-max"
 
@@ -789,6 +792,7 @@ var HelpFlagSections = []FlagsSection{
 			CTMapEntriesTimeoutSVCTCPName,
 			CTMapEntriesTimeoutSVCAnyName,
 			NATMapEntriesGlobalName,
+			NeighMapEntriesGlobalName,
 			PolicyMapEntriesName,
 			MapEntriesGlobalDynamicSizeRatioName,
 			PreAllocateMapsName,
@@ -1302,6 +1306,10 @@ type DaemonConfig struct {
 	// NATMapEntriesGlobal is the maximum number of NAT mappings allowed
 	// in the BPF NAT table
 	NATMapEntriesGlobal int
+
+	// NeighMapEntriesGlobal is the maximum number of neighbor mappings
+	// allowed in the BPF neigh table
+	NeighMapEntriesGlobal int
 
 	// PolicyMapEntries is the maximum number of peer identities that an
 	// endpoint may allow traffic to exchange traffic with.
@@ -2566,6 +2574,7 @@ func (c *DaemonConfig) calculateBPFMapSizes() error {
 	c.CTMapEntriesGlobalTCP = viper.GetInt(CTMapEntriesGlobalTCPName)
 	c.CTMapEntriesGlobalAny = viper.GetInt(CTMapEntriesGlobalAnyName)
 	c.NATMapEntriesGlobal = viper.GetInt(NATMapEntriesGlobalName)
+	c.NeighMapEntriesGlobal = viper.GetInt(NeighMapEntriesGlobalName)
 	c.PolicyMapEntries = viper.GetInt(PolicyMapEntriesName)
 
 	// Don't attempt dynamic sizing if any of the sizeof members was not
@@ -2660,6 +2669,15 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 			NATMapEntriesGlobalName, c.NATMapEntriesGlobal, NATMapEntriesGlobalDefault)
 	} else {
 		log.Debugf("option %s set by user to %v", NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
+	}
+	if !viper.IsSet(NeighMapEntriesGlobalName) {
+		// By default we auto-size it to the same value as the NAT map since we
+		// need to keep at least as many neigh entries.
+		c.NeighMapEntriesGlobal = c.NATMapEntriesGlobal
+		log.Debugf("option %s set by dynamic sizing to %v (default %v)",
+			NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal, NATMapEntriesGlobalDefault)
+	} else {
+		log.Debugf("option %s set by user to %v", NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal)
 	}
 	if !viper.IsSet(PolicyMapEntriesName) {
 		c.PolicyMapEntries =
