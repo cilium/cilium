@@ -456,6 +456,10 @@ endif
 	$(QUIET) contrib/scripts/check-missing-tags-in-tests.sh
 	@$(ECHO_CHECK) contrib/scripts/check-assert-deep-equals.sh
 	$(QUIET) contrib/scripts/check-assert-deep-equals.sh
+	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
+	$(QUIET) contrib/scripts/lock-check.sh
+	@$(ECHO_CHECK) contrib/scripts/rand-check.sh
+	$(QUIET) contrib/scripts/rand-check.sh
 
 pprof-help:
 	@echo "Available pprof targets:"
@@ -506,10 +510,6 @@ install-manpages:
 
 postcheck: build
 	$(QUIET)$(MAKE) $(SUBMAKEOPTS) -C Documentation update-cmdref check
-	@$(ECHO_CHECK) contrib/scripts/lock-check.sh
-	$(QUIET) contrib/scripts/lock-check.sh
-	@$(ECHO_CHECK) contrib/scripts/rand-check.sh
-	$(QUIET) contrib/scripts/rand-check.sh
 
 minikube:
 	$(QUIET) contrib/scripts/minikube.sh
