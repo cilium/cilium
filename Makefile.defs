@@ -97,18 +97,18 @@ ifeq ($(GO111MODULE),on)
     GO_BUILD_FLAGS += -mod=vendor
     GO_TEST_FLAGS += -mod=vendor
     GO_CLEAN_FLAGS += -mod=vendor
-endif
-
-# Compile with '-mod=vendor' if go >= 1.13
-GO_MAJOR_VERSION_GE_1 := $(shell expr `$(GO) version | grep -E 'go[0-9]{1}+' -o | sed 's/go//g'` \>= 1)
-ifeq ($(GO_MAJOR_VERSION_GE_1),1)
-    GO_MINOR_VERSION_GE_13 := $(shell expr `$(GO) version | grep -E 'go[^ ]+' -o | sed 's/go1.//g'` \>= 13)
-    ifeq ($(GO_MINOR_VERSION_GE_13),1)
-        GO_BUILD_FLAGS += -mod=vendor
-        GO_TEST_FLAGS += -mod=vendor
-        GO_CLEAN_FLAGS += -mod=vendor
+else
+    GO_MAJOR_VERSION_GE_1 := $(shell expr `$(GO) version | grep -E 'go[0-9]{1}+' -o | sed 's/go//g'` \>= 1)
+    ifeq ($(GO_MAJOR_VERSION_GE_1),1)
+        GO_MINOR_VERSION_GE_13 := $(shell expr `$(GO) version | grep -E 'go[^ ]+' -o | sed 's/go1.//g'` \>= 13)
+        ifeq ($(GO_MINOR_VERSION_GE_13),1)
+            GO_BUILD_FLAGS += -mod=vendor
+            GO_TEST_FLAGS += -mod=vendor
+            GO_CLEAN_FLAGS += -mod=vendor
+        endif
     endif
 endif
+
 
 GO_BUILD = CGO_ENABLED=0 $(GO) build
 GO_BUILD_WITH_CGO = CGO_ENABLED=1 $(GO) build
