@@ -147,6 +147,9 @@ func (m *AckingResourceMutatorWrapper) addVersionCompletion(typeURL string, vers
 
 // DeleteNode frees resources held for the named nodes
 func (m *AckingResourceMutatorWrapper) DeleteNode(nodeID string) {
+	m.locker.Lock()
+	defer m.locker.Unlock()
+
 	delete(m.ackedVersions, nodeID)
 }
 
