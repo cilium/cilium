@@ -146,6 +146,10 @@ type Daemon struct {
 	healthEndpointRouting *linuxrouting.RoutingInfo
 
 	hubbleObserver *observer.LocalObserverServer
+
+	// k8sCachesSynced is closed when all essential Kubernetes caches have
+	// been fully synchronized
+	k8sCachesSynced <-chan struct{}
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -392,6 +396,8 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	treatRemoteNodeAsHost := option.Config.AlwaysAllowLocalhost() && !option.Config.EnableRemoteNodeIdentity
 	policyApi.InitEntities(option.Config.ClusterName, treatRemoteNodeAsHost)
 
+	d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem()
+
 	bootstrapStats.cleanup.Start()
 	err = clearCiliumVeths()
 	bootstrapStats.cleanup.EndError(err)
@@ -400,11 +406,6 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	}
 
 	if k8s.IsEnabled() {
-		bootstrapStats.k8sInit.Start()
-		if err := k8s.Init(option.Config); err != nil {
-			log.WithError(err).Fatal("Unable to initialize Kubernetes subsystem")
-		}
-
 		if err := k8s.RegisterCRDs(); err != nil {
 			log.WithError(err).Fatal("Unable to register CRDs")
 		}
