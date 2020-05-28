@@ -211,7 +211,9 @@ func listRulesAndRoutes(c *C, family int) ([]netlink.Rule, []netlink.Route) {
 func createDummyDevice(c *C, macAddr mac.MAC) func() {
 	dummy := &netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
-			Name:         "linuxrouting-test",
+			// NOTE: This name must be less than 16 chars, source:
+			// https://elixir.bootlin.com/linux/v5.6/source/include/uapi/linux/if.h#L33
+			Name:         "linuxrout-test",
 			HardwareAddr: net.HardwareAddr(macAddr),
 		},
 	}
