@@ -1,10 +1,10 @@
 {{- /*
-Keep file in synced with ../../preflight/templates/clusterrole.yaml
+Keep file in synced with ../../agent/templates/clusterrole.yaml
 */ -}}
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cilium
+  name: cilium-pre-flight
 rules:
 - apiGroups:
   - networking.k8s.io
