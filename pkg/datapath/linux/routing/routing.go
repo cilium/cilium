@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package enirouting
+package linuxrouting
 
 import (
 	"errors"
@@ -30,7 +30,7 @@ import (
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "eni-routing")
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "linux-routing")
 )
 
 // Configure sets up the rules and routes needed when running in ENI mode.

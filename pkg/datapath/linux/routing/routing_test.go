@@ -14,7 +14,7 @@
 
 // +build privileged_tests
 
-package enirouting
+package linuxrouting
 
 import (
 	"net"
@@ -33,11 +33,11 @@ func Test(t *testing.T) {
 	TestingT(t)
 }
 
-type ENIRoutingSuite struct{}
+type LinuxRoutingSuite struct{}
 
-var _ = Suite(&ENIRoutingSuite{})
+var _ = Suite(&LinuxRoutingSuite{})
 
-func (e *ENIRoutingSuite) TestConfigure(c *C) {
+func (e *LinuxRoutingSuite) TestConfigure(c *C) {
 	currentNS, err := netns.Get()
 	c.Assert(err, IsNil)
 	defer func() {
@@ -51,7 +51,7 @@ func (e *ENIRoutingSuite) TestConfigure(c *C) {
 	runFuncInNetNS(c, func() { runConfigureThenDelete(c, ri, ip, 1500, true) }, masterMAC)
 }
 
-func (e *ENIRoutingSuite) TestConfigureRoutewithIncompatibleIP(c *C) {
+func (e *LinuxRoutingSuite) TestConfigureRoutewithIncompatibleIP(c *C) {
 	_, ri := getFakes(c)
 	ipv6 := net.ParseIP("fd00::2").To16()
 	c.Assert(ipv6, NotNil)
@@ -60,7 +60,7 @@ func (e *ENIRoutingSuite) TestConfigureRoutewithIncompatibleIP(c *C) {
 	c.Assert(err, ErrorMatches, "IP not compatible")
 }
 
-func (e *ENIRoutingSuite) TestDeleteRoutewithIncompatibleIP(c *C) {
+func (e *LinuxRoutingSuite) TestDeleteRoutewithIncompatibleIP(c *C) {
 	ipv6 := net.ParseIP("fd00::2").To16()
 	c.Assert(ipv6, NotNil)
 	err := Delete(ipv6)
@@ -68,7 +68,7 @@ func (e *ENIRoutingSuite) TestDeleteRoutewithIncompatibleIP(c *C) {
 	c.Assert(err, ErrorMatches, "IP not compatible")
 }
 
-func (e *ENIRoutingSuite) TestDelete(c *C) {
+func (e *LinuxRoutingSuite) TestDelete(c *C) {
 	fakeIP, fakeRoutingInfo := getFakes(c)
 	masterMAC := fakeRoutingInfo.MasterIfMAC
 
@@ -211,7 +211,7 @@ func listRulesAndRoutes(c *C, family int) ([]netlink.Rule, []netlink.Route) {
 func createDummyDevice(c *C, macAddr mac.MAC) func() {
 	dummy := &netlink.Dummy{
 		LinkAttrs: netlink.LinkAttrs{
-			Name:         "enirouting-test",
+			Name:         "linuxrouting-test",
 			HardwareAddr: net.HardwareAddr(macAddr),
 		},
 	}
