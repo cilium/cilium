@@ -37,17 +37,42 @@ After you don't need to run tests on your branch, please remove the branch from 
 
 .. note::
 
-   It is also possible to run specific tests from this suite via ``test-focus`` and ``test-gke``. It takes trailing words as a regex.
+   It is also possible to run specific tests from this suite via ``test-focus`` and ``test-gke``. It takes trailing words as a regex. If you want to run only one ``It`` block, you need to prepend it with a test suite and create a regex, e.g ``test-focus K8sDatapathConfig.*Check connectivity with automatic direct nodes routes``
 
-   +----------------------------------------------------+------------------------------+
-   | ``test-focus K8s.*``                               | Runs all kubernetes tests    |
-   +----------------------------------------------------+------------------------------+
-   | ``test-focus Runtime.*``                           | Runs all runtime tests       |
-   +----------------------------------------------------+------------------------------+
-   | ``test-focus K8sPolicy.*``                         | Runs all k8s policy tests    |
-   +----------------------------------------------------+------------------------------+
-   | ``test-focus K8sDemosTest Tests Star Wars Demo.*`` | Runs only this specific test |
-   +----------------------------------------------------+------------------------------+
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8s``                    | Runs all kubernetes tests                 |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sConformance``         | Runs all k8s conformance tests            |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sChaos``               | Runs all k8s chaos tests                  |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sDatapathConfig``      | Runs all k8s datapath configuration tests |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sDemos``               | Runs all k8s datapath configuration tests |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sKubeProxyFreeMatrix`` | Runs all k8s kube-proxy free matrix tests |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sFQDNTest``            | Runs all k8s fqdn tests                   |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sHealthTest``          | Runs all k8s health tests                 |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sHubbleTest``          | Runs all k8s Hubble tests                 |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sIdentity``            | Runs all k8s identity tests               |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sIstioTest``           | Runs all k8s Istio tests                  |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sKafkaPolicyTest``     | Runs all k8s Kafka tests                  |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sPolicyTest``          | Runs all k8s policy tests                 |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sServicesTest``        | Runs all k8s services tests               |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sUpdates``             | Runs k8s update tests                     |
+   +---------------------------------------+-------------------------------------------+
+   | ``test-focus Runtime``                | Runs all runtime tests                    |
+   +---------------------------------------+-------------------------------------------+
+
 
 
 Cilium-PR-Ginkgo-Tests-Kernel
@@ -476,5 +501,6 @@ simplify our Jenkinsfiles. The exported methods are:
   that specific Label.
 - **Status(String status, String context)**: set pull request check status on
   the given context, example ``Status("SUCCESS", "$JOB_BASE_NAME")``
+
 
 
