@@ -19,7 +19,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/api/v1/models"
-	enirouting "github.com/cilium/cilium/pkg/aws/eni/routing"
+	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 
 	"github.com/containernetworking/cni/pkg/types/current"
 )
@@ -35,7 +35,7 @@ func eniAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf m
 		cidrs = append(cidrs, *cidr)
 	}
 
-	routingInfo, err := enirouting.NewRoutingInfo(ipam.Gateway, ipam.Cidrs, ipam.MasterMac)
+	routingInfo, err := linuxrouting.NewRoutingInfo(ipam.Gateway, ipam.Cidrs, ipam.MasterMac)
 	if err != nil {
 		return fmt.Errorf("unable to parse routing info: %v", err)
 	}

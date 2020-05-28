@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package enirouting
+package linuxrouting
 
 import (
 	"net"
@@ -30,11 +30,11 @@ func Test(t *testing.T) {
 	check.TestingT(t)
 }
 
-type ENIRoutingSuite struct{}
+type LinuxRoutingSuite struct{}
 
-var _ = check.Suite(&ENIRoutingSuite{})
+var _ = check.Suite(&LinuxRoutingSuite{})
 
-func (e *ENIRoutingSuite) TestParse(c *check.C) {
+func (e *LinuxRoutingSuite) TestParse(c *check.C) {
 	_, fakeCIDR, err := net.ParseCIDR("192.168.0.0/16")
 	c.Assert(err, check.IsNil)
 

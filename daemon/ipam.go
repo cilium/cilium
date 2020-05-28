@@ -23,9 +23,9 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	ipamapi "github.com/cilium/cilium/api/v1/server/restapi/ipam"
 	"github.com/cilium/cilium/pkg/api"
-	enirouting "github.com/cilium/cilium/pkg/aws/eni/routing"
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
+	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -372,7 +372,7 @@ func (d *Daemon) bootstrapIPAM() {
 
 func (d *Daemon) parseHealthEndpointInfo(result *ipam.AllocationResult) error {
 	var err error
-	d.healthEndpointRouting, err = enirouting.NewRoutingInfo(result.GatewayIP,
+	d.healthEndpointRouting, err = linuxrouting.NewRoutingInfo(result.GatewayIP,
 		result.CIDRs,
 		result.Master)
 	return err
