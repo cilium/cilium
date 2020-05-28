@@ -239,9 +239,11 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 		if option.Config.EnableIPv4 {
 			cDefinesMap["NODEPORT_NEIGH4"] = neighborsmap.Map4Name
+			cDefinesMap["NODEPORT_NEIGH4_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 		}
 		if option.Config.EnableIPv6 {
 			cDefinesMap["NODEPORT_NEIGH6"] = neighborsmap.Map6Name
+			cDefinesMap["NODEPORT_NEIGH6_SIZE"] = fmt.Sprintf("%d", option.Config.NeighMapEntriesGlobal)
 		}
 		if option.Config.NodePortMode == option.NodePortModeDSR ||
 			option.Config.NodePortMode == option.NodePortModeHybrid {
