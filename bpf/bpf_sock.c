@@ -287,17 +287,24 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -EPERM;
 
 	if (svc->affinity) {
+		/* Note, for newly created affinity entries there is a
+		 * small race window. Two processes on two different
+		 * CPUs but the same netns may select different backends
+		 * for the same service:port. lb4_update_affinity_by_netns()
+		 * below would then override the first created one if it
+		 * didn't make it into the lookup yet for the other CPU.
+		 */
 		backend_id = lb4_affinity_backend_id_by_netns(svc, &id);
 		backend_from_affinity = true;
 
 		if (backend_id != 0) {
 			backend = __lb4_lookup_backend(backend_id);
 			if (!backend) {
-				/* Backend from the session affinity no longer exists,
-				 * thus select a new one. Also, remove the affinity,
-				 * so that if the svc doesn't have any backend, a
-				 * subsequent request to the svc doesn't hit the
-				 * reselection again.
+				/* Backend from the session affinity no longer
+				 * exists, thus select a new one. Also, remove
+				 * the affinity, so that if the svc doesn't have
+				 * any backend, a subsequent request to the svc
+				 * doesn't hit the reselection again.
 				 */
 				lb4_delete_affinity_by_netns(svc, &id);
 				backend_id = 0;
@@ -362,8 +369,8 @@ static __always_inline int __sock4_bind(struct bpf_sock *ctx,
 
 	svc = lb4_lookup_service(&key);
 	if (!svc) {
-		/* Perform a wildcard lookup for the case where the caller tries
-		 * to bind to loopback or an address with host identity
+		/* Perform a wildcard lookup for the case where the caller
+		 * tries to bind to loopback or an address with host identity
 		 * (without remote hosts).
 		 */
 		key.dport = ctx_src_port(ctx);
