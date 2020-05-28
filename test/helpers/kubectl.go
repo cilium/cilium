@@ -3793,21 +3793,27 @@ func (kub *Kubectl) reportMapContext(ctx context.Context, path string, reportCmd
 
 // reportMapHost saves executed commands to files based on provided map
 func (kub *Kubectl) reportMapHost(ctx context.Context, path string, reportCmds map[string]string) {
+	wg := sync.WaitGroup{}
 	for cmd, logfile := range reportCmds {
-		res := kub.ExecContext(ctx, cmd)
+		wg.Add(1)
+		go func(cmd, logfile string) {
+			defer wg.Done()
+			res := kub.ExecContext(ctx, cmd)
 
-		if !res.WasSuccessful() {
-			log.WithError(res.GetErr("reportMapHost")).Errorf("command %s failed", cmd)
-		}
+			if !res.WasSuccessful() {
+				log.WithError(res.GetErr("reportMapHost")).Errorf("command %s failed", cmd)
+			}
 
-		err := ioutil.WriteFile(
-			fmt.Sprintf("%s/%s", path, logfile),
-			res.CombineOutput().Bytes(),
-			LogPerm)
-		if err != nil {
-			log.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
-		}
+			err := ioutil.WriteFile(
+				fmt.Sprintf("%s/%s", path, logfile),
+				res.CombineOutput().Bytes(),
+				LogPerm)
+			if err != nil {
+				log.WithError(err).Errorf("cannot create test results for command '%s'", cmd)
+			}
+		}(cmd, logfile)
 	}
+	wg.Wait()
 }
 
 // HelmAddCiliumRepo installs the repository that contain Cilium helm charts.
