@@ -1,307 +1,18 @@
 ---
+# Source: prometheus/templates/namespace.yaml
 apiVersion: v1
 kind: Namespace
 metadata:
   name: cilium-monitoring
 ---
-kind: ConfigMap
-metadata:
-  name: prometheus
-  namespace: cilium-monitoring
-apiVersion: v1
-data:
-  prometheus.yaml: |
-    global:
-      scrape_interval: 10s
-      scrape_timeout: 10s
-      evaluation_interval: 10s
-    rule_files:
-      - "/etc/prometheus-rules/*.rules"
-    scrape_configs:
-      # https://github.com/prometheus/prometheus/blob/master/documentation/examples/prometheus-kubernetes.yml#L79
-      - job_name: 'kubernetes-endpoints'
-        kubernetes_sd_configs:
-          - role: endpoints
-        relabel_configs:
-          - source_labels: [__meta_kubernetes_pod_label_k8s_app]
-            action: keep
-            regex: cilium
-          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
-            action: keep
-            regex: true
-          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
-            action: replace
-            target_label: __scheme__
-            regex: (https?)
-          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
-            action: replace
-            target_label: __metrics_path__
-            regex: (.+)
-          - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
-            action: replace
-            target_label: __address__
-            regex: (.+)(?::\d+);(\d+)
-            replacement: $1:$2
-          - action: labelmap
-            regex: __meta_kubernetes_service_label_(.+)
-          - source_labels: [__meta_kubernetes_namespace]
-            action: replace
-            target_label: kubernetes_namespace
-          - source_labels: [__meta_kubernetes_service_name]
-            action: replace
-            target_label: kubernetes_name
-
-      # https://github.com/prometheus/prometheus/blob/master/documentation/examples/prometheus-kubernetes.yml#L156
-      - job_name: 'kubernetes-pods'
-        kubernetes_sd_configs:
-          - role: pod
-        relabel_configs:
-          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
-            action: keep
-            regex: true
-          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
-            action: replace
-            target_label: __metrics_path__
-            regex: (.+)
-          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-            action: replace
-            regex: (.+):(?:\d+);(\d+)
-            replacement: ${1}:${2}
-            target_label: __address__
-          - action: labelmap
-            regex: __meta_kubernetes_pod_label_(.+)
-          - source_labels: [__meta_kubernetes_namespace]
-            action: replace
-            target_label: kubernetes_namespace
-          - source_labels: [__meta_kubernetes_pod_name]
-            action: replace
-            target_label: kubernetes_pod_name
-          - source_labels: [__meta_kubernetes_pod_container_port_number]
-            action: keep
-            regex: \d+
-
-      # https://github.com/prometheus/prometheus/blob/master/documentation/examples/prometheus-kubernetes.yml#L119
-      - job_name: 'kubernetes-services'
-        metrics_path: /metrics
-        params:
-          module: [http_2xx]
-        kubernetes_sd_configs:
-          - role: service
-        relabel_configs:
-          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_probe]
-            action: keep
-            regex: true
-          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
-            action: replace
-            regex: ([^:]+)(?::\d+)?;(\d+)
-            replacement: ${1}:${2}
-            target_label: __address__
-          - action: labelmap
-            regex: __meta_kubernetes_service_label_(.+)
-          - source_labels: [__meta_kubernetes_namespace]
-            target_label: kubernetes_namespace
-          - source_labels: [__meta_kubernetes_service_name]
-            target_label: kubernetes_name
-
-      - job_name: 'kubernetes-cadvisor'
-        scheme: https
-        tls_config:
-          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
-        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
-        kubernetes_sd_configs:
-          - role: node
-        relabel_configs:
-          - action: labelmap
-            regex: __meta_kubernetes_node_label_(.+)
-          - target_label: __address__
-            replacement: kubernetes.default.svc:443
-          - source_labels: [__meta_kubernetes_node_name]
-            regex: (.+)
-            target_label: __metrics_path__
-            replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app: prometheus
-  name: prometheus
-  namespace: cilium-monitoring
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: prometheus
-  template:
-    metadata:
-      labels:
-        app: prometheus
-      name: prometheus-main
-    spec:
-      containers:
-      - args:
-        - --config.file=/etc/prometheus/prometheus.yaml
-        - --storage.tsdb.path=/prometheus/
-        - --log.level=debug
-        image: docker.io/prom/prometheus:v2.6.1
-        imagePullPolicy: IfNotPresent
-        name: prometheus
-        ports:
-        - containerPort: 9090
-          name: webui
-          protocol: TCP
-        volumeMounts:
-        - mountPath: /etc/prometheus
-          name: config-volume
-          readOnly: true
-        - mountPath: /prometheus/
-          name: storage
-      dnsPolicy: ClusterFirst
-      restartPolicy: Always
-      serviceAccount: prometheus-k8s
-      volumes:
-      - configMap:
-          name: prometheus
-        name: config-volume
-      - emptyDir: {}
-        name: storage
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRoleBinding
-metadata:
-  name: prometheus
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: prometheus
-subjects:
-- kind: ServiceAccount
-  name: prometheus-k8s
-  namespace: cilium-monitoring
----
-apiVersion: rbac.authorization.k8s.io/v1
-kind: ClusterRole
-metadata:
-  name: prometheus
-rules:
-- apiGroups:
-  - ""
-  resources:
-  - nodes
-  - nodes/proxy
-  - services
-  - endpoints
-  - pods
-  verbs:
-  - get
-  - list
-  - watch
-- apiGroups:
-  - ""
-  resources:
-  - configmaps
-  verbs:
-  - get
-- nonResourceURLs:
-  - /metrics
-  verbs:
-  - get
----
+# Source: prometheus/templates/prometheus.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: prometheus-k8s
   namespace: cilium-monitoring
 ---
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: prometheus
-  name: prometheus
-  namespace: cilium-monitoring
-spec:
-  ports:
-  - name: webui
-    port: 9090
-    protocol: TCP
-    targetPort: 9090
-  selector:
-    app: prometheus
-  type: ClusterIP
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  labels:
-    app: grafana
-    component: core
-  name: grafana
-  namespace: cilium-monitoring
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      app: grafana
-  template:
-    metadata:
-      labels:
-        app: grafana
-    spec:
-      containers:
-      - env:
-        - name: GF_PATHS_CONFIG
-          value: /configmap/grafana/grafana-config.ini
-        - name: GF_PATHS_PROVISIONING
-          value: /configmap/grafana/provisioning
-        image: docker.io/grafana/grafana:6.2.5
-        imagePullPolicy: IfNotPresent
-        name: grafana-core
-        readinessProbe:
-          failureThreshold: 3
-          httpGet:
-            path: /login
-            port: 3000
-            scheme: HTTP
-        volumeMounts:
-        - mountPath: /configmap/grafana
-          name: grafana-config
-          readOnly: true
-      dnsPolicy: ClusterFirst
-      restartPolicy: Always
-      volumes:
-      - configMap:
-          defaultMode: 420
-          items:
-          - key: grafana-config
-            path: grafana-config.ini
-          - key: prometheus-datasource
-            path: provisioning/datasources/prometheus.yaml
-          - key: cilium-dashboard
-            path: provisioning/cilium/cilium-dashboard.json
-          - key: cilium-operator-dashboard
-            path: provisioning/cilium/cilium-operator-dashboard.json
-          - key: dashboard-config
-            path: provisioning/dashboards/config.yaml
-          name: grafana-config
-        name: grafana-config
----
-apiVersion: v1
-kind: Service
-metadata:
-  labels:
-    app: grafana
-  name: grafana
-  namespace: cilium-monitoring
-spec:
-  ports:
-  - port: 3000
-    protocol: TCP
-    targetPort: 3000
-  selector:
-    app: grafana
-  type: ClusterIP
----
+# Source: prometheus/templates/grafana.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -310,323 +21,7 @@ metadata:
   name: grafana-config
   namespace: cilium-monitoring
 data:
-  dashboard-config: |
-    apiVersion: 1
-    providers:
-    - name: 'cilium-dashboard-config'
-      orgId: 1
-      folder: ''
-      type: file
-      disableDeletion: true
-      options:
-        path: '/configmap/grafana/provisioning/cilium'
-  grafana-config: |
-    app_mode = production
-    [paths]
-    # Path to where grafana can store temp files, sessions, and the sqlite3 db (if that is used)
-    data = data
-    # Temporary files in `data` directory older than given duration will be removed
-    temp_data_lifetime = 24h
-    # Directory where grafana can store logs
-    logs = data/log
-    # Directory where grafana will automatically scan and look for plugins
-    plugins = data/plugins
-    # folder that contains provisioning config files that grafana will apply on startup and while running.
-    provisioning = /configmap/grafana/provisioning
-    #################################### Server ##############################
-    [server]
-    # Protocol (http, https, socket)
-    protocol = http
-    # The http port to use
-    http_port = 3000
-    # enable gzip
-    enable_gzip = false
-    #################################### Session #############################
-    [session]
-    # Either "memory", "file", "redis", "mysql", "postgres", "memcache", default is "file"
-    provider = file
-
-    provider_config = sessions
-
-    # Session cookie name
-    cookie_name = grafana_sess
-
-    # If you use session in https only, default is false
-    cookie_secure = true
-
-    # Session life time, default is 86400
-    session_life_time = 86400
-    gc_interval_time = 86400
-
-    # Connection Max Lifetime default is 14400 (means 14400 seconds or 4 hours)
-    conn_max_lifetime = 14400
-
-    #################################### Data proxy ###########################
-    [dataproxy]
-
-    # This enables data proxy logging, default is false
-    logging = false
-
-    # How long the data proxy should wait before timing out default is 30 (seconds)
-    timeout = 30
-
-    #################################### Analytics ###########################
-    [analytics]
-    # Server reporting, sends usage counters to stats.grafana.org every 24 hours.
-    # No ip addresses are being tracked, only simple counters to track
-    # running instances, dashboard and error counts. It is very helpful to us.
-    # Change this option to false to disable reporting.
-    reporting_enabled = false
-
-    # Set to false to disable all checks to https://grafana.com
-    # for new versions (grafana itself and plugins), check is used
-    # in some UI views to notify that grafana or plugin update exists
-    # This option does not cause any auto updates, nor send any information
-    # only a GET request to https://grafana.com to get latest versions
-    check_for_updates = false
-
-    #################################### Security ############################
-    [security]
-    # default admin user, created on startup
-    admin_user = admin
-
-    # default admin password, can be changed before first start of grafana, or in profile settings
-    admin_password = admin
-
-    # used for signing
-    secret_key = SW2YcwTIb9zpOOhoPsMm
-
-    # disable gravatar profile images
-    disable_gravatar = true
-
-    # disable protection against brute force login attempts
-    disable_brute_force_login_protection = false
-
-    # set to true if you host Grafana behind HTTPS. default is false.
-    cookie_secure = true
-
-    # set cookie SameSite attribute. defaults to `lax`. can be set to "lax", "strict" and "none"
-    cookie_samesite = lax
-
-    #################################### Dashboards ##################
-
-    [dashboards]
-    # Number dashboard versions to keep (per dashboard). Default: 20, Minimum: 1
-    versions_to_keep = 20
-
-    #################################### Users ###############################
-    [users]
-    # disable user signup / registration
-    allow_sign_up = false
-
-    # Allow non admin users to create organizations
-    allow_org_create = false
-
-    # Set to true to automatically assign new users to the default organization (id 1)
-    auto_assign_org = true
-
-    # Set this value to automatically add new users to the provided organization (if auto_assign_org above is set to true)
-    auto_assign_org_id = 1
-
-    # Default role new users will be automatically assigned (if auto_assign_org above is set to true)
-    auto_assign_org_role = Viewer
-
-    # Require email validation before sign up completes
-    verify_email_enabled = false
-
-    # Background text for the user field on the login page
-    login_hint = email or username
-
-    # Default UI theme ("dark" or "light")
-    default_theme = dark
-
-    # External user management
-    external_manage_link_url =
-    external_manage_link_name =
-    external_manage_info =
-
-    # Viewers can edit/inspect dashboard settings in the browser. But not save the dashboard.
-    viewers_can_edit = false
-
-    [auth]
-    # Login cookie name
-    login_cookie_name = grafana_session
-
-    # The lifetime (days) an authenticated user can be inactive before being required to login at next visit. Default is 7 days.
-    login_maximum_inactive_lifetime_days = 7
-
-    # The maximum lifetime (days) an authenticated user can be logged in since login time before being required to login. Default is 30 days.
-    login_maximum_lifetime_days = 30
-
-    # How often should auth tokens be rotated for authenticated users when being active. The default is each 10 minutes.
-    token_rotation_interval_minutes = 10
-
-    # Set to true to disable (hide) the login form, useful if you use OAuth
-    disable_login_form = false
-
-    # Set to true to disable the signout link in the side menu. useful if you use auth.proxy
-    disable_signout_menu = false
-
-    # URL to redirect the user to after sign out
-    signout_redirect_url =
-
-    # Set to true to attempt login with OAuth automatically, skipping the login screen.
-    # This setting is ignored if multiple OAuth providers are configured.
-    oauth_auto_login = false
-
-    #################################### Anonymous Auth ######################
-    [auth.anonymous]
-    # enable anonymous access
-    enabled = true
-
-    # specify organization name that should be used for unauthenticated users
-    org_name = Main Org.
-
-    # specify role for unauthenticated users
-    org_role = Admin
-
-
-    #################################### Basic Auth ##########################
-    [auth.basic]
-    enabled = false
-
-    #################################### Logging ##########################
-    [log]
-    # Either "console", "file", "syslog". Default is console and file
-    # Use space to separate multiple modes, e.g. "console file"
-    mode = console file
-
-    # Either "debug", "info", "warn", "error", "critical", default is "info"
-    level = info
-
-    # optional settings to set different levels for specific loggers. Ex filters = sqlstore:debug
-    filters =
-
-    # For "console" mode only
-    [log.console]
-    level =
-
-    # log line format, valid options are text, console and json
-    format = console
-
-    # For "file" mode only
-    [log.file]
-    level =
-
-    # log line format, valid options are text, console and json
-    format = text
-
-    # This enables automated log rotate(switch of following options), default is true
-    log_rotate = true
-
-    # Max line number of single file, default is 1000000
-    max_lines = 1000000
-
-    # Max size shift of single file, default is 28 means 1 << 28, 256MB
-    max_size_shift = 28
-
-    # Segment log daily, default is true
-    daily_rotate = true
-
-    # Expired days of log file(delete after max days), default is 7
-    max_days = 7
-
-    [log.syslog]
-    level =
-
-    # log line format, valid options are text, console and json
-    format = text
-
-    # Syslog network type and address. This can be udp, tcp, or unix. If left blank, the default unix endpoints will be used.
-    network =
-    address =
-
-    # Syslog facility. user, daemon and local0 through local7 are valid.
-    facility =
-
-    # Syslog tag. By default, the process' argv[0] is used.
-    tag =
-
-    #################################### Usage Quotas ########################
-    [quota]
-    enabled = false
-
-    #### set quotas to -1 to make unlimited. ####
-    # limit number of users per Org.
-    org_user = 10
-
-    # limit number of dashboards per Org.
-    org_dashboard = 100
-
-    # limit number of data_sources per Org.
-    org_data_source = 10
-
-    # limit number of api_keys per Org.
-    org_api_key = 10
-
-    # limit number of orgs a user can create.
-    user_org = 10
-
-    # Global limit of users.
-    global_user = -1
-
-    # global limit of orgs.
-    global_org = -1
-
-    # global limit of dashboards
-    global_dashboard = -1
-
-    # global limit of api_keys
-    global_api_key = -1
-
-    # global limit on number of logged in users.
-    global_session = -1
-
-    #################################### Alerting ############################
-    [alerting]
-    # Disable alerting engine & UI features
-    enabled = true
-    # Makes it possible to turn off alert rule execution but alerting UI is visible
-    execute_alerts = true
-
-    # Default setting for new alert rules. Defaults to categorize error and timeouts as alerting. (alerting, keep_state)
-    error_or_timeout = alerting
-
-    # Default setting for how Grafana handles nodata or null values in alerting. (alerting, no_data, keep_state, ok)
-    nodata_or_nullvalues = no_data
-
-    # Alert notifications can include images, but rendering many images at the same time can overload the server
-    # This limit will protect the server from render overloading and make sure notifications are sent out quickly
-    concurrent_render_limit = 5
-
-    #################################### Explore #############################
-    [explore]
-    # Enable the Explore section
-    enabled = true
-
-    #################################### Internal Grafana Metrics ############
-    # Metrics available at HTTP API Url /metrics
-    [metrics]
-    enabled           = true
-    interval_seconds  = 10
-
-    #If both are set, basic auth will be required for the metrics endpoint.
-    basic_auth_username =
-    basic_auth_password =
-  prometheus-datasource: |
-    apiVersion: 1
-    deleteDatasources:
-      - name: prometheus
-        orgId: 1
-    datasources:
-    - name: prometheus
-      type: prometheus
-      access: proxy
-      orgId: 1
-      url: http://prometheus:9090
-      basicAuth: false
-      editable: true
-  cilium-dashboard: |
+  cilium-dashboard.json: |
     {
       "annotations": {
         "list": [
@@ -643,9 +38,9 @@ data:
       },
       "description": "Dashboard for Cilium (https://cilium.io/) metrics",
       "editable": true,
-      "gnetId": 6658,
+      "gnetId": null,
       "graphTooltip": 1,
-      "iteration": 1553098046228,
+      "iteration": 1590659986961,
       "links": [],
       "panels": [
         {
@@ -657,13 +52,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 0,
             "y": 0
           },
+          "hiddenSeries": false,
           "id": 76,
           "legend": {
             "avg": false,
@@ -678,6 +81,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -694,7 +100,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_errors_warnings_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, level) * 60",
+              "expr": "sum(rate(cilium_errors_warnings_total{k8s_app=\"cilium\"}[1m])) by (pod, level) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{level}}",
@@ -750,13 +156,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 0,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
             "y": 0
           },
+          "hiddenSeries": false,
           "id": 96,
           "legend": {
             "avg": false,
@@ -771,6 +185,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -792,21 +209,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "min(irate(cilium_process_cpu_seconds_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 100",
+              "expr": "min(irate(cilium_process_cpu_seconds_total{k8s_app=\"cilium\"}[1m])) by (pod) * 100",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "min",
               "refId": "A"
             },
             {
-              "expr": "avg(irate(cilium_process_cpu_seconds_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 100",
+              "expr": "avg(irate(cilium_process_cpu_seconds_total{k8s_app=\"cilium\"}[1m])) by (pod) * 100",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "avg",
               "refId": "B"
             },
             {
-              "expr": "max(irate(cilium_process_cpu_seconds_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 100",
+              "expr": "max(irate(cilium_process_cpu_seconds_total{k8s_app=\"cilium\"}[1m])) by (pod) * 100",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "max",
@@ -856,6 +273,7 @@ data:
         },
         {
           "collapsed": false,
+          "datasource": null,
           "gridPos": {
             "h": 1,
             "w": 24,
@@ -878,13 +296,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 0,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 8,
             "x": 0,
             "y": 6
           },
+          "hiddenSeries": false,
           "id": 26,
           "legend": {
             "avg": false,
@@ -899,6 +325,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -920,21 +349,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "min(cilium_process_virtual_memory_bytes{kubernetes_pod_name=~\"$pod\"})",
+              "expr": "min(cilium_process_virtual_memory_bytes{k8s_app=\"cilium\"})",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "Min Virtual Memory",
               "refId": "A"
             },
             {
-              "expr": "avg(cilium_process_virtual_memory_bytes{kubernetes_pod_name=~\"$pod\"})",
+              "expr": "avg(cilium_process_virtual_memory_bytes{k8s_app=\"cilium\"})",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "Average Virtual Memory",
               "refId": "B"
             },
             {
-              "expr": "max(cilium_process_virtual_memory_bytes{kubernetes_pod_name=~\"$pod\"})",
+              "expr": "max(cilium_process_virtual_memory_bytes{k8s_app=\"cilium\"})",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "Max Virtual Memory",
@@ -990,13 +419,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 8,
             "x": 8,
             "y": 6
           },
+          "hiddenSeries": false,
           "id": 24,
           "legend": {
             "alignAsTable": false,
@@ -1013,6 +450,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -1024,14 +464,15 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(cilium_process_resident_memory_bytes{kubernetes_pod_name=~\"$pod\"})",
+              "expr": "avg(cilium_process_resident_memory_bytes{k8s_app=\"cilium\"})",
               "format": "time_series",
+              "interval": "",
               "intervalFactor": 1,
               "legendFormat": "AVG_resident_memory_bytes",
               "refId": "C"
             },
             {
-              "expr": "max(cilium_process_resident_memory_bytes{kubernetes_pod_name=~\"$pod\"})",
+              "expr": "max(cilium_process_resident_memory_bytes{k8s_app=\"cilium\"})",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -1039,7 +480,7 @@ data:
               "refId": "D"
             },
             {
-              "expr": "min(cilium_process_resident_memory_bytes{kubernetes_pod_name=~\"$pod\"})",
+              "expr": "min(cilium_process_resident_memory_bytes{k8s_app=\"cilium\"})",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "MIN_resident_memory_bytes_min",
@@ -1095,13 +536,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 8,
             "x": 16,
             "y": 6
           },
+          "hiddenSeries": false,
           "id": 98,
           "legend": {
             "avg": false,
@@ -1116,6 +565,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -1132,28 +584,28 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(cilium_process_open_fds{kubernetes_pod_name=~\"$pod\"})",
+              "expr": "sum(cilium_process_open_fds{k8s_app=\"cilium\"})",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "all nodes",
               "refId": "A"
             },
             {
-              "expr": "min(cilium_process_open_fds{kubernetes_pod_name=~\"$pod\"})",
+              "expr": "min(cilium_process_open_fds{k8s_app=\"cilium\"})",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "min/node",
               "refId": "B"
             },
             {
-              "expr": "avg(cilium_process_open_fds{kubernetes_pod_name=~\"$pod\"})",
+              "expr": "avg(cilium_process_open_fds{k8s_app=\"cilium\"})",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "avg/node",
               "refId": "C"
             },
             {
-              "expr": "max(cilium_process_open_fds{kubernetes_pod_name=~\"$pod\"})",
+              "expr": "max(cilium_process_open_fds{k8s_app=\"cilium\"})",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "max/node",
@@ -1202,12 +654,138 @@ data:
           }
         },
         {
+          "aliasColors": {
+            "MAX_resident_memory_bytes_max": "#e5ac0e"
+          },
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "description": "BPF memory usage in the entire system including components not managed by Cilium.",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": {
+            "h": 5,
+            "w": 8,
+            "x": 8,
+            "y": 11
+          },
+          "hiddenSeries": false,
+          "id": 178,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
+          "paceLength": 10,
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(cilium_bpf_maps_virtual_memory_max_bytes{k8s_app=\"cilium\"} + cilium_bpf_progs_virtual_memory_max_bytes{k8s_app=\"cilium\"})",
+              "format": "time_series",
+              "hide": false,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "AVG_bpf_memory_bytes_avg",
+              "refId": "C"
+            },
+            {
+              "expr": "max(cilium_bpf_maps_virtual_memory_max_bytes{k8s_app=\"cilium\"} + cilium_bpf_progs_virtual_memory_max_bytes{k8s_app=\"cilium\"})",
+              "format": "time_series",
+              "hide": false,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "MAX_bpf_memory_bytes_max",
+              "refId": "D"
+            },
+            {
+              "expr": "min(cilium_bpf_maps_virtual_memory_max_bytes{k8s_app=\"cilium\"} + cilium_bpf_progs_virtual_memory_max_bytes{k8s_app=\"cilium\"})",
+              "format": "time_series",
+              "hide": false,
+              "instant": false,
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "MIN_bpf_memory_bytes_min",
+              "refId": "E"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "System-wide BPF memory usage",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "$$hashKey": "object:136",
+              "format": "bytes",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "$$hashKey": "object:137",
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
           "collapsed": false,
+          "datasource": null,
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 11
+            "y": 16
           },
           "id": 155,
           "panels": [],
@@ -1220,13 +798,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 12
+            "y": 17
           },
+          "hiddenSeries": false,
           "id": 152,
           "legend": {
             "alignAsTable": true,
@@ -1245,6 +831,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -1256,7 +845,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_agent_api_process_time_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])/rate(cilium_agent_api_process_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
+              "expr": "avg(rate(cilium_agent_api_process_time_seconds_sum{k8s_app=\"cilium\"}[1m])/rate(cilium_agent_api_process_time_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, method, path)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{method}} {{path}}",
@@ -1310,13 +899,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 12
+            "y": 17
           },
+          "hiddenSeries": false,
           "id": 153,
           "legend": {
             "alignAsTable": true,
@@ -1335,6 +932,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -1346,7 +946,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "max(rate(cilium_agent_api_process_time_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])/rate(cilium_agent_api_process_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
+              "expr": "max(rate(cilium_agent_api_process_time_seconds_sum{k8s_app=\"cilium\"}[1m])/rate(cilium_agent_api_process_time_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, method, path)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{method}} {{path}}",
@@ -1400,13 +1000,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 18
+            "y": 23
           },
+          "hiddenSeries": false,
           "id": 156,
           "legend": {
             "alignAsTable": true,
@@ -1425,6 +1033,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -1436,7 +1047,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_agent_api_process_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
+              "expr": "avg(rate(cilium_agent_api_process_time_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, method, path)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{method}} {{path}} ",
@@ -1490,13 +1101,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 18
+            "y": 23
           },
+          "hiddenSeries": false,
           "id": 157,
           "legend": {
             "alignAsTable": true,
@@ -1515,6 +1134,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -1526,7 +1148,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "max(rate(cilium_agent_api_process_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
+              "expr": "max(rate(cilium_agent_api_process_time_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, method, path)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{method}} {{path}} ",
@@ -1580,13 +1202,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 24
+            "y": 29
           },
+          "hiddenSeries": false,
           "id": 159,
           "legend": {
             "alignAsTable": true,
@@ -1605,6 +1235,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -1616,7 +1249,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_agent_api_process_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path, return_code)",
+              "expr": "avg(rate(cilium_agent_api_process_time_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, method, path, return_code)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{return_code}} ({{method}} {{path}} )",
@@ -1670,13 +1303,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 24
+            "y": 29
           },
+          "hiddenSeries": false,
           "id": 158,
           "legend": {
             "alignAsTable": true,
@@ -1695,6 +1336,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -1706,7 +1350,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_agent_api_process_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path, return_code)",
+              "expr": "sum(rate(cilium_agent_api_process_time_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, method, path, return_code)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{return_code}} ({{method}} {{path}} )",
@@ -1756,11 +1400,12 @@ data:
         },
         {
           "collapsed": false,
+          "datasource": null,
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 30
+            "y": 35
           },
           "id": 72,
           "panels": [],
@@ -1769,11 +1414,18 @@ data:
         },
         {
           "content": "",
+          "datasource": null,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 31
+            "y": 36
           },
           "id": 144,
           "links": [],
@@ -1787,13 +1439,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 32
+            "y": 37
           },
+          "hiddenSeries": false,
           "id": 146,
           "legend": {
             "alignAsTable": true,
@@ -1812,6 +1472,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -1823,7 +1486,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_bpf_syscall_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, operation)",
+              "expr": "avg(rate(cilium_bpf_syscall_duration_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, operation)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{operation}}",
@@ -1878,13 +1541,21 @@ data:
           "dashes": false,
           "datasource": "prometheus",
           "decimals": 2,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 32
+            "y": 37
           },
+          "hiddenSeries": false,
           "id": 145,
           "legend": {
             "alignAsTable": true,
@@ -1903,6 +1574,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -1914,7 +1588,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "max(rate(cilium_bpf_syscall_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, operation)",
+              "expr": "max(rate(cilium_bpf_syscall_duration_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, operation)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{operation}}",
@@ -1969,13 +1643,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 40
+            "y": 45
           },
+          "hiddenSeries": false,
           "id": 140,
           "legend": {
             "alignAsTable": true,
@@ -1994,6 +1676,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -2005,7 +1690,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_bpf_syscall_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])/ rate(cilium_bpf_syscall_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, operation)",
+              "expr": "avg(rate(cilium_bpf_syscall_duration_seconds_sum{k8s_app=\"cilium\"}[1m])/ rate(cilium_bpf_syscall_duration_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, operation)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{operation}}",
@@ -2059,13 +1744,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 40
+            "y": 45
           },
+          "hiddenSeries": false,
           "id": 148,
           "legend": {
             "alignAsTable": true,
@@ -2082,6 +1775,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -2093,7 +1789,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "max(rate(cilium_bpf_syscall_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])/ rate(cilium_bpf_syscall_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, operation)",
+              "expr": "max(rate(cilium_bpf_syscall_duration_seconds_sum{k8s_app=\"cilium\"}[1m])/ rate(cilium_bpf_syscall_duration_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, operation)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{operation}}",
@@ -2147,13 +1843,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 8,
             "x": 0,
-            "y": 46
+            "y": 51
           },
+          "hiddenSeries": false,
           "id": 142,
           "legend": {
             "alignAsTable": false,
@@ -2172,6 +1876,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -2183,7 +1890,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(5, avg(rate(cilium_bpf_map_ops_total{kubernetes_pod_name=~\"$pod\"}[5m])) by (pod, mapName, operation))",
+              "expr": "topk(5, avg(rate(cilium_bpf_map_ops_total{k8s_app=\"cilium\"}[5m])) by (pod, mapName, operation))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{mapName}} {{operation}}",
@@ -2237,13 +1944,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 8,
             "x": 8,
-            "y": 46
+            "y": 51
           },
+          "hiddenSeries": false,
           "id": 147,
           "legend": {
             "alignAsTable": false,
@@ -2262,6 +1977,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -2273,7 +1991,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(5, max(rate(cilium_bpf_map_ops_total{kubernetes_pod_name=~\"$pod\"}[5m])) by (pod, mapName, operation))",
+              "expr": "topk(5, max(rate(cilium_bpf_map_ops_total{k8s_app=\"cilium\"}[5m])) by (pod, mapName, operation))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{mapName}} {{operation}}",
@@ -2327,13 +2045,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 8,
             "x": 16,
-            "y": 46
+            "y": 51
           },
+          "hiddenSeries": false,
           "id": 143,
           "legend": {
             "alignAsTable": false,
@@ -2352,6 +2078,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -2363,7 +2092,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_bpf_map_ops_total{kubernetes_pod_name=~\"$pod\",outcome=\"fail\"}[5m])) by (pod, mapName, operation)",
+              "expr": "sum(rate(cilium_bpf_map_ops_total{k8s_app=\"cilium\",outcome=\"fail\"}[5m])) by (pod, mapName, operation)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{mapName}} {{operation}}",
@@ -2413,13 +2142,20 @@ data:
         },
         {
           "content": "",
+          "datasource": null,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 52
+            "y": 57
           },
-          "id": 137,
+          "id": 182,
           "links": [],
           "mode": "markdown",
           "title": "kvstore",
@@ -2432,14 +2168,22 @@ data:
           "dashes": false,
           "datasource": "prometheus",
           "decimals": 2,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 53
+            "y": 58
           },
-          "id": 83,
+          "hiddenSeries": false,
+          "id": 184,
           "legend": {
             "alignAsTable": true,
             "avg": true,
@@ -2457,6 +2201,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -2524,14 +2271,22 @@ data:
           "dashes": false,
           "datasource": "prometheus",
           "decimals": 2,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 53
+            "y": 58
           },
-          "id": 150,
+          "hiddenSeries": false,
+          "id": 186,
           "legend": {
             "alignAsTable": true,
             "avg": true,
@@ -2549,6 +2304,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -2615,14 +2373,22 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 58
+            "y": 63
           },
-          "id": 136,
+          "hiddenSeries": false,
+          "id": 188,
           "legend": {
             "alignAsTable": true,
             "avg": true,
@@ -2640,6 +2406,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -2705,14 +2474,22 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 58
+            "y": 63
           },
-          "id": 149,
+          "hiddenSeries": false,
+          "id": 190,
           "legend": {
             "alignAsTable": true,
             "avg": true,
@@ -2730,6 +2507,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -2795,14 +2575,22 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 63
+            "y": 68
           },
-          "id": 170,
+          "hiddenSeries": false,
+          "id": 192,
           "legend": {
             "avg": false,
             "current": false,
@@ -2818,12 +2606,16 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "stack": true,
           "steppedLine": false,
           "targets": [
@@ -2878,11 +2670,18 @@ data:
         },
         {
           "content": "",
+          "datasource": null,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 69
+            "y": 74
           },
           "id": 47,
           "links": [],
@@ -2896,13 +2695,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 70
+            "y": 75
           },
+          "hiddenSeries": false,
           "id": 81,
           "legend": {
             "avg": false,
@@ -2917,6 +2724,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -2928,7 +2738,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_forward_count_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, direction)",
+              "expr": "sum(rate(cilium_forward_count_total{k8s_app=\"cilium\"}[1m])) by (pod, direction)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{direction}}",
@@ -2982,13 +2792,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 70
+            "y": 75
           },
+          "hiddenSeries": false,
           "id": 111,
           "legend": {
             "avg": false,
@@ -3003,6 +2821,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -3019,7 +2840,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_forward_bytes_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, direction) * 8",
+              "expr": "sum(rate(cilium_forward_bytes_total{k8s_app=\"cilium\"}[1m])) by (pod, direction) * 8",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{direction}}",
@@ -3091,13 +2912,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 76
+            "y": 81
           },
+          "hiddenSeries": false,
           "id": 56,
           "legend": {
             "avg": false,
@@ -3112,6 +2941,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -3145,7 +2977,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "min(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
+              "expr": "min(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"alive\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -3153,28 +2985,28 @@ data:
               "refId": "A"
             },
             {
-              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"alive\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "avg",
               "refId": "B"
             },
             {
-              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
+              "expr": "max(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"alive\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "max",
               "refId": "C"
             },
             {
-              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"deleted\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "deleted",
               "refId": "D"
             },
             {
-              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
+              "expr": "max(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"deleted\", family=\"ipv4\", protocol=\"TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "deleted max",
@@ -3246,13 +3078,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 76
+            "y": 81
           },
+          "hiddenSeries": false,
           "id": 128,
           "legend": {
             "avg": false,
@@ -3267,6 +3107,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -3300,7 +3143,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "min(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
+              "expr": "min(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"alive\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -3308,28 +3151,28 @@ data:
               "refId": "A"
             },
             {
-              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"alive\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "avg",
               "refId": "B"
             },
             {
-              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
+              "expr": "max(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"alive\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "max",
               "refId": "C"
             },
             {
-              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"deleted\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "deleted",
               "refId": "D"
             },
             {
-              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
+              "expr": "max(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"deleted\", family=\"ipv6\", protocol=\"TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "deleted max",
@@ -3401,13 +3244,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 82
+            "y": 87
           },
+          "hiddenSeries": false,
           "id": 129,
           "legend": {
             "avg": false,
@@ -3422,6 +3273,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -3455,7 +3309,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "min(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
+              "expr": "min(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"alive\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -3463,28 +3317,28 @@ data:
               "refId": "A"
             },
             {
-              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"alive\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "avg",
               "refId": "B"
             },
             {
-              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
+              "expr": "max(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"alive\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "max",
               "refId": "C"
             },
             {
-              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"deleted\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "deleted",
               "refId": "D"
             },
             {
-              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
+              "expr": "max(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"deleted\", family=\"ipv4\", protocol=\"non-TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "deleted max",
@@ -3556,13 +3410,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 82
+            "y": 87
           },
+          "hiddenSeries": false,
           "id": 130,
           "legend": {
             "avg": false,
@@ -3577,6 +3439,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -3610,7 +3475,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "min(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
+              "expr": "min(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"alive\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -3618,28 +3483,28 @@ data:
               "refId": "A"
             },
             {
-              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"alive\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "avg",
               "refId": "B"
             },
             {
-              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"alive\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
+              "expr": "max(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"alive\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "max",
               "refId": "C"
             },
             {
-              "expr": "avg(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
+              "expr": "avg(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"deleted\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "deleted",
               "refId": "D"
             },
             {
-              "expr": "max(cilium_datapath_conntrack_gc_entries{kubernetes_pod_name=~\"$pod\", status=\"deleted\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
+              "expr": "max(cilium_datapath_conntrack_gc_entries{k8s_app=\"cilium\", status=\"deleted\", family=\"ipv6\", protocol=\"non-TCP\"}) by (family,status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "deleted max",
@@ -3697,13 +3562,21 @@ data:
           "dashes": false,
           "datasource": "prometheus",
           "decimals": null,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 0,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 88
+            "y": 93
           },
+          "hiddenSeries": false,
           "id": 87,
           "legend": {
             "alignAsTable": true,
@@ -3720,6 +3593,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -3735,7 +3611,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(cilium_ip_addresses{kubernetes_pod_name=~\"$pod\"}) by (pod, family)\n",
+              "expr": "sum(cilium_ip_addresses{k8s_app=\"cilium\"}) by (pod, family)\n",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{family}}",
@@ -3792,13 +3668,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 88
+            "y": 93
           },
+          "hiddenSeries": false,
           "id": 79,
           "legend": {
             "avg": false,
@@ -3813,6 +3697,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -3824,7 +3711,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(cilium_datapath_errors_total{kubernetes_pod_name=~\"$pod\"}) by (pod, area, family, name)",
+              "expr": "sum(cilium_datapath_errors_total{k8s_app=\"cilium\"}) by (pod, area, family, name)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{name}} {{area}} {{family}}",
@@ -3878,13 +3765,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 93
+            "y": 98
           },
+          "hiddenSeries": false,
           "id": 106,
           "legend": {
             "avg": false,
@@ -3899,6 +3794,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -3910,7 +3808,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_services_events_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, action)",
+              "expr": "avg(rate(cilium_services_events_total{k8s_app=\"cilium\"}[1m])) by (pod, action)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{action}}",
@@ -3964,13 +3862,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 93
+            "y": 98
           },
+          "hiddenSeries": false,
           "id": 89,
           "legend": {
             "avg": false,
@@ -3985,6 +3891,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -4005,14 +3914,14 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(cilium_unreachable_nodes{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "sum(cilium_unreachable_nodes{k8s_app=\"cilium\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "unreachable nodes",
               "refId": "A"
             },
             {
-              "expr": "sum(cilium_unreachable_health_endpoints{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "sum(cilium_unreachable_health_endpoints{k8s_app=\"cilium\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "unreachable health endpoints",
@@ -4066,13 +3975,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 98
+            "y": 103
           },
+          "hiddenSeries": false,
           "id": 39,
           "legend": {
             "avg": false,
@@ -4087,6 +4004,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -4098,7 +4018,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_drop_count_total{direction=\"EGRESS\", kubernetes_pod_name=~\"$pod\"}[1m])) by (reason)",
+              "expr": "sum(rate(cilium_drop_count_total{direction=\"EGRESS\", k8s_app=\"cilium\"}[1m])) by (reason)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{reason}}",
@@ -4155,13 +4075,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 0,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 98
+            "y": 103
           },
+          "hiddenSeries": false,
           "id": 93,
           "legend": {
             "avg": false,
@@ -4176,6 +4104,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -4213,7 +4144,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_nodes_all_events_received_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, eventType, source) * 60",
+              "expr": "avg(rate(cilium_nodes_all_events_received_total{k8s_app=\"cilium\"}[1m])) by (pod, eventType, source) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{eventType}} {{source}}",
@@ -4267,13 +4198,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 103
+            "y": 108
           },
+          "hiddenSeries": false,
           "id": 113,
           "legend": {
             "avg": false,
@@ -4288,6 +4227,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -4299,7 +4241,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_drop_bytes_total{direction=\"EGRESS\", kubernetes_pod_name=~\"$pod\"}[1m])) by (reason) * 8",
+              "expr": "sum(rate(cilium_drop_bytes_total{direction=\"EGRESS\", k8s_app=\"cilium\"}[1m])) by (reason) * 8",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{reason}}",
@@ -4356,13 +4298,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 0,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 103
+            "y": 108
           },
+          "hiddenSeries": false,
           "id": 91,
           "legend": {
             "alignAsTable": false,
@@ -4379,6 +4329,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -4400,21 +4353,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(cilium_nodes_all_num{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "avg(cilium_nodes_all_num{k8s_app=\"cilium\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "Average Nodes",
               "refId": "A"
             },
             {
-              "expr": "min(cilium_nodes_all_num{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "min(cilium_nodes_all_num{k8s_app=\"cilium\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "Min Nodes",
               "refId": "B"
             },
             {
-              "expr": "max(cilium_nodes_all_num{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "max(cilium_nodes_all_num{k8s_app=\"cilium\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "Max Nodes",
@@ -4464,11 +4417,18 @@ data:
         },
         {
           "content": "",
+          "datasource": null,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 108
+            "y": 113
           },
           "id": 28,
           "links": [],
@@ -4486,13 +4446,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 109
+            "y": 114
           },
+          "hiddenSeries": false,
           "id": 53,
           "legend": {
             "avg": false,
@@ -4507,6 +4475,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -4527,21 +4498,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_policy_l7_total{rule=\"denied\", kubernetes_pod_name=~\"$pod\"}[1m]))",
+              "expr": "sum(rate(cilium_policy_l7_denied_total{k8s_app=\"cilium\"}[1m]))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "denied",
               "refId": "A"
             },
             {
-              "expr": "sum(rate(cilium_policy_l7_total{rule=\"forwarded\", kubernetes_pod_name=~\"$pod\"}[1m]))",
+              "expr": "sum(rate(cilium_policy_l7_forwarded_total{k8s_app=\"cilium\"}[1m]))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "forwarded",
               "refId": "B"
             },
             {
-              "expr": "sum(rate(cilium_policy_l7_total{rule=\"received\", kubernetes_pod_name=~\"$pod\"}[1m]))",
+              "expr": "sum(rate(cilium_policy_l7_received_total{k8s_app=\"cilium\"}[1m]))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "received",
@@ -4595,13 +4566,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 109
+            "y": 114
           },
+          "hiddenSeries": false,
           "id": 37,
           "legend": {
             "avg": false,
@@ -4616,6 +4595,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -4627,7 +4609,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_drop_count_total{direction=\"INGRESS\", kubernetes_pod_name=~\"$pod\"}[5m])) by (reason)",
+              "expr": "sum(rate(cilium_drop_count_total{direction=\"INGRESS\", k8s_app=\"cilium\"}[5m])) by (reason)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{reason}}",
@@ -4679,20 +4661,28 @@ data:
           "aliasColors": {
             "Max per node processingTime": "#e24d42",
             "Max per node upstreamTime": "#58140c",
-            "avg(cilium_policy_l7_total{rule=\"parse_errors\", kubernetes_pod_name=~\"cilium.*\"})": "#bf1b00",
+            "avg(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"cilium.*\"})": "#bf1b00",
             "parse errors": "#bf1b00"
           },
           "bars": true,
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 114
+            "y": 119
           },
+          "hiddenSeries": false,
           "id": 94,
           "legend": {
             "alignAsTable": false,
@@ -4709,6 +4699,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -4724,7 +4717,7 @@ data:
               "yaxis": 2
             },
             {
-              "alias": "avg(cilium_policy_l7_total{rule=\"parse_errors\", kubernetes_pod_name=~\"cilium.*\"})",
+              "alias": "avg(cilium_policy_l7_parse_errors_total{kubernetes_pod_name=~\"cilium.*\"})",
               "yaxis": 2
             },
             {
@@ -4737,7 +4730,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_proxy_upstream_reply_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_proxy_upstream_reply_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
+              "expr": "avg(rate(cilium_proxy_upstream_reply_seconds_sum{k8s_app=\"cilium\"}[1m])) by (pod, scope) / sum(rate(cilium_proxy_upstream_reply_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, scope)",
               "format": "time_series",
               "interval": "",
               "intervalFactor": 1,
@@ -4745,7 +4738,7 @@ data:
               "refId": "A"
             },
             {
-              "expr": "avg(cilium_policy_l7_total{rule=\"parse_errors\", kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "avg(cilium_policy_l7_parse_errors_total{k8s_app=\"cilium\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "parse errors",
@@ -4799,13 +4792,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 114
+            "y": 119
           },
+          "hiddenSeries": false,
           "id": 114,
           "legend": {
             "avg": false,
@@ -4820,6 +4821,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -4831,7 +4835,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_drop_bytes_total{direction=\"INGRESS\", kubernetes_pod_name=~\"$pod\"}[1m])) by (reason) * 8",
+              "expr": "sum(rate(cilium_drop_bytes_total{direction=\"INGRESS\", k8s_app=\"cilium\"}[1m])) by (reason) * 8",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{reason}}",
@@ -4890,13 +4894,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 0,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 119
+            "y": 124
           },
+          "hiddenSeries": false,
           "id": 104,
           "legend": {
             "avg": false,
@@ -4911,6 +4923,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -4943,21 +4958,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "min(rate(cilium_triggers_policy_update_call_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_triggers_policy_update_call_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
+              "expr": "min(rate(cilium_triggers_policy_update_call_duration_seconds_sum{k8s_app=\"cilium\"}[1m])) by (pod, scope) / sum(rate(cilium_triggers_policy_update_call_duration_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, scope)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "min",
               "refId": "A"
             },
             {
-              "expr": "avg(rate(cilium_triggers_policy_update_call_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_triggers_policy_update_call_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
+              "expr": "avg(rate(cilium_triggers_policy_update_call_duration_seconds_sum{k8s_app=\"cilium\"}[1m])) by (pod, scope) / sum(rate(cilium_triggers_policy_update_call_duration_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, scope)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "avg",
               "refId": "B"
             },
             {
-              "expr": "max(rate(cilium_triggers_policy_update_call_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_triggers_policy_update_call_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
+              "expr": "max(rate(cilium_triggers_policy_update_call_duration_seconds_sum{k8s_app=\"cilium\"}[1m])) by (pod, scope) / sum(rate(cilium_triggers_policy_update_call_duration_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, scope)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "max",
@@ -5015,13 +5030,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 119
+            "y": 124
           },
+          "hiddenSeries": false,
           "id": 66,
           "legend": {
             "alignAsTable": false,
@@ -5038,6 +5061,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -5054,14 +5080,14 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "max(rate(cilium_proxy_upstream_reply_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope) / sum(rate(cilium_proxy_upstream_reply_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
+              "expr": "max(rate(cilium_proxy_upstream_reply_seconds_sum{k8s_app=\"cilium\"}[1m])) by (pod, scope) / sum(rate(cilium_proxy_upstream_reply_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, scope)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "Max {{scope}}",
               "refId": "B"
             },
             {
-              "expr": "max(rate(cilium_policy_l7_total{rule=\"parse_errors\", kubernetes_pod_name=~\"$pod\"}[1m])) by (pod)",
+              "expr": "max(rate(cilium_policy_l7_parse_errors_total{k8s_app=\"cilium\"}[1m])) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "parse errors",
@@ -5120,13 +5146,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 6,
             "x": 0,
-            "y": 124
+            "y": 129
           },
+          "hiddenSeries": false,
           "id": 33,
           "legend": {
             "alignAsTable": false,
@@ -5144,6 +5178,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -5155,7 +5192,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(cilium_policy_endpoint_enforcement_status{kubernetes_pod_name=~\"$pod\"}) by (enforcement)",
+              "expr": "sum(cilium_policy_endpoint_enforcement_status{k8s_app=\"cilium\"}) by (enforcement)",
               "format": "time_series",
               "hide": false,
               "instant": true,
@@ -5218,13 +5255,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 6,
             "x": 6,
-            "y": 124
+            "y": 129
           },
+          "hiddenSeries": false,
           "id": 100,
           "legend": {
             "avg": false,
@@ -5239,6 +5284,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -5260,21 +5308,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "min(cilium_proxy_redirects{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "min(cilium_proxy_redirects{k8s_app=\"cilium\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "min",
               "refId": "A"
             },
             {
-              "expr": "avg(cilium_proxy_redirects{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "avg(cilium_proxy_redirects{k8s_app=\"cilium\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "avg",
               "refId": "B"
             },
             {
-              "expr": "max(cilium_proxy_redirects{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "max(cilium_proxy_redirects{k8s_app=\"cilium\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "max",
@@ -5335,13 +5383,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 2,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 124
+            "y": 129
           },
+          "hiddenSeries": false,
           "id": 102,
           "legend": {
             "avg": false,
@@ -5356,6 +5412,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -5381,28 +5440,28 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "min(rate(cilium_triggers_policy_update_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 60",
+              "expr": "min(rate(cilium_triggers_policy_update_total{k8s_app=\"cilium\"}[1m])) by (pod) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "min trigger",
               "refId": "A"
             },
             {
-              "expr": "avg(rate(cilium_triggers_policy_update_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 60",
+              "expr": "avg(rate(cilium_triggers_policy_update_total{k8s_app=\"cilium\"}[1m])) by (pod) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "average trigger",
               "refId": "B"
             },
             {
-              "expr": "max(rate(cilium_triggers_policy_update_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 60",
+              "expr": "max(rate(cilium_triggers_policy_update_total{k8s_app=\"cilium\"}[1m])) by (pod) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "max trigger",
               "refId": "C"
             },
             {
-              "expr": "max(rate(cilium_triggers_policy_update_folds{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod) * 60",
+              "expr": "max(rate(cilium_triggers_policy_update_folds{k8s_app=\"cilium\"}[1m])) by (pod) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "folds",
@@ -5460,13 +5519,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 0,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 129
+            "y": 134
           },
+          "hiddenSeries": false,
           "id": 85,
           "legend": {
             "alignAsTable": false,
@@ -5483,6 +5550,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -5512,28 +5582,28 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "min(cilium_policy_count{kubernetes_pod_name=~\"$pod\"}) by(pod)",
+              "expr": "min(cilium_policy_count{k8s_app=\"cilium\"}) by(pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "min",
               "refId": "A"
             },
             {
-              "expr": "avg(cilium_policy_count{kubernetes_pod_name=~\"$pod\"}) by(pod)",
+              "expr": "avg(cilium_policy_count{k8s_app=\"cilium\"}) by(pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "avg",
               "refId": "B"
             },
             {
-              "expr": "max(cilium_policy_count{kubernetes_pod_name=~\"$pod\"}) by(pod)",
+              "expr": "max(cilium_policy_count{k8s_app=\"cilium\"}) by(pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "max",
               "refId": "C"
             },
             {
-              "expr": "sum(cilium_policy_import_errors{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "sum(cilium_policy_import_errors{k8s_app=\"cilium\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "policy import errors",
@@ -5591,13 +5661,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 129
+            "y": 134
           },
+          "hiddenSeries": false,
           "id": 123,
           "legend": {
             "alignAsTable": false,
@@ -5614,6 +5692,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -5630,7 +5711,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_proxy_upstream_reply_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, scope)",
+              "expr": "avg(rate(cilium_proxy_upstream_reply_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, scope)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{scope}}",
@@ -5688,13 +5769,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 0,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 134
+            "y": 139
           },
+          "hiddenSeries": false,
           "id": 117,
           "legend": {
             "avg": false,
@@ -5709,6 +5798,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -5730,21 +5822,21 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "min(cilium_policy_max_revision{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "min(cilium_policy_max_revision{k8s_app=\"cilium\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "min",
               "refId": "A"
             },
             {
-              "expr": "avg(cilium_policy_max_revision{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "avg(cilium_policy_max_revision{k8s_app=\"cilium\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "avg",
               "refId": "B"
             },
             {
-              "expr": "max(cilium_policy_max_revision{kubernetes_pod_name=~\"$pod\"}) by (pod)",
+              "expr": "max(cilium_policy_max_revision{k8s_app=\"cilium\"}) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "max",
@@ -5794,11 +5886,18 @@ data:
         },
         {
           "content": "",
+          "datasource": null,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 139
+            "y": 144
           },
           "id": 73,
           "links": [],
@@ -5813,13 +5912,21 @@ data:
           "dashes": false,
           "datasource": "prometheus",
           "decimals": null,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 9,
             "w": 12,
             "x": 0,
-            "y": 140
+            "y": 145
           },
+          "hiddenSeries": false,
           "id": 55,
           "legend": {
             "alignAsTable": false,
@@ -5836,6 +5943,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -5847,7 +5957,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(histogram_quantile(0.90, rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{kubernetes_pod_name=~\"$pod\", scope!=\"buildDuration\"}[5m]))) by (scope)",
+              "expr": "avg(histogram_quantile(0.90, rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{k8s_app=\"cilium\", scope!=\"buildDuration\"}[5m]))) by (scope)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{scope}}",
@@ -5902,13 +6012,21 @@ data:
           "dashes": false,
           "datasource": "prometheus",
           "decimals": null,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 9,
             "w": 12,
             "x": 12,
-            "y": 140
+            "y": 145
           },
+          "hiddenSeries": false,
           "id": 115,
           "legend": {
             "alignAsTable": false,
@@ -5925,6 +6043,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -5936,7 +6057,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(histogram_quantile(0.99, rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{kubernetes_pod_name=~\"$pod\", scope!=\"buildDuration\"}[5m]))) by (scope)",
+              "expr": "avg(histogram_quantile(0.99, rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{k8s_app=\"cilium\", scope!=\"buildDuration\"}[5m]))) by (scope)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{scope}}",
@@ -5995,13 +6116,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 3,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 149
+            "y": 154
           },
+          "hiddenSeries": false,
           "id": 49,
           "legend": {
             "avg": true,
@@ -6016,6 +6145,9 @@ data:
           "linewidth": 2,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -6035,7 +6167,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_endpoint_regenerations{kubernetes_pod_name=~\"$pod\"}[30s])) by(outcome)",
+              "expr": "sum(rate(cilium_endpoint_regenerations{k8s_app=\"cilium\"}[30s])) by(outcome)",
               "format": "time_series",
               "instant": false,
               "intervalFactor": 1,
@@ -6094,13 +6226,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 149
+            "y": 154
           },
+          "hiddenSeries": false,
           "id": 51,
           "legend": {
             "alignAsTable": false,
@@ -6116,6 +6256,9 @@ data:
           "linewidth": 2,
           "links": [],
           "nullPointMode": "connected",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -6127,7 +6270,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(cilium_endpoint_state{kubernetes_pod_name=~\"$pod\"}) by (endpoint_state)",
+              "expr": "sum(cilium_endpoint_state{k8s_app=\"cilium\"}) by (endpoint_state)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{endpoint_state}}",
@@ -6177,11 +6320,18 @@ data:
         },
         {
           "content": "",
+          "datasource": null,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 154
+            "y": 159
           },
           "id": 74,
           "links": [],
@@ -6199,13 +6349,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 3,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 0,
-            "y": 155
+            "y": 160
           },
+          "hiddenSeries": false,
           "id": 70,
           "legend": {
             "alignAsTable": false,
@@ -6221,6 +6379,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -6241,14 +6402,14 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_controllers_runs_total{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod)",
+              "expr": "sum(rate(cilium_controllers_runs_total{k8s_app=\"cilium\"}[1m])) by (pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "Runs",
               "refId": "A"
             },
             {
-              "expr": "sum(cilium_controllers_failing{kubernetes_pod_name=~\"$pod\"}) by(pod)",
+              "expr": "sum(cilium_controllers_failing{k8s_app=\"cilium\"}) by(pod)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "Failed",
@@ -6309,13 +6470,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 5,
             "w": 12,
             "x": 12,
-            "y": 155
+            "y": 160
           },
+          "hiddenSeries": false,
           "id": 68,
           "legend": {
             "alignAsTable": false,
@@ -6333,6 +6502,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -6355,7 +6527,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_controllers_runs_duration_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, status) / sum(rate(cilium_controllers_runs_duration_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, status)",
+              "expr": "sum(rate(cilium_controllers_runs_duration_seconds_sum{k8s_app=\"cilium\"}[1m])) by (pod, status) / sum(rate(cilium_controllers_runs_duration_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, status)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{status}}",
@@ -6405,11 +6577,18 @@ data:
         },
         {
           "content": "",
+          "datasource": null,
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 160
+            "y": 165
           },
           "id": 60,
           "links": [],
@@ -6423,13 +6602,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 161
+            "y": 166
           },
+          "hiddenSeries": false,
           "id": 163,
           "legend": {
             "alignAsTable": true,
@@ -6448,6 +6635,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -6459,7 +6649,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_k8s_client_api_latency_time_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])/rate(cilium_k8s_client_api_latency_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
+              "expr": "avg(rate(cilium_k8s_client_api_latency_time_seconds_sum{k8s_app=\"cilium\"}[1m])/rate(cilium_k8s_client_api_latency_time_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, method, path)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{method}} {{path}}",
@@ -6513,13 +6703,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 161
+            "y": 166
           },
+          "hiddenSeries": false,
           "id": 165,
           "legend": {
             "alignAsTable": true,
@@ -6538,6 +6736,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -6549,7 +6750,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "max(rate(cilium_k8s_client_api_latency_time_seconds_sum{kubernetes_pod_name=~\"$pod\"}[1m])/rate(cilium_k8s_client_api_latency_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
+              "expr": "max(rate(cilium_k8s_client_api_latency_time_seconds_sum{k8s_app=\"cilium\"}[1m])/rate(cilium_k8s_client_api_latency_time_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, method, path)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{method}} {{path}}",
@@ -6603,13 +6804,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 168
+            "y": 173
           },
+          "hiddenSeries": false,
           "id": 168,
           "legend": {
             "alignAsTable": true,
@@ -6628,6 +6837,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -6639,7 +6851,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_k8s_client_api_latency_time_seconds_count{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, path)",
+              "expr": "sum(rate(cilium_k8s_client_api_latency_time_seconds_count{k8s_app=\"cilium\"}[1m])) by (pod, method, path)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{method}} {{path}}",
@@ -6693,13 +6905,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 168
+            "y": 173
           },
+          "hiddenSeries": false,
           "id": 166,
           "legend": {
             "alignAsTable": true,
@@ -6718,6 +6938,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -6729,7 +6952,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_k8s_client_api_calls_counter{kubernetes_pod_name=~\"$pod\"}[1m])) by (pod, method, return_code)",
+              "expr": "sum(rate(cilium_k8s_client_api_calls_counter{k8s_app=\"cilium\"}[1m])) by (pod, method, return_code)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{method}} {{return_code}}",
@@ -6783,13 +7006,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 0,
-            "y": 176
+            "y": 181
           },
+          "hiddenSeries": false,
           "id": 172,
           "legend": {
             "alignAsTable": false,
@@ -6807,17 +7038,21 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "stack": true,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_kubernetes_events_received_total{kubernetes_pod_name=~\"$pod\", equal=\"true\", valid=\"true\"}[5m])) by (pod, scope, action)",
+              "expr": "sum(rate(cilium_kubernetes_events_received_total{k8s_app=\"cilium\", equal=\"true\", valid=\"true\"}[5m])) by (pod, scope, action)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{action}} {{scope}}",
@@ -6871,13 +7106,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 6,
             "w": 12,
             "x": 12,
-            "y": 176
+            "y": 181
           },
+          "hiddenSeries": false,
           "id": 174,
           "legend": {
             "avg": true,
@@ -6894,17 +7137,21 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "stack": true,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_kubernetes_events_received_total{kubernetes_pod_name=~\"$pod\", equal=\"true\", valid=\"false\"}[5m])) by (pod, scope, action)",
+              "expr": "sum(rate(cilium_kubernetes_events_received_total{k8s_app=\"cilium\", equal=\"true\", valid=\"false\"}[5m])) by (pod, scope, action)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{action}} {{scope}}",
@@ -6958,13 +7205,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 182
+            "y": 187
           },
+          "hiddenSeries": false,
           "id": 175,
           "legend": {
             "avg": true,
@@ -6981,17 +7236,21 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "stack": true,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_kubernetes_events_received_total{kubernetes_pod_name=~\"$pod\", equal=\"false\", valid=\"true\"}[5m])) by (pod, scope, action, valid)",
+              "expr": "sum(rate(cilium_kubernetes_events_received_total{k8s_app=\"cilium\", equal=\"false\", valid=\"true\"}[5m])) by (pod, scope, action, valid)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{action}} {{scope}}",
@@ -7045,13 +7304,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 182
+            "y": 187
           },
+          "hiddenSeries": false,
           "id": 173,
           "legend": {
             "avg": true,
@@ -7068,17 +7335,21 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "stack": true,
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(cilium_kubernetes_events_received_total{kubernetes_pod_name=~\"$pod\", equal=\"false\", valid=\"false\"}[5m])) by (pod, scope, action)",
+              "expr": "sum(rate(cilium_kubernetes_events_received_total{k8s_app=\"cilium\", equal=\"false\", valid=\"false\"}[5m])) by (pod, scope, action)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{action}} {{scope}}",
@@ -7132,13 +7403,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 190
+            "y": 195
           },
+          "hiddenSeries": false,
           "id": 108,
           "legend": {
             "alignAsTable": false,
@@ -7155,6 +7434,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -7166,7 +7448,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_kubernetes_events_total{kubernetes_pod_name=~\"$pod\", scope=\"CiliumNetworkPolicy\"}[1m])) by (pod, action) * 60",
+              "expr": "avg(rate(cilium_kubernetes_events_total{k8s_app=\"cilium\", scope=\"CiliumNetworkPolicy\"}[1m])) by (pod, action) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{action}} avg",
@@ -7224,13 +7506,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 190
+            "y": 195
           },
+          "hiddenSeries": false,
           "id": 119,
           "legend": {
             "alignAsTable": false,
@@ -7247,6 +7537,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -7258,7 +7551,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_kubernetes_events_total{kubernetes_pod_name=~\"$pod\", scope=\"NetworkPolicy\"}[1m])) by (pod, action) * 60",
+              "expr": "avg(rate(cilium_kubernetes_events_total{k8s_app=\"cilium\", scope=\"NetworkPolicy\"}[1m])) by (pod, action) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{action}} avg",
@@ -7316,13 +7609,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 197
+            "y": 202
           },
+          "hiddenSeries": false,
           "id": 109,
           "legend": {
             "alignAsTable": false,
@@ -7339,6 +7640,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -7350,7 +7654,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_kubernetes_events_total{kubernetes_pod_name=~\"$pod\", scope=\"Pod\"}[1m])) by (pod, action) * 60",
+              "expr": "avg(rate(cilium_kubernetes_events_total{k8s_app=\"cilium\", scope=\"Pod\"}[1m])) by (pod, action) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{action}} avg",
@@ -7408,13 +7712,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 197
+            "y": 202
           },
+          "hiddenSeries": false,
           "id": 122,
           "legend": {
             "alignAsTable": false,
@@ -7431,6 +7743,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -7442,7 +7757,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_kubernetes_events_total{kubernetes_pod_name=~\"$pod\", scope=\"Node\"}[1m])) by (pod, action) * 60",
+              "expr": "avg(rate(cilium_kubernetes_events_total{k8s_app=\"cilium\", scope=\"Node\"}[1m])) by (pod, action) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{action}} avg",
@@ -7496,13 +7811,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 204
+            "y": 209
           },
+          "hiddenSeries": false,
           "id": 118,
           "legend": {
             "alignAsTable": false,
@@ -7519,6 +7842,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -7530,7 +7856,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_kubernetes_events_total{kubernetes_pod_name=~\"$pod\", scope=\"Service\"}[1m])) by (pod, action) * 60",
+              "expr": "avg(rate(cilium_kubernetes_events_total{k8s_app=\"cilium\", scope=\"Service\"}[1m])) by (pod, action) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{action}}",
@@ -7584,13 +7910,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 7,
             "w": 12,
             "x": 12,
-            "y": 204
+            "y": 209
           },
+          "hiddenSeries": false,
           "id": 120,
           "legend": {
             "alignAsTable": false,
@@ -7607,6 +7941,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -7618,7 +7955,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_kubernetes_events_total{kubernetes_pod_name=~\"$pod\", scope=\"Endpoint\"}[1m])) by (pod, action) * 60",
+              "expr": "avg(rate(cilium_kubernetes_events_total{k8s_app=\"cilium\", scope=\"Endpoint\"}[1m])) by (pod, action) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{action}}",
@@ -7672,13 +8009,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 7,
             "w": 12,
             "x": 0,
-            "y": 211
+            "y": 216
           },
+          "hiddenSeries": false,
           "id": 121,
           "legend": {
             "alignAsTable": false,
@@ -7695,6 +8040,9 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 5,
@@ -7706,7 +8054,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "avg(rate(cilium_kubernetes_events_total{kubernetes_pod_name=~\"$pod\", scope=\"Namespace\"}[1m])) by (pod, action) * 60",
+              "expr": "avg(rate(cilium_kubernetes_events_total{k8s_app=\"cilium\", scope=\"Namespace\"}[1m])) by (pod, action) * 60",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{action}}",
@@ -7756,7 +8104,7 @@ data:
         }
       ],
       "refresh": false,
-      "schemaVersion": 18,
+      "schemaVersion": 25,
       "style": "dark",
       "tags": [],
       "templating": {
@@ -7764,11 +8112,12 @@ data:
           {
             "allValue": "cilium.*",
             "current": {
+              "selected": false,
               "text": "All",
               "value": "$__all"
             },
             "datasource": "prometheus",
-            "definition": "",
+            "definition": "label_values(kube_pod_created{pod=~\"^cilium-[a-z|A-Z|0-9]+$\"},pod)",
             "hide": 0,
             "includeAll": true,
             "label": null,
@@ -7794,7 +8143,6 @@ data:
       },
       "timepicker": {
         "refresh_intervals": [
-          "5s",
           "10s",
           "30s",
           "1m",
@@ -7822,7 +8170,7 @@ data:
       "uid": "vtuWtdumz",
       "version": 1
     }
-  cilium-operator-dashboard: |
+  cilium-operator-dashboard.json: |
     {
       "annotations": {
         "list": [
@@ -7840,16 +8188,261 @@ data:
       "editable": true,
       "gnetId": null,
       "graphTooltip": 0,
-      "id": 2,
+      "id": 8,
       "links": [],
       "panels": [
         {
+          "aliasColors": {
+            "avg": "#cffaff"
+          },
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
+          "fill": 0,
+          "fillGradient": 0,
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 0,
+            "y": 0
+          },
+          "hiddenSeries": false,
+          "id": 24,
+          "legend": {
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
+          "paceLength": 10,
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [
+            {
+              "alias": "max",
+              "fillBelowTo": "min",
+              "lines": false
+            },
+            {
+              "alias": "min",
+              "lines": false
+            }
+          ],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "min(irate(cilium_operator_process_cpu_seconds_total{io_cilium_app=\"operator\"}[1m])) by (pod) * 100",
+              "format": "time_series",
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "min",
+              "refId": "A"
+            },
+            {
+              "expr": "avg(irate(cilium_operator_process_cpu_seconds_total{io_cilium_app=\"operator\"}[1m])) by (pod) * 100",
+              "format": "time_series",
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "avg",
+              "refId": "B"
+            },
+            {
+              "expr": "max(irate(cilium_operator_process_cpu_seconds_total{io_cilium_app=\"operator\"}[1m])) by (pod) * 100",
+              "format": "time_series",
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "max",
+              "refId": "C"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "CPU Usage per node",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "percent",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
+          "aliasColors": {
+            "MAX_resident_memory_bytes_max": "#e5ac0e"
+          },
+          "bars": false,
+          "dashLength": 10,
+          "dashes": false,
+          "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
+          "fill": 1,
+          "fillGradient": 0,
+          "gridPos": {
+            "h": 5,
+            "w": 12,
+            "x": 12,
+            "y": 0
+          },
+          "hiddenSeries": false,
+          "id": 26,
+          "legend": {
+            "alignAsTable": false,
+            "avg": false,
+            "current": false,
+            "max": false,
+            "min": false,
+            "rightSide": false,
+            "show": true,
+            "total": false,
+            "values": false
+          },
+          "lines": true,
+          "linewidth": 1,
+          "links": [],
+          "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
+          "paceLength": 10,
+          "percentage": false,
+          "pointradius": 5,
+          "points": false,
+          "renderer": "flot",
+          "seriesOverrides": [],
+          "spaceLength": 10,
+          "stack": false,
+          "steppedLine": false,
+          "targets": [
+            {
+              "expr": "avg(cilium_operator_process_resident_memory_bytes{io_cilium_app=\"operator\"})",
+              "format": "time_series",
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "AVG_resident_memory_bytes",
+              "refId": "C"
+            },
+            {
+              "expr": "max(cilium_operator_process_resident_memory_bytes{io_cilium_app=\"operator\"})",
+              "format": "time_series",
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "MAX_resident_memory_bytes_max",
+              "refId": "D"
+            },
+            {
+              "expr": "min(cilium_operator_process_resident_memory_bytes{io_cilium_app=\"operator\"})",
+              "format": "time_series",
+              "interval": "",
+              "intervalFactor": 1,
+              "legendFormat": "MIN_resident_memory_bytes_min",
+              "refId": "E"
+            }
+          ],
+          "thresholds": [],
+          "timeFrom": null,
+          "timeRegions": [],
+          "timeShift": null,
+          "title": "Resident memory status",
+          "tooltip": {
+            "shared": true,
+            "sort": 0,
+            "value_type": "individual"
+          },
+          "type": "graph",
+          "xaxis": {
+            "buckets": null,
+            "mode": "time",
+            "name": null,
+            "show": true,
+            "values": []
+          },
+          "yaxes": [
+            {
+              "format": "bytes",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            },
+            {
+              "format": "short",
+              "label": null,
+              "logBase": 1,
+              "max": null,
+              "min": null,
+              "show": true
+            }
+          ],
+          "yaxis": {
+            "align": false,
+            "alignLevel": null
+          }
+        },
+        {
           "collapsed": false,
+          "datasource": null,
           "gridPos": {
             "h": 1,
             "w": 24,
             "x": 0,
-            "y": 0
+            "y": 5
           },
           "id": 6,
           "panels": [],
@@ -7862,13 +8455,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 1
+            "y": 6
           },
+          "hiddenSeries": false,
           "id": 8,
           "legend": {
             "avg": false,
@@ -7883,12 +8484,16 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "stack": true,
           "steppedLine": false,
           "targets": [
@@ -7947,13 +8552,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 1
+            "y": 6
           },
+          "hiddenSeries": false,
           "id": 10,
           "legend": {
             "avg": false,
@@ -7968,12 +8581,16 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "stack": false,
           "steppedLine": false,
           "targets": [
@@ -8032,13 +8649,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 7,
             "w": 8,
             "x": 0,
-            "y": 9
+            "y": 14
           },
+          "hiddenSeries": false,
           "id": 4,
           "legend": {
             "avg": false,
@@ -8053,12 +8678,16 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "stack": false,
           "steppedLine": false,
           "targets": [
@@ -8117,13 +8746,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 7,
             "w": 8,
             "x": 8,
-            "y": 9
+            "y": 14
           },
+          "hiddenSeries": false,
           "id": 12,
           "legend": {
             "avg": false,
@@ -8138,12 +8775,16 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "stack": false,
           "steppedLine": false,
           "targets": [
@@ -8202,13 +8843,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 7,
             "w": 8,
             "x": 16,
-            "y": 9
+            "y": 14
           },
+          "hiddenSeries": false,
           "id": 16,
           "legend": {
             "avg": false,
@@ -8223,12 +8872,16 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "stack": false,
           "steppedLine": false,
           "targets": [
@@ -8287,13 +8940,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 0,
-            "y": 16
+            "y": 21
           },
+          "hiddenSeries": false,
           "id": 14,
           "legend": {
             "avg": false,
@@ -8308,12 +8969,16 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "stack": true,
           "steppedLine": false,
           "targets": [
@@ -8372,13 +9037,21 @@ data:
           "dashLength": 10,
           "dashes": false,
           "datasource": "prometheus",
+          "fieldConfig": {
+            "defaults": {
+              "custom": {}
+            },
+            "overrides": []
+          },
           "fill": 1,
+          "fillGradient": 0,
           "gridPos": {
             "h": 8,
             "w": 12,
             "x": 12,
-            "y": 16
+            "y": 21
           },
+          "hiddenSeries": false,
           "id": 2,
           "legend": {
             "avg": false,
@@ -8393,12 +9066,16 @@ data:
           "linewidth": 1,
           "links": [],
           "nullPointMode": "null",
+          "options": {
+            "dataLinks": []
+          },
           "paceLength": 10,
           "percentage": false,
           "pointradius": 2,
           "points": false,
           "renderer": "flot",
           "seriesOverrides": [],
+          "spaceLength": 10,
           "stack": false,
           "steppedLine": false,
           "targets": [
@@ -8452,19 +9129,19 @@ data:
           }
         }
       ],
-      "schemaVersion": 18,
+      "refresh": false,
+      "schemaVersion": 25,
       "style": "dark",
       "tags": [],
       "templating": {
         "list": []
       },
       "time": {
-        "from": "now-6h",
+        "from": "now-30m",
         "to": "now"
       },
       "timepicker": {
         "refresh_intervals": [
-          "5s",
           "10s",
           "30s",
           "1m",
@@ -8490,5 +9167,620 @@ data:
       "timezone": "",
       "title": "Cilium Operator",
       "uid": "1GC0TT4Wz",
-      "version": 1
+      "version": 2
     }
+  config.yaml: |
+    apiVersion: 1
+    providers:
+    - name: 'cilium-dashboard-config'
+      orgId: 1
+      folder: ''
+      type: file
+      disableDeletion: true
+      options:
+        path: '/configmap/grafana/provisioning/cilium'
+  grafana.ini: |
+    app_mode = production
+    [paths]
+    # Path to where grafana can store temp files, sessions, and the sqlite3 db (if that is used)
+    data = data
+    # Temporary files in `data` directory older than given duration will be removed
+    temp_data_lifetime = 24h
+    # Directory where grafana can store logs
+    logs = data/log
+    # Directory where grafana will automatically scan and look for plugins
+    plugins = data/plugins
+    # folder that contains provisioning config files that grafana will apply on startup and while running.
+    provisioning = /configmap/grafana/provisioning
+    #################################### Server ##############################
+    [server]
+    # Protocol (http, https, socket)
+    protocol = http
+    # The http port to use
+    http_port = 3000
+    # enable gzip
+    enable_gzip = false
+    #################################### Session #############################
+    [session]
+    # Either "memory", "file", "redis", "mysql", "postgres", "memcache", default is "file"
+    provider = file
+  
+    provider_config = sessions
+  
+    # Session cookie name
+    cookie_name = grafana_sess
+  
+    # If you use session in https only, default is false
+    cookie_secure = true
+  
+    # Session life time, default is 86400
+    session_life_time = 86400
+    gc_interval_time = 86400
+  
+    # Connection Max Lifetime default is 14400 (means 14400 seconds or 4 hours)
+    conn_max_lifetime = 14400
+  
+    #################################### Data proxy ###########################
+    [dataproxy]
+  
+    # This enables data proxy logging, default is false
+    logging = false
+  
+    # How long the data proxy should wait before timing out default is 30 (seconds)
+    timeout = 30
+  
+    #################################### Analytics ###########################
+    [analytics]
+    # Server reporting, sends usage counters to stats.grafana.org every 24 hours.
+    # No ip addresses are being tracked, only simple counters to track
+    # running instances, dashboard and error counts. It is very helpful to us.
+    # Change this option to false to disable reporting.
+    reporting_enabled = false
+  
+    # Set to false to disable all checks to https://grafana.com
+    # for new versions (grafana itself and plugins), check is used
+    # in some UI views to notify that grafana or plugin update exists
+    # This option does not cause any auto updates, nor send any information
+    # only a GET request to https://grafana.com to get latest versions
+    check_for_updates = false
+  
+    #################################### Security ############################
+    [security]
+    # default admin user, created on startup
+    admin_user = admin
+  
+    # default admin password, can be changed before first start of grafana, or in profile settings
+    admin_password = admin
+  
+    # used for signing
+    secret_key = SW2YcwTIb9zpOOhoPsMm
+  
+    # disable gravatar profile images
+    disable_gravatar = true
+  
+    # disable protection against brute force login attempts
+    disable_brute_force_login_protection = false
+  
+    # set to true if you host Grafana behind HTTPS. default is false.
+    cookie_secure = true
+  
+    # set cookie SameSite attribute. defaults to `lax`. can be set to "lax", "strict" and "none"
+    cookie_samesite = lax
+  
+    #################################### Dashboards ##################
+  
+    [dashboards]
+    # Number dashboard versions to keep (per dashboard). Default: 20, Minimum: 1
+    versions_to_keep = 20
+  
+    #################################### Users ###############################
+    [users]
+    # disable user signup / registration
+    allow_sign_up = false
+  
+    # Allow non admin users to create organizations
+    allow_org_create = false
+  
+    # Set to true to automatically assign new users to the default organization (id 1)
+    auto_assign_org = true
+  
+    # Set this value to automatically add new users to the provided organization (if auto_assign_org above is set to true)
+    auto_assign_org_id = 1
+  
+    # Default role new users will be automatically assigned (if auto_assign_org above is set to true)
+    auto_assign_org_role = Viewer
+  
+    # Require email validation before sign up completes
+    verify_email_enabled = false
+  
+    # Background text for the user field on the login page
+    login_hint = email or username
+  
+    # Default UI theme ("dark" or "light")
+    default_theme = dark
+  
+    # External user management
+    external_manage_link_url =
+    external_manage_link_name =
+    external_manage_info =
+  
+    # Viewers can edit/inspect dashboard settings in the browser. But not save the dashboard.
+    viewers_can_edit = false
+  
+    [auth]
+    # Login cookie name
+    login_cookie_name = grafana_session
+  
+    # The lifetime (days) an authenticated user can be inactive before being required to login at next visit. Default is 7 days.
+    login_maximum_inactive_lifetime_days = 7
+  
+    # The maximum lifetime (days) an authenticated user can be logged in since login time before being required to login. Default is 30 days.
+    login_maximum_lifetime_days = 30
+  
+    # How often should auth tokens be rotated for authenticated users when being active. The default is each 10 minutes.
+    token_rotation_interval_minutes = 10
+  
+    # Set to true to disable (hide) the login form, useful if you use OAuth
+    disable_login_form = false
+  
+    # Set to true to disable the signout link in the side menu. useful if you use auth.proxy
+    disable_signout_menu = false
+  
+    # URL to redirect the user to after sign out
+    signout_redirect_url =
+  
+    # Set to true to attempt login with OAuth automatically, skipping the login screen.
+    # This setting is ignored if multiple OAuth providers are configured.
+    oauth_auto_login = false
+  
+    #################################### Anonymous Auth ######################
+    [auth.anonymous]
+    # enable anonymous access
+    enabled = true
+  
+    # specify organization name that should be used for unauthenticated users
+    org_name = Main Org.
+  
+    # specify role for unauthenticated users
+    org_role = Admin
+  
+  
+    #################################### Basic Auth ##########################
+    [auth.basic]
+    enabled = false
+  
+    #################################### Logging ##########################
+    [log]
+    # Either "console", "file", "syslog". Default is console and file
+    # Use space to separate multiple modes, e.g. "console file"
+    mode = console file
+  
+    # Either "debug", "info", "warn", "error", "critical", default is "info"
+    level = info
+  
+    # optional settings to set different levels for specific loggers. Ex filters = sqlstore:debug
+    filters =
+  
+    # For "console" mode only
+    [log.console]
+    level =
+  
+    # log line format, valid options are text, console and json
+    format = console
+  
+    # For "file" mode only
+    [log.file]
+    level =
+  
+    # log line format, valid options are text, console and json
+    format = text
+  
+    # This enables automated log rotate(switch of following options), default is true
+    log_rotate = true
+  
+    # Max line number of single file, default is 1000000
+    max_lines = 1000000
+  
+    # Max size shift of single file, default is 28 means 1 << 28, 256MB
+    max_size_shift = 28
+  
+    # Segment log daily, default is true
+    daily_rotate = true
+  
+    # Expired days of log file(delete after max days), default is 7
+    max_days = 7
+  
+    [log.syslog]
+    level =
+  
+    # log line format, valid options are text, console and json
+    format = text
+  
+    # Syslog network type and address. This can be udp, tcp, or unix. If left blank, the default unix endpoints will be used.
+    network =
+    address =
+  
+    # Syslog facility. user, daemon and local0 through local7 are valid.
+    facility =
+  
+    # Syslog tag. By default, the process' argv[0] is used.
+    tag =
+  
+    #################################### Usage Quotas ########################
+    [quota]
+    enabled = false
+  
+    #### set quotas to -1 to make unlimited. ####
+    # limit number of users per Org.
+    org_user = 10
+  
+    # limit number of dashboards per Org.
+    org_dashboard = 100
+  
+    # limit number of data_sources per Org.
+    org_data_source = 10
+  
+    # limit number of api_keys per Org.
+    org_api_key = 10
+  
+    # limit number of orgs a user can create.
+    user_org = 10
+  
+    # Global limit of users.
+    global_user = -1
+  
+    # global limit of orgs.
+    global_org = -1
+  
+    # global limit of dashboards
+    global_dashboard = -1
+  
+    # global limit of api_keys
+    global_api_key = -1
+  
+    # global limit on number of logged in users.
+    global_session = -1
+  
+    #################################### Alerting ############################
+    [alerting]
+    # Disable alerting engine & UI features
+    enabled = true
+    # Makes it possible to turn off alert rule execution but alerting UI is visible
+    execute_alerts = true
+  
+    # Default setting for new alert rules. Defaults to categorize error and timeouts as alerting. (alerting, keep_state)
+    error_or_timeout = alerting
+  
+    # Default setting for how Grafana handles nodata or null values in alerting. (alerting, no_data, keep_state, ok)
+    nodata_or_nullvalues = no_data
+  
+    # Alert notifications can include images, but rendering many images at the same time can overload the server
+    # This limit will protect the server from render overloading and make sure notifications are sent out quickly
+    concurrent_render_limit = 5
+  
+    #################################### Explore #############################
+    [explore]
+    # Enable the Explore section
+    enabled = true
+  
+    #################################### Internal Grafana Metrics ############
+    # Metrics available at HTTP API Url /metrics
+    [metrics]
+    enabled           = true
+    interval_seconds  = 10
+  
+    #If both are set, basic auth will be required for the metrics endpoint.
+    basic_auth_username =
+    basic_auth_password =
+  prometheus-datasource.yaml: |-
+    apiVersion: 1
+    deleteDatasources:
+      - name: prometheus
+        orgId: 1
+    datasources:
+    - name: prometheus
+      type: prometheus
+      access: proxy
+      orgId: 1
+      url: http://prometheus:9090
+      basicAuth: false
+      editable: true
+---
+# Source: prometheus/templates/prometheus.yaml
+kind: ConfigMap
+metadata:
+  name: prometheus
+  namespace: cilium-monitoring
+apiVersion: v1
+data:
+  prometheus.yaml: |
+    global:
+      scrape_interval: 10s
+      scrape_timeout: 10s
+      evaluation_interval: 10s
+    rule_files:
+      - "/etc/prometheus-rules/*.rules"
+    scrape_configs:
+      # https://github.com/prometheus/prometheus/blob/master/documentation/examples/prometheus-kubernetes.yml#L79
+      - job_name: 'kubernetes-endpoints'
+        kubernetes_sd_configs:
+          - role: endpoints
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_label_k8s_app]
+            action: keep
+            regex: cilium
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scheme]
+            action: replace
+            target_label: __scheme__
+            regex: (https?)
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: (.+)(?::\d+);(\d+)
+            replacement: $1:$2
+          - action: labelmap
+            regex: __meta_kubernetes_service_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_service_name]
+            action: replace
+            target_label: kubernetes_name
+  
+      # https://github.com/prometheus/prometheus/blob/master/documentation/examples/prometheus-kubernetes.yml#L156
+      - job_name: 'kubernetes-pods'
+        kubernetes_sd_configs:
+          - role: pod
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_path]
+            action: replace
+            target_label: __metrics_path__
+            regex: (.+)
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: (.+):(?:\d+);(\d+)
+            replacement: ${1}:${2}
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_pod_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            action: replace
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_pod_name]
+            action: replace
+            target_label: kubernetes_pod_name
+          - source_labels: [__meta_kubernetes_pod_container_port_number]
+            action: keep
+            regex: \d+
+  
+      # https://github.com/prometheus/prometheus/blob/master/documentation/examples/prometheus-kubernetes.yml#L119
+      - job_name: 'kubernetes-services'
+        metrics_path: /metrics
+        params:
+          module: [http_2xx]
+        kubernetes_sd_configs:
+          - role: service
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_probe]
+            action: keep
+            regex: true
+          - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+            action: replace
+            regex: ([^:]+)(?::\d+)?;(\d+)
+            replacement: ${1}:${2}
+            target_label: __address__
+          - action: labelmap
+            regex: __meta_kubernetes_service_label_(.+)
+          - source_labels: [__meta_kubernetes_namespace]
+            target_label: kubernetes_namespace
+          - source_labels: [__meta_kubernetes_service_name]
+            target_label: kubernetes_name
+  
+      - job_name: 'kubernetes-cadvisor'
+        scheme: https
+        tls_config:
+          ca_file: /var/run/secrets/kubernetes.io/serviceaccount/ca.crt
+        bearer_token_file: /var/run/secrets/kubernetes.io/serviceaccount/token
+        kubernetes_sd_configs:
+          - role: node
+        relabel_configs:
+          - action: labelmap
+            regex: __meta_kubernetes_node_label_(.+)
+          - target_label: __address__
+            replacement: kubernetes.default.svc:443
+          - source_labels: [__meta_kubernetes_node_name]
+            regex: (.+)
+            target_label: __metrics_path__
+            replacement: /api/v1/nodes/${1}/proxy/metrics/cadvisor
+---
+# Source: prometheus/templates/prometheus.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: prometheus
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - nodes
+  - nodes/proxy
+  - services
+  - endpoints
+  - pods
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - ""
+  resources:
+  - configmaps
+  verbs:
+  - get
+- nonResourceURLs:
+  - /metrics
+  verbs:
+  - get
+---
+# Source: prometheus/templates/prometheus.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: prometheus
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: prometheus
+subjects:
+- kind: ServiceAccount
+  name: prometheus-k8s
+  namespace: cilium-monitoring
+---
+# Source: prometheus/templates/grafana.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: grafana
+  name: grafana
+  namespace: cilium-monitoring
+spec:
+  ports:
+    - port: 3000
+      protocol: TCP
+      targetPort: 3000
+  selector:
+    app: grafana
+  type: ClusterIP
+---
+# Source: prometheus/templates/prometheus.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  labels:
+    app: prometheus
+  name: prometheus
+  namespace: cilium-monitoring
+spec:
+  ports:
+  - name: webui
+    port: 9090
+    protocol: TCP
+    targetPort: 9090
+  selector:
+    app: prometheus
+  type: ClusterIP
+---
+# Source: prometheus/templates/grafana.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: grafana
+    component: core
+  name: grafana
+  namespace: cilium-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: grafana
+  template:
+    metadata:
+      labels:
+        app: grafana
+    spec:
+      containers:
+        - env:
+            - name: GF_PATHS_CONFIG
+              value: /configmap/grafana/grafana-config.ini
+            - name: GF_PATHS_PROVISIONING
+              value: /configmap/grafana/provisioning
+          image: "docker.io/grafana/grafana:7.0.1"
+          imagePullPolicy: IfNotPresent
+          name: grafana-core
+          readinessProbe:
+            failureThreshold: 3
+            httpGet:
+              path: /login
+              port: 3000
+              scheme: HTTP
+          volumeMounts:
+            - mountPath: /configmap/grafana
+              name: grafana-config
+              readOnly: true
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      volumes:
+        - configMap:
+            defaultMode: 420
+            items:
+              - key: grafana.ini
+                path: grafana-config.ini
+              - key: prometheus-datasource.yaml
+                path: provisioning/datasources/prometheus.yaml
+              - key: cilium-dashboard.json
+                path: provisioning/cilium/cilium-dashboard.json
+              - key: cilium-operator-dashboard.json
+                path: provisioning/cilium/cilium-operator-dashboard.json
+              - key: config.yaml
+                path: provisioning/dashboards/config.yaml
+            name: grafana-config
+          name: grafana-config
+---
+# Source: prometheus/templates/prometheus.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: prometheus
+  name: prometheus
+  namespace: cilium-monitoring
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: prometheus
+  template:
+    metadata:
+      labels:
+        app: prometheus
+      name: prometheus-main
+    spec:
+      containers:
+      - args:
+        - --config.file=/etc/prometheus/prometheus.yaml
+        - --storage.tsdb.path=/prometheus/
+        - --log.level=info
+        image: "docker.io/prom/prometheus:v2.18.1"
+        imagePullPolicy: IfNotPresent
+        name: prometheus
+        ports:
+        - containerPort: 9090
+          name: webui
+          protocol: TCP
+        volumeMounts:
+        - mountPath: /etc/prometheus
+          name: config-volume
+          readOnly: true
+        - mountPath: /prometheus/
+          name: storage
+      dnsPolicy: ClusterFirst
+      restartPolicy: Always
+      serviceAccount: prometheus-k8s
+      volumes:
+      - configMap:
+          name: prometheus
+        name: config-volume
+      - emptyDir: {}
+        name: storage
