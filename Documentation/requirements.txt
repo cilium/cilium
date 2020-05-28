@@ -28,3 +28,4 @@ sphinxcontrib-spelling==4.2.1
 sphinx-version-warning==1.1.2
 semver==2.9.0
 yamllint==1.22.0
+sphinx-autobuild==0.7.1
