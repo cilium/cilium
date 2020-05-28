@@ -863,13 +863,19 @@ func (kub *Kubectl) GetAllPods(ctx context.Context, options ...ExecOptions) ([]v
 		ops = options[0]
 	}
 
-	getPodsCtx, cancel := context.WithTimeout(ctx, ShortCommandTimeout)
+	getPodsCtx, cancel := context.WithTimeout(ctx, MidCommandTimeout)
 	defer cancel()
 
 	var podsList v1.List
-	err := kub.ExecContext(getPodsCtx,
+	res := kub.ExecContext(getPodsCtx,
 		fmt.Sprintf("%s get pods --all-namespaces -o json", KubectlCmd),
-		ExecOptions{SkipLog: ops.SkipLog}).Unmarshal(&podsList)
+		ExecOptions{SkipLog: ops.SkipLog})
+
+	if !res.WasSuccessful() {
+		return nil, res.GetError()
+	}
+
+	err := res.Unmarshal(&podsList)
 	if err != nil {
 		return nil, err
 	}
