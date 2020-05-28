@@ -84,6 +84,27 @@ func (d *Daemon) getHubbleStatus(ctx context.Context) *models.HubbleStatus {
 	return hubbleStatus
 }
 
+// bindsLocalPort returns true if the addr would bind on the loopback interface
+func bindsLocalPort(addr string) (bool, error) {
+	host, _, err := net.SplitHostPort(addr)
+	if err != nil {
+		return false, err
+	}
+	if host == "" {
+		return false, nil
+	}
+	ips, err := net.LookupIP(host)
+	if err != nil {
+		return false, err
+	}
+	for _, ip := range ips {
+		if !ip.IsLoopback() {
+			return false, nil
+		}
+	}
+	return true, nil
+}
+
 func (d *Daemon) launchHubble() {
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble")
 	if !option.Config.EnableHubble {
@@ -133,7 +154,14 @@ func (d *Daemon) launchHubble() {
 	address := option.Config.HubbleListenAddress
 	if address != "" {
 		// TODO: remove warning once mutual TLS has been implemented
-		logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
+		isLocal, err := bindsLocalPort(address)
+		if err != nil {
+			logger.WithField("address", address).WithError(err).Error("Invalid listen address")
+			return
+		} else if !isLocal {
+			logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
+		}
+
 		srv, err := server.NewServer(logger,
 			serveroption.WithTCPListener(address),
 			serveroption.WithHealthService(),
