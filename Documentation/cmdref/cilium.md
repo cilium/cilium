@@ -27,6 +27,7 @@ CLI for interacting with the local Cilium Agent
 * [cilium endpoint](../cilium_endpoint)	 - Manage endpoints
 * [cilium fqdn](../cilium_fqdn)	 - Manage fqdn proxy
 * [cilium identity](../cilium_identity)	 - Manage security identities
+* [cilium ip](../cilium_ip)	 - Manage IP addresses and associated information
 * [cilium kvstore](../cilium_kvstore)	 - Direct access to the kvstore
 * [cilium map](../cilium_map)	 - Access BPF maps
 * [cilium metrics](../cilium_metrics)	 - Access metric status

@@ -248,6 +248,7 @@ func copyCiliumInfoCommands(cmdDir string, k8sPods []string) []string {
 		"cilium bpf ipcache list",
 		"cilium bpf policy get --all --numeric",
 		"cilium bpf sha list",
+		"cilium ip list -o json",
 		"cilium map list --verbose",
 		"cilium status --verbose",
 		"cilium identity list",
