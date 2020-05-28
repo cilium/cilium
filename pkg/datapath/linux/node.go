@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/maps/tunnel"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -597,6 +598,9 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 		neighborLog("insertNeighbor NeighSet", ifaceName, err, &ciliumIPv4, &hwAddr, link)
 		if err == nil {
 			n.neighByNode[newNode.Identity()] = &neigh
+			if option.Config.NodePortAcceleration != option.NodePortAccelerationNone {
+				neighborsmap.NeighRetire(ciliumIPv4)
+			}
 		}
 	} else {
 		neighborLog("insertNeighbor arping failed", ifaceName, err, &ciliumIPv4, &hwAddr, link)
@@ -615,6 +619,10 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 			"HardwareAddr":   neigh.HardwareAddr,
 			"LinkIndex":      neigh.LinkIndex,
 		}).WithError(err).Warn("Failed to remove neighbor entry")
+	} else {
+		if option.Config.NodePortAcceleration != option.NodePortAccelerationNone {
+			neighborsmap.NeighRetire(neigh.IP)
+		}
 	}
 }
 
