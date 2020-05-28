@@ -15,7 +15,6 @@
 package proxy
 
 import (
-	"context"
 	"fmt"
 	"math/rand"
 	"time"
@@ -404,12 +403,15 @@ func (p *Proxy) ReinstallRules() {
 // The proxy listening port is returned, but proxy configuration on that port
 // may still be ongoing asynchronously. Caller should wait for successful completion
 // on 'wg' before assuming the returned proxy port is listening.
+// Caller must call exactly one of the returned functions:
+// - finalizeFunc to make the changes stick, or
+// - revertFunc to cancel the changes.
 func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndpoint logger.EndpointUpdater,
 	wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 
 	p.mutex.Lock()
 	defer func() {
-		p.UpdateRedirectMetrics()
+		p.updateRedirectMetrics()
 		p.mutex.Unlock()
 		if err == nil && proxyPort == 0 {
 			panic("Trying to configure zero proxy port")
@@ -511,16 +513,17 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 			pp.reservePort()
 
 			revertStack.Push(func() error {
-				completionCtx, cancel := context.WithCancel(context.Background())
-				proxyWaitGroup := completion.NewWaitGroup(completionCtx)
-				err, finalize, _ := p.RemoveRedirect(id, proxyWaitGroup)
-				// Don't wait for an ACK. This is best-effort. Just clean up the completions.
-				cancel()
-				proxyWaitGroup.Wait() // Ignore the returned error.
-				if err == nil && finalize != nil {
-					finalize()
+				// Proxy port refcount has not been incremented yet, so it must not be decremented
+				// when reverting. Undo what we have done above.
+				p.mutex.Lock()
+				delete(p.redirects, id)
+				p.updateRedirectMetrics()
+				p.mutex.Unlock()
+				implFinalizeFunc, _ := redir.implementation.Close(wg)
+				if implFinalizeFunc != nil {
+					implFinalizeFunc()
 				}
-				return err
+				return nil
 			})
 
 			// Set the proxy port only after an ACK is received.
@@ -552,11 +555,11 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 *policy.L4Filter, id string, localEndp
 	return 0, err, nil, nil
 }
 
-// RemoveRedirect removes an existing redirect.
+// RemoveRedirect removes an existing redirect that has been successfully created earlier.
 func (p *Proxy) RemoveRedirect(id string, wg *completion.WaitGroup) (error, revert.FinalizeFunc, revert.RevertFunc) {
 	p.mutex.Lock()
 	defer func() {
-		p.UpdateRedirectMetrics()
+		p.updateRedirectMetrics()
 		p.mutex.Unlock()
 	}()
 	return p.removeRedirect(id, wg)
@@ -636,9 +639,9 @@ func (p *Proxy) GetStatusModel() *models.ProxyStatus {
 	}
 }
 
-// UpdateRedirectMetrics updates the redirect metrics per application protocol
+// updateRedirectMetrics updates the redirect metrics per application protocol
 // in Prometheus. Lock needs to be held to call this function.
-func (p *Proxy) UpdateRedirectMetrics() {
+func (p *Proxy) updateRedirectMetrics() {
 	result := map[string]int{}
 	for _, redirect := range p.redirects {
 		result[string(redirect.listener.parserType)]++
