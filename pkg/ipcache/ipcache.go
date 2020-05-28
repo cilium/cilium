@@ -41,6 +41,12 @@ type Identity struct {
 
 	// Source is the source of the identity in the cache
 	Source source.Source
+
+	// shadowed determines if another entry overlaps with this one.
+	// Shadowed identities are not propagated to listeners by default.
+	// Most commonly set for Identity with Source = source.Generated when
+	// a pod IP (other source) has the same IP.
+	shadowed bool
 }
 
 // IPKeyPair is the (IP, key) pair used of the identity
@@ -286,7 +292,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 				scopedLog.Debug("Ignoring CIDR to identity mapping as it is shadowed by an endpoint IP")
 				// Skip calling back the listeners, since the endpoint IP has
 				// precedence over the new CIDR.
-				callbackListeners = false
+				newIdentity.shadowed = true
 			}
 		}
 	} else if endpointIP := net.ParseIP(ip); endpointIP != nil { // Endpoint IP.
@@ -300,6 +306,8 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 				oldHostIP, _ = ipc.getHostIPCache(cidrStr)
 				if cidrIdentity.ID != newIdentity.ID || !oldHostIP.Equal(hostIP) {
 					scopedLog.Debug("New endpoint IP started shadowing existing CIDR to identity mapping")
+					cidrIdentity.shadowed = true
+					ipc.ipToIdentityCache[cidrStr] = cidrIdentity
 					oldIdentity = &cidrIdentity.ID
 				} else {
 					// The endpoint IP and the CIDR are associated with the
@@ -370,7 +378,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 		}
 	}
 
-	if callbackListeners {
+	if callbackListeners && !newIdentity.shadowed {
 		for _, listener := range ipc.listeners {
 			listener.OnIPIdentityCacheChange(Upsert, *cidr, oldHostIP, hostIP, oldIdentity, newIdentity.ID, hostKey, k8sMeta)
 		}
@@ -383,6 +391,9 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 // the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
 func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 	for ip, identity := range ipc.ipToIdentityCache {
+		if identity.shadowed {
+			continue
+		}
 		hostIP, encryptKey := ipc.getHostIPCache(ip)
 		k8sMeta := ipc.GetK8sMetadata(ip)
 		_, cidr, err := net.ParseCIDR(ip)
@@ -443,6 +454,8 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 			if cidrIdentity.ID != cachedIdentity.ID || !oldHostIP.Equal(newHostIP) {
 				scopedLog.Debug("Removal of endpoint IP revives shadowed CIDR to identity mapping")
 				cacheModification = Upsert
+				cidrIdentity.shadowed = false
+				ipc.ipToIdentityCache[cidrStr] = cidrIdentity
 				oldIdentity = &cachedIdentity.ID
 				newIdentity = cidrIdentity
 			} else {
