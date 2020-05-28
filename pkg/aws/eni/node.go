@@ -718,14 +718,18 @@ func (n *Node) maintainIpPool(ctx context.Context) error {
 
 	// Release excess addresses
 	if a.ipsToReleaseOnENI != nil {
-		err := n.manager.ec2API.UnassignPrivateIpAddresses(ctx, n.enis[a.eni].ID, a.ipsToReleaseOnENI)
+		n.mutex.RLock()
+		eniID := n.enis[a.eni].ID
+		n.mutex.RUnlock()
+
+		err := n.manager.ec2API.UnassignPrivateIpAddresses(ctx, eniID, a.ipsToReleaseOnENI)
 		if err == nil {
 			n.manager.metricsAPI.AddIPRelease(a.subnet.ID, int64(a.availableOnSubnet))
 			return nil
 		}
 		n.manager.metricsAPI.IncENIAllocationAttempt("ip unassignment failed", a.subnet.ID)
 		scopedLog.WithFields(logrus.Fields{
-			fieldEniID:           n.enis[a.eni].ID,
+			fieldEniID:           eniID,
 			"releasingAddresses": a.ipsToReleaseOnENI,
 		}).WithError(err).Warning("Unable to unassign private IPs from ENI")
 		return err
@@ -733,7 +737,11 @@ func (n *Node) maintainIpPool(ctx context.Context) error {
 
 	// Assign needed addresses
 	if a.subnet != nil && a.availableOnSubnet > 0 {
-		err := n.manager.ec2API.AssignPrivateIpAddresses(ctx, n.enis[a.eni].ID, int64(a.availableOnSubnet))
+		n.mutex.RLock()
+		eniID := n.enis[a.eni].ID
+		n.mutex.RUnlock()
+
+		err := n.manager.ec2API.AssignPrivateIpAddresses(ctx, eniID, int64(a.availableOnSubnet))
 		if err == nil {
 			n.manager.metricsAPI.IncENIAllocationAttempt("success", a.subnet.ID)
 			n.manager.metricsAPI.AddIPAllocation(a.subnet.ID, int64(a.availableOnSubnet))
@@ -742,7 +750,7 @@ func (n *Node) maintainIpPool(ctx context.Context) error {
 
 		n.manager.metricsAPI.IncENIAllocationAttempt("ip assignment failed", a.subnet.ID)
 		scopedLog.WithFields(logrus.Fields{
-			fieldEniID:           n.enis[a.eni].ID,
+			fieldEniID:           eniID,
 			"requestedAddresses": a.availableOnSubnet,
 		}).WithError(err).Warning("Unable to assign additional private IPs to ENI, will create new ENI")
 	}
