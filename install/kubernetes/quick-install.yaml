@@ -87,9 +87,13 @@ data:
   bpf-ct-global-tcp-max: "524288"
   bpf-ct-global-any-max: "262144"
 
-  # bpf-nat-global-max specified the maximum number of entries in the BPF NAT
-  # table.
+  # bpf-nat-global-max specified the maximum number of entries in the
+  # BPF NAT table.
   bpf-nat-global-max: "524288"
+
+  # bpf-neigh-global-max specified the maximum number of entries in the
+  # BPF neighbor table.
+  bpf-neigh-global-max: "524288"
 
   # bpf-policy-map-max specified the maximum number of entries in endpoint
   # policy map (per endpoint)

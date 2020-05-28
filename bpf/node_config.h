@@ -53,6 +53,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #ifdef ENABLE_NODEPORT
 #define SNAT_MAPPING_IPV4 test_cilium_snat_v4_external
 #define SNAT_MAPPING_IPV4_SIZE 524288
+#define NODEPORT_NEIGH4_SIZE 524288
 #endif /* ENABLE_NODEPORT */
 #endif /* ENABLE_IPV4 */
 
@@ -60,6 +61,7 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #ifdef ENABLE_NODEPORT
 #define SNAT_MAPPING_IPV6 test_cilium_snat_v6_external
 #define SNAT_MAPPING_IPV6_SIZE 524288
+#define NODEPORT_NEIGH6_SIZE 524288
 #endif /* ENABLE_NODEPORT */
 #endif /* ENABLE_IPV6 */
 
