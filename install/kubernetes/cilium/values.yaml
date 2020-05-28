@@ -440,7 +440,7 @@ global:
 
   # hubble configures Hubble.
   hubble:
-    enabled: false
+    enabled: true
     ui:
       enabled: false
     # Default unix domain socket path to listen to when Hubble is enabled. Default to "/var/run/cilium/hubble.sock".
@@ -451,7 +451,7 @@ global:
     #
     # Set this field ":4244" if you are enabling hubble-relay, as it assumes that Hubble is listening
     # on port 4244.
-    listenAddress: ""
+    listenAddress: "127.0.0.1:4244"
     # Buffer size of the channel Hubble uses to receive monitor events. If this value is not set,
     # the queue size is set to the default monitor queue size.
     eventQueueSize: ~
