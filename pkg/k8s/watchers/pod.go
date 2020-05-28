@@ -115,10 +115,10 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 			close(k.podStoreSet)
 		})
 
-		k.blockWaitGroupToSyncResources(isConnected, nil, podController, k8sAPIGroupPodV1Core)
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController, K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
-			k.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
+			k.k8sAPIGroups.addAPI(K8sAPIGroupPodV1Core)
 		})
 		go podController.Run(isConnected)
 		return isConnected
@@ -144,10 +144,10 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
-		k.blockWaitGroupToSyncResources(isConnected, nil, podController, k8sAPIGroupPodV1Core)
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController, K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
-			k.k8sAPIGroups.addAPI(k8sAPIGroupPodV1Core)
+			k.k8sAPIGroups.addAPI(K8sAPIGroupPodV1Core)
 		})
 		go podController.Run(isConnected)
 
@@ -587,7 +587,7 @@ func validIPs(podStatus slim_corev1.PodStatus) ([]string, error) {
 //  - false: returns any pod in the cluster received by the pod watcher.
 func (k *K8sWatcher) GetCachedPod(namespace, name string) (*slim_corev1.Pod, error) {
 	<-k.controllersStarted
-	k.WaitForCacheSync(k8sAPIGroupPodV1Core)
+	k.WaitForCacheSync(K8sAPIGroupPodV1Core)
 	<-k.podStoreSet
 	k.podStoreMU.RLock()
 	defer k.podStoreMU.RUnlock()

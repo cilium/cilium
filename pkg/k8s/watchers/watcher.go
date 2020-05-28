@@ -52,7 +52,7 @@ const (
 	k8sAPIGroupNamespaceV1Core                  = "core/v1::Namespace"
 	K8sAPIGroupServiceV1Core                    = "core/v1::Service"
 	K8sAPIGroupEndpointV1Core                   = "core/v1::Endpoint"
-	k8sAPIGroupPodV1Core                        = "core/v1::Pods"
+	K8sAPIGroupPodV1Core                        = "core/v1::Pods"
 	k8sAPIGroupNetworkingV1Core                 = "networking.k8s.io/v1::NetworkPolicy"
 	k8sAPIGroupCiliumNetworkPolicyV2            = "cilium/v2::CiliumNetworkPolicy"
 	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
@@ -387,7 +387,7 @@ func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
 			k8sAPIGroupNamespaceV1Core,
 			// Pods can contain labels which are essential for endpoints
 			// being restored to have the right identity.
-			k8sAPIGroupPodV1Core,
+			K8sAPIGroupPodV1Core,
 		)
 		// CiliumEndpoint is used to synchronize the ipcache, wait for
 		// it unless it is disabled
