@@ -356,3 +356,8 @@ global:
 
   # remoteNodeIdentity enables use of the remote node identity
   remoteNodeIdentity: true
+
+  proxy:
+    # Regular expression matching compatible Istio sidecar istio-proxy
+    # container image names
+    sidecarImageRegex: "cilium/istio_proxy"
