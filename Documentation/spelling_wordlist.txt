@@ -90,6 +90,7 @@ Memcached
 Menlo
 Mesos
 Metadata
+MiB
 Microservice
 Microservices
 Minikube
@@ -216,6 +217,7 @@ bugtool
 bytecode
 cBPF
 callee
+cardinality
 cass
 cassandra
 cassandraparser
@@ -313,6 +315,7 @@ fwmark
 gRPC
 gcc
 gcloud
+gcp
 getpeername
 gettingstarted
 github
@@ -323,6 +326,7 @@ gluecon
 gobpf
 gocheck
 golang
+grafana
 grep
 hairpinned
 hardcode
@@ -512,6 +516,7 @@ prepend
 priori
 productpage
 programmability
+prometheus
 protobuf
 proxylib
 qdisc
@@ -602,6 +607,7 @@ tcptop
 tcptracer
 templating
 testsuite
+th
 thunderx
 tiefighter
 timestamp
@@ -633,6 +639,7 @@ url
 username
 userspace
 uuid
+vCPU
 vCPUs
 validator
 verifier
