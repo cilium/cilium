@@ -621,16 +621,19 @@ redo_local:
 		return DROP_UNKNOWN_CT;
 	}
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
-	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
-		return DROP_INVALID;
+	if (backend_local || (!backend_local && !nodeport_uses_dsr6(&tuple))) {
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+		if (eth_load_saddr(ctx, smac.addr, 0) < 0)
+			return DROP_INVALID;
 
-	mac = map_lookup_elem(&NODEPORT_NEIGH6, &ip6->saddr);
-	if (!mac || eth_addrcmp(mac, &smac)) {
-		ret = map_update_elem(&NODEPORT_NEIGH6, &ip6->saddr, &smac, 0);
-		if (ret < 0)
-			return ret;
+		mac = map_lookup_elem(&NODEPORT_NEIGH6, &ip6->saddr);
+		if (!mac || eth_addrcmp(mac, &smac)) {
+			ret = map_update_elem(&NODEPORT_NEIGH6, &ip6->saddr,
+					      &smac, 0);
+			if (ret < 0)
+				return ret;
+		}
 	}
 
 	if (!backend_local) {
@@ -1290,16 +1293,19 @@ redo_local:
 		return DROP_UNKNOWN_CT;
 	}
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
-		return DROP_INVALID;
+	if (backend_local || (!backend_local && !nodeport_uses_dsr4(&tuple))) {
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+		if (eth_load_saddr(ctx, smac.addr, 0) < 0)
+			return DROP_INVALID;
 
-	mac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->saddr);
-	if (!mac || eth_addrcmp(mac, &smac)) {
-		ret = map_update_elem(&NODEPORT_NEIGH4, &ip4->saddr, &smac, 0);
-		if (ret < 0)
-			return ret;
+		mac = map_lookup_elem(&NODEPORT_NEIGH4, &ip4->saddr);
+		if (!mac || eth_addrcmp(mac, &smac)) {
+			ret = map_update_elem(&NODEPORT_NEIGH4, &ip4->saddr,
+					      &smac, 0);
+			if (ret < 0)
+				return ret;
+		}
 	}
 
 	if (!backend_local) {
