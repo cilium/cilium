@@ -6,7 +6,10 @@ include Makefile.defs
 # Use the main repo as the build-context by default
 DOCKER_BUILD_DIR := .
 CILIUM_DOCKERFILE := Dockerfile
-OPERATOR_DOCKERFILE := cilium-operator.Dockerfile
+OPERATOR_DOCKERFILES := cilium-operator.Dockerfile \
+  cilium-operator-aws.Dockerfile \
+  cilium-operator-azure.Dockerfile \
+  cilium-operator-generic.Dockerfile
 DOCKER_PLUGIN_DOCKERFILE := cilium-docker-plugin.Dockerfile
 HUBBLE_RELAY_DOCKERFILE := hubble-relay.Dockerfile
 

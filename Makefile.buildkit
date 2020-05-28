@@ -16,7 +16,10 @@ veryclean: clean-build
 # Overrides for the main Dockerfile
 DOCKER_BUILD_DIR := $(BUILD_DIR)/context
 CILIUM_DOCKERFILE := $(BUILD_DIR)/cilium.Dockerfile
-OPERATOR_DOCKERFILE := $(BUILD_DIR)/cilium-operator.Dockerfile
+OPERATOR_DOCKERFILES := $(BUILD_DIR)/cilium-operator.Dockerfile \
+  $(BUILD_DIR)/cilium-operator-aws.Dockerfile \
+  $(BUILD_DIR)/cilium-operator-azure.Dockerfile \
+  $(BUILD_DIR)/cilium-operator-generic.Dockerfile
 DOCKER_PLUGIN_DOCKERFILE := $(BUILD_DIR)/cilium-docker-plugin.Dockerfile
 HUBBLE_RELAY_DOCKERFILE := $(BUILD_DIR)/hubble-relay.Dockerfile
 
