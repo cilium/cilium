@@ -61,11 +61,14 @@ func enableUnmanagedKubeDNSController() {
 						continue
 					}
 					cep, exists, err := watchers.HasCE(pod.Namespace, pod.Name)
+					if err != nil {
+						log.WithError(err).Errorf("unexpected error when getting CiliumEndpoint %s/%s", pod.Namespace, pod.Name)
+						continue
+					}
 					podID := fmt.Sprintf("%s/%s", pod.Namespace, pod.Name)
-					switch {
-					case err == nil:
+					if exists {
 						log.Debugf("Found kube-dns pod %s with identity %d", podID, cep.Status.ID)
-					case !exists:
+					} else {
 						log.Debugf("Found unmanaged kube-dns pod %s", podID)
 						if startTime := pod.Status.StartTime; startTime != nil {
 							if age := time.Since((*startTime).Time); age > unmanagedKubeDnsMinimalAge {
@@ -88,8 +91,6 @@ func enableUnmanagedKubeDNSController() {
 
 							}
 						}
-					default:
-						return err
 					}
 				}
 
