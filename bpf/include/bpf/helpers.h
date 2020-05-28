@@ -68,6 +68,15 @@ static void BPF_FUNC(tail_call, void *ctx, const void *map, __u32 index);
 /* System helpers */
 static __u32 BPF_FUNC(get_smp_processor_id);
 
+/* Padded struct so the dmac at the end can be passed to another helper
+ * e.g. as a map value buffer. Otherwise verifier will trip over it with
+ * 'invalid indirect read from stack off'.
+ */
+struct bpf_fib_lookup_padded {
+	struct bpf_fib_lookup l;
+	__u8 pad[2];
+};
+
 /* Routing helpers */
 static int BPF_FUNC(fib_lookup, void *ctx, struct bpf_fib_lookup *params,
 		    __u32 plen, __u32 flags);
