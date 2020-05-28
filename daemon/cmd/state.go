@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
+	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -67,32 +68,13 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 	}
 
 	if ep.K8sPodName != "" && ep.K8sNamespace != "" && k8s.IsEnabled() {
-		go func() {
-			err := ep.WaitUntilExposed(context.Background())
-			if err != nil {
-				// If an error has happen it's because the endpoint is not alive
-				return
-			}
-			_, err = d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
-			if err != nil && k8serrors.IsNotFound(err) {
-				scopedLog := log.WithFields(logrus.Fields{
-					logfields.EndpointID:   ep.ID,
-					logfields.K8sNamespace: ep.K8sNamespace,
-					logfields.K8sPodName:   ep.K8sPodName,
-				})
-				scopedLog.Warningf("kubernetes pod not found, deleting endpoint from endpoint manager")
-				errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
-					// If the IP is managed by an external IPAM, it does not need to be released
-					NoIPRelease: ep.DatapathConfiguration.ExternalIpam,
-				})
-				for _, err := range errs {
-					scopedLog.WithError(err).Warningf("Error deleting endpoint")
-				}
-				return
-			}
+		d.k8sWatcher.WaitForCacheSync(watchers.K8sAPIGroupPodV1Core)
+		_, err = d.k8sWatcher.GetCachedPod(ep.K8sNamespace, ep.K8sPodName)
+		if err != nil && k8serrors.IsNotFound(err) {
+			return false, fmt.Errorf("Kubernetes pod %s/%s does not exist", ep.K8sNamespace, ep.K8sPodName)
+		}
 
-			ep.RunMetadataResolver(d.fetchK8sLabelsAndAnnotations)
-		}()
+		ep.RunMetadataResolver(d.fetchK8sLabelsAndAnnotations)
 	}
 
 	if err := ep.ValidateConnectorPlumbing(connector.CheckLink); err != nil {
@@ -264,6 +246,7 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 	}
 
 	for _, ep := range state.restored {
+		log.WithField(logfields.EndpointID, ep.ID).Info("Successfully restored endpoint. Scheduling regeneration")
 		go func(ep *endpoint.Endpoint, epRegenerated chan<- bool) {
 			if err := ep.RegenerateAfterRestore(); err != nil {
 				epRegenerated <- false

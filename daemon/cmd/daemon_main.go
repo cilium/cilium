@@ -1267,6 +1267,14 @@ func runDaemon() {
 	iptablesManager := &iptables.IptablesManager{}
 	iptablesManager.Init()
 
+	if k8s.IsEnabled() {
+		bootstrapStats.k8sInit.Start()
+		if err := k8s.Init(option.Config); err != nil {
+			log.WithError(err).Fatal("Unable to initialize Kubernetes subsystem")
+		}
+		bootstrapStats.k8sInit.End(true)
+	}
+
 	d, restoredEndpoints, err := NewDaemon(server.ServerCtx, linuxdatapath.NewDatapath(datapathConfig, iptablesManager))
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
@@ -1296,10 +1304,6 @@ func runDaemon() {
 
 	bootstrapStats.k8sInit.Start()
 
-	// We need to set up etcd in parallel so we will initialize the k8s
-	// subsystem as well in parallel so caches will start to be synchronized
-	// with k8s.
-	k8sCachesSynced := d.k8sWatcher.InitK8sSubsystem()
 	if option.Config.KVStore == "" {
 		log.Info("Skipping kvstore configuration")
 	} else {
@@ -1308,7 +1312,7 @@ func runDaemon() {
 
 	// Wait only for certain caches, but not all!
 	// (Check Daemon.initK8sSubsystem() for more info)
-	<-k8sCachesSynced
+	<-d.k8sCachesSynced
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)
 
