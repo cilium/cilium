@@ -350,13 +350,13 @@ func (n *DebugMsg) subTypeString() string {
 	case DbgL4Create:
 		return fmt.Sprintf("Matched L4 policy; creating conntrack %s", l4CreateInfo(n))
 	case DbgIPIDMapFailed4:
-		return fmt.Sprintf("Failed to map daddr=%s to identity", ip4Str(n.Arg1))
+		return fmt.Sprintf("Failed to map addr=%s to identity", ip4Str(n.Arg1))
 	case DbgIPIDMapFailed6:
-		return fmt.Sprintf("Failed to map daddr.p4=[::%s] to identity", ip6Str(n.Arg1))
+		return fmt.Sprintf("Failed to map addr.p4=[::%s] to identity", ip6Str(n.Arg1))
 	case DbgIPIDMapSucceed4:
-		return fmt.Sprintf("Successfully mapped daddr=%s to identity=%d", ip4Str(n.Arg1), n.Arg2)
+		return fmt.Sprintf("Successfully mapped addr=%s to identity=%d", ip4Str(n.Arg1), n.Arg2)
 	case DbgIPIDMapSucceed6:
-		return fmt.Sprintf("Successfully mapped daddr.p4=[::%s] to identity=%d", ip6Str(n.Arg1), n.Arg2)
+		return fmt.Sprintf("Successfully mapped addr.p4=[::%s] to identity=%d", ip6Str(n.Arg1), n.Arg2)
 	case DbgLbStaleCT:
 		return fmt.Sprintf("Stale CT entry found stale_ct.rev_nat_id=%d, svc.rev_nat_id=%d", n.Arg2, n.Arg1)
 	case DbgInheritIdentity:
