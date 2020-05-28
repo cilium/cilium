@@ -156,7 +156,7 @@ data:
 
   # Regular expression matching compatible Istio sidecar istio-proxy
   # container image names
-  sidecar-istio-proxy-image: "cilium/istio_proxy"
+  sidecar-istio-proxy-image: "{{ .Values.global.proxy.sidecarImageRegex }}"
 
   # Encapsulation mode for communication between nodes
   # Possible values:
