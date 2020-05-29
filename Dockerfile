@@ -7,6 +7,13 @@ ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 
 #
+# Hubble CLI
+#
+FROM quay.io/cilium/hubble:v0.6.0 as hubble
+ARG CILIUM_SHA=""
+LABEL cilium-sha=${CILIUM_SHA}
+
+#
 # Cilium incremental build. Should be fast given builder-deps is up-to-date!
 #
 # cilium-builder tag is the date on which the compatible build image
@@ -49,6 +56,7 @@ LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /tmp/install /
 COPY --from=cilium-envoy / /
+COPY --from=hubble /usr/bin/hubble /usr/bin/hubble
 COPY --from=builder /go/src/github.com/cilium/cilium/plugins/cilium-cni/cni-install.sh /cni-install.sh
 COPY --from=builder /go/src/github.com/cilium/cilium/plugins/cilium-cni/cni-uninstall.sh /cni-uninstall.sh
 COPY --from=builder /go/src/github.com/cilium/cilium/contrib/packaging/docker/init-container.sh /init-container.sh
