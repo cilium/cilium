@@ -523,3 +523,87 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	npm = IPIdentityCache.GetNamedPorts()
 	c.Assert(npm, IsNil)
 }
+
+type dummyListener struct {
+	entries map[string]identityPkg.NumericIdentity
+	ipc     *IPCache
+}
+
+func newDummyListener(ipc *IPCache) *dummyListener {
+	return &dummyListener{
+		ipc: ipc,
+	}
+}
+
+func (dl *dummyListener) OnIPIdentityCacheChange(modType CacheModification,
+	cidr net.IPNet, oldHostIP, newHostIP net.IP, oldID *identityPkg.NumericIdentity,
+	newID identityPkg.NumericIdentity, encryptKey uint8, k8sMeta *K8sMetadata) {
+
+	switch modType {
+	case Upsert:
+		dl.entries[cidr.String()] = newID
+	default:
+		// Ignore, for simplicity we just clear the cache every time
+	}
+}
+
+func (dl *dummyListener) OnIPIdentityCacheGC() {}
+
+func (dl *dummyListener) ExpectMapping(c *C, targetIP string, targetIdentity identityPkg.NumericIdentity) {
+	// Identity lookup directly shows the expected mapping
+	identity, exists := dl.ipc.LookupByPrefix(targetIP)
+	c.Assert(exists, Equals, true)
+	c.Assert(identity.ID, Equals, targetIdentity)
+
+	// Dump reliably supplies the IP once and only the pod identity.
+	dl.entries = make(map[string]identityPkg.NumericIdentity)
+	dl.ipc.DumpToListenerLocked(dl)
+	c.Assert(dl.entries, checker.DeepEquals,
+		map[string]identityPkg.NumericIdentity{
+			targetIP: targetIdentity,
+		})
+}
+
+func (s *IPCacheTestSuite) TestIPCacheShadowing(c *C) {
+	endpointIP := "10.0.0.15"
+	cidrOverlap := "10.0.0.15/32"
+	epIdentity := (identityPkg.NumericIdentity(68))
+	cidrIdentity := (identityPkg.NumericIdentity(202))
+	ipc := NewIPCache()
+
+	// Assure sane state at start.
+	c.Assert(ipc.ipToIdentityCache, checker.DeepEquals, map[string]Identity{})
+	c.Assert(ipc.identityToIPCache, checker.DeepEquals, map[identityPkg.NumericIdentity]map[string]struct{}{})
+
+	// Upsert overlapping identities for the IP. Pod identity takes precedence.
+	ipc.Upsert(endpointIP, nil, 0, nil, Identity{
+		ID:     epIdentity,
+		Source: source.KVStore,
+	})
+	ipc.Upsert(cidrOverlap, nil, 0, nil, Identity{
+		ID:     cidrIdentity,
+		Source: source.Generated,
+	})
+	ipcache := newDummyListener(ipc)
+	ipcache.ExpectMapping(c, cidrOverlap, epIdentity)
+
+	// Deleting pod identity shows that cidr identity is now used.
+	ipc.Delete(endpointIP, source.KVStore)
+	ipcache.ExpectMapping(c, cidrOverlap, cidrIdentity)
+
+	// Reinsert of pod IP should shadow the CIDR identity again.
+	ipc.Upsert(endpointIP, nil, 0, nil, Identity{
+		ID:     epIdentity,
+		Source: source.KVStore,
+	})
+	ipcache.ExpectMapping(c, cidrOverlap, epIdentity)
+
+	// Deletion of the shadowed identity should not change the output.
+	ipc.Delete(cidrOverlap, source.Generated)
+	ipcache.ExpectMapping(c, cidrOverlap, epIdentity)
+
+	// Clean up
+	ipc.Delete(endpointIP, source.KVStore)
+	_, exists := ipc.LookupByPrefix(cidrOverlap)
+	c.Assert(exists, Equals, false)
+}
