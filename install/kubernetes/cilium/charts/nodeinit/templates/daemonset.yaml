@@ -91,12 +91,6 @@ spec:
                       iptables -w -t nat -A POSTROUTING -m comment --comment "ip-masq: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom IP-MASQ chain" -m addrtype ! --dst-type LOCAL -j IP-MASQ
                     fi
 {{- end }}
-{{- if .Values.azure }}
-                    # If the IP-MASQ-AGENT chain exists, add back jump rule
-                    if iptables -w -t nat -L IP-MASQ-AGENT > /dev/null; then
-                      iptables -w -t nat -A POSTROUTING -m comment --comment "ip-masq-agent: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom IP-MASQ-AGENT chain" -m addrtype ! --dst-type LOCAL -j IP-MASQ-AGENT
-                    fi
-{{- end }}
 
                     echo "Node de-initialization complete"
 {{- end }}
@@ -171,8 +165,6 @@ spec:
               if [ -f /var/run/azure-vnet.json ]; then
                 sed -i 's/"Mode": "bridge",/"Mode": "transparent",/g' /var/run/azure-vnet.json
               fi
-              # Disable jumping to ip-masq chain
-              iptables -w -t nat -D POSTROUTING -m comment --comment "ip-masq-agent: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom IP-MASQ-AGENT chain" -m addrtype ! --dst-type LOCAL -j IP-MASQ-AGENT || true
 {{- end }}
 
 {{- if .Values.removeCbrBridge }}
