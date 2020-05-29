@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"regexp"
 	"strconv"
 	"strings"
 	"sync"
@@ -134,15 +135,72 @@ var _ = Describe("K8sServicesTest", func() {
 		}
 	}
 
-	testCurlFromPods := func(clientPodLabel, url string) {
+	newlineRegexp := regexp.MustCompile(`\n[ \t\n]*`)
+	trimNewlines := func(script string) string {
+		return newlineRegexp.ReplaceAllLiteralString(script, " ")
+	}
+
+	// Return a command string for bash test loop.
+	testCommand := func(cmd string, count, fails int) string {
+		// Repeat 'cmd' 'count' times, while recording return codes of failed invocations.
+		// Successful cmd exit values are also echoed for debugging this script itself.
+		// Prints "failed:" followed by colon separated list of command ordinals and exit codes.
+		// Returns success (0) if no more than 'fails' rounds fail, otherwise returns 42.
+		//
+		// Note: All newlines and the following whitespace is removed from the script below.
+		//       This requires explicit semicolons also at the ends of lines!
+		return trimNewlines(fmt.Sprintf(
+			`/bin/bash -c
+			'fails="";
+			for i in $(seq 1 %d); do
+			  if %s; then
+			    echo "Test round $i exit code: $?";
+			  else
+			    fails=$fails:$i=$?;
+			  fi;
+			done;
+			if [ -n "$fails" ]; then
+			  echo "failed: $fails";
+			fi;
+			cnt="${fails//[^:]}";
+			if [ ${#cnt} -gt %d ]; then
+			  exit 42;
+			fi'`,
+			count, cmd, fails))
+	}
+
+	Context("Testing test script", func() {
+		It("Validating test script correctness", func() {
+			By("Validating test script correctness")
+			res, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("echo FOOBAR", 1, 0))
+			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
+			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not 'echo'")
+			res.ExpectContains("FOOBAR", "Test script failed to execute echo: %s", res.Output())
+
+			res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("FOOBAR", 3, 0))
+			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
+			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(), "Test script successfully executed FOOBAR")
+			res.ExpectMatchesRegexp("failed: :1=127:2=127:3=127", "Test script failed to execute echo 3 times: %s", res.Output())
+
+			res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("FOOBAR", 1, 1))
+			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
+			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not allow failure")
+
+			res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("echo FOOBAR", 3, 0))
+			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
+			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not 'echo' three times")
+			res.ExpectMatchesRegexp("(?s)(FOOBAR.*exit code: 0.*){3}", "Test script failed to execute echo 3 times: %s", res.Output())
+		})
+	})
+
+	testCurlFromPods := func(clientPodLabel, url string, count, fails int) {
 		// A DS with client is running in each node. So we try from each node
 		// that can connect to the service.  To make sure that the cross-node
 		// service connectivity is correct we tried 10 times, so balance in the
 		// two nodes
 		pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, clientPodLabel)
 		ExpectWithOffset(1, err).Should(BeNil(), "cannot retrieve pod names by filter %q", testDSClient)
-		count := 10
-		cmd := fmt.Sprintf(`/bin/sh -c 'set -e; for i in $(seq 1 %d); do %s; done'`, count, helpers.CurlFailNoStats(url))
+		cmd := testCommand(helpers.CurlFailNoStats(url), count, fails)
 		for _, pod := range pods {
 			By("Making %d curl requests from %s pod to service %s", count, pod, url)
 			res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, cmd)
@@ -233,12 +291,10 @@ var _ = Describe("K8sServicesTest", func() {
 				service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium service list", "Cannot retrieve services on cilium Pod")
 				service.ExpectContains(clusterIP, "ClusterIP is not present in the cilium service list")
 			}
-			for i := 0; i < 10; i++ {
-				// Send requests from "app2" pod which runs on the same node as
-				// "app1" pods
-				testCurlFromPods("id=app2", httpSVCURL)
-				testCurlFromPods("id=app2", tftpSVCURL)
-			}
+			// Send requests from "app2" pod which runs on the same node as
+			// "app1" pods
+			testCurlFromPods("id=app2", httpSVCURL, 10, 0)
+			testCurlFromPods("id=app2", tftpSVCURL, 10, 0)
 		})
 
 		It("Checks service accessing itself (hairpin flow)", func() {
@@ -247,9 +303,9 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
 			url := fmt.Sprintf("http://%s/", clusterIP)
-			testCurlFromPods(echoPodLabel, url)
+			testCurlFromPods(echoPodLabel, url, 10, 0)
 			url = fmt.Sprintf("tftp://%s/hello", clusterIP)
-			testCurlFromPods(echoPodLabel, url)
+			testCurlFromPods(echoPodLabel, url, 10, 0)
 		}, 300)
 
 		SkipContextIf(helpers.RunsWithKubeProxy, "IPv6 Connectivity", func() {
@@ -293,9 +349,9 @@ var _ = Describe("K8sServicesTest", func() {
 
 			It("Checks service accessing itself (hairpin flow)", func() {
 				url := fmt.Sprintf(`"http://[%s]/"`, echoClusterIPv6)
-				testCurlFromPods(echoPodLabel, url)
+				testCurlFromPods(echoPodLabel, url, 10, 0)
 				url = fmt.Sprintf(`"tftp://[%s]/hello"`, echoClusterIPv6)
-				testCurlFromPods(echoPodLabel, url)
+				testCurlFromPods(echoPodLabel, url, 10, 0)
 			})
 		})
 	})
@@ -328,10 +384,10 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
 
 			url := fmt.Sprintf("http://%s/", clusterIP)
-			testCurlFromPods(testDSClient, url)
+			testCurlFromPods(testDSClient, url, 10, 0)
 
 			url = fmt.Sprintf("tftp://%s/hello", clusterIP)
-			testCurlFromPods(testDSClient, url)
+			testCurlFromPods(testDSClient, url, 10, 0)
 		})
 
 		SkipContextIf(helpers.RunsWithKubeProxy, "IPv6 Connectivity", func() {
@@ -352,10 +408,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 			It("Checks ClusterIP Connectivity", func() {
 				url := fmt.Sprintf(`"http://[%s]/"`, testDSIPv6)
-				testCurlFromPods(testDSClient, url)
+				testCurlFromPods(testDSClient, url, 10, 0)
 
 				url = fmt.Sprintf(`"tftp://[%s]/hello"`, testDSIPv6)
-				testCurlFromPods(testDSClient, url)
+				testCurlFromPods(testDSClient, url, 10, 0)
 			})
 		})
 
@@ -371,10 +427,9 @@ var _ = Describe("K8sServicesTest", func() {
 				net.JoinHostPort(host, fmt.Sprintf("%d", port)))
 		}
 
-		testCurlFromPodInHostNetNS := func(url string, count int, fromPod string) {
+		testCurlFromPodInHostNetNS := func(url string, count, fails int, fromPod string) {
 			By("Making %d curl requests from pod (host netns) %s to %q", count, fromPod, url)
-			cmd := fmt.Sprintf(`/bin/sh -c 'set -e; for i in $(seq 1 %d); do %s; done'`, count,
-				helpers.CurlFailNoStats(url))
+			cmd := testCommand(helpers.CurlFailNoStats(url), count, fails)
 			res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, cmd)
 			ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
@@ -572,7 +627,7 @@ var _ = Describe("K8sServicesTest", func() {
 			return ipv4, ipv6
 		}
 
-		testNodePort := func(bpfNodePort, testSecondaryNodePortIP, testFromOutside bool) {
+		testNodePort := func(bpfNodePort, testSecondaryNodePortIP, testFromOutside bool, fails int) {
 			var (
 				err                                  error
 				data                                 v1.Service
@@ -665,7 +720,7 @@ var _ = Describe("K8sServicesTest", func() {
 				go func(url string) {
 					defer GinkgoRecover()
 					defer wg.Done()
-					testCurlFromPods(testDSClient, url)
+					testCurlFromPods(testDSClient, url, count, fails)
 				}(url)
 			}
 			for _, url := range testURLsFromHosts {
@@ -673,7 +728,7 @@ var _ = Describe("K8sServicesTest", func() {
 				go func(url string) {
 					defer GinkgoRecover()
 					defer wg.Done()
-					testCurlFromPodInHostNetNS(url, count, k8s1NodeName)
+					testCurlFromPodInHostNetNS(url, count, fails, k8s1NodeName)
 				}(url)
 			}
 			for _, url := range testURLsFromOutside {
@@ -732,8 +787,8 @@ var _ = Describe("K8sServicesTest", func() {
 			testCurlFromOutside(httpURL, count, false)
 			testCurlFromOutside(tftpURL, count, false)
 			// Same from inside a pod
-			testCurlFromPods(testDSClient, httpURL)
-			testCurlFromPods(testDSClient, tftpURL)
+			testCurlFromPods(testDSClient, httpURL, 10, 0)
+			testCurlFromPods(testDSClient, tftpURL, 10, 0)
 			// But not from the host netns (to prevent MITM)
 			testCurlFailFromPodInHostNetNS(httpURL, 1, k8s1NodeName)
 			testCurlFailFromPodInHostNetNS(httpURL, 1, k8s1NodeName)
@@ -742,10 +797,10 @@ var _ = Describe("K8sServicesTest", func() {
 			// However, it should work via the k8s1 IP addr
 			httpURL = getHTTPLink(k8s1IP, data.Spec.Ports[0].Port)
 			tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].Port)
-			testCurlFromPodInHostNetNS(httpURL, count, k8s1NodeName)
-			testCurlFromPodInHostNetNS(tftpURL, count, k8s1NodeName)
-			testCurlFromPods(testDSClient, httpURL)
-			testCurlFromPods(testDSClient, tftpURL)
+			testCurlFromPodInHostNetNS(httpURL, count, 0, k8s1NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s1NodeName)
+			testCurlFromPods(testDSClient, httpURL, 10, 0)
+			testCurlFromPods(testDSClient, tftpURL, 10, 0)
 		}
 
 		testFailBind := func() {
@@ -783,7 +838,7 @@ var _ = Describe("K8sServicesTest", func() {
 			testCurlFromOutside(tftpURL, 10, checkUDP)
 
 			// Make sure all the rest works as expected as well
-			testNodePort(true, false, false)
+			testNodePort(true, false, false, 0)
 
 			// Clear CT tables on both Cilium nodes
 			pod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s1)
@@ -920,10 +975,10 @@ var _ = Describe("K8sServicesTest", func() {
 
 			httpURL = getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort)
-			testCurlFromPodInHostNetNS(httpURL, count, k8s1NodeName)
-			testCurlFromPodInHostNetNS(tftpURL, count, k8s1NodeName)
-			testCurlFromPodInHostNetNS(httpURL, count, k8s2NodeName)
-			testCurlFromPodInHostNetNS(tftpURL, count, k8s2NodeName)
+			testCurlFromPodInHostNetNS(httpURL, count, 0, k8s1NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s1NodeName)
+			testCurlFromPodInHostNetNS(httpURL, count, 0, k8s2NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s2NodeName)
 
 			httpURL = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
@@ -937,8 +992,8 @@ var _ = Describe("K8sServicesTest", func() {
 			k8sVersion := versioncheck.MustVersion(helpers.GetCurrentK8SEnv())
 			isSupported := versioncheck.MustCompile(">=1.15.0")
 			if helpers.RunsWithKubeProxy() && isSupported(k8sVersion) {
-				testCurlFromPodInHostNetNS(httpURL, count, k8s1NodeName)
-				testCurlFromPodInHostNetNS(tftpURL, count, k8s1NodeName)
+				testCurlFromPodInHostNetNS(httpURL, count, 0, k8s1NodeName)
+				testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s1NodeName)
 			}
 			// Requests from another node are not
 			testCurlFailFromPodInHostNetNS(httpURL, count, k8s2NodeName)
@@ -973,12 +1028,12 @@ var _ = Describe("K8sServicesTest", func() {
 			tftpURL = getTFTPLink(k8s2IP, tftpHostPort)
 
 			// ... from same node
-			testCurlFromPodInHostNetNS(httpURL, count, k8s2NodeName)
-			testCurlFromPodInHostNetNS(tftpURL, count, k8s2NodeName)
+			testCurlFromPodInHostNetNS(httpURL, count, 0, k8s2NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s2NodeName)
 
 			// ... from different node
-			testCurlFromPodInHostNetNS(httpURL, count, k8s1NodeName)
-			testCurlFromPodInHostNetNS(tftpURL, count, k8s1NodeName)
+			testCurlFromPodInHostNetNS(httpURL, count, 0, k8s1NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s1NodeName)
 		}
 
 		testHealthCheckNodePort := func() {
@@ -1029,7 +1084,7 @@ var _ = Describe("K8sServicesTest", func() {
 		}
 
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy)", func() {
-			testNodePort(false, false, false)
+			testNodePort(false, false, false, 0)
 		})
 
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
@@ -1053,7 +1108,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 			It("Tests NodePort with L4 Policy", func() {
 				applyPolicy(demoPolicy)
-				testNodePort(false, false, false)
+				testNodePort(false, false, false, 0)
 			})
 		})
 
@@ -1078,7 +1133,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 				It("Tests NodePort with L7 Policy", func() {
 					applyPolicy(demoPolicy)
-					testNodePort(false, false, false)
+					testNodePort(false, false, false, 0)
 				})
 			})
 
@@ -1111,7 +1166,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 
 					It("Tests NodePort", func() {
-						testNodePort(true, false, helpers.ExistNodeWithoutCilium())
+						testNodePort(true, false, helpers.ExistNodeWithoutCilium(), 0)
 					})
 
 					It("Tests NodePort with externalTrafficPolicy=Local", func() {
@@ -1148,7 +1203,7 @@ var _ = Describe("K8sServicesTest", func() {
 								"global.nodePort.device": fmt.Sprintf(`'{%s,%s}'`, privateIface, helpers.SecondaryIface),
 							})
 
-							testNodePort(true, true, helpers.ExistNodeWithoutCilium())
+							testNodePort(true, true, helpers.ExistNodeWithoutCilium(), 0)
 						})
 				})
 
@@ -1161,7 +1216,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 
 					It("Tests NodePort", func() {
-						testNodePort(true, false, helpers.ExistNodeWithoutCilium())
+						testNodePort(true, false, helpers.ExistNodeWithoutCilium(), 0)
 					})
 
 					It("Tests NodePort with externalTrafficPolicy=Local", func() {
@@ -1201,7 +1256,7 @@ var _ = Describe("K8sServicesTest", func() {
 								"global.nodePort.device":      fmt.Sprintf(`'{%s,%s}'`, privateIface, helpers.SecondaryIface),
 							})
 
-							testNodePort(true, true, helpers.ExistNodeWithoutCilium())
+							testNodePort(true, true, helpers.ExistNodeWithoutCilium(), 0)
 						})
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests GH#10983", func() {
@@ -1289,7 +1344,7 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 
 					testDSR(64000)
-					testNodePort(true, false, false) // no need to test from outside, as testDSR did it
+					testNodePort(true, false, false, 0) // no need to test from outside, as testDSR did it
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and SNAT", func() {
