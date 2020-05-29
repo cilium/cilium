@@ -126,7 +126,7 @@ var _ = Describe("K8sFQDNTest", func() {
 				appPods[helpers.App2], worldTarget)
 			res := kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
-				helpers.CurlFail(worldTarget))
+				helpers.CurlFail("--retry 5 "+worldTarget))
 			ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "%q cannot curl to %q",
 				appPods[helpers.App2], worldTarget)
 
@@ -142,7 +142,7 @@ var _ = Describe("K8sFQDNTest", func() {
 				appPods[helpers.App2], worldTargetIP)
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
-				helpers.CurlFail(worldTargetIP))
+				helpers.CurlFail("--retry 5 "+worldTargetIP))
 			res.ExpectSuccess("%q cannot curl to %q during restart", helpers.App2, worldTargetIP)
 
 			By("Testing that connection from %q to %q should not work",
@@ -178,7 +178,7 @@ var _ = Describe("K8sFQDNTest", func() {
 		By("Testing connectivity when cilium is restoring using IPS without DNS")
 		res := kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail(worldTargetIP))
+			helpers.CurlFail("--retry 5 "+worldTargetIP))
 		res.ExpectSuccess("%q cannot curl to %q during restart", helpers.App2, worldTargetIP)
 
 		res = kubectl.ExecPodCmd(
@@ -214,7 +214,7 @@ var _ = Describe("K8sFQDNTest", func() {
 		By("Testing connectivity when cilium is *restored* using IPS without DNS")
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail(worldTargetIP))
+			helpers.CurlFail("--retry 5 "+worldTargetIP))
 		res.ExpectSuccess("%q cannot curl to %q after restart", helpers.App2, worldTargetIP)
 
 		res = kubectl.ExecPodCmd(
