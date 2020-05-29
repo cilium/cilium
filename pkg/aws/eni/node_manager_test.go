@@ -608,8 +608,8 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 
 		node := mngr.Get(s.name)
 		c.Assert(node, check.Not(check.IsNil))
-		if node.Stats().AvailableIPs != minAllocate {
-			c.Errorf("Node %s allocation mismatch. expected: %d allocated: %d", s.name, minAllocate, node.Stats().AvailableIPs)
+		if node.Stats().AvailableIPs < minAllocate {
+			c.Errorf("Node %s allocation shortage. expected at least: %d, allocated: %d", s.name, minAllocate, node.Stats().AvailableIPs)
 			c.Fail()
 		}
 		c.Assert(node.Stats().UsedIPs, check.Equals, 0)
@@ -624,7 +624,10 @@ func (e *ENISuite) TestNodeManagerManyNodes(c *check.C) {
 	c.Assert(metricsapi.Nodes("in-deficit"), check.Equals, 0)
 	c.Assert(metricsapi.Nodes("at-capacity"), check.Equals, 0)
 
-	c.Assert(metricsapi.AllocatedIPs("available"), check.Equals, numNodes*minAllocate)
+	if allocated := metricsapi.AllocatedIPs("available"); allocated < numNodes*minAllocate {
+		c.Errorf("IP %s allocation shortage. expected at least: %d, allocated: %d", numNodes*minAllocate, allocated)
+		c.Fail()
+	}
 	c.Assert(metricsapi.AllocatedIPs("needed"), check.Equals, 0)
 	c.Assert(metricsapi.AllocatedIPs("used"), check.Equals, 0)
 
