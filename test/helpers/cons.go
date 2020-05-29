@@ -165,7 +165,7 @@ const (
 	// connecting or transferring data. CurlMaxTimeout should be at least 5
 	// seconds longer than CurlConnectTimeout to provide some time to
 	// actually transfer data.
-	CurlMaxTimeout = 8
+	CurlMaxTimeout = 20
 
 	DefaultNamespace       = "default"
 	KubeSystemNamespace    = "kube-system"
