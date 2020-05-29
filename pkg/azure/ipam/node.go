@@ -158,14 +158,14 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	n.manager.instances.ForeachAddress(n.node.InstanceID(), func(instanceID, interfaceID, ip, poolID string, addressObj ipamTypes.Address) error {
 		address, ok := addressObj.(types.AzureAddress)
 		if !ok {
-			log.WithField("ip", ip).Warning("Not an Azure address object, ignoring IP")
+			scopedLog.WithField("ip", ip).Warning("Not an Azure address object, ignoring IP")
 			return nil
 		}
 
 		if address.State == types.StateSucceeded {
 			available[address.IP] = ipamTypes.AllocationIP{Resource: interfaceID}
 		} else {
-			log.WithFields(logrus.Fields{
+			scopedLog.WithFields(logrus.Fields{
 				"ip":    address.IP,
 				"state": address.State,
 			}).Warning("Ignoring potentially available IP due to non-successful state")
