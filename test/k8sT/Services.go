@@ -152,11 +152,12 @@ var _ = Describe("K8sServicesTest", func() {
 		return trimNewlines(fmt.Sprintf(
 			`/bin/bash -c
 			'fails="";
+			id=$RANDOM;
 			for i in $(seq 1 %d); do
-			  if %s; then
-			    echo "Test round $i exit code: $?";
+			  if %s -H "User-Agent: cilium-test-$id/$i"; then
+			    echo "Test round $id/$i exit code: $?";
 			  else
-			    fails=$fails:$i=$?;
+			    fails=$fails:$id/$i=$?;
 			  fi;
 			done;
 			if [ -n "$fails" ]; then
@@ -180,7 +181,7 @@ var _ = Describe("K8sServicesTest", func() {
 			res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("FOOBAR", 3, 0))
 			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(), "Test script successfully executed FOOBAR")
-			res.ExpectMatchesRegexp("failed: :1=127:2=127:3=127", "Test script failed to execute echo 3 times: %s", res.Output())
+			res.ExpectMatchesRegexp("failed: :[0-9]*/1=127:[0-9]*/2=127:[0-9]*/3=127", "Test script failed to execute echo 3 times: %s", res.Output())
 
 			res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("FOOBAR", 1, 1))
 			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
