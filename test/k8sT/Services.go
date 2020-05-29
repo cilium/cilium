@@ -1107,35 +1107,57 @@ var _ = Describe("K8sServicesTest", func() {
 			})
 
 			It("Tests NodePort with L4 Policy", func() {
+				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
+				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+				monitorRes1, monitorCancel1 := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1)
+				ciliumPodK8s2, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s2)
+				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
+				monitorRes2, monitorCancel2 := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s2)
+				defer func() {
+					monitorCancel1()
+					monitorCancel2()
+					helpers.WriteToReportFile(monitorRes1.CombineOutput().Bytes(), "nodeport-with-l4-policy-monitor-k8s1.log")
+					helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "nodeport-with-l4-policy-monitor-k8s2.log")
+				}()
+
 				applyPolicy(demoPolicy)
 				testNodePort(false, false, false, 0)
 			})
 		})
 
-		SkipContextIf(
-			func() bool {
-				return helpers.RunsWithoutKubeProxy()
-			},
-			"with L7 policy", func() {
-				var (
-					demoPolicy string
-				)
+		SkipContextIf(helpers.RunsWithoutKubeProxy, "with L7 policy", func() {
+			var (
+				demoPolicy string
+			)
 
-				BeforeAll(func() {
-					demoPolicy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
-				})
-
-				AfterAll(func() {
-					// Explicitly ignore result of deletion of resources to avoid incomplete
-					// teardown if any step fails.
-					_ = kubectl.Delete(demoPolicy)
-				})
-
-				It("Tests NodePort with L7 Policy", func() {
-					applyPolicy(demoPolicy)
-					testNodePort(false, false, false, 0)
-				})
+			BeforeAll(func() {
+				demoPolicy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
 			})
+
+			AfterAll(func() {
+				// Explicitly ignore result of deletion of resources to avoid incomplete
+				// teardown if any step fails.
+				_ = kubectl.Delete(demoPolicy)
+			})
+
+			It("Tests NodePort with L7 Policy", func() {
+				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
+				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+				monitorRes1, monitorCancel1 := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1)
+				ciliumPodK8s2, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s2)
+				Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
+				monitorRes2, monitorCancel2 := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s2)
+				defer func() {
+					monitorCancel1()
+					monitorCancel2()
+					helpers.WriteToReportFile(monitorRes1.CombineOutput().Bytes(), "nodeport-with-l7-policy-monitor-k8s1.log")
+					helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "nodeport-with-l7-policy-monitor-k8s2.log")
+				}()
+
+				applyPolicy(demoPolicy)
+				testNodePort(false, false, false, 0)
+			})
+		})
 
 		SkipContextIf(
 			func() bool {
