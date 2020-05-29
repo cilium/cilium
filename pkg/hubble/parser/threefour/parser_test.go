@@ -65,7 +65,7 @@ func TestL34Decode(t *testing.T) {
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
 			if ip.Equal(net.ParseIP("10.16.236.178")) {
-				return &v1.Endpoint{
+				return &testutils.FakeEndpointInfo{
 					ID:           1234,
 					PodName:      "pod-10.16.236.178",
 					PodNamespace: "default",
@@ -180,7 +180,7 @@ func TestL34Decode(t *testing.T) {
 	endpointGetter = &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
 			if ip.Equal(net.ParseIP("ff02::1:ff00:b3e5")) {
-				return &v1.Endpoint{
+				return &testutils.FakeEndpointInfo{
 					ID: 1234,
 				}, true
 			}
@@ -468,7 +468,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	endpointGetter := &testutils.FakeEndpointGetter{
 		OnGetEndpointInfo: func(ip net.IP) (endpoint v1.EndpointInfo, ok bool) {
 			if ip.Equal(localIP) {
-				return &v1.Endpoint{
+				return &testutils.FakeEndpointInfo{
 					ID: uint64(localEP),
 				}, true
 			}
@@ -774,7 +774,7 @@ func TestICMP(t *testing.T) {
 func TestTraceNotifyLocalEndpoint(t *testing.T) {
 	f := &flowpb.Flow{}
 
-	ep := &v1.Endpoint{
+	ep := &testutils.FakeEndpointInfo{
 		ID:           1234,
 		Identity:     4567,
 		IPv4:         net.ParseIP("1.1.1.1"),

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -304,4 +305,42 @@ func (f *FakeFlow) GetPolicyMatchType() uint32 {
 // GetSummary implements v1.Flow for the FakeFlow.
 func (f *FakeFlow) GetSummary() string {
 	return "deprecated"
+}
+
+// FakeEndpointInfo implements v1.EndpointInfo for unit tests. All interface
+// methods return values exposed in the fields.
+type FakeEndpointInfo struct {
+	ContainerIDs []string
+	ID           uint64
+	Identity     identity.NumericIdentity
+	IPv4         net.IP
+	IPv6         net.IP
+	PodName      string
+	PodNamespace string
+	Labels       []string
+}
+
+// GetID returns the ID of the endpoint.
+func (e *FakeEndpointInfo) GetID() uint64 {
+	return e.ID
+}
+
+// GetIdentity returns the numerical security identity of the endpoint.
+func (e *FakeEndpointInfo) GetIdentity() identity.NumericIdentity {
+	return e.Identity
+}
+
+// GetK8sPodName returns the pod name of the endpoint.
+func (e *FakeEndpointInfo) GetK8sPodName() string {
+	return e.PodName
+}
+
+// GetK8sNamespace returns the pod namespace of the endpoint.
+func (e *FakeEndpointInfo) GetK8sNamespace() string {
+	return e.PodNamespace
+}
+
+// GetLabels returns the labels of the endpoint.
+func (e *FakeEndpointInfo) GetLabels() []string {
+	return e.Labels
 }
