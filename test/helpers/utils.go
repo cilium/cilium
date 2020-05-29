@@ -484,12 +484,24 @@ func failIfContainsBadLogMsg(logs string, blacklist map[string][]string) {
 	}
 }
 
+// RunsOnNetNextKernel checks whether a test case is running on the net-next
+// kernel (depending on the image, it's the latest kernel either from net-next.git
+// or bpf-next.git tree).
+func RunsOnNetNextKernel() bool {
+	netNext := os.Getenv("NETNEXT")
+	return netNext == "true" || netNext == "1"
+}
+
+// DoesNotRunOnNetNextKernel is the complement function of RunsOnNetNextKernel.
+func DoesNotRunOnNetNextKernel() bool {
+	return !RunsOnNetNextKernel()
+}
+
 // RunsOnNetNextOr419Kernel checks whether a test case is running on the net-next
 // kernel (depending on the image, it's the latest kernel either from net-next.git
 // or bpf-next.git tree), or on the > 4.19.57 kernel.
 func RunsOnNetNextOr419Kernel() bool {
-	netNext := os.Getenv("NETNEXT")
-	return netNext == "true" || netNext == "1" || os.Getenv("KERNEL") == "419"
+	return RunsOnNetNextKernel() || os.Getenv("KERNEL") == "419"
 }
 
 // DoesNotRunOnNetNextOr419Kernel is the complement function of
