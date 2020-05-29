@@ -20,6 +20,7 @@ addons:
     packages:
       - kernel-package
       - gnupg
+      - libelf-dev
 
 before_install: ./.travis/prepare.sh
 
