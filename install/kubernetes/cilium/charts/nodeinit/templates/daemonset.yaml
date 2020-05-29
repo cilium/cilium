@@ -180,7 +180,8 @@ spec:
               echo "Restarting kubenet managed pods"
               if grep -q 'docker' /etc/crictl.yaml; then
                 # Works for COS, ubuntu
-                for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0`; do docker rm -f $(cat $f) || true; done
+                # Note the first line is the containerID with a trailing \r
+                for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0`; do docker rm -f "$(sed 's/\r//;1q' $f)" || true; done
               elif [ -n "$(docker ps --format '{{ "{{" }}.Image{{ "}}" }}' | grep ^[0-9]*\.dkr\.ecr\.[a-z]*-[a-z]*-[0-9]*\.amazonaws\.com/amazon-k8s-cni)" ]; then
                 timeout=1
                 for i in $(seq 1 7); do
