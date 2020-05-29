@@ -158,7 +158,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				By("HTTP connectivity to 1.1.1.1")
 				res := kubectl.ExecPodCmd(
 					namespaceForTest, pod,
-					helpers.CurlFail("http://1.1.1.1/"))
+					helpers.CurlFail("--retry 5 http://1.1.1.1/"))
 
 				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
 					"HTTP egress connectivity to 1.1.1.1 from pod %q", pod)
@@ -679,7 +679,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
 				res := kubectl.ExecPodCmd(
 					namespaceForTest, pod,
-					helpers.CurlFail("http://1.1.1.1/"))
+					helpers.CurlFail("--retry 5 http://1.1.1.1/"))
 				res.ExpectSuccess("Egress connectivity should be allowed for pod %q", pod)
 
 				res = kubectl.ExecPodCmd(
