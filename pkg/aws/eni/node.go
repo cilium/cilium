@@ -495,7 +495,7 @@ func (n *Node) allocateENI(ctx context.Context, s *types.Subnet, a *allocatableR
 	}
 
 	// Add the information of the created ENI to the instances manager
-	n.manager.instancesAPI.UpdateENI(n.resource.Spec.ENI.InstanceID, eni)
+	n.manager.instancesAPI.UpdateENI(nodeResource.Spec.ENI.InstanceID, eni)
 
 	n.manager.metricsAPI.IncENIAllocationAttempt("success", s.ID)
 	n.manager.metricsAPI.AddIPAllocation(s.ID, toAllocate)
