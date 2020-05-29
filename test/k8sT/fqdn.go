@@ -241,7 +241,7 @@ var _ = Describe("K8sFQDNTest", func() {
 		By("Validating APP2 policy connectivity")
 		res := kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail(world1Target))
+			helpers.CurlFail("--retry 5 "+world1Target))
 		res.ExpectSuccess("Can't connect to to a valid target when it should work")
 
 		res = kubectl.ExecPodCmd(
@@ -253,7 +253,7 @@ var _ = Describe("K8sFQDNTest", func() {
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App3],
-			helpers.CurlFail(world2Target))
+			helpers.CurlFail("--retry 5 "+world2Target))
 		res.ExpectSuccess("Can't connect to to a valid target when it should work")
 
 		res = kubectl.ExecPodCmd(
