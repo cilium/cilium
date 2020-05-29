@@ -83,7 +83,7 @@ var (
 
 	// statusCheckTimeout is the timeout when performing status checks with
 	// all etcd endpoints
-	statusCheckTimeout = 5 * time.Second
+	statusCheckTimeout = 10 * time.Second
 
 	// initialConnectionTimeout  is the timeout for the initial connection to
 	// the etcd server
@@ -213,6 +213,13 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 func init() {
 	// register etcd module for use
 	registerBackend(EtcdBackendName, etcdInstance)
+
+	if duration := os.Getenv("CILIUM_ETCD_STATUS_CHECK_INTERVAL"); duration != "" {
+		timeout, err := time.ParseDuration(duration)
+		if err == nil {
+			statusCheckTimeout = timeout
+		}
+	}
 }
 
 // Hint tries to improve the error message displayed to te user.
