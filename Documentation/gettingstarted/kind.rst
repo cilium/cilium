@@ -90,8 +90,7 @@ Install Cilium release via Helm:
       --set global.hostServices.enabled=false \\
       --set global.externalIPs.enabled=true \\
       --set global.nodePort.enabled=true \\
-      --set global.hostPort.enabled=true \\
-      --set global.pullPolicy=IfNotPresent
+      --set global.hostPort.enabled=true
 
 .. include:: k8s-install-validate.rst
 .. include:: hubble-install.rst

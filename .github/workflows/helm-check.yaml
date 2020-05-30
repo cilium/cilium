@@ -27,8 +27,7 @@ jobs:
       - uses: actions/checkout@v2
       - name: Check quick-install.yaml
         run: |
-          cd install/kubernetes
-          make all
+          make -C install/kubernetes all
           git diff --exit-code
 
   lint-test:

@@ -36,7 +36,7 @@ global:
   tag: latest
 
   # pullPolicy is the container image pull policy
-  pullPolicy: Always
+  pullPolicy: IfNotPresent
 
   # etcd is the etcd configuration
   etcd:
