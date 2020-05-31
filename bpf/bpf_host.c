@@ -1121,6 +1121,11 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, bool from_host)
 	}
 
 	switch (proto) {
+# if defined ENABLE_ARP_PASSTHROUGH || defined ENABLE_ARP_RESPONDER
+	case bpf_htons(ETH_P_ARP):
+		ret = CTX_ACT_OK;
+		break;
+# endif
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
 		identity = resolve_srcid_ipv6(ctx, identity, from_host);
