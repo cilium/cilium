@@ -257,8 +257,12 @@ func (res *CmdRes) ExpectMatchesRegexp(regexp string, optionalDescription ...int
 func (res *CmdRes) ExpectContainsFilterLine(filter, expected string, optionalDescription ...interface{}) bool {
 	lines, err := res.FilterLines(filter)
 	gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), optionalDescription...)
-	return gomega.ExpectWithOffset(1, expected).Should(
-		gomega.BeElementOf(lines), optionalDescription...)
+	sLines := []string{}
+	for _, fLine := range lines {
+		sLines = append(sLines, fLine.ByLines()...)
+	}
+	return gomega.ExpectWithOffset(1, sLines).To(
+		gomega.ContainElement(expected), optionalDescription...)
 }
 
 // ExpectDoesNotContain asserts that a string is not contained in the stdout of
@@ -285,8 +289,12 @@ func (res *CmdRes) ExpectDoesNotMatchRegexp(regexp string, optionalDescription .
 func (res *CmdRes) ExpectDoesNotContainFilterLine(filter, expected string, optionalDescription ...interface{}) bool {
 	lines, err := res.FilterLines(filter)
 	gomega.ExpectWithOffset(1, err).To(gomega.BeNil(), optionalDescription...)
-	return gomega.ExpectWithOffset(1, expected).ToNot(
-		gomega.BeElementOf(lines), optionalDescription...)
+	sLines := []string{}
+	for _, fLine := range lines {
+		sLines = append(sLines, fLine.ByLines()...)
+	}
+	return gomega.ExpectWithOffset(1, sLines).ToNot(
+		gomega.ContainElement(expected), optionalDescription...)
 }
 
 // CountLines return the number of lines in the stdout of res.
