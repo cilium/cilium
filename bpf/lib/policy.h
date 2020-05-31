@@ -223,7 +223,7 @@ policy_can_egress(struct __ctx_buff *ctx, __u32 srcID, __u32 dstID,
 	int ret;
 
 #ifdef ENCAP_IFINDEX
-	if (is_encap(dport, proto))
+	if (srcID != HOST_ID && is_encap(dport, proto))
 		return DROP_ENCAP_PROHIBITED;
 #endif
 	ret = __policy_can_access(&POLICY_MAP, ctx, srcID, dstID, dport, proto,
