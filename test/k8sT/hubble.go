@@ -114,7 +114,6 @@ var _ = Describe("K8sHubbleTest", func() {
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 			"global.hubble.metricsServer":   fmt.Sprintf(":%s", prometheusPort),
 			"global.hubble.metrics.enabled": `"{dns:query;ignoreAAAA,drop,tcp,flow,port-distribution,icmp,http}"`,
-			"global.hubble.cli.enabled":     "true",
 			"global.hubble.relay.enabled":   "true",
 		})
 
