@@ -4,6 +4,8 @@ LABEL maintainer="maintainer@cilium.io"
 
 RUN apk add --no-cache --virtual --update \
     aspell-en \
+    nodejs \
+    npm \
     bash \
     ca-certificates \
     enchant \
