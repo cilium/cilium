@@ -140,10 +140,8 @@ pipeline {
                 sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                 sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                 retry(3) {
-                    timeout(time: 15, unit: 'MINUTES'){
-                        dir("${TESTDIR}") {
-                            sh 'KERNEL=$(python get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=version | sed "s/^$/${DEFAULT_KERNEL}/") CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
-                        }
+                    dir("${TESTDIR}") {
+                        sh 'KERNEL=$(python get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=version | sed "s/^$/${DEFAULT_KERNEL}/") CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 15m ./vagrant-ci-start.sh'
                     }
                 }
             }
