@@ -27,10 +27,10 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       containers:
         - name: hubble-relay
-{{- if contains "/" .Values.image }}
-          image: "{{ .Values.image }}"
+{{- if contains "/" .Values.image.repository }}
+          image: "{{ .Values.image.repository }}"
 {{- else }}
-          image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+          image: "{{ .Values.global.registry }}/{{ .Values.image.repository }}:{{ .Values.image.tag }}"
 {{- end }}
           imagePullPolicy: {{ .Values.global.pullPolicy }}
           command:

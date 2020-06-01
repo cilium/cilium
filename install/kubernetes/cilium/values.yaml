@@ -27,6 +27,42 @@ preflight:
   # cluster with the right schema.
   validateCNPs: true
 
+# Configure sub-chart values for hubble-relay
+hubble-relay:
+  # # Hubble-relay is enabled using global.hubble.relay.enabled
+  # # TODO: Develop a plan to migrate global.hubble.relay.enabled and other
+  # # global values
+  #
+  # # Configuration for the Hubble CLI
+  # image:
+  #   # repository of the docker image
+  #   name: hubble-relay
+  #   # tag is the container image tag to use
+  #   tag: latest
+  #   # pullPolicy is the container image pull policy
+  #   pullPolicy: Always
+  #
+  # # Specifies the resources for the hubble-relay pods
+  # resources: {}
+  #
+  # # Number of replicas run for the hubble-relay deployment.
+  numReplicas: 1
+  #
+  # # Host to listen to. Specify an empty string to bind to all the interfaces.
+  # listenHost: ""
+  #
+  # # Port to listen to.
+  # listenPort: "4245"
+  #
+  # # Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
+  # dialTimeout: ~
+  #
+  # # Backoff duration to retry connecting to the local hubble instance in case of failure (e.g. "30s").
+  # retryTimeout: ~
+  #
+  # # Port to use for the k8s service backed by hubble-relay pods.
+  # servicePort: 80
+
 # global groups all configuration options that have effect on all sub-charts
 global:
   # registry is the address of the registry and orgnization for all container images
