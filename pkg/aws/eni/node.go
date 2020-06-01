@@ -494,12 +494,16 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 // GetMaximumAllocatableIPv4 returns the maximum amount of IPv4 addresses
 // that can be allocated to the instance
 func (n *Node) GetMaximumAllocatableIPv4() int {
+	if n == nil {
+		log.Warningf("Could not determine first interface index, %s", getMaximumAllocatableIPv4FailureWarningStr)
+		return 0
+	}
+
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
 
 	// Retrieve FirstInterfaceIndex from node spec
-	if n == nil ||
-		n.k8sObj == nil ||
+	if n.k8sObj == nil ||
 		n.k8sObj.Spec.ENI.FirstInterfaceIndex == nil {
 		n.loggerLocked().WithFields(logrus.Fields{
 			"first-interface-index": "unknown",
