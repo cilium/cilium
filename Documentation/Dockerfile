@@ -9,6 +9,8 @@ ADD ./requirements.txt $DOCS_DIR/requirements.txt
 
 ENV PACKAGES="\
     bash \
+    nodejs \
+    npm \
     ca-certificates \
     make \
     git \

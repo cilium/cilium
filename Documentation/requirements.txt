@@ -16,7 +16,7 @@ requests==2.20.0
 six==1.11.0
 snowballstemmer==1.2.1
 Sphinx==1.8.1
-sphinx-rtd-theme==0.2.4
+git+git://github.com/cilium/sphinx_rtd_theme.git@v0.6
 sphinxcontrib-httpdomain==1.7.0
 sphinxcontrib-openapi==0.3.2
 sphinxcontrib-websupport==1.1.0
