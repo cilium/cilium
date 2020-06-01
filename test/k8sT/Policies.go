@@ -927,7 +927,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				_ = kubectl.Exec(cmd)
 			})
 
-			checkProxyRedirection := func(resource string, redirected bool, parser policy.L7ParserType) {
+			checkProxyRedirection := func(resource string, redirected bool, parser policy.L7ParserType, retryCurl bool) {
 				var (
 					not           = " "
 					filter        string // jsonpath filter
@@ -949,7 +949,11 @@ var _ = Describe("K8sPolicyTest", func() {
 						namespaceForTest,
 						"vagrant-cache.ci.cilium.io.",
 					)
-					curlCmd = helpers.CurlFail(resource)
+					if retryCurl {
+						curlCmd = helpers.CurlFail("--retry 5 " + resource)
+					} else {
+						curlCmd = helpers.CurlFail(resource)
+					}
 				case policy.ParserTypeHTTP:
 					filter = "{.destination.namespace} {.l7.type} {.l7.http.url} {.l7.http.code} {.l7.http.method}"
 					expect = fmt.Sprintf(
@@ -957,7 +961,12 @@ var _ = Describe("K8sPolicyTest", func() {
 						namespaceForTest,
 						fmt.Sprintf("http://%s/public", resource),
 					)
-					curlCmd = helpers.CurlFail(fmt.Sprintf("http://%s/public", resource))
+
+					if retryCurl {
+						curlCmd = helpers.CurlFail(fmt.Sprintf("--retry 5 http://%s/public", resource))
+					} else {
+						curlCmd = helpers.CurlFail(fmt.Sprintf("http://%s/public", resource))
+					}
 				default:
 					Fail(fmt.Sprintf("invalid parser type for proxy visibility: %s", parser))
 				}
@@ -1005,40 +1014,40 @@ var _ = Describe("K8sPolicyTest", func() {
 				}
 			}
 
-			proxyVisibilityTest := func(resource, podToAnnotate, anno string, parserType policy.L7ParserType) {
-				checkProxyRedirection(resource, false, parserType)
+			proxyVisibilityTest := func(resource, podToAnnotate, anno string, parserType policy.L7ParserType, retryCurl bool) {
+				checkProxyRedirection(resource, false, parserType, retryCurl)
 
 				By("Annotating %s with %s", podToAnnotate, anno)
 				res := kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s=\"%s\"", helpers.KubectlCmd, podToAnnotate, namespaceForTest, annotation.ProxyVisibility, anno))
 				res.ExpectSuccess("annotating pod with proxy visibility annotation failed")
 				Expect(kubectl.CiliumEndpointWaitReady()).To(BeNil())
 
-				checkProxyRedirection(resource, true, parserType)
+				checkProxyRedirection(resource, true, parserType, retryCurl)
 
 				By("Removing proxy visibility annotation on %s", podToAnnotate)
 				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, podToAnnotate, namespaceForTest, annotation.ProxyVisibility)).ExpectSuccess()
 				Expect(kubectl.CiliumEndpointWaitReady()).To(BeNil())
 
-				checkProxyRedirection(resource, false, parserType)
+				checkProxyRedirection(resource, false, parserType, retryCurl)
 			}
 
 			It("Tests HTTP proxy visibility without policy", func() {
-				proxyVisibilityTest(app1PodIP, app1Pod, "<Ingress/80/TCP/HTTP>", policy.ParserTypeHTTP)
+				proxyVisibilityTest(app1PodIP, app1Pod, "<Ingress/80/TCP/HTTP>", policy.ParserTypeHTTP, false)
 			})
 
 			It("Tests DNS proxy visibility without policy", func() {
-				proxyVisibilityTest(worldTarget, app2Pod, "<Egress/53/UDP/DNS>", policy.ParserTypeDNS)
+				proxyVisibilityTest(worldTarget, app2Pod, "<Egress/53/UDP/DNS>", policy.ParserTypeDNS, true)
 			})
 
 			It("Tests proxy visibility interactions with policy lifecycle operations", func() {
-				checkProxyRedirection(app1PodIP, false, policy.ParserTypeHTTP)
+				checkProxyRedirection(app1PodIP, false, policy.ParserTypeHTTP, false)
 
 				By("Annotating %s with <Ingress/80/TCP/HTTP>", app1Pod)
 				res := kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s=\"<Ingress/80/TCP/HTTP>\"", helpers.KubectlCmd, app1Pod, namespaceForTest, annotation.ProxyVisibility))
 				res.ExpectSuccess("annotating pod with proxy visibility annotation failed")
 				Expect(kubectl.CiliumEndpointWaitReady()).To(BeNil())
 
-				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP)
+				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP, false)
 
 				By("Importing policy which selects app1; proxy-visibility annotation should be removed")
 
@@ -1048,7 +1057,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					"policy %s cannot be applied in %q namespace", l3Policy, namespaceForTest)
 
 				By("Checking that proxy visibility annotation is removed due to policy being added")
-				checkProxyRedirection(app1PodIP, false, policy.ParserTypeHTTP)
+				checkProxyRedirection(app1PodIP, false, policy.ParserTypeHTTP, false)
 
 				_, err = kubectl.CiliumPolicyAction(
 					namespaceForTest, l3Policy, helpers.KubectlDelete, helpers.HelperTimeout)
@@ -1056,7 +1065,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					"policy %s cannot be deleted in %q namespace", l3Policy, namespaceForTest)
 
 				By("Checking that proxy visibility annotation is re-added after policy is removed")
-				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP)
+				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP, false)
 
 				By("Importing policy using named ports which selects app1; proxy-visibility annotation should be removed")
 
@@ -1066,7 +1075,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					"policy %s cannot be applied in %q namespace", l3NamedPortPolicy, namespaceForTest)
 
 				By("Checking that proxy visibility annotation is removed due to policy being added")
-				checkProxyRedirection(app1PodIP, false, policy.ParserTypeHTTP)
+				checkProxyRedirection(app1PodIP, false, policy.ParserTypeHTTP, false)
 
 				_, err = kubectl.CiliumPolicyAction(
 					namespaceForTest, l3NamedPortPolicy, helpers.KubectlDelete, helpers.HelperTimeout)
@@ -1074,7 +1083,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					"policy %s cannot be deleted in %q namespace", l3NamedPortPolicy, namespaceForTest)
 
 				By("Checking that proxy visibility annotation is re-added after policy is removed")
-				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP)
+				checkProxyRedirection(app1PodIP, true, policy.ParserTypeHTTP, false)
 			})
 		})
 
