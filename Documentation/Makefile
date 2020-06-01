@@ -21,7 +21,7 @@ SPELLING_LIST = spelling_wordlist.txt
 help:
 	@$(SPHINXBUILD) -M help "$(SOURCEDIR)" "$(BUILDDIR)" $(SPHINXOPTS) $(O)
 
-PIP_REQUIREMENTS = $(shell cat requirements.txt | sed -e 's/==.*//g' -e 's/\n/ /g')
+PIP_REQUIREMENTS = $(shell grep -ve "^\#.*" requirements.txt | sed -e 's/==.*//g' -e 's/^.*\/\([^./]*\).*$$/"\1"/g' -e 's/_/-/g' -e 's/\n/ /g')
 
 check-requirements:
 	@set -e;								\
