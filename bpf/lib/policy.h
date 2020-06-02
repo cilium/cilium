@@ -185,7 +185,7 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 localID,
 static __always_inline int
 policy_can_access_ingress(struct __ctx_buff *ctx, __u32 srcID, __u32 dstID,
 			  __u16 dport, __u8 proto, bool is_untracked_fragment,
-			  __u8 *match_type)
+			  __u8 *match_type, __u8 *audited)
 {
 	int ret;
 
@@ -197,9 +197,11 @@ policy_can_access_ingress(struct __ctx_buff *ctx, __u32 srcID, __u32 dstID,
 
 	cilium_dbg(ctx, DBG_POLICY_DENIED, srcID, dstID);
 
+	*audited = 0;
 #ifdef POLICY_AUDIT_MODE
 	if (IS_ERR(ret)) {
 		ret = CTX_ACT_OK;
+		*audited = 1;
 	}
 #endif
 
@@ -218,7 +220,7 @@ static __always_inline bool is_encap(__u16 dport, __u8 proto)
 
 static __always_inline int
 policy_can_egress(struct __ctx_buff *ctx, __u32 srcID, __u32 dstID,
-		  __u16 dport, __u8 proto, __u8 *match_type)
+		  __u16 dport, __u8 proto, __u8 *match_type, __u8 *audited)
 {
 	int ret;
 
@@ -231,9 +233,11 @@ policy_can_egress(struct __ctx_buff *ctx, __u32 srcID, __u32 dstID,
 	if (ret >= 0)
 		return ret;
 	cilium_dbg(ctx, DBG_POLICY_DENIED, srcID, dstID);
+	*audited = 0;
 #ifdef POLICY_AUDIT_MODE
 	if (IS_ERR(ret)) {
 		ret = CTX_ACT_OK;
+		*audited = 1;
 	}
 #endif
 	return ret;
@@ -242,19 +246,19 @@ policy_can_egress(struct __ctx_buff *ctx, __u32 srcID, __u32 dstID,
 static __always_inline int policy_can_egress6(struct __ctx_buff *ctx,
 					      const struct ipv6_ct_tuple *tuple,
 					      __u32 srcID, __u32 dstID,
-					      __u8 *match_type)
+					      __u8 *match_type, __u8 *audited)
 {
 	return policy_can_egress(ctx, srcID, dstID, tuple->dport,
-				 tuple->nexthdr, match_type);
+				 tuple->nexthdr, match_type, audited);
 }
 
 static __always_inline int policy_can_egress4(struct __ctx_buff *ctx,
 					      const struct ipv4_ct_tuple *tuple,
 					      __u32 srcID, __u32 dstID,
-					      __u8 *match_type)
+					      __u8 *match_type, __u8 *audited)
 {
 	return policy_can_egress(ctx, srcID, dstID, tuple->dport,
-				 tuple->nexthdr, match_type);
+				 tuple->nexthdr, match_type, audited);
 }
 
 /**

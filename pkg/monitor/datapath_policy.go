@@ -32,12 +32,16 @@ const (
 	PolicyVerdictNotifyFlagDirection = 0x3
 
 	// PolicyVerdictNotifyFlagIsIPv6 is the bit mask in Flags that
-	// corresponds to wether the traffic is IPv6 or not
+	// corresponds to whether the traffic is IPv6 or not
 	PolicyVerdictNotifyFlagIsIPv6 = 0x4
 
 	// PolicyVerdictNotifyFlagMatchType is the bit mask in Flags that
 	// corresponds to the policy match type
 	PolicyVerdictNotifyFlagMatchType = 0x38
+
+	// PolicyVerdictNotifyFlagIsAudited is the bit mask in Flags that
+	// corresponds to whether the traffic was allowed due to the audit mode
+	PolicyVerdictNotifyFlagIsAudited = 0x40
 
 	// PolicyVerdictNotifyFlagMatchTypeBitOffset is the bit offset in Flags that
 	// corresponds to the policy match type
@@ -78,8 +82,18 @@ func (n *PolicyVerdictNotify) GetPolicyMatchType() api.PolicyMatchType {
 		PolicyVerdictNotifyFlagMatchTypeBitOffset)
 }
 
+// IsTrafficAudited returns true if this notify is for traffic that
+// was allowed due to the audit mode
+func (n *PolicyVerdictNotify) IsTrafficAudited() bool {
+	return (n.Flags&PolicyVerdictNotifyFlagIsAudited > 0)
+}
+
 // GetPolicyActionString returns the action string corresponding to the action
-func GetPolicyActionString(verdict int32) string {
+func GetPolicyActionString(verdict int32, audit bool) string {
+	if audit {
+		return "audit"
+	}
+
 	if verdict < 0 {
 		return "deny"
 	} else if verdict > 0 {
@@ -91,6 +105,6 @@ func GetPolicyActionString(verdict int32) string {
 // DumpInfo prints a summary of the policy notify messages.
 func (n *PolicyVerdictNotify) DumpInfo(data []byte) {
 	fmt.Printf("Policy verdict log: flow %#x local EP ID %d, remote ID %d, dst port %d, proto %d, ingress %v, action %s, match %s, %s\n",
-		n.Hash, n.Source, n.RemoteLabel, n.DstPort, n.Proto, n.IsTrafficIngress(), GetPolicyActionString(n.Verdict),
+		n.Hash, n.Source, n.RemoteLabel, n.DstPort, n.Proto, n.IsTrafficIngress(), GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
 		n.GetPolicyMatchType(), GetConnectionSummary(data[PolicyVerdictNotifyLen:]))
 }

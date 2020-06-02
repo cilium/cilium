@@ -71,6 +71,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	__u8 reason;
 	bool hairpin_flow = false; // endpoint wants to access itself via service IP
 	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u8 audited = 0;
 
 	if (unlikely(!is_valid_lxc_src_ip(ip6)))
 		return DROP_INVALID_SIP;
@@ -173,17 +174,17 @@ skip_service_lookup:
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
 	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dstID,
-				     &policy_match_type);
+				     &policy_match_type, &audited);
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *dstID, tuple->dport, tuple->nexthdr,
-						POLICY_EGRESS, 1, verdict, policy_match_type);
+						POLICY_EGRESS, 1, verdict, policy_match_type, audited);
 		return verdict;
 	}
 
 	switch (ret) {
 	case CT_NEW:
 		send_policy_verdict_notify(ctx, *dstID, tuple->dport, tuple->nexthdr,
-						POLICY_EGRESS, 1, verdict, policy_match_type);
+						POLICY_EGRESS, 1, verdict, policy_match_type, audited);
 ct_recreate6:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
@@ -436,6 +437,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	__u8 reason;
 	bool hairpin_flow = false; // endpoint wants to access itself via service IP
 	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u8 audited = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -528,18 +530,18 @@ skip_service_lookup:
 	 * within the cluster, it must match policy or be dropped. If it's
 	 * bound for the host/outside, perform the CIDR policy check. */
 	verdict = policy_can_egress4(ctx, &tuple, SECLABEL, *dstID,
-				     &policy_match_type);
+				     &policy_match_type, &audited);
 
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *dstID, tuple.dport, tuple.nexthdr,
-						POLICY_EGRESS, 0, verdict, policy_match_type);
+						POLICY_EGRESS, 0, verdict, policy_match_type, audited);
 		return verdict;
 	}
 
 	switch (ret) {
 	case CT_NEW:
 		send_policy_verdict_notify(ctx, *dstID, tuple.dport, tuple.nexthdr,
-						POLICY_EGRESS, 0, verdict, policy_match_type);
+						POLICY_EGRESS, 0, verdict, policy_match_type, audited);
 ct_recreate4:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
@@ -841,6 +843,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	union v6addr orig_sip;
 	__u32 monitor = 0;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u8 audited = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -892,13 +895,13 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
 					    tuple.dport, tuple.nexthdr, false,
-					    &policy_match_type);
+					    &policy_match_type, &audited);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
-						 POLICY_INGRESS, 1, verdict, policy_match_type);
+						 POLICY_INGRESS, 1, verdict, policy_match_type, audited);
 		return verdict;
 	}
 
@@ -907,7 +910,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	if (ret == CT_NEW) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
-						 POLICY_INGRESS, 1, verdict, policy_match_type);
+						 POLICY_INGRESS, 1, verdict, policy_match_type, audited);
 #ifdef ENABLE_DSR
 	{
 		bool dsr = false;
@@ -1050,6 +1053,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	__u32 monitor = 0;
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u8 audited = 0;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
@@ -1112,13 +1116,13 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	verdict = policy_can_access_ingress(ctx, src_label, SECLABEL,
 					    tuple.dport, tuple.nexthdr,
 					    is_untracked_fragment,
-					    &policy_match_type);
+					    &policy_match_type, &audited);
 
 	/* Reply packets and related packets are allowed, all others must be
 	 * permitted by policy */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
-						 POLICY_INGRESS, 0, verdict, policy_match_type);
+						 POLICY_INGRESS, 0, verdict, policy_match_type, audited);
 		return verdict;
 	}
 
@@ -1127,7 +1131,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	if (ret == CT_NEW) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
-						 POLICY_INGRESS, 0, verdict, policy_match_type);
+						 POLICY_INGRESS, 0, verdict, policy_match_type, audited);
 #ifdef ENABLE_DSR
 	{
 		bool dsr = false;
