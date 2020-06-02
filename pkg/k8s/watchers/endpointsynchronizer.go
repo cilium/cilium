@@ -117,7 +117,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				// Serialize the endpoint into a model. It is compared with the one
 				// from before, only updating on changes.
 				mdl := e.GetCiliumEndpointStatus(conf)
-				if mdl.DeepEqual(lastMdl) {
+				if !needInit && mdl.DeepEqual(lastMdl) {
 					scopedLog.Debug("Skipping CiliumEndpoint update because it has not changed")
 					return nil
 				}
@@ -167,10 +167,10 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 							return err
 						}
 
-						// We have successfully created the CEP and can return. Subsequent
-						// runs will update using localCEP.
 						needInit = false
-						return nil
+
+						// continue the execution so we update the endpoint
+						// status immediately upon endpoint creation
 					case err != nil:
 						scopedLog.WithError(err).Warn("Error getting CEP")
 						return err
