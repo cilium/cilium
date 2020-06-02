@@ -185,6 +185,10 @@ func endParallelMapMode() {
 // ipcache, if needed, and also notifies the daemon and network policy
 // hosts cache if changes were made.
 func (d *Daemon) syncEndpointsAndHostIPs() error {
+	if option.Config.DryMode {
+		return nil
+	}
+
 	specialIdentities := []identity.IPIdentityPair{}
 
 	if option.Config.EnableIPv4 {
