@@ -3,7 +3,7 @@ language: go
 dist: bionic
 sudo: required
 
-go: "1.14.3"
+go: "1.14.4"
 
 arch:
   - amd64
