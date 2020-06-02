@@ -547,11 +547,11 @@ github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 # github.com/subosito/gotenv v1.2.0
 github.com/subosito/gotenv
-# github.com/vishvananda/netlink v1.1.1-0.20200210222539-bfba8e4149db
+# github.com/vishvananda/netlink v1.1.1-0.20200210222539-bfba8e4149db => github.com/cilium/netlink v1.0.1-0.20200602124434-7a9cf5c0ccf8
 ## explicit
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
-# github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
+# github.com/vishvananda/netns v0.0.0-20200520041808-52d707b772fe
 ## explicit
 github.com/vishvananda/netns
 # go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
@@ -650,9 +650,10 @@ golang.org/x/oauth2/internal
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
+# golang.org/x/sys v0.0.0-20200602100848-8d3cce7afc34
 ## explicit
 golang.org/x/sys/cpu
+golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/text v0.3.2
@@ -1047,3 +1048,4 @@ sigs.k8s.io/yaml
 # github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 # github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 # k8s.io/client-go => github.com/cilium/client-go v0.0.0-20200525133704-d13039a12d08
+# github.com/vishvananda/netlink => github.com/cilium/netlink v1.0.1-0.20200602124434-7a9cf5c0ccf8

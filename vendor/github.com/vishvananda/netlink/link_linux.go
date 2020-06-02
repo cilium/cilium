@@ -247,6 +247,16 @@ func (h *Handle) BridgeSetMcastSnoop(link Link, on bool) error {
 	return h.linkModify(bridge, unix.NLM_F_ACK)
 }
 
+func BridgeSetVlanFiltering(link Link, on bool) error {
+	return pkgHandle.BridgeSetVlanFiltering(link, on)
+}
+
+func (h *Handle) BridgeSetVlanFiltering(link Link, on bool) error {
+	bridge := link.(*Bridge)
+	bridge.VlanFiltering = &on
+	return h.linkModify(bridge, unix.NLM_F_ACK)
+}
+
 func SetPromiscOn(link Link) error {
 	return pkgHandle.SetPromiscOn(link)
 }
