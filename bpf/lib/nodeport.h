@@ -435,6 +435,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 			bpf_skip_nodeport_set(ctx);
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
 			ret = DROP_MISSED_TAIL_CALL;
+			goto drop_err;
 		}
 		if (ret == NAT_PUNT_TO_STACK)
 			ret = CTX_ACT_OK;
@@ -1105,6 +1106,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 			bpf_skip_nodeport_set(ctx);
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_LXC);
 			ret = DROP_MISSED_TAIL_CALL;
+			goto drop_err;
 		}
 		if (ret == NAT_PUNT_TO_STACK)
 			ret = CTX_ACT_OK;
