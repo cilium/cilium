@@ -2260,12 +2260,6 @@ func (kub *Kubectl) DeleteCiliumDS() error {
 	return kub.waitToDelete("Cilium", CiliumAgentLabel)
 }
 
-func (kub *Kubectl) DeleteHubbleClientPods(ns string) error {
-	ginkgoext.By("DeleteHubbleClientPods(namespace=%q)", ns)
-	_ = kub.DeleteResource("ds", fmt.Sprintf("-n %s hubble-cli", ns))
-	return kub.waitToDelete("HubbleClient", HubbleClientLabel)
-}
-
 func (kub *Kubectl) DeleteHubbleRelay(ns string) error {
 	ginkgoext.By("DeleteHubbleRelay(namespace=%q)", ns)
 	_ = kub.DeleteResource("deployment", fmt.Sprintf("-n %s hubble-relay", ns))
@@ -3316,21 +3310,6 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 	return res.Output().String(), nil
 }
 
-// GetCiliumPodOnNode returns the name of the Hubble client pod that is running
-// on / in the specified node / namespace.
-func (kub *Kubectl) GetHubbleClientPodOnNode(namespace string, node string) (string, error) {
-	filter := fmt.Sprintf(
-		"-o jsonpath='{.items[?(@.spec.nodeName == \"%s\")].metadata.name}'", node)
-
-	res := kub.ExecShort(fmt.Sprintf(
-		"%s -n %s get pods -l %s %s", KubectlCmd, namespace, HubbleClientLabel, filter))
-	if !res.WasSuccessful() {
-		return "", fmt.Errorf("Hubble pod not found on node '%s': %s", node, res.OutputPrettyPrint())
-	}
-
-	return res.Output().String(), nil
-}
-
 // GetNodeInfo provides the node name and IP address based on the label
 // (eg helpers.K8s1 or helpers.K8s2)
 func (kub *Kubectl) GetNodeInfo(label string) (nodeName, nodeIP string) {
@@ -3349,17 +3328,6 @@ func (kub *Kubectl) GetCiliumPodOnNodeWithLabel(namespace string, label string) 
 	}
 
 	return kub.GetCiliumPodOnNode(namespace, node)
-}
-
-// GetHubbleClientPodOnNodeWithLabel returns the name of the Hubble client pod
-// that is running on node with cilium.io/ci-node label
-func (kub *Kubectl) GetHubbleClientPodOnNodeWithLabel(namespace string, label string) (string, error) {
-	node, err := kub.GetNodeNameByLabel(label)
-	if err != nil {
-		return "", fmt.Errorf("Unable to get nodes with label '%s': %s", label, err)
-	}
-
-	return kub.GetHubbleClientPodOnNode(namespace, node)
 }
 
 func (kub *Kubectl) validateCilium() error {
