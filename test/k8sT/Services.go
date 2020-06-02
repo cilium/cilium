@@ -1046,9 +1046,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 		SkipContextIf(
 			func() bool {
-				return helpers.IsIntegration(helpers.CIIntegrationEKS) ||
-					helpers.IsIntegration(helpers.CIIntegrationGKE) || // Re-enable when GH-11235 is fixed
-					helpers.RunsWithoutKubeProxy()
+				return helpers.RunsWithoutKubeProxy()
 			},
 			"with L7 policy", func() {
 				var (
@@ -1065,7 +1063,7 @@ var _ = Describe("K8sServicesTest", func() {
 					_ = kubectl.Delete(demoPolicy)
 				})
 
-				PIt("Tests NodePort with L7 Policy", func() {
+				It("Tests NodePort with L7 Policy", func() {
 					applyPolicy(demoPolicy)
 					testNodePort(false, false, false)
 				})
