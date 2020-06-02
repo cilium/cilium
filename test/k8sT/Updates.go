@@ -240,10 +240,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		By("Deploying Cilium %s", oldHelmChartVersion)
 
 		opts := map[string]string{
-			"global.tag":      oldImageVersion,
-			"global.registry": "docker.io/cilium",
-			"agent.image":     "cilium",
-			"operator.image":  "operator",
+			"global.tag":                oldImageVersion,
+			"global.registry":           "docker.io/cilium",
+			"agent.image":               "cilium",
+			"operator.image.repository": "operator",
 		}
 		if helpers.RunsWithoutKubeProxy() {
 			opts["global.nodePort.device"] = privateIface

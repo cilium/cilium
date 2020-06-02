@@ -1,4 +1,8 @@
-image: operator
+image:
+  repository: operator
+  tag: latest
+  pullPolicy: Always
+
 # Deprecated: please use synchronizeK8sNodes in install/kubernetes/cilium/values.yaml
 synchronizeK8sNodes: true
 

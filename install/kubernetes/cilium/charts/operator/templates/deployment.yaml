@@ -33,7 +33,13 @@ spec:
         - --config-dir=/tmp/cilium/config-map
         - --debug=$(CILIUM_DEBUG)
         command:
-        - cilium-operator
+{{- if .Values.global.eni }}
+        - cilium-operator-aws
+{{- else if .Values.global.azure.enabled }}
+        - cilium-operator-azure
+{{- else }}
+        - cilium-operator-generic
+{{- end }}
         env:
         - name: K8S_NODE_NAME
           valueFrom:
@@ -101,12 +107,30 @@ spec:
         - name: AZURE_CLIENT_SECRET
           value: {{ .Values.global.azure.clientSecret }}
 {{- end }}
-{{- if contains "/" .Values.image }}
-        image: "{{ .Values.image }}"
+{{- if .Values.global.eni }}
+{{- if contains "/" .Values.image.repository }}
+        image: "{{ .Values.image.repository }}-aws"
 {{- else }}
-        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+        image: "{{ .Values.global.registry }}/{{ .Values.image.repository }}-aws:{{ .Values.image.tag }}"
 {{- end }}
+{{- else if .Values.global.azure.enabled }}
+{{- if contains "/" .Values.image.repository }}
+        image: "{{ .Values.image.repository }}-azure"
+{{- else }}
+        image: "{{ .Values.global.registry }}/{{ .Values.image.repository }}-azure:{{ .Values.image.tag }}"
+{{- end }}
+{{- else }}
+{{- if contains "/" .Values.image.repository }}
+        image: "{{ .Values.image.repository }}-generic"
+{{- else }}
+        image: "{{ .Values.global.registry }}/{{ .Values.image.repository }}-generic:{{ .Values.image.tag }}"
+{{- end }}
+{{- end }}
+{{- if .Values.global.pullPolicy }}
         imagePullPolicy: {{ .Values.global.pullPolicy }}
+{{- else }}
+        imagePullPolicy: {{ .Values.image.pullPolicy }}
+{{- end }}
         name: cilium-operator
 {{- if .Values.global.prometheus.enabled }}
         ports:

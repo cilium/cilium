@@ -91,7 +91,7 @@ var (
 		"agent.image":                         "cilium-dev",
 		"preflight.image":                     "cilium-dev", // Set again in init to match agent.image!
 		"global.tag":                          "latest",
-		"operator.image":                      "operator",
+		"operator.image.repository":           "operator",
 		"global.debug.enabled":                "true",
 		"global.k8s.requireIPv4PodCIDR":       "true",
 		"global.pprof.enabled":                "true",
@@ -239,7 +239,7 @@ func Init() {
 		"CILIUM_REGISTRY":       "global.registry",
 		"CILIUM_TAG":            "global.tag",
 		"CILIUM_IMAGE":          "agent.image",
-		"CILIUM_OPERATOR_IMAGE": "operator.image",
+		"CILIUM_OPERATOR_IMAGE": "operator.image.repository",
 		"HUBBLE_RELAY_IMAGE":    "hubble-relay.image",
 	} {
 		if v := os.Getenv(envVar); v != "" {
