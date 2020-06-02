@@ -133,6 +133,7 @@ pipeline {
     }
     post {
         always {
+            sh 'lscpu'
             sh "cd ${TESTDIR}; K8S_VERSION=1.12 vagrant destroy -f || true"
             sh "cd ${TESTDIR}; vagrant destroy -f || true"
             sh 'cd ${TESTDIR}; ./post_build_agent.sh || true'

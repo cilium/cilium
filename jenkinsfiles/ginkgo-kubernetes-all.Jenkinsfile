@@ -498,6 +498,7 @@ pipeline {
     }
     post {
         always {
+            sh 'lscpu'
             archiveArtifacts artifacts: '*.zip'
             junit testDataPublishers: [[$class: 'AttachmentPublisher']], testResults: 'src/github.com/cilium/cilium/test/*.xml'
             cleanWs()
