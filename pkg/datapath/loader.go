@@ -77,7 +77,7 @@ type IptablesManager interface {
 	// use of original source addresses in proxy upstream
 	// connections.
 	SupportsOriginalSourceAddr() bool
-	RemoveRules()
+	RemoveRules(quiet bool)
 	InstallRules(ifName string) error
 	TransientRulesStart(ifName string) error
 	TransientRulesEnd(quiet bool)

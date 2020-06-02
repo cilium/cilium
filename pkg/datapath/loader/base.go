@@ -66,6 +66,10 @@ const (
 	initArgMax
 )
 
+// firstInitialization is true when Reinitialize() is called for the first
+// time. It can only be accessed when GetCompilationLock() is being held.
+var firstInitialization = true
+
 func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) error {
 	headerPath := filepath.Join(dir, common.NetdevHeaderFileName)
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
@@ -130,6 +134,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	// Lock so that endpoints cannot be built while we are compile base programs.
 	o.GetCompilationLock().Lock()
 	defer o.GetCompilationLock().Unlock()
+	defer func() { firstInitialization = false }()
 
 	l.init(o.Datapath(), o.LocalConfig())
 
@@ -344,8 +349,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 			return err
 		}
 	}
-	// Always remove masquerade rule and then re-add it if required
-	iptMgr.RemoveRules()
+	// The iptables rules are only removed on the first initialization to
+	// remove stale rules or when iptables is enabled. The first invocation
+	// is silent as rules may not exist.
+	if firstInitialization || option.Config.InstallIptRules {
+		iptMgr.RemoveRules(firstInitialization)
+	}
 	if option.Config.InstallIptRules {
 		err := iptMgr.InstallRules(option.Config.HostDevice)
 		iptMgr.TransientRulesEnd(false)
