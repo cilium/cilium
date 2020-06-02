@@ -311,6 +311,7 @@ fromEndpoints
 fromEntities
 frontend
 fs
+functionalities
 fwmark
 gRPC
 gcc
