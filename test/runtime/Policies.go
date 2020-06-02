@@ -1540,6 +1540,9 @@ var _ = Describe("RuntimePolicies", func() {
 				hubbleRes := vm.HubbleObserveFollow(ctx, "--type", "policy-verdict", "--type", "trace:to-endpoint", "--protocol", "ICMPv4")
 				defer cancel()
 
+				By("Starting cilium monitor in background")
+				monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type policy-verdict")
+
 				By("Creating an endpoint")
 				endpointID, endpointIP := createEndpoint()
 
@@ -1559,6 +1562,12 @@ var _ = Describe("RuntimePolicies", func() {
 					fmt.Sprintf("[reserved:host] -> %s [container:somelabel] %s : FORWARDED 4", endpointID, endpointIP.IPV4),
 					"No ingress traffic to endpoint")
 
+				By("Testing cilium monitor output")
+				monitorRes.ExpectContains(
+					fmt.Sprintf("local EP ID %s, remote ID 1, dst port 0, proto 1, ingress true, action audit", endpointID),
+					"No ingress policy log record",
+				)
+
 				By("Testing cilium endpoint list output")
 				res = vm.Exec("cilium endpoint list")
 				res.ExpectMatchesRegexp(endpointID+"\\s*Disabled \\(Audit\\)\\s*Disabled \\(Audit\\)", "Endpoint is not in audit mode")
@@ -1571,6 +1580,9 @@ var _ = Describe("RuntimePolicies", func() {
 				ctx, cancel := context.WithCancel(context.Background())
 				hubbleRes := vm.HubbleObserveFollow(ctx, "--type", "policy-verdict", "--type", "trace:to-endpoint", "--protocol", "ICMPv4")
 				defer cancel()
+
+				By("Starting cilium monitor in background")
+				monitorRes := vm.ExecInBackground(ctx, "cilium monitor --type policy-verdict")
 
 				By("Creating an endpoint")
 				endpointID, _ := createEndpoint("ping", hostIP)
@@ -1590,6 +1602,12 @@ var _ = Describe("RuntimePolicies", func() {
 					`{.source.ID} -> {.destination.labels} {.IP.destination} : {.verdict} {.event_type.type}`,
 					fmt.Sprintf("%s -> [reserved:host] %s : FORWARDED 5", endpointID, hostIP),
 					"Default policy verdict on egress failed")
+
+				By("Testing cilium monitor output")
+				monitorRes.ExpectContains(
+					fmt.Sprintf("ID %s, remote ID 1, dst port 0, proto 1, ingress false, action audit", endpointID),
+					"No egress policy log record",
+				)
 
 				By("Testing cilium endpoint list output")
 				res := vm.Exec("cilium endpoint list")
