@@ -35,12 +35,12 @@ var _ = Describe("K8sHubbleTest", func() {
 	var (
 		kubectl        *helpers.Kubectl
 		ciliumFilename string
+		k8s1NodeName   string
+		ciliumPodK8s1  string
 
-		hubblePodK8s1 string
-
-		hubbleNamespace    = helpers.CiliumNamespace
-		hubbleRelayService = "hubble-relay"
-		hubbleRelayAddress string
+		hubbleRelayNamespace = helpers.CiliumNamespace
+		hubbleRelayService   = "hubble-relay"
+		hubbleRelayAddress   string
 
 		demoPath string
 
@@ -108,23 +108,22 @@ var _ = Describe("K8sHubbleTest", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		k8s1NodeName, _ = kubectl.GetNodeInfo(helpers.K8s1)
 
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 			"global.hubble.metricsServer":   fmt.Sprintf(":%s", prometheusPort),
 			"global.hubble.metrics.enabled": `"{dns:query;ignoreAAAA,drop,tcp,flow,port-distribution,icmp,http}"`,
-			"global.hubble.cli.enabled":     "true",
 			"global.hubble.relay.enabled":   "true",
 		})
 
 		var err error
-		ExpectHubbleCLIReady(kubectl, hubbleNamespace)
-		hubblePodK8s1, err = kubectl.GetHubbleClientPodOnNodeWithLabel(hubbleNamespace, helpers.K8s1)
+		ciliumPodK8s1, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
 		Expect(err).Should(BeNil(), "unable to find hubble-cli pod on %s", helpers.K8s1)
 
-		ExpectHubbleRelayReady(kubectl, hubbleNamespace)
-		hubbleRelayIP, hubbleRelayPort, err := kubectl.GetServiceHostPort(hubbleNamespace, hubbleRelayService)
+		ExpectHubbleRelayReady(kubectl, hubbleRelayNamespace)
+		hubbleRelayIP, hubbleRelayPort, err := kubectl.GetServiceHostPort(hubbleRelayNamespace, hubbleRelayService)
 		Expect(err).Should(BeNil(), "Cannot get service %s", hubbleRelayService)
 		Expect(govalidator.IsIP(hubbleRelayIP)).Should(BeTrue(), "hubbleRelayIP is not an IP")
 		hubbleRelayAddress = net.JoinHostPort(hubbleRelayIP, strconv.Itoa(hubbleRelayPort))
@@ -144,8 +143,7 @@ var _ = Describe("K8sHubbleTest", func() {
 	})
 
 	AfterAll(func() {
-		kubectl.DeleteHubbleClientPods(hubbleNamespace)
-		kubectl.DeleteHubbleRelay(hubbleNamespace)
+		kubectl.DeleteHubbleRelay(hubbleRelayNamespace)
 		kubectl.CloseSSHClient()
 	})
 
@@ -182,7 +180,7 @@ var _ = Describe("K8sHubbleTest", func() {
 		It("Test L3/L4 Flow", func() {
 			ctx, cancel := context.WithTimeout(context.Background(), helpers.MidCommandTimeout)
 			defer cancel()
-			follow := kubectl.HubbleObserveFollow(ctx, hubbleNamespace, hubblePodK8s1, fmt.Sprintf(
+			follow := kubectl.HubbleObserveFollow(ctx, helpers.CiliumNamespace, ciliumPodK8s1, fmt.Sprintf(
 				"--last 1 --type trace --from-pod %s/%s --to-namespace %s --to-label %s --to-port %d",
 				namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels, app1Port))
 
@@ -196,8 +194,9 @@ var _ = Describe("K8sHubbleTest", func() {
 			// Basic check for L4 Prometheus metrics.
 			_, nodeIP := kubectl.GetNodeInfo(helpers.K8s1)
 			metricsUrl := fmt.Sprintf("%s/metrics", net.JoinHostPort(nodeIP, prometheusPort))
-			res = kubectl.ExecPodCmd(hubbleNamespace, hubblePodK8s1, helpers.CurlFail(metricsUrl))
-			res.ExpectSuccess("%s/%s cannot curl metrics %q", hubblePodK8s1, hubblePodK8s1, app1ClusterIP)
+			res, err = kubectl.ExecInHostNetNS(ctx, k8s1NodeName, helpers.CurlFail(metricsUrl))
+			Expect(err).To(BeNil(), "failed to execute curl on node %q", k8s1NodeName)
+			res.ExpectSuccess("%s/%s cannot curl metrics %q", helpers.CiliumNamespace, ciliumPodK8s1, app1ClusterIP)
 			res.ExpectContains(`hubble_flows_processed_total{subtype="to-endpoint",type="Trace",verdict="FORWARDED"}`)
 		})
 
@@ -209,7 +208,7 @@ var _ = Describe("K8sHubbleTest", func() {
 			// In case a node was temporarily unavailable, hubble-relay will
 			// reconnect once it receives a new request. Therefore we retry
 			// in a 5 second interval.
-			hubbleObserveUntilMatch(hubbleNamespace, hubblePodK8s1, fmt.Sprintf(
+			hubbleObserveUntilMatch(helpers.CiliumNamespace, ciliumPodK8s1, fmt.Sprintf(
 				"--server %s --last 1 --type trace --from-pod %s/%s --to-namespace %s --to-label %s --to-port %d",
 				hubbleRelayAddress, namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels, app1Port),
 				`{$.Type}`, "L3_L4",
@@ -226,7 +225,7 @@ var _ = Describe("K8sHubbleTest", func() {
 
 			ctx, cancel := context.WithTimeout(context.Background(), helpers.MidCommandTimeout)
 			defer cancel()
-			follow := kubectl.HubbleObserveFollow(ctx, hubbleNamespace, hubblePodK8s1, fmt.Sprintf(
+			follow := kubectl.HubbleObserveFollow(ctx, helpers.CiliumNamespace, ciliumPodK8s1, fmt.Sprintf(
 				"--last 1 --type l7 --from-pod %s/%s --to-namespace %s --to-label %s --protocol http",
 				namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels))
 
@@ -240,8 +239,9 @@ var _ = Describe("K8sHubbleTest", func() {
 			// Basic check for L7 Prometheus metrics.
 			_, nodeIP := kubectl.GetNodeInfo(helpers.K8s1)
 			metricsUrl := fmt.Sprintf("%s/metrics", net.JoinHostPort(nodeIP, prometheusPort))
-			res = kubectl.ExecPodCmd(hubbleNamespace, hubblePodK8s1, helpers.CurlFail(metricsUrl))
-			res.ExpectSuccess("%s/%s cannot curl metrics %q", hubbleNamespace, hubblePodK8s1, app1ClusterIP)
+			res, err = kubectl.ExecInHostNetNS(ctx, k8s1NodeName, helpers.CurlFail(metricsUrl))
+			Expect(err).To(BeNil(), "failed to execute curl on node %q", k8s1NodeName)
+			res.ExpectSuccess("%s/%s cannot curl metrics %q", helpers.CiliumNamespace, ciliumPodK8s1, app1ClusterIP)
 			res.ExpectContains(`hubble_flows_processed_total{subtype="HTTP",type="L7",verdict="FORWARDED"}`)
 		})
 
@@ -256,7 +256,7 @@ var _ = Describe("K8sHubbleTest", func() {
 			// In case a node was temporarily unavailable, hubble-relay will
 			// reconnect once it receives a new request. Therefore we retry
 			// in a 5 second interval.
-			hubbleObserveUntilMatch(hubbleNamespace, hubblePodK8s1, fmt.Sprintf(
+			hubbleObserveUntilMatch(helpers.CiliumNamespace, ciliumPodK8s1, fmt.Sprintf(
 				"--server %s --last 1 --type l7 --from-pod %s/%s --to-namespace %s --to-label %s --protocol http",
 				hubbleRelayAddress, namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels),
 				`{$.Type}`, "L7",
