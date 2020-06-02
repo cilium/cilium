@@ -447,14 +447,13 @@ func (n *Node) CreateInterface(ctx context.Context, allocation *ipam.AllocationA
 // ResyncInterfacesAndIPs is called to retrieve and ENIs and IPs as known to
 // the EC2 API and return them
 func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Entry) (ipamTypes.AllocationMap, error) {
+	// n.node does not need to be protected by n.mutex as it is only written to
+	// upon creation of `n`
+	instanceID := n.node.InstanceID()
 	available := ipamTypes.AllocationMap{}
 
 	n.mutex.Lock()
 	n.enis = map[string]eniTypes.ENI{}
-	ipamNode := n.node
-	n.mutex.Unlock()
-
-	instanceID := ipamNode.InstanceID()
 
 	n.manager.ForeachInstance(instanceID,
 		func(instanceID, interfaceID string, rev ipamTypes.InterfaceRevision) error {
@@ -463,10 +462,8 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 				return nil
 			}
 
-			n.mutex.Lock()
 			n.enis[e.ID] = *e
 			index := *n.k8sObj.Spec.ENI.FirstInterfaceIndex
-			n.mutex.Unlock()
 
 			if e.Number < index {
 				return nil
@@ -477,10 +474,8 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 			}
 			return nil
 		})
-
-	n.mutex.RLock()
 	enis := len(n.enis)
-	n.mutex.RUnlock()
+	n.mutex.Unlock()
 
 	// An ec2 instance has at least one ENI attached, no ENI found implies instance not found.
 	if enis == 0 {
