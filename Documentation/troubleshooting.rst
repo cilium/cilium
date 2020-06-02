@@ -132,7 +132,117 @@ e.g.:
     IPv6 address pool:      4/4294967295 allocated
     Controller Status:      20/20 healthy
     Proxy Status:           OK, ip 10.0.28.238, port-range 10000-20000
-    Cluster health:   2/2 reachable   (2018-04-11T15:41:01Z)
+    Hubble:                 Ok      Current/Max Flows: 2542/4096 (62.06%), Flows/s: 164.21      Metrics: Disabled
+    Cluster health:         2/2 reachable   (2018-04-11T15:41:01Z)
+
+.. _hubble_troubleshooting:
+
+Observing Flows with Hubble
+===========================
+
+Hubble is a built-in observability tool which allows you to inspect recent flow
+events on all endpoints managed by Cilium. It needs to be enabled via the Helm
+value ``global.hubble.enabled=true`` or the ``--enable-hubble`` option on
+cilium-agent.
+
+Observing flows of a specific pod
+---------------------------------
+
+In order to observe the traffic of a specific pod, you will first have to
+:ref:`retrieve the name of the cilium instance managing it<retrieve_cilium_pod>`.
+The Hubble CLI is part of the Cilium container image and can be accessed via
+``kubectl exec``. The following query for example will show all events related
+to flows which either originated or terminated in the ``default/tiefighter`` pod
+in the last three minutes:
+
+.. code:: bash
+
+    $ kubectl exec -n kube-system cilium-77lk6 -- hubble observe --since 3m --pod default/tiefighter
+    Jun  2 11:14:46.041   default/tiefighter:38314                  kube-system/coredns-66bff467f8-ktk8c:53   to-endpoint   FORWARDED   UDP
+    Jun  2 11:14:46.041   kube-system/coredns-66bff467f8-ktk8c:53   default/tiefighter:38314                  to-endpoint   FORWARDED   UDP
+    Jun  2 11:14:46.041   default/tiefighter:38314                  kube-system/coredns-66bff467f8-ktk8c:53   to-endpoint   FORWARDED   UDP
+    Jun  2 11:14:46.042   kube-system/coredns-66bff467f8-ktk8c:53   default/tiefighter:38314                  to-endpoint   FORWARDED   UDP
+    Jun  2 11:14:46.042   default/tiefighter:57746                  default/deathstar-5b7489bc84-9bftc:80     L3-L4         FORWARDED   TCP Flags: SYN
+    Jun  2 11:14:46.042   default/tiefighter:57746                  default/deathstar-5b7489bc84-9bftc:80     to-endpoint   FORWARDED   TCP Flags: SYN
+    Jun  2 11:14:46.042   default/deathstar-5b7489bc84-9bftc:80     default/tiefighter:57746                  to-endpoint   FORWARDED   TCP Flags: SYN, ACK
+    Jun  2 11:14:46.042   default/tiefighter:57746                  default/deathstar-5b7489bc84-9bftc:80     to-endpoint   FORWARDED   TCP Flags: ACK
+    Jun  2 11:14:46.043   default/tiefighter:57746                  default/deathstar-5b7489bc84-9bftc:80     to-endpoint   FORWARDED   TCP Flags: ACK, PSH
+    Jun  2 11:14:46.043   default/deathstar-5b7489bc84-9bftc:80     default/tiefighter:57746                  to-endpoint   FORWARDED   TCP Flags: ACK, PSH
+    Jun  2 11:14:46.043   default/tiefighter:57746                  default/deathstar-5b7489bc84-9bftc:80     to-endpoint   FORWARDED   TCP Flags: ACK, FIN
+    Jun  2 11:14:46.048   default/deathstar-5b7489bc84-9bftc:80     default/tiefighter:57746                  to-endpoint   FORWARDED   TCP Flags: ACK, FIN
+    Jun  2 11:14:46.048   default/tiefighter:57746                  default/deathstar-5b7489bc84-9bftc:80     to-endpoint   FORWARDED   TCP Flags: ACK
+
+You may also use ``-o json`` to obtain more detailed information about each
+flow event.
+
+In the following example the first command extracts the numeric security
+identities for all dropped flows which originated in the ``default/xwing`` pod
+in the last three minutes. The numeric security identity can then be used
+together with the Cilium CLI to obtain more information about why flow was
+dropped:
+
+.. code:: bash
+
+    $ kubectl exec -n kube-system cilium-77lk6 -- \
+        hubble observe --since 3m --type drop --from-pod default/xwing -o json | \
+        jq .destination.identity | sort -u
+    788
+
+    $ kubectl exec -n kube-system cilium-77lk6 -- \
+        cilium policy trace --src-k8s-pod default:xwing --dst-identity 788
+    ----------------------------------------------------------------
+
+    Tracing From: [k8s:class=xwing, k8s:io.cilium.k8s.policy.cluster=default, k8s:io.cilium.k8s.policy.serviceaccount=default, k8s:io.kubernetes.pod.namespace=default, k8s:org=alliance] => To: [k8s:class=deathstar, k8s:io.cilium.k8s.policy.cluster=default, k8s:io.cilium.k8s.policy.serviceaccount=default, k8s:io.kubernetes.pod.namespace=default, k8s:org=empire] Ports: [0/ANY]
+
+    Resolving ingress policy for [k8s:class=deathstar k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=empire]
+    * Rule {"matchLabels":{"any:class":"deathstar","any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}: selected
+        Allows from labels {"matchLabels":{"any:org":"empire","k8s:io.kubernetes.pod.namespace":"default"}}
+          No label match for [k8s:class=xwing k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.kubernetes.pod.namespace=default k8s:org=alliance]
+    1/1 rules selected
+    Found no allow rule
+    Ingress verdict: denied
+
+    Final verdict: DENIED
+
+
+Please refer to the :ref:`policy troubleshooting guide<policy_tracing>` for
+more detail about how to troubleshoot policy related drops.
+
+.. note::
+    **Hubble Relay** (beta) allows you to query multiple Hubble instances
+    simultaneously without having to first manually target a specific node.
+
+Ensure Hubble is running correctly
+----------------------------------
+
+To ensure the Hubble client can connect to the Hubble server running inside
+Cilium, you may use the ``hubble status`` command:
+
+.. code:: bash
+
+    $ hubble status
+    Healthcheck (via unix:///var/run/cilium/hubble.sock): Ok
+    Max Flows: 4096
+    Current Flows: 2542 (62.06%)
+
+``cilium-agent`` must be running with the ``--enable-hubble`` option in order
+for the Hubble server to be enabled. When deploying Cilium with Helm, make sure
+to set the ``global.hubble.enabled=true`` value.
+
+To check if Hubble is enabled in your deployment, you may look for the
+following output in ``cilium status``:
+
+.. code:: bash
+
+    $ cilium status
+    ...
+    Hubble:   Ok   Current/Max Flows: 2542/4096 (62.06%), Flows/s: 164.21   Metrics: Disabled
+    ...
+
+.. note::
+    Pods need to be managed by Cilium in order to be observable by Hubble.
+    See how to :ref:`ensure a pod is managed by Cilium<ensure_managed_pod>`
+    for more details.
 
 Connectivity Problems
 =====================
@@ -219,6 +329,8 @@ consumed.
 
 Policy Troubleshooting
 ======================
+
+.. _ensure_managed_pod:
 
 Ensure pod is managed by Cilium
 -------------------------------
@@ -345,6 +457,8 @@ When running in :ref:`arch_direct_routing` mode:
 
 Useful Scripts
 ==============
+
+.. _retrieve_cilium_pod:
 
 Retrieve Cilium pod managing a particular pod
 ---------------------------------------------
