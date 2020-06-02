@@ -74,9 +74,6 @@ const (
 	// CiliumOperatorLabel is the label used in the Cilium Operator deployment
 	CiliumOperatorLabel = "io.cilium/app=operator"
 
-	// HubbleClientLabel is the label used for Hubble client pods
-	HubbleClientLabel = "k8s-app=hubble-cli"
-
 	// HubbleRelayLabel is the label used for the Hubble Relay deployment
 	HubbleRelayLabel = "k8s-app=hubble-relay"
 
