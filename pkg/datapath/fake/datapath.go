@@ -80,7 +80,7 @@ func (f *fakeDatapath) SupportsOriginalSourceAddr() bool {
 	return false
 }
 
-func (f *fakeDatapath) RemoveRules() {}
+func (f *fakeDatapath) RemoveRules(quiet bool) {}
 
 func (f *fakeDatapath) InstallRules(ifName string) error {
 	return nil

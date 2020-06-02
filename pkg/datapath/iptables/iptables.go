@@ -434,7 +434,7 @@ func (m *IptablesManager) SupportsOriginalSourceAddr() bool {
 }
 
 // RemoveRules removes iptables rules installed by Cilium.
-func (m *IptablesManager) RemoveRules() {
+func (m *IptablesManager) RemoveRules(quiet bool) {
 	// Set of tables that have had iptables rules in any Cilium version
 	tables := []string{"nat", "mangle", "raw", "filter"}
 	for _, t := range tables {
@@ -450,7 +450,7 @@ func (m *IptablesManager) RemoveRules() {
 	}
 
 	for _, c := range ciliumChains {
-		c.remove(m.waitArgs, false)
+		c.remove(m.waitArgs, quiet)
 	}
 }
 
