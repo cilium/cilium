@@ -162,7 +162,15 @@ func (ipc *IPCache) getHostIPCache(ip string) (net.IP, uint8) {
 }
 
 // GetK8sMetadata returns Kubernetes metadata for the given IP address.
+// The returned pointer should *never* be modified.
 func (ipc *IPCache) GetK8sMetadata(ip string) *K8sMetadata {
+	ipc.mutex.RLock()
+	defer ipc.mutex.RUnlock()
+	return ipc.getK8sMetadata(ip)
+}
+
+// getK8sMetadata returns Kubernetes metadata for the given IP address.
+func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 	if k8sMeta, ok := ipc.ipToK8sMetadata[ip]; ok {
 		return &k8sMeta
 	}
@@ -395,7 +403,7 @@ func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {
 			continue
 		}
 		hostIP, encryptKey := ipc.getHostIPCache(ip)
-		k8sMeta := ipc.GetK8sMetadata(ip)
+		k8sMeta := ipc.getK8sMetadata(ip)
 		_, cidr, err := net.ParseCIDR(ip)
 		if err != nil {
 			endpointIP := net.ParseIP(ip)
@@ -427,7 +435,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	var cidr *net.IPNet
 	cacheModification := Delete
 	oldHostIP, encryptKey := ipc.getHostIPCache(ip)
-	oldK8sMeta := ipc.GetK8sMetadata(ip)
+	oldK8sMeta := ipc.getK8sMetadata(ip)
 	var newHostIP net.IP
 	var oldIdentity *identity.NumericIdentity
 	newIdentity := cachedIdentity
