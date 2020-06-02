@@ -485,9 +485,7 @@ global:
         - drop
       serviceMonitor:
         enabled: false
-    # Configures the hubble-cli subchart
-    cli:
-      enabled: false
+
     # Configures the hubble-relay subchart
     relay:
       enabled: false
