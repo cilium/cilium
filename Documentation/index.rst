@@ -24,7 +24,7 @@ The documentation is divided into the following sections:
 * :ref:`gs_install` :  Details instructions for installing, configuring, and
   troubleshooting Cilium in different deployment modes.
 
-* :ref:`policy_guide` : Detailed walkthrough of the policy language structure
+* :ref:`network_policy` : Detailed walkthrough of the policy language structure
   and the supported formats.
 
 * :ref:`metrics` : Instructions for configuring metrics collection from Cilium.

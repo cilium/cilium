@@ -6,8 +6,8 @@
 
 .. _dev_guide:
 
-Getting Started
----------------
+Development Guide
+-----------------
 
 We're happy you're interested in contributing to the Cilium project.
 
