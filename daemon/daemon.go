@@ -207,22 +207,6 @@ func (d *Daemon) init() error {
 		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy, d.ipam); err != nil {
 			return err
 		}
-
-		if err := d.syncEndpointsAndHostIPs(); err != nil {
-			return err
-		}
-
-		// Start the controller for periodic sync. The purpose of the
-		// controller is to ensure that endpoints and host IPs entries are
-		// reinserted to the bpf maps if they are ever removed from them.
-		controller.NewManager().UpdateController("sync-endpoints-and-host-ips",
-			controller.ControllerParams{
-				DoFunc: func(ctx context.Context) error {
-					return d.syncEndpointsAndHostIPs()
-				},
-				RunInterval: time.Minute,
-				Context:     d.ctx,
-			})
 	}
 
 	return nil
@@ -517,6 +501,23 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		}
 		d.monitorAgent = monitorAgent
 	}
+
+	if err := d.syncEndpointsAndHostIPs(); err != nil {
+		return nil, nil, err
+	}
+
+	// Start the controller for periodic sync. The purpose of the
+	// controller is to ensure that endpoints and host IPs entries are
+	// reinserted to the bpf maps if they are ever removed from them.
+	controller.NewManager().UpdateController("sync-endpoints-and-host-ips",
+		controller.ControllerParams{
+			DoFunc: func(ctx context.Context) error {
+				return d.syncEndpointsAndHostIPs()
+			},
+			RunInterval: time.Minute,
+			Context:     d.ctx,
+		})
+
 	if err := loader.RestoreTemplates(option.Config.StateDir); err != nil {
 		log.WithError(err).Error("Unable to restore previous BPF templates")
 	}
