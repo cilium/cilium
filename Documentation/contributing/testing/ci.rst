@@ -48,7 +48,7 @@ After you don't need to run tests on your branch, please remove the branch from 
    +---------------------------------------+-------------------------------------------+
    | ``test-focus K8sDatapathConfig``      | Runs all k8s datapath configuration tests |
    +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sDemos``               | Runs all k8s datapath configuration tests |
+   | ``test-focus K8sDemos``               | Runs all k8s demo tests                   |
    +---------------------------------------+-------------------------------------------+
    | ``test-focus K8sKubeProxyFreeMatrix`` | Runs all k8s kube-proxy free matrix tests |
    +---------------------------------------+-------------------------------------------+
