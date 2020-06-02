@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -170,7 +171,7 @@ nextEvent:
 			}
 		}
 
-		s.numObservedFlows++
+		atomic.AddUint64(&s.numObservedFlows, 1)
 		// FIXME: Convert metrics into an OnDecodedFlow function
 		metrics.ProcessFlow(flow)
 
@@ -224,7 +225,7 @@ func (s *LocalObserverServer) ServerStatus(
 	return &observerpb.ServerStatusResponse{
 		MaxFlows:  s.GetRingBuffer().Cap(),
 		NumFlows:  s.GetRingBuffer().Len(),
-		SeenFlows: s.numObservedFlows,
+		SeenFlows: atomic.LoadUint64(&s.numObservedFlows),
 		UptimeNs:  uint64(time.Since(s.startTime).Nanoseconds()),
 	}, nil
 }
