@@ -696,7 +696,7 @@ func getDeliveryInterface(ifName string) string {
 	return deliveryInterface
 }
 
-func (m *IptablesManager) installForwardChainRules(localDeliveryInterface, forwardChain string) error {
+func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterface, forwardChain string) error {
 	transient := ""
 	if forwardChain == ciliumTransientForwardChain {
 		transient = " (transient)"
@@ -709,11 +709,11 @@ func (m *IptablesManager) installForwardChainRules(localDeliveryInterface, forwa
 	// Also, k8s 1.15 introduced "-m conntrack --ctstate INVALID -j DROP" which
 	// in the direct routing case can drop EP replies.
 	//
-	// Therefore, add three rules below to avoid having a user to manually opt-in.
+	// Therefore, add the rules below to avoid having a user to manually opt-in.
 	// See also: https://github.com/kubernetes/kubernetes/issues/39823
 	// In here can only be basic ACCEPT rules, nothing more complicated.
 	//
-	// The second rule is for the case of nodeport traffic where the backend is
+	// The 2nd and 3rd rule are for the case of nodeport traffic where the backend is
 	// remote. The traffic flow in FORWARD is as follows:
 	//
 	//  - Node serving nodeport request:
@@ -726,16 +726,16 @@ func (m *IptablesManager) installForwardChainRules(localDeliveryInterface, forwa
 	if err := runProg("iptables", append(
 		m.waitArgs,
 		"-A", forwardChain,
-		"-o", localDeliveryInterface,
-		"-m", "comment", "--comment", "cilium"+transient+": any->cluster on "+localDeliveryInterface+" forward accept",
+		"-o", ifName,
+		"-m", "comment", "--comment", "cilium"+transient+": any->cluster on "+ifName+" forward accept",
 		"-j", "ACCEPT"), false); err != nil {
 		return err
 	}
 	if err := runProg("iptables", append(
 		m.waitArgs,
 		"-A", forwardChain,
-		"-i", localDeliveryInterface,
-		"-m", "comment", "--comment", "cilium"+transient+": cluster->any on "+localDeliveryInterface+" forward accept (nodeport)",
+		"-i", ifName,
+		"-m", "comment", "--comment", "cilium"+transient+": cluster->any on "+ifName+" forward accept (nodeport)",
 		"-j", "ACCEPT"), false); err != nil {
 		return err
 	}
@@ -746,6 +746,40 @@ func (m *IptablesManager) installForwardChainRules(localDeliveryInterface, forwa
 		"-m", "comment", "--comment", "cilium"+transient+": cluster->any on lxc+ forward accept",
 		"-j", "ACCEPT"), false); err != nil {
 		return err
+	}
+	// Proxy return traffic to a remote source needs '-i cilium_net'.
+	// TODO: Make 'cilium_net' configurable if we ever support other than "cilium_host" as the Cilium host device.
+	if ifName == "cilium_host" {
+		ifPeerName := "cilium_net"
+		if err := runProg("iptables", append(
+			m.waitArgs,
+			"-A", forwardChain,
+			"-i", ifPeerName,
+			"-m", "comment", "--comment", "cilium"+transient+": cluster->any on "+ifPeerName+" forward accept (nodeport)",
+			"-j", "ACCEPT"), false); err != nil {
+			return err
+		}
+	}
+	// In case the delivery interface and the host interface are not the
+	// same (enable-endpoint-routes), a separate set of rules to allow
+	// from/to delivery interface is required.
+	if localDeliveryInterface != ifName {
+		if err := runProg("iptables", append(
+			m.waitArgs,
+			"-A", forwardChain,
+			"-o", localDeliveryInterface,
+			"-m", "comment", "--comment", "cilium"+transient+": any->cluster on "+localDeliveryInterface+" forward accept",
+			"-j", "ACCEPT"), false); err != nil {
+			return err
+		}
+		if err := runProg("iptables", append(
+			m.waitArgs,
+			"-A", forwardChain,
+			"-i", localDeliveryInterface,
+			"-m", "comment", "--comment", "cilium"+transient+": cluster->any on "+localDeliveryInterface+" forward accept (nodeport)",
+			"-j", "ACCEPT"), false); err != nil {
+			return err
+		}
 	}
 	return nil
 }
@@ -763,7 +797,7 @@ func (m *IptablesManager) TransientRulesStart(ifName string) error {
 		if err := transientChain.add(m.waitArgs); err != nil {
 			return fmt.Errorf("cannot add custom chain %s: %s", transientChain.name, err)
 		}
-		if err := m.installForwardChainRules(localDeliveryInterface, transientChain.name); err != nil {
+		if err := m.installForwardChainRules(ifName, localDeliveryInterface, transientChain.name); err != nil {
 			return fmt.Errorf("cannot install forward chain rules to %s: %s", transientChain.name, err)
 		}
 		if err := transientChain.installFeeder(m.waitArgs); err != nil {
@@ -817,7 +851,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 	localDeliveryInterface := getDeliveryInterface(ifName)
 
 	if option.Config.EnableIPv4 {
-		if err := m.installForwardChainRules(localDeliveryInterface, ciliumForwardChain); err != nil {
+		if err := m.installForwardChainRules(ifName, localDeliveryInterface, ciliumForwardChain); err != nil {
 			return fmt.Errorf("cannot install forward chain rules to %s: %s", transientChain.name, err)
 		}
 
