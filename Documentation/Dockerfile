@@ -18,6 +18,7 @@ ADD ./requirements.txt /tmp/requirements.txt
 RUN pip install -r /tmp/requirements.txt
 
 ENV HOME=/tmp
+ENV READTHEDOCS_VERSION=$READTHEDOCS_VERSION
 
 ## Workaround odd behaviour of sphinx versionwarning extension. It wants to
 ## write runtime data inside a system directory.
