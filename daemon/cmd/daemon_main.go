@@ -1558,7 +1558,7 @@ func initClockSourceOption() {
 	if !option.Config.DryMode {
 		hz, err := probes.NewProbeManager().SystemKernelHz()
 		if err != nil {
-			log.Warnf("Auto-disabling %q feature since KERNEL_HZ cannot be determined",
+			log.WithError(err).Infof("Auto-disabling %q feature since KERNEL_HZ cannot be determined",
 				option.EnableBPFClockProbe)
 			option.Config.EnableBPFClockProbe = false
 		} else {
