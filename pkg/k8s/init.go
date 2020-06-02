@@ -188,17 +188,16 @@ func Init(conf k8sconfig.Configuration) error {
 
 // GetNodeSpec retrieves this node spec from kubernetes. This node information
 // can either be derived from a CiliumNode or a Kubernetes node.
-func GetNodeSpec(nodeName string) error {
+func GetNodeSpec() error {
+	// Use of the environment variable overwrites the node-name
+	// automatically derived
+	nodeName := nodeTypes.GetName()
 	if nodeName == "" {
 		if option.Config.K8sRequireIPv4PodCIDR || option.Config.K8sRequireIPv6PodCIDR {
 			return fmt.Errorf("node name must be specified via environment variable '%s' to retrieve Kubernetes PodCIDR range", k8sConst.EnvNodeNameSpec)
 		}
 		return nil
 	}
-
-	// Use of the environment variable overwrites the node-name
-	// automatically derived
-	nodeTypes.SetName(nodeName)
 
 	if n := waitForNodeInformation(context.TODO(), nodeName); n != nil {
 		nodeIP4 := n.GetNodeIP(false)
