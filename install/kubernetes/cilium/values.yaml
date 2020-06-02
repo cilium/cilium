@@ -517,3 +517,14 @@ global:
 
   cnpStatusUpdates:
     enabled: false
+
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: k8s-app
+            operator: In
+            values:
+            - cilium
+        topologyKey: "kubernetes.io/hostname"
