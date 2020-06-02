@@ -15,6 +15,7 @@ builder-image: Dockerfile requirements.txt
 	$(QUIET)tar c requirements.txt Dockerfile \
 	  | $(CONTAINER_ENGINE) build --tag cilium/docs-builder -
 
+READTHEDOCS_VERSION:=$(READTHEDOCS_VERSION)
 DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
 		--workdir /src/Documentation \
 		--volume $(CURDIR)/..:/src \
