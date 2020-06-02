@@ -651,7 +651,7 @@ func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
 	}()
 
 	blacklist := GetBadLogMessages()
-	failIfContainsBadLogMsg(logs, blacklist)
+	failIfContainsBadLogMsg("Cilium", "", logs, blacklist, false)
 
 	fmt.Fprintf(CheckLogs, logutils.LogErrorsSummary(logs))
 }

@@ -408,6 +408,10 @@ else
     sudo systemctl stop etcd
 fi
 
+# Add iptables LOG rule to catch forward drops
+sudo iptables -t filter -A FORWARD -m conntrack --ctstate RELATED,ESTABLISHED -m comment --comment "Logging established traffic that is being dropped (see dmesg)" -j LOG --log-prefix "FORWARD DROP established: " --log-level debug
+sudo dmesg --clear
+
 # Add aliases and bash completion for kubectl
 cat <<EOF >> /home/vagrant/.bashrc
 
