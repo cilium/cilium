@@ -162,6 +162,7 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 srcID)
 	int ret, verdict, l3_off = ETH_HLEN, l4_off, hdrlen;
 	struct ct_state ct_state_new = {}, ct_state = {};
 	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u8 audited = 0;
 	struct remote_endpoint_info *info;
 	struct ipv6_ct_tuple tuple = {};
 	__u32 dstID = 0, monitor = 0;
@@ -198,13 +199,13 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 srcID)
 
 	/* Perform policy lookup. */
 	verdict = policy_can_egress6(ctx, &tuple, srcID, dstID,
-				     &policy_match_type);
+				     &policy_match_type, &audited);
 
 	/* Reply traffic and related are allowed regardless of policy verdict. */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, dstID, tuple.dport,
 					   tuple.nexthdr, POLICY_EGRESS, 1,
-					   verdict, policy_match_type);
+					   verdict, policy_match_type, audited);
 		return verdict;
 	}
 
@@ -212,7 +213,7 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 srcID)
 	case CT_NEW:
 		send_policy_verdict_notify(ctx, dstID, tuple.dport,
 					   tuple.nexthdr, POLICY_EGRESS, 1,
-					   verdict, policy_match_type);
+					   verdict, policy_match_type, audited);
 		ct_state_new.src_sec_id = HOST_ID;
 		ret = ct_create6(get_ct_map6(&tuple), &CT_MAP_ANY6, &tuple,
 				 ctx, CT_EGRESS, &ct_state_new, verdict > 0);
@@ -237,6 +238,7 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *srcID)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
 	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u8 audited = 0;
 	__u32 monitor = 0, dstID = WORLD_ID;
 	struct remote_endpoint_info *info;
 	int ret, verdict, l4_off, hdrlen;
@@ -283,13 +285,13 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *srcID)
 	/* Perform policy lookup */
 	verdict = policy_can_access_ingress(ctx, *srcID, dstID, tuple.dport,
 					    tuple.nexthdr, false,
-					    &policy_match_type);
+					    &policy_match_type, &audited);
 
 	/* Reply traffic and related are allowed regardless of policy verdict. */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *srcID, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 1,
-					   verdict, policy_match_type);
+					   verdict, policy_match_type, audited);
 		return verdict;
 	}
 
@@ -297,7 +299,7 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *srcID)
 	case CT_NEW:
 		send_policy_verdict_notify(ctx, *srcID, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 1,
-					   verdict, policy_match_type);
+					   verdict, policy_match_type, audited);
 
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *srcID;
@@ -579,6 +581,7 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 srcID)
 	struct ct_state ct_state_new = {}, ct_state = {};
 	int ret, verdict, l4_off, l3_off = ETH_HLEN;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u8 audited = 0;
 	struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple tuple = {};
 	__u32 dstID = 0, monitor = 0;
@@ -611,13 +614,13 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 srcID)
 
 	/* Perform policy lookup. */
 	verdict = policy_can_egress4(ctx, &tuple, srcID, dstID,
-				     &policy_match_type);
+				     &policy_match_type, &audited);
 
 	/* Reply traffic and related are allowed regardless of policy verdict. */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, dstID, tuple.dport,
 					   tuple.nexthdr, POLICY_EGRESS, 0,
-					   verdict, policy_match_type);
+					   verdict, policy_match_type, audited);
 		return verdict;
 	}
 
@@ -625,7 +628,7 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 srcID)
 	case CT_NEW:
 		send_policy_verdict_notify(ctx, dstID, tuple.dport,
 					   tuple.nexthdr, POLICY_EGRESS, 0,
-					   verdict, policy_match_type);
+					   verdict, policy_match_type, audited);
 		ct_state_new.src_sec_id = HOST_ID;
 		ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4, &tuple,
 				 ctx, CT_EGRESS, &ct_state_new, verdict > 0);
@@ -651,6 +654,7 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *srcID)
 	struct ct_state ct_state_new = {}, ct_state = {};
 	int ret, verdict, l4_off, l3_off = ETH_HLEN;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
+	__u8 audited = 0;
 	__u32 monitor = 0, dstID = WORLD_ID;
 	struct remote_endpoint_info *info;
 	struct ipv4_ct_tuple tuple = {};
@@ -699,13 +703,13 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *srcID)
 	verdict = policy_can_access_ingress(ctx, *srcID, dstID, tuple.dport,
 					    tuple.nexthdr,
 					    is_untracked_fragment,
-					    &policy_match_type);
+					    &policy_match_type, &audited);
 
 	/* Reply traffic and related are allowed regardless of policy verdict. */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, *srcID, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 0,
-					   verdict, policy_match_type);
+					   verdict, policy_match_type, audited);
 		return verdict;
 	}
 
@@ -713,7 +717,7 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *srcID)
 	case CT_NEW:
 		send_policy_verdict_notify(ctx, *srcID, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 0,
-					   verdict, policy_match_type);
+					   verdict, policy_match_type, audited);
 
 		/* Create new entry for connection in conntrack map. */
 		ct_state_new.src_sec_id = *srcID;
