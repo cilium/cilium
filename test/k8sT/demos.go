@@ -25,16 +25,6 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var (
-	starWarsDemoLinkRoot = "https://raw.githubusercontent.com/cilium/star-wars-demo/v1.0.1"
-)
-
-func getStarWarsResourceLink(file string) string {
-	// Cannot use filepath.Join because it removes one of the '/' from
-	// https:// and results in a malformed URL.
-	return fmt.Sprintf("%s/%s", starWarsDemoLinkRoot, file)
-}
-
 var _ = Describe("K8sDemosTest", func() {
 
 	var (
@@ -44,13 +34,16 @@ var _ = Describe("K8sDemosTest", func() {
 		backgroundCancel context.CancelFunc = func() {}
 		backgroundError  error
 
-		deathStarYAMLLink = getStarWarsResourceLink("01-deathstar.yaml")
-		xwingYAMLLink     = getStarWarsResourceLink("02-xwing.yaml")
-		l7PolicyYAMLLink  = getStarWarsResourceLink("policy/l7_policy.yaml")
+		deathStarYAMLLink, xwingYAMLLink, l7PolicyYAMLLink string
 	)
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+		starWarsDemoDir := helpers.ManifestGet(kubectl.BasePath(), "star-wars-demo")
+		deathStarYAMLLink = filepath.Join(starWarsDemoDir, "01-deathstar.yaml")
+		xwingYAMLLink = filepath.Join(starWarsDemoDir, "02-xwing.yaml")
+		l7PolicyYAMLLink = filepath.Join(starWarsDemoDir, "policy/l7_policy.yaml")
+
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
 	})
