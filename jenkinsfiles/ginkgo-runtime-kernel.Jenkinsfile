@@ -96,7 +96,7 @@ pipeline {
             }
 
             environment {
-				CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
+                CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
                 GOPATH="${WORKSPACE}/${TESTED_SUITE}-gopath"
                 TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                 KUBECONFIG="vagrant-kubeconfig"
@@ -157,6 +157,7 @@ pipeline {
 
     post {
         always {
+            sh 'lscpu'
             cleanWs()
             sh '/usr/local/bin/cleanup || true'
         }

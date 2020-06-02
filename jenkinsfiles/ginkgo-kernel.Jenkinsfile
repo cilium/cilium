@@ -193,6 +193,7 @@ pipeline {
 
     post {
         always {
+            sh 'lscpu'
             cleanWs()
             sh '/usr/local/bin/cleanup || true'
         }
