@@ -861,7 +861,7 @@ var _ = Describe("K8sServicesTest", func() {
 			// in the vxlan mode (the tailcall IPV4_NODEPORT_NAT body won't pass
 			// the request to the encap routines, and instead it will be dropped
 			// due to failing fib_lookup).
-			if vxlan {
+			if fromOutside && vxlan {
 				podIPs, err := kubectl.GetPodsIPs(helpers.DefaultNamespace, testDS)
 				ExpectWithOffset(1, err).Should(BeNil(), "Cannot get pod IP addrs for -l %s pods", testDS)
 				for _, ipAddr := range podIPs {
