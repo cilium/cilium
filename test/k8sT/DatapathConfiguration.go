@@ -551,7 +551,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 	Context("Etcd", func() {
 		// Flaky on pipelines other than K8s 1.11/Linux net-next.
-		SkipItIf(helpers.DoesNotRunOnNetNextKernel, "Check connectivity", func() {
+		It("Check connectivity", func() {
 			deploymentManager.Deploy(helpers.CiliumNamespace, StatelessEtcd)
 			deploymentManager.WaitUntilReady()
 
@@ -560,8 +560,9 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 			etcdService := fmt.Sprintf("http://%s:%d", host, port)
 			opts := map[string]string{
-				"global.etcd.enabled":      "true",
-				"global.etcd.endpoints[0]": etcdService,
+				"global.etcd.enabled":           "true",
+				"global.etcd.endpoints[0]":      etcdService,
+				"global.identityAllocationMode": "kvstore",
 			}
 			if helpers.ExistNodeWithoutCilium() {
 				opts["global.synchronizeK8sNodes"] = "false"
