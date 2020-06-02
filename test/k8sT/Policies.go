@@ -98,9 +98,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		daemonCfg = map[string]string{
 			"global.tls.secretsBackend": "k8s",
 			"global.debug.verbose":      "flow",
-			// enable hubble server and the CLI client
 			"global.hubble.enabled":     "true",
-			"global.hubble.cli.enabled": "true",
 		}
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, daemonCfg)
 	})
@@ -966,15 +964,10 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				// curl commands are issued from the first k8s worker where all
 				// the app instances are running
-				hubblePod1, err := kubectl.GetHubbleClientPodOnNodeWithLabel(
-					helpers.CiliumNamespace, helpers.K8s1,
-				)
-				Expect(err).Should(BeNil(), "unable to find hubble-cli pod on %s", helpers.K8s1)
-
 				By("Starting hubble observe and generating traffic which should%s redirect to proxy", not)
 				ctx, cancel := context.WithCancel(context.Background())
 				hubbleRes := kubectl.HubbleObserveFollow(
-					ctx, helpers.CiliumNamespace, hubblePod1,
+					ctx, helpers.CiliumNamespace, ciliumPod,
 					// since 0s is important here so no historic events from the
 					// buffer are shown, only follow from the current time
 					"--type l7 --since 0s",
@@ -997,7 +990,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				res.ExpectSuccess("%q cannot curl %q", appPods[helpers.App2], resource)
 
 				By("Checking that aforementioned traffic was%sredirected to the proxy", not)
-				err = hubbleRes.WaitUntilMatchFilterLineTimeout(filter, expect, hubbleTimeout)
+				err := hubbleRes.WaitUntilMatchFilterLineTimeout(filter, expect, hubbleTimeout)
 				if redirected {
 					ExpectWithOffset(1, err).To(BeNil(), "traffic was not redirected to the proxy when it should have been")
 				} else {
@@ -1104,7 +1097,6 @@ var _ = Describe("K8sPolicyTest", func() {
 			// avoid incomplete teardown if any step fails.
 			_ = kubectl.Delete(demoYAML)
 			ExpectAllPodsTerminated(kubectl)
-			kubectl.DeleteHubbleClientPods(helpers.CiliumNamespace)
 		})
 
 		AfterEach(func() {
