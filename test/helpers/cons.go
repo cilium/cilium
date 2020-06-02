@@ -300,6 +300,8 @@ var ciliumCLICommands = map[string]string{
 	"cilium policy get":                     "policy_get.txt",
 	"cilium status --all-controllers":       "status.txt",
 	"cilium kvstore get cilium --recursive": "kvstore_get.txt",
+
+	"hubble observe --since 4h -o json": "hubble_observe.txt",
 }
 
 // ciliumKubCLICommands these commands are the same as `ciliumCLICommands` but
@@ -313,6 +315,8 @@ var ciliumKubCLICommands = map[string]string{
 	"cilium bpf tunnel list":          "bpf_tunnel_list.txt",
 	"cilium policy get":               "policy_get.txt",
 	"cilium status --all-controllers": "status.txt",
+
+	"hubble observe --since 4h -o json": "hubble_observe.txt",
 }
 
 // ciliumKubCLICommandsKVStore contains commands related to querying the kvstore.
