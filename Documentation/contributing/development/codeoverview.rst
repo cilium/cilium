@@ -23,6 +23,9 @@ api
 bpf
   The BPF datapath code
 
+bugtool
+  CLI for collecting agent & system information for bug reporting
+
 cilium
   Cilium CLI client
 
@@ -55,8 +58,8 @@ plugins
 test
   End-to-end integration tests run in the :ref:`testsuite`.
 
-Cilium-agent
-------------
+Cilium
+------
 
 api/v1/openapi.yaml
   API specification of the Cilium API. Used for code generation.
@@ -66,6 +69,12 @@ api/v1/models/
 
 bpf
   The BPF datapath code
+
+cilium
+  Cilium CLI client
+
+cilium-health
+  Cilium cluster connectivity CLI client
 
 daemon
   cilium-agent specific code
@@ -84,6 +93,9 @@ Hubble CLI can be found in the separate repository `github.com/cilium/hubble
 <https://github.com/cilium/hubble>`_. The Hubble UI can be found in the
 separate repository `github.com/cilium/hubble-ui
 <https://github.com/cilium/hubble-ui>`_.
+
+api/v1/external, api/v1/flow, api/v1/observer, api/v1/peer, api/v1/relay
+  API specifications of the Hubble APIs.
 
 hubble-relay
   Hubble relay agent
