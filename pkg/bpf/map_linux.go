@@ -110,9 +110,6 @@ type Map struct {
 	// enableSync is true when synchronization retries have been enabled.
 	enableSync bool
 
-	// openLock serializes calls to Map.Open()
-	openLock lock.Mutex
-
 	// NonPersistent is true if the map does not contain persistent data
 	// and should be removed on startup.
 	NonPersistent bool
@@ -492,10 +489,19 @@ func (m *Map) openOrCreate(pin bool) (bool, error) {
 	return isNew, nil
 }
 
+// Open opens the BPF map. All calls to Open() are serialized due to acquiring
+// m.lock
 func (m *Map) Open() error {
-	m.openLock.Lock()
-	defer m.openLock.Unlock()
+	m.lock.Lock()
+	defer m.lock.Unlock()
 
+	return m.open()
+}
+
+// open opens the BPF map. It is identical to Open() but should be used when
+// m.lock is already held. open() may only be used if m.lock is held for
+// writing.
+func (m *Map) open() error {
 	if m.fd != 0 {
 		return nil
 	}
@@ -550,16 +556,16 @@ type MapValidator func(path string) (bool, error)
 // deepcopy of the key and value on between each iterations to avoid memory
 // corruption.
 func (m *Map) DumpWithCallback(cb DumpCallback) error {
+	if err := m.Open(); err != nil {
+		return err
+	}
+
 	m.lock.RLock()
 	defer m.lock.RUnlock()
 
 	key := make([]byte, m.KeySize)
 	nextKey := make([]byte, m.KeySize)
 	value := make([]byte, m.ReadValueSize)
-
-	if err := m.Open(); err != nil {
-		return err
-	}
 
 	if err := GetFirstKey(m.fd, unsafe.Pointer(&nextKey[0])); err != nil {
 		if err == io.EOF {
@@ -781,14 +787,14 @@ func (m *Map) DumpIfExists(hash map[string][]string) error {
 }
 
 func (m *Map) Lookup(key MapKey) (MapValue, error) {
-	m.lock.RLock()
-	defer m.lock.RUnlock()
-
-	value := key.NewValue()
-
 	if err := m.Open(); err != nil {
 		return nil, err
 	}
+
+	value := key.NewValue()
+
+	m.lock.RLock()
+	defer m.lock.RUnlock()
 
 	err := LookupElement(m.fd, key.GetKeyPtr(), value.GetValuePtr())
 	if err != nil {
@@ -822,7 +828,7 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 		}
 	}()
 
-	if err = m.Open(); err != nil {
+	if err = m.open(); err != nil {
 		return err
 	}
 
@@ -870,7 +876,7 @@ func (m *Map) Delete(key MapKey) error {
 	var err error
 	defer m.deleteCacheEntry(key, err)
 
-	if err = m.Open(); err != nil {
+	if err = m.open(); err != nil {
 		return err
 	}
 
@@ -895,7 +901,6 @@ func (m *Map) scopedLogger() *logrus.Entry {
 func (m *Map) DeleteAll() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
-
 	scopedLog := m.scopedLogger()
 	scopedLog.Debug("deleting all entries in map")
 
@@ -910,7 +915,7 @@ func (m *Map) DeleteAll() error {
 		}
 	}
 
-	if err := m.Open(); err != nil {
+	if err := m.open(); err != nil {
 		return err
 	}
 
