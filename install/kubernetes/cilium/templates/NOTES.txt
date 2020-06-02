@@ -7,8 +7,6 @@
     You have preserved the configMap and successfully installed {{ title .Chart.Name}}.
 {{- else if (and (.Values.global.hubble.enabled) (.Values.global.hubble.ui.enabled)) }}
     You have successfully installed Cilium with hubble-ui.
-{{- else if (and (.Values.global.hubble.enabled) (.Values.global.hubble.cli.enabled) (.Values.global.hubble.ui.enabled)) }}
-    You have successfully installed Cilium with hubble-ui and hubble-cli.
 {{- else }}
     You have successfully installed {{ title .Chart.Name }}.
 {{- end }}

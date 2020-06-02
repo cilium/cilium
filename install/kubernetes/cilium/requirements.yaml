@@ -5,9 +5,6 @@ dependencies:
   - name: config
     version: 1.8.90
     condition: config.enabled
-  - name: hubble-cli
-    version: 1.8.90
-    condition: global.hubble.cli.enabled
   - name: hubble-relay
     version: 1.8.90
     condition: global.hubble.relay.enabled
