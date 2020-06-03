@@ -150,6 +150,7 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 	identitymanager.RemoveAll()
 
 	ds.d.Close()
+	ds.d.cancel()
 }
 
 type DaemonEtcdSuite struct {
