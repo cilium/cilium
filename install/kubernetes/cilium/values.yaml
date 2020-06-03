@@ -12,6 +12,14 @@ agent:
 config:
   enabled: true
 
+  # Configure IPAM type (default: "cluster-pool"). Possible values:
+  # - cluster-pool
+  # - kubernetes
+  # - eni
+  # - azure
+  # - crd
+  # ipam: cluster-pool
+
 # Include the cilium-operator Deployment
 operator:
   enabled: true
@@ -383,6 +391,7 @@ global:
     requireIPv4PodCIDR: false
 
   # ENI mode configures the options required to run with ENI
+  # You will also need to set `config.ipam: eni`
   eni: false
 
   # Google Kubernetes Engine
