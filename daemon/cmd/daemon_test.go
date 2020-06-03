@@ -25,6 +25,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath"
 	fakedatapath "github.com/cilium/cilium/pkg/datapath/fake"
@@ -35,10 +36,12 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
+	"github.com/prometheus/client_golang/prometheus"
 	. "gopkg.in/check.v1"
 )
 
@@ -59,6 +62,9 @@ type DaemonSuite struct {
 	OnQueueEndpointBuild  func(ctx context.Context, epID uint64) (func(), error)
 	OnGetCompilationLock  func() *lock.RWMutex
 	OnSendNotification    func(typ monitorAPI.AgentNotification, text string) error
+
+	// Metrics
+	collectors []prometheus.Collector
 }
 
 func setupTestDirectories() {
@@ -105,6 +111,19 @@ type dummyEpSyncher struct{}
 func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration) {
 }
 
+func (ds *DaemonSuite) SetUpSuite(c *C) {
+	// Register metrics once before running the suite
+	_, ds.collectors = metrics.CreateConfiguration([]string{"cilium_endpoint_state"})
+	metrics.MustRegister(ds.collectors...)
+}
+
+func (ds *DaemonSuite) TearDownSuite(c *C) {
+	// Unregister the metrics after the suite has finished
+	for _, c := range ds.collectors {
+		metrics.Unregister(c)
+	}
+}
+
 func (ds *DaemonSuite) SetUpTest(c *C) {
 
 	setupTestDirectories()
@@ -124,6 +143,14 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnGetCompilationLock = nil
 	ds.OnSendNotification = nil
 	ds.d.endpointManager = endpointmanager.NewEndpointManager(&dummyEpSyncher{})
+
+	// Reset the most common endpoint states before each test.
+	for _, s := range []string{
+		string(models.EndpointStateReady),
+		string(models.EndpointStateWaitingForIdentity),
+		string(models.EndpointStateWaitingToRegenerate)} {
+		metrics.EndpointStateCount.WithLabelValues(s).Set(0.0)
+	}
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
