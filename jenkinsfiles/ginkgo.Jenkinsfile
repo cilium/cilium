@@ -112,10 +112,8 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            timeout(time: 30, unit: 'MINUTES'){
-                                sh 'cd ${TESTDIR}; vagrant destroy runtime --force'
-                                sh 'cd ${TESTDIR}; vagrant up runtime --provision'
-                            }
+                            sh 'cd ${TESTDIR}; vagrant destroy runtime --force'
+                            sh 'cd ${TESTDIR}; timeout 30m vagrant up runtime --provision'
                         }
                     }
                     post {
@@ -144,10 +142,8 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            timeout(time: 45, unit: 'MINUTES'){
-                                dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
-                                }
+                            dir("${TESTDIR}") {
+                                sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 45m ./vagrant-ci-start.sh'
                             }
                         }
                     }
@@ -173,10 +169,8 @@ pipeline {
                         sh 'mkdir -p ${GOPATH}/src/github.com/cilium'
                         sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                         retry(3) {
-                            timeout(time: 45, unit: 'MINUTES'){
-                                dir("${TESTDIR}") {
-                                    sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" ./vagrant-ci-start.sh'
-                                }
+                            dir("${TESTDIR}") {
+                                sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 45m ./vagrant-ci-start.sh'
                             }
                         }
                     }
