@@ -31,8 +31,10 @@ import (
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/crypto/certificatemanager"
 	"github.com/cilium/cilium/pkg/datapath"
+	linuxdatapath "github.com/cilium/cilium/pkg/datapath/linux"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -68,6 +70,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/sockops"
@@ -417,6 +420,52 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		}
 
 		bootstrapStats.k8sInit.End(true)
+	}
+
+	// The kube-proxy replacement should be initialized after establishing
+	// connection to kube-apiserver, but before starting a k8s watcher, as
+	// retrieving Node object for self is needed by BPF NodePort device selection,
+	// and the k8s watcher depends on option.Config.EnableNodePort flag which
+	// can be modified by the initialization routine.
+	initKubeProxyReplacementOptions()
+	if option.Config.EnableNodePort {
+		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
+			log.WithError(err).Fatal("Failed to initialize NodePort addrs")
+		}
+	}
+	// BPF masquerade depends on BPF NodePort, so the following checks should
+	// happen after invoking initKubeProxyReplacementOptions().
+	if option.Config.Masquerade && option.Config.EnableBPFMasquerade {
+		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
+		if !option.Config.EnableNodePort {
+			log.Fatalf("BPF masquerade requires NodePort (--%s=\"true\")", option.EnableNodePort)
+		}
+		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
+			log.Fatalf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
+		}
+		if option.Config.EgressMasqueradeInterfaces != "" {
+			log.Fatalf("BPF masquerade does not allow to specify devices via --%s. Use --%s instead.", option.EgressMasqueradeInterfaces, option.Device)
+		}
+	} else if option.Config.EnableIPMasqAgent {
+		log.Fatalf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.Masquerade, option.EnableBPFMasquerade)
+	}
+	if option.Config.EnableIPMasqAgent {
+		if !option.Config.EnableIPv4 {
+			log.Fatalf("BPF ip-masq-agent requires IPv4 support (--%s=\"true\")", option.EnableIPv4Name)
+		}
+		if !probe.HaveFullLPM() {
+			log.Fatal("BPF ip-masq-agent needs kernel 4.16 or newer")
+		}
+	}
+	if option.Config.EnableHostFirewall && len(option.Config.Devices) == 0 {
+		device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
+		if err != nil {
+			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
+			log.WithError(err).Fatalf(msg, option.Device)
+		}
+		log.WithField(logfields.Interface, device).
+			Info("Using auto-derived device for host firewall")
+		option.Config.Devices = []string{device}
 	}
 
 	d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem()
