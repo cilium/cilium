@@ -254,11 +254,7 @@ spec:
           {{- toYaml .Values.monitor.resources | trim | nindent 10 }}
 {{- end }}
 {{- end }}
-{{- if .Values.global.etcd.managed }}
-      # In managed etcd mode, Cilium must be able to resolve the DNS name of
-      # the etcd service
       dnsPolicy: ClusterFirstWithHostNet
-{{- end }}
       hostNetwork: true
       initContainers:
 {{- if and .Values.global.nodeinit.enabled (not (eq .Values.global.nodeinit.bootstrapFile "")) }}
