@@ -371,6 +371,10 @@ global:
   # logSytemLoad enables logging of system load
   logSystemLoad: false
 
+  # logOptions allows you to define logging options. eg:
+  # logOptions:
+  #   format: json
+
   # sockops is the BPF socket operations configuration
   sockops:
     # enabled enables installation of socket level functionality.
