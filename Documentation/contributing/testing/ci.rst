@@ -236,7 +236,7 @@ illustrating which subset of tests the job runs.
 |                                                                                                                | test-gke          |                    |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 
-For Backport PRs, the phrase ``never-tell-me-the-odds`` should be used to
+For Backport PRs, the phrase ``test-backport-x.x`` (with ``x.x`` being the target Cilium version) should be used to
 trigger all of the above jobs which are marked as required to validate changes
 to existing releases.
 
