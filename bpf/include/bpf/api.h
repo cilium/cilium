@@ -17,5 +17,6 @@
 #include "tailcall.h"
 #include "errno.h"
 #include "loader.h"
+#include "csum.h"
 
 #endif /* __BPF_API__ */

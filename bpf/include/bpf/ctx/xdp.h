@@ -14,6 +14,7 @@
 #include "../builtins.h"
 #include "../section.h"
 #include "../loader.h"
+#include "../csum.h"
 
 #define CTX_ACT_OK			XDP_PASS
 #define CTX_ACT_DROP			XDP_DROP
@@ -104,27 +105,6 @@ xdp_store_bytes(const struct xdp_md *ctx, __u64 off, const void *from,
 
 #define get_hash(ctx)			({ 0; })
 #define get_hash_recalc(ctx)		get_hash(ctx)
-
-/* Checksum pieces from Linux kernel. */
-static inline __sum16 csum_fold(__wsum csum)
-{
-	__u32 sum = (__u32)csum;
-	sum = (sum & 0xffff) + (sum >> 16);
-	sum = (sum & 0xffff) + (sum >> 16);
-	return (__sum16)~sum;
-}
-
-static inline __wsum csum_unfold(__sum16 n)
-{
-	return (__wsum)n;
-}
-
-static inline __wsum csum_add(__wsum csum, __wsum addend)
-{
-	__u32 res = (__u32)csum;
-	res += (__u32)addend;
-	return (__wsum)(res + (res < (__u32)addend));
-}
 
 static __always_inline __maybe_unused void
 __csum_replace_by_diff(__sum16 *sum, __wsum diff)
