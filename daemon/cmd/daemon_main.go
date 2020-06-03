@@ -1110,49 +1110,8 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.EncryptInterface = link
 	}
 
-	initKubeProxyReplacementOptions()
-	if option.Config.EnableNodePort {
-		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
-			log.WithError(err).Fatal("Failed to initialize NodePort addrs")
-		}
-	}
 	initClockSourceOption()
 	initSockmapOption()
-
-	if option.Config.Masquerade && option.Config.EnableBPFMasquerade {
-		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
-		if !option.Config.EnableNodePort {
-			log.Fatalf("BPF masquerade requires NodePort (--%s=\"true\")", option.EnableNodePort)
-		}
-		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
-			log.Fatalf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
-		}
-		if option.Config.EgressMasqueradeInterfaces != "" {
-			log.Fatalf("BPF masquerade does not allow to specify devices via --%s. Use --%s instead.", option.EgressMasqueradeInterfaces, option.Device)
-		}
-	} else if option.Config.EnableIPMasqAgent {
-		log.Fatalf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.Masquerade, option.EnableBPFMasquerade)
-	}
-
-	if option.Config.EnableIPMasqAgent {
-		if !option.Config.EnableIPv4 {
-			log.Fatalf("BPF ip-masq-agent requires IPv4 support (--%s=\"true\")", option.EnableIPv4Name)
-		}
-		if !probe.HaveFullLPM() {
-			log.Fatal("BPF ip-masq-agent needs kernel 4.16 or newer")
-		}
-	}
-
-	if option.Config.EnableHostFirewall && len(option.Config.Devices) == 0 {
-		device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
-		if err != nil {
-			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
-			log.WithError(err).Fatalf(msg, option.Device)
-		}
-		log.WithField(logfields.Interface, device).
-			Info("Using auto-derived device for host firewall")
-		option.Config.Devices = []string{device}
-	}
 
 	// If there is one device specified, use it to derive better default
 	// allocation prefixes
