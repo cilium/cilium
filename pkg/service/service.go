@@ -234,9 +234,13 @@ func (s *Service) UpsertService(
 		return false, lb.ID(0), err
 	}
 
-	localBackendCount := len(backendsCopy)
-	s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcNamespace, svc.svcName,
-		localBackendCount, svc.svcHealthCheckNodePort)
+	// Only add a HealthCheckNodePort server if this is a service which may
+	// only contain local backends.
+	if onlyLocalBackends {
+		localBackendCount := len(backendsCopy)
+		s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcNamespace, svc.svcName,
+			localBackendCount, svc.svcHealthCheckNodePort)
+	}
 
 	if new {
 		addMetric.Inc()
