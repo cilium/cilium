@@ -36,12 +36,15 @@ import (
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	fakeConfig "github.com/cilium/cilium/pkg/option/fake"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/testutils/allocator"
+
+	"github.com/prometheus/client_golang/prometheus"
 	. "gopkg.in/check.v1"
 )
 
@@ -66,6 +69,9 @@ type EndpointSuite struct {
 	OnRemoveFromEndpointQueue func(epID uint64)
 	OnGetCompilationLock      func() *lock.RWMutex
 	OnSendNotification        func(typ monitorAPI.AgentNotification, text string) error
+
+	// Metrics
+	collectors []prometheus.Collector
 }
 
 // suite can be used by testing.T benchmarks or tests as a mock regeneration.Owner
@@ -78,6 +84,17 @@ func (s *EndpointSuite) SetUpSuite(c *C) {
 	err := labelsfilter.ParseLabelPrefixCfg(nil, "")
 	if err != nil {
 		panic("ParseLabelPrefixCfg() failed")
+	}
+
+	// Register metrics once before running the suite
+	_, s.collectors = metrics.CreateConfiguration([]string{"cilium_endpoint_state"})
+	metrics.MustRegister(s.collectors...)
+}
+
+func (s *EndpointSuite) TearDownSuite(c *C) {
+	// Unregister the metrics after the suite has finished
+	for _, c := range s.collectors {
+		metrics.Unregister(c)
 	}
 }
 
@@ -244,115 +261,160 @@ func (s *EndpointSuite) TestEndpointState(c *C) {
 	e.unconditionalLock()
 	defer e.unlock()
 
-	e.state = StateWaitingForIdentity
-	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, false)
-	c.Assert(e.setState(StateReady, "test"), Equals, true)
-	e.state = StateWaitingForIdentity
-	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, false)
-	c.Assert(e.setState(StateRegenerating, "test"), Equals, false)
-	c.Assert(e.setState(StateDisconnecting, "test"), Equals, true)
-	e.state = StateWaitingForIdentity
-	c.Assert(e.setState(StateDisconnected, "test"), Equals, false)
+	assertStateTransition(c, e, e.setState, StateWaitingForIdentity, StateWaitingForIdentity, false)
 
-	e.state = StateReady
-	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, true)
-	e.state = StateReady
-	c.Assert(e.setState(StateReady, "test"), Equals, false)
-	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, true)
-	e.state = StateReady
-	c.Assert(e.setState(StateRegenerating, "test"), Equals, false)
-	c.Assert(e.setState(StateDisconnecting, "test"), Equals, true)
-	e.state = StateReady
-	c.Assert(e.setState(StateDisconnected, "test"), Equals, false)
+	assertStateTransition(c, e, e.setState, StateWaitingForIdentity, StateReady, true)
 
-	e.state = StateWaitingToRegenerate
-	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, true)
-	e.state = StateWaitingToRegenerate
-	c.Assert(e.setState(StateReady, "test"), Equals, false)
-	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, false)
-	c.Assert(e.setState(StateRegenerating, "test"), Equals, false)
-	c.Assert(e.setState(StateDisconnecting, "test"), Equals, true)
-	e.state = StateWaitingToRegenerate
-	c.Assert(e.setState(StateDisconnected, "test"), Equals, false)
+	assertStateTransition(c, e, e.setState, StateWaitingForIdentity, StateWaitingToRegenerate, false)
+	assertStateTransition(c, e, e.setState, StateWaitingToRegenerate, StateRegenerating, false)
+	assertStateTransition(c, e, e.setState, StateRegenerating, StateDisconnecting, true)
 
-	e.state = StateRegenerating
-	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, true)
-	e.state = StateRegenerating
-	c.Assert(e.setState(StateReady, "test"), Equals, false)
-	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, true)
-	e.state = StateRegenerating
-	c.Assert(e.setState(StateRegenerating, "test"), Equals, false)
-	c.Assert(e.setState(StateDisconnecting, "test"), Equals, true)
-	e.state = StateRegenerating
-	c.Assert(e.setState(StateDisconnected, "test"), Equals, false)
+	assertStateTransition(c, e, e.setState, StateWaitingForIdentity, StateDisconnected, false)
 
-	e.state = StateDisconnecting
-	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, false)
-	c.Assert(e.setState(StateReady, "test"), Equals, false)
-	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, false)
-	c.Assert(e.setState(StateRegenerating, "test"), Equals, false)
-	c.Assert(e.setState(StateDisconnecting, "test"), Equals, false)
-	c.Assert(e.setState(StateDisconnected, "test"), Equals, true)
+	assertStateTransition(c, e, e.setState, StateReady, StateWaitingForIdentity, true)
+	assertStateTransition(c, e, e.setState, StateReady, StateReady, false)
+	assertStateTransition(c, e, e.setState, StateReady, StateWaitingToRegenerate, true)
+	assertStateTransition(c, e, e.setState, StateReady, StateRegenerating, false)
+	assertStateTransition(c, e, e.setState, StateReady, StateDisconnecting, true)
+	assertStateTransition(c, e, e.setState, StateReady, StateDisconnected, false)
 
-	e.state = StateDisconnected
-	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, false)
-	c.Assert(e.setState(StateReady, "test"), Equals, false)
-	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, false)
-	c.Assert(e.setState(StateRegenerating, "test"), Equals, false)
-	c.Assert(e.setState(StateDisconnecting, "test"), Equals, false)
-	c.Assert(e.setState(StateDisconnected, "test"), Equals, false)
+	assertStateTransition(c, e, e.setState, StateWaitingToRegenerate, StateWaitingForIdentity, true)
+	assertStateTransition(c, e, e.setState, StateWaitingToRegenerate, StateReady, false)
+	assertStateTransition(c, e, e.setState, StateWaitingToRegenerate, StateWaitingToRegenerate, false)
+	assertStateTransition(c, e, e.setState, StateWaitingToRegenerate, StateRegenerating, false)
+	assertStateTransition(c, e, e.setState, StateWaitingToRegenerate, StateDisconnecting, true)
+	assertStateTransition(c, e, e.setState, StateWaitingToRegenerate, StateDisconnected, false)
+
+	assertStateTransition(c, e, e.setState, StateRegenerating, StateWaitingForIdentity, true)
+	assertStateTransition(c, e, e.setState, StateRegenerating, StateReady, false)
+	assertStateTransition(c, e, e.setState, StateRegenerating, StateWaitingToRegenerate, true)
+	assertStateTransition(c, e, e.setState, StateRegenerating, StateRegenerating, false)
+	assertStateTransition(c, e, e.setState, StateRegenerating, StateDisconnecting, true)
+	assertStateTransition(c, e, e.setState, StateRegenerating, StateDisconnected, false)
+
+	assertStateTransition(c, e, e.setState, StateDisconnecting, StateWaitingForIdentity, false)
+	assertStateTransition(c, e, e.setState, StateDisconnecting, StateReady, false)
+	assertStateTransition(c, e, e.setState, StateDisconnecting, StateWaitingToRegenerate, false)
+	assertStateTransition(c, e, e.setState, StateDisconnecting, StateRegenerating, false)
+	assertStateTransition(c, e, e.setState, StateDisconnecting, StateDisconnecting, false)
+	assertStateTransition(c, e, e.setState, StateDisconnecting, StateDisconnected, true)
+
+	assertStateTransition(c, e, e.setState, StateDisconnected, StateWaitingForIdentity, false)
+	assertStateTransition(c, e, e.setState, StateDisconnected, StateReady, false)
+	assertStateTransition(c, e, e.setState, StateDisconnected, StateWaitingToRegenerate, false)
+	assertStateTransition(c, e, e.setState, StateDisconnected, StateRegenerating, false)
+	assertStateTransition(c, e, e.setState, StateDisconnected, StateDisconnecting, false)
+	assertStateTransition(c, e, e.setState, StateDisconnected, StateDisconnected, false)
+
+	// State transitions involving the "Invalid" state
+	assertStateTransition(c, e, e.setState, "", StateInvalid, false)
+	assertStateTransition(c, e, e.setState, StateWaitingForIdentity, StateInvalid, true)
+	assertStateTransition(c, e, e.setState, StateInvalid, StateInvalid, false)
 
 	// Builder-specific transitions
-	e.state = StateWaitingToRegenerate
+
 	// Builder can't transition to ready from waiting-to-regenerate
 	// as (another) build is pending
-	c.Assert(e.BuilderSetStateLocked(StateReady, "test"), Equals, false)
+	assertStateTransition(c, e, e.BuilderSetStateLocked, StateWaitingToRegenerate, StateReady, false)
 	// Only builder knows when bpf regeneration starts
-	c.Assert(e.setState(StateRegenerating, "test"), Equals, false)
-	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, true)
+	assertStateTransition(c, e, e.setState, StateWaitingToRegenerate, StateRegenerating, false)
+	assertStateTransition(c, e, e.BuilderSetStateLocked, StateWaitingToRegenerate, StateRegenerating, true)
+
 	// Builder does not trigger the need for regeneration
-	c.Assert(e.BuilderSetStateLocked(StateWaitingToRegenerate, "test"), Equals, false)
+	assertStateTransition(c, e, e.BuilderSetStateLocked, StateRegenerating, StateWaitingToRegenerate, false)
 	// Builder transitions to ready state after build is done
-	c.Assert(e.BuilderSetStateLocked(StateReady, "test"), Equals, true)
+	assertStateTransition(c, e, e.BuilderSetStateLocked, StateRegenerating, StateReady, true)
 
 	// Check that direct transition from restoring --> regenerating is valid.
-	e.state = StateRestoring
-	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, true)
+	assertStateTransition(c, e, e.BuilderSetStateLocked, StateRestoring, StateRegenerating, true)
 
 	// Typical lifecycle
-	e.state = ""
-	c.Assert(e.setState(StateWaitingForIdentity, "test"), Equals, true)
+	assertStateTransition(c, e, e.setState, "", StateWaitingForIdentity, true)
 	// Initial build does not change the state
-	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, false)
-	c.Assert(e.BuilderSetStateLocked(StateReady, "test"), Equals, false)
+	assertStateTransition(c, e, e.BuilderSetStateLocked, StateWaitingForIdentity, StateRegenerating, false)
+	assertStateTransition(c, e, e.BuilderSetStateLocked, StateWaitingForIdentity, StateReady, false)
 	// identity arrives
-	c.Assert(e.setState(StateReady, "test"), Equals, true)
+	assertStateTransition(c, e, e.setState, StateWaitingForIdentity, StateReady, true)
 	// a build is triggered after the identity is set
-	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, true)
+	assertStateTransition(c, e, e.setState, StateReady, StateWaitingToRegenerate, true)
 	// build starts
-	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, true)
+	assertStateTransition(c, e, e.BuilderSetStateLocked, StateWaitingToRegenerate, StateRegenerating, true)
 	// another change arrives while building
-	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, true)
+	assertStateTransition(c, e, e.setState, StateRegenerating, StateWaitingToRegenerate, true)
 	// Builder's transition to ready fails due to the queued build
-	c.Assert(e.BuilderSetStateLocked(StateReady, "test"), Equals, false)
+	assertStateTransition(c, e, e.BuilderSetStateLocked, StateWaitingToRegenerate, StateReady, false)
 	// second build starts
-	c.Assert(e.BuilderSetStateLocked(StateRegenerating, "test"), Equals, true)
+	assertStateTransition(c, e, e.BuilderSetStateLocked, StateWaitingToRegenerate, StateRegenerating, true)
 	// second build finishes
-	c.Assert(e.BuilderSetStateLocked(StateReady, "test"), Equals, true)
+	assertStateTransition(c, e, e.BuilderSetStateLocked, StateRegenerating, StateReady, true)
 	// endpoint is being deleted
-	c.Assert(e.setState(StateDisconnecting, "test"), Equals, true)
+	assertStateTransition(c, e, e.setState, StateReady, StateDisconnecting, true)
 	// parallel disconnect fails
-	c.Assert(e.setState(StateDisconnecting, "test"), Equals, false)
-	c.Assert(e.setState(StateDisconnected, "test"), Equals, true)
+	assertStateTransition(c, e, e.setState, StateDisconnecting, StateDisconnecting, false)
+	assertStateTransition(c, e, e.setState, StateDisconnecting, StateDisconnected, true)
 
 	// Restoring state
-	e.state = StateRestoring
-	c.Assert(e.setState(StateWaitingToRegenerate, "test"), Equals, false)
-	c.Assert(e.setState(StateDisconnecting, "test"), Equals, true)
+	assertStateTransition(c, e, e.setState, StateRestoring, StateWaitingToRegenerate, false)
+	assertStateTransition(c, e, e.setState, StateRestoring, StateDisconnecting, true)
 
-	e.state = StateRestoring
-	c.Assert(e.setState(StateRestoring, "test"), Equals, true)
+	assertStateTransition(c, e, e.setState, StateRestoring, StateRestoring, true)
 
+	// Invalid state
+	assertStateTransition(c, e, e.BuilderSetStateLocked, StateInvalid, StateReady, false)
+	assertStateTransition(c, e, e.BuilderSetStateLocked, StateWaitingToRegenerate, StateInvalid, false)
+}
+
+func assertStateTransition(c *C,
+	e *Endpoint, stateSetter func(string, string) bool,
+	from, to string,
+	success bool) {
+
+	e.state = from
+
+	currStateOldMetric := getMetricValue(e.state)
+	newStateOldMetric := getMetricValue(to)
+	got := stateSetter(to, "test")
+	currStateNewMetric := getMetricValue(from)
+	newStateNewMetric := getMetricValue(e.state)
+
+	c.Assert(got, Equals, success)
+
+	// Do not assert on metrics if the endpoint is not expected to transition.
+	if !success {
+		return
+	}
+
+	// If the state transition moves from itself to itself, we expect the
+	// metrics to be unchanged.
+	if from == to {
+		c.Assert(currStateOldMetric, Equals, currStateNewMetric)
+		c.Assert(newStateOldMetric, Equals, newStateNewMetric)
+	} else {
+		// Blank states don't have metrics so we skip over that; metric should
+		// be unchanged.
+		if from != "" {
+			c.Assert(currStateOldMetric-1, Equals, currStateNewMetric)
+		} else {
+			c.Assert(currStateOldMetric, Equals, currStateNewMetric)
+		}
+
+		// Don't assert on state transition that ends up in a final state, as
+		// the metric is not incremented in this case; metric should be
+		// unchanged.
+		if !isFinalState(to) {
+			c.Assert(newStateOldMetric+1, Equals, newStateNewMetric)
+		} else {
+			c.Assert(newStateOldMetric, Equals, newStateNewMetric)
+		}
+	}
+}
+
+func isFinalState(state string) bool {
+	return (state == StateDisconnected || state == StateInvalid)
+}
+
+func getMetricValue(state string) int64 {
+	return int64(metrics.GetGaugeValue(metrics.EndpointStateCount.WithLabelValues(state)))
 }
 
 func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
