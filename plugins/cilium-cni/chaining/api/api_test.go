@@ -64,3 +64,10 @@ func (a *APISuite) TestRegistration(c *check.C) {
 func (a *APISuite) TestNonChaining(c *check.C) {
 	c.Assert(Lookup("cilium"), check.IsNil)
 }
+
+func (a *APISuite) TestGenericChainingWithAnyName(c *check.C) {
+	err := Register(GenericConfigName, &pluginTest{})
+	c.Assert(err, check.IsNil)
+	c.Assert(Lookup("generic-veth"), check.Not(check.IsNil))
+	c.Assert(Lookup("network123"), check.Not(check.IsNil))
+}
