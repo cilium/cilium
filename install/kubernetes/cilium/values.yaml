@@ -443,7 +443,7 @@ global:
 
   # hubble configures Hubble.
   hubble:
-    enabled: false
+    enabled: true
     ui:
       enabled: false
     # Default unix domain socket path to listen to when Hubble is enabled. Default to "/var/run/cilium/hubble.sock".

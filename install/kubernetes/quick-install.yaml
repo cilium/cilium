@@ -180,7 +180,11 @@ data:
   operator-api-serve-addr: '127.0.0.1:9234'
 
   # Enable Hubble gRPC service.
-  enable-hubble: "false"
+  enable-hubble: "true"
+  # UNIX domain socket for Hubble server to listen to.
+  hubble-socket-path:  "/var/run/cilium/hubble.sock"
+  # An additional address for Hubble server to listen to (e.g. ":4244").
+  hubble-listen-address: ""
 
   # A space separated list of iptables chains to disable when installing feeder rules.
   disable-iptables-feeder-rules: ""
