@@ -26,3 +26,7 @@ clean:
 	@$(ECHO_CLEAN)
 	$(QUIET)rm -f $(TARGETS)
 	$(GO) clean $(GOCLEAN)
+
+install:
+	$(QUIET)$(INSTALL) -m 0755 -d $(DESTDIR)$(BINDIR)
+	$(QUIET)$(INSTALL) -m 0755 $(TARGETS) $(DESTDIR)$(BINDIR)
