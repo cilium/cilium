@@ -379,16 +379,8 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	treatRemoteNodeAsHost := option.Config.AlwaysAllowLocalhost() && !option.Config.EnableRemoteNodeIdentity
 	policyApi.InitEntities(option.Config.ClusterName, treatRemoteNodeAsHost)
 
-	d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem()
-
-	bootstrapStats.cleanup.Start()
-	err = clearCiliumVeths()
-	bootstrapStats.cleanup.EndError(err)
-	if err != nil {
-		log.WithError(err).Warning("Unable to clean stale endpoint interfaces")
-	}
-
 	if k8s.IsEnabled() {
+		bootstrapStats.k8sInit.Start()
 		if err := k8s.RegisterCRDs(); err != nil {
 			log.WithError(err).Fatal("Unable to register CRDs")
 		}
@@ -413,6 +405,15 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		}
 
 		bootstrapStats.k8sInit.End(true)
+	}
+
+	d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem()
+
+	bootstrapStats.cleanup.Start()
+	err = clearCiliumVeths()
+	bootstrapStats.cleanup.EndError(err)
+	if err != nil {
+		log.WithError(err).Warning("Unable to clean stale endpoint interfaces")
 	}
 
 	d.bootstrapIPAM()
