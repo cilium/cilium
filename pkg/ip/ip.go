@@ -745,10 +745,27 @@ var privateIPBlocks []*net.IPNet
 func initPrivatePrefixes() {
 	// We only care about global scope prefixes here.
 	for _, cidr := range []string{
-		"10.0.0.0/8",     // RFC1918
-		"172.16.0.0/12",  // RFC1918
-		"192.168.0.0/16", // RFC1918
-		"fc00::/7",       // IPv6 ULA
+		"0.0.0.0/8",       // RFC1122 - IPv4 Host on this network
+		"10.0.0.0/8",      // RFC1918 - IPv4 Private-Use Networks
+		"100.64.0.0/10",   // RFC6598 - IPv4 Shared address space
+		"127.0.0.0/8",     // RFC1122 - IPv4 Loopback
+		"169.254.0.0/16",  // RFC3927 - IPv4 Link-Local
+		"172.16.0.0/12",   // RFC1918 - IPv4 Private-Use Networks
+		"192.0.0.0/24",    // RFC6890 - IPv4 IETF Assignments
+		"192.0.2.0/24",    // RFC5737 - IPv4 TEST-NET-1
+		"192.168.0.0/16",  // RFC1918 - IPv4 Private-Use Networks
+		"198.18.0.0/15",   // RFC2544 - IPv4 Interconnect Benchmarks
+		"198.51.100.0/24", // RFC5737 - IPv4 TEST-NET-2
+		"203.0.113.0/24",  // RFC5737 - IPv4 TEST-NET-3
+		"224.0.0.0/4",     // RFC5771 - IPv4 Multicast
+		"::/128",          // RFC4291 - IPv6 Unspecified
+		"::1/128",         // RFC4291 - IPv6 Loopback
+		"100::/64",        // RFC6666 - IPv6 Discard-Only Prefix
+		"2001:2::/48",     // RFC5180 - IPv6 Benchmarking
+		"2001:db8::/48",   // RFC3849 - IPv6 Documentation
+		"fc00::/7",        // RFC4193 - IPv6 Unique-Local
+		"fe80::/10",       // RFC4291 - IPv6 Link-Local
+		"ff00::/8",        // RFC4291 - IPv6 Multicast
 	} {
 		_, block, _ := net.ParseCIDR(cidr)
 		privateIPBlocks = append(privateIPBlocks, block)
