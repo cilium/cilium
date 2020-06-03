@@ -889,7 +889,7 @@ static __always_inline int set_dsr_opt4(struct __ctx_buff *ctx,
 					__be32 svc_addr, __be32 svc_port)
 {
 	union tcp_flags tcp_flags = { .value = 0 };
-	__u32 iph_old, iph_new, opt1, opt2;
+	__u32 iph_old, iph_new, opt[2];
 	__be32 sum;
 
 	if (ip4->protocol == IPPROTO_TCP) {
@@ -911,21 +911,17 @@ static __always_inline int set_dsr_opt4(struct __ctx_buff *ctx,
 	ip4->tot_len = bpf_htons(bpf_ntohs(ip4->tot_len) + 0x8);
 	iph_new = *(__u32 *)ip4;
 
-	opt1 = bpf_htonl(DSR_IPV4_OPT_32 | svc_port);
-	opt2 = bpf_htonl(svc_addr);
+	opt[0] = bpf_htonl(DSR_IPV4_OPT_32 | svc_port);
+	opt[1] = bpf_htonl(svc_addr);
 
 	sum = csum_diff(&iph_old, 4, &iph_new, 4, 0);
-	sum = csum_diff(NULL, 0, &opt1, sizeof(opt1), sum);
-	sum = csum_diff(NULL, 0, &opt2, sizeof(opt2), sum);
+	sum = csum_diff(NULL, 0, &opt, sizeof(opt), sum);
 
 	if (ctx_adjust_room(ctx, 0x8, BPF_ADJ_ROOM_NET, 0))
 		return DROP_INVALID;
 
 	if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(*ip4),
-			    &opt1, sizeof(opt1), 0) < 0)
-		return DROP_INVALID;
-	if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(*ip4) + sizeof(opt1),
-			    &opt2, sizeof(opt2), 0) < 0)
+			    &opt, sizeof(opt), 0) < 0)
 		return DROP_INVALID;
 	if (l3_csum_replace(ctx, ETH_HLEN + offsetof(struct iphdr, check),
 			    0, sum, 0) < 0)
