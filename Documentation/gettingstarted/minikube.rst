@@ -53,27 +53,8 @@ Install kubectl & minikube
    start`` command for bootstrapping the local cluster. By default, minikube
    will install the most recent version of Kubernetes.
 
-Install Cilium
-==============
-
-Install Cilium as `DaemonSet
-<https://kubernetes.io/docs/concepts/workloads/controllers/daemonset/>`_ into
-your new Kubernetes cluster. The DaemonSet will automatically install itself as
-Kubernetes CNI plugin.
-
-.. note::
-
-   In case of installing Cilium with CRIO, please see :ref:`crio-instructions` instructions.
-
-.. parsed-literal::
-
-    kubectl create -f \ |SCM_WEB|\/install/kubernetes/quick-install.yaml
-
+.. include:: quick-install.rst
 .. include:: k8s-install-validate.rst
-.. include:: hubble-install.rst
-.. include:: getting-started-next-steps.rst
-
-
 
 Next steps
 ==========

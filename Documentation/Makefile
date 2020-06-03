@@ -48,7 +48,7 @@ epub latex html: builder-image copy-api
 
 html-netlify: copy-api
 	@$(ECHO_GEN)_build/$@
-	$(QUIET) ./check-build.sh html $(SPHINX_OPTS)
+	$(QUIET) SKIP_LINT=1 ./check-build.sh html $(SPHINX_OPTS)
 
 DOCS_PORT = 9081
 
