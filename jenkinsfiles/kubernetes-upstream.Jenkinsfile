@@ -78,17 +78,14 @@ pipeline {
         }
         stage('Boot VMs'){
             options {
-                timeout(time: 60, unit: 'MINUTES')
+                timeout(time: 70, unit: 'MINUTES')
             }
 
             steps {
                 retry(3){
-                    timeout(time: 20, unit: 'MINUTES'){
-                        sh 'cd ${TESTDIR}; vagrant destroy k8s1-${K8S_VERSION} --force'
-                        sh 'cd ${TESTDIR}; vagrant destroy k8s2-${K8S_VERSION} --force'
-                        sh 'cd ${TESTDIR}; vagrant up k8s1-${K8S_VERSION}'
-                        sh 'cd ${TESTDIR}; vagrant up k8s2-${K8S_VERSION}'
-                    }
+                    sh 'cd ${TESTDIR}; vagrant destroy k8s1-${K8S_VERSION} --force'
+                    sh 'cd ${TESTDIR}; vagrant destroy k8s2-${K8S_VERSION} --force'
+                    sh 'cd ${TESTDIR}; timeout 20m vagrant up k8s1-${K8S_VERSION} k8s2-${K8S_VERSION}'
                 }
             }
         }
