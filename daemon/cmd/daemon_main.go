@@ -1695,140 +1695,20 @@ func initKubeProxyReplacementOptions() {
 		(len(option.Config.Devices) == 0 ||
 			(option.Config.Tunnel == option.TunnelDisabled && option.Config.DirectRoutingDevice == "")) {
 
-		var (
-			defaultRouteDevice string
-			err                error
-		)
-		devSet := map[string]struct{}{}
-		ifidxByAddr := map[string]int{}
-		if addrs, err := netlink.AddrList(nil, netlink.FAMILY_ALL); err != nil {
-			log.WithError(err).Warn(
-				"Unable to retrieve IP addrs for NodePort BPF device detection")
-		} else {
-			for _, a := range addrs {
-				ifidxByAddr[a.IP.String()] = a.LinkIndex
-			}
-		}
-
-		if len(option.Config.Devices) == 0 {
-			// 1. Use a device with a default route (for backward compatibility)
-			defaultRouteDevice, err = linuxdatapath.NodeDeviceNameWithDefaultRoute()
-			if err != nil {
-				log.WithError(err).Warn("Device with a default route cannot be found " +
-					"for NodePort BPF device detection")
-			} else {
-				devSet[defaultRouteDevice] = struct{}{}
-			}
-
-			// 2. Try to derive devices from K8s Node {Internal,External}IPv{4,6}
-			for _, ip := range node.GetK8sNodeIPs() {
-				if ifindex, ok := ifidxByAddr[ip.String()]; ok {
-					link, err := netlink.LinkByIndex(ifindex)
-					if err != nil {
-						log.WithField(logfields.Interface, ifindex).
-							Warn("Device by ifindex cannot be found for NodePort BPF " +
-								"device detection")
-					}
-					devSet[link.Attrs().Name] = struct{}{}
-				} else {
-					log.WithField(logfields.Interface, ifindex).
-						Warn("Device with the IP addr cannot be found for NodePort BPF " +
-							"device detection")
-				}
-			}
-		}
-
-		if len(devSet) == 0 {
-			msg := "BPF NodePort's external facing device could not be determined. Use --device to specify."
+		if err := detectDevices(); err != nil {
+			msg := "Unable to detect NodePort BPF devices."
 			if strict {
-				log.Fatal(msg)
+				log.WithError(err).Fatal(msg)
 			} else {
-				log.Warn(msg + " Disabling BPF NodePort feature.")
+				log.WithError(err).Warn(msg + " Disabling BPF NodePort feature.")
 				option.Config.EnableHostPort = false
 				option.Config.EnableNodePort = false
 				option.Config.EnableExternalIPs = false
 			}
+		} else {
+			log.WithField(logfields.Interface, option.Config.Devices).
+				Info("Using auto-derived devices for BPF node port")
 		}
-
-		// 3. Detect direct routing device name from node IP addr
-		detectDirectRoutingDev := func() (string, error) {
-			var device string
-
-			if option.Config.EnableIPv4 {
-				nodeIPv4 := node.GetExternalIPv4()
-				if nodeIPv4 == nil {
-					return "", fmt.Errorf("Undefined node IPv4")
-				}
-				ifindex, found := ifidxByAddr[nodeIPv4.String()]
-				if !found {
-					return "", fmt.Errorf("Unable to find a device with %s addr", nodeIPv4)
-				}
-				link, err := netlink.LinkByIndex(ifindex)
-				if err != nil {
-					return "", fmt.Errorf("Unable to find a device with %s addr by %d ifindex", nodeIPv4, ifindex)
-				}
-				device = link.Attrs().Name
-			}
-
-			if option.Config.EnableIPv6 {
-				nodeIPv6 := node.GetIPv6()
-				if nodeIPv6 == nil {
-					return "", fmt.Errorf("Undefined node IPv6")
-				}
-				ifindex, found := ifidxByAddr[nodeIPv6.String()]
-				if !found {
-					return "", fmt.Errorf("Unable to find a device with %s addr", nodeIPv6)
-				}
-				link, err := netlink.LinkByIndex(ifindex)
-				if err != nil {
-					return "", fmt.Errorf("Unable to find a device with %s addr by %d ifindex", nodeIPv6, ifindex)
-				}
-
-				if dev6 := link.Attrs().Name; device != "" && device != dev6 {
-					return "", fmt.Errorf("Direct routing devices %s (ipv4) and %s (ipv6) do not match", device, dev6)
-				} else {
-					device = dev6
-				}
-			}
-
-			return device, nil
-		}
-		if option.Config.EnableNodePort && option.Config.Tunnel == option.TunnelDisabled &&
-			option.Config.DirectRoutingDevice == "" {
-			if len(devSet) == 1 { // use the same device for direct routing
-				for dev := range devSet {
-					option.Config.DirectRoutingDevice = dev
-				}
-			} else {
-				var err error
-				option.Config.DirectRoutingDevice, err = detectDirectRoutingDev()
-				if err != nil {
-					msg := "Unable to detect direct routing device for NodePort BPF."
-					if strict {
-						log.WithError(err).Fatal(msg)
-					} else {
-						log.WithError(err).Warn(msg + " Disabling BPF NodePort feature.")
-						option.Config.EnableHostPort = false
-						option.Config.EnableNodePort = false
-						option.Config.EnableExternalIPs = false
-					}
-				}
-			}
-			if option.Config.DirectRoutingDevice != "" {
-				log.WithField(logfields.Interface, option.Config.DirectRoutingDevice).Info(
-					"Detected direct routing device")
-			}
-		}
-		if option.Config.DirectRoutingDevice != "" {
-			devSet[option.Config.DirectRoutingDevice] = struct{}{}
-		}
-
-		option.Config.Devices = make([]string, 0, len(devSet))
-		for dev := range devSet {
-			option.Config.Devices = append(option.Config.Devices, dev)
-		}
-		log.WithField(logfields.Interface, option.Config.Devices).
-			Info("Using auto-derived devices for BPF node port")
 	}
 
 	if option.Config.EnableNodePort &&
@@ -1976,6 +1856,137 @@ func initKubeProxyReplacementOptions() {
 				"will be selected from all network namespaces on the host.")
 		}
 	}
+}
+
+// TODO(brb) documment
+func detectNodePortDevices(ifidxByAddr map[string]int) (map[string]struct{}, error) {
+	devSet := map[string]struct{}{}
+
+	// Use a device with a default route (for backward compatibility)
+	defaultRouteDevice, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
+	if err != nil {
+		log.WithError(err).Warn("Device with a default route cannot be found " +
+			"for NodePort BPF device detection")
+	} else {
+		devSet[defaultRouteDevice] = struct{}{}
+	}
+
+	// Derive devices from K8s Node {Internal,External}IPv{4,6}
+	for _, ip := range node.GetK8sNodeIPs() {
+		if ifindex, ok := ifidxByAddr[ip.String()]; ok {
+			link, err := netlink.LinkByIndex(ifindex)
+			if err != nil {
+				log.WithField(logfields.Interface, ifindex).
+					Warn("Device by ifindex cannot be found for NodePort BPF " +
+						"device detection")
+			}
+			devSet[link.Attrs().Name] = struct{}{}
+		} else {
+			log.WithField(logfields.Interface, ifindex).
+				Warn("Device with the IP addr cannot be found for NodePort BPF " +
+					"device detection")
+		}
+	}
+
+	if len(devSet) == 0 {
+		return nil, fmt.Errorf("No device can be detected")
+	}
+
+	return devSet, nil
+}
+
+// TODO(brb) comment
+func detectDirectRoutingDevice(ifidxByAddr map[string]int) (string, error) {
+	var device string
+
+	if option.Config.EnableIPv4 {
+		nodeIPv4 := node.GetExternalIPv4()
+		if nodeIPv4 == nil {
+			return "", fmt.Errorf("Undefined node IPv4")
+		}
+		ifindex, found := ifidxByAddr[nodeIPv4.String()]
+		if !found {
+			return "", fmt.Errorf("Unable to find a device with %s addr", nodeIPv4)
+		}
+		link, err := netlink.LinkByIndex(ifindex)
+		if err != nil {
+			return "", fmt.Errorf("Unable to find a device with %s addr by %d ifindex", nodeIPv4, ifindex)
+		}
+		device = link.Attrs().Name
+	}
+
+	if option.Config.EnableIPv6 {
+		nodeIPv6 := node.GetIPv6()
+		if nodeIPv6 == nil {
+			return "", fmt.Errorf("Undefined node IPv6")
+		}
+		ifindex, found := ifidxByAddr[nodeIPv6.String()]
+		if !found {
+			return "", fmt.Errorf("Unable to find a device with %s addr", nodeIPv6)
+		}
+		link, err := netlink.LinkByIndex(ifindex)
+		if err != nil {
+			return "", fmt.Errorf("Unable to find a device with %s addr by %d ifindex", nodeIPv6, ifindex)
+		}
+
+		if dev6 := link.Attrs().Name; device != "" && device != dev6 {
+			return "", fmt.Errorf("Direct routing devices %s (ipv4) and %s (ipv6) do not match", device, dev6)
+		} else {
+			device = dev6
+		}
+	}
+
+	return device, nil
+}
+
+// TODO(brb) comment
+func detectDevices() error {
+	var (
+		err    error
+		devSet map[string]struct{}
+	)
+	ifidxByAddr := map[string]int{}
+
+	if addrs, err := netlink.AddrList(nil, netlink.FAMILY_ALL); err != nil {
+		log.WithError(err).Warn(
+			"Unable to retrieve IP addrs for NodePort BPF device detection")
+	} else {
+		for _, a := range addrs {
+			ifidxByAddr[a.IP.String()] = a.LinkIndex
+		}
+	}
+
+	// Determine NodePort BPF devices
+	if len(option.Config.Devices) == 0 {
+		if devSet, err = detectNodePortDevices(ifidxByAddr); err != nil {
+			return fmt.Errorf("Unable to determine NodePort BPF devices: %s. Use --%s to specify",
+				err, option.Device)
+		}
+	}
+
+	// Determine direct routing device
+	if option.Config.Tunnel == option.TunnelDisabled && option.Config.DirectRoutingDevice == "" {
+		if len(devSet) == 1 {
+			// Only one device is detected, so use it for direct routing
+			for dev := range devSet {
+				option.Config.DirectRoutingDevice = dev
+			}
+		} else {
+			var err error
+			if option.Config.DirectRoutingDevice, err = detectDirectRoutingDevice(ifidxByAddr); err != nil {
+				return fmt.Errorf("Unable to determine direct routing NodePort BPF devices: %s. Use --%s to specify",
+					err, option.DirectRoutingDevice)
+			}
+			devSet[option.Config.DirectRoutingDevice] = struct{}{}
+		}
+	}
+
+	option.Config.Devices = make([]string, 0, len(devSet))
+	for dev := range devSet {
+		option.Config.Devices = append(option.Config.Devices, dev)
+	}
+
+	return nil
 }
 
 // checkNodePortAndEphemeralPortRanges checks whether the ephemeral port range
