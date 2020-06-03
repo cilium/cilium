@@ -18,6 +18,7 @@ package k8s
 import (
 	"context"
 	"fmt"
+	"net"
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
@@ -196,6 +197,11 @@ func GetNodeSpec() error {
 		if option.Config.K8sRequireIPv4PodCIDR || option.Config.K8sRequireIPv6PodCIDR {
 			return fmt.Errorf("node name must be specified via environment variable '%s' to retrieve Kubernetes PodCIDR range", k8sConst.EnvNodeNameSpec)
 		}
+		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled &&
+			len(option.Config.Devices) == 0 {
+			log.Warn("K8s node name is empty. NodePort BPF device auto-detection " +
+				"will not be able to use k8s Node IP addrs.")
+		}
 		return nil
 	}
 
@@ -228,6 +234,23 @@ func GetNodeSpec() error {
 		}
 
 		node.SetLabels(n.Labels)
+
+		// These are required for auto detecting devices to which NodePort BPF
+		// program (bpf_host.o) is going to be attached
+		addrs := []net.IP{}
+		if option.Config.EnableIPv4 {
+			k8sInternalIPv4, k8sExternalIPv4 := n.GetK8sNodeIPs(false)
+			addrs = append(addrs, k8sInternalIPv4, k8sExternalIPv4)
+		}
+		if option.Config.EnableIPv4 {
+			k8sInternalIPv6, k8sExternalIPv6 := n.GetK8sNodeIPs(true)
+			addrs = append(addrs, k8sInternalIPv6, k8sExternalIPv6)
+		}
+		for _, a := range addrs {
+			if a != nil {
+				node.AppendK8sNodeIP(a)
+			}
+		}
 	} else {
 		// if node resource could not be received, fail if
 		// PodCIDR requirement has been requested
