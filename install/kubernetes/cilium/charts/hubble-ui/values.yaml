@@ -5,7 +5,7 @@ image:
   # tag is the container image tag to use.
   # Ref: https://github.com/cilium/hubble-ui/releases
   # Ref: https://quay.io/repository/cilium/hubble-ui?tab=tags
-  tag: v0.5.0
+  tag: v0.6.0
   # pullPolicy is the container image pull policy
   pullPolicy: IfNotPresent
 clusterDomain: cluster.local
@@ -23,7 +23,7 @@ resources: {}
 
 securityContext:
   # Incompatible with image version <= v0.5.0
-  enabled: false
+  enabled: true
 
 serviceAccount:
   annotations: {}
