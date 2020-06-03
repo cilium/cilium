@@ -369,6 +369,9 @@ data:
 {{- if .Values.global.nodePort.device }}
   device: {{ join " " .Values.global.nodePort.device | quote }}
 {{- end }}
+{{- if .Values.global.nodePort.directRoutingDevice }}
+  direct-routing-device: {{ .Values.global.nodePort.directRoutingDevice | quote }}
+{{- end }}
 {{- if .Values.global.nodePort.mode }}
   node-port-mode: {{ .Values.global.nodePort.mode | quote }}
 {{- end }}

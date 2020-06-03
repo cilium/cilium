@@ -253,8 +253,11 @@ func init() {
 	flags.StringSlice(option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
 	option.BindEnv(option.DebugVerbose)
 
-	flags.StringSliceP(option.Device, "d", []string{}, "List of devices facing cluster/external network for attaching bpf_netdev (first device should be one used for direct routing if tunneling is disabled)")
+	flags.StringSliceP(option.Device, "d", []string{}, "List of devices facing cluster/external network for attaching bpf_netdev")
 	option.BindEnv(option.Device)
+
+	flags.String(option.DirectRoutingDevice, "", "Device name used to connect nodes in direct routing mode (derived automatically if empty)")
+	option.BindEnv(option.DirectRoutingDevice)
 
 	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
 	option.BindEnv(option.DatapathMode)
@@ -1688,24 +1691,16 @@ func initKubeProxyReplacementOptions() {
 		}
 	}
 
-	if option.Config.EnableNodePort && len(option.Config.Devices) == 0 {
+	if option.Config.EnableNodePort &&
+		(len(option.Config.Devices) == 0 ||
+			(option.Config.Tunnel == option.TunnelDisabled && option.Config.DirectRoutingDevice == "")) {
+
 		var (
 			defaultRouteDevice string
 			err                error
 		)
 		devSet := map[string]struct{}{}
 		ifidxByAddr := map[string]int{}
-
-		// 1. Use a device with a default route (for backward compatibility)
-		defaultRouteDevice, err = linuxdatapath.NodeDeviceNameWithDefaultRoute()
-		if err != nil {
-			log.WithError(err).Warn("Device with a default route cannot be found " +
-				"for NodePort BPF device detection")
-		} else {
-			devSet[defaultRouteDevice] = struct{}{}
-		}
-
-		// 2. Try to derive devices from K8s Node {Internal,External}IPv{4,6}
 		if addrs, err := netlink.AddrList(nil, netlink.FAMILY_ALL); err != nil {
 			log.WithError(err).Warn(
 				"Unable to retrieve IP addrs for NodePort BPF device detection")
@@ -1713,6 +1708,19 @@ func initKubeProxyReplacementOptions() {
 			for _, a := range addrs {
 				ifidxByAddr[a.IP.String()] = a.LinkIndex
 			}
+		}
+
+		if len(option.Config.Devices) == 0 {
+			// 1. Use a device with a default route (for backward compatibility)
+			defaultRouteDevice, err = linuxdatapath.NodeDeviceNameWithDefaultRoute()
+			if err != nil {
+				log.WithError(err).Warn("Device with a default route cannot be found " +
+					"for NodePort BPF device detection")
+			} else {
+				devSet[defaultRouteDevice] = struct{}{}
+			}
+
+			// 2. Try to derive devices from K8s Node {Internal,External}IPv{4,6}
 			for _, ip := range node.GetK8sNodeIPs() {
 				if ifindex, ok := ifidxByAddr[ip.String()]; ok {
 					link, err := netlink.LinkByIndex(ifindex)
@@ -1740,6 +1748,79 @@ func initKubeProxyReplacementOptions() {
 				option.Config.EnableNodePort = false
 				option.Config.EnableExternalIPs = false
 			}
+		}
+
+		// 3. Detect direct routing device name from node IP addr
+		detectDirectRoutingDev := func() (string, error) {
+			var device string
+
+			if option.Config.EnableIPv4 {
+				nodeIPv4 := node.GetExternalIPv4()
+				if nodeIPv4 == nil {
+					return "", fmt.Errorf("Undefined node IPv4")
+				}
+				ifindex, found := ifidxByAddr[nodeIPv4.String()]
+				if !found {
+					return "", fmt.Errorf("Unable to find a device with %s addr", nodeIPv4)
+				}
+				link, err := netlink.LinkByIndex(ifindex)
+				if err != nil {
+					return "", fmt.Errorf("Unable to find a device with %s addr by %d ifindex", nodeIPv4, ifindex)
+				}
+				device = link.Attrs().Name
+			}
+
+			if option.Config.EnableIPv6 {
+				nodeIPv6 := node.GetIPv6()
+				if nodeIPv6 == nil {
+					return "", fmt.Errorf("Undefined node IPv6")
+				}
+				ifindex, found := ifidxByAddr[nodeIPv6.String()]
+				if !found {
+					return "", fmt.Errorf("Unable to find a device with %s addr", nodeIPv6)
+				}
+				link, err := netlink.LinkByIndex(ifindex)
+				if err != nil {
+					return "", fmt.Errorf("Unable to find a device with %s addr by %d ifindex", nodeIPv6, ifindex)
+				}
+
+				if dev6 := link.Attrs().Name; device != "" && device != dev6 {
+					return "", fmt.Errorf("Direct routing devices %s (ipv4) and %s (ipv6) do not match", device, dev6)
+				} else {
+					device = dev6
+				}
+			}
+
+			return device, nil
+		}
+		if option.Config.EnableNodePort && option.Config.Tunnel == option.TunnelDisabled &&
+			option.Config.DirectRoutingDevice == "" {
+			if len(devSet) == 1 { // use the same device for direct routing
+				for dev := range devSet {
+					option.Config.DirectRoutingDevice = dev
+				}
+			} else {
+				var err error
+				option.Config.DirectRoutingDevice, err = detectDirectRoutingDev()
+				if err != nil {
+					msg := "Unable to detect direct routing device for NodePort BPF."
+					if strict {
+						log.WithError(err).Fatal(msg)
+					} else {
+						log.WithError(err).Warn(msg + " Disabling BPF NodePort feature.")
+						option.Config.EnableHostPort = false
+						option.Config.EnableNodePort = false
+						option.Config.EnableExternalIPs = false
+					}
+				}
+			}
+			if option.Config.DirectRoutingDevice != "" {
+				log.WithField(logfields.Interface, option.Config.DirectRoutingDevice).Info(
+					"Detected direct routing device")
+			}
+		}
+		if option.Config.DirectRoutingDevice != "" {
+			devSet[option.Config.DirectRoutingDevice] = struct{}{}
 		}
 
 		option.Config.Devices = make([]string, 0, len(devSet))
