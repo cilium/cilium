@@ -7,7 +7,7 @@ project="cilium-ci"
 # this is only needs to be set as some of gcloud commands requires it,
 # but as this script uses resource URIs clusters in all locations are
 # going to be discovered and used
-region="us-west2"
+region="us-west1"
 
 export KUBECONFIG="${script_dir}/gke-kubeconfig"
 cluster_uri="$(cat "${script_dir}/cluster-uri")"
@@ -32,14 +32,8 @@ echo "deleting terminating namespaces"
 ./delete-terminating-namespaces.sh
 
 set -e
-    
-echo "scaling ${cluster_uri} to 0"
-node_pools=($(gcloud container node-pools list --project "${project}" --region "${region}" --cluster "${cluster_uri}" --uri))
-if [ "${#node_pools[@]}" -ne 1 ] ; then
-  echo "expected 1 node pool, found ${#node_pools[@]}"
-  exit 1
-fi
 
-gcloud container clusters resize --project "${project}" --region "${region}" --node-pool "${node_pools[1]}" --num-nodes 0 --quiet "${cluster_uri}"
+echo "scaling ${cluster_uri} to 0"
+${script_dir}/resize-cluster.sh 0 ${cluster_uri}
 
 rm -f "${script_dir}/cluster-uri" "${script_dir}/cluster-name" "${script_dir}/cluster-version"
