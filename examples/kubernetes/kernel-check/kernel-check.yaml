@@ -1,0 +1,22 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  labels:
+    app: bpf-kernel-check
+  name: bpf-kernel-check
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      app: bpf-kernel-check
+  template:
+    metadata:
+      labels:
+        app: bpf-kernel-check
+    spec:
+      nodeSelector:
+      # run deployment on specific node, e. g. nodename:cilium
+      containers:
+        - name: cilium
+          image: docker.io/cilium/cilium:latest
+          command: ["cilium", "kernel-check"]
