@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/datapath/loader"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/debug"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -68,6 +69,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/proxy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/sockops"
@@ -422,6 +424,32 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	if option.Config.EnableNodePort {
 		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
 			log.WithError(err).Fatal("Failed to initialize NodePort addrs")
+		}
+	}
+	// BPF masquerade depends on NodePort BPF, so we need to before doing the checks
+	// whether the latter is going to be enabled (this happens after
+	// initKubeProxyReplacementOptions()).
+	if option.Config.Masquerade && option.Config.EnableBPFMasquerade {
+		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
+		if !option.Config.EnableNodePort {
+			log.Fatalf("BPF masquerade requires NodePort (--%s=\"true\")", option.EnableNodePort)
+		}
+		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
+			log.Fatalf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
+		}
+		if option.Config.EgressMasqueradeInterfaces != "" {
+			log.Fatalf("BPF masquerade does not allow to specify devices via --%s. Use --%s instead.", option.EgressMasqueradeInterfaces, option.Device)
+		}
+	} else if option.Config.EnableIPMasqAgent {
+		log.Fatalf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.Masquerade, option.EnableBPFMasquerade)
+	}
+
+	if option.Config.EnableIPMasqAgent {
+		if !option.Config.EnableIPv4 {
+			log.Fatalf("BPF ip-masq-agent requires IPv4 support (--%s=\"true\")", option.EnableIPv4Name)
+		}
+		if !probe.HaveFullLPM() {
+			log.Fatal("BPF ip-masq-agent needs kernel 4.16 or newer")
 		}
 	}
 
