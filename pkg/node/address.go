@@ -1,4 +1,4 @@
-// Copyright 2016-2018 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,6 +43,9 @@ var (
 	ipv6NodePortAddrs   map[string]net.IP // iface name => ip addr
 	ipv4AllocRange      *cidr.CIDR
 	ipv6AllocRange      *cidr.CIDR
+
+	// k8s Node IP (either InternalIP or ExternalIP or nil; the former is prefered)
+	k8sNodeIP net.IP
 
 	ipsecKeyIdentity uint8
 )
@@ -454,4 +457,14 @@ func SetIPsecKeyIdentity(id uint8) {
 // GetIPsecKeyIdentity returns the IPsec key identity of the node
 func GetIPsecKeyIdentity() uint8 {
 	return ipsecKeyIdentity
+}
+
+// GetK8sNodeIPs returns k8s Node IP addr.
+func GetK8sNodeIP() net.IP {
+	return k8sNodeIP
+}
+
+// SetK8sNodeIP sets k8s Node IP addr.
+func SetK8sNodeIP(ip net.IP) {
+	k8sNodeIP = ip
 }
