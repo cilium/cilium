@@ -2,6 +2,7 @@ Admin
 Alemayhu
 Ansible
 Apiserver
+Archs
 BPF
 Backport
 Backporting
@@ -170,6 +171,7 @@ Yunsong
 Zannoni
 Zhou
 Zookeeper
+aarch
 admin
 allocator
 allocators
