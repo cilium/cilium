@@ -30,3 +30,9 @@ indicates success or failure of the test:
     pod-to-b-multi-node-headless-746f84dff5-prk4w           1/1     Running   0          4m49s
     pod-to-b-multi-node-nodeport-7cb9c6cb8b-ksm4h           1/1     Running   0          4m49s
     pod-to-external-fqdn-allow-google-cnp-b7b6bcdcb-tg9dh   1/1     Running   0          4m48s
+
+.. note::
+
+    If you deploy the connectivity check to a single node cluster, pods that check multi-node
+    functionalities will remain in the ``Pending`` state. This is expected since these pods
+    need at least 2 nodes to be scheduled successfully.
