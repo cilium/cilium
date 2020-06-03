@@ -32,6 +32,6 @@ for pair in $OBJECTS; do
   #echo "Checking if $ns/$obj ($pair) is present in $NAMESPACES"
   if ! $(echo "$NAMESPACES" | grep -q "$ns" - ) ; then
     echo "Object $obj in $ns is a namespace orphan; deleting"
-    kubectl delete -n $ns $obj
+    kubectl delete -n $ns $obj --force --grace-period=0
   fi
 done
