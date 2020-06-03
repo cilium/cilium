@@ -1109,12 +1109,6 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	checkHostFirewallWithEgressLB()
-	initKubeProxyReplacementOptions()
-	if option.Config.EnableNodePort {
-		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
-			log.WithError(err).Fatal("Failed to initialize NodePort addrs")
-		}
-	}
 	initClockSourceOption()
 	initSockmapOption()
 

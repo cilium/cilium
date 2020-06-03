@@ -415,6 +415,16 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		bootstrapStats.k8sInit.End(true)
 	}
 
+	// The kube-proxy replacement can be initialized only after establishing
+	// connection to kube-apiserver, and retrieving Node object for self (required
+	// by the NodePort BPF dev detection)
+	initKubeProxyReplacementOptions()
+	if option.Config.EnableNodePort {
+		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
+			log.WithError(err).Fatal("Failed to initialize NodePort addrs")
+		}
+	}
+
 	d.bootstrapIPAM()
 
 	// Start the proxy before we restore endpoints so that we can inject the
