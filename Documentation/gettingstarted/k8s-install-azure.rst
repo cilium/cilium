@@ -94,8 +94,7 @@ Deploy Cilium release via Helm:
      --set global.nodeinit.enabled=true
 
 .. include:: k8s-install-validate.rst
-.. include:: hubble-install.rst
-.. include:: getting-started-next-steps.rst
+.. include:: hubble-enable.rst
 
 .. _azure_limitations:
 

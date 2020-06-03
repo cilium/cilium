@@ -93,6 +93,8 @@ The Peer service obtains peer change notifications by subscribing to Cilium's
 node manager. To this end, it internally defines a handler that implements
 Cilium's datapath node handler interface.
 
+.. _hubble_relay:
+
 Hubble Relay
 ------------
 
