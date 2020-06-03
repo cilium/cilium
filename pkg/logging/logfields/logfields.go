@@ -376,6 +376,9 @@ const (
 	// K8sAPIVersion is the version of the k8s API an object has
 	K8sAPIVersion = "k8sApiVersion"
 
+	// K8sNodeIP is the k8s Node IP (either InternalIP or ExternalIP)
+	K8sNodeIP = "k8sNodeIP"
+
 	// Attempt is the attempt number if an operation is attempted multiple times
 	Attempt = "attempt"
 
