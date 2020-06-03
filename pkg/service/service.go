@@ -235,6 +235,8 @@ func (s *Service) UpsertService(
 	onlyLocalBackends := svc.requireNodeLocalBackends()
 	prevBackendCount := len(svc.backends)
 
+	scopedLog.Info(fmt.Sprintf("onlyLocalBackends: %t | nodeTypes.GetName(): %s", onlyLocalBackends, nodeTypes.GetName()))
+
 	backendsCopy := []lb.Backend{}
 	for _, b := range backends {
 		// Services with trafficPolicy=Local may only use node-local backends.
