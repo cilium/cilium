@@ -7,7 +7,7 @@ project="cilium-ci"
 # this is only needs to be set as some of gcloud commands requires it,
 # but as this script uses resource URIs clusters in all locations are
 # going to be discovered and used
-region="us-west2"
+region="us-west1"
 
 set -e
 
@@ -30,7 +30,7 @@ while [ $locked -ne 0 ]; do
     kubectl annotate deployment lock lock=1
     locked=$?
     echo $locked
-    if [ -n "${BUILD_URL+x}" ] ; then
+    if [ -n "${BUILD_URL+x}" ] && [ $locked -eq 0 ] ; then
       kubectl annotate deployment lock --overwrite "jenkins-build-url=${BUILD_URL}"
     fi
     set -e
@@ -48,14 +48,8 @@ kubectl create ns cilium || true
 echo "deleting terminating namespaces"
 ${script_dir}/delete-terminating-namespaces.sh
 
-echo "scaling $cluster to 2"
-node_pools=($(gcloud container node-pools list --project "${project}" --region "${region}" --cluster "${cluster_uri}" --uri))
-if [ "${#node_pools[@]}" -ne 1 ] ; then
-  echo "expected 1 node pool, found ${#node_pools[@]}"
-  exit 1
-fi
-
-gcloud container clusters resize --project "${project}" --region "${region}" --node-pool "${node_pools[1]}" --num-nodes 2 --quiet "${cluster_uri}"
+echo "scaling ${cluster_uri} to 2"
+${script_dir}/resize-cluster.sh 2 ${cluster_uri}
 
 echo "labeling nodes"
 index=1
