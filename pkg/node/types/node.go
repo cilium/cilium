@@ -223,6 +223,22 @@ func (n *Node) getNodeIP(ipv6 bool) (net.IP, addressing.AddressType) {
 	return backupIP, ipType
 }
 
+// GetK8sNodeIPs returns k8s Node IP (either InternalIP or ExternalIP or nil;
+// the former is prefered).
+func (n *Node) GetK8sNodeIP() net.IP {
+	var externalIP net.IP
+
+	for _, addr := range n.IPAddresses {
+		if addr.Type == addressing.NodeInternalIP {
+			return addr.IP
+		} else if addr.Type == addressing.NodeExternalIP {
+			externalIP = addr.IP
+		}
+	}
+
+	return externalIP
+}
+
 // GetNodeIP returns one of the node's IP addresses available with the
 // following priority:
 // - NodeInternalIP
