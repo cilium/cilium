@@ -4,6 +4,8 @@
 #ifndef __BPF_VERIFIER__
 #define __BPF_VERIFIER__
 
+#include "csum.h"
+
 /* relax_verifier is a dummy helper call to introduce a pruning checkpoint
  * to help relax the verifier to avoid reaching complexity limits on older
  * kernels.
