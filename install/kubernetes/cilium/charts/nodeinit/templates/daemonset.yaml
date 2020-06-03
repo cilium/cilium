@@ -23,7 +23,7 @@ spec:
 {{- end }}
       containers:
         - name: node-init
-          image: gcr.io/google-containers/startup-script:v1
+          image: docker.io/cilium/startup-script:af2a99046eca96c0138551393b21a5c044c7fe79
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
