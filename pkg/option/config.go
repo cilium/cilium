@@ -2154,7 +2154,6 @@ func (c *DaemonConfig) Populate() {
 	c.EnableWellKnownIdentities = viper.GetBool(EnableWellKnownIdentities)
 	c.EndpointInterfaceNamePrefix = viper.GetString(EndpointInterfaceNamePrefix)
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
-	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.DisableK8sServices = viper.GetBool(DisableK8sServices)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
@@ -2212,7 +2211,6 @@ func (c *DaemonConfig) Populate() {
 	c.K8sWatcherQueueSize = uint(viper.GetInt(K8sWatcherQueueSize))
 	c.K8sWatcherEndpointSelector = viper.GetString(K8sWatcherEndpointSelector)
 	c.KeepConfig = viper.GetBool(KeepConfig)
-	c.KVStore = viper.GetString(KVStore)
 	c.KVstoreLeaseTTL = viper.GetDuration(KVstoreLeaseTTL)
 	c.KVstoreKeepAliveInterval = c.KVstoreLeaseTTL / defaults.KVstoreKeepAliveIntervalFactor
 	c.KVstorePeriodicSync = viper.GetDuration(KVstorePeriodicSync)
@@ -2355,10 +2353,6 @@ func (c *DaemonConfig) Populate() {
 		c.FixedIdentityMapping = m
 	}
 
-	if m := viper.GetStringMapString(KVStoreOpt); len(m) != 0 {
-		c.KVStoreOpt = m
-	}
-
 	if m := viper.GetStringMapString(LogOpt); len(m) != 0 {
 		c.LogOpt = m
 	}
@@ -2390,27 +2384,8 @@ func (c *DaemonConfig) Populate() {
 		log.WithError(err).Fatalf("Unable to parse excluded local addresses")
 	}
 
-	c.IdentityAllocationMode = viper.GetString(IdentityAllocationMode)
-	switch c.IdentityAllocationMode {
-	// This is here for tests. Some call Populate without the normal init
-	case "":
-		c.IdentityAllocationMode = IdentityAllocationModeKVstore
-
-	case IdentityAllocationModeKVstore, IdentityAllocationModeCRD:
-		// c.IdentityAllocationMode is set above
-
-	default:
-		log.Fatalf("Invalid identity allocation mode %q. It must be one of %s or %s", c.IdentityAllocationMode, IdentityAllocationModeKVstore, IdentityAllocationModeCRD)
-	}
-	if c.KVStore == "" {
-		if c.IdentityAllocationMode != IdentityAllocationModeCRD {
-			log.Warningf("Running Cilium with %q=%q requires identity allocation via CRDs. Changing %s to %q", KVStore, c.KVStore, IdentityAllocationMode, IdentityAllocationModeCRD)
-			c.IdentityAllocationMode = IdentityAllocationModeCRD
-		}
-		if c.DisableCiliumEndpointCRD {
-			log.Warningf("Running Cilium with %q=%q requires endpoint CRDs. Changing %s to %t", KVStore, c.KVStore, DisableCiliumEndpointCRDName, false)
-			c.DisableCiliumEndpointCRD = false
-		}
+	if err := c.populateIdentityAllocation(); err != nil {
+		log.WithError(err).Fatalf("Unable to parse identity allocation option")
 	}
 
 	switch c.IPAM {
@@ -2503,6 +2478,47 @@ func (c *DaemonConfig) populateHostServicesProtos() error {
 		default:
 			return fmt.Errorf("Protocol other than %s,%s not supported for host reachable services: %s",
 				HostServicesTCP, HostServicesUDP, hostServicesProtos[i])
+		}
+	}
+
+	return nil
+}
+
+func (c *DaemonConfig) populateIdentityAllocation() error {
+	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
+	c.IdentityAllocationMode = viper.GetString(IdentityAllocationMode)
+	c.KVStore = viper.GetString(KVStore)
+
+	if m := viper.GetStringMapString(KVStoreOpt); len(m) != 0 {
+		c.KVStoreOpt = m
+	}
+
+	switch c.IdentityAllocationMode {
+	// This is here for tests. Some call Populate without the normal init
+	case "":
+		c.IdentityAllocationMode = IdentityAllocationModeKVstore
+
+	case IdentityAllocationModeKVstore:
+		// c.IdentityAllocationMode is set above
+
+	case IdentityAllocationModeCRD:
+		if c.KVStore != "" {
+			log.Warningf("Running Cilium in CRD identity allocation mode excludes using kvstore. Unsetting %s", KVStore)
+			c.KVStore = ""
+		}
+
+	default:
+		return fmt.Errorf("Invalid identity allocation mode %q. It must be one of %s or %s", c.IdentityAllocationMode, IdentityAllocationModeKVstore, IdentityAllocationModeCRD)
+	}
+
+	if c.KVStore == "" {
+		if c.IdentityAllocationMode != IdentityAllocationModeCRD {
+			log.Warningf("Running Cilium with %q=%q requires identity allocation via CRDs. Changing %s to %q", KVStore, c.KVStore, IdentityAllocationMode, IdentityAllocationModeCRD)
+			c.IdentityAllocationMode = IdentityAllocationModeCRD
+		}
+		if c.DisableCiliumEndpointCRD {
+			log.Warningf("Running Cilium with %q=%q requires endpoint CRDs. Changing %s to %t", KVStore, c.KVStore, DisableCiliumEndpointCRDName, false)
+			c.DisableCiliumEndpointCRD = false
 		}
 	}
 

@@ -700,6 +700,151 @@ func Test_populateNodePortRange(t *testing.T) {
 	}
 }
 
+func Test_populateIdentityAllocation(t *testing.T) {
+	type want struct {
+		wantIdentityAllocationMode   string
+		wantKVStore                  string
+		wantDisableCiliumEndpointCRD bool
+		wantErr                      bool
+	}
+	tests := []struct {
+		name       string
+		want       want
+		preTestRun func()
+	}{
+		{
+			name: "no identity allocation mode, no kvstore provided, should default to CRD",
+			want: want{
+				wantIdentityAllocationMode:   IdentityAllocationModeCRD,
+				wantKVStore:                  "",
+				wantDisableCiliumEndpointCRD: false,
+				wantErr:                      false,
+			},
+			preTestRun: func() {
+				viper.Reset()
+				viper.Set(IdentityAllocationMode, "")
+				viper.Set(KVStore, "")
+			},
+		},
+		{
+			name: "no identity allocation mode specified, kvstore type provided, should set kvstore mode",
+			want: want{
+				wantIdentityAllocationMode:   IdentityAllocationModeKVstore,
+				wantKVStore:                  "etcd",
+				wantDisableCiliumEndpointCRD: false,
+				wantErr:                      false,
+			},
+			preTestRun: func() {
+				viper.Reset()
+				viper.Set(IdentityAllocationMode, "")
+				viper.Set(KVStore, "etcd")
+			},
+		},
+		{
+			name: "crd mode, kvstore type provided, should unset kvstore type",
+			want: want{
+				wantIdentityAllocationMode:   IdentityAllocationModeCRD,
+				wantKVStore:                  "",
+				wantDisableCiliumEndpointCRD: false,
+				wantErr:                      false,
+			},
+			preTestRun: func() {
+				viper.Reset()
+				viper.Set(IdentityAllocationMode, IdentityAllocationModeCRD)
+				viper.Set(KVStore, "etcd")
+			},
+		},
+		{
+			name: "crd mode provided, endpoint crd enabled, should enable endpoint crd",
+			want: want{
+				wantIdentityAllocationMode:   IdentityAllocationModeCRD,
+				wantKVStore:                  "",
+				wantDisableCiliumEndpointCRD: false,
+				wantErr:                      false,
+			},
+			preTestRun: func() {
+				viper.Reset()
+				viper.Set(IdentityAllocationMode, IdentityAllocationModeCRD)
+				viper.Set(DisableCiliumEndpointCRDName, true)
+			},
+		},
+		{
+			name: "kvstore mode, no kvstore type provided, should set crd mode",
+			want: want{
+				wantIdentityAllocationMode:   IdentityAllocationModeCRD,
+				wantKVStore:                  "",
+				wantDisableCiliumEndpointCRD: false,
+				wantErr:                      false,
+			},
+			preTestRun: func() {
+				viper.Reset()
+				viper.Set(IdentityAllocationMode, IdentityAllocationModeKVstore)
+				viper.Set(KVStore, "")
+			},
+		},
+		{
+			name: "kvstore mode, kvstore type provided, crd endpoint disabled, should be unchanged",
+			want: want{
+				wantIdentityAllocationMode:   IdentityAllocationModeKVstore,
+				wantKVStore:                  "etcd",
+				wantDisableCiliumEndpointCRD: true,
+				wantErr:                      false,
+			},
+			preTestRun: func() {
+				viper.Reset()
+				viper.Set(IdentityAllocationMode, IdentityAllocationModeKVstore)
+				viper.Set(KVStore, "etcd")
+				viper.Set(DisableCiliumEndpointCRDName, true)
+			},
+		},
+		{
+			name: "crd mode provided, should be unchanged",
+			want: want{
+				wantIdentityAllocationMode:   IdentityAllocationModeCRD,
+				wantKVStore:                  "",
+				wantDisableCiliumEndpointCRD: false,
+				wantErr:                      false,
+			},
+			preTestRun: func() {
+				viper.Reset()
+				viper.Set(IdentityAllocationMode, IdentityAllocationModeCRD)
+			},
+		},
+		{
+			name: "invalid identity allocation mode, should return error",
+			want: want{
+				wantIdentityAllocationMode:   "foo",
+				wantKVStore:                  "",
+				wantDisableCiliumEndpointCRD: false,
+				wantErr:                      true,
+			},
+			preTestRun: func() {
+				viper.Reset()
+				viper.Set(IdentityAllocationMode, "foo")
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			tt.preTestRun()
+
+			d := &DaemonConfig{}
+			err := d.populateIdentityAllocation()
+
+			got := want{
+				wantIdentityAllocationMode:   d.IdentityAllocationMode,
+				wantKVStore:                  d.KVStore,
+				wantDisableCiliumEndpointCRD: d.DisableCiliumEndpointCRD,
+				wantErr:                      err != nil,
+			}
+
+			if !reflect.DeepEqual(got, tt.want) {
+				t.Errorf("DaemonConfig.populateIdentityAllocation = got %v, want %v", got, tt.want)
+			}
+		})
+	}
+}
+
 func (s *OptionSuite) TestGetDefaultMonitorQueueSize(c *C) {
 	c.Assert(getDefaultMonitorQueueSize(4), Equals, 4*defaults.MonitorQueueSizePerCPU)
 	c.Assert(getDefaultMonitorQueueSize(1000), Equals, defaults.MonitorQueueSizePerCPUMaximum)
