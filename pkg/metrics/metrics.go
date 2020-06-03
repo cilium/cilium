@@ -1120,6 +1120,17 @@ func GetCounterValue(m prometheus.Counter) float64 {
 	return 0
 }
 
+// GetGaugeValue returns the current value stored for the gauge. This function
+// is useful in tests.
+func GetGaugeValue(m prometheus.Gauge) float64 {
+	var pm dto.Metric
+	err := m.Write(&pm)
+	if err == nil {
+		return *pm.Gauge.Value
+	}
+	return 0
+}
+
 // DumpMetrics gets the current Cilium metrics and dumps all into a
 // models.Metrics structure.If metrics cannot be retrieved, returns an error
 func DumpMetrics() ([]*models.Metric, error) {
