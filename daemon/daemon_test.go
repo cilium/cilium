@@ -26,6 +26,7 @@ import (
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -37,12 +38,14 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/revert"
 
+	"github.com/prometheus/client_golang/prometheus"
 	. "gopkg.in/check.v1"
 )
 
@@ -74,6 +77,9 @@ type DaemonSuite struct {
 	OnSendNotification        func(typ monitorAPI.AgentNotification, text string) error
 	OnNewProxyLogRecord       func(l *accesslog.LogRecord) error
 	OnClearPolicyConsumers    func(id uint16) *sync.WaitGroup
+
+	// Metrics
+	collectors []prometheus.Collector
 }
 
 func setupTestDirectories() {
@@ -116,6 +122,19 @@ func TestMain(m *testing.M) {
 	os.Exit(m.Run())
 }
 
+func (ds *DaemonSuite) SetUpSuite(c *C) {
+	// Register metrics once before running the suite
+	_, ds.collectors = metrics.CreateConfiguration([]string{"cilium_endpoint_state"})
+	metrics.MustRegister(ds.collectors...)
+}
+
+func (ds *DaemonSuite) TearDownSuite(c *C) {
+	// Unregister the metrics after the suite has finished
+	for _, c := range ds.collectors {
+		metrics.Unregister(c)
+	}
+}
+
 func (ds *DaemonSuite) SetUpTest(c *C) {
 
 	setupTestDirectories()
@@ -145,6 +164,14 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnSendNotification = nil
 	ds.OnNewProxyLogRecord = nil
 	ds.OnClearPolicyConsumers = nil
+
+	// Reset the most common endpoint states before each test.
+	for _, s := range []string{
+		string(models.EndpointStateReady),
+		string(models.EndpointStateWaitingForIdentity),
+		string(models.EndpointStateWaitingToRegenerate)} {
+		metrics.EndpointStateCount.WithLabelValues(s).Set(0.0)
+	}
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
