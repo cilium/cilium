@@ -91,6 +91,17 @@ func (d *Daemon) launchHubble() {
 		return
 	}
 
+	if option.Config.HubbleMetricsServer != "" {
+		logger.WithFields(logrus.Fields{
+			"address": option.Config.HubbleMetricsServer,
+			"metrics": option.Config.HubbleMetrics,
+		}).Info("Starting Hubble Metrics server")
+		if err := metrics.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics); err != nil {
+			logger.WithError(err).Warn("Failed to initialize Hubble metrics server")
+			return
+		}
+	}
+
 	payloadParser, err := parser.New(logger, d, d, d, d, d)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
@@ -152,17 +163,6 @@ func (d *Daemon) launchHubble() {
 			<-d.ctx.Done()
 			srv.Stop()
 		}()
-	}
-
-	if option.Config.HubbleMetricsServer != "" {
-		logger.WithFields(logrus.Fields{
-			"address": option.Config.HubbleMetricsServer,
-			"metrics": option.Config.HubbleMetrics,
-		}).Info("Starting Hubble Metrics server")
-		if err := metrics.EnableMetrics(log, option.Config.HubbleMetricsServer, option.Config.HubbleMetrics); err != nil {
-			logger.WithError(err).Warn("Failed to initialize Hubble metrics server")
-			return
-		}
 	}
 }
 
