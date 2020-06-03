@@ -1689,22 +1689,65 @@ func initKubeProxyReplacementOptions() {
 	}
 
 	if option.Config.EnableNodePort && len(option.Config.Devices) == 0 {
-		device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
+		var (
+			defaultRouteDevice string
+			err                error
+		)
+		devSet := map[string]struct{}{}
+		ifidxByAddr := map[string]int{}
+
+		// 1. Use a device with a default route (for backward compatibility)
+		defaultRouteDevice, err = linuxdatapath.NodeDeviceNameWithDefaultRoute()
 		if err != nil {
+			log.WithError(err).Warn("Device with a default route cannot be found " +
+				"for NodePort BPF device detection")
+		} else {
+			devSet[defaultRouteDevice] = struct{}{}
+		}
+
+		// 2. Try to derive devices from K8s Node {Internal,External}IPv{4,6}
+		if addrs, err := netlink.AddrList(nil, netlink.FAMILY_ALL); err != nil {
+			log.WithError(err).Warn(
+				"Unable to retrieve IP addrs for NodePort BPF device detection")
+		} else {
+			for _, a := range addrs {
+				ifidxByAddr[a.IP.String()] = a.LinkIndex
+			}
+			for _, ip := range node.GetK8sNodeIPs() {
+				if ifindex, ok := ifidxByAddr[ip.String()]; ok {
+					link, err := netlink.LinkByIndex(ifindex)
+					if err != nil {
+						log.WithField(logfields.Interface, ifindex).
+							Warn("Device by ifindex cannot be found for NodePort BPF " +
+								"device detection")
+					}
+					devSet[link.Attrs().Name] = struct{}{}
+				} else {
+					log.WithField(logfields.Interface, ifindex).
+						Warn("Device with the IP addr cannot be found for NodePort BPF " +
+							"device detection")
+				}
+			}
+		}
+
+		if len(devSet) == 0 {
 			msg := "BPF NodePort's external facing device could not be determined. Use --device to specify."
 			if strict {
-				log.WithError(err).Fatal(msg)
+				log.Fatal(msg)
 			} else {
-				log.WithError(err).Warn(msg + " Disabling BPF NodePort feature.")
+				log.Warn(msg + " Disabling BPF NodePort feature.")
 				option.Config.EnableHostPort = false
 				option.Config.EnableNodePort = false
 				option.Config.EnableExternalIPs = false
 			}
-		} else {
-			log.WithField(logfields.Interface, device).
-				Info("Using auto-derived device for BPF node port")
-			option.Config.Devices = []string{device}
 		}
+
+		option.Config.Devices = make([]string, 0, len(devSet))
+		for dev := range devSet {
+			option.Config.Devices = append(option.Config.Devices, dev)
+		}
+		log.WithField(logfields.Interface, option.Config.Devices).
+			Info("Using auto-derived devices for BPF node port")
 	}
 
 	if option.Config.EnableNodePort &&
