@@ -616,7 +616,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			By("Testing egress connnectivity works correctly")
 			res = kubectl.ExecPodCmd(
 				namespaceForTest, appPods[helpers.App2],
-				helpers.Ping("8.8.8.8"))
+				helpers.PingWithCount("8.8.8.8", 25))
 			res.ExpectSuccess("Egress ping connectivity should work")
 		})
 
