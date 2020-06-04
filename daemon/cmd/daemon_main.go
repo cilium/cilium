@@ -253,8 +253,13 @@ func init() {
 	flags.StringSlice(option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
 	option.BindEnv(option.DebugVerbose)
 
-	flags.StringSliceP(option.Device, "d", []string{}, "List of devices facing cluster/external network for attaching bpf_host")
+	flags.StringP(option.Device, "d", "",
+		fmt.Sprintf("Device facing cluster/external network for attaching bpf_host. Deprecated in favor of --%s", option.Devices))
+	flags.MarkDeprecated(option.Device, "This option will be removed in v1.10")
 	option.BindEnv(option.Device)
+
+	flags.StringSlice(option.Devices, []string{}, "List of devices facing cluster/external network (used for BPF NodePort, BPF masquerading and host firewall)")
+	option.BindEnv(option.Devices)
 
 	flags.String(option.DirectRoutingDevice, "", "Device name used to connect nodes in direct routing mode (required only by BPF NodePort; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)")
 	option.BindEnv(option.DirectRoutingDevice)
@@ -1857,7 +1862,7 @@ func detectDevices(detectNodePortDevs, detectDirectRoutingDev bool) error {
 	if detectNodePortDevs {
 		if devSet, err = detectNodePortDevices(ifidxByAddr); err != nil {
 			return fmt.Errorf("Unable to determine BPF NodePort devices: %s. Use --%s to specify them",
-				err, option.Device)
+				err, option.Devices)
 		}
 	} else {
 		for _, dev := range option.Config.Devices {
