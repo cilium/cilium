@@ -20,8 +20,9 @@ import (
 	"github.com/cilium/cilium/pkg/checker"
 
 	"github.com/cilium/proxy/go/cilium/api"
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
-	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
+	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/api/v2/route"
+	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
+	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 	. "gopkg.in/check.v1"
 )
 
@@ -29,36 +30,36 @@ type SortSuite struct{}
 
 var _ = Suite(&SortSuite{})
 
-var HeaderMatcher1 = &envoy_api_v2_route.HeaderMatcher{
+var HeaderMatcher1 = &envoy_config_route_v3.HeaderMatcher{
 	Name:                 "aaa",
-	HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "aaa"},
+	HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_RegexMatch{RegexMatch: "aaa"},
 }
 
-var HeaderMatcher2 = &envoy_api_v2_route.HeaderMatcher{
+var HeaderMatcher2 = &envoy_config_route_v3.HeaderMatcher{
 	Name:                 "bbb",
-	HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "aaa"},
+	HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_RegexMatch{RegexMatch: "aaa"},
 }
 
-var HeaderMatcher3 = &envoy_api_v2_route.HeaderMatcher{
+var HeaderMatcher3 = &envoy_config_route_v3.HeaderMatcher{
 	Name:                 "bbb",
-	HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "bbb"},
+	HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_RegexMatch{RegexMatch: "bbb"},
 }
 
-var HeaderMatcher4 = &envoy_api_v2_route.HeaderMatcher{
+var HeaderMatcher4 = &envoy_config_route_v3.HeaderMatcher{
 	Name:                 "bbb",
-	HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_RegexMatch{RegexMatch: "bbb"},
+	HeaderMatchSpecifier: &envoy_config_route_v3.HeaderMatcher_RegexMatch{RegexMatch: "bbb"},
 }
 
 func (s *SortSuite) TestSortHeaderMatchers(c *C) {
-	var slice, expected []*envoy_api_v2_route.HeaderMatcher
+	var slice, expected []*envoy_config_route_v3.HeaderMatcher
 
-	slice = []*envoy_api_v2_route.HeaderMatcher{
+	slice = []*envoy_config_route_v3.HeaderMatcher{
 		HeaderMatcher4,
 		HeaderMatcher3,
 		HeaderMatcher2,
 		HeaderMatcher1,
 	}
-	expected = []*envoy_api_v2_route.HeaderMatcher{
+	expected = []*envoy_config_route_v3.HeaderMatcher{
 		HeaderMatcher1,
 		HeaderMatcher2,
 		HeaderMatcher3,
@@ -71,15 +72,15 @@ func (s *SortSuite) TestSortHeaderMatchers(c *C) {
 var HTTPNetworkPolicyRule1 = &cilium.HttpNetworkPolicyRule{}
 
 var HTTPNetworkPolicyRule2 = &cilium.HttpNetworkPolicyRule{
-	Headers: []*envoy_api_v2_route.HeaderMatcher{HeaderMatcher1},
+	Headers: []*envoy_config_route_v3.HeaderMatcher{HeaderMatcher1},
 }
 
 var HTTPNetworkPolicyRule3 = &cilium.HttpNetworkPolicyRule{
-	Headers: []*envoy_api_v2_route.HeaderMatcher{HeaderMatcher1, HeaderMatcher2},
+	Headers: []*envoy_config_route_v3.HeaderMatcher{HeaderMatcher1, HeaderMatcher2},
 }
 
 var HTTPNetworkPolicyRule4 = &cilium.HttpNetworkPolicyRule{
-	Headers: []*envoy_api_v2_route.HeaderMatcher{HeaderMatcher1, HeaderMatcher3},
+	Headers: []*envoy_config_route_v3.HeaderMatcher{HeaderMatcher1, HeaderMatcher3},
 }
 
 func (s *SortSuite) TestSortHttpNetworkPolicyRules(c *C) {
@@ -190,25 +191,25 @@ func (s *SortSuite) TestSortPortNetworkPolicyRules(c *C) {
 }
 
 var PortNetworkPolicy1 = &cilium.PortNetworkPolicy{
-	Protocol: envoy_api_v2_core.SocketAddress_TCP,
+	Protocol: envoy_config_core_v3.SocketAddress_TCP,
 	Port:     10001,
 	Rules:    nil,
 }
 
 var PortNetworkPolicy2 = &cilium.PortNetworkPolicy{
-	Protocol: envoy_api_v2_core.SocketAddress_UDP,
+	Protocol: envoy_config_core_v3.SocketAddress_UDP,
 	Port:     10001,
 	Rules:    nil,
 }
 
 var PortNetworkPolicy3 = &cilium.PortNetworkPolicy{
-	Protocol: envoy_api_v2_core.SocketAddress_UDP,
+	Protocol: envoy_config_core_v3.SocketAddress_UDP,
 	Port:     10002,
 	Rules:    nil,
 }
 
 var PortNetworkPolicy4 = &cilium.PortNetworkPolicy{
-	Protocol: envoy_api_v2_core.SocketAddress_UDP,
+	Protocol: envoy_config_core_v3.SocketAddress_UDP,
 	Port:     10002,
 	Rules: []*cilium.PortNetworkPolicyRule{
 		PortNetworkPolicyRule1,
@@ -216,7 +217,7 @@ var PortNetworkPolicy4 = &cilium.PortNetworkPolicy{
 }
 
 var PortNetworkPolicy5 = &cilium.PortNetworkPolicy{
-	Protocol: envoy_api_v2_core.SocketAddress_UDP,
+	Protocol: envoy_config_core_v3.SocketAddress_UDP,
 	Port:     10002,
 	Rules: []*cilium.PortNetworkPolicyRule{
 		PortNetworkPolicyRule1,
@@ -225,7 +226,7 @@ var PortNetworkPolicy5 = &cilium.PortNetworkPolicy{
 }
 
 var PortNetworkPolicy6 = &cilium.PortNetworkPolicy{
-	Protocol: envoy_api_v2_core.SocketAddress_UDP,
+	Protocol: envoy_config_core_v3.SocketAddress_UDP,
 	Port:     10002,
 	Rules: []*cilium.PortNetworkPolicyRule{
 		PortNetworkPolicyRule1,

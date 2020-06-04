@@ -18,7 +18,7 @@ import (
 	"sort"
 
 	"github.com/cilium/proxy/go/cilium/api"
-	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
+	envoy_config_route_v3 "github.com/cilium/proxy/go/envoy/config/route/v3"
 )
 
 // PortNetworkPolicySlice implements sort.Interface to sort a slice of
@@ -202,11 +202,11 @@ func SortHTTPNetworkPolicyRules(rules []*cilium.HttpNetworkPolicyRule) {
 
 // HeaderMatcherSlice implements sort.Interface to sort a slice of
 // *envoy_api_v2_route.HeaderMatcher.
-type HeaderMatcherSlice []*envoy_api_v2_route.HeaderMatcher
+type HeaderMatcherSlice []*envoy_config_route_v3.HeaderMatcher
 
 // HeaderMatcherLess reports whether the m1 matcher should sort before the m2
 // matcher.
-func HeaderMatcherLess(m1, m2 *envoy_api_v2_route.HeaderMatcher) bool {
+func HeaderMatcherLess(m1, m2 *envoy_config_route_v3.HeaderMatcher) bool {
 	switch {
 	case m1.Name < m2.Name:
 		return true
@@ -314,6 +314,6 @@ func (s HeaderMatcherSlice) Swap(i, j int) {
 }
 
 // SortHeaderMatchers sorts the given slice.
-func SortHeaderMatchers(headers []*envoy_api_v2_route.HeaderMatcher) {
+func SortHeaderMatchers(headers []*envoy_config_route_v3.HeaderMatcher) {
 	sort.Sort(HeaderMatcherSlice(headers))
 }

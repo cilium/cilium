@@ -17,7 +17,7 @@
 package xds
 
 import (
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
+	envoy_config_core_v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 
 	. "gopkg.in/check.v1"
 )
@@ -27,7 +27,7 @@ type NodeSuite struct{}
 var _ = Suite(&NodeSuite{})
 
 func (s *NodeSuite) TestIstioNodeToIP(c *C) {
-	var node envoy_api_v2_core.Node
+	var node envoy_config_core_v3.Node
 	var ip string
 	var err error
 
