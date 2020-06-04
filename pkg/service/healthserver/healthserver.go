@@ -130,7 +130,6 @@ func (s *ServiceHealthServer) UpsertService(svcID lb.ID, ns, name string, localE
 	// endpoints. We reference count the listeners to make sure we only have
 	// a single listener per port.
 
-	var srv healthHTTPServer
 	svc := NewService(ns, name, localEndpoints)
 	if !foundSvc {
 		// We only bump the reference count if this is a service ID we have
