@@ -521,6 +521,7 @@ programmability
 prometheus
 protobuf
 proxylib
+pullPolicy
 qdisc
 qdiscs
 qede

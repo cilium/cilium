@@ -40,15 +40,8 @@ If you intent to release a new feature release, see the
        git checkout -b pr/prepare-v1.0.3
 
 #. Update the ``VERSION`` file to represent ``X.Y.Z+1``
-#. If this is the first release after creating a new release branch. Adjust the
-   image pull policy for all ``.sed`` files in ``install/kubernetes/cilium/values.yaml`` from
-   ``Always`` to ``IfNotPresent``.
-#. Update Helm chart documentation
 
-   #. Update ``version`` and ``appVersion`` in ``install/kubernetes/cilium/Chart.yaml``
-   #. Update version tag in ``install/kubernetes/cilium/values.yaml``
-
-#. Update the image tag versions in the examples:
+#. Update the image tag versions and pullPolicy in the examples:
 
    ::
 
