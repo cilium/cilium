@@ -446,7 +446,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 			log.Fatalf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
 		}
 		if option.Config.EgressMasqueradeInterfaces != "" {
-			log.Fatalf("BPF masquerade does not allow to specify devices via --%s. Use --%s instead.", option.EgressMasqueradeInterfaces, option.Device)
+			log.Fatalf("BPF masquerade does not allow to specify devices via --%s. Use --%s instead.", option.EgressMasqueradeInterfaces, option.Devices)
 		}
 	} else if option.Config.EnableIPMasqAgent {
 		log.Fatalf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.Masquerade, option.EnableBPFMasquerade)
@@ -463,7 +463,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
 		if err != nil {
 			msg := "Host firewall's external facing device could not be determined. Use --%s to specify."
-			log.WithError(err).Fatalf(msg, option.Device)
+			log.WithError(err).Fatalf(msg, option.Devices)
 		}
 		log.WithField(logfields.Interface, device).
 			Info("Using auto-derived device for host firewall")

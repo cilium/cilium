@@ -354,6 +354,12 @@ data:
   enable-host-firewall: {{ .Values.global.hostFirewall | quote }}
 {{- end}}
 
+{{- if .Values.global.devices }}
+  # List of devices used to attach bpf_host.o (implements BPF NodePort,
+  # host-firewall and BPF masquerading)
+  devices: {{ join " " .Values.global.devices | quote }}
+{{- end }}
+
 {{- if .Values.global.kubeProxyReplacement }}
   kube-proxy-replacement:  {{ .Values.global.kubeProxyReplacement | quote }}
 {{- end}}
@@ -383,7 +389,7 @@ data:
   node-port-range: {{ .Values.global.nodePort.range | quote }}
 {{- end }}
 {{- if .Values.global.nodePort.device }}
-  device: {{ join " " .Values.global.nodePort.device | quote }}
+  device: {{ .Values.global.nodePort.device | quote }}
 {{- end }}
 {{- if .Values.global.nodePort.directRoutingDevice }}
   direct-routing-device: {{ .Values.global.nodePort.directRoutingDevice | quote }}
