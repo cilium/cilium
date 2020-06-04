@@ -23,6 +23,7 @@ import (
 	"regexp"
 	"strconv"
 	"strings"
+	"sync/atomic"
 	"time"
 
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
@@ -138,7 +139,7 @@ type DNSProxy struct {
 
 	// rejectReply is the OPCode send from the DNS-proxy to the endpoint if the
 	// DNS request is invalid
-	rejectReply int
+	rejectReply int32
 }
 
 // perEPAllow maps EndpointIDs to ports + selectors + rules
@@ -372,9 +373,9 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, looku
 		allowed:                  make(perEPAllow),
 		restored:                 make(perEPRestored),
 		restoredEPs:              make(restoredEPs),
-		rejectReply:              dns.RcodeRefused,
 		EnableDNSCompression:     enableDNSCompression,
 	}
+	atomic.StoreInt32(&p.rejectReply, dns.RcodeRefused)
 
 	// Start the DNS listeners on UDP and TCP
 	var (
@@ -625,7 +626,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 // The returned error is logged with scopedLog and is returned for convenience
 func (p *DNSProxy) sendRefused(scopedLog *logrus.Entry, w dns.ResponseWriter, request *dns.Msg) (err error) {
 	refused := new(dns.Msg)
-	refused.SetRcode(request, p.rejectReply)
+	refused.SetRcode(request, int(atomic.LoadInt32(&p.rejectReply)))
 
 	if err = w.WriteMsg(refused); err != nil {
 		scopedLog.WithError(err).Error("Cannot send REFUSED response")
@@ -638,9 +639,9 @@ func (p *DNSProxy) sendRefused(scopedLog *logrus.Entry, w dns.ResponseWriter, re
 func (p *DNSProxy) SetRejectReply(opt string) {
 	switch strings.ToLower(opt) {
 	case strings.ToLower(option.FQDNProxyDenyWithNameError):
-		p.rejectReply = dns.RcodeNameError
+		atomic.StoreInt32(&p.rejectReply, dns.RcodeNameError)
 	case strings.ToLower(option.FQDNProxyDenyWithRefused):
-		p.rejectReply = dns.RcodeRefused
+		atomic.StoreInt32(&p.rejectReply, dns.RcodeRefused)
 	default:
 		log.Infof("DNS reject response '%s' is not valid, available options are '%v'",
 			opt, option.FQDNRejectOptions)
