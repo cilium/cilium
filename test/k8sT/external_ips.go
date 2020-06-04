@@ -244,7 +244,7 @@ var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 				deployCilium(map[string]string{
 					"global.tunnel":               "disabled",
 					"global.autoDirectNodeRoutes": "true",
-					"global.nodePort.device":      external_ips.PublicInterfaceName,
+					"global.devices":              external_ips.PublicInterfaceName,
 					"global.nodePort.enabled":     "true",
 					"global.bpfMasquerade":        "false",
 				})
@@ -289,7 +289,7 @@ var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 			BeforeAll(func() {
 				deployCilium(map[string]string{
 					"global.tunnel":           "vxlan",
-					"global.nodePort.device":  external_ips.PublicInterfaceName,
+					"global.devices":          external_ips.PublicInterfaceName,
 					"global.nodePort.enabled": "true",
 					"global.bpfMasquerade":    "false",
 				})
