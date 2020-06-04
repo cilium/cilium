@@ -176,6 +176,7 @@ func (d *Daemon) fetchK8sLabelsAndAnnotations(nsName, podName string) (*slim_cor
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
 	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed due to invalid data")
+	ep.SetState(endpoint.StateInvalid, "Invalid endpoint")
 	return nil, PutEndpointIDInvalidCode, err
 }
 
