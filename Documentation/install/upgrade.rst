@@ -328,22 +328,47 @@ IMPORTANT: Changes required before upgrading to 1.8.0
    Do not upgrade to 1.8.0 before reading the following section and completing
    the required steps.
 
-* While operating in direct-routing mode (``--tunnel=disabled``), traffic with
-  a destination address matching a particular CIDR is automatically excluded
-  from being masqueraded. So far, this CIDR consisted of
-  ``<alloc-cidr>/<size>`` where the size could be set with the option
-  ``--ipv4-cluster-cidr-mask-size``. This was not always desirable and
-  limiting, therefore Cilium 1.6 had already introduced the option
-  ``--native-routing-cidr`` allowing to explicitly specify the CIDR for native
-  routing. With Cilium 1.8, the option ``--ipv4-cluster-cidr-mask-size`` is
-  being deprecated and all users must use the option ``--native-routing-cidr``
-  instead.
+* **Important:** The masquerading behavior has changed, depending on how you
+  have configured masquerading you need to take action to avoid potential
+  NetworkPolicy related drops:
 
-  .. note:: The ENI IPAM mode automatically derives the native routing CIDR so
-            no action is required.
+  Running the default configuration (``--tunnel=vxlan`` or ``--tunnel=geneve``)
+    No action required. The behavior remains the same as before. All traffic
+    leaving the node that is not encapsulated is automatically masqueraded. You
+    may use ``--native-routing-cidr`` to further restrict traffic subject to
+    masquerading.
 
-  The CiliumNetworkPolicy Status includes information which allows to derive
-  when all nodes in a cluster are enforcing a particular ``CiliumNetworkPolicy``.
+  Already using ``--native-routing-cidr`` and/or ``--egress-masquerade-interfaces``
+    No action required. Use of ``--native-routing-cidr`` is the preferred way of
+    configuring masquerading.
+
+  Running in AWS ENI mode (``--ipam=eni``)
+    No action required. The value for ``--native-routing-cidr`` is
+    automatically derived from the AWS API and set to the CIDR of the VPC. You
+    may overwrite the value if needed.
+
+  Running with ``--masquerade=false`` (all chaining configurations)
+    No action required.
+
+  Running in direct-routing configuration (``--tunnel=disabled``)
+    The behavior has changed: Previously, the destination address range
+    excluded from masquerading was defined by the options ``--ipv4-range`` and
+    ``--ipv4-cluster-cidr-mask-size``. When unspecified, this was set to the
+    value ``10.0.0.0/8``. You **must** set the ``--native-routing-cidr`` option
+    and set it to the CIDR for which masquerading should be omitted. This is
+    typically the PodCIDR range of the cluster but can also be set to the IP
+    range of the network the node is running on to avoid masquerading for
+    directly reachable destinations outside of the cluster.
+
+    **Important:** If not set, all traffic leaving the node will be
+    masqueraded. This will result in all traffic within the cluster to be
+    considered coming from identity ``remote-node`` instead of the true pod
+    identity. If NetworkPolicies are in place, then this will typically result
+    in traffic being dropped due to policy.
+
+  For more information, see section :ref:`concepts_masquerading`.
+
+* When all nodes in a cluster are enforcing a particular ``CiliumNetworkPolicy``.
   For large clusters running CRD mode, this visibility is costly as it requires
   all nodes to participate. In order to ensure scalability, ``CiliumNetworkPolicy``
   status visibility has been disabled for all new deployments. If you want to
