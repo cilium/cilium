@@ -463,29 +463,30 @@ global:
     eventQueueSize: ~
     # Number of recent flows for Hubble to cache. Defaults to 4096.
     flowBufferSize: ~
-    # Specifies the address the metric server listens to (e.g. ":12345"). The metric server is
-    # disabled if this value is empty.
-    metricsServer: ~
-    # List of metrics to collect, for example:
-    #
-    #   metrics:
-    #   - dns:query;ignoreAAAA
-    #   - drop
-    #   - tcp
-    #   - flow
-    #   - port-distribution
-    #   - icmp
-    #   - http
-    #
-    # You can specify the list of metrics from the helm CLI:
-    #
-    #   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,port-distribution,icmp,http}"
-    #
+    # Hubble metrics configuration.
     # See https://github.com/cilium/hubble/blob/master/Documentation/metrics.md for more comprehensive
     # documentation about Hubble's metric collection.
     metrics:
-      enabled:
-        - drop
+      # List of metrics to collect. If empty or null, metrics are disabled.
+      # Example:
+      #
+      #   enabled:
+      #   - dns:query;ignoreAAAA
+      #   - drop
+      #   - tcp
+      #   - flow
+      #   - port-distribution
+      #   - icmp
+      #   - http
+      #
+      # You can specify the list of metrics from the helm CLI:
+      #
+      #   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,port-distribution,icmp,http}"
+      #
+      enabled: ~
+      # Specifies the port the metric server listens on (e.g. 9091).
+      port: 9091
+      # Creates ServiceMonitor resources for Prometheus Operator
       serviceMonitor:
         enabled: false
 
