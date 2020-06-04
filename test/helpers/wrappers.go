@@ -59,8 +59,8 @@ func Wrk(endpoint string) string {
 
 // CurlFail returns the string representing the curl command with `-s` and
 // `--fail` options enabled to curl the specified endpoint.  It takes a
-// variadic optinalValues argument. This is passed on to fmt.Sprintf() and uses
-// into the curl message
+// variadic optionalValues argument. This is passed on to fmt.Sprintf() and
+// used into the curl message
 func CurlFail(endpoint string, optionalValues ...interface{}) string {
 	statsInfo := `time-> DNS: '%{time_namelookup}(%{remote_ip})', Connect: '%{time_connect}',` +
 		`Transfer '%{time_starttransfer}', total '%{time_total}'`
@@ -69,7 +69,7 @@ func CurlFail(endpoint string, optionalValues ...interface{}) string {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
 	}
 	return fmt.Sprintf(
-		`curl --path-as-is -s -D /dev/stderr --fail --connect-timeout %[1]d --max-time %[2]d %[3]s -w "%[4]s"`,
+		`curl --path-as-is -s -D /dev/stderr --fail --connect-timeout %d --max-time %d %s -w "%s"`,
 		CurlConnectTimeout, CurlMaxTimeout, endpoint, statsInfo)
 }
 
