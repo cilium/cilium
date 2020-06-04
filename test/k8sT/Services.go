@@ -913,22 +913,24 @@ var _ = Describe("K8sServicesTest", func() {
 				GinkgoPrint("Skipping externalTrafficPolicy=Local test from external node")
 			}
 
-			// Checks that requests to k8s2 succeed, while requests to k8s1 are dropped
+			// Checks that requests to k8s2 succeed, while external requests to k8s1 are dropped
 			err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local-k8s2").Unmarshal(&data)
 			ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service")
 
 			httpURL = getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort)
 			testCurlFromPodInHostNetNS(httpURL, count, k8s1NodeName)
-			testCurlFromPodInHostNetNS(httpURL, count, k8s2NodeName)
 			testCurlFromPodInHostNetNS(tftpURL, count, k8s1NodeName)
+			testCurlFromPodInHostNetNS(httpURL, count, k8s2NodeName)
 			testCurlFromPodInHostNetNS(tftpURL, count, k8s2NodeName)
 
 			httpURL = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
-			testCurlFailFromPodInHostNetNS(httpURL, count, k8s1NodeName)
+			// Local requests should be load-balanced
+			testCurlFromPodInHostNetNS(httpURL, count, k8s1NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, k8s1NodeName)
+			// Requests from another node are not
 			testCurlFailFromPodInHostNetNS(httpURL, count, k8s2NodeName)
-			testCurlFailFromPodInHostNetNS(tftpURL, count, k8s1NodeName)
 			testCurlFailFromPodInHostNetNS(tftpURL, count, k8s2NodeName)
 		}
 
