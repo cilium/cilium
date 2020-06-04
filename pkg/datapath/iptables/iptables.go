@@ -561,13 +561,27 @@ func (m *IptablesManager) installStaticProxyRules() error {
 				"-j", "ACCEPT"), false)
 		}
 		if err == nil {
-			// No conntrack for proxy return traffic
+			// No conntrack for proxy return traffic that is heading to lxc+
 			err = runProg("iptables", append(
 				m.waitArgs,
 				"-t", "raw",
 				"-A", ciliumOutputRawChain,
 				// Return traffic is from a local node POD address
 				"!", "-s", node.GetInternalIPv4().String(),
+				"-o", "lxc+",
+				"-m", "mark", "--mark", matchProxyReply,
+				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
+				"-j", "NOTRACK"), false)
+		}
+		if err == nil {
+			// No conntrack for proxy return traffic that is heading to cilium_host
+			err = runProg("iptables", append(
+				m.waitArgs,
+				"-t", "raw",
+				"-A", ciliumOutputRawChain,
+				// Return traffic is from a local node POD address
+				"!", "-s", node.GetInternalIPv4().String(),
+				"-o", "cilium_host",
 				"-m", "mark", "--mark", matchProxyReply,
 				"-m", "comment", "--comment", "cilium: NOTRACK for proxy return traffic",
 				"-j", "NOTRACK"), false)
