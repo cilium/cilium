@@ -1829,11 +1829,65 @@ func initKubeProxyReplacementOptions() {
 }
 
 func detectDevices() ([]string, error) {
-	device, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
-	if err != nil {
-		return nil, err
+	var err error
+	var devSet map[string]struct{}  // iface name
+	ifidxByAddr := map[string]int{} // str(ip addr) => ifindex
+
+	if addrs, err := netlink.AddrList(nil, netlink.FAMILY_ALL); err != nil {
+		// Do not return error, as a device with a default route can be used
+		// later as a last resort
+		log.WithError(err).Warn(
+			"Cannot retrieve host IP addrs for BPF NodePort device detection")
+	} else {
+		for _, a := range addrs {
+			ifidxByAddr[a.IP.String()] = a.LinkIndex
+		}
 	}
-	return []string{device}, nil
+
+	if devSet, err = detectNodePortDevices(ifidxByAddr); err != nil {
+		return nil, fmt.Errorf("Unable to determine BPF NodePort devices. Use --%s to specify them",
+			option.Device)
+	}
+
+	devList := make([]string, 0, len(devSet))
+	for dev := range devSet {
+		devList = append(devList, dev)
+	}
+	return devList, nil
+}
+
+func detectNodePortDevices(ifidxByAddr map[string]int) (map[string]struct{}, error) {
+	devSet := map[string]struct{}{}
+
+	// Find a device with a default route (for backward compatibility)
+	defaultRouteDevice, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
+	if err != nil {
+		log.WithError(err).Warn(
+			"Device with a default route cannot be found for NodePort BPF device detection")
+	} else {
+		devSet[defaultRouteDevice] = struct{}{}
+	}
+
+	// Derive a device from k8s Node IP
+	nodeIP := node.GetK8sNodeIP()
+	if nodeIP != nil {
+		ifindex, found := ifidxByAddr[nodeIP.String()]
+		if !found {
+			return nil, fmt.Errorf("Cannot find device with %s addr", nodeIP)
+		}
+		link, err := netlink.LinkByIndex(ifindex)
+		if err != nil {
+			return nil, fmt.Errorf("Cannot find device with %s addr by %d ifindex",
+				nodeIP, ifindex)
+		}
+		devSet[link.Attrs().Name] = struct{}{}
+	}
+
+	if len(devSet) == 0 {
+		return nil, fmt.Errorf("Cannot determine any device for BPF NodePort")
+	}
+
+	return devSet, nil
 }
 
 // checkNodePortAndEphemeralPortRanges checks whether the ephemeral port range
