@@ -40,10 +40,16 @@ const (
 	UDP_RR = PerfTest("UDP_RR")
 )
 
+// PingWithCount returns the string representing the ping command to ping the
+// specified endpoint, and takes a custom number of requests to send.
+func PingWithCount(endpoint string, count uint) string {
+	return fmt.Sprintf("ping -W %d -c %d %s", PingTimeout, count, endpoint)
+}
+
 // Ping returns the string representing the ping command to ping the specified
 // endpoint.
 func Ping(endpoint string) string {
-	return fmt.Sprintf("ping -W 5 -c %d %s", PingCount, endpoint)
+	return PingWithCount(endpoint, PingCount)
 }
 
 // Ping6 returns the string representing the ping6 command to ping6 the
