@@ -114,8 +114,12 @@ const (
 	// DebugVerbose is the argument enables verbose log message for particular subsystems
 	DebugVerbose = "debug-verbose"
 
-	// List of devices facing cluster/external network for attaching bpf_netdev
+	// List of devices facing cluster/external network for attaching bpf_host
 	Device = "device"
+
+	// DirectRoutingDevice is the name of a device used to connect nodes in
+	// direct routing mode (only required by BPF NodePort)
+	DirectRoutingDevice = "direct-routing-device"
 
 	// DisableConntrack disables connection tracking
 	DisableConntrack = "disable-conntrack"
@@ -1182,19 +1186,20 @@ type IpvlanConfig struct {
 
 // DaemonConfig is the configuration used by Daemon.
 type DaemonConfig struct {
-	BpfDir           string     // BPF template files directory
-	LibDir           string     // Cilium library files directory
-	RunDir           string     // Cilium runtime directory
-	NAT46Prefix      *net.IPNet // NAT46 IPv6 Prefix
-	Devices          []string   // bpf_netdev device
-	DevicePreFilter  string     // Prefilter device
-	ModePreFilter    string     // Prefilter mode
-	XDPDevice        string     // XDP device
-	XDPMode          string     // XDP mode, values: { xdpdrv | xdpgeneric | none }
-	HostV4Addr       net.IP     // Host v4 address of the snooping device
-	HostV6Addr       net.IP     // Host v6 address of the snooping device
-	EncryptInterface string     // Set with name of network facing interface to encrypt
-	EncryptNode      bool       // Set to true for encrypting node IP traffic
+	BpfDir              string     // BPF template files directory
+	LibDir              string     // Cilium library files directory
+	RunDir              string     // Cilium runtime directory
+	NAT46Prefix         *net.IPNet // NAT46 IPv6 Prefix
+	Devices             []string   // bpf_host device
+	DirectRoutingDevice string     // Direct routing device (used only by NodePort BPF)
+	DevicePreFilter     string     // Prefilter device
+	ModePreFilter       string     // Prefilter mode
+	XDPDevice           string     // XDP device
+	XDPMode             string     // XDP mode, values: { xdpdrv | xdpgeneric | none }
+	HostV4Addr          net.IP     // Host v4 address of the snooping device
+	HostV6Addr          net.IP     // Host v6 address of the snooping device
+	EncryptInterface    string     // Set with name of network facing interface to encrypt
+	EncryptNode         bool       // Set to true for encrypting node IP traffic
 
 	Ipvlan IpvlanConfig // Ipvlan related configuration
 
@@ -2150,6 +2155,7 @@ func (c *DaemonConfig) Populate() {
 	c.Debug = viper.GetBool(DebugArg)
 	c.DebugVerbose = viper.GetStringSlice(DebugVerbose)
 	c.Devices = viper.GetStringSlice(Device)
+	c.DirectRoutingDevice = viper.GetString(DirectRoutingDevice)
 	c.DisableConntrack = viper.GetBool(DisableConntrack)
 	c.EnableIPv4 = getIPv4Enabled()
 	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)

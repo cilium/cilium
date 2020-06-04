@@ -708,7 +708,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 	if n.enableNeighDiscovery {
 		var ifaceName string
 		if option.Config.EnableNodePort {
-			ifaceName = option.Config.Devices[0]
+			ifaceName = option.Config.DirectRoutingDevice
 		} else {
 			ifaceName = option.Config.EncryptInterface
 		}
