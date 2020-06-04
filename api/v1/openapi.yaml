@@ -1094,6 +1094,7 @@ definitions:
       - ready
       - disconnecting
       - disconnected
+      - invalid
   EndpointHealth:
     description: Health of the endpoint
     type: object

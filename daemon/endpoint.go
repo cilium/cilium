@@ -149,6 +149,7 @@ func fetchK8sLabels(ep *endpoint.Endpoint) (labels.Labels, labels.Labels, error)
 
 func invalidDataError(ep *endpoint.Endpoint, err error) (*endpoint.Endpoint, int, error) {
 	ep.Logger(daemonSubsys).WithError(err).Warning("Creation of endpoint failed due to invalid data")
+	ep.SetState(endpoint.StateInvalid, "Invalid endpoint")
 	return nil, PutEndpointIDInvalidCode, err
 }
 

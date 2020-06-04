@@ -47,7 +47,7 @@ func (e *Endpoint) RUnlock() {
 }
 
 // UnconditionalLock should be used only for locking endpoint for
-// - setting its state to StateDisconnected
+// - setting its state to StateDisconnected or StateInvalid
 // - handling regular Lock errors
 // - reporting endpoint status (like in LogStatus method)
 // Use Lock in all other cases
