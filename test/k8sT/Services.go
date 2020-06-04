@@ -383,7 +383,7 @@ var _ = Describe("K8sServicesTest", func() {
 		testCurlFailFromPodInHostNetNS := func(url string, count int, fromPod string) {
 			By("Making %d curl requests from %s to %q", count, fromPod, url)
 			for i := 1; i <= count; i++ {
-				res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlFail(url, "--max-time 3"))
+				res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlFail(url))
 				ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
 				ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 					"%s host unexpectedly connected to service %q, it should fail", fromPod, url)
