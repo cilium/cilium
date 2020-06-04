@@ -17,6 +17,7 @@ package k8sTest
 import (
 	"context"
 	"fmt"
+	"runtime"
 	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
@@ -51,7 +52,13 @@ var _ = Describe("K8sIstioTest", func() {
 			// "global.proxy.sidecarImageRegex": "jrajahalme/istio_proxy",
 		}
 
-		ciliumIstioctlURL = "https://github.com/cilium/istio/releases/download/" + istioVersion + prerelease + "/cilium-istioctl-" + istioVersion + "-linux.tar.gz"
+		// Map of tested runtimes for cilium-istioctl
+		ciliumIstioctlOSes = map[string]string{
+			"darwin": "osx",
+			"linux":  "linux",
+		}
+
+		ciliumIstioctlURL = "https://github.com/cilium/istio/releases/download/" + istioVersion + prerelease + "/cilium-istioctl-" + istioVersion + "-" + ciliumIstioctlOSes[runtime.GOOS] + ".tar.gz"
 		// istioServiceNames is the set of Istio services needed for the tests
 		istioServiceNames = []string{
 			"istio-ingressgateway",
@@ -92,7 +99,7 @@ var _ = Describe("K8sIstioTest", func() {
 		res = kubectl.NamespaceLabel(helpers.DefaultNamespace, "istio-injection=enabled")
 		res.ExpectSuccess("unable to label namespace %q", helpers.DefaultNamespace)
 
-		By("Deplying Istio")
+		By("Deploying Istio")
 		res = kubectl.Exec("./cilium-istioctl manifest apply -y" + istioctlParams)
 		res.ExpectSuccess("unable to deploy Istio")
 	})
@@ -167,7 +174,7 @@ var _ = Describe("K8sIstioTest", func() {
 
 	// This is a subset of Services's "Bookinfo Demo" test suite, with the pods
 	// injected with Istio sidecar proxies and Istio mTLS enabled.
-	Context("Istio Bookinfo Demo", func() {
+	SkipContextIf(func() bool { return ciliumIstioctlOSes[runtime.GOOS] == "" }, "Istio Bookinfo Demo", func() {
 
 		var (
 			resourceYAMLPaths []string
