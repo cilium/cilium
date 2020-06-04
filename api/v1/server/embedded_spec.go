@@ -2110,7 +2110,8 @@ func init() {
         "restoring",
         "ready",
         "disconnecting",
-        "disconnected"
+        "disconnected",
+        "invalid"
       ]
     },
     "EndpointStatus": {
@@ -5571,7 +5572,8 @@ func init() {
         "restoring",
         "ready",
         "disconnecting",
-        "disconnected"
+        "disconnected",
+        "invalid"
       ]
     },
     "EndpointStatus": {
