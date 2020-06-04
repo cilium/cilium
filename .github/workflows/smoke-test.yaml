@@ -5,6 +5,9 @@ on:
   push:
     branches:
       - master
+env:
+  KIND_VERSION: v0.8.1
+  KIND_CONFIG: .github/kind-config.yaml
 
 jobs:
   preflight-clusterrole:
@@ -30,51 +33,62 @@ jobs:
           cd install/kubernetes
           make all
           git diff --exit-code
-  lint-test:
+
+  lint:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
-        uses: actions/checkout@v1
+        uses: actions/checkout@v2
 
       - name: Run helm lint
         run: |
           cd install/kubernetes/cilium
           helm lint --with-subcharts --values values.yaml
 
+  conformance-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
       - name: Build docker images
         run: |
           make docker-image-no-clean
           make docker-operator-generic-image
 
-      - name: Prevent K8s from pulling images
-        run: |
-          sed -i 's;pullPolicy: Always;pullPolicy: Never;g' install/kubernetes/cilium/values.yaml
-
       - name: Create kind cluster
         uses: helm/kind-action@v1.0.0-rc.1
         with:
-          version: v0.8.1
+          version: ${{ env.KIND_VERSION }}
+          config: ${{ env.KIND_CONFIG }}
 
       - name: Load local images into kind cluster
         run: |
           kind load docker-image --name chart-testing cilium/cilium:latest
           kind load docker-image --name chart-testing cilium/operator-generic:latest
 
-      # This test is just to make sure the helm chart can be installed. It will not replace existing integration tests
-      - name: Run chart-testing (install)
-        uses: helm/chart-testing-action@v1.0.0-rc.2
-        with:
-          command: install
-          config: install/kubernetes/chart-testing.yaml
-
-      - name: Install ginkgo
+      - name: Install cilium chart
         run: |
-          cd $HOME
-          go get -u github.com/onsi/ginkgo/ginkgo
-          go get -u github.com/onsi/gomega/...
+          helm install cilium ./install/kubernetes/cilium \
+             --wait \
+             --namespace kube-system \
+             --set global.nodeinit.enabled=true \
+             --set global.kubeProxyReplacement=partial \
+             --set global.hostServices.enabled=false \
+             --set global.externalIPs.enabled=true \
+             --set global.nodePort.enabled=true \
+             --set global.hostPort.enabled=true \
+             --set config.ipam=kubernetes \
+             --set global.pullPolicy=Never
 
-      - name: Run test suite
+          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
+          # To make sure that cilium CRD is available (default timeout is 5m)
+          # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
+          kubectl wait --for condition=established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
+
+      - name: Run conformance test (e.g. connectivity check)
+        env:
+          CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
         run: |
-          cd test
-          export PATH=$PATH:$HOME/go/bin
-          ginkgo -v --focus="K8sConformance Portmap Chaining Check one node" -- -cilium.provision=false -test.v --cilium.kubeconfig=${HOME}/.kube/config -cilium.image=cilium/cilium:latest -cilium.operator-image=cilium/operator-generic:latest
+          kubectl apply -f $CONFORMANCE_TEMPLATE
+          kubectl wait --for=condition=Available --all deployment --timeout=5m

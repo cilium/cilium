@@ -1,8 +1,0 @@
-# See https://github.com/helm/chart-testing#configuration
-chart-dirs:
-  - install/kubernetes
-all: true
-debug: true
-validate-maintainers: false
-check-version-increment: false
-helm-extra-args: --timeout 10m0s
