@@ -96,6 +96,10 @@ const (
 	// StateRestoring is used to set the endpoint is being restored.
 	StateRestoring = string(models.EndpointStateRestoring)
 
+	// StateInvalid is used when an endpoint failed during creation due to
+	// invalid data.
+	StateInvalid = string(models.EndpointStateInvalid)
+
 	// IpvlanMapName specifies the tail call map for EP on egress used with ipvlan.
 	IpvlanMapName = "cilium_lxc_ipve_"
 )
@@ -1319,7 +1323,7 @@ func (e *Endpoint) setState(toState, reason string) bool {
 		}
 	case StateWaitingForIdentity:
 		switch toState {
-		case StateReady, StateDisconnecting:
+		case StateReady, StateDisconnecting, StateInvalid:
 			goto OKState
 		}
 	case StateReady:
@@ -1332,8 +1336,9 @@ func (e *Endpoint) setState(toState, reason string) bool {
 		case StateDisconnected:
 			goto OKState
 		}
-	case StateDisconnected:
-		// No valid transitions, as disconnected is a terminal state for the endpoint.
+	case StateDisconnected, StateInvalid:
+		// No valid transitions, as disconnected and invalid are terminal
+		// states for the endpoint.
 	case StateWaitingToRegenerate:
 		switch toState {
 		// Note that transitions to StateWaitingToRegenerate are not allowed,
@@ -1387,9 +1392,10 @@ OKState:
 			WithLabelValues(fromState).Dec()
 	}
 
-	// Since StateDisconnected is the final state, after which the
-	// endpoint is gone, we should not increment metrics for this state.
-	if toState != "" && toState != StateDisconnected {
+	// Since StateDisconnected and StateInvalid are final states, after which
+	// the endpoint is gone or doesn't exist, we should not increment metrics
+	// for these states.
+	if toState != "" && toState != StateDisconnected && toState != StateInvalid {
 		metrics.EndpointStateCount.
 			WithLabelValues(toState).Inc()
 	}
@@ -1403,7 +1409,7 @@ func (e *Endpoint) BuilderSetStateLocked(toState, reason string) bool {
 	// Validate the state transition.
 	fromState := e.state
 	switch fromState { // From state
-	case StateWaitingForIdentity, StateReady, StateDisconnecting, StateDisconnected:
+	case StateWaitingForIdentity, StateReady, StateDisconnecting, StateDisconnected, StateInvalid:
 		// No valid transitions for the builder
 	case StateWaitingToRegenerate, StateRestoring:
 		switch toState {
@@ -1454,9 +1460,10 @@ OKState:
 			WithLabelValues(fromState).Dec()
 	}
 
-	// Since StateDisconnected is the final state, after which the
-	// endpoint is gone, we should not increment metrics for this state.
-	if toState != "" && toState != StateDisconnected {
+	// Since StateDisconnected and StateInvalid are final states, after which
+	// the endpoint is gone or doesn't exist, we should not increment metrics
+	// for these states.
+	if toState != "" && toState != StateDisconnected && toState != StateInvalid {
 		metrics.EndpointStateCount.
 			WithLabelValues(toState).Inc()
 	}
