@@ -7,9 +7,9 @@
 .. _arch_ip_connectivity:
 .. _multi host networking:
 
-*********************
-Multi Host Networking
-*********************
+**********
+Networking
+**********
 
 Cilium is in full control over both ends of the connection for connections
 inside the cluster. It can thus transmit state and security context information
