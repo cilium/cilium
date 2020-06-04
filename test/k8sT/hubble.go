@@ -113,7 +113,6 @@ var _ = Describe("K8sHubbleTest", func() {
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-			"global.hubble.metricsServer":   fmt.Sprintf(":%s", prometheusPort),
 			"global.hubble.metrics.enabled": `"{dns:query;ignoreAAAA,drop,tcp,flow,port-distribution,icmp,http}"`,
 			"global.hubble.relay.enabled":   "true",
 		})

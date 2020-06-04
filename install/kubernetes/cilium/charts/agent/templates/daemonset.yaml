@@ -158,7 +158,7 @@ spec:
           {{- toYaml .Values.resources | trim | nindent 10 }}
 {{- end }}
         name: cilium-agent
-{{- if or .Values.global.prometheus.enabled .Values.global.hubble.metricsServer }}
+{{- if or .Values.global.prometheus.enabled .Values.global.hubble.metrics.enabled }}
         ports:
 {{- if .Values.global.prometheus.enabled }}                
         - containerPort: {{ .Values.global.prometheus.port }}
@@ -166,9 +166,9 @@ spec:
           name: prometheus
           protocol: TCP
 {{- end }}
-{{- if .Values.global.hubble.metricsServer }}
-        - containerPort: {{ regexReplaceAll ":([0-9]+)$" .Values.global.hubble.metricsServer "${1}" }}
-          hostPort: {{ regexReplaceAll ":([0-9]+)$" .Values.global.hubble.metricsServer "${1}" }} 
+{{- if .Values.global.hubble.metrics.enabled }}
+        - containerPort: {{ .Values.global.hubble.metrics.port }}
+          hostPort: {{ .Values.global.hubble.metrics.port }}
           name: hubble-metrics
           protocol: TCP
 {{- end }}
