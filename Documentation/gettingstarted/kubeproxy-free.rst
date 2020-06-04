@@ -417,7 +417,7 @@ NodePort Device, Port and Bind settings
 When running Cilium's BPF kube-proxy replacement, by default, a NodePort or
 ExternalIPs service will be accessible through the IP address of a native device
 which has the default route on the host. To change the device, set its name in
-the ``global.nodePort.device`` helm option.
+the ``global.devices`` helm option.
 
 In addition, thanks to the :ref:`host-services` feature, the NodePort service can
 be accessed by default from a host or a pod within a cluster via its public, any
