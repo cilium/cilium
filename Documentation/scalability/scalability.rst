@@ -24,7 +24,7 @@ Setup
      --namespace kube-system \\
      --set global.endpointHealthChecking.enabled=false \\
      --set global.healthChecking.enabled=false \\
-     --set global.ipam.mode=kubernetes \\
+     --set config.ipam=kubernetes \\
      --set global.k8sServiceHost=<KUBE-APISERVER-LB-IP-ADDRESS> \\
      --set global.k8sServicePort=<KUBE-APISERVER-LB-PORT-NUMBER> \\
      --set global.prometheus.enabled=true \\
@@ -38,7 +38,7 @@ Setup
   initially on a smaller cluster (3-10 nodes) where it can be used to detect
   potential packet loss due to firewall rules or hypervisor settings.
 
-* ``--set global.ipam.mode=kubernetes`` is set to ``"kubernetes"`` since our
+* ``--set config.ipam=kubernetes`` is set to ``"kubernetes"`` since our
   cloud provider has pod CIDR allocation enabled in ``kube-controller-manager``.
 
 * ``--set global.k8sServiceHost`` and ``--set global.k8sServicePort`` were set
