@@ -255,8 +255,11 @@ func init() {
 	flags.StringSlice(option.DebugVerbose, []string{}, "List of enabled verbose debug groups")
 	option.BindEnv(option.DebugVerbose)
 
-	flags.StringSliceP(option.Device, "d", []string{}, "List of devices facing cluster/external network for attaching bpf_netdev (first device should be one used for direct routing if tunneling is disabled)")
+	flags.StringSliceP(option.Device, "d", []string{}, "List of devices facing cluster/external network for attaching bpf_host")
 	option.BindEnv(option.Device)
+
+	flags.String(option.DirectRoutingDevice, "", "Device name used to connect nodes in direct routing mode (required only by BPF NodePort; if empty, automatically set to a device with k8s InternalIP/ExternalIP or with a default route)")
+	option.BindEnv(option.DirectRoutingDevice)
 
 	flags.String(option.DatapathMode, defaults.DatapathMode, "Datapath mode name")
 	option.BindEnv(option.DatapathMode)
@@ -1115,7 +1118,7 @@ func initEnv(cmd *cobra.Command) {
 
 	// If there is one device specified, use it to derive better default
 	// allocation prefixes
-	node.InitDefaultPrefix(option.Config.Devices)
+	node.InitDefaultPrefix(option.Config.DirectRoutingDevice)
 
 	if option.Config.IPv6NodeAddr != "auto" {
 		if ip := net.ParseIP(option.Config.IPv6NodeAddr); ip == nil {
@@ -1658,11 +1661,12 @@ func initKubeProxyReplacementOptions() {
 		}
 	}
 
-	if option.Config.EnableNodePort && len(option.Config.Devices) == 0 {
-		var err error
-
-		if option.Config.Devices, err = detectDevices(); err != nil {
-			msg := "BPF NodePort's external facing devices could not be determined. Use --device to specify."
+	detectNodePortDevs := option.Config.EnableNodePort && len(option.Config.Devices) == 0
+	detectDirectRoutingDev := option.Config.EnableNodePort &&
+		option.Config.DirectRoutingDevice == ""
+	if detectNodePortDevs || detectDirectRoutingDev {
+		if err := detectDevices(detectNodePortDevs, detectDirectRoutingDev); err != nil {
+			msg := "Unable to detect devices for BPF NodePort"
 			if strict {
 				log.WithError(err).Fatal(msg)
 			} else {
@@ -1828,9 +1832,15 @@ func initKubeProxyReplacementOptions() {
 	}
 }
 
-func detectDevices() ([]string, error) {
+// detectDevices tries to detect device names which are going to be used for
+// (a) NodePort BPF, (b) direct routing in NodePort BPF.
+//
+// (a) is determined from a default route and the k8s node IP addr.
+// (b) is derived either from NodePort BPF devices (if only one is set) or
+//     from the k8s node IP addr.
+func detectDevices(detectNodePortDevs, detectDirectRoutingDev bool) error {
 	var err error
-	var devSet map[string]struct{}  // iface name
+	devSet := map[string]struct{}{} // iface name
 	ifidxByAddr := map[string]int{} // str(ip addr) => ifindex
 
 	if addrs, err := netlink.AddrList(nil, netlink.FAMILY_ALL); err != nil {
@@ -1844,16 +1854,38 @@ func detectDevices() ([]string, error) {
 		}
 	}
 
-	if devSet, err = detectNodePortDevices(ifidxByAddr); err != nil {
-		return nil, fmt.Errorf("Unable to determine BPF NodePort devices. Use --%s to specify them",
-			option.Device)
+	if detectNodePortDevs {
+		if devSet, err = detectNodePortDevices(ifidxByAddr); err != nil {
+			return fmt.Errorf("Unable to determine BPF NodePort devices: %s. Use --%s to specify them",
+				err, option.Device)
+		}
+	} else {
+		for _, dev := range option.Config.Devices {
+			devSet[dev] = struct{}{}
+		}
 	}
 
-	devList := make([]string, 0, len(devSet))
-	for dev := range devSet {
-		devList = append(devList, dev)
+	if detectDirectRoutingDev {
+		// If only single device was previously found, use it for direct routing.
+		// Otherwise, use k8s Node IP addr to determine the device.
+		if len(devSet) == 1 {
+			for dev := range devSet {
+				option.Config.DirectRoutingDevice = dev
+			}
+		} else {
+			if option.Config.DirectRoutingDevice, err = detectNodeDevice(ifidxByAddr); err != nil {
+				return fmt.Errorf("Unable to determine BPF NodePort direct routing device: %s. "+
+					"Use --%s to specify it", err, option.DirectRoutingDevice)
+			}
+		}
 	}
-	return devList, nil
+	devSet[option.Config.DirectRoutingDevice] = struct{}{}
+
+	option.Config.Devices = make([]string, 0, len(devSet))
+	for dev := range devSet {
+		option.Config.Devices = append(option.Config.Devices, dev)
+	}
+	return nil
 }
 
 func detectNodePortDevices(ifidxByAddr map[string]int) (map[string]struct{}, error) {
@@ -1863,24 +1895,17 @@ func detectNodePortDevices(ifidxByAddr map[string]int) (map[string]struct{}, err
 	defaultRouteDevice, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
 	if err != nil {
 		log.WithError(err).Warn(
-			"Device with a default route cannot be found for NodePort BPF device detection")
+			"Device with a default route cannot be found for BPF NodePort device detection")
 	} else {
 		devSet[defaultRouteDevice] = struct{}{}
 	}
 
 	// Derive a device from k8s Node IP
-	nodeIP := node.GetK8sNodeIP()
-	if nodeIP != nil {
-		ifindex, found := ifidxByAddr[nodeIP.String()]
-		if !found {
-			return nil, fmt.Errorf("Cannot find device with %s addr", nodeIP)
-		}
-		link, err := netlink.LinkByIndex(ifindex)
-		if err != nil {
-			return nil, fmt.Errorf("Cannot find device with %s addr by %d ifindex",
-				nodeIP, ifindex)
-		}
-		devSet[link.Attrs().Name] = struct{}{}
+	if dev, err := detectNodeDevice(ifidxByAddr); err != nil {
+		log.WithError(err).Warn(
+			"Cannot determine a device from k8s Node IP addr for BPF NodePort device detection")
+	} else {
+		devSet[dev] = struct{}{}
 	}
 
 	if len(devSet) == 0 {
@@ -1888,6 +1913,26 @@ func detectNodePortDevices(ifidxByAddr map[string]int) (map[string]struct{}, err
 	}
 
 	return devSet, nil
+}
+
+func detectNodeDevice(ifidxByAddr map[string]int) (string, error) {
+	nodeIP := node.GetK8sNodeIP()
+	if nodeIP == nil {
+		return "", fmt.Errorf("K8s Node IP is not set")
+	}
+
+	ifindex, found := ifidxByAddr[nodeIP.String()]
+	if !found {
+		return "", fmt.Errorf("Cannot find device with %s addr", nodeIP)
+	}
+
+	link, err := netlink.LinkByIndex(ifindex)
+	if err != nil {
+		return "", fmt.Errorf("Cannot find device with %s addr by %d ifindex",
+			nodeIP, ifindex)
+	}
+
+	return link.Attrs().Name, nil
 }
 
 // checkNodePortAndEphemeralPortRanges checks whether the ephemeral port range

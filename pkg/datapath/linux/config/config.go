@@ -271,9 +271,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
 	}
 
-	if len(option.Config.Devices) > 0 && option.Config.EnableNodePort {
-		// First device from the list is used for direct routing between nodes
-		directRoutingIface := option.Config.Devices[0]
+	if option.Config.EnableNodePort {
+		directRoutingIface := option.Config.DirectRoutingDevice
 		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
 		if err != nil {
 			return err

@@ -197,7 +197,7 @@ func GetNodeSpec() error {
 			return fmt.Errorf("node name must be specified via environment variable '%s' to retrieve Kubernetes PodCIDR range", k8sConst.EnvNodeNameSpec)
 		}
 		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled &&
-			len(option.Config.Devices) == 0 {
+			(len(option.Config.Devices) == 0 || option.Config.DirectRoutingDevice == "") {
 			log.Info("K8s node name is empty. BPF NodePort might not be able to auto detect all devices")
 		}
 		return nil
