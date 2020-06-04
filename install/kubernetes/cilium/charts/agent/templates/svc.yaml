@@ -31,7 +31,7 @@ spec:
   type: ClusterIP
   ports:
   - name: hubble-metrics
-    port: {{ regexReplaceAll ":([0-9]+)$" .Values.global.hubble.metricsServer "${1}" }}
+    port: {{ .Values.global.hubble.metrics.port }}
     protocol: TCP
     targetPort: hubble-metrics
   selector:
