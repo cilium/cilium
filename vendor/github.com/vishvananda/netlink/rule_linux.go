@@ -177,6 +177,19 @@ func RuleList(family int) ([]Rule, error) {
 // RuleList lists rules in the system.
 // Equivalent to: ip rule list
 func (h *Handle) RuleList(family int) ([]Rule, error) {
+	return h.RuleListFiltered(family, nil, 0)
+}
+
+// RuleListFiltered gets a list of rules in the system filtered by the
+// specified rule template `filter`.
+// Equivalent to: ip rule list
+func RuleListFiltered(family int, filter *Rule, filterMask uint64) ([]Rule, error) {
+	return pkgHandle.RuleListFiltered(family, filter, filterMask)
+}
+
+// RuleListFiltered lists rules in the system.
+// Equivalent to: ip rule list
+func (h *Handle) RuleListFiltered(family int, filter *Rule, filterMask uint64) ([]Rule, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETRULE, unix.NLM_F_DUMP|unix.NLM_F_REQUEST)
 	msg := nl.NewIfInfomsg(family)
 	req.AddData(msg)
@@ -246,6 +259,29 @@ func (h *Handle) RuleList(family int) ([]Rule, error) {
 				rule.Sport = NewRulePortRange(native.Uint16(attrs[j].Value[0:2]), native.Uint16(attrs[j].Value[2:4]))
 			}
 		}
+
+		if filter != nil {
+			switch {
+			case filterMask&RT_FILTER_SRC != 0 &&
+				(rule.Src == nil || rule.Src.String() != filter.Src.String()):
+				continue
+			case filterMask&RT_FILTER_DST != 0 &&
+				(rule.Dst == nil || rule.Dst.String() != filter.Dst.String()):
+				continue
+			case filterMask&RT_FILTER_TABLE != 0 &&
+				filter.Table != unix.RT_TABLE_UNSPEC && rule.Table != filter.Table:
+				continue
+			case filterMask&RT_FILTER_TOS != 0 && rule.Tos != filter.Tos:
+				continue
+			case filterMask&RT_FILTER_PRIORITY != 0 && rule.Priority != filter.Priority:
+				continue
+			case filterMask&RT_FILTER_MARK != 0 && rule.Mark != filter.Mark:
+				continue
+			case filterMask&RT_FILTER_MASK != 0 && rule.Mask != filter.Mask:
+				continue
+			}
+		}
+
 		res = append(res, *rule)
 	}
 

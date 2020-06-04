@@ -33,6 +33,9 @@ const (
 	RT_FILTER_GW
 	RT_FILTER_TABLE
 	RT_FILTER_HOPLIMIT
+	RT_FILTER_PRIORITY
+	RT_FILTER_MARK
+	RT_FILTER_MASK
 )
 
 const (
@@ -938,15 +941,27 @@ func deserializeRoute(m []byte) (Route, error) {
 	return route, nil
 }
 
+// RouteGetOptions contains a set of options to use with
+// RouteGetWithOptions
+type RouteGetOptions struct {
+	VrfName string
+}
+
+// RouteGetWithOptions gets a route to a specific destination from the host system.
+// Equivalent to: 'ip route get <> vrf <VrfName>'.
+func RouteGetWithOptions(destination net.IP, options *RouteGetOptions) ([]Route, error) {
+	return pkgHandle.RouteGetWithOptions(destination, options)
+}
+
 // RouteGet gets a route to a specific destination from the host system.
 // Equivalent to: 'ip route get'.
 func RouteGet(destination net.IP) ([]Route, error) {
 	return pkgHandle.RouteGet(destination)
 }
 
-// RouteGet gets a route to a specific destination from the host system.
-// Equivalent to: 'ip route get'.
-func (h *Handle) RouteGet(destination net.IP) ([]Route, error) {
+// RouteGetWithOptions gets a route to a specific destination from the host system.
+// Equivalent to: 'ip route get <> vrf <VrfName>'.
+func (h *Handle) RouteGetWithOptions(destination net.IP, options *RouteGetOptions) ([]Route, error) {
 	req := h.newNetlinkRequest(unix.RTM_GETROUTE, unix.NLM_F_REQUEST)
 	family := nl.GetIPFamily(destination)
 	var destinationData []byte
@@ -966,6 +981,20 @@ func (h *Handle) RouteGet(destination net.IP) ([]Route, error) {
 	rtaDst := nl.NewRtAttr(unix.RTA_DST, destinationData)
 	req.AddData(rtaDst)
 
+	if options != nil {
+		link, err := LinkByName(options.VrfName)
+		if err != nil {
+			return nil, err
+		}
+		var (
+			b      = make([]byte, 4)
+			native = nl.NativeEndian()
+		)
+		native.PutUint32(b, uint32(link.Attrs().Index))
+
+		req.AddData(nl.NewRtAttr(unix.RTA_OIF, b))
+	}
+
 	msgs, err := req.Execute(unix.NETLINK_ROUTE, unix.RTM_NEWROUTE)
 	if err != nil {
 		return nil, err
@@ -980,7 +1009,12 @@ func (h *Handle) RouteGet(destination net.IP) ([]Route, error) {
 		res = append(res, route)
 	}
 	return res, nil
+}
 
+// RouteGet gets a route to a specific destination from the host system.
+// Equivalent to: 'ip route get'.
+func (h *Handle) RouteGet(destination net.IP) ([]Route, error) {
+	return h.RouteGetWithOptions(destination, nil)
 }
 
 // RouteSubscribe takes a chan down which notifications will be sent
