@@ -191,11 +191,18 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 	rule := &api.EgressRule{}
 
-	epIP := "10.1.1.1"
+	epIP1 := "10.1.1.1"
+	epIP2 := "10.1.1.2"
 
 	endpointInfo := Endpoints{
 		Backends: map[string]service.PortConfiguration{
-			epIP: map[string]*loadbalancer.L4Addr{
+			epIP1: map[string]*loadbalancer.L4Addr{
+				"port": {
+					Protocol: loadbalancer.TCP,
+					Port:     80,
+				},
+			},
+			epIP2: map[string]*loadbalancer.L4Addr{
 				"port": {
 					Protocol: loadbalancer.TCP,
 					Port:     80,
@@ -207,15 +214,17 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 	err := generateToCidrFromEndpoint(rule, endpointInfo, nil)
 	c.Assert(err, IsNil)
 
-	c.Assert(len(rule.ToCIDRSet), Equals, 1)
-	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
+	c.Assert(len(rule.ToCIDRSet), Equals, 2)
+	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP1+"/32")
+	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP2+"/32")
 
 	// second run, to make sure there are no duplicates added
 	err = generateToCidrFromEndpoint(rule, endpointInfo, nil)
 	c.Assert(err, IsNil)
 
-	c.Assert(len(rule.ToCIDRSet), Equals, 1)
-	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP+"/32")
+	c.Assert(len(rule.ToCIDRSet), Equals, 2)
+	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP1+"/32")
+	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP2+"/32")
 
 	err = deleteToCidrFromEndpoint(rule, endpointInfo, nil)
 	c.Assert(err, IsNil)

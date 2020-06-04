@@ -175,8 +175,7 @@ func deleteToCidrFromEndpoint(
 	endpoint Endpoints,
 	impl ipcache.Implementation) error {
 
-	newToCIDR := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
-	deleted := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
+	delCIDRRules := make(map[int]*api.CIDRRule, len(egress.ToCIDRSet))
 
 	for ip := range endpoint.Backends {
 		epIP := net.ParseIP(ip)
@@ -184,26 +183,52 @@ func deleteToCidrFromEndpoint(
 			return fmt.Errorf("unable to parse ip: %s", ip)
 		}
 
-		for _, c := range egress.ToCIDRSet {
+		for i, c := range egress.ToCIDRSet {
+			if _, ok := delCIDRRules[i]; ok {
+				// it's already going to be deleted so we can continue
+				continue
+			}
 			_, cidr, err := net.ParseCIDR(string(c.Cidr))
 			if err != nil {
 				return err
 			}
-			// if endpoint is not in CIDR or it's not
-			// generated it's ok to retain it
-			if !cidr.Contains(epIP) || !c.Generated {
-				newToCIDR = append(newToCIDR, c)
-			} else {
-				deleted = append(deleted, c)
+			// delete all generated CIDRs for a CIDR that match the given
+			// endpoint
+			if c.Generated && cidr.Contains(epIP) {
+				delCIDRRules[i] = &egress.ToCIDRSet[i]
 			}
+		}
+		if len(delCIDRRules) == len(egress.ToCIDRSet) {
+			break
 		}
 	}
 
-	egress.ToCIDRSet = newToCIDR
+	// If no rules were deleted we can do an early return here and avoid doing
+	// the useless 'append' below.
+	if len(delCIDRRules) == 0 {
+		return nil
+	}
+
 	if impl != nil {
-		prefixes := policy.GetPrefixesFromCIDRSet(deleted)
+		delSlice := make([]api.CIDRRule, 0, len(egress.ToCIDRSet))
+		for _, delCIDRRule := range delCIDRRules {
+			delSlice = append(delSlice, *delCIDRRule)
+		}
+		prefixes := policy.GetPrefixesFromCIDRSet(delSlice)
 		ipcache.ReleaseCIDRs(prefixes)
 	}
+
+	// if endpoint is not in CIDR or it's not generated it's ok to retain it
+	newCIDRRules := make([]api.CIDRRule, 0, len(egress.ToCIDRSet)-len(delCIDRRules))
+	for i, c := range egress.ToCIDRSet {
+		// If the rule was deleted then it shouldn't be re-added
+		if _, ok := delCIDRRules[i]; ok {
+			continue
+		}
+		newCIDRRules = append(newCIDRRules, c)
+	}
+
+	egress.ToCIDRSet = newCIDRRules
 
 	return nil
 }
