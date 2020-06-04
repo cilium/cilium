@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -303,7 +303,7 @@ func (s *DNSProxyTestSuite) TestRejectNonRegex(c *C) {
 	c.Assert(allowed, Equals, false, Commentf("request was not rejected when it should be blocked"))
 }
 
-func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponse(c *C) {
+func (s *DNSProxyTestSuite) requestRejectNonMatchingRefusedResponse(c *C) *dns.Msg {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
@@ -322,15 +322,24 @@ func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponse(c *C) {
 
 	request := new(dns.Msg)
 	request.SetQuestion(query, dns.TypeA)
+	return request
+}
+
+func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponseWithNameError(c *C) {
+	request := s.requestRejectNonMatchingRefusedResponse(c)
 
 	// reject a query with NXDomain
 	s.proxy.SetRejectReply(option.FQDNProxyDenyWithNameError)
 	response, _, _ := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
 	c.Assert(response.Rcode, Equals, dns.RcodeNameError, Commentf("DNS request from test client was not rejected when it should be blocked"))
+}
+
+func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponseWithRefused(c *C) {
+	request := s.requestRejectNonMatchingRefusedResponse(c)
 
 	// reject a query with Refused
 	s.proxy.SetRejectReply(option.FQDNProxyDenyWithRefused)
-	response, _, _ = s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	response, _, _ := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
 	c.Assert(response.Rcode, Equals, dns.RcodeRefused, Commentf("DNS request from test client was not rejected when it should be blocked"))
 
 }
