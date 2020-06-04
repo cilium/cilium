@@ -70,7 +70,7 @@ require (
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.1
 	github.com/stretchr/testify v1.4.0
-	github.com/vishvananda/netlink v1.1.1-0.20200210222539-bfba8e4149db
+	github.com/vishvananda/netlink v1.1.1-0.20200603190939-5a869a71f0cb
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
 	go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
 	go.uber.org/goleak v1.0.0

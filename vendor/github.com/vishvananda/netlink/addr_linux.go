@@ -193,12 +193,12 @@ func (h *Handle) AddrList(link Link, family int) ([]Addr, error) {
 
 	var res []Addr
 	for _, m := range msgs {
-		addr, msgFamily, ifindex, err := parseAddr(m)
+		addr, msgFamily, err := parseAddr(m)
 		if err != nil {
 			return res, err
 		}
 
-		if link != nil && ifindex != indexFilter {
+		if link != nil && addr.LinkIndex != indexFilter {
 			// Ignore messages from other interfaces
 			continue
 		}
@@ -213,11 +213,11 @@ func (h *Handle) AddrList(link Link, family int) ([]Addr, error) {
 	return res, nil
 }
 
-func parseAddr(m []byte) (addr Addr, family, index int, err error) {
+func parseAddr(m []byte) (addr Addr, family int, err error) {
 	msg := nl.DeserializeIfAddrmsg(m)
 
 	family = -1
-	index = -1
+	addr.LinkIndex = -1
 
 	attrs, err1 := nl.ParseRouteAttr(m[msg.Len():])
 	if err1 != nil {
@@ -226,7 +226,7 @@ func parseAddr(m []byte) (addr Addr, family, index int, err error) {
 	}
 
 	family = int(msg.Family)
-	index = int(msg.Index)
+	addr.LinkIndex = int(msg.Index)
 
 	var local, dst *net.IPNet
 	for _, attr := range attrs {
@@ -391,7 +391,7 @@ func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-c
 					continue
 				}
 
-				addr, _, ifindex, err := parseAddr(m.Data)
+				addr, _, err := parseAddr(m.Data)
 				if err != nil {
 					if cberr != nil {
 						cberr(fmt.Errorf("could not parse address: %v", err))
@@ -400,7 +400,7 @@ func addrSubscribeAt(newNs, curNs netns.NsHandle, ch chan<- AddrUpdate, done <-c
 				}
 
 				ch <- AddrUpdate{LinkAddress: *addr.IPNet,
-					LinkIndex:   ifindex,
+					LinkIndex:   addr.LinkIndex,
 					NewAddr:     msgType == unix.RTM_NEWADDR,
 					Flags:       addr.Flags,
 					Scope:       addr.Scope,

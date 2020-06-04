@@ -547,7 +547,7 @@ github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
 # github.com/subosito/gotenv v1.2.0
 github.com/subosito/gotenv
-# github.com/vishvananda/netlink v1.1.1-0.20200210222539-bfba8e4149db
+# github.com/vishvananda/netlink v1.1.1-0.20200603190939-5a869a71f0cb
 ## explicit
 github.com/vishvananda/netlink
 github.com/vishvananda/netlink/nl
