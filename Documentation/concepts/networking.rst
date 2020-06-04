@@ -183,6 +183,8 @@ this "ingress" load-balancing capability, which achieve the same effect that
 Cilium handles forwarding and security only for ''internal'' traffic between
 different services.
 
+.. _concepts_masquerading:
+
 Masquerading
 ============
 
