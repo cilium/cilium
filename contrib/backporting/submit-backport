@@ -49,20 +49,14 @@ PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 git push origin "$PR_BRANCH"
 hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY
 
-prs=$(sed -e 's/^.*#\([0-9]\+\) .*$/\1/g' -e '/^[^0-9]\+/d' $SUMMARY | tr '\n' ' ')
+prs=$(grep "set-labels.py" $SUMMARY | sed -e 's/^.*for pr in \([0-9 ]\+\);.*$/\1/g')
 echo -e "\nUpdating labels for PRs $prs\n" 2>&1
 echo -n "Set labels for all PRs above? [y/N] "
 read set_all_labels
-for pr in $prs; do
-    if [ "$set_all_labels" = "y" ]; then
+if [ "$set_all_labels" = "y" ]; then
+    for pr in $prs; do
         echo -n "Setting labels for PR $pr... "
         $DIR/set-labels.py $pr pending $BRANCH;
-    else
-        echo -n "Set labels for $pr? [y/N] "
-        read setlabels
-        if [ "$setlabels" = "y" ]; then
-            $DIR/set-labels.py $pr pending $BRANCH;
-        fi
-    fi
-    echo "✓"
-done
+        echo "✓"
+    done
+fi
