@@ -104,18 +104,30 @@ github.com/cilium/proxy/go/envoy/api/v2/core
 github.com/cilium/proxy/go/envoy/api/v2/endpoint
 github.com/cilium/proxy/go/envoy/api/v2/listener
 github.com/cilium/proxy/go/envoy/api/v2/route
-github.com/cilium/proxy/go/envoy/config/bootstrap/v2
-github.com/cilium/proxy/go/envoy/config/filter/accesslog/v2
-github.com/cilium/proxy/go/envoy/config/filter/network/http_connection_manager/v2
-github.com/cilium/proxy/go/envoy/config/filter/network/tcp_proxy/v2
+github.com/cilium/proxy/go/envoy/config/accesslog/v3
+github.com/cilium/proxy/go/envoy/config/bootstrap/v3
+github.com/cilium/proxy/go/envoy/config/cluster/v3
+github.com/cilium/proxy/go/envoy/config/core/v3
+github.com/cilium/proxy/go/envoy/config/endpoint/v3
 github.com/cilium/proxy/go/envoy/config/listener/v2
-github.com/cilium/proxy/go/envoy/config/metrics/v2
-github.com/cilium/proxy/go/envoy/config/overload/v2alpha
-github.com/cilium/proxy/go/envoy/config/trace/v2
+github.com/cilium/proxy/go/envoy/config/listener/v3
+github.com/cilium/proxy/go/envoy/config/metrics/v3
+github.com/cilium/proxy/go/envoy/config/overload/v3
+github.com/cilium/proxy/go/envoy/config/route/v3
+github.com/cilium/proxy/go/envoy/config/trace/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3
+github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3
+github.com/cilium/proxy/go/envoy/service/discovery/v3
+github.com/cilium/proxy/go/envoy/service/listener/v3
 github.com/cilium/proxy/go/envoy/type
 github.com/cilium/proxy/go/envoy/type/matcher
+github.com/cilium/proxy/go/envoy/type/matcher/v3
 github.com/cilium/proxy/go/envoy/type/metadata/v2
+github.com/cilium/proxy/go/envoy/type/metadata/v3
 github.com/cilium/proxy/go/envoy/type/tracing/v2
+github.com/cilium/proxy/go/envoy/type/tracing/v3
+github.com/cilium/proxy/go/envoy/type/v3
 # github.com/cncf/udpa/go v0.0.0-20191230090109-edbea6a78f6d
 github.com/cncf/udpa/go/udpa/annotations
 # github.com/containernetworking/cni v0.7.1
