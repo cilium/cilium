@@ -247,6 +247,16 @@ func (h *Handle) BridgeSetMcastSnoop(link Link, on bool) error {
 	return h.linkModify(bridge, unix.NLM_F_ACK)
 }
 
+func BridgeSetVlanFiltering(link Link, on bool) error {
+	return pkgHandle.BridgeSetVlanFiltering(link, on)
+}
+
+func (h *Handle) BridgeSetVlanFiltering(link Link, on bool) error {
+	bridge := link.(*Bridge)
+	bridge.VlanFiltering = &on
+	return h.linkModify(bridge, unix.NLM_F_ACK)
+}
+
 func SetPromiscOn(link Link) error {
 	return pkgHandle.SetPromiscOn(link)
 }
@@ -1048,6 +1058,10 @@ func (h *Handle) LinkAdd(link Link) error {
 	return h.linkModify(link, unix.NLM_F_CREATE|unix.NLM_F_EXCL|unix.NLM_F_ACK)
 }
 
+func (h *Handle) LinkModify(link Link) error {
+	return h.linkModify(link, unix.NLM_F_REQUEST|unix.NLM_F_ACK)
+}
+
 func (h *Handle) linkModify(link Link, flags int) error {
 	// TODO: support extra data for macvlan
 	base := link.Attrs()
@@ -1089,21 +1103,52 @@ func (h *Handle) linkModify(link Link, flags int) error {
 		}
 
 		req.Flags |= uint16(tuntap.Mode)
-
+		const TUN = "/dev/net/tun"
 		for i := 0; i < queues; i++ {
 			localReq := req
-			file, err := os.OpenFile("/dev/net/tun", os.O_RDWR, 0)
+			fd, err := unix.Open(TUN, os.O_RDWR|syscall.O_CLOEXEC, 0)
 			if err != nil {
 				cleanupFds(fds)
 				return err
 			}
 
-			fds = append(fds, file)
-			_, _, errno := unix.Syscall(unix.SYS_IOCTL, file.Fd(), uintptr(unix.TUNSETIFF), uintptr(unsafe.Pointer(&localReq)))
+			_, _, errno := unix.Syscall(unix.SYS_IOCTL, uintptr(fd), uintptr(unix.TUNSETIFF), uintptr(unsafe.Pointer(&localReq)))
 			if errno != 0 {
+				// close the new fd
+				unix.Close(fd)
+				// and the already opened ones
 				cleanupFds(fds)
 				return fmt.Errorf("Tuntap IOCTL TUNSETIFF failed [%d], errno %v", i, errno)
 			}
+
+			// Set the tun device to non-blocking before use. The below comment
+			// taken from:
+			//
+			// https://github.com/mistsys/tuntap/commit/161418c25003bbee77d085a34af64d189df62bea
+			//
+			// Note there is a complication because in go, if a device node is
+			// opened, go sets it to use nonblocking I/O. However a /dev/net/tun
+			// doesn't work with epoll until after the TUNSETIFF ioctl has been
+			// done. So we open the unix fd directly, do the ioctl, then put the
+			// fd in nonblocking mode, an then finally wrap it in a os.File,
+			// which will see the nonblocking mode and add the fd to the
+			// pollable set, so later on when we Read() from it blocked the
+			// calling thread in the kernel.
+			//
+			// See
+			//   https://github.com/golang/go/issues/30426
+			// which got exposed in go 1.13 by the fix to
+			//   https://github.com/golang/go/issues/30624
+			err = unix.SetNonblock(fd, true)
+			if err != nil {
+				cleanupFds(fds)
+				return fmt.Errorf("Tuntap set to non-blocking failed [%d], err %v", i, err)
+			}
+
+			// create the file from the file descriptor and store it
+			file := os.NewFile(uintptr(fd), TUN)
+			fds = append(fds, file)
+
 			// 1) we only care for the name of the first tap in the multi queue set
 			// 2) if the original name was empty, the localReq has now the actual name
 			//
@@ -1114,6 +1159,7 @@ func (h *Handle) linkModify(link Link, flags int) error {
 			if i == 0 {
 				link.Attrs().Name = strings.Trim(string(localReq.Name[:]), "\x00")
 			}
+
 		}
 
 		// only persist interface if NonPersist is NOT set
@@ -1193,6 +1239,11 @@ func (h *Handle) linkModify(link Link, flags int) error {
 	nameData := nl.NewRtAttr(unix.IFLA_IFNAME, nl.ZeroTerminated(base.Name))
 	req.AddData(nameData)
 
+	if base.Alias != "" {
+		alias := nl.NewRtAttr(unix.IFLA_IFALIAS, []byte(base.Alias))
+		req.AddData(alias)
+	}
+
 	if base.MTU > 0 {
 		mtu := nl.NewRtAttr(unix.IFLA_MTU, nl.Uint32Attr(uint32(base.MTU)))
 		req.AddData(mtu)
@@ -1271,6 +1322,12 @@ func (h *Handle) linkModify(link Link, flags int) error {
 		peer.AddRtAttr(unix.IFLA_IFNAME, nl.ZeroTerminated(link.PeerName))
 		if base.TxQLen >= 0 {
 			peer.AddRtAttr(unix.IFLA_TXQLEN, nl.Uint32Attr(uint32(base.TxQLen)))
+		}
+		if base.NumTxQueues > 0 {
+			peer.AddRtAttr(unix.IFLA_NUM_TX_QUEUES, nl.Uint32Attr(uint32(base.NumTxQueues)))
+		}
+		if base.NumRxQueues > 0 {
+			peer.AddRtAttr(unix.IFLA_NUM_RX_QUEUES, nl.Uint32Attr(uint32(base.NumRxQueues)))
 		}
 		if base.MTU > 0 {
 			peer.AddRtAttr(unix.IFLA_MTU, nl.Uint32Attr(uint32(base.MTU)))
@@ -2582,7 +2639,7 @@ func parseIptunData(link Link, data []syscall.NetlinkRouteAttr) {
 		case nl.IFLA_IPTUN_ENCAP_FLAGS:
 			iptun.EncapFlags = native.Uint16(datum.Value[0:2])
 		case nl.IFLA_IPTUN_COLLECT_METADATA:
-			iptun.FlowBased = int8(datum.Value[0]) != 0
+			iptun.FlowBased = true
 		}
 	}
 }
