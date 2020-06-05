@@ -1,5 +1,53 @@
 # Changelog
 
+## v1.6.9
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add "--iptables-lock-timeout" to configure iptables --wait parameter (Backport PR #11883, Upstream PR #11701, @joestringer)
+* bump k8s dependencies and test to v1.16.9 (#11045, @aanm)
+* bump k8s dependencies to v1.15.12 and v1.16.10 (#11681, @aanm)
+* Properly tear down gops agent on shutdown (Backport PR #11883, Upstream PR #11471, @tklauser)
+* Support DNS matchPattern="*" to match "." (Backport PR #11883, Upstream PR #11633, @joestringer)
+
+**Bugfixes:**
+* `identity does not exist` warning messages are not logged if the allocation attempt is not at max (Backport PR #11883, Upstream PR #11580, @djboris9)
+* Avoid duplication of generated toCIDRs when using a toServices based CNP (or CCNP) (#11900, @aanm)
+* bpf: Preserve source identity for hairpin via stack (Backport PR #11496, Upstream PR #10926, @tgraf)
+* CRD: fix allocation logic of identities with the same set of labels (Backport PR #11411, Upstream PR #11040, @aanm)
+* daemon: Fatal on startup when Identity CRD is enabled without k8s (Backport PR #11266, Upstream PR #11015, @raybejjani)
+* datapath/iptables: Masquerade hairpin traffic that traversed the stack (Backport PR #11496, Upstream PR #10928, @tgraf)
+* Do not depend on `KUBERNETES_SERVICE_HOST` nor `KUBERNETES_SERVICE_PORT` environment variables to detect if cilium is running in k8s mode (Backport PR #11266, Upstream PR #11021, @aanm)
+* endpoint: Avoid transient drops during policy map update (Backport PR #11266, Upstream PR #10936, @jrajahalme)
+* envoy: Take xds mutator lock for map access (Backport PR #11883, Upstream PR #11541, @jrajahalme)
+* etcd: Increase status check timeout to 10 seconds (Backport PR #11883, Upstream PR #11750, @tgraf)
+* Fix issue where traffic from a pod could be dropped despite allow policy when DNS L7 rules are used (Backport PR #11883, Upstream PR #11764, @joestringer)
+* Fix leaking endpoint state metric (Backport PR #11933, Upstream PR #11884, @christarazi)
+* Fix possible endpoint restore failure in CRD mode. (Backport PR #11266, Upstream PR #10785, @aanm)
+* k8s: Defer marking node as ready to just API is served (Backport PR #11266, Upstream PR #10767, @tgraf)
+* k8s: Do not send DeleteService event upon DeleteEndpoints (Backport PR #11496, Upstream PR #11467, @brb)
+* Log more information for error 'Unable update CRD identity information with a reference for this node' (Backport PR #11266, Upstream PR #10923, @aanm)
+* proxy: Do not decrement proxy port reference count when reverting. (Backport PR #11883, Upstream PR #11753, @jrajahalme)
+* proxy: Keep DNS port allocated (Backport PR #11662, Upstream PR #11661, @jrajahalme)
+* Setting the agent.sleepAfterInit helm chart value to True will correctly configure the agent to sleep after Init (Backport PR #11429, Upstream PR #11203, @seanmwinn)
+* Tight CNP and CCNP schema validation for badly formatted policies (yaml or json) (Backport PR #11411, Upstream PR #10727, @aanm)
+
+**CI Changes:**
+* CI: K8sKafkaPolicyTest kafka-broker starts up without errors (Backport PR #10761, Upstream PR #10721, @raybejjani)
+
+**Misc Changes:**
+* [v1.6] Dockerfile: Bump cilium-runtime to latest image (#11627, @joestringer)
+* backporting: add 'upstream-prs' tag for code block (Backport PR #10761, Upstream PR #10033, @aanm)
+* bpf: remap MARK_MAGIC_SNAT_DONE marker to avoid conflicts (Backport PR #11496, Upstream PR #11008, @borkmann)
+* Fix incorrect name in sysctl_linux_test.go (Backport PR #11266, Upstream PR #10729, @christarazi)
+* make: pick up all privileged tests in `make tests-privileged` (Backport PR #10761, Upstream PR #10734, @tklauser)
+* Makefile: Fix --yaml arg for microk8s (Backport PR #11883, Upstream PR #10839, @joestringer)
+* policy: Fix rule translation test flake (Backport PR #11933, Upstream PR #11913, @joestringer)
+* proxy: release redir.mutex on early exit, update a comment on mutex use (Backport PR #11883, Upstream PR #11666, @qmonnet)
+* Retry on conflicts when creating/updating CiliumNode objects on agent startup (Backport PR #11908, Upstream PR #11673, @ashrayjain)
+
 # v1.6.8
 
 Summary of Changes
