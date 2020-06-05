@@ -108,7 +108,7 @@ var _ = Describe("K8sFQDNTest", func() {
 		_ = kubectl.Exec(fmt.Sprintf("%s delete --all cnp", helpers.KubectlCmd))
 	})
 
-	PIt("Restart Cilium validate that FQDN is still working", func() {
+	It("Restart Cilium validate that FQDN is still working", func() {
 		// Test functionality:
 		// - When Cilium is running) Connectivity from App2 application can
 		// connect to DNS because dns-proxy filter the DNS request. If the
