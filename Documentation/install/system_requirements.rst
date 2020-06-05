@@ -296,8 +296,8 @@ The following ports should also be available on each node:
 Port Range / Protocol    Description
 ======================== ==========================================
 4240/tcp                 cluster health checks (``cilium-health``)
-4244/tcp                 hubble server
-4245/tcp                 hubble relay
+4244/tcp                 Hubble server
+4245/tcp                 Hubble Relay
 6942/tcp                 operator Prometheus metrics
 9090/tcp                 cilium-agent Prometheus metrics
 9876/tcp                 cilium-agent health status API

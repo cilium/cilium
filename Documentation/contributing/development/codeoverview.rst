@@ -40,7 +40,7 @@ examples
   before usage is possible.
 
 hubble-relay
-  Hubble relay server
+  Hubble Relay server
 
 install
   Helm deployment manifests for all components
@@ -98,7 +98,7 @@ api/v1/external, api/v1/flow, api/v1/observer, api/v1/peer, api/v1/relay
   API specifications of the Hubble APIs.
 
 hubble-relay
-  Hubble relay agent
+  Hubble Relay agent
 
 pkg/hubble
   All Hubble specific code
@@ -123,7 +123,7 @@ pkg/hubble/peer
   Peer service implementation
 
 pkg/hubble/relay
-  Relay service implementation
+  Hubble Relay service implementation
 
 pkg/hubble/server
   The server providing the API for the Hubble client and UI

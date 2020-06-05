@@ -196,7 +196,7 @@ framework in the ``test/`` directory and interact with ginkgo directly:
       -cilium.holdEnvironment
             On failure, hold the environment in its current state
       -cilium.hubble-relay-image string
-            Specifies which image of hubble-relay to use during tests
+            Specifies which image of Hubble Relay to use during tests
       -cilium.image string
             Specifies which image of cilium to use during tests
       -cilium.kubeconfig string
