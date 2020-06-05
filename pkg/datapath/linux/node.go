@@ -598,7 +598,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 		neighborLog("insertNeighbor NeighSet", ifaceName, err, &ciliumIPv4, &hwAddr, link)
 		if err == nil {
 			n.neighByNode[newNode.Identity()] = &neigh
-			if option.Config.NodePortAcceleration != option.NodePortAccelerationNone {
+			if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 				neighborsmap.NeighRetire(ciliumIPv4)
 			}
 		}
@@ -620,7 +620,7 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 			"LinkIndex":      neigh.LinkIndex,
 		}).WithError(err).Warn("Failed to remove neighbor entry")
 	} else {
-		if option.Config.NodePortAcceleration != option.NodePortAccelerationNone {
+		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 			neighborsmap.NeighRetire(neigh.IP)
 		}
 	}

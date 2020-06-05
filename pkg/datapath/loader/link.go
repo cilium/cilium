@@ -38,7 +38,7 @@ func SetXDPMode(mode string) error {
 			return fmt.Errorf("XDP Mode conflict: current mode is %s, trying to set conflicting %s",
 				option.Config.XDPMode, option.XDPModeLinkGeneric)
 		}
-	case option.XDPModeNone:
+	case option.XDPModeDisabled:
 		break
 	}
 	return nil
