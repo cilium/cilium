@@ -30,13 +30,17 @@ static __always_inline __wsum csum_diff(const void *from, __u32 size_from,
 					__u32 seed)
 {
 	if (__builtin_constant_p(size_from) &&
-	    __builtin_constant_p(size_to) &&
-	    __builtin_constant_p(seed) && seed == 0) {
+	    __builtin_constant_p(size_to)) {
 		/* Optimizations for frequent hot-path cases that are tiny to just
 		 * inline into the code instead of calling more expensive helper.
 		 */
-		if (size_from == 4 && size_to == 4)
+		if (size_from == 4 && size_to == 4 &&
+		    __builtin_constant_p(seed) && seed == 0)
 			return csum_add(~(*(__u32*)from), *(__u32*)to);
+		if (size_from == 4 && size_to == 4)
+			return csum_add(seed,
+					csum_add(~(*(__u32*)from),
+						 *(__u32*)to));
 	}
 
 	return csum_diff_external(from, size_from, to, size_to, seed);
