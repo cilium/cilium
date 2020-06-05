@@ -149,6 +149,10 @@ type Daemon struct {
 	// k8sCachesSynced is closed when all essential Kubernetes caches have
 	// been fully synchronized
 	k8sCachesSynced <-chan struct{}
+
+	// endpointCreations is a map of all currently ongoing endpoint
+	// creation events
+	endpointCreations *endpointCreationManager
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -297,15 +301,16 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	nd := nodediscovery.NewNodeDiscovery(nodeMngr, mtuConfig, netConf)
 
 	d := Daemon{
-		ctx:              dCtx,
-		cancel:           cancel,
-		prefixLengths:    createPrefixLengthCounter(),
-		buildEndpointSem: semaphore.NewWeighted(int64(numWorkerThreads())),
-		compilationMutex: new(lock.RWMutex),
-		netConf:          netConf,
-		mtuConfig:        mtuConfig,
-		datapath:         dp,
-		nodeDiscovery:    nd,
+		ctx:               dCtx,
+		cancel:            cancel,
+		prefixLengths:     createPrefixLengthCounter(),
+		buildEndpointSem:  semaphore.NewWeighted(int64(numWorkerThreads())),
+		compilationMutex:  new(lock.RWMutex),
+		netConf:           netConf,
+		mtuConfig:         mtuConfig,
+		datapath:          dp,
+		nodeDiscovery:     nd,
+		endpointCreations: newEndpointCreationManager(),
 	}
 
 	d.svc = service.NewService(&d)
@@ -380,6 +385,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 
 	debug.RegisterStatusObject("k8s-service-cache", &d.k8sWatcher.K8sSvcCache)
 	debug.RegisterStatusObject("ipam", d.ipam)
+	debug.RegisterStatusObject("ongoing-endpoint-creations", d.endpointCreations)
 
 	d.k8sWatcher.RunK8sServiceHandler()
 	treatRemoteNodeAsHost := option.Config.AlwaysAllowLocalhost() && !option.Config.EnableRemoteNodeIdentity
