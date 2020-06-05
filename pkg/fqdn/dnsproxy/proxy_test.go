@@ -163,7 +163,7 @@ var (
 	dstPort = uint16(53) // Set below when we setup the server!
 )
 
-func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
+func (s *DNSProxyTestSuite) SetUpTest(c *C) {
 	// Add these identities
 	testSelectorCache.UpdateIdentities(cache.IdentityCache{
 		dstID1: labels.Labels{"Dst1": labels.NewLabel("Dst1", "test", labels.LabelSourceK8s)}.LabelArray(),
@@ -219,9 +219,6 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 func (s *DNSProxyTestSuite) TearDownTest(c *C) {
 	s.proxy.allowed = make(perEPAllow)
 	s.proxy.SetRejectReply(option.FQDNProxyDenyWithRefused)
-}
-
-func (s *DNSProxyTestSuite) TearDownSuite(c *C) {
 	s.dnsServer.Listener.Close()
 	s.proxy.UDPServer.Shutdown()
 	s.proxy.TCPServer.Shutdown()
