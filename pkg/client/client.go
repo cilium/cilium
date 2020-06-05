@@ -286,6 +286,10 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 					strings.Join(hs.Protocols, ", ")))
 			}
 
+			if sr.KubeProxyReplacement.Features.SessionAffinity.Enabled {
+				features = append(features, "SessionAffinity")
+			}
+
 			devices := strings.Join(sr.KubeProxyReplacement.Devices, ", ")
 
 			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t(%s)\t[%s]\n",
