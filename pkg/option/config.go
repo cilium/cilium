@@ -651,8 +651,8 @@ const (
 	// XDPModeGeneric for loading progs with XDPModeLinkGeneric
 	XDPModeGeneric = "testing-only"
 
-	// XDPModeNone for not having XDP enabled
-	XDPModeNone = "none"
+	// XDPModeDisabled for not having XDP enabled
+	XDPModeDisabled = "disabled"
 
 	// XDPModeLinkDriver is the tc selector for native XDP
 	XDPModeLinkDriver = "xdpdrv"
@@ -661,7 +661,7 @@ const (
 	XDPModeLinkGeneric = "xdpgeneric"
 
 	// XDPModeLinkNone for not having XDP enabled
-	XDPModeLinkNone = XDPModeNone
+	XDPModeLinkNone = XDPModeDisabled
 
 	// K8sClientQPSLimit is the queries per second limit for the K8s client. Defaults to k8s client defaults.
 	K8sClientQPSLimit = "k8s-client-qps"
@@ -1088,8 +1088,8 @@ const (
 	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
 	NodePortModeHybrid = "hybrid"
 
-	// NodePortAccelerationNone means we do not accelerate NodePort via XDP
-	NodePortAccelerationNone = XDPModeNone
+	// NodePortAccelerationDisabled means we do not accelerate NodePort via XDP
+	NodePortAccelerationDisabled = XDPModeDisabled
 
 	// NodePortAccelerationGeneric means we accelerate NodePort via generic XDP
 	NodePortAccelerationGeneric = XDPModeGeneric
