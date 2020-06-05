@@ -27,4 +27,8 @@
 # define BPF_HAVE_JIFFIES 1
 #endif
 
+#if HAVE_PROG_TYPE_HELPER(sched_cls, bpf_csum_level)
+# define BPF_HAVE_CSUM_LEVEL 1
+#endif
+
 #endif /* ____BPF_FEATURES____ */
