@@ -1099,6 +1099,10 @@ func (m *CiliumEventType) Validate() error {
 
 	// no validation rules for SubType
 
+	// no validation rules for TypeName
+
+	// no validation rules for SubTypeName
+
 	return nil
 }
 

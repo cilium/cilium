@@ -212,9 +212,20 @@ message CiliumEventType {
     // github.com/cilium/cilium/pkg/monitor/api.MessageType*
     int32 type = 1;
     // sub_type may indicate more details depending on type, e.g.
-	// - github.com/cilium/cilium/pkg/monitor/api.Trace*
+    // - github.com/cilium/cilium/pkg/monitor/api.Trace*
     // - github.com/cilium/cilium/pkg/monitor/api.Drop*
+    //
+    // Some type in Cilium/data path use `iota` as a legitimate value, which (in
+    // json export, at least) strip out the "empty value" of zero. Using
+    // `sub_type_name` may not only be more reliable but also more clear.
     int32 sub_type = 2;
+
+    // human-readable string representation of `int32 type = 1`, e.g. `trace`
+    string type_name = 3;
+
+    // human-readable string representation of `int32 sub_type = 2`, e.g.
+    // `to-endpoint`
+    string sub_type_name = 4;
 }
 
 // FlowFilter represent an individual flow filter. All fields are optional. If
