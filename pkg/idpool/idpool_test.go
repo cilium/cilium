@@ -319,8 +319,7 @@ func (s *IDPoolTestSuite) BenchmarkUseAndRelease(c *C) {
 	}
 }
 
-func (s *IDPoolTestSuite) TestAllocateID(c *C) {
-	minID, maxID := 1, 6000
+func (s *IDPoolTestSuite) testAllocatedID(c *C, minID, maxID int) {
 	p := NewIDPool(ID(minID), ID(maxID))
 
 	allocated := make(chan ID, 100)
