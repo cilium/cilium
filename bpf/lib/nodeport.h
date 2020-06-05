@@ -146,6 +146,15 @@ bpf_skip_recirculation(const struct __ctx_buff *ctx __maybe_unused)
 #endif
 }
 
+static __always_inline __u64 ctx_adjust_room_dsr_flags(void)
+{
+#ifdef BPF_HAVE_CSUM_LEVEL
+	return BPF_F_ADJ_ROOM_NO_CSUM_RESET;
+#else
+	return 0;
+#endif
+}
+
 #ifdef ENABLE_IPV6
 static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple)
 {
@@ -214,7 +223,8 @@ static __always_inline int set_dsr_ext6(struct __ctx_buff *ctx,
 	ipv6_addr_copy(&opt.addr, svc_addr);
 	opt.port = svc_port;
 
-	if (ctx_adjust_room(ctx, sizeof(opt), BPF_ADJ_ROOM_NET, 0))
+	if (ctx_adjust_room(ctx, sizeof(opt), BPF_ADJ_ROOM_NET,
+			    ctx_adjust_room_dsr_flags()))
 		return DROP_INVALID;
 
 	if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(*ip6), &opt, sizeof(opt), 0) < 0)
@@ -918,7 +928,8 @@ static __always_inline int set_dsr_opt4(struct __ctx_buff *ctx,
 	sum = csum_diff(&iph_old, 4, &iph_new, 4, 0);
 	sum = csum_diff(NULL, 0, &opt, sizeof(opt), sum);
 
-	if (ctx_adjust_room(ctx, 0x8, BPF_ADJ_ROOM_NET, 0))
+	if (ctx_adjust_room(ctx, 0x8, BPF_ADJ_ROOM_NET,
+			    ctx_adjust_room_dsr_flags()))
 		return DROP_INVALID;
 
 	if (ctx_store_bytes(ctx, ETH_HLEN + sizeof(*ip4),

@@ -196,7 +196,7 @@ l4_csum_replace(const struct xdp_md *ctx, __u64 off, __u32 from, __u32 to,
 
 static __always_inline __maybe_unused int
 ctx_adjust_room(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
-		const __u64 flags)
+		const __u64 flags __maybe_unused)
 {
 	const __u32 move_len_v4 = 14 + 20;
 	const __u32 move_len_v6 = 14 + 40;
@@ -205,7 +205,6 @@ ctx_adjust_room(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 
 	build_bug_on(len_diff <= 0 || len_diff >= 64);
 	build_bug_on(mode != BPF_ADJ_ROOM_NET);
-	build_bug_on(flags != 0);
 
 	ret = xdp_adjust_head(ctx, -len_diff);
 
