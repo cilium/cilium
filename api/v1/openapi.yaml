@@ -1723,6 +1723,11 @@ definitions:
                 type: array
                 items:
                   type: string
+          sessionAffinity:
+            type: object
+            properties:
+              enabled:
+                type: boolean
   AllocationMap:
     description: |
       Map of allocated IPs
