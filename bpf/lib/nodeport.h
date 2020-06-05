@@ -549,8 +549,8 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 			return ret;
 	}
 
-	if (!svc || (!lb6_svc_is_external_ip(svc) &&
-		     !lb6_svc_is_nodeport(svc) &&
+	if (!svc || (!lb6_svc_is_nodeport(svc) &&
+		     !lb6_svc_is_external_ip(svc) &&
 		     !lb6_svc_is_hostport(svc))) {
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
@@ -887,11 +887,12 @@ static __always_inline int set_dsr_opt4(struct __ctx_buff *ctx,
 					struct iphdr *ip4,
 					__be32 svc_addr, __be32 svc_port)
 {
-	union tcp_flags tcp_flags = { .value = 0 };
 	__u32 iph_old, iph_new, opt[2];
 	__be32 sum;
 
 	if (ip4->protocol == IPPROTO_TCP) {
+		union tcp_flags tcp_flags = { .value = 0 };
+
 		if (ctx_load_bytes(ctx, ETH_HLEN + sizeof(*ip4) + 12,
 				   &tcp_flags, 2) < 0)
 			return DROP_CT_INVALID_HDR;
@@ -1212,8 +1213,8 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 			return ret;
 	}
 
-	if (!svc || (!lb4_svc_is_external_ip(svc) &&
-		     !lb4_svc_is_nodeport(svc) &&
+	if (!svc || (!lb4_svc_is_nodeport(svc) &&
+		     !lb4_svc_is_external_ip(svc) &&
 		     !lb4_svc_is_hostport(svc))) {
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
