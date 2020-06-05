@@ -262,6 +262,9 @@ const (
 	// Devices is the devices name
 	Devices = "devices"
 
+	//DirectRoutingDevice is the name of the direct routing device
+	DirectRoutingDevice = "directRoutingDevice"
+
 	// IpvlanMasterDevice is the ipvlan master device name
 	IpvlanMasterDevice = "ipvlanMasterDevice"
 
