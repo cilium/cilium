@@ -17,6 +17,9 @@
 package k8s
 
 import (
+	"sort"
+
+	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy"
@@ -223,17 +226,25 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 	err := generateToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
 
-	c.Assert(len(rule.ToCIDRSet), Equals, 2)
-	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP1+"/32")
-	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP2+"/32")
+	cidrs := rule.ToCIDRSet.StringSlice()
+	sort.Strings(cidrs)
+	c.Assert(len(cidrs), Equals, 2)
+	c.Assert(cidrs, checker.DeepEquals, []string{
+		epIP1 + "/32",
+		epIP2 + "/32",
+	})
 
 	// second run, to make sure there are no duplicates added
 	err = generateToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
 
-	c.Assert(len(rule.ToCIDRSet), Equals, 2)
-	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP1+"/32")
-	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP2+"/32")
+	cidrs = rule.ToCIDRSet.StringSlice()
+	sort.Strings(cidrs)
+	c.Assert(len(cidrs), Equals, 2)
+	c.Assert(cidrs, checker.DeepEquals, []string{
+		epIP1 + "/32",
+		epIP2 + "/32",
+	})
 
 	err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
@@ -243,9 +254,13 @@ func (s *K8sSuite) TestGenerateToCIDRFromEndpoint(c *C) {
 	err = generateToCidrFromEndpoint(rule, endpointInfo, false)
 	c.Assert(err, IsNil)
 
-	c.Assert(len(rule.ToCIDRSet), Equals, 2)
-	c.Assert(string(rule.ToCIDRSet[0].Cidr), Equals, epIP1+"/32")
-	c.Assert(string(rule.ToCIDRSet[1].Cidr), Equals, epIP2+"/32")
+	cidrs = rule.ToCIDRSet.StringSlice()
+	sort.Strings(cidrs)
+	c.Assert(len(cidrs), Equals, 2)
+	c.Assert(cidrs, checker.DeepEquals, []string{
+		epIP1 + "/32",
+		epIP2 + "/32",
+	})
 
 	// and one final delete
 	err = deleteToCidrFromEndpoint(rule, endpointInfo, false)
