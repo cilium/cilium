@@ -57,8 +57,8 @@ Deploy Cilium release via Helm:
     helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
       --set global.etcd.enabled=true \\
-      --set global.etcd.endpoints[0]=http://etcd-endpoint1:2379 \\
-      --set global.etcd.endpoints[1]=http://etcd-endpoint2:2379
+      --set "global.etcd.endpoints[0]=http://etcd-endpoint1:2379" \\
+      --set "global.etcd.endpoints[1]=http://etcd-endpoint2:2379"
 
 
 Optional: Configure the SSL certificates
@@ -83,8 +83,8 @@ of http for the etcd endpoint URLs:
       --namespace kube-system \\
       --set global.etcd.enabled=true \\
       --set global.etcd.ssl=true \\
-      --set global.etcd.endpoints[0]=https://etcd-endpoint1:2379 \\
-      --set global.etcd.endpoints[1]=https://etcd-endpoint2:2379
+      --set "global.etcd.endpoints[0]=https://etcd-endpoint1:2379" \\
+      --set "global.etcd.endpoints[1]=https://etcd-endpoint2:2379"
 
 Validate the Installation
 =========================
