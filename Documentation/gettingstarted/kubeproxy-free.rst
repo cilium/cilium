@@ -326,7 +326,7 @@ load balancer can be handled by Cilium at the XDP (eXpress Data Path) layer wher
 is operating directly in the networking driver instead of a higher layer.
 
 The mode setting ``global.nodePort.acceleration`` allows to enable this acceleration
-through the option ``native``. The option ``none`` is the default and disables the
+through the option ``native``. The option ``disabled`` is the default and disables the
 acceleration. The majority of drivers supporting 10G or higher rates also support
 ``native`` XDP on a recent kernel. For cloud based deployments most of these drivers
 have SR-IOV variants that support native XDP as well.

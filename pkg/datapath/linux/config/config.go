@@ -252,7 +252,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				cDefinesMap["ENABLE_DSR_HYBRID"] = "1"
 			}
 		}
-		if option.Config.NodePortAcceleration != option.NodePortAccelerationNone {
+		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 			cDefinesMap["ENABLE_NODEPORT_ACCELERATION"] = "1"
 		}
 		if option.Config.EnableExternalIPs {

@@ -520,7 +520,9 @@ func init() {
 	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
 	option.BindEnv(option.NodePortBindProtection)
 
-	flags.String(option.NodePortAcceleration, option.NodePortAccelerationNone, "BPF NodePort acceleration via XDP (\"native\", \"none\")")
+	flags.String(option.NodePortAcceleration, option.NodePortAccelerationDisabled, fmt.Sprintf(
+		"BPF NodePort acceleration via XDP (\"%s\", \"%s\")",
+		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
 	option.BindEnv(option.NodePortAcceleration)
 
 	flags.Bool(option.EnableSessionAffinity, false, "Enable support for service session affinity")
@@ -1676,7 +1678,7 @@ func initKubeProxyReplacementOptions() {
 			log.Fatalf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
 		}
 
-		if option.Config.NodePortAcceleration != option.NodePortAccelerationNone &&
+		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
 			option.Config.NodePortAcceleration != option.NodePortAccelerationGeneric &&
 			option.Config.NodePortAcceleration != option.NodePortAccelerationNative {
 			log.Fatalf("Invalid value for --%s: %s", option.NodePortAcceleration, option.Config.NodePortAcceleration)
@@ -1738,10 +1740,10 @@ func initKubeProxyReplacementOptions() {
 	}
 
 	if option.Config.EnableNodePort &&
-		option.Config.NodePortAcceleration != option.NodePortAccelerationNone {
+		option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 		if option.Config.Tunnel != option.TunnelDisabled {
 			log.Fatalf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
-				option.NodePortAcceleration, option.NodePortAccelerationNone, option.TunnelName, option.TunnelDisabled)
+				option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
 		}
 
 		if option.Config.XDPDevice != "undefined" &&
