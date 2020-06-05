@@ -6,6 +6,7 @@ include ../../Makefile.defs
 MANAGED_ETCD_VERSION := "v2.0.7"
 
 QUICK_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-install.yaml"
+EXPERIMENTAL_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/experimental-install.yaml"
 MANAGED_ETCD_PATH := "$(ROOT_DIR)/$(RELATIVE_DIR)/cilium/charts/managed-etcd/values.yaml"
 CILIUM_CHARTS := "$(ROOT_DIR)/$(RELATIVE_DIR)/cilium/"
 CILIUM_VALUES := "$(CILIUM_CHARTS)/values.yaml"
@@ -16,11 +17,20 @@ DEV_VERSION_REGEX := '[0-9]\+\.[0-9]\+\.[0-9]\+-dev'
 CILIUM_CHART_REGEX := '\([vV]ersion:\) '$(VERSION_REGEX)
 CILIUM_TAG_REGEX := '\(tag:\) \(v'$(VERSION_REGEX)'\|latest\)'
 CILIUM_PULLPOLICY_REGEX := '\(pullPolicy:\) .*'
+EXPERIMENTAL_OPTIONS := \
+    --set global.hubble.enabled=true \
+    --set global.hubble.listenAddress=":4244" \
+    --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}" \
+    --set global.hubble.relay.enabled=true \
+    --set global.hubble.ui.enabled=true
 
-all: update-versions $(QUICK_INSTALL)
+all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL)
 
 $(QUICK_INSTALL): $(shell find cilium/ -type f)
 	$(QUIET)helm template cilium --namespace=kube-system $(OPTS) > $(QUICK_INSTALL)
+
+$(EXPERIMENTAL_INSTALL): $(shell find cilium/ -type f)
+	$(QUIET)helm template cilium --namespace=kube-system $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
 
 update-versions:
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"
@@ -43,6 +53,6 @@ update-versions:
 	$(QUIET)sed -i 's/'$(VERSION)'/'$(MANAGED_ETCD_VERSION)'/' $(MANAGED_ETCD_PATH)
 
 clean:
-	$(RM) $(QUICK_INSTALL)
+	$(RM) $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL)
 
 .phony: all clean update-versions
