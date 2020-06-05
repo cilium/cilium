@@ -135,6 +135,7 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		HostPort:              &models.KubeProxyReplacementFeaturesHostPort{},
 		ExternalIPs:           &models.KubeProxyReplacementFeaturesExternalIPs{},
 		HostReachableServices: &models.KubeProxyReplacementFeaturesHostReachableServices{},
+		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
 	}
 	if option.Config.EnableNodePort {
 		features.NodePort.Enabled = true
@@ -163,6 +164,9 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 			protocols = append(protocols, "UDP")
 		}
 		features.HostReachableServices.Protocols = protocols
+	}
+	if option.Config.EnableSessionAffinity {
+		features.SessionAffinity.Enabled = true
 	}
 
 	return &models.KubeProxyReplacement{
