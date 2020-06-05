@@ -216,6 +216,7 @@ more detail about how to troubleshoot policy related drops.
 .. note::
     **Hubble Relay** (beta) allows you to query multiple Hubble instances
     simultaneously without having to first manually target a specific node.
+    See `Observing flows with Hubble Relay`_ for more information.
 
 Ensure Hubble is running correctly
 ----------------------------------
@@ -248,6 +249,72 @@ following output in ``cilium status``:
     Pods need to be managed by Cilium in order to be observable by Hubble.
     See how to :ref:`ensure a pod is managed by Cilium<ensure_managed_pod>`
     for more details.
+
+Observing flows with Hubble Relay
+=================================
+
+.. note::
+   **Hubble Relay** is beta software and as such is not yet considered
+   production ready.
+
+Hubble Relay is a service which allows to query multiple Hubble instances
+simultaneously and aggregate the results. As Hubble Relay relies on individual
+Hubble instances, Hubble needs to be enabled when deploying Cilium. In
+addition, the Hubble service needs to be exposed on TCP port ``4244``. This can
+be done via the Helm values ``global.hubble.enabled=true`` and
+``global.hubble.listenAddress=":4244"`` or the
+``--enable-hubble --hubble-listen-address :4244`` options on cilium-agent.
+
+.. note::
+   Enabling Hubble to listen on TCP port 4244 globally has security
+   implications as the service can be accessed without any restriction.
+
+Hubble Relay can be deployed using Helm by setting
+``global.hubble.relay.enabled=true``. This will deploy Hubble Relay with one
+replica by default. Once the Hubble Relay pod is running, you may access the
+service by port-forwarding it:
+
+.. code:: bash
+
+    $ kubectl -n kube-system port-forward service/hubble-relay 4245:80
+
+This will forward the Hubble Relay service port (``80``) to your local machine
+on port ``4245``. The next step consists of downloading the latest binary
+release of Hubble CLI from the
+`GitHub release page <https://github.com/cilium/hubble/releases>`_. Make sure to
+download the tarball for your platform, verify the checksum and extract the
+``hubble`` binary from the tarball. Optionally, add the binary to your
+``$PATH`` if using Linux or MacOS or your ``%PATH%`` if using Windows.
+
+You can verify that Hubble Relay can be reached by running the following
+command:
+
+.. code:: bash
+
+    $ hubble status --server localhost:4245
+
+This command should return an output similar to the following:
+
+.. code:: bash
+
+    Healthcheck (via localhost:4245): Ok
+    Max Flows: 16384
+    Current Flows: 16384 (100.00%)
+
+For convenience, you may set and export the ``HUBBLE_DEFAULT_SOCKET_PATH``
+environment variable:
+
+.. code:: bash
+
+    $ export HUBBLE_DEFAULT_SOCKET_PATH=localhost:4245
+
+This will allow you to use ``hubbble status`` and ``hubble observe`` commands
+without having to specify the server address via the ``--server`` flag.
+
+As Hubble Relay shares the same API as individual Hubble instances, you may
+follow the `Observing flows with Hubble`_ section keeping in mind that
+limitations with regards to what can be seen from individual Hubble instances no
+longer apply.
 
 Connectivity Problems
 =====================
