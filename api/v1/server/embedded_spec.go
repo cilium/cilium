@@ -2578,6 +2578,14 @@ func init() {
                   "type": "integer"
                 }
               }
+            },
+            "sessionAffinity": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
             }
           }
         },
@@ -6147,6 +6155,14 @@ func init() {
                 },
                 "portMin": {
                   "type": "integer"
+                }
+              }
+            },
+            "sessionAffinity": {
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
                 }
               }
             }
