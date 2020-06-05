@@ -1675,8 +1675,14 @@ func initKubeProxyReplacementOptions() {
 				option.Config.EnableExternalIPs = false
 			}
 		} else {
-			log.WithField(logfields.Interface, option.Config.Devices).
-				Info("Using auto-derived devices for BPF node port")
+			l := log
+			if detectNodePortDevs {
+				l = l.WithField(logfields.Devices, option.Config.Devices)
+			}
+			if detectDirectRoutingDev {
+				l = l.WithField(logfields.DirectRoutingDevice, option.Config.DirectRoutingDevice)
+			}
+			l.Info("Using auto-derived devices for BPF node port")
 		}
 	}
 
@@ -1688,13 +1694,12 @@ func initKubeProxyReplacementOptions() {
 		}
 
 		if option.Config.XDPDevice != "undefined" &&
-			(len(option.Config.Devices) == 0 ||
-				option.Config.XDPDevice != option.Config.Devices[0]) {
+			(option.Config.DirectRoutingDevice == "" ||
+				option.Config.XDPDevice != option.Config.DirectRoutingDevice) {
 			log.Fatalf("Cannot set NodePort acceleration device: mismatch between Prefilter device %s and NodePort device %s",
-				option.Config.XDPDevice, option.Config.Devices[0])
+				option.Config.XDPDevice, option.Config.DirectRoutingDevice)
 		}
-		// TODO(brb) support multi-dev for XDP
-		option.Config.XDPDevice = option.Config.Devices[0]
+		option.Config.XDPDevice = option.Config.DirectRoutingDevice
 		if err := loader.SetXDPMode(option.Config.NodePortAcceleration); err != nil {
 			log.WithError(err).Fatal("Cannot set NodePort acceleration")
 		}
