@@ -181,6 +181,8 @@ func TestDecodeL7HTTPRecord(t *testing.T) {
 	assert.Equal(t, "default", f.GetSourceService().GetNamespace())
 	assert.Equal(t, "service-1234", f.GetSourceService().GetName())
 
+	assert.Equal(t, "l7", f.GetEventType().TypeName)
+
 	assert.Equal(t, pb.Verdict_FORWARDED, f.GetVerdict())
 	assert.Equal(t, nodeName, f.GetNodeName())
 

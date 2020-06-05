@@ -99,9 +99,11 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	var packetOffset int
 	var eventType uint8
 	eventType = payload.Data[0]
+	eventTypeName := monitorAPI.MessageTypeName(int(eventType))
 	var dn *monitor.DropNotify
 	var tn *monitor.TraceNotify
 	var pvn *monitor.PolicyVerdictNotify
+	var eventSubTypeName string
 	var eventSubType uint8
 	switch eventType {
 	case monitorAPI.MessageTypeDrop:
@@ -111,12 +113,14 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 			return fmt.Errorf("failed to parse drop: %v", err)
 		}
 		eventSubType = dn.SubType
+		eventSubTypeName = monitorAPI.DropReason(dn.SubType)
 	case monitorAPI.MessageTypeTrace:
 		tn = &monitor.TraceNotify{}
 		if err := monitor.DecodeTraceNotify(payload.Data, tn); err != nil {
 			return fmt.Errorf("failed to parse trace: %v", err)
 		}
 		eventSubType = tn.ObsPoint
+		eventSubTypeName = monitorAPI.TraceObservationPoint(tn.ObsPoint)
 		packetOffset = (int)(tn.DataOffset())
 	case monitorAPI.MessageTypePolicyVerdict:
 		pvn = &monitor.PolicyVerdictNotify{}
@@ -177,7 +181,9 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	decoded.L7 = nil
 	decoded.Reply = decodeIsReply(tn)
 	decoded.TrafficDirection = decodeTrafficDirection(srcEndpoint.ID, dn, tn, pvn)
-	decoded.EventType = decodeCiliumEventType(eventType, eventSubType)
+	decoded.EventType = decodeCiliumEventType(
+		eventType, eventSubType, eventTypeName, eventSubTypeName,
+	)
 	decoded.SourceService = sourceService
 	decoded.DestinationService = destinationService
 	decoded.PolicyMatchType = decodePolicyMatchType(pvn)
@@ -424,10 +430,14 @@ func decodeIsReply(tn *monitor.TraceNotify) bool {
 	return tn != nil && tn.Reason & ^monitor.TraceReasonEncryptMask == monitor.TraceReasonCtReply
 }
 
-func decodeCiliumEventType(eventType, eventSubType uint8) *pb.CiliumEventType {
+func decodeCiliumEventType(
+	eventType, eventSubType uint8, eventTypeName, eventSubTypeName string,
+) *pb.CiliumEventType {
 	return &pb.CiliumEventType{
-		Type:    int32(eventType),
-		SubType: int32(eventSubType),
+		Type:        int32(eventType),
+		SubType:     int32(eventSubType),
+		TypeName:    eventTypeName,
+		SubTypeName: eventSubTypeName,
 	}
 }
 

@@ -82,6 +82,7 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	if eventType != monitorAPI.MessageTypeAccessLog {
 		return errors.NewErrInvalidType(eventType)
 	}
+	eventTypeName := monitorAPI.MessageTypeName(int(eventType))
 
 	buf := bytes.NewBuffer(payload.Data[1:])
 	dec := gob.NewDecoder(buf)
@@ -154,7 +155,7 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	decoded.L7 = decodeLayer7(r)
 	decoded.L7.LatencyNs = p.computeResponseTime(r, timestamp)
 	decoded.Reply = decodeIsReply(r.Type)
-	decoded.EventType = decodeCiliumEventType(eventType)
+	decoded.EventType = decodeCiliumEventType(eventType, eventTypeName)
 	decoded.SourceService = sourceService
 	decoded.DestinationService = destinationService
 	decoded.TrafficDirection = decodeTrafficDirection(r.ObservationPoint)
@@ -411,9 +412,10 @@ func decodeIsReply(t accesslog.FlowType) bool {
 	return t == accesslog.TypeResponse
 }
 
-func decodeCiliumEventType(eventType uint8) *pb.CiliumEventType {
+func decodeCiliumEventType(eventType uint8, typeName string) *pb.CiliumEventType {
 	return &pb.CiliumEventType{
-		Type: int32(eventType),
+		Type:     int32(eventType),
+		TypeName: typeName,
 	}
 }
 
