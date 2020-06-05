@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/sirupsen/logrus"
 )
 
 type getEndpoint struct {
@@ -211,6 +212,16 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		disabled := false
 		epTemplate.DatapathConfiguration.RequireRouting = &disabled
 	}
+
+	log.WithFields(logrus.Fields{
+		"addressing":            epTemplate.Addressing,
+		logfields.ContainerID:   epTemplate.ContainerID,
+		"datapathConfiguration": epTemplate.DatapathConfiguration,
+		logfields.Interface:     epTemplate.InterfaceName,
+		logfields.K8sPodName:    epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
+		logfields.Labels:        epTemplate.Labels,
+		"sync-build":            epTemplate.SyncBuildEndpoint,
+	}).Info("Create endpoint request")
 
 	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, d, d.l7Proxy, d.identityAllocator, epTemplate)
 	if err != nil {
@@ -426,6 +437,16 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 
 	epTemplate := params.Endpoint
 
+	log.WithFields(logrus.Fields{
+		logfields.EndpointID:    params.ID,
+		"addressing":            epTemplate.Addressing,
+		logfields.ContainerID:   epTemplate.ContainerID,
+		"datapathConfiguration": epTemplate.DatapathConfiguration,
+		logfields.Interface:     epTemplate.InterfaceName,
+		logfields.K8sPodName:    epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
+		logfields.Labels:        epTemplate.Labels,
+	}).Info("Patch endpoint request")
+
 	// Validate the template. Assignment afterwards is atomic.
 	// Note: newEp's labels are ignored.
 	newEp, err2 := endpoint.NewEndpointFromChangeModel(h.d.ctx, h.d, h.d.l7Proxy, h.d.identityAllocator, epTemplate)
@@ -514,6 +535,9 @@ func (d *Daemon) deleteEndpointQuiet(ep *endpoint.Endpoint, conf endpoint.Delete
 }
 
 func (d *Daemon) DeleteEndpoint(id string) (int, error) {
+	// id can be an endpoint iD or an IP so not using logfields.EndpointID
+	log.WithField("id", id).Info("Delete endpoint request")
+
 	if ep, err := d.endpointManager.Lookup(id); err != nil {
 		return 0, api.Error(DeleteEndpointIDInvalidCode, err)
 	} else if ep == nil {
