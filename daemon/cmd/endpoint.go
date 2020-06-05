@@ -20,6 +20,7 @@ import (
 	"net"
 	"runtime"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
@@ -33,6 +34,7 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/option"
@@ -190,6 +192,93 @@ func (d *Daemon) errorDuringCreation(ep *endpoint.Endpoint, err error) (*endpoin
 	return nil, PutEndpointIDFailedCode, err
 }
 
+type endpointCreationRequest struct {
+	// cancel is the cancellation function that can be called to cancel
+	// this endpoint create request
+	cancel context.CancelFunc
+
+	// endpoint is the endpoint being added in the request
+	endpoint *endpoint.Endpoint
+
+	// started is the timestamp on when the processing has started
+	started time.Time
+}
+
+type endpointCreationManager struct {
+	mutex    lock.Mutex
+	requests map[string]*endpointCreationRequest
+}
+
+func newEndpointCreationManager() *endpointCreationManager {
+	return &endpointCreationManager{
+		requests: map[string]*endpointCreationRequest{},
+	}
+}
+
+func (m *endpointCreationManager) NewCreateRequest(ep *endpoint.Endpoint, cancel context.CancelFunc) {
+	// Tracking is only performed if Kubernetes pod names are available.
+	// The endpoint create logic already ensures that IPs and containerID
+	// are unique and thus tracking is not required outside of the
+	// Kubernetes context
+	if !ep.K8sNamespaceAndPodNameIsSet() || !k8s.IsEnabled() {
+		return
+	}
+
+	podName := ep.GetK8sNamespaceAndPodName()
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if req, ok := m.requests[podName]; ok {
+		ep.Logger(daemonSubsys).Warning("Cancelling obsolete endpoint creating due to new create for same pod")
+		req.cancel()
+	}
+
+	ep.Logger(daemonSubsys).Debug("New create request")
+	m.requests[podName] = &endpointCreationRequest{
+		cancel:   cancel,
+		endpoint: ep,
+		started:  time.Now(),
+	}
+}
+
+func (m *endpointCreationManager) EndCreateRequest(ep *endpoint.Endpoint) bool {
+	if !ep.K8sNamespaceAndPodNameIsSet() || !k8s.IsEnabled() {
+		return false
+	}
+
+	podName := ep.GetK8sNamespaceAndPodName()
+
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	if req, ok := m.requests[podName]; ok {
+		if req.endpoint == ep {
+			ep.Logger(daemonSubsys).Debug("End of create request")
+			delete(m.requests, podName)
+			return true
+		}
+	}
+
+	return false
+}
+
+func (m *endpointCreationManager) CancelCreateRequest(ep *endpoint.Endpoint) {
+	if m.EndCreateRequest(ep) {
+		ep.Logger(daemonSubsys).Warning("Cancelled endpoint create request due to receiving endpoint delete request")
+	}
+}
+
+func (m *endpointCreationManager) DebugStatus() (output string) {
+	m.mutex.Lock()
+	defer m.mutex.Unlock()
+
+	for _, req := range m.requests {
+		output += fmt.Sprintf("- %s: %s\n", req.started.String(), req.endpoint.String())
+	}
+	return
+}
+
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified.
 func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
@@ -274,6 +363,11 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 			return invalidDataError(ep, fmt.Errorf("no valid labels provided"))
 		}
 	}
+
+	var cancel context.CancelFunc
+	ctx, cancel = context.WithCancel(ctx)
+	d.endpointCreations.NewCreateRequest(ep, cancel)
+	defer d.endpointCreations.EndCreateRequest(ep)
 
 	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
 		pod, cp, identityLabels, info, _, err := d.fetchK8sLabelsAndAnnotations(ep.K8sNamespace, ep.K8sPodName)
@@ -503,6 +597,9 @@ func (h *patchEndpointID) Handle(params PatchEndpointIDParams) middleware.Respon
 }
 
 func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
+	// Cancel any ongoing endpoint creation
+	d.endpointCreations.CancelCreateRequest(ep)
+
 	scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 	errs := d.deleteEndpointQuiet(ep, endpoint.DeleteConfig{
 		// If the IP is managed by an external IPAM, it does not need to be released
