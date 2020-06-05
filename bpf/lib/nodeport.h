@@ -91,19 +91,6 @@ struct dsr_opt_v6 {
 };
 #endif /* ENABLE_IPV6 */
 
-static __always_inline bool nodeport_must_drop_remote(void)
-{
-#if defined(ENABLE_NODEPORT_ACCELERATION) && !defined(FROM_ENCAP_DEV) && \
-    __ctx_is == __ctx_skb
-	/* We already handled remote backends on XDP layer. Anything
-	 * landing here that is remote is a bug.
-	 */
-	return true;
-#else
-	return false;
-#endif
-}
-
 static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 {
 # if defined(ENABLE_DSR) && !defined(ENABLE_DSR_HYBRID)
@@ -586,8 +573,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 
 	backend_local = lookup_ip6_endpoint(ip6);
-	if (!backend_local && (lb6_svc_is_hostport(svc) ||
-			       nodeport_must_drop_remote()))
+	if (!backend_local && lb6_svc_is_hostport(svc))
 		return DROP_INVALID;
 
 	switch (ret) {
@@ -1253,8 +1239,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 
 	backend_local = lookup_ip4_endpoint(ip4);
-	if (!backend_local && (lb4_svc_is_hostport(svc) ||
-			       nodeport_must_drop_remote()))
+	if (!backend_local && lb4_svc_is_hostport(svc))
 		return DROP_INVALID;
 
 	switch (ret) {
