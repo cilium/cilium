@@ -1,20 +1,35 @@
 Alexei Starovoitov <alexei.starovoitov@gmail.com>
-Jarno Rajahalme <jarno@covalent.io>
-Sergey Generalov <sergey@genbit.ru>
-Florian Koch <f0@users.noreply.github.com>
-Madhu Challa <challa@gmail.com>
-Peiqi Shi <uestc.shi@gmail.com>
-Craig Box <craig.box@gmail.com>
-Matthew Gumport <me@gum.pt>
-Daniel Qian <qsj.daniel@gmail.com>
+André Martins <andre@cilium.io>
+Andrew Sy Kim <kim.andrewsy@gmail.com>
+Arika Chen <eaglesora@gmail.com>
+Arthur Evstifeev <aevstifeev@gitlab.com>
+Arthur Evstifeev <mail@ap4y.me>
+Arvind Soni <arvind@covalent.io>
 Ashwin Paranjpe <ashwin@covalent.io>
 Ashwin Paranjpe <ashwinp.work@gmail.com>
-Jerry J. Muzsik <jerrymuzsik@icloud.com>
-Zhu Yan <hackzhuyan@gmail.com>
-Junli Ou <oujunli306@gmail.com>
-Ian Vernon <ian@cilium.io> <vagrant@k8s1>
-Arvind Soni <arvind@covalent.io>
-Andrew Sy Kim <kim.andrewsy@gmail.com>
-Ifeanyi Ubah <ify1992@yahoo.com>
-Thomas Graf <thomas@cilium.io>
+Bingwu Yang <detailyang@gmail.com>
+Bob Bouteillier <bob.bouteillier@datadoghq.com>
+Charles-Henri Guérin <charles-henri.guerin@zenika.com>
+Christine Chen <christine.chen@datadoghq.com>
 Christopher Biscardi <chris@christopherbiscardi.com>
+Craig Box <craig.box@gmail.com>
+Daniel Qian <qsj.daniel@gmail.com>
+Darshan Chaudhary <deathbullet@gmail.com>
+Devarshi Sathiya <devarshisathiya5@gmail.com>
+Florian Koch <f0@users.noreply.github.com>
+George Kontridze <gkontridze@plaid.com>
+Hui Kong <hui.kong@qunar.com>
+Ian Vernon <ian@cilium.io> <vagrant@k8s1>
+Ifeanyi Ubah <ify1992@yahoo.com>
+Jarno Rajahalme <jarno@covalent.io>
+Jerry J. Muzsik <jerrymuzsik@icloud.com>
+Jomen Xiao <jomenxiao@gmail.com>
+Junli Ou <oujunli306@gmail.com>
+Liu Qun <qunliu@zyhx-group.com>
+Madhu Challa <challa@gmail.com>
+Matthew Gumport <me@gum.pt>
+Michael Vorburger <vorburger@redhat.com>
+Peiqi Shi <uestc.shi@gmail.com>
+Sergey Generalov <sergey@genbit.ru>
+Thomas Graf <thomas@cilium.io>
+Zhu Yan <hackzhuyan@gmail.com>
