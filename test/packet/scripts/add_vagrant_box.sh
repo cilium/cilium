@@ -1,55 +1,174 @@
 #!/bin/bash
 
-if [[ $# -ne 1 ]]; then
-    echo "usage: add-vagrant-boxes.sh [vagrant_box_defaults.rb path]"
-    exit 1
+set -e
+
+check_cmd() {
+    for cmd in $@ ; do
+        if !(command -v $cmd >/dev/null) ; then
+            echo "Error: $cmd not found."
+            exit 1
+        fi
+    done
+}
+check_cmd curl vagrant
+
+usage() {
+    echo -e "usage: add_vagrant_box.sh [options] [vagrant_box_defaults.rb path]"
+    echo -e "\tpath to vagrant_box_defaults.rb defaults to ./vagrant_box_defaults.rb"
+    echo -e ""
+    echo -e "options:"
+    echo -e "\t-a\t\tuse aria2c instead of curl"
+    echo -e "\t-b <box>\tdownload selected box (defaults: ubuntu ubuntu-next)"
+    echo -e "\t-l\t\tdownload latest versions instead of using vagrant_box_defaults"
+    echo -e "\t-t\t\tdownload to /tmp/ instead of current directory"
+    echo -e "\t-h\t\tdisplay this help"
+    echo -e ""
+    echo -e "examples:"
+    echo -e "\tdownload boxes ubuntu and ubuntu-next from vagrant_box_defaults.rb:"
+    echo -e "\t\$ add-vagrant-boxes.sh \$HOME/go/src/github.com/cilium/cilium/vagrant_box_defaults.rb"
+    echo -e "\tdownload latest version for ubuntu-dev and ubuntu-next:"
+    echo -e "\t\$ add-vagrant-boxes.sh -l -b ubuntu-dev -b ubuntu-next"
+    echo -e "\tsame as above, downloading into /tmp/ and using aria2c:"
+    echo -e "\t\$ add-vagrant-boxes.sh -alt -b ubuntu-dev -b ubuntu-next"
+    exit $1
+}
+
+boxes="ubuntu ubuntu-dev"
+box_dir="$HOME/.vagrant.d/boxes/cilium-VAGRANTSLASH-"
+box_info="https://app.vagrantup.com/api/v1/search?q=cilium/"
+vagrant_url="http://vagrant-cache.ci.cilium.io/cilium/"
+version=0
+custom_types=0
+latest=0
+use_aria2=0
+outdir="."
+path=/dev/null
+
+OPTIND=1
+while getopts "ab:hlt" opt; do
+    case "$opt" in
+    h)
+        usage 0
+        ;;
+    a)
+        check_cmd aria2c
+        use_aria2=1
+        ;;
+    l)
+        check_cmd jq
+        latest=1
+        ;;
+    t)
+        outdir="/tmp"
+        ;;
+    b)
+        if [[ $custom_types -eq 0 ]] ; then
+            boxes=""
+        fi
+        custom_types=1
+        boxes="$boxes $OPTARG"
+        ;;
+    esac
+done
+shift $((OPTIND-1))
+[[ "${1:-}" = "--" ]] && shift
+
+if [[ $latest -ne 1 ]] ; then
+    if [[ $# -lt 1 ]] ; then
+        if [[ -f ./vagrant_box_defaults.rb ]] ; then
+            path=vagrant_box_defaults.rb
+        else
+            usage 1
+        fi
+    else
+        path=$1
+    fi
 fi
 
-path=$1
+check_defaults_version() {
+    version=$(sed -n '/'$1'"$/{n;s/.*"\(.*\)"$/\1/p;q}' "$path")
+    found=1
 
-for box in SERVER NETNEXT_SERVER; do
-    name=$(cat $path | grep "^\$${box}_BOX" | awk '{print $NF}' | sed 's/^"\(.*\)"$/\1/')
-    # we need non-dev images for CI
-    if [[ "$name" == "cilium/ubuntu-dev" ]]; then
-        name="cilium/ubuntu"
+    vagrant box list | grep "$box " | grep $version || found=0
+    if [[ $found -eq 1 ]]; then
+        echo -e "$box:\tfound version $version used in $path, no need to preload"
+        version=0
+    else
+        echo -e "$box:\tversion $version used in $path needs to be preloaded"
     fi
+}
 
-    if [[ "$name" == "" ]]; then
+check_latest_version() {
+    latest_version=$(curl -s "$box_info$1" | jq '.boxes[0].current_version.version|tonumber')
+
+    current_version=$(vagrant box list | awk '/'$box' /{sub(/)/,"",$3);if($3>v){v=$3}} END{if(v)print v;else print "0"}')
+
+    if (($current_version >= $latest_version)) ; then
+        echo -e "$box:\tlocal version $current_version >= remote version $latest_version, no need to preload"
+        version=0
+    else
+        echo -e "$box:\tlocal version $current_version, remote version $latest_version needs to be preloaded"
+        version=$latest_version
+    fi
+}
+
+for box in $boxes; do
+    if [[ latest -eq 1 ]] ; then
+        check_latest_version $box
+    else
+        check_defaults_version $box
+    fi
+    if [[ version -eq 0 ]] ; then
         continue
     fi
 
-    version=$(cat $path |grep "^\$${box}_VERSION" | awk '{print $NF}' | sed 's/^"\(.*\)"$/\1/')
-
     set +e
-	vagrant box list | grep "$name " | grep $version
-	if [[ $? -eq 0 ]]; then
-		echo "box already exists, no need to preload"
-		continue
-	fi
-
-    curl --fail http://vagrant-cache.ci.cilium.io/$name/$version/lock
+    curl --fail "$vagrant_url$box/$version/lock" 2>/dev/null
     lock_exit_code=$?
     # check for 404 error indicating that cache is up and lock file is not in place
-    if [ $lock_exit_code  -eq 22 ]; then
+    if [ $lock_exit_code -eq 22 ]; then
         download_from_cache=true
     else
         # cache is down or box is locked
         download_from_cache=false
     fi
 
-    box_downloaded=false
+    ret=1
 
     if [[ $download_from_cache == true ]]; then
         echo "adding box from cache"
-        curl --fail http://vagrant-cache.ci.cilium.io/$name/$version/metadata.json --output metadata.json
-        curl http://vagrant-cache.ci.cilium.io/$name/$version/package.box --output package.box
-        vagrant box add metadata.json
-        box_downloaded=$?
+        curl --fail "$vagrant_url$box/$version/metadata.json" -o $outdir/metadata.json
+        ret=$?
+        if [[ $ret -eq 0 ]]; then
+            url="$vagrant_url$box/$version/package.box"
+            if [[ $use_aria2 -eq 1 ]] ; then
+                aria2c -x16 -s16 -c -d "$outdir" -o package.box "$url"
+            else
+                curl "$url" -o "$outdir/package.box"
+            fi
+            ret=$?
+        fi
+        if [[ $ret -eq 0 ]]; then
+            cd $outdir
+            vagrant box add metadata.json
+            ret=$?
+        fi
     fi
 
     set -e
-    if [[ $box_downloaded -ne 0 ]]; then
+    if [[ $ret -ne 0 ]]; then
         echo "box locked or unavailable, adding box from vagrant cloud"
-        vagrant box add $name --box-version $version
+        if [[ $use_aria2 -eq 1 ]] ; then
+            url="https://vagrantcloud.com/cilium/boxes/$box/versions/$version/providers/virtualbox.box"
+            aria2c -x16 -s16 -c -d "$outdir" -o package.box "$url"
+            vagrant box add "cilium/$box" "$outdir/package.box"
+            mkdir -p $box_dir$box
+            if [[ ! -f $box_dir$box/metadata_url ]] ; then
+                printf "https://vagrantcloud.com/cilium/$box" > $box_dir$box/metadata_url
+            fi
+            mv $box_dir$box/{0,$version}
+        else
+            vagrant box add cilium/$box --box-version $version
+        fi
     fi
 done
