@@ -7,7 +7,7 @@ Hubble internals
           Hubble internals.
 
 .. note:: This documentation covers the Hubble server (sometimes referred as
-          "Hubble embedded") and Hubble-relay components but does not cover the
+          "Hubble embedded") and Hubble Relay components but does not cover the
           Hubble UI and CLI.
 
 Hubble builds on top of Cilium and eBPF to enable deep visibility into the
@@ -18,10 +18,10 @@ achieve all of this at large scale.
 Hubble's server component is embedded into the Cilium agent in order to achieve
 high performance with low-overhead. The gRPC services offered by Hubble server
 may be consumed locally via a Unix domain socket or, more typically, through
-Hubble-relay. Hubble-relay is a standalone component which is aware of all
+Hubble Relay. Hubble-relay is a standalone component which is aware of all
 running Hubble instances and offers full cluster visibility by connecting to
 their respective gRPC APIs. This capability is usually referred to as
-multi-node. Hubble-relay's main goal is to offer a rich API that can be safely
+multi-node. Hubble Relay's main goal is to offer a rich API that can be safely
 exposed and consumed by the Hubble UI and CLI.
 
 .. note:: This guide does not cover Hubble in standalone mode, which is
@@ -86,21 +86,21 @@ updated, added or removed from the cluster. Thus , it allows the caller to
 keep track of all Hubble instances and query their respective gRPC services.
 
 This service is typically only exposed on a local Unix domain socket and is
-primarily used by Hubble-relay in order to have a cluster-wide view of all
+primarily used by Hubble Relay in order to have a cluster-wide view of all
 Hubble instances.
 
 The Peer service obtains peer change notifications by subscribing to Cilium's
 node manager. To this end, it internally defines a handler that implements
 Cilium's datapath node handler interface.
 
-Hubble-relay
+Hubble Relay
 ------------
 
-.. note:: At the time of this writing, the hubble-relay component is still
+.. note:: At the time of this writing, Hubble Relay component is still
           work in progress and may undergo major changes. For this reason,
-          internal documentation about Hubble-relay is limited.
+          internal documentation about Hubble Relay is limited.
 
-Hubble-relay is a component that was introduced in the context of multi-node
+Hubble Relay is a component that was introduced in the context of multi-node
 support. It leverages the Peer service to obtain information about Hubble
 instances and consume their gRPC API in order to provide a more rich API that
 covers events from across the entire cluster.
