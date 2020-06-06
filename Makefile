@@ -500,7 +500,7 @@ render-docs:
 	$(MAKE) -C Documentation html run-server
 
 render-docs-live-preview:
-	$(MAKE) -C Documentation pipenv-install live-preview
+	$(MAKE) -C Documentation live-preview
 
 manpages:
 	-rm -r man

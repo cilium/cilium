@@ -16,12 +16,12 @@ builder-image: Dockerfile requirements.txt
 	  | $(CONTAINER_ENGINE) build --tag cilium/docs-builder -
 
 READTHEDOCS_VERSION:=$(READTHEDOCS_VERSION)
-DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
+DOCKER_CTR := $(CONTAINER_ENGINE) container run --rm \
 		--workdir /src/Documentation \
 		--volume $(CURDIR)/..:/src \
 		--env SKIP_LINT=$(SKIP_LINT) \
-		--user "$(shell id -u):$(shell id -g)" \
-			cilium/docs-builder
+		--user "$(shell id -u):$(shell id -g)"
+DOCKER_RUN := $(DOCKER_CTR) cilium/docs-builder
 
 update-cmdref: builder-image
 	@$(ECHO_GEN)cmdref
@@ -67,14 +67,11 @@ run-server: stop-server
 	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
 
 stop-server:
-	-$(QUIET)$(CONTAINER_ENGINE) container rm --force --volumes docs-cilium
+	-$(QUIET)$(CONTAINER_ENGINE) container rm --force --volumes docs-cilium 2>/dev/null
 
-pipenv:
-	@which pipenv > /dev/null || (echo "Please install pipenv: https://pipenv.pypa.io/en/latest/#install-pipenv-today"; exit 1)
-
-pipenv-install: pipenv
-	pipenv --rm || true
-	pipenv install --three -r requirements.txt
-
-live-preview: pipenv
-	pipenv run sphinx-autobuild -B $(SPHINX_OPTS) -i *.swp -Q . _preview
+live-preview: stop-server
+	@echo "$$(tput setaf 2)Running at http://localhost:$(DOCS_PORT)$$(tput sgr0)"
+	$(QUIET)$(DOCKER_CTR) \
+		--publish $(DOCS_PORT):8000 \
+			cilium/docs-builder \
+		sphinx-autobuild -B -H 0.0.0.0 $(SPHINX_OPTS) -i *.swp -Q . _preview
