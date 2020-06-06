@@ -8,14 +8,13 @@ Documentation
 =============
 
 First, start a local document server that automatically refreshes when you save files for
-real-time preview. After installing `pipenv <https://pipenv.pypa.io/en/latest/#install-pipenv-today>`_,
-run:
+real-time preview. It relies on the ``cilium/docs-builder`` Docker container.
 
 ::
 
     $ make render-docs-live-preview
 
-and preview the documentation at http://localhost:8000/ as you make changes. After making changes to
+and preview the documentation at http://localhost:9081/ as you make changes. After making changes to
 Cilium documentation you should check that you did not introduce any new warnings or errors, and also
 check that your changes look as you intended one last time before opening a pull request. To do this
 you can build the docs:
