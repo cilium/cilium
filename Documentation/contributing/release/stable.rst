@@ -129,23 +129,6 @@ If you intent to release a new feature release, see the
 
        git push --tags
 
-#. Build the binaries and push it to the release bucket:
-
-   ::
-
-       DOMAIN=releases.cilium.io ./contrib/release/uploadrev v1.0.3
-
-
-   This step will print a markdown snippet which you will need when crafting
-   the GitHub release so make sure to keep it handy.
-
-   .. note:
-
-       This step requires valid AWS credentials to be available via the
-       environment variables ``AWS_ACCESS_KEY_ID`` and
-       ``AWS_SECRET_ACCESS_KEY``. Ping in the ``#development`` channel on Slack
-       if you have no access. It also requires the aws-cli tools to be installed.
-
 #. `Create a GitHub release <https://github.com/cilium/cilium/releases/new>`_:
 
    #. Choose the correct target branch, e.g. ``v1.0``
@@ -157,12 +140,32 @@ If you intent to release a new feature release, see the
 
    #. Preview the description and then publish the release
 
-#. Announce the release in the ``#general`` channel on Slack
+#. Prepare Helm changes using the `Cilium Helm Charts Repository <https://github.com/cilium/charts/>`_
+   and push the changes into that repository (not the main cilium repository):
 
-#. Update the ``README.rst#stable-releases`` section from the Cilium master branch
+   ::
 
-#. Update the ``.github/cilium-actions.yml`` with the project created for the
-   upcoming release.
+      ./prepare_artifacts.sh /path/to/cilium/repository/checked/out/to/release/commit
+      git push
+
+#. Announce the release in the ``#general`` channel on Slack. Sample text:
+
+   ::
+
+      :cilium-new: **Announcement:** Cilium vX.Y.Z has been released :tada:
+
+      <If security release or major bugfix, short summary of fix here>
+
+      For more details, see the release notes:
+      https://github.com/cilium/cilium/releases/tag/vX.Y.Z
+
+#. Create a new git branch based on the master branch to update ``README.rst``:
+
+   ::
+
+      git checkout -b pr/bump-readme-vX.Y.Z origin/master
+      contrib/release/bump-readme.sh
+      # (Commit changes & submit PR)
 
 #. Bump the version of Cilium used in the Cilium upgrade tests to use the new release
 
