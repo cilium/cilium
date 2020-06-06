@@ -115,3 +115,19 @@ For the final release
 
 #. Follow the :ref:`generic_release_process` to create the final replace and replace
    ``X.Y.0-rcX`` with ``X.Y.0``.
+
+#. Announce to Slack with a more thorough release text. Sample text:
+
+   ::
+
+      @channel :cilium-new: **Announcement:** Cilium 1.7.0 is out! :tada:
+
+      <Short summary of major features pulled from Blog, eg:>
+      *Amazing Technology*: Just some of the great work the community has
+      been working on over the past few months.
+
+      For more information, see the blog post:
+      https://cilium.io/blog/2020/02/18/cilium-17
+
+#. Update ``SECURITY.md`` to represent the security support for the most recent
+   three release series.
