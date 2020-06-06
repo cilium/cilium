@@ -134,4 +134,14 @@ If you intent to release a new feature release, see the
 
    #. Preview the description and then publish the release
 
-#. Announce the release in the ``#general`` channel on Slack
+#. Announce the release in the ``#general`` channel on Slack. Sample text:
+
+   ::
+
+      :cilium-new: Cilium release candidate vX.Y.Z-rcN has been released:
+      https://github.com/cilium/cilium/releases/tag/vX.Y.Z-rcN
+
+      This release is not recommended for use in production clusters, but if
+      you're in a position to pull it and try it out in staging / testing
+      environments and report issues that you find, this will help us to put
+      out a high-quality, stable final release :)

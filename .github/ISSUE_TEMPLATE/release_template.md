@@ -9,10 +9,23 @@ assignees: ''
 
 ## Pre-release
 
+- [ ] Create a [new project] for the next release version
+- [ ] Add build targets for the new release on [Docker Hub]
+  - All versions:
+    - [cilium](https://hub.docker.com/repository/docker/cilium/cilium/builds/edit)
+    - [operator](https://hub.docker.com/repository/docker/cilium/operator/builds/edit)
+    - [docker-plugin](https://hub.docker.com/repository/docker/cilium/docker-plugin/builds/edit)
+  - Cilium v1.8 or later:
+    - [operator-generic](https://hub.docker.com/repository/docker/cilium/operator-generic/builds/edit)
+    - [operator-aws](https://hub.docker.com/repository/docker/cilium/operator-aws/builds/edit)
+    - [operator-azure](https://hub.docker.com/repository/docker/cilium/operator-azure/builds/edit)
+    - [hubble-relay](https://hub.docker.com/repository/docker/cilium/hubble-relay/builds/edit)
 - [ ] Check that there are no [release blockers] for the targeted release version
 - [ ] Ensure that outstanding [backport PRs] are merged
-- [ ] Create a [new project] for the next release version
-  - [ ] Move any unresolved issues/PRs into the newly created release project
+- [ ] Consider building new [cilium-runtime images] and bumping the base image
+      versions on this branch
+- [ ] Move any unresolved issues/PRs from old release project into the newly
+      created release project
 - [ ] Push a PR including the changes necessary for the new release:
   - [ ] Update the VERSION file to represent X.Y.Z
   - [ ] Update helm charts via `make -C install/kubernetes`
@@ -22,18 +35,16 @@ assignees: ''
   - [ ] Use [Cilium release-notes tool] to generate `CHANGELOG.md`
   - [ ] Point `.github/cilium-actions.yml` to the newly created project
   - [ ] Commit all changes with title `Prepare for release vX.Y.Z`
-- [ ] Run CI
 - [ ] Merge PR
-- [ ] Add build targets for the new release on [Docker Hub]
-  - [cilium](https://hub.docker.com/repository/docker/cilium/cilium/builds/edit)
-  - [operator](https://hub.docker.com/repository/docker/cilium/operator/builds/edit)
-  - [docker-plugin](https://hub.docker.com/repository/docker/cilium/docker-plugin/builds/edit)
 - [ ] Create and push *both* tags to GitHub (`vX.Y.Z`, `X.Y.Z`)
 - [ ] Wait for docker builds to complete
   - [cilium](https://hub.docker.com/repository/docker/cilium/cilium/builds)
   - [operator](https://hub.docker.com/repository/docker/cilium/operator/builds)
   - [docker-plugin](https://hub.docker.com/repository/docker/cilium/docker-plugin/builds)
-- [ ] Create helm charts artifacts in [Cilium charts] repository
+- [ ] Create helm charts artifacts in [Cilium charts] repository using
+      [cilium helm release tool] & push to repository
+- [ ] Run sanity check of Helm install using connectivity-check script.
+      Suggested approach: Follow the full [GKE getting started guide].
 - [ ] [Create a release] for the new tag `vX.Y.Z`, using the release notes
       from above
 - [ ] Announce the release in #general on Slack (only [@]channel for vX.Y.0)
@@ -57,3 +68,6 @@ assignees: ''
 [Stable releases]: https://github.com/cilium/cilium#stable-releases
 [kops]: https://github.com/kubernetes/kops/
 [kubespray]: https://github.com/kubernetes-sigs/kubespray/
+[cilium helm release tool]: https://github.com/cilium/charts/blob/master/prepare_artifacts.sh
+[GKE getting started guide]: https://docs.cilium.io/en/stable/gettingstarted/k8s-install-gke/
+[cilium-runtime images]: https://quay.io/repository/cilium/cilium-runtime
