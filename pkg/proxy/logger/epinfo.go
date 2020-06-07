@@ -30,7 +30,7 @@ type EndpointInfoSource interface {
 	GetID() uint64
 	GetIPv4Address() string
 	GetIPv6Address() string
-	GetIdentity() identity.NumericIdentity
+	GetIdentityLocked() identity.NumericIdentity
 	GetLabels() []string
 	GetLabelsSHA() string
 	HasSidecarProxy() bool
@@ -51,7 +51,7 @@ func getEndpointInfo(source EndpointInfoSource) *accesslog.EndpointInfo {
 		IPv6:         source.GetIPv6Address(),
 		Labels:       source.GetLabels(),
 		LabelsSHA256: source.GetLabelsSHA(),
-		Identity:     uint64(source.GetIdentity()),
+		Identity:     uint64(source.GetIdentityLocked()),
 	}
 }
 

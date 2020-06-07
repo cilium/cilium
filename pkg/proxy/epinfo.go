@@ -59,7 +59,7 @@ func (r *defaultEndpointInfoRegistry) FillEndpointIdentityByIP(ip net.IP, info *
 	}
 
 	info.ID = uint64(ep.ID)
-	info.Identity = uint64(ep.GetIdentity())
+	info.Identity = uint64(ep.GetIdentityLocked())
 	info.Labels = ep.GetLabels()
 	info.LabelsSHA256 = ep.GetLabelsSHA()
 
