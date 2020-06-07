@@ -1319,7 +1319,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with TC, direct routing and Hybrid", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"global.nodePort.acceleration": "none",
+						"global.nodePort.acceleration": "disabled",
 						"global.nodePort.mode":         "hybrid",
 						"global.tunnel":                "disabled",
 						"global.autoDirectNodeRoutes":  "true",
