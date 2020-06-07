@@ -61,21 +61,22 @@ func NewTestHostEndpoint() TestEndpoint {
 	}
 }
 
-func (e *TestEndpoint) HasIpvlanDataPath() bool                 { return false }
-func (e *TestEndpoint) ConntrackLocalLocked() bool              { return false }
-func (e *TestEndpoint) RequireARPPassthrough() bool             { return false }
-func (e *TestEndpoint) RequireEgressProg() bool                 { return false }
-func (e *TestEndpoint) RequireRouting() bool                    { return false }
-func (e *TestEndpoint) RequireEndpointRoute() bool              { return false }
-func (e *TestEndpoint) GetPolicyVerdictLogFilter() uint32       { return 0xffff }
-func (e *TestEndpoint) GetCIDRPrefixLengths() ([]int, []int)    { return nil, nil }
-func (e *TestEndpoint) GetID() uint64                           { return e.Id }
-func (e *TestEndpoint) StringID() string                        { return "42" }
-func (e *TestEndpoint) GetIdentity() identity.NumericIdentity   { return e.Identity.ID }
-func (e *TestEndpoint) GetSecurityIdentity() *identity.Identity { return e.Identity }
-func (e *TestEndpoint) GetNodeMAC() mac.MAC                     { return e.MAC }
-func (e *TestEndpoint) GetOptions() *option.IntOptions          { return e.Opts }
-func (e *TestEndpoint) IsHost() bool                            { return e.isHost }
+func (e *TestEndpoint) HasIpvlanDataPath() bool                     { return false }
+func (e *TestEndpoint) ConntrackLocalLocked() bool                  { return false }
+func (e *TestEndpoint) RequireARPPassthrough() bool                 { return false }
+func (e *TestEndpoint) RequireEgressProg() bool                     { return false }
+func (e *TestEndpoint) RequireRouting() bool                        { return false }
+func (e *TestEndpoint) RequireEndpointRoute() bool                  { return false }
+func (e *TestEndpoint) GetPolicyVerdictLogFilter() uint32           { return 0xffff }
+func (e *TestEndpoint) GetCIDRPrefixLengths() ([]int, []int)        { return nil, nil }
+func (e *TestEndpoint) GetID() uint64                               { return e.Id }
+func (e *TestEndpoint) StringID() string                            { return "42" }
+func (e *TestEndpoint) GetIdentity() identity.NumericIdentity       { return e.Identity.ID }
+func (e *TestEndpoint) GetIdentityLocked() identity.NumericIdentity { return e.Identity.ID }
+func (e *TestEndpoint) GetSecurityIdentity() *identity.Identity     { return e.Identity }
+func (e *TestEndpoint) GetNodeMAC() mac.MAC                         { return e.MAC }
+func (e *TestEndpoint) GetOptions() *option.IntOptions              { return e.Opts }
+func (e *TestEndpoint) IsHost() bool                                { return e.isHost }
 
 func (e *TestEndpoint) IPv4Address() addressing.CiliumIPv4 {
 	addr, _ := addressing.NewCiliumIPv4("192.0.2.3")

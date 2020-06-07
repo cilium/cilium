@@ -613,7 +613,21 @@ func (e *Endpoint) StringID() string {
 	return strconv.Itoa(int(e.ID))
 }
 
+// GetIdentityLocked is identical to GetIdentity() but assumes that a.mutex is
+// already held. This function is obsolete and should no longer be used.
+func (e *Endpoint) GetIdentityLocked() identity.NumericIdentity {
+	return e.getIdentity()
+}
+
+// GetIdentity returns the numeric security identity of the endpoint
 func (e *Endpoint) GetIdentity() identity.NumericIdentity {
+	e.unconditionalRLock()
+	defer e.runlock()
+
+	return e.getIdentity()
+}
+
+func (e *Endpoint) getIdentity() identity.NumericIdentity {
 	if e.SecurityIdentity != nil {
 		return e.SecurityIdentity.ID
 	}
@@ -2234,7 +2248,7 @@ func (e *Endpoint) GetProxyInfoByFields() (uint64, string, string, []string, str
 	if e.IsDisconnecting() {
 		err = fmt.Errorf("endpoint is in the process of being deleted")
 	}
-	return e.GetID(), e.GetIPv4Address(), e.GetIPv6Address(), e.GetLabels(), e.GetLabelsSHA(), uint64(e.GetIdentity()), err
+	return e.GetID(), e.GetIPv4Address(), e.GetIPv6Address(), e.GetLabels(), e.GetLabelsSHA(), uint64(e.getIdentity()), err
 }
 
 // WaitForFirstRegeneration waits for specific conditions before returning:
