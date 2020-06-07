@@ -75,7 +75,7 @@ func (e *Endpoint) createEpInfoCache(epdir string) *epInfoCache {
 		id:                    e.GetID(),
 		ifName:                e.ifName,
 		ipvlan:                e.HasIpvlanDataPath(),
-		identity:              e.GetIdentity(),
+		identity:              e.getIdentity(),
 		mac:                   e.GetNodeMAC(),
 		ipv4:                  e.IPv4Address(),
 		ipv6:                  e.IPv6Address(),
@@ -126,6 +126,11 @@ func (ep *epInfoCache) StringID() string {
 
 // GetIdentity returns the security identity of the endpoint.
 func (ep *epInfoCache) GetIdentity() identity.NumericIdentity {
+	return ep.identity
+}
+
+// GetIdentityLocked returns the security identity of the endpoint.
+func (ep *epInfoCache) GetIdentityLocked() identity.NumericIdentity {
 	return ep.identity
 }
 

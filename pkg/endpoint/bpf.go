@@ -71,6 +71,8 @@ func (e *Endpoint) BPFIpvlanMapPath() string {
 // strings describing the configuration of the datapath.
 //
 // For configuration of actual datapath behavior, see WriteEndpointConfig().
+//
+// e.Mutex must be held
 func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 	fw := bufio.NewWriter(w)
 
@@ -104,7 +106,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		" * NodeMAC: %s\n"+
 		" */\n\n",
 		e.IPv6.String(), e.IPv4.String(),
-		e.GetIdentity(), bpf.LocalMapName(policymap.MapName, e.ID),
+		e.getIdentity(), bpf.LocalMapName(policymap.MapName, e.ID),
 		e.nodeMAC)
 
 	fw.WriteString("/*\n")
@@ -123,6 +125,9 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 	return fw.Flush()
 }
 
+// writeHeaderfile writes the lxc_config.h header file of an endpoint
+//
+// e.Mutex must be held.
 func (e *Endpoint) writeHeaderfile(prefix string) error {
 	headerPath := filepath.Join(prefix, common.CHeaderFileName)
 	e.getLogger().WithFields(logrus.Fields{

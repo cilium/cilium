@@ -49,6 +49,11 @@ type EndpointConfiguration interface {
 	// GetIdentity returns a globally-significant numeric security identity.
 	GetIdentity() identity.NumericIdentity
 
+	// GetIdentityLocked returns a globally-significant numeric security
+	// identity while assuming that the backing data structure is locked.
+	// This function should be removed in favour of GetIdentity()
+	GetIdentityLocked() identity.NumericIdentity
+
 	IPv4Address() addressing.CiliumIPv4
 	IPv6Address() addressing.CiliumIPv6
 	GetNodeMAC() mac.MAC

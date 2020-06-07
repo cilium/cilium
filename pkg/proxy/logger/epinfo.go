@@ -28,7 +28,7 @@ type EndpointInfoSource interface {
 	GetID() uint64
 	GetIPv4Address() string
 	GetIPv6Address() string
-	GetIdentity() identity.NumericIdentity
+	GetIdentityLocked() identity.NumericIdentity
 	GetLabels() []string
 	GetLabelsSHA() string
 	HasSidecarProxy() bool
