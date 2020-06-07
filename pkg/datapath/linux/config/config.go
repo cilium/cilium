@@ -482,7 +482,7 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 
 	fmt.Fprint(fw, defineMAC("NODE_MAC", e.GetNodeMAC()))
 
-	secID := e.GetIdentity().Uint32()
+	secID := e.GetIdentityLocked().Uint32()
 	fmt.Fprintf(fw, defineUint32("SECLABEL", secID))
 	fmt.Fprintf(fw, defineUint32("SECLABEL_NB", byteorder.HostToNetwork(secID).(uint32)))
 	fmt.Fprintf(fw, defineUint32("POLICY_VERDICT_LOG_FILTER", e.GetPolicyVerdictLogFilter()))
@@ -558,7 +558,7 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 	return fw.Flush()
 }
 
-// WriteEndpointConfig writes the BPF configuration for the template to a writer.
+// WriteTemplateConfig writes the BPF configuration for the template to a writer.
 func (h *HeaderfileWriter) WriteTemplateConfig(w io.Writer, e datapath.EndpointConfiguration) error {
 	fw := bufio.NewWriter(w)
 	return h.writeTemplateConfig(fw, e)

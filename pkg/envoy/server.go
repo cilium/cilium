@@ -1054,7 +1054,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		if ip == "" {
 			continue
 		}
-		networkPolicy := getNetworkPolicy(ip, ep.GetIdentity(), ep.ConntrackNameLocked(), policy, npMap,
+		networkPolicy := getNetworkPolicy(ip, ep.GetIdentityLocked(), ep.ConntrackNameLocked(), policy, npMap,
 			ingressPolicyEnforced, egressPolicyEnforced)
 		err := networkPolicy.Validate()
 		if err != nil {

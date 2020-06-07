@@ -101,6 +101,13 @@ func (t *templateCfg) GetIdentity() identity.NumericIdentity {
 	return templateSecurityID
 }
 
+// GetIdentityLocked is identical to GetIdentity(). This is a temporary
+// function until WriteEndpointConfig() no longer assumes that the endpoint is
+// locked.
+func (t *templateCfg) GetIdentityLocked() identity.NumericIdentity {
+	return templateSecurityID
+}
+
 // GetNodeMAC returns a well-known dummy MAC address which may be later
 // substituted in the ELF.
 func (t *templateCfg) GetNodeMAC() mac.MAC {
