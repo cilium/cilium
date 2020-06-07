@@ -928,7 +928,21 @@ func (e *Endpoint) StringID() string {
 	return strconv.Itoa(int(e.ID))
 }
 
+// GetIdentityLocked is identical to GetIdentity() but assumes that a.mutex is
+// already held. This function is obsolete and should no longer be used.
+func (e *Endpoint) GetIdentityLocked() identityPkg.NumericIdentity {
+	return e.getIdentity()
+}
+
+// GetIdentity returns the numeric security identity of the endpoint
 func (e *Endpoint) GetIdentity() identityPkg.NumericIdentity {
+	e.UnconditionalRLock()
+	defer e.RUnlock()
+
+	return e.getIdentity()
+}
+
+func (e *Endpoint) getIdentity() identityPkg.NumericIdentity {
 	if e.SecurityIdentity != nil {
 		return e.SecurityIdentity.ID
 	}

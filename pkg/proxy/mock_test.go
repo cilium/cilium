@@ -37,14 +37,14 @@ type proxyUpdaterMock struct {
 func (m *proxyUpdaterMock) UnconditionalRLock() { m.RWMutex.RLock() }
 func (m *proxyUpdaterMock) RUnlock()            { m.RWMutex.RUnlock() }
 
-func (m *proxyUpdaterMock) GetID() uint64                         { return m.id }
-func (m *proxyUpdaterMock) GetIPv4Address() string                { return m.ipv4 }
-func (m *proxyUpdaterMock) GetIPv6Address() string                { return m.ipv6 }
-func (m *proxyUpdaterMock) GetLabels() []string                   { return m.labels }
-func (m *proxyUpdaterMock) GetEgressPolicyEnabledLocked() bool    { return true }
-func (m *proxyUpdaterMock) GetIngressPolicyEnabledLocked() bool   { return true }
-func (m *proxyUpdaterMock) GetIdentity() identity.NumericIdentity { return m.identity }
-func (m *proxyUpdaterMock) ProxyID(l4 *policy.L4Filter) string    { return "" }
+func (m *proxyUpdaterMock) GetID() uint64                               { return m.id }
+func (m *proxyUpdaterMock) GetIPv4Address() string                      { return m.ipv4 }
+func (m *proxyUpdaterMock) GetIPv6Address() string                      { return m.ipv6 }
+func (m *proxyUpdaterMock) GetLabels() []string                         { return m.labels }
+func (m *proxyUpdaterMock) GetEgressPolicyEnabledLocked() bool          { return true }
+func (m *proxyUpdaterMock) GetIngressPolicyEnabledLocked() bool         { return true }
+func (m *proxyUpdaterMock) GetIdentityLocked() identity.NumericIdentity { return m.identity }
+func (m *proxyUpdaterMock) ProxyID(l4 *policy.L4Filter) string          { return "" }
 func (m *proxyUpdaterMock) GetLabelsSHA() string {
 	return labels.NewLabelsFromModel(m.labels).SHA256Sum()
 }
