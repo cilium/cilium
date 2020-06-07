@@ -2910,3 +2910,10 @@ func EndpointStatusValuesMap() (values map[string]struct{}) {
 	}
 	return
 }
+
+// MightAutoDetectDevices returns true if the device auto-detection might take
+// place.
+func MightAutoDetectDevices() bool {
+	return Config.KubeProxyReplacement != KubeProxyReplacementDisabled &&
+		(len(Config.Devices) == 0 || Config.DirectRoutingDevice == "")
+}
