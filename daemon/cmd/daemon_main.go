@@ -1558,8 +1558,6 @@ func initKubeProxyReplacementOptions() {
 		log.Fatalf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
 	}
 
-	probesManager := probes.NewProbeManager()
-
 	if option.Config.DisableK8sServices {
 		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
 			log.Warnf("Service handling disabled. Auto-disabling --%s from \"%s\" to \"%s\"",
@@ -1584,6 +1582,8 @@ func initKubeProxyReplacementOptions() {
 
 		return
 	}
+
+	probesManager := probes.NewProbeManager()
 
 	// strict denotes to panic if any to-be enabled feature cannot be enabled
 	strict := option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe
