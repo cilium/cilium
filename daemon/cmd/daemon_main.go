@@ -1598,9 +1598,8 @@ func checkHostFirewallWithEgressLB() {
 		(!option.Config.EnableHostServicesTCP || !option.Config.EnableHostServicesUDP ||
 			(option.Config.EnableExternalIPs && !netnsCookieSupport))
 	if option.Config.EnableHostFirewall && egressLBEnabled {
-		log.Warn("Enabling both BPF-based east-west load balancing and the host firewall isn't supported yet. Disabling east-west load balancing.")
-		option.Config.DisableK8sServices = true
-		option.Config.KubeProxyReplacement = option.KubeProxyReplacementDisabled
+		log.Warn("Enabling both BPF-based east-west load balancing and the host firewall isn't supported yet. Disabling the host firewall.")
+		option.Config.EnableHostFirewall = false
 	}
 }
 
