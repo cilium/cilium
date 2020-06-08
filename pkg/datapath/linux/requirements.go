@@ -176,10 +176,11 @@ func CheckMinRequirements() {
 	if !option.Config.DryMode {
 		probeManager := probes.NewProbeManager()
 		if err := probeManager.SystemConfigProbes(); err != nil {
-			if err == probes.ErrKernelConfigNotFound {
-				log.WithError(err).Info("BPF system config check: NOT OK.")
+			errMsg := "BPF system config check: NOT OK."
+			if _, ok := err.(*probes.ErrKernelConfigNotFound); ok {
+				log.WithError(err).Info(errMsg)
 			} else {
-				log.WithError(err).Fatal("BPF system config check: NOT OK.")
+				log.WithError(err).Fatal(errMsg)
 			}
 		}
 		if err := probeManager.CreateHeadersFile(); err != nil {
