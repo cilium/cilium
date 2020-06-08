@@ -146,12 +146,12 @@ func (s *EtcdSuite) TestETCDVersionCheck(c *C) {
 		},
 	}
 	// Check a good version
-	v, err := getEPVersion(mm, "http://127.0.0.1:4003", time.Second)
+	v, err := getEPVersion(context.TODO(), mm, "http://127.0.0.1:4003", time.Second)
 	c.Assert(err, IsNil)
 	c.Assert(v.String(), Equals, goodVersion)
 
 	// Check a bad version
-	v, err = getEPVersion(mm, "http://127.0.0.1:4004", time.Second)
+	v, err = getEPVersion(context.TODO(), mm, "http://127.0.0.1:4004", time.Second)
 	c.Assert(err, IsNil)
 	c.Assert(v.String(), Equals, badVersionStr)
 
@@ -168,7 +168,7 @@ func (s *EtcdSuite) TestETCDVersionCheck(c *C) {
 	// short timeout for tests
 	versionCheckTimeout = time.Second
 
-	c.Assert(client.checkMinVersion(), IsNil)
+	c.Assert(client.checkMinVersion(context.TODO()), IsNil)
 
 	// One endpoint has a bad version and should fail
 	cfg.Endpoints = []string{"http://127.0.0.1:4003", "http://127.0.0.1:4004", "http://127.0.0.1:4005"}
@@ -179,7 +179,7 @@ func (s *EtcdSuite) TestETCDVersionCheck(c *C) {
 		client: cli,
 	}
 
-	c.Assert(client.checkMinVersion(), Not(IsNil))
+	c.Assert(client.checkMinVersion(context.TODO()), Not(IsNil))
 }
 
 type EtcdHelpersSuite struct{}
