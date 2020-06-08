@@ -50,7 +50,7 @@ RUN apt-get update && \
     curl -sS -L https://github.com/containernetworking/plugins/releases/download/v0.7.5/cni-plugins-${ARCH}-v0.7.5.tgz -o cni.tar.gz && \
     tar -xvf cni.tar.gz ./loopback && \
     strip -s ./loopback
-COPY --from=docker.io/cilium/cilium-llvm:629310350b8cf33a1e426e167e1caadb6848f6c5 /bin/clang /bin/llc /bin/
+COPY --from=docker.io/cilium/cilium-llvm:178583d8925906270379830fb44641c38f7cc062 /bin/clang /bin/llc /bin/
 COPY --from=docker.io/cilium/cilium-bpftool:f0bbd0cb389ce92b33ff29f0489c17c8e33f9da7 /bin/bpftool /bin/
 COPY --from=docker.io/cilium/cilium-iproute2:044e7a6a43d5a42a8ce696535b3dbf773f82dbec /bin/tc /bin/ip /bin/ss /bin/
 COPY --from=gops /go/bin/gops /bin/
