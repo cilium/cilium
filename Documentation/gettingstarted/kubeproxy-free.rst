@@ -611,10 +611,10 @@ if needed.
 The source for the affinity depends on the origin of a request. If a request is
 sent from outside the cluster to the service, the request's source IP address is
 used for determining the endpoint affinity. If a request is sent from inside
-the cluster - a network namespace cookie of a client. The latter was introduced
+the cluster, the client's network namespace cookie is used. The latter was introduced
 in the 5.7 Linux kernel to implement the affinity at the socket layer at which
-:ref:`host-services` operates (a source IP is not available there, as the endpoint
-selection happens before a network packet has been built by kernel).
+:ref:`host-services` operate (a source IP is not available there, as the endpoint
+selection happens before a network packet has been built by the kernel).
 
 The session affinity support is enabled by default for Cilium's kube-proxy
 replacement. For users who run on older kernels which do not support the network
