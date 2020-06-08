@@ -346,13 +346,70 @@ modes and can be enabled as follows for ``nodePort.mode=hybrid`` in this example
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
 
+A list of drivers supporting native XDP can be found in the table below. The
+corresponding network driver name of an interface can be determined as follows:
+
+.. parsed-literal::
+
+    # ethtool -i eth0
+    driver: nfp
+    [...]
+
++-------------------+------------+-------------+
+| Vendor            | Driver     | XDP Support |
++===================+============+=============+
+| Amazon            | ena        | >= 5.6      |
++-------------------+------------+-------------+
+| Broadcom          | bnxt_en    | >= 4.11     |
++-------------------+------------+-------------+
+| Cavium            | thunderx   | >= 4.12     |
++-------------------+------------+-------------+
+| Freescale         | dpaa2      | >= 5.0      |
++-------------------+------------+-------------+
+| Intel             | ixgbe      | >= 4.12     |
+|                   +------------+-------------+
+|                   | ixgbevf    | >= 4.17     |
+|                   +------------+-------------+
+|                   | i40e       | >= 4.13     |
+|                   +------------+-------------+
+|                   | ice        | >= 5.5      |
++-------------------+------------+-------------+
+| Marvell           | mvneta     | >= 5.5      |
++-------------------+------------+-------------+
+| Mellanox          | mlx4       | >= 4.8      |
+|                   +------------+-------------+
+|                   | mlx5       | >= 4.9      |
++-------------------+------------+-------------+
+| Microsoft         | hv_netvsc  | >= 5.6      |
++-------------------+------------+-------------+
+| Netronome         | nfp        | >= 4.10     |
++-------------------+------------+-------------+
+| Others            | virtio_net | >= 4.10     |
+|                   +------------+-------------+
+|                   | tun/tap    | >= 4.14     |
++-------------------+------------+-------------+
+| Qlogic            | qede       | >= 4.10     |
++-------------------+------------+-------------+
+| Socionext         | netsec     | >= 5.3      |
++-------------------+------------+-------------+
+| Solarflare        | sfc        | >= 5.5      |
++-------------------+------------+-------------+
+| Texas Instruments | cpsw       | >= 5.3      |
++-------------------+------------+-------------+
+
 The current Cilium kube-proxy XDP acceleration mode can also be introspected through
-the ``cilium status`` CLI command:
+the ``cilium status`` CLI command. If it has been enabled successfully, ``XDP: NATIVE``
+is shown:
 
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
     KubeProxyReplacement:   Strict   [NodePort (SNAT, 30000-32767, XDP: NATIVE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+
+Note that packets which have been pushed back out of the device for NodePort handling
+right at the XDP layer are not visible in tcpdump since packet taps come at a much
+later stage in the networking stack. Cilium's monitor or metric counters can be used
+instead for gaining visibility.
 
 NodePort Device, Port and Bind settings
 ***************************************
