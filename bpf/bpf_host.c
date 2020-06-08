@@ -1207,18 +1207,6 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	__u16 __maybe_unused proto = 0;
 	int ret = CTX_ACT_OK;
 
-#if defined(ENABLE_NODEPORT) && \
-	(!defined(ENABLE_DSR) || \
-	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)))
-	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
-		ret = nodeport_nat_fwd(ctx, false);
-		if (IS_ERR(ret))
-			return send_drop_notify_error(ctx, 0, ret,
-						      CTX_ACT_DROP,
-						      METRIC_EGRESS);
-	}
-#endif
-
 #ifdef ENABLE_HOST_FIREWALL
 	if (!proto && !validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;
@@ -1261,6 +1249,18 @@ out:
 #else
 	ret = CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
+
+#if defined(ENABLE_NODEPORT) && \
+	(!defined(ENABLE_DSR) || \
+	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)))
+	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
+		ret = nodeport_nat_fwd(ctx, false);
+		if (IS_ERR(ret))
+			return send_drop_notify_error(ctx, 0, ret,
+						      CTX_ACT_DROP,
+						      METRIC_EGRESS);
+	}
+#endif
 
 	return ret;
 }
