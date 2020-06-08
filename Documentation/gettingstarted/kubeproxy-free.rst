@@ -21,8 +21,8 @@ For installing ``kubeadm`` and for more provisioning options please refer to
 
    Cilium's kube-proxy replacement depends on the :ref:`host-services` feature,
    therefore a v4.19.57, v5.1.16, v5.2.0 or more recent Linux kernel is required.
-   We recommend a v5.3 or even more recent Linux kernel such as v5.7 as Cilium
-   can perform additional optimizations in its kube-proxy replacement implementation.
+   Linux kernels v5.3 and v5.8 add additional features that Cilium can use to
+   further optimize the kube-proxy replacement implementation.
 
    Note that v5.0.y kernels do not have the fix required to run the kube-proxy
    replacement since at this point in time the v5.0.y stable kernel is end-of-life
