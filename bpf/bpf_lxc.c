@@ -393,14 +393,17 @@ pass_to_stack:
 #ifdef IP_POOLS
 		set_encrypt_dip(skb, tunnel_endpoint);
 #endif
+	} else
+#endif
+#endif
+	{
+		/* Always encode the source identity when passing to the stack. If the
+		 * stack hairpins the packet back to a local endpoint the source
+		 * identity can still be derived even if SNAT is performed by a
+		 * component such as portmap */
+		asm_set_seclabel_identity(skb);
 	}
-#endif
-#endif
-	/* Always encode the source identity when passing to the stack. If the
-	 * stack hairpins the packet back to a local endpoint the source
-	 * identity can still be derived even if SNAT is performed by a
-	 * component such as portmap */
-	asm_set_seclabel_identity(skb);
+
 	return TC_ACT_OK;
 }
 
@@ -731,15 +734,17 @@ pass_to_stack:
 #ifdef IP_POOLS
 		set_encrypt_dip(skb, tunnel_endpoint);
 #endif
+	} else
+#endif
+#endif
+	{
+		/* Always encode the source identity when passing to the stack. If the
+		 * stack hairpins the packet back to a local endpoint the source
+		 * identity can still be derived even if SNAT is performed by a
+		 * component such as portmap */
+		asm_set_seclabel_identity(skb);
 	}
-#endif
-#endif
 
-	/* Always encode the source identity when passing to the stack. If the
-	 * stack hairpins the packet back to a local endpoint the source
-	 * identity can still be derived even if SNAT is performed by a
-	 * component such as portmap */
-	asm_set_seclabel_identity(skb);
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
 }

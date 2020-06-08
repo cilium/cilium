@@ -576,7 +576,7 @@ static __always_inline int do_netdev_encrypt(struct __sk_buff *skb, __u16 proto)
 	int encrypt_iface = 0;
 	int ret = 0;
 
-#if defined(ENCRYPT_NODE) || defined(HAVE_FIB_LOOKUP)
+#if defined(ENCRYPT_IFACE)
 	encrypt_iface = ENCRYPT_IFACE;
 #endif
 	ret = do_netdev_encrypt_pools(skb);
@@ -588,11 +588,9 @@ static __always_inline int do_netdev_encrypt(struct __sk_buff *skb, __u16 proto)
 		return send_drop_notify_error(skb, 0, ret, TC_ACT_SHOT, METRIC_INGRESS);
 
 	bpf_clear_cb(skb);
-#if defined(ENCRYPT_NODE) || defined(HAVE_FIB_LOOKUP)
-	return redirect(encrypt_iface, 0);
-#else
+	if (encrypt_iface)
+		return redirect(encrypt_iface, 0);
 	return TC_ACT_OK;
-#endif
 }
 
 #else /* ENCAP_IFINDEX */
