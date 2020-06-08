@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/testutils"
 
 	. "gopkg.in/check.v1"
 )
@@ -168,11 +169,20 @@ func getMetricValue(state string) int64 {
 }
 
 func assertOnMetric(c *C, state string, expected int64) {
-	obtained := getMetricValue(state)
-	if obtained != expected {
-		_, _, line, _ := runtime.Caller(1)
-		c.Errorf("Metrics assertion failed on line %d for Endpoint state %s: obtained %d, expected %d",
-			line, state, obtained, expected)
+	_, _, line, _ := runtime.Caller(1)
+
+	obtainedValues := make(map[int64]struct{}, 0)
+	err := testutils.WaitUntil(func() bool {
+		obtained := getMetricValue(state)
+		obtainedValues[obtained] = struct{}{}
+		return obtained == expected
+	}, 10*time.Second)
+	if err != nil {
+		// We are printing the map here to show every unique obtained metrics
+		// value because these values change rapidly and it may be misleading
+		// to only show the last obtained value.
+		c.Errorf("Metrics assertion failed on line %d for Endpoint state %s: obtained %v, expected %d",
+			line, state, obtainedValues, expected)
 	}
 }
 
