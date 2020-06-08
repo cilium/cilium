@@ -23,6 +23,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/versioncheck"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -926,12 +927,16 @@ var _ = Describe("K8sServicesTest", func() {
 
 			httpURL = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
-			// Local requests should be load-balanced
-			if helpers.RunsWithKubeProxy() {
-				// FIXME: The Nodeport BPF implementation for
-				// externalTrafficPolicy=Local is not compliant
-				// here, and the following checks fail. Let's
-				// disable them for now. See #11746.
+
+			// Local requests should be load-balanced on kube-proxy 1.15+.
+			// See kubernetes/kubernetes#77523 for the PR which introduced this
+			// behavior on the iptables-backend for kube-proxy.
+			// FIXME: Cilium's kube-proxy replacement does not yet implement
+			// this behavior, and the checks would fail if running without kube-proxy.
+			// See #11746 for the tracking issue for Cilium.
+			k8sVersion := versioncheck.MustVersion(helpers.GetCurrentK8SEnv())
+			isSupported := versioncheck.MustCompile(">=1.15.0")
+			if helpers.RunsWithKubeProxy() && isSupported(k8sVersion) {
 				testCurlFromPodInHostNetNS(httpURL, count, k8s1NodeName)
 				testCurlFromPodInHostNetNS(tftpURL, count, k8s1NodeName)
 			}
