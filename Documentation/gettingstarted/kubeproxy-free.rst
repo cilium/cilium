@@ -598,6 +598,31 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
     kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
     KubeProxyReplacement:   Strict	(eth0)	[NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
 
+Session Affinity
+****************
+
+Cilium's BPF kube-proxy replacement supports Kubernetes service session affinity.
+Each connection from the same pod or host to a service configured with
+``sessionAffinity: ClientIP`` will always select the same service endpoint.
+The default timeout for the affinity is three hours (updated by each request to
+the service), but it can be configured through Kubernetes' ``sessionAffinityConfig``
+if needed.
+
+The source for the affinity depends on the origin of a request. If a request is
+sent from outside the cluster to the service, the request's source IP address is
+used for determining the endpoint affinity. If a request is sent from inside
+the cluster - a network namespace cookie of a client. The latter was introduced
+in the 5.7 Linux kernel to implement the affinity at the socket layer at which
+:ref:`host-services` operates (a source IP is not available there, as the endpoint
+selection happens before a network packet has been built by kernel).
+
+The session affinity support is enabled by default for Cilium's kube-proxy
+replacement. For users who run on older kernels which do not support the network
+namespace cookies, a fallback in-cluster mode is implemented, which is based on
+a fixed cookie value as a trade-off. This makes all applications on the host to
+select the same service endpoint for a given service with session affinity configured.
+To disable the feature, set ``global.sessionAffinity.enabled=false``.
+
 Limitations
 ###########
 
