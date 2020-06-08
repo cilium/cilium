@@ -263,36 +263,64 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	localBackend2.NodeName = nodeTypes.GetName()
 	localBackends := []lb.Backend{localBackend1, localBackend2}
 
-	// Create two remote backends
+	// Create three remote backends
 	remoteBackend1 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.3"), 8080)
 	remoteBackend2 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.4"), 8080)
+	remoteBackend3 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.5"), 8080)
 	remoteBackend1.NodeName = "not-" + nodeTypes.GetName()
 	remoteBackend2.NodeName = "not-" + nodeTypes.GetName()
-	remoteBackends := []lb.Backend{remoteBackend1, remoteBackend2}
+	remoteBackend3.NodeName = "not-" + nodeTypes.GetName()
+	remoteBackends := []lb.Backend{remoteBackend1, remoteBackend2, remoteBackend3}
 
-	// Insert svc1 as type LoadBalancer with local backends
-	_, id1, err := m.svc.UpsertService(loadBalancerIP, localBackends, lb.SVCTypeLoadBalancer, lb.SVCTrafficPolicyLocal, false, 0, 32001, "svc1", "ns1")
+	allBackends := []lb.Backend{localBackend1, localBackend2, remoteBackend1, remoteBackend2, remoteBackend3}
+
+	// Insert svc1 as type LoadBalancer with some local backends
+	_, id1, err := m.svc.UpsertService(loadBalancerIP, allBackends, lb.SVCTypeLoadBalancer, lb.SVCTrafficPolicyLocal, false, 0, 32001, "svc1", "ns1")
 	c.Assert(err, IsNil)
 	c.Assert(m.svcHealth.ServiceByPort(32001).Service.Name, Equals, "svc1")
 	c.Assert(m.svcHealth.ServiceByPort(32001).Service.Namespace, Equals, "ns1")
 	c.Assert(m.svcHealth.ServiceByPort(32001).LocalEndpoints, Equals, len(localBackends))
 
-	// Insert svc1 as type ClusterIP with local backends
-	_, id2, err := m.svc.UpsertService(clusterIP, localBackends, lb.SVCTypeClusterIP, lb.SVCTrafficPolicyLocal, false, 0, 32001, "svc1", "ns1")
+	// Insert the the ClusterIP frontend of svc1
+	_, id2, err := m.svc.UpsertService(clusterIP, allBackends, lb.SVCTypeClusterIP, lb.SVCTrafficPolicyLocal, false, 0, 32001, "svc1", "ns1")
 	c.Assert(err, IsNil)
 	c.Assert(m.svcHealth.ServiceByPort(32001).Service.Name, Equals, "svc1")
 	c.Assert(m.svcHealth.ServiceByPort(32001).Service.Namespace, Equals, "ns1")
 	c.Assert(m.svcHealth.ServiceByPort(32001).LocalEndpoints, Equals, len(localBackends))
 
-	// Upsert svc1 as type LoadBalancer with remote backends
-	new, _, err := m.svc.UpsertService(loadBalancerIP, remoteBackends, lb.SVCTypeLoadBalancer, lb.SVCTrafficPolicyLocal, false, 0, 32001, "svc1", "ns1")
+	// Update the HealthCheckNodePort for svc1
+	new, _, err := m.svc.UpsertService(loadBalancerIP, allBackends, lb.SVCTypeLoadBalancer, lb.SVCTrafficPolicyLocal, false, 0, 32000, "svc1", "ns1")
+	c.Assert(err, IsNil)
+	c.Assert(new, Equals, false)
+	c.Assert(m.svcHealth.ServiceByPort(32000).Service.Name, Equals, "svc1")
+	c.Assert(m.svcHealth.ServiceByPort(32000).Service.Namespace, Equals, "ns1")
+	c.Assert(m.svcHealth.ServiceByPort(32000).LocalEndpoints, Equals, len(localBackends))
+	c.Assert(m.svcHealth.ServiceByPort(32001), IsNil)
+
+	// Update the externalTrafficPolicy for svc1
+	new, _, err = m.svc.UpsertService(loadBalancerIP, allBackends, lb.SVCTypeLoadBalancer, lb.SVCTrafficPolicyCluster, false, 0, 0, "svc1", "ns1")
+	c.Assert(err, IsNil)
+	c.Assert(new, Equals, false)
+	c.Assert(m.svcHealth.ServiceByPort(32000), IsNil)
+	c.Assert(m.svcHealth.ServiceByPort(32001), IsNil)
+
+	// Restore the original version of svc1
+	new, _, err = m.svc.UpsertService(loadBalancerIP, allBackends, lb.SVCTypeLoadBalancer, lb.SVCTrafficPolicyLocal, false, 0, 32001, "svc1", "ns1")
+	c.Assert(err, IsNil)
+	c.Assert(new, Equals, false)
+	c.Assert(m.svcHealth.ServiceByPort(32001).Service.Name, Equals, "svc1")
+	c.Assert(m.svcHealth.ServiceByPort(32001).Service.Namespace, Equals, "ns1")
+	c.Assert(m.svcHealth.ServiceByPort(32001).LocalEndpoints, Equals, len(localBackends))
+
+	// Upsert svc1 of type LoadBalancer with only remote backends
+	new, _, err = m.svc.UpsertService(loadBalancerIP, remoteBackends, lb.SVCTypeLoadBalancer, lb.SVCTrafficPolicyLocal, false, 0, 32001, "svc1", "ns1")
 	c.Assert(err, IsNil)
 	c.Assert(new, Equals, false)
 	c.Assert(m.svcHealth.ServiceByPort(32001).Service.Name, Equals, "svc1")
 	c.Assert(m.svcHealth.ServiceByPort(32001).Service.Namespace, Equals, "ns1")
 	c.Assert(m.svcHealth.ServiceByPort(32001).LocalEndpoints, Equals, 0)
 
-	// Upsert svc1 as type ClusterIP with remote backends
+	// Upsert svc1 of type ClusterIP with only remote backends
 	new, _, err = m.svc.UpsertService(clusterIP, remoteBackends, lb.SVCTypeClusterIP, lb.SVCTrafficPolicyLocal, false, 0, 32001, "svc1", "ns1")
 	c.Assert(err, IsNil)
 	c.Assert(new, Equals, false)
@@ -300,11 +328,13 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	c.Assert(m.svcHealth.ServiceByPort(32001).Service.Namespace, Equals, "ns1")
 	c.Assert(m.svcHealth.ServiceByPort(32001).LocalEndpoints, Equals, 0)
 
+	// Delete svc1 of type LoadBalancer
 	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
 	c.Assert(err, IsNil)
 	c.Assert(found, Equals, true)
 	c.Assert(m.svcHealth.ServiceByPort(32001), IsNil)
 
+	// Delete svc1 of type ClusterIP
 	found, err = m.svc.DeleteServiceByID(lb.ServiceID(id2))
 	c.Assert(err, IsNil)
 	c.Assert(found, Equals, true)
