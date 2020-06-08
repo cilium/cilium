@@ -12,12 +12,14 @@ Blog
 Bookinfo
 Borkmann
 Brenden
+Broadcom
 Brouer
 Bugtool
 CIDR
 CIDRs
 CRD
 CRI
+Cavium
 Cheatsheet
 Cheng
 Chewbacca
@@ -41,6 +43,7 @@ FIt
 Facebook
 Fastabend
 Fosdem
+Freescale
 GCE
 Gartrell
 Geneve
@@ -86,6 +89,7 @@ Lund
 Majkowski
 Marek
 Meetup
+Mellanox
 Memcached
 Menlo
 Mesos
@@ -119,6 +123,7 @@ Profiler
 Proxylib
 QCon
 Qemu
+Qlogic
 Rebasing
 Redis
 Refactor
@@ -132,6 +137,8 @@ SR-IOV
 Sep
 Sharma
 Shirokov
+Socionext
+Solarflare
 Spectre
 Stacktrace
 Starovoitov
@@ -240,6 +247,7 @@ containerd
 contrib
 coord
 coredns
+cpsw
 cpumap
 cqlsh
 crd
@@ -275,6 +283,7 @@ distro
 distros
 dns
 dockerhub
+dpaa
 dports
 droid
 dryRun
@@ -284,6 +293,7 @@ eBPF
 eXpress
 ebpf
 elfutils
+ena
 endian
 endianness
 endpointSelector
@@ -346,6 +356,7 @@ https
 hubble
 hubble-relay
 hugepages
+hv
 hypervisor
 hypervisors
 iam
@@ -463,6 +474,7 @@ multinode
 musl
 mutex
 mutexes
+mvneta
 myCA
 myapp
 mysql
@@ -476,6 +488,8 @@ netdevice
 netdevices
 netdevsim
 netfilter
+netsec
+netvsc
 newproto
 newprotoparser
 nfp
