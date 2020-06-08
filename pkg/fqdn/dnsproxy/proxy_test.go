@@ -325,12 +325,14 @@ func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponse(c *C) {
 
 	// reject a query with NXDomain
 	s.proxy.SetRejectReply(option.FQDNProxyDenyWithNameError)
-	response, _, _ := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed"))
 	c.Assert(response.Rcode, Equals, dns.RcodeNameError, Commentf("DNS request from test client was not rejected when it should be blocked"))
 
 	// reject a query with Refused
 	s.proxy.SetRejectReply(option.FQDNProxyDenyWithRefused)
-	response, _, _ = s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	response, _, err = s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed"))
 	c.Assert(response.Rcode, Equals, dns.RcodeRefused, Commentf("DNS request from test client was not rejected when it should be blocked"))
 
 }
