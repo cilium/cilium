@@ -344,6 +344,13 @@ func (e *IPAMSuite) TestIpamManyNodes(c *check.C) {
 		state[i].cn = newCiliumNode(state[i].name, state[i].instanceName, 1, minAllocate)
 		mngr.Update(state[i].cn)
 	}
+	// Avoid concurrent issues in the
+	// github.com/cilium/cilium/pkg/azure/api/mock.(*API).AssignPrivateIpAddresses.func1()
+	//   github.com/cilium/cilium/pkg/azure/api/mock/mock.go:217 +0x48d
+	// and
+	// github.com/cilium/cilium/pkg/azure/types.(*AzureInterface).ForeachAddress()
+	//   github.com/cilium/cilium/pkg/azure/types/types.go:177 +0x71
+	mngr.Resync(context.Background(), time.Now())
 
 	for _, s := range state {
 		c.Assert(testutils.WaitUntil(func() bool { return reachedAddressesNeeded(mngr, s.name, 0) }, 5*time.Second), check.IsNil)
