@@ -257,6 +257,7 @@ Policy                   endpoint         16k             Max 16k allowed identi
 Proxy Map                node             512k            Max 512k concurrent redirected TCP connections to proxy
 Tunnel                   node             64k             Max 32k nodes (IPv4+IPv6) or 64k nodes (IPv4 or IPv6) across all clusters
 IPv4 Fragmentation       node             8k              Max 8k fragmented datagrams in flight simultaneously on the node
+Session Affinity         node             64k             Max 64k affinities from different clients
 ======================== ================ =============== =====================================================
 
 For some BPF maps, the upper capacity limit can be overridden using command
