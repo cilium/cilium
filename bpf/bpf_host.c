@@ -1037,8 +1037,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 {
 	int encrypt_iface = 0;
 	int ret = 0;
-
-#if defined(ENCRYPT_NODE) || defined(BPF_HAVE_FIB_LOOKUP)
+#if defined(ENCRYPT_IFACE)
 	encrypt_iface = ENCRYPT_IFACE;
 #endif
 	ret = do_netdev_encrypt_pools(ctx);
@@ -1050,11 +1049,9 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_INGRESS);
 
 	bpf_clear_meta(ctx);
-#if defined(ENCRYPT_NODE) || defined(BPF_HAVE_FIB_LOOKUP)
-	return redirect(encrypt_iface, 0);
-#else
+	if (encrypt_iface)
+		return redirect(encrypt_iface, 0);
 	return CTX_ACT_OK;
-#endif
 }
 
 #else /* ENCAP_IFINDEX */
