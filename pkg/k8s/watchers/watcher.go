@@ -357,6 +357,7 @@ func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
 			// To perform the service translation and have the BPF LB datapath
 			// with the right service -> backend (k8s endpoints) translation.
 			K8sAPIGroupEndpointV1Core,
+			K8sAPIGroupEndpointSliceV1Beta1Discovery,
 			// We need all network policies in place before restoring to make sure
 			// we are enforcing the correct policies for each endpoint before
 			// restarting.

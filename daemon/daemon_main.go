@@ -1166,7 +1166,11 @@ func (d *Daemon) initKVStore() {
 		// up etcd so we can perform the name resolution for etcd-operator
 		// to the service IP as well perform the service -> backend IPs for
 		// that service IP.
-		d.k8sWatcher.WaitForCacheSync(watchers.K8sAPIGroupServiceV1Core, watchers.K8sAPIGroupEndpointV1Core)
+		d.k8sWatcher.WaitForCacheSync(
+			watchers.K8sAPIGroupServiceV1Core,
+			watchers.K8sAPIGroupEndpointV1Core,
+			watchers.K8sAPIGroupEndpointSliceV1Beta1Discovery,
+		)
 		log := log.WithField(logfields.LogSubsys, "etcd")
 		goopts.DialOption = []grpc.DialOption{
 			grpc.WithDialer(k8s.CreateCustomDialer(&d.k8sWatcher.K8sSvcCache, log)),
