@@ -243,10 +243,13 @@ func PreprocessRules(r api.Rules, cache *ServiceCache) error {
 		for ns, ep := range cache.endpoints {
 			svc, ok := cache.services[ns]
 			if ok && svc.IsExternal() {
-				t := NewK8sTranslator(ns, *ep, false, svc.Labels, false)
-				err := t.Translate(rule, &policy.TranslationResult{})
-				if err != nil {
-					return err
+				eps := ep.GetEndpoints()
+				if eps != nil {
+					t := NewK8sTranslator(ns, *eps, false, svc.Labels, false)
+					err := t.Translate(rule, &policy.TranslationResult{})
+					if err != nil {
+						return err
+					}
 				}
 			}
 		}

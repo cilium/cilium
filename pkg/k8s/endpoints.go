@@ -21,9 +21,6 @@ import (
 	"strconv"
 	"strings"
 
-	"k8s.io/apimachinery/pkg/util/wait"
-	"k8s.io/client-go/tools/cache"
-
 	"github.com/cilium/cilium/pkg/ip"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/k8s/version"
@@ -33,6 +30,8 @@ import (
 
 	v1 "k8s.io/api/core/v1"
 	"k8s.io/api/discovery/v1beta1"
+	"k8s.io/apimachinery/pkg/util/wait"
+	"k8s.io/client-go/tools/cache"
 )
 
 // Endpoints is an abstraction for the Kubernetes endpoints object. Endpoints
@@ -172,15 +171,18 @@ func ParseEndpoints(ep *types.Endpoints) (ServiceID, *Endpoints) {
 
 // ParseEndpointSliceID parses a Kubernetes endpoints slice and returns the
 // ServiceID
-func ParseEndpointSliceID(svc *types.EndpointSlice) ServiceID {
-	return ServiceID{
-		Name:      svc.ObjectMeta.GetLabels()[v1beta1.LabelServiceName],
-		Namespace: svc.ObjectMeta.Namespace,
+func ParseEndpointSliceID(svc *types.EndpointSlice) EndpointSliceID {
+	return EndpointSliceID{
+		ServiceID: ServiceID{
+			Name:      svc.ObjectMeta.GetLabels()[v1beta1.LabelServiceName],
+			Namespace: svc.ObjectMeta.Namespace,
+		},
+		EndpointSliceName: svc.ObjectMeta.GetName(),
 	}
 }
 
 // ParseEndpointSlice parses a Kubernetes Endpoints resource
-func ParseEndpointSlice(ep *types.EndpointSlice) (ServiceID, *Endpoints) {
+func ParseEndpointSlice(ep *types.EndpointSlice) (EndpointSliceID, *Endpoints) {
 	endpoints := newEndpoints()
 
 	for _, sub := range ep.Endpoints {
@@ -237,6 +239,57 @@ func parseEndpointPort(port v1beta1.EndpointPort) (string, *loadbalancer.L4Addr)
 	}
 	lbPort := loadbalancer.NewL4Addr(proto, uint16(*port.Port))
 	return name, lbPort
+}
+
+// endpointSlices is the collection of all endpoint slices of a service.
+// The map key is the name of the endpoint slice or the name of the legacy
+// v1.Endpoint. The endpoints stored here are not namespaced since this
+// structure is only used as a value of another map that is already namespaced.
+// (see ServiceCache.endpoints).
+type endpointSlices struct {
+	epSlices map[string]*Endpoints
+}
+
+// newEndpointsSlices returns a new endpointSlices
+func newEndpointsSlices() *endpointSlices {
+	return &endpointSlices{
+		epSlices: map[string]*Endpoints{},
+	}
+}
+
+// GetEndpoints returns a read only a single *Endpoints structure with all
+// Endpoints' backends joined.
+func (es *endpointSlices) GetEndpoints() *Endpoints {
+	if es == nil || len(es.epSlices) == 0 {
+		return nil
+	}
+	allEps := newEndpoints()
+	for _, eps := range es.epSlices {
+		for backend, ep := range eps.Backends {
+			allEps.Backends[backend] = ep
+		}
+	}
+	return allEps
+}
+
+// Upsert maps the 'esname' to 'e'.
+// - 'esName': Name of the Endpoint Slice
+// - 'e': Endpoints to store in the map
+func (es *endpointSlices) Upsert(esName string, e *Endpoints) {
+	if es == nil {
+		panic("BUG: endpointSlices is nil")
+	}
+	es.epSlices[esName] = e
+}
+
+// Delete deletes the endpoint slice in the internal map. Returns true if there
+// are not any more endpoints available in the map.
+func (es *endpointSlices) Delete(esName string) bool {
+	if es == nil || len(es.epSlices) == 0 {
+		return true
+	}
+	delete(es.epSlices, esName)
+	return len(es.epSlices) == 0
 }
 
 // externalEndpoints is the collection of external endpoints in all remote
