@@ -41,11 +41,15 @@ var (
 	log          = logging.DefaultLogger.WithField(logfields.LogSubsys, "probes")
 	once         sync.Once
 	probeManager *ProbeManager
-
-	// ErrKernelConfigNotFound represents the error if kernel config is unavailable
-	// to the cilium agent.
-	ErrKernelConfigNotFound = errors.New("CONFIG_BPF kernel parameter not found")
 )
+
+// ErrKernelConfigNotFound represents the error if kernel config is unavailable
+// to the cilium agent.
+type ErrKernelConfigNotFound struct{}
+
+func (e *ErrKernelConfigNotFound) Error() string {
+	return "CONFIG_BPF kernel parameter not found"
+}
 
 // KernelParam is a type based on string which represents CONFIG_* kernel
 // parameters which usually have values "y", "n" or "m".
@@ -206,18 +210,18 @@ func (p *ProbeManager) SystemConfigProbes() error {
 
 	// Check Kernel Config is available or not.
 	// We are replicating BPFTools logic here to check if kernel config is available
-	// https://elixir.bootlin.com/linux/latest/source/tools/bpf/bpftool/feature.c#L390
+	// https://elixir.bootlin.com/linux/v5.7/source/tools/bpf/bpftool/feature.c#L390
 	info := unix.Utsname{}
 	err := unix.Uname(&info)
-	var release string
-	if err == nil {
-		release = strings.TrimSpace(string(bytes.Trim(info.Release[:], "\x00")))
+	if err != nil {
+		return &ErrKernelConfigNotFound{}
 	}
+	release := strings.TrimSpace(string(bytes.Trim(info.Release[:], "\x00")))
 
 	// Any error checking these files will return Kernel config not found error
 	if _, err := os.Stat(fmt.Sprintf("/boot/config-%s", release)); err != nil {
 		if _, err = os.Stat("/proc/config.gz"); err != nil {
-			return ErrKernelConfigNotFound
+			return &ErrKernelConfigNotFound{}
 		}
 	}
 
