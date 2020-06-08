@@ -36,16 +36,23 @@ Create a GKE Cluster
 You can apply any method to create a GKE cluster. The example given here is
 using the `Google Cloud SDK <https://cloud.google.com/sdk/>`_.
 
+.. note:: Either of the cluster zone or region must be specified in ``gcloud``
+          commands below. The full list of locations is available on
+          `this page <https://cloud.google.com/compute/docs/regions-zones#locations>`_.
+          This guide uses ``--zone`` to specify the zone but you may replace
+          this flag with ``--region`` instead.
+
 .. code:: bash
 
     export CLUSTER_NAME=cluster1
-    gcloud container clusters create $CLUSTER_NAME --image-type COS --num-nodes 2 --machine-type n1-standard-4
+    export CLUSTER_ZONE=us-west2-a
+    gcloud container clusters create $CLUSTER_NAME --image-type COS --num-nodes 2 --machine-type n1-standard-4 --zone $CLUSTER_ZONE
 
 Retrieve the credentials to access the cluster:
 
 .. code:: bash
 
-    gcloud container clusters get-credentials $CLUSTER_NAME
+    gcloud container clusters get-credentials $CLUSTER_NAME --zone $CLUSTER_ZONE
 
 When done, you should be able to access your cluster like this:
 
@@ -53,8 +60,8 @@ When done, you should be able to access your cluster like this:
 
     kubectl get nodes
     NAME                                      STATUS   ROLES    AGE   VERSION
-    gke-cluster1-default-pool-a63a765c-flr2   Ready    <none>   6m    v1.11.7-gke.4
-    gke-cluster1-default-pool-a63a765c-z73c   Ready    <none>   6m    v1.11.7-gke.4
+    gke-cluster1-default-pool-a63a765c-flr2   Ready    <none>   6m    v1.14.10-gke.36
+    gke-cluster1-default-pool-a63a765c-z73c   Ready    <none>   6m    v1.14.10-gke.36
 
 Deploy Cilium
 =============
@@ -63,7 +70,7 @@ Extract the Cluster CIDR to enable native-routing:
 
 .. code:: bash
 
-    NATIVE_CIDR=$(gcloud container clusters describe $CLUSTER_NAME | grep -i clusterIpv4Cidr | awk '{print $2}')
+    NATIVE_CIDR=$(gcloud container clusters describe $CLUSTER_NAME --zone $CLUSTER_ZONE | grep -i clusterIpv4Cidr | awk '{print $2}')
     echo $NATIVE_CIDR
 
 .. include:: k8s-install-download-release.rst
@@ -71,7 +78,7 @@ Extract the Cluster CIDR to enable native-routing:
 Deploy Cilium release via Helm:
 
 If you are ready to restart existing pods when initializing the node, you can
-also pass the ``--set nodeinit.restartPods`` flag to the ``helm`` command
+also pass the ``--set nodeinit.restartPods=true`` flag to the ``helm`` command
 below. This will ensure all pods are managed by Cilium.
 
 .. parsed-literal::
