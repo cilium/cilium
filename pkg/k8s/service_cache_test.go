@@ -77,9 +77,17 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 			},
 		},
 	}
-	cache.endpoints = map[ServiceID]*Endpoints{
-		svcID1: &endpoints,
-		svcID2: &endpoints,
+	cache.endpoints = map[ServiceID]*endpointSlices{
+		svcID1: {
+			epSlices: map[string]*Endpoints{
+				"": &endpoints,
+			},
+		},
+		svcID2: {
+			epSlices: map[string]*Endpoints{
+				"": &endpoints,
+			},
+		},
 	}
 
 	frontends := cache.UniqueServiceFrontends()
@@ -639,6 +647,257 @@ func (s *K8sSuite) TestNonSharedServie(c *check.C) {
 	swgSvcs.Stop()
 	c.Assert(testutils.WaitUntil(func() bool {
 		swgSvcs.Wait()
+		return true
+	}, 2*time.Second), IsNil)
+}
+
+func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
+	k8sEndpointSlice1 := &types.EndpointSlice{
+		EndpointSlice: &v1beta1.EndpointSlice{
+			AddressType: v1beta1.AddressTypeIPv4,
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo-yyyyy",
+				Namespace: "bar",
+				Labels: map[string]string{
+					v1beta1.LabelServiceName: "foo",
+				},
+			},
+			Endpoints: []v1beta1.Endpoint{
+				{
+					Addresses: []string{
+						"2.2.2.2",
+					},
+				},
+			},
+			Ports: []v1beta1.EndpointPort{
+				{
+					Name:     func() *string { a := "http-test-svc"; return &a }(),
+					Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
+					Port:     func() *int32 { a := int32(8080); return &a }(),
+				},
+			},
+		},
+	}
+
+	k8sEndpointSlice2 := &types.EndpointSlice{
+		EndpointSlice: &v1beta1.EndpointSlice{
+			AddressType: v1beta1.AddressTypeIPv4,
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo-xxxxx",
+				Namespace: "bar",
+				Labels: map[string]string{
+					v1beta1.LabelServiceName: "foo",
+				},
+			},
+			Endpoints: []v1beta1.Endpoint{
+				{
+					Addresses: []string{
+						"2.2.2.3",
+					},
+				},
+			},
+			Ports: []v1beta1.EndpointPort{
+				{
+					Name:     func() *string { a := "http-test-svc"; return &a }(),
+					Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
+					Port:     func() *int32 { a := int32(8080); return &a }(),
+				},
+			},
+		},
+	}
+
+	k8sEndpointSlice3 := &types.EndpointSlice{
+		EndpointSlice: &v1beta1.EndpointSlice{
+			AddressType: v1beta1.AddressTypeIPv4,
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo-xxxxx",
+				Namespace: "baz",
+				Labels: map[string]string{
+					v1beta1.LabelServiceName: "foo",
+				},
+			},
+			Endpoints: []v1beta1.Endpoint{
+				{
+					Addresses: []string{
+						"2.2.2.4",
+					},
+				},
+			},
+			Ports: []v1beta1.EndpointPort{
+				{
+					Name:     func() *string { a := "http-test-svc"; return &a }(),
+					Protocol: func() *v1.Protocol { a := v1.ProtocolTCP; return &a }(),
+					Port:     func() *int32 { a := int32(8080); return &a }(),
+				},
+			},
+		},
+	}
+
+	svcCache := NewServiceCache()
+
+	k8sSvc := &types.Service{
+		Service: &v1.Service{
+			ObjectMeta: metav1.ObjectMeta{
+				Name:      "foo",
+				Namespace: "bar",
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+			},
+			Spec: v1.ServiceSpec{
+				ClusterIP: "127.0.0.1",
+				Selector: map[string]string{
+					"foo": "bar",
+				},
+				Type: v1.ServiceTypeClusterIP,
+			},
+		},
+	}
+
+	swgSvcs := lock.NewStoppableWaitGroup()
+	svcID := svcCache.UpdateService(k8sSvc, swgSvcs)
+
+	time.Sleep(100 * time.Millisecond)
+
+	select {
+	case <-svcCache.Events:
+		c.Error("Unexpected service event received before endpoints have been imported")
+	default:
+	}
+
+	swgEps := lock.NewStoppableWaitGroup()
+	svcCache.UpdateEndpointSlices(k8sEndpointSlice1, swgEps)
+	svcCache.UpdateEndpointSlices(k8sEndpointSlice2, swgEps)
+	svcCache.UpdateEndpointSlices(k8sEndpointSlice3, swgEps)
+
+	// The service should be ready as both service and endpoints have been
+	// imported for k8sEndpointSlice1
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// The service should be ready as both service and endpoints have been
+	// imported for k8sEndpointSlice2
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	select {
+	case <-svcCache.Events:
+		c.Error("Unexpected service event received when endpoints not selected by a service have been imported")
+	default:
+	}
+	endpoints, ready := svcCache.correlateEndpoints(svcID)
+	c.Assert(ready, check.Equals, true)
+	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP,2.2.2.3:8080/TCP")
+
+	// Updating the service without changing it should not result in an event
+	svcCache.UpdateService(k8sSvc, swgSvcs)
+	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-svcCache.Events:
+		c.Error("Unexpected service event received for unchanged service object")
+	default:
+	}
+
+	// Deleting the service will result in a service delete event
+	svcCache.DeleteService(k8sSvc, swgSvcs)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, DeleteService)
+		c.Assert(event.ID, check.Equals, svcID)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Reinserting the service should re-match with the still existing endpoints
+	svcCache.UpdateService(k8sSvc, swgSvcs)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Deleting the k8sEndpointSlice2 will result in a service update event
+	svcCache.DeleteEndpointSlices(k8sEndpointSlice2, swgEps)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	endpoints, ready = svcCache.correlateEndpoints(svcID)
+	c.Assert(ready, check.Equals, true)
+	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
+
+	svcCache.DeleteEndpointSlices(k8sEndpointSlice1, swgEps)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	endpoints, serviceReady := svcCache.correlateEndpoints(svcID)
+	c.Assert(serviceReady, check.Equals, false)
+	c.Assert(endpoints.String(), check.Equals, "")
+
+	// Reinserting the endpoints should re-match with the still existing service
+	svcCache.UpdateEndpointSlices(k8sEndpointSlice1, swgEps)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, UpdateService)
+		c.Assert(event.ID, check.Equals, svcID)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	endpoints, serviceReady = svcCache.correlateEndpoints(svcID)
+	c.Assert(serviceReady, check.Equals, true)
+	c.Assert(endpoints.String(), check.Equals, "2.2.2.2:8080/TCP")
+
+	// Deleting the service will result in a service delete event
+	svcCache.DeleteService(k8sSvc, swgSvcs)
+	c.Assert(testutils.WaitUntil(func() bool {
+		event := <-svcCache.Events
+		defer event.SWG.Done()
+		c.Assert(event.Action, check.Equals, DeleteService)
+		c.Assert(event.ID, check.Equals, svcID)
+		return true
+	}, 2*time.Second), check.IsNil)
+
+	// Deleting the endpoints will not emit an event as the notification
+	// was sent out when the service was deleted.
+	svcCache.DeleteEndpointSlices(k8sEndpointSlice1, swgEps)
+	time.Sleep(100 * time.Millisecond)
+	select {
+	case <-svcCache.Events:
+		c.Error("Unexpected service delete event received")
+	default:
+	}
+
+	swgSvcs.Stop()
+	c.Assert(testutils.WaitUntil(func() bool {
+		swgSvcs.Wait()
+		return true
+	}, 2*time.Second), IsNil)
+
+	swgEps.Stop()
+	c.Assert(testutils.WaitUntil(func() bool {
+		swgEps.Wait()
 		return true
 	}, 2*time.Second), IsNil)
 }

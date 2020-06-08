@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -309,8 +309,12 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 		Labels: tag1,
 	}
 
-	cache.endpoints = map[ServiceID]*Endpoints{
-		serviceInfo: &endpointInfo,
+	cache.endpoints = map[ServiceID]*endpointSlices{
+		serviceInfo: {
+			epSlices: map[string]*Endpoints{
+				"": &endpointInfo,
+			},
+		},
 	}
 
 	cache.services = map[ServiceID]*Service{

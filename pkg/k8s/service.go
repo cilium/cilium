@@ -161,7 +161,7 @@ func ParseService(svc *types.Service) (ServiceID, *Service) {
 	return svcID, svcInfo
 }
 
-// ServiceID identities the Kubernetes service
+// ServiceID identifies the Kubernetes service
 type ServiceID struct {
 	Name      string `json:"serviceName,omitempty"`
 	Namespace string `json:"namespace,omitempty"`
@@ -170,6 +170,13 @@ type ServiceID struct {
 // String returns the string representation of a service ID
 func (s ServiceID) String() string {
 	return fmt.Sprintf("%s/%s", s.Namespace, s.Name)
+}
+
+// EndpointSliceID identifies a Kubernetes EndpointSlice as well as the legacy
+// v1.Endpoints.
+type EndpointSliceID struct {
+	ServiceID
+	EndpointSliceName string
 }
 
 // ParseServiceIDFrom returns a ServiceID derived from the given kubernetes
