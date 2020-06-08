@@ -81,9 +81,12 @@ type ServiceCache struct {
 
 	// mutex protects the maps below including the concurrent access of each
 	// value.
-	mutex     lock.RWMutex
-	services  map[ServiceID]*Service
-	endpoints map[ServiceID]*Endpoints
+	mutex    lock.RWMutex
+	services map[ServiceID]*Service
+	// endpoints maps a service to a map of endpointSlices. In case the cluster
+	// is still using the v1.Endpoints, the key used in the internal map of
+	// endpointSlices is the v1.Endpoint name.
+	endpoints map[ServiceID]*endpointSlices
 
 	// externalEndpoints is a list of additional service backends derived from source other than the local cluster
 	externalEndpoints map[ServiceID]externalEndpoints
@@ -95,7 +98,7 @@ type ServiceCache struct {
 func NewServiceCache(nodeAddressing datapath.NodeAddressing) ServiceCache {
 	return ServiceCache{
 		services:          map[ServiceID]*Service{},
-		endpoints:         map[ServiceID]*Endpoints{},
+		endpoints:         map[ServiceID]*endpointSlices{},
 		externalEndpoints: map[ServiceID]externalEndpoints{},
 		Events:            make(chan ServiceEvent, option.Config.K8sServiceCacheSize),
 		nodeAddressing:    nodeAddressing,
@@ -179,33 +182,37 @@ func (s *ServiceCache) DeleteService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 	}
 }
 
-func (s *ServiceCache) updateEndpoints(svcID ServiceID, newEndpoints *Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
+func (s *ServiceCache) updateEndpoints(esID EndpointSliceID, newEndpoints *Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	if oldEndpoints, ok := s.endpoints[svcID]; ok {
-		if oldEndpoints.DeepEquals(newEndpoints) {
-			return svcID, newEndpoints
+	eps, ok := s.endpoints[esID.ServiceID]
+	if ok {
+		if eps.epSlices[esID.EndpointSliceName].DeepEquals(newEndpoints) {
+			return esID.ServiceID, newEndpoints
 		}
+	} else {
+		eps = newEndpointsSlices()
+		s.endpoints[esID.ServiceID] = eps
 	}
 
-	s.endpoints[svcID] = newEndpoints
+	eps.Upsert(esID.EndpointSliceName, newEndpoints)
 
 	// Check if the corresponding Endpoints resource is already available
-	svc, ok := s.services[svcID]
-	endpoints, serviceReady := s.correlateEndpoints(svcID)
+	svc, ok := s.services[esID.ServiceID]
+	endpoints, serviceReady := s.correlateEndpoints(esID.ServiceID)
 	if ok && serviceReady {
 		swg.Add()
 		s.Events <- ServiceEvent{
 			Action:    UpdateService,
-			ID:        svcID,
+			ID:        esID.ServiceID,
 			Service:   svc,
 			Endpoints: endpoints,
 			SWG:       swg,
 		}
 	}
 
-	return svcID, newEndpoints
+	return esID.ServiceID, newEndpoints
 }
 
 // UpdateEndpoints parses a Kubernetes endpoints and adds or updates it in the
@@ -214,8 +221,11 @@ func (s *ServiceCache) updateEndpoints(svcID ServiceID, newEndpoints *Endpoints,
 // cache or not.
 func (s *ServiceCache) UpdateEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
 	svcID, newEndpoints := ParseEndpoints(k8sEndpoints)
-
-	return s.updateEndpoints(svcID, newEndpoints, swg)
+	epSliceID := EndpointSliceID{
+		ServiceID:         svcID,
+		EndpointSliceName: k8sEndpoints.GetName(),
+	}
+	return s.updateEndpoints(epSliceID, newEndpoints, swg)
 }
 
 func (s *ServiceCache) UpdateEndpointSlices(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) (ServiceID, *Endpoints) {
@@ -224,19 +234,22 @@ func (s *ServiceCache) UpdateEndpointSlices(epSlice *slim_discovery_v1beta1.Endp
 	return s.updateEndpoints(svcID, newEndpoints, swg)
 }
 
-func (s *ServiceCache) deleteEndpoints(svcID ServiceID, swg *lock.StoppableWaitGroup) ServiceID {
+func (s *ServiceCache) deleteEndpoints(svcID EndpointSliceID, swg *lock.StoppableWaitGroup) ServiceID {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 
-	svc, serviceOK := s.services[svcID]
-	delete(s.endpoints, svcID)
-	endpoints, _ := s.correlateEndpoints(svcID)
+	svc, serviceOK := s.services[svcID.ServiceID]
+	isEmpty := s.endpoints[svcID.ServiceID].Delete(svcID.EndpointSliceName)
+	if isEmpty {
+		delete(s.endpoints, svcID.ServiceID)
+	}
+	endpoints, _ := s.correlateEndpoints(svcID.ServiceID)
 
 	if serviceOK {
 		swg.Add()
 		event := ServiceEvent{
 			Action:    UpdateService,
-			ID:        svcID,
+			ID:        svcID.ServiceID,
 			Service:   svc,
 			Endpoints: endpoints,
 			SWG:       swg,
@@ -245,15 +258,18 @@ func (s *ServiceCache) deleteEndpoints(svcID ServiceID, swg *lock.StoppableWaitG
 		s.Events <- event
 	}
 
-	return svcID
+	return svcID.ServiceID
 }
 
 // DeleteEndpoints parses a Kubernetes endpoints and removes it from the
 // ServiceCache
 func (s *ServiceCache) DeleteEndpoints(k8sEndpoints *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) ServiceID {
 	svcID := ParseEndpointsID(k8sEndpoints)
-
-	return s.deleteEndpoints(svcID, swg)
+	epSliceID := EndpointSliceID{
+		ServiceID:         svcID,
+		EndpointSliceName: k8sEndpoints.GetName(),
+	}
+	return s.deleteEndpoints(epSliceID, swg)
 }
 
 func (s *ServiceCache) DeleteEndpointSlices(epSlice *slim_discovery_v1beta1.EndpointSlice, swg *lock.StoppableWaitGroup) ServiceID {
@@ -324,7 +340,8 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 	endpoints := newEndpoints()
 
-	localEndpoints, hasLocalEndpoints := s.endpoints[id]
+	localEndpoints := s.endpoints[id].GetEndpoints()
+	hasLocalEndpoints := localEndpoints != nil
 	if hasLocalEndpoints {
 		for ip, e := range localEndpoints.Backends {
 			endpoints.Backends[ip] = e
@@ -335,6 +352,9 @@ func (s *ServiceCache) correlateEndpoints(id ServiceID) (*Endpoints, bool) {
 	if hasExternalService && svc.IncludeExternal {
 		externalEndpoints, hasExternalEndpoints := s.externalEndpoints[id]
 		if hasExternalEndpoints {
+			// remote cluster endpoints already contain all Endpoints from all
+			// EndpointSlices so no need to search the endpoints of a particular
+			// EndpointSlice.
 			for clusterName, remoteClusterEndpoints := range externalEndpoints.endpoints {
 				if clusterName == option.Config.ClusterName {
 					continue
