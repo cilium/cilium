@@ -87,7 +87,7 @@ var _ = Describe("K8sIstioTest", func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		By("Downloading cilium-istioctl")
-		res := kubectl.Exec(fmt.Sprintf("curl -L %s | tar xz", ciliumIstioctlURL))
+		res := kubectl.Exec(fmt.Sprintf("curl --retry 5 -L %s | tar xz", ciliumIstioctlURL))
 		res.ExpectSuccess("unable to download %s", ciliumIstioctlURL)
 		res = kubectl.ExecShort("./cilium-istioctl version")
 		res.ExpectSuccess("unable to execute cilium-istioctl")
