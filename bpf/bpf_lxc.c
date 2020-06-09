@@ -399,8 +399,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx, __u32 *dstID)
 	return ipv6_l3_from_lxc(ctx, &tuple, ETH_HLEN, ip6, dstID);
 }
 
-declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-			 is_defined(DEBUG)), CILIUM_CALL_IPV6_FROM_LXC)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV6_FROM_LXC)
 int tail_handle_ipv6(struct __ctx_buff *ctx)
 {
 	__u32 dstID = 0;
@@ -724,8 +723,7 @@ pass_to_stack:
 	return CTX_ACT_OK;
 }
 
-declare_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-			 is_defined(DEBUG)), CILIUM_CALL_IPV4_FROM_LXC)
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
 int tail_handle_ipv4(struct __ctx_buff *ctx)
 {
 	__u32 dstID = 0;
@@ -793,16 +791,14 @@ int handle_xgress(struct __ctx_buff *ctx)
 	switch (proto) {
 #ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-					is_defined(DEBUG)),
-				   CILIUM_CALL_IPV6_FROM_LXC, tail_handle_ipv6);
+		ep_tail_call(ctx, CILIUM_CALL_IPV6_FROM_LXC);
+		ret = DROP_MISSED_TAIL_CALL;
 		break;
 #endif /* ENABLE_IPV6 */
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		invoke_tailcall_if(__or(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
-					is_defined(DEBUG)),
-				   CILIUM_CALL_IPV4_FROM_LXC, tail_handle_ipv4);
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_LXC);
+		ret = DROP_MISSED_TAIL_CALL;
 		break;
 #ifdef ENABLE_ARP_PASSTHROUGH
 	case bpf_htons(ETH_P_ARP):
