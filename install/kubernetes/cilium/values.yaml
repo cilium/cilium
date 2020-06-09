@@ -321,6 +321,9 @@ global:
     # interface is the interface to use for encryption
     # interface: eth0
 
+  # fragmentTracking enables IPv4 fragment tracking support in the datapath.
+  fragmentTracking: true
+
   # hostFirewall enables the enforcement of host policies in the BPF datapath
   hostFirewall: false
 
