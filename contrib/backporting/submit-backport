@@ -47,7 +47,7 @@ cat $SUMMARY 1>&2
 echo -e "\nSending pull request..." 2>&1
 PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
 git push origin "$PR_BRANCH"
-hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH,requires-janitor-review -F $SUMMARY
+hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY
 
 prs=$(grep "set-labels.py" $SUMMARY | sed -e 's/^.*for pr in \([0-9 ]\+\);.*$/\1/g')
 echo -e "\nUpdating labels for PRs $prs\n" 2>&1
