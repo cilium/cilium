@@ -497,11 +497,21 @@ func DoesNotRunOnNetNextKernel() bool {
 	return !RunsOnNetNextKernel()
 }
 
+// RunsOn419Kernel checks whether a test case is running on the 4.19 kernel.
+func RunsOn419Kernel() bool {
+	return os.Getenv("KERNEL") == "419"
+}
+
+// DoesNotRunOn419Kernel is the complement function of RunsOn419Kernel.
+func DoesNotRunOn419Kernel() bool {
+	return !RunsOn419Kernel()
+}
+
 // RunsOnNetNextOr419Kernel checks whether a test case is running on the net-next
 // kernel (depending on the image, it's the latest kernel either from net-next.git
 // or bpf-next.git tree), or on the > 4.19.57 kernel.
 func RunsOnNetNextOr419Kernel() bool {
-	return RunsOnNetNextKernel() || os.Getenv("KERNEL") == "419"
+	return RunsOnNetNextKernel() || RunsOn419Kernel()
 }
 
 // DoesNotRunOnNetNextOr419Kernel is the complement function of
