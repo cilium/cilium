@@ -164,6 +164,7 @@ data:
   enable-xt-socket-fallback: "true"
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"
+  enable-ipv4-fragment-tracking: "true"
   kube-proxy-replacement:  "probe"
   node-port-bind-protection: "true"
   enable-auto-protect-node-port-range: "true"

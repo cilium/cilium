@@ -337,6 +337,7 @@ data:
 {{- if .Values.global.nativeRoutingCIDR }}
   native-routing-cidr: {{ .Values.global.nativeRoutingCIDR }}
 {{- end }}
+  enable-ipv4-fragment-tracking: {{ .Values.global.fragmentTracking | quote }}
 
 {{- if .Values.global.hostFirewall }}
   enable-host-firewall: {{ .Values.global.hostFirewall | quote }}
