@@ -151,6 +151,7 @@ data:
   # Only effective when monitor aggregation is set to "medium" or higher.
   monitor-aggregation-flags: {{ .Values.global.bpf.monitorFlags }}
 
+{{- if or .Values.global.bpf.ctTcpMax .Values.global.bpf.ctAnyMax }}
   # bpf-ct-global-*-max specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair
   # of maps uses these values for IPv4 connections, and another pair of maps
@@ -162,20 +163,31 @@ data:
   #
   # For users upgrading from Cilium 1.2 or earlier, to minimize disruption
   # during the upgrade process, set bpf-ct-global-tcp-max to 1000000.
+{{- if .Values.global.bpf.ctTcpMax }}
   bpf-ct-global-tcp-max: "{{ .Values.global.bpf.ctTcpMax }}"
+{{- end }}
+{{- if .Values.global.bpf.ctAnyMax }}
   bpf-ct-global-any-max: "{{ .Values.global.bpf.ctAnyMax }}"
+{{- end }}
+{{- end }}
 
+{{- if .Values.global.bpf.natMax }}
   # bpf-nat-global-max specified the maximum number of entries in the
   # BPF NAT table.
   bpf-nat-global-max: "{{ .Values.global.bpf.natMax }}"
+{{- end }}
 
+{{- if .Values.global.bpf.neighMax }}
   # bpf-neigh-global-max specified the maximum number of entries in the
   # BPF neighbor table.
   bpf-neigh-global-max: "{{ .Values.global.bpf.neighMax }}"
+{{- end }}
 
+{{- if .Values.global.bpf.policyMapMax }}
   # bpf-policy-map-max specified the maximum number of entries in endpoint
   # policy map (per endpoint)
   bpf-policy-map-max: "{{ .Values.global.bpf.policyMapMax }}"
+{{- end }}
 
   # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
   # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
