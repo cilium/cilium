@@ -1254,7 +1254,7 @@ out:
 	(!defined(ENABLE_DSR) || \
 	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)))
 	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
-		ret = nodeport_nat_fwd(ctx, false);
+		ret = nodeport_nat_fwd(ctx);
 		if (IS_ERR(ret))
 			return send_drop_notify_error(ctx, 0, ret,
 						      CTX_ACT_DROP,
