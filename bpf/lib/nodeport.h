@@ -119,7 +119,7 @@ static __always_inline bool nodeport_uses_dsr(__u8 nexthdr __maybe_unused)
 
 static __always_inline bool nodeport_lb_hairpin(void)
 {
-	return is_defined(ENABLE_NODEPORT_ACCELERATION);
+	return is_defined(ENABLE_NODEPORT_HAIRPIN);
 }
 
 static __always_inline void

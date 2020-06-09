@@ -1631,6 +1631,9 @@ type DaemonConfig struct {
 	// via XDP ("none", "generic" or "native")
 	NodePortAcceleration string
 
+	// NodePortHairpin indicates whether the setup is a one-legged LB
+	NodePortHairpin bool
+
 	// NodePortBindProtection rejects bind requests to NodePort service ports
 	NodePortBindProtection bool
 
