@@ -741,8 +741,7 @@ var _ = Describe("K8sServicesTest", func() {
 				}(url)
 			}
 			// TODO: IPv6
-
-			if bpfNodePort {
+			if bpfNodePort && helpers.RunsOnNetNextKernel() {
 				httpURL := getHTTPLink("127.0.0.1", data.Spec.Ports[0].NodePort)
 				tftpURL := getTFTPLink("127.0.0.1", data.Spec.Ports[1].NodePort)
 				testCurlFromPodsFail(testDSClient, httpURL)
@@ -752,7 +751,6 @@ var _ = Describe("K8sServicesTest", func() {
 				tftpURL = getTFTPLink("::ffff:127.0.0.1", data.Spec.Ports[1].NodePort)
 				testCurlFromPodsFail(testDSClient, httpURL)
 				testCurlFromPodsFail(testDSClient, tftpURL)
-
 			}
 
 			wg.Wait()
