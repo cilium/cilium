@@ -227,7 +227,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test with IPsec between nodes failed")
 		}, 600)
 
-		It("Check connectivity with sockops and VXLAN encapsulation", func() {
+		FIt("Check connectivity with sockops and VXLAN encapsulation", func() {
 			// Note if run on kernel without sockops feature is ignored
 			deployCilium(map[string]string{
 				"global.sockops.enabled": "true",
@@ -237,7 +237,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivitySameNodes(kubectl)).Should(BeTrue(), "Connectivity test on same node failed")
 		}, 600)
 
-		It("Check connectivity with VXLAN encapsulation", func() {
+		FIt("Check connectivity with VXLAN encapsulation", func() {
 			deployCilium(map[string]string{
 				"global.tunnel": "vxlan",
 			})
@@ -245,7 +245,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		}, 600)
 
-		It("Check connectivity with Geneve encapsulation", func() {
+		FIt("Check connectivity with Geneve encapsulation", func() {
 			deployCilium(map[string]string{
 				"global.tunnel": "geneve",
 			})
