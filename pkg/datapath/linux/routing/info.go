@@ -44,19 +44,21 @@ type RoutingInfo struct {
 }
 
 // NewRoutingInfo creates a new RoutingInfo struct, from data that will be
-// parsed and validated. Note, this code assumes IPv4 values because ENI + IPv4
-// is the only supported path currently.
-func NewRoutingInfo(gateway string, cidrs []string, mac string) (*RoutingInfo, error) {
-	return parse(gateway, cidrs, mac)
+// parsed and validated. Note, this code assumes IPv4 values because IPv4
+// (on either ENI or Azure interface) is the only supported path currently.
+// Azure does not support masquerade yet (subnets CIDRs aren't provided):
+// untill it does, we forward a masquerade bool to opt out ipam.Cidrs use.
+func NewRoutingInfo(gateway string, cidrs []string, mac string, masquerade bool) (*RoutingInfo, error) {
+	return parse(gateway, cidrs, mac, masquerade)
 }
 
-func parse(gateway string, cidrs []string, macAddr string) (*RoutingInfo, error) {
+func parse(gateway string, cidrs []string, macAddr string, masquerade bool) (*RoutingInfo, error) {
 	ip := net.ParseIP(gateway)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid ip: %s", gateway)
 	}
 
-	if len(cidrs) == 0 {
+	if len(cidrs) == 0 && masquerade {
 		return nil, errors.New("empty cidrs")
 	}
 

@@ -370,6 +370,7 @@ func (d *Daemon) parseHealthEndpointInfo(result *ipam.AllocationResult) error {
 	var err error
 	d.healthEndpointRouting, err = linuxrouting.NewRoutingInfo(result.GatewayIP,
 		result.CIDRs,
-		result.Master)
+		result.Master,
+		option.Config.Masquerade)
 	return err
 }
