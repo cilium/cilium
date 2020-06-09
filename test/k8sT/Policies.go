@@ -375,7 +375,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				appPods[helpers.App3], clusterIP)
 		}, 500)
 
-		PIt("TLS policy", func() {
+		SkipItIf(helpers.SkipQuarantined, "TLS policy", func() {
 			By("Testing L7 Policy with TLS")
 
 			res := kubectl.CreateSecret("generic", "user-agent", "default", "--from-literal=user-agent=CURRL")
