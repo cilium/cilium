@@ -407,7 +407,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 	int ret = handle_ipv6(ctx, &dstID);
 
 	if (IS_ERR(ret)) {
-		relax_verifier();
 		return send_drop_notify(ctx, SECLABEL, dstID, 0, ret, CTX_ACT_DROP,
 		                        METRIC_EGRESS);
 	}
