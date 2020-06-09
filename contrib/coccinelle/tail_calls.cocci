@@ -21,7 +21,7 @@ def whitelist_tailcalls(p):
            not p.file.endswith("lib/tailcall.h")
 
 
-@rule@
+@rule forall@
 position p : script:python() { whitelist_tailcalls(p[0]) };
 expression e1, e2, e3, e4, x;
 symbol ret;
@@ -30,50 +30,58 @@ symbol ret;
 (
   // Classic cases of send_drop_notify_error with DROP_MISSED_TAIL_CALL.
   ep_tail_call(...);
-  ... when forall
+  ... when != return ...;
   return send_drop_notify_error(e1, e2, DROP_MISSED_TAIL_CALL, ...);
 |
   ep_tail_call(...);
-  <+... when forall
+  <+... when != return ...;
   x = DROP_MISSED_TAIL_CALL;
   ...+>
   return send_drop_notify_error(e1, e2, x, ...);
 |
   // We also whitelist any function returning DROP_MISSED_TAIL_CALL, assuming
-  // this will be catch afterwards and transformed in call to
+  // this will be caught afterwards and transformed in call to
   // send_drop_notify_error().
-  ep_tail_call(...);
-  ... when forall
+  \(ep_tail_call\|invoke_tailcall_if\)(...);
+  ... when != return ...;
   return DROP_MISSED_TAIL_CALL;
 |
   ep_tail_call(...);
-  <+... when forall
+  <+... when != return ...;
   x = DROP_MISSED_TAIL_CALL;
   ...+>
   return x;
-|
-  ep_tail_call@p(...);
 |
   // invoke_tailcall_if sets variable ret which should be used in subsequent
   // call to send_drop_notify{,_error}.
   invoke_tailcall_if(...);
   ... when != ret = ...;
-      when forall
+      when != return ...;
   \(
     return send_drop_notify(e1, e2, e3, e4, ret, CTX_ACT_DROP, ...);
   \|
     return send_drop_notify_error(e1, e2, ret, CTX_ACT_DROP, ...);
+  \|
+    // For invoke_tailcall_if(), it sets variable 'ret', so we need to check
+    // that variable specifically.
+    return ret;
   \)
 |
   invoke_tailcall_if(...);
   ... when != ret = ...;
-      when forall
+      when != return ...;
   if (IS_ERR(ret))
     \(
       return send_drop_notify(e1, e2, e3, e4, ret, CTX_ACT_DROP, ...);
     \|
       return send_drop_notify_error(e1, e2, ret, CTX_ACT_DROP, ...);
+    \|
+      // For invoke_tailcall_if(), it sets variable 'ret', so we need to check
+      // that variable specifically.
+      return ret;
     \)
+|
+  ep_tail_call@p(...);
 |
   invoke_tailcall_if@p(...);
 )
