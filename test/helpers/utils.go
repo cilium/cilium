@@ -603,3 +603,8 @@ func GetLatestImageVersion() string {
 	}
 	return "latest"
 }
+
+// SkipQuarantined returns whether test under quarantine should be skipped
+func SkipQuarantined() bool {
+	return !config.CiliumTestConfig.RunQuarantined
+}
