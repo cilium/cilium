@@ -262,7 +262,8 @@ func getFakes(c *C) (net.IP, RoutingInfo) {
 
 	fakeRoutingInfo, err := parse(fakeGateway.String(),
 		[]string{fakeCIDR.String()},
-		fakeMAC.String())
+		fakeMAC.String(),
+		true)
 	c.Assert(err, IsNil)
 	c.Assert(fakeRoutingInfo, NotNil)
 
