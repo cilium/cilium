@@ -10,34 +10,87 @@
 Monitoring & Metrics
 ********************
 
-``cilium-agent`` and ``cilium-operator`` can be configured to serve `Prometheus
+Cilium and Hubble can both be configured to serve `Prometheus
 <https://prometheus.io>`_ metrics. Prometheus is a pluggable metrics collection
 and storage system and can act as a data source for `Grafana
 <https://grafana.com/>`_, a metrics visualization frontend. Unlike some metrics
 collectors like statsd, Prometheus requires the collectors to pull metrics from
 each source.
 
-To run Cilium with Prometheus metrics enabled, deploy it with the
+Cilium and Hubble metrics can be enabled independently of each other.
+
+Cilium Metrics
+==============
+
+Cilium metrics provide insights into the state of Cilium itself, namely
+of the ``cilium-agent`` and ``cilium-operator`` processes. To run Cilium with
+Prometheus metrics enabled, deploy it with the
 ``global.prometheus.enabled=true`` Helm value set.
 
-All metrics are exported under the ``cilium`` Prometheus namespace. When
-running and collecting in Kubernetes they will be tagged with a pod name and
-namespace.
+Cilium metrics are exported under the ``cilium_`` Prometheus namespace.
+When running and collecting in Kubernetes they will be tagged with a pod name
+and namespace.
 
 Installation
-============
+------------
 
-When deployed with the Helm value ``global.prometheus.enabled=true``, all Cilium
-components will have the annotations to signal Prometheus whether to scrape
-metrics:
+You can enable metrics for ``cilium-agent`` with the Helm value
+``global.prometheus.enabled=true``. To enable metrics for ``cilium-operator``,
+use ``global.operatorPrometheus.enabled=true``.
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.prometheus.enabled=true \\
+     --set global.operatorPrometheus.enabled=true
+
+The ports can be configured via
+``global.prometheus.port`` or ``global.operatorPrometheus.port`` respectively.
+
+When metrics are enabled, all Cilium components will have the annotations to
+signal Prometheus whether to scrape metrics:
 
 .. code-block:: yaml
 
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
 
+Hubble Metrics
+==============
+
+While Cilium metrics allow you to monitor the state Cilium itself,
+Hubble metrics on the other hand allow you to monitor the network behavior
+of your Cilium-managed Kubernetes pods with respect to connectivity and security.
+
+Installation
+------------
+
+To deploy Cilium with Hubble metrics enabled, you need to enable Hubble with
+``global.hubble.enabled=true`` and provide a set of Hubble metrics you want to
+enable via ``global.hubble.metrics.enabled``.
+
+Some of the metrics can also be configured with additional options.
+See the :ref:`Hubble exported metrics<hubble_exported_metrics>`
+section for the full list of available metrics and their options.
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set global.hubble.enabled=true \\
+     --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+
+The port of the Hubble metrics can be configured with the
+``global.hubble.metrics.port`` Helm value.
+
+When deployed with a non-empty ``global.hubble.metrics.enabled`` Helm value, the
+Cilium chart will create a Kubernetes headless service named ``hubble-metrics``
+with the ``prometheus.io/scrape:'true'`` annotation set. This will signal
+Prometheus to scrape the Hubble metrics automatically.
+
 Example Prometheus & Grafana Deployment
----------------------------------------
+=======================================
 
 If you don't have an existing Prometheus and Grafana stack running, you can
 deploy a stack with:
@@ -46,27 +99,32 @@ deploy a stack with:
 
     kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/addons/prometheus/monitoring-example.yaml
 
-It will run Prometheus and Grafana in the ``cilium-monitoring`` namespace. You
-can then expose Grafana to access it via your browser.
+It will run Prometheus and Grafana in the ``cilium-monitoring`` namespace. If
+you have either enabled Cilium or Hubble metrics, they will automatically
+be scraped by Prometheus. You can then expose Grafana to access it via your browser.
 
 .. code:: bash
 
     kubectl -n cilium-monitoring port-forward service/grafana 3000:3000
 
-Open your browser and access ``https://localhost:3000/``
+Open your browser and access ``https://localhost:3000/``.
+
+Metrics Reference
+=================
 
 cilium-agent
-============
+------------
+
+Configuration
+^^^^^^^^^^^^^
 
 To expose any metrics, invoke ``cilium-agent`` with the
 ``--prometheus-serve-addr`` option. This option takes a ``IP:Port`` pair but
 passing an empty IP (e.g. ``:9090``) will bind the server to all available
 interfaces (there is usually only one in a container).
 
-in :git-tree:`examples/kubernetes/addons/prometheus/monitoring-example.yaml`
-
 Exported Metrics
-----------------
+^^^^^^^^^^^^^^^^
 
 Endpoint
 ~~~~~~~~
@@ -243,14 +301,17 @@ Name                             Labels                           Description
 ================================ ================================ ========================================================
 
 cilium-operator
-===============
+---------------
+
+Configuration
+^^^^^^^^^^^^^
 
 ``cilium-operator`` can be configured to serve metrics by running with the
 option ``--enable-metrics``.  By default, the operator will expose metrics on
 port 6942, the port can be changed with the option ``--metrics-address``.
 
 Exported Metrics
-----------------
+^^^^^^^^^^^^^^^^
 
 All metrics are exported under the ``cilium_operator_`` Prometheus namespace.
 
@@ -271,3 +332,156 @@ Name                                     Labels                           Descri
 ``ipam_api_duration_seconds``            ``operation``, ``responseCode``  Duration of interactions with external IPAM API
 ``ipam_api_rate_limit_duration_seconds`` ``operation``                    Duration of rate limiting while accessing external IPAM API
 ======================================== ================================ ========================================================
+
+Hubble
+------
+
+Configuration
+^^^^^^^^^^^^^
+
+Hubble metrics are served by a Hubble instance running inside ``cilium-agent``.
+The command-line options to configure them are ``--enable-hubble``,
+``--hubble-metrics-server``, and ``--hubble-metrics``.
+``--hubble-metrics-server`` takes an ``IP:Port`` pair, but
+passing an empty IP (e.g. ``:9091``) will bind the server to all available
+interfaces. ``--hubble-metrics`` takes a comma-separated list of metrics.
+
+Some metrics can take additional semicolon-separated options per metric, e.g.
+``--hubble-metrics="dns:query;ignoreAAAA,http:destinationContext=pod-short"``
+will enable the the ``dns`` metric with the ``query`` and ``ignoreAAAA`` options,
+and the ``http`` metric with the ``destinationContext=pod-short`` option.
+
+.. _hubble_context_options:
+
+Context Options
+^^^^^^^^^^^^^^^
+
+Most Hubble metrics can be configured to add the source and/or destination
+context as a label. The options are called ``sourceContext`` and
+``destinationContext``. The possible values are:
+
+============== ====================================================================================
+Option Value   Description
+============== ====================================================================================
+``identity``   All Cilium security identity labels
+``namespace``  Kubernetes namespace name
+``pod``        Kubernetes pod name
+``pod-short``  Short version of the Kubernetes pod name. Typically the deployment/replicaset name.
+============== ====================================================================================
+
+.. _hubble_exported_metrics:
+
+Exported Metrics
+^^^^^^^^^^^^^^^^
+
+Hubble metrics are exported under the ``hubble_`` Prometheus namespace.
+
+``dns``
+~~~~~~~
+
+================================ ======================================== ===================================
+Name                             Labels                                   Description
+================================ ======================================== ===================================
+``dns_queries_total``            ``rcode``, ``qtypes``, ``ips_returned``  Number of DNS queries observed
+``dns_responses_total``          ``rcode``, ``qtypes``, ``ips_returned``  Number of DNS responses observed
+``dns_response_types_total``     ``type``, ``qtypes``                     Number of DNS response types
+================================ ======================================== ===================================
+
+Options
+"""""""
+
+============== ============= ====================================================================================
+Option Key     Option Value  Description
+============== ============= ====================================================================================
+``query``      N/A           Include the query as label "query"
+``ignoreAAAA`` N/A           Ignore any AAAA requests/responses
+============== ============= ====================================================================================
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
+
+``drop``
+~~~~~~~~
+
+================================ ======================================== ===================================
+Name                             Labels                                   Description
+================================ ======================================== ===================================
+``drop_total``                   ``reason``, ``protocol``                 Number of drops
+================================ ======================================== ===================================
+
+Options
+"""""""
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
+``flow``
+~~~~~~~~
+
+================================ ======================================== ===================================
+Name                             Labels                                   Description
+================================ ======================================== ===================================
+``flows_processed_total``        ``type``, ``subtype``, ``verdict``       Total number of flows processed
+================================ ======================================== ===================================
+
+Options
+"""""""
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
+``http``
+~~~~~~~~
+
+================================= ============================= ==============================================
+Name                              Labels                        Description
+================================= ============================= ==============================================
+``http_requests_total``           ``method``, ``protocol``      Count of HTTP requests
+``http_responses_total``          ``method``, ``status``        Count of HTTP responses
+``http_request_duration_seconds`` ``method``                    Quantiles of HTTP request duration in seconds
+================================= ============================= ==============================================
+
+Options
+"""""""
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
+``icmp``
+~~~~~~~~
+
+================================ ======================================== ===================================
+Name                             Labels                                   Description
+================================ ======================================== ===================================
+``icmp_total``                   ``family``, ``type``                     Number of ICMP messages
+================================ ======================================== ===================================
+
+Options
+"""""""
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
+``port-distribution``
+~~~~~~~~~~~~~~~~~~~~~
+
+================================ ======================================== ==================================================
+Name                             Labels                                   Description
+================================ ======================================== ==================================================
+``port_distribution_total``      ``protocol``, ``port``                   Numbers of packets distributed by destination port
+================================ ======================================== ==================================================
+
+Options
+"""""""
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
+
+``tcp``
+~~~~~~~
+
+================================ ======================================== ==================================================
+Name                             Labels                                   Description
+================================ ======================================== ==================================================
+``tcp_flags_total``              ``flag``, ``familiy``                    TCP flag occurrences
+================================ ======================================== ==================================================
+
+Options
+"""""""
+
+This metric supports :ref:`Context Options<hubble_context_options>`.
