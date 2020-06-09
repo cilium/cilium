@@ -221,6 +221,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("Check connectivity with sockops and VXLAN encapsulation", func() {
 			// Note if run on kernel without sockops feature is ignored
+			if !helpers.RunsOnNetNextOr419Kernel() {
+				Skip("Skipping sockops testing before 4.19 kernel")
+				return
+			}
+
 			deploymentManager.DeployCilium(map[string]string{
 				"global.sockops.enabled": "true",
 			}, DeployCiliumOptionsAndDNS)
@@ -327,6 +332,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		It("Check connectivity with sockops and direct routing", func() {
 			// Note if run on kernel without sockops feature is ignored
+			if !helpers.RunsOnNetNextOr419Kernel() {
+				Skip("Skipping sockops testing before 4.19 kernel")
+				return
+			}
+
 			deploymentManager.DeployCilium(map[string]string{
 				"global.sockops.enabled": "true",
 			}, DeployCiliumOptionsAndDNS)
