@@ -1110,7 +1110,6 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.EncryptInterface = link
 	}
 
-	checkHostFirewallWithEgressLB()
 	initKubeProxyReplacementOptions()
 	if option.Config.EnableNodePort {
 		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
@@ -1581,30 +1580,6 @@ func initClockSourceOption() {
 				}
 			}
 		}
-	}
-}
-
-func checkHostFirewallWithEgressLB() {
-	// Egress LB is enabled in datapath under condition:
-	// ENABLE_SERVICES && (!ENABLE_HOST_SERVICES_FULL || \
-	//                    (ENABLE_EXTERNAL_IP && !BPF_HAVE_NETNS_COOKIE))
-	// We can't enable both egress LB and host firewall on kernels <4.14 due to
-	// the verifier complexity limit, at 96k instructions.
-	var netnsCookieSupport bool
-	pm := probes.NewProbeManager()
-	h1, h2 := pm.GetHelpers("cgroup_sock_addr"), pm.GetHelpers("cgroup_sock")
-	if _, ok := h1["bpf_get_netns_cookie"]; ok {
-		if _, ok := h2["bpf_get_netns_cookie"]; ok {
-			netnsCookieSupport = true
-		}
-	}
-	egressLBEnabled := !option.Config.DisableK8sServices &&
-		(!option.Config.EnableHostServicesTCP || !option.Config.EnableHostServicesUDP ||
-			(option.Config.EnableExternalIPs && !netnsCookieSupport))
-	if option.Config.EnableHostFirewall && egressLBEnabled {
-		log.Warn("Enabling both BPF-based east-west load balancing and the host firewall isn't supported yet. Disabling east-west load balancing.")
-		option.Config.DisableK8sServices = true
-		option.Config.KubeProxyReplacement = option.KubeProxyReplacementDisabled
 	}
 }
 
