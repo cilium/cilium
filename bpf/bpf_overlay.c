@@ -7,6 +7,8 @@
 #include <node_config.h>
 #include <netdev_config.h>
 
+#define IS_BPF_OVERLAY 1
+
 #include "lib/tailcall.h"
 #include "lib/utils.h"
 #include "lib/common.h"
@@ -305,21 +307,6 @@ out:
 	return ret;
 }
 
-#ifdef ENABLE_NODEPORT
-declare_tailcall_if(is_defined(ENABLE_IPV6), CILIUM_CALL_ENCAP_NODEPORT_NAT)
-int tail_handle_nat_fwd(struct __ctx_buff *ctx)
-{
-	int ret;
-
-	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE)
-		return CTX_ACT_OK;
-	ret = nodeport_nat_fwd(ctx, true);
-	if (IS_ERR(ret))
-		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
-	return ret;
-}
-#endif
-
 __section("to-overlay")
 int to_overlay(struct __ctx_buff *ctx)
 {
@@ -327,8 +314,11 @@ int to_overlay(struct __ctx_buff *ctx)
 	if (unlikely(ret < 0))
 		goto out;
 #ifdef ENABLE_NODEPORT
-	invoke_tailcall_if(is_defined(ENABLE_IPV6),
-			   CILIUM_CALL_ENCAP_NODEPORT_NAT, tail_handle_nat_fwd);
+	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE) {
+		ret = CTX_ACT_OK;
+		goto out;
+	}
+	ret = nodeport_nat_fwd(ctx);
 #endif
 out:
 	if (IS_ERR(ret))
