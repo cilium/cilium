@@ -41,7 +41,7 @@ func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, 
 		cidrs = append(cidrs, cidr.String())
 	}
 
-	routingInfo, err := linuxrouting.NewRoutingInfo(ipam.Gateway, cidrs, ipam.MasterMac)
+	routingInfo, err := linuxrouting.NewRoutingInfo(ipam.Gateway, cidrs, ipam.MasterMac, conf.Masquerade)
 	if err != nil {
 		return fmt.Errorf("unable to parse routing info: %v", err)
 	}
