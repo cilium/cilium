@@ -213,6 +213,8 @@ framework in the ``test/`` directory and interact with ginkgo directly:
             Specifies whether Kubernetes should be deployed and installed via kubeadm or not (default true)
       -cilium.registry string
             docker registry hostname for Cilium image
+      -cilium.runQuarantined
+        Run tests that are under quarantine.
       -cilium.showCommands
             Output which commands are ran to stdout
       -cilium.skipLogs
