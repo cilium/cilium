@@ -19,6 +19,7 @@ package k8s
 import (
 	"time"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/checker"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
@@ -1224,13 +1225,135 @@ func (s *K8sSuite) Test_ConvertToCiliumEndpoint(c *C) {
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
-					Obj: &v2.CiliumEndpoint{},
+					Obj: &v2.CiliumEndpoint{
+						TypeMeta: metav1.TypeMeta{
+							Kind:       "CiliumEndpoint",
+							APIVersion: "v2",
+						},
+						ObjectMeta: metav1.ObjectMeta{
+							Name:            "foo",
+							GenerateName:    "generated-Foo",
+							Namespace:       "bar",
+							UID:             "fdadada-dada",
+							ResourceVersion: "5454",
+							Generation:      5,
+							CreationTimestamp: metav1.Time{
+								Time: time.Date(2018, 01, 01, 01, 01, 01, 01, time.UTC),
+							},
+							Labels: map[string]string{
+								"foo": "bar",
+							},
+							Annotations: map[string]string{
+								"foo": "bar",
+							},
+							OwnerReferences: []metav1.OwnerReference{
+								{
+									Kind:               "Pod",
+									APIVersion:         "v1",
+									Name:               "foo",
+									UID:                "65dasd54d45",
+									Controller:         nil,
+									BlockOwnerDeletion: func() *bool { a := true; return &a }(),
+								},
+							},
+							ClusterName: "default",
+						},
+						Status: v2.EndpointStatus{
+							ID:          0,
+							Controllers: nil,
+							ExternalIdentifiers: &models.EndpointIdentifiers{
+								ContainerID:   "3290f4bc32129cb3e2f81074557ad9690240ea8fcce84bcc51a9921034875878",
+								ContainerName: "foo",
+								K8sNamespace:  "foo",
+								K8sPodName:    "bar",
+								PodName:       "foo/bar",
+							},
+							Health: &models.EndpointHealth{
+								Bpf:           "good",
+								Connected:     false,
+								OverallHealth: "excellent",
+								Policy:        "excellent",
+							},
+							Identity: &v2.EndpointIdentity{
+								ID: 9654,
+								Labels: []string{
+									"k8s:io.cilium.namespace=bar",
+								},
+							},
+							Networking: &v2.EndpointNetworking{
+								Addressing: []*v2.AddressPair{
+									{
+										IPV4: "10.0.0.1",
+										IPV6: "fd00::1",
+									},
+								},
+								NodeIP: "192.168.0.1",
+							},
+							Encryption: v2.EncryptionSpec{
+								Key: 250,
+							},
+							Policy: &v2.EndpointPolicy{
+								Ingress: &v2.EndpointPolicyDirection{
+									Enforcing: true,
+								},
+								Egress: &v2.EndpointPolicyDirection{
+									Enforcing: true,
+								},
+							},
+							State: "",
+							NamedPorts: []*models.Port{
+								{
+									Name:     "foo-port",
+									Port:     8181,
+									Protocol: "TCP",
+								},
+							},
+						},
+					},
 				},
 			},
 			want: cache.DeletedFinalStateUnknown{
 				Key: "foo",
 				Obj: &types.CiliumEndpoint{
-					Encryption: &v2.EncryptionSpec{},
+					TypeMeta: slim_metav1.TypeMeta{
+						Kind:       "CiliumEndpoint",
+						APIVersion: "v2",
+					},
+					ObjectMeta: slim_metav1.ObjectMeta{
+						Name:            "foo",
+						Namespace:       "bar",
+						UID:             "fdadada-dada",
+						ResourceVersion: "5454",
+						// We don't need to store labels nor annotations because
+						// they are not used by the CEP handlers.
+						Labels:      nil,
+						Annotations: nil,
+					},
+					Identity: &v2.EndpointIdentity{
+						ID: 9654,
+						Labels: []string{
+							"k8s:io.cilium.namespace=bar",
+						},
+					},
+					Networking: &v2.EndpointNetworking{
+						Addressing: []*v2.AddressPair{
+							{
+								IPV4: "10.0.0.1",
+								IPV6: "fd00::1",
+							},
+						},
+						NodeIP: "192.168.0.1",
+					},
+					Encryption: &v2.EncryptionSpec{
+						Key: 250,
+					},
+					NamedPorts: []*models.Port{
+						{
+							Name:     "foo-port",
+							Port:     8181,
+							Protocol: "TCP",
+						},
+					},
 				},
 			},
 		},
