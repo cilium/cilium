@@ -17,15 +17,18 @@ spec:
   selector:
     k8s-app: cilium
 {{- end }}
-{{- if and .Values.global.hubble.metrics.enabled (.Values.global.hubble.metrics.serviceMonitor.enabled) }}
+{{- if and .Values.global.hubble.metrics.enabled }}
 ---
 kind: Service
 apiVersion: v1
 metadata:
   name: hubble-metrics
   namespace: {{ .Release.Namespace }}
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: {{ .Values.global.hubble.metrics.port | quote }}
   labels:
-    k8s-app: hubble 
+    k8s-app: hubble
 spec:
   clusterIP: None
   type: ClusterIP

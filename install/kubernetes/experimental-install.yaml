@@ -432,6 +432,28 @@ subjects:
   name: cilium-operator
   namespace: kube-system
 ---
+# Source: cilium/charts/agent/templates/svc.yaml
+kind: Service
+apiVersion: v1
+metadata:
+  name: hubble-metrics
+  namespace: kube-system
+  annotations:
+    prometheus.io/scrape: 'true'
+    prometheus.io/port: "9091"
+  labels:
+    k8s-app: hubble
+spec:
+  clusterIP: None
+  type: ClusterIP
+  ports:
+  - name: hubble-metrics
+    port: 9091
+    protocol: TCP
+    targetPort: hubble-metrics
+  selector:
+    k8s-app: cilium
+---
 # Source: cilium/charts/hubble-relay/templates/service.yaml
 kind: Service
 apiVersion: v1
