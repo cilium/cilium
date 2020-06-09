@@ -2140,6 +2140,14 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
+	// Temporary workaround until https://github.com/cilium/cilium/pull/11915
+	// has been merged. Otherwise, the BPF verifier rejects some programs on
+	// the 4.19 kernel
+	if os.Getenv("KERNEL") == "419" {
+		options = addIfNotOverwritten(options, "global.kubeProxyReplacement", "partial")
+		options = addIfNotOverwritten(options, "global.hostServices.enabled", "true")
+	}
+
 	if !RunsWithKubeProxy() {
 		nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
 		if err != nil {

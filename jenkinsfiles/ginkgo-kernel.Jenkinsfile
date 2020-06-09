@@ -15,7 +15,7 @@ pipeline {
             )}"""
         TESTED_SUITE="k8s-${K8S_VERSION}"
         GINKGO_TIMEOUT="300m"
-        DEFAULT_KERNEL="""${sh(
+        KERNEL="""${sh(
             returnStdout: true,
             script: 'echo -n "${JobKernelVersion}"'
             )}"""
@@ -143,7 +143,7 @@ pipeline {
                 sh 'cp -a ${WORKSPACE}/${PROJ_PATH} ${GOPATH}/${PROJ_PATH}'
                 retry(3) {
                     dir("${TESTDIR}") {
-                        sh 'KERNEL=$(python get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=version | sed "s/^$/${DEFAULT_KERNEL}/") CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 15m ./vagrant-ci-start.sh'
+                        sh 'CILIUM_REGISTRY="$(./print-node-ip.sh)" timeout 15m ./vagrant-ci-start.sh'
                     }
                 }
             }
