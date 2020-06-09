@@ -34,11 +34,7 @@ enum {
  * */
 static __always_inline bool conn_is_dns(__u16 dport)
 {
-	if (dport == bpf_htons(53)) {
-		relax_verifier();
-		return true;
-	}
-	return false;
+	return dport == bpf_htons(53);
 }
 
 union tcp_flags {
@@ -389,7 +385,6 @@ static __always_inline int ct_lookup6(const void *map,
 
 	default:
 		/* Can't handle extension headers yet */
-		relax_verifier();
 		return DROP_CT_UNKNOWN_PROTO;
 	}
 
@@ -570,7 +565,6 @@ static __always_inline int ct_lookup4(const void *map,
 
 	default:
 		/* Can't handle extension headers yet */
-		relax_verifier();
 		return DROP_CT_UNKNOWN_PROTO;
 	}
 

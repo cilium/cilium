@@ -409,7 +409,6 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 	int ret = handle_ipv6(ctx, &dstID);
 
 	if (IS_ERR(ret)) {
-		relax_verifier();
 		return send_drop_notify(ctx, SECLABEL, dstID, 0, ret, CTX_ACT_DROP,
 		                        METRIC_EGRESS);
 	}
@@ -593,10 +592,8 @@ ct_recreate4:
 		if (ct_state.rev_nat_index) {
 			ret = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
 					  &ct_state, &tuple, 0);
-			if (IS_ERR(ret)) {
-				relax_verifier();
+			if (IS_ERR(ret))
 				return ret;
-			}
 		}
 		break;
 

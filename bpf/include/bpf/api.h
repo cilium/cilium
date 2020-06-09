@@ -13,7 +13,6 @@
 #include "section.h"
 #include "helpers.h"
 #include "builtins.h"
-#include "verifier.h"
 #include "tailcall.h"
 #include "errno.h"
 #include "loader.h"
