@@ -1330,7 +1330,16 @@ var _ = Describe("K8sServicesTest", func() {
 
 		// Net-next and not old versions, because of LRU requirement.
 		SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "Supports IPv4 fragments", func() {
-			DeployCiliumAndDNS(kubectl, ciliumFilename)
+			var options map[string]string
+			options["global.fragmentTracking"] = "true"
+			if helpers.RunsOn419Kernel() {
+				// On 4.19, because we're running with
+				// kube-proxy-replacement=strict, we need to choose between
+				// debug mode and fragment tracking support to avoid complexity
+				// issues.
+				options["global.debug.enabled"] = "false"
+			}
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
 			testIPv4FragmentSupport()
 		})
 	})

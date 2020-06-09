@@ -2159,6 +2159,15 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 			"global.k8sServicePort":       "6443",
 		}
 
+		if RunsOn419Kernel() {
+			// On 4.19, we run into complexity issues if we have all of debug,
+			// fragment tracking, and kube-proxy-replacement enabled. We
+			// disable fragment tracking as it's probably less critical. The
+			// fragment tracking test will overwrite this to disable the debug
+			// mode instead.
+			opts["global.fragmentTracking"] = "false"
+		}
+
 		if RunsOnNetNextOr419Kernel() {
 			// Enable BPF masquerading
 			defaultIface, err := kub.GetDefaultIface()
