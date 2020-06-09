@@ -1947,67 +1947,29 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 // Kubernetes.
 type ResourceLifeCycleAction string
 
-// CiliumPolicyAction performs the specified action in Kubernetes for the policy
-// stored in path filepath and waits up  until timeout seconds for the policy
-// to be applied in all Cilium endpoints. Returns an error if the policy is not
-// imported before the timeout is
-// exceeded.
-func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout time.Duration) (string, error) {
-	numNodes := kub.GetNumCiliumNodes()
+func (kub *Kubectl) getPodRevisions() (map[string]int, error) {
+	pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	if err != nil {
+		kub.Logger().WithError(err).Error("cannot retrieve cilium pods")
+		return nil, fmt.Errorf("Cannot get cilium pods: %s", err)
+	}
 
-	// Test filter: https://jqplay.org/s/EgNzc06Cgn
-	jqFilter := fmt.Sprintf(
-		`[.items[]|{name:.metadata.name, enforcing: (.status|if has("nodes") then .nodes |to_entries|map_values(.value.enforcing) + [(.|length >= %d)]|all else true end)|tostring, status: has("status")|tostring}]`,
-		numNodes)
+	revisions := make(map[string]int)
+	for _, pod := range pods {
+		revision, err := kub.CiliumPolicyRevision(pod)
+		if err != nil {
+			kub.Logger().WithError(err).Error("cannot retrieve cilium pod policy revision")
+			return nil, fmt.Errorf("Cannot retrieve cilium pod %s policy revision: %s", pod, err)
+		}
+		revisions[pod] = revision
+	}
+	return revisions, nil
+}
+
+func (kub *Kubectl) waitNextPolicyRevisions(podRevisions map[string]int, mustHavePolicy bool, timeout time.Duration) error {
 	npFilter := fmt.Sprintf(
 		`{range .items[*]}{"%s="}{.metadata.name}{" %s="}{.metadata.namespace}{"\n"}{end}`,
 		KubectlPolicyNameLabel, KubectlPolicyNameSpaceLabel)
-	kub.Logger().Infof("Performing %s action on resource '%s'", action, filepath)
-
-	if status := kub.Action(action, filepath, namespace); !status.WasSuccessful() {
-		return "", status.GetErr(fmt.Sprintf("Cannot perform '%s' on resorce '%s'", action, filepath))
-	}
-
-	if action == KubectlDelete {
-		// Due policy is uninstalled, there is no need to validate that the policy is enforce.
-		return "", nil
-	}
-
-	body := func() bool {
-		var data []map[string]string
-		cmd := fmt.Sprintf("%s get cnp --all-namespaces -o json | jq '%s'",
-			KubectlCmd, jqFilter)
-
-		res := kub.ExecShort(cmd)
-		if !res.WasSuccessful() {
-			kub.Logger().WithError(res.GetErr("")).Error("cannot get cnp status")
-			return false
-
-		}
-
-		err := res.Unmarshal(&data)
-		if err != nil {
-			kub.Logger().WithError(err).Error("Cannot unmarshal json")
-			return false
-		}
-
-		for _, item := range data {
-			if item["enforcing"] != "true" || item["status"] != "true" {
-				kub.Logger().Errorf("Policy '%s' is not enforcing yet", item["name"])
-				return false
-			}
-		}
-		return true
-	}
-
-	err := WithTimeout(
-		body,
-		"cannot change state of resource correctly; command timed out",
-		&TimeoutConfig{Timeout: timeout})
-
-	if err != nil {
-		return "", err
-	}
 
 	knpBody := func() bool {
 		knp := kub.ExecShort(fmt.Sprintf("%s get --all-namespaces netpol -o jsonpath='%s'",
@@ -2017,15 +1979,21 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 			return true
 		}
 
-		pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
-		if err != nil {
-			kub.Logger().WithError(err).Error("cannot retrieve cilium pods")
-			return false
-		}
 		for _, item := range result {
-			for _, ciliumPod := range pods {
-				if !kub.CiliumIsPolicyLoaded(ciliumPod, item) {
-					kub.Logger().Infof("Policy '%s' is not ready on Cilium pod '%s'", item, ciliumPod)
+			for ciliumPod, revision := range podRevisions {
+				if mustHavePolicy {
+					if !kub.CiliumIsPolicyLoaded(ciliumPod, item) {
+						kub.Logger().Infof("Policy '%s' is not ready on Cilium pod '%s'", item, ciliumPod)
+						return false
+					}
+				}
+
+				ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
+				defer cancel()
+				desiredRevision := revision + 1
+				res := kub.CiliumExecContext(ctx, ciliumPod, fmt.Sprintf("cilium policy wait %d --max-wait-time %d", desiredRevision, int(ShortCommandTimeout.Seconds())))
+				if res.GetExitCode() != 0 {
+					kub.Logger().Infof("Failed to wait for policy revision %d on pod %s", desiredRevision, ciliumPod)
 					return false
 				}
 			}
@@ -2033,17 +2001,88 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 		return true
 	}
 
-	err = WithTimeout(
+	err := WithTimeout(
 		knpBody,
-		"cannot change state of Kubernetes network policies correctly; command timed out",
+		"Timed out while waiting for CNP to be applied on all PODs",
 		&TimeoutConfig{Timeout: timeout})
-	return "", err
+	return err
+}
+
+func getPolicyEnforcingJqFilter(numNodes int) string {
+	// Test filter: https://jqplay.org/s/EgNzc06Cgn
+	return fmt.Sprintf(
+		`[.items[]|{name:.metadata.name, enforcing: (.status|if has("nodes") then .nodes |to_entries|map_values(.value.enforcing) + [(.|length >= %d)]|all else true end)|tostring, status: has("status")|tostring}]`,
+		numNodes)
+}
+
+// CiliumPolicyAction performs the specified action in Kubernetes for the policy
+// stored in path filepath and waits up  until timeout seconds for the policy
+// to be applied in all Cilium endpoints. Returns an error if the policy is not
+// imported before the timeout is
+// exceeded.
+func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action ResourceLifeCycleAction, timeout time.Duration) (string, error) {
+	podRevisions, err := kub.getPodRevisions()
+	if err != nil {
+		return "", err
+	}
+	numNodes := len(podRevisions)
+
+	kub.Logger().Infof("Performing %s action on resource '%s'", action, filepath)
+
+	if status := kub.Action(action, filepath, namespace); !status.WasSuccessful() {
+		return "", status.GetErr(fmt.Sprintf("Cannot perform '%s' on resorce '%s'", action, filepath))
+	}
+
+	// If policy is uninstalled we can't require a policy being enforced.
+	if action != KubectlDelete {
+		jqFilter := getPolicyEnforcingJqFilter(numNodes)
+		body := func() bool {
+			var data []map[string]string
+			cmd := fmt.Sprintf("%s get cnp --all-namespaces -o json | jq '%s'",
+				KubectlCmd, jqFilter)
+
+			res := kub.ExecShort(cmd)
+			if !res.WasSuccessful() {
+				kub.Logger().WithError(res.GetErr("")).Error("cannot get cnp status")
+				return false
+			}
+
+			err := res.Unmarshal(&data)
+			if err != nil {
+				kub.Logger().WithError(err).Error("Cannot unmarshal json")
+				return false
+			}
+
+			for _, item := range data {
+				if item["enforcing"] != "true" || item["status"] != "true" {
+					kub.Logger().Errorf("Policy '%s' is not enforcing yet", item["name"])
+					return false
+				}
+			}
+			return true
+		}
+
+		err = WithTimeout(
+			body,
+			"Timed out while waiting CNP to be enforced",
+			&TimeoutConfig{Timeout: timeout})
+
+		if err != nil {
+			return "", err
+		}
+	}
+
+	return "", kub.waitNextPolicyRevisions(podRevisions, action != KubectlDelete, timeout)
 }
 
 // CiliumClusterwidePolicyAction applies a clusterwide policy action as described in action argument. It
 // then wait till timeout Duration for the policy to be applied to all the cilium endpoints.
 func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action ResourceLifeCycleAction, timeout time.Duration) (string, error) {
-	numNodes := kub.GetNumCiliumNodes()
+	podRevisions, err := kub.getPodRevisions()
+	if err != nil {
+		return "", err
+	}
+	numNodes := len(podRevisions)
 
 	kub.Logger().Infof("Performing %s action on resource '%s'", action, filepath)
 
@@ -2051,48 +2090,46 @@ func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action Resour
 		return "", status.GetErr(fmt.Sprintf("Cannot perform '%s' on resource '%s'", action, filepath))
 	}
 
-	if action == KubectlDelete {
-		// Due policy is uninstalled, there is no need to validate that the policy is enforced.
-		return "", nil
-	}
+	// If policy is uninstalled we can't require a policy being enforced.
+	if action != KubectlDelete {
+		jqFilter := getPolicyEnforcingJqFilter(numNodes)
+		body := func() bool {
+			var data []map[string]string
+			cmd := fmt.Sprintf("%s get ccnp -o json | jq '%s'",
+				KubectlCmd, jqFilter)
 
-	jqFilter := fmt.Sprintf(
-		`[.items[]|{name:.metadata.name, enforcing: (.status|if has("nodes") then .nodes |to_entries|map_values(.value.enforcing) + [(.|length >= %d)]|all else true end)|tostring, status: has("status")|tostring}]`,
-		numNodes)
-
-	body := func() bool {
-		var data []map[string]string
-		cmd := fmt.Sprintf("%s get ccnp -o json | jq '%s'",
-			KubectlCmd, jqFilter)
-
-		res := kub.ExecShort(cmd)
-		if !res.WasSuccessful() {
-			kub.Logger().WithError(res.GetErr("")).Error("cannot get ccnp status")
-			return false
-
-		}
-
-		err := res.Unmarshal(&data)
-		if err != nil {
-			kub.Logger().WithError(err).Error("Cannot unmarshal json")
-			return false
-		}
-
-		for _, item := range data {
-			if item["enforcing"] != "true" || item["status"] != "true" {
-				kub.Logger().Errorf("Clusterwide policy '%s' is not enforcing yet", item["name"])
+			res := kub.ExecShort(cmd)
+			if !res.WasSuccessful() {
+				kub.Logger().WithError(res.GetErr("")).Error("cannot get ccnp status")
 				return false
 			}
+
+			err := res.Unmarshal(&data)
+			if err != nil {
+				kub.Logger().WithError(err).Error("Cannot unmarshal json")
+				return false
+			}
+
+			for _, item := range data {
+				if item["enforcing"] != "true" || item["status"] != "true" {
+					kub.Logger().Errorf("Clusterwide policy '%s' is not enforcing yet", item["name"])
+					return false
+				}
+			}
+			return true
 		}
-		return true
+
+		err := WithTimeout(
+			body,
+			"Timed out while waiting CCNP to be enforced",
+			&TimeoutConfig{Timeout: timeout})
+
+		if err != nil {
+			return "", err
+		}
 	}
 
-	err := WithTimeout(
-		body,
-		"cannot change state of resource correctly; command timed out",
-		&TimeoutConfig{Timeout: timeout})
-
-	return "", err
+	return "", kub.waitNextPolicyRevisions(podRevisions, action != KubectlDelete, timeout)
 }
 
 // CiliumReport report the cilium pod to the log and appends the logs for the
