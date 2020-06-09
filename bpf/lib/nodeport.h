@@ -7,6 +7,7 @@
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
 
+#include "tailcall.h"
 #include "nat.h"
 #include "lb.h"
 #include "common.h"
@@ -769,6 +770,19 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 	return ctx_redirect(ctx, ifindex, 0);
 }
+
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+		    CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT)
+int tail_handle_nat_fwd_ipv6(struct __ctx_buff *ctx)
+{
+	union v6addr addr = { .p1 = 0 };
+#if defined(ENCAP_IFINDEX) && defined(IS_BPF_OVERLAY)
+		BPF_V6(addr, ROUTER_IP);
+#else
+		BPF_V6_NODEPORT(addr);
+#endif
+	return nodeport_nat_ipv6_fwd(ctx, &addr);
+}
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
@@ -779,8 +793,7 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 
 static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 						     __be32 addr, int dir,
-						     bool *from_endpoint __maybe_unused,
-						     const bool encap __maybe_unused)
+						     bool *from_endpoint __maybe_unused)
 {
 	struct endpoint_info *ep __maybe_unused;
 	void *data, *data_end;
@@ -799,11 +812,12 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 
 #ifdef ENABLE_MASQUERADE /* SNAT local pod to world packets */
 
+# ifdef IS_BPF_OVERLAY
 		/* Do not MASQ when this function is executed from bpf_overlay
-		 * (encap=true denotes this fact). Otherwise, a packet will be
-		 * SNAT'd to cilium_host IP addr. */
-		if (encap)
-			return false;
+		 * (IS_BPF_OVERLAY denotes this fact). Otherwise, a packet will
+		 * be SNAT'd to cilium_host IP addr. */
+		return false;
+# endif
 
 #ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
 		/* Do not MASQ if a dst IP belongs to a pods CIDR
@@ -859,8 +873,7 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 }
 
 static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx,
-						 const __be32 addr,
-						 const bool encap)
+						 const __be32 addr)
 {
 	bool from_endpoint = false;
 	struct ipv4_nat_target target = {
@@ -871,7 +884,7 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx,
 	int ret = CTX_ACT_OK;
 
 	if (nodeport_nat_ipv4_needed(ctx, addr, NAT_DIR_EGRESS,
-				     &from_endpoint, encap))
+				     &from_endpoint))
 		ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target,
 				      from_endpoint);
 	if (ret == NAT_PUNT_TO_STACK)
@@ -1445,39 +1458,43 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
 	return ctx_redirect(ctx, ifindex, 0);
 }
+
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+		    CILIUM_CALL_IPV4_ENCAP_NODEPORT_NAT)
+int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
+{
+	__be32 addr = 0;
+#if defined(ENCAP_IFINDEX) && defined(IS_BPF_OVERLAY)
+	addr = IPV4_GATEWAY;
+#else
+	addr = IPV4_NODEPORT;
+#endif
+
+	return nodeport_nat_ipv4_fwd(ctx, addr);
+}
 #endif /* ENABLE_IPV4 */
 
-static __always_inline int nodeport_nat_fwd(struct __ctx_buff *ctx,
-					    const bool encap __maybe_unused)
+static __always_inline int nodeport_nat_fwd(struct __ctx_buff *ctx)
 {
+	int ret = CTX_ACT_OK;
 	__u16 proto;
 
 	if (!validate_ethertype(ctx, &proto))
 		return CTX_ACT_OK;
 	switch (proto) {
 #ifdef ENABLE_IPV4
-	case bpf_htons(ETH_P_IP): {
-		__be32 addr = 0;
-#ifdef ENCAP_IFINDEX
-		if (encap)
-			addr = IPV4_GATEWAY;
-		else
-#endif
-			addr = IPV4_NODEPORT;
-		return nodeport_nat_ipv4_fwd(ctx, addr, encap);
-	}
+	case bpf_htons(ETH_P_IP):
+		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+				   CILIUM_CALL_IPV4_ENCAP_NODEPORT_NAT,
+				   tail_handle_nat_fwd_ipv4);
+		break;
 #endif /* ENABLE_IPV4 */
 #ifdef ENABLE_IPV6
-	case bpf_htons(ETH_P_IPV6): {
-		union v6addr addr = { .p1 = 0 };
-#ifdef ENCAP_IFINDEX
-		if (encap)
-			BPF_V6(addr, ROUTER_IP);
-		else
-#endif
-			BPF_V6_NODEPORT(addr);
-		return nodeport_nat_ipv6_fwd(ctx, &addr);
-	}
+	case bpf_htons(ETH_P_IPV6):
+		invoke_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+				   CILIUM_CALL_IPV6_ENCAP_NODEPORT_NAT,
+				   tail_handle_nat_fwd_ipv6);
+		break;
 #endif /* ENABLE_IPV6 */
 	default:
 		build_bug_on(!(NODEPORT_PORT_MIN_NAT < NODEPORT_PORT_MAX_NAT));
@@ -1485,7 +1502,7 @@ static __always_inline int nodeport_nat_fwd(struct __ctx_buff *ctx,
 		build_bug_on(!(NODEPORT_PORT_MAX     < NODEPORT_PORT_MIN_NAT));
 		break;
 	}
-	return CTX_ACT_OK;
+	return ret;
 }
 
 #endif /* ENABLE_NODEPORT */
