@@ -19,8 +19,9 @@ pipeline {
             returnStdout: true,
             script: 'echo -n "${JobKernelVersion}"'
             )}"""
-        // if we are running in net-next, we need to set NETNEXT=1, K8S_NODES=3, NO_CILIUM_ON_NODE="k8s3" and KUBEPROXY="0"
-        // otherwise we set NETNEXT=0, K8S_NODES=2, NO_CILIUM_ON_NODE="" and KUBEPROXY=""
+        // We set KUBEPROXY="0" if we are running net-next or 4.19; otherwise, KUBEPROXY=""
+        // If we are running in net-next, we need to set NETNEXT=1, K8S_NODES=3, and NO_CILIUM_ON_NODE="k8s3";
+        // otherwise we set NETNEXT=0, K8S_NODES=2, and NO_CILIUM_ON_NODE="".
         NETNEXT="""${sh(
             returnStdout: true,
             script: 'if [ "${JobKernelVersion}" = "net-next" ]; then echo -n "1"; else echo -n "0"; fi'
@@ -35,7 +36,7 @@ pipeline {
             )}"""
         KUBEPROXY="""${sh(
             returnStdout: true,
-            script: 'if [ "${JobKernelVersion}" = "net-next" ]; then echo -n "0"; else echo -n ""; fi'
+            script: 'if [ "${JobKernelVersion}" = "net-next" ] || [ "${JobKernelVersion}" = "419" ]; then echo -n "0"; else echo -n ""; fi'
             )}"""
     }
 
