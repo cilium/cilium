@@ -255,6 +255,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 			cDefinesMap["ENABLE_NODEPORT_ACCELERATION"] = "1"
 		}
+		if option.Config.NodePortHairpin {
+			cDefinesMap["ENABLE_NODEPORT_HAIRPIN"] = "1"
+		}
 		if option.Config.EnableExternalIPs {
 			cDefinesMap["ENABLE_EXTERNAL_IP"] = "1"
 		}

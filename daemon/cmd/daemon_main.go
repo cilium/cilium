@@ -1855,6 +1855,10 @@ func initKubeProxyReplacementOptions() {
 				option.Config.NodePortMode)
 			option.Config.NodePortMode = option.NodePortModeSNAT
 		}
+
+		option.Config.NodePortHairpin =
+			option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled ||
+				len(option.Config.Devices) == 1
 	}
 
 	if option.Config.EnableSessionAffinity {
