@@ -1,0 +1,62 @@
+#!/bin/bash
+#
+# Copyright 2020 Authors of Cilium
+#
+# Licensed under the Apache License, Version 2.0 (the "License");
+# you may not use this file except in compliance with the License.
+# You may obtain a copy of the License at
+#
+#     http://www.apache.org/licenses/LICENSE-2.0
+#
+# Unless required by applicable law or agreed to in writing, software
+# distributed under the License is distributed on an "AS IS" BASIS,
+# WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+# See the License for the specific language governing permissions and
+# limitations under the License.
+
+DIR=$(dirname $(readlink -ne $BASH_SOURCE))
+source $DIR/../release/lib/common.sh
+source $DIR/common.sh
+
+BRANCH="${1:-}"
+if [ "$BRANCH" = "" ]; then
+    BRANCH=$(git symbolic-ref --short HEAD | sed 's/.*\(v[0-9]\.[0-9]\).*/\1/')
+fi
+BRANCH=$(echo "$BRANCH" | sed 's/^v//')
+
+SUMMARY=${2:-}
+if [ "$SUMMARY" = "" ]; then
+    SUMMARY="v$BRANCH-backport-$(date --rfc-3339=date).txt"
+fi
+
+if ! git branch -a | grep -q "origin/v$BRANCH$" || [ ! -e $SUMMARY ]; then
+    echo "usage: $0 [branch version] [pr-summary]" 1>&2
+    echo 1>&2
+    echo "Ensure 'branch version' is available in 'origin' and the summary file exists" 1>&2
+    exit 1
+fi
+
+if ! hub help | grep -q "pull-request"; then
+    echo "This tool relies on 'hub' from https://github.com/github/hub." 1>&2
+    echo "Please install this tool first." 1>&2
+    exit 1
+fi
+
+echo -e "Sending PR for branch v$BRANCH:\n" 1>&2
+cat $SUMMARY 1>&2
+echo -e "\nSending pull request..." 2>&1
+PR_BRANCH=$(git rev-parse --abbrev-ref HEAD)
+git push origin "$PR_BRANCH"
+hub pull-request -b "v$BRANCH" -l kind/backports,backport/$BRANCH -F $SUMMARY
+
+prs=$(grep "set-labels.py" $SUMMARY | sed -e 's/^.*for pr in \([0-9 ]\+\);.*$/\1/g')
+echo -e "\nUpdating labels for PRs $prs\n" 2>&1
+echo -n "Set labels for all PRs above? [y/N] "
+read set_all_labels
+if [ "$set_all_labels" = "y" ]; then
+    for pr in $prs; do
+        echo -n "Setting labels for PR $pr... "
+        $DIR/set-labels.py $pr pending $BRANCH;
+        echo "✓"
+    done
+fi
