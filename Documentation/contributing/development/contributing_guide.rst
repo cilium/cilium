@@ -315,6 +315,10 @@ steps 1 to 2 times per day. Works best if done first thing in the working day.
 #. If this PR was opened by a non-committer (e.g. external contributor) please
    assign yourself to that PR and make sure to keep track the PR gets reviewed
    and merged. This may extend beyond your assigned week for Janitor duty.
+   If this PR is a backport PR (e.g. with the label ``kind/backport``) and
+   no-one else has reviewed the PR, review the changes as a sanity check.
+   If any individual commits deviate from the original patch, request review from
+   the original author to validate that the backport was correctly applied.
 
 #. Review overall correctness of the PR according to the rules specified in the
    section :ref:`submit_pr`.
