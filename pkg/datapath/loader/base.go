@@ -113,7 +113,6 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy, r datapath.RouteReserver) error {
 	var (
 		args []string
-		mode string
 		ret  error
 	)
 
@@ -231,17 +230,14 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 			}
 		}
 
-		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
-			mode = "ipvlan"
+		if option.Config.Tunnel != option.TunnelDisabled {
+			args[initArgMode] = option.Config.Tunnel
+		} else if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
+			args[initArgMode] = "ipvlan"
 		} else {
-			mode = "direct"
+			args[initArgMode] = "direct"
 		}
 
-		args[initArgMode] = mode
-		if option.Config.EnableNodePort &&
-			strings.ToLower(option.Config.Tunnel) != "disabled" {
-			args[initArgMode] = option.Config.Tunnel
-		}
 		args[initArgDevices] = strings.Join(option.Config.Devices, ";")
 	} else {
 		args[initArgMode] = option.Config.Tunnel
