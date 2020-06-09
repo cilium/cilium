@@ -545,27 +545,6 @@ lb6_update_affinity_by_addr(const struct lb6_service *svc,
 {
 	__lb6_update_affinity(svc, false, id, backend_id);
 }
-
-static __always_inline void
-__lb6_delete_affinity(const struct lb6_service *svc, bool netns_cookie,
-		      union lb6_affinity_client_id *id)
-{
-	struct lb6_affinity_key key = {
-		.rev_nat_id	= svc->rev_nat_index,
-		.netns_cookie	= netns_cookie,
-	};
-
-	ipv6_addr_copy(&key.client_id.client_ip, &id->client_ip);
-
-	map_delete_elem(&LB6_AFFINITY_MAP, &key);
-}
-
-static __always_inline void
-lb6_delete_affinity_by_addr(const struct lb6_service *svc,
-			    union lb6_affinity_client_id *id)
-{
-	__lb6_delete_affinity(svc, false, id);
-}
 #endif /* ENABLE_SESSION_AFFINITY */
 
 static __always_inline __u32
@@ -586,15 +565,6 @@ lb6_update_affinity_by_netns(const struct lb6_service *svc __maybe_unused,
 {
 #if defined(ENABLE_SESSION_AFFINITY)
 	__lb6_update_affinity(svc, true, id, backend_id);
-#endif
-}
-
-static __always_inline void
-lb6_delete_affinity_by_netns(const struct lb6_service *svc __maybe_unused,
-			     union lb6_affinity_client_id *id __maybe_unused)
-{
-#if defined(ENABLE_SESSION_AFFINITY)
-	__lb6_delete_affinity(svc, true, id);
 #endif
 }
 
@@ -631,10 +601,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				backend_from_affinity = true;
 
 				backend = lb6_lookup_backend(ctx, backend_id);
-				if (backend == NULL) {
-					lb6_delete_affinity_by_addr(svc, &client_id);
+				if (backend == NULL)
 					backend_id = 0;
-				}
 			}
 		}
 #endif
@@ -702,13 +670,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	 * session we are likely to get a TCP RST.
 	 */
 	if (!(backend = lb6_lookup_backend(ctx, state->backend_id))) {
-/* NOTE(brb): Can't enable the removal for newer kernels, as otherwise
- * the verifier hits 1mln insn limit. Hovewer, the removal of the affinity
- * in this case is just an optimization. */
-#if defined(ENABLE_SESSION_AFFINITY) && !defined(HAVE_LARGE_INSN_LIMIT)
-		if (backend_from_affinity)
-			lb6_delete_affinity_by_addr(svc, &client_id);
-#endif
 		key->slave = 0;
 		if (!(svc = lb6_lookup_service(key))) {
 			goto drop_no_service;
@@ -1089,26 +1050,6 @@ lb4_update_affinity_by_addr(const struct lb4_service *svc,
 {
 	__lb4_update_affinity(svc, false, id, backend_id);
 }
-
-static __always_inline void
-__lb4_delete_affinity(const struct lb4_service *svc, bool netns_cookie,
-		      const union lb4_affinity_client_id *id)
-{
-	struct lb4_affinity_key key = {
-		.rev_nat_id	= svc->rev_nat_index,
-		.netns_cookie	= netns_cookie,
-		.client_id	= *id,
-	};
-
-	map_delete_elem(&LB4_AFFINITY_MAP, &key);
-}
-
-static __always_inline void
-lb4_delete_affinity_by_addr(const struct lb4_service *svc,
-			    union lb4_affinity_client_id *id)
-{
-	__lb4_delete_affinity(svc, false, id);
-}
 #endif /* ENABLE_SESSION_AFFINITY */
 
 static __always_inline __u32
@@ -1129,15 +1070,6 @@ lb4_update_affinity_by_netns(const struct lb4_service *svc __maybe_unused,
 {
 #if defined(ENABLE_SESSION_AFFINITY)
 	__lb4_update_affinity(svc, true, id, backend_id);
-#endif
-}
-
-static __always_inline void
-lb4_delete_affinity_by_netns(const struct lb4_service *svc __maybe_unused,
-			     union lb4_affinity_client_id *id __maybe_unused)
-{
-#if defined(ENABLE_SESSION_AFFINITY)
-	__lb4_delete_affinity(svc, true, id);
 #endif
 }
 
@@ -1173,10 +1105,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				backend_from_affinity = true;
 
 				backend = lb4_lookup_backend(ctx, backend_id);
-				if (backend == NULL) {
-					lb4_delete_affinity_by_addr(svc, &client_id);
+				if (backend == NULL)
 					backend_id = 0;
-				}
 			}
 		}
 #endif
@@ -1254,10 +1184,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	 * session we are likely to get a TCP RST.
 	 */
 	if (!(backend = lb4_lookup_backend(ctx, state->backend_id))) {
-#ifdef ENABLE_SESSION_AFFINITY
-		if (backend_from_affinity)
-			lb4_delete_affinity_by_addr(svc, &client_id);
-#endif
 		key->slave = 0;
 		if (!(svc = lb4_lookup_service(key))) {
 			goto drop_no_service;
