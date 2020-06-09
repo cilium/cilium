@@ -299,16 +299,14 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 
 		if (backend_id != 0) {
 			backend = __lb4_lookup_backend(backend_id);
-			if (!backend) {
+			if (!backend)
 				/* Backend from the session affinity no longer
 				 * exists, thus select a new one. Also, remove
 				 * the affinity, so that if the svc doesn't have
 				 * any backend, a subsequent request to the svc
 				 * doesn't hit the reselection again.
 				 */
-				lb4_delete_affinity_by_netns(svc, &id);
 				backend_id = 0;
-			}
 		}
 	}
 
@@ -729,10 +727,8 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 
 		if (backend_id != 0) {
 			backend = __lb6_lookup_backend(backend_id);
-			if (!backend) {
-				lb6_delete_affinity_by_netns(svc, &id);
+			if (!backend)
 				backend_id = 0;
-			}
 		}
 	}
 
