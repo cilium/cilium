@@ -124,6 +124,7 @@ Proxylib
 QCon
 Qemu
 Qlogic
+Quantiles
 Rebasing
 Redis
 Refactor
@@ -554,6 +555,7 @@ regex
 regexes
 relocations
 reparsing
+replicaset
 repo
 repos
 retpoline
