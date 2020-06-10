@@ -791,11 +791,11 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 512 * MiB,
 			ratio:       0.03,
 			want: sizes{
-				CTMapSizeTCP:      56912,
-				CTMapSizeAny:      28456,
-				NATMapSize:        56912,
-				NeighMapSize:      56912,
-				SockRevNatMapSize: 28456,
+				CTMapSizeTCP:      LimitTableAutoGlobalTCPMin,
+				CTMapSizeAny:      LimitTableAutoGlobalAnyMin,
+				NATMapSize:        LimitTableAutoNatGlobalMin,
+				NeighMapSize:      LimitTableAutoNatGlobalMin,
+				SockRevNatMapSize: LimitTableAutoSockRevNatMin,
 			},
 		},
 		{
@@ -803,11 +803,11 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 1 * GiB,
 			ratio:       0.03,
 			want: sizes{
-				CTMapSizeTCP:      113824,
-				CTMapSizeAny:      56912,
-				NATMapSize:        113824,
-				NeighMapSize:      113824,
-				SockRevNatMapSize: 56912,
+				CTMapSizeTCP:      LimitTableAutoGlobalTCPMin,
+				CTMapSizeAny:      LimitTableAutoGlobalAnyMin,
+				NATMapSize:        LimitTableAutoNatGlobalMin,
+				NeighMapSize:      LimitTableAutoNatGlobalMin,
+				SockRevNatMapSize: LimitTableAutoSockRevNatMin,
 			},
 		},
 		{
@@ -820,6 +820,18 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				NATMapSize:        227648,
 				NeighMapSize:      227648,
 				SockRevNatMapSize: 113824,
+			},
+		},
+		{
+			name:        "dynamic size without any static sizes (3.75GiB, 3%)",
+			totalMemory: 3.75 * GiB,
+			ratio:       0.03,
+			want: sizes{
+				CTMapSizeTCP:      426840,
+				CTMapSizeAny:      213420,
+				NATMapSize:        426840,
+				NeighMapSize:      426840,
+				SockRevNatMapSize: 213420,
 			},
 		},
 		{
