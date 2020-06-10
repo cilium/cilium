@@ -342,7 +342,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	if option.Config.InstallIptRules {
 		if err := iptMgr.TransientRulesStart(option.Config.HostDevice); err != nil {
-			return err
+			log.WithError(err).Warning("failed to install transient iptables rules")
 		}
 	}
 	// The iptables rules are only removed on the first initialization to
