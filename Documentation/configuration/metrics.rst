@@ -48,13 +48,32 @@ use ``global.operatorPrometheus.enabled=true``.
 The ports can be configured via
 ``global.prometheus.port`` or ``global.operatorPrometheus.port`` respectively.
 
-When metrics are enabled, all Cilium components will have the annotations to
-signal Prometheus whether to scrape metrics:
+When metrics are enabled, all Cilium components will have the following
+annotations. They can be used to signal Prometheus whether to scrape metrics:
 
 .. code-block:: yaml
 
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
+
+Prometheus will pick up the Cilium metrics automatically if the following
+option is set in the ``scrape_configs`` section:
+
+.. code-block:: yaml
+
+    scrape_configs:
+    - job_name: 'kubernetes-pods'
+      kubernetes_sd_configs:
+      - role: pod
+      relabel_configs:
+        - source_labels: [__meta_kubernetes_pod_annotation_prometheus_io_scrape]
+          action: keep
+          regex: true
+        - source_labels: [__address__, __meta_kubernetes_pod_annotation_prometheus_io_port]
+          action: replace
+          regex: (.+):(?:\d+);(\d+)
+          replacement: ${1}:${2}
+          target_label: __address__
 
 Hubble Metrics
 ==============
@@ -86,8 +105,32 @@ The port of the Hubble metrics can be configured with the
 
 When deployed with a non-empty ``global.hubble.metrics.enabled`` Helm value, the
 Cilium chart will create a Kubernetes headless service named ``hubble-metrics``
-with the ``prometheus.io/scrape:'true'`` annotation set. This will signal
-Prometheus to scrape the Hubble metrics automatically.
+with the ``prometheus.io/scrape:'true'`` annotation set:
+
+.. code-block:: yaml
+
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9091"
+
+Set the following options in the ``scrape_configs`` section of Prometheus to
+have it scrape all Hubble metrics from the endpoints automatically:
+
+.. code-block:: yaml
+
+    scrape_configs:
+      - job_name: 'kubernetes-endpoints'
+        kubernetes_sd_configs:
+          - role: endpoints
+        relabel_configs:
+          - source_labels: [__meta_kubernetes_service_annotation_prometheus_io_scrape]
+            action: keep
+            regex: true
+          - source_labels: [__address__, __meta_kubernetes_service_annotation_prometheus_io_port]
+            action: replace
+            target_label: __address__
+            regex: (.+)(?::\d+);(\d+)
+            replacement: $1:$2
+
 
 Example Prometheus & Grafana Deployment
 =======================================
@@ -107,7 +150,7 @@ be scraped by Prometheus. You can then expose Grafana to access it via your brow
 
     kubectl -n cilium-monitoring port-forward service/grafana 3000:3000
 
-Open your browser and access ``https://localhost:3000/``.
+Open your browser and access http://localhost:3000/
 
 Metrics Reference
 =================
