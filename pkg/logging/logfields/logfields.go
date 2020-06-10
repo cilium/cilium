@@ -301,6 +301,9 @@ const (
 	// XDSResource is an xDS resource message.
 	XDSResource = "xdsResource"
 
+	// XDSDetail is detail string included in XDS NACKs.
+	XDSDetail = "xdsDetail"
+
 	// K8s-specific
 
 	// K8sNodeID is the k8s ID of a K8sNode
