@@ -466,7 +466,7 @@ const (
 
 	// MapEntriesGlobalDynamicSizeRatioName is the name of the option to
 	// set the ratio of total system memory to use for dynamic sizing of the
-	// CT, NAT, Neighbor and policy BPF maps.
+	// CT, NAT, Neighbor BPF maps.
 	MapEntriesGlobalDynamicSizeRatioName = "bpf-map-dynamic-size-ratio"
 
 	// LimitTableMin defines the minimum CT or NAT table limit
@@ -1804,10 +1804,6 @@ type DaemonConfig struct {
 	// sizeofNATElement is the size of an element (key + value) in the NAT map.
 	sizeofNATElement int
 
-	// sizeofPolicyElement is the size of an element (key + value) in the
-	// policy map.
-	sizeofPolicyElement int
-
 	// sizeofNeighElement is the size of an element (key + value) in the neigh
 	// map.
 	sizeofNeighElement int
@@ -2632,7 +2628,6 @@ func (c *DaemonConfig) calculateBPFMapSizes() error {
 	// populated by the daemon (or any other caller).
 	if c.sizeofCTElement == 0 ||
 		c.sizeofNATElement == 0 ||
-		c.sizeofPolicyElement == 0 ||
 		c.sizeofNeighElement == 0 {
 		return nil
 	}
@@ -2660,12 +2655,10 @@ func (c *DaemonConfig) calculateBPFMapSizes() error {
 func (c *DaemonConfig) SetMapElementSizes(
 	sizeofCTElement,
 	sizeofNATElement,
-	sizeofPolicyElement,
 	sizeofNeighElement int) {
 
 	c.sizeofCTElement = sizeofCTElement
 	c.sizeofNATElement = sizeofNATElement
-	c.sizeofPolicyElement = sizeofPolicyElement
 	c.sizeofNeighElement = sizeofNeighElement
 }
 
@@ -2678,18 +2671,17 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 	//
 	// Calculation examples:
 	//
-	// Memory   CT TCP  CT Any      NAT  Policy
+	// Memory   CT TCP  CT Any      NAT
 	//
-	//  512MB    33140   16570    33140    1035
-	//    1GB    66280   33140    66280    2071
-	//    4GB   265121  132560   265121    8285
-	//   16GB  1060485  530242  1060485   33140
+	//  512MB    33140   16570    33140
+	//    1GB    66280   33140    66280
+	//    4GB   265121  132560   265121
+	//   16GB  1060485  530242  1060485
 	memoryAvailableForMaps := int(float64(totalMemory) * dynamicSizeRatio)
 	log.Infof("Memory available for map entries (%.3f%% of %dB): %dB", dynamicSizeRatio, totalMemory, memoryAvailableForMaps)
 	totalMapMemoryDefault := CTMapEntriesGlobalTCPDefault*c.sizeofCTElement +
 		CTMapEntriesGlobalAnyDefault*c.sizeofCTElement +
 		NATMapEntriesGlobalDefault*c.sizeofNATElement +
-		defaults.PolicyMapEntries*c.sizeofPolicyElement +
 		// Neigh table has the same number of entries as NAT Map has.
 		NATMapEntriesGlobalDefault*c.sizeofNeighElement
 	log.Debugf("Total memory for default map entries: %d", totalMapMemoryDefault)
@@ -2740,14 +2732,6 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 			NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal, NATMapEntriesGlobalDefault)
 	} else {
 		log.Debugf("option %s set by user to %v", NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal)
-	}
-	if !viper.IsSet(PolicyMapEntriesName) {
-		c.PolicyMapEntries =
-			getEntries(defaults.PolicyMapEntries, PolicyMapMin, PolicyMapMax)
-		log.Infof("option %s set by dynamic sizing to %v (default %v)",
-			PolicyMapEntriesName, c.PolicyMapEntries, defaults.PolicyMapEntries)
-	} else {
-		log.Debugf("option %s set by user to %v", PolicyMapEntriesName, c.PolicyMapEntries)
 	}
 }
 
