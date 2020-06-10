@@ -342,7 +342,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				}
 				if versionInfo < nonce {
 					// versions after VersionInfo, upto and including ResponseNonce are NACKed
-					requestLog.Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
+					requestLog.WithField(logfields.XDSDetail, detail).Warningf("NACK received for versions after %s and up to %s; waiting for a version update before sending again", req.VersionInfo, req.ResponseNonce)
 					// Watcher will behave as if the sent version was acked.
 					// Otherwise we will just be sending the same failing
 					// version over and over filling logs.
