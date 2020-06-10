@@ -305,7 +305,7 @@ ct_recreate6:
 		 */
 		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key, &key, SECLABEL, monitor);
 		if (ret == IPSEC_ENDPOINT)
-			goto pass_to_stack;
+			goto encrypt_to_stack;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
@@ -346,10 +346,6 @@ pass_to_stack:
 	if (ipv6_store_flowlabel(ctx, l3_off, SECLABEL_NB) < 0)
 		return DROP_WRITE_ERROR;
 
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
-			  reason, monitor);
-
-	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 #ifndef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
@@ -368,6 +364,14 @@ pass_to_stack:
 		ctx->mark |= MARK_MAGIC_IDENTITY;
 		set_identity_mark(ctx, SECLABEL);
 	}
+
+#ifdef ENCAP_IFINDEX
+encrypt_to_stack:
+#endif
+	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
+			  reason, monitor);
+
+	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 
 	return CTX_ACT_OK;
 }
@@ -663,7 +667,7 @@ ct_recreate4:
 		 * for further processing.
 		 */
 		else if (ret == IPSEC_ENDPOINT)
-			goto pass_to_stack;
+			goto encrypt_to_stack;
 		/* This is either redirect by encap code or an error has occured
 		 * either way return and stack will consume ctx.
 		 */
@@ -697,14 +701,6 @@ pass_to_stack:
 	if (unlikely(ret != CTX_ACT_OK))
 		return ret;
 #endif
-
-	/* FIXME: We can't store the security context anywhere here so all
-	 * packets to other nodes will look like they come from an outside
-	 * network.
-	 */
-
-	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
-			  reason, monitor);
 #ifndef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
@@ -724,6 +720,11 @@ pass_to_stack:
 		set_identity_mark(ctx, SECLABEL);
 	}
 
+#ifdef ENCAP_IFINDEX
+encrypt_to_stack:
+#endif
+	send_trace_notify(ctx, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
+			  reason, monitor);
 	cilium_dbg_capture(ctx, DBG_CAPTURE_DELIVERY, 0);
 	return CTX_ACT_OK;
 }
