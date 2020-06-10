@@ -467,6 +467,22 @@ const (
 	// CT, NAT, Neighbor and SockRevNAT BPF maps.
 	MapEntriesGlobalDynamicSizeRatioName = "bpf-map-dynamic-size-ratio"
 
+	// LimitTableAutoGlobalTCPMin defines the minimum TCP CT table limit for
+	// dynamic size ration calculation.
+	LimitTableAutoGlobalTCPMin = 1 << 17 // 128Ki entries
+
+	// LimitTableAutoGlobalAnyMin defines the minimum UDP CT table limit for
+	// dynamic size ration calculation.
+	LimitTableAutoGlobalAnyMin = 1 << 16 // 64Ki entries
+
+	// LimitTableAutoNatGlobalMin defines the minimum NAT limit for dynamic size
+	// ration calculation.
+	LimitTableAutoNatGlobalMin = 1 << 17 // 128Ki entries
+
+	// LimitTableAutoSockRevNatMin defines the minimum SockRevNAT limit for
+	// dynamic size ration calculation.
+	LimitTableAutoSockRevNatMin = 1 << 16 // 64Ki entries
+
 	// LimitTableMin defines the minimum CT or NAT table limit
 	LimitTableMin = 1 << 10 // 1Ki entries
 
@@ -2709,7 +2725,7 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 	// provided size.
 	if !viper.IsSet(CTMapEntriesGlobalTCPName) {
 		c.CTMapEntriesGlobalTCP =
-			getEntries(CTMapEntriesGlobalTCPDefault, LimitTableMin, LimitTableMax)
+			getEntries(CTMapEntriesGlobalTCPDefault, LimitTableAutoGlobalTCPMin, LimitTableMax)
 		log.Infof("option %s set by dynamic sizing to %v (default %v)",
 			CTMapEntriesGlobalTCPName, c.CTMapEntriesGlobalTCP, CTMapEntriesGlobalTCPDefault)
 	} else {
@@ -2717,7 +2733,7 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 	}
 	if !viper.IsSet(CTMapEntriesGlobalAnyName) {
 		c.CTMapEntriesGlobalAny =
-			getEntries(CTMapEntriesGlobalAnyDefault, LimitTableMin, LimitTableMax)
+			getEntries(CTMapEntriesGlobalAnyDefault, LimitTableAutoGlobalAnyMin, LimitTableMax)
 		log.Infof("option %s set by dynamic sizing to %v (default %v)",
 			CTMapEntriesGlobalAnyName, c.CTMapEntriesGlobalAny, CTMapEntriesGlobalAnyDefault)
 	} else {
@@ -2725,7 +2741,7 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 	}
 	if !viper.IsSet(NATMapEntriesGlobalName) {
 		c.NATMapEntriesGlobal =
-			getEntries(NATMapEntriesGlobalDefault, LimitTableMin, LimitTableMax)
+			getEntries(NATMapEntriesGlobalDefault, LimitTableAutoNatGlobalMin, LimitTableMax)
 		log.Infof("option %s set by dynamic sizing to %v (default %v)",
 			NATMapEntriesGlobalName, c.NATMapEntriesGlobal, NATMapEntriesGlobalDefault)
 	} else {
@@ -2742,7 +2758,7 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 	}
 	if !viper.IsSet(SockRevNatEntriesName) {
 		c.SockRevNatEntries =
-			getEntries(SockRevNATMapEntriesDefault, LimitTableMin, LimitTableMax)
+			getEntries(SockRevNATMapEntriesDefault, LimitTableAutoSockRevNatMin, LimitTableMax)
 		log.Infof("option %s set by dynamic sizing to %v (default %v)",
 			SockRevNatEntriesName, c.SockRevNatEntries, SockRevNATMapEntriesDefault)
 	} else {
