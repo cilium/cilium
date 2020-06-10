@@ -341,7 +341,7 @@ ct_recreate6:
 		 */
 		ret = encap_and_redirect_lxc(skb, tunnel_endpoint, encrypt_key, &key, SECLABEL, monitor);
 		if (ret == IPSEC_ENDPOINT)
-			goto pass_to_stack;
+			goto encrypt_to_stack;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
 			return ret;
 	}
@@ -382,10 +382,6 @@ pass_to_stack:
 	if (ipv6_store_flowlabel(skb, l3_off, SECLABEL_NB) < 0)
 		return DROP_WRITE_ERROR;
 
-	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
-			  reason, monitor);
-
-	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 #ifndef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
@@ -403,6 +399,13 @@ pass_to_stack:
 		 * component such as portmap */
 		asm_set_seclabel_identity(skb);
 	}
+
+#ifdef ENCAP_IFINDEX
+encrypt_to_stack:
+#endif
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
+			  reason, monitor);
+	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 
 	return TC_ACT_OK;
 }
@@ -685,7 +688,7 @@ ct_recreate4:
 		 * for further processing.
 		 */
 		else if (ret == IPSEC_ENDPOINT)
-			goto pass_to_stack;
+			goto encrypt_to_stack;
 		/* This is either redirect by encap code or an error has occured
 		 * either way return and stack will consume skb.
 		 */
@@ -720,13 +723,6 @@ pass_to_stack:
 		return ret;
 #endif
 
-	/* FIXME: We can't store the security context anywhere here so all
-	 * packets to other nodes will look like they come from an outside
-	 * network.
-	 */
-
-	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
-			  reason, monitor);
 #ifndef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
@@ -745,6 +741,11 @@ pass_to_stack:
 		asm_set_seclabel_identity(skb);
 	}
 
+#ifdef ENCAP_IFINDEX
+encrypt_to_stack:
+#endif
+	send_trace_notify(skb, TRACE_TO_STACK, SECLABEL, *dstID, 0, 0,
+			  reason, monitor);
 	cilium_dbg_capture(skb, DBG_CAPTURE_DELIVERY, 0);
 	return TC_ACT_OK;
 }
