@@ -86,8 +86,13 @@ func getVersion(prog string) (go_version.Version, error) {
 	return versioncheck.Version(vString[1])
 }
 
+func runProgCombinedOutput(prog string, args []string, quiet bool) ([]byte, error) {
+	out, err := exec.WithTimeout(defaults.ExecTimeout, prog, args...).CombinedOutput(log, !quiet)
+	return out, err
+}
+
 func runProg(prog string, args []string, quiet bool) error {
-	_, err := exec.WithTimeout(defaults.ExecTimeout, prog, args...).CombinedOutput(log, !quiet)
+	_, err := runProgCombinedOutput(prog, args, quiet)
 	return err
 }
 
@@ -205,9 +210,19 @@ func (m *IptablesManager) removeCiliumRules(table, prog, match string) {
 
 func (c *customChain) remove(waitArgs []string, quiet bool) {
 	doProcess := func(c *customChain, prog string, args []string, operation string, quiet bool) {
-		err := runProg(prog, args, true)
-		if err != nil && !quiet {
-			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to %s Cilium %s chain", operation, prog)
+		combinedOutput, err := runProgCombinedOutput(prog, args, true)
+		if err != nil {
+			// If the chain is for transient rules and deletion
+			// fails for a reason other than the chain not being
+			// present, log the error.
+			// This is to help debug #11276.
+			msgChainNotFound := ": No chain/target/match by that name.\n"
+			debugTransientRules := c.name == ciliumTransientForwardChain &&
+				string(combinedOutput) != prog+msgChainNotFound
+			if !quiet || debugTransientRules {
+				log.Warnf(string(combinedOutput))
+				log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to %s Cilium %s chain", operation, prog)
+			}
 		}
 	}
 	doRemove := func(c *customChain, prog string, waitArgs []string, quiet bool) {
