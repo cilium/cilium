@@ -204,33 +204,25 @@ func (m *IptablesManager) removeCiliumRules(table, prog, match string) {
 }
 
 func (c *customChain) remove(waitArgs []string, quiet bool) {
-	if option.Config.EnableIPv4 {
-		prog := "iptables"
-		args := append(waitArgs, "-t", c.table, "-F", c.name)
+	doProcess := func(c *customChain, prog string, args []string, operation string, quiet bool) {
 		err := runProg(prog, args, true)
 		if err != nil && !quiet {
-			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to flush Cilium %s chain", prog)
-		}
-
-		args = append(waitArgs, "-t", c.table, "-X", c.name)
-		err = runProg(prog, args, true)
-		if err != nil && !quiet {
-			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to delete Cilium %s chain", prog)
+			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to %s Cilium %s chain", operation, prog)
 		}
 	}
-	if option.Config.EnableIPv6 && c.ipv6 == true {
-		prog := "ip6tables"
+	doRemove := func(c *customChain, prog string, waitArgs []string, quiet bool) {
 		args := append(waitArgs, "-t", c.table, "-F", c.name)
-		err := runProg(prog, args, true)
-		if err != nil && !quiet {
-			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to flush Cilium %s chain", prog)
-		}
-
+		doProcess(c, prog, args, "flush", quiet)
 		args = append(waitArgs, "-t", c.table, "-X", c.name)
-		err = runProg(prog, args, true)
-		if err != nil && !quiet {
-			log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to delete Cilium %s chain", prog)
-		}
+		doProcess(c, prog, args, "delete", quiet)
+	}
+	if option.Config.EnableIPv4 {
+		prog := "iptables"
+		doRemove(c, prog, waitArgs, quiet)
+	}
+	if option.Config.EnableIPv6 && c.ipv6 {
+		prog := "ip6tables"
+		doRemove(c, prog, waitArgs, quiet)
 	}
 }
 
