@@ -109,19 +109,19 @@ spec:
 {{- end }}
 {{- if .Values.global.eni }}
 {{- if contains "/" .Values.image.repository }}
-        image: "{{ .Values.image.repository }}-aws"
+        image: "{{ .Values.image.repository }}"
 {{- else }}
         image: "{{ .Values.global.registry }}/{{ .Values.image.repository }}-aws:{{ .Values.image.tag }}"
 {{- end }}
 {{- else if .Values.global.azure.enabled }}
 {{- if contains "/" .Values.image.repository }}
-        image: "{{ .Values.image.repository }}-azure"
+        image: "{{ .Values.image.repository }}"
 {{- else }}
         image: "{{ .Values.global.registry }}/{{ .Values.image.repository }}-azure:{{ .Values.image.tag }}"
 {{- end }}
 {{- else }}
 {{- if contains "/" .Values.image.repository }}
-        image: "{{ .Values.image.repository }}-generic"
+        image: "{{ .Values.image.repository }}"
 {{- else }}
         image: "{{ .Values.global.registry }}/{{ .Values.image.repository }}-generic:{{ .Values.image.tag }}"
 {{- end }}
