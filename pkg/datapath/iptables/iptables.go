@@ -49,7 +49,7 @@ const (
 	ciliumPreMangleChain        = "CILIUM_PRE_mangle"
 	ciliumPreRawChain           = "CILIUM_PRE_raw"
 	ciliumForwardChain          = "CILIUM_FORWARD"
-	ciliumTransientForwardChain = "CILIUM_TRANSIENT_FORWARD"
+	CiliumTransientForwardChain = "CILIUM_TRANSIENT_FORWARD"
 	feederDescription           = "cilium-feeder:"
 	xfrmDescription             = "cilium-xfrm-notrack:"
 )
@@ -164,7 +164,7 @@ func (m *IptablesManager) removeCiliumRules(table, prog, match string) {
 	for scanner.Scan() {
 		rule := scanner.Text()
 		log.WithField(logfields.Object, logfields.Repr(rule)).Debugf("Considering removing %s rule", prog)
-		if match != ciliumTransientForwardChain && strings.Contains(rule, ciliumTransientForwardChain) {
+		if match != CiliumTransientForwardChain && strings.Contains(rule, CiliumTransientForwardChain) {
 			continue
 		}
 
@@ -200,11 +200,11 @@ func (c *customChain) remove(waitArgs []string, quiet bool) {
 			// present, log the error.
 			// This is to help debug #11276.
 			msgChainNotFound := ": No chain/target/match by that name.\n"
-			debugTransientRules := c.name == ciliumTransientForwardChain &&
+			debugTransientRules := c.name == CiliumTransientForwardChain &&
 				string(combinedOutput) != prog+msgChainNotFound
 			if !quiet || debugTransientRules {
 				log.Warnf(string(combinedOutput))
-				log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to %s Cilium %s chain", operation, prog)
+				log.WithError(err).WithField(logfields.Object, args).Warnf("Unable to process chain %s with %s (%s)", c.name, prog, operation)
 			}
 		}
 	}
@@ -322,7 +322,7 @@ var ciliumChains = []customChain{
 }
 
 var transientChain = customChain{
-	name:       ciliumTransientForwardChain,
+	name:       CiliumTransientForwardChain,
 	table:      "filter",
 	hook:       "FORWARD",
 	feederArgs: []string{""},
@@ -721,7 +721,7 @@ func getDeliveryInterface(ifName string) string {
 
 func (m *IptablesManager) installForwardChainRules(ifName, localDeliveryInterface, forwardChain string) error {
 	transient := ""
-	if forwardChain == ciliumTransientForwardChain {
+	if forwardChain == CiliumTransientForwardChain {
 		transient = " (transient)"
 	}
 
@@ -833,7 +833,7 @@ func (m *IptablesManager) TransientRulesStart(ifName string) error {
 // TransientRulesEnd removes Cilium related rules installed from TransientRulesStart.
 func (m *IptablesManager) TransientRulesEnd(quiet bool) {
 	if option.Config.EnableIPv4 {
-		m.removeCiliumRules("filter", "iptables", ciliumTransientForwardChain)
+		m.removeCiliumRules("filter", "iptables", CiliumTransientForwardChain)
 		transientChain.remove(m.waitArgs, quiet)
 	}
 }
