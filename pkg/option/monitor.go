@@ -52,7 +52,7 @@ const (
 
 	// MonitorAggregationLevelMax is the maximum level of aggregation
 	// currently supported.
-	MonitorAggregationLevelMax = MonitorAggregationLevelMedium
+	MonitorAggregationLevelMax OptionSetting = 4
 )
 
 // monitorAggregationOption maps a user-specified string to a monitor
@@ -81,6 +81,7 @@ var monitorAggregationFormat = map[OptionSetting]string{
 	MonitorAggregationLevelLowest: "Lowest",
 	MonitorAggregationLevelLow:    "Low",
 	MonitorAggregationLevelMedium: "Medium",
+	MonitorAggregationLevelMax:    "Max",
 }
 
 // VerifyMonitorAggregationLevel validates the specified key/value for a
