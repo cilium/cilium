@@ -331,34 +331,11 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 	union v6addr *dst;
 	int ret, l3_off = ETH_HLEN, hdrlen;
 	__u32 __maybe_unused remoteID = WORLD_ID;
-	bool skip_redirect = false;
 	struct endpoint_info *ep;
 	__u8 nexthdr;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
-
-#ifdef ENABLE_NODEPORT
-	if (!from_host) {
-		if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC &&
-		    !bpf_skip_nodeport(ctx)) {
-			ret = nodeport_lb6(ctx, secctx);
-			if (ret < 0)
-				return ret;
-		}
-#if defined(ENCAP_IFINDEX) || defined(NO_REDIRECT)
-		/* See IPv4 case for NO_REDIRECT comments */
-# ifdef ENABLE_HOST_FIREWALL
-		skip_redirect = true;
-# else
-		return CTX_ACT_OK;
-# endif
-#endif /* ENCAP_IFINDEX || NO_REDIRECT */
-		/* Verifier workaround: modified ctx access. */
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
-	}
-#endif /* ENABLE_NODEPORT */
 
 	nexthdr = ip6->nexthdr;
 	hdrlen = ipv6_hdrlen(ctx, l3_off, &nexthdr);
@@ -366,24 +343,12 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 		return hdrlen;
 
 #ifdef HANDLE_NS
-	if (!skip_redirect && unlikely(nexthdr == IPPROTO_ICMPV6)) {
+	if (unlikely(nexthdr == IPPROTO_ICMPV6)) {
 		ret = icmp6_handle(ctx, ETH_HLEN, ip6, METRIC_INGRESS);
 		if (IS_ERR(ret))
 			return ret;
 	}
 #endif
-
-	if (from_host && !skip_redirect) {
-		/* If we are attached to cilium_host at egress, this will
-		 * rewrite the destination mac address to the MAC of cilium_net */
-		ret = rewrite_dmac_to_host(ctx, secctx);
-		/* DIRECT PACKET READ INVALID */
-		if (IS_ERR(ret))
-			return ret;
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip6))
-			return DROP_INVALID;
-	}
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host)
@@ -396,12 +361,37 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 	relax_verifier();
 	if (IS_ERR(ret))
 		return ret;
-	if (skip_redirect)
-		return CTX_ACT_OK;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
 #endif /* ENABLE_HOST_FIREWALL */
+
+#ifdef ENABLE_NODEPORT
+	if (!from_host) {
+		if (ctx_get_xfer(ctx) != XFER_PKT_NO_SVC &&
+		    !bpf_skip_nodeport(ctx)) {
+			ret = nodeport_lb6(ctx, secctx);
+			if (ret < 0)
+				return ret;
+		}
+#if defined(ENCAP_IFINDEX) || defined(NO_REDIRECT)
+		/* See IPv4 case for NO_REDIRECT comments */
+		return CTX_ACT_OK;
+#endif /* ENCAP_IFINDEX || NO_REDIRECT */
+		/* Verifier workaround: modified ctx access. */
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+	}
+#endif /* ENABLE_NODEPORT */
+
+	if (from_host) {
+		/* If we are attached to cilium_host at egress, this will
+		 * rewrite the destination mac address to the MAC of cilium_net */
+		ret = rewrite_dmac_to_host(ctx, secctx);
+		/* DIRECT PACKET READ INVALID */
+		if (IS_ERR(ret))
+			return ret;
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip6))
+			return DROP_INVALID;
+	}
 
 	/* Lookup IPv4 address in list of local endpoints */
 	if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
@@ -746,7 +736,6 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 	struct remote_endpoint_info *info = NULL;
 	__u32 __maybe_unused remoteID = 0;
 	struct ipv4_ct_tuple tuple = {};
-	bool skip_redirect = false;
 	struct endpoint_info *ep;
 	void *data, *data_end;
 	struct iphdr *ip4;
@@ -754,6 +743,17 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+
+#ifdef ENABLE_HOST_FIREWALL
+	if (from_host)
+		/* We're on the egress path of cilium_host. */
+		ret = ipv4_host_policy_egress(ctx, secctx);
+	else
+		/* We're on the ingress path of the native device. */
+		ret = ipv4_host_policy_ingress(ctx, &remoteID);
+	if (IS_ERR(ret))
+		return ret;
+#endif /* ENABLE_HOST_FIREWALL */
 
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
@@ -769,11 +769,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 		 * This makes a second reply from the endpoint to be MASQUERADEd
 		 * or to be DROPed by k8s's "--ctstate INVALID -j DROP"
 		 * depending via which interface it was inputed. */
-# ifdef ENABLE_HOST_FIREWALL
-		skip_redirect = true;
-# else
 		return CTX_ACT_OK;
-#endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENCAP_IFINDEX || NO_REDIRECT */
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -783,7 +779,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 
 	tuple.nexthdr = ip4->protocol;
 
-	if (from_host && !skip_redirect) {
+	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination mac address to the MAC of cilium_net */
 		ret = rewrite_dmac_to_host(ctx, secctx);
@@ -794,22 +790,6 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 	}
-
-#ifdef ENABLE_HOST_FIREWALL
-	if (from_host)
-		/* We're on the egress path of cilium_host. */
-		ret = ipv4_host_policy_egress(ctx, secctx);
-	else
-		/* We're on the ingress path of the native device. */
-		ret = ipv4_host_policy_ingress(ctx, &remoteID);
-	if (IS_ERR(ret))
-		return ret;
-	if (skip_redirect)
-		return CTX_ACT_OK;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-#endif /* ENABLE_HOST_FIREWALL */
 
 	/* Lookup IPv4 address in list of local endpoints and host IPs */
 	if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
@@ -1219,18 +1199,6 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 	__u16 __maybe_unused proto = 0;
 	int ret = CTX_ACT_OK;
 
-#if defined(ENABLE_NODEPORT) && \
-	(!defined(ENABLE_DSR) || \
-	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)))
-	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
-		ret = nodeport_nat_fwd(ctx, false);
-		if (IS_ERR(ret))
-			return send_drop_notify_error(ctx, 0, ret,
-						      CTX_ACT_DROP,
-						      METRIC_EGRESS);
-	}
-#endif
-
 #ifdef ENABLE_HOST_FIREWALL
 	if (!proto && !validate_ethertype(ctx, &proto)) {
 		ret = DROP_UNSUPPORTED_L2;
@@ -1270,9 +1238,19 @@ out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, srcID, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
-#else
-	ret = CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
+
+#if defined(ENABLE_NODEPORT) && \
+	(!defined(ENABLE_DSR) || \
+	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)))
+	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
+		ret = nodeport_nat_fwd(ctx, false);
+		if (IS_ERR(ret))
+			return send_drop_notify_error(ctx, 0, ret,
+						      CTX_ACT_DROP,
+						      METRIC_EGRESS);
+	}
+#endif
 
 	return ret;
 }
