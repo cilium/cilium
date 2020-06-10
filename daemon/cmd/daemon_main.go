@@ -633,12 +633,6 @@ func init() {
 		"flag, it cleans up all BPF programs installed when Cilium agent is terminated.", option.FlannelMasterDevice))
 	option.BindEnv(option.FlannelUninstallOnExit)
 
-	flags.Bool(option.FlannelManageExistingContainers, false,
-		fmt.Sprintf("Installs a BPF program to allow for policy enforcement in already running containers managed by Flannel."+
-			" Require Cilium to be running in the hostPID."))
-	option.BindEnv(option.FlannelManageExistingContainers)
-	flags.MarkDeprecated(option.FlannelManageExistingContainers, "This option is no longer supported and will be removed in v1.8")
-
 	flags.Bool(option.PProf, false, "Enable serving the pprof debugging API")
 	option.BindEnv(option.PProf)
 
