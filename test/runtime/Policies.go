@@ -1550,11 +1550,15 @@ var _ = Describe("RuntimePolicies", func() {
 				res := vm.Exec(helpers.Ping(endpointIP.IPV4))
 				res.ExpectSuccess("Not able to ping endpoint with no ingress policy")
 
+				// We might start pinging fast enough that the endpoint still has identity "init" / 5.
+				// In PolicyAuditMode, this means that the ping will succeed. Therefore we don't
+				// check for the source labels in the output (they can by either [reserved:init]
+				// or [container:somelabel]), only the endpoint ID.
 				By("Testing hubble observe output")
 				// Checks for a ingress policy verdict event (type 5)
 				err := hubbleRes.WaitUntilMatchFilterLine(
-					`{.source.labels} -> {.destination.ID} {.destination.labels} {.IP.destination} : {.verdict} {.event_type.type}`,
-					fmt.Sprintf("[reserved:host] -> %s [container:somelabel] %s : FORWARDED 5", endpointID, endpointIP.IPV4))
+					`{.source.labels} -> {.IP.destination} : {.verdict} {.event_type.type}`,
+					fmt.Sprintf("[reserved:host] -> %s : FORWARDED 5", endpointIP.IPV4))
 				Expect(err).To(BeNil(), "Default policy verdict on ingress failed")
 				// Checks for the subsequent trace:to-endpoint event (type 4)
 				hubbleRes.ExpectContainsFilterLine(
