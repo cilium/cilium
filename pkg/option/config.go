@@ -325,13 +325,6 @@ const (
 	// it cleans up all BPF programs installed when Cilium agent is terminated.
 	FlannelUninstallOnExit = "flannel-uninstall-on-exit"
 
-	// FlannelManageExistingContainers sets if Cilium should install the BPF
-	// programs on already running interfaces created by flannel. Require
-	// Cilium to be running in the hostPID.
-	// Deprecated: This option is no longer available since cilium-daemon does
-	//             not have any direct interaction with container runtimes.
-	FlannelManageExistingContainers = "flannel-manage-existing-containers"
-
 	// PProf enables serving the pprof debugging API
 	PProf = "pprof"
 
