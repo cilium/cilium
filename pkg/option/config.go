@@ -2733,24 +2733,24 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 	if !viper.IsSet(CTMapEntriesGlobalTCPName) {
 		c.CTMapEntriesGlobalTCP =
 			getEntries(CTMapEntriesGlobalTCPDefault, LimitTableAutoGlobalTCPMin, LimitTableMax)
-		log.Infof("option %s set by dynamic sizing to %v (default %v)",
-			CTMapEntriesGlobalTCPName, c.CTMapEntriesGlobalTCP, CTMapEntriesGlobalTCPDefault)
+		log.Infof("option %s set by dynamic sizing to %v",
+			CTMapEntriesGlobalTCPName, c.CTMapEntriesGlobalTCP)
 	} else {
 		log.Debugf("option %s set by user to %v", CTMapEntriesGlobalTCPName, c.CTMapEntriesGlobalTCP)
 	}
 	if !viper.IsSet(CTMapEntriesGlobalAnyName) {
 		c.CTMapEntriesGlobalAny =
 			getEntries(CTMapEntriesGlobalAnyDefault, LimitTableAutoGlobalAnyMin, LimitTableMax)
-		log.Infof("option %s set by dynamic sizing to %v (default %v)",
-			CTMapEntriesGlobalAnyName, c.CTMapEntriesGlobalAny, CTMapEntriesGlobalAnyDefault)
+		log.Infof("option %s set by dynamic sizing to %v",
+			CTMapEntriesGlobalAnyName, c.CTMapEntriesGlobalAny)
 	} else {
 		log.Debugf("option %s set by user to %v", CTMapEntriesGlobalAnyName, c.CTMapEntriesGlobalAny)
 	}
 	if !viper.IsSet(NATMapEntriesGlobalName) {
 		c.NATMapEntriesGlobal =
 			getEntries(NATMapEntriesGlobalDefault, LimitTableAutoNatGlobalMin, LimitTableMax)
-		log.Infof("option %s set by dynamic sizing to %v (default %v)",
-			NATMapEntriesGlobalName, c.NATMapEntriesGlobal, NATMapEntriesGlobalDefault)
+		log.Infof("option %s set by dynamic sizing to %v",
+			NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
 	} else {
 		log.Debugf("option %s set by user to %v", NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
 	}
@@ -2758,16 +2758,16 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 		// By default we auto-size it to the same value as the NAT map since we
 		// need to keep at least as many neigh entries.
 		c.NeighMapEntriesGlobal = c.NATMapEntriesGlobal
-		log.Infof("option %s set by dynamic sizing to %v (default %v)",
-			NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal, NATMapEntriesGlobalDefault)
+		log.Infof("option %s set by dynamic sizing to %v",
+			NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal)
 	} else {
 		log.Debugf("option %s set by user to %v", NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal)
 	}
 	if !viper.IsSet(SockRevNatEntriesName) {
 		c.SockRevNatEntries =
 			getEntries(SockRevNATMapEntriesDefault, LimitTableAutoSockRevNatMin, LimitTableMax)
-		log.Infof("option %s set by dynamic sizing to %v (default %v)",
-			SockRevNatEntriesName, c.SockRevNatEntries, SockRevNATMapEntriesDefault)
+		log.Infof("option %s set by dynamic sizing to %v",
+			SockRevNatEntriesName, c.SockRevNatEntries)
 	} else {
 		log.Debugf("option %s set by user to %v", NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
 	}
