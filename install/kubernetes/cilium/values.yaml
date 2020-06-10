@@ -8,17 +8,6 @@ agent:
   # Keep the deprecated selector labels when deploying Cilium DaemonSet
   keepDeprecatedLabels: false
 
-  affinity:
-    podAntiAffinity:
-      requiredDuringSchedulingIgnoredDuringExecution:
-      - labelSelector:
-          matchExpressions:
-          - key: k8s-app
-            operator: In
-            values:
-            - cilium
-        topologyKey: "kubernetes.io/hostname"
-
 # Include the cilium-config ConfigMap
 config:
   enabled: true
@@ -375,3 +364,14 @@ global:
     # Regular expression matching compatible Istio sidecar istio-proxy
     # container image names
     sidecarImageRegex: "cilium/istio_proxy"
+
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: k8s-app
+            operator: In
+            values:
+            - cilium
+        topologyKey: "kubernetes.io/hostname"

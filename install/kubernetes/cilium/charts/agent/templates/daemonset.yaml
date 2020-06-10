@@ -33,9 +33,9 @@ spec:
         kubernetes.io/cluster-service: "true"
 {{- end }}
     spec:
-{{- if .Values.affinity }}
+{{- if .Values.global.affinity }}
       affinity:
-{{ toYaml .Values.affinity | indent 8 }}
+{{ toYaml .Values.global.affinity | indent 8 }}
 {{- end }}
       containers:
 {{- if .Values.sleepAfterInit }}
