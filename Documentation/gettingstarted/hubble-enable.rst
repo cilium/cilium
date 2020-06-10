@@ -77,10 +77,13 @@ networking infrastructure in a completely transparent manner.
 
       kubectl exec -n $CILIUM_NAMESPACE -t ds/cilium -- hubble observe
 
-* **(Distributed mode only)** To validate that Hubble Relay is running, download the ``hubble``
-  CLI from `the GitHub release page <https://github.com/cilium/hubble/releases>`_ and install it
-  in a directory listed in the ``PATH`` environment variable. Then, set up a port forwarding for
-  ``hubble-relay`` service and run ``hubble observe`` command:
+* **(Distributed mode only)** To validate that Hubble Relay is running, install the ``hubble``
+  CLI:
+
+  .. include:: hubble-install.rst
+
+  Once the ``hubble`` CLI is installed, set up a port forwarding for ``hubble-relay`` service and
+  run ``hubble observe`` command:
 
   .. parsed-literal::
 
@@ -94,7 +97,7 @@ networking infrastructure in a completely transparent manner.
 
     $ export HUBBLE_DEFAULT_SOCKET_PATH=localhost:4245
 
-  This will allow you to use ``hubbble status`` and ``hubble observe`` commands
+  This will allow you to use ``hubble status`` and ``hubble observe`` commands
   without having to specify the server address via the ``--server`` flag.
 
 * **(Distributed mode only)** To validate that Hubble UI is properly configured, set up a port forwarding for
