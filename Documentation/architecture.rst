@@ -271,6 +271,45 @@ connection tracking, NAT, and policy maps are determined at agent startup based
 on the given ratio of the total system memory. For example a given ratio of 0.03
 leads to 3% of the total system memory to be used for these maps.
 
+This flag sets the ratio of total system memory to use for dynamic size of the
+BPF maps that consume most memory in the system: ``cilium_ct_{4,6}_global``,
+``cilium_ct_{4,6}_any``, ``cilium_nodeport_neigh{4,6}``,
+``cilium_snat_v{4,6}_external`` and ``cilium_lb{4,6}_reverse_sk``.
+
+``kube-proxy`` sets as the maximum number entries in the linux's connection
+tracking table based on the number of cores the machine has. ``kube-proxy`` has
+a default of ``32768`` maximum entries per core with a minimum of ``131072``
+entries regardless of the number of cores the machine has.
+
+Cilium has its own connection tracking tables as BPF Maps and the number of
+entries of such maps is calculated based on the amount of total memory in the
+node with a minimum of ``131072`` entries regardless the amount of memory the
+machine has.
+
+The following table presents the value that ``kube-proxy`` and Cilium sets for
+their own connection tracking tables when Cilium is configured with
+``--bpf-map-dynamic-size-ratio: 0.0025``.
+
++------+--------------+-----------------------+-------------------+
+| vCPU | Memory (GiB) | Kube-proxy CT entries | Cilium CT entries |
++------+--------------+-----------------------+-------------------+
+|    1 |         3.75 |                131072 |            131072 |
++------+--------------+-----------------------+-------------------+
+|    2 |          7.5 |                131072 |            131072 |
++------+--------------+-----------------------+-------------------+
+|    4 |           15 |                131072 |            131072 |
++------+--------------+-----------------------+-------------------+
+|    8 |           30 |                262144 |            284560 |
++------+--------------+-----------------------+-------------------+
+|   16 |           60 |                524288 |            569120 |
++------+--------------+-----------------------+-------------------+
+|   32 |          120 |               1048576 |           1138240 |
++------+--------------+-----------------------+-------------------+
+|   64 |          240 |               2097152 |           2276480 |
++------+--------------+-----------------------+-------------------+
+|   96 |          360 |               3145728 |           4552960 |
++------+--------------+-----------------------+-------------------+
+
 Kubernetes Integration
 ======================
 
