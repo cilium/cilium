@@ -9,6 +9,21 @@ metadata:
 data:
 {{ (.Files.Glob "files/grafana-config/*").AsConfig | indent 2 }}
 ---
+# `kubectl apply` is unable to apply configmaps larger than 256KB,
+# therefore we create one configmap per dashboard here
+{{- range $path, $bytes := .Files.Glob "files/grafana-dashboards/*" }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  labels:
+    app: grafana
+  name: grafana-{{ $path | base | trimSuffix (ext $path) }}
+  namespace: cilium-monitoring
+data:
+  {{ $path | base }}: |
+{{ $bytes | toString | indent 4}}
+---
+{{- end }}
 apiVersion: v1
 kind: Service
 metadata:
@@ -62,6 +77,12 @@ spec:
             - mountPath: /configmap/grafana
               name: grafana-config
               readOnly: true
+{{- range $path, $_ := .Files.Glob "files/grafana-dashboards/*" }}
+{{- $name := $path | base | trimSuffix (ext $path) }}
+            - mountPath: /configmap/dashboards/{{ $name }}
+              name: {{ $name }}
+              readOnly: true
+{{- end }}
       dnsPolicy: ClusterFirst
       restartPolicy: Always
       volumes:
@@ -72,11 +93,14 @@ spec:
                 path: grafana-config.ini
               - key: prometheus-datasource.yaml
                 path: provisioning/datasources/prometheus.yaml
-              - key: cilium-dashboard.json
-                path: provisioning/cilium/cilium-dashboard.json
-              - key: cilium-operator-dashboard.json
-                path: provisioning/cilium/cilium-operator-dashboard.json
               - key: config.yaml
                 path: provisioning/dashboards/config.yaml
             name: grafana-config
           name: grafana-config
+{{- range $path, $_ := .Files.Glob "files/grafana-dashboards/*" }}
+{{- $name := $path | base | trimSuffix (ext $path) }}
+        - configMap:
+            defaultMode: 420
+            name: grafana-{{ $name }}
+          name: {{ $name }}
+{{- end }}
