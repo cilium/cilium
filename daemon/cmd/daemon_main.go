@@ -59,6 +59,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
 	"github.com/cilium/cilium/pkg/metrics"
@@ -702,6 +703,9 @@ func init() {
 	flags.Int(option.PolicyMapEntriesName, defaults.PolicyMapEntries, "Maximum number of entries in endpoint policy map (per endpoint)")
 	option.BindEnv(option.PolicyMapEntriesName)
 
+	flags.Int(option.SockRevNatEntriesName, option.SockRevNATMapEntriesDefault, "Maximum number of entries for the SockRevNAT BPF map")
+	option.BindEnv(option.SockRevNatEntriesName)
+
 	flags.Float64(option.MapEntriesGlobalDynamicSizeRatioName, 0.0, "Ratio (0.0-1.0) of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps. Set to 0.0 to disable dynamic BPF map sizing (default: 0.0)")
 	option.BindEnv(option.MapEntriesGlobalDynamicSizeRatioName)
 
@@ -839,7 +843,8 @@ func initEnv(cmd *cobra.Command) {
 		// key size, i.e. IPv6 keys
 		ctmap.SizeofCtKey6Global+ctmap.SizeofCtEntry,
 		nat.SizeofNatKey6+nat.SizeofNatEntry6,
-		neighborsmap.SizeofNeighKey6+neighborsmap.SizeOfNeighValue)
+		neighborsmap.SizeofNeighKey6+neighborsmap.SizeOfNeighValue,
+		lbmap.SizeofSockRevNat6Key+lbmap.SizeofSockRevNat6Value)
 
 	// Prepopulate option.Config with options from CLI.
 	option.Config.Populate()

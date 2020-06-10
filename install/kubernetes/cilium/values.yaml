@@ -285,10 +285,10 @@ global:
     policyMapMax: 16384
 
     # mapDynamicSizeRatio is the ratio (0.0-1.0) of total system memory to use
-    # for dynamic sizing of CT, NAT, neighbor BPF maps. If set to 0.0, dynamic
-    # sizing of BPF maps is disabled. The default value of 0.03 (3%) leads to
-    # approximately the default BPF map sizes on a node with 4 GiB of total
-    # system memory.
+    # for dynamic sizing of CT, NAT, neighbor and SockRevNAT BPF maps. If set to
+    # 0.0, dynamic sizing of BPF maps is disabled. The default value of 0.03
+    # (3%) leads to approximately the default BPF map sizes on a node with 4 GiB
+    # of total system memory.
     mapDynamicSizeRatio: 0.03
 
     # monitorAggregation is the level of aggregation for datapath trace events
