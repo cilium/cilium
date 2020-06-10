@@ -110,7 +110,7 @@ ipcache_lookup_srcid6(struct __ctx_buff *ctx)
 
 static __always_inline __u32
 resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
-		   bool from_host)
+		   const bool from_host)
 {
 	__u32 src_id = WORLD_ID, srcid_from_ipcache = srcid_from_proxy;
 	struct remote_endpoint_info *info = NULL;
@@ -323,7 +323,7 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *srcID)
 #endif /* ENABLE_HOST_FIREWALL */
 
 static __always_inline int
-handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
+handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 {
 	struct remote_endpoint_info *info = NULL;
 	void *data, *data_end;
@@ -466,7 +466,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 }
 
 static __always_inline int
-tail_handle_ipv6(struct __ctx_buff *ctx, bool from_host)
+tail_handle_ipv6(struct __ctx_buff *ctx, const bool from_host)
 {
 	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
 	int ret;
@@ -518,7 +518,7 @@ ipcache_lookup_srcid4(struct __ctx_buff *ctx)
 
 static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
-		   bool from_host)
+		   const bool from_host)
 {
 	__u32 src_id = WORLD_ID, srcid_from_ipcache = srcid_from_proxy;
 	struct remote_endpoint_info *info = NULL;
@@ -734,7 +734,7 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *srcID)
 #endif /* ENABLE_HOST_FIREWALL */
 
 static __always_inline int
-handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
+handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 {
 	struct remote_endpoint_info *info = NULL;
 	__u32 __maybe_unused remoteID = 0;
@@ -881,7 +881,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, bool from_host)
 }
 
 static __always_inline int
-tail_handle_ipv4(struct __ctx_buff *ctx, bool from_host)
+tail_handle_ipv4(struct __ctx_buff *ctx, const bool from_host)
 {
 	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
 	int ret;
@@ -1066,7 +1066,7 @@ static __always_inline int do_netdev_encrypt(struct __ctx_buff *ctx, __u16 proto
 #endif /* ENABLE_IPSEC */
 
 static __always_inline int
-do_netdev(struct __ctx_buff *ctx, __u16 proto, bool from_host)
+do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 {
 	__u32 __maybe_unused identity = 0;
 	int ret;
@@ -1167,7 +1167,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, bool from_host)
  * Handle netdev traffic coming towards the Cilium-managed network.
  */
 static __always_inline int
-handle_netdev(struct __ctx_buff *ctx, bool from_host)
+handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 {
 	__u16 proto;
 
