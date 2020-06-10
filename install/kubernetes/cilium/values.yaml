@@ -317,7 +317,7 @@ global:
     # enabled enables go pprof debugging
     enabled: false
 
-  # logSytemLoad enables logging of system load
+  # logSytemLoad enables logging of system load 
   logSystemLoad: false
 
   # sockops is the BPF socket operations configuration
