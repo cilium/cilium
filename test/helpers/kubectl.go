@@ -3270,7 +3270,9 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 		"kubectl get deployment --all-namespaces -o json":            "deployment.txt",
 		"kubectl get crd ciliumnetworkpolicies.cilium.io -o json":    "cilium-network-policies-crd.json",
 
-		fmt.Sprintf("kubectl get cm cilium-config -n %s -o json", GetCiliumNamespace(GetCurrentIntegration())): "cilium-config.json",
+		fmt.Sprintf("kubectl get cm cilium-config -n %s -o json", GetCiliumNamespace(GetCurrentIntegration())):                                              "cilium-config.json",
+		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps --all-containers --tail -1", GetCiliumNamespace(GetCurrentIntegration())):            "cilium-combined-logs.txt",
+		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps --all-containers --previous --tail -1", GetCiliumNamespace(GetCurrentIntegration())): "cilium-combined-logs-previous.txt",
 	}
 
 	kub.GeneratePodLogGatheringCommands(ctx, reportCmds)
