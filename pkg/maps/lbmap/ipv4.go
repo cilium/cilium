@@ -35,6 +35,12 @@ const (
 )
 
 var (
+	// MaxSockRevNat4MapEntries is the maximum number of entries in the BPF map.
+	// It is set by InitMapInfo(), but unit tests use the initial value below.
+	MaxSockRevNat4MapEntries = SockRevNat4MapSize
+)
+
+var (
 	Service4MapV2 = bpf.NewMap("cilium_lb4_services_v2",
 		bpf.MapTypeHash,
 		&Service4Key{},
@@ -359,11 +365,17 @@ func CreateSockRevNat4Map() error {
 		int(unsafe.Sizeof(SockRevNat4Key{})),
 		&SockRevNat4Value{},
 		int(unsafe.Sizeof(SockRevNat4Value{})),
-		SockRevNat4MapSize,
+		MaxSockRevNat4MapEntries,
 		0,
 		0,
 		bpf.ConvertKeyValue,
 	)
 	_, err := sockRevNat4Map.Create()
 	return err
+}
+
+// InitMapInfo updates the map info defaults for sock rev nat {4,6} maps.
+func InitMapInfo(maxSockRevNatEntries int) {
+	MaxSockRevNat4MapEntries = maxSockRevNatEntries
+	MaxSockRevNat6MapEntries = maxSockRevNatEntries
 }

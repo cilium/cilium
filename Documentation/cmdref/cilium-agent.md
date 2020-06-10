@@ -38,6 +38,7 @@ cilium-agent [flags]
       --bpf-neigh-global-max int                      Maximum number of entries for the global BPF neighbor table (default 524288)
       --bpf-policy-map-max int                        Maximum number of entries in endpoint policy map (per endpoint) (default 16384)
       --bpf-root string                               Path to BPF filesystem
+      --bpf-sock-rev-map-max int                      Maximum number of entries for the SockRevNAT BPF map (default 262144)
       --certificates-directory string                 Root directory to find certificates specified in L7 TLS policy enforcement (default "/var/run/cilium/certs")
       --cgroup-root string                            Path to Cgroup2 filesystem
       --cluster-id int                                Unique identifier of the cluster

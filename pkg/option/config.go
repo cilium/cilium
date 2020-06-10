@@ -464,9 +464,14 @@ const (
 	// and is 2/3 of the full CT size as a heuristic
 	NATMapEntriesGlobalDefault = int((CTMapEntriesGlobalTCPDefault + CTMapEntriesGlobalAnyDefault) * 2 / 3)
 
+	// SockRevNATMapEntriesDefault holds the default size of the SockRev NAT map
+	// and is the same size of CTMapEntriesGlobalAnyDefault as a heuristic given
+	// that sock rev NAT is mostly used for UDP and getpeername only.
+	SockRevNATMapEntriesDefault = CTMapEntriesGlobalAnyDefault
+
 	// MapEntriesGlobalDynamicSizeRatioName is the name of the option to
 	// set the ratio of total system memory to use for dynamic sizing of the
-	// CT, NAT, Neighbor BPF maps.
+	// CT, NAT, Neighbor and SockRevNAT BPF maps.
 	MapEntriesGlobalDynamicSizeRatioName = "bpf-map-dynamic-size-ratio"
 
 	// LimitTableMin defines the minimum CT or NAT table limit
@@ -495,6 +500,10 @@ const (
 
 	// PolicyMapEntriesName configures max entries for BPF policymap.
 	PolicyMapEntriesName = "bpf-policy-map-max"
+
+	// SockRevNatEntriesName configures max entries for BPF sock reverse nat
+	// entries.
+	SockRevNatEntriesName = "bpf-sock-rev-map-max"
 
 	// LogSystemLoadConfigName is the name of the option to enable system
 	// load loggging
@@ -793,6 +802,7 @@ var HelpFlagSections = []FlagsSection{
 			CTMapEntriesTimeoutSVCAnyName,
 			NATMapEntriesGlobalName,
 			NeighMapEntriesGlobalName,
+			SockRevNatEntriesName,
 			PolicyMapEntriesName,
 			MapEntriesGlobalDynamicSizeRatioName,
 			PreAllocateMapsName,
@@ -1342,6 +1352,10 @@ type DaemonConfig struct {
 	// endpoint may allow traffic to exchange traffic with.
 	PolicyMapEntries int
 
+	// SockRevNatEntries is the maximum number of sock rev nat mappings
+	// allowed in the BPF rev nat table
+	SockRevNatEntries int
+
 	// DisableCiliumEndpointCRD disables the use of CiliumEndpoint CRD
 	DisableCiliumEndpointCRD bool
 
@@ -1807,6 +1821,10 @@ type DaemonConfig struct {
 	// sizeofNeighElement is the size of an element (key + value) in the neigh
 	// map.
 	sizeofNeighElement int
+
+	// sizeofSockRevElement is the size of an element (key + value) in the neigh
+	// map.
+	sizeofSockRevElement int
 
 	k8sEnableAPIDiscovery bool
 }
@@ -2584,6 +2602,15 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 		}
 	}
 
+	if c.SockRevNatEntries < LimitTableMin {
+		return fmt.Errorf("specified Socket Reverse NAT table size %d must exceed minimum %d",
+			c.SockRevNatEntries, LimitTableMin)
+	}
+	if c.SockRevNatEntries > LimitTableMax {
+		return fmt.Errorf("specified Socket Reverse NAT tables size %d must not exceed maximum %d",
+			c.SockRevNatEntries, LimitTableMax)
+	}
+
 	if c.PolicyMapEntries < PolicyMapMin {
 		return fmt.Errorf("specified PolicyMap max entries %d must exceed minimum %d",
 			c.PolicyMapEntries, PolicyMapMin)
@@ -2623,12 +2650,14 @@ func (c *DaemonConfig) calculateBPFMapSizes() error {
 	c.NATMapEntriesGlobal = viper.GetInt(NATMapEntriesGlobalName)
 	c.NeighMapEntriesGlobal = viper.GetInt(NeighMapEntriesGlobalName)
 	c.PolicyMapEntries = viper.GetInt(PolicyMapEntriesName)
+	c.SockRevNatEntries = viper.GetInt(SockRevNatEntriesName)
 
 	// Don't attempt dynamic sizing if any of the sizeof members was not
 	// populated by the daemon (or any other caller).
 	if c.sizeofCTElement == 0 ||
 		c.sizeofNATElement == 0 ||
-		c.sizeofNeighElement == 0 {
+		c.sizeofNeighElement == 0 ||
+		c.sizeofSockRevElement == 0 {
 		return nil
 	}
 
@@ -2655,11 +2684,13 @@ func (c *DaemonConfig) calculateBPFMapSizes() error {
 func (c *DaemonConfig) SetMapElementSizes(
 	sizeofCTElement,
 	sizeofNATElement,
-	sizeofNeighElement int) {
+	sizeofNeighElement,
+	sizeofSockRevElement int) {
 
 	c.sizeofCTElement = sizeofCTElement
 	c.sizeofNATElement = sizeofNATElement
 	c.sizeofNeighElement = sizeofNeighElement
+	c.sizeofSockRevElement = sizeofSockRevElement
 }
 
 func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSizeRatio float64) {
@@ -2683,7 +2714,8 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 		CTMapEntriesGlobalAnyDefault*c.sizeofCTElement +
 		NATMapEntriesGlobalDefault*c.sizeofNATElement +
 		// Neigh table has the same number of entries as NAT Map has.
-		NATMapEntriesGlobalDefault*c.sizeofNeighElement
+		NATMapEntriesGlobalDefault*c.sizeofNeighElement +
+		SockRevNATMapEntriesDefault*c.sizeofSockRevElement
 	log.Debugf("Total memory for default map entries: %d", totalMapMemoryDefault)
 
 	getEntries := func(entriesDefault, min, max int) int {
@@ -2732,6 +2764,14 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 			NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal, NATMapEntriesGlobalDefault)
 	} else {
 		log.Debugf("option %s set by user to %v", NeighMapEntriesGlobalName, c.NeighMapEntriesGlobal)
+	}
+	if !viper.IsSet(SockRevNatEntriesName) {
+		c.SockRevNatEntries =
+			getEntries(SockRevNATMapEntriesDefault, LimitTableMin, LimitTableMax)
+		log.Infof("option %s set by dynamic sizing to %v (default %v)",
+			SockRevNatEntriesName, c.SockRevNatEntries, SockRevNATMapEntriesDefault)
+	} else {
+		log.Debugf("option %s set by user to %v", NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
 	}
 }
 

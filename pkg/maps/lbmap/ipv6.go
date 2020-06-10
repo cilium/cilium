@@ -35,6 +35,12 @@ const (
 )
 
 var (
+	// MaxSockRevNat6MapEntries is the maximum number of entries in the BPF map.
+	// It is set by InitMapInfo(), but unit tests use the initial value below.
+	MaxSockRevNat6MapEntries = SockRevNat6MapSize
+)
+
+var (
 	Service6MapV2 = bpf.NewMap("cilium_lb6_services_v2",
 		bpf.MapTypeHash,
 		&Service6Key{},
@@ -311,6 +317,9 @@ type SockRevNat6Key struct {
 	pad     int16      `align:"pad"`
 }
 
+// SizeofSockRevNat6Key is the size of type SockRevNat6Key.
+const SizeofSockRevNat6Key = int(unsafe.Sizeof(SockRevNat6Key{}))
+
 // SockRevNat6Value is an entry in the reverse NAT sock map.
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
@@ -319,6 +328,9 @@ type SockRevNat6Value struct {
 	port        int16      `align:"port"`
 	revNatIndex uint16     `align:"rev_nat_index"`
 }
+
+// SizeofSockRevNat6Value is the size of type SockRevNat6Value.
+const SizeofSockRevNat6Value = int(unsafe.Sizeof(SockRevNat6Value{}))
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
 func (k *SockRevNat6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
@@ -348,7 +360,7 @@ func CreateSockRevNat6Map() error {
 		int(unsafe.Sizeof(SockRevNat6Key{})),
 		&SockRevNat6Value{},
 		int(unsafe.Sizeof(SockRevNat6Value{})),
-		SockRevNat6MapSize,
+		MaxSockRevNat6MapEntries,
 		0,
 		0,
 		bpf.ConvertKeyValue,
