@@ -79,6 +79,9 @@ type Key6 struct {
 	ipv6 types.IPv6
 }
 
+// SizeofNeighKey6 is the size of type NeighKey6.
+const SizeofNeighKey6 = int(unsafe.Sizeof(Key6{}))
+
 // Value is the MAC address for the IP-to-MAC address mappings.
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
@@ -86,6 +89,9 @@ type Value struct {
 	macaddr types.MACAddr
 	pad     uint16
 }
+
+// SizeOfNeighValue is the size of type NeighValue.
+const SizeOfNeighValue = int(unsafe.Sizeof(Value{}))
 
 // GetKeyPtr returns the unsafe pointer to the BPF key
 func (k *Key4) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }

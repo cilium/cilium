@@ -466,7 +466,7 @@ const (
 
 	// MapEntriesGlobalDynamicSizeRatioName is the name of the option to
 	// set the ratio of total system memory to use for dynamic sizing of the
-	// CT, NAT and policy BPF maps.
+	// CT, NAT, Neighbor and policy BPF maps.
 	MapEntriesGlobalDynamicSizeRatioName = "bpf-map-dynamic-size-ratio"
 
 	// LimitTableMin defines the minimum CT or NAT table limit
@@ -1808,6 +1808,10 @@ type DaemonConfig struct {
 	// policy map.
 	sizeofPolicyElement int
 
+	// sizeofNeighElement is the size of an element (key + value) in the neigh
+	// map.
+	sizeofNeighElement int
+
 	k8sEnableAPIDiscovery bool
 }
 
@@ -2626,7 +2630,10 @@ func (c *DaemonConfig) calculateBPFMapSizes() error {
 
 	// Don't attempt dynamic sizing if any of the sizeof members was not
 	// populated by the daemon (or any other caller).
-	if c.sizeofCTElement == 0 || c.sizeofNATElement == 0 || c.sizeofPolicyElement == 0 {
+	if c.sizeofCTElement == 0 ||
+		c.sizeofNATElement == 0 ||
+		c.sizeofPolicyElement == 0 ||
+		c.sizeofNeighElement == 0 {
 		return nil
 	}
 
@@ -2650,10 +2657,16 @@ func (c *DaemonConfig) calculateBPFMapSizes() error {
 
 // SetMapElementSizes sets the BPF map element sizes (key + value) used for
 // dynamic BPF map size calculations in calculateDynamicBPFMapSizes.
-func (c *DaemonConfig) SetMapElementSizes(sizeofCTElement, sizeofNATElement, sizeofPolicyElement int) {
+func (c *DaemonConfig) SetMapElementSizes(
+	sizeofCTElement,
+	sizeofNATElement,
+	sizeofPolicyElement,
+	sizeofNeighElement int) {
+
 	c.sizeofCTElement = sizeofCTElement
 	c.sizeofNATElement = sizeofNATElement
 	c.sizeofPolicyElement = sizeofPolicyElement
+	c.sizeofNeighElement = sizeofNeighElement
 }
 
 func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSizeRatio float64) {
@@ -2676,7 +2689,9 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 	totalMapMemoryDefault := CTMapEntriesGlobalTCPDefault*c.sizeofCTElement +
 		CTMapEntriesGlobalAnyDefault*c.sizeofCTElement +
 		NATMapEntriesGlobalDefault*c.sizeofNATElement +
-		defaults.PolicyMapEntries*c.sizeofPolicyElement
+		defaults.PolicyMapEntries*c.sizeofPolicyElement +
+		// Neigh table has the same number of entries as NAT Map has.
+		NATMapEntriesGlobalDefault*c.sizeofNeighElement
 	log.Debugf("Total memory for default map entries: %d", totalMapMemoryDefault)
 
 	getEntries := func(entriesDefault, min, max int) int {
