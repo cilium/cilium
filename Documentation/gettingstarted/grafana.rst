@@ -10,8 +10,8 @@
 Running Prometheus & Grafana
 ****************************
 
-Installation
-============
+Install Prometheus & Grafana
+============================
 
 This is an example deployment that includes Prometheus and Grafana in a single
 deployment.
@@ -21,46 +21,66 @@ The default installation contains:
 - **Grafana**: A visualization dashboard with Cilium Dashboard pre-loaded.
 - **Prometheus**: a time series database and monitoring system.
 
-
  .. parsed-literal::
 
     $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes/addons/prometheus/monitoring-example.yaml
-    configmap/cilium-metrics-config created
     namespace/cilium-monitoring created
-    configmap/prometheus created
-    deployment.extensions/prometheus created
-    clusterrolebinding.rbac.authorization.k8s.io/prometheus created
-    clusterrole.rbac.authorization.k8s.io/prometheus created
     serviceaccount/prometheus-k8s created
-    service/prometheus created
-    deployment.extensions/grafana created
-    service/grafana created
     configmap/grafana-config created
+    configmap/grafana-cilium-dashboard created
+    configmap/grafana-cilium-operator-dashboard created
+    configmap/grafana-hubble-dashboard created
+    configmap/prometheus created
+    clusterrole.rbac.authorization.k8s.io/prometheus unchanged
+    clusterrolebinding.rbac.authorization.k8s.io/prometheus unchanged
+    service/grafana created
+    service/prometheus created
+    deployment.apps/grafana created
+    deployment.apps/prometheus created
 
-Deploy Cilium with metrics enabled
-==================================
+This example deployment of Prometheus and Grafana will automatically scrape the
+Cilium and Hubble metrics. See the :ref:`metrics` configuration guide on how to
+configure a custom Prometheus instance.
 
-Both ``cilium-agent`` and ``cilium-operator`` do not expose metrics by
-default. Enabling metrics for these services will open ports ``9090``
-and ``6942`` on all nodes of your cluster where these components are running.
+Deploy Cilium and Hubble with metrics enabled
+=============================================
 
-To deploy Cilium with metrics enabled, set the ``global.prometheus.enabled=true`` Helm
-value:
+*Cilium*, *Hubble*, and *Cilium Operator* do not expose metrics by
+default. Enabling metrics for these services will open ports ``9090``, ``9091``,
+and ``6942`` respectively on all nodes of your cluster where these components
+are running.
+
+The metrics for Cilium, Hubble, and Cilium Operator can all be enabled
+independently of each other with the following Helm values:
+
+ - ``global.prometheus.enabled=true``: Enables metrics for ``cilium-agent``.
+ - ``global.operatorPrometheus.enabled=true``: Enables metrics for ``cilium-operator``.
+ - ``global.hubble.metrics.enabled``: Enables the provided list of Hubble metrics.
+   For Hubble metrics to work, Hubble itself needs to be enabled with
+   ``global.hubble.enabled=true``. See
+   :ref:`Hubble exported metrics<hubble_exported_metrics>` for the list of
+   available Hubble metrics.
+
+Refer to :ref:`metrics` for more details about the individual metrics.
 
 .. include:: k8s-install-download-release.rst
 
-Deploy Cilium release via Helm:
+Deploy Cilium via Helm as follows to enable all metrics:
 
 .. parsed-literal::
 
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set global.prometheus.enabled=true
+      --set global.prometheus.enabled=true \\
+      --set global.operatorPrometheus.enabled=true \\
+      --set global.hubble.enabled=true \\
+      --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
 
 .. note::
 
-   You can combine the ``global.prometheus.enabled=true`` option with any of
-   the other installation guides.
+   You can combine the above Helm options with any of the other installation
+   guides.
+
 
 How to access Grafana
 =====================
@@ -71,7 +91,7 @@ Expose the port on your local machine
 
     kubectl -n cilium-monitoring port-forward service/grafana 3000:3000
 
-Access it via your browser: ``https://localhost:3000``
+Access it via your browser: http://localhost:3000
 
 How to access Prometheus
 ========================
@@ -82,7 +102,7 @@ Expose the port on your local machine
 
     kubectl -n cilium-monitoring port-forward service/prometheus 9090:9090
 
-Access it via your browser: ``https://localhost:9090``
+Access it via your browser: http://localhost:9090
 
 Examples
 ========
@@ -118,3 +138,29 @@ Kubernetes
 
 .. image:: images/grafana_k8s.png
 
+Hubble General Processing
+-------------------------
+
+.. image:: images/grafana_hubble_general_processing.png
+
+Hubble Networking
+-----------------
+
+.. image:: images/grafana_hubble_network.png
+.. image:: images/grafana_hubble_tcp.png
+.. image:: images/grafana_hubble_icmp.png
+
+Hubble DNS
+----------
+
+.. image:: images/grafana_hubble_dns.png
+
+Hubble HTTP
+-----------
+
+.. image:: images/grafana_hubble_http.png
+
+Hubble Network Policy
+---------------------
+
+.. image:: images/grafana_hubble_network_policy.png
