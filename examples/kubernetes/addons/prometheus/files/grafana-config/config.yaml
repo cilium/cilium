@@ -6,4 +6,4 @@ providers:
   type: file
   disableDeletion: true
   options:
-    path: '/configmap/grafana/provisioning/cilium'
+    path: '/configmap/dashboards/'
