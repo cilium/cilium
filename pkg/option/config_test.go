@@ -727,11 +727,10 @@ const (
 
 func TestBPFMapSizeCalculation(t *testing.T) {
 	type sizes struct {
-		CTMapSizeTCP  int
-		CTMapSizeAny  int
-		NATMapSize    int
-		PolicyMapSize int
-		NeighMapSize  int
+		CTMapSizeTCP int
+		CTMapSizeAny int
+		NATMapSize   int
+		NeighMapSize int
 	}
 	tests := []struct {
 		name        string
@@ -744,17 +743,15 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			name: "static default sizes",
 			// zero memory and ratio: skip calculateDynamicBPFMapSizes
 			want: sizes{
-				CTMapSizeTCP:  CTMapEntriesGlobalTCPDefault,
-				CTMapSizeAny:  CTMapEntriesGlobalAnyDefault,
-				NATMapSize:    NATMapEntriesGlobalDefault,
-				PolicyMapSize: defaults.PolicyMapEntries,
-				NeighMapSize:  NATMapEntriesGlobalDefault,
+				CTMapSizeTCP: CTMapEntriesGlobalTCPDefault,
+				CTMapSizeAny: CTMapEntriesGlobalAnyDefault,
+				NATMapSize:   NATMapEntriesGlobalDefault,
+				NeighMapSize: NATMapEntriesGlobalDefault,
 			},
 			preTestRun: func() {
 				viper.Set(CTMapEntriesGlobalTCPName, CTMapEntriesGlobalTCPDefault)
 				viper.Set(CTMapEntriesGlobalAnyName, CTMapEntriesGlobalAnyDefault)
 				viper.Set(NATMapEntriesGlobalName, NATMapEntriesGlobalDefault)
-				viper.Set(PolicyMapEntriesName, defaults.PolicyMapEntries)
 				// Neigh table has the same number of entries as NAT Map has.
 				viper.Set(NeighMapEntriesGlobalName, NATMapEntriesGlobalDefault)
 			},
@@ -763,17 +760,15 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			name: "static, non-default sizes inside range",
 			// zero memory and ratio: skip calculateDynamicBPFMapSizes
 			want: sizes{
-				CTMapSizeTCP:  CTMapEntriesGlobalTCPDefault + 128,
-				CTMapSizeAny:  CTMapEntriesGlobalAnyDefault - 64,
-				NATMapSize:    NATMapEntriesGlobalDefault + 256,
-				PolicyMapSize: defaults.PolicyMapEntries - 32,
-				NeighMapSize:  NATMapEntriesGlobalDefault + 256,
+				CTMapSizeTCP: CTMapEntriesGlobalTCPDefault + 128,
+				CTMapSizeAny: CTMapEntriesGlobalAnyDefault - 64,
+				NATMapSize:   NATMapEntriesGlobalDefault + 256,
+				NeighMapSize: NATMapEntriesGlobalDefault + 256,
 			},
 			preTestRun: func() {
 				viper.Set(CTMapEntriesGlobalTCPName, CTMapEntriesGlobalTCPDefault+128)
 				viper.Set(CTMapEntriesGlobalAnyName, CTMapEntriesGlobalAnyDefault-64)
 				viper.Set(NATMapEntriesGlobalName, NATMapEntriesGlobalDefault+256)
-				viper.Set(PolicyMapEntriesName, defaults.PolicyMapEntries-32)
 				// Neigh table has the same number of entries as NAT Map has.
 				viper.Set(NeighMapEntriesGlobalName, NATMapEntriesGlobalDefault+256)
 			},
@@ -783,11 +778,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 512 * MiB,
 			ratio:       0.03,
 			want: sizes{
-				CTMapSizeTCP:  61946,
-				CTMapSizeAny:  30973,
-				NATMapSize:    61946,
-				PolicyMapSize: 1935,
-				NeighMapSize:  61946,
+				CTMapSizeTCP: 62185,
+				CTMapSizeAny: 31092,
+				NATMapSize:   62185,
+				NeighMapSize: 62185,
 			},
 		},
 		{
@@ -795,11 +789,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 1 * GiB,
 			ratio:       0.03,
 			want: sizes{
-				CTMapSizeTCP:  123893,
-				CTMapSizeAny:  61946,
-				NATMapSize:    123893,
-				PolicyMapSize: 3871,
-				NeighMapSize:  123893,
+				CTMapSizeTCP: 124371,
+				CTMapSizeAny: 62185,
+				NATMapSize:   124371,
+				NeighMapSize: 124371,
 			},
 		},
 		{
@@ -807,11 +800,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 2 * GiB,
 			ratio:       0.03,
 			want: sizes{
-				CTMapSizeTCP:  247786,
-				CTMapSizeAny:  123893,
-				NATMapSize:    247786,
-				PolicyMapSize: 7743,
-				NeighMapSize:  247786,
+				CTMapSizeTCP: 248743,
+				CTMapSizeAny: 124371,
+				NATMapSize:   248743,
+				NeighMapSize: 248743,
 			},
 		},
 		{
@@ -819,11 +811,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 4 * GiB,
 			ratio:       0.03,
 			want: sizes{
-				CTMapSizeTCP:  495573,
-				CTMapSizeAny:  247786,
-				NATMapSize:    495573,
-				PolicyMapSize: 15486,
-				NeighMapSize:  495573,
+				CTMapSizeTCP: 497486,
+				CTMapSizeAny: 248743,
+				NATMapSize:   497486,
+				NeighMapSize: 497486,
 			},
 		},
 		{
@@ -831,11 +822,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 16 * GiB,
 			ratio:       0.03,
 			want: sizes{
-				CTMapSizeTCP:  1982292,
-				CTMapSizeAny:  991146,
-				NATMapSize:    1982292,
-				PolicyMapSize: 61946,
-				NeighMapSize:  1982292,
+				CTMapSizeTCP: 1989946,
+				CTMapSizeAny: 994973,
+				NATMapSize:   1989946,
+				NeighMapSize: 1989946,
 			},
 		},
 		{
@@ -843,11 +833,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 4 * GiB,
 			ratio:       0.025,
 			want: sizes{
-				CTMapSizeTCP:  CTMapEntriesGlobalTCPDefault + 1024,
-				CTMapSizeAny:  206488,
-				NATMapSize:    412977,
-				PolicyMapSize: 12905,
-				NeighMapSize:  412977,
+				CTMapSizeTCP: CTMapEntriesGlobalTCPDefault + 1024,
+				CTMapSizeAny: 207286,
+				NATMapSize:   414572,
+				NeighMapSize: 414572,
 			},
 			preTestRun: func() {
 				viper.Set(CTMapEntriesGlobalTCPName, CTMapEntriesGlobalTCPDefault+1024)
@@ -858,11 +847,10 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			totalMemory: 16 * GiB,
 			ratio:       0.98,
 			want: sizes{
-				CTMapSizeTCP:  LimitTableMax,
-				CTMapSizeAny:  LimitTableMax,
-				NATMapSize:    LimitTableMax,
-				PolicyMapSize: PolicyMapMax,
-				NeighMapSize:  LimitTableMax,
+				CTMapSizeTCP: LimitTableMax,
+				CTMapSizeAny: LimitTableMax,
+				NATMapSize:   LimitTableMax,
+				NeighMapSize: LimitTableMax,
 			},
 		},
 	}
@@ -879,7 +867,6 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				CTMapEntriesGlobalTCP: viper.GetInt(CTMapEntriesGlobalTCPName),
 				CTMapEntriesGlobalAny: viper.GetInt(CTMapEntriesGlobalAnyName),
 				NATMapEntriesGlobal:   viper.GetInt(NATMapEntriesGlobalName),
-				PolicyMapEntries:      viper.GetInt(PolicyMapEntriesName),
 				NeighMapEntriesGlobal: viper.GetInt(NeighMapEntriesGlobalName),
 			}
 
@@ -888,7 +875,6 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 			d.SetMapElementSizes(
 				94, // ctmap.SizeofCTKey + policymap.SizeofCTEntry
 				94, // nat.SizeofNATKey + nat.SizeofNATEntry
-				32, // policymap.SizeofPolicyKey + policymap.SizeofPolicyEntry
 				24, // neighborsmap.SizeofNeighKey6 + neighborsmap.SizeOfNeighValue
 			)
 
@@ -900,7 +886,6 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				d.CTMapEntriesGlobalTCP,
 				d.CTMapEntriesGlobalAny,
 				d.NATMapEntriesGlobal,
-				d.PolicyMapEntries,
 				d.NeighMapEntriesGlobal,
 			}
 

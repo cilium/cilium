@@ -61,7 +61,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
-	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
@@ -73,6 +72,7 @@ import (
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/sysctl"
 	"github.com/cilium/cilium/pkg/version"
+
 	"github.com/go-openapi/loads"
 	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
@@ -839,7 +839,6 @@ func initEnv(cmd *cobra.Command) {
 		// key size, i.e. IPv6 keys
 		ctmap.SizeofCtKey6Global+ctmap.SizeofCtEntry,
 		nat.SizeofNatKey6+nat.SizeofNatEntry6,
-		policymap.SizeofPolicyKey+policymap.SizeofPolicyEntry,
 		neighborsmap.SizeofNeighKey6+neighborsmap.SizeOfNeighValue)
 
 	// Prepopulate option.Config with options from CLI.
