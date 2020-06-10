@@ -168,8 +168,14 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		}
 		// Cilium < v1.8 doesn't support multi-dev, so set only one device.
 		// If not set, then overwriteHelmOptions() will set two devices.
-		if helpers.RunsWithoutKubeProxy() {
+		if helpers.RunsWithoutKubeProxy() || helpers.RunsOn419Kernel() {
 			opts["global.nodePort.device"] = privateIface
+			// Cilium < v1.8 has kube-proxy-replacement=strict mode
+			// broken due to too high complexity (v4, v6, strict, debug).
+			// See also notes in GH-#12018 issue.
+			if helpers.RunsOn419Kernel() {
+				opts["global.debug.enabled"] = "false"
+			}
 		}
 		if registry != "" {
 			opts["global.registry"] = registry
@@ -245,8 +251,11 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"agent.image":     "cilium",
 			"operator.image":  "operator",
 		}
-		if helpers.RunsWithoutKubeProxy() {
+		if helpers.RunsWithoutKubeProxy() || helpers.RunsOn419Kernel() {
 			opts["global.nodePort.device"] = privateIface
+			if helpers.RunsOn419Kernel() {
+				opts["global.debug.enabled"] = "false"
+			}
 		}
 
 		// Eventually allows multiple return values, and performs the assertion
@@ -404,8 +413,11 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"global.tag":              newImageVersion,
 			"global.nodeinit.enabled": "false",
 		}
-		if helpers.RunsWithoutKubeProxy() {
+		if helpers.RunsWithoutKubeProxy() || helpers.RunsOn419Kernel() {
 			opts["global.nodePort.device"] = privateIface
+			if helpers.RunsOn419Kernel() {
+				opts["global.debug.enabled"] = "false"
+			}
 		}
 
 		EventuallyWithOffset(1, func() (*helpers.CmdRes, error) {
