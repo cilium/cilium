@@ -2901,10 +2901,10 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 		return
 	}
 
-	// Log gathering for Cilium should take at most 5 minutes. This ensures that
+	// Log gathering for Cilium should take at most 10 minutes. This ensures that
 	// the CiliumReport stage doesn't cause the entire CI to hang.
 
-	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Minute)
+	ctx, cancel := context.WithTimeout(context.Background(), 10*time.Minute)
 	defer cancel()
 
 	var wg sync.WaitGroup
