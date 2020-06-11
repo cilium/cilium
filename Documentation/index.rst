@@ -51,7 +51,6 @@ The documentation is divided into the following sections:
    :maxdepth: 2
    :caption: Integrations
 
-   kubernetes/index
    istio/index
    docker/index
 
