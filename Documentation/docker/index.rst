@@ -10,7 +10,7 @@ Docker
 
 Cilium can be integrated with Docker in two ways:
 
-* via the `CNI` interface. This method is used by `Kubernetes` and :ref:`Mesos`.
+* via the `CNI` interface. This method is used by `Kubernetes`.
 * via Docker's `libnetwork`_ plugin interface, if networking is to be managed by
   the Docker runtime. This method is used, for example, by `Docker Compose`_.
 
