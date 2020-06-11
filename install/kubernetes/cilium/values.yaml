@@ -167,7 +167,7 @@ global:
   masquerade: true
 
   # bpfMasquerade enables masquerading with BPF instead of iptables
-  bpfMasquerade: false
+  bpfMasquerade: true
 
   # ipMasqAgent enables and controls BPF ip-masq-agent
   ipMasqAgent:
