@@ -17,6 +17,7 @@ package peer
 import (
 	"context"
 	"errors"
+	"io"
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
@@ -76,9 +77,9 @@ func (s *Service) Notify(_ *peerpb.NotifyRequest, stream peerpb.Peer_NotifyServe
 	})
 
 	// read from the handler's channel and fill the buffer until it's full
-	buf := make(chan *peerpb.ChangeNotification, s.opts.SendBufferSize)
+	buf := newBuffer(s.opts.MaxSendBufferSize)
 	g.Go(func() error {
-		defer close(buf)
+		defer buf.Close()
 		for {
 			select {
 			case cn, ok := <-h.C:
@@ -86,10 +87,7 @@ func (s *Service) Notify(_ *peerpb.NotifyRequest, stream peerpb.Peer_NotifyServe
 					// channel is closed, stop buffering
 					return nil
 				}
-				select {
-				case buf <- cn:
-				default:
-					// buffer is full, messages are taking to long to send
+				if err := buf.Push(cn); err != nil {
 					return ErrStreamSendBlocked
 				}
 			case <-ctx.Done():
@@ -101,17 +99,16 @@ func (s *Service) Notify(_ *peerpb.NotifyRequest, stream peerpb.Peer_NotifyServe
 	// read from the buffer end send to the client
 	g.Go(func() error {
 		for {
-			select {
-			case cn, ok := <-buf:
-				if !ok {
-					// channel is closed, we're done
-					return nil
-				}
+			cn, err := buf.Pop()
+			switch err {
+			case nil:
 				if err := stream.Send(cn); err != nil {
 					return err
 				}
-			case <-ctx.Done():
+			case io.EOF:
 				return nil
+			default:
+				return err
 			}
 		}
 	})

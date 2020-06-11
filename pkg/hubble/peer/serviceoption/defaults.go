@@ -16,5 +16,5 @@ package serviceoption
 
 // Default serves only as reference point for default values.
 var Default = Options{
-	SendBufferSize: 10,
+	MaxSendBufferSize: 65_536,
 }
