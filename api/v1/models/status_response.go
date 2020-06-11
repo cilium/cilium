@@ -54,6 +54,9 @@ type StatusResponse struct {
 	// Status of key/value datastore
 	Kvstore *Status `json:"kvstore,omitempty"`
 
+	// Status of masquerading
+	Masquerading *Masquerading `json:"masquerading,omitempty"`
+
 	// Status of the node monitor
 	NodeMonitor *MonitorStatus `json:"nodeMonitor,omitempty"`
 
@@ -105,6 +108,10 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	}
 
 	if err := m.validateKvstore(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateMasquerading(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -296,6 +303,24 @@ func (m *StatusResponse) validateKvstore(formats strfmt.Registry) error {
 		if err := m.Kvstore.Validate(formats); err != nil {
 			if ve, ok := err.(*errors.Validation); ok {
 				return ve.ValidateName("kvstore")
+			}
+			return err
+		}
+	}
+
+	return nil
+}
+
+func (m *StatusResponse) validateMasquerading(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Masquerading) { // not required
+		return nil
+	}
+
+	if m.Masquerading != nil {
+		if err := m.Masquerading.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("masquerading")
 			}
 			return err
 		}
