@@ -43,8 +43,19 @@ var _ = Describe("RuntimeMonitorTest", func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
 		ExpectCiliumReady(vm)
 
+		dbgDone := vm.MonitorDebug(true, "")
+		Expect(dbgDone).Should(BeTrue())
+
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue())
+
+		endpoints, err := vm.GetEndpointsIds()
+		Expect(err).Should(BeNil())
+
+		for _, v := range endpoints {
+			dbgDone := vm.MonitorDebug(true, v)
+			Expect(dbgDone).Should(BeTrue())
+		}
 	})
 
 	JustAfterEach(func() {
@@ -60,6 +71,17 @@ var _ = Describe("RuntimeMonitorTest", func() {
 	})
 
 	AfterAll(func() {
+		endpoints, err := vm.GetEndpointsIds()
+		Expect(err).Should(BeNil())
+
+		for _, v := range endpoints {
+			dbgDone := vm.MonitorDebug(false, v)
+			Expect(dbgDone).Should(BeTrue())
+		}
+
+		dbgDone := vm.MonitorDebug(false, "")
+		Expect(dbgDone).Should(BeTrue())
+
 		vm.CloseSSHClient()
 	})
 
