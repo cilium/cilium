@@ -267,15 +267,15 @@ line options for ``cilium-agent``. A given capacity can be set using
 ``--bpf-nat-global-max``, ``--bpf-neigh-global-max``, ``--bpf-policy-map-max``,
 and ``--bpf-fragments-map-max``.
 
-Using ``--bpf-map-dynamic-size-ratio`` the upper capacity limits of the
-connection tracking, NAT, and policy maps are determined at agent startup based
-on the given ratio of the total system memory. For example a given ratio of 0.03
-leads to 3% of the total system memory to be used for these maps.
+Using the ``--bpf-map-dynamic-size-ratio`` flag, the upper capacity limits of
+several large BPF maps are determined at agent startup based on the given ratio
+of the total system memory. For example, a given ratio of 0.025 leads to 0.25% of
+the total system memory to be used for these maps.
 
-This flag sets the ratio of total system memory to use for dynamic size of the
-BPF maps that consume most memory in the system: ``cilium_ct_{4,6}_global``,
-``cilium_ct_{4,6}_any``, ``cilium_nodeport_neigh{4,6}``,
-``cilium_snat_v{4,6}_external`` and ``cilium_lb{4,6}_reverse_sk``.
+This flag affects the following BPF maps that consume most memory in the system:
+``cilium_ct_{4,6}_global``, ``cilium_ct_{4,6}_any``,
+``cilium_nodeport_neigh{4,6}``, ``cilium_snat_v{4,6}_external`` and
+``cilium_lb{4,6}_reverse_sk``.
 
 ``kube-proxy`` sets as the maximum number entries in the linux's connection
 tracking table based on the number of cores the machine has. ``kube-proxy`` has
