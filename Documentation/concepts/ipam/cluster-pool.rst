@@ -6,9 +6,9 @@
 
 .. _ipam_crd_cluster_pool:
 
-########################
-Cilium Cluster-pool IPAM
-########################
+#######################
+Cluster Scope (Default)
+#######################
 
 Cilium Cluster-pool IPAM is based on Kubernetes host-scope IPAM, for more info
 see :ref:`k8s_hostscope`. The functionality is the same but the ``PodCIDRs`` are
