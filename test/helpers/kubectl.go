@@ -1977,14 +1977,15 @@ func (kub *Kubectl) WaitCleanAllTerminatingPods(timeout time.Duration) error {
 // given timeout (in seconds) it returns an error
 func (kub *Kubectl) WaitCleanAllTerminatingPodsInNs(ns string, timeout time.Duration) error {
 	body := func() bool {
-		if ns == "" {
-			ns = "--all-namespaces"
+		where := ns
+		if where == "" {
+			where = "--all-namespaces"
 		} else {
-			ns = "-n " + ns
+			where = "-n " + where
 		}
 		res := kub.ExecShort(fmt.Sprintf(
 			"%s get pods %s -o jsonpath='{.items[*].metadata.deletionTimestamp}'",
-			KubectlCmd, ns))
+			KubectlCmd, where))
 		if !res.WasSuccessful() {
 			return false
 		}
