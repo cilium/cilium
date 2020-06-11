@@ -92,6 +92,7 @@ var (
 		"preflight.image":                     "cilium-dev", // Set again in init to match agent.image!
 		"global.tag":                          "latest",
 		"operator.image":                      "operator",
+		"hubble-relay.image.tag":              "latest",
 		"global.debug.enabled":                "true",
 		"global.k8s.requireIPv4PodCIDR":       "true",
 		"global.pprof.enabled":                "true",
