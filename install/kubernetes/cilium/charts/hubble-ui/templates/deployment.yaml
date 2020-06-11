@@ -30,7 +30,7 @@ spec:
             - name: HUBBLE
               value: "true"
             - name: HUBBLE_SERVICE
-              value: "hubble-relay.{{ .Release.Namespace }}.svc.{{ .Values.clusterDomain }}"
+              value: "hubble-relay"
             - name: HUBBLE_PORT
               value: "80"
           ports:
