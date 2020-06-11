@@ -4,16 +4,17 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-.. _concepts_datapath:
+.. _arch_ip_connectivity:
+.. _multi host networking:
 
-********
-Datapath
-********
+**********
+Networking
+**********
 
 .. toctree::
    :maxdepth: 1
    :glob:
 
-   native_routing
-   aws_eni
-   gke
+   routing
+   masquerading
+
