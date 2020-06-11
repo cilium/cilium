@@ -361,6 +361,22 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 		}
 	}
 
+	if sr.Masquerading != nil {
+		var status string
+		if !sr.Masquerading.Enabled {
+			status = "Disabled"
+		} else if sr.Masquerading.Mode == models.MasqueradingModeBPF {
+			if sr.Masquerading.IPMasqAgent {
+				status = "BPF (ip-masq-agent)"
+			} else {
+				status = "BPF"
+			}
+		} else if sr.Masquerading.Mode == models.MasqueradingModeIptables {
+			status = "IPTables"
+		}
+		fmt.Fprintf(w, "Masquerading:\t%s\n", status)
+	}
+
 	if sr.Controllers != nil {
 		nFailing, out := 0, []string{"  Name\tLast success\tLast error\tCount\tMessage\n"}
 		for _, ctrl := range sr.Controllers {

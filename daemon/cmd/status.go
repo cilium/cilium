@@ -108,6 +108,25 @@ func (d *Daemon) getK8sStatus() *models.K8sStatus {
 	return k8sStatus
 }
 
+func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
+	s := &models.Masquerading{
+		Enabled: option.Config.Masquerade,
+	}
+
+	if !option.Config.Masquerade {
+		return s
+	}
+
+	if option.Config.EnableBPFMasquerade {
+		s.Mode = models.MasqueradingModeBPF
+		s.IPMasqAgent = option.Config.EnableIPMasqAgent
+		return s
+	}
+
+	s.Mode = models.MasqueradingModeIptables
+	return s
+}
+
 func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if !k8s.IsEnabled() {
 		return &models.KubeProxyReplacement{Mode: models.KubeProxyReplacementModeDisabled}
@@ -694,6 +713,8 @@ func (d *Daemon) startStatusCollector() {
 		// statically set the field here.
 		d.statusResponse.KubeProxyReplacement = d.getKubeProxyReplacementStatus()
 	}
+
+	d.statusResponse.Masquerading = d.getMasqueradingStatus()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{})
 
