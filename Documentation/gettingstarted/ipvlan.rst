@@ -110,4 +110,4 @@ Verify that it has come up correctly:
     NAME                READY     STATUS    RESTARTS   AGE
     cilium-crf7f        1/1       Running   0          10m
 
-For further information on Cilium's ipvlan datapath mode, see :ref:`arch_guide`.
+For further information on Cilium's ipvlan datapath mode, see :ref:`ebpf_datapath`.
