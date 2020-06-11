@@ -25,5 +25,6 @@ Choose one of the following topics to start reading:
    networking/index
    security/index
    ebpf/index
+   kubernetes/index
    clustermesh/index
    failure_behavior
