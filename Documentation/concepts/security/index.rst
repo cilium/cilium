@@ -17,3 +17,4 @@ Network Security
    intro
    identity
    policyenforcement
+   proxy/index

@@ -54,7 +54,6 @@ The documentation is divided into the following sections:
    kubernetes/index
    istio/index
    docker/index
-   envoy/index
 
 .. toctree::
    :maxdepth: 2
