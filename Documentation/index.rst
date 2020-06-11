@@ -49,18 +49,12 @@ The documentation is divided into the following sections:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Administration
+   :caption: Operations
 
    install/system_requirements
    install/upgrade
-
-.. toctree::
-   :maxdepth: 2
-   :caption: Configuration
-   :glob:
-
    policy/index
-   configuration/*
+   configuration/metrics
    troubleshooting
 
 .. toctree::
