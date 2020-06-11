@@ -6,9 +6,9 @@
 
 .. _concepts_security:
 
-********
-Security
-********
+****************
+Network Security
+****************
 
 Cilium provides security on multiple levels. Each can be used individually or
 combined together.
