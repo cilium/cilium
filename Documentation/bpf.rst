@@ -14,7 +14,7 @@ BPF and XDP Reference Guide
           want to understand BPF and XDP in great technical depth. While
           reading this reference guide may help broaden your understanding of
           Cilium, it is not a requirement to use Cilium. Please refer to the
-          :ref:`gs_guide` and :ref:`arch_guide` for a higher level
+          :ref:`gs_guide` and :ref:`ebpf_datapath` for a higher level
           introduction.
 
 BPF is a highly flexible and efficient virtual machine-like construct in the
@@ -37,7 +37,7 @@ purpose, the instruction set is generic and flexible enough these days that
 there are many use cases for BPF apart from networking. See :ref:`bpf_users`
 for a list of projects which use BPF.
 
-Cilium uses BPF heavily in its data path, see :ref:`arch_guide` for further
+Cilium uses BPF heavily in its data path, see :ref:`ebpf_datapath` for further
 information. The goal of this chapter is to provide a BPF reference guide in
 order to gain understanding of BPF, its networking specific use including loading
 BPF programs with tc (traffic control) and XDP (eXpress Data Path), and to aid

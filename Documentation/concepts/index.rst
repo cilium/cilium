@@ -25,5 +25,6 @@ Choose one of the following topics to start reading:
    ipam/index
    networking/index
    security
+   ebpf/index
    clustermesh/index
    failure_behavior
