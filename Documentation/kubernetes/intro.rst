@@ -48,8 +48,7 @@ network security policies, all Pods can reach each other.
 
 Pod IP addresses are typically local to the Kubernetes cluster. If pods need to
 reach services outside the cluster as a client, the network traffic is
-automatically masqueraded as it leaves the node. You can find additional
-information in the section :ref:`concepts_external_access`.
+automatically masqueraded as it leaves the node.
 
 Service Load-balancing
 ======================
