@@ -100,6 +100,6 @@ networking infrastructure in a completely transparent manner.
 
   .. parsed-literal::
 
-      kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-ui 12000
+      kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-ui 12000:80
 
   and then open http://localhost:12000/.
