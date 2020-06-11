@@ -16,5 +16,6 @@ Networking
    :glob:
 
    routing
+   ipam/index
    masquerading
 
