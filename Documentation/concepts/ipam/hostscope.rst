@@ -7,8 +7,14 @@
 .. _ipam_hostscope:
 
 ####################
-Host Scope (default)
+Host Scope (Legacy)
 ####################
+
+.. note::
+
+   The hostscope IPAM mode has been deprecated and will be removed in Cilium
+   1.10. Please switch to one of the other modes such as Kubernetes Host Scope
+   or the Cluster Scope mode.
 
 The host-scope IPAM mode delegates the address allocation to each individual
 node in the cluster. Each cluster node is assigned an allocation CIDR out of
