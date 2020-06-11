@@ -44,7 +44,7 @@ jobs:
       - name: Build docker images
         run: |
           make docker-image-no-clean
-          make docker-operator-image
+          make docker-operator-generic-image
 
       - name: Prevent K8s from pulling images
         run: |
@@ -58,7 +58,7 @@ jobs:
       - name: Load local images into kind cluster
         run: |
           kind load docker-image --name chart-testing cilium/cilium:latest
-          kind load docker-image --name chart-testing cilium/operator:latest
+          kind load docker-image --name chart-testing cilium/operator-generic:latest
 
       # This test is just to make sure the helm chart can be installed. It will not replace existing integration tests
       - name: Run chart-testing (install)
@@ -77,4 +77,4 @@ jobs:
         run: |
           cd test
           export PATH=$PATH:$HOME/go/bin
-          ginkgo -v --focus="K8sConformance Portmap Chaining Check one node.*" -- -cilium.provision=false -test.v --cilium.kubeconfig=${HOME}/.kube/config -cilium.image=cilium/cilium:latest -cilium.operator-image=cilium/operator:latest
+          ginkgo -v --focus="K8sConformance Portmap Chaining Check one node.*" -- -cilium.provision=false -test.v --cilium.kubeconfig=${HOME}/.kube/config -cilium.image=cilium/cilium:latest -cilium.operator-image=cilium/operator-generic:latest

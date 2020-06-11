@@ -33,7 +33,13 @@ spec:
         - --config-dir=/tmp/cilium/config-map
         - --debug=$(CILIUM_DEBUG)
         command:
-        - cilium-operator
+{{- if .Values.global.eni }}
+        - cilium-operator-aws
+{{- else if .Values.global.azure.enabled }}
+        - cilium-operator-azure
+{{- else }}
+        - cilium-operator-generic
+{{- end }}
         env:
         - name: K8S_NODE_NAME
           valueFrom:
@@ -104,7 +110,13 @@ spec:
 {{- if contains "/" .Values.image }}
         image: "{{ .Values.image }}"
 {{- else }}
-        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
+{{- if .Values.global.eni }}
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}-aws:{{ .Values.global.tag }}"
+{{- else if .Values.global.azure.enabled }}
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}-azure:{{ .Values.global.tag }}"
+{{- else }}
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}-generic:{{ .Values.global.tag }}"
+{{- end }}
 {{- end }}
         imagePullPolicy: {{ .Values.global.pullPolicy }}
         name: cilium-operator

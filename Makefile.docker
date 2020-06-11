@@ -12,9 +12,17 @@ docker-cilium-image-for-developers:
 	     --build-arg LIBNETWORK_PLUGIN=\
 	     -t $(DOCKER_DEV_ACCOUNT)/cilium-dev:latest . -f ./cilium-dev.Dockerfile
 
-docker-image: clean docker-image-no-clean docker-operator-image docker-operator-aws-image docker-operator-azure-image docker-operator-generic-image docker-plugin-image docker-hubble-relay-image
+docker-image: clean docker-image-no-clean docker-plugin-image docker-hubble-relay-image
+	$(MAKE) docker-operator-image
+	$(MAKE) docker-operator-aws-image
+	$(MAKE) docker-operator-azure-image
+	$(MAKE) docker-operator-generic-image
 
-docker-image-unstripped: clean docker-image-no-clean-unstripped docker-operator-image-unstripped docker-operator-aws-image-unstripped docker-operator-azure-image-unstripped docker-operator-generic-image-unstripped docker-plugin-image-unstripped docker-hubble-relay-image-unstripped
+docker-image-unstripped: clean docker-image-no-clean-unstripped docker-plugin-image-unstripped docker-hubble-relay-image-unstripped
+	$(MAKE) docker-operator-image-unstripped
+	$(MAKE) docker-operator-aws-image-unstripped
+	$(MAKE) docker-operator-azure-image-unstripped
+	$(MAKE) docker-operator-generic-image-unstripped
 
 docker-image-no-clean: GIT_VERSION $(CILIUM_DOCKERFILE) build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build -f $(CILIUM_DOCKERFILE) \
