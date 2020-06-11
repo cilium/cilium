@@ -58,7 +58,6 @@ The documentation is divided into the following sections:
    kubernetes/index
    istio/index
    docker/index
-   mesos/index
    envoy/index
 
 .. toctree::

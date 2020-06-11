@@ -90,7 +90,6 @@ Other Orchestrators
    :glob:
 
    docker
-   mesos
 
 The best way to get help if you get stuck is to ask a question on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_.  With Cilium contributors
