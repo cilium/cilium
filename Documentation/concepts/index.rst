@@ -23,7 +23,7 @@ Choose one of the following topics to start reading:
    overview
    terminology
    networking/index
-   security
+   security/index
    ebpf/index
    clustermesh/index
    failure_behavior
