@@ -8,6 +8,6 @@ spec:
     k8s-app: hubble-ui
   ports:
     - name: http
-      port: 12000
+      port: 80
       targetPort: 12000
   type: ClusterIP
