@@ -181,6 +181,25 @@ func (s *SSHMeta) WaitEndpointsDeleted() bool {
 
 }
 
+func (s *SSHMeta) MonitorDebug(on bool, epID string) bool {
+	logger := s.logger.WithFields(logrus.Fields{"functionName": "MonitorDebug"})
+	dbg := "Disabled"
+	mode := ""
+	if on {
+		dbg = "Enabled"
+	}
+	if epID != "" {
+		mode = "endpoint"
+	}
+
+	res := s.ExecCilium(fmt.Sprintf("%s config %s Debug=%s", mode, epID, dbg))
+	if !res.WasSuccessful() {
+		logger.Errorf("cannot set BPF datapath debugging to %s", strings.ToLower(dbg))
+		return false
+	}
+	return true
+}
+
 // WaitEndpointsReady waits up until timeout reached for all endpoints to not be
 // in any regenerating or waiting-for-identity state. Returns true if all
 // endpoints regenerate before HelperTimeout is exceeded, false otherwise.
