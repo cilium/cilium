@@ -250,6 +250,7 @@ Map Name                 Scope            Default Limit   Scale Implications
 ======================== ================ =============== =====================================================
 Connection Tracking      node or endpoint 1M TCP/256k UDP Max 1M concurrent TCP connections, max 256k expected UDP answers
 NAT                      node             512k            Max 512k NAT entries
+Neighbor Table           node             512k            Max 512k neighbor entries
 Endpoints                node             64k             Max 64k local endpoints + host IPs per node
 IP cache                 node             512k            Max 256k endpoints (IPv4+IPv6), max 512k endpoints (IPv4 or IPv6) across all clusters
 Load Balancer            node             64k             Max 64k cumulative backends across all services across all clusters
@@ -263,8 +264,8 @@ Session Affinity         node             64k             Max 64k affinities fro
 For some BPF maps, the upper capacity limit can be overridden using command
 line options for ``cilium-agent``. A given capacity can be set using
 ``--bpf-ct-global-tcp-max``, ``--bpf-ct-global-any-max``,
-``--bpf-nat-global-max``, ``--bpf-policy-map-max``, and
-``--bpf-fragments-map-max``.
+``--bpf-nat-global-max``, ``--bpf-neigh-global-max``, ``--bpf-policy-map-max``,
+and ``--bpf-fragments-map-max``.
 
 Using ``--bpf-map-dynamic-size-ratio`` the upper capacity limits of the
 connection tracking, NAT, and policy maps are determined at agent startup based
