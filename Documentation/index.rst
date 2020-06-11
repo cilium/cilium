@@ -18,9 +18,6 @@ The documentation is divided into the following sections:
   understanding required to run a full Cilium deployment and understand its
   behavior.
 
-* :ref:`arch_guide`: Describes the components of the Cilium architecture and
-  how these components integrate with existing architectures, such as Kubernetes.
-
 * :ref:`gs_install` :  Details instructions for installing, configuring, and
   troubleshooting Cilium in different deployment modes.
 
@@ -48,7 +45,6 @@ The documentation is divided into the following sections:
    intro
    gettingstarted/index
    concepts/index
-   architecture
    gettinghelp
 
 .. toctree::

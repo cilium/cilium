@@ -149,6 +149,8 @@ by adding the following to the helm configuration command line:
      ...
      --set global.enableXTSocketFallback=false
 
+.. _features_kernel_matrix:
+
 Advanced Features and Required Kernel Version
 =============================================
 Cilium requires Linux kernel 4.9.17 or higher, however development on additional
