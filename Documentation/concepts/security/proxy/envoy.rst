@@ -4,16 +4,22 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-*******************
-Envoy Go Extensions
-*******************
+.. _envoy:
+
+=====
+Envoy
+=====
+
+*************
+Go Extensions
+*************
 
 .. note:: This feature is currently in beta phase.
 
 This is a guide for developers who are interested in writing a Go extension to the 
 Envoy proxy as part of Cilium.   
 
-.. image:: images/proxylib_logical_flow.png
+.. image:: _static/proxylib_logical_flow.png
 
 As depicted above, this framework allows a developer to write a small amount of Go
 code (green box) focused on parsing a new API protocol, and this Go code is able to  
@@ -156,7 +162,7 @@ Implementing a parser requires you as the developer to implement three primary f
 shown as blue in the diagram below.   We will cover OnData() in this section, and 
 the other functions in section `Step 9:  Add Policy Loading and Matching`_.  
 
-.. image:: images/proxylib_key_functions.png
+.. image:: _static/proxylib_key_functions.png
 
 The beating heart of your parsing is implementing the onData function.  You can think of any 
 proxy as have two data streams, one in the request direction (i.e., client to server) and one in 
