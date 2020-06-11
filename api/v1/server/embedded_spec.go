@@ -2673,6 +2673,27 @@ func init() {
         "type": "string"
       }
     },
+    "Masquerading": {
+      "description": "Status of masquerading",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is masquerading enabled",
+          "type": "boolean"
+        },
+        "ip-masq-agent": {
+          "description": "Is BPF ip-masq-agent enabled",
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "BPF",
+            "iptables"
+          ]
+        }
+      }
+    },
     "MessageForwardingStatistics": {
       "description": "Statistics of a message forwarding entity",
       "type": "object",
@@ -3240,6 +3261,10 @@ func init() {
         "kvstore": {
           "description": "Status of key/value datastore",
           "$ref": "#/definitions/Status"
+        },
+        "masquerading": {
+          "description": "Status of masquerading",
+          "$ref": "#/definitions/Masquerading"
         },
         "nodeMonitor": {
           "description": "Status of the node monitor",
@@ -6252,6 +6277,27 @@ func init() {
         "type": "string"
       }
     },
+    "Masquerading": {
+      "description": "Status of masquerading",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "description": "Is masquerading enabled",
+          "type": "boolean"
+        },
+        "ip-masq-agent": {
+          "description": "Is BPF ip-masq-agent enabled",
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "BPF",
+            "iptables"
+          ]
+        }
+      }
+    },
     "MessageForwardingStatistics": {
       "description": "Statistics of a message forwarding entity",
       "type": "object",
@@ -6819,6 +6865,10 @@ func init() {
         "kvstore": {
           "description": "Status of key/value datastore",
           "$ref": "#/definitions/Status"
+        },
+        "masquerading": {
+          "description": "Status of masquerading",
+          "$ref": "#/definitions/Masquerading"
         },
         "nodeMonitor": {
           "description": "Status of the node monitor",
