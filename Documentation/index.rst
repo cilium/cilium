@@ -49,12 +49,6 @@ The documentation is divided into the following sections:
 
 .. toctree::
    :maxdepth: 2
-   :caption: Integrations
-
-   docker/index
-
-.. toctree::
-   :maxdepth: 2
    :caption: Administration
 
    install/system_requirements
