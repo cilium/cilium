@@ -16,17 +16,20 @@ package serviceoption
 
 // Options stores all the configuration values for the peer service.
 type Options struct {
-	SendBufferSize int
+	MaxSendBufferSize int
 }
 
 // Option customizes then configuration of the peer service.
 type Option func(o *Options)
 
-// WithSendBufferSize sets the size of the send buffer. When the send buffer is
-// full, for example due to errors in the transport, the server disconnects the
-// corresponding client. The send buffer is per connected client.
-func WithSendBufferSize(size int) Option {
+// WithMaxSendBufferSize sets the maximum size of the send buffer. When the
+// send buffer is full, for example due to errors in the transport, the server
+// disconnects the corresponding client.
+// The maximum buffer size should be large enough to accomodate the burst of
+// peer change notifications than happens on an initial call where all nodes in
+// the cluster are notified as being added.
+func WithMaxSendBufferSize(size int) Option {
 	return func(o *Options) {
-		o.SendBufferSize = size
+		o.MaxSendBufferSize = size
 	}
 }
