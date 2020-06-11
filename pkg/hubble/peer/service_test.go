@@ -346,7 +346,7 @@ func TestService_NotifyWithBlockedSend(t *testing.T) {
 		},
 	}
 	notif := newNotifier(cb, init)
-	svc := NewService(notif, serviceoption.WithSendBufferSize(2))
+	svc := NewService(notif, serviceoption.WithMaxSendBufferSize(2))
 	done := make(chan struct{})
 	go func() {
 		err := svc.Notify(&peerpb.NotifyRequest{}, fakeServer)
