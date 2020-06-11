@@ -10,9 +10,23 @@
 Cluster Scope (Default)
 #######################
 
-Cilium Cluster-pool IPAM is based on Kubernetes host-scope IPAM, for more info
-see :ref:`k8s_hostscope`. The functionality is the same but the ``PodCIDRs`` are
-allocated and managed entirely by Cilium Operator.
+The cluster-scope IPAM mode assigns per-node PodCIDRs to each node and
+allocates IPs using a host-scope allocator on each node. It is thus similar to
+the :ref:`k8s_hostscope` mode. The difference is that instead of Kubernetes
+assigning the per-node PodCIDRs via the Kubernetes ``v1.Node`` resource, the
+Cilium operator will manage the per-node PodCIDRs via the ``v2.CilumNode``
+resource. The advantage of this mode is that it does not depend on Kubernetes
+being configured to hand out per-node PodCIDRs.
+
+************
+Architecture
+************
+
+.. image:: cluster_pool.png
+    :align: center
+
+This is useful if Kubernetes cannot be configured to hand out PodCIDRs or if
+more control is needed.
 
 In this mode, the Cilium agent will wait on startup until the ``PodCIDRs`` range
 are made available via the Cilium Node ``v2.CiliumNode`` object for all enabled
@@ -24,5 +38,15 @@ Field                  Description
 ``Spec.IPAM.PodCIDRs`` IPv4 and/or IPv6 PodCIDR range
 ====================== ==============================
 
-If Cilium Operator can not allocate ``PodCIDRs`` for that node it will keep
-a status message in ``Status.Operator.Error``.
+***************
+Troubleshooting
+***************
+
+Look for allocation errors
+==========================
+
+Check the ``Error`` field in the ``Status.Operator`` field:
+
+.. code:: bash
+
+    kubectl get ciliumnodes -o jsonpath='{range .items[*]}{.metadata.name}{"\t"}{.status.operator.error}{"\n"}{end}'
