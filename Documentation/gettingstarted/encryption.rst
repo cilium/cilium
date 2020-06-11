@@ -81,7 +81,7 @@ to GKE, with VXLAN tunneling:
       --set global.encryption.nodeEncryption=false
 
 At this point the Cilium managed nodes will be using IPsec for all traffic. For further
-information on Cilium's transparent encryption, see :ref:`arch_guide`.
+information on Cilium's transparent encryption, see :ref:`ebpf_datapath`.
 
 Encryption interface
 --------------------
