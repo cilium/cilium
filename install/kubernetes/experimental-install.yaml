@@ -840,7 +840,7 @@ spec:
         - --config-dir=/tmp/cilium/config-map
         - --debug=$(CILIUM_DEBUG)
         command:
-        - cilium-operator
+        - cilium-operator-generic
         env:
         - name: K8S_NODE_NAME
           valueFrom:
@@ -876,7 +876,7 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-        image: "docker.io/cilium/operator:latest"
+        image: "docker.io/cilium/operator-generic:latest"
         imagePullPolicy: Always
         name: cilium-operator
         livenessProbe:
