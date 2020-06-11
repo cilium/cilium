@@ -23,7 +23,7 @@ Choose one of the following topics to start reading:
    overview
    terminology
    ipam/index
-   networking
+   networking/index
    security
-   datapath/index
+   clustermesh/index
    failure_behavior
