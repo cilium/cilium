@@ -802,7 +802,7 @@ spec:
             - name: HUBBLE
               value: "true"
             - name: HUBBLE_SERVICE
-              value: "hubble-relay.kube-system.svc.cluster.local"
+              value: "hubble-relay"
             - name: HUBBLE_PORT
               value: "80"
           ports:
