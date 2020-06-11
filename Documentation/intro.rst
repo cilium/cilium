@@ -6,9 +6,9 @@
 
 .. _intro:
 
-######################
-Introduction to Cilium
-######################
+###############################
+Introduction to Cilium & Hubble
+###############################
 
 What is Cilium?
 ===============
@@ -23,8 +23,66 @@ within Linux itself.  Because BPF runs inside the Linux kernel, Cilium
 security policies can be applied and updated without any changes to the
 application code or container configuration.
 
-Why Cilium?
-===========
+What is Hubble?
+===============
+
+Hubble is a fully distributed networking and security observability platform.
+It is built on top of Cilium and BPF to enable deep visibility into the
+communication and behavior of services as well as the networking infrastructure
+in a completely transparent manner.
+
+By building on top of Cilium, Hubble can leverage BPF for visibility. By
+relying on BPF, all visibility is programmable and allows for a dynamic
+approach that minimizes overhead while providing deep and detailed visibility
+as required by users. Hubble has been created and specifically designed to make
+best use of these new BPF powers.
+
+Hubble can answer questions such as:
+
+Service dependencies & communication map
+----------------------------------------
+
+* What services are communicating with each other? How frequently? What does
+  the service dependency graph look like?
+* What HTTP calls are being made? What Kafka topics does a service consume from
+  or produce to?
+
+Network monitoring & alerting
+-----------------------------
+
+* Is any network communication failing? Why is communication failing? Is it
+  DNS? Is it an application or network problem? Is the communication broken on
+  layer 4 (TCP) or layer 7 (HTTP)?
+* Which services have experienced a DNS resolution problem in the last 5
+  minutes? Which services have experienced an interrupted TCP connection
+  recently or have seen connections timing out? What is the rate of unanswered
+  TCP SYN requests?
+
+Application monitoring
+----------------------
+
+* What is the rate of 5xx or 4xx HTTP response codes for a particular service
+  or across all clusters?
+* What is the 95th and 99th percentile latency between HTTP requests and
+  responses in my cluster? Which services are performing the worst? What is the
+  latency between two services?
+
+Security observability
+----------------------
+
+* Which services had connections blocked due to network policy? What services
+  have been accessed from outside the cluster? Which services have resolved a
+  particular DNS name?
+
+Why Cilium & Hubble?
+====================
+
+BPF is enabling visibility into and control over systems and applications at a
+granularity and efficiency that was not possible before. It does so in a
+completely transparent way, without requiring the application to change in any
+way. BPF is equally well-equipped to handle modern containerized workloads as
+well as more traditional workloads such as virtual machines and standard Linux
+processes.
 
 The development of modern datacenter applications has shifted to a
 service-oriented architecture often referred to as *microservices*, wherein a
