@@ -52,7 +52,6 @@ The documentation is divided into the following sections:
    :caption: Administration
 
    install/system_requirements
-   scalability/scalability
    install/upgrade
 
 .. toctree::
