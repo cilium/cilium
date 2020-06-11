@@ -33,6 +33,7 @@ networking infrastructure in a completely transparent manner.
 
            helm upgrade cilium |CHART_RELEASE| \\
               --namespace $CILIUM_NAMESPACE \\
+              --reuse-values \\
               --set global.hubble.enabled=true \\
               --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
 
@@ -56,6 +57,7 @@ networking infrastructure in a completely transparent manner.
 
            helm upgrade cilium |CHART_RELEASE| \\
               --namespace $CILIUM_NAMESPACE \\
+              --reuse-values \\
               --set global.hubble.enabled=true \\
               --set global.hubble.listenAddress=":4244" \\
               --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}" \\
