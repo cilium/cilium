@@ -1571,6 +1571,9 @@ definitions:
       proxy:
         description: Status of proxy
         "$ref": "#/definitions/ProxyStatus"
+      masquerading:
+        description: Status of masquerading
+        "$ref": "#/definitions/Masquerading"
       stale:
         description: List of stale information in the status
         type: object
@@ -2266,6 +2269,21 @@ definitions:
       forwarded:
         description: Number of messages forwarded
         type: integer
+  Masquerading:
+    description: Status of masquerading
+    type: object
+    properties:
+      enabled:
+        description: Is masquerading enabled
+        type: boolean
+      mode:
+        type: string
+        enum:
+        - BPF
+        - iptables
+      ip-masq-agent:
+        description: Is BPF ip-masq-agent enabled
+        type: boolean
   ControllerStatuses:
     description: Collection of controller statuses
     type: array
