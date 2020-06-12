@@ -7,6 +7,8 @@ agent:
   sleepAfterInit: false
   # Keep the deprecated selector labels when deploying Cilium DaemonSet
   keepDeprecatedLabels: false
+  # Keep the deprecated probes when deploying Cilium DaemonSet
+  keepDeprecatedProbes: false
 
 # Include the cilium-config ConfigMap
 config:
