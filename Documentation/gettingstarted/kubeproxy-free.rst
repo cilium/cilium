@@ -132,7 +132,7 @@ the Cilium agent is running in the desired mode:
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-fmh8d -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict	(eth0)	[NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    KubeProxyReplacement:   Strict	[eth0 (DR), eth1]	[NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
 
 As a next, optional step, we deploy nginx pods, create a new NodePort service and
 validate that Cilium installed the service correctly.
@@ -186,8 +186,8 @@ Verify that the NodePort service has been created:
     my-nginx   NodePort   10.104.239.135   <none>        80:31940/TCP   24m
 
 With the help of the ``cilium service list`` command, we can validate that
-Cilium's BPF kube-proxy replacement created the new NodePort service under
-port ``31940``:
+Cilium's BPF kube-proxy replacement created the new NodePort services under
+port ``31940`` (one per ``eth0`` and ``eth1`` devices):
 
 .. parsed-literal::
 
@@ -199,6 +199,8 @@ port ``31940``:
     5    0.0.0.0:31940          NodePort       1 => 10.217.0.107:80       
                                                2 => 10.217.0.149:80       
     6    192.168.178.29:31940   NodePort       1 => 10.217.0.107:80       
+                                               2 => 10.217.0.149:80       
+    7    172.16.0.29:31940      NodePort       1 => 10.217.0.107:80       
                                                2 => 10.217.0.149:80       
 
 At the same time we can inspect through ``iptables`` in the host namespace
@@ -219,6 +221,24 @@ NodePort port ``31940`` as well as for the ClusterIP:
     <html>
     <head>
     <title>Welcome to nginx!</title>
+    [....]
+
+.. parsed-literal::
+
+    curl 192.168.178.29:31940
+    <!doctype html>
+    <html>
+    <head>
+    <title>welcome to nginx!</title>
+    [....]
+
+.. parsed-literal::
+
+    curl 172.16.0.29:31940
+    <!doctype html>
+    <html>
+    <head>
+    <title>welcome to nginx!</title>
     [....]
 
 .. parsed-literal::
@@ -316,20 +336,24 @@ mode would look as follows:
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
 
+.. _XDP acceleration:
+
 NodePort XDP Acceleration
 *************************
 
-Cilium has built-in support for accelerating NodePort, ExternalIPs and LoadBalancer
-services for the case where the arriving request needs to be pushed back out of the
-node when the backend is located on a remote node. This ability to act as a hairpin
-load balancer can be handled by Cilium at the XDP (eXpress Data Path) layer where BPF
-is operating directly in the networking driver instead of a higher layer.
+Cilium has built-in support for accelerating NodePort, LoadBalancer services and
+services with externalIPs for the case where the arriving request needs to be
+pushed back out of the node when the backend is located on a remote node. This
+ability to act as a hairpin load balancer can be handled by Cilium at the XDP
+(eXpress Data Path) layer where BPF is operating directly in the networking driver
+instead of a higher layer.
 
 The mode setting ``global.nodePort.acceleration`` allows to enable this acceleration
 through the option ``native``. The option ``disabled`` is the default and disables the
 acceleration. The majority of drivers supporting 10G or higher rates also support
 ``native`` XDP on a recent kernel. For cloud based deployments most of these drivers
-have SR-IOV variants that support native XDP as well.
+have SR-IOV variants that support native XDP as well. The acceleration can be
+enabled only on a single device which is used for direct routing.
 
 The ``global.nodePort.acceleration`` setting is supported for DSR, SNAT and hybrid
 modes and can be enabled as follows for ``nodePort.mode=hybrid`` in this example:
@@ -404,20 +428,37 @@ is shown:
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict   [NodePort (SNAT, 30000-32767, XDP: NATIVE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    KubeProxyReplacement:   Strict  [eth0 (DR), eth1] [NodePort (SNAT, 30000-32767, XDP: NATIVE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+
+In the example above, the NodePort XDP acceleration is enabled on the ``eth0`` device,
+because it used for direct routing (``DR``).
 
 Note that packets which have been pushed back out of the device for NodePort handling
 right at the XDP layer are not visible in tcpdump since packet taps come at a much
 later stage in the networking stack. Cilium's monitor or metric counters can be used
 instead for gaining visibility.
 
-NodePort Device, Port and Bind settings
-***************************************
+NodePort Devices, Port and Bind settings
+****************************************
 
 When running Cilium's BPF kube-proxy replacement, by default, a NodePort or
-ExternalIPs service will be accessible through the IP address of a native device
-which has the default route on the host. To change the device, set its name in
-the ``global.devices`` helm option.
+LoadBalancer service or a service with externalIPs will be accessible through
+the IP addresses of native devices which have the default route on the host or
+have Kubernetes InternalIP or ExternalIP assigned. InternalIP is preferred over
+ExternalIP if both exist. To change the devices, set their names in the
+``global.devices`` helm option, e.g. ``global.devices={eth0,eth1,eth2}``. Each
+listed device has to be named the same on all Cilium managed nodes.
+
+When multiple devices are used, only one device can be used for direct routing
+between Cilium nodes. By default, if a single device was detected or specified
+via ``global.devices`` then Cilium will use that device for direct routing.
+Otherwise, Cilium will use a device with Kubernetes InternalIP or ExternalIP
+being set. InternalIP is preferred over ExternalIP if both exist. To change
+the direct routing device, set the ``global.nodePort.directRoutingDevice`` helm
+option, e.g. ``global.nodePort.directRoutingDevice=eth1``. If the direct
+routing device does not exist within ``global.devices``, Cilium will add the
+device to the latter list. The direct routing device is used for
+:ref:`the NodePort XDP acceleration<XDP Acceleration>` as well (if enabled).
 
 In addition, thanks to the :ref:`host-services` feature, the NodePort service can
 be accessed by default from a host or a pod within a cluster via its public, any
@@ -426,7 +467,7 @@ local (except for ``docker*`` prefixed names) or loopback address, e.g.
 
 If ``kube-apiserver`` was configured to use a non-default NodePort port range,
 then the same range must be passed to Cilium via the ``global.nodePort.range``
-option, for example, as ``--set global.nodePort.range="10000\,32767"`` for a
+option, for example, as ``global.nodePort.range="10000\,32767"`` for a
 range of ``10000-32767``. The default Kubernetes NodePort range is ``30000-32767``.
 
 If the NodePort port range overlaps with the ephemeral port range
@@ -655,7 +696,7 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict	(eth0)	[NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    KubeProxyReplacement:   Strict	[eth0 (DR)]	[NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
 
 Session Affinity
 ****************
