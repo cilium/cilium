@@ -179,7 +179,9 @@ Kubernetes resources are updated accordingly to version you are upgrading to:
    Make sure that you are using the same options as for the initial deployment.
    Instead of using ``--set``, you can also modify the ``values.yaml`` in
    ``install/kubernetes/cilium/values.yaml`` and use it to regenerate the YAML
-   for the latest version.
+   for the latest version. Running any of the previous commands will overwrite
+   the existing cluster's `ConfigMap` which might not be ideal if you want to
+   keep your existing `ConfigMap`.
 
 Step 2: Option B: Preserve ConfigMap
 ------------------------------------
@@ -209,21 +211,16 @@ configuration options for each minor version.
 
   .. group-tab:: Helm
 
-    Deploy Cilium release via Helm:
-
-    .. parsed-literal::
-
-      helm upgrade cilium |CHART_RELEASE| \\
-        --namespace=kube-system \\
-        --set config.enabled=false
+    Keeping an existing `ConfigMap` with ``helm upgrade`` is currently not
+    supported.
 
 .. note::
 
    The above variant can not be used in combination with ``--set`` or providing
    ``values.yaml`` because all options are fed into the DaemonSets and
    Deployments using the `ConfigMap` which is not generated if
-   ``config.enabled=false`` is set. The above command *only* generates the
-   DaemonSet, Deployment and RBAC definitions.
+   ``config.enabled=false`` or ``config.keepCurrent=true`` are set. The above
+   command *only* generates the DaemonSet, Deployment and RBAC definitions.
 
 Step 3: Rolling Back
 --------------------
@@ -327,6 +324,48 @@ IMPORTANT: Changes required before upgrading to 1.8.0
 
    Do not upgrade to 1.8.0 before reading the following section and completing
    the required steps.
+
+* The ``cilium-agent`` container ``liveness`` and ``readiness`` probes have been
+  replaced with a ``httpGet`` instead of an ``exec`` probe. Unfortunately,
+  upgrading using ``kubectl apply`` does not work since the merge strategy done
+  by Kubernetes does not remove the old probe when replacing with a new one.
+  This causes ``kubectl apply`` command to return an error such as:
+
+::
+
+  The DaemonSet "cilium" is invalid:
+  * spec.template.spec.containers[0].livenessProbe.httpGet: Forbidden: may not specify more than 1 handler type
+  * spec.template.spec.containers[0].readinessProbe.httpGet: Forbidden: may not specify more than 1 handler type
+
+  Existing users must either choose to keep the ``exec`` probe in the
+  `DaemonSet` specification to safely upgrade or re-create the Cilium `DaemonSet`
+  without the deprecated probe. It is advisable to keep the probe when doing
+  an upgrade from ``v1.7.x`` to ``v1.8.x`` in the event of having to do a
+  downgrade. The removal of this probe should be done after a successful
+  upgrade.
+
+  The helm option ``agent.keepDeprecatedProbes=true`` will keep the
+  ``exec`` probe in the new `DaemonSet`:
+
+.. tabs::
+  .. group-tab:: kubectl
+
+    .. parsed-literal::
+
+      helm template cilium \
+      --namespace=kube-system \
+      ...
+      --set agent.keepDeprecatedProbes=true \
+      ...
+      > cilium.yaml
+      kubectl apply -f cilium.yaml
+
+  .. group-tab:: Helm
+
+    .. parsed-literal::
+
+      helm upgrade cilium --namespace=kube-system \
+      --set agent.keepDeprecatedProbes=true
 
 * **Important:** The masquerading behavior has changed, depending on how you
   have configured masquerading you need to take action to avoid potential

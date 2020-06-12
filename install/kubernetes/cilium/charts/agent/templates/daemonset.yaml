@@ -55,6 +55,13 @@ spec:
         command:
         - cilium-agent
         livenessProbe:
+{{- if .Values.keepDeprecatedProbes }}
+          exec:
+            command:
+            - cilium
+            - status
+            - --brief
+{{- else }}
           httpGet:
             host: '127.0.0.1'
             path: /healthz
@@ -63,6 +70,7 @@ spec:
             httpHeaders:
             - name: "brief"
               value: "true"
+{{- end }}
           failureThreshold: 10
           # The initial delay for the liveness probe is intentionally large to
           # avoid an endless kill & restart cycle if in the event that the initial
@@ -72,6 +80,13 @@ spec:
           successThreshold: 1
           timeoutSeconds: 5
         readinessProbe:
+{{- if .Values.keepDeprecatedProbes }}
+          exec:
+            command:
+            - cilium
+            - status
+            - --brief
+{{- else }}
           httpGet:
             host: '127.0.0.1'
             path: /healthz
@@ -80,6 +95,7 @@ spec:
             httpHeaders:
             - name: "brief"
               value: "true"
+{{- end }}
           failureThreshold: 3
           initialDelaySeconds: 5
           periodSeconds: 30
