@@ -429,7 +429,9 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	// retrieving Node object for self is needed by BPF NodePort device selection,
 	// and the k8s watcher depends on option.Config.EnableNodePort flag which
 	// can be modified by the initialization routine.
-	initKubeProxyReplacementOptions()
+	strict := initKubeProxyReplacementOptions()
+	detectDevicesForNodePortAndHostFirewall(strict)
+	finishKubeProxyReplacementInit()
 	if option.Config.EnableNodePort {
 		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
 			log.WithError(err).Fatal("Failed to initialize NodePort addrs")
