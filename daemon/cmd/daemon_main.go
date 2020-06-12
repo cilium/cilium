@@ -1749,7 +1749,8 @@ func initKubeProxyReplacementOptions() (strict bool) {
 // detectDevicesForNodePortAndHostFirewall tries to detect bpf_host devices
 // (if needed).
 func detectDevicesForNodePortAndHostFirewall(strict bool) {
-	detectNodePortDevs := option.Config.EnableNodePort && len(option.Config.Devices) == 0
+	detectNodePortDevs := len(option.Config.Devices) == 0 &&
+		(option.Config.EnableNodePort || option.Config.EnableHostFirewall)
 	detectDirectRoutingDev := option.Config.EnableNodePort &&
 		option.Config.DirectRoutingDevice == ""
 	if detectNodePortDevs || detectDirectRoutingDev {
@@ -1901,7 +1902,9 @@ func detectDevices(detectNodePortDevs, detectDirectRoutingDev bool) error {
 			}
 		}
 	}
-	devSet[option.Config.DirectRoutingDevice] = struct{}{}
+	if option.Config.DirectRoutingDevice != "" {
+		devSet[option.Config.DirectRoutingDevice] = struct{}{}
+	}
 
 	option.Config.Devices = make([]string, 0, len(devSet))
 	for dev := range devSet {
