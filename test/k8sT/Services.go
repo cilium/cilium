@@ -1412,7 +1412,9 @@ var _ = Describe("K8sServicesTest", func() {
 			})
 
 		// Net-next and not old versions, because of LRU requirement.
-		SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "Supports IPv4 fragments", func() {
+		// Should also run on 4.19, but it flakes a lot, see #10929.
+		// TODO: Re-enable on 4.19 after GH#11915.
+		SkipItIf(helpers.DoesNotRunOnNetNextKernel, "Supports IPv4 fragments", func() {
 			DeployCiliumAndDNS(kubectl, ciliumFilename)
 			testIPv4FragmentSupport()
 		})
