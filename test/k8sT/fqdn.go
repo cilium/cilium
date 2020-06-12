@@ -48,24 +48,27 @@ var _ = Describe("K8sFQDNTest", func() {
 		// In case the IPs changed from above, update them here
 		var lookupErr error
 		err := helpers.WithTimeout(func() bool {
-			var addrs []string
-			addrs, lookupErr = net.LookupHost("vagrant-cache.ci.cilium.io")
-			if lookupErr != nil {
-				lookupErr = fmt.Errorf("error looking up vagrant-cache.ci.cilium.io: %s", lookupErr)
+			addrs, err2 := net.LookupHost("vagrant-cache.ci.cilium.io")
+			if err2 != nil {
+				lookupErr = fmt.Errorf("error looking up vagrant-cache.ci.cilium.io: %s", err2)
 				return false
 			}
 			worldTargetIP = addrs[0]
+			return true
+		}, "Could not get vagrant-cache.ci.cilium.io IP", &helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
+		Expect(err).Should(BeNil(), "Error obtaining IP for test: %s", lookupErr)
 
-			addrs, lookupErr = net.LookupHost("jenkins.cilium.io")
-			if lookupErr != nil {
-				lookupErr = fmt.Errorf("error looking up jenkins.cilium.io: %s", lookupErr)
+		lookupErr = nil
+		err = helpers.WithTimeout(func() bool {
+			addrs, err2 := net.LookupHost("jenkins.cilium.io")
+			if err2 != nil {
+				lookupErr = fmt.Errorf("error looking up jenkins.cilium.io: %s", err2)
 				return false
 			}
 			worldInvalidTargetIP = addrs[0]
-
 			return true
-		}, "Could not get vagrant-cache.ci.cilium.io and jenkins.cilium.io IPs", &helpers.TimeoutConfig{Timeout: helpers.MidCommandTimeout})
-		Expect(err).Should(BeNil(), "Error obtaining IPs for test: %s", lookupErr)
+		}, "Could not get jenkins.cilium.io IP", &helpers.TimeoutConfig{Timeout: helpers.HelperTimeout})
+		Expect(err).Should(BeNil(), "Error obtaining IP for test: %s", lookupErr)
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoManifest = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
