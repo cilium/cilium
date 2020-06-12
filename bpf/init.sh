@@ -281,7 +281,6 @@ function bpf_compile()
 	      -I. -I$DIR -I$LIB -I$LIB/include			\
 	      -D__NR_CPUS__=$NR_CPUS				\
 	      -DENABLE_ARP_RESPONDER=1				\
-	      -DHANDLE_NS=1					\
 	      $EXTRA_OPTS					\
 	      -c $LIB/$IN -o - |				\
 	llc -march=bpf -mcpu=$MCPU -mattr=dwarfris -filetype=$TYPE -o $OUT
