@@ -13,6 +13,24 @@ then
 	exit
 fi
 
+BARK_PATH="${BARK_PATH:-/usr/share/sounds/freedesktop/stereo/bell.oga}"
+name=$(uname)
+notify() {
+	set +e
+	notify-send "$1" "$2"
+	set -e
+
+	for run in {1..5}
+	do
+		if [ "$name" == "Linux" ]; then
+			paplay ${BARK_PATH}
+		else
+			# for osx
+			afplay /System/Library/Sounds/Ping.aiff
+		fi
+	done
+}
+
 PR_ID=$1
 
 statuses=$(curl -s https://api.github.com/repos/cilium/cilium/pulls/${PR_ID} | jq -r '._links.statuses.href')
@@ -33,15 +51,4 @@ for base_url in "${jenkins_urls[@]}"; do
 	echo "See $base_url for more details."
 done
 
-BARK_PATH="${BARK_PATH:-/usr/share/sounds/freedesktop/stereo/bell.oga}"
-
-name=$(uname)
-for run in {1..5}
-do
-	if [ "$name" == "Linux" ]; then
-		paplay ${BARK_PATH}
-	else
-		# for osx
-		afplay /System/Library/Sounds/Ping.aiff
-	fi
-done
+notify "PR $PR_ID checks terminated" "Result: $result\nSee $base_url for more details."
