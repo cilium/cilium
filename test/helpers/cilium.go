@@ -321,7 +321,12 @@ func (s *SSHMeta) GetEndpointsIds() (map[string]string, error) {
 	if !endpoints.WasSuccessful() {
 		return nil, fmt.Errorf("%q failed: %s", cmd, endpoints.CombineOutput())
 	}
-	return endpoints.KVOutput(), nil
+
+	// Special case the host endpoint: GH-12037
+	result := endpoints.KVOutput()
+	delete(result, "")
+
+	return result, nil
 }
 
 // GetEndpointsIdentityIds returns a mapping of a Docker container name to it's
