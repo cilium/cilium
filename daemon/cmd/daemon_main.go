@@ -1817,7 +1817,7 @@ func initKubeProxyReplacementOptions() {
 			// and the client IP is reachable via other device than the direct
 			// routing one.
 
-			iface := option.Config.Devices[0] // direct routing interface
+			iface := option.Config.DirectRoutingDevice
 			if val, err := sysctl.Read(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface)); err != nil {
 				log.Warnf("Unable to read net.ipv4.conf.%s.rp_filter: %s. Ignoring the check",
 					iface, err)
