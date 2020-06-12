@@ -9,6 +9,9 @@ GOPATH="/home/vagrant/go"
 REGISTRY="k8s1:5000"
 CILIUM_TAG="cilium/cilium-dev"
 CILIUM_OPERATOR_TAG="cilium/operator"
+CILIUM_OPERATOR_GENERIC_TAG="cilium/operator-generic"
+CILIUM_OPERATOR_AWS_TAG="cilium/operator-aws"
+CILIUM_OPERATOR_AZURE_TAG="cilium/operator-azure"
 HUBBLE_RELAY_TAG="cilium/hubble-relay"
 
 DIR=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
@@ -46,12 +49,33 @@ then
       if [[ "${CILIUM_OPERATOR_IMAGE}" == "" ]]; then
         echo "building cilium-operator image..."
         make LOCKDEBUG=1 docker-operator-image
-        echo "tagging cilium-operator image..."
+        echo "building cilium-operator-aws image..."
+        make -B LOCKDEBUG=1 docker-operator-aws-image
+        echo "building cilium-operator-azure image..."
+        make -B LOCKDEBUG=1 docker-operator-azure-image
+        echo "building cilium-operator-generic image..."
+        make -B LOCKDEBUG=1 docker-operator-generic-image
+        echo "tagging cilium-operator images..."
         docker tag "${CILIUM_OPERATOR_TAG}" "${REGISTRY}/${CILIUM_OPERATOR_TAG}"
+        docker tag "${CILIUM_OPERATOR_AWS_TAG}" "${REGISTRY}/${CILIUM_OPERATOR_AWS_TAG}"
+        docker tag "${CILIUM_OPERATOR_AZURE_TAG}" "${REGISTRY}/${CILIUM_OPERATOR_AZURE_TAG}"
+        docker tag "${CILIUM_OPERATOR_GENERIC_TAG}" "${REGISTRY}/${CILIUM_OPERATOR_GENERIC_TAG}"
         echo "pushing cilium/operator image to ${REGISTRY}/${CILIUM_OPERATOR_TAG}..."
         docker push "${REGISTRY}/${CILIUM_OPERATOR_TAG}"
+        echo "pushing cilium/operator-aws image to ${REGISTRY}/${CILIUM_OPERATOR_AWS_TAG}..."
+        docker push "${REGISTRY}/${CILIUM_OPERATOR_AWS_TAG}"
+        echo "pushing cilium/operator-azure image to ${REGISTRY}/${CILIUM_OPERATOR_AZURE_TAG}..."
+        docker push "${REGISTRY}/${CILIUM_OPERATOR_AZURE_TAG}"
+        echo "pushing cilium/operator-generic image to ${REGISTRY}/${CILIUM_OPERATOR_GENERIC_TAG}..."
+        docker push "${REGISTRY}/${CILIUM_OPERATOR_GENERIC_TAG}"
         echo "removing local cilium-operator image..."
         docker rmi "${CILIUM_OPERATOR_TAG}:latest"
+        echo "removing local cilium-operator image..."
+        docker rmi "${CILIUM_OPERATOR_AWS_TAG}:latest"
+        echo "removing local cilium-operator image..."
+        docker rmi "${CILIUM_OPERATOR_AZURE_TAG}:latest"
+        echo "removing local cilium-operator image..."
+        docker rmi "${CILIUM_OPERATOR_GENERIC_TAG}:latest"
       else
         pull_image_and_push_to_local_registry "${CILIUM_OPERATOR_IMAGE}" "${REGISTRY}" "${CILIUM_OPERATOR_TAG}"
       fi
