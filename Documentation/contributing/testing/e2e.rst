@@ -513,7 +513,7 @@ cluster.
 
 ::
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-generic:latest" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=eks K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-aws:latest" -cilium.passCLIEnvironment=true
 
 Be sure to pass ``--cilium.passCLIEnvironment=true`` to allow kubectl to invoke ``aws-iam-authenticator``
 
