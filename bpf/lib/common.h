@@ -349,6 +349,7 @@ enum {
 #define DROP_NAT_NOT_NEEDED	-173 /* Mapped as drop code, though drop not necessary. */
 #define DROP_IS_CLUSTER_IP	-174
 #define DROP_FRAG_NOT_FOUND	-175
+#define DROP_FORBIDDEN_ICMP6	-176
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 

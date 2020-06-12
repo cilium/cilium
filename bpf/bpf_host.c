@@ -329,11 +329,10 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
-	int ret, l3_off = ETH_HLEN, hdrlen;
 	__u32 __maybe_unused remoteID = WORLD_ID;
+	int ret, l3_off = ETH_HLEN, hdrlen;
 	bool skip_redirect = false;
 	struct endpoint_info *ep;
-	__u8 nexthdr;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
@@ -360,18 +359,18 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	}
 #endif /* ENABLE_NODEPORT */
 
-	nexthdr = ip6->nexthdr;
-	hdrlen = ipv6_hdrlen(ctx, l3_off, &nexthdr);
-	if (hdrlen < 0)
-		return hdrlen;
+	if (!skip_redirect) {
+		__u8 nexthdr = ip6->nexthdr;
+		hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &nexthdr);
+		if (hdrlen < 0)
+			return hdrlen;
 
-#ifdef HANDLE_NS
-	if (!skip_redirect && unlikely(nexthdr == IPPROTO_ICMPV6)) {
-		ret = icmp6_handle(ctx, ETH_HLEN, ip6, METRIC_INGRESS);
-		if (IS_ERR(ret))
-			return ret;
+		if (likely(nexthdr == IPPROTO_ICMPV6)) {
+			ret = icmp6_host_handle(ctx);
+			if (IS_ERR(ret))
+				return ret;
+		}
 	}
-#endif
 
 	if (from_host && !skip_redirect) {
 		/* If we are attached to cilium_host at egress, this will
@@ -491,6 +490,37 @@ int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv6(ctx, false);
 }
+
+# ifdef ENABLE_HOST_FIREWALL
+static __always_inline int
+handle_to_netdev_ipv6(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+	int hdrlen, ret;
+	__u32 srcID = 0;
+	__u8 nexthdr;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	if (likely(nexthdr == IPPROTO_ICMPV6)) {
+		ret = icmp6_host_handle(ctx);
+		if (IS_ERR(ret))
+			return ret;
+	}
+
+	/* to-netdev is attached to the egress path of the native
+	 * device. */
+	srcID = ipcache_lookup_srcid6(ctx);
+	return ipv6_host_policy_egress(ctx, srcID);
+}
+# endif
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
@@ -1223,10 +1253,7 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		/* to-netdev is attached to the egress path of the native
-		 * device. */
-		srcID = ipcache_lookup_srcid6(ctx);
-		ret = ipv6_host_policy_egress(ctx, srcID);
+		ret = handle_to_netdev_ipv6(ctx);
 		break;
 # endif
 # ifdef ENABLE_IPV4
