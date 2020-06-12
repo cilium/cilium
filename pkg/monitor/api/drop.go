@@ -77,6 +77,7 @@ var errors = map[uint8]string{
 	173: "NAT not needed",
 	174: "Is a ClusterIP",
 	175: "First logical datagram fragment not found",
+	176: "Forbidden ICMPv6 message",
 }
 
 // DropReason prints the drop reason in a human readable string
