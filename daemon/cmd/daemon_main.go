@@ -1572,9 +1572,7 @@ func initKubeProxyReplacementOptions() {
 			option.EnableExternalIPs, option.EnableHostReachableServices,
 			option.EnableHostPort)
 
-		option.Config.EnableHostPort = false
-		option.Config.EnableNodePort = false
-		option.Config.EnableExternalIPs = false
+		disableNodePort()
 		option.Config.EnableHostReachableServices = false
 		option.Config.EnableHostServicesTCP = false
 		option.Config.EnableHostServicesUDP = false
@@ -1607,14 +1605,12 @@ func initKubeProxyReplacementOptions() {
 
 	if option.Config.EnableNodePort {
 		if option.Config.EnableIPSec {
-			msg := "IPSec cannot be used with NodePort BPF."
+			msg := "IPSec cannot be used with BPF NodePort."
 			if strict {
 				log.Fatal(msg)
 			} else {
-				option.Config.EnableHostPort = false
-				option.Config.EnableNodePort = false
-				option.Config.EnableExternalIPs = false
-				log.Warn(msg + " Disabling the feature.")
+				disableNodePort()
+				log.Warn(msg + " Disabling BPF NodePort feature.")
 			}
 		}
 
@@ -1647,10 +1643,8 @@ func initKubeProxyReplacementOptions() {
 			if strict {
 				log.Fatal(msg)
 			} else {
-				log.Warn(msg + " Disabling the feature.")
-				option.Config.EnableHostPort = false
-				option.Config.EnableNodePort = false
-				option.Config.EnableExternalIPs = false
+				disableNodePort()
+				log.Warn(msg + " Disabling BPF NodePort.")
 			}
 		}
 
@@ -1658,10 +1652,8 @@ func initKubeProxyReplacementOptions() {
 			if strict {
 				log.Fatal(err)
 			} else {
-				log.Warn(fmt.Sprintf("%s Disabling the feature.", err))
-				option.Config.EnableHostPort = false
-				option.Config.EnableNodePort = false
-				option.Config.EnableExternalIPs = false
+				disableNodePort()
+				log.Warn(fmt.Sprintf("%s. Disabling BPF NodePort.", err))
 			}
 		}
 	}
@@ -1671,14 +1663,12 @@ func initKubeProxyReplacementOptions() {
 		option.Config.DirectRoutingDevice == ""
 	if detectNodePortDevs || detectDirectRoutingDev {
 		if err := detectDevices(detectNodePortDevs, detectDirectRoutingDev); err != nil {
-			msg := "Unable to detect devices for BPF NodePort"
+			msg := "Unable to detect devices for BPF NodePort."
 			if strict {
 				log.WithError(err).Fatal(msg)
 			} else {
-				log.WithError(err).Warn(msg + " Disabling BPF NodePort feature.")
-				option.Config.EnableHostPort = false
-				option.Config.EnableNodePort = false
-				option.Config.EnableExternalIPs = false
+				disableNodePort()
+				log.WithError(err).Warn(msg + " Disabling BPF NodePort.")
 			}
 		} else {
 			l := log
@@ -1797,9 +1787,10 @@ func initKubeProxyReplacementOptions() {
 	}
 
 	if !option.Config.EnableNodePort {
-		option.Config.EnableHostPort = false
-		option.Config.EnableExternalIPs = false
-	} else {
+		disableNodePort()
+	}
+
+	if option.Config.EnableNodePort {
 		if option.Config.Tunnel != option.TunnelDisabled &&
 			option.Config.NodePortMode != option.NodePortModeSNAT {
 
@@ -1840,6 +1831,14 @@ func initKubeProxyReplacementOptions() {
 				"will be selected from all network namespaces on the host.")
 		}
 	}
+}
+
+// disableNodePort disables BPF NodePort and friends who are dependent from
+// the latter.
+func disableNodePort() {
+	option.Config.EnableNodePort = false
+	option.Config.EnableHostPort = false
+	option.Config.EnableExternalIPs = false
 }
 
 // detectDevices tries to detect device names which are going to be used for
