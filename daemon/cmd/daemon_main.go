@@ -1658,6 +1658,91 @@ func initKubeProxyReplacementOptions() {
 		}
 	}
 
+	if option.Config.EnableHostReachableServices {
+		// Try to auto-load IPv6 module if it hasn't been done yet as there can
+		// be v4-in-v6 connections even if the agent has v6 support disabled.
+		probe.HaveIPv6Support()
+
+		option.Config.EnableHostServicesPeer = true
+		if option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_GETPEERNAME) != nil ||
+			option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_GETPEERNAME) != nil {
+			option.Config.EnableHostServicesPeer = false
+		}
+
+		if option.Config.EnableHostServicesTCP &&
+			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT) != nil ||
+				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT) != nil) {
+			msg := "BPF host reachable services for TCP needs kernel 4.17.0 or newer."
+			if strict {
+				log.Fatal(msg)
+			} else {
+				option.Config.EnableHostServicesTCP = false
+				log.Warn(msg + " Disabling the feature.")
+			}
+		}
+		if option.Config.EnableHostServicesUDP &&
+			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG) != nil ||
+				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
+			msg := fmt.Sprintf("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --%s=tcp and --%s=%s", option.HostReachableServicesProtos, option.KubeProxyReplacement, option.KubeProxyReplacementPartial)
+			if strict {
+				log.Fatal(msg)
+			} else {
+				option.Config.EnableHostServicesUDP = false
+				log.Warn(msg + " Disabling the feature.")
+			}
+		}
+		if !option.Config.EnableHostServicesTCP && !option.Config.EnableHostServicesUDP {
+			option.Config.EnableHostReachableServices = false
+		}
+	} else {
+		option.Config.EnableHostServicesTCP = false
+		option.Config.EnableHostServicesUDP = false
+	}
+
+	if option.Config.EnableSessionAffinity {
+		if !probesManager.GetMapTypes().HaveLruHashMapType {
+			msg := "SessionAffinity feature requires BPF LRU maps"
+			if strict {
+				log.Fatal(msg)
+			} else {
+				log.Warnf("%s. Disabling the feature.", msg)
+				option.Config.EnableSessionAffinity = false
+			}
+
+		}
+	}
+	if option.Config.EnableSessionAffinity && option.Config.EnableHostReachableServices {
+		found1, found2 := false, false
+		if h := probesManager.GetHelpers("cgroup_sock"); h != nil {
+			_, found1 = h["bpf_get_netns_cookie"]
+		}
+		if h := probesManager.GetHelpers("cgroup_sock_addr"); h != nil {
+			_, found2 = h["bpf_get_netns_cookie"]
+		}
+		if !(found1 && found2) {
+			log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
+				"to work properly when accessed from inside cluster: the same service endpoint " +
+				"will be selected from all network namespaces on the host.")
+		}
+	}
+
+	if option.Config.EnableNodePort {
+		if option.Config.Tunnel != option.TunnelDisabled &&
+			option.Config.NodePortMode != option.NodePortModeSNAT {
+
+			log.Warnf("Disabling NodePort's %q mode feature due to tunneling mode being enabled",
+				option.Config.NodePortMode)
+			option.Config.NodePortMode = option.NodePortModeSNAT
+		}
+
+		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
+			if option.Config.Tunnel != option.TunnelDisabled {
+				log.Fatalf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
+					option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
+			}
+		}
+	}
+
 	detectNodePortDevs := option.Config.EnableNodePort && len(option.Config.Devices) == 0
 	detectDirectRoutingDev := option.Config.EnableNodePort &&
 		option.Config.DirectRoutingDevice == ""
@@ -1682,13 +1767,15 @@ func initKubeProxyReplacementOptions() {
 		}
 	}
 
-	if option.Config.EnableNodePort &&
-		option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
-		if option.Config.Tunnel != option.TunnelDisabled {
-			log.Fatalf("Cannot use NodePort acceleration with tunneling. Either run cilium-agent with --%s=%s or --%s=%s",
-				option.NodePortAcceleration, option.NodePortAccelerationDisabled, option.TunnelName, option.TunnelDisabled)
-		}
+	if !option.Config.EnableNodePort {
+		// Make sure that NodePort dependencies are disabled
+		disableNodePort()
+		return
+	}
 
+	// After this point, BPF NodePort should not be disabled
+
+	if option.Config.EnableNodePort {
 		if option.Config.XDPDevice != "undefined" &&
 			(option.Config.DirectRoutingDevice == "" ||
 				option.Config.XDPDevice != option.Config.DirectRoutingDevice) {
@@ -1699,8 +1786,7 @@ func initKubeProxyReplacementOptions() {
 		if err := loader.SetXDPMode(option.Config.NodePortAcceleration); err != nil {
 			log.WithError(err).Fatal("Cannot set NodePort acceleration")
 		}
-	}
-	if option.Config.EnableNodePort {
+
 		for _, iface := range option.Config.Devices {
 			link, err := netlink.LinkByName(iface)
 			if err != nil {
@@ -1743,94 +1829,12 @@ func initKubeProxyReplacementOptions() {
 				}
 			}
 		}
-	}
-
-	if option.Config.EnableHostReachableServices {
-		// Try to auto-load IPv6 module if it hasn't been done yet as there can
-		// be v4-in-v6 connections even if the agent has v6 support disabled.
-		probe.HaveIPv6Support()
-
-		option.Config.EnableHostServicesPeer = true
-		if option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_GETPEERNAME) != nil ||
-			option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_GETPEERNAME) != nil {
-			option.Config.EnableHostServicesPeer = false
-		}
-
-		if option.Config.EnableHostServicesTCP &&
-			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET4_CONNECT) != nil ||
-				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_INET6_CONNECT) != nil) {
-			msg := "BPF host reachable services for TCP needs kernel 4.17.0 or newer."
-			if strict {
-				log.Fatal(msg)
-			} else {
-				option.Config.EnableHostServicesTCP = false
-				log.Warn(msg + " Disabling the feature.")
-			}
-		}
-		if option.Config.EnableHostServicesUDP &&
-			(option.Config.EnableIPv4 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP4_RECVMSG) != nil ||
-				option.Config.EnableIPv6 && bpf.TestDummyProg(bpf.ProgTypeCgroupSockAddr, bpf.BPF_CGROUP_UDP6_RECVMSG) != nil) {
-			msg := fmt.Sprintf("BPF host reachable services for UDP needs kernel 4.19.57, 5.1.16, 5.2.0 or newer. If you run an older kernel and only need TCP, then specify: --%s=tcp and --%s=%s", option.HostReachableServicesProtos, option.KubeProxyReplacement, option.KubeProxyReplacementPartial)
-			if strict {
-				log.Fatal(msg)
-			} else {
-				option.Config.EnableHostServicesUDP = false
-				log.Warn(msg + " Disabling the feature.")
-			}
-		}
-		if !option.Config.EnableHostServicesTCP && !option.Config.EnableHostServicesUDP {
-			option.Config.EnableHostReachableServices = false
-		}
-	} else {
-		option.Config.EnableHostServicesTCP = false
-		option.Config.EnableHostServicesUDP = false
-	}
-
-	if !option.Config.EnableNodePort {
-		disableNodePort()
-	}
-
-	if option.Config.EnableNodePort {
-		if option.Config.Tunnel != option.TunnelDisabled &&
-			option.Config.NodePortMode != option.NodePortModeSNAT {
-
-			log.Warnf("Disabling NodePort's %q mode feature due to tunneling mode being enabled",
-				option.Config.NodePortMode)
-			option.Config.NodePortMode = option.NodePortModeSNAT
-		}
 
 		option.Config.NodePortHairpin =
 			option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled ||
 				len(option.Config.Devices) == 1
 	}
 
-	if option.Config.EnableSessionAffinity {
-		if !probesManager.GetMapTypes().HaveLruHashMapType {
-			msg := "SessionAffinity feature requires BPF LRU maps"
-			if strict {
-				log.Fatal(msg)
-			} else {
-				log.Warnf("%s. Disabling the feature.", msg)
-				option.Config.EnableSessionAffinity = false
-			}
-
-		}
-	}
-
-	if option.Config.EnableSessionAffinity && option.Config.EnableHostReachableServices {
-		found1, found2 := false, false
-		if h := probesManager.GetHelpers("cgroup_sock"); h != nil {
-			_, found1 = h["bpf_get_netns_cookie"]
-		}
-		if h := probesManager.GetHelpers("cgroup_sock_addr"); h != nil {
-			_, found2 = h["bpf_get_netns_cookie"]
-		}
-		if !(found1 && found2) {
-			log.Warn("Session affinity for host reachable services needs kernel 5.7.0 or newer " +
-				"to work properly when accessed from inside cluster: the same service endpoint " +
-				"will be selected from all network namespaces on the host.")
-		}
-	}
 }
 
 // disableNodePort disables BPF NodePort and friends who are dependent from
