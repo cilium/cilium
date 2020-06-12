@@ -1,5 +1,69 @@
 # Changelog
 
+## v1.7.5
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add "--iptables-lock-timeout" to configure iptables --wait parameter (Backport PR #11855, Upstream PR #11701, @joestringer)
+* bump k8s dependencies to v1.15.12, v1.16.10 and v1.17.6 (#11680, @aanm)
+* cilium: Add CLI to introspect IP <-> Identity cache (Backport PR #11630, Upstream PR #11566, @joestringer)
+* connectivity-check: Do not perform hostport in standard check (Backport PR #11855, Upstream PR #11715, @tgraf)
+* daemon: Clarify log msg how to use only TCP socket-lb (Backport PR #11971, Upstream PR #11918, @brb)
+* Envoy is updated to release 1.13.2. (Backport PR #12009, Upstream PR #11973, @jrajahalme)
+* Support DNS matchPattern="*" to match "." (Backport PR #11855, Upstream PR #11633, @joestringer)
+
+**Bugfixes:**
+* 'identity does not exist' warning messages are not logged if the allocation attempt is not at max (#11580, @djboris9)
+* Avoid duplication of generated toCIDRs when using a toServices based CNP (or CCNP) (Backport PR #11971, Upstream PR #11901, @aanm)
+* datapath: Accept proxy traffic if enable-endpoint-routes are enabled (Backport PR #11855, Upstream PR #11819, @tgraf)
+* datapath: Only NOTRACK proxy return traffic going to Cilium datapath (Backport PR #11971, Upstream PR #11899, @jrajahalme)
+* endpoint: Fix data races while accessing GetIdentity() (Backport PR #11971, Upstream PR #11941, @tgraf)
+* envoy: Take xds mutator lock for map access (Backport PR #11630, Upstream PR #11541, @jrajahalme)
+* etcd: Increase status check timeout to 10 seconds (Backport PR #11855, Upstream PR #11750, @tgraf)
+* Fix issue when Cilium randomly stops doing service translation in k8s 1.18 (Backport PR #12019, Upstream PR #11947, @aanm)
+* Fix issue where Cilium-agent fails to start on nodes without a default gateway (Backport PR #11855, Upstream PR #11632, @soumynathan)
+* Fix issue where traffic from a pod could be dropped despite allow policy when DNS L7 rules are used (Backport PR #11855, Upstream PR #11764, @joestringer)
+* Fix leaking endpoint state metric (Backport PR #11930, Upstream PR #11884, @christarazi)
+* Fix pre-flight deployment for users upgrading from < 1.7 (Backport PR #11630, Upstream PR #11599, @aanm)
+* fix transparent encryption related bugs (Backport PR #12019, Upstream PR #11974, @jrfastab)
+* IPAM related bugfixes (Backport PR #11766, Upstream PR #10587, @tgraf)
+* ipcache: Fix deadlock when ipcache GC results in datapath reload (Backport PR #11971, Upstream PR #11950, @tgraf)
+* Istio integration has been updated to Istio release 1.5.4 (Backport PR #11630, Upstream PR #11530, @jrajahalme)
+* Properly cancel endpoint creations as they become obsolete (Backport PR #11971, Upstream PR #11920, @tgraf)
+* proxy: Do not decrement proxy port reference count when reverting. (Backport PR #11855, Upstream PR #11753, @jrajahalme)
+* proxy: Keep DNS port allocated (Backport PR #11855, Upstream PR #11661, @jrajahalme)
+* service: Fix wrong localEndpoints count in HealthCheckNodePort (Backport PR #11906, Upstream PR #11863, @gandro)
+
+**CI Changes:**
+* ci: Change vagrant timeout mechanism (Backport PR #11906, Upstream PR #11858, @nebril)
+* cilium, test: Only run sockops tests on 4.19 and bpf-next kernels (Backport PR #12019, Upstream PR #11998, @jrfastab)
+* Fix flaky assertion on metrics (Backport PR #11971, Upstream PR #11966, @christarazi)
+* test: Add simple retries for flaky Helm operations (Backport PR #11906, Upstream PR #11762, @christarazi)
+
+**Misc Changes:**
+* [v1.7] Dockerfile: Bump cilium-runtime to latest image (#11628, @joestringer)
+* agent: Fix data race when accessing d.monitorAgent (Backport PR #11855, Upstream PR #11823, @tgraf)
+* Also garbage collect Azure IPAM routes on endpoint removal (Backport PR #11630, Upstream PR #11452, @bpineau)
+* contrib/backporting: remove requires-janitor-review label (Backport PR #12031, Upstream PR #11986, @aanm)
+* Correct cidr input in linuxRouting.NewRoutingInfo (Backport PR #11855, Upstream PR #11569, @sayboras)
+* docs: Include directions to restart pods in the k3s install guide (Backport PR #11906, Upstream PR #11879, @seanmwinn)
+* envoy: Include detail in NACK warning (Backport PR #12031, Upstream PR #12016, @jrajahalme)
+* etcd: propagate Context from higher-level calls (Backport PR #12019, Upstream PR #11891, @tklauser)
+* Fix various data races in pkg/aws/eni and pkg/ipam (Backport PR #11766, Upstream PR #11685, @christarazi)
+* install: Fix erroneous comment (Backport PR #11855, Upstream PR #11603, @joestringer)
+* iptables: carry on and log on failure to set up transient rules (Backport PR #12031, Upstream PR #12006, @qmonnet)
+* policy: Fix rule translation test flake (Backport PR #11971, Upstream PR #11913, @joestringer)
+* proxy: release redir.mutex on early exit, update a comment on mutex use (Backport PR #11855, Upstream PR #11666, @qmonnet)
+* Retry on conflicts when creating/updating CiliumNode objects on agent startup (Backport PR #11909, Upstream PR #11673, @ashrayjain)
+* service: Clean up HealthCheckNodePort server when traffic policy changes (Backport PR #12019, Upstream PR #11952, @gandro)
+* Shorten dummy device name in linuxrouting tests (Backport PR #11630, Upstream PR #11555, @christarazi)
+* Update Go to 1.13.12 (#11813, @tklauser)
+
+**Other Changes:**
+* [v1.7] install: Remove IPAM setting (#11592, @joestringer)
+
 ## v1.7.4
 
 Summary of Changes
