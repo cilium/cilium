@@ -7,18 +7,52 @@ if ! which curl >/dev/null || ! which jq >/dev/null; then
     exit 1
 fi
 
+usage() {
+	echo -e "Usage: checkpr.sh PULL_REQUEST_ID"
+	echo -e "Options:"
+	echo -e "\t-h\tdisplay this help"
+	echo -e "\t-m\tdisable audio notifications"
+	echo -e "\t-q\tdisable textual notifications"
+}
+
+notif_audio=1
+notif_desktop=1
+OPTIND=1
+while getopts "hmq" opt; do
+	case "$opt" in
+		h)
+			usage
+			exit 0
+			;;
+		m)
+			notif_audio=0
+			;;
+		q)
+			notif_desktop=0
+			;;
+	esac
+done
+shift $((OPTIND-1))
+[[ "${1:-}" = "--" ]] && shift
+
 if [ $# -eq 0  ]
 then
-	echo "Usage: checkpr.sh PULL_REQUEST_ID"
-	exit
+	usage
+	exit 1
 fi
 
 BARK_PATH="${BARK_PATH:-/usr/share/sounds/freedesktop/stereo/bell.oga}"
 name=$(uname)
 notify() {
-	set +e
-	notify-send "$1" "$2"
-	set -e
+	if [ $notif_desktop -eq 1 ]; then
+		set +e
+		notify-send "$1" "$2"
+		set -e
+	fi
+
+	if [ $notif_audio -eq 0 ]; then
+		return 0
+	fi
 
 	for run in {1..5}
 	do
