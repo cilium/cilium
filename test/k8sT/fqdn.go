@@ -120,6 +120,19 @@ var _ = Describe("K8sFQDNTest", func() {
 		// On restart) Cilium will restore the IPS that were white-listted in
 		// the FQDN and connection will work as normal.
 
+		ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
+		Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+		monitorRes1, monitorCancel1 := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1)
+		ciliumPodK8s2, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s2)
+		Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
+		monitorRes2, monitorCancel2 := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s2)
+		defer func() {
+			monitorCancel1()
+			monitorCancel2()
+			helpers.WriteToReportFile(monitorRes1.CombineOutput().Bytes(), "fqdn-restart-cilium-monitor-k8s1.log")
+			helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "fqdn-restart-cilium-monitor-k8s2.log")
+		}()
+
 		connectivityTest := func() {
 
 			By("Testing that connection from %q to %q should work",
@@ -150,12 +163,12 @@ var _ = Describe("K8sFQDNTest", func() {
 			res = kubectl.ExecPodCmd(
 				helpers.DefaultNamespace, appPods[helpers.App2],
 				helpers.CurlFail(worldInvalidTargetIP))
-			res.ExpectFail("%q can  connect when it should not work", helpers.App2)
+			res.ExpectFail("%q can connect when it should not work", helpers.App2)
 		}
 
 		fqndProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
 
-		_, err := kubectl.CiliumPolicyAction(
+		_, err = kubectl.CiliumPolicyAction(
 			helpers.DefaultNamespace, fqndProxyPolicy,
 			helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
@@ -184,13 +197,23 @@ var _ = Describe("K8sFQDNTest", func() {
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
 			helpers.CurlFail(worldInvalidTargetIP))
-		res.ExpectFail("%q can  connect when it should not work", helpers.App2)
+		res.ExpectFail("%q can connect when it should not work", helpers.App2)
 
 		channelClosed = true
 		close(quit)
 
 		ExpectAllPodsTerminated(kubectl)
 		ExpectCiliumReady(kubectl)
+
+		// Restart monitoring after Cilium restart
+		monitorRes1After, monitorCancel1After := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1)
+		monitorRes2After, monitorCancel2After := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s2)
+		defer func() {
+			monitorCancel1After()
+			monitorCancel2After()
+			helpers.WriteToReportFile(monitorRes1After.CombineOutput().Bytes(), "fqdn-after-restart-cilium-monitor-k8s1.log")
+			helpers.WriteToReportFile(monitorRes2After.CombineOutput().Bytes(), "fqdn-after-restart-cilium-monitor-k8s2.log")
+		}()
 
 		// @TODO This endpoint ready call SHOULD NOT be here
 		// Here some packets can be lost due to two different scenarios:
@@ -220,7 +243,7 @@ var _ = Describe("K8sFQDNTest", func() {
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App2],
 			helpers.CurlFail(worldInvalidTargetIP))
-		res.ExpectFail("%q can  connect when it should not work", helpers.App2)
+		res.ExpectFail("%q can connect when it should not work", helpers.App2)
 
 		By("Testing connectivity using DNS request when cilium is restored correctly")
 		connectivityTest()
