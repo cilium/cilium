@@ -2355,6 +2355,24 @@ func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, o
 		"%s", action, helmName, repo, version, namespace, optionsString)), nil
 }
 
+// RunHelmTemplate runs the helm template command for a specific version.
+func (kub *Kubectl) RunHelmTemplateApply(repo, helmName, version, namespace string, options map[string]string) (*CmdRes, error) {
+	err := kub.overwriteHelmOptions(options)
+	if err != nil {
+		return nil, err
+	}
+	optionsString := ""
+
+	for k, v := range options {
+		optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
+	}
+
+	return kub.ExecMiddle(fmt.Sprintf("helm template %s %s "+
+		"--version=%s "+
+		"--namespace=%s "+
+		"%s | %s apply -f -", helmName, repo, version, namespace, optionsString, KubectlCmd)), nil
+}
+
 // CiliumUninstall uninstalls Cilium with the provided Helm options.
 func (kub *Kubectl) CiliumUninstall(filename string, options map[string]string) error {
 	return kub.ciliumUninstallHelm(filename, options)
