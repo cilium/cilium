@@ -1550,7 +1550,7 @@ func initClockSourceOption() {
 	}
 }
 
-func initKubeProxyReplacementOptions() {
+func initKubeProxyReplacementOptions() (strict bool) {
 	if option.Config.KubeProxyReplacement != option.KubeProxyReplacementStrict &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementPartial &&
 		option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe &&
@@ -1584,7 +1584,7 @@ func initKubeProxyReplacementOptions() {
 	probesManager := probes.NewProbeManager()
 
 	// strict denotes to panic if any to-be enabled feature cannot be enabled
-	strict := option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe
+	strict = option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe
 
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementProbe ||
 		option.Config.KubeProxyReplacement == option.KubeProxyReplacementStrict {
@@ -1743,6 +1743,12 @@ func initKubeProxyReplacementOptions() {
 		}
 	}
 
+	return
+}
+
+// detectDevicesForNodePortAndHostFirewall tries to detect bpf_host devices
+// (if needed).
+func detectDevicesForNodePortAndHostFirewall(strict bool) {
 	detectNodePortDevs := option.Config.EnableNodePort && len(option.Config.Devices) == 0
 	detectDirectRoutingDev := option.Config.EnableNodePort &&
 		option.Config.DirectRoutingDevice == ""
@@ -1766,7 +1772,11 @@ func initKubeProxyReplacementOptions() {
 			l.Info("Using auto-derived devices for BPF node port")
 		}
 	}
+}
 
+// finishKubeProxyReplacementInit finishes initialization of kube-proxy
+// replacement after all devices are known.
+func finishKubeProxyReplacementInit() {
 	if !option.Config.EnableNodePort {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
@@ -1775,7 +1785,7 @@ func initKubeProxyReplacementOptions() {
 
 	// After this point, BPF NodePort should not be disabled
 
-	if option.Config.EnableNodePort {
+	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
 		if option.Config.XDPDevice != "undefined" &&
 			(option.Config.DirectRoutingDevice == "" ||
 				option.Config.XDPDevice != option.Config.DirectRoutingDevice) {
@@ -1786,55 +1796,54 @@ func initKubeProxyReplacementOptions() {
 		if err := loader.SetXDPMode(option.Config.NodePortAcceleration); err != nil {
 			log.WithError(err).Fatal("Cannot set NodePort acceleration")
 		}
-
-		for _, iface := range option.Config.Devices {
-			link, err := netlink.LinkByName(iface)
-			if err != nil {
-				log.WithError(err).Fatalf("Cannot retrieve %s link", iface)
-			}
-			if strings.ContainsAny(iface, "=;") {
-				// Because we pass IPV{4,6}_NODEPORT addresses to bpf/init.sh
-				// in a form "$IFACE_NAME1=$IPV{4,6}_ADDR1;$IFACE_NAME2=...",
-				// we need to restrict the iface names. Otherwise, bpf/init.sh
-				// won't properly parse the mappings.
-				log.Fatalf("%s link name contains '=' or ';' character which is not allowed",
-					iface)
-			}
-			if idx := link.Attrs().Index; idx > math.MaxUint16 {
-				log.Fatalf("%s link ifindex %d exceeds max(uint16)", iface, idx)
-			}
-		}
-
-		if option.Config.EnableIPv4 &&
-			option.Config.Tunnel == option.TunnelDisabled &&
-			option.Config.NodePortMode != option.NodePortModeSNAT &&
-			len(option.Config.Devices) > 1 {
-
-			// In the case of the multi-dev NodePort DSR, if a request from an
-			// external client was sent to a device which is not used for direct
-			// routing, such request might be dropped by the destination node
-			// if the destination node's direct routing device's rp_filter = 1
-			// and the client IP is reachable via other device than the direct
-			// routing one.
-
-			iface := option.Config.DirectRoutingDevice
-			if val, err := sysctl.Read(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface)); err != nil {
-				log.Warnf("Unable to read net.ipv4.conf.%s.rp_filter: %s. Ignoring the check",
-					iface, err)
-			} else {
-				if val == "1" {
-					log.Warnf(`DSR might not work for requests sent to other than %s device. `+
-						`Run 'sysctl -w net.ipv4.conf.%s.rp_filter=2' (or set to '0') on each node to fix`,
-						iface, iface)
-				}
-			}
-		}
-
-		option.Config.NodePortHairpin =
-			option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled ||
-				len(option.Config.Devices) == 1
 	}
 
+	for _, iface := range option.Config.Devices {
+		link, err := netlink.LinkByName(iface)
+		if err != nil {
+			log.WithError(err).Fatalf("Cannot retrieve %s link", iface)
+		}
+		if strings.ContainsAny(iface, "=;") {
+			// Because we pass IPV{4,6}_NODEPORT addresses to bpf/init.sh
+			// in a form "$IFACE_NAME1=$IPV{4,6}_ADDR1;$IFACE_NAME2=...",
+			// we need to restrict the iface names. Otherwise, bpf/init.sh
+			// won't properly parse the mappings.
+			log.Fatalf("%s link name contains '=' or ';' character which is not allowed",
+				iface)
+		}
+		if idx := link.Attrs().Index; idx > math.MaxUint16 {
+			log.Fatalf("%s link ifindex %d exceeds max(uint16)", iface, idx)
+		}
+	}
+
+	if option.Config.EnableIPv4 &&
+		option.Config.Tunnel == option.TunnelDisabled &&
+		option.Config.NodePortMode != option.NodePortModeSNAT &&
+		len(option.Config.Devices) > 1 {
+
+		// In the case of the multi-dev NodePort DSR, if a request from an
+		// external client was sent to a device which is not used for direct
+		// routing, such request might be dropped by the destination node
+		// if the destination node's direct routing device's rp_filter = 1
+		// and the client IP is reachable via other device than the direct
+		// routing one.
+
+		iface := option.Config.DirectRoutingDevice
+		if val, err := sysctl.Read(fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface)); err != nil {
+			log.Warnf("Unable to read net.ipv4.conf.%s.rp_filter: %s. Ignoring the check",
+				iface, err)
+		} else {
+			if val == "1" {
+				log.Warnf(`DSR might not work for requests sent to other than %s device. `+
+					`Run 'sysctl -w net.ipv4.conf.%s.rp_filter=2' (or set to '0') on each node to fix`,
+					iface, iface)
+			}
+		}
+	}
+
+	option.Config.NodePortHairpin =
+		option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled ||
+			len(option.Config.Devices) == 1
 }
 
 // disableNodePort disables BPF NodePort and friends who are dependent from
