@@ -17,6 +17,7 @@
 #include "signal.h"
 #include "conntrack.h"
 #include "conntrack_map.h"
+#include "icmp6.h"
 
 enum {
 	NAT_DIR_EGRESS  = TUPLE_F_OUT,
@@ -1000,7 +1001,8 @@ static __always_inline __maybe_unused int snat_v6_process(struct __ctx_buff *ctx
 		if (ctx_load_bytes(ctx, off, &icmp6hdr, sizeof(icmp6hdr)) < 0)
 			return DROP_INVALID;
 		/* Letting neighbor solicitation / advertisement pass through. */
-		if (icmp6hdr.icmp6_type == 135 || icmp6hdr.icmp6_type == 136)
+		if (icmp6hdr.icmp6_type == ICMP6_NS_MSG_TYPE ||
+			icmp6hdr.icmp6_type == ICMP6_NA_MSG_TYPE)
 			return CTX_ACT_OK;
 		if (icmp6hdr.icmp6_type != ICMPV6_ECHO_REQUEST &&
 		    icmp6hdr.icmp6_type != ICMPV6_ECHO_REPLY)
