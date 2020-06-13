@@ -139,6 +139,7 @@ var (
 		"global.nodePort.mode":        "snat",
 		"global.gke.enabled":          "true",
 		"global.nativeRoutingCIDR":    "10.0.0.0/8",
+		"global.masquerade":           "false",
 	}
 
 	microk8sHelmOverrides = map[string]string{
@@ -1859,7 +1860,7 @@ func (kub *Kubectl) RedeployKubernetesDnsIfNecessary() {
 		ginkgoext.By("Kubernetes DNS is not ready: %s", err)
 	}
 
-	ginkgoext.By("Restarting Kubernetes DSN (-l %s)", kubeDNSLabel)
+	ginkgoext.By("Restarting Kubernetes DNS (-l %s)", kubeDNSLabel)
 	res := kub.DeleteResource("pod", "-n "+KubeSystemNamespace+" -l "+kubeDNSLabel)
 	if !res.WasSuccessful() {
 		ginkgoext.Failf("Unable to delete DNS pods: %s", res.OutputPrettyPrint())
