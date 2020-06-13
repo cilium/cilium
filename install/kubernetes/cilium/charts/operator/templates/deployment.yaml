@@ -37,8 +37,10 @@ spec:
         - cilium-operator-aws
 {{- else if .Values.global.azure.enabled }}
         - cilium-operator-azure
-{{- else }}
+{{- else if .Values.global.ipam.operator }}
         - cilium-operator-generic
+{{- else }}
+        - cilium-operator
 {{- end }}
         env:
         - name: K8S_NODE_NAME
@@ -114,8 +116,10 @@ spec:
         image: "{{ .Values.global.registry }}/{{ .Values.image }}-aws:{{ .Values.global.tag }}"
 {{- else if .Values.global.azure.enabled }}
         image: "{{ .Values.global.registry }}/{{ .Values.image }}-azure:{{ .Values.global.tag }}"
-{{- else }}
+{{- else if .Values.global.ipam.operator }}
         image: "{{ .Values.global.registry }}/{{ .Values.image }}-generic:{{ .Values.global.tag }}"
+{{- else }}
+        image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.global.tag }}"
 {{- end }}
 {{- end }}
         imagePullPolicy: {{ .Values.global.pullPolicy }}
