@@ -124,7 +124,9 @@ func init() {
 	case "cilium-operator-azure":
 		defaultIPAM = ipamOption.IPAMAzure
 	case "cilium-operator-generic":
-		defaultIPAM = ipamOption.IPAMOperator
+		// Default to Legacy for upgrade paths; new users should
+		// explicitly override the IPAM flag.
+		defaultIPAM = ipamOption.IPAMHostScopeLegacy
 	}
 
 	flags.String(option.IPAM, defaultIPAM, "Backend to use for IPAM")
