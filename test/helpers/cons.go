@@ -20,7 +20,6 @@ import (
 	"os"
 	"time"
 
-	"github.com/cilium/cilium/pkg/datapath/iptables"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/versioncheck"
 	"github.com/cilium/cilium/test/ginkgo-ext"
@@ -224,21 +223,20 @@ const (
 
 	// Logs messages that should not be in the cilium logs.
 	panicMessage        = "panic:"
-	deadLockHeader      = "POTENTIAL DEADLOCK:"                        // from github.com/sasha-s/go-deadlock/deadlock.go:header
-	segmentationFault   = "segmentation fault"                         // from https://github.com/cilium/cilium/issues/3233
-	NACKreceived        = "NACK received for version"                  // from https://github.com/cilium/cilium/issues/4003
-	RunInitFailed       = "JoinEP: "                                   // from https://github.com/cilium/cilium/pull/5052
-	sizeMismatch        = "size mismatch for BPF map"                  // from https://github.com/cilium/cilium/issues/7851
-	emptyBPFInitArg     = "empty argument passed to bpf/init.sh"       // from https://github.com/cilium/cilium/issues/10228
-	RemovingMapMsg      = "Removing map to allow for property upgrade" // from https://github.com/cilium/cilium/pull/10626
-	logBufferMessage    = "Log buffer too small to dump verifier log"  // from https://github.com/cilium/cilium/issues/10517
-	ClangErrorsMsg      = " errors generated."                         // from https://github.com/cilium/cilium/issues/10857
-	ClangErrorMsg       = "1 error generated."                         // from https://github.com/cilium/cilium/issues/10857
-	symbolSubstitution  = "Skipping symbol substitution"               //
-	uninitializedRegen  = "Uninitialized regeneration level"           // from https://github.com/cilium/cilium/pull/10949
-	unstableStat        = "BUG: stat() has unstable behavior"          // from https://github.com/cilium/cilium/pull/11028
-	removeTransientRule = "Unable to process chain " +
-		iptables.CiliumTransientForwardChain + " with ip" // from https://github.com/cilium/cilium/issues/11276
+	deadLockHeader      = "POTENTIAL DEADLOCK:"                                      // from github.com/sasha-s/go-deadlock/deadlock.go:header
+	segmentationFault   = "segmentation fault"                                       // from https://github.com/cilium/cilium/issues/3233
+	NACKreceived        = "NACK received for version"                                // from https://github.com/cilium/cilium/issues/4003
+	RunInitFailed       = "JoinEP: "                                                 // from https://github.com/cilium/cilium/pull/5052
+	sizeMismatch        = "size mismatch for BPF map"                                // from https://github.com/cilium/cilium/issues/7851
+	emptyBPFInitArg     = "empty argument passed to bpf/init.sh"                     // from https://github.com/cilium/cilium/issues/10228
+	RemovingMapMsg      = "Removing map to allow for property upgrade"               // from https://github.com/cilium/cilium/pull/10626
+	logBufferMessage    = "Log buffer too small to dump verifier log"                // from https://github.com/cilium/cilium/issues/10517
+	ClangErrorsMsg      = " errors generated."                                       // from https://github.com/cilium/cilium/issues/10857
+	ClangErrorMsg       = "1 error generated."                                       // from https://github.com/cilium/cilium/issues/10857
+	symbolSubstitution  = "Skipping symbol substitution"                             //
+	uninitializedRegen  = "Uninitialized regeneration level"                         // from https://github.com/cilium/cilium/pull/10949
+	unstableStat        = "BUG: stat() has unstable behavior"                        // from https://github.com/cilium/cilium/pull/11028
+	removeTransientRule = "Unable to process chain CILIUM_TRANSIENT_FORWARD with ip" // from https://github.com/cilium/cilium/issues/11276
 
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
