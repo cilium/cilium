@@ -242,7 +242,7 @@ func Init() {
 		"CILIUM_TAG":            "global.tag",
 		"CILIUM_IMAGE":          "agent.image",
 		"CILIUM_OPERATOR_IMAGE": "operator.image",
-		"HUBBLE_RELAY_IMAGE":    "hubble-relay.image",
+		"HUBBLE_RELAY_IMAGE":    "hubble-relay.image.repository",
 	} {
 		if v := os.Getenv(envVar); v != "" {
 			defaultHelmOptions[helmVar] = v
