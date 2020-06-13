@@ -36,7 +36,7 @@ cilium-operator-generic [flags]
       --identity-allocation-mode string         Method to use for identity allocation (default "kvstore")
       --identity-gc-interval duration           GC interval for security identities (default 15m0s)
       --identity-heartbeat-timeout duration     Timeout after which identity expires on lack of heartbeat (default 30m0s)
-      --ipam string                             Backend to use for IPAM (default "cluster-pool")
+      --ipam string                             Backend to use for IPAM (default "hostscope-legacy")
       --k8s-api-server string                   Kubernetes API server URL
       --k8s-client-burst int                    Burst value allowed for the K8s client
       --k8s-client-qps float32                  Queries per second limit for the K8s client
