@@ -512,16 +512,19 @@ Upgrading from >=1.7.0 to 1.8.y
 New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
 
-  * ``mapDynamicSizeRatio`` has been added to allow sizing of the TCP CT,
-    non-TCP CT, NAT and policy BPF maps based on the total system memory. This
-    option allows to specify a ratio (0.0-1.0) of total system memory to use for
-    these maps. On new installations, this ratio is set to 0.03 by default,
-    leading to 3% of the total system memory to be allocated for these maps. On
-    a node with 4 GiB of total system memory this ratio corresponds
-    approximately to the default BPF map sizes. A value of 0.0 will disable
-    sizing of the BPF maps based on system memory. Any BPF map sizes configured
-    manually using the ``ctTcpMax``, ``ctAnyMax``, ``natMax``, or
-    ``policyMapMax`` options will take precedence over the dynamically
+  * ``bpf-map-dynamic-size-ratio`` has been added to allow dynamic sizing of the
+    largest BPF maps: ``cilium_ct_{4,6}_global``, ``cilium_ct_{4,6}_any``,
+    ``cilium_nodeport_neigh{4,6}``, ``cilium_snat_v{4,6}_external`` and
+    ``cilium_lb{4,6}_reverse_sk``.  This option allows to specify a ratio
+    (0.0-1.0) of total system memory to use for these maps. On new
+    installations, this ratio is set to 0.0025 by default, leading to 0.25% of
+    the total system memory to be allocated for these maps. On a node with 4 GiB
+    of total system memory this ratio corresponds approximately to the defaults
+    used by ``kube-proxy``, see :ref:`bpf_map_limitations` for details. A value
+    of 0.0 will disable sizing of the BPF maps based on system memory. Any BPF
+    map sizes configured manually using the ``bpf-ct-global-tcp-max``,
+    ``bpf-ct-global-any-max``, ``bpf-nat-global-max`` or
+    ``bpf-neigh-global-max`` options will take precedence over the dynamically
     determined value.
 
     On upgrades of existing installations, this option is disabled by default,

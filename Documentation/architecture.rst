@@ -237,6 +237,8 @@ exist in the :ref:`envoy` section.
 Scale
 =====
 
+.. _bpf_map_limitations:
+
 BPF Map Limitations
 -------------------
 
@@ -269,8 +271,8 @@ and ``--bpf-fragments-map-max``.
 
 Using the ``--bpf-map-dynamic-size-ratio`` flag, the upper capacity limits of
 several large BPF maps are determined at agent startup based on the given ratio
-of the total system memory. For example, a given ratio of 0.025 leads to 0.25% of
-the total system memory to be used for these maps.
+of the total system memory. For example, a given ratio of 0.0025 leads to 0.25%
+of the total system memory to be used for these maps.
 
 This flag affects the following BPF maps that consume most memory in the system:
 ``cilium_ct_{4,6}_global``, ``cilium_ct_{4,6}_any``,
