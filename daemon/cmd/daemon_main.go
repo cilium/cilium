@@ -1843,9 +1843,11 @@ func finishKubeProxyReplacementInit() {
 		}
 	}
 
-	option.Config.NodePortHairpin =
-		option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled ||
-			len(option.Config.Devices) == 1
+	option.Config.NodePortHairpin = len(option.Config.Devices) == 1
+	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
+		len(option.Config.Devices) != 1 {
+		log.Fatalf("Cannot set NodePort acceleration due to multi-device setup (%q). Specify --%s with a single device to enable NodePort acceleration.", option.Config.Devices, option.Devices)
+	}
 }
 
 // disableNodePort disables BPF NodePort and friends who are dependent from
