@@ -3,16 +3,13 @@
 
 include Makefile.defs
 
-# Use the main repo as the build-context by default
-DOCKER_BUILD_DIR := .
-CILIUM_DOCKERFILE := Dockerfile
-DOCKER_PLUGIN_DOCKERFILE := cilium-docker-plugin.Dockerfile
-HUBBLE_RELAY_DOCKERFILE := hubble-relay.Dockerfile
-
-BUILD_DIR ?= _build
-
 # This is a no-op unless DOCKER_BUILDKIT is defined
+# Provides buildkit specific defaults BUILD_DIR and DOCKER_BUILD_DIR
 include Makefile.buildkit
+
+# Use the main repo as the build-context by default.
+DOCKER_BUILD_DIR ?= .
+BUILD_DIR ?= .
 
 SUBDIRS_CILIUM_CONTAINER := proxylib envoy bpf cilium daemon cilium-health bugtool
 SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools hubble-relay
@@ -26,7 +23,7 @@ GOFILES_EVAL := $(subst _$(ROOT_DIR)/,,$(shell $(GO_LIST) -e ./...))
 GOFILES ?= $(GOFILES_EVAL)
 TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell echo $(GOFILES) | \
 	sed 's/ /\n/g' | \
-	grep -v '/api/v1\|/vendor\|/contrib\|/$(BUILD_DIR)' | \
+	grep -v '/api/v1\|/vendor\|/contrib\|/$(BUILD_DIR)/' | \
 	grep -v -P 'test(?!/helpers/logutils)'))
 TESTPKGS ?= $(TESTPKGS_EVAL)
 GOLANGVERSION := $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')

@@ -3,6 +3,9 @@
 
 ifdef DOCKER_BUILDKIT
 
+BUILD_DIR := _build
+DOCKER_BUILD_DIR := $(BUILD_DIR)/context
+
 # Export with value expected by docker
 export DOCKER_BUILDKIT=1
 
@@ -12,12 +15,6 @@ clean-build:
 	-$(QUIET) docker builder prune --filter type=exec.cachemount -f
 
 veryclean: clean-build
-
-# Overrides for the main Dockerfile
-DOCKER_BUILD_DIR := $(BUILD_DIR)/context
-CILIUM_DOCKERFILE := $(BUILD_DIR)/cilium.Dockerfile
-DOCKER_PLUGIN_DOCKERFILE := $(BUILD_DIR)/cilium-docker-plugin.Dockerfile
-HUBBLE_RELAY_DOCKERFILE := $(BUILD_DIR)/hubble-relay.Dockerfile
 
 BUILDKIT_DOCKERFILE_FILTER := | sed -e "1s|^\#.*|\# syntax = docker/dockerfile:experimental|" -e "s|^RUN\(.*\)make|RUN --mount=type=cache,target=/root/.cache/go-build\1make|"
 
@@ -63,13 +60,8 @@ _build/context/GIT_VERSION: GIT_VERSION _build/context
 _build/context/BPF_SRCFILES: BPF_SRCFILES _build/context
 	cp $< $@
 
-# Bare 'Dockerfile' needs a special rule
-$(CILIUM_DOCKERFILE): Dockerfile force
-	@-mkdir -p $(dir $@)
-	@cat $< $(BUILDKIT_DOCKERFILE_FILTER) > $@
-
-# Generic rule for '*.Dockerfile'
-$(BUILD_DIR)/%.Dockerfile: %.Dockerfile force
+# Generic rule for Dockerfiles. For 'Dockerfile' the stem ('%') matches just the 'D'.
+_build/%ockerfile: %ockerfile force
 	@-mkdir -p $(dir $@)
 	@cat $< $(BUILDKIT_DOCKERFILE_FILTER) > $@
 
