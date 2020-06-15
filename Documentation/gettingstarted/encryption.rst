@@ -23,6 +23,12 @@ distributed, but that is not shown here.
     ENI datapath mode. In combination with encapsulation/tunneling, the feature
     is still in beta phase.
 
+.. note::
+
+    Packets destined to the same node they were sent out of are not encrypted.
+    This is a intended behavior as it doesn't provide any benefits because the
+    raw traffic on the node can be seen.
+
 Generate & import the PSK
 =========================
 
