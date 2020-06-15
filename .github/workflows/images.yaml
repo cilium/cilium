@@ -1,0 +1,69 @@
+name: Images
+on:
+  push:
+    branches:
+      - master
+      - v[0-9]+.[0-9]+
+    tags:
+      - v[0-9]+.[0-9]+.[0-9]+
+      - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
+
+jobs:
+  build-and-push:
+    if: github.repository == 'cilium/cilium'
+    name: Build and push all images
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v1
+      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
+        name: Register binfmt from multi-platform builds
+        with:
+          entrypoint: docker
+          args: run --privileged linuxkit/binfmt:5d33e7346e79f9c13a73c6952669e47a53b063d4 
+      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
+        name: Run make lint
+        with:
+          entrypoint: make
+          args: -C images lint
+      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
+        name: Run make runtime-image
+        env:
+          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+        with:
+          entrypoint: make
+          # this will only get rebuilt when there changes in images/runtime
+          args: -C images runtime-image PUSH=true
+      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
+        name: Run make builder-image
+        env:
+          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+        with:
+          entrypoint: make
+          # this will only get rebuilt when there changes in images/builder
+          args: -C images builder-image PUSH=true
+      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
+        name: Run make cilium-image
+        env:
+          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+        with:
+          entrypoint: make
+          args: -C images cilium-image PUSH=true
+      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
+        name: Run make operator-image
+        env:
+          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+        with:
+          entrypoint: make
+          args: -C images operator-image PUSH=true
+      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
+        name: Run make hubble-relay-image
+        env:
+          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+        with:
+          entrypoint: make
+          args: -C images hubble-relay-image PUSH=true

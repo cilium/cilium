@@ -86,3 +86,7 @@ test/gke/registry-adder.yaml
 # Temporary files that allow build containers/VMs work without git
 # Not to be ignored by docker.
 GIT_VERSION
+
+# During image builds following files get created
+.buildx
+.buildx_builder
