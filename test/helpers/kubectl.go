@@ -2143,17 +2143,23 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
+	// Set devices
+	privateIface, err := kub.GetPrivateIface()
+	if err != nil {
+		return err
+	}
+	defaultIface, err := kub.GetDefaultIface()
+	if err != nil {
+		return err
+	}
+	devices := fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
+	addIfNotOverwritten(options, "global.devices", devices)
+
 	if !RunsWithKubeProxy() {
 		nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
 		if err != nil {
 			return fmt.Errorf("Cannot retrieve Node IP for k8s1: %s", err)
 		}
-
-		privateIface, err := kub.GetPrivateIface()
-		if err != nil {
-			return err
-		}
-		devices := privateIface
 
 		opts := map[string]string{
 			"global.hostFirewall":         "true",
@@ -2163,15 +2169,8 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 
 		if RunsOnNetNextOr419Kernel() {
-			// Enable BPF masquerading
-			defaultIface, err := kub.GetDefaultIface()
-			if err != nil {
-				return err
-			}
-			devices = fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
+			opts["global.bpfMasquerade"] = "true"
 		}
-
-		opts["global.devices"] = devices
 
 		for key, value := range opts {
 			options = addIfNotOverwritten(options, key, value)
