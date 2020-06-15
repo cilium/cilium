@@ -64,28 +64,22 @@ docker-cilium-dev-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-dev $(DOCKER_IMAGE_TAG)
 	$(QUIET) contrib/scripts/push_manifest.sh cilium-dev $(DOCKER_IMAGE_TAG)
 
-docker-operator-image: GIT_VERSION cilium-operator$(OPERATOR_FLAVOUR).Dockerfile build-context-update
+# Build cilium-operator images.
+# We eat the ending of "operator" in to the stem ('%') to allow this pattern
+# to build also 'docker-operator-image', where the stem would be empty otherwise
+docker-opera%-image: GIT_VERSION $(BUILD_DIR)/cilium-opera%.Dockerfile build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
-		-f cilium-operator$(OPERATOR_FLAVOUR).Dockerfile \
-		-t cilium/operator$(OPERATOR_FLAVOUR)$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
+		-f $(BUILD_DIR)/cilium-opera$*.Dockerfile \
+		-t cilium/opera$*$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
 	@echo "Push like this when ready:"
-	@echo "${CONTAINER_ENGINE} push cilium/operator$(OPERATOR_FLAVOUR)$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}"
+	@echo "${CONTAINER_ENGINE} push cilium/opera$*$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
 docker-operator-image-unstripped: NOSTRIP=1
 docker-operator-image-unstripped: UNSTRIPPED=-unstripped
 docker-operator-image-unstripped: docker-operator-image
-
-docker-operator-aws-image: OPERATOR_FLAVOUR=-aws
-docker-operator-aws-image: docker-operator-image
-
-docker-operator-azure-image: OPERATOR_FLAVOUR=-azure
-docker-operator-azure-image: docker-operator-image
-
-docker-operator-generic-image: OPERATOR_FLAVOUR=-generic
-docker-operator-generic-image: docker-operator-image
 
 docker-operator-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh operator $(DOCKER_IMAGE_TAG)
