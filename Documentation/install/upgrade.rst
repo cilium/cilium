@@ -211,8 +211,11 @@ configuration options for each minor version.
 
   .. group-tab:: Helm
 
-    Keeping an existing `ConfigMap` with ``helm upgrade`` is currently not
-    supported.
+    .. parsed-literal::
+
+      helm upgrade |CHART_RELEASE| \\
+        --namespace kube-system cilium \\
+        --set global.configMap="$(kubectl get -n kube-system cm cilium-config -o yaml)"
 
 .. note::
 

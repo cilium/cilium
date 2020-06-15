@@ -1,3 +1,6 @@
+{{- if .Values.global.configMap }}
+{{ .Values.global.configMap }}
+{{- else }}
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -516,4 +519,5 @@ data:
 
 {{- if .Values.global.cnpStatusUpdates }}
   disable-cnp-status-updates: {{ not .Values.global.cnpStatusUpdates.enabled | quote }}
+{{- end }}
 {{- end }}
