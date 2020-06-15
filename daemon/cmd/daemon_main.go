@@ -276,6 +276,7 @@ func init() {
 	option.BindEnv(option.DisableConntrack)
 
 	flags.Bool(option.LegacyDisableIPv4Name, false, "Disable IPv4 mode")
+	flags.MarkDeprecated(option.LegacyDisableIPv4Name, "This option has been deprecated and will be removed in v1.9")
 	flags.MarkHidden(option.LegacyDisableIPv4Name)
 	option.BindEnv(option.LegacyDisableIPv4Name)
 
