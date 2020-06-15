@@ -24,8 +24,8 @@ docker-image-unstripped: clean docker-image-no-clean-unstripped docker-plugin-im
 	$(MAKE) docker-operator-azure-image-unstripped
 	$(MAKE) docker-operator-generic-image-unstripped
 
-docker-image-no-clean: GIT_VERSION $(CILIUM_DOCKERFILE) build-context-update
-	$(QUIET)$(CONTAINER_ENGINE) build -f $(CILIUM_DOCKERFILE) \
+docker-image-no-clean: GIT_VERSION $(BUILD_DIR)/Dockerfile build-context-update
+	$(QUIET)$(CONTAINER_ENGINE) build -f $(BUILD_DIR)/Dockerfile \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg V=${V} \
@@ -44,8 +44,8 @@ docker-cilium-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium $(DOCKER_IMAGE_TAG)
 	$(QUIET) contrib/scripts/push_manifest.sh cilium $(DOCKER_IMAGE_TAG)
 
-dev-docker-image: GIT_VERSION $(CILIUM_DOCKERFILE) build-context-update
-	$(QUIET)$(CONTAINER_ENGINE) build -f $(CILIUM_DOCKERFILE) \
+dev-docker-image: GIT_VERSION $(BUILD_DIR)/Dockerfile build-context-update
+	$(QUIET)$(CONTAINER_ENGINE) build -f $(BUILD_DIR)/Dockerfile \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg V=${V} \
@@ -85,12 +85,12 @@ docker-operator-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh operator $(DOCKER_IMAGE_TAG)
 	$(QUIET) contrib/scripts/push_manifest.sh operator $(DOCKER_IMAGE_TAG)
 
-docker-plugin-image: GIT_VERSION $(DOCKER_PLUGIN_DOCKERFILE) build-context-update
+docker-plugin-image: GIT_VERSION $(BUILD_DIR)/cilium-docker-plugin.Dockerfile build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEUBG} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
-		-f $(DOCKER_PLUGIN_DOCKERFILE) \
+		-f $(BUILD_DIR)/cilium-docker-plugin.Dockerfile \
 		-t cilium/docker-plugin$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
 	$(QUIET)$(CONTAINER_ENGINE) tag cilium/docker-plugin$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) cilium/docker-plugin$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}
 	@echo "Push like this when ready:"
@@ -120,11 +120,11 @@ docker-cilium-builder-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium-builder $(UTC_DATE)
 	$(QUIET) contrib/scripts/push_manifest.sh cilium-builder $(UTC_DATE)
 
-docker-hubble-relay-image: $(HUBBLE_RELAY_DOCKERFILE) build-context-update
+docker-hubble-relay-image: $(BUILD_DIR)/hubble-relay.Dockerfile build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
-		-f $(HUBBLE_RELAY_DOCKERFILE) \
+		-f $(BUILD_DIR)/hubble-relay.Dockerfile \
 		-t cilium/hubble-relay$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
 	$(QUIET)$(CONTAINER_ENGINE) tag cilium/hubble-relay$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) cilium/hubble-relay$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}
 	@echo "Push like this when ready:"
