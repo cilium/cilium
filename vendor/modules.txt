@@ -81,11 +81,12 @@ github.com/cilium/arping
 ## explicit
 github.com/cilium/deepequal-gen
 github.com/cilium/deepequal-gen/generators
-# github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb
+# github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96
 ## explicit
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
 github.com/cilium/ebpf/internal
+github.com/cilium/ebpf/internal/btf
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/perf
 # github.com/cilium/ipam v0.0.0-20200420133938-2f672ef3ad54
