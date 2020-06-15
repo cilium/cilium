@@ -70,6 +70,9 @@ message Flow {
     // policy_match_type is only applicable to the cilium event type PolicyVerdict
     // https://github.com/cilium/cilium/blob/e831859b5cc336c6d964a6d35bbd34d1840e21b9/pkg/monitor/datapath_policy.go#L50
     uint32 policy_match_type = 23;
+    
+    // Only applicable to cilium trace notifications, blank for other types.
+    TraceObservationPoint trace_observation_point = 24;
 
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
@@ -81,6 +84,28 @@ enum FlowType {
     UNKNOWN_TYPE = 0;
     L3_L4 = 1; // not sure about the underscore here, but `L34` also reads strange
     L7 = 2;
+}
+
+enum TraceObservationPoint {
+    // Cilium treats 0 as TO_LXC, but its's something we should work to remove.
+    // This is intentionally set as unknown, so proto API can guarantee the
+    // observation point is always going to be present on trace events.
+    UNKNOWN_POINT = 0;
+
+    TO_PROXY = 1;
+    TO_HOST = 2;
+    TO_STACK = 3;
+    TO_OVERLAY = 4;
+    // same as TO_LXC, which had a 0 value. This index is intentionally very
+    // high so when new segments are added in bpf, there are no collisions
+    TO_ENDPOINT = 101;
+
+    FROM_ENDPOINT = 5;
+    FROM_PROXY = 6;
+    FROM_HOST = 7;
+    FROM_STACK = 8;
+    FROM_OVERLAY = 9;
+    FROM_NETWORK = 10;
 }
 
 message Layer4 {
