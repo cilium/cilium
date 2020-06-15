@@ -66,37 +66,38 @@ Each pod will be represented in Cilium as an :ref:`endpoint`. We can invoke the
     cilium-5ngzd   1/1     Running   0          3m19s
 
     $ kubectl -n kube-system exec cilium-1c2cz -- cilium endpoint list
-    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6   IPv4            STATUS
+    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6   IPv4         STATUS
                ENFORCEMENT        ENFORCEMENT
-    108        Disabled           Disabled          104        k8s:io.cilium.k8s.policy.cluster=default                 10.15.233.139   ready
-                                                               k8s:io.cilium.k8s.policy.serviceaccount=coredns
-                                                               k8s:io.kubernetes.pod.namespace=kube-system
-                                                               k8s:k8s-app=kube-dns
-    1011       Disabled           Disabled          104        k8s:io.cilium.k8s.policy.cluster=default                 10.15.96.117    ready
-                                                               k8s:io.cilium.k8s.policy.serviceaccount=coredns
-                                                               k8s:io.kubernetes.pod.namespace=kube-system
-                                                               k8s:k8s-app=kube-dns
-    2407       Disabled           Disabled          22839      k8s:class=deathstar                                      10.15.129.95    ready
+    232        Disabled           Disabled          16530      k8s:class=deathstar                                      10.0.0.147   ready
                                                                k8s:io.cilium.k8s.policy.cluster=default
                                                                k8s:io.cilium.k8s.policy.serviceaccount=default
                                                                k8s:io.kubernetes.pod.namespace=default
                                                                k8s:org=empire
-    2607       Disabled           Disabled          4          reserved:health                                          10.15.28.196    ready
-    3339       Disabled           Disabled          22839      k8s:class=deathstar                                      10.15.72.39     ready
+    726        Disabled           Disabled          1          reserved:host                                                         ready
+    883        Disabled           Disabled          4          reserved:health                                          10.0.0.244   ready
+    1634       Disabled           Disabled          51373      k8s:io.cilium.k8s.policy.cluster=default                 10.0.0.118   ready
+                                                               k8s:io.cilium.k8s.policy.serviceaccount=coredns
+                                                               k8s:io.kubernetes.pod.namespace=kube-system
+                                                               k8s:k8s-app=kube-dns
+    1673       Disabled           Disabled          31028      k8s:class=tiefighter                                     10.0.0.112   ready
                                                                k8s:io.cilium.k8s.policy.cluster=default
                                                                k8s:io.cilium.k8s.policy.serviceaccount=default
                                                                k8s:io.kubernetes.pod.namespace=default
                                                                k8s:org=empire
-    3738       Disabled           Disabled          47764      k8s:class=xwing                                          10.15.116.85    ready
+    2811       Disabled           Disabled          51373      k8s:io.cilium.k8s.policy.cluster=default                 10.0.0.47    ready
+                                                               k8s:io.cilium.k8s.policy.serviceaccount=coredns
+                                                               k8s:io.kubernetes.pod.namespace=kube-system
+                                                               k8s:k8s-app=kube-dns
+    2843       Disabled           Disabled          16530      k8s:class=deathstar                                      10.0.0.89    ready
+                                                               k8s:io.cilium.k8s.policy.cluster=default
+                                                               k8s:io.cilium.k8s.policy.serviceaccount=default
+                                                               k8s:io.kubernetes.pod.namespace=default
+                                                               k8s:org=empire
+    3184       Disabled           Disabled          22654      k8s:class=xwing                                          10.0.0.30    ready
                                                                k8s:io.cilium.k8s.policy.cluster=default
                                                                k8s:io.cilium.k8s.policy.serviceaccount=default
                                                                k8s:io.kubernetes.pod.namespace=default
                                                                k8s:org=alliance
-    3837       Disabled           Disabled          9164       k8s:class=tiefighter                                     10.15.22.126    ready
-                                                               k8s:io.cilium.k8s.policy.cluster=default
-                                                               k8s:io.cilium.k8s.policy.serviceaccount=default
-                                                               k8s:io.kubernetes.pod.namespace=default
-                                                               k8s:org=empire
 
 
 Both ingress and egress policy enforcement is still disabled on all of these pods because no network
@@ -169,37 +170,38 @@ If we run ``cilium endpoint list`` again we will see that the pods with the labe
 ::
 
     $ kubectl -n kube-system exec cilium-1c2cz -- cilium endpoint list
-    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6   IPv4            STATUS
+    ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6   IPv4         STATUS
                ENFORCEMENT        ENFORCEMENT
-    108        Disabled           Disabled          104        k8s:io.cilium.k8s.policy.cluster=default                 10.15.233.139   ready
-                                                               k8s:io.cilium.k8s.policy.serviceaccount=coredns
-                                                               k8s:io.kubernetes.pod.namespace=kube-system
-                                                               k8s:k8s-app=kube-dns
-    1011       Disabled           Disabled          104        k8s:io.cilium.k8s.policy.cluster=default                 10.15.96.117    ready
-                                                               k8s:io.cilium.k8s.policy.serviceaccount=coredns
-                                                               k8s:io.kubernetes.pod.namespace=kube-system
-                                                               k8s:k8s-app=kube-dns
-    1518       Disabled           Disabled          4          reserved:health                                          10.15.28.196    ready
-    2407       Enabled            Disabled          22839      k8s:class=deathstar                                      10.15.129.95    ready
+    232        Enabled            Disabled          16530      k8s:class=deathstar                                      10.0.0.147   ready
                                                                k8s:io.cilium.k8s.policy.cluster=default
                                                                k8s:io.cilium.k8s.policy.serviceaccount=default
                                                                k8s:io.kubernetes.pod.namespace=default
                                                                k8s:org=empire
-    3339       Enabled            Disabled          22839      k8s:class=deathstar                                      10.15.72.39     ready
+    726        Disabled           Disabled          1          reserved:host                                                         ready
+    883        Disabled           Disabled          4          reserved:health                                          10.0.0.244   ready
+    1634       Disabled           Disabled          51373      k8s:io.cilium.k8s.policy.cluster=default                 10.0.0.118   ready
+                                                               k8s:io.cilium.k8s.policy.serviceaccount=coredns
+                                                               k8s:io.kubernetes.pod.namespace=kube-system
+                                                               k8s:k8s-app=kube-dns
+    1673       Disabled           Disabled          31028      k8s:class=tiefighter                                     10.0.0.112   ready
                                                                k8s:io.cilium.k8s.policy.cluster=default
                                                                k8s:io.cilium.k8s.policy.serviceaccount=default
                                                                k8s:io.kubernetes.pod.namespace=default
                                                                k8s:org=empire
-    3738       Disabled           Disabled          47764      k8s:class=xwing                                          10.15.116.85    ready
+    2811       Disabled           Disabled          51373      k8s:io.cilium.k8s.policy.cluster=default                 10.0.0.47    ready
+                                                               k8s:io.cilium.k8s.policy.serviceaccount=coredns
+                                                               k8s:io.kubernetes.pod.namespace=kube-system
+                                                               k8s:k8s-app=kube-dns
+    2843       Enabled            Disabled          16530      k8s:class=deathstar                                      10.0.0.89    ready
+                                                               k8s:io.cilium.k8s.policy.cluster=default
+                                                               k8s:io.cilium.k8s.policy.serviceaccount=default
+                                                               k8s:io.kubernetes.pod.namespace=default
+                                                               k8s:org=empire
+    3184       Disabled           Disabled          22654      k8s:class=xwing                                          10.0.0.30    ready
                                                                k8s:io.cilium.k8s.policy.cluster=default
                                                                k8s:io.cilium.k8s.policy.serviceaccount=default
                                                                k8s:io.kubernetes.pod.namespace=default
                                                                k8s:org=alliance
-    3837       Disabled           Disabled          9164       k8s:class=tiefighter                                     10.15.22.126    ready
-                                                               k8s:io.cilium.k8s.policy.cluster=default
-                                                               k8s:io.cilium.k8s.policy.serviceaccount=default
-                                                               k8s:io.kubernetes.pod.namespace=default
-                                                               k8s:org=empire
 
 
 You can also inspect the policy details via ``kubectl``
@@ -219,11 +221,28 @@ You can also inspect the policy details via ``kubectl``
     Description:  L3-L4 policy to restrict deathstar access to empire ships only
     Kind:         CiliumNetworkPolicy
     Metadata:
-      Creation Timestamp:  2019-01-23T12:36:32Z
+      Creation Timestamp:  2020-06-15T14:06:48Z
       Generation:          1
-      Resource Version:    1115
-      Self Link:           /apis/cilium.io/v2/namespaces/default/ciliumnetworkpolicies/rule1
-      UID:                 837a2f1b-1f0b-11e9-9609-080027702f09
+      Managed Fields:
+        API Version:  cilium.io/v2
+        Fields Type:  FieldsV1
+        fieldsV1:
+          f:description:
+          f:spec:
+            .:
+            f:endpointSelector:
+              .:
+              f:matchLabels:
+                .:
+                f:class:
+                f:org:
+            f:ingress:
+        Manager:         kubectl
+        Operation:       Update
+        Time:            2020-06-15T14:06:48Z
+      Resource Version:  2914
+      Self Link:         /apis/cilium.io/v2/namespaces/default/ciliumnetworkpolicies/rule1
+      UID:               eb3a688b-b3aa-495c-b20a-d4f79e7c088d
     Spec:
       Endpoint Selector:
         Match Labels:
@@ -237,15 +256,7 @@ You can also inspect the policy details via ``kubectl``
           Ports:
             Port:      80
             Protocol:  TCP
-    Status:
-      Nodes:
-        Minikube:
-          Enforcing:              true
-          Last Updated:           2019-01-23T12:36:32.277839184Z
-          Local Policy Revision:  5
-          Ok:                     true
-    Events:                       <none>
-
+    Events:            <none>
 
 
 Apply and Test HTTP-aware L7 Policy
@@ -324,17 +335,36 @@ You can observe the L7 policy via ``kubectl``:
     Name:         rule1
     Namespace:    default
     Labels:       <none>
-    Annotations:  kubectl.kubernetes.io/last-applied-configuration:
-                    {"apiVersion":"cilium.io/v2","description":"L7 policy to restrict access to specific HTTP call","kind":"CiliumNetworkPolicy","metadata":{"...
-    API Version:  cilium.io/v2
+    Annotations:  API Version:  cilium.io/v2
     Description:  L7 policy to restrict access to specific HTTP call
     Kind:         CiliumNetworkPolicy
     Metadata:
-      Creation Timestamp:  2019-01-23T12:36:32Z
+      Creation Timestamp:  2020-06-15T14:06:48Z
       Generation:          2
-      Resource Version:    1484
-      Self Link:           /apis/cilium.io/v2/namespaces/default/ciliumnetworkpolicies/rule1
-      UID:                 837a2f1b-1f0b-11e9-9609-080027702f09
+      Managed Fields:
+        API Version:  cilium.io/v2
+        Fields Type:  FieldsV1
+        fieldsV1:
+          f:description:
+          f:metadata:
+            f:annotations:
+              .:
+              f:kubectl.kubernetes.io/last-applied-configuration:
+          f:spec:
+            .:
+            f:endpointSelector:
+              .:
+              f:matchLabels:
+                .:
+                f:class:
+                f:org:
+            f:ingress:
+        Manager:         kubectl
+        Operation:       Update
+        Time:            2020-06-15T14:10:46Z
+      Resource Version:  3445
+      Self Link:         /apis/cilium.io/v2/namespaces/default/ciliumnetworkpolicies/rule1
+      UID:               eb3a688b-b3aa-495c-b20a-d4f79e7c088d
     Spec:
       Endpoint Selector:
         Match Labels:
@@ -352,24 +382,13 @@ You can observe the L7 policy via ``kubectl``:
             Http:
               Method:  POST
               Path:    /v1/request-landing
-    Status:
-      Nodes:
-        Minikube:
-          Annotations:
-            Kubectl . Kubernetes . Io / Last - Applied - Configuration:  {"apiVersion":"cilium.io/v2","description":"L7 policy to restrict access to specific HTTP call","kind":"CiliumNetworkPolicy","metadata":{"annotations":{},"name":"rule1","namespace":"default"},"spec":{"endpointSelector":{"matchLabels":{"class":"deathstar","org":"empire"}},"ingress":[{"fromEndpoints":[{"matchLabels":{"org":"empire"}}],"toPorts":[{"ports":[{"port":"80","protocol":"TCP"}],"rules":{"http":[{"method":"POST","path":"/v1/request-landing"}]}}]}]}}
-
-          Enforcing:              true
-          Last Updated:           2019-01-23T12:39:30.823729308Z
-          Local Policy Revision:  7
-          Ok:                     true
-    Events:                       <none>
-
+    Events:            <none>
 
 and ``cilium`` CLI:
 
 ::
 
-    $ kubectl -n kube-system exec cilium-qh5l2 cilium policy get
+    $ kubectl -n kube-system exec cilium-qh5l2 -- cilium policy get
     [
       {
         "endpointSelector": {
@@ -411,13 +430,13 @@ and ``cilium`` CLI:
         ],
         "labels": [
           {
-            "key": "io.cilium.k8s.policy.name",
-            "value": "rule1",
+            "key": "io.cilium.k8s.policy.derived-from",
+            "value": "CiliumNetworkPolicy",
             "source": "k8s"
           },
           {
-            "key": "io.cilium.k8s.policy.uid",
-            "value": "837a2f1b-1f0b-11e9-9609-080027702f09",
+            "key": "io.cilium.k8s.policy.name",
+            "value": "rule1",
             "source": "k8s"
           },
           {
@@ -426,14 +445,14 @@ and ``cilium`` CLI:
             "source": "k8s"
           },
           {
-            "key": "io.cilium.k8s.policy.derived-from",
-            "value": "CiliumNetworkPolicy",
+            "key": "io.cilium.k8s.policy.uid",
+            "value": "eb3a688b-b3aa-495c-b20a-d4f79e7c088d",
             "source": "k8s"
           }
         ]
       }
     ]
-    Revision: 7
+    Revision: 11
 
 
 We hope you enjoyed the tutorial.  Feel free to play more with the setup, read
