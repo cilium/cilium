@@ -189,9 +189,10 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	}
 
 	return &models.KubeProxyReplacement{
-		Mode:     mode,
-		Devices:  devices,
-		Features: features,
+		Mode:                mode,
+		Devices:             devices,
+		DirectRoutingDevice: option.Config.DirectRoutingDevice,
+		Features:            features,
 	}
 }
 
