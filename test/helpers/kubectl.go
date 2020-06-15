@@ -115,6 +115,8 @@ var (
 
 		// We need CNP node status to know when a policy is being enforced
 		"global.cnpStatusUpdates.enabled": "true",
+
+		"global.hostFirewall": "true",
 	}
 
 	flannelHelmOverrides = map[string]string{
@@ -140,6 +142,7 @@ var (
 		"global.nodePort.mode":        "snat",
 		"global.gke.enabled":          "true",
 		"global.nativeRoutingCIDR":    "10.0.0.0/8",
+		"global.hostFirewall":         "false",
 	}
 
 	microk8sHelmOverrides = map[string]string{
@@ -2162,7 +2165,6 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 
 		opts := map[string]string{
-			"global.hostFirewall":         "true",
 			"global.kubeProxyReplacement": "strict",
 			"global.k8sServiceHost":       nodeIP,
 			"global.k8sServicePort":       "6443",
