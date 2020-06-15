@@ -1,0 +1,30 @@
+# Copyright 2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+# since this is image is built with root context, most of the files
+# need to be excluded for faster builds and to avoid spoiling build
+# cache due to unchecked files (like configs or random binaries)
+*
+
+# must-have toplevel files
+!/Makefile*
+!/go.sum
+!/go.mod
+!/VERSION
+# TODO: this is currently a make dependency, but should be removed
+# in the future
+!/Dockerfile
+
+# directories
+!/api
+!/bpf
+!/bugtool
+!/cilium
+!/cilium-health
+!/contrib/packaging/docker
+!/daemon
+!/envoy
+!/pkg
+!/plugins/cilium-cni
+!/proxylib
+!/vendor
