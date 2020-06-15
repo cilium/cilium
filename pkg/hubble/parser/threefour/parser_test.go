@@ -164,6 +164,8 @@ func TestL34Decode(t *testing.T) {
 	assert.Equal(t, &flowpb.TCPFlags{ACK: true}, f.L4.GetTCP().GetFlags())
 	assert.Equal(t, nodeName, f.GetNodeName())
 
+	assert.Equal(t, flowpb.TraceObservationPoint_FROM_HOST, f.GetTraceObservationPoint())
+
 	// ICMP packet so no ports until that support is merged into master
 	//
 	//SOURCE              DESTINATION          TYPE   SUMMARY
@@ -229,6 +231,8 @@ func TestL34Decode(t *testing.T) {
 	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
 	assert.Equal(t, (*flowpb.TCPFlags)(nil), f.L4.GetTCP().GetFlags())
 	assert.Equal(t, nodeName, f.GetNodeName())
+
+	assert.Equal(t, flowpb.TraceObservationPoint_FROM_ENDPOINT, f.GetTraceObservationPoint())
 }
 
 func BenchmarkL34Decode(b *testing.B) {

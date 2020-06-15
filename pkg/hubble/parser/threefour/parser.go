@@ -117,6 +117,15 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 			return fmt.Errorf("failed to parse trace: %v", err)
 		}
 		eventSubType = tn.ObsPoint
+
+		if tn.ObsPoint != 0 {
+			decoded.TraceObservationPoint = pb.TraceObservationPoint(tn.ObsPoint)
+		} else {
+			// specifically handle the zero value in the observation enum so the json
+			// export and the API don't carry extra meaning with the zero value
+			decoded.TraceObservationPoint = pb.TraceObservationPoint_TO_ENDPOINT
+		}
+
 		packetOffset = (int)(tn.DataOffset())
 	case monitorAPI.MessageTypePolicyVerdict:
 		pvn = &monitor.PolicyVerdictNotify{}
