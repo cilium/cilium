@@ -554,6 +554,8 @@ Deprecated options
   1.6. The ``access-log`` option to log to a file has been removed.
 * ``--disable-k8s-services`` option from cilium-agent has been deprecated
   and will be removed in Cilium 1.9.
+* ``--disable-ipv4`` legacy option from cilium-agent which was already hidden
+  has now been deprecated and will be removed in Cilium 1.9.
 * ``--tofqdns-enable-poller``: This option has been deprecated and will be
   removed in Cilium 1.9
 * ``--tofqdns-enable-poller-events``: This option has been deprecated and will
