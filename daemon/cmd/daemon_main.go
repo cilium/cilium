@@ -1122,6 +1122,10 @@ func initEnv(cmd *cobra.Command) {
 	initClockSourceOption()
 	initSockmapOption()
 
+	if option.Config.EnableHostFirewall && option.Config.EnableIPSec {
+		log.Fatal("IPSec cannot be used with the host firewall.")
+	}
+
 	// If there is one device specified, use it to derive better default
 	// allocation prefixes
 	node.InitDefaultPrefix(option.Config.DirectRoutingDevice)
