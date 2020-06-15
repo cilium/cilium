@@ -30,6 +30,7 @@ RUN update-alternatives \
 #
 FROM docker.io/library/golang:1.14.4 as gops
 WORKDIR /tmp
+# when updating this version, also update images/runtime/build-gops.sh
 RUN go get -d github.com/google/gops && \
     cd /go/src/github.com/google/gops && \
     git checkout -b v0.3.10 v0.3.10 && \
@@ -44,6 +45,8 @@ RUN go get -d github.com/google/gops && \
 FROM runtime-base as tools
 ARG ARCH=amd64
 WORKDIR /tmp
+# when updating this version, also run `images/scripts/update-cni-version.sh <v>`
+# to update images/runtime/cni-version.sh
 RUN apt-get update && \
     apt-get install -y --no-install-recommends \
       curl ca-certificates xz-utils binutils && \
