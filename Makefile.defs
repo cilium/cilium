@@ -85,7 +85,8 @@ else
 	BPF_SRCFILES = $(shell cat $(ROOT_DIR)/BPF_SRCFILES)
 endif
 
-CILIUM_DATAPATH_SHA=$(shell cat $(BPF_FILES) | sha1sum | awk '{print $$1}')
+# Use BPF_SRCFILES as BPF_FILES is not available in the buildkit context
+CILIUM_DATAPATH_SHA=$(shell cd $(ROOT_DIR); cat $(BPF_SRCFILES) | sha1sum | awk '{print $$1}')
 GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/datapath/loader.DatapathSHA=$(CILIUM_DATAPATH_SHA)"
 
 # Set -mod=vendor if running >= go 1.13 or if GO111MODULE is set.
