@@ -8,7 +8,7 @@ export DOCKER_BUILDKIT=1
 
 # Clean the build directory and cache
 clean-build:
-	-$(QUIET) rm -rf $(BUILD_DIR)
+	-$(QUIET) rm -rf _build
 	-$(QUIET) docker builder prune --filter type=exec.cachemount -f
 
 veryclean: clean-build
@@ -22,18 +22,18 @@ HUBBLE_RELAY_DOCKERFILE := $(BUILD_DIR)/hubble-relay.Dockerfile
 BUILDKIT_DOCKERFILE_FILTER := | sed -e "1s|^\#.*|\# syntax = docker/dockerfile:experimental|" -e "s|^RUN\(.*\)make|RUN --mount=type=cache,target=/root/.cache/go-build\1make|"
 
 # _build/.git is a shallow bare clone of the main repo
-$(BUILD_DIR)/.git:
-	-mkdir -p $(dir $@)
-	git clone --bare --no-local --depth 1 . $@
-	@cd $(dir $@) && git remote set-url origin "$(shell realpath --relative-to $(dir $@) $(ROOT_DIR))"
+_build/.git:
+	-mkdir -p _build
+	git clone --bare --no-local --depth 1 . _build/.git
+	@cd _build && git remote set-url origin ..
 
 #
 # Create _build context:
-# $(DOCKER_BUILD_DIR)/.git will be a file (rather than directory) that contains git specific
+# _build/context/.git will be a file (rather than directory) that contains git specific
 # symbolic link to _build/.git (--separate-git-dir)
 #
-$(DOCKER_BUILD_DIR): $(BUILD_DIR)/.git
-	git init --separate-git-dir=$(BUILD_DIR)/.git $@
+_build/context: _build/.git
+	git init --separate-git-dir=$< $@
 
 #
 # Update the docker build context by:
@@ -48,19 +48,19 @@ $(DOCKER_BUILD_DIR): $(BUILD_DIR)/.git
 # - update GIT_VERSION in the build context if needed
 # - update BPF_SRCFILES in the build context if needed
 #
-build-context-update: check-status $(DOCKER_BUILD_DIR) $(DOCKER_BUILD_DIR)/GIT_VERSION $(DOCKER_BUILD_DIR)/BPF_SRCFILES
-	@echo "gitdir: ../.git" > $(DOCKER_BUILD_DIR)/.git
-	cd $(BUILD_DIR) && git fetch --depth=1 --no-tags
-	cd $(DOCKER_BUILD_DIR) && git reset --hard FETCH_HEAD && git clean -fd
-	@rm $(DOCKER_BUILD_DIR)/.git
+build-context-update: check-status _build/context _build/context/GIT_VERSION _build/context/BPF_SRCFILES
+	@echo "gitdir: ../.git" > _build/context/.git
+	cd _build && git fetch --depth=1 --no-tags
+	cd _build/context && git reset --hard FETCH_HEAD && git clean -fd
+	@rm _build/context/.git
 
 #
 # Docker build context does not contain the actual git repo, so we need to pass
 # GIT_VERSION and/or BPF_SRCFILES to the build context separately.
 #
-$(DOCKER_BUILD_DIR)/GIT_VERSION: GIT_VERSION $(DOCKER_BUILD_DIR)
+_build/context/GIT_VERSION: GIT_VERSION _build/context
 	cp $< $@
-$(DOCKER_BUILD_DIR)/BPF_SRCFILES: BPF_SRCFILES $(DOCKER_BUILD_DIR)
+_build/context/BPF_SRCFILES: BPF_SRCFILES _build/context
 	cp $< $@
 
 # Bare 'Dockerfile' needs a special rule
