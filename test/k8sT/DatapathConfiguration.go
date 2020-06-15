@@ -553,6 +553,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"global.autoDirectNodeRoutes": "true",
 				"global.encryption.enabled":   "true",
 				"global.encryption.interface": privateIface,
+				"global.devices":              "",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
