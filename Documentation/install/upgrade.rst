@@ -415,6 +415,17 @@ IMPORTANT: Changes required before upgrading to 1.8.0
   using Helm ``--set global.cnpStatusUpdates.enabled=true`` or by editing the
   ``ConfigMap`` directly.
 
+* Prior to 1.8 release, Cilium's eBPF-based kube-proxy replacement was not able
+  to handle Kubernetes HostPort feature and therefore CNI chaining with the
+  ``portmap`` plugin (``global.cni.chainingMode=portmap``) was necessary while
+  turning off the kube-proxy replacement (``global.kubeProxyReplacement=disabled``).
+  Starting from 1.8, CNI chaining is no longer necessary, meaning Cilium can be
+  used natively to handle HostPort when running with Cilium's kube-proxy replacement.
+  That is, for ``global.kubeProxyReplacement=probe`` and ``global.kubeProxyReplacement=strict``
+  handling of HostPort is enabled by default. HostPort has the same system requirements
+  as eBPF-based NodePort, so for ``probe`` the former gets enabled if also NodePort
+  could be enabled. For more information, see section :ref:`kubeproxyfree_hostport`.
+
 Upgrading from >=1.7.0 to 1.8.y
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 

@@ -444,6 +444,8 @@ and therefore not affecting any application pod ``bind(2)`` requests anymore. In
 order to opt-out from this behavior in general, this setting can be changed for
 expert users by switching ``global.nodePort.bindProtection`` to ``false``.
 
+.. _kubeproxyfree_hostport:
+
 Container hostPort support
 **************************
 
