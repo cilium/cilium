@@ -10,7 +10,7 @@ connectivity provided by Cilium and NetworkPolicy applies to them:
 
 ::
 
-    kubectl get pods --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,HOSTNETWORK:.spec.hostNetwork --no-headers=true | grep '<none>' | awk '{print "-n "$1" "$2}' | xargs kubectl delete pod
+    kubectl get pods --all-namespaces -o custom-columns=NAMESPACE:.metadata.namespace,NAME:.metadata.name,HOSTNETWORK:.spec.hostNetwork --no-headers=true | grep '<none>' | awk '{print "-n "$1" "$2}' | xargs -L 1 -r kubectl delete pod
     pod "event-exporter-v0.2.3-f9c896d75-cbvcz" deleted
     pod "fluentd-gcp-scaler-69d79984cb-nfwwk" deleted
     pod "heapster-v1.6.0-beta.1-56d5d5d87f-qw8pv" deleted
