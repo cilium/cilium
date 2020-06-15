@@ -25,8 +25,14 @@ lint:
 runtime-image: .buildx_builder
 	TEST=true scripts/build-image.sh cilium-runtime-dev images/runtime linux/amd64,linux/arm64 $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
 
+update-runtime-image:
+	scripts/update-cilium-runtime-image.sh
+
 builder-image: .buildx_builder
 	TEST=true scripts/build-image.sh cilium-builder-dev images/builder linux/amd64 $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
+
+update-builder-image:
+	scripts/update-cilium-builder-image.sh
 
 cilium-image: .buildx_builder
 	ROOT_CONTEXT=true scripts/build-image.sh cilium-dev images/cilium linux/amd64,linux/arm64 $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
