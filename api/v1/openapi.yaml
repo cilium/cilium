@@ -1683,6 +1683,8 @@ definitions:
           type: array
           items:
             type: string
+      directRoutingDevice:
+        type: string
       features:
         type: object
         properties:
