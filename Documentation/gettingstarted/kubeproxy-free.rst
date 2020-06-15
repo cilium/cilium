@@ -537,6 +537,15 @@ the public facing interface, this can be achieved by:
 
 After updating ``/etc/default/kubelet``, kubelet needs to be restarted.
 
+In order to verify whether the HostPort feature has been enabled in Cilium, the
+``cilium status`` CLI command provides visibility through the ``KubeProxyReplacement``
+info line. If it has been enabled successfully, ``HostPort`` is shown, for example:
+
+.. parsed-literal::
+
+    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
+    KubeProxyReplacement:   Strict   [eth0 (DR)]   [NodePort (SNAT, 30000-32767, XDP: DISABLED), HostPort, ExternalIPs, HostReachableServices (TCP, UDP), SessionAffinity]
+
 The following modified example yaml from the setup validation with an additional
 ``hostPort: 8080`` parameter can be used to verify the mapping:
 
