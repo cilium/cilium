@@ -42,16 +42,8 @@ struct nat_entry {
 # define SNAT_COLLISION_RETRIES		128
 # define SNAT_SIGNAL_THRES		64
 #else
-# if defined(ENABLE_IPV4) && defined(ENABLE_IPV6)
-#  ifdef ENABLE_DSR_HYBRID
-#   define SNAT_COLLISION_RETRIES	16
-#  else
-#   define SNAT_COLLISION_RETRIES	18
-#  endif
-# else
-#  define SNAT_COLLISION_RETRIES	20
-# endif
-# define SNAT_SIGNAL_THRES		10
+# define SNAT_COLLISION_RETRIES		32
+# define SNAT_SIGNAL_THRES		16
 #endif
 
 static __always_inline __be16 __snat_clamp_port_range(__u16 start, __u16 end,
