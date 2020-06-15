@@ -1,6 +1,9 @@
 # Copyright 2017-2020 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
+all: precheck build postcheck
+	@echo "Build finished."
+
 include Makefile.defs
 
 # This is a no-op unless DOCKER_BUILDKIT is defined
@@ -122,9 +125,6 @@ define generate_k8s_protobuf
 		--packages=$(1) \
 	    --go-header-file "$(PWD)/hack/custom-boilerplate.go.txt"
 endef
-
-all: precheck build postcheck
-	@echo "Build finished."
 
 build: $(SUBDIRS)
 
