@@ -12,12 +12,12 @@ import (
 	"github.com/cilium/ebpf/internal"
 	"github.com/cilium/ebpf/internal/unix"
 
-	"github.com/pkg/errors"
+	"golang.org/x/xerrors"
 )
 
 var (
-	errClosed = errors.New("perf reader was closed")
-	errEOR    = errors.New("end of ring")
+	errClosed = xerrors.New("perf reader was closed")
+	errEOR    = xerrors.New("end of ring")
 )
 
 // perfEventHeader must match 'struct perf_event_header` in <linux/perf_event.h>.
@@ -29,7 +29,7 @@ type perfEventHeader struct {
 
 func addToEpoll(epollfd, fd int, cpu int) error {
 	if int64(cpu) > math.MaxInt32 {
-		return errors.Errorf("unsupported CPU number: %d", cpu)
+		return xerrors.Errorf("unsupported CPU number: %d", cpu)
 	}
 
 	// The representation of EpollEvent isn't entirely accurate.
@@ -42,8 +42,10 @@ func addToEpoll(epollfd, fd int, cpu int) error {
 		Pad:    int32(cpu),
 	}
 
-	err := unix.EpollCtl(epollfd, unix.EPOLL_CTL_ADD, fd, &event)
-	return errors.Wrap(err, "can't add fd to epoll")
+	if err := unix.EpollCtl(epollfd, unix.EPOLL_CTL_ADD, fd, &event); err != nil {
+		return xerrors.Errorf("can't add fd to epoll: %v", err)
+	}
+	return nil
 }
 
 func cpuForEvent(event *unix.EpollEvent) int {
@@ -57,9 +59,8 @@ type Record struct {
 	CPU int
 
 	// The data submitted via bpf_perf_event_output.
-	// They are padded with 0 to have a 64-bit alignment.
-	// If you are using variable length samples you need to take
-	// this into account.
+	// Due to a kernel bug, this can contain between 0 and 7 bytes of trailing
+	// garbage from the ring depending on the input sample's length.
 	RawSample []byte
 
 	// The number of samples which could not be output, since
@@ -86,7 +87,7 @@ func readRecord(rd io.Reader, cpu int) (Record, error) {
 	}
 
 	if err != nil {
-		return Record{}, errors.Wrap(err, "can't read event header")
+		return Record{}, xerrors.Errorf("can't read event header: %v", err)
 	}
 
 	switch header.Type {
@@ -112,7 +113,7 @@ func readLostRecords(rd io.Reader) (uint64, error) {
 
 	err := binary.Read(rd, internal.NativeEndian, &lostHeader)
 	if err != nil {
-		return 0, errors.Wrap(err, "can't read lost records header")
+		return 0, xerrors.Errorf("can't read lost records header: %v", err)
 	}
 
 	return lostHeader.Lost, nil
@@ -122,12 +123,14 @@ func readRawSample(rd io.Reader) ([]byte, error) {
 	// This must match 'struct perf_event_sample in kernel sources.
 	var size uint32
 	if err := binary.Read(rd, internal.NativeEndian, &size); err != nil {
-		return nil, errors.Wrap(err, "can't read sample size")
+		return nil, xerrors.Errorf("can't read sample size: %v", err)
 	}
 
 	data := make([]byte, int(size))
-	_, err := io.ReadFull(rd, data)
-	return data, errors.Wrap(err, "can't read sample")
+	if _, err := io.ReadFull(rd, data); err != nil {
+		return nil, xerrors.Errorf("can't read sample: %v", err)
+	}
+	return data, nil
 }
 
 // Reader allows reading bpf_perf_event_output
@@ -179,12 +182,12 @@ func NewReader(array *ebpf.Map, perCPUBuffer int) (*Reader, error) {
 // NewReaderWithOptions creates a new reader with the given options.
 func NewReaderWithOptions(array *ebpf.Map, perCPUBuffer int, opts ReaderOptions) (pr *Reader, err error) {
 	if perCPUBuffer < 1 {
-		return nil, errors.New("perCPUBuffer must be larger than 0")
+		return nil, xerrors.New("perCPUBuffer must be larger than 0")
 	}
 
 	epollFd, err := unix.EpollCreate1(unix.EPOLL_CLOEXEC)
 	if err != nil {
-		return nil, errors.Wrap(err, "can't create epoll fd")
+		return nil, xerrors.Errorf("can't create epoll fd: %v", err)
 	}
 
 	var (
@@ -200,7 +203,9 @@ func NewReaderWithOptions(array *ebpf.Map, perCPUBuffer int, opts ReaderOptions)
 				unix.Close(fd)
 			}
 			for _, ring := range rings {
-				ring.Close()
+				if ring != nil {
+					ring.Close()
+				}
 			}
 		}
 	}()
@@ -210,8 +215,15 @@ func NewReaderWithOptions(array *ebpf.Map, perCPUBuffer int, opts ReaderOptions)
 	// Hence we have to create a ring for each CPU.
 	for i := 0; i < nCPU; i++ {
 		ring, err := newPerfEventRing(i, perCPUBuffer, opts.Watermark)
+		if xerrors.Is(err, unix.ENODEV) {
+			// The requested CPU is currently offline, skip it.
+			rings = append(rings, nil)
+			pauseFds = append(pauseFds, -1)
+			continue
+		}
+
 		if err != nil {
-			return nil, errors.Wrapf(err, "failed to create perf ring for CPU %d", i)
+			return nil, xerrors.Errorf("failed to create perf ring for CPU %d: %v", i, err)
 		}
 		rings = append(rings, ring)
 		pauseFds = append(pauseFds, ring.fd)
@@ -249,9 +261,6 @@ func NewReaderWithOptions(array *ebpf.Map, perCPUBuffer int, opts ReaderOptions)
 	if err = pr.Resume(); err != nil {
 		return nil, err
 	}
-	if err = pr.Resume(); err != nil {
-		return nil, err
-	}
 	runtime.SetFinalizer(pr, (*Reader).Close)
 	return pr, nil
 }
@@ -272,7 +281,7 @@ func (pr *Reader) Close() error {
 		internal.NativeEndian.PutUint64(value[:], 1)
 		_, err = unix.Write(pr.closeFd, value[:])
 		if err != nil {
-			err = errors.Wrap(err, "can't write event fd")
+			err = xerrors.Errorf("can't write event fd: %v", err)
 			return
 		}
 
@@ -289,23 +298,29 @@ func (pr *Reader) Close() error {
 
 		// Close rings
 		for _, ring := range pr.rings {
-			ring.Close()
+			if ring != nil {
+				ring.Close()
+			}
 		}
 		pr.rings = nil
 		pr.pauseFds = nil
 
 		pr.array.Close()
 	})
-
-	return errors.Wrap(err, "close PerfReader")
+	if err != nil {
+		return xerrors.Errorf("close PerfReader: %w", err)
+	}
+	return nil
 }
 
 // Read the next record from the perf ring buffer.
 //
 // The function blocks until there are at least Watermark bytes in one
-// of the per CPU buffers.
+// of the per CPU buffers. Records from buffers below the Watermark
+// are not returned.
 //
-// Records from buffers below the Watermark are not returned.
+// Records can contain between 0 and 7 bytes of trailing garbage from the ring
+// depending on the input sample's length.
 //
 // Calling Close interrupts the function.
 func (pr *Reader) Read() (Record, error) {
@@ -372,9 +387,9 @@ func (pr *Reader) Pause() error {
 		return errClosed
 	}
 
-	for i := 0; i < len(pr.pauseFds); i++ {
-		if err := pr.array.Delete(uint32(i)); err != nil && !ebpf.IsNotExist(err) {
-			return errors.Wrapf(err, "could't delete event fd for CPU %d", i)
+	for i := range pr.pauseFds {
+		if err := pr.array.Delete(uint32(i)); err != nil && !xerrors.Is(err, ebpf.ErrKeyNotExist) {
+			return xerrors.Errorf("could't delete event fd for CPU %d: %w", i, err)
 		}
 	}
 
@@ -392,10 +407,13 @@ func (pr *Reader) Resume() error {
 		return errClosed
 	}
 
-	for i := 0; i < len(pr.pauseFds); i++ {
-		fd := uint32(pr.pauseFds[i])
-		if err := pr.array.Put(uint32(i), fd); err != nil {
-			return errors.Wrapf(err, "could't put event fd %d for CPU %d", fd, i)
+	for i, fd := range pr.pauseFds {
+		if fd == -1 {
+			continue
+		}
+
+		if err := pr.array.Put(uint32(i), uint32(fd)); err != nil {
+			return xerrors.Errorf("couldn't put event fd %d for CPU %d: %w", fd, i, err)
 		}
 	}
 
@@ -409,7 +427,7 @@ type temporaryError interface {
 // IsClosed returns true if the error occurred because
 // a Reader was closed.
 func IsClosed(err error) bool {
-	return errors.Cause(err) == errClosed
+	return xerrors.Is(err, errClosed)
 }
 
 type unknownEventError struct {
@@ -423,6 +441,6 @@ func (uev *unknownEventError) Error() string {
 // IsUnknownEvent returns true if the error occured
 // because an unknown event was submitted to the perf event ring.
 func IsUnknownEvent(err error) bool {
-	_, ok := errors.Cause(err).(*unknownEventError)
-	return ok
+	var uee *unknownEventError
+	return xerrors.As(err, &uee)
 }
