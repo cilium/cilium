@@ -144,6 +144,7 @@ var (
 		"global.gke.enabled":          "true",
 		"global.nativeRoutingCIDR":    "10.0.0.0/8",
 		"global.hostFirewall":         "false",
+		"config.ipam":                 "kubernetes",
 	}
 
 	microk8sHelmOverrides = map[string]string{
