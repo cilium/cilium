@@ -2516,6 +2516,9 @@ func init() {
             "type": "string"
           }
         },
+        "directRoutingDevice": {
+          "type": "string"
+        },
         "features": {
           "type": "object",
           "properties": {
@@ -6119,6 +6122,9 @@ func init() {
           "items": {
             "type": "string"
           }
+        },
+        "directRoutingDevice": {
+          "type": "string"
         },
         "features": {
           "type": "object",

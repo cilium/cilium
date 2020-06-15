@@ -23,6 +23,9 @@ type KubeProxyReplacement struct {
 	// devices
 	Devices []string `json:"devices"`
 
+	// direct routing device
+	DirectRoutingDevice string `json:"directRoutingDevice,omitempty"`
+
 	// features
 	Features *KubeProxyReplacementFeatures `json:"features,omitempty"`
 
