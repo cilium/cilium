@@ -134,17 +134,25 @@ type ciliumCleanup struct {
 	links     map[int]netlink.Link
 	tcFilters map[string][]*netlink.BpfFilter
 	netNSs    []string
+	bpfOnly   bool
 }
 
-func newCiliumCleanup() ciliumCleanup {
-	routes, ciliumLinks, err := findRoutesAndLinks()
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
-	}
+func newCiliumCleanup(bpfOnly bool) ciliumCleanup {
+	var routes map[int]netlink.Route
+	var ciliumLinks map[int]netlink.Link
+	var netNSs []string
+	var err error
 
-	netNSs, err := netns.ListNamedNetNSWithPrefix(ciliumNetNSPrefix)
-	if err != nil {
-		fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+	if !bpfOnly {
+		routes, ciliumLinks, err = findRoutesAndLinks()
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		}
+
+		netNSs, err = netns.ListNamedNetNSWithPrefix(ciliumNetNSPrefix)
+		if err != nil {
+			fmt.Fprintf(os.Stderr, "Error: %s\n", err)
+		}
 	}
 
 	tcFilters := map[string][]*netlink.BpfFilter{}
@@ -161,16 +169,22 @@ func newCiliumCleanup() ciliumCleanup {
 		}
 	}
 
-	return ciliumCleanup{routes, ciliumLinks, tcFilters, netNSs}
+	return ciliumCleanup{routes, ciliumLinks, tcFilters, netNSs, bpfOnly}
 }
 
 func (c ciliumCleanup) whatWillBeRemoved() []string {
-	toBeRemoved := []string{
-		fmt.Sprintf("mounted cgroupv2 at %s", defaults.DefaultCgroupRoot),
-		fmt.Sprintf("library code in %s", defaults.LibraryPath),
-		fmt.Sprintf("endpoint state in %s", defaults.RuntimePath),
-		fmt.Sprintf("CNI configuration at %s, %s, %s",
-			cniConfigV1, cniConfigV2, cniConfigV3),
+	toBeRemoved := []string{}
+
+	if len(c.tcFilters) > 0 {
+		section := "tc filters\n"
+		for linkName, f := range c.tcFilters {
+			section += fmt.Sprintf("%s %v\n", linkName, f)
+		}
+		toBeRemoved = append(toBeRemoved, section)
+	}
+
+	if c.bpfOnly {
+		return toBeRemoved
 	}
 
 	if len(c.routes) > 0 {
@@ -189,14 +203,6 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		toBeRemoved = append(toBeRemoved, section)
 	}
 
-	if len(c.tcFilters) > 0 {
-		section := "tc filters\n"
-		for linkName, f := range c.tcFilters {
-			section += fmt.Sprintf("%s %v\n", linkName, f)
-		}
-		toBeRemoved = append(toBeRemoved, section)
-	}
-
 	if len(c.netNSs) > 0 {
 		section := "network namespaces\n"
 		for _, n := range c.netNSs {
@@ -205,6 +211,14 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		toBeRemoved = append(toBeRemoved, section)
 	}
 
+	toBeRemoved = append(toBeRemoved, fmt.Sprintf("mounted cgroupv2 at %s",
+		defaults.DefaultCgroupRoot))
+	toBeRemoved = append(toBeRemoved, fmt.Sprintf("library code in %s",
+		defaults.LibraryPath))
+	toBeRemoved = append(toBeRemoved, fmt.Sprintf("endpoint state in %s",
+		defaults.RuntimePath))
+	toBeRemoved = append(toBeRemoved, fmt.Sprintf("CNI configuration at %s, %s, %s",
+		cniConfigV1, cniConfigV2, cniConfigV3))
 	return toBeRemoved
 }
 
@@ -221,14 +235,17 @@ func (c ciliumCleanup) cleanupFuncs() []cleanupFunc {
 		return removeTCFilters(c.tcFilters)
 	}
 
-	return []cleanupFunc{
-		unmountCgroup,
-		removeDirs,
-		removeCNI,
-		cleanupRoutesAndLinks,
-		cleanupNamedNetNSs,
+	funcs := []cleanupFunc{
 		cleanupTCFilters,
 	}
+	if !c.bpfOnly {
+		funcs = append(funcs, cleanupRoutesAndLinks)
+		funcs = append(funcs, cleanupNamedNetNSs)
+		funcs = append(funcs, unmountCgroup)
+		funcs = append(funcs, removeDirs)
+		funcs = append(funcs, removeCNI)
+	}
+	return funcs
 }
 
 func runCleanup() {
@@ -249,14 +266,13 @@ func runCleanup() {
 
 	var cleanups []cleanup
 
+	// tc filter cleanup must come before removing files in BPF fs as
+	// otherwise we remove tail call maps and get drops due to 'missed
+	// tail call' in the datapath.
+	cleanups = append(cleanups, newCiliumCleanup(!cleanAll && cleanBPF))
 	if cleanAll || cleanBPF {
 		cleanups = append(cleanups, bpfCleanup{})
 	}
-
-	if cleanAll {
-		cleanups = append(cleanups, newCiliumCleanup())
-	}
-
 	if len(cleanups) == 0 {
 		return
 	}
@@ -455,7 +471,11 @@ func getTCFilters(link netlink.Link) ([]*netlink.BpfFilter, error) {
 		}
 		for _, f := range filters {
 			if bpfFilter, ok := f.(*netlink.BpfFilter); ok {
-				if strings.Contains(bpfFilter.Name, "bpf_netdev.o") {
+				if strings.Contains(bpfFilter.Name, "bpf_netdev") ||
+					strings.Contains(bpfFilter.Name, "bpf_network") ||
+					strings.Contains(bpfFilter.Name, "bpf_host") ||
+					strings.Contains(bpfFilter.Name, "bpf_lxc") ||
+					strings.Contains(bpfFilter.Name, "bpf_overlay") {
 					allFilters = append(allFilters, bpfFilter)
 				}
 			}
