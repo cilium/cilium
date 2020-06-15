@@ -11,10 +11,17 @@
 Portmap (HostPort)
 ******************
 
-If you want to use the Kubernetes HostPort feature, you must enable CNI
-chaining with the portmap plugin which implements HostPort. This guide
-documents how to do so.  For more information about the Kubernetes HostPort
-feature , check out the upstream documentation:
+Starting from Cilium 1.8, the Kubernetes HostPort feature is supported natively
+through Cilium's eBPF-based kube-proxy replacement. CNI chaining is therefore
+not needed anymore. For more information, see section :ref:`kubeproxyfree_hostport`.
+
+However, for the case where Cilium is deployed as ``global.kubeProxyReplacement=disabled``,
+the HostPort feature can then be enabled via CNI chaining with the portmap plugin which
+implements HostPort. This guide documents how to enable the latter for the chaining
+case.
+
+For more general information about the Kubernetes HostPort feature, check out the
+upstream documentation:
 `Kubernetes hostPort-CNI plugin documentation
 <https://kubernetes.io/docs/concepts/extend-kubernetes/compute-storage-net/network-plugins/#support-hostport>`_.
 
