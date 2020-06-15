@@ -104,6 +104,25 @@ const FlowType_UNKNOWN_TYPE = FlowType(flow.FlowType_UNKNOWN_TYPE)
 const FlowType_L3_L4 = FlowType(flow.FlowType_L3_L4)
 const FlowType_L7 = FlowType(flow.FlowType_L7)
 
+// TraceObservationPoint from public import flow/flow.proto
+type TraceObservationPoint = flow.TraceObservationPoint
+
+var TraceObservationPoint_name = flow.TraceObservationPoint_name
+var TraceObservationPoint_value = flow.TraceObservationPoint_value
+
+const TraceObservationPoint_UNKNOWN_POINT = TraceObservationPoint(flow.TraceObservationPoint_UNKNOWN_POINT)
+const TraceObservationPoint_TO_PROXY = TraceObservationPoint(flow.TraceObservationPoint_TO_PROXY)
+const TraceObservationPoint_TO_HOST = TraceObservationPoint(flow.TraceObservationPoint_TO_HOST)
+const TraceObservationPoint_TO_STACK = TraceObservationPoint(flow.TraceObservationPoint_TO_STACK)
+const TraceObservationPoint_TO_OVERLAY = TraceObservationPoint(flow.TraceObservationPoint_TO_OVERLAY)
+const TraceObservationPoint_TO_ENDPOINT = TraceObservationPoint(flow.TraceObservationPoint_TO_ENDPOINT)
+const TraceObservationPoint_FROM_ENDPOINT = TraceObservationPoint(flow.TraceObservationPoint_FROM_ENDPOINT)
+const TraceObservationPoint_FROM_PROXY = TraceObservationPoint(flow.TraceObservationPoint_FROM_PROXY)
+const TraceObservationPoint_FROM_HOST = TraceObservationPoint(flow.TraceObservationPoint_FROM_HOST)
+const TraceObservationPoint_FROM_STACK = TraceObservationPoint(flow.TraceObservationPoint_FROM_STACK)
+const TraceObservationPoint_FROM_OVERLAY = TraceObservationPoint(flow.TraceObservationPoint_FROM_OVERLAY)
+const TraceObservationPoint_FROM_NETWORK = TraceObservationPoint(flow.TraceObservationPoint_FROM_NETWORK)
+
 // L7FlowType from public import flow/flow.proto
 type L7FlowType = flow.L7FlowType
 

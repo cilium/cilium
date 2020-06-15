@@ -157,6 +157,8 @@ func (m *Flow) Validate() error {
 
 	// no validation rules for PolicyMatchType
 
+	// no validation rules for TraceObservationPoint
+
 	// no validation rules for Summary
 
 	return nil
