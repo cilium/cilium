@@ -290,9 +290,19 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 				features = append(features, "SessionAffinity")
 			}
 
-			devices := strings.Join(sr.KubeProxyReplacement.Devices, ", ")
+			devices := ""
+			for i, dev := range sr.KubeProxyReplacement.Devices {
+				devices += dev
+				if dev == sr.KubeProxyReplacement.DirectRoutingDevice {
+					devices += " (DR)"
+				}
+				if i+1 != len(sr.KubeProxyReplacement.Devices) {
+					devices += ", "
+				}
 
-			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t(%s)\t[%s]\n",
+			}
+
+			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t[%s]\t[%s]\n",
 				sr.KubeProxyReplacement.Mode, devices, strings.Join(features, ", "))
 		}
 	}
