@@ -295,6 +295,7 @@ eXpress
 ebpf
 elfutils
 ena
+enablement
 endian
 endianness
 endpointSelector
