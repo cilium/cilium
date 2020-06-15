@@ -240,7 +240,11 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			return kubectl.HelmAddCiliumRepo()
 		}, time.Second*30, time.Second*1).Should(helpers.CMDSuccess(), "Unable to install helm repository")
 
-		By("Cleaning Cilium state")
+		// New version must come first given prior CI tests may have run on new Cilium version.
+		By("Cleaning Cilium state (%s)", newImageVersion)
+		cleanupCiliumState(filepath.Join(kubectl.BasePath(), helpers.HelmTemplate), newHelmChartVersion, "", newImageVersion, "")
+
+		By("Cleaning Cilium state (%s)", oldImageVersion)
 		cleanupCiliumState("cilium/cilium", oldHelmChartVersion, "cilium", oldImageVersion, "docker.io/cilium")
 
 		By("Deploying Cilium %s", oldHelmChartVersion)
