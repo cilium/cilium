@@ -187,7 +187,7 @@ Verify that the NodePort service has been created:
 
 With the help of the ``cilium service list`` command, we can validate that
 Cilium's BPF kube-proxy replacement created the new NodePort services under
-port ``31940`` (one per ``eth0`` and ``eth1`` devices):
+port ``31940`` (one for each of devices ``eth0`` and ``eth1``):
 
 .. parsed-literal::
 
@@ -344,9 +344,9 @@ NodePort XDP Acceleration
 Cilium has built-in support for accelerating NodePort, LoadBalancer services and
 services with externalIPs for the case where the arriving request needs to be
 pushed back out of the node when the backend is located on a remote node. This
-ability to act as a hairpin load balancer can be handled by Cilium at the XDP
-(eXpress Data Path) layer where BPF is operating directly in the networking driver
-instead of a higher layer.
+ability to act as a "one-legged" / hairpin load balancer can be handled by Cilium
+at the XDP (eXpress Data Path) layer where BPF is operating directly in the networking
+driver instead of a higher layer.
 
 The mode setting ``global.nodePort.acceleration`` allows to enable this acceleration
 through the option ``native``. The option ``disabled`` is the default and disables the
@@ -369,6 +369,13 @@ modes and can be enabled as follows for ``nodePort.mode=hybrid`` in this example
         --set global.nodePort.mode=hybrid \\
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
+
+In case of a multi-device environment, where Cilium's device auto-detection selects
+more than a single device to expose NodePort, for example, the helm option
+``global.devices={eth0}`` must be additionally specified for the enablement, where
+``eth0`` is the native XDP supported networking device. In that case, the device
+name ``eth0`` must be the same on all Cilium managed nodes. Similarly, the underlying
+driver for ``eth0`` must have native XDP support on all Cilium managed nodes.
 
 A list of drivers supporting native XDP can be found in the table below. The
 corresponding network driver name of an interface can be determined as follows:
@@ -428,10 +435,10 @@ is shown:
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict  [eth0 (DR), eth1] [NodePort (SNAT, 30000-32767, XDP: NATIVE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    KubeProxyReplacement:   Strict      [eth0 (DR)]     [NodePort (SNAT, 30000-32767, XDP: NATIVE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
 
-In the example above, the NodePort XDP acceleration is enabled on the ``eth0`` device,
-because it used for direct routing (``DR``).
+In the example above, the NodePort XDP acceleration is enabled on the ``eth0`` device
+which is also used for direct routing (``DR``).
 
 Note that packets which have been pushed back out of the device for NodePort handling
 right at the XDP layer are not visible in tcpdump since packet taps come at a much
@@ -731,6 +738,11 @@ Limitations
       which uses BPF cgroup hooks to implement the service translation. The getpeername(2)
       hook address translation in BPF is only available for v5.8 kernels. It is known to
       currently not work with libceph deployments.
+    * Cilium's BPF kube-proxy acceleration in XDP can only be used in a single device setup
+      as a "one-legged" / hairpin load-balancer scenario. In case of a multi-device environment,
+      where auto-detection selects more than a single device to expose NodePort, the option
+      ``global.devices={eth0}`` must be specified in helm in order to work, where ``eth0``
+      is the native XDP supported networking device.
     * Cilium's DSR NodePort mode currently does not operate well in environments with
       TCP Fast Open (TFO) enabled. It is recommended to switch to ``snat`` mode in this
       situation.
