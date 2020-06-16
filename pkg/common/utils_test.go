@@ -144,7 +144,7 @@ func (s *CommonSuite) TestMoveNewFilesTo(c *check.C) {
 	}
 }
 
-func (s *CommonSuite) TestGetNumPossibleCPUsFromReader(c *check.C) {
+func (s *CommonSuite) TestGetNumCPUsFromReader(c *check.C) {
 	log := logging.DefaultLogger.WithField(logfields.LogSubsys, "utils-test")
 	tests := []struct {
 		in       string
@@ -158,7 +158,7 @@ func (s *CommonSuite) TestGetNumPossibleCPUsFromReader(c *check.C) {
 	}
 
 	for _, t := range tests {
-		possibleCpus := getNumPossibleCPUsFromReader(log, strings.NewReader(t.in))
+		possibleCpus := getNumCPUsFromReader(log, strings.NewReader(t.in))
 		c.Assert(possibleCpus, check.Equals, t.expected)
 	}
 

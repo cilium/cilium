@@ -71,7 +71,7 @@ func InitMap() error {
 		int(unsafe.Sizeof(Key{})),
 		&Value{},
 		int(unsafe.Sizeof(Value{})),
-		common.GetNumPossibleCPUs(log),
+		common.GetNumPresentCPUs(log),
 		0,
 		0,
 		bpf.ConvertKeyValue,

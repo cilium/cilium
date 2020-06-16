@@ -49,4 +49,7 @@ const (
 
 	// PossibleCPUSysfsPath is used to retrieve the number of CPUs for per-CPU maps.
 	PossibleCPUSysfsPath = "/sys/devices/system/cpu/possible"
+
+	// PresentCPUSysfsPath is used to retrieve the number of CPUs for per-CPU maps.
+	PresentCPUSysfsPath = "/sys/devices/system/cpu/present"
 )

@@ -175,10 +175,27 @@ func GetNumPossibleCPUs(log *logrus.Entry) int {
 	}
 	defer f.Close()
 
-	return getNumPossibleCPUsFromReader(log, f)
+	return getNumCPUsFromReader(log, f)
 }
 
-func getNumPossibleCPUsFromReader(log *logrus.Entry, r io.Reader) int {
+// GetNumPresentCPUs returns a total number of present CPUS, i.e. CPUs that
+// are currently plugged in.
+// The number is retrieved by parsing /sys/device/system/cpu/present.
+//
+// See https://git.kernel.org/pub/scm/linux/kernel/git/torvalds/linux.git/tree/include/linux/cpumask.h?h=v4.19#n50
+// for more details.
+func GetNumPresentCPUs(log *logrus.Entry) int {
+	f, err := os.Open(PresentCPUSysfsPath)
+	if err != nil {
+		log.WithError(err).Errorf("unable to open %q", PresentCPUSysfsPath)
+		return 0
+	}
+	defer f.Close()
+
+	return getNumCPUsFromReader(log, f)
+}
+
+func getNumCPUsFromReader(log *logrus.Entry, r io.Reader) int {
 	out, err := ioutil.ReadAll(r)
 	if err != nil {
 		log.WithError(err).Errorf("unable to read %q to get CPU count", PossibleCPUSysfsPath)
