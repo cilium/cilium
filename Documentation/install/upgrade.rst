@@ -144,13 +144,15 @@ version of Cilium are `here <https://github.com/cilium/cilium#stable-releases>`_
 Upgrading to the latest micro release ensures the most seamless experience if a
 rollback is required following the minor release upgrade.
 
-Step 2: Option A: Generate YAML using Helm (Recommended)
---------------------------------------------------------
+Step 2: Option A: Regenerate deployment files with upgrade compatibility (Recommended)
+--------------------------------------------------------------------------------------
 
-Since Cilium version 1.6, `Helm` is used to generate the YAML file for
-deployment. This allows to regenerate the entire YAML from scratch using the
-same option sets as used for the initial deployment while ensuring that all
-Kubernetes resources are updated accordingly to version you are upgrading to:
+`Helm` can be used to generate the YAML files for deployment. This allows to
+regenerate all files from scratch for the new release. By specifying the option
+``--set config.upgradeCompatibility=1.7``, the generated files are guaranteed
+to not contain an options with side effects as you upgrade from version 1.7.
+You still need to ensure that you are specifying the same options as used for
+the initial deployment:
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
@@ -162,6 +164,8 @@ Kubernetes resources are updated accordingly to version you are upgrading to:
     .. parsed-literal::
 
       helm template |CHART_RELEASE| \\
+        --set config.upgradeCompatibility=1.7 \\
+        --agent.keepDeprecatedProbes=true \\
         --namespace kube-system \\
         > cilium.yaml
       kubectl apply -f cilium.yaml
@@ -172,7 +176,10 @@ Kubernetes resources are updated accordingly to version you are upgrading to:
 
     .. parsed-literal::
 
-      helm upgrade cilium |CHART_RELEASE| --namespace=kube-system
+      helm upgrade cilium |CHART_RELEASE| \\
+        --namespace=kube-system \\
+        --set config.upgradeCompatibility=1.7 \\
+        --agent.keepDeprecatedProbes=true
 
 .. note::
 
@@ -181,7 +188,7 @@ Kubernetes resources are updated accordingly to version you are upgrading to:
    ``install/kubernetes/cilium/values.yaml`` and use it to regenerate the YAML
    for the latest version. Running any of the previous commands will overwrite
    the existing cluster's `ConfigMap` which might not be ideal if you want to
-   keep your existing `ConfigMap`.
+   keep your existing `ConfigMap` (see next option).
 
 Step 2: Option B: Preserve ConfigMap
 ------------------------------------
@@ -413,9 +420,8 @@ IMPORTANT: Changes required before upgrading to 1.8.0
   For large clusters running CRD mode, this visibility is costly as it requires
   all nodes to participate. In order to ensure scalability, ``CiliumNetworkPolicy``
   status visibility has been disabled for all new deployments. If you want to
-  enable it, set the ConfigMap option ``disable-cnp-status-updates`` to false by
-  using Helm ``--set global.cnpStatusUpdates.enabled=true`` or by editing the
-  ``ConfigMap`` directly.
+  enable it, set the ConfigMap option ``disable-cnp-status-updates`` to false or
+  set the Helm variable ``--set config.enableCnpStatusUpdates=true``.
 
 * Prior to 1.8 release, Cilium's eBPF-based kube-proxy replacement was not able
   to handle Kubernetes HostPort feature and therefore CNI chaining with the
@@ -639,7 +645,7 @@ Removed options
 
 Removed helm options
 ~~~~~~~~~~~~~~~~~~~~
-* ``operator.synchronizeK8sNodes``: was removed and replaced with ``global.synchronizeK8sNodes``
+* ``operator.synchronizeK8sNodes``: was removed and replaced with ``config.synchronizeK8sNodes``
 
 Removed resource fields
 ~~~~~~~~~~~~~~~~~~~~~~~

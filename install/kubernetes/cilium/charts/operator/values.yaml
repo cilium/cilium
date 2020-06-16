@@ -1,6 +1,4 @@
 image: operator
-# Deprecated: please use synchronizeK8sNodes in install/kubernetes/cilium/values.yaml
-synchronizeK8sNodes: true
 
 # Service account annotations
 serviceAccount:
