@@ -18,8 +18,9 @@ If you are not familiar with it, you had best have a glance at the `User's Guide
 `BIRD <https://bird.network.cz>`_ maintains two release families at present:
 ``1.x`` and ``2.x``, and the configuration format varies a lot between them.
 Unless you have already deployed the ``1.x``, we suggest using ``2.x``
-directly, as the ``2.x`` will live longer. In the following, we will denote
-``bird`` as the ``bird2`` software.
+directly, as the ``2.x`` will live longer. The following examples will denote
+``bird`` as the ``bird2`` software and use configuration in the format that
+``bird2`` understands.
 
 This guide shows how to install and configure bird on CentOS 7.x to make it
 collaborate with Cilium. Installation and configuration on other platforms
