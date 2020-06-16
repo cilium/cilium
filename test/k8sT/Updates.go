@@ -169,7 +169,12 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		// Cilium < v1.8 doesn't support multi-dev, so set only one device.
 		// If not set, then overwriteHelmOptions() will set two devices.
 		if helpers.RunsWithoutKubeProxy() || helpers.RunsOn419Kernel() {
-			opts["global.nodePort.device"] = privateIface
+			switch oldHelmChartVersion {
+			case "1.5-dev", "1.6-dev", "1.7-dev":
+				opts["global.nodePort.device"] = privateIface
+			default:
+				opts["global.devices"] = privateIface
+			}
 			// Cilium < v1.8 has kube-proxy-replacement=strict mode
 			// broken due to too high complexity (v4, v6, strict, debug).
 			// See also notes in GH-#12018 issue.
@@ -256,7 +261,12 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"operator.image":  "operator",
 		}
 		if helpers.RunsWithoutKubeProxy() || helpers.RunsOn419Kernel() {
-			opts["global.nodePort.device"] = privateIface
+			switch oldHelmChartVersion {
+			case "1.5-dev", "1.6-dev", "1.7-dev":
+				opts["global.nodePort.device"] = privateIface
+			default:
+				opts["global.devices"] = privateIface
+			}
 			if helpers.RunsOn419Kernel() {
 				opts["global.debug.enabled"] = "false"
 			}
@@ -418,7 +428,12 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"global.nodeinit.enabled": "false",
 		}
 		if helpers.RunsWithoutKubeProxy() || helpers.RunsOn419Kernel() {
-			opts["global.nodePort.device"] = privateIface
+			switch oldHelmChartVersion {
+			case "1.5-dev", "1.6-dev", "1.7-dev":
+				opts["global.nodePort.device"] = privateIface
+			default:
+				opts["global.devices"] = privateIface
+			}
 			if helpers.RunsOn419Kernel() {
 				opts["global.debug.enabled"] = "false"
 			}
@@ -463,9 +478,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			opts["agent.keepDeprecatedProbes"] = "true"
 		}
 
+		upgradeCompatibilityVer := strings.TrimSuffix(oldHelmChartVersion, "-dev")
 		// Ensure compatibility in the ConfigMap. This tests the
 		// upgrade as instructed in the documentation
-		opts["config.upgradeCompatibility"] = oldHelmChartVersion
+		opts["config.upgradeCompatibility"] = upgradeCompatibilityVer
 
 		EventuallyWithOffset(1, func() (*helpers.CmdRes, error) {
 			return kubectl.RunHelm(
