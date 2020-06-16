@@ -144,6 +144,17 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 			scopedLog = scopedLog.WithField("k8sPodName", ep.GetK8sNamespaceAndPodName())
 		}
 
+		// We have to set the allocator for identities here during the Endpoint
+		// lifecycle, because the identity allocator has be initialized *after*
+		// endpoints are restored from disk. This is because we have to reserve
+		// IPs for the endpoints that are restored via IPAM. Reserving of IPs
+		// affects the allocation of IPs w.r.t. node addressing, which we need
+		// to know before the identity allocator is initialized. We need to
+		// know the node addressing because when adding a reference to the
+		// kvstore because the local node's IP is used as a suffix for the key
+		// in the key-value store.
+		ep.SetAllocator(d.identityAllocator)
+
 		restore, err := d.validateEndpoint(ep)
 		if err != nil {
 			// Disconnected EPs are not failures, clean them silently below
@@ -221,17 +232,6 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 		if ep.Options.IsEnabled(option.ConntrackLocal) {
 			ctmap.DeleteIfUpgradeNeeded(ep)
 		}
-
-		// We have to set the allocator for identities here during the Endpoint
-		// lifecycle, because the identity allocator has be initialized *after*
-		// endpoints are restored from disk. This is because we have to reserve
-		// IPs for the endpoints that are restored via IPAM. Reserving of IPs
-		// affects the allocation of IPs w.r.t. node addressing, which we need
-		// to know before the identity allocator is initialized. We need to
-		// know the node addressing because when adding a reference to the
-		// kvstore because the local node's IP is used as a suffix for the key
-		// in the key-value store.
-		ep.SetAllocator(d.identityAllocator)
 
 		// Insert into endpoint manager so it can be regenerated when calls to
 		// RegenerateAllEndpoints() are made. This must be done synchronously (i.e.,
