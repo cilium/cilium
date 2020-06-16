@@ -53,8 +53,8 @@ the cluster is ready.
 
 .. code:: bash
 
-        export RESOURCE_GROUP_NAME=group1
-        export CLUSTER_NAME=aks-test1
+        export RESOURCE_GROUP_NAME=aks-test
+        export CLUSTER_NAME=aks-test
         export LOCATION=westus
 
         az group create --name $RESOURCE_GROUP_NAME --location $LOCATION
@@ -62,7 +62,6 @@ the cluster is ready.
             --resource-group $RESOURCE_GROUP_NAME \
             --name $CLUSTER_NAME \
             --node-count 2 \
-            --generate-ssh-keys \
             --network-plugin azure
 
 Configure kubectl to Point to Newly Created Cluster
@@ -71,9 +70,7 @@ Configure kubectl to Point to Newly Created Cluster
 Run the following commands to configure kubectl to connect to this
 AKS cluster:
 
-.. code:: bash
-
-    az aks get-credentials --resource-group $RESOURCE_GROUP_NAME --name $CLUSTER_NAME
+.. include:: k8s-install-aks-get-credentials.rst
 
 To verify, you should see AKS in the name of the nodes when you run:
 
