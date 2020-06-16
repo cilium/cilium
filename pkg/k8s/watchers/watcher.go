@@ -175,6 +175,8 @@ type K8sWatcher struct {
 
 	namespaceStore cache.Store
 	datapath       datapath.Datapath
+
+	networkpolicyStore cache.Store
 }
 
 func NewK8sWatcher(
@@ -775,4 +777,16 @@ func (k *K8sWatcher) K8sEventReceived(scope string, action string, valid, equal 
 	k8smetrics.LastInteraction.Reset()
 
 	metrics.KubernetesEventReceived.WithLabelValues(scope, action, strconv.FormatBool(valid), strconv.FormatBool(equal)).Inc()
+}
+
+// GetStore returns the k8s cache store for the given resource name.
+func (k *K8sWatcher) GetStore(name string) cache.Store {
+	switch name {
+	case "networkpolicy":
+		return k.networkpolicyStore
+	case "namespace":
+		return k.namespaceStore
+	default:
+		return nil
+	}
 }

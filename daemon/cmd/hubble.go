@@ -42,6 +42,7 @@ import (
 
 	"github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
+	k8scache "k8s.io/client-go/tools/cache"
 )
 
 func (d *Daemon) getHubbleStatus(ctx context.Context) *models.HubbleStatus {
@@ -266,4 +267,13 @@ func (d *Daemon) LookupSecIDByIP(ip net.IP) (id ipcache.Identity, ok bool) {
 		}
 	}
 	return id, false
+}
+
+// GetK8sStore returns the k8s watcher cache store for the given resource name.
+// It implements hubble parser's StoreGetter.GetK8sStore
+// WARNING: the objects returned by these stores can't be used to create
+// update objects into k8s as well as the objects returned by these stores
+// should only be used for reading.
+func (d *Daemon) GetK8sStore(name string) k8scache.Store {
+	return d.k8sWatcher.GetStore(name)
 }
