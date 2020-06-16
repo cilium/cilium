@@ -23,10 +23,10 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"runtime"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/command/exec"
+	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -90,7 +90,7 @@ type directoryInfo struct {
 
 var (
 	standardCFlags = []string{"-O2", "-target", "bpf", "-std=gnu89",
-		"-nostdinc", fmt.Sprintf("-D__NR_CPUS__=%d", runtime.NumCPU()),
+		"-nostdinc", fmt.Sprintf("-D__NR_CPUS__=%d", common.GetNumPossibleCPUs(log)),
 		"-Wall", "-Wextra", "-Werror", "-Wshadow",
 		"-Wno-address-of-packed-member",
 		"-Wno-unknown-warning-option",

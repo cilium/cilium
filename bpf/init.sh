@@ -278,7 +278,7 @@ function bpf_compile()
 	      -Wno-gnu-variable-sized-type-not-at-end			\
 	      -Wdeclaration-after-statement				\
 	      -I. -I$DIR -I$LIB -I$LIB/include				\
-	      -D__NR_CPUS__=$(nproc)					\
+	      -D__NR_CPUS__=$(nproc --all)					\
 	      -DENABLE_ARP_RESPONDER=1					\
 	      -DHANDLE_NS=1						\
 	      $EXTRA_OPTS						\
