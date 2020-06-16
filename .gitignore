@@ -52,7 +52,7 @@ outgoing
 man/
 
 tests/cilium-files
-test/test_results
+test/test_results*
 test/.vagrant
 test/tmp.yaml
 test/*_manifest.yaml
@@ -62,6 +62,10 @@ test/*.log
 test/bpf/_results
 test/cilium-[0-9a-f]*.yaml
 test/*tmp
+test/cilium-istioctl
+
+# generated test file
+test/k8sT/manifests/cnp-second-namespaces.yaml
 
 # Emacs backup files
 *~
