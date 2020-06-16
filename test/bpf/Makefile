@@ -3,7 +3,7 @@
 
 include ../../Makefile.defs
 
-FLAGS := -I../../bpf/ -I../../bpf/include -I. -D__NR_CPUS__=$(shell nproc) -O2
+FLAGS := -I../../bpf/ -I../../bpf/include -I. -D__NR_CPUS__=$(shell nproc --all) -O2
 FLAGS_CLANG := -Wall -Wextra -Werror -Wshadow -Wno-unused-parameter
 FLAGS_CLANG += -Wno-address-of-packed-member
 FLAGS_CLANG += -Wno-unknown-warning-option
