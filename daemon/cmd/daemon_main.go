@@ -1921,10 +1921,7 @@ func detectNodePortDevices(ifidxByAddr map[string]int) (map[string]struct{}, err
 
 	// Find a device with a default route (for backward compatibility)
 	defaultRouteDevice, err := linuxdatapath.NodeDeviceNameWithDefaultRoute()
-	if err != nil {
-		log.WithError(err).Warn(
-			"Device with a default route cannot be found for BPF NodePort device detection")
-	} else {
+	if err == nil {
 		devSet[defaultRouteDevice] = struct{}{}
 	}
 
