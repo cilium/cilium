@@ -53,6 +53,11 @@ func CreateSSHMeta(host string, port int, user string) *SSHMeta {
 	}
 }
 
+// IsLocal returns true if commands are executed on the Ginkgo host
+func (s *SSHMeta) IsLocal() bool {
+	return false
+}
+
 // Logger returns logger for SSHMeta
 func (s *SSHMeta) Logger() *logrus.Entry {
 	return s.logger

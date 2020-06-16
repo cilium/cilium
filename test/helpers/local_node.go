@@ -37,6 +37,7 @@ var (
 
 // Executor executes commands
 type Executor interface {
+	IsLocal() bool
 	CloseSSHClient()
 	Exec(cmd string, options ...ExecOptions) *CmdRes
 	ExecContext(ctx context.Context, cmd string, options ...ExecOptions) *CmdRes
@@ -63,6 +64,11 @@ type LocalExecutor struct {
 // CreateLocalExecutor returns a local executor
 func CreateLocalExecutor(env []string) *LocalExecutor {
 	return &LocalExecutor{env: env}
+}
+
+// IsLocal returns true if commands are executed on the Ginkgo host
+func (s *LocalExecutor) IsLocal() bool {
+	return true
 }
 
 // Logger returns logger for executor
