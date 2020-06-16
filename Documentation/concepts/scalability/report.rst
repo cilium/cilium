@@ -23,7 +23,7 @@ Setup
  helm template cilium \\
      --namespace kube-system \\
      --set global.endpointHealthChecking.enabled=false \\
-     --set global.healthChecking.enabled=false \\
+     --set config.healthChecking=false \\
      --set config.ipam=kubernetes \\
      --set global.k8sServiceHost=<KUBE-APISERVER-LB-IP-ADDRESS> \\
      --set global.k8sServicePort=<KUBE-APISERVER-LB-PORT-NUMBER> \\
@@ -33,7 +33,7 @@ Setup
 
 
 * ``--set global.endpointHealthChecking.enabled=false`` and
-  ``--set global.healthChecking.enabled=false`` disable endpoint health
+  ``--set config.healthChecking=false`` disable endpoint health
   checking entirely. However it is recommended that those features be enabled
   initially on a smaller cluster (3-10 nodes) where it can be used to detect
   potential packet loss due to firewall rules or hypervisor settings.

@@ -110,13 +110,6 @@ global:
   #  kvstore: Key-value store backend (better scalability)
   identityAllocationMode: crd
 
-  # identityChangeGracePeriod is the grace period that needs to pass
-  # before an endpoint that has changed its identity will start using
-  # that new identity. During the grace period, the new identity has
-  # already been allocated and other nodes in the cluster have a chance
-  # to whitelist the new upcoming identity of the endpoint.
-  identityChangeGracePeriod: "5s"
-
   # ipv4 is the IPv4 addressing configuration
   ipv4:
     enabled: true
@@ -148,10 +141,6 @@ global:
     enabled: false
     port: 6942
 
-  # blacklistConflictingRoutes instructs the cilium-agent whether to blacklist
-  # IP allocations conflicting with local non-cilium routes.
-  blacklistConflictingRoutes: true
-
   # enableXTSocketFallback enables the fallback compatibility solution
   # when the xt_socket kernel module is missing and it is needed for
   # the datapath L7 redirection to work properly.  See documentation
@@ -171,9 +160,6 @@ global:
   # masquerade enables masquerading of traffic leaving the node for
   # destinations outside of the cluster.
   masquerade: true
-
-  # bpfMasquerade enables masquerading with BPF instead of iptables
-  bpfMasquerade: true
 
   # ipMasqAgent enables and controls BPF ip-masq-agent
   ipMasqAgent:
@@ -313,10 +299,6 @@ global:
     # first time
     monitorFlags: "all"
 
-    # clockProbe enables the probing and potential of a more efficient clock
-    # source for the BPF datapath
-    clockProbe: true
-
   # encryption is the encryption specific configuration
   encryption:
     # enabled enables encryption
@@ -387,10 +369,6 @@ global:
   externalIPs:
     # enabled enables ExternalIPs functionality
     enabled: false
-
-  # sessionAffinity enable support for service sessionAffinity
-  sessionAffinity:
-    enabled: true
 
   # flannel is the flannel specific configuration
   flannel:
@@ -484,16 +462,9 @@ global:
   # remoteNodeIdentity enables use of the remote node identity
   remoteNodeIdentity: true
 
-  synchronizeK8sNodes: true
-
   # psp creates and binds PodSecurityPolicies for the components that require it
   psp:
     enabled: false
-
-  # enables non-drop mode for installed policies. In audit mode
-  # packets affected by policies will not be dropped. Policy related
-  # decisions can be checked via the poicy verdict messages.
-  policyAuditMode: false
 
   # hubble configures Hubble.
   hubble:
@@ -564,12 +535,6 @@ global:
 
   endpointHealthChecking:
     enabled: true
-
-  healthChecking:
-    enabled: true
-
-  cnpStatusUpdates:
-    enabled: false
 
   affinity:
     podAntiAffinity:

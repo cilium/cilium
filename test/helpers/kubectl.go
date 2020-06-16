@@ -103,18 +103,18 @@ var (
 		"global.ipv6.enabled":                 "true",
 		"global.psp.enabled":                  "true",
 		"global.ci.kubeCacheMutationDetector": "true",
-		"global.bpfMasquerade":                "true",
+		"config.bpfMasquerade":                "true",
 		// Disable by default, so that 4.9 CI build does not panic due to
 		// missing LRU support. On 4.19 and net-next we enable it with
 		// kubeProxyReplacement=strict.
-		"global.sessionAffinity.enabled": "false",
+		"config.sessionAffinity": "false",
 
 		// Enable embedded Hubble, both on unix socket and TCP port 4244.
 		"global.hubble.enabled":       "true",
 		"global.hubble.listenAddress": ":4244",
 
 		// We need CNP node status to know when a policy is being enforced
-		"global.cnpStatusUpdates.enabled": "true",
+		"config.enableCnpStatusUpdates": "true",
 
 		"global.hostFirewall": "true",
 	}
@@ -2346,24 +2346,6 @@ func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, o
 		"--version=%s "+
 		"--namespace=%s "+
 		"%s", action, helmName, repo, version, namespace, optionsString)), nil
-}
-
-// RunHelmTemplate runs the helm template command for a specific version.
-func (kub *Kubectl) RunHelmTemplateApply(repo, helmName, version, namespace string, options map[string]string) (*CmdRes, error) {
-	err := kub.overwriteHelmOptions(options)
-	if err != nil {
-		return nil, err
-	}
-	optionsString := ""
-
-	for k, v := range options {
-		optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
-	}
-
-	return kub.ExecMiddle(fmt.Sprintf("helm template %s %s "+
-		"--version=%s "+
-		"--namespace=%s "+
-		"%s | %s apply -f -", helmName, repo, version, namespace, optionsString, KubectlCmd)), nil
 }
 
 // CiliumUninstall uninstalls Cilium with the provided Helm options.

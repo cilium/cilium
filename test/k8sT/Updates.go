@@ -449,10 +449,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		By("Upgrading Cilium to %s", newHelmChartVersion)
 		opts = map[string]string{
 			"global.tag": newImageVersion,
-			// Do not use new configuration map as we are testing an upgrade
-			// scenario where the user deploys Cilium while keeping its existing
-			// configuration map.
-			"config.enabled": "false",
 		}
 		// We have removed the labels since >= 1.7 and we are only testing
 		// starting from 1.6.
@@ -467,8 +463,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			opts["agent.keepDeprecatedProbes"] = "true"
 		}
 
+		// Ensure compatibility in the ConfigMap. This tests the
+		// upgrade as instructed in the documentation
+		opts["config.upgradeCompatibility"] = oldHelmChartVersion
+
 		EventuallyWithOffset(1, func() (*helpers.CmdRes, error) {
-			return kubectl.RunHelmTemplateApply(
+			return kubectl.RunHelm(
+				"upgrade",
 				filepath.Join(kubectl.BasePath(), helpers.HelmTemplate),
 				"cilium",
 				newHelmChartVersion,
@@ -495,11 +496,9 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		checkNoInteruptsInSVCFlows()
 
 		By("Downgrading cilium to %s image", oldHelmChartVersion)
-		// Install the previous configuration using helm. This is a hack
-		// as we have previously upgrade Cilium using kubectl apply -f.
-		// helm get keeps the values used when we installed Cilium wihtout the
-		// upgrade changes that we have done with kubectl apply -f.
-		cmd = kubectl.ExecMiddle(fmt.Sprintf("helm get -n %s manifest cilium | kubectl apply -f -", helpers.CiliumNamespace))
+		// rollback cilium 1 because it's the version that we have started
+		// cilium with in this updates test.
+		cmd = kubectl.ExecMiddle("helm rollback cilium 1 --namespace=" + helpers.CiliumNamespace)
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Cilium %q was not able to be deployed", oldHelmChartVersion)
 
 		err = helpers.WithTimeout(
