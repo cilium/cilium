@@ -33,7 +33,7 @@ import (
 
 func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, swgKNPs *lock.StoppableWaitGroup) {
 
-	_, policyController := informer.NewInformer(
+	store, policyController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.NetworkingV1().RESTClient(),
 			"networkpolicies", v1.NamespaceAll, fields.Everything()),
 		&slim_networkingv1.NetworkPolicy{},
@@ -79,6 +79,7 @@ func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, swgKNPs
 		},
 		nil,
 	)
+	k.networkpolicyStore = store
 	k.blockWaitGroupToSyncResources(wait.NeverStop, swgKNPs, policyController, k8sAPIGroupNetworkingV1Core)
 	go policyController.Run(wait.NeverStop)
 
