@@ -43,7 +43,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.17"
+	CustomResourceDefinitionSchemaVersion = "1.18"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -190,7 +190,7 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
 			},
 			Scope:      apiextensionsv1beta1.NamespaceScoped,
-			Validation: &CNPCRV,
+			Validation: CNPCRV,
 		},
 	}
 	// Kubernetes < 1.12 does not support having the field Type set in the root
@@ -242,7 +242,7 @@ func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
 			},
 			Scope:      apiextensionsv1beta1.ClusterScoped,
-			Validation: &CNPCRV,
+			Validation: CNPCRV,
 		},
 	}
 	// Kubernetes < 1.12 does not support having the field Type set in the root
@@ -624,7 +624,7 @@ var (
 		OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{},
 	}
 
-	CNPCRV = apiextensionsv1beta1.CustomResourceValidation{
+	CNPCRV = &apiextensionsv1beta1.CustomResourceValidation{
 		OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{
 			// TODO: remove the following comment when we add checker
 			// to detect if we should install the CNP validation for k8s > 1.11
@@ -1063,6 +1063,13 @@ var (
 					"whose key field is \"key\", the operator is \"In\", and the values array " +
 					"contains only \"value\". The requirements are ANDed.",
 				Type: "object",
+				AdditionalProperties: &apiextensionsv1beta1.JSONSchemaPropsOrBool{
+					Schema: &apiextensionsv1beta1.JSONSchemaProps{
+						Type:      "string",
+						MaxLength: getInt64(63),
+						Pattern:   `^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$`,
+					},
+				},
 			},
 			"matchExpressions": {
 				Description: "matchExpressions is a list of label selector requirements. " +
