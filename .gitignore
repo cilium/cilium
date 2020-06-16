@@ -64,9 +64,16 @@ test/cilium-[0-9a-f]*.yaml
 test/*tmp
 test/cilium-istioctl
 
-# generated test file
+# generated test files
 test/k8sT/manifests/cnp-second-namespaces.yaml
 test/cilium.conf.ginkgo
+
+# GKE temporary files
+test/gke/cluster-name
+test/gke/cluster-uri
+test/gke/cluster-version
+test/gke/gke-kubeconfig
+test/gke/resize-kubeconfig
 
 # Emacs backup files
 *~
