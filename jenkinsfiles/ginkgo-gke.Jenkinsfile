@@ -139,6 +139,10 @@ pipeline {
                         returnStdout: true,
                         script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/operator-generic:${TAG}'
                         )}"""
+                HUBBLE_RELAY_IMAGE= """${sh(
+                        returnStdout: true,
+                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/hubble-relay:${TAG}'
+                        )}"""
                 K8S_VERSION= """${sh(
                         returnStdout: true,
                         script: 'cat ${TESTDIR}/gke/cluster-version'
@@ -151,7 +155,7 @@ pipeline {
             steps {
                 dir("${TESTDIR}"){
                     sh 'env'
-                    sh 'ginkgo --focus="${FOCUS}" -v -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh) -cilium.image=${CILIUM_IMAGE} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.holdEnvironment=false'
+                    sh 'ginkgo --focus="${FOCUS}" -v -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh) -cilium.image=${CILIUM_IMAGE} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.holdEnvironment=false'
                 }
             }
             post {
