@@ -17,15 +17,7 @@ Setup a Kubernetes cluster on Azure. You can use any method available as long
 as your Kubernetes cluster has CNI enabled in the kubelet configuration. For
 simplicity of this guide, we will set up a managed AKS cluster:
 
-.. code:: bash
-
-   export CLUSTER_NAME=aks-test
-   export LOCATION=westeurope
-   export RESOURCE_GROUP=aks-test
-   az aks create -n $CLUSTER_NAME -g $RESOURCE_GROUP -l $LOCATION --network-plugin azure
-
-.. note:: When setting up AKS, it is important to use the flag
-          ``--network-plugin azure`` to ensure that CNI mode is enabled.
+.. include:: k8s-install-aks-create-cluster.rst
 
 Create a service principal for cilium-operator
 ==============================================
@@ -37,9 +29,9 @@ cilium-operator:
 
 .. code:: bash
 
-    az ad sp create-for-rbac -n cilium-operator
+    az ad sp create-for-rbac --name cilium-operator > azure-sp.json
 
-The output will look like this: (Store it for later use)
+The contents of ``azure-sp.json`` should look like this:
 
 .. code:: bash
 
@@ -55,11 +47,11 @@ Extract the relevant credentials to access the Azure API:
 
 .. code:: bash
 
-    AZURE_SUBSCRIPTION_ID=$(az account show --query id | tr -d \")
-    AZURE_CLIENT_ID=aaaaaaaa-aaaa-aaaa-aaaa-aaaaaaaaaaaa
-    AZURE_CLIENT_SECRET=bbbbbbbb-bbbb-bbbb-bbbb-bbbbbbbbbbbb
-    AZURE_TENANT_ID=cccccccc-cccc-cccc-cccc-cccccccccccc
-    AZURE_NODE_RESOURCE_GROUP=$(az aks show -n $CLUSTER_NAME -g $RESOURCE_GROUP | jq -r .nodeResourceGroup)
+    AZURE_SUBSCRIPTION_ID="$(az account show | jq -r .id)"
+    AZURE_CLIENT_ID="$(jq -r .appId < azure-sp.json)"
+    AZURE_CLIENT_SECRET="$(jq -r .password < azure-sp.json)"
+    AZURE_TENANT_ID="$(jq -r .tenant < azure-sp.json)"
+    AZURE_NODE_RESOURCE_GROUP="$(az aks show --resource-group $RESOURCE_GROUP_NAME --name $CLUSTER_NAME | jq -r .nodeResourceGroup)"
 
 .. note:: ``AZURE_NODE_RESOURCE_GROUP`` must be set to the resource group of the
            node pool, *not* the resource group of the AKS cluster.
@@ -67,9 +59,7 @@ Extract the relevant credentials to access the Azure API:
 Retrieve Credentials to access cluster
 ======================================
 
-.. code:: bash
-
-    az aks get-credentials --resource-group $RESOURCE_GROUP -n $CLUSTER_NAME
+.. include:: k8s-install-aks-get-credentials.rst
 
 Deploy Cilium
 =============
