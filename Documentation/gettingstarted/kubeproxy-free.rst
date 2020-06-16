@@ -915,7 +915,7 @@ replacement. For users who run on older kernels which do not support the network
 namespace cookies, a fallback in-cluster mode is implemented, which is based on
 a fixed cookie value as a trade-off. This makes all applications on the host to
 select the same service endpoint for a given service with session affinity configured.
-To disable the feature, set ``global.sessionAffinity.enabled=false``.
+To disable the feature, set ``config.sessionAffinity=false``.
 
 Limitations
 ###########

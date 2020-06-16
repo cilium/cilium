@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Comment for the '--set global.identityChangeGracePeriod="0s"'
+# Comment for the '--set config.identityChangeGracePeriod="0s"'
 # We need to change the identity as quickly as possible as there
 # is a k8s upstream test that relies on the policy to be enforced
 # once a new label is added to a pod. If we delay the identity change
@@ -20,7 +20,7 @@ helm template install/kubernetes/cilium \
   --set global.etcd.leaseTTL=30s \
   --set global.ipv4.enabled=true \
   --set global.ipv6.enabled=true \
-  --set global.identityChangeGracePeriod="0s" \
+  --set config.identityChangeGracePeriod="0s" \
   > cilium.yaml
 
 kubectl apply -f cilium.yaml

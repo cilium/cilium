@@ -589,7 +589,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"global.identityAllocationMode": "kvstore",
 			}
 			if helpers.ExistNodeWithoutCilium() {
-				opts["global.synchronizeK8sNodes"] = "false"
+				opts["config.synchronizeK8sNodes"] = "false"
 			}
 			deploymentManager.DeployCilium(opts, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")

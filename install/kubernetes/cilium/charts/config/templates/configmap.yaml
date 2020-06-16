@@ -1,3 +1,35 @@
+{{- /*  Default values with backwards compatibility */ -}}
+{{- $defaultEnableCnpStatusUpdates := "true" -}}
+{{- $defaultBpfMapDynamicSizeRatio := 0.0 -}}
+{{- $defaultBpfMasquerade := "false" -}}
+{{- $defaultBpfClockProbe := "false" -}}
+{{- $defaultIPAM := "hostscope" -}}
+{{- $defaultSessionAffinity := "false" -}}
+{{- $defaultOperatorApiServeAddr := "localhost:9234" -}}
+{{- $defaultBpfCtTcpMax := 524288 -}}
+{{- $defaultBpfCtAnyMax := 262144 -}}
+
+{{- /* Default values when 1.8 was initially deployed */ -}}
+{{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
+{{- $defaultEnableCnpStatusUpdates = "false" -}}
+{{- $defaultBpfMapDynamicSizeRatio = 0.0025 -}}
+{{- $defaultBpfMasquerade = "true" -}}
+{{- $defaultBpfClockProbe = "true" -}}
+{{- $defaultIPAM = "cluster-pool" -}}
+{{- $defaultSessionAffinity = "true" -}}
+{{- if .Values.global.ipv4.enabled }}
+{{- $defaultOperatorApiServeAddr = "127.0.0.1:9234" -}}
+{{- else -}}
+{{- $defaultOperatorApiServeAddr = "[::1]:9234" -}}
+{{- end }}
+{{- $defaultBpfCtTcpMax = 0 -}}
+{{- $defaultBpfCtAnyMax = 0 -}}
+{{- end -}}
+
+{{- $ipam := (coalesce .Values.ipam $defaultIPAM) -}}
+{{- $bpfCtTcpMax := (coalesce .Values.global.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
+{{- $bpfCtAnyMax := (coalesce .Values.global.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
+
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -55,12 +87,14 @@ data:
   cilium-endpoint-gc-interval: "{{ .Values.global.endpointGCInterval }}"
 {{- end }}
 
+{{- if .Values.identityChangeGracePeriod }}
   # identity-change-grace-period is the grace period that needs to pass
   # before an endpoint that has changed its identity will start using
   # that new identity. During the grace period, the new identity has
   # already been allocated and other nodes in the cluster have a chance
   # to whitelist the new upcoming identity of the endpoint.
-  identity-change-grace-period: {{ .Values.global.identityChangeGracePeriod | quote }}
+  identity-change-grace-period: {{ default "5s" .Values.identityChangeGracePeriod | quote }}
+{{- end }}
 
   # If you want to run cilium in debug mode change this value to true
   debug: {{ .Values.global.debug.enabled | quote }}
@@ -69,7 +103,7 @@ data:
   debug-verbose: "{{ .Values.global.debug.verbose }}"
 {{- end }}
 
-{{- if .Values.global.agent.healthPort }}
+{{- if ne (int .Values.global.agent.healthPort) 9876 }}
   # Set the TCP port for the agent health status API. This is not the port used
   # for cilium-health.
   agent-health-port: "{{ .Values.global.agent.healthPort }}"
@@ -132,7 +166,11 @@ data:
   custom-cni-conf: "{{ .Values.global.cni.customConf }}"
 {{- end }}
 
-  enable-bpf-clock-probe: {{ .Values.global.bpf.clockProbe | quote }}
+{{- if hasKey .Values "bpfClockProbe" }}
+  enable-bpf-clock-probe: {{ .Values.bpfClockProbe | quote }}
+{{- else if eq $defaultBpfClockProbe "true" }}
+  enable-bpf-clock-probe: {{ $defaultBpfClockProbe | quote }}
+{{- end }}
 
   # If you want cilium monitor to aggregate tracing for packets, set this level
   # to "low", "medium", or "maximum". The higher the level, the less packets
@@ -151,7 +189,7 @@ data:
   # Only effective when monitor aggregation is set to "medium" or higher.
   monitor-aggregation-flags: {{ .Values.global.bpf.monitorFlags }}
 
-{{- if or .Values.global.bpf.ctTcpMax .Values.global.bpf.ctAnyMax }}
+{{- if or $bpfCtTcpMax $bpfCtAnyMax }}
   # bpf-ct-global-*-max specifies the maximum number of connections
   # supported across all endpoints, split by protocol: tcp or other. One pair
   # of maps uses these values for IPv4 connections, and another pair of maps
@@ -163,11 +201,11 @@ data:
   #
   # For users upgrading from Cilium 1.2 or earlier, to minimize disruption
   # during the upgrade process, set bpf-ct-global-tcp-max to 1000000.
-{{- if .Values.global.bpf.ctTcpMax }}
-  bpf-ct-global-tcp-max: "{{ .Values.global.bpf.ctTcpMax }}"
+{{- if $bpfCtTcpMax }}
+  bpf-ct-global-tcp-max: {{ $bpfCtTcpMax | quote }}
 {{- end }}
-{{- if .Values.global.bpf.ctAnyMax }}
-  bpf-ct-global-any-max: "{{ .Values.global.bpf.ctAnyMax }}"
+{{- if $bpfCtAnyMax }}
+  bpf-ct-global-any-max: {{ $bpfCtAnyMax | quote }}
 {{- end }}
 {{- end }}
 
@@ -189,9 +227,13 @@ data:
   bpf-policy-map-max: "{{ .Values.global.bpf.policyMapMax }}"
 {{- end }}
 
+{{- if hasKey .Values "bpfMapDynamicSizeRatio" }}
+  bpf-map-dynamic-size-ratio: {{ .Values.bpfMapDynamicSizeRatio | quote }}
+{{- else if ne $defaultBpfMapDynamicSizeRatio 0.0 }}
   # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
   # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
-  bpf-map-dynamic-size-ratio: "{{ .Values.global.bpf.mapDynamicSizeRatio }}"
+  bpf-map-dynamic-size-ratio: {{ $defaultBpfMapDynamicSizeRatio | quote }}
+{{- end }}
 
   # Pre-allocation of map entries allows per-packet latency to be reduced, at
   # the expense of up-front memory allocation for the entries in the maps. The
@@ -316,7 +358,11 @@ data:
 {{- end }}
 
   masquerade: {{ .Values.global.masquerade | quote }}
-  enable-bpf-masquerade: {{ .Values.global.bpfMasquerade | quote }}
+{{- if hasKey .Values "bpfMasquerade" }}
+  enable-bpf-masquerade: {{ .Values.bpfMasquerade | quote }}
+{{- else if eq $defaultBpfMasquerade "true" }}
+  enable-bpf-masquerade: {{ $defaultBpfMasquerade | quote }}
+{{- end }}
 {{- if .Values.global.egressMasqueradeInterfaces }}
   egress-masquerade-interfaces: {{ .Values.global.egressMasqueradeInterfaces }}
 {{- end }}
@@ -403,8 +449,10 @@ data:
   node-port-bind-protection: {{ .Values.global.nodePort.bindProtection | quote }}
   enable-auto-protect-node-port-range: {{ .Values.global.nodePort.autoProtectPortRange | quote }}
 {{- end }}
-{{- if .Values.global.sessionAffinity }}
-  enable-session-affinity: {{ .Values.global.sessionAffinity.enabled | quote }}
+{{- if hasKey .Values "sessionAffinity" }}
+  enable-session-affinity: {{ .Values.sessionAffinity | quote }}
+{{- else if eq $defaultSessionAffinity "true" }}
+  enable-session-affinity: {{ $defaultSessionAffinity | quote }}
 {{- end }}
 
 {{- if and .Values.global.pprof .Values.global.pprof.enabled }}
@@ -422,11 +470,11 @@ data:
 {{- if and .Values.global.k8s .Values.global.k8s.requireIPv4PodCIDR }}
   k8s-require-ipv4-pod-cidr: {{ .Values.global.k8s.requireIPv4PodCIDR | quote }}
 {{- else }}
-{{- if eq .Values.ipam "cluster-pool" }}
+{{- if eq $ipam "cluster-pool" }}
   k8s-require-ipv4-pod-cidr: {{ .Values.global.ipv4.enabled | quote}}
 {{- end }}
 {{- end }}
-{{- if eq .Values.ipam "cluster-pool" }}
+{{- if eq $ipam "cluster-pool" }}
   k8s-require-ipv6-pod-cidr: {{ .Values.global.ipv6.enabled | quote}}
 {{- end }}
 {{- if and .Values.global.endpointRoutes .Values.global.endpointRoutes.enabled }}
@@ -447,10 +495,8 @@ data:
   # Disable health checking, when chaining mode is not set to portmap or none
   enable-endpoint-health-checking: "false"
 {{- end }}
-{{- if .Values.global.healthChecking.enabled }}
-  enable-health-checking: "true"
-{{- else}}
-  enable-health-checking: "false"
+{{- if hasKey .Values "healthChecking" }}
+  enable-health-checking: {{ .Values.healthChecking | quote }}
 {{- end }}
 {{- if or .Values.global.wellKnownIdentities.enabled .Values.global.etcd.managed }}
   enable-well-known-identities: "true"
@@ -459,18 +505,20 @@ data:
 {{- end }}
   enable-remote-node-identity: {{ .Values.global.remoteNodeIdentity | quote }}
 
-  synchronize-k8s-nodes: {{ .Values.global.synchronizeK8sNodes | quote }}
-  policy-audit-mode: {{ .Values.global.policyAuditMode | quote }}
-
-{{- if .Values.global.ipv4.enabled }}
-  operator-api-serve-addr: '127.0.0.1:9234'
-{{- else }}
-  operator-api-serve-addr: '[::1]:9234'
+{{- if hasKey .Values "synchronizeK8sNodes" }}
+  synchronize-k8s-nodes: {{ .Values.synchronizeK8sNodes | quote }}
+{{- end }}
+{{- if .Values.policyAuditMode }}
+  policy-audit-mode: {{ .Values.policyAuditMode | quote }}
 {{- end }}
 
+{{- if ne $defaultOperatorApiServeAddr "localhost:9234" }}
+  operator-api-serve-addr: {{ $defaultOperatorApiServeAddr | quote }}
+{{- end }}
+
+{{- if .Values.global.hubble.enabled }}
   # Enable Hubble gRPC service.
   enable-hubble: {{ .Values.global.hubble.enabled  | quote }}
-{{- if .Values.global.hubble.enabled }}
   # UNIX domain socket for Hubble server to listen to.
   hubble-socket-path:  {{ .Values.global.hubble.socketPath | quote }}
 {{- if .Values.global.hubble.eventQueueSize }}
@@ -496,11 +544,14 @@ data:
   # An additional address for Hubble server to listen to (e.g. ":4244").
   hubble-listen-address: {{ .Values.global.hubble.listenAddress | quote }}
 {{- end }}
-
+{{- if .Values.disableIptablesFeederRules }}
   # A space separated list of iptables chains to disable when installing feeder rules.
-  disable-iptables-feeder-rules: {{ .Values.global.disableIptablesFeederRules | join " " | quote }}
-  ipam: {{ default "cluster-pool" .Values.ipam | quote }}
-{{- if eq .Values.ipam "cluster-pool" }}
+  disable-iptables-feeder-rules: {{ .Values.disableIptablesFeederRules | join " " | quote }}
+{{- end }}
+{{- if ne $ipam "hostscope" }}
+  ipam: {{ $ipam | quote }}
+{{- end }}
+{{- if eq $ipam "cluster-pool" }}
 {{- if .Values.global.ipv4.enabled }}
   cluster-pool-ipv4-cidr: {{ .Values.global.ipam.operator.clusterPoolIPv4PodCIDR | quote }}
   cluster-pool-ipv4-mask-size: {{ .Values.global.ipam.operator.clusterPoolIPv4MaskSize | quote  }}
@@ -511,6 +562,13 @@ data:
 {{- end }}
 {{- end }}
 
-{{- if .Values.global.cnpStatusUpdates }}
-  disable-cnp-status-updates: {{ not .Values.global.cnpStatusUpdates.enabled | quote }}
+{{- if hasKey .Values "enableCnpStatusUpdates" }}
+  disable-cnp-status-updates: {{ (not .Values.enableCnpStatusUpdates) | quote }}
+{{- else if (eq $defaultEnableCnpStatusUpdates "false") }}
+  disable-cnp-status-updates: "true"
+{{- end }}
+
+{{- if hasKey .Values "blacklistConflictingRoutes" }}
+  # Configure blacklisting of local routes not owned by Cilium.
+  blacklist-conflicting-routes: {{ .Values.blacklistConflictingRoutes | quote }}
 {{- end }}
