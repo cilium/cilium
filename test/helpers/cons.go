@@ -194,7 +194,7 @@ const (
 	// to the v1.X branch
 	CiliumStableHelmChartVersion = "1.7-dev"
 	CiliumStableVersion          = "v1.7"
-	CiliumLatestHelmChartVersion = "1.7.90"
+	CiliumLatestHelmChartVersion = "1.8.90"
 
 	MonitorLogFileName = "monitor.log"
 
