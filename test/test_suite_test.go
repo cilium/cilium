@@ -28,6 +28,7 @@ import (
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
+	"github.com/cilium/cilium/test/logger"
 	gops "github.com/google/gops/agent"
 	"github.com/onsi/ginkgo"
 	ginkgoconfig "github.com/onsi/ginkgo/config"
@@ -65,10 +66,10 @@ func init() {
 
 func configLogsOutput() {
 	log.SetLevel(logrus.DebugLevel)
-	log.Out = &config.TestLogWriter
-	logrus.SetFormatter(&config.Formatter)
-	log.Formatter = &config.Formatter
-	log.Hooks.Add(&config.LogHook{})
+	log.Out = &logger.TestLogWriter
+	logrus.SetFormatter(&logger.Formatter)
+	log.Formatter = &logger.Formatter
+	log.Hooks.Add(&logger.LogHook{})
 
 	ginkgoext.GinkgoWriter = NewWriter(log.Out)
 }
@@ -309,10 +310,10 @@ var _ = AfterEach(func() {
 	defer helpers.CheckLogs.Reset()
 	GinkgoPrint("<Checks>\n%s\n</Checks>\n", helpers.CheckLogs.Buffer.String())
 
-	defer config.TestLogWriterReset()
-	err := helpers.CreateLogFile(config.TestLogFileName, config.TestLogWriter.Bytes())
+	defer logger.TestLogWriterReset()
+	err := helpers.CreateLogFile(logger.TestLogFileName, logger.TestLogWriter.Bytes())
 	if err != nil {
-		log.WithError(err).Errorf("cannot create log file '%s'", config.TestLogFileName)
+		log.WithError(err).Errorf("cannot create log file '%s'", logger.TestLogFileName)
 		return
 	}
 
