@@ -438,20 +438,24 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	// BPF masquerade depends on BPF NodePort, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
 	if option.Config.Masquerade && option.Config.EnableBPFMasquerade &&
-		!option.Config.EnableNodePort {
+		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "") {
+		var msg string
+		if !option.Config.EnableNodePort {
+			msg = fmt.Sprintf("BPF masquerade requires NodePort (--%s=\"true\").",
+				option.EnableNodePort)
+		} else if option.Config.EgressMasqueradeInterfaces != "" {
+			msg = fmt.Sprintf("BPF masquerade does not allow to specify devices via --%s (use --%s instead).",
+				option.EgressMasqueradeInterfaces, option.Devices)
+		}
 		// ipt.InstallRules() (called by Reinitialize()) happens later than
 		// this  statement, so it's OK to fallback to iptables-based MASQ.
-		log.Warnf("BPF masquerade requires NodePort (--%s=\"true\"). "+
-			"Falling back to iptables-based masquerading.", option.EnableNodePort)
 		option.Config.EnableBPFMasquerade = false
+		log.Warn(msg + " Falling back to iptables-based masquerading.")
 	}
 	if option.Config.Masquerade && option.Config.EnableBPFMasquerade {
 		// TODO(brb) nodeport + ipvlan constraints will be lifted once the SNAT BPF code has been refactored
 		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
 			log.Fatalf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
-		}
-		if option.Config.EgressMasqueradeInterfaces != "" {
-			log.Fatalf("BPF masquerade does not allow to specify devices via --%s. Use --%s instead.", option.EgressMasqueradeInterfaces, option.Devices)
 		}
 	} else if option.Config.EnableIPMasqAgent {
 		log.Fatalf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.Masquerade, option.EnableBPFMasquerade)
