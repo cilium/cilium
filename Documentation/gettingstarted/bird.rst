@@ -28,7 +28,7 @@ should be very similar.
 Install bird
 ##################
 
-.. code:: bash
+.. code:: shell-session
 
     $ yum install -y bird2
 
@@ -38,7 +38,7 @@ Install bird
 
 Test the installation:
 
-.. code:: bash
+.. code:: shell-session
 
     $ birdc show route
     BIRD 2.0.6 ready.
@@ -96,7 +96,7 @@ gateway (the core routers), and lets the latter do the routing.
 
 Below is the a reference configuration for fulfilling the above purposes:
 
-.. code:: bash
+::
 
     $ cat /etc/bird.conf
     log syslog all;
@@ -155,7 +155,7 @@ Below is the a reference configuration for fulfilling the above purposes:
 Save the above file as ``/etc/bird.conf``, and replace the placeholders with
 your own:
 
-.. code:: bash
+.. code:: shell-session
 
     sed -i 's/{{ NODE_IP }}/<your node ip>/g'                /etc/bird.conf
     sed -i 's/{{ POD_CIDR }}/<your pod cidr>/g'              /etc/bird.conf
@@ -168,7 +168,7 @@ your own:
 
 Restart ``bird`` and check the logs:
 
-.. code:: bash
+.. code:: shell-session
 
     $ systemctl restart bird
 
@@ -181,7 +181,7 @@ Restart ``bird`` and check the logs:
 
 Verify the changes, you should get something like this:
 
-.. code:: bash
+.. code:: shell-session
 
     $ birdc show route
     BIRD 2.0.6 ready.
@@ -219,7 +219,7 @@ is a detection protocol designed to accelerate path failure detection.
 
 **This feature also relies on peer side's configuration.**
 
-.. code:: bash
+::
 
     protocol bfd {
           interface "{{ grains['node_mgnt_device'] }}" {
@@ -242,7 +242,7 @@ is a detection protocol designed to accelerate path failure detection.
 
 Verify, you should see something like this:
 
-.. code:: bash
+.. code:: shell-session
 
     $ birdc show bfd sessions
     BIRD 2.0.6 ready.
@@ -260,7 +260,7 @@ nodes. In this case, you need to configure `Equal-Cost Multi-Path (ECMP) routing
 
 **This feature also relies on peer side's configuration.**
 
-.. code:: bash
+::
 
     protocol kernel {
             ipv4 {                    # Connect protocol to IPv4 table by channel
@@ -277,7 +277,7 @@ See the user manual for more detailed information.
 You need to check the ECMP correctness on physical network (Core router in the
 above scenario):
 
-.. code:: bash
+.. code:: shell-session
 
     CORE01# show ip route 10.5.2.0
     IP Route Table for VRF "default"
@@ -297,7 +297,7 @@ Graceful restart
 
 Add ``graceful restart`` to each ``bgp`` section:
 
-.. code:: bash
+::
 
     protocol bgp uplink0 {
     		...
