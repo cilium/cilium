@@ -70,6 +70,16 @@ the token returned by ``kubeadm init``:
 
    kubeadm join <..>
 
+.. note::
+
+    Please ensure that
+    `kubelet <https://kubernetes.io/docs/reference/command-line-tools-reference/kubelet/>`_'s
+    ``--node-ip`` is set correctly on each worker if you have multiple interfaces.
+    Cilium's kube-proxy replacement may not work correctly otherwise.
+    You can validate this by running ``kubectl get nodes -o wide`` to see whether
+    each node has an ``InternalIP`` which is assigned to a device with the same
+    name on each node.
+
 .. include:: k8s-install-download-release.rst
 
 Next, generate the required YAML files and deploy them. **Important:** Replace
