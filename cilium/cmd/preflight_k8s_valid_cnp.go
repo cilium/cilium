@@ -21,7 +21,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/k8s"
-	v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
+	v2_validation "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/validator"
 	"github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/scheme"
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	"github.com/cilium/cilium/pkg/logging"
@@ -29,9 +29,6 @@ import (
 
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
-	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -84,13 +81,18 @@ func validateCNPs() error {
 		return fmt.Errorf("Unable to create API extensions clientset for k8s CRD: %w", err)
 	}
 
+	npValidator, err := v2_validation.NewNPValidator()
+	if err != nil {
+		return err
+	}
+
 	ctx, initCancel := context.WithTimeout(context.Background(), validateK8sPoliciesTimeout)
 	defer initCancel()
-	cnpErr := validateNPResources(ctx, apiExtensionsClient, &v2_client.CNPCRV, "ciliumnetworkpolicies", "CiliumNetworkPolicy")
+	cnpErr := validateNPResources(ctx, apiExtensionsClient, npValidator.ValidateCNP, "ciliumnetworkpolicies", "CiliumNetworkPolicy")
 
 	ctx, initCancel2 := context.WithTimeout(context.Background(), validateK8sPoliciesTimeout)
 	defer initCancel2()
-	ccnpErr := validateNPResources(ctx, apiExtensionsClient, v2_client.CCNPCRV, "ciliumclusterwidenetworkpolicies", "CiliumClusterwideNetworkPolicy")
+	ccnpErr := validateNPResources(ctx, apiExtensionsClient, npValidator.ValidateCCNP, "ciliumclusterwidenetworkpolicies", "CiliumClusterwideNetworkPolicy")
 
 	if cnpErr != nil {
 		return cnpErr
@@ -102,7 +104,13 @@ func validateCNPs() error {
 	return nil
 }
 
-func validateNPResources(ctx context.Context, apiExtensionsClient apiextensionsclient.Interface, crv *v1beta1.CustomResourceValidation, name, shortName string) error {
+func validateNPResources(
+	ctx context.Context,
+	apiExtensionsClient apiextensionsclient.Interface,
+	validator func(cnp *unstructured.Unstructured) error,
+	name,
+	shortName string,
+) error {
 	// check if the crd is installed at all
 	_, err := apiExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get(ctx, name+"."+ciliumGroup, metav1.GetOptions{})
 	switch {
@@ -110,20 +118,6 @@ func validateNPResources(ctx context.Context, apiExtensionsClient apiextensionsc
 	case k8sErrors.IsNotFound(err):
 		return nil
 	default:
-		return err
-	}
-
-	var internal apiextensionsinternal.CustomResourceValidation
-	err = v1beta1.Convert_v1beta1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(
-		crv,
-		&internal,
-		nil,
-	)
-	if err != nil {
-		return err
-	}
-	validator, _, err := validation.NewSchemaValidator(&internal)
-	if err != nil {
 		return err
 	}
 
@@ -156,9 +150,9 @@ func validateNPResources(ctx context.Context, apiExtensionsClient apiextensionsc
 			} else {
 				cnpName = cnp.GetName()
 			}
-			if errs := validation.ValidateCustomResource(nil, &cnp, validator); len(errs) > 0 {
+			if err := validator(&cnp); err != nil {
 				log.Errorf("Validating %s '%s': unexpected validation error: %s",
-					shortName, cnpName, errs.ToAggregate())
+					shortName, cnpName, err)
 				policyErr = fmt.Errorf("Found invalid %s", shortName)
 			} else {
 				log.Infof("Validating %s '%s': OK!", shortName, cnpName)
