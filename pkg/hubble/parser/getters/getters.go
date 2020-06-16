@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"k8s.io/client-go/tools/cache"
 )
 
 // DNSGetter ...
@@ -54,4 +55,14 @@ type IPGetter interface {
 // ServiceGetter fetches service metadata.
 type ServiceGetter interface {
 	GetServiceByAddr(ip net.IP, port uint16) (service flowpb.Service, ok bool)
+}
+
+// StoreGetter ...
+type StoreGetter interface {
+	// GetK8sStore return the k8s watcher cache store for the given resource name.
+	// Currently only resource networkpolicy and namespace are supported.
+	// WARNING: the objects returned by these stores can't be used to create
+	// update objects into k8s as well as the objects returned by these stores
+	// should only be used for reading.
+	GetK8sStore(name string) cache.Store
 }
