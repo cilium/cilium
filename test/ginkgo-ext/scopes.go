@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
+	ciliumTestConfig "github.com/cilium/cilium/test/config"
 
 	"github.com/onsi/ginkgo"
 	"github.com/onsi/ginkgo/config"
@@ -118,6 +119,7 @@ func init() {
 
 	config.Flags(commandFlags, "ginkgo", true)
 	commandFlags.Parse(args)
+	ciliumTestConfig.CiliumTestConfig.ParseFlags()
 }
 
 func (s *scope) isUnset() bool {
