@@ -137,7 +137,7 @@ pipeline {
                         )}"""
                 CILIUM_OPERATOR_IMAGE= """${sh(
                         returnStdout: true,
-                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/operator:${TAG}'
+                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/operator-generic:${TAG}'
                         )}"""
                 K8S_VERSION= """${sh(
                         returnStdout: true,
