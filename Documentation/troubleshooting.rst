@@ -92,9 +92,9 @@ of all nodes in the cluster:
     Proxy Status:           OK, ip 10.15.28.238, 0 redirects, port-range 10000-20000
     Cluster health:   1/1 reachable   (2018-02-27T00:24:34Z)
 
-Detailed information about the status of Cilium can be inspected with the 
-``cilium status --verbose`` command. Verbose output includes detailed IPAM state 
-(allocated addresses), Cilium controller status, and details of the Proxy 
+Detailed information about the status of Cilium can be inspected with the
+``cilium status --verbose`` command. Verbose output includes detailed IPAM state
+(allocated addresses), Cilium controller status, and details of the Proxy
 status.
 
 .. _ts_agent_logs:
@@ -322,10 +322,10 @@ Connectivity Problems
 Cilium connectivity tests
 ------------------------------------
 
-The Cilium connectivity test_ deploys a series of services, deployments, and 
-CiliumNetworkPolicy which will use various connectivity paths to connect to 
-each other. Connectivity paths include with and without service load-balancing 
-and various network policy combinations. 
+The Cilium connectivity test_ deploys a series of services, deployments, and
+CiliumNetworkPolicy which will use various connectivity paths to connect to
+each other. Connectivity paths include with and without service load-balancing
+and various network policy combinations.
 
 .. Note::
 
@@ -333,11 +333,11 @@ and various network policy combinations.
           other pods or network policies applied. If there is a Cilium
           Clusterwide Network Policy enabled, that may also break this
           connectivity check.
-          
-To run the connectivity tests create an isolated test namespace called
-``cilium-test`` to deploy the tests with. 
 
-.. code:: bash
+To run the connectivity tests create an isolated test namespace called
+``cilium-test`` to deploy the tests with.
+
+.. parsed-literal::
 
     $ kubectl create ns cilium-test
     $ kubectl apply --namespace=cilium-test -f \ |SCM_WEB|\/examples/kubernetes/connectivity-check/connectivity-check.yaml
@@ -346,7 +346,7 @@ The tests cover various functionality of the system. Below we call out each test
 type. If tests pass, it suggests functionality of the referenced subsystem.
 
 +---------------------------+-----------------------------+-------------------------------+-----------------------------+----------------------------------------+
-| Pod-to-pod (intra-host)   | Pod-to-pod (inter-host)     | Pod-to-service (intra-host)   | Pod-to-service (inter-host) | Pod-to-external resource               | 
+| Pod-to-pod (intra-host)   | Pod-to-pod (inter-host)     | Pod-to-service (intra-host)   | Pod-to-service (inter-host) | Pod-to-external resource               |
 +===========================+=============================+===============================+=============================+========================================+
 | BPF routing is functional | Data plane, routing, network| BPF service map lookup        | VXLAN overlay port if used  | Egress, CiliumNetworkPolicy, masquerade|
 +---------------------------+-----------------------------+-------------------------------+-----------------------------+----------------------------------------+
@@ -372,7 +372,7 @@ test:
     pod-to-b-intra-node-9d9d4d6f9-qccfs                      1/1     Running            0          8m35s
     pod-to-b-multi-node-clusterip-5956c84b7c-hwzfg           1/1     Running            0          8m35s
     pod-to-b-multi-node-headless-6698899447-xlhfw            1/1     Running            0          8m35s
-    pod-to-external-fqdn-allow-google-cnp-667649bbf6-v6rf8   1/1     Running            0 
+    pod-to-external-fqdn-allow-google-cnp-667649bbf6-v6rf8   1/1     Running            0          8m35s
 
 Information about test failures can be determined by describing a failed test
 pod
@@ -433,7 +433,7 @@ Sometimes you may experience broken connectivity, which may be due to a
 number of different causes. A main cause can be unwanted packet drops on
 the networking level. The tool
 ``cilium monitor`` allows you to quickly inspect and see if and where packet
-drops happen. Following is an example output (use ``kubectl exec`` as in 
+drops happen. Following is an example output (use ``kubectl exec`` as in
 previous examples if running with Kubernetes):
 
 .. code:: bash
