@@ -31,6 +31,7 @@
 /.github/workflows/ @cilium/ci
 /.github/workflows/coccicheck.yaml @cilium/ci @cilium/bpf
 /.github/workflows/docs.yaml @cilium/ci @cilium/docs
+/.github/workflows/images.yaml @cilium/ci @cilium/build
 /api/ @cilium/api
 /api/v1/flow/ @cilium/api @cilium/hubble
 /api/v1/observer/ @cilium/api @cilium/hubble
@@ -74,6 +75,7 @@ Dockerfile* @cilium/build
 *.Jenkinsfile @cilium/ci
 /hubble-relay/ @cilium/hubble
 /hubble-relay.Dockerfile @cilium/hubble
+/images @cilium/build
 /install/kubernetes/ @cilium/kubernetes @cilium/docs @cilium/helm
 jenkinsfiles @cilium/ci
 Jenkinsfile.nightly @cilium/ci
