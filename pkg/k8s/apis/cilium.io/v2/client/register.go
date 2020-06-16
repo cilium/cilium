@@ -182,27 +182,6 @@ func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 		CRDName = CustomResourceDefinitionPluralName + "." + SchemeGroupVersion.Group
 	)
 
-	CCNPCRV := CNPCRV.DeepCopy()
-	clusterwideSpec := CCNPCRV.OpenAPIV3Schema.Properties["spec"]
-	clusterwideSpec.Required = nil
-	clusterwideSpec.OneOf = []apiextensionsv1beta1.JSONSchemaProps{
-		{
-			Required: []string{"endpointSelector"},
-		},
-		{
-			Required: []string{"nodeSelector"},
-		},
-	}
-	CCNPCRV.OpenAPIV3Schema.Properties["spec"] = clusterwideSpec
-	CCNPCRV.OpenAPIV3Schema.Properties["specs"] = apiextensionsv1beta1.JSONSchemaProps{
-		Description: "Specs is a list of desired Cilium specific rule specification.",
-		Type:        "array",
-		Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
-			Schema: &clusterwideSpec,
-		},
-	}
-	CCNPCRV.OpenAPIV3Schema.Properties["NodeSelector"] = NodeSelector
-
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: CRDName,
@@ -644,6 +623,8 @@ func getFloat64(f float64) *float64 {
 }
 
 var (
+	CCNPCRV = initCCNPCRV()
+
 	// cepCRV is a minimal validation for CEP objects. Since only the agent is
 	// creating them, it is better to be permissive and have some data, if buggy,
 	// than to have no data in k8s.
@@ -1577,4 +1558,30 @@ func initSpec() apiextensionsv1beta1.JSONSchemaProps {
 	spec.Description = "Spec is the desired Cilium specific rule specification."
 	spec.Type = "object"
 	return *spec
+}
+
+// initCCNPCRV creates the CCNP validation based on the CNP.
+func initCCNPCRV() *apiextensionsv1beta1.CustomResourceValidation {
+	ccnpCRV := CNPCRV.DeepCopy()
+	clusterwideSpec := ccnpCRV.OpenAPIV3Schema.Properties["spec"]
+	clusterwideSpec.Required = nil
+	clusterwideSpec.OneOf = []apiextensionsv1beta1.JSONSchemaProps{
+		{
+			Required: []string{"endpointSelector"},
+		},
+		{
+			Required: []string{"nodeSelector"},
+		},
+	}
+	ccnpCRV.OpenAPIV3Schema.Properties["spec"] = clusterwideSpec
+	ccnpCRV.OpenAPIV3Schema.Properties["specs"] = apiextensionsv1beta1.JSONSchemaProps{
+		Description: "Specs is a list of desired Cilium specific rule specification.",
+		Type:        "array",
+		Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+			Schema: &clusterwideSpec,
+		},
+	}
+	ccnpCRV.OpenAPIV3Schema.Properties["NodeSelector"] = NodeSelector
+
+	return ccnpCRV
 }
