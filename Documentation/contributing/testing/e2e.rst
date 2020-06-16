@@ -64,7 +64,7 @@ To run all of the runtime tests, execute the following command from the ``test``
 
 ::
 
-    ginkgo --focus="Runtime*" -noColor
+    ginkgo --focus="Runtime" -noColor
 
 Ginkgo searches for all tests in all subdirectories that are "named" beginning
 with the string "Runtime" and contain any characters after it. For instance,
@@ -72,7 +72,7 @@ here is an example showing what tests will be ran using Ginkgo's dryRun option:
 
 ::
 
-    $ ginkgo --focus="Runtime*" -noColor -v -dryRun
+    $ ginkgo --focus="Runtime" -noColor -v -dryRun
     Running Suite: runtime
     ======================
     Random Seed: 1516125117
@@ -113,7 +113,7 @@ To run all of the Kubernetes tests, run the following command from the ``test`` 
 
 ::
 
-    ginkgo --focus="K8s*" -noColor
+    ginkgo --focus="K8s" -noColor
 
 
 Similar to the Runtime test suite, Ginkgo searches for all tests in all
@@ -134,12 +134,12 @@ The Kubernetes tests support the following Kubernetes versions:
 * 1.17
 * 1.18
 
-By default, the Vagrant VMs are provisioned with Kubernetes 1.13. To run with any other
+By default, the Vagrant VMs are provisioned with Kubernetes 1.18. To run with any other
 supported version of Kubernetes, run the test suite with the following format:
 
 ::
 
-    K8S_VERSION=<version> ginkgo --focus="K8s*" -noColor
+    K8S_VERSION=<version> ginkgo --focus="K8s" -noColor
 
 .. note::
 
@@ -172,7 +172,7 @@ To run all of the Nightly tests, run the following command from the ``test`` dir
 
 ::
 
-    ginkgo --focus="Nightly*"  -noColor
+    ginkgo --focus="Nightly"  -noColor
 
 Similar to the other test suites, Ginkgo searches for all tests in all
 subdirectories that are "named" beginning with the string "Nightly" and contain
@@ -250,15 +250,17 @@ If you want to run one specified test, there are a few options:
     })
 
 
-* From the command line: specify a more granular focus if you want to focus on, say, L7 tests:
+* From the command line: specify a more granular focus if you want to focus on, say, Runtime L7 tests:
 
 ::
 
-    ginkgo --focus "Run*" --focus "L7 "
+    ginkgo --focus "Runtime.*L7"
 
 
-This will focus on tests prefixed with "Run*", and within that focus, run any
-test that starts with "L7".
+This will focus on tests that contain "Runtime", followed by any
+number of any characters, followed by "L7". ``--focus`` is a regular
+expression and quotes are required if it contains spaces and to escape
+shell expansion of ``*``.
 
 .. _Focused Specs: https://onsi.github.io/ginkgo/#focused-specs
 
@@ -405,7 +407,7 @@ the option ``-v``:
 
 ::
 
-	ginkgo --focus "Runtime*" -v
+	ginkgo --focus "Runtime" -v
 
 In case that the verbose mode is not enough, you can retrieve all run commands
 and their output in the report directory (``./test/test_results``). Each test
@@ -454,7 +456,7 @@ This mode expects:
 
 - The current directory is ``cilium/test``
 
-- A test focus with ``--focus``. ``--focus="K8s*"`` selects all kubernetes tests.
+- A test focus with ``--focus``. ``--focus="K8s"`` selects all kubernetes tests.
 
 - Cilium images as full URLs specified with the ``--cilium.image`` and
   ``--cilium.operator-image`` options.
@@ -475,7 +477,7 @@ An example invocation is
 
 ::
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.13 ginkgo --focus="K8s*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-generic:latest" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=eks K8S_VERSION=1.13 ginkgo --focus="K8s" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-generic:latest" -cilium.passCLIEnvironment=true
 
 GKE (experimental)
 ^^^^^^^^^^^^^^^^^^^^^^
@@ -497,7 +499,7 @@ cluster.
 
 ::
 
-  CNI_INTEGRATION=gke K8S_VERSION=1.13 ginkgo -v --focus="K8sDemo*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-generic:latest" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=gke K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-generic:latest" -cilium.passCLIEnvironment=true
 
 .. note:: The kubernetes version defaults to 1.13 but can be configured with
           versions between 1.13 and 1.15. Check with ``kubectl version`` 
@@ -515,7 +517,7 @@ cluster.
 
 ::
 
-  CNI_INTEGRATION=eks K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo*" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-aws:latest" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=eks K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-aws:latest" -cilium.passCLIEnvironment=true
 
 Be sure to pass ``--cilium.passCLIEnvironment=true`` to allow kubectl to invoke ``aws-iam-authenticator``
 
@@ -603,7 +605,7 @@ configuration options that can be passed as environment variables:
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
 | CONTAINER\_RUNTIME   | docker            | containerd   | To set the default container runtime in the Kubernetes cluster   |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
-| K8S\_VERSION         | 1.13              | 1.\*\*       | Kubernetes version to install                                    |
+| K8S\_VERSION         | 1.18              | 1.\*\*       | Kubernetes version to install                                    |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
 | SERVER\_BOX          | cilium/ubuntu-dev | *            | Vagrantcloud base image                                          |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+

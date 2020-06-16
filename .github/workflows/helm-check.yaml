@@ -77,4 +77,4 @@ jobs:
         run: |
           cd test
           export PATH=$PATH:$HOME/go/bin
-          ginkgo -v --focus="K8sConformance Portmap Chaining Check one node.*" -- -cilium.provision=false -test.v --cilium.kubeconfig=${HOME}/.kube/config -cilium.image=cilium/cilium:latest -cilium.operator-image=cilium/operator-generic:latest
+          ginkgo -v --focus="K8sConformance Portmap Chaining Check one node" -- -cilium.provision=false -test.v --cilium.kubeconfig=${HOME}/.kube/config -cilium.image=cilium/cilium:latest -cilium.operator-image=cilium/operator-generic:latest
