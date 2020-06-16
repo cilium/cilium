@@ -271,7 +271,7 @@ function bpf_compile()
 	clang -O2 -g -target bpf -emit-llvm				\
 	      -Wno-address-of-packed-member -Wno-unknown-warning-option	\
 	      -I. -I$DIR -I$LIB -I$LIB/include				\
-	      -D__NR_CPUS__=$(nproc)					\
+	      -D__NR_CPUS__=$(nproc -all)					\
 	      -DENABLE_ARP_RESPONDER					\
 	      -DHANDLE_NS						\
 	      $EXTRA_OPTS						\
