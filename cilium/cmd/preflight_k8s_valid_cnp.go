@@ -86,11 +86,11 @@ func validateCNPs() error {
 
 	ctx, initCancel := context.WithTimeout(context.Background(), validateK8sPoliciesTimeout)
 	defer initCancel()
-	cnpErr := validateNPResources(ctx, apiExtensionsClient, "ciliumnetworkpolicies", "CiliumNetworkPolicy")
+	cnpErr := validateNPResources(ctx, apiExtensionsClient, &v2.CNPCRV, "ciliumnetworkpolicies", "CiliumNetworkPolicy")
 
 	ctx, initCancel2 := context.WithTimeout(context.Background(), validateK8sPoliciesTimeout)
 	defer initCancel2()
-	ccnpErr := validateNPResources(ctx, apiExtensionsClient, "ciliumclusterwidenetworkpolicies", "CiliumClusterwideNetworkPolicy")
+	ccnpErr := validateNPResources(ctx, apiExtensionsClient, &v2.CNPCRV, "ciliumclusterwidenetworkpolicies", "CiliumClusterwideNetworkPolicy")
 
 	if cnpErr != nil {
 		return cnpErr
@@ -102,7 +102,7 @@ func validateCNPs() error {
 	return nil
 }
 
-func validateNPResources(ctx context.Context, apiExtensionsClient *apiextensionsclient.Clientset, name, shortName string) error {
+func validateNPResources(ctx context.Context, apiExtensionsClient apiextensionsclient.Interface, crv *v1beta1.CustomResourceValidation, name, shortName string) error {
 	// check if the crd is installed at all
 	_, err := apiExtensionsClient.ApiextensionsV1beta1().CustomResourceDefinitions().Get(name+"."+ciliumGroup, metav1.GetOptions{})
 	switch {
@@ -115,7 +115,7 @@ func validateNPResources(ctx context.Context, apiExtensionsClient *apiextensions
 
 	var internal apiextensionsinternal.CustomResourceValidation
 	err = v1beta1.Convert_v1beta1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(
-		&v2.CNPCRV,
+		crv,
 		&internal,
 		nil,
 	)
@@ -127,8 +127,11 @@ func validateNPResources(ctx context.Context, apiExtensionsClient *apiextensions
 		return err
 	}
 
-	var policyErr error
-	var cnps unstructured.UnstructuredList
+	var (
+		policyErr error
+		cnps      unstructured.UnstructuredList
+		cnpName   string
+	)
 	for {
 		opts := metav1.ListOptions{
 			Limit:    25,
@@ -148,7 +151,11 @@ func validateNPResources(ctx context.Context, apiExtensionsClient *apiextensions
 		}
 
 		for _, cnp := range cnps.Items {
-			cnpName := fmt.Sprintf("%s/%s", cnp.GetNamespace(), cnp.GetName())
+			if cnp.GetNamespace() != "" {
+				cnpName = fmt.Sprintf("%s/%s", cnp.GetNamespace(), cnp.GetName())
+			} else {
+				cnpName = cnp.GetName()
+			}
 			if errs := validation.ValidateCustomResource(nil, &cnp, validator); len(errs) > 0 {
 				log.Errorf("Validating %s '%s': unexpected validation error: %s",
 					shortName, cnpName, errs.ToAggregate())
