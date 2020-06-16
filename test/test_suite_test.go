@@ -57,8 +57,6 @@ func init() {
 	for k, v := range DefaultSettings {
 		getOrSetEnvVar(k, v)
 	}
-	config.CiliumTestConfig.ParseFlags()
-
 	os.RemoveAll(helpers.TestResultsPath)
 
 	format.UseStringerRepresentation = true
