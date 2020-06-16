@@ -653,6 +653,7 @@ unix
 unmanaged
 untriaged
 untrusted
+uplink
 uprobes
 upstreamed
 uretprobes
