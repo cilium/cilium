@@ -25,7 +25,7 @@ import (
 	"sync"
 	"time"
 
-	"github.com/cilium/cilium/test/config"
+	"github.com/cilium/cilium/test/logger"
 
 	"github.com/onsi/gomega"
 	"github.com/onsi/gomega/types"
@@ -71,7 +71,7 @@ func (res *CmdRes) GetStdErr() string {
 func (res *CmdRes) SendToLog(quietMode bool) {
 	if quietMode {
 		logformat := "cmd: %q exitCode: %d duration: %s\n"
-		fmt.Fprintf(&config.TestLogWriter, logformat, res.cmd, res.GetExitCode(), res.duration)
+		fmt.Fprintf(&logger.TestLogWriter, logformat, res.cmd, res.GetExitCode(), res.duration)
 		return
 	}
 
@@ -80,7 +80,7 @@ func (res *CmdRes) SendToLog(quietMode bool) {
 	if res.stderr.Len() > 0 {
 		log = fmt.Sprintf("%sstderr:\n%s\n", log, res.stderr.String())
 	}
-	fmt.Fprint(&config.TestLogWriter, log)
+	fmt.Fprint(&logger.TestLogWriter, log)
 }
 
 // WasSuccessful returns true if cmd completed successfully.
