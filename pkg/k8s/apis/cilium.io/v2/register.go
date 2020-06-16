@@ -871,7 +871,8 @@ var (
 			},
 		},
 	}
-	EndpointSelector = *LabelSelector.DeepCopy()
+
+	EndpointSelector = initEndpointSelector()
 
 	IngressRule = apiextensionsv1beta1.JSONSchemaProps{
 		Type: "object",
@@ -1236,7 +1237,7 @@ var (
 					"secret",
 				},
 			},
-			"rules": L7Rules,
+			"rules": initPortRule(),
 		},
 	}
 
@@ -1458,7 +1459,7 @@ var (
 					Schema: &EgressRule,
 				},
 			},
-			"endpointSelector": EndpointSelector,
+			"endpointSelector": initRuleEndpointSelector(),
 			"ingress": {
 				Description: "Ingress is a list of IngressRule which are enforced at ingress. " +
 					"If omitted or empty, this rule does not apply at ingress.",
@@ -1485,7 +1486,7 @@ var (
 		Description: "Service wraps around selectors for services",
 		Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 			"k8sService":         K8sServiceNamespace,
-			"k8sServiceSelector": ServiceSelector,
+			"k8sServiceSelector": initK8sServiceSelector(),
 		},
 	}
 
@@ -1503,7 +1504,7 @@ var (
 		},
 	}
 
-	spec = *Rule.DeepCopy()
+	spec = initSpec()
 
 	specs = apiextensionsv1beta1.JSONSchemaProps{
 		Description: "Specs is a list of desired Cilium specific rule specification.",
@@ -1514,26 +1515,37 @@ var (
 	}
 )
 
-func init() {
-	EndpointSelector.Description = "EndpointSelector is a wrapper for k8s LabelSelector."
+func initEndpointSelector() apiextensionsv1beta1.JSONSchemaProps {
+	es := LabelSelector.DeepCopy()
+	es.Description = "EndpointSelector is a wrapper for k8s LabelSelector."
+	return *es
+}
 
-	portRuleProps := PortRule.Properties["rules"]
+func initPortRule() apiextensionsv1beta1.JSONSchemaProps {
+	portRuleProps := L7Rules.DeepCopy()
 	portRuleProps.Description = "Rules is a list of additional port level rules which must be " +
 		"met in order for the PortRule to allow the traffic. If omitted or empty, " +
 		"no layer 7 rules are enforced."
-	PortRule.Properties["rules"] = portRuleProps
+	return *portRuleProps
+}
 
-	ruleProps := Rule.Properties["endpointSelector"]
+func initRuleEndpointSelector() apiextensionsv1beta1.JSONSchemaProps {
+	ruleProps := EndpointSelector.DeepCopy()
 	ruleProps.Description = "EndpointSelector selects all endpoints which should be subject " +
 		"to this rule. Cannot be empty."
-	Rule.Properties["endpointSelector"] = ruleProps
+	return *ruleProps
+}
 
-	serviceProps := Service.Properties["k8sServiceSelector"]
+func initK8sServiceSelector() apiextensionsv1beta1.JSONSchemaProps {
+	serviceProps := ServiceSelector.DeepCopy()
 	serviceProps.Description = "K8sServiceSelector selects services by k8s labels. " +
 		"Not supported yet"
-	Service.Properties["k8sServiceSelector"] = serviceProps
+	return *serviceProps
+}
 
+func initSpec() apiextensionsv1beta1.JSONSchemaProps {
+	spec := Rule.DeepCopy()
 	spec.Description = "Spec is the desired Cilium specific rule specification."
 	spec.Type = "object"
-
+	return *spec
 }
