@@ -19,10 +19,13 @@ veryclean: clean-build
 BUILDKIT_DOCKERFILE_FILTER := | sed -e "1s|^\#.*|\# syntax = docker/dockerfile:experimental|" -e "s|^RUN\(.*\)make|RUN --mount=type=cache,target=/root/.cache/go-build\1make|"
 
 # _build/.git is a shallow bare clone of the main repo
+# - mkdir can fail if the directory exists already
+# - git clone will fail if _build.git already exists.
+#   In this case the following 'build-context-update' will update it
+# If the _build directory gets into bad shape 'make veryclean' will nuke it.
 _build/.git:
 	-mkdir -p _build
-	git clone --bare --no-local --depth 1 . _build/.git
-	@cd _build && git remote set-url origin ..
+	-git clone --bare --no-local --depth 1 . _build/.git && cd _build && git remote set-url origin ..
 
 #
 # Create _build context:
