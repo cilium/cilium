@@ -1376,6 +1376,7 @@ var _ = Describe("K8sServicesTest", func() {
 						"global.nodePort.mode":         "snat",
 						"global.tunnel":                "disabled",
 						"global.autoDirectNodeRoutes":  "true",
+						"global.devices":               fmt.Sprintf(`'{%s}'`, privateIface),
 					})
 					testNodePortExternal(false, false)
 				})
@@ -1386,6 +1387,7 @@ var _ = Describe("K8sServicesTest", func() {
 						"global.nodePort.mode":         "hybrid",
 						"global.tunnel":                "disabled",
 						"global.autoDirectNodeRoutes":  "true",
+						"global.devices":               fmt.Sprintf(`'{%s}'`, privateIface),
 					})
 					testNodePortExternal(true, false)
 				})
@@ -1396,6 +1398,7 @@ var _ = Describe("K8sServicesTest", func() {
 						"global.nodePort.mode":         "dsr",
 						"global.tunnel":                "disabled",
 						"global.autoDirectNodeRoutes":  "true",
+						"global.devices":               fmt.Sprintf(`'{%s}'`, privateIface),
 					})
 					testNodePortExternal(true, true)
 				})
@@ -1406,6 +1409,7 @@ var _ = Describe("K8sServicesTest", func() {
 						"global.nodePort.mode":         "hybrid",
 						"global.tunnel":                "disabled",
 						"global.autoDirectNodeRoutes":  "true",
+						"global.devices":               fmt.Sprintf(`'{}'`), // Revert back to auto-detection after XDP.
 					})
 					testNodePortExternal(true, false)
 				})
