@@ -103,6 +103,7 @@ var (
 		"global.ipv6.enabled":                 "true",
 		"global.psp.enabled":                  "true",
 		"global.ci.kubeCacheMutationDetector": "true",
+		"global.bpfMasquerade":                "true",
 		// Disable by default, so that 4.9 CI build does not panic due to
 		// missing LRU support. On 4.19 and net-next we enable it with
 		// kubeProxyReplacement=strict.
@@ -2176,7 +2177,6 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 				return err
 			}
 			devices = fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
-			opts["global.bpfMasquerade"] = "true"
 		}
 
 		opts["global.devices"] = devices
