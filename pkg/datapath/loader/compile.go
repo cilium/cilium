@@ -23,8 +23,8 @@ import (
 	"io/ioutil"
 	"os"
 	"path"
-	"runtime"
 
+	"github.com/cilium/cilium/common"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -67,7 +67,7 @@ var (
 	compiler       = "clang"
 	linker         = "llc"
 	standardCFlags = []string{"-O2", "-target", "bpf",
-		fmt.Sprintf("-D__NR_CPUS__=%d", runtime.NumCPU()),
+		fmt.Sprintf("-D__NR_CPUS__=%d", common.GetNumPossibleCPUs(log)),
 		"-Wno-address-of-packed-member", "-Wno-unknown-warning-option"}
 	standardLDFlags = []string{"-march=bpf", "-mcpu=probe"}
 
