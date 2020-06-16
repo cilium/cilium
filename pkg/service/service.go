@@ -98,7 +98,7 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 
 func (svc *svcInfo) requireNodeLocalBackends() bool {
 	switch svc.svcType {
-	case lb.SVCTypeNodePort, lb.SVCTypeLoadBalancer, lb.SVCTypeExternalIPs:
+	case lb.SVCTypeNodePort, lb.SVCTypeClusterIP, lb.SVCTypeLoadBalancer, lb.SVCTypeExternalIPs:
 		return svc.svcTrafficPolicy == lb.SVCTrafficPolicyLocal
 	case lb.SVCTypeHostPort:
 		return false
