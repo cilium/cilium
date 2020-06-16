@@ -55,7 +55,6 @@ var _ = Describe("K8sIstioTest", func() {
 			"linux":  "linux",
 		}
 
-		ciliumIstioctlURL = "https://github.com/cilium/istio/releases/download/" + istioVersion + prerelease + "/cilium-istioctl-" + istioVersion + "-" + ciliumIstioctlOSes[runtime.GOOS] + ".tar.gz"
 		// istioServiceNames is the set of Istio services needed for the tests
 		istioServiceNames = []string{
 			"istio-ingressgateway",
@@ -83,6 +82,12 @@ var _ = Describe("K8sIstioTest", func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		By("Downloading cilium-istioctl")
+		os := "linux"
+		if kubectl.IsLocal() {
+			// Use Ginkgo runtime OS instead when commands are executed in the local Ginkgo host
+			os = ciliumIstioctlOSes[runtime.GOOS]
+		}
+		ciliumIstioctlURL := "https://github.com/cilium/istio/releases/download/" + istioVersion + prerelease + "/cilium-istioctl-" + istioVersion + "-" + os + ".tar.gz"
 		res := kubectl.Exec(fmt.Sprintf("curl --retry 5 -L %s | tar xz", ciliumIstioctlURL))
 		res.ExpectSuccess("unable to download %s", ciliumIstioctlURL)
 		res = kubectl.ExecShort("./cilium-istioctl version")
