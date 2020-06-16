@@ -355,6 +355,10 @@ acceleration. The majority of drivers supporting 10G or higher rates also suppor
 have SR-IOV variants that support native XDP as well. The acceleration can be
 enabled only on a single device which is used for direct routing.
 
+For high-scale environments, also consider tweaking the default map sizes to a larger
+number of entries e.g. through setting a higher ``global.bpf.mapDynamicSizeRatio``.
+See :ref:`bpf_map_limitations` for further details.
+
 The ``global.nodePort.acceleration`` setting is supported for DSR, SNAT and hybrid
 modes and can be enabled as follows for ``nodePort.mode=hybrid`` in this example:
 
