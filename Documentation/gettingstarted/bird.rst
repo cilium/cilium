@@ -191,7 +191,23 @@ Verify the changes, you should get something like this:
             dev cilium_host
 
 This indicates that the PodCIDR ``10.5.48.0/24`` on this node has been
-successfully announced to the BGP peers.
+successfully imported into BIRD.
+
+.. code:: shell-session
+
+   $ birdc show protocols all uplink0 | grep -A 3 -e "Description" -e "stats"
+     Description:    BGP uplink 0
+     BGP state:          Established
+       Neighbor address: 10.4.1.7
+       Neighbor AS:      65418
+   --
+       Route change stats:     received   rejected   filtered    ignored   accepted
+         Import updates:              0          0          0          0          0
+         Import withdraws:           10          0        ---         10          0
+         Export updates:              1          0          0        ---          1
+
+Here we see that the uplink0 BGP session is established and our PodCIDR from
+above has been exported and accepted by the BGP peer.
 
 Monitoring
 ##############
