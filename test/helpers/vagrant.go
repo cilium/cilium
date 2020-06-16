@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/test/config"
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
+	"github.com/cilium/cilium/test/logger"
 
 	"github.com/onsi/ginkgo"
 	"github.com/sirupsen/logrus"
@@ -84,7 +85,7 @@ func GetVagrantSSHMetadata(vmName string) ([]byte, error) {
 	debugVms := func() {
 		cmd := getCmd("vagrant status --machine-readable")
 		output, _ := cmd.CombinedOutput()
-		fmt.Fprintf(&config.TestLogWriter, "Vagrant status on failure:\n%s\n", output)
+		fmt.Fprintf(&logger.TestLogWriter, "Vagrant status on failure:\n%s\n", output)
 	}
 
 	var stdout, stderr bytes.Buffer
@@ -98,7 +99,7 @@ func GetVagrantSSHMetadata(vmName string) ([]byte, error) {
 
 	err := cmd.Run()
 	if err != nil {
-		fmt.Fprintf(&config.TestLogWriter, "cmd='%s %s'\noutput:\n%s\nstderr:\n%s\n",
+		fmt.Fprintf(&logger.TestLogWriter, "cmd='%s %s'\noutput:\n%s\nstderr:\n%s\n",
 			cmd.Path, strings.Join(cmd.Args, " "), stdout.String(), stderr.String())
 		debugVms()
 		return nil, err
