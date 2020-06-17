@@ -23,15 +23,16 @@ while [ $locked -ne 0 ]; do
     echo "getting kubeconfig for ${cluster_uri} (will store in ${KUBECONFIG})"
     gcloud container clusters get-credentials --project "${project}" --region "${region}" "${cluster_uri}"
 
-    echo "aquiring cluster lock"
+    echo "acquiring cluster lock"
     set +e
+    kubectl create namespace cilium-ci-lock
     kubectl create -f "${script_dir}/lock.yaml"
 
-    kubectl annotate deployment lock lock=1
+    kubectl annotate deployment -n cilium-ci-lock lock lock=1
     locked=$?
     echo $locked
     if [ -n "${BUILD_URL+x}" ] && [ $locked -eq 0 ] ; then
-      kubectl annotate deployment lock --overwrite "jenkins-build-url=${BUILD_URL}"
+      kubectl annotate deployment -n cilium-ci-lock lock --overwrite "jenkins-build-url=${BUILD_URL}"
     fi
     set -e
 done
