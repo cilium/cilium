@@ -27,6 +27,10 @@
 # after the less specific paths, otherwise the ownership for the specific paths
 # is not properly picked up in Github.
 * @cilium/janitors
+/.github/ @cilium/contributing
+/.github/workflows/ @cilium/ci
+/.github/workflows/coccicheck.yaml @cilium/ci @cilium/bpf
+/.github/workflows/docs.yaml @cilium/ci @cilium/docs
 /api/ @cilium/api
 /api/v1/flow/ @cilium/api @cilium/hubble
 /api/v1/observer/ @cilium/api @cilium/hubble
