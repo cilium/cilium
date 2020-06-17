@@ -66,6 +66,7 @@ test/cilium-istioctl
 
 # generated test file
 test/k8sT/manifests/cnp-second-namespaces.yaml
+test/cilium.conf.ginkgo
 
 # Emacs backup files
 *~
