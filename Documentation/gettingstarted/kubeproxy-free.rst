@@ -459,6 +459,57 @@ right at the XDP layer are not visible in tcpdump since packet taps come at a mu
 later stage in the networking stack. Cilium's monitor or metric counters can be used
 instead for gaining visibility.
 
+NodePort XDP on Azure
+=====================
+
+To enable NodePort XDP on a self-managed Kubernetes running on Azure, the
+virtual machines running Kubernetes must have `Accelerated Networking
+<https://azure.microsoft.com/en-us/updates/accelerated-networking-in-expanded-preview/>`_
+enabled. In addition, the Linux kernel on the nodes must also have support for
+native XDP in the ``hv_netvsc`` driver, which is available in kernel >= 5.6.
+
+To enable accelerated networking when creating a virtual machine or
+virtual machine scale set, pass the ``--accelerated-networking`` option to the
+Azure CLI. Please refer to the guide on how to `create a Linux virtual machine
+with Accelerated Networking using Azure CLI
+<https://docs.microsoft.com/en-us/azure/virtual-network/create-vm-accelerated-networking-cli>`_
+for more details.
+
+When *Accelerated Networking* is enabled, ``lspci`` will show a
+Mellanox ConnectX-3 or ConnectX-4 Lx NIC:
+
+.. parsed-literal::
+
+    $ lspci | grep Ethernet
+    2846:00:02.0 Ethernet controller: Mellanox Technologies MT27710 Family [ConnectX-4 Lx Virtual Function] (rev 80)
+
+NodePort XDP requires Cilium to run in direct routing mode (``tunnel=disabled``).
+It is recommended to use Azure IPAM for the pod IP address allocation, which
+will automatically configure your virtual network to route pod traffic correctly:
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --namespace kube-system \\
+     --set config.ipam=azure \\
+     --set global.azure.enabled=true \\
+     --set global.azure.resourceGroup=AZURE_NODE_RESOURCE_GROUP \\
+     --set global.azure.subscriptionID=AZURE_SUBSCRIPTION_ID \\
+     --set global.azure.tenantID=AZURE_TENANT_ID \\
+     --set global.azure.clientID=AZURE_CLIENT_ID \\
+     --set global.azure.clientSecret=AZURE_CLIENT_SECRET \\
+     --set global.tunnel=disabled \\
+     --set global.masquerade=false \\
+     --set global.kubeProxyReplacement=strict \\
+     --set global.nodePort.acceleration=native \\
+     --set global.nodePort.mode=hybrid \\
+     --set global.k8sServiceHost=API_SERVER_IP \\
+     --set global.k8sServicePort=API_SERVER_PORT
+
+When running Azure IPAM on a self-managed Kubernetes cluster, each ``v1.Node``
+must have the resource ID of its VM in the ``spec.providerID`` field.
+Refer to the :ref:`ipam_azure` reference for more information.
+
 NodePort Devices, Port and Bind settings
 ****************************************
 

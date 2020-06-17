@@ -29,6 +29,7 @@ Cloudflare
 Clusterwide
 Committer
 Committers
+ConnectX
 DDoS
 DMA'ed
 DNS
@@ -87,6 +88,7 @@ Loadbalancing
 Login
 Lookup
 Lund
+Lx
 Majkowski
 Marek
 Meetup
@@ -452,6 +454,7 @@ logout
 lookup
 lookups
 loopback
+lspci
 luke
 lwt
 macOS
