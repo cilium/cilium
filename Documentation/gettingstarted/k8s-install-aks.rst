@@ -86,5 +86,6 @@ To verify, you should see AKS in the name of the nodes when you run:
 .. include:: k8s-install-azure-cni-steps.rst
 
 .. include:: k8s-install-validate.rst
+.. include:: namespace-kube-system.rst
 .. include:: hubble-enable.rst
 
