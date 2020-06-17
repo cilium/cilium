@@ -8,7 +8,7 @@
 Iptables Usage
 ##############
 
-Depending on the Linux kernel version being used. The eBPF datapath can
+Depending on the Linux kernel version being used, the eBPF datapath can
 implement a varying feature set fully in eBPF. If certain required capabilities
 are not available, the functionality is provided using a legacy iptables
 implementation. See :ref:`features_kernel_matrix` for more details.

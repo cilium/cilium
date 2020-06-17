@@ -64,7 +64,7 @@ also comes at a latency cost as in veth-based mode the network stack internally
 needs to be re-traversed when handing the packet from one veth device to its
 peer device in the other network namespace. This egress-to-ingress switch needs
 to be done twice when communicating between local Cilium endpoints, and once
-for packet that are arriving or sent out of the host.
+for packets that are arriving or sent out of the host.
 
 For a more latency optimized datapath, Cilium CNI also supports ipvlan L3/L3S mode
 with a number of restrictions. In order to support older kernel's without ipvlan's
