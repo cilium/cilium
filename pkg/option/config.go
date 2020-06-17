@@ -2477,6 +2477,10 @@ func (c *DaemonConfig) Populate() {
 			log.Warningf("Running Cilium with %q=%q requires endpoint CRDs. Changing %s to %t", KVStore, c.KVStore, DisableCiliumEndpointCRDName, false)
 			c.DisableCiliumEndpointCRD = false
 		}
+		if c.K8sEventHandover {
+			log.Warningf("Running Cilium with %q=%q requires KVStore capability. Changing %s to %t", KVStore, c.KVStore, K8sEventHandover, false)
+			c.K8sEventHandover = false
+		}
 	}
 
 	switch c.IPAM {
