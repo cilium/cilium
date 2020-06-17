@@ -81,7 +81,7 @@ image_tag = 'v' + release
 # Map latest -> master.
 # Map stable -> current version number.
 branch = os.environ.get('READTHEDOCS_VERSION')
-if branch is None or branch == 'latest':
+if not branch or branch == 'latest':
     branch = 'HEAD'
     archive_name = 'master'
     chart_release = './cilium'
