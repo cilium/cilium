@@ -535,6 +535,9 @@ func init() {
 	flags.Bool(option.EnableSessionAffinity, false, "Enable support for service session affinity")
 	option.BindEnv(option.EnableSessionAffinity)
 
+	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
+	option.BindEnv(option.EnableIdentityMark)
+
 	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
 	option.BindEnv(option.EnableHostFirewall)
 

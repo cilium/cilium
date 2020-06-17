@@ -47,3 +47,6 @@
 # decisions can be checked via the poicy verdict messages.
 #policyAuditMode: false
 
+# enables passing identity on local routes by using the mark fields. However,
+# in cases where this conflicts with a chained CNI plugin it may be disabled.
+#enableIdentityMark: true
