@@ -1403,7 +1403,10 @@ func (kub *Kubectl) Apply(options ApplyOptions) *CmdRes {
 	if len(options.Piped) > 0 {
 		cmd = options.Piped + " | " + cmd
 	}
-	return kub.ExecMiddle(cmd)
+
+	ctx, cancel := context.WithTimeout(context.Background(), MidCommandTimeout*2)
+	defer cancel()
+	return kub.ExecContext(ctx, cmd)
 }
 
 // ApplyDefault applies give filepath with other options set to default
