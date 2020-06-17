@@ -19,6 +19,7 @@ READTHEDOCS_VERSION:=$(READTHEDOCS_VERSION)
 DOCKER_CTR := $(CONTAINER_ENGINE) container run --rm \
 		--workdir /src/Documentation \
 		--volume $(CURDIR)/..:/src \
+		--env READTHEDOCS_VERSION=$(READTHEDOCS_VERSION) \
 		--env SKIP_LINT=$(SKIP_LINT) \
 		--user "$(shell id -u):$(shell id -g)"
 DOCKER_RUN := $(DOCKER_CTR) cilium/docs-builder
