@@ -12,8 +12,7 @@ IP Address Management (IPAM)
 
 IP Address Management (IPAM) is responsible for the allocation and management
 of IP addresses used by network endpoints (container and others) managed by
-Cilium. Various IPAM modes are supported to the meet the needs of different
-users:
+Cilium. Various IPAM modes are supported to meet the needs of different users:
 
 .. toctree::
    :maxdepth: 1

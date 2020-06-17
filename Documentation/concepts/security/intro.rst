@@ -4,9 +4,9 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
-*****
-Intro
-*****
+************
+Introduction
+************
 
 Cilium provides security on multiple levels. Each can be used individually or
 combined together.
@@ -22,16 +22,3 @@ combined together.
   remote procedure call (RPC) protocols, e.g the endpoint with label
   ``role=frontend`` can only perform the REST API call ``GET /userdata/[0-9]+``,
   all other API interactions with ``role=backend`` are restricted.
-
-Currently on the roadmap, to be added soon:
-
-* Authentication: Any endpoint which wants to initiate a connection to an
-  endpoint with the label ``role=backend`` must have a particular security
-  certificate to authenticate itself before being able to initiate any
-  connections. See `GH issue 502
-  <https://github.com/cilium/cilium/issues/502>`_ for additional details.
-* Encryption: Communication between any endpoint with the label ``role=frontend``
-  to any endpoint with the label ``role=backend`` is automatically encrypted with
-  a key that is automatically rotated. See `GH issue 504
-  <https://github.com/cilium/cilium/issues/504>`_ to track progress on this
-  feature.

@@ -129,7 +129,7 @@ Configuration
 The following configuration options must be set to run the datapath in native
 routing mode:
 
-* ``tunnel: disabled``: Enable native routing mode
+* ``tunnel: disabled``: Enable native routing mode.
 * ``enable-endpoint-routes: true``: Enable per-endpoint routing on the node
 * ``native-routing-cidr: x.x.x.x/y``: Set the CIDR in which native routing
   can be performed.
@@ -303,7 +303,7 @@ Configuration
 The following configuration options must be set to run the datapath on GKE:
 
 * ``gke.enabled: true``: Enables the Google Kubernetes Engine (GKE) datapath.
-  Setting this to true will enabled the following options:
+  Setting this to ``true`` will enable the following options:
 
   * ``ipam: kubernetes``: Enable :ref:`k8s_hostscope` IPAM
   * ``tunnel: disabled``: Enable native routing mode
