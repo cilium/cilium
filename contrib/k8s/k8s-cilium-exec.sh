@@ -32,7 +32,7 @@ function cleanup {
 K8S_NAMESPACE="${K8S_NAMESPACE:-kube-system}"
 
 while read -r p; do
-	kubectl -n "${K8S_NAMESPACE}" exec -ti $p -- $*&
+	kubectl -n "${K8S_NAMESPACE}" exec -ti $p -- "${@}" &
 done <<< "$(kubectl -n ${K8S_NAMESPACE} get pods -l k8s-app=cilium | awk '{print $1}' | grep cilium)"
 
 wait
