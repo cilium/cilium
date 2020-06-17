@@ -17,7 +17,7 @@ cluster_uri="$(cat "${script_dir}/cluster-uri")"
 # for example.
 unlock() {    
     echo "releasing cluster lock from ${cluster_uri}"
-    kubectl annotate deployment lock lock-
+    kubectl annotate deployment -n cilium-ci-lock lock lock-
 }
 trap unlock EXIT
 
