@@ -61,7 +61,7 @@ Advanced Networking
    encryption
    host-services
    kubeproxy-free
-   kata-gce
+   kata
    ipam
 
 Operations
