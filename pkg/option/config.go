@@ -263,6 +263,11 @@ const (
 	// EnableSessionAffinity enables a support for service sessionAffinity
 	EnableSessionAffinity = "enable-session-affinity"
 
+	// EnableIdentityMark enables setting the mark field with the identity for
+	// local traffic. This may be disabled if chaining modes and Cilium use
+	// conflicting marks.
+	EnableIdentityMark = "enable-identity-mark"
+
 	// LibDir enables the directory path to store runtime build environment
 	LibDir = "lib-dir"
 
@@ -826,6 +831,7 @@ var HelpFlagSections = []FlagsSection{
 			FragmentsMapEntriesName,
 			EnableBPFClockProbe,
 			EnableBPFMasquerade,
+			EnableIdentityMark,
 		},
 	},
 	{
@@ -1725,6 +1731,11 @@ type DaemonConfig struct {
 	// Selection of BPF main clock source (ktime vs jiffies)
 	ClockSource BPFClockSource
 
+	// EnableIdentityMark enables setting the mark field with the identity for
+	// local traffic. This may be disabled if chaining modes and Cilium use
+	// conflicting marks.
+	EnableIdentityMark bool
+
 	// KernelHz is the HZ rate the kernel is operating in
 	KernelHz int
 
@@ -2344,6 +2355,7 @@ func (c *DaemonConfig) Populate() {
 	}
 
 	c.ClockSource = ClockSourceKtime
+	c.EnableIdentityMark = viper.GetBool(EnableIdentityMark)
 
 	// toFQDNs options
 	// When the poller is enabled, the default MinTTL is lowered. This is to

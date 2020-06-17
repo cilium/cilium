@@ -68,6 +68,7 @@ cilium-agent [flags]
       --enable-host-port                              Enable k8s hostPort mapping feature (requires enabling enable-node-port) (default true)
       --enable-host-reachable-services                Enable reachability of services for host applications (beta)
       --enable-hubble                                 Enable hubble server
+      --enable-identity-mark                          Enable setting identity mark for local traffic (default true)
       --enable-ip-masq-agent                          Enable BPF ip-masq-agent
       --enable-ipsec                                  Enable IPSec support
       --enable-ipv4                                   Enable IPv4 support (default true)

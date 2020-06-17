@@ -377,4 +377,8 @@ const (
 	// K8sEnableAPIDiscovery defines whether Kuberntes API groups and
 	// resources should be probed using the discovery API
 	K8sEnableAPIDiscovery = false
+
+	// EnableIdentityMark enables setting identity in mark field of packet
+	// for local traffic
+	EnableIdentityMark = true
 )
