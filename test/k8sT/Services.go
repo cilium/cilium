@@ -499,14 +499,14 @@ var _ = Describe("K8sServicesTest", func() {
 			testCurlFromOutsideWithLocalPort(url, count, checkSourceIP, 0)
 		}
 
-		// srcPod:      Name of pod sending the datagram
-		// srcPort:     Source UDP port
-		// dstPodIP:    Receiver pod IP (for checking in CT table)
-		// dstPodPort:  Receiver pod port (for checking in CT table)
-		// dstIP:       Target endpoint IP for sending the datagram
-		// dstPort:     Target endpoint port for sending the datagram
-		// kubeProxy:   True if kube-proxy is enabled
-		doFragmentedRequest := func(srcPod string, srcPort, dstPodPort int, dstIP string, dstPort int32, kubeProxy bool) {
+		// srcPod:     Name of pod sending the datagram
+		// srcPort:    Source UDP port
+		// dstPodIP:   Receiver pod IP (for checking in CT table)
+		// dstPodPort: Receiver pod port (for checking in CT table)
+		// dstIP:      Target endpoint IP for sending the datagram
+		// dstPort:    Target endpoint port for sending the datagram
+		// hasDNAT:    True if DNAT is used for target IP and port
+		doFragmentedRequest := func(srcPod string, srcPort, dstPodPort int, dstIP string, dstPort int32, hasDNAT bool) {
 			var (
 				blockSize  = 5120
 				blockCount = 1
@@ -543,7 +543,7 @@ var _ = Describe("K8sServicesTest", func() {
 			// Field #11 is "TxPackets=<n>"
 			cmdOut := "cilium bpf ct list global | awk '/%s/ { sub(\".*=\",\"\", $11); print $11 }'"
 
-			if kubeProxy {
+			if !hasDNAT {
 				// If kube-proxy is enabled, we see packets in ctmap with the
 				// service's IP address and port, not backend's.
 				dstIPv4 := strings.Replace(dstIP, "::ffff:", "", 1)
@@ -560,7 +560,7 @@ var _ = Describe("K8sServicesTest", func() {
 			countOutK8s2 := 0
 			patternOutK8s2 := fmt.Sprintf("UDP OUT [^:]+:%d -> %s", srcPort, endpointK8s2)
 			cmdOutK8s2 := fmt.Sprintf(cmdOut, patternOutK8s2)
-			if !kubeProxy {
+			if hasDNAT {
 				res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s2)
 				countOutK8s2, _ = strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
 			}
@@ -602,7 +602,7 @@ var _ = Describe("K8sServicesTest", func() {
 			// If kube-proxy is enabled, the two commands are the same and
 			// there's no point executing it twice.
 			newCountOutK8s2 := 0
-			if !kubeProxy {
+			if hasDNAT {
 				res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s2)
 				newCountOutK8s2, _ = strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
 			}
@@ -1059,8 +1059,15 @@ var _ = Describe("K8sServicesTest", func() {
 			var (
 				data    v1.Service
 				srcPort = 12345
+				hasDNAT = true
 			)
-			kubeProxy := !helpers.RunsWithoutKubeProxy()
+			// Destination address and port for fragmented datagram
+			// are not DNAT-ed with kube-proxy but without bpf_sock.
+			if helpers.RunsWithKubeProxy() {
+				ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s1)
+				ExpectWithOffset(1, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+				hasDNAT = kubectl.HasHostReachableServices(ciliumPodK8s1, false, true)
+			}
 
 			// Get testDSClient and testDS pods running on k8s1.
 			// This is because we search for new packets in the
@@ -1073,13 +1080,13 @@ var _ = Describe("K8sServicesTest", func() {
 			serverPort := data.Spec.Ports[1].TargetPort.IntValue()
 
 			// With ClusterIP
-			doFragmentedRequest(clientPod, srcPort, serverPort, data.Spec.ClusterIP, data.Spec.Ports[1].Port, false)
+			doFragmentedRequest(clientPod, srcPort, serverPort, data.Spec.ClusterIP, data.Spec.Ports[1].Port, true)
 
 			// From pod via node IPs
-			doFragmentedRequest(clientPod, srcPort+1, serverPort, k8s1IP, nodePort, kubeProxy)
-			doFragmentedRequest(clientPod, srcPort+2, serverPort, "::ffff:"+k8s1IP, nodePort, kubeProxy)
-			doFragmentedRequest(clientPod, srcPort+3, serverPort, k8s2IP, nodePort, kubeProxy)
-			doFragmentedRequest(clientPod, srcPort+4, serverPort, "::ffff:"+k8s2IP, nodePort, kubeProxy)
+			doFragmentedRequest(clientPod, srcPort+1, serverPort, k8s1IP, nodePort, hasDNAT)
+			doFragmentedRequest(clientPod, srcPort+2, serverPort, "::ffff:"+k8s1IP, nodePort, hasDNAT)
+			doFragmentedRequest(clientPod, srcPort+3, serverPort, k8s2IP, nodePort, hasDNAT)
+			doFragmentedRequest(clientPod, srcPort+4, serverPort, "::ffff:"+k8s2IP, nodePort, hasDNAT)
 		}
 
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy)", func() {
@@ -1413,10 +1420,9 @@ var _ = Describe("K8sServicesTest", func() {
 				})
 			})
 
-		// Net-next and not old versions, because of LRU requirement.
-		// Should also run on 4.19, but it flakes a lot, see #10929.
-		// TODO: Re-enable on 4.19 after GH#11915.
-		SkipItIf(helpers.DoesNotRunOnNetNextKernel, "Supports IPv4 fragments", func() {
+		// Run on net-next and 4.19 but not on old versions, because of
+		// LRU requirement.
+		SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "Supports IPv4 fragments", func() {
 			DeployCiliumAndDNS(kubectl, ciliumFilename)
 			testIPv4FragmentSupport()
 		})
