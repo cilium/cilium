@@ -630,6 +630,8 @@ When running Azure IPAM on a self-managed Kubernetes cluster, each ``v1.Node``
 must have the resource ID of its VM in the ``spec.providerID`` field.
 Refer to the :ref:`ipam_azure` reference for more information.
 
+.. _NodePort Devices:
+
 NodePort Devices, Port and Bind settings
 ****************************************
 
