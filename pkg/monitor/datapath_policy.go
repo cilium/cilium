@@ -104,7 +104,11 @@ func GetPolicyActionString(verdict int32, audit bool) string {
 
 // DumpInfo prints a summary of the policy notify messages.
 func (n *PolicyVerdictNotify) DumpInfo(data []byte) {
-	fmt.Printf("Policy verdict log: flow %#x local EP ID %d, remote ID %d, dst port %d, proto %d, ingress %v, action %s, match %s, %s\n",
-		n.Hash, n.Source, n.RemoteLabel, n.DstPort, n.Proto, n.IsTrafficIngress(), GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
+	dir := "egress"
+	if n.IsTrafficIngress() {
+		dir = "ingress"
+	}
+	fmt.Printf("Policy verdict log: flow %#x local EP ID %d, remote ID %d, proto %d, %s, action %s, match %s, %s\n",
+		n.Hash, n.Source, n.RemoteLabel, n.Proto, dir, GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
 		n.GetPolicyMatchType(), GetConnectionSummary(data[PolicyVerdictNotifyLen:]))
 }
