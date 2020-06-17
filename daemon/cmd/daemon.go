@@ -356,6 +356,14 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		})
 	}
 
+	// Do the partial kube-proxy replacement initialization before creating BPF
+	// maps. Otherwise, some maps might not be created (e.g. session affinity).
+	// finishKubeProxyReplacementInit(), which is called later after the device
+	// detection, might disable BPF NodePort and friends. But this is fine, as
+	// the feature does not influence the decision which BPF maps should be
+	// created.
+	isKubeProxyReplacementStrict := initKubeProxyReplacementOptions()
+
 	// Open or create BPF maps.
 	bootstrapStats.mapsInit.Start()
 	err = d.initMaps()
@@ -424,13 +432,12 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		bootstrapStats.k8sInit.End(true)
 	}
 
-	// The kube-proxy replacement should be initialized after establishing
-	// connection to kube-apiserver, but before starting a k8s watcher, as
-	// retrieving Node object for self is needed by BPF NodePort device selection,
-	// and the k8s watcher depends on option.Config.EnableNodePort flag which
-	// can be modified by the initialization routine.
-	strict := initKubeProxyReplacementOptions()
-	detectDevicesForNodePortAndHostFirewall(strict)
+	// The kube-proxy replacement and host-fw devices detection should happen after
+	// establishing a connection to kube-apiserver, but before starting a k8s watcher.
+	// This is because the device detection requires self (Cilium)Node object,
+	// and the k8s service watcher depends on option.Config.EnableNodePort flag
+	// which can be modified after the device detection.
+	detectDevicesForNodePortAndHostFirewall(isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit()
 	if option.Config.EnableNodePort {
 		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
