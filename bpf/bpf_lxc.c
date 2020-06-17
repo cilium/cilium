@@ -393,11 +393,13 @@ pass_to_stack:
 #endif
 #endif
 	{
+#ifdef ENABLE_IDENTITY_MARK
 		/* Always encode the source identity when passing to the stack. If the
 		 * stack hairpins the packet back to a local endpoint the source
 		 * identity can still be derived even if SNAT is performed by a
 		 * component such as portmap */
 		asm_set_seclabel_identity(skb);
+#endif
 	}
 
 #ifdef ENCAP_IFINDEX
@@ -734,11 +736,13 @@ pass_to_stack:
 #endif
 #endif
 	{
+#ifdef ENABLE_IDENTITY_MARK
 		/* Always encode the source identity when passing to the stack. If the
 		 * stack hairpins the packet back to a local endpoint the source
 		 * identity can still be derived even if SNAT is performed by a
 		 * component such as portmap */
 		asm_set_seclabel_identity(skb);
+#endif
 	}
 
 #ifdef ENCAP_IFINDEX
