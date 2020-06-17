@@ -562,14 +562,14 @@ Finally, the deployment can be upgraded and later rolled-out with the
 
 .. parsed-literal::
 
-  helm upgrade cilium ./cilium \
-        --namespace kube-system \
-        --reuse-values \
-        --set global.autoDirectNodeRoutes=true \
-        --set global.kubeProxyReplacement=strict \
-        --set global.nodePort.acceleration=native \
-        --set global.nodePort.mode=snat \
-        --set global.k8sServiceHost=$API_SERVER_IP \
+  helm upgrade cilium ./cilium \\
+        --namespace kube-system \\
+        --reuse-values \\
+        --set global.autoDirectNodeRoutes=true \\
+        --set global.kubeProxyReplacement=strict \\
+        --set global.nodePort.acceleration=native \\
+        --set global.nodePort.mode=snat \\
+        --set global.k8sServiceHost=$API_SERVER_IP \\
         --set global.k8sServicePort=$API_SERVER_PORT
 
 NodePort XDP on Azure
