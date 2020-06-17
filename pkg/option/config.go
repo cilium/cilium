@@ -259,6 +259,11 @@ const (
 	// NodePortRange defines a custom range where to look up NodePort services
 	NodePortRange = "node-port-range"
 
+	// EnableIdentityMark enables setting the mark field with the identity for
+	// local traffic. This may be disabled if chaining modes and Cilium use
+	// conflicting marks.
+	EnableIdentityMark = "enable-identity-mark"
+
 	// LibDir enables the directory path to store runtime build environment
 	LibDir = "lib-dir"
 
@@ -1343,6 +1348,11 @@ type DaemonConfig struct {
 	// NodePortMax is the maximum port address for the NodePort range
 	NodePortMax int
 
+	// EnableIdentityMark enables setting the mark field with the identity for
+	// local traffic. This may be disabled if chaining modes and Cilium use
+	// conflicting marks.
+	EnableIdentityMark bool
+
 	// excludeLocalAddresses excludes certain addresses to be recognized as
 	// a local address
 	excludeLocalAddresses []*net.IPNet
@@ -1895,6 +1905,8 @@ func (c *DaemonConfig) Populate() {
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)
 	}
+
+	c.EnableIdentityMark = viper.GetBool(EnableIdentityMark)
 
 	// toFQDNs options
 	// When the poller is enabled, the default MinTTL is lowered. This is to

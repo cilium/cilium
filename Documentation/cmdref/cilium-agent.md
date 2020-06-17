@@ -58,6 +58,7 @@ cilium-agent [flags]
       --enable-external-ips                           Enable k8s service externalIPs feature (requires enabling enable-node-port) (default true)
       --enable-health-checking                        Enable connectivity health checking (default true)
       --enable-host-reachable-services                Enable reachability of services for host applications (beta)
+      --enable-identity-mark                          Enable setting identity mark for local traffic (default true)
       --enable-ipsec                                  Enable IPSec support
       --enable-ipv4                                   Enable IPv4 support (default true)
       --enable-ipv6                                   Enable IPv6 support (default true)
