@@ -6,19 +6,6 @@ for cloud native workloads. It is built on top of Cilium and eBPF to enable
 deep visibility into the communication and behavior of services as well as the
 networking infrastructure in a completely transparent manner.
 
-* Specify the namespace in which Cilium is installed as ``CILIUM_NAMESPACE``
-  environment variable. Subsequent commands reference this environment variable.
-
-  .. parsed-literal::
-
-      export CILIUM_NAMESPACE=kube-system
-
-  .. note::
-
-      Cilium is typically installed in the ``kube-system`` namespace, but there are
-      a few exceptions such as GKE which install Cilium in a dedicated ``cilium``
-      namespace.
-
 * Hubble can be configured to be in **local mode** or **distributed mode (beta)**.
 
   .. tabs::
