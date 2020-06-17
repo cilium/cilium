@@ -501,8 +501,10 @@ nfp
 nfs
 nfsd
 nftables
+ng
 nginx
 nodeX
+nodegroup
 observability
 offline
 onData
@@ -531,6 +533,7 @@ podcasts
 poller
 portmap
 pre
+prebuild
 prefilter
 preflight
 prepend
