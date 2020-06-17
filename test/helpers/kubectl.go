@@ -144,6 +144,7 @@ var (
 		"global.nativeRoutingCIDR":    "10.0.0.0/8",
 		"global.hostFirewall":         "false",
 		"config.ipam":                 "kubernetes",
+		"global.devices":              "", // Override "eth0 eth0\neth0"
 	}
 
 	microk8sHelmOverrides = map[string]string{
