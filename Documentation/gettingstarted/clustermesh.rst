@@ -29,8 +29,11 @@ Prerequisites
 * All nodes must have a unique IP address assigned them. Node IPs of clusters
   being connected together may not conflict with each other.
 
-* Cilium must be configured to use etcd as the kvstore. Consul is not supported
-  by cluster mesh at this point.
+* Cilium must be configured to use etcd as the kvstore, along with the identity
+  allocation mode (``global.identityAllocationMode``). With the identity
+  allocation mode set to ``kvstore``, this allows direct etcd connections,
+  identity propagation across the clusters, and enables cross-cluster policy
+  functionality. Consul is not currently supported with cluster mesh.
 
 * It is highly recommended to use a TLS protected etcd cluster with Cilium. The
   server certificate of etcd must whitelist the host name ``*.mesh.cilium.io``.

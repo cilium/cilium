@@ -79,7 +79,11 @@ data:
   #   backend. Upgrades from these older cilium versions should continue using
   #   the kvstore by commenting out the identity-allocation-mode below, or
   #   setting it to "kvstore".
+{{- if .Values.global.etcd.enabled }}
+  identity-allocation-mode: kvstore
+{{- else }}
   identity-allocation-mode: {{ .Values.global.identityAllocationMode }}
+{{- end }}
 {{- if .Values.global.identityHeartbeatTimeout }}
   identity-heartbeat-timeout: "{{ .Values.global.identityHeartbeatTimeout }}"
 {{- end }}
