@@ -2143,7 +2143,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
-	if !RunsWithKubeProxy() {
+	if !RunsWithKubeProxy() && !RunsOn419Kernel() {
 		nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
 		if err != nil {
 			return fmt.Errorf("Cannot retrieve Node IP for k8s1: %s", err)
@@ -2176,6 +2176,8 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		for key, value := range opts {
 			options = addIfNotOverwritten(options, key, value)
 		}
+	} else if RunsOn419Kernel() {
+		addIfNotOverwritten(options, "global.kubeProxyReplacement", "disabled")
 	}
 
 	return nil

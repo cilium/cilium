@@ -36,7 +36,7 @@ pipeline {
             )}"""
         KUBEPROXY="""${sh(
             returnStdout: true,
-            script: 'if [ "${JobKernelVersion}" = "net-next" ] || [ "${JobKernelVersion}" = "419" ]; then echo -n "0"; else echo -n ""; fi'
+            script: 'if [ "${JobKernelVersion}" = "net-next" ]; then echo -n "0"; else echo -n ""; fi'
             )}"""
         RUN_QUARANTINED="""${sh(
 				returnStdout: true,
