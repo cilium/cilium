@@ -1008,8 +1008,8 @@ func initEnv(cmd *cobra.Command) {
 	bpf.CheckOrMountFS(option.Config.BPFRoot, k8s.IsEnabled())
 	cgroups.CheckOrMountCgrpFS(option.Config.CGroupRoot)
 
-	option.Config.Opts.SetBool(option.Debug, false)
-	option.Config.Opts.SetBool(option.DebugLB, false)
+	option.Config.Opts.SetBool(option.Debug, true)
+	option.Config.Opts.SetBool(option.DebugLB, true)
 	option.Config.Opts.SetBool(option.DropNotify, true)
 	option.Config.Opts.SetBool(option.TraceNotify, true)
 	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)
