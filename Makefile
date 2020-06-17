@@ -165,7 +165,7 @@ tests-privileged:
 start-kvstores:
 ifeq ($(SKIP_KVSTORES),"false")
 	@echo Starting key-value store containers...
-	-$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-etcd-test-container" 2> /dev/null
+	-$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-etcd-test-container"
 	$(QUIET)$(CONTAINER_ENGINE) run -d \
 		-e ETCD_UNSUPPORTED_ARCH=$(GOARCH) \
 		--name "cilium-etcd-test-container" \
@@ -177,7 +177,7 @@ ifeq ($(SKIP_KVSTORES),"false")
 		-listen-peer-urls http://0.0.0.0:2380 \
 		-initial-cluster-token etcd-cluster-1 \
 		-initial-cluster-state new
-	-$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-consul-test-container" 2> /dev/null
+	-$(QUIET)$(CONTAINER_ENGINE) rm -f "cilium-consul-test-container"
 	$(QUIET)rm -rf /tmp/cilium-consul-certs
 	$(QUIET)mkdir /tmp/cilium-consul-certs
 	$(QUIET)cp $(CURDIR)/test/consul/* /tmp/cilium-consul-certs
