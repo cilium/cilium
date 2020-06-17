@@ -32,19 +32,7 @@ Setting the routable CIDR
   masqueraded.
 
 Setting the masquerading interface
-  The default behavior will masquerade all traffic leaving on a non-Cilium
-  network device. This typically leads to the correct behavior. In order to
-  limit the network interface on which masquerading should be performed, the
-  option ``egress-masquerade-interfaces: eth0`` can be used.
-
-  .. note::
-
-     It is possible to specify an interface prefix as well, by specifying
-     ``eth+``, all interfaces matching the prefix ``eth`` will be used for
-     masquerading.
-
-  This setting is only available in iptables-based mode (see
-  :ref:`masq_modes`).
+  See :ref:`masq_modes` for configuring the masquerading interfaces.
 
 .. _masq_modes:
 
@@ -52,9 +40,101 @@ Implementation Modes
 --------------------
 
 eBPF-based
-  The eBPF-based implementation is the most efficient
-  implementation. It requires Linux kernel 4.19 and can be enabled with the
-  option ``enable-bpf-masquerade: true``.
+**********
+
+The eBPF-based implementation is the most efficient
+implementation. It requires Linux kernel 4.19 and can be enabled with
+the ``global.bpfMasquerade=true`` helm option (enabled by default).
+
+The current implementation depends on :ref:`the BPF NodePort feature <kubeproxy-free>`.
+The dependency will be removed in the Cilium v1.9 release.
+
+Masquerading can take place only on those devices which run the eBPF masquerading
+program. This means that a packet sent from a pod to an outside will be masqueraded
+(to an output device IPv4 address), if the output device runs the program. If not
+specified, the program will be automatically attached to the devices selected by
+:ref:`the BPF NodePort device detection metchanism <Nodeport Devices>`.
+To manually change this, use the ``global.devices`` helm option. Use ``cilium status``
+to determine which devices the program is running on:
+
+::
+
+    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep Masquerading
+    Masquerading:   BPF (ip-masq-agent)   [eth0, eth1]
+
+From the output above, the program is running on the ``eth0`` and ``eth1`` devices.
+
+
+The eBPF-based masquerading can masquerade packets of the following IPv4 L4 protocols:
+
+- TCP
+- UDP
+- ICMP (only Echo request and Echo reply)
+
+By default, any packet from a pod destined to an IP address outside of the
+``native-routing-cidr`` range is masqueraded. To allow more fine-grained control,
+Cilium implements `ip-masq-agent <https://github.com/kubernetes-sigs/ip-masq-agent>`_
+in eBPF which can be enabled with the ``global.ipMasqAgent.enabled=true`` helm option.
+
+The eBPF-based ip-masq-agent supports the ``nonMasqueradeCIDRs`` and
+``masqLinkLocal`` options set in a configuration file. A packet sent from a pod to
+a destination which belongs to any CIDR from the ``nonMasqueradeCIDRs`` is not
+going to be masqueraded. If the configuration file is empty, the agent will provision
+the following non-masquerade CIDRs:
+
+- ``10.0.0.0/8``
+- ``172.16.0.0/12``
+- ``192.168.0.0/16``
+- ``100.64.0.0/10``
+- ``192.0.0.0/24``
+- ``192.0.2.0/24``
+- ``192.88.99.0/24``
+- ``198.18.0.0/15``
+- ``198.51.100.0/24``
+- ``203.0.113.0/24``
+- ``240.0.0.0/4``
+
+In addition, if the ``masqLinkLocal`` is not set or set to false, then
+``169.254.0.0/16`` is appended to the non-masquerade CIDRs list.
+
+The agent uses Fsnotify to track updates to the configuration file, so the original
+``resyncInterval`` option is unnecessary.
+
+The example below shows how to configure the agent via `ConfigMap` and to verify it:
+
+::
+
+    cat agent-config/config
+    nonMasqueradeCIDRs:
+    - 10.0.0.0/8
+    - 172.16.0.0/12
+    - 192.168.0.0/16
+    masqLinkLocal: false
+
+    kubectl create configmap ip-masq-agent --from-file=agent-config --namespace=kube-system
+
+    # Wait ~60s until the ConfigMap is mounted into a cilium pod
+
+    kubectl -n kube-system exec -ti cilium-xxxxx -- cilium bpf ipmasq list
+    IP PREFIX/ADDRESS
+    10.0.0.0/8
+    169.254.0.0/16
+    172.16.0.0/12
+    192.168.0.0/16
+
 
 iptables-based
-  This is the legacy implementation that will work on all kernel versions.
+**************
+
+This is the legacy implementation that will work on all kernel versions.
+
+The default behavior will masquerade all traffic leaving on a non-Cilium
+network device. This typically leads to the correct behavior. In order to
+limit the network interface on which masquerading should be performed, the
+option ``egress-masquerade-interfaces: eth0`` can be used.
+
+.. note::
+
+   It is possible to specify an interface prefix as well, by specifying
+   ``eth+``, all interfaces matching the prefix ``eth`` will be used for
+   masquerading.
