@@ -386,7 +386,7 @@ modes and can be enabled as follows for ``nodePort.mode=hybrid`` in this example
 
 In case of a multi-device environment, where Cilium's device auto-detection selects
 more than a single device to expose NodePort, for example, the helm option
-``global.devices={eth0}`` must be additionally specified for the enablement, where
+``global.devices=eth0`` must be additionally specified for the enablement, where
 ``eth0`` is the native XDP supported networking device. In that case, the device
 name ``eth0`` must be the same on all Cilium managed nodes. Similarly, the underlying
 driver for ``eth0`` must have native XDP support on all Cilium managed nodes.
@@ -638,7 +638,7 @@ LoadBalancer service or a service with externalIPs will be accessible through
 the IP addresses of native devices which have the default route on the host or
 have Kubernetes InternalIP or ExternalIP assigned. InternalIP is preferred over
 ExternalIP if both exist. To change the devices, set their names in the
-``global.devices`` helm option, e.g. ``global.devices={eth0,eth1,eth2}``. Each
+``global.devices`` helm option, e.g. ``global.devices='{eth0,eth1,eth2}'``. Each
 listed device has to be named the same on all Cilium managed nodes.
 
 When multiple devices are used, only one device can be used for direct routing
@@ -935,7 +935,7 @@ Limitations
     * Cilium's BPF kube-proxy acceleration in XDP can only be used in a single device setup
       as a "one-legged" / hairpin load-balancer scenario. In case of a multi-device environment,
       where auto-detection selects more than a single device to expose NodePort, the option
-      ``global.devices={eth0}`` must be specified in helm in order to work, where ``eth0``
+      ``global.devices=eth0`` must be specified in helm in order to work, where ``eth0``
       is the native XDP supported networking device.
     * Cilium's DSR NodePort mode currently does not operate well in environments with
       TCP Fast Open (TFO) enabled. It is recommended to switch to ``snat`` mode in this
