@@ -482,8 +482,6 @@ An example invocation is
 GKE (experimental)
 ^^^^^^^^^^^^^^^^^^^^^^
 
-Not all tests can succeed on GKE. Many do, however and may be useful.
-
 1- Setup a cluster as in :ref:`k8s_install_gke` or utilize an existing
 cluster.
 
@@ -497,12 +495,18 @@ cluster.
 2- Invoke the tests from ``cilium/test`` with options set as explained in
 `Running End-To-End Tests In Other Environments via kubeconfig`_
 
+.. note:: GKE clusters may have namespaces stuck at the ``Terminating`` state,
+          causing Ginkgo tests to fail. If so, you'll see them in ``kubectl get ns``,
+          and can get rid of them by running
+          ``cilium/test/gke/delete-terminating-namespaces.sh``.
+
 ::
 
-  CNI_INTEGRATION=gke K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-generic:latest" -cilium.passCLIEnvironment=true
+  CNI_INTEGRATION=gke K8S_VERSION=1.14 ginkgo -v --focus="K8sDemo" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-generic:latest" -cilium.hubble-relay-image="docker.io/cilium/hubble-relay:latest" -cilium.passCLIEnvironment=true
 
-.. note:: The kubernetes version defaults to 1.13 but can be configured with
-          versions between 1.13 and 1.15. Check with ``kubectl version`` 
+.. note:: The kubernetes version defaults to 1.18 but can be configured with
+          versions between 1.13 and 1.18. Version should match the server
+          version reported by ``kubectl version``.
 
 AWS EKS (experimental)
 ^^^^^^^^^^^^^^^^^^^^^^
