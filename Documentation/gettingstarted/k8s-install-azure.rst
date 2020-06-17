@@ -6,9 +6,16 @@
 
 .. _k8s_azure:
 
-*************************************
-Installation on Microsoft Azure Cloud
-*************************************
+********************************************
+Installation on Microsoft Azure Cloud (beta)
+********************************************
+
+This guide explains how to configure Cilium in Azure Cloud to use :ref:`ipam_azure`.
+
+.. note::
+
+    This is a beta feature. Please provide feedback and file a GitHub issue if
+    you experience any problems.
 
 Create an Azure Kubernetes cluster
 ==================================
