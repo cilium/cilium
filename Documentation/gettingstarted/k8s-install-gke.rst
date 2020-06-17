@@ -70,7 +70,7 @@ Extract the Cluster CIDR to enable native-routing:
 
 .. code:: bash
 
-    NATIVE_CIDR=$(gcloud container clusters describe $CLUSTER_NAME --zone $CLUSTER_ZONE | grep -i clusterIpv4Cidr | awk '{print $2}')
+    NATIVE_CIDR="$(gcloud container clusters describe $CLUSTER_NAME --zone $CLUSTER_ZONE --format 'value(clusterIpv4Cidr)')"
     echo $NATIVE_CIDR
 
 .. include:: k8s-install-download-release.rst
