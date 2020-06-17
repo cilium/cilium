@@ -459,6 +459,119 @@ right at the XDP layer are not visible in tcpdump since packet taps come at a mu
 later stage in the networking stack. Cilium's monitor or metric counters can be used
 instead for gaining visibility.
 
+NodePort XDP on AWS
+===================
+
+In order to run with NodePort XDP on AWS, follow the instructions in the :ref:`k8s_install_eks`
+guide to set up an EKS cluster or use any other method of your preference to set up a
+Kubernetes cluster.
+
+If you are following the EKS guide, make sure to create a node group with SSH access, since
+we need few additional setup steps as well as create a larger instance type which supports
+the `Elastic Network Adapter <https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/enhanced-networking-ena.html>`__ (ena).
+As an instance example, ``m5n.xlarge`` is used in the config ``nodegroup-config.yaml``:
+
+.. parsed-literal::
+
+  apiVersion: eksctl.io/v1alpha5
+  kind: ClusterConfig
+  
+  metadata:
+    name: test-cluster
+    region: us-west-2
+  
+  nodeGroups:
+    - name: ng-1
+      instanceType: m5n.xlarge
+      desiredCapacity: 2
+      ssh:
+        allow: true
+
+The nodegroup is created with:
+
+.. parsed-literal::
+
+  eksctl create nodegroup -f nodegroup-config.yaml
+
+Each of the nodes need the ``kernel-ng`` and ``ethtool`` package installed. The former is
+needed in order to run a sufficiently recent kernel for eBPF in general and native XDP
+support on the ena driver. The latter is needed to configure channel parameters for the NIC.
+
+.. parsed-literal::
+
+  IPS=$(kubectl get no -o jsonpath='{$.items[*].status.addresses[?(@.type=="ExternalIP")].address }{"\n"}' | tr ' ' '\n')
+
+  for ip in $IPS ; do ssh ec2-user@$ip "sudo amazon-linux-extras install -y ethtool kernel-ng && sudo reboot"; done
+
+Once the nodes come back up their kernel version should say ``5.4.38-17.76.amzn2.x86_64`` or
+similar through ``uname -r``. In order to run XDP on ena, make sure the driver version is at
+least `2.2.8 <https://github.com/amzn/amzn-drivers/commit/ccbb1fe2c2f2ab3fc6d7827b012ba8ec06f32c39>`__.
+The driver version can be inspected through ``ethtool -i eth0``.
+
+.. note::
+
+  If the reported driver version is <2.2.8, a new version of the ena driver needs to be built
+  and installed according to the instructions given `here <https://github.com/amzn/amzn-drivers/blob/master/kernel/linux/rpm/README-rpm.txt>`__.
+  For kernel-ng version ``5.4.38-17.76.amzn2.x86_64`` a prebuild rpm of ena driver version
+  2.2.9g can be downloaded `here <https://gist.github.com/tklauser/268641aea4fced9e8c3b4a2f7536661b#file-kmod-ena-2-2-9-1-amzn2-25-x86_64-rpm>`__
+  for testing purposes.
+
+Before Cilium's XDP acceleration can be deployed, there are two settings needed on the
+network adapter side, that is, MTU needs to be lowered in order to be able to operate
+with XDP, and number of combined channels need to be adapted.
+
+The default MTU is set to 9001 on the ena driver. Given XDP buffers are linear, they
+operate on a single page. A driver typically reserves some headroom for XDP as well
+(e.g. for encapsulation purpose), therefore, the highest possible MTU for XDP would
+be 3818.
+
+In terms of ena channels, the settings can be gathered via ``ethtool -l eth0``. For the
+``m5n.xlarge`` instance, the default output should look like:
+
+.. parsed-literal::
+
+  Channel parameters for eth0:
+  Pre-set maximums:
+  RX:             0
+  TX:             0
+  Other:          0
+  Combined:       4
+  Current hardware settings:
+  RX:             0
+  TX:             0
+  Other:          0
+  Combined:       4
+
+In order to use XDP the channels must be set to at most 1/2 of the value from
+``Combined`` above. Both, MTU and channel changes are applied as follows:
+
+.. parsed-literal::
+
+  for ip in $IPS ; do ssh ec2-user@$ip "sudo ip link set dev eth0 mtu 3818"; done
+  for ip in $IPS ; do ssh ec2-user@$ip "sudo ethtool -L eth0 combined 2"; done
+
+In order to deploy Cilium, the Kubernetes API server IP and port is needed:
+
+.. parsed-literal::
+
+  export API_SERVER_IP=$(kubectl get ep kubernetes -o jsonpath='{$.subsets[0].addresses[0].ip}')
+  export API_SERVER_PORT=443
+
+Finally, the deployment can be upgraded and later rolled-out with the
+``global.nodePort.acceleration=native`` setting to enable XDP in Cilium:
+
+.. parsed-literal::
+
+  helm upgrade cilium ./cilium \
+        --namespace kube-system \
+        --reuse-values \
+        --set global.autoDirectNodeRoutes=true \
+        --set global.kubeProxyReplacement=strict \
+        --set global.nodePort.acceleration=native \
+        --set global.nodePort.mode=snat \
+        --set global.k8sServiceHost=$API_SERVER_IP \
+        --set global.k8sServicePort=$API_SERVER_PORT
+
 NodePort XDP on Azure
 =====================
 
