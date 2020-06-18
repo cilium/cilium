@@ -573,8 +573,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	Context("Etcd", func() {
-		// Flaky on pipelines other than K8s 1.11/Linux net-next.
+	SkipContextIf(func() bool {
+		return helpers.RunsOn419Kernel() && helpers.SkipQuarantined()
+	}, "Etcd", func() {
+		// Flaky on 4.19 pipeline.
 		It("Check connectivity", func() {
 			deploymentManager.Deploy(helpers.CiliumNamespace, StatelessEtcd)
 			deploymentManager.WaitUntilReady()
