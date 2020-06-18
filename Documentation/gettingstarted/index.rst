@@ -71,6 +71,7 @@ Operations
    :maxdepth: 1
    :glob:
 
+   hubble
    grafana
 
 Istio
