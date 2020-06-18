@@ -138,14 +138,6 @@ guide. However you can apply the same techniques to observe application
 connectivity dependencies in your own namespace, and clusters for
 application of any type.
 
-.. parsed-literal::
-
-    $ kubectl create -f \ |SCM_WEB|\/examples/minikube/http-sw-app.yaml
-    service/deathstar created
-    deployment.extensions/deathstar created
-    pod/tiefighter created
-    pod/xwing created
-
 Once the the deployment is ready, issue a request from both spaceships to
 emulate some traffic.
 
@@ -168,24 +160,91 @@ event in your current namespace individually.
     If you enable :ref:`proxy_visibility` on your pods, the Hubble UI service
     map will display the HTTP endpoints which are being accessed by the requests.
 
-Install Hubble CLI
-==================
+Inspecting the cluster's network traffic with Hubble Relay
+==========================================================
+
+Now let's install the Hubble CLI on your PC/laptop. This will allow you to
+inspect the traffic using Hubble Relay.
+
 .. include:: hubble-install.rst
 
-Port Forward
-============
+In order to access Hubble Relay with the ``hubble`` CLI, let's make sure to
+port-forward the Hubble Relay service locally:
 
 .. parsed-literal::
-   kubectl port-forward -n kube-system svc/hubble-relay 4245:80
+
+   $ kubectl port-forward -n kube-system svc/hubble-relay 4245:80
+
+.. note::
+   This terminal window needs to be remain open to keep port-forwarding in
+   place. Open a separate terminal window to use the ``hubble`` CLI.
+
+You may test that your setup is working by issuing this command which gives you
+the status of the Hubble Relay service:
 
 .. parsed-literal::
-   hubble observe --last 1 -o json --debug --server localhost:4245
+   $ hubble status --server localhost:4245
+   Healthcheck (via localhost:4245): Ok
+   Max Flows: 16384
+
+
+In order to avoid passing ``--server localhost:4245`` to ever command below,
+you may export the following environment variable:
+
+.. parsed-literal::
+   $ export HUBBLE_DEFAULT_SOCKET_PATH=localhost:4245
+
+Let's now issue some requests to emulate some traffic again. This first request
+is allowed by the policy.
+
+.. parsed-literal::
+    $ kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    Ship landed
+
+This next request is accessing an HTTP endpoint which is denied by policy.
+
+.. parsed-literal::
+    $ kubectl exec tiefighter -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
+    Access denied
+
+Finally, this last request will hang because the ``xwing`` pod does not have
+the ``org=empire`` label required by policy. Press Control-C to kill the curl
+request, or wait for it to time out.
+
+.. parsed-literal::
+    $ kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    command terminated with exit code 28
+
+Let's now inspect this traffic using the CLI. The command below filters all
+traffic on the application layer (L7, HTTP) to the ``deathstar`` pod:
+
+.. parsed-literal::
+    $ hubble observe --pod deathstar --protocol http 
+    TIMESTAMP             SOURCE                                  DESTINATION                             TYPE            VERDICT     SUMMARY
+    Jun 18 13:52:23.843   default/tiefighter:52568                default/deathstar-5b7489bc84-8wvng:80   http-request    FORWARDED   HTTP/1.1 POST http://deathstar.default.svc.cluster.local/v1/request-landing
+    Jun 18 13:52:23.844   default/deathstar-5b7489bc84-8wvng:80   default/tiefighter:52568                http-response   FORWARDED   HTTP/1.1 200 0ms (POST http://deathstar.default.svc.cluster.local/v1/request-landing)
+    Jun 18 13:52:31.019   default/tiefighter:52628                default/deathstar-5b7489bc84-8wvng:80   http-request    DROPPED     HTTP/1.1 PUT http://deathstar.default.svc.cluster.local/v1/exhaust-port
+
+
+The following command shows all traffic to the ``deathstar`` pod that has been
+dropped:
+
+.. parsed-literal::
+    $ hubble observe --pod deathstar --verdict DROPPED
+    TIMESTAMP             SOURCE                     DESTINATION                             TYPE            VERDICT   SUMMARY
+    Jun 18 13:52:31.019   default/tiefighter:52628   default/deathstar-5b7489bc84-8wvng:80   http-request    DROPPED   HTTP/1.1 PUT http://deathstar.default.svc.cluster.local/v1/exhaust-port
+    Jun 18 13:52:38.321   default/xwing:34138        default/deathstar-5b7489bc84-v4s7d:80   Policy denied   DROPPED   TCP Flags: SYN
+    Jun 18 13:52:38.321   default/xwing:34138        default/deathstar-5b7489bc84-v4s7d:80   Policy denied   DROPPED   TCP Flags: SYN
+    Jun 18 13:52:39.327   default/xwing:34138        default/deathstar-5b7489bc84-v4s7d:80   Policy denied   DROPPED   TCP Flags: SYN
+
+Feel free to further inspect the traffic. To get help for the ``observe``
+command, use ``hubble help observe``.
 
 Cleanup
 =======
 
-Once you are done experimenting with Hubble, you can remove all traces of the cluster by running the following command:
-
+Once you are done experimenting with Hubble, you can remove all traces of the
+cluster by running the following command:
 
 .. parsed-literal::
    kind delete cluster
