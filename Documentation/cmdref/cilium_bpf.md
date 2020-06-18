@@ -27,6 +27,7 @@ Direct access to local BPF maps
 * [cilium](../cilium)	 - CLI
 * [cilium bpf ct](../cilium_bpf_ct)	 - Connection tracking tables
 * [cilium bpf endpoint](../cilium_bpf_endpoint)	 - Local endpoint map
+* [cilium bpf fs](../cilium_bpf_fs)	 - BPF filesystem mount
 * [cilium bpf ipcache](../cilium_bpf_ipcache)	 - Manage the IPCache mappings for IP/CIDR <-> Identity
 * [cilium bpf ipmasq](../cilium_bpf_ipmasq)	 - ip-masq-agent CIDRs
 * [cilium bpf lb](../cilium_bpf_lb)	 - Load-balancing configuration
