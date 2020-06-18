@@ -747,6 +747,9 @@ latter rule will have no effect.
           endpoint. This might change in the future when support for ranges is
           added.
 
+.. note:: Layer 7 rules are not currently supported in `HostPolicies`, i.e.,
+          policies that use :ref:`NodeSelector`.
+
 HTTP
 ----
 
@@ -1056,3 +1059,35 @@ A more pod-specific solution is to configure ``ndots`` appropriately for each
 Pod, via ``dnsConfig``, so that the search list is not used for DNS lookups
 that do not need it. See the `Kubernetes documentation <https://kubernetes.io/docs/concepts/services-networking/dns-pod-service/#pod-s-dns-config>`_
 for instructions.
+
+
+
+.. _HostPolicies:
+
+Host Policies
+=============
+
+Host policies take the form of a `CiliumClusterwideNetworkPolicy` with a
+:ref:`NodeSelector` instead of an `EndpointSelector`. Host policies can have
+layer 3 and layer 4 rules on both ingress and egress. They cannot have layer
+7 rules.
+
+Host policies apply to all the nodes selected by their :ref:`NodeSelector`. In
+each selected node, they apply only to the host namespace, including
+host-networking pods. They therefore don't apply to communications between
+non-host-networking pods and locations outside of the cluster.
+
+The following policy will allow ingress traffic for any node with the label
+``type=worker`` on TCP ports 22, 6443 (kube-apiserver), 2379 (etcd) and 4240
+(health checks), as well as UDP port 8472 (VXLAN).
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/host/lock-down-ingress.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/host/lock-down-ingress.yaml
