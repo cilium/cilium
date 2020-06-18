@@ -77,7 +77,7 @@ networking infrastructure in a completely transparent manner.
       kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-relay 4245:80
       hubble observe --server localhost:4245
 
-  For convenience, you may set and export the ``HUBBLE_DEFAULT_SOCKET_PATH``
+  (**For Linux / MacOS**) For convenience, you may set and export the ``HUBBLE_DEFAULT_SOCKET_PATH``
   environment variable:
 
   .. code:: bash
