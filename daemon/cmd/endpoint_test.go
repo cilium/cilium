@@ -55,24 +55,24 @@ func (ds *DaemonSuite) TestEndpointAddReservedLabel(c *C) {
 
 	epTemplate := getEPTemplate(c, ds.d)
 	epTemplate.Labels = []string{"reserved:world"}
-	_, code, err := ds.d.createEndpoint(context.TODO(), epTemplate)
+	_, code, err := ds.d.createEndpoint(context.TODO(), ds, epTemplate)
 	c.Assert(err, Not(IsNil))
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
 
 	// Endpoint was created with invalid data; should transition from
-	// WaitForIdentity -> Invalid.
+	// WaitingForIdentity -> Invalid.
 	assertOnMetric(c, string(models.EndpointStateWaitingForIdentity), 0)
 	assertOnMetric(c, string(models.EndpointStateInvalid), 0)
 
 	// Endpoint is created with inital label as well as disallowed
 	// reserved:world label.
 	epTemplate.Labels = append(epTemplate.Labels, "reserved:init")
-	_, code, err = ds.d.createEndpoint(context.TODO(), epTemplate)
+	_, code, err = ds.d.createEndpoint(context.TODO(), ds, epTemplate)
 	c.Assert(err, ErrorMatches, "not allowed to add reserved labels:.+")
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
 
 	// Endpoint was created with invalid data; should transition from
-	// WaitForIdentity -> Invalid.
+	// WaitingForIdentity -> Invalid.
 	assertOnMetric(c, string(models.EndpointStateWaitingForIdentity), 0)
 	assertOnMetric(c, string(models.EndpointStateInvalid), 0)
 }
@@ -82,12 +82,12 @@ func (ds *DaemonSuite) TestEndpointAddInvalidLabel(c *C) {
 
 	epTemplate := getEPTemplate(c, ds.d)
 	epTemplate.Labels = []string{"reserved:foo"}
-	_, code, err := ds.d.createEndpoint(context.TODO(), epTemplate)
+	_, code, err := ds.d.createEndpoint(context.TODO(), ds, epTemplate)
 	c.Assert(err, Not(IsNil))
 	c.Assert(code, Equals, apiEndpoint.PutEndpointIDInvalidCode)
 
 	// Endpoint was created with invalid data; should transition from
-	// WaitForIdentity -> Invalid.
+	// WaitingForIdentity -> Invalid.
 	assertOnMetric(c, string(models.EndpointStateWaitingForIdentity), 0)
 	assertOnMetric(c, string(models.EndpointStateInvalid), 0)
 }
@@ -95,14 +95,14 @@ func (ds *DaemonSuite) TestEndpointAddInvalidLabel(c *C) {
 func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	assertOnMetric(c, string(models.EndpointStateWaitingForIdentity), 0)
 
+	// For this test case, we want to allow the endpoint controllers to rebuild
+	// the endpoint after getting new labels.
+	ds.OnQueueEndpointBuild = ds.d.QueueEndpointBuild
+
 	// Create the endpoint without any labels.
 	epTemplate := getEPTemplate(c, ds.d)
-	_, _, err := ds.d.createEndpoint(context.TODO(), epTemplate)
+	_, _, err := ds.d.createEndpoint(context.TODO(), ds, epTemplate)
 	c.Assert(err, IsNil)
-
-	// Endpoint enters WaitingToRegenerate as it has its labels updated during
-	// creation.
-	assertOnMetric(c, string(models.EndpointStateWaitingToRegenerate), 1)
 
 	expectedLabels := labels.Labels{
 		labels.IDNameInit: labels.NewLabel(labels.IDNameInit, "", labels.LabelSourceReserved),
@@ -116,8 +116,10 @@ func (ds *DaemonSuite) TestEndpointAddNoLabels(c *C) {
 	c.Assert(secID, Not(IsNil))
 	c.Assert(secID.ID, Equals, identity.ReservedIdentityInit)
 
-	// Endpoint should transition from WaitingToRegenerate -> Ready.
-	assertOnMetric(c, string(models.EndpointStateWaitingToRegenerate), 0)
+	// Endpoint should transition from Regenerating -> Ready after we've
+	// waitied for its new identity. The presence of new labels triggers a
+	// regeneration.
+	assertOnMetric(c, string(models.EndpointStateRegenerating), 0)
 	assertOnMetric(c, string(models.EndpointStateReady), 1)
 }
 
@@ -134,7 +136,7 @@ func (ds *DaemonSuite) TestUpdateLabelsFailed(c *C) {
 
 	// Create the endpoint without any labels.
 	epTemplate := getEPTemplate(c, ds.d)
-	_, _, err := ds.d.createEndpoint(cancelledContext, epTemplate)
+	_, _, err := ds.d.createEndpoint(cancelledContext, ds, epTemplate)
 	c.Assert(err, ErrorMatches, "request cancelled while resolving identity")
 
 	assertOnMetric(c, string(models.EndpointStateReady), 0)
