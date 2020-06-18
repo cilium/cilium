@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/source"
 	cnitypes "github.com/cilium/cilium/plugins/cilium-cni/types"
 
+	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -163,7 +164,10 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.Manager.NodeUpdated(n.LocalNode)
 
 	go func() {
-		log.Info("Adding local node to cluster")
+		log.WithFields(
+			logrus.Fields{
+				logfields.Node: n.LocalNode,
+			}).Info("Adding local node to cluster")
 		for {
 			if err := n.Registrar.RegisterNode(&n.LocalNode, n.Manager); err != nil {
 				log.WithError(err).Error("Unable to initialize local node. Retrying...")
