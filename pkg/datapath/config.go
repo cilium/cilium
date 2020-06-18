@@ -18,8 +18,10 @@ import (
 	"io"
 
 	"github.com/cilium/cilium/pkg/addressing"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/mac"
+	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 )
 
@@ -119,4 +121,16 @@ type ConfigWriter interface {
 	// WriteEndpointConfig writes the implementation-specific configuration
 	// of configurable options for the endpoint to the specified writer.
 	WriteEndpointConfig(w io.Writer, cfg EndpointConfiguration) error
+}
+
+// RemoteSNATDstAddrExclusionCIDR returns a CIDR for SNAT exclusion. Any
+// packet sent from a local endpoint to an IP address belonging to the CIDR
+// should not be SNAT'd.
+func RemoteSNATDstAddrExclusionCIDR() *cidr.CIDR {
+	if c := option.Config.IPv4NativeRoutingCIDR(); c != nil {
+		// native-routing-cidr is set, so use it
+		return c
+	}
+
+	return node.GetIPv4AllocRange()
 }
