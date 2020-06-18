@@ -6,8 +6,8 @@
 
 .. _bpf_map_limitations:
 
-BPF Maps
-========
+eBPF Maps
+=========
 
 All BPF maps are created with upper capacity limits. Insertion beyond the limit
 will fail and thus limits the scalability of the datapath. The following table
