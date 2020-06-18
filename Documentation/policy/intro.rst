@@ -168,7 +168,9 @@ with an `endpoints`.
 Node Selector
 -------------
 
-The Node Selector is also based on the `LabelSelector`, however rather than
+The Node Selector is also based on the `LabelSelector`, although rather than
 matching on labels associated with an `endpoints`, it instead applies to labels
-associated with a node in the cluster. Node Selectors can only be used in
-`CiliumClusterwideNetworkPolicy`.
+associated with a node in the cluster.
+
+Node Selectors can only be used in `CiliumClusterwideNetworkPolicy`. See
+`HostPolicies` for details on the scope of node-level policies.
