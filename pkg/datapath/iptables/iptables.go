@@ -24,6 +24,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command/exec"
+	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -697,16 +698,6 @@ func (m *IptablesManager) RemoveProxyRules(proxyPort uint16, ingress bool, name 
 	return m.iptProxyRules("-D", proxyPort, ingress, name)
 }
 
-func (m *IptablesManager) remoteSnatDstAddrExclusion() string {
-	switch {
-	case option.Config.IPv4NativeRoutingCIDR() != nil:
-		return option.Config.IPv4NativeRoutingCIDR().String()
-
-	default:
-		return node.GetIPv4AllocRange().String()
-	}
-}
-
 func getDeliveryInterface(ifName string) string {
 	deliveryInterface := ifName
 	if option.Config.IPAM == ipamOption.IPAMENI || option.Config.EnableEndpointRoutes {
@@ -925,7 +916,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 					m.waitArgs,
 					"-t", "nat",
 					"-A", ciliumPostNatChain,
-					"!", "-d", m.remoteSnatDstAddrExclusion(),
+					"!", "-d", datapath.RemoteSNATDstAddrExclusionCIDR().String(),
 					"-o", option.Config.EgressMasqueradeInterfaces,
 					"-m", "comment", "--comment", "cilium masquerade non-cluster",
 					"-j", "MASQUERADE"), false); err != nil {
@@ -937,7 +928,7 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 					"-t", "nat",
 					"-A", ciliumPostNatChain,
 					"-s", node.GetIPv4AllocRange().String(),
-					"!", "-d", m.remoteSnatDstAddrExclusion(),
+					"!", "-d", datapath.RemoteSNATDstAddrExclusionCIDR().String(),
 					"!", "-o", "cilium_+",
 					"-m", "comment", "--comment", "cilium masquerade non-cluster",
 					"-j", "MASQUERADE"), false); err != nil {

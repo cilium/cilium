@@ -26,7 +26,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -334,12 +333,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 		if option.Config.EnableBPFMasquerade {
 			cDefinesMap["ENABLE_MASQUERADE"] = "1"
-			var cidr *cidr.CIDR
-			if c := option.Config.IPv4NativeRoutingCIDR(); c != nil {
-				cidr = c
-			} else {
-				cidr = node.GetIPv4AllocRange()
-			}
+			cidr := datapath.RemoteSNATDstAddrExclusionCIDR()
 			cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR"] =
 				fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(cidr.IP, reflect.Uint32).(uint32))
 			ones, _ := cidr.Mask.Size()
