@@ -50,3 +50,7 @@
 # enables passing identity on local routes by using the mark fields. However,
 # in cases where this conflicts with a chained CNI plugin it may be disabled.
 #enableIdentityMark: true
+
+# Operator will exit if CRDs are not available within this duration upon
+# startup.
+#crdWaitTimeout: 5m
