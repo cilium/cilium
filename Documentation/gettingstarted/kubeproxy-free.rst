@@ -499,7 +499,7 @@ support on the ena driver. The latter is needed to configure channel parameters 
 
 .. parsed-literal::
 
-  IPS=$(kubectl get no -o jsonpath='{$.items[*].status.addresses[?(@.type=="ExternalIP")].address }{"\n"}' | tr ' ' '\n')
+  IPS=$(kubectl get no -o jsonpath='{$.items[*].status.addresses[?(@.type=="ExternalIP")].address }{"\\n"}' | tr ' ' '\\n')
 
   for ip in $IPS ; do ssh ec2-user@$ip "sudo amazon-linux-extras install -y ethtool kernel-ng && sudo reboot"; done
 
