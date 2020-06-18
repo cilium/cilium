@@ -91,7 +91,7 @@ provided. If both ingress and egress are omitted, the rule has no effect.
 
                 // NodeSelector selects all nodes which should be subject to this rule.
                 // EndpointSelector and NodeSelector cannot be both empty and are mutually
-                // exclusive.
+                // exclusive. Can only be used in CiliumClusterwideNetworkPolicies.
                 //
                 // +optional
                 NodeSelector EndpointSelector `json:"nodeSelector,omitempty"`

@@ -109,10 +109,11 @@ See :ref:`policy_examples` for a detailed list of example policies.
 CiliumClusterwideNetworkPolicy
 ==============================
 
-`CiliumClusterwideNetworkPolicy` is same as that of `CiliumNetworkPolicy` with the only
-difference in the scope of the policy. Policies defined by `CiliumClusterwideNetworkPolicy`
-are non-namespaced and are cluster-scoped. Internally the policy is composed of
-`CiliumNetworkPolicy` itself and thus the effects of this policy specification are also same.
+`CiliumClusterwideNetworkPolicy` is similar to `CiliumNetworkPolicy`, except
+(1) policies defined by `CiliumClusterwideNetworkPolicy` are non-namespaced and
+cluster-scoped, and (2) it enables the use of :ref:`NodeSelector`. Internally
+the policy is composed of `CiliumNetworkPolicy` itself and thus the effects of
+this policy specification are also same.
 
 The raw specification of the resource in go looks like this:
 
