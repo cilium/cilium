@@ -2694,6 +2694,10 @@ func init() {
             "BPF",
             "iptables"
           ]
+        },
+        "snat-exclusion-cidr": {
+          "description": "Any packet sent to IP addr belonging to CIDR will not be SNAT'd",
+          "type": "string"
         }
       }
     },
@@ -6301,6 +6305,10 @@ func init() {
             "BPF",
             "iptables"
           ]
+        },
+        "snat-exclusion-cidr": {
+          "description": "Any packet sent to IP addr belonging to CIDR will not be SNAT'd",
+          "type": "string"
         }
       }
     },
