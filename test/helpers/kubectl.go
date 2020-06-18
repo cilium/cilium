@@ -116,7 +116,8 @@ var (
 		// We need CNP node status to know when a policy is being enforced
 		"config.enableCnpStatusUpdates": "true",
 
-		"global.hostFirewall": "true",
+		"global.hostFirewall":      "true",
+		"global.nativeRoutingCIDR": "10.0.0.0/16",
 	}
 
 	flannelHelmOverrides = map[string]string{
