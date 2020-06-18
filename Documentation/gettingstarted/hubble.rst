@@ -31,8 +31,8 @@ Deploy Cilium and Hubble
 
 .. include:: k8s-install-download-release.rst
 
-Pre-load images into the kind cluster so each node does not have to pull
-them:
+**(optional, but recommended)** Pre-load Cilium images into the kind cluster so
+each worker doesn't have to pull them.
 
 .. parsed-literal::
 
@@ -52,10 +52,23 @@ Install Cilium release via Helm:
       --set global.nodePort.enabled=true \\
       --set global.hostPort.enabled=true \\
       --set global.pullPolicy=IfNotPresent \\
+      --set config.ipam=kubernetes \\
       --set global.hubble.enabled=true \\
       --set global.hubble.listenAddress=":4244" \\
       --set global.hubble.relay.enabled=true \\
       --set global.hubble.ui.enabled=true
+
+.. tip::
+   If your local network subnet conflicts with the one picked up by kind,
+   update the ``networking`` section of the kind configuration file to specify
+   different subnets (pick a network range that does not conflict with yours)
+   and re-create the cluster.
+
+   .. parsed-literal::
+        networking:
+          disableDefaultCNI: true
+          podSubnet: "10.244.0.0/16"
+          serviceSubnet: "10.245.0.0/16"
 
 Validate the Installation
 =========================
