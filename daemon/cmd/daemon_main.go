@@ -538,7 +538,7 @@ func init() {
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
 	option.BindEnv(option.EnableIdentityMark)
 
-	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies")
+	flags.Bool(option.EnableHostFirewall, false, "Enable host network policies (beta)")
 	option.BindEnv(option.EnableHostFirewall)
 
 	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the CIDR for native routing. This value corresponds to the configured cluster-cidr.")
