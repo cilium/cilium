@@ -67,7 +67,7 @@ func (s *crdTestSuite) TestGetCRD(c *C) {
 	c.Assert(err, IsNil)
 
 	// Try to get existing CRD
-	err = WaitForCRD(client, "foo")
+	err = waitForCRD(context.TODO(), client, "foo")
 	c.Assert(err, IsNil)
 
 	// Try to get non-existing CRD
