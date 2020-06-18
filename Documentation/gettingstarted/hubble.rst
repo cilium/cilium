@@ -117,6 +117,57 @@ It may take a couple of minutes for all components to come up:
     kube-proxy-ttf7z                             1/1     Running   0          21m
     kube-scheduler-kind-control-plane            1/1     Running   0          22m
 
+Accessing the Graphical User Interface
+======================================
+
+Hubble provides a graphical user interface which displays a service map of
+your service dependencies. To access **Hubble UI**, you can use the following
+command to forward the port of the web frontend to your local machine:
+
+.. parsed-literal::
+   kubectl port-forward -n kube-system svc/hubble-ui 12000:80
+
+Open http://localhost:12000 in your browser. You should
+see a screen with an invitation to select a namespace, use the namespace
+selector dropdown on the left top corner to select a namespace:
+
+.. image:: images/hubble_service_map_namespace_selector.png
+
+In this example, we are deploying the Star Wars demo from the :ref:`gs_http`
+guide. However you can apply the same techniques to observe application
+connectivity dependencies in your own namespace, and clusters for
+application of any type.
+
+.. parsed-literal::
+
+    $ kubectl create -f \ |SCM_WEB|\/examples/minikube/http-sw-app.yaml
+    service/deathstar created
+    deployment.extensions/deathstar created
+    pod/tiefighter created
+    pod/xwing created
+
+Once the the deployment is ready, issue a request from both spaceships to
+emulate some traffic.
+
+.. parsed-literal::
+
+    $ kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    Ship landed
+    $ kubectl exec tiefighter -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+    Ship landed
+
+These requests will then be displayed in the UI as service dependencies between
+the different pods:
+
+.. image:: images/hubble_sw_service_map.png
+
+In the bottom of the interface, you may also inspect each recent Hubble flow
+event in your current namespace individually.
+
+.. note::
+    If you enable :ref:`proxy_visibility` on your pods, the Hubble UI service
+    map will display the HTTP endpoints which are being accessed by the requests.
+
 Install Hubble CLI
 ==================
 .. include:: hubble-install.rst
@@ -126,12 +177,9 @@ Port Forward
 
 .. parsed-literal::
    kubectl port-forward -n kube-system svc/hubble-relay 4245:80
-   kubectl port-forward -n kube-system svc/hubble-ui 12000:80
 
 .. parsed-literal::
    hubble observe --last 1 -o json --debug --server localhost:4245
-
-Open http://localhost:12000/ from a browser.
 
 Cleanup
 =======
