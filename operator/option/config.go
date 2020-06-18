@@ -155,6 +155,9 @@ const (
 
 	// AzureResourceGroup is the resource group of the nodes used for the cluster
 	AzureResourceGroup = "azure-resource-group"
+
+	// CRDWaitTimeout it the time after which Cilium CRDs have to be available.
+	CRDWaitTimeout = "crd-wait-timeout"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -273,6 +276,9 @@ type OperatorConfig struct {
 
 	// AzureResourceGroup is the resource group of the nodes used for the cluster
 	AzureResourceGroup string
+
+	// CRDWaitTimeout it the time after which Cilium CRDs have to be available.
+	CRDWaitTimeout time.Duration
 }
 
 func (c *OperatorConfig) Populate() {
@@ -296,6 +302,7 @@ func (c *OperatorConfig) Populate() {
 	c.IPAMOperatorV4CIDR = viper.GetStringSlice(IPAMOperatorV4CIDR)
 	c.IPAMOperatorV6CIDR = viper.GetStringSlice(IPAMOperatorV6CIDR)
 	c.NodesGCInterval = viper.GetDuration(NodesGCInterval)
+	c.CRDWaitTimeout = viper.GetDuration(CRDWaitTimeout)
 
 	// AWS options
 

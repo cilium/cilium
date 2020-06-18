@@ -285,5 +285,8 @@ func init() {
 	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Configures the timeout for api-server heartbeat, set to 0 to disable")
 	option.BindEnv(option.K8sHeartbeatTimeout)
 
+	flags.Duration(operatorOption.CRDWaitTimeout, 5*time.Minute, "Operator will exit if CRDs are not available within this duration upon startup")
+	option.BindEnv(operatorOption.CRDWaitTimeout)
+
 	viper.BindPFlags(flags)
 }
