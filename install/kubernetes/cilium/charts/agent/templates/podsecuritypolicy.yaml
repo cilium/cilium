@@ -34,6 +34,15 @@ spec:
       - min: 1
         max: 65535
   readOnlyRootFilesystem: false
+  hostPorts:
+{{- if .Values.global.prometheus.enabled }}
+    - min: {{ .Values.global.prometheus.port }}
+      max: {{ .Values.global.prometheus.port }}
+{{- end }}
+{{- if .Values.global.hubble.metrics.enabled }}
+    - min: {{ .Values.global.hubble.metrics.port }}
+      max: {{ .Values.global.hubble.metrics.port }}
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
