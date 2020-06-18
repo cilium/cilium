@@ -503,6 +503,7 @@ nfsd
 nftables
 ng
 nginx
+nodeSelector
 nodeX
 nodegroup
 observability
