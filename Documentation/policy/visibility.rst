@@ -6,12 +6,12 @@
 
 .. _proxy_visibility:
 
-**********************
-L7 Protocol Visibility
-**********************
+***************************
+Layer 7 Protocol Visibility
+***************************
 
 While :ref:`monitor` provides introspection into datapath state, by default it
-will only provide visibility into L3/L4 packet events. If :ref:`l7_policy` is
+will only provide visibility into L3/L4 packet events. If :ref:`l7_policy` are
 configured, one can get visibility into L7 protocols, but this requires the full
 policy for each selected endpoint to be written. To get more visibility into the
 application without configuring a full policy, Cilium provides a means of
