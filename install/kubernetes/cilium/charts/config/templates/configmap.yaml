@@ -10,6 +10,7 @@
 {{- $defaultBpfCtAnyMax := 262144 -}}
 {{- $enableIdentityMark := "true" -}}
 {{- $fragmentTracking := "true" -}}
+{{- $crdWaitTimeout := "5m" -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
 {{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
@@ -585,4 +586,10 @@ data:
 {{- if hasKey .Values "blacklistConflictingRoutes" }}
   # Configure blacklisting of local routes not owned by Cilium.
   blacklist-conflicting-routes: {{ .Values.blacklistConflictingRoutes | quote }}
+{{- end }}
+
+{{- if hasKey .Values "crdWaitTimeout" }}
+  crd-wait-timeout: {{ .Values.crdWaitTimeout | quote }}
+{{- else if ( ne $crdWaitTimeout "5m" ) }}
+  crd-wait-timeout: {{ $crdWaitTimeout | quote }}
 {{- end }}
