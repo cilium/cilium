@@ -2286,6 +2286,9 @@ definitions:
       ip-masq-agent:
         description: Is BPF ip-masq-agent enabled
         type: boolean
+      snat-exclusion-cidr:
+        description: Any packet sent to IP addr belonging to CIDR will not be SNAT'd
+        type: string
   ControllerStatuses:
     description: Collection of controller statuses
     type: array
