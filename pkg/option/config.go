@@ -2533,6 +2533,19 @@ func (c *DaemonConfig) populateDevices() {
 	if device != "" {
 		c.Devices = []string{device}
 	}
+
+	// Make sure that devices are unique
+	if len(c.Devices) <= 1 {
+		return
+	}
+	devSet := map[string]struct{}{}
+	for _, dev := range c.Devices {
+		devSet[dev] = struct{}{}
+	}
+	c.Devices = make([]string, 0, len(devSet))
+	for dev := range devSet {
+		c.Devices = append(c.Devices, dev)
+	}
 }
 
 func (c *DaemonConfig) populateNodePortRange() error {
