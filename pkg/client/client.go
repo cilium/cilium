@@ -382,8 +382,9 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 				status = "BPF"
 			}
 			if sr.KubeProxyReplacement != nil {
-				status += fmt.Sprintf("\t[%s]",
-					strings.Join(sr.KubeProxyReplacement.Devices, ", "))
+				status += fmt.Sprintf("\t[%s]\t%s",
+					strings.Join(sr.KubeProxyReplacement.Devices, ", "),
+					sr.Masquerading.SnatExclusionCidr)
 			}
 
 		} else if sr.Masquerading.Mode == models.MasqueradingModeIptables {
