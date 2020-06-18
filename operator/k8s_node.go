@@ -30,13 +30,13 @@ import (
 	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/source"
 
 	core_v1 "k8s.io/api/core/v1"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -58,36 +58,36 @@ func runNodeWatcher(nodeManager *allocator.NodeEventHandler) error {
 	}
 
 	k8sNodeStore, nodeController := informer.NewInformer(
-		cache.NewListWatchFromClient(k8s.WatcherCli().CoreV1().RESTClient(),
-			"nodes", core_v1.NamespaceAll, fields.Everything()),
+		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(),
+			"ciliumnodes", v1.NamespaceAll, fields.Everything()),
 		&slim_corev1.Node{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
-				if n := k8s.ObjToV1Node(obj); n != nil {
-					nodeNew := k8s.ParseNode(n, source.Kubernetes)
-					ciliumNodeStore.UpdateKeySync(context.TODO(), nodeNew)
+				if ciliumNode := k8s.ObjToCiliumNode(obj); ciliumNode != nil {
+					nodeNew := nodeTypes.ParseCiliumNode(ciliumNode)
+					ciliumNodeStore.UpdateKeySync(context.TODO(), &nodeNew)
 				}
 			},
 			UpdateFunc: func(oldObj, newObj interface{}) {
-				if oldNode := k8s.ObjToV1Node(oldObj); oldNode != nil {
-					if newNode := k8s.ObjToV1Node(newObj); newNode != nil {
+				if oldNode := k8s.ObjToCiliumNode(oldObj); oldNode != nil {
+					if newNode := k8s.ObjToCiliumNode(newObj); newNode != nil {
 						if oldNode.DeepEqual(newNode) {
 							return
 						}
 
-						newNode := k8s.ParseNode(newNode, source.Kubernetes)
-						ciliumNodeStore.UpdateKeySync(context.TODO(), newNode)
+						nodeNew := nodeTypes.ParseCiliumNode(newNode)
+						ciliumNodeStore.UpdateKeySync(context.TODO(), &nodeNew)
 					}
 				}
 			},
 			DeleteFunc: func(obj interface{}) {
-				n := k8s.ObjToV1Node(obj)
+				n := k8s.ObjToCiliumNode(obj)
 				if n == nil {
 					return
 				}
-				deletedNode := k8s.ParseNode(n, source.Kubernetes)
-				ciliumNodeStore.DeleteLocalKey(context.TODO(), deletedNode)
+				deletedNode := nodeTypes.ParseCiliumNode(n)
+				ciliumNodeStore.DeleteLocalKey(context.TODO(), &deletedNode)
 				deleteCiliumNode(nodeManager, n.Name)
 			},
 		},
