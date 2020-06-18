@@ -101,6 +101,7 @@ var (
 		"global.etcd.leaseTTL":          "30s",
 		"global.ipv4.enabled":           "true",
 		"global.ipv6.enabled":           "true",
+		"global.nativeRoutingCIDR":      "10.0.0.0/16",
 	}
 
 	flannelHelmOverrides = map[string]string{
