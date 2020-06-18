@@ -20,16 +20,7 @@ This Cilium integration with Flannel was performed with Flannel 0.10.0 and
 Kubernetes >= 1.9. If you find any issues with previous Flannel versions please
 feel free to reach out to us to help you.
 
-.. note::
-
-    This is a beta feature. Please provide feedback and file a GitHub issue if
-    you experience any problems.
-
-    The feature lacks support of the following, which will be resolved in
-    upcoming Cilium releases:
-
-    - L7 policy enforcement
-
+.. include:: ../beta.rst
 
 Flannel installation
 --------------------
@@ -67,3 +58,10 @@ Cilium might not come up immediately on all nodes, since Flannel only sets up
 the bridge network interface that connects containers with the outside world
 when the first container is created on that node. In this case, Cilium will wait
 until that bridge is created before marking itself as Ready.
+
+Limitations
+-----------
+
+Flannel chaining lacks support of the following:
+
+- L7 policy enforcement
