@@ -25,10 +25,6 @@ rules:
 - apiGroups:
   - ""
   resources:
-  # to automatically read from k8s and import the node's pod CIDR to cilium's
-  # etcd so all nodes know how to reach another pod running in in a different
-  # node.
-  - nodes
   # to perform the translation of a CNP that contains `ToGroup` to its endpoints
   - services
   - endpoints
