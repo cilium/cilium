@@ -29,6 +29,6 @@ mechanisms:
 
    intro
    language
+   visibility
    lifecycle
    troubleshooting
-   visibility
