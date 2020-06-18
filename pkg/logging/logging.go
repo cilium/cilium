@@ -211,6 +211,7 @@ func setupSyslog(logOpts map[string]string, tag string, debug bool) {
 	}
 	// TODO: switch to a per-logger version when we upgrade to logrus >1.0.3
 	logrus.AddHook(h)
+	DefaultLogger.AddHook(h)
 }
 
 // setupFormatter sets up the text formatting for logs output by logrus.
