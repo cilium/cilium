@@ -302,6 +302,12 @@ func init() {
 	flags.Bool(option.EnableIPv6Name, defaults.EnableIPv6, "Enable IPv6 support")
 	option.BindEnv(option.EnableIPv6Name)
 
+	flags.Bool(option.EnableIPv6NDPName, defaults.EnableIPv6NDP, "Enable IPv6 NDP support")
+	option.BindEnv(option.EnableIPv6NDPName)
+
+	flags.String(option.IPv6MCastDevice, "", "Device that joins a Solicited-Node multicast group for IPv6")
+	option.BindEnv(option.IPv6MCastDevice)
+
 	flags.Bool(option.EnableRemoteNodeIdentity, defaults.EnableRemoteNodeIdentity, "Enable use of remote node identity")
 	option.BindEnv(option.EnableRemoteNodeIdentity)
 

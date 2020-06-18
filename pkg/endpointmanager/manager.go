@@ -21,6 +21,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
@@ -32,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mcastmanager"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
@@ -59,6 +61,11 @@ type EndpointManager struct {
 	endpoints    map[uint16]*endpoint.Endpoint
 	endpointsAux map[string]*endpoint.Endpoint
 
+	// mcastManager handles IPv6 multicast group join/leave for pods. This is required for the
+	// node to receive ICMPv6 NDP messages, especially NS (Neighbor Solicitation) message, so
+	// pod's IPv6 address is discoverable.
+	mcastManager *mcastmanager.MCastManager
+
 	// EndpointSynchronizer updates external resources (e.g., Kubernetes) with
 	// up-to-date information about endpoints managed by the endpoint manager.
 	EndpointResourceSynchronizer
@@ -75,6 +82,7 @@ func NewEndpointManager(epSynchronizer EndpointResourceSynchronizer) *EndpointMa
 	mgr := EndpointManager{
 		endpoints:                    make(map[uint16]*endpoint.Endpoint),
 		endpointsAux:                 make(map[string]*endpoint.Endpoint),
+		mcastManager:                 mcastmanager.New(option.Config.IPv6MCastDevice),
 		EndpointResourceSynchronizer: epSynchronizer,
 	}
 
@@ -384,6 +392,16 @@ func (mgr *EndpointManager) RemoveReferences(mappings map[endpointid.PrefixType]
 		id := endpointid.NewID(prefix, mappings[prefix])
 		delete(mgr.endpointsAux, id)
 	}
+}
+
+// AddIPv6Address notifies an addition of an IPv6 address
+func (mgr *EndpointManager) AddIPv6Address(ipv6 addressing.CiliumIPv6) {
+	mgr.mcastManager.AddAddress(ipv6)
+}
+
+// RemoveAIPv6ddress notifies a removal of an IPv6 address
+func (mgr *EndpointManager) RemoveIPv6Address(ipv6 addressing.CiliumIPv6) {
+	mgr.mcastManager.RemoveAddress(ipv6)
 }
 
 // RegenerateAllEndpoints calls a setState for each endpoint and

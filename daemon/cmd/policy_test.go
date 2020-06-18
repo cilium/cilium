@@ -823,6 +823,12 @@ func (d *dummyManager) ReleaseID(*endpoint.Endpoint) error {
 	return nil
 }
 
+func (d *dummyManager) AddIPv6Address(addressing.CiliumIPv6) {
+}
+
+func (d *dummyManager) RemoveIPv6Address(addressing.CiliumIPv6) {
+}
+
 func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 	qaBarLbls := labels.Labels{lblBar.Key: lblBar, lblQA.Key: lblQA}
 	qaBarSecLblsCtx, _, err := ds.d.identityAllocator.AllocateIdentity(context.Background(), qaBarLbls, true)
