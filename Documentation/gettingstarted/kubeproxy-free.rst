@@ -596,6 +596,13 @@ Mellanox ConnectX-3 or ConnectX-4 Lx NIC:
     $ lspci | grep Ethernet
     2846:00:02.0 Ethernet controller: Mellanox Technologies MT27710 Family [ConnectX-4 Lx Virtual Function] (rev 80)
 
+In order to run XDP, large receive offload (LRO) needs to be disabled on the
+``hv_netvsc`` device. If not the case already, this can be achieved by:
+
+.. parsed-literal::
+
+  ethtool -K eth0 lro off
+
 NodePort XDP requires Cilium to run in direct routing mode (``tunnel=disabled``).
 It is recommended to use Azure IPAM for the pod IP address allocation, which
 will automatically configure your virtual network to route pod traffic correctly:
