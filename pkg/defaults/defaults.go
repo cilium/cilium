@@ -144,6 +144,9 @@ const (
 	// EnableIPv6 is the default value for IPv6 enablement
 	EnableIPv6 = true
 
+	// EnableIPv6NDP is the default value for IPv6 NDP support enablement
+	EnableIPv6NDP = false
+
 	// EnableL7Proxy is the default value for L7 proxy enablement
 	EnableL7Proxy = true
 

@@ -751,3 +751,9 @@ func (d *dummyManager) RemoveID(uint16) {
 func (d *dummyManager) ReleaseID(*Endpoint) error {
 	return nil
 }
+
+func (d *dummyManager) AddIPv6Address(addressing.CiliumIPv6) {
+}
+
+func (d *dummyManager) RemoveIPv6Address(addressing.CiliumIPv6) {
+}

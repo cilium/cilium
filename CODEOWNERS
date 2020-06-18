@@ -118,6 +118,7 @@ Jenkinsfile.nightly @cilium/ci
 /pkg/logging/ @cilium/cli
 /pkg/mac @cilium/bpf
 /pkg/maps/ @cilium/bpf
+/pkg/mcastmanager @cilium/bpf
 /pkg/metrics @cilium/metrics
 /pkg/monitor @cilium/monitor
 /pkg/monitor/api @cilium/api
@@ -126,6 +127,7 @@ Jenkinsfile.nightly @cilium/ci
 /pkg/monitor/payload @cilium/api
 /pkg/mountinfo @cilium/bpf
 /pkg/mtu @cilium/bpf
+/pkg/multicast @cilium/bpf
 /pkg/option @cilium/agent @cilium/cli
 /pkg/pidfile @cilium/agent
 /pkg/policy @cilium/policy

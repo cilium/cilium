@@ -17,6 +17,7 @@ package endpoint
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -31,6 +32,8 @@ type endpointManager interface {
 	RemoveReferences(map[id.PrefixType]string)
 	RemoveID(uint16)
 	ReleaseID(*Endpoint) error
+	AddIPv6Address(addressing.CiliumIPv6)
+	RemoveIPv6Address(addressing.CiliumIPv6)
 }
 
 // Expose exposes the endpoint to the endpointmanager. After this function
@@ -59,6 +62,8 @@ func (e *Endpoint) Expose(mgr endpointManager) error {
 	// stopped when the endpoint is removed from the endpointmanager.
 	e.eventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", e.ID), option.Config.EndpointQueueSize)
 	e.eventQueue.Run()
+
+	mgr.AddIPv6Address(e.IPv6)
 
 	// No need to check liveness as an endpoint can only be deleted via the
 	// API after it has been inserted into the manager.
@@ -128,6 +133,8 @@ func (e *Endpoint) Unexpose(mgr endpointManager) <-chan struct{} {
 
 	// This must be done before the ID is released for the endpoint!
 	mgr.RemoveID(e.ID)
+
+	mgr.RemoveIPv6Address(e.IPv6)
 
 	go func(ep *Endpoint) {
 

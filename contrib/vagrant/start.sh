@@ -315,6 +315,9 @@ function write_cilium_cfg() {
         cilium_options+=" --enable-ipv4=false"
     fi
 
+    cilium_options+=" --enable-ipv6-ndp"
+    cilium_options+=" --ipv6-mcast-device enp0s8"
+
     if [ -n "${K8S}" ]; then
         cilium_options+=" --k8s-kubeconfig-path /var/lib/cilium/cilium.kubeconfig"
         cilium_options+=" --kvstore etcd"

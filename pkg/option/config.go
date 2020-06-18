@@ -561,6 +561,12 @@ const (
 	// EnableIPv6Name is the name of the option to enable IPv6 support
 	EnableIPv6Name = "enable-ipv6"
 
+	// EnableIPv6NDPName is the name of the option to enable IPv6 NDP support
+	EnableIPv6NDPName = "enable-ipv6-ndp"
+
+	// IPv6MCastDevice is the name of the option to select IPv6 multicast device
+	IPv6MCastDevice = "ipv6-mcast-device"
+
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
 	MonitorQueueSizeName = "monitor-queue-size"
 
@@ -941,6 +947,7 @@ var HelpFlagSections = []FlagsSection{
 		Flags: []string{
 			EnableIPv4Name,
 			EnableIPv6Name,
+			EnableIPv6NDPName,
 			IPAllocationTimeout,
 			IPAM,
 			IPv4ClusterCIDRMaskSize,
@@ -954,6 +961,7 @@ var HelpFlagSections = []FlagsSection{
 			IPv4ServiceRange,
 			IPv6ServiceRange,
 			IPv6ClusterAllocCIDRName,
+			IPv6MCastDevice,
 			MTUName,
 			NAT46Range,
 			EnableIPv4FragmentsTrackingName,
@@ -1447,6 +1455,12 @@ type DaemonConfig struct {
 	// EnableIPv6 is true when IPv6 is enabled
 	EnableIPv6 bool
 
+	// EnableIPv6NDP is true when NDP is enabled for IPv6
+	EnableIPv6NDP bool
+
+	// IPv6MCastDevice is the name of device that joins IPv6's solicitation multicast group
+	IPv6MCastDevice string
+
 	// EnableL7Proxy is the option to enable L7 proxy
 	EnableL7Proxy bool
 
@@ -1868,6 +1882,7 @@ var (
 		EnableEndpointHealthChecking: defaults.EnableEndpointHealthChecking,
 		EnableIPv4:                   defaults.EnableIPv4,
 		EnableIPv6:                   defaults.EnableIPv6,
+		EnableIPv6NDP:                defaults.EnableIPv6NDP,
 		EnableL7Proxy:                defaults.EnableL7Proxy,
 		EndpointStatus:               make(map[string]struct{}),
 		ToFQDNsMaxIPsPerHost:         defaults.ToFQDNsMaxIPsPerHost,
@@ -1971,6 +1986,11 @@ func (c *DaemonConfig) IPv6Enabled() bool {
 	return c.EnableIPv6
 }
 
+// IPv6NDPEnabled returns true if IPv6 NDP support is enabled
+func (c *DaemonConfig) IPv6NDPEnabled() bool {
+	return c.EnableIPv6NDP
+}
+
 // HealthCheckingEnabled returns true if health checking is enabled
 func (c *DaemonConfig) HealthCheckingEnabled() bool {
 	return c.EnableHealthChecking
@@ -2054,6 +2074,15 @@ func (c *DaemonConfig) Validate() error {
 
 	if c.IPAM == ipamOption.IPAMENI && c.EnableIPv6 {
 		return fmt.Errorf("IPv6 cannot be enabled in ENI IPAM mode")
+	}
+
+	if c.EnableIPv6NDP {
+		if !c.EnableIPv6 {
+			return fmt.Errorf("IPv6NDP cannot be enabled when IPv6 is not enabled")
+		}
+		if len(c.IPv6MCastDevice) == 0 {
+			return fmt.Errorf("IPv6NDP cannot be enabled without %s", IPv6MCastDevice)
+		}
 	}
 
 	switch c.Tunnel {
@@ -2225,6 +2254,8 @@ func (c *DaemonConfig) Populate() {
 	c.DisableConntrack = viper.GetBool(DisableConntrack)
 	c.EnableIPv4 = getIPv4Enabled()
 	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)
+	c.EnableIPv6NDP = viper.GetBool(EnableIPv6NDPName)
+	c.IPv6MCastDevice = viper.GetString(IPv6MCastDevice)
 	c.EnableIPSec = viper.GetBool(EnableIPSecName)
 	c.EnableWellKnownIdentities = viper.GetBool(EnableWellKnownIdentities)
 	c.EndpointInterfaceNamePrefix = viper.GetString(EndpointInterfaceNamePrefix)

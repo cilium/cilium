@@ -74,6 +74,7 @@ cilium-agent [flags]
       --enable-ipv4                                   Enable IPv4 support (default true)
       --enable-ipv4-fragment-tracking                 Enable IPv4 fragments tracking for L4-based lookups (default true)
       --enable-ipv6                                   Enable IPv6 support (default true)
+      --enable-ipv6-ndp                               Enable IPv6 NDP support
       --enable-k8s-api-discovery                      Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                     Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                     Enable k8s event handover to kvstore for improved scalability
@@ -124,6 +125,7 @@ cilium-agent [flags]
       --ipv4-service-loopback-address string          IPv4 address for service loopback SNAT (default "169.254.42.1")
       --ipv4-service-range string                     Kubernetes IPv4 services CIDR if not inside cluster prefix (default "auto")
       --ipv6-cluster-alloc-cidr string                IPv6 /64 CIDR used to allocate per node endpoint /96 CIDR (default "f00d::/64")
+      --ipv6-mcast-device string                      Device that joins a Solicited-Node multicast group for IPv6
       --ipv6-node string                              IPv6 address of node (default "auto")
       --ipv6-pod-subnets strings                      List of IPv6 pod subnets to preconfigure for encryption
       --ipv6-range string                             Per-node IPv6 endpoint prefix, e.g. fd02:1:1::/96 (default "auto")
