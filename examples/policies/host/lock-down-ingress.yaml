@@ -1,0 +1,22 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+description: "Allow a minimum set of required ports on ingress of worker nodes"
+metadata:
+  name: "lock-down-ingress-worker-node"
+spec:
+  nodeSelector:
+    matchLabels:
+      type: worker
+  ingress:
+  - toPorts:
+    - ports:
+      - port: "6443"
+        protocol: TCP
+      - port: "22"
+        protocol: TCP
+      - port: "2379"
+        protocol: TCP
+      - port: "4240"
+        protocol: TCP
+      - port: "8472"
+        protocol: UDP
