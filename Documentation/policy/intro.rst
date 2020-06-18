@@ -83,8 +83,18 @@ provided. If both ingress and egress are omitted, the rule has no effect.
 
         type Rule struct {
                 // EndpointSelector selects all endpoints which should be subject to
-                // this rule. Cannot be empty.
-                EndpointSelector EndpointSelector `json:"endpointSelector"`
+                // this rule. EndpointSelector and NodeSelector cannot be both empty and
+                // are mutually exclusive.
+                //
+                // +optional
+                EndpointSelector EndpointSelector `json:"endpointSelector,omitempty"`
+
+                // NodeSelector selects all nodes which should be subject to this rule.
+                // EndpointSelector and NodeSelector cannot be both empty and are mutually
+                // exclusive.
+                //
+                // +optional
+                NodeSelector EndpointSelector `json:"nodeSelector,omitempty"`
 
                 // Ingress is a list of IngressRule which are enforced at ingress.
                 // If omitted or empty, this rule does not apply at ingress.
@@ -116,10 +126,11 @@ provided. If both ingress and egress are omitted, the rule has no effect.
 
 ----
 
-endpointSelector
-  Selects the endpoints which the policy rules apply to. The policy rules
-  will be applied to all endpoints which match the labels specified in the
-  `endpointSelector`. See the `LabelSelector` section for additional details.
+endpointSelector / nodeSelector
+  Selects the endpoints or nodes which the policy rules apply to. The policy
+  rules will be applied to all endpoints which match the labels specified in
+  the selector. See the `LabelSelector` and :ref:`NodeSelector` sections for
+  additional details.
 
 ingress
   List of rules which must apply at ingress of the endpoint, i.e. to all
@@ -150,4 +161,14 @@ Endpoint Selector
 The Endpoint Selector is based on the `Kubernetes LabelSelector
 <https://kubernetes.io/docs/concepts/overview/working-with-objects/labels/#label-selectors>`_.
 It is called Endpoint Selector because it only applies to labels associated
-with `endpoints`.
+with an `endpoints`.
+
+.. _NodeSelector:
+
+Node Selector
+-------------
+
+The Node Selector is also based on the `LabelSelector`, however rather than
+matching on labels associated with an `endpoints`, it instead applies to labels
+associated with a node in the cluster. Node Selectors can only be used in
+`CiliumClusterwideNetworkPolicy`.
