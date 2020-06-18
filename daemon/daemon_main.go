@@ -517,6 +517,9 @@ func init() {
 	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
 	option.BindEnv(option.NodePortBindProtection)
 
+	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the CIDR for native routing. This value corresponds to the configured cluster-cidr.")
+	option.BindEnv(option.IPv4NativeRoutingCIDR)
+
 	flags.String(option.LibDir, defaults.LibraryPath, "Directory path to store runtime build environment")
 	option.BindEnv(option.LibDir)
 
