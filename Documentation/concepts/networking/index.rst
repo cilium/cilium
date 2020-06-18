@@ -18,4 +18,5 @@ Networking
    routing
    ipam/index
    masquerading
+   fragmentation
 
