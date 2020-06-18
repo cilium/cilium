@@ -58,10 +58,11 @@ type DaemonSuite struct {
 	kvstoreInit bool
 
 	// Owners interface mock
-	OnGetPolicyRepository func() *policy.Repository
-	OnQueueEndpointBuild  func(ctx context.Context, epID uint64) (func(), error)
-	OnGetCompilationLock  func() *lock.RWMutex
-	OnSendNotification    func(typ monitorAPI.AgentNotification, text string) error
+	OnGetPolicyRepository  func() *policy.Repository
+	OnQueueEndpointBuild   func(ctx context.Context, epID uint64) (func(), error)
+	OnGetCompilationLock   func() *lock.RWMutex
+	OnSendNotification     func(typ monitorAPI.AgentNotification, text string) error
+	OnGetCIDRPrefixLengths func() ([]int, []int)
 
 	// Metrics
 	collectors []prometheus.Collector
@@ -143,10 +144,12 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	kvstore.Client().DeletePrefix(context.TODO(), common.OperationalPath)
 	kvstore.Client().DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
 
-	ds.OnGetPolicyRepository = nil
+	ds.OnGetPolicyRepository = d.GetPolicyRepository
 	ds.OnQueueEndpointBuild = nil
-	ds.OnGetCompilationLock = nil
-	ds.OnSendNotification = nil
+	ds.OnGetCompilationLock = d.GetCompilationLock
+	ds.OnSendNotification = d.SendNotification
+	ds.OnGetCIDRPrefixLengths = nil
+
 	ds.d.endpointManager = endpointmanager.NewEndpointManager(&dummyEpSyncher{})
 
 	// Reset the most common endpoint states before each test.
@@ -239,7 +242,8 @@ func (ds *DaemonSuite) QueueEndpointBuild(ctx context.Context, epID uint64) (fun
 	if ds.OnQueueEndpointBuild != nil {
 		return ds.OnQueueEndpointBuild(ctx, epID)
 	}
-	panic("QueueEndpointBuild should not have been called")
+
+	return nil, nil
 }
 
 func (ds *DaemonSuite) GetCompilationLock() *lock.RWMutex {
@@ -254,6 +258,13 @@ func (ds *DaemonSuite) SendNotification(typ monitorAPI.AgentNotification, text s
 		return ds.OnSendNotification(typ, text)
 	}
 	panic("SendNotification should not have been called")
+}
+
+func (ds *DaemonSuite) GetCIDRPrefixLengths() ([]int, []int) {
+	if ds.OnGetCIDRPrefixLengths != nil {
+		return ds.OnGetCIDRPrefixLengths()
+	}
+	panic("GetCIDRPrefixLengths should not have been called")
 }
 
 func (ds *DaemonSuite) Datapath() datapath.Datapath {
