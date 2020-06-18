@@ -183,10 +183,6 @@ func (in *CiliumNetworkPolicy) deepEqual(other *CiliumNetworkPolicy) bool {
 		}
 	}
 
-	if !in.Status.DeepEqual(&other.Status) {
-		return false
-	}
-
 	return true
 }
 

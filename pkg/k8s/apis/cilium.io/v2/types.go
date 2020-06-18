@@ -71,9 +71,12 @@ type CiliumNetworkPolicy struct {
 
 	// Status is the status of the Cilium policy rule
 	// +optional
+	// +deepequal-gen=false
 	Status CiliumNetworkPolicyStatus `json:"status"`
 }
 
+// DeepEqual compares 2 CNPs while ignoring the LastAppliedConfigAnnotation and
+// ignoring the Status field of the CNP.
 func (in *CiliumNetworkPolicy) DeepEqual(other *CiliumNetworkPolicy) bool {
 	switch {
 	case (in == nil) != (other == nil):
