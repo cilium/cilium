@@ -2271,7 +2271,7 @@ func (kub *Kubectl) waitToDelete(name, label string) error {
 // GetDefaultIface returns an interface name which is used by a default route.
 // Assumes that all nodes have identical interfaces.
 func (kub *Kubectl) GetDefaultIface() (string, error) {
-	cmd := `ip -o r | grep default | grep -o 'dev [a-zA-Z0-9]*' | cut -d' ' -f2`
+	cmd := `ip -o r | grep default | grep -o 'dev [a-zA-Z0-9]*' | cut -d' ' -f2 | head -n1`
 	iface, err := kub.ExecInHostNetNSByLabel(context.TODO(), K8s1, cmd)
 	if err != nil {
 		return "", fmt.Errorf("Failed to retrieve default iface: %s", err)
