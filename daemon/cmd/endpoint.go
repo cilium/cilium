@@ -282,7 +282,7 @@ func (m *endpointCreationManager) DebugStatus() (output string) {
 
 // createEndpoint attempts to create the endpoint corresponding to the change
 // request that was specified.
-func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
+func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, epTemplate *models.EndpointChangeRequest) (*endpoint.Endpoint, int, error) {
 	if option.Config.EnableEndpointRoutes {
 		if epTemplate.DatapathConfiguration == nil {
 			epTemplate.DatapathConfiguration = &models.EndpointDatapathConfiguration{}
@@ -313,7 +313,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 		"sync-build":            epTemplate.SyncBuildEndpoint,
 	}).Info("Create endpoint request")
 
-	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, d, d.l7Proxy, d.identityAllocator, epTemplate)
+	ep, err := endpoint.NewEndpointFromChangeModel(d.ctx, owner, d.l7Proxy, d.identityAllocator, epTemplate)
 	if err != nil {
 		return invalidDataError(ep, fmt.Errorf("unable to parse endpoint parameters: %s", err))
 	}
@@ -409,7 +409,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, epTemplate *models.Endpoint
 	}
 
 	// e.ID assigned here
-	err = d.endpointManager.AddEndpoint(d, ep, "Create endpoint from API PUT")
+	err = d.endpointManager.AddEndpoint(owner, ep, "Create endpoint from API PUT")
 	if err != nil {
 		return d.errorDuringCreation(ep, fmt.Errorf("unable to insert endpoint into manager: %s", err))
 	}
@@ -494,7 +494,7 @@ func (h *putEndpointID) Handle(params PutEndpointIDParams) middleware.Responder 
 	}
 	epTemplate := params.Endpoint
 
-	ep, code, err := h.d.createEndpoint(params.HTTPRequest.Context(), epTemplate)
+	ep, code, err := h.d.createEndpoint(params.HTTPRequest.Context(), h.d, epTemplate)
 	if err != nil {
 		return api.Error(code, err)
 	}
