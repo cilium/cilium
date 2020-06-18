@@ -30,5 +30,6 @@ mechanisms:
    intro
    language
    visibility
+   kubernetes
    lifecycle
    troubleshooting
