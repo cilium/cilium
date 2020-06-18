@@ -1638,7 +1638,7 @@ func (c *DaemonConfig) Validate() error {
 			c.PolicyMapMaxEntries, policyMapMax)
 	}
 	if err := c.checkIPv4NativeRoutingCIDR(); err != nil {
-		return nil
+		return err
 	}
 
 	// Validate that the KVStore Lease TTL value lies between a particular range.
