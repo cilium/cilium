@@ -6,3 +6,6 @@ serviceAccount:
 
 # Specifies the resources for the operator container
 resources: {}
+
+# Additional annotations for the operator pods
+podsAnnotations:
