@@ -1027,6 +1027,9 @@ func initEnv(cmd *cobra.Command) {
 	option.Config.Opts.SetValidated(option.MonitorAggregation, monitorAggregationLevel)
 
 	policy.SetPolicyEnabled(option.Config.EnablePolicy)
+	if option.Config.PolicyAuditMode {
+		log.Warningf("%s is enabled. Network policy will not be enforced.", option.PolicyAuditMode)
+	}
 
 	if err := identity.AddUserDefinedNumericIdentitySet(option.Config.FixedIdentityMapping); err != nil {
 		log.Fatalf("Invalid fixed identities provided: %s", err)
