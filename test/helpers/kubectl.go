@@ -117,7 +117,7 @@ var (
 		"config.enableCnpStatusUpdates": "true",
 
 		"global.hostFirewall":      "true",
-		"global.nativeRoutingCIDR": "10.0.0.0/16",
+		"global.nativeRoutingCIDR": "10.0.0.0/8",
 	}
 
 	flannelHelmOverrides = map[string]string{
