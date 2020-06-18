@@ -18,7 +18,8 @@ import (
 	"context"
 	"errors"
 	"fmt"
-	"time"
+
+	operatorOption "github.com/cilium/cilium/operator/option"
 
 	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -28,10 +29,6 @@ import (
 	"k8s.io/apimachinery/pkg/watch"
 	"k8s.io/client-go/tools/cache"
 	toolswatch "k8s.io/client-go/tools/watch"
-)
-
-const (
-	defaultTimeout = 5 * time.Minute
 )
 
 // waitForCRD waits for the given CRD to be available with the given context.
@@ -78,7 +75,7 @@ func waitForCRD(ctx context.Context, client clientset.Interface, name string) er
 // after which cilium-agent should be ready. Returns an error when timeout
 // is exceeded.
 func WaitForCRD(client clientset.Interface, name string) error {
-	ctx, cancelFunc := context.WithTimeout(context.Background(), defaultTimeout)
+	ctx, cancelFunc := context.WithTimeout(context.Background(), operatorOption.Config.CRDWaitTimeout)
 	defer cancelFunc()
 	return waitForCRD(ctx, client, name)
 }
