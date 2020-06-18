@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -29,9 +29,12 @@ var (
 	pool = idpool.NewIDPool(minID, maxID)
 )
 
-// ReallocatePool starts over with a new pool.
+// ReallocatePool starts over with a new pool. This function is only used for
+// tests and its implementation is not optimized for production.
 func ReallocatePool() {
-	pool = idpool.NewIDPool(minID, maxID)
+	for i := uint16(minID); i <= uint16(maxID); i++ {
+		Release(i)
+	}
 }
 
 // Allocate returns a new random ID from the pool

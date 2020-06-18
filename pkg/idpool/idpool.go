@@ -76,15 +76,12 @@ type IDPool struct {
 }
 
 // NewIDPool returns a new ID pool
-func NewIDPool(minID ID, maxID ID) *IDPool {
-	p := &IDPool{
-		minID: minID,
-		maxID: maxID,
+func NewIDPool(minID ID, maxID ID) IDPool {
+	return IDPool{
+		minID:   minID,
+		maxID:   maxID,
+		idCache: newIDCache(minID, maxID),
 	}
-
-	p.idCache = newIDCache(p.minID, p.maxID)
-
-	return p
 }
 
 // LeaseAvailableID returns an available ID at random from the pool.
