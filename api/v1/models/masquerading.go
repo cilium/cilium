@@ -29,6 +29,9 @@ type Masquerading struct {
 	// mode
 	// Enum: [BPF iptables]
 	Mode string `json:"mode,omitempty"`
+
+	// Any packet sent to IP addr belonging to CIDR will not be SNAT'd
+	SnatExclusionCidr string `json:"snat-exclusion-cidr,omitempty"`
 }
 
 // Validate validates this masquerading
