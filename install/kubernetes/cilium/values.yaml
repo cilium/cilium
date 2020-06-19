@@ -371,4 +371,4 @@ global:
 
   # enables passing identity on local routes by using the mark fields. However,
   # in cases where this conflicts with a chained CNI plugin it may be disabled.
-  enableIdentityMap: true
+  enableIdentityMark: true

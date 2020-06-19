@@ -243,7 +243,7 @@ data:
   #  - portmap (Enables HostPort support for Cilium)
   cni-chaining-mode: {{ .Values.global.cni.chainingMode }}
 
-  enable-identity-map: {{ .Values.global.enableIdentityMap | quote }}
+  enable-identity-mark: {{ .Values.global.enableIdentityMark | quote }}
 
 {{- if ne .Values.global.cni.chainingMode "portmap" }}
   # Disable the PodCIDR route to the cilium_host interface as it is not
