@@ -17,7 +17,7 @@ CONTAINER_RUNTIME=$5
 CNI_INTEGRATION=$6
 # Pinned to the last version of k8s 1.16 branch so we can do
 # kubectl apply on older k8s test frameworks
-K8S_KUBECTL_APPLY_FORCE="1.16.10"
+K8S_KUBECTL_APPLY_FORCE="1.16.11"
 
 # Kubeadm default parameters
 export KUBEADM_ADDR='192.168.36.11'
@@ -224,7 +224,7 @@ case $K8S_VERSION in
         KUBEADM_CONFIG="${KUBEADM_CONFIG_ALPHA3}"
         ;;
     "1.16")
-        KUBERNETES_CNI_VERSION="0.7.5"
+        KUBERNETES_CNI_VERSION="0.8.6"
         K8S_FULL_VERSION="${K8S_KUBECTL_APPLY_FORCE}"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
