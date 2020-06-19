@@ -1,5 +1,23 @@
 #!/bin/bash
 
+# We leak istio pods for an unknown reason (these tests do cleanup). This may
+# be related to timeouts or other failures. In any case, we delete them here to
+# be sure.
+
+echo "deleting istio-system namespace and contents"
+kubectl delete ns istio-system --force --grace-period=0
+# Delete sidecar injection namespace label in case it was left behind
+kubectl label --overwrite namespace default istio-injection-
+
+echo "deleting cilium-monitoring namespace and contents"
+kubectl delete ns cilium-monitoring --force --grace-period=0
+
+echo "deleting cilium namespace and contents"
+kubectl delete ns cilium --force --grace-period=0
+
+echo "deleting all crds"
+kubectl delete crds --all
+
 # because of https://github.com/kubernetes/kubernetes/issues/60807 , we may end up with garbage terminating
 # namespaces leftovers after tests. This is a hacky workaround
 # '\[[^]]*\]' below matches a pair of square brackets with anything in between, not containing a closing square bracket
@@ -33,6 +51,9 @@ for pair in $OBJECTS; do
   #echo "Checking if $ns/$obj ($pair) is present in $NAMESPACES"
   if ! $(echo "$NAMESPACES" | grep -q "$ns" - ) ; then
     echo "Object $obj in $ns is a namespace orphan; deleting"
+    kubectl delete -n $ns $obj --force --grace-period=0
+  elif [ "$ns" == "default" ] ; then
+    echo "Deleting object $obj in $ns"
     kubectl delete -n $ns $obj --force --grace-period=0
   fi
 done
