@@ -497,8 +497,7 @@ cluster.
 
 .. note:: GKE clusters may have namespaces stuck at the ``Terminating`` state,
           causing Ginkgo tests to fail. If so, you'll see them in ``kubectl get ns``,
-          and can get rid of them by running
-          ``cilium/test/gke/delete-terminating-namespaces.sh``.
+          and can get rid of them by running ``cilium/test/gke/clean-cluster.sh``.
 
 ::
 
