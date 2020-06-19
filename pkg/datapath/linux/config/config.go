@@ -332,7 +332,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["SNAT_MAPPING_IPV6_SIZE"] = fmt.Sprintf("%d", option.Config.NATMapEntriesGlobal)
 		}
 
-		if option.Config.EnableBPFMasquerade {
+		if option.Config.EnableBPFMasquerade && option.Config.EnableIPv4 {
 			cDefinesMap["ENABLE_MASQUERADE"] = "1"
 			var cidr *cidr.CIDR
 			if c := option.Config.IPv4NativeRoutingCIDR(); c != nil {
@@ -344,11 +344,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 				fmt.Sprintf("%#x", byteorder.HostSliceToNetwork(cidr.IP, reflect.Uint32).(uint32))
 			ones, _ := cidr.Mask.Size()
 			cDefinesMap["IPV4_SNAT_EXCLUSION_DST_CIDR_LEN"] = fmt.Sprintf("%d", ones)
-		}
 
-		if option.Config.EnableIPMasqAgent {
-			cDefinesMap["ENABLE_IP_MASQ_AGENT"] = "1"
-			cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapName
+			// ip-masq-agent depends on bpf-masq
+			if option.Config.EnableIPMasqAgent {
+				cDefinesMap["ENABLE_IP_MASQ_AGENT"] = "1"
+				cDefinesMap["IP_MASQ_AGENT_IPV4"] = ipmasq.MapName
+			}
 		}
 
 		ctmap.WriteBPFMacros(fw, nil)
