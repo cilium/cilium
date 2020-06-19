@@ -177,7 +177,6 @@ Vagrant.configure(2) do |config|
                 type: "shell",
                 run: "always",
                 inline: "ip -6 a a #{$master_ipv6}/16 dev enp0s9"
-            node_ip = "#{$nfs_ipv4_master_addr}"
             if ENV["IPV6_EXT"] then
                 node_ip = "#{$master_ipv6}"
             end
@@ -225,7 +224,6 @@ Vagrant.configure(2) do |config|
                 :libvirt__dhcp_enabled => false
             if ENV["NFS"] || ENV["IPV6_EXT"] then
                 nfs_ipv4_addr = $workers_ipv4_addrs_nfs[n]
-                node_ip = "#{nfs_ipv4_addr}"
                 ipv6_addr = $workers_ipv6_addrs[n]
                 node.vm.network "private_network", ip: "#{nfs_ipv4_addr}", bridge: "enp0s9"
                 # Add IPv6 address this way or we get hit by a virtualbox bug
