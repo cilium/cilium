@@ -2108,9 +2108,13 @@ func (c *DaemonConfig) populateHostServicesProtos() error {
 }
 
 func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
-	if c.IPv4NativeRoutingCIDR() == nil && c.Masquerade && c.Tunnel == TunnelDisabled && c.IPAM != IPAMENI {
-		return fmt.Errorf("native routing cidr must be configured with option --%s in combination with --%s --%s=%s --%s=%s",
-			IPv4NativeRoutingCIDR, Masquerade, TunnelName, c.Tunnel, IPAM, c.IPAM)
+	if c.IPv4NativeRoutingCIDR() == nil && c.Masquerade && c.Tunnel == TunnelDisabled &&
+		c.IPAM != IPAMENI && c.EnableIPv4 {
+		return fmt.Errorf(
+			"native routing cidr must be configured with option --%s "+
+				"in combination with --%s --%s=%s --%s=%s --%s=true",
+			IPv4NativeRoutingCIDR, Masquerade, TunnelName, c.Tunnel,
+			IPAM, c.IPAM, EnableIPv4Name)
 	}
 
 	return nil
