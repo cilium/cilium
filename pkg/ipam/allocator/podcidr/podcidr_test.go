@@ -881,12 +881,14 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 	var (
 		onOccupyCallsv4, releaseCallsv4, onIsAllocatedCallsv4 int
 		onOccupyCallsv6, releaseCallsv6, onIsAllocatedCallsv6 int
+		onAllocateNextv6                                      int
 	)
 
 	type fields struct {
 		canAllocatePodCIDRs bool
 		v4ClusterCIDRs      []CIDRAllocator
 		v6ClusterCIDRs      []CIDRAllocator
+		newNodeCIDRs        *nodeCIDRs
 		nodes               map[string]*nodeCIDRs
 	}
 	type args struct {
@@ -915,6 +917,10 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 							v4PodCIDRs: mustNewCIDRs("10.10.0.0/24"),
 							v6PodCIDRs: mustNewCIDRs("fd00::/80"),
 						},
+					},
+					newNodeCIDRs: &nodeCIDRs{
+						v4PodCIDRs: mustNewCIDRs("10.10.0.0/24"),
+						v6PodCIDRs: mustNewCIDRs("fd00::/80"),
 					},
 				}
 			},
@@ -985,6 +991,10 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 						},
 					},
 					nodes: map[string]*nodeCIDRs{},
+					newNodeCIDRs: &nodeCIDRs{
+						v4PodCIDRs: mustNewCIDRs("10.10.0.0/24"),
+						v6PodCIDRs: mustNewCIDRs("fd00::/80"),
+					},
 				}
 			},
 			testPostRun: func(fields *fields) {
@@ -1140,6 +1150,54 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 			},
 			wantErr: true,
 		},
+		{
+			name: "test-7- should allocate a v6 address if the node has a v4 " +
+				"and missing a v6 address.",
+			testSetup: func() *fields {
+				onAllocateNextv6 = 0
+				return &fields{
+					canAllocatePodCIDRs: true,
+					v4ClusterCIDRs: []CIDRAllocator{
+						&mockCIDRAllocator{},
+					},
+					v6ClusterCIDRs: []CIDRAllocator{
+						&mockCIDRAllocator{
+							OnIsFull: func() bool {
+								return false
+							},
+							OnAllocateNext: func() (*net.IPNet, error) {
+								onAllocateNextv6++
+								return mustNewCIDRs("fd00::/80")[0], nil
+							},
+						},
+					},
+					nodes: map[string]*nodeCIDRs{
+						"node-1": {
+							v4PodCIDRs: mustNewCIDRs("10.10.0.0/24"),
+						},
+					},
+					newNodeCIDRs: &nodeCIDRs{
+						v4PodCIDRs: mustNewCIDRs("10.10.0.0/24"),
+						v6PodCIDRs: mustNewCIDRs("fd00::/80"),
+					},
+				}
+			},
+			testPostRun: func(fields *fields) {
+				c.Assert(fields.nodes, checker.DeepEquals, map[string]*nodeCIDRs{
+					"node-1": {
+						v4PodCIDRs: mustNewCIDRs("10.10.0.0/24"),
+						v6PodCIDRs: mustNewCIDRs("fd00::/80"),
+					},
+				})
+				c.Assert(onAllocateNextv6, checker.Equals, 1)
+			},
+			args: args{
+				nodeName: "node-1",
+				v4CIDR:   mustNewCIDRs("10.10.0.0/24"),
+			},
+			wantAllocated: true,
+			wantErr:       false,
+		},
 	}
 
 	for _, tt := range tests {
@@ -1150,10 +1208,11 @@ func (s *PodCIDRSuite) TestNodesPodCIDRManager_allocateIPNets(c *C) {
 			v6CIDRAllocators:    tt.fields.v6ClusterCIDRs,
 			nodes:               tt.fields.nodes,
 		}
-		gotAllocated, err := n.reuseIPNets(tt.args.nodeName, tt.args.v4CIDR, tt.args.v6CIDR)
+		newNodeCIDRs, gotAllocated, err := n.reuseIPNets(tt.args.nodeName, tt.args.v4CIDR, tt.args.v6CIDR)
 		gotErr := err != nil
 		c.Assert(gotErr, checker.Equals, tt.wantErr, Commentf("Test Name: %s", tt.name))
 		c.Assert(gotAllocated, checker.Equals, tt.wantAllocated, Commentf("Test Name: %s", tt.name))
+		c.Assert(newNodeCIDRs, checker.DeepEquals, tt.fields.newNodeCIDRs, Commentf("Test Name: %s", tt.name))
 
 		if tt.testPostRun != nil {
 			tt.testPostRun(tt.fields)
