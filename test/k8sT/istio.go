@@ -36,7 +36,7 @@ var _ = Describe("K8sIstioTest", func() {
 		// installed.
 		istioSystemNamespace = "istio-system"
 
-		istioVersion = "1.5.4"
+		istioVersion = "1.5.6"
 
 		// Modifiers for pre-release testing, normally empty
 		prerelease     = "" // "-beta.1"
@@ -45,9 +45,9 @@ var _ = Describe("K8sIstioTest", func() {
 		// - remind how to test with prerelease images in future
 		// - cause CI infra to prepull these images so that they do not
 		//   need to be pulled on demand during the test
-		// " --set values.pilot.image=docker.io/cilium/istio_pilot:1.5.4" +
-		// " --set values.global.proxy.image=docker.io/cilium/istio_proxy:1.5.4" +
-		// " --set values.global.proxy_init.image=docker.io/cilium/istio_proxy:1.5.4"
+		// " --set values.pilot.image=docker.io/cilium/istio_pilot:1.5.6" +
+		// " --set values.global.proxy.image=docker.io/cilium/istio_proxy:1.5.6" +
+		// " --set values.global.proxy_init.image=docker.io/cilium/istio_proxy:1.5.6"
 
 		// Map of tested runtimes for cilium-istioctl
 		ciliumIstioctlOSes = map[string]string{
