@@ -438,12 +438,8 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
 	detectDevicesForNodePortAndHostFirewall(isKubeProxyReplacementStrict)
-	finishKubeProxyReplacementInit()
-	if option.Config.EnableNodePort {
-		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
-			log.WithError(err).Fatal("Failed to initialize NodePort addrs")
-		}
-	}
+	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
+
 	// BPF masquerade depends on BPF NodePort, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
 	if option.Config.Masquerade && option.Config.EnableBPFMasquerade &&
