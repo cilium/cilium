@@ -78,7 +78,8 @@ Deploy Cilium release via Helm:
       --set global.cni.customConf=true \\
       --set global.cni.configMap=cni-configuration \\
       --set global.tunnel=disabled \\
-      --set global.masquerade=false
+      --set global.masquerade=false \\
+      --set global.enableIdentityMark=false
 
 .. note::
 
