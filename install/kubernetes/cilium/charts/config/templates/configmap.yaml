@@ -8,7 +8,7 @@
 {{- $defaultOperatorApiServeAddr := "localhost:9234" -}}
 {{- $defaultBpfCtTcpMax := 524288 -}}
 {{- $defaultBpfCtAnyMax := 262144 -}}
-{{- $enableIdentityMap := "true" -}}
+{{- $enableIdentityMark := "true" -}}
 
 {{- /* Default values when 1.8 was initially deployed */ -}}
 {{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
@@ -350,10 +350,10 @@ data:
   #  - portmap (Enables HostPort support for Cilium)
   cni-chaining-mode: {{ .Values.global.cni.chainingMode }}
 
-{{- if hasKey .Values "enableIdentityMap"}}
-  enable-identity-map: {{ .Values.global.enableIdentityMap | quote }}
-{{- else if (ne $enableIdentityMap "true") }}
-  enable-identity-map: "false"
+{{- if hasKey .Values "enableIdentityMark"}}
+  enable-identity-mark: {{ .Values.global.enableIdentityMark | quote }}
+{{- else if (ne $enableIdentityMark "true") }}
+  enable-identity-mark: "false"
 {{- end }}
 
 {{- if ne .Values.global.cni.chainingMode "portmap" }}
