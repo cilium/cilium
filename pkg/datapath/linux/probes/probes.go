@@ -48,7 +48,7 @@ var (
 type ErrKernelConfigNotFound struct{}
 
 func (e *ErrKernelConfigNotFound) Error() string {
-	return "CONFIG_BPF kernel parameter not found"
+	return "Kernel Config file not found"
 }
 
 // KernelParam is a type based on string which represents CONFIG_* kernel
@@ -208,24 +208,15 @@ func (p *ProbeManager) SystemKernelHz() (int, error) {
 func (p *ProbeManager) SystemConfigProbes() error {
 	config := p.features.SystemConfig
 
-	// Check Kernel Config is available or not.
-	// We are replicating BPFTools logic here to check if kernel config is available
-	// https://elixir.bootlin.com/linux/v5.7/source/tools/bpf/bpftool/feature.c#L390
-	info := unix.Utsname{}
-	err := unix.Uname(&info)
-	if err != nil {
+	if !p.KernelConfigAvailable() {
 		return &ErrKernelConfigNotFound{}
-	}
-	release := strings.TrimSpace(string(bytes.Trim(info.Release[:], "\x00")))
-
-	// Any error checking these files will return Kernel config not found error
-	if _, err := os.Stat(fmt.Sprintf("/boot/config-%s", release)); err != nil {
-		if _, err = os.Stat("/proc/config.gz"); err != nil {
-			return &ErrKernelConfigNotFound{}
-		}
 	}
 
 	// Required
+	if !config.ConfigBpf.Enabled() {
+		return fmt.Errorf("CONFIG_BPF kernel parameter is required")
+	}
+
 	if !config.ConfigBpfSyscall.Enabled() {
 		return fmt.Errorf(
 			"CONFIG_BPF_SYSCALL kernel parameter is required")
@@ -351,4 +342,27 @@ func (p *ProbeManager) CreateHeadersFile() error {
 		return err
 	}
 	return nil
+}
+
+// KernelConfigAvailable checks if the Kernel Config is available on the
+// system or not.
+func (p *ProbeManager) KernelConfigAvailable() bool {
+	// Check Kernel Config is available or not.
+	// We are replicating BPFTools logic here to check if kernel config is available
+	// https://elixir.bootlin.com/linux/v5.7/source/tools/bpf/bpftool/feature.c#L390
+	info := unix.Utsname{}
+	err := unix.Uname(&info)
+	if err != nil {
+		return false
+	}
+	release := strings.TrimSpace(string(bytes.Trim(info.Release[:], "\x00")))
+
+	// Any error checking these files will return Kernel config not found error
+	if _, err := os.Stat(fmt.Sprintf("/boot/config-%s", release)); err != nil {
+		if _, err = os.Stat("/proc/config.gz"); err != nil {
+			return false
+		}
+	}
+
+	return true
 }
