@@ -2,6 +2,7 @@ Alexei Starovoitov <alexei.starovoitov@gmail.com>
 André Martins <andre@cilium.io>
 Andrew Sy Kim <kim.andrewsy@gmail.com>
 Arika Chen <eaglesora@gmail.com>
+Arthur Chiao <arthurchiao@hotmail.com>
 Arthur Evstifeev <aevstifeev@gitlab.com>
 Arthur Evstifeev <mail@ap4y.me>
 Arvind Soni <arvind@covalent.io>
@@ -22,15 +23,20 @@ Hui Kong <hui.kong@qunar.com>
 Ian Vernon <ian@cilium.io> <vagrant@k8s1>
 Ifeanyi Ubah <ify1992@yahoo.com>
 Jarno Rajahalme <jarno@covalent.io>
+Jed Salazar <jed@isovalent.com>
 Jerry J. Muzsik <jerrymuzsik@icloud.com>
 Jomen Xiao <jomenxiao@gmail.com>
+Joshua Roppo <joshroppo@gmail.com>
 Junli Ou <oujunli306@gmail.com>
 Liu Qun <qunliu@zyhx-group.com>
 Madhu Challa <challa@gmail.com>
 Matthew Gumport <me@gum.pt>
 Michael Vorburger <vorburger@redhat.com>
 Peiqi Shi <uestc.shi@gmail.com>
-Sergey Generalov <sergey@genbit.ru>
-Thomas Graf <thomas@cilium.io>
-Zhu Yan <hackzhuyan@gmail.com>
 Sean Winn <sean@isovalent.com> <seanmwinn@hotmail.com>
+Sergey Generalov <sergey@isovalent.com> <sergey@genbit.ru>
+Thomas Graf <thomas@cilium.io>
+Tony Lu <tonylu@linux.alibaba.com>
+Weilong Cui <cuiwl@google.com>
+Yves Blusseau <yves.blusseau@acoss.fr>
+Zhu Yan <hackzhuyan@gmail.com>

@@ -1,5 +1,91 @@
 # Changelog
 
+## v1.8.0-rc4
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* api/v1: Add observation proto enum (Backport PR #12173, Upstream PR #12085, @glibsm)
+* docs: Extend BPF-based masquerading section (Backport PR #12203, Upstream PR #12145, @brb)
+* helm: Remove affinity from cilium-etcd-operator (Backport PR #12173, Upstream PR #12139, @brb)
+* Update the Cilium eBPF library to the latest version. (Backport PR #12103, Upstream PR #12068, @tklauser)
+
+**Bugfixes:**
+* bpf: Use `nproc --all` for `__NR_CPUS__` (Backport PR #12173, Upstream PR #12121, @gandro)
+* cilium-operator: Wait for CRDs before running Informers (Backport PR #12173, Upstream PR #10899, @mrostecki)
+* cilium/charts: set system-{node,cluster}-critical priorityClass for k8s >= 1.17 (Backport PR #12173, Upstream PR #12151, @aanm)
+* cilium: chaining mode skb->mark can be mangled by iptables allow opt-out (Backport PR #12196, Upstream PR #12185, @jrfastab)
+* cilium: fix helm usage of enableIdentityMap -> enableIdentityMark (Backport PR #12196, Upstream PR #12194, @jrfastab)
+* daemon: Fix fallback to iptables-based masquerading (Backport PR #12103, Upstream PR #12081, @brb)
+* daemon: fix panic when starting Cilium (Backport PR #12173, Upstream PR #12101, @aanm)
+* daemon: Fix session affinity map creation (Backport PR #12173, Upstream PR #12134, @brb)
+* datapath,daemon: Fix initialization panics when IPv6 is enabled (Backport PR #12203, Upstream PR #12197, @brb)
+* do not ignore Kubernetes event updates for CCNP and CNP with 'specs' field after being created (Backport PR #12173, Upstream PR #12143, @aanm)
+* doc: Ensure ConfigMap remains compatible across 1.7 -> 1.8 upgrade (Backport PR #12173, Upstream PR #12097, @tgraf)
+* Don't require (not supported on Azure) ipam.Cidrs when masquerade is disabled (Backport PR #12103, Upstream PR #11978, @bpineau)
+* operator: sync CiliumNodes into etcd instead of k8s nodes (Backport PR #12173, Upstream PR #12179, @aanm)
+* option: Require native-routing-cidr only if IPv4 is enabled (Backport PR #12203, Upstream PR #12198, @brb)
+* stop Cilium from hanging on CNP or CCNP events from Kubernetes if running with 'k8s-event-handover=true' and 'kvstore=""' (Backport PR #12173, Upstream PR #12146, @aanm)
+
+**CI Changes:**
+* add missing hook in misc unit tests (Backport PR #12203, Upstream PR #12122, @aanm)
+* Add quarantine mechanism to test suite (Backport PR #12103, Upstream PR #11981, @nebril)
+* test,daemon: Fix repeated devices (Backport PR #12196, Upstream PR #12176, @brb)
+* test: Add generated files to .gitignore, avoid pulling stale images. (Backport PR #12173, Upstream PR #12110, @jrajahalme)
+* test: Download correct cilium-istioctl for the executing OS. (Backport PR #12173, Upstream PR #12109, @jrajahalme)
+* test: fix cli flags handling (Backport PR #12173, Upstream PR #12099, @nebril)
+* test: Fix typo (Backport PR #12173, Upstream PR #12090, @jrajahalme)
+* test: Skip Istio test if Ginkgo runs on unsupported runtime. (Backport PR #12173, Upstream PR #11905, @jrajahalme)
+
+**Misc Changes:**
+* 1.8 documentation updates: Concepts & menu structure (Backport PR #12173, Upstream PR #11979, @tgraf)
+* Add command-line instructions to install the hubble CLI (Backport PR #12103, Upstream PR #12001, @michi-covalent)
+* Add Hubble store getter to gain access to k8s data store. (Backport PR #12173, Upstream PR #12114, @lzang)
+* Add policy verdicts GSG (Backport PR #12196, Upstream PR #12165, @joestringer)
+* contrib: Add environment variable to script  to control K8s namespace (Backport PR #12103, Upstream PR #12082, @christarazi)
+* contrib: Misc. fixups for k8s-cilium-exec.sh script (Backport PR #12173, Upstream PR #12126, @christarazi)
+* daemon: Enable device auto detection for host-fw when BPF NodePort is disabled (Backport PR #12103, Upstream PR #12050, @brb)
+* daemon: Warn when policy audit mode is enabled (Backport PR #12173, Upstream PR #12166, @joestringer)
+* doc: add Networking and security observability with Hubble guide (Backport PR #12173, Upstream PR #12155, @michi-covalent)
+* doc: ensure to use --set config.ipam=kubernetes with kind (Backport PR #12196, Upstream PR #12181, @Rolinh)
+* doc: Misc fixups for Transparent Encryption GSG (Backport PR #12173, Upstream PR #12088, @christarazi)
+* doc: revamp kata containers getting started guide (Backport PR #12203, Upstream PR #12144, @Rolinh)
+* doc: Specify `CILIUM_NAMESPACE` for Hubble installation instruction (Backport PR #12173, Upstream PR #12149, @michi-covalent)
+* docs: Add IP fragmentation tracking section (Backport PR #12203, Upstream PR #12162, @joestringer)
+* docs: Add note about `--node-ip` kubelet option (Backport PR #12103, Upstream PR #12095, @gandro)
+* docs: adjust to new mapDynamicSizeRatio default in upgrade guide (Backport PR #12103, Upstream PR #12065, @tklauser)
+* docs: consolidate BPF map documentation in concepts/ebpf/intro.rst (Backport PR #12173, Upstream PR #12183, @tklauser)
+* docs: Extend kubeproxy-free GSG wrt multi-dev (Backport PR #12103, Upstream PR #12054, @brb)
+* docs: fix line-break in parsed-literal instance (Backport PR #12173, Upstream PR #12157, @borkmann)
+* docs: fix `SCM_WEB` expansion in troubleshooting guide (Backport PR #12103, Upstream PR #12096, @tklauser)
+* docs: Host firewall documentation (Backport PR #12203, Upstream PR #12187, @pchaigno)
+* docs: Improve consistency in Azure docs (Backport PR #12173, Upstream PR #12108, @errordeveloper)
+* docs: mention disabling of lro on `hv_netvsc` (Backport PR #12173, Upstream PR #12172, @borkmann)
+* docs: NodePort XDP on AWS (Backport PR #12173, Upstream PR #12156, @borkmann)
+* docs: NodePort XDP on Azure (Backport PR #12173, Upstream PR #12150, @gandro)
+* docs: simplify one of the steps in GKE guide (Backport PR #12173, Upstream PR #12148, @errordeveloper)
+* docs: update example output in HTTP-aware policy enforcement GSG (Backport PR #12103, Upstream PR #12069, @tklauser)
+* docs: update on hostport for upgrade guide and cni chanining (Backport PR #12103, Upstream PR #12066, @borkmann)
+* Fix commands in EKS kube-proxy free GSG (Backport PR #12173, Upstream PR #12174, @tklauser)
+* Fix GKE Helm options for CI and docs. (Backport PR #12196, Upstream PR #12087, @jrajahalme)
+* Fix native routing cidr missing flag in daemon (Backport PR #12173, Upstream PR #12180, @aanm)
+* Ginkgo: Simplify all --focus regexes (Backport PR #12173, Upstream PR #12089, @jrajahalme)
+* helm: Clean up the hubble-relay DNS name in the UI chart (Backport PR #12173, Upstream PR #12033, @michi-covalent)
+* Minor BIRD guide improvements (Backport PR #12103, Upstream PR #12092, @joestringer)
+* Misc 1.8 upgrade docs fixups (Backport PR #12103, Upstream PR #12083, @joestringer)
+* pkg/k8s: ignore status field in CNP DeepEqual (Backport PR #12173, Upstream PR #12171, @aanm)
+* Revert "test: disable fqdn restart test" (Backport PR #12103, Upstream PR #11929, @jrajahalme)
+* test: Fix hubble-relay image helm path (Backport PR #12173, Upstream PR #12076, @jrajahalme)
+* test: Fix nativeRoutingCIDR in CI (Backport PR #12196, Upstream PR #12190, @joestringer)
+* test: Remove ginkgo linux dependency (Backport PR #12103, Upstream PR #12074, @jrajahalme)
+* test: Scrub GKE cluster more thoroughly when releasing cluster. (Backport PR #12203, Upstream PR #12192, @jrajahalme)
+* test: Set devices and enable host firewall in kube-proxy CI (Backport PR #12173, Upstream PR #11969, @pchaigno)
+* testing: final conversion 4.19 CI to kube-proxy free (Backport PR #12103, Upstream PR #12045, @borkmann)
+* Tidy & expand policy docs (Backport PR #12173, Upstream PR #12164, @joestringer)
+* Update xargs usage in restart-pods documentation (Backport PR #12103, Upstream PR #12064, @ap4y)
+* Use right schema when validating CCNP in pre-flight upgrade step (Backport PR #12173, Upstream PR #12106, @aanm)
+
 ## v1.8.0-rc3
 
 Note: The summary of changes represents the diff between v1.8.0-rc2 and v1.8.0-rc3
