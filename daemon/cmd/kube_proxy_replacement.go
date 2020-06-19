@@ -264,7 +264,19 @@ func detectDevicesForNodePortAndHostFirewall(strict bool) {
 
 // finishKubeProxyReplacementInit finishes initialization of kube-proxy
 // replacement after all devices are known.
-func finishKubeProxyReplacementInit() {
+func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
+	if option.Config.EnableNodePort {
+		if err := node.InitNodePortAddrs(option.Config.Devices); err != nil {
+			msg := "Failed to initialize NodePort addrs."
+			if isKubeProxyReplacementStrict {
+				log.WithError(err).Fatal(msg)
+			} else {
+				disableNodePort()
+				log.WithError(err).Warn(msg + " Disabling BPF NodePort.")
+			}
+		}
+	}
+
 	if !option.Config.EnableNodePort {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
