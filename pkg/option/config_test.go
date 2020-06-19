@@ -494,6 +494,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 				Tunnel:                TunnelDisabled,
 				IPAM:                  ipamOption.IPAMAzure,
 				ipv4NativeRoutingCIDR: cidr.MustParseCIDR("10.127.64.0/18"),
+				EnableIPv4:            true,
 			},
 			wantErr: false,
 		},
@@ -503,6 +504,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 				Masquerade: false,
 				Tunnel:     TunnelDisabled,
 				IPAM:       ipamOption.IPAMAzure,
+				EnableIPv4: true,
 			},
 			wantErr: false,
 		},
@@ -512,6 +514,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 				Masquerade: true,
 				Tunnel:     TunnelVXLAN,
 				IPAM:       ipamOption.IPAMAzure,
+				EnableIPv4: true,
 			},
 			wantErr: false,
 		},
@@ -521,6 +524,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 				Masquerade: true,
 				Tunnel:     TunnelDisabled,
 				IPAM:       ipamOption.IPAMENI,
+				EnableIPv4: true,
 			},
 			wantErr: false,
 		},
@@ -530,6 +534,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 				Masquerade: true,
 				Tunnel:     TunnelDisabled,
 				IPAM:       ipamOption.IPAMAzure,
+				EnableIPv4: true,
 			},
 			wantErr: true,
 		},
@@ -543,6 +548,7 @@ func TestCheckIPv4NativeRoutingCIDR(t *testing.T) {
 			}
 		})
 	}
+
 }
 
 func Test_populateNodePortRange(t *testing.T) {
