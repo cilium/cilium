@@ -2678,9 +2678,13 @@ func (c *DaemonConfig) checkMapSizeLimits() error {
 }
 
 func (c *DaemonConfig) checkIPv4NativeRoutingCIDR() error {
-	if c.IPv4NativeRoutingCIDR() == nil && c.Masquerade && c.Tunnel == TunnelDisabled && c.IPAMMode() != ipamOption.IPAMENI {
-		return fmt.Errorf("native routing cidr must be configured with option --%s in combination with --%s --%s=%s --%s=%s",
-			IPv4NativeRoutingCIDR, Masquerade, TunnelName, c.Tunnel, IPAM, c.IPAMMode())
+	if c.IPv4NativeRoutingCIDR() == nil && c.Masquerade && c.Tunnel == TunnelDisabled &&
+		c.IPAMMode() != ipamOption.IPAMENI && c.EnableIPv4 {
+		return fmt.Errorf(
+			"native routing cidr must be configured with option --%s "+
+				"in combination with --%s --%s=%s --%s=%s --%s=true",
+			IPv4NativeRoutingCIDR, Masquerade, TunnelName, c.Tunnel,
+			IPAM, c.IPAMMode(), EnableIPv4Name)
 	}
 
 	return nil
