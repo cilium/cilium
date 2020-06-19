@@ -477,7 +477,7 @@ func (n *NodesPodCIDRManager) allocateNode(node *v2.CiliumNode) (cn *v2.CiliumNo
 		// Try to allocate the podCIDRs in the node, if there was a need
 		// for new CIDRs to be allocated the allocated returned value will be
 		// set to true.
-		allocated, err = n.reuseIPNets(node.Name, cidrs.v4PodCIDRs, cidrs.v6PodCIDRs)
+		cidrs, allocated, err = n.reuseIPNets(node.Name, cidrs.v4PodCIDRs, cidrs.v6PodCIDRs)
 		if err != nil {
 			// We want to log this error in cilium node
 			updateStatus = true
@@ -584,20 +584,26 @@ func releaseCIDRs(cidrAllocators []CIDRAllocator, cidrsToRelease []*net.IPNet) {
 // reuseIPNets allows the node to allocate new CIDRs.
 // The return value 'allocated' is set to false in case none of the CIDRs were
 // re-allocated.
+// All allocated CIDRs will be returned as 'newNodeCIDRs'.
 // In case an error is returned no CIDRs were allocated.
 // Needs n.Mutex to be held.
-func (n *NodesPodCIDRManager) reuseIPNets(nodeName string, v4CIDR, v6CIDR []*net.IPNet) (allocated bool, err error) {
+func (n *NodesPodCIDRManager) reuseIPNets(
+	nodeName string, v4CIDR, v6CIDR []*net.IPNet,
+) (
+	newNodeCIDRs *nodeCIDRs, allocated bool, err error,
+) {
+
 	log = log.WithFields(logrus.Fields{
 		"node-name": nodeName,
 	})
 	if len(n.v4CIDRAllocators) == 0 && len(v4CIDR) != 0 {
-		return false, &ErrAllocatorNotFound{
+		return nil, false, &ErrAllocatorNotFound{
 			cidr:          v4CIDR,
 			allocatorType: v4AllocatorType,
 		}
 	}
 	if len(n.v6CIDRAllocators) == 0 && len(v6CIDR) != 0 {
-		return false, &ErrAllocatorNotFound{
+		return nil, false, &ErrAllocatorNotFound{
 			cidr:          v6CIDR,
 			allocatorType: v6AllocatorType,
 		}
@@ -613,7 +619,7 @@ func (n *NodesPodCIDRManager) reuseIPNets(nodeName string, v4CIDR, v6CIDR []*net
 		// allocated or if the node is trying to change its podCIDRs
 		if hasV4CIDR {
 			if len(n.v4CIDRAllocators) == 0 {
-				return false, &ErrAllocatorNotFound{
+				return nil, false, &ErrAllocatorNotFound{
 					cidr:          oldNodeCIDRs.v4PodCIDRs,
 					allocatorType: v4AllocatorType,
 				}
@@ -621,12 +627,12 @@ func (n *NodesPodCIDRManager) reuseIPNets(nodeName string, v4CIDR, v6CIDR []*net
 			if !cidr.ContainsAll(oldNodeCIDRs.v4PodCIDRs, v4CIDR) {
 				cidrStr := ipNetString(oldNodeCIDRs.v4PodCIDRs)
 				err := fmt.Errorf("node has CIDRs allocated (%s) that conflict with requested CIDRs %s", cidrStr, v4CIDR)
-				return false, err
+				return nil, false, err
 			}
 		}
 		if hasV6CIDR {
 			if len(n.v6CIDRAllocators) == 0 {
-				return false, &ErrAllocatorNotFound{
+				return nil, false, &ErrAllocatorNotFound{
 					cidr:          oldNodeCIDRs.v6PodCIDRs,
 					allocatorType: v6AllocatorType,
 				}
@@ -634,7 +640,7 @@ func (n *NodesPodCIDRManager) reuseIPNets(nodeName string, v4CIDR, v6CIDR []*net
 			if !cidr.ContainsAll(oldNodeCIDRs.v6PodCIDRs, v6CIDR) {
 				cidrStr := ipNetString(oldNodeCIDRs.v6PodCIDRs)
 				err := fmt.Errorf("node has CIDRs allocated (%s) that conflict with requested CIDRs %s", cidrStr, v6CIDR)
-				return false, err
+				return nil, false, err
 			}
 		}
 		// We are only allowed to allocate new CIDRs if the node already has
@@ -666,8 +672,16 @@ func (n *NodesPodCIDRManager) reuseIPNets(nodeName string, v4CIDR, v6CIDR []*net
 	// canAllocateIPv4PodCIDRs is set to true. It's fine that we don't allocate
 	// it now since this node will be put into the map of nodes that require
 	// to be allocated in the future.
-	if canAllocateIPv4PodCIDRs && len(n.v4CIDRAllocators) != 0 && len(v4CIDR) != 0 {
-		revertFunc, err = allocateIPNet(v4AllocatorType, n.v4CIDRAllocators, v4CIDR)
+	if canAllocateIPv4PodCIDRs && len(n.v4CIDRAllocators) != 0 {
+		if len(v4CIDR) != 0 {
+			revertFunc, err = allocateIPNet(v4AllocatorType, n.v4CIDRAllocators, v4CIDR)
+		} else {
+			// If the node does not have an IP address assigned to it, we need
+			// to allocate it because we have allocators available.
+			var newv4CIDR *net.IPNet
+			revertFunc, newv4CIDR, err = allocateFirstFreeCIDR(n.v4CIDRAllocators)
+			v4CIDR = append(v4CIDR, newv4CIDR)
+		}
 		if err != nil {
 			return
 		}
@@ -679,11 +693,19 @@ func (n *NodesPodCIDRManager) reuseIPNets(nodeName string, v4CIDR, v6CIDR []*net
 
 	// The node might want to allocate a new IPv6 podCIDR but it already
 	// has a IPv4 podCIDR. We will only allocate new podCIDRs if
-	// canAllocateIPv4PodCIDRs is set to true. It's fine that we don't allocate
+	// canAllocateIPv6PodCIDRs is set to true. It's fine that we don't allocate
 	// it now since this node will be put into the map of nodes that require
 	// to be allocated in the future.
-	if canAllocateIPv6PodCIDRs && len(n.v6CIDRAllocators) != 0 && len(v6CIDR) != 0 {
-		revertFunc, err = allocateIPNet(v6AllocatorType, n.v6CIDRAllocators, v6CIDR)
+	if canAllocateIPv6PodCIDRs && len(n.v6CIDRAllocators) != 0 {
+		if len(v6CIDR) != 0 {
+			revertFunc, err = allocateIPNet(v6AllocatorType, n.v6CIDRAllocators, v6CIDR)
+		} else {
+			// If the node does not have an IP address assigned to it, we need
+			// to allocate it because we have allocators available.
+			var newv6CIDR *net.IPNet
+			revertFunc, newv6CIDR, err = allocateFirstFreeCIDR(n.v6CIDRAllocators)
+			v6CIDR = append(v6CIDR, newv6CIDR)
+		}
 		if err != nil {
 			return
 		}
@@ -697,7 +719,7 @@ func (n *NodesPodCIDRManager) reuseIPNets(nodeName string, v4CIDR, v6CIDR []*net
 	// an error allocating the CIDR
 	n.nodes[nodeName] = oldNodeCIDRs
 
-	return allocated, nil
+	return oldNodeCIDRs, allocated, nil
 }
 
 // allocateIPNet allocates the `newCidr` in the cidrSet allocator. If the
