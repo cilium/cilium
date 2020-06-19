@@ -607,6 +607,10 @@ func init() {
 	flags.String(option.IPMasqAgentConfigPath, "/etc/config/ip-masq-agent", "ip-masq-agent configuration file path")
 	option.BindEnv(option.IPMasqAgentConfigPath)
 
+	flags.StringSlice(option.IPAMClusterPoolIPv4RoutingCIDR, []string{}, "Cluster IPv4 podCIDR that should be used to allocate pods in the node")
+	flags.MarkHidden(option.IPAMClusterPoolIPv4RoutingCIDR)
+	option.BindEnv(option.IPAMClusterPoolIPv4RoutingCIDR)
+
 	flags.Bool(option.InstallIptRules, true, "Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading)")
 	option.BindEnv(option.InstallIptRules)
 

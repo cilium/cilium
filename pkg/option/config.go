@@ -29,6 +29,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
+	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/cidr"
 	clustermeshTypes "github.com/cilium/cilium/pkg/clustermesh/types"
 	"github.com/cilium/cilium/pkg/common"
@@ -727,6 +728,9 @@ const (
 
 	// IPv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
 	IPv4NativeRoutingCIDR = "native-routing-cidr"
+
+	// IPAMClusterPoolIPv4RoutingCIDR describes a Cluster-pool CIDR in which pod IPs are routable
+	IPAMClusterPoolIPv4RoutingCIDR = "cluster-pool-ipv4-cidr"
 
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
@@ -1863,6 +1867,9 @@ type DaemonConfig struct {
 	// ipv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
 	ipv4NativeRoutingCIDR *cidr.CIDR
 
+	//IpamClusterPoolIPv4RoutingCIDR describes the cluster pool ipv4 cidr
+	IPAMClusterPoolIPv4RoutingCIDR []string
+
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces string
@@ -2531,6 +2538,13 @@ func (c *DaemonConfig) Populate() {
 
 	c.populateDevices()
 
+	c.IPAMClusterPoolIPv4RoutingCIDR = viper.GetStringSlice(operatorOption.IPAMOperatorV4CIDR)
+	if len(c.IPAMClusterPoolIPv4RoutingCIDR) > 0 {
+		log.Info("If ipam option is set to cluster-pool, native routing cidr can be derived from the ipam cluster ipv4 pool")
+		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(c.IPAMClusterPoolIPv4RoutingCIDR[0])
+	}
+	// The user might have other CIDRs not specified in the `IPAMOperatorV4CIDR` so we
+	// should overwrite `ipv4NativeRoutingCIDR` with the values set in `IPv4NativeRoutingCIDR`
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)
 	}
