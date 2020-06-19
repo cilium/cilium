@@ -13,36 +13,66 @@ Install Dependencies
 4. Install ``kind`` >= v0.7.0 per kind documentation:
    `Installation and Usage <https://kind.sigs.k8s.io/#installation-and-usage>`_
 
-Kind Configuration
-==================
+Configure kind
+==============
 
-Kind does not use flags for configuration. Instead, it uses YAML configuration
-that is very similar to Kubernetes.
+Configuring kind cluster creation is done using a YAML configuration file.
+This step is necessary in order to disable the default CNI and replace it with
+Cilium.
 
 Create a :download:`kind-config.yaml <./kind-config.yaml>` file based on the
-following template. The template will create 3 nodes + 1 apiserver cluster with
-the latest version of Kubernetes from when the kind release was created.
+following template. It will create a cluster with 3 worker nodes and 1
+control-plane node.
 
 .. literalinclude:: kind-config.yaml
    :language: yaml
 
+By default, the latest version of Kubernetes from when the kind release was
+created is used.
+
 To change the version of Kubernetes being run,  ``image`` has to be defined for
 each node. See the
-`Node Configration <https://kind.sigs.k8s.io/docs/user/configuration/#nodes>`_
-documentation.
+`Node Configuration <https://kind.sigs.k8s.io/docs/user/configuration/#nodes>`_
+documentation for more information.
 
-Start Kind
-==========
+.. tip::
+    By default, kind uses the following pod and service subnets:
 
-Pass the ``kind-config.yaml`` you created with the ``--config`` flag of kind.
+    .. parsed-literal::
+        Networking.PodSubnet     = "10.244.0.0/16"
+        Networking.ServiceSubnet = "10.96.0.0/12"
+
+    If any of these subnets conflicts with your local network address range,
+    update the ``networking`` section of the kind configuration file to specify
+    different subnets that do not conflict or you risk having connectivity
+    issues when deploying Cilium. For example:
+
+    .. code-block:: yaml
+
+         networking:
+           disableDefaultCNI: true
+           podSubnet: "10.10.0.0/16"
+           serviceSubnet: "10.11.0.0/16"
+
+Create a cluster
+================
+
+To create a cluster with the configuration defined above, pass the
+``kind-config.yaml`` you created with the ``--config`` flag of kind.
 
 .. code:: bash
 
     kind create cluster --config=kind-config.yaml
 
-This will add a ``kind-kind`` context to ``KUBECONFIG`` or if unset,
-``${HOME}/.kube/config``
+After a couple of seconds or minutes, a 4 nodes cluster should be created.
+
+A new ``kubectl`` context (``kind-kind``) should be added to ``KUBECONFIG`` or, if unset,
+to ``${HOME}/.kube/config``:
 
 .. code:: bash
 
     kubectl cluster-info --context kind-kind
+
+.. note::
+   The cluster nodes will remain in state ``NotReady`` until Cilium is deployed.
+   This behavior is expected.

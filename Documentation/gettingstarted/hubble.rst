@@ -22,24 +22,14 @@ across the globe, there is almost always someone available to help.
 
 .. include:: kind-install.rst
 
-.. note::
-   The cluster nodes will remain in state ``NotReady`` until Cilium is deployed.
-   This behavior is expected.
-
 Deploy Cilium and Hubble
 ========================
 
 .. include:: k8s-install-download-release.rst
+.. include:: kind-preload.rst
 
-**(optional, but recommended)** Pre-load Cilium images into the kind cluster so
-each worker doesn't have to pull them.
-
-.. parsed-literal::
-
-  docker pull cilium/cilium:|IMAGE_TAG|
-  kind load docker-image cilium/cilium:|IMAGE_TAG|
-
-Install Cilium release via Helm:
+Install Cilium, enable Hubble and deploy Hubble Relay and Hubble's graphical UI
+in one command using Helm:
 
 .. parsed-literal::
 
@@ -57,18 +47,6 @@ Install Cilium release via Helm:
       --set global.hubble.listenAddress=":4244" \\
       --set global.hubble.relay.enabled=true \\
       --set global.hubble.ui.enabled=true
-
-.. tip::
-   If your local network subnet conflicts with the one picked up by kind,
-   update the ``networking`` section of the kind configuration file to specify
-   different subnets (pick a network range that does not conflict with yours)
-   and re-create the cluster.
-
-   .. parsed-literal::
-        networking:
-          disableDefaultCNI: true
-          podSubnet: "10.244.0.0/16"
-          serviceSubnet: "10.245.0.0/16"
 
 Validate the Installation
 =========================
@@ -192,8 +170,7 @@ port-forward the Hubble Relay service locally:
    This terminal window needs to be remain open to keep port-forwarding in
    place. Open a separate terminal window to use the ``hubble`` CLI.
 
-You may test that your setup is working by issuing this command which gives you
-the status of the Hubble Relay service:
+Confirm that the Hubble Relay service is healthy via ``hubble status``:
 
 .. parsed-literal::
    $ hubble status --server localhost:4245
@@ -201,8 +178,8 @@ the status of the Hubble Relay service:
    Max Flows: 16384
 
 
-In order to avoid passing ``--server localhost:4245`` to ever command below,
-you may export the following environment variable:
+In order to avoid passing ``--server localhost:4245`` to every command, you may
+export the following environment variable:
 
 .. parsed-literal::
    $ export HUBBLE_DEFAULT_SOCKET_PATH=localhost:4245
