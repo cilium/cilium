@@ -331,7 +331,9 @@ func (s *IDPoolTestSuite) TestAllocateID(c *C) {
 		go func() {
 			for i := 1; i <= maxID; i++ {
 				id := p.AllocateID()
-				c.Assert(id, Not(Equals), NoID)
+				if id == NoID {
+					c.Error("ID expected to be allocated")
+				}
 				allocated <- id
 			}
 			allocators.Done()
@@ -344,6 +346,8 @@ func (s *IDPoolTestSuite) TestAllocateID(c *C) {
 	}()
 
 	for id := range allocated {
-		c.Assert(p.Insert(id), Equals, true)
+		if p.Insert(id) != true {
+			c.Error("ID insertion failed")
+		}
 	}
 }
