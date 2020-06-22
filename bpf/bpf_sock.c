@@ -180,7 +180,7 @@ int sock4_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 			struct lb4_key *orig_key __maybe_unused,
 			__u16 rev_nat_id __maybe_unused)
 {
-	return -1;
+	return 0;
 }
 #endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
 
@@ -502,7 +502,7 @@ int sock6_update_revnat(struct bpf_sock_addr *ctx __maybe_unused,
 			struct lb6_key *orig_key __maybe_unused,
 			__u16 rev_nat_index __maybe_unused)
 {
-	return -1;
+	return 0;
 }
 #endif /* ENABLE_HOST_SERVICES_UDP || ENABLE_HOST_SERVICES_PEER */
 #endif /* ENABLE_IPV6 */
