@@ -785,10 +785,9 @@ var _ = Describe("K8sServicesTest", func() {
 			// Should work from outside via the external IP
 			testCurlFromOutside(httpURL, count, false)
 			testCurlFromOutside(tftpURL, count, false)
-			// Same from inside a pod
-			testCurlFromPods(testDSClient, httpURL, 10, 0)
-			testCurlFromPods(testDSClient, tftpURL, 10, 0)
-			// But not from the host netns (to prevent MITM)
+			// Should fail from inside a pod & hostns
+			testCurlFromPodsFail(testDSClient, httpURL)
+			testCurlFromPodsFail(testDSClient, tftpURL)
 			testCurlFailFromPodInHostNetNS(httpURL, 1, k8s1NodeName)
 			testCurlFailFromPodInHostNetNS(httpURL, 1, k8s1NodeName)
 			testCurlFailFromPodInHostNetNS(httpURL, 1, k8s2NodeName)
