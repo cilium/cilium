@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"os"
 	"sort"
+	"sync"
 	"time"
 
 	"github.com/cilium/cilium/pkg/addressing"
@@ -1233,6 +1234,11 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 	for _, tt := range tests {
 		args := tt.setupArgs()
 		want := tt.setupWanted()
+
+		// Policy queues must be drained and shutdown completely. Otherwise,
+		// the following overwrite of policy will cause races between it and
+		// the goroutines its spun off in the background.
+		drainAndWaitForPolicyQueues(ds.d)
 		ds.d.policy = args.repo
 
 		rules, policyImportErr := args.cnp.Parse()
@@ -1247,4 +1253,22 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 
 		c.Assert(args.repo.GetRulesList().Policy, checker.DeepEquals, want.repo.GetRulesList().Policy, Commentf("Test name: %q", tt.name))
 	}
+}
+
+func drainAndWaitForPolicyQueues(d *Daemon) {
+	var wg sync.WaitGroup
+
+	wg.Add(2)
+	go func() {
+		defer wg.Done()
+		d.policy.RepositoryChangeQueue.Stop()
+		d.policy.RepositoryChangeQueue.WaitToBeDrained()
+	}()
+	go func() {
+		defer wg.Done()
+		d.policy.RuleReactionQueue.Stop()
+		d.policy.RuleReactionQueue.WaitToBeDrained()
+	}()
+
+	wg.Wait()
 }
