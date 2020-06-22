@@ -27,10 +27,10 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	fakedatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
-	"github.com/cilium/cilium/pkg/endpointmanager"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -137,7 +137,9 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.oldPolicyEnabled = policy.GetPolicyEnabled()
 	policy.SetPolicyEnabled(option.DefaultEnforcement)
 
-	d, _, err := NewDaemon(context.Background(), fakedatapath.NewDatapath())
+	d, _, err := NewDaemon(context.Background(),
+		WithCustomEndpointManager(&dummyEpSyncher{}),
+		fakedatapath.NewDatapath())
 	c.Assert(err, IsNil)
 	ds.d = d
 
@@ -150,8 +152,6 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	ds.OnSendNotification = d.SendNotification
 	ds.OnGetCIDRPrefixLengths = nil
 
-	ds.d.endpointManager = endpointmanager.NewEndpointManager(&dummyEpSyncher{})
-
 	// Reset the most common endpoint states before each test.
 	for _, s := range []string{
 		string(models.EndpointStateReady),
@@ -162,6 +162,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 }
 
 func (ds *DaemonSuite) TearDownTest(c *C) {
+	controller.NewManager().RemoveAllAndWait()
 	ds.d.endpointManager.RemoveAll()
 
 	// It's helpful to keep the directories around if a test failed; only delete
