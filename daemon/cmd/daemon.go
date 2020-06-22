@@ -232,7 +232,7 @@ func createPrefixLengthCounter() *counter.PrefixLengthCounter {
 }
 
 // NewDaemon creates and returns a new Daemon with the parameters set in c.
-func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
+func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp datapath.Datapath) (*Daemon, *endpointRestoreState, error) {
 
 	dCtx, cancel := context.WithCancel(ctx)
 	// Pass the cancel to our signal handler directly so that it's canceled
@@ -333,7 +333,7 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	ipcache.IdentityAllocator = d.identityAllocator
 	proxy.Allocator = d.identityAllocator
 
-	d.endpointManager = endpointmanager.NewEndpointManager(&watchers.EndpointSynchronizer{})
+	d.endpointManager = epMgr
 	d.endpointManager.InitMetrics()
 
 	d.k8sWatcher = watchers.NewK8sWatcher(
@@ -626,6 +626,19 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	bootstrapStats.fqdn.End(true)
 
 	return &d, restoredEndpoints, nil
+}
+
+// WithDefaultEndpointManager creates the default endpoint manager with a
+// functional endpoint synchronizer.
+func WithDefaultEndpointManager() *endpointmanager.EndpointManager {
+	return WithCustomEndpointManager(&watchers.EndpointSynchronizer{})
+}
+
+// WithCustomEndpointManager creates the custom endpoint manager with the
+// provided endpoint synchronizer. This is useful for tests which want to mock
+// out the real endpoint synchronizer.
+func WithCustomEndpointManager(s endpointmanager.EndpointResourceSynchronizer) *endpointmanager.EndpointManager {
+	return endpointmanager.NewEndpointManager(s)
 }
 
 func (d *Daemon) bootstrapClusterMesh(nodeMngr *nodemanager.Manager) {
