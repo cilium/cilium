@@ -592,7 +592,7 @@ To run this you can use the following command:
 
 
 VMs for Testing
-~~~~~~~~~~~~~~~~
+~~~~~~~~~~~~~~~
 
 The VMs used for testing are defined in ``test/Vagrantfile``. There are a variety of
 configuration options that can be passed as environment variables:
@@ -616,6 +616,40 @@ configuration options that can be passed as environment variables:
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
 | VM\_MEMORY           | 4096              | \d+          | RAM size in Megabytes                                            |
 +----------------------+-------------------+--------------+------------------------------------------------------------------+
+
+VM images
+~~~~~~~~~
+
+The test suite relies on Vagrant to automatically download the required VM
+image, if it is not already available on the system. VM images weight several
+gigabytes so this may take some time, but faster tools such as `aria2`_ can
+speed up the process by opening multiple connections. The script
+`test/packet/scripts/add_vagrant_box.sh`_ can be useful to manually download
+selected images with aria2 prior to launching the test suite, or to
+periodically update images in a ``cron`` job::
+
+    $ bash test/packet/script/add_vagrant_box.sh -h
+    usage: add_vagrant_box.sh [options] [vagrant_box_defaults.rb path]
+            path to vagrant_box_defaults.rb defaults to ./vagrant_box_defaults.rb
+
+    options:
+            -a              use aria2c instead of curl
+            -b <box>        download selected box (defaults: ubuntu ubuntu-next)
+            -l              download latest versions instead of using vagrant_box_defaults
+            -t              download to /tmp/ instead of current directory
+            -h              display this help
+
+    examples:
+            download boxes ubuntu and ubuntu-next from vagrant_box_defaults.rb:
+            $ add-vagrant-boxes.sh $HOME/go/src/github.com/cilium/cilium/vagrant_box_defaults.rb
+            download latest version for ubuntu-dev and ubuntu-next:
+            $ add-vagrant-boxes.sh -l -b ubuntu-dev -b ubuntu-next
+            same as above, downloading into /tmp/ and using aria2c:
+            $ add-vagrant-boxes.sh -alt -b ubuntu-dev -b ubuntu-next
+
+.. _aria2: https://aria2.github.io/
+.. _test/packet/scripts/add_vagrant_box.sh:
+   https://github.com/cilium/cilium/blob/master/test/packet/scripts/add_vagrant_box.sh
 
 Further Assistance
 ~~~~~~~~~~~~~~~~~~
