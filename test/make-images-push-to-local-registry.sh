@@ -24,7 +24,9 @@ docker push "$1/cilium/hubble-relay:$2"
 cilium_git_version="$(cat GIT_VERSION)"
 
 counter=0
-until [ $counter -eq 10 ] || docker image prune -f --all --filter "label=cilium-sha=${cilium_git_version%% *}"; do
-	((counter++))
+exitCode=1
+until [ $exitCode -eq 0 ] || [ $counter -eq 10 ]; do
+	docker image prune -f --all --filter "label=cilium-sha=${cilium_git_version%% *}" && exitCode=$? || exitCode=$?
+	counter=$((counter+1))
 	sleep 6
 done
