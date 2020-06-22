@@ -1260,7 +1260,9 @@ func runDaemon() {
 		bootstrapStats.k8sInit.End(true)
 	}
 
-	d, restoredEndpoints, err := NewDaemon(server.ServerCtx, linuxdatapath.NewDatapath(datapathConfig, iptablesManager))
+	d, restoredEndpoints, err := NewDaemon(server.ServerCtx,
+		WithDefaultEndpointManager(),
+		linuxdatapath.NewDatapath(datapathConfig, iptablesManager))
 	if err != nil {
 		log.WithError(err).Fatal("Error while creating daemon")
 		return
