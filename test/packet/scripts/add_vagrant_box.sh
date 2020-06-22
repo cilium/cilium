@@ -149,9 +149,10 @@ for box in $boxes; do
             ret=$?
         fi
         if [[ $ret -eq 0 ]]; then
-            cd $outdir
+            pushd $outdir
             vagrant box add metadata.json
             ret=$?
+            popd
         fi
     fi
 
