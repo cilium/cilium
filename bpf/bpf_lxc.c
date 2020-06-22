@@ -85,21 +85,13 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 
 	l4_off = l3_off + hdrlen;
 
-	/*
-	 * Check if the destination address is among the address that should be
-	 * load balanced. This operation is performed before we go through the
-	 * connection tracker to allow storing the reverse nat index in the CT
-	 * entry for destination endpoints where we can't encode the state in the
-	 * address.
-	 */
-#ifdef ENABLE_SERVICES
-# if !defined(ENABLE_HOST_SERVICES_FULL) || \
-     (defined(ENABLE_EXTERNAL_IP) && !defined(BPF_HAVE_NETNS_COOKIE))
+#if defined(ENABLE_SERVICES) && !defined(ENABLE_HOST_SERVICES_FULL)
 	{
 		struct lb6_service *svc;
 		struct lb6_key key = {};
 
-		ret = lb6_extract_key(ctx, tuple, l4_off, &key, &csum_off, CT_EGRESS);
+		ret = lb6_extract_key(ctx, tuple, l4_off, &key, &csum_off,
+				      CT_EGRESS);
 		if (IS_ERR(ret)) {
 			if (ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
@@ -107,8 +99,14 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 				return ret;
 		}
 
-		if ((svc = lb6_lookup_service(&key)) != NULL &&
-		    lb6_svc_needs_lxc_xlation(svc)) {
+		/*
+		 * Check if the destination address is among the address that should
+		 * be load balanced. This operation is performed before we go through
+		 * the connection tracker to allow storing the reverse nat index in
+		 * the CT entry for destination endpoints where we can't encode the
+		 * state in the address.
+		 */
+		if ((svc = lb6_lookup_service(&key)) != NULL) {
 			ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, tuple, svc, &ct_state_new);
 			if (IS_ERR(ret))
@@ -118,8 +116,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	}
 
 skip_service_lookup:
-# endif /* !ENABLE_HOST_SERVICES_FULL || ENABLE_EXTERNAL_IP && !BPF_HAVE_NETNS_COOKIE */
-#endif /* ENABLE_SERVICES */
+#endif /* ENABLE_SERVICES && !ENABLE_HOST_SERVICES_FULL */
 
 	/* The verifier wants to see this assignment here in case the above goto
 	 * skip_service_lookup is hit. However, in the case the packet
@@ -460,9 +457,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
-#ifdef ENABLE_SERVICES
-# if !defined(ENABLE_HOST_SERVICES_FULL) || \
-     (defined(ENABLE_EXTERNAL_IP) && !defined(BPF_HAVE_NETNS_COOKIE))
+#if defined(ENABLE_SERVICES) && !defined(ENABLE_HOST_SERVICES_FULL)
 	{
 		struct lb4_service *svc;
 		struct lb4_key key = {};
@@ -476,10 +471,10 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 				return ret;
 		}
 
-		if ((svc = lb4_lookup_service(&key)) != NULL &&
-		    lb4_svc_needs_lxc_xlation(svc)) {
-			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off, &csum_off,
-					&key, &tuple, svc, &ct_state_new, ip4->saddr);
+		if ((svc = lb4_lookup_service(&key)) != NULL) {
+			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
+					&csum_off, &key, &tuple, svc, &ct_state_new,
+					ip4->saddr);
 			if (IS_ERR(ret))
 				return ret;
 			hairpin_flow |= ct_state_new.loopback;
@@ -487,8 +482,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	}
 
 skip_service_lookup:
-# endif /* !ENABLE_HOST_SERVICES_FULL || ENABLE_EXTERNAL_IP && !BPF_HAVE_NETNS_COOKIE */
-#endif /* ENABLE_SERVICES */
+#endif /* ENABLE_SERVICES && !ENABLE_HOST_SERVICES_FULL */
 
 	/* The verifier wants to see this assignment here in case the above goto
 	 * skip_service_lookup is hit. However, in the case the packet
