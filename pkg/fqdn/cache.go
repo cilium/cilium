@@ -831,7 +831,9 @@ func (zombies *DNSZombieMappings) MarkAlive(now time.Time, ip net.IP) {
 // no longer alive. Thus, this call acts as a gating function for what data is
 // returned by GC.
 func (zombies *DNSZombieMappings) SetCTGCTime(now time.Time) {
+	zombies.Lock()
 	zombies.lastCTGCUpdate = now
+	zombies.Unlock()
 }
 
 // ForceExpire is used to clear zombies irrespective of their alive status.
@@ -937,6 +939,9 @@ func (zombies *DNSZombieMappings) DumpAlive() (alive []*DNSZombieMapping) {
 // MarshalJSON encodes DNSZombieMappings into JSON. Only the DNSZombieMapping
 // entries are encoded.
 func (zombies *DNSZombieMappings) MarshalJSON() ([]byte, error) {
+	zombies.Lock()
+	defer zombies.Unlock()
+
 	// This hackery avoids exposing DNSZombieMappings.deletes as a public field.
 	// The JSON package cannot serialize private fields so we have to make a
 	// proxy type here.
