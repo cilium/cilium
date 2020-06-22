@@ -155,7 +155,11 @@ todo_include_todos = False
 # The theme to use for HTML and HTML Help pages.  See the documentation for
 # a list of builtin themes.
 #
-html_theme = "sphinx_rtd_theme_cilium"
+if os.uname()[4] == "aarch64":
+  html_theme = "sphinx_rtd_theme"
+else:
+  html_theme = "sphinx_rtd_theme_cilium"
+
 html_context = {
     'release': release
 }
