@@ -85,7 +85,7 @@ check_smoke_test() {
 	BRANCH=$(curl -s "https://api.github.com/repos/cilium/cilium/pulls/$PR_ID" | jq -r '.head.ref')
 
 	# Get workflow ID for latest Smoke tests run for that branch
-	ID=$(curl -s "https://api.github.com/repos/cilium/cilium/actions/workflows/helm-check.yaml/runs?branch=$BRANCH&per_page=1" | jq '.workflow_runs[].id');
+	ID=$(curl -s "https://api.github.com/repos/cilium/cilium/actions/workflows/smoke-test.yaml/runs?branch=$BRANCH&per_page=1" | jq '.workflow_runs[].id');
 
 	while true; do
 		# Get info for jobs in the Smoke tests workflow run
