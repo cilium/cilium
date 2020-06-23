@@ -488,7 +488,7 @@ func (m *IptablesManager) inboundProxyRedirectRule(cmd string) []string {
 	return append(m.waitArgs,
 		"-t", "mangle",
 		cmd, ciliumPreMangleChain,
-		"-m", "socket", "--transparent", "--nowildcard",
+		"-m", "socket", "--transparent",
 		"-m", "comment", "--comment", "cilium: any->pod redirect proxied traffic to host proxy",
 		"-j", "MARK",
 		"--set-mark", toProxyMark)
