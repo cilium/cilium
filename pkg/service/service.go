@@ -593,19 +593,11 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, prevBackendCount int,
 		backendIDs[i] = uint16(b.ID)
 	}
 
-	svcType := svc.svcType
-	// SVC of LoadBalancer type is identical to ExternalIP. However, currently
-	// datapath does not support the LoadBalancer type, only ExternalIP. So,
-	// for now set the ExternalIP type.
-	if svcType == lb.SVCTypeLoadBalancer {
-		svcType = lb.SVCTypeExternalIPs
-	}
-
 	err := s.lbmap.UpsertService(
 		uint16(svc.frontend.ID), svc.frontend.L3n4Addr.IP,
 		svc.frontend.L3n4Addr.L4Addr.Port,
 		backendIDs, prevBackendCount,
-		ipv6, svcType, svc.requireNodeLocalBackends(),
+		ipv6, svc.svcType, svc.requireNodeLocalBackends(),
 		svc.sessionAffinity, svc.sessionAffinityTimeoutSec)
 	if err != nil {
 		return err

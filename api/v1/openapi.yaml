@@ -2169,6 +2169,7 @@ definitions:
             - NodePort
             - ExternalIPs
             - HostPort
+            - LoadBalancer
           trafficPolicy:
             description: Service traffic policy
             type: string

@@ -3177,7 +3177,8 @@ func init() {
                 "ClusterIP",
                 "NodePort",
                 "ExternalIPs",
-                "HostPort"
+                "HostPort",
+                "LoadBalancer"
               ]
             }
           }
@@ -6788,7 +6789,8 @@ func init() {
                 "ClusterIP",
                 "NodePort",
                 "ExternalIPs",
-                "HostPort"
+                "HostPort",
+                "LoadBalancer"
               ]
             }
           }
