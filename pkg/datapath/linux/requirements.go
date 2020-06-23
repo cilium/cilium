@@ -180,7 +180,7 @@ func CheckMinRequirements() {
 			if _, ok := err.(*probes.ErrKernelConfigNotFound); ok {
 				log.WithError(err).Info(errMsg)
 			} else {
-				log.WithError(err).Fatal(errMsg)
+				log.WithError(err).Warn(errMsg)
 			}
 		}
 		if err := probeManager.CreateHeadersFile(); err != nil {
