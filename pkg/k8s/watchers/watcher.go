@@ -786,6 +786,13 @@ func (k *K8sWatcher) GetStore(name string) cache.Store {
 		return k.networkpolicyStore
 	case "namespace":
 		return k.namespaceStore
+	case "pod":
+		// Wait for podStore to get initialized.
+		<-k.podStoreSet
+		// Access to podStore is protected by podStoreMU.
+		k.podStoreMU.RLock()
+		defer k.podStoreMU.RUnlock()
+		return k.podStore
 	default:
 		return nil
 	}
