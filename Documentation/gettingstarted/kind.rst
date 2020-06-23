@@ -99,8 +99,8 @@ Example ``kind-cluster1.yaml``:
     - role: worker
     networking:
       disableDefaultCNI: true
-      podSubnet: 10.0.0.0/16
-      serviceSubnet: 10.1.0.0/16
+      podSubnet: "10.0.0.0/16"
+      serviceSubnet: "10.1.0.0/16"
 
 Example ``kind-cluster2.yaml``:
 
@@ -115,8 +115,8 @@ Example ``kind-cluster2.yaml``:
     - role: worker
     networking:
       disableDefaultCNI: true
-      podSubnet: 10.2.0.0/16
-      serviceSubnet: 10.3.0.0/16
+      podSubnet: "10.2.0.0/16"
+      serviceSubnet: "10.3.0.0/16"
 
 Create Kind Clusters
 --------------------
