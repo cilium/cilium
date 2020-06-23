@@ -583,7 +583,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	struct lb6_service *slave_svc;
 	int slave;
 	__u32 backend_id = 0;
-	bool backend_from_affinity = false;
 	int ret;
 #ifdef ENABLE_SESSION_AFFINITY
 	union lb6_affinity_client_id client_id;
@@ -598,8 +597,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		if (svc->affinity) {
 			backend_id = lb6_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
-				backend_from_affinity = true;
-
 				backend = lb6_lookup_backend(ctx, backend_id);
 				if (backend == NULL)
 					backend_id = 0;
@@ -607,8 +604,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		}
 #endif
 		if (backend_id == 0) {
-			backend_from_affinity = false;
-
 			slave = lb6_select_slave(svc->count);
 			if ((slave_svc = lb6_lookup_slave(ctx, key, slave)) == NULL)
 				goto drop_no_service;
@@ -647,11 +642,9 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	// See lb4_local comment
 	if (state->rev_nat_index != svc->rev_nat_index) {
 #ifdef ENABLE_SESSION_AFFINITY
-		if (svc->affinity) {
+		if (svc->affinity)
 			backend_id = lb6_affinity_backend_id_by_addr(svc,
 								     &client_id);
-			backend_from_affinity = true;
-		}
 #endif
 		if (backend_id == 0) {
 			slave = lb6_select_slave(svc->count);
@@ -1088,7 +1081,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	struct lb4_service *slave_svc;
 	int slave;
 	__u32 backend_id = 0;
-	bool backend_from_affinity = false;
 	int ret;
 #ifdef ENABLE_SESSION_AFFINITY
 	union lb4_affinity_client_id client_id = {
@@ -1102,8 +1094,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		if (svc->affinity) {
 			backend_id = lb4_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
-				backend_from_affinity = true;
-
 				backend = lb4_lookup_backend(ctx, backend_id);
 				if (backend == NULL)
 					backend_id = 0;
@@ -1111,8 +1101,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		}
 #endif
 		if (backend_id == 0) {
-			backend_from_affinity = false;
-
 			/* No CT entry has been found, so select a svc endpoint */
 			slave = lb4_select_slave(svc->count);
 			if ((slave_svc = lb4_lookup_slave(ctx, key, slave)) == NULL)
@@ -1160,11 +1148,9 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	// select a new backend.
 	if (state->rev_nat_index != svc->rev_nat_index) {
 #ifdef ENABLE_SESSION_AFFINITY
-		if (svc->affinity) {
+		if (svc->affinity)
 			backend_id = lb4_affinity_backend_id_by_addr(svc,
 								     &client_id);
-			backend_from_affinity = true;
-		}
 #endif
 		if (backend_id == 0) {
 			slave = lb4_select_slave(svc->count);
