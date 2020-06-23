@@ -330,6 +330,14 @@ func TestServiceFlags_IsSvcType(t *testing.T) {
 			s:    serviceFlagExternalIPs | serviceFlagLocalScope,
 			want: false,
 		},
+		{
+			args: args{
+				svcType:  SVCTypeLoadBalancer,
+				svcLocal: false,
+			},
+			s:    serviceFlagLoadBalancer,
+			want: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
@@ -365,6 +373,11 @@ func TestServiceFlags_String(t *testing.T) {
 			name: "Test-4",
 			s:    serviceFlagExternalIPs | serviceFlagLocalScope,
 			want: "ExternalIPs, Local",
+		},
+		{
+			name: "Test-5",
+			s:    serviceFlagLoadBalancer,
+			want: "LoadBalancer",
 		},
 	}
 	for _, tt := range tests {
