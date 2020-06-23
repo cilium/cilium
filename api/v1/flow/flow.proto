@@ -70,7 +70,7 @@ message Flow {
     // policy_match_type is only applicable to the cilium event type PolicyVerdict
     // https://github.com/cilium/cilium/blob/e831859b5cc336c6d964a6d35bbd34d1840e21b9/pkg/monitor/datapath_policy.go#L50
     uint32 policy_match_type = 23;
-    
+
     // Only applicable to cilium trace notifications, blank for other types.
     TraceObservationPoint trace_observation_point = 24;
 
@@ -106,6 +106,7 @@ enum TraceObservationPoint {
     FROM_STACK = 8;
     FROM_OVERLAY = 9;
     FROM_NETWORK = 10;
+    TO_NETWORK= 11;
 }
 
 message Layer4 {
