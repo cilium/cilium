@@ -29,7 +29,6 @@ import (
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
@@ -60,7 +59,7 @@ func runNodeWatcher(nodeManager *allocator.NodeEventHandler) error {
 	k8sNodeStore, nodeController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(),
 			"ciliumnodes", v1.NamespaceAll, fields.Everything()),
-		&slim_corev1.Node{},
+		&cilium_v2.CiliumNode{},
 		0,
 		cache.ResourceEventHandlerFuncs{
 			AddFunc: func(obj interface{}) {
