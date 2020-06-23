@@ -1147,7 +1147,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
 	} else {
 		bpf_skip_nodeport_clear(ctx);
-		send_trace_notify(ctx, TRACE_FROM_STACK, 0, 0, 0,
+		send_trace_notify(ctx, TRACE_FROM_NETWORK, 0, 0, 0,
 				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
 	}
 
@@ -1280,6 +1280,7 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		break;
 	}
 
+
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, srcID, ret, CTX_ACT_DROP,
@@ -1300,7 +1301,8 @@ out:
 						      METRIC_EGRESS);
 	}
 #endif
-
+	send_trace_notify(ctx, TRACE_TO_NETWORK, srcID, 0, 0,
+			  0, ret, 0);
 	return ret;
 }
 

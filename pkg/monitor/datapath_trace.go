@@ -159,6 +159,8 @@ func (n *TraceNotify) traceSummary() string {
 		return "-> stack"
 	case api.TraceToOverlay:
 		return "-> overlay"
+	case api.TraceToNetwork:
+		return "-> network"
 	case api.TraceFromLxc:
 		return fmt.Sprintf("<- endpoint %d", n.Source)
 	case api.TraceFromProxy:
