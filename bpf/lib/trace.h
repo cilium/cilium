@@ -31,6 +31,7 @@ enum {
 	TRACE_FROM_STACK,
 	TRACE_FROM_OVERLAY,
 	TRACE_FROM_NETWORK,
+	TRACE_TO_NETWORK,
 };
 
 /* Reasons for forwarding a packet. */
@@ -85,6 +86,7 @@ update_trace_metrics(struct __ctx_buff *ctx, __u8 obs_point, __u8 reason)
 	case TRACE_TO_HOST:
 	case TRACE_TO_STACK:
 	case TRACE_TO_OVERLAY:
+	case TRACE_TO_NETWORK:
 		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
 			       REASON_FORWARDED);
 		break;

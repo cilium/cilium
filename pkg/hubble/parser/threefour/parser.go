@@ -482,7 +482,8 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 		case monitorAPI.TraceToLxc,
 			monitorAPI.TraceToProxy,
 			monitorAPI.TraceToHost,
-			monitorAPI.TraceToStack:
+			monitorAPI.TraceToStack,
+			monitorAPI.TraceToNetwork:
 
 			// true if the traffic source is the local endpoint, i.e. egress
 			isSourceEP := tn.Source == uint16(srcEP)

@@ -143,6 +143,7 @@ const (
 	TraceFromStack
 	TraceFromOverlay
 	TraceFromNetwork
+	TraceToNetwork
 )
 
 // TraceObservationPoints is a map of all supported trace observation points
@@ -152,6 +153,7 @@ var TraceObservationPoints = map[uint8]string{
 	TraceToHost:      "to-host",
 	TraceToStack:     "to-stack",
 	TraceToOverlay:   "to-overlay",
+	TraceToNetwork:   "to-network",
 	TraceFromLxc:     "from-endpoint",
 	TraceFromProxy:   "from-proxy",
 	TraceFromHost:    "from-host",

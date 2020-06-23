@@ -122,6 +122,7 @@ const TraceObservationPoint_FROM_HOST = TraceObservationPoint(flow.TraceObservat
 const TraceObservationPoint_FROM_STACK = TraceObservationPoint(flow.TraceObservationPoint_FROM_STACK)
 const TraceObservationPoint_FROM_OVERLAY = TraceObservationPoint(flow.TraceObservationPoint_FROM_OVERLAY)
 const TraceObservationPoint_FROM_NETWORK = TraceObservationPoint(flow.TraceObservationPoint_FROM_NETWORK)
+const TraceObservationPoint_TO_NETWORK = TraceObservationPoint(flow.TraceObservationPoint_TO_NETWORK)
 
 // L7FlowType from public import flow/flow.proto
 type L7FlowType = flow.L7FlowType
