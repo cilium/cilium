@@ -13,3 +13,5 @@ nodes:
   - role: worker
 networking:
   disableDefaultCNI: true
+  podSubnet: "10.244.0.0/16"
+  serviceSubnet: "10.245.0.0/16"
