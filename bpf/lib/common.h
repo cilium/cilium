@@ -590,7 +590,8 @@ struct lb6_service {
 	     local_scope:1,	/* K8s externalTrafficPolicy=Local */
 	     hostport:1,	/* K8s hostPort forwarding */
 	     affinity:1,	/* K8s sessionAffinity=clientIP */
-	     reserved:3;
+	     loadbalancer:1,	/* K8s LoadBalancer service */
+	     reserved:2;
 	__u8 pad[3];
 };
 
@@ -643,7 +644,8 @@ struct lb4_service {
 	     local_scope:1,	/* K8s externalTrafficPolicy=Local */
 	     hostport:1,	/* K8s hostPort forwarding */
 	     affinity:1,	/* K8s sessionAffinity=clientIP */
-	     reserved:3;
+	     loadbalancer:1,	/* K8s LoadBalancer service */
+	     reserved:2;
 	__u8 pad[3];
 };
 
