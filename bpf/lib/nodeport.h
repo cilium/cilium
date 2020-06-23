@@ -548,7 +548,8 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 			return ret;
 	}
 
-	if (!svc || (!lb6_svc_is_nodeport(svc) &&
+	if (!svc || (!lb6_svc_is_loadbalancer(svc) &&
+		     !lb6_svc_is_nodeport(svc) &&
 		     !lb6_svc_is_external_ip(svc) &&
 		     !lb6_svc_is_hostport(svc))) {
 		if (svc)
@@ -1224,7 +1225,8 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 			return ret;
 	}
 
-	if (!svc || (!lb4_svc_is_nodeport(svc) &&
+	if (!svc || (!lb4_svc_is_loadbalancer(svc) &&
+		     !lb4_svc_is_nodeport(svc) &&
 		     !lb4_svc_is_external_ip(svc) &&
 		     !lb4_svc_is_hostport(svc))) {
 		if (svc)

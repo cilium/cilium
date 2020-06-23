@@ -368,11 +368,13 @@ static __always_inline int __sock4_bind(struct bpf_sock *ctx,
 		svc = sock4_nodeport_wildcard_lookup(&key, false, true);
 	}
 
-	/* If the sockaddr of this socket overlaps with a NodePort
-	 * or ExternalIP service. We must reject this bind() call
-	 * to avoid accidentally hijacking its traffic.
+	/* If the sockaddr of this socket overlaps with a NodePort,
+	 * LoadBalancer or ExternalIP service. We must reject this
+	 * bind() call to avoid accidentally hijacking its traffic.
 	 */
-	if (svc && (lb4_svc_is_nodeport(svc) || lb4_svc_is_external_ip(svc)))
+	if (svc && (lb4_svc_is_nodeport(svc) ||
+		    lb4_svc_is_external_ip(svc) ||
+		    lb4_svc_is_loadbalancer(svc)))
 		return -EADDRINUSE;
 
 	return 0;
@@ -655,7 +657,9 @@ static __always_inline int __sock6_bind(struct bpf_sock *ctx)
 			return sock6_bind_v4_in_v6(ctx);
 	}
 
-	if (svc && (lb6_svc_is_nodeport(svc) || lb6_svc_is_external_ip(svc)))
+	if (svc && (lb6_svc_is_nodeport(svc) ||
+		    lb6_svc_is_external_ip(svc) ||
+		    lb6_svc_is_loadbalancer(svc)))
 		return -EADDRINUSE;
 
 	return 0;

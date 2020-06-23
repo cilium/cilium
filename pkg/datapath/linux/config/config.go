@@ -235,6 +235,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	if option.Config.EnableNodePort {
 		cDefinesMap["ENABLE_NODEPORT"] = "1"
+		cDefinesMap["ENABLE_LOADBALANCER"] = "1"
 
 		if option.Config.EnableIPv4 {
 			cDefinesMap["NODEPORT_NEIGH4"] = neighborsmap.Map4Name

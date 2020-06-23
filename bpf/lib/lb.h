@@ -118,6 +118,26 @@ struct bpf_elf_map __section_maps LB_AFFINITY_MATCH_MAP = {
 #endif
 
 static __always_inline
+bool lb4_svc_is_loadbalancer(const struct lb4_service *svc __maybe_unused)
+{
+#ifdef ENABLE_LOADBALANCER
+	return svc->loadbalancer;
+#else
+	return false;
+#endif /* ENABLE_LOADBALANCER */
+}
+
+static __always_inline
+bool lb6_svc_is_loadbalancer(const struct lb6_service *svc __maybe_unused)
+{
+#ifdef ENABLE_LOADBALANCER
+	return svc->loadbalancer;
+#else
+	return false;
+#endif /* ENABLE_LOADBALANCER */
+}
+
+static __always_inline
 bool lb4_svc_is_nodeport(const struct lb4_service *svc __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
