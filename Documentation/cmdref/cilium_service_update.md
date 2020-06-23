@@ -21,6 +21,7 @@ cilium service update [flags]
       --id uint                     Identifier
       --k8s-external                Set service as a k8s ExternalIPs
       --k8s-host-port               Set service as a k8s HostPort
+      --k8s-load-balancer           Set service as a k8s LoadBalancer
       --k8s-node-port               Set service as a k8s NodePort
       --k8s-traffic-policy string   Set service with k8s externalTrafficPolicy as {Local,Cluster} (default "Cluster")
 ```
