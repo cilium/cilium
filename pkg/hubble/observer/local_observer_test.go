@@ -35,6 +35,7 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
+	"k8s.io/client-go/tools/cache"
 )
 
 var log *logrus.Logger
@@ -132,6 +133,10 @@ type fakeCiliumDaemon struct{}
 
 func (f *fakeCiliumDaemon) DebugEnabled() bool {
 	return true
+}
+
+func (f *fakeCiliumDaemon) GetK8sStore(name string) cache.Store {
+	return nil
 }
 
 func TestHooks(t *testing.T) {
