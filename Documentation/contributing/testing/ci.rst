@@ -1,5 +1,5 @@
 .. only:: not (epub or latex or html)
-  
+
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
     https://docs.cilium.io
@@ -37,38 +37,43 @@ After you don't need to run tests on your branch, please remove the branch from 
 
 .. note::
 
-   It is also possible to run specific tests from this suite via ``test-focus`` and ``test-gke``. It takes trailing words as a regex. If you want to run only one ``It`` block, you need to prepend it with a test suite and create a regex, e.g ``test-focus K8sDatapathConfig.*Check connectivity with automatic direct nodes routes``
+   It is also possible to run specific tests from this suite via ``test-only``. The comment can contain 3 arguments: ``--focus`` which specifies which tests should be run, ``--kernel_version`` for supported kernel version (net-next, 49, 419 are possible values right now), ``--k8s_version`` for k8s version. If you want to run only one ``It`` block, you need to prepend it with a test suite and create a regex, e.g ``test-only --focus="K8sDatapathConfig.*Check connectivity with automatic direct nodes routes" --k8s_version=1.18 --kernel_version=net-next`` will run specified test in 1.18 Kubernetes cluster running on net-next nodes. Kubernetes version defaults to 1.17, kernel version defaults to 4.19.
 
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8s``                    | Runs all kubernetes tests                 |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sConformance``         | Runs all k8s conformance tests            |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sChaos``               | Runs all k8s chaos tests                  |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sDatapathConfig``      | Runs all k8s datapath configuration tests |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sDemos``               | Runs all k8s demo tests                   |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sKubeProxyFreeMatrix`` | Runs all k8s kube-proxy free matrix tests |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sFQDNTest``            | Runs all k8s fqdn tests                   |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sHealthTest``          | Runs all k8s health tests                 |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sHubbleTest``          | Runs all k8s Hubble tests                 |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sIdentity``            | Runs all k8s identity tests               |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sIstioTest``           | Runs all k8s Istio tests                  |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sKafkaPolicyTest``     | Runs all k8s Kafka tests                  |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sPolicyTest``          | Runs all k8s policy tests                 |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sServicesTest``        | Runs all k8s services tests               |
-   +---------------------------------------+-------------------------------------------+
-   | ``test-focus K8sUpdates``             | Runs k8s update tests                     |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8s"``                    | Runs all kubernetes tests                 |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sConformance"``         | Runs all k8s conformance tests            |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sChaos"``               | Runs all k8s chaos tests                  |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sDatapathConfig"``      | Runs all k8s datapath configuration tests |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sDemos"``               | Runs all k8s demo tests                   |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sKubeProxyFreeMatrix"`` | Runs all k8s kube-proxy free matrix tests |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sFQDNTest"``            | Runs all k8s fqdn tests                   |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sHealthTest"``          | Runs all k8s health tests                 |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sHubbleTest"``          | Runs all k8s Hubble tests                 |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sIdentity"``            | Runs all k8s identity tests               |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sIstioTest"``           | Runs all k8s Istio tests                  |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sKafkaPolicyTest"``     | Runs all k8s Kafka tests                  |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sPolicyTest"``          | Runs all k8s policy tests                 |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sServicesTest"``        | Runs all k8s services tests               |
+   +------------------------------------------------+-------------------------------------------+
+   | ``test-only --focus="K8sUpdates"``             | Runs k8s update tests                     |
+   +------------------------------------------------+-------------------------------------------+
+
+
+   Running Runtime test suite is still done via ``test-focus`` command.
+
    +---------------------------------------+-------------------------------------------+
    | ``test-focus Runtime``                | Runs all runtime tests                    |
    +---------------------------------------+-------------------------------------------+
