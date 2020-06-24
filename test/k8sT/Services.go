@@ -1113,6 +1113,72 @@ var _ = Describe("K8sServicesTest", func() {
 			testExternalTrafficPolicyLocal()
 		})
 
+		Context("TFTP with DNS Proxy port collision", func() {
+			var (
+				demoPolicy    string
+				ciliumPodK8s1 string
+				ciliumPodK8s2 string
+				DNSProxyPort1 int
+				DNSProxyPort2 int
+			)
+
+			BeforeAll(func() {
+				var err error
+				ciliumPodK8s1, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
+				Expect(err).Should(BeNil(), "Cannot get cilium pod on %s", helpers.K8s1)
+				ciliumPodK8s2, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s2)
+				Expect(err).Should(BeNil(), "Cannot get cilium pod on %s", helpers.K8s2)
+
+				// Find out the DNS proxy ports in use
+				DNSProxyPort1 = kubectl.GetDNSProxyPort(ciliumPodK8s1)
+				By("DNS Proxy port in k8s1 (%s): %d", ciliumPodK8s1, DNSProxyPort1)
+				DNSProxyPort2 = kubectl.GetDNSProxyPort(ciliumPodK8s2)
+				By("DNS Proxy port in k8s2 (%s): %d", ciliumPodK8s2, DNSProxyPort2)
+
+				demoPolicy = helpers.ManifestGet(kubectl.BasePath(), "l4-policy-demo.yaml")
+			})
+
+			AfterAll(func() {
+				// Explicitly ignore result of deletion of resources to avoid incomplete
+				// teardown if any step fails.
+				_ = kubectl.Delete(demoPolicy)
+			})
+
+			It("Tests TFTP from DNS Proxy Port", func() {
+				if DNSProxyPort2 == DNSProxyPort1 {
+					Skip(fmt.Sprintf("TFTP source port test can not be done when both nodes have the same proxy port (%d == %d)", DNSProxyPort1, DNSProxyPort2))
+				}
+				monitorRes1, monitorCancel1 := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1)
+				monitorRes2, monitorCancel2 := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s2)
+				defer func() {
+					monitorCancel1()
+					monitorCancel2()
+					helpers.WriteToReportFile(monitorRes1.CombineOutput().Bytes(), "tftp-with-l4-policy-monitor-k8s1.log")
+					helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "tftp-with-l4-policy-monitor-k8s2.log")
+				}()
+
+				applyPolicy(demoPolicy)
+
+				var data v1.Service
+				err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
+				Expect(err).Should(BeNil(), "Can not retrieve service")
+
+				// Test enough times to get random backend selection from both nodes.
+				// The interesting case is when the backend is at k8s2.
+				count := 10
+				fails := 0
+				// Client from k8s1
+				clientPod, _ := kubectl.GetPodOnNodeWithOffset(helpers.K8s1, testDSClient, 1)
+				// Destination is a NodePort in k8s2, curl (in k8s1) binding to the same local port as the DNS proxy port
+				// in k8s2
+				url := getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort) + fmt.Sprintf(" --local-port %d", DNSProxyPort2)
+				cmd := testCommand(helpers.CurlFailNoStats(url), count, fails)
+				By("Making %d curl requests from %s pod to service %s using source port %d", count, clientPod, url, DNSProxyPort2)
+				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, clientPod, cmd)
+				Expect(res).Should(helpers.CMDSuccess(), "Request from %s pod to service %s failed", clientPod, url)
+			})
+		})
+
 		Context("with L4 policy", func() {
 			var (
 				demoPolicy string
