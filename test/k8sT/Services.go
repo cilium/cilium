@@ -680,6 +680,7 @@ var _ = Describe("K8sServicesTest", func() {
 				getHTTPLink("::ffff:"+k8s2IP, data.Spec.Ports[0].NodePort),
 				getTFTPLink("::ffff:"+k8s2IP, data.Spec.Ports[1].NodePort),
 			}
+
 			if testSecondaryNodePortIP {
 				secondaryK8s1IPv4, _ = getIPv4Andv6AddrForIface(k8s1NodeName, helpers.SecondaryIface)
 				secondaryK8s2IPv4, _ = getIPv4Andv6AddrForIface(k8s2NodeName, helpers.SecondaryIface)
@@ -690,6 +691,22 @@ var _ = Describe("K8sServicesTest", func() {
 
 					getHTTPLink(secondaryK8s2IPv4, data.Spec.Ports[0].NodePort),
 					getTFTPLink(secondaryK8s2IPv4, data.Spec.Ports[1].NodePort),
+				}...)
+			}
+
+			if helpers.GetCurrentIntegration() == helpers.CIIntegrationGKE {
+				// Testing LoadBalancer types subject to bpf_sock.
+				lbIP, err := kubectl.GetLoadBalancerIP(helpers.DefaultNamespace, "test-lb", 30*time.Second)
+				Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
+
+				testURLsFromHosts = append(testURLsFromHosts, []string{
+					getHTTPLink(lbIP, 80),
+					getHTTPLink("::ffff:"+lbIP, 80),
+				}...)
+
+				testURLsFromPods = append(testURLsFromPods, []string{
+					getHTTPLink(lbIP, 80),
+					getHTTPLink("::ffff:"+lbIP, 80),
 				}...)
 			}
 
