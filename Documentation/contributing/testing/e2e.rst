@@ -188,15 +188,17 @@ framework in the ``test/`` directory and interact with ginkgo directly:
 ::
 
     $ cd test/
-    $ ginkgo . -- --help | grep -A 1 cilium
+    $ ginkgo . -- -cilium.help
       -cilium.SSHConfig string
             Specify a custom command to fetch SSH configuration (eg: 'vagrant ssh-config')
       -cilium.benchmarks
             Specifies benchmark tests should be run which may increase test time
+      -cilium.help
+            Display this help message.
       -cilium.holdEnvironment
             On failure, hold the environment in its current state
       -cilium.hubble-relay-image string
-            Specifies which image of Hubble Relay to use during tests
+            Specifies which image of hubble-relay to use during tests
       -cilium.image string
             Specifies which image of cilium to use during tests
       -cilium.kubeconfig string
@@ -214,7 +216,7 @@ framework in the ``test/`` directory and interact with ginkgo directly:
       -cilium.registry string
             docker registry hostname for Cilium image
       -cilium.runQuarantined
-        Run tests that are under quarantine.
+            Run tests that are under quarantine.
       -cilium.showCommands
             Output which commands are ran to stdout
       -cilium.skipLogs
@@ -223,6 +225,9 @@ framework in the ``test/`` directory and interact with ginkgo directly:
             Specifies scope of test to be ran (k8s, Nightly, runtime)
       -cilium.timeout duration
             Specifies timeout for test run (default 24h0m0s)
+
+    Ginkgo ran 1 suite in 5.04417992s
+    Test Suite Failed
 
 For more information about other built-in options to Ginkgo, consult the
 `Ginkgo documentation`_.

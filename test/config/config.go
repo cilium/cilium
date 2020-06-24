@@ -46,6 +46,7 @@ type CiliumTestConfigType struct {
 	// node. If false, some tests will silently skip multinode checks.
 	Multinode      bool
 	RunQuarantined bool
+	Help           bool
 }
 
 // CiliumTestConfig holds the global configuration of commandline flags
@@ -54,7 +55,7 @@ var CiliumTestConfig = CiliumTestConfigType{}
 
 // ParseFlags parses commandline flags relevant to testing.
 func (c *CiliumTestConfigType) ParseFlags() {
-	flagset := flag.NewFlagSet("cilium", flag.PanicOnError)
+	flagset := flag.NewFlagSet("cilium", flag.ExitOnError)
 	flagset.BoolVar(&c.Reprovision, "cilium.provision", true,
 		"Provision Vagrant boxes and Cilium before running test")
 	flagset.BoolVar(&c.HoldEnvironment, "cilium.holdEnvironment", false,
@@ -88,10 +89,14 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Enable tests across multiple nodes. If disabled, such tests may silently pass")
 	flagset.BoolVar(&c.RunQuarantined, "cilium.runQuarantined", false,
 		"Run tests that are under quarantine.")
+	flagset.BoolVar(&c.Help, "cilium.help", false, "Display this help message.")
 
 	args := make([]string, 0, len(os.Args))
 	for index, flag := range os.Args {
-		if strings.Contains(flag, "-cilium") {
+		if flag == "-cilium.help" {
+			flagset.PrintDefaults()
+			os.Exit(1)
+		} else if strings.Contains(flag, "-cilium") {
 			args = append(args, flag)
 			os.Args[index] = ""
 		}
