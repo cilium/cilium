@@ -165,7 +165,7 @@ the initial deployment:
 
       helm template |CHART_RELEASE| \\
         --set config.upgradeCompatibility=1.7 \\
-        --agent.keepDeprecatedProbes=true \\
+        --set agent.keepDeprecatedProbes=true \\
         --namespace kube-system \\
         > cilium.yaml
       kubectl apply -f cilium.yaml
@@ -179,7 +179,7 @@ the initial deployment:
       helm upgrade cilium |CHART_RELEASE| \\
         --namespace=kube-system \\
         --set config.upgradeCompatibility=1.7 \\
-        --agent.keepDeprecatedProbes=true
+        --set agent.keepDeprecatedProbes=true
 
 .. note::
 
