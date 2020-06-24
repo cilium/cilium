@@ -89,6 +89,13 @@ func (b *buffer) Pop() (*peerpb.ChangeNotification, error) {
 			return nil, io.EOF
 		}
 	}
+	//While waiting for b.mu.Lock, b.buffer may be closed.
+	select {
+	case <-b.stop:
+		b.mu.Unlock()
+		return nil, io.EOF
+	default:
+	}
 	cn := b.buf[0]
 	b.buf[0] = nil
 	b.buf = b.buf[1:]
