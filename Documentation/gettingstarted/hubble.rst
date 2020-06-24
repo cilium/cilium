@@ -10,9 +10,9 @@
 Networking and security observability with Hubble
 *************************************************
 
-This guide provides a walkthrough of setting up a local multi-node Kubernetes
-cluster on Docker using `kind <https://kind.sigs.k8s.io/>`_ in order to
-demonstrate some of Hubble's capabilities.
+This guide provides a walkthrough of setting up a local Kubernetes cluster with
+Hubble and Cilium installed, in order to demonstrate some of Hubble's
+capabilities.
 
 If you haven't read the :ref:`intro` yet, we'd encourage you to do that first.
 
@@ -20,33 +20,99 @@ The best way to get help if you get stuck is to ask a question on the `Cilium
 Slack channel <https://cilium.herokuapp.com>`_.  With Cilium contributors
 across the globe, there is almost always someone available to help.
 
-.. include:: kind-install.rst
+Set up a Kubernetes cluster
+===========================
+
+To run a Kubernetes cluster on your local machine, you have the choice to
+either set up a single-node cluster with
+`minikube <https://kubernetes.io/docs/setup/learning-environment/minikube/>`_,
+or a local multi-node cluster on Docker using
+`kind <https://kind.sigs.k8s.io/>`_:
+
+- ``minikube`` runs a single-node Kubernetes cluster inside a Virtual Machine
+  (VM) and is the easiest way to run a Kubernetes cluster locally.
+- ``kind`` runs a multi-node Kubernetes using Docker container to emulate
+  cluster nodes. It allows you to experiment with the cluster-wide observability
+  features of Hubble Relay.
+
+When unsure about the option to pick, follow the instructions for ``minikube``
+as it is less likely to cause friction.
+
+.. tabs::
+
+    .. group-tab:: Single-node cluster with ``minikube``
+
+        **Install kubectl & minikube**
+
+        .. include:: minikube-install.rst
+        .. include directive in tab requires three newlines to terminate correctly
+
+
+
+    .. group-tab:: Multi-node cluster with ``kind``
+
+        **Install dependencies**
+
+        .. include:: kind-install-deps.rst
+
+        **Configure kind**
+
+        .. include:: kind-configure.rst
+
+        **Create a cluster**
+
+        .. include:: kind-create-cluster.rst
+
+        **Preload images**
+
+        .. include:: kind-preload.rst
+        .. include directive in tab requires three newlines to terminate correctly
+
+
 
 Deploy Cilium and Hubble
 ========================
 
-.. include:: k8s-install-download-release.rst
-.. include:: kind-preload.rst
+This section shows how to install Cilium, enable Hubble and deploy Hubble
+Relay and Hubble's graphical UI.
 
-Install Cilium, enable Hubble and deploy Hubble Relay and Hubble's graphical UI
-in one command using Helm:
+.. tabs::
 
-.. parsed-literal::
+    .. group-tab:: Single-node cluster with ``minikube``
 
-   helm install cilium |CHART_RELEASE| \\
-      --namespace kube-system \\
-      --set global.nodeinit.enabled=true \\
-      --set global.kubeProxyReplacement=partial \\
-      --set global.hostServices.enabled=false \\
-      --set global.externalIPs.enabled=true \\
-      --set global.nodePort.enabled=true \\
-      --set global.hostPort.enabled=true \\
-      --set global.pullPolicy=IfNotPresent \\
-      --set config.ipam=kubernetes \\
-      --set global.hubble.enabled=true \\
-      --set global.hubble.listenAddress=":4244" \\
-      --set global.hubble.relay.enabled=true \\
-      --set global.hubble.ui.enabled=true
+       Deploy Hubble and Cilium with the provided pre-rendered YAML manifest:
+
+       .. parsed-literal::
+
+            kubectl create -f |SCM_WEB|/install/kubernetes/experimental-install.yaml
+
+    .. group-tab:: Multi-node cluster with ``kind``
+
+        .. include:: k8s-install-download-release.rst
+
+        Deploy Hubble and Cilium with the following Helm command:
+
+            .. parsed-literal::
+
+               helm install cilium |CHART_RELEASE| \\
+                  --namespace kube-system \\
+                  --set global.nodeinit.enabled=true \\
+                  --set global.kubeProxyReplacement=partial \\
+                  --set global.hostServices.enabled=false \\
+                  --set global.externalIPs.enabled=true \\
+                  --set global.nodePort.enabled=true \\
+                  --set global.hostPort.enabled=true \\
+                  --set global.pullPolicy=IfNotPresent \\
+                  --set config.ipam=kubernetes \\
+                  --set global.hubble.enabled=true \\
+                  --set global.hubble.listenAddress=":4244" \\
+                  --set global.hubble.relay.enabled=true \\
+                  --set global.hubble.ui.enabled=true
+
+.. note::
+
+    Please note that Hubble Relay and Hubble UI are currently in beta status
+    and are not yet recommended for production use.
 
 Validate the Installation
 =========================
@@ -236,5 +302,14 @@ Cleanup
 Once you are done experimenting with Hubble, you can remove all traces of the
 cluster by running the following command:
 
-.. parsed-literal::
-   kind delete cluster
+.. tabs::
+
+    .. group-tab:: Single-node cluster with ``minikube``
+
+        .. parsed-literal::
+           minikube delete
+
+    .. group-tab:: Multi-node cluster with ``kind``
+
+        .. parsed-literal::
+           kind delete cluster
