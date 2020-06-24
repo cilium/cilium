@@ -82,3 +82,20 @@ func TestBufferPop(t *testing.T) {
 	assert.Equal(t, 0, buf.Len())
 	assert.Equal(t, 0, buf.Cap())
 }
+
+func TestBufferPopWithClosedStopChan(t *testing.T) {
+	max := 8
+	buf := newBuffer(max)
+	assert.NotNil(t, buf)
+	assert.Equal(t, 0, buf.Len())
+	assert.Equal(t, 0, buf.Cap())
+
+	for i := 0; i < max; i++ {
+		assert.NoError(t, buf.Push(&peerpb.ChangeNotification{}))
+		assert.Equal(t, i+1, buf.Len())
+	}
+	close(buf.stop)
+	cn, err := buf.Pop()
+	assert.Nil(t, cn)
+	assert.Equal(t, io.EOF, err)
+}
