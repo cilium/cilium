@@ -19,14 +19,18 @@ import (
 	"fmt"
 	"io"
 	"os"
+	"path/filepath"
 	"strconv"
 	"strings"
+
+	"golang.org/x/sys/unix"
 )
 
 const (
-	// FilesystemType names for filesystem which are used in /proc/pid/mountinfo
-	FilesystemTypeBPFFS   = "bpf"
-	FilesystemTypeCgroup2 = "cgroup2"
+	// FilesystemType superblock magic numbers for filesystems,
+	// to be used for IsMountFS.
+	FilesystemTypeBPFFS   = unix.BPF_FS_MAGIC
+	FilesystemTypeCgroup2 = unix.CGROUP2_SUPER_MAGIC
 
 	mountInfoFilepath = "/proc/self/mountinfo"
 )
@@ -129,35 +133,41 @@ func GetMountInfo() ([]*MountInfo, error) {
 	return parseMountInfoFile(fMounts)
 }
 
-func isMountFS(mountInfos []*MountInfo, mntType string, mapRoot string) (bool, bool) {
-	var mapRootMountInfo *MountInfo
+// IsMountFS returns two boolean values, checking
+//  - whether the path is a mount point;
+//  - if yes, whether its filesystem type is mntType.
+//
+// Note that this function can not detect bind mounts,
+// and is not working properly when path="/".
+func IsMountFS(mntType int64, path string) (bool, bool, error) {
+	var st, pst unix.Stat_t
 
-	for _, mountInfo := range mountInfos {
-		if mountInfo.MountPoint == mapRoot {
-			mapRootMountInfo = mountInfo
-			break
-		}
-	}
-
-	if mapRootMountInfo == nil {
-		return false, false
-	}
-
-	if mapRootMountInfo.FilesystemType == mntType {
-		return true, true
-	}
-	return true, false
-}
-
-// IsMountFS returns two boolean values:checks whether the current mapRoot:
-// - whether the current mapRoot has any mount
-// - whether that mount's filesystem is of type mntType
-func IsMountFS(mntType string, mapRoot string) (bool, bool, error) {
-	mountInfos, err := GetMountInfo()
+	err := unix.Lstat(path, &st)
 	if err != nil {
-		return false, false, err
+		if err == unix.ENOENT {
+			// non-existent path can't be a mount point
+			return false, false, nil
+		}
+		return false, false, &os.PathError{Op: "lstat", Path: path, Err: err}
 	}
 
-	mounted, mntTypeInstance := isMountFS(mountInfos, mntType, mapRoot)
-	return mounted, mntTypeInstance, nil
+	parent := filepath.Dir(path)
+	err = unix.Lstat(parent, &pst)
+	if err != nil {
+		return false, false, &os.PathError{Op: "lstat", Path: parent, Err: err}
+	}
+	if st.Dev == pst.Dev {
+		// parent has the same dev -- not a mount point
+		return false, false, nil
+	}
+
+	// Check the fstype
+	fst := unix.Statfs_t{}
+	err = unix.Statfs(path, &fst)
+	if err != nil {
+		return true, false, &os.PathError{Op: "statfs", Path: path, Err: err}
+	}
+
+	return true, fst.Type == mntType, nil
+
 }

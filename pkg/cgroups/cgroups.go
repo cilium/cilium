@@ -62,7 +62,7 @@ func mountCgroup() error {
 		return fmt.Errorf("%s is a file which is not a directory", cgroupRoot)
 	}
 
-	if err := unix.Mount("none", cgroupRoot, mountinfo.FilesystemTypeCgroup2, 0, ""); err != nil {
+	if err := unix.Mount("none", cgroupRoot, "cgroup2", 0, ""); err != nil {
 		return fmt.Errorf("failed to mount %s: %s", cgroupRoot, err)
 	}
 
