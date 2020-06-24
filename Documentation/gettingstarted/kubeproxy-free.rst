@@ -369,7 +369,7 @@ implementations for Kubernetes such as `MetalLB <https://metallb.universe.tf/>`_
 acceleration can be enabled only on a single device which is used for direct routing.
 
 For high-scale environments, also consider tweaking the default map sizes to a larger
-number of entries e.g. through setting a higher ``global.bpf.mapDynamicSizeRatio``.
+number of entries e.g. through setting a higher ``config.bpfMapDynamicSizeRatio``.
 See :ref:`bpf_map_limitations` for further details.
 
 The ``global.nodePort.acceleration`` setting is supported for DSR, SNAT and hybrid
