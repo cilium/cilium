@@ -4077,3 +4077,21 @@ func logGathererSelector(allNodes bool) string {
 
 	return selector
 }
+
+// GetDNSProxyPort returns the port the Cilium DNS proxy is listening on
+func (kub *Kubectl) GetDNSProxyPort(ciliumPod string) int {
+	const pickDNSProxyPort = `iptables-save -t mangle | sed -n '/udp.*TPROXY to host cilium-dns-egress/ s/.*--on-port \([1-9][0-9]*\).*/\1/p'`
+
+	// Find out the DNS proxy ports in use
+	res := kub.CiliumExecContext(context.TODO(), ciliumPod, pickDNSProxyPort)
+	if !res.WasSuccessful() {
+		ginkgoext.Failf("Cannot find DNS proxy port on %s", ciliumPod)
+	}
+	portStr := res.GetStdOut().String()
+	gomega.ExpectWithOffset(1, portStr).ShouldNot(gomega.BeEmpty(), "No DNS proxy port found on %s", ciliumPod)
+	port, err := strconv.Atoi(strings.TrimSpace(portStr))
+	if err != nil || port == 0 {
+		ginkgoext.Failf("Invalid DNS proxy port on %s: %s", ciliumPod, portStr)
+	}
+	return port
+}
