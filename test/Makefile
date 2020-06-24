@@ -3,7 +3,7 @@
 
 include ../Makefile.defs
 
-provision = true
+PROVISION ?= true
 # If you set provision to false the test will run without bootstrapping the
 # cluster again.
 
@@ -27,13 +27,13 @@ build:
 test: run k8s
 
 run:
-	ginkgo --focus "Runtime" -v -- --cilium.provision=$(provision)
+	ginkgo --focus "Runtime" -v -- --cilium.provision=$(PROVISION)
 
 k8s:
-	ginkgo --focus "K8s" -v -- --cilium.provision=$(provision)
+	ginkgo --focus "K8s" -v -- --cilium.provision=$(PROVISION)
 
 nightly:
-	ginkgo --focus "Nightly" -v -- --cilium.provision=$(provision)
+	ginkgo --focus "Nightly" -v -- --cilium.provision=$(PROVISION)
 
 clean:
 	@$(ECHO_CLEAN)
