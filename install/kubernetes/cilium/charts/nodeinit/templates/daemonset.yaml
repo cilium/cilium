@@ -23,7 +23,11 @@ spec:
 {{- end }}
       containers:
         - name: node-init
-          image: docker.io/cilium/startup-script:af2a99046eca96c0138551393b21a5c044c7fe79
+{{- if contains "/" .Values.image }}
+          image: "{{ .Values.image }}:{{ .Values.tag }}"
+{{- else }}
+          image: "{{ .Values.global.registry }}/{{ .Values.image }}:{{ .Values.tag }}"
+{{- end }}
           imagePullPolicy: IfNotPresent
           securityContext:
             privileged: true
