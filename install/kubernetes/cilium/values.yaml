@@ -281,13 +281,6 @@ global:
     # policyMapMax is the maximum number of entries in endpoint policy map (per endpoint)
     policyMapMax: 16384
 
-    # mapDynamicSizeRatio is the ratio (0.0-1.0) of total system memory to use
-    # for dynamic sizing of CT, NAT, neighbor and SockRevNAT BPF maps. If set to
-    # 0.0, dynamic sizing of BPF maps is disabled. The default value of 0.0025
-    # (0.25%) leads to approximately the default CT size kube-proxy sets on a
-    # node with 16 GiB of total system memory.
-    mapDynamicSizeRatio: 0.0025
-
     # monitorAggregation is the level of aggregation for datapath trace events
     monitorAggregation: medium
 
