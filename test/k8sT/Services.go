@@ -176,12 +176,12 @@ var _ = Describe("K8sServicesTest", func() {
 			res, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("echo FOOBAR", 1, 0))
 			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not 'echo'")
-			res.ExpectContains("FOOBAR", "Test script failed to execute echo: %s", res.Output())
+			res.ExpectContains("FOOBAR", "Test script failed to execute echo: %s", res.Stdout())
 
 			res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("FOOBAR", 3, 0))
 			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(), "Test script successfully executed FOOBAR")
-			res.ExpectMatchesRegexp("failed: :[0-9]*/1=127:[0-9]*/2=127:[0-9]*/3=127", "Test script failed to execute echo 3 times: %s", res.Output())
+			res.ExpectMatchesRegexp("failed: :[0-9]*/1=127:[0-9]*/2=127:[0-9]*/3=127", "Test script failed to execute echo 3 times: %s", res.Stdout())
 
 			res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("FOOBAR", 1, 1))
 			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
@@ -190,7 +190,7 @@ var _ = Describe("K8sServicesTest", func() {
 			res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("echo FOOBAR", 3, 0))
 			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not 'echo' three times")
-			res.ExpectMatchesRegexp("(?s)(FOOBAR.*exit code: 0.*){3}", "Test script failed to execute echo 3 times: %s", res.Output())
+			res.ExpectMatchesRegexp("(?s)(FOOBAR.*exit code: 0.*){3}", "Test script failed to execute echo 3 times: %s", res.Stdout())
 		})
 	})
 
@@ -464,7 +464,7 @@ var _ = Describe("K8sServicesTest", func() {
 				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 					"%s host can not connect to service %q", fromPod, url)
 				res.ExpectContains(expectedCode, "Request from %s to %q returned HTTP Code %q, expected %q",
-					fromPod, url, res.Output(), expectedCode)
+					fromPod, url, res.GetStdOut(), expectedCode)
 			}
 		}
 
@@ -488,7 +488,7 @@ var _ = Describe("K8sServicesTest", func() {
 						"Can not connect to service %q from outside cluster", url)
 					if checkSourceIP {
 						// Parse the IPs to avoid issues with 4-in-6 formats
-						sourceIP := net.ParseIP(strings.TrimSpace(strings.Split(res.GetStdOut(), "=")[1]))
+						sourceIP := net.ParseIP(strings.TrimSpace(strings.Split(res.Stdout(), "=")[1]))
 						outsideIP := net.ParseIP(outsideIP)
 						ExpectWithOffset(1, sourceIP).To(Equal(outsideIP))
 					}
@@ -532,13 +532,13 @@ var _ = Describe("K8sServicesTest", func() {
 			patternInK8s1 := fmt.Sprintf("UDP IN [^:]+:%d -> %s", srcPort, endpointK8s1)
 			cmdInK8s1 := fmt.Sprintf(cmdIn, patternInK8s1)
 			res := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdInK8s1)
-			countInK8s1, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
+			countInK8s1, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
 
 			endpointK8s2 := fmt.Sprintf("%s:%d", dstPodIPK8s2, dstPodPort)
 			patternInK8s2 := fmt.Sprintf("UDP IN [^:]+:%d -> %s", srcPort, endpointK8s2)
 			cmdInK8s2 := fmt.Sprintf(cmdIn, patternInK8s2)
 			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, cmdInK8s2)
-			countInK8s2, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
+			countInK8s2, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
 
 			// Field #11 is "TxPackets=<n>"
 			cmdOut := "cilium bpf ct list global | awk '/%s/ { sub(\".*=\",\"\", $11); print $11 }'"
@@ -553,7 +553,7 @@ var _ = Describe("K8sServicesTest", func() {
 			patternOutK8s1 := fmt.Sprintf("UDP OUT [^:]+:%d -> %s", srcPort, endpointK8s1)
 			cmdOutK8s1 := fmt.Sprintf(cmdOut, patternOutK8s1)
 			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s1)
-			countOutK8s1, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
+			countOutK8s1, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
 
 			// If kube-proxy is enabled, the two commands are the same and
 			// there's no point executing it twice.
@@ -562,7 +562,7 @@ var _ = Describe("K8sServicesTest", func() {
 			cmdOutK8s2 := fmt.Sprintf(cmdOut, patternOutK8s2)
 			if hasDNAT {
 				res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s2)
-				countOutK8s2, _ = strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
+				countOutK8s2, _ = strconv.Atoi(strings.TrimSpace(res.Stdout()))
 			}
 
 			// Send datagram
@@ -589,22 +589,22 @@ var _ = Describe("K8sServicesTest", func() {
 			// backend pod received the datagram, so we check for
 			// each node.
 			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdInK8s1)
-			newCountInK8s1, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
+			newCountInK8s1, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
 			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, cmdInK8s2)
-			newCountInK8s2, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
+			newCountInK8s2, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
 			ExpectWithOffset(2, []int{newCountInK8s1, newCountInK8s2}).To(SatisfyAny(
 				Equal([]int{countInK8s1, countInK8s2 + delta}),
 				Equal([]int{countInK8s1 + delta, countInK8s2}),
 			), "Failed to account for IPv4 fragments to %s (in)", dstIP)
 
 			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s1)
-			newCountOutK8s1, _ := strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
+			newCountOutK8s1, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
 			// If kube-proxy is enabled, the two commands are the same and
 			// there's no point executing it twice.
 			newCountOutK8s2 := 0
 			if hasDNAT {
 				res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdOutK8s2)
-				newCountOutK8s2, _ = strconv.Atoi(strings.TrimSpace(res.GetStdOut()))
+				newCountOutK8s2, _ = strconv.Atoi(strings.TrimSpace(res.Stdout()))
 			}
 			ExpectWithOffset(2, []int{newCountOutK8s1, newCountOutK8s2}).To(SatisfyAny(
 				Equal([]int{countOutK8s1, countOutK8s2 + delta}),
@@ -617,13 +617,13 @@ var _ = Describe("K8sServicesTest", func() {
 			res, err := kubectl.ExecInHostNetNS(context.TODO(), nodeName, cmd)
 			ExpectWithOffset(2, err).To(BeNil(), cmd)
 			res.ExpectSuccess(cmd)
-			ipv4 := strings.Trim(res.GetStdOut(), "\n")
+			ipv4 := strings.Trim(res.Stdout(), "\n")
 
 			cmd = fmt.Sprintf("ip -6 -o a s dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)
 			res, err = kubectl.ExecInHostNetNS(context.TODO(), nodeName, cmd)
 			ExpectWithOffset(2, err).To(BeNil(), cmd)
 			res.ExpectSuccess(cmd)
-			ipv6 := strings.Trim(res.GetStdOut(), "\n")
+			ipv6 := strings.Trim(res.Stdout(), "\n")
 
 			return ipv4, ipv6
 		}
@@ -887,7 +887,7 @@ var _ = Describe("K8sServicesTest", func() {
 				}
 				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 					"Cannot connect to service %q from %s (%d/%d)", httpURL, from, i, count)
-				pod := strings.TrimSpace(strings.Split(res.GetStdOut(), ": ")[1])
+				pod := strings.TrimSpace(strings.Split(res.Stdout(), ": ")[1])
 				if i == 1 {
 					// Retrieve the destination pod from the first request
 					dstPod = pod
@@ -933,7 +933,7 @@ var _ = Describe("K8sServicesTest", func() {
 				}
 				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 					"Cannot connect to service %q from %s (%d/%d) after restart", httpURL, from, i, count)
-				pod := strings.TrimSpace(strings.Split(res.GetStdOut(), ": ")[1])
+				pod := strings.TrimSpace(strings.Split(res.Stdout(), ": ")[1])
 				if i == 1 {
 					// Retrieve the destination pod from the first request
 					ExpectWithOffset(1, dstPod).ShouldNot(Equal(pod))
@@ -1016,10 +1016,10 @@ var _ = Describe("K8sServicesTest", func() {
 			ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
 
 			res := kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep "+k8s2IP+":"+httpHostPortStr+" | grep HostPort")
-			ExpectWithOffset(1, res.GetStdOut()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+httpHostPortStr)
+			ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+httpHostPortStr)
 
 			res = kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep "+k8s2IP+":"+tftpHostPortStr+" | grep HostPort")
-			ExpectWithOffset(1, res.GetStdOut()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+tftpHostPortStr)
+			ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+tftpHostPortStr)
 
 			// Cluster-internal connectivity to HostPort
 			httpURL = getHTTPLink(k8s2IP, httpHostPort)
@@ -1356,7 +1356,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 					testCurlFromOutsideWithLocalPort(url, 1, true, sourcePortForCTGCtest)
 					res := kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium bpf nat list | grep %d", sourcePortForCTGCtest))
-					ExpectWithOffset(1, res.GetStdOut()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
+					ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "NAT entry was not evicted")
 					// Flush CT maps to trigger eviction of the NAT entries (simulates CT GC)
 					res = kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
 					res = kubectl.CiliumExecContext(context.TODO(), pod, fmt.Sprintf("cilium bpf nat list | grep %d", sourcePortForCTGCtest))

@@ -32,6 +32,108 @@ import (
 	"k8s.io/client-go/util/jsonpath"
 )
 
+// CmdStreamBuffer is a buffer that buffers the stream output of a command.
+type CmdStreamBuffer struct {
+	*Buffer
+	cmd string
+}
+
+// Cmd returns the command that generated the stream.
+func (b CmdStreamBuffer) Cmd() string {
+	return b.cmd
+}
+
+// ByLines returns res's stdout split by the newline character and, if the
+// stdout contains `\r\n`, it will be split by carriage return and new line
+// characters.
+func (b *CmdStreamBuffer) ByLines() []string {
+	out := b.String()
+	sep := "\n"
+	if strings.Contains(out, "\r\n") {
+		sep = "\r\n"
+	}
+	out = strings.TrimRight(out, sep)
+	return strings.Split(out, sep)
+}
+
+// KVOutput returns a map of the stdout of res split based on
+// the separator '='.
+// For example, the following strings would be split as follows:
+//             a=1
+//             b=2
+//             c=3
+//             a=1
+//             b=2
+//             c=3
+func (b *CmdStreamBuffer) KVOutput() map[string]string {
+	result := make(map[string]string)
+	for _, line := range b.ByLines() {
+		vals := strings.Split(line, "=")
+		if len(vals) == 2 {
+			result[vals[0]] = vals[1]
+		}
+	}
+	return result
+}
+
+// Filter returns the contents of res's stdout filtered using the provided
+// JSONPath filter in a buffer. Returns an error if the unmarshalling of the
+// contents of res's stdout fails.
+func (b *CmdStreamBuffer) Filter(filter string) (*FilterBuffer, error) {
+	var data interface{}
+	result := new(bytes.Buffer)
+
+	err := json.Unmarshal(b.Bytes(), &data)
+	if err != nil {
+		return nil, fmt.Errorf("could not parse JSON from command %q", b.Cmd())
+	}
+	parser := jsonpath.New("").AllowMissingKeys(true)
+	parser.Parse(filter)
+	err = parser.Execute(result, data)
+	if err != nil {
+		return nil, err
+	}
+	return &FilterBuffer{result}, nil
+}
+
+// FilterLinesJSONPath decodes each line as JSON and applies the JSONPath
+// filter to each line. Returns an array with the result for each line.
+func (b *CmdStreamBuffer) FilterLinesJSONPath(filter *jsonpath.JSONPath) ([]FilterBuffer, error) {
+	lines := b.ByLines()
+	results := make([]FilterBuffer, 0, len(lines))
+	for i, line := range lines {
+		if len(line) == 0 {
+			continue
+		}
+
+		var data interface{}
+		result := new(bytes.Buffer)
+		err := json.Unmarshal([]byte(line), &data)
+		if err != nil {
+			return nil, fmt.Errorf("could not parse %q as JSON (line %d of %q)", line, i, b.Cmd())
+		}
+
+		err = filter.Execute(result, data)
+		if err != nil {
+			return nil, err
+		}
+		results = append(results, FilterBuffer{result})
+	}
+	return results, nil
+}
+
+// FilterLines works like Filter, but applies the JSONPath filter to each line
+// separately and returns returns a Buffer for each line. An error is
+// returned only for the first line which cannot be unmarshalled.
+func (b *CmdStreamBuffer) FilterLines(filter string) ([]FilterBuffer, error) {
+	parsedFilter := jsonpath.New("").AllowMissingKeys(true)
+	err := parsedFilter.Parse(filter)
+	if err != nil {
+		return nil, err
+	}
+	return b.FilterLinesJSONPath(parsedFilter)
+}
+
 // CmdRes contains a variety of data which results from running a command.
 type CmdRes struct {
 	cmd      string          // Command to run
@@ -55,14 +157,30 @@ func (res *CmdRes) GetExitCode() int {
 	return res.exitcode
 }
 
-// GetStdOut returns the contents of the stdout buffer of res as a string.
-func (res *CmdRes) GetStdOut() string {
-	return res.stdout.String()
+// GetStdOut returns res's stdout.
+func (res *CmdRes) GetStdOut() *CmdStreamBuffer {
+	return &CmdStreamBuffer{
+		res.stdout,
+		res.cmd,
+	}
 }
 
-// GetStdErr returns the contents of the stderr buffer of res as a string.
-func (res *CmdRes) GetStdErr() string {
-	return res.stderr.String()
+// GetStdErr returns res's stderr.
+func (res *CmdRes) GetStdErr() *CmdStreamBuffer {
+	return &CmdStreamBuffer{
+		res.stderr,
+		res.cmd,
+	}
+}
+
+// Stdout returns the contents of the stdout buffer of res as a string.
+func (res *CmdRes) Stdout() string {
+	return res.GetStdOut().String()
+}
+
+// Stderr returns the contents of the stderr buffer of res as a string.
+func (res *CmdRes) Stderr() string {
+	return res.GetStdErr().String()
 }
 
 // SendToLog writes to `TestLogWriter` the debug message for the running
@@ -101,7 +219,7 @@ func (res *CmdRes) ExpectFail(optionalDescription ...interface{}) bool {
 func (res *CmdRes) ExpectFailWithError(data string, optionalDescription ...interface{}) bool {
 	return gomega.ExpectWithOffset(1, res).ShouldNot(
 		CMDSuccess(), optionalDescription...) &&
-		gomega.ExpectWithOffset(1, res.GetStdErr()).To(
+		gomega.ExpectWithOffset(1, res.Stderr()).To(
 			gomega.ContainSubstring(data), optionalDescription...)
 }
 
@@ -116,7 +234,7 @@ func (res *CmdRes) ExpectSuccess(optionalDescription ...interface{}) bool {
 // command. It accepts an optional parameter that can be used to annotate
 // failure messages.
 func (res *CmdRes) ExpectContains(data string, optionalDescription ...interface{}) bool {
-	return gomega.ExpectWithOffset(1, res.Output().String()).To(
+	return gomega.ExpectWithOffset(1, res.Stdout()).To(
 		gomega.ContainSubstring(data), optionalDescription...)
 }
 
@@ -124,7 +242,7 @@ func (res *CmdRes) ExpectContains(data string, optionalDescription ...interface{
 // matches the regexp. It accepts an optional parameter that can be
 // used to annotate failure messages.
 func (res *CmdRes) ExpectMatchesRegexp(regexp string, optionalDescription ...interface{}) bool {
-	return gomega.ExpectWithOffset(1, res.Output().String()).To(
+	return gomega.ExpectWithOffset(1, res.Stdout()).To(
 		gomega.MatchRegexp(regexp), optionalDescription...)
 }
 
@@ -148,7 +266,7 @@ func (res *CmdRes) ExpectContainsFilterLine(filter, expected string, optionalDes
 // the executed command. It accepts an optional parameter that can be used to
 // annotate failure messages.
 func (res *CmdRes) ExpectDoesNotContain(data string, optionalDescription ...interface{}) bool {
-	return gomega.ExpectWithOffset(1, res.Output().String()).ToNot(
+	return gomega.ExpectWithOffset(1, res.Stdout()).ToNot(
 		gomega.ContainSubstring(data), optionalDescription...)
 }
 
@@ -156,7 +274,7 @@ func (res *CmdRes) ExpectDoesNotContain(data string, optionalDescription ...inte
 // doesn't match the regexp. It accepts an optional parameter that can be used
 // to annotate failure messages.
 func (res *CmdRes) ExpectDoesNotMatchRegexp(regexp string, optionalDescription ...interface{}) bool {
-	return gomega.ExpectWithOffset(1, res.Output().String()).ToNot(
+	return gomega.ExpectWithOffset(1, res.Stdout()).ToNot(
 		gomega.MatchRegexp(regexp), optionalDescription...)
 }
 
@@ -199,7 +317,6 @@ func (res *CmdRes) IntOutput() (int, error) {
 // the unmarshalling of the stdout of res fails.
 // TODO - what exactly is the need for this vs. Filter function below?
 func (res *CmdRes) FindResults(filter string) ([]reflect.Value, error) {
-
 	var data interface{}
 	var result []reflect.Value
 
@@ -220,96 +337,37 @@ func (res *CmdRes) FindResults(filter string) ([]reflect.Value, error) {
 // JSONPath filter in a buffer. Returns an error if the unmarshalling of the
 // contents of res's stdout fails.
 func (res *CmdRes) Filter(filter string) (*FilterBuffer, error) {
-	var data interface{}
-	result := new(bytes.Buffer)
-
-	err := json.Unmarshal(res.stdout.Bytes(), &data)
-	if err != nil {
-		return nil, fmt.Errorf("could not parse JSON from command %q",
-			res.cmd)
-	}
-	parser := jsonpath.New("").AllowMissingKeys(true)
-	parser.Parse(filter)
-	err = parser.Execute(result, data)
-	if err != nil {
-		return nil, err
-	}
-	return &FilterBuffer{result}, nil
+	return res.GetStdOut().Filter(filter)
 }
 
-// filterLinesJSONPath decodes each line as JSON and applies the JSONPath
+// FilterLinesJSONPath decodes each line as JSON and applies the JSONPath
 // filter to each line. Returns an array with the result for each line.
-func (res *CmdRes) filterLinesJSONPath(filter *jsonpath.JSONPath) ([]FilterBuffer, error) {
-	lines := res.ByLines()
-	results := make([]FilterBuffer, 0, len(lines))
-	for i, line := range lines {
-		if len(line) == 0 {
-			continue
-		}
-
-		var data interface{}
-		result := new(bytes.Buffer)
-		err := json.Unmarshal([]byte(line), &data)
-		if err != nil {
-			return nil, fmt.Errorf("could not parse %q as JSON (line %d of %q)",
-				line, i, res.cmd)
-		}
-
-		err = filter.Execute(result, data)
-		if err != nil {
-			return nil, err
-		}
-		results = append(results, FilterBuffer{result})
-	}
-
-	return results, nil
+func (res *CmdRes) FilterLinesJSONPath(filter *jsonpath.JSONPath) ([]FilterBuffer, error) {
+	return res.GetStdOut().FilterLinesJSONPath(filter)
 }
 
 // FilterLines works like Filter, but applies the JSONPath filter to each line
-// separately and returns returns a FilterBuffer for each line. An error is
+// separately and returns returns a buffer for each line. An error is
 // returned only for the first line which cannot be unmarshalled.
 func (res *CmdRes) FilterLines(filter string) ([]FilterBuffer, error) {
-	parsedFilter := jsonpath.New("").AllowMissingKeys(true)
-	err := parsedFilter.Parse(filter)
-	if err != nil {
-		return nil, err
-	}
-
-	return res.filterLinesJSONPath(parsedFilter)
+	return res.GetStdOut().FilterLines(filter)
 }
 
-// ByLines returns res's stdout split by the newline character and, if the stdout
-// contains `\r\n`, it will be split by carriage return and new line characters.
+// ByLines returns res's stdout split by the newline character and, if the
+// stdout contains `\r\n`, it will be split by carriage return and new line
+// characters.
 func (res *CmdRes) ByLines() []string {
-	stdoutStr := res.stdout.String()
-	sep := "\n"
-	if strings.Contains(stdoutStr, "\r\n") {
-		sep = "\r\n"
-	}
-	stdoutStr = strings.TrimRight(stdoutStr, sep)
-	return strings.Split(stdoutStr, sep)
+	return res.GetStdOut().ByLines()
 }
 
 // KVOutput returns a map of the stdout of res split based on
 // the separator '='.
 // For example, the following strings would be split as follows:
-// 		a=1
-// 		b=2
-// 		c=3
+//		a=1
+//		b=2
+//		c=3
 func (res *CmdRes) KVOutput() map[string]string {
-	result := make(map[string]string)
-	for _, line := range res.ByLines() {
-		vals := strings.Split(line, "=")
-		if len(vals) == 2 {
-			result[vals[0]] = vals[1]
-		}
-	}
-	return result
-}
-
-// Output returns res's stdout.
-func (res *CmdRes) Output() *Buffer {
-	return res.stdout
+	return res.GetStdOut().KVOutput()
 }
 
 // OutputPrettyPrint returns a string with the ExitCode, stdout and stderr in a
@@ -326,15 +384,15 @@ func (res *CmdRes) OutputPrettyPrint() string {
 	return fmt.Sprintf(
 		"Exitcode: %d \nStdout:\n %s\nStderr:\n %s\n",
 		res.GetExitCode(),
-		format(res.GetStdOut()),
-		format(res.GetStdErr()))
+		format(res.Stdout()),
+		format(res.Stderr()))
 }
 
 // ExpectEqual asserts whether cmdRes.Output().String() and expected are equal.
 // It accepts an optional parameter that can be used to annotate failure
 // messages.
 func (res *CmdRes) ExpectEqual(expected string, optionalDescription ...interface{}) bool {
-	return gomega.ExpectWithOffset(1, res.Output().String()).Should(
+	return gomega.ExpectWithOffset(1, res.Stdout()).Should(
 		gomega.Equal(expected), optionalDescription...)
 }
 
@@ -379,7 +437,7 @@ func (res *CmdRes) WaitUntilMatch(substr string) error {
 func (res *CmdRes) WaitUntilMatchRegexp(expr string, timeout time.Duration) error {
 	r := regexp.MustCompile(expr)
 	body := func() bool {
-		return r.Match(res.Output().Bytes())
+		return r.Match(res.GetStdOut().Bytes())
 	}
 
 	return WithTimeout(
@@ -400,7 +458,7 @@ func (res *CmdRes) WaitUntilMatchFilterLineTimeout(filter, expected string, time
 
 	errChan := make(chan error, 1)
 	body := func() bool {
-		lines, err := res.filterLinesJSONPath(parsedFilter)
+		lines, err := res.FilterLinesJSONPath(parsedFilter)
 		if err != nil {
 			errChan <- err
 			return true
@@ -430,7 +488,7 @@ func (res *CmdRes) WaitUntilMatchFilterLineTimeout(filter, expected string, time
 	return nil
 }
 
-// WaitUntilMatchFilterLineTimeout applies the JSONPath 'filter' to each line of
+// WaitUntilMatchFilterLine applies the JSONPath 'filter' to each line of
 // `CmdRes.stdout` and waits until a line matches the 'expected' output.
 // If helpers.HelperTimout is reached it will return an error.
 func (res *CmdRes) WaitUntilMatchFilterLine(filter, expected string) error {

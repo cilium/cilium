@@ -132,12 +132,12 @@ var _ = Describe("BenchmarkNetperfPerformance", func() {
 
 	superNetperfRRLog := func(client string, server string, num int) {
 		res := superNetperfRR(vm, client, server, num)
-		fmt.Fprintf(&PerfLogWriter, "%s,", strings.TrimSuffix(res.GetStdOut(), "\n"))
+		fmt.Fprintf(&PerfLogWriter, "%s,", strings.TrimSuffix(res.Stdout(), "\n"))
 	}
 
 	superNetperfStreamLog := func(client string, server string, num int) {
 		res := superNetperfStream(vm, client, server, num)
-		fmt.Fprintf(&PerfLogWriter, "%s,", strings.TrimSuffix(res.GetStdOut(), "\n"))
+		fmt.Fprintf(&PerfLogWriter, "%s,", strings.TrimSuffix(res.Stdout(), "\n"))
 	}
 
 	Context("Benchmark Netperf Tests", func() {

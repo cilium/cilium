@@ -1891,7 +1891,7 @@ var _ = Describe("RuntimePolicyImportTests", func() {
 		By("Verifying that trace says that %q can reach %q", httpd2Label, httpd1Label)
 
 		res := vm.Exec(fmt.Sprintf(`cilium policy trace -s %s -d %s/TCP`, httpd2Label, httpd1Label))
-		Expect(res.Output().String()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
+		Expect(res.Stdout()).Should(ContainSubstring(allowedVerdict), "Policy trace did not contain %s", allowedVerdict)
 
 		endpointIDS, err := vm.GetEndpointsIds()
 		Expect(err).To(BeNil(), "Unable to get IDs of endpoints")

@@ -91,7 +91,7 @@ var _ = Describe("K8sHealthTest", func() {
 		By("checking that `cilium-health --probe` succeeds")
 		healthCmd := "cilium-health status --probe -o json"
 		status := kubectl.CiliumExecMustSucceed(context.TODO(), cilium1, healthCmd)
-		Expect(status.Output()).ShouldNot(ContainSubstring("error"))
+		Expect(status.Stdout()).ShouldNot(ContainSubstring("error"))
 
 		apiPaths := []string{
 			"endpoint.icmp",

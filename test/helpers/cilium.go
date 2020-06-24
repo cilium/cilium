@@ -163,7 +163,7 @@ func (s *SSHMeta) WaitEndpointsDeleted() bool {
 	body := func() bool {
 		cmd := `cilium endpoint list -o json | jq '. | length'`
 		res := s.Exec(cmd)
-		numEndpointsRunning := strings.TrimSpace(res.GetStdOut())
+		numEndpointsRunning := strings.TrimSpace(res.Stdout())
 		if numEndpointsRunning == desiredState {
 			return true
 		}
@@ -656,7 +656,7 @@ func (s *SSHMeta) ValidateEndpointsAreCorrect(dockerNetwork string) error {
 func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
 	logsCmd := fmt.Sprintf(`sudo journalctl -au %s --since '%v seconds ago'`,
 		DaemonName, duration.Seconds())
-	logs := s.Exec(logsCmd, ExecOptions{SkipLog: true}).Output().String()
+	logs := s.Exec(logsCmd, ExecOptions{SkipLog: true}).Stdout()
 
 	defer func() {
 		// Keep the cilium logs for the given test in a separate file.

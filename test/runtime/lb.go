@@ -90,7 +90,7 @@ var _ = Describe("RuntimeLB", func() {
 		frontendAddress, err := vm.ServiceGetFrontendAddress(1)
 		Expect(err).Should(BeNil())
 		Expect(frontendAddress).To(ContainSubstring("[::]:80"),
-			"failed to retrieve frontend address: %q", result.Output())
+			"failed to retrieve frontend address: %q", result.GetStdOut())
 
 		//TODO: This need to be with Wait,Timeout
 		helpers.Sleep(5)
@@ -99,8 +99,8 @@ var _ = Describe("RuntimeLB", func() {
 
 		result = vm.ExecCilium("bpf lb list")
 		result.ExpectSuccess("bpf lb map cannot be retrieved correctly")
-		Expect(result.Output()).To(ContainSubstring("[::1]:90"), fmt.Sprintf(
-			"service backends not added to BPF map: %q", result.Output()))
+		Expect(result.Stdout()).To(ContainSubstring("[::1]:90"), fmt.Sprintf(
+			"service backends not added to BPF map: %q", result.GetStdOut()))
 
 		By("Adding services that should not be allowed")
 
@@ -190,7 +190,7 @@ var _ = Describe("RuntimeLB", func() {
 				"Service ids %s do not match old service ids %s", svcIds, oldSvcIds)
 			newSvc := vm.ServiceList()
 			newSvc.ExpectSuccess("Cannot retrieve service list after restart")
-			newSvc.ExpectEqual(oldSvc.Output().String(), "Service list does not match")
+			newSvc.ExpectEqual(oldSvc.Stdout(), "Service list does not match")
 
 			By("Checking that BPF LB maps match the service")
 
