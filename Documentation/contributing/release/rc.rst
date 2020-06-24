@@ -127,11 +127,6 @@ If you intent to release a new feature release, see the
            << contents of NEWS.rst for this release >>
            ```
 
-           Release binaries
-           ----------------
-
-           << contents of snippet outputed by uploadrev >>
-
    #. Preview the description and then publish the release
 
 #. Announce the release in the ``#general`` channel on Slack. Sample text:
