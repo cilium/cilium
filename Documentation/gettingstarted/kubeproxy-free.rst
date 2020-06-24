@@ -348,22 +348,25 @@ mode would look as follows:
 
 .. _XDP acceleration:
 
-NodePort XDP Acceleration
-*************************
+LoadBalancer & NodePort XDP Acceleration
+****************************************
 
 Cilium has built-in support for accelerating NodePort, LoadBalancer services and
 services with externalIPs for the case where the arriving request needs to be
 pushed back out of the node when the backend is located on a remote node. This
 ability to act as a "one-legged" / hairpin load balancer can be handled by Cilium
-at the XDP (eXpress Data Path) layer where BPF is operating directly in the networking
+starting from version `1.8 <https://cilium.io/blog/2020/06/22/cilium-18/#kube-proxy-replacement-at-the-xdp-layer>`_ at
+the XDP (eXpress Data Path) layer where BPF is operating directly in the networking
 driver instead of a higher layer.
 
 The mode setting ``global.nodePort.acceleration`` allows to enable this acceleration
 through the option ``native``. The option ``disabled`` is the default and disables the
 acceleration. The majority of drivers supporting 10G or higher rates also support
 ``native`` XDP on a recent kernel. For cloud based deployments most of these drivers
-have SR-IOV variants that support native XDP as well. The acceleration can be
-enabled only on a single device which is used for direct routing.
+have SR-IOV variants that support native XDP as well. For on-prem deployments the
+Cilium XDP acceleration can be used in combination with LoadBalancer service
+implementations for Kubernetes such as `MetalLB <https://metallb.universe.tf/>`_. The
+acceleration can be enabled only on a single device which is used for direct routing.
 
 For high-scale environments, also consider tweaking the default map sizes to a larger
 number of entries e.g. through setting a higher ``global.bpf.mapDynamicSizeRatio``.
