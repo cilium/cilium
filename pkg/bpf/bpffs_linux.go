@@ -72,7 +72,7 @@ func mapPathFromMountInfo(name string) string {
 		}
 
 		for _, mountInfo := range mountInfos {
-			if mountInfo.FilesystemType == mountinfo.FilesystemTypeBPFFS {
+			if mountInfo.FilesystemType == "bpf" {
 				mountInfoPrefix = filepath.Join(mountInfo.MountPoint, mapPrefix)
 				return
 			}
