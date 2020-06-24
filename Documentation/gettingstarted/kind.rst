@@ -14,7 +14,20 @@ This guide uses `kind <https://kind.sigs.k8s.io/>`_ to demonstrate deployment
 and operation of Cilium in a multi-node Kubernetes cluster running locally on
 Docker.
 
-.. include:: kind-install.rst
+Install Dependencies
+====================
+
+.. include:: kind-install-deps.rst
+
+Configure kind
+==============
+
+.. include:: kind-configure.rst
+
+Create a cluster
+================
+
+.. include:: kind-create-cluster.rst
 
 .. _kind_install_cilium:
 
