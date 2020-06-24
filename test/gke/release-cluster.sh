@@ -1,26 +1,18 @@
 #!/bin/bash
 
-test_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")/.." && pwd)"
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 
-export KUBECONFIG="${script_dir}/gke-kubeconfig"
+project="cilium-ci"
+region="us-west1"
+
 cluster_uri="$(cat "${script_dir}/cluster-uri")"
+cluster_name=${cluster_uri##*/}
 
-# Create a function to unlock the cluster. We then execute this on script exit.
-# This should occur even if the script is interrupted, by a jenkins timeout,
-# for example.
-unlock() {    
-    echo "releasing cluster lock from ${cluster_uri}"
-    kubectl annotate deployment -n cilium-ci-lock lock lock-
-}
-trap unlock EXIT
+gcloud container clusters delete --quiet --zone ${region} "${cluster_uri}"
 
-echo "cleaning cluster after tests"
-./clean-cluster.sh
+export KUBECONFIG="${script_dir}/resize-kubeconfig"
+gcloud container clusters get-credentials --project "${project}" --region "europe-west4" management-cluster-0
+kubectl delete containerclusters.container.cnrm.cloud.google.com -n test-clusters "${cluster_name}"
 
-set -e
-
-echo "scaling ${cluster_uri} to 0"
-${script_dir}/resize-cluster.sh 0 ${cluster_uri}
 
 rm -f "${script_dir}/cluster-uri" "${script_dir}/cluster-name" "${script_dir}/cluster-version"
