@@ -385,7 +385,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 			echoPodPath := helpers.ManifestGet(kubectl.BasePath(), "echoserver-hostnetns.yaml")
 			res := kubectl.ExecMiddle("mktemp")
 			res.ExpectSuccess()
-			tmpEchoPodPath = strings.Trim(res.GetStdOut(), "\n")
+			tmpEchoPodPath = strings.Trim(res.Stdout(), "\n")
 			kubectl.ExecMiddle(fmt.Sprintf("sed 's/NODE_WITHOUT_CILIUM/%s/' %s > %s",
 				helpers.GetNodeWithoutCilium(), echoPodPath, tmpEchoPodPath)).ExpectSuccess()
 			kubectl.ApplyDefault(tmpEchoPodPath).ExpectSuccess("Cannot install echoserver application")
@@ -395,11 +395,11 @@ var _ = Describe("K8sDatapathConfig", func() {
 			// Setup ip-masq-agent configmap dir
 			res = kubectl.ExecMiddle("mktemp -d")
 			res.ExpectSuccess()
-			tmpConfigMapDirPath = strings.Trim(res.GetStdOut(), "\n")
+			tmpConfigMapDirPath = strings.Trim(res.Stdout(), "\n")
 			tmpConfigMapPath = filepath.Join(tmpConfigMapDirPath, "config")
 			res = kubectl.ExecMiddle("mktemp")
 			res.ExpectSuccess()
-			tmpConfigYAMLPath = strings.Trim(res.GetStdOut(), "\n")
+			tmpConfigYAMLPath = strings.Trim(res.Stdout(), "\n")
 
 			// Deploy empty ip-masq-agent config to prevent the ipmasq agent from
 			// adding the default nonMasq CIDRs which include the echoserver's
@@ -772,7 +772,7 @@ func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string, expectNod
 
 			if expectNodeIP || expectPodIP {
 				// Parse the IPs to avoid issues with 4-in-6 formats
-				sourceIP := net.ParseIP(strings.TrimSpace(strings.Split(res.GetStdOut(), "=")[1]))
+				sourceIP := net.ParseIP(strings.TrimSpace(strings.Split(res.Stdout(), "=")[1]))
 				if expectNodeIP {
 					Expect(sourceIP).To(Equal(hostIP), "Expected node IP")
 				}

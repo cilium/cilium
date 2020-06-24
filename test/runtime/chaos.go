@@ -102,14 +102,14 @@ var _ = Describe("RuntimeChaos", func() {
 		ips := vm.Exec(`
 		curl -s --unix-socket /var/run/cilium/cilium.sock \
 		http://localhost/v1beta/healthz/ | jq ".ipam.ipv4|length"`)
-		Expect(originalIps.Output().String()).To(Equal(ips.Output().String()))
+		Expect(originalIps.Stdout()).To(Equal(ips.Stdout()))
 
 		EndpointList := vm.Exec(endpointListCmd)
-		By("original: %s", originalEndpointList.Output().String())
-		By("new: %s", EndpointList.Output().String())
-		Expect(EndpointList.Output().String()).To(Equal(originalEndpointList.Output().String()))
-		Expect(hasher.Sum(EndpointList.Output().Bytes())).To(
-			Equal(hasher.Sum(originalEndpointList.Output().Bytes())))
+		By("original: %s", originalEndpointList.Stdout())
+		By("new: %s", EndpointList.Stdout())
+		Expect(EndpointList.Stdout()).To(Equal(originalEndpointList.Stdout()))
+		Expect(hasher.Sum(EndpointList.GetStdOut().Bytes())).To(
+			Equal(hasher.Sum(originalEndpointList.GetStdOut().Bytes())))
 
 	}, 300)
 

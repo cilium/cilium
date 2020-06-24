@@ -672,7 +672,7 @@ func (kub *Kubectl) ExecKafkaPodCmd(namespace string, pod string, arg string) er
 			res.GetCmd(), res.OutputPrettyPrint())
 	}
 
-	if strings.Contains(res.GetStdErr(), "ERROR") {
+	if strings.Contains(res.Stderr(), "ERROR") {
 		return fmt.Errorf("ExecKafkaPodCmd: command '%s' failed '%s'",
 			res.GetCmd(), res.OutputPrettyPrint())
 	}
@@ -759,7 +759,7 @@ func (kub *Kubectl) WaitForCRDCount(filter string, count int, timeout time.Durat
 			log.Error(res.GetErr("kubectl get crds failed"))
 			return false
 		}
-		return len(regex.FindAllString(res.GetStdOut(), -1)) == count
+		return len(regex.FindAllString(res.Stdout(), -1)) == count
 	}
 	return WithTimeout(
 		body,
@@ -957,7 +957,7 @@ func (kub *Kubectl) GetNodeNameByLabelContext(ctx context.Context, label string)
 		return "", fmt.Errorf("cannot retrieve node to read name: %s", res.CombineOutput())
 	}
 
-	out := strings.Trim(res.GetStdOut(), "\n")
+	out := strings.Trim(res.Stdout(), "\n")
 
 	if len(out) == 0 {
 		return "", fmt.Errorf("no matching node to read name with label '%v'", label)
@@ -980,7 +980,7 @@ func (kub *Kubectl) GetNodeIPByLabel(label string, external bool) (string, error
 		return "", fmt.Errorf("cannot retrieve node to read IP: %s", res.CombineOutput())
 	}
 
-	out := strings.Trim(res.GetStdOut(), "\n")
+	out := strings.Trim(res.Stdout(), "\n")
 	if len(out) == 0 {
 		return "", fmt.Errorf("no matching node to read IP with label '%v'", label)
 	}
@@ -1174,7 +1174,7 @@ func (kub *Kubectl) NamespaceDelete(name string) *CmdRes {
 func (kub *Kubectl) EnsureNamespaceExists(name string) error {
 	ginkgoext.By("Ensuring the namespace %s exists", name)
 	res := kub.ExecShort(fmt.Sprintf("%s create namespace %s", KubectlCmd, name))
-	if !res.success && !strings.Contains(res.GetStdErr(), "AlreadyExists") {
+	if !res.success && !strings.Contains(res.Stderr(), "AlreadyExists") {
 		return res.err
 	}
 	return nil
@@ -2004,12 +2004,12 @@ func (kub *Kubectl) WaitCleanAllTerminatingPodsInNs(ns string, timeout time.Dura
 			return false
 		}
 
-		if res.Output().String() == "" {
+		if res.Stdout() == "" {
 			// Output is empty so no terminating containers
 			return true
 		}
 
-		podsTerminating := len(strings.Split(res.Output().String(), " "))
+		podsTerminating := len(strings.Split(res.Stdout(), " "))
 		kub.Logger().WithField("Terminating pods", podsTerminating).Info("List of pods terminating")
 		if podsTerminating > 0 {
 			return false
@@ -2575,7 +2575,7 @@ func (kub *Kubectl) CiliumExecUntilMatch(pod, cmd, substr string) error {
 		ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 		defer cancel()
 		res := kub.CiliumExecContext(ctx, pod, cmd)
-		return strings.Contains(res.Output().String(), substr)
+		return strings.Contains(res.Stdout(), substr)
 	}
 
 	return WithTimeout(
@@ -2661,7 +2661,7 @@ func (kub *Kubectl) LoadedPolicyInFirstAgent() (string, error) {
 		defer cancel()
 		res := kub.CiliumExecContext(ctx, pod, "cilium policy get")
 		if !res.WasSuccessful() {
-			return "", fmt.Errorf("cannot execute cilium policy get: %s", res.Output())
+			return "", fmt.Errorf("cannot execute cilium policy get: %s", res.Stdout())
 		}
 		return res.CombineOutput().String(), nil
 	}
@@ -2701,7 +2701,7 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 	defer cancel()
 	res := kub.CiliumExecContext(ctx, pod, "cilium policy get -o json")
 	if !res.WasSuccessful() {
-		return -1, fmt.Errorf("cannot get the revision %s", res.Output())
+		return -1, fmt.Errorf("cannot get the revision %s", res.Stdout())
 	}
 
 	revision, err := res.Filter("{.revision}")
@@ -2968,12 +2968,12 @@ func (kub *Kubectl) CiliumCheckReport(ctx context.Context) {
 	netpols := kub.ExecContextShort(ctx, fmt.Sprintf(
 		"%s get netpol -o jsonpath='%s' --all-namespaces",
 		KubectlCmd, policiesFilter))
-	fmt.Fprintf(CheckLogs, "Netpols loaded: %v\n", netpols.Output())
+	fmt.Fprintf(CheckLogs, "Netpols loaded: %v\n", netpols.GetStdOut())
 
 	cnp := kub.ExecContextShort(ctx, fmt.Sprintf(
 		"%s get cnp -o jsonpath='%s' --all-namespaces",
 		KubectlCmd, policiesFilter))
-	fmt.Fprintf(CheckLogs, "CiliumNetworkPolicies loaded: %v\n", cnp.Output())
+	fmt.Fprintf(CheckLogs, "CiliumNetworkPolicies loaded: %v\n", cnp.GetStdOut())
 
 	cepFilter := `{range .items[*]}{.metadata.name}{"="}{.status.policy.ingress.enforcing}{":"}{.status.policy.egress.enforcing}{"\n"}{end}`
 	cepStatus := kub.ExecContextShort(ctx, fmt.Sprintf(
@@ -3053,11 +3053,11 @@ func (kub *Kubectl) ValidateListOfErrorsInLogs(duration time.Duration, blacklist
 		KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()), duration.Seconds())
 	res := kub.ExecContext(ctx, fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
 	if res.WasSuccessful() {
-		logs += res.Output().String()
+		logs += res.Stdout()
 	}
 	res = kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
 	if res.WasSuccessful() {
-		logs += res.Output().String()
+		logs += res.Stdout()
 	}
 	defer func() {
 		// Keep the cilium logs for the given test in a separate file.
@@ -3177,7 +3177,7 @@ func (kub *Kubectl) ExecInHostNetNSByLabel(ctx context.Context, label, cmd strin
 		return "", fmt.Errorf("Failed to exec %q cmd on %q node: %s", cmd, nodeName, res.GetErr(""))
 	}
 
-	return res.GetStdOut(), nil
+	return res.Stdout(), nil
 }
 
 // DumpCiliumCommandOutput runs a variety of commands (CiliumKubCLICommands) and writes the results to
@@ -3356,7 +3356,7 @@ func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, e
 		return "", fmt.Errorf("Cilium pod not found on node '%s'", node)
 	}
 
-	return res.Output().String(), nil
+	return res.Stdout(), nil
 }
 
 // GetNodeInfo provides the node name and IP address based on the label
@@ -3468,7 +3468,7 @@ func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
 		if !status.WasSuccessful() {
 			return fmt.Errorf("cilium-agent '%s' is unhealthy: %s", pod, status.OutputPrettyPrint())
 		}
-		if reNoQuorum.Match(status.Output().Bytes()) {
+		if reNoQuorum.Match(status.GetStdOut().Bytes()) {
 			return fmt.Errorf("KVStore doesn't have quorum: %s", status.OutputPrettyPrint())
 		}
 	}

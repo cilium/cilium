@@ -97,7 +97,7 @@ func ExpectCiliumPreFlightInstallReady(vm *helpers.Kubectl) {
 		res := vm.Exec(fmt.Sprintf(
 			"%s -n %s get pods -l k8s-app=cilium-pre-flight-check",
 			helpers.KubectlCmd, helpers.CiliumNamespace))
-		warningMessage = res.Output().String()
+		warningMessage = res.Stdout()
 	}
 	Expect(err).To(BeNil(), "cilium pre-flight check is not ready after timeout, pods status:\n %s", warningMessage)
 }

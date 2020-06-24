@@ -178,7 +178,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		By("Create sample containers in %q docker network", helpers.WorldDockerNetwork)
 		res := vm.Exec(fmt.Sprintf("docker network create %s", helpers.WorldDockerNetwork))
 		if !res.WasSuccessful() {
-			if !strings.Contains(res.GetStdErr(), "network with name world already exists") {
+			if !strings.Contains(res.Stderr(), "network with name world already exists") {
 				res.ExpectSuccess(
 					"%q network cant be created", helpers.WorldDockerNetwork)
 			}
@@ -295,7 +295,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		GinkgoPrint(vm.Exec(
 			`docker ps -q | xargs -n 1 docker inspect --format ` +
 				`'{{range .NetworkSettings.Networks}}{{.IPAddress}}{{end}} {{ .Name }}'` +
-				`| sed 's/ \// /'`).Output().String())
+				`| sed 's/ \// /'`).Stdout())
 		vm.ReportFailed("cilium policy get")
 	})
 
@@ -304,7 +304,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		jqfilter := fmt.Sprintf(`jq -c '.[] | select(.identities|length >= %d) | select(.users|length > 0) | .selector | match("^MatchName: (\\w+\\.%s|), MatchPattern: ([\\w*]+\\.%s|)$") | length > 0'`, minNumIDs, escapedDomain, escapedDomain)
 		body := func() bool {
 			res := vm.Exec(fmt.Sprintf(`cilium policy selectors -o json | %s`, jqfilter))
-			return strings.HasPrefix(res.GetStdOut(), "true")
+			return strings.HasPrefix(res.Stdout(), "true")
 		}
 		err := helpers.WithTimeout(
 			body,
