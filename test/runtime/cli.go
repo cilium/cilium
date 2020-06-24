@@ -121,20 +121,20 @@ var _ = Describe("RuntimeCLI", func() {
 
 		It("root command help should print to stdout", func() {
 			res := vm.ExecCilium("help")
-			Expect(res.GetStdErr()).Should(BeEmpty())
-			Expect(res.GetStdOut()).Should(ContainSubstring("Use \"cilium [command] --help\" for more information about a command."))
+			Expect(res.Stderr()).Should(BeEmpty())
+			Expect(res.Stdout()).Should(ContainSubstring("Use \"cilium [command] --help\" for more information about a command."))
 		})
 
 		It("subcommand help should print to stdout", func() {
 			res := vm.ExecCilium("help bpf")
-			Expect(res.GetStdErr()).Should(BeEmpty())
-			Expect(res.GetStdOut()).Should(ContainSubstring("Use \"cilium bpf [command] --help\" for more information about a command."))
+			Expect(res.Stderr()).Should(BeEmpty())
+			Expect(res.Stdout()).Should(ContainSubstring("Use \"cilium bpf [command] --help\" for more information about a command."))
 		})
 
 		It("failed subcommand should print help to stdout", func() {
 			res := vm.ExecCilium("endpoint confi 173")
-			Expect(res.GetStdErr()).Should(BeEmpty())
-			Expect(res.GetStdOut()).Should(ContainSubstring("Use \"cilium endpoint [command] --help\" for more information about a command."))
+			Expect(res.Stderr()).Should(BeEmpty())
+			Expect(res.Stdout()).Should(ContainSubstring("Use \"cilium endpoint [command] --help\" for more information about a command."))
 		})
 
 	})
