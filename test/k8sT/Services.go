@@ -1113,7 +1113,7 @@ var _ = Describe("K8sServicesTest", func() {
 			testExternalTrafficPolicyLocal()
 		})
 
-		SkipContextIf(helpers.RunsWithoutKubeProxy, "with L4 policy", func() {
+		Context("with L4 policy", func() {
 			var (
 				demoPolicy string
 			)
