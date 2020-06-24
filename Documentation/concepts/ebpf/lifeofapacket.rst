@@ -48,9 +48,7 @@ the normal flow.
 veth-based versus ipvlan-based datapath
 =======================================
 
-.. note:: The ipvlan-based datapath is currently only in technology preview
-          and to be used for experimentation purposes. This restriction will
-          be lifted in future Cilium releases.
+.. include:: ../../tech-preview.rst
 
 By default Cilium CNI operates in veth-based datapath mode which allows for
 more flexibility in that all BPF programs are managed by Cilium out of the host
