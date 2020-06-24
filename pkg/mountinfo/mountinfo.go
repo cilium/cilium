@@ -67,8 +67,8 @@ func parseMountInfoFile(r io.Reader) ([]*MountInfo, error) {
 		}
 
 		// Extract fields from both sides of mountinfo
-		mountInfoLeft := strings.Split(strings.TrimSpace(mountInfoSeparated[0]), " ")
-		mountInfoRight := strings.Split(strings.TrimSpace(mountInfoSeparated[1]), " ")
+		mountInfoLeft := strings.Split(mountInfoSeparated[0], " ")
+		mountInfoRight := strings.Split(mountInfoSeparated[1], " ")
 
 		// Before '-' separator there should be 6 fields and unknown
 		// number of optional fields
