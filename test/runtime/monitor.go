@@ -123,7 +123,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 				vm.ContainerExec(k, helpers.Ping(helpers.Httpd1))
 				Expect(res.WaitUntilMatch(filter)).To(BeNil(),
 					"%q is not in the output after timeout", filter)
-				Expect(res.Output().String()).Should(ContainSubstring(filter))
+				Expect(res.Stdout()).Should(ContainSubstring(filter))
 			}
 		})
 
@@ -155,7 +155,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 				Expect(res.WaitUntilMatch(v)).To(BeNil(),
 					"%q is not in the output after timeout", v)
 				Expect(res.CountLines()).Should(BeNumerically(">", 3))
-				Expect(res.Output().String()).Should(ContainSubstring(v))
+				Expect(res.Stdout()).Should(ContainSubstring(v))
 				cancel()
 			}
 
@@ -180,7 +180,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			for _, v := range eventTypes {
 				Expect(res.WaitUntilMatch(v)).To(BeNil(),
 					"%q is not in the output after timeout", v)
-				Expect(res.Output().String()).Should(ContainSubstring(v))
+				Expect(res.Stdout()).Should(ContainSubstring(v))
 			}
 
 			Expect(res.CountLines()).Should(BeNumerically(">", 3))
@@ -206,10 +206,10 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			Expect(res.WaitUntilMatch(filter)).To(BeNil(),
 				"%q is not in the output after timeout", filter)
 			Expect(res.CountLines()).Should(BeNumerically(">", 3))
-			Expect(res.Output().String()).Should(ContainSubstring(filter))
+			Expect(res.Stdout()).Should(ContainSubstring(filter))
 
 			//MonitorDebug mode shouldn't have DROP lines
-			Expect(res.Output().String()).ShouldNot(ContainSubstring("DROP"))
+			Expect(res.Stdout()).ShouldNot(ContainSubstring("DROP"))
 		})
 
 		It("cilium monitor check --to", func() {
@@ -233,7 +233,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			Expect(res.WaitUntilMatch(filter)).To(BeNil(),
 				"%q is not in the output after timeout", filter)
 			Expect(res.CountLines()).Should(BeNumerically(">=", 3))
-			Expect(res.Output().String()).Should(ContainSubstring(filter))
+			Expect(res.Stdout()).Should(ContainSubstring(filter))
 		})
 
 		It("cilium monitor check --related-to", func() {
@@ -257,7 +257,7 @@ var _ = Describe("RuntimeMonitorTest", func() {
 			Expect(res.WaitUntilMatch(filter)).To(BeNil(),
 				"%q is not in the output after timeout", filter)
 			Expect(res.CountLines()).Should(BeNumerically(">=", 3))
-			Expect(res.Output().String()).Should(ContainSubstring(filter))
+			Expect(res.Stdout()).Should(ContainSubstring(filter))
 		})
 
 		It("delivers the same information to multiple monitors", func() {

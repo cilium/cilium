@@ -117,7 +117,7 @@ var _ = Describe("K8sDemosTest", func() {
 
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,
 			helpers.CurlFail("http://%s/v1", deathstarFQDN))
-		res.ExpectSuccess("unable to curl %s/v1: %s", deathstarFQDN, res.Output())
+		res.ExpectSuccess("unable to curl %s/v1: %s", deathstarFQDN, res.Stdout())
 
 		By("Importing L7 Policy which restricts access to %q", exhaustPortPath)
 		_, err = kubectl.CiliumPolicyAction(
@@ -131,12 +131,12 @@ var _ = Describe("K8sDemosTest", func() {
 		By("Showing how alliance cannot access %q without force header in API request after importing L7 Policy", exhaustPortPath)
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,
 			helpers.CurlWithHTTPCode("-X PUT http://%s", exhaustPortPath))
-		res.ExpectContains("403", "able to access %s when policy disallows it; %s", exhaustPortPath, res.Output())
+		res.ExpectContains("403", "able to access %s when policy disallows it; %s", exhaustPortPath, res.Stdout())
 
 		By("Showing how alliance can access %q with force header in API request to attack the deathstar", exhaustPortPath)
 		res = kubectl.ExecPodCmd(helpers.DefaultNamespace, xwingPod,
 			helpers.CurlWithHTTPCode("-X PUT -H 'X-Has-Force: True' http://%s", exhaustPortPath))
 		By("Expecting 503 to be returned when using force header to attack the deathstar")
-		res.ExpectContains("503", "unable to access %s when policy allows it; %s", exhaustPortPath, res.Output())
+		res.ExpectContains("503", "unable to access %s when policy allows it; %s", exhaustPortPath, res.Stdout())
 	})
 })
