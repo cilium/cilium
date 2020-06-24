@@ -26,7 +26,13 @@ type FilterBuffer struct {
 
 // ByLines returns buf string plit by the newline characters
 func (buf *FilterBuffer) ByLines() []string {
-	return strings.Split(buf.String(), "\n")
+	out := buf.String()
+	sep := "\n"
+	if strings.Contains(out, "\r\n") {
+		sep = "\r\n"
+	}
+	out = strings.TrimRight(out, sep)
+	return strings.Split(out, sep)
 }
 
 // KVOutput returns a map of the buff string split based on
