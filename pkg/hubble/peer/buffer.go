@@ -15,6 +15,7 @@
 package peer
 
 import (
+	"errors"
 	"fmt"
 	"io"
 
@@ -56,12 +57,17 @@ func (b *buffer) Cap() int {
 }
 
 // Push appends cn to the end of the buffer. An error is returned if its
-// maximum capacity is reached.
+// maximum capacity is reached or if the buffer is closed.
 func (b *buffer) Push(cn *peerpb.ChangeNotification) error {
 	b.mu.Lock()
 	defer b.mu.Unlock()
-	if len(b.buf) == b.max {
-		return fmt.Errorf("max buffer size=%d reached", b.max)
+	select {
+	case <-b.stop:
+		return errors.New("buffer closed")
+	default:
+		if len(b.buf) == b.max {
+			return fmt.Errorf("max buffer size=%d reached", b.max)
+		}
 	}
 	b.buf = append(b.buf, cn)
 	if b.notify != nil {
@@ -89,7 +95,7 @@ func (b *buffer) Pop() (*peerpb.ChangeNotification, error) {
 			return nil, io.EOF
 		}
 	}
-	//While waiting for b.mu.Lock, b.buffer may be closed.
+	// b.buffer may have been closed while waiting for b.mu.Lock
 	select {
 	case <-b.stop:
 		b.mu.Unlock()
