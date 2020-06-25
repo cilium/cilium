@@ -2,14 +2,14 @@
 #
 # cilium-envoy from github.com/cilium/proxy
 #
-FROM quay.io/cilium/cilium-envoy:a8f292139e923b205525feb2c8a4377005904776 as cilium-envoy
+FROM quay.io/cilium/cilium-envoy:a8f292139e923b205525feb2c8a4377005904776@sha256:9d3f6fb67ce3b910450378a7232ef1999c5bdff755457092155a11e5296ec346 as cilium-envoy
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 
 #
 # Hubble CLI
 #
-FROM quay.io/cilium/hubble:v0.6.0 as hubble
+FROM quay.io/cilium/hubble:v0.6.0@sha256:8dff5b76c99dea0f88b3ed27878380b9486f001741d60c33bcb1112607ca31ec as hubble
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 
@@ -23,7 +23,7 @@ LABEL cilium-sha=${CILIUM_SHA}
 # versions to be built while allowing the new versions to make changes
 # that are not backwards compatible.
 #
-FROM quay.io/cilium/cilium-builder:2020-06-08 as builder
+FROM quay.io/cilium/cilium-builder:2020-06-08@sha256:06868f045a14e38e8ff0e8ac03d66630cfa42eacffd777ae126e5692367fd8a6 as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
