@@ -632,10 +632,11 @@ vader
 Vader
 Vagrantcloud
 Vagrantfile
+vCPUs
+vX
 validator
 vbguest
 vbox
-vCPUs
 ve
 verifier
 Verifier
