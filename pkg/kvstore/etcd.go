@@ -434,7 +434,7 @@ func (e *etcdClient) Disconnected() <-chan struct{} {
 	return ch
 }
 
-func (e *etcdClient) renewSession() error {
+func (e *etcdClient) renewSession(ctx context.Context) error {
 	<-e.firstSession
 	<-e.session.Done()
 	// This is an attempt to avoid concurrent access of a session that was
@@ -443,7 +443,11 @@ func (e *etcdClient) renewSession() error {
 	// routines can get a lease ID of an already expired lease.
 	e.Lock()
 
-	newSession, err := concurrency.NewSession(e.client, concurrency.WithTTL(int(option.Config.KVstoreLeaseTTL.Seconds())))
+	newSession, err := concurrency.NewSession(
+		e.client,
+		concurrency.WithTTL(int(option.Config.KVstoreLeaseTTL.Seconds())),
+		concurrency.WithContext(ctx),
+	)
 	if err != nil {
 		e.UnlockIgnoreTime()
 		return fmt.Errorf("unable to renew etcd session: %s", err)
@@ -462,7 +466,7 @@ func (e *etcdClient) renewSession() error {
 	return nil
 }
 
-func (e *etcdClient) renewLockSession() error {
+func (e *etcdClient) renewLockSession(ctx context.Context) error {
 	<-e.firstSession
 	<-e.lockSession.Done()
 	// This is an attempt to avoid concurrent access of a session that was
@@ -471,7 +475,11 @@ func (e *etcdClient) renewLockSession() error {
 	// routines can get a lease ID of an already expired lease.
 	e.Lock()
 
-	newSession, err := concurrency.NewSession(e.client, concurrency.WithTTL(int(defaults.LockLeaseTTL.Seconds())))
+	newSession, err := concurrency.NewSession(
+		e.client,
+		concurrency.WithTTL(int(defaults.LockLeaseTTL.Seconds())),
+		concurrency.WithContext(ctx),
+	)
 	if err != nil {
 		e.UnlockIgnoreTime()
 		return fmt.Errorf("unable to renew etcd lock session: %s", err)
@@ -578,7 +586,18 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 	ec.controllers.UpdateController("kvstore-etcd-session-renew",
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				return ec.renewSession()
+				// Ignore the controller context here. Use the
+				// etcd client context instead, as this is
+				// renewing the session for that client.
+				// In the event of controller stop we'd expect
+				// the client context to be cancelled anyway
+				// and using the etcd context should generally
+				// integrate better with any code on the etcd
+				// client side.
+				parentCtx := ec.client.Ctx()
+				timedCtx, cancel := context.WithTimeout(parentCtx, statusCheckTimeout)
+				defer cancel()
+				return ec.renewSession(timedCtx)
 			},
 			RunInterval: time.Duration(10) * time.Millisecond,
 		},
@@ -587,7 +606,11 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 	ec.controllers.UpdateController("kvstore-etcd-lock-session-renew",
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				return ec.renewLockSession()
+				// Same context logic as above.
+				parentCtx := ec.client.Ctx()
+				timedCtx, cancel := context.WithTimeout(parentCtx, statusCheckTimeout)
+				defer cancel()
+				return ec.renewLockSession(timedCtx)
 			},
 			RunInterval: time.Duration(10) * time.Millisecond,
 		},
