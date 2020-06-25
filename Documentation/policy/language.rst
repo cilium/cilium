@@ -314,7 +314,7 @@ health
     See `cluster_connectivity_health` for details on health checks.
 world
     The world entity corresponds to all endpoints outside of the cluster.
-    Allowing to world is identical to allowing to CIDR 0/0. An alternative
+    Allowing to world is identical to allowing to CIDR 0.0.0.0/0. An alternative
     to allowing from and to world is to define fine grained DNS or CIDR based
     policies.
 all
@@ -477,7 +477,7 @@ DNS based
 ---------
 
 DNS policies are used to define Layer 3 policies to endpoints that are not
-managed by cilium, but have DNS queryable domain names. The IP addresses
+managed by Cilium, but have DNS queryable domain names. The IP addresses
 provided in DNS responses are allowed by Cilium in a similar manner to IPs in
 `CIDR based`_ policies. They are an alternative when the remote IPs may change
 or are not know a priori, or when DNS is more convenient. To enforce policy on
@@ -614,7 +614,7 @@ which is defined as follows:
         type PortProtocol struct {
                 // Port is an L4 port number. For now the string will be strictly
                 // parsed as a single uint16. In the future, this field may support
-                // ranges in the form "1024-2048
+                // ranges in the form "1024-2048"
                 Port string `json:"port"`
 
                 // Protocol is the L4 protocol. If omitted or empty, any protocol
@@ -1004,7 +1004,7 @@ Obtaining DNS Data for use by ``toFQDNs``
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 IPs are obtained via intercepting DNS requests with a proxy or DNS polling, and
 matching names are inserted irrespective of how the data is obtained. These IPs
-can be selected with ``toFQDN`` rules. DNS responses are cached within cilium
+can be selected with ``toFQDN`` rules. DNS responses are cached within Cilium
 agent respecting TTL.
 
 .. _DNS Proxy:
@@ -1018,7 +1018,7 @@ DNS Proxy
   Examples`_.
 
   Only IPs in intercepted DNS responses to an application will be allowed in
-  the cilium policy rules. For a given domain name, IPs from responses to all
+  the Cilium policy rules. For a given domain name, IPs from responses to all
   pods managed by a Cilium instance are allowed by policy (respecting TTLs).
   This ensures that allowed IPs are consistent with those returned to
   applications. The DNS Proxy is the only method to allow IPs from responses
@@ -1082,9 +1082,19 @@ each selected node, they apply only to the host namespace, including
 host-networking pods. They therefore don't apply to communications between
 non-host-networking pods and locations outside of the cluster.
 
+Installation of Host Policies requires the the addition of the following ``helm``
+flags when installing Cilium:
+
+* ``--set global.devices='{interface}'`` where ``interface`` refers to the
+  network device Cilium is configured on such as ``eth0``. Omitting this option
+  leads Cilium to auto-detect what interface the host firewall applies to.
+* ``--set global.hostFirewall=true``
+
 The following policy will allow ingress traffic for any node with the label
-``type=worker`` on TCP ports 22, 6443 (kube-apiserver), 2379 (etcd) and 4240
+``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), 2379 (etcd) and 4240
 (health checks), as well as UDP port 8472 (VXLAN).
+
+Replace the ``port:`` value with ports used in your environment. 
 
 .. only:: html
 
@@ -1096,3 +1106,25 @@ The following policy will allow ingress traffic for any node with the label
 .. only:: epub or latex
 
         .. literalinclude:: ../../examples/policies/host/lock-down-ingress.yaml
+
+Troubleshooting Host Policies
+-----------------------------
+
+If you're having troubles with Host Policies please ensure the ``helm`` options
+listed above were applied during installation. To verify that your policy has
+been applied, you can run ``kubectl get CiliumClusterwideNetworkPolicy -o yaml``
+to validate the policy was accepted.
+
+If policies don't seem to be applied to your nodes, verify the ``nodeSelector``
+is labeled correctly in your environment. In the example configuration, you can
+run ``kubectl get nodes -o wide|grep type=ingress-worker`` to verify labels
+match the policy.
+
+You can verify the policy was properly parsed and applied by ``exec``ing into
+the Cilium agent pod and running ``cilium policy get``. Verify that the host is
+selected by the policy using ``cilium endpoint list`` and look for the endpoint
+with ``reserved:host`` as the label and ensure that policy is enabled in the
+selected direction. Ensure the traffic is arriving on the device visible on the
+``NodePort`` field of the ``cilium status list`` output. Use ``cilium monitor``
+with ``--related-to`` and the endpoint ID of the ``reserved:host`` endpoint to
+view traffic.
