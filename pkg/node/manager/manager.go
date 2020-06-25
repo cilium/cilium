@@ -338,16 +338,11 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 	}
 
 	for _, address := range n.IPAddresses {
-		var tunnelIP net.IP
-		if address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() {
-			tunnelIP = nodeIP
-		}
-
 		if m.legacyNodeIpBehavior() && address.Type != addressing.NodeCiliumInternalIP {
 			continue
 		}
 
-		isOwning, _ := m.ipcache.Upsert(address.IP.String(), tunnelIP, n.EncryptionKey, nil, ipcache.Identity{
+		isOwning, _ := m.ipcache.Upsert(address.IP.String(), nodeIP, n.EncryptionKey, nil, ipcache.Identity{
 			ID:     remoteHostIdentity,
 			Source: n.Source,
 		})
