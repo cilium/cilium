@@ -13,7 +13,7 @@ CILIUM_VALUES := "$(CILIUM_CHARTS)/values.yaml" "$(CILIUM_CHARTS)/charts/hubble-
 
 VERSION_REGEX := '[0-9]\+\.[0-9]\+\.[0-9]\+.*'
 LATEST_VERSION_REGEX := '[0-9]\+\.[0-9]\+\.90'
-DEV_VERSION_REGEX := '[0-9]\+\.[0-9]\+\.[0-9]\+-dev'
+DEV_VERSION_REGEX := '[0-9]\+\.[0-9]\+-dev'
 CILIUM_CHART_REGEX := '\([vV]ersion:\) '$(VERSION_REGEX)
 CILIUM_TAG_REGEX := '\(tag:\) \(v'$(VERSION_REGEX)'\|latest\)'
 CILIUM_PULLPOLICY_REGEX := '\([pP]ullPolicy:\) .*'
@@ -43,8 +43,7 @@ update-versions:
 			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 latest/' $$chart;				\
 			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 Always/' $$chart;			\
 		elif echo $(VERSION) | grep -q $(DEV_VERSION_REGEX); then				\
-			DEV_BRANCH=$$(echo $(VERSION) | sed 's/-dev//')					\
-			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 $(DEV_BRANCH)/' $$chart;			\
+			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 v$(subst -dev,,$(VERSION))/' $$chart;	\
 			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 Always/' $$chart;			\
 		else											\
 			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 v$(VERSION)/' $$chart;			\
