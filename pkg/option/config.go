@@ -722,6 +722,14 @@ const (
 	// IPv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
 	IPv4NativeRoutingCIDR = "native-routing-cidr"
 
+	// IPAMClusterPoolV4CIDR is the cluster IPv4 podCIDR that should be used to
+	// allocate pods in the node.
+	IPAMClusterPoolV4CIDR = "cluster-pool-ipv4-cidr"
+
+	// IPAMClusterPoolV6CIDR is the cluster IPv6 podCIDR that should be used to
+	// allocate pods in the node.
+	IPAMClusterPoolV6CIDR = "cluster-pool-ipv6-cidr"
+
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces = "egress-masquerade-interfaces"
@@ -1846,6 +1854,14 @@ type DaemonConfig struct {
 	// ipv4NativeRoutingCIDR describes a CIDR in which pod IPs are routable
 	ipv4NativeRoutingCIDR *cidr.CIDR
 
+	// IPAMClusterPoolV4CIDR is the cluster IPv4 podCIDR that should be used to
+	// allocate pods in the node.
+	IPAMClusterPoolV4CIDR []string
+
+	// IPAMClusterPoolV6CIDR is the cluster IPv6 podCIDR that should be used to
+	// allocate pods in the node.
+	IPAMClusterPoolV6CIDR []string
+
 	// EgressMasqueradeInterfaces is the selector used to select interfaces
 	// subject to egress masquerading
 	EgressMasqueradeInterfaces string
@@ -2159,6 +2175,32 @@ func (c *DaemonConfig) EnableK8sLeasesFallbackDiscovery() {
 	c.k8sEnableAPIDiscovery = true
 }
 
+func (c *DaemonConfig) validateIPAMClusterPoolV4CIDR() error {
+	for _, v4CIDR := range c.IPAMClusterPoolV4CIDR {
+		_, cidr, err := net.ParseCIDR(v4CIDR)
+		if err != nil {
+			return err
+		}
+		if cidr == nil {
+			return fmt.Errorf("IPAMClusterPoolV4CDIR ParseCIDR returned nil")
+		}
+	}
+	return nil
+}
+
+func (c *DaemonConfig) validateIPAMClusterPoolV6CIDR() error {
+	for _, v6CIDR := range c.IPAMClusterPoolV6CIDR {
+		_, cidr, err := net.ParseCIDR(v6CIDR)
+		if err != nil {
+			return err
+		}
+		if cidr == nil {
+			return fmt.Errorf("IPAMClusterPoolV6CDIR ParseCIDR returned nil")
+		}
+	}
+	return nil
+}
+
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
 	ip, cidr, err := net.ParseCIDR(c.IPv6ClusterAllocCIDR)
 	if err != nil {
@@ -2183,6 +2225,16 @@ func (c *DaemonConfig) Validate() error {
 	if err := c.validateIPv6ClusterAllocCIDR(); err != nil {
 		return fmt.Errorf("unable to parse CIDR value '%s' of option --%s: %s",
 			c.IPv6ClusterAllocCIDR, IPv6ClusterAllocCIDRName, err)
+	}
+
+	if err := c.validateIPAMClusterPoolV4CIDR(); err != nil {
+		return fmt.Errorf("unable to parse ClusterPool V4 CIDR %s",
+			c.IPAMClusterPoolV4CIDR)
+	}
+
+	if err := c.validateIPAMClusterPoolV6CIDR(); err != nil {
+		return fmt.Errorf("unable to parse ClusterPool V6 CIDR %s",
+			c.IPAMClusterPoolV6CIDR)
 	}
 
 	if c.MTU < 0 {
@@ -2503,6 +2555,9 @@ func (c *DaemonConfig) Populate() {
 	c.K8sServiceProxyName = viper.GetString(K8sServiceProxyName)
 
 	c.populateDevices()
+
+	c.IPAMClusterPoolV4CIDR = viper.GetStringSlice(IPAMClusterPoolV4CIDR)
+	c.IPAMClusterPoolV6CIDR = viper.GetStringSlice(IPAMClusterPoolV6CIDR)
 
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)
