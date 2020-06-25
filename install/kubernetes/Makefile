@@ -10,7 +10,7 @@ CILIUM_VALUES := "$(CILIUM_CHARTS)/values.yaml"
 
 VERSION_REGEX := '[0-9]\+\.[0-9]\+\.[0-9]\+.*'
 LATEST_VERSION_REGEX := '[0-9]\+\.[0-9]\+\.90'
-DEV_VERSION_REGEX := '[0-9]\+\.[0-9]\+\.[0-9]\+-dev'
+DEV_VERSION_REGEX := '[0-9]\+\.[0-9]\+-dev'
 CILIUM_CHART_REGEX := '\([vV]ersion:\) '$(VERSION_REGEX)
 CILIUM_TAG_REGEX := '\(tag:\) \(v'$(VERSION_REGEX)'\|latest\)'
 CILIUM_PULLPOLICY_REGEX := '\(pullPolicy:\) .*'
@@ -30,9 +30,8 @@ update-versions:
 			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 latest/' $(CILIUM_VALUES);			\
 			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 Always/' $(CILIUM_VALUES);		\
 		elif echo $(VERSION) | grep -q $(DEV_VERSION_REGEX); then				\
-			DEV_BRANCH=$$(echo $(VERSION) | sed 's/-dev//')					\
-			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 $(DEV_BRANCH)/' $(CILIUM_VALUES);		\
-			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 Always/' $(CILIUM_VALUES);		\
+			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 v$(subst -dev,,$(VERSION))/' $(CILIUM_VALUES);	\
+			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 Always/' $(CILIUM_VALUES);			\
 		else											\
 			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 v$(VERSION)/' $(CILIUM_VALUES);		\
 			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 IfNotPresent/' $(CILIUM_VALUES);	\
