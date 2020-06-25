@@ -148,6 +148,25 @@ If you intent to release a new feature release, see the
       ./prepare_artifacts.sh /path/to/cilium/repository/checked/out/to/release/commit
       git push
 
+#. Prepare Helm changes using the `Cilium Helm Charts Repository <https://github.com/cilium/charts/>`_
+   for the vX.Y helm charts, and push the changes into that repository (not the main cilium repository):
+
+   In the ``cilium/cilium`` repository:
+
+   #. ``git checkout vx.y -b vx.z-dev``
+   #. Change the ``VERSION`` file to ``x.y-dev``
+   #. Run ``make -C install/kubernetes``
+
+   In the ``cilium/charts`` repository:
+
+   ::
+
+      ./prepare_artifacts.sh /path/to/cilium/repository/checked/out/to/release/commit
+      git push
+
+   After pushing you can revert all the changes made in the local branch
+   ``x.y-dev`` from ``cilium/cilium``.
+
 #. Announce the release in the ``#general`` channel on Slack. Sample text:
 
    ::
