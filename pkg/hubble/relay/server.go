@@ -22,7 +22,6 @@ import (
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/hubble/relay/relayoption"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -43,10 +42,9 @@ type hubblePeer struct {
 // via unix domain socket.
 type Server struct {
 	server *grpc.Server
+	ps     peerSyncer
 	log    logrus.FieldLogger
-	peers  map[string]*hubblePeer
 	opts   relayoption.Options
-	mu     lock.Mutex
 	stop   chan struct{}
 }
 
@@ -61,10 +59,10 @@ func NewServer(options ...relayoption.Option) (*Server, error) {
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
 	logging.ConfigureLogLevel(opts.Debug)
 	return &Server{
-		log:   logger,
-		peers: make(map[string]*hubblePeer),
-		stop:  make(chan struct{}),
-		opts:  opts,
+		ps:   newSyncer(opts.HubbleTarget, opts.DialTimeout, opts.RetryTimeout, logger),
+		log:  logger,
+		stop: make(chan struct{}),
+		opts: opts,
 	}, nil
 }
 
@@ -82,7 +80,7 @@ func (s *Server) Serve() error {
 	if err != nil {
 		return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.ListenAddress, err)
 	}
-	go s.syncPeers()
+	s.ps.Start()
 	reflection.Register(s.server)
 	return s.server.Serve(socket)
 }
@@ -92,5 +90,6 @@ func (s *Server) Stop() {
 	s.log.Info("Stopping server...")
 	close(s.stop)
 	s.server.Stop()
+	s.ps.Stop()
 	s.log.Info("Server stopped")
 }
