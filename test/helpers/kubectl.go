@@ -2921,12 +2921,16 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 	defer cancel()
 
 	var wg sync.WaitGroup
-	wg.Add(1)
+	wg.Add(2)
+
+	go func() {
+		defer wg.Done()
+		kub.GatherLogs(ctx)
+	}()
 
 	go func() {
 		defer wg.Done()
 		kub.DumpCiliumCommandOutput(ctx, namespace)
-		kub.GatherLogs(ctx)
 	}()
 
 	kub.CiliumCheckReport(ctx)
