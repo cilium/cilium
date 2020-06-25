@@ -6,7 +6,7 @@ metadata:
 spec:
   nodeSelector:
     matchLabels:
-      type: worker
+      type: ingress-worker
   ingress:
   - toPorts:
     - ports:
@@ -20,3 +20,5 @@ spec:
         protocol: TCP
       - port: "8472"
         protocol: UDP
+      - port: "REMOVE_ME_AFTER_DOUBLE_CHECKING_PORTS"
+        protocol: TCP
