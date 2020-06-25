@@ -17,6 +17,7 @@
 package peer
 
 import (
+	"errors"
 	"fmt"
 	"io"
 	"testing"
@@ -39,6 +40,12 @@ func TestBufferPush(t *testing.T) {
 	err := buf.Push(&peerpb.ChangeNotification{})
 	assert.Equal(t, fmt.Errorf("max buffer size=%d reached", max), err)
 	assert.Equal(t, max, buf.Len())
+
+	buf.Close()
+	err = buf.Push(&peerpb.ChangeNotification{})
+	assert.Equal(t, errors.New("buffer closed"), err)
+	assert.Equal(t, 0, buf.Len())
+
 }
 
 func TestBufferPop(t *testing.T) {
