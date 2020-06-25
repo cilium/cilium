@@ -5,7 +5,7 @@ image:
   # tag is the container image tag to use.
   # Ref: https://github.com/cilium/hubble-ui/releases
   # Ref: https://quay.io/repository/cilium/hubble-ui?tab=tags
-  tag: v0.6.0
+  tag: v0.6.1
   # pullPolicy is the container image pull policy
   pullPolicy: IfNotPresent
 replicas: 1
