@@ -4,7 +4,7 @@ import (
 	"context"
 	"encoding/json"
 	"fmt"
-	"runtime"
+	"math"
 	"strconv"
 	"strings"
 	"sync"
@@ -28,7 +28,6 @@ type TimesStat struct {
 	Steal     float64 `json:"steal"`
 	Guest     float64 `json:"guest"`
 	GuestNice float64 `json:"guestNice"`
-	Stolen    float64 `json:"stolen"`
 }
 
 type InfoStat struct {
@@ -63,12 +62,9 @@ func init() {
 	lastCPUPercent.Unlock()
 }
 
+// Counts returns the number of physical or logical cores in the system
 func Counts(logical bool) (int, error) {
 	return CountsWithContext(context.Background(), logical)
-}
-
-func CountsWithContext(ctx context.Context, logical bool) (int, error) {
-	return runtime.NumCPU(), nil
 }
 
 func (c TimesStat) String() string {
@@ -84,7 +80,6 @@ func (c TimesStat) String() string {
 		`"steal":` + strconv.FormatFloat(c.Steal, 'f', 1, 64),
 		`"guest":` + strconv.FormatFloat(c.Guest, 'f', 1, 64),
 		`"guestNice":` + strconv.FormatFloat(c.GuestNice, 'f', 1, 64),
-		`"stolen":` + strconv.FormatFloat(c.Stolen, 'f', 1, 64),
 	}
 
 	return `{` + strings.Join(v, ",") + `}`
@@ -92,8 +87,8 @@ func (c TimesStat) String() string {
 
 // Total returns the total number of seconds in a CPUTimesStat
 func (c TimesStat) Total() float64 {
-	total := c.User + c.System + c.Nice + c.Iowait + c.Irq + c.Softirq + c.Steal +
-		c.Guest + c.GuestNice + c.Idle + c.Stolen
+	total := c.User + c.System + c.Nice + c.Iowait + c.Irq + c.Softirq +
+		c.Steal + c.Idle
 	return total
 }
 
@@ -104,7 +99,7 @@ func (c InfoStat) String() string {
 
 func getAllBusy(t TimesStat) (float64, float64) {
 	busy := t.User + t.System + t.Nice + t.Iowait + t.Irq +
-		t.Softirq + t.Steal + t.Guest + t.GuestNice + t.Stolen
+		t.Softirq + t.Steal
 	return busy + t.Idle, busy
 }
 
@@ -116,9 +111,9 @@ func calculateBusy(t1, t2 TimesStat) float64 {
 		return 0
 	}
 	if t2All <= t1All {
-		return 1
+		return 100
 	}
-	return (t2Busy - t1Busy) / (t2All - t1All) * 100
+	return math.Min(100, math.Max(0, (t2Busy-t1Busy)/(t2All-t1All)*100))
 }
 
 func calculateAllBusy(t1, t2 []TimesStat) ([]float64, error) {
