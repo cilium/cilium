@@ -678,13 +678,17 @@ func (e *etcdClient) LockPath(ctx context.Context, path string) (KVLocker, error
 		return nil, fmt.Errorf("lock cancelled via context: %s", ctx.Err())
 	}
 
+	// Create the context first so that if a connectivity issue causes the
+	// RLock acquisition below to block, this timeout will run concurrently
+	// with the timeouts in renewSession() rather than running serially.
+	ctx, cancel := context.WithTimeout(ctx, time.Minute)
+	defer cancel()
+
 	e.RLock()
 	mu := concurrency.NewMutex(e.lockSession, path)
 	leaseID := e.lockSession.Lease()
 	e.RUnlock()
 
-	ctx, cancel := context.WithTimeout(ctx, time.Minute)
-	defer cancel()
 	err := mu.Lock(ctx)
 	if err != nil {
 		e.checkLockSession(err, leaseID)
