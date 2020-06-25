@@ -236,7 +236,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 		}
 	}()
 
-	peers := s.peerList()
+	peers := s.ps.List()
 	qlen := s.opts.SortBufferMaxLen // we don't want to buffer too many flows
 	if nqlen := req.GetNumber() * uint64(len(peers)); nqlen > 0 && nqlen < uint64(qlen) {
 		// don't make the queue bigger than necessary as it would be a problem
@@ -255,7 +255,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 				"No connection to peer %s, skipping", p.Name,
 			)
 			unavailableNodes = append(unavailableNodes, p.Name)
-			go s.connectPeer(p.Name, p.Address.String())
+			s.ps.ConnectPeer(p.Name, p.Address.String())
 			continue
 		}
 		connectedNodes = append(connectedNodes, p.Name)
@@ -330,7 +330,7 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 		}
 	}()
 
-	peers := s.peerList()
+	peers := s.ps.List()
 	statuses := make(chan *observerpb.ServerStatusResponse, len(peers))
 	for _, p := range peers {
 		p := p
@@ -338,7 +338,7 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 			s.log.WithField("address", p.Address.String()).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
-			go s.connectPeer(p.Name, p.Address.String())
+			s.ps.ConnectPeer(p.Name, p.Address.String())
 			continue
 		}
 		g.Go(func() error {
