@@ -114,8 +114,8 @@ func WithBufferDrainTimeout(d time.Duration) Option {
 	}
 }
 
-// ErrorAggregationWindow sets a time window during which errors with the same
-// error message are coalesced. The aggregated error is forwarded to the
+// WithErrorAggregationWindow sets a time window during which errors with the
+// same error message are coalesced. The aggregated error is forwarded to the
 // downstream consumer either when the window expires or when a new, different
 // error occurs (whichever happens first)
 func WithErrorAggregationWindow(d time.Duration) Option {
