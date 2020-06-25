@@ -20,6 +20,7 @@ import (
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	"github.com/cilium/cilium/pkg/hubble/peer"
+	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
@@ -40,112 +41,150 @@ func newPeerClient(target string, dialTimeout time.Duration) (peerpb.PeerClient,
 	return peerpb.NewPeerClient(conn), conn, nil
 }
 
-func (s *Server) syncPeers() {
-	ctx, cancel := context.WithCancel(context.Background())
-connect:
-	for {
-		cl, conn, err := newPeerClient(s.opts.HubbleTarget, s.opts.DialTimeout)
-		if err != nil {
-			s.log.WithFields(logrus.Fields{
-				"error":        err,
-				"dial timeout": s.opts.DialTimeout,
-			}).Warning("Failed to create peer client for peers synchronization; will try again after the timeout has expired")
-			select {
-			case <-s.stop:
-				cancel()
-				return
-			case <-time.After(s.opts.RetryTimeout):
-				continue
-			}
-		}
-		client, err := cl.Notify(ctx, &peerpb.NotifyRequest{})
-		if err != nil {
-			conn.Close()
-			s.log.WithFields(logrus.Fields{
-				"error":              err,
-				"connection timeout": s.opts.RetryTimeout,
-			}).Warning("Failed to create peer notify client for peers change notification; will try again after the timeout has expired")
-			select {
-			case <-s.stop:
-				cancel()
-				return
-			case <-time.After(s.opts.RetryTimeout):
-				continue
-			}
-		}
+type peerSyncer interface {
+	Start()
+	Stop()
+	List() []hubblePeer
+	ConnectPeer(name, address string)
+}
+
+type syncer struct {
+	target       string
+	dialTimeout  time.Duration
+	retryTimeout time.Duration
+	log          logrus.FieldLogger
+	peers        map[string]*hubblePeer
+	mu           lock.Mutex
+	stop         chan struct{}
+}
+
+func newSyncer(target string, dialTimeout, retryTimeout time.Duration, logger logrus.FieldLogger) *syncer {
+	return &syncer{
+		target:       target,
+		dialTimeout:  dialTimeout,
+		retryTimeout: retryTimeout,
+		log:          logger,
+		peers:        make(map[string]*hubblePeer),
+		stop:         make(chan struct{}),
+	}
+}
+
+func (s *syncer) Start() {
+	go func() {
+		ctx, cancel := context.WithCancel(context.Background())
+	connect:
 		for {
-			select {
-			case <-s.stop:
-				conn.Close()
-				cancel()
-				return
-			default:
-			}
-			cn, err := client.Recv()
+			cl, conn, err := newPeerClient(s.target, s.dialTimeout)
 			if err != nil {
-				conn.Close()
 				s.log.WithFields(logrus.Fields{
-					"error":              err,
-					"connection timeout": s.opts.RetryTimeout,
-				}).Warning("Error while receiving peer change notification; will try again after the timeout has expired")
+					"error":        err,
+					"dial timeout": s.dialTimeout,
+				}).Warning("Failed to create peer client for peers synchronization; will try again after the timeout has expired")
 				select {
 				case <-s.stop:
 					cancel()
 					return
-				case <-time.After(s.opts.RetryTimeout):
-					continue connect
+				case <-time.After(s.retryTimeout):
+					continue
 				}
 			}
-			s.log.WithField("change notification", cn).Debug("Received peer change notification")
-			p := peer.FromChangeNotification(cn)
-			switch cn.GetType() {
-			case peerpb.ChangeNotificationType_PEER_ADDED:
-				s.addPeer(p)
-			case peerpb.ChangeNotificationType_PEER_DELETED:
-				s.deletePeer(p)
-			case peerpb.ChangeNotificationType_PEER_UPDATED:
-				s.updatePeer(p)
+			client, err := cl.Notify(ctx, &peerpb.NotifyRequest{})
+			if err != nil {
+				conn.Close()
+				s.log.WithFields(logrus.Fields{
+					"error":              err,
+					"connection timeout": s.retryTimeout,
+				}).Warning("Failed to create peer notify client for peers change notification; will try again after the timeout has expired")
+				select {
+				case <-s.stop:
+					cancel()
+					return
+				case <-time.After(s.retryTimeout):
+					continue
+				}
+			}
+			for {
+				select {
+				case <-s.stop:
+					conn.Close()
+					cancel()
+					return
+				default:
+				}
+				cn, err := client.Recv()
+				if err != nil {
+					conn.Close()
+					s.log.WithFields(logrus.Fields{
+						"error":              err,
+						"connection timeout": s.retryTimeout,
+					}).Warning("Error while receiving peer change notification; will try again after the timeout has expired")
+					select {
+					case <-s.stop:
+						cancel()
+						return
+					case <-time.After(s.retryTimeout):
+						continue connect
+					}
+				}
+				s.log.WithField("change notification", cn).Debug("Received peer change notification")
+				p := peer.FromChangeNotification(cn)
+				switch cn.GetType() {
+				case peerpb.ChangeNotificationType_PEER_ADDED:
+					s.addPeer(p)
+				case peerpb.ChangeNotificationType_PEER_DELETED:
+					s.deletePeer(p)
+				case peerpb.ChangeNotificationType_PEER_UPDATED:
+					s.updatePeer(p)
+				}
 			}
 		}
-	}
+	}()
 }
 
-func (s *Server) connectPeer(name, addr string) {
-	s.log.WithFields(logrus.Fields{
-		"address":      addr,
-		"dial timeout": s.opts.DialTimeout,
-	}).Debugf("Connecting peer %s...", name)
+func (s *syncer) Stop() {
+	close(s.stop)
+}
 
-	//FIXME: remove WithInsecure once mutual TLS is implemented
-	conn, connErr := newConn(addr, s.opts.DialTimeout, grpc.WithInsecure(), grpc.WithBlock())
-	var err error
-	s.mu.Lock()
-	if hp, ok := s.peers[name]; ok {
-		if hp.conn != nil { // make sure to close existing connection, if any
-			err = hp.conn.Close()
-		}
-		hp.conn = conn
-		hp.connErr = connErr
-	}
-	s.mu.Unlock()
-
-	if err != nil {
-		s.log.WithFields(logrus.Fields{
-			"error": err,
-		}).Warningf("Failed to properly close gRPC client connection to peer %s", name)
-	}
-	if connErr != nil {
+func (s *syncer) ConnectPeer(name, addr string) {
+	// we don't want to block the caller while waiting to establish a
+	// connection; connect in the background
+	go func() {
 		s.log.WithFields(logrus.Fields{
 			"address":      addr,
-			"dial timeout": s.opts.DialTimeout,
-			"error":        connErr,
-		}).Warningf("Failed to create gRPC client connection to peer %s", name)
-	} else {
-		s.log.Debugf("Peer %s connected", name)
-	}
+			"dial timeout": s.dialTimeout,
+		}).Debugf("Connecting peer %s...", name)
+
+		//FIXME: remove WithInsecure once mutual TLS is implemented
+		conn, connErr := newConn(addr, s.dialTimeout, grpc.WithInsecure(), grpc.WithBlock())
+		var err error
+		s.mu.Lock()
+		if hp, ok := s.peers[name]; ok {
+			if hp.conn != nil { // make sure to close existing connection, if any
+				err = hp.conn.Close()
+			}
+			hp.conn = conn
+			hp.connErr = connErr
+		}
+		s.mu.Unlock()
+
+		if err != nil {
+			s.log.WithFields(logrus.Fields{
+				"error": err,
+			}).Warningf("Failed to properly close gRPC client connection to peer %s", name)
+		}
+		if connErr != nil {
+			s.log.WithFields(logrus.Fields{
+				"address":      addr,
+				"dial timeout": s.dialTimeout,
+				"error":        connErr,
+			}).Warningf("Failed to create gRPC client connection to peer %s", name)
+		} else {
+			s.log.Debugf("Peer %s connected", name)
+		}
+	}()
 }
 
-func (s *Server) disconnectPeer(name string) {
+func (s *syncer) disconnectPeer(name string) {
 	s.log.Debugf("Disconnecting peer %s...", name)
 
 	var err error
@@ -164,7 +203,7 @@ func (s *Server) disconnectPeer(name string) {
 	s.log.Debugf("Peer %s disconnected", name)
 }
 
-func (s *Server) addPeer(p *peer.Peer) {
+func (s *syncer) addPeer(p *peer.Peer) {
 	if p == nil {
 		return
 	}
@@ -174,12 +213,10 @@ func (s *Server) addPeer(p *peer.Peer) {
 	s.peers[p.Name] = hp
 	s.mu.Unlock()
 
-	// we don't want to block while waiting to establish a connection with the
-	// peer thus attempt to connect in the background
-	go s.connectPeer(p.Name, p.Address.String())
+	s.ConnectPeer(p.Name, p.Address.String())
 }
 
-func (s *Server) deletePeer(p *peer.Peer) {
+func (s *syncer) deletePeer(p *peer.Peer) {
 	if p == nil {
 		return
 	}
@@ -190,7 +227,7 @@ func (s *Server) deletePeer(p *peer.Peer) {
 	s.mu.Unlock()
 }
 
-func (s *Server) updatePeer(p *peer.Peer) {
+func (s *syncer) updatePeer(p *peer.Peer) {
 	if p == nil {
 		return
 	}
@@ -199,7 +236,7 @@ func (s *Server) updatePeer(p *peer.Peer) {
 	s.addPeer(p)
 }
 
-func (s *Server) peerList() []hubblePeer {
+func (s *syncer) List() []hubblePeer {
 	s.mu.Lock()
 	p := make([]hubblePeer, 0, len(s.peers))
 	for _, v := range s.peers {
