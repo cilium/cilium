@@ -773,7 +773,7 @@ spec:
       serviceAccountName: hubble-ui
       containers:
         - name: hubble-ui
-          image: "quay.io/cilium/hubble-ui:v0.6.0"
+          image: "quay.io/cilium/hubble-ui:v0.6.1"
           imagePullPolicy: IfNotPresent
           env:
             - name: NODE_ENV
