@@ -1,15 +1,6 @@
 /* SPDX-License-Identifier: GPL-2.0 */
 /* Copyright (C) 2016-2020 Authors of Cilium */
 
-/**
- * Configuration:
- * LB_L4: Include L4 matching and rewriting capabilities
- * LB_L3: Enable fallback to L3 LB entries
- *
- * Either LB_L4, LB_L3, or both need to be set to enable forward
- * translation. Reverse translation will always occur regardless
- * of the settings.
- */
 #ifndef __LB_H_
 #define __LB_H_
 
@@ -382,42 +373,19 @@ static __always_inline int lb6_extract_key(struct __ctx_buff *ctx __maybe_unused
 	ipv6_addr_copy(&key->address, addr);
 	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
 
-#ifdef LB_L4
 	return extract_l4_port(ctx, tuple->nexthdr, l4_off, &key->dport, NULL);
-#else
-	return 0;
-#endif
 }
 
 static __always_inline
 struct lb6_service *lb6_lookup_service(struct lb6_key *key)
 {
+	struct lb6_service *svc;
+
 	key->slave = 0;
-#ifdef LB_L4
-	if (key->dport) {
-		struct lb6_service *svc;
+	svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
+	if (svc && svc->count != 0)
+		return svc;
 
-		/* FIXME: The verifier barks on these calls right now for some reason */
-		/* cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_MASTER, key->address, key->dport); */
-		svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
-		if (svc && svc->count != 0)
-			return svc;
-
-		key->dport = 0;
-	}
-#endif
-
-#ifdef LB_L3
-	if (1) {
-		struct lb6_service *svc;
-
-		/* FIXME: The verifier barks on these calls right now for some reason */
-		/* cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_MASTER, key->address, key->dport); */
-		svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
-		if (svc && svc->count != 0)
-			return svc;
-	}
-#endif
 	return NULL;
 }
 
@@ -477,7 +445,6 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
 			return DROP_CSUM_L4;
 	}
 
-#ifdef LB_L4
 	if (backend->port && key->dport != backend->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
 		__be16 tmp = backend->port;
@@ -488,7 +455,6 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			return ret;
 	}
-#endif
 
 	return CTX_ACT_OK;
 }
@@ -865,42 +831,18 @@ static __always_inline int lb4_extract_key(struct __ctx_buff *ctx __maybe_unused
 	key->address = (dir == CT_INGRESS) ? ip4->saddr : ip4->daddr;
 	csum_l4_offset_and_flags(ip4->protocol, csum_off);
 
-#ifdef LB_L4
 	return extract_l4_port(ctx, ip4->protocol, l4_off, &key->dport, ip4);
-#else
-	return 0;
-#endif
 }
 
 static __always_inline
 struct lb4_service *lb4_lookup_service(struct lb4_key *key)
 {
+	struct lb4_service *svc;
+
 	key->slave = 0;
-#ifdef LB_L4
-	if (key->dport) {
-		struct lb4_service *svc;
-
-		/* FIXME: The verifier barks on these calls right now for some reason */
-		/* cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_MASTER, key->address, key->dport); */
-		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
-		if (svc && svc->count != 0)
-			return svc;
-
-		key->dport = 0;
-	}
-#endif
-
-#ifdef LB_L3
-	if (1) {
-		struct lb4_service *svc;
-
-		/* FIXME: The verifier barks on these calls right now for some reason */
-		/* cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_MASTER, key->address, key->dport); */
-		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
-		if (svc && svc->count != 0)
-			return svc;
-	}
-#endif
+	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
+	if (svc && svc->count != 0)
+		return svc;
 	return NULL;
 }
 
@@ -979,7 +921,6 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_u
 				    BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
-#ifdef LB_L4
 	if (backend->port && key->dport != backend->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
 		__be16 tmp = backend->port;
@@ -990,7 +931,6 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_u
 		if (IS_ERR(ret))
 			return ret;
 	}
-#endif /* LB_L4 */
 	return CTX_ACT_OK;
 }
 
