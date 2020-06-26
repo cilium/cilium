@@ -74,6 +74,7 @@ test/gke/cluster-uri
 test/gke/cluster-version
 test/gke/gke-kubeconfig
 test/gke/resize-kubeconfig
+test/gke/registry-adder.yaml
 
 # Emacs backup files
 *~
