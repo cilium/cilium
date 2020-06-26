@@ -36,6 +36,7 @@ NODE_PORT_BIND=${18}
 MCPU=${19}
 NODE_PORT_IPV4_ADDRS=${20}
 NODE_PORT_IPV6_ADDRS=${21}
+NR_CPUS=${22}
 
 ID_HOST=1
 ID_WORLD=2
@@ -271,18 +272,18 @@ function bpf_compile()
 	TYPE=$3
 	EXTRA_OPTS=$4
 
-	clang -O2 -target bpf -std=gnu89 -nostdinc -emit-llvm		\
-	      -Wall -Wextra -Werror -Wshadow				\
-	      -Wno-address-of-packed-member				\
-	      -Wno-unknown-warning-option				\
-	      -Wno-gnu-variable-sized-type-not-at-end			\
-	      -Wdeclaration-after-statement				\
-	      -I. -I$DIR -I$LIB -I$LIB/include				\
-	      -D__NR_CPUS__=$(nproc --all)					\
-	      -DENABLE_ARP_RESPONDER=1					\
-	      -DHANDLE_NS=1						\
-	      $EXTRA_OPTS						\
-	      -c $LIB/$IN -o - |					\
+	clang -O2 -target bpf -std=gnu89 -nostdinc -emit-llvm	\
+	      -Wall -Wextra -Werror -Wshadow			\
+	      -Wno-address-of-packed-member			\
+	      -Wno-unknown-warning-option			\
+	      -Wno-gnu-variable-sized-type-not-at-end		\
+	      -Wdeclaration-after-statement			\
+	      -I. -I$DIR -I$LIB -I$LIB/include			\
+	      -D__NR_CPUS__=$NR_CPUS				\
+	      -DENABLE_ARP_RESPONDER=1				\
+	      -DHANDLE_NS=1					\
+	      $EXTRA_OPTS					\
+	      -c $LIB/$IN -o - |				\
 	llc -march=bpf -mcpu=$MCPU -mattr=dwarfris -filetype=$TYPE -o $OUT
 }
 
