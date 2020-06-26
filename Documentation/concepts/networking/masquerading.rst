@@ -44,7 +44,7 @@ eBPF-based
 
 The eBPF-based implementation is the most efficient
 implementation. It requires Linux kernel 4.19 and can be enabled with
-the ``global.bpfMasquerade=true`` helm option (enabled by default).
+the ``config.bpfMasquerade=true`` helm option (enabled by default).
 
 The current implementation depends on :ref:`the BPF NodePort feature <kubeproxy-free>`.
 The dependency will be removed in the Cilium v1.9 release.

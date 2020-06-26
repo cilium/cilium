@@ -2181,7 +2181,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 
 		if RunsOnNetNextOr419Kernel() {
-			opts["global.bpfMasquerade"] = "true"
+			opts["config.bpfMasquerade"] = "true"
 		}
 
 		for key, value := range opts {
