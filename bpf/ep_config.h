@@ -41,8 +41,6 @@ DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #define CT_MAP_SIZE_TCP 4096
 #define CT_MAP_SIZE_ANY 4096
 #define CALLS_MAP test_cilium_calls_65535
-#define LB_L3
-#define LB_L4
 #define LOCAL_DELIVERY_METRICS
 #define CONNTRACK
 #define CONNTRACK_ACCOUNTING

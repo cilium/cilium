@@ -548,10 +548,6 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 		ctmap.WriteBPFMacros(fw, nil)
 	}
 
-	// Always enable L4 and L3 load balancer for now
-	fmt.Fprint(fw, "#define LB_L3 1\n")
-	fmt.Fprint(fw, "#define LB_L4 1\n")
-
 	// Local delivery metrics should always be set for endpoint programs.
 	fmt.Fprint(fw, "#define LOCAL_DELIVERY_METRICS 1\n")
 
