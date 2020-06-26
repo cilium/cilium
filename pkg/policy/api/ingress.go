@@ -30,12 +30,9 @@ import (
 //   the effects of any Requires field in any rule will apply to all other
 //   rules as well.
 //
-// - For now, combining ToPorts, FromCIDR, and FromEndpoints in the same rule
-//   is not supported and any such rules will be rejected. In the future, this
-//   will be supported and if multiple members of this structure are specified,
-//   then all members must match in order for the rule to take effect. The
-//   exception to this rule is the Requires field, the effects of any Requires
-//   field in any rule will apply to all other rules as well.
+// - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are mutually
+//   exclusive. Only one of these members may be present within an individual
+//   rule.
 type IngressRule struct {
 	// FromEndpoints is a list of endpoints identified by an
 	// EndpointSelector which are allowed to communicate with the endpoint
