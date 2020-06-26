@@ -32,7 +32,7 @@ spec:
       rules:
         http:
         - method: "GET"
-          path: "^/make(\?.*)?$"
+          path: "^/make(\\?.*)?$"
           headerMatches:
           - mismatch: REPLACE
             name: "User-Agent"
