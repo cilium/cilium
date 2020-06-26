@@ -20,6 +20,13 @@ while [ $locked -ne 0 ]; do
     echo "selecting random cluster"
     cluster_uri="$(gcloud container clusters list --project "${project}" --filter="name ~ ^cilium-ci-" --uri | sort -R | head -n 1)"
 
+	echo "checking whether cluster ${cluster_uri} has any node pools"
+	node_pools=$(gcloud container node-pools list --project "${project}" --region "${region}" --cluster "${cluster_uri}" --format="value(name)")
+	if [ -z "${node_pools}" ]; then
+		echo "no nodepools found, selecting another cluster"
+		continue
+	fi
+
     echo "getting kubeconfig for ${cluster_uri} (will store in ${KUBECONFIG})"
     gcloud container clusters get-credentials --project "${project}" --region "${region}" "${cluster_uri}"
 
