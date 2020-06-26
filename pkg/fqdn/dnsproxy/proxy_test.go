@@ -169,7 +169,7 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 	}, nil)
 
 	s.repo = policy.NewPolicyRepository(nil, nil)
-	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: 100 * time.Millisecond, SingleInflight: true}
+	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: 500 * time.Millisecond, SingleInflight: true}
 	s.dnsServer = setupServer(c)
 	c.Assert(s.dnsServer, Not(IsNil), Commentf("unable to setup DNS server"))
 
@@ -354,8 +354,8 @@ func (s *DNSProxyTestSuite) TestRespondViaCorrectProtocol(c *C) {
 
 	request := new(dns.Msg)
 	request.SetQuestion(query, dns.TypeA)
-	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
-	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed"))
+	response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed (RTT: %v)", rtt))
 	c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s", response))
 	c.Assert(response.Answer[0].String(), Equals, "cilium.io.\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
 
