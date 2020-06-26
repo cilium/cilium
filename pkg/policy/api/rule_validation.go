@@ -111,12 +111,6 @@ func (i *IngressRule) sanitize() error {
 		"FromCIDRSet":   len(i.FromCIDRSet),
 		"FromEntities":  len(i.FromEntities),
 	}
-	l3DependentL4Support := map[interface{}]bool{
-		"FromEndpoints": true,
-		"FromCIDR":      false,
-		"FromCIDRSet":   false,
-		"FromEntities":  true,
-	}
 	l7Members := countL7Rules(i.ToPorts)
 	l7IngressSupport := map[string]bool{
 		"DNS":   false,
@@ -129,11 +123,6 @@ func (i *IngressRule) sanitize() error {
 			if m2 != m1 && l3Members[m1] > 0 && l3Members[m2] > 0 {
 				return fmt.Errorf("Combining %s and %s is not supported yet", m1, m2)
 			}
-		}
-	}
-	for member := range l3Members {
-		if l3Members[member] > 0 && len(i.ToPorts) > 0 && !l3DependentL4Support[member] {
-			return fmt.Errorf("Combining %s and ToPorts is not supported yet", member)
 		}
 	}
 
