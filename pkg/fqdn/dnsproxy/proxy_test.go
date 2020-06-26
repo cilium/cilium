@@ -18,6 +18,7 @@ package dnsproxy
 
 import (
 	"context"
+	"fmt"
 	"net"
 	"testing"
 	"time"
@@ -173,7 +174,7 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 	}, nil)
 
 	s.repo = policy.NewPolicyRepository(nil, nil)
-	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: 100 * time.Millisecond, SingleInflight: true}
+	s.dnsTCPClient = &dns.Client{Net: "tcp", Timeout: 10 * time.Second, SingleInflight: true}
 	s.dnsServer = setupServer(c)
 	c.Assert(s.dnsServer, Not(IsNil), Commentf("unable to setup DNS server"))
 
@@ -227,7 +228,7 @@ func (s *DNSProxyTestSuite) TearDownSuite(c *C) {
 	s.proxy.TCPServer.Shutdown()
 }
 
-func (s *DNSProxyTestSuite) TestRejectFromDifferentEndpoint(c *C) {
+func (s *DNSProxyTestSuite) estRejectFromDifferentEndpoint(c *C) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
@@ -246,7 +247,7 @@ func (s *DNSProxyTestSuite) TestRejectFromDifferentEndpoint(c *C) {
 	c.Assert(allowed, Equals, false, Commentf("request was not rejected when it should be blocked"))
 }
 
-func (s *DNSProxyTestSuite) TestAcceptFromMatchingEndpoint(c *C) {
+func (s *DNSProxyTestSuite) estAcceptFromMatchingEndpoint(c *C) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
@@ -265,7 +266,7 @@ func (s *DNSProxyTestSuite) TestAcceptFromMatchingEndpoint(c *C) {
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 }
 
-func (s *DNSProxyTestSuite) TestAcceptNonRegex(c *C) {
+func (s *DNSProxyTestSuite) estAcceptNonRegex(c *C) {
 	name := "simple.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
@@ -284,7 +285,7 @@ func (s *DNSProxyTestSuite) TestAcceptNonRegex(c *C) {
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 }
 
-func (s *DNSProxyTestSuite) TestRejectNonRegex(c *C) {
+func (s *DNSProxyTestSuite) estRejectNonRegex(c *C) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
@@ -303,7 +304,7 @@ func (s *DNSProxyTestSuite) TestRejectNonRegex(c *C) {
 	c.Assert(allowed, Equals, false, Commentf("request was not rejected when it should be blocked"))
 }
 
-func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponse(c *C) {
+func (s *DNSProxyTestSuite) estRejectNonMatchingRefusedResponse(c *C) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
@@ -337,7 +338,11 @@ func (s *DNSProxyTestSuite) TestRejectNonMatchingRefusedResponse(c *C) {
 
 }
 
-func (s *DNSProxyTestSuite) TestRespondViaCorrectProtocol(c *C) {
+var max time.Duration
+var fails uint
+var i uint
+
+func (s *DNSProxyTestSuite) KestRespondViaCorrectProtocol(c *C) {
 	// Respond with an actual answer for the query. This also tests that the
 	// connection was forwarded via the correct protocol (tcp/udp) because we
 	// connet with TCP, and the server only listens on TCP.
@@ -360,14 +365,35 @@ func (s *DNSProxyTestSuite) TestRespondViaCorrectProtocol(c *C) {
 
 	request := new(dns.Msg)
 	request.SetQuestion(query, dns.TypeA)
-	response, _, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
-	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed"))
-	c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s", response))
-	c.Assert(response.Answer[0].String(), Equals, "cilium.io.\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
-
+	response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	i++
+	if rtt > max {
+		max = rtt
+	}
+	if rtt > 10*time.Millisecond {
+		fmt.Printf("@@@@@@@@@@@@ (%d) %v\n", i, rtt)
+	}
+	if err != nil {
+		fmt.Printf(">>>>>>>> DNS request failed %v %v\n", rtt, err)
+		fails++
+		if response == nil {
+			return
+		}
+	}
+	//c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s", response))
+	//c.Assert(response.Answer[0].String(), Equals, "cilium.io.\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
 }
 
-func (s *DNSProxyTestSuite) TestRespondMixedCaseInRequestResponse(c *C) {
+func (s *DNSProxyTestSuite) TestDoLoop(c *C) {
+	for i := 0; i < 1000000; i++ {
+		s.KestRespondViaCorrectProtocol(c)
+	}
+	fmt.Printf("############# max   %v\n", max)
+	fmt.Printf("############# fails %d\n", fails)
+	c.Assert(true, Equals, false)
+}
+
+func (s *DNSProxyTestSuite) estRespondMixedCaseInRequestResponse(c *C) {
 	// Test that mixed case query is allowed out and then back in to support
 	// high-order-bit query uniqueing schemes (and a data exfiltration
 	// vector :( )
@@ -401,7 +427,7 @@ func (s *DNSProxyTestSuite) TestRespondMixedCaseInRequestResponse(c *C) {
 	c.Assert(response.Answer[0].String(), Equals, "ciliuM.io.\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
 }
 
-func (s *DNSProxyTestSuite) TestCheckAllowedTwiceRemovedOnce(c *C) {
+func (s *DNSProxyTestSuite) estCheckAllowedTwiceRemovedOnce(c *C) {
 	name := "cilium.io."
 	l7map := policy.L7DataMap{
 		cachedDstID1Selector: &policy.PerSelectorPolicy{
@@ -436,7 +462,7 @@ func (s *DNSProxyTestSuite) TestCheckAllowedTwiceRemovedOnce(c *C) {
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 }
 
-func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
+func (s *DNSProxyTestSuite) estFullPathDependence(c *C) {
 	// Test that we consider each of endpoint ID, destination SecID (via the
 	// selector in L7DataMap), destination port (set in the redirect itself) and
 	// the DNS name.
