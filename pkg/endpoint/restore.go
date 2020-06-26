@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/common"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/identity"
@@ -222,13 +223,35 @@ func (e *Endpoint) restoreIdentity() error {
 	l, _ := labelsfilter.Filter(e.OpLabels.AllLabels())
 	e.runlock()
 
-	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
-	defer cancel()
-	identity, _, err := e.allocator.AllocateIdentity(allocateCtx, l, true)
+	// Getting the ep's identity while we are restoring should block the
+	// restoring of the endpoint until we get its security identity ID.
+	// If the endpoint is removed, this controller will cancel the allocator
+	// requests.
+	controllerName := fmt.Sprintf("restoring-ep-identity (%v)", e.ID)
+	var (
+		identity          *identity.Identity
+		allocatedIdentity = make(chan struct{})
+	)
+	e.UpdateController(controllerName,
+		controller.ControllerParams{
+			DoFunc: func(ctx context.Context) (err error) {
+				allocateCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
+				defer cancel()
+				identity, _, err = e.allocator.AllocateIdentity(allocateCtx, l, true)
+				if err != nil {
+					return err
+				}
+				close(allocatedIdentity)
+				return nil
+			},
+		})
 
-	if err != nil {
-		scopedLog.WithError(err).Warn("Unable to restore endpoint")
-		return err
+	// Wait until we either get an identity or the endpoint is removed or
+	// deleted from the node.
+	select {
+	case <-e.aliveCtx.Done():
+		return ErrNotAlive
+	case <-allocatedIdentity:
 	}
 
 	// Wait for initial identities and ipcache from the
@@ -239,7 +262,7 @@ func (e *Endpoint) restoreIdentity() error {
 		identityCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 		defer cancel()
 
-		err = e.allocator.WaitForInitialGlobalIdentities(identityCtx)
+		err := e.allocator.WaitForInitialGlobalIdentities(identityCtx)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Failed while waiting for initial global identities")
 			return err
