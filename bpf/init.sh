@@ -531,7 +531,7 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	CALLS_MAP="cilium_calls_overlay_${ID_WORLD}"
 	COPTS="-DSECLABEL=${ID_WORLD} -DFROM_ENCAP_DEV=1"
 	if [ "$NODE_PORT" = "true" ]; then
-		COPTS="${COPTS} -DLB_L3 -DLB_L4 -DDISABLE_LOOPBACK_LB"
+		COPTS="${COPTS} -DDISABLE_LOOPBACK_LB"
 	fi
 	bpf_load $ENCAP_DEV "$COPTS" "ingress" bpf_overlay.c bpf_overlay.o from-overlay ${CALLS_MAP}
 	bpf_load $ENCAP_DEV "$COPTS" "egress" bpf_overlay.c bpf_overlay.o to-overlay ${CALLS_MAP}
@@ -606,7 +606,7 @@ if [ "$HOSTLB" = "true" ]; then
 	fi
 
 	CALLS_MAP="cilium_calls_lb"
-	COPTS="-DLB_L3 -DLB_L4"
+	COPTS=""
 	if [ "$IP6_HOST" != "<nil>" ] || [ "$IP4_HOST" != "<nil>" ] && [ -f /proc/sys/net/ipv6/conf/all/forwarding ]; then
 		bpf_load_cgroups "$COPTS" bpf_sock.c bpf_sock.o sockaddr connect6 $CALLS_MAP $CGROUP_ROOT $BPFFS_ROOT
 		if [ "$HOSTLB_PEER" = "true" ]; then
@@ -681,7 +681,7 @@ if [ "$XDP_DEV" != "<nil>" ]; then
 	CIDR_MAP="cilium_cidr_v*"
 	COPTS="-DSECLABEL=${ID_WORLD} -DCALLS_MAP=cilium_calls_xdp"
 	if [ "$NODE_PORT" = "true" ]; then
-		COPTS="${COPTS} -DLB_L3 -DLB_L4 -DDISABLE_LOOPBACK_LB"
+		COPTS="${COPTS} -DDISABLE_LOOPBACK_LB"
 	fi
 	if [ "$NODE_PORT" = "true" ]; then
 		NATIVE_DEV_IDX=$(cat /sys/class/net/${XDP_DEV}/ifindex)
