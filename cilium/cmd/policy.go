@@ -237,7 +237,7 @@ func createRule() *api.Rule {
 	rule.Ingress = ingress
 	rule.Egress = egress
 
-	fmt.Println(rule)
+	//fmt.Println(rule)
 
 	return &rule
 }
@@ -301,6 +301,10 @@ func parseRego(content []byte) {
 			//(*rules)[0].Ingress[0].FromEndpoints[0].MatchLabels = iml
 			rule.Ingress[0].FromEndpoints[0].MatchLabels = iml
 			//ls.MatchLabels = iml
+		} else if strings.HasPrefix(line, "input[_].ingress[_].toPorts[_].ports[_].port ==") {
+			rule.Ingress[0].ToPorts[0].Ports[0].Port = strings.ReplaceAll(strings.Split(line, "==")[1], "\"", "")
+		} else if strings.HasPrefix(line, "input[_].ingress[_].toPorts[_].ports[_].protocol ==") {
+			rule.Ingress[0].ToPorts[0].Ports[0].Protocol = api.L4Proto(strings.ReplaceAll(strings.Split(line, "==")[1], "\"", ""))
 		}
 	}
 
