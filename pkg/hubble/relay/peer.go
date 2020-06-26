@@ -26,6 +26,12 @@ import (
 	"google.golang.org/grpc"
 )
 
+type hubblePeer struct {
+	peer.Peer
+	conn    *grpc.ClientConn
+	connErr error
+}
+
 func newConn(target string, dialTimeout time.Duration, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
 	defer cancel()
@@ -45,7 +51,6 @@ type peerSyncer interface {
 	Start()
 	Stop()
 	List() []hubblePeer
-	ConnectPeer(name, address string)
 }
 
 type syncer struct {
@@ -145,7 +150,7 @@ func (s *syncer) Stop() {
 	close(s.stop)
 }
 
-func (s *syncer) ConnectPeer(name, addr string) {
+func (s *syncer) connectPeer(name, addr string) {
 	// we don't want to block the caller while waiting to establish a
 	// connection; connect in the background
 	go func() {
@@ -213,7 +218,7 @@ func (s *syncer) addPeer(p *peer.Peer) {
 	s.peers[p.Name] = hp
 	s.mu.Unlock()
 
-	s.ConnectPeer(p.Name, p.Address.String())
+	s.connectPeer(p.Name, p.Address.String())
 }
 
 func (s *syncer) deletePeer(p *peer.Peer) {
@@ -240,6 +245,10 @@ func (s *syncer) List() []hubblePeer {
 	s.mu.Lock()
 	p := make([]hubblePeer, 0, len(s.peers))
 	for _, v := range s.peers {
+		if v.conn == nil || v.connErr != nil {
+			// attempt to (re-)connect
+			s.connectPeer(v.Name, v.Address.String())
+		}
 		// note: there shouldn't be null entries in the map
 		p = append(p, *v)
 	}
