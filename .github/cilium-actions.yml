@@ -39,9 +39,8 @@ require-msgs-in-commit:
 block-pr-with:
   labels-unset:
     - regex-label: "release-note/.*"
-      helper: "Please set the appropriate release note label."
       set-labels:
-        - "dont-merge/needs-release-note"
+        - "dont-merge/needs-release-note-label"
   labels-set:
     - regex-label: "dont-merge/.*"
       helper: "Blocking mergeability of PR as 'dont-merge/.*' labels are set"
