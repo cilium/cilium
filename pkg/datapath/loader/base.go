@@ -63,6 +63,7 @@ const (
 	initBPFCPU
 	initArgNodePortIPv4Addrs
 	initArgNodePortIPv6Addrs
+	initArgNrCPUs
 	initArgMax
 )
 
@@ -290,6 +291,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	args[initBPFCPU] = GetBPFCPU()
+	args[initArgNrCPUs] = fmt.Sprintf("%d", common.GetNumPossibleCPUs(log))
 
 	clockSource := []string{"ktime", "jiffies"}
 	log.Infof("Setting up base BPF datapath (BPF %s instruction set, %s clock source)",
