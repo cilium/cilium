@@ -33,6 +33,7 @@ CGROUP_ROOT=${15}
 BPFFS_ROOT=${16}
 NODE_PORT=${17}
 NODE_PORT_BIND=${18}
+NR_CPUS=${19}
 
 ID_HOST=1
 ID_WORLD=2
@@ -271,7 +272,7 @@ function bpf_compile()
 	clang -O2 -g -target bpf -emit-llvm				\
 	      -Wno-address-of-packed-member -Wno-unknown-warning-option	\
 	      -I. -I$DIR -I$LIB -I$LIB/include				\
-	      -D__NR_CPUS__=$(nproc -all)					\
+	      -D__NR_CPUS__=$NR_CPUS					\
 	      -DENABLE_ARP_RESPONDER					\
 	      -DHANDLE_NS						\
 	      $EXTRA_OPTS						\

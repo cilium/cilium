@@ -57,6 +57,7 @@ const (
 	initArgBpffsRoot
 	initArgNodePort
 	initArgNodePortBind
+	initArgNrCPUs
 	initArgMax
 )
 
@@ -258,6 +259,8 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	} else {
 		args[initArgNodePortBind] = "false"
 	}
+
+	args[initArgNrCPUs] = fmt.Sprintf("%d", common.GetNumPossibleCPUs(log))
 
 	log.Info("Setting up base BPF datapath")
 
