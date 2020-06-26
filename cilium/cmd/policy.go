@@ -178,14 +178,14 @@ func createRule() *api.Rule {
 	//iport_proto.Port = string{}
 	//iport_proto.Protocol = api.L4Proto{}
 	iport_rule.Ports = append(iport_rule.Ports, iport_proto)
-	iport_rule.TerminatingTLS = &api.TLSContext{}
-	iport_rule.OriginatingTLS = &api.TLSContext{}
-	iport_rule.Rules = &api.L7Rules{}
+	//iport_rule.TerminatingTLS = &api.TLSContext{}
+	//iport_rule.OriginatingTLS = &api.TLSContext{}
+	//iport_rule.Rules = &api.L7Rules{}
 	ingressRule.ToPorts = append(ingressRule.ToPorts, iport_rule)
 
-	ingressRule.FromCIDR = make([]api.CIDR, 0)
-	ingressRule.FromCIDRSet = make([]api.CIDRRule, 0)
-	ingressRule.FromEntities = make([]api.Entity, 0)
+	//ingressRule.FromCIDR = make([]api.CIDR, 0)
+	//ingressRule.FromCIDRSet = make([]api.CIDRRule, 0)
+	//ingressRule.FromEntities = make([]api.Entity, 0)
 	//ingressRule.aggregatedSelectors = make([]api.EndpointSelector, 0)
 	ingress = append(ingress, ingressRule)
 
@@ -218,17 +218,17 @@ func createRule() *api.Rule {
 	//tport_proto.Port = string{}
 	//tport_proto.Protocol = api.L4Proto{}
 	tport_rule.Ports = append(tport_rule.Ports, tport_proto)
-	tport_rule.TerminatingTLS = &api.TLSContext{}
-	tport_rule.OriginatingTLS = &api.TLSContext{}
-	tport_rule.Rules = &api.L7Rules{}
+	//tport_rule.TerminatingTLS = &api.TLSContext{}
+	//tport_rule.OriginatingTLS = &api.TLSContext{}
+	//tport_rule.Rules = &api.L7Rules{}
 	egressRule.ToPorts = append(egressRule.ToPorts, tport_rule)
 
-	egressRule.ToCIDR = make([]api.CIDR, 0)
-	egressRule.ToCIDRSet = make([]api.CIDRRule, 0)
-	egressRule.ToEntities = make([]api.Entity, 0)
-	egressRule.ToServices = make([]api.Service, 0)
-	egressRule.ToFQDNs = make([]api.FQDNSelector, 0)
-	egressRule.ToGroups = make([]api.ToGroups, 0)
+	//egressRule.ToCIDR = make([]api.CIDR, 0)
+	//egressRule.ToCIDRSet = make([]api.CIDRRule, 0)
+	//egressRule.ToEntities = make([]api.Entity, 0)
+	//egressRule.ToServices = make([]api.Service, 0)
+	//egressRule.ToFQDNs = make([]api.FQDNSelector, 0)
+	//egressRule.ToGroups = make([]api.ToGroups, 0)
 	//egressRule.aggregatedSelectors = make([]api.EndpointSelector,0)
 	egress = append(egress, egressRule)
 
@@ -281,6 +281,7 @@ func createRule() *api.Rule {
 
 func parseRego(content []byte) {
 	rule := createRule()
+	var ruleList api.Rules
 
 	d := string(content)
 	lines := strings.Split(d, "\n")
@@ -303,7 +304,8 @@ func parseRego(content []byte) {
 		}
 	}
 
-	fmt.Println(rule)
+	ruleList = append(ruleList, rule)
+	fmt.Println(ruleList)
 }
 
 func loadPolicyFile(path string) (api.Rules, error) {
