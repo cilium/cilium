@@ -227,14 +227,36 @@ func (e *Endpoint) restoreIdentity() error {
 	// endpoints that don't have a fixed identity or are
 	// not well known.
 	if !identity.IsFixed() && !identity.IsWellKnown() {
-		identityCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
-		defer cancel()
+		// Getting the initial global identities while we are restoring should
+		// block the restoring of the endpoint.
+		// If the endpoint is removed, this controller will cancel the allocator
+		// WaitForInitialGlobalIdentities function.
+		controllerName := fmt.Sprintf("waiting-initial-global-identitites-ep (%v)", e.ID)
+		var gotInitialGlobalIdentities = make(chan struct{})
+		e.UpdateController(controllerName,
+			controller.ControllerParams{
+				DoFunc: func(ctx context.Context) (err error) {
+					identityCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
+					defer cancel()
 
-		err := e.allocator.WaitForInitialGlobalIdentities(identityCtx)
-		if err != nil {
-			scopedLog.WithError(err).Warn("Failed while waiting for initial global identities")
-			return err
+					err = e.allocator.WaitForInitialGlobalIdentities(identityCtx)
+					if err != nil {
+						scopedLog.WithError(err).Warn("Failed while waiting for initial global identities")
+						return err
+					}
+					close(gotInitialGlobalIdentities)
+					return nil
+				},
+			})
+
+		// Wait until we either the initial global identities or the endpoint
+		// is deleted.
+		select {
+		case <-e.aliveCtx.Done():
+			return ErrNotAlive
+		case <-gotInitialGlobalIdentities:
 		}
+
 		if option.Config.KVStore != "" {
 			ipcache.WaitForKVStoreSync()
 		}
