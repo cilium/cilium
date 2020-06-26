@@ -20,7 +20,6 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/hubble/relay/relayoption"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -31,12 +30,6 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
-
-type hubblePeer struct {
-	peer.Peer
-	conn    *grpc.ClientConn
-	connErr error
-}
 
 // Server is a proxy that connects to a running instance of hubble gRPC server
 // via unix domain socket.
