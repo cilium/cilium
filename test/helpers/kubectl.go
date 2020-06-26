@@ -48,6 +48,7 @@ const (
 	// KubectlCmd Kubernetes controller command
 	KubectlCmd      = "kubectl"
 	manifestsPath   = "k8sT/manifests/"
+	provisionPath   = "provision/manifest"
 	descriptorsPath = "../examples/kubernetes"
 	kubeDNSLabel    = "k8s-app=kube-dns"
 
@@ -362,6 +363,18 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 
 	// Clean any leftover resources in the default namespace
 	k.CleanNamespace(DefaultNamespace)
+
+	// PSP is only available since k8s 1.17
+	switch GetCurrentK8SEnv() {
+	case "1.8", "1.9", "1.10", "1.11", "1.12", "1.13", "1.14", "1.15", "1.16":
+	default:
+		// Deploy pod security policies for the default namespace
+		res = k.Apply(ApplyOptions{FilePath: filepath.Join(k.BasePath(), provisionPath, "unprivileged-psp.yaml"), Namespace: DefaultNamespace})
+		if !res.WasSuccessful() {
+			ginkgoext.Fail(fmt.Sprintf("Cannot connect to k8s cluster, output:\n%s", res.CombineOutput().String()), 1)
+			return nil
+		}
+	}
 
 	return k
 }

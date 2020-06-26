@@ -384,6 +384,8 @@ if [[ "${HOST}" == "k8s1" ]]; then
       if [[ "${KUBEPROXY}" == "0" ]]; then
           kubectl -n kube-system delete ds kube-proxy
           iptables-restore <(iptables-save | grep -v KUBE)
+      else
+          kubectl apply -f "${PROVISIONSRC}/manifest/unprivileged-psp.yaml"
       fi
 
       sudo -u vagrant mkdir -p /home/vagrant/.kube
