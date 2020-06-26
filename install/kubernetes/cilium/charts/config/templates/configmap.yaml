@@ -352,7 +352,7 @@ data:
   cni-chaining-mode: {{ .Values.global.cni.chainingMode }}
 
 {{- if hasKey .Values "enableIdentityMark"}}
-  enable-identity-mark: {{ .Values.global.enableIdentityMark | quote }}
+  enable-identity-mark: {{ .Values.enableIdentityMark | quote }}
 {{- else if (ne $enableIdentityMark "true") }}
   enable-identity-mark: "false"
 {{- end }}
