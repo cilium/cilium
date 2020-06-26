@@ -68,7 +68,7 @@ static inline void bpf_sock_ops_ipv4(struct bpf_sock_ops *skops)
 	 * pulled in as needed.
 	 */
 	sk_lb4_key(&lb4_key, &key);
-	svc = lb4_lookup_service(&lb4_key);
+	svc = lb4_lookup_service(&lb4_key, true);
 	if (svc)
 		return;
 
