@@ -97,6 +97,7 @@ func (n *EndpointSelector) UnmarshalJSON(b []byte) error {
 // MarshalJSON returns a JSON representation of the byte array.
 func (n EndpointSelector) MarshalJSON() ([]byte, error) {
 	ls := slim_metav1.LabelSelector{}
+	fmt.Println(" ### Endpoint selector Marshal JSON ### ", ls, ls.MatchLabels)
 
 	if n.LabelSelector == nil {
 		return json.Marshal(ls)
@@ -106,6 +107,7 @@ func (n EndpointSelector) MarshalJSON() ([]byte, error) {
 		newLabels := map[string]string{}
 		for k, v := range n.MatchLabels {
 			newLabels[labels.GetCiliumKeyFrom(k)] = v
+			fmt.Println("key", k, "value", v)
 		}
 		ls.MatchLabels = newLabels
 	}

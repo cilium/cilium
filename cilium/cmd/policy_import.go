@@ -47,11 +47,13 @@ var policyImportCmd = &cobra.Command{
 			}
 
 			for _, r := range ruleList {
+				fmt.Println(r)
 				if err := r.Sanitize(); err != nil {
 					Fatalf("%s", err)
 				}
 			}
 
+			fmt.Println(ruleList)
 			jsonPolicy, err := json.MarshalIndent(ruleList, "", "  ")
 			if err != nil {
 				Fatalf("Cannot marshal policy: %s\n", err)

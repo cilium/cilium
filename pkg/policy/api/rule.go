@@ -17,7 +17,7 @@ package api
 import (
 	"context"
 	"encoding/json"
-
+	"fmt"
 	"github.com/cilium/cilium/pkg/labels"
 )
 
@@ -94,6 +94,7 @@ func (r *Rule) MarshalJSON() ([]byte, error) {
 		Description: r.Description,
 	}
 
+	fmt.Println("### Rule Marshal JSON ####")
 	// Only one of endpointSelector or nodeSelector is permitted.
 	switch {
 	case r.EndpointSelector.LabelSelector != nil:
