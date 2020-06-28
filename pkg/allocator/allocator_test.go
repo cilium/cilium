@@ -191,9 +191,11 @@ func (d *dummyBackend) Status() (string, error) {
 
 type TestAllocatorKey string
 
-func (t TestAllocatorKey) GetKey() string              { return string(t) }
-func (t TestAllocatorKey) GetAsMap() map[string]string { return map[string]string{string(t): string(t)} }
-func (t TestAllocatorKey) String() string              { return string(t) }
+func (t TestAllocatorKey) GetKey() string { return string(t) }
+func (t TestAllocatorKey) GetAsMap() map[string]string {
+	return map[string]string{string(t): string(t)}
+}
+func (t TestAllocatorKey) String() string { return string(t) }
 func (t TestAllocatorKey) PutKey(v string) AllocatorKey {
 	return TestAllocatorKey(v)
 }
@@ -263,10 +265,11 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	// allocate all available IDs
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		id, new, err := allocator.Allocate(context.Background(), key)
+		id, new, firstUse, err := allocator.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
 		c.Assert(id, Not(Equals), 0)
 		c.Assert(new, Equals, true)
+		c.Assert(firstUse, Equals, true)
 
 		// refcnt must be 1
 		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)].refcnt, Equals, uint64(1))
@@ -276,19 +279,21 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	allocator.backoffTemplate.Factor = 1.0
 
 	// we should be out of id space here
-	_, new, err := allocator.Allocate(context.Background(), TestAllocatorKey(fmt.Sprintf("key%04d", maxID+1)))
+	_, new, firstUse, err := allocator.Allocate(context.Background(), TestAllocatorKey(fmt.Sprintf("key%04d", maxID+1)))
 	c.Assert(err, Not(IsNil))
 	c.Assert(new, Equals, false)
+	c.Assert(firstUse, Equals, false)
 
 	allocator.backoffTemplate.Factor = saved
 
 	// allocate all IDs again using the same set of keys, refcnt should go to 2
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		id, new, err := allocator.Allocate(context.Background(), key)
+		id, new, firstUse, err := allocator.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
 		c.Assert(id, Not(Equals), 0)
 		c.Assert(new, Equals, false)
+		c.Assert(firstUse, Equals, false)
 
 		// refcnt must now be 2
 		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)].refcnt, Equals, uint64(2))
@@ -302,10 +307,11 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	// allocate all IDs again using the same set of keys, refcnt should go to 2
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		id, new, err := allocator2.Allocate(context.Background(), key)
+		id, new, firstUse, err := allocator2.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
 		c.Assert(id, Not(Equals), 0)
 		c.Assert(new, Equals, false)
+		c.Assert(firstUse, Equals, true)
 
 		localKey := allocator2.localKeys.keys[allocator.encodeKey(key)]
 		c.Assert(localKey, Not(IsNil))

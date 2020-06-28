@@ -300,13 +300,18 @@ func (m *CachingIdentityAllocator) WaitForInitialGlobalIdentities(ctx context.Co
 // re-used and reference counting is performed, otherwise a new identity is
 // allocated via the kvstore.
 func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls labels.Labels, notifyOwner bool) (id *identity.Identity, allocated bool, err error) {
+	isNewLocally := false
+
 	// Notify the owner of the newly added identities so that the
 	// cached identities can be updated ASAP, rather than just
 	// relying on the kv-store update events.
 	defer func() {
-		if err == nil && allocated {
-			metrics.IdentityCount.Inc()
-			if notifyOwner {
+		if err == nil {
+			if allocated || isNewLocally {
+				metrics.IdentityCount.Inc()
+			}
+
+			if allocated && notifyOwner {
 				added := IdentityCache{
 					id.ID: id.LabelArray,
 				}
@@ -349,7 +354,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 		return nil, false, fmt.Errorf("allocator not initialized")
 	}
 
-	idp, isNew, err := m.IdentityAllocator.Allocate(ctx, GlobalIdentity{lbls.LabelArray()})
+	idp, isNew, isNewLocally, err := m.IdentityAllocator.Allocate(ctx, GlobalIdentity{lbls.LabelArray()})
 	if err != nil {
 		return nil, false, err
 	}
@@ -359,6 +364,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 			logfields.Identity:       idp,
 			logfields.IdentityLabels: lbls.String(),
 			"isNew":                  isNew,
+			"isNewLocally":           isNewLocally,
 		}).Debug("Resolved identity")
 	}
 

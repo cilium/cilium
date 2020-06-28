@@ -453,13 +453,21 @@ func (a *Allocator) encodeKey(key AllocatorKey) string {
 	return a.backend.Encode(key.GetKey())
 }
 
-func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpool.ID, bool, error) {
+// Return values:
+// 1. allocated ID
+// 2. whether the ID is newly allocated from kvstore
+// 3. whether this is the first owner that holds a reference to the key in
+//    localkeys store
+// 4. error in case of failure
+func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpool.ID, bool, bool, error) {
+	var firstUse bool
+
 	kvstore.Trace("Allocating key in kvstore", nil, logrus.Fields{fieldKey: key})
 
 	k := a.encodeKey(key)
 	lock, err := a.backend.Lock(ctx, key)
 	if err != nil {
-		return 0, false, err
+		return 0, false, false, err
 	}
 
 	defer lock.Unlock(context.Background())
@@ -468,7 +476,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	// node suffix
 	value, err := a.GetIfLocked(ctx, key, lock)
 	if err != nil {
-		return 0, false, err
+		return 0, false, false, err
 	}
 
 	kvstore.Trace("kvstore state is: ", nil, logrus.Fields{fieldID: value})
@@ -484,13 +492,19 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		if value != 0 {
 			// re-create master key
 			if err := a.backend.UpdateKeyIfLocked(ctx, value, key, true, lock); err != nil {
-				return 0, false, fmt.Errorf("unable to re-create missing master key '%s': %s while allocating ID: %s", key, value, err)
+				return 0, false, false, fmt.Errorf("unable to re-create missing master key '%s': %s while allocating ID: %s", key, value, err)
 			}
 		}
 	} else {
-		_, err := a.localKeys.allocate(k, key, value)
+		_, firstUse, err = a.localKeys.allocate(k, key, value)
 		if err != nil {
-			return 0, false, fmt.Errorf("unable to reserve local key '%s': %s", k, err)
+			return 0, false, false, fmt.Errorf("unable to reserve local key '%s': %s", k, err)
+		}
+
+		if firstUse {
+			log.WithField(fieldKey, k).Info("Reserved new local key")
+		} else {
+			log.WithField(fieldKey, k).Info("Reusing existing local key")
 		}
 	}
 
@@ -499,7 +513,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 		if err = a.backend.AcquireReference(ctx, value, key, lock); err != nil {
 			a.localKeys.release(k)
-			return 0, false, errors.Wrapf(err, "unable to create slave key '%s'", k)
+			return 0, false, false, errors.Wrapf(err, "unable to create slave key '%s'", k)
 		}
 
 		// mark the key as verified in the local cache
@@ -507,13 +521,13 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 			log.WithError(err).Error("BUG: Unable to verify local key")
 		}
 
-		return value, false, nil
+		return value, false, firstUse, nil
 	}
 
 	log.WithField(fieldKey, k).Debug("Allocating new master ID")
 	id, strID, unmaskedID := a.selectAvailableID()
 	if id == 0 {
-		return 0, false, fmt.Errorf("no more available IDs in configured space")
+		return 0, false, false, fmt.Errorf("no more available IDs in configured space")
 	}
 
 	kvstore.Trace("Selected available key ID", nil, logrus.Fields{fieldID: id})
@@ -523,17 +537,17 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		a.idPool.Release(unmaskedID) // This returns this ID to be re-used for other keys
 	}
 
-	oldID, err := a.localKeys.allocate(k, key, id)
+	oldID, firstUse, err := a.localKeys.allocate(k, key, id)
 	if err != nil {
 		a.idPool.Release(unmaskedID)
-		return 0, false, fmt.Errorf("unable to reserve local key '%s': %s", k, err)
+		return 0, false, false, fmt.Errorf("unable to reserve local key '%s': %s", k, err)
 	}
 
 	// Another local writer beat us to allocating an ID for the same key,
 	// start over
 	if id != oldID {
 		releaseKeyAndID()
-		return 0, false, fmt.Errorf("another writer has allocated key %s", k)
+		return 0, false, false, fmt.Errorf("another writer has allocated key %s", k)
 	}
 
 	// Check that this key has not been allocated in the cluster during our
@@ -541,11 +555,11 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 	value, err = a.GetNoCache(ctx, key)
 	if err != nil {
 		releaseKeyAndID()
-		return 0, false, err
+		return 0, false, false, err
 	}
 	if value != 0 {
 		releaseKeyAndID()
-		return 0, false, fmt.Errorf("Found master key after proceeding with new allocation for %s", k)
+		return 0, false, false, fmt.Errorf("Found master key after proceeding with new allocation for %s", k)
 	}
 
 	err = a.backend.AllocateIDIfLocked(ctx, id, key, lock)
@@ -553,7 +567,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		// Creation failed. Another agent most likely beat us to allocting this
 		// ID, retry.
 		releaseKeyAndID()
-		return 0, false, fmt.Errorf("unable to allocate ID %s for key %s: %s", strID, key, err)
+		return 0, false, false, fmt.Errorf("unable to allocate ID %s for key %s: %s", strID, key, err)
 	}
 
 	// Notify pool that leased ID is now in-use.
@@ -564,7 +578,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 		// exposed and may be in use by other nodes. The garbage
 		// collector will release it again.
 		releaseKeyAndID()
-		return 0, false, errors.Wrapf(err, "slave key creation failed '%s'", k)
+		return 0, false, false, errors.Wrapf(err, "slave key creation failed '%s'", k)
 	}
 
 	// mark the key as verified in the local cache
@@ -574,7 +588,7 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 
 	log.WithField(fieldKey, k).Info("Allocated new global key")
 
-	return id, true, nil
+	return id, true, firstUse, nil
 }
 
 // Allocate will retrieve the ID for the provided key. If no ID has been
@@ -582,14 +596,19 @@ func (a *Allocator) lockedAllocate(ctx context.Context, key AllocatorKey) (idpoo
 // most likely due to a parallel allocation of the same ID by another user,
 // allocation is re-attempted for maxAllocAttempts times.
 //
-// Returns the ID allocated to the key, if the ID had to be allocated, then
-// true is returned. An error is returned in case of failure.
-func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, bool, error) {
+// Return values:
+// 1. allocated ID
+// 2. whether the ID is newly allocated from kvstore
+// 3. whether this is the first owner that holds a reference to the key in
+//    localkeys store
+// 4. error in case of failure
+func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, bool, bool, error) {
 	var (
-		err   error
-		value idpool.ID
-		isNew bool
-		k     = a.encodeKey(key)
+		err      error
+		value    idpool.ID
+		isNew    bool
+		firstUse bool
+		k        = a.encodeKey(key)
 	)
 
 	log.WithField(fieldKey, key).Debug("Allocating key")
@@ -597,7 +616,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 	select {
 	case <-a.initialListDone:
 	case <-ctx.Done():
-		return 0, false, fmt.Errorf("allocation was cancelled while waiting for initial key list to be received: %s", ctx.Err())
+		return 0, false, false, fmt.Errorf("allocation was cancelled while waiting for initial key list to be received: %s", ctx.Err())
 	}
 
 	kvstore.Trace("Allocating from kvstore", nil, logrus.Fields{fieldKey: key})
@@ -617,15 +636,15 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		if val := a.localKeys.use(k); val != idpool.NoID {
 			kvstore.Trace("Reusing local id", nil, logrus.Fields{fieldID: val, fieldKey: key})
 			a.mainCache.insert(key, val)
-			return val, false, nil
+			return val, false, false, nil
 		}
 
 		// FIXME: Add non-locking variant
-		value, isNew, err = a.lockedAllocate(ctx, key)
+		value, isNew, firstUse, err = a.lockedAllocate(ctx, key)
 		if err == nil {
 			a.mainCache.insert(key, value)
 			log.WithField(fieldKey, key).WithField(fieldID, value).Debug("Allocated key")
-			return value, isNew, nil
+			return value, isNew, firstUse, nil
 		}
 
 		scopedLog := log.WithFields(logrus.Fields{
@@ -636,7 +655,7 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		select {
 		case <-ctx.Done():
 			scopedLog.WithError(ctx.Err()).Warning("Ongoing key allocation has been cancelled")
-			return 0, false, fmt.Errorf("key allocation cancelled: %s", ctx.Err())
+			return 0, false, false, fmt.Errorf("key allocation cancelled: %s", ctx.Err())
 		default:
 			// Do not log a warning if the error is caused by ErrIdentityNonExistent
 			// and has not reached the maxAllocAttempts
@@ -648,11 +667,11 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 		kvstore.Trace("Allocation attempt failed", err, logrus.Fields{fieldKey: key, logfields.Attempt: attempt})
 
 		if waitErr := boff.Wait(ctx); waitErr != nil {
-			return 0, false, waitErr
+			return 0, false, false, waitErr
 		}
 	}
 
-	return 0, false, err
+	return 0, false, false, err
 }
 
 // GetIfLocked returns the ID which is allocated to a key. Returns an ID of NoID if no ID
