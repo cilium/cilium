@@ -122,190 +122,197 @@ func ignoredFile(name string) bool {
 	return false
 }
 
-func createRule() *api.Rule {
-	rule := api.Rule{}
+func createEndpoint() api.EndpointSelector {
 	eps := api.EndpointSelector{}
-	ns := api.EndpointSelector{}
-	ingress := make([]api.IngressRule, 0)
-	egress := make([]api.EgressRule, 0)
-	//var labels labels.LabelArray
-	//description := string{}
-
-	//Create subcomponents
-
-	//For rule.EndpointSelector
-	eps_ls := slim_metav1.LabelSelector{}
-	eps.LabelSelector = &eps_ls
-	//eps_reqs := k8sLbls.Requirements{}
-	//eps.requirements = &eps_reqs
-	//eps_clss := string{}
-	//eps.cachedLabelSelectorString = eps_clss
-
-	//For rule.NodeSelector
-	ns_ls := slim_metav1.LabelSelector{}
-	ns.LabelSelector = &ns_ls
-	//ns_reqs := k8sLbls.Requirements{}
-	//ns.requirements = &ns_reqs
-	//ns_clss := string{}
-	//ns.cachedLabelSelectorString = ns_clss
-
-	//For rule.Ingress
-	ingressRule := api.IngressRule{}
-	ingressRule.FromEndpoints = make([]api.EndpointSelector, 0)
-	feps := api.EndpointSelector{}
-	feps_ls := slim_metav1.LabelSelector{}
-	feps.LabelSelector = &feps_ls
-	//feps_reqs := k8sLbls.Requirements{}
-	//feps.requirements = &feps_reqs
-	//feps_clss := string{}
-	//feps.cachedLabelSelectorString = feps_clss
-	ingressRule.FromEndpoints = append(ingressRule.FromEndpoints, feps)
-
-	ingressRule.FromRequires = make([]api.EndpointSelector, 0)
-	frqs := api.EndpointSelector{}
-	frqs_ls := slim_metav1.LabelSelector{}
-	frqs.LabelSelector = &frqs_ls
-	//frqs_reqs := k8sLbls.Requirements{}
-	//frqs.requirements = &frqs_reqs
-	//frqs_clss := string{}
-	//frqs.cachedLabelSelectorString = frqs_clss
-	ingressRule.FromRequires = append(ingressRule.FromRequires, frqs)
-
-	ingressRule.ToPorts = make([]api.PortRule, 0)
-	iport_rule := api.PortRule{}
-	iport_rule.Ports = make([]api.PortProtocol, 0)
-	iport_proto := api.PortProtocol{}
-	//iport_proto.Port = string{}
-	//iport_proto.Protocol = api.L4Proto{}
-	iport_rule.Ports = append(iport_rule.Ports, iport_proto)
-	//iport_rule.TerminatingTLS = &api.TLSContext{}
-	//iport_rule.OriginatingTLS = &api.TLSContext{}
-	//iport_rule.Rules = &api.L7Rules{}
-	ingressRule.ToPorts = append(ingressRule.ToPorts, iport_rule)
-
-	//ingressRule.FromCIDR = make([]api.CIDR, 0)
-	//ingressRule.FromCIDRSet = make([]api.CIDRRule, 0)
-	//ingressRule.FromEntities = make([]api.Entity, 0)
-	//ingressRule.aggregatedSelectors = make([]api.EndpointSelector, 0)
-	ingress = append(ingress, ingressRule)
-
-	//For rule.Egress
-	egressRule := api.EgressRule{}
-	egressRule.ToEndpoints = make([]api.EndpointSelector, 0)
-	teps := api.EndpointSelector{}
-	teps_ls := slim_metav1.LabelSelector{}
-	teps.LabelSelector = &teps_ls
-	//teps_reqs := k8sLbls.Requirements{}
-	//teps.requirements = &teps_reqs
-	//teps_clss := string{}
-	//teps.cachedLabelSelectorString = teps_clss
-	egressRule.ToEndpoints = append(egressRule.ToEndpoints, teps)
-
-	egressRule.ToRequires = make([]api.EndpointSelector, 0)
-	trqs := api.EndpointSelector{}
-	trqs_ls := slim_metav1.LabelSelector{}
-	trqs.LabelSelector = &trqs_ls
-	//trqs_reqs := k8sLbls.Requirements{}
-	//trqs.requirements = &trqs_reqs
-	//trqs_clss := string{}
-	//trqs.cachedLabelSelectorString = trqs_clss
-	egressRule.ToRequires = append(egressRule.ToRequires, trqs)
-
-	egressRule.ToPorts = make([]api.PortRule, 0)
-	tport_rule := api.PortRule{}
-	tport_rule.Ports = make([]api.PortProtocol, 0)
-	tport_proto := api.PortProtocol{}
-	//tport_proto.Port = string{}
-	//tport_proto.Protocol = api.L4Proto{}
-	tport_rule.Ports = append(tport_rule.Ports, tport_proto)
-	//tport_rule.TerminatingTLS = &api.TLSContext{}
-	//tport_rule.OriginatingTLS = &api.TLSContext{}
-	//tport_rule.Rules = &api.L7Rules{}
-	egressRule.ToPorts = append(egressRule.ToPorts, tport_rule)
-
-	//egressRule.ToCIDR = make([]api.CIDR, 0)
-	//egressRule.ToCIDRSet = make([]api.CIDRRule, 0)
-	//egressRule.ToEntities = make([]api.Entity, 0)
-	//egressRule.ToServices = make([]api.Service, 0)
-	//egressRule.ToFQDNs = make([]api.FQDNSelector, 0)
-	//egressRule.ToGroups = make([]api.ToGroups, 0)
-	//egressRule.aggregatedSelectors = make([]api.EndpointSelector,0)
-	egress = append(egress, egressRule)
-
-	rule.EndpointSelector = eps
-	rule.NodeSelector = ns
-	rule.Ingress = ingress
-	rule.Egress = egress
-
-	//fmt.Println(rule)
-
-	return &rule
+	eps.LabelSelector = &slim_metav1.LabelSelector{}
+	return eps
 }
 
-//func parseRego(content []byte, rules *api.Rules) {
-//func parseRego(content []byte) {
-//rule := api.Rule{}
-//	ls := slim_metav1.LabelSelector{}
-//var n *api.EndpointSelector
-//	n := api.EndpointSelector{}
-//ingress := api.IngressRule{}
-//egress := api.EgressRule{}
-//	n.LabelSelector = &ls
-//	d := string(content)
-//	lines := strings.Split(d, "\n")
-//	for _, line := range lines {
-//		line = strings.TrimSpace(line)
-//		if strings.HasPrefix(line, "input[_].endpointSelector.matchLabels.role ==") {
-//			fmt.Println("Got endpoint")
-//			ml := map[string]string{}
-//			ml["any.role"] = strings.ReplaceAll(strings.Split(line, "==")[1], "\"", "")
-//(*rules)[0].EndpointSelector.MatchLabels = ml
-//			ls.MatchLabels = ml
-//		} else if strings.HasPrefix(line, "input[_].ingress[_].fromEndpoints[_].matchLabels.role ==") {
-//			fmt.Println("Got ingress")
-//			iml := map[string]string{}
-//iml["any.role"] = strings.Split(line, "==")[1]
-//			iml["any.role"] = strings.ReplaceAll(strings.Split(line, "==")[1], "\"", "")
-//(*rules)[0].Ingress[0].FromEndpoints[0].MatchLabels = iml
-//rule.Ingress[0].FromEndpoints[0].MatchLabels = iml
-//			ls.MatchLabels = iml
-//		}
-//	}
-//rule.EndpointSelector = n
-//rule.Ingress = append(rule.Ingress, ingress)
-//rule.Egress = append(rule.Egress, egress)
+func createLabelSelector() *slim_metav1.LabelSelector {
+	return new(slim_metav1.LabelSelector)
+}
 
-//	nr := createRule()
-//	fmt.Println(nr)
-//}
+func createMatchLabel(key string, val string) map[string]string {
+	m := make(map[string]string)
+	m[key] = val
+	return m
+}
+
+func createAndPopulatePortRule(lines *[]string, line_no int) (*api.PortRule, int) {
+	var i int
+	portrule := new(api.PortRule)
+	portproto := new(api.PortProtocol)
+
+	for i = line_no; i < len(*lines); {
+		line := strings.TrimSpace((*lines)[i])
+		if strings.HasPrefix(line, "input[_].ingress[_].toPorts[_].ports[_].port") {
+			portproto.Port = strings.ReplaceAll(strings.Split(line, "==")[1], "\"", "")
+		} else if strings.HasPrefix(line, "input[_].ingress[_].toPorts[_].ports[_].protocol") {
+			portproto.Protocol = api.L4Proto(strings.ReplaceAll(strings.Split(line, "==")[1], "\"", ""))
+			portrule.Ports = append(portrule.Ports, (*portproto))
+		} else {
+			break
+		}
+		i = i + 1
+	}
+
+	return portrule, i
+}
+
+func createAndPopulateIngressRule(lines *[]string, line_no int) (*api.IngressRule, int) {
+	ingrule := new(api.IngressRule)
+	var i int
+	var port_rule *api.PortRule
+
+	for i = line_no; i < len(*lines); {
+		line := strings.TrimSpace((*lines)[i])
+		if strings.HasPrefix(line, "input[_].ingress[_].fromEndpoints[_]") {
+			// Found endpoint "from" which ingress is allowed
+			// Create an endpoint object for the same and put it in the
+			// corresponding slice of api.IngressRule
+			eps := createEndpoint()
+			eps.LabelSelector = createLabelSelector()
+			eps.MatchLabels = createMatchLabel("any.role", strings.TrimSpace(strings.ReplaceAll(strings.Split(line, "==")[1], "\"", "")))
+			ingrule.FromEndpoints = append(ingrule.FromEndpoints, eps)
+		} else if strings.HasPrefix(line, "input[_].ingress[_].fromRequires[_]") {
+			// Found endpoint consraints
+			// Create an endpoint object for the same and put it in the
+			// corresponding slice of api.IngressRule
+			eps := createEndpoint()
+			eps.LabelSelector = createLabelSelector()
+			eps.MatchLabels = createMatchLabel("any.role", strings.TrimSpace(strings.ReplaceAll(strings.Split(line, "==")[1], "\"", "")))
+			ingrule.FromEndpoints = append(ingrule.FromEndpoints, eps)
+		} else if strings.HasPrefix(line, "input[_].ingress[_].toPorts[_].ports[_]") {
+			// Found ToPorts section of the ingress rule
+			// Allocate and initialize a api.PortRule object and put it
+			// in corresponding slice of api.IngressRule object
+			port_rule, i = createAndPopulatePortRule(lines, i)
+			ingrule.ToPorts = append(ingrule.ToPorts, (*port_rule))
+		} else if strings.HasPrefix(line, "input[_].ingress[_].toPorts[_].rule") {
+			fmt.Println("Layer 7 rules not supported yet")
+		} else {
+			// This function only processes ingress rules so it should not
+			// process other lines
+			break
+		}
+
+		i = i + 1
+	}
+
+	return ingrule, i
+}
+
+func createAndPopulateEgressRule(lines *[]string, line_no int) (*api.EgressRule, int) {
+	egrule := new(api.EgressRule)
+	var i int
+	var port_rule *api.PortRule
+
+	for i = line_no; i < len(*lines); {
+		line := strings.TrimSpace((*lines)[i])
+		if strings.HasPrefix(line, "input[_].egress[_].toEndpoints[_]") {
+			// Found endpoint "from" which ingress is allowed
+			// Create an endpoint object for the same and put it in the
+			// corresponding slice of api.IngressRule
+			eps := createEndpoint()
+			eps.LabelSelector = createLabelSelector()
+			eps.MatchLabels = createMatchLabel("any.role", strings.TrimSpace(strings.ReplaceAll(strings.Split(line, "==")[1], "\"", "")))
+			egrule.ToEndpoints = append(egrule.ToEndpoints, eps)
+		} else if strings.HasPrefix(line, "input[_].egress[_].toRequires[_]") {
+			// Found endpoint consraints
+			// Create an endpoint object for the same and put it in the
+			// corresponding slice of api.IngressRule
+			eps := createEndpoint()
+			eps.LabelSelector = createLabelSelector()
+			eps.MatchLabels = createMatchLabel("any.role", strings.TrimSpace(strings.ReplaceAll(strings.Split(line, "==")[1], "\"", "")))
+			egrule.ToEndpoints = append(egrule.ToEndpoints, eps)
+		} else if strings.HasPrefix(line, "input[_].egress[_].toPorts[_].ports[_]") {
+			// Found ToPorts section of the ingress rule
+			// Allocate and initialize a api.PortRule object and put it
+			// in corresponding slice of api.IngressRule object
+			port_rule, i = createAndPopulatePortRule(lines, i)
+			egrule.ToPorts = append(egrule.ToPorts, (*port_rule))
+		} else if strings.HasPrefix(line, "input[_].egress[_].toPorts[_].rule") {
+			fmt.Println("Layer 7 rules not supported yet")
+		} else {
+			// This function only processes ingress rules so it should not
+			// process other lines
+			break
+		}
+
+		i = i + 1
+	}
+
+	return egrule, i
+
+}
+
+func createAndPopulateRule(lines *[]string, line_no int) (*api.Rule, int) {
+	// Create an api.Rule object
+	rule := new(api.Rule)
+	var i int
+	var ingress_rule *api.IngressRule
+	var egress_rule *api.EgressRule
+
+	// Process subsequent lines to populate Rule
+	for i = line_no; i < len(*lines); {
+		line := strings.TrimSpace((*lines)[i])
+		if strings.HasPrefix(line, "input[_].labels[_]") {
+			// Found label "for" the rule
+			// Put it under Label field of api.Rule
+			fmt.Println("Labels not yet supported")
+		} else if strings.HasPrefix(line, "input[_].endpointSelector") {
+			// Found endpoint "for" the rule
+			// Allocate and initialize the endpoint and put it into rule
+			// object
+			rule.EndpointSelector = createEndpoint()
+			rule.EndpointSelector.LabelSelector = createLabelSelector()
+			rule.EndpointSelector.MatchLabels = createMatchLabel("any.role",
+				strings.TrimSpace(strings.ReplaceAll(strings.Split(line, "==")[1], "\"", "")))
+		} else if strings.HasPrefix(line, "input[_].nodepointSelector") {
+			// Found endpoint "for" the rule
+			// Allocate and initialize the endpoint and put it into rule
+			// object
+			rule.NodeSelector = createEndpoint()
+			rule.NodeSelector.LabelSelector = createLabelSelector()
+			rule.NodeSelector.MatchLabels = createMatchLabel("any.role",
+				strings.TrimSpace(strings.ReplaceAll(strings.Split(line, "==")[1], "\"", "")))
+		} else if strings.HasPrefix(line, "input[_].ingress[_]") {
+			// Found "ingress" section of the rule
+			// Allocate and initialize an api.IngressRule object and put
+			// that into this api.Rule object
+			ingress_rule, i = createAndPopulateIngressRule(lines, i)
+			rule.Ingress = append(rule.Ingress, (*ingress_rule))
+		} else if strings.HasPrefix(line, "input[_].egress[_]") {
+			// Found "egress" section of the rule
+			// Allocate and initialize an api.IngressRule object and put
+			// that into this api.Rule object
+			egress_rule, i = createAndPopulateEgressRule(lines, i)
+			rule.Egress = append(rule.Egress, (*egress_rule))
+		} else if strings.HasPrefix(line, "}") { // End of rule block
+			break
+		}
+
+		i = i + 1 // Resume scanning from  next line
+	}
+
+	return rule, i
+}
 
 func parseRego(content []byte) {
-	rule := createRule()
 	var ruleList api.Rules
+	var rule *api.Rule
 
 	d := string(content)
 	lines := strings.Split(d, "\n")
-	for _, line := range lines {
-		line = strings.TrimSpace(line)
-		if strings.HasPrefix(line, "input[_].endpointSelector.matchLabels.role ==") {
-			fmt.Println("Got endpoint")
-			ml := map[string]string{}
-			ml["any.role"] = strings.ReplaceAll(strings.Split(line, "==")[1], "\"", "")
-			//(*rules)[0].EndpointSelector.MatchLabels = ml
-			rule.EndpointSelector.MatchLabels = ml
-		} else if strings.HasPrefix(line, "input[_].ingress[_].fromEndpoints[_].matchLabels.role ==") {
-			fmt.Println("Got ingress")
-			iml := map[string]string{}
-			//iml["any.role"] = strings.Split(line, "==")[1]
-			iml["any.role"] = strings.ReplaceAll(strings.Split(line, "==")[1], "\"", "")
-			//(*rules)[0].Ingress[0].FromEndpoints[0].MatchLabels = iml
-			rule.Ingress[0].FromEndpoints[0].MatchLabels = iml
-			//ls.MatchLabels = iml
-		} else if strings.HasPrefix(line, "input[_].ingress[_].toPorts[_].ports[_].port ==") {
-			rule.Ingress[0].ToPorts[0].Ports[0].Port = strings.ReplaceAll(strings.Split(line, "==")[1], "\"", "")
-		} else if strings.HasPrefix(line, "input[_].ingress[_].toPorts[_].ports[_].protocol ==") {
-			rule.Ingress[0].ToPorts[0].Ports[0].Protocol = api.L4Proto(strings.ReplaceAll(strings.Split(line, "==")[1], "\"", ""))
+
+	for i := 0; i < len(lines); {
+		line := strings.TrimSpace(lines[i])
+		if strings.HasPrefix(line, "allow = true") {
+			fmt.Println("Found policy. Create Cilium Rule object.")
+			rule, i = createAndPopulateRule(&lines, i+1) // For allow==true, called function will process rule from next line
 		}
+
+		i = i + 1 //resume scanning from next line
 	}
 
 	ruleList = append(ruleList, rule)
