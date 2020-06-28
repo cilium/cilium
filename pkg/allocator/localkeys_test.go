@@ -30,9 +30,10 @@ func (s *AllocatorSuite) TestLocalKeys(c *C) {
 	v := k.use(key.GetKey())
 	c.Assert(v, Equals, idpool.NoID)
 
-	v, err := k.allocate(key.GetKey(), key, val) // refcnt=1
+	v, firstUse, err := k.allocate(key.GetKey(), key, val) // refcnt=1
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, val)
+	c.Assert(firstUse, Equals, true)
 
 	c.Assert(k.verify(key.GetKey()), IsNil)
 
@@ -40,20 +41,22 @@ func (s *AllocatorSuite) TestLocalKeys(c *C) {
 	c.Assert(v, Equals, val)
 	k.release(key.GetKey()) // refcnt=1
 
-	v, err = k.allocate(key.GetKey(), key, val) // refcnt=2
+	v, firstUse, err = k.allocate(key.GetKey(), key, val) // refcnt=2
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, val)
+	c.Assert(firstUse, Equals, false)
 
-	v, err = k.allocate(key2.GetKey(), key2, val2) // refcnt=1
+	v, firstUse, err = k.allocate(key2.GetKey(), key2, val2) // refcnt=1
 	c.Assert(err, IsNil)
 	c.Assert(v, Equals, val2)
+	c.Assert(firstUse, Equals, true)
 
 	// only one of the two keys is verified yet
 	ids := k.getVerifiedIDs()
 	c.Assert(len(ids), Equals, 1)
 
 	// allocate with different value must fail
-	_, err = k.allocate(key2.GetKey(), key2, val)
+	_, _, err = k.allocate(key2.GetKey(), key2, val)
 	c.Assert(err, Not(IsNil))
 
 	k.release(key.GetKey()) // refcnt=1
