@@ -111,7 +111,7 @@ func (s *AllocatorSuite) BenchmarkAllocate(c *C) {
 
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
-		_, _, err := a.Allocate(context.Background(), TestAllocatorKey(fmt.Sprintf("key%04d", i)))
+		_, _, _, err := a.Allocate(context.Background(), TestAllocatorKey(fmt.Sprintf("key%04d", i)))
 		c.Assert(err, IsNil)
 	}
 	c.StopTimer()
@@ -257,12 +257,12 @@ func (s *AllocatorSuite) TestGC(c *C) {
 	allocator.DeleteAllKeys()
 
 	shortKey := TestAllocatorKey("1;")
-	shortID, _, err := allocator.Allocate(context.Background(), shortKey)
+	shortID, _, _, err := allocator.Allocate(context.Background(), shortKey)
 	c.Assert(err, IsNil)
 	c.Assert(shortID, Not(Equals), 0)
 
 	longKey := TestAllocatorKey("1;2;")
-	longID, _, err := allocator.Allocate(context.Background(), longKey)
+	longID, _, _, err := allocator.Allocate(context.Background(), longKey)
 	c.Assert(err, IsNil)
 	c.Assert(longID, Not(Equals), 0)
 
@@ -305,19 +305,21 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	// allocate all available IDs
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		id, new, err := a.Allocate(context.Background(), key)
+		id, new, newLocally, err := a.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
 		c.Assert(id, Not(Equals), 0)
 		c.Assert(new, Equals, true)
+		c.Assert(newLocally, Equals, true)
 	}
 
 	// allocate all IDs again using the same set of keys, refcnt should go to 2
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		id, new, err := a.Allocate(context.Background(), key)
+		id, new, newLocally, err := a.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
 		c.Assert(id, Not(Equals), 0)
 		c.Assert(new, Equals, false)
+		c.Assert(newLocally, Equals, false)
 	}
 
 	// Create a 2nd allocator, refill it
@@ -331,10 +333,11 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	// allocate all IDs again using the same set of keys, refcnt should go to 2
 	for i := idpool.ID(1); i <= maxID; i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		id, new, err := a2.Allocate(context.Background(), key)
+		id, new, newLocally, err := a2.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
 		c.Assert(id, Not(Equals), 0)
 		c.Assert(new, Equals, false)
+		c.Assert(newLocally, Equals, true)
 
 		a2.Release(context.Background(), key)
 	}
@@ -416,10 +419,11 @@ func testGetNoCache(c *C, maxID idpool.ID, suffix string) {
 
 	labelsLong := "foo;/;bar;"
 	key := TestAllocatorKey(fmt.Sprintf("%s%010d", labelsLong, 0))
-	longID, new, err := allocator.Allocate(context.Background(), key)
+	longID, new, newLocally, err := allocator.Allocate(context.Background(), key)
 	c.Assert(err, IsNil)
 	c.Assert(longID, Not(Equals), 0)
 	c.Assert(new, Equals, true)
+	c.Assert(newLocally, Equals, true)
 
 	observedID, err := allocator.GetNoCache(context.Background(), key)
 	c.Assert(err, IsNil)
@@ -431,10 +435,11 @@ func testGetNoCache(c *C, maxID idpool.ID, suffix string) {
 	c.Assert(err, IsNil)
 	c.Assert(observedID, Equals, idpool.NoID)
 
-	shortID, new, err := allocator.Allocate(context.Background(), shortKey)
+	shortID, new, newLocally, err := allocator.Allocate(context.Background(), shortKey)
 	c.Assert(err, IsNil)
 	c.Assert(shortID, Not(Equals), 0)
 	c.Assert(new, Equals, true)
+	c.Assert(newLocally, Equals, true)
 
 	observedID, err = allocator.GetNoCache(context.Background(), shortKey)
 	c.Assert(err, IsNil)
@@ -496,7 +501,7 @@ func (s *AllocatorSuite) TestRemoteCache(c *C) {
 	// allocate all available IDs
 	for i := idpool.ID(1); i <= idpool.ID(4); i++ {
 		key := TestAllocatorKey(fmt.Sprintf("key%04d", i))
-		_, _, err := a.Allocate(context.Background(), key)
+		_, _, _, err := a.Allocate(context.Background(), key)
 		c.Assert(err, IsNil)
 	}
 
