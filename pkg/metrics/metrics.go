@@ -918,7 +918,7 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 			KubernetesEventReceived = prometheus.NewCounterVec(prometheus.CounterOpts{
 				Namespace: Namespace,
 				Name:      "kubernetes_events_received_total",
-				Help:      "Number of Kubernetes events processed labeled by scope, action and execution result",
+				Help:      "Number of Kubernetes events received labeled by scope, action, valid data and equalness",
 			}, []string{LabelScope, LabelAction, "valid", "equal"})
 
 			collectors = append(collectors, KubernetesEventReceived)
