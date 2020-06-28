@@ -167,7 +167,7 @@ func migrateIdentities() {
 
 		ctx, cancel := context.WithTimeout(context.Background(), opTimeout)
 		defer cancel()
-		newID, actuallyAllocated, err := crdAllocator.Allocate(ctx, key)
+		newID, actuallyAllocated, _, err := crdAllocator.Allocate(ctx, key)
 		switch {
 		case err != nil:
 			log.WithError(err).Errorf("Cannot allocate new CRD ID for %v", key)
