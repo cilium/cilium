@@ -2230,6 +2230,14 @@ func init() {
             "udp",
             "any"
           ]
+        },
+        "scope": {
+          "description": "Load balancing scope for frontend address",
+          "type": "string",
+          "enum": [
+            "external",
+            "internal"
+          ]
         }
       }
     },
@@ -5841,6 +5849,14 @@ func init() {
             "tcp",
             "udp",
             "any"
+          ]
+        },
+        "scope": {
+          "description": "Load balancing scope for frontend address",
+          "type": "string",
+          "enum": [
+            "external",
+            "internal"
           ]
         }
       }

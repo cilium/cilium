@@ -98,23 +98,23 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 	})
 
 	// Validate all frontends as exact matches
-	frontend := loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("1.1.1.1"), 10)
+	frontend := loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("1.1.1.1"), 10, loadbalancer.ScopeExternal)
 	c.Assert(frontends.LooseMatch(*frontend), check.Equals, true)
-	frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("1.1.1.1"), 20)
+	frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("1.1.1.1"), 20, loadbalancer.ScopeExternal)
 	c.Assert(frontends.LooseMatch(*frontend), check.Equals, true)
-	frontend = loadbalancer.NewL3n4Addr(loadbalancer.UDP, net.ParseIP("2.2.2.2"), 20)
+	frontend = loadbalancer.NewL3n4Addr(loadbalancer.UDP, net.ParseIP("2.2.2.2"), 20, loadbalancer.ScopeExternal)
 	c.Assert(frontends.LooseMatch(*frontend), check.Equals, true)
 
 	// Validate protocol mismatch on exact match
-	frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("2.2.2.2"), 20)
+	frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("2.2.2.2"), 20, loadbalancer.ScopeExternal)
 	c.Assert(frontends.LooseMatch(*frontend), check.Equals, false)
 
 	// Validate protocol wildcard matching
-	frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("2.2.2.2"), 20)
+	frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("2.2.2.2"), 20, loadbalancer.ScopeExternal)
 	c.Assert(frontends.LooseMatch(*frontend), check.Equals, true)
-	frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("1.1.1.1"), 10)
+	frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("1.1.1.1"), 10, loadbalancer.ScopeExternal)
 	c.Assert(frontends.LooseMatch(*frontend), check.Equals, true)
-	frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("1.1.1.1"), 20)
+	frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("1.1.1.1"), 20, loadbalancer.ScopeExternal)
 	c.Assert(frontends.LooseMatch(*frontend), check.Equals, true)
 }
 
@@ -574,7 +574,7 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 
 	k8sSvcID, _ := ParseService(k8sSvc, nil)
 	addresses := svcCache.GetServiceIP(k8sSvcID)
-	c.Assert(addresses, checker.DeepEquals, loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("127.0.0.1"), 80))
+	c.Assert(addresses, checker.DeepEquals, loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("127.0.0.1"), 80, loadbalancer.ScopeExternal))
 
 	swgSvcs.Stop()
 	c.Assert(testutils.WaitUntil(func() bool {

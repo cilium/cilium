@@ -148,7 +148,8 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 					clusterIP != nil && !strings.Contains(svc.Spec.ClusterIP, ":") {
 
 					for _, ip := range nodeAddressing.IPv4().LoadBalancerNodeAddresses() {
-						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port, id)
+						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port,
+							loadbalancer.ScopeExternal, id)
 						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
 					}
 				}
@@ -156,7 +157,8 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 					clusterIP != nil && strings.Contains(svc.Spec.ClusterIP, ":") {
 
 					for _, ip := range nodeAddressing.IPv6().LoadBalancerNodeAddresses() {
-						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port, id)
+						nodePortFE := loadbalancer.NewL3n4AddrID(proto, ip, port,
+							loadbalancer.ScopeExternal, id)
 						svcInfo.NodePorts[portName][nodePortFE.String()] = nodePortFE
 					}
 				}
@@ -222,6 +224,9 @@ type Service struct {
 
 	// Shared is true when the service should be exposed/shared to other clusters
 	Shared bool
+
+	// Scope is the lookup scope for TrafficPolicy=Local
+	Scope uint8
 
 	// TrafficPolicy controls how backends are selected. If set to "Local", only
 	// node-local backends are chosen

@@ -343,9 +343,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 		},
 	}
 
-	lb1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, 0)
-	// lb2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 80, 0)
-	lb3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 81, 0)
+	lb1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
+	// lb2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
+	lb3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 81, loadbalancer.ScopeExternal, 0)
 	upsert1stWanted := map[string]loadbalancer.SVC{
 		lb1.Hash(): {
 			Type:     loadbalancer.SVCTypeClusterIP,
@@ -618,8 +618,8 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 		},
 	}
 
-	lb1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, 0)
-	lb2 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 81, 0)
+	lb1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
+	lb2 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 81, loadbalancer.ScopeExternal, 0)
 	upsertsWanted := []loadbalancer.SVC{
 		{
 			Type:     loadbalancer.SVCTypeClusterIP,
@@ -801,9 +801,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		},
 	}
 
-	clusterIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, 0)
-	// clusterIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 80, 0)
-	clusterIP3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 81, 0)
+	clusterIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
+	// clusterIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
+	clusterIP3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 81, loadbalancer.ScopeExternal, 0)
 
 	upsert1stWanted := map[string]loadbalancer.SVC{
 		clusterIP1.Hash(): {
@@ -857,9 +857,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 	}
 
 	nodePortIPs1 := []*loadbalancer.L3n4AddrID{
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("0.0.0.0"), 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4NodePortAddress, 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4InternalAddress, 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("0.0.0.0"), 18080, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4NodePortAddress, 18080, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4InternalAddress, 18080, loadbalancer.ScopeExternal, 0),
 	}
 	for _, nodePort := range nodePortIPs1 {
 		upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
@@ -879,9 +879,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 		}
 	}
 	// nodePortIPs2 := []*loadbalancer.L3n4AddrID{
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18080, 0),
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.Pv4NodePortAddress, 18080, 0),
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18080, 0),
+	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18080, loadbalancer.ScopeExternal, 0),
+	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.Pv4NodePortAddress, 18080, loadbalancer.ScopeExternal, 0),
+	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18080, loadbalancer.ScopeExternal, 0),
 	// }
 	// for _, nodePort := range nodePortIPs2 {
 	// 	upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
@@ -901,9 +901,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 	// 	}
 	// }
 	nodePortIPs3 := []*loadbalancer.L3n4AddrID{
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18081, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18081, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18081, loadbalancer.ScopeExternal, 0),
 	}
 	for _, nodePort := range nodePortIPs3 {
 		upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
@@ -1274,18 +1274,18 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		},
 	}
 
-	clusterIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, 0)
-	clusterIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 81, 0)
+	clusterIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
+	clusterIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 81, loadbalancer.ScopeExternal, 0)
 
 	nodePortIPs1 := []*loadbalancer.L3n4AddrID{
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("0.0.0.0"), 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4NodePortAddress, 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4InternalAddress, 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("0.0.0.0"), 18080, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4NodePortAddress, 18080, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4InternalAddress, 18080, loadbalancer.ScopeExternal, 0),
 	}
 	nodePortIPs2 := []*loadbalancer.L3n4AddrID{
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18081, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18081, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18081, loadbalancer.ScopeExternal, 0),
 	}
 
 	upsert1stWanted := map[string]loadbalancer.SVC{
@@ -1355,7 +1355,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 		}
 	}
 
-	clusterIP3 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 8083, 0)
+	clusterIP3 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 8083, loadbalancer.ScopeExternal, 0)
 
 	upsert2ndWanted := map[string]loadbalancer.SVC{
 		clusterIP2.Hash(): {
@@ -1568,18 +1568,18 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 		},
 	}
 
-	clusterIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, 0)
-	clusterIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 81, 0)
+	clusterIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
+	clusterIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 81, loadbalancer.ScopeExternal, 0)
 
 	nodePortIPs1 := []*loadbalancer.L3n4AddrID{
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("0.0.0.0"), 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4NodePortAddress, 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4InternalAddress, 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("0.0.0.0"), 18080, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4NodePortAddress, 18080, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4InternalAddress, 18080, loadbalancer.ScopeExternal, 0),
 	}
 	nodePortIPs2 := []*loadbalancer.L3n4AddrID{
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18081, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18081, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18081, loadbalancer.ScopeExternal, 0),
 	}
 
 	upsert1stWanted := map[string]loadbalancer.SVC{
@@ -1875,9 +1875,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		slim_corev1.EndpointAddress{IP: "3.3.3.3"},
 	)
 
-	clusterIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, 0)
-	// clusterIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 80, 0)
-	clusterIP3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 81, 0)
+	clusterIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
+	// clusterIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 80, loadbalancer.ScopeExternal, 0)
+	clusterIP3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("172.0.20.1"), 81, loadbalancer.ScopeExternal, 0)
 
 	upsert1stWanted := map[string]loadbalancer.SVC{
 		clusterIP1.Hash(): {
@@ -1930,12 +1930,12 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		},
 	}
 
-	externalIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("127.8.8.8"), 80, 0)
-	// externalIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.8.8.8"), 80, 0)
-	externalIP3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.8.8.8"), 81, 0)
-	externalIP4 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("127.9.9.9"), 80, 0)
-	// externalIP5 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.9.9.9"), 80, 0)
-	externalIP6 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.9.9.9"), 81, 0)
+	externalIP1 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("127.8.8.8"), 80, loadbalancer.ScopeExternal, 0)
+	// externalIP2 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.8.8.8"), 80, loadbalancer.ScopeExternal, 0)
+	externalIP3 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.8.8.8"), 81, loadbalancer.ScopeExternal, 0)
+	externalIP4 := loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("127.9.9.9"), 80, loadbalancer.ScopeExternal, 0)
+	// externalIP5 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.9.9.9"), 80, loadbalancer.ScopeExternal, 0)
+	externalIP6 := loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("127.9.9.9"), 81, loadbalancer.ScopeExternal, 0)
 	for _, externalIP := range []*loadbalancer.L3n4AddrID{externalIP1, externalIP4} {
 		upsert1stWanted[externalIP.Hash()] = loadbalancer.SVC{
 			Type:     loadbalancer.SVCTypeExternalIPs,
@@ -1989,9 +1989,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 	}
 
 	nodePortIPs1 := []*loadbalancer.L3n4AddrID{
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("0.0.0.0"), 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4NodePortAddress, 18080, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4InternalAddress, 18080, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, net.ParseIP("0.0.0.0"), 18080, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4NodePortAddress, 18080, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.UDP, fakeDatapath.IPv4InternalAddress, 18080, loadbalancer.ScopeExternal, 0),
 	}
 	for _, nodePort := range nodePortIPs1 {
 		upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
@@ -2011,9 +2011,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 		}
 	}
 	// nodePortIPs2 := []*loadbalancer.L3n4AddrID{
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18080, 0),
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18080, 0),
-	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18080, 0),
+	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18080, loadbalancer.ScopeExternal, 0),
+	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18080, loadbalancer.ScopeExternal, 0),
+	// 	loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18080, loadbalancer.ScopeExternal, 0),
 	// }
 	// for _, nodePort := range nodePortIPs2 {
 	// 	upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{
@@ -2033,9 +2033,9 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 	// 	}
 	// }
 	nodePortIPs3 := []*loadbalancer.L3n4AddrID{
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18081, 0),
-		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18081, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, net.ParseIP("0.0.0.0"), 18081, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4NodePortAddress, 18081, loadbalancer.ScopeExternal, 0),
+		loadbalancer.NewL3n4AddrID(loadbalancer.TCP, fakeDatapath.IPv4InternalAddress, 18081, loadbalancer.ScopeExternal, 0),
 	}
 	for _, nodePort := range nodePortIPs3 {
 		upsert1stWanted[nodePort.Hash()] = loadbalancer.SVC{

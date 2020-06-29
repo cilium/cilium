@@ -143,13 +143,15 @@ type Service6Key struct {
 	Port    uint16     `align:"dport"`
 	Slave   uint16     `align:"slave"`
 	Proto   uint8      `align:"proto"`
-	Pad     pad3uint8  `align:"pad"`
+	Scope   uint8      `align:"scope"`
+	Pad     pad2uint8  `align:"pad"`
 }
 
-func NewService6Key(ip net.IP, port uint16, proto u8proto.U8proto, slave uint16) *Service6Key {
+func NewService6Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, slave uint16) *Service6Key {
 	key := Service6Key{
 		Port:  port,
 		Proto: uint8(proto),
+		Scope: scope,
 		Slave: slave,
 	}
 
@@ -159,7 +161,11 @@ func NewService6Key(ip net.IP, port uint16, proto u8proto.U8proto, slave uint16)
 }
 
 func (k *Service6Key) String() string {
-	return fmt.Sprintf("[%s]:%d", k.Address, k.Port)
+	if k.Scope == loadbalancer.ScopeInternal {
+		return fmt.Sprintf("[%s]:%d/i", k.Address, k.Port)
+	} else {
+		return fmt.Sprintf("[%s]:%d", k.Address, k.Port)
+	}
 }
 
 func (k *Service6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
@@ -168,6 +174,8 @@ func (k *Service6Key) IsIPv6() bool              { return true }
 func (k *Service6Key) Map() *bpf.Map             { return Service6MapV2 }
 func (k *Service6Key) SetSlave(slave int)        { k.Slave = uint16(slave) }
 func (k *Service6Key) GetSlave() int             { return int(k.Slave) }
+func (k *Service6Key) SetScope(scope uint8)      { k.Scope = scope }
+func (k *Service6Key) GetScope() uint8           { return k.Scope }
 func (k *Service6Key) GetAddress() net.IP        { return k.Address.IP() }
 func (k *Service6Key) GetPort() uint16           { return k.Port }
 func (k *Service6Key) MapDelete() error          { return k.Map().Delete(k.ToNetwork()) }

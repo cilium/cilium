@@ -31,6 +31,10 @@ type FrontendAddress struct {
 	// Layer 4 protocol
 	// Enum: [tcp udp any]
 	Protocol string `json:"protocol,omitempty"`
+
+	// Load balancing scope for frontend address
+	// Enum: [external internal]
+	Scope string `json:"scope,omitempty"`
 }
 
 // Validate validates this frontend address
@@ -38,6 +42,10 @@ func (m *FrontendAddress) Validate(formats strfmt.Registry) error {
 	var res []error
 
 	if err := m.validateProtocol(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if err := m.validateScope(formats); err != nil {
 		res = append(res, err)
 	}
 
@@ -87,6 +95,49 @@ func (m *FrontendAddress) validateProtocol(formats strfmt.Registry) error {
 
 	// value enum
 	if err := m.validateProtocolEnum("protocol", "body", m.Protocol); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+var frontendAddressTypeScopePropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["external","internal"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		frontendAddressTypeScopePropEnum = append(frontendAddressTypeScopePropEnum, v)
+	}
+}
+
+const (
+
+	// FrontendAddressScopeExternal captures enum value "external"
+	FrontendAddressScopeExternal string = "external"
+
+	// FrontendAddressScopeInternal captures enum value "internal"
+	FrontendAddressScopeInternal string = "internal"
+)
+
+// prop value enum
+func (m *FrontendAddress) validateScopeEnum(path, location string, value string) error {
+	if err := validate.Enum(path, location, value, frontendAddressTypeScopePropEnum); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *FrontendAddress) validateScope(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Scope) { // not required
+		return nil
+	}
+
+	// value enum
+	if err := m.validateScopeEnum("scope", "body", m.Scope); err != nil {
 		return err
 	}
 
