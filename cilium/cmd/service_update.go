@@ -28,15 +28,16 @@ import (
 )
 
 var (
-	deprecatedAddRev bool // TODO(v1.8+): remove it
-	k8sExternalIPs   bool
-	k8sNodePort      bool
-	k8sHostPort      bool
-	k8sLoadBalancer  bool
-	k8sTrafficPolicy string
-	idU              uint64
-	frontend         string
-	backends         []string
+	deprecatedAddRev   bool // TODO(v1.8+): remove it
+	k8sExternalIPs     bool
+	k8sNodePort        bool
+	k8sHostPort        bool
+	k8sLoadBalancer    bool
+	k8sTrafficPolicy   string
+	k8sClusterInternal bool
+	idU                uint64
+	frontend           string
+	backends           []string
 )
 
 // serviceUpdateCmd represents the service_update command
@@ -56,6 +57,7 @@ func init() {
 	serviceUpdateCmd.Flags().BoolVarP(&k8sLoadBalancer, "k8s-load-balancer", "", false, "Set service as a k8s LoadBalancer")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sHostPort, "k8s-host-port", "", false, "Set service as a k8s HostPort")
 	serviceUpdateCmd.Flags().StringVarP(&k8sTrafficPolicy, "k8s-traffic-policy", "", "Cluster", "Set service with k8s externalTrafficPolicy as {Local,Cluster}")
+	serviceUpdateCmd.Flags().BoolVarP(&k8sClusterInternal, "k8s-cluster-internal", "", false, "Set service as cluster-internal for externalTrafficPolicy=Local")
 	serviceUpdateCmd.Flags().BoolVarP(&deprecatedAddRev, "rev", "", false, "Add reverse translation")
 	serviceUpdateCmd.Flags().MarkDeprecated("rev", "and it is inactive")
 	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
@@ -68,11 +70,17 @@ func parseFrontendAddress(address string) (*models.FrontendAddress, net.IP) {
 		Fatalf("Unable to parse frontend address: %s\n", err)
 	}
 
+	scope := models.FrontendAddressScopeExternal
+	if k8sClusterInternal {
+		scope = models.FrontendAddressScopeInternal
+	}
+
 	// FIXME support more than TCP
 	return &models.FrontendAddress{
 		IP:       frontend.IP.String(),
 		Port:     uint16(frontend.Port),
 		Protocol: models.FrontendAddressProtocolTCP,
+		Scope:    scope,
 	}, frontend.IP
 }
 

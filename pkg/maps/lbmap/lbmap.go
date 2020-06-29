@@ -50,8 +50,8 @@ func (*LBBPFMap) UpsertService(
 	svcID uint16, svcIP net.IP, svcPort uint16,
 	backendIDs []uint16, prevBackendCount int,
 	ipv6 bool, svcType loadbalancer.SVCType, svcLocal bool,
-	sessionAffinity bool, sessionAffinityTimeoutSec uint32) error {
-
+	svcScope uint8, sessionAffinity bool,
+	sessionAffinityTimeoutSec uint32) error {
 	var svcKey ServiceKey
 
 	if svcID == 0 {
@@ -59,9 +59,9 @@ func (*LBBPFMap) UpsertService(
 	}
 
 	if ipv6 {
-		svcKey = NewService6Key(svcIP, svcPort, u8proto.ANY, 0)
+		svcKey = NewService6Key(svcIP, svcPort, u8proto.ANY, svcScope, 0)
 	} else {
-		svcKey = NewService4Key(svcIP, svcPort, u8proto.ANY, 0)
+		svcKey = NewService4Key(svcIP, svcPort, u8proto.ANY, svcScope, 0)
 	}
 
 	slot := 1
@@ -120,10 +120,10 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int) er
 	}
 
 	if svc.IsIPv6() {
-		svcKey = NewService6Key(svc.IP, svc.Port, u8proto.ANY, 0)
+		svcKey = NewService6Key(svc.IP, svc.Port, u8proto.ANY, svc.Scope, 0)
 		revNATKey = NewRevNat6Key(uint16(svc.ID))
 	} else {
-		svcKey = NewService4Key(svc.IP, svc.Port, u8proto.ANY, 0)
+		svcKey = NewService4Key(svc.IP, svc.Port, u8proto.ANY, svc.Scope, 0)
 		revNATKey = NewRevNat4Key(uint16(svc.ID))
 	}
 

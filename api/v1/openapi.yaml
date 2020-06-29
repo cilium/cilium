@@ -2112,6 +2112,12 @@ definitions:
         - tcp
         - udp
         - any
+      scope:
+        description: Load balancing scope for frontend address
+        type: string
+        enum:
+        - external
+        - internal
       port:
         description: Layer 4 port number
         type: integer

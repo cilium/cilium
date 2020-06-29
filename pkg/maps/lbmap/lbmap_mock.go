@@ -36,9 +36,8 @@ func NewLBMockMap() *LBMockMap {
 }
 
 func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
-	backendIDs []uint16, prevCount int, ipv6 bool, svcType lb.SVCType,
-	svcLocal bool,
-	sessionAffinity bool, sessionAffinityTimeoutSec uint32) error {
+	backendIDs []uint16, prevCount int, ipv6 bool, svcType lb.SVCType, svcLocal bool,
+	svcScope uint8, sessionAffinity bool, sessionAffinityTimeoutSec uint32) error {
 
 	backends := make([]lb.Backend, len(backendIDs))
 	for i, backendID := range backendIDs {
@@ -51,7 +50,7 @@ func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
 
 	svc, found := m.ServiceByID[id]
 	if !found {
-		frontend := lb.NewL3n4AddrID(lb.NONE, ip, port, lb.ID(id))
+		frontend := lb.NewL3n4AddrID(lb.NONE, ip, port, svcScope, lb.ID(id))
 		svc = &lb.SVC{Frontend: *frontend}
 	} else {
 		if prevCount != len(svc.Backends) {
