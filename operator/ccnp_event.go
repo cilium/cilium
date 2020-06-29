@@ -23,12 +23,12 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/groups"
 
-	"k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -57,19 +57,22 @@ func enableCCNPWatcher() error {
 	}
 
 	if kvstoreEnabled() {
+		ccnpStatusMgr = k8s.NewCCNPStatusEventHandler(ccnpStore, operatorOption.Config.CNPStatusUpdateInterval)
 		ccnpSharedStore, err := store.JoinSharedStore(store.Configuration{
 			Prefix: k8s.CCNPStatusesPath,
 			KeyCreator: func() store.Key {
 				return &k8s.CNPNSWithMeta{}
 			},
+			Observer: ccnpStatusMgr,
 		})
 		if err != nil {
 			return err
 		}
 
-		ccnpStatusMgr = k8s.NewCCNPStatusEventHandler(ccnpSharedStore, ccnpStore, operatorOption.Config.CNPStatusUpdateInterval)
-
-		go ccnpStatusMgr.WatchForCCNPStatusEvents()
+		// It is safe to update the CCNP store here given the CCNP Store
+		// will only be used by StartStatusHandler method which is used in the
+		// cilium v2 controller below.
+		ccnpStatusMgr.UpdateCNPStore(ccnpSharedStore)
 	}
 
 	ciliumV2Controller := informer.NewInformerWithStore(

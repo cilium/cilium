@@ -15,16 +15,15 @@
 package k8s
 
 import (
-	"context"
 	"path"
 	"time"
 
 	"github.com/cilium/cilium/pkg/kvstore"
-	"github.com/cilium/cilium/pkg/kvstore/store"
 
 	"k8s.io/client-go/tools/cache"
 )
 
+// CCNPStatusesPath is the KVStore key prefix for CCNP status
 var CCNPStatusesPath = path.Join(kvstore.BaseKeyPrefix, "state", "ccnpstatuses", "v2")
 
 // CCNPStatusEventHandler handles status updates events for all the CCNPs
@@ -39,19 +38,8 @@ type CCNPStatusEventHandler struct {
 
 // NewCCNPStatusEventHandler returns a new CCNPStatusEventHandler.
 // which is more or less a wrapper around the CNPStatusEventHandler itself.
-func NewCCNPStatusEventHandler(cnpStore *store.SharedStore, k8sStore cache.Store, updateInterval time.Duration) *CCNPStatusEventHandler {
+func NewCCNPStatusEventHandler(k8sStore cache.Store, updateInterval time.Duration) *CCNPStatusEventHandler {
 	return &CCNPStatusEventHandler{
-		CNPStatusEventHandler: NewCNPStatusEventHandler(cnpStore, k8sStore, updateInterval),
-	}
-}
-
-// WatchForCCNPStatusEvents starts a watcher for all the Clusterwide policy
-// updates from the key-value store.
-func (c *CCNPStatusEventHandler) WatchForCCNPStatusEvents() {
-	watcher := kvstore.Client().ListAndWatch(context.TODO(), "ccnpStatusWatcher", CCNPStatusesPath, 512)
-
-	// Loop and block for this network policy watch event.
-	for {
-		c.watchForCNPStatusEvents(watcher)
+		CNPStatusEventHandler: NewCNPStatusEventHandler(k8sStore, updateInterval),
 	}
 }
