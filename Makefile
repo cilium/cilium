@@ -279,9 +279,6 @@ install-container: install-bpf
 GIT_VERSION: force
 	@if [ "$(GIT_VERSION)" != "`cat 2>/dev/null GIT_VERSION`" ] ; then echo "$(GIT_VERSION)" >GIT_VERSION; fi
 
-BPF_SRCFILES: force
-	@if [ "$(BPF_SRCFILES)" != "`cat 2>/dev/null BPF_SRCFILES`" ] ; then echo "$(BPF_SRCFILES)" >BPF_SRCFILES; fi
-
 include Makefile.docker
 
 build-deb:
