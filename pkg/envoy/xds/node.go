@@ -19,17 +19,12 @@ import (
 	"fmt"
 	"net"
 	"strings"
-
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
 )
-
-// NodeToIDFunc extracts a string identifier from an Envoy Node identifier.
-type NodeToIDFunc func(node *envoy_api_v2_core.Node) (string, error)
 
 // IstioNodeToIP extract the IP address from an Envoy node identifier
 // configured by Istio's pilot-agent.
 //
-// Istio's pilot-agent structures the node.id as the concatenation of the
+// Istio's pilot-agent structures the nodeId as the concatenation of the
 // following parts separated by ~:
 //
 // - node type: one of "sidecar", "ingress", or "router"
@@ -53,7 +48,7 @@ func IstioNodeToIP(nodeId string) (string, error) {
 	ip := parts[1]
 
 	if net.ParseIP(ip) == nil {
-		return "", fmt.Errorf("node.id contains an invalid node IP address: %s", nodeId)
+		return "", fmt.Errorf("nodeId contains an invalid node IP address: %s", nodeId)
 	}
 
 	return ip, nil
