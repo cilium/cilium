@@ -33,8 +33,8 @@
 //    rds := xds.NewAckingResourceMutatorWrapper(rdsCache)
 //
 //    resTypes := map[string]xds.ResourceTypeConfiguration{
-//        "type.googleapis.com/envoy.api.v2.Listener": {ldsCache, lds},
-//        "type.googleapis.com/envoy.api.v2.RouteConfiguration": {rdsCache, rds},
+//        "type.googleapis.com/envoy.config.listener.v3.Listener": {ldsCache, lds},
+//        "type.googleapis.com/envoy.config.route.v3.RouteConfiguration": {rdsCache, rds},
 //    }
 //
 //    server := xds.NewServer(resTypes, 5*time.Seconds)
@@ -57,7 +57,7 @@
 //
 // Cache is an efficient, ready-to-use implementation of ResourceSet:
 //
-//    typeURL := "type.googleapis.com/envoy.api.v2.Listener"
+//    typeURL := "type.googleapis.com/envoy.config.listener.v3.Listener"
 //    ldsCache := xds.NewCache()
 //    ldsCache.Upsert(typeURL, "listener123", listenerA, false)
 //    ldsCache.Delete(typeURL, "listener456", false)
@@ -68,7 +68,7 @@
 // AckingResourceMutatorWrapper provides an extended API which accepts
 // Completions to notify of ACKs.
 //
-//    typeURL := "type.googleapis.com/envoy.api.v2.Listener"
+//    typeURL := "type.googleapis.com/envoy.config.listener.v3.Listener"
 //    ldsCache := xds.NewCache()
 //    lds := xds.NewAckingResourceMutatorWrapper(ldsCache)
 //

@@ -27,7 +27,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
+	envoy_service_discovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	"github.com/sirupsen/logrus"
@@ -123,7 +123,7 @@ func NewServer(resourceTypes map[string]*ResourceTypeConfiguration,
 	return &Server{watchers: watchers, ackObservers: ackObservers}
 }
 
-func getXDSRequestFields(req *envoy_api_v2.DiscoveryRequest) logrus.Fields {
+func getXDSRequestFields(req *envoy_service_discovery.DiscoveryRequest) logrus.Fields {
 	return logrus.Fields{
 		logfields.XDSAckedVersion: req.GetVersionInfo(),
 		logfields.XDSClientNode:   req.GetNode().GetId(),
@@ -139,7 +139,7 @@ func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, default
 
 	streamLog := log.WithField(logfields.XDSStreamID, streamID)
 
-	reqCh := make(chan *envoy_api_v2.DiscoveryRequest)
+	reqCh := make(chan *envoy_service_discovery.DiscoveryRequest)
 
 	stopRecv := make(chan struct{})
 	defer close(stopRecv)
@@ -200,7 +200,7 @@ type perTypeStreamState struct {
 
 // processRequestStream processes the requests in an xDS stream from a channel.
 func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Entry, stream Stream,
-	reqCh <-chan *envoy_api_v2.DiscoveryRequest, defaultTypeURL string) error {
+	reqCh <-chan *envoy_service_discovery.DiscoveryRequest, defaultTypeURL string) error {
 	// The request state for every type URL.
 	typeStates := make([]perTypeStreamState, len(s.watchers))
 	defer func() {
@@ -275,7 +275,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 				return nil
 			}
 
-			req := recv.Interface().(*envoy_api_v2.DiscoveryRequest)
+			req := recv.Interface().(*envoy_service_discovery.DiscoveryRequest)
 
 			requestLog := streamLog.WithFields(getXDSRequestFields(req))
 
@@ -321,7 +321,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			state := &typeStates[index]
 			watcher := s.watchers[typeURL]
 
-			nodeIP, err := IstioNodeToIP(req.GetNode())
+			nodeIP, err := IstioNodeToIP(req.GetNode().GetId())
 			if err != nil {
 				requestLog.WithError(err).Error("invalid Node in xDS request")
 				return ErrInvalidNodeFormat
@@ -409,7 +409,7 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			responseLog.Debugf("sending xDS response with %d resources", len(resp.Resources))
 
 			versionStr := strconv.FormatUint(resp.Version, 10)
-			out := &envoy_api_v2.DiscoveryResponse{
+			out := &envoy_service_discovery.DiscoveryResponse{
 				VersionInfo: versionStr,
 				Resources:   resources,
 				Canary:      resp.Canary,

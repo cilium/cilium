@@ -37,14 +37,16 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
 	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
-	envoy_api_v2_endpoint "github.com/cilium/proxy/go/envoy/api/v2/endpoint"
-	envoy_api_v2_listener "github.com/cilium/proxy/go/envoy/api/v2/listener"
 	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
-	envoy_config_bootstrap_v2 "github.com/cilium/proxy/go/envoy/config/bootstrap/v2"
-	envoy_config_http "github.com/cilium/proxy/go/envoy/config/filter/network/http_connection_manager/v2"
-	envoy_config_tcp "github.com/cilium/proxy/go/envoy/config/filter/network/tcp_proxy/v2"
+	envoy_config_bootstrap "github.com/cilium/proxy/go/envoy/config/bootstrap/v3"
+	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
+	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
+	envoy_config_endpoint "github.com/cilium/proxy/go/envoy/config/endpoint/v3"
+	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
+	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher"
 
 	"github.com/golang/protobuf/proto"
@@ -187,7 +189,7 @@ func StartXDSServer(stateDir string) *XDSServer {
 	}
 }
 
-func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy_api_v2_listener.FilterChain {
+func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy_config_listener.FilterChain {
 	denied403body := option.Config.HTTP403Message
 	requestTimeout := int64(option.Config.HTTPRequestTimeout) // seconds
 	idleTimeout := int64(option.Config.HTTPIdleTimeout)       // seconds
@@ -210,23 +212,23 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 		}},
 		StreamIdleTimeout: &duration.Duration{}, // 0 == disabled
 		RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
-			RouteConfig: &envoy_api_v2.RouteConfiguration{
-				VirtualHosts: []*envoy_api_v2_route.VirtualHost{{
+			RouteConfig: &envoy_config_route.RouteConfiguration{
+				VirtualHosts: []*envoy_config_route.VirtualHost{{
 					Name:    "default_route",
 					Domains: []string{"*"},
-					Routes: []*envoy_api_v2_route.Route{{
-						Match: &envoy_api_v2_route.RouteMatch{
-							PathSpecifier: &envoy_api_v2_route.RouteMatch_Prefix{Prefix: "/"},
-							Grpc:          &envoy_api_v2_route.RouteMatch_GrpcRouteMatchOptions{},
+					Routes: []*envoy_config_route.Route{{
+						Match: &envoy_config_route.RouteMatch{
+							PathSpecifier: &envoy_config_route.RouteMatch_Prefix{Prefix: "/"},
+							Grpc:          &envoy_config_route.RouteMatch_GrpcRouteMatchOptions{},
 						},
-						Action: &envoy_api_v2_route.Route_Route{
-							Route: &envoy_api_v2_route.RouteAction{
-								ClusterSpecifier: &envoy_api_v2_route.RouteAction_Cluster{
+						Action: &envoy_config_route.Route_Route{
+							Route: &envoy_config_route.RouteAction{
+								ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
 									Cluster: clusterName,
 								},
 								Timeout:        &duration.Duration{Seconds: requestTimeout},
 								MaxGrpcTimeout: &duration.Duration{Seconds: maxGRPCTimeout},
-								RetryPolicy: &envoy_api_v2_route.RetryPolicy{
+								RetryPolicy: &envoy_config_route.RetryPolicy{
 									RetryOn:       "5xx",
 									NumRetries:    &wrappers.UInt32Value{Value: numRetries},
 									PerTryTimeout: &duration.Duration{Seconds: retryTimeout},
@@ -234,17 +236,17 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 							},
 						},
 					}, {
-						Match: &envoy_api_v2_route.RouteMatch{
-							PathSpecifier: &envoy_api_v2_route.RouteMatch_Prefix{Prefix: "/"},
+						Match: &envoy_config_route.RouteMatch{
+							PathSpecifier: &envoy_config_route.RouteMatch_Prefix{Prefix: "/"},
 						},
-						Action: &envoy_api_v2_route.Route_Route{
-							Route: &envoy_api_v2_route.RouteAction{
-								ClusterSpecifier: &envoy_api_v2_route.RouteAction_Cluster{
+						Action: &envoy_config_route.Route_Route{
+							Route: &envoy_config_route.RouteAction{
+								ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
 									Cluster: clusterName,
 								},
 								Timeout: &duration.Duration{Seconds: requestTimeout},
 								//IdleTimeout: &duration.Duration{Seconds: idleTimeout},
-								RetryPolicy: &envoy_api_v2_route.RetryPolicy{
+								RetryPolicy: &envoy_config_route.RetryPolicy{
 									RetryOn:       "5xx",
 									NumRetries:    &wrappers.UInt32Value{Value: numRetries},
 									PerTryTimeout: &duration.Duration{Seconds: retryTimeout},
@@ -262,22 +264,22 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 		hcmConfig.GetRouteConfig().VirtualHosts[0].Routes[1].GetRoute().IdleTimeout = &duration.Duration{Seconds: idleTimeout}
 	}
 
-	chain := &envoy_api_v2_listener.FilterChain{
-		Filters: []*envoy_api_v2_listener.Filter{{
+	chain := &envoy_config_listener.FilterChain{
+		Filters: []*envoy_config_listener.Filter{{
 			Name: "cilium.network",
 		}, {
 			Name: "envoy.http_connection_manager",
-			ConfigType: &envoy_api_v2_listener.Filter_TypedConfig{
+			ConfigType: &envoy_config_listener.Filter_TypedConfig{
 				TypedConfig: toAny(hcmConfig),
 			},
 		}},
 	}
 
 	if tls {
-		chain.FilterChainMatch = &envoy_api_v2_listener.FilterChainMatch{
+		chain.FilterChainMatch = &envoy_config_listener.FilterChainMatch{
 			TransportProtocol: "tls",
 		}
-		chain.TransportSocket = &envoy_api_v2_core.TransportSocket{
+		chain.TransportSocket = &envoy_config_core.TransportSocket{
 			Name: "cilium.tls_wrapper",
 		}
 	}
@@ -285,11 +287,11 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 	return chain
 }
 
-func (s *XDSServer) getTcpFilterChainProto(clusterName string) *envoy_api_v2_listener.FilterChain {
-	return &envoy_api_v2_listener.FilterChain{
-		Filters: []*envoy_api_v2_listener.Filter{{
+func (s *XDSServer) getTcpFilterChainProto(clusterName string) *envoy_config_listener.FilterChain {
+	return &envoy_config_listener.FilterChain{
+		Filters: []*envoy_config_listener.Filter{{
 			Name: "cilium.network",
-			ConfigType: &envoy_api_v2_listener.Filter_TypedConfig{
+			ConfigType: &envoy_config_listener.Filter_TypedConfig{
 				TypedConfig: toAny(&cilium.NetworkFilter{
 					Proxylib: "libcilium.so",
 					ProxylibParams: map[string]string{
@@ -300,7 +302,7 @@ func (s *XDSServer) getTcpFilterChainProto(clusterName string) *envoy_api_v2_lis
 			},
 		}, {
 			Name: "envoy.tcp_proxy",
-			ConfigType: &envoy_api_v2_listener.Filter_TypedConfig{
+			ConfigType: &envoy_config_listener.Filter_TypedConfig{
 				TypedConfig: toAny(&envoy_config_tcp.TcpProxy{
 					StatPrefix: "tcp_proxy",
 					ClusterSpecifier: &envoy_config_tcp.TcpProxy_Cluster{
@@ -349,30 +351,30 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 		socketMark = 0xA00
 	}
 
-	listenerConf := &envoy_api_v2.Listener{
+	listenerConf := &envoy_config_listener.Listener{
 		Name: name,
-		Address: &envoy_api_v2_core.Address{
-			Address: &envoy_api_v2_core.Address_SocketAddress{
-				SocketAddress: &envoy_api_v2_core.SocketAddress{
-					Protocol:      envoy_api_v2_core.SocketAddress_TCP,
+		Address: &envoy_config_core.Address{
+			Address: &envoy_config_core.Address_SocketAddress{
+				SocketAddress: &envoy_config_core.SocketAddress{
+					Protocol:      envoy_config_core.SocketAddress_TCP,
 					Address:       "::",
 					Ipv4Compat:    true,
-					PortSpecifier: &envoy_api_v2_core.SocketAddress_PortValue{PortValue: uint32(port)},
+					PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
 				},
 			},
 		},
 		Transparent: &wrappers.BoolValue{Value: true},
-		SocketOptions: []*envoy_api_v2_core.SocketOption{{
+		SocketOptions: []*envoy_config_core.SocketOption{{
 			Description: "Listener socket mark",
 			Level:       unix.SOL_SOCKET,
 			Name:        unix.SO_MARK,
-			Value:       &envoy_api_v2_core.SocketOption_IntValue{IntValue: socketMark},
-			State:       envoy_api_v2_core.SocketOption_STATE_PREBIND,
+			Value:       &envoy_config_core.SocketOption_IntValue{IntValue: socketMark},
+			State:       envoy_config_core.SocketOption_STATE_PREBIND,
 		}},
-		// FilterChains: []*envoy_api_v2_listener.FilterChain
-		ListenerFilters: []*envoy_api_v2_listener.ListenerFilter{{
+		// FilterChains: []*envoy_config_listener.FilterChain
+		ListenerFilters: []*envoy_config_listener.ListenerFilter{{
 			Name: "cilium.bpf_metadata",
-			ConfigType: &envoy_api_v2_listener.ListenerFilter_TypedConfig{
+			ConfigType: &envoy_config_listener.ListenerFilter_TypedConfig{
 				TypedConfig: toAny(&cilium.BpfMetadata{
 					IsIngress:                   isIngress,
 					MayUseOriginalSourceAddress: mayUseOriginalSourceAddr,
@@ -617,77 +619,79 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClusterName, ingressClusterName string, adminPath string) {
 	connectTimeout := int64(option.Config.ProxyConnectTimeout) // in seconds
 
-	bs := &envoy_config_bootstrap_v2.Bootstrap{
-		Node: &envoy_api_v2_core.Node{Id: nodeId, Cluster: cluster},
-		StaticResources: &envoy_config_bootstrap_v2.Bootstrap_StaticResources{
-			Clusters: []*envoy_api_v2.Cluster{
+	bs := &envoy_config_bootstrap.Bootstrap{
+		Node: &envoy_config_core.Node{Id: nodeId, Cluster: cluster},
+		StaticResources: &envoy_config_bootstrap.Bootstrap_StaticResources{
+			Clusters: []*envoy_config_cluster.Cluster{
 				{
 					Name:                 egressClusterName,
-					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
+					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
 					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
 					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:             envoy_api_v2.Cluster_CLUSTER_PROVIDED,
-					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
+					LbPolicy:             envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
+					ProtocolSelection:    envoy_config_cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
 				},
 				{
 					Name:                 egressTLSClusterName,
-					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
+					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
 					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
 					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:             envoy_api_v2.Cluster_CLUSTER_PROVIDED,
-					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
-					TransportSocket:      &envoy_api_v2_core.TransportSocket{Name: "cilium.tls_wrapper"},
+					LbPolicy:             envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
+					ProtocolSelection:    envoy_config_cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
+					TransportSocket:      &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
 				},
 				{
 					Name:                 ingressClusterName,
-					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
+					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
 					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
 					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:             envoy_api_v2.Cluster_CLUSTER_PROVIDED,
-					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
+					LbPolicy:             envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
+					ProtocolSelection:    envoy_config_cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
 				},
 				{
 					Name:                 ingressTLSClusterName,
-					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_ORIGINAL_DST},
+					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_ORIGINAL_DST},
 					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
 					CleanupInterval:      &duration.Duration{Seconds: connectTimeout, Nanos: 500000000},
-					LbPolicy:             envoy_api_v2.Cluster_CLUSTER_PROVIDED,
-					ProtocolSelection:    envoy_api_v2.Cluster_USE_DOWNSTREAM_PROTOCOL,
-					TransportSocket:      &envoy_api_v2_core.TransportSocket{Name: "cilium.tls_wrapper"},
+					LbPolicy:             envoy_config_cluster.Cluster_CLUSTER_PROVIDED,
+					ProtocolSelection:    envoy_config_cluster.Cluster_USE_DOWNSTREAM_PROTOCOL,
+					TransportSocket:      &envoy_config_core.TransportSocket{Name: "cilium.tls_wrapper"},
 				},
 				{
 					Name:                 "xds-grpc-cilium",
-					ClusterDiscoveryType: &envoy_api_v2.Cluster_Type{Type: envoy_api_v2.Cluster_STATIC},
+					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_STATIC},
 					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
-					LbPolicy:             envoy_api_v2.Cluster_ROUND_ROBIN,
-					LoadAssignment: &envoy_api_v2.ClusterLoadAssignment{
+					LbPolicy:             envoy_config_cluster.Cluster_ROUND_ROBIN,
+					LoadAssignment: &envoy_config_endpoint.ClusterLoadAssignment{
 						ClusterName: "xds-grpc-cilium",
-						Endpoints: []*envoy_api_v2_endpoint.LocalityLbEndpoints{{
-							LbEndpoints: []*envoy_api_v2_endpoint.LbEndpoint{{
-								HostIdentifier: &envoy_api_v2_endpoint.LbEndpoint_Endpoint{
-									Endpoint: &envoy_api_v2_endpoint.Endpoint{
-										Address: &envoy_api_v2_core.Address{
-											Address: &envoy_api_v2_core.Address_Pipe{
-												Pipe: &envoy_api_v2_core.Pipe{Path: xdsSock}},
+						Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{
+							LbEndpoints: []*envoy_config_endpoint.LbEndpoint{{
+								HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
+									Endpoint: &envoy_config_endpoint.Endpoint{
+										Address: &envoy_config_core.Address{
+											Address: &envoy_config_core.Address_Pipe{
+												Pipe: &envoy_config_core.Pipe{Path: xdsSock}},
 										},
 									},
 								},
 							}},
 						}},
 					},
-					Http2ProtocolOptions: &envoy_api_v2_core.Http2ProtocolOptions{},
+					Http2ProtocolOptions: &envoy_config_core.Http2ProtocolOptions{},
 				},
 			},
 		},
-		DynamicResources: &envoy_config_bootstrap_v2.Bootstrap_DynamicResources{
-			LdsConfig: &envoy_api_v2_core.ConfigSource{
-				ConfigSourceSpecifier: &envoy_api_v2_core.ConfigSource_ApiConfigSource{
-					ApiConfigSource: &envoy_api_v2_core.ApiConfigSource{
-						ApiType: envoy_api_v2_core.ApiConfigSource_GRPC,
-						GrpcServices: []*envoy_api_v2_core.GrpcService{
+		DynamicResources: &envoy_config_bootstrap.Bootstrap_DynamicResources{
+			LdsConfig: &envoy_config_core.ConfigSource{
+				ResourceApiVersion: envoy_config_core.ApiVersion_V3,
+				ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
+					ApiConfigSource: &envoy_config_core.ApiConfigSource{
+						ApiType:             envoy_config_core.ApiConfigSource_GRPC,
+						TransportApiVersion: envoy_config_core.ApiVersion_V3,
+						GrpcServices: []*envoy_config_core.GrpcService{
 							{
-								TargetSpecifier: &envoy_api_v2_core.GrpcService_EnvoyGrpc_{
-									EnvoyGrpc: &envoy_api_v2_core.GrpcService_EnvoyGrpc{
+								TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{
+									EnvoyGrpc: &envoy_config_core.GrpcService_EnvoyGrpc{
 										ClusterName: "xds-grpc-cilium",
 									},
 								},
@@ -697,11 +701,11 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 				},
 			},
 		},
-		Admin: &envoy_config_bootstrap_v2.Admin{
+		Admin: &envoy_config_bootstrap.Admin{
 			AccessLogPath: "/dev/null",
-			Address: &envoy_api_v2_core.Address{
-				Address: &envoy_api_v2_core.Address_Pipe{
-					Pipe: &envoy_api_v2_core.Pipe{Path: adminPath},
+			Address: &envoy_config_core.Address{
+				Address: &envoy_config_core.Address_Pipe{
+					Pipe: &envoy_config_core.Pipe{Path: adminPath},
 				},
 			},
 		},
