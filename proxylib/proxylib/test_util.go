@@ -16,7 +16,7 @@ package proxylib
 
 import (
 	"github.com/cilium/proxy/go/cilium/api"
-	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
+	envoy_service_disacovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/any"
 	log "github.com/sirupsen/logrus"
@@ -56,7 +56,7 @@ func (ins *Instance) InsertPolicyText(version string, policies []string, expectF
 		})
 	}
 
-	msg := &envoy_api_v2.DiscoveryResponse{
+	msg := &envoy_service_disacovery.DiscoveryResponse{
 		VersionInfo: version,
 		Canary:      false,
 		TypeUrl:     typeUrl,

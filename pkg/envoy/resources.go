@@ -30,7 +30,7 @@ import (
 
 const (
 	// ListenerTypeURL is the type URL of Listener resources.
-	ListenerTypeURL = "type.googleapis.com/envoy.api.v2.Listener"
+	ListenerTypeURL = "type.googleapis.com/envoy.config.listener.v3.Listener"
 
 	// NetworkPolicyTypeURL is the type URL of NetworkPolicy resources.
 	NetworkPolicyTypeURL = "type.googleapis.com/cilium.NetworkPolicy"

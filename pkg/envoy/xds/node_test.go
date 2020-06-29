@@ -17,8 +17,6 @@
 package xds
 
 import (
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -27,20 +25,16 @@ type NodeSuite struct{}
 var _ = Suite(&NodeSuite{})
 
 func (s *NodeSuite) TestIstioNodeToIP(c *C) {
-	var node envoy_api_v2_core.Node
 	var ip string
 	var err error
 
-	node.Id = "sidecar~10.1.1.0~v0.default~default.svc.cluster.local"
-	ip, err = IstioNodeToIP(&node)
+	ip, err = IstioNodeToIP("sidecar~10.1.1.0~v0.default~default.svc.cluster.local")
 	c.Assert(err, IsNil)
 	c.Check(ip, Equals, "10.1.1.0")
 
-	node.Id = "sidecar~10.1.1.0~v0.default"
-	_, err = IstioNodeToIP(&node)
+	_, err = IstioNodeToIP("sidecar~10.1.1.0~v0.default")
 	c.Assert(err, Not(IsNil))
 
-	node.Id = "sidecar~not-an-ip~v0.default~default.svc.cluster.local"
-	_, err = IstioNodeToIP(&node)
+	_, err = IstioNodeToIP("sidecar~not-an-ip~v0.default~default.svc.cluster.local")
 	c.Assert(err, Not(IsNil))
 }
