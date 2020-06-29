@@ -6,7 +6,8 @@ LABEL cilium-sha=${CILIUM_SHA}
 ADD . /go/src/github.com/cilium/cilium
 WORKDIR /go/src/github.com/cilium/cilium/hubble-relay
 ARG NOSTRIP
-RUN make NOSTRIP=$NOSTRIP
+ARG LOCKDEBUG
+RUN make NOSTRIP=${NOSTRIP} LOCKDEBUG=${LOCKDEBUG}
 
 FROM docker.io/library/alpine:3.11 as certs
 ARG CILIUM_SHA=""

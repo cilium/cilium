@@ -123,6 +123,7 @@ docker-cilium-builder-manifest:
 docker-hubble-relay-image: $(BUILD_DIR)/hubble-relay.Dockerfile build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build \
 		--build-arg NOSTRIP=${NOSTRIP} \
+		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		-f $(BUILD_DIR)/hubble-relay.Dockerfile \
 		-t cilium/hubble-relay$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
