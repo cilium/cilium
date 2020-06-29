@@ -225,9 +225,6 @@ type Service struct {
 	// Shared is true when the service should be exposed/shared to other clusters
 	Shared bool
 
-	// Scope is the lookup scope for TrafficPolicy=Local
-	Scope uint8
-
 	// TrafficPolicy controls how backends are selected. If set to "Local", only
 	// node-local backends are chosen
 	TrafficPolicy loadbalancer.SVCTrafficPolicy
