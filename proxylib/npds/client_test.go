@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/proxylib/test"
 
 	"github.com/cilium/proxy/go/cilium/api"
-	envoy_api_v2 "github.com/cilium/proxy/go/envoy/api/v2"
+	envoy_service_disacovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	log "github.com/sirupsen/logrus"
 	. "gopkg.in/check.v1"
 )
@@ -76,7 +76,7 @@ func (cs *ClientSuite) UpsertNetworkPolicy(c *C, s *envoy.XDSServer, p *cilium.N
 
 type updater struct{}
 
-func (u *updater) PolicyUpdate(resp *envoy_api_v2.DiscoveryResponse) error {
+func (u *updater) PolicyUpdate(resp *envoy_service_disacovery.DiscoveryResponse) error {
 	log.Debugf("Received policy update: %v", *resp)
 	return nil
 }
