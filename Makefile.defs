@@ -77,15 +77,17 @@ CILIUM_ENVOY_SHA=$(shell grep -o "FROM.*cilium/cilium-envoy:[0-9a-fA-F]*" $(ROOT
 GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionSHA=$(CILIUM_ENVOY_SHA)"
 
 # Use git only if in a Git repo, otherwise depend on file BPF_SRCFILES existing
+BPF_SRCFILES_IGNORE = bpf/.gitignore
 ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git),)
-	BPF_FILES_EVAL = $(shell git ls-files $(ROOT_DIR)/bpf/ | grep -v .gitignore | tr "\n" ' ')
-	BPF_FILES ?= $(BPF_FILES_EVAL)
-	BPF_SRCFILES := $(subst ../,,$(BPF_FILES))
+	BPF_SRCFILES := $(shell git ls-files $(ROOT_DIR)/bpf/ | sort | tr "\n" ' ')
 else
-	BPF_SRCFILES = $(shell cat $(ROOT_DIR)/BPF_SRCFILES)
+	# this line has to be in-sync with bpf/.gitignore, please note usage of make patterns like `%.i`
+	BPF_SRCFILES_IGNORE += bpf/cilium-map-migrate bpf/cilium-probe-kernel-hz bpf/%.i bpf/%.s bpf/.rebuild_all
+	BPF_SRCFILES := $(shell find $(ROOT_DIR)/bpf/ -type f | sort | tr "\n" ' ')
 endif
 
-# Use BPF_SRCFILES as BPF_FILES is not available in the buildkit context
+# ROOT_DIR can be either `../` or absolute path, each of these need to be stripped
+BPF_SRCFILES := $(filter-out $(BPF_SRCFILES_IGNORE),$(subst ../,,$(subst $(ROOT_DIR)/,,$(BPF_SRCFILES))))
 CILIUM_DATAPATH_SHA=$(shell cd $(ROOT_DIR); cat $(BPF_SRCFILES) | sha1sum | awk '{print $$1}')
 GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/datapath/loader.DatapathSHA=$(CILIUM_DATAPATH_SHA)"
 
