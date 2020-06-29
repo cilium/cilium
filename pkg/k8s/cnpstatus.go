@@ -16,7 +16,6 @@ package k8s
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
 	"fmt"
 	"path"
@@ -101,10 +100,9 @@ func (c *cnpEventMap) delete(cnpKey string) {
 }
 
 // NewCNPStatusEventHandler returns a new CNPStatusEventHandler.
-func NewCNPStatusEventHandler(cnpStore *store.SharedStore, k8sStore cache.Store, updateInterval time.Duration) *CNPStatusEventHandler {
+func NewCNPStatusEventHandler(k8sStore cache.Store, updateInterval time.Duration) *CNPStatusEventHandler {
 	return &CNPStatusEventHandler{
 		eventMap:       newCNPEventMap(),
-		cnpStore:       cnpStore,
 		k8sStore:       k8sStore,
 		updateInterval: updateInterval,
 	}
@@ -116,85 +114,70 @@ type NodeStatusUpdate struct {
 	*cilium_v2.CiliumNetworkPolicyNodeStatus
 }
 
-// WatchForCNPStatusEvents starts a watcher for all the CNP update from the
-// key-value store.
-func (c *CNPStatusEventHandler) WatchForCNPStatusEvents() {
-	watcher := kvstore.Client().ListAndWatch(context.TODO(), "cnpStatusWatcher", CNPStatusesPath, 512)
-
-	// Loop and block for the watcher
-	for {
-		c.watchForCNPStatusEvents(watcher)
-	}
+// UpdateCNPStore updates the CNP store for the status event handler
+// This must be called before before Starting the status handler using
+// StartStatusHandler method.
+func (c *CNPStatusEventHandler) UpdateCNPStore(cnpStore *store.SharedStore) {
+	c.cnpStore = cnpStore
 }
 
-// watchForCNPStatusEvents starts responds to the events from the watcher of
-// the key-value store.
-func (c *CNPStatusEventHandler) watchForCNPStatusEvents(watcher *kvstore.Watcher) {
-	for {
+// OnDelete is called when a delete event is called on the CNP status key.
+// It is a NoOp
+func (c *CNPStatusEventHandler) OnDelete(_ store.NamedKey) {
+	return
+}
+
+// OnUpdate is called when a CNPStatus object is modified in the KVStore.
+func (c *CNPStatusEventHandler) OnUpdate(key store.Key) {
+	cnpStatusUpdate, ok := key.(*CNPNSWithMeta)
+	if !ok {
+		log.WithFields(logrus.Fields{"kvstore-event": "update", "key": key.GetKeyName()}).
+			Error("Not updating CNP Status; error converting key to CNPNSWithMeta")
+		return
+	}
+
+	cnpKey := getKeyFromObject(cnpStatusUpdate)
+
+	log.WithFields(logrus.Fields{
+		"uid":       cnpStatusUpdate.UID,
+		"name":      cnpStatusUpdate.Name,
+		"namespace": cnpStatusUpdate.Namespace,
+		"node":      cnpStatusUpdate.Node,
+		"key":       cnpKey,
+	}).Debug("received update event from kvstore")
+
+	// Send the update to the corresponding controller for the
+	// CNP which sends all status updates to the K8s apiserver.
+	// If the namespace is empty for the status update then the cnpKey
+	// will correspond to the ccnpKey.
+	updater, ok := c.eventMap.lookup(cnpKey)
+	if !ok {
+		log.WithField("cnp", cnpKey).Debug("received event from kvstore for cnp for which we do not have any updater goroutine")
+		return
+	}
+	nsu := &NodeStatusUpdate{node: cnpStatusUpdate.Node}
+	nsu.CiliumNetworkPolicyNodeStatus = &(cnpStatusUpdate.CiliumNetworkPolicyNodeStatus)
+
+	// Given that select is not deterministic, ensure that we check
+	// for shutdown first. If not shut down, then try to send on
+	// channel, or wait for shutdown so that we don't block forever
+	// in case the channel is full and the updater is stopped.
+	select {
+	case <-updater.stopChan:
+		// This goroutine is the only sender on this channel; we can
+		// close safely if the stop channel is closed.
+		close(updater.updateChan)
+
+	default:
 		select {
-		case event, ok := <-watcher.Events:
-			if !ok {
-				log.Debugf("%s closed, restarting watch", watcher.String())
-				time.Sleep(500 * time.Millisecond)
-				return
-			}
-
-			switch event.Typ {
-			case kvstore.EventTypeListDone, kvstore.EventTypeDelete:
-			case kvstore.EventTypeCreate, kvstore.EventTypeModify:
-				var cnpStatusUpdate CNPNSWithMeta
-				err := json.Unmarshal(event.Value, &cnpStatusUpdate)
-				if err != nil {
-					log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
-						WithError(err).Error("Not updating CNP Status; error unmarshaling data from key-value store")
-					continue
-				}
-
-				log.WithFields(logrus.Fields{
-					"uid":       cnpStatusUpdate.UID,
-					"name":      cnpStatusUpdate.Name,
-					"namespace": cnpStatusUpdate.Namespace,
-					"node":      cnpStatusUpdate.Node,
-					"key":       event.Key,
-					"type":      event.Typ,
-				}).Debug("received event from kvstore")
-
-				// Send the update to the corresponding controller for the
-				// CNP which sends all status updates to the K8s apiserver.
-				// If the namespace is empty for the status update then the cnpKey
-				// will correspond to the ccnpKey.
-				cnpKey := getKeyFromObject(cnpStatusUpdate)
-				updater, ok := c.eventMap.lookup(cnpKey)
-				if !ok {
-					log.WithField("cnp", cnpKey).Debug("received event from kvstore for cnp for which we do not have any updater goroutine")
-					continue
-				}
-				nsu := &NodeStatusUpdate{node: cnpStatusUpdate.Node}
-				nsu.CiliumNetworkPolicyNodeStatus = &(cnpStatusUpdate.CiliumNetworkPolicyNodeStatus)
-
-				// Given that select is not deterministic, ensure that we check
-				// for shutdown first. If not shut down, then try to send on
-				// channel, or wait for shutdown so that we don't block forever
-				// in case the channel is full and the updater is stopped.
-				select {
-				case <-updater.stopChan:
-					// This goroutine is the only sender on this channel; we can
-					// close safely if the stop channel is closed.
-					close(updater.updateChan)
-
-				default:
-					select {
-					// If the update is sent and we shut down after, the event
-					// is 'lost'; we don't care because this means the CNP
-					// was deleted anyway.
-					case updater.updateChan <- nsu:
-					case <-updater.stopChan:
-						// This goroutine is the only sender on this channel; we can
-						// close safely if the stop channel is closed.
-						close(updater.updateChan)
-					}
-				}
-			}
+		// If the update is sent and we shut down after, the event
+		// is 'lost'; we don't care because this means the CNP
+		// was deleted anyway.
+		case updater.updateChan <- nsu:
+		case <-updater.stopChan:
+			// This goroutine is the only sender on this channel; we can
+			// close safely if the stop channel is closed.
+			close(updater.updateChan)
 		}
 	}
 }
