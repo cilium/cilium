@@ -3,3 +3,6 @@
 # Declare variables to be passed into your templates.
 
 IP: 0.0.0.0
+
+psp:
+  enabled: false

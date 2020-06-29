@@ -37,8 +37,21 @@ done
 export HOME=${GOPATH}
 ${KUBECTL} get nodes
 
+psp=""
+case ${K8S_VERSION} in
+    "1.17")
+        psp="--set psp.enabled=true"
+        ;;
+    "1.18")
+        psp="--set psp.enabled=true"
+        ;;
+esac
+
 echo "adding local docker registry to cluster"
-helm template registry-adder k8sT/manifests/registry-adder --set IP="$(./print-node-ip.sh)" | ${KUBECTL} apply -f -
+helm template registry-adder k8sT/manifests/registry-adder \
+    --set IP="$(./print-node-ip.sh)" \
+    ${psp} \
+    | ${KUBECTL} apply -f -
 
 echo "labeling nodes"
 for i in $(seq 1 $K8S_NODES); do

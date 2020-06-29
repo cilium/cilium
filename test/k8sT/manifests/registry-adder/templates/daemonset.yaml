@@ -44,6 +44,7 @@ spec:
       dnsPolicy: ClusterFirstWithHostNet
       hostNetwork: true
       hostPID: true
+      serviceAccountName: cilium-startup
       priorityClassName: system-node-critical
       terminationGracePeriodSeconds: 1
       tolerations:

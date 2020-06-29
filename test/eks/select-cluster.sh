@@ -41,6 +41,19 @@ do
     index=$((index+1))
 done
 
+psp=""
+case ${K8S_VERSION} in
+    "1.17")
+        psp="--set psp.enabled=true"
+        ;;
+    "1.18")
+        psp="--set psp.enabled=true"
+        ;;
+esac
+
 echo "adding node registry as trusted"
-helm template registry-adder ../k8sT/manifests/registry-adder --set IP="$(../print-node-ip.sh)" > registry-adder.yaml
+helm template registry-adder ../ k8sT/manifests/registry-adder \
+   --set IP="$(../print-node-ip.sh)" \
+   ${psp} \
+   > registry-adder.yaml
 kubectl apply -f registry-adder.yaml
