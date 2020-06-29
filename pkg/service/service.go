@@ -96,12 +96,15 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 	}
 }
 
-func (svc *svcInfo) requireNodeLocalBackends() bool {
+func (svc *svcInfo) requireNodeLocalBackends(frontend lb.L3n4AddrID) (bool, bool) {
 	switch svc.svcType {
 	case lb.SVCTypeNodePort, lb.SVCTypeLoadBalancer, lb.SVCTypeExternalIPs:
-		return svc.svcTrafficPolicy == lb.SVCTrafficPolicyLocal
+		if svc.svcTrafficPolicy == lb.SVCTrafficPolicyLocal {
+			return true, frontend.Scope == lb.ScopeExternal
+		}
+		fallthrough
 	default:
-		return false
+		return false, false
 	}
 }
 
@@ -230,15 +233,15 @@ func (s *Service) UpsertService(
 	scopedLog = scopedLog.WithField(logfields.ServiceID, svc.frontend.ID)
 	scopedLog.Debug("Acquired service ID")
 
-	onlyLocalBackends := svc.requireNodeLocalBackends()
+	onlyLocalBackends, filterBackends := svc.requireNodeLocalBackends(frontend)
 	prevBackendCount := len(svc.backends)
 
 	backendsCopy := []lb.Backend{}
 	for _, b := range backends {
-		// Services with trafficPolicy=Local may only use node-local backends.
-		// We implement this by filtering out all backend IPs which are not a
-		// local endpoint.
-		if onlyLocalBackends && len(b.NodeName) > 0 && b.NodeName != nodeTypes.GetName() {
+		// Services with trafficPolicy=Local may only use node-local backends
+		// for external scope. We implement this by filtering out all backend
+		// IPs which are not a local endpoint.
+		if filterBackends && len(b.NodeName) > 0 && b.NodeName != nodeTypes.GetName() {
 			continue
 		}
 		backendsCopy = append(backendsCopy, *b.DeepCopy())
@@ -251,7 +254,7 @@ func (s *Service) UpsertService(
 	}
 
 	// Update lbmaps (BPF service maps)
-	if err = s.upsertServiceIntoLBMaps(svc, prevBackendCount, newBackends,
+	if err = s.upsertServiceIntoLBMaps(svc, onlyLocalBackends, prevBackendCount, newBackends,
 		obsoleteBackendIDs,
 		prevSessionAffinity, obsoleteSVCBackendIDs,
 		scopedLog); err != nil {
@@ -261,7 +264,7 @@ func (s *Service) UpsertService(
 
 	// Only add a HealthCheckNodePort server if this is a service which may
 	// only contain local backends (i.e. it has externalTrafficPolicy=Local)
-	if onlyLocalBackends {
+	if onlyLocalBackends && filterBackends {
 		localBackendCount := len(backendsCopy)
 		s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcNamespace, svc.svcName,
 			localBackendCount, svc.svcHealthCheckNodePort)
@@ -534,8 +537,8 @@ func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.Bac
 	}
 }
 
-func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, prevBackendCount int,
-	newBackends []lb.Backend, obsoleteBackendIDs []lb.BackendID,
+func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
+	prevBackendCount int, newBackends []lb.Backend, obsoleteBackendIDs []lb.BackendID,
 	prevSessionAffinity bool, obsoleteSVCBackendIDs []lb.BackendID,
 	scopedLog *logrus.Entry) error {
 
@@ -595,7 +598,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, prevBackendCount int,
 		uint16(svc.frontend.ID), svc.frontend.L3n4Addr.IP,
 		svc.frontend.L3n4Addr.L4Addr.Port,
 		backendIDs, prevBackendCount,
-		ipv6, svc.svcType, svc.requireNodeLocalBackends(),
+		ipv6, svc.svcType, onlyLocalBackends,
 		svc.frontend.L3n4Addr.Scope,
 		svc.sessionAffinity, svc.sessionAffinityTimeoutSec)
 	if err != nil {
