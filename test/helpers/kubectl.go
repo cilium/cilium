@@ -3985,7 +3985,11 @@ func validateCiliumSvc(cSvc models.Service, k8sSvcs []v1.Service, k8sEps []v1.En
 }
 
 func validateCiliumSvcLB(cSvc models.Service, lbMap map[string][]string) error {
-	frontendAddress := cSvc.Status.Realized.FrontendAddress.IP + ":" + strconv.Itoa(int(cSvc.Status.Realized.FrontendAddress.Port))
+	scope := ""
+	if cSvc.Status.Realized.FrontendAddress.Scope == models.FrontendAddressScopeInternal {
+		scope = "/i"
+	}
+	frontendAddress := cSvc.Status.Realized.FrontendAddress.IP + ":" + strconv.Itoa(int(cSvc.Status.Realized.FrontendAddress.Port)) + scope
 	bpfBackends, ok := lbMap[frontendAddress]
 	if !ok {
 		return fmt.Errorf("%s bpf lb map entry not found", frontendAddress)
@@ -3999,7 +4003,7 @@ BACKENDS:
 				continue BACKENDS
 			}
 		}
-		return fmt.Errorf("%s not found in bpf map", backend)
+		return fmt.Errorf("%s not found in bpf map for frontend %s", backend, frontendAddress)
 	}
 	return nil
 }

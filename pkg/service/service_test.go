@@ -60,8 +60,8 @@ func (m *ManagerTestSuite) TearDownTest(c *C) {
 }
 
 var (
-	frontend1 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, 0)
-	frontend2 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.2"), 80, 0)
+	frontend1 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, lb.ScopeExternal, 0)
+	frontend2 = *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.2"), 80, lb.ScopeExternal, 0)
 	backends1 = []lb.Backend{
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080),
 		*lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.2"), 8080),
@@ -253,8 +253,8 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	// Create two frontends, one for LoadBalaner and one for ClusterIP.
 	// This is used to emulate how we get K8s services from the K8s watcher,
 	// i.e. one service per frontend (even if it is logically the same service)
-	loadBalancerIP := *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, 0)
-	clusterIP := *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("10.20.30.40"), 80, 0)
+	loadBalancerIP := *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("1.1.1.1"), 80, lb.ScopeExternal, 0)
+	clusterIP := *lb.NewL3n4AddrID(lb.TCP, net.ParseIP("10.20.30.40"), 80, lb.ScopeExternal, 0)
 
 	// Create two node-local backends
 	localBackend1 := *lb.NewBackend(0, lb.TCP, net.ParseIP("10.0.0.1"), 8080)

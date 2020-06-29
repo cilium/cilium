@@ -37,6 +37,12 @@ type ServiceKey interface {
 	// Get slave slot of the key
 	GetSlave() int
 
+	// Set lookup scope for the key
+	SetScope(scope uint8)
+
+	// Get lookup scope for the key
+	GetScope() uint8
+
 	// Get frontend IP address
 	GetAddress() net.IP
 
@@ -156,7 +162,7 @@ type RevNatValue interface {
 type BackendIDByServiceIDSet map[uint16]map[uint16]struct{} // svc ID => backend ID
 
 func svcFrontend(svcKey ServiceKey, svcValue ServiceValue) *loadbalancer.L3n4AddrID {
-	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, svcKey.GetAddress(), svcKey.GetPort())
+	feL3n4Addr := loadbalancer.NewL3n4Addr(loadbalancer.NONE, svcKey.GetAddress(), svcKey.GetPort(), svcKey.GetScope())
 	feL3n4AddrID := &loadbalancer.L3n4AddrID{
 		L3n4Addr: *feL3n4Addr,
 		ID:       loadbalancer.ID(svcValue.GetRevNat()),

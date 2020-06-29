@@ -157,6 +157,13 @@ const (
 	UDP = L4Type("UDP")
 )
 
+const (
+	// ScopeExternal is the lookup scope for services from outside the node.
+	ScopeExternal = 0
+	// ScopeInternal is the lookup scope for services from inside the node.
+	ScopeInternal = 1
+)
+
 var (
 	// AllProtocols is the list of all supported L4 protocols
 	AllProtocols = []L4Type{TCP, UDP}
@@ -289,23 +296,28 @@ func (l *L4Addr) DeepCopy() *L4Addr {
 	}
 }
 
-// L3n4Addr is used to store, as an unique L3+L4 address in the KVStore.
+// L3n4Addr is used to store, as an unique L3+L4 address in the KVStore. It also
+// includes the lookup scope for frontend addresses which is used in service
+// handling for externalTrafficPolicy=Local, that is, Scope{External,Internal}.
 type L3n4Addr struct {
 	IP net.IP
 	L4Addr
+	Scope uint8
 }
 
 // NewL3n4Addr creates a new L3n4Addr.
-func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16) *L3n4Addr {
+func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16, scope uint8) *L3n4Addr {
 	lbport := NewL4Addr(protocol, portNumber)
 
-	addr := L3n4Addr{IP: ip, L4Addr: *lbport}
+	addr := L3n4Addr{IP: ip, L4Addr: *lbport, Scope: scope}
 	log.WithField(logfields.IPAddr, addr).Debug("created new L3n4Addr")
 
 	return &addr
 }
 
 func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
+	var scope uint8
+
 	if base == nil {
 		return nil, nil
 	}
@@ -329,7 +341,15 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", base.IP)
 	}
 
-	return &L3n4Addr{IP: ip, L4Addr: *l4addr}, nil
+	if base.Scope == models.FrontendAddressScopeExternal {
+		scope = ScopeExternal
+	} else if base.Scope == models.FrontendAddressScopeInternal {
+		scope = ScopeInternal
+	} else {
+		return nil, fmt.Errorf("invalid scope \"%s\"", base.Scope)
+	}
+
+	return &L3n4Addr{IP: ip, L4Addr: *l4addr, Scope: scope}, nil
 }
 
 // NewBackend creates the Backend struct instance from given params.
@@ -378,9 +398,14 @@ func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 		return nil
 	}
 
+	scope := models.FrontendAddressScopeExternal
+	if a.Scope == ScopeInternal {
+		scope = models.FrontendAddressScopeInternal
+	}
 	return &models.FrontendAddress{
-		IP:   a.IP.String(),
-		Port: a.Port,
+		IP:    a.IP.String(),
+		Port:  a.Port,
+		Scope: scope,
 	}
 }
 
@@ -397,22 +422,30 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 	}
 }
 
-// String returns the L3n4Addr in the "IPv4:Port" format for IPv4 and
-// "[IPv6]:Port" format for IPv6.
+// String returns the L3n4Addr in the "IPv4:Port[/Scope]" format for IPv4 and
+// "[IPv6]:Port[/Scope]" format for IPv6.
 func (a *L3n4Addr) String() string {
-	if a.IsIPv6() {
-		return fmt.Sprintf("[%s]:%d", a.IP.String(), a.Port)
+	var scope string
+	if a.Scope == ScopeInternal {
+		scope = "/i"
 	}
-	return fmt.Sprintf("%s:%d", a.IP.String(), a.Port)
+	if a.IsIPv6() {
+		return fmt.Sprintf("[%s]:%d%s", a.IP.String(), a.Port, scope)
+	}
+	return fmt.Sprintf("%s:%d%s", a.IP.String(), a.Port, scope)
 }
 
-// StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol" format
-// for IPv4 and "[IPv6]:Port/Protocol" format for IPv6.
+// StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]"
+// format for IPv4 and "[IPv6]:Port/Protocol[/Scope]" format for IPv6.
 func (a *L3n4Addr) StringWithProtocol() string {
-	if a.IsIPv6() {
-		return fmt.Sprintf("[%s]:%d/%s", a.IP.String(), a.Port, a.Protocol)
+	var scope string
+	if a.Scope == ScopeInternal {
+		scope = "/i"
 	}
-	return fmt.Sprintf("%s:%d/%s", a.IP.String(), a.Port, a.Protocol)
+	if a.IsIPv6() {
+		return fmt.Sprintf("[%s]:%d/%s%s", a.IP.String(), a.Port, a.Protocol, scope)
+	}
+	return fmt.Sprintf("%s:%d/%s%s", a.IP.String(), a.Port, a.Protocol, scope)
 }
 
 // StringID returns the L3n4Addr as string to be used for unique identification
@@ -429,6 +462,7 @@ func (a *L3n4Addr) DeepCopy() *L3n4Addr {
 	return &L3n4Addr{
 		IP:     copyIP,
 		L4Addr: *a.L4Addr.DeepCopy(),
+		Scope:  a.Scope,
 	}
 }
 
@@ -458,8 +492,8 @@ type L3n4AddrID struct {
 }
 
 // NewL3n4AddrID creates a new L3n4AddrID.
-func NewL3n4AddrID(protocol L4Type, ip net.IP, portNumber uint16, id ID) *L3n4AddrID {
-	l3n4Addr := NewL3n4Addr(protocol, ip, portNumber)
+func NewL3n4AddrID(protocol L4Type, ip net.IP, portNumber uint16, scope uint8, id ID) *L3n4AddrID {
+	l3n4Addr := NewL3n4Addr(protocol, ip, portNumber, scope)
 	return &L3n4AddrID{L3n4Addr: *l3n4Addr, ID: id}
 }
 
@@ -478,6 +512,9 @@ func (l *L3n4AddrID) Equals(o *L3n4AddrID) bool {
 	}
 
 	if l.ID != o.ID {
+		return false
+	}
+	if l.Scope != o.Scope {
 		return false
 	}
 	if !l.IP.Equal(o.IP) {

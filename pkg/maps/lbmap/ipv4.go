@@ -137,10 +137,10 @@ func (v *RevNat4Value) String() string {
 	return fmt.Sprintf("%s:%d", v.Address, v.Port)
 }
 
-type pad3uint8 [3]uint8
+type pad2uint8 [2]uint8
 
 // DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
-func (in *pad3uint8) DeepCopyInto(out *pad3uint8) {
+func (in *pad2uint8) DeepCopyInto(out *pad2uint8) {
 	copy(out[:], in[:])
 	return
 }
@@ -153,13 +153,15 @@ type Service4Key struct {
 	Port    uint16     `align:"dport"`
 	Slave   uint16     `align:"slave"`
 	Proto   uint8      `align:"proto"`
-	Pad     pad3uint8  `align:"pad"`
+	Scope   uint8      `align:"scope"`
+	Pad     pad2uint8  `align:"pad"`
 }
 
-func NewService4Key(ip net.IP, port uint16, proto u8proto.U8proto, slave uint16) *Service4Key {
+func NewService4Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, slave uint16) *Service4Key {
 	key := Service4Key{
 		Port:  port,
 		Proto: uint8(proto),
+		Scope: scope,
 		Slave: slave,
 	}
 
@@ -169,7 +171,11 @@ func NewService4Key(ip net.IP, port uint16, proto u8proto.U8proto, slave uint16)
 }
 
 func (k *Service4Key) String() string {
-	return fmt.Sprintf("%s:%d", k.Address, k.Port)
+	if k.Scope == loadbalancer.ScopeInternal {
+		return fmt.Sprintf("%s:%d/i", k.Address, k.Port)
+	} else {
+		return fmt.Sprintf("%s:%d", k.Address, k.Port)
+	}
 }
 
 func (k *Service4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
@@ -178,6 +184,8 @@ func (k *Service4Key) IsIPv6() bool              { return false }
 func (k *Service4Key) Map() *bpf.Map             { return Service4MapV2 }
 func (k *Service4Key) SetSlave(slave int)        { k.Slave = uint16(slave) }
 func (k *Service4Key) GetSlave() int             { return int(k.Slave) }
+func (k *Service4Key) SetScope(scope uint8)      { k.Scope = scope }
+func (k *Service4Key) GetScope() uint8           { return k.Scope }
 func (k *Service4Key) GetAddress() net.IP        { return k.Address.IP() }
 func (k *Service4Key) GetPort() uint16           { return k.Port }
 func (k *Service4Key) MapDelete() error          { return k.Map().Delete(k.ToNetwork()) }
@@ -193,6 +201,14 @@ func (k *Service4Key) ToNetwork() ServiceKey {
 	n := *k
 	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
 	return &n
+}
+
+type pad3uint8 [3]uint8
+
+// DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
+func (in *pad3uint8) DeepCopyInto(out *pad3uint8) {
+	copy(out[:], in[:])
+	return
 }
 
 // Service4Value must match 'struct lb4_service_v2' in "bpf/lib/common.h".
