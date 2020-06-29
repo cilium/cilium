@@ -356,6 +356,14 @@ func disableNodePort() {
 	option.Config.EnableExternalIPs = false
 }
 
+func hasHardwareAddress(ifIndex int) bool {
+	iface, err := netlink.LinkByIndex(ifIndex)
+	if err != nil {
+		return false
+	}
+	return len(iface.Attrs().HardwareAddr) > 0
+}
+
 // detectDevices tries to detect device names which are going to be used for
 // (a) NodePort BPF, (b) direct routing in NodePort BPF.
 //
@@ -374,7 +382,9 @@ func detectDevices(detectNodePortDevs, detectDirectRoutingDev bool) error {
 			"Cannot retrieve host IP addrs for BPF NodePort device detection")
 	} else {
 		for _, a := range addrs {
-			ifidxByAddr[a.IP.String()] = a.LinkIndex
+			if hasHardwareAddress(a.LinkIndex) {
+				ifidxByAddr[a.IP.String()] = a.LinkIndex
+			}
 		}
 	}
 
