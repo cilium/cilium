@@ -1065,13 +1065,12 @@ that do not need it. See the `Kubernetes documentation <https://kubernetes.io/do
 for instructions.
 
 
-
 .. _HostPolicies:
 
-Host Policies
-=============
+Host Policies (beta)
+====================
 
-.. include:: ../tech-preview.rst
+.. include:: ../beta.rst
 
 Host policies take the form of a `CiliumClusterwideNetworkPolicy` with a
 :ref:`NodeSelector` instead of an `EndpointSelector`. Host policies can have
