@@ -106,6 +106,8 @@ func NewServiceCache(nodeAddressing datapath.NodeAddressing) ServiceCache {
 }
 
 // GetServiceIP returns a random L3n4Addr that is backing the given Service ID.
+// The returned IP is with external scope since its string representation might
+// be used for net Dialer.
 func (s *ServiceCache) GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
 	s.mutex.RLock()
 	defer s.mutex.RUnlock()
@@ -114,7 +116,8 @@ func (s *ServiceCache) GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
 		return nil
 	}
 	for _, port := range svc.Ports {
-		return loadbalancer.NewL3n4Addr(port.Protocol, svc.FrontendIP, port.Port, svc.Scope)
+		return loadbalancer.NewL3n4Addr(port.Protocol, svc.FrontendIP, port.Port,
+			loadbalancer.ScopeExternal)
 	}
 	return nil
 }
@@ -303,8 +306,9 @@ func (l FrontendList) LooseMatch(frontend loadbalancer.L3n4Addr) (exists bool) {
 	return
 }
 
-// UniqueServiceFrontends returns all services known to the service cache as a
-// map, indexed by the string representation of a loadbalancer.L3n4Addr
+// UniqueServiceFrontends returns all externally scoped services known to
+// the service cache as a map, indexed by the string representation of a
+// loadbalancer.L3n4Addr. This helper is only used in unit tests.
 func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 	uniqueFrontends := FrontendList{}
 
@@ -316,14 +320,15 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 			address := loadbalancer.L3n4Addr{
 				IP:     svc.FrontendIP,
 				L4Addr: *p,
-				Scope:  svc.Scope,
+				Scope:  loadbalancer.ScopeExternal,
 			}
-
 			uniqueFrontends[address.StringWithProtocol()] = struct{}{}
 		}
 		for _, nodePortFEs := range svc.NodePorts {
 			for _, fe := range nodePortFEs {
-				uniqueFrontends[fe.StringWithProtocol()] = struct{}{}
+				if fe.Scope == loadbalancer.ScopeExternal {
+					uniqueFrontends[fe.StringWithProtocol()] = struct{}{}
+				}
 			}
 		}
 	}
