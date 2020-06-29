@@ -88,7 +88,7 @@ docker-operator-manifest:
 docker-plugin-image: GIT_VERSION $(BUILD_DIR)/cilium-docker-plugin.Dockerfile build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build \
 		--build-arg NOSTRIP=${NOSTRIP} \
-		--build-arg LOCKDEBUG=${LOCKDEUBG} \
+		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
 		-f $(BUILD_DIR)/cilium-docker-plugin.Dockerfile \
 		-t cilium/docker-plugin$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
