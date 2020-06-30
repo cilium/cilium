@@ -103,7 +103,7 @@ static __always_inline __u64 ipv6_addrcmp(const union v6addr *a,
 	return tmp;
 }
 
-// Only works with contiguous masks.
+/* Only works with contiguous masks. */
 static __always_inline int ipv6_addr_in_net(const union v6addr *addr,
 					    const union v6addr *net,
 					    const union v6addr *mask)

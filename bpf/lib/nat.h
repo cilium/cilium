@@ -478,8 +478,9 @@ static __always_inline __maybe_unused int snat_v4_create_dsr(struct __ctx_buff *
 		tuple.sport = l4hdr.dport;
 		break;
 	default:
-		// NodePort svc can be reached only via TCP or UDP, so
-		// drop the rest
+		/* NodePort svc can be reached only via TCP or UDP, so
+		 * drop the rest.
+		 */
 		return DROP_NAT_UNSUPP_PROTO;
 	}
 

@@ -60,14 +60,15 @@ static __always_inline int ipv4_hdrlen(const struct iphdr *ip4)
 
 static __always_inline bool ipv4_is_fragment(const struct iphdr *ip4)
 {
-	// The frag_off portion of the header consists of:
-	//
-	// +----+----+----+----------------------------------+
-	// | RS | DF | MF | ...13 bits of fragment offset... |
-	// +----+----+----+----------------------------------+
-	//
-	// If "More fragments" or the offset is nonzero, then this is an IP
-	// fragment (RFC791).
+	/* The frag_off portion of the header consists of:
+	 *
+	 * +----+----+----+----------------------------------+
+	 * | RS | DF | MF | ...13 bits of fragment offset... |
+	 * +----+----+----+----------------------------------+
+	 *
+	 * If "More fragments" or the offset is nonzero, then this is an IP
+	 * fragment (RFC791).
+	 */
 	return ip4->frag_off & bpf_htons(0x3FFF);
 }
 
