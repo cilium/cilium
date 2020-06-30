@@ -161,13 +161,25 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
-	__u32 __maybe_unused remoteID = WORLD_ID;
+	__u32 __maybe_unused remote_id = WORLD_ID;
 	int ret, l3_off = ETH_HLEN, hdrlen;
 	bool skip_redirect = false;
 	struct endpoint_info *ep;
+	__u8 nexthdr;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
+
+	nexthdr = ip6->nexthdr;
+	hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &nexthdr);
+	if (hdrlen < 0)
+		return hdrlen;
+
+	if (likely(nexthdr == IPPROTO_ICMPV6)) {
+		ret = icmp6_host_handle(ctx);
+		if (IS_ERR(ret))
+			return ret;
+	}
 
 #ifdef ENABLE_NODEPORT
 	if (!from_host) {
@@ -179,11 +191,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 		}
 #if defined(ENCAP_IFINDEX) || defined(NO_REDIRECT)
 		/* See IPv4 case for NO_REDIRECT comments */
-# ifdef ENABLE_HOST_FIREWALL
 		skip_redirect = true;
-# else
-		return CTX_ACT_OK;
-# endif
 #endif /* ENCAP_IFINDEX || NO_REDIRECT */
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
@@ -191,20 +199,21 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	}
 #endif /* ENABLE_NODEPORT */
 
-	if (!skip_redirect) {
-		__u8 nexthdr = ip6->nexthdr;
-		hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &nexthdr);
-		if (hdrlen < 0)
-			return hdrlen;
+#ifdef ENABLE_HOST_FIREWALL
+	if (from_host)
+		ret = ipv6_host_policy_egress(ctx, secctx);
+	else
+		ret = ipv6_host_policy_ingress(ctx, &remote_id);
+	if (IS_ERR(ret))
+		return ret;
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+#endif /* ENABLE_HOST_FIREWALL */
 
-		if (likely(nexthdr == IPPROTO_ICMPV6)) {
-			ret = icmp6_host_handle(ctx);
-			if (IS_ERR(ret))
-				return ret;
-		}
-	}
+	if (skip_redirect)
+		return CTX_ACT_OK;
 
-	if (from_host && !skip_redirect) {
+	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination MAC address to the MAC of cilium_net.
 		 */
@@ -216,19 +225,6 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 	}
-
-#ifdef ENABLE_HOST_FIREWALL
-	if (from_host)
-		ret = ipv6_host_policy_egress(ctx, secctx);
-	else
-		ret = ipv6_host_policy_ingress(ctx, &remoteID);
-	if (IS_ERR(ret))
-		return ret;
-	if (skip_redirect)
-		return CTX_ACT_OK;
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
-#endif /* ENABLE_HOST_FIREWALL */
 
 	/* Lookup IPv4 address in list of local endpoints */
 	ep = lookup_ip6_endpoint(ip6);
@@ -462,11 +458,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 		 * or to be DROP-ed by k8s's "--ctstate INVALID -j DROP"
 		 * depending via which interface it was inputed.
 		 */
-# ifdef ENABLE_HOST_FIREWALL
 		skip_redirect = true;
-# else
-		return CTX_ACT_OK;
-#endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENCAP_IFINDEX || NO_REDIRECT */
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
@@ -476,7 +468,24 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 
 	tuple.nexthdr = ip4->protocol;
 
-	if (from_host && !skip_redirect) {
+#ifdef ENABLE_HOST_FIREWALL
+	if (from_host)
+		/* We're on the egress path of cilium_host. */
+		ret = ipv4_host_policy_egress(ctx, secctx);
+	else
+		/* We're on the ingress path of the native device. */
+		ret = ipv4_host_policy_ingress(ctx, &remoteID);
+	if (IS_ERR(ret))
+		return ret;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+#endif /* ENABLE_HOST_FIREWALL */
+
+	if (skip_redirect)
+		return CTX_ACT_OK;
+
+	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination MAC address to the MAC of cilium_net.
 		 */
@@ -488,22 +497,6 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 	}
-
-#ifdef ENABLE_HOST_FIREWALL
-	if (from_host)
-		/* We're on the egress path of cilium_host. */
-		ret = ipv4_host_policy_egress(ctx, secctx);
-	else
-		/* We're on the ingress path of the native device. */
-		ret = ipv4_host_policy_ingress(ctx, &remoteID);
-	if (IS_ERR(ret))
-		return ret;
-	if (skip_redirect)
-		return CTX_ACT_OK;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
-#endif /* ENABLE_HOST_FIREWALL */
 
 	/* Lookup IPv4 address in list of local endpoints and host IPs */
 	ep = lookup_ip4_endpoint(ip4);
