@@ -4,7 +4,10 @@
 #ifndef __LIB_HOST_FIREWALL_H_
 #define __LIB_HOST_FIREWALL_H_
 
-#ifdef ENABLE_HOST_FIREWALL
+/* Only compile in if host firewall is enabled and file is included from
+ * bpf_host.
+ */
+#if defined(ENABLE_HOST_FIREWALL) && defined(HOST_EP_ID)
 
 # include "policy.h"
 # include "policy_log.h"
@@ -341,5 +344,5 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 	return CTX_ACT_OK;
 }
 # endif /* ENABLE_IPV4 */
-#endif /* ENABLE_HOST_FIREWALL */
+#endif /* ENABLE_HOST_FIREWALL && HOST_EP_ID */
 #endif /* __LIB_HOST_FIREWALL_H_ */

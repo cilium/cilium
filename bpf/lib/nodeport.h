@@ -16,6 +16,7 @@
 #include "csum.h"
 #include "encap.h"
 #include "trace.h"
+#include "host_firewall.h"
 
 #define CB_SRC_IDENTITY	0
 
@@ -758,6 +759,21 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 {
 	int ifindex = 0;
 	int ret = 0;
+#if defined(ENABLE_HOST_FIREWALL) && defined(HOST_EP_ID)
+	/* We only enforce the host policies if nodeport.h is included from
+	 * bpf_host.
+	 */
+	__u32 src_id = 0;
+
+	ret = ipv6_host_policy_ingress(ctx, &src_id);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
+					      METRIC_INGRESS);
+	/* We don't want to enforce host policies a second time if we jump back to
+	 * bpf_host's handle_ipv6.
+	 */
+	ctx_skip_host_fw_set(ctx);
+#endif
 
 	ret = rev_nodeport_lb6(ctx, &ifindex);
 	if (IS_ERR(ret))
@@ -1444,6 +1460,21 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 {
 	int ifindex = 0;
 	int ret = 0;
+#if defined(ENABLE_HOST_FIREWALL) && defined(HOST_EP_ID)
+	/* We only enforce the host policies if nodeport.h is included from
+	 * bpf_host.
+	 */
+	__u32 src_id = 0;
+
+	ret = ipv4_host_policy_ingress(ctx, &src_id);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
+					      METRIC_INGRESS);
+	/* We don't want to enforce host policies a second time if we jump back to
+	 * bpf_host's handle_ipv6.
+	 */
+	ctx_skip_host_fw_set(ctx);
+#endif
 
 	ret = rev_nodeport_lb4(ctx, &ifindex);
 	if (IS_ERR(ret))
