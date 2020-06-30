@@ -1,0 +1,2 @@
+master||frontend
+slave||backend
