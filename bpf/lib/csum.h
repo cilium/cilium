@@ -11,8 +11,7 @@
 #define TCP_CSUM_OFF (offsetof(struct tcphdr, check))
 #define UDP_CSUM_OFF (offsetof(struct udphdr, check))
 
-struct csum_offset
-{
+struct csum_offset {
 	__u16 offset;
 	__u16 flags;
 };

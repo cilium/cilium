@@ -398,7 +398,8 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 #endif /* ENABLE_HOST_FIREWALL */
 
 	/* Lookup IPv4 address in list of local endpoints */
-	if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
+	ep = lookup_ip6_endpoint(ip6);
+	if (ep) {
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack */
 		if (ep->flags & ENDPOINT_F_HOST)
@@ -835,7 +836,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 #endif /* ENABLE_HOST_FIREWALL */
 
 	/* Lookup IPv4 address in list of local endpoints and host IPs */
-	if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
+	ep = lookup_ip4_endpoint(ip4);
+	if (ep) {
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack */
 		if (ep->flags & ENDPOINT_F_HOST)
@@ -1174,7 +1176,7 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		 * Note: Since drop notification requires a tail call as well,
 		 * this notification is unlikely to succeed. */
 		return send_drop_notify_error(ctx, identity, DROP_MISSED_TAIL_CALL,
-		                              CTX_ACT_OK, METRIC_INGRESS);
+					      CTX_ACT_OK, METRIC_INGRESS);
 #endif
 	default:
 #ifdef ENABLE_HOST_FIREWALL
