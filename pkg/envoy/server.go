@@ -502,10 +502,7 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 		cnt++
 	}
 
-	googleRe2 := &envoy_type_matcher.RegexMatcher_GoogleRe2{
-		GoogleRe2: &envoy_type_matcher.RegexMatcher_GoogleRE2{
-			MaxProgramSize: &wrappers.UInt32Value{Value: 100}, // Envoy default
-		}}
+	googleRe2 := &envoy_type_matcher.RegexMatcher_GoogleRe2{GoogleRe2: &envoy_type_matcher.RegexMatcher_GoogleRE2{}}
 
 	headers := make([]*envoy_api_v2_route.HeaderMatcher, 0, cnt)
 	if h.Path != "" {
