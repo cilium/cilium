@@ -106,6 +106,23 @@ ctx_skip_nodeport(struct __sk_buff *ctx __maybe_unused)
 #endif
 }
 
+#ifdef ENABLE_HOST_FIREWALL
+static __always_inline void
+ctx_skip_host_fw_set(struct __sk_buff *ctx)
+{
+	ctx->tc_index |= TC_INDEX_F_SKIP_HOST_FIREWALL;
+}
+
+static __always_inline bool
+ctx_skip_host_fw(struct __sk_buff *ctx)
+{
+	volatile __u32 tc_index = ctx->tc_index;
+
+	ctx->tc_index &= ~TC_INDEX_F_SKIP_HOST_FIREWALL;
+	return tc_index & TC_INDEX_F_SKIP_HOST_FIREWALL;
+}
+#endif /* ENABLE_HOST_FIREWALL */
+
 static __always_inline __maybe_unused __u32 ctx_get_xfer(struct __sk_buff *ctx)
 {
 	__u32 *data_meta = ctx_data_meta(ctx);
