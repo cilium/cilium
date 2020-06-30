@@ -642,7 +642,9 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
 
-	/* Note if this is a proxy connection so that replies can be redirected back to the proxy. */
+	/* Note if this is a proxy connection so that replies can be redirected
+	 * back to the proxy.
+	 */
 	entry.proxy_redirect = proxy_redirect;
 
 	/* See the ct_create4 comments re the rx_bytes hack */
@@ -735,7 +737,9 @@ static __always_inline int ct_create4(const void *map_main,
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags seen_flags = { .value = 0 };
 
-	/* Note if this is a proxy connection so that replies can be redirected back to the proxy. */
+	/* Note if this is a proxy connection so that replies can be redirected
+	 * back to the proxy.
+	 */
 	entry.proxy_redirect = proxy_redirect;
 
 	entry.lb_loopback = ct_state->loopback;
@@ -766,7 +770,8 @@ static __always_inline int ct_create4(const void *map_main,
 		entry.nat46 = dir == CT_EGRESS;
 #endif
 
-	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index, ct_state->src_sec_id, ct_state->addr);
+	cilium_dbg3(ctx, DBG_CT_CREATED4, entry.rev_nat_index,
+		    ct_state->src_sec_id, ct_state->addr);
 
 	entry.src_sec_id = ct_state->src_sec_id;
 	if (map_update_elem(map_main, tuple, &entry, 0) < 0) {

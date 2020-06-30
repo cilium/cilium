@@ -104,8 +104,8 @@ struct ipv4_nat_entry {
 
 struct ipv4_nat_target {
 	__be32 addr;
-	const __u16 min_port; /* host endianess */
-	const __u16 max_port; /* host endianess */
+	const __u16 min_port; /* host endianness */
+	const __u16 max_port; /* host endianness */
 	bool src_from_world;
 };
 
@@ -590,8 +590,8 @@ struct ipv6_nat_entry {
 
 struct ipv6_nat_target {
 	union v6addr addr;
-	const __u16 min_port; /* host endianess */
-	const __u16 max_port; /* host endianess */
+	const __u16 min_port; /* host endianness */
+	const __u16 max_port; /* host endianness */
 	bool src_from_world;
 };
 

@@ -29,7 +29,11 @@
 #define __it_set(a, op) (*(__u##op *)__it_bwd(a, op)) = 0
 #define __it_xor(a, b, r, op) r |= (*(__u##op *)__it_bwd(a, op)) ^ (*(__u##op *)__it_bwd(b, op))
 #define __it_mob(a, b, op) (*(__u##op *)__it_bwd(a, op)) = (*(__u##op *)__it_bwd(b, op))
-#define __it_mof(a, b, op) do { *(__u##op *)a = *(__u##op *)b; __it_fwd(a, op); __it_fwd(b, op); } while (0)
+#define __it_mof(a, b, op)				\
+	do {						\
+		*(__u##op *)a = *(__u##op *)b;		\
+		__it_fwd(a, op); __it_fwd(b, op);	\
+	} while (0)
 
 static __always_inline __maybe_unused void
 __bpf_memset_builtin(void *d, __u8 c, __u64 len)

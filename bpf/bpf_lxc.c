@@ -176,15 +176,17 @@ skip_service_lookup:
 	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dstID,
 				     &policy_match_type, &audited);
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
-		send_policy_verdict_notify(ctx, *dstID, tuple->dport, tuple->nexthdr,
-						POLICY_EGRESS, 1, verdict, policy_match_type, audited);
+		send_policy_verdict_notify(ctx, *dstID, tuple->dport,
+					   tuple->nexthdr, POLICY_EGRESS, 1,
+					   verdict, policy_match_type, audited);
 		return verdict;
 	}
 
 	switch (ret) {
 	case CT_NEW:
-		send_policy_verdict_notify(ctx, *dstID, tuple->dport, tuple->nexthdr,
-						POLICY_EGRESS, 1, verdict, policy_match_type, audited);
+		send_policy_verdict_notify(ctx, *dstID, tuple->dport,
+					   tuple->nexthdr, POLICY_EGRESS, 1,
+					   verdict, policy_match_type, audited);
 ct_recreate6:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
@@ -305,7 +307,8 @@ ct_recreate6:
 		 * the packet needs IPSec encap so push ctx to stack for encap, or
 		 * (c) packet was redirected to tunnel device so return.
 		 */
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key, &key, SECLABEL, monitor);
+		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
+					     &key, SECLABEL, monitor);
 		if (ret == IPSEC_ENDPOINT)
 			goto encrypt_to_stack;
 		else if (ret != DROP_NO_TUNNEL_ENDPOINT)
@@ -326,7 +329,8 @@ to_host:
 	if (is_defined(HOST_REDIRECT_TO_INGRESS)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
-		ret = ipv6_l3(ctx, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, METRIC_EGRESS);
+		ret = ipv6_l3(ctx, l3_off, (__u8 *)&router_mac.addr,
+			      (__u8 *)&host_mac.addr, METRIC_EGRESS);
 		if (ret != CTX_ACT_OK)
 			return ret;
 
@@ -543,15 +547,17 @@ skip_service_lookup:
 				     &policy_match_type, &audited);
 
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
-		send_policy_verdict_notify(ctx, *dstID, tuple.dport, tuple.nexthdr,
-						POLICY_EGRESS, 0, verdict, policy_match_type, audited);
+		send_policy_verdict_notify(ctx, *dstID, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 0,
+					   verdict, policy_match_type, audited);
 		return verdict;
 	}
 
 	switch (ret) {
 	case CT_NEW:
-		send_policy_verdict_notify(ctx, *dstID, tuple.dport, tuple.nexthdr,
-						POLICY_EGRESS, 0, verdict, policy_match_type, audited);
+		send_policy_verdict_notify(ctx, *dstID, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 0,
+					   verdict, policy_match_type, audited);
 ct_recreate4:
 		/* New connection implies that rev_nat_index remains untouched
 		 * to the index provided by the loadbalancer (if it applied).
@@ -662,7 +668,8 @@ ct_recreate4:
 		key.ip4 = orig_dip & IPV4_MASK;
 		key.family = ENDPOINT_KEY_IPV4;
 
-		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key, &key, SECLABEL, monitor);
+		ret = encap_and_redirect_lxc(ctx, tunnel_endpoint, encrypt_key,
+					     &key, SECLABEL, monitor);
 		if (ret == DROP_NO_TUNNEL_ENDPOINT)
 			goto pass_to_stack;
 		/* If not redirected noteably due to IPSEC then pass up to stack
@@ -670,8 +677,8 @@ ct_recreate4:
 		 */
 		else if (ret == IPSEC_ENDPOINT)
 			goto encrypt_to_stack;
-		/* This is either redirect by encap code or an error has occured
-		 * either way return and stack will consume ctx.
+		/* This is either redirect by encap code or an error has
+		 * occurred either way return and stack will consume ctx.
 		 */
 		else
 			return ret;
@@ -685,7 +692,8 @@ to_host:
 	if (is_defined(HOST_REDIRECT_TO_INGRESS)) {
 		union macaddr host_mac = HOST_IFINDEX_MAC;
 
-		ret = ipv4_l3(ctx, l3_off, (__u8 *) &router_mac.addr, (__u8 *) &host_mac.addr, ip4);
+		ret = ipv4_l3(ctx, l3_off, (__u8 *)&router_mac.addr,
+			      (__u8 *)&host_mac.addr, ip4);
 		if (ret != CTX_ACT_OK)
 			return ret;
 
@@ -911,8 +919,9 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	 * permitted by policy.
 	 */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
-		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
-						 POLICY_INGRESS, 1, verdict, policy_match_type, audited);
+		send_policy_verdict_notify(ctx, src_label, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 1,
+					   verdict, policy_match_type, audited);
 		return verdict;
 	}
 
@@ -920,8 +929,9 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		verdict = 0;
 
 	if (ret == CT_NEW) {
-		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
-						 POLICY_INGRESS, 1, verdict, policy_match_type, audited);
+		send_policy_verdict_notify(ctx, src_label, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 1,
+					   verdict, policy_match_type, audited);
 #ifdef ENABLE_DSR
 	{
 		bool dsr = false;
@@ -965,7 +975,8 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	return CTX_ACT_OK;
 }
 
-declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+		    CILIUM_CALL_IPV6_TO_LXC_POLICY_ONLY)
 int tail_ipv6_policy(struct __ctx_buff *ctx)
 {
 	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
@@ -989,7 +1000,8 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	return ret;
 }
 
-declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV6_TO_ENDPOINT)
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+		    CILIUM_CALL_IPV6_TO_ENDPOINT)
 int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 {
 	__u32 src_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
@@ -1135,8 +1147,9 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	 * permitted by policy.
 	 */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
-		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
-						 POLICY_INGRESS, 0, verdict, policy_match_type, audited);
+		send_policy_verdict_notify(ctx, src_label, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 0,
+					   verdict, policy_match_type, audited);
 		return verdict;
 	}
 
@@ -1144,8 +1157,9 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		verdict = 0;
 
 	if (ret == CT_NEW) {
-		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
-						 POLICY_INGRESS, 0, verdict, policy_match_type, audited);
+		send_policy_verdict_notify(ctx, src_label, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 0,
+					   verdict, policy_match_type, audited);
 #ifdef ENABLE_DSR
 	{
 		bool dsr = false;
@@ -1189,7 +1203,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	return CTX_ACT_OK;
 }
 
-declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+		    CILIUM_CALL_IPV4_TO_LXC_POLICY_ONLY)
 int tail_ipv4_policy(struct __ctx_buff *ctx)
 {
 	int ret, ifindex = ctx_load_meta(ctx, CB_IFINDEX);
@@ -1213,7 +1228,8 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	return ret;
 }
 
-declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)), CILIUM_CALL_IPV4_TO_ENDPOINT)
+declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
+		    CILIUM_CALL_IPV4_TO_ENDPOINT)
 int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 {
 	__u32 src_identity = ctx_load_meta(ctx, CB_SRC_LABEL);
