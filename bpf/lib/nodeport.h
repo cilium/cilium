@@ -539,7 +539,8 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 			return ret;
 	}
 
-	if ((svc = lb6_lookup_service(&key)) != NULL) {
+	svc = lb6_lookup_service(&key);
+	if (svc) {
 		ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
 				&csum_off, &key, &tuple, svc, &ct_state_new);
 		if (IS_ERR(ret))
@@ -825,8 +826,8 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 #endif
 
 		/* Check whether packet is from a local endpoint */
-		if ((ep = __lookup_ip4_endpoint(ip4->saddr)) != NULL &&
-		    !(ep->flags & ENDPOINT_F_HOST)) {
+		ep = __lookup_ip4_endpoint(ip4->saddr);
+		if (ep && !(ep->flags & ENDPOINT_F_HOST)) {
 			struct remote_endpoint_info *info;
 			*from_endpoint = true;
 
@@ -1214,7 +1215,8 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 			return ret;
 	}
 
-	if ((svc = lb4_lookup_service(&key)) != NULL) {
+	svc = lb4_lookup_service(&key);
+	if (svc) {
 		ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
 		if (IS_ERR(ret))

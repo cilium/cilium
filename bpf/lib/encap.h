@@ -192,7 +192,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 		return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
 	}
 
-	if ((tunnel = map_lookup_elem(&TUNNEL_MAP, key)) == NULL) {
+	tunnel = map_lookup_elem(&TUNNEL_MAP, key);
+	if (!tunnel) {
 		return DROP_NO_TUNNEL_ENDPOINT;
 	}
 
@@ -214,7 +215,8 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct endpoint_key *k,
 {
 	struct endpoint_key *tunnel;
 
-	if ((tunnel = map_lookup_elem(&TUNNEL_MAP, k)) == NULL) {
+	tunnel = map_lookup_elem(&TUNNEL_MAP, k);
+	if (!tunnel) {
 		return DROP_NO_TUNNEL_ENDPOINT;
 	}
 

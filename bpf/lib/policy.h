@@ -109,7 +109,8 @@ __policy_can_access(const void *map, struct __ctx_buff *ctx, __u32 localID,
 		if (ctx_load_bytes(ctx, off, &icmphdr, sizeof(icmphdr)) < 0)
 			return DROP_INVALID;
 
-		if(icmphdr.type == ICMP_DEST_UNREACH && icmphdr.code == ICMP_FRAG_NEEDED)
+		if (icmphdr.type == ICMP_DEST_UNREACH && \
+		    icmphdr.code == ICMP_FRAG_NEEDED)
 			return CTX_ACT_OK;
 	}
 #endif /* ALLOW_ICMP_FRAG_NEEDED */

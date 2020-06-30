@@ -65,7 +65,7 @@ enum {
 	DBG_CT_CREATED4,        /* arg1: (unused << 16) | rev_nat_index
 				 * arg2: src sec-id
 				 * arg3: lb address
-				 */ 
+				 */
 	DBG_CT_LOOKUP6_1,       /* arg1: saddr (last 4 bytes)
 				 * arg2: daddr (last 4 bytes)
 				 * arg3: (sport << 16) | dport

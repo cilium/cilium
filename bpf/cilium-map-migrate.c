@@ -342,7 +342,7 @@ static int bpf_handle_pending(struct bpf_elf_ctx *ctx,
 	}
 
 	pinned.id = map->id;
-        pinned.pinning = map->pinning;
+	pinned.pinning = map->pinning;
 	if (!memcmp(map, &pinned, sizeof(pinned)))
 		return 0;
 
@@ -471,7 +471,7 @@ static int bpf_fetch_maps_end(struct bpf_elf_ctx *ctx, bpf_handle_state_t cb,
 	for (i = 0, map = ctx->map_tab->d_buf; i < sym_num; i++, map++) {
 		if (map->pinning != PIN_GLOBAL_NS)
 			continue;
-		off = (void*)map - ctx->map_tab->d_buf;
+		off = (void *)map - ctx->map_tab->d_buf;
 		name = bpf_map_fetch_name(ctx, off);
 		if (!name) {
 			fprintf(stderr, "Count not fetch map name at off %lu!\n", off);

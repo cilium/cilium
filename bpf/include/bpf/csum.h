@@ -36,11 +36,11 @@ static __always_inline __wsum csum_diff(const void *from, __u32 size_from,
 		 */
 		if (size_from == 4 && size_to == 4 &&
 		    __builtin_constant_p(seed) && seed == 0)
-			return csum_add(~(*(__u32*)from), *(__u32*)to);
+			return csum_add(~(*(__u32 *)from), *(__u32 *)to);
 		if (size_from == 4 && size_to == 4)
 			return csum_add(seed,
-					csum_add(~(*(__u32*)from),
-						 *(__u32*)to));
+					csum_add(~(*(__u32 *)from),
+						 *(__u32 *)to));
 	}
 
 	return csum_diff_external(from, size_from, to, size_to, seed);
