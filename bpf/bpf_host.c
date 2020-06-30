@@ -11,8 +11,8 @@
 
 /* These are configuartion options which have a default value in their
  * respective header files and must thus be defined beforehand:
- *
- * Pass unknown ICMPv6 NS to stack */
+ */
+/* Pass unknown ICMPv6 NS to stack */
 #define ACTION_UNKNOWN_ICMP6_NS CTX_ACT_OK
 
 /* Include policy_can_access_ingress() */
@@ -56,7 +56,8 @@ static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
 {
 	/* When attached to cilium_host, we rewrite the DMAC to the mac of
 	 * cilium_host (peer) to ensure the packet is being considered to be
-	 * addressed to the host (PACKET_HOST) */
+	 * addressed to the host (PACKET_HOST).
+	 */
 	union macaddr cilium_net_mac = CILIUM_NET_MAC;
 
 	/* Rewrite to destination MAC of cilium_net (remote peer) */
@@ -79,7 +80,8 @@ derive_src_id(const union v6addr *node_ip, struct ipv6hdr *ip6, __u32 *identity)
 
 		/* A remote node will map any HOST_ID source to be presented as
 		 * REMOTE_NODE_ID, therefore any attempt to signal HOST_ID as
-		 * source from a remote node can be droppped. */
+		 * source from a remote node can be dropped.
+		 */
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
 	}
@@ -374,7 +376,8 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 
 	if (from_host && !skip_redirect) {
 		/* If we are attached to cilium_host at egress, this will
-		 * rewrite the destination mac address to the MAC of cilium_net */
+		 * rewrite the destination MAC address to the MAC of cilium_net.
+		 */
 		ret = rewrite_dmac_to_host(ctx, secctx);
 		/* DIRECT PACKET READ INVALID */
 		if (IS_ERR(ret))
@@ -401,7 +404,8 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	ep = lookup_ip6_endpoint(ip6);
 	if (ep) {
 		/* Let through packets to the node-ip so they are
-		 * processed by the local ip stack */
+		 * processed by the local ip stack.
+		 */
 		if (ep->flags & ENDPOINT_F_HOST)
 			return CTX_ACT_OK;
 
@@ -516,8 +520,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx)
 			return ret;
 	}
 
-	/* to-netdev is attached to the egress path of the native
-	 * device. */
+	/* to-netdev is attached to the egress path of the native device. */
 	srcID = ipcache_lookup_srcid6(ctx);
 	return ipv6_host_policy_egress(ctx, srcID);
 }
@@ -793,7 +796,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 		 * routing mode, as the redirect bypasses nf_conntrack table.
 		 * This makes a second reply from the endpoint to be MASQUERADEd
 		 * or to be DROPed by k8s's "--ctstate INVALID -j DROP"
-		 * depending via which interface it was inputed. */
+		 * depending via which interface it was inputed.
+		 */
 # ifdef ENABLE_HOST_FIREWALL
 		skip_redirect = true;
 # else
@@ -810,7 +814,8 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 
 	if (from_host && !skip_redirect) {
 		/* If we are attached to cilium_host at egress, this will
-		 * rewrite the destination mac address to the MAC of cilium_net */
+		 * rewrite the destination MAC address to the MAC of cilium_net.
+		 */
 		ret = rewrite_dmac_to_host(ctx, secctx);
 		/* DIRECT PACKET READ INVALID */
 		if (IS_ERR(ret))
@@ -839,8 +844,9 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	/* Lookup IPv4 address in list of local endpoints and host IPs */
 	ep = lookup_ip4_endpoint(ip4);
 	if (ep) {
-		/* Let through packets to the node-ip so they are
-		 * processed by the local ip stack */
+		/* Let through packets to the node-ip so they are processed by
+		 * the local ip stack.
+		 */
 		if (ep->flags & ENDPOINT_F_HOST)
 #ifdef HOST_REDIRECT_TO_INGRESS
 			/* This is required for L7 proxy to send packets to the host. */
@@ -1175,7 +1181,8 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 		 * the stack in case maps have become unavailable.
 		 *
 		 * Note: Since drop notification requires a tail call as well,
-		 * this notification is unlikely to succeed. */
+		 * this notification is unlikely to succeed.
+		 */
 		return send_drop_notify_error(ctx, identity, DROP_MISSED_TAIL_CALL,
 					      CTX_ACT_OK, METRIC_INGRESS);
 #endif
@@ -1262,7 +1269,8 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
 		/* to-netdev is attached to the egress path of the native
-		 * device. */
+		 * device.
+		 */
 		srcID = ipcache_lookup_srcid4(ctx);
 		ret = ipv4_host_policy_egress(ctx, srcID);
 		break;
@@ -1314,8 +1322,9 @@ int to_host(struct __ctx_buff *ctx)
 
 		ctx_store_meta(ctx, 0, CB_PROXY_MAGIC);
 		ctx_redirect_to_proxy_first(ctx, port);
-		/* We already traced this in the previous prog with
-		 * more background context, skip trace here. */
+		/* We already traced this in the previous prog with more
+		 * background context, skip trace here.
+		 */
 		traced = true;
 	}
 

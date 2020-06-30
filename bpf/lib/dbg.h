@@ -87,21 +87,27 @@ enum {
 				 */
 	DBG_IP_ID_MAP_FAILED4,	/* arg1: daddr
 				 * arg2: unused
-				 * arg3: unused */
+				 * arg3: unused
+				 */
 	DBG_IP_ID_MAP_FAILED6,	/* arg1: daddr (last 4 bytes)
 				 * arg2: unused
-				 * arg3: unused */
+				 * arg3: unused
+				 */
 	DBG_IP_ID_MAP_SUCCEED4,	/* arg1: daddr
 				 * arg2: identity
-				 * arg3: unused */
+				 * arg3: unused
+				 */
 	DBG_IP_ID_MAP_SUCCEED6,	/* arg1: daddr (last 4 bytes)
 				 * arg2: identity
-				 * arg3: unused */
+				 * arg3: unused
+				 */
 	DBG_LB_STALE_CT,	/* arg1: svc rev_nat_id
-				   arg2: stale CT rev_nat_id
-				   arg3: unused */
+				 * arg2: stale CT rev_nat_id
+				 * arg3: unused
+				 */
 	DBG_INHERIT_IDENTITY	/* arg1: ctx->mark
-				 * arg2: unused */
+				 * arg2: unused
+				 */
 };
 
 /* Capture types */

@@ -112,7 +112,8 @@ ipv4_frag_register_datagram(struct __ctx_buff *ctx, int l4_off,
 
 	map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, frag_id, ports, BPF_ANY);
 	/* Do not return an error if map update failed, as nothing prevents us
-	 * to process the current packet normally */
+	 * to process the current packet normally.
+	 */
 	return 0;
 }
 
@@ -134,7 +135,8 @@ ipv4_handle_fragment(struct __ctx_buff *ctx,
 
 	/* First logical fragment for this datagram (not necessarily the first
 	 * we receive). Fragment has L4 header, we can retrieve L4 ports and
-	 * create an entry in datagrams map. */
+	 * create an entry in datagrams map.
+	 */
 	return ipv4_frag_register_datagram(ctx, l4_off, &frag_id, ports);
 }
 #endif

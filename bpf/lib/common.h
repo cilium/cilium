@@ -52,7 +52,8 @@
 #define XFER_PKT_NO_SVC		1 /* Skip upper service handling. */
 
 /* These are shared with test/bpf/check-complexity.sh, when modifying any of
- * the below, that script should also be updated. */
+ * the below, that script should also be updated.
+ */
 #define CILIUM_CALL_DROP_NOTIFY			1
 #define CILIUM_CALL_ERROR_NOTIFY		2
 #define CILIUM_CALL_SEND_ICMP6_ECHO_REPLY	3
@@ -139,13 +140,15 @@ __revalidate_data(struct __ctx_buff *ctx, void **data_, void **data_end_,
  * time that the ctx data is accessed, subsequent calls can be made to
  * revalidate_data() which is cheaper.
  * Returns true if 'ctx' is long enough for an IP header of the provided type,
- * false otherwise. */
+ * false otherwise.
+ */
 #define revalidate_data_first(ctx, data, data_end, ip)			\
 	__revalidate_data(ctx, data, data_end, (void **)ip, sizeof(**ip), true)
 
 /* revalidate_data() initializes the provided pointers from the ctx.
  * Returns true if 'ctx' is long enough for an IP header of the provided type,
- * false otherwise. */
+ * false otherwise.
+ */
 #define revalidate_data(ctx, data, data_end, ip)			\
 	__revalidate_data(ctx, data, data_end, (void **)ip, sizeof(**ip), false)
 
@@ -410,7 +413,7 @@ enum {
  * Len = 8 (option type (1) + option len (1) + addr (4) + port (2))
  *
  * [1]: https://www.iana.org/assignments/ip-parameters/ip-parameters.xhtml
- * */
+ */
 #define DSR_IPV4_OPT_32		0x9a080000
 #define DSR_IPV4_OPT_MASK	0xffff0000
 #define DSR_IPV4_DPORT_MASK	0x0000ffff
@@ -479,7 +482,8 @@ enum {
 	CB_CT_STATE,
 #define	CB_SVC_ADDR_V6_4	CB_CT_STATE	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_DST		CB_CT_STATE	/* Alias, non-overlapping,
-						   Not used by xfrm. */
+						 * Not used by xfrm.
+						 */
 };
 
 /* State values for NAT46 */
@@ -513,11 +517,13 @@ enum {
 
 struct ipv6_ct_tuple {
 	/* Address fields are reversed, i.e.,
-	 * these field names are correct for reply direction traffic. */
+	 * these field names are correct for reply direction traffic.
+	 */
 	union v6addr	daddr;
 	union v6addr	saddr;
 	/* The order of dport+sport must not be changed!
-	 * These field names are correct for original direction traffic. */
+	 * These field names are correct for original direction traffic.
+	 */
 	__be16		dport;
 	__be16		sport;
 	__u8		nexthdr;
@@ -526,11 +532,13 @@ struct ipv6_ct_tuple {
 
 struct ipv4_ct_tuple {
 	/* Address fields are reversed, i.e.,
-	 * these field names are correct for reply direction traffic. */
+	 * these field names are correct for reply direction traffic.
+	 */
 	__be32		daddr;
 	__be32		saddr;
 	/* The order of dport+sport must not be changed!
-	 * These field names are correct for original direction traffic. */
+	 * These field names are correct for original direction traffic.
+	 */
 	__be16		dport;
 	__be16		sport;
 	__u8		nexthdr;
@@ -554,18 +562,21 @@ struct ct_entry {
 	      reserved:8;
 	__u16 rev_nat_index;
 	/* In the kernel ifindex is u32, so we need to check in cilium-agent
-	 * that ifindex of a NodePort device is <= MAX(u16). */
+	 * that ifindex of a NodePort device is <= MAX(u16).
+	 */
 	__u16 ifindex;
 
 	/* *x_flags_seen represents the OR of all TCP flags seen for the
-	 * transmit/receive direction of this entry. */
+	 * transmit/receive direction of this entry.
+	 */
 	__u8  tx_flags_seen;
 	__u8  rx_flags_seen;
 
 	__u32 src_sec_id; /* Used from userspace proxies, do not change offset! */
 
 	/* last_*x_report is a timestamp of the last time a monitor
-	 * notification was sent for the transmit/receive direction. */
+	 * notification was sent for the transmit/receive direction.
+	 */
 	__u32 last_tx_report;
 	__u32 last_rx_report;
 };
