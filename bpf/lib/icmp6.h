@@ -30,6 +30,8 @@
 #define ICMP6_MULT_RA_MSG_TYPE		151
 #define ICMP6_MULT_RT_MSG_TYPE		153
 
+#define SKIP_HOST_FIREWALL	-2
+
 /* If no specific action is specified, drop unknown neighbour solicitation
  * messages.
  */
@@ -477,6 +479,7 @@ icmp6_host_handle(struct __ctx_buff *ctx __maybe_unused)
 	 */
 	type = icmp6_load_type(ctx, ETH_HLEN);
 	if (type == ICMP6_ECHO_REQUEST_MSG_TYPE || type == ICMP6_ECHO_REPLY_MSG_TYPE)
+		/* Decision is deferred to the host policies. */
 		return CTX_ACT_OK;
 
 	if ((ICMP6_UNREACH_MSG_TYPE <= type && type <= ICMP6_PARAM_ERR_MSG_TYPE) ||
@@ -484,7 +487,7 @@ icmp6_host_handle(struct __ctx_buff *ctx __maybe_unused)
 		(ICMP6_INV_NS_MSG_TYPE <= type && type <= ICMP6_MULT_LIST_REPORT_V2_TYPE) ||
 		(ICMP6_SEND_NS_MSG_TYPE <= type && type <= ICMP6_SEND_NA_MSG_TYPE) ||
 		(ICMP6_MULT_RA_MSG_TYPE <= type && type <= ICMP6_MULT_RT_MSG_TYPE))
-		return CTX_ACT_OK;
+		return SKIP_HOST_FIREWALL;
 	return DROP_FORBIDDEN_ICMP6;
 #else
 	return CTX_ACT_OK;
