@@ -96,7 +96,7 @@ pipeline {
                 }
                 stage ("Select cluster and scale it"){
                     options {
-                        timeout(time: 20, unit: 'MINUTES')
+                        timeout(time: 30, unit: 'MINUTES')
                     }
                     environment {
                         FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
