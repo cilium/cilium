@@ -1,3 +1,5 @@
+/* SPDX-License-Identifier: GPL-2.0 */
+/* Copyright (C) 2019-2020 Authors of Cilium */
 #ifndef TAILCALL_H
 #define TAILCALL_H
 

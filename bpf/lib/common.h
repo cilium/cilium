@@ -267,7 +267,7 @@ enum {
 	__u16		len_cap;	/* Length of captured bytes */	\
 	__u16		version;	/* Capture header version */
 
-#define __notify_common_hdr(t, s) 	\
+#define __notify_common_hdr(t, s)	\
 	.type		= (t),		\
 	.subtype	= (s),		\
 	.source		= EVENT_SOURCE,	\

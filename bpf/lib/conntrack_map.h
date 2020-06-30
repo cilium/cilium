@@ -40,9 +40,9 @@ struct bpf_elf_map __section_maps CT_MAP_ANY6 = {
 static __always_inline struct bpf_elf_map *
 get_ct_map6(const struct ipv6_ct_tuple *tuple)
 {
-	if (tuple->nexthdr == IPPROTO_TCP) {
+	if (tuple->nexthdr == IPPROTO_TCP)
 		return &CT_MAP_TCP6;
-	}
+
 	return &CT_MAP_ANY6;
 }
 #endif
@@ -73,9 +73,9 @@ struct bpf_elf_map __section_maps CT_MAP_ANY4 = {
 static __always_inline struct bpf_elf_map *
 get_ct_map4(const struct ipv4_ct_tuple *tuple)
 {
-	if (tuple->nexthdr == IPPROTO_TCP) {
+	if (tuple->nexthdr == IPPROTO_TCP)
 		return &CT_MAP_TCP4;
-	}
+
 	return &CT_MAP_ANY4;
 }
 #endif

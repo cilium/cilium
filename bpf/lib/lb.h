@@ -432,9 +432,8 @@ lb6_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u16 backend_id)
 	struct lb6_backend *backend;
 
 	backend = __lb6_lookup_backend(backend_id);
-	if (!backend) {
+	if (!backend)
 		cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_BACKEND_FAIL, backend_id, 0);
-	}
 
 	return backend;
 }
@@ -454,9 +453,8 @@ struct lb6_service *lb6_lookup_slave(struct __ctx_buff *ctx __maybe_unused,
 	key->slave = slave;
 	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_SLAVE, key->slave, key->dport);
 	svc = __lb6_lookup_slave(key);
-	if (svc != NULL) {
+	if (svc)
 		return svc;
-	}
 
 	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_SLAVE_V2_FAIL, key->slave, key->dport);
 
@@ -474,6 +472,7 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
 
 	if (csum_off) {
 		__be32 sum = csum_diff(key->address.addr, 16, new_dst->addr, 16, 0);
+
 		if (csum_l4_replace(ctx, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
@@ -606,6 +605,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	int ret;
 #ifdef ENABLE_SESSION_AFFINITY
 	union lb6_affinity_client_id client_id;
+
 	ipv6_addr_copy(&client_id.client_ip, &tuple->saddr);
 #endif
 
@@ -643,9 +643,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		/* Fail closed, if the conntrack entry create fails drop
 		 * service lookup.
 		 */
-		if (IS_ERR(ret)) {
+		if (IS_ERR(ret))
 			goto drop_no_service;
-		}
 		goto update_state;
 	case CT_ESTABLISHED:
 	case CT_RELATED:
@@ -688,18 +687,15 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	if (!backend) {
 		key->slave = 0;
 		svc = lb6_lookup_service(key);
-		if (!svc) {
+		if (!svc)
 			goto drop_no_service;
-		}
 		slave = lb6_select_slave(svc->count);
 		slave_svc = lb6_lookup_slave(ctx, key, slave);
-		if (!slave_svc) {
+		if (!slave_svc)
 			goto drop_no_service;
-		}
 		backend = lb6_lookup_backend(ctx, slave_svc->backend_id);
-		if (backend == NULL) {
+		if (!backend)
 			goto drop_no_service;
-		}
 		state->backend_id = slave_svc->backend_id;
 		ct_update6_backend_id(map, tuple, state);
 	}
@@ -918,9 +914,8 @@ lb4_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u16 backend_id)
 	struct lb4_backend *backend;
 
 	backend = __lb4_lookup_backend(backend_id);
-	if (!backend) {
+	if (!backend)
 		cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_BACKEND_FAIL, backend_id, 0);
-	}
 
 	return backend;
 }
@@ -940,9 +935,8 @@ struct lb4_service *lb4_lookup_slave(struct __ctx_buff *ctx __maybe_unused,
 	key->slave = slave;
 	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_SLAVE, key->slave, key->dport);
 	svc = __lb4_lookup_slave(key);
-	if (svc != NULL) {
+	if (svc)
 		return svc;
-	}
 
 	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_SLAVE_V2_FAIL, key->slave, key->dport);
 
@@ -1201,18 +1195,15 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	if (!backend) {
 		key->slave = 0;
 		svc = lb4_lookup_service(key);
-		if (!svc) {
+		if (!svc)
 			goto drop_no_service;
-		}
 		slave = lb4_select_slave(svc->count);
 		slave_svc = lb4_lookup_slave(ctx, key, slave);
-		if (!slave_svc) {
+		if (!slave_svc)
 			goto drop_no_service;
-		}
 		backend = lb4_lookup_backend(ctx, slave_svc->backend_id);
-		if (backend == NULL) {
+		if (!backend)
 			goto drop_no_service;
-		}
 		state->backend_id = slave_svc->backend_id;
 		ct_update4_backend_id(map, tuple, state);
 	}

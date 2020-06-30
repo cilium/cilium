@@ -89,9 +89,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 		return CTX_ACT_OK;
-	} else {
-		ctx->mark = 0;
 	}
+	ctx->mark = 0;
 not_esp:
 #endif
 
@@ -160,6 +159,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 #ifdef ENABLE_NODEPORT
 	if (!bpf_skip_nodeport(ctx)) {
 		int ret = nodeport_lb4(ctx, *identity);
+
 		if (ret < 0)
 			return ret;
 	}
@@ -203,9 +203,8 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 		return CTX_ACT_OK;
-	} else {
-		ctx->mark = 0;
 	}
+	ctx->mark = 0;
 not_esp:
 #endif
 
@@ -312,7 +311,9 @@ out:
 __section("to-overlay")
 int to_overlay(struct __ctx_buff *ctx)
 {
-	int ret = encap_remap_v6_host_address(ctx, true);
+	int ret;
+
+	ret = encap_remap_v6_host_address(ctx, true);
 	if (unlikely(ret < 0))
 		goto out;
 #ifdef ENABLE_NODEPORT

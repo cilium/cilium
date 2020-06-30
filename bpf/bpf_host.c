@@ -564,6 +564,7 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 		info = lookup_ip4_remote_endpoint(ip4->saddr);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
+
 			if (sec_label) {
 				/* When SNAT is enabled on traffic ingressing
 				 * into Cilium, all traffic from the world will
@@ -880,7 +881,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 #endif
 
 #ifdef HOST_REDIRECT_TO_INGRESS
-    return redirect(HOST_IFINDEX, BPF_F_INGRESS);
+	return redirect(HOST_IFINDEX, BPF_F_INGRESS);
 #else
 
 	info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr, V4_CACHE_KEY_LEN);
