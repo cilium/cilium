@@ -107,7 +107,8 @@ static void test___ct_lookup(void)
 	assert(timeout_in(entry, CT_SYN_TIMEOUT));
 
 	/* Second packet with the same flags is not monitored; it does reset
-	 * lifetime back to CT_SYN_TIMEOUT. */
+	 * lifetime back to CT_SYN_TIMEOUT.
+	 */
 	advance_time();
 	res = __ct_lookup(map, &ctx, tuple, ACTION_CREATE, CT_INGRESS,
 			  &ct_state, true, seen_flags, &monitor);
@@ -144,7 +145,8 @@ static void test___ct_lookup(void)
 
 	/* Monitor if the connection is closing on the other side. This
 	 * second FIN on the other side will reset lifetime to
-	 * CT_CLOSE_TIMEOUT. */
+	 * CT_CLOSE_TIMEOUT.
+	 */
 	advance_time();
 	seen_flags.value |= TCP_FLAG_FIN;
 	res = __ct_lookup(map, &ctx, tuple, ACTION_CLOSE, CT_EGRESS,

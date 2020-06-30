@@ -35,7 +35,8 @@ static __always_inline void sk_extract4_key(const struct bpf_sock_ops *ops,
 	/* clang-7.1 or higher seems to think it can do a 16-bit read here
 	 * which unfortunately most kernels (as of October 2019) do not
 	 * support, which leads to verifier failures. Insert a READ_ONCE
-	 * to make sure that a 32-bit read followed by shift is generated. */
+	 * to make sure that a 32-bit read followed by shift is generated.
+	 */
 	key->dport = READ_ONCE(ops->remote_port) >> 16;
 }
 

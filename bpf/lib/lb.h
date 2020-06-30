@@ -778,7 +778,8 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		 * forward service translation. This implies that the original
 		 * source address of the packet is the source address of the
 		 * current packet. We therefore need to make the current source
-		 * address the new destination address */
+		 * address the new destination address.
+		 */
 		__be32 old_dip;
 
 		ret = ctx_load_bytes(ctx, l3_off + offsetof(struct iphdr, daddr), &old_dip, 4);

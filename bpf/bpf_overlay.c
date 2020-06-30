@@ -60,7 +60,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 
 		/* Any node encapsulating will map any HOST_ID source to be
 		 * presented as REMOTE_NODE_ID, therefore any attempt to signal
-		 * HOST_ID as source from a remote node can be droppped. */
+		 * HOST_ID as source from a remote node can be dropped.
+		 */
 		if (*identity == HOST_ID)
 			return DROP_INVALID_IDENTITY;
 	}
@@ -99,8 +100,9 @@ not_esp:
 	if (ep) {
 		__u8 nexthdr;
 
-		/* Let through packets to the node-ip so they are
-		 * processed by the local ip stack */
+		/* Let through packets to the node-ip so they are processed by
+		 * the local ip stack.
+		 */
 		if (ep->flags & ENDPOINT_F_HOST)
 			goto to_host;
 
@@ -211,8 +213,9 @@ not_esp:
 	/* Lookup IPv4 address in list of local endpoints */
 	ep = lookup_ip4_endpoint(ip4);
 	if (ep) {
-		/* Let through packets to the node-ip so they are
-		 * processed by the local ip stack */
+		/* Let through packets to the node-ip so they are processed by
+		 * the local ip stack.
+		 */
 		if (ep->flags & ENDPOINT_F_HOST)
 			goto to_host;
 
