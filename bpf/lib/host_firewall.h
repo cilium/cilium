@@ -175,6 +175,10 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 		return DROP_UNKNOWN_CT;
 	}
 
+	/* This change is necessary for packets redirected from the lxc device to
+	 * the host device.
+	 */
+	ctx_change_type(ctx, PACKET_HOST);
 	return CTX_ACT_OK;
 }
 # endif /* ENABLE_IPV6 */
@@ -341,6 +345,10 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 		return DROP_UNKNOWN_CT;
 	}
 
+	/* This change is necessary for packets redirected from the lxc device to
+	 * the host device.
+	 */
+	ctx_change_type(ctx, PACKET_HOST);
 	return CTX_ACT_OK;
 }
 # endif /* ENABLE_IPV4 */
