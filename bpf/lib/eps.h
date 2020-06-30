@@ -89,7 +89,8 @@ ipcache_lookup4(struct bpf_elf_map *map, __be32 addr, __u32 prefix)
 /* Define a function with the following NAME which iterates through PREFIXES
  * (a list of integers ordered from high to low representing prefix length),
  * performing a lookup in MAP using LOOKUP_FN to find a provided IP of type
- * IPTYPE. */
+ * IPTYPE.
+ */
 #define LPM_LOOKUP_FN(NAME, IPTYPE, PREFIXES, MAP, LOOKUP_FN)		\
 static __always_inline __maybe_unused struct remote_endpoint_info *	\
 NAME(IPTYPE addr)							\

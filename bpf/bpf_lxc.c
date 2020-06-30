@@ -133,8 +133,9 @@ skip_service_lookup:
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
-	 * POLICY_SKIP if the packet is a reply packet to an existing
-	 * incoming connection. */
+	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
+	 * connection.
+	 */
 	ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off, CT_EGRESS,
 			 &ct_state, &monitor);
 	if (ret < 0)
@@ -170,7 +171,8 @@ skip_service_lookup:
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
-	 * bound for the host/outside, perform the CIDR policy check. */
+	 * bound for the host/outside, perform the CIDR policy check.
+	 */
 	verdict = policy_can_egress6(ctx, tuple, SECLABEL, *dstID,
 				     &policy_match_type, &audited);
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
@@ -228,8 +230,10 @@ ct_recreate6:
 			if (IS_ERR(ret))
 				return ret;
 
-			/* A reverse translate packet is always allowed except for delivery
-			 * on the local node in which case this marking is cleared again. */
+			/* A reverse translate packet is always allowed except
+			 * for delivery on the local node in which case this
+			 * marking is cleared again.
+			 */
 			policy_mark_skip(ctx);
 		}
 		break;
@@ -356,10 +360,11 @@ pass_to_stack:
 #endif
 	{
 #ifdef ENABLE_IDENTITY_MARK
-		/* Always encode the source identity when passing to the stack. If the
-		 * stack hairpins the packet back to a local endpoint the source
-		 * identity can still be derived even if SNAT is performed by a
-		 * component such as portmap */
+		/* Always encode the source identity when passing to the stack.
+		 * If the stack hairpins the packet back to a local endpoint the
+		 * source identity can still be derived even if SNAT is
+		 * performed by a component such as portmap.
+		 */
 		ctx->mark |= MARK_MAGIC_IDENTITY;
 		set_identity_mark(ctx, SECLABEL);
 #endif
@@ -497,8 +502,9 @@ skip_service_lookup:
 
 	/* Pass all outgoing packets through conntrack. This will create an
 	 * entry to allow reverse packets and return set cb[CB_POLICY] to
-	 * POLICY_SKIP if the packet is a reply packet to an existing
-	 * incoming connection. */
+	 * POLICY_SKIP if the packet is a reply packet to an existing incoming
+	 * connection.
+	 */
 	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
 			 &ct_state, &monitor);
 	if (ret < 0)
@@ -531,7 +537,8 @@ skip_service_lookup:
 
 	/* If the packet is in the establishing direction and it's destined
 	 * within the cluster, it must match policy or be dropped. If it's
-	 * bound for the host/outside, perform the CIDR policy check. */
+	 * bound for the host/outside, perform the CIDR policy check.
+	 */
 	verdict = policy_can_egress4(ctx, &tuple, SECLABEL, *dstID,
 				     &policy_match_type, &audited);
 
@@ -708,10 +715,11 @@ pass_to_stack:
 #endif
 	{
 #ifdef ENABLE_IDENTITY_MARK
-		/* Always encode the source identity when passing to the stack. If the
-		 * stack hairpins the packet back to a local endpoint the source
-		 * identity can still be derived even if SNAT is performed by a
-		 * component such as portmap */
+		/* Always encode the source identity when passing to the stack.
+		 * If the stack hairpins the packet back to a local endpoint the
+		 * source identity can still be derived even if SNAT is
+		 * performed by a component such as portmap.
+		 */
 		ctx->mark |= MARK_MAGIC_IDENTITY;
 		set_identity_mark(ctx, SECLABEL);
 #endif
@@ -857,7 +865,8 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	ipv6_addr_copy(&orig_sip, (union v6addr *) &ip6->saddr);
 
 	/* If packet is coming from the ingress proxy we have to skip
-	 * redirection to the ingress proxy as we would loop forever. */
+	 * redirection to the ingress proxy as we would loop forever.
+	 */
 	skip_ingress_proxy = tc_index_skip_ingress_proxy(ctx);
 
 	hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &tuple.nexthdr);
@@ -899,7 +908,8 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 					    &policy_match_type, &audited);
 
 	/* Reply packets and related packets are allowed, all others must be
-	 * permitted by policy */
+	 * permitted by policy.
+	 */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
 						 POLICY_INGRESS, 1, verdict, policy_match_type, audited);
@@ -1064,7 +1074,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	tuple.nexthdr = ip4->protocol;
 
 	/* If packet is coming from the ingress proxy we have to skip
-	 * redirection to the inggress proxy as we would loop forever. */
+	 * redirection to the ingress proxy as we would loop forever.
+	 */
 	skip_ingress_proxy = tc_index_skip_ingress_proxy(ctx);
 
 	tuple.daddr = ip4->daddr;
@@ -1121,7 +1132,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 					    &policy_match_type, &audited);
 
 	/* Reply packets and related packets are allowed, all others must be
-	 * permitted by policy */
+	 * permitted by policy.
+	 */
 	if (ret != CT_REPLY && ret != CT_RELATED && verdict < 0) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport, tuple.nexthdr,
 						 POLICY_INGRESS, 0, verdict, policy_match_type, audited);
