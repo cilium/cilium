@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/source"
 
 	"github.com/prometheus/client_golang/prometheus"
@@ -339,7 +340,11 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 
 	for _, address := range n.IPAddresses {
 		var tunnelIP net.IP
-		if address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() {
+		// If the host firewall is enabled, all traffic to remote nodes must go
+		// through the tunnel to preserve the source identity as part of the
+		// encapsulation.
+		if address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() ||
+			option.Config.EnableHostFirewall {
 			tunnelIP = nodeIP
 		}
 

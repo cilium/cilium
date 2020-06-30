@@ -72,6 +72,11 @@ var _ = Describe("K8sConformance", func() {
 
 			deployCilium(map[string]string{
 				"global.cni.chainingMode": "portmap",
+				// When kube-proxy is enabled, the host firewall is not
+				// compatible with portmap chaining because traffic
+				// from pods to remote nodes goes through the tunnel.
+				// This issue is tracked at #12541.
+				"global.hostFirewall": "false",
 			})
 
 			kubectl.ApplyDefault(connectivityCheckYaml).ExpectSuccess("cannot install connectivity-check")
@@ -86,6 +91,11 @@ var _ = Describe("K8sConformance", func() {
 
 			deployCilium(map[string]string{
 				"global.cni.chainingMode": "portmap",
+				// When kube-proxy is enabled, the host firewall is not
+				// compatible with portmap chaining because traffic
+				// from pods to remote nodes goes through the tunnel.
+				// This issue is tracked at #12541.
+				"global.hostFirewall": "false",
 			})
 
 			kubectl.ApplyDefault(connectivityCheckYamlSimple).ExpectSuccess("cannot install connectivity-check-single-node")
