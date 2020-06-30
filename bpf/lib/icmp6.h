@@ -176,7 +176,8 @@ static __always_inline int send_icmp6_ndisc_adv(struct __ctx_buff *ctx,
 	icmp6hdr.icmp6_solicited = 1;
 	icmp6hdr.icmp6_override = 0;
 
-	if (ctx_store_bytes(ctx, nh_off + sizeof(struct ipv6hdr), &icmp6hdr, sizeof(icmp6hdr), 0) < 0)
+	if (ctx_store_bytes(ctx, nh_off + sizeof(struct ipv6hdr), &icmp6hdr,
+			    sizeof(icmp6hdr), 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	/* fixup checksums */

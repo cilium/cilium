@@ -86,7 +86,8 @@
 static __always_inline void bpf_barrier(void)
 {
 	/* Workaround to avoid verifier complaint:
-	 * "dereference of modified ctx ptr R5 off=48+0, ctx+const is allowed, ctx+const+const is not"
+	 * "dereference of modified ctx ptr R5 off=48+0, ctx+const is allowed,
+	 *        ctx+const+const is not"
 	 */
 	barrier();
 }
