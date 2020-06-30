@@ -13,10 +13,11 @@
 
 #include "mono.h"
 
-// FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
-// #ifndef HAVE_LRU_HASH_MAP_TYPE
-// #define NEEDS_TIMEOUT 1
-// #endif
+/* FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
+ * #ifndef HAVE_LRU_HASH_MAP_TYPE
+ * #define NEEDS_TIMEOUT 1
+ * #endif
+ */
 #define NEEDS_TIMEOUT 1
 
 #ifndef AF_INET
@@ -107,7 +108,7 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 		return false;
 	*proto = eth->h_proto;
 	if (bpf_ntohs(*proto) < ETH_P_802_3_MIN)
-		return false; // non-Ethernet II unsupported
+		return false; /* non-Ethernet II unsupported */
 	return true;
 }
 
@@ -223,10 +224,10 @@ struct policy_entry {
 };
 
 struct metrics_key {
-	__u8      reason;	//0: forwarded, >0 dropped
-	__u8      dir:2,	//1: ingress 2: egress
+	__u8      reason;	/* 0: forwarded, >0 dropped */
+	__u8      dir:2,	/* 1: ingress 2: egress */
 		  pad:6;
-	__u16     reserved[3];	// reserved for future extension
+	__u16     reserved[3];	/* reserved for future extension */
 };
 
 
@@ -428,8 +429,8 @@ enum {
  * [1]:  https://www.iana.org/assignments/ipv6-parameters/ipv6-parameters.xhtml#ipv6-parameters-2
  */
 #define DSR_IPV6_OPT_TYPE	0x1B
-#define DSR_IPV6_OPT_LEN	0x14	// to store ipv6 addr + port
-#define DSR_IPV6_EXT_LEN	0x2	// = (sizeof(dsr_opt_v6) - 8) / 8
+#define DSR_IPV6_OPT_LEN	0x14	/* to store ipv6 addr + port */
+#define DSR_IPV6_EXT_LEN	0x2	/* = (sizeof(dsr_opt_v6) - 8) / 8 */
 
 /* We cap key index at 4 bits because mark value is used to map ctx to key */
 #define MAX_KEY_INDEX 15
@@ -557,7 +558,7 @@ struct ct_entry {
 	      lb_loopback:1,
 	      seen_non_syn:1,
 	      node_port:1,
-	      proxy_redirect:1, // Connection is redirected to a proxy
+	      proxy_redirect:1, /* Connection is redirected to a proxy */
 	      dsr:1,
 	      reserved:8;
 	__u16 rev_nat_index;
@@ -730,7 +731,7 @@ struct ct_state {
 	__u16 rev_nat_index;
 	__u16 loopback:1,
 	      node_port:1,
-	      proxy_redirect:1, // Connection is redirected to a proxy
+	      proxy_redirect:1, /* Connection is redirected to a proxy */
 	      dsr:1,
 	      reserved:12;
 	__be32 addr;

@@ -69,7 +69,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	__u8 encrypt_key = 0;
 	__u32 monitor = 0;
 	__u8 reason;
-	bool hairpin_flow = false; // endpoint wants to access itself via service IP
+	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 
@@ -143,9 +143,9 @@ skip_service_lookup:
 
 	reason = ret;
 
-	// Check it this is return traffic to an ingress proxy.
+	/* Check it this is return traffic to an ingress proxy. */
 	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect) {
-		// Stack will do a socket match and deliver locally
+		/* Stack will do a socket match and deliver locally. */
 		return ctx_redirect_to_proxy(ctx, 0, false);
 	}
 
@@ -247,7 +247,7 @@ ct_recreate6:
 	hairpin_flow |= ct_state.loopback;
 
 	if (redirect_to_proxy(verdict, reason)) {
-		// Trace the packet before its forwarded to proxy
+		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
 				  0, 0, reason, monitor);
 		return ctx_redirect_to_proxy(ctx, verdict, false);
@@ -448,7 +448,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	__u8 encrypt_key = 0;
 	__u32 monitor = 0;
 	__u8 reason;
-	bool hairpin_flow = false; // endpoint wants to access itself via service IP
+	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
 
@@ -516,9 +516,9 @@ skip_service_lookup:
 
 	reason = ret;
 
-	// Check it this is return traffic to an ingress proxy.
+	/* Check it this is return traffic to an ingress proxy. */
 	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect) {
-		// Stack will do a socket match and deliver locally
+		/* Stack will do a socket match and deliver locally. */
 		return ctx_redirect_to_proxy(ctx, 0, false);
 	}
 
@@ -618,7 +618,7 @@ ct_recreate4:
 	hairpin_flow |= ct_state.loopback;
 
 	if (redirect_to_proxy(verdict, reason)) {
-		// Trace the packet before its forwarded to proxy
+		/* Trace the packet before it is forwarded to proxy */
 		send_trace_notify(ctx, TRACE_TO_PROXY, SECLABEL, 0,
 				  0, 0, reason, monitor);
 		return ctx_redirect_to_proxy(ctx, verdict, false);
@@ -630,10 +630,11 @@ ct_recreate4:
 
 	orig_dip = ip4->daddr;
 
-	// Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
-	// disabled. Otherwise, the packet will be dropped by the kernel if
-	// it's going to be routed via an interface it came from after it has
-	// been passed to the stack.
+	/* Allow a hairpin packet to be redirected even if ENABLE_ROUTING is
+	 * disabled. Otherwise, the packet will be dropped by the kernel if
+	 * it is going to be routed via an interface it came from after it has
+	 * been passed to the stack.
+	 */
 	if (is_defined(ENABLE_ROUTING) || hairpin_flow) {
 		struct endpoint_info *ep;
 
@@ -891,12 +892,14 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	*reason = ret;
 
-	// Check it this is return traffic to an egress proxy.
-	// Do not redirect again if the packet is coming from the egress proxy.
+	/* Check it this is return traffic to an egress proxy.
+	 * Do not redirect again if the packet is coming from the egress proxy.
+	 */
 	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect &&
 	    !tc_index_skip_egress_proxy(ctx)) {
-		// This is a reply, the proxy port does not need to be embedded
-		// into ctx->mark and *proxy_port can be left unset.
+		/* This is a reply, the proxy port does not need to be embedded
+		 * into ctx->mark and *proxy_port can be left unset.
+		 */
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
 				  0, ifindex, 0, monitor);
 		return POLICY_ACT_PROXY_REDIRECT;
@@ -964,7 +967,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 				  0, ifindex, *reason, monitor);
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
-	// Not redirected to host / proxy.
+	/* Not redirected to host / proxy. */
 	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL, &orig_sip,
 			   LXC_ID, ifindex, *reason, monitor);
 
@@ -995,7 +998,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 		return send_drop_notify(ctx, src_label, SECLABEL, LXC_ID,
 					ret, CTX_ACT_DROP, METRIC_INGRESS);
 
-	// Store meta: essential for proxy ingress, see bpf_host.c
+	/* Store meta: essential for proxy ingress, see bpf_host.c */
 	ctx_store_meta(ctx, 0, ctx->mark);
 	return ret;
 }
@@ -1110,12 +1113,14 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	*reason = ret;
 
-	// Check it this is return traffic to an egress proxy.
-	// Do not redirect again if the packet is coming from the egress proxy.
+	/* Check it this is return traffic to an egress proxy.
+	 * Do not redirect again if the packet is coming from the egress proxy.
+	 */
 	if ((ret == CT_REPLY || ret == CT_RELATED) && ct_state.proxy_redirect &&
 	    !tc_index_skip_egress_proxy(ctx)) {
-		// This is a reply, the proxy port does not need to be embedded
-		// into ctx->mark and *proxy_port can be left unset.
+		/* This is a reply, the proxy port does not need to be embedded
+		 * into ctx->mark and *proxy_port can be left unset.
+		 */
 		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
 				  0, ifindex, 0, monitor);
 		return POLICY_ACT_PROXY_REDIRECT;
@@ -1192,7 +1197,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 				  0, ifindex, *reason, monitor);
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
-	// Not redirected to host / proxy.
+	/* Not redirected to host / proxy. */
 	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL, orig_sip,
 			   LXC_ID, ifindex, *reason, monitor);
 
@@ -1223,7 +1228,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 		return send_drop_notify(ctx, src_label, SECLABEL, LXC_ID,
 					ret, CTX_ACT_DROP, METRIC_INGRESS);
 
-	// Store meta: essential for proxy ingress, see bpf_host.c
+	/* Store meta: essential for proxy ingress, see bpf_host.c */
 	ctx_store_meta(ctx, 0, ctx->mark);
 	return ret;
 }
