@@ -93,6 +93,7 @@ var (
 		"global.tag":                          "latest",
 		"operator.image":                      "operator",
 		"hubble-relay.image.tag":              "latest",
+		"nodeinit.image":                      "docker.io/cilium/startup-script", // bypass global.registry
 		"global.debug.enabled":                "true",
 		"global.k8s.requireIPv4PodCIDR":       "true",
 		"global.pprof.enabled":                "true",
