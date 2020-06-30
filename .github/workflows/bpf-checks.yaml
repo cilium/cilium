@@ -7,6 +7,17 @@ on:
       - master
 
 jobs:
+    checkpatch:
+        name: checkpatch
+        runs-on: ubuntu-latest
+        steps:
+            - name: Checkout code
+              uses: actions/checkout@v2
+              with:
+                  fetch-depth: 0
+            - name: Run checkpatch.pl
+              run:
+                  make -C bpf checkpatch
     coccicheck:
         name: coccicheck
         runs-on: ubuntu-latest
