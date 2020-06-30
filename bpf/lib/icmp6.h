@@ -39,6 +39,7 @@
 static __always_inline __u8 icmp6_load_type(struct __ctx_buff *ctx, int nh_off)
 {
 	__u8 type;
+
 	ctx_load_bytes(ctx, nh_off + ICMP6_TYPE_OFFSET, &type, sizeof(type));
 	return type;
 }
@@ -357,10 +358,10 @@ static __always_inline int __icmp6_handle_ns(struct __ctx_buff *ctx, int nh_off)
 		union macaddr router_mac = NODE_MAC;
 
 		return send_icmp6_ndisc_adv(ctx, nh_off, &router_mac);
-	} else {
-		/* Unknown target address, drop */
-		return ACTION_UNKNOWN_ICMP6_NS;
 	}
+
+	/* Unknown target address, drop */
+	return ACTION_UNKNOWN_ICMP6_NS;
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_HANDLE_ICMP6_NS)

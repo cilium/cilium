@@ -113,7 +113,7 @@ static __always_inline void bpf_barrier(void)
 #endif
 
 #ifndef WRITE_ONCE
-# define WRITE_ONCE(X, V)       				\
+# define WRITE_ONCE(X, V)					\
 				({ typeof(X) __val = (V);	\
 				   __WRITE_ONCE(X, __val);	\
 				   bpf_barrier();		\

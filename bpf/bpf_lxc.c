@@ -137,9 +137,8 @@ skip_service_lookup:
 	 * incoming connection. */
 	ret = ct_lookup6(get_ct_map6(tuple), tuple, ctx, l4_off, CT_EGRESS,
 			 &ct_state, &monitor);
-	if (ret < 0) {
+	if (ret < 0)
 		return ret;
-	}
 
 	reason = ret;
 
@@ -200,9 +199,8 @@ ct_recreate6:
 
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
-		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index)) {
+		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index))
 			goto ct_recreate6;
-		}
 		break;
 
 	case CT_RELATED:
@@ -393,9 +391,8 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx, __u32 *dstID)
 	 * All remaining packets are subjected to forwarding into the container.
 	 */
 	if (unlikely(ip6->nexthdr == IPPROTO_ICMPV6)) {
-		if (data + sizeof(*ip6) + ETH_HLEN + sizeof(struct icmp6hdr) > data_end) {
+		if (data + sizeof(*ip6) + ETH_HLEN + sizeof(struct icmp6hdr) > data_end)
 			return DROP_INVALID;
-		}
 
 		ret = icmp6_handle(ctx, ETH_HLEN, ip6, METRIC_EGRESS);
 		if (IS_ERR(ret))
@@ -566,9 +563,8 @@ ct_recreate4:
 
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
-		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index)) {
+		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index))
 			goto ct_recreate4;
-		}
 		break;
 
 	case CT_RELATED:
@@ -947,10 +943,10 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
 				  0, ifindex, *reason, monitor);
 		return POLICY_ACT_PROXY_REDIRECT;
-	} else { // Not redirected to host / proxy.
-		send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL, &orig_sip,
-				  LXC_ID, ifindex, *reason, monitor);
 	}
+	// Not redirected to host / proxy.
+	send_trace_notify6(ctx, TRACE_TO_LXC, src_label, SECLABEL, &orig_sip,
+			   LXC_ID, ifindex, *reason, monitor);
 
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
@@ -1006,6 +1002,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 		info = lookup_ip6_remote_endpoint(src);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
+
 			if (sec_label) {
 				/* When SNAT is enabled on traffic ingressing
 				 * into Cilium, all traffic from the world will
@@ -1168,10 +1165,10 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		send_trace_notify4(ctx, TRACE_TO_PROXY, src_label, SECLABEL, orig_sip,
 				  0, ifindex, *reason, monitor);
 		return POLICY_ACT_PROXY_REDIRECT;
-	} else { // Not redirected to host / proxy.
-		send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL, orig_sip,
-				  LXC_ID, ifindex, *reason, monitor);
 	}
+	// Not redirected to host / proxy.
+	send_trace_notify4(ctx, TRACE_TO_LXC, src_label, SECLABEL, orig_sip,
+			   LXC_ID, ifindex, *reason, monitor);
 
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
@@ -1226,6 +1223,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 		info = lookup_ip4_remote_endpoint(ip4->saddr);
 		if (info != NULL) {
 			__u32 sec_label = info->sec_label;
+
 			if (sec_label) {
 				/* When SNAT is enabled on traffic ingressing
 				 * into Cilium, all traffic from the world will
@@ -1310,7 +1308,9 @@ out:
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT64)
 int tail_ipv6_to_ipv4(struct __ctx_buff *ctx)
 {
-	int ret = ipv6_to_ipv4(ctx, 14, LXC_IPV4);
+	int ret;
+
+	ret = ipv6_to_ipv4(ctx, 14, LXC_IPV4);
 	if (IS_ERR(ret))
 		goto drop_err;
 
@@ -1342,7 +1342,9 @@ static __always_inline int handle_ipv4_to_ipv6(struct __ctx_buff *ctx)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_NAT46)
 int tail_ipv4_to_ipv6(struct __ctx_buff *ctx)
 {
-	int ret = handle_ipv4_to_ipv6(ctx);
+	int ret;
+
+	ret = handle_ipv4_to_ipv6(ctx);
 	if (IS_ERR(ret))
 		goto drop_err;
 

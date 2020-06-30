@@ -75,7 +75,7 @@ static __always_inline void __bpf_memzero(void *d, __u64 len)
 	case 22: __it_set(d, 16); __it_set(d, 32); goto jmp_16;
 	case 14: __it_set(d, 16); __it_set(d, 32); goto jmp_8;
 	case  6: __it_set(d, 16); __it_set(d, 32);
-		 break;
+		break;
 
 	case 92: __it_set(d, 32); goto jmp_88;
 	case 84: __it_set(d, 32); goto jmp_80;
@@ -89,7 +89,7 @@ static __always_inline void __bpf_memzero(void *d, __u64 len)
 	case 20: __it_set(d, 32); goto jmp_16;
 	case 12: __it_set(d, 32); goto jmp_8;
 	case  4: __it_set(d, 32);
-		 break;
+		break;
 
 	case 90: __it_set(d, 16); goto jmp_88;
 	case 82: __it_set(d, 16); goto jmp_80;
@@ -103,7 +103,7 @@ static __always_inline void __bpf_memzero(void *d, __u64 len)
 	case 18: __it_set(d, 16); goto jmp_16;
 	case 10: __it_set(d, 16); goto jmp_8;
 	case  2: __it_set(d, 16);
-		 break;
+		break;
 
 	case  1: __it_set(d, 8);
 		break;
@@ -183,7 +183,7 @@ static __always_inline void __bpf_memcpy(void *d, const void *s, __u64 len)
 	case 22: __it_mob(d, s, 16); __it_mob(d, s, 32); goto jmp_16;
 	case 14: __it_mob(d, s, 16); __it_mob(d, s, 32); goto jmp_8;
 	case  6: __it_mob(d, s, 16); __it_mob(d, s, 32);
-		 break;
+		break;
 
 	case 92: __it_mob(d, s, 32); goto jmp_88;
 	case 84: __it_mob(d, s, 32); goto jmp_80;
@@ -197,7 +197,7 @@ static __always_inline void __bpf_memcpy(void *d, const void *s, __u64 len)
 	case 20: __it_mob(d, s, 32); goto jmp_16;
 	case 12: __it_mob(d, s, 32); goto jmp_8;
 	case  4: __it_mob(d, s, 32);
-		 break;
+		break;
 
 	case 90: __it_mob(d, s, 16); goto jmp_88;
 	case 82: __it_mob(d, s, 16); goto jmp_80;
@@ -211,7 +211,7 @@ static __always_inline void __bpf_memcpy(void *d, const void *s, __u64 len)
 	case 18: __it_mob(d, s, 16); goto jmp_16;
 	case 10: __it_mob(d, s, 16); goto jmp_8;
 	case  2: __it_mob(d, s, 16);
-		 break;
+		break;
 
 	case  1: __it_mob(d, s, 8);
 		break;
@@ -283,19 +283,19 @@ static __always_inline __u64 __bpf_memcmp(const void *x, const void *y,
 	case 22: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32); goto jmp_16;
 	case 14: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32); goto jmp_8;
 	case  6: __it_xor(x, y, r, 16); __it_xor(x, y, r, 32);
-		 break;
+		break;
 
 	case 28: __it_xor(x, y, r, 32); goto jmp_24;
 	case 20: __it_xor(x, y, r, 32); goto jmp_16;
 	case 12: __it_xor(x, y, r, 32); goto jmp_8;
 	case  4: __it_xor(x, y, r, 32);
-		 break;
+		break;
 
 	case 26: __it_xor(x, y, r, 16); goto jmp_24;
 	case 18: __it_xor(x, y, r, 16); goto jmp_16;
 	case 10: __it_xor(x, y, r, 16); goto jmp_8;
 	case  2: __it_xor(x, y, r, 16);
-		 break;
+		break;
 
 	case  1: __it_xor(x, y, r, 8);
 		break;
@@ -377,7 +377,7 @@ static __always_inline void __bpf_memmove_fwd(void *d, const void *s, __u64 len)
 	case 22: __it_mof(d, s, 16); __it_mof(d, s, 32); goto jmp_16;
 	case 14: __it_mof(d, s, 16); __it_mof(d, s, 32); goto jmp_8;
 	case  6: __it_mof(d, s, 16); __it_mof(d, s, 32);
-		 break;
+		break;
 
 	case 92: __it_mof(d, s, 32); goto jmp_88;
 	case 84: __it_mof(d, s, 32); goto jmp_80;
@@ -391,7 +391,7 @@ static __always_inline void __bpf_memmove_fwd(void *d, const void *s, __u64 len)
 	case 20: __it_mof(d, s, 32); goto jmp_16;
 	case 12: __it_mof(d, s, 32); goto jmp_8;
 	case  4: __it_mof(d, s, 32);
-		 break;
+		break;
 
 	case 90: __it_mof(d, s, 16); goto jmp_88;
 	case 82: __it_mof(d, s, 16); goto jmp_80;
@@ -405,7 +405,7 @@ static __always_inline void __bpf_memmove_fwd(void *d, const void *s, __u64 len)
 	case 18: __it_mof(d, s, 16); goto jmp_16;
 	case 10: __it_mof(d, s, 16); goto jmp_8;
 	case  2: __it_mof(d, s, 16);
-		 break;
+		break;
 
 	case  1: __it_mof(d, s, 8);
 		break;

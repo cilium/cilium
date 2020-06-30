@@ -50,8 +50,8 @@ static __always_inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 
 	if (ctx_load_bytes(ctx, nh_off, &icmp4, sizeof(icmp4)) < 0)
 		return DROP_INVALID;
-	else
-		icmp6.icmp6_cksum = icmp4.checksum;
+
+	icmp6.icmp6_cksum = icmp4.checksum;
 
 	switch (icmp4.type) {
 	case ICMP_ECHO:
@@ -134,8 +134,8 @@ static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 
 	if (ctx_load_bytes(ctx, nh_off, &icmp6, sizeof(icmp6)) < 0)
 		return DROP_INVALID;
-	else
-		icmp4.checksum = icmp6.icmp6_cksum;
+
+	icmp4.checksum = icmp6.icmp6_cksum;
 
 	switch (icmp6.icmp6_type) {
 	case ICMPV6_ECHO_REQUEST:
@@ -300,8 +300,7 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip
 	csum_off = get_csum_offset(v6.nexthdr);
 	if (csum_off < 0)
 		return csum_off;
-	else
-		csum_off += sizeof(struct ipv6hdr);
+	csum_off += sizeof(struct ipv6hdr);
 
 	if (l4_csum_replace(ctx, nh_off + csum_off, 0, csum, csum_flags) < 0)
 		return DROP_CSUM_L4;
@@ -365,6 +364,7 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx, int nh_off,
 
 	if (v6.nexthdr == IPPROTO_ICMPV6) {
 		__be32 csum1 = 0;
+
 		csum = icmp6_to_icmp4(ctx, nh_off + sizeof(v4));
 		csum1 = ipv6_pseudohdr_checksum(&v6, IPPROTO_ICMPV6,
 						bpf_ntohs(v6.payload_len), 0);
@@ -384,8 +384,7 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx, int nh_off,
 	csum_off = get_csum_offset(v4.protocol);
 	if (csum_off < 0)
 		return csum_off;
-	else
-		csum_off += sizeof(struct iphdr);
+	csum_off += sizeof(struct iphdr);
 
 	if (l4_csum_replace(ctx, nh_off + csum_off, 0, csum, csum_flags) < 0)
 		return DROP_CSUM_L4;
