@@ -53,7 +53,7 @@ static __always_inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 	else
 		icmp6.icmp6_cksum = icmp4.checksum;
 
-	switch(icmp4.type) {
+	switch (icmp4.type) {
 	case ICMP_ECHO:
 		icmp6.icmp6_type = ICMPV6_ECHO_REQUEST;
 		icmp6.icmp6_identifier = icmp4.un.echo.id;
@@ -66,7 +66,7 @@ static __always_inline int icmp4_to_icmp6(struct __ctx_buff *ctx, int nh_off)
 		break;
 	case ICMP_DEST_UNREACH:
 		icmp6.icmp6_type = ICMPV6_DEST_UNREACH;
-		switch(icmp4.code) {
+		switch (icmp4.code) {
 		case ICMP_NET_UNREACH:
 		case ICMP_HOST_UNREACH:
 			icmp6.icmp6_code = ICMPV6_NOROUTE;
@@ -137,7 +137,7 @@ static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 	else
 		icmp4.checksum = icmp6.icmp6_cksum;
 
-	switch(icmp6.icmp6_type) {
+	switch (icmp6.icmp6_type) {
 	case ICMPV6_ECHO_REQUEST:
 		icmp4.type = ICMP_ECHO;
 		icmp4.un.echo.id = icmp6.icmp6_identifier;
@@ -150,7 +150,7 @@ static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 		break;
 	case ICMPV6_DEST_UNREACH:
 		icmp4.type = ICMP_DEST_UNREACH;
-		switch(icmp6.icmp6_code) {
+		switch (icmp6.icmp6_code) {
 		case ICMPV6_NOROUTE:
 		case ICMPV6_NOT_NEIGHBOUR:
 		case ICMPV6_ADDR_UNREACH:
@@ -180,7 +180,7 @@ static __always_inline int icmp6_to_icmp4(struct __ctx_buff *ctx, int nh_off)
 		icmp4.code = icmp6.icmp6_code;
 		break;
 	case ICMPV6_PARAMPROB:
-		switch(icmp6.icmp6_code) {
+		switch (icmp6.icmp6_code) {
 		case ICMPV6_HDR_FIELD:
 			icmp4.type = ICMP_PARAMETERPROB;
 			icmp4.code = 0;
@@ -234,7 +234,7 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip
 	__be16 protocol = bpf_htons(ETH_P_IPV6);
 	__u64 csum_flags = BPF_F_PSEUDO_HDR;
 	union v6addr nat46_prefix = NAT46_PREFIX;
-	
+
 	if (ctx_load_bytes(ctx, nh_off, &v4, sizeof(v4)) < 0)
 		return DROP_INVALID;
 
@@ -292,7 +292,7 @@ static __always_inline int ipv4_to_ipv6(struct __ctx_buff *ctx, struct iphdr *ip
 			csum_flags |= BPF_F_MARK_MANGLED_0;
 	}
 
-	/* 
+	/*
 	 * get checksum from inner header tcp / udp / icmp
 	 * undo ipv4 pseudohdr checksum and
 	 * add  ipv6 pseudohdr checksum
@@ -376,7 +376,7 @@ static __always_inline int ipv6_to_ipv4(struct __ctx_buff *ctx, int nh_off,
 		if (v4.protocol == IPPROTO_UDP)
 			csum_flags |= BPF_F_MARK_MANGLED_0;
 	}
-	/* 
+	/*
 	 * get checksum from inner header tcp / udp / icmp
 	 * undo ipv6 pseudohdr checksum and
 	 * add  ipv4 pseudohdr checksum

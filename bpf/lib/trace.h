@@ -68,32 +68,36 @@ update_trace_metrics(struct __ctx_buff *ctx, __u8 obs_point, __u8 reason)
 	__u8 encrypted;
 
 	switch (obs_point) {
-		case TRACE_TO_LXC:
-			update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_FORWARDED);
-			break;
+	case TRACE_TO_LXC:
+		update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+			       REASON_FORWARDED);
+		break;
 
-		/* TRACE_FROM_LXC, i.e endpoint-to-endpoint delivery
-		 * is handled separately in ipv*_local_delivery() where we can bump
-		 * an egress forward. It could still be dropped but it would show
-		 * up later as an ingress drop, in that scenario.
-		 *
-		 * TRACE_TO_PROXY is not handled in datapath. This is because we have separate
-		 * L7 proxy "forwarded" and "dropped" (ingress/egress) counters in the proxy layer
-		 * to capture these metrics.
-		 */
-		case TRACE_TO_HOST:
-		case TRACE_TO_STACK:
-		case TRACE_TO_OVERLAY:
-			update_metrics(ctx_full_len(ctx), METRIC_EGRESS, REASON_FORWARDED);
-			break;
-		case TRACE_FROM_OVERLAY:
-		case TRACE_FROM_NETWORK:
-			encrypted = reason & TRACE_REASON_ENCRYPTED;
-			if (!encrypted)
-				update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_PLAINTEXT);
-			else
-				update_metrics(ctx_full_len(ctx), METRIC_INGRESS, REASON_DECRYPT);
-			break;
+	/* TRACE_FROM_LXC, i.e endpoint-to-endpoint delivery is handled
+	 * separately in ipv*_local_delivery() where we can bump an egress
+	 * forward. It could still be dropped but it would show up later as an
+	 * ingress drop, in that scenario.
+	 *
+	 * TRACE_TO_PROXY is not handled in datapath. This is because we have
+	 * separate L7 proxy "forwarded" and "dropped" (ingress/egress)
+	 * counters in the proxy layer to capture these metrics.
+	 */
+	case TRACE_TO_HOST:
+	case TRACE_TO_STACK:
+	case TRACE_TO_OVERLAY:
+		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
+			       REASON_FORWARDED);
+		break;
+	case TRACE_FROM_OVERLAY:
+	case TRACE_FROM_NETWORK:
+		encrypted = reason & TRACE_REASON_ENCRYPTED;
+		if (!encrypted)
+			update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+				       REASON_PLAINTEXT);
+		else
+			update_metrics(ctx_full_len(ctx), METRIC_INGRESS,
+				       REASON_DECRYPT);
+		break;
 	}
 }
 

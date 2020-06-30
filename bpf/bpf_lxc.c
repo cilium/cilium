@@ -106,7 +106,8 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 		 * the CT entry for destination endpoints where we can't encode the
 		 * state in the address.
 		 */
-		if ((svc = lb6_lookup_service(&key)) != NULL) {
+		svc = lb6_lookup_service(&key);
+		if (svc) {
 			ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, tuple, svc, &ct_state_new);
 			if (IS_ERR(ret))
@@ -263,7 +264,8 @@ ct_recreate6:
 		 *  - The destination IP address is an IP address associated with the
 		 *    host itself.
 		 */
-		if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
+		ep = lookup_ip6_endpoint(ip6);
+		if (ep) {
 #ifdef ENABLE_ROUTING
 			if (ep->flags & ENDPOINT_F_HOST) {
 #ifdef HOST_IFINDEX
@@ -413,8 +415,8 @@ int tail_handle_ipv6(struct __ctx_buff *ctx)
 	int ret = handle_ipv6(ctx, &dstID);
 
 	if (IS_ERR(ret)) {
-		return send_drop_notify(ctx, SECLABEL, dstID, 0, ret, CTX_ACT_DROP,
-		                        METRIC_EGRESS);
+		return send_drop_notify(ctx, SECLABEL, dstID, 0, ret,
+					CTX_ACT_DROP, METRIC_EGRESS);
 	}
 
 	return ret;
@@ -471,7 +473,8 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 				return ret;
 		}
 
-		if ((svc = lb4_lookup_service(&key)) != NULL) {
+		svc = lb4_lookup_service(&key);
+		if (svc) {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
 					ip4->saddr);
@@ -632,7 +635,8 @@ ct_recreate4:
 		 *    host itself
 		 *  - The destination IP address belongs to endpoint itself.
 		 */
-		if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
+		ep = lookup_ip4_endpoint(ip4);
+		if (ep) {
 #ifdef ENABLE_ROUTING
 			if (ep->flags & ENDPOINT_F_HOST) {
 #ifdef HOST_IFINDEX
@@ -734,8 +738,8 @@ int tail_handle_ipv4(struct __ctx_buff *ctx)
 	int ret = handle_ipv4_from_lxc(ctx, &dstID);
 
 	if (IS_ERR(ret))
-		return send_drop_notify(ctx, SECLABEL, dstID, 0, ret, CTX_ACT_DROP,
-		                        METRIC_EGRESS);
+		return send_drop_notify(ctx, SECLABEL, dstID, 0, ret,
+					CTX_ACT_DROP, METRIC_EGRESS);
 
 	return ret;
 }

@@ -27,16 +27,18 @@ static void *__map_lookup_elem(const void *map, const void *tuple)
 #define REPORT_NO_FLAGS 0x0
 
 // Advance global (fake) time by one unit.
-void advance_time() {
+void advance_time(void)
+{
 	__now = __now + 1;
 }
 
 // Return true IFF 'entry' will expire in 'seconds'.
-bool timeout_in(const struct ct_entry *entry, int seconds) {
-        return entry->lifetime == __now + seconds;
+bool timeout_in(const struct ct_entry *entry, int seconds)
+{
+	return entry->lifetime == __now + seconds;
 }
 
-static void test___ct_update_timeout()
+static void test___ct_update_timeout(void)
 {
 	struct ct_entry entry = {};
 	union tcp_flags flags = {};
@@ -82,7 +84,7 @@ static void test___ct_update_timeout()
 	assert(entry.tx_flags_seen == 0);
 }
 
-static void test___ct_lookup()
+static void test___ct_lookup(void)
 {
 	void *map = __ipv4_map;
 	struct ct_entry *entry = &__ipv4_map[0];
@@ -112,7 +114,7 @@ static void test___ct_lookup()
 	assert(monitor == 0);
 	assert(timeout_in(entry, CT_SYN_TIMEOUT));
 
-        /* Subsequent non-SYN packets result in a default TCP lifetime */
+	/* Subsequent non-SYN packets result in a default TCP lifetime */
 	advance_time();
 	seen_flags.value &= ~TCP_FLAG_SYN;
 	res = __ct_lookup(map, &ctx, tuple, ACTION_CREATE, CT_INGRESS,
@@ -148,7 +150,7 @@ static void test___ct_lookup()
 			  &ct_state, true, seen_flags, &monitor);
 	assert(res == CT_ESTABLISHED);
 	assert(monitor == TRACE_PAYLOAD_LEN);
-        assert(timeout_in(entry, CT_CLOSE_TIMEOUT));
+	assert(timeout_in(entry, CT_CLOSE_TIMEOUT));
 
 	/* This doesn't automatically trigger monitor for subsequent packets */
 	advance_time();

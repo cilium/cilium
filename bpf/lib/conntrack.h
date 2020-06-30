@@ -175,12 +175,13 @@ static __always_inline bool ct_entry_alive(const struct ct_entry *entry)
 
 /* Helper for holding 2nd service entry alive in nodeport case. */
 static __always_inline bool __ct_entry_keep_alive(const void *map,
-		                                  const void *tuple)
+						  const void *tuple)
 {
 	struct ct_entry *entry;
 
 	/* Lookup indicates to LRU that key/value is in use. */
-	if ((entry = map_lookup_elem(map, tuple))) {
+	entry = map_lookup_elem(map, tuple);
+	if (entry) {
 		if (entry->node_port) {
 #ifdef NEEDS_TIMEOUT
 			__u32 lifetime = (entry->seen_non_syn ?
@@ -206,7 +207,8 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 	struct ct_entry *entry;
 	int reopen;
 
-	if ((entry = map_lookup_elem(map, tuple))) {
+	entry = map_lookup_elem(map, tuple);
+	if (entry) {
 		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
 		if (ct_entry_alive(entry)) {
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);

@@ -745,7 +745,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		lb6_update_affinity_by_netns(svc, &id, backend_id);
 
 	if (sock6_update_revnat(ctx, backend, &orig_key,
-			        svc->rev_nat_index) < 0) {
+				svc->rev_nat_index) < 0) {
 		update_metrics(0, METRIC_EGRESS, REASON_LB_REVNAT_UPDATE);
 		return -ENOMEM;
 	}

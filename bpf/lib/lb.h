@@ -611,7 +611,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 
 	/* See lb4_local comments re svc endpoint lookup process */
 	ret = ct_lookup6(map, tuple, ctx, l4_off, CT_SERVICE, state, &monitor);
-	switch(ret) {
+	switch (ret) {
 	case CT_NEW:
 #ifdef ENABLE_SESSION_AFFINITY
 		if (svc->affinity) {
@@ -625,7 +625,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		if (backend_id == 0) {
 			slave = lb6_select_slave(svc->count);
-			if ((slave_svc = lb6_lookup_slave(ctx, key, slave)) == NULL)
+			slave_svc = lb6_lookup_slave(ctx, key, slave);
+			if (!slave_svc)
 				goto drop_no_service;
 
 			backend_id = slave_svc->backend_id;
@@ -668,7 +669,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		if (backend_id == 0) {
 			slave = lb6_select_slave(svc->count);
-			if (!(slave_svc = lb6_lookup_slave(ctx, key, slave)))
+			slave_svc = lb6_lookup_slave(ctx, key, slave);
+			if (!slave_svc)
 				goto drop_no_service;
 			backend_id = slave_svc->backend_id;
 		}
@@ -682,13 +684,16 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
 	 * session we are likely to get a TCP RST.
 	 */
-	if (!(backend = lb6_lookup_backend(ctx, state->backend_id))) {
+	backend = lb6_lookup_backend(ctx, state->backend_id);
+	if (!backend) {
 		key->slave = 0;
-		if (!(svc = lb6_lookup_service(key))) {
+		svc = lb6_lookup_service(key);
+		if (!svc) {
 			goto drop_no_service;
 		}
 		slave = lb6_select_slave(svc->count);
-		if (!(slave_svc = lb6_lookup_slave(ctx, key, slave))) {
+		slave_svc = lb6_lookup_slave(ctx, key, slave);
+		if (!slave_svc) {
 			goto drop_no_service;
 		}
 		backend = lb6_lookup_backend(ctx, slave_svc->backend_id);
@@ -796,7 +801,8 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 		tuple->saddr = old_sip;
 	}
 
-        ret = ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, saddr), &new_sip, 4, 0);
+	ret = ctx_store_bytes(ctx, l3_off + offsetof(struct iphdr, saddr),
+			      &new_sip, 4, 0);
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
@@ -1108,7 +1114,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	};
 #endif
 	ret = ct_lookup4(map, tuple, ctx, l4_off, CT_SERVICE, state, &monitor);
-	switch(ret) {
+	switch (ret) {
 	case CT_NEW:
 #ifdef ENABLE_SESSION_AFFINITY
 		if (svc->affinity) {
@@ -1123,7 +1129,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		if (backend_id == 0) {
 			/* No CT entry has been found, so select a svc endpoint */
 			slave = lb4_select_slave(svc->count);
-			if ((slave_svc = lb4_lookup_slave(ctx, key, slave)) == NULL)
+			slave_svc = lb4_lookup_slave(ctx, key, slave);
+			if (!slave_svc)
 				goto drop_no_service;
 
 			backend_id = slave_svc->backend_id;
@@ -1174,7 +1181,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		if (backend_id == 0) {
 			slave = lb4_select_slave(svc->count);
-			if (!(slave_svc = lb4_lookup_slave(ctx, key, slave)))
+			slave_svc = lb4_lookup_slave(ctx, key, slave);
+			if (!slave_svc)
 				goto drop_no_service;
 
 			backend_id = slave_svc->backend_id;
@@ -1189,13 +1197,16 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	 * underneath us. To resolve this fall back to hash. If this is a TCP
 	 * session we are likely to get a TCP RST.
 	 */
-	if (!(backend = lb4_lookup_backend(ctx, state->backend_id))) {
+	backend = lb4_lookup_backend(ctx, state->backend_id);
+	if (!backend) {
 		key->slave = 0;
-		if (!(svc = lb4_lookup_service(key))) {
+		svc = lb4_lookup_service(key);
+		if (!svc) {
 			goto drop_no_service;
 		}
 		slave = lb4_select_slave(svc->count);
-		if (!(slave_svc = lb4_lookup_slave(ctx, key, slave))) {
+		slave_svc = lb4_lookup_slave(ctx, key, slave);
+		if (!slave_svc) {
 			goto drop_no_service;
 		}
 		backend = lb4_lookup_backend(ctx, slave_svc->backend_id);

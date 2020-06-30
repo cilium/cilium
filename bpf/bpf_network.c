@@ -46,7 +46,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx)
 		 */
 		ctx_change_type(ctx, PACKET_HOST);
 		return CTX_ACT_OK;
-	} else{
+	} else {
 		ctx->mark = 0;
 		return redirect(CILIUM_IFINDEX, 0);
 	}
