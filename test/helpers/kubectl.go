@@ -1069,6 +1069,16 @@ func (kub *Kubectl) MonitorStart(namespace, pod string) (res *CmdRes, cancel fun
 	return kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true}), cancel
 }
 
+// MonitorEndpointStart runs cilium monitor only on a specified endpoint. This
+// function is the same as MonitorStart.
+func (kub *Kubectl) MonitorEndpointStart(namespace, pod string, epID int64) (res *CmdRes, cancel func()) {
+	cmd := fmt.Sprintf("%s exec -n %s %s -- cilium monitor -vv --related-to %d",
+		KubectlCmd, namespace, pod, epID)
+	ctx, cancel := context.WithCancel(context.Background())
+
+	return kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true}), cancel
+}
+
 // BackgroundReport dumps the result of the given commands on cilium pods each
 // five seconds.
 func (kub *Kubectl) BackgroundReport(commands ...string) (context.CancelFunc, error) {
