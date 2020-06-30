@@ -51,7 +51,7 @@ func startXDSGRPCServer(listener net.Listener, ldsConfig, npdsConfig, nphdsConfi
 
 	// TODO: https://github.com/cilium/cilium/issues/5051
 	// Implement IncrementalAggregatedResources to support Incremental xDS.
-	//envoy_service_discovery_v2.RegisterAggregatedDiscoveryServiceServer(grpcServer, dsServer)
+	//envoy_service_discovery_v3.RegisterAggregatedDiscoveryServiceServer(grpcServer, dsServer)
 	envoy_service_listener.RegisterListenerDiscoveryServiceServer(grpcServer, dsServer)
 	cilium.RegisterNetworkPolicyDiscoveryServiceServer(grpcServer, dsServer)
 	cilium.RegisterNetworkPolicyHostsDiscoveryServiceServer(grpcServer, dsServer)
@@ -74,7 +74,7 @@ type xdsGRPCServer xds.Server
 
 // TODO: https://github.com/cilium/cilium/issues/5051
 // Implement IncrementalAggregatedResources also to support Incremental xDS.
-//func (s *xdsGRPCServer) StreamAggregatedResources(stream envoy_service_discovery_v2.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
+//func (s *xdsGRPCServer) StreamAggregatedResources(stream envoy_service_discovery_v3.AggregatedDiscoveryService_StreamAggregatedResourcesServer) error {
 //	return (*xds.Server)(s).HandleRequestStream(stream.Context(), stream, xds.AnyTypeURL)
 //}
 

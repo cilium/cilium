@@ -19,7 +19,7 @@ import (
 	"reflect"
 
 	"github.com/cilium/proxy/go/cilium/api"
-	core "github.com/cilium/proxy/go/envoy/api/v2/core"
+	core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	log "github.com/sirupsen/logrus"
 )
 

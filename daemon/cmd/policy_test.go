@@ -45,9 +45,9 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
-	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
-	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher"
+	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
+	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 	. "gopkg.in/check.v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	k8sTypes "k8s.io/apimachinery/pkg/types"
@@ -119,10 +119,10 @@ var (
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
 				{
-					Headers: []*envoy_api_v2_route.HeaderMatcher{
+					Headers: []*envoy_config_route.HeaderMatcher{
 						{
 							Name: ":method",
-							HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
 								SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
 									EngineType: googleRe2,
 									Regex:      "GET",
@@ -130,7 +130,7 @@ var (
 						},
 						{
 							Name: ":path",
-							HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
 								SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
 									EngineType: googleRe2,
 									Regex:      "/bar",
@@ -146,10 +146,10 @@ var (
 		HttpRules: &cilium.HttpNetworkPolicyRules{
 			HttpRules: []*cilium.HttpNetworkPolicyRule{
 				{
-					Headers: []*envoy_api_v2_route.HeaderMatcher{
+					Headers: []*envoy_config_route.HeaderMatcher{
 						{
 							Name: ":method",
-							HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+							HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
 								SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
 									EngineType: googleRe2,
 									Regex:      "GET",
@@ -341,7 +341,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     0,
-				Protocol: envoy_api_v2_core.SocketAddress_TCP,
+				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: expectedRemotePolicies,
@@ -350,7 +350,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			},
 			{
 				Port:     80,
-				Protocol: envoy_api_v2_core.SocketAddress_TCP,
+				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: expectedRemotePolicies,
@@ -360,8 +360,8 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			},
 		},
 		EgressPerPortPolicies: []*cilium.PortNetworkPolicy{ // Allow-all policy.
-			{Protocol: envoy_api_v2_core.SocketAddress_TCP},
-			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
+			{Protocol: envoy_config_core.SocketAddress_TCP},
+			{Protocol: envoy_config_core.SocketAddress_UDP},
 		},
 	}
 	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
@@ -392,7 +392,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     0,
-				Protocol: envoy_api_v2_core.SocketAddress_TCP,
+				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: expectedRemotePolicies,
@@ -401,7 +401,7 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			},
 			{
 				Port:     80,
-				Protocol: envoy_api_v2_core.SocketAddress_TCP,
+				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: expectedRemotePolicies,
@@ -411,8 +411,8 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			},
 		},
 		EgressPerPortPolicies: []*cilium.PortNetworkPolicy{ // Allow-all policy.
-			{Protocol: envoy_api_v2_core.SocketAddress_TCP},
-			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
+			{Protocol: envoy_config_core.SocketAddress_TCP},
+			{Protocol: envoy_config_core.SocketAddress_UDP},
 		},
 	}
 	c.Assert(prodBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
@@ -480,7 +480,7 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     80,
-				Protocol: envoy_api_v2_core.SocketAddress_TCP,
+				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{},
 					{
@@ -491,8 +491,8 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 			},
 		},
 		EgressPerPortPolicies: []*cilium.PortNetworkPolicy{ // Allow-all policy.
-			{Protocol: envoy_api_v2_core.SocketAddress_TCP},
-			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
+			{Protocol: envoy_config_core.SocketAddress_TCP},
+			{Protocol: envoy_config_core.SocketAddress_UDP},
 		},
 	}
 	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
@@ -563,13 +563,13 @@ func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     80,
-				Protocol: envoy_api_v2_core.SocketAddress_TCP,
+				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules:    nil,
 			},
 		},
 		EgressPerPortPolicies: []*cilium.PortNetworkPolicy{ // Allow-all policy.
-			{Protocol: envoy_api_v2_core.SocketAddress_TCP},
-			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
+			{Protocol: envoy_config_core.SocketAddress_TCP},
+			{Protocol: envoy_config_core.SocketAddress_UDP},
 		},
 	}
 	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
@@ -648,7 +648,7 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     0,
-				Protocol: envoy_api_v2_core.SocketAddress_TCP,
+				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: []uint64{uint64(qaJoeSecLblsCtx.ID)},
@@ -657,7 +657,7 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 			},
 			{
 				Port:     80,
-				Protocol: envoy_api_v2_core.SocketAddress_TCP,
+				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: []uint64{uint64(qaFooSecLblsCtx.ID)},
@@ -667,8 +667,8 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 			},
 		},
 		EgressPerPortPolicies: []*cilium.PortNetworkPolicy{ // Allow-all policy.
-			{Protocol: envoy_api_v2_core.SocketAddress_TCP},
-			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
+			{Protocol: envoy_config_core.SocketAddress_TCP},
+			{Protocol: envoy_config_core.SocketAddress_UDP},
 		},
 	}
 	c.Assert(qaBarNetworkPolicy, checker.Equals, expectedNetworkPolicy)
@@ -923,7 +923,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 		IngressPerPortPolicies: []*cilium.PortNetworkPolicy{
 			{
 				Port:     0,
-				Protocol: envoy_api_v2_core.SocketAddress_TCP,
+				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: []uint64{uint64(qaFooID.ID)},
@@ -932,7 +932,7 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 			},
 			{
 				Port:     80,
-				Protocol: envoy_api_v2_core.SocketAddress_TCP,
+				Protocol: envoy_config_core.SocketAddress_TCP,
 				Rules: []*cilium.PortNetworkPolicyRule{
 					{
 						RemotePolicies: []uint64{uint64(qaFooID.ID)},
@@ -942,8 +942,8 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 			},
 		},
 		EgressPerPortPolicies: []*cilium.PortNetworkPolicy{ // Allow-all policy.
-			{Protocol: envoy_api_v2_core.SocketAddress_TCP},
-			{Protocol: envoy_api_v2_core.SocketAddress_UDP},
+			{Protocol: envoy_config_core.SocketAddress_TCP},
+			{Protocol: envoy_config_core.SocketAddress_UDP},
 		},
 	})
 

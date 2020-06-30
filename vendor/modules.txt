@@ -103,12 +103,10 @@ github.com/cilium/ebpf/perf
 github.com/cilium/ipam/cidrset
 github.com/cilium/ipam/service/allocator
 github.com/cilium/ipam/service/ipallocator
-# github.com/cilium/proxy v0.0.0-20200708010855-f369ac1fddff
+# github.com/cilium/proxy v0.0.0-20200708010855-3ed3778af94e
 ## explicit
 github.com/cilium/proxy/go/cilium/api
 github.com/cilium/proxy/go/envoy/annotations
-github.com/cilium/proxy/go/envoy/api/v2/core
-github.com/cilium/proxy/go/envoy/api/v2/route
 github.com/cilium/proxy/go/envoy/config/accesslog/v3
 github.com/cilium/proxy/go/envoy/config/bootstrap/v3
 github.com/cilium/proxy/go/envoy/config/cluster/v3
@@ -124,12 +122,8 @@ github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3
 github.com/cilium/proxy/go/envoy/service/discovery/v3
 github.com/cilium/proxy/go/envoy/service/listener/v3
-github.com/cilium/proxy/go/envoy/type
-github.com/cilium/proxy/go/envoy/type/matcher
 github.com/cilium/proxy/go/envoy/type/matcher/v3
-github.com/cilium/proxy/go/envoy/type/metadata/v2
 github.com/cilium/proxy/go/envoy/type/metadata/v3
-github.com/cilium/proxy/go/envoy/type/tracing/v2
 github.com/cilium/proxy/go/envoy/type/tracing/v3
 github.com/cilium/proxy/go/envoy/type/v3
 # github.com/cncf/udpa/go v0.0.0-20191230090109-edbea6a78f6d

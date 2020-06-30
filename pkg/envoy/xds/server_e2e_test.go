@@ -143,7 +143,7 @@ var resources = []*envoy_config_route.RouteConfiguration{
 }
 
 func (s *ServerSuite) TestRequestAllResources(c *C) {
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 
 	var err error
 	var req *envoy_service_disacovery.DiscoveryRequest
@@ -270,7 +270,7 @@ func (s *ServerSuite) TestRequestAllResources(c *C) {
 }
 
 func (s *ServerSuite) TestAck(c *C) {
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 
 	var err error
 	var req *envoy_service_disacovery.DiscoveryRequest
@@ -395,7 +395,7 @@ func (s *ServerSuite) TestAck(c *C) {
 }
 
 func (s *ServerSuite) TestRequestSomeResources(c *C) {
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 
 	var err error
 	var req *envoy_service_disacovery.DiscoveryRequest
@@ -569,7 +569,7 @@ func (s *ServerSuite) TestRequestSomeResources(c *C) {
 }
 
 func (s *ServerSuite) TestUpdateRequestResources(c *C) {
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 
 	var err error
 	var req *envoy_service_disacovery.DiscoveryRequest
@@ -672,7 +672,7 @@ func (s *ServerSuite) TestUpdateRequestResources(c *C) {
 }
 
 func (s *ServerSuite) TestRequestStaleNonce(c *C) {
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 
 	var err error
 	var req *envoy_service_disacovery.DiscoveryRequest
@@ -813,7 +813,7 @@ func (s *ServerSuite) TestRequestStaleNonce(c *C) {
 }
 
 func (s *ServerSuite) TestNAck(c *C) {
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 
 	var err error
 	var req *envoy_service_disacovery.DiscoveryRequest
@@ -948,7 +948,7 @@ func (s *ServerSuite) TestNAck(c *C) {
 }
 
 func (s *ServerSuite) TestNAckFromTheStart(c *C) {
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 
 	var err error
 	var req *envoy_service_disacovery.DiscoveryRequest
@@ -1082,7 +1082,7 @@ func (s *ServerSuite) TestNAckFromTheStart(c *C) {
 }
 
 func (s *ServerSuite) TestRequestHighVersionFromTheStart(c *C) {
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 
 	var err error
 	var req *envoy_service_disacovery.DiscoveryRequest

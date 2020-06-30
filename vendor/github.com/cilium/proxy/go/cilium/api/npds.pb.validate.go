@@ -17,7 +17,7 @@ import (
 
 	"github.com/golang/protobuf/ptypes"
 
-	core "github.com/cilium/proxy/go/envoy/api/v2/core"
+	v3 "github.com/cilium/proxy/go/envoy/config/core/v3"
 )
 
 // ensure the imports are used
@@ -34,7 +34,7 @@ var (
 	_ = (*mail.Address)(nil)
 	_ = ptypes.DynamicAny{}
 
-	_ = core.SocketAddress_Protocol(0)
+	_ = v3.SocketAddress_Protocol(0)
 )
 
 // define the regex for a UUID once up-front
