@@ -98,7 +98,7 @@ var IsCompleted Checker = &IsCompletedChecker{
 func (s *AckSuite) TestUpsertSingleNode(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	wg := completion.NewWaitGroup(ctx)
 
 	// Empty cache is the version 1
@@ -140,7 +140,7 @@ func (s *AckSuite) TestUpsertSingleNode(c *C) {
 func (s *AckSuite) TestUseCurrent(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	wg := completion.NewWaitGroup(ctx)
 
 	// Empty cache is the version 1
@@ -192,7 +192,7 @@ func (s *AckSuite) TestUseCurrent(c *C) {
 func (s *AckSuite) TestUpsertMultipleNodes(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	wg := completion.NewWaitGroup(ctx)
 
 	// Empty cache is the version 1
@@ -237,7 +237,7 @@ func (s *AckSuite) TestUpsertMultipleNodes(c *C) {
 func (s *AckSuite) TestUpsertMoreRecentVersion(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	wg := completion.NewWaitGroup(ctx)
 
 	// Empty cache is the version 1
@@ -261,7 +261,7 @@ func (s *AckSuite) TestUpsertMoreRecentVersion(c *C) {
 func (s *AckSuite) TestUpsertMoreRecentVersionNack(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	wg := completion.NewWaitGroup(ctx)
 
 	// Empty cache is the version 1
@@ -288,7 +288,7 @@ func (s *AckSuite) TestUpsertMoreRecentVersionNack(c *C) {
 func (s *AckSuite) TestDeleteSingleNode(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	wg := completion.NewWaitGroup(ctx)
 
 	// Empty cache is the version 1
@@ -322,7 +322,7 @@ func (s *AckSuite) TestDeleteSingleNode(c *C) {
 func (s *AckSuite) TestDeleteMultipleNodes(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	wg := completion.NewWaitGroup(ctx)
 
 	// Empty cache is the version 1
@@ -356,7 +356,7 @@ func (s *AckSuite) TestDeleteMultipleNodes(c *C) {
 func (s *AckSuite) TestRevertInsert(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
@@ -393,7 +393,7 @@ func (s *AckSuite) TestRevertInsert(c *C) {
 func (s *AckSuite) TestRevertUpdate(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()
@@ -437,7 +437,7 @@ func (s *AckSuite) TestRevertUpdate(c *C) {
 func (s *AckSuite) TestRevertDelete(c *C) {
 	ctx, cancel := context.WithTimeout(context.Background(), 5*time.Second)
 	defer cancel()
-	typeURL := "type.googleapis.com/envoy.api.v2.DummyConfiguration"
+	typeURL := "type.googleapis.com/envoy.config.v3.DummyConfiguration"
 	wg := completion.NewWaitGroup(ctx)
 
 	cache := NewCache()

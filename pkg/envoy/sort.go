@@ -18,7 +18,7 @@ import (
 	"sort"
 
 	"github.com/cilium/proxy/go/cilium/api"
-	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
+	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 )
 
 // PortNetworkPolicySlice implements sort.Interface to sort a slice of
@@ -201,12 +201,12 @@ func SortHTTPNetworkPolicyRules(rules []*cilium.HttpNetworkPolicyRule) {
 }
 
 // HeaderMatcherSlice implements sort.Interface to sort a slice of
-// *envoy_api_v2_route.HeaderMatcher.
-type HeaderMatcherSlice []*envoy_api_v2_route.HeaderMatcher
+// *envoy_config_route.HeaderMatcher.
+type HeaderMatcherSlice []*envoy_config_route.HeaderMatcher
 
 // HeaderMatcherLess reports whether the m1 matcher should sort before the m2
 // matcher.
-func HeaderMatcherLess(m1, m2 *envoy_api_v2_route.HeaderMatcher) bool {
+func HeaderMatcherLess(m1, m2 *envoy_config_route.HeaderMatcher) bool {
 	switch {
 	case m1.Name < m2.Name:
 		return true
@@ -234,13 +234,20 @@ func HeaderMatcherLess(m1, m2 *envoy_api_v2_route.HeaderMatcher) bool {
 		return false
 	}
 
-	s1 = m1.GetRegexMatch()
-	s2 = m2.GetRegexMatch()
+	srm1 := m1.GetSafeRegexMatch()
+	srm2 := m2.GetSafeRegexMatch()
 	switch {
-	case s1 < s2:
+	case srm1 == nil && srm2 != nil:
 		return true
-	case s1 > s2:
+	case srm1 != nil && srm2 == nil:
 		return false
+	case srm1 != nil && srm2 != nil:
+		switch {
+		case srm1.Regex < srm2.Regex:
+			return true
+		case srm1.Regex > srm2.Regex:
+			return false
+		}
 	}
 
 	rm1 := m1.GetRangeMatch()
@@ -314,6 +321,6 @@ func (s HeaderMatcherSlice) Swap(i, j int) {
 }
 
 // SortHeaderMatchers sorts the given slice.
-func SortHeaderMatchers(headers []*envoy_api_v2_route.HeaderMatcher) {
+func SortHeaderMatchers(headers []*envoy_config_route.HeaderMatcher) {
 	sort.Sort(HeaderMatcherSlice(headers))
 }
