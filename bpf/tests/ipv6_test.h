@@ -66,6 +66,7 @@ LPM_LOOKUP_FN(lpm4_lookup0, __be32, PREFIX0, dummy_map, match_dummy_prefix)
 static void test_lpm_lookup(void)
 {
 	__be32 addr;
+
 	dummy_map = &addr;
 
 	addr = htonl(0xFFFFFFFF);

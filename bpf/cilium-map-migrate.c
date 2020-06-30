@@ -304,11 +304,10 @@ void fs_base_init(void)
 {
 	const char *mnt_env = getenv(BPF_ENV_MNT);
 
-	if (mnt_env) {
+	if (mnt_env)
 		snprintf(fs_base, sizeof(fs_base), "%s/tc/globals", mnt_env);
-	} else {
+	else
 		strcpy(fs_base, "/sys/fs/bpf/tc/globals");
-	}
 }
 
 static int bpf_handle_pending(struct bpf_elf_ctx *ctx,
@@ -378,11 +377,11 @@ static int bpf_handle_finalize(struct bpf_elf_ctx *ctx,
 		utimensat(AT_FDCWD, file, NULL, 0);
 		renameat2(AT_FDCWD, file, AT_FDCWD, dest, 1);
 		return 0;
-	} else {
-		syslog(LOG_WARNING, "Unlinking migrated node %s due to good exit.\n",
-		       file);
-		return unlink(file);
 	}
+
+	syslog(LOG_WARNING, "Unlinking migrated node %s due to good exit.\n",
+	       file);
+	return unlink(file);
 }
 
 static int bpf_fill_section_data(const struct bpf_elf_ctx *ctx, int section,

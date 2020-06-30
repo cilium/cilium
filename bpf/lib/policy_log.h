@@ -41,6 +41,7 @@ static __always_inline bool policy_verdict_filter_allow(__u32 filter, __u8 dir)
 	 * filter (thinking it to be zero).
 	 */
 	volatile __u8 d = dir;
+
 	return ((filter & d) > 0);
 }
 

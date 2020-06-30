@@ -558,14 +558,13 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
-		if (nodeport_uses_dsr6(&tuple)) {
+		if (nodeport_uses_dsr6(&tuple))
 			return CTX_ACT_OK;
-		} else {
-			ctx_store_meta(ctx, CB_NAT, NAT_DIR_INGRESS);
-			ctx_store_meta(ctx, CB_SRC_IDENTITY, src_identity);
-			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT);
-			return DROP_MISSED_TAIL_CALL;
-		}
+
+		ctx_store_meta(ctx, CB_NAT, NAT_DIR_INGRESS);
+		ctx_store_meta(ctx, CB_SRC_IDENTITY, src_identity);
+		ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT);
+		return DROP_MISSED_TAIL_CALL;
 	}
 
 	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
@@ -649,9 +648,9 @@ redo_local:
 			ep_tail_call(ctx, CILIUM_CALL_IPV6_NODEPORT_NAT);
 		}
 		return DROP_MISSED_TAIL_CALL;
-	} else {
-		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 	}
+
+	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 	return CTX_ACT_OK;
 }
@@ -804,9 +803,8 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 	 * source IPs we SNAT in node-port.
 	 */
 	if (dir == NAT_DIR_EGRESS) {
-		if (ip4->saddr == addr) {
+		if (ip4->saddr == addr)
 			return true;
-		}
 
 #ifdef ENABLE_MASQUERADE /* SNAT local pod to world packets */
 # ifdef IS_BPF_OVERLAY
@@ -840,6 +838,7 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 				/* Do not SNAT if dst belongs to any
 				 * ip-masq-agent subnet */
 				struct lpm_v4_key pfx;
+
 				pfx.lpm.prefixlen = 32;
 				memcpy(pfx.lpm.data, &ip4->daddr, sizeof(pfx.addr));
 				if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
@@ -1329,9 +1328,9 @@ redo_local:
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_NODEPORT_NAT);
 		}
 		return DROP_MISSED_TAIL_CALL;
-	} else {
-		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 	}
+
+	ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 	return CTX_ACT_OK;
 }
