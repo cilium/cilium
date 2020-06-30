@@ -495,6 +495,17 @@ var _ = Describe("K8sServicesTest", func() {
 				}
 			}
 
+		testCurlFailFromOutside :=
+			func(url string, count int) {
+				By("Making %d HTTP requests from outside cluster to %q", count, url)
+				for i := 1; i <= count; i++ {
+					res, err := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, helpers.CurlFail(url))
+					ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
+					ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
+						"%s host unexpectedly connected to service %q, it should fail", outsideNodeName, url)
+				}
+			}
+
 		testCurlFromOutside := func(url string, count int, checkSourceIP bool) {
 			testCurlFromOutsideWithLocalPort(url, count, checkSourceIP, 0)
 		}
@@ -984,10 +995,10 @@ var _ = Describe("K8sServicesTest", func() {
 				GinkgoPrint("Skipping externalTrafficPolicy=Local test from external node")
 			}
 
-			// Checks that requests to k8s2 succeed, while external requests to k8s1 are dropped
 			err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport-local-k8s2").Unmarshal(&data)
 			ExpectWithOffset(1, err).Should(BeNil(), "Can not retrieve service")
 
+			// Checks that requests to k8s2 succeed where Pod is also running
 			httpURL = getHTTPLink(k8s2IP, data.Spec.Ports[0].NodePort)
 			tftpURL = getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort)
 			testCurlFromPodInHostNetNS(httpURL, count, 0, k8s1NodeName)
@@ -995,24 +1006,33 @@ var _ = Describe("K8sServicesTest", func() {
 			testCurlFromPodInHostNetNS(httpURL, count, 0, k8s2NodeName)
 			testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s2NodeName)
 
-			httpURL = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
-			tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
-
 			// Local requests should be load-balanced on kube-proxy 1.15+.
 			// See kubernetes/kubernetes#77523 for the PR which introduced this
 			// behavior on the iptables-backend for kube-proxy.
-			// FIXME: Cilium's kube-proxy replacement does not yet implement
-			// this behavior, and the checks would fail if running without kube-proxy.
-			// See #11746 for the tracking issue for Cilium.
+			httpURL = getHTTPLink(k8s1IP, data.Spec.Ports[0].NodePort)
+			tftpURL = getTFTPLink(k8s1IP, data.Spec.Ports[1].NodePort)
 			k8sVersion := versioncheck.MustVersion(helpers.GetCurrentK8SEnv())
 			isSupported := versioncheck.MustCompile(">=1.15.0")
-			if helpers.RunsWithKubeProxy() && isSupported(k8sVersion) {
+			if helpers.RunsWithoutKubeProxy() || helpers.RunsWithKubeProxy() && isSupported(k8sVersion) {
 				testCurlFromPodInHostNetNS(httpURL, count, 0, k8s1NodeName)
 				testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s1NodeName)
 			}
-			// Requests from another node are not
-			testCurlFailFromPodInHostNetNS(httpURL, count, k8s2NodeName)
-			testCurlFailFromPodInHostNetNS(tftpURL, count, k8s2NodeName)
+			// In-cluster connectivity from k8s2 to k8s1 IP will still work in
+			// kube-proxy free case since we'll hit the wildcard rule in bpf_sock
+			// and k8s1 IP is in ipcache as REMOTE_NODE_ID. But that is fine since
+			// it's all in-cluster connectivity w/ client IP preserved.
+			if helpers.RunsWithoutKubeProxy() {
+				testCurlFromPodInHostNetNS(httpURL, count, 0, k8s2NodeName)
+				testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s2NodeName)
+			} else {
+				testCurlFailFromPodInHostNetNS(httpURL, 1, k8s2NodeName)
+				testCurlFailFromPodInHostNetNS(tftpURL, 1, k8s2NodeName)
+			}
+			// Requests from a non-Cilium node to k8s1 IP will fail though.
+			if helpers.ExistNodeWithoutCilium() {
+				testCurlFailFromOutside(httpURL, 1)
+				testCurlFailFromOutside(tftpURL, 1)
+			}
 		}
 
 		testHostPort := func() {
