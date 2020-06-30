@@ -41,6 +41,7 @@ type CiliumTestConfigType struct {
 	Timeout             time.Duration
 	Kubeconfig          string
 	Registry            string
+	Tag                 string
 	Benchmarks          bool
 	// Multinode enables the running of tests that involve more than one
 	// node. If false, some tests will silently skip multinode checks.
@@ -82,7 +83,8 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Specifies timeout for test run")
 	flagset.StringVar(&c.Kubeconfig, "cilium.kubeconfig", "",
 		"Kubeconfig to be used for k8s tests")
-	flagset.StringVar(&c.Registry, "cilium.registry", "", "docker registry hostname for Cilium image")
+	flagset.StringVar(&c.Registry, "cilium.registry", "", "global docker registry for test images")
+	flagset.StringVar(&c.Tag, "cilium.tag", "", "global docker tag for test images")
 	flagset.BoolVar(&c.Benchmarks, "cilium.benchmarks", false,
 		"Specifies benchmark tests should be run which may increase test time")
 	flagset.BoolVar(&c.Multinode, "cilium.multinode", true,

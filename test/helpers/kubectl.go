@@ -87,7 +87,7 @@ var (
 	// below. These overrides represent a desire to set the default for all
 	// tests, instead of test-specific variations.
 	defaultHelmOptions = map[string]string{
-		"global.registry":                     "k8s1:5000/cilium",
+		"global.registry":                     "docker.io/cilium",
 		"agent.image":                         "cilium-dev",
 		"preflight.image":                     "cilium-dev", // Set again in init to match agent.image!
 		"global.tag":                          "latest",
@@ -226,24 +226,15 @@ func Init() {
 		os.Setenv("CILIUM_REGISTRY", config.CiliumTestConfig.Registry)
 	}
 
+	if config.CiliumTestConfig.Tag != "" {
+		os.Setenv("CILIUM_TAG", config.CiliumTestConfig.Tag)
+	}
+
 	if config.CiliumTestConfig.ProvisionK8s == false {
 		os.Setenv("SKIP_K8S_PROVISION", "true")
 	}
 
-	// Set defaults to match passed-in fully-qualified image
-	// If these are further set via CLI, they will be overwritten below
-	if v := os.Getenv("CILIUM_IMAGE"); v != "" {
-		registry, image, version, isFullyQualified := SplitContainerURL(v)
-		if isFullyQualified {
-			defaultHelmOptions["global.tag"] = version
-			// This always works because SplitContainerURL would not return
-			// isFullyQualified == true otherwise
-			parts := strings.SplitN(image, "/", 2)
-			defaultHelmOptions["global.registry"] = registry + "/" + parts[0]
-		}
-	}
-
-	// Copy over envronment variables that are passed in.
+	// Copy over environment variables that are passed in.
 	for envVar, helmVar := range map[string]string{
 		"CILIUM_REGISTRY":       "global.registry",
 		"CILIUM_TAG":            "global.tag",
