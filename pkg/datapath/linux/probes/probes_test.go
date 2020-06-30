@@ -254,6 +254,9 @@ func (s *ProbesTestSuite) TestSystemConfigProbes(c *C) {
 			features: Features{SystemConfig: tc.systemConfig},
 		}
 		err := manager.SystemConfigProbes()
+		if _, ok := err.(*ErrKernelConfigNotFound); ok {
+			return
+		}
 		if tc.expectErr {
 			c.Assert(err, NotNil)
 		} else {
