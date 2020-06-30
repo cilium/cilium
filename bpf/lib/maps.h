@@ -100,7 +100,8 @@ struct bpf_elf_map __section_maps TUNNEL_MAP = {
 /* Define a function with the following NAME which iterates through PREFIXES
  * (a list of integers ordered from high to low representing prefix length),
  * performing a lookup in MAP using LOOKUP_FN to find a provided IP of type
- * IPTYPE. */
+ * IPTYPE.
+ */
 #define LPM_LOOKUP_FN(NAME, IPTYPE, PREFIXES, MAP, LOOKUP_FN)		\
 static __always_inline int __##NAME(IPTYPE addr)			\
 {									\

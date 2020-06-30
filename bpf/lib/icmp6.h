@@ -30,8 +30,9 @@
 #define ICMP6_MULT_RA_MSG_TYPE		151
 #define ICMP6_MULT_RT_MSG_TYPE		153
 
-/* If not specific action is specified, drop unknown neighbour solication
- * messages */
+/* If no specific action is specified, drop unknown neighbour solicitation
+ * messages.
+ */
 #ifndef ACTION_UNKNOWN_ICMP6_NS
 #define ACTION_UNKNOWN_ICMP6_NS DROP_UNKNOWN_TARGET
 #endif

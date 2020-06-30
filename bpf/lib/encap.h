@@ -121,7 +121,8 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 
 	/* When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
-	 * received. */
+	 * received.
+	 */
 	if (seclabel == HOST_ID)
 		seclabel = REMOTE_NODE_ID;
 

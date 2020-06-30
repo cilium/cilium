@@ -819,7 +819,8 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 		 * (native-routing-cidr if specified, otherwise local pod CIDR).
 		 * The check is performed before we determine that a packet is
 		 * sent from a local pod, as this check is cheaper than
-		 * the map lookup done in the latter check. */
+		 * the map lookup done in the latter check.
+		 */
 		if (ipv4_is_in_subnet(ip4->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
 				      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
 			return false;
@@ -836,7 +837,8 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 			if (info != NULL) {
 #ifdef ENABLE_IP_MASQ_AGENT
 				/* Do not SNAT if dst belongs to any
-				 * ip-masq-agent subnet */
+				 * ip-masq-agent subnet.
+				 */
 				struct lpm_v4_key pfx;
 
 				pfx.lpm.prefixlen = 32;
@@ -852,7 +854,8 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 				 * either by underlying network (e.g. AWS drops
 				 * packets by default from unknown subnets) or
 				 * by the remote node if its native dev's
-				 * rp_filter=1. */
+				 * rp_filter=1.
+				 */
 				if (info->sec_label == REMOTE_NODE_ID)
 					return false;
 #endif
@@ -1271,7 +1274,8 @@ redo_all:
 			ct_flip_tuple_dir4(&tuple);
 redo_local:
 			/* Reset rev_nat_index, otherwise ipv4_policy() in
-			 * bpf_lxc will do invalid xlation */
+			 * bpf_lxc will do invalid xlation.
+			 */
 			ct_state_new.rev_nat_index = 0;
 			ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
 					 CT_INGRESS, &ct_state_new, false);
@@ -1283,7 +1287,8 @@ redo_local:
 	case CT_ESTABLISHED:
 	case CT_REPLY:
 		/* Recreate CT entries, as the existing one is stale and belongs
-		 * to a flow which target a different svc */
+		 * to a flow which target a different svc.
+		 */
 		if (unlikely(ct_state.rev_nat_index != svc->rev_nat_index))
 			goto redo_all;
 

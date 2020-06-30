@@ -31,7 +31,7 @@ enum {
  * nexthdr: The parser will not fill dport if nexthdr is not TCP/UDP.
  * dir:     Ideally we would only consider responses, but requests are likely
  *          to be small anyway.
- * */
+ */
 static __always_inline bool conn_is_dns(__u16 dport)
 {
 	return dport == bpf_htons(53);
@@ -781,10 +781,11 @@ static __always_inline int ct_create4(const void *map_main,
 		saddr = tuple->saddr;
 		daddr = tuple->daddr;
 
-		/* We are looping back into the origin endpoint through a service,
-		 * set up a conntrack tuple for the reply to ensure we do rev NAT
-		 * before attempting to route the destination address which will
-		 * not point back to the right source. */
+		/* We are looping back into the origin endpoint through a
+		 * service, set up a conntrack tuple for the reply to ensure we
+		 * do rev NAT before attempting to route the destination
+		 * address which will not point back to the right source.
+		 */
 		tuple->flags = TUPLE_F_IN;
 		if (dir == CT_INGRESS) {
 			tuple->saddr = ct_state->addr;
