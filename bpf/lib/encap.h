@@ -189,7 +189,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	if (tunnel_endpoint) {
 #ifdef ENABLE_IPSEC
 		if (encrypt_key)
-			return encap_and_redirect_ipsec(ctx, tunnel_endpoint, encrypt_key, seclabel);
+			return encap_and_redirect_ipsec(ctx, tunnel_endpoint,
+							encrypt_key, seclabel);
 #endif
 		return __encap_and_redirect_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
 	}

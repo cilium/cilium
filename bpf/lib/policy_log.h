@@ -5,7 +5,8 @@
  * Policy verdict notification via perf event ring buffer.
  *
  * API:
- * void send_policy_verdict_notify(ctx, remote_label, dst_port, proto, dir, is_ipv6, verdict, match_type)
+ * void send_policy_verdict_notify(ctx, remote_label, dst_port, proto, dir,
+ *                                 is_ipv6, verdict, match_type)
  *
  * If POLICY_VERDICT_NOTIFY is not defined, the API will be a non-op.
  */
