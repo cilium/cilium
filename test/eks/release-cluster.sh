@@ -14,4 +14,4 @@ eksctl scale nodegroup -r $region --cluster $cluster -n $ng -N 0
 echo "releasing cluster lock from $cluster"
 kubectl annotate deployment lock lock-
 
-rm cluster-name
+rm -f cluster-name registry-adder.yaml
