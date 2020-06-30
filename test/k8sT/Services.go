@@ -1412,7 +1412,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 						It("Connectivity to endpoint via LB", func() {
 							lbIP, err := kubectl.GetLoadBalancerIP(
-								helpers.DefaultNamespace, "test-lb", 30*time.Second)
+								helpers.DefaultNamespace, "test-lb", time.Minute)
 							Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
 
 							testCurlFromOutside("http://"+lbIP, 10, false)
