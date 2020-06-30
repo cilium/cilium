@@ -386,6 +386,8 @@ if [[ "${HOST}" == "k8s1" ]]; then
           iptables-restore <(iptables-save | grep -v KUBE)
       else
           kubectl apply -f "${PROVISIONSRC}/manifest/unprivileged-psp.yaml"
+          kubectl apply -n kube-system -f "${PROVISIONSRC}/manifest/privileged-psp.yaml"
+          kubectl apply -f "${PROVISIONSRC}/manifest/privileged-psp.yaml"
       fi
 
       sudo -u vagrant mkdir -p /home/vagrant/.kube

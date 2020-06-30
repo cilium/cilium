@@ -1,5 +1,5 @@
 apiVersion: rbac.authorization.k8s.io/v1
-kind: Role
+kind: ClusterRole
 metadata:
   name: unprivileged
 rules:
@@ -10,16 +10,17 @@ rules:
       - unprivileged
 ---
 apiVersion: rbac.authorization.k8s.io/v1
-kind: RoleBinding
+kind: ClusterRoleBinding
 metadata:
   name: unprivileged
 roleRef:
   apiGroup: rbac.authorization.k8s.io
-  kind: Role
+  kind: ClusterRole
   name: unprivileged
 subjects:
   - kind: ServiceAccount
     name: default
+    namespace: default
 ---
 apiVersion: policy/v1beta1
 kind: PodSecurityPolicy

@@ -48,7 +48,7 @@ const (
 	// KubectlCmd Kubernetes controller command
 	KubectlCmd      = "kubectl"
 	manifestsPath   = "k8sT/manifests/"
-	provisionPath   = "provision/manifest"
+	ProvisionPath   = "provision/manifest"
 	descriptorsPath = "../examples/kubernetes"
 	kubeDNSLabel    = "k8s-app=kube-dns"
 
@@ -369,7 +369,19 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 	case "1.8", "1.9", "1.10", "1.11", "1.12", "1.13", "1.14", "1.15", "1.16":
 	default:
 		// Deploy pod security policies for the default namespace
-		res = k.Apply(ApplyOptions{FilePath: filepath.Join(k.BasePath(), provisionPath, "unprivileged-psp.yaml"), Namespace: DefaultNamespace})
+		res = k.Apply(ApplyOptions{FilePath: filepath.Join(k.BasePath(), ProvisionPath, "unprivileged-psp.yaml"), Namespace: DefaultNamespace})
+		if !res.WasSuccessful() {
+			ginkgoext.Fail(fmt.Sprintf("Cannot connect to k8s cluster, output:\n%s", res.CombineOutput().String()), 1)
+			return nil
+		}
+		// Deploy pod security policies for the kube-proxy
+		res = k.Apply(ApplyOptions{FilePath: filepath.Join(k.BasePath(), ProvisionPath, "privileged-psp.yaml"), Namespace: DefaultNamespace})
+		if !res.WasSuccessful() {
+			ginkgoext.Fail(fmt.Sprintf("Cannot connect to k8s cluster, output:\n%s", res.CombineOutput().String()), 1)
+			return nil
+		}
+		// Deploy pod security policies for the kube-proxy
+		res = k.Apply(ApplyOptions{FilePath: filepath.Join(k.BasePath(), ProvisionPath, "privileged-psp.yaml"), Namespace: KubeSystemNamespace})
 		if !res.WasSuccessful() {
 			ginkgoext.Fail(fmt.Sprintf("Cannot connect to k8s cluster, output:\n%s", res.CombineOutput().String()), 1)
 			return nil

@@ -17,6 +17,7 @@ package k8sTest
 import (
 	"context"
 	"fmt"
+	"path/filepath"
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
@@ -193,7 +194,35 @@ var _ = Describe("K8sPolicyTest", func() {
 			namespaceForTest = helpers.GenerateNamespaceForTest("")
 			kubectl.NamespaceDelete(namespaceForTest)
 			kubectl.NamespaceCreate(namespaceForTest).ExpectSuccess("could not create namespace")
+
+			privilegedPSP := filepath.Join(kubectl.BasePath(), helpers.ProvisionPath, "privileged-psp.yaml")
+			kubectl.Apply(
+				helpers.ApplyOptions{
+					FilePath:  privilegedPSP,
+					Namespace: namespaceForTest,
+				},
+			).ExpectSuccess("Unable to deploy privileged-psp")
+
+			kubectlCmd := fmt.Sprintf("kubectl create -n %s "+
+				"rolebinding default:psp:privileged:default "+
+				"--clusterrole=privileged "+
+				"--serviceaccount=%s:default", namespaceForTest, namespaceForTest)
+			kubectl.Exec(kubectlCmd).ExpectSuccess("could not create PSP")
+
 			kubectl.Apply(helpers.ApplyOptions{FilePath: demoPath, Namespace: namespaceForTest}).ExpectSuccess("could not create resource")
+			sa1 := "app1-account"
+			sa2 := "app2-account"
+
+			kubectlCmd = fmt.Sprintf("kubectl create -n %s "+
+				"rolebinding default:psp:privileged:%s "+
+				"--clusterrole=privileged "+
+				"--serviceaccount=%s:%s", namespaceForTest, sa1, namespaceForTest, sa1)
+			kubectl.Exec(kubectlCmd).ExpectSuccess("could not create PSP")
+			kubectlCmd = fmt.Sprintf("kubectl create -n %s "+
+				"rolebinding default:psp:privileged:%s "+
+				"--clusterrole=privileged "+
+				"--serviceaccount=%s:%s", namespaceForTest, sa2, namespaceForTest, sa2)
+			kubectl.Exec(kubectlCmd).ExpectSuccess("could not create PSP")
 
 			err := kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
@@ -1436,6 +1465,29 @@ EOF`, k, v)
 			})
 			res.ExpectSuccess("Unable to render cnp-second-namespace chart")
 
+			privilegedPSP := filepath.Join(kubectl.BasePath(), helpers.ProvisionPath, "privileged-psp.yaml")
+			kubectl.Apply(
+				helpers.ApplyOptions{
+					FilePath:  privilegedPSP,
+					Namespace: secondNS,
+				},
+			).ExpectSuccess("Unable to deploy privileged-psp")
+
+			sa1 := "app1-account"
+			sa2 := "app2-account"
+
+			kubectlCmd := fmt.Sprintf("kubectl create -n %s "+
+				"rolebinding default:psp:privileged:%s "+
+				"--clusterrole=privileged "+
+				"--serviceaccount=%s:%s", secondNS, sa1, secondNS, sa1)
+			kubectl.Exec(kubectlCmd).ExpectSuccess("could not create PSP")
+
+			kubectlCmd = fmt.Sprintf("kubectl create -n %s "+
+				"rolebinding default:psp:privileged:%s "+
+				"--clusterrole=privileged "+
+				"--serviceaccount=%s:%s", secondNS, sa2, secondNS, sa2)
+			kubectl.Exec(kubectlCmd).ExpectSuccess("could not create PSP")
+
 			demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 			l3L4Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
 			netpolNsSelector = fmt.Sprintf("%s -n %s", helpers.ManifestGet(kubectl.BasePath(), "netpol-namespace-selector.yaml"), secondNS)
@@ -1649,7 +1701,9 @@ EOF`, k, v)
 			allowAllPolicy = helpers.ManifestGet(kubectl.BasePath(), "ccnp-update-allow-all.yaml")
 
 			demoManifestNS1 = fmt.Sprintf("%s -n %s", demoPath, firstNS)
+			sa1 := "app1-account"
 			demoManifestNS2 = fmt.Sprintf("%s -n %s", demoPath, secondNS)
+			sa2 := "app2-account"
 
 			kubectl.NamespaceDelete(firstNS)
 			res := kubectl.NamespaceCreate(firstNS)
@@ -1667,6 +1721,34 @@ EOF`, k, v)
 
 			res = kubectl.ApplyDefault(demoManifestNS1)
 			res.ExpectSuccess("unable to apply demo manifest")
+
+			privilegedPSP := filepath.Join(kubectl.BasePath(), helpers.ProvisionPath, "privileged-psp.yaml")
+			kubectl.Apply(
+				helpers.ApplyOptions{
+					FilePath:  privilegedPSP,
+					Namespace: firstNS,
+				},
+			).ExpectSuccess("Unable to deploy privileged-psp")
+
+			kubectlCmd := fmt.Sprintf("kubectl create -n %s "+
+				"rolebinding default:psp:privileged:%s "+
+				"--clusterrole=privileged "+
+				"--serviceaccount=%s:%s", firstNS, sa1, firstNS, sa1)
+			kubectl.Exec(kubectlCmd).ExpectSuccess("could not create PSP")
+
+			privilegedPSP = filepath.Join(kubectl.BasePath(), helpers.ProvisionPath, "privileged-psp.yaml")
+			kubectl.Apply(
+				helpers.ApplyOptions{
+					FilePath:  privilegedPSP,
+					Namespace: secondNS,
+				},
+			).ExpectSuccess("Unable to deploy privileged-psp")
+
+			kubectlCmd = fmt.Sprintf("kubectl create -n %s "+
+				"rolebinding default:psp:privileged:%s "+
+				"--clusterrole=privileged "+
+				"--serviceaccount=%s:%s", secondNS, sa2, secondNS, sa2)
+			kubectl.Exec(kubectlCmd).ExpectSuccess("could not create PSP")
 
 			// Check if the Pods are ready in each namespace before the default configured
 			// timeout.
