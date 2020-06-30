@@ -435,9 +435,7 @@ int tail_nodeport_nat_ipv6(struct __ctx_buff *ctx)
 			ret = DROP_MISSED_TAIL_CALL;
 			goto drop_err;
 		}
-		if (ret == NAT_PUNT_TO_STACK)
-			ret = CTX_ACT_OK;
-		else
+		if (ret != NAT_PUNT_TO_STACK)
 			goto drop_err;
 	}
 
@@ -1115,9 +1113,7 @@ int tail_nodeport_nat_ipv4(struct __ctx_buff *ctx)
 			ret = DROP_MISSED_TAIL_CALL;
 			goto drop_err;
 		}
-		if (ret == NAT_PUNT_TO_STACK)
-			ret = CTX_ACT_OK;
-		else
+		if (ret != NAT_PUNT_TO_STACK)
 			goto drop_err;
 	}
 
