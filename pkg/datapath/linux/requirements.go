@@ -15,6 +15,7 @@
 package linux
 
 import (
+	"errors"
 	"fmt"
 	"os"
 	"os/exec"
@@ -177,7 +178,7 @@ func CheckMinRequirements() {
 		probeManager := probes.NewProbeManager()
 		if err := probeManager.SystemConfigProbes(); err != nil {
 			errMsg := "BPF system config check: NOT OK."
-			if _, ok := err.(*probes.ErrKernelConfigNotFound); ok {
+			if errors.Is(err, probes.ErrKernelConfigNotFound) {
 				log.WithError(err).Info(errMsg)
 			} else {
 				log.WithError(err).Warn(errMsg)
