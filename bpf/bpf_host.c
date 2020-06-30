@@ -46,6 +46,7 @@
 #include "lib/nodeport.h"
 #include "lib/eps.h"
 #include "lib/host_firewall.h"
+#include "lib/overloadable.h"
 
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
@@ -200,14 +201,15 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 #endif /* ENABLE_NODEPORT */
 
 #ifdef ENABLE_HOST_FIREWALL
-	if (from_host)
+	if (from_host) {
 		ret = ipv6_host_policy_egress(ctx, secctx);
-	else
+		if (IS_ERR(ret))
+			return ret;
+	} else if (!ctx_skip_host_fw(ctx)) {
 		ret = ipv6_host_policy_ingress(ctx, &remote_id);
-	if (IS_ERR(ret))
-		return ret;
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
-		return DROP_INVALID;
+		if (IS_ERR(ret))
+			return ret;
+	}
 #endif /* ENABLE_HOST_FIREWALL */
 
 	if (skip_redirect)
@@ -466,24 +468,24 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	}
 #endif /* ENABLE_NODEPORT */
 
-	tuple.nexthdr = ip4->protocol;
-
 #ifdef ENABLE_HOST_FIREWALL
-	if (from_host)
+	if (from_host) {
 		/* We're on the egress path of cilium_host. */
 		ret = ipv4_host_policy_egress(ctx, secctx);
-	else
+		if (IS_ERR(ret))
+			return ret;
+	} else if (!ctx_skip_host_fw(ctx)) {
 		/* We're on the ingress path of the native device. */
 		ret = ipv4_host_policy_ingress(ctx, &remoteID);
-	if (IS_ERR(ret))
-		return ret;
-
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
+		if (IS_ERR(ret))
+			return ret;
+	}
 #endif /* ENABLE_HOST_FIREWALL */
 
 	if (skip_redirect)
 		return CTX_ACT_OK;
+
+	tuple.nexthdr = ip4->protocol;
 
 	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
@@ -942,8 +944,6 @@ out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, srcID, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
-#else
-	ret = CTX_ACT_OK;
 #endif /* ENABLE_HOST_FIREWALL */
 
 #if defined(ENABLE_NODEPORT) && \
