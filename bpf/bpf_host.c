@@ -1313,7 +1313,7 @@ int to_host(struct __ctx_buff *ctx)
 	__u32 srcID = 0;
 
 	if ((magic & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_ENCRYPT) {
-		ctx->mark = magic; // CB_ENCRYPT_MAGIC
+		ctx->mark = magic; /* CB_ENCRYPT_MAGIC */
 		srcID = ctx_load_meta(ctx, CB_ENCRYPT_IDENTITY);
 		set_identity_mark(ctx, srcID);
 	} else if ((magic & 0xFFFF) == MARK_MAGIC_TO_PROXY) {

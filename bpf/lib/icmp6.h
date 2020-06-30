@@ -77,7 +77,6 @@ static __always_inline int icmp6_send_reply(struct __ctx_buff *ctx, int nh_off)
 	if (eth_load_saddr(ctx, smac.addr, 0) < 0)
 		return DROP_INVALID;
 
-	// eth_load_daddr(ctx, dmac.addr, 0);
 	if (eth_store_daddr(ctx, smac.addr, 0) < 0 ||
 	    eth_store_saddr(ctx, dmac.addr, 0) < 0)
 		return DROP_WRITE_ERROR;

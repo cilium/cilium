@@ -376,7 +376,7 @@ static __always_inline int lb6_extract_key(struct __ctx_buff *ctx __maybe_unused
 					   int dir)
 {
 	union v6addr *addr;
-	// FIXME(brb): set after adding support for different L4 protocols in LB
+	/* FIXME(brb): set after adding support for different L4 protocols in LB */
 	key->proto = 0;
 	addr = (dir == CT_INGRESS) ? &tuple->saddr : &tuple->daddr;
 	ipv6_addr_copy(&key->address, addr);
@@ -595,7 +595,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb6_service *svc,
 				     struct ct_state *state)
 {
-	__u32 monitor; // Deliberately ignored; regular CT will determine monitoring.
+	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	union v6addr *addr;
 	__u8 flags = tuple->flags;
 	struct lb6_backend *backend;
@@ -649,7 +649,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
-		// See lb4_local comment
+		/* See lb4_local comment */
 		if (state->rev_nat_index == 0) {
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update6_rev_nat_index(map, tuple, state);
@@ -659,7 +659,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		goto drop_no_service;
 	}
 
-	// See lb4_local comment
+	/* See lb4_local comment */
 	if (state->rev_nat_index != svc->rev_nat_index) {
 #ifdef ENABLE_SESSION_AFFINITY
 		if (svc->affinity)
@@ -860,7 +860,7 @@ static __always_inline int lb4_extract_key(struct __ctx_buff *ctx __maybe_unused
 					   struct csum_offset *csum_off,
 					   int dir)
 {
-	// FIXME: set after adding support for different L4 protocols in LB
+	/* FIXME: set after adding support for different L4 protocols in LB */
 	key->proto = 0;
 	key->address = (dir == CT_INGRESS) ? ip4->saddr : ip4->daddr;
 	csum_l4_offset_and_flags(ip4->protocol, csum_off);
@@ -1095,7 +1095,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     const struct lb4_service *svc,
 				     struct ct_state *state, __be32 saddr)
 {
-	__u32 monitor; // Deliberately ignored; regular CT will determine monitoring.
+	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__be32 new_saddr = 0, new_daddr;
 	__u8 flags = tuple->flags;
 	struct lb4_backend *backend;
@@ -1148,11 +1148,12 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
-		// For backward-compatibility we need to update reverse NAT index
-		// in the CT_SERVICE entry for old connections, as later in the code
-		// we check whether the right backend is used. Having it set to 0
-		// would trigger a new backend selection which would in many cases
-		// would pick a different backend.
+		/* For backward-compatibility we need to update reverse NAT
+		 * index in the CT_SERVICE entry for old connections, as later
+		 * in the code we check whether the right backend is used.
+		 * Having it set to 0 would trigger a new backend selection
+		 * which would in many cases would pick a different backend.
+		 */
 		if (unlikely(state->rev_nat_index == 0)) {
 			state->rev_nat_index = svc->rev_nat_index;
 			ct_update4_rev_nat_index(map, tuple, state);
@@ -1162,12 +1163,13 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		goto drop_no_service;
 	}
 
-	// If the CT_SERVICE entry is from a non-related connection (e.g.
-	// endpoint has been removed, but its CT entries were not (it is
-	// totally possible due to the bug in DumpReliablyWithCallback)),
-	// then a wrong (=from unrelated service) backend can be selected.
-	// To avoid this, check that reverse NAT indices match. If not,
-	// select a new backend.
+	/* If the CT_SERVICE entry is from a non-related connection (e.g.
+	 * endpoint has been removed, but its CT entries were not (it is
+	 * totally possible due to the bug in DumpReliablyWithCallback)),
+	 * then a wrong (=from unrelated service) backend can be selected.
+	 * To avoid this, check that reverse NAT indices match. If not,
+	 * select a new backend.
+	 */
 	if (state->rev_nat_index != svc->rev_nat_index) {
 #ifdef ENABLE_SESSION_AFFINITY
 		if (svc->affinity)

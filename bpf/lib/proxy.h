@@ -54,7 +54,7 @@ ctx_redirect_to_proxy(struct __ctx_buff *ctx, __be16 proxy_port,
 #else
 	cilium_dbg(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port, 0);
 
-	ctx_change_type(ctx, PACKET_HOST); // Required for ingress packets from overlay
+	ctx_change_type(ctx, PACKET_HOST); /* Required for ingress packets from overlay */
 	return CTX_ACT_OK;
 #endif
 }

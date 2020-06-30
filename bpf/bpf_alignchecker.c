@@ -23,11 +23,12 @@
 #include "lib/policy_log.h"
 #include "sockops/bpf_sockops.h"
 
-// DECLARE declares a unique usage of the union or struct 'x' on the stack.
-//
-// To prevent compiler from optimizing away the var, we pass a reference
-// to the var to a BPF helper function which accepts a reference as
-// an argument.
+/* DECLARE declares a unique usage of the union or struct 'x' on the stack.
+ *
+ * To prevent compiler from optimizing away the var, we pass a reference
+ * to the var to a BPF helper function which accepts a reference as
+ * an argument.
+ */
 #define DECLARE(datatype, x, iter)		\
 {						\
 	datatype x s ## iter = {};		\
@@ -35,8 +36,9 @@
 	iter++;					\
 }
 
-// This function is a placeholder for C struct definitions shared with Go, and
-// it's never being executed.
+/* This function is a placeholder for C struct definitions shared with Go,
+ * it is never executed.
+ */
 int main(void)
 {
 	int iter = 0;
