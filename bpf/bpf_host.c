@@ -178,6 +178,8 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 
 	if (likely(nexthdr == IPPROTO_ICMPV6)) {
 		ret = icmp6_host_handle(ctx);
+		if (ret == SKIP_HOST_FIREWALL)
+			goto skip_host_firewall;
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -215,6 +217,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	if (skip_redirect)
 		return CTX_ACT_OK;
 
+skip_host_firewall:
 	if (from_host) {
 		/* If we are attached to cilium_host at egress, this will
 		 * rewrite the destination MAC address to the MAC of cilium_net.
@@ -344,6 +347,8 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx)
 
 	if (likely(nexthdr == IPPROTO_ICMPV6)) {
 		ret = icmp6_host_handle(ctx);
+		if (ret == SKIP_HOST_FIREWALL)
+			return CTX_ACT_OK;
 		if (IS_ERR(ret))
 			return ret;
 	}
