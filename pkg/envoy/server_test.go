@@ -29,8 +29,6 @@ import (
 	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher"
 
-	"github.com/golang/protobuf/ptypes/wrappers"
-
 	. "gopkg.in/check.v1"
 )
 
@@ -70,10 +68,7 @@ var PortRuleHTTP3 = &api.PortRuleHTTP{
 	Method: "GET",
 }
 
-var googleRe2 = &envoy_type_matcher.RegexMatcher_GoogleRe2{
-	GoogleRe2: &envoy_type_matcher.RegexMatcher_GoogleRE2{
-		MaxProgramSize: &wrappers.UInt32Value{Value: 100}, // Envoy default
-	}}
+var googleRe2 = &envoy_type_matcher.RegexMatcher_GoogleRe2{GoogleRe2: &envoy_type_matcher.RegexMatcher_GoogleRE2{}}
 
 var ExpectedHeaders1 = []*envoy_api_v2_route.HeaderMatcher{
 	{
