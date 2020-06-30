@@ -25,9 +25,9 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	"github.com/cilium/proxy/go/cilium/api"
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
-	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
-	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher"
+	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
+	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
+	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 
 	. "gopkg.in/check.v1"
 )
@@ -70,10 +70,10 @@ var PortRuleHTTP3 = &api.PortRuleHTTP{
 
 var googleRe2 = &envoy_type_matcher.RegexMatcher_GoogleRe2{GoogleRe2: &envoy_type_matcher.RegexMatcher_GoogleRE2{}}
 
-var ExpectedHeaders1 = []*envoy_api_v2_route.HeaderMatcher{
+var ExpectedHeaders1 = []*envoy_config_route.HeaderMatcher{
 	{
 		Name: ":authority",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
 			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
 				EngineType: googleRe2,
 				Regex:      "foo.cilium.io",
@@ -81,7 +81,7 @@ var ExpectedHeaders1 = []*envoy_api_v2_route.HeaderMatcher{
 	},
 	{
 		Name: ":method",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
 			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
 				EngineType: googleRe2,
 				Regex:      "GET",
@@ -89,7 +89,7 @@ var ExpectedHeaders1 = []*envoy_api_v2_route.HeaderMatcher{
 	},
 	{
 		Name: ":path",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
 			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
 				EngineType: googleRe2,
 				Regex:      "/foo",
@@ -97,18 +97,18 @@ var ExpectedHeaders1 = []*envoy_api_v2_route.HeaderMatcher{
 	},
 	{
 		Name:                 "header1",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_PresentMatch{PresentMatch: true},
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true},
 	},
 	{
 		Name:                 "header2",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: "value"},
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_ExactMatch{ExactMatch: "value"},
 	},
 }
 
-var ExpectedHeaders2 = []*envoy_api_v2_route.HeaderMatcher{
+var ExpectedHeaders2 = []*envoy_config_route.HeaderMatcher{
 	{
 		Name: ":method",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
 			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
 				EngineType: googleRe2,
 				Regex:      "PUT",
@@ -116,7 +116,7 @@ var ExpectedHeaders2 = []*envoy_api_v2_route.HeaderMatcher{
 	},
 	{
 		Name: ":path",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
 			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
 				EngineType: googleRe2,
 				Regex:      "/bar",
@@ -132,10 +132,10 @@ var ExpectedHeaderMatches2 = []*cilium.HeaderMatch{
 	},
 }
 
-var ExpectedHeaders3 = []*envoy_api_v2_route.HeaderMatcher{
+var ExpectedHeaders3 = []*envoy_config_route.HeaderMatcher{
 	{
 		Name: ":method",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
 			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
 				EngineType: googleRe2,
 				Regex:      "GET",
@@ -143,7 +143,7 @@ var ExpectedHeaders3 = []*envoy_api_v2_route.HeaderMatcher{
 	},
 	{
 		Name: ":path",
-		HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+		HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
 			SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
 				EngineType: googleRe2,
 				Regex:      "/bar",
@@ -369,7 +369,7 @@ var L4PolicyMap5 = map[string]*policy.L4Filter{
 var ExpectedPerPortPolicies1 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     80,
-		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
 			ExpectedPortNetworkPolicyRule1,
 		},
@@ -379,7 +379,7 @@ var ExpectedPerPortPolicies1 = []*cilium.PortNetworkPolicy{
 var ExpectedPerPortPolicies1HeaderMatch = []*cilium.PortNetworkPolicy{
 	{
 		Port:     80,
-		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
 			ExpectedPortNetworkPolicyRule1HeaderMatch,
 		},
@@ -389,7 +389,7 @@ var ExpectedPerPortPolicies1HeaderMatch = []*cilium.PortNetworkPolicy{
 var ExpectedPerPortPolicies2 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     8080,
-		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
 			ExpectedPortNetworkPolicyRule2,
 		},
@@ -399,7 +399,7 @@ var ExpectedPerPortPolicies2 = []*cilium.PortNetworkPolicy{
 var ExpectedPerPortPolicies3 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     80,
-		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
 			ExpectedPortNetworkPolicyRule3,
 		},
@@ -409,7 +409,7 @@ var ExpectedPerPortPolicies3 = []*cilium.PortNetworkPolicy{
 var ExpectedPerPortPolicies4RequiresV2 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     80,
-		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
 			ExpectedPortNetworkPolicyRule4RequiresV2,
 		},
@@ -419,7 +419,7 @@ var ExpectedPerPortPolicies4RequiresV2 = []*cilium.PortNetworkPolicy{
 var ExpectedPerPortPolicies5RequiresV2 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     80,
-		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
 			ExpectedPortNetworkPolicyRule5RequiresV2,
 		},
@@ -429,7 +429,7 @@ var ExpectedPerPortPolicies5RequiresV2 = []*cilium.PortNetworkPolicy{
 var ExpectedPerPortPolicies6 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     80,
-		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{
 			ExpectedPortNetworkPolicyRule6,
 		},
@@ -439,7 +439,7 @@ var ExpectedPerPortPolicies6 = []*cilium.PortNetworkPolicy{
 var ExpectedPerPortPolicies7 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     80,
-		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Protocol: envoy_config_core.SocketAddress_TCP,
 	},
 }
 
@@ -608,7 +608,7 @@ var L4PolicyL7 = &policy.L4Policy{
 var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
 	{
 		Port:     9090,
-		Protocol: envoy_api_v2_core.SocketAddress_TCP,
+		Protocol: envoy_config_core.SocketAddress_TCP,
 		Rules: []*cilium.PortNetworkPolicyRule{{
 			RemotePolicies: []uint64{1001, 1002},
 			L7Proto:        "tester",

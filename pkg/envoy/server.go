@@ -37,8 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
-	envoy_api_v2_core "github.com/cilium/proxy/go/envoy/api/v2/core"
-	envoy_api_v2_route "github.com/cilium/proxy/go/envoy/api/v2/route"
 	envoy_config_bootstrap "github.com/cilium/proxy/go/envoy/config/bootstrap/v3"
 	envoy_config_cluster "github.com/cilium/proxy/go/envoy/config/cluster/v3"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -47,7 +45,7 @@ import (
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
-	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher"
+	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes"
@@ -62,9 +60,9 @@ var (
 	// to any L4 port.
 	allowAllPortNetworkPolicy = []*cilium.PortNetworkPolicy{
 		// Allow all TCP traffic to any port.
-		{Protocol: envoy_api_v2_core.SocketAddress_TCP},
+		{Protocol: envoy_config_core.SocketAddress_TCP},
 		// Allow all UDP traffic to any port.
-		{Protocol: envoy_api_v2_core.SocketAddress_UDP},
+		{Protocol: envoy_config_core.SocketAddress_UDP},
 	}
 )
 
@@ -506,29 +504,29 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 
 	googleRe2 := &envoy_type_matcher.RegexMatcher_GoogleRe2{GoogleRe2: &envoy_type_matcher.RegexMatcher_GoogleRE2{}}
 
-	headers := make([]*envoy_api_v2_route.HeaderMatcher, 0, cnt)
+	headers := make([]*envoy_config_route.HeaderMatcher, 0, cnt)
 	if h.Path != "" {
-		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{
+		headers = append(headers, &envoy_config_route.HeaderMatcher{
 			Name: ":path",
-			HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
 				SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
 					EngineType: googleRe2,
 					Regex:      h.Path,
 				}}})
 	}
 	if h.Method != "" {
-		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{
+		headers = append(headers, &envoy_config_route.HeaderMatcher{
 			Name: ":method",
-			HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
 				SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
 					EngineType: googleRe2,
 					Regex:      h.Method,
 				}}})
 	}
 	if h.Host != "" {
-		headers = append(headers, &envoy_api_v2_route.HeaderMatcher{
+		headers = append(headers, &envoy_config_route.HeaderMatcher{
 			Name: ":authority",
-			HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_SafeRegexMatch{
+			HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_SafeRegexMatch{
 				SafeRegexMatch: &envoy_type_matcher.RegexMatcher{
 					EngineType: googleRe2,
 					Regex:      h.Host,
@@ -540,12 +538,12 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 			// Remove ':' in "X-Key: true"
 			key := strings.TrimRight(strs[0], ":")
 			// Header presence and matching (literal) value needed.
-			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: key,
-				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: strs[1]}})
+			headers = append(headers, &envoy_config_route.HeaderMatcher{Name: key,
+				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_ExactMatch{ExactMatch: strs[1]}})
 		} else {
 			// Only header presence needed
-			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: strs[0],
-				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
+			headers = append(headers, &envoy_config_route.HeaderMatcher{Name: strs[0],
+				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
 		}
 	}
 
@@ -570,19 +568,19 @@ func getHTTPRule(certManager policy.CertificateManager, h *api.PortRuleHTTP, ns 
 			log.WithError(err).Warning("Failed fetching K8s Secret, header match will fail")
 			// Envoy treats an empty exact match value as matching ANY value; adding
 			// InvertMatch: true here will cause this rule to NEVER match.
-			headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: hdr.Name,
-				HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: ""},
+			headers = append(headers, &envoy_config_route.HeaderMatcher{Name: hdr.Name,
+				HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_ExactMatch{ExactMatch: ""},
 				InvertMatch:          true})
 		} else {
 			// Header presence and matching (literal) value needed.
 			if mismatch_action == cilium.HeaderMatch_FAIL_ON_MISMATCH {
 				if value != "" {
-					headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: hdr.Name,
-						HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_ExactMatch{ExactMatch: value}})
+					headers = append(headers, &envoy_config_route.HeaderMatcher{Name: hdr.Name,
+						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_ExactMatch{ExactMatch: value}})
 				} else {
 					// Only header presence needed
-					headers = append(headers, &envoy_api_v2_route.HeaderMatcher{Name: hdr.Name,
-						HeaderMatchSpecifier: &envoy_api_v2_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
+					headers = append(headers, &envoy_config_route.HeaderMatcher{Name: hdr.Name,
+						HeaderMatchSpecifier: &envoy_config_route.HeaderMatcher_PresentMatch{PresentMatch: true}})
 				}
 			} else {
 				log.Debugf("HeaderMatches: Adding %s: %s", hdr.Name, value)
@@ -894,12 +892,12 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, npMap policy.NamedPo
 	// map to locate entries already on the same port
 	pnps := make(map[string]*cilium.PortNetworkPolicy, len(l4Policy))
 	for _, l4 := range l4Policy {
-		var protocol envoy_api_v2_core.SocketAddress_Protocol
+		var protocol envoy_config_core.SocketAddress_Protocol
 		switch l4.Protocol {
 		case api.ProtoTCP:
-			protocol = envoy_api_v2_core.SocketAddress_TCP
+			protocol = envoy_config_core.SocketAddress_TCP
 		case api.ProtoUDP:
-			protocol = envoy_api_v2_core.SocketAddress_UDP
+			protocol = envoy_config_core.SocketAddress_UDP
 		}
 
 		port := uint16(l4.Port)
