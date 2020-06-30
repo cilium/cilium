@@ -210,9 +210,8 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 	entry = map_lookup_elem(map, tuple);
 	if (entry) {
 		cilium_dbg(ctx, DBG_CT_MATCH, entry->lifetime, entry->rev_nat_index);
-		if (ct_entry_alive(entry)) {
+		if (ct_entry_alive(entry))
 			*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
-		}
 		if (ct_state) {
 			ct_state->rev_nat_index = entry->rev_nat_index;
 			ct_state->loopback = entry->lb_loopback;
@@ -220,9 +219,8 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			ct_state->ifindex = entry->ifindex;
 			ct_state->dsr = entry->dsr;
 			ct_state->proxy_redirect = entry->proxy_redirect;
-			if (dir == CT_SERVICE) {
+			if (dir == CT_SERVICE)
 				ct_state->backend_id = entry->rx_bytes;
-			}
 		}
 
 #ifdef ENABLE_NAT46
@@ -477,6 +475,7 @@ static __always_inline void ct4_cilium_dbg_tuple(struct __ctx_buff *ctx, __u8 ty
 						 __u32 rev_nat_index, int dir)
 {
 	__be32 addr = (dir == CT_INGRESS) ? tuple->saddr : tuple->daddr;
+
 	cilium_dbg(ctx, type, addr, rev_nat_index);
 }
 
@@ -616,7 +615,6 @@ ct_update6_backend_id(const void *map, const struct ipv6_ct_tuple *tuple,
 
 	/* See the ct_create4 comments re the rx_bytes hack */
 	entry->rx_bytes = state->backend_id;
-	return;
 }
 
 static __always_inline void
@@ -630,7 +628,6 @@ ct_update6_rev_nat_index(const void *map, const struct ipv6_ct_tuple *tuple,
 		return;
 
 	entry->rev_nat_index = state->rev_nat_index;
-	return;
 }
 
 /* Offset must point to IPv6 */
@@ -649,9 +646,8 @@ static __always_inline int ct_create6(const void *map_main, const void *map_rela
 	entry.proxy_redirect = proxy_redirect;
 
 	/* See the ct_create4 comments re the rx_bytes hack */
-	if (dir == CT_SERVICE) {
+	if (dir == CT_SERVICE)
 		entry.rx_bytes = ct_state->backend_id;
-	}
 
 	entry.lb_loopback = ct_state->loopback;
 	entry.node_port = ct_state->node_port;
@@ -712,7 +708,6 @@ static __always_inline void ct_update4_backend_id(const void *map,
 
 	/* See the ct_create4 comments re the rx_bytes hack */
 	entry->rx_bytes = state->backend_id;
-	return;
 }
 
 static __always_inline void
@@ -726,7 +721,6 @@ ct_update4_rev_nat_index(const void *map, const struct ipv4_ct_tuple *tuple,
 		return;
 
 	entry->rev_nat_index = state->rev_nat_index;
-	return;
 }
 
 static __always_inline int ct_create4(const void *map_main,
@@ -753,9 +747,8 @@ static __always_inline int ct_create4(const void *map_main,
 	 * the dir=CT_SERVICE (see GH#7060). Therefore, we can safely abuse
 	 * this field to save the backend_id.
 	 */
-	if (dir == CT_SERVICE) {
+	if (dir == CT_SERVICE)
 		entry.rx_bytes = ct_state->backend_id;
-	}
 	entry.rev_nat_index = ct_state->rev_nat_index;
 	seen_flags.value |= is_tcp ? TCP_FLAG_SYN : 0;
 	ct_update_timeout(&entry, is_tcp, dir, seen_flags);

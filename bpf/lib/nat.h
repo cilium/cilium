@@ -31,7 +31,7 @@ struct nat_entry {
 	__u64 pad2;		/* Future use. */
 };
 
-#define NAT_CONTINUE_XLATE 	0
+#define NAT_CONTINUE_XLATE	0
 
 #ifdef HAVE_LRU_HASH_MAP_TYPE
 # define NAT_MAP_TYPE BPF_MAP_TYPE_LRU_HASH
@@ -70,7 +70,9 @@ static __always_inline __maybe_unused int
 __snat_update(const void *map, const void *otuple, const void *ostate,
 	      const void *rtuple, const void *rstate)
 {
-	int ret = map_update_elem(map, rtuple, rstate, BPF_NOEXIST);
+	int ret;
+
+	ret = map_update_elem(map, rtuple, rstate, BPF_NOEXIST);
 	if (!ret) {
 		ret = map_update_elem(map, otuple, ostate, BPF_NOEXIST);
 		if (ret)

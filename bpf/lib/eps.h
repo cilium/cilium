@@ -95,7 +95,7 @@ static __always_inline __maybe_unused struct remote_endpoint_info *	\
 NAME(IPTYPE addr)							\
 {									\
 	int prefixes[] = { PREFIXES };					\
-	const int size = (sizeof(prefixes) / sizeof(prefixes[0]));	\
+	const int size = ARRAY_SIZE(prefixes);				\
 	struct remote_endpoint_info *info;				\
 	int i;								\
 									\

@@ -15,7 +15,7 @@ struct arp_eth {
 	__be32                  ar_sip;
 	unsigned char		ar_tha[ETH_ALEN];
 	__be32                  ar_tip;
-} __attribute__((packed));
+} __packed;
 
 /* Check if packet is ARP request for IP */
 static __always_inline int arp_check(struct ethhdr *eth,
@@ -77,6 +77,7 @@ arp_respond(struct __ctx_buff *ctx, union macaddr *smac, __be32 sip,
 	    union macaddr *dmac, __be32 tip, int direction)
 {
 	int ret = arp_prepare_response(ctx, smac, sip, dmac, tip);
+
 	if (unlikely(ret != 0))
 		goto error;
 

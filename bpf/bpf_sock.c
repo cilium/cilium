@@ -29,6 +29,7 @@ static __always_inline __maybe_unused bool is_v6_loopback(union v6addr *daddr)
 {
 	/* Check for ::1/128, RFC4291. */
 	union v6addr loopback = { .addr[15] = 1, };
+
 	return ipv6_addrcmp(&loopback, daddr) == 0;
 }
 
@@ -42,6 +43,7 @@ static __always_inline __maybe_unused bool is_v4_in_v6(const union v6addr *daddr
 	union v6addr dmasked = {
 		.d1 = daddr->d1,
 	};
+
 	dmasked.p3 = daddr->p3;
 	return ipv6_addrcmp(&dprobe, &dmasked) == 0;
 }
@@ -60,6 +62,7 @@ static __always_inline __maybe_unused __be16
 ctx_dst_port(const struct bpf_sock_addr *ctx)
 {
 	volatile __u32 dport = ctx->user_port;
+
 	return (__be16)dport;
 }
 
@@ -67,6 +70,7 @@ static __always_inline __maybe_unused __be16
 ctx_src_port(const struct bpf_sock *ctx)
 {
 	volatile __u32 sport = ctx->src_port;
+
 	return (__be16)bpf_htons(sport);
 }
 

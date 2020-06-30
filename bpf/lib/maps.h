@@ -7,6 +7,8 @@
 #include "common.h"
 #include "ipv6.h"
 
+#include "bpf/compiler.h"
+
 #define CILIUM_MAP_POLICY	1
 #define CILIUM_MAP_CALLS	2
 
@@ -103,7 +105,7 @@ struct bpf_elf_map __section_maps TUNNEL_MAP = {
 static __always_inline int __##NAME(IPTYPE addr)			\
 {									\
 	int prefixes[] = { PREFIXES };					\
-	const int size = (sizeof(prefixes) / sizeof(prefixes[0]));	\
+	const int size = ARRAY_SIZE(prefixes);				\
 	int i;								\
 									\
 _Pragma("unroll")							\

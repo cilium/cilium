@@ -145,6 +145,7 @@ __encap_and_redirect_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 				 __u32 seclabel, __u32 monitor)
 {
 	int ret = __encap_with_nodeid(ctx, tunnel_endpoint, seclabel, monitor);
+
 	if (ret != 0)
 		return ret;
 	return redirect(ENCAP_IFINDEX, 0);
@@ -193,9 +194,8 @@ encap_and_redirect_lxc(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	}
 
 	tunnel = map_lookup_elem(&TUNNEL_MAP, key);
-	if (!tunnel) {
+	if (!tunnel)
 		return DROP_NO_TUNNEL_ENDPOINT;
-	}
 
 #ifdef ENABLE_IPSEC
 	if (tunnel->key) {
@@ -216,9 +216,8 @@ encap_and_redirect_netdev(struct __ctx_buff *ctx, struct endpoint_key *k,
 	struct endpoint_key *tunnel;
 
 	tunnel = map_lookup_elem(&TUNNEL_MAP, k);
-	if (!tunnel) {
+	if (!tunnel)
 		return DROP_NO_TUNNEL_ENDPOINT;
-	}
 
 #ifdef ENABLE_IPSEC
 	if (tunnel->key) {

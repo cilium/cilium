@@ -131,12 +131,11 @@ ipv4_handle_fragment(struct __ctx_buff *ctx,
 
 	if (likely(ipv4_is_not_first_fragment(ip4)))
 		return ipv4_frag_get_l4ports(&frag_id, ports);
-	else
-		/* First logical fragment for this datagram (not necessarily the
-		 * first we receive). Fragment has L4 header, we can retrieve L4
-		 * ports and create an entry in datagrams map. */
-		return ipv4_frag_register_datagram(ctx, l4_off, &frag_id,
-						   ports);
+
+	/* First logical fragment for this datagram (not necessarily the first
+	 * we receive). Fragment has L4 header, we can retrieve L4 ports and
+	 * create an entry in datagrams map. */
+	return ipv4_frag_register_datagram(ctx, l4_off, &frag_id, ports);
 }
 #endif
 
