@@ -27,13 +27,13 @@ static void *__map_lookup_elem(const void *map, const void *tuple)
 #define REPORT_ALL_FLAGS 0xFF
 #define REPORT_NO_FLAGS 0x0
 
-// Advance global (fake) time by one unit.
+/* Advance global (fake) time by one unit. */
 void advance_time(void)
 {
 	__now = __now + 1;
 }
 
-// Return true IFF 'entry' will expire in 'seconds'.
+/* Return true IFF 'entry' will expire in 'seconds'. */
 bool timeout_in(const struct ct_entry *entry, int seconds)
 {
 	return entry->lifetime == __now + seconds;
@@ -46,26 +46,27 @@ static void test___ct_update_timeout(void)
 	__u32 then;
 	int monitor;
 
-	// No update initially; mostly just because __now is less than the
-	// default report interval.
+	/* No update initially; mostly just because __now is less than the
+	 * default report interval.
+	 */
 	monitor = __ct_update_timeout(&entry, 1000, CT_INGRESS, flags, REPORT_ALL_FLAGS);
 	assert(!monitor);
 
-	// When a full report interval has passed, report.
+	/* When a full report interval has passed, report. */
 	__now += 1+CT_REPORT_INTERVAL;
 	monitor = __ct_update_timeout(&entry, 1000, CT_INGRESS, flags, REPORT_ALL_FLAGS);
 	assert(monitor);
 	assert(entry.last_rx_report == __now);
 	assert(entry.last_tx_report == 0);
 	assert(entry.rx_flags_seen == 0);
-	// If <= a full report interval passes, don't report.
+	/* If <= a full report interval passes, don't report. */
 	then = __now;
 	__now += CT_REPORT_INTERVAL;
 	monitor = __ct_update_timeout(&entry, 1000, CT_INGRESS, flags, REPORT_ALL_FLAGS);
 	assert(!monitor);
 	assert(entry.last_rx_report == then);
 
-	// When flags change, report.
+	/* When flags change, report. */
 	flags.value |= TCP_FLAG_SYN;
 	monitor = __ct_update_timeout(&entry, 1000, CT_INGRESS, flags, REPORT_ALL_FLAGS);
 	assert(monitor);
@@ -73,11 +74,11 @@ static void test___ct_update_timeout(void)
 	assert(entry.rx_flags_seen == bpf_ntohs(TCP_FLAG_SYN));
 	assert(entry.last_tx_report == 0);
 	assert(entry.tx_flags_seen == 0);
-	// Same call; no report
+	/* Same call; no report. */
 	monitor = __ct_update_timeout(&entry, 1000, CT_INGRESS, flags, REPORT_ALL_FLAGS);
 	assert(!monitor);
 
-	// If flags change but flag reporting is disabled, skip it.
+	/* If flags change but flag reporting is disabled, skip it. */
 	flags.value |= TCP_FLAG_FIN;
 	monitor = __ct_update_timeout(&entry, 1000, CT_INGRESS, flags, REPORT_NO_FLAGS);
 	assert(!monitor);

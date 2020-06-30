@@ -67,8 +67,8 @@ bpf_skip_nodeport(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV4
 struct bpf_elf_map __section_maps NODEPORT_NEIGH4 = {
 	.type		= BPF_MAP_TYPE_LRU_HASH,
-	.size_key	= sizeof(__be32),		// ipv4 addr
-	.size_value	= sizeof(union macaddr),	// hw addr
+	.size_key	= sizeof(__be32),		/* ipv4 addr */
+	.size_value	= sizeof(union macaddr),	/* hw addr */
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= NODEPORT_NEIGH4_SIZE,
 };
@@ -77,8 +77,8 @@ struct bpf_elf_map __section_maps NODEPORT_NEIGH4 = {
 #ifdef ENABLE_IPV6
 struct bpf_elf_map __section_maps NODEPORT_NEIGH6 = {
 	.type		= BPF_MAP_TYPE_LRU_HASH,
-	.size_key	= sizeof(union v6addr),		// ipv6 addr
-	.size_value	= sizeof(union macaddr),	// hw addr
+	.size_key	= sizeof(union v6addr),		/* ipv6 addr */
+	.size_value	= sizeof(union macaddr),	/* hw addr */
 	.pinning	= PIN_GLOBAL_NS,
 	.max_elem	= NODEPORT_NEIGH6_SIZE,
 };
