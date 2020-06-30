@@ -96,7 +96,8 @@ not_esp:
 #endif
 
 	/* Lookup IPv6 address in list of local endpoints */
-	if ((ep = lookup_ip6_endpoint(ip6)) != NULL) {
+	ep = lookup_ip6_endpoint(ip6);
+	if (ep) {
 		__u8 nexthdr;
 
 		/* Let through packets to the node-ip so they are
@@ -209,7 +210,8 @@ not_esp:
 #endif
 
 	/* Lookup IPv4 address in list of local endpoints */
-	if ((ep = lookup_ip4_endpoint(ip4)) != NULL) {
+	ep = lookup_ip4_endpoint(ip4);
+	if (ep) {
 		/* Let through packets to the node-ip so they are
 		 * processed by the local ip stack */
 		if (ep->flags & ENDPOINT_F_HOST)

@@ -6,7 +6,7 @@
 #define SKIP_UNDEF_LPM_LOOKUP_FN
 #include "lib/maps.h"
 
-static void test_ipv6_addr_clear_suffix()
+static void test_ipv6_addr_clear_suffix(void)
 {
 	union v6addr v6;
 
@@ -46,7 +46,7 @@ static void test_ipv6_addr_clear_suffix()
 	assert(ntohl(v6.p4) == 0x00000000);
 }
 
-static __be32 *dummy_map = NULL;
+static __be32 *dummy_map;
 
 static __be32 match_dummy_prefix(const void *map, __be32 addr, __u32 prefix)
 {
@@ -63,7 +63,7 @@ LPM_LOOKUP_FN(lpm4_lookup22, __be32, PREFIX22, dummy_map, match_dummy_prefix)
 LPM_LOOKUP_FN(lpm4_lookup11, __be32, PREFIX11, dummy_map, match_dummy_prefix)
 LPM_LOOKUP_FN(lpm4_lookup0, __be32, PREFIX0, dummy_map, match_dummy_prefix)
 
-static void test_lpm_lookup()
+static void test_lpm_lookup(void)
 {
 	__be32 addr;
 	dummy_map = &addr;

@@ -37,7 +37,8 @@
 
 // This function is a placeholder for C struct definitions shared with Go, and
 // it's never being executed.
-int main(void) {
+int main(void)
+{
     int iter = 0;
 
     DECLARE(struct, ipv4_ct_tuple, iter);

@@ -225,12 +225,12 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 						      int nh_off)
 {
 	/* FIXME: Fix code below to not require this init */
-        char data[80] = {};
-        struct icmp6hdr *icmp6hoplim;
-        struct ipv6hdr *ipv6hdr;
+	char data[80] = {};
+	struct icmp6hdr *icmp6hoplim;
+	struct ipv6hdr *ipv6hdr;
 	char *upper; /* icmp6 or tcp or udp */
-        const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
-        __be32 sum = 0;
+	const int csum_off = nh_off + ICMP6_CSUM_OFFSET;
+	__be32 sum = 0;
 	__u16 payload_len = 0; /* FIXME: Uninit of this causes verifier bug */
 	__u8 icmp6_nexthdr = IPPROTO_ICMPV6;
 	int trimlen;
@@ -240,27 +240,27 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 	ipv6hdr = (struct ipv6hdr *)(data + 8);
 	upper = (data + 48);
 
-        /* fill icmp6hdr */
-        icmp6hoplim->icmp6_type = 3;
-        icmp6hoplim->icmp6_code = 0;
-        icmp6hoplim->icmp6_cksum = 0;
-        icmp6hoplim->icmp6_dataun.un_data32[0] = 0;
+	/* fill icmp6hdr */
+	icmp6hoplim->icmp6_type = 3;
+	icmp6hoplim->icmp6_code = 0;
+	icmp6hoplim->icmp6_cksum = 0;
+	icmp6hoplim->icmp6_dataun.un_data32[0] = 0;
 
 	cilium_dbg(ctx, DBG_ICMP6_TIME_EXCEEDED, 0, 0);
 
-        /* read original v6 hdr into offset 8 */
-        if (ctx_load_bytes(ctx, nh_off, ipv6hdr, sizeof(*ipv6hdr)) < 0)
+	/* read original v6 hdr into offset 8 */
+	if (ctx_load_bytes(ctx, nh_off, ipv6hdr, sizeof(*ipv6hdr)) < 0)
 		return DROP_INVALID;
 
 	if (ipv6_store_nexthdr(ctx, &icmp6_nexthdr, nh_off) < 0)
 		return DROP_WRITE_ERROR;
 
-        /* read original v6 payload into offset 48 */
-        switch (ipv6hdr->nexthdr) {
-        case IPPROTO_ICMPV6:
-        case IPPROTO_UDP:
-                if (ctx_load_bytes(ctx, nh_off + sizeof(struct ipv6hdr),
-                                   upper, 8) < 0)
+	/* read original v6 payload into offset 48 */
+	switch (ipv6hdr->nexthdr) {
+	case IPPROTO_ICMPV6:
+	case IPPROTO_UDP:
+		if (ctx_load_bytes(ctx, nh_off + sizeof(struct ipv6hdr),
+				   upper, 8) < 0)
 			return DROP_INVALID;
 		sum = compute_icmp6_csum(data, 56, ipv6hdr);
 		payload_len = bpf_htons(56);
@@ -274,12 +274,12 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 		if (ipv6_store_paylen(ctx, nh_off, &payload_len) < 0)
 			return DROP_WRITE_ERROR;
 
-                break;
-        /* copy header without options */
-        case IPPROTO_TCP:
-                if (ctx_load_bytes(ctx, nh_off + sizeof(struct ipv6hdr),
-                                   upper, 20) < 0)
-                        return DROP_INVALID;
+		break;
+		/* copy header without options */
+	case IPPROTO_TCP:
+		if (ctx_load_bytes(ctx, nh_off + sizeof(struct ipv6hdr),
+				   upper, 20) < 0)
+			return DROP_INVALID;
 		sum = compute_icmp6_csum(data, 68, ipv6hdr);
 		payload_len = bpf_htons(68);
 		/* trim or expand buffer and copy data buffer after ipv6 header */
@@ -292,15 +292,15 @@ static __always_inline int __icmp6_send_time_exceeded(struct __ctx_buff *ctx,
 		if (ipv6_store_paylen(ctx, nh_off, &payload_len) < 0)
 			return DROP_WRITE_ERROR;
 
-                break;
-        default:
-                return DROP_UNKNOWN_L4;
-        }
+		break;
+	default:
+		return DROP_UNKNOWN_L4;
+	}
 
-        if (l4_csum_replace(ctx, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
+	if (l4_csum_replace(ctx, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
-        return icmp6_send_reply(ctx, nh_off);
+	return icmp6_send_reply(ctx, nh_off);
 }
 #endif
 
@@ -406,7 +406,7 @@ static __always_inline int icmp6_handle(struct __ctx_buff *ctx, int nh_off,
 	cilium_dbg(ctx, DBG_ICMP6_HANDLE, type, 0);
 	BPF_V6(router_ip, ROUTER_IP);
 
-	switch(type) {
+	switch (type) {
 	case ICMP6_NS_MSG_TYPE:
 		return icmp6_handle_ns(ctx, nh_off, direction);
 	case ICMPV6_ECHO_REQUEST:

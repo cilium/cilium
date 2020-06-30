@@ -82,17 +82,17 @@
 typedef __u64 mac_t;
 
 union v6addr {
-        struct {
-                __u32 p1;
-                __u32 p2;
-                __u32 p3;
-                __u32 p4;
-        };
+	struct {
+		__u32 p1;
+		__u32 p2;
+		__u32 p3;
+		__u32 p4;
+	};
 	struct {
 		__u64 d1;
 		__u64 d2;
 	};
-        __u8 addr[16];
+	__u8 addr[16];
 } __packed;
 
 static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
@@ -220,16 +220,16 @@ struct policy_entry {
 };
 
 struct metrics_key {
-    __u8      reason;     //0: forwarded, >0 dropped
-    __u8      dir:2,      //1: ingress 2: egress
-              pad:6;
-    __u16     reserved[3]; // reserved for future extension
+	__u8      reason;	//0: forwarded, >0 dropped
+	__u8      dir:2,	//1: ingress 2: egress
+		  pad:6;
+	__u16     reserved[3];	// reserved for future extension
 };
 
 
 struct metrics_value {
-     __u64	count;
-     __u64	bytes;
+	__u64	count;
+	__u64	bytes;
 };
 
 enum {
@@ -239,11 +239,11 @@ enum {
 
 
 enum {
-        POLICY_MATCH_NONE = 0,
-        POLICY_MATCH_L3_ONLY = 1,
-        POLICY_MATCH_L3_L4 = 2,
-        POLICY_MATCH_L4_ONLY = 3,
-        POLICY_MATCH_ALL = 4,
+	POLICY_MATCH_NONE = 0,
+	POLICY_MATCH_L3_ONLY = 1,
+	POLICY_MATCH_L3_L4 = 2,
+	POLICY_MATCH_L4_ONLY = 3,
+	POLICY_MATCH_ALL = 4,
 };
 
 enum {

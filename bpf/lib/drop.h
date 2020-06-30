@@ -86,7 +86,7 @@ static __always_inline int send_drop_notify(struct __ctx_buff *ctx, __u32 src,
 }
 #else
 static __always_inline
-int send_drop_notify(struct __ctx_buff *ctx,__u32 src __maybe_unused,
+int send_drop_notify(struct __ctx_buff *ctx, __u32 src __maybe_unused,
 		     __u32 dst __maybe_unused, __u32 dst_id __maybe_unused,
 		     int reason, int exitcode, __u8 direction)
 {
