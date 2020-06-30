@@ -2059,7 +2059,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	e.RUnlock()
 	elog.Debug("Resolving identity for labels")
 
-	allocateCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
+	allocateCtx, cancel := context.WithTimeout(ctx, option.Config.KVstoreConnectivityTimeout)
 	defer cancel()
 
 	identity, _, err := cache.AllocateIdentity(allocateCtx, e.owner, newLabels)
@@ -2074,7 +2074,7 @@ func (e *Endpoint) identityLabelsChanged(ctx context.Context, myChangeRev int) e
 	// continue even if the parent has given up. Enforce a timeout of two
 	// minutes to avoid blocking forever but give plenty of time to release
 	// the identity.
-	releaseCtx, cancel := context.WithTimeout(context.Background(), 2*time.Minute)
+	releaseCtx, cancel := context.WithTimeout(ctx, 2*time.Minute)
 	defer cancel()
 
 	releaseNewlyAllocatedIdentity := func() {
