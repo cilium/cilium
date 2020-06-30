@@ -9,7 +9,7 @@
 
 #define EVENT_SOURCE HOST_EP_ID
 
-/* These are configuartion options which have a default value in their
+/* These are configuration options which have a default value in their
  * respective header files and must thus be defined beforehand:
  */
 /* Pass unknown ICMPv6 NS to stack */
@@ -795,7 +795,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 		/* We cannot redirect a packet to a local endpoint in the direct
 		 * routing mode, as the redirect bypasses nf_conntrack table.
 		 * This makes a second reply from the endpoint to be MASQUERADEd
-		 * or to be DROPed by k8s's "--ctstate INVALID -j DROP"
+		 * or to be DROP-ed by k8s's "--ctstate INVALID -j DROP"
 		 * depending via which interface it was inputed.
 		 */
 # ifdef ENABLE_HOST_FIREWALL

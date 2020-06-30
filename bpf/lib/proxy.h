@@ -48,7 +48,8 @@ ctx_redirect_to_proxy(struct __ctx_buff *ctx, __be16 proxy_port,
 #ifdef HOST_REDIRECT_TO_INGRESS
 	cilium_dbg(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port, 0);
 	/* In this case, the DBG_CAPTURE_PROXY_POST will be sent from the
-	 * programm attached to HOST_IFINDEX. */
+	 * program attached to HOST_IFINDEX.
+	 */
 	return redirect(HOST_IFINDEX, BPF_F_INGRESS);
 #else
 	cilium_dbg(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port, 0);
