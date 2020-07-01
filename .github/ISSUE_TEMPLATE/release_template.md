@@ -27,16 +27,15 @@ assignees: ''
 - [ ] Move any unresolved issues/PRs from old release project into the newly
       created release project
 - [ ] Push a PR including the changes necessary for the new release:
-  - [ ] Update the VERSION file to represent X.Y.Z
-  - [ ] Update helm charts via `make -C install/kubernetes`
+  - [ ] Pull latest branch
+  - [ ] Run `contrib/release/start-release.sh'
   - [ ] (If applicable) Update the `cilium_version` and `cilium_tag` in
         `examples/getting-started/Vagrantfile`
-  - [ ] Update `AUTHORS` via `make update-authors`
-  - [ ] Use [Cilium release-notes tool] to generate `CHANGELOG.md`
-  - [ ] Point `.github/cilium-actions.yml` to the newly created project
   - [ ] Commit all changes with title `Prepare for release vX.Y.Z`
+  - [ ] Submit PR (`contrib/release/submit-release.sh`)
 - [ ] Merge PR
 - [ ] Create and push *both* tags to GitHub (`vX.Y.Z`, `X.Y.Z`)
+  - Pull latest branch locally and run `contrib/release/tag-release.sh`
 - [ ] Wait for docker builds to complete
   - [cilium](https://hub.docker.com/repository/docker/cilium/cilium/builds)
   - [operator](https://hub.docker.com/repository/docker/cilium/operator/builds)
@@ -46,8 +45,7 @@ assignees: ''
       & push to repository
 - [ ] Run sanity check of Helm install using connectivity-check script.
       Suggested approach: Follow the full [GKE getting started guide].
-- [ ] [Create a release] for the new tag `vX.Y.Z`, using the release notes
-      from above
+- [ ] Check draft release from [releases] page and publish the release
 - [ ] Announce the release in #general on Slack (only [@]channel for vX.Y.0)
 
 ## Post-release
@@ -65,7 +63,7 @@ assignees: ''
 [Cilium release-notes tool]: https://github.com/cilium/release
 [Docker Hub]: https://hub.docker.com/orgs/cilium/repositories
 [Cilium charts]: https://github.com/cilium/charts
-[Create a release]: https://github.com/cilium/cilium/releases/new
+[releases]: https://github.com/cilium/cilium/releases
 [Stable releases]: https://github.com/cilium/cilium#stable-releases
 [kops]: https://github.com/kubernetes/kops/
 [kubespray]: https://github.com/kubernetes-sigs/kubespray/
