@@ -104,9 +104,9 @@ configuration.
         --set global.k8sServicePort=API_SERVER_PORT
 
 This will install Cilium as a CNI plugin with the BPF kube-proxy replacement to
-implement handling of Kubernetes services of type ClusterIP, NodePort, ExternalIPs
-and LoadBalancer. On top of that the BPF kube-proxy replacement also supports
-hostPort for containers such that using portmap is not necessary anymore.
+implement handling of Kubernetes services of type ClusterIP, NodePort, LoadBalancer
+and services with externalIPs. On top of that the BPF kube-proxy replacement also
+supports hostPort for containers such that using portmap is not necessary anymore.
 
 Finally, as a last step, verify that Cilium has come up correctly on all nodes and
 is ready to operate:
@@ -269,16 +269,38 @@ Advanced Configuration
 This section covers a few advanced configuration modes for the kube-proxy replacement
 that go beyond the above Quick-Start guide and are entirely optional.
 
+Client Source IP Preservation
+*****************************
+
+Cilium's BPF kube-proxy replacement implements a number of options in order to avoid
+performing SNAT on NodePort requests where the client source IP address would otherwise
+be lost on its path to the service endpoint.
+
+- ``externalTrafficPolicy=Local``: The ``Local`` policy is generally supported through
+  the BPF implementation. In-cluster connectivity for services with ``externalTrafficPolicy=Local``
+  is possible and can also be reached from nodes which have no local backends, meaning,
+  given SNAT does not need to be performed, all service endpoints are available for
+  load balancing from in-cluster side.
+
+- ``externalTrafficPolicy=Cluster``: For the ``Cluster`` policy which is the default
+  upon service creation, multiple options exist for achieving client source IP preservation
+  for external traffic, that is, operating the kube-proxy replacement in :ref:`DSR<DSR Mode>`
+  or :ref:`Hybrid<Hybrid Mode>` mode if only TCP-based services are exposed to the outside
+  world for the latter.
+
+.. _DSR mode:
+
 Direct Server Return (DSR)
 **************************
 
 By default, Cilium's BPF NodePort implementation operates in SNAT mode. That is,
 when node-external traffic arrives and the node determines that the backend for
-the NodePort or ExternalIPs service is at a remote node, then the node is redirecting
-the request to the remote backend on its behalf by performing SNAT. This does not
-require any additional MTU changes at the cost that replies from the backend need
-to make the extra hop back that node in order to perform the reverse SNAT translation
-there before returning the packet directly to the external client.
+the LoadBalancer, NodePort or services with externalIPs is at a remote node, then the
+node is redirecting the request to the remote backend on its behalf by performing
+SNAT. This does not require any additional MTU changes at the cost that replies
+from the backend need to make the extra hop back that node in order to perform the
+reverse SNAT translation there before returning the packet directly to the external
+client.
 
 This setting can be changed through the ``global.nodePort.mode`` helm option to
 ``dsr`` in order to let Cilium's BPF NodePort implementation operate in DSR mode.
@@ -320,6 +342,8 @@ enabled would look as follows:
         --set global.nodePort.mode=dsr \\
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
+
+.. _Hybrid mode:
 
 Hybrid DSR and SNAT Mode
 ************************
@@ -815,8 +839,8 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
 - ``global.kubeProxyReplacement=strict``: This option expects a kube-proxy-free
   Kubernetes setup where Cilium is expected to fully replace all kube-proxy
   functionality. Once the Cilium agent is up and running, it takes care of handling
-  Kubernetes services of type ClusterIP, NodePort, ExternalIPs and LoadBalancer as
-  well as HostPort. If the underlying kernel version requirements are not met
+  Kubernetes services of type ClusterIP, NodePort, LoadBalancer, services with externalIPs
+  as well as HostPort. If the underlying kernel version requirements are not met
   (see :ref:`kubeproxy-free` note), then the Cilium agent will bail out on start-up
   with an error message.
 
@@ -880,8 +904,9 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
         --set global.hostServices.enabled=true \\
         --set global.hostServices.protocols=tcp
 
-  The following helm setup below would optimize Cilium's NodePort and ExternalIPs handling
-  for external traffic ingressing into the Cilium managed node in a kube-proxy environment:
+  The following helm setup below would optimize Cilium's NodePort, LoadBalancer and services
+  with externalIPs handling for external traffic ingressing into the Cilium managed node in
+  a kube-proxy environment:
 
   .. parsed-literal::
 
@@ -943,7 +968,7 @@ Limitations
       hook address translation in BPF is only available for v5.8 kernels. It is known to
       currently not work with libceph deployments.
     * Cilium's BPF kube-proxy acceleration in XDP can only be used in a single device setup
-      as a "one-legged" / hairpin load-balancer scenario. In case of a multi-device environment,
+      as a "one-legged" / hairpin load balancer scenario. In case of a multi-device environment,
       where auto-detection selects more than a single device to expose NodePort, the option
       ``global.devices=eth0`` must be specified in helm in order to work, where ``eth0``
       is the native XDP supported networking device.
