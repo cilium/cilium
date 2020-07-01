@@ -26,6 +26,11 @@ spec:
   fsGroup:
     rule: RunAsAny
   readOnlyRootFilesystem: false
+{{- if .Values.global.operatorPrometheus.enabled }}
+  hostPorts:
+    - min: {{ .Values.global.operatorPrometheus.port }}
+      max: {{ .Values.global.operatorPrometheus.port }}
+{{- end }}
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole

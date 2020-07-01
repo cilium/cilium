@@ -13,6 +13,17 @@ spec:
     - '*'
   hostNetwork: true
   hostIPC: false
+{{- if (or .Values.global.hubble.metrics.enabled .Values.global.prometheus.enabled)}}
+  hostPorts:
+{{- end }}
+{{- if .Values.global.hubble.metrics.enabled }}
+    - max: {{ .Values.global.hubble.metrics.port }}
+      min: {{ .Values.global.hubble.metrics.port }}
+{{- end }}
+{{- if .Values.global.prometheus.enabled }}
+    - max: {{ .Values.global.prometheus.port }}
+      min: {{ .Values.global.prometheus.port }}
+{{- end }}
   hostPID: false
   runAsUser:
     rule: RunAsAny
