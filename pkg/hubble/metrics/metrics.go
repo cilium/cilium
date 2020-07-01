@@ -30,6 +30,7 @@ import (
 
 	"github.com/prometheus/client_golang/prometheus"
 	"github.com/prometheus/client_golang/prometheus/promhttp"
+	dto "github.com/prometheus/client_model/go"
 	"github.com/sirupsen/logrus"
 )
 
@@ -57,7 +58,9 @@ func Init(address string, enabled api.Map) (<-chan error, error) {
 
 	go func() {
 		mux := http.NewServeMux()
-		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{}))
+		mux.Handle("/metrics", promhttp.HandlerFor(registry, promhttp.HandlerOpts{
+			FilterGenerator: filterGenerator,
+		}))
 		srv := http.Server{
 			Addr:    address,
 			Handler: mux,
@@ -82,4 +85,38 @@ func EnableMetrics(log logrus.FieldLogger, metricsServer string, m []string) err
 		}
 	}()
 	return nil
+}
+
+func filterGenerator(req *http.Request) prometheus.GatherFilter {
+	opts := req.URL.Query()
+	var (
+		sourceValue *string
+		destValue   *string
+	)
+	if sourceVs, ok := opts[api.Source]; ok && len(sourceVs) == 1 {
+		sourceValue = &sourceVs[0]
+	}
+	if destVs, ok := opts[api.Destination]; ok && len(destVs) == 1 {
+		destValue = &destVs[0]
+	}
+
+	return func(metric *dto.Metric) bool {
+		var (
+			sourceMatch = sourceValue == nil
+			destMatch   = destValue == nil
+		)
+		for _, l := range metric.Label {
+			if !sourceMatch &&
+				l.GetName() == api.Source &&
+				l.GetValue() == *sourceValue {
+				sourceMatch = true
+			}
+			if !destMatch &&
+				l.GetName() == api.Destination &&
+				l.GetValue() == *destValue {
+				destMatch = true
+			}
+		}
+		return sourceMatch && destMatch
+	}
 }

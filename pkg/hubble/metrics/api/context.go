@@ -23,6 +23,11 @@ import (
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 )
 
+const (
+	Source      = "source"
+	Destination = "destination"
+)
+
 // ContextIdentifier describes the identification method of a transmission or
 // receiving context
 type ContextIdentifier int
@@ -218,11 +223,11 @@ func (o *ContextOptions) GetLabelValues(flow v1.Flow) (labels []string) {
 // configured context description requirements
 func (o *ContextOptions) GetLabelNames() (labels []string) {
 	if o.Source != ContextDisabled {
-		labels = append(labels, "source")
+		labels = append(labels, Source)
 	}
 
 	if o.Destination != ContextDisabled {
-		labels = append(labels, "destination")
+		labels = append(labels, Destination)
 	}
 
 	return
@@ -233,11 +238,11 @@ func (o *ContextOptions) GetLabelNames() (labels []string) {
 func (o *ContextOptions) Status() string {
 	var status []string
 	if o.Source != ContextDisabled {
-		status = append(status, "source="+o.Source.String())
+		status = append(status, Source+"="+o.Source.String())
 	}
 
 	if o.Destination != ContextDisabled {
-		status = append(status, "destination="+o.Destination.String())
+		status = append(status, Destination+"="+o.Destination.String())
 	}
 
 	sort.Strings(status)
