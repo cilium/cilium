@@ -41,7 +41,7 @@ fi
 DATE=$(date --rfc-3339=date)
 PRBRANCH="pr/v${BRANCH}-backport-${DATE}${SUFFIX}"
 
-if ! (git --no-pager branch | grep -q "${PRBRANCH}"); then
+if (git --no-pager branch | grep -q "${PRBRANCH}"); then
     echo "Error: branch '${PRBRANCH}' already exists"
     echo "Consider passing a suffix as the second parameter"
     echo
