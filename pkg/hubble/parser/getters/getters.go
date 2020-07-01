@@ -27,7 +27,8 @@ import (
 // DNSGetter ...
 type DNSGetter interface {
 	// GetNamesOf fetches FQDNs of a given IP from the perspective of
-	// the endpoint with ID sourceEpID
+	// the endpoint with ID sourceEpID. The returned names must not have
+	// trailing dots.
 	GetNamesOf(sourceEpID uint32, ip net.IP) (names []string)
 }
 
