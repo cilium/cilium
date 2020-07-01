@@ -59,11 +59,39 @@ func (h *handler) NodeAdd(n types.Node) error {
 
 // NodeUpdate implements datapath.NodeHandler.NodeUpdate.
 func (h *handler) NodeUpdate(o, n types.Node) error {
+	oAddr, nAddr := nodeAddress(o), nodeAddress(n)
+	if o.Fullname() == n.Fullname() {
+		if oAddr == nAddr {
+			// this corresponds to the same peer
+			// => no need to send a notification
+			return nil
+		}
+		select {
+		case h.C <- &peerpb.ChangeNotification{
+			Name:    n.Fullname(),
+			Address: nAddr,
+			Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
+		}:
+		case <-h.stop:
+		}
+		return nil
+	}
+	// the name has changed; from a service consumer perspective, this is the
+	// same as if the peer with the old name was removed and a new one added
+	select {
+	case h.C <- &peerpb.ChangeNotification{
+		Name:    o.Fullname(),
+		Address: oAddr,
+		Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+	}:
+	case <-h.stop:
+		return nil
+	}
 	select {
 	case h.C <- &peerpb.ChangeNotification{
 		Name:    n.Fullname(),
-		Address: nodeAddress(n),
-		Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
+		Address: nAddr,
+		Type:    peerpb.ChangeNotificationType_PEER_ADDED,
 	}:
 	case <-h.stop:
 	}
