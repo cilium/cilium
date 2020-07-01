@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 	"time"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -200,7 +201,13 @@ func (d *Daemon) GetNamesOf(sourceEpID uint32, ip net.IP) []string {
 	if ep == nil {
 		return nil
 	}
-	return ep.DNSHistory.LookupIP(ip)
+	names := ep.DNSHistory.LookupIP(ip)
+
+	for i := range names {
+		names[i] = strings.TrimSuffix(names[i], ".")
+	}
+
+	return names
 }
 
 // GetServiceByAddr looks up service by IP/port. Hubble uses this function to annotate flows
