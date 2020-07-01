@@ -30,6 +30,8 @@ import (
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/node/manager"
 	"github.com/cilium/cilium/pkg/node/types"
+
+	"github.com/google/go-cmp/cmp"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -228,7 +230,17 @@ func TestService_Notify(t *testing.T) {
 					{
 						Name: "one",
 						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+						},
+					}, {
+						Name: "one",
+						IPAddresses: []types.Address{
 							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.2")},
+						},
+					}, {
+						Name: "two",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
 						},
 					}, {
 						Name: "two",
@@ -259,6 +271,82 @@ func TestService_Notify(t *testing.T) {
 					Name:    "two",
 					Address: "2001:db8::65",
 					Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
+				},
+			},
+		}, {
+			name: "rename 2 nodes",
+			args: args{
+				init: []types.Node{
+					{
+						Name: "zero",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.1.1")},
+						},
+					}, {
+						Name: "one",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+						},
+					}, {
+						Name: "two",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+						},
+					},
+				},
+				update: []types.Node{
+					{
+						Name: "one",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+						},
+					}, {
+						Name: "1",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+						},
+					}, {
+						Name: "two",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+						},
+					}, {
+						Name: "2",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+						},
+					},
+				},
+			},
+			want: []*peerpb.ChangeNotification{
+				{
+					Name:    "zero",
+					Address: "192.0.1.1",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+				}, {
+					Name:    "one",
+					Address: "192.0.2.1",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+				}, {
+					Name:    "two",
+					Address: "2001:db8::68",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+				}, {
+					Name:    "one",
+					Address: "192.0.2.1",
+					Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+				}, {
+					Name:    "1",
+					Address: "192.0.2.1",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+				}, {
+					Name:    "two",
+					Address: "2001:db8::68",
+					Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+				}, {
+					Name:    "2",
+					Address: "2001:db8::68",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
 				},
 			},
 		},
@@ -296,9 +384,29 @@ func TestService_Notify(t *testing.T) {
 				wg.Add(1)
 				notif.notifyDelete(n)
 			}
-			for _, n := range tt.args.update {
-				wg.Add(1)
-				notif.notifyUpdate(n, n)
+			// the update slice shall always be even with odd entry
+			// corresponding to the old node and following even entries to the
+			// updated one
+			var o types.Node
+			for i, n := range tt.args.update {
+				if i%2 == 0 {
+					n := n
+					o = n
+					continue
+				}
+				// the number of notifications we expect depends on the change
+				// - identical: no notification
+				// - name change: 2 notifications
+				// - other change: 1 notification
+				switch {
+				case cmp.Diff(o, n) == "":
+					// no-op
+				case o.Name != n.Name:
+					wg.Add(2)
+				default:
+					wg.Add(1)
+				}
+				notif.notifyUpdate(o, n)
 			}
 			wg.Wait()
 			svc.Close()
