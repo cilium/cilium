@@ -117,35 +117,52 @@ func TestNodeUpdate(t *testing.T) {
 	tests := []struct {
 		name string
 		args args
-		want *peerpb.ChangeNotification
+		want []*peerpb.ChangeNotification
 	}{
 		{
-			name: "node with just a name",
+			name: "a node is renamed",
 			args: args{
-				types.Node{}, types.Node{
-					Name: "name",
+				types.Node{
+					Name: "old",
+				}, types.Node{
+					Name: "new",
 				}},
-			want: &peerpb.ChangeNotification{
-				Name:    "name",
-				Address: "",
-				Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
+			want: []*peerpb.ChangeNotification{
+				{
+					Name:    "old",
+					Address: "",
+					Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+				}, {
+					Name:    "new",
+					Address: "",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+				},
 			},
 		}, {
-			name: "node with just a name and cluster",
+			name: "a node within a named cluster is renamed",
 			args: args{
-				types.Node{}, types.Node{
-					Name:    "name",
+				types.Node{
+					Name:    "old",
+					Cluster: "cluster",
+				}, types.Node{
+					Name:    "new",
 					Cluster: "cluster",
 				}},
-			want: &peerpb.ChangeNotification{
-				Name:    "cluster/name",
-				Address: "",
-				Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
+			want: []*peerpb.ChangeNotification{
+				{
+					Name:    "cluster/old",
+					Address: "",
+					Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+				}, {
+					Name:    "cluster/new",
+					Address: "",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+				},
 			},
 		}, {
-			name: "node with name, cluster and one internal IP address",
+			name: "a node with name, cluster and one internal IP address, the latter is updated",
 			args: args{
-				types.Node{}, types.Node{
+				types.Node{
 					Name:    "name",
 					Cluster: "cluster",
 					IPAddresses: []types.Address{
@@ -153,17 +170,66 @@ func TestNodeUpdate(t *testing.T) {
 							Type: addressing.NodeInternalIP,
 							IP:   net.ParseIP("192.0.2.1"),
 						},
+					},
+				}, types.Node{
+					Name:    "name",
+					Cluster: "cluster",
+					IPAddresses: []types.Address{
+						{
+							Type: addressing.NodeInternalIP,
+							IP:   net.ParseIP("192.0.2.2"),
+						},
 					}},
 			},
-			want: &peerpb.ChangeNotification{
-				Name:    "cluster/name",
-				Address: "192.0.2.1",
-				Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
+			want: []*peerpb.ChangeNotification{
+				{
+					Name:    "cluster/name",
+					Address: "192.0.2.2",
+					Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
+				},
 			},
 		}, {
-			name: "node with name, cluster and one external IP address",
+			name: "node with name, cluster and one external IP address, the latter is updated",
 			args: args{
-				types.Node{}, types.Node{
+				types.Node{
+					Name:    "name",
+					Cluster: "cluster",
+					IPAddresses: []types.Address{
+						{
+							Type: addressing.NodeExternalIP,
+							IP:   net.ParseIP("192.0.2.1"),
+						},
+					},
+				}, types.Node{
+					Name:    "name",
+					Cluster: "cluster",
+					IPAddresses: []types.Address{
+						{
+							Type: addressing.NodeExternalIP,
+							IP:   net.ParseIP("192.0.2.2"),
+						},
+					},
+				}},
+			want: []*peerpb.ChangeNotification{
+				{
+					Name:    "cluster/name",
+					Address: "192.0.2.2",
+					Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
+				},
+			},
+		}, {
+			name: "node with name, cluster and one external IP address, no name or address change",
+			args: args{
+				types.Node{
+					Name:    "name",
+					Cluster: "cluster",
+					IPAddresses: []types.Address{
+						{
+							Type: addressing.NodeExternalIP,
+							IP:   net.ParseIP("192.0.2.1"),
+						},
+					},
+				}, types.Node{
 					Name:    "name",
 					Cluster: "cluster",
 					IPAddresses: []types.Address{
@@ -173,11 +239,7 @@ func TestNodeUpdate(t *testing.T) {
 						},
 					},
 				}},
-			want: &peerpb.ChangeNotification{
-				Name:    "cluster/name",
-				Address: "192.0.2.1",
-				Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
-			},
+			want: nil,
 		},
 	}
 	for _, tt := range tests {
@@ -185,11 +247,13 @@ func TestNodeUpdate(t *testing.T) {
 			h := newHandler()
 			defer h.Close()
 
-			var got *peerpb.ChangeNotification
+			var got []*peerpb.ChangeNotification
 			var wg sync.WaitGroup
 			wg.Add(1)
 			go func() {
-				got = <-h.C
+				for i := 0; i < len(tt.want); i++ {
+					got = append(got, <-h.C)
+				}
 				wg.Done()
 			}()
 			h.NodeUpdate(tt.args.old, tt.args.updated)
