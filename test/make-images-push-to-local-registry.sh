@@ -21,6 +21,12 @@ docker push "$1/cilium/operator-aws:$2"
 docker push "$1/cilium/operator-azure:$2"
 docker push "$1/cilium/hubble-relay:$2"
 
+# push startup-script image with proper tag to repo
+nodeInitTag="af2a99046eca96c0138551393b21a5c044c7fe79"
+docker pull "cilium/startup-script:$nodeInitTag"
+docker tag "cilium/startup-script:$nodeInitTag" "$1/cilium/startup-script:$nodeInitTag"
+docker push "$1/cilium/startup-script:$nodeInitTag"
+
 cilium_git_version="$(cat GIT_VERSION)"
 
 counter=0
