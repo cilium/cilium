@@ -129,7 +129,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, npMap NamedPorts
 
 	// Register the new EndpointPolicy as a receiver of delta
 	// updates.  Any updates happening after this, but before
-	// computeDesiredL4PolicyMapEntires() call finishes may
+	// computeDesiredL4PolicyMapEntries() call finishes may
 	// already be applied to the PolicyMapState, specifically:
 	//
 	// - policyMapChanges may contain an addition of an entry that
@@ -140,7 +140,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, npMap NamedPorts
 	p.insertUser(calculatedPolicy)
 
 	// Must come after the 'insertUser()' above to guarantee
-	// PolicyMapCanges will contain all changes that are applied
+	// PolicyMapChanges will contain all changes that are applied
 	// after the computation of PolicyMapState has started.
 	calculatedPolicy.computeDesiredL4PolicyMapEntries()
 	if !isHost {
