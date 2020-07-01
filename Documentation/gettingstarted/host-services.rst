@@ -58,6 +58,69 @@ Verify that it has come up correctly:
     NAME                READY     STATUS    RESTARTS   AGE
     cilium-crf7f        1/1       Running   0          10m
 
+In order to verify whether the HostReachableServices feature has been enabled
+in Cilium, the ``cilium status`` CLI command provides visibility through the
+``KubeProxyReplacement`` info line. If it has been enabled successfully,
+``HostReachableServices`` is shown, for example:
+
+.. parsed-literal::
+
+    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
+    KubeProxyReplacement:   Probe   [eth0 (DR)]   [NodePort (SNAT, 30000-32767, XDP: DISABLED), HostPort, ExternalIPs, HostReachableServices (TCP, UDP), SessionAffinity]
+
+The following example yaml from the setup validation with an additional
+``hostNetwork: true`` parameter can be used to verify the mapping:
+
+.. parsed-literal::
+
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: my-nginx
+    spec:
+      selector:
+        matchLabels:
+          run: my-nginx
+      replicas: 1
+      template:
+        metadata:
+          labels:
+            run: my-nginx
+        spec:
+          hostNetwork: true
+          containers:
+          - name: my-nginx
+            image: nginx
+            ports:
+            - containerPort: 80
+
+After deployment, we can validate that Cilium exposes the nginx application
+through the host IP:
+
+.. parsed-literal::
+
+        kubectl get pods -o wide
+        NAME                        READY   STATUS    RESTARTS   AGE     IP                NODE            NOMINATED NODE   READINESS GATES
+        my-nginx-694b8667c5-rv9mf   1/1     Running   0          4m32s   192.168.122.133   worker1   <none>           <none>
+
+Last but not least, a simple ``curl`` test shows connectivity for the exposed
+HostReachableServices under the host's IP:
+
+.. parsed-literal::
+
+    curl 192.168.122.133
+    <!DOCTYPE html>
+    <html>
+    <head>
+    <title>Welcome to nginx!</title>
+    [....]
+
+Removing the deployment also removes the corresponding HostReachableServices configured:
+
+.. parsed-literal::
+
+    kubectl delete deployment my-nginx
+
 Limitations
 ###########
 
