@@ -4,7 +4,6 @@
 ifdef DOCKER_BUILDKIT
 
 BUILD_DIR := _build
-DOCKER_BUILD_DIR := $(BUILD_DIR)/context
 
 # Export with value expected by docker
 export DOCKER_BUILDKIT=1
@@ -17,6 +16,31 @@ clean-build:
 veryclean: clean-build
 
 BUILDKIT_DOCKERFILE_FILTER := | sed -e "1s|^\#.*|\# syntax = docker/dockerfile:experimental|" -e "s|^RUN\(.*\)make|RUN --mount=type=cache,target=/root/.cache/go-build\1make|"
+
+# Check that files needed for git-less build are up-to-date
+build-context-update: GIT_VERSION BPF_SRCFILES
+
+# Generic rule for augmented .dockerignore files. For 'Dockerfile' the stem ('%') matches just the 'D'.
+# '.git' can not be ignored in the top level '.dockerignore' as builds directly from the Dockerfiles
+# (e.g., on Docker hub and Quay) depend on '.git' for the git SHA.
+_build/%ockerfile.dockerignore: .dockerignore
+	@-mkdir -p $(dir $@)
+	@cp $< $@
+	@echo ".git" >> $@
+
+# Generic rule for Dockerfiles. For 'Dockerfile' the stem ('%') matches just the 'D'.
+_build/%ockerfile: %ockerfile _build/%ockerfile.dockerignore force
+	@-mkdir -p $(dir $@)
+	@cat $< $(BUILDKIT_DOCKERFILE_FILTER) > $@
+	@-grep "^FROM " $@ | cut -d ' ' -f2 | grep -v "scratch" | xargs -P4 -n1 docker pull
+
+#
+# Optionally make a shallow clone of the repo to explicitly exclude
+# all files not in git from the build.
+#
+ifdef BUILD_ONLY_COMMITTED
+
+DOCKER_BUILD_DIR := $(BUILD_DIR)/context
 
 # _build/.git is a shallow bare clone of the main repo
 # - mkdir can fail if the directory exists already
@@ -34,6 +58,7 @@ _build/.git:
 #
 _build/context: _build/.git
 	git init --separate-git-dir=$< $@
+	@echo "gitdir: ../.git" > _build/context/.git
 
 #
 # Update the docker build context by:
@@ -49,10 +74,8 @@ _build/context: _build/.git
 # - update BPF_SRCFILES in the build context if needed
 #
 build-context-update: check-status _build/context _build/context/GIT_VERSION _build/context/BPF_SRCFILES
-	@echo "gitdir: ../.git" > _build/context/.git
 	cd _build && git fetch --depth=1 --no-tags
 	cd _build/context && git reset --hard FETCH_HEAD && git clean -fd
-	@rm _build/context/.git
 
 #
 # Docker build context does not contain the actual git repo, so we need to pass
@@ -63,13 +86,9 @@ _build/context/GIT_VERSION: GIT_VERSION _build/context
 _build/context/BPF_SRCFILES: BPF_SRCFILES _build/context
 	cp $< $@
 
-# Generic rule for Dockerfiles. For 'Dockerfile' the stem ('%') matches just the 'D'.
-_build/%ockerfile: %ockerfile force
-	@-mkdir -p $(dir $@)
-	@cat $< $(BUILDKIT_DOCKERFILE_FILTER) > $@
-	@-grep "^FROM " $@ | cut -d ' ' -f2 | grep -v "scratch" | xargs -P4 -n1 docker pull
-
 check-status:
 	@if [ -n "`git status --porcelain`" ] ; then git status && echo "These changes will not be included in build, aborting. Define IGNORE_GIT_STATUS to build anyway." && test $(IGNORE_GIT_STATUS); fi
+
+endif
 
 endif
