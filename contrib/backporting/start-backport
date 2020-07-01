@@ -27,13 +27,17 @@ if [ "$BRANCH" = "" ]; then
 fi
 BRANCH=$(echo "$BRANCH" | sed 's/^v//')
 
+# Extra optional suffix in cases where there are multiple backport PRs that
+# have the same conflicting branch name.
+SUFFIX="${2}"
+
 git fetch origin
 if ! git branch -a | grep -q "origin/v$BRANCH$" ; then
-    echo "usage: start-backport <branch version>" 1>&2
+    echo "usage: start-backport <branch version> [suffix]" 1>&2
     echo "  (detected branch $BRANCH)" 1>&2
     common::exit 1
 fi
 
 DATE=$(date --rfc-3339=date)
-git checkout -b pr/v$BRANCH-backport-$DATE origin/v$BRANCH
+git checkout -b "pr/v$BRANCH-backport-$DATE${SUFFIX}" origin/v$BRANCH
 contrib/backporting/check-stable $BRANCH v$BRANCH-backport-$DATE.txt
