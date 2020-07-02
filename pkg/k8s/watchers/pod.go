@@ -15,6 +15,8 @@
 package watchers
 
 import (
+	"context"
+	"encoding/json"
 	"errors"
 	"fmt"
 	"net"
@@ -24,15 +26,18 @@ import (
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/comparator"
+	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labelsfilter"
@@ -48,8 +53,10 @@ import (
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
 	k8sErrors "k8s.io/apimachinery/pkg/api/errors"
+	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
@@ -242,6 +249,9 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 		if err != nil {
 			return err
 		}
+
+		// Synchronize Pod labels with CiliumEndpoint labels if there is a change.
+		updateCiliumEndpointLabels(podEP, newPodLabels)
 	}
 
 	if annotationsChanged {
@@ -271,6 +281,84 @@ func realizePodAnnotationUpdate(podEP *endpoint.Endpoint) {
 	}
 }
 
+// updateCiliumEndpointLabels runs a controller associated with the endpoint that updates
+// the Labels in CiliumEndpoint object by mirroring those of the associated Pod.
+func updateCiliumEndpointLabels(ep *endpoint.Endpoint, labels map[string]string) {
+	var (
+		controllerName = fmt.Sprintf("sync-pod-labels-with-cilium-endpoint (%v)", ep.GetID())
+		scopedLog      = log.WithField("controller", controllerName)
+	)
+
+	// The controller is executed only once and is associated with the underlying endpoint object.
+	// This is to make sure that the controller is also deleted once the endpoint is gone.
+	ep.UpdateController(controllerName,
+		controller.ControllerParams{
+			DoFunc: func(ctx context.Context) (err error) {
+				capabilities := k8sversion.Capabilities()
+				pod := ep.GetPod()
+				ciliumClient := k8s.CiliumClient().CiliumV2()
+
+				switch {
+				case capabilities.Patch:
+					replaceLabels := []k8s.JSONPatch{
+						{
+							OP:    "replace",
+							Path:  "/metadata/labels",
+							Value: labels,
+						},
+					}
+
+					labelsPatch, err := json.Marshal(replaceLabels)
+					if err != nil {
+						scopedLog.WithError(err).Debug("Error marshalling Pod labels")
+						return err
+					}
+
+					_, err = ciliumClient.CiliumEndpoints(pod.GetNamespace()).Patch(
+						ctx, pod.GetName(),
+						types.JSONPatchType,
+						labelsPatch,
+						meta_v1.PatchOptions{})
+					if err != nil {
+						scopedLog.WithError(err).Debug("Error while updating CiliumEndpoint object with new Pod labels")
+						return err
+					}
+
+				default:
+					status := ep.GetCiliumEndpointStatus(option.Config).DeepCopy()
+					_, err := ciliumClient.CiliumEndpoints(pod.GetNamespace()).Update(ctx, &v2.CiliumEndpoint{
+						ObjectMeta: meta_v1.ObjectMeta{
+							Name: pod.GetName(),
+							OwnerReferences: []meta_v1.OwnerReference{
+								{
+									APIVersion:         "v1",
+									Kind:               "Pod",
+									Name:               pod.GetName(),
+									UID:                pod.GetUID(),
+									BlockOwnerDeletion: func() *bool { a := true; return &a }(),
+								},
+							},
+							Labels: labels,
+						},
+						Status: *status,
+					}, meta_v1.UpdateOptions{})
+
+					if err != nil {
+						scopedLog.WithError(err).Debug("Error while updating CiliumEndpoint object with new Pod labels")
+						return err
+					}
+				}
+
+				scopedLog.WithFields(logrus.Fields{
+					logfields.EndpointID: ep.GetID(),
+					logfields.Labels:     logfields.Repr(labels),
+				}).Debug("Updated CiliumEndpoint object with new Pod labels")
+
+				return nil
+			},
+		})
+}
+
 func updateEndpointLabels(ep *endpoint.Endpoint, oldLbls, newLbls map[string]string) error {
 	newLabels := labels.Map2Labels(newLbls, labels.LabelSourceK8s)
 	newIdtyLabels, _ := labelsfilter.Filter(newLabels)
@@ -279,7 +367,7 @@ func updateEndpointLabels(ep *endpoint.Endpoint, oldLbls, newLbls map[string]str
 
 	err := ep.ModifyIdentityLabels(newIdtyLabels, oldIdtyLabels)
 	if err != nil {
-		log.WithError(err).Debugf("error while updating endpoint with new labels")
+		log.WithError(err).Debugf("Error while updating endpoint with new labels")
 		return err
 	}
 
