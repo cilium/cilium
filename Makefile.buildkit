@@ -23,10 +23,24 @@ build-context-update: GIT_VERSION
 # Generic rule for augmented .dockerignore files. For 'Dockerfile' the stem ('%') matches just the 'D'.
 # '.git' can not be ignored in the top level '.dockerignore' as builds directly from the Dockerfiles
 # (e.g., on Docker hub and Quay) depend on '.git' for the git SHA.
-_build/%ockerfile.dockerignore: .dockerignore
+.PRECIOUS: _build/%ockerfile.dockerignore
+GIT_IGNORE_FILES := $(shell find . -not -path "./_build*" -not -path "./vendor*" -name .gitignore -print)
+_build/%ockerfile.dockerignore: $(GIT_IGNORE_FILES) Makefile.buildkit
 	@-mkdir -p $(dir $@)
-	@cp $< $@
+	@echo "/hack" > $@
 	@echo ".git" >> $@
+	echo $(dir $(GIT_IGNORE_FILES)) | tr ' ' '\n' | xargs -P1 -n1 -I {DIR} sed \
+		-e '# Remove lines with white space, comments and files that must be passed to docker, "$$" due to make. #' \
+			-e '/^[[:space:]]*$$/d' -e '/^#/d' -e '/GIT_VERSION/d' \
+		-e '# Apply pattern in all directories if it contains no "/", keep "!" up front. #' \
+			-e '/^[^!/][^/]*$$/s<^<**/<' -e '/^![^/]*$$/s<^!<!**/<' \
+		-e '# Prepend with the directory name, keep "!" up front. #' \
+			-e '/^[^!]/s<^<{DIR}<' -e '/^!/s<^!<!{DIR}<'\
+		-e '# Remove leading "./", keep "!" up front. #' \
+			-e 's<^\./<<' -e 's<^!\./<!<' \
+		-e '# Append newline to the last line if missing. GNU sed does not do this automatically. #' \
+			-e '$$a\' \
+		{DIR}.gitignore >> $@
 
 # Generic rule for Dockerfiles. For 'Dockerfile' the stem ('%') matches just the 'D'.
 _build/%ockerfile: %ockerfile _build/%ockerfile.dockerignore force
