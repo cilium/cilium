@@ -1,5 +1,71 @@
 # Changelog
 
+## v1.8.1
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* install/kubernetes: Helm option for fragment tracking (Backport PR #12296, Upstream PR #12102, @pchaigno)
+
+**Bugfixes:**
+* avoid having endpoints in 'restoring' state in case the connectivity with the KVStore is not reliable (Backport PR #12332, Upstream PR #12307, @aanm)
+* bpf: Handle ICMPv6 NS/NA in host firewall (Backport PR #12332, Upstream PR #12049, @pchaigno)
+* bpf: support host to TCP services when host to UDP services is disabled (Backport PR #12265, Upstream PR #12222, @bpineau)
+* daemon: fix panic for cilium status in IPv6 only cluster (Backport PR #12265, Upstream PR #12221, @Rolinh)
+* docs: fix enableIdentityMark helm chart option (Backport PR #12332, Upstream PR #12299, @aanm)
+* Fix bug where etcd session renew would block indefinitely, causing endpoint provision to fail (Backport PR #12332, Upstream PR #12292, @joestringer)
+* Fix bug where identity allocation wouldn't cancel from api timeouts (Backport PR #12348, Upstream PR #12328, @joestringer)
+* Fix failure to start agent when detected devices don't have hardware addresses (Backport PR #12332, Upstream PR #12321, @pchaigno)
+* Fix silent cilium monitor on systems with offline CPUs (Backport PR #12332, Upstream PR #12310, @pchaigno)
+* fqdn: Fix panic on MarshalJSON() (Backport PR #12265, Upstream PR #12218, @pchaigno)
+* helm/operator: fix IPv6 liveness probe address for operator (Backport PR #12265, Upstream PR #12223, @Rolinh)
+* hubble/peer: fix buf.Pop() crash issue (Backport PR #12296, Upstream PR #12257, @Jianlin-lv)
+* hubble/peer: prevent pushing to buffer when it's closed (Backport PR #12296, Upstream PR #12285, @Rolinh)
+* iptables: Remove '--nowildcard' from socket match (Backport PR #12332, Upstream PR #12248, @jrajahalme)
+* Istio integration is updated to Istio release 1.5.7. (Backport PR #12358, Upstream PR #12353, @jrajahalme)
+* make: fix LOCKDEBUG env variable reference for docker-plugin-image (Backport PR #12332, Upstream PR #12318, @Rolinh)
+* metrics: fix negative identity count (Backport PR #12378, Upstream PR #12313, @ArthurChiao)
+* operator: provide a proper type to node informer (Backport PR #12265, Upstream PR #12235, @bpineau)
+* policy/api: Add reserved:health entity (Backport PR #12332, Upstream PR #12199, @pchaigno)
+* The host proxy is updated to Envoy release 1.13.3 (Backport PR #12348, Upstream PR #12343, @jrajahalme)
+
+**CI Changes:**
+* ci/helpers: Collect Hubble flow logs upon failure (Backport PR #12265, Upstream PR #11824, @gandro)
+* ci: fix gke prune script (Backport PR #12265, Upstream PR #12226, @nebril)
+* Fix various issues (data races, flakes) related to DaemonSuite and Endpoint related test code (Backport PR #12332, Upstream PR #12195, @christarazi)
+* fqdn/dnsproxy/proxy_test: increase timeout for DNS TCP client exchanges (Backport PR #12332, Upstream PR #12305, @qmonnet)
+* test/helpers: introduce CmdStreamBuffer to manipulate a command's output (Backport PR #12332, Upstream PR #12252, @Rolinh)
+* test: split log gathering goroutine (Backport PR #12332, Upstream PR #12282, @nebril)
+
+**Misc Changes:**
+* bpf: fix in-cluster connectivity for externalTrafficPolicy=Local (Backport PR #12378, Upstream PR #12311, @borkmann)
+* bpf: remove write-only bool backend_from_affinity from lb{4,6}local (Backport PR #12265, Upstream PR #12237, @tklauser)
+* bpf: run kernel's checkpatch.pl locally and as GitHub action, fix style (Backport PR #12378, Upstream PR #11936, @qmonnet)
+* build: install gops binary in operator images (Backport PR #12296, Upstream PR #12254, @tklauser)
+* cilium: split off handling of lb svc type in datapath (Backport PR #12265, Upstream PR #12234, @borkmann)
+* contrib: Add ability to pass suffix for branch (Backport PR #12378, Upstream PR #12351, @christarazi)
+* contrib: fix branch check in `start-backport` script (Backport PR #12378, Upstream PR #12361, @Rolinh)
+* docs: adjust policy verdict log output examples to new format (Backport PR #12265, Upstream PR #12256, @tklauser)
+* docs: clarify helm options for kubernetes ipam (Backport PR #12296, Upstream PR #12276, @aanm)
+* docs: Fix bpfMasquerade option (Backport PR #12332, Upstream PR #12302, @sayboras)
+* docs: fix set flag in upgrade guide (Backport PR #12296, Upstream PR #12271, @aanm)
+* docs: Mark host-policies as tech preview (Backport PR #12296, Upstream PR #12272, @joestringer)
+* docs: Support minikube in Hubble getting started guide (Backport PR #12296, Upstream PR #12262, @gandro)
+* docs: Switch hostfw tech-preview -> beta (Backport PR #12332, Upstream PR #12325, @joestringer)
+* Helm: Make nodeinit image, tag and registry configurable using helm values (Backport PR #12296, Upstream PR #12274, @seanmwinn)
+* hubble/peer: drop irrelevant change notifications (Backport PR #12378, Upstream PR #12360, @Rolinh)
+* hubble: Bump images to v0.6.1 (Backport PR #12332, Upstream PR #12290, @gandro)
+* hubble:Add unit test for Pop with closed stop chan (Backport PR #12296, Upstream PR #12269, @Jianlin-lv)
+* install/kubernetes: remove mapDynamicSizeRatio leftover (Backport PR #12296, Upstream PR #12275, @aanm)
+* Make podSubnet consistent across install guide (Backport PR #12265, Upstream PR #12243, @jedsalazar)
+* operator: Make CRD availability timeout configurable (Backport PR #12332, Upstream PR #12177, @mrostecki)
+* packaging/docker: update cni loopback to 0.8.6 (Backport PR #12296, Upstream PR #12287, @aanm)
+* Set 'kubernetes' IPAM in kube-proxy free guide (Backport PR #12378, Upstream PR #12246, @MaiReo)
+* Skip in-cluster xlation for non-local ips in socket lb for case of external ips (Backport PR #12265, Upstream PR #12220, @borkmann)
+* test: Display error in case command fails (Backport PR #12296, Upstream PR #12239, @pchaigno)
+* test: Fix ginkgo -cilium help output (Backport PR #12296, Upstream PR #12267, @pchaigno)
+
 ## v1.8.0
 
 Summary of Changes
