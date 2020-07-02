@@ -43,6 +43,7 @@ import (
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/version"
 
+	"github.com/google/renameio"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -136,31 +137,43 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.Path: headerPath,
 	}).Debug("writing header file")
-	f, err := os.Create(headerPath)
+
+	// Write new contents to a temporary file which will be atomically renamed to the
+	// real file at the end of this function. This will make sure we never end up with
+	// corrupted header files on the filesystem.
+	f, err := renameio.TempFile(prefix, headerPath)
 	if err != nil {
-		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
+		return fmt.Errorf("failed to open temporary file: %s", err)
 	}
-	defer f.Close()
+	defer f.Cleanup()
 
 	if err = e.writeInformationalComments(f); err != nil {
 		return err
 	}
 
+	if err = e.owner.Datapath().WriteEndpointConfig(f, e); err != nil {
+		return err
+	}
+
+	err = f.CloseAtomicallyReplace()
+
 	// Create symlink with old header filename, to allow downgrade to pre-1.8
 	// Cilium. Can be removed once v1.8 is the oldest supported release.
 	// We don't add the symlink for the host endpoint so that it is not
-	// restored when downgrading to <1.8.
-	if !e.IsHost() {
+	// restored when downgrading to <1.8. To avoid linking to a
+	// nonexistent file, only create the symlink if the header file
+	// creation/replacement file suceeded above.
+	if !e.IsHost() && err == nil {
 		oldHeaderPath := filepath.Join(prefix, common.OldCHeaderFileName)
 		if _, err := os.Stat(oldHeaderPath); err != nil {
 			// The symlink doesn't already exists.
-			if err := os.Symlink(common.CHeaderFileName, oldHeaderPath); err != nil {
+			if err := renameio.Symlink(common.CHeaderFileName, oldHeaderPath); err != nil {
 				e.getLogger().WithError(err).Error("Failed to create C header file symlink")
 			}
 		}
 	}
 
-	return e.owner.Datapath().WriteEndpointConfig(f, e)
+	return err
 }
 
 // addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for
