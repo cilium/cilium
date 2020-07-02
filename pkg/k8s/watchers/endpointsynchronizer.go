@@ -159,6 +159,9 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 										BlockOwnerDeletion: func() *bool { a := true; return &a }(),
 									},
 								},
+								// Mirror the labels of parent pod in CiliumEndpoint object to enable
+								// label based selection for CiliumEndpoints.
+								Labels: pod.GetObjectMeta().GetLabels(),
 							},
 						}
 						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Create(ctx, cep, meta_v1.CreateOptions{})
