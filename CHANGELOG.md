@@ -1,5 +1,57 @@
 # Changelog
 
+## v1.7.6
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add possibility to configure native-routing-cidr in helm chart. (Backport PR #12354, Upstream PR #11132, @zbindenren)
+
+**Bugfixes:**
+* Avoid having endpoints in 'restoring' state in case the connectivity with the KVStore is not reliable (Backport PR #12333, Upstream PR #12307, @aanm)
+* bpf: Use `nproc --all` for __NR_CPUS__ (Backport PR #12363, Upstream PR #12121, @gandro)
+* cilium: fix encryption flow labels in ip6 case (Backport PR #12056, Upstream PR #12015, @jrfastab)
+* Fix bug where etcd session renew would block indefinitely, causing endpoint provision to fail (Backport PR #12333, Upstream PR #12292, @joestringer)
+* Fix bug where identity allocation wouldn't cancel from api timeouts (Backport PR #12350, Upstream PR #12328, @joestringer)
+* Fix setting monitorAggregationLevel to max reflects via CLI (Backport PR #12333, Upstream PR #12014, @soumynathan)
+* Fix silent cilium monitor on systems with offline CPUs (Backport PR #12363, Upstream PR #12310, @pchaigno)
+* Fix syslog hook missing in DefaultLogger (Backport PR #12333, Upstream PR #12170, @ArthurChiao)
+* helm/operator: fix IPv6 liveness probe address for operator (Backport PR #12333, Upstream PR #12223, @Rolinh)
+* iptables: Remove '--nowildcard' from socket match (Backport PR #12333, Upstream PR #12248, @jrajahalme)
+* Istio integration is updated to Istio release 1.5.6. (Backport PR #12333, Upstream PR #12214, @jrajahalme)
+* Istio integration is updated to Istio release 1.5.7. (Backport PR #12357, Upstream PR #12353, @jrajahalme)
+* make: fix LOCKDEBUG env variable reference for docker-plugin-image (Backport PR #12333, Upstream PR #12318, @Rolinh)
+* option: Require native-routing-cidr only if IPv4 is enabled (Backport PR #12354, Upstream PR #12198, @brb)
+* policy/api: Add reserved:health entity (Backport PR #12333, Upstream PR #12199, @pchaigno)
+* Stop Cilium from hanging on CNP or CCNP events from Kubernetes if running with 'k8s-event-handover=true' and 'kvstore=""' (Backport PR #12333, Upstream PR #12146, @aanm)
+* The host proxy is updated to Envoy release 1.13.3 (Backport PR #12350, Upstream PR #12343, @jrajahalme)
+* Valid CNP and CCNP 'matchLabel' values must be 63 characters or less and must be empty or begin and end with an alphanumeric character ([a-z0-9A-Z]) with dashes (-), underscores (_), dots (.), and alphanumerics between. (Backport PR #12354, Upstream PR #12117, @aanm)
+
+**CI Changes:**
+* fqdn/dnsproxy/proxy_test: increase timeout for DNS TCP client exchanges (Backport PR #12333, Upstream PR #12305, @qmonnet)
+* ginkgo-ext: Fix data-race in Writer (Backport PR #12333, Upstream PR #12025, @gandro)
+* test: Add retries to curl command (Backport PR #12357, Upstream PR #11993, @christarazi)
+* test: Download correct cilium-istioctl for the executing OS. (Backport PR #12357, Upstream PR #12109, @jrajahalme)
+* test: Skip Istio test if Ginkgo runs on unsupported runtime. (Backport PR #12357, Upstream PR #11905, @jrajahalme)
+
+**Misc Changes:**
+* k8s: update k8s libraries to v1.17.7 (#12208, @aanm)
+* contrib: Add environment variable to script  to control K8s namespace (Backport PR #12333, Upstream PR #12082, @christarazi)
+* contrib: Misc. fixups for k8s-cilium-exec.sh script (Backport PR #12333, Upstream PR #12126, @christarazi)
+* doc: Misc fixups for Transparent Encryption GSG (Backport PR #12333, Upstream PR #12088, @christarazi)
+* doc: revamp kata containers getting started guide (Backport PR #12362, Upstream PR #12144, @Rolinh)
+* docs: point cilium docs into a stable version of sphinx theme (Backport PR #11992, Upstream PR #12010, @genbit)
+* docs: re-design cilium docs theme (Backport PR #11992, Upstream PR #11803, @genbit)
+* Fix GKE Helm options for CI and docs. (Backport PR #12333, Upstream PR #12087, @jrajahalme)
+* Fix native routing cidr missing flag in daemon (Backport PR #12354, Upstream PR #12180, @aanm)
+* logo: change SVG file used for the logo (Backport PR #11992, Upstream PR #12002, @qmonnet)
+* test: Remove ginkgo linux dependency (Backport PR #12357, Upstream PR #12074, @jrajahalme)
+* Update xargs usage in restart-pods documentation (Backport PR #12333, Upstream PR #12064, @ap4y)
+* Use right schema when validating CCNP in pre-flight upgrade step (Backport PR #12354, Upstream PR #12106, @aanm)
+* Dockerfile: Bump cilium-runtime image (#12371, @christarazi)
+* fqdn: Fix panic on MarshalJSON (#12224, @tklauser)
+
 ## v1.7.5
 
 Summary of Changes
