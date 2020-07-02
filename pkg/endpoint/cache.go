@@ -178,7 +178,7 @@ func (ep *epInfoCache) RequireARPPassthrough() bool {
 	return ep.requireARPPassthrough
 }
 
-// RequireEgressProg returns true if the endpoint requires bpf_lxc with esction
+// RequireEgressProg returns true if the endpoint requires bpf_lxc with section
 // "to-container" to be attached at egress on the host facing veth pair
 func (ep *epInfoCache) RequireEgressProg() bool {
 	return ep.requireEgressProg
