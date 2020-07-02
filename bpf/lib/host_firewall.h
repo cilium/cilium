@@ -36,6 +36,7 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id)
 
 	/* Lookup connection in conntrack map. */
 	tuple.nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&tuple.saddr, (union v6addr *)&ip6->saddr);
 	ipv6_addr_copy(&tuple.daddr, (union v6addr *)&ip6->daddr);
 	ipv6_addr_copy(&orig_dip, (union v6addr *)&ip6->daddr);
 	hdrlen = ipv6_hdrlen(ctx, ETH_HLEN, &tuple.nexthdr);
