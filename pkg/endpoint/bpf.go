@@ -1319,7 +1319,7 @@ func (e *Endpoint) RequireARPPassthrough() bool {
 	return e.DatapathConfiguration.RequireArpPassthrough
 }
 
-// RequireEgressProg returns true if the endpoint requires bpf_lxc with esction
+// RequireEgressProg returns true if the endpoint requires bpf_lxc with section
 // "to-container" to be attached at egress on the host facing veth pair
 func (e *Endpoint) RequireEgressProg() bool {
 	return e.DatapathConfiguration.RequireEgressProg
