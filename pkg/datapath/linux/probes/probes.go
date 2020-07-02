@@ -60,6 +60,13 @@ func (kp KernelParam) Module() bool {
 	return kp == "m"
 }
 
+// kernelOption holds information about kernel parameters to probe.
+type kernelOption struct {
+	Description string
+	Enabled     bool
+	CanBeModule bool
+}
+
 // SystemConfig contains kernel configuration and sysctl parameters related to
 // BPF functionality.
 type SystemConfig struct {
@@ -207,53 +214,28 @@ func (p *ProbeManager) SystemKernelHz() (int, error) {
 // returns an error when parameters required by Cilium are not enabled. It logs
 // warnings when optional parameters are not enabled.
 func (p *ProbeManager) SystemConfigProbes() error {
-	config := p.features.SystemConfig
-
 	if !p.KernelConfigAvailable() {
 		return ErrKernelConfigNotFound
 	}
-
-	// Required
-	if !config.ConfigBpf.Enabled() {
-		return fmt.Errorf("CONFIG_BPF kernel parameter is required")
+	requiredParams := p.GetRequiredConfig()
+	for param, kernelOption := range requiredParams {
+		if !kernelOption.Enabled {
+			module := ""
+			if kernelOption.CanBeModule {
+				module = " or module"
+			}
+			return fmt.Errorf("%s kernel parameter%s is required (needed for: %s)", param, module, kernelOption.Description)
+		}
 	}
-
-	if !config.ConfigBpfSyscall.Enabled() {
-		return fmt.Errorf(
-			"CONFIG_BPF_SYSCALL kernel parameter is required")
-	}
-	if !config.ConfigNetSchIngress.Enabled() && !config.ConfigNetSchIngress.Module() {
-		return fmt.Errorf(
-			"CONFIG_NET_SCH_INGRESS kernel parameter (or module) is required")
-	}
-	if !config.ConfigNetClsBpf.Enabled() && !config.ConfigNetClsBpf.Module() {
-		return fmt.Errorf(
-			"CONFIG_NET_CLS_BPF kernel parameter (or module) is required")
-	}
-	if !config.ConfigNetClsAct.Enabled() {
-		return fmt.Errorf(
-			"CONFIG_NET_CLS_ACT kernel parameter is required")
-	}
-	if !config.ConfigBpfJit.Enabled() {
-		return fmt.Errorf(
-			"CONFIG_BPF_JIT kernel parameter is required")
-	}
-	if !config.ConfigHaveEbpfJit.Enabled() {
-		return fmt.Errorf(
-			"CONFIG_HAVE_EBPF_JIT kernel parameter is required")
-	}
-	// Optional
-	if !config.ConfigCgroupBpf.Enabled() {
-		log.Warning(
-			"CONFIG_CGROUP_BPF optional kernel parameter is not in kernel configuration")
-	}
-	if !config.ConfigLwtunnelBpf.Enabled() {
-		log.Warning(
-			"CONFIG_LWTUNNEL_BPF optional kernel parameter is not in kernel configuration")
-	}
-	if !config.ConfigBpfEvents.Enabled() {
-		log.Warning(
-			"CONFIG_BPF_EVENTS optional kernel parameter is not in kernel configuration")
+	optionalParams := p.GetOptionalConfig()
+	for param, kernelOption := range optionalParams {
+		if !kernelOption.Enabled {
+			module := ""
+			if kernelOption.CanBeModule {
+				module = " or module"
+			}
+			log.Warningf("%s optional kernel parameter%s is not in kernel (needed for: %s)", param, module, kernelOption.Description)
+		}
 	}
 	return nil
 }
@@ -261,17 +243,46 @@ func (p *ProbeManager) SystemConfigProbes() error {
 // GetRequiredConfig performs a check of mandatory kernel configuration options. It
 // returns a map indicating which required kernel parameters are enabled - and which are not.
 // GetRequiredConfig is being used by CLI "cilium kernel-check".
-func (p *ProbeManager) GetRequiredConfig() map[KernelParam]bool {
+func (p *ProbeManager) GetRequiredConfig() map[KernelParam]kernelOption {
 	config := p.features.SystemConfig
-	kernelParams := make(map[KernelParam]bool)
+	coreInfraDescription := "Essential eBPF infrastructure"
+	kernelParams := make(map[KernelParam]kernelOption)
 
-	kernelParams["CONFIG_BPF"] = config.ConfigBpf.Enabled()
-	kernelParams["CONFIG_BPF_SYSCALL"] = config.ConfigBpfSyscall.Enabled()
-	kernelParams["CONFIG_NET_SCH_INGRESS"] = config.ConfigNetSchIngress.Enabled()
-	kernelParams["CONFIG_NET_CLS_BPF"] = config.ConfigNetClsBpf.Enabled()
-	kernelParams["CONFIG_NET_CLS_ACT"] = config.ConfigNetClsAct.Enabled()
-	kernelParams["CONFIG_BPF_JIT"] = config.ConfigBpfJit.Enabled()
-	kernelParams["CONFIG_HAVE_EBPF_JIT"] = config.ConfigHaveEbpfJit.Enabled()
+	kernelParams["CONFIG_BPF"] = kernelOption{
+		Enabled:     config.ConfigBpf.Enabled(),
+		Description: coreInfraDescription,
+		CanBeModule: false,
+	}
+	kernelParams["CONFIG_BPF_SYSCALL"] = kernelOption{
+		Enabled:     config.ConfigBpfSyscall.Enabled(),
+		Description: coreInfraDescription,
+		CanBeModule: false,
+	}
+	kernelParams["CONFIG_NET_SCH_INGRESS"] = kernelOption{
+		Enabled:     config.ConfigNetSchIngress.Enabled() || config.ConfigNetSchIngress.Module(),
+		Description: coreInfraDescription,
+		CanBeModule: true,
+	}
+	kernelParams["CONFIG_NET_CLS_BPF"] = kernelOption{
+		Enabled:     config.ConfigNetClsBpf.Enabled() || config.ConfigNetClsBpf.Module(),
+		Description: coreInfraDescription,
+		CanBeModule: true,
+	}
+	kernelParams["CONFIG_NET_CLS_ACT"] = kernelOption{
+		Enabled:     config.ConfigNetClsAct.Enabled(),
+		Description: coreInfraDescription,
+		CanBeModule: false,
+	}
+	kernelParams["CONFIG_BPF_JIT"] = kernelOption{
+		Enabled:     config.ConfigBpfJit.Enabled(),
+		Description: coreInfraDescription,
+		CanBeModule: false,
+	}
+	kernelParams["CONFIG_HAVE_EBPF_JIT"] = kernelOption{
+		Enabled:     config.ConfigHaveEbpfJit.Enabled(),
+		Description: coreInfraDescription,
+		CanBeModule: false,
+	}
 
 	return kernelParams
 }
@@ -279,13 +290,25 @@ func (p *ProbeManager) GetRequiredConfig() map[KernelParam]bool {
 // GetOptionalConfig performs a check of *optional* kernel configuration options. It
 // returns a map indicating which optional/non-mandatory kernel parameters are enabled.
 // GetOptionalConfig is being used by CLI "cilium kernel-check".
-func (p *ProbeManager) GetOptionalConfig() map[KernelParam]bool {
+func (p *ProbeManager) GetOptionalConfig() map[KernelParam]kernelOption {
 	config := p.features.SystemConfig
-	kernelParams := make(map[KernelParam]bool)
+	kernelParams := make(map[KernelParam]kernelOption)
 
-	kernelParams["CONFIG_CGROUP_BPF"] = config.ConfigCgroupBpf.Enabled()
-	kernelParams["CONFIG_LWTUNNEL_BPF"] = config.ConfigLwtunnelBpf.Enabled()
-	kernelParams["CONFIG_BPF_EVENTS"] = config.ConfigBpfEvents.Enabled()
+	kernelParams["CONFIG_CGROUP_BPF"] = kernelOption{
+		Enabled:     config.ConfigCgroupBpf.Enabled(),
+		Description: "Host Reachable Services and Sockmap optimization",
+		CanBeModule: false,
+	}
+	kernelParams["CONFIG_LWTUNNEL_BPF"] = kernelOption{
+		Enabled:     config.ConfigLwtunnelBpf.Enabled(),
+		Description: "Lightweight Tunnel hook for IP-in-IP encapsulation",
+		CanBeModule: false,
+	}
+	kernelParams["CONFIG_BPF_EVENTS"] = kernelOption{
+		Enabled:     config.ConfigBpfEvents.Enabled(),
+		Description: "Visibility and congestion management with datapath",
+		CanBeModule: false,
+	}
 
 	return kernelParams
 }
