@@ -1005,6 +1005,10 @@ var _ = Describe("K8sServicesTest", func() {
 			testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s1NodeName)
 			testCurlFromPodInHostNetNS(httpURL, count, 0, k8s2NodeName)
 			testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s2NodeName)
+			if helpers.ExistNodeWithoutCilium() {
+				testCurlFromOutside(httpURL, count, true)
+				testCurlFromOutside(tftpURL, count, true)
+			}
 
 			// Local requests should be load-balanced on kube-proxy 1.15+.
 			// See kubernetes/kubernetes#77523 for the PR which introduced this
