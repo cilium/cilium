@@ -1,5 +1,47 @@
 # Changelog
 
+## v1.6.10
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* endpoint: Fix data races while accessing GetIdentity() (Backport PR #12021, Upstream PR #11941, @tgraf)
+* Fix bug where etcd session renew would block indefinitely, causing endpoint provision to fail (Backport PR #12341, Upstream PR #12292, @joestringer)
+* Fix bug where identity allocation wouldn't cancel from api timeouts (Backport PR #12352, Upstream PR #12328, @joestringer)
+* helm/operator: fix IPv6 liveness probe address for operator (Backport PR #12341, Upstream PR #12223, @Rolinh)
+* ipcache: Fix deadlock when ipcache GC results in datapath reload (Backport PR #12021, Upstream PR #11950, @tgraf)
+* iptables: Remove '--nowildcard' from socket match (Backport PR #12356, Upstream PR #12248, @jrajahalme)
+* Istio integration has been updated to release 1.5.0. (Backport PR #12356, Upstream PR #10564, @jrajahalme)
+* Istio integration has been updated to release 1.5.1, with backported fix for GKE/COS. (Backport PR #12356, Upstream PR #10730, @jrajahalme)
+* Istio integration has been updated to release 1.5.2 (Backport PR #12356, Upstream PR #11280, @jrajahalme)
+* Istio integration has been updated to release 1.5.4 (Backport PR #12356, Upstream PR #11530, @jrajahalme)
+* Istio integration is updated to Istio release 1.5.6. (Backport PR #12356, Upstream PR #12214, @jrajahalme)
+* Istio integration is updated to Istio release 1.5.7. (Backport PR #12356, Upstream PR #12353, @jrajahalme)
+* Istio integration is simplified with Cilium build of istioctl. (Backport PR #12356, Upstream PR #10851, @jrajahalme)
+* Stop Cilium from hanging on CNP or CCNP events from Kubernetes if running with 'k8s-event-handover=true' and 'kvstore=""' (Backport PR #12341, Upstream PR #12146, @aanm)
+* Envoy is updated to release 1.13.2. (Backport PR #12017, Upstream PR #11973, @jrajahalme)
+* The host proxy is updated to Envoy release 1.13.3 (Backport PR #12352, Upstream PR #12343, @jrajahalme)
+
+**CI Changes:**
+* Fix flakey assertion on metrics (Backport PR #12021, Upstream PR #11966, @christarazi)
+* ginkgo-ext: Fix data-race in Writer (Backport PR #12341, Upstream PR #12025, @gandro)
+* test: Add retries to curl command (Backport PR #12356, Upstream PR #11993, @christarazi)
+* test: Download correct cilium-istioctl for the executing OS. (Backport PR #12356, Upstream PR #12109, @jrajahalme)
+* test: Skip Istio test if Ginkgo runs on unsupported runtime. (Backport PR #12356, Upstream PR #11905, @jrajahalme)
+
+**Misc Changes:**
+* [v1.6] Dockerfile: Bump cilium-runtime image (#12370, @christarazi)
+* k8s: update k8s libraries to v1.16.11 (#12207, @aanm)
+* contrib/backporting: remove requires-janitor-review label (Backport PR #12341, Upstream PR #11986, @aanm)
+* docs: point cilium docs into a stable version of sphinx theme (Backport PR #12040, Upstream PR #12010, @genbit)
+* docs: re-design cilium docs theme (Backport PR #12040, Upstream PR #11803, @genbit)
+* envoy: Include detail in NACK warning (Backport PR #12341, Upstream PR #12016, @jrajahalme)
+* envoy: Reduce logging verbosity. (Backport PR #12017, Upstream PR #11349, @jrajahalme)
+* envoy: Use TypedConfig for Envoy filters (Backport PR #12017, Upstream PR #9889, @jrajahalme)
+* logo: change SVG file used for the logo (Backport PR #12040, Upstream PR #12002, @qmonnet)
+* Use right schema when validating CCNP in pre-flight upgrade step (Backport PR #12346, Upstream PR #12106, @aanm)
+
 ## v1.6.9
 
 Summary of Changes
