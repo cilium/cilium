@@ -42,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/version"
 
+	"github.com/google/renameio"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -133,17 +134,25 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	e.getLogger().WithFields(logrus.Fields{
 		logfields.Path: headerPath,
 	}).Debug("writing header file")
-	f, err := os.Create(headerPath)
-	if err != nil {
-		return fmt.Errorf("failed to open file %s for writing: %s", headerPath, err)
 
+	// Write new contents to a temporary file which will be atomically renamed to the
+	// real file at the end of this function. This will make sure we never end up with
+	// corrupted header files on the filesystem.
+	f, err := renameio.TempFile(prefix, headerPath)
+	if err != nil {
+		return fmt.Errorf("failed to open temporary file: %s", err)
 	}
-	defer f.Close()
+	defer f.Cleanup()
 
 	if err = e.writeInformationalComments(f); err != nil {
 		return err
 	}
-	return e.owner.Datapath().WriteEndpointConfig(f, e)
+
+	if err = e.owner.Datapath().WriteEndpointConfig(f, e); err != nil {
+		return err
+	}
+
+	return f.CloseAtomicallyReplace()
 }
 
 // addNewRedirectsFromDesiredPolicy must be called while holding the endpoint lock for

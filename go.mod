@@ -36,6 +36,7 @@ require (
 	github.com/google/go-cmp v0.3.1
 	github.com/google/gopacket v1.1.17
 	github.com/google/gops v0.3.6
+	github.com/google/renameio v0.1.0
 	github.com/googleapis/gnostic v0.2.0 // indirect
 	github.com/gorilla/mux v1.7.0
 	github.com/hashicorp/consul/api v1.2.0

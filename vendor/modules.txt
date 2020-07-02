@@ -204,6 +204,8 @@ github.com/google/gopacket/layers
 github.com/google/gops/agent
 github.com/google/gops/internal
 github.com/google/gops/signal
+# github.com/google/renameio v0.1.0 => github.com/google/renameio v0.1.0
+github.com/google/renameio
 # github.com/google/uuid v1.1.1 => github.com/google/uuid v1.1.1
 github.com/google/uuid
 # github.com/googleapis/gnostic v0.2.0 => github.com/googleapis/gnostic v0.0.0-20170729233727-0c5108395e2d
