@@ -111,6 +111,9 @@ brought up by vagrant:
 * ``INSTALL=1``: Restarts the installation of Cilium, Kubernetes, etc. Only
   useful when the installation was interrupted.
 * ``MAKECLEAN=1``: Execute ``make clean`` before building cilium in the VM.
+* ``NO_BUILD=1``: Does not run the "build" provision step in the VM. Assumes
+  the developer had previously executed ``make build`` before provisioning the
+  VM.
 
 If you want to start the VM with cilium enabled with ``containerd``, with
 kubernetes installed and plus a worker, run:
