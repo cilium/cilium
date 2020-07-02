@@ -9,6 +9,7 @@ $SERVER_BOX = (ENV['SERVER_BOX'] || $SERVER_BOX)
 $SERVER_VERSION= (ENV['SERVER_VERSION'] || $SERVER_VERSION)
 $NETNEXT_SERVER_BOX = (ENV['NETNEXT_SERVER_BOX'] || $NETNEXT_SERVER_BOX)
 $NETNEXT_SERVER_VERSION= (ENV['NETNEXT_SERVER_VERSION'] || $NETNEXT_SERVER_VERSION)
+$NO_BUILD = (ENV['NO_BUILD'] || "0")
 
 if ENV['NETNEXT'] == "true" || ENV['NETNEXT'] == "1" then
     $SERVER_BOX = $NETNEXT_SERVER_BOX
@@ -137,7 +138,9 @@ end
 
 Vagrant.configure(2) do |config|
     config.vm.provision "bootstrap", type: "shell", inline: $bootstrap
-    config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
+    if $NO_BUILD == "0" then
+        config.vm.provision "build", type: "shell", run: "always", privileged: false, inline: $build
+    end
     config.vm.provision "install", type: "shell", run: "always", privileged: false, inline: $install
     config.vm.box_check_update = false
 
