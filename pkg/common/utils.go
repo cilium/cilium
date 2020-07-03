@@ -15,7 +15,6 @@
 package common
 
 import (
-	"bufio"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -93,28 +92,6 @@ func FindEPConfigCHeader(basePath string, epFiles []os.FileInfo) string {
 		}
 	}
 	return ""
-}
-
-// GetCiliumVersionString returns the first line containing CiliumCHeaderPrefix.
-func GetCiliumVersionString(epCHeaderFilePath string) (string, error) {
-	f, err := os.Open(epCHeaderFilePath)
-	if err != nil {
-		return "", err
-	}
-	br := bufio.NewReader(f)
-	defer f.Close()
-	for {
-		s, err := br.ReadString('\n')
-		if err == io.EOF {
-			return "", nil
-		}
-		if err != nil {
-			return "", err
-		}
-		if strings.Contains(s, CiliumCHeaderPrefix) {
-			return s, nil
-		}
-	}
 }
 
 // RequireRootPrivilege checks if the user running cmd is root. If not, it exits the program
