@@ -117,7 +117,7 @@ type AssumeRoleWithWebIdentityInput struct {
 	// the application makes an AssumeRoleWithWebIdentity call.
 	//
 	// WebIdentityToken is a required field
-	WebIdentityToken *string `min:"4" type:"string" required:"true"`
+	WebIdentityToken *string `min:"4" type:"string" required:"true" sensitive:"true"`
 }
 
 // String returns the string representation
@@ -385,6 +385,7 @@ func (c *Client) AssumeRoleWithWebIdentityRequest(input *AssumeRoleWithWebIdenti
 
 	req := c.newRequest(op, input, &AssumeRoleWithWebIdentityOutput{})
 	req.Config.Credentials = aws.AnonymousCredentials
+
 	return AssumeRoleWithWebIdentityRequest{Request: req, Input: input, Copy: c.AssumeRoleWithWebIdentityRequest}
 }
 

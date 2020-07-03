@@ -131,6 +131,7 @@ func (c *Client) CreateSecurityGroupRequest(input *CreateSecurityGroupInput) Cre
 	}
 
 	req := c.newRequest(op, input, &CreateSecurityGroupOutput{})
+
 	return CreateSecurityGroupRequest{Request: req, Input: input, Copy: c.CreateSecurityGroupRequest}
 }
 

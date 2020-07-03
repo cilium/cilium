@@ -86,6 +86,7 @@ func (c *Client) DeleteDhcpOptionsRequest(input *DeleteDhcpOptionsInput) DeleteD
 	req := c.newRequest(op, input, &DeleteDhcpOptionsOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteDhcpOptionsRequest{Request: req, Input: input, Copy: c.DeleteDhcpOptionsRequest}
 }
 

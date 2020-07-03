@@ -73,7 +73,7 @@ const opDescribeFleets = "DescribeFleets"
 // DescribeFleetsRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Describes the specified EC2 Fleets or all your EC2 Fleets.
+// Describes the specified EC2 Fleets or all of your EC2 Fleets.
 //
 //    // Example sending a request using DescribeFleetsRequest.
 //    req := client.DescribeFleetsRequest(params)
@@ -101,6 +101,7 @@ func (c *Client) DescribeFleetsRequest(input *DescribeFleetsInput) DescribeFleet
 	}
 
 	req := c.newRequest(op, input, &DescribeFleetsOutput{})
+
 	return DescribeFleetsRequest{Request: req, Input: input, Copy: c.DescribeFleetsRequest}
 }
 

@@ -95,6 +95,7 @@ func (c *Client) ModifyVpcAttributeRequest(input *ModifyVpcAttributeInput) Modif
 	req := c.newRequest(op, input, &ModifyVpcAttributeOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ModifyVpcAttributeRequest{Request: req, Input: input, Copy: c.ModifyVpcAttributeRequest}
 }
 

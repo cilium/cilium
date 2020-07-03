@@ -109,6 +109,7 @@ func (c *Client) GetCoipPoolUsageRequest(input *GetCoipPoolUsageInput) GetCoipPo
 	}
 
 	req := c.newRequest(op, input, &GetCoipPoolUsageOutput{})
+
 	return GetCoipPoolUsageRequest{Request: req, Input: input, Copy: c.GetCoipPoolUsageRequest}
 }
 

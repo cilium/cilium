@@ -82,6 +82,7 @@ func (c *Client) DeleteTransitGatewayRequest(input *DeleteTransitGatewayInput) D
 	}
 
 	req := c.newRequest(op, input, &DeleteTransitGatewayOutput{})
+
 	return DeleteTransitGatewayRequest{Request: req, Input: input, Copy: c.DeleteTransitGatewayRequest}
 }
 

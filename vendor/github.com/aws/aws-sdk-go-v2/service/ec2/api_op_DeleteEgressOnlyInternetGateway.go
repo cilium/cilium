@@ -82,6 +82,7 @@ func (c *Client) DeleteEgressOnlyInternetGatewayRequest(input *DeleteEgressOnlyI
 	}
 
 	req := c.newRequest(op, input, &DeleteEgressOnlyInternetGatewayOutput{})
+
 	return DeleteEgressOnlyInternetGatewayRequest{Request: req, Input: input, Copy: c.DeleteEgressOnlyInternetGatewayRequest}
 }
 

@@ -91,6 +91,7 @@ func (c *Client) MoveAddressToVpcRequest(input *MoveAddressToVpcInput) MoveAddre
 	}
 
 	req := c.newRequest(op, input, &MoveAddressToVpcOutput{})
+
 	return MoveAddressToVpcRequest{Request: req, Input: input, Copy: c.MoveAddressToVpcRequest}
 }
 

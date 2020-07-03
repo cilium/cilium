@@ -86,6 +86,7 @@ func (c *Client) DeleteVpcPeeringConnectionRequest(input *DeleteVpcPeeringConnec
 	}
 
 	req := c.newRequest(op, input, &DeleteVpcPeeringConnectionOutput{})
+
 	return DeleteVpcPeeringConnectionRequest{Request: req, Input: input, Copy: c.DeleteVpcPeeringConnectionRequest}
 }
 

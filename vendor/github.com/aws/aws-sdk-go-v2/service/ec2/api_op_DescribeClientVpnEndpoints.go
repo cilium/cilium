@@ -22,6 +22,10 @@ type DescribeClientVpnEndpointsInput struct {
 	DryRun *bool `type:"boolean"`
 
 	// One or more filters. Filter names and values are case-sensitive.
+	//
+	//    * endpoint-id - The ID of the Client VPN endpoint.
+	//
+	//    * transport-protocol - The transport protocol (tcp | udp).
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// The maximum number of results to return for the request in a single page.
@@ -100,6 +104,7 @@ func (c *Client) DescribeClientVpnEndpointsRequest(input *DescribeClientVpnEndpo
 	}
 
 	req := c.newRequest(op, input, &DescribeClientVpnEndpointsOutput{})
+
 	return DescribeClientVpnEndpointsRequest{Request: req, Input: input, Copy: c.DescribeClientVpnEndpointsRequest}
 }
 

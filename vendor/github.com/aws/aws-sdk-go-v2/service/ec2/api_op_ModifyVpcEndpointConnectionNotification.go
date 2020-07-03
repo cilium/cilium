@@ -91,6 +91,7 @@ func (c *Client) ModifyVpcEndpointConnectionNotificationRequest(input *ModifyVpc
 	}
 
 	req := c.newRequest(op, input, &ModifyVpcEndpointConnectionNotificationOutput{})
+
 	return ModifyVpcEndpointConnectionNotificationRequest{Request: req, Input: input, Copy: c.ModifyVpcEndpointConnectionNotificationRequest}
 }
 

@@ -18,15 +18,16 @@ var DefaultConfigLoaders = []ConfigLoader{
 // This will setup the AWS configuration's Region,
 var DefaultAWSConfigResolvers = []AWSConfigResolver{
 	ResolveDefaultAWSConfig,
+	ResolveHandlersFunc,
+	ResolveEndpointResolverFunc,
 	ResolveCustomCABundle,
+	ResolveEnableEndpointDiscovery,
 
 	ResolveRegion,
+	ResolveEC2Region,
+	ResolveDefaultRegion,
 
-	ResolveFallbackEC2Credentials, // Initial defauilt credentails provider.
-	ResolveCredentialsValue,
-	ResolveEndpointCredentials,
-	ResolveContainerEndpointPathCredentials, // TODO is this order right?
-	ResolveAssumeRoleCredentials,
+	ResolveCredentials,
 }
 
 // A Config represents a generic configuration value or set of values. This type
@@ -97,7 +98,23 @@ func (cs Configs) ResolveAWSConfig(resolvers []AWSConfigResolver) (aws.Config, e
 		}
 	}
 
+	var sources []interface{}
+	for _, s := range cs {
+		sources = append(sources, s)
+	}
+	cfg.ConfigSources = sources
+
 	return cfg, nil
+}
+
+// ResolveConfig calls the provide function passing slice of configuration sources.
+// This implements the aws.ConfigResolver interface.
+func (cs Configs) ResolveConfig(f func(configs []interface{}) error) error {
+	var cfgs []interface{}
+	for i := range cs {
+		cfgs = append(cfgs, cs[i])
+	}
+	return f(cfgs)
 }
 
 // LoadDefaultAWSConfig reads the SDK's default external configurations, and

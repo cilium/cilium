@@ -39,6 +39,9 @@ type DescribeVpcsInput struct {
 	//    * ipv6-cidr-block-association.ipv6-cidr-block - An IPv6 CIDR block associated
 	//    with the VPC.
 	//
+	//    * ipv6-cidr-block-association.ipv6-pool - The ID of the IPv6 address pool
+	//    from which the IPv6 CIDR block is allocated.
+	//
 	//    * ipv6-cidr-block-association.association-id - The association ID for
 	//    an IPv6 CIDR block associated with the VPC.
 	//
@@ -144,6 +147,7 @@ func (c *Client) DescribeVpcsRequest(input *DescribeVpcsInput) DescribeVpcsReque
 	}
 
 	req := c.newRequest(op, input, &DescribeVpcsOutput{})
+
 	return DescribeVpcsRequest{Request: req, Input: input, Copy: c.DescribeVpcsRequest}
 }
 

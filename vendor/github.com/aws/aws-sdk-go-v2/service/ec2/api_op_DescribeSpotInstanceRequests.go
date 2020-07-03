@@ -172,8 +172,8 @@ const opDescribeSpotInstanceRequests = "DescribeSpotInstanceRequests"
 // You can use DescribeSpotInstanceRequests to find a running Spot Instance
 // by examining the response. If the status of the Spot Instance is fulfilled,
 // the instance ID appears in the response and contains the identifier of the
-// instance. Alternatively, you can use DescribeInstances with a filter to look
-// for instances where the instance lifecycle is spot.
+// instance. Alternatively, you can use DescribeInstances (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeInstances)
+// with a filter to look for instances where the instance lifecycle is spot.
 //
 // We recommend that you set MaxResults to a value between 5 and 1000 to limit
 // the number of results returned. This paginates the output, which makes the
@@ -211,6 +211,7 @@ func (c *Client) DescribeSpotInstanceRequestsRequest(input *DescribeSpotInstance
 	}
 
 	req := c.newRequest(op, input, &DescribeSpotInstanceRequestsOutput{})
+
 	return DescribeSpotInstanceRequestsRequest{Request: req, Input: input, Copy: c.DescribeSpotInstanceRequestsRequest}
 }
 

@@ -73,6 +73,7 @@ func (c *Client) AcceptVpcPeeringConnectionRequest(input *AcceptVpcPeeringConnec
 	}
 
 	req := c.newRequest(op, input, &AcceptVpcPeeringConnectionOutput{})
+
 	return AcceptVpcPeeringConnectionRequest{Request: req, Input: input, Copy: c.AcceptVpcPeeringConnectionRequest}
 }
 

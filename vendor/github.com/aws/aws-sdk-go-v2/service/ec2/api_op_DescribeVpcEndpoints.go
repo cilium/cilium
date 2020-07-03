@@ -21,11 +21,11 @@ type DescribeVpcEndpointsInput struct {
 
 	// One or more filters.
 	//
-	//    * service-name: The name of the service.
+	//    * service-name - The name of the service.
 	//
-	//    * vpc-id: The ID of the VPC in which the endpoint resides.
+	//    * vpc-id - The ID of the VPC in which the endpoint resides.
 	//
-	//    * vpc-endpoint-id: The ID of the endpoint.
+	//    * vpc-endpoint-id - The ID of the endpoint.
 	//
 	//    * vpc-endpoint-state - The state of the endpoint (pendingAcceptance |
 	//    pending | available | deleting | deleted | rejected | failed).
@@ -45,7 +45,7 @@ type DescribeVpcEndpointsInput struct {
 	// a token that you can specify in a subsequent call to get the next set of
 	// results.
 	//
-	// Constraint: If the value is greater than 1000, we return only 1000 items.
+	// Constraint: If the value is greater than 1,000, we return only 1,000 items.
 	MaxResults *int64 `type:"integer"`
 
 	// The token for the next set of items to return. (You received this token from
@@ -111,6 +111,7 @@ func (c *Client) DescribeVpcEndpointsRequest(input *DescribeVpcEndpointsInput) D
 	}
 
 	req := c.newRequest(op, input, &DescribeVpcEndpointsOutput{})
+
 	return DescribeVpcEndpointsRequest{Request: req, Input: input, Copy: c.DescribeVpcEndpointsRequest}
 }
 

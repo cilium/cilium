@@ -102,6 +102,7 @@ func (c *Client) DescribeFleetInstancesRequest(input *DescribeFleetInstancesInpu
 	}
 
 	req := c.newRequest(op, input, &DescribeFleetInstancesOutput{})
+
 	return DescribeFleetInstancesRequest{Request: req, Input: input, Copy: c.DescribeFleetInstancesRequest}
 }
 

@@ -30,6 +30,9 @@ type ImportKeyPairInput struct {
 	//
 	// PublicKeyMaterial is a required field
 	PublicKeyMaterial []byte `locationName:"publicKeyMaterial" type:"blob" required:"true"`
+
+	// The tags to apply to the imported key pair.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -63,6 +66,12 @@ type ImportKeyPairOutput struct {
 
 	// The key pair name you provided.
 	KeyName *string `locationName:"keyName" type:"string"`
+
+	// The ID of the resulting key pair.
+	KeyPairId *string `locationName:"keyPairId" type:"string"`
+
+	// The tags applied to the imported key pair.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -104,6 +113,7 @@ func (c *Client) ImportKeyPairRequest(input *ImportKeyPairInput) ImportKeyPairRe
 	}
 
 	req := c.newRequest(op, input, &ImportKeyPairOutput{})
+
 	return ImportKeyPairRequest{Request: req, Input: input, Copy: c.ImportKeyPairRequest}
 }
 

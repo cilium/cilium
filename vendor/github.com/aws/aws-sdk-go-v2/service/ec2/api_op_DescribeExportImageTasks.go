@@ -99,6 +99,7 @@ func (c *Client) DescribeExportImageTasksRequest(input *DescribeExportImageTasks
 	}
 
 	req := c.newRequest(op, input, &DescribeExportImageTasksOutput{})
+
 	return DescribeExportImageTasksRequest{Request: req, Input: input, Copy: c.DescribeExportImageTasksRequest}
 }
 

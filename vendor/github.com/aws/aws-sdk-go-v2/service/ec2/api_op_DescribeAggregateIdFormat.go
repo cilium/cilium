@@ -82,6 +82,7 @@ func (c *Client) DescribeAggregateIdFormatRequest(input *DescribeAggregateIdForm
 	}
 
 	req := c.newRequest(op, input, &DescribeAggregateIdFormatOutput{})
+
 	return DescribeAggregateIdFormatRequest{Request: req, Input: input, Copy: c.DescribeAggregateIdFormatRequest}
 }
 

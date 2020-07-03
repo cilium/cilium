@@ -91,6 +91,7 @@ func (c *Client) GetConsoleScreenshotRequest(input *GetConsoleScreenshotInput) G
 	}
 
 	req := c.newRequest(op, input, &GetConsoleScreenshotOutput{})
+
 	return GetConsoleScreenshotRequest{Request: req, Input: input, Copy: c.GetConsoleScreenshotRequest}
 }
 

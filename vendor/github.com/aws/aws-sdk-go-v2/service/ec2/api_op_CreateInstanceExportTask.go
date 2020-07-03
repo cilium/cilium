@@ -91,6 +91,7 @@ func (c *Client) CreateInstanceExportTaskRequest(input *CreateInstanceExportTask
 	}
 
 	req := c.newRequest(op, input, &CreateInstanceExportTaskOutput{})
+
 	return CreateInstanceExportTaskRequest{Request: req, Input: input, Copy: c.CreateInstanceExportTaskRequest}
 }
 

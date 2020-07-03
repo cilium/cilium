@@ -118,6 +118,7 @@ func (c *Client) CreateTransitGatewayPeeringAttachmentRequest(input *CreateTrans
 	}
 
 	req := c.newRequest(op, input, &CreateTransitGatewayPeeringAttachmentOutput{})
+
 	return CreateTransitGatewayPeeringAttachmentRequest{Request: req, Input: input, Copy: c.CreateTransitGatewayPeeringAttachmentRequest}
 }
 

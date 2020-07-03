@@ -424,6 +424,7 @@ func (c *Client) AssumeRoleRequest(input *AssumeRoleInput) AssumeRoleRequest {
 	}
 
 	req := c.newRequest(op, input, &AssumeRoleOutput{})
+
 	return AssumeRoleRequest{Request: req, Input: input, Copy: c.AssumeRoleRequest}
 }
 

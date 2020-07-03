@@ -87,6 +87,7 @@ func (c *Client) CancelSpotInstanceRequestsRequest(input *CancelSpotInstanceRequ
 	}
 
 	req := c.newRequest(op, input, &CancelSpotInstanceRequestsOutput{})
+
 	return CancelSpotInstanceRequestsRequest{Request: req, Input: input, Copy: c.CancelSpotInstanceRequestsRequest}
 }
 

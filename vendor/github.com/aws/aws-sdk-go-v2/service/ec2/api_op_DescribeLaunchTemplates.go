@@ -117,6 +117,7 @@ func (c *Client) DescribeLaunchTemplatesRequest(input *DescribeLaunchTemplatesIn
 	}
 
 	req := c.newRequest(op, input, &DescribeLaunchTemplatesOutput{})
+
 	return DescribeLaunchTemplatesRequest{Request: req, Input: input, Copy: c.DescribeLaunchTemplatesRequest}
 }
 

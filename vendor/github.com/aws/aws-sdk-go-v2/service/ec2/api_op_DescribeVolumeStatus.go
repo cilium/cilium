@@ -162,6 +162,7 @@ func (c *Client) DescribeVolumeStatusRequest(input *DescribeVolumeStatusInput) D
 	}
 
 	req := c.newRequest(op, input, &DescribeVolumeStatusOutput{})
+
 	return DescribeVolumeStatusRequest{Request: req, Input: input, Copy: c.DescribeVolumeStatusRequest}
 }
 

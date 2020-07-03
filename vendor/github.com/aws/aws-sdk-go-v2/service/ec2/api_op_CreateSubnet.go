@@ -21,6 +21,9 @@ type CreateSubnetInput struct {
 	// for example us-west-2-lax-1a. For information about the Regions that support
 	// Local Zones, see Available Regions (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-regions-availability-zones.html#concepts-available-regions)
 	// in the Amazon Elastic Compute Cloud User Guide.
+	//
+	// To create a subnet in an Outpost, set this value to the Availability Zone
+	// for the Outpost and specify the Outpost ARN.
 	AvailabilityZone *string `type:"string"`
 
 	// The AZ ID or the Local Zone ID of the subnet.
@@ -41,7 +44,8 @@ type CreateSubnetInput struct {
 	// must use a /64 prefix length.
 	Ipv6CidrBlock *string `type:"string"`
 
-	// The Amazon Resource Name (ARN) of the Outpost.
+	// The Amazon Resource Name (ARN) of the Outpost. If you specify an Outpost
+	// ARN, you must also specify the Availability Zone of the Outpost subnet.
 	OutpostArn *string `type:"string"`
 
 	// The ID of the VPC.
@@ -138,6 +142,7 @@ func (c *Client) CreateSubnetRequest(input *CreateSubnetInput) CreateSubnetReque
 	}
 
 	req := c.newRequest(op, input, &CreateSubnetOutput{})
+
 	return CreateSubnetRequest{Request: req, Input: input, Copy: c.CreateSubnetRequest}
 }
 

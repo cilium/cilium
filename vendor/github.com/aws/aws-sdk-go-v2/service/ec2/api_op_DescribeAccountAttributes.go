@@ -52,8 +52,10 @@ const opDescribeAccountAttributes = "DescribeAccountAttributes"
 //
 //    * default-vpc: The ID of the default VPC for your account, or none.
 //
-//    * max-instances: The maximum number of On-Demand Instances that you can
-//    run.
+//    * max-instances: This attribute is no longer supported. The returned value
+//    does not reflect your actual vCPU limit for running On-Demand Instances.
+//    For more information, see On-Demand Instance Limits (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-on-demand-instances.html#ec2-on-demand-instances-limits)
+//    in the Amazon Elastic Compute Cloud User Guide.
 //
 //    * vpc-max-security-groups-per-interface: The maximum number of security
 //    groups that you can assign to a network interface.
@@ -84,6 +86,7 @@ func (c *Client) DescribeAccountAttributesRequest(input *DescribeAccountAttribut
 	}
 
 	req := c.newRequest(op, input, &DescribeAccountAttributesOutput{})
+
 	return DescribeAccountAttributesRequest{Request: req, Input: input, Copy: c.DescribeAccountAttributesRequest}
 }
 

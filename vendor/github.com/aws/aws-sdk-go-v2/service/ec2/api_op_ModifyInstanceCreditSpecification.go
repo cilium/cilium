@@ -96,6 +96,7 @@ func (c *Client) ModifyInstanceCreditSpecificationRequest(input *ModifyInstanceC
 	}
 
 	req := c.newRequest(op, input, &ModifyInstanceCreditSpecificationOutput{})
+
 	return ModifyInstanceCreditSpecificationRequest{Request: req, Input: input, Copy: c.ModifyInstanceCreditSpecificationRequest}
 }
 

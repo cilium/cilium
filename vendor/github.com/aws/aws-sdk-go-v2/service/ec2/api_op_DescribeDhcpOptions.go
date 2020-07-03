@@ -122,6 +122,7 @@ func (c *Client) DescribeDhcpOptionsRequest(input *DescribeDhcpOptionsInput) Des
 	}
 
 	req := c.newRequest(op, input, &DescribeDhcpOptionsOutput{})
+
 	return DescribeDhcpOptionsRequest{Request: req, Input: input, Copy: c.DescribeDhcpOptionsRequest}
 }
 

@@ -122,6 +122,7 @@ func (c *Client) DescribeFleetHistoryRequest(input *DescribeFleetHistoryInput) D
 	}
 
 	req := c.newRequest(op, input, &DescribeFleetHistoryOutput{})
+
 	return DescribeFleetHistoryRequest{Request: req, Input: input, Copy: c.DescribeFleetHistoryRequest}
 }
 

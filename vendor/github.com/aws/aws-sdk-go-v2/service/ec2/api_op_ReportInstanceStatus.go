@@ -137,6 +137,7 @@ func (c *Client) ReportInstanceStatusRequest(input *ReportInstanceStatusInput) R
 	req := c.newRequest(op, input, &ReportInstanceStatusOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ReportInstanceStatusRequest{Request: req, Input: input, Copy: c.ReportInstanceStatusRequest}
 }
 

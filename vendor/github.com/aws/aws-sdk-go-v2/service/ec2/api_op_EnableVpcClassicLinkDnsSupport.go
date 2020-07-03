@@ -46,6 +46,8 @@ const opEnableVpcClassicLinkDnsSupport = "EnableVpcClassicLinkDnsSupport"
 // see ClassicLink (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-classiclink.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 //
+// You must specify a VPC ID in the request.
+//
 //    // Example sending a request using EnableVpcClassicLinkDnsSupportRequest.
 //    req := client.EnableVpcClassicLinkDnsSupportRequest(params)
 //    resp, err := req.Send(context.TODO())
@@ -66,6 +68,7 @@ func (c *Client) EnableVpcClassicLinkDnsSupportRequest(input *EnableVpcClassicLi
 	}
 
 	req := c.newRequest(op, input, &EnableVpcClassicLinkDnsSupportOutput{})
+
 	return EnableVpcClassicLinkDnsSupportRequest{Request: req, Input: input, Copy: c.EnableVpcClassicLinkDnsSupportRequest}
 }
 

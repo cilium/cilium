@@ -19,6 +19,13 @@ type DescribeLocalGatewayVirtualInterfaceGroupsInput struct {
 	DryRun *bool `type:"boolean"`
 
 	// One or more filters.
+	//
+	//    * local-gateway-id - The ID of a local gateway.
+	//
+	//    * local-gateway-virtual-interface-id - The ID of the virtual interface.
+	//
+	//    * local-gateway-virtual-interface-group-id - The ID of the virtual interface
+	//    group.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// The IDs of the virtual interface groups.
@@ -86,6 +93,12 @@ func (c *Client) DescribeLocalGatewayVirtualInterfaceGroupsRequest(input *Descri
 		Name:       opDescribeLocalGatewayVirtualInterfaceGroups,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
+		Paginator: &aws.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
 	}
 
 	if input == nil {
@@ -93,6 +106,7 @@ func (c *Client) DescribeLocalGatewayVirtualInterfaceGroupsRequest(input *Descri
 	}
 
 	req := c.newRequest(op, input, &DescribeLocalGatewayVirtualInterfaceGroupsOutput{})
+
 	return DescribeLocalGatewayVirtualInterfaceGroupsRequest{Request: req, Input: input, Copy: c.DescribeLocalGatewayVirtualInterfaceGroupsRequest}
 }
 
@@ -118,6 +132,53 @@ func (r DescribeLocalGatewayVirtualInterfaceGroupsRequest) Send(ctx context.Cont
 	}
 
 	return resp, nil
+}
+
+// NewDescribeLocalGatewayVirtualInterfaceGroupsRequestPaginator returns a paginator for DescribeLocalGatewayVirtualInterfaceGroups.
+// Use Next method to get the next page, and CurrentPage to get the current
+// response page from the paginator. Next will return false, if there are
+// no more pages, or an error was encountered.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//   // Example iterating over pages.
+//   req := client.DescribeLocalGatewayVirtualInterfaceGroupsRequest(input)
+//   p := ec2.NewDescribeLocalGatewayVirtualInterfaceGroupsRequestPaginator(req)
+//
+//   for p.Next(context.TODO()) {
+//       page := p.CurrentPage()
+//   }
+//
+//   if err := p.Err(); err != nil {
+//       return err
+//   }
+//
+func NewDescribeLocalGatewayVirtualInterfaceGroupsPaginator(req DescribeLocalGatewayVirtualInterfaceGroupsRequest) DescribeLocalGatewayVirtualInterfaceGroupsPaginator {
+	return DescribeLocalGatewayVirtualInterfaceGroupsPaginator{
+		Pager: aws.Pager{
+			NewRequest: func(ctx context.Context) (*aws.Request, error) {
+				var inCpy *DescribeLocalGatewayVirtualInterfaceGroupsInput
+				if req.Input != nil {
+					tmp := *req.Input
+					inCpy = &tmp
+				}
+
+				newReq := req.Copy(inCpy)
+				newReq.SetContext(ctx)
+				return newReq.Request, nil
+			},
+		},
+	}
+}
+
+// DescribeLocalGatewayVirtualInterfaceGroupsPaginator is used to paginate the request. This can be done by
+// calling Next and CurrentPage.
+type DescribeLocalGatewayVirtualInterfaceGroupsPaginator struct {
+	aws.Pager
+}
+
+func (p *DescribeLocalGatewayVirtualInterfaceGroupsPaginator) CurrentPage() *DescribeLocalGatewayVirtualInterfaceGroupsOutput {
+	return p.Pager.CurrentPage().(*DescribeLocalGatewayVirtualInterfaceGroupsOutput)
 }
 
 // DescribeLocalGatewayVirtualInterfaceGroupsResponse is the response type for the

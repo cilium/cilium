@@ -82,6 +82,7 @@ func (c *Client) DeleteTransitGatewayMulticastDomainRequest(input *DeleteTransit
 	}
 
 	req := c.newRequest(op, input, &DeleteTransitGatewayMulticastDomainOutput{})
+
 	return DeleteTransitGatewayMulticastDomainRequest{Request: req, Input: input, Copy: c.DeleteTransitGatewayMulticastDomainRequest}
 }
 

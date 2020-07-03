@@ -118,6 +118,7 @@ func (c *Client) PurchaseHostReservationRequest(input *PurchaseHostReservationIn
 	}
 
 	req := c.newRequest(op, input, &PurchaseHostReservationOutput{})
+
 	return PurchaseHostReservationRequest{Request: req, Input: input, Copy: c.PurchaseHostReservationRequest}
 }
 

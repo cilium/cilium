@@ -100,6 +100,7 @@ func (c *Client) DetachVpnGatewayRequest(input *DetachVpnGatewayInput) DetachVpn
 	req := c.newRequest(op, input, &DetachVpnGatewayOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DetachVpnGatewayRequest{Request: req, Input: input, Copy: c.DetachVpnGatewayRequest}
 }
 

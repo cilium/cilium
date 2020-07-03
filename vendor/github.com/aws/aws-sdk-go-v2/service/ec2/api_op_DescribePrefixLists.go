@@ -95,6 +95,7 @@ func (c *Client) DescribePrefixListsRequest(input *DescribePrefixListsInput) Des
 	}
 
 	req := c.newRequest(op, input, &DescribePrefixListsOutput{})
+
 	return DescribePrefixListsRequest{Request: req, Input: input, Copy: c.DescribePrefixListsRequest}
 }
 

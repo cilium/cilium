@@ -31,7 +31,8 @@ type DetachVolumeInput struct {
 	// and repair procedures.
 	Force *bool `type:"boolean"`
 
-	// The ID of the instance.
+	// The ID of the instance. If you are detaching a Multi-Attach enabled volume,
+	// you must specify an instance ID.
 	InstanceId *string `type:"string"`
 
 	// The ID of the volume.
@@ -127,6 +128,7 @@ func (c *Client) DetachVolumeRequest(input *DetachVolumeInput) DetachVolumeReque
 	}
 
 	req := c.newRequest(op, input, &DetachVolumeOutput{})
+
 	return DetachVolumeRequest{Request: req, Input: input, Copy: c.DetachVolumeRequest}
 }
 

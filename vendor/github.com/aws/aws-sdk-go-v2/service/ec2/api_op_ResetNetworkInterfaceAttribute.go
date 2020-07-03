@@ -88,6 +88,7 @@ func (c *Client) ResetNetworkInterfaceAttributeRequest(input *ResetNetworkInterf
 	req := c.newRequest(op, input, &ResetNetworkInterfaceAttributeOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ResetNetworkInterfaceAttributeRequest{Request: req, Input: input, Copy: c.ResetNetworkInterfaceAttributeRequest}
 }
 

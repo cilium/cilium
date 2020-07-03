@@ -89,6 +89,7 @@ func (c *Client) CancelCapacityReservationRequest(input *CancelCapacityReservati
 	}
 
 	req := c.newRequest(op, input, &CancelCapacityReservationOutput{})
+
 	return CancelCapacityReservationRequest{Request: req, Input: input, Copy: c.CancelCapacityReservationRequest}
 }
 

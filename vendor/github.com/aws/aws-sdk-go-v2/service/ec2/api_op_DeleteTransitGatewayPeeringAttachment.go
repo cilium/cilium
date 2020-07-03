@@ -82,6 +82,7 @@ func (c *Client) DeleteTransitGatewayPeeringAttachmentRequest(input *DeleteTrans
 	}
 
 	req := c.newRequest(op, input, &DeleteTransitGatewayPeeringAttachmentOutput{})
+
 	return DeleteTransitGatewayPeeringAttachmentRequest{Request: req, Input: input, Copy: c.DeleteTransitGatewayPeeringAttachmentRequest}
 }
 

@@ -90,6 +90,7 @@ func (c *Client) CreateSpotDatafeedSubscriptionRequest(input *CreateSpotDatafeed
 	}
 
 	req := c.newRequest(op, input, &CreateSpotDatafeedSubscriptionOutput{})
+
 	return CreateSpotDatafeedSubscriptionRequest{Request: req, Input: input, Copy: c.CreateSpotDatafeedSubscriptionRequest}
 }
 

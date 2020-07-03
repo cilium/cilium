@@ -144,6 +144,7 @@ func (c *Client) DescribeInstanceAttributeRequest(input *DescribeInstanceAttribu
 	}
 
 	req := c.newRequest(op, input, &DescribeInstanceAttributeOutput{})
+
 	return DescribeInstanceAttributeRequest{Request: req, Input: input, Copy: c.DescribeInstanceAttributeRequest}
 }
 

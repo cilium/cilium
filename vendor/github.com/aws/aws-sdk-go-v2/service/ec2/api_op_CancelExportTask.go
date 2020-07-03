@@ -80,6 +80,7 @@ func (c *Client) CancelExportTaskRequest(input *CancelExportTaskInput) CancelExp
 	req := c.newRequest(op, input, &CancelExportTaskOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return CancelExportTaskRequest{Request: req, Input: input, Copy: c.CancelExportTaskRequest}
 }
 

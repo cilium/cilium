@@ -3,6 +3,7 @@ package ini
 import (
 	"fmt"
 	"sort"
+	"strings"
 )
 
 // Visitor is an interface used by walkers that will
@@ -60,7 +61,7 @@ func (v *DefaultVisitor) VisitExpr(expr AST) error {
 				return err
 			}
 
-			t.values[key] = v
+			t.values[strings.ToLower(key)] = v
 		default:
 			return NewParseError(fmt.Sprintf("unsupported expression %v", expr))
 		}

@@ -91,6 +91,7 @@ func (c *Client) DeleteRouteRequest(input *DeleteRouteInput) DeleteRouteRequest 
 	req := c.newRequest(op, input, &DeleteRouteOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteRouteRequest{Request: req, Input: input, Copy: c.DeleteRouteRequest}
 }
 

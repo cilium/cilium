@@ -107,6 +107,7 @@ func (c *Client) StartInstancesRequest(input *StartInstancesInput) StartInstance
 	}
 
 	req := c.newRequest(op, input, &StartInstancesOutput{})
+
 	return StartInstancesRequest{Request: req, Input: input, Copy: c.StartInstancesRequest}
 }
 

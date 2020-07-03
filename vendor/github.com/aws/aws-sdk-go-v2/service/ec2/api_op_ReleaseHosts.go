@@ -90,6 +90,7 @@ func (c *Client) ReleaseHostsRequest(input *ReleaseHostsInput) ReleaseHostsReque
 	}
 
 	req := c.newRequest(op, input, &ReleaseHostsOutput{})
+
 	return ReleaseHostsRequest{Request: req, Input: input, Copy: c.ReleaseHostsRequest}
 }
 

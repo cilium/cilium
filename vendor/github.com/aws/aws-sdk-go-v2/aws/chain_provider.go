@@ -1,6 +1,7 @@
 package aws
 
 import (
+	"context"
 	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 )
 
@@ -63,7 +64,7 @@ func NewChainProvider(providers []CredentialsProvider) *ChainProvider {
 func (c *ChainProvider) retrieveFn() (Credentials, error) {
 	var errs []error
 	for _, p := range c.Providers {
-		creds, err := p.Retrieve()
+		creds, err := p.Retrieve(context.Background())
 		if err == nil {
 			return creds, nil
 		}

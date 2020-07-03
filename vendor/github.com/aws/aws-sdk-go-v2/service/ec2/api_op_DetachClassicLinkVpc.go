@@ -93,6 +93,7 @@ func (c *Client) DetachClassicLinkVpcRequest(input *DetachClassicLinkVpcInput) D
 	}
 
 	req := c.newRequest(op, input, &DetachClassicLinkVpcOutput{})
+
 	return DetachClassicLinkVpcRequest{Request: req, Input: input, Copy: c.DetachClassicLinkVpcRequest}
 }
 

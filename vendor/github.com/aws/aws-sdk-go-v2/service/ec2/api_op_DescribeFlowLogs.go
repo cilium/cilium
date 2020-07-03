@@ -33,6 +33,16 @@ type DescribeFlowLogsInput struct {
 	//    * resource-id - The ID of the VPC, subnet, or network interface.
 	//
 	//    * traffic-type - The type of traffic (ACCEPT | REJECT | ALL).
+	//
+	//    * tag:<key> - The key/value combination of a tag assigned to the resource.
+	//    Use the tag key in the filter name and the tag value as the filter value.
+	//    For example, to find all resources that have a tag with the key Owner
+	//    and the value TeamA, specify tag:Owner for the filter name and TeamA for
+	//    the filter value.
+	//
+	//    * tag-key - The key of a tag assigned to the resource. Use this filter
+	//    to find all resources assigned a tag with a specific key, regardless of
+	//    the tag value.
 	Filter []Filter `locationNameList:"Filter" type:"list"`
 
 	// One or more flow log IDs.
@@ -104,6 +114,7 @@ func (c *Client) DescribeFlowLogsRequest(input *DescribeFlowLogsInput) DescribeF
 	}
 
 	req := c.newRequest(op, input, &DescribeFlowLogsOutput{})
+
 	return DescribeFlowLogsRequest{Request: req, Input: input, Copy: c.DescribeFlowLogsRequest}
 }
 

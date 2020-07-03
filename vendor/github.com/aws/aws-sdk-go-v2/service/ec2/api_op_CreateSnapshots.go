@@ -94,6 +94,7 @@ func (c *Client) CreateSnapshotsRequest(input *CreateSnapshotsInput) CreateSnaps
 	}
 
 	req := c.newRequest(op, input, &CreateSnapshotsOutput{})
+
 	return CreateSnapshotsRequest{Request: req, Input: input, Copy: c.CreateSnapshotsRequest}
 }
 

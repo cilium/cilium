@@ -95,6 +95,7 @@ func (c *Client) AttachInternetGatewayRequest(input *AttachInternetGatewayInput)
 	req := c.newRequest(op, input, &AttachInternetGatewayOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return AttachInternetGatewayRequest{Request: req, Input: input, Copy: c.AttachInternetGatewayRequest}
 }
 

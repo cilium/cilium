@@ -104,6 +104,7 @@ func (c *Client) ModifyVpnTunnelOptionsRequest(input *ModifyVpnTunnelOptionsInpu
 	}
 
 	req := c.newRequest(op, input, &ModifyVpnTunnelOptionsOutput{})
+
 	return ModifyVpnTunnelOptionsRequest{Request: req, Input: input, Copy: c.ModifyVpnTunnelOptionsRequest}
 }
 

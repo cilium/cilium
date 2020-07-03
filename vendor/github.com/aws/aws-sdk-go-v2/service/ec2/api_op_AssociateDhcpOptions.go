@@ -104,6 +104,7 @@ func (c *Client) AssociateDhcpOptionsRequest(input *AssociateDhcpOptionsInput) A
 	req := c.newRequest(op, input, &AssociateDhcpOptionsOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return AssociateDhcpOptionsRequest{Request: req, Input: input, Copy: c.AssociateDhcpOptionsRequest}
 }
 

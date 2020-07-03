@@ -98,6 +98,7 @@ func (c *Client) ModifyTrafficMirrorFilterNetworkServicesRequest(input *ModifyTr
 	}
 
 	req := c.newRequest(op, input, &ModifyTrafficMirrorFilterNetworkServicesOutput{})
+
 	return ModifyTrafficMirrorFilterNetworkServicesRequest{Request: req, Input: input, Copy: c.ModifyTrafficMirrorFilterNetworkServicesRequest}
 }
 

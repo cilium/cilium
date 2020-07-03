@@ -98,6 +98,12 @@ func (c *Client) GetTransitGatewayMulticastDomainAssociationsRequest(input *GetT
 		Name:       opGetTransitGatewayMulticastDomainAssociations,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
+		Paginator: &aws.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
 	}
 
 	if input == nil {
@@ -105,6 +111,7 @@ func (c *Client) GetTransitGatewayMulticastDomainAssociationsRequest(input *GetT
 	}
 
 	req := c.newRequest(op, input, &GetTransitGatewayMulticastDomainAssociationsOutput{})
+
 	return GetTransitGatewayMulticastDomainAssociationsRequest{Request: req, Input: input, Copy: c.GetTransitGatewayMulticastDomainAssociationsRequest}
 }
 
@@ -130,6 +137,53 @@ func (r GetTransitGatewayMulticastDomainAssociationsRequest) Send(ctx context.Co
 	}
 
 	return resp, nil
+}
+
+// NewGetTransitGatewayMulticastDomainAssociationsRequestPaginator returns a paginator for GetTransitGatewayMulticastDomainAssociations.
+// Use Next method to get the next page, and CurrentPage to get the current
+// response page from the paginator. Next will return false, if there are
+// no more pages, or an error was encountered.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//   // Example iterating over pages.
+//   req := client.GetTransitGatewayMulticastDomainAssociationsRequest(input)
+//   p := ec2.NewGetTransitGatewayMulticastDomainAssociationsRequestPaginator(req)
+//
+//   for p.Next(context.TODO()) {
+//       page := p.CurrentPage()
+//   }
+//
+//   if err := p.Err(); err != nil {
+//       return err
+//   }
+//
+func NewGetTransitGatewayMulticastDomainAssociationsPaginator(req GetTransitGatewayMulticastDomainAssociationsRequest) GetTransitGatewayMulticastDomainAssociationsPaginator {
+	return GetTransitGatewayMulticastDomainAssociationsPaginator{
+		Pager: aws.Pager{
+			NewRequest: func(ctx context.Context) (*aws.Request, error) {
+				var inCpy *GetTransitGatewayMulticastDomainAssociationsInput
+				if req.Input != nil {
+					tmp := *req.Input
+					inCpy = &tmp
+				}
+
+				newReq := req.Copy(inCpy)
+				newReq.SetContext(ctx)
+				return newReq.Request, nil
+			},
+		},
+	}
+}
+
+// GetTransitGatewayMulticastDomainAssociationsPaginator is used to paginate the request. This can be done by
+// calling Next and CurrentPage.
+type GetTransitGatewayMulticastDomainAssociationsPaginator struct {
+	aws.Pager
+}
+
+func (p *GetTransitGatewayMulticastDomainAssociationsPaginator) CurrentPage() *GetTransitGatewayMulticastDomainAssociationsOutput {
+	return p.Pager.CurrentPage().(*GetTransitGatewayMulticastDomainAssociationsOutput)
 }
 
 // GetTransitGatewayMulticastDomainAssociationsResponse is the response type for the

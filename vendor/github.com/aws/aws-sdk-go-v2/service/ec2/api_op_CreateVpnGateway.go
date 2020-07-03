@@ -98,6 +98,7 @@ func (c *Client) CreateVpnGatewayRequest(input *CreateVpnGatewayInput) CreateVpn
 	}
 
 	req := c.newRequest(op, input, &CreateVpnGatewayOutput{})
+
 	return CreateVpnGatewayRequest{Request: req, Input: input, Copy: c.CreateVpnGatewayRequest}
 }
 

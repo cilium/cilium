@@ -1,9 +1,11 @@
 package sts
 
-import "github.com/aws/aws-sdk-go-v2/aws"
+import (
+	"github.com/aws/aws-sdk-go-v2/aws/retry"
+)
 
 func init() {
-	initRequest = func(c *Client, r *aws.Request) {
-		r.RetryErrorCodes = append(r.RetryErrorCodes, ErrCodeIDPCommunicationErrorException)
+	initClient = func(c *Client) {
+		c.Retryer = retry.AddWithErrorCodes(c.Retryer, ErrCodeIDPCommunicationErrorException)
 	}
 }

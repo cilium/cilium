@@ -93,6 +93,7 @@ func (c *Client) CreateVpnConnectionRouteRequest(input *CreateVpnConnectionRoute
 	req := c.newRequest(op, input, &CreateVpnConnectionRouteOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return CreateVpnConnectionRouteRequest{Request: req, Input: input, Copy: c.CreateVpnConnectionRouteRequest}
 }
 

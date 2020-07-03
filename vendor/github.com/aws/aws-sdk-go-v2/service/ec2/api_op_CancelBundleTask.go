@@ -84,6 +84,7 @@ func (c *Client) CancelBundleTaskRequest(input *CancelBundleTaskInput) CancelBun
 	}
 
 	req := c.newRequest(op, input, &CancelBundleTaskOutput{})
+
 	return CancelBundleTaskRequest{Request: req, Input: input, Copy: c.CancelBundleTaskRequest}
 }
 

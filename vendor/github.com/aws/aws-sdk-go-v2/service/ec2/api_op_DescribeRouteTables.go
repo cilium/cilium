@@ -175,6 +175,7 @@ func (c *Client) DescribeRouteTablesRequest(input *DescribeRouteTablesInput) Des
 	}
 
 	req := c.newRequest(op, input, &DescribeRouteTablesOutput{})
+
 	return DescribeRouteTablesRequest{Request: req, Input: input, Copy: c.DescribeRouteTablesRequest}
 }
 

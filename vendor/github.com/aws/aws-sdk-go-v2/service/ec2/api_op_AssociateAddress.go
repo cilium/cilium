@@ -96,6 +96,9 @@ const opAssociateAddress = "AssociateAddress"
 // an Elastic IP address with an instance or network interface that has an existing
 // Elastic IP address.
 //
+// You cannot associate an Elastic IP address with an interface in a different
+// network border group.
+//
 // This is an idempotent operation. If you perform the operation more than once,
 // Amazon EC2 doesn't return an error, and you may be charged for each time
 // the Elastic IP address is remapped to the same instance. For more information,
@@ -121,6 +124,7 @@ func (c *Client) AssociateAddressRequest(input *AssociateAddressInput) Associate
 	}
 
 	req := c.newRequest(op, input, &AssociateAddressOutput{})
+
 	return AssociateAddressRequest{Request: req, Input: input, Copy: c.AssociateAddressRequest}
 }
 

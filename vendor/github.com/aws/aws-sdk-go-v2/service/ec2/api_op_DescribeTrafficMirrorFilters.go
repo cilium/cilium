@@ -103,6 +103,7 @@ func (c *Client) DescribeTrafficMirrorFiltersRequest(input *DescribeTrafficMirro
 	}
 
 	req := c.newRequest(op, input, &DescribeTrafficMirrorFiltersOutput{})
+
 	return DescribeTrafficMirrorFiltersRequest{Request: req, Input: input, Copy: c.DescribeTrafficMirrorFiltersRequest}
 }
 

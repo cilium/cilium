@@ -7,33 +7,10 @@ import (
 	"github.com/aws/aws-sdk-go-v2/internal/awsutil"
 )
 
-const (
-	// customRetryerMaxNumRetries sets max number of retries
-	customRetryerMaxNumRetries = 3
-
-	// customRetryerMinRetryDelay sets min retry delay
-	customRetryerMinRetryDelay = 1 * time.Second
-
-	// customRetryerMaxRetryDelay sets max retry delay
-	customRetryerMaxRetryDelay = 8 * time.Second
-)
-
-// setRetryerConfig overrides the default Retryer values
-func setRetryerConfig(d *aws.DefaultRetryer) {
-	d.NumMaxRetries = customRetryerMaxNumRetries
-	d.MinRetryDelay = customRetryerMinRetryDelay
-	d.MinThrottleDelay = customRetryerMinRetryDelay
-	d.MaxRetryDelay = customRetryerMaxRetryDelay
-	d.MaxThrottleDelay = customRetryerMaxRetryDelay
-}
-
 func init() {
 	initRequest = func(c *Client, r *aws.Request) {
 		if r.Operation.Name == opCopySnapshot { // fill the PresignedURL parameter
 			r.Handlers.Build.PushFront(fillPresignedURL)
-		}
-		if c.Config.Retryer == nil && (r.Operation.Name == opModifyNetworkInterfaceAttribute || r.Operation.Name == opAssignPrivateIpAddresses) {
-			r.Retryer = aws.NewDefaultRetryer(setRetryerConfig)
 		}
 	}
 }
@@ -67,8 +44,6 @@ func fillPresignedURL(r *aws.Request) {
 	}
 
 	cfgCp.EndpointResolver = aws.ResolveWithEndpoint(resolved)
-	metadata.Endpoint = resolved.URL
-	metadata.SigningRegion = resolved.SigningRegion
 
 	// Presign a CopySnapshot request with modified params
 	req := aws.New(cfgCp, metadata, r.Handlers, r.Retryer, r.Operation, newParams, r.Data)

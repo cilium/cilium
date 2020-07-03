@@ -106,6 +106,7 @@ func (c *Client) DescribeAvailabilityZonesRequest(input *DescribeAvailabilityZon
 	}
 
 	req := c.newRequest(op, input, &DescribeAvailabilityZonesOutput{})
+
 	return DescribeAvailabilityZonesRequest{Request: req, Input: input, Copy: c.DescribeAvailabilityZonesRequest}
 }
 

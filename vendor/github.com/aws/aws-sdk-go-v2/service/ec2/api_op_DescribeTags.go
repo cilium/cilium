@@ -25,10 +25,11 @@ type DescribeTagsInput struct {
 	//    * resource-id - The ID of the resource.
 	//
 	//    * resource-type - The resource type (customer-gateway | dedicated-host
-	//    | dhcp-options | elastic-ip | fleet | fpga-image | image | instance |
-	//    host-reservation | internet-gateway | launch-template | natgateway | network-acl
-	//    | network-interface | reserved-instances | route-table | security-group
-	//    | snapshot | spot-instances-request | subnet | volume | vpc | vpc-peering-connection
+	//    | dhcp-options | elastic-ip | fleet | fpga-image | host-reservation |
+	//    image | instance | internet-gateway | key-pair | launch-template | natgateway
+	//    | network-acl | network-interface | placement-group | reserved-instances
+	//    | route-table | security-group | snapshot | spot-instances-request | subnet
+	//    | volume | vpc | vpc-endpoint | vpc-endpoint-service | vpc-peering-connection
 	//    | vpn-connection | vpn-gateway).
 	//
 	//    * tag:<key> - The key/value combination of the tag. For example, specify
@@ -104,6 +105,7 @@ func (c *Client) DescribeTagsRequest(input *DescribeTagsInput) DescribeTagsReque
 	}
 
 	req := c.newRequest(op, input, &DescribeTagsOutput{})
+
 	return DescribeTagsRequest{Request: req, Input: input, Copy: c.DescribeTagsRequest}
 }
 

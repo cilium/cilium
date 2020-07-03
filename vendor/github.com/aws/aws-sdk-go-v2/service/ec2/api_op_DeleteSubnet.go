@@ -84,6 +84,7 @@ func (c *Client) DeleteSubnetRequest(input *DeleteSubnetInput) DeleteSubnetReque
 	req := c.newRequest(op, input, &DeleteSubnetOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteSubnetRequest{Request: req, Input: input, Copy: c.DeleteSubnetRequest}
 }
 

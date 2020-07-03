@@ -100,6 +100,7 @@ func (c *Client) DescribeNetworkInterfaceAttributeRequest(input *DescribeNetwork
 	}
 
 	req := c.newRequest(op, input, &DescribeNetworkInterfaceAttributeOutput{})
+
 	return DescribeNetworkInterfaceAttributeRequest{Request: req, Input: input, Copy: c.DescribeNetworkInterfaceAttributeRequest}
 }
 

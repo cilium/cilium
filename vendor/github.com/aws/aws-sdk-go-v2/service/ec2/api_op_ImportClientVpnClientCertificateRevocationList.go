@@ -98,6 +98,7 @@ func (c *Client) ImportClientVpnClientCertificateRevocationListRequest(input *Im
 	}
 
 	req := c.newRequest(op, input, &ImportClientVpnClientCertificateRevocationListOutput{})
+
 	return ImportClientVpnClientCertificateRevocationListRequest{Request: req, Input: input, Copy: c.ImportClientVpnClientCertificateRevocationListRequest}
 }
 

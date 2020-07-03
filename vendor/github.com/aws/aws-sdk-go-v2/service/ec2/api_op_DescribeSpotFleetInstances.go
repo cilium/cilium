@@ -103,6 +103,7 @@ func (c *Client) DescribeSpotFleetInstancesRequest(input *DescribeSpotFleetInsta
 	}
 
 	req := c.newRequest(op, input, &DescribeSpotFleetInstancesOutput{})
+
 	return DescribeSpotFleetInstancesRequest{Request: req, Input: input, Copy: c.DescribeSpotFleetInstancesRequest}
 }
 

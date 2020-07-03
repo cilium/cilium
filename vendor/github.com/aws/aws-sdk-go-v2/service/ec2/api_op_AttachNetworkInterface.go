@@ -102,6 +102,7 @@ func (c *Client) AttachNetworkInterfaceRequest(input *AttachNetworkInterfaceInpu
 	}
 
 	req := c.newRequest(op, input, &AttachNetworkInterfaceOutput{})
+
 	return AttachNetworkInterfaceRequest{Request: req, Input: input, Copy: c.AttachNetworkInterfaceRequest}
 }
 

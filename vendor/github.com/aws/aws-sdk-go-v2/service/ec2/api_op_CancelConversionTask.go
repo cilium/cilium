@@ -93,6 +93,7 @@ func (c *Client) CancelConversionTaskRequest(input *CancelConversionTaskInput) C
 	req := c.newRequest(op, input, &CancelConversionTaskOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return CancelConversionTaskRequest{Request: req, Input: input, Copy: c.CancelConversionTaskRequest}
 }
 

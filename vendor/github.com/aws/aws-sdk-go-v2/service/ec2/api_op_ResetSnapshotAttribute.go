@@ -96,6 +96,7 @@ func (c *Client) ResetSnapshotAttributeRequest(input *ResetSnapshotAttributeInpu
 	req := c.newRequest(op, input, &ResetSnapshotAttributeOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ResetSnapshotAttributeRequest{Request: req, Input: input, Copy: c.ResetSnapshotAttributeRequest}
 }
 

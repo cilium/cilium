@@ -106,6 +106,7 @@ func (c *Client) ModifyNetworkInterfaceAttributeRequest(input *ModifyNetworkInte
 	req := c.newRequest(op, input, &ModifyNetworkInterfaceAttributeOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ModifyNetworkInterfaceAttributeRequest{Request: req, Input: input, Copy: c.ModifyNetworkInterfaceAttributeRequest}
 }
 

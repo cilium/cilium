@@ -75,6 +75,7 @@ func (c *Client) DeleteSecurityGroupRequest(input *DeleteSecurityGroupInput) Del
 	req := c.newRequest(op, input, &DeleteSecurityGroupOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteSecurityGroupRequest{Request: req, Input: input, Copy: c.DeleteSecurityGroupRequest}
 }
 

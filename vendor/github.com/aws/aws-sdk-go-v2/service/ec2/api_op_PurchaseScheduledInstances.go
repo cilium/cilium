@@ -108,6 +108,7 @@ func (c *Client) PurchaseScheduledInstancesRequest(input *PurchaseScheduledInsta
 	}
 
 	req := c.newRequest(op, input, &PurchaseScheduledInstancesOutput{})
+
 	return PurchaseScheduledInstancesRequest{Request: req, Input: input, Copy: c.PurchaseScheduledInstancesRequest}
 }
 

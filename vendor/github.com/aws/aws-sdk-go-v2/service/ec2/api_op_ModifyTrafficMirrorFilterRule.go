@@ -120,6 +120,7 @@ func (c *Client) ModifyTrafficMirrorFilterRuleRequest(input *ModifyTrafficMirror
 	}
 
 	req := c.newRequest(op, input, &ModifyTrafficMirrorFilterRuleOutput{})
+
 	return ModifyTrafficMirrorFilterRuleRequest{Request: req, Input: input, Copy: c.ModifyTrafficMirrorFilterRuleRequest}
 }
 

@@ -44,6 +44,9 @@ type ModifyClientVpnEndpointInput struct {
 	// it is UnauthorizedOperation.
 	DryRun *bool `type:"boolean"`
 
+	// The IDs of one or more security groups to apply to the target network.
+	SecurityGroupIds []string `locationName:"SecurityGroupId" locationNameList:"item" type:"list"`
+
 	// The ARN of the server certificate to be used. The server certificate must
 	// be provisioned in AWS Certificate Manager (ACM).
 	ServerCertificateArn *string `type:"string"`
@@ -54,6 +57,16 @@ type ModifyClientVpnEndpointInput struct {
 	// VPN Endpoint (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/split-tunnel-vpn.html)
 	// in the AWS Client VPN Administrator Guide.
 	SplitTunnel *bool `type:"boolean"`
+
+	// The ID of the VPC to associate with the Client VPN endpoint.
+	VpcId *string `type:"string"`
+
+	// The port number to assign to the Client VPN endpoint for TCP and UDP traffic.
+	//
+	// Valid Values: 443 | 1194
+	//
+	// Default Value: 443
+	VpnPort *int64 `type:"integer"`
 }
 
 // String returns the string representation
@@ -92,10 +105,8 @@ const opModifyClientVpnEndpoint = "ModifyClientVpnEndpoint"
 // ModifyClientVpnEndpointRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Modifies the specified Client VPN endpoint. You can only modify an endpoint's
-// server certificate information, client connection logging information, DNS
-// server, and description. Modifying the DNS server resets existing client
-// connections.
+// Modifies the specified Client VPN endpoint. Modifying the DNS server resets
+// existing client connections.
 //
 //    // Example sending a request using ModifyClientVpnEndpointRequest.
 //    req := client.ModifyClientVpnEndpointRequest(params)
@@ -117,6 +128,7 @@ func (c *Client) ModifyClientVpnEndpointRequest(input *ModifyClientVpnEndpointIn
 	}
 
 	req := c.newRequest(op, input, &ModifyClientVpnEndpointOutput{})
+
 	return ModifyClientVpnEndpointRequest{Request: req, Input: input, Copy: c.ModifyClientVpnEndpointRequest}
 }
 

@@ -170,6 +170,7 @@ func (c *Client) DescribeImagesRequest(input *DescribeImagesInput) DescribeImage
 	}
 
 	req := c.newRequest(op, input, &DescribeImagesOutput{})
+
 	return DescribeImagesRequest{Request: req, Input: input, Copy: c.DescribeImagesRequest}
 }
 

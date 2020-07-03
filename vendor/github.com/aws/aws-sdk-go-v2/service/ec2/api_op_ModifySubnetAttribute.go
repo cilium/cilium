@@ -24,8 +24,20 @@ type ModifySubnetAttributeInput struct {
 	// or later of the Amazon EC2 API.
 	AssignIpv6AddressOnCreation *AttributeBooleanValue `type:"structure"`
 
-	// Specify true to indicate that ENIs attached to instances created in the specified
-	// subnet should be assigned a public IPv4 address.
+	// The customer-owned IPv4 address pool associated with the subnet.
+	//
+	// You must set this value when you specify true for MapCustomerOwnedIpOnLaunch.
+	CustomerOwnedIpv4Pool *string `type:"string"`
+
+	// Specify true to indicate that network interfaces attached to instances created
+	// in the specified subnet should be assigned a customer-owned IPv4 address.
+	//
+	// When this value is true, you must specify the customer-owned IP pool using
+	// CustomerOwnedIpv4Pool.
+	MapCustomerOwnedIpOnLaunch *AttributeBooleanValue `type:"structure"`
+
+	// Specify true to indicate that network interfaces attached to instances created
+	// in the specified subnet should be assigned a public IPv4 address.
 	MapPublicIpOnLaunch *AttributeBooleanValue `type:"structure"`
 
 	// The ID of the subnet.
@@ -91,6 +103,7 @@ func (c *Client) ModifySubnetAttributeRequest(input *ModifySubnetAttributeInput)
 	req := c.newRequest(op, input, &ModifySubnetAttributeOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ModifySubnetAttributeRequest{Request: req, Input: input, Copy: c.ModifySubnetAttributeRequest}
 }
 

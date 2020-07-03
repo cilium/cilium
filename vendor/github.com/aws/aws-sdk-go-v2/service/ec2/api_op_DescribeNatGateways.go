@@ -12,6 +12,12 @@ import (
 type DescribeNatGatewaysInput struct {
 	_ struct{} `type:"structure"`
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
 	// One or more filters.
 	//
 	//    * nat-gateway-id - The ID of the NAT gateway.
@@ -112,6 +118,7 @@ func (c *Client) DescribeNatGatewaysRequest(input *DescribeNatGatewaysInput) Des
 	}
 
 	req := c.newRequest(op, input, &DescribeNatGatewaysOutput{})
+
 	return DescribeNatGatewaysRequest{Request: req, Input: input, Copy: c.DescribeNatGatewaysRequest}
 }
 

@@ -109,6 +109,7 @@ func (c *Client) GetTransitGatewayAttachmentPropagationsRequest(input *GetTransi
 	}
 
 	req := c.newRequest(op, input, &GetTransitGatewayAttachmentPropagationsOutput{})
+
 	return GetTransitGatewayAttachmentPropagationsRequest{Request: req, Input: input, Copy: c.GetTransitGatewayAttachmentPropagationsRequest}
 }
 

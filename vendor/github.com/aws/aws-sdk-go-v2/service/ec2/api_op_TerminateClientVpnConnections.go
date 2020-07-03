@@ -98,6 +98,7 @@ func (c *Client) TerminateClientVpnConnectionsRequest(input *TerminateClientVpnC
 	}
 
 	req := c.newRequest(op, input, &TerminateClientVpnConnectionsOutput{})
+
 	return TerminateClientVpnConnectionsRequest{Request: req, Input: input, Copy: c.TerminateClientVpnConnectionsRequest}
 }
 

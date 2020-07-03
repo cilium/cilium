@@ -128,7 +128,8 @@ type DescribeNetworkInterfacesInput struct {
 
 	// The maximum number of items to return for this request. The request returns
 	// a token that you can specify in a subsequent call to get the next set of
-	// results.
+	// results. You cannot specify this parameter and the network interface IDs
+	// parameter in the same request.
 	MaxResults *int64 `min:"5" type:"integer"`
 
 	// One or more network interface IDs.
@@ -208,6 +209,7 @@ func (c *Client) DescribeNetworkInterfacesRequest(input *DescribeNetworkInterfac
 	}
 
 	req := c.newRequest(op, input, &DescribeNetworkInterfacesOutput{})
+
 	return DescribeNetworkInterfacesRequest{Request: req, Input: input, Copy: c.DescribeNetworkInterfacesRequest}
 }
 

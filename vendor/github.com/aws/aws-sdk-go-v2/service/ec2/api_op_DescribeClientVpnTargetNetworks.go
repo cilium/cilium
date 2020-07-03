@@ -27,6 +27,12 @@ type DescribeClientVpnTargetNetworksInput struct {
 	DryRun *bool `type:"boolean"`
 
 	// One or more filters. Filter names and values are case-sensitive.
+	//
+	//    * association-id - The ID of the association.
+	//
+	//    * target-network-id - The ID of the subnet specified as the target network.
+	//
+	//    * vpc-id - The ID of the VPC in which the target network is located.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// The maximum number of results to return for the request in a single page.
@@ -109,6 +115,7 @@ func (c *Client) DescribeClientVpnTargetNetworksRequest(input *DescribeClientVpn
 	}
 
 	req := c.newRequest(op, input, &DescribeClientVpnTargetNetworksOutput{})
+
 	return DescribeClientVpnTargetNetworksRequest{Request: req, Input: input, Copy: c.DescribeClientVpnTargetNetworksRequest}
 }
 

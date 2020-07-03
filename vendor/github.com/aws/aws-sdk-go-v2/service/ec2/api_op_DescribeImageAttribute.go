@@ -119,6 +119,7 @@ func (c *Client) DescribeImageAttributeRequest(input *DescribeImageAttributeInpu
 	}
 
 	req := c.newRequest(op, input, &DescribeImageAttributeOutput{})
+
 	return DescribeImageAttributeRequest{Request: req, Input: input, Copy: c.DescribeImageAttributeRequest}
 }
 

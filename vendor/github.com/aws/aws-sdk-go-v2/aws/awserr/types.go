@@ -1,6 +1,9 @@
 package awserr
 
-import "fmt"
+import (
+	"errors"
+	"fmt"
+)
 
 // SprintError returns a string of the formatted error code.
 //
@@ -12,7 +15,7 @@ func SprintError(code, message, extra string, origErr error) string {
 		msg = fmt.Sprintf("%s\n\t%s", msg, extra)
 	}
 	if origErr != nil {
-		msg = fmt.Sprintf("%s\ncaused by: %s", msg, origErr.Error())
+		msg = fmt.Sprintf("%s\ncaused by: %v", msg, origErr)
 	}
 	return msg
 }
@@ -31,7 +34,7 @@ type baseError struct {
 
 	// Optional original error this error is based off of. Allows building
 	// chained errors.
-	errs []error
+	err error
 }
 
 // newBaseError returns an error object for the code, message, and errors.
@@ -44,11 +47,11 @@ type baseError struct {
 //
 // origErrs is the error objects which will be nested under the new errors to
 // be returned.
-func newBaseError(code, message string, origErrs []error) *baseError {
+func newBaseError(code, message string, err error) *baseError {
 	b := &baseError{
 		code:    code,
 		message: message,
-		errs:    origErrs,
+		err:     err,
 	}
 
 	return b
@@ -60,12 +63,7 @@ func newBaseError(code, message string, origErrs []error) *baseError {
 //
 // Satisfies the error interface.
 func (b baseError) Error() string {
-	size := len(b.errs)
-	if size > 0 {
-		return SprintError(b.code, b.message, "", errorList(b.errs))
-	}
-
-	return SprintError(b.code, b.message, "", nil)
+	return SprintError(b.code, b.message, "", b.err)
 }
 
 // String returns the string representation of the error.
@@ -84,27 +82,37 @@ func (b baseError) Message() string {
 	return b.message
 }
 
-// OrigErr returns the original error if one was set. Nil is returned if no
+// Unwrap returns the original error if one was set. Nil is returned if no
 // error was set. This only returns the first element in the list. If the full
 // list is needed, use BatchedErrors.
-func (b baseError) OrigErr() error {
-	switch len(b.errs) {
-	case 0:
-		return nil
-	case 1:
-		return b.errs[0]
-	default:
-		if err, ok := b.errs[0].(Error); ok {
-			return NewBatchError(err.Code(), err.Message(), b.errs[1:])
-		}
-		return NewBatchError("BatchedErrors",
-			"multiple errors occurred", b.errs)
+func (b baseError) Unwrap() error {
+	return b.err
+}
+
+type batchError struct {
+	*baseError
+	errs []error
+}
+
+func newBatchError(code, message string, errs []error) *batchError {
+	return &batchError{
+		baseError: newBaseError(code, message, nil),
+		errs:      errs,
 	}
 }
 
-// OrigErrs returns the original errors if one was set. An empty slice is
-// returned if no error was set.
-func (b baseError) OrigErrs() []error {
+func (b batchError) Error() string {
+	size := len(b.errs)
+	if size > 0 {
+		return SprintError(b.code, b.message, "", errorList(b.errs))
+	}
+
+	return SprintError(b.code, b.message, "", nil)
+}
+
+// Errs returns the original errors if one was set. Nil is returned if no error
+// was set.
+func (b batchError) Errs() []error {
 	return b.errs
 }
 
@@ -142,13 +150,11 @@ func newRequestError(err Error, statusCode int, requestID string) *requestError 
 func (r requestError) Error() string {
 	extra := fmt.Sprintf("status code: %d, request id: %s",
 		r.statusCode, r.requestID)
-	return SprintError(r.Code(), r.Message(), extra, r.OrigErr())
+	return SprintError(r.Code(), r.Message(), extra, r.Unwrap())
 }
 
-// String returns the string representation of the error.
-// Alias for Error to satisfy the stringer interface.
-func (r requestError) String() string {
-	return r.Error()
+func (r requestError) Unwrap() error {
+	return errors.Unwrap(r.awsError)
 }
 
 // StatusCode returns the wrapped status code for the error
@@ -161,13 +167,14 @@ func (r requestError) RequestID() string {
 	return r.requestID
 }
 
-// OrigErrs returns the original errors if one was set. An empty slice is
-// returned if no error was set.
-func (r requestError) OrigErrs() []error {
+// Errs returns the original errors if one was set. Nil is returned if no error
+// is set.
+func (r requestError) Errs() []error {
 	if b, ok := r.awsError.(BatchedErrors); ok {
-		return b.OrigErrs()
+		return b.Errs()
 	}
-	return []error{r.OrigErr()}
+
+	return nil
 }
 
 // An error list that satisfies the golang interface

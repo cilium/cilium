@@ -90,6 +90,7 @@ func (c *Client) DescribeFpgaImageAttributeRequest(input *DescribeFpgaImageAttri
 	}
 
 	req := c.newRequest(op, input, &DescribeFpgaImageAttributeOutput{})
+
 	return DescribeFpgaImageAttributeRequest{Request: req, Input: input, Copy: c.DescribeFpgaImageAttributeRequest}
 }
 

@@ -92,6 +92,7 @@ func (c *Client) DescribeFastSnapshotRestoresRequest(input *DescribeFastSnapshot
 	}
 
 	req := c.newRequest(op, input, &DescribeFastSnapshotRestoresOutput{})
+
 	return DescribeFastSnapshotRestoresRequest{Request: req, Input: input, Copy: c.DescribeFastSnapshotRestoresRequest}
 }
 

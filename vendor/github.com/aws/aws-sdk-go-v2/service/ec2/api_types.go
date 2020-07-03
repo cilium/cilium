@@ -411,7 +411,7 @@ func (s BundleTaskError) String() string {
 type ByoipCidr struct {
 	_ struct{} `type:"structure"`
 
-	// The public IPv4 address range, in CIDR notation.
+	// The address range, in CIDR notation.
 	Cidr *string `locationName:"cidr" type:"string"`
 
 	// The description of the address range.
@@ -612,6 +612,74 @@ type CapacityReservation struct {
 
 // String returns the string representation
 func (s CapacityReservation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the strategy for using unused Capacity Reservations for fulfilling
+// On-Demand capacity.
+//
+// This strategy can only be used if the EC2 Fleet is of type instant.
+//
+// For more information about Capacity Reservations, see On-Demand Capacity
+// Reservations (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-capacity-reservations.html)
+// in the Amazon Elastic Compute Cloud User Guide. For examples of using Capacity
+// Reservations in an EC2 Fleet, see EC2 Fleet Example Configurations (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-examples.html)
+// in the Amazon Elastic Compute Cloud User Guide.
+type CapacityReservationOptions struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates whether to use unused Capacity Reservations for fulfilling On-Demand
+	// capacity.
+	//
+	// If you specify use-capacity-reservations-first, the fleet uses unused Capacity
+	// Reservations to fulfill On-Demand capacity up to the target On-Demand capacity.
+	// If multiple instance pools have unused Capacity Reservations, the On-Demand
+	// allocation strategy (lowest-price or prioritized) is applied. If the number
+	// of unused Capacity Reservations is less than the On-Demand target capacity,
+	// the remaining On-Demand target capacity is launched according to the On-Demand
+	// allocation strategy (lowest-price or prioritized).
+	//
+	// If you do not specify a value, the fleet fulfils the On-Demand capacity according
+	// to the chosen On-Demand allocation strategy.
+	UsageStrategy FleetCapacityReservationUsageStrategy `locationName:"usageStrategy" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s CapacityReservationOptions) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the strategy for using unused Capacity Reservations for fulfilling
+// On-Demand capacity.
+//
+// This strategy can only be used if the EC2 Fleet is of type instant.
+//
+// For more information about Capacity Reservations, see On-Demand Capacity
+// Reservations (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-capacity-reservations.html)
+// in the Amazon Elastic Compute Cloud User Guide. For examples of using Capacity
+// Reservations in an EC2 Fleet, see EC2 Fleet Example Configurations (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-fleet-examples.html)
+// in the Amazon Elastic Compute Cloud User Guide.
+type CapacityReservationOptionsRequest struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates whether to use unused Capacity Reservations for fulfilling On-Demand
+	// capacity.
+	//
+	// If you specify use-capacity-reservations-first, the fleet uses unused Capacity
+	// Reservations to fulfill On-Demand capacity up to the target On-Demand capacity.
+	// If multiple instance pools have unused Capacity Reservations, the On-Demand
+	// allocation strategy (lowest-price or prioritized) is applied. If the number
+	// of unused Capacity Reservations is less than the On-Demand target capacity,
+	// the remaining On-Demand target capacity is launched according to the On-Demand
+	// allocation strategy (lowest-price or prioritized).
+	//
+	// If you do not specify a value, the fleet fulfils the On-Demand capacity according
+	// to the chosen On-Demand allocation strategy.
+	UsageStrategy FleetCapacityReservationUsageStrategy `type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s CapacityReservationOptionsRequest) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -1073,12 +1141,12 @@ type CreateFleetError struct {
 	ErrorCode *string `locationName:"errorCode" type:"string"`
 
 	// The error message that describes why the instance could not be launched.
-	// For more information about error messages, see ee Error Codes (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.html).
+	// For more information about error messages, see Error Codes (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.html).
 	ErrorMessage *string `locationName:"errorMessage" type:"string"`
 
 	// The launch templates and overrides that were used for launching the instances.
-	// Any parameters that you specify in the Overrides override the same parameters
-	// in the launch template.
+	// The values that you specify in the Overrides replace the values in the launch
+	// template.
 	LaunchTemplateAndOverrides *LaunchTemplateAndOverridesResponse `locationName:"launchTemplateAndOverrides" type:"structure"`
 
 	// Indicates if the instance that could not be launched was a Spot Instance
@@ -1102,15 +1170,15 @@ type CreateFleetInstance struct {
 	InstanceType InstanceType `locationName:"instanceType" type:"string" enum:"true"`
 
 	// The launch templates and overrides that were used for launching the instances.
-	// Any parameters that you specify in the Overrides override the same parameters
-	// in the launch template.
+	// The values that you specify in the Overrides replace the values in the launch
+	// template.
 	LaunchTemplateAndOverrides *LaunchTemplateAndOverridesResponse `locationName:"launchTemplateAndOverrides" type:"structure"`
 
 	// Indicates if the instance that was launched is a Spot Instance or On-Demand
 	// Instance.
 	Lifecycle InstanceLifecycle `locationName:"lifecycle" type:"string" enum:"true"`
 
-	// The value is Windows for Windows instances; otherwise blank.
+	// The value is Windows for Windows instances. Otherwise, the value is blank.
 	Platform PlatformValues `locationName:"platform" type:"string" enum:"true"`
 }
 
@@ -1379,6 +1447,26 @@ func (s DeleteQueuedReservedInstancesError) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Information about the tag keys to deregister for the current Region. You
+// can either specify individual tag keys or deregister all tag keys in the
+// current Region. You must specify either IncludeAllTagsOfInstance or InstanceTagKeys
+// in the request
+type DeregisterInstanceTagAttributeRequest struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates whether to deregister all tag keys in the current Region. Specify
+	// false to deregister all tag keys.
+	IncludeAllTagsOfInstance *bool `type:"boolean"`
+
+	// Information about the tag keys to deregister.
+	InstanceTagKeys []string `locationName:"InstanceTagKey" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s DeregisterInstanceTagAttributeRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes fast snapshot restores for a snapshot.
 type DescribeFastSnapshotRestoreSuccessItem struct {
 	_ struct{} `type:"structure"`
@@ -1437,12 +1525,12 @@ type DescribeFleetError struct {
 	ErrorCode *string `locationName:"errorCode" type:"string"`
 
 	// The error message that describes why the instance could not be launched.
-	// For more information about error messages, see ee Error Codes (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.html).
+	// For more information about error messages, see Error Codes (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.html).
 	ErrorMessage *string `locationName:"errorMessage" type:"string"`
 
 	// The launch templates and overrides that were used for launching the instances.
-	// Any parameters that you specify in the Overrides override the same parameters
-	// in the launch template.
+	// The values that you specify in the Overrides replace the values in the launch
+	// template.
 	LaunchTemplateAndOverrides *LaunchTemplateAndOverridesResponse `locationName:"launchTemplateAndOverrides" type:"structure"`
 
 	// Indicates if the instance that could not be launched was a Spot Instance
@@ -1466,15 +1554,15 @@ type DescribeFleetsInstances struct {
 	InstanceType InstanceType `locationName:"instanceType" type:"string" enum:"true"`
 
 	// The launch templates and overrides that were used for launching the instances.
-	// Any parameters that you specify in the Overrides override the same parameters
-	// in the launch template.
+	// The values that you specify in the Overrides replace the values in the launch
+	// template.
 	LaunchTemplateAndOverrides *LaunchTemplateAndOverridesResponse `locationName:"launchTemplateAndOverrides" type:"structure"`
 
 	// Indicates if the instance that was launched is a Spot Instance or On-Demand
 	// Instance.
 	Lifecycle InstanceLifecycle `locationName:"lifecycle" type:"string" enum:"true"`
 
-	// The value is Windows for Windows instances; otherwise blank.
+	// The value is Windows for Windows instances. Otherwise, the value is blank.
 	Platform PlatformValues `locationName:"platform" type:"string" enum:"true"`
 }
 
@@ -1790,7 +1878,7 @@ type DiskInfo struct {
 	// The number of disks with this configuration.
 	Count *int64 `locationName:"count" type:"integer"`
 
-	// The size of the disk in GiB.
+	// The size of the disk in GB.
 	SizeInGB *int64 `locationName:"sizeInGB" type:"long"`
 
 	// The type of disk.
@@ -1858,6 +1946,8 @@ type EbsBlockDevice struct {
 	//
 	// Encrypted volumes can only be attached to instances that support Amazon EBS
 	// encryption. For more information, see Supported Instance Types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html#EBSEncryption_supported_instances).
+	//
+	// This parameter is not returned by .
 	Encrypted *bool `locationName:"encrypted" type:"boolean"`
 
 	// The number of I/O operations per second (IOPS) that the volume supports.
@@ -1902,8 +1992,9 @@ type EbsBlockDevice struct {
 	// size.
 	VolumeSize *int64 `locationName:"volumeSize" type:"integer"`
 
-	// The volume type. If you set the type to io1, you must also specify the IOPS
-	// that the volume supports.
+	// The volume type. If you set the type to io1, you must also specify the Iops
+	// parameter. If you set the type to gp2, st1, sc1, or standard, you must omit
+	// the Iops parameter.
 	//
 	// Default: gp2
 	VolumeType VolumeType `locationName:"volumeType" type:"string" enum:"true"`
@@ -1917,6 +2008,9 @@ func (s EbsBlockDevice) String() string {
 // Describes the Amazon EBS features supported by the instance type.
 type EbsInfo struct {
 	_ struct{} `type:"structure"`
+
+	// Describes the optimized EBS performance for the instance type.
+	EbsOptimizedInfo *EbsOptimizedInfo `locationName:"ebsOptimizedInfo" type:"structure"`
 
 	// Indicates that the instance type is Amazon EBS-optimized. For more information,
 	// see Amazon EBS-Optimized Instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSOptimized.html)
@@ -1971,6 +2065,40 @@ func (s EbsInstanceBlockDeviceSpecification) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Describes the optimized EBS performance for supported instance types.
+type EbsOptimizedInfo struct {
+	_ struct{} `type:"structure"`
+
+	// The baseline bandwidth performance for an EBS-optimized instance type, in
+	// Mbps.
+	BaselineBandwidthInMbps *int64 `locationName:"baselineBandwidthInMbps" type:"integer"`
+
+	// The baseline input/output storage operations per seconds for an EBS-optimized
+	// instance type.
+	BaselineIops *int64 `locationName:"baselineIops" type:"integer"`
+
+	// The baseline throughput performance for an EBS-optimized instance type, in
+	// MBps.
+	BaselineThroughputInMBps *float64 `locationName:"baselineThroughputInMBps" type:"double"`
+
+	// The maximum bandwidth performance for an EBS-optimized instance type, in
+	// Mbps.
+	MaximumBandwidthInMbps *int64 `locationName:"maximumBandwidthInMbps" type:"integer"`
+
+	// The maximum input/output storage operations per second for an EBS-optimized
+	// instance type.
+	MaximumIops *int64 `locationName:"maximumIops" type:"integer"`
+
+	// The maximum throughput performance for an EBS-optimized instance type, in
+	// MBps.
+	MaximumThroughputInMBps *float64 `locationName:"maximumThroughputInMBps" type:"double"`
+}
+
+// String returns the string representation
+func (s EbsOptimizedInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes an egress-only internet gateway.
 type EgressOnlyInternetGateway struct {
 	_ struct{} `type:"structure"`
@@ -1980,6 +2108,9 @@ type EgressOnlyInternetGateway struct {
 
 	// The ID of the egress-only internet gateway.
 	EgressOnlyInternetGatewayId *string `locationName:"egressOnlyInternetGatewayId" type:"string"`
+
+	// The tags assigned to the egress-only internet gateway.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -2027,7 +2158,10 @@ func (s ElasticGpuHealth) String() string {
 type ElasticGpuSpecification struct {
 	_ struct{} `type:"structure"`
 
-	// The type of Elastic Graphics accelerator.
+	// The type of Elastic Graphics accelerator. For more information about the
+	// values to specify for Type, see Elastic Graphics Basics (https://docs.aws.amazon.com/AWSEC2/latest/WindowsGuide/elastic-graphics.html#elastic-graphics-basics),
+	// specifically the Elastic Graphics accelerator column, in the Amazon Elastic
+	// Compute Cloud User Guide for Windows Instances.
 	//
 	// Type is a required field
 	Type *string `type:"string" required:"true"`
@@ -2086,6 +2220,9 @@ type ElasticGpus struct {
 
 	// The ID of the instance to which the Elastic Graphics accelerator is attached.
 	InstanceId *string `locationName:"instanceId" type:"string"`
+
+	// The tags assigned to the Elastic Graphics accelerator.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -2097,9 +2234,9 @@ func (s ElasticGpus) String() string {
 type ElasticInferenceAccelerator struct {
 	_ struct{} `type:"structure"`
 
-	// The number of elastic inference accelerators of given type to be attached
-	// to the instance. Only positive values allowed. If not specified defaults
-	// to 1.
+	// The number of elastic inference accelerators to attach to the instance.
+	//
+	// Default: 1
 	Count *int64 `min:"1" type:"integer"`
 
 	// The type of elastic inference accelerator. The possible values are eia1.medium,
@@ -2388,6 +2525,9 @@ type ExportTask struct {
 
 	// The status message related to the export task.
 	StatusMessage *string `locationName:"statusMessage" type:"string"`
+
+	// The tags for the export task.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -2508,6 +2648,32 @@ func (s FailedQueuedPurchaseDeletion) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Describes the IAM SAML identity provider used for federated authentication.
+type FederatedAuthentication struct {
+	_ struct{} `type:"structure"`
+
+	// The Amazon Resource Name (ARN) of the IAM SAML identity provider.
+	SamlProviderArn *string `locationName:"samlProviderArn" type:"string"`
+}
+
+// String returns the string representation
+func (s FederatedAuthentication) String() string {
+	return awsutil.Prettify(s)
+}
+
+// The IAM SAML identity provider used for federated authentication.
+type FederatedAuthenticationRequest struct {
+	_ struct{} `type:"structure"`
+
+	// The Amazon Resource Name (ARN) of the IAM SAML identity provider.
+	SAMLProviderArn *string `type:"string"`
+}
+
+// String returns the string representation
+func (s FederatedAuthenticationRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
 // A filter name and value pair that is used to return a more specific list
 // of results from a describe operation. Filters can be used to match a set
 // of resources by specific criteria, such as tags, attributes, or IDs. The
@@ -2559,8 +2725,8 @@ type FleetData struct {
 	// is pending_termination while instances are terminating.
 	ActivityStatus FleetActivityStatus `locationName:"activityStatus" type:"string" enum:"true"`
 
-	// Unique, case-sensitive identifier you provide to ensure the idempotency of
-	// the request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// Unique, case-sensitive identifier that you provide to ensure the idempotency
+	// of the request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	//
 	// Constraints: Maximum 64 ASCII characters
 	ClientToken *string `locationName:"clientToken" type:"string"`
@@ -2623,11 +2789,11 @@ type FleetData struct {
 	// The type of request. Indicates whether the EC2 Fleet only requests the target
 	// capacity, or also attempts to maintain it. If you request a certain target
 	// capacity, EC2 Fleet only places the required requests; it does not attempt
-	// to replenish instances if capacity is diminished, and does not submit requests
-	// in alternative capacity pools if capacity is unavailable. To maintain a certain
-	// target capacity, EC2 Fleet places the required requests to meet this target
-	// capacity. It also automatically replenishes any interrupted Spot Instances.
-	// Default: maintain.
+	// to replenish instances if capacity is diminished, and it does not submit
+	// requests in alternative capacity pools if capacity is unavailable. To maintain
+	// a certain target capacity, EC2 Fleet places the required requests to meet
+	// this target capacity. It also automatically replenishes any interrupted Spot
+	// Instances. Default: maintain.
 	Type FleetType `locationName:"type" type:"string" enum:"true"`
 
 	// The start date and time of the request, in UTC format (for example, YYYY-MM-DDTHH:MM:SSZ).
@@ -2755,7 +2921,9 @@ type FleetLaunchTemplateOverridesRequest struct {
 	// override has the lowest priority.
 	Priority *float64 `type:"double"`
 
-	// The ID of the subnet in which to launch the instances.
+	// The IDs of the subnets in which to launch the instances. Separate multiple
+	// subnet IDs using commas (for example, subnet-1234abcdeexample1, subnet-0987cdef6example2).
+	// A request of type instant can have only one subnet ID.
 	SubnetId *string `type:"string"`
 
 	// The number of units provided by the specified instance type.
@@ -2767,19 +2935,30 @@ func (s FleetLaunchTemplateOverridesRequest) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes a launch template.
+// Describes the Amazon EC2 launch template and the launch template version
+// that can be used by a Spot Fleet request to configure Amazon EC2 instances.
+// For information about launch templates, see Launching an instance from a
+// launch template (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html)
+// in the Amazon EC2 User Guide for Linux Instances.
 type FleetLaunchTemplateSpecification struct {
 	_ struct{} `type:"structure"`
 
-	// The ID of the launch template. You must specify either a template ID or a
-	// template name.
+	// The ID of the launch template. If you specify the template ID, you can't
+	// specify the template name.
 	LaunchTemplateId *string `locationName:"launchTemplateId" type:"string"`
 
-	// The name of the launch template. You must specify either a template name
-	// or a template ID.
+	// The name of the launch template. If you specify the template name, you can't
+	// specify the template ID.
 	LaunchTemplateName *string `locationName:"launchTemplateName" min:"3" type:"string"`
 
-	// The version number of the launch template. You must specify a version number.
+	// The launch template version number, $Latest, or $Default. You must specify
+	// a value, otherwise the request fails.
+	//
+	// If the value is $Latest, Amazon EC2 uses the latest version of the launch
+	// template.
+	//
+	// If the value is $Default, Amazon EC2 uses the default version of the launch
+	// template.
 	Version *string `locationName:"version" type:"string"`
 }
 
@@ -2801,19 +2980,30 @@ func (s *FleetLaunchTemplateSpecification) Validate() error {
 	return nil
 }
 
-// The launch template to use. You must specify either the launch template ID
-// or launch template name in the request.
+// Describes the Amazon EC2 launch template and the launch template version
+// that can be used by an EC2 Fleet to configure Amazon EC2 instances. For information
+// about launch templates, see Launching an instance from a launch template
+// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 type FleetLaunchTemplateSpecificationRequest struct {
 	_ struct{} `type:"structure"`
 
-	// The ID of the launch template.
+	// The ID of the launch template. If you specify the template ID, you can't
+	// specify the template name.
 	LaunchTemplateId *string `type:"string"`
 
-	// The name of the launch template.
+	// The name of the launch template. If you specify the template name, you can't
+	// specify the template ID.
 	LaunchTemplateName *string `min:"3" type:"string"`
 
-	// The version number of the launch template. Note: This is a required parameter
-	// and will be updated soon.
+	// The launch template version number, $Latest, or $Default. You must specify
+	// a value, otherwise the request fails.
+	//
+	// If the value is $Latest, Amazon EC2 uses the latest version of the launch
+	// template.
+	//
+	// If the value is $Default, Amazon EC2 uses the default version of the launch
+	// template.
 	Version *string `type:"string"`
 }
 
@@ -2880,8 +3070,21 @@ type FlowLog struct {
 	// The name of the flow log group.
 	LogGroupName *string `locationName:"logGroupName" type:"string"`
 
+	// The maximum interval of time, in seconds, during which a flow of packets
+	// is captured and aggregated into a flow log record.
+	//
+	// When a network interface is attached to a Nitro-based instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances),
+	// the aggregation interval is always 60 seconds (1 minute) or less, regardless
+	// of the specified value.
+	//
+	// Valid Values: 60 | 600
+	MaxAggregationInterval *int64 `locationName:"maxAggregationInterval" type:"integer"`
+
 	// The ID of the resource on which the flow log was created.
 	ResourceId *string `locationName:"resourceId" type:"string"`
+
+	// The tags for the flow log.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 
 	// The type of traffic captured for the flow log.
 	TrafficType TrafficType `locationName:"trafficType" type:"string" enum:"true"`
@@ -3567,6 +3770,11 @@ type Image struct {
 	// This value is set to windows for Windows AMIs; otherwise, it is blank.
 	Platform PlatformValues `locationName:"platform" type:"string" enum:"true"`
 
+	// The platform details associated with the billing code of the AMI. For more
+	// information, see Obtaining Billing Information (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-billing-info.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	PlatformDetails *string `locationName:"platformDetails" type:"string"`
+
 	// Any product codes associated with the AMI.
 	ProductCodes []ProductCode `locationName:"productCodes" locationNameList:"item" type:"list"`
 
@@ -3599,6 +3807,14 @@ type Image struct {
 
 	// Any tags assigned to the image.
 	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
+
+	// The operation of the Amazon EC2 instance and the billing code that is associated
+	// with the AMI. usageOperation corresponds to the lineitem/Operation (https://docs.aws.amazon.com/cur/latest/userguide/Lineitem-columns.html#Lineitem-details-O-Operation)
+	// column on your AWS Cost and Usage Report and in the AWS Price List API (https://docs.aws.amazon.com/awsaccountbilling/latest/aboutv2/price-changes.html).
+	// For the list of UsageOperation codes, see Platform Details and Usage Operation
+	// Billing Codes (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-billing-info.html#billing-info)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	UsageOperation *string `locationName:"usageOperation" type:"string"`
 
 	// The type of virtualization of the AMI.
 	VirtualizationType VirtualizationType `locationName:"virtualizationType" type:"string" enum:"true"`
@@ -3653,7 +3869,7 @@ func (s ImportImageLicenseConfigurationRequest) String() string {
 	return awsutil.Prettify(s)
 }
 
-// The response information of license configurations.
+// The response information for license configurations.
 type ImportImageLicenseConfigurationResponse struct {
 	_ struct{} `type:"structure"`
 
@@ -3696,7 +3912,8 @@ type ImportImageTask struct {
 	// key (CMK) that was used to create the encrypted image.
 	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
 
-	// The ARNs of the license configurations associated to the import image task.
+	// The ARNs of the license configurations that are associated with the import
+	// image task.
 	LicenseSpecifications []ImportImageLicenseConfigurationResponse `locationName:"licenseSpecifications" locationNameList:"item" type:"list"`
 
 	// The license type of the virtual machine.
@@ -3716,6 +3933,9 @@ type ImportImageTask struct {
 
 	// A descriptive status message for the import image task.
 	StatusMessage *string `locationName:"statusMessage" type:"string"`
+
+	// The tags for the import image task.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -3834,6 +4054,9 @@ type ImportSnapshotTask struct {
 
 	// Describes an import snapshot task.
 	SnapshotTaskDetail *SnapshotTaskDetail `locationName:"snapshotTaskDetail" type:"structure"`
+
+	// The tags for the import snapshot task.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -3943,7 +4166,8 @@ type Instance struct {
 	// Indicates whether the instance is enabled for hibernation.
 	HibernationOptions *HibernationOptions `locationName:"hibernationOptions" type:"structure"`
 
-	// The hypervisor type of the instance.
+	// The hypervisor type of the instance. The value xen is used for both Xen and
+	// Nitro hypervisors.
 	Hypervisor HypervisorType `locationName:"hypervisor" type:"string" enum:"true"`
 
 	// The IAM instance profile associated with the instance, if applicable.
@@ -4522,6 +4746,9 @@ type InstanceNetworkInterfaceSpecification struct {
 	Ipv6Addresses []InstanceIpv6Address `locationName:"ipv6AddressesSet" queryName:"Ipv6Addresses" locationNameList:"item" type:"list"`
 
 	// The ID of the network interface.
+	//
+	// If you are creating a Spot Fleet, omit this parameter because you can’t
+	// specify a network interface ID in a launch specification.
 	NetworkInterfaceId *string `locationName:"networkInterfaceId" type:"string"`
 
 	// The private IPv4 address of the network interface. Applies only if creating
@@ -4763,12 +4990,30 @@ type InstanceStorageInfo struct {
 	// Array describing the disks that are available for the instance type.
 	Disks []DiskInfo `locationName:"disks" locationNameList:"item" type:"list"`
 
-	// The total size of the disks, in GiB.
+	// The total size of the disks, in GB.
 	TotalSizeInGB *int64 `locationName:"totalSizeInGB" type:"long"`
 }
 
 // String returns the string representation
 func (s InstanceStorageInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes the registered tag keys for the current Region.
+type InstanceTagNotificationAttribute struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates wheter all tag keys in the current Region are registered to appear
+	// in scheduled event notifications. true indicates that all tag keys in the
+	// current Region are registered.
+	IncludeAllTagsOfInstance *bool `locationName:"includeAllTagsOfInstance" type:"boolean"`
+
+	// The registered tag keys.
+	InstanceTagKeys []string `locationName:"instanceTagKeySet" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s InstanceTagNotificationAttribute) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -4834,11 +5079,14 @@ type InstanceTypeInfo struct {
 	// Describes the processor.
 	ProcessorInfo *ProcessorInfo `locationName:"processorInfo" type:"structure"`
 
-	// Indicates the supported root devices.
-	SupportedRootDevices []RootDeviceType `locationName:"supportedRootDevices" locationNameList:"item" type:"list"`
+	// Indicates the supported root device types.
+	SupportedRootDeviceTypes []RootDeviceType `locationName:"supportedRootDeviceTypes" locationNameList:"item" type:"list"`
 
 	// Indicates whether the instance type is offered for spot or On-Demand.
 	SupportedUsageClasses []UsageClassType `locationName:"supportedUsageClasses" locationNameList:"item" type:"list"`
+
+	// The supported virtualization types.
+	SupportedVirtualizationTypes []VirtualizationType `locationName:"supportedVirtualizationTypes" locationNameList:"item" type:"list"`
 
 	// Describes the vCPU configurations for the instance type.
 	VCpuInfo *VCpuInfo `locationName:"vCpuInfo" type:"structure"`
@@ -4984,12 +5232,28 @@ type IpRange struct {
 	// range.
 	//
 	// Constraints: Up to 255 characters in length. Allowed characters are a-z,
-	// A-Z, 0-9, spaces, and ._-:/()#,@[]+=;{}!$*
+	// A-Z, 0-9, spaces, and ._-:/()#,@[]+=&;{}!$*
 	Description *string `locationName:"description" type:"string"`
 }
 
 // String returns the string representation
 func (s IpRange) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes an IPv6 CIDR block association.
+type Ipv6CidrAssociation struct {
+	_ struct{} `type:"structure"`
+
+	// The resource that's associated with the IPv6 CIDR block.
+	AssociatedResource *string `locationName:"associatedResource" type:"string"`
+
+	// The IPv6 CIDR block.
+	Ipv6Cidr *string `locationName:"ipv6Cidr" type:"string"`
+}
+
+// String returns the string representation
+func (s Ipv6CidrAssociation) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -5006,6 +5270,28 @@ func (s Ipv6CidrBlock) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Describes an IPv6 address pool.
+type Ipv6Pool struct {
+	_ struct{} `type:"structure"`
+
+	// The description for the address pool.
+	Description *string `locationName:"description" type:"string"`
+
+	// The CIDR blocks for the address pool.
+	PoolCidrBlocks []PoolCidrBlock `locationName:"poolCidrBlockSet" locationNameList:"item" type:"list"`
+
+	// The ID of the address pool.
+	PoolId *string `locationName:"poolId" type:"string"`
+
+	// Any tags for the address pool.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s Ipv6Pool) String() string {
+	return awsutil.Prettify(s)
+}
+
 // [EC2-VPC only] Describes an IPv6 range.
 type Ipv6Range struct {
 	_ struct{} `type:"structure"`
@@ -5018,7 +5304,7 @@ type Ipv6Range struct {
 	// range.
 	//
 	// Constraints: Up to 255 characters in length. Allowed characters are a-z,
-	// A-Z, 0-9, spaces, and ._-:/()#,@[]+=;{}!$*
+	// A-Z, 0-9, spaces, and ._-:/()#,@[]+=&;{}!$*
 	Description *string `locationName:"description" type:"string"`
 }
 
@@ -5039,10 +5325,32 @@ type KeyPairInfo struct {
 
 	// The name of the key pair.
 	KeyName *string `locationName:"keyName" type:"string"`
+
+	// The ID of the key pair.
+	KeyPairId *string `locationName:"keyPairId" type:"string"`
+
+	// Any tags applied to the key pair.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
 func (s KeyPairInfo) String() string {
+	return awsutil.Prettify(s)
+}
+
+// The last error that occurred for a VPC endpoint.
+type LastError struct {
+	_ struct{} `type:"structure"`
+
+	// The error code for the VPC endpoint error.
+	Code *string `locationName:"code" type:"string"`
+
+	// The error message for the VPC endpoint error.
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s LastError) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -5414,7 +5722,8 @@ type LaunchTemplateEbsBlockDeviceRequest struct {
 	// it is not used in requests to create gp2, st1, sc1, or standard volumes.
 	Iops *int64 `type:"integer"`
 
-	// The ARN of the AWS Key Management Service (AWS KMS) CMK used for encryption.
+	// The ARN of the symmetric AWS Key Management Service (AWS KMS) CMK used for
+	// encryption.
 	KmsKeyId *string `type:"string"`
 
 	// The ID of the snapshot.
@@ -5439,9 +5748,9 @@ func (s LaunchTemplateEbsBlockDeviceRequest) String() string {
 type LaunchTemplateElasticInferenceAccelerator struct {
 	_ struct{} `type:"structure"`
 
-	// The number of elastic inference accelerators of given type to be attached
-	// to the instance. Only positive values allowed. If not specified defaults
-	// to 1.
+	// The number of elastic inference accelerators to attach to the instance.
+	//
+	// Default: 1
 	Count *int64 `min:"1" type:"integer"`
 
 	// The type of elastic inference accelerator. The possible values are eia1.medium,
@@ -5477,9 +5786,9 @@ func (s *LaunchTemplateElasticInferenceAccelerator) Validate() error {
 type LaunchTemplateElasticInferenceAcceleratorResponse struct {
 	_ struct{} `type:"structure"`
 
-	// The number of elastic inference accelerators of given type to be attached
-	// to the instance. Only positive values allowed. If not specified defaults
-	// to 1.
+	// The number of elastic inference accelerators to attach to the instance.
+	//
+	// Default: 1
 	Count *int64 `locationName:"count" type:"integer"`
 
 	// The type of elastic inference accelerator. The possible values are eia1.medium,
@@ -5583,6 +5892,98 @@ type LaunchTemplateInstanceMarketOptionsRequest struct {
 
 // String returns the string representation
 func (s LaunchTemplateInstanceMarketOptionsRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
+// The metadata options for the instance. For more information, see Instance
+// Metadata and User Data (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html)
+// in the Amazon Elastic Compute Cloud User Guide.
+type LaunchTemplateInstanceMetadataOptions struct {
+	_ struct{} `type:"structure"`
+
+	// This parameter enables or disables the HTTP metadata endpoint on your instances.
+	// If the parameter is not specified, the default state is enabled.
+	//
+	// If you specify a value of disabled, you will not be able to access your instance
+	// metadata.
+	HttpEndpoint LaunchTemplateInstanceMetadataEndpointState `locationName:"httpEndpoint" type:"string" enum:"true"`
+
+	// The desired HTTP PUT response hop limit for instance metadata requests. The
+	// larger the number, the further instance metadata requests can travel.
+	//
+	// Default: 1
+	//
+	// Possible values: Integers from 1 to 64
+	HttpPutResponseHopLimit *int64 `locationName:"httpPutResponseHopLimit" type:"integer"`
+
+	// The state of token usage for your instance metadata requests. If the parameter
+	// is not specified in the request, the default state is optional.
+	//
+	// If the state is optional, you can choose to retrieve instance metadata with
+	// or without a signed token header on your request. If you retrieve the IAM
+	// role credentials without a token, the version 1.0 role credentials are returned.
+	// If you retrieve the IAM role credentials using a valid signed token, the
+	// version 2.0 role credentials are returned.
+	//
+	// If the state is required, you must send a signed token header with any instance
+	// metadata retrieval requests. In this state, retrieving the IAM role credentials
+	// always returns the version 2.0 credentials; the version 1.0 credentials are
+	// not available.
+	HttpTokens LaunchTemplateHttpTokensState `locationName:"httpTokens" type:"string" enum:"true"`
+
+	// The state of the metadata option changes.
+	//
+	// pending - The metadata options are being updated and the instance is not
+	// ready to process metadata traffic with the new selection.
+	//
+	// applied - The metadata options have been successfully applied on the instance.
+	State LaunchTemplateInstanceMetadataOptionsState `locationName:"state" type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s LaunchTemplateInstanceMetadataOptions) String() string {
+	return awsutil.Prettify(s)
+}
+
+// The metadata options for the instance. For more information, see Instance
+// Metadata and User Data (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html)
+// in the Amazon Elastic Compute Cloud User Guide.
+type LaunchTemplateInstanceMetadataOptionsRequest struct {
+	_ struct{} `type:"structure"`
+
+	// This parameter enables or disables the HTTP metadata endpoint on your instances.
+	// If the parameter is not specified, the default state is enabled.
+	//
+	// If you specify a value of disabled, you will not be able to access your instance
+	// metadata.
+	HttpEndpoint LaunchTemplateInstanceMetadataEndpointState `type:"string" enum:"true"`
+
+	// The desired HTTP PUT response hop limit for instance metadata requests. The
+	// larger the number, the further instance metadata requests can travel.
+	//
+	// Default: 1
+	//
+	// Possible values: Integers from 1 to 64
+	HttpPutResponseHopLimit *int64 `type:"integer"`
+
+	// The state of token usage for your instance metadata requests. If the parameter
+	// is not specified in the request, the default state is optional.
+	//
+	// If the state is optional, you can choose to retrieve instance metadata with
+	// or without a signed token header on your request. If you retrieve the IAM
+	// role credentials without a token, the version 1.0 role credentials are returned.
+	// If you retrieve the IAM role credentials using a valid signed token, the
+	// version 2.0 role credentials are returned.
+	//
+	// If the state is required, you must send a signed token header with any instance
+	// metadata retrieval requests. In this state, retrieving the IAM role credentials
+	// always returns the version 2.0 credentials; the version 1.0 credentials are
+	// not available.
+	HttpTokens LaunchTemplateHttpTokensState `type:"string" enum:"true"`
+}
+
+// String returns the string representation
+func (s LaunchTemplateInstanceMetadataOptionsRequest) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -5772,6 +6173,10 @@ type LaunchTemplatePlacement struct {
 	// The ARN of the host resource group in which to launch the instances.
 	HostResourceGroupArn *string `locationName:"hostResourceGroupArn" type:"string"`
 
+	// The number of the partition the instance should launch in. Valid only if
+	// the placement group strategy is set to partition.
+	PartitionNumber *int64 `locationName:"partitionNumber" type:"integer"`
+
 	// Reserved for future use.
 	SpreadDomain *string `locationName:"spreadDomain" type:"string"`
 
@@ -5805,6 +6210,10 @@ type LaunchTemplatePlacementRequest struct {
 	// specify a host resource group ARN, omit the Tenancy parameter or set it to
 	// host.
 	HostResourceGroupArn *string `type:"string"`
+
+	// The number of the partition the instance should launch in. Valid only if
+	// the placement group strategy is set to partition.
+	PartitionNumber *int64 `type:"integer"`
 
 	// Reserved for future use.
 	SpreadDomain *string `type:"string"`
@@ -6124,6 +6533,9 @@ type LocalGateway struct {
 
 	// The state of the local gateway.
 	State *string `locationName:"state" type:"string"`
+
+	// The tags assigned to the local gateway.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -6171,6 +6583,9 @@ type LocalGatewayRouteTable struct {
 
 	// The state of the local gateway route table.
 	State *string `locationName:"state" type:"string"`
+
+	// The tags assigned to the local gateway route table.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -6197,6 +6612,9 @@ type LocalGatewayRouteTableVirtualInterfaceGroupAssociation struct {
 
 	// The state of the association.
 	State *string `locationName:"state" type:"string"`
+
+	// The tags assigned to the association.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -6219,6 +6637,9 @@ type LocalGatewayRouteTableVpcAssociation struct {
 
 	// The state of the association.
 	State *string `locationName:"state" type:"string"`
+
+	// The tags assigned to the association.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 
 	// The ID of the VPC.
 	VpcId *string `locationName:"vpcId" type:"string"`
@@ -6252,6 +6673,9 @@ type LocalGatewayVirtualInterface struct {
 	// The peer BGP ASN.
 	PeerBgpAsn *int64 `locationName:"peerBgpAsn" type:"integer"`
 
+	// The tags assigned to the virtual interface.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
+
 	// The ID of the VLAN.
 	Vlan *int64 `locationName:"vlan" type:"integer"`
 }
@@ -6273,6 +6697,9 @@ type LocalGatewayVirtualInterfaceGroup struct {
 
 	// The IDs of the virtual interfaces.
 	LocalGatewayVirtualInterfaceIds []string `locationName:"localGatewayVirtualInterfaceIdSet" locationNameList:"item" type:"list"`
+
+	// The tags assigned to the virtual interface group.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -6663,6 +7090,9 @@ func (s NetworkAclEntry) String() string {
 type NetworkInfo struct {
 	_ struct{} `type:"structure"`
 
+	// Indicates whether Elastic Fabric Adapter (EFA) is supported.
+	EfaSupported *bool `locationName:"efaSupported" type:"boolean"`
+
 	// Indicates whether Elastic Network Adapter (ENA) is supported.
 	EnaSupport EnaSupport `locationName:"enaSupport" type:"string" enum:"true"`
 
@@ -6940,6 +7370,10 @@ type OnDemandOptions struct {
 	// Fleet defaults to lowest-price.
 	AllocationStrategy FleetOnDemandAllocationStrategy `locationName:"allocationStrategy" type:"string" enum:"true"`
 
+	// The strategy for using unused Capacity Reservations for fulfilling On-Demand
+	// capacity. Supported only for fleets of type instant.
+	CapacityReservationOptions *CapacityReservationOptions `locationName:"capacityReservationOptions" type:"structure"`
+
 	// The maximum amount per hour for On-Demand Instances that you're willing to
 	// pay.
 	MaxTotalPrice *string `locationName:"maxTotalPrice" type:"string"`
@@ -6949,11 +7383,11 @@ type OnDemandOptions struct {
 	MinTargetCapacity *int64 `locationName:"minTargetCapacity" type:"integer"`
 
 	// Indicates that the fleet launches all On-Demand Instances into a single Availability
-	// Zone.
+	// Zone. Supported only for fleets of type instant.
 	SingleAvailabilityZone *bool `locationName:"singleAvailabilityZone" type:"boolean"`
 
 	// Indicates that the fleet uses a single instance type to launch all On-Demand
-	// Instances in the fleet.
+	// Instances in the fleet. Supported only for fleets of type instant.
 	SingleInstanceType *bool `locationName:"singleInstanceType" type:"boolean"`
 }
 
@@ -6974,6 +7408,10 @@ type OnDemandOptionsRequest struct {
 	// Fleet defaults to lowest-price.
 	AllocationStrategy FleetOnDemandAllocationStrategy `type:"string" enum:"true"`
 
+	// The strategy for using unused Capacity Reservations for fulfilling On-Demand
+	// capacity. Supported only for fleets of type instant.
+	CapacityReservationOptions *CapacityReservationOptionsRequest `type:"structure"`
+
 	// The maximum amount per hour for On-Demand Instances that you're willing to
 	// pay.
 	MaxTotalPrice *string `type:"string"`
@@ -6983,11 +7421,11 @@ type OnDemandOptionsRequest struct {
 	MinTargetCapacity *int64 `type:"integer"`
 
 	// Indicates that the fleet launches all On-Demand Instances into a single Availability
-	// Zone.
+	// Zone. Supported only for fleets of type instant.
 	SingleAvailabilityZone *bool `type:"boolean"`
 
 	// Indicates that the fleet uses a single instance type to launch all On-Demand
-	// Instances in the fleet.
+	// Instances in the fleet. Supported only for fleets of type instant.
 	SingleInstanceType *bool `type:"boolean"`
 }
 
@@ -7261,37 +7699,54 @@ type Placement struct {
 	_ struct{} `type:"structure"`
 
 	// The affinity setting for the instance on the Dedicated Host. This parameter
-	// is not supported for the ImportInstance command.
+	// is not supported for the ImportInstance (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ImportInstance.html)
+	// command.
+	//
+	// This parameter is not supported by CreateFleet (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFleet).
 	Affinity *string `locationName:"affinity" type:"string"`
 
 	// The Availability Zone of the instance.
 	//
 	// If not specified, an Availability Zone will be automatically chosen for you
 	// based on the load balancing criteria for the Region.
+	//
+	// This parameter is not supported by CreateFleet (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFleet).
 	AvailabilityZone *string `locationName:"availabilityZone" type:"string"`
 
 	// The name of the placement group the instance is in.
 	GroupName *string `locationName:"groupName" type:"string"`
 
 	// The ID of the Dedicated Host on which the instance resides. This parameter
-	// is not supported for the ImportInstance command.
+	// is not supported for the ImportInstance (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ImportInstance.html)
+	// command.
+	//
+	// This parameter is not supported by CreateFleet (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFleet).
 	HostId *string `locationName:"hostId" type:"string"`
 
 	// The ARN of the host resource group in which to launch the instances. If you
 	// specify a host resource group ARN, omit the Tenancy parameter or set it to
 	// host.
+	//
+	// This parameter is not supported by CreateFleet (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFleet).
 	HostResourceGroupArn *string `locationName:"hostResourceGroupArn" type:"string"`
 
 	// The number of the partition the instance is in. Valid only if the placement
 	// group strategy is set to partition.
+	//
+	// This parameter is not supported by CreateFleet (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFleet).
 	PartitionNumber *int64 `locationName:"partitionNumber" type:"integer"`
 
 	// Reserved for future use.
+	//
+	// This parameter is not supported by CreateFleet (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFleet).
 	SpreadDomain *string `locationName:"spreadDomain" type:"string"`
 
 	// The tenancy of the instance (if the instance is running in a VPC). An instance
 	// with a tenancy of dedicated runs on single-tenant hardware. The host tenancy
-	// is not supported for the ImportInstance command.
+	// is not supported for the ImportInstance (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_ImportInstance.html)
+	// command.
+	//
+	// This parameter is not supported by CreateFleet (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateFleet).
 	Tenancy Tenancy `locationName:"tenancy" type:"string" enum:"true"`
 }
 
@@ -7304,6 +7759,9 @@ func (s Placement) String() string {
 type PlacementGroup struct {
 	_ struct{} `type:"structure"`
 
+	// The ID of the placement group.
+	GroupId *string `locationName:"groupId" type:"string"`
+
 	// The name of the placement group.
 	GroupName *string `locationName:"groupName" type:"string"`
 
@@ -7315,6 +7773,9 @@ type PlacementGroup struct {
 
 	// The placement strategy.
 	Strategy PlacementStrategy `locationName:"strategy" type:"string" enum:"true"`
+
+	// Any tags applied to the placement group.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -7339,12 +7800,25 @@ func (s PlacementGroupInfo) String() string {
 type PlacementResponse struct {
 	_ struct{} `type:"structure"`
 
-	// The name of the placement group the instance is in.
+	// The name of the placement group that the instance is in.
 	GroupName *string `locationName:"groupName" type:"string"`
 }
 
 // String returns the string representation
 func (s PlacementResponse) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes a CIDR block for an address pool.
+type PoolCidrBlock struct {
+	_ struct{} `type:"structure"`
+
+	// The CIDR block.
+	Cidr *string `locationName:"poolCidrBlock" type:"string"`
+}
+
+// String returns the string representation
+func (s PoolCidrBlock) String() string {
 	return awsutil.Prettify(s)
 }
 
@@ -7489,6 +7963,36 @@ func (s PrincipalIdFormat) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Information about the private DNS name for the service endpoint. For more
+// information about these parameters, see VPC Endpoint Service Private DNS
+// Name Verification (https://docs.aws.amazon.com/vpc/latest/userguide/ndpoint-services-dns-validation.html)
+// in the Amazon Virtual Private Cloud User Guide.
+type PrivateDnsNameConfiguration struct {
+	_ struct{} `type:"structure"`
+
+	// The name of the record subdomain the service provider needs to create. The
+	// service provider adds the value text to the name.
+	Name *string `locationName:"name" type:"string"`
+
+	// The verification state of the VPC endpoint service.
+	//
+	// >Consumers of the endpoint service can use the private name only when the
+	// state is verified.
+	State DnsNameState `locationName:"state" type:"string" enum:"true"`
+
+	// The endpoint service verification type, for example TXT.
+	Type *string `locationName:"type" type:"string"`
+
+	// The value the service provider adds to the private DNS name domain record
+	// before verification.
+	Value *string `locationName:"value" type:"string"`
+}
+
+// String returns the string representation
+func (s PrivateDnsNameConfiguration) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes a secondary private IPv4 address for a network interface.
 type PrivateIpAddressSpecification struct {
 	_ struct{} `type:"structure"`
@@ -7588,18 +8092,26 @@ func (s ProvisionedBandwidth) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes an address pool.
+// Describes an IPv4 address pool.
 type PublicIpv4Pool struct {
 	_ struct{} `type:"structure"`
 
 	// A description of the address pool.
 	Description *string `locationName:"description" type:"string"`
 
+	// The name of the location from which the address pool is advertised. A network
+	// border group is a unique set of Availability Zones or Local Zones from where
+	// AWS advertises public IP addresses.
+	NetworkBorderGroup *string `locationName:"networkBorderGroup" type:"string"`
+
 	// The address ranges.
 	PoolAddressRanges []PublicIpv4PoolRange `locationName:"poolAddressRangeSet" locationNameList:"item" type:"list"`
 
-	// The ID of the IPv4 address pool.
+	// The ID of the address pool.
 	PoolId *string `locationName:"poolId" type:"string"`
+
+	// Any tags for the address pool.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 
 	// The total number of addresses.
 	TotalAddressCount *int64 `locationName:"totalAddressCount" type:"integer"`
@@ -7745,17 +8257,31 @@ func (s Region) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Information about the tag keys to register for the current Region. You can
+// either specify individual tag keys or register all tag keys in the current
+// Region. You must specify either IncludeAllTagsOfInstance or InstanceTagKeys
+// in the request
+type RegisterInstanceTagAttributeRequest struct {
+	_ struct{} `type:"structure"`
+
+	// Indicates whether to register all tag keys in the current Region. Specify
+	// true to register all tag keys.
+	IncludeAllTagsOfInstance *bool `type:"boolean"`
+
+	// The tag keys to register.
+	InstanceTagKeys []string `locationName:"InstanceTagKey" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s RegisterInstanceTagAttributeRequest) String() string {
+	return awsutil.Prettify(s)
+}
+
 // The information to include in the launch template.
 type RequestLaunchTemplateData struct {
 	_ struct{} `type:"structure"`
 
 	// The block device mapping.
-	//
-	// Supplying both a snapshot ID and an encryption value as arguments for block-device
-	// mapping results in an error. This is because only blank volumes can be encrypted
-	// on start, and these are not created from a snapshot. If a snapshot is the
-	// basis for the volume, it contains data by definition and its encryption status
-	// cannot be changed using this action.
 	BlockDeviceMappings []LaunchTemplateBlockDeviceMappingRequest `locationName:"BlockDeviceMapping" locationNameList:"BlockDeviceMapping" type:"list"`
 
 	// The Capacity Reservation targeting option. If you do not specify this parameter,
@@ -7834,6 +8360,11 @@ type RequestLaunchTemplateData struct {
 
 	// The license configurations.
 	LicenseSpecifications []LaunchTemplateLicenseConfigurationRequest `locationName:"LicenseSpecification" locationNameList:"item" type:"list"`
+
+	// The metadata options for the instance. For more information, see Instance
+	// Metadata and User Data (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	MetadataOptions *LaunchTemplateInstanceMetadataOptionsRequest `type:"structure"`
 
 	// The monitoring for the instance.
 	Monitoring *LaunchTemplatesMonitoringRequest `type:"structure"`
@@ -8426,6 +8957,11 @@ type ResponseLaunchTemplateData struct {
 
 	// The license configurations.
 	LicenseSpecifications []LaunchTemplateLicenseConfiguration `locationName:"licenseSet" locationNameList:"item" type:"list"`
+
+	// The metadata options for the instance. For more information, see Instance
+	// Metadata and User Data (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	MetadataOptions *LaunchTemplateInstanceMetadataOptions `locationName:"metadataOptions" type:"structure"`
 
 	// The monitoring for the instance.
 	Monitoring *LaunchTemplatesMonitoring `locationName:"monitoring" type:"structure"`
@@ -9184,13 +9720,13 @@ type ServiceConfiguration struct {
 	// to the service must first be accepted.
 	AcceptanceRequired *bool `locationName:"acceptanceRequired" type:"boolean"`
 
-	// In the Availability Zones in which the service is available.
+	// The Availability Zones in which the service is available.
 	AvailabilityZones []string `locationName:"availabilityZoneSet" locationNameList:"item" type:"list"`
 
 	// The DNS names for the service.
 	BaseEndpointDnsNames []string `locationName:"baseEndpointDnsNameSet" locationNameList:"item" type:"list"`
 
-	// Indicates whether the service manages it's VPC endpoints. Management of the
+	// Indicates whether the service manages its VPC endpoints. Management of the
 	// service VPC endpoints using the VPC endpoint API is restricted.
 	ManagesVpcEndpoints *bool `locationName:"managesVpcEndpoints" type:"boolean"`
 
@@ -9199,6 +9735,9 @@ type ServiceConfiguration struct {
 
 	// The private DNS name for the service.
 	PrivateDnsName *string `locationName:"privateDnsName" type:"string"`
+
+	// Information about the endpoint service private DNS name configuration.
+	PrivateDnsNameConfiguration *PrivateDnsNameConfiguration `locationName:"privateDnsNameConfiguration" type:"structure"`
 
 	// The ID of the service.
 	ServiceId *string `locationName:"serviceId" type:"string"`
@@ -9235,7 +9774,7 @@ type ServiceDetail struct {
 	// The DNS names for the service.
 	BaseEndpointDnsNames []string `locationName:"baseEndpointDnsNameSet" locationNameList:"item" type:"list"`
 
-	// Indicates whether the service manages it's VPC endpoints. Management of the
+	// Indicates whether the service manages its VPC endpoints. Management of the
 	// service VPC endpoints using the VPC endpoint API is restricted.
 	ManagesVpcEndpoints *bool `locationName:"managesVpcEndpoints" type:"boolean"`
 
@@ -9244,6 +9783,12 @@ type ServiceDetail struct {
 
 	// The private DNS name for the service.
 	PrivateDnsName *string `locationName:"privateDnsName" type:"string"`
+
+	// The verification state of the VPC endpoint service.
+	//
+	// Consumers of the endpoint service cannot use the private name when the state
+	// is not verified.
+	PrivateDnsNameVerificationState DnsNameState `locationName:"privateDnsNameVerificationState" type:"string" enum:"true"`
 
 	// The ID of the endpoint service.
 	ServiceId *string `locationName:"serviceId" type:"string"`
@@ -9710,6 +10255,9 @@ type SpotFleetRequestConfig struct {
 
 	// The state of the Spot Fleet request.
 	SpotFleetRequestState BatchState `locationName:"spotFleetRequestState" type:"string" enum:"true"`
+
+	// The tags for a Spot Fleet resource.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -9756,8 +10304,8 @@ type SpotFleetRequestConfigData struct {
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-requests.html#spot-fleet-prerequisites)
 	// in the Amazon EC2 User Guide for Linux Instances. Spot Fleet can terminate
 	// Spot Instances on your behalf when you cancel its Spot Fleet request using
-	// CancelSpotFleetRequests or when the Spot Fleet request expires, if you set
-	// TerminateInstancesWithExpiration.
+	// CancelSpotFleetRequests (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CancelSpotFleetRequests)
+	// or when the Spot Fleet request expires, if you set TerminateInstancesWithExpiration.
 	//
 	// IamFleetRole is a required field
 	IamFleetRole *string `locationName:"iamFleetRole" type:"string" required:"true"`
@@ -9836,6 +10384,16 @@ type SpotFleetRequestConfigData struct {
 	// The default is the On-Demand price.
 	SpotPrice *string `locationName:"spotPrice" type:"string"`
 
+	// The key-value pair for tagging the Spot Fleet request on creation. The value
+	// for ResourceType must be spot-fleet-request, otherwise the Spot Fleet request
+	// fails. To tag instances at launch, specify the tags in the launch template
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#create-launch-template)
+	// (valid only if you use LaunchTemplateConfigs) or in the SpotFleetTagSpecification
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SpotFleetTagSpecification.html)
+	// (valid only if you use LaunchSpecifications). For information about tagging
+	// after launch, see Tagging Your Resources (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html#tag-resources).
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
+
 	// The number of units to request for the Spot Fleet. You can choose to set
 	// the target capacity in terms of instances or a performance characteristic
 	// that is important to your application workload, such as vCPUs, memory, or
@@ -9910,7 +10468,8 @@ type SpotFleetTagSpecification struct {
 	_ struct{} `type:"structure"`
 
 	// The type of resource. Currently, the only resource type that is supported
-	// is instance.
+	// is instance. To tag the Spot Fleet request on creation, use the TagSpecifications
+	// parameter in SpotFleetRequestConfigData (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SpotFleetRequestConfigData.html).
 	ResourceType ResourceType `locationName:"resourceType" type:"string" enum:"true"`
 
 	// The tags.
@@ -10055,9 +10614,9 @@ type SpotMarketOptions struct {
 	// default is the On-Demand price.
 	MaxPrice *string `type:"string"`
 
-	// The Spot Instance request type. For RunInstances, persistent Spot Instance
-	// requests are only supported when InstanceInterruptionBehavior is set to either
-	// hibernate or stop.
+	// The Spot Instance request type. For RunInstances (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_RunInstances),
+	// persistent Spot Instance requests are only supported when InstanceInterruptionBehavior
+	// is set to either hibernate or stop.
 	SpotInstanceType SpotInstanceType `type:"string" enum:"true"`
 
 	// The end date of the request. For a one-time request, the request remains
@@ -10085,7 +10644,7 @@ type SpotOptions struct {
 	// strategy.
 	//
 	// If the allocation strategy is diversified, EC2 Fleet launches instances from
-	// all the Spot Instance pools that you specify.
+	// all of the Spot Instance pools that you specify.
 	//
 	// If the allocation strategy is capacity-optimized, EC2 Fleet launches instances
 	// from Spot Instance pools with optimal capacity for the number of instances
@@ -10109,11 +10668,11 @@ type SpotOptions struct {
 	MinTargetCapacity *int64 `locationName:"minTargetCapacity" type:"integer"`
 
 	// Indicates that the fleet launches all Spot Instances into a single Availability
-	// Zone.
+	// Zone. Supported only for fleets of type instant.
 	SingleAvailabilityZone *bool `locationName:"singleAvailabilityZone" type:"boolean"`
 
 	// Indicates that the fleet uses a single instance type to launch all Spot Instances
-	// in the fleet.
+	// in the fleet. Supported only for fleets of type instant.
 	SingleInstanceType *bool `locationName:"singleInstanceType" type:"boolean"`
 }
 
@@ -10134,7 +10693,7 @@ type SpotOptionsRequest struct {
 	// strategy.
 	//
 	// If the allocation strategy is diversified, EC2 Fleet launches instances from
-	// all the Spot Instance pools that you specify.
+	// all of the Spot Instance pools that you specify.
 	//
 	// If the allocation strategy is capacity-optimized, EC2 Fleet launches instances
 	// from Spot Instance pools with optimal capacity for the number of instances
@@ -10158,11 +10717,11 @@ type SpotOptionsRequest struct {
 	MinTargetCapacity *int64 `type:"integer"`
 
 	// Indicates that the fleet launches all Spot Instances into a single Availability
-	// Zone.
+	// Zone. Supported only for fleets of type instant.
 	SingleAvailabilityZone *bool `type:"boolean"`
 
 	// Indicates that the fleet uses a single instance type to launch all Spot Instances
-	// in the fleet.
+	// in the fleet. Supported only for fleets of type instant.
 	SingleInstanceType *bool `type:"boolean"`
 }
 
@@ -10386,11 +10945,19 @@ type Subnet struct {
 	// The IPv4 CIDR block assigned to the subnet.
 	CidrBlock *string `locationName:"cidrBlock" type:"string"`
 
+	// The customer-owned IPv4 address pool associated with the subnet.
+	CustomerOwnedIpv4Pool *string `locationName:"customerOwnedIpv4Pool" type:"string"`
+
 	// Indicates whether this is the default subnet for the Availability Zone.
 	DefaultForAz *bool `locationName:"defaultForAz" type:"boolean"`
 
 	// Information about the IPv6 CIDR blocks associated with the subnet.
 	Ipv6CidrBlockAssociationSet []SubnetIpv6CidrBlockAssociation `locationName:"ipv6CidrBlockAssociationSet" locationNameList:"item" type:"list"`
+
+	// Indicates whether a network interface created in this subnet (including a
+	// network interface created by RunInstances) receives a customer-owned IPv4
+	// address.
+	MapCustomerOwnedIpOnLaunch *bool `locationName:"mapCustomerOwnedIpOnLaunch" type:"boolean"`
 
 	// Indicates whether instances launched in this subnet receive a public IPv4
 	// address.
@@ -10551,9 +11118,12 @@ type TagSpecification struct {
 
 	// The type of resource to tag. Currently, the resource types that support tagging
 	// on creation are: capacity-reservation | client-vpn-endpoint | dedicated-host
-	// | fleet | fpga-image | instance | launch-template | snapshot | traffic-mirror-filter
-	// | traffic-mirror-session | traffic-mirror-target | transit-gateway | transit-gateway-attachment
-	// | transit-gateway-route-table | volume.
+	// | fleet | fpga-image | instance | ipv4pool-ec2 | ipv6pool-ec2 | key-pair
+	// | launch-template | natgateway | spot-fleet-request | placement-group | snapshot
+	// | traffic-mirror-filter | traffic-mirror-session | traffic-mirror-target
+	// | transit-gateway | transit-gateway-attachment | transit-gateway-route-table
+	// | vpc-endpoint (for interface VPC endpoints)| vpc-endpoint-service (for gateway
+	// VPC endpoints) | volume | vpc-flow-log.
 	//
 	// To tag a resource after it has been created, see CreateTags (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html).
 	ResourceType ResourceType `locationName:"resourceType" type:"string" enum:"true"`
@@ -10574,13 +11144,14 @@ func (s TagSpecification) String() string {
 // later.
 //
 // You can use the On-Demand Instance MaxTotalPrice parameter, the Spot Instance
-// MaxTotalPrice, or both to ensure your fleet cost does not exceed your budget.
-// If you set a maximum price per hour for the On-Demand Instances and Spot
-// Instances in your request, EC2 Fleet will launch instances until it reaches
-// the maximum amount you're willing to pay. When the maximum amount you're
-// willing to pay is reached, the fleet stops launching instances even if it
-// hasn’t met the target capacity. The MaxTotalPrice parameters are located
-// in and
+// MaxTotalPrice, or both to ensure that your fleet cost does not exceed your
+// budget. If you set a maximum price per hour for the On-Demand Instances and
+// Spot Instances in your request, EC2 Fleet will launch instances until it
+// reaches the maximum amount that you're willing to pay. When the maximum amount
+// you're willing to pay is reached, the fleet stops launching instances even
+// if it hasn’t met the target capacity. The MaxTotalPrice parameters are
+// located in OnDemandOptions (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_OnDemandOptions.html)
+// and SpotOptions (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SpotOptions)
 type TargetCapacitySpecification struct {
 	_ struct{} `type:"structure"`
 
@@ -10614,10 +11185,11 @@ func (s TargetCapacitySpecification) String() string {
 // MaxTotalPrice parameter, or both parameters to ensure that your fleet cost
 // does not exceed your budget. If you set a maximum price per hour for the
 // On-Demand Instances and Spot Instances in your request, EC2 Fleet will launch
-// instances until it reaches the maximum amount you're willing to pay. When
-// the maximum amount you're willing to pay is reached, the fleet stops launching
-// instances even if it hasn’t met the target capacity. The MaxTotalPrice
-// parameters are located in and .
+// instances until it reaches the maximum amount that you're willing to pay.
+// When the maximum amount you're willing to pay is reached, the fleet stops
+// launching instances even if it hasn’t met the target capacity. The MaxTotalPrice
+// parameters are located in OnDemandOptionsRequest (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_OnDemandOptionsRequest)
+// and SpotOptionsRequest (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_SpotOptionsRequest).
 type TargetCapacitySpecificationRequest struct {
 	_ struct{} `type:"structure"`
 
@@ -11615,7 +12187,7 @@ type TransitGatewayVpcAttachmentOptions struct {
 	// Indicates whether DNS support is enabled.
 	DnsSupport DnsSupportValue `locationName:"dnsSupport" type:"string" enum:"true"`
 
-	// Indicates whether IPv6 support is enabled.
+	// Indicates whether IPv6 support is disabled.
 	Ipv6Support Ipv6SupportValue `locationName:"ipv6Support" type:"string" enum:"true"`
 }
 
@@ -11876,6 +12448,42 @@ func (s VCpuInfo) String() string {
 	return awsutil.Prettify(s)
 }
 
+// The error code and error message that is returned for a parameter or parameter
+// combination that is not valid when a new launch template or new version of
+// a launch template is created.
+type ValidationError struct {
+	_ struct{} `type:"structure"`
+
+	// The error code that indicates why the parameter or parameter combination
+	// is not valid. For more information about error codes, see Error Codes (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.html).
+	Code *string `locationName:"code" type:"string"`
+
+	// The error message that describes why the parameter or parameter combination
+	// is not valid. For more information about error messages, see Error Codes
+	// (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/errors-overview.html.html).
+	Message *string `locationName:"message" type:"string"`
+}
+
+// String returns the string representation
+func (s ValidationError) String() string {
+	return awsutil.Prettify(s)
+}
+
+// The error codes and error messages that are returned for the parameters or
+// parameter combinations that are not valid when a new launch template or new
+// version of a launch template is created.
+type ValidationWarning struct {
+	_ struct{} `type:"structure"`
+
+	// The error codes and error messages.
+	Errors []ValidationError `locationName:"errorSet" locationNameList:"item" type:"list"`
+}
+
+// String returns the string representation
+func (s ValidationWarning) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes telemetry for a VPN tunnel.
 type VgwTelemetry struct {
 	_ struct{} `type:"structure"`
@@ -11945,6 +12553,9 @@ type Volume struct {
 	// customer master key (CMK) that was used to protect the volume encryption
 	// key for the volume.
 	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
+
+	// Indicates whether Amazon EBS Multi-Attach is enabled.
+	MultiAttachEnabled *bool `locationName:"multiAttachEnabled" type:"boolean"`
 
 	// The Amazon Resource Name (ARN) of the Outpost.
 	OutpostArn *string `locationName:"outpostArn" type:"string"`
@@ -12103,6 +12714,22 @@ func (s VolumeStatusAction) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Information about the instances to which the volume is attached.
+type VolumeStatusAttachmentStatus struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the attached instance.
+	InstanceId *string `locationName:"instanceId" type:"string"`
+
+	// The maximum IOPS supported by the attached instance.
+	IoPerformance *string `locationName:"ioPerformance" type:"string"`
+}
+
+// String returns the string representation
+func (s VolumeStatusAttachmentStatus) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes a volume status.
 type VolumeStatusDetails struct {
 	_ struct{} `type:"structure"`
@@ -12131,6 +12758,9 @@ type VolumeStatusEvent struct {
 
 	// The type of this event.
 	EventType *string `locationName:"eventType" type:"string"`
+
+	// The ID of the instance associated with the event.
+	InstanceId *string `locationName:"instanceId" type:"string"`
 
 	// The latest end time of the event.
 	NotAfter *time.Time `locationName:"notAfter" type:"timestamp"`
@@ -12166,6 +12796,9 @@ type VolumeStatusItem struct {
 
 	// The details of the operation.
 	Actions []VolumeStatusAction `locationName:"actionsSet" locationNameList:"item" type:"list"`
+
+	// Information about the instances to which the volume is attached.
+	AttachmentStatuses []VolumeStatusAttachmentStatus `locationName:"attachmentStatuses" locationNameList:"item" type:"list"`
 
 	// The Availability Zone of the volume.
 	AvailabilityZone *string `locationName:"availabilityZone" type:"string"`
@@ -12303,15 +12936,18 @@ func (s VpcClassicLink) String() string {
 type VpcEndpoint struct {
 	_ struct{} `type:"structure"`
 
-	// The date and time the VPC endpoint was created.
+	// The date and time that the VPC endpoint was created.
 	CreationTimestamp *time.Time `locationName:"creationTimestamp" type:"timestamp"`
 
 	// (Interface endpoint) The DNS entries for the endpoint.
 	DnsEntries []DnsEntry `locationName:"dnsEntrySet" locationNameList:"item" type:"list"`
 
-	// (Interface endpoint) Information about the security groups associated with
-	// the network interface.
+	// (Interface endpoint) Information about the security groups that are associated
+	// with the network interface.
 	Groups []SecurityGroupIdentifier `locationName:"groupSet" locationNameList:"item" type:"list"`
+
+	// The last error that occurred for VPC endpoint.
+	LastError *LastError `locationName:"lastError" type:"structure"`
 
 	// (Interface endpoint) One or more network interfaces for the endpoint.
 	NetworkInterfaceIds []string `locationName:"networkInterfaceIdSet" locationNameList:"item" type:"list"`
@@ -12363,7 +12999,7 @@ func (s VpcEndpoint) String() string {
 type VpcEndpointConnection struct {
 	_ struct{} `type:"structure"`
 
-	// The date and time the VPC endpoint was created.
+	// The date and time that the VPC endpoint was created.
 	CreationTimestamp *time.Time `locationName:"creationTimestamp" type:"timestamp"`
 
 	// The DNS entries for the VPC endpoint.
@@ -12402,6 +13038,9 @@ type VpcIpv6CidrBlockAssociation struct {
 
 	// Information about the state of the CIDR block.
 	Ipv6CidrBlockState *VpcCidrBlockState `locationName:"ipv6CidrBlockState" type:"structure"`
+
+	// The ID of the IPv6 address pool from which the IPv6 CIDR block is allocated.
+	Ipv6Pool *string `locationName:"ipv6Pool" type:"string"`
 
 	// The name of the location from which we advertise the IPV6 CIDR block.
 	NetworkBorderGroup *string `locationName:"networkBorderGroup" type:"string"`
@@ -12512,15 +13151,17 @@ func (s VpcPeeringConnectionVpcInfo) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes the authentication methods used by a Client VPN endpoint. Client
-// VPN supports Active Directory and mutual authentication. For more information,
-// see Authentication (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/authentication-authrization.html#client-authentication)
+// Describes the authentication methods used by a Client VPN endpoint. For more
+// information, see Authentication (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/authentication-authrization.html#client-authentication)
 // in the AWS Client VPN Administrator Guide.
 type VpnAuthentication struct {
 	_ struct{} `type:"structure"`
 
 	// Information about the Active Directory, if applicable.
 	ActiveDirectory *DirectoryServiceAuthentication `locationName:"activeDirectory" type:"structure"`
+
+	// Information about the IAM SAML identity provider, if applicable.
+	FederatedAuthentication *FederatedAuthentication `locationName:"federatedAuthentication" type:"structure"`
 
 	// Information about the authentication certificates, if applicable.
 	MutualAuthentication *CertificateAuthentication `locationName:"mutualAuthentication" type:"structure"`
@@ -12535,8 +13176,7 @@ func (s VpnAuthentication) String() string {
 }
 
 // Describes the authentication method to be used by a Client VPN endpoint.
-// Client VPN supports Active Directory and mutual authentication. For more
-// information, see Authentication (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/authentication-authrization.html#client-authentication)
+// For more information, see Authentication (https://docs.aws.amazon.com/vpn/latest/clientvpn-admin/authentication-authrization.html#client-authentication)
 // in the AWS Client VPN Administrator Guide.
 type VpnAuthenticationRequest struct {
 	_ struct{} `type:"structure"`
@@ -12545,13 +13185,15 @@ type VpnAuthenticationRequest struct {
 	// provide this information if Type is directory-service-authentication.
 	ActiveDirectory *DirectoryServiceAuthenticationRequest `type:"structure"`
 
+	// Information about the IAM SAML identity provider to be used, if applicable.
+	// You must provide this information if Type is federated-authentication.
+	FederatedAuthentication *FederatedAuthenticationRequest `type:"structure"`
+
 	// Information about the authentication certificates to be used, if applicable.
 	// You must provide this information if Type is certificate-authentication.
 	MutualAuthentication *CertificateAuthenticationRequest `type:"structure"`
 
-	// The type of client authentication to be used. Specify certificate-authentication
-	// to use certificate-based authentication, or directory-service-authentication
-	// to use Active Directory authentication.
+	// The type of client authentication to be used.
 	Type VpnAuthenticationType `type:"string" enum:"true"`
 }
 
@@ -12725,6 +13367,9 @@ type VpnEndpoint struct {
 	// Information about the DNS servers to be used for DNS resolution.
 	DnsServers []string `locationName:"dnsServer" locationNameList:"item" type:"list"`
 
+	// The IDs of the security groups for the target network.
+	SecurityGroupIds []string `locationName:"securityGroupIdSet" locationNameList:"item" type:"list"`
+
 	// The ARN of the server certificate.
 	ServerCertificateArn *string `locationName:"serverCertificateArn" type:"string"`
 
@@ -12743,6 +13388,12 @@ type VpnEndpoint struct {
 
 	// The transport protocol used by the Client VPN endpoint.
 	TransportProtocol TransportProtocol `locationName:"transportProtocol" type:"string" enum:"true"`
+
+	// The ID of the VPC.
+	VpcId *string `locationName:"vpcId" type:"string"`
+
+	// The port number for the Client VPN endpoint.
+	VpnPort *int64 `locationName:"vpnPort" type:"integer"`
 
 	// The protocol used by the VPN session.
 	VpnProtocol VpnProtocol `locationName:"vpnProtocol" type:"string" enum:"true"`
@@ -12883,7 +13534,7 @@ func (s VpnStaticRoute) String() string {
 	return awsutil.Prettify(s)
 }
 
-// The tunnel options for a VPN connection.
+// The tunnel options for a single VPN tunnel.
 type VpnTunnelOptionsSpecification struct {
 	_ struct{} `type:"structure"`
 

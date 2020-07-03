@@ -23,12 +23,21 @@ type CreateNatGatewayInput struct {
 	// of the request. For more information, see How to Ensure Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	//
 	// Constraint: Maximum 64 ASCII characters.
-	ClientToken *string `type:"string"`
+	ClientToken *string `type:"string" idempotencyToken:"true"`
+
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
 
 	// The subnet in which to create the NAT gateway.
 	//
 	// SubnetId is a required field
 	SubnetId *string `type:"string" required:"true"`
+
+	// The tags to assign to the NAT gateway.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -103,6 +112,7 @@ func (c *Client) CreateNatGatewayRequest(input *CreateNatGatewayInput) CreateNat
 	}
 
 	req := c.newRequest(op, input, &CreateNatGatewayOutput{})
+
 	return CreateNatGatewayRequest{Request: req, Input: input, Copy: c.CreateNatGatewayRequest}
 }
 

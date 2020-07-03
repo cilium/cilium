@@ -81,6 +81,7 @@ func (c *Client) DisassociateSubnetCidrBlockRequest(input *DisassociateSubnetCid
 	}
 
 	req := c.newRequest(op, input, &DisassociateSubnetCidrBlockOutput{})
+
 	return DisassociateSubnetCidrBlockRequest{Request: req, Input: input, Copy: c.DisassociateSubnetCidrBlockRequest}
 }
 

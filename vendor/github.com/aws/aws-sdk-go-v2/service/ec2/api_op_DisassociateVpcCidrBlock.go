@@ -88,6 +88,7 @@ func (c *Client) DisassociateVpcCidrBlockRequest(input *DisassociateVpcCidrBlock
 	}
 
 	req := c.newRequest(op, input, &DisassociateVpcCidrBlockOutput{})
+
 	return DisassociateVpcCidrBlockRequest{Request: req, Input: input, Copy: c.DisassociateVpcCidrBlockRequest}
 }
 

@@ -1,16 +1,20 @@
 package aws
 
 import (
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
+	"context"
 )
 
-// StaticCredentialsProviderName provides a name of Static provider
-const StaticCredentialsProviderName = "StaticCredentialsProvider"
-
-var (
-	// ErrStaticCredentialsEmpty is emitted when static credentials are empty.
-	ErrStaticCredentialsEmpty = awserr.New("EmptyStaticCreds", "static credentials are empty", nil)
+const (
+	// StaticCredentialsProviderName provides a name of Static provider
+	StaticCredentialsProviderName = "StaticCredentialsProvider"
 )
+
+// StaticCredentialsEmptyError is emitted when static credentials are empty.
+type StaticCredentialsEmptyError struct{}
+
+func (*StaticCredentialsEmptyError) Error() string {
+	return "static credentials are empty"
+}
 
 // A StaticCredentialsProvider is a set of credentials which are set programmatically,
 // and will never expire.
@@ -31,10 +35,10 @@ func NewStaticCredentialsProvider(key, secret, session string) StaticCredentials
 }
 
 // Retrieve returns the credentials or error if the credentials are invalid.
-func (s StaticCredentialsProvider) Retrieve() (Credentials, error) {
+func (s StaticCredentialsProvider) Retrieve(_ context.Context) (Credentials, error) {
 	v := s.Value
 	if v.AccessKeyID == "" || v.SecretAccessKey == "" {
-		return Credentials{Source: StaticCredentialsProviderName}, ErrStaticCredentialsEmpty
+		return Credentials{Source: StaticCredentialsProviderName}, &StaticCredentialsEmptyError{}
 	}
 
 	if len(v.Source) == 0 {

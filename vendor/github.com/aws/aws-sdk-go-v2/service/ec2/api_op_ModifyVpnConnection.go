@@ -69,8 +69,9 @@ const opModifyVpnConnection = "ModifyVpnConnection"
 // ModifyVpnConnectionRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Modifies the target gateway of an AWS Site-to-Site VPN connection. The following
-// migration options are available:
+// Modifies the customer gateway or the target gateway of an AWS Site-to-Site
+// VPN connection. To modify the target gateway, the following migration options
+// are available:
 //
 //    * An existing virtual private gateway to a new virtual private gateway
 //
@@ -106,9 +107,9 @@ const opModifyVpnConnection = "ModifyVpnConnection"
 // gateway route table.
 //
 // After you perform this operation, the AWS VPN endpoint's IP addresses on
-// the AWS side and the tunnel options remain intact. Your s2slong; connection
-// will be temporarily unavailable for approximately 10 minutes while we provision
-// the new endpoints
+// the AWS side and the tunnel options remain intact. Your AWS Site-to-Site
+// VPN connection will be temporarily unavailable for a brief period while we
+// provision the new endpoints.
 //
 //    // Example sending a request using ModifyVpnConnectionRequest.
 //    req := client.ModifyVpnConnectionRequest(params)
@@ -130,6 +131,7 @@ func (c *Client) ModifyVpnConnectionRequest(input *ModifyVpnConnectionInput) Mod
 	}
 
 	req := c.newRequest(op, input, &ModifyVpnConnectionOutput{})
+
 	return ModifyVpnConnectionRequest{Request: req, Input: input, Copy: c.ModifyVpnConnectionRequest}
 }
 

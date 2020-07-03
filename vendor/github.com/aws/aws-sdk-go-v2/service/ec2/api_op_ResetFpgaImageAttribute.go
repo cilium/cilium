@@ -86,6 +86,7 @@ func (c *Client) ResetFpgaImageAttributeRequest(input *ResetFpgaImageAttributeIn
 	}
 
 	req := c.newRequest(op, input, &ResetFpgaImageAttributeOutput{})
+
 	return ResetFpgaImageAttributeRequest{Request: req, Input: input, Copy: c.ResetFpgaImageAttributeRequest}
 }
 

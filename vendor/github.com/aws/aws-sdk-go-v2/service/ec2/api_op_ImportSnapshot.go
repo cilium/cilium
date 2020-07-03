@@ -37,10 +37,10 @@ type ImportSnapshotInput struct {
 	// in the Amazon Elastic Compute Cloud User Guide.
 	Encrypted *bool `type:"boolean"`
 
-	// An identifier for the AWS Key Management Service (AWS KMS) customer master
-	// key (CMK) to use when creating the encrypted snapshot. This parameter is
-	// only required if you want to use a non-default CMK; if this parameter is
-	// not specified, the default CMK for EBS is used. If a KmsKeyId is specified,
+	// An identifier for the symmetric AWS Key Management Service (AWS KMS) customer
+	// master key (CMK) to use when creating the encrypted snapshot. This parameter
+	// is only required if you want to use a non-default CMK; if this parameter
+	// is not specified, the default CMK for EBS is used. If a KmsKeyId is specified,
 	// the Encrypted flag must also be set.
 	//
 	// The CMK identifier may be provided in any of the following formats:
@@ -65,6 +65,8 @@ type ImportSnapshotInput struct {
 	//
 	// The specified CMK must exist in the Region that the snapshot is being copied
 	// to.
+	//
+	// Amazon EBS does not support asymmetric CMKs.
 	KmsKeyId *string `type:"string"`
 
 	// The name of the role to use when not using the default role, 'vmimport'.
@@ -121,6 +123,7 @@ func (c *Client) ImportSnapshotRequest(input *ImportSnapshotInput) ImportSnapsho
 	}
 
 	req := c.newRequest(op, input, &ImportSnapshotOutput{})
+
 	return ImportSnapshotRequest{Request: req, Input: input, Copy: c.ImportSnapshotRequest}
 }
 

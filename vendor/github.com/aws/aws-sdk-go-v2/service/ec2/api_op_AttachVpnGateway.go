@@ -97,6 +97,7 @@ func (c *Client) AttachVpnGatewayRequest(input *AttachVpnGatewayInput) AttachVpn
 	}
 
 	req := c.newRequest(op, input, &AttachVpnGatewayOutput{})
+
 	return AttachVpnGatewayRequest{Request: req, Input: input, Copy: c.AttachVpnGatewayRequest}
 }
 

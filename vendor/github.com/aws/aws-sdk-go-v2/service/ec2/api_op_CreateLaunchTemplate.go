@@ -77,6 +77,11 @@ type CreateLaunchTemplateOutput struct {
 
 	// Information about the launch template.
 	LaunchTemplate *LaunchTemplate `locationName:"launchTemplate" type:"structure"`
+
+	// If the launch template contains parameters or parameter combinations that
+	// are not valid, an error code and an error message are returned for each issue
+	// that's found.
+	Warning *ValidationWarning `locationName:"warning" type:"structure"`
 }
 
 // String returns the string representation
@@ -92,6 +97,8 @@ const opCreateLaunchTemplate = "CreateLaunchTemplate"
 // Creates a launch template. A launch template contains the parameters to launch
 // an instance. When you launch an instance using RunInstances, you can specify
 // a launch template instead of providing the launch parameters in the request.
+// For more information, see Launching an instance from a launch template (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html)in
+// the Amazon Elastic Compute Cloud User Guide.
 //
 //    // Example sending a request using CreateLaunchTemplateRequest.
 //    req := client.CreateLaunchTemplateRequest(params)
@@ -113,6 +120,7 @@ func (c *Client) CreateLaunchTemplateRequest(input *CreateLaunchTemplateInput) C
 	}
 
 	req := c.newRequest(op, input, &CreateLaunchTemplateOutput{})
+
 	return CreateLaunchTemplateRequest{Request: req, Input: input, Copy: c.CreateLaunchTemplateRequest}
 }
 

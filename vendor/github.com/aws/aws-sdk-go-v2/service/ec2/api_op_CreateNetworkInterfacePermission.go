@@ -102,6 +102,7 @@ func (c *Client) CreateNetworkInterfacePermissionRequest(input *CreateNetworkInt
 	}
 
 	req := c.newRequest(op, input, &CreateNetworkInterfacePermissionOutput{})
+
 	return CreateNetworkInterfacePermissionRequest{Request: req, Input: input, Copy: c.CreateNetworkInterfacePermissionRequest}
 }
 

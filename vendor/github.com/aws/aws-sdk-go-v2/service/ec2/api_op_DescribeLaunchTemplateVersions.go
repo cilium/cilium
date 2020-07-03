@@ -133,6 +133,7 @@ func (c *Client) DescribeLaunchTemplateVersionsRequest(input *DescribeLaunchTemp
 	}
 
 	req := c.newRequest(op, input, &DescribeLaunchTemplateVersionsOutput{})
+
 	return DescribeLaunchTemplateVersionsRequest{Request: req, Input: input, Copy: c.DescribeLaunchTemplateVersionsRequest}
 }
 

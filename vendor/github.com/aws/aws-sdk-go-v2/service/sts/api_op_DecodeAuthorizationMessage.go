@@ -113,6 +113,7 @@ func (c *Client) DecodeAuthorizationMessageRequest(input *DecodeAuthorizationMes
 	}
 
 	req := c.newRequest(op, input, &DecodeAuthorizationMessageOutput{})
+
 	return DecodeAuthorizationMessageRequest{Request: req, Input: input, Copy: c.DecodeAuthorizationMessageRequest}
 }
 

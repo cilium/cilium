@@ -72,6 +72,7 @@ func (c *Client) DisassociateTransitGatewayMulticastDomainRequest(input *Disasso
 	}
 
 	req := c.newRequest(op, input, &DisassociateTransitGatewayMulticastDomainOutput{})
+
 	return DisassociateTransitGatewayMulticastDomainRequest{Request: req, Input: input, Copy: c.DisassociateTransitGatewayMulticastDomainRequest}
 }
 

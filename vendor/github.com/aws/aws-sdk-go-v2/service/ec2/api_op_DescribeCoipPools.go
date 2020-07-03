@@ -91,6 +91,12 @@ func (c *Client) DescribeCoipPoolsRequest(input *DescribeCoipPoolsInput) Describ
 		Name:       opDescribeCoipPools,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
+		Paginator: &aws.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
 	}
 
 	if input == nil {
@@ -98,6 +104,7 @@ func (c *Client) DescribeCoipPoolsRequest(input *DescribeCoipPoolsInput) Describ
 	}
 
 	req := c.newRequest(op, input, &DescribeCoipPoolsOutput{})
+
 	return DescribeCoipPoolsRequest{Request: req, Input: input, Copy: c.DescribeCoipPoolsRequest}
 }
 
@@ -123,6 +130,53 @@ func (r DescribeCoipPoolsRequest) Send(ctx context.Context) (*DescribeCoipPoolsR
 	}
 
 	return resp, nil
+}
+
+// NewDescribeCoipPoolsRequestPaginator returns a paginator for DescribeCoipPools.
+// Use Next method to get the next page, and CurrentPage to get the current
+// response page from the paginator. Next will return false, if there are
+// no more pages, or an error was encountered.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//   // Example iterating over pages.
+//   req := client.DescribeCoipPoolsRequest(input)
+//   p := ec2.NewDescribeCoipPoolsRequestPaginator(req)
+//
+//   for p.Next(context.TODO()) {
+//       page := p.CurrentPage()
+//   }
+//
+//   if err := p.Err(); err != nil {
+//       return err
+//   }
+//
+func NewDescribeCoipPoolsPaginator(req DescribeCoipPoolsRequest) DescribeCoipPoolsPaginator {
+	return DescribeCoipPoolsPaginator{
+		Pager: aws.Pager{
+			NewRequest: func(ctx context.Context) (*aws.Request, error) {
+				var inCpy *DescribeCoipPoolsInput
+				if req.Input != nil {
+					tmp := *req.Input
+					inCpy = &tmp
+				}
+
+				newReq := req.Copy(inCpy)
+				newReq.SetContext(ctx)
+				return newReq.Request, nil
+			},
+		},
+	}
+}
+
+// DescribeCoipPoolsPaginator is used to paginate the request. This can be done by
+// calling Next and CurrentPage.
+type DescribeCoipPoolsPaginator struct {
+	aws.Pager
+}
+
+func (p *DescribeCoipPoolsPaginator) CurrentPage() *DescribeCoipPoolsOutput {
+	return p.Pager.CurrentPage().(*DescribeCoipPoolsOutput)
 }
 
 // DescribeCoipPoolsResponse is the response type for the

@@ -99,6 +99,7 @@ func (c *Client) DescribeVpcClassicLinkDnsSupportRequest(input *DescribeVpcClass
 	}
 
 	req := c.newRequest(op, input, &DescribeVpcClassicLinkDnsSupportOutput{})
+
 	return DescribeVpcClassicLinkDnsSupportRequest{Request: req, Input: input, Copy: c.DescribeVpcClassicLinkDnsSupportRequest}
 }
 

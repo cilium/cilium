@@ -92,6 +92,7 @@ func (c *Client) EnableTransitGatewayRouteTablePropagationRequest(input *EnableT
 	}
 
 	req := c.newRequest(op, input, &EnableTransitGatewayRouteTablePropagationOutput{})
+
 	return EnableTransitGatewayRouteTablePropagationRequest{Request: req, Input: input, Copy: c.EnableTransitGatewayRouteTablePropagationRequest}
 }
 

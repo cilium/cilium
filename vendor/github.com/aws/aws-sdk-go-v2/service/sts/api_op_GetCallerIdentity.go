@@ -78,6 +78,7 @@ func (c *Client) GetCallerIdentityRequest(input *GetCallerIdentityInput) GetCall
 	}
 
 	req := c.newRequest(op, input, &GetCallerIdentityOutput{})
+
 	return GetCallerIdentityRequest{Request: req, Input: input, Copy: c.GetCallerIdentityRequest}
 }
 

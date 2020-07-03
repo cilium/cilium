@@ -84,6 +84,7 @@ func (c *Client) UnmonitorInstancesRequest(input *UnmonitorInstancesInput) Unmon
 	}
 
 	req := c.newRequest(op, input, &UnmonitorInstancesOutput{})
+
 	return UnmonitorInstancesRequest{Request: req, Input: input, Copy: c.UnmonitorInstancesRequest}
 }
 

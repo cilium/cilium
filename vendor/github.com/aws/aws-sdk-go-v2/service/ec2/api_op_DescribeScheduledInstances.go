@@ -100,6 +100,7 @@ func (c *Client) DescribeScheduledInstancesRequest(input *DescribeScheduledInsta
 	}
 
 	req := c.newRequest(op, input, &DescribeScheduledInstancesOutput{})
+
 	return DescribeScheduledInstancesRequest{Request: req, Input: input, Copy: c.DescribeScheduledInstancesRequest}
 }
 

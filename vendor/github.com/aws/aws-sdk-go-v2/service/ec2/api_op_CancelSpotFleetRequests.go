@@ -104,6 +104,7 @@ func (c *Client) CancelSpotFleetRequestsRequest(input *CancelSpotFleetRequestsIn
 	}
 
 	req := c.newRequest(op, input, &CancelSpotFleetRequestsOutput{})
+
 	return CancelSpotFleetRequestsRequest{Request: req, Input: input, Copy: c.CancelSpotFleetRequestsRequest}
 }
 

@@ -39,6 +39,12 @@ type DescribeVolumesInput struct {
 	//
 	//    * encrypted - Indicates whether the volume is encrypted (true | false)
 	//
+	//    * multi-attach-enabled - Indicates whether the volume is enabled for Multi-Attach
+	//    (true | false)
+	//
+	//    * fast-restored - Indicates whether the volume was created from a snapshot
+	//    that is enabled for fast snapshot restore (true | false).
+	//
 	//    * size - The size of the volume, in GiB.
 	//
 	//    * snapshot-id - The snapshot from which the volume was created.
@@ -150,6 +156,7 @@ func (c *Client) DescribeVolumesRequest(input *DescribeVolumesInput) DescribeVol
 	}
 
 	req := c.newRequest(op, input, &DescribeVolumesOutput{})
+
 	return DescribeVolumesRequest{Request: req, Input: input, Copy: c.DescribeVolumesRequest}
 }
 

@@ -92,6 +92,7 @@ func (c *Client) DeregisterImageRequest(input *DeregisterImageInput) DeregisterI
 	req := c.newRequest(op, input, &DeregisterImageOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeregisterImageRequest{Request: req, Input: input, Copy: c.DeregisterImageRequest}
 }
 

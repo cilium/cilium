@@ -35,7 +35,11 @@ type AllocateAddressInput struct {
 	// The location from which the IP address is advertised. Use this parameter
 	// to limit the address to this location.
 	//
-	// Use DescribeVpcs (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeVpcs.html)
+	// A network border group is a unique set of Availability Zones or Local Zones
+	// from where AWS advertises IP addresses and limits the addresses to the group.
+	// IP addresses cannot move between network border groups.
+	//
+	// Use DescribeAvailabilityZones (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAvailabilityZones.html)
 	// to view the network border groups.
 	//
 	// You cannot use a network border group with EC2 Classic. If you attempt this
@@ -136,6 +140,7 @@ func (c *Client) AllocateAddressRequest(input *AllocateAddressInput) AllocateAdd
 	}
 
 	req := c.newRequest(op, input, &AllocateAddressOutput{})
+
 	return AllocateAddressRequest{Request: req, Input: input, Copy: c.AllocateAddressRequest}
 }
 

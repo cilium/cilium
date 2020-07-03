@@ -107,6 +107,7 @@ func (c *Client) GetPasswordDataRequest(input *GetPasswordDataInput) GetPassword
 	}
 
 	req := c.newRequest(op, input, &GetPasswordDataOutput{})
+
 	return GetPasswordDataRequest{Request: req, Input: input, Copy: c.GetPasswordDataRequest}
 }
 

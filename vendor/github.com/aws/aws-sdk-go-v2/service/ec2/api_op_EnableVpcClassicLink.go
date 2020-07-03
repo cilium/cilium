@@ -88,6 +88,7 @@ func (c *Client) EnableVpcClassicLinkRequest(input *EnableVpcClassicLinkInput) E
 	}
 
 	req := c.newRequest(op, input, &EnableVpcClassicLinkOutput{})
+
 	return EnableVpcClassicLinkRequest{Request: req, Input: input, Copy: c.EnableVpcClassicLinkRequest}
 }
 

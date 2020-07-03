@@ -21,7 +21,21 @@ type DescribeLocalGatewaysInput struct {
 	// One or more filters.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
-	// The IDs of the local gateways.
+	// One or more filters.
+	//
+	//    * local-gateway-id - The ID of a local gateway.
+	//
+	//    * local-gateway-route-table-id - The ID of the local gateway route table.
+	//
+	//    * local-gateway-route-table-virtual-interface-group-association-id - The
+	//    ID of the association.
+	//
+	//    * local-gateway-route-table-virtual-interface-group-id - The ID of the
+	//    virtual interface group.
+	//
+	//    * outpost-arn - The Amazon Resource Name (ARN) of the Outpost.
+	//
+	//    * state - The state of the association.
 	LocalGatewayIds []string `locationName:"LocalGatewayId" locationNameList:"item" type:"list"`
 
 	// The maximum number of results to return with a single call. To retrieve the
@@ -87,6 +101,12 @@ func (c *Client) DescribeLocalGatewaysRequest(input *DescribeLocalGatewaysInput)
 		Name:       opDescribeLocalGateways,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
+		Paginator: &aws.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
 	}
 
 	if input == nil {
@@ -94,6 +114,7 @@ func (c *Client) DescribeLocalGatewaysRequest(input *DescribeLocalGatewaysInput)
 	}
 
 	req := c.newRequest(op, input, &DescribeLocalGatewaysOutput{})
+
 	return DescribeLocalGatewaysRequest{Request: req, Input: input, Copy: c.DescribeLocalGatewaysRequest}
 }
 
@@ -119,6 +140,53 @@ func (r DescribeLocalGatewaysRequest) Send(ctx context.Context) (*DescribeLocalG
 	}
 
 	return resp, nil
+}
+
+// NewDescribeLocalGatewaysRequestPaginator returns a paginator for DescribeLocalGateways.
+// Use Next method to get the next page, and CurrentPage to get the current
+// response page from the paginator. Next will return false, if there are
+// no more pages, or an error was encountered.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//   // Example iterating over pages.
+//   req := client.DescribeLocalGatewaysRequest(input)
+//   p := ec2.NewDescribeLocalGatewaysRequestPaginator(req)
+//
+//   for p.Next(context.TODO()) {
+//       page := p.CurrentPage()
+//   }
+//
+//   if err := p.Err(); err != nil {
+//       return err
+//   }
+//
+func NewDescribeLocalGatewaysPaginator(req DescribeLocalGatewaysRequest) DescribeLocalGatewaysPaginator {
+	return DescribeLocalGatewaysPaginator{
+		Pager: aws.Pager{
+			NewRequest: func(ctx context.Context) (*aws.Request, error) {
+				var inCpy *DescribeLocalGatewaysInput
+				if req.Input != nil {
+					tmp := *req.Input
+					inCpy = &tmp
+				}
+
+				newReq := req.Copy(inCpy)
+				newReq.SetContext(ctx)
+				return newReq.Request, nil
+			},
+		},
+	}
+}
+
+// DescribeLocalGatewaysPaginator is used to paginate the request. This can be done by
+// calling Next and CurrentPage.
+type DescribeLocalGatewaysPaginator struct {
+	aws.Pager
+}
+
+func (p *DescribeLocalGatewaysPaginator) CurrentPage() *DescribeLocalGatewaysOutput {
+	return p.Pager.CurrentPage().(*DescribeLocalGatewaysOutput)
 }
 
 // DescribeLocalGatewaysResponse is the response type for the

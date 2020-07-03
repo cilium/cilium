@@ -116,6 +116,7 @@ func (c *Client) ModifyHostsRequest(input *ModifyHostsInput) ModifyHostsRequest 
 	}
 
 	req := c.newRequest(op, input, &ModifyHostsOutput{})
+
 	return ModifyHostsRequest{Request: req, Input: input, Copy: c.ModifyHostsRequest}
 }
 

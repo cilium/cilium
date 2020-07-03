@@ -91,6 +91,7 @@ func (c *Client) DisassociateTransitGatewayRouteTableRequest(input *Disassociate
 	}
 
 	req := c.newRequest(op, input, &DisassociateTransitGatewayRouteTableOutput{})
+
 	return DisassociateTransitGatewayRouteTableRequest{Request: req, Input: input, Copy: c.DisassociateTransitGatewayRouteTableRequest}
 }
 

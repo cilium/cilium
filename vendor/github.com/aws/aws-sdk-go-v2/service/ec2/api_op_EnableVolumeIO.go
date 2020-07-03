@@ -84,6 +84,7 @@ func (c *Client) EnableVolumeIORequest(input *EnableVolumeIOInput) EnableVolumeI
 	req := c.newRequest(op, input, &EnableVolumeIOOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return EnableVolumeIORequest{Request: req, Input: input, Copy: c.EnableVolumeIORequest}
 }
 

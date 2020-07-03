@@ -103,6 +103,7 @@ func (c *Client) ApplySecurityGroupsToClientVpnTargetNetworkRequest(input *Apply
 	}
 
 	req := c.newRequest(op, input, &ApplySecurityGroupsToClientVpnTargetNetworkOutput{})
+
 	return ApplySecurityGroupsToClientVpnTargetNetworkRequest{Request: req, Input: input, Copy: c.ApplySecurityGroupsToClientVpnTargetNetworkRequest}
 }
 

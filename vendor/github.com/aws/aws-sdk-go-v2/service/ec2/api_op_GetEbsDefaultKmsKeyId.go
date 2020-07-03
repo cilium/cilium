@@ -68,6 +68,7 @@ func (c *Client) GetEbsDefaultKmsKeyIdRequest(input *GetEbsDefaultKmsKeyIdInput)
 	}
 
 	req := c.newRequest(op, input, &GetEbsDefaultKmsKeyIdOutput{})
+
 	return GetEbsDefaultKmsKeyIdRequest{Request: req, Input: input, Copy: c.GetEbsDefaultKmsKeyIdRequest}
 }
 

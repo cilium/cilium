@@ -102,6 +102,7 @@ func (c *Client) ReplaceRouteTableAssociationRequest(input *ReplaceRouteTableAss
 	}
 
 	req := c.newRequest(op, input, &ReplaceRouteTableAssociationOutput{})
+
 	return ReplaceRouteTableAssociationRequest{Request: req, Input: input, Copy: c.ReplaceRouteTableAssociationRequest}
 }
 

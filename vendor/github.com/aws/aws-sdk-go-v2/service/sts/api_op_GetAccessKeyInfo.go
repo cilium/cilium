@@ -105,6 +105,7 @@ func (c *Client) GetAccessKeyInfoRequest(input *GetAccessKeyInfoInput) GetAccess
 	}
 
 	req := c.newRequest(op, input, &GetAccessKeyInfoOutput{})
+
 	return GetAccessKeyInfoRequest{Request: req, Input: input, Copy: c.GetAccessKeyInfoRequest}
 }
 

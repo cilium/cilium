@@ -15,6 +15,12 @@ import (
 type DisableVgwRoutePropagationInput struct {
 	_ struct{} `type:"structure"`
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
 	// The ID of the virtual private gateway.
 	//
 	// GatewayId is a required field
@@ -88,6 +94,7 @@ func (c *Client) DisableVgwRoutePropagationRequest(input *DisableVgwRoutePropaga
 	req := c.newRequest(op, input, &DisableVgwRoutePropagationOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DisableVgwRoutePropagationRequest{Request: req, Input: input, Copy: c.DisableVgwRoutePropagationRequest}
 }
 

@@ -97,6 +97,7 @@ func (c *Client) DisableFastSnapshotRestoresRequest(input *DisableFastSnapshotRe
 	}
 
 	req := c.newRequest(op, input, &DisableFastSnapshotRestoresOutput{})
+
 	return DisableFastSnapshotRestoresRequest{Request: req, Input: input, Copy: c.DisableFastSnapshotRestoresRequest}
 }
 

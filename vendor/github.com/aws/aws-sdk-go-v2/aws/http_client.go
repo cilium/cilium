@@ -6,8 +6,6 @@ import (
 	"reflect"
 	"sync"
 	"time"
-
-	"golang.org/x/net/http2"
 )
 
 // Defaults for the HTTPTransportBuilder.
@@ -43,16 +41,16 @@ type BuildableHTTPClient struct {
 	transport *http.Transport
 	dialer    *net.Dialer
 
-	initOnce *sync.Once
-	client   *http.Client
+	initOnce sync.Once
+
+	clientTimeout time.Duration
+	client        *http.Client
 }
 
 // NewBuildableHTTPClient returns an initialized client for invoking HTTP
 // requests.
 func NewBuildableHTTPClient() *BuildableHTTPClient {
-	return &BuildableHTTPClient{
-		initOnce: new(sync.Once),
-	}
+	return &BuildableHTTPClient{}
 }
 
 // Do implements the HTTPClient interface's Do method to invoke a HTTP request,
@@ -66,39 +64,25 @@ func NewBuildableHTTPClient() *BuildableHTTPClient {
 // Redirect (3xx) responses will not be followed, the HTTP response received
 // will returned instead.
 func (b *BuildableHTTPClient) Do(req *http.Request) (*http.Response, error) {
-	b.initOnce.Do(b.initClient)
+	b.initOnce.Do(b.build)
 
 	return b.client.Do(req)
 }
 
-func (b *BuildableHTTPClient) initClient() {
-	b.client = b.build()
-}
-
-// BuildHTTPClient returns an initialized HTTPClient built from the options of
-// the builder.
-func (b BuildableHTTPClient) build() *http.Client {
-	var tr *http.Transport
-	if b.transport != nil {
-		tr = shallowCopyStruct(b.transport).(*http.Transport)
-	} else {
-		tr = defaultHTTPTransport()
-	}
-
-	// TODO Any way to ensure HTTP 2 is supported without depending on
-	// an unversioned experimental package?
-	// Maybe only clients that depend on HTTP/2 should call this?
-	http2.ConfigureTransport(tr)
-
-	return wrapWithoutRedirect(&http.Client{
-		Transport: tr,
+func (b *BuildableHTTPClient) build() {
+	b.client = wrapWithoutRedirect(&http.Client{
+		Timeout:   b.clientTimeout,
+		Transport: b.GetTransport(),
 	})
 }
 
-func (b BuildableHTTPClient) reset() BuildableHTTPClient {
-	b.initOnce = new(sync.Once)
-	b.client = nil
-	return b
+func (b *BuildableHTTPClient) clone() *BuildableHTTPClient {
+	cpy := NewBuildableHTTPClient()
+	cpy.transport = b.GetTransport()
+	cpy.dialer = b.GetDialer()
+	cpy.clientTimeout = b.clientTimeout
+
+	return cpy
 }
 
 // WithTransportOptions copies the BuildableHTTPClient and returns it with the
@@ -107,42 +91,49 @@ func (b BuildableHTTPClient) reset() BuildableHTTPClient {
 // If a non (*http.Transport) was set as the round tripper, the round tripper
 // will be replaced with a default Transport value before invoking the option
 // functions.
-func (b BuildableHTTPClient) WithTransportOptions(opts ...func(*http.Transport)) HTTPClient {
-	b = b.reset()
+func (b *BuildableHTTPClient) WithTransportOptions(opts ...func(*http.Transport)) HTTPClient {
+	cpy := b.clone()
 
-	tr := b.GetTransport()
+	tr := cpy.GetTransport()
 	for _, opt := range opts {
 		opt(tr)
 	}
-	b.transport = tr
+	cpy.transport = tr
 
-	return &b
+	return cpy
 }
 
 // WithDialerOptions copies the BuildableHTTPClient and returns it with the
 // net.Dialer options applied. Will set the client's http.Transport DialContext
 // member.
-func (b BuildableHTTPClient) WithDialerOptions(opts ...func(*net.Dialer)) HTTPClient {
-	b = b.reset()
+func (b *BuildableHTTPClient) WithDialerOptions(opts ...func(*net.Dialer)) HTTPClient {
+	cpy := b.clone()
 
-	dialer := b.GetDialer()
+	dialer := cpy.GetDialer()
 	for _, opt := range opts {
 		opt(dialer)
 	}
-	b.dialer = dialer
+	cpy.dialer = dialer
 
-	tr := b.GetTransport()
-	tr.DialContext = b.dialer.DialContext
-	b.transport = tr
+	tr := cpy.GetTransport()
+	tr.DialContext = cpy.dialer.DialContext
+	cpy.transport = tr
 
-	return &b
+	return cpy
+}
+
+// WithTimeout Sets the timeout used by the client for all requests.
+func (b *BuildableHTTPClient) WithTimeout(timeout time.Duration) HTTPClient {
+	cpy := b.clone()
+	cpy.clientTimeout = timeout
+	return cpy
 }
 
 // GetTransport returns a copy of the client's HTTP Transport.
-func (b BuildableHTTPClient) GetTransport() *http.Transport {
+func (b *BuildableHTTPClient) GetTransport() *http.Transport {
 	var tr *http.Transport
 	if b.transport != nil {
-		tr = shallowCopyStruct(b.transport).(*http.Transport)
+		tr = b.transport.Clone()
 	} else {
 		tr = defaultHTTPTransport()
 	}
@@ -151,7 +142,7 @@ func (b BuildableHTTPClient) GetTransport() *http.Transport {
 }
 
 // GetDialer returns a copy of the client's network dialer.
-func (b BuildableHTTPClient) GetDialer() *net.Dialer {
+func (b *BuildableHTTPClient) GetDialer() *net.Dialer {
 	var dialer *net.Dialer
 	if b.dialer != nil {
 		dialer = shallowCopyStruct(b.dialer).(*net.Dialer)
@@ -160,6 +151,11 @@ func (b BuildableHTTPClient) GetDialer() *net.Dialer {
 	}
 
 	return dialer
+}
+
+// GetTimeout returns a copy of the client's timeout to cancel requests with.
+func (b *BuildableHTTPClient) GetTimeout() time.Duration {
+	return b.clientTimeout
 }
 
 func defaultDialer() *net.Dialer {
@@ -181,6 +177,7 @@ func defaultHTTPTransport() *http.Transport {
 		MaxIdleConnsPerHost:   DefaultHTTPTransportMaxIdleConnsPerHost,
 		IdleConnTimeout:       DefaultHTTPTransportIdleConnTimeout,
 		ExpectContinueTimeout: DefaultHTTPTransportExpectContinueTimeout,
+		ForceAttemptHTTP2:     true,
 	}
 
 	return tr

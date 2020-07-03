@@ -106,6 +106,7 @@ func (c *Client) ModifyDefaultCreditSpecificationRequest(input *ModifyDefaultCre
 	}
 
 	req := c.newRequest(op, input, &ModifyDefaultCreditSpecificationOutput{})
+
 	return ModifyDefaultCreditSpecificationRequest{Request: req, Input: input, Copy: c.ModifyDefaultCreditSpecificationRequest}
 }
 

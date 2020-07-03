@@ -108,6 +108,7 @@ func (c *Client) DescribeMovingAddressesRequest(input *DescribeMovingAddressesIn
 	}
 
 	req := c.newRequest(op, input, &DescribeMovingAddressesOutput{})
+
 	return DescribeMovingAddressesRequest{Request: req, Input: input, Copy: c.DescribeMovingAddressesRequest}
 }
 

@@ -86,6 +86,7 @@ func (c *Client) AcceptTransitGatewayVpcAttachmentRequest(input *AcceptTransitGa
 	}
 
 	req := c.newRequest(op, input, &AcceptTransitGatewayVpcAttachmentOutput{})
+
 	return AcceptTransitGatewayVpcAttachmentRequest{Request: req, Input: input, Copy: c.AcceptTransitGatewayVpcAttachmentRequest}
 }
 

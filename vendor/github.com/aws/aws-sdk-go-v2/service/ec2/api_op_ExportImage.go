@@ -144,6 +144,7 @@ func (c *Client) ExportImageRequest(input *ExportImageInput) ExportImageRequest 
 	}
 
 	req := c.newRequest(op, input, &ExportImageOutput{})
+
 	return ExportImageRequest{Request: req, Input: input, Copy: c.ExportImageRequest}
 }
 

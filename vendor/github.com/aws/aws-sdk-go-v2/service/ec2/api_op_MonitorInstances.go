@@ -87,6 +87,7 @@ func (c *Client) MonitorInstancesRequest(input *MonitorInstancesInput) MonitorIn
 	}
 
 	req := c.newRequest(op, input, &MonitorInstancesOutput{})
+
 	return MonitorInstancesRequest{Request: req, Input: input, Copy: c.MonitorInstancesRequest}
 }
 

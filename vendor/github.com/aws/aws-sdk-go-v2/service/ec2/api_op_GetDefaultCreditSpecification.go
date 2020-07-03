@@ -85,6 +85,7 @@ func (c *Client) GetDefaultCreditSpecificationRequest(input *GetDefaultCreditSpe
 	}
 
 	req := c.newRequest(op, input, &GetDefaultCreditSpecificationOutput{})
+
 	return GetDefaultCreditSpecificationRequest{Request: req, Input: input, Copy: c.GetDefaultCreditSpecificationRequest}
 }
 

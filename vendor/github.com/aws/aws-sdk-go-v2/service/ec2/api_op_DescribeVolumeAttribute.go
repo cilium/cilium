@@ -100,6 +100,7 @@ func (c *Client) DescribeVolumeAttributeRequest(input *DescribeVolumeAttributeIn
 	}
 
 	req := c.newRequest(op, input, &DescribeVolumeAttributeOutput{})
+
 	return DescribeVolumeAttributeRequest{Request: req, Input: input, Copy: c.DescribeVolumeAttributeRequest}
 }
 

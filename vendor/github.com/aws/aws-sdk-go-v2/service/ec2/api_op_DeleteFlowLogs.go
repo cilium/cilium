@@ -84,6 +84,7 @@ func (c *Client) DeleteFlowLogsRequest(input *DeleteFlowLogsInput) DeleteFlowLog
 	}
 
 	req := c.newRequest(op, input, &DeleteFlowLogsOutput{})
+
 	return DeleteFlowLogsRequest{Request: req, Input: input, Copy: c.DeleteFlowLogsRequest}
 }
 

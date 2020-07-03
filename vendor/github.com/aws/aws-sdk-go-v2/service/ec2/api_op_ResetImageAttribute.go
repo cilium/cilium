@@ -95,6 +95,7 @@ func (c *Client) ResetImageAttributeRequest(input *ResetImageAttributeInput) Res
 	req := c.newRequest(op, input, &ResetImageAttributeOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ResetImageAttributeRequest{Request: req, Input: input, Copy: c.ResetImageAttributeRequest}
 }
 

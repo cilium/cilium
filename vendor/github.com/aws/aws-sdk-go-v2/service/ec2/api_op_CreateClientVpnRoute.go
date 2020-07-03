@@ -121,6 +121,7 @@ func (c *Client) CreateClientVpnRouteRequest(input *CreateClientVpnRouteInput) C
 	}
 
 	req := c.newRequest(op, input, &CreateClientVpnRouteOutput{})
+
 	return CreateClientVpnRouteRequest{Request: req, Input: input, Copy: c.CreateClientVpnRouteRequest}
 }
 

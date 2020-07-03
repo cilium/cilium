@@ -101,6 +101,7 @@ func (c *Client) GetHostReservationPurchasePreviewRequest(input *GetHostReservat
 	}
 
 	req := c.newRequest(op, input, &GetHostReservationPurchasePreviewOutput{})
+
 	return GetHostReservationPurchasePreviewRequest{Request: req, Input: input, Copy: c.GetHostReservationPurchasePreviewRequest}
 }
 

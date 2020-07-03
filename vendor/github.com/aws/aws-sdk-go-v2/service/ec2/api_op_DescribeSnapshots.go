@@ -132,7 +132,7 @@ const opDescribeSnapshots = "DescribeSnapshots"
 //    * implicit: An AWS account has implicit create volume permissions for
 //    all snapshots it owns.
 //
-// The list of snapshots returned can be modified by specifying snapshot IDs,
+// The list of snapshots returned can be filtered by specifying snapshot IDs,
 // snapshot owners, or AWS accounts with create volume permissions. If no options
 // are specified, Amazon EC2 returns all snapshots for which you have create
 // volume permissions.
@@ -158,6 +158,8 @@ const opDescribeSnapshots = "DescribeSnapshots"
 // your MaxResults value, then that number of results is returned along with
 // a NextToken value that can be passed to a subsequent DescribeSnapshots request
 // to retrieve the remaining results.
+//
+// To get the state of fast snapshot restores for a snapshot, use DescribeFastSnapshotRestores.
 //
 // For more information about EBS snapshots, see Amazon EBS Snapshots (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSSnapshots.html)
 // in the Amazon Elastic Compute Cloud User Guide.
@@ -188,6 +190,7 @@ func (c *Client) DescribeSnapshotsRequest(input *DescribeSnapshotsInput) Describ
 	}
 
 	req := c.newRequest(op, input, &DescribeSnapshotsOutput{})
+
 	return DescribeSnapshotsRequest{Request: req, Input: input, Copy: c.DescribeSnapshotsRequest}
 }
 

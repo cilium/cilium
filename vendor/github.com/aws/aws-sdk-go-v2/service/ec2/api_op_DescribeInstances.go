@@ -59,11 +59,13 @@ type DescribeInstancesInput struct {
 	//    * host-id - The ID of the Dedicated Host on which the instance is running,
 	//    if applicable.
 	//
-	//    * hypervisor - The hypervisor type of the instance (ovm | xen).
+	//    * hypervisor - The hypervisor type of the instance (ovm | xen). The value
+	//    xen is used for both Xen and Nitro hypervisors.
 	//
 	//    * iam-instance-profile.arn - The instance profile associated with the
-	//    instance. Specified as an ARN. image-id - The ID of the image used to
-	//    launch the instance.
+	//    instance. Specified as an ARN.
+	//
+	//    * image-id - The ID of the image used to launch the instance.
 	//
 	//    * instance-id - The ID of the instance.
 	//
@@ -306,13 +308,17 @@ const opDescribeInstances = "DescribeInstances"
 // DescribeInstancesRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Describes the specified instances or all of AWS account's instances.
+// Describes the specified instances or all instances.
 //
-// If you specify one or more instance IDs, Amazon EC2 returns information for
-// those instances. If you do not specify instance IDs, Amazon EC2 returns information
-// for all relevant instances. If you specify an instance ID that is not valid,
-// an error is returned. If you specify an instance that you do not own, it
-// is not included in the returned results.
+// If you specify instance IDs, the output includes information for only the
+// specified instances. If you specify filters, the output includes information
+// for only those instances that meet the filter criteria. If you do not specify
+// instance IDs or filters, the output includes information for all instances,
+// which can affect performance. We recommend that you use pagination to ensure
+// that the operation returns quickly and successfully.
+//
+// If you specify an instance ID that is not valid, an error is returned. If
+// you specify an instance that you do not own, it is not included in the output.
 //
 // Recently terminated instances might appear in the returned results. This
 // interval is usually less than one hour.
@@ -349,6 +355,7 @@ func (c *Client) DescribeInstancesRequest(input *DescribeInstancesInput) Describ
 	}
 
 	req := c.newRequest(op, input, &DescribeInstancesOutput{})
+
 	return DescribeInstancesRequest{Request: req, Input: input, Copy: c.DescribeInstancesRequest}
 }
 

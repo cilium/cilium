@@ -91,6 +91,7 @@ func (c *Client) ModifyVpnTunnelCertificateRequest(input *ModifyVpnTunnelCertifi
 	}
 
 	req := c.newRequest(op, input, &ModifyVpnTunnelCertificateOutput{})
+
 	return ModifyVpnTunnelCertificateRequest{Request: req, Input: input, Copy: c.ModifyVpnTunnelCertificateRequest}
 }
 

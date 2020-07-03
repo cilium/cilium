@@ -85,6 +85,7 @@ func (c *Client) DeleteTrafficMirrorTargetRequest(input *DeleteTrafficMirrorTarg
 	}
 
 	req := c.newRequest(op, input, &DeleteTrafficMirrorTargetOutput{})
+
 	return DeleteTrafficMirrorTargetRequest{Request: req, Input: input, Copy: c.DeleteTrafficMirrorTargetRequest}
 }
 

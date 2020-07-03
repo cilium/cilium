@@ -109,6 +109,7 @@ func (c *Client) CreateFpgaImageRequest(input *CreateFpgaImageInput) CreateFpgaI
 	}
 
 	req := c.newRequest(op, input, &CreateFpgaImageOutput{})
+
 	return CreateFpgaImageRequest{Request: req, Input: input, Copy: c.CreateFpgaImageRequest}
 }
 

@@ -82,6 +82,7 @@ func (c *Client) DeleteTrafficMirrorFilterRuleRequest(input *DeleteTrafficMirror
 	}
 
 	req := c.newRequest(op, input, &DeleteTrafficMirrorFilterRuleOutput{})
+
 	return DeleteTrafficMirrorFilterRuleRequest{Request: req, Input: input, Copy: c.DeleteTrafficMirrorFilterRuleRequest}
 }
 

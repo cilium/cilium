@@ -94,6 +94,12 @@ func (c *Client) DescribeTransitGatewayMulticastDomainsRequest(input *DescribeTr
 		Name:       opDescribeTransitGatewayMulticastDomains,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
+		Paginator: &aws.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
 	}
 
 	if input == nil {
@@ -101,6 +107,7 @@ func (c *Client) DescribeTransitGatewayMulticastDomainsRequest(input *DescribeTr
 	}
 
 	req := c.newRequest(op, input, &DescribeTransitGatewayMulticastDomainsOutput{})
+
 	return DescribeTransitGatewayMulticastDomainsRequest{Request: req, Input: input, Copy: c.DescribeTransitGatewayMulticastDomainsRequest}
 }
 
@@ -126,6 +133,53 @@ func (r DescribeTransitGatewayMulticastDomainsRequest) Send(ctx context.Context)
 	}
 
 	return resp, nil
+}
+
+// NewDescribeTransitGatewayMulticastDomainsRequestPaginator returns a paginator for DescribeTransitGatewayMulticastDomains.
+// Use Next method to get the next page, and CurrentPage to get the current
+// response page from the paginator. Next will return false, if there are
+// no more pages, or an error was encountered.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//   // Example iterating over pages.
+//   req := client.DescribeTransitGatewayMulticastDomainsRequest(input)
+//   p := ec2.NewDescribeTransitGatewayMulticastDomainsRequestPaginator(req)
+//
+//   for p.Next(context.TODO()) {
+//       page := p.CurrentPage()
+//   }
+//
+//   if err := p.Err(); err != nil {
+//       return err
+//   }
+//
+func NewDescribeTransitGatewayMulticastDomainsPaginator(req DescribeTransitGatewayMulticastDomainsRequest) DescribeTransitGatewayMulticastDomainsPaginator {
+	return DescribeTransitGatewayMulticastDomainsPaginator{
+		Pager: aws.Pager{
+			NewRequest: func(ctx context.Context) (*aws.Request, error) {
+				var inCpy *DescribeTransitGatewayMulticastDomainsInput
+				if req.Input != nil {
+					tmp := *req.Input
+					inCpy = &tmp
+				}
+
+				newReq := req.Copy(inCpy)
+				newReq.SetContext(ctx)
+				return newReq.Request, nil
+			},
+		},
+	}
+}
+
+// DescribeTransitGatewayMulticastDomainsPaginator is used to paginate the request. This can be done by
+// calling Next and CurrentPage.
+type DescribeTransitGatewayMulticastDomainsPaginator struct {
+	aws.Pager
+}
+
+func (p *DescribeTransitGatewayMulticastDomainsPaginator) CurrentPage() *DescribeTransitGatewayMulticastDomainsOutput {
+	return p.Pager.CurrentPage().(*DescribeTransitGatewayMulticastDomainsOutput)
 }
 
 // DescribeTransitGatewayMulticastDomainsResponse is the response type for the

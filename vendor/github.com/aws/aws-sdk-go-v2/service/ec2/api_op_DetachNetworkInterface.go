@@ -100,6 +100,7 @@ func (c *Client) DetachNetworkInterfaceRequest(input *DetachNetworkInterfaceInpu
 	req := c.newRequest(op, input, &DetachNetworkInterfaceOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DetachNetworkInterfaceRequest{Request: req, Input: input, Copy: c.DetachNetworkInterfaceRequest}
 }
 

@@ -85,6 +85,7 @@ func (c *Client) ExportClientVpnClientConfigurationRequest(input *ExportClientVp
 	}
 
 	req := c.newRequest(op, input, &ExportClientVpnClientConfigurationOutput{})
+
 	return ExportClientVpnClientConfigurationRequest{Request: req, Input: input, Copy: c.ExportClientVpnClientConfigurationRequest}
 }
 

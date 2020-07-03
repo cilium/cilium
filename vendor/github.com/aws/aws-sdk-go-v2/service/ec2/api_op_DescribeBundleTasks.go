@@ -98,6 +98,7 @@ func (c *Client) DescribeBundleTasksRequest(input *DescribeBundleTasksInput) Des
 	}
 
 	req := c.newRequest(op, input, &DescribeBundleTasksOutput{})
+
 	return DescribeBundleTasksRequest{Request: req, Input: input, Copy: c.DescribeBundleTasksRequest}
 }
 

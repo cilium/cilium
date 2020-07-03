@@ -92,6 +92,7 @@ func (c *Client) DisableTransitGatewayRouteTablePropagationRequest(input *Disabl
 	}
 
 	req := c.newRequest(op, input, &DisableTransitGatewayRouteTablePropagationOutput{})
+
 	return DisableTransitGatewayRouteTablePropagationRequest{Request: req, Input: input, Copy: c.DisableTransitGatewayRouteTablePropagationRequest}
 }
 

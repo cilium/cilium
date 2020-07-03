@@ -131,6 +131,7 @@ func (c *Client) AllocateHostsRequest(input *AllocateHostsInput) AllocateHostsRe
 	}
 
 	req := c.newRequest(op, input, &AllocateHostsOutput{})
+
 	return AllocateHostsRequest{Request: req, Input: input, Copy: c.AllocateHostsRequest}
 }
 

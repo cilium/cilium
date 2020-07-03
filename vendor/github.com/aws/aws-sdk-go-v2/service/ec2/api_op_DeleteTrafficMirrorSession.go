@@ -82,6 +82,7 @@ func (c *Client) DeleteTrafficMirrorSessionRequest(input *DeleteTrafficMirrorSes
 	}
 
 	req := c.newRequest(op, input, &DeleteTrafficMirrorSessionOutput{})
+
 	return DeleteTrafficMirrorSessionRequest{Request: req, Input: input, Copy: c.DeleteTrafficMirrorSessionRequest}
 }
 

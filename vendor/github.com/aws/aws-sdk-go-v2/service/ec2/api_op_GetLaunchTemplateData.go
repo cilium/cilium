@@ -83,6 +83,7 @@ func (c *Client) GetLaunchTemplateDataRequest(input *GetLaunchTemplateDataInput)
 	}
 
 	req := c.newRequest(op, input, &GetLaunchTemplateDataOutput{})
+
 	return GetLaunchTemplateDataRequest{Request: req, Input: input, Copy: c.GetLaunchTemplateDataRequest}
 }
 

@@ -120,6 +120,7 @@ func (c *Client) RevokeSecurityGroupEgressRequest(input *RevokeSecurityGroupEgre
 	req := c.newRequest(op, input, &RevokeSecurityGroupEgressOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return RevokeSecurityGroupEgressRequest{Request: req, Input: input, Copy: c.RevokeSecurityGroupEgressRequest}
 }
 

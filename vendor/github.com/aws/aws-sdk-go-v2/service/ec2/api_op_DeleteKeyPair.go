@@ -21,28 +21,15 @@ type DeleteKeyPairInput struct {
 	DryRun *bool `locationName:"dryRun" type:"boolean"`
 
 	// The name of the key pair.
-	//
-	// KeyName is a required field
-	KeyName *string `type:"string" required:"true"`
+	KeyName *string `type:"string"`
+
+	// The ID of the key pair.
+	KeyPairId *string `type:"string"`
 }
 
 // String returns the string representation
 func (s DeleteKeyPairInput) String() string {
 	return awsutil.Prettify(s)
-}
-
-// Validate inspects the fields of the type to determine if they are valid.
-func (s *DeleteKeyPairInput) Validate() error {
-	invalidParams := aws.ErrInvalidParams{Context: "DeleteKeyPairInput"}
-
-	if s.KeyName == nil {
-		invalidParams.Add(aws.NewErrParamRequired("KeyName"))
-	}
-
-	if invalidParams.Len() > 0 {
-		return invalidParams
-	}
-	return nil
 }
 
 type DeleteKeyPairOutput struct {
@@ -83,6 +70,7 @@ func (c *Client) DeleteKeyPairRequest(input *DeleteKeyPairInput) DeleteKeyPairRe
 	req := c.newRequest(op, input, &DeleteKeyPairOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteKeyPairRequest{Request: req, Input: input, Copy: c.DeleteKeyPairRequest}
 }
 

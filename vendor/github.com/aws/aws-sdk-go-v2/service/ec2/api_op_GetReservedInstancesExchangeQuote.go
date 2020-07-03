@@ -124,6 +124,7 @@ func (c *Client) GetReservedInstancesExchangeQuoteRequest(input *GetReservedInst
 	}
 
 	req := c.newRequest(op, input, &GetReservedInstancesExchangeQuoteOutput{})
+
 	return GetReservedInstancesExchangeQuoteRequest{Request: req, Input: input, Copy: c.GetReservedInstancesExchangeQuoteRequest}
 }
 

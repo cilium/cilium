@@ -32,18 +32,8 @@ type Config struct {
 	Handlers Handlers
 
 	// Retryer guides how HTTP requests should be retried in case of
-	// recoverable failures.
-	//
-	// When nil or the value does not implement the request.Retryer interface,
-	// the client.DefaultRetryer will be used.
-	//
-	// When both Retryer and MaxRetries are non-nil, the former is used and
-	// the latter ignored.
-	//
-	// To set the Retryer field in a type-safe manner and with chaining, use
-	// the request.WithRetryer helper function:
-	//
-	//   cfg := request.WithRetryer(aws.NewConfig(), myRetryer)
+	// recoverable failures. When nil the API client will use a default
+	// retryer.
 	Retryer Retryer
 
 	// An integer value representing the logging level. The default log level
@@ -78,6 +68,14 @@ type Config struct {
 	// Disabling this feature is useful when you want to use local endpoints
 	// for testing that do not support the modeled host prefix pattern.
 	DisableEndpointHostPrefix bool
+
+	// EnableEndpointDiscovery will allow for endpoint discovery on operations that
+	// have the definition in its model. By default, endpoint discovery is off.
+	EnableEndpointDiscovery bool
+
+	// ConfigSources are the sources that were used to construct the Config.
+	// Allows for additional configuration to be loaded by clients.
+	ConfigSources []interface{}
 }
 
 // NewConfig returns a new Config pointer that can be chained with builder

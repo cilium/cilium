@@ -101,6 +101,7 @@ func (c *Client) DeleteFleetsRequest(input *DeleteFleetsInput) DeleteFleetsReque
 	}
 
 	req := c.newRequest(op, input, &DeleteFleetsOutput{})
+
 	return DeleteFleetsRequest{Request: req, Input: input, Copy: c.DeleteFleetsRequest}
 }
 

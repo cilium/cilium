@@ -94,6 +94,7 @@ func (c *Client) ModifyInstanceCapacityReservationAttributesRequest(input *Modif
 	}
 
 	req := c.newRequest(op, input, &ModifyInstanceCapacityReservationAttributesOutput{})
+
 	return ModifyInstanceCapacityReservationAttributesRequest{Request: req, Input: input, Copy: c.ModifyInstanceCapacityReservationAttributesRequest}
 }
 

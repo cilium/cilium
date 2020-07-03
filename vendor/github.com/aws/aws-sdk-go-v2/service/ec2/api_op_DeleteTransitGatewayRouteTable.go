@@ -84,6 +84,7 @@ func (c *Client) DeleteTransitGatewayRouteTableRequest(input *DeleteTransitGatew
 	}
 
 	req := c.newRequest(op, input, &DeleteTransitGatewayRouteTableOutput{})
+
 	return DeleteTransitGatewayRouteTableRequest{Request: req, Input: input, Copy: c.DeleteTransitGatewayRouteTableRequest}
 }
 

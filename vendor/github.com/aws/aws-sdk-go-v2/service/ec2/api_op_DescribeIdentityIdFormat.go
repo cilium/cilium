@@ -102,6 +102,7 @@ func (c *Client) DescribeIdentityIdFormatRequest(input *DescribeIdentityIdFormat
 	}
 
 	req := c.newRequest(op, input, &DescribeIdentityIdFormatOutput{})
+
 	return DescribeIdentityIdFormatRequest{Request: req, Input: input, Copy: c.DescribeIdentityIdFormatRequest}
 }
 

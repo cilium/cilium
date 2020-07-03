@@ -84,6 +84,7 @@ func (c *Client) DeleteInternetGatewayRequest(input *DeleteInternetGatewayInput)
 	req := c.newRequest(op, input, &DeleteInternetGatewayOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteInternetGatewayRequest{Request: req, Input: input, Copy: c.DeleteInternetGatewayRequest}
 }
 

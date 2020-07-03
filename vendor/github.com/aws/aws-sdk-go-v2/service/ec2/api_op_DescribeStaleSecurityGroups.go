@@ -110,6 +110,7 @@ func (c *Client) DescribeStaleSecurityGroupsRequest(input *DescribeStaleSecurity
 	}
 
 	req := c.newRequest(op, input, &DescribeStaleSecurityGroupsOutput{})
+
 	return DescribeStaleSecurityGroupsRequest{Request: req, Input: input, Copy: c.DescribeStaleSecurityGroupsRequest}
 }
 

@@ -149,6 +149,7 @@ func (c *Client) DescribeSubnetsRequest(input *DescribeSubnetsInput) DescribeSub
 	}
 
 	req := c.newRequest(op, input, &DescribeSubnetsOutput{})
+
 	return DescribeSubnetsRequest{Request: req, Input: input, Copy: c.DescribeSubnetsRequest}
 }
 
