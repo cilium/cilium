@@ -229,6 +229,46 @@ func (ds *EndpointSuite) TestReadEPsFromDirNamesWithRestoreFailure(c *C) {
 	c.Assert(fileExists(fullDirName), checker.Equals, true)
 }
 
+func (ds *EndpointSuite) BenchmarkReadEPsFromDirNames(c *C) {
+	c.StopTimer()
+
+	// For this benchmark, the real linux datapath is necessary to properly
+	// serialize config files to disk and benchmark the restore.
+	oldDatapath := ds.datapath
+	defer func() {
+		ds.datapath = oldDatapath
+	}()
+	ds.datapath = linuxDatapath.NewDatapath(linuxDatapath.DatapathConfiguration{}, nil)
+
+	epsWanted, _ := ds.createEndpoints()
+	tmpDir, err := ioutil.TempDir("", "cilium-tests")
+	defer func() {
+		os.RemoveAll(tmpDir)
+	}()
+
+	os.Chdir(tmpDir)
+	c.Assert(err, IsNil)
+	epsNames := []string{}
+	for _, ep := range epsWanted {
+		c.Assert(ep, NotNil)
+
+		fullDirName := filepath.Join(tmpDir, ep.DirectoryPath())
+		err := os.MkdirAll(fullDirName, 0777)
+		c.Assert(err, IsNil)
+
+		err = ep.writeHeaderfile(fullDirName)
+		c.Assert(err, IsNil)
+
+		epsNames = append(epsNames, ep.DirectoryPath())
+	}
+	c.StartTimer()
+
+	for i := 0; i < c.N; i++ {
+		eps := ReadEPsFromDirNames(context.TODO(), ds, tmpDir, epsNames)
+		c.Assert(len(eps), Equals, len(epsWanted))
+	}
+}
+
 func (ds *EndpointSuite) TestPartitionEPDirNamesByRestoreStatus(c *C) {
 	eptsDirNames := []string{
 		"4", "12", "12_next", "3_next", "5_next_fail", "5",
