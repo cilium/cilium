@@ -101,6 +101,7 @@ func (c *Client) CopyFpgaImageRequest(input *CopyFpgaImageInput) CopyFpgaImageRe
 	}
 
 	req := c.newRequest(op, input, &CopyFpgaImageOutput{})
+
 	return CopyFpgaImageRequest{Request: req, Input: input, Copy: c.CopyFpgaImageRequest}
 }
 

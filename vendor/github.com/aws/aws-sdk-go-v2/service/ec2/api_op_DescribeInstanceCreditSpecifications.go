@@ -130,6 +130,7 @@ func (c *Client) DescribeInstanceCreditSpecificationsRequest(input *DescribeInst
 	}
 
 	req := c.newRequest(op, input, &DescribeInstanceCreditSpecificationsOutput{})
+
 	return DescribeInstanceCreditSpecificationsRequest{Request: req, Input: input, Copy: c.DescribeInstanceCreditSpecificationsRequest}
 }
 

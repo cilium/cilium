@@ -67,6 +67,7 @@ func (c *Client) GetEbsEncryptionByDefaultRequest(input *GetEbsEncryptionByDefau
 	}
 
 	req := c.newRequest(op, input, &GetEbsEncryptionByDefaultOutput{})
+
 	return GetEbsEncryptionByDefaultRequest{Request: req, Input: input, Copy: c.GetEbsEncryptionByDefaultRequest}
 }
 

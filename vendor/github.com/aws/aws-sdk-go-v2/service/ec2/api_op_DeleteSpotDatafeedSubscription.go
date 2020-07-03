@@ -65,6 +65,7 @@ func (c *Client) DeleteSpotDatafeedSubscriptionRequest(input *DeleteSpotDatafeed
 	req := c.newRequest(op, input, &DeleteSpotDatafeedSubscriptionOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteSpotDatafeedSubscriptionRequest{Request: req, Input: input, Copy: c.DeleteSpotDatafeedSubscriptionRequest}
 }
 

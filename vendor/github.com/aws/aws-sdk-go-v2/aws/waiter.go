@@ -193,7 +193,7 @@ func (w Waiter) Wait(ctx context.Context) error {
 
 		// Delay to wait before inspecting the resource again
 		if err := sdk.SleepWithContext(ctx, w.Delay(attempt)); err != nil {
-			return awserr.New(ErrCodeRequestCanceled, "waiter context canceled", err)
+			return &RequestCanceledError{Err: err}
 		}
 	}
 

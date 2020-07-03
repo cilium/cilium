@@ -161,6 +161,7 @@ func (c *Client) GetSessionTokenRequest(input *GetSessionTokenInput) GetSessionT
 	}
 
 	req := c.newRequest(op, input, &GetSessionTokenOutput{})
+
 	return GetSessionTokenRequest{Request: req, Input: input, Copy: c.GetSessionTokenRequest}
 }
 

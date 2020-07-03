@@ -101,6 +101,7 @@ func (c *Client) ModifyInstanceEventStartTimeRequest(input *ModifyInstanceEventS
 	}
 
 	req := c.newRequest(op, input, &ModifyInstanceEventStartTimeOutput{})
+
 	return ModifyInstanceEventStartTimeRequest{Request: req, Input: input, Copy: c.ModifyInstanceEventStartTimeRequest}
 }
 

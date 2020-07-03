@@ -85,6 +85,7 @@ func (c *Client) DeleteLaunchTemplateRequest(input *DeleteLaunchTemplateInput) D
 	}
 
 	req := c.newRequest(op, input, &DeleteLaunchTemplateOutput{})
+
 	return DeleteLaunchTemplateRequest{Request: req, Input: input, Copy: c.DeleteLaunchTemplateRequest}
 }
 

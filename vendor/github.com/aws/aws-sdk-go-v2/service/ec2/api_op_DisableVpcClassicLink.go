@@ -83,6 +83,7 @@ func (c *Client) DisableVpcClassicLinkRequest(input *DisableVpcClassicLinkInput)
 	}
 
 	req := c.newRequest(op, input, &DisableVpcClassicLinkOutput{})
+
 	return DisableVpcClassicLinkRequest{Request: req, Input: input, Copy: c.DisableVpcClassicLinkRequest}
 }
 

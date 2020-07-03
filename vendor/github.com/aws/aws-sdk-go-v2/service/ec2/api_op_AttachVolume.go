@@ -141,6 +141,7 @@ func (c *Client) AttachVolumeRequest(input *AttachVolumeInput) AttachVolumeReque
 	}
 
 	req := c.newRequest(op, input, &AttachVolumeOutput{})
+
 	return AttachVolumeRequest{Request: req, Input: input, Copy: c.AttachVolumeRequest}
 }
 

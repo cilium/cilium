@@ -90,6 +90,7 @@ func (c *Client) AssociateSubnetCidrBlockRequest(input *AssociateSubnetCidrBlock
 	}
 
 	req := c.newRequest(op, input, &AssociateSubnetCidrBlockOutput{})
+
 	return AssociateSubnetCidrBlockRequest{Request: req, Input: input, Copy: c.AssociateSubnetCidrBlockRequest}
 }
 

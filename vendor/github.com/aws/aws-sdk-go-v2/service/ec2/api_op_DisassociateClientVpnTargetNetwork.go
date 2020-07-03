@@ -104,6 +104,7 @@ func (c *Client) DisassociateClientVpnTargetNetworkRequest(input *DisassociateCl
 	}
 
 	req := c.newRequest(op, input, &DisassociateClientVpnTargetNetworkOutput{})
+
 	return DisassociateClientVpnTargetNetworkRequest{Request: req, Input: input, Copy: c.DisassociateClientVpnTargetNetworkRequest}
 }
 

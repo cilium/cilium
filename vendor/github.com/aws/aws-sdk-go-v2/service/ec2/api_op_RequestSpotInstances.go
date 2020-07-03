@@ -167,6 +167,7 @@ func (c *Client) RequestSpotInstancesRequest(input *RequestSpotInstancesInput) R
 	}
 
 	req := c.newRequest(op, input, &RequestSpotInstancesOutput{})
+
 	return RequestSpotInstancesRequest{Request: req, Input: input, Copy: c.RequestSpotInstancesRequest}
 }
 

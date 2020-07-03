@@ -23,6 +23,9 @@ type CreateLocalGatewayRouteTableVpcAssociationInput struct {
 	// LocalGatewayRouteTableId is a required field
 	LocalGatewayRouteTableId *string `type:"string" required:"true"`
 
+	// The tags to assign to the local gateway route table VPC association.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
+
 	// The ID of the VPC.
 	//
 	// VpcId is a required field
@@ -91,6 +94,7 @@ func (c *Client) CreateLocalGatewayRouteTableVpcAssociationRequest(input *Create
 	}
 
 	req := c.newRequest(op, input, &CreateLocalGatewayRouteTableVpcAssociationOutput{})
+
 	return CreateLocalGatewayRouteTableVpcAssociationRequest{Request: req, Input: input, Copy: c.CreateLocalGatewayRouteTableVpcAssociationRequest}
 }
 

@@ -100,6 +100,7 @@ func (c *Client) DeleteTagsRequest(input *DeleteTagsInput) DeleteTagsRequest {
 	req := c.newRequest(op, input, &DeleteTagsOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteTagsRequest{Request: req, Input: input, Copy: c.DeleteTagsRequest}
 }
 

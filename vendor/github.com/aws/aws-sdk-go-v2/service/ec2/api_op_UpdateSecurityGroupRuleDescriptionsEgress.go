@@ -97,6 +97,7 @@ func (c *Client) UpdateSecurityGroupRuleDescriptionsEgressRequest(input *UpdateS
 	}
 
 	req := c.newRequest(op, input, &UpdateSecurityGroupRuleDescriptionsEgressOutput{})
+
 	return UpdateSecurityGroupRuleDescriptionsEgressRequest{Request: req, Input: input, Copy: c.UpdateSecurityGroupRuleDescriptionsEgressRequest}
 }
 

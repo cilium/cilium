@@ -98,6 +98,7 @@ func (c *Client) ConfirmProductInstanceRequest(input *ConfirmProductInstanceInpu
 	}
 
 	req := c.newRequest(op, input, &ConfirmProductInstanceOutput{})
+
 	return ConfirmProductInstanceRequest{Request: req, Input: input, Copy: c.ConfirmProductInstanceRequest}
 }
 

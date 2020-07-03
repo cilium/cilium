@@ -124,6 +124,7 @@ func (c *Client) ReplaceRouteRequest(input *ReplaceRouteInput) ReplaceRouteReque
 	req := c.newRequest(op, input, &ReplaceRouteOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ReplaceRouteRequest{Request: req, Input: input, Copy: c.ReplaceRouteRequest}
 }
 

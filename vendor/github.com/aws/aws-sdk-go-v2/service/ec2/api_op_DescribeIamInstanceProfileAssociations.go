@@ -19,8 +19,7 @@ type DescribeIamInstanceProfileAssociationsInput struct {
 	//
 	//    * instance-id - The ID of the instance.
 	//
-	//    * state - The state of the association (associating | associated | disassociating
-	//    | disassociated).
+	//    * state - The state of the association (associating | associated | disassociating).
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// The maximum number of results to return in a single call. To retrieve the
@@ -98,6 +97,7 @@ func (c *Client) DescribeIamInstanceProfileAssociationsRequest(input *DescribeIa
 	}
 
 	req := c.newRequest(op, input, &DescribeIamInstanceProfileAssociationsOutput{})
+
 	return DescribeIamInstanceProfileAssociationsRequest{Request: req, Input: input, Copy: c.DescribeIamInstanceProfileAssociationsRequest}
 }
 

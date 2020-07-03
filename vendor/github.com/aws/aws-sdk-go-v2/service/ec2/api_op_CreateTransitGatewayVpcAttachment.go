@@ -116,6 +116,7 @@ func (c *Client) CreateTransitGatewayVpcAttachmentRequest(input *CreateTransitGa
 	}
 
 	req := c.newRequest(op, input, &CreateTransitGatewayVpcAttachmentOutput{})
+
 	return CreateTransitGatewayVpcAttachmentRequest{Request: req, Input: input, Copy: c.CreateTransitGatewayVpcAttachmentRequest}
 }
 

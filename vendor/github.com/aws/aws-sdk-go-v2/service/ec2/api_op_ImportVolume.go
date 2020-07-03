@@ -117,6 +117,7 @@ func (c *Client) ImportVolumeRequest(input *ImportVolumeInput) ImportVolumeReque
 	}
 
 	req := c.newRequest(op, input, &ImportVolumeOutput{})
+
 	return ImportVolumeRequest{Request: req, Input: input, Copy: c.ImportVolumeRequest}
 }
 

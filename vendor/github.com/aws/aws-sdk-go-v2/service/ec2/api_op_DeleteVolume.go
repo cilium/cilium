@@ -89,6 +89,7 @@ func (c *Client) DeleteVolumeRequest(input *DeleteVolumeInput) DeleteVolumeReque
 	req := c.newRequest(op, input, &DeleteVolumeOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteVolumeRequest{Request: req, Input: input, Copy: c.DeleteVolumeRequest}
 }
 

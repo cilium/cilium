@@ -137,6 +137,7 @@ func (c *Client) GetCapacityReservationUsageRequest(input *GetCapacityReservatio
 	}
 
 	req := c.newRequest(op, input, &GetCapacityReservationUsageOutput{})
+
 	return GetCapacityReservationUsageRequest{Request: req, Input: input, Copy: c.GetCapacityReservationUsageRequest}
 }
 

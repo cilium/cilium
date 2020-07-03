@@ -110,6 +110,7 @@ func (c *Client) DescribeTransitGatewayVpcAttachmentsRequest(input *DescribeTran
 	}
 
 	req := c.newRequest(op, input, &DescribeTransitGatewayVpcAttachmentsOutput{})
+
 	return DescribeTransitGatewayVpcAttachmentsRequest{Request: req, Input: input, Copy: c.DescribeTransitGatewayVpcAttachmentsRequest}
 }
 

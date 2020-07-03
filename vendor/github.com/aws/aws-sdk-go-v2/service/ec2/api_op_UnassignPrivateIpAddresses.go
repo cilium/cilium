@@ -88,6 +88,7 @@ func (c *Client) UnassignPrivateIpAddressesRequest(input *UnassignPrivateIpAddre
 	req := c.newRequest(op, input, &UnassignPrivateIpAddressesOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return UnassignPrivateIpAddressesRequest{Request: req, Input: input, Copy: c.UnassignPrivateIpAddressesRequest}
 }
 

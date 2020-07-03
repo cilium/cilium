@@ -82,6 +82,7 @@ func (c *Client) DeleteVpcEndpointConnectionNotificationsRequest(input *DeleteVp
 	}
 
 	req := c.newRequest(op, input, &DeleteVpcEndpointConnectionNotificationsOutput{})
+
 	return DeleteVpcEndpointConnectionNotificationsRequest{Request: req, Input: input, Copy: c.DeleteVpcEndpointConnectionNotificationsRequest}
 }
 

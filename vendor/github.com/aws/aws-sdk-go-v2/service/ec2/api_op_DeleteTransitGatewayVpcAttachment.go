@@ -82,6 +82,7 @@ func (c *Client) DeleteTransitGatewayVpcAttachmentRequest(input *DeleteTransitGa
 	}
 
 	req := c.newRequest(op, input, &DeleteTransitGatewayVpcAttachmentOutput{})
+
 	return DeleteTransitGatewayVpcAttachmentRequest{Request: req, Input: input, Copy: c.DeleteTransitGatewayVpcAttachmentRequest}
 }
 

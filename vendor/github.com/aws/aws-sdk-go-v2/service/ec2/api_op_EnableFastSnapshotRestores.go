@@ -82,6 +82,9 @@ const opEnableFastSnapshotRestores = "EnableFastSnapshotRestores"
 // state. To get the current state of fast snapshot restores, use DescribeFastSnapshotRestores.
 // To disable fast snapshot restores, use DisableFastSnapshotRestores.
 //
+// For more information, see Amazon EBS Fast Snapshot Restore (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-fast-snapshot-restore.html)
+// in the Amazon Elastic Compute Cloud User Guide.
+//
 //    // Example sending a request using EnableFastSnapshotRestoresRequest.
 //    req := client.EnableFastSnapshotRestoresRequest(params)
 //    resp, err := req.Send(context.TODO())
@@ -102,6 +105,7 @@ func (c *Client) EnableFastSnapshotRestoresRequest(input *EnableFastSnapshotRest
 	}
 
 	req := c.newRequest(op, input, &EnableFastSnapshotRestoresOutput{})
+
 	return EnableFastSnapshotRestoresRequest{Request: req, Input: input, Copy: c.EnableFastSnapshotRestoresRequest}
 }
 

@@ -82,6 +82,12 @@ const opAssociateClientVpnTargetNetwork = "AssociateClientVpnTargetNetwork"
 // Zone. We recommend that you associate at least two subnets to provide Availability
 // Zone redundancy.
 //
+// If you specified a VPC when you created the Client VPN endpoint or if you
+// have previous subnet associations, the specified subnet must be in the same
+// VPC. To specify a subnet that's in a different VPC, you must first modify
+// the Client VPN endpoint (ModifyClientVpnEndpoint) and change the VPC that's
+// associated with it.
+//
 //    // Example sending a request using AssociateClientVpnTargetNetworkRequest.
 //    req := client.AssociateClientVpnTargetNetworkRequest(params)
 //    resp, err := req.Send(context.TODO())
@@ -102,6 +108,7 @@ func (c *Client) AssociateClientVpnTargetNetworkRequest(input *AssociateClientVp
 	}
 
 	req := c.newRequest(op, input, &AssociateClientVpnTargetNetworkOutput{})
+
 	return AssociateClientVpnTargetNetworkRequest{Request: req, Input: input, Copy: c.AssociateClientVpnTargetNetworkRequest}
 }
 

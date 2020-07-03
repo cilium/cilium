@@ -108,6 +108,7 @@ func (c *Client) DescribeNetworkInterfacePermissionsRequest(input *DescribeNetwo
 	}
 
 	req := c.newRequest(op, input, &DescribeNetworkInterfacePermissionsOutput{})
+
 	return DescribeNetworkInterfacePermissionsRequest{Request: req, Input: input, Copy: c.DescribeNetworkInterfacePermissionsRequest}
 }
 

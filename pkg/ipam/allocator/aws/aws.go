@@ -71,7 +71,7 @@ func (*AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (allocato
 
 	log.Info("Retrieving own metadata from EC2 metadata server...")
 	metadataClient := ec2metadata.New(cfg)
-	instance, err := metadataClient.GetInstanceIdentityDocument()
+	instance, err := metadataClient.GetInstanceIdentityDocument(context.TODO())
 	if err != nil {
 		return nil, fmt.Errorf("unable to retrieve instance identity document: %w", err)
 	}

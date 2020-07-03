@@ -12,6 +12,12 @@ import (
 type DeleteNatGatewayInput struct {
 	_ struct{} `type:"structure"`
 
+	// Checks whether you have the required permissions for the action, without
+	// actually making the request, and provides an error response. If you have
+	// the required permissions, the error response is DryRunOperation. Otherwise,
+	// it is UnauthorizedOperation.
+	DryRun *bool `type:"boolean"`
+
 	// The ID of the NAT gateway.
 	//
 	// NatGatewayId is a required field
@@ -78,6 +84,7 @@ func (c *Client) DeleteNatGatewayRequest(input *DeleteNatGatewayInput) DeleteNat
 	}
 
 	req := c.newRequest(op, input, &DeleteNatGatewayOutput{})
+
 	return DeleteNatGatewayRequest{Request: req, Input: input, Copy: c.DeleteNatGatewayRequest}
 }
 

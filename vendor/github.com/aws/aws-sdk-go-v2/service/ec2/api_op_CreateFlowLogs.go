@@ -65,8 +65,6 @@ type CreateFlowLogsInput struct {
 	//
 	// Specify the fields using the ${field-id} format, separated by spaces. For
 	// the AWS CLI, use single quotation marks (' ') to surround the parameter value.
-	//
-	// Only applicable to flow logs that are published to an Amazon S3 bucket.
 	LogFormat *string `type:"string"`
 
 	// The name of a new or existing CloudWatch Logs log group where Amazon EC2
@@ -75,6 +73,17 @@ type CreateFlowLogsInput struct {
 	// If you specify LogDestinationType as s3, do not specify DeliverLogsPermissionArn
 	// or LogGroupName.
 	LogGroupName *string `type:"string"`
+
+	// The maximum interval of time during which a flow of packets is captured and
+	// aggregated into a flow log record. You can specify 60 seconds (1 minute)
+	// or 600 seconds (10 minutes).
+	//
+	// When a network interface is attached to a Nitro-based instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances),
+	// the aggregation interval is always 60 seconds or less, regardless of the
+	// value that you specify.
+	//
+	// Default: 600
+	MaxAggregationInterval *int64 `type:"integer"`
 
 	// The ID of the subnet, network interface, or VPC for which you want to create
 	// a flow log.
@@ -89,6 +98,9 @@ type CreateFlowLogsInput struct {
 	//
 	// ResourceType is a required field
 	ResourceType FlowLogsResourceType `type:"string" required:"true" enum:"true"`
+
+	// The tags to apply to the flow logs.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
 
 	// The type of traffic to log. You can log traffic that the resource accepts
 	// or rejects, or all traffic.
@@ -183,6 +195,7 @@ func (c *Client) CreateFlowLogsRequest(input *CreateFlowLogsInput) CreateFlowLog
 	}
 
 	req := c.newRequest(op, input, &CreateFlowLogsOutput{})
+
 	return CreateFlowLogsRequest{Request: req, Input: input, Copy: c.CreateFlowLogsRequest}
 }
 

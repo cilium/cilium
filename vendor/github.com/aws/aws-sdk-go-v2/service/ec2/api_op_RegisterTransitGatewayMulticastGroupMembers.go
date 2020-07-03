@@ -80,6 +80,7 @@ func (c *Client) RegisterTransitGatewayMulticastGroupMembersRequest(input *Regis
 	}
 
 	req := c.newRequest(op, input, &RegisterTransitGatewayMulticastGroupMembersOutput{})
+
 	return RegisterTransitGatewayMulticastGroupMembersRequest{Request: req, Input: input, Copy: c.RegisterTransitGatewayMulticastGroupMembersRequest}
 }
 

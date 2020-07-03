@@ -88,6 +88,7 @@ func (c *Client) UnassignIpv6AddressesRequest(input *UnassignIpv6AddressesInput)
 	}
 
 	req := c.newRequest(op, input, &UnassignIpv6AddressesOutput{})
+
 	return UnassignIpv6AddressesRequest{Request: req, Input: input, Copy: c.UnassignIpv6AddressesRequest}
 }
 

@@ -111,6 +111,7 @@ func (c *Client) GetConsoleOutputRequest(input *GetConsoleOutputInput) GetConsol
 	}
 
 	req := c.newRequest(op, input, &GetConsoleOutputOutput{})
+
 	return GetConsoleOutputRequest{Request: req, Input: input, Copy: c.GetConsoleOutputRequest}
 }
 

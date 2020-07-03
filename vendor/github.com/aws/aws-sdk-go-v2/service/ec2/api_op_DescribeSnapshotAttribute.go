@@ -101,6 +101,7 @@ func (c *Client) DescribeSnapshotAttributeRequest(input *DescribeSnapshotAttribu
 	}
 
 	req := c.newRequest(op, input, &DescribeSnapshotAttributeOutput{})
+
 	return DescribeSnapshotAttributeRequest{Request: req, Input: input, Copy: c.DescribeSnapshotAttributeRequest}
 }
 

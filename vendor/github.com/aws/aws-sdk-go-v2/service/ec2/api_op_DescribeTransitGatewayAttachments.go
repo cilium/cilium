@@ -125,6 +125,7 @@ func (c *Client) DescribeTransitGatewayAttachmentsRequest(input *DescribeTransit
 	}
 
 	req := c.newRequest(op, input, &DescribeTransitGatewayAttachmentsOutput{})
+
 	return DescribeTransitGatewayAttachmentsRequest{Request: req, Input: input, Copy: c.DescribeTransitGatewayAttachmentsRequest}
 }
 

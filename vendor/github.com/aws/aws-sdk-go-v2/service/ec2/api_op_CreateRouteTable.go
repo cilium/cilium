@@ -86,6 +86,7 @@ func (c *Client) CreateRouteTableRequest(input *CreateRouteTableInput) CreateRou
 	}
 
 	req := c.newRequest(op, input, &CreateRouteTableOutput{})
+
 	return CreateRouteTableRequest{Request: req, Input: input, Copy: c.CreateRouteTableRequest}
 }
 

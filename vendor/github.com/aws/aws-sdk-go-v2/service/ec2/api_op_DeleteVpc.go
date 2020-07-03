@@ -87,6 +87,7 @@ func (c *Client) DeleteVpcRequest(input *DeleteVpcInput) DeleteVpcRequest {
 	req := c.newRequest(op, input, &DeleteVpcOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteVpcRequest{Request: req, Input: input, Copy: c.DeleteVpcRequest}
 }
 

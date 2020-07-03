@@ -1,8 +1,10 @@
 package external
 
 import (
+	"fmt"
 	"io/ioutil"
 	"os"
+	"strings"
 
 	"github.com/aws/aws-sdk-go-v2/aws"
 )
@@ -13,48 +15,56 @@ const CredentialsSourceName = "EnvConfigCredentials"
 
 // Environment variables that will be read for configuration values.
 const (
-	AWSAccessKeyIDEnvVar = "AWS_ACCESS_KEY_ID"
-	AWSAccessKeyEnvVar   = "AWS_ACCESS_KEY"
+	awsAccessKeyIDEnvVar = "AWS_ACCESS_KEY_ID"
+	awsAccessKeyEnvVar   = "AWS_ACCESS_KEY"
 
-	AWSSecreteAccessKeyEnvVar = "AWS_SECRET_ACCESS_KEY"
-	AWSSecreteKeyEnvVar       = "AWS_SECRET_KEY"
+	awsSecreteAccessKeyEnvVar = "AWS_SECRET_ACCESS_KEY"
+	awsSecreteKeyEnvVar       = "AWS_SECRET_KEY"
 
-	AWSSessionTokenEnvVar = "AWS_SESSION_TOKEN"
+	awsSessionTokenEnvVar = "AWS_SESSION_TOKEN"
 
-	AWSCredentialsEndpointEnvVar = "AWS_CONTAINER_CREDENTIALS_FULL_URI"
+	awsContainerCredentialsEndpointEnvVar     = "AWS_CONTAINER_CREDENTIALS_FULL_URI"
+	awsContainerCredentialsRelativePathEnvVar = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
+	awsContainerPProviderAuthorizationEnvVar  = "AWS_CONTAINER_AUTHORIZATION_TOKEN"
 
-	// TODO shorter name?
-	AWSContainerCredentialsEndpointPathEnvVar = "AWS_CONTAINER_CREDENTIALS_RELATIVE_URI"
+	awsRegionEnvVar        = "AWS_REGION"
+	awsDefaultRegionEnvVar = "AWS_DEFAULT_REGION"
 
-	AWSRegionEnvVar        = "AWS_REGION"
-	AWSDefaultRegionEnvVar = "AWS_DEFAULT_REGION"
+	awsProfileEnvVar        = "AWS_PROFILE"
+	awsDefaultProfileEnvVar = "AWS_DEFAULT_PROFILE"
 
-	AWSProfileEnvVar        = "AWS_PROFILE"
-	AWSDefaultProfileEnvVar = "AWS_DEFAULT_PROFILE"
+	awsSharedCredentialsFileEnvVar = "AWS_SHARED_CREDENTIALS_FILE"
 
-	AWSSharedCredentialsFileEnvVar = "AWS_SHARED_CREDENTIALS_FILE"
+	awsConfigFileEnvVar = "AWS_CONFIG_FILE"
 
-	AWSConfigFileEnvVar = "AWS_CONFIG_FILE"
+	awsCustomCABundleEnvVar = "AWS_CA_BUNDLE"
 
-	AWSCustomCABundleEnvVar = "AWS_CA_BUNDLE"
+	awsWebIdentityTokenFilePathEnvKey = "AWS_WEB_IDENTITY_TOKEN_FILE"
+
+	awsRoleARNEnvKey         = "AWS_ROLE_ARN"
+	awsRoleSessionNameEnvKey = "AWS_ROLE_SESSION_NAME"
+
+	awsEnableEndpointDiscoveryEnvKey = "AWS_ENABLE_ENDPOINT_DISCOVERY"
+
+	awsS3UseARNRegionEnvVar = "AWS_S3_USE_ARN_REGION"
 )
 
 var (
 	credAccessEnvKeys = []string{
-		AWSAccessKeyIDEnvVar,
-		AWSAccessKeyEnvVar,
+		awsAccessKeyIDEnvVar,
+		awsAccessKeyEnvVar,
 	}
 	credSecretEnvKeys = []string{
-		AWSSecreteAccessKeyEnvVar,
-		AWSSecreteKeyEnvVar,
+		awsSecreteAccessKeyEnvVar,
+		awsSecreteKeyEnvVar,
 	}
 	regionEnvKeys = []string{
-		AWSRegionEnvVar,
-		AWSDefaultRegionEnvVar,
+		awsRegionEnvVar,
+		awsDefaultRegionEnvVar,
 	}
 	profileEnvKeys = []string{
-		AWSProfileEnvVar,
-		AWSDefaultProfileEnvVar,
+		awsProfileEnvVar,
+		awsDefaultProfileEnvVar,
 	}
 )
 
@@ -79,11 +89,17 @@ type EnvConfig struct {
 	//	AWS_SESSION_TOKEN=TOKEN
 	Credentials aws.Credentials
 
-	// TODO doc
-	CredentialsEndpoint string
+	// ContainerCredentialsEndpoint value is the HTTP enabled endpoint to retrieve credentials
+	// using the endpointcreds.Provider
+	ContainerCredentialsEndpoint string
 
-	// TODO doc, shorter name?
-	ContainerCredentialsEndpointPath string
+	// ContainerCredentialsRelativePath is the relative URI path that will be used when attempting to retrieve
+	// credentials from the container endpoint.
+	ContainerCredentialsRelativePath string
+
+	// ContainerAuthorizationToken is the authorization token that will be included in the HTTP Authorization
+	// header when attempting to retrieve credentials from the container credentials endpoint.
+	ContainerAuthorizationToken string
 
 	// Region value will instruct the SDK where to make service API requests to. If is
 	// not provided in the environment the region must be provided before a service
@@ -134,6 +150,33 @@ type EnvConfig struct {
 	//
 	//  AWS_CA_BUNDLE=$HOME/my_custom_ca_bundle
 	CustomCABundle string
+
+	// Enables endpoint discovery via environment variables.
+	//
+	//	AWS_ENABLE_ENDPOINT_DISCOVERY=true
+	EnableEndpointDiscovery *bool
+
+	// Specifies the WebIdentity token the SDK should use to assume a role
+	// with.
+	//
+	//  AWS_WEB_IDENTITY_TOKEN_FILE=file_path
+	WebIdentityTokenFilePath string
+
+	// Specifies the IAM role arn to use when assuming an role.
+	//
+	//  AWS_ROLE_ARN=role_arn
+	RoleARN string
+
+	// Specifies the IAM role session name to use when assuming a role.
+	//
+	//  AWS_ROLE_SESSION_NAME=session_name
+	RoleSessionName string
+
+	// Specifies if the S3 service should allow ARNs to direct the region
+	// the client's requests are sent to.
+	//
+	// AWS_S3_USE_ARN_REGION=true
+	S3UseARNRegion *bool
 }
 
 // LoadEnvConfig reads configuration values from the OS's environment variables.
@@ -150,23 +193,37 @@ func NewEnvConfig() (EnvConfig, error) {
 	creds := aws.Credentials{
 		Source: CredentialsSourceName,
 	}
-	setFromEnvVal(&creds.AccessKeyID, credAccessEnvKeys)
-	setFromEnvVal(&creds.SecretAccessKey, credSecretEnvKeys)
+	setStringFromEnvVal(&creds.AccessKeyID, credAccessEnvKeys)
+	setStringFromEnvVal(&creds.SecretAccessKey, credSecretEnvKeys)
 	if creds.HasKeys() {
-		creds.SessionToken = os.Getenv(AWSSessionTokenEnvVar)
+		creds.SessionToken = os.Getenv(awsSessionTokenEnvVar)
 		cfg.Credentials = creds
 	}
 
-	cfg.CredentialsEndpoint = os.Getenv(AWSCredentialsEndpointEnvVar)
-	cfg.ContainerCredentialsEndpointPath = os.Getenv(AWSContainerCredentialsEndpointPathEnvVar)
+	cfg.ContainerCredentialsEndpoint = os.Getenv(awsContainerCredentialsEndpointEnvVar)
+	cfg.ContainerCredentialsRelativePath = os.Getenv(awsContainerCredentialsRelativePathEnvVar)
+	cfg.ContainerAuthorizationToken = os.Getenv(awsContainerPProviderAuthorizationEnvVar)
 
-	setFromEnvVal(&cfg.Region, regionEnvKeys)
-	setFromEnvVal(&cfg.SharedConfigProfile, profileEnvKeys)
+	setStringFromEnvVal(&cfg.Region, regionEnvKeys)
+	setStringFromEnvVal(&cfg.SharedConfigProfile, profileEnvKeys)
 
-	cfg.SharedCredentialsFile = os.Getenv(AWSSharedCredentialsFileEnvVar)
-	cfg.SharedConfigFile = os.Getenv(AWSConfigFileEnvVar)
+	cfg.SharedCredentialsFile = os.Getenv(awsSharedCredentialsFileEnvVar)
+	cfg.SharedConfigFile = os.Getenv(awsConfigFileEnvVar)
 
-	cfg.CustomCABundle = os.Getenv(AWSCustomCABundleEnvVar)
+	cfg.CustomCABundle = os.Getenv(awsCustomCABundleEnvVar)
+
+	cfg.WebIdentityTokenFilePath = os.Getenv(awsWebIdentityTokenFilePathEnvKey)
+
+	cfg.RoleARN = os.Getenv(awsRoleARNEnvKey)
+	cfg.RoleSessionName = os.Getenv(awsRoleSessionNameEnvKey)
+
+	if err := setBoolPtrFromEnvVal(&cfg.EnableEndpointDiscovery, []string{awsEnableEndpointDiscoveryEnvKey}); err != nil {
+		return cfg, err
+	}
+
+	if err := setBoolPtrFromEnvVal(&cfg.S3UseARNRegion, []string{awsS3UseARNRegionEnvVar}); err != nil {
+		return cfg, err
+	}
 
 	return cfg, nil
 }
@@ -177,27 +234,10 @@ func (c EnvConfig) GetRegion() (string, error) {
 	return c.Region, nil
 }
 
-// GetCredentialsValue returns the AWS Credentials if both AccessKey and ScreteAccessKey
-// are set in the environment. Returns a zero value Credentials if not set.
-func (c EnvConfig) GetCredentialsValue() (aws.Credentials, error) {
-	return c.Credentials, nil
-}
-
 // GetSharedConfigProfile returns the shared config profile if set in the
 // environment. Returns an empty string if not set.
 func (c EnvConfig) GetSharedConfigProfile() (string, error) {
 	return c.SharedConfigProfile, nil
-}
-
-// GetCredentialsEndpoint returns the credentials endpoint string if set.
-func (c EnvConfig) GetCredentialsEndpoint() (string, error) {
-	return c.CredentialsEndpoint, nil
-}
-
-// GetContainerCredentialsEndpointPath returns the container credentails endpoint
-// path string if set.
-func (c EnvConfig) GetContainerCredentialsEndpointPath() (string, error) {
-	return c.ContainerCredentialsEndpointPath, nil
 }
 
 // GetSharedConfigFiles returns a slice of filenames set in the environment.
@@ -226,11 +266,57 @@ func (c EnvConfig) GetCustomCABundle() ([]byte, error) {
 	return ioutil.ReadFile(c.CustomCABundle)
 }
 
-func setFromEnvVal(dst *string, keys []string) {
+// GetEnableEndpointDiscovery returns whether to enable service endpoint discovery
+func (c EnvConfig) GetEnableEndpointDiscovery() (value, ok bool, err error) {
+	if c.EnableEndpointDiscovery == nil {
+		return false, false, nil
+	}
+
+	return *c.EnableEndpointDiscovery, true, nil
+}
+
+// GetS3UseARNRegion returns whether to allow ARNs to direct the region
+// the S3 client's requests are sent to.
+func (c EnvConfig) GetS3UseARNRegion() (value, ok bool, err error) {
+	if c.S3UseARNRegion == nil {
+		return false, false, nil
+	}
+
+	return *c.S3UseARNRegion, true, nil
+}
+
+func setStringFromEnvVal(dst *string, keys []string) {
 	for _, k := range keys {
 		if v := os.Getenv(k); len(v) > 0 {
 			*dst = v
 			break
 		}
 	}
+}
+
+func setBoolPtrFromEnvVal(dst **bool, keys []string) error {
+	for _, k := range keys {
+		value := os.Getenv(k)
+		if len(value) == 0 {
+			continue
+		}
+
+		if *dst == nil {
+			*dst = new(bool)
+		}
+
+		switch {
+		case strings.EqualFold(value, "false"):
+			**dst = false
+		case strings.EqualFold(value, "true"):
+			**dst = true
+		default:
+			return fmt.Errorf(
+				"invalid value for environment variable, %s=%s, need true or false",
+				k, value)
+		}
+		break
+	}
+
+	return nil
 }

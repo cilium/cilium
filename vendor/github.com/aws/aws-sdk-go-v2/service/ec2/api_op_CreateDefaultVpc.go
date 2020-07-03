@@ -75,6 +75,7 @@ func (c *Client) CreateDefaultVpcRequest(input *CreateDefaultVpcInput) CreateDef
 	}
 
 	req := c.newRequest(op, input, &CreateDefaultVpcOutput{})
+
 	return CreateDefaultVpcRequest{Request: req, Input: input, Copy: c.CreateDefaultVpcRequest}
 }
 

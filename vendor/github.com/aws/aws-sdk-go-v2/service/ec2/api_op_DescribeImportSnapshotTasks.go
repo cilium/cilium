@@ -87,6 +87,7 @@ func (c *Client) DescribeImportSnapshotTasksRequest(input *DescribeImportSnapsho
 	}
 
 	req := c.newRequest(op, input, &DescribeImportSnapshotTasksOutput{})
+
 	return DescribeImportSnapshotTasksRequest{Request: req, Input: input, Copy: c.DescribeImportSnapshotTasksRequest}
 }
 

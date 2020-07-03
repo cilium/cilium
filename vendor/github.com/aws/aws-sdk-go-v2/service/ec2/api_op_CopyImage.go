@@ -36,11 +36,11 @@ type CopyImageInput struct {
 	// in the Amazon Elastic Compute Cloud User Guide.
 	Encrypted *bool `locationName:"encrypted" type:"boolean"`
 
-	// An identifier for the AWS Key Management Service (AWS KMS) customer master
-	// key (CMK) to use when creating the encrypted volume. This parameter is only
-	// required if you want to use a non-default CMK; if this parameter is not specified,
-	// the default CMK for EBS is used. If a KmsKeyId is specified, the Encrypted
-	// flag must also be set.
+	// An identifier for the symmetric AWS Key Management Service (AWS KMS) customer
+	// master key (CMK) to use when creating the encrypted volume. This parameter
+	// is only required if you want to use a non-default CMK; if this parameter
+	// is not specified, the default CMK for EBS is used. If a KmsKeyId is specified,
+	// the Encrypted flag must also be set.
 	//
 	// To specify a CMK, use its key ID, Amazon Resource Name (ARN), alias name,
 	// or alias ARN. When using an alias name, prefix it with "alias/". For example:
@@ -59,6 +59,8 @@ type CopyImageInput struct {
 	//
 	// The specified CMK must exist in the Region that the snapshot is being copied
 	// to.
+	//
+	// Amazon EBS does not support asymmetric CMKs.
 	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
 
 	// The name of the new AMI in the destination Region.
@@ -155,6 +157,7 @@ func (c *Client) CopyImageRequest(input *CopyImageInput) CopyImageRequest {
 	}
 
 	req := c.newRequest(op, input, &CopyImageOutput{})
+
 	return CopyImageRequest{Request: req, Input: input, Copy: c.CopyImageRequest}
 }
 

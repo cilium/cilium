@@ -97,6 +97,7 @@ func (c *Client) ModifyReservedInstancesRequest(input *ModifyReservedInstancesIn
 	}
 
 	req := c.newRequest(op, input, &ModifyReservedInstancesOutput{})
+
 	return ModifyReservedInstancesRequest{Request: req, Input: input, Copy: c.ModifyReservedInstancesRequest}
 }
 

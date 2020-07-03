@@ -102,6 +102,7 @@ func (c *Client) ResetInstanceAttributeRequest(input *ResetInstanceAttributeInpu
 	req := c.newRequest(op, input, &ResetInstanceAttributeOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ResetInstanceAttributeRequest{Request: req, Input: input, Copy: c.ResetInstanceAttributeRequest}
 }
 

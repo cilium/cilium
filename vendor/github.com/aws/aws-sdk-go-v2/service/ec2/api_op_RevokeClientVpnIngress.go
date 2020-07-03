@@ -98,6 +98,7 @@ func (c *Client) RevokeClientVpnIngressRequest(input *RevokeClientVpnIngressInpu
 	}
 
 	req := c.newRequest(op, input, &RevokeClientVpnIngressOutput{})
+
 	return RevokeClientVpnIngressRequest{Request: req, Input: input, Copy: c.RevokeClientVpnIngressRequest}
 }
 

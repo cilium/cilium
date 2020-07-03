@@ -86,9 +86,9 @@ const opRequestSpotFleet = "RequestSpotFleet"
 // ensuring that the Spot Instances in your Spot Fleet are in different Spot
 // pools, you can improve the availability of your fleet.
 //
-// You can specify tags for the Spot Instances. You cannot tag other resource
-// types in a Spot Fleet request because only the instance resource type is
-// supported.
+// You can specify tags for the Spot Fleet request and instances launched by
+// the fleet. You cannot tag other resource types in a Spot Fleet request because
+// only the spot-fleet-request and instance resource types are supported.
 //
 // For more information, see Spot Fleet Requests (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-requests.html)
 // in the Amazon EC2 User Guide for Linux Instances.
@@ -113,6 +113,7 @@ func (c *Client) RequestSpotFleetRequest(input *RequestSpotFleetInput) RequestSp
 	}
 
 	req := c.newRequest(op, input, &RequestSpotFleetOutput{})
+
 	return RequestSpotFleetRequest{Request: req, Input: input, Copy: c.RequestSpotFleetRequest}
 }
 

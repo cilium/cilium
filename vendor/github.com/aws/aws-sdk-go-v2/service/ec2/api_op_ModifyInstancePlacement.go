@@ -120,6 +120,7 @@ func (c *Client) ModifyInstancePlacementRequest(input *ModifyInstancePlacementIn
 	}
 
 	req := c.newRequest(op, input, &ModifyInstancePlacementOutput{})
+
 	return ModifyInstancePlacementRequest{Request: req, Input: input, Copy: c.ModifyInstancePlacementRequest}
 }
 

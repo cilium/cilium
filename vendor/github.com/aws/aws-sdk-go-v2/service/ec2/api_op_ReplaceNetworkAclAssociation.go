@@ -97,6 +97,7 @@ func (c *Client) ReplaceNetworkAclAssociationRequest(input *ReplaceNetworkAclAss
 	}
 
 	req := c.newRequest(op, input, &ReplaceNetworkAclAssociationOutput{})
+
 	return ReplaceNetworkAclAssociationRequest{Request: req, Input: input, Copy: c.ReplaceNetworkAclAssociationRequest}
 }
 

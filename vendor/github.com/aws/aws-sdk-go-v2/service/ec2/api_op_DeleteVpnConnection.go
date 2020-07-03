@@ -68,8 +68,12 @@ const opDeleteVpnConnection = "DeleteVpnConnection"
 // your VPN connection have been compromised, you can delete the VPN connection
 // and create a new one that has new keys, without needing to delete the VPC
 // or virtual private gateway. If you create a new VPN connection, you must
-// reconfigure the customer gateway using the new configuration information
+// reconfigure the customer gateway device using the new configuration information
 // returned with the new VPN connection ID.
+//
+// For certificate-based authentication, delete all AWS Certificate Manager
+// (ACM) private certificates used for the AWS-side tunnel endpoints for the
+// VPN connection before deleting the VPN connection.
 //
 //    // Example sending a request using DeleteVpnConnectionRequest.
 //    req := client.DeleteVpnConnectionRequest(params)
@@ -93,6 +97,7 @@ func (c *Client) DeleteVpnConnectionRequest(input *DeleteVpnConnectionInput) Del
 	req := c.newRequest(op, input, &DeleteVpnConnectionOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteVpnConnectionRequest{Request: req, Input: input, Copy: c.DeleteVpnConnectionRequest}
 }
 

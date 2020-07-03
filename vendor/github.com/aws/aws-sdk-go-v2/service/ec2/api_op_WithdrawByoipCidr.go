@@ -12,7 +12,7 @@ import (
 type WithdrawByoipCidrInput struct {
 	_ struct{} `type:"structure"`
 
-	// The public IPv4 address range, in CIDR notation.
+	// The address range, in CIDR notation.
 	//
 	// Cidr is a required field
 	Cidr *string `type:"string" required:"true"`
@@ -60,8 +60,7 @@ const opWithdrawByoipCidr = "WithdrawByoipCidr"
 // WithdrawByoipCidrRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Stops advertising an IPv4 address range that is provisioned as an address
-// pool.
+// Stops advertising an address range that is provisioned as an address pool.
 //
 // You can perform this operation at most once every 10 seconds, even if you
 // specify different address ranges each time.
@@ -89,6 +88,7 @@ func (c *Client) WithdrawByoipCidrRequest(input *WithdrawByoipCidrInput) Withdra
 	}
 
 	req := c.newRequest(op, input, &WithdrawByoipCidrOutput{})
+
 	return WithdrawByoipCidrRequest{Request: req, Input: input, Copy: c.WithdrawByoipCidrRequest}
 }
 

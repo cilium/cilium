@@ -100,6 +100,7 @@ func (c *Client) SendDiagnosticInterruptRequest(input *SendDiagnosticInterruptIn
 	req := c.newRequest(op, input, &SendDiagnosticInterruptOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return SendDiagnosticInterruptRequest{Request: req, Input: input, Copy: c.SendDiagnosticInterruptRequest}
 }
 

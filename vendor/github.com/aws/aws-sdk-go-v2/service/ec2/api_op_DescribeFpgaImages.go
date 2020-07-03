@@ -133,6 +133,7 @@ func (c *Client) DescribeFpgaImagesRequest(input *DescribeFpgaImagesInput) Descr
 	}
 
 	req := c.newRequest(op, input, &DescribeFpgaImagesOutput{})
+
 	return DescribeFpgaImagesRequest{Request: req, Input: input, Copy: c.DescribeFpgaImagesRequest}
 }
 

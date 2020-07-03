@@ -133,6 +133,7 @@ func (c *Client) CreateReservedInstancesListingRequest(input *CreateReservedInst
 	}
 
 	req := c.newRequest(op, input, &CreateReservedInstancesListingOutput{})
+
 	return CreateReservedInstancesListingRequest{Request: req, Input: input, Copy: c.CreateReservedInstancesListingRequest}
 }
 

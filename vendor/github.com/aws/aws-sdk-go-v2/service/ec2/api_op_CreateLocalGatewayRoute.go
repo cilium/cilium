@@ -101,6 +101,7 @@ func (c *Client) CreateLocalGatewayRouteRequest(input *CreateLocalGatewayRouteIn
 	}
 
 	req := c.newRequest(op, input, &CreateLocalGatewayRouteOutput{})
+
 	return CreateLocalGatewayRouteRequest{Request: req, Input: input, Copy: c.CreateLocalGatewayRouteRequest}
 }
 

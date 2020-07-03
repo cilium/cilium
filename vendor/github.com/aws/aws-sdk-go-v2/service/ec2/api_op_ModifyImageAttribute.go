@@ -123,6 +123,7 @@ func (c *Client) ModifyImageAttributeRequest(input *ModifyImageAttributeInput) M
 	req := c.newRequest(op, input, &ModifyImageAttributeOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ModifyImageAttributeRequest{Request: req, Input: input, Copy: c.ModifyImageAttributeRequest}
 }
 

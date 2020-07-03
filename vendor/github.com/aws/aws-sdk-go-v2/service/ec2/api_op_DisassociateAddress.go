@@ -78,6 +78,7 @@ func (c *Client) DisassociateAddressRequest(input *DisassociateAddressInput) Dis
 	req := c.newRequest(op, input, &DisassociateAddressOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DisassociateAddressRequest{Request: req, Input: input, Copy: c.DisassociateAddressRequest}
 }
 

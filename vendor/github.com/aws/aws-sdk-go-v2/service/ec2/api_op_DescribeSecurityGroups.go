@@ -195,6 +195,7 @@ func (c *Client) DescribeSecurityGroupsRequest(input *DescribeSecurityGroupsInpu
 	}
 
 	req := c.newRequest(op, input, &DescribeSecurityGroupsOutput{})
+
 	return DescribeSecurityGroupsRequest{Request: req, Input: input, Copy: c.DescribeSecurityGroupsRequest}
 }
 

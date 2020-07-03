@@ -184,6 +184,7 @@ func (c *Client) DescribeReservedInstancesOfferingsRequest(input *DescribeReserv
 	}
 
 	req := c.newRequest(op, input, &DescribeReservedInstancesOfferingsOutput{})
+
 	return DescribeReservedInstancesOfferingsRequest{Request: req, Input: input, Copy: c.DescribeReservedInstancesOfferingsRequest}
 }
 

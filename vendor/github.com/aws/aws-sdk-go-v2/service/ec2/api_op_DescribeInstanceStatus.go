@@ -159,6 +159,7 @@ func (c *Client) DescribeInstanceStatusRequest(input *DescribeInstanceStatusInpu
 	}
 
 	req := c.newRequest(op, input, &DescribeInstanceStatusOutput{})
+
 	return DescribeInstanceStatusRequest{Request: req, Input: input, Copy: c.DescribeInstanceStatusRequest}
 }
 

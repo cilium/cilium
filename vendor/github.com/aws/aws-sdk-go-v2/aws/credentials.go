@@ -1,12 +1,14 @@
 package aws
 
 import (
+	"context"
 	"math"
-	"sync"
 	"sync/atomic"
 	"time"
 
+	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 	"github.com/aws/aws-sdk-go-v2/internal/sdk"
+	"github.com/aws/aws-sdk-go-v2/internal/sync/singleflight"
 )
 
 // NeverExpire is the time identifier used when a credential provider's
@@ -76,9 +78,7 @@ func (v Credentials) HasKeys() bool {
 type CredentialsProvider interface {
 	// Retrieve returns nil if it successfully retrieved the value.
 	// Error is returned if the value were not obtainable, or empty.
-	Retrieve() (Credentials, error)
-
-	// TODO should Retrieve take a context?
+	Retrieve(ctx context.Context) (Credentials, error)
 }
 
 // SafeCredentialsProvider provides caching and concurrency safe credentials
@@ -87,7 +87,7 @@ type SafeCredentialsProvider struct {
 	RetrieveFn func() (Credentials, error)
 
 	creds atomic.Value
-	m     sync.Mutex
+	sf    singleflight.Group
 }
 
 // Retrieve returns the credentials. If the credentials have already been
@@ -95,26 +95,32 @@ type SafeCredentialsProvider struct {
 // credentials have not been retrieved yet, or expired RetrieveFn will be called.
 //
 // Returns and error if RetrieveFn returns an error.
-func (p *SafeCredentialsProvider) Retrieve() (Credentials, error) {
+func (p *SafeCredentialsProvider) Retrieve(ctx context.Context) (Credentials, error) {
 	if creds := p.getCreds(); creds != nil {
 		return *creds, nil
 	}
 
-	p.m.Lock()
-	defer p.m.Unlock()
+	resCh := p.sf.DoChan("", p.singleRetrieve)
+	select {
+	case res := <-resCh:
+		return res.Val.(Credentials), res.Err
+	case <-ctx.Done():
+		return Credentials{}, awserr.New("RequestCanceled",
+			"request context canceled", ctx.Err())
+	}
+}
 
-	// Make sure another goroutine didn't already update the credentials.
+func (p *SafeCredentialsProvider) singleRetrieve() (interface{}, error) {
 	if creds := p.getCreds(); creds != nil {
 		return *creds, nil
 	}
 
 	creds, err := p.RetrieveFn()
-	if err != nil {
-		return Credentials{}, err
+	if err == nil {
+		p.creds.Store(&creds)
 	}
-	p.creds.Store(&creds)
 
-	return creds, nil
+	return creds, err
 }
 
 func (p *SafeCredentialsProvider) getCreds() *Credentials {

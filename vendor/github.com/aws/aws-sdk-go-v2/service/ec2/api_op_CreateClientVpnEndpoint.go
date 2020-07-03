@@ -60,6 +60,10 @@ type CreateClientVpnEndpointInput struct {
 	// it is UnauthorizedOperation.
 	DryRun *bool `type:"boolean"`
 
+	// The IDs of one or more security groups to apply to the target network. You
+	// must also specify the ID of the VPC that contains the security groups.
+	SecurityGroupIds []string `locationName:"SecurityGroupId" locationNameList:"item" type:"list"`
+
 	// The ARN of the server certificate. For more information, see the AWS Certificate
 	// Manager User Guide (https://docs.aws.amazon.com/acm/latest/userguide/).
 	//
@@ -82,6 +86,18 @@ type CreateClientVpnEndpointInput struct {
 	//
 	// Default value: udp
 	TransportProtocol TransportProtocol `type:"string" enum:"true"`
+
+	// The ID of the VPC to associate with the Client VPN endpoint. If no security
+	// group IDs are specified in the request, the default security group for the
+	// VPC is applied.
+	VpcId *string `type:"string"`
+
+	// The port number to assign to the Client VPN endpoint for TCP and UDP traffic.
+	//
+	// Valid Values: 443 | 1194
+	//
+	// Default Value: 443
+	VpnPort *int64 `type:"integer"`
 }
 
 // String returns the string representation
@@ -162,6 +178,7 @@ func (c *Client) CreateClientVpnEndpointRequest(input *CreateClientVpnEndpointIn
 	}
 
 	req := c.newRequest(op, input, &CreateClientVpnEndpointOutput{})
+
 	return CreateClientVpnEndpointRequest{Request: req, Input: input, Copy: c.CreateClientVpnEndpointRequest}
 }
 

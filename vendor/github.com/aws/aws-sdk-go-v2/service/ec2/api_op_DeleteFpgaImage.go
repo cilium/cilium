@@ -82,6 +82,7 @@ func (c *Client) DeleteFpgaImageRequest(input *DeleteFpgaImageInput) DeleteFpgaI
 	}
 
 	req := c.newRequest(op, input, &DeleteFpgaImageOutput{})
+
 	return DeleteFpgaImageRequest{Request: req, Input: input, Copy: c.DeleteFpgaImageRequest}
 }
 

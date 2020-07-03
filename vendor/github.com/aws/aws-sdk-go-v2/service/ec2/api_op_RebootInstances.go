@@ -93,6 +93,7 @@ func (c *Client) RebootInstancesRequest(input *RebootInstancesInput) RebootInsta
 	req := c.newRequest(op, input, &RebootInstancesOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return RebootInstancesRequest{Request: req, Input: input, Copy: c.RebootInstancesRequest}
 }
 

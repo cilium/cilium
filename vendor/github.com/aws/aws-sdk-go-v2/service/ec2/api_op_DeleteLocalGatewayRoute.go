@@ -91,6 +91,7 @@ func (c *Client) DeleteLocalGatewayRouteRequest(input *DeleteLocalGatewayRouteIn
 	}
 
 	req := c.newRequest(op, input, &DeleteLocalGatewayRouteOutput{})
+
 	return DeleteLocalGatewayRouteRequest{Request: req, Input: input, Copy: c.DeleteLocalGatewayRouteRequest}
 }
 

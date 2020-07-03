@@ -88,6 +88,7 @@ func (c *Client) DescribeImportImageTasksRequest(input *DescribeImportImageTasks
 	}
 
 	req := c.newRequest(op, input, &DescribeImportImageTasksOutput{})
+
 	return DescribeImportImageTasksRequest{Request: req, Input: input, Copy: c.DescribeImportImageTasksRequest}
 }
 

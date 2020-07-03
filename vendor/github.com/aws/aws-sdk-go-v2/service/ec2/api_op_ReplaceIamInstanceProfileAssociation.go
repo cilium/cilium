@@ -90,6 +90,7 @@ func (c *Client) ReplaceIamInstanceProfileAssociationRequest(input *ReplaceIamIn
 	}
 
 	req := c.newRequest(op, input, &ReplaceIamInstanceProfileAssociationOutput{})
+
 	return ReplaceIamInstanceProfileAssociationRequest{Request: req, Input: input, Copy: c.ReplaceIamInstanceProfileAssociationRequest}
 }
 

@@ -92,6 +92,7 @@ func (c *Client) AssociateTransitGatewayRouteTableRequest(input *AssociateTransi
 	}
 
 	req := c.newRequest(op, input, &AssociateTransitGatewayRouteTableOutput{})
+
 	return AssociateTransitGatewayRouteTableRequest{Request: req, Input: input, Copy: c.AssociateTransitGatewayRouteTableRequest}
 }
 

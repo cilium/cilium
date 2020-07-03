@@ -85,6 +85,7 @@ func (c *Client) DeleteVpcEndpointServiceConfigurationsRequest(input *DeleteVpcE
 	}
 
 	req := c.newRequest(op, input, &DeleteVpcEndpointServiceConfigurationsOutput{})
+
 	return DeleteVpcEndpointServiceConfigurationsRequest{Request: req, Input: input, Copy: c.DeleteVpcEndpointServiceConfigurationsRequest}
 }
 

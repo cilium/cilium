@@ -100,6 +100,7 @@ func (c *Client) AssociateRouteTableRequest(input *AssociateRouteTableInput) Ass
 	}
 
 	req := c.newRequest(op, input, &AssociateRouteTableOutput{})
+
 	return AssociateRouteTableRequest{Request: req, Input: input, Copy: c.AssociateRouteTableRequest}
 }
 

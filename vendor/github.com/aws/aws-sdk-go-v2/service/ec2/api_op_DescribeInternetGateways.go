@@ -120,6 +120,7 @@ func (c *Client) DescribeInternetGatewaysRequest(input *DescribeInternetGateways
 	}
 
 	req := c.newRequest(op, input, &DescribeInternetGatewaysOutput{})
+
 	return DescribeInternetGatewaysRequest{Request: req, Input: input, Copy: c.DescribeInternetGatewaysRequest}
 }
 

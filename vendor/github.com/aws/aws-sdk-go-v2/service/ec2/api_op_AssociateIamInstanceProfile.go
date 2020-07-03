@@ -86,6 +86,7 @@ func (c *Client) AssociateIamInstanceProfileRequest(input *AssociateIamInstanceP
 	}
 
 	req := c.newRequest(op, input, &AssociateIamInstanceProfileOutput{})
+
 	return AssociateIamInstanceProfileRequest{Request: req, Input: input, Copy: c.AssociateIamInstanceProfileRequest}
 }
 

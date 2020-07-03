@@ -40,11 +40,20 @@ type CreateVpcInput struct {
 	// Default: default
 	InstanceTenancy Tenancy `locationName:"instanceTenancy" type:"string" enum:"true"`
 
+	// The IPv6 CIDR block from the IPv6 address pool. You must also specify Ipv6Pool
+	// in the request.
+	//
+	// To let Amazon choose the IPv6 CIDR block for you, omit this parameter.
+	Ipv6CidrBlock *string `type:"string"`
+
 	// The name of the location from which we advertise the IPV6 CIDR block. Use
 	// this parameter to limit the address to this location.
 	//
 	// You must set AmazonProvidedIpv6CidrBlock to true to use this parameter.
 	Ipv6CidrBlockNetworkBorderGroup *string `type:"string"`
+
+	// The ID of an IPv6 address pool from which to allocate the IPv6 CIDR block.
+	Ipv6Pool *string `type:"string"`
 }
 
 // String returns the string representation
@@ -89,9 +98,10 @@ const opCreateVpc = "CreateVpc"
 // make your VPC, see Your VPC and Subnets (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html)
 // in the Amazon Virtual Private Cloud User Guide.
 //
-// You can optionally request an Amazon-provided IPv6 CIDR block for the VPC.
-// The IPv6 CIDR block uses a /56 prefix length, and is allocated from Amazon's
-// pool of IPv6 addresses. You cannot choose the IPv6 range for your VPC.
+// You can optionally request an IPv6 CIDR block for the VPC. You can request
+// an Amazon-provided IPv6 CIDR block from Amazon's pool of IPv6 addresses,
+// or an IPv6 CIDR block from an IPv6 address pool that you provisioned through
+// bring your own IP addresses (BYOIP (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html)).
 //
 // By default, each instance you launch in the VPC has the default DHCP options,
 // which include only a default DNS server that we provide (AmazonProvidedDNS).
@@ -123,6 +133,7 @@ func (c *Client) CreateVpcRequest(input *CreateVpcInput) CreateVpcRequest {
 	}
 
 	req := c.newRequest(op, input, &CreateVpcOutput{})
+
 	return CreateVpcRequest{Request: req, Input: input, Copy: c.CreateVpcRequest}
 }
 

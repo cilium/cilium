@@ -3,8 +3,6 @@ package aws
 import (
 	"bytes"
 	"fmt"
-
-	"github.com/aws/aws-sdk-go-v2/aws/awserr"
 )
 
 const (
@@ -88,14 +86,8 @@ func (e ErrInvalidParams) Error() string {
 	return w.String()
 }
 
-// OrigErr returns the invalid parameters as a awserr.BatchedErrors value
-func (e ErrInvalidParams) OrigErr() error {
-	return awserr.NewBatchError(
-		InvalidParameterErrCode, e.Message(), e.OrigErrs())
-}
-
-// OrigErrs returns a slice of the invalid parameters
-func (e ErrInvalidParams) OrigErrs() []error {
+// Errs returns a slice of the invalid parameters
+func (e ErrInvalidParams) Errs() []error {
 	errs := make([]error, len(e.errs))
 	for i := 0; i < len(errs); i++ {
 		errs[i] = e.errs[i]
@@ -106,7 +98,10 @@ func (e ErrInvalidParams) OrigErrs() []error {
 
 // An ErrInvalidParam represents an invalid parameter error type.
 type ErrInvalidParam interface {
-	awserr.Error
+	Error() string
+
+	Code() string
+	Message() string
 
 	// Field name the error occurred on.
 	Field() string
@@ -139,11 +134,6 @@ func (e *errInvalidParam) Message() string {
 // Error returns the string version of the invalid parameter error.
 func (e *errInvalidParam) Error() string {
 	return fmt.Sprintf("%s: %s", e.code, e.Message())
-}
-
-// OrigErr returns nil, Implemented for awserr.Error interface.
-func (e *errInvalidParam) OrigErr() error {
-	return nil
 }
 
 // Field Returns the field and context the error occurred.

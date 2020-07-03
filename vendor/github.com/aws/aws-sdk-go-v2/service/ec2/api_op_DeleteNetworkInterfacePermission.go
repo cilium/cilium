@@ -91,6 +91,7 @@ func (c *Client) DeleteNetworkInterfacePermissionRequest(input *DeleteNetworkInt
 	}
 
 	req := c.newRequest(op, input, &DeleteNetworkInterfacePermissionOutput{})
+
 	return DeleteNetworkInterfacePermissionRequest{Request: req, Input: input, Copy: c.DeleteNetworkInterfacePermissionRequest}
 }
 

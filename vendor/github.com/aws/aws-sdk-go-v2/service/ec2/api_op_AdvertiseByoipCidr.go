@@ -12,8 +12,8 @@ import (
 type AdvertiseByoipCidrInput struct {
 	_ struct{} `type:"structure"`
 
-	// The IPv4 address range, in CIDR notation. This must be the exact range that
-	// you provisioned. You can't advertise only a portion of the provisioned range.
+	// The address range, in CIDR notation. This must be the exact range that you
+	// provisioned. You can't advertise only a portion of the provisioned range.
 	//
 	// Cidr is a required field
 	Cidr *string `type:"string" required:"true"`
@@ -61,8 +61,8 @@ const opAdvertiseByoipCidr = "AdvertiseByoipCidr"
 // AdvertiseByoipCidrRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Advertises an IPv4 address range that is provisioned for use with your AWS
-// resources through bring your own IP addresses (BYOIP).
+// Advertises an IPv4 or IPv6 address range that is provisioned for use with
+// your AWS resources through bring your own IP addresses (BYOIP).
 //
 // You can perform this operation at most once every 10 seconds, even if you
 // specify different address ranges each time.
@@ -98,6 +98,7 @@ func (c *Client) AdvertiseByoipCidrRequest(input *AdvertiseByoipCidrInput) Adver
 	}
 
 	req := c.newRequest(op, input, &AdvertiseByoipCidrOutput{})
+
 	return AdvertiseByoipCidrRequest{Request: req, Input: input, Copy: c.AdvertiseByoipCidrRequest}
 }
 

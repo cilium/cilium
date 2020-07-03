@@ -84,6 +84,7 @@ func (c *Client) DeleteNetworkAclRequest(input *DeleteNetworkAclInput) DeleteNet
 	req := c.newRequest(op, input, &DeleteNetworkAclOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteNetworkAclRequest{Request: req, Input: input, Copy: c.DeleteNetworkAclRequest}
 }
 

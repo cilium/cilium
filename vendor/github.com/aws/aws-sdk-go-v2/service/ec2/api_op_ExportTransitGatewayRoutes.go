@@ -102,6 +102,10 @@ const opExportTransitGatewayRoutes = "ExportTransitGatewayRoutes"
 // S3 bucket. By default, all routes are exported. Alternatively, you can filter
 // by CIDR range.
 //
+// The routes are saved to the specified bucket in a JSON file. For more information,
+// see Export Route Tables to Amazon S3 (https://docs.aws.amazon.com/vpc/latest/tgw/tgw-route-tables.html#tgw-export-route-tables)
+// in Transit Gateways.
+//
 //    // Example sending a request using ExportTransitGatewayRoutesRequest.
 //    req := client.ExportTransitGatewayRoutesRequest(params)
 //    resp, err := req.Send(context.TODO())
@@ -122,6 +126,7 @@ func (c *Client) ExportTransitGatewayRoutesRequest(input *ExportTransitGatewayRo
 	}
 
 	req := c.newRequest(op, input, &ExportTransitGatewayRoutesOutput{})
+
 	return ExportTransitGatewayRoutesRequest{Request: req, Input: input, Copy: c.ExportTransitGatewayRoutesRequest}
 }
 

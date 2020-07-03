@@ -44,6 +44,8 @@ const opDisableVpcClassicLinkDnsSupport = "DisableVpcClassicLinkDnsSupport"
 // ClassicLink (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/vpc-classiclink.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 //
+// You must specify a VPC ID in the request.
+//
 //    // Example sending a request using DisableVpcClassicLinkDnsSupportRequest.
 //    req := client.DisableVpcClassicLinkDnsSupportRequest(params)
 //    resp, err := req.Send(context.TODO())
@@ -64,6 +66,7 @@ func (c *Client) DisableVpcClassicLinkDnsSupportRequest(input *DisableVpcClassic
 	}
 
 	req := c.newRequest(op, input, &DisableVpcClassicLinkDnsSupportOutput{})
+
 	return DisableVpcClassicLinkDnsSupportRequest{Request: req, Input: input, Copy: c.DisableVpcClassicLinkDnsSupportRequest}
 }
 

@@ -24,6 +24,14 @@ type DescribeClientVpnAuthorizationRulesInput struct {
 	DryRun *bool `type:"boolean"`
 
 	// One or more filters. Filter names and values are case-sensitive.
+	//
+	//    * description - The description of the authorization rule.
+	//
+	//    * destination-cidr - The CIDR of the network to which the authorization
+	//    rule applies.
+	//
+	//    * group-id - The ID of the Active Directory group to which the authorization
+	//    rule grants access.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// The maximum number of results to return for the request in a single page.
@@ -106,6 +114,7 @@ func (c *Client) DescribeClientVpnAuthorizationRulesRequest(input *DescribeClien
 	}
 
 	req := c.newRequest(op, input, &DescribeClientVpnAuthorizationRulesOutput{})
+
 	return DescribeClientVpnAuthorizationRulesRequest{Request: req, Input: input, Copy: c.DescribeClientVpnAuthorizationRulesRequest}
 }
 

@@ -80,6 +80,11 @@ type CreateLaunchTemplateVersionOutput struct {
 
 	// Information about the launch template version.
 	LaunchTemplateVersion *LaunchTemplateVersion `locationName:"launchTemplateVersion" type:"structure"`
+
+	// If the new version of the launch template contains parameters or parameter
+	// combinations that are not valid, an error code and an error message are returned
+	// for each issue that's found.
+	Warning *ValidationWarning `locationName:"warning" type:"structure"`
 }
 
 // String returns the string representation
@@ -97,6 +102,9 @@ const opCreateLaunchTemplateVersion = "CreateLaunchTemplateVersion"
 //
 // Launch template versions are numbered in the order in which they are created.
 // You cannot specify, change, or replace the numbering of launch template versions.
+//
+// For more information, see Managing launch template versions (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-launch-templates.html#manage-launch-template-versions)in
+// the Amazon Elastic Compute Cloud User Guide.
 //
 //    // Example sending a request using CreateLaunchTemplateVersionRequest.
 //    req := client.CreateLaunchTemplateVersionRequest(params)
@@ -118,6 +126,7 @@ func (c *Client) CreateLaunchTemplateVersionRequest(input *CreateLaunchTemplateV
 	}
 
 	req := c.newRequest(op, input, &CreateLaunchTemplateVersionOutput{})
+
 	return CreateLaunchTemplateVersionRequest{Request: req, Input: input, Copy: c.CreateLaunchTemplateVersionRequest}
 }
 

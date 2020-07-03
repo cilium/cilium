@@ -20,6 +20,12 @@ type AssociateVpcCidrBlockInput struct {
 	// An IPv4 CIDR block to associate with the VPC.
 	CidrBlock *string `type:"string"`
 
+	// An IPv6 CIDR block from the IPv6 address pool. You must also specify Ipv6Pool
+	// in the request.
+	//
+	// To let Amazon choose the IPv6 CIDR block for you, omit this parameter.
+	Ipv6CidrBlock *string `type:"string"`
+
 	// The name of the location from which we advertise the IPV6 CIDR block. Use
 	// this parameter to limit the CiDR block to this location.
 	//
@@ -27,6 +33,9 @@ type AssociateVpcCidrBlockInput struct {
 	//
 	// You can have one IPv6 CIDR block association per network border group.
 	Ipv6CidrBlockNetworkBorderGroup *string `type:"string"`
+
+	// The ID of an IPv6 address pool from which to allocate the IPv6 CIDR block.
+	Ipv6Pool *string `type:"string"`
 
 	// The ID of the VPC.
 	//
@@ -77,8 +86,13 @@ const opAssociateVpcCidrBlock = "AssociateVpcCidrBlock"
 // Amazon Elastic Compute Cloud.
 //
 // Associates a CIDR block with your VPC. You can associate a secondary IPv4
-// CIDR block, or you can associate an Amazon-provided IPv6 CIDR block. The
-// IPv6 CIDR block size is fixed at /56.
+// CIDR block, an Amazon-provided IPv6 CIDR block, or an IPv6 CIDR block from
+// an IPv6 address pool that you provisioned through bring your own IP addresses
+// (BYOIP (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-byoip.html)).
+// The IPv6 CIDR block size is fixed at /56.
+//
+// You must specify one of the following in the request: an IPv4 CIDR block,
+// an IPv6 pool, or an Amazon-provided IPv6 CIDR block.
 //
 // For more information about associating CIDR blocks with your VPC and applicable
 // restrictions, see VPC and Subnet Sizing (https://docs.aws.amazon.com/vpc/latest/userguide/VPC_Subnets.html#VPC_Sizing)
@@ -104,6 +118,7 @@ func (c *Client) AssociateVpcCidrBlockRequest(input *AssociateVpcCidrBlockInput)
 	}
 
 	req := c.newRequest(op, input, &AssociateVpcCidrBlockOutput{})
+
 	return AssociateVpcCidrBlockRequest{Request: req, Input: input, Copy: c.AssociateVpcCidrBlockRequest}
 }
 

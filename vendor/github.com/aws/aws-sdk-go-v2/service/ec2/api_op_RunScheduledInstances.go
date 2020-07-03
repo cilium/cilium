@@ -118,6 +118,7 @@ func (c *Client) RunScheduledInstancesRequest(input *RunScheduledInstancesInput)
 	}
 
 	req := c.newRequest(op, input, &RunScheduledInstancesOutput{})
+
 	return RunScheduledInstancesRequest{Request: req, Input: input, Copy: c.RunScheduledInstancesRequest}
 }
 

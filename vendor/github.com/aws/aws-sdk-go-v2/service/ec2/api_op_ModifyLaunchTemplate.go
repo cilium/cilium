@@ -95,6 +95,7 @@ func (c *Client) ModifyLaunchTemplateRequest(input *ModifyLaunchTemplateInput) M
 	}
 
 	req := c.newRequest(op, input, &ModifyLaunchTemplateOutput{})
+
 	return ModifyLaunchTemplateRequest{Request: req, Input: input, Copy: c.ModifyLaunchTemplateRequest}
 }
 

@@ -120,6 +120,7 @@ func (c *Client) ModifyInstanceMetadataOptionsRequest(input *ModifyInstanceMetad
 	}
 
 	req := c.newRequest(op, input, &ModifyInstanceMetadataOptionsOutput{})
+
 	return ModifyInstanceMetadataOptionsRequest{Request: req, Input: input, Copy: c.ModifyInstanceMetadataOptionsRequest}
 }
 

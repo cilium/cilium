@@ -43,12 +43,14 @@ func (r *PathReplace) Encode() (path string, rawPath string) {
 
 // ReplaceElement replaces a single element in the path string.
 func (r *PathReplace) ReplaceElement(key, val string) (err error) {
-	r.path, r.fieldBuf, err = replacePathElement(r.path, r.fieldBuf, key, val, false)
-	r.rawPath, r.fieldBuf, err = replacePathElement(r.rawPath, r.fieldBuf, key, val, true)
+	r.path, r.fieldBuf, err = ReplacePathElement(r.path, r.fieldBuf, key, val, false)
+	r.rawPath, r.fieldBuf, err = ReplacePathElement(r.rawPath, r.fieldBuf, key, val, true)
 	return err
 }
 
-func replacePathElement(path, fieldBuf []byte, key, val string, escape bool) ([]byte, []byte, error) {
+// ReplacePathElement replaces a single element in the path []byte.
+// Escape is used to control whether the value will be escaped using Amazon path escape style.
+func ReplacePathElement(path, fieldBuf []byte, key, val string, escape bool) ([]byte, []byte, error) {
 	fieldBuf = bufCap(fieldBuf, len(key)+3) // { <key> [+] }
 	fieldBuf = append(fieldBuf, uriTokenStart)
 	fieldBuf = append(fieldBuf, key...)

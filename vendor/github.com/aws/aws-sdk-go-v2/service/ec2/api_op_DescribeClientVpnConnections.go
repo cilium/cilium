@@ -24,6 +24,11 @@ type DescribeClientVpnConnectionsInput struct {
 	DryRun *bool `type:"boolean"`
 
 	// One or more filters. Filter names and values are case-sensitive.
+	//
+	//    * connection-id - The ID of the connection.
+	//
+	//    * username - For Active Directory client authentication, the user name
+	//    of the client who established the client connection.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// The maximum number of results to return for the request in a single page.
@@ -107,6 +112,7 @@ func (c *Client) DescribeClientVpnConnectionsRequest(input *DescribeClientVpnCon
 	}
 
 	req := c.newRequest(op, input, &DescribeClientVpnConnectionsOutput{})
+
 	return DescribeClientVpnConnectionsRequest{Request: req, Input: input, Copy: c.DescribeClientVpnConnectionsRequest}
 }
 

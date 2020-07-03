@@ -128,6 +128,7 @@ func (c *Client) CreateCustomerGatewayRequest(input *CreateCustomerGatewayInput)
 	}
 
 	req := c.newRequest(op, input, &CreateCustomerGatewayOutput{})
+
 	return CreateCustomerGatewayRequest{Request: req, Input: input, Copy: c.CreateCustomerGatewayRequest}
 }
 

@@ -118,6 +118,7 @@ func (c *Client) ModifySpotFleetRequestRequest(input *ModifySpotFleetRequestInpu
 	}
 
 	req := c.newRequest(op, input, &ModifySpotFleetRequestOutput{})
+
 	return ModifySpotFleetRequestRequest{Request: req, Input: input, Copy: c.ModifySpotFleetRequestRequest}
 }
 

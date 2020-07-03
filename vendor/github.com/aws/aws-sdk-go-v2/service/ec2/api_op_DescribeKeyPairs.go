@@ -20,15 +20,30 @@ type DescribeKeyPairsInput struct {
 
 	// The filters.
 	//
+	//    * key-pair-id - The ID of the key pair.
+	//
 	//    * fingerprint - The fingerprint of the key pair.
 	//
 	//    * key-name - The name of the key pair.
+	//
+	//    * tag-key - The key of a tag assigned to the resource. Use this filter
+	//    to find all resources assigned a tag with a specific key, regardless of
+	//    the tag value.
+	//
+	//    * tag:<key> - The key/value combination of a tag assigned to the resource.
+	//    Use the tag key in the filter name and the tag value as the filter value.
+	//    For example, to find all resources that have a tag with the key Owner
+	//    and the value TeamA, specify tag:Owner for the filter name and TeamA for
+	//    the filter value.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// The key pair names.
 	//
 	// Default: Describes all your key pairs.
 	KeyNames []string `locationName:"KeyName" locationNameList:"KeyName" type:"list"`
+
+	// The IDs of the key pairs.
+	KeyPairIds []string `locationName:"KeyPairId" locationNameList:"KeyPairId" type:"list"`
 }
 
 // String returns the string representation
@@ -78,6 +93,7 @@ func (c *Client) DescribeKeyPairsRequest(input *DescribeKeyPairsInput) DescribeK
 	}
 
 	req := c.newRequest(op, input, &DescribeKeyPairsOutput{})
+
 	return DescribeKeyPairsRequest{Request: req, Input: input, Copy: c.DescribeKeyPairsRequest}
 }
 

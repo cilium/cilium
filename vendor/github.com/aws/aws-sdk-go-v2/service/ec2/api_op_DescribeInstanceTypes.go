@@ -32,11 +32,29 @@ type DescribeInstanceTypesInput struct {
 	//    * current-generation - Indicates whether this instance type is the latest
 	//    generation instance type of an instance family. (true | false)
 	//
+	//    * ebs-info.ebs-optimized-info.baseline-bandwidth-in-mbps - The baseline
+	//    bandwidth performance for an EBS-optimized instance type, in Mbps.
+	//
+	//    * ebs-info.ebs-optimized-info.baseline-throughput-in-mbps - The baseline
+	//    throughput performance for an EBS-optimized instance type, in MBps.
+	//
+	//    * ebs-info.ebs-optimized-info.baseline-iops - The baseline input/output
+	//    storage operations per second for an EBS-optimized instance type.
+	//
+	//    * ebs-info.ebs-optimized-info.maximum-bandwidth-in-mbps - The maximum
+	//    bandwidth performance for an EBS-optimized instance type, in Mbps.
+	//
+	//    * ebs-info.ebs-optimized-info.maximum-throughput-in-mbps - The maximum
+	//    throughput performance for an EBS-optimized instance type, in MBps.
+	//
+	//    * ebs-info.ebs-optimized-info.maximum-iops - The maximum input/output
+	//    storage operations per second for an EBS-optimized instance type.
+	//
 	//    * ebs-info.ebs-optimized-support - Indicates whether the instance type
-	//    is EBS-optimized. (true | false)
+	//    is EBS-optimized. (supported | unsupported | default)
 	//
 	//    * ebs-info.encryption-support - Indicates whether EBS encryption is supported.
-	//    (true | false)
+	//    (supported | unsupported)
 	//
 	//    * free-tier-eligible - Indicates whether the instance type is eligible
 	//    to use in the free tier. (true | false)
@@ -65,6 +83,9 @@ type DescribeInstanceTypesInput struct {
 	//    * network-info.ena-support - Indicates whether Elastic Network Adapter
 	//    (ENA) is supported or required. (required | supported | unsupported)
 	//
+	//    * network-info.efa-supported - Indicates whether the instance type supports
+	//    Elastic Fabric Adapter (EFA). (true | false)
+	//
 	//    * network-info.ipv4-addresses-per-interface - The maximum number of private
 	//    IPv4 addresses per network interface.
 	//
@@ -86,7 +107,7 @@ type DescribeInstanceTypesInput struct {
 	//    type.
 	//
 	//    * vcpu-info.default-threads-per-core - The default number of threads per
-	//    cores for the instance type.
+	//    core for the instance type.
 	//
 	//    * vcpu-info.default-vcpus - The default number of vCPUs for the instance
 	//    type.
@@ -145,7 +166,7 @@ const opDescribeInstanceTypes = "DescribeInstanceTypes"
 // DescribeInstanceTypesRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Returns a list of all instance types offered in your current AWS Region.
+// Describes the details of the instance types that are offered in a location.
 // The results can be filtered by the attributes of the instance types.
 //
 //    // Example sending a request using DescribeInstanceTypesRequest.
@@ -161,6 +182,12 @@ func (c *Client) DescribeInstanceTypesRequest(input *DescribeInstanceTypesInput)
 		Name:       opDescribeInstanceTypes,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
+		Paginator: &aws.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
 	}
 
 	if input == nil {
@@ -168,6 +195,7 @@ func (c *Client) DescribeInstanceTypesRequest(input *DescribeInstanceTypesInput)
 	}
 
 	req := c.newRequest(op, input, &DescribeInstanceTypesOutput{})
+
 	return DescribeInstanceTypesRequest{Request: req, Input: input, Copy: c.DescribeInstanceTypesRequest}
 }
 
@@ -193,6 +221,53 @@ func (r DescribeInstanceTypesRequest) Send(ctx context.Context) (*DescribeInstan
 	}
 
 	return resp, nil
+}
+
+// NewDescribeInstanceTypesRequestPaginator returns a paginator for DescribeInstanceTypes.
+// Use Next method to get the next page, and CurrentPage to get the current
+// response page from the paginator. Next will return false, if there are
+// no more pages, or an error was encountered.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//   // Example iterating over pages.
+//   req := client.DescribeInstanceTypesRequest(input)
+//   p := ec2.NewDescribeInstanceTypesRequestPaginator(req)
+//
+//   for p.Next(context.TODO()) {
+//       page := p.CurrentPage()
+//   }
+//
+//   if err := p.Err(); err != nil {
+//       return err
+//   }
+//
+func NewDescribeInstanceTypesPaginator(req DescribeInstanceTypesRequest) DescribeInstanceTypesPaginator {
+	return DescribeInstanceTypesPaginator{
+		Pager: aws.Pager{
+			NewRequest: func(ctx context.Context) (*aws.Request, error) {
+				var inCpy *DescribeInstanceTypesInput
+				if req.Input != nil {
+					tmp := *req.Input
+					inCpy = &tmp
+				}
+
+				newReq := req.Copy(inCpy)
+				newReq.SetContext(ctx)
+				return newReq.Request, nil
+			},
+		},
+	}
+}
+
+// DescribeInstanceTypesPaginator is used to paginate the request. This can be done by
+// calling Next and CurrentPage.
+type DescribeInstanceTypesPaginator struct {
+	aws.Pager
+}
+
+func (p *DescribeInstanceTypesPaginator) CurrentPage() *DescribeInstanceTypesOutput {
+	return p.Pager.CurrentPage().(*DescribeInstanceTypesOutput)
 }
 
 // DescribeInstanceTypesResponse is the response type for the

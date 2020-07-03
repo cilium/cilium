@@ -29,18 +29,6 @@ func (ps partitions) EndpointFor(service, region string, opts ResolveOptions) (a
 	return aws.Endpoint{}, NewUnknownEndpointError("all partitions", service, region, []string{})
 }
 
-// Partitions satisfies the EnumPartitions interface and returns a list
-// of Partitions representing each partition represented in the SDK's
-// endpoints model.
-func (ps partitions) Partitions() Partitions {
-	parts := make(Partitions, 0, len(ps))
-	for i := 0; i < len(ps); i++ {
-		parts = append(parts, ps[i].Partition())
-	}
-
-	return parts
-}
-
 type partition struct {
 	ID          string      `json:"partition"`
 	Name        string      `json:"partitionName"`
@@ -49,14 +37,6 @@ type partition struct {
 	Defaults    endpoint    `json:"defaults"`
 	Regions     regions     `json:"regions"`
 	Services    services    `json:"services"`
-}
-
-func (p partition) Partition() Partition {
-	return Partition{
-		dnsSuffix: p.DNSSuffix,
-		id:        p.ID,
-		p:         &p,
-	}
 }
 
 func (p partition) canResolveEndpoint(service, region string, strictMatch bool) bool {
@@ -101,7 +81,7 @@ func (p partition) EndpointFor(service, region string, opts ResolveOptions) (res
 	}
 
 	defs := []endpoint{p.Defaults, s.Defaults}
-	return e.resolve(service, region, p.DNSSuffix, defs, opts), nil
+	return e.resolve(service, p.ID, region, p.DNSSuffix, defs, opts), nil
 }
 
 func serviceList(ss services) []string {
@@ -213,7 +193,7 @@ func getByPriority(s []string, p []string, def string) string {
 	return s[0]
 }
 
-func (e endpoint) resolve(service, region, dnsSuffix string, defs []endpoint, opts ResolveOptions) aws.Endpoint {
+func (e endpoint) resolve(service, parittionID, region, dnsSuffix string, defs []endpoint, opts ResolveOptions) aws.Endpoint {
 	var merged endpoint
 	for _, def := range defs {
 		merged.mergeIn(def)
@@ -253,6 +233,7 @@ func (e endpoint) resolve(service, region, dnsSuffix string, defs []endpoint, op
 
 	return aws.Endpoint{
 		URL:                u,
+		PartitionID:        parittionID,
 		SigningRegion:      signingRegion,
 		SigningName:        signingName,
 		SigningNameDerived: signingNameDerived,
@@ -303,7 +284,8 @@ type credentialScope struct {
 	Service string `json:"service"`
 }
 
-type boxedBool int
+// boxedBool is an aws.Ternary alias that allows for unmarshalling bool values from a JSON string
+type boxedBool aws.Ternary
 
 func (b *boxedBool) UnmarshalJSON(buf []byte) error {
 	v, err := strconv.ParseBool(string(buf))
@@ -321,7 +303,7 @@ func (b *boxedBool) UnmarshalJSON(buf []byte) error {
 }
 
 const (
-	boxedBoolUnset boxedBool = iota
-	boxedFalse
-	boxedTrue
+	boxedBoolUnset = boxedBool(aws.UnknownTernary)
+	boxedFalse     = boxedBool(aws.FalseTernary)
+	boxedTrue      = boxedBool(aws.TrueTernary)
 )

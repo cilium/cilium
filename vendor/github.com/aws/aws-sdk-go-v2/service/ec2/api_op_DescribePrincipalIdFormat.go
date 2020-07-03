@@ -116,6 +116,7 @@ func (c *Client) DescribePrincipalIdFormatRequest(input *DescribePrincipalIdForm
 	}
 
 	req := c.newRequest(op, input, &DescribePrincipalIdFormatOutput{})
+
 	return DescribePrincipalIdFormatRequest{Request: req, Input: input, Copy: c.DescribePrincipalIdFormatRequest}
 }
 

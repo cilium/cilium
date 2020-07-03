@@ -148,6 +148,7 @@ func (c *Client) DescribeScheduledInstanceAvailabilityRequest(input *DescribeSch
 	}
 
 	req := c.newRequest(op, input, &DescribeScheduledInstanceAvailabilityOutput{})
+
 	return DescribeScheduledInstanceAvailabilityRequest{Request: req, Input: input, Copy: c.DescribeScheduledInstanceAvailabilityRequest}
 }
 

@@ -98,6 +98,7 @@ func (c *Client) ReplaceTransitGatewayRouteRequest(input *ReplaceTransitGatewayR
 	}
 
 	req := c.newRequest(op, input, &ReplaceTransitGatewayRouteOutput{})
+
 	return ReplaceTransitGatewayRouteRequest{Request: req, Input: input, Copy: c.ReplaceTransitGatewayRouteRequest}
 }
 

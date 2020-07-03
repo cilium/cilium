@@ -88,6 +88,7 @@ func (c *Client) DescribeRegionsRequest(input *DescribeRegionsInput) DescribeReg
 	}
 
 	req := c.newRequest(op, input, &DescribeRegionsOutput{})
+
 	return DescribeRegionsRequest{Request: req, Input: input, Copy: c.DescribeRegionsRequest}
 }
 

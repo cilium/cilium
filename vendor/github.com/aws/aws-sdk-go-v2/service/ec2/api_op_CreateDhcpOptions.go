@@ -120,6 +120,7 @@ func (c *Client) CreateDhcpOptionsRequest(input *CreateDhcpOptionsInput) CreateD
 	}
 
 	req := c.newRequest(op, input, &CreateDhcpOptionsOutput{})
+
 	return CreateDhcpOptionsRequest{Request: req, Input: input, Copy: c.CreateDhcpOptionsRequest}
 }
 

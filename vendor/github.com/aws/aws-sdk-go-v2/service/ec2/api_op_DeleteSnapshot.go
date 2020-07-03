@@ -97,6 +97,7 @@ func (c *Client) DeleteSnapshotRequest(input *DeleteSnapshotInput) DeleteSnapsho
 	req := c.newRequest(op, input, &DeleteSnapshotOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteSnapshotRequest{Request: req, Input: input, Copy: c.DeleteSnapshotRequest}
 }
 

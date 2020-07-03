@@ -38,7 +38,7 @@ github.com/armon/go-metrics
 # github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496
 ## explicit
 github.com/asaskevich/govalidator
-# github.com/aws/aws-sdk-go-v2 v0.18.0
+# github.com/aws/aws-sdk-go-v2 v0.23.0
 ## explicit
 github.com/aws/aws-sdk-go-v2/aws
 github.com/aws/aws-sdk-go-v2/aws/awserr
@@ -48,11 +48,19 @@ github.com/aws/aws-sdk-go-v2/aws/ec2rolecreds
 github.com/aws/aws-sdk-go-v2/aws/endpointcreds
 github.com/aws/aws-sdk-go-v2/aws/endpoints
 github.com/aws/aws-sdk-go-v2/aws/external
+github.com/aws/aws-sdk-go-v2/aws/processcreds
+github.com/aws/aws-sdk-go-v2/aws/ratelimit
+github.com/aws/aws-sdk-go-v2/aws/retry
+github.com/aws/aws-sdk-go-v2/aws/signer/internal/v4
 github.com/aws/aws-sdk-go-v2/aws/signer/v4
 github.com/aws/aws-sdk-go-v2/aws/stscreds
 github.com/aws/aws-sdk-go-v2/internal/awsutil
 github.com/aws/aws-sdk-go-v2/internal/ini
+github.com/aws/aws-sdk-go-v2/internal/rand
 github.com/aws/aws-sdk-go-v2/internal/sdk
+github.com/aws/aws-sdk-go-v2/internal/sdkio
+github.com/aws/aws-sdk-go-v2/internal/sync/singleflight
+github.com/aws/aws-sdk-go-v2/internal/timeconv
 github.com/aws/aws-sdk-go-v2/private/protocol
 github.com/aws/aws-sdk-go-v2/private/protocol/ec2query
 github.com/aws/aws-sdk-go-v2/private/protocol/query
@@ -61,6 +69,7 @@ github.com/aws/aws-sdk-go-v2/private/protocol/rest
 github.com/aws/aws-sdk-go-v2/private/protocol/xml/xmlutil
 github.com/aws/aws-sdk-go-v2/service/ec2
 github.com/aws/aws-sdk-go-v2/service/sts
+github.com/aws/aws-sdk-go-v2/service/sts/stsiface
 # github.com/beorn7/perks v1.0.1
 github.com/beorn7/perks/quantile
 # github.com/blang/semver v3.5.0+incompatible

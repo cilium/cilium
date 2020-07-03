@@ -124,6 +124,7 @@ func (c *Client) AuthorizeSecurityGroupEgressRequest(input *AuthorizeSecurityGro
 	req := c.newRequest(op, input, &AuthorizeSecurityGroupEgressOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return AuthorizeSecurityGroupEgressRequest{Request: req, Input: input, Copy: c.AuthorizeSecurityGroupEgressRequest}
 }
 

@@ -98,6 +98,7 @@ func (c *Client) DeleteClientVpnRouteRequest(input *DeleteClientVpnRouteInput) D
 	}
 
 	req := c.newRequest(op, input, &DeleteClientVpnRouteOutput{})
+
 	return DeleteClientVpnRouteRequest{Request: req, Input: input, Copy: c.DeleteClientVpnRouteRequest}
 }
 

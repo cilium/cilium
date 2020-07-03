@@ -89,6 +89,7 @@ func (c *Client) CreateTransitGatewayMulticastDomainRequest(input *CreateTransit
 	}
 
 	req := c.newRequest(op, input, &CreateTransitGatewayMulticastDomainOutput{})
+
 	return CreateTransitGatewayMulticastDomainRequest{Request: req, Input: input, Copy: c.CreateTransitGatewayMulticastDomainRequest}
 }
 

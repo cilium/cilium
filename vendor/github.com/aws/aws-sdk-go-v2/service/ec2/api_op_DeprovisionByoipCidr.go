@@ -12,8 +12,8 @@ import (
 type DeprovisionByoipCidrInput struct {
 	_ struct{} `type:"structure"`
 
-	// The public IPv4 address range, in CIDR notation. The prefix must be the same
-	// prefix that you specified when you provisioned the address range.
+	// The address range, in CIDR notation. The prefix must be the same prefix that
+	// you specified when you provisioned the address range.
 	//
 	// Cidr is a required field
 	Cidr *string `type:"string" required:"true"`
@@ -89,6 +89,7 @@ func (c *Client) DeprovisionByoipCidrRequest(input *DeprovisionByoipCidrInput) D
 	}
 
 	req := c.newRequest(op, input, &DeprovisionByoipCidrOutput{})
+
 	return DeprovisionByoipCidrRequest{Request: req, Input: input, Copy: c.DeprovisionByoipCidrRequest}
 }
 

@@ -29,7 +29,7 @@ type DescribeVpcEndpointServicePermissionsInput struct {
 	// The maximum number of results to return for the request in a single page.
 	// The remaining results of the initial request can be seen by sending another
 	// request with the returned NextToken value. This value can be between 5 and
-	// 1000; if MaxResults is given a value larger than 1000, only 1000 results
+	// 1,000; if MaxResults is given a value larger than 1,000, only 1,000 results
 	// are returned.
 	MaxResults *int64 `type:"integer"`
 
@@ -111,6 +111,7 @@ func (c *Client) DescribeVpcEndpointServicePermissionsRequest(input *DescribeVpc
 	}
 
 	req := c.newRequest(op, input, &DescribeVpcEndpointServicePermissionsOutput{})
+
 	return DescribeVpcEndpointServicePermissionsRequest{Request: req, Input: input, Copy: c.DescribeVpcEndpointServicePermissionsRequest}
 }
 

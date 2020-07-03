@@ -133,6 +133,7 @@ func (c *Client) ModifyVolumeRequest(input *ModifyVolumeInput) ModifyVolumeReque
 	}
 
 	req := c.newRequest(op, input, &ModifyVolumeOutput{})
+
 	return ModifyVolumeRequest{Request: req, Input: input, Copy: c.ModifyVolumeRequest}
 }
 

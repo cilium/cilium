@@ -14,8 +14,8 @@ import (
 type CreateFleetInput struct {
 	_ struct{} `type:"structure"`
 
-	// Unique, case-sensitive identifier you provide to ensure the idempotency of
-	// the request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
+	// Unique, case-sensitive identifier that you provide to ensure the idempotency
+	// of the request. For more information, see Ensuring Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/Run_Instance_Idempotency.html).
 	ClientToken *string `type:"string"`
 
 	// Checks whether you have the required permissions for the action, without
@@ -166,6 +166,7 @@ func (c *Client) CreateFleetRequest(input *CreateFleetInput) CreateFleetRequest 
 	}
 
 	req := c.newRequest(op, input, &CreateFleetOutput{})
+
 	return CreateFleetRequest{Request: req, Input: input, Copy: c.CreateFleetRequest}
 }
 

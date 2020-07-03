@@ -154,6 +154,7 @@ func (c *Client) CreateTrafficMirrorSessionRequest(input *CreateTrafficMirrorSes
 	}
 
 	req := c.newRequest(op, input, &CreateTrafficMirrorSessionOutput{})
+
 	return CreateTrafficMirrorSessionRequest{Request: req, Input: input, Copy: c.CreateTrafficMirrorSessionRequest}
 }
 

@@ -88,6 +88,7 @@ func (c *Client) RestoreAddressToClassicRequest(input *RestoreAddressToClassicIn
 	}
 
 	req := c.newRequest(op, input, &RestoreAddressToClassicOutput{})
+
 	return RestoreAddressToClassicRequest{Request: req, Input: input, Copy: c.RestoreAddressToClassicRequest}
 }
 

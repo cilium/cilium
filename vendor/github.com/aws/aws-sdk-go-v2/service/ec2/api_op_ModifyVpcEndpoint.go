@@ -33,7 +33,7 @@ type ModifyVpcEndpointInput struct {
 	// policy must be in valid JSON format.
 	PolicyDocument *string `type:"string"`
 
-	// (Interface endpoint) Indicate whether a private hosted zone is associated
+	// (Interface endpoint) Indicates whether a private hosted zone is associated
 	// with the VPC.
 	PrivateDnsEnabled *bool `type:"boolean"`
 
@@ -118,6 +118,7 @@ func (c *Client) ModifyVpcEndpointRequest(input *ModifyVpcEndpointInput) ModifyV
 	}
 
 	req := c.newRequest(op, input, &ModifyVpcEndpointOutput{})
+
 	return ModifyVpcEndpointRequest{Request: req, Input: input, Copy: c.ModifyVpcEndpointRequest}
 }
 

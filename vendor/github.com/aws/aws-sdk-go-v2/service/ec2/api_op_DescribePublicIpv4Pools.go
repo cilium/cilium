@@ -12,6 +12,19 @@ import (
 type DescribePublicIpv4PoolsInput struct {
 	_ struct{} `type:"structure"`
 
+	// One or more filters.
+	//
+	//    * tag:<key> - The key/value combination of a tag assigned to the resource.
+	//    Use the tag key in the filter name and the tag value as the filter value.
+	//    For example, to find all resources that have a tag with the key Owner
+	//    and the value TeamA, specify tag:Owner for the filter name and TeamA for
+	//    the filter value.
+	//
+	//    * tag-key - The key of a tag assigned to the resource. Use this filter
+	//    to find all resources assigned a tag with a specific key, regardless of
+	//    the tag value.
+	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
+
 	// The maximum number of results to return with a single call. To retrieve the
 	// remaining results, make another call with the returned nextToken value.
 	MaxResults *int64 `min:"1" type:"integer"`
@@ -90,6 +103,7 @@ func (c *Client) DescribePublicIpv4PoolsRequest(input *DescribePublicIpv4PoolsIn
 	}
 
 	req := c.newRequest(op, input, &DescribePublicIpv4PoolsOutput{})
+
 	return DescribePublicIpv4PoolsRequest{Request: req, Input: input, Copy: c.DescribePublicIpv4PoolsRequest}
 }
 

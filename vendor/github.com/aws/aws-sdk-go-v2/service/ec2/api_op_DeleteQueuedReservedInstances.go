@@ -88,6 +88,7 @@ func (c *Client) DeleteQueuedReservedInstancesRequest(input *DeleteQueuedReserve
 	}
 
 	req := c.newRequest(op, input, &DeleteQueuedReservedInstancesOutput{})
+
 	return DeleteQueuedReservedInstancesRequest{Request: req, Input: input, Copy: c.DeleteQueuedReservedInstancesRequest}
 }
 

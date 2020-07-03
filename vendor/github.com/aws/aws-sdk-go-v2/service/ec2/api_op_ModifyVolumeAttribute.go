@@ -95,6 +95,7 @@ func (c *Client) ModifyVolumeAttributeRequest(input *ModifyVolumeAttributeInput)
 	req := c.newRequest(op, input, &ModifyVolumeAttributeOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ModifyVolumeAttributeRequest{Request: req, Input: input, Copy: c.ModifyVolumeAttributeRequest}
 }
 

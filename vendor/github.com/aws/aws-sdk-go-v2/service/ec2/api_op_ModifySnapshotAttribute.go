@@ -111,6 +111,7 @@ func (c *Client) ModifySnapshotAttributeRequest(input *ModifySnapshotAttributeIn
 	req := c.newRequest(op, input, &ModifySnapshotAttributeOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ModifySnapshotAttributeRequest{Request: req, Input: input, Copy: c.ModifySnapshotAttributeRequest}
 }
 

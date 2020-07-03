@@ -98,6 +98,7 @@ func (c *Client) ModifyVpcEndpointServicePermissionsRequest(input *ModifyVpcEndp
 	}
 
 	req := c.newRequest(op, input, &ModifyVpcEndpointServicePermissionsOutput{})
+
 	return ModifyVpcEndpointServicePermissionsRequest{Request: req, Input: input, Copy: c.ModifyVpcEndpointServicePermissionsRequest}
 }
 

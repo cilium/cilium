@@ -131,6 +131,7 @@ func (c *Client) CreateNetworkInterfaceRequest(input *CreateNetworkInterfaceInpu
 	}
 
 	req := c.newRequest(op, input, &CreateNetworkInterfaceOutput{})
+
 	return CreateNetworkInterfaceRequest{Request: req, Input: input, Copy: c.CreateNetworkInterfaceRequest}
 }
 

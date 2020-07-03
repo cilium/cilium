@@ -12,12 +12,12 @@ import (
 type CreateVpcEndpointServiceConfigurationInput struct {
 	_ struct{} `type:"structure"`
 
-	// Indicate whether requests from service consumers to create an endpoint to
+	// Indicates whether requests from service consumers to create an endpoint to
 	// your service must be accepted. To accept a request, use AcceptVpcEndpointConnections.
 	AcceptanceRequired *bool `type:"boolean"`
 
-	// Unique, case-sensitive identifier you provide to ensure the idempotency of
-	// the request. For more information, see How to Ensure Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html).
+	// Unique, case-sensitive identifier that you provide to ensure the idempotency
+	// of the request. For more information, see How to Ensure Idempotency (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Run_Instance_Idempotency.html).
 	ClientToken *string `type:"string"`
 
 	// Checks whether you have the required permissions for the action, without
@@ -31,6 +31,12 @@ type CreateVpcEndpointServiceConfigurationInput struct {
 	//
 	// NetworkLoadBalancerArns is a required field
 	NetworkLoadBalancerArns []string `locationName:"NetworkLoadBalancerArn" locationNameList:"item" type:"list" required:"true"`
+
+	// The private DNS name to assign to the VPC endpoint service.
+	PrivateDnsName *string `type:"string"`
+
+	// The tags to associate with the service.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -55,8 +61,8 @@ func (s *CreateVpcEndpointServiceConfigurationInput) Validate() error {
 type CreateVpcEndpointServiceConfigurationOutput struct {
 	_ struct{} `type:"structure"`
 
-	// Unique, case-sensitive identifier you provide to ensure the idempotency of
-	// the request.
+	// Unique, case-sensitive identifier that you provide to ensure the idempotency
+	// of the request.
 	ClientToken *string `locationName:"clientToken" type:"string"`
 
 	// Information about the service configuration.
@@ -82,6 +88,11 @@ const opCreateVpcEndpointServiceConfiguration = "CreateVpcEndpointServiceConfigu
 // (https://docs.aws.amazon.com/vpc/latest/userguide/endpoint-service.html)
 // in the Amazon Virtual Private Cloud User Guide.
 //
+// If you set the private DNS name, you must prove that you own the private
+// DNS domain name. For more information, see VPC Endpoint Service Private DNS
+// Name Verification (https://docs.aws.amazon.com/vpc/latest/userguide/endpoint-services-dns-validation.html)
+// in the Amazon Virtual Private Cloud User Guide.
+//
 //    // Example sending a request using CreateVpcEndpointServiceConfigurationRequest.
 //    req := client.CreateVpcEndpointServiceConfigurationRequest(params)
 //    resp, err := req.Send(context.TODO())
@@ -102,6 +113,7 @@ func (c *Client) CreateVpcEndpointServiceConfigurationRequest(input *CreateVpcEn
 	}
 
 	req := c.newRequest(op, input, &CreateVpcEndpointServiceConfigurationOutput{})
+
 	return CreateVpcEndpointServiceConfigurationRequest{Request: req, Input: input, Copy: c.CreateVpcEndpointServiceConfigurationRequest}
 }
 

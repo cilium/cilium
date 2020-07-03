@@ -141,20 +141,23 @@ const opRegisterImage = "RegisterImage"
 // and SUSE Linux Enterprise Server (SLES), use the EC2 billing product code
 // associated with an AMI to verify the subscription status for package updates.
 // To create a new AMI for operating systems that require a billing product
-// code, do the following:
+// code, instead of registering the AMI, do the following to preserve the billing
+// product code association:
 //
 // Launch an instance from an existing AMI with that billing product code.
 //
 // Customize the instance.
 //
-// Create a new AMI from the instance using CreateImage to preserve the billing
-// product code association.
+// Create an AMI from the instance using CreateImage.
 //
 // If you purchase a Reserved Instance to apply to an On-Demand Instance that
 // was launched from an AMI with a billing product code, make sure that the
 // Reserved Instance has the matching billing product code. If you purchase
 // a Reserved Instance without the matching billing product code, the Reserved
-// Instance will not be applied to the On-Demand Instance.
+// Instance will not be applied to the On-Demand Instance. For information about
+// how to obtain the platform details and billing information of an AMI, see
+// Obtaining Billing Information (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ami-billing-info.html)
+// in the Amazon Elastic Compute Cloud User Guide.
 //
 // If needed, you can deregister an AMI at any time. Any modifications you make
 // to an AMI backed by an instance store volume invalidates its registration.
@@ -181,6 +184,7 @@ func (c *Client) RegisterImageRequest(input *RegisterImageInput) RegisterImageRe
 	}
 
 	req := c.newRequest(op, input, &RegisterImageOutput{})
+
 	return RegisterImageRequest{Request: req, Input: input, Copy: c.RegisterImageRequest}
 }
 

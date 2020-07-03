@@ -100,6 +100,7 @@ func (c *Client) DescribeCustomerGatewaysRequest(input *DescribeCustomerGateways
 	}
 
 	req := c.newRequest(op, input, &DescribeCustomerGatewaysOutput{})
+
 	return DescribeCustomerGatewaysRequest{Request: req, Input: input, Copy: c.DescribeCustomerGatewaysRequest}
 }
 

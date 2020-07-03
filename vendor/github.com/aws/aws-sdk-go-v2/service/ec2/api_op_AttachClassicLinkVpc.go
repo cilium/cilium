@@ -112,6 +112,7 @@ func (c *Client) AttachClassicLinkVpcRequest(input *AttachClassicLinkVpcInput) A
 	}
 
 	req := c.newRequest(op, input, &AttachClassicLinkVpcOutput{})
+
 	return AttachClassicLinkVpcRequest{Request: req, Input: input, Copy: c.AttachClassicLinkVpcRequest}
 }
 

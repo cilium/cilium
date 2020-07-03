@@ -2,6 +2,7 @@ package ec2rolecreds
 
 import (
 	"bufio"
+	"context"
 	"encoding/json"
 	"fmt"
 	"path"
@@ -19,9 +20,9 @@ const ProviderName = "EC2RoleProvider"
 // A Provider retrieves credentials from the EC2 service, and keeps track if
 // those credentials are expired.
 //
-// The NewProvider function must be used to create the Provider.
+// The New function must be used to create the Provider.
 //
-//     p := &ec2rolecreds.NewProvider(ec2metadata.New(cfg))
+//     p := &ec2rolecreds.New(ec2metadata.New(options))
 //
 //     // Expire the credentials 10 minutes before IAM states they should. Proactivily
 //     // refreshing the credentials.
@@ -30,8 +31,13 @@ type Provider struct {
 	aws.SafeCredentialsProvider
 
 	// Required EC2Metadata client to use when connecting to EC2 metadata service.
-	Client *ec2metadata.Client
+	client *ec2metadata.Client
 
+	options ProviderOptions
+}
+
+// ProviderOptions is a list of user settable options for setting the behavior of the Provider.
+type ProviderOptions struct {
 	// ExpiryWindow will allow the credentials to trigger refreshing prior to
 	// the credentials actually expiring. This is beneficial so race conditions
 	// with expiring credentials do not cause request to fail unexpectedly
@@ -44,13 +50,17 @@ type Provider struct {
 	ExpiryWindow time.Duration
 }
 
-// NewProvider returns an initialized Provider value configured to retrieve
+// New returns an initialized Provider value configured to retrieve
 // credentials from EC2 Instance Metadata service.
-func NewProvider(client *ec2metadata.Client) *Provider {
-	p := &Provider{
-		Client: client,
-	}
+func New(client *ec2metadata.Client, options ...func(*ProviderOptions)) *Provider {
+	p := &Provider{}
+
+	p.client = client
 	p.RetrieveFn = p.retrieveFn
+
+	for _, option := range options {
+		option(&p.options)
+	}
 
 	return p
 }
@@ -59,7 +69,7 @@ func NewProvider(client *ec2metadata.Client) *Provider {
 // Error will be returned if the request fails, or unable to extract
 // the desired credentials.
 func (p *Provider) retrieveFn() (aws.Credentials, error) {
-	credsList, err := requestCredList(p.Client)
+	credsList, err := requestCredList(context.Background(), p.client)
 	if err != nil {
 		return aws.Credentials{}, err
 	}
@@ -70,7 +80,7 @@ func (p *Provider) retrieveFn() (aws.Credentials, error) {
 	}
 	credsName := credsList[0]
 
-	roleCreds, err := requestCred(p.Client, credsName)
+	roleCreds, err := requestCred(context.Background(), p.client, credsName)
 	if err != nil {
 		return aws.Credentials{}, err
 	}
@@ -82,7 +92,7 @@ func (p *Provider) retrieveFn() (aws.Credentials, error) {
 		Source:          ProviderName,
 
 		CanExpire: true,
-		Expires:   roleCreds.Expiration.Add(-p.ExpiryWindow),
+		Expires:   roleCreds.Expiration.Add(-p.options.ExpiryWindow),
 	}
 
 	return creds, nil
@@ -106,8 +116,8 @@ const iamSecurityCredsPath = "/iam/security-credentials/"
 
 // requestCredList requests a list of credentials from the EC2 service.
 // If there are no credentials, or there is an error making or receiving the request
-func requestCredList(client *ec2metadata.Client) ([]string, error) {
-	resp, err := client.GetMetadata(iamSecurityCredsPath)
+func requestCredList(ctx context.Context, client *ec2metadata.Client) ([]string, error) {
+	resp, err := client.GetMetadata(ctx, iamSecurityCredsPath)
 	if err != nil {
 		return nil, awserr.New("EC2RoleRequestError", "no EC2 instance role found", err)
 	}
@@ -129,8 +139,8 @@ func requestCredList(client *ec2metadata.Client) ([]string, error) {
 //
 // If the credentials cannot be found, or there is an error reading the response
 // and error will be returned.
-func requestCred(client *ec2metadata.Client, credsName string) (ec2RoleCredRespBody, error) {
-	resp, err := client.GetMetadata(path.Join(iamSecurityCredsPath, credsName))
+func requestCred(ctx context.Context, client *ec2metadata.Client, credsName string) (ec2RoleCredRespBody, error) {
+	resp, err := client.GetMetadata(ctx, path.Join(iamSecurityCredsPath, credsName))
 	if err != nil {
 		return ec2RoleCredRespBody{},
 			awserr.New("EC2RoleRequestError",

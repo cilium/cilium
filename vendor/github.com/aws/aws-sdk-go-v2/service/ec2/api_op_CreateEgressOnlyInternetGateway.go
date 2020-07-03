@@ -93,6 +93,7 @@ func (c *Client) CreateEgressOnlyInternetGatewayRequest(input *CreateEgressOnlyI
 	}
 
 	req := c.newRequest(op, input, &CreateEgressOnlyInternetGatewayOutput{})
+
 	return CreateEgressOnlyInternetGatewayRequest{Request: req, Input: input, Copy: c.CreateEgressOnlyInternetGatewayRequest}
 }
 

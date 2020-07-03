@@ -124,6 +124,7 @@ func (c *Client) SearchTransitGatewayRoutesRequest(input *SearchTransitGatewayRo
 	}
 
 	req := c.newRequest(op, input, &SearchTransitGatewayRoutesOutput{})
+
 	return SearchTransitGatewayRoutesRequest{Request: req, Input: input, Copy: c.SearchTransitGatewayRoutesRequest}
 }
 

@@ -86,6 +86,7 @@ func (c *Client) CreateDefaultSubnetRequest(input *CreateDefaultSubnetInput) Cre
 	}
 
 	req := c.newRequest(op, input, &CreateDefaultSubnetOutput{})
+
 	return CreateDefaultSubnetRequest{Request: req, Input: input, Copy: c.CreateDefaultSubnetRequest}
 }
 

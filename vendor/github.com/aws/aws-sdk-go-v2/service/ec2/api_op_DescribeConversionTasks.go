@@ -70,6 +70,7 @@ func (c *Client) DescribeConversionTasksRequest(input *DescribeConversionTasksIn
 	}
 
 	req := c.newRequest(op, input, &DescribeConversionTasksOutput{})
+
 	return DescribeConversionTasksRequest{Request: req, Input: input, Copy: c.DescribeConversionTasksRequest}
 }
 

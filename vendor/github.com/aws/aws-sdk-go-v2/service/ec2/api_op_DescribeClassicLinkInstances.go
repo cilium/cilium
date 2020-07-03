@@ -122,6 +122,7 @@ func (c *Client) DescribeClassicLinkInstancesRequest(input *DescribeClassicLinkI
 	}
 
 	req := c.newRequest(op, input, &DescribeClassicLinkInstancesOutput{})
+
 	return DescribeClassicLinkInstancesRequest{Request: req, Input: input, Copy: c.DescribeClassicLinkInstancesRequest}
 }
 

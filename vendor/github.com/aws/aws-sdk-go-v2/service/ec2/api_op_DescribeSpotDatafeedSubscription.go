@@ -67,6 +67,7 @@ func (c *Client) DescribeSpotDatafeedSubscriptionRequest(input *DescribeSpotData
 	}
 
 	req := c.newRequest(op, input, &DescribeSpotDatafeedSubscriptionOutput{})
+
 	return DescribeSpotDatafeedSubscriptionRequest{Request: req, Input: input, Copy: c.DescribeSpotDatafeedSubscriptionRequest}
 }
 

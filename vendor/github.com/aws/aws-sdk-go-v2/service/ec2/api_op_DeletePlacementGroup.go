@@ -86,6 +86,7 @@ func (c *Client) DeletePlacementGroupRequest(input *DeletePlacementGroupInput) D
 	req := c.newRequest(op, input, &DeletePlacementGroupOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeletePlacementGroupRequest{Request: req, Input: input, Copy: c.DeletePlacementGroupRequest}
 }
 

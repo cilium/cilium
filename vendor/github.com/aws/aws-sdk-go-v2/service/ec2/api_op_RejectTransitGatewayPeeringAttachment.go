@@ -82,6 +82,7 @@ func (c *Client) RejectTransitGatewayPeeringAttachmentRequest(input *RejectTrans
 	}
 
 	req := c.newRequest(op, input, &RejectTransitGatewayPeeringAttachmentOutput{})
+
 	return RejectTransitGatewayPeeringAttachmentRequest{Request: req, Input: input, Copy: c.RejectTransitGatewayPeeringAttachmentRequest}
 }
 

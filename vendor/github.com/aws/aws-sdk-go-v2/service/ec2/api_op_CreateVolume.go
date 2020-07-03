@@ -65,10 +65,18 @@ type CreateVolumeInput struct {
 	// fails.
 	KmsKeyId *string `type:"string"`
 
+	// Specifies whether to enable Amazon EBS Multi-Attach. If you enable Multi-Attach,
+	// you can attach the volume to up to 16 Nitro-based instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/instance-types.html#ec2-nitro-instances)
+	// in the same Availability Zone. For more information, see Amazon EBS Multi-Attach
+	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-volumes-multi.html)
+	// in the Amazon Elastic Compute Cloud User Guide.
+	MultiAttachEnabled *bool `type:"boolean"`
+
 	// The Amazon Resource Name (ARN) of the Outpost.
 	OutpostArn *string `type:"string"`
 
-	// The size of the volume, in GiBs.
+	// The size of the volume, in GiBs. You must specify either a snapshot ID or
+	// a volume size.
 	//
 	// Constraints: 1-16,384 for gp2, 4-16,384 for io1, 500-16,384 for st1, 500-16,384
 	// for sc1, and 1-1,024 for standard. If you specify a snapshot, the volume
@@ -76,13 +84,10 @@ type CreateVolumeInput struct {
 	//
 	// Default: If you're creating the volume from a snapshot and don't specify
 	// a volume size, the default is the snapshot size.
-	//
-	// At least one of Size or SnapshotId is required.
 	Size *int64 `type:"integer"`
 
-	// The snapshot from which to create the volume.
-	//
-	// At least one of Size or SnapshotId are required.
+	// The snapshot from which to create the volume. You must specify either a snapshot
+	// ID or a volume size.
 	SnapshotId *string `type:"string"`
 
 	// The tags to apply to the volume during creation.
@@ -155,6 +160,9 @@ type CreateVolumeOutput struct {
 	// customer master key (CMK) that was used to protect the volume encryption
 	// key for the volume.
 	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
+
+	// Indicates whether Amazon EBS Multi-Attach is enabled.
+	MultiAttachEnabled *bool `locationName:"multiAttachEnabled" type:"boolean"`
 
 	// The Amazon Resource Name (ARN) of the Outpost.
 	OutpostArn *string `locationName:"outpostArn" type:"string"`
@@ -231,6 +239,7 @@ func (c *Client) CreateVolumeRequest(input *CreateVolumeInput) CreateVolumeReque
 	}
 
 	req := c.newRequest(op, input, &CreateVolumeOutput{})
+
 	return CreateVolumeRequest{Request: req, Input: input, Copy: c.CreateVolumeRequest}
 }
 

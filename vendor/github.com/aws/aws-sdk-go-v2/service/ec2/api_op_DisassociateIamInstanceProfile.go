@@ -78,6 +78,7 @@ func (c *Client) DisassociateIamInstanceProfileRequest(input *DisassociateIamIns
 	}
 
 	req := c.newRequest(op, input, &DisassociateIamInstanceProfileOutput{})
+
 	return DisassociateIamInstanceProfileRequest{Request: req, Input: input, Copy: c.DisassociateIamInstanceProfileRequest}
 }
 

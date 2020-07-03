@@ -101,6 +101,7 @@ func (c *Client) DescribeVpcAttributeRequest(input *DescribeVpcAttributeInput) D
 	}
 
 	req := c.newRequest(op, input, &DescribeVpcAttributeOutput{})
+
 	return DescribeVpcAttributeRequest{Request: req, Input: input, Copy: c.DescribeVpcAttributeRequest}
 }
 

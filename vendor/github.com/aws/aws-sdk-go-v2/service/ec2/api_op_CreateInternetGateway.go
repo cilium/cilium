@@ -67,6 +67,7 @@ func (c *Client) CreateInternetGatewayRequest(input *CreateInternetGatewayInput)
 	}
 
 	req := c.newRequest(op, input, &CreateInternetGatewayOutput{})
+
 	return CreateInternetGatewayRequest{Request: req, Input: input, Copy: c.CreateInternetGatewayRequest}
 }
 

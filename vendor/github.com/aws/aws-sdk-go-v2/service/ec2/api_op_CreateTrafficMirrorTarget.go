@@ -94,6 +94,7 @@ func (c *Client) CreateTrafficMirrorTargetRequest(input *CreateTrafficMirrorTarg
 	}
 
 	req := c.newRequest(op, input, &CreateTrafficMirrorTargetOutput{})
+
 	return CreateTrafficMirrorTargetRequest{Request: req, Input: input, Copy: c.CreateTrafficMirrorTargetRequest}
 }
 

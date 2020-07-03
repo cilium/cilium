@@ -115,6 +115,7 @@ func (c *Client) DescribeElasticGpusRequest(input *DescribeElasticGpusInput) Des
 	}
 
 	req := c.newRequest(op, input, &DescribeElasticGpusOutput{})
+
 	return DescribeElasticGpusRequest{Request: req, Input: input, Copy: c.DescribeElasticGpusRequest}
 }
 

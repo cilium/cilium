@@ -127,6 +127,7 @@ func (c *Client) DescribeSpotPriceHistoryRequest(input *DescribeSpotPriceHistory
 	}
 
 	req := c.newRequest(op, input, &DescribeSpotPriceHistoryOutput{})
+
 	return DescribeSpotPriceHistoryRequest{Request: req, Input: input, Copy: c.DescribeSpotPriceHistoryRequest}
 }
 

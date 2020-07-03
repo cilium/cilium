@@ -75,6 +75,7 @@ func (c *Client) CancelImportTaskRequest(input *CancelImportTaskInput) CancelImp
 	}
 
 	req := c.newRequest(op, input, &CancelImportTaskOutput{})
+
 	return CancelImportTaskRequest{Request: req, Input: input, Copy: c.CancelImportTaskRequest}
 }
 

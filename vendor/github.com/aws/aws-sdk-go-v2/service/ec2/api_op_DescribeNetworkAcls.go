@@ -151,6 +151,7 @@ func (c *Client) DescribeNetworkAclsRequest(input *DescribeNetworkAclsInput) Des
 	}
 
 	req := c.newRequest(op, input, &DescribeNetworkAclsOutput{})
+
 	return DescribeNetworkAclsRequest{Request: req, Input: input, Copy: c.DescribeNetworkAclsRequest}
 }
 

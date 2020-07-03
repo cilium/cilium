@@ -82,6 +82,7 @@ func (c *Client) CancelReservedInstancesListingRequest(input *CancelReservedInst
 	}
 
 	req := c.newRequest(op, input, &CancelReservedInstancesListingOutput{})
+
 	return CancelReservedInstancesListingRequest{Request: req, Input: input, Copy: c.CancelReservedInstancesListingRequest}
 }
 

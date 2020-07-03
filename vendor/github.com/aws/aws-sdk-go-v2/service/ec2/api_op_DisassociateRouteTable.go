@@ -15,7 +15,7 @@ type DisassociateRouteTableInput struct {
 	_ struct{} `type:"structure"`
 
 	// The association ID representing the current association between the route
-	// table and subnet.
+	// table and subnet or gateway.
 	//
 	// AssociationId is a required field
 	AssociationId *string `locationName:"associationId" type:"string" required:"true"`
@@ -60,7 +60,7 @@ const opDisassociateRouteTable = "DisassociateRouteTable"
 // DisassociateRouteTableRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Disassociates a subnet from a route table.
+// Disassociates a subnet or gateway from a route table.
 //
 // After you perform this action, the subnet no longer uses the routes in the
 // route table. Instead, it uses the routes in the VPC's main route table. For
@@ -89,6 +89,7 @@ func (c *Client) DisassociateRouteTableRequest(input *DisassociateRouteTableInpu
 	req := c.newRequest(op, input, &DisassociateRouteTableOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DisassociateRouteTableRequest{Request: req, Input: input, Copy: c.DisassociateRouteTableRequest}
 }
 

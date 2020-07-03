@@ -109,6 +109,7 @@ func (c *Client) DescribeHostsRequest(input *DescribeHostsInput) DescribeHostsRe
 	}
 
 	req := c.newRequest(op, input, &DescribeHostsOutput{})
+
 	return DescribeHostsRequest{Request: req, Input: input, Copy: c.DescribeHostsRequest}
 }
 

@@ -104,6 +104,7 @@ func (c *Client) ImportInstanceRequest(input *ImportInstanceInput) ImportInstanc
 	}
 
 	req := c.newRequest(op, input, &ImportInstanceOutput{})
+
 	return ImportInstanceRequest{Request: req, Input: input, Copy: c.ImportInstanceRequest}
 }
 

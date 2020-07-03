@@ -97,6 +97,7 @@ func (c *Client) ReleaseAddressRequest(input *ReleaseAddressInput) ReleaseAddres
 	req := c.newRequest(op, input, &ReleaseAddressOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ReleaseAddressRequest{Request: req, Input: input, Copy: c.ReleaseAddressRequest}
 }
 

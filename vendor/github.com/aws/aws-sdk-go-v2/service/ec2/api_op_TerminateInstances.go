@@ -109,6 +109,7 @@ func (c *Client) TerminateInstancesRequest(input *TerminateInstancesInput) Termi
 	}
 
 	req := c.newRequest(op, input, &TerminateInstancesOutput{})
+
 	return TerminateInstancesRequest{Request: req, Input: input, Copy: c.TerminateInstancesRequest}
 }
 

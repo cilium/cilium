@@ -73,6 +73,7 @@ func (c *Client) DeregisterTransitGatewayMulticastGroupMembersRequest(input *Der
 	}
 
 	req := c.newRequest(op, input, &DeregisterTransitGatewayMulticastGroupMembersOutput{})
+
 	return DeregisterTransitGatewayMulticastGroupMembersRequest{Request: req, Input: input, Copy: c.DeregisterTransitGatewayMulticastGroupMembersRequest}
 }
 

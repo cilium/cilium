@@ -104,7 +104,7 @@ type AssumeRoleWithSAMLInput struct {
 	// in the IAM User Guide.
 	//
 	// SAMLAssertion is a required field
-	SAMLAssertion *string `min:"4" type:"string" required:"true"`
+	SAMLAssertion *string `min:"4" type:"string" required:"true" sensitive:"true"`
 }
 
 // String returns the string representation
@@ -357,6 +357,7 @@ func (c *Client) AssumeRoleWithSAMLRequest(input *AssumeRoleWithSAMLInput) Assum
 
 	req := c.newRequest(op, input, &AssumeRoleWithSAMLOutput{})
 	req.Config.Credentials = aws.AnonymousCredentials
+
 	return AssumeRoleWithSAMLRequest{Request: req, Input: input, Copy: c.AssumeRoleWithSAMLRequest}
 }
 

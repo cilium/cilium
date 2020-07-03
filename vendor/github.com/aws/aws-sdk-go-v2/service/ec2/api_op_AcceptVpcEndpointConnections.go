@@ -18,7 +18,7 @@ type AcceptVpcEndpointConnectionsInput struct {
 	// it is UnauthorizedOperation.
 	DryRun *bool `type:"boolean"`
 
-	// The ID of the endpoint service.
+	// The ID of the VPC endpoint service.
 	//
 	// ServiceId is a required field
 	ServiceId *string `type:"string" required:"true"`
@@ -92,6 +92,7 @@ func (c *Client) AcceptVpcEndpointConnectionsRequest(input *AcceptVpcEndpointCon
 	}
 
 	req := c.newRequest(op, input, &AcceptVpcEndpointConnectionsOutput{})
+
 	return AcceptVpcEndpointConnectionsRequest{Request: req, Input: input, Copy: c.AcceptVpcEndpointConnectionsRequest}
 }
 

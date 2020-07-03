@@ -83,6 +83,7 @@ func (c *Client) DescribeSecurityGroupReferencesRequest(input *DescribeSecurityG
 	}
 
 	req := c.newRequest(op, input, &DescribeSecurityGroupReferencesOutput{})
+
 	return DescribeSecurityGroupReferencesRequest{Request: req, Input: input, Copy: c.DescribeSecurityGroupReferencesRequest}
 }
 

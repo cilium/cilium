@@ -82,6 +82,7 @@ func (c *Client) DeleteLocalGatewayRouteTableVpcAssociationRequest(input *Delete
 	}
 
 	req := c.newRequest(op, input, &DeleteLocalGatewayRouteTableVpcAssociationOutput{})
+
 	return DeleteLocalGatewayRouteTableVpcAssociationRequest{Request: req, Input: input, Copy: c.DeleteLocalGatewayRouteTableVpcAssociationRequest}
 }
 

@@ -109,6 +109,7 @@ func (c *Client) ModifyFpgaImageAttributeRequest(input *ModifyFpgaImageAttribute
 	}
 
 	req := c.newRequest(op, input, &ModifyFpgaImageAttributeOutput{})
+
 	return ModifyFpgaImageAttributeRequest{Request: req, Input: input, Copy: c.ModifyFpgaImageAttributeRequest}
 }
 

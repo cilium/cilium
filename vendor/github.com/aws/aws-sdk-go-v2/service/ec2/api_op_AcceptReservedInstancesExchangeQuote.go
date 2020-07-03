@@ -98,6 +98,7 @@ func (c *Client) AcceptReservedInstancesExchangeQuoteRequest(input *AcceptReserv
 	}
 
 	req := c.newRequest(op, input, &AcceptReservedInstancesExchangeQuoteOutput{})
+
 	return AcceptReservedInstancesExchangeQuoteRequest{Request: req, Input: input, Copy: c.AcceptReservedInstancesExchangeQuoteRequest}
 }
 

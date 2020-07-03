@@ -19,6 +19,14 @@ type DescribeLocalGatewayRouteTablesInput struct {
 	DryRun *bool `type:"boolean"`
 
 	// One or more filters.
+	//
+	//    * local-gateway-id - The ID of a local gateway.
+	//
+	//    * local-gateway-route-table-id - The ID of a local gateway route table.
+	//
+	//    * outpost-arn - The Amazon Resource Name (ARN) of the Outpost.
+	//
+	//    * state - The state of the local gateway route table.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// The IDs of the local gateway route tables.
@@ -87,6 +95,12 @@ func (c *Client) DescribeLocalGatewayRouteTablesRequest(input *DescribeLocalGate
 		Name:       opDescribeLocalGatewayRouteTables,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
+		Paginator: &aws.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
 	}
 
 	if input == nil {
@@ -94,6 +108,7 @@ func (c *Client) DescribeLocalGatewayRouteTablesRequest(input *DescribeLocalGate
 	}
 
 	req := c.newRequest(op, input, &DescribeLocalGatewayRouteTablesOutput{})
+
 	return DescribeLocalGatewayRouteTablesRequest{Request: req, Input: input, Copy: c.DescribeLocalGatewayRouteTablesRequest}
 }
 
@@ -119,6 +134,53 @@ func (r DescribeLocalGatewayRouteTablesRequest) Send(ctx context.Context) (*Desc
 	}
 
 	return resp, nil
+}
+
+// NewDescribeLocalGatewayRouteTablesRequestPaginator returns a paginator for DescribeLocalGatewayRouteTables.
+// Use Next method to get the next page, and CurrentPage to get the current
+// response page from the paginator. Next will return false, if there are
+// no more pages, or an error was encountered.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//   // Example iterating over pages.
+//   req := client.DescribeLocalGatewayRouteTablesRequest(input)
+//   p := ec2.NewDescribeLocalGatewayRouteTablesRequestPaginator(req)
+//
+//   for p.Next(context.TODO()) {
+//       page := p.CurrentPage()
+//   }
+//
+//   if err := p.Err(); err != nil {
+//       return err
+//   }
+//
+func NewDescribeLocalGatewayRouteTablesPaginator(req DescribeLocalGatewayRouteTablesRequest) DescribeLocalGatewayRouteTablesPaginator {
+	return DescribeLocalGatewayRouteTablesPaginator{
+		Pager: aws.Pager{
+			NewRequest: func(ctx context.Context) (*aws.Request, error) {
+				var inCpy *DescribeLocalGatewayRouteTablesInput
+				if req.Input != nil {
+					tmp := *req.Input
+					inCpy = &tmp
+				}
+
+				newReq := req.Copy(inCpy)
+				newReq.SetContext(ctx)
+				return newReq.Request, nil
+			},
+		},
+	}
+}
+
+// DescribeLocalGatewayRouteTablesPaginator is used to paginate the request. This can be done by
+// calling Next and CurrentPage.
+type DescribeLocalGatewayRouteTablesPaginator struct {
+	aws.Pager
+}
+
+func (p *DescribeLocalGatewayRouteTablesPaginator) CurrentPage() *DescribeLocalGatewayRouteTablesOutput {
+	return p.Pager.CurrentPage().(*DescribeLocalGatewayRouteTablesOutput)
 }
 
 // DescribeLocalGatewayRouteTablesResponse is the response type for the

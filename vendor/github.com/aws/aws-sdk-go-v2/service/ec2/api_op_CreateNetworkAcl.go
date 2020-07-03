@@ -86,6 +86,7 @@ func (c *Client) CreateNetworkAclRequest(input *CreateNetworkAclInput) CreateNet
 	}
 
 	req := c.newRequest(op, input, &CreateNetworkAclOutput{})
+
 	return CreateNetworkAclRequest{Request: req, Input: input, Copy: c.CreateNetworkAclRequest}
 }
 

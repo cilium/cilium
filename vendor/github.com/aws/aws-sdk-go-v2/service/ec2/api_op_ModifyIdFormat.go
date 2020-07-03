@@ -117,6 +117,7 @@ func (c *Client) ModifyIdFormatRequest(input *ModifyIdFormatInput) ModifyIdForma
 	req := c.newRequest(op, input, &ModifyIdFormatOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ModifyIdFormatRequest{Request: req, Input: input, Copy: c.ModifyIdFormatRequest}
 }
 

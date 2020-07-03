@@ -175,6 +175,7 @@ func (c *Client) ModifyInstanceAttributeRequest(input *ModifyInstanceAttributeIn
 	req := c.newRequest(op, input, &ModifyInstanceAttributeOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return ModifyInstanceAttributeRequest{Request: req, Input: input, Copy: c.ModifyInstanceAttributeRequest}
 }
 

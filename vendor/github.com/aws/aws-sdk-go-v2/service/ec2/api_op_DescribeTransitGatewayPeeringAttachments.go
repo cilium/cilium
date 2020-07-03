@@ -18,7 +18,20 @@ type DescribeTransitGatewayPeeringAttachmentsInput struct {
 	// it is UnauthorizedOperation.
 	DryRun *bool `type:"boolean"`
 
-	// One or more filters.
+	// One or more filters. The possible values are:
+	//
+	//    * transit-gateway-attachment-id - The ID of the transit gateway attachment.
+	//
+	//    * local-owner-id - The ID of your AWS account.
+	//
+	//    * remote-owner-id - The ID of the AWS account in the remote Region that
+	//    owns the transit gateway.
+	//
+	//    * state - The state of the peering attachment (available | deleted | deleting
+	//    | failed | modifying | pendingAcceptance | pending | rollingBack | rejected
+	//    | rejecting).
+	//
+	//    * transit-gateway-id - The ID of the transit gateway.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// The maximum number of results to return with a single call. To retrieve the
@@ -86,6 +99,12 @@ func (c *Client) DescribeTransitGatewayPeeringAttachmentsRequest(input *Describe
 		Name:       opDescribeTransitGatewayPeeringAttachments,
 		HTTPMethod: "POST",
 		HTTPPath:   "/",
+		Paginator: &aws.Paginator{
+			InputTokens:     []string{"NextToken"},
+			OutputTokens:    []string{"NextToken"},
+			LimitToken:      "MaxResults",
+			TruncationToken: "",
+		},
 	}
 
 	if input == nil {
@@ -93,6 +112,7 @@ func (c *Client) DescribeTransitGatewayPeeringAttachmentsRequest(input *Describe
 	}
 
 	req := c.newRequest(op, input, &DescribeTransitGatewayPeeringAttachmentsOutput{})
+
 	return DescribeTransitGatewayPeeringAttachmentsRequest{Request: req, Input: input, Copy: c.DescribeTransitGatewayPeeringAttachmentsRequest}
 }
 
@@ -118,6 +138,53 @@ func (r DescribeTransitGatewayPeeringAttachmentsRequest) Send(ctx context.Contex
 	}
 
 	return resp, nil
+}
+
+// NewDescribeTransitGatewayPeeringAttachmentsRequestPaginator returns a paginator for DescribeTransitGatewayPeeringAttachments.
+// Use Next method to get the next page, and CurrentPage to get the current
+// response page from the paginator. Next will return false, if there are
+// no more pages, or an error was encountered.
+//
+// Note: This operation can generate multiple requests to a service.
+//
+//   // Example iterating over pages.
+//   req := client.DescribeTransitGatewayPeeringAttachmentsRequest(input)
+//   p := ec2.NewDescribeTransitGatewayPeeringAttachmentsRequestPaginator(req)
+//
+//   for p.Next(context.TODO()) {
+//       page := p.CurrentPage()
+//   }
+//
+//   if err := p.Err(); err != nil {
+//       return err
+//   }
+//
+func NewDescribeTransitGatewayPeeringAttachmentsPaginator(req DescribeTransitGatewayPeeringAttachmentsRequest) DescribeTransitGatewayPeeringAttachmentsPaginator {
+	return DescribeTransitGatewayPeeringAttachmentsPaginator{
+		Pager: aws.Pager{
+			NewRequest: func(ctx context.Context) (*aws.Request, error) {
+				var inCpy *DescribeTransitGatewayPeeringAttachmentsInput
+				if req.Input != nil {
+					tmp := *req.Input
+					inCpy = &tmp
+				}
+
+				newReq := req.Copy(inCpy)
+				newReq.SetContext(ctx)
+				return newReq.Request, nil
+			},
+		},
+	}
+}
+
+// DescribeTransitGatewayPeeringAttachmentsPaginator is used to paginate the request. This can be done by
+// calling Next and CurrentPage.
+type DescribeTransitGatewayPeeringAttachmentsPaginator struct {
+	aws.Pager
+}
+
+func (p *DescribeTransitGatewayPeeringAttachmentsPaginator) CurrentPage() *DescribeTransitGatewayPeeringAttachmentsOutput {
+	return p.Pager.CurrentPage().(*DescribeTransitGatewayPeeringAttachmentsOutput)
 }
 
 // DescribeTransitGatewayPeeringAttachmentsResponse is the response type for the

@@ -130,6 +130,7 @@ func (c *Client) DescribeReservedInstancesRequest(input *DescribeReservedInstanc
 	}
 
 	req := c.newRequest(op, input, &DescribeReservedInstancesOutput{})
+
 	return DescribeReservedInstancesRequest{Request: req, Input: input, Copy: c.DescribeReservedInstancesRequest}
 }
 

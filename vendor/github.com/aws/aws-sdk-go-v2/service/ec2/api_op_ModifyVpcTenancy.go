@@ -99,6 +99,7 @@ func (c *Client) ModifyVpcTenancyRequest(input *ModifyVpcTenancyInput) ModifyVpc
 	}
 
 	req := c.newRequest(op, input, &ModifyVpcTenancyOutput{})
+
 	return ModifyVpcTenancyRequest{Request: req, Input: input, Copy: c.ModifyVpcTenancyRequest}
 }
 

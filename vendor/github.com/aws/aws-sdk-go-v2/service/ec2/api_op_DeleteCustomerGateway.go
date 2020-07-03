@@ -85,6 +85,7 @@ func (c *Client) DeleteCustomerGatewayRequest(input *DeleteCustomerGatewayInput)
 	req := c.newRequest(op, input, &DeleteCustomerGatewayOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return DeleteCustomerGatewayRequest{Request: req, Input: input, Copy: c.DeleteCustomerGatewayRequest}
 }
 

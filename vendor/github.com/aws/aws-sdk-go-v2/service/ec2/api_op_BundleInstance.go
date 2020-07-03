@@ -107,6 +107,7 @@ func (c *Client) BundleInstanceRequest(input *BundleInstanceInput) BundleInstanc
 	}
 
 	req := c.newRequest(op, input, &BundleInstanceOutput{})
+
 	return BundleInstanceRequest{Request: req, Input: input, Copy: c.BundleInstanceRequest}
 }
 

@@ -78,6 +78,7 @@ func (c *Client) AssociateTransitGatewayMulticastDomainRequest(input *AssociateT
 	}
 
 	req := c.newRequest(op, input, &AssociateTransitGatewayMulticastDomainOutput{})
+
 	return AssociateTransitGatewayMulticastDomainRequest{Request: req, Input: input, Copy: c.AssociateTransitGatewayMulticastDomainRequest}
 }
 

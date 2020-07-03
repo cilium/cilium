@@ -114,6 +114,7 @@ func (c *Client) ModifyVpcPeeringConnectionOptionsRequest(input *ModifyVpcPeerin
 	}
 
 	req := c.newRequest(op, input, &ModifyVpcPeeringConnectionOptionsOutput{})
+
 	return ModifyVpcPeeringConnectionOptionsRequest{Request: req, Input: input, Copy: c.ModifyVpcPeeringConnectionOptionsRequest}
 }
 

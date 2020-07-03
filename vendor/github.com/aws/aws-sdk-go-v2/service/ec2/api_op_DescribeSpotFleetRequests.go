@@ -89,6 +89,7 @@ func (c *Client) DescribeSpotFleetRequestsRequest(input *DescribeSpotFleetReques
 	}
 
 	req := c.newRequest(op, input, &DescribeSpotFleetRequestsOutput{})
+
 	return DescribeSpotFleetRequestsRequest{Request: req, Input: input, Copy: c.DescribeSpotFleetRequestsRequest}
 }
 

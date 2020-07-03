@@ -73,9 +73,10 @@ const opCreateTags = "CreateTags"
 // CreateTagsRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Adds or overwrites the specified tags for the specified Amazon EC2 resource
-// or resources. Each resource can have a maximum of 50 tags. Each tag consists
-// of a key and optional value. Tag keys must be unique per resource.
+// Adds or overwrites only the specified tags for the specified Amazon EC2 resource
+// or resources. When you specify an existing tag key, the value is overwritten
+// with the new value. Each resource can have a maximum of 50 tags. Each tag
+// consists of a key and optional value. Tag keys must be unique per resource.
 //
 // For more information about tags, see Tagging Your Resources (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Using_Tags.html)
 // in the Amazon Elastic Compute Cloud User Guide. For more information about
@@ -105,6 +106,7 @@ func (c *Client) CreateTagsRequest(input *CreateTagsInput) CreateTagsRequest {
 	req := c.newRequest(op, input, &CreateTagsOutput{})
 	req.Handlers.Unmarshal.Remove(ec2query.UnmarshalHandler)
 	req.Handlers.Unmarshal.PushBackNamed(protocol.UnmarshalDiscardBodyHandler)
+
 	return CreateTagsRequest{Request: req, Input: input, Copy: c.CreateTagsRequest}
 }
 
