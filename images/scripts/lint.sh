@@ -15,4 +15,4 @@ if [ -z "${MAKER_CONTAINER+x}" ] ; then
    exec docker run --rm --volume "${root_dir}:/src" --workdir /src/images "${MAKER_IMAGE}" "/src/images/scripts/$(basename "${0}")"
 fi
 
-find . -name '*.sh' -exec shellcheck {} +
+find . -name '*.sh' -executable -exec shellcheck -x {} +

@@ -8,7 +8,9 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-source /tmp/cni-version.sh
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+# shellcheck source=/src/images/runtime/cni-version.sh
+source "${script_dir}/cni-version.sh"
 
 for arch in amd64 arm64 ; do
   curl --fail --show-error --silent --location "https://github.com/containernetworking/plugins/releases/download/v${cni_version}/cni-plugins-linux-${arch}-v${cni_version}.tgz" --output "/tmp/cni-${arch}.tgz"

@@ -7,8 +7,6 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-
 root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
