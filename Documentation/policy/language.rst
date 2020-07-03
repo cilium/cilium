@@ -807,7 +807,7 @@ All GET /path1 and PUT /path2 when header set
 The following example limits all endpoints which carry the labels
 ``app=myService`` to only be able to receive packets on port 80 using TCP.
 While communicating on this port, the only API endpoints allowed will be ``GET
-/path1`` and ``PUT /path2`` with the HTTP header ``X-My-Header`` set to
+/path1``, and ``PUT /path2`` with the HTTP header ``X-My-Header`` set to
 ``true``:
 
 .. only:: html
@@ -960,9 +960,9 @@ DNS policy may be applied via:
   * ``*`` alone matches all names, and inserts all IPs in DNS responses into
     the cilium-agent DNS cache.
 
-In this example, L7 DNS policy allows queries for ``cilium.io`` and any
-subdomains of ``cilium.io`` and ``api.cilium.io``. No other DNS queries will be
-allowed.
+In this example, L7 DNS policy allows queries for ``cilium.io``, any subdomains
+of ``cilium.io``, and any subdomains of ``api.cilium.io``. No other DNS queries
+will be allowed.
 
 The separate L3 ``toFQDNs`` egress rule allows connections to any IPs returned
 in DNS queries for ``cilium.io``, ``sub.cilium.io``, ``service1.api.cilium.io``
