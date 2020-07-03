@@ -527,8 +527,8 @@ var _ = Describe("K8sServicesTest", func() {
 			ciliumPodK8s2, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, helpers.K8s2)
 			ExpectWithOffset(2, err).Should(BeNil(), "Cannot get cilium pod on k8s2")
 
-			_, dstPodIPK8s1 := kubectl.GetPodOnNodeWithOffset(helpers.K8s1, testDS, 1)
-			_, dstPodIPK8s2 := kubectl.GetPodOnNodeWithOffset(helpers.K8s2, testDS, 1)
+			_, dstPodIPK8s1 := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDS, 1)
+			_, dstPodIPK8s2 := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s2, testDS, 1)
 
 			// Get initial number of packets for the flow we test
 			// from conntrack table. The flow is probably not in
@@ -1108,7 +1108,7 @@ var _ = Describe("K8sServicesTest", func() {
 			// Get testDSClient and testDS pods running on k8s1.
 			// This is because we search for new packets in the
 			// conntrack table for node k8s1.
-			clientPod, _ := kubectl.GetPodOnNodeWithOffset(helpers.K8s1, testDSClient, 1)
+			clientPod, _ := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDSClient, 1)
 
 			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 			ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
@@ -1188,7 +1188,7 @@ var _ = Describe("K8sServicesTest", func() {
 				count := 10
 				fails := 0
 				// Client from k8s1
-				clientPod, _ := kubectl.GetPodOnNodeWithOffset(helpers.K8s1, testDSClient, 1)
+				clientPod, _ := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDSClient, 0)
 				// Destination is a NodePort in k8s2, curl (in k8s1) binding to the same local port as the DNS proxy port
 				// in k8s2
 				url := getTFTPLink(k8s2IP, data.Spec.Ports[1].NodePort) + fmt.Sprintf(" --local-port %d", DNSProxyPort2)
