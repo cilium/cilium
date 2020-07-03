@@ -16,6 +16,7 @@ package endpoint
 
 import (
 	"bufio"
+	"bytes"
 	"context"
 	"encoding/json"
 	"fmt"
@@ -43,23 +44,23 @@ import (
 )
 
 // getCiliumVersionString returns the first line containing common.CiliumCHeaderPrefix.
-func getCiliumVersionString(epCHeaderFilePath string) (string, error) {
+func getCiliumVersionString(epCHeaderFilePath string) ([]byte, error) {
 	f, err := os.Open(epCHeaderFilePath)
 	if err != nil {
-		return "", err
+		return []byte{}, err
 	}
 	br := bufio.NewReader(f)
 	defer f.Close()
 	for {
-		s, err := br.ReadString('\n')
+		b, err := br.ReadBytes('\n')
 		if err == io.EOF {
-			return "", nil
+			return []byte{}, nil
 		}
 		if err != nil {
-			return "", err
+			return []byte{}, err
 		}
-		if strings.Contains(s, common.CiliumCHeaderPrefix) {
-			return s, nil
+		if bytes.Contains(b, []byte(common.CiliumCHeaderPrefix)) {
+			return b, nil
 		}
 	}
 }
@@ -152,12 +153,12 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, basePath
 
 		scopedLog.Debug("Found endpoint C header file")
 
-		strEp, err := getCiliumVersionString(cHeaderFile)
+		bEp, err := getCiliumVersionString(cHeaderFile)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to read the C header file")
 			continue
 		}
-		ep, err := parseEndpoint(ctx, owner, strEp)
+		ep, err := parseEndpoint(ctx, owner, bEp)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to parse the C header file")
 			continue
