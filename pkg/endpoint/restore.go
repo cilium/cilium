@@ -15,9 +15,11 @@
 package endpoint
 
 import (
+	"bufio"
 	"context"
 	"encoding/json"
 	"fmt"
+	"io"
 	"os"
 	"path/filepath"
 	"strings"
@@ -39,6 +41,28 @@ import (
 
 	"github.com/sirupsen/logrus"
 )
+
+// getCiliumVersionString returns the first line containing common.CiliumCHeaderPrefix.
+func getCiliumVersionString(epCHeaderFilePath string) (string, error) {
+	f, err := os.Open(epCHeaderFilePath)
+	if err != nil {
+		return "", err
+	}
+	br := bufio.NewReader(f)
+	defer f.Close()
+	for {
+		s, err := br.ReadString('\n')
+		if err == io.EOF {
+			return "", nil
+		}
+		if err != nil {
+			return "", err
+		}
+		if strings.Contains(s, common.CiliumCHeaderPrefix) {
+			return s, nil
+		}
+	}
+}
 
 func hasHostObjectFile(epDir string) bool {
 	hostObjFilepath := filepath.Join(epDir, common.HostObjFileName)
@@ -128,7 +152,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, basePath
 
 		scopedLog.Debug("Found endpoint C header file")
 
-		strEp, err := common.GetCiliumVersionString(cHeaderFile)
+		strEp, err := getCiliumVersionString(cHeaderFile)
 		if err != nil {
 			scopedLog.WithError(err).Warn("Unable to read the C header file")
 			continue
