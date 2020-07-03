@@ -512,7 +512,7 @@ func TestRingFunctionalityInParallel(t *testing.T) {
 		t.Errorf("Read Event should be %+v, got %+v instead", &timestamp.Timestamp{Seconds: 0}, entry.Timestamp)
 	}
 	lastWrite--
-	entry, err = r.read(lastWrite)
+	_, err = r.read(lastWrite)
 	if err != ErrInvalidRead {
 		t.Errorf("Should not be able to read position %x, got %v", lastWrite, err)
 	}
@@ -543,12 +543,12 @@ func TestRingFunctionalitySerialized(t *testing.T) {
 		t.Errorf("lastWrite should be 0x1. Got %x", lastWrite)
 	}
 
-	entry, err := r.read(lastWrite)
+	_, err := r.read(lastWrite)
 	if err != io.EOF {
 		t.Errorf("Should not be able to read position %x, got %v", lastWrite, err)
 	}
 	lastWrite--
-	entry, err = r.read(lastWrite)
+	entry, err := r.read(lastWrite)
 	if err != nil {
 		t.Errorf("Should be able to read position %x, got %v", lastWrite, err)
 	}

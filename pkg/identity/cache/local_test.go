@@ -66,7 +66,7 @@ func (s *IdentityCacheTestSuite) TestLocalIdentityCache(c *C) {
 	}
 
 	// Allocation must fail as we are out of IDs
-	id, _, err := cache.lookupOrCreate(labels.NewLabelsFromModel([]string{"foo"}))
+	_, _, err := cache.lookupOrCreate(labels.NewLabelsFromModel([]string{"foo"}))
 	c.Assert(err, Not(IsNil))
 
 	// release all identities, this must decrement the reference count but not release the identities yet

@@ -2667,8 +2667,9 @@ func (kub *Kubectl) LoadedPolicyInFirstAgent() (string, error) {
 		res := kub.CiliumExecContext(ctx, pod, "cilium policy get")
 		if !res.WasSuccessful() {
 			return "", fmt.Errorf("cannot execute cilium policy get: %s", res.Stdout())
+		} else {
+			return res.CombineOutput().String(), nil
 		}
-		return res.CombineOutput().String(), nil
 	}
 	return "", fmt.Errorf("no running cilium pods")
 }
@@ -3086,7 +3087,7 @@ func (kub *Kubectl) ValidateListOfErrorsInLogs(duration time.Duration, blacklist
 
 	failIfContainsBadLogMsg(logs, blacklist)
 
-	fmt.Fprintf(CheckLogs, logutils.LogErrorsSummary(logs))
+	fmt.Fprint(CheckLogs, logutils.LogErrorsSummary(logs))
 }
 
 // GatherCiliumCoreDumps copies core dumps if are present in the /tmp folder

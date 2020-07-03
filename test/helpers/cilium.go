@@ -677,7 +677,7 @@ func (s *SSHMeta) ValidateNoErrorsInLogs(duration time.Duration) {
 	blacklist := GetBadLogMessages()
 	failIfContainsBadLogMsg(logs, blacklist)
 
-	fmt.Fprintf(CheckLogs, logutils.LogErrorsSummary(logs))
+	fmt.Fprint(CheckLogs, logutils.LogErrorsSummary(logs))
 }
 
 // PprofReport runs pprof each 5 minutes and saves the data into the test
