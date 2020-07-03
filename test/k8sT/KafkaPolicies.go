@@ -168,27 +168,27 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			// some messages to be already there by the producer.
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqAnnounce))
+				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprint(prodHqAnnounce))
 			Expect(err).Should(BeNil(), "Failed to produce to empire-hq on topic empire-announce")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutpostAnnoune))
+				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(conOutpostAnnoune))
 			Expect(err).Should(BeNil(), "Failed to consume from outpost on topic empire-announce")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqDeathStar))
+				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprint(prodHqDeathStar))
 			Expect(err).Should(BeNil(), "Failed to produce to empire-hq on topic deathstar-plans")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutDeathStar))
+				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(conOutDeathStar))
 			Expect(err).Should(BeNil(), "Failed to consume from outpost on topic deathstar-plans")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[backupApp], fmt.Sprintf(prodBackAnnounce))
+				helpers.DefaultNamespace, appPods[backupApp], fmt.Sprint(prodBackAnnounce))
 			Expect(err).Should(BeNil(), "Failed to produce to backup on topic empire-announce")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(prodOutAnnounce))
+				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(prodOutAnnounce))
 			Expect(err).Should(BeNil(), "Failed to produce to outpost on topic empire-announce")
 
 			By("Apply L7 kafka policy and wait")
@@ -200,31 +200,31 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 
 			By("Testing Kafka L7 policy enforcement status")
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqAnnounce))
+				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprint(prodHqAnnounce))
 			Expect(err).Should(BeNil(), "Failed to produce to empire-hq on topic empire-announce")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutpostAnnoune))
+				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(conOutpostAnnoune))
 			Expect(err).Should(BeNil(), "Failed to consume from outpost on topic empire-announce")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprintf(prodHqDeathStar))
+				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprint(prodHqDeathStar))
 			Expect(err).Should(BeNil(), "Failed to produce from empire-hq on topic deathstar-plans")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutpostAnnoune))
+				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(conOutpostAnnoune))
 			Expect(err).Should(BeNil(), "Failed to consume from outpost on topic empire-announce")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[backupApp], fmt.Sprintf(prodBackAnnounce))
+				helpers.DefaultNamespace, appPods[backupApp], fmt.Sprint(prodBackAnnounce))
 			Expect(err).Should(HaveOccurred(), " Produce to backup on topic empire-announce should have been denied")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(conOutDeathStar))
+				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(conOutDeathStar))
 			Expect(err).Should(HaveOccurred(), " Consume from outpost on topic deathstar-plans should have been denied")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprintf(prodOutAnnounce))
+				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(prodOutAnnounce))
 			Expect(err).Should(HaveOccurred(), "Produce to outpost on topic empire-announce should have been denied")
 		})
 	})

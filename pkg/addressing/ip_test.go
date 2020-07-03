@@ -55,7 +55,7 @@ func (s *AddressingSuite) TestCiliumIPv4(c *C) {
 	// Lacking a better Equals method, checking if the stringified IP is consistent
 	c.Assert(ip.String() == ip2.String(), Equals, false)
 
-	ip, err = NewCiliumIPv4("b007::")
+	_, err = NewCiliumIPv4("b007::")
 	c.Assert(err, Not(Equals), nil)
 }
 
