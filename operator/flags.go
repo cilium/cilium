@@ -115,6 +115,14 @@ func init() {
 	flags.Bool(operatorOption.EnableMetrics, false, "Enable Prometheus metrics")
 	option.BindEnv(operatorOption.EnableMetrics)
 
+	// Logging flags
+	flags.StringSlice(option.LogDriver, []string{}, "Logging endpoints to use for example syslog")
+	option.BindEnv(option.LogDriver)
+
+	flags.Var(option.NewNamedMapOptions(option.LogOpt, &option.Config.LogOpt, nil),
+		option.LogOpt, "Log driver options for cilium-operator")
+	option.BindEnv(option.LogOpt)
+
 	var defaultIPAM string
 	switch binaryName {
 	case "cilium-operator":
