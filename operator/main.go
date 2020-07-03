@@ -237,6 +237,10 @@ func init() {
 	flags.StringSlice(option.LogDriver, []string{}, "Logging endpoints to use for example syslog")
 	option.BindEnv(option.LogDriver)
 
+	flags.Var(option.NewNamedMapOptions(option.LogOpt, &option.Config.LogOpt, nil),
+		option.LogOpt, "Log driver options for cilium-operator")
+	option.BindEnv(option.LogOpt)
+
 	flags.StringVar(&cmdRefDir, "cmdref", "", "Path to cmdref output directory")
 	flags.MarkHidden("cmdref")
 	viper.BindPFlags(flags)

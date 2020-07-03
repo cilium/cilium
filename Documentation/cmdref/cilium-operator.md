@@ -55,6 +55,7 @@ cilium-operator [flags]
       --leader-election-renew-deadline duration   Duration that current acting master will retry refreshing leadership in before giving up the lock (default 10s)
       --leader-election-retry-period duration     Duration that LeaderElector clients should wait between retries of the actions (default 2s)
       --log-driver strings                        Logging endpoints to use for example syslog
+      --log-opt map                               Log driver options for cilium-operator (default map[])
       --metrics-address string                    Address to serve Prometheus metrics (default ":6942")
       --nodes-gc-interval duration                GC interval for nodes store in the kvstore (default 2m0s)
       --synchronize-k8s-nodes                     Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
