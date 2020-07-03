@@ -1138,7 +1138,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				//cnpFromEntitiesWorld      string
 				//cnpFromEntitiesAll        string
 
-				k8s1Name, k8s2Name   string
+				k8s1Name             string
 				k8s1PodIP, k8s2PodIP string
 			)
 
@@ -1146,10 +1146,11 @@ var _ = Describe("K8sPolicyTest", func() {
 				cnpFromEntitiesHost = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-host.yaml")
 				cnpFromEntitiesRemoteNode = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-remote-node.yaml")
 				cnpFromEntitiesWorld = helpers.ManifestGet(kubectl.BasePath(), "cnp-from-entities-world.yaml")
-				k8s1Name, _ = kubectl.GetNodeInfo(helpers.K8s1)
-				k8s2Name, _ = kubectl.GetNodeInfo(helpers.K8s2)
-				_, k8s1PodIP = kubectl.GetPodOnNodeWithOffset(k8s1Name, testDS, 0)
-				_, k8s2PodIP = kubectl.GetPodOnNodeWithOffset(k8s2Name, testDS, 0)
+				var err error
+				k8s1Name, err = kubectl.GetNodeNameByLabel(helpers.K8s1)
+				Expect(err).To(BeNil(), "cannot get k8s1 node name")
+				_, k8s1PodIP = kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDS, 0)
+				_, k8s2PodIP = kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s2, testDS, 0)
 			})
 
 			AfterAll(func() {

@@ -786,10 +786,15 @@ func (kub *Kubectl) GetPodsNodes(namespace string, filter string) (map[string]st
 	return res.KVOutput(), nil
 }
 
-func (kub *Kubectl) GetPodOnNodeWithOffset(nodeName string, podFilter string, callOffset int) (string, string) {
-	var podName string
-
+// GetPodOnNodeLabeledWithOffset retrieves name and ip of a pod matching filter and residing on a node with label cilium.io/ci-node=<label>
+func (kub *Kubectl) GetPodOnNodeLabeledWithOffset(label string, podFilter string, callOffset int) (string, string) {
 	callOffset++
+
+	nodeName, err := kub.GetNodeNameByLabel(label)
+	gomega.ExpectWithOffset(callOffset, err).Should(gomega.BeNil())
+	gomega.ExpectWithOffset(callOffset, nodeName).ShouldNot(gomega.BeEmpty(), "Cannot retrieve node name with label cilium.io/ci-node=%s", label)
+
+	var podName string
 
 	podsNodes, err := kub.GetPodsNodes(DefaultNamespace, fmt.Sprintf("-l %s", podFilter))
 	gomega.ExpectWithOffset(callOffset, err).Should(gomega.BeNil(), "Cannot retrieve pods nodes with filter %q", podFilter)
