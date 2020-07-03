@@ -807,7 +807,7 @@ All GET /path1 and PUT /path2 when header set
 The following example limits all endpoints which carry the labels
 ``app=myService`` to only be able to receive packets on port 80 using TCP.
 While communicating on this port, the only API endpoints allowed will be ``GET
-/path1`` and ``PUT /path2`` with the HTTP header ``X-My_header`` set to
+/path1`` and ``PUT /path2`` with the HTTP header ``X-My-Header`` set to
 ``true``:
 
 .. only:: html
