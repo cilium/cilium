@@ -104,6 +104,25 @@ func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
 		CurlConnectTimeout, endpoint)
 }
 
+// CurlWithRetries returns the string representation of the curl command that
+// retry the request if transient problems occur. Parameter retries are indicated the maximum retry times.
+// If the endpoint already contain "curl", the function will add --retry flag at the end of the command and return.
+// If the endpoint didn't contain "curl", the function will generate the command with --retry flag and return.
+func CurlWithRetries(endpoint string, retries int, optionalValues ...interface{}) string {
+	if len(optionalValues) > 0 {
+		endpoint = fmt.Sprintf(endpoint, optionalValues...)
+	}
+	if strings.Contains(endpoint, "curl") {
+		if strings.Contains(endpoint, "--retry") {
+			return endpoint
+		}
+		return fmt.Sprintf(`%s --retry %d `, endpoint, retries)
+	}
+	return fmt.Sprintf(
+		`curl --path-as-is -s  -D /dev/stderr --output /dev/stderr --retry %d %s`,
+		retries, endpoint)
+}
+
 // Netperf returns the string representing the netperf command to use when testing
 // connectivity between endpoints.
 func Netperf(endpoint string, perfTest PerfTest, options string) string {
