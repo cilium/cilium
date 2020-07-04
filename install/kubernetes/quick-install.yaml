@@ -598,24 +598,6 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-        - name: AWS_ACCESS_KEY_ID
-          valueFrom:
-            secretKeyRef:
-              key: AWS_ACCESS_KEY_ID
-              name: cilium-aws
-              optional: true
-        - name: AWS_SECRET_ACCESS_KEY
-          valueFrom:
-            secretKeyRef:
-              key: AWS_SECRET_ACCESS_KEY
-              name: cilium-aws
-              optional: true
-        - name: AWS_DEFAULT_REGION
-          valueFrom:
-            secretKeyRef:
-              key: AWS_DEFAULT_REGION
-              name: cilium-aws
-              optional: true
         image: "docker.io/cilium/operator-generic:latest"
         imagePullPolicy: Always
         name: cilium-operator
