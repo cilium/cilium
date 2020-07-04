@@ -64,6 +64,7 @@ spec:
               key: debug
               name: cilium-config
               optional: true
+{{- if .Values.global.eni }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
@@ -82,6 +83,7 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
+{{- end }}
 {{- if .Values.global.k8sServiceHost }}
         - name: KUBERNETES_SERVICE_HOST
           value: {{ .Values.global.k8sServiceHost | quote }}
