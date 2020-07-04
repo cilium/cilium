@@ -60,9 +60,6 @@ func init() {
 	flags.Int64(operatorOption.ParallelAllocWorkers, defaults.ParallelAllocWorkers, "Maximum number of parallel IPAM workers")
 	option.BindEnv(operatorOption.ParallelAllocWorkers)
 
-	flags.Bool(operatorOption.UpdateEC2AdapterLimitViaAPI, false, "Use the EC2 API to update the instance type to adapter limits")
-	option.BindEnv(operatorOption.UpdateEC2AdapterLimitViaAPI)
-
 	// Clustermesh dedicated flags
 	flags.Int(option.ClusterIDName, 0, "Unique identifier of the cluster")
 	option.BindEnv(option.ClusterIDName)
