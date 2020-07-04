@@ -92,7 +92,7 @@ var _ = Describe("K8sIstioTest", func() {
 			os = ciliumIstioctlOSes[runtime.GOOS]
 		}
 		ciliumIstioctlURL := "https://github.com/cilium/istio/releases/download/" + istioVersion + prerelease + "/cilium-istioctl-" + istioVersion + "-" + os + ".tar.gz"
-		res := kubectl.Exec(fmt.Sprintf("curl --retry 5 -L %s | tar xz", ciliumIstioctlURL))
+		res := kubectl.Exec(helpers.CurlWithRetries(fmt.Sprintf("curl -L %s | tar xz", ciliumIstioctlURL), 5))
 		res.ExpectSuccess("unable to download %s", ciliumIstioctlURL)
 		res = kubectl.ExecShort("./cilium-istioctl version")
 		res.ExpectSuccess("unable to execute cilium-istioctl")
