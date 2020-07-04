@@ -41,4 +41,7 @@ func init() {
 	flags.Var(option.NewNamedMapOptions(operatorOption.ENITags, &operatorOption.Config.ENITags, nil),
 		operatorOption.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
 	option.BindEnv(operatorOption.ENITags)
+
+	flags.Bool(operatorOption.UpdateEC2AdapterLimitViaAPI, false, "Use the EC2 API to update the instance type to adapter limits")
+	option.BindEnv(operatorOption.UpdateEC2AdapterLimitViaAPI)
 }
