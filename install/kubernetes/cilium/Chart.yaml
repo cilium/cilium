@@ -1,11 +1,38 @@
-apiVersion: v1
+apiVersion: v2
 name: cilium
 home: https://cilium.io/
 version: 1.8.90
 appVersion: 1.8.90
-tillerVersion: ">=2.7.2-0"
 description: Helm chart for Cilium
 keywords:
 sources:
   - https://github.com/cilium/cilium
-engine: gotpl
+dependencies:
+  - name: agent
+    version: 1.8.90
+    condition: agent.enabled
+  - name: config
+    version: 1.8.90
+    condition: config.enabled
+  - name: hubble-relay
+    version: 1.8.90
+    condition: global.hubble.relay.enabled
+  - name: hubble-ui
+    version: 1.8.90
+    condition: global.hubble.ui.enabled
+  - name: operator
+    version: 1.8.90
+    condition: operator.enabled
+  - name: managed-etcd
+    version: 1.8.90
+    condition: global.etcd.managed
+  - name: preflight
+    version: 1.8.90
+    condition: preflight.enabled
+  - name: nodeinit
+    version: 1.8.90
+    condition: global.nodeinit.enabled
+  - name: prometheus-crd
+    version: 1.8.90
+    condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled
+
