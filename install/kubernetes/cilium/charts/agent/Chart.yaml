@@ -1,10 +1,8 @@
-apiVersion: v1
+apiVersion: v2
 name: agent
 version: 1.8.90
 appVersion: 1.8.90
-tillerVersion: ">=2.7.2"
 description: Helm chart for cilium-agent DaemonSet
 keywords:
 sources:
   - https://github.com/cilium/cilium
-engine: gotpl
