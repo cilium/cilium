@@ -106,7 +106,7 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 	// of dashboard, keep the metric name deficit_resolver unchanged
 	m.poolMaintainer = NewTriggerMetrics(namespace, "deficit_resolver")
 	m.k8sSync = NewTriggerMetrics(namespace, "k8s_sync")
-	m.resync = NewTriggerMetrics(namespace, "ec2_resync")
+	m.resync = NewTriggerMetrics(namespace, "resync")
 
 	registry.MustRegister(m.IPsAllocated)
 	registry.MustRegister(m.AllocateIpOps)
