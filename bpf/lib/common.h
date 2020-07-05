@@ -520,6 +520,16 @@ enum {
 	CT_RELATED,
 };
 
+/* Service flags (lb{4,6}_service->flags) */
+enum {
+	SVC_FLAG_EXTERNAL_IP  = (1 << 0),  /* K8s External IPs */
+	SVC_FLAG_NODEPORT     = (1 << 1),  /* K8s NodePort service */
+	SVC_FLAG_LOCAL_SCOPE  = (1 << 2),  /* K8s externalTrafficPolicy=Local */
+	SVC_FLAG_HOSTPORT     = (1 << 3),  /* K8s hostPort forwarding */
+	SVC_FLAG_AFFINITY     = (1 << 4),  /* K8s sessionAffinity=clientIP */
+	SVC_FLAG_LOADBALANCER = (1 << 5),  /* K8s LoadBalancer service */
+};
+
 struct ipv6_ct_tuple {
 	/* Address fields are reversed, i.e.,
 	 * these field names are correct for reply direction traffic.
@@ -603,13 +613,7 @@ struct lb6_service {
 	};
 	__u16 count;
 	__u16 rev_nat_index;
-	__u8 external:1,	/* K8s External IPs */
-	     nodeport:1,	/* K8s NodePort service */
-	     local_scope:1,	/* K8s externalTrafficPolicy=Local */
-	     hostport:1,	/* K8s hostPort forwarding */
-	     affinity:1,	/* K8s sessionAffinity=clientIP */
-	     loadbalancer:1,	/* K8s LoadBalancer service */
-	     reserved:2;
+	__u8 flags;
 	__u8 pad[3];
 };
 
@@ -658,13 +662,7 @@ struct lb4_service {
 	 */
 	__u16 count;
 	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
-	__u8 external:1,	/* K8s External IPs */
-	     nodeport:1,	/* K8s NodePort service */
-	     local_scope:1,	/* K8s externalTrafficPolicy=Local */
-	     hostport:1,	/* K8s hostPort forwarding */
-	     affinity:1,	/* K8s sessionAffinity=clientIP */
-	     loadbalancer:1,	/* K8s LoadBalancer service */
-	     reserved:2;
+	__u8 flags;
 	__u8 pad[3];
 };
 

@@ -112,7 +112,7 @@ static __always_inline
 bool lb4_svc_is_loadbalancer(const struct lb4_service *svc __maybe_unused)
 {
 #ifdef ENABLE_LOADBALANCER
-	return svc->loadbalancer;
+	return svc->flags & SVC_FLAG_LOADBALANCER;
 #else
 	return false;
 #endif /* ENABLE_LOADBALANCER */
@@ -122,7 +122,7 @@ static __always_inline
 bool lb6_svc_is_loadbalancer(const struct lb6_service *svc __maybe_unused)
 {
 #ifdef ENABLE_LOADBALANCER
-	return svc->loadbalancer;
+	return svc->flags & SVC_FLAG_LOADBALANCER;
 #else
 	return false;
 #endif /* ENABLE_LOADBALANCER */
@@ -132,7 +132,7 @@ static __always_inline
 bool lb4_svc_is_nodeport(const struct lb4_service *svc __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
-	return svc->nodeport;
+	return svc->flags & SVC_FLAG_NODEPORT;
 #else
 	return false;
 #endif /* ENABLE_NODEPORT */
@@ -142,7 +142,7 @@ static __always_inline
 bool lb6_svc_is_nodeport(const struct lb6_service *svc __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
-	return svc->nodeport;
+	return svc->flags & SVC_FLAG_NODEPORT;
 #else
 	return false;
 #endif /* ENABLE_NODEPORT */
@@ -152,7 +152,7 @@ static __always_inline
 bool lb4_svc_is_external_ip(const struct lb4_service *svc __maybe_unused)
 {
 #ifdef ENABLE_EXTERNAL_IP
-	return svc->external;
+	return svc->flags & SVC_FLAG_EXTERNAL_IP;
 #else
 	return false;
 #endif
@@ -162,7 +162,7 @@ static __always_inline
 bool lb6_svc_is_external_ip(const struct lb6_service *svc __maybe_unused)
 {
 #ifdef ENABLE_EXTERNAL_IP
-	return svc->external;
+	return svc->flags & SVC_FLAG_EXTERNAL_IP;
 #else
 	return false;
 #endif
@@ -172,7 +172,7 @@ static __always_inline
 bool lb4_svc_is_hostport(const struct lb4_service *svc __maybe_unused)
 {
 #ifdef ENABLE_HOSTPORT
-	return svc->hostport;
+	return svc->flags & SVC_FLAG_HOSTPORT;
 #else
 	return false;
 #endif /* ENABLE_HOSTPORT */
@@ -182,10 +182,70 @@ static __always_inline
 bool lb6_svc_is_hostport(const struct lb6_service *svc __maybe_unused)
 {
 #ifdef ENABLE_HOSTPORT
-	return svc->hostport;
+	return svc->flags & SVC_FLAG_HOSTPORT;
 #else
 	return false;
 #endif /* ENABLE_HOSTPORT */
+}
+
+static __always_inline
+bool lb4_svc_is_local_scope(const struct lb4_service *svc)
+{
+	return svc->flags & SVC_FLAG_LOCAL_SCOPE;
+}
+
+static __always_inline
+bool lb6_svc_is_local_scope(const struct lb6_service *svc)
+{
+	return svc->flags & SVC_FLAG_LOCAL_SCOPE;
+}
+
+static __always_inline
+bool lb4_svc_is_affinity(const struct lb4_service *svc)
+{
+	return svc->flags & SVC_FLAG_AFFINITY;
+}
+
+static __always_inline
+bool lb6_svc_is_affinity(const struct lb6_service *svc)
+{
+	return svc->flags & SVC_FLAG_AFFINITY;
+}
+
+static __always_inline
+__u8 svc_is_routable_mask(void)
+{
+	__u8 mask = 0;
+
+	#if defined(ENABLE_LOADBALANCER)
+	mask |= SVC_FLAG_LOADBALANCER;
+	#endif
+
+	#if defined(ENABLE_NODEPORT)
+	mask |= SVC_FLAG_NODEPORT;
+	#endif
+
+	#if defined(ENABLE_EXTERNAL_IP)
+	mask |= SVC_FLAG_EXTERNAL_IP;
+	#endif
+
+	#if defined(ENABLE_HOSTPORT)
+	mask |= SVC_FLAG_HOSTPORT;
+	#endif
+
+	return mask;
+}
+
+static __always_inline
+bool lb4_svc_is_routable(const struct lb4_service *svc)
+{
+	return svc->flags & svc_is_routable_mask();
+}
+
+static __always_inline
+bool lb6_svc_is_routable(const struct lb6_service *svc)
+{
+	return svc->flags & svc_is_routable_mask();
 }
 
 static __always_inline int lb6_select_slave(__u16 count)
@@ -386,7 +446,7 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 	key->slave = 0;
 	svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
 	if (svc) {
-		if (!scope_switch || !svc->local_scope)
+		if (!scope_switch || !lb6_svc_is_local_scope(svc))
 			return svc->count ? svc : NULL;
 		key->scope = LB_LOOKUP_SCOPE_INT;
 		svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
@@ -588,7 +648,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	switch (ret) {
 	case CT_NEW:
 #ifdef ENABLE_SESSION_AFFINITY
-		if (svc->affinity) {
+		if (lb6_svc_is_affinity(svc)) {
 			backend_id = lb6_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
 				backend = lb6_lookup_backend(ctx, backend_id);
@@ -636,7 +696,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	/* See lb4_local comment */
 	if (state->rev_nat_index != svc->rev_nat_index) {
 #ifdef ENABLE_SESSION_AFFINITY
-		if (svc->affinity)
+		if (lb6_svc_is_affinity(svc))
 			backend_id = lb6_affinity_backend_id_by_addr(svc,
 								     &client_id);
 #endif
@@ -684,7 +744,7 @@ update_state:
 	state->rev_nat_index = svc->rev_nat_index;
 
 #ifdef ENABLE_SESSION_AFFINITY
-	if (svc->affinity)
+	if (lb6_svc_is_affinity(svc))
 		lb6_update_affinity_by_addr(svc, &client_id,
 					    state->backend_id);
 #endif
@@ -853,7 +913,7 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	key->slave = 0;
 	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 	if (svc) {
-		if (!scope_switch || !svc->local_scope)
+		if (!scope_switch || !lb4_svc_is_local_scope(svc))
 			return svc->count ? svc : NULL;
 		key->scope = LB_LOOKUP_SCOPE_INT;
 		svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
@@ -1070,7 +1130,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	switch (ret) {
 	case CT_NEW:
 #ifdef ENABLE_SESSION_AFFINITY
-		if (svc->affinity) {
+		if (lb4_svc_is_affinity(svc)) {
 			backend_id = lb4_affinity_backend_id_by_addr(svc, &client_id);
 			if (backend_id != 0) {
 				backend = lb4_lookup_backend(ctx, backend_id);
@@ -1130,7 +1190,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	 */
 	if (state->rev_nat_index != svc->rev_nat_index) {
 #ifdef ENABLE_SESSION_AFFINITY
-		if (svc->affinity)
+		if (lb4_svc_is_affinity(svc))
 			backend_id = lb4_affinity_backend_id_by_addr(svc,
 								     &client_id);
 #endif
@@ -1178,7 +1238,7 @@ update_state:
 	state->addr = new_daddr = backend->address;
 
 #ifdef ENABLE_SESSION_AFFINITY
-	if (svc->affinity)
+	if (lb4_svc_is_affinity(svc))
 		lb4_update_affinity_by_addr(svc, &client_id,
 					    state->backend_id);
 #endif
