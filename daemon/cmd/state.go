@@ -90,10 +90,10 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 	return true, nil
 }
 
-// restoreOldEndpoints reads the list of existing endpoints previously managed
+// restoreOldEndpoints reads the list of existing endpoints previously managed by
 // Cilium when it was last run and associated it with container workloads. This
 // function performs the first step in restoring the endpoint structure,
-// allocating their existing IP out of the CIDR block and then inserting the
+// allocating their existing IPs out of the CIDR block and then inserting the
 // endpoints into the endpoints list. It needs to be followed by a call to
 // regenerateRestoredEndpoints() once the endpoint builder is ready.
 //
@@ -145,7 +145,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		}
 
 		// We have to set the allocator for identities here during the Endpoint
-		// lifecycle, because the identity allocator has be initialized *after*
+		// lifecycle, because the identity allocator has been initialized *after*
 		// endpoints are restored from disk. This is because we have to reserve
 		// IPs for the endpoints that are restored via IPAM. Reserving of IPs
 		// affects the allocation of IPs w.r.t. node addressing, which we need
