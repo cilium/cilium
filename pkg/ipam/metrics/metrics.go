@@ -99,7 +99,7 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "resync_total",
-		Help:      "Number of resync operations to synchronize AWS EC2 metadata",
+		Help:      "Number of resync operations to synchronize and resolve IP deficit of nodes",
 	})
 
 	// pool_maintainer is a more generic name, but for backward compatibility
