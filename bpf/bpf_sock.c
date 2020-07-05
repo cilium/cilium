@@ -280,7 +280,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (sock4_skip_xlate(svc, orig_key.address))
 		return -EPERM;
 
-	if (svc->affinity) {
+	if (lb4_svc_is_affinity(svc)) {
 		/* Note, for newly created affinity entries there is a
 		 * small race window. Two processes on two different
 		 * CPUs but the same netns may select different backends
@@ -323,7 +323,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -ENOENT;
 	}
 
-	if (svc->affinity && !backend_from_affinity)
+	if (lb4_svc_is_affinity(svc) && !backend_from_affinity)
 		lb4_update_affinity_by_netns(svc, &id, backend_id);
 
 	if (sock4_update_revnat(ctx_full, backend, &orig_key,
@@ -705,7 +705,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (sock6_skip_xlate(svc, &orig_key.address))
 		return -EPERM;
 
-	if (svc->affinity) {
+	if (lb6_svc_is_affinity(svc)) {
 		backend_id = lb6_affinity_backend_id_by_netns(svc, &id);
 		backend_from_affinity = true;
 
@@ -735,7 +735,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -ENOENT;
 	}
 
-	if (svc->affinity && !backend_from_affinity)
+	if (lb6_svc_is_affinity(svc) && !backend_from_affinity)
 		lb6_update_affinity_by_netns(svc, &id, backend_id);
 
 	if (sock6_update_revnat(ctx, backend, &orig_key,
