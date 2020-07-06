@@ -153,7 +153,7 @@ nextEvent:
 			}
 		}
 
-		flow, err := decodeFlow(s.payloadParser, pl)
+		ev, err := s.payloadParser.Decode(pl)
 		if err != nil {
 			if !parserErrors.IsErrInvalidType(err) {
 				s.log.WithError(err).WithField("data", pl.Data).Debug("failed to decode payload")
@@ -161,24 +161,23 @@ nextEvent:
 			continue
 		}
 
-		for _, f := range s.opts.OnDecodedFlow {
-			stop, err := f.OnDecodedFlow(ctx, flow)
-			if err != nil {
-				s.log.WithError(err).WithField("data", pl.Data).Info("failed in OnDecodedFlow")
+		if flow, ok := ev.Event.(*flowpb.Flow); ok {
+			for _, f := range s.opts.OnDecodedFlow {
+				stop, err := f.OnDecodedFlow(ctx, flow)
+				if err != nil {
+					s.log.WithError(err).WithField("data", pl.Data).Info("failed in OnDecodedFlow")
+				}
+				if stop {
+					continue nextEvent
+				}
 			}
-			if stop {
-				continue nextEvent
-			}
+
+			atomic.AddUint64(&s.numObservedFlows, 1)
+			// FIXME: Convert metrics into an OnDecodedFlow function
+			metrics.ProcessFlow(flow)
 		}
 
-		atomic.AddUint64(&s.numObservedFlows, 1)
-		// FIXME: Convert metrics into an OnDecodedFlow function
-		metrics.ProcessFlow(flow)
-
-		s.GetRingBuffer().Write(&v1.Event{
-			Timestamp: pl.Time,
-			Event:     flow,
-		})
+		s.GetRingBuffer().Write(ev)
 	}
 	close(s.GetStopped())
 }
@@ -332,17 +331,6 @@ func logFilters(filters []*flowpb.FlowFilter) string {
 		s = append(s, f.String())
 	}
 	return "{" + strings.Join(s, ",") + "}"
-}
-
-func decodeFlow(payloadParser *parser.Parser, pl *flowpb.Payload) (*flowpb.Flow, error) {
-	// TODO: Pool these instead of allocating new flows each time.
-	f := &flowpb.Flow{}
-	err := payloadParser.Decode(pl, f)
-	if err != nil {
-		return nil, err
-	}
-
-	return f, nil
 }
 
 // flowsReader reads flows using a RingReader. It applies the flow request
