@@ -16,6 +16,7 @@ package parser
 
 import (
 	pb "github.com/cilium/cilium/api/v1/flow"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
@@ -60,9 +61,14 @@ func New(
 }
 
 // Decode decodes the data from 'payload' into 'decoded'
-func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
+func (p *Parser) Decode(payload *pb.Payload) (*v1.Event, error) {
 	if payload == nil || len(payload.Data) == 0 {
-		return errors.ErrEmptyData
+		return nil, errors.ErrEmptyData
+	}
+
+	// TODO: Pool decoded flows instead of allocating new objects each time.
+	ev := &v1.Event{
+		Timestamp: payload.Time,
 	}
 
 	eventType := payload.Data[0]
@@ -70,10 +76,18 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	case monitorAPI.MessageTypeDrop,
 		monitorAPI.MessageTypeTrace,
 		monitorAPI.MessageTypePolicyVerdict:
-		return p.l34.Decode(payload, decoded)
+		ev.Event = &pb.Flow{}
+		if err := p.l34.Decode(payload, ev.Event.(*pb.Flow)); err != nil {
+			return nil, err
+		}
+		return ev, nil
 	case monitorAPI.MessageTypeAccessLog:
-		return p.l7.Decode(payload, decoded)
+		ev.Event = &pb.Flow{}
+		if err := p.l7.Decode(payload, ev.Event.(*pb.Flow)); err != nil {
+			return nil, err
+		}
+		return ev, nil
 	default:
-		return errors.NewErrInvalidType(eventType)
+		return nil, errors.NewErrInvalidType(eventType)
 	}
 }
