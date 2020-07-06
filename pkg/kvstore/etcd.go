@@ -921,6 +921,7 @@ func (e *etcdClient) statusChecker() {
 		if quorumError != nil {
 			quorumString = quorumError.Error()
 			consecutiveQuorumErrors++
+			quorumString += fmt.Sprintf(", consecutive-errors=%d", consecutiveQuorumErrors)
 		} else {
 			consecutiveQuorumErrors = 0
 		}
