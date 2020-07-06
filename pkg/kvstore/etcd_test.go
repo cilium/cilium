@@ -1642,3 +1642,25 @@ func TestGetSvcNamespace(t *testing.T) {
 		})
 	}
 }
+func TestShuffleEndpoints(t *testing.T) {
+	s1 := []string{"1", "2", "3", "4", "5"}
+	s2 := make([]string, len(s1))
+	copy(s2, s1)
+
+	var same int
+	for retry := 0; retry < 10; retry++ {
+		same = 0
+		shuffleEndpoints(s2)
+		for i := range s1 {
+			if s1[i] == s2[i] {
+				same++
+			}
+		}
+		if same != len(s1) {
+			break
+		}
+	}
+	if same == len(s1) {
+		t.Errorf("Shuffle() did not modify s2 in 10 retries")
+	}
+}

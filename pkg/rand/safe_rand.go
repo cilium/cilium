@@ -83,3 +83,9 @@ func (sr *safeRand) Perm(n int) []int {
 	return v
 
 }
+
+func (sr *safeRand) Shuffle(n int, swap func(i, j int)) {
+	sr.mu.Lock()
+	sr.r.Shuffle(n, swap)
+	sr.mu.Unlock()
+}
