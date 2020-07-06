@@ -633,7 +633,7 @@ speed up the process by opening multiple connections. The script
 selected images with aria2 prior to launching the test suite, or to
 periodically update images in a ``cron`` job::
 
-    $ bash test/packet/script/add_vagrant_box.sh -h
+    $ bash test/packet/scripts/add_vagrant_box.sh -h
     usage: add_vagrant_box.sh [options] [vagrant_box_defaults.rb path]
             path to vagrant_box_defaults.rb defaults to ./vagrant_box_defaults.rb
 
