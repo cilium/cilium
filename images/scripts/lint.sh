@@ -15,4 +15,9 @@ if [ -z "${MAKER_CONTAINER+x}" ] ; then
    exec docker run --rm --volume "${root_dir}:/src" --workdir /src/images "${MAKER_IMAGE}" "/src/images/scripts/$(basename "${0}")"
 fi
 
-find . -name '*.sh' -executable -exec shellcheck -x {} +
+# shellcheck disable=SC2207
+scripts=($(find . -name '*.sh' -executable))
+
+for script in "${scripts[@]}" ; do
+  shellcheck --external-source --source-path="$(dirname "${script}")" "${script}"
+done
