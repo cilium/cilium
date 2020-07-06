@@ -83,17 +83,6 @@ func goArray2C(array []byte, space bool) string {
 	return ret
 }
 
-// FindEPConfigCHeader returns the full path of the file that is the CHeaderFileName from
-// the slice of files
-func FindEPConfigCHeader(basePath string, epFiles []os.FileInfo) string {
-	for _, epFile := range epFiles {
-		if epFile.Name() == CHeaderFileName {
-			return filepath.Join(basePath, epFile.Name())
-		}
-	}
-	return ""
-}
-
 // RequireRootPrivilege checks if the user running cmd is root. If not, it exits the program
 func RequireRootPrivilege(cmd string) {
 	if os.Getuid() != 0 {
