@@ -22,6 +22,11 @@ jobs:
         with:
           entrypoint: make
           args: -C images lint
+      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
+        name: Check if runtime and builder images are up-to-date
+        with:
+          entrypoint: make
+          args: -C images check-runtime-image check-builder-image
   build-and-push:
     if: (github.repository == 'cilium/cilium' && github.event_name != 'pull_request')
     name: Build and push all images

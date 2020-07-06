@@ -28,11 +28,17 @@ runtime-image: .buildx_builder
 update-runtime-image:
 	scripts/update-cilium-runtime-image.sh
 
+check-runtime-image:
+	CHECK=true scripts/update-cilium-runtime-image.sh
+
 builder-image: .buildx_builder
 	TEST=true scripts/build-image.sh cilium-builder-dev images/builder linux/amd64 $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
 
 update-builder-image:
 	scripts/update-cilium-builder-image.sh
+
+check-builder-image:
+	CHECK=true scripts/update-cilium-builder-image.sh
 
 cilium-image: .buildx_builder
 	ROOT_CONTEXT=true scripts/build-image.sh cilium-dev images/cilium linux/amd64,linux/arm64 $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
