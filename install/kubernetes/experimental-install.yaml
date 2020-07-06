@@ -6,6 +6,13 @@ metadata:
   name: cilium
   namespace: kube-system
 ---
+# Source: cilium/charts/hubble-relay/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hubble-relay
+  namespace: kube-system
+---
 # Source: cilium/charts/hubble-ui/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -710,6 +717,7 @@ spec:
       labels:
         k8s-app: hubble-relay
     spec:
+      serviceAccountName: hubble-relay
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:

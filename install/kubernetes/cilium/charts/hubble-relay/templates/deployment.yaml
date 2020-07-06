@@ -15,6 +15,7 @@ spec:
       labels:
         k8s-app: {{ .Chart.Name }}
     spec:
+      serviceAccountName: hubble-relay
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
