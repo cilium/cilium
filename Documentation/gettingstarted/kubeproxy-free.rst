@@ -42,7 +42,7 @@ CIDR and skip the ``kube-proxy`` add-on:
 
     .. code:: bash
 
-      kubeadm init --pod-network-cidr=10.217.0.0/16 --skip-phases=addon/kube-proxy
+      kubeadm init --skip-phases=addon/kube-proxy
 
   .. group-tab:: K8s 1.15 and older
 
@@ -54,7 +54,7 @@ CIDR and skip the ``kube-proxy`` add-on:
 
     .. code:: bash
 
-      kubeadm init --pod-network-cidr=10.217.0.0/16
+      kubeadm init
 
     Then delete the ``kube-proxy`` DaemonSet and remove its iptables rules as following:
 
@@ -98,7 +98,6 @@ configuration.
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set config.ipam=kubernetes \\
         --set global.kubeProxyReplacement=strict \\
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
@@ -335,7 +334,6 @@ enabled would look as follows:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set config.ipam=kubernetes \\
         --set global.tunnel=disabled \\
         --set global.autoDirectNodeRoutes=true \\
         --set global.kubeProxyReplacement=strict \\
@@ -365,7 +363,6 @@ mode would look as follows:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set config.ipam=kubernetes \\
         --set global.tunnel=disabled \\
         --set global.autoDirectNodeRoutes=true \\
         --set global.kubeProxyReplacement=strict \\
@@ -730,7 +727,6 @@ as in the earlier getting started deployment:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set config.ipam=kubernetes \\
         --set global.kubeProxyReplacement=strict \\
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
@@ -876,7 +872,6 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set config.ipam=kubernetes \\
         --set global.kubeProxyReplacement=partial \\
         --set global.hostServices.enabled=true \\
         --set global.nodePort.enabled=true \\
