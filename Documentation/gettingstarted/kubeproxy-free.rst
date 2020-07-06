@@ -972,6 +972,8 @@ Limitations
     * Cilium's DSR NodePort mode currently does not operate well in environments with
       TCP Fast Open (TFO) enabled. It is recommended to switch to ``snat`` mode in this
       situation.
+    * Cilium's BPF kube-proxy replacement does not support the SCTP transport protocol.
+      Only TCP and UDP is supported as a transport for services at this point.
 
 Further Readings
 ################
