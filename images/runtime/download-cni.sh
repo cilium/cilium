@@ -9,7 +9,7 @@ set -o pipefail
 set -o nounset
 
 script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
-# shellcheck source=/src/images/runtime/cni-version.sh
+# shellcheck source=cni-version.sh
 source "${script_dir}/cni-version.sh"
 
 for arch in amd64 arm64 ; do

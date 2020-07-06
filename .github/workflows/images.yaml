@@ -1,5 +1,7 @@
 name: Images
 on:
+  pull_request:
+    types: [opened, synchronize, reopened]
   push:
     branches:
       - master
@@ -9,10 +11,22 @@ on:
       - v[0-9]+.[0-9]+.[0-9]+-rc[0-9]+
 
 jobs:
-  build-and-push:
+  lint:
     if: github.repository == 'cilium/cilium'
+    name: Lint image build logic
+    runs-on: ubuntu-18.04
+    steps:
+      - uses: actions/checkout@v1
+      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
+        name: Run make lint
+        with:
+          entrypoint: make
+          args: -C images lint
+  build-and-push:
+    if: (github.repository == 'cilium/cilium' && github.event_name != 'pull_request')
     name: Build and push all images
     runs-on: ubuntu-18.04
+    needs: lint
     steps:
       - uses: actions/checkout@v1
       - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
