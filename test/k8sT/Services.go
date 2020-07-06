@@ -57,6 +57,8 @@ var _ = Describe("K8sServicesTest", func() {
 		k8s1IP          string
 		k8s2IP          string
 		outsideIP       string
+
+		demoPolicyL7 string
 	)
 
 	applyPolicy := func(path string) {
@@ -76,6 +78,8 @@ var _ = Describe("K8sServicesTest", func() {
 
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
+
+		demoPolicyL7 = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
 	})
 
 	AfterFailed(func() {
@@ -1238,18 +1242,10 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 
 		SkipContextIf(helpers.RunsWithoutKubeProxy, "with L7 policy", func() {
-			var (
-				demoPolicy string
-			)
-
-			BeforeAll(func() {
-				demoPolicy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-demo.yaml")
-			})
-
 			AfterAll(func() {
 				// Explicitly ignore result of deletion of resources to avoid incomplete
 				// teardown if any step fails.
-				_ = kubectl.Delete(demoPolicy)
+				_ = kubectl.Delete(demoPolicyL7)
 			})
 
 			It("Tests NodePort with L7 Policy", func() {
@@ -1266,7 +1262,7 @@ var _ = Describe("K8sServicesTest", func() {
 					helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "nodeport-with-l7-policy-monitor-k8s2.log")
 				}()
 
-				applyPolicy(demoPolicy)
+				applyPolicy(demoPolicyL7)
 				testNodePort(false, false, false, 0)
 			})
 		})
@@ -1277,8 +1273,6 @@ var _ = Describe("K8sServicesTest", func() {
 					helpers.RunsWithKubeProxy()
 			},
 			"Tests NodePort BPF", func() {
-				// TODO(brb) Add with L7 policy test cases after GH#8971 has been fixed
-
 				var (
 					privateIface string
 					err          error
@@ -1331,6 +1325,15 @@ var _ = Describe("K8sServicesTest", func() {
 						testExternalIPs()
 					})
 
+					Context("with L7 policy", func() {
+						AfterAll(func() { kubectl.Delete(demoPolicyL7) })
+
+						It("Tests NodePort with L7 Policy", func() {
+							applyPolicy(demoPolicyL7)
+							testNodePort(false, false, false, 0)
+						})
+					})
+
 					SkipItIf(func() bool { return helpers.GetCurrentIntegration() != "" },
 						"Tests with secondary NodePort device", func() {
 							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
@@ -1379,6 +1382,15 @@ var _ = Describe("K8sServicesTest", func() {
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests externalIPs", func() {
 						testExternalIPs()
+					})
+
+					Context("with L7 policy", func() {
+						AfterAll(func() { kubectl.Delete(demoPolicyL7) })
+
+						It("Tests NodePort with L7 Policy", func() {
+							applyPolicy(demoPolicyL7)
+							testNodePort(false, false, false, 0)
+						})
 					})
 
 					SkipItIf(func() bool { return helpers.GetCurrentIntegration() != "" },
