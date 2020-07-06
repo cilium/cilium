@@ -155,6 +155,12 @@ func (e *etcdModule) getConfig() map[string]string {
 	return getOpts(e.opts)
 }
 
+func shuffleEndpoints(endpoints []string) {
+	randGen.Shuffle(len(endpoints), func(i, j int) {
+		endpoints[i], endpoints[j] = endpoints[j], endpoints[i]
+	})
+}
+
 func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, chan error) {
 	errChan := make(chan error, 10)
 
@@ -192,6 +198,13 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 
 	if e.config.Endpoints == nil && endpointsSet {
 		e.config.Endpoints = []string{endpointsOpt.value}
+	}
+
+	// Shuffle the order of endpoints to avoid all agents connecting to the
+	// same etcd endpoint and to work around etcd client library failover
+	// bugs. (https://github.com/etcd-io/etcd/pull/9860)
+	if e.config.Endpoints != nil {
+		shuffleEndpoints(e.config.Endpoints)
 	}
 
 	for {
