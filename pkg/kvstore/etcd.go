@@ -58,6 +58,10 @@ const (
 	EtcdRateLimitOption = "etcd.qps"
 
 	minRequiredVersionStr = ">=3.1.0"
+
+	// consecutiveQuorumErrorsThreshold is the number of acceptable quorum
+	// errors before the agent assumes permanent failure
+	consecutiveQuorumErrorsThreshold = 2
 )
 
 var (
@@ -875,6 +879,8 @@ func (e *etcdClient) determineEndpointStatus(ctx context.Context, endpointAddres
 func (e *etcdClient) statusChecker() {
 	ctx := context.Background()
 
+	consecutiveQuorumErrors := 0
+
 	for {
 		newStatus := []string{}
 		ok := 0
@@ -901,16 +907,22 @@ func (e *etcdClient) statusChecker() {
 		quorumString := "true"
 		if quorumError != nil {
 			quorumString = quorumError.Error()
+			consecutiveQuorumErrors++
+		} else {
+			consecutiveQuorumErrors = 0
 		}
 
 		e.statusLock.Lock()
 		e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected, lease-ID=%x, lock lease-ID=%x, has-quorum=%s: %s",
 			ok, len(endpoints), sessionLeaseID, lockSessionLeaseID, quorumString, strings.Join(newStatus, "; "))
 
-		// Only mark the etcd health as unstable if no etcd endpoints can be reached
-		if len(endpoints) > 0 && ok == 0 {
+		switch {
+		case consecutiveQuorumErrors > consecutiveQuorumErrorsThreshold:
+			e.latestErrorStatus = fmt.Errorf("quorum check failed %d times in a row: %s",
+				consecutiveQuorumErrors, quorumError)
+		case len(endpoints) > 0 && ok == 0:
 			e.latestErrorStatus = fmt.Errorf("not able to connect to any etcd endpoints")
-		} else {
+		default:
 			e.latestErrorStatus = nil
 		}
 
