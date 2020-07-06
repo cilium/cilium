@@ -4,7 +4,7 @@
 # SPDX-License-Identifier: Apache-2.0
 
 ARG CILIUM_BUILDER_IMAGE=docker.io/cilium/cilium-builder-dev:b030f1ed16c21608d78564124a870a18ca485444
-ARG CILIUM_RUNTIME_IMAGE=docker.io/cilium/cilium-runtime-dev:f9cb7188204f011045cb18378128c9ed6268fd86
+ARG CILIUM_RUNTIME_IMAGE=docker.io/cilium/cilium-runtime-dev:74992a84a55860ffe1b0c4d6b702c8520db0d4b1
 
 FROM --platform=linux/amd64 ${CILIUM_BUILDER_IMAGE} as builder
 

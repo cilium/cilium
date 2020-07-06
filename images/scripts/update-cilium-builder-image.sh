@@ -24,3 +24,8 @@ used_by=($(git grep -l CILIUM_BUILDER_IMAGE= images/*/Dockerfile))
 for i in "${used_by[@]}" ; do
   sed "s|\(CILIUM_BUILDER_IMAGE=\)${image}:.*\$|\1${image}:${image_tag}|" "${i}" > "${i}.sedtmp" && mv "${i}.sedtmp" "${i}"
 done
+
+do_check="${CHECK:-false}"
+if [ "${do_check}" = "true" ] ; then
+    git diff --exit-code "${used_by[@]}"
+fi
