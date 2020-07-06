@@ -1558,7 +1558,7 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.11"
+  revision = "kubernetes-1.16.12"
 
 [[projects]]
   digest = "1:3a3169935f116c03f1b538e5ea55a2978b13511035136b345d427761ec8063ee"
@@ -1574,7 +1574,7 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.11"
+  revision = "kubernetes-1.16.12"
 
 [[projects]]
   digest = "1:ad8ce875829241250e2c4d455f9a42b09e0a7d1ed5ef9ebd8a42400f804f6e6b"
@@ -1626,7 +1626,7 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.11"
+  revision = "kubernetes-1.16.12"
 
 [[projects]]
   digest = "1:421721461ab2987bb721dd8ecb397b7ab1aafb3ed2bbcda185af0db2f8b1099e"
@@ -1741,7 +1741,7 @@
     "util/retry",
   ]
   pruneopts = "NUT"
-  revision = "4e53353d513604b5f88d2f1e68d3ee03ea9def4f"
+  revision = "db9e84cc70f6cc2db0081b4cecc0e4e4f3df4c27"
   source = "https://github.com/cilium/client-go"
 
 [[projects]]
@@ -1760,14 +1760,14 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.16.11"
+  revision = "kubernetes-1.16.12"
 
 [[projects]]
   digest = "1:5e496d711fa03e4aaf3cab0d7de079634a9465ebf940613b69b34f5cc6513db8"
   name = "k8s.io/cri-api"
   packages = ["pkg/apis/runtime/v1alpha2"]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.11"
+  revision = "kubernetes-1.16.12"
 
 [[projects]]
   digest = "1:d233b263f74608ab5528c04453935d899a2b9fb0bf02b03d38a4a11f91442a5c"
