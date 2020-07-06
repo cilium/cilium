@@ -386,7 +386,7 @@ func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan bool {
 	return initLockSucceeded
 }
 
-func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) bool {
+func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 	ctxTimeout, cancel := context.WithTimeout(ctx, statusCheckTimeout)
 	defer cancel()
 
@@ -395,7 +395,7 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) bool {
 	case <-e.firstSession:
 	// Timeout while waiting for initial connection, no success
 	case <-ctxTimeout.Done():
-		return false
+		return fmt.Errorf("timeout while waiting for initial connection")
 	}
 
 	e.RLock()
@@ -406,10 +406,14 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) bool {
 	select {
 	// Catch disconnect event, no success
 	case <-ch:
-		return false
+		return fmt.Errorf("etcd session ended")
 	// wait for initial lock to succeed
 	case success := <-initLockSucceeded:
-		return success
+		if success {
+			return nil
+		}
+
+		return fmt.Errorf("timeout while attempting to acquire lock")
 	}
 }
 
@@ -417,7 +421,7 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) bool {
 func (e *etcdClient) Connected(ctx context.Context) <-chan struct{} {
 	out := make(chan struct{})
 	go func() {
-		for !e.isConnectedAndHasQuorum(ctx) {
+		for e.isConnectedAndHasQuorum(ctx) != nil {
 			time.Sleep(100 * time.Millisecond)
 		}
 		close(out)
@@ -871,7 +875,7 @@ func (e *etcdClient) statusChecker() {
 		newStatus := []string{}
 		ok := 0
 
-		hasQuorum := e.isConnectedAndHasQuorum(ctx)
+		quorumError := e.isConnectedAndHasQuorum(ctx)
 
 		endpoints := e.client.Endpoints()
 		for _, ep := range endpoints {
@@ -890,9 +894,14 @@ func (e *etcdClient) statusChecker() {
 		lockSessionLeaseID := e.lockSession.Lease()
 		e.RWMutex.RUnlock()
 
+		quorumString := "true"
+		if quorumError != nil {
+			quorumString = quorumError.Error()
+		}
+
 		e.statusLock.Lock()
-		e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected, lease-ID=%x, lock lease-ID=%x, has-quorum=%t: %s",
-			ok, len(endpoints), sessionLeaseID, lockSessionLeaseID, hasQuorum, strings.Join(newStatus, "; "))
+		e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected, lease-ID=%x, lock lease-ID=%x, has-quorum=%s: %s",
+			ok, len(endpoints), sessionLeaseID, lockSessionLeaseID, quorumString, strings.Join(newStatus, "; "))
 
 		// Only mark the etcd health as unstable if no etcd endpoints can be reached
 		if len(endpoints) > 0 && ok == 0 {
