@@ -521,7 +521,6 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 	struct lb6_service *svc;
 	struct lb6_key key = {};
 	struct ct_state ct_state_new = {};
-	struct ct_state ct_state = {};
 	union macaddr smac, *mac;
 	bool backend_local;
 	__u32 monitor = 0;
@@ -576,10 +575,6 @@ skip_service_lookup:
 		return DROP_MISSED_TAIL_CALL;
 	}
 
-	ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			 &ct_state, &monitor);
-	if (ret < 0)
-		return ret;
 	if (!revalidate_data(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
@@ -587,50 +582,53 @@ skip_service_lookup:
 	if (!backend_local && lb6_svc_is_hostport(svc))
 		return DROP_INVALID;
 
-	switch (ret) {
-	case CT_NEW:
+	if (backend_local || !nodeport_uses_dsr6(&tuple)) {
+		struct ct_state ct_state = {};
+
+		ret = ct_lookup6(get_ct_map6(&tuple), &tuple, ctx, l4_off,
+				 CT_EGRESS, &ct_state, &monitor);
+		switch (ret) {
+		case CT_NEW:
 redo_all:
-		ct_state_new.src_sec_id = SECLABEL;
-		ct_state_new.node_port = 1;
-		ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
-		ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
-				 CT_EGRESS, &ct_state_new, false);
-		if (IS_ERR(ret))
-			return ret;
-		if (backend_local) {
-			ct_flip_tuple_dir6(&tuple);
-redo_local:
-			ct_state_new.rev_nat_index = 0;
+			ct_state_new.src_sec_id = SECLABEL;
+			ct_state_new.node_port = 1;
+			ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
 			ret = ct_create6(get_ct_map6(&tuple), NULL, &tuple, ctx,
-					 CT_INGRESS, &ct_state_new, false);
+					 CT_EGRESS, &ct_state_new, false);
 			if (IS_ERR(ret))
 				return ret;
-		}
-		break;
-
-	case CT_REOPENED:
-	case CT_ESTABLISHED:
-	case CT_REPLY:
-		if (unlikely(ct_state.rev_nat_index != svc->rev_nat_index))
-			goto redo_all;
-
-		if (backend_local) {
-			ct_flip_tuple_dir6(&tuple);
-			if (!__ct_entry_keep_alive(get_ct_map6(&tuple),
-						   &tuple)) {
-				ct_state_new.src_sec_id = SECLABEL;
-				ct_state_new.node_port = 1;
-				ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
-				goto redo_local;
+			if (backend_local) {
+				ct_flip_tuple_dir6(&tuple);
+redo_local:
+				ct_state_new.rev_nat_index = 0;
+				ret = ct_create6(get_ct_map6(&tuple), NULL,
+						 &tuple, ctx, CT_INGRESS,
+						 &ct_state_new, false);
+				if (IS_ERR(ret))
+					return ret;
 			}
+			break;
+		case CT_REOPENED:
+		case CT_ESTABLISHED:
+		case CT_REPLY:
+			if (unlikely(ct_state.rev_nat_index !=
+				     svc->rev_nat_index))
+				goto redo_all;
+			if (backend_local) {
+				ct_flip_tuple_dir6(&tuple);
+				if (!__ct_entry_keep_alive(get_ct_map6(&tuple),
+							   &tuple)) {
+					ct_state_new.src_sec_id = SECLABEL;
+					ct_state_new.node_port = 1;
+					ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
+					goto redo_local;
+				}
+			}
+			break;
+		default:
+			return DROP_UNKNOWN_CT;
 		}
-		break;
 
-	default:
-		return DROP_UNKNOWN_CT;
-	}
-
-	if (backend_local || (!backend_local && !nodeport_uses_dsr6(&tuple))) {
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
 		if (eth_load_saddr(ctx, smac.addr, 0) < 0)
@@ -1239,7 +1237,6 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 	struct lb4_service *svc;
 	struct lb4_key key = {};
 	struct ct_state ct_state_new = {};
-	struct ct_state ct_state = {};
 	union macaddr smac, *mac;
 	bool backend_local;
 	__u32 monitor = 0;
@@ -1293,10 +1290,6 @@ skip_service_lookup:
 		return DROP_MISSED_TAIL_CALL;
 	}
 
-	ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off, CT_EGRESS,
-			 &ct_state, &monitor);
-	if (ret < 0)
-		return ret;
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
@@ -1304,56 +1297,62 @@ skip_service_lookup:
 	if (!backend_local && lb4_svc_is_hostport(svc))
 		return DROP_INVALID;
 
-	switch (ret) {
-	case CT_NEW:
+	/* Reply from DSR packet is never seen on this node again hence no
+	 * need to track in here.
+	 */
+	if (backend_local || !nodeport_uses_dsr4(&tuple)) {
+		struct ct_state ct_state = {};
+
+		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
+				 CT_EGRESS, &ct_state, &monitor);
+		switch (ret) {
+		case CT_NEW:
 redo_all:
-		ct_state_new.src_sec_id = SECLABEL;
-		ct_state_new.node_port = 1;
-		ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
-		ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
-				 CT_EGRESS, &ct_state_new, false);
-		if (IS_ERR(ret))
-			return ret;
-		if (backend_local) {
-			ct_flip_tuple_dir4(&tuple);
-redo_local:
-			/* Reset rev_nat_index, otherwise ipv4_policy() in
-			 * bpf_lxc will do invalid xlation.
-			 */
-			ct_state_new.rev_nat_index = 0;
+			ct_state_new.src_sec_id = SECLABEL;
+			ct_state_new.node_port = 1;
+			ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
 			ret = ct_create4(get_ct_map4(&tuple), NULL, &tuple, ctx,
-					 CT_INGRESS, &ct_state_new, false);
+					 CT_EGRESS, &ct_state_new, false);
 			if (IS_ERR(ret))
 				return ret;
-		}
-		break;
-
-	case CT_REOPENED:
-	case CT_ESTABLISHED:
-	case CT_REPLY:
-		/* Recreate CT entries, as the existing one is stale and belongs
-		 * to a flow which target a different svc.
-		 */
-		if (unlikely(ct_state.rev_nat_index != svc->rev_nat_index))
-			goto redo_all;
-
-		if (backend_local) {
-			ct_flip_tuple_dir4(&tuple);
-			if (!__ct_entry_keep_alive(get_ct_map4(&tuple),
-						   &tuple)) {
-				ct_state_new.src_sec_id = SECLABEL;
-				ct_state_new.node_port = 1;
-				ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
-				goto redo_local;
+			if (backend_local) {
+				ct_flip_tuple_dir4(&tuple);
+redo_local:
+				/* Reset rev_nat_index, otherwise ipv4_policy()
+				 * in bpf_lxc will do invalid xlation.
+				 */
+				ct_state_new.rev_nat_index = 0;
+				ret = ct_create4(get_ct_map4(&tuple), NULL,
+						 &tuple, ctx, CT_INGRESS,
+						 &ct_state_new, false);
+				if (IS_ERR(ret))
+					return ret;
 			}
+			break;
+		case CT_REOPENED:
+		case CT_ESTABLISHED:
+		case CT_REPLY:
+			/* Recreate CT entries, as the existing one is stale and
+			 * belongs to a flow which target a different svc.
+			 */
+			if (unlikely(ct_state.rev_nat_index !=
+				     svc->rev_nat_index))
+				goto redo_all;
+			if (backend_local) {
+				ct_flip_tuple_dir4(&tuple);
+				if (!__ct_entry_keep_alive(get_ct_map4(&tuple),
+							   &tuple)) {
+					ct_state_new.src_sec_id = SECLABEL;
+					ct_state_new.node_port = 1;
+					ct_state_new.ifindex = NATIVE_DEV_IFINDEX;
+					goto redo_local;
+				}
+			}
+			break;
+		default:
+			return DROP_UNKNOWN_CT;
 		}
-		break;
 
-	default:
-		return DROP_UNKNOWN_CT;
-	}
-
-	if (backend_local || (!backend_local && !nodeport_uses_dsr4(&tuple))) {
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
 		if (eth_load_saddr(ctx, smac.addr, 0) < 0)
