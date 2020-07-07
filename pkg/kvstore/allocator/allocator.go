@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/rate"
 
 	"github.com/sirupsen/logrus"
 )
@@ -436,7 +437,7 @@ func (k *kvstoreBackend) RunLocksGC(ctx context.Context, staleKeysPrevRound map[
 }
 
 // RunGC scans the kvstore for unused master keys and removes them
-func (k *kvstoreBackend) RunGC(ctx context.Context, staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
+func (k *kvstoreBackend) RunGC(ctx context.Context, rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
 	// fetch list of all /id/ keys
 	allocated, err := k.backend.ListPrefix(ctx, k.idPrefix)
 	if err != nil {
@@ -474,6 +475,7 @@ func (k *kvstoreBackend) RunGC(ctx context.Context, staleKeysPrevRound map[strin
 			}
 		}
 
+		var deleted bool
 		// if ID has no user, delete it
 		if !hasUsers {
 			scopedLog := log.WithFields(logrus.Fields{
@@ -492,6 +494,10 @@ func (k *kvstoreBackend) RunGC(ctx context.Context, staleKeysPrevRound map[strin
 					} else {
 						scopedLog.Info("Deleted unused allocator master key")
 					}
+					// consider the key regardless if there was an error from
+					// the kvstore. We want to rate limit the number of requests
+					// done to the KVStore.
+					deleted = true
 				}
 			} else {
 				// If the key was not found mark it to be delete in the next RunGC
@@ -500,6 +506,16 @@ func (k *kvstoreBackend) RunGC(ctx context.Context, staleKeysPrevRound map[strin
 		}
 
 		lock.Unlock(context.Background())
+		if deleted {
+			// Wait after deleted the key. This is not ideal because we have
+			// done the operation that should be rate limited before checking the
+			// rate limit. We have to do this here to avoid holding the global lock
+			// for a long period of time.
+			err = rateLimit.Wait(ctx)
+			if err != nil {
+				return nil, err
+			}
+		}
 	}
 
 	return staleKeys, nil

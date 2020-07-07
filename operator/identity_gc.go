@@ -22,6 +22,8 @@ import (
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/kvstore"
 	kvstoreallocator "github.com/cilium/cilium/pkg/kvstore/allocator"
+
+	"github.com/sirupsen/logrus"
 )
 
 func startKvstoreIdentityGC() {
@@ -35,14 +37,16 @@ func startKvstoreIdentityGC() {
 	keysToDelete := map[string]uint64{}
 	go func() {
 		for {
-			keysToDelete2, err := a.RunGC(keysToDelete)
+			keysToDelete2, err := a.RunGC(identityRateLimiter, keysToDelete)
 			if err != nil {
 				log.WithError(err).Warning("Unable to run security identity garbage collector")
 			} else {
 				keysToDelete = keysToDelete2
 			}
-
 			<-time.After(operatorOption.Config.IdentityGCInterval)
+			log.WithFields(logrus.Fields{
+				"identities-to-delete": keysToDelete,
+			}).Debug("Will delete identities if they are still unused")
 		}
 	}()
 }
