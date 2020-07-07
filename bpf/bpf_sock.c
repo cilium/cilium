@@ -204,17 +204,18 @@ sock4_skip_xlate(struct lb4_service *svc, __be32 address)
 }
 
 static __always_inline struct lb4_service *
-sock4_nodeport_wildcard_lookup(struct lb4_key *key __maybe_unused,
-			       const bool include_remote_hosts __maybe_unused,
-			       const bool in_hostns __maybe_unused)
+sock4_wildcard_lookup(struct lb4_key *key __maybe_unused,
+		      const bool include_remote_hosts __maybe_unused,
+		      const bool inv_match __maybe_unused,
+		      const bool in_hostns __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	struct remote_endpoint_info *info;
 	__u16 service_port;
 
 	service_port = bpf_ntohs(key->dport);
-	if (service_port < NODEPORT_PORT_MIN ||
-	    service_port > NODEPORT_PORT_MAX)
+	if ((service_port < NODEPORT_PORT_MIN ||
+	     service_port > NODEPORT_PORT_MAX) ^ inv_match)
 		return NULL;
 
 	/* When connecting to node port services in our cluster that
@@ -264,7 +265,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	 */
 	svc = lb4_lookup_service(&key, true);
 	if (!svc) {
-		svc = sock4_nodeport_wildcard_lookup(&key, true, in_hostns);
+		svc = sock4_wildcard_lookup(&key, true, false, in_hostns);
 		if (svc && !lb4_svc_is_nodeport(svc))
 			svc = NULL;
 	}
@@ -365,7 +366,7 @@ static __always_inline int __sock4_bind(struct bpf_sock *ctx,
 		 * tries to bind to loopback or an address with host identity
 		 * (without remote hosts).
 		 */
-		svc = sock4_nodeport_wildcard_lookup(&key, false, true);
+		svc = sock4_wildcard_lookup(&key, false, false, true);
 
 	/* If the sockaddr of this socket overlaps with a NodePort,
 	 * LoadBalancer or ExternalIP service. We must reject this
@@ -412,8 +413,8 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 		if (!svc) {
 			const bool in_hostns = ctx_in_hostns(ctx_full, NULL);
 
-			svc = sock4_nodeport_wildcard_lookup(&svc_key, true,
-							     in_hostns);
+			svc = sock4_wildcard_lookup(&svc_key, true, false,
+						    in_hostns);
 			if (svc && !lb4_svc_is_nodeport(svc))
 				svc = NULL;
 		}
@@ -545,17 +546,18 @@ sock6_skip_xlate(struct lb6_service *svc, union v6addr *address)
 }
 
 static __always_inline __maybe_unused struct lb6_service *
-sock6_nodeport_wildcard_lookup(struct lb6_key *key __maybe_unused,
-			       const bool include_remote_hosts __maybe_unused,
-			       const bool in_hostns __maybe_unused)
+sock6_wildcard_lookup(struct lb6_key *key __maybe_unused,
+		      const bool include_remote_hosts __maybe_unused,
+		      const bool inv_match __maybe_unused,
+		      const bool in_hostns __maybe_unused)
 {
 #ifdef ENABLE_NODEPORT
 	struct remote_endpoint_info *info;
 	__u16 service_port;
 
 	service_port = bpf_ntohs(key->dport);
-	if (service_port < NODEPORT_PORT_MIN ||
-	    service_port > NODEPORT_PORT_MAX)
+	if ((service_port < NODEPORT_PORT_MIN ||
+	     service_port > NODEPORT_PORT_MAX) ^ inv_match)
 		return NULL;
 
 	/* When connecting to node port services in our cluster that
@@ -647,7 +649,7 @@ static __always_inline int __sock6_bind(struct bpf_sock *ctx)
 
 	svc = lb6_lookup_service(&key, true);
 	if (!svc) {
-		svc = sock6_nodeport_wildcard_lookup(&key, false, true);
+		svc = sock6_wildcard_lookup(&key, false, false, true);
 		if (!svc)
 			return sock6_bind_v4_in_v6(ctx);
 	}
@@ -693,7 +695,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 
 	svc = lb6_lookup_service(&key, true);
 	if (!svc) {
-		svc = sock6_nodeport_wildcard_lookup(&key, true, in_hostns);
+		svc = sock6_wildcard_lookup(&key, true, false, in_hostns);
 		if (svc && !lb6_svc_is_nodeport(svc))
 			svc = NULL;
 		else if (!svc)
@@ -813,8 +815,8 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 		if (!svc) {
 			const bool in_hostns = ctx_in_hostns(ctx, NULL);
 
-			svc = sock6_nodeport_wildcard_lookup(&svc_key, true,
-							     in_hostns);
+			svc = sock6_wildcard_lookup(&svc_key, true, false,
+						    in_hostns);
 			if (svc && !lb6_svc_is_nodeport(svc))
 				svc = NULL;
 		}
