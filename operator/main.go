@@ -35,14 +35,15 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/version"
+
 	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
-
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -72,6 +73,18 @@ var (
 	shutdownSignal = make(chan struct{})
 
 	ciliumK8sClient clientset.Interface
+
+	// identityRateLimiter is a rate limiter to rate limit the number of
+	// identities being GCed by the operator. See the documentation of
+	// rate.Limiter to understand its difference than 'x/time/rate.Limiter'.
+	//
+	// With our rate.Limiter implementation Cilium will be able to handle bursts
+	// of identities being garbage collected with the help of the functionality
+	// provided by the 'policy-trigger-interval' in the cilium-agent. With the
+	// policy-trigger even if we receive N identity changes over the interval
+	// set, Cilium will only need to process all of them at once instead of
+	// processing each one individually.
+	identityRateLimiter *rate.Limiter
 )
 
 func initEnv() {
@@ -300,6 +313,13 @@ func runOperator(cmd *cobra.Command) {
 		}
 
 		startKvstoreWatchdog()
+	}
+
+	if operatorOption.Config.IdentityGCInterval != 0 {
+		identityRateLimiter = rate.NewLimiter(
+			operatorOption.Config.IdentityGCRateInterval,
+			operatorOption.Config.IdentityGCRateLimit,
+		)
 	}
 
 	switch option.Config.IdentityAllocationMode {

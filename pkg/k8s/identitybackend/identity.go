@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/rate"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/api/core/v1"
@@ -125,7 +126,7 @@ func (c *crdBackend) RunLocksGC(_ context.Context, _ map[string]kvstore.Value) (
 	return nil, nil
 }
 
-func (c *crdBackend) RunGC(ctx context.Context, staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
+func (c *crdBackend) RunGC(context.Context, *rate.Limiter, map[string]uint64) (map[string]uint64, error) {
 	return nil, nil
 }
 

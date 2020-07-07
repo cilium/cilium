@@ -20,11 +20,13 @@ import (
 	"context"
 	"fmt"
 	"testing"
+	"time"
 
 	"github.com/cilium/cilium/pkg/idpool"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/rand"
+	"github.com/cilium/cilium/pkg/rate"
 
 	. "gopkg.in/check.v1"
 )
@@ -179,7 +181,7 @@ func (d *dummyBackend) RunLocksGC(_ context.Context, _ map[string]kvstore.Value)
 	return nil, nil
 }
 
-func (d *dummyBackend) RunGC(context.Context, map[string]uint64) (map[string]uint64, error) {
+func (d *dummyBackend) RunGC(context.Context, *rate.Limiter, map[string]uint64) (map[string]uint64, error) {
 	return nil, nil
 }
 
@@ -333,8 +335,10 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 		c.Assert(allocator.localKeys.keys[allocator.encodeKey(key)].refcnt, Equals, uint64(1))
 	}
 
+	rateLimiter := rate.NewLimiter(10*time.Second, 100)
+
 	// running the GC should not evict any entries
-	allocator.RunGC(nil)
+	allocator.RunGC(rateLimiter, nil)
 
 	// release final reference of all IDs
 	for i := idpool.ID(1); i <= maxID; i++ {
@@ -347,7 +351,7 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 	}
 
 	// running the GC should evict all entries
-	allocator.RunGC(nil)
+	allocator.RunGC(rateLimiter, nil)
 
 	allocator.DeleteAllKeys()
 	allocator.Delete()
