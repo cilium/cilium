@@ -652,6 +652,8 @@ else
 	bpf_clear_cgroups $CGROUP_ROOT sendmsg6
 	bpf_clear_cgroups $CGROUP_ROOT recvmsg4
 	bpf_clear_cgroups $CGROUP_ROOT recvmsg6
+	bpf_clear_cgroups $CGROUP_ROOT getpeername4
+	bpf_clear_cgroups $CGROUP_ROOT getpeername6
 fi
 
 if [ "$IPSEC" == "true" ]; then
