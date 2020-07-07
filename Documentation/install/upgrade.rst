@@ -317,6 +317,18 @@ Annotations:
    upgrade. Connections should successfully re-establish without requiring
    clients to reconnect.
 
+.. _1.9_upgrade_notes:
+
+1.9 Upgrade Notes
+-----------------
+
+Renamed Metrics
+~~~~~~~~~~~~~~~
+
+The following metrics have been renamed:
+
+* ``cilium_operator_ipam_ec2_resync`` to ``cilium_operator_ipam_resync``
+
 .. _1.8_upgrade_notes:
 
 1.8 Upgrade Notes
@@ -549,9 +561,9 @@ New ConfigMap Options
     On upgrades of existing installations, this option is disabled by default,
     i.e. it is set to 0.0. Users wanting to use this feature need to enable it
     explicitly in their `ConfigMap`, see section :ref:`upgrade_configmap`.
-  
+
   * ``enable-health-check-nodeport`` has been added to allow to configure
-    NodePort server health check when kube-proxy is disabled. 
+    NodePort server health check when kube-proxy is disabled.
 
 Deprecated options
 ~~~~~~~~~~~~~~~~~~
