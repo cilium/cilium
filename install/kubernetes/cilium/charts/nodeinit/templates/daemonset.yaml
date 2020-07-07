@@ -86,7 +86,7 @@ spec:
 {{- end }}
 
 {{- if .Values.global.gke.enabled }}
-                    # If the IP-MASQ chain exists, add back jump rule
+                    # If the IP-MASQ chain exists, add back default jump rule from the GKE instance configure script
                     if iptables -w -t nat -L IP-MASQ > /dev/null; then
                       iptables -w -t nat -A POSTROUTING -m comment --comment "ip-masq: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom IP-MASQ chain" -m addrtype ! --dst-type LOCAL -j IP-MASQ
                     fi
@@ -184,7 +184,12 @@ spec:
 {{- end }}
 
 {{- if .Values.global.gke.enabled }}
-              # Disable jumping to ip-masq chain
+              # If Cilium is installed, it would be expected that it would be solely responsible
+              # for the networking configuration on that node.
+              # In GKE, even if the IP masquerade agent is not enabled, the instance
+              # configure script adds some default masquerade rules anyway.
+              # If we remove the jump to that ip-masq chain, then we ensure masquerade configuration
+              # is managed by Cilium.
               iptables -w -t nat -D POSTROUTING -m comment --comment "ip-masq: ensure nat POSTROUTING directs all non-LOCAL destination traffic to our custom IP-MASQ chain" -m addrtype ! --dst-type LOCAL -j IP-MASQ || true
 {{- end }}
 
