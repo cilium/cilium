@@ -43,7 +43,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.15"
+	CustomResourceDefinitionSchemaVersion = "1.16"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -648,12 +648,17 @@ var (
 				},
 			},
 			"toGroups": {
-				Type: "object",
+				Type: "array",
 				Description: `ToGroups is a list of constraints that will
 				gather data from third-party providers and create a new
 				derived policy.`,
-				Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
-					"aws": AWSGroup,
+				Items: &apiextensionsv1beta1.JSONSchemaPropsOrArray{
+					Schema: &apiextensionsv1beta1.JSONSchemaProps{
+						Type: "object",
+						Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
+							"aws": AWSGroup,
+						},
+					},
 				},
 			},
 			"toFQDNs": {
