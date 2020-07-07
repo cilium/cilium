@@ -349,7 +349,7 @@ func (c *Client) CreateNetworkInterface(ctx context.Context, toAllocate int64, s
 	sinceStart := spanstat.Start()
 	create := c.ec2Client.CreateNetworkInterfaceRequest(createReq)
 	resp, err := create.Send(ctx)
-	c.metricsAPI.ObserveAPICall("CreateNetworkInterfaceRequest", deriveStatus(create.Request, err), sinceStart.Seconds())
+	c.metricsAPI.ObserveAPICall("CreateNetworkInterface", deriveStatus(create.Request, err), sinceStart.Seconds())
 	if err != nil {
 		return "", nil, err
 	}
