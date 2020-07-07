@@ -16,6 +16,7 @@ package RuntimeTest
 
 import (
 	"context"
+	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -24,9 +25,10 @@ import (
 	. "github.com/onsi/gomega"
 )
 
-var _ = Describe("RuntimeKVStoreTest", func() {
+var _ = Describe("RuntimeKVStoreTest16", func() {
 
 	var vm *helpers.SSHMeta
+	var testStartTime time.Time
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
@@ -48,7 +50,12 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		res := vm.ExecWithSudo("systemctl stop cilium")
 		res.ExpectSuccess("Failed trying to stop cilium via systemctl")
 		ExpectCiliumNotRunning(vm)
+		helpers.Sleep(2)
 	}, 150)
+
+	JustBeforeEach(func() {
+		testStartTime = time.Now()
+	})
 
 	AfterEach(func() {
 		containers(helpers.Delete)
@@ -57,7 +64,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 	})
 
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 	})
 
 	AfterFailed(func() {
@@ -68,7 +75,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		vm.CloseSSHClient()
 	})
 
-	SkipContextIf(helpers.SkipQuarantined, "KVStore tests under quarantine", func() {
+	Context("KVStore tests under quarantine", func() {
 
 		It("Consul KVStore", func() {
 			ctx, cancel := context.WithCancel(context.Background())
@@ -76,7 +83,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 			By("Starting Cilium with consul as kvstore")
 			vm.ExecInBackground(
 				ctx,
-				"sudo cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug")
+				"sudo cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug 2>&1 | logger -t cilium")
 			err := vm.WaitUntilReady(helpers.CiliumStartTimeout)
 			Expect(err).Should(BeNil())
 
@@ -96,7 +103,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 			By("Starting Cilium with etcd as kvstore")
 			vm.ExecInBackground(
 				ctx,
-				"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001 2>&1 | logger -t cilium")
+				"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001 --debug 2>&1 | logger -t cilium")
 			err := vm.WaitUntilReady(helpers.CiliumStartTimeout)
 			Expect(err).Should(BeNil(), "Timed out waiting for VM to be ready after restarting Cilium")
 
