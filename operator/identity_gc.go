@@ -44,7 +44,7 @@ func startKvstoreIdentityGC() {
 	keysToDelete := map[string]uint64{}
 	go func() {
 		for {
-			keysToDelete2, err := a.RunGC(keysToDelete)
+			keysToDelete2, err := a.RunGC(identityRateLimiter, keysToDelete)
 			if err != nil {
 				log.WithError(err).Warning("Unable to run security identity garbage collector")
 			} else {

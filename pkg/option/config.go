@@ -660,6 +660,14 @@ const (
 	// allocation
 	IdentityAllocationMode = "identity-allocation-mode"
 
+	// IdentityGCRateInterval is the interval used for rate limiting the GC of
+	// identities.
+	IdentityGCRateInterval = "identity-gc-rate-interval"
+
+	// IdentityGCRateLimit is the maximum identities used for rate limiting the
+	// GC of identities.
+	IdentityGCRateLimit = "identity-gc-rate-limit"
+
 	// IdentityAllocationModeKVstore enables use of a key-value store such
 	// as etcd or consul for identity allocation
 	IdentityAllocationModeKVstore = "kvstore"
@@ -1413,6 +1421,14 @@ type DaemonConfig struct {
 	EndpointStatus map[string]struct{}
 
 	k8sEnableAPIDiscovery bool
+
+	// IdentityGCRateInterval is the interval used for rate limiting the GC of
+	// identities.
+	IdentityGCRateInterval time.Duration
+
+	// IdentityGCRateLimit is the maximum identities used for rate limiting the
+	// GC of identities.
+	IdentityGCRateLimit int64
 }
 
 var (

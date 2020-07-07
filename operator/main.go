@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/version"
 
 	gops "github.com/google/gops/agent"
@@ -78,6 +79,18 @@ var (
 	ciliumK8sClient             clientset.Interface
 
 	cmdRefDir string
+
+	// identityRateLimiter is a rate limiter to rate limit the number of
+	// identities being GCed by the operator. See the documentation of
+	// rate.Limiter to understand its difference than 'x/time/rate.Limiter'.
+	//
+	// With our rate.Limiter implementation Cilium will be able to handle bursts
+	// of identities being garbage collected with the help of the functionality
+	// provided by the 'policy-trigger-interval' in the cilium-agent. With the
+	// policy-trigger even if we receive N identity changes over the interval
+	// set, Cilium will only need to process all of them at once instead of
+	// processing each one individually.
+	identityRateLimiter *rate.Limiter
 )
 
 func main() {
@@ -134,6 +147,12 @@ func init() {
 	flags.StringVar(&identityAllocationMode, option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")
 	option.BindEnv(option.IdentityAllocationMode)
 	flags.DurationVar(&identityGCInterval, "identity-gc-interval", defaults.KVstoreLeaseTTL, "GC interval for security identities")
+	flags.Duration(option.IdentityGCRateInterval, time.Minute,
+		"Interval used for rate limiting the GC of security identities")
+	option.BindEnv(option.IdentityGCRateInterval)
+	flags.Int64(option.IdentityGCRateLimit, 250,
+		fmt.Sprintf("Maximum number of security identities that will be deleted within the %s", option.IdentityGCRateInterval))
+	option.BindEnv(option.IdentityGCRateLimit)
 	flags.DurationVar(&kvNodeGCInterval, "nodes-gc-interval", time.Minute*2, "GC interval for nodes store in the kvstore")
 	flags.Int64Var(&eniParallelWorkers, "eni-parallel-workers", defaults.ENIParallelWorkers, "Maximum number of parallel workers used by ENI allocator")
 	flags.Bool(option.K8sEnableAPIDiscovery, defaults.K8sEnableAPIDiscovery, "Enable discovery of Kubernetes API groups and resources with the discovery API")
@@ -199,6 +218,8 @@ func initConfig() {
 	option.Config.DisableCiliumEndpointCRD = viper.GetBool(option.DisableCiliumEndpointCRDName)
 	option.Config.K8sNamespace = viper.GetString(option.K8sNamespaceName)
 	option.Config.AwsReleaseExcessIps = viper.GetBool(option.AwsReleaseExcessIps)
+	option.Config.IdentityGCRateInterval = viper.GetDuration(option.IdentityGCRateInterval)
+	option.Config.IdentityGCRateLimit = viper.GetInt64(option.IdentityGCRateLimit)
 
 	viper.SetEnvPrefix("cilium")
 	viper.SetConfigName("cilium-operator")
@@ -368,6 +389,13 @@ func runOperator(cmd *cobra.Command) {
 		}
 
 		startKvstoreWatchdog()
+	}
+
+	if identityGCInterval != time.Duration(0) {
+		identityRateLimiter = rate.NewLimiter(
+			option.Config.IdentityGCRateInterval,
+			option.Config.IdentityGCRateLimit,
+		)
 	}
 
 	switch identityAllocationMode {

@@ -37,7 +37,12 @@ var identityStore cache.Store
 // deleteIdentity deletes an identity. It includes the resource version and
 // will error if the object has since been changed.
 func deleteIdentity(ctx context.Context, identity *types.Identity) error {
-	err := ciliumK8sClient.CiliumV2().CiliumIdentities().Delete(
+	// Wait until we can delete an identity
+	err := identityRateLimiter.Wait(ctx)
+	if err != nil {
+		return err
+	}
+	err = ciliumK8sClient.CiliumV2().CiliumIdentities().Delete(
 		identity.Name,
 		&metav1.DeleteOptions{
 			Preconditions: &metav1.Preconditions{
@@ -118,7 +123,7 @@ func handleIdentityUpdate(identity *types.Identity) {
 	// If no more nodes are using this identity, release the ID for reuse.
 	// If deleteIdentity fails the identity will be removed by the periodic GC.
 	if len(identity.Status.Nodes) == 0 {
-		deleteIdentity(identity)
+		deleteIdentity(context.TODO(), identity)
 	}
 }
 
