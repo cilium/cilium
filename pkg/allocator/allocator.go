@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/sirupsen/logrus"
@@ -242,7 +243,7 @@ type Backend interface {
 	// by cilium-agent.
 	// Note: not all Backend implemenations rely on this, such as the kvstore
 	// backends, and may use leases to expire keys.
-	RunGC(ctx context.Context, staleKeysPrevRound map[string]uint64) (map[string]uint64, error)
+	RunGC(ctx context.Context, rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, error)
 
 	// RunLocksGC reaps stale or unused locks within the Backend. It is used by
 	// the cilium-operator and is not invoked by cilium-agent. Returns
@@ -739,8 +740,8 @@ func (a *Allocator) Release(ctx context.Context, key AllocatorKey) (lastUse bool
 }
 
 // RunGC scans the kvstore for unused master keys and removes them
-func (a *Allocator) RunGC(staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
-	return a.backend.RunGC(context.TODO(), staleKeysPrevRound)
+func (a *Allocator) RunGC(rateLimit *rate.Limiter, staleKeysPrevRound map[string]uint64) (map[string]uint64, error) {
+	return a.backend.RunGC(context.TODO(), rateLimit, staleKeysPrevRound)
 }
 
 // RunLocksGC scans the kvstore for stale locks and removes them

@@ -232,6 +232,14 @@ func init() {
 	flags.Duration(operatorOption.IdentityGCInterval, defaults.KVstoreLeaseTTL, "GC interval for security identities")
 	option.BindEnv(operatorOption.IdentityGCInterval)
 
+	flags.Duration(operatorOption.IdentityGCRateInterval, time.Minute,
+		"Interval used for rate limiting the GC of security identities")
+	option.BindEnv(operatorOption.IdentityGCRateInterval)
+
+	flags.Int(operatorOption.IdentityGCRateLimit, 250,
+		fmt.Sprintf("Maximum number of security identities that will be deleted within the %s", operatorOption.IdentityGCRateInterval))
+	option.BindEnv(operatorOption.IdentityGCRateLimit)
+
 	flags.String(option.KVStore, "", "Key-value store type")
 	option.BindEnv(option.KVStore)
 

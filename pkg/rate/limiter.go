@@ -16,6 +16,7 @@ package rate
 
 import (
 	"context"
+	"fmt"
 	"sync/atomic"
 	"time"
 
@@ -25,6 +26,7 @@ import (
 // Limiter is used to limit the number of operations done.
 type Limiter struct {
 	semaphore   *semaphore.Weighted
+	burst       int64
 	currWeights int64
 	ticker      *time.Ticker
 	cancelFunc  context.CancelFunc
@@ -46,6 +48,7 @@ func NewLimiter(interval time.Duration, b int64) *Limiter {
 	ctx, cancel := context.WithCancel(context.Background())
 	l := &Limiter{
 		semaphore:   semaphore.NewWeighted(b),
+		burst:       b,
 		ticker:      ticker,
 		currWeights: 0,
 		ctx:         ctx,
@@ -80,7 +83,7 @@ func (lim *Limiter) assertAlive() {
 	}
 }
 
-// Allow is shorthand for AllowN(time.Now(), 1).
+// Allow is shorthand for AllowN(1).
 func (lim *Limiter) Allow() bool {
 	return lim.AllowN(1)
 }
@@ -108,6 +111,9 @@ func (lim *Limiter) Wait(ctx context.Context) error {
 // If ctx is already done, WaitN may still succeed without blocking.
 func (lim *Limiter) WaitN(ctx context.Context, n int64) error {
 	lim.assertAlive()
+	if n > lim.burst {
+		return fmt.Errorf("rate: Wait(n=%d) exceeds limiter's burst %d", n, lim.burst)
+	}
 	err := lim.semaphore.Acquire(ctx, n)
 	if err != nil {
 		return err
