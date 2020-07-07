@@ -314,32 +314,32 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 	return err
 }
 
-func genServiceMappings(pod *slim_corev1.Pod, podIPs []string) []loadbalancer.SVC {
+func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, logger *logrus.Entry) []loadbalancer.SVC {
 	var svcs []loadbalancer.SVC
 	for _, c := range pod.Spec.Containers {
 		for _, p := range c.Ports {
-			if p.HostPort == 0 {
+			var fes4 []loadbalancer.L3n4AddrID
+			var fes6 []loadbalancer.L3n4AddrID
+
+			if p.HostPort <= 0 {
 				continue
 			}
-			feIP := net.ParseIP(p.HostIP)
-			if feIP == nil {
-				feIP = net.ParseIP(pod.Status.HostIP)
+
+			if int(p.HostPort) >= option.Config.NodePortMin &&
+				int(p.HostPort) <= option.Config.NodePortMax {
+				logger.Warningf("The requested hostPort %d is colliding with the configured NodePort range [%d, %d]. Ignoring.",
+					p.HostPort, option.Config.NodePortMin, option.Config.NodePortMax)
+				continue
 			}
+
 			proto, err := loadbalancer.NewL4Type(string(p.Protocol))
 			if err != nil {
 				continue
 			}
-			fe := loadbalancer.L3n4AddrID{
-				L3n4Addr: loadbalancer.L3n4Addr{
-					IP: feIP,
-					L4Addr: loadbalancer.L4Addr{
-						Protocol: proto,
-						Port:     uint16(p.HostPort),
-					},
-				},
-				ID: loadbalancer.ID(0),
-			}
-			bes := make([]loadbalancer.Backend, 0, len(podIPs))
+
+			bes4 := make([]loadbalancer.Backend, 0, len(podIPs))
+			bes6 := make([]loadbalancer.Backend, 0, len(podIPs))
+
 			for _, podIP := range podIPs {
 				be := loadbalancer.Backend{
 					L3n4Addr: loadbalancer.L3n4Addr{
@@ -350,18 +350,98 @@ func genServiceMappings(pod *slim_corev1.Pod, podIPs []string) []loadbalancer.SV
 						},
 					},
 				}
-				bes = append(bes, be)
+				if be.L3n4Addr.IP.To4() != nil {
+					bes4 = append(bes4, be)
+				} else {
+					bes6 = append(bes6, be)
+				}
 			}
-			svcs = append(svcs,
-				loadbalancer.SVC{
-					Frontend: fe,
-					Backends: bes,
-					Type:     loadbalancer.SVCTypeHostPort,
-					// We don't have the node name available here, but in
-					// any case in the BPF data path we drop any potential
-					// non-local backends anyway (which should never exist).
-					TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-				})
+
+			// When HostIP is explicitly set, then we need to expose *only*
+			// on this address but not via other addresses. When it's not set,
+			// then expose via all local addresses. Same when the user provides
+			// an unspecified address (0.0.0.0 / [::]).
+			feIP := net.ParseIP(p.HostIP)
+			if feIP != nil && !feIP.IsUnspecified() {
+				// Migrate the loopback address into a 0.0.0.0 / [::]
+				// surrogate, thus internal datapath handling can be
+				// streamlined. It's not exposed for traffic from outside.
+				if feIP.IsLoopback() {
+					if feIP.To4() != nil {
+						feIP = net.IPv4zero
+					} else {
+						feIP = net.IPv6zero
+					}
+				}
+				fe := loadbalancer.L3n4AddrID{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: feIP,
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: proto,
+							Port:     uint16(p.HostPort),
+						},
+						Scope: loadbalancer.ScopeExternal,
+					},
+					ID: loadbalancer.ID(0),
+				}
+				if fe.L3n4Addr.IP.To4() != nil {
+					fes4 = append(fes4, fe)
+				} else {
+					fes6 = append(fes6, fe)
+				}
+			} else {
+				nodeAddrAll := [2][]net.IP{
+					k.K8sSvcCache.GetNodeAddressing().IPv4().LoadBalancerNodeAddresses(),
+					k.K8sSvcCache.GetNodeAddressing().IPv6().LoadBalancerNodeAddresses(),
+				}
+				for _, addrs := range nodeAddrAll {
+					for _, ip := range addrs {
+						fe := loadbalancer.L3n4AddrID{
+							L3n4Addr: loadbalancer.L3n4Addr{
+								IP: ip,
+								L4Addr: loadbalancer.L4Addr{
+									Protocol: proto,
+									Port:     uint16(p.HostPort),
+								},
+								Scope: loadbalancer.ScopeExternal,
+							},
+							ID: loadbalancer.ID(0),
+						}
+						if fe.L3n4Addr.IP.To4() != nil {
+							fes4 = append(fes4, fe)
+						} else {
+							fes6 = append(fes6, fe)
+						}
+					}
+				}
+			}
+
+			// We don't have the node name available here, but in any
+			// case in the BPF data path we drop any potential non-local
+			// backends anyway (which should never exist in the first
+			// place), hence we can just leave it at Cluster policy.
+			if option.Config.EnableIPv4 && len(bes4) > 0 {
+				for _, fe4 := range fes4 {
+					svcs = append(svcs,
+						loadbalancer.SVC{
+							Frontend:      fe4,
+							Backends:      bes4,
+							Type:          loadbalancer.SVCTypeHostPort,
+							TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+						})
+				}
+			}
+			if option.Config.EnableIPv6 && len(bes6) > 0 {
+				for _, fe6 := range fes6 {
+					svcs = append(svcs,
+						loadbalancer.SVC{
+							Frontend:      fe6,
+							Backends:      bes6,
+							Type:          loadbalancer.SVCTypeHostPort,
+							TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+						})
+				}
+			}
 		}
 	}
 
@@ -373,11 +453,6 @@ func (k *K8sWatcher) UpsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 		return nil
 	}
 
-	svcs := genServiceMappings(pod, podIPs)
-	if len(svcs) == 0 {
-		return nil
-	}
-
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
@@ -385,10 +460,9 @@ func (k *K8sWatcher) UpsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 		"hostIP":               pod.Status.HostIP,
 	})
 
-	hostIP := net.ParseIP(pod.Status.HostIP)
-	if hostIP == nil {
-		logger.Error("Cannot upsert HostPort service for the podIP due to missing hostIP")
-		return fmt.Errorf("no/invalid HostIP: %s", pod.Status.HostIP)
+	svcs := k.genServiceMappings(pod, podIPs, logger)
+	if len(svcs) == 0 {
+		return nil
 	}
 
 	for _, dpSvc := range svcs {
@@ -409,11 +483,6 @@ func (k *K8sWatcher) DeleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 		return nil
 	}
 
-	svcs := genServiceMappings(pod, podIPs)
-	if len(svcs) == 0 {
-		return nil
-	}
-
 	logger := log.WithFields(logrus.Fields{
 		logfields.K8sPodName:   pod.ObjectMeta.Name,
 		logfields.K8sNamespace: pod.ObjectMeta.Namespace,
@@ -421,10 +490,9 @@ func (k *K8sWatcher) DeleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 		"hostIP":               pod.Status.HostIP,
 	})
 
-	hostIP := net.ParseIP(pod.Status.HostIP)
-	if hostIP == nil {
-		logger.Error("Cannot delete HostPort service for the podIP due to missing hostIP")
-		return fmt.Errorf("no/invalid HostIP: %s", pod.Status.HostIP)
+	svcs := k.genServiceMappings(pod, podIPs, logger)
+	if len(svcs) == 0 {
+		return nil
 	}
 
 	for _, dpSvc := range svcs {
