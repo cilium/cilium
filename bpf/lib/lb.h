@@ -215,37 +215,38 @@ bool lb6_svc_is_affinity(const struct lb6_service *svc)
 static __always_inline
 __u8 svc_is_routable_mask(void)
 {
-	__u8 mask = 0;
+	__u8 mask = SVC_FLAG_ROUTABLE;
 
-	#if defined(ENABLE_LOADBALANCER)
+#ifdef ENABLE_LOADBALANCER
 	mask |= SVC_FLAG_LOADBALANCER;
-	#endif
-
-	#if defined(ENABLE_NODEPORT)
+#endif
+#ifdef ENABLE_NODEPORT
 	mask |= SVC_FLAG_NODEPORT;
-	#endif
-
-	#if defined(ENABLE_EXTERNAL_IP)
+#endif
+#ifdef ENABLE_EXTERNAL_IP
 	mask |= SVC_FLAG_EXTERNAL_IP;
-	#endif
-
-	#if defined(ENABLE_HOSTPORT)
+#endif
+#ifdef ENABLE_HOSTPORT
 	mask |= SVC_FLAG_HOSTPORT;
-	#endif
-
+#endif
 	return mask;
+}
+
+static __always_inline bool __lb_svc_is_routable(__u8 flags)
+{
+	return (flags & svc_is_routable_mask()) > SVC_FLAG_ROUTABLE;
 }
 
 static __always_inline
 bool lb4_svc_is_routable(const struct lb4_service *svc)
 {
-	return svc->flags & svc_is_routable_mask();
+	return __lb_svc_is_routable(svc->flags);
 }
 
 static __always_inline
 bool lb6_svc_is_routable(const struct lb6_service *svc)
 {
-	return svc->flags & svc_is_routable_mask();
+	return __lb_svc_is_routable(svc->flags);
 }
 
 static __always_inline int lb6_select_slave(__u16 count)

@@ -522,12 +522,13 @@ enum {
 
 /* Service flags (lb{4,6}_service->flags) */
 enum {
-	SVC_FLAG_EXTERNAL_IP  = (1 << 0),  /* K8s External IPs */
-	SVC_FLAG_NODEPORT     = (1 << 1),  /* K8s NodePort service */
-	SVC_FLAG_LOCAL_SCOPE  = (1 << 2),  /* K8s externalTrafficPolicy=Local */
-	SVC_FLAG_HOSTPORT     = (1 << 3),  /* K8s hostPort forwarding */
-	SVC_FLAG_AFFINITY     = (1 << 4),  /* K8s sessionAffinity=clientIP */
-	SVC_FLAG_LOADBALANCER = (1 << 5),  /* K8s LoadBalancer service */
+	SVC_FLAG_EXTERNAL_IP  = (1 << 0),  /* External IPs */
+	SVC_FLAG_NODEPORT     = (1 << 1),  /* NodePort service */
+	SVC_FLAG_LOCAL_SCOPE  = (1 << 2),  /* externalTrafficPolicy=Local */
+	SVC_FLAG_HOSTPORT     = (1 << 3),  /* hostPort forwarding */
+	SVC_FLAG_AFFINITY     = (1 << 4),  /* sessionAffinity=clientIP */
+	SVC_FLAG_LOADBALANCER = (1 << 5),  /* LoadBalancer service */
+	SVC_FLAG_ROUTABLE     = (1 << 6),  /* Not a surrogate/ClusterIP entry */
 };
 
 struct ipv6_ct_tuple {
