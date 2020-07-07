@@ -7,7 +7,7 @@ include ../Makefile.defs
 
 SUBDIRS = sockops
 
-BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
+BPF_SIMPLE = bpf_network.o bpf_alignchecker.o bpf_constchecker.o bpf_constchecker_self.o
 BPF = bpf_lxc.o bpf_overlay.o bpf_sock.o bpf_host.o bpf_xdp.o $(BPF_SIMPLE)
 
 TARGET=cilium-map-migrate cilium-probe-kernel-hz

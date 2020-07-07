@@ -56,14 +56,14 @@ const (
 type ServiceFlags uint8
 
 const (
-	serviceFlagNone            = 0
-	serviceFlagExternalIPs     = 1
-	serviceFlagNodePort        = 2
-	serviceFlagLocalScope      = 4
-	serviceFlagHostPort        = 8
-	serviceFlagSessionAffinity = 16
-	serviceFlagLoadBalancer    = 32
-	serviceFlagRoutable        = 64
+	serviceFlagNone            = ServiceFlags(0x00)
+	serviceFlagExternalIPs     = ServiceFlags(0x01)
+	serviceFlagNodePort        = ServiceFlags(0x02)
+	serviceFlagLocalScope      = ServiceFlags(0x04)
+	serviceFlagHostPort        = ServiceFlags(0x08)
+	serviceFlagSessionAffinity = ServiceFlags(0x10)
+	serviceFlagLoadBalancer    = ServiceFlags(0x20)
+	serviceFlagRoutable        = ServiceFlags(0x40)
 )
 
 // CreateSvcFlag returns the ServiceFlags for all given SVCTypes.

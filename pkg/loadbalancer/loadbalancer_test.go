@@ -18,7 +18,10 @@ package loadbalancer
 
 import (
 	"net"
+	"reflect"
 	"testing"
+
+	"github.com/cilium/cilium/pkg/constchecker"
 
 	"gopkg.in/check.v1"
 )
@@ -431,4 +434,23 @@ func TestServiceFlags_String(t *testing.T) {
 			}
 		})
 	}
+}
+
+type ConstSuite struct{}
+
+var _ = check.Suite(&ConstSuite{})
+
+// TestConst  validates size and values of C and Go constants.
+// (NB: it uses the consts defined in bpf_constchecker.c)
+func (t *ConstSuite) TestConst(c *check.C) {
+	toCheck := map[string]reflect.Value{
+		"svc_flag_external_ip":  reflect.ValueOf(serviceFlagExternalIPs),
+		"svc_flag_nodeport":     reflect.ValueOf(serviceFlagNodePort),
+		"svc_flag_local_scope":  reflect.ValueOf(serviceFlagLocalScope),
+		"svc_flag_hostport":     reflect.ValueOf(serviceFlagHostPort),
+		"svc_flag_affinity":     reflect.ValueOf(serviceFlagSessionAffinity),
+		"svc_flag_loadbalancer": reflect.ValueOf(serviceFlagLoadBalancer),
+		"svc_flag_routable":     reflect.ValueOf(serviceFlagRoutable),
+	}
+	constchecker.CheckEnv(c, toCheck)
 }

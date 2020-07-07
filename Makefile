@@ -210,6 +210,7 @@ unit-tests: start-kvstores
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C tools/maptool/
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C test/bpf/
 	test/bpf/unit-test
+	test/bpf/check-consts.sh
 ifeq ($(SKIP_VET),"false")
 	$(MAKE) govet
 endif
