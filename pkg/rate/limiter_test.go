@@ -53,6 +53,12 @@ func (b *ControllerSuite) TestLimiter(c *C) {
 	// The limiter should not have 1 spaces available within 100 milliseconds.
 	c.Assert(err, Not(IsNil))
 
+	ctx, cancel = context.WithTimeout(context.Background(), 100*time.Millisecond)
+	err = l.WaitN(ctx, 101)
+	cancel()
+	// The limiter won't be able to handle that many burst requests.
+	c.Assert(err, Not(IsNil))
+
 	l.Stop()
 
 	defer func() {
