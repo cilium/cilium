@@ -39,9 +39,9 @@ var identityStore cache.Store
 
 // deleteIdentity deletes an identity. It includes the resource version and
 // will error if the object has since been changed.
-func deleteIdentity(identity *v2.CiliumIdentity) error {
+func deleteIdentity(ctx context.Context, identity *v2.CiliumIdentity) error {
 	err := ciliumK8sClient.CiliumV2().CiliumIdentities().Delete(
-		context.TODO(),
+		ctx,
 		identity.Name,
 		metav1.DeleteOptions{
 			Preconditions: &metav1.Preconditions{
@@ -96,7 +96,16 @@ func identityGCIteration(ctx context.Context) {
 				logfields.Identity: identity,
 				"nodes":            identity.Status.Nodes,
 			}).Debug("Deleting unused identity")
-			deleteIdentity(identity)
+			if err := deleteIdentity(ctx, identity); err != nil {
+				log.WithError(err).WithFields(logrus.Fields{
+					logfields.Identity: identity,
+					"nodes":            identity.Status.Nodes,
+				}).Error("Deleting unused identity")
+				// If Context was canceled we should break
+				if ctx.Err() != nil {
+					break
+				}
+			}
 		}
 	}
 
