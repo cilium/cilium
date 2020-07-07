@@ -122,6 +122,11 @@ func (s *ServiceCache) GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
 	return nil
 }
 
+// GetNodeAddressing returns the registered node addresses to this service cache.
+func (s *ServiceCache) GetNodeAddressing() datapath.NodeAddressing {
+	return s.nodeAddressing
+}
+
 // UpdateService parses a Kubernetes service and adds or updates it in the
 // ServiceCache. Returns the ServiceID unless the Kubernetes service could not
 // be parsed and a bool to indicate whether the service was changed in the
