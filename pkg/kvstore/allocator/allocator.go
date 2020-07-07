@@ -481,11 +481,17 @@ func (k *kvstoreBackend) RunGC(ctx context.Context, staleKeysPrevRound map[strin
 				fieldID:  path.Base(key),
 			})
 			// Only delete if this key was previously marked as to be deleted
-			if modRev, ok := staleKeysPrevRound[key]; ok && modRev == v.ModRevision {
-				if err := k.backend.DeleteIfLocked(ctx, key, lock); err != nil {
-					scopedLog.WithError(err).Warning("Unable to delete unused allocator master key")
-				} else {
-					scopedLog.Info("Deleted unused allocator master key")
+			if modRev, ok := staleKeysPrevRound[key]; ok {
+				// if the v.ModRevision is different than the modRev (which is
+				// the last seen v.ModRevision) then this key was re-used in
+				// between GC calls. We should not mark it as stale keys yet,
+				// but the next GC call will do it.
+				if modRev == v.ModRevision {
+					if err := k.backend.DeleteIfLocked(ctx, key, lock); err != nil {
+						scopedLog.WithError(err).Warning("Unable to delete unused allocator master key")
+					} else {
+						scopedLog.Info("Deleted unused allocator master key")
+					}
 				}
 			} else {
 				// If the key was not found mark it to be delete in the next RunGC
