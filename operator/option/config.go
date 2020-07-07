@@ -62,6 +62,14 @@ const (
 	// attempted to be expired from the kvstore
 	IdentityGCInterval = "identity-gc-interval"
 
+	// IdentityGCRateInterval is the interval used for rate limiting the GC of
+	// identities.
+	IdentityGCRateInterval = "identity-gc-rate-interval"
+
+	// IdentityGCRateLimit is the maximum identities used for rate limiting the
+	// GC of identities.
+	IdentityGCRateLimit = "identity-gc-rate-limit"
+
 	// IdentityHeartbeatTimeout is the timeout used to GC identities from k8s
 	IdentityHeartbeatTimeout = "identity-heartbeat-timeout"
 
@@ -198,6 +206,14 @@ type OperatorConfig struct {
 	// attempted to be expired from the kvstore
 	IdentityGCInterval time.Duration
 
+	// IdentityGCRateInterval is the interval used for rate limiting the GC of
+	// identities.
+	IdentityGCRateInterval time.Duration
+
+	// IdentityGCRateLimit is the maximum identities used for rate limiting the
+	// GC of identities.
+	IdentityGCRateLimit int64
+
 	// IdentityHeartbeatTimeout is the timeout used to GC identities from k8s
 	IdentityHeartbeatTimeout time.Duration
 
@@ -290,6 +306,8 @@ func (c *OperatorConfig) Populate() {
 	c.EnableMetrics = viper.GetBool(EnableMetrics)
 	c.EndpointGCInterval = viper.GetDuration(EndpointGCInterval)
 	c.IdentityGCInterval = viper.GetDuration(IdentityGCInterval)
+	c.IdentityGCRateInterval = viper.GetDuration(IdentityGCRateInterval)
+	c.IdentityGCRateLimit = viper.GetInt64(IdentityGCRateLimit)
 	c.IdentityHeartbeatTimeout = viper.GetDuration(IdentityHeartbeatTimeout)
 	c.NodesGCInterval = viper.GetDuration(NodesGCInterval)
 	c.OperatorAPIServeAddr = viper.GetString(OperatorAPIServeAddr)
