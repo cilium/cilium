@@ -584,7 +584,10 @@ func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s
 		frontends = append(frontends, fe)
 
 		for _, nodePortFE := range svcInfo.NodePorts[portName] {
-			frontends = append(frontends, &nodePortFE.L3n4Addr)
+			if svcInfo.TrafficPolicy != loadbalancer.SVCTrafficPolicyLocal ||
+				!nodePortFE.L3n4Addr.IP.IsUnspecified() {
+				frontends = append(frontends, &nodePortFE.L3n4Addr)
+			}
 			if svcInfo.TrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
 				cpFE := nodePortFE.L3n4Addr.DeepCopy()
 				cpFE.Scope = loadbalancer.ScopeInternal
@@ -593,13 +596,22 @@ func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s
 		}
 
 		for _, k8sExternalIP := range svcInfo.K8sExternalIPs {
-			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, k8sExternalIP, svcPort.Port, loadbalancer.ScopeExternal))
+			frontends = append(frontends,
+				loadbalancer.NewL3n4Addr(svcPort.Protocol, k8sExternalIP,
+					svcPort.Port, loadbalancer.ScopeExternal))
 		}
 
 		for _, ip := range svcInfo.LoadBalancerIPs {
-			frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, ip, svcPort.Port, loadbalancer.ScopeExternal))
+			if svcInfo.TrafficPolicy != loadbalancer.SVCTrafficPolicyLocal ||
+				!ip.IsUnspecified() {
+				frontends = append(frontends,
+					loadbalancer.NewL3n4Addr(svcPort.Protocol, ip,
+						svcPort.Port, loadbalancer.ScopeExternal))
+			}
 			if svcInfo.TrafficPolicy == loadbalancer.SVCTrafficPolicyLocal {
-				frontends = append(frontends, loadbalancer.NewL3n4Addr(svcPort.Protocol, ip, svcPort.Port, loadbalancer.ScopeInternal))
+				frontends = append(frontends,
+					loadbalancer.NewL3n4Addr(svcPort.Protocol, ip,
+						svcPort.Port, loadbalancer.ScopeInternal))
 			}
 		}
 	}
@@ -650,24 +662,6 @@ func genCartesianProduct(
 			}
 		}
 
-		// External scoped entry.
-		svcs = append(svcs,
-			loadbalancer.SVC{
-				Frontend: loadbalancer.L3n4AddrID{
-					L3n4Addr: loadbalancer.L3n4Addr{
-						IP: fe,
-						L4Addr: loadbalancer.L4Addr{
-							Protocol: fePort.Protocol,
-							Port:     fePort.Port,
-						},
-						Scope: loadbalancer.ScopeExternal,
-					},
-					ID: loadbalancer.ID(0),
-				},
-				Backends: besValues,
-				Type:     svcType,
-			})
-
 		// Internal scoped entry only for Local traffic policy.
 		if svcSize > len(ports) {
 			svcs = append(svcs,
@@ -686,7 +680,32 @@ func genCartesianProduct(
 					Backends: besValues,
 					Type:     svcType,
 				})
+
+			// Skip surrogate for external scope since this is
+			// unreachable for external traffic. Therefore also
+			// no need to waste an ID and map slot for it.
+			if fe.IsUnspecified() {
+				continue
+			}
 		}
+
+		// External scoped entry.
+		svcs = append(svcs,
+			loadbalancer.SVC{
+				Frontend: loadbalancer.L3n4AddrID{
+					L3n4Addr: loadbalancer.L3n4Addr{
+						IP: fe,
+						L4Addr: loadbalancer.L4Addr{
+							Protocol: fePort.Protocol,
+							Port:     fePort.Port,
+						},
+						Scope: loadbalancer.ScopeExternal,
+					},
+					ID: loadbalancer.ID(0),
+				},
+				Backends: besValues,
+				Type:     svcType,
+			})
 	}
 	return svcs
 }
