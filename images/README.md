@@ -112,13 +112,13 @@ FROM --platform=linux/amd64 ${CILIUM_BUILDER_IMAGE} as builder
 ## mount Cilium repo in `GOPATH`, also mount caches
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
   ## build natively and install the binaries to /out/linux/amd64
-  make clean-container build-container install-container \
+  make build-container install-container \
     DESTDIR=/out/linux/amd64
 
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
   ## cross-compile for arm64 and install the binaries to /out/linux/arm64
   env GOARCH=arm64 CC=aarch64-linux-gnu-gcc \
-    make clean-container build-container install-container \
+    make build-container install-container \
       DESTDIR=/out/linux/arm64 \
       # HOST_CC and HOST_STRIP are required by `bpf/Makefile`
       HOST_CC=aarch64-linux-gnu-gcc HOST_STRIP=aarch64-linux-gnu-strip

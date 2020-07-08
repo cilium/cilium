@@ -38,7 +38,7 @@ ARG LIBNETWORK_PLUGIN
 # as that will mess with caching for incremental builds!
 #
 RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLUGIN \
-    SKIP_DOCS=true DESTDIR=/tmp/install clean-container build-container install-container
+    SKIP_DOCS=true DESTDIR=/tmp/install build-container install-container
 
 #
 # Cilium runtime install.
