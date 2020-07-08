@@ -89,7 +89,7 @@ func (a *addressFamilyIPv4) LocalAddresses() ([]net.IP, error) {
 // loadbalancer should implement HostPort and NodePort services.
 func (a *addressFamilyIPv4) LoadBalancerNodeAddresses() []net.IP {
 	addrs := node.GetNodePortIPv4Addrs()
-	addrs = append(addrs, net.IPv4(0, 0, 0, 0))
+	addrs = append(addrs, net.IPv4zero)
 	return addrs
 }
 
