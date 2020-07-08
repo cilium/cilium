@@ -1154,6 +1154,9 @@ func (n *linuxNodeHandler) NodeConfigurationChanged(newConfig datapath.LocalNode
 // NodeValidateImplementation is called to validate the implementation of the
 // node in the datapath
 func (n *linuxNodeHandler) NodeValidateImplementation(nodeToValidate nodeTypes.Node) error {
+	n.mutex.Lock()
+	defer n.mutex.Unlock()
+
 	return n.nodeUpdate(nil, &nodeToValidate, false)
 }
 
