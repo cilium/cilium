@@ -28,6 +28,9 @@ type ServiceKey interface {
 	// Return true if the key is of type IPv6
 	IsIPv6() bool
 
+	// IsSurrogate returns true on zero-address
+	IsSurrogate() bool
+
 	// Return the BPF map matching the key type
 	Map() *bpf.Map
 
