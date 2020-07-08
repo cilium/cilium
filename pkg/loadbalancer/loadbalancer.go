@@ -63,10 +63,11 @@ const (
 	serviceFlagHostPort        = 8
 	serviceFlagSessionAffinity = 16
 	serviceFlagLoadBalancer    = 32
+	serviceFlagRoutable        = 64
 )
 
 // CreateSvcFlag returns the ServiceFlags for all given SVCTypes.
-func CreateSvcFlag(svcLocal, sessionAffinity bool, svcTypes ...SVCType) ServiceFlags {
+func CreateSvcFlag(svcLocal, sessionAffinity, isRoutable bool, svcTypes ...SVCType) ServiceFlags {
 	var flags ServiceFlags
 	for _, svcType := range svcTypes {
 		switch svcType {
@@ -86,13 +87,16 @@ func CreateSvcFlag(svcLocal, sessionAffinity bool, svcTypes ...SVCType) ServiceF
 	if sessionAffinity {
 		flags |= serviceFlagSessionAffinity
 	}
+	if isRoutable {
+		flags |= serviceFlagRoutable
+	}
 
 	return flags
 }
 
 // IsSvcType returns true if the serviceFlags is the given SVCType.
-func (s ServiceFlags) IsSvcType(svcLocal, sessionAffinity bool, svcType SVCType) bool {
-	return s != 0 && (s&CreateSvcFlag(svcLocal, sessionAffinity, svcType) == s)
+func (s ServiceFlags) IsSvcType(svcLocal, sessionAffinity, isRoutable bool, svcType SVCType) bool {
+	return s != 0 && (s&CreateSvcFlag(svcLocal, sessionAffinity, isRoutable, svcType) == s)
 }
 
 // SVCType returns a service type from the flags
@@ -127,7 +131,7 @@ func (s ServiceFlags) String() string {
 	typeSet := false
 	sType := s & (serviceFlagExternalIPs | serviceFlagHostPort | serviceFlagNodePort | serviceFlagLoadBalancer)
 	for _, svcType := range []SVCType{SVCTypeExternalIPs, SVCTypeHostPort, SVCTypeNodePort, SVCTypeLoadBalancer} {
-		if sType.IsSvcType(false, false, svcType) {
+		if sType.IsSvcType(false, false, false, svcType) {
 			strTypes = append(strTypes, string(svcType))
 			typeSet = true
 		}
@@ -140,6 +144,9 @@ func (s ServiceFlags) String() string {
 	}
 	if s&serviceFlagSessionAffinity != 0 {
 		strTypes = append(strTypes, "sessionAffinity")
+	}
+	if s&serviceFlagRoutable == 0 {
+		strTypes = append(strTypes, "non-routable")
 	}
 	return strings.Join(strTypes, ", ")
 }

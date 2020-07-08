@@ -171,6 +171,7 @@ func (k *Service6Key) String() string {
 func (k *Service6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
 func (k *Service6Key) NewValue() bpf.MapValue    { return &Service6Value{} }
 func (k *Service6Key) IsIPv6() bool              { return true }
+func (k *Service6Key) IsSurrogate() bool         { return k.GetAddress().IsUnspecified() }
 func (k *Service6Key) Map() *bpf.Map             { return Service6MapV2 }
 func (k *Service6Key) SetSlave(slave int)        { k.Slave = uint16(slave) }
 func (k *Service6Key) GetSlave() int             { return int(k.Slave) }
