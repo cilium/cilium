@@ -20,7 +20,7 @@ const (
 
 	// MaxSetOfServiceID is maximum number of set of service IDs that can be stored
 	// in the kvstore or the local ID allocator.
-	MaxSetOfServiceID = uint32(0xFFFF)
+	MaxSetOfServiceID = uint32(0x4FF)
 
 	// FirstFreeBackendID is the first ID for which the backend should be assigned.
 	// BPF datapath assumes that backend_id cannot be 0.
