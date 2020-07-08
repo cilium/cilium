@@ -13,19 +13,15 @@ docker-cilium-image-for-developers:
 		--build-arg LIBNETWORK_PLUGIN=\
 		-t $(DOCKER_DEV_ACCOUNT)/cilium-dev:latest . -f ./cilium-dev.Dockerfile
 
-docker-image: clean docker-image-no-clean docker-plugin-image docker-hubble-relay-image
-	$(MAKE) docker-operator-image
-	$(MAKE) docker-operator-aws-image
-	$(MAKE) docker-operator-azure-image
-	$(MAKE) docker-operator-generic-image
+docker-images-all: docker-cilium-image docker-plugin-image docker-hubble-relay-image docker-operator-images-all
 
-docker-image-unstripped: clean docker-image-no-clean-unstripped docker-plugin-image-unstripped docker-hubble-relay-image-unstripped
-	$(MAKE) docker-operator-image-unstripped
-	$(MAKE) docker-operator-aws-image-unstripped
-	$(MAKE) docker-operator-azure-image-unstripped
-	$(MAKE) docker-operator-generic-image-unstripped
+docker-images-all-unstripped: docker-cilium-image-unstripped docker-plugin-image-unstripped docker-hubble-relay-image-unstripped docker-operator-images-all-unstripped
 
-docker-image-no-clean: GIT_VERSION $(BUILD_DIR)/Dockerfile build-context-update
+docker-operator-images-all: docker-operator-image docker-operator-aws-image docker-operator-azure-image docker-operator-generic-image
+
+docker-operator-images-all-unstripped: docker-operator-image-unstripped docker-operator-aws-image-unstripped docker-operator-azure-image-unstripped docker-operator-generic-image-unstripped
+
+docker-cilium-image: GIT_VERSION $(BUILD_DIR)/Dockerfile build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build -f $(BUILD_DIR)/Dockerfile \
 		$(DOCKER_FLAGS) \
 		--build-arg NOSTRIP=${NOSTRIP} \
@@ -38,9 +34,9 @@ docker-image-no-clean: GIT_VERSION $(BUILD_DIR)/Dockerfile build-context-update
 	@echo "Push like this when ready:"
 	@echo "${CONTAINER_ENGINE} push cilium/cilium$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}"
 
-docker-image-no-clean-unstripped: NOSTRIP=1
-docker-image-no-clean-unstripped: UNSTRIPPED=-unstripped
-docker-image-no-clean-unstripped: docker-image-no-clean
+docker-cilium-image-unstripped: NOSTRIP=1
+docker-cilium-image-unstripped: UNSTRIPPED=-unstripped
+docker-cilium-image-unstripped: docker-cilium-image
 
 docker-cilium-manifest:
 	@$(ECHO_CHECK) contrib/scripts/push_manifest.sh cilium $(DOCKER_IMAGE_TAG)
@@ -140,3 +136,5 @@ docker-hubble-relay-image: $(BUILD_DIR)/hubble-relay.Dockerfile build-context-up
 docker-hubble-relay-image-unstripped: NOSTRIP=1
 docker-hubble-relay-image-unstripped: UNSTRIPPED=-unstripped
 docker-hubble-relay-image-unstripped: docker-hubble-relay-image
+
+.PHONY: docker-image-runtime docker-image-builder docker-cilium-manifest docker-cilium-dev-manifest docker-operator-manifest docker-plugin-manifest docker-cilium-runtime-manifest docker-cilium-builder-manifest

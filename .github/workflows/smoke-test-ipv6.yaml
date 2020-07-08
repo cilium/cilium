@@ -39,7 +39,7 @@ jobs:
 
       - name: Build docker images
         run: |
-          make docker-image-no-clean
+          make docker-cilium-image
           make docker-operator-generic-image
 
       - name: Create kind cluster

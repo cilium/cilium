@@ -35,7 +35,7 @@ then
 
       if [[ "${CILIUM_IMAGE}" == "" ]]; then
         echo "building cilium container image..."
-        DOCKER_BUILDKIT=1 make LOCKDEBUG=1 docker-image-no-clean
+        DOCKER_BUILDKIT=1 make LOCKDEBUG=1 docker-cilium-image
         echo "tagging cilium image..."
         docker tag cilium/cilium "${REGISTRY}/${CILIUM_TAG}"
         echo "pushing cilium image to ${REGISTRY}/${CILIUM_TAG}..."

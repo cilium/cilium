@@ -3,7 +3,7 @@
 set -e
 
 cd ..
-DOCKER_BUILDKIT=1 make docker-image DOCKER_IMAGE_TAG="$2" DOCKER_FLAGS="$3"
+DOCKER_BUILDKIT=1 make docker-images-all DOCKER_IMAGE_TAG="$2" DOCKER_FLAGS="$3"
 
 docker tag "cilium/cilium:$2" "$1/cilium/cilium:$2"
 docker tag "cilium/cilium:$2" "$1/cilium/cilium-dev:$2"

@@ -11,7 +11,7 @@ minikube start
 # TODO(mrostecki): Support cri-o and buildah.
 eval $(minikube docker-env)
 
-make docker-image DOCKER_IMAGE_TAG=dev
+make docker-images-all DOCKER_IMAGE_TAG=dev
 
 cp "install/kubernetes/quick-install.yaml" /tmp/cilium-minikube.yaml
 
