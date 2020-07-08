@@ -79,11 +79,11 @@ GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/envoy.RequiredEnvoyVersionS
 # Use git only if in a Git repo, otherwise find the files from the file system
 BPF_SRCFILES_IGNORE = bpf/.gitignore
 ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git),)
-	BPF_SRCFILES := $(shell git ls-files $(ROOT_DIR)/bpf/ | sort | tr "\n" ' ')
+	BPF_SRCFILES := $(shell git ls-files $(ROOT_DIR)/bpf/ | LC_ALL=C sort | tr "\n" ' ')
 else
 	# this line has to be in-sync with bpf/.gitignore, please note usage of make patterns like `%.i`
 	BPF_SRCFILES_IGNORE += bpf/cilium-map-migrate bpf/cilium-probe-kernel-hz bpf/%.i bpf/%.s bpf/.rebuild_all
-	BPF_SRCFILES := $(shell find $(ROOT_DIR)/bpf/ -type f | sort | tr "\n" ' ')
+	BPF_SRCFILES := $(shell find $(ROOT_DIR)/bpf/ -type f | LC_ALL=C sort | tr "\n" ' ')
 endif
 
 # ROOT_DIR can be either `../` or absolute path, each of these need to be stripped
