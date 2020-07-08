@@ -1062,7 +1062,7 @@ var _ = Describe("K8sServicesTest", func() {
 			res = kubectl.CiliumExecContext(context.TODO(), pod, "cilium service list | grep "+k8s2IP+":"+tftpHostPortStr+" | grep HostPort")
 			ExpectWithOffset(1, res.Stdout()).ShouldNot(BeEmpty(), "No HostPort entry for "+k8s2IP+":"+tftpHostPortStr)
 
-			// Cluster-internal connectivity to HostPort
+			// Cluster-internal connectivity via node address to HostPort
 			httpURL = getHTTPLink(k8s2IP, httpHostPort)
 			tftpURL = getTFTPLink(k8s2IP, tftpHostPort)
 
@@ -1073,6 +1073,34 @@ var _ = Describe("K8sServicesTest", func() {
 			// ... from different node
 			testCurlFromPodInHostNetNS(httpURL, count, 0, k8s1NodeName)
 			testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s1NodeName)
+
+			// Cluster-internal connectivity via loopback to HostPort
+			httpURL = getHTTPLink("127.0.0.1", httpHostPort)
+			tftpURL = getTFTPLink("127.0.0.1", tftpHostPort)
+
+			// ... from same node
+			testCurlFromPodInHostNetNS(httpURL, count, 0, k8s2NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s2NodeName)
+
+			// ... from different node
+			testCurlFailFromPodInHostNetNS(httpURL, 1, k8s1NodeName)
+			testCurlFailFromPodInHostNetNS(tftpURL, 1, k8s1NodeName)
+
+			// Cluster-internal connectivity via v4-in-v6 node address to HostPort
+			httpURL = getHTTPLink("::ffff:"+k8s2IP, httpHostPort)
+			tftpURL = getTFTPLink("::ffff:"+k8s2IP, tftpHostPort)
+
+			// ... from same node
+			testCurlFromPodInHostNetNS(httpURL, count, 0, k8s2NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s2NodeName)
+
+			// Cluster-internal connectivity via v4-in-v6 loopback to HostPort
+			httpURL = getHTTPLink("::ffff:127.0.0.1", httpHostPort)
+			tftpURL = getTFTPLink("::ffff:127.0.0.1", tftpHostPort)
+
+			// ... from same node
+			testCurlFromPodInHostNetNS(httpURL, count, 0, k8s2NodeName)
+			testCurlFromPodInHostNetNS(tftpURL, count, 0, k8s2NodeName)
 		}
 
 		testHealthCheckNodePort := func() {
