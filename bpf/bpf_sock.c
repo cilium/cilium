@@ -250,7 +250,6 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		.address	= ctx->user_ip4,
 		.dport		= ctx_dst_port(ctx),
 	}, orig_key = key;
-	struct lb4_service *slave_svc;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
 
@@ -307,14 +306,13 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (backend_id == 0) {
 		backend_from_affinity = false;
 
-		key.slave = (sock_local_cookie(ctx_full) % svc->count) + 1;
-		slave_svc = __lb4_lookup_slave(&key);
-		if (!slave_svc) {
+		key.slave = sock_local_cookie(ctx_full);
+		backend_id = __lb4_select_backend(&key, svc);
+		if (backend_id == (__u32)-1) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
 			return -ENOENT;
 		}
 
-		backend_id = slave_svc->backend_id;
 		backend = __lb4_lookup_backend(backend_id);
 	}
 
@@ -681,7 +679,6 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	struct lb6_key key = {
 		.dport		= ctx_dst_port(ctx),
 	}, orig_key;
-	struct lb6_service *slave_svc;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
 
@@ -719,14 +716,13 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (backend_id == 0) {
 		backend_from_affinity = false;
 
-		key.slave = (sock_local_cookie(ctx) % svc->count) + 1;
-		slave_svc = __lb6_lookup_slave(&key);
-		if (!slave_svc) {
+		key.slave = sock_local_cookie(ctx);
+		backend_id = __lb6_select_backend(&key, svc);
+		if (backend_id == (__u32)-1) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_SLAVE);
 			return -ENOENT;
 		}
 
-		backend_id = slave_svc->backend_id;
 		backend = __lb6_lookup_backend(backend_id);
 	}
 

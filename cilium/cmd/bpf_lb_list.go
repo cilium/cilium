@@ -54,6 +54,7 @@ func dumpSVC(serviceList map[string][]string) {
 		id := key.(lbmap.BackendKey).GetID()
 		backendMap[id] = value.DeepCopyMapValue().(lbmap.BackendValue)
 	}
+
 	if err := lbmap.Backend4Map.DumpWithCallbackIfExists(parseBackendEntry); err != nil {
 		Fatalf("Unable to dump IPv4 backends table: %s", err)
 	}
@@ -61,8 +62,12 @@ func dumpSVC(serviceList map[string][]string) {
 		Fatalf("Unable to dump IPv6 backends table: %s", err)
 	}
 
+	var (
+		entry     string
+		maglevSvc = make(map[string]uint16)
+	)
+
 	parseSVCEntry := func(key bpf.MapKey, value bpf.MapValue) {
-		var entry string
 
 		svcKey := key.(lbmap.ServiceKey)
 		svcVal := value.(lbmap.ServiceValue)
@@ -77,6 +82,9 @@ func dumpSVC(serviceList map[string][]string) {
 				ip = "[::]"
 			}
 			entry = fmt.Sprintf("%s:%d (%d) [%s]", ip, 0, revNATID, flags)
+
+			// store maglev service
+			maglevSvc[svc] = uint16(revNATID)
 		} else if backend, found := backendMap[backendID]; !found {
 			entry = fmt.Sprintf("backend %d not found", backendID)
 		} else {
@@ -97,6 +105,9 @@ func dumpSVC(serviceList map[string][]string) {
 	if err := lbmap.Service6MapV2.DumpWithCallbackIfExists(parseSVCEntry); err != nil {
 		Fatalf("Unable to dump IPv6 services table: %s", err)
 	}
+
+	// try to append maglev info
+	lbmap.AppendMaglevInfo(serviceList, maglevSvc, backendMap, lbmap.DefaultMaglevRingSize)
 }
 
 // bpfCtListCmd represents the bpf_ct_list command

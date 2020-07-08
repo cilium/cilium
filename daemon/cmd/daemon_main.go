@@ -516,6 +516,9 @@ func init() {
 	flags.String(option.NodePortMode, option.NodePortModeSNAT, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
 	option.BindEnv(option.NodePortMode)
 
+	flags.String(option.NodePortAlgorithm, option.NodePortAlgorithmRandom, "BPF NodePort algorithm (\"random\", \"maglev\")")
+	option.BindEnv(option.NodePortAlgorithm)
+
 	flags.Bool(option.EnableAutoProtectNodePortRange, true,
 		"Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps "+
 			"with ephemeral port range (net.ipv4.ip_local_port_range)")

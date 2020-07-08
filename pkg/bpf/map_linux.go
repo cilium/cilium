@@ -172,6 +172,70 @@ func NewPerCPUHashMap(name string, mapKey MapKey, keySize int, mapValue MapValue
 	return m
 }
 
+// NewMapFromID creates a map based on a map ID.
+func NewMapFromID(name string, mapType MapType, mapKey MapKey, keySize int,
+	mapValue MapValue, valueSize, maxEntries int,
+	flags uint32, innerID uint32, id int, pin bool, dumpParser DumpParser) (*Map, error) {
+
+	var (
+		m   *Map
+		fd  int
+		err error
+	)
+
+	fd, err = MapFdFromID(id)
+	if err != nil {
+		return nil, fmt.Errorf("MapFdFromID id %v error: %v", id, err)
+	}
+	defer func() {
+		if err != nil {
+			unix.Close(fd)
+		}
+	}()
+
+	// fix type and flags
+	mapType = GetMapType(mapType)
+	flags |= GetPreAllocateMapFlags(mapType)
+
+	m = &Map{
+		MapInfo: MapInfo{
+			MapType:       mapType,
+			MapKey:        mapKey,
+			KeySize:       uint32(keySize),
+			MapValue:      mapValue,
+			ReadValueSize: uint32(valueSize),
+			ValueSize:     uint32(valueSize),
+			MaxEntries:    uint32(maxEntries),
+			Flags:         flags,
+			InnerID:       innerID,
+			OwnerProgType: ProgTypeUnspec,
+		},
+		fd:         fd,
+		name:       path.Base(name),
+		path:       MapPath(name),
+		dumpParser: dumpParser,
+	}
+
+	// sanity check
+	if m.CheckAndUpgrade(&m.MapInfo) {
+		err = fmt.Errorf("map info mismatch")
+		return nil, err
+	}
+
+	if pin {
+		if exist, e := m.exist(); e == nil && !exist {
+			err = ObjPin(fd, m.path)
+			if err != nil {
+				return nil, fmt.Errorf("ObjPin fd %v path %v : %v", err)
+			}
+		}
+	}
+
+	registerMap(m.path, m)
+
+	return m, nil
+}
+
 // WithNonPersistent turns the map non-persistent and returns the map
 func (m *Map) WithNonPersistent() *Map {
 	m.NonPersistent = true

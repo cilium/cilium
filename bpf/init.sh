@@ -274,6 +274,7 @@ function bpf_compile()
 
 	clang -O2 -target bpf -std=gnu89 -nostdinc -emit-llvm	\
 	      -Wall -Wextra -Werror -Wshadow			\
+	      -Wno-unused-parameter                             \
 	      -Wno-address-of-packed-member			\
 	      -Wno-unknown-warning-option			\
 	      -Wno-gnu-variable-sized-type-not-at-end		\

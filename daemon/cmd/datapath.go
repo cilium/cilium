@@ -352,7 +352,8 @@ func (d *Daemon) initMaps() error {
 	createSockRevNatMaps := option.Config.EnableHostReachableServices &&
 		option.Config.EnableHostServicesUDP && supportedMapTypes.HaveLruHashMapType
 	if err := d.svc.InitMaps(option.Config.EnableIPv6, option.Config.EnableIPv4,
-		createSockRevNatMaps, option.Config.RestoreState); err != nil {
+		createSockRevNatMaps, option.Config.RestoreState,
+		option.Config.NodePortAlgorithm == option.NodePortAlgorithmMaglev); err != nil {
 		log.WithError(err).Fatal("Unable to initialize service maps")
 	}
 

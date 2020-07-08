@@ -15,6 +15,7 @@
 #include "../section.h"
 #include "../loader.h"
 #include "../csum.h"
+#include "../jhash.h"
 
 #define CTX_ACT_OK			XDP_PASS
 #define CTX_ACT_DROP			XDP_DROP

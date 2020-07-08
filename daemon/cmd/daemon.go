@@ -318,7 +318,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		endpointCreations: newEndpointCreationManager(),
 	}
 
-	d.svc = service.NewService(&d)
+	d.svc = service.NewService(&d, option.Config.NodePortAlgorithm)
 
 	d.identityAllocator = cache.NewCachingIdentityAllocator(&d)
 	d.policy = policy.NewPolicyRepository(d.identityAllocator.GetIdentityCache(),

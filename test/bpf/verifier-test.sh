@@ -91,6 +91,14 @@ function load_prog_dev {
 }
 
 function load_tc {
+	# Hack: Get the lbmap pinned
+	#
+	# Basically none of the loaders support arbitrarily creating a map
+	# of type 'hash_of_maps' right now, so we have a little tool in the
+	# repo that allows creation of this map type from the commandline.
+	#
+	# Only set it up if we determined kernel support above!
+	$MAPTOOL lbmap "test_cilium_lb_maglev_ring" 2>/dev/null
 	for p in ${TC_PROGS}; do
 		load_prog_dev "$TC filter replace" "ingress bpf da" ${p}
 	done
@@ -181,6 +189,7 @@ function load_sockops_prog {
 	# don't support BPF_MAP_TYPE_PERF_EVENT_ARRAY for now.
 	ALL_MAPS="cilium_ipcache cilium_ep_to_policy cilium_lxc sock_ops_map	\
 		cilium_metrics cilium_tunnel_map cilium_encrypt_state		\
+		cilium_lb_maglev_ring  \
 		cilium_lb6_reverse_nat cilium_lb6_services cilium_lb6_backends	\
 		cilium_lb4_reverse_nat cilium_lb4_services cilium_lb4_backends	\
 		cilium_events"

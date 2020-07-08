@@ -251,6 +251,10 @@ const (
 	// NodePortRange defines a custom range where to look up NodePort services
 	NodePortRange = "node-port-range"
 
+	// NodePortAlgorithm indicates in which algorithm NodePort implementation selects
+	// the backend ("random" or "maglev")
+	NodePortAlgorithm = "node-port-algo"
+
 	// EnableAutoProtectNodePortRange enables appending NodePort range to
 	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
 	// range (net.ipv4.ip_local_port_range)
@@ -1155,6 +1159,12 @@ const (
 	// NodePortAccelerationNative means we accelerate NodePort via native XDP in the driver (preferred)
 	NodePortAccelerationNative = XDPModeNative
 
+	// NodePortAlgorithmRandom is for performing random backend selection
+	NodePortAlgorithmRandom = "random"
+
+	// NodePortAlgorithmMaglev is for performing hash(maglev) backend selection
+	NodePortAlgorithmMaglev = "maglev"
+
 	// KubeProxyReplacementProbe specifies to auto-enable available features for
 	// kube-proxy replacement
 	KubeProxyReplacementProbe = "probe"
@@ -1699,6 +1709,10 @@ type DaemonConfig struct {
 
 	// NodePortBindProtection rejects bind requests to NodePort service ports
 	NodePortBindProtection bool
+
+	// NodePortAlgorithm indicates in which algorithm NodePort implementation selects
+	// the backend ("random" or "maglev")
+	NodePortAlgorithm string
 
 	// EnableAutoProtectNodePortRange enables appending NodePort range to
 	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
@@ -2248,6 +2262,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
 	c.EnableHostPort = viper.GetBool(EnableHostPort)
 	c.NodePortMode = viper.GetString(NodePortMode)
+	c.NodePortAlgorithm = viper.GetString(NodePortAlgorithm)
 	c.NodePortAcceleration = viper.GetString(NodePortAcceleration)
 	c.NodePortBindProtection = viper.GetBool(NodePortBindProtection)
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)

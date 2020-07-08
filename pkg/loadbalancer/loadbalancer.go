@@ -198,6 +198,20 @@ func (b *Backend) String() string {
 	return b.L3n4Addr.String()
 }
 
+// NewMeta create meta struct of the backend.
+func (b *Backend) NewMeta() *BackendMeta {
+	return &BackendMeta{
+		ID:            b.ID,
+		BackendMaglev: b.NewMaglev(1), // TODO: weight implement
+	}
+}
+
+// BackendMeta represents basic backend info.
+type BackendMeta struct {
+	ID BackendID
+	*BackendMaglev
+}
+
 // SVC is a structure for storing service details.
 type SVC struct {
 	Frontend                  L3n4AddrID       // SVC frontend addr and an allocated ID

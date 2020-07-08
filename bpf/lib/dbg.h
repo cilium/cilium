@@ -105,9 +105,21 @@ enum {
 				 * arg2: stale CT rev_nat_id
 				 * arg3: unused
 				 */
-	DBG_INHERIT_IDENTITY	/* arg1: ctx->mark
+	DBG_INHERIT_IDENTITY,	/* arg1: ctx->mark
 				 * arg2: unused
 				 */
+	DBG_LB_LOOKUP_MAGLEV,   /* arg1: rev_nat_index
+				 * arg2: dport
+				 */
+	DBG_LB_LOOKUP_MAGLEV_FAIL, /* arg1: rev_nat_index
+				    * arg2: dport
+				    */
+	DBG_LB_LOOKUP_MAGLEV_SUCCESS, /* arg1: rev_nat_index
+				       * arg2: backend_id
+				       */
+	DBG_LB_LOOKUP_MAGLEV_OUTER_FAIL /* arg1: hash
+				         * arg2: rev_nat_index
+					 */
 };
 
 /* Capture types */
