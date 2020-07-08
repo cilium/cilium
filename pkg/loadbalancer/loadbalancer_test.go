@@ -227,8 +227,9 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 
 func TestCreateSvcFlag(t *testing.T) {
 	type args struct {
-		svcTypes []SVCType
-		svcLocal bool
+		svcTypes    []SVCType
+		svcLocal    bool
+		svcRoutable bool
 	}
 	tests := []struct {
 		name string
@@ -237,50 +238,64 @@ func TestCreateSvcFlag(t *testing.T) {
 	}{
 		{
 			args: args{
-				svcTypes: []SVCType{SVCTypeClusterIP},
-				svcLocal: false,
+				svcTypes:    []SVCType{SVCTypeClusterIP},
+				svcLocal:    false,
+				svcRoutable: true,
 			},
-			want: serviceFlagNone,
+			want: serviceFlagNone | serviceFlagRoutable,
 		},
 		{
 			args: args{
-				svcTypes: []SVCType{SVCTypeNodePort},
-				svcLocal: false,
+				svcTypes:    []SVCType{SVCTypeNodePort},
+				svcLocal:    false,
+				svcRoutable: true,
 			},
-			want: serviceFlagNodePort,
+			want: serviceFlagNodePort | serviceFlagRoutable,
 		},
 		{
 			args: args{
-				svcTypes: []SVCType{SVCTypeExternalIPs},
-				svcLocal: false,
+				svcTypes:    []SVCType{SVCTypeExternalIPs},
+				svcLocal:    false,
+				svcRoutable: true,
 			},
-			want: serviceFlagExternalIPs,
+			want: serviceFlagExternalIPs | serviceFlagRoutable,
 		},
 		{
 			args: args{
-				svcTypes: []SVCType{SVCTypeClusterIP},
-				svcLocal: true,
+				svcTypes:    []SVCType{SVCTypeClusterIP},
+				svcLocal:    true,
+				svcRoutable: true,
 			},
-			want: serviceFlagNone | serviceFlagLocalScope,
+			want: serviceFlagNone | serviceFlagLocalScope | serviceFlagRoutable,
 		},
 		{
 			args: args{
-				svcTypes: []SVCType{SVCTypeNodePort},
-				svcLocal: true,
+				svcTypes:    []SVCType{SVCTypeNodePort},
+				svcLocal:    true,
+				svcRoutable: true,
 			},
-			want: serviceFlagNodePort | serviceFlagLocalScope,
+			want: serviceFlagNodePort | serviceFlagLocalScope | serviceFlagRoutable,
 		},
 		{
 			args: args{
-				svcTypes: []SVCType{SVCTypeExternalIPs},
-				svcLocal: true,
+				svcTypes:    []SVCType{SVCTypeExternalIPs},
+				svcLocal:    true,
+				svcRoutable: true,
+			},
+			want: serviceFlagExternalIPs | serviceFlagLocalScope | serviceFlagRoutable,
+		},
+		{
+			args: args{
+				svcTypes:    []SVCType{SVCTypeExternalIPs},
+				svcLocal:    true,
+				svcRoutable: false,
 			},
 			want: serviceFlagExternalIPs | serviceFlagLocalScope,
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CreateSvcFlag(tt.args.svcLocal, false, tt.args.svcTypes...); got != tt.want {
+			if got := CreateSvcFlag(tt.args.svcLocal, false, tt.args.svcRoutable, tt.args.svcTypes...); got != tt.want {
 				t.Errorf("CreateSvcFlag() = %v, want %v", got, tt.want)
 			}
 		})
@@ -289,8 +304,9 @@ func TestCreateSvcFlag(t *testing.T) {
 
 func TestServiceFlags_IsSvcType(t *testing.T) {
 	type args struct {
-		svcType  SVCType
-		svcLocal bool
+		svcType     SVCType
+		svcLocal    bool
+		svcRoutable bool
 	}
 	tests := []struct {
 		name string
@@ -300,48 +316,71 @@ func TestServiceFlags_IsSvcType(t *testing.T) {
 	}{
 		{
 			args: args{
-				svcType:  SVCTypeExternalIPs,
-				svcLocal: false,
+				svcType:     SVCTypeExternalIPs,
+				svcLocal:    false,
+				svcRoutable: true,
 			},
-			s:    serviceFlagExternalIPs,
+			s:    serviceFlagExternalIPs | serviceFlagRoutable,
 			want: true,
 		},
 		{
 			args: args{
-				svcType:  SVCTypeNodePort,
-				svcLocal: false,
+				svcType:     SVCTypeNodePort,
+				svcLocal:    false,
+				svcRoutable: true,
 			},
-			s:    serviceFlagExternalIPs,
+			s:    serviceFlagExternalIPs | serviceFlagRoutable,
 			want: false,
 		},
 		{
 			args: args{
-				svcType:  SVCTypeExternalIPs,
-				svcLocal: true,
+				svcType:     SVCTypeExternalIPs,
+				svcLocal:    true,
+				svcRoutable: true,
 			},
-			s:    serviceFlagExternalIPs | serviceFlagLocalScope,
+			s:    serviceFlagExternalIPs | serviceFlagLocalScope | serviceFlagRoutable,
 			want: true,
 		},
 		{
 			args: args{
-				svcType:  SVCTypeNodePort,
-				svcLocal: true,
+				svcType:     SVCTypeNodePort,
+				svcLocal:    true,
+				svcRoutable: true,
 			},
-			s:    serviceFlagExternalIPs | serviceFlagLocalScope,
+			s:    serviceFlagExternalIPs | serviceFlagLocalScope | serviceFlagRoutable,
 			want: false,
 		},
 		{
 			args: args{
-				svcType:  SVCTypeLoadBalancer,
-				svcLocal: false,
+				svcType:     SVCTypeLoadBalancer,
+				svcLocal:    false,
+				svcRoutable: true,
+			},
+			s:    serviceFlagLoadBalancer | serviceFlagRoutable,
+			want: true,
+		},
+		{
+			args: args{
+				svcType:     SVCTypeLoadBalancer,
+				svcLocal:    false,
+				svcRoutable: false,
 			},
 			s:    serviceFlagLoadBalancer,
 			want: true,
 		},
+		{
+			args: args{
+				svcType:     SVCTypeLoadBalancer,
+				svcLocal:    false,
+				svcRoutable: false,
+			},
+			s:    serviceFlagLoadBalancer | serviceFlagRoutable,
+			want: false,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.s.IsSvcType(tt.args.svcLocal, false, tt.args.svcType); got != tt.want {
+			if got := tt.s.IsSvcType(tt.args.svcLocal, false, tt.args.svcRoutable, tt.args.svcType); got != tt.want {
 				t.Errorf("IsSvcType() = %v, want %v", got, tt.want)
 			}
 		})
@@ -356,28 +395,33 @@ func TestServiceFlags_String(t *testing.T) {
 	}{
 		{
 			name: "Test-1",
-			s:    serviceFlagExternalIPs,
+			s:    serviceFlagExternalIPs | serviceFlagRoutable,
 			want: "ExternalIPs",
 		},
 		{
 			name: "Test-2",
-			s:    serviceFlagNone,
+			s:    serviceFlagNone | serviceFlagRoutable,
 			want: "ClusterIP",
 		},
 		{
 			name: "Test-3",
-			s:    serviceFlagNodePort | serviceFlagLocalScope,
+			s:    serviceFlagNodePort | serviceFlagLocalScope | serviceFlagRoutable,
 			want: "NodePort, Local",
 		},
 		{
 			name: "Test-4",
-			s:    serviceFlagExternalIPs | serviceFlagLocalScope,
+			s:    serviceFlagExternalIPs | serviceFlagLocalScope | serviceFlagRoutable,
 			want: "ExternalIPs, Local",
 		},
 		{
 			name: "Test-5",
-			s:    serviceFlagLoadBalancer,
+			s:    serviceFlagLoadBalancer | serviceFlagRoutable,
 			want: "LoadBalancer",
+		},
+		{
+			name: "Test-6",
+			s:    serviceFlagLoadBalancer,
+			want: "LoadBalancer, non-routable",
 		},
 	}
 	for _, tt := range tests {
