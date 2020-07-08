@@ -15,7 +15,7 @@ require (
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
 	github.com/census-instrumentation/opencensus-proto v0.2.1 // indirect
 	github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
-	github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb
+	github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96
 	github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
 	github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins v0.8.2
@@ -77,7 +77,7 @@ require (
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
 	golang.org/x/net v0.0.0-20191004110552-13f9640d40b9
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20191022100944-742c48ecaeb7
+	golang.org/x/sys v0.0.0-20200124204421-9fbb57f87de9
 	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
 	google.golang.org/genproto v0.0.0-20190502173448-54afdca5d873
 	google.golang.org/grpc v1.23.1
@@ -167,7 +167,7 @@ replace (
 	github.com/checkpoint-restore/go-criu => github.com/checkpoint-restore/go-criu v0.0.0-20190109184317-bdb7599cd87b
 	github.com/cheekybits/genny => github.com/cheekybits/genny v0.0.0-20170328200008-9127e812e1e9
 	github.com/cilium/arping => github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
-	github.com/cilium/ebpf => github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb
+	github.com/cilium/ebpf => github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96
 	github.com/cilium/proxy => github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6
 	github.com/circonus-labs/circonus-gometrics => github.com/circonus-labs/circonus-gometrics v2.3.1+incompatible
 	github.com/circonus-labs/circonusllhist => github.com/circonus-labs/circonusllhist v0.1.3

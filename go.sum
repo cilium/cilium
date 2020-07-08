@@ -91,8 +91,8 @@ github.com/cilium/client-go v0.0.0-20200706092028-faedcc12abdd h1:ylFtOmCMCvLHFD
 github.com/cilium/client-go v0.0.0-20200706092028-faedcc12abdd/go.mod h1:SJsDS64AAtt9VZyeaQMb4Ck5etCitZ/FwajWdzua5eY=
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3 h1:wenYMyWJ08dgEUUj0Ija8qdK/V9vL3ThAD5sjOYlFlg=
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3/go.mod h1:cXN7jgo+gsGlNvQ7Vqu2ELdc3f7i7PPgupHqSkLzzBo=
-github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb h1:bQ0NJ9dAB8vsw7ffajBDX/7Wr64BdLWeJkYY36UkeRY=
-github.com/cilium/ebpf v0.0.0-20191113100448-d9fb101ca1fb/go.mod h1:MA5e5Lr8slmEg9bt0VpxxWqJlO4iwu3FBdHUzV7wQVg=
+github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96 h1:nRVsLliaPVzNAjotxTdn8fNc7nu1ZMsTRirpoppfmFw=
+github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96/go.mod h1:XT+cAw5wfvsodedcijoh1l9cf7v1x9FlFB/3VmF/O8s=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
 github.com/cilium/proxy v0.0.0-20191113190709-4c7b379792e6 h1:G5gUA7taQMy7tt3sl3gdthex1hh/M0yeMExUss+7v8w=
@@ -588,6 +588,7 @@ golang.org/x/time v0.0.0-20190308202827-9d24e82272b4 h1:SvFZT6jyqRaOeXpc5h/JSfZe
 golang.org/x/time v0.0.0-20190308202827-9d24e82272b4/go.mod h1:tRJNPiyCQ0inRvYxbN9jk5I+vvW/OXSQhTDSoE431IQ=
 golang.org/x/tools v0.0.0-20190821162956-65e3620a7ae7 h1:PVCvyir09Xgta5zksNZDkrL+eSm/Y+gQxRG3IfqNQ3A=
 golang.org/x/tools v0.0.0-20190821162956-65e3620a7ae7/go.mod h1:b+2E5dAYhXwXZwtnZ6UAqBI28+e2cm9otk0dWdXHAEo=
+golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7 h1:9zdDQZ7Thm29KFXgAX/+yaf3eVbP7djjWp/dXAppNCc=
 golang.org/x/xerrors v0.0.0-20190717185122-a985d3407aa7/go.mod h1:I/5z698sn9Ka8TeJc9MKroUUfqBBauWjQqLJ2OPfmY0=
 gonum.org/v1/gonum v0.0.0-20190331200053-3d26580ed485 h1:OB/uP/Puiu5vS5QMRPrXCDWUPb+kt8f1KW8oQzFejQw=
 gonum.org/v1/gonum v0.0.0-20190331200053-3d26580ed485/go.mod h1:2ltnJ7xHfj0zHS40VVPYEAAMTa3ZGguvHGBSJeRWqE0=
