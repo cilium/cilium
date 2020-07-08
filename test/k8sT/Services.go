@@ -1215,9 +1215,10 @@ var _ = Describe("K8sServicesTest", func() {
 				err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 				Expect(err).Should(BeNil(), "Can not retrieve service")
 
-				// Test enough times to get random backend selection from both nodes.
-				// The interesting case is when the backend is at k8s2.
-				count := 10
+				// Since we address NodePort in k8s2 using the DNS proxy port of k8s2 as
+				// the source port from k8s1, one round is enough regardless of the backend
+				// selection, as in both cases the replies are reverse NATted at k8s2.
+				count := 1
 				fails := 0
 				// Client from k8s1
 				clientPod, _ := kubectl.GetPodOnNodeLabeledWithOffset(helpers.K8s1, testDSClient, 0)
