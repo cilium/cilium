@@ -16,6 +16,7 @@ package RuntimeTest
 
 import (
 	"context"
+	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -25,8 +26,8 @@ import (
 )
 
 var _ = Describe("RuntimeKVStoreTest", func() {
-
 	var vm *helpers.SSHMeta
+	var testStartTime time.Time
 
 	BeforeAll(func() {
 		vm = helpers.InitRuntimeHelper(helpers.Runtime, logger)
@@ -50,6 +51,10 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		ExpectCiliumNotRunning(vm)
 	}, 150)
 
+	JustBeforeEach(func() {
+		testStartTime = time.Now()
+	})
+
 	AfterEach(func() {
 		containers(helpers.Delete)
 		err := vm.RestartCilium()
@@ -57,7 +62,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 	})
 
 	JustAfterEach(func() {
-		vm.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
+		vm.ValidateNoErrorsInLogs(time.Since(testStartTime))
 	})
 
 	AfterFailed(func() {
@@ -68,8 +73,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 		vm.CloseSSHClient()
 	})
 
-	SkipContextIf(helpers.SkipQuarantined, "KVStore tests under quarantine", func() {
-
+	Context("KVStore tests", func() {
 		It("Consul KVStore", func() {
 			ctx, cancel := context.WithCancel(context.Background())
 			defer cancel()
