@@ -490,7 +490,8 @@ update-authors:
 	@cat .authors.aux >> AUTHORS
 
 render-docs:
-	$(MAKE) -C Documentation html run-server
+	$(MAKE) -C Documentation html
+	$(MAKE) -C Documentation run-server
 
 render-docs-live-preview:
 	$(MAKE) -C Documentation live-preview
