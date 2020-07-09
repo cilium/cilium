@@ -105,18 +105,19 @@ func CurlWithHTTPCode(endpoint string, optionalValues ...interface{}) string {
 }
 
 // CurlWithRetries returns the string representation of the curl command that
-// retry the request if transient problems occur. Parameter retries are indicated the maximum retry times.
-// If the endpoint already contain "curl", the function will add --retry flag at the end of the command and return.
-// If the endpoint didn't contain "curl", the function will generate the command with --retry flag and return.
-func CurlWithRetries(endpoint string, retries int, optionalValues ...interface{}) string {
+// retries the request if transient problems occur. The parameter "retries"
+// indicates the maximum number of attempts.  If flag "fail" is true, the
+// function will call CurlFail() and add --retry flag at the end of the command
+// and return.  If flag "fail" is false, the function will generate the command
+// with --retry flag and return.
+func CurlWithRetries(endpoint string, retries int, fail bool, optionalValues ...interface{}) string {
+	if fail {
+		return fmt.Sprintf(
+			`%s --retry %d`,
+			CurlFail(endpoint, optionalValues...), retries)
+	}
 	if len(optionalValues) > 0 {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
-	}
-	if strings.Contains(endpoint, "curl") {
-		if strings.Contains(endpoint, "--retry") {
-			return endpoint
-		}
-		return fmt.Sprintf(`%s --retry %d `, endpoint, retries)
 	}
 	return fmt.Sprintf(
 		`curl --path-as-is -s  -D /dev/stderr --output /dev/stderr --retry %d %s`,
