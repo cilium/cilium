@@ -144,13 +144,6 @@ var _ = Describe("K8sPolicyTest", func() {
 			namespaceForTest string
 		)
 
-		importPolicy := func(file, name string) {
-			_, err := kubectl.CiliumPolicyAction(
-				namespaceForTest, file, helpers.KubectlApply, helpers.HelperTimeout)
-			ExpectWithOffset(1, err).Should(BeNil(),
-				"policy %s cannot be applied in %q namespace", file, namespaceForTest)
-		}
-
 		validateConnectivity := func(expectWorldSuccess, expectClusterSuccess bool) {
 			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
 				By("HTTP connectivity to 1.1.1.1")
@@ -718,7 +711,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			It("Validate toEntities All", func() {
 				By("Installing toEntities All")
-				importPolicy(cnpToEntitiesAll, "to-entities-all")
+				importPolicy(kubectl, namespaceForTest, cnpToEntitiesAll, "to-entities-all")
 
 				By("Verifying policy correctness")
 				validateConnectivity(WorldConnectivityAllow, ClusterConnectivityAllow)
@@ -726,7 +719,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			It("Validate toEntities World", func() {
 				By("Installing toEntities World")
-				importPolicy(cnpToEntitiesWorld, "to-entities-world")
+				importPolicy(kubectl, namespaceForTest, cnpToEntitiesWorld, "to-entities-world")
 
 				By("Verifying policy correctness")
 				validateConnectivity(WorldConnectivityAllow, ClusterConnectivityDeny)
@@ -735,7 +728,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			It("Validate toEntities Cluster", func() {
 				By("Installing toEntities Cluster")
-				importPolicy(cnpToEntitiesCluster, "to-entities-cluster")
+				importPolicy(kubectl, namespaceForTest, cnpToEntitiesCluster, "to-entities-cluster")
 
 				By("Verifying policy correctness")
 				validateConnectivity(WorldConnectivityDeny, ClusterConnectivityAllow)
@@ -743,7 +736,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			It("Validate toEntities Host", func() {
 				By("Installing toEntities Host")
-				importPolicy(cnpToEntitiesHost, "to-entities-host")
+				importPolicy(kubectl, namespaceForTest, cnpToEntitiesHost, "to-entities-host")
 
 				By("Verifying policy correctness")
 				validateConnectivity(WorldConnectivityDeny, ClusterConnectivityDeny)
@@ -1174,13 +1167,6 @@ var _ = Describe("K8sPolicyTest", func() {
 					"HTTP ingress connectivity to pod %q from remote node", k8s2PodIP)
 			}
 
-			importPolicy := func(file, name string) {
-				_, err := kubectl.CiliumPolicyAction(
-					testNamespace, file, helpers.KubectlApply, helpers.HelperTimeout)
-				ExpectWithOffset(1, err).Should(BeNil(),
-					"policy %s cannot be applied in %q namespace", file, testNamespace)
-			}
-
 			Context("with remote-node identity disabled", func() {
 				BeforeAll(func() {
 					By("Reconfiguring Cilium to disable remote-node identity")
@@ -1207,11 +1193,11 @@ var _ = Describe("K8sPolicyTest", func() {
 						// interface is considered host. All
 						// other IPs are considered world.
 						By("Installing fromEntities host and world policy")
-						importPolicy(cnpFromEntitiesWorld, "from-entities-world")
-						importPolicy(cnpFromEntitiesHost, "from-entities-host")
+						importPolicy(kubectl, testNamespace, cnpFromEntitiesWorld, "from-entities-world")
+						importPolicy(kubectl, testNamespace, cnpFromEntitiesHost, "from-entities-host")
 					} else {
 						By("Installing fromEntities host policy")
-						importPolicy(cnpFromEntitiesHost, "from-entities-host")
+						importPolicy(kubectl, testNamespace, cnpFromEntitiesHost, "from-entities-host")
 					}
 
 					By("Checking policy correctness")
@@ -1233,13 +1219,13 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				It("Validates fromEntities remote-node policy", func() {
 					By("Installing default-deny ingress policy")
-					importPolicy(cnpDenyIngress, "default-deny-ingress")
+					importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
 
 					By("Checking that remote-node is disallowed by default")
 					validateNodeConnectivity(HostConnectivityAllow, RemoteNodeConnectivityDeny)
 
 					By("Installing fromEntities remote-node policy")
-					importPolicy(cnpFromEntitiesRemoteNode, "from-entities-remote-node")
+					importPolicy(kubectl, testNamespace, cnpFromEntitiesRemoteNode, "from-entities-remote-node")
 
 					By("Checking policy correctness")
 					validateNodeConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow)
@@ -1861,3 +1847,12 @@ EOF`, k, v)
 		})
 	})
 })
+
+func importPolicy(kubectl *helpers.Kubectl, namespace, file, name string) {
+	_, err := kubectl.CiliumPolicyAction(namespace,
+		file,
+		helpers.KubectlApply,
+		helpers.HelperTimeout)
+	ExpectWithOffset(1, err).Should(BeNil(),
+		"policy %s cannot be applied in %q namespace", file, namespace)
+}
