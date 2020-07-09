@@ -343,6 +343,18 @@ func (m *GetFlowsResponse) Validate() error {
 			}
 		}
 
+	case *GetFlowsResponse_LostEvents:
+
+		if v, ok := interface{}(m.GetLostEvents()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return GetFlowsResponseValidationError{
+					field:  "LostEvents",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
 	}
 
 	return nil

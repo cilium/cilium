@@ -21,6 +21,7 @@ PROTO_DEPS = \
 	-I external
 
 RAW_GO_MAPPINGS += google/protobuf/timestamp.proto=github.com/golang/protobuf/ptypes/timestamp/
+RAW_GO_MAPPINGS += google/protobuf/wrappers.proto=github.com/golang/protobuf/ptypes/wrappers/
 RAW_GO_MAPPINGS += flow/flow.proto=github.com/cilium/cilium/api/v1/flow/
 RAW_GO_MAPPINGS += observer/observer.proto=github.com/cilium/cilium/api/v1/observer/
 RAW_GO_MAPPINGS += relay/relay.proto=github.com/cilium/cilium/api/v1/relay/

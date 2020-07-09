@@ -94,6 +94,9 @@ message GetFlowsResponse {
         // node_status informs clients about the state of the nodes
         // participating in this particular GetFlows request.
         relay.NodeStatusEvent node_status = 2;
+        // lost_events informs clients about events which got dropped due to
+        // a Hubble component being unavailable
+        flow.LostEvent lost_events = 3;
     }
     // Name of the node where this event was observed.
     string node_name = 1000;
