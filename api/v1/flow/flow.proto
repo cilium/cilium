@@ -14,6 +14,7 @@
 
 syntax = "proto3";
 
+import "google/protobuf/wrappers.proto";
 import "google/protobuf/timestamp.proto";
 
 package flow;
@@ -376,4 +377,28 @@ message Kafka {
 message Service {
     string name = 1;
     string namespace = 2;
+}
+
+enum LostEventSource {
+    UNKNOWN_LOST_EVENT_SOURCE = 0;
+    // PERF_EVENT_RING_BUFFER indicates that events were dropped in the BPF
+    // perf event ring buffer, indicating that userspace agent did not keep up
+    // with the events produced by the datapath.
+    PERF_EVENT_RING_BUFFER = 1;
+    // OBSERVER_EVENTS_QUEUE indicates that events were dropped because the
+    // Hubble events queue was full, indicating that the Hubble observer did
+    // not keep up.
+    OBSERVER_EVENTS_QUEUE = 2;
+}
+
+// LostEvent is a message which notifies consumers about a loss of events
+// that happened before the events were captured by Hubble.
+message LostEvent {
+    // source is the location where events got lost.
+    LostEventSource source = 1;
+    // num_events_lost is the number of events that haven been lost at source.
+    uint64 num_events_lost = 2;
+    // cpu on which the event was lost if the source of lost events is
+    // PERF_EVENT_RING_BUFFER.
+    google.protobuf.Int32Value cpu = 3;
 }
