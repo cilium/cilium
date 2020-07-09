@@ -42,6 +42,9 @@ const (
 	// EntityInit is an entity that represents an initializing endpoint
 	EntityInit Entity = "init"
 
+	// EntityUnmanaged is an entity that represents unamanaged endpoints.
+	EntityUnmanaged Entity = "unmanaged"
+
 	// EntityRemoteNode is an entity that represents all remote nodes
 	EntityRemoteNode Entity = "remote-node"
 
@@ -76,6 +79,7 @@ var (
 		EntityInit:       {endpointSelectorInit},
 		EntityRemoteNode: {endpointSelectorRemoteNode},
 		EntityHealth:     {endpointSelectorHealth},
+		EntityUnmanaged:  {endpointSelectorUnmanaged},
 		EntityNone:       {EndpointSelectorNone},
 
 		// EntityCluster is populated with an empty entry to allow the
