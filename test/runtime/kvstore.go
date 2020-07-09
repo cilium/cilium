@@ -76,7 +76,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 			By("Starting Cilium with consul as kvstore")
 			vm.ExecInBackground(
 				ctx,
-				"sudo cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug")
+				"sudo cilium-agent --kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug 2>&1 | logger -t cilium")
 			err := vm.WaitUntilReady(helpers.CiliumStartTimeout)
 			Expect(err).Should(BeNil())
 
@@ -96,7 +96,7 @@ var _ = Describe("RuntimeKVStoreTest", func() {
 			By("Starting Cilium with etcd as kvstore")
 			vm.ExecInBackground(
 				ctx,
-				"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001 2>&1 | logger -t cilium")
+				"sudo cilium-agent --kvstore etcd --kvstore-opt etcd.address=127.0.0.1:4001 --debug 2>&1 | logger -t cilium")
 			err := vm.WaitUntilReady(helpers.CiliumStartTimeout)
 			Expect(err).Should(BeNil(), "Timed out waiting for VM to be ready after restarting Cilium")
 
