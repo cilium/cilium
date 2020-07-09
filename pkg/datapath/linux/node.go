@@ -559,6 +559,7 @@ func neighborLog(spec, iface string, err error, ip *net.IP, hwAddr *net.Hardware
 	}
 }
 
+// Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName string) {
 	if newNode.IsLocal() {
 		return
@@ -607,6 +608,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 	}
 }
 
+// Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 	neigh, ok := n.neighByNode[oldNode.Identity()]
 	if !ok {
@@ -683,6 +685,7 @@ func (n *linuxNodeHandler) subnetEncryption() bool {
 	return len(n.nodeConfig.IPv4PodSubnets) > 0 || len(n.nodeConfig.IPv6PodSubnets) > 0
 }
 
+// Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAddition bool) error {
 	var (
 		oldIP4Cidr, oldIP6Cidr *cidr.CIDR
@@ -783,6 +786,7 @@ func (n *linuxNodeHandler) NodeDelete(oldNode nodeTypes.Node) error {
 	return nil
 }
 
+// Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) nodeDelete(oldNode *nodeTypes.Node) error {
 	if oldNode.IsLocal() {
 		return nil
