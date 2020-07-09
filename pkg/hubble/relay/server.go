@@ -20,6 +20,7 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/relay/pool"
 	"github.com/cilium/cilium/pkg/hubble/relay/relayoption"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -35,7 +36,7 @@ import (
 // via unix domain socket.
 type Server struct {
 	server *grpc.Server
-	ps     peerSyncer
+	pool   pool.PeerManager
 	log    logrus.FieldLogger
 	opts   relayoption.Options
 	stop   chan struct{}
@@ -51,8 +52,21 @@ func NewServer(options ...relayoption.Option) (*Server, error) {
 	}
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
 	logging.ConfigureLogLevel(opts.Debug)
+
+	poolOptions := []pool.Option{
+		pool.WithTarget(opts.HubbleTarget),
+		pool.WithDialTimeout(opts.DialTimeout),
+		pool.WithRetryTimeout(opts.RetryTimeout),
+	}
+	if opts.Debug {
+		poolOptions = append(poolOptions, pool.WithDebug())
+	}
+	pool, err := pool.NewManager(poolOptions...)
+	if err != nil {
+		return nil, err
+	}
 	return &Server{
-		ps:   newSyncer(opts.HubbleTarget, opts.DialTimeout, opts.RetryTimeout, logger),
+		pool: pool,
 		log:  logger,
 		stop: make(chan struct{}),
 		opts: opts,
@@ -73,7 +87,7 @@ func (s *Server) Serve() error {
 	if err != nil {
 		return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.ListenAddress, err)
 	}
-	s.ps.Start()
+	s.pool.Start()
 	reflection.Register(s.server)
 	return s.server.Serve(socket)
 }
@@ -83,6 +97,6 @@ func (s *Server) Stop() {
 	s.log.Info("Stopping server...")
 	close(s.stop)
 	s.server.Stop()
-	s.ps.Stop()
+	s.pool.Stop()
 	s.log.Info("Server stopped")
 }
