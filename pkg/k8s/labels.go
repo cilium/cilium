@@ -103,8 +103,9 @@ func GetPodMetadata(k8sNs *types.Namespace, pod *types.Pod) (lbls map[string]str
 	})
 	scopedLog.Debug("Connecting to k8s local stores to retrieve labels for pod")
 
-	annotations := pod.GetAnnotations()
-	k8sLabels := pod.GetLabels()
+	objMetaCpy := pod.ObjectMeta.DeepCopy()
+	annotations := objMetaCpy.Annotations
+	k8sLabels := objMetaCpy.Labels
 	if k8sLabels == nil {
 		k8sLabels = map[string]string{}
 	}
