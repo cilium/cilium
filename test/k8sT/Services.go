@@ -800,14 +800,15 @@ var _ = Describe("K8sServicesTest", func() {
 			tftpURL := getTFTPLink(svcExternalIP, data.Spec.Ports[1].Port)
 
 			// Add the route on the outside node to the external IP addr
-			cmd := fmt.Sprintf("ip r a %s/32 via %s", svcExternalIP, k8s1IP)
+			cmd := helpers.IPAddRoute(net.ParseIP(svcExternalIP), net.ParseIP(k8s1IP), false)
 			res, err := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
 			ExpectWithOffset(1, err).Should(BeNil(), "Cannot exec in outside node %s", outsideNodeName)
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 				"Can not exec %q on outside node %s", cmd, outsideNodeName)
 			defer func() {
-				cmd = fmt.Sprintf("ip r d %s/32 via %s", svcExternalIP, k8s1IP)
-				kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
+				kubectl.ExecInHostNetNS(context.TODO(),
+					outsideNodeName,
+					helpers.IPDelRoute(net.ParseIP(svcExternalIP), net.ParseIP(k8s1IP)))
 			}()
 
 			// Should work from outside via the external IP
