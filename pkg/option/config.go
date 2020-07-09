@@ -888,7 +888,12 @@ func LogRegisteredOptions(entry *logrus.Entry) {
 	}
 	sort.Strings(keys)
 	for _, k := range keys {
-		entry.Infof("  --%s='%s'", k, viper.GetString(k))
+		v := viper.GetStringSlice(k)
+		if len(v) > 0 {
+			entry.Infof("  --%s='%s'", k, strings.Join(v, ","))
+		} else {
+			entry.Infof("  --%s='%s'", k, viper.GetString(k))
+		}
 	}
 }
 
