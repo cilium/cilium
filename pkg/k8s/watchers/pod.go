@@ -318,9 +318,6 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 	var svcs []loadbalancer.SVC
 	for _, c := range pod.Spec.Containers {
 		for _, p := range c.Ports {
-			var fes4 []loadbalancer.L3n4AddrID
-			var fes6 []loadbalancer.L3n4AddrID
-
 			if p.HostPort <= 0 {
 				continue
 			}
@@ -337,8 +334,8 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 				continue
 			}
 
-			bes4 := make([]loadbalancer.Backend, 0, len(podIPs))
-			bes6 := make([]loadbalancer.Backend, 0, len(podIPs))
+			var bes4 []loadbalancer.Backend
+			var bes6 []loadbalancer.Backend
 
 			for _, podIP := range podIPs {
 				be := loadbalancer.Backend{
@@ -357,6 +354,8 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 				}
 			}
 
+			var nodeAddrAll [][]net.IP
+
 			// When HostIP is explicitly set, then we need to expose *only*
 			// on this address but not via other addresses. When it's not set,
 			// then expose via all local addresses. Same when the user provides
@@ -373,73 +372,54 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 						feIP = net.IPv6zero
 					}
 				}
-				fe := loadbalancer.L3n4AddrID{
-					L3n4Addr: loadbalancer.L3n4Addr{
-						IP: feIP,
-						L4Addr: loadbalancer.L4Addr{
-							Protocol: proto,
-							Port:     uint16(p.HostPort),
-						},
-						Scope: loadbalancer.ScopeExternal,
-					},
-					ID: loadbalancer.ID(0),
-				}
-				if fe.L3n4Addr.IP.To4() != nil {
-					fes4 = append(fes4, fe)
-				} else {
-					fes6 = append(fes6, fe)
+				nodeAddrAll = [][]net.IP{
+					{feIP},
 				}
 			} else {
-				nodeAddrAll := [2][]net.IP{
+				nodeAddrAll = [][]net.IP{
 					k.K8sSvcCache.GetNodeAddressing().IPv4().LoadBalancerNodeAddresses(),
 					k.K8sSvcCache.GetNodeAddressing().IPv6().LoadBalancerNodeAddresses(),
 				}
-				for _, addrs := range nodeAddrAll {
-					for _, ip := range addrs {
-						fe := loadbalancer.L3n4AddrID{
-							L3n4Addr: loadbalancer.L3n4Addr{
-								IP: ip,
-								L4Addr: loadbalancer.L4Addr{
-									Protocol: proto,
-									Port:     uint16(p.HostPort),
-								},
-								Scope: loadbalancer.ScopeExternal,
+			}
+			for _, addrs := range nodeAddrAll {
+				for _, ip := range addrs {
+					fe := loadbalancer.L3n4AddrID{
+						L3n4Addr: loadbalancer.L3n4Addr{
+							IP: ip,
+							L4Addr: loadbalancer.L4Addr{
+								Protocol: proto,
+								Port:     uint16(p.HostPort),
 							},
-							ID: loadbalancer.ID(0),
+							Scope: loadbalancer.ScopeExternal,
+						},
+						ID: loadbalancer.ID(0),
+					}
+
+					// We don't have the node name available here, but in any
+					// case in the BPF data path we drop any potential non-local
+					// backends anyway (which should never exist in the first
+					// place), hence we can just leave it at Cluster policy.
+					if ip.To4() != nil {
+						if option.Config.EnableIPv4 && len(bes4) > 0 {
+							svcs = append(svcs,
+								loadbalancer.SVC{
+									Frontend:      fe,
+									Backends:      bes4,
+									Type:          loadbalancer.SVCTypeHostPort,
+									TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+								})
 						}
-						if fe.L3n4Addr.IP.To4() != nil {
-							fes4 = append(fes4, fe)
-						} else {
-							fes6 = append(fes6, fe)
+					} else {
+						if option.Config.EnableIPv6 && len(bes6) > 0 {
+							svcs = append(svcs,
+								loadbalancer.SVC{
+									Frontend:      fe,
+									Backends:      bes6,
+									Type:          loadbalancer.SVCTypeHostPort,
+									TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
+								})
 						}
 					}
-				}
-			}
-
-			// We don't have the node name available here, but in any
-			// case in the BPF data path we drop any potential non-local
-			// backends anyway (which should never exist in the first
-			// place), hence we can just leave it at Cluster policy.
-			if option.Config.EnableIPv4 && len(bes4) > 0 {
-				for _, fe4 := range fes4 {
-					svcs = append(svcs,
-						loadbalancer.SVC{
-							Frontend:      fe4,
-							Backends:      bes4,
-							Type:          loadbalancer.SVCTypeHostPort,
-							TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-						})
-				}
-			}
-			if option.Config.EnableIPv6 && len(bes6) > 0 {
-				for _, fe6 := range fes6 {
-					svcs = append(svcs,
-						loadbalancer.SVC{
-							Frontend:      fe6,
-							Backends:      bes6,
-							Type:          loadbalancer.SVCTypeHostPort,
-							TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-						})
 				}
 			}
 		}
