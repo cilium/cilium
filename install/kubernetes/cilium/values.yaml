@@ -461,10 +461,6 @@ global:
   # remoteNodeIdentity enables use of the remote node identity
   remoteNodeIdentity: true
 
-  # psp creates and binds PodSecurityPolicies for the components that require it
-  psp:
-    enabled: false
-
   # hubble configures Hubble.
   hubble:
     enabled: false

@@ -101,7 +101,6 @@ var (
 		"global.etcd.leaseTTL":                "30s",
 		"global.ipv4.enabled":                 "true",
 		"global.ipv6.enabled":                 "true",
-		"global.psp.enabled":                  "true",
 		"global.ci.kubeCacheMutationDetector": "true",
 		"config.bpfMasquerade":                "true",
 		// Disable by default, so that 4.9 CI build does not panic due to

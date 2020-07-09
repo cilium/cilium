@@ -153,11 +153,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		_ = kubectl.ExecMiddle("helm delete cilium --namespace=" + helpers.CiliumNamespace)
 		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete configmap --namespace=%s cilium-config", helpers.CiliumNamespace))
 		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete serviceaccount --namespace=%s cilium cilium-operator", helpers.CiliumNamespace))
-		_ = kubectl.ExecMiddle("kubectl delete clusterrole cilium cilium-operator cilium-psp cilium-operator-psp")
-		_ = kubectl.ExecMiddle("kubectl delete clusterrolebinding cilium cilium-operator cilium-psp cilium-operator-psp")
+		_ = kubectl.ExecMiddle("kubectl delete clusterrole cilium cilium-operator")
+		_ = kubectl.ExecMiddle("kubectl delete clusterrolebinding cilium cilium-operator")
 		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete daemonset --namespace=%s cilium", helpers.CiliumNamespace))
 		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete deployment --namespace=%s cilium-operator", helpers.CiliumNamespace))
-		_ = kubectl.ExecMiddle("kubectl delete podsecuritypolicy cilium-psp cilium-operator-psp")
 		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete daemonset --namespace=%s cilium-node-init", helpers.CiliumNamespace))
 		ExpectAllPodsTerminated(kubectl)
 		opts := map[string]string{
