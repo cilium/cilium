@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	parserErrors "github.com/cilium/cilium/pkg/hubble/parser/errors"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
 	"github.com/golang/protobuf/ptypes"
 	"github.com/golang/protobuf/ptypes/timestamp"
@@ -286,7 +287,7 @@ func (s *LocalObserverServer) GetFlows(
 
 nextFlow:
 	for ; ; i++ {
-		flow, err := flowsReader.Next(ctx)
+		resp, err := flowsReader.Next(ctx)
 		if err != nil {
 			if err == io.EOF {
 				return nil
@@ -295,7 +296,7 @@ nextFlow:
 		}
 
 		for _, f := range s.opts.OnFlowDelivery {
-			stop, err := f.OnFlowDelivery(ctx, flow)
+			stop, err := f.OnFlowDelivery(ctx, resp.GetFlow())
 			if err != nil {
 				return err
 			}
@@ -304,13 +305,7 @@ nextFlow:
 			}
 		}
 
-		err = server.Send(&observerpb.GetFlowsResponse{
-			Time:     flow.GetTime(),
-			NodeName: flow.GetNodeName(),
-			ResponseTypes: &observerpb.GetFlowsResponse_Flow{
-				Flow: flow,
-			},
-		})
+		err = server.Send(resp)
 		if err != nil {
 			return err
 		}
@@ -377,7 +372,7 @@ func newFlowsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, lo
 }
 
 // Next returns the next flow that matches the request criteria.
-func (r *flowsReader) Next(ctx context.Context) (*flowpb.Flow, error) {
+func (r *flowsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, error) {
 	for {
 		select {
 		case <-ctx.Done():
@@ -416,10 +411,27 @@ func (r *flowsReader) Next(ctx context.Context) (*flowpb.Flow, error) {
 				continue
 			}
 		}
-		flow, ok := e.Event.(*flowpb.Flow)
-		if ok && filters.Apply(r.whitelist, r.blacklist, e) {
-			r.flowsCount++
-			return flow, nil
+
+		switch ev := e.Event.(type) {
+		case *flowpb.Flow:
+			if filters.Apply(r.whitelist, r.blacklist, e) {
+				r.flowsCount++
+				return &observerpb.GetFlowsResponse{
+					Time:     ev.GetTime(),
+					NodeName: ev.GetNodeName(),
+					ResponseTypes: &observerpb.GetFlowsResponse_Flow{
+						Flow: ev,
+					},
+				}, nil
+			}
+		case *flowpb.LostEvent:
+			return &observerpb.GetFlowsResponse{
+				Time:     e.Timestamp,
+				NodeName: nodeTypes.GetName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
+					LostEvents: ev,
+				},
+			}, nil
 		}
 	}
 }
