@@ -267,6 +267,8 @@ Vagrant.configure(2) do |config|
         # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 111 -j ACCEPT
         # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 2049 -j ACCEPT
         # iptables -I INPUT -p tcp -s 192.168.34.0/24 --dport 20048 -j ACCEPT
+        # if using nftables, in Fedora (with firewalld), use:
+        # nft -f ./contrib/vagrant/nftables.rules
     else
         config.vm.synced_folder '.', '/home/vagrant/go/src/github.com/cilium/cilium'
     end

@@ -1,0 +1,3 @@
+insert rule inet firewalld filter_IN_public_allow ip saddr 192.168.34.0/24 tcp dport 20048 ct state { 0x8, 0x40 } accept
+insert rule inet firewalld filter_IN_public_allow ip saddr 192.168.34.0/24 tcp dport 2049 ct state { 0x8, 0x40 } accept
+insert rule inet firewalld filter_IN_public_allow ip saddr 192.168.34.0/24 tcp dport 111 ct state { 0x8, 0x40 } accept
