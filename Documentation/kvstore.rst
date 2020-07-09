@@ -114,7 +114,26 @@ store in the event that an agent dies on a particular and never reappears.
 
 The lease lifetime is set to 15 minutes. The exact expiration behavior is
 dependent on the kvstore implementation but the expiration typically occurs
-after double the lifetime
+after double the lease lifetime.
+
+In addition to regular entry leases, all locks in the key-value store are
+owned by a particular agent running on the node with a separate "lock lease"
+attached. The lock lease has a default lifetime of 25 seconds.
+
+=============================================================== ================ ========================================
+Key                                                             Lease Timeout    Default expiry
+=============================================================== ================ ========================================
+``cilium/.initlock/<random>/<lease-ID>``                        LockLeaseTTL_    25 seconds
+``cilium/state/cnpstatuses/v2/<UID>/<namespace>/<name>/<node>`` KVstoreLeaseTTL_ 15 minutes
+``cilium/state/identities/v1/id/<identity>``                    None             Garbage collected by ``cilium-operator``
+``cilium/state/identities/v1/value/<labels>/<node>``            KVstoreLeaseTTL_ 15 minutes
+``cilium/state/ip/v1/<cluster>/<ip>``                           KVstoreLeaseTTL_ 15 minutes
+``cilium/state/nodes/v1/<cluster>/<node>``                      KVstoreLeaseTTL_ 15 minutes
+``cilium/state/services/v1/<cluster>/<namespace>/<service>``    KVstoreLeaseTTL_ 15 minutes
+=============================================================== ================ ========================================
+
+.. _LockLeaseTTL: https://pkg.go.dev/github.com/cilium/cilium/pkg/defaults?tab=doc#LockLeaseTTL
+.. _KVstoreLeaseTTL: https://pkg.go.dev/github.com/cilium/cilium/pkg/defaults?tab=doc#KVstoreLeaseTTL
 
 Debugging
 =========
