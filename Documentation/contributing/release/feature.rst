@@ -66,6 +66,11 @@ On Freeze date
 
 #. Checkout to master and update the ``.github/cilium-actions.yml`` to have
    all the necessary configurations for the backport of the new ``vX.Y`` branch.
+   Specifically, ensure that:
+
+   * The project at the top of the file points to the "next" release,
+   * A new section is added for the upcoming release that is being prepared, and
+   * The section for the oldest release is removed.
 
    ::
 
