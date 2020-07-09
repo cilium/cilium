@@ -236,7 +236,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 		}
 	}()
 
-	peers := s.ps.List()
+	peers := s.pool.List()
 	qlen := s.opts.SortBufferMaxLen // we don't want to buffer too many flows
 	if nqlen := req.GetNumber() * uint64(len(peers)); nqlen > 0 && nqlen < uint64(qlen) {
 		// don't make the queue bigger than necessary as it would be a problem
@@ -250,7 +250,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 
 	for _, p := range peers {
 		p := p
-		if p.conn == nil || p.connErr != nil {
+		if p.Conn == nil {
 			s.log.WithField("address", p.Address.String()).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
@@ -262,7 +262,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 			// retrieveFlowsFromPeer returns blocks until the peer finishes
 			// the request by closing the connection, an error occurs,
 			// or gctx expires.
-			err := retrieveFlowsFromPeer(gctx, p.conn, req, flows)
+			err := retrieveFlowsFromPeer(gctx, p.Conn, req, flows)
 			if err != nil {
 				s.log.WithFields(logrus.Fields{
 					"error": err,
@@ -329,18 +329,18 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 		}
 	}()
 
-	peers := s.ps.List()
+	peers := s.pool.List()
 	statuses := make(chan *observerpb.ServerStatusResponse, len(peers))
 	for _, p := range peers {
 		p := p
-		if p.conn == nil || p.connErr != nil {
+		if p.Conn == nil {
 			s.log.WithField("address", p.Address.String()).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
 			continue
 		}
 		g.Go(func() error {
-			client := observerpb.NewObserverClient(p.conn)
+			client := observerpb.NewObserverClient(p.Conn)
 			status, err := client.ServerStatus(ctx, req)
 			if err != nil {
 				s.log.WithFields(logrus.Fields{
