@@ -29,7 +29,7 @@ resource "packet_device" "test" {
     hostname         = "test-${count.index}"
     plan             = var.packet_plan
     facilities       = [ var.packet_location ]
-    operating_system = "ubuntu_19_04"
+    operating_system = "ubuntu_18_04"
     billing_cycle    = "hourly"
     project_id       = var.packet_project_id
 
