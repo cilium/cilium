@@ -312,6 +312,10 @@ health
     The health entity represents the health endpoints, used to check cluster
     connectivity health. Each node managed by Cilium hosts a health endpoint.
     See `cluster_connectivity_health` for details on health checks.
+unmanaged
+    The unmanaged entity represents endpoints not managed by Cilium. Unmanaged
+    endpoints are considered part of the cluster and are included in the
+    cluster entity.
 world
     The world entity corresponds to all endpoints outside of the cluster.
     Allowing to world is identical to allowing to CIDR 0.0.0.0/0. An alternative
