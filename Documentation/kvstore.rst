@@ -34,7 +34,7 @@ Key                                                          Value
 ``cilium/state/nodes/v1/<cluster>/<node>``                   node.Node_
 ============================================================ ====================
 
-.. _node.Node: https://godoc.org/github.com/cilium/cilium/pkg/node/types#Node
+.. _node.Node: https://pkg.go.dev/github.com/cilium/cilium/pkg/node/types#Node
 
 All node keys are attached to a lease owned by the agent of the respective
 node.
@@ -52,7 +52,7 @@ Key                                                           Value
 ``cilium/state/services/v1/<cluster>/<namespace>/<service>``  serviceStore.ClusterService_
 ============================================================= ====================
 
-.. _serviceStore.ClusterService: https://godoc.org/github.com/cilium/cilium/pkg/service/store#ClusterService
+.. _serviceStore.ClusterService: https://pkg.go.dev/github.com/cilium/cilium/pkg/service/store#ClusterService
 
 Identities
 ----------
@@ -68,8 +68,8 @@ Key                                                           Value
 ``cilium/state/identities/v1/value/<labels>/<node>``          identity.NumericIdentity_
 ============================================================= ====================
 
-.. _identity.NumericIdentity: https://godoc.org/github.com/cilium/cilium/pkg/identity#NumericIdentity
-.. _labels.LabelArray: https://godoc.org/github.com/cilium/cilium/pkg/labels#LabelArray
+.. _identity.NumericIdentity: https://pkg.go.dev/github.com/cilium/cilium/pkg/identity#NumericIdentity
+.. _labels.LabelArray: https://pkg.go.dev/github.com/cilium/cilium/pkg/labels#LabelArray
 
 Endpoints
 ---------
@@ -84,7 +84,7 @@ Key                                                           Value
 ``cilium/state/ip/v1/<cluster>/<ip>``                         identity.IPIdentityPair_
 ============================================================= ====================
 
-.. _identity.IPIdentityPair: https://godoc.org/github.com/cilium/cilium/pkg/identity#IPIdentityPair
+.. _identity.IPIdentityPair: https://pkg.go.dev/github.com/cilium/cilium/pkg/identity#IPIdentityPair
 
 CiliumNetworkPolicyNodeStatus
 -----------------------------
@@ -101,7 +101,7 @@ Key                                                              Value
 ``cilium/state/cnpstatuses/v2/<UID>/<namespace>/<name>/<node>``  k8s.CNPNSWithMeta_
 ================================================================ ====================
 
-.. _k8s.CNPNSWithMeta: https://godoc.org/github.com/cilium/cilium/pkg/k8s#CNPNSWithMeta
+.. _k8s.CNPNSWithMeta: https://pkg.go.dev/github.com/cilium/cilium/pkg/k8s#CNPNSWithMeta
 
 Leases
 ======
