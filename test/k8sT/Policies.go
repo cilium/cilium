@@ -1170,16 +1170,11 @@ var _ = Describe("K8sPolicyTest", func() {
 			Context("with remote-node identity disabled", func() {
 				BeforeAll(func() {
 					By("Reconfiguring Cilium to disable remote-node identity")
-					newCfg := map[string]string{
-						"global.remoteNodeIdentity": "false",
-						"global.hostFirewall":       "false",
-					}
-					for k, v := range daemonCfg {
-						if _, ok := newCfg[k]; !ok {
-							newCfg[k] = v
-						}
-					}
-					RedeployCilium(kubectl, ciliumFilename, newCfg)
+					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
+						map[string]string{
+							"global.remoteNodeIdentity": "false",
+							"global.hostFirewall":       "false",
+						})
 				})
 
 				It("Allows from all hosts with cnp fromEntities host policy", func() {
@@ -1208,13 +1203,10 @@ var _ = Describe("K8sPolicyTest", func() {
 			Context("with remote-node identity enabled", func() {
 				BeforeAll(func() {
 					By("Reconfiguring Cilium to enable remote-node identity")
-					newCfg := map[string]string{
-						"global.remoteNodeIdentity": "true",
-					}
-					for k, v := range daemonCfg {
-						newCfg[k] = v
-					}
-					RedeployCilium(kubectl, ciliumFilename, newCfg)
+					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
+						map[string]string{
+							"global.remoteNodeIdentity": "true",
+						})
 				})
 
 				It("Validates fromEntities remote-node policy", func() {

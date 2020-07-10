@@ -127,6 +127,27 @@ func RedeployCilium(vm *helpers.Kubectl, ciliumFilename string, options map[stri
 	ExpectCiliumOperatorReady(vm)
 }
 
+// RedeployCiliumWithMerge merges the configuration passed as "from" into
+// "options", allowing the caller to preserve the previous Cilium
+// configuration, along with passing new configuration. This function behaves
+// equivalently to RedeployCilium. Note that "options" is deep copied, meaning
+// it will NOT be modified. Any modifications will be local to this function.
+func RedeployCiliumWithMerge(vm *helpers.Kubectl,
+	ciliumFilename string,
+	from, options map[string]string) {
+
+	// Merge configuration
+	newOpts := make(map[string]string, len(options))
+	for k, v := range from {
+		newOpts[k] = v
+	}
+	for k, v := range options {
+		newOpts[k] = v
+	}
+
+	RedeployCilium(vm, ciliumFilename, newOpts)
+}
+
 // DeployCiliumOptionsAndDNS deploys DNS and cilium with options into the kubernetes cluster
 func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, options map[string]string) {
 	redeployCilium(vm, ciliumFilename, options)
