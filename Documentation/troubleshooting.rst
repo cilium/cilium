@@ -743,7 +743,7 @@ bit different
       kubernetes-dashboard-6xvc7    1/1       Running   0          1h
 
     # Run the bugtool from this pod
-    $ kubectl -n kube-system exec cilium-kg8lv cilium-bugtool
+    $ kubectl -n kube-system exec cilium-kg8lv -- cilium-bugtool
       [...]
 
     # Copy the archive from the pod

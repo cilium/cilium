@@ -218,7 +218,7 @@ function k8s_num_ready {
   local NAMESPACE=$1
   local CILIUM_POD=$2
   local FILTER=$3
-  kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list | grep $FILTER | grep -v -e 'not-ready' -e 'reserved' | grep -c 'ready' || true
+  kubectl -n ${NAMESPACE} exec ${CILIUM_POD} -- cilium endpoint list | grep $FILTER | grep -v -e 'not-ready' -e 'reserved' | grep -c 'ready' || true
   restore_flag $save "e"
 }
 
@@ -249,7 +249,7 @@ function wait_for_k8s_endpoints {
       exit 1
     else
       overwrite $iter '
-        kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list
+        kubectl -n ${NAMESPACE} exec -- ${CILIUM_POD} cilium endpoint list
         echo -n " [${found}/${NUM}]"
       '
       sleep $sleep_time
@@ -259,7 +259,7 @@ function wait_for_k8s_endpoints {
     ((iter++))
   done
 
-  overwrite $iter 'kubectl -n ${NAMESPACE} exec ${CILIUM_POD} cilium endpoint list'
+  overwrite $iter 'kubectl -n ${NAMESPACE} exec ${CILIUM_POD} -- cilium endpoint list'
   restore_flag $save "e"
 }
 
@@ -277,7 +277,7 @@ function wait_for_kubectl_cilium_status {
   namespace=$1
   pod=$2
   local NUM_DESIRED="1"
-  local CMD="kubectl -n ${namespace} exec ${pod} cilium status | grep "Cilium:" | grep -c 'OK' || true"
+  local CMD="kubectl -n ${namespace} exec ${pod} -- cilium status | grep "Cilium:" | grep -c 'OK' || true"
   local INFO_CMD="true"
   local MAX_MINS="2"
   local ERROR_OUTPUT="Timeout while waiting for Cilium to be ready"
