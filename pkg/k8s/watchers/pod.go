@@ -329,6 +329,13 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 				continue
 			}
 
+			feIP := net.ParseIP(p.HostIP)
+			if feIP != nil && feIP.IsLoopback() {
+				logger.Warningf("The requested loopback address for hostIP (%s) is not supported. Ignoring.",
+					feIP)
+				continue
+			}
+
 			proto, err := loadbalancer.NewL4Type(string(p.Protocol))
 			if err != nil {
 				continue
@@ -360,18 +367,7 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 			// on this address but not via other addresses. When it's not set,
 			// then expose via all local addresses. Same when the user provides
 			// an unspecified address (0.0.0.0 / [::]).
-			feIP := net.ParseIP(p.HostIP)
 			if feIP != nil && !feIP.IsUnspecified() {
-				// Migrate the loopback address into a 0.0.0.0 / [::]
-				// surrogate, thus internal datapath handling can be
-				// streamlined. It's not exposed for traffic from outside.
-				if feIP.IsLoopback() {
-					if feIP.To4() != nil {
-						feIP = net.IPv4zero
-					} else {
-						feIP = net.IPv6zero
-					}
-				}
 				nodeAddrAll = [][]net.IP{
 					{feIP},
 				}
