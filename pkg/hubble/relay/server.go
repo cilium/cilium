@@ -61,7 +61,13 @@ func NewServer(options ...relayoption.Option) (*Server, error) {
 				DialTimeout:  opts.DialTimeout,
 			},
 		),
-		pool.WithDialTimeout(opts.DialTimeout),
+		pool.WithClientConnBuilder(pool.GRPCClientConnBuilder{
+			DialTimeout: opts.DialTimeout,
+			Options: []grpc.DialOption{
+				grpc.WithInsecure(), // FIXME: remove once mTLS is implemented
+				grpc.WithBlock(),
+			},
+		}),
 		pool.WithRetryTimeout(opts.RetryTimeout),
 	}
 	if opts.Debug {

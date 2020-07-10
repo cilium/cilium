@@ -21,6 +21,7 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	relaypb "github.com/cilium/cilium/api/v1/relay"
+	"github.com/cilium/cilium/pkg/hubble/relay/pool"
 	"github.com/cilium/cilium/pkg/hubble/relay/queue"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
@@ -32,16 +33,27 @@ import (
 	"google.golang.org/grpc/status"
 )
 
+// TODO: remove this shim once "google.golang.org/grpc" is bumped to v1.28+
+// which should convert generated code
+// `observerpb.NewObserverClient(cc *grpc.ClientConn)` to
+// `observerpb.NewObserverClient(cc grpc.ClientConnInterface)`.
+func newObserverClient(cc pool.ClientConn) observerpb.ObserverClient {
+	if conn, ok := cc.(*grpc.ClientConn); ok {
+		return observerpb.NewObserverClient(conn)
+	}
+	return nil
+}
+
 // ensure that Server implements the observer.ObserverServer interface.
 var _ observerpb.ObserverServer = (*Server)(nil)
 
 func retrieveFlowsFromPeer(
 	ctx context.Context,
-	conn *grpc.ClientConn,
+	conn pool.ClientConn,
 	req *observerpb.GetFlowsRequest,
 	flows chan<- *observerpb.GetFlowsResponse,
 ) error {
-	client := observerpb.NewObserverClient(conn)
+	client := newObserverClient(conn)
 	c, err := client.GetFlows(ctx, req)
 	if err != nil {
 		return err
@@ -340,7 +352,7 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 			continue
 		}
 		g.Go(func() error {
-			client := observerpb.NewObserverClient(p.Conn)
+			client := newObserverClient(p.Conn)
 			status, err := client.ServerStatus(ctx, req)
 			if err != nil {
 				s.log.WithFields(logrus.Fields{
