@@ -5,8 +5,12 @@
     If you have an issues please refer to the CNP Validation section in the upgrade guide.
 {{- else if (not (.Values.config.enabled))}}
     You have preserved the configMap and successfully installed {{ title .Chart.Name}}.
-{{- else if (and (.Values.global.hubble.enabled) (.Values.global.hubble.ui.enabled)) }}
-    You have successfully installed Cilium with hubble-ui.
+{{- else if (and (.Values.global.hubble.enabled) (.Values.global.hubble.relay.enabled)) }}
+    {{- if (.Values.global.hubble.ui.enabled) }}
+        You have successfully installed {{ title .Chart.Name }} with Hubble Relay and Hubble UI.
+    {{- else }}
+        You have successfully installed {{ title .Chart.Name }} with Hubble Relay.
+    {{- end }}
 {{- else }}
     You have successfully installed {{ title .Chart.Name }}.
 {{- end }}
