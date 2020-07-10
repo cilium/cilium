@@ -343,7 +343,7 @@ func runOperator(cmd *cobra.Command) {
 		startKvstoreWatchdog()
 	}
 
-	switch option.Config.IdentityAllocationMode {
+	switch identityAllocationMode {
 	case option.IdentityAllocationModeCRD:
 		if !k8s.IsEnabled() {
 			log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
