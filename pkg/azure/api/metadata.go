@@ -39,7 +39,7 @@ func GetResourceGroupName(ctx context.Context) (string, error) {
 	return getMetadataString(ctx, "instance/compute/resourceGroupName")
 }
 
-// getMetadataString returns the text represantation of a field from the Azure IMS (instance metadata service)
+// getMetadataString returns the text representation of a field from the Azure IMS (instance metadata service)
 // more can be found at https://docs.microsoft.com/en-us/azure/virtual-machines/windows/instance-metadata-service#instance-api
 func getMetadataString(ctx context.Context, path string) (string, error) {
 	client := &http.Client{

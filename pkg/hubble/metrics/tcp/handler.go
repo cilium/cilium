@@ -40,7 +40,7 @@ func (h *tcpHandler) Init(registry *prometheus.Registry, options api.Options) er
 	h.tcpFlags = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: api.DefaultPrometheusNamespace,
 		Name:      "tcp_flags_total",
-		Help:      "TCP flag occurences",
+		Help:      "TCP flag occurrences",
 	}, labels)
 
 	registry.MustRegister(h.tcpFlags)

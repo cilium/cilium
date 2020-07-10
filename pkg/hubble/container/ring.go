@@ -182,7 +182,7 @@ func (r *Ring) read(read uint64) (*v1.Event, error) {
 	// and the ring has mask = 0x3 (7). This means there will be a total of 8
 	// slots to be written in the ring buffer and a total of 32 cycles.
 	// As writing is performed in parallel, the way we check if the read is
-	// valid is by checking if the read was performed withing a 'valid cycle'.
+	// valid is by checking if the read was performed within a 'valid cycle'.
 	// For example, if the last write was at index 3 cycle 0, it means we can
 	// read since index 2 cycle 0 all the way back to index 4 cycle 31 (0x1f).
 	// We can't read index 3 cycle 0 because we might not have written into it

@@ -259,7 +259,7 @@ func runCleanup() {
 	cleanAll = viper.GetBool(allFlagName) || viper.GetBool(cleanCiliumEnvVar)
 	cleanBPF = viper.GetBool(bpfFlagName) || viper.GetBool(cleanBpfEnvVar)
 
-	// if no flags are specifed then clean all
+	// if no flags are specified then clean all
 	if (cleanAll || cleanBPF) == false {
 		cleanAll = true
 	}

@@ -44,7 +44,7 @@ var (
 	ipv4AllocRange      *cidr.CIDR
 	ipv6AllocRange      *cidr.CIDR
 
-	// k8s Node IP (either InternalIP or ExternalIP or nil; the former is prefered)
+	// k8s Node IP (either InternalIP or ExternalIP or nil; the former is preferred)
 	k8sNodeIP net.IP
 
 	ipsecKeyIdentity uint8

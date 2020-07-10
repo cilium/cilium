@@ -25,7 +25,7 @@ type Option func(o *Options)
 // WithMaxSendBufferSize sets the maximum size of the send buffer. When the
 // send buffer is full, for example due to errors in the transport, the server
 // disconnects the corresponding client.
-// The maximum buffer size should be large enough to accomodate the burst of
+// The maximum buffer size should be large enough to accommodate the burst of
 // peer change notifications than happens on an initial call where all nodes in
 // the cluster are notified as being added.
 func WithMaxSendBufferSize(size int) Option {

@@ -48,25 +48,25 @@ spec:
     toPorts:
     - ports:
       - port "8050"
-      - protocl TCP
+      - protocol TCP
       - port "8051"
-      - protocl TCP
+      - protocol TCP
       - port "8052"
-      - protocl TCP
+      - protocol TCP
       - port "8053"
-      - protocl TCP
+      - protocol TCP
       - port "8054"
-      - protocl TCP
+      - protocol TCP
       - port "8055"
-      - protocl TCP
+      - protocol TCP
       - port "8056"
-      - protocl TCP
+      - protocol TCP
       - port "8057"
-      - protocl TCP
+      - protocol TCP
       - port "8058"
-      - protocl TCP
+      - protocol TCP
       - port "8059"
-      - protocl TCP
+      - protocol TCP
   endpointSelector:
     matchExpressions:
     - key: app

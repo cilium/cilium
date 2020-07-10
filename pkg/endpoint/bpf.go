@@ -162,7 +162,7 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	// We don't add the symlink for the host endpoint so that it is not
 	// restored when downgrading to <1.8. To avoid linking to a
 	// nonexistent file, only create the symlink if the header file
-	// creation/replacement file suceeded above.
+	// creation/replacement file succeeded above.
 	if !e.IsHost() && err == nil {
 		oldHeaderPath := filepath.Join(prefix, common.OldCHeaderFileName)
 		if _, err := os.Stat(oldHeaderPath); err != nil {
@@ -1370,7 +1370,7 @@ func (e *Endpoint) GetPolicyVerdictLogFilter() uint32 {
 type linkCheckerFunc func(string) error
 
 // ValidateConnectorPlumbing checks whether the endpoint is correctly plumbed
-// depending on if it is conected via veth or IPVLAN.
+// depending on if it is connected via veth or IPVLAN.
 func (e *Endpoint) ValidateConnectorPlumbing(linkChecker linkCheckerFunc) error {
 	if e.HasIpvlanDataPath() {
 		// FIXME: We cannot check whether ipvlan slave netdev exists,

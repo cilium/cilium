@@ -33,7 +33,7 @@ func filterByProtocol(protocols []string) (FilterFunc, error) {
 		case "dns", "http", "kafka":
 			l7Protocols = append(l7Protocols, proto)
 		default:
-			return nil, fmt.Errorf("unkown protocol: %q", p)
+			return nil, fmt.Errorf("unknown protocol: %q", p)
 		}
 	}
 

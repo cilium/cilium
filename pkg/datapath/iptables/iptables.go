@@ -176,7 +176,7 @@ func (m *IptablesManager) removeCiliumRules(table, prog, match string) {
 		// -A POSTROUTING -m comment --comment "cilium-feeder: CILIUM_POST" -j CILIUM_POST
 		if strings.Contains(rule, match) {
 			// do not remove feeder for chains that are set to be disabled
-			// ie catch the begining of the rule like -A POSTROUTING to match it against
+			// ie catch the beginning of the rule like -A POSTROUTING to match it against
 			// disabled chains
 			skipFeeder := false
 			for _, disabledChain := range option.Config.DisableIptablesFeederRules {

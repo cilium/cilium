@@ -217,7 +217,7 @@ func deriveVpcCIDR(node *ciliumv2.CiliumNode) (result *cidr.CIDR) {
 
 // hasMinimumIPsInPool returns true if the required number of IPs is available
 // in the allocation pool. It also returns the number of IPs required and
-// avalable.
+// available.
 func (n *nodeStore) hasMinimumIPsInPool() (minimumReached bool, required, numAvailable int) {
 	n.mutex.RLock()
 	defer n.mutex.RUnlock()
@@ -636,7 +636,7 @@ func (a *crdAllocator) totalPoolSize() int {
 	return 0
 }
 
-// Dump provides a status report and lists all allocated IP addressess
+// Dump provides a status report and lists all allocated IP addresses
 func (a *crdAllocator) Dump() (map[string]string, string) {
 	a.mutex.RLock()
 	defer a.mutex.RUnlock()

@@ -368,7 +368,7 @@ func (s *SSHMeta) BasePath() string {
 }
 
 // MonitorStart starts the  monitor command in background and returns a callback
-// function wich stops the monitor when the user needs. When the callback is
+// function which stops the monitor when the user needs. When the callback is
 // called the command will stop and monitor's output is saved on
 // `monitorLogFileName` file.
 func (s *SSHMeta) MonitorStart() func() error {

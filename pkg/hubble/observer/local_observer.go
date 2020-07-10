@@ -346,7 +346,7 @@ func decodeFlow(payloadParser *parser.Parser, pl *flowpb.Payload) (*flowpb.Flow,
 }
 
 // flowsReader reads flows using a RingReader. It applies the flow request
-// criterias (blacklist, whitelist, follow, ...) before returning flows.
+// criteria (blacklist, whitelist, follow, ...) before returning flows.
 type flowsReader struct {
 	ringReader           *container.RingReader
 	whitelist, blacklist filters.FilterFuncs
@@ -357,7 +357,7 @@ type flowsReader struct {
 }
 
 // newFlowsReader creates a new flowsReader that uses the given RingReader to
-// read through the ring buffer. Only flows that match the request criterias
+// read through the ring buffer. Only flows that match the request criteria
 // are returned.
 func newFlowsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, log logrus.FieldLogger, whitelist, blacklist filters.FilterFuncs) (*flowsReader, error) {
 	log.WithFields(logrus.Fields{
@@ -388,7 +388,7 @@ func newFlowsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, lo
 	return reader, nil
 }
 
-// Next returns the next flow that matches the request criterias.
+// Next returns the next flow that matches the request criteria.
 func (r *flowsReader) Next(ctx context.Context) (*flowpb.Flow, error) {
 	for {
 		select {
