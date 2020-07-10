@@ -571,19 +571,19 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		neighborLog("insertNeightbor InterfaceByName", ifaceName, err, &ciliumIPv4, &hwAddr, link)
+		neighborLog("InterfaceByName", ifaceName, err, &ciliumIPv4, &hwAddr, link)
 		return
 	}
 
 	_, err = arping.FindIPInNetworkFromIface(ciliumIPv4, *iface)
 	if err != nil {
-		neighborLog("insertNeightbor IP not L2 reachable", ifaceName, nil, &ciliumIPv4, &hwAddr, link)
+		neighborLog("IP not L2 reachable", ifaceName, nil, &ciliumIPv4, &hwAddr, link)
 		return
 	}
 
 	linkAttr, err := netlink.LinkByName(ifaceName)
 	if err != nil {
-		neighborLog("insertNeightbor LinkByName", ifaceName, err, &ciliumIPv4, &hwAddr, link)
+		neighborLog("LinkByName", ifaceName, err, &ciliumIPv4, &hwAddr, link)
 		return
 	}
 	link = linkAttr.Attrs().Index
@@ -596,7 +596,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 			State:        netlink.NUD_PERMANENT,
 		}
 		err := netlink.NeighSet(&neigh)
-		neighborLog("insertNeighbor NeighSet", ifaceName, err, &ciliumIPv4, &hwAddr, link)
+		neighborLog("NeighSet", ifaceName, err, &ciliumIPv4, &hwAddr, link)
 		if err == nil {
 			n.neighByNode[newNode.Identity()] = &neigh
 			if option.Config.NodePortHairpin {
@@ -604,7 +604,7 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 			}
 		}
 	} else {
-		neighborLog("insertNeighbor arping failed", ifaceName, err, &ciliumIPv4, &hwAddr, link)
+		neighborLog("arping failed", ifaceName, err, &ciliumIPv4, &hwAddr, link)
 	}
 }
 
