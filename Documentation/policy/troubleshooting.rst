@@ -103,7 +103,7 @@ In the above example, for one of the ``deathstar`` pods the endpoint id is 568. 
 
     # Get a shell on the Cilium pod
 
-    $ kubectl exec -ti cilium-88k78 -n kube-system /bin/bash
+    $ kubectl exec -ti cilium-88k78 -n kube-system -- /bin/bash
 
     # print out the ingress labels
     # clean up the data

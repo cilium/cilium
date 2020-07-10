@@ -293,7 +293,7 @@ this command inside any Cilium pod in any cluster:
 
 .. code:: bash
 
-    $ kubectl -n kube-system exec -ti cilium-g6btl cilium node list
+    $ kubectl -n kube-system exec -ti cilium-g6btl -- cilium node list
     Name                                                   IPv4 Address    Endpoint CIDR   IPv6 Address   Endpoint CIDR
     cluster5/ip-172-0-117-60.us-west-2.compute.internal    172.0.117.60    10.2.2.0/24     <nil>          f00d::a02:200:0:0/112
     cluster5/ip-172-0-186-231.us-west-2.compute.internal   172.0.186.231   10.2.3.0/24     <nil>          f00d::a02:300:0:0/112
@@ -306,7 +306,7 @@ this command inside any Cilium pod in any cluster:
 
 .. code:: bash
 
-    $ kubectl exec -ti pod-cluster5-xxx curl <pod-ip-cluster7>
+    $ kubectl exec -ti pod-cluster5-xxx -- curl <pod-ip-cluster7>
     [...]
 
 Load-balancing with Global Services
@@ -429,7 +429,7 @@ Control Plane Connectivity
       consisting of the IP to reach the remote etcd as well as the required
       certificates to connect to that etcd.
 
-    * Run a ``kubectl exec -ti [...] bash`` in one of the Cilium pods and check
+    * Run a ``kubectl exec -ti [...] -- bash`` in one of the Cilium pods and check
       the contents of the directory ``/var/lib/cilium/clustermesh/``. It must
       contain a configuration file for each remote cluster along with all the
       required SSL certificates and keys. The filenames must match the cluster

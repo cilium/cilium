@@ -99,7 +99,7 @@ In the terminal window dedicated for the A-wing pod, exec in, use python to impo
 
 .. parsed-literal::
 
-    $ kubectl exec -ti $AWING_POD sh
+    $ kubectl exec -ti $AWING_POD -- sh
     # python
     Python 3.7.0 (default, Sep  5 2018, 03:25:31)
     [GCC 6.3.0 20170516] on linux
@@ -111,7 +111,7 @@ In the terminal window dedicated for the Alliance-Tracker, exec in, use python t
 
 .. parsed-literal::
 
-    $ kubectl exec -ti $TRACKER_POD sh
+    $ kubectl exec -ti $TRACKER_POD -- sh
     # python
     Python 3.7.0 (default, Sep  5 2018, 03:25:31)
     [GCC 6.3.0 20170516] on linux

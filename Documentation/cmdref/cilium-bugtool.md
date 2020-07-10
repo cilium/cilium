@@ -24,7 +24,7 @@ cilium-bugtool [OPTIONS] [flags]
 	NAME                          READY     STATUS    RESTARTS   AGE
 	cilium-kg8lv                  1/1       Running   0          13m
 	[...]
-	$ kubectl -n kube-system exec cilium-kg8lv cilium-bugtool
+	$ kubectl -n kube-system exec cilium-kg8lv -- cilium-bugtool
 	$ kubectl cp kube-system/cilium-kg8lv:/tmp/cilium-bugtool-243785589.tar /tmp/cilium-bugtool-243785589.tar
 ```
 
