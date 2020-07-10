@@ -15,15 +15,18 @@
 package pool
 
 import (
-	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/defaults"
+	hubblePeer "github.com/cilium/cilium/pkg/hubble/peer"
 )
 
-// defaultOptions is the reference point for default values.
-var defaultOptions = Options{
-	Target:       "unix://" + defaults.HubbleSockPath,
+// DefaultOptions is the reference point for default values.
+var DefaultOptions = Options{
+	PeerClientBuilder: hubblePeer.LocalClientBuilder{
+		LocalAddress: "unix://" + defaults.HubbleSockPath,
+		DialTimeout:  5 * time.Second,
+	},
 	DialTimeout:  5 * time.Second,
 	RetryTimeout: 30 * time.Second,
 }
@@ -33,19 +36,17 @@ type Option func(o *Options) error
 
 // Options stores all the configuration values for peer manager.
 type Options struct {
-	Target       string
-	DialTimeout  time.Duration
-	RetryTimeout time.Duration
-	Debug        bool
+	PeerClientBuilder hubblePeer.ClientBuilder
+	DialTimeout       time.Duration
+	RetryTimeout      time.Duration
+	Debug             bool
 }
 
-// WithTarget sets the URL of the peer gRPC service to connect to.
-func WithTarget(t string) Option {
+// WithPeerClientBuilder sets the ClientBuilder that is used to create new Peer
+// service clients.
+func WithPeerClientBuilder(b hubblePeer.ClientBuilder) Option {
 	return func(o *Options) error {
-		if !strings.HasPrefix(t, "unix://") {
-			t = "unix://" + t
-		}
-		o.Target = t
+		o.PeerClientBuilder = b
 		return nil
 	}
 }

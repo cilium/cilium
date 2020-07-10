@@ -30,21 +30,6 @@ import (
 	"google.golang.org/grpc/connectivity"
 )
 
-func newConn(target string, dialTimeout time.Duration, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
-	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
-	defer cancel()
-	return grpc.DialContext(ctx, target, opts...)
-}
-
-func newPeerClient(target string, dialTimeout time.Duration) (peerpb.PeerClient, *grpc.ClientConn, error) {
-	// the connection is assumed to be local
-	conn, err := newConn(target, dialTimeout, grpc.WithInsecure(), grpc.WithBlock())
-	if err != nil {
-		return nil, nil, err
-	}
-	return peerpb.NewPeerClient(conn), conn, nil
-}
-
 // PeerManager defines the functions a peer manager must implement when
 // handling peers and respective connections.
 type PeerManager interface {
@@ -91,7 +76,7 @@ var _ PeerManager = (*Manager)(nil)
 // NewManager creates a new manager that connects to a peer gRPC service using
 // target to manage peers and a connection to every peer's gRPC API.
 func NewManager(options ...Option) (*Manager, error) {
-	opts := defaultOptions
+	opts := DefaultOptions
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
@@ -118,11 +103,11 @@ func (m *Manager) watchNotifications() {
 	ctx, cancel := context.WithCancel(context.Background())
 connect:
 	for {
-		cl, conn, err := newPeerClient(m.opts.Target, m.opts.DialTimeout)
+		cl, err := m.opts.PeerClientBuilder.Client()
 		if err != nil {
 			m.log.WithFields(logrus.Fields{
-				"error":        err,
-				"dial timeout": m.opts.DialTimeout,
+				"error":  err,
+				"target": m.opts.PeerClientBuilder.Target(),
 			}).Warning("Failed to create peer client for peers synchronization; will try again after the timeout has expired")
 			select {
 			case <-m.stop:
@@ -134,7 +119,7 @@ connect:
 		}
 		client, err := cl.Notify(ctx, &peerpb.NotifyRequest{})
 		if err != nil {
-			conn.Close()
+			cl.Close()
 			m.log.WithFields(logrus.Fields{
 				"error":              err,
 				"connection timeout": m.opts.RetryTimeout,
@@ -150,14 +135,14 @@ connect:
 		for {
 			select {
 			case <-m.stop:
-				conn.Close()
+				cl.Close()
 				cancel()
 				return
 			default:
 			}
 			cn, err := client.Recv()
 			if err != nil {
-				conn.Close()
+				cl.Close()
 				m.log.WithFields(logrus.Fields{
 					"error":              err,
 					"connection timeout": m.opts.RetryTimeout,
@@ -369,4 +354,10 @@ func (m *Manager) disconnect(p *peer) {
 	}
 	p.conn = nil
 	m.log.Debugf("Peer %s disconnected", p.Name)
+}
+
+func newConn(target string, dialTimeout time.Duration, opts ...grpc.DialOption) (*grpc.ClientConn, error) {
+	ctx, cancel := context.WithTimeout(context.Background(), dialTimeout)
+	defer cancel()
+	return grpc.DialContext(ctx, target, opts...)
 }
