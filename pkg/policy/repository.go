@@ -693,9 +693,12 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 //
 // Must be called with repo mutex held for reading.
 func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity.Identity) (ingress bool, egress bool, matchingRules ruleSlice) {
-
 	lbls := securityIdentity.LabelArray
+
 	// Check if policy enforcement should be enabled at the daemon level.
+	if lbls.Has(labels.IDNameHost) && !option.Config.EnableHostFirewall {
+		return false, false, nil
+	}
 	switch GetPolicyEnabled() {
 	case option.AlwaysEnforce:
 		_, _, matchingRules = p.getMatchingRules(securityIdentity)
@@ -703,10 +706,6 @@ func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity
 		// enabled for the endpoint.
 		return true, true, matchingRules
 	case option.DefaultEnforcement:
-		if lbls.Has(labels.IDNameHost) && !option.Config.EnableHostFirewall {
-			return false, false, nil
-		}
-
 		ingress, egress, matchingRules = p.getMatchingRules(securityIdentity)
 		// If the endpoint has the reserved:init label, i.e. if it has not yet
 		// received any labels, always enforce policy (default deny).
