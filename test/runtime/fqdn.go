@@ -477,7 +477,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 
 		By("Ensure connectivity to other domains is still block")
 		res = vm.ContainerExec(helpers.App1, helpers.CurlFail("http://world2.outside.test"))
-		res.ExpectFail("Connectivity to outside domain successfull when it should be block")
+		res.ExpectFail("Connectivity to outside domain successfully when it should be block")
 
 	})
 
@@ -1088,11 +1088,11 @@ INITSYSTEM=SYSTEMD`
 		By("Starting Cilium again")
 		Expect(vm.RestartCilium()).To(BeNil(), "Cilium cannot be started correctly")
 
-		// Policies on docker are not persistant, so the restart connectivity is not tested at all
+		// Policies on docker are not persistent, so the restart connectivity is not tested at all
 	})
 })
 
-// getMapValues retuns an array of interfaces with the map values.
+// getMapValues returns an array of interfaces with the map values.
 // returned array will be sorted by map keys, the reason is that Golang does
 // not support ordered maps and for DNS-config the values need to be always
 // sorted.

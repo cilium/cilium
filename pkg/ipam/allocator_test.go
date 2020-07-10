@@ -83,7 +83,7 @@ func (s *IPAMSuite) TestExpirationTimer(c *C) {
 	c.Assert(err, Not(IsNil))
 	// Let expiration timer expire
 	time.Sleep(2 * timeout)
-	// Must suceed, IP must be released again
+	// Must succeed, IP must be released again
 	err = ipam.AllocateIP(ip, "foo")
 	c.Assert(err, IsNil)
 	// register new expiration timer

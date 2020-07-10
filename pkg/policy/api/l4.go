@@ -33,7 +33,7 @@ type PortProtocol struct {
 	// parsed as a single uint16. In the future, this field may support
 	// ranges in the form "1024-2048
 	// Port can also be a port name, which must contain at least one [a-z],
-	// and may also contain [0-9] and '-' anywhere exept adjacent to another
+	// and may also contain [0-9] and '-' anywhere except adjacent to another
 	// '-' or in the beginning or the end.
 	Port string `json:"port"`
 

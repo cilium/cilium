@@ -253,7 +253,7 @@ func (p *ProbeManager) SystemConfigProbes() error {
 }
 
 // GetRequiredConfig performs a check of mandatory kernel configuration options. It
-// returns a map indicating which required kernel paramaters are enabled - and which are not.
+// returns a map indicating which required kernel parameters are enabled - and which are not.
 // GetRequiredConfig is being used by CLI "cilium kernel-check".
 func (p *ProbeManager) GetRequiredConfig() map[KernelParam]bool {
 	config := p.features.SystemConfig
@@ -271,7 +271,7 @@ func (p *ProbeManager) GetRequiredConfig() map[KernelParam]bool {
 }
 
 // GetOptionalConfig performs a check of *optional* kernel configuration options. It
-// returns a map indicating which optional/non-mandatory kernel paramaters are enabled.
+// returns a map indicating which optional/non-mandatory kernel parameters are enabled.
 // GetOptionalConfig is being used by CLI "cilium kernel-check".
 func (p *ProbeManager) GetOptionalConfig() map[KernelParam]bool {
 	config := p.features.SystemConfig

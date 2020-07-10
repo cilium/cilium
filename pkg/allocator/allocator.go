@@ -57,7 +57,7 @@ const (
 // details about the kvstore implementation.
 //
 // A node takes a reference to an identity when it is in-use on that node, and
-// the identity remains in-use if there is any node refernce to it. When an
+// the identity remains in-use if there is any node reference to it. When an
 // identity no longer has any node references, it may be garbage collected. No
 // guarantees are made at that point and the numeric identity may be reused.
 // Note that the numeric IDs are selected locally and verified with the Backend.

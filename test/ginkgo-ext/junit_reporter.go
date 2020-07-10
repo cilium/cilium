@@ -169,7 +169,7 @@ func (reporter *JUnitReporter) failureTypeForState(state types.SpecState) string
 	}
 }
 
-// reportChecks filters the given string from the stodout and substract the
+// reportChecks filters the given string from the stdout and subtract the
 // information that is within the <Checks></Checks> labels. It'll return the
 // given output as first result, and the check output in the second string.
 func reportChecks(output string) (string, string) {

@@ -199,7 +199,7 @@ type MapChanges struct {
 // applicable.
 //
 // The caller is responsible for making sure the same identity is not
-// present in both 'adds' and 'deletes'.  Accross multiple calls we
+// present in both 'adds' and 'deletes'.  Across multiple calls we
 // maintain the adds and deletes within the MapChanges are disjoint in
 // cases where an identity is first added and then deleted, or first
 // deleted and then added.

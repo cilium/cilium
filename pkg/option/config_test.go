@@ -688,7 +688,7 @@ func Test_populateNodePortRange(t *testing.T) {
 				fs := flag.NewFlagSet(NodePortRange, flag.ContinueOnError)
 				fs.StringSlice(
 					NodePortRange,
-					[]string{}, // Explicity has no defaults.
+					[]string{}, // Explicitly has no defaults.
 					"")
 
 				BindEnv(NodePortRange)

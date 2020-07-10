@@ -1692,7 +1692,7 @@ func (kub *Kubectl) validateServicePlumbingInCiliumPod(fullName, ciliumPod strin
 	return nil
 }
 
-// ValidateServicePlumbing ensures that a service in a namespace sucessfully
+// ValidateServicePlumbing ensures that a service in a namespace successfully
 // plumbed by all Cilium pods in the cluster:
 // - The service and endpoints are found in `cilium service list`
 // - The service and endpoints are found in `cilium bpf lb list`

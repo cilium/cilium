@@ -224,7 +224,7 @@ func (n *Node) getNodeIP(ipv6 bool) (net.IP, addressing.AddressType) {
 }
 
 // GetK8sNodeIPs returns k8s Node IP (either InternalIP or ExternalIP or nil;
-// the former is prefered).
+// the former is preferred).
 func (n *Node) GetK8sNodeIP() net.IP {
 	var externalIP net.IP
 

@@ -288,7 +288,7 @@ func (e *Endpoint) restoreIdentity() error {
 		// block the restoring of the endpoint.
 		// If the endpoint is removed, this controller will cancel the allocator
 		// WaitForInitialGlobalIdentities function.
-		controllerName := fmt.Sprintf("waiting-initial-global-identitites-ep (%v)", e.ID)
+		controllerName := fmt.Sprintf("waiting-initial-global-identities-ep (%v)", e.ID)
 		var gotInitialGlobalIdentities = make(chan struct{})
 		e.UpdateController(controllerName,
 			controller.ControllerParams{

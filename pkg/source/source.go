@@ -27,7 +27,7 @@ const (
 	Local Source = "local"
 
 	// KVStore is the source used for state derived from a key value store.
-	// State in the key value stored takes precendence over orchestration
+	// State in the key value stored takes precedence over orchestration
 	// system state such as Kubernetes.
 	KVStore Source = "kvstore"
 

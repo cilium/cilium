@@ -28,7 +28,7 @@ const (
 )
 
 var (
-	providers = sync.Map{} // map with the list of providers to callback to retrive info from.
+	providers = sync.Map{} // map with the list of providers to callback to retrieve info from.
 )
 
 // GroupProviderFunc is a func that need to be register to be able to
