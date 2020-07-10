@@ -976,7 +976,9 @@ Limitations
       Only TCP and UDP is supported as a transport for services at this point.
     * Cilium's BPF kube-proxy replacement does not allow ``hostPort`` port configurations
       for Pods that overlap with the configured NodePort range. In such case, the ``hostPort``
-      setting will be ignored and a warning emitted to the Cilium agent log.
+      setting will be ignored and a warning emitted to the Cilium agent log. Similarly,
+      explicitly binding the ``hostIP`` to the loopback address in the host namespace is
+      currently not supported and will log a warning to the Cilium agent log.
 
 Further Readings
 ################
