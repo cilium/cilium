@@ -1137,6 +1137,9 @@ func initEnv(cmd *cobra.Command) {
 		if !option.Config.EnableRemoteNodeIdentity {
 			log.Fatalf("%s must be enabled to use the host firewall.", option.EnableRemoteNodeIdentity)
 		}
+		if option.Config.EnableEndpointRoutes {
+			log.Fatalf("%s cannot be used with the host firewall. Packets must be routed through the host device.", option.EnableEndpointRoutes)
+		}
 	}
 
 	// If there is one device specified, use it to derive better default

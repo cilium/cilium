@@ -332,6 +332,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"global.autoDirectNodeRoutes":   "true",
 				"global.endpointRoutes.enabled": "true",
 				"global.ipv6.enabled":           "false",
+				"global.hostFirewall":           "false",
 			}
 			// Needed to bypass bug with masquerading when devices are set. See #12141.
 			if helpers.RunsWithKubeProxy() {
