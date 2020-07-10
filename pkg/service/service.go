@@ -222,7 +222,7 @@ func (s *Service) UpsertService(
 	svcTrafficPolicy lb.SVCTrafficPolicy,
 	sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 	svcHealthCheckNodePort uint16,
-	svcName, svcNamespace string) (bool, lb.ID, error) {
+	svcName, svcNamespace string, keepBackend bool) (bool, lb.ID, error) {
 
 	s.Lock()
 	defer s.Unlock()
@@ -277,7 +277,7 @@ func (s *Service) UpsertService(
 	if err = s.upsertServiceIntoLBMaps(svc, onlyLocalBackends, prevBackendCount, newBackends,
 		obsoleteBackendIDs,
 		prevSessionAffinity, obsoleteSVCBackendIDs,
-		scopedLog); err != nil {
+		scopedLog, keepBackend); err != nil {
 
 		return false, lb.ID(0), err
 	}
@@ -560,7 +560,7 @@ func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.Bac
 func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	prevBackendCount int, newBackends []lb.Backend, obsoleteBackendIDs []lb.BackendID,
 	prevSessionAffinity bool, obsoleteSVCBackendIDs []lb.BackendID,
-	scopedLog *logrus.Entry) error {
+	scopedLog *logrus.Entry, keepBackend bool) error {
 
 	ipv6 := svc.frontend.IsIPv6()
 
@@ -627,6 +627,11 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 
 	if option.Config.EnableSessionAffinity {
 		s.addBackendsToAffinityMatchMap(svc.frontend.ID, toAddAffinity)
+	}
+
+	// Keep backends for graceful termination pods
+	if keepBackend {
+		return nil
 	}
 
 	// Remove backends not used by any service from BPF maps
