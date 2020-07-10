@@ -19,6 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/defaults"
 	hubblePeer "github.com/cilium/cilium/pkg/hubble/peer"
+	"google.golang.org/grpc"
 )
 
 // DefaultOptions is the reference point for default values.
@@ -27,7 +28,13 @@ var DefaultOptions = Options{
 		LocalAddress: "unix://" + defaults.HubbleSockPath,
 		DialTimeout:  5 * time.Second,
 	},
-	DialTimeout:  5 * time.Second,
+	ClientConnBuilder: GRPCClientConnBuilder{
+		DialTimeout: 5 * time.Second,
+		Options: []grpc.DialOption{
+			grpc.WithInsecure(),
+			grpc.WithBlock(),
+		},
+	},
 	RetryTimeout: 30 * time.Second,
 }
 
@@ -37,7 +44,7 @@ type Option func(o *Options) error
 // Options stores all the configuration values for peer manager.
 type Options struct {
 	PeerClientBuilder hubblePeer.ClientBuilder
-	DialTimeout       time.Duration
+	ClientConnBuilder ClientConnBuilder
 	RetryTimeout      time.Duration
 	Debug             bool
 }
@@ -51,11 +58,11 @@ func WithPeerClientBuilder(b hubblePeer.ClientBuilder) Option {
 	}
 }
 
-// WithDialTimeout sets the dial timeout that is used when establishing a
-// connection.
-func WithDialTimeout(t time.Duration) Option {
+// WithClientConnBuilder sets the GRPCClientConnBuilder that is used to create
+// new gRPC connections to peers.
+func WithClientConnBuilder(b ClientConnBuilder) Option {
 	return func(o *Options) error {
-		o.DialTimeout = t
+		o.ClientConnBuilder = b
 		return nil
 	}
 }
