@@ -720,6 +720,17 @@ the native hostPort support is automatically enabled and therefore no further
 action is required. Otherwise ``global.hostPort.enabled=true`` can be used to
 enable the setting.
 
+If the ``hostPort`` is specified without an additional ``hostIP``, then the
+Pod will be exposed to the outside world with the same local addresses from
+the node that were detected and used for exposing NodePort services, e.g.
+the Kubernetes InternalIP or ExternalIP if set. Additionally, the Pod is also
+accessible through the loopback address on the node such as ``127.0.0.1:hostPort``.
+If in addition to ``hostPort`` also a ``hostIP`` has been specified for the
+Pod, then the Pod will only be exposed on the given ``hostIP`` instead. A
+``hostIP`` of ``0.0.0.0`` will have the same behavior as if a ``hostIP`` was
+not specified. The ``hostPort`` must not reside in the configured NodePort
+port range to avoid collisions.
+
 An example deployment in a kube-proxy-free environment therefore is the same
 as in the earlier getting started deployment:
 
