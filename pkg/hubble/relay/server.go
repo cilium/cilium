@@ -20,6 +20,7 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/hubble/relay/pool"
 	"github.com/cilium/cilium/pkg/hubble/relay/relayoption"
 	"github.com/cilium/cilium/pkg/logging"
@@ -54,7 +55,12 @@ func NewServer(options ...relayoption.Option) (*Server, error) {
 	logging.ConfigureLogLevel(opts.Debug)
 
 	poolOptions := []pool.Option{
-		pool.WithTarget(opts.HubbleTarget),
+		pool.WithPeerClientBuilder(
+			&peer.LocalClientBuilder{
+				LocalAddress: opts.HubbleTarget,
+				DialTimeout:  opts.DialTimeout,
+			},
+		),
 		pool.WithDialTimeout(opts.DialTimeout),
 		pool.WithRetryTimeout(opts.RetryTimeout),
 	}
