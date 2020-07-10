@@ -31,7 +31,14 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.22"
+	//
+	// Maintainers: bump minor for each Cilium minor version released and set
+	// patch to .1.
+	// Developers: bump patch for each change in the CRD schema. If this is
+	// master branch, update it in the
+	// Documentation/concepts/kubernetes/compatibility.rst for 'latest / master'
+	// line.
+	CustomResourceDefinitionSchemaVersion = "1.22.1"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"

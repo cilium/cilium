@@ -32,6 +32,8 @@ assignees: ''
   - [ ] (If applicable) Update the `cilium_version` and `cilium_tag` in
         `examples/getting-started/Vagrantfile`
   - [ ] Update `AUTHORS` via `make update-authors`
+  - [ ] Follow the instructions in the release process on how to update the CRD
+        schema version in the docs and in the source code.
   - [ ] Use [Cilium release-notes tool] to generate `CHANGELOG.md`
   - [ ] Point `.github/cilium-actions.yml` to the newly created project
   - [ ] Commit all changes with title `Prepare for release vX.Y.Z`

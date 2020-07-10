@@ -51,6 +51,24 @@ If you intent to release a new feature release, see the
        instance, indentation mismatches) as well as duplicate contributor
        names, and correct them accordingly.
 
+#. Set the right version for the ``CustomResourceDefinitionSchemaVersion`` in
+   the ``pkg/k8s/client`` by following these instructions:
+
+   Open the :ref:`k8scompatibility` and check the "CNP and CCNP Schema Version"
+   for the ``vX.Y`` branch, if you are doing a RC for a new minor version,
+   check the ``latest / master`` line.
+
+   Compare that schema version with the schema version set in the
+   ``CustomResourceDefinitionSchemaVersion`` variable, if they are different,
+   change the ``CustomResourceDefinitionSchemaVersion`` to be ``vX.Y.Z+1`` where
+   ``vX.Y.Z`` is the value read from the :ref:`k8scompatibility` table.
+
+   If you are doing the first RC for a new minor version the validation schema
+   version should be ``vX.Y.1`` regardless of the value set in
+   ``CustomResourceDefinitionSchemaVersion``.
+
+   Add a new line in that table with the new Cilium version and the version
+   defined in the ``CustomResourceDefinitionSchemaVersion`` variable.
 
 #. Add all modified files using ``git add`` and create a pull request with the
    title ``Prepare for release vX.Y.Z-rcW+1``. Add the backport label to the PR which

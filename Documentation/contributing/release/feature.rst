@@ -46,6 +46,21 @@ On Freeze date
    ``project:`` to be the generated link created by the previous step. The link
    should be something like: ``https://github.com/cilium/cilium/projects/NNN``
 
+#. Set the right version for the ``CustomResourceDefinitionSchemaVersion`` in
+   the ``pkg/k8s/client`` by following these instructions:
+
+   Open the :ref:`k8scompatibility` and check the "CNP and CCNP Schema Version"
+   for the ``vX.Y`` branch, if you are doing a RC for a new minor version,
+   check the ``latest / master`` line.
+
+   Compare that schema version with the schema version set in the
+   ``CustomResourceDefinitionSchemaVersion`` variable, if they are different,
+   change the ``CustomResourceDefinitionSchemaVersion`` to be ``vX.Y.Z+1`` where
+   ``vX.Y.Z`` is the value read from the :ref:`k8scompatibility` table.
+
+   Add a new line in that table with the new Cilium version and the version
+   defined in the ``CustomResourceDefinitionSchemaVersion`` variable.
+
 #. Commit changes, open a pull request against the new ``v1.2`` branch, and get
    the pull request merged
 
@@ -63,8 +78,12 @@ On Freeze date
    #. ``backport/1.2``
    #. ``needs-backport/1.2``
 
+#. Checkout to master and bump the minor version of the schema version in the
+   ``latest / master`` line of the :ref:`k8scompatibility` table. Also bump the
+   minor version of the ``CustomResourceDefinitionSchemaVersion`` variable and
+   set the patch version to ``.1`` so that will be ``vX.Y+1.1``.
 
-#. Checkout to master and update the ``.github/cilium-actions.yml`` to have
+#. Update the ``.github/cilium-actions.yml`` to have
    all the necessary configurations for the backport of the new ``vX.Y`` branch.
    Specifically, ensure that:
 

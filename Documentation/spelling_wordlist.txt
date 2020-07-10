@@ -562,6 +562,7 @@ qede
 qemu
 queryable
 queueing
+rc
 readthedocs
 rebase
 rebased
