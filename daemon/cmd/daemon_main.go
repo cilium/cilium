@@ -1130,8 +1130,13 @@ func initEnv(cmd *cobra.Command) {
 	initClockSourceOption()
 	initSockmapOption()
 
-	if option.Config.EnableHostFirewall && option.Config.EnableIPSec {
-		log.Fatal("IPSec cannot be used with the host firewall.")
+	if option.Config.EnableHostFirewall {
+		if option.Config.EnableIPSec {
+			log.Fatal("IPSec cannot be used with the host firewall.")
+		}
+		if !option.Config.EnableRemoteNodeIdentity {
+			log.Fatalf("%s must be enabled to use the host firewall.", option.EnableRemoteNodeIdentity)
+		}
 	}
 
 	// If there is one device specified, use it to derive better default
