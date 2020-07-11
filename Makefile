@@ -503,11 +503,7 @@ install-manpages:
 	mandb
 
 postcheck: build
-ifeq ("$(GOARCH)","amd64")
 	$(QUIET)$(MAKE) $(SUBMAKEOPTS) -C Documentation update-cmdref check
-else
-	@echo "Skip Documentation building on $(GOARCH)"
-endif
 
 minikube:
 	$(QUIET) contrib/scripts/minikube.sh
