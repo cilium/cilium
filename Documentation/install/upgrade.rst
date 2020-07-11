@@ -328,6 +328,8 @@ Renamed Metrics
 The following metrics have been renamed:
 
 * ``cilium_operator_ipam_ec2_resync`` to ``cilium_operator_ipam_resync``
+* ``ipam_cilium_operator_api_duration_seconds`` to ``cilium_operator_ec2_api_duration_seconds``
+* ``ipam_cilium_operator_api_rate_limit_duration_seconds`` to ``cilium_operator_ec2_api_rate_limit_duration_seconds``
 
 New Metrics
 ~~~~~~~~~~~
