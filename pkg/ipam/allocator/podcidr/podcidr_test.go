@@ -2067,7 +2067,9 @@ func (s *PodCIDRSuite) TestNewNodesPodCIDRManager(c *C) {
 	case <-time.Tick(5 * time.Second):
 		c.Error("The controller should have tried to delete the node by now")
 	}
+	nm.Mutex.Lock()
 	c.Assert(nm.ciliumNodesToK8s, checker.DeepEquals, map[string]*ciliumNodeK8sOp{})
+	nm.Mutex.Unlock()
 	// Wait for the controller to try more times, the number of deletedCalls
 	// should not be different because we have successfully deleted the node.
 	time.Sleep(2 * time.Second)
