@@ -865,9 +865,12 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (he
 		e.getLogger().WithField(logfields.BPFHeaderfileHash, datapathRegenCtxt.bpfHeaderfilesHash).
 			Debugf("BPF header file hashed (was: %q)", e.bpfHeaderfileHash)
 	}
+
 	if headerfileChanged {
 		datapathRegenCtxt.regenerationLevel = regeneration.RegenerateWithDatapathRewrite
-		if err = e.writeHeaderfile(nextDir); err != nil {
+	}
+	if datapathRegenCtxt.regenerationLevel >= regeneration.RegenerateWithDatapathRewrite {
+		if err := e.writeHeaderfile(nextDir); err != nil {
 			return false, fmt.Errorf("unable to write header file: %s", err)
 		}
 	}
