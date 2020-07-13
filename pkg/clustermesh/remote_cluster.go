@@ -57,6 +57,7 @@ type remoteCluster struct {
 	remoteConnectionControllerName string
 
 	// mutex protects the following variables
+	// - backend
 	// - store
 	// - remoteNodes
 	// - ipCacheWatcher
@@ -107,6 +108,8 @@ func (rc *remoteCluster) getLogger() *logrus.Entry {
 	})
 }
 
+// releaseOldConnection releases the etcd connection to a remote cluster. Must
+// be called with rc.mutex held for writing.
 func (rc *remoteCluster) releaseOldConnection() {
 	if rc.ipCacheWatcher != nil {
 		rc.ipCacheWatcher.Close()
