@@ -280,6 +280,8 @@ type etcdClient struct {
 	extraOptions *ExtraOptions
 
 	limiter *rate.Limiter
+
+	lastHeartbeat time.Time
 }
 
 func (e *etcdClient) getLogger() *logrus.Entry {
@@ -410,6 +412,7 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 	case <-e.firstSession:
 	// Timeout while waiting for initial connection, no success
 	case <-ctxTimeout.Done():
+		recordQuorumError("timeout")
 		return fmt.Errorf("timeout while waiting for initial connection")
 	}
 
@@ -421,6 +424,7 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 	select {
 	// Catch disconnect event, no success
 	case <-ch:
+		recordQuorumError("session timeout")
 		return fmt.Errorf("etcd session ended")
 	// wait for initial lock to succeed
 	case success := <-initLockSucceeded:
@@ -428,6 +432,7 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 			return nil
 		}
 
+		recordQuorumError("lock timeout")
 		return fmt.Errorf("timeout while attempting to acquire lock")
 	}
 }
@@ -605,6 +610,32 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 
 		if err := ec.checkMinVersion(ctx); err != nil {
 			errChan <- fmt.Errorf("unable to validate etcd version: %s", err)
+		}
+	}()
+
+	go func() {
+		watcher := ec.ListAndWatch(ctx, HeartbeatPath, HeartbeatPath, 128)
+
+		for {
+			select {
+			case _, ok := <-watcher.Events:
+				if !ok {
+					log.Debug("Stopping heartbeat watcher")
+					watcher.Stop()
+					return
+				}
+
+				// It is tempting to compare against the
+				// heartbeat value stored in the key. However,
+				// this would require the time on all nodes to
+				// be synchronized. Instead, assume current
+				// time and print the heartbeat value in debug
+				// messages for troubleshooting
+				ec.RWMutex.Lock()
+				ec.lastHeartbeat = time.Now()
+				ec.RWMutex.Unlock()
+				log.Debug("Received update notification of heartbeat")
+			}
 		}
 	}()
 
@@ -915,7 +946,13 @@ func (e *etcdClient) statusChecker() {
 		e.RWMutex.RLock()
 		sessionLeaseID := e.session.Lease()
 		lockSessionLeaseID := e.lockSession.Lease()
+		lastHeartbeat := e.lastHeartbeat
 		e.RWMutex.RUnlock()
+
+		if heartbeatDelta := time.Since(lastHeartbeat); !lastHeartbeat.IsZero() && heartbeatDelta > 2*HeartbeatWriteInterval {
+			recordQuorumError("no event received")
+			quorumError = fmt.Errorf("%s since last heartbeat update has been received", heartbeatDelta)
+		}
 
 		quorumString := "true"
 		if quorumError != nil {
