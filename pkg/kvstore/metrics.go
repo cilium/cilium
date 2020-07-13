@@ -56,3 +56,10 @@ func trackEventQueued(key string, typ EventType, duration time.Duration) {
 	}
 	metrics.KVStoreEventsQueueDuration.WithLabelValues(getScopeFromKey(key), typ.String()).Observe(duration.Seconds())
 }
+
+func recordQuorumError(err string) {
+	if !option.Config.MetricsConfig.KVStoreQuorumErrorsEnabled {
+		return
+	}
+	metrics.KVStoreQuorumErrors.WithLabelValues(err).Inc()
+}
