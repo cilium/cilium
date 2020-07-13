@@ -103,6 +103,20 @@ Key                                                              Value
 
 .. _k8s.CNPNSWithMeta: https://pkg.go.dev/github.com/cilium/cilium/pkg/k8s#CNPNSWithMeta
 
+Heartbeat
+---------
+
+The heartbeat key is periodically updated by the operator to contain the
+current time and date. It is used by agents to validate that kvstore updates
+can be received.
+
+====================== ======================
+Key                    Value
+====================== ======================
+``cilium/.heartbeat``  Current time and date
+====================== ======================
+
+
 Leases
 ======
 
@@ -124,6 +138,7 @@ attached. The lock lease has a default lifetime of 25 seconds.
 Key                                                             Lease Timeout    Default expiry
 =============================================================== ================ ========================================
 ``cilium/.initlock/<random>/<lease-ID>``                        LockLeaseTTL_    25 seconds
+``cilium/.heartbeat``                                           KVstoreLeaseTTL  15 minutes
 ``cilium/state/cnpstatuses/v2/<UID>/<namespace>/<name>/<node>`` KVstoreLeaseTTL_ 15 minutes
 ``cilium/state/identities/v1/id/<identity>``                    None             Garbage collected by ``cilium-operator``
 ``cilium/state/identities/v1/value/<labels>/<node>``            KVstoreLeaseTTL_ 15 minutes

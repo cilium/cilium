@@ -546,6 +546,135 @@ Opening the ``status``, we can drill down through ``policy.realized.l4``. Do
 your ``ingress`` and ``egress`` rules match what you expect? If not, the
 reference to the errant rules can be found in the ``derived-from-rules`` node.
 
+etcd (kvstore)
+==============
+
+Introduction
+------------
+
+Cilium can be operated in CRD-mode and kvstore/etcd mode. When cilium is
+running in kvstore/etcd mode, the kvstore becomes a vital component of the
+overall cluster health as it is required to be available for several
+operations.
+
+Operations for which the kvstore is strictly required when running in etcd
+mode:
+
+Scheduling of new workloads:
+  As part of of scheduling workloads/endpoints, agents will perform security
+  identity allocation which requires interaction with the kvstore. If a
+  workload can be scheduled due to re-using a known security identity, then
+  state propagation of the endpoint details to other nodes will still depend on
+  the kvstore and thus policy drops may be observed as other nodes in the
+  cluster will not be aware of the new workload.
+
+Multi cluster:
+  All state propagation between clusters depends on the kvstore.
+
+Node discovery:
+  New nodes require to register themselves in the kvstore.
+
+Agent bootstrap:
+  The Cilium agent will eventually fail if it can't connect to the kvstore at
+  bootstrap time, however, the agent will still perform all possible operations
+  while waiting for the kvstore to appear.
+
+Operations which *do not* require kvstore availability:
+
+All datapath operations:
+  All datapath forwarding, policy enforcement and visibility functions for
+  existing workloads/endpoints do not depend on the kvstore. Packets will
+  continue to be forwarded and network policy rules will continue to be
+  enforced.
+
+  However, if the agent requires to restart as part of the
+  :ref:`etcd_recovery_behavior`, there can be delays in:
+
+  * processing of flow events and metrics
+  * short unavailability of layer 7 proxies
+
+NetworkPolicy updates:
+  Network policy updates will continue to be processed and applied.
+
+Services updates:
+  All updates to services will be processed and applied.
+
+Understanding etcd status
+-------------------------
+
+The etcd status is reported when running ``cilium status``. The following line
+represents the status of etcd:
+
+.. code:: bash
+
+   KVStore:  Ok  etcd: 1/1 connected, lease-ID=29c6732d5d580cb5, lock lease-ID=29c6732d5d580cb7, has-quorum=true: https://192.168.33.11:2379 - 3.4.9 (Leader)
+
+OK:
+  The overall status. Either ``OK`` or ``Failure``.
+
+1/1 connected:
+  Number of total etcd endpoints and how many of them are reachable.
+
+lease-ID:
+  UUID of the lease used for all keys owned by this agent.
+
+lock lease-ID:
+  UUID of the lease used for locks acquired by this agent.
+
+has-quorum:
+  Status of etcd quorum. Either ``true`` or set to an error.
+
+consecutive-errors:
+  Number of consecutive quorum errors. Only printed if errors are present.
+
+https://192.168.33.11:2379 - 3.4.9 (Leader):
+  List of all etcd endpoints stating the etcd version and whether the
+  particular endpoint is currently the elected leader. If an etcd endpoint
+  cannot be reached, the error is shown.
+
+.. _etcd_recovery_behavior:
+
+Recovery behavior
+-----------------
+
+In the event of an etcd endpoint becoming unhealthy, etcd should automatically
+resolve this by electing a new leader and by failing over to a healthy etcd
+endpoint. As long as quorum is preserved, the etcd cluster will remain
+functional.
+
+In addition, Cilium performs a background check in an interval to determine
+etcd health and potentially take action. The interval depends on the overall
+cluster size. The larger the cluster, the longer the `interval
+<https://pkg.go.dev/github.com/cilium/cilium/pkg/kvstore?tab=doc#ExtraOptions.StatusCheckInterval>`_:
+
+ * If no etcd endpoints can be reached, Cilium will report failure in ``cilium
+   status``. This will cause the liveness and readiness probe of Kubernetes to
+   fail and Cilium will be restarted.
+
+ * A lock is acquired and released to test a write operation which requires
+   quorum. If this operation fails, loss of quorum is reported. If quorum fails
+   for three or more intervals in a row, Cilium is declared unhealthy.
+
+ * The Cilium operator will constantly write to a heartbeat key
+   (``cilium/.heartbeat``). All Cilium agents will watch for updates to this
+   heartbeat key. This validates the ability for an agent to receive key
+   updates from etcd. If the heartbeat key is not updated in time, the quorum
+   check is declared to have failed and Cilium is declared unhealthy after 3 or
+   more consecutive failures.
+
+Example of a status with a quorum failure which has not yet reached the
+threshold:
+
+.. code:: bash
+
+    KVStore: Ok   etcd: 1/1 connected, lease-ID=29c6732d5d580cb5, lock lease-ID=29c6732d5d580cb7, has-quorum=2m2.778966915s since last heartbeat update has been received, consecutive-errors=1: https://192.168.33.11:2379 - 3.4.9 (Leader)
+
+Example of a status with the number of quorum failures exceeding the threshold:
+
+.. code:: bash
+
+    KVStore: Failure   Err: quorum check failed 8 times in a row: 4m28.446600949s since last heartbeat update has been received
+
 Symptom Library
 ===============
 

@@ -40,10 +40,14 @@ Operator
   The Cilium Operator is responsible for managing duties in the cluster which
   should logically be handled once for the entire cluster, rather than once for
   each node in the cluster. The Cilium operator is not in the critical path for
-  any forwarding or network policy decision. A cluster will continue to
-  function if the operator is temporarily unavailable. However, depending on
-  the configuration, it can be involved in :ref:`address_management` and thus
-  delay scheduling of new workloads if unavailable.
+  any forwarding or network policy decision. A cluster will generally continue
+  to function if the operator is temporarily unavailable. However, depending on
+  the configuration, failure in availability of the operator can lead to:
+
+  * Delays in :ref:`address_management` and thus delay in scheduling of new
+    workloads if the operator is required to allocate new IP addresses
+  * Failure to update the kvstore heartbeat key which will lead agents to
+    declare kvstore unhealthiness and restart.
 
 CNI Plugin
   The CNI plugin (``cilium-cni``) is invoked by Kubernetes when a pod is
