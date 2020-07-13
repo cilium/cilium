@@ -595,11 +595,11 @@ if [ -n "${NO_PROVISION}" ]; then
     PROVISION_ARGS="--no-provision"
 fi
 if [ -n "${RELOAD}" ]; then
-    vagrant reload $PROVISION_ARGS
+    vagrant reload $PROVISION_ARGS $1
 elif [ -n "${PROVISION}" ]; then
-    vagrant provision
+    vagrant provision $1
 else
-    vagrant up $PROVISION_ARGS
+    vagrant up $PROVISION_ARGS $1
     if [ "$?" -eq "0" -a -n "${K8S}" ]; then
         host_port=$(vagrant port --guest 6443)
         vagrant ssh k8s1 -- cat /home/vagrant/.kube/config | sed "s;server:.*:6443;server: https://k8s1:$host_port;g" > vagrant.kubeconfig
