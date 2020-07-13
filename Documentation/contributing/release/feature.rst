@@ -136,3 +136,7 @@ For the final release
 
 #. Update ``SECURITY.md`` to represent the security support for the most recent
    three release series.
+
+#. Set the branch for the oldest release (now EOL) as "Active" and "Hidden" in
+   the readthedocs Admin page. (Replace ``v1.2`` with the right branch)
+   ``https://readthedocs.org/dashboard/cilium/version/v1.2/``
