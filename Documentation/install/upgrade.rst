@@ -329,6 +329,12 @@ The following metrics have been renamed:
 
 * ``cilium_operator_ipam_ec2_resync`` to ``cilium_operator_ipam_resync``
 
+New Metrics
+~~~~~~~~~~~
+
+  * ``cilium_kvstore_quorum_errors_total`` counts the number of kvstore quorum
+    loss errors. The label ``error`` indicates the type of error.
+
 .. _1.8_upgrade_notes:
 
 1.8 Upgrade Notes

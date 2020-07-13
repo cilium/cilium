@@ -322,6 +322,7 @@ Name                                     Labels                                 
 ======================================== ============================================ ========================================================
 ``kvstore_operations_duration_seconds``  ``action``, ``kind``, ``outcome``, ``scope`` Duration of kvstore operation
 ``kvstore_events_queue_seconds``         ``action``, ``scope``                        Duration of seconds of time received event was blocked before it could be queued
+``kvstore_quorum_errors_total``          ``error``                                    Number of quorum errors
 ======================================== ============================================ ========================================================
 
 Agent
