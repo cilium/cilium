@@ -42,6 +42,9 @@ type ExtraOptions struct {
 	// ClusterSizeDependantInterval defines the function to calculate
 	// intervals based on cluster size
 	ClusterSizeDependantInterval func(baseInterval time.Duration) time.Duration
+
+	// NoLockQuorumCheck disables the lock acquisition quorum check
+	NoLockQuorumCheck bool
 }
 
 // StatusCheckInterval returns the interval of status checks depending on the
