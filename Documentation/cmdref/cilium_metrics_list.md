@@ -15,8 +15,9 @@ cilium metrics list [flags]
 ### Options
 
 ```
-  -h, --help            help for list
-  -o, --output string   json| jsonpath='{}'
+  -h, --help                   help for list
+  -p, --match-pattern string   Show only metrics whose names match matchpattern
+  -o, --output string          json| jsonpath='{}'
 ```
 
 ### Options inherited from parent commands
