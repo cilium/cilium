@@ -262,6 +262,9 @@ type etcdClient struct {
 	config     *client.Config
 	configPath string
 
+	// statusCheckErrors receives all errors reported by statusChecker()
+	statusCheckErrors chan error
+
 	// protects sessions from concurrent access
 	lock.RWMutex
 	session     *concurrency.Session
@@ -317,6 +320,11 @@ func (e *etcdClient) GetSessionLeaseID() client.LeaseID {
 	l := e.session.Lease()
 	e.RWMutex.RUnlock()
 	return l
+}
+
+// StatusCheckErrors returns a channel which receives status check errors
+func (e *etcdClient) StatusCheckErrors() <-chan error {
+	return e.statusCheckErrors
 }
 
 // GetLockSessionLeaseID returns the current lease ID for the lock session.
@@ -594,6 +602,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		stopStatusChecker:    make(chan struct{}),
 		extraOptions:         opts,
 		limiter:              rate.NewLimiter(rate.Limit(rateLimit), rateLimit),
+		statusCheckErrors:    make(chan error, 128),
 	}
 
 	// wait for session to be created also in parallel
@@ -970,23 +979,29 @@ func (e *etcdClient) statusChecker() {
 		}
 
 		e.statusLock.Lock()
-		e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected, lease-ID=%x, lock lease-ID=%x, has-quorum=%s: %s",
-			ok, len(endpoints), sessionLeaseID, lockSessionLeaseID, quorumString, strings.Join(newStatus, "; "))
 
 		switch {
 		case consecutiveQuorumErrors > consecutiveQuorumErrorsThreshold:
 			e.latestErrorStatus = fmt.Errorf("quorum check failed %d times in a row: %s",
 				consecutiveQuorumErrors, quorumError)
+			e.latestStatusSnapshot = e.latestErrorStatus.Error()
 		case len(endpoints) > 0 && ok == 0:
 			e.latestErrorStatus = fmt.Errorf("not able to connect to any etcd endpoints")
+			e.latestStatusSnapshot = e.latestErrorStatus.Error()
 		default:
 			e.latestErrorStatus = nil
+			e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected, lease-ID=%x, lock lease-ID=%x, has-quorum=%s: %s",
+				ok, len(endpoints), sessionLeaseID, lockSessionLeaseID, quorumString, strings.Join(newStatus, "; "))
 		}
 
 		e.statusLock.Unlock()
+		if e.latestErrorStatus != nil {
+			e.statusCheckErrors <- e.latestErrorStatus
+		}
 
 		select {
 		case <-e.stopStatusChecker:
+			close(e.statusCheckErrors)
 			return
 		case <-time.After(e.extraOptions.StatusCheckInterval(allConnected)):
 		}
