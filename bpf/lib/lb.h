@@ -249,15 +249,15 @@ bool lb6_svc_is_routable(const struct lb6_service *svc)
 	return __lb_svc_is_routable(svc->flags);
 }
 
-static __always_inline int lb6_select_slave(__u16 count)
+static __always_inline int lb6_select_backend_slot(__u16 count)
 {
-	/* Slave 0 is reserved for the master slot */
+	/* Backend slot 0 is reserved for the service frontend */
 	return (get_prandom_u32() % count) + 1;
 }
 
-static __always_inline int lb4_select_slave(__u16 count)
+static __always_inline int lb4_select_backend_slot(__u16 count)
 {
-	/* Slave 0 is reserved for the master slot */
+	/* Backend slot 0 is reserved for the service frontend */
 	return (get_prandom_u32() % count) + 1;
 }
 
@@ -444,7 +444,7 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key,
 	struct lb6_service *svc;
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
-	key->slave = 0;
+	key->backend_slot = 0;
 	svc = map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
 	if (svc) {
 		if (!scope_switch || !lb6_svc_is_local_scope(svc))
@@ -476,24 +476,24 @@ lb6_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u16 backend_id)
 }
 
 static __always_inline
-struct lb6_service *__lb6_lookup_slave(struct lb6_key *key)
+struct lb6_service *__lb6_lookup_backend_slot(struct lb6_key *key)
 {
 	return map_lookup_elem(&LB6_SERVICES_MAP_V2, key);
 }
 
 static __always_inline
-struct lb6_service *lb6_lookup_slave(struct __ctx_buff *ctx __maybe_unused,
-				     struct lb6_key *key, __u16 slave)
+struct lb6_service *lb6_lookup_backend_slot(struct __ctx_buff *ctx __maybe_unused,
+					    struct lb6_key *key, __u16 slot)
 {
 	struct lb6_service *svc;
 
-	key->slave = slave;
-	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_SLAVE, key->slave, key->dport);
-	svc = __lb6_lookup_slave(key);
+	key->backend_slot = slot;
+	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_BACKEND_SLOT, key->backend_slot, key->dport);
+	svc = __lb6_lookup_backend_slot(key);
 	if (svc)
 		return svc;
 
-	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_SLAVE_V2_FAIL, key->slave, key->dport);
+	cilium_dbg_lb(ctx, DBG_LB6_LOOKUP_BACKEND_SLOT_V2_FAIL, key->backend_slot, key->dport);
 
 	return NULL;
 }
@@ -634,8 +634,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	union v6addr *addr;
 	__u8 flags = tuple->flags;
 	struct lb6_backend *backend;
-	struct lb6_service *slave_svc;
-	int slave;
+	struct lb6_service *backend_slot;
+	int slot;
 	__u32 backend_id = 0;
 	int ret;
 #ifdef ENABLE_SESSION_AFFINITY
@@ -659,14 +659,14 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		}
 #endif
 		if (backend_id == 0) {
-			slave = lb6_select_slave(svc->count);
-			slave_svc = lb6_lookup_slave(ctx, key, slave);
-			if (!slave_svc)
+			slot = lb6_select_backend_slot(svc->count);
+			backend_slot = lb6_lookup_backend_slot(ctx, key, slot);
+			if (!backend_slot)
 				goto drop_no_service;
 
-			backend_id = slave_svc->backend_id;
+			backend_id = backend_slot->backend_id;
 
-			backend = lb6_lookup_backend(ctx, slave_svc->backend_id);
+			backend = lb6_lookup_backend(ctx, backend_slot->backend_id);
 			if (backend == NULL)
 				goto drop_no_service;
 		}
@@ -702,11 +702,11 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 								     &client_id);
 #endif
 		if (backend_id == 0) {
-			slave = lb6_select_slave(svc->count);
-			slave_svc = lb6_lookup_slave(ctx, key, slave);
-			if (!slave_svc)
+			slot = lb6_select_backend_slot(svc->count);
+			backend_slot = lb6_lookup_backend_slot(ctx, key, slot);
+			if (!backend_slot)
 				goto drop_no_service;
-			backend_id = slave_svc->backend_id;
+			backend_id = backend_slot->backend_id;
 		}
 
 		state->backend_id = backend_id;
@@ -720,18 +720,18 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	 */
 	backend = lb6_lookup_backend(ctx, state->backend_id);
 	if (!backend) {
-		key->slave = 0;
+		key->backend_slot = 0;
 		svc = lb6_lookup_service(key, false);
 		if (!svc)
 			goto drop_no_service;
-		slave = lb6_select_slave(svc->count);
-		slave_svc = lb6_lookup_slave(ctx, key, slave);
-		if (!slave_svc)
+		slot = lb6_select_backend_slot(svc->count);
+		backend_slot = lb6_lookup_backend_slot(ctx, key, slot);
+		if (!backend_slot)
 			goto drop_no_service;
-		backend = lb6_lookup_backend(ctx, slave_svc->backend_id);
+		backend = lb6_lookup_backend(ctx, backend_slot->backend_id);
 		if (!backend)
 			goto drop_no_service;
-		state->backend_id = slave_svc->backend_id;
+		state->backend_id = backend_slot->backend_id;
 		ct_update6_backend_id(map, tuple, state);
 	}
 
@@ -768,7 +768,7 @@ struct lb6_service *lb6_lookup_service(struct lb6_key *key __maybe_unused,
 }
 
 static __always_inline
-struct lb6_service *__lb6_lookup_slave(struct lb6_key *key __maybe_unused)
+struct lb6_service *__lb6_lookup_backend_slot(struct lb6_key *key __maybe_unused)
 {
 	return NULL;
 }
@@ -911,7 +911,7 @@ struct lb4_service *lb4_lookup_service(struct lb4_key *key,
 	struct lb4_service *svc;
 
 	key->scope = LB_LOOKUP_SCOPE_EXT;
-	key->slave = 0;
+	key->backend_slot = 0;
 	svc = map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 	if (svc) {
 		if (!scope_switch || !lb4_svc_is_local_scope(svc))
@@ -943,24 +943,24 @@ lb4_lookup_backend(struct __ctx_buff *ctx __maybe_unused, __u16 backend_id)
 }
 
 static __always_inline
-struct lb4_service *__lb4_lookup_slave(struct lb4_key *key)
+struct lb4_service *__lb4_lookup_backend_slot(struct lb4_key *key)
 {
 	return map_lookup_elem(&LB4_SERVICES_MAP_V2, key);
 }
 
 static __always_inline
-struct lb4_service *lb4_lookup_slave(struct __ctx_buff *ctx __maybe_unused,
-				     struct lb4_key *key, __u16 slave)
+struct lb4_service *lb4_lookup_backend_slot(struct __ctx_buff *ctx __maybe_unused,
+					    struct lb4_key *key, __u16 slot)
 {
 	struct lb4_service *svc;
 
-	key->slave = slave;
-	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_SLAVE, key->slave, key->dport);
-	svc = __lb4_lookup_slave(key);
+	key->backend_slot = slot;
+	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_BACKEND_SLOT, key->backend_slot, key->dport);
+	svc = __lb4_lookup_backend_slot(key);
 	if (svc)
 		return svc;
 
-	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_SLAVE_V2_FAIL, key->slave, key->dport);
+	cilium_dbg_lb(ctx, DBG_LB4_LOOKUP_BACKEND_SLOT_V2_FAIL, key->backend_slot, key->dport);
 
 	return NULL;
 }
@@ -1118,8 +1118,8 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	__be32 new_saddr = 0, new_daddr;
 	__u8 flags = tuple->flags;
 	struct lb4_backend *backend;
-	struct lb4_service *slave_svc;
-	int slave;
+	struct lb4_service *backend_slot;
+	int slot;
 	__u32 backend_id = 0;
 	int ret;
 #ifdef ENABLE_SESSION_AFFINITY
@@ -1142,12 +1142,12 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		if (backend_id == 0) {
 			/* No CT entry has been found, so select a svc endpoint */
-			slave = lb4_select_slave(svc->count);
-			slave_svc = lb4_lookup_slave(ctx, key, slave);
-			if (!slave_svc)
+			slot = lb4_select_backend_slot(svc->count);
+			backend_slot = lb4_lookup_backend_slot(ctx, key, slot);
+			if (!backend_slot)
 				goto drop_no_service;
 
-			backend_id = slave_svc->backend_id;
+			backend_id = backend_slot->backend_id;
 
 			backend = lb4_lookup_backend(ctx, backend_id);
 			if (backend == NULL)
@@ -1196,12 +1196,12 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 								     &client_id);
 #endif
 		if (backend_id == 0) {
-			slave = lb4_select_slave(svc->count);
-			slave_svc = lb4_lookup_slave(ctx, key, slave);
-			if (!slave_svc)
+			slot = lb4_select_backend_slot(svc->count);
+			backend_slot = lb4_lookup_backend_slot(ctx, key, slot);
+			if (!backend_slot)
 				goto drop_no_service;
 
-			backend_id = slave_svc->backend_id;
+			backend_id = backend_slot->backend_id;
 		}
 
 		state->backend_id = backend_id;
@@ -1215,18 +1215,18 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	 */
 	backend = lb4_lookup_backend(ctx, state->backend_id);
 	if (!backend) {
-		key->slave = 0;
+		key->backend_slot = 0;
 		svc = lb4_lookup_service(key, false);
 		if (!svc)
 			goto drop_no_service;
-		slave = lb4_select_slave(svc->count);
-		slave_svc = lb4_lookup_slave(ctx, key, slave);
-		if (!slave_svc)
+		slot = lb4_select_backend_slot(svc->count);
+		backend_slot = lb4_lookup_backend_slot(ctx, key, slot);
+		if (!backend_slot)
 			goto drop_no_service;
-		backend = lb4_lookup_backend(ctx, slave_svc->backend_id);
+		backend = lb4_lookup_backend(ctx, backend_slot->backend_id);
 		if (!backend)
 			goto drop_no_service;
-		state->backend_id = slave_svc->backend_id;
+		state->backend_id = backend_slot->backend_id;
 		ct_update4_backend_id(map, tuple, state);
 	}
 

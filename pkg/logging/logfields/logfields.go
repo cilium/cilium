@@ -238,8 +238,8 @@ const (
 	// BackendName is the name of the backend
 	BackendName = "backendName"
 
-	// SlaveSlot is the slot number in a service BPF map
-	SlaveSlot = "slaveSlot"
+	// BackendSlot is the backend slot number in a service BPF map
+	BackendSlot = "backendSlot"
 
 	// CiliumNetworkPolicy is a cilium specific NetworkPolicy
 	CiliumNetworkPolicy = "ciliumNetworkPolicy"

@@ -34,11 +34,11 @@ type ServiceKey interface {
 	// Return the BPF map matching the key type
 	Map() *bpf.Map
 
-	// Set slave slot for the key
-	SetSlave(slave int)
+	// Set backend slot for the key
+	SetBackendSlot(slot int)
 
-	// Get slave slot of the key
-	GetSlave() int
+	// Get backend slot of the key
+	GetBackendSlot() int
 
 	// Set lookup scope for the key
 	SetScope(scope uint8)
