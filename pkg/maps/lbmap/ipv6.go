@@ -139,20 +139,20 @@ func (v *RevNat6Value) ToNetwork() RevNatValue {
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type Service6Key struct {
-	Address types.IPv6 `align:"address"`
-	Port    uint16     `align:"dport"`
-	Slave   uint16     `align:"slave"`
-	Proto   uint8      `align:"proto"`
-	Scope   uint8      `align:"scope"`
-	Pad     pad2uint8  `align:"pad"`
+	Address     types.IPv6 `align:"address"`
+	Port        uint16     `align:"dport"`
+	BackendSlot uint16     `align:"backend_slot"`
+	Proto       uint8      `align:"proto"`
+	Scope       uint8      `align:"scope"`
+	Pad         pad2uint8  `align:"pad"`
 }
 
-func NewService6Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, slave uint16) *Service6Key {
+func NewService6Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, slot uint16) *Service6Key {
 	key := Service6Key{
-		Port:  port,
-		Proto: uint8(proto),
-		Scope: scope,
-		Slave: slave,
+		Port:        port,
+		Proto:       uint8(proto),
+		Scope:       scope,
+		BackendSlot: slot,
 	}
 
 	copy(key.Address[:], ip.To16())
@@ -173,8 +173,8 @@ func (k *Service6Key) NewValue() bpf.MapValue    { return &Service6Value{} }
 func (k *Service6Key) IsIPv6() bool              { return true }
 func (k *Service6Key) IsSurrogate() bool         { return k.GetAddress().IsUnspecified() }
 func (k *Service6Key) Map() *bpf.Map             { return Service6MapV2 }
-func (k *Service6Key) SetSlave(slave int)        { k.Slave = uint16(slave) }
-func (k *Service6Key) GetSlave() int             { return int(k.Slave) }
+func (k *Service6Key) SetBackendSlot(slot int)   { k.BackendSlot = uint16(slot) }
+func (k *Service6Key) GetBackendSlot() int       { return int(k.BackendSlot) }
 func (k *Service6Key) SetScope(scope uint8)      { k.Scope = scope }
 func (k *Service6Key) GetScope() uint8           { return k.Scope }
 func (k *Service6Key) GetAddress() net.IP        { return k.Address.IP() }
