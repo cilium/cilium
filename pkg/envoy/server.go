@@ -684,8 +684,9 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 				ResourceApiVersion: envoy_config_core.ApiVersion_V3,
 				ConfigSourceSpecifier: &envoy_config_core.ConfigSource_ApiConfigSource{
 					ApiConfigSource: &envoy_config_core.ApiConfigSource{
-						ApiType:             envoy_config_core.ApiConfigSource_GRPC,
-						TransportApiVersion: envoy_config_core.ApiVersion_V3,
+						ApiType:                   envoy_config_core.ApiConfigSource_GRPC,
+						TransportApiVersion:       envoy_config_core.ApiVersion_V3,
+						SetNodeOnFirstMessageOnly: true,
 						GrpcServices: []*envoy_config_core.GrpcService{
 							{
 								TargetSpecifier: &envoy_config_core.GrpcService_EnvoyGrpc_{

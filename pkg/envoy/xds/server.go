@@ -126,7 +126,6 @@ func NewServer(resourceTypes map[string]*ResourceTypeConfiguration,
 func getXDSRequestFields(req *envoy_service_discovery.DiscoveryRequest) logrus.Fields {
 	return logrus.Fields{
 		logfields.XDSAckedVersion: req.GetVersionInfo(),
-		logfields.XDSClientNode:   req.GetNode().GetId(),
 		logfields.XDSTypeURL:      req.GetTypeUrl(),
 		logfields.XDSNonce:        req.GetResponseNonce(),
 	}
@@ -143,6 +142,8 @@ func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, default
 
 	stopRecv := make(chan struct{})
 	defer close(stopRecv)
+
+	nodeId := ""
 
 	go func() {
 		defer close(reqCh)
@@ -165,7 +166,12 @@ func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, default
 			if req.GetTypeUrl() == "" {
 				req.TypeUrl = defaultTypeURL
 			}
+			if nodeId == "" {
+				nodeId = req.GetNode().GetId()
+				streamLog = streamLog.WithField(logfields.XDSClientNode, nodeId)
+			}
 			streamLog.WithFields(getXDSRequestFields(req)).Debug("received request from xDS stream")
+
 			select {
 			case <-stopRecv:
 				streamLog.Debug("stopping xDS stream handling")
@@ -259,6 +265,8 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 
 	streamLog.Info("starting xDS stream processing")
 
+	nodeIP := ""
+
 	for {
 		// Process either a new request from the xDS stream or a response
 		// from the resource watcher.
@@ -276,6 +284,18 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 			}
 
 			req := recv.Interface().(*envoy_service_discovery.DiscoveryRequest)
+
+			// only require Node to exist in the first request
+			if nodeIP == "" {
+				id := req.GetNode().GetId()
+				streamLog = streamLog.WithField(logfields.XDSClientNode, id)
+				var err error
+				nodeIP, err = IstioNodeToIP(id)
+				if err != nil {
+					streamLog.WithError(err).Error("invalid Node in xDS request")
+					return ErrInvalidNodeFormat
+				}
+			}
 
 			requestLog := streamLog.WithFields(getXDSRequestFields(req))
 
@@ -320,12 +340,6 @@ func (s *Server) processRequestStream(ctx context.Context, streamLog *logrus.Ent
 
 			state := &typeStates[index]
 			watcher := s.watchers[typeURL]
-
-			nodeIP, err := IstioNodeToIP(req.GetNode().GetId())
-			if err != nil {
-				requestLog.WithError(err).Error("invalid Node in xDS request")
-				return ErrInvalidNodeFormat
-			}
 
 			// Response nonce is always the same as the response version.
 			// Request version indicates the last acked version. If the
