@@ -178,11 +178,12 @@ var (
 
 type consulClient struct {
 	*consulAPI.Client
-	lease          string
-	controllers    *controller.Manager
-	extraOptions   *ExtraOptions
-	disconnectedMu lock.RWMutex
-	disconnected   chan struct{}
+	lease             string
+	controllers       *controller.Manager
+	extraOptions      *ExtraOptions
+	disconnectedMu    lock.RWMutex
+	disconnected      chan struct{}
+	statusCheckErrors chan error
 }
 
 func newConsulClient(ctx context.Context, config *consulAPI.Config, opts *ExtraOptions) (BackendOperations, error) {
@@ -233,11 +234,12 @@ func newConsulClient(ctx context.Context, config *consulAPI.Config, opts *ExtraO
 	}
 
 	client := &consulClient{
-		Client:       c,
-		lease:        lease,
-		controllers:  controller.NewManager(),
-		extraOptions: opts,
-		disconnected: make(chan struct{}),
+		Client:            c,
+		lease:             lease,
+		controllers:       controller.NewManager(),
+		extraOptions:      opts,
+		disconnected:      make(chan struct{}),
+		statusCheckErrors: make(chan error, 128),
 	}
 
 	client.controllers.UpdateController(fmt.Sprintf("consul-lease-keepalive-%p", c),
@@ -728,6 +730,7 @@ func (c *consulClient) listPrefix(ctx context.Context, prefix string) (KeyValueP
 
 // Close closes the consul session
 func (c *consulClient) Close() {
+	close(c.statusCheckErrors)
 	if c.controllers != nil {
 		c.controllers.RemoveAll()
 	}
@@ -762,4 +765,9 @@ func (c *consulClient) ListAndWatch(ctx context.Context, name, prefix string, ch
 	go c.Watch(ctx, w)
 
 	return w
+}
+
+// StatusCheckErrors returns a channel which receives status check errors
+func (c *consulClient) StatusCheckErrors() <-chan error {
+	return c.statusCheckErrors
 }
