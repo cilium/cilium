@@ -141,6 +141,10 @@ type BackendOperations interface {
 	// eventual error
 	Status() (string, error)
 
+	// StatusCheckErrors returns a channel which receives status check
+	// errors
+	StatusCheckErrors() <-chan error
+
 	// LockPath locks the provided path
 	LockPath(ctx context.Context, path string) (KVLocker, error)
 
