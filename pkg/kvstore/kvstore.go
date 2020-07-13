@@ -14,6 +14,10 @@
 
 package kvstore
 
+import (
+	"time"
+)
+
 // Value is an abstraction of the data stored in the kvstore as well as the
 // mod revision of that data.
 type Value struct {
@@ -41,4 +45,12 @@ const (
 
 	// InitLockPath is the path to the init lock to test quorum
 	InitLockPath = BaseKeyPrefix + "/.initlock"
+
+	// HeartbeatPath is the path to the key at which the operator updates
+	// the heartbeat
+	HeartbeatPath = BaseKeyPrefix + "/.heartbeat"
+
+	// HeartbeatWriteInterval is the interval in which the heartbeat key at
+	// HeartbeatPath is updated
+	HeartbeatWriteInterval = time.Minute
 )
