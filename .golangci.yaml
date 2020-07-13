@@ -73,20 +73,20 @@ linters:
     - ineffassign
     - misspell
     - staticcheck
+    - varcheck
 
 # To enable later if makes sense
-#    - goimports
 #    - deadcode
 #    - errcheck
+#    - gocyclo
+#    - goimports
 #    - golint
+#    - gosec
 #    - gosimple
-#    - structcheck
-#    - typecheck
-#    - unused
-#    - varcheck
+#    - lll
 #    - maligned
 #    - misspell
 #    - prealloc
-#    - gocyclo
-#    - lll
-#    - gosec
+#    - structcheck
+#    - typecheck
+#    - unused
