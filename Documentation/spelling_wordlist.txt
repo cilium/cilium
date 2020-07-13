@@ -360,6 +360,8 @@ herokuapp
 hexData
 hoc
 hostPort
+hostonlyif
+hostonlyifs
 hostport
 hostscope
 hq
