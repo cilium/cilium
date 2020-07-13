@@ -1580,6 +1580,29 @@ func APICanModify(e *Endpoint) error {
 	return nil
 }
 
+// APICanModifyConfig determines whether API requests from users are allowed to
+// modify the configuration of the endpoint.
+func (e *Endpoint) APICanModifyConfig(n models.ConfigurationMap) error {
+	if !e.OpLabels.OrchestrationIdentity.IsReserved() {
+		return nil
+	}
+	for config, val := range n {
+		if optionSetting, err := option.NormalizeBool(val); err == nil {
+			if e.Options.Opts[config] == optionSetting {
+				// The option won't be changed.
+				continue
+			}
+			if config != option.Debug && config != option.DebugLB &&
+				config != option.TraceNotify && config != option.PolicyVerdictNotify &&
+				config != option.PolicyAuditMode && config != option.MonitorAggregation &&
+				config != option.PolicyTracing {
+				return fmt.Errorf("%s cannot be modified for endpoints with reserved labels", config)
+			}
+		}
+	}
+	return nil
+}
+
 // MetadataResolverCB provides an implementation for resolving the endpoint
 // metadata for an endpoint such as the associated labels and annotations.
 type MetadataResolverCB func(ns, podName string) (pod *slim_corev1.Pod, _ []slim_corev1.ContainerPort, identityLabels labels.Labels, infoLabels labels.Labels, annotations map[string]string, err error)
