@@ -145,7 +145,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					map[string]string{
 						kvstore.EtcdOptionConfig: rc.configPath,
 					},
-					nil)
+					&kvstore.ExtraOptions{NoLockQuorumCheck: true})
 
 				// Block until either an error is returned or
 				// the channel is closed due to success of the

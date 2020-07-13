@@ -384,6 +384,12 @@ func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan bool {
 			default:
 			}
 
+			if e.extraOptions != nil && e.extraOptions.NoLockQuorumCheck {
+				initLockSucceeded <- true
+				close(initLockSucceeded)
+				return
+			}
+
 			// Generate a random number so that we can acquire a lock even
 			// if other agents are killed while locking this path.
 			randNumber := strconv.FormatUint(randGen.Uint64(), 16)
