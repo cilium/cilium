@@ -72,7 +72,7 @@ func (*LBBPFMap) UpsertService(
 		}
 		svcVal.SetBackendID(loadbalancer.BackendID(backendID))
 		svcVal.SetRevNat(int(svcID))
-		svcKey.SetSlave(slot) // TODO(brb) Rename to SetSlot
+		svcKey.SetBackendSlot(slot)
 		if err := updateServiceEndpoint(svcKey, svcVal); err != nil {
 			return fmt.Errorf("Unable to update service entry %+v => %+v: %s",
 				svcKey, svcVal, err)
@@ -96,11 +96,11 @@ func (*LBBPFMap) UpsertService(
 	}
 
 	for i := slot; i <= prevBackendCount; i++ {
-		svcKey.SetSlave(i)
+		svcKey.SetBackendSlot(i)
 		if err := deleteServiceLocked(svcKey); err != nil {
 			log.WithFields(logrus.Fields{
-				logfields.ServiceKey: svcKey,
-				logfields.SlaveSlot:  svcKey.GetSlave(),
+				logfields.ServiceKey:  svcKey,
+				logfields.BackendSlot: svcKey.GetBackendSlot(),
 			}).WithError(err).Warn("Unable to delete service entry from BPF map")
 		}
 	}
@@ -128,7 +128,7 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int) er
 	}
 
 	for slot := 0; slot <= backendCount; slot++ {
-		svcKey.SetSlave(slot)
+		svcKey.SetBackendSlot(slot)
 		if err := svcKey.MapDelete(); err != nil {
 			return fmt.Errorf("Unable to delete service entry %+v: %s", svcKey, err)
 		}
@@ -263,7 +263,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		fe := svcFrontend(svcKey, svcValue)
 
 		// Create master entry in case there are no backends.
-		if svcKey.GetSlave() == 0 {
+		if svcKey.GetBackendSlot() == 0 {
 			// Build a cache of flags stored in the value of the master key to
 			// map it later.
 			// FIXME proto is being ignored everywhere in the datapath.
@@ -283,7 +283,7 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 		}
 
 		be := svcBackend(backendID, backendValue)
-		newSVCMap.addFEnBE(fe, be, svcKey.GetSlave())
+		newSVCMap.addFEnBE(fe, be, svcKey.GetBackendSlot())
 	}
 
 	if option.Config.EnableIPv4 {
@@ -366,7 +366,7 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loadbalancer.SVCType,
 	svcLocal bool, sessionAffinity bool, sessionAffinityTimeoutSec uint32) error {
 
-	fe.SetSlave(0)
+	fe.SetBackendSlot(0)
 	zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetRevNat(revNATID)
@@ -397,10 +397,10 @@ func updateServiceEndpoint(key ServiceKey, value ServiceValue) error {
 	log.WithFields(logrus.Fields{
 		logfields.ServiceKey:   key,
 		logfields.ServiceValue: value,
-		logfields.SlaveSlot:    key.GetSlave(),
+		logfields.BackendSlot:  key.GetBackendSlot(),
 	}).Debug("Upserting service entry")
 
-	if key.GetSlave() != 0 && value.RevNatKey().GetKey() == 0 {
+	if key.GetBackendSlot() != 0 && value.RevNatKey().GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0) in the Service Value")
 	}
 	if _, err := key.Map().OpenOrCreate(); err != nil {
