@@ -308,7 +308,7 @@ func (rc *remoteCluster) status() *models.RemoteCluster {
 
 	// This can happen when the controller in restartRemoteConnection is waiting
 	// for the first connection to succeed.
-	var backendStatus = "Backend not initialized"
+	var backendStatus = "Waiting for initial connection to be established"
 	if rc.backend != nil {
 		var backendError error
 		backendStatus, backendError = rc.backend.Status()
