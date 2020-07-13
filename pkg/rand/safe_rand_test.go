@@ -44,7 +44,7 @@ func TestShuffle(t *testing.T) {
 	copy(s2, s1)
 
 	var same int
-	for retry := 0; retry < 1; retry++ {
+	for retry := 0; retry < 10; retry++ {
 		same = 0
 
 		r0.Shuffle(len(s2), func(i, j int) {
