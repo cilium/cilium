@@ -115,6 +115,12 @@ jobs:
           make docker-image-no-clean
           make docker-operator-generic-image
 
+      - name: Build, Tag, Push
+        uses: mattdavis0351/actions/docker-gpr@v1.3.0
+        with:
+          repo-token: ${{ secrets.GITHUB_TOKEN }}
+          image-name: cilium-test-package
+
       - name: Create kind cluster
         uses: helm/kind-action@v1.0.0-rc.1
         with:
