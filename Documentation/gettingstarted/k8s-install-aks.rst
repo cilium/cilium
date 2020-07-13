@@ -16,7 +16,7 @@ will work when setting up AKS in both `Basic <https://docs.microsoft.com/en-us/a
 
 This is achieved using Cilium in CNI chaining mode, with the Azure CNI plugin
 as the base CNI plugin and Cilium chaining on top to provide L3-L7
-observability, network policy enforcement enforcement, Kubernetes services
+observability, network policy enforcement, Kubernetes services
 implementation, as well as other advanced features like transparent encryption
 and clustermesh.
 
