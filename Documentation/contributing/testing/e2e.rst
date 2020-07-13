@@ -1,5 +1,5 @@
 .. only:: not (epub or latex or html)
-  
+
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
     https://docs.cilium.io
@@ -656,6 +656,28 @@ periodically update images in a ``cron`` job::
 .. _aria2: https://aria2.github.io/
 .. _test/packet/scripts/add_vagrant_box.sh:
    https://github.com/cilium/cilium/blob/master/test/packet/scripts/add_vagrant_box.sh
+
+Known Issues and Workarounds
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+VirtualBox hostonlyifs and DHCP related errors
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
+
+If you see the following error, take a look at this `GitHub issue
+<https://github.com/hashicorp/vagrant/issues/3083#issuecomment-41156076>`_ for
+workarounds.
+
+::
+
+    A host only network interface you're attempting to configure via DHCP
+    already has a conflicting host only adapter with DHCP enabled. The
+    DHCP on this adapter is incompatible with the DHCP settings. Two
+    host only network interfaces are not allowed to overlap, and each
+    host only network interface can have only one DHCP server. Please
+    reconfigure your host only network or remove the virtual machine
+    using the other host only network.
+
+Also, consider upgrading VirtualBox and Vagrant to the latest versions.
 
 Further Assistance
 ~~~~~~~~~~~~~~~~~~
