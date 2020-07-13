@@ -598,7 +598,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		lockSession:          &ls,
 		firstSession:         firstSession,
 		controllers:          controller.NewManager(),
-		latestStatusSnapshot: "No connection to etcd",
+		latestStatusSnapshot: "Waiting for initial connection to be established",
 		stopStatusChecker:    make(chan struct{}),
 		extraOptions:         opts,
 		limiter:              rate.NewLimiter(rate.Limit(rateLimit), rateLimit),
