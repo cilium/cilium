@@ -179,7 +179,7 @@ func (m *Manager) manageConnections() {
 			p := m.peers[name]
 			m.mu.Unlock()
 			m.connect(p)
-		case <-time.After(30 * time.Second): //FIXME: make this configurable
+		case <-time.After(m.opts.ConnCheckInterval):
 			var retry []*peer
 			m.mu.Lock()
 			now := time.Now()
