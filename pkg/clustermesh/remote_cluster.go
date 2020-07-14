@@ -30,6 +30,7 @@ import (
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
+	strfmt "github.com/go-openapi/strfmt"
 	"github.com/sirupsen/logrus"
 )
 
@@ -83,6 +84,12 @@ type remoteCluster struct {
 	backend kvstore.BackendOperations
 
 	swg *lock.StoppableWaitGroup
+
+	// failures is the number of observed failures
+	failures int
+
+	// lastFailure is the timestamp of the last failure
+	lastFailure time.Time
 }
 
 var (
@@ -287,6 +294,10 @@ func (rc *remoteCluster) onInsert(allocator RemoteIdentityWatcher) {
 			err, ok := <-statusCheckErrors
 			if ok && err != nil {
 				rc.getLogger().WithError(err).Warning("Error observed on etcd connection, reconnecting etcd")
+				rc.mutex.Lock()
+				rc.failures++
+				rc.lastFailure = time.Now()
+				rc.mutex.Unlock()
 				rc.restartRemoteConnection(allocator)
 			}
 		}
@@ -334,5 +345,7 @@ func (rc *remoteCluster) status() *models.RemoteCluster {
 		NumSharedServices: int64(rc.remoteServices.NumEntries()),
 		NumIdentities:     int64(rc.remoteIdentityCache.NumEntries()),
 		Status:            backendStatus,
+		NumFailures:       int64(rc.failures),
+		LastFailure:       strfmt.DateTime(rc.lastFailure),
 	}
 }
