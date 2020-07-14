@@ -33,9 +33,26 @@ import (
 	"github.com/go-openapi/strfmt"
 )
 
+type ConnectivityStatusType int
+
 const (
 	ipUnavailable = "Unavailable"
+
+	ConnStatusReachable   ConnectivityStatusType = 0
+	ConnStatusUnreachable ConnectivityStatusType = 1
+	ConnStatusUnknown     ConnectivityStatusType = 2
 )
+
+func (c ConnectivityStatusType) String() string {
+	switch c {
+	case ConnStatusReachable:
+		return "reachable"
+	case ConnStatusUnreachable:
+		return "unreachable"
+	default:
+		return "unknown"
+	}
+}
 
 // Client is a client for cilium health
 type Client struct {
@@ -111,13 +128,51 @@ func Hint(err error) error {
 	return fmt.Errorf("%s", e)
 }
 
-func connectivityStatusHealthy(cs *models.ConnectivityStatus) bool {
-	return cs != nil && cs.Status == ""
+func GetConnectivityStatusType(cs *models.ConnectivityStatus) ConnectivityStatusType {
+	// If the connecticity status is nil, it means that there was no
+	// successful probe, but also no failed probe with a concrete reason. In
+	// that case, the status is unknown and it usually means that the new
+	// is still in the beginning of the bootstraping process.
+	if cs == nil {
+		return ConnStatusUnknown
+	}
+	// Empty status means successful probe.
+	if cs.Status == "" {
+		return ConnStatusReachable
+	}
+	// Non-empty status means that there was an explicit reason of failure.
+	return ConnStatusUnreachable
+}
+
+func GetPathConnectivityStatusType(cp *models.PathStatus) ConnectivityStatusType {
+	if cp == nil {
+		return ConnStatusUnreachable
+	}
+	statuses := []*models.ConnectivityStatus{
+		cp.Icmp,
+		cp.HTTP,
+	}
+	// Initially assume healthy status.
+	status := ConnStatusReachable
+	for _, cs := range statuses {
+		switch GetConnectivityStatusType(cs) {
+		case ConnStatusUnreachable:
+			// If any status is unreachable, return it immediately.
+			return ConnStatusUnreachable
+		case ConnStatusUnknown:
+			// If the status is unknown, prepare to return it. It's
+			// going to be returned if there is no unreachable
+			// status in next iterations.
+			status = ConnStatusUnknown
+		}
+	}
+	return status
 }
 
 func formatConnectivityStatus(w io.Writer, cs *models.ConnectivityStatus, path, indent string) {
 	status := cs.Status
-	if connectivityStatusHealthy(cs) {
+	switch GetConnectivityStatusType(cs) {
+	case ConnStatusReachable:
 		latency := time.Duration(cs.Latency)
 		status = fmt.Sprintf("OK, RTT=%s", latency)
 	}
@@ -142,9 +197,10 @@ func formatPathStatus(w io.Writer, name string, cp *models.PathStatus, indent st
 	}
 }
 
-// PathIsHealthy checks whether ICMP and TCP(HTTP) connectivity to the given
-// path is available.
-func PathIsHealthy(cp *models.PathStatus) bool {
+// pathIsHealthyOrUnknown checks whether ICMP and TCP(HTTP) connectivity to the
+// given path is available or had no explicit error status (which usually is the
+// case when the new node is provisioned).
+func pathIsHealthyOrUnknown(cp *models.PathStatus) bool {
 	if cp == nil {
 		return false
 	}
@@ -154,7 +210,8 @@ func PathIsHealthy(cp *models.PathStatus) bool {
 		cp.HTTP,
 	}
 	for _, status := range statuses {
-		if !connectivityStatusHealthy(status) {
+		switch GetConnectivityStatusType(status) {
+		case ConnStatusUnreachable:
 			return false
 		}
 	}
@@ -162,8 +219,8 @@ func PathIsHealthy(cp *models.PathStatus) bool {
 }
 
 func nodeIsHealthy(node *models.NodeStatus) bool {
-	return PathIsHealthy(GetHostPrimaryAddress(node)) &&
-		(node.Endpoint == nil || PathIsHealthy(node.Endpoint))
+	return pathIsHealthyOrUnknown(GetHostPrimaryAddress(node)) &&
+		(node.Endpoint == nil || pathIsHealthyOrUnknown(node.Endpoint))
 }
 
 func nodeIsLocalhost(node *models.NodeStatus, self *models.SelfStatus) bool {
@@ -196,10 +253,10 @@ func formatNodeStatus(w io.Writer, node *models.NodeStatus, printAll, succinct, 
 	if succinct {
 		if printAll || !nodeIsHealthy(node) {
 
-			fmt.Fprintf(w, "  %s%s\t%s\t%t\t%t\n", node.Name,
+			fmt.Fprintf(w, "  %s%s\t%s\t%s\t%s\n", node.Name,
 				localStr, getPrimaryAddressIP(node),
-				PathIsHealthy(GetHostPrimaryAddress(node)),
-				PathIsHealthy(node.Endpoint))
+				GetPathConnectivityStatusType(GetHostPrimaryAddress(node)).String(),
+				GetPathConnectivityStatusType(node.Endpoint).String())
 		}
 	} else {
 		fmt.Fprintf(w, "  %s%s:\n", node.Name, localStr)
@@ -237,7 +294,7 @@ func FormatHealthStatusResponse(w io.Writer, sr *models.HealthStatusResponse, pr
 		fmt.Fprintf(w, "Cluster health:\t%d/%d reachable\t(%s)\n",
 			healthy, len(sr.Nodes), sr.Timestamp)
 		if printAll || healthy < len(sr.Nodes) {
-			fmt.Fprintf(w, "  Name\tIP\tReachable\tEndpoints reachable\n")
+			fmt.Fprintf(w, "  Name\tIP\tNode\tEndpoints\n")
 		}
 	} else {
 		fmt.Fprintf(w, "Probe time:\t%s\n", sr.Timestamp)
