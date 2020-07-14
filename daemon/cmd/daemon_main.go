@@ -81,9 +81,10 @@ import (
 
 const (
 	// list of supported verbose debug groups
-	argDebugVerboseFlow    = "flow"
-	argDebugVerboseKvstore = "kvstore"
-	argDebugVerboseEnvoy   = "envoy"
+	argDebugVerboseFlow     = "flow"
+	argDebugVerboseKvstore  = "kvstore"
+	argDebugVerboseEnvoy    = "envoy"
+	argDebugVerboseDatapath = "datapath"
 
 	apiTimeout   = 60 * time.Second
 	daemonSubsys = "daemon"
@@ -846,6 +847,8 @@ func restoreExecPermissions(searchDir string, patterns ...string) error {
 }
 
 func initEnv(cmd *cobra.Command) {
+	var debugDatapath bool
+
 	option.Config.SetMapElementSizes(
 		// for the conntrack and NAT element size we assume the largest possible
 		// key size, i.e. IPv6 keys
@@ -881,6 +884,9 @@ func initEnv(cmd *cobra.Command) {
 		case argDebugVerboseEnvoy:
 			log.Debugf("Enabling Envoy tracing")
 			envoy.EnableTracing()
+		case argDebugVerboseDatapath:
+			log.Debugf("Enabling datapath debug messages")
+			debugDatapath = true
 		default:
 			log.Warningf("Unknown verbose debug group: %s", grp)
 		}
@@ -1013,8 +1019,8 @@ func initEnv(cmd *cobra.Command) {
 	bpf.CheckOrMountFS(option.Config.BPFRoot, k8s.IsEnabled())
 	cgroups.CheckOrMountCgrpFS(option.Config.CGroupRoot)
 
-	option.Config.Opts.SetBool(option.Debug, false)
-	option.Config.Opts.SetBool(option.DebugLB, false)
+	option.Config.Opts.SetBool(option.Debug, debugDatapath)
+	option.Config.Opts.SetBool(option.DebugLB, debugDatapath)
 	option.Config.Opts.SetBool(option.DropNotify, true)
 	option.Config.Opts.SetBool(option.TraceNotify, true)
 	option.Config.Opts.SetBool(option.PolicyVerdictNotify, true)

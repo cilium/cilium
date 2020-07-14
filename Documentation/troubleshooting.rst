@@ -465,6 +465,13 @@ be a trade-off of CPU for ``conntrack-gc-interval``, and for
 ``bpf-ct-global-any-max`` and ``bpf-ct-global-tcp-max`` the amount of memory
 consumed.
 
+Enabling datapath debug messages
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+By default, datapath debug messages are disabled, and therefore not shown in
+``cilium monitor -v`` output. To enable them, add ``"datapath"`` to
+the ``debug-verbose`` option.
+
 Policy Troubleshooting
 ======================
 
