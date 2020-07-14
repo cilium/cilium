@@ -54,9 +54,10 @@ type Peer struct {
 
 type peer struct {
 	hubblePeer.Peer
-	conn ClientConn
-	err  error
-	mu   lock.Mutex
+	conn            ClientConn
+	connAttempts    int
+	nextConnAttempt time.Time
+	mu              lock.Mutex
 }
 
 // Manager implements the PeerManager interface.
@@ -179,8 +180,9 @@ func (m *Manager) manageConnections() {
 			m.mu.Unlock()
 			m.connect(p)
 		case <-time.After(30 * time.Second): //FIXME: make this configurable
-			var offline []*peer
+			var retry []*peer
 			m.mu.Lock()
+			now := time.Now()
 			for _, p := range m.peers {
 				p.mu.Lock()
 				if p.conn != nil {
@@ -190,11 +192,13 @@ func (m *Manager) manageConnections() {
 						continue
 					}
 				}
+				if p.nextConnAttempt.IsZero() || p.nextConnAttempt.Before(now) {
+					retry = append(retry, p)
+				}
 				p.mu.Unlock()
-				offline = append(offline, p)
 			}
 			m.mu.Unlock()
-			for _, p := range offline {
+			for _, p := range retry {
 				m.disconnect(p)
 				m.connect(p)
 			}
@@ -304,9 +308,10 @@ func (m *Manager) connect(p *peer) {
 		}
 		p.mu.Lock()
 		defer p.mu.Unlock()
-		m.log.WithFields(logrus.Fields{
-			"address": p.Address,
-		}).Debugf("Connecting peer %s...", p.Name)
+		now := time.Now()
+		if p.nextConnAttempt.After(now) {
+			return
+		}
 		if p.conn != nil {
 			switch p.conn.GetState() {
 			case connectivity.Connecting, connectivity.Idle, connectivity.Ready:
@@ -320,13 +325,22 @@ func (m *Manager) connect(p *peer) {
 				p.conn = nil
 			}
 		}
+
+		m.log.WithFields(logrus.Fields{
+			"address": p.Address,
+		}).Debugf("Connecting peer %s...", p.Name)
 		conn, err := m.opts.ClientConnBuilder.ClientConn(p.Address.String())
 		if err != nil {
+			duration := m.opts.Backoff.Duration(p.connAttempts)
+			p.nextConnAttempt = now.Add(duration)
+			p.connAttempts++
 			m.log.WithFields(logrus.Fields{
 				"address": p.Address,
 				"error":   err,
-			}).Warningf("Failed to create gRPC client connection to peer %s", p.Name)
+			}).Warningf("Failed to create gRPC client connection to peer %s; next attempt after %s", p.Name, duration)
 		} else {
+			p.nextConnAttempt = time.Time{}
+			p.connAttempts = 0
 			p.conn = conn
 			m.log.Debugf("Peer %s connected", p.Name)
 		}

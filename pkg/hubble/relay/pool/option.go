@@ -17,8 +17,10 @@ package pool
 import (
 	"time"
 
+	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/defaults"
 	hubblePeer "github.com/cilium/cilium/pkg/hubble/peer"
+
 	"google.golang.org/grpc"
 )
 
@@ -35,6 +37,11 @@ var DefaultOptions = Options{
 			grpc.WithBlock(),
 		},
 	},
+	Backoff: &backoff.Exponential{
+		Min:    10 * time.Second,
+		Max:    90 * time.Minute,
+		Factor: 2.0,
+	},
 	RetryTimeout: 30 * time.Second,
 }
 
@@ -45,6 +52,7 @@ type Option func(o *Options) error
 type Options struct {
 	PeerClientBuilder hubblePeer.ClientBuilder
 	ClientConnBuilder ClientConnBuilder
+	Backoff           BackoffDuration
 	RetryTimeout      time.Duration
 	Debug             bool
 }
@@ -63,6 +71,14 @@ func WithPeerClientBuilder(b hubblePeer.ClientBuilder) Option {
 func WithClientConnBuilder(b ClientConnBuilder) Option {
 	return func(o *Options) error {
 		o.ClientConnBuilder = b
+		return nil
+	}
+}
+
+// WithBackoff sets the backoff between after a failed connection attempt.
+func WithBackoff(b BackoffDuration) Option {
+	return func(o *Options) error {
+		o.Backoff = b
 		return nil
 	}
 }
