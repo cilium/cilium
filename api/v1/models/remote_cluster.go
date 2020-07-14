@@ -8,7 +8,9 @@ package models
 import (
 	strfmt "github.com/go-openapi/strfmt"
 
+	"github.com/go-openapi/errors"
 	"github.com/go-openapi/swag"
+	"github.com/go-openapi/validate"
 )
 
 // RemoteCluster Status of remote cluster
@@ -16,8 +18,15 @@ import (
 // +k8s:deepcopy-gen=true
 type RemoteCluster struct {
 
+	// Time of last failure that occurred while attempting to reach the cluster
+	// Format: date-time
+	LastFailure strfmt.DateTime `json:"last-failure,omitempty"`
+
 	// Name of the cluster
 	Name string `json:"name,omitempty"`
+
+	// Number of failures reaching the cluster
+	NumFailures int64 `json:"num-failures,omitempty"`
 
 	// Number of identities in the cluster
 	NumIdentities int64 `json:"num-identities,omitempty"`
@@ -37,6 +46,28 @@ type RemoteCluster struct {
 
 // Validate validates this remote cluster
 func (m *RemoteCluster) Validate(formats strfmt.Registry) error {
+	var res []error
+
+	if err := m.validateLastFailure(formats); err != nil {
+		res = append(res, err)
+	}
+
+	if len(res) > 0 {
+		return errors.CompositeValidationError(res...)
+	}
+	return nil
+}
+
+func (m *RemoteCluster) validateLastFailure(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.LastFailure) { // not required
+		return nil
+	}
+
+	if err := validate.FormatOf("last-failure", "body", "date-time", m.LastFailure.String(), formats); err != nil {
+		return err
+	}
+
 	return nil
 }
 

@@ -3047,9 +3047,18 @@ func init() {
     "RemoteCluster": {
       "description": "Status of remote cluster",
       "properties": {
+        "last-failure": {
+          "description": "Time of last failure that occurred while attempting to reach the cluster",
+          "type": "string",
+          "format": "date-time"
+        },
         "name": {
           "description": "Name of the cluster",
           "type": "string"
+        },
+        "num-failures": {
+          "description": "Number of failures reaching the cluster",
+          "type": "integer"
         },
         "num-identities": {
           "description": "Number of identities in the cluster",
@@ -6667,9 +6676,18 @@ func init() {
     "RemoteCluster": {
       "description": "Status of remote cluster",
       "properties": {
+        "last-failure": {
+          "description": "Time of last failure that occurred while attempting to reach the cluster",
+          "type": "string",
+          "format": "date-time"
+        },
         "name": {
           "description": "Name of the cluster",
           "type": "string"
+        },
+        "num-failures": {
+          "description": "Number of failures reaching the cluster",
+          "type": "integer"
         },
         "num-identities": {
           "description": "Number of identities in the cluster",
