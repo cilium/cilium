@@ -200,7 +200,6 @@ func (m *Manager) manageConnections() {
 			}
 			m.mu.Unlock()
 			for _, p := range retry {
-				m.disconnect(p)
 				m.connect(p, false)
 			}
 		}
