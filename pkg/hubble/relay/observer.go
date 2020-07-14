@@ -266,6 +266,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 			s.log.WithField("address", p.Address.String()).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
+			s.pool.ReportOffline(p.Name)
 			unavailableNodes = append(unavailableNodes, p.Name)
 			continue
 		}
@@ -349,6 +350,7 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 			s.log.WithField("address", p.Address.String()).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
+			s.pool.ReportOffline(p.Name)
 			continue
 		}
 		g.Go(func() error {
