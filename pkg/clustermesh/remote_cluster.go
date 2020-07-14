@@ -196,6 +196,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 
 				remoteIdentityCache, err := allocator.WatchRemoteIdentities(backend)
 				if err != nil {
+					remoteServices.Close(context.TODO())
 					remoteNodes.Close(context.TODO())
 					backend.Close()
 					return err
