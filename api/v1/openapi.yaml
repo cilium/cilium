@@ -1819,6 +1819,13 @@ definitions:
       status:
         description: Status of the control plane
         type: string
+      num-failures:
+        description: Number of failures reaching the cluster
+        type: integer
+      last-failure:
+        description: Time of last failure that occurred while attempting to reach the cluster
+        type: string
+        format: date-time
   MonitorStatus:
     description: Status of the node monitor
     properties:
