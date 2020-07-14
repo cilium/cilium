@@ -355,6 +355,59 @@ func TestUnsupportedL7DropsGeneric(t *testing.T) {
 	CheckClose(t, 1, buf, 1)
 }
 
+func TestEnvoyL7DropsGeneric(t *testing.T) {
+	logServer := test.StartAccessLogServer("access_log.sock", 10)
+	defer logServer.Close()
+
+	mod := OpenModule([][2]string{{"access-log-path", logServer.Path}}, debug)
+	if mod == 0 {
+		t.Errorf("OpenModule() with access log path %s failed", logServer.Path)
+	} else {
+		defer CloseModule(mod)
+	}
+
+	insertPolicyText(t, mod, "1", []string{`
+		name: "FooBar"
+		policy: 2
+		ingress_per_port_policies: <
+		  port: 80
+		  rules: <
+		    remote_policies: 1
+		    remote_policies: 3
+		    remote_policies: 4
+		    l7_proto: "envoy.filter.network.test"
+		    l7_rules: <
+		      l7_allow_rules: <
+		        rule: <
+		          key: "action"
+		          value: "drop"
+		        >
+		      >
+		    >
+		  >
+		>
+		`})
+
+	// Using headertester parser
+	buf := CheckOnNewConnection(t, mod, "test.headerparser", 1, true, 1, 2, "1.1.1.1:34567", "2.2.2.2:80", "FooBar",
+		256, proxylib.OK, 1)
+
+	// Original direction data, drops with remaining data
+	line1, line2, line3, line4 := "Beginning----\n", "foo\n", "----End\n", "\n"
+	data := line1 + line2 + line3 + line4
+	CheckOnData(t, 1, false, false, &[][]byte{[]byte(data)}, []ExpFilterOp{
+		{proxylib.DROP, len(line1)},
+		{proxylib.DROP, len(line2)},
+		{proxylib.DROP, len(line3)},
+		{proxylib.DROP, len(line4)},
+	}, proxylib.OK, "Line dropped: "+line1+"Line dropped: "+line2+"Line dropped: "+line3+"Line dropped: "+line4)
+
+	expPasses, expDrops := 0, 4
+	checkAccessLogs(t, logServer, expPasses, expDrops)
+
+	CheckClose(t, 1, buf, 1)
+}
+
 func TestTwoRulesOnSamePortFirstNoL7(t *testing.T) {
 	logServer := test.StartAccessLogServer("access_log.sock", 10)
 	defer logServer.Close()
