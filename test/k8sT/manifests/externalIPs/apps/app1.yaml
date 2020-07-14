@@ -18,7 +18,7 @@ spec:
       terminationGracePeriodSeconds: 0
       containers:
       - name: guestbook
-        image: gcr.io/google-samples/gb-frontend:v4
+        image: gcr.io/google-samples/gb-frontend:v6
         ports:
         - name: http-server
           containerPort: 80
