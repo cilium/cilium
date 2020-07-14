@@ -74,7 +74,6 @@ Operations
 
    hubble
    grafana
-   identity-relevant-labels
 
 Istio
 -----
