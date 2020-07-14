@@ -42,7 +42,8 @@ var DefaultOptions = Options{
 		Max:    90 * time.Minute,
 		Factor: 2.0,
 	},
-	RetryTimeout: 30 * time.Second,
+	ConnCheckInterval: 2 * time.Minute,
+	RetryTimeout:      30 * time.Second,
 }
 
 // Option customizes the configuration of the Manager.
@@ -53,6 +54,7 @@ type Options struct {
 	PeerClientBuilder hubblePeer.ClientBuilder
 	ClientConnBuilder ClientConnBuilder
 	Backoff           BackoffDuration
+	ConnCheckInterval time.Duration
 	RetryTimeout      time.Duration
 	Debug             bool
 }
@@ -79,6 +81,15 @@ func WithClientConnBuilder(b ClientConnBuilder) Option {
 func WithBackoff(b BackoffDuration) Option {
 	return func(o *Options) error {
 		o.Backoff = b
+		return nil
+	}
+}
+
+// WithConnCheckInterval sets the time interval between peer connections health
+// checks.
+func WithConnCheckInterval(i time.Duration) Option {
+	return func(o *Options) error {
+		o.ConnCheckInterval = i
 		return nil
 	}
 }
