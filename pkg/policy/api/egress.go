@@ -25,10 +25,14 @@ import (
 // - All members of this structure are optional. If omitted or empty, the
 //   member will have no effect on the rule.
 //
-// - For now, combining ToPorts and ToCIDR in the same rule is not supported
-//   and such rules will be rejected. In the future, this will be supported and
-//   if if multiple members of the structure are specified, then all members
-//   must match in order for the rule to take effect.
+// - If multiple members of the structure are specified, then all members
+//   must match in order for the rule to take effect. The exception to this
+//   rule is the ToRequires member; the effects of any Requires field in any
+//   rule will apply to all other rules as well.
+//
+// - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are
+//   mutually exclusive. Only one of these members may be present within an
+//   individual rule.
 type EgressRule struct {
 	// ToEndpoints is a list of endpoints identified by an EndpointSelector to
 	// which the endpoints subject to the rule are allowed to communicate.
