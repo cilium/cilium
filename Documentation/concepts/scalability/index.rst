@@ -12,5 +12,5 @@ Scalability
    :maxdepth: 1
    :glob:
 
+   identity-relevant-labels
    report
-
