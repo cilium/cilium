@@ -108,41 +108,52 @@ func (rc *remoteCluster) getLogger() *logrus.Entry {
 	})
 }
 
-// releaseOldConnection releases the etcd connection to a remote cluster. Must
-// be called with rc.mutex held for writing.
+// releaseOldConnection releases the etcd connection to a remote cluster
 func (rc *remoteCluster) releaseOldConnection() {
-	if rc.ipCacheWatcher != nil {
-		rc.ipCacheWatcher.Close()
-		rc.ipCacheWatcher = nil
-	}
+	rc.mutex.Lock()
+	ipCacheWatcher := rc.ipCacheWatcher
+	rc.ipCacheWatcher = nil
 
-	if rc.remoteNodes != nil {
-		rc.remoteNodes.Close(context.TODO())
-		rc.remoteNodes = nil
-	}
-	if rc.remoteIdentityCache != nil {
-		rc.remoteIdentityCache.Close()
-		rc.remoteIdentityCache = nil
-	}
-	if rc.remoteServices != nil {
-		rc.remoteServices.Close(context.TODO())
-		rc.remoteServices = nil
-	}
-	if rc.backend != nil {
-		rc.backend.Close()
-		rc.backend = nil
-	}
+	remoteNodes := rc.remoteNodes
+	rc.remoteNodes = nil
+
+	remoteIdentityCache := rc.remoteIdentityCache
+	rc.remoteIdentityCache = nil
+
+	remoteServices := rc.remoteServices
+	rc.remoteServices = nil
+
+	backend := rc.backend
+	rc.backend = nil
+	rc.mutex.Unlock()
+
+	// Release resources asynchroneously in the background. Many of these
+	// operations may time out if the connection was closed due to an error
+	// condition.
+	go func() {
+		if ipCacheWatcher != nil {
+			ipCacheWatcher.Close()
+		}
+		if remoteNodes != nil {
+			remoteNodes.Close(context.TODO())
+		}
+		if remoteIdentityCache != nil {
+			remoteIdentityCache.Close()
+		}
+		if remoteServices != nil {
+			remoteServices.Close(context.TODO())
+		}
+		if backend != nil {
+			backend.Close()
+		}
+	}()
 }
 
 func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher) {
 	rc.controllers.UpdateController(rc.remoteConnectionControllerName,
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				rc.mutex.Lock()
-				if rc.backend != nil {
-					rc.releaseOldConnection()
-				}
-				rc.mutex.Unlock()
+				rc.releaseOldConnection()
 
 				backend, errChan := kvstore.NewClient(context.TODO(), kvstore.EtcdBackendName,
 					map[string]string{
@@ -221,12 +232,8 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 				return nil
 			},
 			StopFunc: func(ctx context.Context) error {
-				rc.mutex.Lock()
 				rc.releaseOldConnection()
-				rc.mutex.Unlock()
-
 				rc.getLogger().Info("All resources of remote cluster cleaned up")
-
 				return nil
 			},
 		},
