@@ -1491,9 +1491,15 @@ func (e *etcdClient) Close() {
 	}
 	e.RLock()
 	defer e.RUnlock()
-	e.lockSession.Close()
-	e.session.Close()
-	e.client.Close()
+	if err := e.lockSession.Close(); err != nil {
+		e.getLogger().WithError(err).Warning("Failed to revoke lock session while closing etcd client")
+	}
+	if err := e.session.Close(); err != nil {
+		e.getLogger().WithError(err).Warning("Failed to revoke main session while closing etcd client")
+	}
+	if err := e.client.Close(); err != nil {
+		e.getLogger().WithError(err).Warning("Failed to close etcd client")
+	}
 }
 
 // GetCapabilities returns the capabilities of the backend
