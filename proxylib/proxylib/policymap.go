@@ -17,6 +17,7 @@ package proxylib
 import (
 	"fmt"
 	"reflect"
+	"strings"
 
 	"github.com/cilium/proxy/go/cilium/api"
 	core "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -73,6 +74,9 @@ func newPortNetworkPolicyRule(config *cilium.PortNetworkPolicyRule) (PortNetwork
 			l7Name = typeOf.Elem().Name()
 		}
 	}
+	if strings.HasPrefix(l7Name, "envoy.") {
+		return rule, "", false // Silently drop Envoy filter traffic to this port if forwarded to proxylib
+	}
 	if l7Name != "" {
 		l7Parser, ok := l7RuleParsers[l7Name]
 		if ok {
@@ -81,7 +85,7 @@ func newPortNetworkPolicyRule(config *cilium.PortNetworkPolicyRule) (PortNetwork
 		} else {
 			log.Debugf("NPDS::PortNetworkPolicyRule: Unknown L7 (%s), should drop everything.", l7Name)
 		}
-		// Unknown parsers are expected, bur will result in drop-all policy
+		// Unknown parsers are expected, but will result in drop-all policy
 		return rule, l7Name, ok
 	}
 	return rule, "", true // No L7 is ok

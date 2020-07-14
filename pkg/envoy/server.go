@@ -286,19 +286,10 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 	return chain
 }
 
-func (s *XDSServer) getTcpFilterChainProto(clusterName string) *envoy_config_listener.FilterChain {
-	return &envoy_config_listener.FilterChain{
+func (s *XDSServer) getTcpFilterChainProto(clusterName string, useProxylib bool) *envoy_config_listener.FilterChain {
+	chain := &envoy_config_listener.FilterChain{
 		Filters: []*envoy_config_listener.Filter{{
 			Name: "cilium.network",
-			ConfigType: &envoy_config_listener.Filter_TypedConfig{
-				TypedConfig: toAny(&cilium.NetworkFilter{
-					Proxylib: "libcilium.so",
-					ProxylibParams: map[string]string{
-						"access-log-path": s.accessLogPath,
-						"xds-path":        s.socketPath,
-					},
-				}),
-			},
 		}, {
 			Name: "envoy.tcp_proxy",
 			ConfigType: &envoy_config_listener.Filter_TypedConfig{
@@ -311,6 +302,27 @@ func (s *XDSServer) getTcpFilterChainProto(clusterName string) *envoy_config_lis
 			},
 		}},
 	}
+
+	if useProxylib {
+		chain.Filters[0].ConfigType = &envoy_config_listener.Filter_TypedConfig{
+			TypedConfig: toAny(&cilium.NetworkFilter{
+				Proxylib: "libcilium.so",
+				ProxylibParams: map[string]string{
+					"access-log-path": s.accessLogPath,
+					"xds-path":        s.socketPath,
+				},
+			}),
+		}
+	} else {
+		// Envoy metadata logging requires accesslog path
+		chain.Filters[0].ConfigType = &envoy_config_listener.Filter_TypedConfig{
+			TypedConfig: toAny(&cilium.NetworkFilter{
+				AccessLogPath: s.accessLogPath,
+			}),
+		}
+	}
+
+	return chain
 }
 
 // AddListener adds a listener to a running Envoy proxy.
@@ -380,13 +392,16 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 					BpfRoot:                     bpf.GetMapRoot(),
 				}),
 			},
-		}, {
-			Name: "envoy.listener.tls_inspector",
 		}},
 	}
 
 	// Add filter chains
 	if kind == policy.ParserTypeHTTP {
+		// Use tls_inspector only with HTTP, insert as the first filter
+		listenerConf.ListenerFilters = append([]*envoy_config_listener.ListenerFilter{{
+			Name: "envoy.listener.tls_inspector",
+		}}, listenerConf.ListenerFilters...)
+
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(clusterName, false))
 
 		// Add a TLS variant
@@ -396,7 +411,7 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 		}
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(tlsClusterName, true))
 	} else {
-		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName))
+		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName, true))
 	}
 
 	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg,
@@ -458,14 +473,90 @@ func (s *XDSServer) stop() {
 	os.Remove(s.socketPath)
 }
 
-func getL7Rule(l7 *api.PortRuleL7) *cilium.L7NetworkPolicyRule {
-	rule := &cilium.L7NetworkPolicyRule{Rule: make(map[string]string, len(*l7))}
-
-	for k, v := range *l7 {
-		rule.Rule[k] = v
+func getL7Rules(l7Rules []api.PortRuleL7, l7Proto string) *cilium.L7NetworkPolicyRules {
+	allowRules := make([]*cilium.L7NetworkPolicyRule, 0, len(l7Rules))
+	denyRules := make([]*cilium.L7NetworkPolicyRule, 0, len(l7Rules))
+	useEnvoyMetadataMatcher := false
+	if strings.HasPrefix(l7Proto, "envoy.") {
+		useEnvoyMetadataMatcher = true
+	}
+	for _, l7 := range l7Rules {
+		if useEnvoyMetadataMatcher {
+			envoyFilterName := l7Proto
+			rule := &cilium.L7NetworkPolicyRule{MetadataRule: make([]*envoy_type_matcher.MetadataMatcher, 0, len(l7))}
+			denyRule := false
+			for k, v := range l7 {
+				switch k {
+				case "action":
+					switch v {
+					case "deny":
+						denyRule = true
+					}
+				default:
+					// map key to path segments and value to value matcher
+					// For now only one path segment is allowed
+					segments := strings.Split(k, "/")
+					var path []*envoy_type_matcher.MetadataMatcher_PathSegment
+					for _, key := range segments {
+						path = append(path, &envoy_type_matcher.MetadataMatcher_PathSegment{
+							Segment: &envoy_type_matcher.MetadataMatcher_PathSegment_Key{Key: key},
+						})
+					}
+					var value *envoy_type_matcher.ValueMatcher
+					if len(v) == 0 {
+						value = &envoy_type_matcher.ValueMatcher{
+							MatchPattern: &envoy_type_matcher.ValueMatcher_PresentMatch{
+								PresentMatch: true,
+							}}
+					} else {
+						value = &envoy_type_matcher.ValueMatcher{
+							MatchPattern: &envoy_type_matcher.ValueMatcher_ListMatch{
+								ListMatch: &envoy_type_matcher.ListMatcher{
+									MatchPattern: &envoy_type_matcher.ListMatcher_OneOf{
+										OneOf: &envoy_type_matcher.ValueMatcher{
+											MatchPattern: &envoy_type_matcher.ValueMatcher_StringMatch{
+												StringMatch: &envoy_type_matcher.StringMatcher{
+													MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+														Exact: v,
+													},
+													IgnoreCase: false,
+												},
+											},
+										},
+									},
+								},
+							}}
+					}
+					rule.MetadataRule = append(rule.MetadataRule, &envoy_type_matcher.MetadataMatcher{
+						Filter: envoyFilterName,
+						Path:   path,
+						Value:  value,
+					})
+				}
+			}
+			if denyRule {
+				denyRules = append(denyRules, rule)
+			} else {
+				allowRules = append(allowRules, rule)
+			}
+		} else {
+			// proxylib go extension key/value policy
+			rule := &cilium.L7NetworkPolicyRule{Rule: make(map[string]string, len(l7))}
+			for k, v := range l7 {
+				rule.Rule[k] = v
+			}
+			allowRules = append(allowRules, rule)
+		}
 	}
 
-	return rule
+	rules := &cilium.L7NetworkPolicyRules{}
+	if len(allowRules) > 0 {
+		rules.L7AllowRules = allowRules
+	}
+	if len(denyRules) > 0 {
+		rules.L7DenyRules = denyRules
+	}
+	return rules
 }
 
 func getKafkaL7Rules(l7Rules []kafka.PortRule) *cilium.KafkaNetworkPolicyRules {
@@ -847,16 +938,10 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 	default:
 		// Assume unknown parser types use a Key-Value Pair policy
 		if len(l7Rules.L7) > 0 {
-			kvpRules := make([]*cilium.L7NetworkPolicyRule, 0, len(l7Rules.L7))
-			for _, l7 := range l7Rules.L7 {
-				kvpRules = append(kvpRules, getL7Rule(&l7))
-			}
 			// L7 rules are not sorted
 			r.L7Proto = l7Parser.String()
 			r.L7 = &cilium.PortNetworkPolicyRule_L7Rules{
-				L7Rules: &cilium.L7NetworkPolicyRules{
-					L7AllowRules: kvpRules,
-				},
+				L7Rules: getL7Rules(l7Rules.L7, r.L7Proto),
 			}
 		}
 	}
