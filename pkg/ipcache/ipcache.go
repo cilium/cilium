@@ -398,6 +398,16 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 	return true, namedPortsChanged
 }
 
+func (ipc *IPCache) deleteClusterEntries(cluster string, src source.Source) {
+	ipc.mutex.Lock()
+	defer ipc.mutex.Unlock()
+	for ip, m := range ipc.ipToK8sMetadata {
+		if m.Cluster == cluster {
+			ipc.deleteLocked(ip, src)
+		}
+	}
+}
+
 // DumpToListenerLocked dumps the entire contents of the IPCache by triggering
 // the listener's "OnIPIdentityCacheChange" method for each entry in the cache.
 func (ipc *IPCache) DumpToListenerLocked(listener IPIdentityMappingListener) {

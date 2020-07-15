@@ -359,6 +359,12 @@ func (iw *IPIdentityWatcher) Close() {
 	})
 }
 
+// DeleteEntries deletes all entries in the ipcache which were previously
+// created as a result of the watcher
+func (iw *IPIdentityWatcher) DeleteEntries() {
+	IPIdentityCache.deleteClusterEntries(iw.cluster, source.KVStore)
+}
+
 func (iw *IPIdentityWatcher) waitForInitialSync() {
 	<-iw.synced
 }
