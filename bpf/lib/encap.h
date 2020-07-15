@@ -138,6 +138,7 @@ __encap_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
 	node_id = bpf_htonl(tunnel_endpoint);
 	key.tunnel_id = seclabel;
 	key.remote_ipv4 = node_id;
+	key.tunnel_ttl = 64;
 
 	cilium_dbg(skb, DBG_ENCAP, node_id, seclabel);
 
