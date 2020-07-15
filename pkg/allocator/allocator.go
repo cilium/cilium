@@ -853,5 +853,7 @@ func (rc *RemoteCache) Close() {
 	delete(rc.allocator.remoteCaches, rc)
 	rc.allocator.remoteCachesMutex.Unlock()
 
+	// stop receiving updates
 	rc.cache.stop()
+	rc.cache.deleteEntries()
 }

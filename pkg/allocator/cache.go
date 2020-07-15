@@ -164,12 +164,16 @@ func (c *cache) OnDelete(id idpool.ID, key AllocatorKey) {
 		}
 	}
 
+	c.deleteEntryLocked(id, key)
+}
+
+func (c *cache) deleteEntryLocked(id idpool.ID, key AllocatorKey) {
 	if k, ok := c.nextCache[id]; ok && k != nil {
 		delete(c.nextKeyCache, c.allocator.encodeKey(k))
 	}
 
 	delete(c.nextCache, id)
-	a.idPool.Insert(id)
+	c.allocator.idPool.Insert(id)
 
 	c.sendEvent(kvstore.EventTypeDelete, id, key)
 }
@@ -242,4 +246,10 @@ func (c *cache) numEntries() int {
 	c.mutex.RLock()
 	defer c.mutex.RUnlock()
 	return len(c.nextCache)
+}
+
+func (c *cache) deleteEntries() {
+	c.foreach(func(id idpool.ID, key AllocatorKey) {
+		c.deleteEntryLocked(id, key)
+	})
 }
