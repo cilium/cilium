@@ -129,6 +129,7 @@ __encap_with_nodeid(struct __ctx_buff *ctx, __u32 tunnel_endpoint,
 	node_id = bpf_htonl(tunnel_endpoint);
 	key.tunnel_id = seclabel;
 	key.remote_ipv4 = node_id;
+	key.tunnel_ttl = 64;
 
 	cilium_dbg(ctx, DBG_ENCAP, node_id, seclabel);
 
