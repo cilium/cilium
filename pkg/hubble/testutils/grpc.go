@@ -12,6 +12,7 @@
 // WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 // See the License for the specific language governing permissions and
 // limitations under the License.
+
 package testutils
 
 import (
@@ -20,6 +21,8 @@ import (
 	"google.golang.org/grpc/metadata"
 )
 
+// FakeGRPCServerStream implements google.golang.org/grpc.ServerStream
+// interface for unit tests.
 type FakeGRPCServerStream struct {
 	OnSetHeader  func(metadata.MD) error
 	OnSendHeader func(metadata.MD) error
@@ -29,6 +32,7 @@ type FakeGRPCServerStream struct {
 	OnRecvMsg    func(m interface{}) error
 }
 
+// SetHeader implements grpc.ServerStream.SetHeader.
 func (s *FakeGRPCServerStream) SetHeader(m metadata.MD) error {
 	if s.OnSetHeader != nil {
 		return s.OnSetHeader(m)
@@ -36,6 +40,7 @@ func (s *FakeGRPCServerStream) SetHeader(m metadata.MD) error {
 	panic("OnSetHeader not set")
 }
 
+// SendHeader implements grpc.ServerStream.SendHeader.
 func (s *FakeGRPCServerStream) SendHeader(m metadata.MD) error {
 	if s.OnSendHeader != nil {
 		return s.OnSendHeader(m)
@@ -43,6 +48,7 @@ func (s *FakeGRPCServerStream) SendHeader(m metadata.MD) error {
 	panic("OnSendHeader not set")
 }
 
+// SetTrailer implements grpc.ServerStream.SetTrailer.
 func (s *FakeGRPCServerStream) SetTrailer(m metadata.MD) {
 	if s.OnSetTrailer != nil {
 		s.OnSetTrailer(m)
@@ -50,6 +56,7 @@ func (s *FakeGRPCServerStream) SetTrailer(m metadata.MD) {
 	panic("OnSetTrailer not set")
 }
 
+// Context implements grpc.ServerStream.Context.
 func (s *FakeGRPCServerStream) Context() context.Context {
 	if s.OnContext != nil {
 		return s.OnContext()
@@ -57,6 +64,7 @@ func (s *FakeGRPCServerStream) Context() context.Context {
 	panic("OnContext not set")
 }
 
+// SendMsg implements grpc.ServerStream.SendMsg.
 func (s *FakeGRPCServerStream) SendMsg(m interface{}) error {
 	if s.OnSendMsg != nil {
 		return s.OnSendMsg(m)
@@ -64,6 +72,7 @@ func (s *FakeGRPCServerStream) SendMsg(m interface{}) error {
 	panic("OnSendMsg not set")
 }
 
+// RecvMsg implements grpc.ServerStream.RecvMsg.
 func (s *FakeGRPCServerStream) RecvMsg(m interface{}) error {
 	if s.OnRecvMsg != nil {
 		return s.OnRecvMsg(m)

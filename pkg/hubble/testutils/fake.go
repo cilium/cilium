@@ -29,11 +29,14 @@ import (
 	"github.com/golang/protobuf/ptypes/timestamp"
 )
 
+// FakeGetFlowsServer is used for unit tests and implements the
+// observerpb.ebserver_GetFlowsServer interface.
 type FakeGetFlowsServer struct {
 	OnSend func(response *observerpb.GetFlowsResponse) error
 	*FakeGRPCServerStream
 }
 
+// Send implements observerpb.ebserver_GetFlowsServer.Send.
 func (s *FakeGetFlowsServer) Send(response *observerpb.GetFlowsResponse) error {
 	if s.OnSend != nil {
 		// TODO: completely convert this into using flowpb.Flow
@@ -116,7 +119,7 @@ func (f *FakeIPGetter) GetK8sMetadata(ip net.IP) *ipcache.K8sMetadata {
 	panic("OnGetK8sMetadata not set")
 }
 
-// LookupByIP implements FakeIPGetter.LookupSecIDByIP.
+// LookupSecIDByIP implements FakeIPGetter.LookupSecIDByIP.
 func (f *FakeIPGetter) LookupSecIDByIP(ip net.IP) (ipcache.Identity, bool) {
 	if f.OnLookupSecIDByIP != nil {
 		return f.OnLookupSecIDByIP(ip)
