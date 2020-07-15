@@ -851,13 +851,6 @@ files and execute some commands. If ``kubectl`` is detected, it will search for
 Cilium pods. The default label being ``k8s-app=cilium``, but this and the
 namespace can be changed via ``k8s-namespace`` and ``k8s-label`` respectively.
 
-If you'd prefer to browse the dump, there is a HTTP flag.
-
-.. code:: bash
-
-    $ cilium-bugtool --serve
-
-
 If you want to capture the archive from a Kubernetes pod, then the process is a
 bit different
 
