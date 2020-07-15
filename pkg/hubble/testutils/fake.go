@@ -16,6 +16,7 @@
 package testutils
 
 import (
+	"context"
 	"net"
 	"time"
 
@@ -24,8 +25,10 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"google.golang.org/grpc"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 )
@@ -59,6 +62,52 @@ func (s *FakePeerNotifyServer) Send(response *peerpb.ChangeNotification) error {
 		return s.OnSend(response)
 	}
 	panic("OnSend not set")
+}
+
+// FakePeerClient is used for unit tests and implements the peerTypes.Client
+// interface.
+type FakePeerClient struct {
+	OnNotify func(ctx context.Context, in *peerpb.NotifyRequest, opts ...grpc.CallOption) (peerpb.Peer_NotifyClient, error)
+	OnClose  func() error
+}
+
+// Notify implements peerTypes.Client.Notify.
+func (c *FakePeerClient) Notify(ctx context.Context, in *peerpb.NotifyRequest, opts ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+	if c.OnNotify != nil {
+		return c.OnNotify(ctx, in, opts...)
+	}
+	panic("OnNotify not set")
+}
+
+// Close implements peerTypes.Client.Close.
+func (c *FakePeerClient) Close() error {
+	if c.OnClose != nil {
+		return c.OnClose()
+	}
+	panic("OnClose not set")
+}
+
+// FakePeerClientBuilder is used for unit tests and implements the
+// peerTypes.ClientBuilder interface.
+type FakePeerClientBuilder struct {
+	OnTarget func() string
+	OnClient func() (peerTypes.Client, error)
+}
+
+// Target implements peerTypes.ClientBuilder.Target.
+func (b FakePeerClientBuilder) Target() string {
+	if b.OnTarget != nil {
+		return b.OnTarget()
+	}
+	panic("OnTarget not set")
+}
+
+// Client implements peerTypes.ClientBuilder.Client.
+func (b FakePeerClientBuilder) Client() (peerTypes.Client, error) {
+	if b.OnClient != nil {
+		return b.OnClient()
+	}
+	panic("OnClient not set")
 }
 
 // FakeFQDNCache is used for unit tests that needs FQDNCache and/or DNSGetter.
