@@ -64,6 +64,21 @@ func (s *FakePeerNotifyServer) Send(response *peerpb.ChangeNotification) error {
 	panic("OnSend not set")
 }
 
+// FakePeerNotifyClient is used for unit tests and implements the
+// peerpb.Peer_NotifyClient interface.
+type FakePeerNotifyClient struct {
+	OnRecv func() (*peerpb.ChangeNotification, error)
+	*FakeGRPCClientStream
+}
+
+// Recv implements peerpb.Peer_NotifyClient.Recv.
+func (c *FakePeerNotifyClient) Recv() (*peerpb.ChangeNotification, error) {
+	if c.OnRecv != nil {
+		return c.OnRecv()
+	}
+	panic("OnRecv not set")
+}
+
 // FakePeerClient is used for unit tests and implements the peerTypes.Client
 // interface.
 type FakePeerClient struct {
