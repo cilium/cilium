@@ -81,6 +81,10 @@ type Configuration struct {
 	Observer Observer
 
 	Context context.Context
+
+	// ReadOnly can be set to true if the shared store is used in a
+	// read-only manner and will not host any local keys
+	ReadOnly bool
 }
 
 // validate is invoked by JoinSharedStore to validate and complete the
@@ -215,20 +219,23 @@ func JoinSharedStore(c Configuration) (*SharedStore, error) {
 	}
 
 	s.name = "store-" + s.conf.Prefix
-	s.controllerName = "kvstore-sync-" + s.name
 
 	if err := s.listAndStartWatcher(); err != nil {
 		return nil, err
 	}
 
-	controllers.UpdateController(s.controllerName,
-		controller.ControllerParams{
-			DoFunc: func(ctx context.Context) error {
-				return s.syncLocalKeys(ctx)
+	if !c.ReadOnly {
+		s.controllerName = "kvstore-sync-" + s.name
+
+		controllers.UpdateController(s.controllerName,
+			controller.ControllerParams{
+				DoFunc: func(ctx context.Context) error {
+					return s.syncLocalKeys(ctx)
+				},
+				RunInterval: s.conf.SynchronizationInterval,
 			},
-			RunInterval: s.conf.SynchronizationInterval,
-		},
-	)
+		)
+	}
 
 	return s, nil
 }
@@ -257,7 +264,9 @@ func (s *SharedStore) Release() {
 		s.kvstoreWatcher.Stop()
 	}
 
-	controllers.RemoveController(s.controllerName)
+	if s.controllerName != "" {
+		controllers.RemoveController(s.controllerName)
+	}
 }
 
 // Close stops participation with a shared store and removes all keys owned by
@@ -265,6 +274,10 @@ func (s *SharedStore) Release() {
 // JoinSharedStore().
 func (s *SharedStore) Close(ctx context.Context) {
 	s.Release()
+
+	if s.conf.ReadOnly {
+		return
+	}
 
 	for name, key := range s.localKeys {
 		if err := s.backend.Delete(ctx, s.keyPath(key)); err != nil {
@@ -363,6 +376,10 @@ func (s *SharedStore) SharedKeysMap() map[string]Key {
 
 // UpdateLocalKey adds a key to be synchronized with the kvstore
 func (s *SharedStore) UpdateLocalKey(key LocalKey) {
+	if s.conf.ReadOnly {
+		s.getLogger().Fatal("Bug: Local key updated via read-only store")
+	}
+
 	s.mutex.Lock()
 	s.localKeys[key.GetKeyName()] = key.DeepKeyCopy()
 	s.mutex.Unlock()
@@ -372,6 +389,10 @@ func (s *SharedStore) UpdateLocalKey(key LocalKey) {
 // and adds it to the list of local keys to be synchronized if the initial
 // synchronous synchronization was successful
 func (s *SharedStore) UpdateLocalKeySync(ctx context.Context, key LocalKey) error {
+	if s.conf.ReadOnly {
+		s.getLogger().Fatal("Bug: Local key updated via read-only store")
+	}
+
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
 	err := s.syncLocalKey(ctx, key)
@@ -383,11 +404,18 @@ func (s *SharedStore) UpdateLocalKeySync(ctx context.Context, key LocalKey) erro
 
 // UpdateKeySync synchronously synchronizes a key with the kvstore.
 func (s *SharedStore) UpdateKeySync(ctx context.Context, key LocalKey) error {
+	if s.conf.ReadOnly {
+		s.getLogger().Fatal("Bug: Local key updated via read-only store")
+	}
 	return s.syncLocalKey(ctx, key)
 }
 
 // DeleteLocalKey removes a key from being synchronized with the kvstore
 func (s *SharedStore) DeleteLocalKey(ctx context.Context, key NamedKey) {
+	if s.conf.ReadOnly {
+		s.getLogger().Fatal("Bug: Local key deleted via read-only store")
+	}
+
 	name := key.GetKeyName()
 
 	s.mutex.Lock()
