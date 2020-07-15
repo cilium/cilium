@@ -567,6 +567,9 @@ const (
 	// IPv6MCastDevice is the name of the option to select IPv6 multicast device
 	IPv6MCastDevice = "ipv6-mcast-device"
 
+	// EnableMonitor is the name of the option to enable the monitor socket
+	EnableMonitorName = "enable-monitor"
+
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
 	MonitorQueueSizeName = "monitor-queue-size"
 
@@ -1368,6 +1371,9 @@ type DaemonConfig struct {
 	CTMapEntriesTimeoutSVCAny time.Duration
 	CTMapEntriesTimeoutSYN    time.Duration
 	CTMapEntriesTimeoutFIN    time.Duration
+
+	// EnableMonitor enables the monitor unix domain socket server
+	EnableMonitor bool
 
 	// MonitorAggregationInterval configures the interval between monitor
 	// messages when monitor aggregation is enabled.
@@ -2354,6 +2360,7 @@ func (c *DaemonConfig) Populate() {
 	c.IPTablesLockTimeout = viper.GetDuration(IPTablesLockTimeout)
 	c.IPSecKeyFile = viper.GetString(IPSecKeyFileName)
 	c.ModePreFilter = viper.GetString(PrefilterMode)
+	c.EnableMonitor = viper.GetBool(EnableMonitorName)
 	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = viper.GetDuration(MonitorAggregationInterval)
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
