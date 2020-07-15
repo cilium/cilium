@@ -8,6 +8,9 @@ spec:
     matchLabels:
       type: ingress-worker
   ingress:
+  - fromEntities:
+    - remote-node
+    - health
   - toPorts:
     - ports:
       - port: "6443"
