@@ -579,7 +579,11 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 
 	// We can only start monitor agent once cilium_event has been set up.
 	if option.Config.RunMonitorAgent {
-		monitorAgent, err := monitoragent.NewAgent(context.TODO(), defaults.MonitorBufferPages)
+		monitorAgent, err := monitoragent.NewAgent(d.ctx, defaults.MonitorBufferPages)
+		if err != nil {
+			return nil, nil, err
+		}
+		err = monitoragent.ServeMonitorAPI(monitorAgent)
 		if err != nil {
 			return nil, nil, err
 		}

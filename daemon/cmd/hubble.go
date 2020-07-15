@@ -118,7 +118,7 @@ func (d *Daemon) launchHubble() {
 		return
 	}
 	go d.hubbleObserver.Start()
-	d.monitorAgent.GetMonitor().RegisterNewListener(d.ctx, listener.NewHubbleListener(d.hubbleObserver))
+	d.monitorAgent.RegisterNewListener(listener.NewHubbleListener(d.hubbleObserver))
 
 	// configure a local hubble instance that serves more gRPC services
 	sockPath := "unix://" + option.Config.HubbleSocketPath
