@@ -46,6 +46,7 @@ Network Policy Security Tutorials
    memcached
    aws
    policy-creation
+   host-firewall
 
 Advanced Networking
 -------------------
