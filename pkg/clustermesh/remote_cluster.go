@@ -134,26 +134,30 @@ func (rc *remoteCluster) releaseOldConnection() {
 	rc.backend = nil
 	rc.mutex.Unlock()
 
-	// Release resources asynchroneously in the background. Many of these
-	// operations may time out if the connection was closed due to an error
-	// condition.
-	go func() {
-		if ipCacheWatcher != nil {
-			ipCacheWatcher.Close()
-		}
-		if remoteNodes != nil {
-			remoteNodes.Close(context.TODO())
-		}
-		if remoteIdentityCache != nil {
-			remoteIdentityCache.Close()
-		}
-		if remoteServices != nil {
-			remoteServices.Close(context.TODO())
-		}
-		if backend != nil {
-			backend.Close()
-		}
-	}()
+	// The following caches must be closed synchronously to ensure that
+	// delete events are processed before the new connection is established
+	// which will trigger events of the new state again
+	if remoteNodes != nil {
+		remoteNodes.Close(context.TODO())
+	}
+	if remoteServices != nil {
+		remoteServices.Close(context.TODO())
+	}
+	if remoteIdentityCache != nil {
+		remoteIdentityCache.Close()
+	}
+	if ipCacheWatcher != nil {
+		ipCacheWatcher.Close()
+		ipCacheWatcher.DeleteEntries()
+	}
+	rc.mesh.globalServices.onClusterDelete(rc.name)
+
+	// Release the backend asynchronously in the background. Revoking
+	// leases and sessions may block. Success of this operation is not a
+	// pre-requisite for a successful reconnect.
+	if backend != nil {
+		go backend.Close()
+	}
 }
 
 func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher) {
@@ -189,6 +193,8 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					SynchronizationInterval: time.Minute,
 					Backend:                 backend,
 					Observer:                rc.mesh.conf.NodeObserver(),
+					ReadOnly:                true,
+					DeleteEventOnClose:      true,
 				})
 				if err != nil {
 					backend.Close()
@@ -207,6 +213,8 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 						remoteCluster: rc,
 						swg:           rc.swg,
 					},
+					ReadOnly:           true,
+					DeleteEventOnClose: true,
 				})
 				if err != nil {
 					remoteNodes.Close(context.TODO())
