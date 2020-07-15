@@ -22,6 +22,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+	peerpb "github.com/cilium/cilium/api/v1/peer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
@@ -40,6 +41,21 @@ type FakeGetFlowsServer struct {
 func (s *FakeGetFlowsServer) Send(response *observerpb.GetFlowsResponse) error {
 	if s.OnSend != nil {
 		// TODO: completely convert this into using flowpb.Flow
+		return s.OnSend(response)
+	}
+	panic("OnSend not set")
+}
+
+// FakePeerNotifyServer is used for unit tests and implements the
+// peerpb.Peer_NotifyServer interface.
+type FakePeerNotifyServer struct {
+	OnSend func(response *peerpb.ChangeNotification) error
+	*FakeGRPCServerStream
+}
+
+// Send implements peerpb.Peer_NotifyServer.Send.
+func (s *FakePeerNotifyServer) Send(response *peerpb.ChangeNotification) error {
+	if s.OnSend != nil {
 		return s.OnSend(response)
 	}
 	panic("OnSend not set")
