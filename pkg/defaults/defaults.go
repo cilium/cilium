@@ -215,6 +215,10 @@ const (
 	// a kvstore path for too long.
 	KVStoreStaleLockTimeout = 30 * time.Second
 
+	// KVStoreFailureTimeout is the timeout after which a failure is
+	// declared persistent and the etcd connection is restarted
+	KVStoreFailureTimeout = 3 * time.Minute
+
 	// IPAllocationTimeout is the timeout when allocating CIDRs
 	IPAllocationTimeout = 2 * time.Minute
 

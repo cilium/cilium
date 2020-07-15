@@ -50,18 +50,15 @@ const (
 	// EtcdBackendName is the backend name for etcd
 	EtcdBackendName = "etcd"
 
-	EtcdAddrOption       = "etcd.address"
-	isEtcdOperatorOption = "etcd.operator"
-	EtcdOptionConfig     = "etcd.config"
+	EtcdAddrOption           = "etcd.address"
+	isEtcdOperatorOption     = "etcd.operator"
+	EtcdOptionConfig         = "etcd.config"
+	etcdFailureTimeoutOption = "etcd.failureTimeout"
 
 	// EtcdRateLimitOption specifies maximum kv operations per second
 	EtcdRateLimitOption = "etcd.qps"
 
 	minRequiredVersionStr = ">=3.1.0"
-
-	// consecutiveQuorumErrorsThreshold is the number of acceptable quorum
-	// errors before the agent assumes permanent failure
-	consecutiveQuorumErrorsThreshold = 2
 )
 
 var (
@@ -122,6 +119,13 @@ func newEtcdModule() backendModule {
 					return err
 				},
 			},
+			etcdFailureTimeoutOption: &backendOption{
+				description: "Timeout after which a failure is declared persistent",
+				validate: func(v string) error {
+					_, err := time.ParseDuration(v)
+					return err
+				},
+			},
 		},
 	}
 }
@@ -175,6 +179,12 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 		rateLimit, _ = strconv.Atoi(rateLimitOpt.value)
 	}
 
+	failureTimeout := defaults.KVStoreFailureTimeout
+	if t := e.opts[etcdFailureTimeoutOption]; t.value != "" {
+		val, _ := time.ParseDuration(t.value)
+		failureTimeout = val
+	}
+
 	var configPath string
 	if configSet {
 		configPath = configPathOpt.value
@@ -210,7 +220,7 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 	for {
 		// connectEtcdClient will close errChan when the connection attempt has
 		// been successful
-		backend, err := connectEtcdClient(ctx, e.config, configPath, errChan, rateLimit, opts)
+		backend, err := connectEtcdClient(ctx, e.config, configPath, errChan, rateLimit, failureTimeout, opts)
 		switch {
 		case os.IsNotExist(err):
 			log.WithError(err).Info("Waiting for all etcd configuration files to be available")
@@ -284,7 +294,9 @@ type etcdClient struct {
 
 	limiter *rate.Limiter
 
-	lastHeartbeat time.Time
+	lastHeartbeat  time.Time
+	failureTimeout time.Duration
+	failingSince   time.Time
 }
 
 func (e *etcdClient) getLogger() *logrus.Entry {
@@ -534,7 +546,7 @@ func (e *etcdClient) renewLockSession(ctx context.Context) error {
 	return nil
 }
 
-func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath string, errChan chan error, rateLimit int, opts *ExtraOptions) (BackendOperations, error) {
+func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath string, errChan chan error, rateLimit int, failureTimeout time.Duration, opts *ExtraOptions) (BackendOperations, error) {
 	if cfgPath != "" {
 		cfg, err := newConfig(cfgPath)
 		if err != nil {
@@ -603,6 +615,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		extraOptions:         opts,
 		limiter:              rate.NewLimiter(rate.Limit(rateLimit), rateLimit),
 		statusCheckErrors:    make(chan error, 128),
+		failureTimeout:       failureTimeout,
 	}
 
 	// wait for session to be created also in parallel
@@ -938,8 +951,6 @@ func (e *etcdClient) determineEndpointStatus(ctx context.Context, endpointAddres
 func (e *etcdClient) statusChecker() {
 	ctx := context.Background()
 
-	consecutiveQuorumErrors := 0
-
 	for {
 		newStatus := []string{}
 		ok := 0
@@ -969,31 +980,32 @@ func (e *etcdClient) statusChecker() {
 			quorumError = fmt.Errorf("%s since last heartbeat update has been received", heartbeatDelta)
 		}
 
-		quorumString := "true"
+		healthStatus := "ok"
+		failingSince := ""
 		if quorumError != nil {
-			quorumString = quorumError.Error()
-			consecutiveQuorumErrors++
-			quorumString += fmt.Sprintf(", consecutive-errors=%d", consecutiveQuorumErrors)
+			if e.failingSince.IsZero() {
+				e.failingSince = time.Now()
+			}
+			failingSince = time.Since(e.failingSince).String()
+			healthStatus = quorumError.Error() + ", failing-since=" + failingSince
 		} else {
-			consecutiveQuorumErrors = 0
+			e.failingSince = time.Time{}
 		}
 
 		e.statusLock.Lock()
 
 		switch {
-		case consecutiveQuorumErrors > consecutiveQuorumErrorsThreshold:
-			e.latestErrorStatus = fmt.Errorf("quorum check failed %d times in a row: %s",
-				consecutiveQuorumErrors, quorumError)
+		case !e.failingSince.IsZero() && time.Since(e.failingSince) > e.failureTimeout:
+			e.latestErrorStatus = fmt.Errorf("etcd health failed for %s (>%s): %s", failingSince, e.failureTimeout, healthStatus)
 			e.latestStatusSnapshot = e.latestErrorStatus.Error()
 		case len(endpoints) > 0 && ok == 0:
 			e.latestErrorStatus = fmt.Errorf("not able to connect to any etcd endpoints")
 			e.latestStatusSnapshot = e.latestErrorStatus.Error()
 		default:
 			e.latestErrorStatus = nil
-			e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected, lease-ID=%x, lock lease-ID=%x, has-quorum=%s: %s",
-				ok, len(endpoints), sessionLeaseID, lockSessionLeaseID, quorumString, strings.Join(newStatus, "; "))
+			e.latestStatusSnapshot = fmt.Sprintf("etcd: %d/%d connected, lease-ID=%x, lock lease-ID=%x, health=%s: %s",
+				ok, len(endpoints), sessionLeaseID, lockSessionLeaseID, healthStatus, strings.Join(newStatus, "; "))
 		}
-
 		e.statusLock.Unlock()
 		if e.latestErrorStatus != nil {
 			e.statusCheckErrors <- e.latestErrorStatus
