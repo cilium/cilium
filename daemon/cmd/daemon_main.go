@@ -598,6 +598,9 @@ func init() {
 	flags.StringSlice(option.Metrics, []string{}, "Metrics that should be enabled or disabled from the default metric list. (+metric_foo to enable metric_foo , -metric_bar to disable metric_bar)")
 	option.BindEnv(option.Metrics)
 
+	flags.Bool(option.EnableMonitorName, true, "Enable the monitor unix domain socket server")
+	option.BindEnv(option.EnableMonitorName)
+
 	flags.String(option.MonitorAggregationName, "None",
 		"Level of monitor aggregation for traces from the datapath")
 	option.BindEnvWithLegacyEnvFallback(option.MonitorAggregationName, "CILIUM_MONITOR_AGGREGATION_LEVEL")
