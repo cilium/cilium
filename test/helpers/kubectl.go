@@ -3151,10 +3151,7 @@ func (kub *Kubectl) ExecInFirstPod(ctx context.Context, namespace, selector, cmd
 }
 
 // ExecInPods runs given command on all pods in given namespace that match selector and returns map pod-name->CmdRes
-func (kub *Kubectl) ExecInPods(ctx context.Context, namespace, selector, cmd string, wait bool, options ...ExecOptions) (results map[string]*CmdRes, err error) {
-	if wait {
-		kub.WaitforPods(namespace, "-l "+selector, HelperTimeout)
-	}
+func (kub *Kubectl) ExecInPods(ctx context.Context, namespace, selector, cmd string, options ...ExecOptions) (results map[string]*CmdRes, err error) {
 	names, err := kub.GetPodNamesContext(ctx, namespace, selector)
 	if err != nil {
 		return nil, err
@@ -3817,7 +3814,7 @@ func (kub *Kubectl) ciliumServicePreFlightCheck() error {
 // commands are run on all pods matching selector
 func (kub *Kubectl) reportMapContext(ctx context.Context, path string, reportCmds map[string]string, ns, selector string) {
 	for cmd, logfile := range reportCmds {
-		results, err := kub.ExecInPods(ctx, ns, selector, cmd, true, ExecOptions{SkipLog: true})
+		results, err := kub.ExecInPods(ctx, ns, selector, cmd, ExecOptions{SkipLog: true})
 		if err != nil {
 			log.WithError(err).Errorf("cannot retrieve command output '%s': %s", cmd, err)
 		}
