@@ -53,7 +53,7 @@ require (
 	github.com/mitchellh/protoc-gen-go-json v0.0.0-20200717004536-8fbb6f3d7291
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.11.0
-	github.com/onsi/gomega v1.7.0
+	github.com/onsi/gomega v1.8.1
 	github.com/opencontainers/go-digest v1.0.0-rc1 // indirect
 	github.com/opencontainers/image-spec v1.0.1 // indirect
 	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
@@ -79,7 +79,7 @@ require (
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20200622214017-ed371f2e16b4
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
-	golang.org/x/tools v0.0.0-20200616133436-c1934b75d054
+	golang.org/x/tools v0.0.0-20200616195046-dc31b401abb5
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
 	google.golang.org/grpc v1.29.1
 	google.golang.org/grpc/cmd/protoc-gen-go-grpc v0.0.0-20200731180010-8bec2f5d898f
@@ -93,6 +93,12 @@ require (
 	k8s.io/client-go v0.19.0-rc.4
 	k8s.io/code-generator v0.19.0-rc.4
 	k8s.io/klog/v2 v2.2.0
+	// We specify the controller-tools version here to be the version of the
+	// fork below, so that when we generate CRDs, the generated CRD contains
+	// version number of the tool. We want the version number to match up with
+	// the fork, even though this specific version doesn't exist in upstream
+	// controller-tools.
+	sigs.k8s.io/controller-tools v0.3.1-0.20200716001835-4a903ddb7005
 	sigs.k8s.io/yaml v1.2.0
 )
 
@@ -100,4 +106,8 @@ replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
 	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20200804232341-96a4c8f3593c
+
+	// Using private fork of controller-tools. See commit msg for more context
+	// as to why we are using a private fork.
+	sigs.k8s.io/controller-tools => github.com/christarazi/controller-tools v0.3.1-0.20200803222741-1b051103a137
 )
