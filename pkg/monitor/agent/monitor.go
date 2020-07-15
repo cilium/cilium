@@ -15,9 +15,11 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
 	"errors"
-	"net"
+	"fmt"
 	"os"
 	"time"
 
@@ -27,10 +29,9 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/payload"
-	"github.com/cilium/cilium/pkg/option"
-
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
+
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -49,7 +50,7 @@ func isCtxDone(ctx context.Context) bool {
 	}
 }
 
-// Monitor structure for centralizing the responsibilities of the main events
+// Agent structure for centralizing the responsibilities of the main events
 // reader.
 // There is some racey-ness around perfReaderCancel since it replaces on every
 // perf reader start. In the event that a MonitorListener from a previous
@@ -59,7 +60,7 @@ func isCtxDone(ctx context.Context) bool {
 // must have at least one MonitorListener (since it started) so no cancel is called.
 // If it doesn't, the cancel is the correct behavior (the older generation
 // cancel must have been called for us to get this far anyway).
-type Monitor struct {
+type Agent struct {
 	lock.Mutex
 	models.MonitorStatus
 
@@ -71,11 +72,14 @@ type Monitor struct {
 	monitorEvents *perf.Reader
 }
 
-// NewMonitor creates a Monitor, and starts client connection handling and agent event
-// handling.
+// NewAgent starts a new monitor agent instance which distributes monitor events
+// to registered listeners. It spawns a singleton goroutine reading events from
+// the BPF perf ring buffer and provides an interface to pass in non-BPF events.
+// The instance can be stopped by cancelling ctx, which will stop the perf reader
+// go routine and close all registered listeners.
 // Note that the perf buffer reader is started only when listeners are
 // connected.
-func NewMonitor(ctx context.Context, nPages int, server1_2 net.Listener) (m *Monitor, err error) {
+func NewAgent(ctx context.Context, nPages int) (a *Agent, err error) {
 	// assert that we can actually connect the monitor
 	path := oldBPF.MapPath(eventsMapName)
 	eventsMap, err := ebpf.LoadPinnedMap(path)
@@ -83,7 +87,7 @@ func NewMonitor(ctx context.Context, nPages int, server1_2 net.Listener) (m *Mon
 		return nil, err
 	}
 
-	m = &Monitor{
+	a = &Agent{
 		ctx:              ctx,
 		listeners:        make(map[listener.MonitorListener]struct{}),
 		perfReaderCancel: func() {}, // no-op to avoid doing null checks everywhere
@@ -95,32 +99,67 @@ func NewMonitor(ctx context.Context, nPages int, server1_2 net.Listener) (m *Mon
 		},
 	}
 
-	// start new MonitorListener handler
-	go m.connectionHandler1_2(ctx, server1_2)
+	return a, nil
+}
 
-	return m, nil
+// SendEvent distributes an event to all monitor listeners
+func (a *Agent) SendEvent(typ int, event interface{}) error {
+	if a == nil {
+		return fmt.Errorf("monitor agent is not set up")
+	}
+
+	var buf bytes.Buffer
+	if err := buf.WriteByte(byte(typ)); err != nil {
+		return fmt.Errorf("unable to initialize buffer: %w", err)
+	}
+
+	if err := gob.NewEncoder(&buf).Encode(event); err != nil {
+		return fmt.Errorf("unable to gob encode: %w", err)
+	}
+
+	p := payload.Payload{Data: buf.Bytes(), CPU: 0, Lost: 0, Type: payload.EventSample}
+	a.send(&p)
+
+	return nil
+}
+
+// Context returns the underlying context of this monitor instance. It can be
+// used to derive other contexts which should be stopped when the monitor is
+// stopped.
+func (a *Agent) Context() context.Context {
+	return a.ctx
 }
 
 // RegisterNewListener adds the new MonitorListener to the global list. It also spawns
-// a singleton goroutine to read and distribute the events. It passes a
-// cancelable context to this goroutine and the cancelFunc is assigned to
-// perfReaderCancel. Note that cancelling parentCtx (e.g. on program shutdown)
+// a singleton goroutine to read and distribute the events. The goroutine is spawned
+// with a context derived from m.Context() and the cancelFunc is assigned to
+// perfReaderCancel. Note that cancelling m.Context() (e.g. on program shutdown)
 // will also cancel the derived context.
-func (m *Monitor) RegisterNewListener(parentCtx context.Context, newListener listener.MonitorListener) {
-	m.Lock()
-	defer m.Unlock()
+func (a *Agent) RegisterNewListener(newListener listener.MonitorListener) {
+	if a == nil {
+		return
+	}
+
+	a.Lock()
+	defer a.Unlock()
+
+	if isCtxDone(a.ctx) {
+		log.Debug("RegisterNewListener called on stopped monitor")
+		newListener.Close()
+		return
+	}
 
 	// If this is the first listener, start the perf reader
-	if len(m.listeners) == 0 {
-		m.perfReaderCancel() // don't leak any old readers, just in case.
-		perfEventReaderCtx, cancel := context.WithCancel(parentCtx)
-		m.perfReaderCancel = cancel
-		go m.handleEvents(perfEventReaderCtx)
+	if len(a.listeners) == 0 {
+		a.perfReaderCancel() // don't leak any old readers, just in case.
+		perfEventReaderCtx, cancel := context.WithCancel(a.ctx)
+		a.perfReaderCancel = cancel
+		go a.handleEvents(perfEventReaderCtx)
 	}
 	version := newListener.Version()
 	switch newListener.Version() {
 	case listener.Version1_2:
-		m.listeners[newListener] = struct{}{}
+		a.listeners[newListener] = struct{}{}
 
 	default:
 		newListener.Close()
@@ -128,21 +167,25 @@ func (m *Monitor) RegisterNewListener(parentCtx context.Context, newListener lis
 	}
 
 	log.WithFields(logrus.Fields{
-		"count.listener": len(m.listeners),
+		"count.listener": len(a.listeners),
 		"version":        version,
 	}).Debug("New listener connected")
 }
 
-// removeListener deletes the MonitorListener from the list, closes its queue, and
+// RemoveListener deletes the MonitorListener from the list, closes its queue, and
 // stops perfReader if this is the last MonitorListener
-func (m *Monitor) removeListener(ml listener.MonitorListener) {
-	m.Lock()
-	defer m.Unlock()
+func (a *Agent) RemoveListener(ml listener.MonitorListener) {
+	if a == nil {
+		return
+	}
+
+	a.Lock()
+	defer a.Unlock()
 
 	// Remove the listener and close it.
-	delete(m.listeners, ml)
+	delete(a.listeners, ml)
 	log.WithFields(logrus.Fields{
-		"count.listener": len(m.listeners),
+		"count.listener": len(a.listeners),
 		"version":        ml.Version(),
 	}).Debug("Removed listener")
 	ml.Close()
@@ -152,8 +195,8 @@ func (m *Monitor) removeListener(ml listener.MonitorListener) {
 	// Note: it is critical to hold the lock and check the number of listeners.
 	// This guards against an older generation listener calling the
 	// current generation perfReaderCancel
-	if len(m.listeners) == 0 {
-		m.perfReaderCancel()
+	if len(a.listeners) == 0 {
+		a.perfReaderCancel()
 	}
 }
 
@@ -161,26 +204,26 @@ func (m *Monitor) removeListener(ml listener.MonitorListener) {
 // will exit when stopCtx is done. Note, however, that it will block in the
 // Poll call but assumes enough events are generated that these blocks are
 // short.
-func (m *Monitor) handleEvents(stopCtx context.Context) {
+func (a *Agent) handleEvents(stopCtx context.Context) {
 	scopedLog := log.WithField(logfields.StartTime, time.Now())
 	scopedLog.Info("Beginning to read perf buffer")
 	defer scopedLog.Info("Stopped reading perf buffer")
 
-	bufferSize := int(m.Pagesize * m.Npages)
-	monitorEvents, err := perf.NewReader(m.events, bufferSize)
+	bufferSize := int(a.Pagesize * a.Npages)
+	monitorEvents, err := perf.NewReader(a.events, bufferSize)
 	if err != nil {
 		scopedLog.WithError(err).Fatal("Cannot initialise BPF perf ring buffer sockets")
 	}
 	defer func() {
 		monitorEvents.Close()
-		m.Lock()
-		m.monitorEvents = nil
-		m.Unlock()
+		a.Lock()
+		a.monitorEvents = nil
+		a.Unlock()
 	}()
 
-	m.Lock()
-	m.monitorEvents = monitorEvents
-	m.Unlock()
+	a.Lock()
+	a.monitorEvents = monitorEvents
+	a.Unlock()
 
 	for !isCtxDone(stopCtx) {
 		record, err := monitorEvents.Read()
@@ -189,9 +232,9 @@ func (m *Monitor) handleEvents(stopCtx context.Context) {
 			return
 		case err != nil:
 			if perf.IsUnknownEvent(err) {
-				m.Lock()
-				m.MonitorStatus.Unknown++
-				m.Unlock()
+				a.Lock()
+				a.MonitorStatus.Unknown++
+				a.Unlock()
 			} else {
 				scopedLog.WithError(err).Warn("Error received while reading from perf buffer")
 				if errors.Is(err, unix.EBADFD) {
@@ -201,11 +244,11 @@ func (m *Monitor) handleEvents(stopCtx context.Context) {
 			continue
 		}
 
-		m.Lock()
+		a.Lock()
 		plType := payload.EventSample
 		if record.LostSamples > 0 {
 			plType = payload.RecordLost
-			m.MonitorStatus.Lost += int64(record.LostSamples)
+			a.MonitorStatus.Lost += int64(record.LostSamples)
 		}
 		pl := payload.Payload{
 			Data: record.RawSample,
@@ -213,59 +256,39 @@ func (m *Monitor) handleEvents(stopCtx context.Context) {
 			Lost: record.LostSamples,
 			Type: plType,
 		}
-		m.sendLocked(&pl)
-		m.Unlock()
+		a.sendLocked(&pl)
+		a.Unlock()
 	}
 }
 
-// Status returns the current status of the monitor
-func (m *Monitor) Status() *models.MonitorStatus {
-	m.Lock()
-	defer m.Unlock()
+// State returns the current status of the monitor
+func (a *Agent) State() *models.MonitorStatus {
+	if a == nil {
+		return nil
+	}
 
-	if m.monitorEvents == nil {
+	a.Lock()
+	defer a.Unlock()
+
+	if a.monitorEvents == nil {
 		return nil
 	}
 
 	// Shallow-copy the structure, then return the newly allocated copy.
-	status := m.MonitorStatus
+	status := a.MonitorStatus
 	return &status
 }
 
-// connectionHandler1_2 handles all the incoming connections and sets up the
-// listener objects. It will block on Accept, but expects the caller to close
-// server, inducing a return.
-func (m *Monitor) connectionHandler1_2(parentCtx context.Context, server net.Listener) {
-	for !isCtxDone(parentCtx) {
-		conn, err := server.Accept()
-		switch {
-		case isCtxDone(parentCtx) && conn != nil:
-			conn.Close()
-			fallthrough
-
-		case isCtxDone(parentCtx) && conn == nil:
-			return
-
-		case err != nil:
-			log.WithError(err).Warn("Error accepting connection")
-			continue
-		}
-
-		newListener := newListenerv1_2(conn, option.Config.MonitorQueueSize, m.removeListener)
-		m.RegisterNewListener(parentCtx, newListener)
-	}
-}
-
 // send enqueues the payload to all listeners.
-func (m *Monitor) send(pl *payload.Payload) {
-	m.Lock()
-	defer m.Unlock()
-	m.sendLocked(pl)
+func (a *Agent) send(pl *payload.Payload) {
+	a.Lock()
+	defer a.Unlock()
+	a.sendLocked(pl)
 }
 
 // sendLocked enqueues the payload to all listeners while holding the monitor lock.
-func (m *Monitor) sendLocked(pl *payload.Payload) {
-	for ml := range m.listeners {
+func (a *Agent) sendLocked(pl *payload.Payload) {
+	for ml := range a.listeners {
 		ml.Enqueue(pl)
 	}
 }
