@@ -15,20 +15,16 @@
 package agent
 
 import (
-	"bytes"
 	"context"
-	"encoding/gob"
 	"fmt"
 	"net"
 	"os"
 
-	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/monitor/payload"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -54,72 +50,56 @@ func buildServer(path string) (net.Listener, error) {
 	return server, nil
 }
 
-// Agent represents an instance of a monitor agent. It runs a monitor to read
-// events from the BPF perf ring buffer and provides an interface to also pass
-// in non-BPF events.
-type Agent struct {
-	mutex     lock.Mutex
-	server1_2 net.Listener
-	monitor   *Monitor
+// server serves the Cilium monitor API on the unix domain socket
+type server struct {
+	listener net.Listener
+	monitor  *Agent
 }
 
-// NewAgent creates a new monitor agent
-func NewAgent(ctx context.Context, npages int) (a *Agent, err error) {
-	a = &Agent{}
-
-	a.server1_2, err = buildServer(defaults.MonitorSockPath1_2)
+// ServeMonitorAPI serves the Cilium 1.2 monitor API on a unix domain socket.
+// This method starts the server in the background. The server is stopped when
+// monitor.Context() is cancelled. Each incoming connection registers a new
+// listener on monitor.
+func ServeMonitorAPI(monitor *Agent) error {
+	listener, err := buildServer(defaults.MonitorSockPath1_2)
 	if err != nil {
-		return
+		return err
 	}
 
-	a.monitor, err = NewMonitor(ctx, npages, a.server1_2)
-	if err != nil {
-		return
+	s := &server{
+		listener: listener,
+		monitor:  monitor,
 	}
 
 	log.Infof("Serving cilium node monitor v1.2 API at unix://%s", defaults.MonitorSockPath1_2)
 
-	return
-}
-
-// Stop stops the monitor agent
-func (a *Agent) Stop() {
-	a.server1_2.Close()
-}
-
-// State returns the monitor status.
-func (a *Agent) State() *models.MonitorStatus {
-	if a == nil || a.monitor == nil {
-		return nil
-	}
-
-	return a.monitor.Status()
-}
-
-// SendEvent sends an event to the node monitor which will then distribute to
-// all monitor listeners
-func (a *Agent) SendEvent(typ int, event interface{}) error {
-	var buf bytes.Buffer
-
-	if a == nil {
-		return fmt.Errorf("monitor agent is not set up")
-	}
-
-	if err := gob.NewEncoder(&buf).Encode(event); err != nil {
-		//nm.bumpLost()
-		return fmt.Errorf("Unable to gob encode: %s", err)
-	}
-
-	a.mutex.Lock()
-	defer a.mutex.Unlock()
-
-	p := payload.Payload{Data: append([]byte{byte(typ)}, buf.Bytes()...), CPU: 0, Lost: 0, Type: payload.EventSample}
-	a.monitor.send(&p)
+	go s.connectionHandler1_2(monitor.Context())
 
 	return nil
 }
 
-// GetMonitor returns the pointer to the monitor.
-func (a *Agent) GetMonitor() *Monitor {
-	return a.monitor
+// connectionHandler1_2 handles all the incoming connections and sets up the
+// listener objects. It will block until ctx is cancelled.
+func (s *server) connectionHandler1_2(ctx context.Context) {
+	go func() {
+		<-ctx.Done()
+		s.listener.Close()
+	}()
+
+	for !isCtxDone(ctx) {
+		conn, err := s.listener.Accept()
+		switch {
+		case isCtxDone(ctx):
+			if conn != nil {
+				conn.Close()
+			}
+			return
+		case err != nil:
+			log.WithError(err).Warn("Error accepting connection")
+			continue
+		}
+
+		newListener := newListenerv1_2(conn, option.Config.MonitorQueueSize, s.monitor.RemoveListener)
+		s.monitor.RegisterNewListener(newListener)
+	}
 }
