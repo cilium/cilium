@@ -355,7 +355,7 @@ func TestService_Notify(t *testing.T) {
 		t.Run(tt.name, func(t *testing.T) {
 			var got []*peerpb.ChangeNotification
 			var wg sync.WaitGroup
-			fakeServer := &FakePeerNotifyServer{
+			fakeServer := &testutils.FakePeerNotifyServer{
 				OnSend: func(resp *peerpb.ChangeNotification) error {
 					got = append(got, resp)
 					wg.Done()
@@ -418,7 +418,7 @@ func TestService_Notify(t *testing.T) {
 }
 
 func TestService_NotifyWithBlockedSend(t *testing.T) {
-	fakeServer := &FakePeerNotifyServer{
+	fakeServer := &testutils.FakePeerNotifyServer{
 		OnSend: func(resp *peerpb.ChangeNotification) error {
 			<-time.After(100 * time.Millisecond)
 			return nil
@@ -468,18 +468,6 @@ func TestService_NotifyWithBlockedSend(t *testing.T) {
 	svc.Close()
 	// wait for the notify call routine to finish
 	<-done
-}
-
-type FakePeerNotifyServer struct {
-	OnSend func(response *peerpb.ChangeNotification) error
-	*testutils.FakeGRPCServerStream
-}
-
-func (s *FakePeerNotifyServer) Send(response *peerpb.ChangeNotification) error {
-	if s.OnSend != nil {
-		return s.OnSend(response)
-	}
-	panic("OnSend not set")
 }
 
 type notifier struct {
