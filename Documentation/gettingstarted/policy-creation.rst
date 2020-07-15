@@ -74,6 +74,8 @@ To observe policy audit messages, follow these steps:
    pods with the label ``org=empire`` and enable the policy verdict
    notifications for those pods. The same principle applies on egress as well.
 
+.. _observe_policy_verdicts:
+
 Observe policy verdicts
 =======================
 
@@ -123,6 +125,8 @@ bit more information about what these numbers mean:
           k8s:io.cilium.k8s.policy.serviceaccount=default
           k8s:io.kubernetes.pod.namespace=default
           k8s:org=empire
+
+.. _create_network_policy:
 
 Create the Network Policy
 =========================
