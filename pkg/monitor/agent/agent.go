@@ -15,91 +15,280 @@
 package agent
 
 import (
+	"bytes"
 	"context"
+	"encoding/gob"
+	"errors"
 	"fmt"
-	"net"
 	"os"
+	"time"
 
-	"github.com/cilium/cilium/pkg/api"
-	"github.com/cilium/cilium/pkg/defaults"
-	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/api/v1/models"
+	oldBPF "github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/monitor/agent/listener"
+	"github.com/cilium/cilium/pkg/monitor/payload"
+	"github.com/cilium/ebpf"
+	"github.com/cilium/ebpf/perf"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sys/unix"
 )
 
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "monitor-agent")
-)
+const eventsMapName = "cilium_events"
 
-// buildServer opens a listener socket at path. It exits with logging on all
-// errors.
-func buildServer(path string) (net.Listener, error) {
-	os.Remove(path)
-	server, err := net.Listen("unix", path)
-	if err != nil {
-		return nil, fmt.Errorf("cannot listen on unix socket %s: %s", path, err)
+// isCtxDone is a utility function that returns true when the context's Done()
+// channel is closed. It is intended to simplify goroutines that need to check
+// this multiple times in their loop.
+func isCtxDone(ctx context.Context) bool {
+	select {
+	case <-ctx.Done():
+		return true
+	default:
+		return false
 	}
-
-	if os.Getuid() == 0 {
-		err := api.SetDefaultPermissions(path)
-		if err != nil {
-			return nil, fmt.Errorf("cannot set default permissions on socket %s: %s", path, err)
-		}
-	}
-
-	return server, nil
 }
 
-// server serves the Cilium monitor API on the unix domain socket
-type server struct {
-	listener net.Listener
-	monitor  *Agent
+// Agent structure for centralizing the responsibilities of the main events
+// reader.
+// There is some racey-ness around perfReaderCancel since it replaces on every
+// perf reader start. In the event that a MonitorListener from a previous
+// generation calls its cleanup after the start of the new perf reader, we
+// might call the new, and incorrect, cancel function. We guard for this by
+// checking the number of listeners during the cleanup call. The perf reader
+// must have at least one MonitorListener (since it started) so no cancel is called.
+// If it doesn't, the cancel is the correct behavior (the older generation
+// cancel must have been called for us to get this far anyway).
+type Agent struct {
+	lock.Mutex
+	models.MonitorStatus
+
+	ctx              context.Context
+	perfReaderCancel context.CancelFunc
+	listeners        map[listener.MonitorListener]struct{}
+
+	events        *ebpf.Map
+	monitorEvents *perf.Reader
 }
 
-// ServeMonitorAPI serves the Cilium 1.2 monitor API on a unix domain socket.
-// This method starts the server in the background. The server is stopped when
-// monitor.Context() is cancelled. Each incoming connection registers a new
-// listener on monitor.
-func ServeMonitorAPI(monitor *Agent) error {
-	listener, err := buildServer(defaults.MonitorSockPath1_2)
+// NewAgent starts a new monitor agent instance which distributes monitor events
+// to registered listeners. It spawns a singleton goroutine reading events from
+// the BPF perf ring buffer and provides an interface to pass in non-BPF events.
+// The instance can be stopped by cancelling ctx, which will stop the perf reader
+// go routine and close all registered listeners.
+// Note that the perf buffer reader is started only when listeners are
+// connected.
+func NewAgent(ctx context.Context, nPages int) (a *Agent, err error) {
+	// assert that we can actually connect the monitor
+	path := oldBPF.MapPath(eventsMapName)
+	eventsMap, err := ebpf.LoadPinnedMap(path)
 	if err != nil {
-		return err
+		return nil, err
 	}
 
-	s := &server{
-		listener: listener,
-		monitor:  monitor,
+	a = &Agent{
+		ctx:              ctx,
+		listeners:        make(map[listener.MonitorListener]struct{}),
+		perfReaderCancel: func() {}, // no-op to avoid doing null checks everywhere
+		events:           eventsMap,
+		MonitorStatus: models.MonitorStatus{
+			Cpus:     int64(eventsMap.ABI().MaxEntries),
+			Npages:   int64(nPages),
+			Pagesize: int64(os.Getpagesize()),
+		},
 	}
 
-	log.Infof("Serving cilium node monitor v1.2 API at unix://%s", defaults.MonitorSockPath1_2)
+	return a, nil
+}
 
-	go s.connectionHandler1_2(monitor.Context())
+// SendEvent distributes an event to all monitor listeners
+func (a *Agent) SendEvent(typ int, event interface{}) error {
+	if a == nil {
+		return fmt.Errorf("monitor agent is not set up")
+	}
+
+	var buf bytes.Buffer
+	if err := buf.WriteByte(byte(typ)); err != nil {
+		return fmt.Errorf("unable to initialize buffer: %w", err)
+	}
+
+	if err := gob.NewEncoder(&buf).Encode(event); err != nil {
+		return fmt.Errorf("unable to gob encode: %w", err)
+	}
+
+	p := payload.Payload{Data: buf.Bytes(), CPU: 0, Lost: 0, Type: payload.EventSample}
+	a.send(&p)
 
 	return nil
 }
 
-// connectionHandler1_2 handles all the incoming connections and sets up the
-// listener objects. It will block until ctx is cancelled.
-func (s *server) connectionHandler1_2(ctx context.Context) {
-	go func() {
-		<-ctx.Done()
-		s.listener.Close()
+// Context returns the underlying context of this monitor instance. It can be
+// used to derive other contexts which should be stopped when the monitor is
+// stopped.
+func (a *Agent) Context() context.Context {
+	return a.ctx
+}
+
+// RegisterNewListener adds the new MonitorListener to the global list. It also spawns
+// a singleton goroutine to read and distribute the events. The goroutine is spawned
+// with a context derived from m.Context() and the cancelFunc is assigned to
+// perfReaderCancel. Note that cancelling m.Context() (e.g. on program shutdown)
+// will also cancel the derived context.
+func (a *Agent) RegisterNewListener(newListener listener.MonitorListener) {
+	if a == nil {
+		return
+	}
+
+	a.Lock()
+	defer a.Unlock()
+
+	if isCtxDone(a.ctx) {
+		log.Debug("RegisterNewListener called on stopped monitor")
+		newListener.Close()
+		return
+	}
+
+	// If this is the first listener, start the perf reader
+	if len(a.listeners) == 0 {
+		a.perfReaderCancel() // don't leak any old readers, just in case.
+		perfEventReaderCtx, cancel := context.WithCancel(a.ctx)
+		a.perfReaderCancel = cancel
+		go a.handleEvents(perfEventReaderCtx)
+	}
+	version := newListener.Version()
+	switch newListener.Version() {
+	case listener.Version1_2:
+		a.listeners[newListener] = struct{}{}
+
+	default:
+		newListener.Close()
+		log.WithField("version", version).Error("Closing listener from unsupported monitor client version")
+	}
+
+	log.WithFields(logrus.Fields{
+		"count.listener": len(a.listeners),
+		"version":        version,
+	}).Debug("New listener connected")
+}
+
+// RemoveListener deletes the MonitorListener from the list, closes its queue, and
+// stops perfReader if this is the last MonitorListener
+func (a *Agent) RemoveListener(ml listener.MonitorListener) {
+	if a == nil {
+		return
+	}
+
+	a.Lock()
+	defer a.Unlock()
+
+	// Remove the listener and close it.
+	delete(a.listeners, ml)
+	log.WithFields(logrus.Fields{
+		"count.listener": len(a.listeners),
+		"version":        ml.Version(),
+	}).Debug("Removed listener")
+	ml.Close()
+
+	// If this was the final listener, shutdown the perf reader and unmap our
+	// ring buffer readers. This tells the kernel to not emit this data.
+	// Note: it is critical to hold the lock and check the number of listeners.
+	// This guards against an older generation listener calling the
+	// current generation perfReaderCancel
+	if len(a.listeners) == 0 {
+		a.perfReaderCancel()
+	}
+}
+
+// handleEvents reads events from the perf buffer and processes them. It
+// will exit when stopCtx is done. Note, however, that it will block in the
+// Poll call but assumes enough events are generated that these blocks are
+// short.
+func (a *Agent) handleEvents(stopCtx context.Context) {
+	scopedLog := log.WithField(logfields.StartTime, time.Now())
+	scopedLog.Info("Beginning to read perf buffer")
+	defer scopedLog.Info("Stopped reading perf buffer")
+
+	bufferSize := int(a.Pagesize * a.Npages)
+	monitorEvents, err := perf.NewReader(a.events, bufferSize)
+	if err != nil {
+		scopedLog.WithError(err).Fatal("Cannot initialise BPF perf ring buffer sockets")
+	}
+	defer func() {
+		monitorEvents.Close()
+		a.Lock()
+		a.monitorEvents = nil
+		a.Unlock()
 	}()
 
-	for !isCtxDone(ctx) {
-		conn, err := s.listener.Accept()
+	a.Lock()
+	a.monitorEvents = monitorEvents
+	a.Unlock()
+
+	for !isCtxDone(stopCtx) {
+		record, err := monitorEvents.Read()
 		switch {
-		case isCtxDone(ctx):
-			if conn != nil {
-				conn.Close()
-			}
+		case isCtxDone(stopCtx):
 			return
 		case err != nil:
-			log.WithError(err).Warn("Error accepting connection")
+			if perf.IsUnknownEvent(err) {
+				a.Lock()
+				a.MonitorStatus.Unknown++
+				a.Unlock()
+			} else {
+				scopedLog.WithError(err).Warn("Error received while reading from perf buffer")
+				if errors.Is(err, unix.EBADFD) {
+					return
+				}
+			}
 			continue
 		}
 
-		newListener := newListenerv1_2(conn, option.Config.MonitorQueueSize, s.monitor.RemoveListener)
-		s.monitor.RegisterNewListener(newListener)
+		a.Lock()
+		plType := payload.EventSample
+		if record.LostSamples > 0 {
+			plType = payload.RecordLost
+			a.MonitorStatus.Lost += int64(record.LostSamples)
+		}
+		pl := payload.Payload{
+			Data: record.RawSample,
+			CPU:  record.CPU,
+			Lost: record.LostSamples,
+			Type: plType,
+		}
+		a.sendLocked(&pl)
+		a.Unlock()
+	}
+}
+
+// State returns the current status of the monitor
+func (a *Agent) State() *models.MonitorStatus {
+	if a == nil {
+		return nil
+	}
+
+	a.Lock()
+	defer a.Unlock()
+
+	if a.monitorEvents == nil {
+		return nil
+	}
+
+	// Shallow-copy the structure, then return the newly allocated copy.
+	status := a.MonitorStatus
+	return &status
+}
+
+// send enqueues the payload to all listeners.
+func (a *Agent) send(pl *payload.Payload) {
+	a.Lock()
+	defer a.Unlock()
+	a.sendLocked(pl)
+}
+
+// sendLocked enqueues the payload to all listeners while holding the monitor lock.
+func (a *Agent) sendLocked(pl *payload.Payload) {
+	for ml := range a.listeners {
+		ml.Enqueue(pl)
 	}
 }
