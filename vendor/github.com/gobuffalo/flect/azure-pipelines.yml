@@ -1,0 +1,71 @@
+variables:
+  GOBIN:  "$(GOPATH)/bin" # Go binaries path
+  GOPATH: "$(system.defaultWorkingDirectory)/gopath" # Go workspace path
+  modulePath: "$(GOPATH)/src/github.com/$(build.repository.name)" # Path to the module"s code
+
+jobs:
+- job: Windows
+  pool:
+    vmImage: "vs2017-win2016"
+  strategy:
+    matrix:
+      go 1.10:
+        go_version: "1.10"
+      go 1.11 (on):
+        go_version: "1.11.5"
+        GO111MODULE: "on"
+      go 1.11 (off):
+        go_version: "1.11.5"
+        GO111MODULE: "off"
+      go 1.12 (on):
+        go_version: "1.12"
+        GO111MODULE: "on"
+      go 1.12 (off):
+        go_version: "1.12"
+        GO111MODULE: "off"
+  steps:
+    - template: azure-tests.yml
+
+- job: macOS
+  pool:
+    vmImage: "macOS-10.13"
+  strategy:
+    matrix:
+      go 1.10:
+        go_version: "1.10"
+      go 1.11 (on):
+        go_version: "1.11.5"
+        GO111MODULE: "on"
+      go 1.11 (off):
+        go_version: "1.11.5"
+        GO111MODULE: "off"
+      go 1.12 (on):
+        go_version: "1.12"
+        GO111MODULE: "on"
+      go 1.12 (off):
+        go_version: "1.12"
+        GO111MODULE: "off"
+  steps:
+    - template: azure-tests.yml
+
+- job: Linux
+  pool:
+    vmImage: "ubuntu-16.04"
+  strategy:
+    matrix:
+      go 1.10:
+        go_version: "1.10"
+      go 1.11 (on):
+        go_version: "1.11.5"
+        GO111MODULE: "on"
+      go 1.11 (off):
+        go_version: "1.11.5"
+        GO111MODULE: "off"
+      go 1.12 (on):
+        go_version: "1.12"
+        GO111MODULE: "on"
+      go 1.12 (off):
+        go_version: "1.12"
+        GO111MODULE: "off"
+  steps:
+    - template: azure-tests.yml
