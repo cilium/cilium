@@ -19,14 +19,14 @@ import (
 
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/defaults"
-	hubblePeer "github.com/cilium/cilium/pkg/hubble/peer"
+	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 
 	"google.golang.org/grpc"
 )
 
 // DefaultOptions is the reference point for default values.
 var DefaultOptions = Options{
-	PeerClientBuilder: hubblePeer.LocalClientBuilder{
+	PeerClientBuilder: peerTypes.LocalClientBuilder{
 		LocalAddress: "unix://" + defaults.HubbleSockPath,
 		DialTimeout:  5 * time.Second,
 	},
@@ -51,7 +51,7 @@ type Option func(o *Options) error
 
 // Options stores all the configuration values for peer manager.
 type Options struct {
-	PeerClientBuilder hubblePeer.ClientBuilder
+	PeerClientBuilder peerTypes.ClientBuilder
 	ClientConnBuilder ClientConnBuilder
 	Backoff           BackoffDuration
 	ConnCheckInterval time.Duration
@@ -61,7 +61,7 @@ type Options struct {
 
 // WithPeerClientBuilder sets the ClientBuilder that is used to create new Peer
 // service clients.
-func WithPeerClientBuilder(b hubblePeer.ClientBuilder) Option {
+func WithPeerClientBuilder(b peerTypes.ClientBuilder) Option {
 	return func(o *Options) error {
 		o.PeerClientBuilder = b
 		return nil
