@@ -496,6 +496,9 @@ microk8s: check-microk8s ## Build cilium-dev docker image and import to mircrok8
 	$(QUIET)$(CONTAINER_ENGINE) tag $(IMAGE_REPOSITORY)/cilium-dev:$(LOCAL_IMAGE_TAG) $(LOCAL_IMAGE)
 	$(QUIET)./contrib/scripts/microk8s-import.sh $(LOCAL_IMAGE)
 
+kind: ## Create a kind cluster for Cilium development.
+	$(QUIET)./contrib/scripts/kind.sh
+
 precheck: logging-subsys-field ## Peform build precheck for the source code.
 ifeq ($(SKIP_K8S_CODE_GEN_CHECK),"false")
 	@$(ECHO_CHECK) contrib/scripts/check-k8s-code-gen.sh
