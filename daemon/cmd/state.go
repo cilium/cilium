@@ -341,7 +341,7 @@ func (d *Daemon) initRestore(restoredEndpoints *endpointRestoreState) chan struc
 			if k8s.IsEnabled() {
 				// Also wait for all cluster mesh to be synchronized with the
 				// datapath before proceeding.
-				if option.Config.ClusterID != 0 {
+				if option.Config.ClusterMeshConfig != "" {
 					err := d.clustermesh.ClustersSynced(context.Background())
 					if err != nil {
 						log.WithError(err).Fatal("timeout while waiting for all clusters to be locally synchronized")
