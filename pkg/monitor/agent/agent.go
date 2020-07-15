@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor/payload"
-	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -62,14 +61,11 @@ type Agent struct {
 	mutex     lock.Mutex
 	server1_2 net.Listener
 	monitor   *Monitor
-	queue     chan payload.Payload
 }
 
 // NewAgent creates a new monitor agent
 func NewAgent(ctx context.Context, npages int) (a *Agent, err error) {
-	a = &Agent{
-		queue: make(chan payload.Payload, option.Config.MonitorQueueSize),
-	}
+	a = &Agent{}
 
 	a.server1_2, err = buildServer(defaults.MonitorSockPath1_2)
 	if err != nil {
@@ -83,26 +79,12 @@ func NewAgent(ctx context.Context, npages int) (a *Agent, err error) {
 
 	log.Infof("Serving cilium node monitor v1.2 API at unix://%s", defaults.MonitorSockPath1_2)
 
-	go a.eventDrainer()
-
 	return
 }
 
 // Stop stops the monitor agent
 func (a *Agent) Stop() {
 	a.server1_2.Close()
-	close(a.queue)
-}
-
-func (a *Agent) eventDrainer() {
-	for {
-		p, ok := <-a.queue
-		if !ok {
-			return
-		}
-
-		a.monitor.send(&p)
-	}
 }
 
 // State returns the monitor status.
@@ -132,13 +114,7 @@ func (a *Agent) SendEvent(typ int, event interface{}) error {
 	defer a.mutex.Unlock()
 
 	p := payload.Payload{Data: append([]byte{byte(typ)}, buf.Bytes()...), CPU: 0, Lost: 0, Type: payload.EventSample}
-
-	select {
-	case a.queue <- p:
-	default:
-		//nm.bumpLost()
-		return fmt.Errorf("Monitor queue is full, discarding notification")
-	}
+	a.monitor.send(&p)
 
 	return nil
 }
