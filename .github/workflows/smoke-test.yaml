@@ -21,6 +21,19 @@ jobs:
           cat token.txt | docker login --username nebril docker.pkg.github.com --password-stdin
           docker tag alpine docker.pkg.github.com/nebril/cilium/cilium:test-dev
           docker push docker.pkg.github.com/nebril/cilium/cilium:test-dev
+  artifact-test:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Check registry
+        run: |
+          docker pull alpine
+          docker save alpine > image
+      - name: Upload docker image
+        uses: actions/upload-artifact@v1
+        with:
+          name: image
+          path: image
+
   preflight-clusterrole:
     runs-on: ubuntu-latest
     steps:
