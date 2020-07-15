@@ -207,15 +207,17 @@ type IPIdentityWatcher struct {
 	stop     chan struct{}
 	synced   chan struct{}
 	stopOnce sync.Once
+	cluster  string
 }
 
 // NewIPIdentityWatcher creates a new IPIdentityWatcher using the specified
 // kvstore backend
-func NewIPIdentityWatcher(backend kvstore.BackendOperations) *IPIdentityWatcher {
+func NewIPIdentityWatcher(backend kvstore.BackendOperations, cluster string) *IPIdentityWatcher {
 	watcher := &IPIdentityWatcher{
 		backend: backend,
 		stop:    make(chan struct{}),
 		synced:  make(chan struct{}),
+		cluster: cluster,
 	}
 
 	return watcher
@@ -286,19 +288,17 @@ restart:
 					scopedLog.Debug("Ignoring entry with nil IP")
 					continue
 				}
-				var k8sMeta *K8sMetadata
-				if ipIDPair.K8sNamespace != "" || ipIDPair.K8sPodName != "" || len(ipIDPair.NamedPorts) > 0 {
-					k8sMeta = &K8sMetadata{
-						Namespace:  ipIDPair.K8sNamespace,
-						PodName:    ipIDPair.K8sPodName,
-						NamedPorts: make(policy.NamedPortsMap, len(ipIDPair.NamedPorts)),
-					}
-					for _, np := range ipIDPair.NamedPorts {
-						err = k8sMeta.NamedPorts.AddPort(np.Name, int(np.Port), np.Protocol)
-						if err != nil {
-							log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
-								WithError(err).Error("Parsing named port failed")
-						}
+				k8sMeta := &K8sMetadata{
+					Namespace:  ipIDPair.K8sNamespace,
+					PodName:    ipIDPair.K8sPodName,
+					Cluster:    iw.cluster,
+					NamedPorts: make(policy.NamedPortsMap, len(ipIDPair.NamedPorts)),
+				}
+				for _, np := range ipIDPair.NamedPorts {
+					err = k8sMeta.NamedPorts.AddPort(np.Name, int(np.Port), np.Protocol)
+					if err != nil {
+						log.WithFields(logrus.Fields{"kvstore-event": event.Typ.String(), "key": event.Key}).
+							WithError(err).Error("Parsing named port failed")
 					}
 				}
 
@@ -374,7 +374,7 @@ func InitIPIdentityWatcher() {
 	setupIPIdentityWatcher.Do(func() {
 		go func() {
 			log.Info("Starting IP identity watcher")
-			watcher = NewIPIdentityWatcher(kvstore.Client())
+			watcher = NewIPIdentityWatcher(kvstore.Client(), option.Config.LocalClusterName())
 			close(initialized)
 			watcher.Watch(context.TODO())
 		}()

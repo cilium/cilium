@@ -223,7 +223,7 @@ func (rc *remoteCluster) restartRemoteConnection(allocator RemoteIdentityWatcher
 					return err
 				}
 
-				ipCacheWatcher := ipcache.NewIPIdentityWatcher(backend)
+				ipCacheWatcher := ipcache.NewIPIdentityWatcher(backend, rc.name)
 				go ipCacheWatcher.Watch(ctx)
 
 				rc.mutex.Lock()

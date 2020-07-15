@@ -63,6 +63,8 @@ type K8sMetadata struct {
 	PodName string
 	// NamedPorts is the set of named ports for the pod
 	NamedPorts policy.NamedPortsMap
+	// Cluster is the name of th cluster
+	Cluster string
 }
 
 // IPCache is a collection of mappings:
@@ -258,6 +260,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 				logfields.K8sPodName:   k8sMeta.PodName,
 				logfields.K8sNamespace: k8sMeta.Namespace,
 				logfields.NamedPorts:   k8sMeta.NamedPorts,
+				logfields.ClusterName:  k8sMeta.Cluster,
 			})
 		}
 	}
@@ -599,5 +602,5 @@ func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
 			return false
 		}
 	}
-	return m.Namespace == o.Namespace && m.PodName == o.PodName
+	return m.Namespace == o.Namespace && m.PodName == o.PodName && m.Cluster == o.Cluster
 }

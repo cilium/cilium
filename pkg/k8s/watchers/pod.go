@@ -506,6 +506,7 @@ func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod) (bool, error) {
 	k8sMeta := &ipcache.K8sMetadata{
 		Namespace: pod.Namespace,
 		PodName:   pod.Name,
+		Cluster:   option.Config.LocalClusterName(),
 	}
 
 	// Store Named ports, if any.
