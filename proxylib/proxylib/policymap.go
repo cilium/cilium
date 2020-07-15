@@ -110,14 +110,12 @@ func (p *PortNetworkPolicyRule) Matches(remoteId uint32, l7 interface{}) bool {
 }
 
 type PortNetworkPolicyRules struct {
-	Rules       []PortNetworkPolicyRule
-	HaveL7Rules bool
+	Rules []PortNetworkPolicyRule
 }
 
 func newPortNetworkPolicyRules(config []*cilium.PortNetworkPolicyRule) (PortNetworkPolicyRules, bool) {
 	rules := PortNetworkPolicyRules{
-		Rules:       make([]PortNetworkPolicyRule, 0, len(config)),
-		HaveL7Rules: false,
+		Rules: make([]PortNetworkPolicyRule, 0, len(config)),
 	}
 	if len(config) == 0 {
 		log.Debugf("NPDS::PortNetworkPolicyRules: No rules, will allow everything.")
@@ -127,12 +125,7 @@ func newPortNetworkPolicyRules(config []*cilium.PortNetworkPolicyRule) (PortNetw
 		newRule, typeName, ok := newPortNetworkPolicyRule(rule)
 		if !ok {
 			// Unknown L7 parser, must drop all traffic
-			// Empty set of rules drops only when 'HaveL7Rules' is 'true'
-			log.Debugf("NPDS::PortNetworkPolicyRules: Unknown L7 (%s), will drop everything.", typeName)
-			return PortNetworkPolicyRules{HaveL7Rules: true}, false
-		}
-		if len(newRule.L7Rules) > 0 {
-			rules.HaveL7Rules = true
+			return PortNetworkPolicyRules{}, false
 		}
 		if typeName != "" {
 			if firstTypeName == "" {
@@ -147,14 +140,6 @@ func newPortNetworkPolicyRules(config []*cilium.PortNetworkPolicyRule) (PortNetw
 }
 
 func (p *PortNetworkPolicyRules) Matches(remoteId uint32, l7 interface{}) bool {
-	if !p.HaveL7Rules {
-		// If there are no L7 rules, host proxy will not create a proxy redirect at all,
-		// whereby the decicion made by the bpf datapath is final. Emulate the same behavior
-		// in the sidecar by allowing such traffic.
-		// TODO: This will need to be revised when non-bpf datapaths are to be supported.
-		log.Debugf("NPDS::PortNetworkPolicyRules: No L7 rules; matches (%v)", p)
-		return true
-	}
 	// Empty set matches any payload from anyone
 	if len(p.Rules) == 0 {
 		log.Debugf("NPDS::PortNetworkPolicyRules: No Rules; matches (%v)", p)
