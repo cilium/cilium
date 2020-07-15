@@ -1071,8 +1071,8 @@ for instructions.
 
 .. _HostPolicies:
 
-Host Policies (beta)
-====================
+Host Policies
+=============
 
 .. include:: ../beta.rst
 
