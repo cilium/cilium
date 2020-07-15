@@ -79,3 +79,62 @@ func (s *FakeGRPCServerStream) RecvMsg(m interface{}) error {
 	}
 	panic("OnRecvMsg not set")
 }
+
+// FakeGRPCClientStream implements google.golang.org/grpc.ClientStream
+// interface for unit tests.
+type FakeGRPCClientStream struct {
+	OnHeader    func() (metadata.MD, error)
+	OnTrailer   func() metadata.MD
+	OnCloseSend func() error
+	OnContext   func() context.Context
+	OnSendMsg   func(m interface{}) error
+	OnRecvMsg   func(m interface{}) error
+}
+
+// Header implements grpc.ClientStream.Header.
+func (c *FakeGRPCClientStream) Header() (metadata.MD, error) {
+	if c.OnHeader != nil {
+		return c.OnHeader()
+	}
+	panic("OnHeader not set")
+}
+
+// Trailer implements grpc.ClientStream.Trailer.
+func (c *FakeGRPCClientStream) Trailer() metadata.MD {
+	if c.OnTrailer != nil {
+		return c.OnTrailer()
+	}
+	panic("OnTrailer not set")
+}
+
+// CloseSend implements grpc.ClientStream.CloseSend.
+func (c *FakeGRPCClientStream) CloseSend() error {
+	if c.OnCloseSend != nil {
+		return c.OnCloseSend()
+	}
+	panic("OnCloseSend not set")
+}
+
+// Context implements grpc.ClientStream.Context.
+func (c *FakeGRPCClientStream) Context() context.Context {
+	if c.OnContext != nil {
+		return c.OnContext()
+	}
+	panic("OnContext not set")
+}
+
+// SendMsg implements grpc.ClientStream.SendMsg.
+func (c *FakeGRPCClientStream) SendMsg(m interface{}) error {
+	if c.OnSendMsg != nil {
+		return c.OnSendMsg(m)
+	}
+	panic("OnSendMsg not set")
+}
+
+// RecvMsg implements grpc.ClientStream.RecvMsg.
+func (c *FakeGRPCClientStream) RecvMsg(m interface{}) error {
+	if c.OnRecvMsg != nil {
+		return c.OnRecvMsg(m)
+	}
+	panic("OnRecvMsg not set")
+}
