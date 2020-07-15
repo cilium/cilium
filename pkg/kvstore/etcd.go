@@ -21,7 +21,6 @@ import (
 	"errors"
 	"fmt"
 	"io/ioutil"
-	"math/rand"
 	"net/url"
 	"os"
 	"strconv"
@@ -32,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/spanstat"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
@@ -68,11 +68,9 @@ var (
 	// ErrLockLeaseExpired is an error whenever the lease of the lock does not
 	// exist or it was expired.
 	ErrLockLeaseExpired = errors.New("transaction did not succeed: lock lease expired")
-)
 
-func init() {
-	rand.Seed(time.Now().UnixNano())
-}
+	randGen = rand.NewSafeRand(time.Now().UnixNano())
+)
 
 type etcdModule struct {
 	opts   backendOptions
@@ -157,6 +155,12 @@ func (e *etcdModule) getConfig() map[string]string {
 	return getOpts(e.opts)
 }
 
+func shuffleEndpoints(endpoints []string) {
+	randGen.Shuffle(len(endpoints), func(i, j int) {
+		endpoints[i], endpoints[j] = endpoints[j], endpoints[i]
+	})
+}
+
 func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, chan error) {
 	errChan := make(chan error, 10)
 
@@ -194,6 +198,13 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 
 	if e.config.Endpoints == nil && endpointsSet {
 		e.config.Endpoints = []string{endpointsOpt.value}
+	}
+
+	// Shuffle the order of endpoints to avoid all agents connecting to the
+	// same etcd endpoint and to work around etcd client library failover
+	// bugs. (https://github.com/etcd-io/etcd/pull/9860)
+	if e.config.Endpoints != nil {
+		shuffleEndpoints(e.config.Endpoints)
 	}
 
 	for {
@@ -373,7 +384,7 @@ func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan bool {
 
 			// Generate a random number so that we can acquire a lock even
 			// if other agents are killed while locking this path.
-			randNumber := strconv.FormatUint(rand.Uint64(), 16)
+			randNumber := strconv.FormatUint(randGen.Uint64(), 16)
 			locker, err := e.LockPath(ctx, InitLockPath+"/"+randNumber)
 			if err == nil {
 				locker.Unlock(context.Background())
