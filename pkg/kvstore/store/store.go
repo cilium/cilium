@@ -85,6 +85,12 @@ type Configuration struct {
 	// ReadOnly can be set to true if the shared store is used in a
 	// read-only manner and will not host any local keys
 	ReadOnly bool
+
+	// DeleteEventOnClose when true, will send a delete notification for
+	// all shared keys when the store is closed. This is useful when the
+	// store is used as a cache and removal of the cache should be
+	// equivalent to receiving a delete notification for shared all keys.
+	DeleteEventOnClose bool
 }
 
 // validate is invoked by JoinSharedStore to validate and complete the
@@ -273,7 +279,17 @@ func (s *SharedStore) Release() {
 // this node in the kvstore. This stops the controller started by
 // JoinSharedStore().
 func (s *SharedStore) Close(ctx context.Context) {
+	// Release will stop the watcher to prevent further modifications of
+	// the store
 	s.Release()
+
+	if s.conf.DeleteEventOnClose {
+		s.mutex.Lock()
+		for _, key := range s.sharedKeys {
+			s.onDelete(key)
+		}
+		s.mutex.Unlock()
+	}
 
 	if s.conf.ReadOnly {
 		return
@@ -289,7 +305,12 @@ func (s *SharedStore) Close(ctx context.Context) {
 		// it from the shared keys.
 		delete(s.sharedKeys, name)
 
-		s.onDelete(key)
+		// When DeleteEventOnClose is set, then the delete event for
+		// all keys, including local keys will already have been sent
+		// out
+		if !s.conf.DeleteEventOnClose {
+			s.onDelete(key)
+		}
 	}
 }
 
