@@ -36,7 +36,9 @@ func NewFirewallPolicyRuleGroupsClient(subscriptionID string) FirewallPolicyRule
 	return NewFirewallPolicyRuleGroupsClientWithBaseURI(DefaultBaseURI, subscriptionID)
 }
 
-// NewFirewallPolicyRuleGroupsClientWithBaseURI creates an instance of the FirewallPolicyRuleGroupsClient client.
+// NewFirewallPolicyRuleGroupsClientWithBaseURI creates an instance of the FirewallPolicyRuleGroupsClient client using
+// a custom endpoint.  Use this when interacting with an Azure cloud that uses a non-standard base URI (sovereign
+// clouds, Azure stack).
 func NewFirewallPolicyRuleGroupsClientWithBaseURI(baseURI string, subscriptionID string) FirewallPolicyRuleGroupsClient {
 	return FirewallPolicyRuleGroupsClient{NewWithBaseURI(baseURI, subscriptionID)}
 }
@@ -113,9 +115,8 @@ func (client FirewallPolicyRuleGroupsClient) CreateOrUpdatePreparer(ctx context.
 // CreateOrUpdateSender sends the CreateOrUpdate request. The method will close the
 // http.Response Body if it receives an error.
 func (client FirewallPolicyRuleGroupsClient) CreateOrUpdateSender(req *http.Request) (future FirewallPolicyRuleGroupsCreateOrUpdateFuture, err error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
 	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, req, sd...)
+	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
 	}
@@ -128,7 +129,6 @@ func (client FirewallPolicyRuleGroupsClient) CreateOrUpdateSender(req *http.Requ
 func (client FirewallPolicyRuleGroupsClient) CreateOrUpdateResponder(resp *http.Response) (result FirewallPolicyRuleGroup, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -192,9 +192,8 @@ func (client FirewallPolicyRuleGroupsClient) DeletePreparer(ctx context.Context,
 // DeleteSender sends the Delete request. The method will close the
 // http.Response Body if it receives an error.
 func (client FirewallPolicyRuleGroupsClient) DeleteSender(req *http.Request) (future FirewallPolicyRuleGroupsDeleteFuture, err error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
 	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, req, sd...)
+	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
 	}
@@ -207,7 +206,6 @@ func (client FirewallPolicyRuleGroupsClient) DeleteSender(req *http.Request) (fu
 func (client FirewallPolicyRuleGroupsClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -276,8 +274,7 @@ func (client FirewallPolicyRuleGroupsClient) GetPreparer(ctx context.Context, re
 // GetSender sends the Get request. The method will close the
 // http.Response Body if it receives an error.
 func (client FirewallPolicyRuleGroupsClient) GetSender(req *http.Request) (*http.Response, error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
-	return autorest.SendWithSender(client, req, sd...)
+	return client.Send(req, azure.DoRetryWithRegistration(client.Client))
 }
 
 // GetResponder handles the response to the Get request. The method always
@@ -285,7 +282,6 @@ func (client FirewallPolicyRuleGroupsClient) GetSender(req *http.Request) (*http
 func (client FirewallPolicyRuleGroupsClient) GetResponder(resp *http.Response) (result FirewallPolicyRuleGroup, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -354,8 +350,7 @@ func (client FirewallPolicyRuleGroupsClient) ListPreparer(ctx context.Context, r
 // ListSender sends the List request. The method will close the
 // http.Response Body if it receives an error.
 func (client FirewallPolicyRuleGroupsClient) ListSender(req *http.Request) (*http.Response, error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
-	return autorest.SendWithSender(client, req, sd...)
+	return client.Send(req, azure.DoRetryWithRegistration(client.Client))
 }
 
 // ListResponder handles the response to the List request. The method always
@@ -363,7 +358,6 @@ func (client FirewallPolicyRuleGroupsClient) ListSender(req *http.Request) (*htt
 func (client FirewallPolicyRuleGroupsClient) ListResponder(resp *http.Response) (result FirewallPolicyRuleGroupListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

@@ -35,7 +35,8 @@ func NewSubnetsClient(subscriptionID string) SubnetsClient {
 	return NewSubnetsClientWithBaseURI(DefaultBaseURI, subscriptionID)
 }
 
-// NewSubnetsClientWithBaseURI creates an instance of the SubnetsClient client.
+// NewSubnetsClientWithBaseURI creates an instance of the SubnetsClient client using a custom endpoint.  Use this when
+// interacting with an Azure cloud that uses a non-standard base URI (sovereign clouds, Azure stack).
 func NewSubnetsClientWithBaseURI(baseURI string, subscriptionID string) SubnetsClient {
 	return SubnetsClient{NewWithBaseURI(baseURI, subscriptionID)}
 }
@@ -100,9 +101,8 @@ func (client SubnetsClient) CreateOrUpdatePreparer(ctx context.Context, resource
 // CreateOrUpdateSender sends the CreateOrUpdate request. The method will close the
 // http.Response Body if it receives an error.
 func (client SubnetsClient) CreateOrUpdateSender(req *http.Request) (future SubnetsCreateOrUpdateFuture, err error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
 	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, req, sd...)
+	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
 	}
@@ -115,7 +115,6 @@ func (client SubnetsClient) CreateOrUpdateSender(req *http.Request) (future Subn
 func (client SubnetsClient) CreateOrUpdateResponder(resp *http.Response) (result Subnet, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -179,9 +178,8 @@ func (client SubnetsClient) DeletePreparer(ctx context.Context, resourceGroupNam
 // DeleteSender sends the Delete request. The method will close the
 // http.Response Body if it receives an error.
 func (client SubnetsClient) DeleteSender(req *http.Request) (future SubnetsDeleteFuture, err error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
 	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, req, sd...)
+	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
 	}
@@ -194,7 +192,6 @@ func (client SubnetsClient) DeleteSender(req *http.Request) (future SubnetsDelet
 func (client SubnetsClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -267,8 +264,7 @@ func (client SubnetsClient) GetPreparer(ctx context.Context, resourceGroupName s
 // GetSender sends the Get request. The method will close the
 // http.Response Body if it receives an error.
 func (client SubnetsClient) GetSender(req *http.Request) (*http.Response, error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
-	return autorest.SendWithSender(client, req, sd...)
+	return client.Send(req, azure.DoRetryWithRegistration(client.Client))
 }
 
 // GetResponder handles the response to the Get request. The method always
@@ -276,7 +272,6 @@ func (client SubnetsClient) GetSender(req *http.Request) (*http.Response, error)
 func (client SubnetsClient) GetResponder(resp *http.Response) (result Subnet, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -345,8 +340,7 @@ func (client SubnetsClient) ListPreparer(ctx context.Context, resourceGroupName 
 // ListSender sends the List request. The method will close the
 // http.Response Body if it receives an error.
 func (client SubnetsClient) ListSender(req *http.Request) (*http.Response, error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
-	return autorest.SendWithSender(client, req, sd...)
+	return client.Send(req, azure.DoRetryWithRegistration(client.Client))
 }
 
 // ListResponder handles the response to the List request. The method always
@@ -354,7 +348,6 @@ func (client SubnetsClient) ListSender(req *http.Request) (*http.Response, error
 func (client SubnetsClient) ListResponder(resp *http.Response) (result SubnetListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -459,9 +452,8 @@ func (client SubnetsClient) PrepareNetworkPoliciesPreparer(ctx context.Context, 
 // PrepareNetworkPoliciesSender sends the PrepareNetworkPolicies request. The method will close the
 // http.Response Body if it receives an error.
 func (client SubnetsClient) PrepareNetworkPoliciesSender(req *http.Request) (future SubnetsPrepareNetworkPoliciesFuture, err error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
 	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, req, sd...)
+	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
 	}
@@ -474,7 +466,6 @@ func (client SubnetsClient) PrepareNetworkPoliciesSender(req *http.Request) (fut
 func (client SubnetsClient) PrepareNetworkPoliciesResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
 		autorest.ByClosing())
 	result.Response = resp
@@ -541,9 +532,8 @@ func (client SubnetsClient) UnprepareNetworkPoliciesPreparer(ctx context.Context
 // UnprepareNetworkPoliciesSender sends the UnprepareNetworkPolicies request. The method will close the
 // http.Response Body if it receives an error.
 func (client SubnetsClient) UnprepareNetworkPoliciesSender(req *http.Request) (future SubnetsUnprepareNetworkPoliciesFuture, err error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
 	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, req, sd...)
+	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
 	}
@@ -556,7 +546,6 @@ func (client SubnetsClient) UnprepareNetworkPoliciesSender(req *http.Request) (f
 func (client SubnetsClient) UnprepareNetworkPoliciesResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
 		autorest.ByClosing())
 	result.Response = resp
