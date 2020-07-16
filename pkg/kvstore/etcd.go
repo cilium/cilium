@@ -435,8 +435,25 @@ func (e *etcdClient) Disconnected() <-chan struct{} {
 }
 
 func (e *etcdClient) renewSession(ctx context.Context) error {
-	<-e.firstSession
-	<-e.session.Done()
+	select {
+	// wait for initial session to be established
+	case <-e.firstSession:
+	// controller has stopped or etcd client is closing
+	case <-ctx.Done():
+		return nil
+	case <-e.client.Ctx().Done():
+		return nil
+	}
+
+	select {
+	// session has ended
+	case <-e.session.Done():
+	// controller has stopped or etcd client is closing
+	case <-ctx.Done():
+		return nil
+	case <-e.client.Ctx().Done():
+		return nil
+	}
 	// This is an attempt to avoid concurrent access of a session that was
 	// already expired. It's not perfect as there is still a period between the
 	// e.session.Done() is closed and the e.Lock() is held where parallel go
