@@ -443,10 +443,13 @@ func (e *etcdClient) renewSession(ctx context.Context) error {
 	// routines can get a lease ID of an already expired lease.
 	e.Lock()
 
+	timeoutCtx, cancel := context.WithTimeout(e.client.Ctx(), statusCheckTimeout)
+	defer cancel()
+
 	newSession, err := concurrency.NewSession(
 		e.client,
 		concurrency.WithTTL(int(option.Config.KVstoreLeaseTTL.Seconds())),
-		concurrency.WithContext(ctx),
+		concurrency.WithContext(timeoutCtx),
 	)
 	if err != nil {
 		e.UnlockIgnoreTime()
@@ -475,10 +478,12 @@ func (e *etcdClient) renewLockSession(ctx context.Context) error {
 	// routines can get a lease ID of an already expired lease.
 	e.Lock()
 
+	timeoutCtx, cancel := context.WithTimeout(e.client.Ctx(), statusCheckTimeout)
+	defer cancel()
 	newSession, err := concurrency.NewSession(
 		e.client,
 		concurrency.WithTTL(int(defaults.LockLeaseTTL.Seconds())),
-		concurrency.WithContext(ctx),
+		concurrency.WithContext(timeoutCtx),
 	)
 	if err != nil {
 		e.UnlockIgnoreTime()
@@ -586,18 +591,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 	ec.controllers.UpdateController("kvstore-etcd-session-renew",
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				// Ignore the controller context here. Use the
-				// etcd client context instead, as this is
-				// renewing the session for that client.
-				// In the event of controller stop we'd expect
-				// the client context to be cancelled anyway
-				// and using the etcd context should generally
-				// integrate better with any code on the etcd
-				// client side.
-				parentCtx := ec.client.Ctx()
-				timedCtx, cancel := context.WithTimeout(parentCtx, statusCheckTimeout)
-				defer cancel()
-				return ec.renewSession(timedCtx)
+				return ec.renewSession(ctx)
 			},
 			RunInterval: time.Duration(10) * time.Millisecond,
 		},
@@ -606,11 +600,7 @@ func connectEtcdClient(config *client.Config, cfgPath string, errChan chan error
 	ec.controllers.UpdateController("kvstore-etcd-lock-session-renew",
 		controller.ControllerParams{
 			DoFunc: func(ctx context.Context) error {
-				// Same context logic as above.
-				parentCtx := ec.client.Ctx()
-				timedCtx, cancel := context.WithTimeout(parentCtx, statusCheckTimeout)
-				defer cancel()
-				return ec.renewLockSession(timedCtx)
+				return ec.renewLockSession(ctx)
 			},
 			RunInterval: time.Duration(10) * time.Millisecond,
 		},
