@@ -33,6 +33,14 @@ Disabling IPv4 is currently not allowed until k8s 1.9 is released
 END
 end
 
+# Workaround issue as described here:
+# https://github.com/cilium/cilium/pull/12520
+class VagrantPlugins::ProviderVirtualBox::Action::Network
+  def dhcp_server_matches_config?(dhcp_server, config)
+    true
+  end
+end
+
 $bootstrap = <<SCRIPT
 set -o errexit
 set -o nounset
