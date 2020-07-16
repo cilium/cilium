@@ -96,7 +96,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 		ret = lb6_extract_key(ctx, tuple, l4_off, &key, &csum_off,
 				      CT_EGRESS);
 		if (IS_ERR(ret)) {
-			if (ret == DROP_UNKNOWN_L4)
+			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
 			else
 				return ret;
@@ -485,7 +485,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 		ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off,
 				      CT_EGRESS);
 		if (IS_ERR(ret)) {
-			if (ret == DROP_UNKNOWN_L4)
+			if (ret == DROP_NO_SERVICE || ret == DROP_UNKNOWN_L4)
 				goto skip_service_lookup;
 			else
 				return ret;
