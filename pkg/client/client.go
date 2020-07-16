@@ -261,34 +261,31 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 			fmt.Fprintf(w, "Kubernetes APIs:\t[\"%s\"]\n", strings.Join(sr.Kubernetes.K8sAPIVersions, "\", \""))
 		}
 		if sr.KubeProxyReplacement != nil {
-			features := []string{}
+			fe := sr.KubeProxyReplacement.Features
+			featureState := make(map[bool][]string)
 
-			if np := sr.KubeProxyReplacement.Features.NodePort; np.Enabled {
+			if np := fe.NodePort; np.Enabled {
 				mode := np.Mode
 				if mode == models.KubeProxyReplacementFeaturesNodePortModeHYBRID {
 					mode = strings.Title(mode)
 				}
-				features = append(features,
+				featureState[np.Enabled] = append(featureState[np.Enabled],
 					fmt.Sprintf("NodePort (%s, %d-%d, XDP: %s)",
 						mode, np.PortMin, np.PortMax, np.Acceleration))
+			} else {
+				featureState[np.Enabled] = append(featureState[np.Enabled], "NodePort")
 			}
 
-			if sr.KubeProxyReplacement.Features.HostPort.Enabled {
-				features = append(features, "HostPort")
+			if hs := fe.HostReachableServices; hs.Enabled {
+				featureState[hs.Enabled] = append(featureState[hs.Enabled],
+					fmt.Sprintf("HostReachableServices (%s)", strings.Join(hs.Protocols, ", ")))
+			} else {
+				featureState[hs.Enabled] = append(featureState[hs.Enabled], "HostReachableServices")
 			}
 
-			if sr.KubeProxyReplacement.Features.ExternalIPs.Enabled {
-				features = append(features, "ExternalIPs")
-			}
-
-			if hs := sr.KubeProxyReplacement.Features.HostReachableServices; hs.Enabled {
-				features = append(features, fmt.Sprintf("HostReachableServices (%s)",
-					strings.Join(hs.Protocols, ", ")))
-			}
-
-			if sr.KubeProxyReplacement.Features.SessionAffinity.Enabled {
-				features = append(features, "SessionAffinity")
-			}
+			featureState[fe.HostPort.Enabled] = append(featureState[fe.HostPort.Enabled], "HostPort")
+			featureState[fe.ExternalIPs.Enabled] = append(featureState[fe.ExternalIPs.Enabled], "ExternalIPs")
+			featureState[fe.SessionAffinity.Enabled] = append(featureState[fe.SessionAffinity.Enabled], "SessionAffinity")
 
 			devices := ""
 			for i, dev := range sr.KubeProxyReplacement.Devices {
@@ -302,8 +299,9 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 
 			}
 
-			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t[%s]\t[%s]\n",
-				sr.KubeProxyReplacement.Mode, devices, strings.Join(features, ", "))
+			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\tDevices:[%s]\tEnabled:[%s]\tDisabled:[%s]\n",
+				sr.KubeProxyReplacement.Mode, devices, strings.Join(featureState[true], ", "),
+				strings.Join(featureState[false], ", "))
 		}
 	}
 	if sr.Cilium != nil {
