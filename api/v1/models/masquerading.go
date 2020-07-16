@@ -17,7 +17,6 @@ import (
 
 // Masquerading Status of masquerading
 // swagger:model Masquerading
-// +k8s:deepcopy-gen=true
 type Masquerading struct {
 
 	// Is masquerading enabled

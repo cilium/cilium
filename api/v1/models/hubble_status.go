@@ -17,7 +17,6 @@ import (
 
 // HubbleStatus Status of the Hubble server
 // swagger:model HubbleStatus
-// +k8s:deepcopy-gen=true
 type HubbleStatus struct {
 
 	// metrics
@@ -251,7 +250,6 @@ func (m *HubbleStatusMetrics) UnmarshalBinary(b []byte) error {
 
 // HubbleStatusObserver Status of the Hubble observer
 // swagger:model HubbleStatusObserver
-// +k8s:deepcopy-gen=true
 type HubbleStatusObserver struct {
 
 	// Current number of flows this Hubble observer stores

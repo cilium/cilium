@@ -15,7 +15,6 @@ import (
 
 // StatusResponse Health and status information of daemon
 // swagger:model StatusResponse
-// +k8s:deepcopy-gen=true
 type StatusResponse struct {
 
 	// Status of Cilium daemon

@@ -13,7 +13,6 @@ import (
 
 // EndpointIdentifiers Unique identifiers for this endpoint from outside cilium
 // swagger:model EndpointIdentifiers
-// +deepequal-gen=true
 type EndpointIdentifiers struct {
 
 	// ID assigned by container runtime

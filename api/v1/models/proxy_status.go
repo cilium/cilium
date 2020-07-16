@@ -16,7 +16,6 @@ import (
 
 // ProxyStatus Status of proxy
 // swagger:model ProxyStatus
-// +k8s:deepcopy-gen=true
 type ProxyStatus struct {
 
 	// IP address that the proxy listens on

@@ -17,7 +17,6 @@ import (
 
 // KubeProxyReplacement Status of kube-proxy replacement
 // swagger:model KubeProxyReplacement
-// +k8s:deepcopy-gen=true
 type KubeProxyReplacement struct {
 
 	// devices
@@ -139,7 +138,6 @@ func (m *KubeProxyReplacement) UnmarshalBinary(b []byte) error {
 
 // KubeProxyReplacementFeatures kube proxy replacement features
 // swagger:model KubeProxyReplacementFeatures
-// +k8s:deepcopy-gen=true
 type KubeProxyReplacementFeatures struct {
 
 	// external i ps
@@ -298,11 +296,10 @@ func (m *KubeProxyReplacementFeatures) UnmarshalBinary(b []byte) error {
 
 // KubeProxyReplacementFeaturesExternalIPs kube proxy replacement features external i ps
 // swagger:model KubeProxyReplacementFeaturesExternalIPs
-// +k8s:deepcopy-gen=true
 type KubeProxyReplacementFeaturesExternalIPs struct {
 
 	// enabled
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled"`
 }
 
 // Validate validates this kube proxy replacement features external i ps
@@ -330,11 +327,10 @@ func (m *KubeProxyReplacementFeaturesExternalIPs) UnmarshalBinary(b []byte) erro
 
 // KubeProxyReplacementFeaturesHostPort kube proxy replacement features host port
 // swagger:model KubeProxyReplacementFeaturesHostPort
-// +k8s:deepcopy-gen=true
 type KubeProxyReplacementFeaturesHostPort struct {
 
 	// enabled
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled"`
 }
 
 // Validate validates this kube proxy replacement features host port
@@ -362,11 +358,10 @@ func (m *KubeProxyReplacementFeaturesHostPort) UnmarshalBinary(b []byte) error {
 
 // KubeProxyReplacementFeaturesHostReachableServices kube proxy replacement features host reachable services
 // swagger:model KubeProxyReplacementFeaturesHostReachableServices
-// +k8s:deepcopy-gen=true
 type KubeProxyReplacementFeaturesHostReachableServices struct {
 
 	// enabled
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled"`
 
 	// protocols
 	Protocols []string `json:"protocols"`
@@ -397,7 +392,6 @@ func (m *KubeProxyReplacementFeaturesHostReachableServices) UnmarshalBinary(b []
 
 // KubeProxyReplacementFeaturesNodePort kube proxy replacement features node port
 // swagger:model KubeProxyReplacementFeaturesNodePort
-// +k8s:deepcopy-gen=true
 type KubeProxyReplacementFeaturesNodePort struct {
 
 	// acceleration
@@ -405,7 +399,7 @@ type KubeProxyReplacementFeaturesNodePort struct {
 	Acceleration string `json:"acceleration,omitempty"`
 
 	// enabled
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled"`
 
 	// mode
 	// Enum: [SNAT DSR HYBRID]
@@ -551,7 +545,7 @@ func (m *KubeProxyReplacementFeaturesNodePort) UnmarshalBinary(b []byte) error {
 type KubeProxyReplacementFeaturesSessionAffinity struct {
 
 	// enabled
-	Enabled bool `json:"enabled,omitempty"`
+	Enabled bool `json:"enabled"`
 }
 
 // Validate validates this kube proxy replacement features session affinity

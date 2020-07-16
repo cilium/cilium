@@ -14,7 +14,6 @@ import (
 
 // EndpointHealth Health of the endpoint
 // swagger:model EndpointHealth
-// +deepequal-gen=true
 type EndpointHealth struct {
 
 	// bpf

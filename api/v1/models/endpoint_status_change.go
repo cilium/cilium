@@ -17,7 +17,6 @@ import (
 
 // EndpointStatusChange Indication of a change of status
 // swagger:model EndpointStatusChange
-// +deepequal-gen=true
 type EndpointStatusChange struct {
 
 	// Code indicate type of status change
