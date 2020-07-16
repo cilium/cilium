@@ -541,7 +541,9 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	ret = lb6_extract_key(ctx, &tuple, l4_off, &key, &csum_off, CT_EGRESS);
 	if (IS_ERR(ret)) {
-		if (ret == DROP_UNKNOWN_L4)
+		if (ret == DROP_NO_SERVICE)
+			goto skip_service_lookup;
+		else if (ret == DROP_UNKNOWN_L4)
 			return CTX_ACT_OK;
 		else
 			return ret;
@@ -562,6 +564,7 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
 
+skip_service_lookup:
 		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 		if (nodeport_uses_dsr6(&tuple))
@@ -1252,7 +1255,9 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	ret = lb4_extract_key(ctx, ip4, l4_off, &key, &csum_off, CT_EGRESS);
 	if (IS_ERR(ret)) {
-		if (ret == DROP_UNKNOWN_L4)
+		if (ret == DROP_NO_SERVICE)
+			goto skip_service_lookup;
+		else if (ret == DROP_UNKNOWN_L4)
 			return CTX_ACT_OK;
 		else
 			return ret;
@@ -1274,6 +1279,7 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		if (svc)
 			return DROP_IS_CLUSTER_IP;
 
+skip_service_lookup:
 		ctx_set_xfer(ctx, XFER_PKT_NO_SVC);
 
 #ifndef ENABLE_MASQUERADE
