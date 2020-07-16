@@ -137,6 +137,7 @@ send_trace_notify(struct __sk_buff *skb, __u8 obs_point, __u32 src, __u32 dst,
 		case TRACE_FROM_HOST:
 		case TRACE_FROM_STACK:
 		case TRACE_FROM_OVERLAY:
+		case TRACE_FROM_NETWORK:
 			return;
 		default:
 			break;
