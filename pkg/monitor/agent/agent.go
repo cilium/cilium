@@ -244,21 +244,27 @@ func (a *Agent) handleEvents(stopCtx context.Context) {
 			continue
 		}
 
-		a.Lock()
-		plType := payload.EventSample
-		if record.LostSamples > 0 {
-			plType = payload.RecordLost
-			a.MonitorStatus.Lost += int64(record.LostSamples)
-		}
-		pl := payload.Payload{
-			Data: record.RawSample,
-			CPU:  record.CPU,
-			Lost: record.LostSamples,
-			Type: plType,
-		}
-		a.sendLocked(&pl)
-		a.Unlock()
+		a.processPerfRecord(record)
 	}
+}
+
+// processPerfRecord processes a record from the datapath and sends it to any
+// registered subscribers
+func (a *Agent) processPerfRecord(record perf.Record) {
+	a.Lock()
+	plType := payload.EventSample
+	if record.LostSamples > 0 {
+		plType = payload.RecordLost
+		a.MonitorStatus.Lost += int64(record.LostSamples)
+	}
+	pl := payload.Payload{
+		Data: record.RawSample,
+		CPU:  record.CPU,
+		Lost: record.LostSamples,
+		Type: plType,
+	}
+	a.sendLocked(&pl)
+	a.Unlock()
 }
 
 // State returns the current status of the monitor
