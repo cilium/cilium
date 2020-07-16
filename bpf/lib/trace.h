@@ -143,6 +143,7 @@ static inline bool emit_trace_notify(__u8 obs_point, __u32 monitor)
 		case TRACE_FROM_HOST:
 		case TRACE_FROM_STACK:
 		case TRACE_FROM_OVERLAY:
+		case TRACE_FROM_NETWORK:
 			return false;
 		default:
 			break;
