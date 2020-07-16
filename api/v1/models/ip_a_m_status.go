@@ -14,6 +14,7 @@ import (
 
 // IPAMStatus Status of IP address management
 // swagger:model IPAMStatus
+// +k8s:deepcopy-gen=true
 type IPAMStatus struct {
 
 	// allocations

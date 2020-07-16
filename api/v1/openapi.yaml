@@ -1693,7 +1693,6 @@ definitions:
             properties:
               enabled:
                 type: boolean
-                x-omitempty: false
               mode:
                 type: string
                 enum:
@@ -1715,19 +1714,16 @@ definitions:
             properties:
               enabled:
                 type: boolean
-                x-omitempty: false
           externalIPs:
             type: object
             properties:
               enabled:
                 type: boolean
-                x-omitempty: false
           hostReachableServices:
             type: object
             properties:
               enabled:
                 type: boolean
-                x-omitempty: false
               protocols:
                 type: array
                 items:
@@ -1737,7 +1733,6 @@ definitions:
             properties:
               enabled:
                 type: boolean
-                x-omitempty: false
   AllocationMap:
     description: |
       Map of allocated IPs

@@ -16,6 +16,7 @@ import (
 
 // ClusterMeshStatus Status of ClusterMesh
 // swagger:model ClusterMeshStatus
+// +k8s:deepcopy-gen=true
 type ClusterMeshStatus struct {
 
 	// List of remote clusters

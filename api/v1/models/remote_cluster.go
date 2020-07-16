@@ -15,6 +15,7 @@ import (
 
 // RemoteCluster Status of remote cluster
 // swagger:model RemoteCluster
+// +k8s:deepcopy-gen=true
 type RemoteCluster struct {
 
 	// Time of last failure that occurred while attempting to reach the cluster

@@ -2534,8 +2534,7 @@ func init() {
               "type": "object",
               "properties": {
                 "enabled": {
-                  "type": "boolean",
-                  "x-omitempty": false
+                  "type": "boolean"
                 }
               }
             },
@@ -2543,8 +2542,7 @@ func init() {
               "type": "object",
               "properties": {
                 "enabled": {
-                  "type": "boolean",
-                  "x-omitempty": false
+                  "type": "boolean"
                 }
               }
             },
@@ -2552,8 +2550,7 @@ func init() {
               "type": "object",
               "properties": {
                 "enabled": {
-                  "type": "boolean",
-                  "x-omitempty": false
+                  "type": "boolean"
                 },
                 "protocols": {
                   "type": "array",
@@ -2575,8 +2572,7 @@ func init() {
                   ]
                 },
                 "enabled": {
-                  "type": "boolean",
-                  "x-omitempty": false
+                  "type": "boolean"
                 },
                 "mode": {
                   "type": "string",
@@ -2598,8 +2594,7 @@ func init() {
               "type": "object",
               "properties": {
                 "enabled": {
-                  "type": "boolean",
-                  "x-omitempty": false
+                  "type": "boolean"
                 }
               }
             }
@@ -6168,8 +6163,7 @@ func init() {
               "type": "object",
               "properties": {
                 "enabled": {
-                  "type": "boolean",
-                  "x-omitempty": false
+                  "type": "boolean"
                 }
               }
             },
@@ -6177,8 +6171,7 @@ func init() {
               "type": "object",
               "properties": {
                 "enabled": {
-                  "type": "boolean",
-                  "x-omitempty": false
+                  "type": "boolean"
                 }
               }
             },
@@ -6186,8 +6179,7 @@ func init() {
               "type": "object",
               "properties": {
                 "enabled": {
-                  "type": "boolean",
-                  "x-omitempty": false
+                  "type": "boolean"
                 },
                 "protocols": {
                   "type": "array",
@@ -6209,8 +6201,7 @@ func init() {
                   ]
                 },
                 "enabled": {
-                  "type": "boolean",
-                  "x-omitempty": false
+                  "type": "boolean"
                 },
                 "mode": {
                   "type": "string",
@@ -6232,8 +6223,7 @@ func init() {
               "type": "object",
               "properties": {
                 "enabled": {
-                  "type": "boolean",
-                  "x-omitempty": false
+                  "type": "boolean"
                 }
               }
             }
