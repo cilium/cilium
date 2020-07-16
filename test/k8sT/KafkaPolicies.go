@@ -168,27 +168,27 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 			// some messages to be already there by the producer.
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprint(prodHqAnnounce))
-			Expect(err).Should(BeNil(), "Failed to produce to empire-hq on topic empire-announce")
+				helpers.DefaultNamespace, appPods[empireHqApp], prodHqAnnounce)
+			Expect(err).Should(BeNil(), "Failed to produce from empire-hq on topic empire-announce")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(conOutpostAnnoune))
+				helpers.DefaultNamespace, appPods[outpostApp], conOutpostAnnoune)
 			Expect(err).Should(BeNil(), "Failed to consume from outpost on topic empire-announce")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprint(prodHqDeathStar))
-			Expect(err).Should(BeNil(), "Failed to produce to empire-hq on topic deathstar-plans")
+				helpers.DefaultNamespace, appPods[empireHqApp], prodHqDeathStar)
+			Expect(err).Should(BeNil(), "Failed to produce from empire-hq on topic deathstar-plans")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(conOutDeathStar))
+				helpers.DefaultNamespace, appPods[outpostApp], conOutDeathStar)
 			Expect(err).Should(BeNil(), "Failed to consume from outpost on topic deathstar-plans")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[backupApp], fmt.Sprint(prodBackAnnounce))
+				helpers.DefaultNamespace, appPods[backupApp], prodBackAnnounce)
 			Expect(err).Should(BeNil(), "Failed to produce to backup on topic empire-announce")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(prodOutAnnounce))
+				helpers.DefaultNamespace, appPods[outpostApp], prodOutAnnounce)
 			Expect(err).Should(BeNil(), "Failed to produce to outpost on topic empire-announce")
 
 			By("Apply L7 kafka policy and wait")
@@ -200,32 +200,32 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 
 			By("Testing Kafka L7 policy enforcement status")
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprint(prodHqAnnounce))
-			Expect(err).Should(BeNil(), "Failed to produce to empire-hq on topic empire-announce")
+				helpers.DefaultNamespace, appPods[empireHqApp], prodHqAnnounce)
+			Expect(err).Should(BeNil(), "Failed to produce from empire-hq on topic empire-announce")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(conOutpostAnnoune))
+				helpers.DefaultNamespace, appPods[outpostApp], conOutpostAnnoune)
 			Expect(err).Should(BeNil(), "Failed to consume from outpost on topic empire-announce")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[empireHqApp], fmt.Sprint(prodHqDeathStar))
+				helpers.DefaultNamespace, appPods[empireHqApp], prodHqDeathStar)
 			Expect(err).Should(BeNil(), "Failed to produce from empire-hq on topic deathstar-plans")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(conOutpostAnnoune))
+				helpers.DefaultNamespace, appPods[outpostApp], conOutpostAnnoune)
 			Expect(err).Should(BeNil(), "Failed to consume from outpost on topic empire-announce")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[backupApp], fmt.Sprint(prodBackAnnounce))
-			Expect(err).Should(HaveOccurred(), " Produce to backup on topic empire-announce should have been denied")
+				helpers.DefaultNamespace, appPods[backupApp], prodBackAnnounce)
+			Expect(err).Should(HaveOccurred(), "Produce from backup on topic empire-announce should have been denied by egress policy")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(conOutDeathStar))
-			Expect(err).Should(HaveOccurred(), " Consume from outpost on topic deathstar-plans should have been denied")
+				helpers.DefaultNamespace, appPods[outpostApp], conOutDeathStar)
+			Expect(err).Should(HaveOccurred(), "Consume from outpost on topic deathstar-plans should have been denied")
 
 			err = kubectl.ExecKafkaPodCmd(
-				helpers.DefaultNamespace, appPods[outpostApp], fmt.Sprint(prodOutAnnounce))
-			Expect(err).Should(HaveOccurred(), "Produce to outpost on topic empire-announce should have been denied")
+				helpers.DefaultNamespace, appPods[outpostApp], prodOutAnnounce)
+			Expect(err).Should(HaveOccurred(), "Produce from outpost on topic empire-announce should have been denied")
 		})
 	})
 })
