@@ -35,7 +35,8 @@ func NewBastionHostsClient(subscriptionID string) BastionHostsClient {
 	return NewBastionHostsClientWithBaseURI(DefaultBaseURI, subscriptionID)
 }
 
-// NewBastionHostsClientWithBaseURI creates an instance of the BastionHostsClient client.
+// NewBastionHostsClientWithBaseURI creates an instance of the BastionHostsClient client using a custom endpoint.  Use
+// this when interacting with an Azure cloud that uses a non-standard base URI (sovereign clouds, Azure stack).
 func NewBastionHostsClientWithBaseURI(baseURI string, subscriptionID string) BastionHostsClient {
 	return BastionHostsClient{NewWithBaseURI(baseURI, subscriptionID)}
 }
@@ -98,9 +99,8 @@ func (client BastionHostsClient) CreateOrUpdatePreparer(ctx context.Context, res
 // CreateOrUpdateSender sends the CreateOrUpdate request. The method will close the
 // http.Response Body if it receives an error.
 func (client BastionHostsClient) CreateOrUpdateSender(req *http.Request) (future BastionHostsCreateOrUpdateFuture, err error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
 	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, req, sd...)
+	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
 	}
@@ -113,7 +113,6 @@ func (client BastionHostsClient) CreateOrUpdateSender(req *http.Request) (future
 func (client BastionHostsClient) CreateOrUpdateResponder(resp *http.Response) (result BastionHost, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusCreated),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -175,9 +174,8 @@ func (client BastionHostsClient) DeletePreparer(ctx context.Context, resourceGro
 // DeleteSender sends the Delete request. The method will close the
 // http.Response Body if it receives an error.
 func (client BastionHostsClient) DeleteSender(req *http.Request) (future BastionHostsDeleteFuture, err error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
 	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, req, sd...)
+	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
 	}
@@ -190,7 +188,6 @@ func (client BastionHostsClient) DeleteSender(req *http.Request) (future Bastion
 func (client BastionHostsClient) DeleteResponder(resp *http.Response) (result autorest.Response, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted, http.StatusNoContent),
 		autorest.ByClosing())
 	result.Response = resp
@@ -257,8 +254,7 @@ func (client BastionHostsClient) GetPreparer(ctx context.Context, resourceGroupN
 // GetSender sends the Get request. The method will close the
 // http.Response Body if it receives an error.
 func (client BastionHostsClient) GetSender(req *http.Request) (*http.Response, error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
-	return autorest.SendWithSender(client, req, sd...)
+	return client.Send(req, azure.DoRetryWithRegistration(client.Client))
 }
 
 // GetResponder handles the response to the Get request. The method always
@@ -266,7 +262,6 @@ func (client BastionHostsClient) GetSender(req *http.Request) (*http.Response, e
 func (client BastionHostsClient) GetResponder(resp *http.Response) (result BastionHost, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -330,8 +325,7 @@ func (client BastionHostsClient) ListPreparer(ctx context.Context) (*http.Reques
 // ListSender sends the List request. The method will close the
 // http.Response Body if it receives an error.
 func (client BastionHostsClient) ListSender(req *http.Request) (*http.Response, error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
-	return autorest.SendWithSender(client, req, sd...)
+	return client.Send(req, azure.DoRetryWithRegistration(client.Client))
 }
 
 // ListResponder handles the response to the List request. The method always
@@ -339,7 +333,6 @@ func (client BastionHostsClient) ListSender(req *http.Request) (*http.Response, 
 func (client BastionHostsClient) ListResponder(resp *http.Response) (result BastionHostListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -443,8 +436,7 @@ func (client BastionHostsClient) ListByResourceGroupPreparer(ctx context.Context
 // ListByResourceGroupSender sends the ListByResourceGroup request. The method will close the
 // http.Response Body if it receives an error.
 func (client BastionHostsClient) ListByResourceGroupSender(req *http.Request) (*http.Response, error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
-	return autorest.SendWithSender(client, req, sd...)
+	return client.Send(req, azure.DoRetryWithRegistration(client.Client))
 }
 
 // ListByResourceGroupResponder handles the response to the ListByResourceGroup request. The method always
@@ -452,7 +444,6 @@ func (client BastionHostsClient) ListByResourceGroupSender(req *http.Request) (*
 func (client BastionHostsClient) ListByResourceGroupResponder(resp *http.Response) (result BastionHostListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

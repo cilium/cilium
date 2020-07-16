@@ -37,7 +37,8 @@ func NewVpnServerConfigurationsAssociatedWithVirtualWanClient(subscriptionID str
 }
 
 // NewVpnServerConfigurationsAssociatedWithVirtualWanClientWithBaseURI creates an instance of the
-// VpnServerConfigurationsAssociatedWithVirtualWanClient client.
+// VpnServerConfigurationsAssociatedWithVirtualWanClient client using a custom endpoint.  Use this when interacting
+// with an Azure cloud that uses a non-standard base URI (sovereign clouds, Azure stack).
 func NewVpnServerConfigurationsAssociatedWithVirtualWanClientWithBaseURI(baseURI string, subscriptionID string) VpnServerConfigurationsAssociatedWithVirtualWanClient {
 	return VpnServerConfigurationsAssociatedWithVirtualWanClient{NewWithBaseURI(baseURI, subscriptionID)}
 }
@@ -96,9 +97,8 @@ func (client VpnServerConfigurationsAssociatedWithVirtualWanClient) ListPreparer
 // ListSender sends the List request. The method will close the
 // http.Response Body if it receives an error.
 func (client VpnServerConfigurationsAssociatedWithVirtualWanClient) ListSender(req *http.Request) (future VpnServerConfigurationsAssociatedWithVirtualWanListFuture, err error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
 	var resp *http.Response
-	resp, err = autorest.SendWithSender(client, req, sd...)
+	resp, err = client.Send(req, azure.DoRetryWithRegistration(client.Client))
 	if err != nil {
 		return
 	}
@@ -111,7 +111,6 @@ func (client VpnServerConfigurationsAssociatedWithVirtualWanClient) ListSender(r
 func (client VpnServerConfigurationsAssociatedWithVirtualWanClient) ListResponder(resp *http.Response) (result VpnServerConfigurationsResponse, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK, http.StatusAccepted),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())

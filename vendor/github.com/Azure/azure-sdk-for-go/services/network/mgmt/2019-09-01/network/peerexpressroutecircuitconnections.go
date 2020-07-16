@@ -37,7 +37,8 @@ func NewPeerExpressRouteCircuitConnectionsClient(subscriptionID string) PeerExpr
 }
 
 // NewPeerExpressRouteCircuitConnectionsClientWithBaseURI creates an instance of the
-// PeerExpressRouteCircuitConnectionsClient client.
+// PeerExpressRouteCircuitConnectionsClient client using a custom endpoint.  Use this when interacting with an Azure
+// cloud that uses a non-standard base URI (sovereign clouds, Azure stack).
 func NewPeerExpressRouteCircuitConnectionsClientWithBaseURI(baseURI string, subscriptionID string) PeerExpressRouteCircuitConnectionsClient {
 	return PeerExpressRouteCircuitConnectionsClient{NewWithBaseURI(baseURI, subscriptionID)}
 }
@@ -106,8 +107,7 @@ func (client PeerExpressRouteCircuitConnectionsClient) GetPreparer(ctx context.C
 // GetSender sends the Get request. The method will close the
 // http.Response Body if it receives an error.
 func (client PeerExpressRouteCircuitConnectionsClient) GetSender(req *http.Request) (*http.Response, error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
-	return autorest.SendWithSender(client, req, sd...)
+	return client.Send(req, azure.DoRetryWithRegistration(client.Client))
 }
 
 // GetResponder handles the response to the Get request. The method always
@@ -115,7 +115,6 @@ func (client PeerExpressRouteCircuitConnectionsClient) GetSender(req *http.Reque
 func (client PeerExpressRouteCircuitConnectionsClient) GetResponder(resp *http.Response) (result PeerExpressRouteCircuitConnection, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
@@ -186,8 +185,7 @@ func (client PeerExpressRouteCircuitConnectionsClient) ListPreparer(ctx context.
 // ListSender sends the List request. The method will close the
 // http.Response Body if it receives an error.
 func (client PeerExpressRouteCircuitConnectionsClient) ListSender(req *http.Request) (*http.Response, error) {
-	sd := autorest.GetSendDecorators(req.Context(), azure.DoRetryWithRegistration(client.Client))
-	return autorest.SendWithSender(client, req, sd...)
+	return client.Send(req, azure.DoRetryWithRegistration(client.Client))
 }
 
 // ListResponder handles the response to the List request. The method always
@@ -195,7 +193,6 @@ func (client PeerExpressRouteCircuitConnectionsClient) ListSender(req *http.Requ
 func (client PeerExpressRouteCircuitConnectionsClient) ListResponder(resp *http.Response) (result PeerExpressRouteCircuitConnectionListResult, err error) {
 	err = autorest.Respond(
 		resp,
-		client.ByInspecting(),
 		azure.WithErrorUnlessStatusCode(http.StatusOK),
 		autorest.ByUnmarshallingJSON(&result),
 		autorest.ByClosing())
