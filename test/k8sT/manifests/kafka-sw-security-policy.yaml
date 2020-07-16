@@ -82,6 +82,16 @@ specs:
         - port: "9092"
           protocol: TCP
         rules:
+          kafka: []
+  - endpointSelector:
+      matchLabels:
+        app: empire-backup
+    egress:
+    - toPorts:
+      - ports:
+        - port: "9092"
+          protocol: TCP
+        rules:
           kafka:
           - apiKey: "fetch"
             topic: "deathstar-plans"
