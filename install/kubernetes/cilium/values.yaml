@@ -62,6 +62,14 @@ hubble-relay:
   # # Backoff duration to retry connecting to the local hubble instance in case of failure (e.g. "30s").
   # retryTimeout: ~
   #
+  # Max number of flows that can be buffered for sorting before being sent to
+  # the client (per request) (e.g. 100).
+  # sortBufferLenMax: ~
+  #
+  # When the per-request flows sort buffer is not full, a flow is drained every
+  # time this timeout is reached (only affects requests in follow-mode)
+  # sortBufferDrainTimeout: ~
+  #
   # # Port to use for the k8s service backed by hubble-relay pods.
   # servicePort: 80
 
