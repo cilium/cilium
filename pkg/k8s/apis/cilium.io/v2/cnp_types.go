@@ -17,11 +17,11 @@ package v2
 import (
 	"fmt"
 	"reflect"
-	"time"
 
 	"github.com/cilium/cilium/pkg/comparator"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
+	slimv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -118,7 +118,7 @@ type CiliumNetworkPolicyNodeStatus struct {
 	Error string `json:"error,omitempty"`
 
 	// LastUpdated contains the last time this status was updated
-	LastUpdated Timestamp `json:"lastUpdated,omitempty"`
+	LastUpdated slimv1.Time `json:"lastUpdated,omitempty"`
 
 	// Revision is the policy revision of the repository which first implemented
 	// this policy.
@@ -144,42 +144,13 @@ func CreateCNPNodeStatus(enforcing, ok bool, cnpError error, rev uint64, annotat
 		Enforcing:   enforcing,
 		Revision:    rev,
 		OK:          ok,
-		LastUpdated: NewTimestamp(),
+		LastUpdated: slimv1.Now(),
 		Annotations: annotations,
 	}
 	if cnpError != nil {
 		cnpns.Error = cnpError.Error()
 	}
 	return cnpns
-}
-
-// NewTimestamp creates a new Timestamp with the current time.Now()
-func NewTimestamp() Timestamp {
-	return Timestamp{time.Now()}
-}
-
-// Timestamp is a wrapper of time.Time so that we can create our own
-// implementation of DeepCopyInto.
-// +deepequal-gen=false
-type Timestamp struct {
-	time.Time
-}
-
-func (in *Timestamp) DeepEqual(other *Timestamp) bool {
-	switch {
-	case (in == nil) != (other == nil):
-		return false
-	case (in == nil) && (other == nil):
-		return true
-	}
-	return in.Time.Equal(other.Time)
-}
-
-// DeepCopyInto creates a deep-copy of the Time value.  The underlying time.Time
-// type is effectively immutable in the time API, so it is safe to
-// copy-by-assign, despite the presence of (unexported) Pointer fields.
-func (t *Timestamp) DeepCopyInto(out *Timestamp) {
-	*out = *t
 }
 
 func (r *CiliumNetworkPolicy) String() string {
