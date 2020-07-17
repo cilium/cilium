@@ -26,11 +26,17 @@ import (
 func init() {
 	flags := rootCmd.Flags()
 
+	flags.String(operatorOption.AzureCloudName, "AzurePublicCloud", "Name of the Azure cloud being used")
+	option.BindEnvWithLegacyEnvFallback(operatorOption.AzureCloudName, "AZURE_CLOUD_NAME")
+
 	flags.String(operatorOption.AzureSubscriptionID, "", "Subscription ID to access Azure API")
 	option.BindEnvWithLegacyEnvFallback(operatorOption.AzureSubscriptionID, "AZURE_SUBSCRIPTION_ID")
 
 	flags.String(operatorOption.AzureResourceGroup, "", "Resource group to use for Azure IPAM")
 	option.BindEnvWithLegacyEnvFallback(operatorOption.AzureResourceGroup, "AZURE_RESOURCE_GROUP")
+
+	flags.String(operatorOption.UserAssignedIdentityName, "", "Name of the user assigned identity used to auth with the Azure API")
+	option.BindEnvWithLegacyEnvFallback(operatorOption.UserAssignedIdentityName, "AZURE_USER_ASSIGNED_IDENTITY_NAME")
 
 	viper.BindPFlags(flags)
 }
