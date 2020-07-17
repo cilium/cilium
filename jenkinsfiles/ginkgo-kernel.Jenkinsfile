@@ -11,7 +11,7 @@ pipeline {
         VM_CPUS = "3"
         GOPATH="${WORKSPACE}"
         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
-        GINKGO_TIMEOUT="300m"
+        GINKGO_TIMEOUT="170m"
         RUN_QUARANTINED="""${sh(
                 returnStdout: true,
                 script: 'if [ "${RunQuarantined}" = "" ]; then echo -n "false"; else echo -n "${RunQuarantined}"; fi'
