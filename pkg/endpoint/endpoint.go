@@ -2258,6 +2258,11 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 		e.DeleteBPFProgramLocked()
 	}
 
+	// Break circular dependencies between the endpoint and it's policies
+	// (policy.EndpointPolicy points back to Endpoint via PolicyOwner)
+	e.desiredPolicy = nil
+	e.realizedPolicy = nil
+
 	return errs
 }
 
