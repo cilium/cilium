@@ -45,6 +45,12 @@ spec:
 {{- if .Values.retryTimeout }}
             - "--retry-timeout={{ .Values.retryTimeout }}"
 {{- end }}
+{{- if .Values.sortBufferLenMax }}
+            - "--sort-buffer-len-max={{ .Values.sortBufferLenMax }}"
+{{- end }}
+{{- if .Values.sortBufferDrainTimeout }}
+            - "--sort-buffer-drain-timeout={{ .Values.sortBufferDrainTimeout }}"
+{{- end }}
           ports:
             - name: grpc
               containerPort: {{ .Values.listenPort }}
