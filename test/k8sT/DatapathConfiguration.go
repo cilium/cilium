@@ -332,7 +332,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"global.autoDirectNodeRoutes":   "true",
 				"global.endpointRoutes.enabled": "true",
 				"global.ipv6.enabled":           "false",
-				"global.hostFirewall":           "false",
+				"global.hostFirewall":           "true",
 			}
 			// Needed to bypass bug with masquerading when devices are set. See #12141.
 			if helpers.RunsWithKubeProxy() {
@@ -555,7 +555,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 				"global.encryption.enabled":   "true",
 				"global.encryption.interface": privateIface,
 				"global.devices":              "",
-				"global.hostFirewall":         "false",
+				"global.hostFirewall":         "true",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})

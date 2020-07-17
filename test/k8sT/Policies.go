@@ -1352,7 +1352,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 						map[string]string{
 							"global.remoteNodeIdentity": "false",
-							"global.hostFirewall":       "false",
+							"global.hostFirewall":       "true",
 						})
 				})
 
