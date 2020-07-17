@@ -30,7 +30,7 @@ var Default = Options{
 	ListenAddress: fmt.Sprintf(":%d", hubbledefaults.RelayPort),
 	Debug:         false,
 
-	BufferMaxLen:           100,
-	BufferDrainTimeout:     1 * time.Second,
+	SortBufferMaxLen:       100,
+	SortBufferDrainTimeout: 1 * time.Second,
 	ErrorAggregationWindow: 10 * time.Second,
 }

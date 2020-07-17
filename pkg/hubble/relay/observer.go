@@ -237,7 +237,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 	}()
 
 	peers := s.peerList()
-	qlen := s.opts.BufferMaxLen // we don't want to buffer too many flows
+	qlen := s.opts.SortBufferMaxLen // we don't want to buffer too many flows
 	if nqlen := req.GetNumber() * uint64(len(peers)); nqlen > 0 && nqlen < uint64(qlen) {
 		// don't make the queue bigger than necessary as it would be a problem
 		// with the priority queue (we pop out when the queue is full)
@@ -283,7 +283,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 	}()
 
 	aggregated := aggregateErrors(ctx, flows, s.opts.ErrorAggregationWindow)
-	sortedFlows := sortFlows(ctx, aggregated, qlen, s.opts.BufferDrainTimeout)
+	sortedFlows := sortFlows(ctx, aggregated, qlen, s.opts.SortBufferDrainTimeout)
 
 	// inform the client about the nodes from which we expect to receive flows first
 	if len(connectedNodes) > 0 {
