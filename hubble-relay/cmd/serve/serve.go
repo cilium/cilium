@@ -30,13 +30,15 @@ import (
 )
 
 type flags struct {
-	debug         bool
-	pprof         bool
-	gops          bool
-	dialTimeout   time.Duration
-	listenAddress string
-	peerService   string
-	retryTimeout  time.Duration
+	debug                  bool
+	pprof                  bool
+	gops                   bool
+	dialTimeout            time.Duration
+	listenAddress          string
+	peerService            string
+	retryTimeout           time.Duration
+	sortBufferMaxLen       int
+	sortBufferDrainTimeout time.Duration
 }
 
 // New creates a new serve command.
@@ -75,6 +77,14 @@ func New() *cobra.Command {
 		&f.peerService, "peer-service",
 		relayoption.Default.HubbleTarget,
 		"Address of the server that implements the peer gRPC service")
+	cmd.Flags().IntVar(
+		&f.sortBufferMaxLen, "sort-buffer-len-max",
+		relayoption.Default.SortBufferMaxLen,
+		"Max number of flows that can be buffered for sorting before being sent to the client (per request)")
+	cmd.Flags().DurationVar(
+		&f.sortBufferDrainTimeout, "sort-buffer-drain-timeout",
+		relayoption.Default.SortBufferDrainTimeout,
+		"When the per-request flows sort buffer is not full, a flow is drained every time this timeout is reached (only affects requests in follow-mode)")
 	return cmd
 }
 
@@ -84,6 +94,8 @@ func runServe(f flags) error {
 		relayoption.WithHubbleTarget(f.peerService),
 		relayoption.WithListenAddress(f.listenAddress),
 		relayoption.WithRetryTimeout(f.retryTimeout),
+		relayoption.WithSortBufferMaxLen(f.sortBufferMaxLen),
+		relayoption.WithSortBufferDrainTimeout(f.sortBufferDrainTimeout),
 	}
 	if f.debug {
 		opts = append(opts, relayoption.WithDebug())
