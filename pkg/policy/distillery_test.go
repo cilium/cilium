@@ -466,8 +466,8 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 	}
 	selectorCache := testNewSelectorCache(identityCache)
 
-	npMap := NamedPortsMap{
-		"port-80": NamedPort{Proto: uint8(0), Port: uint16(80)},
+	npMap := NamedPortMap{
+		"port-80": PortProto{Proto: uint8(0), Port: uint16(80)},
 	}
 
 	tests := []struct {
