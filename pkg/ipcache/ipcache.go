@@ -23,7 +23,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/source"
-	"github.com/cilium/cilium/pkg/u8proto"
 	"github.com/sirupsen/logrus"
 )
 
@@ -62,7 +61,7 @@ type K8sMetadata struct {
 	// PodName is the Kubernetes pod name behind the IP
 	PodName string
 	// NamedPorts is the set of named ports for the pod
-	NamedPorts policy.NamedPortsMap
+	NamedPorts policy.NamedPortMap
 }
 
 // IPCache is a collection of mappings:
@@ -83,7 +82,7 @@ type IPCache struct {
 
 	listeners []IPIdentityMappingListener
 
-	namedPorts policy.NamedPortsMap
+	namedPorts policy.NamedPortMultiMap
 }
 
 // NewIPCache returns a new IPCache with the mappings of endpoint IP to security
@@ -177,49 +176,19 @@ func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 	return nil
 }
 
-func (ipc *IPCache) updateNamedPorts(newIP string, newNamedPorts policy.NamedPortsMap) (namedPortsChanged bool) {
+// updateNamedPorts accumulates named ports from all K8sMetadata entries to a single map
+func (ipc *IPCache) updateNamedPorts() (namedPortsChanged bool) {
 	// Collect new named Ports
-	npm := make(policy.NamedPortsMap, len(ipc.namedPorts))
-	for ip, km := range ipc.ipToK8sMetadata {
-		for name, value := range km.NamedPorts {
-			if ip != newIP {
-				// Check if there is a conflict between any old named port from other IPs
-				// with any of the newly added (or changed) values
-				if newValue, exists := newNamedPorts[name]; exists && newValue != value {
-					scopedLog := log.WithFields(logrus.Fields{
-						logfields.IPAddr:   newIP,
-						logfields.Identity: ipc.ipToIdentityCache[newIP],
-					})
-					newMeta := ipc.ipToK8sMetadata[newIP]
-					scopedLog = scopedLog.WithFields(logrus.Fields{
-						logfields.K8sPodName:   newMeta.PodName,
-						logfields.K8sNamespace: newMeta.Namespace,
-						logfields.NamedPorts:   newMeta.NamedPorts,
-					})
-					oldMeta := ipc.ipToK8sMetadata[ip]
-					scopedLog = scopedLog.WithFields(logrus.Fields{
-						"other-" + logfields.K8sPodName:   oldMeta.PodName,
-						"other-" + logfields.K8sNamespace: oldMeta.Namespace,
-						"other-" + logfields.NamedPorts:   oldMeta.NamedPorts,
-					})
-					scopedLog.Warningf("Conflicting named port definition: %s: %d/%s != %d/%s", name,
-						newValue.Port, u8proto.U8proto(newValue.Proto).String(),
-						value.Port, u8proto.U8proto(value.Proto).String())
-				}
+	npm := make(policy.NamedPortMultiMap, len(ipc.namedPorts))
+	for _, km := range ipc.ipToK8sMetadata {
+		for name, port := range km.NamedPorts {
+			if npm[name] == nil {
+				npm[name] = make(policy.PortProtoSet)
 			}
-			if _, done := npm[name]; done {
-				// Do not process duplicate values
-				continue
-			}
-			if oldValue, ok := ipc.namedPorts[name]; !ok || oldValue != value {
-				namedPortsChanged = true
-			}
-			npm[name] = value
+			npm[name][port] = struct{}{}
 		}
 	}
-	if len(npm) != len(ipc.namedPorts) {
-		namedPortsChanged = true
-	}
+	namedPortsChanged = !npm.Equal(ipc.namedPorts)
 	if namedPortsChanged {
 		// swap the new map in
 		if len(npm) == 0 {
@@ -241,7 +210,7 @@ func (ipc *IPCache) updateNamedPorts(newIP string, newNamedPorts policy.NamedPor
 // nil) and is propagated to the listeners. k8sMeta contains Kubernetes-specific
 // metadata such as pod namespace and pod name belonging to the IP (may be nil).
 func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8sMetadata, newIdentity Identity) (updated bool, namedPortsChanged bool) {
-	var newNamedPorts policy.NamedPortsMap
+	var newNamedPorts policy.NamedPortMap
 	if k8sMeta != nil {
 		newNamedPorts = k8sMeta.NamedPorts
 	}
@@ -382,7 +351,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 		if namedPortsChanged {
 			// It is possible that some other POD defines same values, check if
 			// anything changes over all the PODs.
-			namedPortsChanged = ipc.updateNamedPorts(ip, newNamedPorts)
+			namedPortsChanged = ipc.updateNamedPorts()
 		}
 	}
 
@@ -490,7 +459,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 	// Update named ports
 	namedPortsChanged = false
 	if oldK8sMeta != nil && len(oldK8sMeta.NamedPorts) > 0 {
-		namedPortsChanged = ipc.updateNamedPorts(ip, nil)
+		namedPortsChanged = ipc.updateNamedPorts()
 	}
 
 	if callbackListeners {
@@ -504,7 +473,7 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 }
 
 // GetNamedPorts returns a copy of the named ports map. May return nil.
-func (ipc *IPCache) GetNamedPorts() (npm policy.NamedPortsMap) {
+func (ipc *IPCache) GetNamedPorts() (npm policy.NamedPortMultiMap) {
 	ipc.mutex.Lock()
 	// Caller can keep using the map after the lock is released, as the map is never changed
 	// once published.

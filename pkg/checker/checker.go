@@ -15,6 +15,7 @@
 package checker
 
 import (
+	"fmt"
 	"reflect"
 	"regexp"
 
@@ -171,4 +172,43 @@ func (checker *matchesChecker) Check(params []interface{}, _ []string) (result b
 		return false, "Failed to compile regex: " + err.Error()
 	}
 	return matches, ""
+}
+
+// -----------------------------------------------------------------------
+// HasKey checker.
+
+type hasKeyChecker struct {
+	*check.CheckerInfo
+}
+
+// The HasKey checker verifies that the obtained map contains the
+// provided key.
+//
+// For example:
+//
+//     c.Assert(myMap, HasKey, "five")
+//
+var HasKey check.Checker = &hasKeyChecker{
+	&check.CheckerInfo{Name: "HasKey", Params: []string{"map", "key"}},
+}
+
+func (checker *hasKeyChecker) Check(params []interface{}, names []string) (result bool, error string) {
+	m := reflect.ValueOf(params[0])
+	mType := m.Type()
+	key := reflect.ValueOf(params[1])
+	keyType := key.Type()
+
+	if mType.Kind() != reflect.Map {
+		return false, fmt.Sprintf("'%s' must be a map", names[0])
+	}
+	if mType.Key() != keyType {
+		return false, fmt.Sprintf("'%s' must be of '%s's key type (%s, not %s)",
+			names[1], names[0], mType.Key(), keyType)
+	}
+	for _, v := range m.MapKeys() {
+		if v.Interface() == key.Interface() {
+			return true, ""
+		}
+	}
+	return false, fmt.Sprintf("'%s' has no key %v", names[0], key.Interface())
 }
