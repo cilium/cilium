@@ -277,9 +277,9 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	meta := K8sMetadata{
 		Namespace: "default",
 		PodName:   "app1",
-		NamedPorts: policy.NamedPortsMap{
-			"http": policy.NamedPort{Port: 80, Proto: uint8(u8proto.TCP)},
-			"dns":  policy.NamedPort{Port: 53},
+		NamedPorts: policy.NamedPortMap{
+			"http": policy.PortProto{Port: 80, Proto: uint8(u8proto.TCP)},
+			"dns":  policy.PortProto{Port: 53},
 		},
 	}
 
@@ -305,10 +305,8 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	npm := IPIdentityCache.GetNamedPorts()
 	c.Assert(npm, NotNil)
 	c.Assert(len(npm), Equals, 2)
-	c.Assert(npm["http"].Port, Equals, uint16(80))
-	c.Assert(npm["http"].Proto, Equals, uint8(6)) // TCP
-	c.Assert(npm["dns"].Port, Equals, uint16(53))
-	c.Assert(npm["dns"].Proto, Equals, uint8(0)) // ANY
+	c.Assert(npm["http"], checker.HasKey, policy.PortProto{Port: uint16(80), Proto: uint8(6)})
+	c.Assert(npm["dns"], checker.HasKey, policy.PortProto{Port: uint16(53), Proto: uint8(0)})
 
 	// No duplicates.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 1)
@@ -328,9 +326,9 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	meta2 := K8sMetadata{
 		Namespace: "testing",
 		PodName:   "app2",
-		NamedPorts: policy.NamedPortsMap{
-			"https": policy.NamedPort{Port: 443, Proto: uint8(u8proto.TCP)},
-			"dns":   policy.NamedPort{Port: 53},
+		NamedPorts: policy.NamedPortMap{
+			"https": policy.PortProto{Port: 443, Proto: uint8(u8proto.TCP)},
+			"dns":   policy.PortProto{Port: 53},
 		},
 	}
 
@@ -356,22 +354,17 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	npm = IPIdentityCache.GetNamedPorts()
 	c.Assert(npm, NotNil)
 	c.Assert(len(npm), Equals, 3)
-	c.Assert(npm["http"].Port, Equals, uint16(80))
-	c.Assert(npm["http"].Proto, Equals, uint8(6)) // TCP
-	c.Assert(npm["dns"].Port, Equals, uint16(53))
-	c.Assert(npm["dns"].Proto, Equals, uint8(0)) // ANY
-	c.Assert(npm["https"].Port, Equals, uint16(443))
-	c.Assert(npm["https"].Proto, Equals, uint8(6)) // TCP
+	c.Assert(npm["http"], checker.HasKey, policy.PortProto{Port: uint16(80), Proto: uint8(6)})
+	c.Assert(npm["dns"], checker.HasKey, policy.PortProto{Port: uint16(53), Proto: uint8(0)})
+	c.Assert(npm["https"], checker.HasKey, policy.PortProto{Port: uint16(443), Proto: uint8(6)})
 
 	namedPortsChanged = IPIdentityCache.Delete(endpointIP, source.Kubernetes)
 	c.Assert(namedPortsChanged, Equals, true)
 	npm = IPIdentityCache.GetNamedPorts()
 	c.Assert(npm, NotNil)
 	c.Assert(len(npm), Equals, 2)
-	c.Assert(npm["dns"].Port, Equals, uint16(53))
-	c.Assert(npm["dns"].Proto, Equals, uint8(0)) // ANY
-	c.Assert(npm["https"].Port, Equals, uint16(443))
-	c.Assert(npm["https"].Proto, Equals, uint8(6)) // TCP
+	c.Assert(npm["dns"], checker.HasKey, policy.PortProto{Port: uint16(53), Proto: uint8(0)})
+	c.Assert(npm["https"], checker.HasKey, policy.PortProto{Port: uint16(443), Proto: uint8(6)})
 
 	// Assure deletion occurs across all mappings.
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 1)
@@ -444,8 +437,8 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	// Test mapping of multiple IPs to same identity.
 	endpointIPs := []string{"192.168.0.1", "20.3.75.3", "27.2.2.2", "127.0.0.1", "127.0.0.1"}
 	identities := []identityPkg.NumericIdentity{5, 67, 29, 29, 29}
-	k8sMeta.NamedPorts = policy.NamedPortsMap{
-		"http2": policy.NamedPort{Port: 8080, Proto: uint8(u8proto.TCP)},
+	k8sMeta.NamedPorts = policy.NamedPortMap{
+		"http2": policy.PortProto{Port: 8080, Proto: uint8(u8proto.TCP)},
 	}
 
 	for index := range endpointIPs {
@@ -457,7 +450,7 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 		c.Assert(updated, Equals, true)
 		npm = IPIdentityCache.GetNamedPorts()
 		c.Assert(npm, NotNil)
-		c.Assert(npm["http2"].Port, Equals, uint16(8080))
+		c.Assert(npm["http2"], checker.HasKey, policy.PortProto{Port: uint16(8080), Proto: uint8(6)})
 		// only the first changes named ports, as they are all the same
 		c.Assert(namedPortsChanged, Equals, index == 0)
 		cachedIdentity, _ := IPIdentityCache.LookupByIP(endpointIPs[index])

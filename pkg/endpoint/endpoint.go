@@ -224,7 +224,7 @@ type Endpoint struct {
 
 	// k8sPorts contains container ports associated in the pod.
 	// It is used to enforce k8s network policies with port names.
-	k8sPorts policy.NamedPortsMap
+	k8sPorts policy.NamedPortMap
 
 	// k8sPortsSet keep track when k8sPorts was set at least one time.
 	hasK8sMetadata bool
@@ -1148,7 +1148,7 @@ func (e *Endpoint) SetK8sNamespace(name string) {
 // Reading the 'e.k8sPorts' member (the "map pointer") *itself* requires the endpoint lock!
 // Can't really error out as that might break backwards compatibility.
 func (e *Endpoint) SetK8sMetadata(containerPorts []slim_corev1.ContainerPort) error {
-	k8sPorts := make(policy.NamedPortsMap, len(containerPorts))
+	k8sPorts := make(policy.NamedPortMap, len(containerPorts))
 	for _, cp := range containerPorts {
 		if cp.Name == "" {
 			continue // silently skip unnamed ports

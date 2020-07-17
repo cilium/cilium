@@ -244,13 +244,44 @@ func (l4 *L4Filter) GetPort() uint16 {
 	return uint16(l4.Port)
 }
 
-// NamedPort represents a mapping from a port name to the port number and protocol
-type NamedPort struct {
+type PortProto struct {
 	Port  uint16 // non-0
 	Proto uint8  // 0 for any
 }
 
-type NamedPortsMap map[string]NamedPort
+type NamedPortMap map[string]PortProto
+
+// PortProtoSet is a set of unique PortProto values
+type PortProtoSet map[PortProto]struct{}
+
+func (pps PortProtoSet) Equal(other PortProtoSet) bool {
+	if len(pps) != len(other) {
+		return false
+	}
+
+	for port := range pps {
+		if _, exists := other[port]; !exists {
+			return false
+		}
+	}
+	return true
+}
+
+// NamedPortMultiMap may have multiple entries for a name if multiple PODs
+// define the same name with different values.
+type NamedPortMultiMap map[string]PortProtoSet
+
+func (npm NamedPortMultiMap) Equal(other NamedPortMultiMap) bool {
+	if len(npm) != len(other) {
+		return false
+	}
+	for name, ports := range npm {
+		if otherPorts, exists := other[name]; !exists || !ports.Equal(otherPorts) {
+			return false
+		}
+	}
+	return true
+}
 
 func ValidatePortName(name string) (string, error) {
 	if !iana.IsSvcName(name) { // Port names are formatted as IANA Service Names
@@ -259,7 +290,7 @@ func ValidatePortName(name string) (string, error) {
 	return strings.ToLower(name), nil // Normalize for case-insensitive comparison
 }
 
-func ParsePortProtocol(port int, protocol string) (np NamedPort, err error) {
+func ParsePortProto(port int, protocol string) (np PortProto, err error) {
 	var u8p u8proto.U8proto
 	if protocol == "" {
 		u8p = u8proto.TCP // K8s ContainerPort protocol defaults to TCP
@@ -273,26 +304,31 @@ func ParsePortProtocol(port int, protocol string) (np NamedPort, err error) {
 	if port < 1 || port > 65535 {
 		return np, fmt.Errorf("Port number %d out of 16-bit range", port)
 	}
-	return NamedPort{
+	return PortProto{
 		Proto: uint8(u8p),
 		Port:  uint16(port),
 	}, nil
 }
 
-func (npm NamedPortsMap) AddPort(name string, port int, protocol string) error {
+func (npm NamedPortMap) AddPort(name string, port int, protocol string) error {
 	name, err := ValidatePortName(name)
 	if err != nil {
 		return err
 	}
-	np, err := ParsePortProtocol(port, protocol)
+	pp, err := ParsePortProto(port, protocol)
 	if err != nil {
 		return err
 	}
-	npm[name] = np
+	npm[name] = pp
 	return nil
 }
 
-func (npm NamedPortsMap) GetNamedPort(name string, proto uint8) (port uint16, err error) {
+// NamedPortMap abstracts different maps that implement GetNamedPort method
+type NamedPortsMap interface {
+	GetNamedPort(name string, proto uint8) (port uint16, err error)
+}
+
+func (npm NamedPortMap) GetNamedPort(name string, proto uint8) (port uint16, err error) {
 	if npm == nil {
 		return 0, fmt.Errorf("nil map")
 	}
@@ -307,6 +343,34 @@ func (npm NamedPortsMap) GetNamedPort(name string, proto uint8) (port uint16, er
 		return 0, fmt.Errorf("named port has zero value")
 	}
 	return np.Port, nil
+}
+
+func (npm NamedPortMultiMap) GetNamedPort(name string, proto uint8) (port uint16, err error) {
+	if npm == nil {
+		return 0, fmt.Errorf("nil map")
+	}
+	nps, ok := npm[name]
+	if !ok {
+		return 0, fmt.Errorf("named port %s not found in %v", name, npm)
+	}
+	// Find if there is a single port that has no proto conflict and no zero port value
+	port = 0
+	for np := range nps {
+		if np.Proto != 0 && proto != np.Proto {
+			continue // conflicting proto
+		}
+		if np.Port == 0 {
+			continue // zero port
+		}
+		if port != 0 {
+			return 0, fmt.Errorf("duplicate named ports")
+		}
+		port = np.Port
+	}
+	if port == 0 {
+		return 0, fmt.Errorf("incompatible proto or zero value port")
+	}
+	return port, nil
 }
 
 // ToMapState converts filter into a MapState with two possible values:

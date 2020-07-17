@@ -520,7 +520,7 @@ func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod) (bool, error) {
 				return true, fmt.Errorf("ContainerPort: invalid port: %d", port.ContainerPort)
 			}
 			if k8sMeta.NamedPorts == nil {
-				k8sMeta.NamedPorts = make(policy.NamedPortsMap)
+				k8sMeta.NamedPorts = make(policy.NamedPortMap)
 			}
 			k8sMeta.NamedPorts[port.Name] = policy.NamedPort{
 				Proto: uint8(p),
