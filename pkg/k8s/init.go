@@ -215,6 +215,7 @@ func GetNodeSpec() error {
 
 		log.WithFields(logrus.Fields{
 			logfields.NodeName:         n.Name,
+			logfields.Labels:           logfields.Repr(n.Labels),
 			logfields.IPAddr + ".ipv4": nodeIP4,
 			logfields.IPAddr + ".ipv6": nodeIP6,
 			logfields.V4Prefix:         n.IPv4AllocCIDR,
