@@ -130,8 +130,8 @@ func getBackend(name string) backendModule {
 // tracing layer.
 type BackendOperations interface {
 	// Connected returns a channel which is closed whenever the kvstore client
-	// is connected to the kvstore server. (Only implemented for etcd)
-	Connected(ctx context.Context) <-chan struct{}
+	// is connected to the kvstore server.
+	Connected(ctx context.Context) <-chan error
 
 	// Disconnected returns a channel which is closed whenever the kvstore
 	// client is not connected to the kvstore server. (Only implemented for etcd)
