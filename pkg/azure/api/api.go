@@ -32,6 +32,9 @@ import (
 
 	"github.com/Azure/azure-sdk-for-go/services/compute/mgmt/2019-07-01/compute"
 	"github.com/Azure/azure-sdk-for-go/services/network/mgmt/2019-09-01/network"
+	"github.com/Azure/go-autorest/autorest"
+	"github.com/Azure/go-autorest/autorest/adal"
+	"github.com/Azure/go-autorest/autorest/azure"
 	"github.com/Azure/go-autorest/autorest/azure/auth"
 	"github.com/Azure/go-autorest/autorest/to"
 )
@@ -59,8 +62,36 @@ type MetricsAPI interface {
 	ObserveRateLimit(operation string, duration time.Duration)
 }
 
+func constructAuthorizer(cloudName, userAssignedIdentityName string) (autorest.Authorizer, error) {
+	if userAssignedIdentityName != "" {
+		env, err := azure.EnvironmentFromName(cloudName)
+		if err != nil {
+			return nil, err
+		}
+		msiEndpoint, err := adal.GetMSIVMEndpoint()
+		if err != nil {
+			return nil, err
+		}
+
+		spToken, err := adal.NewServicePrincipalTokenFromMSIWithUserAssignedID(msiEndpoint,
+			env.ServiceManagementEndpoint,
+			userAssignedIdentityName)
+		if err != nil {
+			return nil, err
+		}
+		return autorest.NewBearerAuthorizer(spToken), nil
+	} else {
+		// Authorizer based on file first and then environment variables
+		authorizer, err := auth.NewAuthorizerFromFile(compute.DefaultBaseURI)
+		if err == nil {
+			return authorizer, nil
+		}
+		return auth.NewAuthorizerFromEnvironment()
+	}
+}
+
 // NewClient returns a new Azure client
-func NewClient(subscriptionID, resourceGroup string, metrics MetricsAPI, rateLimit float64, burst int) (*Client, error) {
+func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityName string, metrics MetricsAPI, rateLimit float64, burst int) (*Client, error) {
 	c := &Client{
 		resourceGroup:   resourceGroup,
 		interfaces:      network.NewInterfacesClient(subscriptionID),
@@ -71,13 +102,9 @@ func NewClient(subscriptionID, resourceGroup string, metrics MetricsAPI, rateLim
 		limiter:         helpers.NewApiLimiter(metrics, rateLimit, burst),
 	}
 
-	// Authorizer based on file first and then environment variables
-	authorizer, err := auth.NewAuthorizerFromFile(compute.DefaultBaseURI)
+	authorizer, err := constructAuthorizer(cloudName, userAssignedIdentityName)
 	if err != nil {
-		authorizer, err = auth.NewAuthorizerFromEnvironment()
-		if err != nil {
-			return nil, err
-		}
+		return nil, err
 	}
 
 	c.interfaces.Authorizer = authorizer
