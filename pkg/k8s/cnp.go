@@ -348,10 +348,8 @@ func (c *CNPStatusUpdateContext) updateViaKVStore(ctx context.Context, cnp *type
 		annotations map[string]string
 	)
 
-	select {
-	case <-kvstore.Client().Connected(ctx):
-	case <-ctx.Done():
-		return ctx.Err()
+	if err := <-kvstore.Client().Connected(ctx); err != nil {
+		return nil
 	}
 
 	capabilities := k8sversion.Capabilities()

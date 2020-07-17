@@ -421,8 +421,8 @@ func (c *consulClient) waitForInitLock(ctx context.Context) <-chan struct{} {
 }
 
 // Connected closes the returned channel when the consul client is connected.
-func (c *consulClient) Connected(ctx context.Context) <-chan struct{} {
-	ch := make(chan struct{})
+func (c *consulClient) Connected(ctx context.Context) <-chan error {
+	ch := make(chan error)
 	go func() {
 		for {
 			qo := &consulAPI.QueryOptions{}
