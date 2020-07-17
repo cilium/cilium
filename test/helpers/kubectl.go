@@ -4098,7 +4098,14 @@ func logGathererSelector(allNodes bool) string {
 
 // GetDNSProxyPort returns the port the Cilium DNS proxy is listening on
 func (kub *Kubectl) GetDNSProxyPort(ciliumPod string) int {
-	const pickDNSProxyPort = `iptables-save -t mangle | sed -n '/udp.*TPROXY to host cilium-dns-egress/ s/.*--on-port \([1-9][0-9]*\).*/\1/p'`
+	// We could fetch this from Cilium as per the below if an endpoint is
+	// configured with policy prior to calling this function:
+	// # cilium status -o jsonpath='{.proxy.redirects[?(@.proxy=="cilium-dns-egress")].proxy-port}'
+	//
+	// However, the callees don't reliably do this. So revert back to 'ss':
+	// #  ss -uap | grep cilium-agent
+	// UNCONN 0 0 *:33647 *:* users:(("cilium-agent",pid=9745,fd=28))
+	const pickDNSProxyPort = `ss -uap | grep cilium-agent | awk '{ print $4 }' | awk -F':' '{ print $2 }'`
 
 	// Find out the DNS proxy ports in use
 	res := kub.CiliumExecContext(context.TODO(), ciliumPod, pickDNSProxyPort)
