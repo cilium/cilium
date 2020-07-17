@@ -132,6 +132,7 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.LocalNode.IPv6AllocCIDR = node.GetIPv6AllocRange()
 	n.LocalNode.ClusterID = option.Config.ClusterID
 	n.LocalNode.EncryptionKey = node.GetIPsecKeyIdentity()
+	n.LocalNode.Labels = node.GetLabels()
 
 	if node.GetExternalIPv4() != nil {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
@@ -291,6 +292,8 @@ func (n *NodeDiscovery) mutateNodeResource(nodeResource *ciliumv2.CiliumNode) {
 		typesNode := nodeInterface.(*k8sTypes.Node)
 		k8sNodeParsed := k8s.ParseNode(typesNode, source.Unspec)
 		k8sNodeAddresses = k8sNodeParsed.IPAddresses
+
+		nodeResource.ObjectMeta.Labels = k8sNodeParsed.Labels
 
 		for _, k8sAddress := range k8sNodeAddresses {
 			k8sAddressStr := k8sAddress.IP.String()
