@@ -33,6 +33,20 @@ Deploy Cilium release via Helm:
 At this point, the Cilium-managed nodes are ready to enforce network policies.
 
 
+Attach a Label to the Node
+==========================
+
+In this guide, we will apply host policies only to nodes with the label
+``access=ssh``. We thus first need to attach that label to a node in the
+cluster.
+
+.. parsed-literal ::
+
+    $ export NODE_NAME=k8s1
+    $ kubectl label node $NODE_NAME node-access=ssh
+    node/k8s1 labeled
+
+
 Enable Policy Audit Mode for the Host Endpoint
 ==============================================
 
@@ -46,12 +60,14 @@ validate the impact of host policies before enforcing them. When Policy Audit
 Mode is enabled, no network policy is enforced so this setting is *not
 recommended for production deployment*.
 
-::
+.. parsed-literal ::
 
-    $ HOST_EP_ID=$(cilium endpoint list -o json | jq '.[] | select( .status.identity.id == 1 ).id')
-    $ cilium endpoint config $HOST_EP_ID PolicyAuditMode=Enabled
+    $ CILIUM_NAMESPACE=kube-system
+    $ CILIUM_POD_NAME=$(kubectl -n $CILIUM_NAMESPACE get pods -o json | jq -r '.items[] | select( .metadata.labels."k8s-app" == "cilium" and .spec.nodeName == env.NODE_NAME ).metadata.name')
+    $ HOST_EP_ID=$(kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint list -o jsonpath='{[?(@.status.identity.id==1)].id}'
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint config $HOST_EP_ID PolicyAuditMode=Enabled
     Endpoint 3353 configuration updated successfully
-    $ cilium endpoint config $HOST_EP_ID | grep PolicyAuditMode
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint config $HOST_EP_ID | grep PolicyAuditMode
     PolicyAuditMode          Enabled
 
 
@@ -81,14 +97,15 @@ status of the policy using that command.
 
 .. parsed-literal ::
 
-    $ cilium endpoint list
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6                 IPv4           STATUS
                ENFORCEMENT        ENFORCEMENT
     266        Disabled           Disabled          104        k8s:io.cilium.k8s.policy.cluster=default          f00d::a0b:0:0:ef4e   10.16.172.63   ready
                                                                k8s:io.cilium.k8s.policy.serviceaccount=coredns
                                                                k8s:io.kubernetes.pod.namespace=kube-system
                                                                k8s:k8s-app=kube-dns
-    1687       Disabled (Audit)   Disabled          1          reserved:host                                                                         ready
+    1687       Disabled (Audit)   Disabled          1          k8s:node-access=ssh                                                                   ready
+                                                               reserved:host
     3362       Disabled           Disabled          4          reserved:health                                   f00d::a0b:0:0:49cf   10.16.87.66    ready
 
 
@@ -103,7 +120,7 @@ breakages.
 
 .. parsed-literal ::
 
-    $ cilium monitor -t policy-verdict --related-to $HOST_EP_ID
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium monitor -t policy-verdict --related-to $HOST_EP_ID
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 6, proto 1, ingress, action allow, match L3-Only, 192.168.33.12 -> 192.168.33.11 EchoRequest
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 6, proto 6, ingress, action allow, match L3-Only, 192.168.33.12:37278 -> 192.168.33.11:2379 tcp SYN
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 2, proto 6, ingress, action audit, match none, 10.0.2.2:47500 -> 10.0.2.15:6443 tcp SYN
@@ -133,21 +150,22 @@ policy.
 
 .. parsed-literal ::
 
-    $ cilium endpoint config $HOST_EP_ID PolicyAuditMode=Disabled
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint config $HOST_EP_ID PolicyAuditMode=Disabled
     Endpoint 3353 configuration updated successfully
 
 Ingress host policies should now appear as enforced:
 
 .. parsed-literal ::
 
-    $ cilium endpoint list
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6                 IPv4           STATUS
                ENFORCEMENT        ENFORCEMENT
     266        Disabled           Disabled          104        k8s:io.cilium.k8s.policy.cluster=default          f00d::a0b:0:0:ef4e   10.16.172.63   ready
                                                                k8s:io.cilium.k8s.policy.serviceaccount=coredns
                                                                k8s:io.kubernetes.pod.namespace=kube-system
                                                                k8s:k8s-app=kube-dns
-    1687       Enabled            Disabled          1          reserved:host                                                                         ready
+    1687       Enabled            Disabled          1          k8s:node-access=ssh                                                                   ready
+                                                               reserved:host
     3362       Disabled           Disabled          4          reserved:health                                   f00d::a0b:0:0:49cf   10.16.87.66    ready
 
 
@@ -155,7 +173,7 @@ Communications not explicitly allowed by the host policy will now be dropped:
 
 .. parsed-literal ::
 
-    $ cilium monitor -t policy-verdict --related-to $HOST_EP_ID
+    $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium monitor -t policy-verdict --related-to $HOST_EP_ID
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 2, proto 6, ingress, action deny, match none, 10.0.2.2:49038 -> 10.0.2.15:21 tcp SYN
 
 
