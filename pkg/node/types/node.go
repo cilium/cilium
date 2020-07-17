@@ -52,6 +52,7 @@ func ParseCiliumNode(n *ciliumv2.CiliumNode) (node Node) {
 		Cluster:       option.Config.ClusterName,
 		ClusterID:     option.Config.ClusterID,
 		Source:        source.CustomResource,
+		Labels:        n.ObjectMeta.Labels,
 	}
 
 	for _, cidrString := range n.Spec.IPAM.PodCIDRs {
@@ -112,7 +113,8 @@ func (n *Node) ToCiliumNode() *ciliumv2.CiliumNode {
 
 	return &ciliumv2.CiliumNode{
 		ObjectMeta: v1.ObjectMeta{
-			Name: n.Name,
+			Name:   n.Name,
+			Labels: n.Labels,
 		},
 		Spec: ciliumv2.NodeSpec{
 			Addresses: ipAddrs,
