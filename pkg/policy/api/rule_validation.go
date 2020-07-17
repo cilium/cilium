@@ -400,8 +400,8 @@ func (pp *PortProtocol) Sanitize() error {
 
 // sanitize the given CIDR. If successful, returns the prefixLength specified
 // in the cidr and nil. Otherwise, returns (0, nil).
-func (cidr CIDR) sanitize() (prefixLength int, err error) {
-	strCIDR := string(cidr)
+func (c CIDR) sanitize() (prefixLength int, err error) {
+	strCIDR := string(c)
 	if strCIDR == "" {
 		return 0, fmt.Errorf("IP must be specified")
 	}
