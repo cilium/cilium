@@ -451,14 +451,28 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 	}
 }
 
-// Connected closes the returned channel when the etcd client is connected.
-func (e *etcdClient) Connected(ctx context.Context) <-chan struct{} {
-	out := make(chan struct{})
+// Connected closes the returned channel when the etcd client is connected. If
+// the context is cancelled or if the etcd client is closed, an error is
+// returned on the channel.
+func (e *etcdClient) Connected(ctx context.Context) <-chan error {
+	out := make(chan error)
 	go func() {
-		for e.isConnectedAndHasQuorum(ctx) != nil {
+		defer close(out)
+		for {
+			select {
+			case <-e.client.Ctx().Done():
+				out <- fmt.Errorf("etcd client context ended")
+				return
+			case <-ctx.Done():
+				out <- ctx.Err()
+				return
+			default:
+			}
+			if e.isConnectedAndHasQuorum(ctx) == nil {
+				return
+			}
 			time.Sleep(100 * time.Millisecond)
 		}
-		close(out)
 	}()
 	return out
 }
@@ -791,7 +805,13 @@ func (e *etcdClient) Watch(ctx context.Context, w *Watcher) {
 		fieldWatcher: w,
 		fieldPrefix:  w.prefix,
 	})
-	<-e.Connected(ctx)
+
+	err := <-e.Connected(ctx)
+	if err != nil {
+		// The context ended or the etcd client was closed
+		// before connectivity was achieved
+		return
+	}
 
 reList:
 	for {
