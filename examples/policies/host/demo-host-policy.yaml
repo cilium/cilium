@@ -6,7 +6,7 @@ metadata:
 spec:
   nodeSelector:
     matchLabels:
-      {}
+      node-access: ssh
   ingress:
   - fromEntities:
     - cluster
