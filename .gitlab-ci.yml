@@ -5,6 +5,7 @@ deploy-dev:
   script:
     - make -f Bytedance.mk deploy-dev
   only:
+    - tags
     - /^dev$/
 
 deploy:
