@@ -238,6 +238,9 @@ const (
 	unstableStat        = "BUG: stat() has unstable behavior"                        // from https://github.com/cilium/cilium/pull/11028
 	removeTransientRule = "Unable to process chain CILIUM_TRANSIENT_FORWARD with ip" // from https://github.com/cilium/cilium/issues/11276
 
+	// dmesg messages that should not be seen
+	forwardDrop = "FORWARD DROP established:"
+
 	// HelmTemplate is the location of the Helm templates to install Cilium
 	HelmTemplate = "../install/kubernetes/cilium"
 
@@ -298,6 +301,12 @@ var badLogMessages = map[string][]string{
 	removeTransientRule: nil,
 }
 
+// badDmesgMessages is a map which key is a part of a dmesg message which indicates
+// a failure if the message does not contain any part from value list.
+var badDmesgMessages = map[string][]string{
+	forwardDrop: nil,
+}
+
 var ciliumCLICommands = map[string]string{
 	"cilium endpoint list -o json":          "endpoint_list.txt",
 	"cilium service list -o json":           "service_list.txt",
@@ -350,6 +359,18 @@ func K8s2VMName() string {
 func GetBadLogMessages() map[string][]string {
 	mapCopy := make(map[string][]string, len(badLogMessages))
 	for badMsg, exceptions := range badLogMessages {
+		exceptionsCopy := make([]string, len(exceptions))
+		copy(exceptionsCopy, exceptions)
+		mapCopy[badMsg] = exceptionsCopy
+	}
+	return mapCopy
+}
+
+// GetBadDmesgMessages returns a deep copy of badDmesgMessages to allow removing
+// messages for specific tests.
+func GetBadDmesgMessages() map[string][]string {
+	mapCopy := make(map[string][]string, len(badDmesgMessages))
+	for badMsg, exceptions := range badDmesgMessages {
 		exceptionsCopy := make([]string, len(exceptions))
 		copy(exceptionsCopy, exceptions)
 		mapCopy[badMsg] = exceptionsCopy

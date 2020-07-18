@@ -3050,11 +3050,37 @@ func (kub *Kubectl) CiliumCheckReport(ctx context.Context) {
 	}
 }
 
+// ValidateNoErrorsInDmesg checks that dmesg output (since the last check)
+// do not contain any of the known-bad messages (e.g., dropped packets).
+// In case of any of these messages, it'll mark the test as failed.
+func (kub *Kubectl) ValidateNoErrorsInDmesg() {
+	blacklist := GetBadDmesgMessages()
+	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
+	defer cancel()
+
+	pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	if err != nil {
+		fmt.Fprintf(CheckLogs, "Could not get Cilium PODs: %s", err)
+		return
+	}
+	for _, pod := range pods {
+		res := kub.CiliumExecContext(ctx, pod,
+			"dmesg --read-clear --level debug --nopager --color=never --time-format iso")
+		if !res.WasSuccessful() {
+			fmt.Fprintf(CheckLogs, "dmesg failed: %s", res.CombineOutput())
+			continue
+		}
+		failIfContainsBadLogMsg("dmesg", pod, res.Output().String(), blacklist, true)
+	}
+
+}
+
 // ValidateNoErrorsInLogs checks that cilium logs since the given duration (By
 // default `CurrentGinkgoTestDescription().Duration`) do not contain any of the
 // known-bad messages (e.g., `deadlocks` or `segmentation faults`). In case of
 // any of these messages, it'll mark the test as failed.
 func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
+	kub.ValidateNoErrorsInDmesg()
 	blacklist := GetBadLogMessages()
 	kub.ValidateListOfErrorsInLogs(duration, blacklist)
 }
@@ -3093,7 +3119,7 @@ func (kub *Kubectl) ValidateListOfErrorsInLogs(duration time.Duration, blacklist
 		}
 	}()
 
-	failIfContainsBadLogMsg(logs, blacklist)
+	failIfContainsBadLogMsg("Cilium", "", logs, blacklist, false)
 
 	fmt.Fprint(CheckLogs, logutils.LogErrorsSummary(logs))
 }
