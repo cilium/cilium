@@ -29,6 +29,10 @@ jobs:
           sudo sysctl net.ipv6.conf.all.forwarding=1
           sudo systemctl restart docker
 
+      - name: Setup DNS routing for IPv6
+        run: |
+          socat UDP6-RECVFROM:5300,fork UDP4-SENDTO:127.0.0.53:53 &
+
 #      - name: Build docker images
 #        run: |
 #          make docker-image-no-clean
@@ -40,9 +44,47 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
 
+      # Related github issue https://github.com/kubernetes-sigs/kind/issues/1736
+      - name: Retrive IPv6 gateway docker hash version
+        run: |
+          echo ::set-env name=IPv6_GATEWAY::$(docker inspect --format='{{range .NetworkSettings.Networks}}{{.IPv6Gateway}}{{end}}' kind-control-plane)
+
       - name: Checking the kind cluster status
         run: |
           kubectl get all --all-namespaces
+          echo $IPv6_GATEWAY
+          echo ${{ env.$IPv6_GATEWAY }}
+
+      - name: Update coredns configuration
+        run: |
+          cat <<EOF | kubectl apply -f -
+          apiVersion: v1
+          kind: ConfigMap
+          metadata:
+            name: coredns
+            namespace: kube-system
+          data:
+            Corefile: |
+              .:53 {
+                  errors
+                  health {
+                     lameduck 5s
+                  }
+                  ready
+                  kubernetes cluster.local in-addr.arpa ip6.arpa {
+                     pods insecure
+                     upstream
+                     fallthrough in-addr.arpa ip6.arpa
+                     ttl 30
+                  }
+                  prometheus :9153
+                  forward . [fc00:f853:ccd:e793::1]:5300
+                  cache 30
+                  loop
+                  reload
+                  loadbalance
+              }
+          EOF
 
 #      - name: Load local images into kind cluster
 #        run: |
