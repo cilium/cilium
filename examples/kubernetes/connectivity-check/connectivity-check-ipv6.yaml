@@ -529,15 +529,15 @@ spec:
     spec:
       containers:
       - name: pod-to-a-external-1111-container
-        image: docker.io/byrnedo/alpine-curl:0.1.8
+        image: docker.io/alpine:latest
         command: ["/bin/ash", "-c", "sleep 1000000000"]
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "[2606:4700:4700::1111]"]
+            command: ["nslookup", "2606:4700:4700::1111"]
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "[2606:4700:4700::1111]"]
+            command: ["nslookup", "2606:4700:4700::1111"]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -555,15 +555,15 @@ spec:
     spec:
       containers:
       - name: pod-to-external-fqdn-allow-google-cnp-container
-        image: docker.io/byrnedo/alpine-curl:0.1.8
+        image: docker.io/alpine:latest
         command: ["/bin/ash", "-c", "sleep 1000000000"]
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
+            command: ["nslookup", "www.google.com"]
         readinessProbe:
           exec:
-            command: ["curl", "-sS", "--fail", "--connect-timeout", "5", "-o", "/dev/null", "www.google.com"]
+            command:  ["nslookup", "www.google.com"]
 ---
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
@@ -596,6 +596,4 @@ spec:
       rules:
         dns:
         - matchPattern: "*"
-  - toFQDNs:
-    - matchPattern: "*.google.com"
 ---
