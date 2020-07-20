@@ -22,7 +22,7 @@ const (
 	HttpdImage = "docker.io/cilium/demo-httpd:latest"
 
 	// DNSSECContainerImage is the image used for starting a DNSSec client.
-	DNSSECContainerImage = "docker.io/cilium/dnssec-client:v0.1"
+	DNSSECContainerImage = "docker.io/cilium/dnssec-client:v0.2"
 
 	// BindContainerImage is the image used for DNS binding testing.
 	BindContainerImage = "docker.io/cilium/docker-bind:v0.3"
@@ -43,7 +43,7 @@ const (
 	MemcacheDImage = "docker.io/library/memcached:1.5.11"
 
 	// MemcacheBinClient is the image used during binary memcached parser tests.
-	MemcacheBinClient = "docker.io/cilium/python-bmemcached:v0.0.1"
+	MemcacheBinClient = "docker.io/cilium/python-bmemcached:v0.0.2"
 
 	// AlpineImage is used during the memcached tests as the text client.
 	AlpineImage = "docker.io/library/alpine:3.9"
