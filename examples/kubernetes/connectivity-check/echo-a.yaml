@@ -25,7 +25,7 @@ spec:
     spec:
       containers:
       - name: echo-container
-        image: docker.io/cilium/json-mock:1.0
+        image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
           exec:
