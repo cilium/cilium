@@ -72,7 +72,7 @@ spec:
     spec:
       containers:
       - name: x-wing-container
-        image: docker.io/cilium/json-mock:1.0
+        image: docker.io/cilium/json-mock:1.2
         livenessProbe:
           exec:
             command:

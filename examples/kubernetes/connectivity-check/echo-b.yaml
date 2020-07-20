@@ -38,7 +38,7 @@ spec:
     spec:
       containers:
       - name: echo-container
-        image: docker.io/cilium/json-mock:1.0
+        image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -65,7 +65,7 @@ spec:
       hostNetwork: true
       containers:
       - name: echo-container
-        image: docker.io/cilium/json-mock:1.0
+        image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         env:
         - name: PORT
