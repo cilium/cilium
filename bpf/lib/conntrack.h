@@ -243,6 +243,7 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			reopen = entry->rx_closing | entry->tx_closing;
 			reopen |= seen_flags.value & TCP_FLAG_SYN;
 			if (unlikely(reopen == (TCP_FLAG_SYN|0x1))) {
+				ct_state->reopen = 1;
 				ct_reset_closing(entry);
 				*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
 			}
@@ -630,6 +631,19 @@ ct_update6_rev_nat_index(const void *map, const struct ipv6_ct_tuple *tuple,
 	entry->rev_nat_index = state->rev_nat_index;
 }
 
+static __always_inline void ct_update6_dsr(const void *map,
+					   const struct ipv6_ct_tuple *tuple,
+					   bool dsr)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->dsr = dsr;
+}
+
 /* Offset must point to IPv6 */
 static __always_inline int ct_create6(const void *map_main, const void *map_related,
 				      struct ipv6_ct_tuple *tuple,
@@ -723,6 +737,19 @@ ct_update4_rev_nat_index(const void *map, const struct ipv4_ct_tuple *tuple,
 		return;
 
 	entry->rev_nat_index = state->rev_nat_index;
+}
+
+static __always_inline void ct_update4_dsr(const void *map,
+					   const struct ipv4_ct_tuple *tuple,
+					   bool dsr)
+{
+	struct ct_entry *entry;
+
+	entry = map_lookup_elem(map, tuple);
+	if (!entry)
+		return;
+
+	entry->dsr = dsr;
 }
 
 static __always_inline int ct_create4(const void *map_main,

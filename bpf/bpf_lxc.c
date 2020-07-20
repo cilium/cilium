@@ -933,21 +933,25 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	if (skip_ingress_proxy)
 		verdict = 0;
 
-	if (ret == CT_NEW) {
-		send_policy_verdict_notify(ctx, src_label, tuple.dport,
-					   tuple.nexthdr, POLICY_INGRESS, 1,
-					   verdict, policy_match_type, audited);
 #ifdef ENABLE_DSR
-	{
+	if (ret == CT_NEW || ct_state.reopen) {
 		bool dsr = false;
 
 		ret = handle_dsr_v6(ctx, &dsr);
 		if (ret != 0)
 			return ret;
 
-		ct_state_new.dsr = dsr;
+		if (ret == CT_NEW)
+			ct_state_new.dsr = dsr;
+		else
+			ct_update6_dsr(get_ct_map6(&tuple), &tuple, dsr);
 	}
 #endif /* ENABLE_DSR */
+
+	if (ret == CT_NEW) {
+		send_policy_verdict_notify(ctx, src_label, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 1,
+					   verdict, policy_match_type, audited);
 
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
@@ -1163,21 +1167,25 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	if (skip_ingress_proxy)
 		verdict = 0;
 
-	if (ret == CT_NEW) {
-		send_policy_verdict_notify(ctx, src_label, tuple.dport,
-					   tuple.nexthdr, POLICY_INGRESS, 0,
-					   verdict, policy_match_type, audited);
 #ifdef ENABLE_DSR
-	{
+	if (ret == CT_NEW || ct_state.reopen) {
 		bool dsr = false;
 
 		ret = handle_dsr_v4(ctx, &dsr);
 		if (ret != 0)
 			return ret;
 
-		ct_state_new.dsr = dsr;
+		if (ret == CT_NEW)
+			ct_state_new.dsr = dsr;
+		else
+			ct_update4_dsr(get_ct_map4(&tuple), &tuple, dsr);
 	}
 #endif /* ENABLE_DSR */
+
+	if (ret == CT_NEW) {
+		send_policy_verdict_notify(ctx, src_label, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 0,
+					   verdict, policy_match_type, audited);
 
 		ct_state_new.src_sec_id = src_label;
 		ct_state_new.node_port = ct_state.node_port;
