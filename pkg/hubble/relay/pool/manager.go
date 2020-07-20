@@ -17,6 +17,7 @@ package pool
 import (
 	"context"
 	"fmt"
+	"sync"
 	"time"
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
@@ -64,6 +65,7 @@ type Manager struct {
 	offline chan string
 	mu      lock.Mutex
 	opts    Options
+	wg      sync.WaitGroup
 	stop    chan struct{}
 }
 
@@ -89,8 +91,15 @@ func NewManager(options ...Option) (*Manager, error) {
 
 // Start implements PeerManager.Start.
 func (m *Manager) Start() {
-	go m.watchNotifications()
-	go m.manageConnections()
+	m.wg.Add(2)
+	go func() {
+		defer m.wg.Done()
+		m.watchNotifications()
+	}()
+	go func() {
+		defer m.wg.Done()
+		m.manageConnections()
+	}()
 }
 
 func (m *Manager) watchNotifications() {
@@ -172,10 +181,13 @@ func (m *Manager) manageConnections() {
 			m.mu.Lock()
 			p := m.peers[name]
 			m.mu.Unlock()
-			// a connection request has been made, make sure to attempt a connection
-			m.connect(p, true)
+			m.wg.Add(1)
+			go func() {
+				defer m.wg.Done()
+				// a connection request has been made, make sure to attempt a connection
+				m.connect(p, true)
+			}()
 		case <-time.After(m.opts.ConnCheckInterval):
-			var retry []*peer
 			m.mu.Lock()
 			now := time.Now()
 			for _, p := range m.peers {
@@ -187,15 +199,19 @@ func (m *Manager) manageConnections() {
 						continue
 					}
 				}
-				if p.nextConnAttempt.IsZero() || p.nextConnAttempt.Before(now) {
-					retry = append(retry, p)
+				switch {
+				case p.nextConnAttempt.IsZero(), p.nextConnAttempt.Before(now):
+					p.mu.Unlock()
+					m.wg.Add(1)
+					go func() {
+						defer m.wg.Done()
+						m.connect(p, false)
+					}()
+				default:
+					p.mu.Unlock()
 				}
-				p.mu.Unlock()
 			}
 			m.mu.Unlock()
-			for _, p := range retry {
-				m.connect(p, false)
-			}
 		}
 	}
 }
@@ -203,6 +219,7 @@ func (m *Manager) manageConnections() {
 // Stop implements PeerManager.Stop.
 func (m *Manager) Stop() {
 	close(m.stop)
+	m.wg.Wait()
 }
 
 // List implements PeerManager.List.
@@ -228,7 +245,9 @@ func (m *Manager) List() []Peer {
 
 // ReportOffline implements PeerManager.ReportOffline.
 func (m *Manager) ReportOffline(name string) {
+	m.wg.Add(1)
 	go func() {
+		defer m.wg.Done()
 		m.mu.Lock()
 		p, ok := m.peers[name]
 		m.mu.Unlock()
@@ -296,49 +315,47 @@ func (m *Manager) update(hp *hubblePeer.Peer) {
 }
 
 func (m *Manager) connect(p *peer, ignoreBackoff bool) {
-	go func() {
-		if p == nil {
-			return
-		}
-		p.mu.Lock()
-		defer p.mu.Unlock()
-		now := time.Now()
-		if p.nextConnAttempt.After(now) && !ignoreBackoff {
-			return
-		}
-		if p.conn != nil {
-			switch p.conn.GetState() {
-			case connectivity.Connecting, connectivity.Idle, connectivity.Ready:
-				return // no need to attempt to connect
-			default:
-				if err := p.conn.Close(); err != nil {
-					m.opts.Log.WithFields(logrus.Fields{
-						"error": err,
-					}).Warningf("Failed to properly close gRPC client connection to peer %s", p.Name)
-				}
-				p.conn = nil
+	if p == nil {
+		return
+	}
+	p.mu.Lock()
+	defer p.mu.Unlock()
+	now := time.Now()
+	if p.nextConnAttempt.After(now) && !ignoreBackoff {
+		return
+	}
+	if p.conn != nil {
+		switch p.conn.GetState() {
+		case connectivity.Connecting, connectivity.Idle, connectivity.Ready:
+			return // no need to attempt to connect
+		default:
+			if err := p.conn.Close(); err != nil {
+				m.opts.Log.WithFields(logrus.Fields{
+					"error": err,
+				}).Warningf("Failed to properly close gRPC client connection to peer %s", p.Name)
 			}
+			p.conn = nil
 		}
+	}
 
+	m.opts.Log.WithFields(logrus.Fields{
+		"address": p.Address,
+	}).Debugf("Connecting peer %s...", p.Name)
+	conn, err := m.opts.ClientConnBuilder.ClientConn(p.Address.String())
+	if err != nil {
+		duration := m.opts.Backoff.Duration(p.connAttempts)
+		p.nextConnAttempt = now.Add(duration)
+		p.connAttempts++
 		m.opts.Log.WithFields(logrus.Fields{
 			"address": p.Address,
-		}).Debugf("Connecting peer %s...", p.Name)
-		conn, err := m.opts.ClientConnBuilder.ClientConn(p.Address.String())
-		if err != nil {
-			duration := m.opts.Backoff.Duration(p.connAttempts)
-			p.nextConnAttempt = now.Add(duration)
-			p.connAttempts++
-			m.opts.Log.WithFields(logrus.Fields{
-				"address": p.Address,
-				"error":   err,
-			}).Warningf("Failed to create gRPC client connection to peer %s; next attempt after %s", p.Name, duration)
-		} else {
-			p.nextConnAttempt = time.Time{}
-			p.connAttempts = 0
-			p.conn = conn
-			m.opts.Log.Debugf("Peer %s connected", p.Name)
-		}
-	}()
+			"error":   err,
+		}).Warningf("Failed to create gRPC client connection to peer %s; next attempt after %s", p.Name, duration)
+	} else {
+		p.nextConnAttempt = time.Time{}
+		p.connAttempts = 0
+		p.conn = conn
+		m.opts.Log.Debugf("Peer %s connected", p.Name)
+	}
 }
 
 func (m *Manager) disconnect(p *peer) {
