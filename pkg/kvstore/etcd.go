@@ -809,6 +809,14 @@ func (e *etcdClient) Watch(ctx context.Context, w *Watcher) {
 
 reList:
 	for {
+		select {
+		case <-e.client.Ctx().Done():
+			return
+		case <-ctx.Done():
+			return
+		default:
+		}
+
 		e.limiter.Wait(ctx)
 		res, err := e.client.Get(ctx, w.prefix, client.WithPrefix(),
 			client.WithSerializable())
@@ -874,6 +882,10 @@ reList:
 			client.WithPrefix(), client.WithRev(nextRev))
 		for {
 			select {
+			case <-e.client.Ctx().Done():
+				return
+			case <-ctx.Done():
+				return
 			case <-w.stopWatch:
 				close(w.Events)
 				w.stopWait.Done()
