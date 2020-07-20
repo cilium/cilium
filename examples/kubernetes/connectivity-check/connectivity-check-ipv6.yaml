@@ -26,7 +26,7 @@ spec:
     spec:
       containers:
       - name: echo-container
-        image: docker.io/sayboras/echo-server:latest
+        image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
           exec:
@@ -72,7 +72,7 @@ spec:
     spec:
       containers:
       - name: echo-container
-        image: docker.io/sayboras/echo-server:latest
+        image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 80
@@ -99,7 +99,7 @@ spec:
       hostNetwork: true
       containers:
       - name: echo-container
-        image: docker.io/sayboras/echo-server:latest
+        image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         env:
         - name: PORT
@@ -529,15 +529,15 @@ spec:
     spec:
       containers:
       - name: pod-to-a-external-1111-container
-        image: docker.io/alpine:latest
-        command: ["/bin/ash", "-c", "sleep 1000000000"]
+        image: docker.io/sayboras/ubuntu-net:latest
+        command: ["/bin/bash", "-c", "sleep 1000000000"]
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["nslookup", "2606:4700:4700::1111"]
+            command: ["host", "2606:4700:4700::1111"]
         readinessProbe:
           exec:
-            command: ["nslookup", "2606:4700:4700::1111"]
+            command: ["host", "2606:4700:4700::1111"]
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -555,15 +555,15 @@ spec:
     spec:
       containers:
       - name: pod-to-external-fqdn-allow-google-cnp-container
-        image: docker.io/alpine:latest
-        command: ["/bin/ash", "-c", "sleep 1000000000"]
+        image: docker.io/sayboras/ubuntu-net:latest
+        command: ["/bin/bash", "-c", "sleep 1000000000"]
         imagePullPolicy: IfNotPresent
         livenessProbe:
           exec:
-            command: ["nslookup", "www.google.com"]
+            command: ["host", "www.google.com"]
         readinessProbe:
           exec:
-            command:  ["nslookup", "www.google.com"]
+            command:  ["host", "www.google.com"]
 ---
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
