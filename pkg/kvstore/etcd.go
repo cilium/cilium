@@ -428,6 +428,9 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 	select {
 	// Wait for the the initial connection to be established
 	case <-e.firstSession:
+	// Client is closing
+	case <-e.client.Ctx().Done():
+		return fmt.Errorf("client is closing")
 	// Timeout while waiting for initial connection, no success
 	case <-ctxTimeout.Done():
 		recordQuorumError("timeout")
