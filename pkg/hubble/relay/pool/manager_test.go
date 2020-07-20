@@ -17,8 +17,10 @@
 package pool
 
 import (
+	"bytes"
 	"context"
 	"errors"
+	"io"
 	"net"
 	"sort"
 	"sync"
@@ -31,6 +33,7 @@ import (
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 
+	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
@@ -38,11 +41,15 @@ import (
 
 func TestManager(t *testing.T) {
 	var done chan struct{}
+	type want struct {
+		peers []Peer
+		log   []string
+	}
 	tests := []struct {
 		name      string
 		pcBuilder peerTypes.ClientBuilder
 		ccBuilder ClientConnBuilder
-		want      []Peer
+		want      want
 	}{
 		{
 			name: "empty pool",
@@ -53,10 +60,8 @@ func TestManager(t *testing.T) {
 							var once sync.Once
 							return &testutils.FakePeerNotifyClient{
 								OnRecv: func() (*peerpb.ChangeNotification, error) {
-									once.Do(func() {
-										close(done)
-									})
-									return nil, nil
+									once.Do(func() { close(done) })
+									return nil, io.EOF
 								},
 							}, nil
 						},
@@ -66,13 +71,13 @@ func TestManager(t *testing.T) {
 					}, nil
 				},
 			},
-			want: nil,
 		}, {
 			name: "1 unreachable peer",
 			pcBuilder: testutils.FakePeerClientBuilder{
 				OnClient: func(target string) (peerTypes.Client, error) {
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+							var once sync.Once
 							i := -1
 							cns := []*peerpb.ChangeNotification{
 								{
@@ -86,12 +91,8 @@ func TestManager(t *testing.T) {
 									i++
 									switch {
 									case i >= len(cns):
-										return nil, nil
-									case i == len(cns)-1:
-										defer func() {
-											close(done)
-										}()
-										fallthrough
+										once.Do(func() { close(done) })
+										return nil, io.EOF
 									default:
 										return cns[i], nil
 									}
@@ -106,19 +107,21 @@ func TestManager(t *testing.T) {
 			},
 			ccBuilder: FakeClientConnBuilder{
 				OnClientConn: func(target string) (ClientConn, error) {
-					return FakeClientConn{}, nil
+					return nil, io.EOF
 				},
 			},
-			want: []Peer{
-				{
-					hubblePeer.Peer{
-						Name: "unreachable",
-						Address: &net.TCPAddr{
-							IP:   net.ParseIP("192.0.1.1"),
-							Port: defaults.ServerPort,
+			want: want{
+				peers: []Peer{
+					{
+						hubblePeer.Peer{
+							Name: "unreachable",
+							Address: &net.TCPAddr{
+								IP:   net.ParseIP("192.0.1.1"),
+								Port: defaults.ServerPort,
+							},
 						},
+						nil,
 					},
-					nil,
 				},
 			},
 		}, {
@@ -140,7 +143,7 @@ func TestManager(t *testing.T) {
 									i++
 									switch {
 									case i >= len(cns):
-										return nil, nil
+										return nil, io.EOF
 									default:
 										return cns[i], nil
 									}
@@ -158,24 +161,24 @@ func TestManager(t *testing.T) {
 					var once sync.Once
 					return FakeClientConn{
 						OnGetState: func() connectivity.State {
-							once.Do(func() {
-								close(done)
-							})
+							once.Do(func() { close(done) })
 							return connectivity.Ready
 						},
 					}, nil
 				},
 			},
-			want: []Peer{
-				{
-					hubblePeer.Peer{
-						Name: "reachable",
-						Address: &net.TCPAddr{
-							IP:   net.ParseIP("192.0.1.1"),
-							Port: defaults.ServerPort,
+			want: want{
+				peers: []Peer{
+					{
+						hubblePeer.Peer{
+							Name: "reachable",
+							Address: &net.TCPAddr{
+								IP:   net.ParseIP("192.0.1.1"),
+								Port: defaults.ServerPort,
+							},
 						},
+						FakeClientConn{},
 					},
-					FakeClientConn{},
 				},
 			},
 		}, {
@@ -201,12 +204,9 @@ func TestManager(t *testing.T) {
 									i++
 									switch {
 									case i >= len(cns):
-										return nil, nil
+										return nil, io.EOF
 									case i == len(cns)-1:
-										defer func() {
-											close(done)
-										}()
-										<-time.After(10 * time.Millisecond)
+										close(done)
 										fallthrough
 									default:
 										return cns[i], nil
@@ -251,7 +251,7 @@ func TestManager(t *testing.T) {
 									i++
 									switch {
 									case i >= len(cns):
-										return nil, nil
+										return nil, io.EOF
 									default:
 										return cns[i], nil
 									}
@@ -272,24 +272,24 @@ func TestManager(t *testing.T) {
 							return connectivity.TransientFailure
 						},
 						OnClose: func() error {
-							once.Do(func() {
-								close(done)
-							})
+							once.Do(func() { close(done) })
 							return nil
 						},
 					}, nil
 				},
 			},
-			want: []Peer{
-				{
-					hubblePeer.Peer{
-						Name: "unreachable",
-						Address: &net.TCPAddr{
-							IP:   net.ParseIP("192.0.1.1"),
-							Port: defaults.ServerPort,
+			want: want{
+				peers: []Peer{
+					{
+						hubblePeer.Peer{
+							Name: "unreachable",
+							Address: &net.TCPAddr{
+								IP:   net.ParseIP("192.0.1.1"),
+								Port: defaults.ServerPort,
+							},
 						},
+						FakeClientConn{},
 					},
-					FakeClientConn{},
 				},
 			},
 		}, {
@@ -315,7 +315,7 @@ func TestManager(t *testing.T) {
 									i++
 									switch {
 									case i >= len(cns):
-										return nil, nil
+										return nil, io.EOF
 									default:
 										return cns[i], nil
 									}
@@ -335,25 +335,28 @@ func TestManager(t *testing.T) {
 						OnGetState: func() connectivity.State {
 							i++
 							if i == 2 {
-								defer func() {
-									close(done)
-								}()
+								close(done)
 							}
 							return connectivity.Ready
+						},
+						OnClose: func() error {
+							return nil
 						},
 					}, nil
 				},
 			},
-			want: []Peer{
-				{
-					hubblePeer.Peer{
-						Name: "reachable",
-						Address: &net.TCPAddr{
-							IP:   net.ParseIP("192.0.5.5"),
-							Port: defaults.ServerPort,
+			want: want{
+				peers: []Peer{
+					{
+						hubblePeer.Peer{
+							Name: "reachable",
+							Address: &net.TCPAddr{
+								IP:   net.ParseIP("192.0.5.5"),
+								Port: defaults.ServerPort,
+							},
 						},
+						FakeClientConn{},
 					},
-					FakeClientConn{},
 				},
 			},
 		}, {
@@ -383,11 +386,9 @@ func TestManager(t *testing.T) {
 									i++
 									switch {
 									case i >= len(cns):
-										return nil, nil
+										return nil, io.EOF
 									case i == len(cns)-1:
-										defer func() {
-											close(done)
-										}()
+										close(done)
 										fallthrough
 									default:
 										return cns[i], nil
@@ -406,26 +407,31 @@ func TestManager(t *testing.T) {
 					return nil, nil
 				},
 			},
-			want: []Peer{
-				{
-					hubblePeer.Peer{
-						Name: "two",
-						Address: &net.TCPAddr{
-							IP:   net.ParseIP("192.0.1.2"),
-							Port: defaults.ServerPort,
+			want: want{
+				peers: []Peer{
+					{
+						hubblePeer.Peer{
+							Name: "two",
+							Address: &net.TCPAddr{
+								IP:   net.ParseIP("192.0.1.2"),
+								Port: defaults.ServerPort,
+							},
 						},
+						nil,
 					},
-					nil,
 				},
 			},
 		}, {
 			name: "PeerClientBuilder errors out",
 			pcBuilder: testutils.FakePeerClientBuilder{
 				OnClient: func(target string) (peerTypes.Client, error) {
-					defer func() {
-						close(done)
-					}()
+					close(done)
 					return nil, errors.New("I'm on PTO")
+				},
+			},
+			want: want{
+				log: []string{
+					`level=warning msg="Failed to create peer client for peers synchronization; will try again after the timeout has expired" error="I'm on PTO" target="unix:///var/run/cilium/hubble.sock"`,
 				},
 			},
 		}, {
@@ -434,13 +440,13 @@ func TestManager(t *testing.T) {
 				OnClient: func(target string) (peerTypes.Client, error) {
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
-							var once sync.Once
+							var i int
 							return &testutils.FakePeerNotifyClient{
 								OnRecv: func() (*peerpb.ChangeNotification, error) {
-									once.Do(func() {
-										<-time.After(100 * time.Millisecond)
-										close(done)
-									})
+									i++
+									if i > 1 {
+										return nil, io.EOF
+									}
 									return &peerpb.ChangeNotification{
 										Name:    "unreachable",
 										Address: "192.0.1.1",
@@ -457,19 +463,25 @@ func TestManager(t *testing.T) {
 			},
 			ccBuilder: FakeClientConnBuilder{
 				OnClientConn: func(target string) (ClientConn, error) {
+					close(done)
 					return nil, errors.New("Don't feel like workin' today")
 				},
 			},
-			want: []Peer{
-				{
-					hubblePeer.Peer{
-						Name: "unreachable",
-						Address: &net.TCPAddr{
-							IP:   net.ParseIP("192.0.1.1"),
-							Port: defaults.ServerPort,
+			want: want{
+				peers: []Peer{
+					{
+						hubblePeer.Peer{
+							Name: "unreachable",
+							Address: &net.TCPAddr{
+								IP:   net.ParseIP("192.0.1.1"),
+								Port: defaults.ServerPort,
+							},
 						},
+						nil,
 					},
-					nil,
+				},
+				log: []string{
+					`level=warning msg="Failed to create gRPC client connection to peer unreachable; next attempt after 10s" address="192.0.1.1:4244" error="Don't feel like workin' today"`,
 				},
 			},
 		}, {
@@ -479,15 +491,18 @@ func TestManager(t *testing.T) {
 					var once sync.Once
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
-							once.Do(func() {
-								close(done)
-							})
+							once.Do(func() { close(done) })
 							return nil, errors.New("Don't feel like workin' today")
 						},
 						OnClose: func() error {
 							return nil
 						},
 					}, nil
+				},
+			},
+			want: want{
+				log: []string{
+					`level=warning msg="Failed to create peer notify client for peers change notification; will try again after the timeout has expired" connection timeout=30s error="Don't feel like workin' today"`,
 				},
 			},
 		}, {
@@ -499,9 +514,7 @@ func TestManager(t *testing.T) {
 							var once sync.Once
 							return &testutils.FakePeerNotifyClient{
 								OnRecv: func() (*peerpb.ChangeNotification, error) {
-									once.Do(func() {
-										close(done)
-									})
+									once.Do(func() { close(done) })
 									return nil, errors.New("Nope, ain't doin' nothin'")
 								},
 							}, nil
@@ -512,16 +525,30 @@ func TestManager(t *testing.T) {
 					}, nil
 				},
 			},
+			want: want{
+				log: []string{`level=warning msg="Error while receiving peer change notification; will try again after the timeout has expired" connection timeout=30s error="Nope, ain't doin' nothin'`},
+			},
 		},
 	}
 
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
+			var buf bytes.Buffer
+			formatter := &logrus.TextFormatter{
+				DisableColors:    true,
+				DisableTimestamp: true,
+			}
+			logger := logrus.New()
+			logger.SetOutput(&buf)
+			logger.SetFormatter(formatter)
+			logger.SetLevel(logrus.DebugLevel)
+
 			done = make(chan struct{})
 			mgr, err := NewManager(
 				WithPeerClientBuilder(tt.pcBuilder),
 				WithClientConnBuilder(tt.ccBuilder),
 				WithConnCheckInterval(1*time.Second),
+				WithLogger(logger),
 			)
 			assert.NoError(t, err)
 			mgr.Start()
@@ -529,18 +556,22 @@ func TestManager(t *testing.T) {
 			mgr.Stop()
 			got := mgr.List()
 			// the objects are not easily compared -> hack the assertion
-			assert.Equal(t, len(tt.want), len(got))
 			sort.Sort(ByName(got))
-			sort.Sort(ByName(tt.want))
+			sort.Sort(ByName(tt.want.peers))
+			assert.Equal(t, len(tt.want.peers), len(got))
 			for i := range got {
-				if tt.want[i].Conn == nil {
+				if tt.want.peers[i].Conn == nil {
 					assert.Nil(t, got[i].Conn)
 				}
 				// we only care whether this field is <nil> or not (tested above)
 				// as this field is not easily compared, hack it so that we can
 				// still assert the rest of the struct for equality
-				got[i].Conn = tt.want[i].Conn
-				assert.Equal(t, tt.want[i], got[i])
+				got[i].Conn = tt.want.peers[i].Conn
+				assert.Equal(t, tt.want.peers[i], got[i])
+			}
+			out := buf.String()
+			for _, msg := range tt.want.log {
+				assert.Contains(t, out, msg)
 			}
 		})
 	}
