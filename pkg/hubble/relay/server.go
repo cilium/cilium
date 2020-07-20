@@ -55,10 +55,10 @@ func NewServer(options ...relayoption.Option) (*Server, error) {
 	logging.ConfigureLogLevel(opts.Debug)
 
 	poolOptions := []pool.Option{
+		pool.WithPeerServiceAddress(opts.HubbleTarget),
 		pool.WithPeerClientBuilder(
 			&peerTypes.LocalClientBuilder{
-				LocalAddress: opts.HubbleTarget,
-				DialTimeout:  opts.DialTimeout,
+				DialTimeout: opts.DialTimeout,
 			},
 		),
 		pool.WithClientConnBuilder(pool.GRPCClientConnBuilder{
