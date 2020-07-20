@@ -54,7 +54,7 @@ func NewServer(options ...relayoption.Option) (*Server, error) {
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
 	logging.ConfigureLogLevel(opts.Debug)
 
-	poolOptions := []pool.Option{
+	pool, err := pool.NewManager(
 		pool.WithPeerServiceAddress(opts.HubbleTarget),
 		pool.WithPeerClientBuilder(
 			&peerTypes.LocalClientBuilder{
@@ -69,11 +69,8 @@ func NewServer(options ...relayoption.Option) (*Server, error) {
 			},
 		}),
 		pool.WithRetryTimeout(opts.RetryTimeout),
-	}
-	if opts.Debug {
-		poolOptions = append(poolOptions, pool.WithDebug())
-	}
-	pool, err := pool.NewManager(poolOptions...)
+		pool.WithLogger(logger),
+	)
 	if err != nil {
 		return nil, err
 	}

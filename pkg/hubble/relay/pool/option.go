@@ -20,7 +20,10 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/defaults"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
 )
 
@@ -44,6 +47,7 @@ var DefaultOptions = Options{
 	},
 	ConnCheckInterval: 2 * time.Minute,
 	RetryTimeout:      30 * time.Second,
+	Log:               logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
 }
 
 // Option customizes the configuration of the Manager.
@@ -57,7 +61,7 @@ type Options struct {
 	Backoff            BackoffDuration
 	ConnCheckInterval  time.Duration
 	RetryTimeout       time.Duration
-	Debug              bool
+	Log                logrus.FieldLogger
 }
 
 // WithPeerServiceAddress sets the address of the peer gRPC service.
@@ -112,10 +116,10 @@ func WithRetryTimeout(t time.Duration) Option {
 	}
 }
 
-// WithDebug enables debug mode.
-func WithDebug() Option {
+// WithLogger sets the logger to use for logging.
+func WithLogger(l logrus.FieldLogger) Option {
 	return func(o *Options) error {
-		o.Debug = true
+		o.Log = l
 		return nil
 	}
 }

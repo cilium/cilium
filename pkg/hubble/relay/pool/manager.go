@@ -22,8 +22,6 @@ import (
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	hubblePeer "github.com/cilium/cilium/pkg/hubble/peer"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/connectivity"
@@ -62,7 +60,6 @@ type peer struct {
 
 // Manager implements the PeerManager interface.
 type Manager struct {
-	log     logrus.FieldLogger
 	peers   map[string]*peer
 	offline chan string
 	mu      lock.Mutex
@@ -82,12 +79,9 @@ func NewManager(options ...Option) (*Manager, error) {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
 		}
 	}
-	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
-	logging.ConfigureLogLevel(opts.Debug)
 	return &Manager{
 		peers:   make(map[string]*peer),
 		offline: make(chan string, 100),
-		log:     logger,
 		stop:    make(chan struct{}),
 		opts:    opts,
 	}, nil
@@ -105,7 +99,7 @@ connect:
 	for {
 		cl, err := m.opts.PeerClientBuilder.Client(m.opts.PeerServiceAddress)
 		if err != nil {
-			m.log.WithFields(logrus.Fields{
+			m.opts.Log.WithFields(logrus.Fields{
 				"error":  err,
 				"target": m.opts.PeerServiceAddress,
 			}).Warning("Failed to create peer client for peers synchronization; will try again after the timeout has expired")
@@ -120,7 +114,7 @@ connect:
 		client, err := cl.Notify(ctx, &peerpb.NotifyRequest{})
 		if err != nil {
 			cl.Close()
-			m.log.WithFields(logrus.Fields{
+			m.opts.Log.WithFields(logrus.Fields{
 				"error":              err,
 				"connection timeout": m.opts.RetryTimeout,
 			}).Warning("Failed to create peer notify client for peers change notification; will try again after the timeout has expired")
@@ -143,7 +137,7 @@ connect:
 			cn, err := client.Recv()
 			if err != nil {
 				cl.Close()
-				m.log.WithFields(logrus.Fields{
+				m.opts.Log.WithFields(logrus.Fields{
 					"error":              err,
 					"connection timeout": m.opts.RetryTimeout,
 				}).Warning("Error while receiving peer change notification; will try again after the timeout has expired")
@@ -155,7 +149,7 @@ connect:
 					continue connect
 				}
 			}
-			m.log.WithField("change notification", cn).Debug("Received peer change notification")
+			m.opts.Log.WithField("change notification", cn).Debug("Received peer change notification")
 			p := hubblePeer.FromChangeNotification(cn)
 			switch cn.GetType() {
 			case peerpb.ChangeNotificationType_PEER_ADDED:
@@ -318,7 +312,7 @@ func (m *Manager) connect(p *peer, ignoreBackoff bool) {
 				return // no need to attempt to connect
 			default:
 				if err := p.conn.Close(); err != nil {
-					m.log.WithFields(logrus.Fields{
+					m.opts.Log.WithFields(logrus.Fields{
 						"error": err,
 					}).Warningf("Failed to properly close gRPC client connection to peer %s", p.Name)
 				}
@@ -326,7 +320,7 @@ func (m *Manager) connect(p *peer, ignoreBackoff bool) {
 			}
 		}
 
-		m.log.WithFields(logrus.Fields{
+		m.opts.Log.WithFields(logrus.Fields{
 			"address": p.Address,
 		}).Debugf("Connecting peer %s...", p.Name)
 		conn, err := m.opts.ClientConnBuilder.ClientConn(p.Address.String())
@@ -334,7 +328,7 @@ func (m *Manager) connect(p *peer, ignoreBackoff bool) {
 			duration := m.opts.Backoff.Duration(p.connAttempts)
 			p.nextConnAttempt = now.Add(duration)
 			p.connAttempts++
-			m.log.WithFields(logrus.Fields{
+			m.opts.Log.WithFields(logrus.Fields{
 				"address": p.Address,
 				"error":   err,
 			}).Warningf("Failed to create gRPC client connection to peer %s; next attempt after %s", p.Name, duration)
@@ -342,7 +336,7 @@ func (m *Manager) connect(p *peer, ignoreBackoff bool) {
 			p.nextConnAttempt = time.Time{}
 			p.connAttempts = 0
 			p.conn = conn
-			m.log.Debugf("Peer %s connected", p.Name)
+			m.opts.Log.Debugf("Peer %s connected", p.Name)
 		}
 	}()
 }
@@ -356,12 +350,12 @@ func (m *Manager) disconnect(p *peer) {
 	if p.conn == nil {
 		return
 	}
-	m.log.Debugf("Disconnecting peer %s...", p.Name)
+	m.opts.Log.Debugf("Disconnecting peer %s...", p.Name)
 	if err := p.conn.Close(); err != nil {
-		m.log.WithFields(logrus.Fields{
+		m.opts.Log.WithFields(logrus.Fields{
 			"error": err,
 		}).Warningf("Failed to properly close gRPC client connection to peer %s", p.Name)
 	}
 	p.conn = nil
-	m.log.Debugf("Peer %s disconnected", p.Name)
+	m.opts.Log.Debugf("Peer %s disconnected", p.Name)
 }
