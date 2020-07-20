@@ -47,10 +47,7 @@ func TestManager(t *testing.T) {
 		{
 			name: "empty pool",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnTarget: func() string {
-					return "fake"
-				},
-				OnClient: func() (peerTypes.Client, error) {
+				OnClient: func(target string) (peerTypes.Client, error) {
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
 							var once sync.Once
@@ -73,10 +70,7 @@ func TestManager(t *testing.T) {
 		}, {
 			name: "1 unreachable peer",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnTarget: func() string {
-					return "fake"
-				},
-				OnClient: func() (peerTypes.Client, error) {
+				OnClient: func(target string) (peerTypes.Client, error) {
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
 							i := -1
@@ -130,10 +124,7 @@ func TestManager(t *testing.T) {
 		}, {
 			name: "1 reachable peer",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnTarget: func() string {
-					return "fake"
-				},
-				OnClient: func() (peerTypes.Client, error) {
+				OnClient: func(target string) (peerTypes.Client, error) {
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
 							i := -1
@@ -190,10 +181,7 @@ func TestManager(t *testing.T) {
 		}, {
 			name: "1 peer is deleted",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnTarget: func() string {
-					return "fake"
-				},
-				OnClient: func() (peerTypes.Client, error) {
+				OnClient: func(target string) (peerTypes.Client, error) {
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
 							i := -1
@@ -247,10 +235,7 @@ func TestManager(t *testing.T) {
 		}, {
 			name: "1 peer in transient failure",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnTarget: func() string {
-					return "fake"
-				},
-				OnClient: func() (peerTypes.Client, error) {
+				OnClient: func(target string) (peerTypes.Client, error) {
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
 							i := -1
@@ -310,10 +295,7 @@ func TestManager(t *testing.T) {
 		}, {
 			name: "1 peer added then modified",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnTarget: func() string {
-					return "fake"
-				},
-				OnClient: func() (peerTypes.Client, error) {
+				OnClient: func(target string) (peerTypes.Client, error) {
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
 							i := -1
@@ -377,10 +359,7 @@ func TestManager(t *testing.T) {
 		}, {
 			name: "2 peers added, 1 deleted",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnTarget: func() string {
-					return "fake"
-				},
-				OnClient: func() (peerTypes.Client, error) {
+				OnClient: func(target string) (peerTypes.Client, error) {
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
 							i := -1
@@ -442,10 +421,7 @@ func TestManager(t *testing.T) {
 		}, {
 			name: "PeerClientBuilder errors out",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnTarget: func() string {
-					return "fake"
-				},
-				OnClient: func() (peerTypes.Client, error) {
+				OnClient: func(target string) (peerTypes.Client, error) {
 					defer func() {
 						close(done)
 					}()
@@ -455,10 +431,7 @@ func TestManager(t *testing.T) {
 		}, {
 			name: "ClientConnBuilder errors out",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnTarget: func() string {
-					return "fake"
-				},
-				OnClient: func() (peerTypes.Client, error) {
+				OnClient: func(target string) (peerTypes.Client, error) {
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
 							var once sync.Once
@@ -502,10 +475,7 @@ func TestManager(t *testing.T) {
 		}, {
 			name: "peer notify errors out",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnTarget: func() string {
-					return "fake"
-				},
-				OnClient: func() (peerTypes.Client, error) {
+				OnClient: func(target string) (peerTypes.Client, error) {
 					var once sync.Once
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
@@ -523,10 +493,7 @@ func TestManager(t *testing.T) {
 		}, {
 			name: "peer recv errors out",
 			pcBuilder: testutils.FakePeerClientBuilder{
-				OnTarget: func() string {
-					return "fake"
-				},
-				OnClient: func() (peerTypes.Client, error) {
+				OnClient: func(target string) (peerTypes.Client, error) {
 					return &testutils.FakePeerClient{
 						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
 							var once sync.Once

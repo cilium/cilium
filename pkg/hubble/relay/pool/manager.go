@@ -103,11 +103,11 @@ func (m *Manager) watchNotifications() {
 	ctx, cancel := context.WithCancel(context.Background())
 connect:
 	for {
-		cl, err := m.opts.PeerClientBuilder.Client()
+		cl, err := m.opts.PeerClientBuilder.Client(m.opts.PeerServiceAddress)
 		if err != nil {
 			m.log.WithFields(logrus.Fields{
 				"error":  err,
-				"target": m.opts.PeerClientBuilder.Target(),
+				"target": m.opts.PeerServiceAddress,
 			}).Warning("Failed to create peer client for peers synchronization; will try again after the timeout has expired")
 			select {
 			case <-m.stop:
