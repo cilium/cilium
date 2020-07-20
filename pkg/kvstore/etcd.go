@@ -385,6 +385,10 @@ func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan bool {
 	go func() {
 		for {
 			select {
+			case <-e.client.Ctx().Done():
+				initLockSucceeded <- false
+				close(initLockSucceeded)
+				return
 			case <-ctx.Done():
 				initLockSucceeded <- false
 				close(initLockSucceeded)
