@@ -30,9 +30,10 @@ with Kubernetes:
   no specified namespace.
 
 Cilium supports running multiple of these policy types at the same time.
-However caution should be applied when using multiple policy types at the same time,
-as it can be confusing to understand the complete set of allowed traffic across multiple policy types.
-If close attention is not applied this may lead to unintended policy allow behavior.
+However caution should be applied when using multiple policy types at the same
+time, as it can be confusing to understand the complete set of allowed traffic
+across multiple policy types.  If close attention is not applied this may lead
+to unintended policy allow behavior.
 
 .. _NetworkPolicy:
 .. _networkpolicy_state:
@@ -40,17 +41,8 @@ If close attention is not applied this may lead to unintended policy allow behav
 NetworkPolicy
 =============
 
-
 For more information, see the official `NetworkPolicy documentation
 <https://kubernetes.io/docs/concepts/services-networking/network-policies/>`_.
-
-Known missing features for Kubernetes Network Policy:
-
-+------------------------------+----------------------------------------------+
-| Feature                      | Tracking Issue                               |
-+==============================+==============================================+
-| Ingress CIDR-based L4 policy | https://github.com/cilium/cilium/issues/4129 |
-+------------------------------+----------------------------------------------+
 
 .. _CiliumNetworkPolicy:
 
@@ -82,7 +74,7 @@ The raw specification of the resource in Go looks like this:
                 Status CiliumNetworkPolicyStatus `json:"status"`
         }
 
-Metadata 
+Metadata
   Describes the policy. This includes:
 
     * Name of the policy, unique within a namespace
