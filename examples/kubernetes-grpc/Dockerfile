@@ -1,4 +1,4 @@
-FROM ubuntu:18.04 as builder
+FROM docker.io/library/ubuntu:20.04 as builder
 
 # Install dependencies
 ENV DEBIAN_FRONTEND=noninteractive
@@ -9,9 +9,9 @@ RUN apt-get update && apt-get install -y \
     apache2 \
     curl \
     git \
-    libapache2-mod-php7.2 \
-    php7.2 \
-    php7.2-mysql \
+    libapache2-mod-php7.4 \
+    php7.4 \
+    php7.4-mysql \
     python3.4 \
     python3-pip
 RUN pip3 install grpcio grpcio-tools
@@ -27,7 +27,7 @@ RUN python3 -m grpc_tools.protoc \
     --grpc_python_out=. \
     ../../../examples/protos/cloudcity.proto
 
-FROM ubuntu:18.04
+FROM docker.io/library/ubuntu:20.04
 RUN apt-get update \
     && DEBIAN_FRONTEND=noninteractive apt-get upgrade -y --no-install-recommends \
 	&& DEBIAN_FRONTEND=noninteractive apt-get install -y --no-install-recommends \
