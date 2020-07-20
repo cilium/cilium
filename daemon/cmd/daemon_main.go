@@ -200,6 +200,9 @@ func init() {
 	flags.Bool(option.AllowICMPFragNeeded, defaults.AllowICMPFragNeeded, "Allow ICMP Fragmentation Needed type packets for purposes like TCP Path MTU.")
 	option.BindEnv(option.AllowICMPFragNeeded)
 
+	flags.Bool(option.DisableSipVerification, defaults.DisableSipVerification, "Disable Sip Verification for support xlb.")
+	option.BindEnv(option.DisableSipVerification)
+
 	flags.String(option.AllowLocalhost, option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy }")
 	option.BindEnv(option.AllowLocalhost)
 

@@ -67,6 +67,9 @@ const (
 	// AllowICMPFragNeeded allows ICMP Fragmentation Needed type packets in policy.
 	AllowICMPFragNeeded = "allow-icmp-frag-needed"
 
+	// DisableSipVerification for support xlb.
+	DisableSipVerification = "disable-sip-verification"
+
 	// AllowLocalhost is the policy when to allow local stack to reach local endpoints { auto | always | policy }
 	AllowLocalhost = "allow-localhost"
 
@@ -986,6 +989,7 @@ var HelpFlagSections = []FlagsSection{
 		Flags: []string{
 			AllowLocalhost,
 			AllowICMPFragNeeded,
+			DisableSipVerification,
 			EnablePolicy,
 			ExcludeLocalAddress,
 			ForceLocalPolicyEvalAtSource,
@@ -1793,6 +1797,9 @@ type DaemonConfig struct {
 	// the network policy for cilium-agent.
 	AllowICMPFragNeeded bool
 
+	// DisableSipVerification disable IP Spoof Prevention for cilium-agent.
+	DisableSipVerification bool
+
 	// EnableWellKnownIdentities enables the use of well-known identities.
 	// This is requires if identiy resolution is required to bring up the
 	// control plane, e.g. when using the managed etcd feature
@@ -1903,6 +1910,7 @@ var (
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
 		IdentityAllocationMode:       IdentityAllocationModeKVstore,
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
+		DisableSipVerification:       defaults.DisableSipVerification,
 		EnableWellKnownIdentities:    defaults.EnableEndpointRoutes,
 		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
 		k8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
@@ -2222,6 +2230,7 @@ func (c *DaemonConfig) Populate() {
 	c.AgentHealthPort = viper.GetInt(AgentHealthPort)
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
 	c.AllowICMPFragNeeded = viper.GetBool(AllowICMPFragNeeded)
+	c.DisableSipVerification = viper.GetBool(DisableSipVerification)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
 	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)

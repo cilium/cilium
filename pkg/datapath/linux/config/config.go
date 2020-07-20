@@ -361,6 +361,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ALLOW_ICMP_FRAG_NEEDED"] = "1"
 	}
 
+	if option.Config.DisableSipVerification {
+		cDefinesMap["DISABLE_SIP_VERIFICATION"] = "1"
+	}
+
 	if option.Config.ClockSource == option.ClockSourceJiffies {
 		cDefinesMap["ENABLE_JIFFIES"] = "1"
 	}
