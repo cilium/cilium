@@ -118,7 +118,7 @@ func (a *Agent) SendEvent(typ int, event interface{}) error {
 	}
 
 	p := payload.Payload{Data: buf.Bytes(), CPU: 0, Lost: 0, Type: payload.EventSample}
-	a.send(&p)
+	a.sendToListeners(&p)
 
 	return nil
 }
@@ -263,7 +263,7 @@ func (a *Agent) processPerfRecord(record perf.Record) {
 		Lost: record.LostSamples,
 		Type: plType,
 	}
-	a.sendLocked(&pl)
+	a.sendToListenersLocked(&pl)
 	a.Unlock()
 }
 
@@ -285,15 +285,15 @@ func (a *Agent) State() *models.MonitorStatus {
 	return &status
 }
 
-// send enqueues the payload to all listeners.
-func (a *Agent) send(pl *payload.Payload) {
+// sendToListeners enqueues the payload to all listeners.
+func (a *Agent) sendToListeners(pl *payload.Payload) {
 	a.Lock()
 	defer a.Unlock()
-	a.sendLocked(pl)
+	a.sendToListenersLocked(pl)
 }
 
-// sendLocked enqueues the payload to all listeners while holding the monitor lock.
-func (a *Agent) sendLocked(pl *payload.Payload) {
+// sendToListenersLocked enqueues the payload to all listeners while holding the monitor lock.
+func (a *Agent) sendToListenersLocked(pl *payload.Payload) {
 	for ml := range a.listeners {
 		ml.Enqueue(pl)
 	}
