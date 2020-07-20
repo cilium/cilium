@@ -167,16 +167,17 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 							return err
 						}
 
-						needInit = false
-
 						// continue the execution so we update the endpoint
 						// status immediately upon endpoint creation
 					case err != nil:
 						scopedLog.WithError(err).Warn("Error getting CEP")
 						return err
 					default:
-
 					}
+
+					// We return earlier for all error cases so we don't need
+					// to init the local endpoint in non-error cases.
+					needInit = false
 				}
 
 				// We have no localCEP copy. We need to fetch it for updates, below.
