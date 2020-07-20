@@ -51,7 +51,7 @@ spec:
     spec:
       containers:
       - name: starfighter
-        image: cilium/python-bmemcached
+        image: docker.io/cilium/python-bmemcached:v0.0.2
         command: ["sleep"]
         args: ["30000"]
 ---
@@ -91,6 +91,6 @@ spec:
     spec:
       containers:
       - name: starfigher
-        image: cilium/python-bmemcached
+        image: docker.io/cilium/python-bmemcached:v0.0.2
         command: ["sleep"]
         args: ["30000"]
