@@ -26,9 +26,9 @@ import (
 
 // DefaultOptions is the reference point for default values.
 var DefaultOptions = Options{
+	PeerServiceAddress: "unix://" + defaults.HubbleSockPath,
 	PeerClientBuilder: peerTypes.LocalClientBuilder{
-		LocalAddress: "unix://" + defaults.HubbleSockPath,
-		DialTimeout:  5 * time.Second,
+		DialTimeout: 5 * time.Second,
 	},
 	ClientConnBuilder: GRPCClientConnBuilder{
 		DialTimeout: 5 * time.Second,
@@ -51,12 +51,21 @@ type Option func(o *Options) error
 
 // Options stores all the configuration values for peer manager.
 type Options struct {
-	PeerClientBuilder peerTypes.ClientBuilder
-	ClientConnBuilder ClientConnBuilder
-	Backoff           BackoffDuration
-	ConnCheckInterval time.Duration
-	RetryTimeout      time.Duration
-	Debug             bool
+	PeerServiceAddress string
+	PeerClientBuilder  peerTypes.ClientBuilder
+	ClientConnBuilder  ClientConnBuilder
+	Backoff            BackoffDuration
+	ConnCheckInterval  time.Duration
+	RetryTimeout       time.Duration
+	Debug              bool
+}
+
+// WithPeerServiceAddress sets the address of the peer gRPC service.
+func WithPeerServiceAddress(a string) Option {
+	return func(o *Options) error {
+		o.PeerServiceAddress = a
+		return nil
+	}
 }
 
 // WithPeerClientBuilder sets the ClientBuilder that is used to create new Peer

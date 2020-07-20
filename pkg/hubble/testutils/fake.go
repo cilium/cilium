@@ -105,22 +105,13 @@ func (c *FakePeerClient) Close() error {
 // FakePeerClientBuilder is used for unit tests and implements the
 // peerTypes.ClientBuilder interface.
 type FakePeerClientBuilder struct {
-	OnTarget func() string
-	OnClient func() (peerTypes.Client, error)
-}
-
-// Target implements peerTypes.ClientBuilder.Target.
-func (b FakePeerClientBuilder) Target() string {
-	if b.OnTarget != nil {
-		return b.OnTarget()
-	}
-	panic("OnTarget not set")
+	OnClient func(target string) (peerTypes.Client, error)
 }
 
 // Client implements peerTypes.ClientBuilder.Client.
-func (b FakePeerClientBuilder) Client() (peerTypes.Client, error) {
+func (b FakePeerClientBuilder) Client(target string) (peerTypes.Client, error) {
 	if b.OnClient != nil {
-		return b.OnClient()
+		return b.OnClient(target)
 	}
 	panic("OnClient not set")
 }
