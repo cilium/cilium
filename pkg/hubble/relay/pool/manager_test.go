@@ -525,8 +525,8 @@ func TestManager(t *testing.T) {
 			)
 			assert.NoError(t, err)
 			mgr.Start()
-			defer mgr.Stop()
 			<-done
+			mgr.Stop()
 			got := mgr.List()
 			// the objects are not easily compared -> hack the assertion
 			assert.Equal(t, len(tt.want), len(got))
