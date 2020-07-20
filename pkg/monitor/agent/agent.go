@@ -130,11 +130,27 @@ func (a *Agent) Context() context.Context {
 	return a.ctx
 }
 
-// RegisterNewListener adds the new MonitorListener to the global list. It also spawns
-// a singleton goroutine to read and distribute the events. The goroutine is spawned
-// with a context derived from m.Context() and the cancelFunc is assigned to
-// perfReaderCancel. Note that cancelling m.Context() (e.g. on program shutdown)
-// will also cancel the derived context.
+// hasSubscribersLocked returns true if there are listeners subscribed to the
+// agent right now.
+func (a *Agent) hasSubscribersLocked() bool {
+	return len(a.listeners) != 0
+}
+
+// startPerfReaderLocked starts the perf reader. This should only be
+// called if there are no other readers already running.
+// The goroutine is spawned with a context derived from m.Context() and the
+// cancelFunc is assigned to perfReaderCancel. Note that cancelling m.Context()
+// (e.g. on program shutdown) will also cancel the derived context.
+// Note: it is critical to hold the lock for this operation.
+func (a *Agent) startPerfReaderLocked() {
+	a.perfReaderCancel() // don't leak any old readers, just in case.
+	perfEventReaderCtx, cancel := context.WithCancel(a.ctx)
+	a.perfReaderCancel = cancel
+	go a.handleEvents(perfEventReaderCtx)
+}
+
+// RegisterNewListener adds the new MonitorListener to the global list.
+// It also spawns a singleton goroutine to read and distribute the events.
 func (a *Agent) RegisterNewListener(newListener listener.MonitorListener) {
 	if a == nil {
 		return
@@ -150,12 +166,10 @@ func (a *Agent) RegisterNewListener(newListener listener.MonitorListener) {
 	}
 
 	// If this is the first listener, start the perf reader
-	if len(a.listeners) == 0 {
-		a.perfReaderCancel() // don't leak any old readers, just in case.
-		perfEventReaderCtx, cancel := context.WithCancel(a.ctx)
-		a.perfReaderCancel = cancel
-		go a.handleEvents(perfEventReaderCtx)
+	if !a.hasSubscribersLocked() {
+		a.startPerfReaderLocked()
 	}
+
 	version := newListener.Version()
 	switch newListener.Version() {
 	case listener.Version1_2:
@@ -172,8 +186,8 @@ func (a *Agent) RegisterNewListener(newListener listener.MonitorListener) {
 	}).Debug("New listener connected")
 }
 
-// RemoveListener deletes the MonitorListener from the list, closes its queue, and
-// stops perfReader if this is the last MonitorListener
+// RemoveListener deletes the MonitorListener from the list, closes its queue,
+// and stops perfReader if this is the last subscriber
 func (a *Agent) RemoveListener(ml listener.MonitorListener) {
 	if a == nil {
 		return
@@ -195,7 +209,7 @@ func (a *Agent) RemoveListener(ml listener.MonitorListener) {
 	// Note: it is critical to hold the lock and check the number of listeners.
 	// This guards against an older generation listener calling the
 	// current generation perfReaderCancel
-	if len(a.listeners) == 0 {
+	if !a.hasSubscribersLocked() {
 		a.perfReaderCancel()
 	}
 }
