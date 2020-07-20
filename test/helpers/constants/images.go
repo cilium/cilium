@@ -40,7 +40,7 @@ const (
 	AlpineCurlImage = "docker.io/byrnedo/alpine-curl:0.1.8"
 
 	// MemcachedImage is the image used to test memcached in the runtime tests.
-	MemcacheDImage = "docker.io/library/memcached:1.5.11"
+	MemcacheDImage = "docker.io/library/memcached:1.6.6-alpine"
 
 	// MemcacheBinClient is the image used during binary memcached parser tests.
 	MemcacheBinClient = "docker.io/cilium/python-bmemcached:v0.0.1"
