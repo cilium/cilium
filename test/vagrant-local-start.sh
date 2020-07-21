@@ -2,7 +2,7 @@
 
 set -e
 
-export K8S_VERSION=${K8S_VERSION:-1.18}
+export K8S_VERSION=${K8S_VERSION:-1.19}
 export K8S_NODES=${K8S_NODES:-2}
 export LOCAL_BOX=k8s-box
 export LOCAL_BOXFILE=./.vagrant/${LOCAL_BOX}-package.box

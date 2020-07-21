@@ -19,23 +19,6 @@ import (
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 )
 
-// IP address information for entries in the (plural) PodIPs field.
-// Each entry includes:
-//    IP: An IP address allocated to the pod. Routable at least within the cluster.
-type PodIP struct {
-	// ip is an IP address (IPv4 or IPv6) assigned to the pod
-	IP string `json:"ip,omitempty" protobuf:"bytes,1,opt,name=ip"`
-}
-
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// A list of ephemeral containers used with the Pod ephemeralcontainers subresource.
-type EphemeralContainers struct {
-	slim_metav1.TypeMeta `json:",inline"`
-	// +optional
-	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-}
-
 // Protocol defines network protocols supported for things like container ports.
 type Protocol string
 
@@ -48,84 +31,36 @@ const (
 	ProtocolSCTP Protocol = "SCTP"
 )
 
-// +genclient
-// +genclient:method=GetEphemeralContainers,verb=get,subresource=ephemeralcontainers,result=EphemeralContainers
-// +genclient:method=UpdateEphemeralContainers,verb=update,subresource=ephemeralcontainers,input=EphemeralContainers,result=EphemeralContainers
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// Pod is a collection of containers that can run on a host. This resource is created
-// by clients and scheduled onto hosts.
-type Pod struct {
-	slim_metav1.TypeMeta `json:",inline"`
-	// Standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+// ContainerPort represents a network port in a single container.
+type ContainerPort struct {
+	// If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
+	// named port in a pod must have a unique name. Name for the port that can be
+	// referred to by services.
 	// +optional
-	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	// Specification of the desired behavior of the pod.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	Name string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
+	// Number of port to expose on the host.
+	// If specified, this must be a valid port number, 0 < x < 65536.
+	// If HostNetwork is specified, this must match ContainerPort.
+	// Most containers do not need this.
 	// +optional
-	Spec PodSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-
-	// Most recently observed status of the pod.
-	// This data may not be up to date.
-	// Populated by the system.
-	// Read-only.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	HostPort int32 `json:"hostPort,omitempty" protobuf:"varint,2,opt,name=hostPort"`
+	// Number of port to expose on the pod's IP address.
+	// This must be a valid port number, 0 < x < 65536.
+	ContainerPort int32 `json:"containerPort" protobuf:"varint,3,opt,name=containerPort"`
+	// Protocol for port. Must be UDP, TCP, or SCTP.
+	// Defaults to "TCP".
 	// +optional
-	Status PodStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+	Protocol Protocol `json:"protocol,omitempty" protobuf:"bytes,4,opt,name=protocol,casttype=Protocol"`
+	// What host IP to bind the external port to.
+	// +optional
+	HostIP string `json:"hostIP,omitempty" protobuf:"bytes,5,opt,name=hostIP"`
 }
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// PodList is a list of Pods.
-type PodList struct {
-	slim_metav1.TypeMeta `json:",inline"`
-	// Standard list metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
-	// +optional
-	slim_metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	// List of pods.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md
-	Items []Pod `json:"items" protobuf:"bytes,2,rep,name=items"`
-}
-
-// PodSpec is a description of a pod.
-type PodSpec struct {
-	// List of initialization containers belonging to the pod.
-	// Init containers are executed in order prior to containers being started. If any
-	// init container fails, the pod is considered to have failed and is handled according
-	// to its restartPolicy. The name for an init container or normal container must be
-	// unique among all containers.
-	// Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes.
-	// The resourceRequirements of an init container are taken into account during scheduling
-	// by finding the highest request/limit for each resource type, and then using the max of
-	// of that value or the sum of the normal containers. Limits are applied to init containers
-	// in a similar fashion.
-	// Init containers cannot currently be added or removed.
-	// Cannot be updated.
-	// More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
-	// +patchMergeKey=name
-	// +patchStrategy=merge
-	InitContainers []Container `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,20,rep,name=initContainers"`
-	// List of containers belonging to the pod.
-	// Containers cannot currently be added or removed.
-	// There must be at least one container in a Pod.
-	// Cannot be updated.
-	// +patchMergeKey=name
-	// +patchStrategy=merge
-	Containers []Container `json:"containers" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,2,rep,name=containers"`
-	// ServiceAccountName is the name of the ServiceAccount to use to run this pod.
-	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
-	// +optional
-	ServiceAccountName string `json:"serviceAccountName,omitempty" protobuf:"bytes,8,opt,name=serviceAccountName"`
-	// Host networking requested for this pod. Use the host's network namespace.
-	// If this option is set, the ports that will be used must be specified.
-	// Default to false.
-	// +k8s:conversion-gen=false
-	// +optional
-	HostNetwork bool `json:"hostNetwork,omitempty" protobuf:"varint,11,opt,name=hostNetwork"`
+// VolumeMount describes a mounting of a Volume within a container.
+type VolumeMount struct {
+	// Path within the container at which the volume should be mounted.  Must
+	// not contain ':'.
+	MountPath string `json:"mountPath" protobuf:"bytes,3,opt,name=mountPath"`
 }
 
 // A single application container that you want to run within a pod.
@@ -162,38 +97,6 @@ type Container struct {
 	VolumeMounts []VolumeMount `json:"volumeMounts,omitempty" patchStrategy:"merge" patchMergeKey:"mountPath" protobuf:"bytes,9,rep,name=volumeMounts"`
 }
 
-// VolumeMount describes a mounting of a Volume within a container.
-type VolumeMount struct {
-	// Path within the container at which the volume should be mounted.  Must
-	// not contain ':'.
-	MountPath string `json:"mountPath" protobuf:"bytes,3,opt,name=mountPath"`
-}
-
-// ContainerPort represents a network port in a single container.
-type ContainerPort struct {
-	// If specified, this must be an IANA_SVC_NAME and unique within the pod. Each
-	// named port in a pod must have a unique name. Name for the port that can be
-	// referred to by services.
-	// +optional
-	Name string `json:"name,omitempty" protobuf:"bytes,1,opt,name=name"`
-	// Number of port to expose on the host.
-	// If specified, this must be a valid port number, 0 < x < 65536.
-	// If HostNetwork is specified, this must match ContainerPort.
-	// Most containers do not need this.
-	// +optional
-	HostPort int32 `json:"hostPort,omitempty" protobuf:"varint,2,opt,name=hostPort"`
-	// Number of port to expose on the pod's IP address.
-	// This must be a valid port number, 0 < x < 65536.
-	ContainerPort int32 `json:"containerPort" protobuf:"varint,3,opt,name=containerPort"`
-	// Protocol for port. Must be UDP, TCP, or SCTP.
-	// Defaults to "TCP".
-	// +optional
-	Protocol Protocol `json:"protocol,omitempty" protobuf:"bytes,4,opt,name=protocol,casttype=Protocol"`
-	// What host IP to bind the external port to.
-	// +optional
-	HostIP string `json:"hostIP,omitempty" protobuf:"bytes,5,opt,name=hostIP"`
-}
-
 // ContainerStateRunning is a running state of a container.
 type ContainerStateRunning struct {
 	// Time at which the container was last (re-)started
@@ -227,114 +130,6 @@ type ContainerStatus struct {
 	// Container's ID in the format 'docker://<container_id>'.
 	// +optional
 	ContainerID string `json:"containerID,omitempty" protobuf:"bytes,8,opt,name=containerID"`
-}
-
-// PodStatus represents information about the status of a pod. Status may trail the actual
-// state of a system, especially if the node that hosts the pod cannot contact the control
-// plane.
-type PodStatus struct {
-	// IP address of the host to which the pod is assigned. Empty if not yet scheduled.
-	// +optional
-	HostIP string `json:"hostIP,omitempty" protobuf:"bytes,5,opt,name=hostIP"`
-	// IP address allocated to the pod. Routable at least within the cluster.
-	// Empty if not yet allocated.
-	// +optional
-	PodIP string `json:"podIP,omitempty" protobuf:"bytes,6,opt,name=podIP"`
-
-	// podIPs holds the IP addresses allocated to the pod. If this field is specified, the 0th entry must
-	// match the podIP field. Pods may be allocated at most 1 value for each of IPv4 and IPv6. This list
-	// is empty if no IPs have been allocated yet.
-	// +optional
-	// +patchStrategy=merge
-	// +patchMergeKey=ip
-	PodIPs []PodIP `json:"podIPs,omitempty" protobuf:"bytes,12,rep,name=podIPs" patchStrategy:"merge" patchMergeKey:"ip"`
-
-	// RFC 3339 date and time at which the object was acknowledged by the Kubelet.
-	// This is before the Kubelet pulled the container image(s) for the pod.
-	// +optional
-	StartTime *slim_metav1.Time `json:"startTime,omitempty" protobuf:"bytes,7,opt,name=startTime"`
-
-	// The list has one entry per container in the manifest. Each entry is currently the output
-	// of `docker inspect`.
-	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status
-	// +optional
-	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty" protobuf:"bytes,8,rep,name=containerStatuses"`
-}
-
-// +genclient
-// +genclient:nonNamespaced
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// Node is a worker node in Kubernetes.
-// Each node will have a unique identifier in the cache (i.e. in etcd).
-type Node struct {
-	slim_metav1.TypeMeta `json:",inline"`
-	// Standard object's metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
-	// +optional
-	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
-
-	// Spec defines the behavior of a node.
-	// https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-	// +optional
-	Spec NodeSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
-
-	// Most recently observed status of the node.
-	// Populated by the system.
-	// Read-only.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
-	// +optional
-	Status NodeStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
-}
-
-// NodeSpec describes the attributes that a node is created with.
-type NodeSpec struct {
-	// PodCIDR represents the pod IP range assigned to the node.
-	// +optional
-	PodCIDR string `json:"podCIDR,omitempty" protobuf:"bytes,1,opt,name=podCIDR"`
-
-	// podCIDRs represents the IP ranges assigned to the node for usage by Pods on that node. If this
-	// field is specified, the 0th entry must match the podCIDR field. It may contain at most 1 value for
-	// each of IPv4 and IPv6.
-	// +optional
-	// +patchStrategy=merge
-	PodCIDRs []string `json:"podCIDRs,omitempty" protobuf:"bytes,7,opt,name=podCIDRs" patchStrategy:"merge"`
-	// If specified, the node's taints.
-	// +optional
-	Taints []Taint `json:"taints,omitempty" protobuf:"bytes,5,opt,name=taints"`
-}
-
-// NodeStatus is information about the current status of a node.
-type NodeStatus struct {
-	// List of addresses reachable to the node.
-	// Queried from cloud provider, if available.
-	// More info: https://kubernetes.io/docs/concepts/nodes/node/#addresses
-	// Note: This field is declared as mergeable, but the merge key is not sufficiently
-	// unique, which can cause data corruption when it is merged. Callers should instead
-	// use a full-replacement patch. See http://pr.k8s.io/79391 for an example.
-	// +optional
-	// +patchMergeKey=type
-	// +patchStrategy=merge
-	Addresses []NodeAddress `json:"addresses,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,5,rep,name=addresses"`
-}
-
-type NodeAddressType string
-
-// These are valid address type of node.
-const (
-	NodeHostName    NodeAddressType = "Hostname"
-	NodeExternalIP  NodeAddressType = "ExternalIP"
-	NodeInternalIP  NodeAddressType = "InternalIP"
-	NodeExternalDNS NodeAddressType = "ExternalDNS"
-	NodeInternalDNS NodeAddressType = "InternalDNS"
-)
-
-// NodeAddress contains information for the node's address.
-type NodeAddress struct {
-	// Node address type, one of Hostname, ExternalIP or InternalIP.
-	Type NodeAddressType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=NodeAddressType"`
-	// The node address.
-	Address string `json:"address" protobuf:"bytes,2,opt,name=address"`
 }
 
 // The node this Taint is attached to has the "effect" on
@@ -378,48 +173,124 @@ const (
 	TaintEffectNoExecute TaintEffect = "NoExecute"
 )
 
-// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
-
-// NodeList is the whole list of all Nodes which have been registered with master.
-type NodeList struct {
-	slim_metav1.TypeMeta `json:",inline"`
-	// Standard list metadata.
-	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+// PodSpec is a description of a pod.
+type PodSpec struct {
+	// List of initialization containers belonging to the pod.
+	// Init containers are executed in order prior to containers being started. If any
+	// init container fails, the pod is considered to have failed and is handled according
+	// to its restartPolicy. The name for an init container or normal container must be
+	// unique among all containers.
+	// Init containers may not have Lifecycle actions, Readiness probes, Liveness probes, or Startup probes.
+	// The resourceRequirements of an init container are taken into account during scheduling
+	// by finding the highest request/limit for each resource type, and then using the max of
+	// of that value or the sum of the normal containers. Limits are applied to init containers
+	// in a similar fashion.
+	// Init containers cannot currently be added or removed.
+	// Cannot be updated.
+	// More info: https://kubernetes.io/docs/concepts/workloads/pods/init-containers/
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	InitContainers []Container `json:"initContainers,omitempty" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,20,rep,name=initContainers"`
+	// List of containers belonging to the pod.
+	// Containers cannot currently be added or removed.
+	// There must be at least one container in a Pod.
+	// Cannot be updated.
+	// +patchMergeKey=name
+	// +patchStrategy=merge
+	Containers []Container `json:"containers" patchStrategy:"merge" patchMergeKey:"name" protobuf:"bytes,2,rep,name=containers"`
+	// ServiceAccountName is the name of the ServiceAccount to use to run this pod.
+	// More info: https://kubernetes.io/docs/tasks/configure-pod-container/configure-service-account/
 	// +optional
-	slim_metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+	ServiceAccountName string `json:"serviceAccountName,omitempty" protobuf:"bytes,8,opt,name=serviceAccountName"`
+	// Host networking requested for this pod. Use the host's network namespace.
+	// If this option is set, the ports that will be used must be specified.
+	// Default to false.
+	// +k8s:conversion-gen=false
+	// +optional
+	HostNetwork bool `json:"hostNetwork,omitempty" protobuf:"varint,11,opt,name=hostNetwork"`
+}
 
-	// List of nodes
-	Items []Node `json:"items" protobuf:"bytes,2,rep,name=items"`
+// IP address information for entries in the (plural) PodIPs field.
+// Each entry includes:
+//    IP: An IP address allocated to the pod. Routable at least within the cluster.
+type PodIP struct {
+	// ip is an IP address (IPv4 or IPv6) assigned to the pod
+	IP string `json:"ip,omitempty" protobuf:"bytes,1,opt,name=ip"`
+}
+
+// PodStatus represents information about the status of a pod. Status may trail the actual
+// state of a system, especially if the node that hosts the pod cannot contact the control
+// plane.
+type PodStatus struct {
+	// IP address of the host to which the pod is assigned. Empty if not yet scheduled.
+	// +optional
+	HostIP string `json:"hostIP,omitempty" protobuf:"bytes,5,opt,name=hostIP"`
+	// IP address allocated to the pod. Routable at least within the cluster.
+	// Empty if not yet allocated.
+	// +optional
+	PodIP string `json:"podIP,omitempty" protobuf:"bytes,6,opt,name=podIP"`
+
+	// podIPs holds the IP addresses allocated to the pod. If this field is specified, the 0th entry must
+	// match the podIP field. Pods may be allocated at most 1 value for each of IPv4 and IPv6. This list
+	// is empty if no IPs have been allocated yet.
+	// +optional
+	// +patchStrategy=merge
+	// +patchMergeKey=ip
+	PodIPs []PodIP `json:"podIPs,omitempty" protobuf:"bytes,12,rep,name=podIPs" patchStrategy:"merge" patchMergeKey:"ip"`
+
+	// RFC 3339 date and time at which the object was acknowledged by the Kubelet.
+	// This is before the Kubelet pulled the container image(s) for the pod.
+	// +optional
+	StartTime *slim_metav1.Time `json:"startTime,omitempty" protobuf:"bytes,7,opt,name=startTime"`
+
+	// The list has one entry per container in the manifest. Each entry is currently the output
+	// of `docker inspect`.
+	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status
+	// +optional
+	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty" protobuf:"bytes,8,rep,name=containerStatuses"`
 }
 
 // +genclient
-// +genclient:nonNamespaced
-// +genclient:skipVerbs=deleteCollection
+// +genclient:method=GetEphemeralContainers,verb=get,subresource=ephemeralcontainers,result=EphemeralContainers
+// +genclient:method=UpdateEphemeralContainers,verb=update,subresource=ephemeralcontainers,input=EphemeralContainers,result=EphemeralContainers
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// Namespace provides a scope for Names.
-// Use of multiple namespaces is optional.
-type Namespace struct {
+// Pod is a collection of containers that can run on a host. This resource is created
+// by clients and scheduled onto hosts.
+type Pod struct {
 	slim_metav1.TypeMeta `json:",inline"`
 	// Standard object's metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
 	// +optional
 	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Specification of the desired behavior of the pod.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// +optional
+	Spec PodSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+
+	// Most recently observed status of the pod.
+	// This data may not be up to date.
+	// Populated by the system.
+	// Read-only.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// +optional
+	Status PodStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 
-// NamespaceList is a list of Namespaces.
-type NamespaceList struct {
+// PodList is a list of Pods.
+type PodList struct {
 	slim_metav1.TypeMeta `json:",inline"`
 	// Standard list metadata.
 	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
 	// +optional
 	slim_metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
 
-	// Items is the list of Namespace objects in the list.
-	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
-	Items []Namespace `json:"items" protobuf:"bytes,2,rep,name=items"`
+	// List of pods.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md
+	Items []Pod `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
 // Session Affinity Type string
@@ -508,6 +379,19 @@ type LoadBalancerIngress struct {
 	// +optional
 	IP string `json:"ip,omitempty" protobuf:"bytes,1,opt,name=ip"`
 }
+
+// IPFamily represents the IP Family (IPv4 or IPv6). This type is used
+// to express the family of an IP expressed by a type (i.e. service.Spec.IPFamily)
+type IPFamily string
+
+const (
+	// IPv4Protocol indicates that this IP is IPv4 protocol
+	IPv4Protocol IPFamily = "IPv4"
+	// IPv6Protocol indicates that this IP is IPv6 protocol
+	IPv6Protocol IPFamily = "IPv6"
+	// MaxServiceTopologyKeys is the largest number of topology keys allowed on a service
+	MaxServiceTopologyKeys = 16
+)
 
 // ServiceSpec describes the attributes that a user creates on a service.
 type ServiceSpec struct {
@@ -764,15 +648,132 @@ type EndpointsList struct {
 	Items []Endpoints `json:"items" protobuf:"bytes,2,rep,name=items"`
 }
 
-// IPFamily represents the IP Family (IPv4 or IPv6). This type is used
-// to express the family of an IP expressed by a type (i.e. service.Spec.IPFamily)
-type IPFamily string
+// NodeSpec describes the attributes that a node is created with.
+type NodeSpec struct {
+	// PodCIDR represents the pod IP range assigned to the node.
+	// +optional
+	PodCIDR string `json:"podCIDR,omitempty" protobuf:"bytes,1,opt,name=podCIDR"`
 
+	// podCIDRs represents the IP ranges assigned to the node for usage by Pods on that node. If this
+	// field is specified, the 0th entry must match the podCIDR field. It may contain at most 1 value for
+	// each of IPv4 and IPv6.
+	// +optional
+	// +patchStrategy=merge
+	PodCIDRs []string `json:"podCIDRs,omitempty" protobuf:"bytes,7,opt,name=podCIDRs" patchStrategy:"merge"`
+
+	// If specified, the node's taints.
+	// +optional
+	Taints []Taint `json:"taints,omitempty" protobuf:"bytes,5,opt,name=taints"`
+}
+
+// NodeStatus is information about the current status of a node.
+type NodeStatus struct {
+	// List of addresses reachable to the node.
+	// Queried from cloud provider, if available.
+	// More info: https://kubernetes.io/docs/concepts/nodes/node/#addresses
+	// Note: This field is declared as mergeable, but the merge key is not sufficiently
+	// unique, which can cause data corruption when it is merged. Callers should instead
+	// use a full-replacement patch. See http://pr.k8s.io/79391 for an example.
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	Addresses []NodeAddress `json:"addresses,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,5,rep,name=addresses"`
+}
+
+type NodeAddressType string
+
+// These are valid address type of node.
 const (
-	// IPv4Protocol indicates that this IP is IPv4 protocol
-	IPv4Protocol IPFamily = "IPv4"
-	// IPv6Protocol indicates that this IP is IPv6 protocol
-	IPv6Protocol IPFamily = "IPv6"
-	// MaxServiceTopologyKeys is the largest number of topology keys allowed on a service
-	MaxServiceTopologyKeys = 16
+	NodeHostName    NodeAddressType = "Hostname"
+	NodeExternalIP  NodeAddressType = "ExternalIP"
+	NodeInternalIP  NodeAddressType = "InternalIP"
+	NodeExternalDNS NodeAddressType = "ExternalDNS"
+	NodeInternalDNS NodeAddressType = "InternalDNS"
 )
+
+// NodeAddress contains information for the node's address.
+type NodeAddress struct {
+	// Node address type, one of Hostname, ExternalIP or InternalIP.
+	Type NodeAddressType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=NodeAddressType"`
+	// The node address.
+	Address string `json:"address" protobuf:"bytes,2,opt,name=address"`
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// Node is a worker node in Kubernetes.
+// Each node will have a unique identifier in the cache (i.e. in etcd).
+type Node struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
+	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Spec defines the behavior of a node.
+	// https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// +optional
+	Spec NodeSpec `json:"spec,omitempty" protobuf:"bytes,2,opt,name=spec"`
+
+	// Most recently observed status of the node.
+	// Populated by the system.
+	// Read-only.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#spec-and-status
+	// +optional
+	Status NodeStatus `json:"status,omitempty" protobuf:"bytes,3,opt,name=status"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NodeList is the whole list of all Nodes which have been registered with master.
+type NodeList struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
+	slim_metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// List of nodes
+	Items []Node `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
+// +genclient
+// +genclient:nonNamespaced
+// +genclient:skipVerbs=deleteCollection
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// Namespace provides a scope for Names.
+// Use of multiple namespaces is optional.
+type Namespace struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
+	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// NamespaceList is a list of Namespaces.
+type NamespaceList struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
+	slim_metav1.ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// Items is the list of Namespace objects in the list.
+	// More info: https://kubernetes.io/docs/concepts/overview/working-with-objects/namespaces/
+	Items []Namespace `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
+
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+
+// A list of ephemeral containers used with the Pod ephemeralcontainers subresource.
+type EphemeralContainers struct {
+	slim_metav1.TypeMeta `json:",inline"`
+	// +optional
+	slim_metav1.ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+}

@@ -303,7 +303,7 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 				return
 			}
 		}
-	case capabilities.UpdateStatus:
+	default:
 		// This should be treat is as best effort, we don't care if the
 		// UpdateStatus fails.
 		// On the basis of the presence of the namespace field in the object, we
@@ -320,22 +320,6 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 		if err != nil {
 			// We can leave the errors as debug as the GC happens on a best effort
 			log.WithError(err).Debug("Unable to UpdateStatus with garbage collected nodes")
-		}
-	default:
-		// This should be treat is as best effort, we don't care if the
-		// Update fails.
-		if ns == "" {
-			ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
-				CiliumNetworkPolicy: cnp,
-				Status:              cnp.Status,
-			}
-			_, err = ciliumClient.CiliumClusterwideNetworkPolicies().Update(context.TODO(), ccnp, meta_v1.UpdateOptions{})
-		} else {
-			_, err = ciliumClient.CiliumNetworkPolicies(ns).Update(context.TODO(), cnp, meta_v1.UpdateOptions{})
-		}
-		if err != nil {
-			// We can leave the errors as debug as the GC happens on a best effort
-			log.WithError(err).Debug("Unable to Update CNP with garbage collected nodes")
 		}
 	}
 }

@@ -11,7 +11,6 @@ package imports
 import (
 	"bufio"
 	"bytes"
-	"context"
 	"fmt"
 	"go/ast"
 	"go/build"
@@ -21,7 +20,7 @@ import (
 	"go/token"
 	"io"
 	"io/ioutil"
-	"os"
+	"log"
 	"regexp"
 	"strconv"
 	"strings"
@@ -84,54 +83,42 @@ func FixImports(filename string, src []byte, opt *Options) (fixes []*ImportFix, 
 	return getFixes(fileSet, file, filename, opt.Env)
 }
 
-// ApplyFixes applies all of the fixes to the file and formats it. extraMode
-// is added in when parsing the file.
-func ApplyFixes(fixes []*ImportFix, filename string, src []byte, opt *Options, extraMode parser.Mode) (formatted []byte, err error) {
+// ApplyFix will apply all of the fixes to the file and format it.
+func ApplyFixes(fixes []*ImportFix, filename string, src []byte, opt *Options) (formatted []byte, err error) {
 	src, opt, err = initialize(filename, src, opt)
 	if err != nil {
 		return nil, err
 	}
 
-	// Don't use parse() -- we don't care about fragments or statement lists
-	// here, and we need to work with unparseable files.
 	fileSet := token.NewFileSet()
-	parserMode := parser.Mode(0)
-	if opt.Comments {
-		parserMode |= parser.ParseComments
-	}
-	if opt.AllErrors {
-		parserMode |= parser.AllErrors
-	}
-	parserMode |= extraMode
-
-	file, err := parser.ParseFile(fileSet, filename, src, parserMode)
-	if file == nil {
+	file, adjust, err := parse(fileSet, filename, src, opt)
+	if err != nil {
 		return nil, err
 	}
 
 	// Apply the fixes to the file.
 	apply(fileSet, file, fixes)
 
-	return formatFile(fileSet, file, src, nil, opt)
+	return formatFile(fileSet, file, src, adjust, opt)
 }
 
-// GetAllCandidates gets all of the packages starting with prefix that can be
-// imported by filename, sorted by import path.
-func GetAllCandidates(ctx context.Context, callback func(ImportFix), searchPrefix, filename, filePkg string, opt *Options) error {
-	_, opt, err := initialize(filename, []byte{}, opt)
+// GetAllCandidates gets all of the standard library candidate packages to import in
+// sorted order on import path.
+func GetAllCandidates(filename string, opt *Options) (pkgs []ImportFix, err error) {
+	_, opt, err = initialize(filename, nil, opt)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return getAllCandidates(ctx, callback, searchPrefix, filename, filePkg, opt.Env)
+	return getAllCandidates(filename, opt.Env)
 }
 
 // GetPackageExports returns all known packages with name pkg and their exports.
-func GetPackageExports(ctx context.Context, callback func(PackageExport), searchPkg, filename, filePkg string, opt *Options) error {
-	_, opt, err := initialize(filename, []byte{}, opt)
+func GetPackageExports(pkg, filename string, opt *Options) (exports []PackageExport, err error) {
+	_, opt, err = initialize(filename, nil, opt)
 	if err != nil {
-		return err
+		return nil, err
 	}
-	return getPackageExports(ctx, callback, searchPkg, filename, filePkg, opt.Env)
+	return getPackageExports(pkg, filename, opt.Env)
 }
 
 // initialize sets the values for opt and src.
@@ -146,14 +133,16 @@ func initialize(filename string, src []byte, opt *Options) ([]byte, *Options, er
 	// Set the env if the user has not provided it.
 	if opt.Env == nil {
 		opt.Env = &ProcessEnv{
-			GOPATH:      build.Default.GOPATH,
-			GOROOT:      build.Default.GOROOT,
-			GOFLAGS:     os.Getenv("GOFLAGS"),
-			GO111MODULE: os.Getenv("GO111MODULE"),
-			GOPROXY:     os.Getenv("GOPROXY"),
-			GOSUMDB:     os.Getenv("GOSUMDB"),
+			GOPATH: build.Default.GOPATH,
+			GOROOT: build.Default.GOROOT,
 		}
 	}
+
+	// Set the logger if the user has not provided it.
+	if opt.Env.Logf == nil {
+		opt.Env.Logf = log.Printf
+	}
+
 	if src == nil {
 		b, err := ioutil.ReadFile(filename)
 		if err != nil {

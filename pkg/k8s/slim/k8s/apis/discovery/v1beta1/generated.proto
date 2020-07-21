@@ -128,7 +128,6 @@ message EndpointSliceList {
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.ListMeta metadata = 1;
 
   // List of endpoint slices
-  // +listType=set
   repeated EndpointSlice items = 2;
 }
 

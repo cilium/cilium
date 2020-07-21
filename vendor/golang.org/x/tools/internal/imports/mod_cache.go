@@ -49,6 +49,10 @@ type directoryPackageInfo struct {
 	// nonCanonicalImportPath is the package's expected import path. It may
 	// not actually be importable at that path.
 	nonCanonicalImportPath string
+	// needsReplace is true if the nonCanonicalImportPath does not match the
+	// module's declared path, making it impossible to import without a
+	// replace directive.
+	needsReplace bool
 
 	// Module-related information.
 	moduleDir  string // The directory that is the module root of this dir.
@@ -93,86 +97,15 @@ func (info *directoryPackageInfo) reachedStatus(target directoryPackageStatus) (
 type dirInfoCache struct {
 	mu sync.Mutex
 	// dirs stores information about packages in directories, keyed by absolute path.
-	dirs      map[string]*directoryPackageInfo
-	listeners map[*int]cacheListener
-}
-
-type cacheListener func(directoryPackageInfo)
-
-// ScanAndListen calls listener on all the items in the cache, and on anything
-// newly added. The returned stop function waits for all in-flight callbacks to
-// finish and blocks new ones.
-func (d *dirInfoCache) ScanAndListen(ctx context.Context, listener cacheListener) func() {
-	ctx, cancel := context.WithCancel(ctx)
-
-	// Flushing out all the callbacks is tricky without knowing how many there
-	// are going to be. Setting an arbitrary limit makes it much easier.
-	const maxInFlight = 10
-	sema := make(chan struct{}, maxInFlight)
-	for i := 0; i < maxInFlight; i++ {
-		sema <- struct{}{}
-	}
-
-	cookie := new(int) // A unique ID we can use for the listener.
-
-	// We can't hold mu while calling the listener.
-	d.mu.Lock()
-	var keys []string
-	for key := range d.dirs {
-		keys = append(keys, key)
-	}
-	d.listeners[cookie] = func(info directoryPackageInfo) {
-		select {
-		case <-ctx.Done():
-			return
-		case <-sema:
-		}
-		listener(info)
-		sema <- struct{}{}
-	}
-	d.mu.Unlock()
-
-	stop := func() {
-		cancel()
-		d.mu.Lock()
-		delete(d.listeners, cookie)
-		d.mu.Unlock()
-		for i := 0; i < maxInFlight; i++ {
-			<-sema
-		}
-	}
-
-	// Process the pre-existing keys.
-	for _, k := range keys {
-		select {
-		case <-ctx.Done():
-			return stop
-		default:
-		}
-		if v, ok := d.Load(k); ok {
-			listener(v)
-		}
-	}
-
-	return stop
+	dirs map[string]*directoryPackageInfo
 }
 
 // Store stores the package info for dir.
 func (d *dirInfoCache) Store(dir string, info directoryPackageInfo) {
 	d.mu.Lock()
-	_, old := d.dirs[dir]
-	d.dirs[dir] = &info
-	var listeners []cacheListener
-	for _, l := range d.listeners {
-		listeners = append(listeners, l)
-	}
-	d.mu.Unlock()
-
-	if !old {
-		for _, l := range listeners {
-			l(info)
-		}
-	}
+	defer d.mu.Unlock()
+	stored := info // defensive copy
+	d.dirs[dir] = &stored
 }
 
 // Load returns a copy of the directoryPackageInfo for absolute directory dir.
@@ -196,17 +129,17 @@ func (d *dirInfoCache) Keys() (keys []string) {
 	return keys
 }
 
-func (d *dirInfoCache) CachePackageName(info directoryPackageInfo) (string, error) {
+func (d *dirInfoCache) CachePackageName(info directoryPackageInfo) (directoryPackageInfo, error) {
 	if loaded, err := info.reachedStatus(nameLoaded); loaded {
-		return info.packageName, err
+		return info, err
 	}
 	if scanned, err := info.reachedStatus(directoryScanned); !scanned || err != nil {
-		return "", fmt.Errorf("cannot read package name, scan error: %v", err)
+		return info, fmt.Errorf("cannot read package name, scan error: %v", err)
 	}
 	info.packageName, info.err = packageDirToName(info.dir)
 	info.status = nameLoaded
 	d.Store(info.dir, info)
-	return info.packageName, info.err
+	return info, info.err
 }
 
 func (d *dirInfoCache) CacheExports(ctx context.Context, env *ProcessEnv, info directoryPackageInfo) (string, []string, error) {
@@ -216,8 +149,8 @@ func (d *dirInfoCache) CacheExports(ctx context.Context, env *ProcessEnv, info d
 	if reached, err := info.reachedStatus(nameLoaded); reached && err != nil {
 		return "", nil, err
 	}
-	info.packageName, info.exports, info.err = loadExportsFromFiles(ctx, env, info.dir, false)
-	if info.err == context.Canceled || info.err == context.DeadlineExceeded {
+	info.packageName, info.exports, info.err = loadExportsFromFiles(ctx, env, info.dir)
+	if info.err == context.Canceled {
 		return info.packageName, info.exports, info.err
 	}
 	// The cache structure wants things to proceed linearly. We can skip a
