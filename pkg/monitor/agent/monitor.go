@@ -16,6 +16,7 @@ package agent
 
 import (
 	"context"
+	"errors"
 	"net"
 	"os"
 	"time"
@@ -30,7 +31,6 @@ import (
 
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
@@ -194,7 +194,7 @@ func (m *Monitor) handleEvents(stopCtx context.Context) {
 				m.Unlock()
 			} else {
 				scopedLog.WithError(err).Warn("Error received while reading from perf buffer")
-				if errors.Cause(err) == unix.EBADFD {
+				if errors.Is(err, unix.EBADFD) {
 					return
 				}
 			}
