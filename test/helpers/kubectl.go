@@ -114,7 +114,6 @@ var (
 		// We need CNP node status to know when a policy is being enforced
 		"config.enableCnpStatusUpdates": "true",
 
-		"global.hostFirewall":      "true",
 		"global.nativeRoutingCIDR": "10.0.0.0/8",
 	}
 
@@ -2162,18 +2161,6 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 	}
 
-	// Set devices
-	privateIface, err := kub.GetPrivateIface()
-	if err != nil {
-		return err
-	}
-	defaultIface, err := kub.GetDefaultIface()
-	if err != nil {
-		return err
-	}
-	devices := fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
-	addIfNotOverwritten(options, "global.devices", devices)
-
 	if !RunsWithKubeProxy() {
 		nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
 		if err != nil {
@@ -2193,6 +2180,24 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		for key, value := range opts {
 			options = addIfNotOverwritten(options, key, value)
 		}
+	}
+
+	if RunsWithHostFirewall() {
+		addIfNotOverwritten(options, "global.hostFirewall", "true")
+	}
+
+	if !RunsWithKubeProxy() || options["global.hostFirewall"] == "true" {
+		// Set devices
+		privateIface, err := kub.GetPrivateIface()
+		if err != nil {
+			return err
+		}
+		defaultIface, err := kub.GetDefaultIface()
+		if err != nil {
+			return err
+		}
+		devices := fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
+		addIfNotOverwritten(options, "global.devices", devices)
 	}
 
 	return nil
