@@ -60,7 +60,8 @@ Auto-configuration
 Identity context
   Encapsulation protocols allow for the carrying of metadata along with the
   network packet. Cilium makes use of this ability to transfer metadata such as
-  the source security identity.
+  the source security identity. The identity transfer is an optimization
+  designed to avoid one identity lookup on the remote node.
 
 
 Disadvantages of the model
