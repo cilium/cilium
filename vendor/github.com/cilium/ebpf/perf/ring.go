@@ -1,6 +1,8 @@
 package perf
 
 import (
+	"errors"
+	"fmt"
 	"io"
 	"math"
 	"os"
@@ -9,8 +11,6 @@ import (
 	"unsafe"
 
 	"github.com/cilium/ebpf/internal/unix"
-
-	"golang.org/x/xerrors"
 )
 
 // perfEventRing is a page of metadata followed by
@@ -24,7 +24,7 @@ type perfEventRing struct {
 
 func newPerfEventRing(cpu, perCPUBuffer, watermark int) (*perfEventRing, error) {
 	if watermark >= perCPUBuffer {
-		return nil, xerrors.New("watermark must be smaller than perCPUBuffer")
+		return nil, errors.New("watermark must be smaller than perCPUBuffer")
 	}
 
 	fd, err := createPerfEvent(cpu, watermark)
@@ -40,7 +40,7 @@ func newPerfEventRing(cpu, perCPUBuffer, watermark int) (*perfEventRing, error) 
 	mmap, err := unix.Mmap(fd, 0, perfBufferSize(perCPUBuffer), unix.PROT_READ|unix.PROT_WRITE, unix.MAP_SHARED)
 	if err != nil {
 		unix.Close(fd)
-		return nil, xerrors.Errorf("can't mmap: %v", err)
+		return nil, fmt.Errorf("can't mmap: %v", err)
 	}
 
 	// This relies on the fact that we allocate an extra metadata page,
@@ -101,7 +101,7 @@ func createPerfEvent(cpu, watermark int) (int, error) {
 	attr.Size = uint32(unsafe.Sizeof(attr))
 	fd, err := unix.PerfEventOpen(&attr, -1, cpu, -1, unix.PERF_FLAG_FD_CLOEXEC)
 	if err != nil {
-		return -1, xerrors.Errorf("can't create perf event: %w", err)
+		return -1, fmt.Errorf("can't create perf event: %w", err)
 	}
 	return fd, nil
 }
