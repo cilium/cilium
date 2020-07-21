@@ -38,7 +38,7 @@ jobs:
         name: Register binfmt from multi-platform builds
         with:
           entrypoint: docker
-          args: run --privileged linuxkit/binfmt:5d33e7346e79f9c13a73c6952669e47a53b063d4 
+          args: run --privileged linuxkit/binfmt:5d33e7346e79f9c13a73c6952669e47a53b063d4
       - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
         name: Run make lint
         with:
