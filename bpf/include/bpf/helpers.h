@@ -49,13 +49,6 @@ static __u64 BPF_FUNC(get_netns_cookie, void *ctx);
 static __printf(1, 3) void
 BPF_FUNC(trace_printk, const char *fmt, int fmt_size, ...);
 
-#ifndef printt
-# define printt(fmt, ...)						\
-	({								\
-		trace_printk(____fmt, ##__VA_ARGS__);			\
-	})
-#endif
-
 /* Random numbers */
 static __u32 BPF_FUNC(get_prandom_u32);
 
