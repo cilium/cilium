@@ -138,9 +138,22 @@ enum {
 #include "common.h"
 #include "utils.h"
 
+/* This takes both literals and modifiers, e.g.,
+ * printk("hello\n");
+ * printk("%d\n", ret);
+ *
+ * Three caveats when using this:
+ * - message needs to end with newline
+ *
+ * - only a subset of specifier are supported:
+ *   https://elixir.bootlin.com/linux/v5.7.7/source/kernel/trace/bpf_trace.c#L325
+ *
+ * - cannot use more than 3 format specifiers in the format string
+ *   because BPF helpers take a maximum of 5 arguments
+ */
 # define printk(fmt, ...)					\
 		({						\
-			char ____fmt[] = fmt;			\
+			const char ____fmt[] = fmt;		\
 			trace_printk(____fmt, sizeof(____fmt),	\
 				     ##__VA_ARGS__);		\
 		})
