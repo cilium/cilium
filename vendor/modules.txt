@@ -90,7 +90,7 @@ github.com/cilium/arping
 ## explicit
 github.com/cilium/deepequal-gen
 github.com/cilium/deepequal-gen/generators
-# github.com/cilium/ebpf v0.0.0-20200612163523-d7bee28bad96
+# github.com/cilium/ebpf v0.0.0-20200702112145-1c8d4c9ef775
 ## explicit
 github.com/cilium/ebpf
 github.com/cilium/ebpf/asm
@@ -485,7 +485,6 @@ github.com/pelletier/go-toml
 # github.com/petermattis/goid v0.0.0-20180202154549-b0b1615b78e5
 github.com/petermattis/goid
 # github.com/pkg/errors v0.8.1
-## explicit
 github.com/pkg/errors
 # github.com/pmezard/go-difflib v1.0.0
 ## explicit

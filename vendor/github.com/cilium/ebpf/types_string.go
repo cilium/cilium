@@ -120,11 +120,14 @@ func _() {
 	_ = x[AttachTraceRawTp-23]
 	_ = x[AttachTraceFEntry-24]
 	_ = x[AttachTraceFExit-25]
+	_ = x[AttachModifyReturn-26]
+	_ = x[AttachLSMMac-27]
+	_ = x[AttachTraceIter-28]
 }
 
-const _AttachType_name = "AttachNoneAttachCGroupInetEgressAttachCGroupInetSockCreateAttachCGroupSockOpsAttachSkSKBStreamParserAttachSkSKBStreamVerdictAttachCGroupDeviceAttachSkMsgVerdictAttachCGroupInet4BindAttachCGroupInet6BindAttachCGroupInet4ConnectAttachCGroupInet6ConnectAttachCGroupInet4PostBindAttachCGroupInet6PostBindAttachCGroupUDP4SendmsgAttachCGroupUDP6SendmsgAttachLircMode2AttachFlowDissectorAttachCGroupSysctlAttachCGroupUDP4RecvmsgAttachCGroupUDP6RecvmsgAttachCGroupGetsockoptAttachCGroupSetsockoptAttachTraceRawTpAttachTraceFEntryAttachTraceFExit"
+const _AttachType_name = "AttachNoneAttachCGroupInetEgressAttachCGroupInetSockCreateAttachCGroupSockOpsAttachSkSKBStreamParserAttachSkSKBStreamVerdictAttachCGroupDeviceAttachSkMsgVerdictAttachCGroupInet4BindAttachCGroupInet6BindAttachCGroupInet4ConnectAttachCGroupInet6ConnectAttachCGroupInet4PostBindAttachCGroupInet6PostBindAttachCGroupUDP4SendmsgAttachCGroupUDP6SendmsgAttachLircMode2AttachFlowDissectorAttachCGroupSysctlAttachCGroupUDP4RecvmsgAttachCGroupUDP6RecvmsgAttachCGroupGetsockoptAttachCGroupSetsockoptAttachTraceRawTpAttachTraceFEntryAttachTraceFExitAttachModifyReturnAttachLSMMacAttachTraceIter"
 
-var _AttachType_index = [...]uint16{0, 10, 32, 58, 77, 100, 124, 142, 160, 181, 202, 226, 250, 275, 300, 323, 346, 361, 380, 398, 421, 444, 466, 488, 504, 521, 537}
+var _AttachType_index = [...]uint16{0, 10, 32, 58, 77, 100, 124, 142, 160, 181, 202, 226, 250, 275, 300, 323, 346, 361, 380, 398, 421, 444, 466, 488, 504, 521, 537, 555, 567, 582}
 
 func (i AttachType) String() string {
 	if i >= AttachType(len(_AttachType_index)-1) {
