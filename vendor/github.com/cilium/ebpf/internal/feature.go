@@ -1,14 +1,13 @@
 package internal
 
 import (
+	"errors"
 	"fmt"
 	"sync"
-
-	"golang.org/x/xerrors"
 )
 
 // ErrNotSupported indicates that a feature is not supported by the current kernel.
-var ErrNotSupported = xerrors.New("not supported")
+var ErrNotSupported = errors.New("not supported")
 
 // UnsupportedFeatureError is returned by FeatureTest() functions.
 type UnsupportedFeatureError struct {
@@ -67,7 +66,7 @@ func FeatureTest(name, version string, fn FeatureTestFn) func() error {
 		}
 
 		available, err := fn()
-		if xerrors.Is(err, ErrNotSupported) {
+		if errors.Is(err, ErrNotSupported) {
 			// The feature test aborted because a dependent feature
 			// is missing, which we should cache.
 			available = false
@@ -75,7 +74,7 @@ func FeatureTest(name, version string, fn FeatureTestFn) func() error {
 			// We couldn't execute the feature test to a point
 			// where it could make a determination.
 			// Don't cache the result, just return it.
-			return xerrors.Errorf("can't detect support for %s: %w", name, err)
+			return fmt.Errorf("can't detect support for %s: %w", name, err)
 		}
 
 		ft.successful = true
@@ -99,7 +98,7 @@ func NewVersion(ver string) (Version, error) {
 	var major, minor, patch uint16
 	n, _ := fmt.Sscanf(ver, "%d.%d.%d", &major, &minor, &patch)
 	if n < 2 {
-		return Version{}, xerrors.Errorf("invalid version: %s", ver)
+		return Version{}, fmt.Errorf("invalid version: %s", ver)
 	}
 	return Version{major, minor, patch}, nil
 }
