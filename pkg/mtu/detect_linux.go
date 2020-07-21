@@ -22,7 +22,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
-	"github.com/pkg/errors"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
@@ -40,7 +39,7 @@ func getRoute(externalProbe string) ([]netlink.Route, error) {
 
 	routes, err := netlink.RouteGet(ip)
 	if err != nil {
-		return nil, fmt.Errorf("unable to lookup route to %s: %s", externalProbe, err)
+		return nil, fmt.Errorf("unable to lookup route to %s: %w", externalProbe, err)
 	}
 
 	if len(routes) == 0 {
@@ -69,7 +68,7 @@ func autoDetect() (int, error) {
 
 	link, err := netlink.LinkByIndex(routes[0].LinkIndex)
 	if err != nil {
-		return 0, fmt.Errorf("unable to find interface of default route: %s", err)
+		return 0, fmt.Errorf("unable to find interface of default route: %w", err)
 	}
 
 	if mtu := link.Attrs().MTU; mtu != 0 {
@@ -84,7 +83,7 @@ func autoDetect() (int, error) {
 func getMTUFromIf(ip net.IP) (int, error) {
 	ifaces, err := net.Interfaces()
 	if err != nil {
-		return 0, errors.Wrap(err, "Unable to list interfaces")
+		return 0, fmt.Errorf("unable to list interfaces: %w", err)
 	}
 
 	for _, iface := range ifaces {
