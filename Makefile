@@ -227,17 +227,23 @@ endif
 	$(MAKE) stop-kvstores
 
 bench: start-kvstores
-	$(QUIET)$(foreach pkg,$(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)),\
+	# Process the packages in different subshells. See comment in the
+	# "unit-tests" target above for an explanation.
+	$(QUIET)for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
 		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) \
-			$(pkg) \
-		|| exit 1;)
+			$$pkg \
+		|| exit 1; \
+	done
 	$(MAKE) stop-kvstores
 
 bench-privileged:
-	$(QUIET)$(foreach pkg,$(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)),\
+	# Process the packages in different subshells. See comment in the
+	# "unit-tests" target above for an explanation.
+	$(QUIET)for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
 		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) \
-			-tags=privileged_tests $(pkg) \
-		|| exit 1;)
+			-tags=privileged_tests $$pkg \
+		|| exit 1; \
+	done
 
 clean-tags:
 	@$(ECHO_CLEAN) tags
