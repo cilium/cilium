@@ -53,11 +53,13 @@ func (e *Endpoint) GetNamedPort(ingress bool, name string, proto uint8) uint16 {
 		// Ingress only needs the ports of the POD itself
 		k8sPorts, err := e.GetK8sPorts()
 		if err != nil {
-			e.getLogger().WithFields(logrus.Fields{
-				logfields.PortName:         name,
-				logfields.Protocol:         u8proto.U8proto(proto).String(),
-				logfields.TrafficDirection: "ingress",
-			}).WithError(err).Warning("Skipping named port")
+			if e.logLimiter.Allow() {
+				e.getLogger().WithFields(logrus.Fields{
+					logfields.PortName:         name,
+					logfields.Protocol:         u8proto.U8proto(proto).String(),
+					logfields.TrafficDirection: "ingress",
+				}).WithError(err).Warning("Skipping named port")
+			}
 			return 0
 		}
 		return e.getNamedPortIngress(k8sPorts, name, proto)
@@ -79,7 +81,7 @@ func (e *Endpoint) GetNamedPortLocked(ingress bool, name string, proto uint8) ui
 
 func (e *Endpoint) getNamedPortIngress(npMap policy.NamedPortMap, name string, proto uint8) uint16 {
 	port, err := npMap.GetNamedPort(name, proto)
-	if err != nil {
+	if err != nil && e.logLimiter.Allow() {
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.PortName:         name,
 			logfields.Protocol:         u8proto.U8proto(proto).String(),
@@ -93,7 +95,7 @@ func (e *Endpoint) getNamedPortEgress(npMap policy.NamedPortMultiMap, name strin
 	port, err := npMap.GetNamedPort(name, proto)
 	// Skip logging for ErrUnknownNamedPort on egress, as the destination POD with the port name
 	// is likely not scheduled yet.
-	if err != nil && !errors.Is(err, policy.ErrUnknownNamedPort) {
+	if err != nil && !errors.Is(err, policy.ErrUnknownNamedPort) && e.logLimiter.Allow() {
 		e.getLogger().WithFields(logrus.Fields{
 			logfields.PortName:         name,
 			logfields.Protocol:         u8proto.U8proto(proto).String(),
