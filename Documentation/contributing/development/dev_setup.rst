@@ -74,11 +74,17 @@ plus dependencies installed, run:
 
 ::
 
-    $ contrib/vagrant/start.sh
+    $ contrib/vagrant/start.sh [vm_name]
 
-This will create and run a vagrant VM based on the base box
-``cilium/ubuntu``. The box is currently available for the
-following providers:
+This will create and run a vagrant VM based on the base box ``cilium/ubuntu``.
+The ``vm_name`` argument is optional and allows you to add new nodes to an
+existing cluster. For example, to add a net-next VM to a one-node cluster:
+
+::
+
+    $ NWORKERS=1 NETNEXT=1 ./contrib/vagrant/start.sh k8s2+
+
+The box is currently available for the following providers:
 
 * virtualbox
 
