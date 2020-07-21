@@ -60,8 +60,7 @@ Auto-configuration
 Identity context
   Encapsulation protocols allow for the carrying of metadata along with the
   network packet. Cilium makes use of this ability to transfer metadata such as
-  the source security identity and load balancing state to perform
-  direct-server-return (DSR).
+  the source security identity.
 
 
 Disadvantages of the model
