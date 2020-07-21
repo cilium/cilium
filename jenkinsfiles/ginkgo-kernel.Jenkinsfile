@@ -201,6 +201,7 @@ pipeline {
                 KUBECONFIG="${TESTDIR}/vagrant-kubeconfig"
                 FAILFAST=setIfLabel("ci/fail-fast", "true", "false")
                 CONTAINER_RUNTIME=setIfLabel("area/containerd", "containerd", "docker")
+                HOST_FIREWALL=setIfLabel("ci/host-firewall", "1", "0")
 
                 // We need to define all ${KERNEL}-dependent env vars in stage instead of top environment block
                 // because jenkins doesn't initialize these values sequentially within one block

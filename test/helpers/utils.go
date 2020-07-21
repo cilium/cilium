@@ -532,6 +532,11 @@ func DoesNotHaveHosts(count int) func() bool {
 	}
 }
 
+// RunsWithHostFirewall returns true is Cilium runs with the host firewall enabled.
+func RunsWithHostFirewall() bool {
+	return os.Getenv("HOST_FIREWALL") != "0"
+}
+
 // RunsWithKubeProxy returns true if cilium runs together with k8s' kube-proxy.
 func RunsWithKubeProxy() bool {
 	return os.Getenv("KUBEPROXY") != "0"
