@@ -239,12 +239,7 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					// the copy returned by Update.
 					scopedLog.Debug("Updating CEP from local copy")
 					mdl.DeepCopyInto(&localCEP.Status)
-					switch {
-					case capabilities.UpdateStatus:
-						localCEP, err = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(ctx, localCEP, meta_v1.UpdateOptions{})
-					default:
-						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Update(ctx, localCEP, meta_v1.UpdateOptions{})
-					}
+					localCEP, err = ciliumClient.CiliumEndpoints(namespace).UpdateStatus(ctx, localCEP, meta_v1.UpdateOptions{})
 				}
 
 				// Handle Update errors or return successfully

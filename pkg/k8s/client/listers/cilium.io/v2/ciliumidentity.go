@@ -24,10 +24,13 @@ import (
 )
 
 // CiliumIdentityLister helps list CiliumIdentities.
+// All objects returned here must be treated as read-only.
 type CiliumIdentityLister interface {
 	// List lists all CiliumIdentities in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v2.CiliumIdentity, err error)
 	// Get retrieves the CiliumIdentity from the index for a given name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v2.CiliumIdentity, error)
 	CiliumIdentityListerExpansion
 }

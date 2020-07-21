@@ -45,12 +45,8 @@ var (
 		Fragment:  true,
 		// This environment, and its caches, will be reused for the whole run.
 		Env: &imports.ProcessEnv{
-			GOPATH:      build.Default.GOPATH,
-			GOROOT:      build.Default.GOROOT,
-			GOFLAGS:     os.Getenv("GOFLAGS"),
-			GO111MODULE: os.Getenv("GO111MODULE"),
-			GOPROXY:     os.Getenv("GOPROXY"),
-			GOSUMDB:     os.Getenv("GOSUMDB"),
+			GOPATH: build.Default.GOPATH,
+			GOROOT: build.Default.GOROOT,
 		},
 	}
 	exitCode = 0
@@ -262,7 +258,7 @@ func gofmtMain() {
 
 	if verbose {
 		log.SetFlags(log.LstdFlags | log.Lmicroseconds)
-		options.Env.Logf = log.Printf
+		options.Env.Debug = true
 	}
 	if options.TabWidth < 0 {
 		fmt.Fprintf(os.Stderr, "negative tabwidth %d\n", options.TabWidth)

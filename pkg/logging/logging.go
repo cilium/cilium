@@ -29,7 +29,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	logrus_syslog "github.com/sirupsen/logrus/hooks/syslog"
-	"k8s.io/klog"
+	"k8s.io/klog/v2"
 )
 
 type LogFormat string

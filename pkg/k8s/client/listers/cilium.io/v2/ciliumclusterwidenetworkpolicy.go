@@ -24,10 +24,13 @@ import (
 )
 
 // CiliumClusterwideNetworkPolicyLister helps list CiliumClusterwideNetworkPolicies.
+// All objects returned here must be treated as read-only.
 type CiliumClusterwideNetworkPolicyLister interface {
 	// List lists all CiliumClusterwideNetworkPolicies in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v2.CiliumClusterwideNetworkPolicy, err error)
 	// Get retrieves the CiliumClusterwideNetworkPolicy from the index for a given name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v2.CiliumClusterwideNetworkPolicy, error)
 	CiliumClusterwideNetworkPolicyListerExpansion
 }

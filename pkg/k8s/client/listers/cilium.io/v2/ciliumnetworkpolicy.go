@@ -24,8 +24,10 @@ import (
 )
 
 // CiliumNetworkPolicyLister helps list CiliumNetworkPolicies.
+// All objects returned here must be treated as read-only.
 type CiliumNetworkPolicyLister interface {
 	// List lists all CiliumNetworkPolicies in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v2.CiliumNetworkPolicy, err error)
 	// CiliumNetworkPolicies returns an object that can list and get CiliumNetworkPolicies.
 	CiliumNetworkPolicies(namespace string) CiliumNetworkPolicyNamespaceLister
@@ -56,10 +58,13 @@ func (s *ciliumNetworkPolicyLister) CiliumNetworkPolicies(namespace string) Cili
 }
 
 // CiliumNetworkPolicyNamespaceLister helps list and get CiliumNetworkPolicies.
+// All objects returned here must be treated as read-only.
 type CiliumNetworkPolicyNamespaceLister interface {
 	// List lists all CiliumNetworkPolicies in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v2.CiliumNetworkPolicy, err error)
 	// Get retrieves the CiliumNetworkPolicy from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v2.CiliumNetworkPolicy, error)
 	CiliumNetworkPolicyNamespaceListerExpansion
 }

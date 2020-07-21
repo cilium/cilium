@@ -21,7 +21,6 @@ import (
 	"time"
 
 	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
-	"github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -113,13 +112,6 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 			Validation: CNPCRV,
 		},
 	}
-	// Kubernetes < 1.12 does not support having the field Type set in the root
-	// schema so we need to set it to empty if kube-apiserver does not supports
-	// it.
-	if !version.Capabilities().FieldTypeInCRDSchema {
-		res.Spec.Validation.OpenAPIV3Schema.Type = ""
-	}
-
 	return createUpdateCRD(clientset, "CiliumNetworkPolicy/v2", res)
 }
 
@@ -154,13 +146,6 @@ func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 			Validation: CCNPCRV,
 		},
 	}
-	// Kubernetes < 1.12 does not support having the field Type set in the root
-	// schema so we need to set it to empty if kube-apiserver does not supports
-	// it.
-	if !version.Capabilities().FieldTypeInCRDSchema {
-		res.Spec.Validation.OpenAPIV3Schema.Type = ""
-	}
-
 	return createUpdateCRD(clientset, "CiliumClusterwideNetworkPolicy/v2", res)
 }
 

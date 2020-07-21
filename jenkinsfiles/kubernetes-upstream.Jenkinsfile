@@ -35,7 +35,7 @@ pipeline {
         PROJ_PATH = "src/github.com/cilium/cilium"
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         VM_MEMORY = "5120"
-        K8S_VERSION="1.18"
+        K8S_VERSION="1.19"
         SERVER_BOX = "cilium/ubuntu"
         CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
     }
@@ -92,7 +92,7 @@ pipeline {
 
         stage('BDD-tests'){
             options {
-                timeout(time: 45, unit: 'MINUTES')
+                timeout(time: 90, unit: 'MINUTES')
             }
 
             steps {

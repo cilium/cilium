@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -345,14 +344,8 @@ func (n *nodeStore) refreshNode() error {
 	}
 
 	var err error
-	k8sCapabilities := k8sversion.Capabilities()
 	ciliumClient := k8s.CiliumClient()
-	switch {
-	case k8sCapabilities.UpdateStatus:
-		_, err = ciliumClient.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
-	default:
-		_, err = ciliumClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
-	}
+	_, err = ciliumClient.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
 
 	return err
 }
