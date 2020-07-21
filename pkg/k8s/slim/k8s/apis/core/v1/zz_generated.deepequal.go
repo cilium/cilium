@@ -354,6 +354,9 @@ func (in *LoadBalancerIngress) DeepEqual(other *LoadBalancerIngress) bool {
 	if in.IP != other.IP {
 		return false
 	}
+	if in.Hostname != other.Hostname {
+		return false
+	}
 
 	return true
 }

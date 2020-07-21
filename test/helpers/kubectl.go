@@ -2042,32 +2042,18 @@ func (kub *Kubectl) DeployPatchStdIn(original, patch string) error {
 	// debugYaml only dumps the full created yaml file to the test output if
 	// the cilium manifest can not be created correctly.
 	debugYaml := func(original, patch string) {
-		// dry-run is only available since k8s 1.11
-		switch GetCurrentK8SEnv() {
-		case "1.8", "1.9", "1.10":
-			_ = kub.ExecShort(fmt.Sprintf(
-				`%s patch --filename='%s' --patch %s --local -o yaml`,
-				KubectlCmd, original, patch))
-		default:
-			_ = kub.ExecShort(fmt.Sprintf(
-				`%s patch --filename='%s' --patch %s --local --dry-run -o yaml`,
-				KubectlCmd, original, patch))
-		}
+		_ = kub.ExecShort(fmt.Sprintf(
+			`%s patch --filename='%s' --patch %s --local --dry-run -o yaml`,
+			KubectlCmd, original, patch))
 	}
 
-	var res *CmdRes
 	// validation 1st
-	// dry-run is only available since k8s 1.11
-	switch GetCurrentK8SEnv() {
-	case "1.8", "1.9", "1.10":
-	default:
-		res = kub.ExecShort(fmt.Sprintf(
-			`%s patch --filename='%s' --patch %s --local --dry-run`,
-			KubectlCmd, original, patch))
-		if !res.WasSuccessful() {
-			debugYaml(original, patch)
-			return res.GetErr("Cilium patch validation failed")
-		}
+	res := kub.ExecShort(fmt.Sprintf(
+		`%s patch --filename='%s' --patch %s --local --dry-run`,
+		KubectlCmd, original, patch))
+	if !res.WasSuccessful() {
+		debugYaml(original, patch)
+		return res.GetErr("Cilium patch validation failed")
 	}
 
 	res = kub.Apply(ApplyOptions{
@@ -2089,32 +2075,18 @@ func (kub *Kubectl) DeployPatch(original, patchFileName string) error {
 	// debugYaml only dumps the full created yaml file to the test output if
 	// the cilium manifest can not be created correctly.
 	debugYaml := func(original, patch string) {
-		// dry-run is only available since k8s 1.11
-		switch GetCurrentK8SEnv() {
-		case "1.8", "1.9", "1.10":
-			_ = kub.ExecShort(fmt.Sprintf(
-				`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml`,
-				KubectlCmd, original, patch))
-		default:
-			_ = kub.ExecShort(fmt.Sprintf(
-				`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run -o yaml`,
-				KubectlCmd, original, patch))
-		}
+		_ = kub.ExecShort(fmt.Sprintf(
+			`%s patch --filename='%s' --patch "$(cat '%s')" --local -o yaml`,
+			KubectlCmd, original, patch))
 	}
 
-	var res *CmdRes
 	// validation 1st
-	// dry-run is only available since k8s 1.11
-	switch GetCurrentK8SEnv() {
-	case "1.8", "1.9", "1.10":
-	default:
-		res = kub.ExecShort(fmt.Sprintf(
-			`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run`,
-			KubectlCmd, original, patchFileName))
-		if !res.WasSuccessful() {
-			debugYaml(original, patchFileName)
-			return res.GetErr("Cilium patch validation failed")
-		}
+	res := kub.ExecShort(fmt.Sprintf(
+		`%s patch --filename='%s' --patch "$(cat '%s')" --local --dry-run`,
+		KubectlCmd, original, patchFileName))
+	if !res.WasSuccessful() {
+		debugYaml(original, patchFileName)
+		return res.GetErr("Cilium patch validation failed")
 	}
 
 	res = kub.Apply(ApplyOptions{

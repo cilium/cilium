@@ -21,7 +21,6 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 
 	"k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
@@ -108,36 +107,16 @@ func (c *ciliumNodeUpdateImplementation) Get(node string) (*v2.CiliumNode, error
 }
 
 func (c *ciliumNodeUpdateImplementation) UpdateStatus(origNode, node *v2.CiliumNode) (*v2.CiliumNode, error) {
-	// If k8s supports status as a sub-resource, then we need to update the status separately
-	k8sCapabilities := k8sversion.Capabilities()
-	switch {
-	case k8sCapabilities.UpdateStatus:
-		if origNode == nil || !origNode.Status.DeepEqual(&node.Status) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
-		}
-	default:
-		if origNode == nil || !origNode.Status.DeepEqual(&node.Status) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
-		}
+	if origNode == nil || !origNode.Status.DeepEqual(&node.Status) {
+		return ciliumK8sClient.CiliumV2().CiliumNodes().UpdateStatus(context.TODO(), node, metav1.UpdateOptions{})
 	}
-
 	return nil, nil
 }
 
 func (c *ciliumNodeUpdateImplementation) Update(origNode, node *v2.CiliumNode) (*v2.CiliumNode, error) {
-	// If k8s supports status as a sub-resource, then we need to update the status separately
-	k8sCapabilities := k8sversion.Capabilities()
-	switch {
-	case k8sCapabilities.UpdateStatus:
-		if origNode == nil || !origNode.Spec.DeepEqual(&node.Spec) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
-		}
-	default:
-		if origNode == nil || !origNode.DeepEqual(node) {
-			return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
-		}
+	if origNode == nil || !origNode.Spec.DeepEqual(&node.Spec) {
+		return ciliumK8sClient.CiliumV2().CiliumNodes().Update(context.TODO(), node, metav1.UpdateOptions{})
 	}
-
 	return nil, nil
 }
 

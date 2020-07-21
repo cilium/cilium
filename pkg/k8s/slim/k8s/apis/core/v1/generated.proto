@@ -248,6 +248,11 @@ message LoadBalancerIngress {
   // (typically GCE or OpenStack load-balancers)
   // +optional
   optional string ip = 1;
+
+  // Hostname is set for load-balancer ingress points that are DNS based
+  // (typically AWS load-balancers)
+  // +optional
+  optional string hostname = 2;
 }
 
 // LoadBalancerStatus represents the status of a load-balancer.

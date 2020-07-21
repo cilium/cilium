@@ -303,6 +303,20 @@ case $K8S_VERSION in
         CONTROLLER_FEATURE_GATES="EndpointSlice=true"
         API_SERVER_FEATURE_GATES="EndpointSlice=true"
         ;;
+    "1.19")
+        # kubeadm 1.19 requires conntrack to be installed, we can remove this
+        # once we have upgrade the VM image version.
+        sudo apt-get install -y conntrack
+        KUBERNETES_CNI_VERSION="0.8.6"
+        KUBERNETES_CNI_OS="-linux"
+        K8S_FULL_VERSION="1.19.0-rc.1"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
+        KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
+        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
+        API_SERVER_FEATURE_GATES="EndpointSlice=true"
+        ;;
 esac
 
 # TODO(brb) Enable after we switch k8s vsn in the kubeproxy-free job to >= v1.16
@@ -326,9 +340,9 @@ case $K8S_VERSION in
             install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
         fi
         ;;
-#   "1.18")
-#       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
-#       ;;
+   "1.19")
+       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
+       ;;
 esac
 set -e
 

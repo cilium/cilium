@@ -322,6 +322,8 @@ Annotations:
 1.9 Upgrade Notes
 -----------------
 
+* Cilium has bumped the minimal kubernetes version supported to v1.12.0.
+
 Renamed Metrics
 ~~~~~~~~~~~~~~~
 

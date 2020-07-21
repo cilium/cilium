@@ -451,21 +451,16 @@ func benchmarkCNPNodeStatusController(integrationTest bool, nNodes int, nParalle
 	}()
 
 	var cnpStore cache.Store
-	switch {
-	case k8sversion.Capabilities().UpdateStatus:
-		// k8s >= 1.13 does not require a store
-	default:
-		// TODO create a cache.Store per node
-		si := informer.NewSharedInformerFactory(ciliumNPClients[0], 5*time.Minute)
-		ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
-		cnpStore = ciliumV2Controller.GetStore()
-		si.Start(wait.NeverStop)
-		var exists bool
-		// wait for the cnp created to be in the store
-		for !exists {
-			_, exists, err = cnpStore.Get(cnp)
-			time.Sleep(100 * time.Millisecond)
-		}
+	// TODO create a cache.Store per node
+	si := informer.NewSharedInformerFactory(ciliumNPClients[0], 5*time.Minute)
+	ciliumV2Controller := si.Cilium().V2().CiliumNetworkPolicies().Informer()
+	cnpStore = ciliumV2Controller.GetStore()
+	si.Start(wait.NeverStop)
+	var exists bool
+	// wait for the cnp created to be in the store
+	for !exists {
+		_, exists, err = cnpStore.Get(cnp)
+		time.Sleep(100 * time.Millisecond)
 	}
 
 	wg := sync.WaitGroup{}
