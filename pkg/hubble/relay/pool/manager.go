@@ -52,21 +52,21 @@ type Peer struct {
 }
 
 type peer struct {
+	mu lock.Mutex
 	hubblePeer.Peer
 	conn            ClientConn
 	connAttempts    int
 	nextConnAttempt time.Time
-	mu              lock.Mutex
 }
 
 // Manager implements the PeerManager interface.
 type Manager struct {
-	peers   map[string]*peer
-	offline chan string
-	mu      lock.Mutex
 	opts    Options
+	offline chan string
 	wg      sync.WaitGroup
 	stop    chan struct{}
+	mu      lock.RWMutex
+	peers   map[string]*peer
 }
 
 // ensure that Manager implements the PeerManager interface.
@@ -178,9 +178,9 @@ func (m *Manager) manageConnections() {
 		case <-m.stop:
 			return
 		case name := <-m.offline:
-			m.mu.Lock()
+			m.mu.RLock()
 			p := m.peers[name]
-			m.mu.Unlock()
+			m.mu.RUnlock()
 			m.wg.Add(1)
 			go func() {
 				defer m.wg.Done()
@@ -188,7 +188,7 @@ func (m *Manager) manageConnections() {
 				m.connect(p, true)
 			}()
 		case <-time.After(m.opts.ConnCheckInterval):
-			m.mu.Lock()
+			m.mu.RLock()
 			now := time.Now()
 			for _, p := range m.peers {
 				p.mu.Lock()
@@ -211,7 +211,7 @@ func (m *Manager) manageConnections() {
 					p.mu.Unlock()
 				}
 			}
-			m.mu.Unlock()
+			m.mu.RUnlock()
 		}
 	}
 }
@@ -224,8 +224,8 @@ func (m *Manager) Stop() {
 
 // List implements PeerManager.List.
 func (m *Manager) List() []Peer {
-	m.mu.Lock()
-	defer m.mu.Unlock()
+	m.mu.RLock()
+	defer m.mu.RUnlock()
 	if len(m.peers) == 0 {
 		return nil
 	}
@@ -248,9 +248,9 @@ func (m *Manager) ReportOffline(name string) {
 	m.wg.Add(1)
 	go func() {
 		defer m.wg.Done()
-		m.mu.Lock()
+		m.mu.RLock()
 		p, ok := m.peers[name]
-		m.mu.Unlock()
+		m.mu.RUnlock()
 		if !ok {
 			return
 		}
