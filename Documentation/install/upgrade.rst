@@ -548,6 +548,10 @@ Upgrading from >=1.7.0 to 1.8.y
       helm upgrade cilium --namespace=kube-system \\
       --set global.bpf.natMax=841429
 
+* Setting debug mode with ``debug: "true"`` no longer enables datapath debug
+  messages which could have been read with ``cilium monitor -v``. To enable
+  them, add ``"datapath"`` to the ``debug-verbose`` option.
+
 New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
 
