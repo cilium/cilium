@@ -48,6 +48,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
@@ -226,6 +227,9 @@ type Endpoint struct {
 	// k8sPorts contains container ports associated in the pod.
 	// It is used to enforce k8s network policies with port names.
 	k8sPorts policy.NamedPortMap
+
+	// logLimiter rate limits potentially repeating warning logs
+	logLimiter logging.Limiter
 
 	// k8sPortsSet keep track when k8sPorts was set at least one time.
 	hasK8sMetadata bool
@@ -430,6 +434,7 @@ func createEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cac
 		controllers:     controller.NewManager(),
 		regenFailedChan: make(chan struct{}, 1),
 		allocator:       allocator,
+		logLimiter:      logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
