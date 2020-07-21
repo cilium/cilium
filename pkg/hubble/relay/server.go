@@ -37,7 +37,7 @@ import (
 // via unix domain socket.
 type Server struct {
 	server *grpc.Server
-	pool   pool.PeerManager
+	pm     pool.PeerManager
 	log    logrus.FieldLogger
 	opts   relayoption.Options
 	stop   chan struct{}
@@ -54,7 +54,7 @@ func NewServer(options ...relayoption.Option) (*Server, error) {
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
 	logging.ConfigureLogLevel(opts.Debug)
 
-	pool, err := pool.NewManager(
+	pm, err := pool.NewManager(
 		pool.WithPeerServiceAddress(opts.HubbleTarget),
 		pool.WithPeerClientBuilder(
 			&peerTypes.LocalClientBuilder{
@@ -75,7 +75,7 @@ func NewServer(options ...relayoption.Option) (*Server, error) {
 		return nil, err
 	}
 	return &Server{
-		pool: pool,
+		pm:   pm,
 		log:  logger,
 		stop: make(chan struct{}),
 		opts: opts,
@@ -96,7 +96,7 @@ func (s *Server) Serve() error {
 	if err != nil {
 		return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.ListenAddress, err)
 	}
-	s.pool.Start()
+	s.pm.Start()
 	reflection.Register(s.server)
 	return s.server.Serve(socket)
 }
@@ -106,6 +106,6 @@ func (s *Server) Stop() {
 	s.log.Info("Stopping server...")
 	close(s.stop)
 	s.server.Stop()
-	s.pool.Stop()
+	s.pm.Stop()
 	s.log.Info("Server stopped")
 }
