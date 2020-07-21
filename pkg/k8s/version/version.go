@@ -43,20 +43,12 @@ type ServerCapabilities struct {
 	// Patch is the ability to use PATCH to modify a resource
 	Patch bool
 
-	// UpdateStatus is the ability to update the status separately as a
-	// sub-resource
-	UpdateStatus bool
-
 	// MinimalVersionMet is true when the minimal version of Kubernetes
 	// required to run Cilium has been met
 	MinimalVersionMet bool
 
 	// EndpointSlice is the ability of k8s server to support endpoint slices
 	EndpointSlice bool
-
-	// FieldTypeInCRDSchema is set to true if Kubernetes supports having
-	// the field Type set in the CRD Schema.
-	FieldTypeInCRDSchema bool
 }
 
 type cachedVersion struct {
@@ -68,7 +60,7 @@ type cachedVersion struct {
 const (
 	// MinimalVersionConstraint is the minimal version that Cilium supports to
 	// run kubernetes.
-	MinimalVersionConstraint = "1.11.0"
+	MinimalVersionConstraint = "1.12.0"
 )
 
 var (
@@ -77,9 +69,7 @@ var (
 	discoveryAPIGroup = "discovery.k8s.io/v1beta1"
 	endpointSliceKind = "EndpointSlice"
 
-	isGEThanPatchConstraint        = versioncheck.MustCompile(">=1.13.0")
-	isGEThanUpdateStatusConstraint = versioncheck.MustCompile(">=1.11.0")
-	isGThanRootTypeConstraint      = versioncheck.MustCompile(">=1.12.0")
+	isGEThanPatchConstraint = versioncheck.MustCompile(">=1.13.0")
 
 	// isGEThanMinimalVersionConstraint is the minimal version required to run
 	// Cilium
@@ -109,9 +99,7 @@ func updateVersion(version go_version.Version) {
 	cached.version = version
 
 	cached.capabilities.Patch = option.Config.K8sForceJSONPatch || isGEThanPatchConstraint(version)
-	cached.capabilities.UpdateStatus = isGEThanUpdateStatusConstraint(version)
 	cached.capabilities.MinimalVersionMet = isGEThanMinimalVersionConstraint(version)
-	cached.capabilities.FieldTypeInCRDSchema = isGThanRootTypeConstraint(version)
 }
 
 func updateServerGroupsAndResources(apiGroups []*metav1.APIGroup, apiResourceLists []*metav1.APIResourceList) {

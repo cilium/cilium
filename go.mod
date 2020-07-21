@@ -34,7 +34,7 @@ require (
 	github.com/go-openapi/swag v0.19.7
 	github.com/go-openapi/validate v0.19.5
 	github.com/gogo/protobuf v1.3.1
-	github.com/golang/protobuf v1.3.2
+	github.com/golang/protobuf v1.4.2
 	github.com/google/go-cmp v0.4.0
 	github.com/google/gofuzz v1.1.0
 	github.com/google/gopacket v1.1.17
@@ -47,7 +47,7 @@ require (
 	// must be bound to this old version not to break libnetwork
 	github.com/ishidawataru/sctp v0.0.0-20180213033435-07191f837fed // indirect
 	github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd
-	github.com/kr/pretty v0.1.0
+	github.com/kr/pretty v0.2.0
 	github.com/mattn/go-shellwords v1.0.5
 	github.com/miekg/dns v1.0.14
 	github.com/mitchellh/protoc-gen-go-json v0.0.0-20200113165135-fd297ce346f1
@@ -59,43 +59,43 @@ require (
 	github.com/optiopay/kafka v0.0.0-00010101000000-000000000000
 	github.com/pborman/uuid v1.2.0
 	github.com/pmezard/go-difflib v1.0.0
-	github.com/prometheus/client_golang v1.2.0
+	github.com/prometheus/client_golang v1.7.1
 	github.com/prometheus/client_model v0.2.0
 	github.com/russross/blackfriday v1.5.2
 	github.com/sasha-s/go-deadlock v0.2.1-0.20190427202633-1595213edefa
 	github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0
 	github.com/shirou/gopsutil v2.20.4+incompatible
-	github.com/sirupsen/logrus v1.4.2
+	github.com/sirupsen/logrus v1.6.0
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.1
 	github.com/stretchr/testify v1.4.0
 	github.com/vishvananda/netlink v1.1.1-0.20200603190939-5a869a71f0cb
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
-	go.etcd.io/etcd v0.0.0-20191023171146-3cf2f69b5738
+	go.etcd.io/etcd v0.5.0-alpha.5.0.20200716221620-18dfb9cca345
 	go.uber.org/goleak v1.0.0
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
-	golang.org/x/net v0.0.0-20200226121028-0de0cce0169b
+	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
-	golang.org/x/sys v0.0.0-20200515095857-1151b9dac4a9
-	golang.org/x/time v0.0.0-20190308202827-9d24e82272b4
-	golang.org/x/tools v0.0.0-20200324175852-6fb6f5a9fc59
-	google.golang.org/genproto v0.0.0-20190819201941-24fa4b261c55
-	google.golang.org/grpc v1.26.0
-	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
+	golang.org/x/sys v0.0.0-20200622214017-ed371f2e16b4
+	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
+	golang.org/x/tools v0.0.0-20200602230032-c00d67ef29d0
+	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
+	google.golang.org/grpc v1.27.0
+	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.2.8
-	k8s.io/api v0.18.5
-	k8s.io/apiextensions-apiserver v0.18.5
-	k8s.io/apimachinery v0.18.5
-	k8s.io/client-go v0.18.5
-	k8s.io/code-generator v0.18.5
-	k8s.io/klog v1.0.0
+	k8s.io/api v0.19.0-rc.2
+	k8s.io/apiextensions-apiserver v0.19.0-rc.2
+	k8s.io/apimachinery v0.19.0-rc.2
+	k8s.io/client-go v0.19.0-rc.2
+	k8s.io/code-generator v0.19.0-rc.2
+	k8s.io/klog/v2 v2.2.0
 	sigs.k8s.io/yaml v1.2.0
 )
 
 replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
-	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20200706090505-bf449ab2872c
+	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20200721225840-4f265fca4e37
 )

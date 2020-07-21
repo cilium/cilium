@@ -24,8 +24,10 @@ import (
 )
 
 // CiliumEndpointLister helps list CiliumEndpoints.
+// All objects returned here must be treated as read-only.
 type CiliumEndpointLister interface {
 	// List lists all CiliumEndpoints in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v2.CiliumEndpoint, err error)
 	// CiliumEndpoints returns an object that can list and get CiliumEndpoints.
 	CiliumEndpoints(namespace string) CiliumEndpointNamespaceLister
@@ -56,10 +58,13 @@ func (s *ciliumEndpointLister) CiliumEndpoints(namespace string) CiliumEndpointN
 }
 
 // CiliumEndpointNamespaceLister helps list and get CiliumEndpoints.
+// All objects returned here must be treated as read-only.
 type CiliumEndpointNamespaceLister interface {
 	// List lists all CiliumEndpoints in the indexer for a given namespace.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v2.CiliumEndpoint, err error)
 	// Get retrieves the CiliumEndpoint from the indexer for a given namespace and name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v2.CiliumEndpoint, error)
 	CiliumEndpointNamespaceListerExpansion
 }

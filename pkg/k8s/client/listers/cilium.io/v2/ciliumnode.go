@@ -24,10 +24,13 @@ import (
 )
 
 // CiliumNodeLister helps list CiliumNodes.
+// All objects returned here must be treated as read-only.
 type CiliumNodeLister interface {
 	// List lists all CiliumNodes in the indexer.
+	// Objects returned here must be treated as read-only.
 	List(selector labels.Selector) (ret []*v2.CiliumNode, err error)
 	// Get retrieves the CiliumNode from the index for a given name.
+	// Objects returned here must be treated as read-only.
 	Get(name string) (*v2.CiliumNode, error)
 	CiliumNodeListerExpansion
 }
