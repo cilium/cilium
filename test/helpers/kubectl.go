@@ -629,6 +629,24 @@ func (kub *Kubectl) GetCiliumEndpoint(namespace string, pod string) (*cnpv2.Endp
 	return data, nil
 }
 
+// GetCiliumHostEndpointID returns the ID of the host endpoint on a given node.
+func (kub *Kubectl) GetCiliumHostEndpointID(ciliumPod string) (int64, error) {
+	cmd := fmt.Sprintf("cilium endpoint list -o jsonpath='{[?(@.status.identity.id==%d)].id}'",
+		ReservedIdentityHost)
+	res := kub.CiliumExecContext(context.Background(), ciliumPod, cmd)
+	if !res.WasSuccessful() {
+		return 0, fmt.Errorf("unable to run command '%s' to retrieve ID of host endpoint from %s: %s",
+			cmd, ciliumPod, res.OutputPrettyPrint())
+	}
+
+	hostEpID, err := strconv.ParseInt(strings.TrimSpace(res.Stdout()), 10, 64)
+	if err != nil || hostEpID == 0 {
+		return 0, fmt.Errorf("incorrect host endpoint ID %s: %s",
+			strings.TrimSpace(res.Stdout()), err)
+	}
+	return hostEpID, nil
+}
+
 // GetNumCiliumNodes returns the number of Kubernetes nodes running cilium
 func (kub *Kubectl) GetNumCiliumNodes() int {
 	getNodesCmd := fmt.Sprintf("%s get nodes -o jsonpath='{.items.*.metadata.name}'", KubectlCmd)
