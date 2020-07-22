@@ -293,8 +293,8 @@ Making Changes
    #. Follow-up commits are squashed together nicely. Commits should separate
       logical chunks of code and not represent a chronological list of changes.
 #. Run ``git diff --check`` to catch obvious white space violations
-#. Run ``make`` to build your changes. This will also run ``go fmt`` and error out
-   on any golang formatting errors.
+#. Run ``make`` to build your changes. This will also run ``make lint`` and error out
+   on any golang linting errors. The rules are configured in ``.golangci.yaml``
 #. See :ref:`unit_testing` on how to run unit tests.
 #. See :ref:`testsuite` for information how to run the end to end integration
    tests
