@@ -445,9 +445,13 @@ func (e *etcdClient) renewSession(ctx context.Context) error {
 		return nil
 	}
 
+	e.RLock()
+	sessionChan := e.session.Done()
+	e.RUnlock()
+
 	select {
 	// session has ended
-	case <-e.session.Done():
+	case <-sessionChan:
 	// controller has stopped or etcd client is closing
 	case <-ctx.Done():
 		return nil
