@@ -1113,11 +1113,11 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		AfterEach(func() {
 			By("Cleaning up after the test")
-			cmd := fmt.Sprintf("%s delete --all cnp,netpol -n %s", helpers.KubectlCmd, testNamespace)
+			cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, testNamespace)
 			_ = kubectl.Exec(cmd)
 		})
 
-		SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "validates ingress CIDR-dependent L4 (FromCIDR + ToPorts)", func() {
+		SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "validates ingress CIDR-dependent L4", func() {
 			var (
 				outsideNodeName, outsideIP string // k8s3 node (doesn't have agent running)
 
@@ -1140,10 +1140,7 @@ var _ = Describe("K8sPolicyTest", func() {
 						"global.masquerade":    "false",
 						"config.bpfMasquerade": "false",
 
-						// Needed because of
-						// https://github.com/cilium/cilium/issues/12141
-						"global.devices":      "",
-						"global.hostFirewall": "false",
+						"global.hostFirewall": "true",
 					})
 
 				By("Retrieving backend pod and outside node IP addresses")
@@ -1191,7 +1188,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				RedeployCilium(kubectl, ciliumFilename, daemonCfg)
 			})
 
-			testConnectivity := func(expectSuccess bool) int {
+			testConnectivity := func(dstIP net.IP, expectSuccess bool) int {
 				action := "allowed"
 				if !expectSuccess {
 					action = "denied"
@@ -1203,7 +1200,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					res, _ := kubectl.ExecInHostNetNS(
 						context.TODO(),
 						outsideNodeName,
-						helpers.CurlFail("http://%s:%d", backendPodIP, 80),
+						helpers.CurlFail("http://%s:%d", dstIP.String(), 80),
 					)
 					// We want to count the number of attempts that achieved
 					// their expected result, so we can assert on how many
@@ -1222,7 +1219,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			It("connectivity works from the outside before any policies", func() {
 				// Ignore the return because we don't care about `cilium
 				// monitor` output in this test.
-				_ = testConnectivity(true)
+				_ = testConnectivity(backendPodIP, true)
 			})
 
 			It("connectivity is blocked after denying ingress", func() {
@@ -1247,7 +1244,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					"cnp-default-deny-ingress.yaml")
 				importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
 
-				count := testConnectivity(false)
+				count := testConnectivity(backendPodIP, false)
 				monitorCancel()
 
 				By("Asserting that the expected policy verdict logs are in the monitor output")
@@ -1283,7 +1280,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				cnpAllowIngress := helpers.ManifestGet(kubectl.BasePath(),
 					"cnp-ingress-from-cidr-to-ports.yaml")
 				importPolicy(kubectl, testNamespace, cnpAllowIngress, "ingress-from-cidr-to-ports")
-				count := testConnectivity(true)
+				count := testConnectivity(backendPodIP, true)
 				monitorCancel()
 
 				By("Asserting that the expected policy verdict logs are in the monitor output")
@@ -1291,6 +1288,92 @@ var _ = Describe("K8sPolicyTest", func() {
 					len(policyVerdictAllowRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
 				).To(BeNumerically(">=", count),
 					"Monitor output does not show traffic as allowed")
+			})
+
+			SkipContextIf(helpers.RunsWithKubeProxy, "With host policy", func() {
+				BeforeAll(func() {
+					// Deploy echoserver pods in host namespace.
+					echoPodPath := helpers.ManifestGet(kubectl.BasePath(), "echoserver-cilium-hostnetns.yaml")
+					kubectl.ApplyDefault(echoPodPath).ExpectSuccess("Cannot install echoserver application")
+					Expect(kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echoserver-hostnetns",
+						helpers.HelperTimeout)).Should(BeNil())
+
+					policyVerdictAllowRegex = regexp.MustCompile(
+						fmt.Sprintf("Policy verdict log: .+action allow.+%s:[0-9]+ -> %s:80 tcp SYN",
+							outsideIP, hostIPOfBackendPod.String()))
+					policyVerdictDenyRegex = regexp.MustCompile(
+						fmt.Sprintf("Policy verdict log: .+action deny.+%s:[0-9]+ -> %s:80 tcp SYN",
+							outsideIP, hostIPOfBackendPod.String()))
+				})
+
+				AfterAll(func() {
+					// Remove echoserver pods from host namespace.
+					echoPodPath := helpers.ManifestGet(kubectl.BasePath(), "echoserver-cilium-hostnetns.yaml")
+					kubectl.Delete(echoPodPath).ExpectSuccess("Cannot remove echoserver application")
+				})
+
+				It("Connectivity to hostns is blocked after denying ingress", func() {
+					By("Running cilium monitor in the background")
+					ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, hostNodeName)
+					Expect(ciliumPod).ToNot(BeEmpty())
+					Expect(err).ToNot(HaveOccurred())
+
+					hostEpID, err := kubectl.GetCiliumHostEndpointID(ciliumPod)
+					Expect(err).ToNot(HaveOccurred())
+
+					monitor, monitorCancel := kubectl.MonitorEndpointStart(helpers.CiliumNamespace, ciliumPod, hostEpID)
+
+					By("Importing a default-deny host policy on ingress")
+					ccnpDenyHostIngress := helpers.ManifestGet(kubectl.BasePath(), "ccnp-default-deny-host-ingress.yaml")
+					importPolicy(kubectl, testNamespace, ccnpDenyHostIngress, "default-deny-host-ingress")
+
+					testConnectivity(backendPodIP, true)
+					count := testConnectivity(hostIPOfBackendPod, false)
+					monitorCancel()
+
+					By("Asserting that the expected policy verdict logs are in the monitor output")
+					Expect(
+						len(policyVerdictDenyRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
+					).To(BeNumerically(">=", count),
+						"Monitor output does not show traffic as denied: %s", policyVerdictDenyRegex)
+				})
+
+				It("Connectivity is restored after importing ingress policy", func() {
+					By("Importing a default-deny host policy on ingress")
+					ccnpDenyHostIngress := helpers.ManifestGet(kubectl.BasePath(), "ccnp-default-deny-host-ingress.yaml")
+					importPolicy(kubectl, testNamespace, ccnpDenyHostIngress, "default-deny-host-ingress")
+
+					By("Running cilium monitor in the background")
+					ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, hostNodeName)
+					Expect(ciliumPod).ToNot(BeEmpty())
+					Expect(err).ToNot(HaveOccurred())
+
+					hostEpID, err := kubectl.GetCiliumHostEndpointID(ciliumPod)
+					Expect(err).ToNot(HaveOccurred())
+
+					monitor, monitorCancel := kubectl.MonitorEndpointStart(helpers.CiliumNamespace, ciliumPod, hostEpID)
+
+					By("Importing fromCIDR+toPorts host policy on ingress")
+					ccnpAllowHostIngress := helpers.ManifestGet(kubectl.BasePath(),
+						"ccnp-host-ingress-from-cidr-to-ports.yaml")
+					importPolicy(kubectl, testNamespace, ccnpAllowHostIngress, "host-ingress-from-cidr-to-ports")
+
+					testConnectivity(backendPodIP, true)
+					count := testConnectivity(hostIPOfBackendPod, true)
+					monitorCancel()
+
+					By("Asserting that the expected policy verdict logs are in the monitor output")
+					Expect(
+						len(policyVerdictAllowRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
+					).To(BeNumerically(">=", count),
+						"Monitor output does not show traffic as denied: %s", policyVerdictDenyRegex)
+
+					By("Removing the fromCIDR+toPorts ingress host policy")
+					// This is to ensure this policy is always removed before the default-deny one.
+					// Otherwise, connection to the nodes may be disrupted.
+					cmd := fmt.Sprintf("%s -n %s delete ccnp host-ingress-from-cidr-to-ports", helpers.KubectlCmd, testNamespace)
+					kubectl.Exec(cmd).ExpectSuccess("Failed to delete ccnp/host-ingress-from-cidr-to-ports")
+				})
 			})
 		})
 
