@@ -381,25 +381,24 @@ func (e *etcdClient) closeLockSession(leaseID client.LeaseID) {
 	e.RWMutex.RUnlock()
 }
 
-func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan bool {
-	initLockSucceeded := make(chan bool)
+func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan error {
+	initLockSucceeded := make(chan error)
 
 	go func() {
 		for {
 			select {
 			case <-e.client.Ctx().Done():
-				initLockSucceeded <- false
+				initLockSucceeded <- fmt.Errorf("client context ended: %w", e.client.Ctx().Err())
 				close(initLockSucceeded)
 				return
 			case <-ctx.Done():
-				initLockSucceeded <- false
+				initLockSucceeded <- fmt.Errorf("caller context ended: %w", ctx.Err())
 				close(initLockSucceeded)
 				return
 			default:
 			}
 
 			if e.extraOptions != nil && e.extraOptions.NoLockQuorumCheck {
-				initLockSucceeded <- true
 				close(initLockSucceeded)
 				return
 			}
@@ -410,7 +409,6 @@ func (e *etcdClient) waitForInitLock(ctx context.Context) <-chan bool {
 			locker, err := e.LockPath(ctx, InitLockPath+"/"+randNumber)
 			if err == nil {
 				locker.Unlock(context.Background())
-				initLockSucceeded <- true
 				close(initLockSucceeded)
 				e.getLogger().Debug("Distributed lock successful, etcd has quorum")
 				return
@@ -453,13 +451,13 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 		recordQuorumError("session timeout")
 		return fmt.Errorf("etcd session ended")
 	// wait for initial lock to succeed
-	case success := <-initLockSucceeded:
-		if success {
-			return nil
+	case err := <-initLockSucceeded:
+		if err != nil {
+			recordQuorumError("lock timeout")
+			return fmt.Errorf("unable to acquire lock: %w", err)
 		}
 
-		recordQuorumError("lock timeout")
-		return fmt.Errorf("timeout while attempting to acquire lock")
+		return nil
 	}
 }
 
