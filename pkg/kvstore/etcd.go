@@ -249,8 +249,10 @@ func Hint(err error) error {
 
 type etcdClient struct {
 	// firstSession is a channel that will be closed once the first session
-	// is set up in the etcd Client.
-	firstSession chan struct{}
+	// is set up in the etcd client. If an error occurred and the initial
+	// session cannot be established, the error is provided via the
+	// channel.
+	firstSession chan error
 
 	// stopStatusChecker is closed when the status checker can be terminated
 	stopStatusChecker chan struct{}
@@ -427,7 +429,10 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 
 	select {
 	// Wait for the the initial connection to be established
-	case <-e.firstSession:
+	case err := <-e.firstSession:
+		if err != nil {
+			return err
+		}
 	// Client is closing
 	case <-e.client.Ctx().Done():
 		return fmt.Errorf("client is closing")
@@ -496,12 +501,8 @@ func (e *etcdClient) Disconnected() <-chan struct{} {
 }
 
 func (e *etcdClient) renewSession(ctx context.Context) error {
-	select {
-	// wait for initial session to be established
-	case <-e.firstSession:
-	// controller has stopped or etcd client is closing
-	case <-ctx.Done():
-		return nil
+	if err := e.waitForInitialSession(ctx); err != nil {
+		return err
 	}
 
 	select {
@@ -544,12 +545,8 @@ func (e *etcdClient) renewSession(ctx context.Context) error {
 }
 
 func (e *etcdClient) renewLockSession(ctx context.Context) error {
-	select {
-	// wait for initial session to be established
-	case <-e.firstSession:
-	// controller has stopped or etcd client is closing
-	case <-ctx.Done():
-		return nil
+	if err := e.waitForInitialSession(ctx); err != nil {
+		return err
 	}
 
 	e.RWMutex.RLock()
@@ -621,7 +618,6 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	}).Info("Connecting to etcd server...")
 
 	var s, ls concurrency.Session
-	firstSession := make(chan struct{})
 	errorChan := make(chan error)
 
 	// create session in parallel as this is a blocking operation
@@ -652,7 +648,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		configPath:           cfgPath,
 		session:              &s,
 		lockSession:          &ls,
-		firstSession:         firstSession,
+		firstSession:         errChan,
 		controllers:          controller.NewManager(),
 		latestStatusSnapshot: "Waiting for initial connection to be established",
 		stopStatusChecker:    make(chan struct{}),
@@ -677,7 +673,6 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		}
 
 		ec.getLogger().Debugf("Session received")
-		close(ec.firstSession)
 
 		if err := ec.checkMinVersion(ctx); err != nil {
 			errChan <- fmt.Errorf("unable to validate etcd version: %s", err)
@@ -783,11 +778,22 @@ func (e *etcdClient) checkMinVersion(ctx context.Context) error {
 	return nil
 }
 
-func (e *etcdClient) LockPath(ctx context.Context, path string) (KVLocker, error) {
+func (e *etcdClient) waitForInitialSession(ctx context.Context) error {
 	select {
-	case <-e.firstSession:
+	case err := <-e.firstSession:
+		if err != nil {
+			return err
+		}
 	case <-ctx.Done():
-		return nil, fmt.Errorf("lock cancelled via context: %s", ctx.Err())
+		return fmt.Errorf("interrupt while waiting for initial session to be established: %w", ctx.Err())
+	}
+
+	return nil
+}
+
+func (e *etcdClient) LockPath(ctx context.Context, path string) (KVLocker, error) {
+	if err := e.waitForInitialSession(ctx); err != nil {
+		return nil, err
 	}
 
 	// Create the context first so that if a connectivity issue causes the
@@ -1216,10 +1222,8 @@ func (e *etcdClient) createOpPut(key string, value []byte, leaseID client.LeaseI
 
 // UpdateIfLocked atomically creates a key or fails if it already exists if the client is still holding the given lock.
 func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byte, lease bool, lock KVLocker) error {
-	select {
-	case <-e.firstSession:
-	case <-ctx.Done():
-		return fmt.Errorf("update cancelled via context: %s", ctx.Err())
+	if err := e.waitForInitialSession(ctx); err != nil {
+		return err
 	}
 
 	var (
@@ -1251,10 +1255,8 @@ func (e *etcdClient) UpdateIfLocked(ctx context.Context, key string, value []byt
 func (e *etcdClient) Update(ctx context.Context, key string, value []byte, lease bool) (err error) {
 	defer Trace("Update", err, logrus.Fields{fieldKey: key, fieldValue: string(value), fieldAttachLease: lease})
 
-	select {
-	case <-e.firstSession:
-	case <-ctx.Done():
-		return fmt.Errorf("update cancelled via context: %s", ctx.Err())
+	if err = e.waitForInitialSession(ctx); err != nil {
+		return
 	}
 
 	if lease {
@@ -1280,11 +1282,10 @@ func (e *etcdClient) UpdateIfDifferentIfLocked(ctx context.Context, key string, 
 		Trace("UpdateIfDifferentIfLocked", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "recreated": recreated})
 	}()
 
-	select {
-	case <-e.firstSession:
-	case <-ctx.Done():
-		return false, fmt.Errorf("update cancelled via context: %s", ctx.Err())
+	if err = e.waitForInitialSession(ctx); err != nil {
+		return false, err
 	}
+
 	duration := spanstat.Start()
 	e.limiter.Wait(ctx)
 	cnds := lock.Comparator().(client.Cmp)
@@ -1328,10 +1329,8 @@ func (e *etcdClient) UpdateIfDifferent(ctx context.Context, key string, value []
 		Trace("UpdateIfDifferent", err, logrus.Fields{fieldKey: key, fieldValue: value, fieldAttachLease: lease, "recreated": recreated})
 	}()
 
-	select {
-	case <-e.firstSession:
-	case <-ctx.Done():
-		return false, fmt.Errorf("update cancelled via context: %s", ctx.Err())
+	if err = e.waitForInitialSession(ctx); err != nil {
+		return false, err
 	}
 
 	duration := spanstat.Start()
