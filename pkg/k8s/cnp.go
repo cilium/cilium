@@ -351,7 +351,7 @@ func (c *CNPStatusUpdateContext) updateViaKVStore(ctx context.Context, cnp *type
 	)
 
 	if err := <-kvstore.Client().Connected(ctx); err != nil {
-		return nil
+		return fmt.Errorf("kvstore is unavailable: %w", err)
 	}
 
 	capabilities := k8sversion.Capabilities()
