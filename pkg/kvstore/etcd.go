@@ -666,7 +666,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 			return
 		}
 
-		ec.getLogger().Debugf("Session received")
+		ec.getLogger().Info("Initial etcd session established")
 
 		if err := ec.checkMinVersion(ctx); err != nil {
 			errChan <- fmt.Errorf("unable to validate etcd version: %s", err)
