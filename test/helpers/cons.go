@@ -260,6 +260,9 @@ var (
 const (
 	// ReservedIdentityHealth is equivalent to pkg/identity.ReservedIdentityHealth
 	ReservedIdentityHealth = 4
+
+	// ReservedIdentityHost is equivalent to pkg/identity.ReservedIdentityHost
+	ReservedIdentityHost = 1
 )
 
 // NightlyStableUpgradesFrom maps the cilium image versions to the helm charts
