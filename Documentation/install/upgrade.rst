@@ -583,8 +583,6 @@ Deprecated options
 * ``keep-bpf-templates``: This option no longer has any effect due to the BPF
   assets not being compiled into the cilium-agent binary anymore. The option is
   deprecated and will be removed in Cilium 1.9.
-* ``access-log``: L7 access logs have been available via Hubble since Cilium
-  1.6. The ``access-log`` option to log to a file has been removed.
 * ``--disable-k8s-services`` option from cilium-agent has been deprecated
   and will be removed in Cilium 1.9.
 * ``--disable-ipv4`` legacy option from cilium-agent which was already hidden
@@ -663,6 +661,8 @@ Deprecated cilium-operator options
 Removed options
 ~~~~~~~~~~~~~~~
 
+* ``access-log``: L7 access logs have been available via Hubble since Cilium
+  1.6. The ``access-log`` option to log to a file has been removed.
 * ``enable-legacy-services``: This option was deprecated in Cilium 1.6 and is
   now removed.
 * The options ``container-runtime``, ``container-runtime-endpoint`` and
