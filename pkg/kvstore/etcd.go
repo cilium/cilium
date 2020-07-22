@@ -544,8 +544,25 @@ func (e *etcdClient) renewSession(ctx context.Context) error {
 }
 
 func (e *etcdClient) renewLockSession(ctx context.Context) error {
-	<-e.firstSession
-	<-e.lockSession.Done()
+	select {
+	// wait for initial session to be established
+	case <-e.firstSession:
+	// controller has stopped or etcd client is closing
+	case <-ctx.Done():
+		return nil
+	}
+
+	e.RWMutex.RLock()
+	lockSessionChan := e.lockSession.Done()
+	e.RWMutex.RUnlock()
+
+	select {
+	// session has ended
+	case <-lockSessionChan:
+	// controller has stopped or etcd client is closing
+	case <-ctx.Done():
+		return nil
+	}
 	// This is an attempt to avoid concurrent access of a session that was
 	// already expired. It's not perfect as there is still a period between the
 	// e.lockSession.Done() is closed and the e.Lock() is held where parallel go
