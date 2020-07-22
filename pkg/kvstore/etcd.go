@@ -27,6 +27,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/contexthelpers"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/lock"
@@ -269,8 +270,12 @@ type etcdClient struct {
 
 	// protects sessions from concurrent access
 	lock.RWMutex
-	session     *concurrency.Session
-	lockSession *concurrency.Session
+
+	session       *concurrency.Session
+	sessionCancel context.CancelFunc
+
+	lockSession       *concurrency.Session
+	lockSessionCancel context.CancelFunc
 
 	// statusLock protects latestStatusSnapshot and latestErrorStatus for
 	// read/write access
@@ -520,21 +525,36 @@ func (e *etcdClient) renewSession(ctx context.Context) error {
 	// routines can get a lease ID of an already expired lease.
 	e.Lock()
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, statusCheckTimeout)
-	defer cancel()
+	// Cancel any eventual old session context
+	if e.sessionCancel != nil {
+		e.sessionCancel()
+		e.sessionCancel = nil
+	}
+
+	// Create a context representing the lifetime of the session. It will
+	// timeout if the session creation does not succeed in time and then
+	// persists until any of the below conditions are met:
+	//  - The parent context is cancelled due to the etcd client closing or
+	//    the controller being shut down
+	//  - The above call to sessionCancel() cancels the session due to the
+	//  session ending and requiring renewal.
+	sessionContext, sessionCancel, sessionSuccess := contexthelpers.NewConditionalTimeoutContext(ctx, statusCheckTimeout)
+	defer close(sessionSuccess)
 
 	newSession, err := concurrency.NewSession(
 		e.client,
 		concurrency.WithTTL(int(option.Config.KVstoreLeaseTTL.Seconds())),
-		concurrency.WithContext(timeoutCtx),
+		concurrency.WithContext(sessionContext),
 	)
 	if err != nil {
 		e.UnlockIgnoreTime()
 		return fmt.Errorf("unable to renew etcd session: %s", err)
 	}
+	sessionSuccess <- true
 	log.Infof("Got new lease ID %x", newSession.Lease())
 
 	e.session = newSession
+	e.sessionCancel = sessionCancel
 	e.UnlockIgnoreTime()
 
 	e.getLogger().WithField(fieldSession, newSession).Debug("Renewing etcd session")
@@ -568,20 +588,35 @@ func (e *etcdClient) renewLockSession(ctx context.Context) error {
 	// routines can get a lease ID of an already expired lease.
 	e.Lock()
 
-	timeoutCtx, cancel := context.WithTimeout(ctx, statusCheckTimeout)
-	defer cancel()
+	if e.lockSessionCancel != nil {
+		e.lockSessionCancel()
+		e.lockSessionCancel = nil
+	}
+
+	// Create a context representing the lifetime of the lock session. It
+	// will timeout if the session creation does not succeed in time and
+	// persists until any of the below conditions are met:
+	//  - The parent context is cancelled due to the etcd client closing or
+	//    the controller being shut down
+	//  - The above call to sessionCancel() cancels the session due to the
+	//  session ending and requiring renewal.
+	sessionContext, sessionCancel, sessionSuccess := contexthelpers.NewConditionalTimeoutContext(ctx, statusCheckTimeout)
+	defer close(sessionSuccess)
+
 	newSession, err := concurrency.NewSession(
 		e.client,
 		concurrency.WithTTL(int(defaults.LockLeaseTTL.Seconds())),
-		concurrency.WithContext(timeoutCtx),
+		concurrency.WithContext(sessionContext),
 	)
 	if err != nil {
 		e.UnlockIgnoreTime()
 		return fmt.Errorf("unable to renew etcd lock session: %s", err)
 	}
+	sessionSuccess <- true
 	log.Infof("Got new lock lease ID %x", newSession.Lease())
 
 	e.lockSession = newSession
+	e.lockSessionCancel = sessionCancel
 	e.UnlockIgnoreTime()
 
 	e.getLogger().WithField(fieldSession, newSession).Debug("Renewing etcd lock session")
