@@ -101,10 +101,11 @@ func (s *SpanStatTestSuite) TestSpanStatSecondsRaceCondition(c *C) {
 	for i := 0; i < 10; i++ {
 		wg.Add(1)
 		go func(span *SpanStat) {
+			defer wg.Done()
 			c.Assert(span1.Seconds(), Not(Equals), float64(0))
 		}(span1)
 	}
-	wg.Done()
+	wg.Wait()
 }
 
 func TestSpanStatRaceCondition(t *testing.T) {
@@ -182,10 +183,11 @@ func TestSpanStatRaceCondition(t *testing.T) {
 			for i := 0; i < 5; i++ {
 				wg.Add(1)
 				go func(span *SpanStat) {
+					defer wg.Done()
 					assert.NotEqual(t, tt.fields.runFunc(span), float64(0))
 				}(span)
 			}
-			wg.Done()
+			wg.Wait()
 		})
 	}
 
