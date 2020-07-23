@@ -96,11 +96,11 @@ func (ps *fakePodStore) Resync() error {
 }
 
 var (
-	tcpStr    = "TCP"
-	udpStr    = "UDP"
-	proto1, _ = lb.NewL4Type(tcpStr)
-	proto2, _ = lb.NewL4Type(udpStr)
-	fe1       = lb.NewL3n4Addr(
+	tcpStr = "TCP"
+	udpStr = "UDP"
+	proto1 = lb.NewL4Type(tcpStr)
+	proto2 = lb.NewL4Type(udpStr)
+	fe1    = lb.NewL3n4Addr(
 		proto1,
 		net.IP("1.1.1.1"),
 		80,
