@@ -39,7 +39,7 @@ import (
 	"google.golang.org/grpc/connectivity"
 )
 
-func TestManager(t *testing.T) {
+func TestPeerManager(t *testing.T) {
 	var done chan struct{}
 	type want struct {
 		peers []Peer
@@ -544,7 +544,7 @@ func TestManager(t *testing.T) {
 			logger.SetLevel(logrus.DebugLevel)
 
 			done = make(chan struct{})
-			mgr, err := NewManager(
+			mgr, err := NewPeerManager(
 				WithPeerClientBuilder(tt.pcBuilder),
 				WithClientConnBuilder(tt.ccBuilder),
 				WithConnCheckInterval(1*time.Second),
