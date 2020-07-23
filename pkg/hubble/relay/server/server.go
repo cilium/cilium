@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package relay
+package server
 
 import (
 	"fmt"
@@ -21,8 +21,8 @@ import (
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
+	"github.com/cilium/cilium/pkg/hubble/relay/observer"
 	"github.com/cilium/cilium/pkg/hubble/relay/pool"
-	"github.com/cilium/cilium/pkg/hubble/relay/relayoption"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -37,38 +37,38 @@ import (
 // via unix domain socket.
 type Server struct {
 	server *grpc.Server
-	pm     pool.PeerManager
+	pm     *pool.PeerManager
 	log    logrus.FieldLogger
-	opts   relayoption.Options
+	opts   options
 	stop   chan struct{}
 }
 
-// NewServer creates a new hubble-relay Server.
-func NewServer(options ...relayoption.Option) (*Server, error) {
-	opts := relayoption.Default
+// New creates a new Server.
+func New(options ...Option) (*Server, error) {
+	opts := defaultOptions
 	for _, opt := range options {
 		if err := opt(&opts); err != nil {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
 		}
 	}
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
-	logging.ConfigureLogLevel(opts.Debug)
+	logging.ConfigureLogLevel(opts.debug)
 
-	pm, err := pool.NewManager(
-		pool.WithPeerServiceAddress(opts.HubbleTarget),
+	pm, err := pool.NewPeerManager(
+		pool.WithPeerServiceAddress(opts.hubbleTarget),
 		pool.WithPeerClientBuilder(
 			&peerTypes.LocalClientBuilder{
-				DialTimeout: opts.DialTimeout,
+				DialTimeout: opts.dialTimeout,
 			},
 		),
 		pool.WithClientConnBuilder(pool.GRPCClientConnBuilder{
-			DialTimeout: opts.DialTimeout,
+			DialTimeout: opts.dialTimeout,
 			Options: []grpc.DialOption{
 				grpc.WithInsecure(), // FIXME: remove once mTLS is implemented
 				grpc.WithBlock(),
 			},
 		}),
-		pool.WithRetryTimeout(opts.RetryTimeout),
+		pool.WithRetryTimeout(opts.retryTimeout),
 		pool.WithLogger(logger),
 	)
 	if err != nil {
@@ -87,16 +87,25 @@ func NewServer(options ...relayoption.Option) (*Server, error) {
 // Stop() is not called.
 func (s *Server) Serve() error {
 	s.log.WithField("options", fmt.Sprintf("%+v", s.opts)).Info("Starting server...")
-	s.server = grpc.NewServer()
+
+	s.pm.Start()
+	observerSrv, err := observer.NewServer(s.pm, append(s.opts.observerOptions, observer.WithLogger(s.log))...)
+	if err != nil {
+		return fmt.Errorf("failed to create observer server: %v", err)
+	}
+
 	healthSrv := health.NewServer()
 	healthSrv.SetServingStatus(v1.ObserverServiceName, healthpb.HealthCheckResponse_SERVING)
-	healthpb.RegisterHealthServer(s.server, healthSrv)
-	observerpb.RegisterObserverServer(s.server, s)
-	socket, err := net.Listen("tcp", s.opts.ListenAddress)
+
+	socket, err := net.Listen("tcp", s.opts.listenAddress)
 	if err != nil {
-		return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.ListenAddress, err)
+		return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.listenAddress, err)
 	}
-	s.pm.Start()
+
+	s.server = grpc.NewServer()
+	healthpb.RegisterHealthServer(s.server, healthSrv)
+	observerpb.RegisterObserverServer(s.server, observerSrv)
+
 	reflection.Register(s.server)
 	return s.server.Serve(socket)
 }
