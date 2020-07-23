@@ -1,6 +1,9 @@
 # Copyright 2017-2020 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
-#
+
+include ../../../Makefile.defs
+include ../../../Makefile.quiet
+
 DEFAULT_OUT := connectivity-check.yaml
 HOSTPORT_OUT := connectivity-check-hostport.yaml
 SINGLE_OUT := connectivity-check-single-node.yaml
@@ -10,6 +13,15 @@ ALL_TARGETS := $(DEFAULT_OUT) $(HOSTPORT_OUT) $(SINGLE_OUT)
 HOSTPORT_SRC := $(filter-out $(ALL_TARGETS), $(SRC))
 DEFAULT_SRC := $(filter-out $(wildcard *-hostport.yaml),$(HOSTPORT_SRC))
 SINGLE_SRC := $(filter-out $(wildcard *-multi-node*.yaml),$(DEFAULT_SRC))
+
+
+DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
+	--workdir /src/examples/kubernetes/connectivity-check \
+	--volume $(CURDIR)/../../..:/src \
+	--user "$(shell id -u):$(shell id -g)"
+
+CUE_IMAGE := "docker.io/cuelang/cue:v0.2.2@sha256:2ea932c771212db140c9996c6fff1d236f3f84ae82add914374cee553b6fc60c"
+CUE := $(DOCKER_RUN) $(CUE_IMAGE)
 
 all: $(ALL_TARGETS)
 
@@ -37,4 +49,13 @@ $(SINGLE_OUT): $(SINGLE_SRC)
 clean:
 	@rm -f $(ALL_TARGETS)
 
-.PHONY: all clean
+eval:
+	$(QUIET)$(CUE) eval -c ./...
+
+help:
+	$(QUIET)$(CUE) cmd help
+
+list:
+	$(QUIET)$(CUE) cmd ls
+
+.PHONY: all clean eval help list
