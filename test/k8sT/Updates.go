@@ -142,6 +142,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 	var (
 		privateIface string // only used when running w/o kube-proxy
 		err          error
+		apps         = []string{helpers.App1, helpers.App2, helpers.App3}
+		app1Service  = "app1-service"
 	)
 
 	canRun, err := helpers.CanRunK8sVersion(oldImageVersion, helpers.GetCurrentK8SEnv())
@@ -159,9 +161,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		privateIface, err = kubectl.GetPrivateIface()
 		ExpectWithOffset(1, err).To(BeNil(), "Unable to determine private iface")
 	}
-
-	apps := []string{helpers.App1, helpers.App2, helpers.App3}
-	app1Service := "app1-service"
 
 	cleanupCiliumState := func(helmPath, chartVersion, imageName, imageTag, registry string) {
 		removeCilium(kubectl)
@@ -290,6 +289,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 				helpers.CiliumNamespace,
 				opts)
 		}, time.Second*30, time.Second*1).Should(helpers.CMDSuccess(), fmt.Sprintf("Cilium %q was not able to be deployed", oldHelmChartVersion))
+		unsetFn := helpers.SetRunningCiliumVersion(oldImageVersion)
+		defer unsetFn()
 
 		// Cilium is only ready if kvstore is ready, the kvstore is ready if
 		// kube-dns is running.
@@ -369,7 +370,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			if lastCount == -1 {
 				lastCount = currentCount
 			}
-			Expect(lastCount).Should(BeIdenticalTo(currentCount),
+			ExpectWithOffset(1, lastCount).Should(BeIdenticalTo(currentCount),
 				"migrate-svc restart count values do not match")
 		}
 
@@ -379,23 +380,23 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply dempo application")
 
 		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l zgroup=testapp", timeout)
-		Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
+		ExpectWithOffset(1, err).Should(BeNil(), "Test pods are not ready after timeout")
 
 		_, err = kubectl.CiliumPolicyAction(
 			helpers.DefaultNamespace, l7Policy, helpers.KubectlApply, timeout)
-		Expect(err).Should(BeNil(), "cannot import l7 policy: %v", l7Policy)
+		ExpectWithOffset(1, err).Should(BeNil(), "cannot import l7 policy: %v", l7Policy)
 
 		By("Creating service and clients for migration")
 
 		res = kubectl.ApplyDefault(migrateSVCServer)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply migrate-svc-server")
 		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=migrate-svc-server", timeout)
-		Expect(err).Should(BeNil(), "migrate-svc-server pods are not ready after timeout")
+		ExpectWithOffset(1, err).Should(BeNil(), "migrate-svc-server pods are not ready after timeout")
 
 		res = kubectl.ApplyDefault(migrateSVCClient)
 		ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "cannot apply migrate-svc-client")
 		err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l app=migrate-svc-client", timeout)
-		Expect(err).Should(BeNil(), "migrate-svc-client pods are not ready after timeout")
+		ExpectWithOffset(1, err).Should(BeNil(), "migrate-svc-client pods are not ready after timeout")
 
 		validateEndpointsConnection()
 		checkNoInteruptsInSVCFlows()
@@ -498,6 +499,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 				helpers.CiliumNamespace,
 				opts)
 		}, time.Second*30, time.Second*1).Should(helpers.CMDSuccess(), fmt.Sprintf("Cilium %q was not able to be deployed", newHelmChartVersion))
+		helpers.SetRunningCiliumVersion(newImageVersion)
 
 		By("Validating pods have the right image version upgraded")
 		err = helpers.WithTimeout(
@@ -532,6 +534,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			"Cilium Pods are not updating correctly",
 			&helpers.TimeoutConfig{Timeout: timeout})
 		ExpectWithOffset(1, err).To(BeNil(), "Pods are not updating")
+		helpers.SetRunningCiliumVersion(oldImageVersion)
 
 		err = kubectl.WaitforPods(
 			helpers.CiliumNamespace, "-l k8s-app=cilium", timeout)

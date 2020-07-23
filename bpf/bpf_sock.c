@@ -272,15 +272,17 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	const bool in_hostns = ctx_in_hostns(ctx_full, &id.client_cookie);
 	struct lb4_backend *backend;
 	struct lb4_service *svc;
+	__u32 proto = ctx->protocol;
 	struct lb4_key key = {
 		.address	= ctx->user_ip4,
 		.dport		= ctx_dst_port(ctx),
+		.proto		= proto,
 	}, orig_key = key;
 	struct lb4_service *backend_slot;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
 
-	if (!udp_only && !sock_proto_enabled(ctx->protocol))
+	if (!udp_only && !sock_proto_enabled(proto))
 		return -ENOTSUP;
 
 	/* In case a direct match fails, we try to look-up surrogate
@@ -372,12 +374,14 @@ static __always_inline int __sock4_bind(struct bpf_sock *ctx,
 					struct bpf_sock *ctx_full)
 {
 	struct lb4_service *svc;
+	__u32 proto = ctx->protocol;
 	struct lb4_key key = {
 		.address	= ctx->src_ip4,
 		.dport		= ctx_src_port(ctx),
+		.proto		= proto,
 	};
 
-	if (!sock_proto_enabled(ctx->protocol) ||
+	if (!sock_proto_enabled(proto) ||
 	    !ctx_in_hostns(ctx_full, NULL))
 		return 0;
 
@@ -428,6 +432,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 		struct lb4_key svc_key = {
 			.address	= val->address,
 			.dport		= val->port,
+			.proto		= ctx->protocol,
 		};
 
 		svc = lb4_lookup_service(&svc_key, true);
@@ -672,11 +677,13 @@ sock6_bind_v4_in_v6(struct bpf_sock *ctx __maybe_unused)
 static __always_inline int __sock6_bind(struct bpf_sock *ctx)
 {
 	struct lb6_service *svc;
+	__u32 proto = ctx->protocol;
 	struct lb6_key key = {
 		.dport		= ctx_src_port(ctx),
+		.proto		= proto,
 	};
 
-	if (!sock_proto_enabled(ctx->protocol) ||
+	if (!sock_proto_enabled(proto) ||
 	    !ctx_in_hostns(ctx, NULL))
 		return 0;
 
@@ -715,14 +722,16 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	const bool in_hostns = ctx_in_hostns(ctx, &id.client_cookie);
 	struct lb6_backend *backend;
 	struct lb6_service *svc;
+	__u32 proto = ctx->protocol;
 	struct lb6_key key = {
 		.dport		= ctx_dst_port(ctx),
+		.proto		= proto,
 	}, orig_key;
 	struct lb6_service *backend_slot;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
 
-	if (!udp_only && !sock_proto_enabled(ctx->protocol))
+	if (!udp_only && !sock_proto_enabled(proto))
 		return -ENOTSUP;
 
 	ctx_get_v6_address(ctx, &key.address);
@@ -839,6 +848,7 @@ static __always_inline int __sock6_xlate_rev(struct bpf_sock_addr *ctx)
 		struct lb6_key svc_key = {
 			.address	= val->address,
 			.dport		= val->port,
+			.proto		= ctx->protocol,
 		};
 
 		svc = lb6_lookup_service(&svc_key, true);

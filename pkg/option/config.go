@@ -1503,7 +1503,7 @@ type DaemonConfig struct {
 	// runs in the same container as Cilium.
 	EnvoyLogPath string
 
-	// EnableSockOps specifies whether to enable sockops (socket lookup).
+	// SockopsEnable specifies whether to enable sockops (socket lookup).
 	SockopsEnable bool
 
 	// PrependIptablesChains is the name of the option to enable prepending

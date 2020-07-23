@@ -24,7 +24,7 @@ struct sock_key {
 		union v6addr	dip6;
 	};
 	__u8 family;
-	__u8 pad7;
+	__u8 protocol;
 	__u16 pad8;
 	__u32 sport;
 	__u32 dport;

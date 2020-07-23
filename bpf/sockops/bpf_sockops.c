@@ -29,6 +29,11 @@ static __always_inline void sk_extract4_key(const struct bpf_sock_ops *ops,
 	key->dip4 = ops->remote_ip4;
 	key->sip4 = ops->local_ip4;
 	key->family = ENDPOINT_KEY_IPV4;
+	/* We will get misses on UDP, but the verifier
+	 * does not allow access to the socket field until >= 5.3
+	 * cf GH issue #13490 to fix
+	 */
+	key->protocol = IPPROTO_TCP;
 
 	key->sport = (bpf_ntohl(ops->local_port) >> 16);
 	/* clang-7.1 or higher seems to think it can do a 16-bit read here
@@ -45,6 +50,7 @@ static __always_inline void sk_lb4_key(struct lb4_key *lb4,
 	/* SK MSG is always egress, so use daddr */
 	lb4->address = key->dip4;
 	lb4->dport = key->dport;
+	lb4->proto = key->protocol;
 }
 
 static __always_inline bool redirect_to_proxy(int verdict)

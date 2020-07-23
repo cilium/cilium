@@ -29,6 +29,9 @@ type BackendAddress struct {
 
 	// Layer 4 port number
 	Port uint16 `json:"port,omitempty"`
+
+	// Layer 4 protocol (TCP, UDP, etc)
+	Protocol string `json:"protocol,omitempty"`
 }
 
 // Validate validates this backend address
