@@ -530,7 +530,7 @@ support on the ena driver. The latter is needed to configure channel parameters 
 
   for ip in $IPS ; do ssh ec2-user@$ip "sudo amazon-linux-extras install -y kernel-ng && sudo yum install -y ethtool && sudo reboot"; done
 
-Once the nodes come back up their kernel version should say ``5.4.38-17.76.amzn2.x86_64`` or
+Once the nodes come back up their kernel version should say ``5.4.50-25.83.amzn2.x86_64`` or
 similar through ``uname -r``. In order to run XDP on ena, make sure the driver version is at
 least `2.2.8 <https://github.com/amzn/amzn-drivers/commit/ccbb1fe2c2f2ab3fc6d7827b012ba8ec06f32c39>`__.
 The driver version can be inspected through ``ethtool -i eth0``.
@@ -539,8 +539,8 @@ The driver version can be inspected through ``ethtool -i eth0``.
 
   If the reported driver version is <2.2.8, a new version of the ena driver needs to be built
   and installed according to the instructions given `here <https://github.com/amzn/amzn-drivers/blob/master/kernel/linux/rpm/README-rpm.txt>`__.
-  For kernel-ng version ``5.4.38-17.76.amzn2.x86_64`` a prebuild rpm of ena driver version
-  2.2.9g can be downloaded `here <https://gist.github.com/tklauser/268641aea4fced9e8c3b4a2f7536661b#file-kmod-ena-2-2-9-1-amzn2-25-x86_64-rpm>`__
+  For kernel-ng version ``5.4.50-25.83.amzn2.x86_64`` a prebuild rpm of ena driver version
+  2.2.10g can be downloaded `here <https://gist.github.com/tklauser/268641aea4fced9e8c3b4a2f7536661b#file-kmod-ena-2-2-10-1-amzn2-26-x86_64-rpm>`__
   for testing purposes.
 
 Before Cilium's XDP acceleration can be deployed, there are two settings needed on the
