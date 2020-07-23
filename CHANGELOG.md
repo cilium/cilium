@@ -1,5 +1,97 @@
 # Changelog
 
+## v1.8.2
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add a getting started guide for the host firewall (Backport PR #12600, Upstream PR #12537, @pchaigno)
+* Add an option to cilium-agent for disabling 'HealthCheckNodePort' (Backport PR #12442, Upstream PR #11236, @soumynathan)
+* Add heartbeat to etcd quorum check (Backport PR #12536, Upstream PR #12453, @tgraf)
+* Atomically replace endpoint header files to avoid corrupted or inconsistent state. (Backport PR #12400, Upstream PR #12380, @tklauser)
+* daemon: Add "datapath" opt to --debug-verbose flag to enable datapath debug messages (Backport PR #12627, Upstream PR #12568, @brb)
+* Fatal if the host firewall is used with per-endpoint routes (Backport PR #12536, Upstream PR #12495, @pchaigno)
+* Fatal if the host firewall is used without remote node identities
+* gitignore: Add test/gke/registry-adder.yaml (Backport PR #12442, Upstream PR #12342, @jrajahalme)
+* hubble/relay: expose options to configure flows sorting (Backport PR #12600, Upstream PR #12572, @Rolinh)
+* hubble/relay: improve peer connections handling (Backport PR #12627, Upstream PR #12556, @Rolinh)
+* Improve etcd fail-over scenarios (Backport PR #12536, Upstream PR #12427, @tgraf)
+* Include BPF FS mount status in sysdump output (Backport PR #12536, Upstream PR #12191, @soumynathan)
+* operator: rate limit GC of security identities (Backport PR #12536, Upstream PR #12451, @aanm)
+* policy/api: Support unmanaged entity in policies (Backport PR #12536, Upstream PR #12474, @pchaigno)
+* policy: Enable ingress CIDR-dependent L3 policy (FromCIDR + ToPorts) (Backport PR #12600, Upstream PR #12482, @christarazi)
+
+**Bugfixes:**
+* Adds TRACE_TO_NETWORK obs label and trace pkts in to-netdev prog. (Backport PR #12536, Upstream PR #12245, @Weil0ng)
+* avoid performing useless GETs of Cilium Endpoints (Backport PR #12600, Upstream PR #12595, @aanm)
+* bpf: explicitly set ttl in tunnel key (Backport PR #12536, Upstream PR #12529, @borkmann)
+* bpf: Fix BPF masq when running with non-hybrid DSR (Backport PR #12536, Upstream PR #12456, @brb)
+* bpf: Fix monitor aggregation for 'from-network' (Backport PR #12536, Upstream PR #12559, @joestringer)
+* clustermesh: Tidy up services connection on failure to reconnect (Backport PR #12536, Upstream PR #12526, @joestringer)
+* datapath/linux: protect against concurrent access in NodeValidateImplementation (Backport PR #12536, Upstream PR #12461, @tklauser)
+* etcd: Fix session renewal controllers (Backport PR #12600, Upstream PR #12553, @tgraf)
+* etcd: Fix several etcd related issues (Backport PR #12627, Upstream PR #12605, @tgraf)
+* Fix etcd failure behavior when user or client context ends (Backport PR #12600, Upstream PR #12587, @tgraf)
+* Fix potential host firewall drops on egress of the node in case of SNAT (Backport PR #12600, Upstream PR #12345, @pchaigno)
+* Fix incorrect host firewall enforcement when used with BPF-based NodePort services
+* Fix host firewall ingress bypass on path from pods to local host
+* Fix potential ingress host firewall bypass in tunneling mode for remote pods
+* Fix handling of ICMPv6 messages by host firewall
+* Fix failure to recognize established IPv6 connections on egress of the host firewall
+* Fix manual endpoint regeneration via command line (Backport PR #12536, Upstream PR #12524, @christarazi)
+* Fix node label initialization with Operator IPAM (Backport PR #12600, Upstream PR #12573, @pchaigno)
+* Fix string slice type CLI arguments (Backport PR #12536, Upstream PR #12457, @JieJhih)
+* Fix toGroups CRD to address validation errors (Backport PR #12536, Upstream PR #12440, @lbernail)
+* hubble: Trim FQDN trailing dots in GetNames (Backport PR #12442, Upstream PR #12366, @gandro)
+* pkg/k8s: use copy of objectmeta when fetching from local stores (Backport PR #12536, Upstream PR #12470, @aanm)
+* Register "log-driver" and "log-opt" flags with the cilium-operator command. (Backport PR #12442, Upstream PR #12395, @ungureanuvladvictor)
+
+**CI Changes:**
+* ci: Check for gke nodepool before locking cluster (Backport PR #12442, Upstream PR #12301, @nebril)
+* ci: delete gke cluster after test run (Backport PR #12442, Upstream PR #12270, @nebril)
+* Fix RuntimeKVStoreTest flake (Backport PR #12600, Upstream PR #12478, @pchaigno)
+* fqdn/dnsproxy/proxy_test: increase again timeout for DNS TCP exchanges (Backport PR #12627, Upstream PR #12606, @qmonnet)
+* test: retrieve pods based on node label, not name (Backport PR #12442, Upstream PR #12398, @nebril)
+* test: Simplify DNS proxy port / TFTP source port conflict test. (Backport PR #12536, Upstream PR #12462, @jrajahalme)
+
+**Misc Changes:**
+* .travis:fix up PodCIDRSuite failure on Arm64 (Backport PR #12600, Upstream PR #12504, @Jianlin-lv)
+* .travis:fix up TestShuffle failure on Arm64 (Backport PR #12600, Upstream PR #12515, @Jianlin-lv)
+* Adds documentation for limiting identity-relevant labels used when evaluating Cilium Identities (Backport PR #12536, Upstream PR #12517, @seanmwinn)
+* bpf: clear getpeername{4,6} progs (Backport PR #12536, Upstream PR #12443, @tklauser)
+* ci: Fix FilterLine test matchers and related specs (Backport PR #12442, Upstream PR #11794, @ap4y)
+* cilium: hostport follow-up (Backport PR #12536, Upstream PR #12492, @borkmann)
+* cilium: hostport service map fixes (Backport PR #12536, Upstream PR #12446, @borkmann)
+* cilium: simplify hostport's genServiceMappings (Backport PR #12536, Upstream PR #12473, @borkmann)
+* Clarify egress policy rule documentation (Backport PR #12600, Upstream PR #12525, @joestringer)
+* doc: Fix clustermesh documentation to set the correct identityMode (Backport PR #12536, Upstream PR #12153, @soumynathan)
+* doc: Remove reference to (KNP) policy limitations (Backport PR #12600, Upstream PR #12597, @christarazi)
+* docs(troubleshooting): Remove bugtool related step with --serve flag (Backport PR #12536, Upstream PR #12532, @sayboras)
+* docs: add instructions for vX.Y helm charts (Backport PR #12442, Upstream PR #12291, @aanm)
+* docs: add note on sctp for kube-proxy replacement as known limitation (Backport PR #12442, Upstream PR #12433, @borkmann)
+* docs: Clarify that identity transfer is an optimization (Backport PR #12627, Upstream PR #12589, @pchaigno)
+* docs: Do not specify pod-network-cidr in kubeproxy-free gsg (Backport PR #12442, Upstream PR #12426, @brb)
+* docs: document hostport accessibility in kube-proxy-free guide (Backport PR #12536, Upstream PR #12494, @borkmann)
+* docs: Improve github actions release docs (Backport PR #12536, Upstream PR #12479, @joestringer)
+* docs: move removal of access-log option to correct section (Backport PR #12627, Upstream PR #12615, @tklauser)
+* Document kvstore leases, update links (Backport PR #12536, Upstream PR #12481, @joestringer)
+* Enable modification of config. for endpoints with reserved labels (Backport PR #12600, Upstream PR #12510, @pchaigno)
+* Fixes for EKS NodePort XDP getting started guide (Backport PR #12627, Upstream PR #12623, @tklauser)
+* helm: update notes to include Hubble Relay (Backport PR #12536, Upstream PR #12486, @Rolinh)
+* Host Policies can break kube if applied incorrectly. (Backport PR #12536, Upstream PR #12289, @jedsalazar)
+* hubble: add missing code documentation (Backport PR #12536, Upstream PR #12528, @Rolinh)
+* install/kubernetes: remove deprecated tofqdns-enable-poller option (Backport PR #12627, Upstream PR #12618, @tklauser)
+* lb: Use more neutral terminology (Backport PR #12600, Upstream PR #12206, @brb)
+* Makefile: Fix render-docs with parallel make jobs (Backport PR #12536, Upstream PR #12480, @joestringer)
+* Makefile: process packages in subshells for bench targets (Backport PR #12627, Upstream PR #12607, @tklauser)
+* pkgs/k8s: test all addr scopes on service_cache_test (Backport PR #12442, Upstream PR #12403, @kkourt)
+* policy: Fix enforcement status of host when PolicyEnforcement=always (Backport PR #12536, Upstream PR #12497, @pchaigno)
+* Replace bpf bitfields with a single u8 field and masks (Backport PR #12536, Upstream PR #12415, @kkourt)
+* test: add additional externalTrafficPolicy=Local tests from 3rd node (Backport PR #12442, Upstream PR #12379, @borkmann)
+* test: bump k8s libraries to 1.18.5 (Backport PR #12442, Upstream PR #12417, @aanm)
+* v1.8: Update Go to 1.14.6 (#12584, @tklauser)
+
 ## v1.8.1
 
 Summary of Changes
