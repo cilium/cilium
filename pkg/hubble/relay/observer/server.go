@@ -1,0 +1,210 @@
+// Copyright 2020 Authors of Cilium
+//
+// Licensed under the Apache License, Version 2.0 (the "License");
+// you may not use this file except in compliance with the License.
+// You may obtain a copy of the License at
+//
+//     http://www.apache.org/licenses/LICENSE-2.0
+//
+// Unless required by applicable law or agreed to in writing, software
+// distributed under the License is distributed on an "AS IS" BASIS,
+// WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
+// See the License for the specific language governing permissions and
+// limitations under the License.
+
+package observer
+
+import (
+	"context"
+	"fmt"
+
+	observerpb "github.com/cilium/cilium/api/v1/observer"
+	relaypb "github.com/cilium/cilium/api/v1/relay"
+	"github.com/cilium/cilium/pkg/hubble/relay/pool"
+
+	"github.com/sirupsen/logrus"
+	"golang.org/x/sync/errgroup"
+)
+
+// PeerLister is the interface that wraps the List method.
+type PeerLister interface {
+	// List returns a list of peers with active connections. If a peer cannot
+	// be connected to; its Conn attribute must be nil.
+	List() []pool.Peer
+}
+
+// PeerReporter is the interface that wraps the ReportOffline method.
+type PeerReporter interface {
+	// ReportOffline allows the caller to report a peer as being offline. The
+	// peer is identified by its name.
+	ReportOffline(name string)
+}
+
+// PeerListReporter is the interface that groups the List and ReportOffline
+// methods.
+type PeerListReporter interface {
+	PeerLister
+	PeerReporter
+}
+
+// Server implements the observerpb.ObserverServer interface.
+type Server struct {
+	opts  options
+	peers PeerListReporter
+}
+
+// NewServer creates a new Server.
+func NewServer(peers PeerListReporter, options ...Option) (*Server, error) {
+	opts := defaultOptions
+	for _, opt := range options {
+		if err := opt(&opts); err != nil {
+			return nil, fmt.Errorf("failed to apply option: %v", err)
+		}
+	}
+	return &Server{
+		opts:  opts,
+		peers: peers,
+	}, nil
+}
+
+// GetFlows implements observerpb.ObserverServer.GetFlows by proxying requests to
+// the hubble instance the proxy is connected to.
+func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Observer_GetFlowsServer) error {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+
+	peers := s.peers.List()
+	qlen := s.opts.sortBufferMaxLen // we don't want to buffer too many flows
+	if nqlen := req.GetNumber() * uint64(len(peers)); nqlen > 0 && nqlen < uint64(qlen) {
+		// don't make the queue bigger than necessary as it would be a problem
+		// with the priority queue (we pop out when the queue is full)
+		qlen = int(nqlen)
+	}
+
+	g, gctx := errgroup.WithContext(ctx)
+	flows := make(chan *observerpb.GetFlowsResponse, qlen)
+	var connectedNodes, unavailableNodes []string
+
+	for _, p := range peers {
+		p := p
+		if p.Conn == nil {
+			s.opts.log.WithField("address", p.Address.String()).Infof(
+				"No connection to peer %s, skipping", p.Name,
+			)
+			s.peers.ReportOffline(p.Name)
+			unavailableNodes = append(unavailableNodes, p.Name)
+			continue
+		}
+		connectedNodes = append(connectedNodes, p.Name)
+		g.Go(func() error {
+			// retrieveFlowsFromPeer returns blocks until the peer finishes
+			// the request by closing the connection, an error occurs,
+			// or gctx expires.
+			err := retrieveFlowsFromPeer(gctx, p.Conn, req, flows)
+			if err != nil {
+				s.opts.log.WithFields(logrus.Fields{
+					"error": err,
+					"peer":  p,
+				}).Warning("Failed to retrieve flows from peer")
+				select {
+				case flows <- nodeStatusError(err, p.Name):
+				case <-gctx.Done():
+				}
+			}
+			return nil
+		})
+	}
+	go func() {
+		g.Wait()
+		close(flows)
+	}()
+
+	aggregated := aggregateErrors(ctx, flows, s.opts.errorAggregationWindow)
+	sortedFlows := sortFlows(ctx, aggregated, qlen, s.opts.sortBufferDrainTimeout)
+
+	// inform the client about the nodes from which we expect to receive flows first
+	if len(connectedNodes) > 0 {
+		status := nodeStatusEvent(relaypb.NodeState_NODE_CONNECTED, connectedNodes...)
+		if err := stream.Send(status); err != nil {
+			return err
+		}
+	}
+	if len(unavailableNodes) > 0 {
+		status := nodeStatusEvent(relaypb.NodeState_NODE_UNAVAILABLE, unavailableNodes...)
+		if err := stream.Send(status); err != nil {
+			return err
+		}
+	}
+
+sortedFlowsLoop:
+	for {
+		select {
+		case flow, ok := <-sortedFlows:
+			if !ok {
+				break sortedFlowsLoop
+			}
+			if err := stream.Send(flow); err != nil {
+				return err
+			}
+		case <-ctx.Done():
+			break sortedFlowsLoop
+		}
+	}
+	return g.Wait()
+}
+
+// ServerStatus implements observerpb.ObserverServer.ServerStatus by aggregating
+// the ServerStatus answer of all hubble peers.
+func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusRequest) (*observerpb.ServerStatusResponse, error) {
+	ctx, cancel := context.WithCancel(context.Background())
+	defer cancel()
+	g, ctx := errgroup.WithContext(ctx)
+
+	peers := s.peers.List()
+	statuses := make(chan *observerpb.ServerStatusResponse, len(peers))
+	for _, p := range peers {
+		p := p
+		if p.Conn == nil {
+			s.opts.log.WithField("address", p.Address.String()).Infof(
+				"No connection to peer %s, skipping", p.Name,
+			)
+			s.peers.ReportOffline(p.Name)
+			continue
+		}
+		g.Go(func() error {
+			client := newObserverClient(p.Conn)
+			status, err := client.ServerStatus(ctx, req)
+			if err != nil {
+				s.opts.log.WithFields(logrus.Fields{
+					"error": err,
+					"peer":  p,
+				}).Warning("Failed to retrieve server status")
+				return nil
+			}
+			select {
+			case statuses <- status:
+			case <-ctx.Done():
+			}
+			return nil
+		})
+	}
+	go func() {
+		g.Wait()
+		close(statuses)
+	}()
+	resp := &observerpb.ServerStatusResponse{}
+	for status := range statuses {
+		if status == nil {
+			continue
+		}
+		resp.MaxFlows += status.MaxFlows
+		resp.NumFlows += status.NumFlows
+		resp.SeenFlows += status.SeenFlows
+		// use the oldest uptime as a reference for the uptime as cumulating
+		// values would make little sense
+		if resp.UptimeNs == 0 || resp.UptimeNs > status.UptimeNs {
+			resp.UptimeNs = status.UptimeNs
+		}
+	}
+	return resp, g.Wait()
+}

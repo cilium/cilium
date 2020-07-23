@@ -12,74 +12,36 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package relayoption
+package observer
 
 import (
 	"fmt"
-	"strings"
 	"time"
+
+	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
+	"github.com/sirupsen/logrus"
 )
 
-// Options stores all the configuration values for the hubble-relay server.
-type Options struct {
-	HubbleTarget  string
-	DialTimeout   time.Duration
-	RetryTimeout  time.Duration
-	ListenAddress string
-	Debug         bool
-
-	SortBufferMaxLen       int
-	SortBufferDrainTimeout time.Duration
-	ErrorAggregationWindow time.Duration
+// DefaultOptions is the reference point for default values.
+var defaultOptions = options{
+	sortBufferMaxLen:       defaults.SortBufferMaxLen,
+	sortBufferDrainTimeout: defaults.SortBufferDrainTimeout,
+	errorAggregationWindow: defaults.ErrorAggregationWindow,
+	log:                    logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
 }
 
-// Option customizes the configuration of the hubble-relay server.
-type Option func(o *Options) error
+// Option customizes the configuration of the Manager.
+type Option func(o *options) error
 
-// WithHubbleTarget sets the URL of the local hubble instance to connect to.
-// This target MUST implement the Peer service.
-func WithHubbleTarget(t string) Option {
-	return func(o *Options) error {
-		if !strings.HasPrefix(t, "unix://") {
-			t = "unix://" + t
-		}
-		o.HubbleTarget = t
-		return nil
-	}
-}
-
-// WithDialTimeout sets the dial timeout that is used when establishing a
-// connection to a hubble peer.
-func WithDialTimeout(t time.Duration) Option {
-	return func(o *Options) error {
-		o.DialTimeout = t
-		return nil
-	}
-}
-
-// WithRetryTimeout sets the duration to wait before attempting to re-connect
-// to a hubble peer when the connection is lost.
-func WithRetryTimeout(t time.Duration) Option {
-	return func(o *Options) error {
-		o.RetryTimeout = t
-		return nil
-	}
-}
-
-// WithListenAddress sets the listen address for the hubble-relay server.
-func WithListenAddress(a string) Option {
-	return func(o *Options) error {
-		o.ListenAddress = a
-		return nil
-	}
-}
-
-// WithDebug enables debug mode.
-func WithDebug() Option {
-	return func(o *Options) error {
-		o.Debug = true
-		return nil
-	}
+// Options stores all the configuration values for peer manager.
+type options struct {
+	sortBufferMaxLen       int
+	sortBufferDrainTimeout time.Duration
+	errorAggregationWindow time.Duration
+	log                    logrus.FieldLogger
 }
 
 // WithSortBufferMaxLen sets the maximum number of flows that can be buffered
@@ -88,11 +50,11 @@ func WithDebug() Option {
 // advised to keep the value moderate (a value between 30 and 100 should
 // constitute a good choice in most cases).
 func WithSortBufferMaxLen(i int) Option {
-	return func(o *Options) error {
+	return func(o *options) error {
 		if i <= 0 {
 			return fmt.Errorf("value for SortBufferMaxLen must be greater than 0: %d", i)
 		}
-		o.SortBufferMaxLen = i
+		o.sortBufferMaxLen = i
 		return nil
 	}
 }
@@ -105,11 +67,11 @@ func WithSortBufferMaxLen(i int) Option {
 // the flows sorting operation ineffective. A value between 500 milliseconds
 // and 3 seconds should be constitute a good choice in most cases.
 func WithSortBufferDrainTimeout(d time.Duration) Option {
-	return func(o *Options) error {
+	return func(o *options) error {
 		if d <= 0 {
 			return fmt.Errorf("value for SortBufferDrainTimeout must be greater than 0: %d", d)
 		}
-		o.SortBufferDrainTimeout = d
+		o.sortBufferDrainTimeout = d
 		return nil
 	}
 }
@@ -119,11 +81,19 @@ func WithSortBufferDrainTimeout(d time.Duration) Option {
 // downstream consumer either when the window expires or when a new, different
 // error occurs (whichever happens first)
 func WithErrorAggregationWindow(d time.Duration) Option {
-	return func(o *Options) error {
+	return func(o *options) error {
 		if d <= 0 {
 			return fmt.Errorf("value for ErrorAggregationWindow must be greater than 0: %d", d)
 		}
-		o.ErrorAggregationWindow = d
+		o.errorAggregationWindow = d
+		return nil
+	}
+}
+
+// WithLogger sets the logger to use for logging.
+func WithLogger(l logrus.FieldLogger) Option {
+	return func(o *options) error {
+		o.log = l
 		return nil
 	}
 }
