@@ -18,8 +18,8 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/backoff"
-	"github.com/cilium/cilium/pkg/defaults"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
+	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -27,47 +27,47 @@ import (
 	"google.golang.org/grpc"
 )
 
-// DefaultOptions is the reference point for default values.
-var DefaultOptions = Options{
-	PeerServiceAddress: "unix://" + defaults.HubbleSockPath,
-	PeerClientBuilder: peerTypes.LocalClientBuilder{
-		DialTimeout: 5 * time.Second,
+// defaultOptions is the reference point for default values.
+var defaultOptions = options{
+	peerServiceAddress: defaults.HubbleTarget,
+	peerClientBuilder: peerTypes.LocalClientBuilder{
+		DialTimeout: defaults.DialTimeout,
 	},
-	ClientConnBuilder: GRPCClientConnBuilder{
-		DialTimeout: 5 * time.Second,
+	clientConnBuilder: GRPCClientConnBuilder{
+		DialTimeout: defaults.DialTimeout,
 		Options: []grpc.DialOption{
 			grpc.WithInsecure(),
 			grpc.WithBlock(),
 		},
 	},
-	Backoff: &backoff.Exponential{
+	backoff: &backoff.Exponential{
 		Min:    10 * time.Second,
 		Max:    90 * time.Minute,
 		Factor: 2.0,
 	},
-	ConnCheckInterval: 2 * time.Minute,
-	RetryTimeout:      30 * time.Second,
-	Log:               logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
+	connCheckInterval: 2 * time.Minute,
+	retryTimeout:      defaults.RetryTimeout,
+	log:               logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
 }
 
 // Option customizes the configuration of the Manager.
-type Option func(o *Options) error
+type Option func(o *options) error
 
-// Options stores all the configuration values for peer manager.
-type Options struct {
-	PeerServiceAddress string
-	PeerClientBuilder  peerTypes.ClientBuilder
-	ClientConnBuilder  ClientConnBuilder
-	Backoff            BackoffDuration
-	ConnCheckInterval  time.Duration
-	RetryTimeout       time.Duration
-	Log                logrus.FieldLogger
+// options stores all the configuration values for peer manager.
+type options struct {
+	peerServiceAddress string
+	peerClientBuilder  peerTypes.ClientBuilder
+	clientConnBuilder  ClientConnBuilder
+	backoff            BackoffDuration
+	connCheckInterval  time.Duration
+	retryTimeout       time.Duration
+	log                logrus.FieldLogger
 }
 
 // WithPeerServiceAddress sets the address of the peer gRPC service.
 func WithPeerServiceAddress(a string) Option {
-	return func(o *Options) error {
-		o.PeerServiceAddress = a
+	return func(o *options) error {
+		o.peerServiceAddress = a
 		return nil
 	}
 }
@@ -75,8 +75,8 @@ func WithPeerServiceAddress(a string) Option {
 // WithPeerClientBuilder sets the ClientBuilder that is used to create new Peer
 // service clients.
 func WithPeerClientBuilder(b peerTypes.ClientBuilder) Option {
-	return func(o *Options) error {
-		o.PeerClientBuilder = b
+	return func(o *options) error {
+		o.peerClientBuilder = b
 		return nil
 	}
 }
@@ -84,16 +84,16 @@ func WithPeerClientBuilder(b peerTypes.ClientBuilder) Option {
 // WithClientConnBuilder sets the GRPCClientConnBuilder that is used to create
 // new gRPC connections to peers.
 func WithClientConnBuilder(b ClientConnBuilder) Option {
-	return func(o *Options) error {
-		o.ClientConnBuilder = b
+	return func(o *options) error {
+		o.clientConnBuilder = b
 		return nil
 	}
 }
 
 // WithBackoff sets the backoff between after a failed connection attempt.
 func WithBackoff(b BackoffDuration) Option {
-	return func(o *Options) error {
-		o.Backoff = b
+	return func(o *options) error {
+		o.backoff = b
 		return nil
 	}
 }
@@ -101,8 +101,8 @@ func WithBackoff(b BackoffDuration) Option {
 // WithConnCheckInterval sets the time interval between peer connections health
 // checks.
 func WithConnCheckInterval(i time.Duration) Option {
-	return func(o *Options) error {
-		o.ConnCheckInterval = i
+	return func(o *options) error {
+		o.connCheckInterval = i
 		return nil
 	}
 }
@@ -110,16 +110,16 @@ func WithConnCheckInterval(i time.Duration) Option {
 // WithRetryTimeout sets the duration to wait before attempting to re-connect
 // to the peer gRPC service.
 func WithRetryTimeout(t time.Duration) Option {
-	return func(o *Options) error {
-		o.RetryTimeout = t
+	return func(o *options) error {
+		o.retryTimeout = t
 		return nil
 	}
 }
 
 // WithLogger sets the logger to use for logging.
 func WithLogger(l logrus.FieldLogger) Option {
-	return func(o *Options) error {
-		o.Log = l
+	return func(o *options) error {
+		o.log = l
 		return nil
 	}
 }

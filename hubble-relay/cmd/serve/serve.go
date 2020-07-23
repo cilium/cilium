@@ -20,8 +20,8 @@ import (
 	"os/signal"
 	"time"
 
-	"github.com/cilium/cilium/pkg/hubble/relay"
-	"github.com/cilium/cilium/pkg/hubble/relay/relayoption"
+	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
+	"github.com/cilium/cilium/pkg/hubble/relay/server"
 	"github.com/cilium/cilium/pkg/pprof"
 
 	"github.com/google/gops/agent"
@@ -63,42 +63,42 @@ func New() *cobra.Command {
 	)
 	cmd.Flags().DurationVar(
 		&f.dialTimeout, "dial-timeout",
-		relayoption.Default.DialTimeout,
+		defaults.DialTimeout,
 		"Dial timeout when connecting to hubble peers")
 	cmd.Flags().DurationVar(
 		&f.retryTimeout, "retry-timeout",
-		relayoption.Default.RetryTimeout,
+		defaults.RetryTimeout,
 		"Time to wait before attempting to reconnect to a hubble peer when the connection is lost")
 	cmd.Flags().StringVar(
 		&f.listenAddress, "listen-address",
-		relayoption.Default.ListenAddress,
+		defaults.ListenAddress,
 		"Address on which to listen")
 	cmd.Flags().StringVar(
 		&f.peerService, "peer-service",
-		relayoption.Default.HubbleTarget,
+		defaults.HubbleTarget,
 		"Address of the server that implements the peer gRPC service")
 	cmd.Flags().IntVar(
 		&f.sortBufferMaxLen, "sort-buffer-len-max",
-		relayoption.Default.SortBufferMaxLen,
+		defaults.SortBufferMaxLen,
 		"Max number of flows that can be buffered for sorting before being sent to the client (per request)")
 	cmd.Flags().DurationVar(
 		&f.sortBufferDrainTimeout, "sort-buffer-drain-timeout",
-		relayoption.Default.SortBufferDrainTimeout,
+		defaults.SortBufferDrainTimeout,
 		"When the per-request flows sort buffer is not full, a flow is drained every time this timeout is reached (only affects requests in follow-mode)")
 	return cmd
 }
 
 func runServe(f flags) error {
-	opts := []relayoption.Option{
-		relayoption.WithDialTimeout(f.dialTimeout),
-		relayoption.WithHubbleTarget(f.peerService),
-		relayoption.WithListenAddress(f.listenAddress),
-		relayoption.WithRetryTimeout(f.retryTimeout),
-		relayoption.WithSortBufferMaxLen(f.sortBufferMaxLen),
-		relayoption.WithSortBufferDrainTimeout(f.sortBufferDrainTimeout),
+	opts := []server.Option{
+		server.WithDialTimeout(f.dialTimeout),
+		server.WithHubbleTarget(f.peerService),
+		server.WithListenAddress(f.listenAddress),
+		server.WithRetryTimeout(f.retryTimeout),
+		server.WithSortBufferMaxLen(f.sortBufferMaxLen),
+		server.WithSortBufferDrainTimeout(f.sortBufferDrainTimeout),
 	}
 	if f.debug {
-		opts = append(opts, relayoption.WithDebug())
+		opts = append(opts, server.WithDebug())
 	}
 	if f.pprof {
 		pprof.Enable()
@@ -108,7 +108,7 @@ func runServe(f flags) error {
 			return fmt.Errorf("failed to start gops agent: %v", err)
 		}
 	}
-	srv, err := relay.NewServer(opts...)
+	srv, err := server.New(opts...)
 	if err != nil {
 		return fmt.Errorf("cannot create hubble-relay server: %v", err)
 	}
