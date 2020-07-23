@@ -234,11 +234,6 @@ func (pInfo *PortInfo) SanitizePortInfo(checkNamedPort bool) (uint16, string, lb
 	}
 	pName = strings.ToLower(pInfo.Name) // Normalize for case insensitive comparison
 
-	// Sanitize protocol
-	var err error
-	protocol, err = lb.NewL4Type(string(pInfo.Protocol))
-	if err != nil {
-		return pInt, pName, protocol, err
-	}
+	protocol = lb.NewL4Type(string(pInfo.Protocol))
 	return pInt, pName, protocol, nil
 }

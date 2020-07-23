@@ -432,6 +432,9 @@ const (
 	// EnableHostReachableServices is the name of the EnableHostReachableServices option
 	EnableHostReachableServices = "enable-host-reachable-services"
 
+	// DisableProtocolAgnosticServices is the name of the DisableProtocolAgnosticServices option
+	DisableProtocolAgnosticServices = "disable-protocol-agnostic-services"
+
 	// HostReachableServicesProtos is the name of the HostReachableServicesProtos option
 	HostReachableServicesProtos = "host-reachable-services-protos"
 
@@ -1104,6 +1107,7 @@ var HelpFlagSections = []FlagsSection{
 			NodePortRange,
 			EnableHostReachableServices,
 			HostReachableServicesProtos,
+			DisableProtocolAgnosticServices,
 			EnableSessionAffinity,
 		},
 	},
@@ -1543,7 +1547,7 @@ type DaemonConfig struct {
 	// runs in the same container as Cilium.
 	EnvoyLogPath string
 
-	// EnableSockOps specifies whether to enable sockops (socket lookup).
+	// SockopsEnable specifies whether to enable sockops (socket lookup).
 	SockopsEnable bool
 
 	// PrependIptablesChains is the name of the option to enable prepending
@@ -1592,43 +1596,44 @@ type DaemonConfig struct {
 
 	// CLI options
 
-	BPFRoot                       string
-	CGroupRoot                    string
-	BPFCompileDebug               string
-	ConfigFile                    string
-	ConfigDir                     string
-	Debug                         bool
-	DebugVerbose                  []string
-	DisableConntrack              bool
-	EnableHostReachableServices   bool
-	EnableHostServicesTCP         bool
-	EnableHostServicesUDP         bool
-	EnableHostServicesPeer        bool
-	EnablePolicy                  string
-	EnableTracing                 bool
-	EnvoyLog                      string
-	DisableEnvoyVersionCheck      bool
-	FixedIdentityMapping          map[string]string
-	FixedIdentityMappingValidator func(val string) (string, error)
-	IPv4Range                     string
-	IPv6Range                     string
-	IPv4ServiceRange              string
-	IPv6ServiceRange              string
-	K8sAPIServer                  string
-	K8sKubeConfigPath             string
-	K8sClientBurst                int
-	K8sClientQPSLimit             float64
-	K8sSyncTimeout                time.Duration
-	K8sWatcherEndpointSelector    string
-	KVStore                       string
-	KVStoreOpt                    map[string]string
-	LabelPrefixFile               string
-	Labels                        []string
-	LogDriver                     []string
-	LogOpt                        map[string]string
-	Logstash                      bool
-	LogSystemLoadConfig           bool
-	NAT46Range                    string
+	BPFRoot                         string
+	CGroupRoot                      string
+	BPFCompileDebug                 string
+	ConfigFile                      string
+	ConfigDir                       string
+	Debug                           bool
+	DebugVerbose                    []string
+	DisableConntrack                bool
+	EnableHostReachableServices     bool
+	DisableProtocolAgnosticServices bool
+	EnableHostServicesTCP           bool
+	EnableHostServicesUDP           bool
+	EnableHostServicesPeer          bool
+	EnablePolicy                    string
+	EnableTracing                   bool
+	EnvoyLog                        string
+	DisableEnvoyVersionCheck        bool
+	FixedIdentityMapping            map[string]string
+	FixedIdentityMappingValidator   func(val string) (string, error)
+	IPv4Range                       string
+	IPv6Range                       string
+	IPv4ServiceRange                string
+	IPv6ServiceRange                string
+	K8sAPIServer                    string
+	K8sKubeConfigPath               string
+	K8sClientBurst                  int
+	K8sClientQPSLimit               float64
+	K8sSyncTimeout                  time.Duration
+	K8sWatcherEndpointSelector      string
+	KVStore                         string
+	KVStoreOpt                      map[string]string
+	LabelPrefixFile                 string
+	Labels                          []string
+	LogDriver                       []string
+	LogOpt                          map[string]string
+	Logstash                        bool
+	LogSystemLoadConfig             bool
+	NAT46Range                      string
 
 	// Masquerade specifies whether or not to masquerade packets from endpoints
 	// leaving the host.
@@ -2484,6 +2489,7 @@ func (c *DaemonConfig) Populate() {
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
+	c.DisableProtocolAgnosticServices = viper.GetBool(DisableProtocolAgnosticServices)
 	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
 	c.K8sHeartbeatTimeout = viper.GetDuration(K8sHeartbeatTimeout)
 	c.EnableBPFTProxy = viper.GetBool(EnableBPFTProxy)

@@ -28,6 +28,10 @@ static __always_inline void sk_msg_extract4_key(const struct sk_msg_md *msg,
 	key->dip4 = msg->remote_ip4;
 	key->sip4 = msg->local_ip4;
 	key->family = ENDPOINT_KEY_IPV4;
+	/* Only TCP packets flow through sk_msg progs.
+	 * cf GH issue #13490 to fix
+	 */
+	key->protocol = IPPROTO_TCP;
 
 	key->sport = (bpf_ntohl(msg->local_port) >> 16);
 	/* clang-7.1 or higher seems to think it can do a 16-bit read here

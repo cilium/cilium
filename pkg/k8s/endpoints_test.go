@@ -52,7 +52,7 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 						"172.20.0.1": {
 							Ports: map[string]*loadbalancer.L4Addr{
 								"foo": {
-									Protocol: loadbalancer.NONE,
+									Protocol: loadbalancer.TCP,
 									Port:     1,
 								},
 							},
@@ -67,7 +67,7 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 						"172.20.0.1": {
 							Ports: map[string]*loadbalancer.L4Addr{
 								"foo": {
-									Protocol: loadbalancer.NONE,
+									Protocol: loadbalancer.TCP,
 									Port:     1,
 								},
 							},
@@ -86,7 +86,7 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 						"172.20.0.1": {
 							Ports: map[string]*loadbalancer.L4Addr{
 								"foo": {
-									Protocol: loadbalancer.NONE,
+									Protocol: loadbalancer.TCP,
 									Port:     1,
 								},
 							},
@@ -100,7 +100,7 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 						"172.20.0.2": {
 							Ports: map[string]*loadbalancer.L4Addr{
 								"foo": {
-									Protocol: loadbalancer.NONE,
+									Protocol: loadbalancer.TCP,
 									Port:     1,
 								},
 							},
@@ -118,7 +118,7 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 						"172.20.0.1": {
 							Ports: map[string]*loadbalancer.L4Addr{
 								"foo": {
-									Protocol: loadbalancer.NONE,
+									Protocol: loadbalancer.TCP,
 									Port:     1,
 								},
 							},
@@ -132,7 +132,7 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 						"172.20.0.1": {
 							Ports: map[string]*loadbalancer.L4Addr{
 								"foz": {
-									Protocol: loadbalancer.NONE,
+									Protocol: loadbalancer.TCP,
 									Port:     1,
 								},
 							},
@@ -150,8 +150,72 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 						"172.20.0.1": {
 							Ports: map[string]*loadbalancer.L4Addr{
 								"foo": {
-									Protocol: loadbalancer.NONE,
+									Protocol: loadbalancer.TCP,
 									Port:     1,
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				o: &Endpoints{
+					Backends: map[string]*Backend{
+						"172.20.0.1": {
+							Ports: map[string]*loadbalancer.L4Addr{
+								"foo": {
+									Protocol: loadbalancer.TCP,
+									Port:     2,
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "protocols different content",
+			fields: fields{
+				svcEP: &Endpoints{
+					Backends: map[string]*Backend{
+						"172.20.0.1": {
+							Ports: map[string]*loadbalancer.L4Addr{
+								"foo": {
+									Protocol: loadbalancer.TCP,
+									Port:     2,
+								},
+							},
+						},
+					},
+				},
+			},
+			args: args{
+				o: &Endpoints{
+					Backends: map[string]*Backend{
+						"172.20.0.1": {
+							Ports: map[string]*loadbalancer.L4Addr{
+								"foo": {
+									Protocol: loadbalancer.UDP,
+									Port:     2,
+								},
+							},
+						},
+					},
+				},
+			},
+			want: false,
+		},
+		{
+			name: "protocols different one none",
+			fields: fields{
+				svcEP: &Endpoints{
+					Backends: map[string]*Backend{
+						"172.20.0.1": {
+							Ports: map[string]*loadbalancer.L4Addr{
+								"foo": {
+									Protocol: loadbalancer.TCP,
+									Port:     2,
 								},
 							},
 						},
@@ -182,7 +246,7 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 						"172.20.0.1": {
 							Ports: map[string]*loadbalancer.L4Addr{
 								"foo": {
-									Protocol: loadbalancer.NONE,
+									Protocol: loadbalancer.TCP,
 									Port:     1,
 								},
 							},
@@ -196,11 +260,11 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 						"172.20.0.1": {
 							Ports: map[string]*loadbalancer.L4Addr{
 								"foo": {
-									Protocol: loadbalancer.NONE,
+									Protocol: loadbalancer.TCP,
 									Port:     1,
 								},
 								"baz": {
-									Protocol: loadbalancer.NONE,
+									Protocol: loadbalancer.TCP,
 									Port:     2,
 								},
 							},
@@ -219,7 +283,7 @@ func TestEndpoints_DeepEqual(t *testing.T) {
 						"172.20.0.1": {
 							Ports: map[string]*loadbalancer.L4Addr{
 								"foo": {
-									Protocol: loadbalancer.NONE,
+									Protocol: loadbalancer.TCP,
 									Port:     1,
 								},
 							},

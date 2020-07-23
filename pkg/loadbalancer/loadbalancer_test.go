@@ -45,12 +45,12 @@ func TestL4Addr_Equals(t *testing.T) {
 		{
 			name: "both equal",
 			fields: &L4Addr{
-				Protocol: NONE,
+				Protocol: TCP,
 				Port:     1,
 			},
 			args: args{
 				o: &L4Addr{
-					Protocol: NONE,
+					Protocol: TCP,
 					Port:     1,
 				},
 			},
@@ -59,12 +59,12 @@ func TestL4Addr_Equals(t *testing.T) {
 		{
 			name: "both different",
 			fields: &L4Addr{
-				Protocol: NONE,
+				Protocol: TCP,
 				Port:     0,
 			},
 			args: args{
 				o: &L4Addr{
-					Protocol: NONE,
+					Protocol: TCP,
 					Port:     1,
 				},
 			},
@@ -78,10 +78,38 @@ func TestL4Addr_Equals(t *testing.T) {
 		{
 			name: "other nil",
 			fields: &L4Addr{
-				Protocol: NONE,
+				Protocol: TCP,
 				Port:     1,
 			},
 			args: args{},
+			want: false,
+		},
+		{
+			name: "protocol different",
+			fields: &L4Addr{
+				Protocol: TCP,
+				Port:     1,
+			},
+			args: args{
+				o: &L4Addr{
+					Protocol: UDP,
+					Port:     1,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "protocol different one is none",
+			fields: &L4Addr{
+				Protocol: TCP,
+				Port:     1,
+			},
+			args: args{
+				o: &L4Addr{
+					Protocol: NONE,
+					Port:     1,
+				},
+			},
 			want: false,
 		},
 	}
@@ -110,7 +138,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 			fields: &L3n4AddrID{
 				L3n4Addr: L3n4Addr{
 					L4Addr: L4Addr{
-						Protocol: NONE,
+						Protocol: TCP,
 						Port:     1,
 					},
 					IP: net.IPv4(1, 1, 1, 1),
@@ -121,7 +149,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 				o: &L3n4AddrID{
 					L3n4Addr: L3n4Addr{
 						L4Addr: L4Addr{
-							Protocol: NONE,
+							Protocol: TCP,
 							Port:     1,
 						},
 						IP: net.IPv4(1, 1, 1, 1),
@@ -136,7 +164,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 			fields: &L3n4AddrID{
 				L3n4Addr: L3n4Addr{
 					L4Addr: L4Addr{
-						Protocol: NONE,
+						Protocol: TCP,
 						Port:     1,
 					},
 					IP: net.IPv4(1, 1, 1, 1),
@@ -147,7 +175,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 				o: &L3n4AddrID{
 					L3n4Addr: L3n4Addr{
 						L4Addr: L4Addr{
-							Protocol: NONE,
+							Protocol: TCP,
 							Port:     1,
 						},
 						IP: net.IPv4(1, 1, 1, 1),
@@ -162,7 +190,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 			fields: &L3n4AddrID{
 				L3n4Addr: L3n4Addr{
 					L4Addr: L4Addr{
-						Protocol: NONE,
+						Protocol: TCP,
 						Port:     1,
 					},
 					IP: net.IPv4(2, 2, 2, 2),
@@ -173,7 +201,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 				o: &L3n4AddrID{
 					L3n4Addr: L3n4Addr{
 						L4Addr: L4Addr{
-							Protocol: NONE,
+							Protocol: TCP,
 							Port:     1,
 						},
 						IP: net.IPv4(1, 1, 1, 1),
@@ -188,7 +216,7 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 			fields: &L3n4AddrID{
 				L3n4Addr: L3n4Addr{
 					L4Addr: L4Addr{
-						Protocol: NONE,
+						Protocol: TCP,
 						Port:     2,
 					},
 					IP: net.IPv4(1, 1, 1, 1),
@@ -199,8 +227,34 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 				o: &L3n4AddrID{
 					L3n4Addr: L3n4Addr{
 						L4Addr: L4Addr{
-							Protocol: NONE,
+							Protocol: TCP,
 							Port:     1,
+						},
+						IP: net.IPv4(1, 1, 1, 1),
+					},
+					ID: 1,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "protocols different",
+			fields: &L3n4AddrID{
+				L3n4Addr: L3n4Addr{
+					L4Addr: L4Addr{
+						Protocol: TCP,
+						Port:     2,
+					},
+					IP: net.IPv4(1, 1, 1, 1),
+				},
+				ID: 1,
+			},
+			args: args{
+				o: &L3n4AddrID{
+					L3n4Addr: L3n4Addr{
+						L4Addr: L4Addr{
+							Protocol: UDP,
+							Port:     2,
 						},
 						IP: net.IPv4(1, 1, 1, 1),
 					},

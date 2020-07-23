@@ -341,28 +341,6 @@ func (s *ServiceCache) DeleteEndpointSlices(epSlice *slim_discovery_v1beta1.Endp
 // FrontendList is the list of all k8s service frontends
 type FrontendList map[string]struct{}
 
-// LooseMatch returns true if the provided frontend is found in the
-// FrontendList. If the frontend has a protocol value set, it only matches a
-// k8s service with a matching protocol. If no protocol is set, any k8s service
-// matching frontend IP and port is considered a match, regardless of protocol.
-func (l FrontendList) LooseMatch(frontend loadbalancer.L3n4Addr) (exists bool) {
-	switch frontend.Protocol {
-	case loadbalancer.NONE:
-		for _, protocol := range loadbalancer.AllProtocols {
-			frontend.Protocol = protocol
-			_, exists = l[frontend.StringWithProtocol()]
-			if exists {
-				return
-			}
-		}
-
-	// If the protocol is set, perform an exact match
-	default:
-		_, exists = l[frontend.StringWithProtocol()]
-	}
-	return
-}
-
 // UniqueServiceFrontends returns all externally scoped services known to
 // the service cache as a map, indexed by the string representation of a
 // loadbalancer.L3n4Addr. This helper is only used in unit tests.
@@ -379,12 +357,12 @@ func (s *ServiceCache) UniqueServiceFrontends() FrontendList {
 				L4Addr: *p,
 				Scope:  loadbalancer.ScopeExternal,
 			}
-			uniqueFrontends[address.StringWithProtocol()] = struct{}{}
+			uniqueFrontends[address.String()] = struct{}{}
 		}
 		for _, nodePortFEs := range svc.NodePorts {
 			for _, fe := range nodePortFEs {
 				if fe.Scope == loadbalancer.ScopeExternal {
-					uniqueFrontends[fe.StringWithProtocol()] = struct{}{}
+					uniqueFrontends[fe.String()] = struct{}{}
 				}
 			}
 		}

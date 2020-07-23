@@ -23,19 +23,20 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/types"
+	"github.com/cilium/cilium/pkg/u8proto"
 )
 
 // SockmapKey is the 5-tuple used to lookup a socket
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapKey
 type SockmapKey struct {
-	DIP    types.IPv6 `align:"$union0"`
-	SIP    types.IPv6 `align:"$union1"`
-	Family uint8      `align:"family"`
-	Pad7   uint8      `align:"pad7"`
-	Pad8   uint16     `align:"pad8"`
-	SPort  uint32     `align:"sport"`
-	DPort  uint32     `align:"dport"`
+	DIP      types.IPv6 `align:"$union0"`
+	SIP      types.IPv6 `align:"$union1"`
+	Family   uint8      `align:"family"`
+	Protocol uint8      `align:"protocol"`
+	Pad8     uint16     `align:"pad8"`
+	SPort    uint32     `align:"sport"`
+	DPort    uint32     `align:"dport"`
 }
 
 // SockmapValue is the fd of a socket
@@ -47,7 +48,11 @@ type SockmapValue struct {
 
 // String pretty print the 5-tuple as sip:sport->dip:dport
 func (v SockmapKey) String() string {
-	return fmt.Sprintf("%s:%d->%s:%d", v.SIP.String(), v.SPort, v.DIP.String(), v.DPort)
+	p, err := u8proto.FromNumber(v.Protocol)
+	if err != nil {
+		p = u8proto.ANY
+	}
+	return fmt.Sprintf("%s:%d/%s->%s:%d/%s", v.SIP.String(), v.SPort, p, v.DIP.String(), v.DPort, p)
 }
 
 // String pretty print the file descriptor value, note this is local to agent.

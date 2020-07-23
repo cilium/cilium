@@ -56,7 +56,7 @@ func (ds *PolicyTestSuite) TestPolicyNewPortProto(c *C) {
 
 	_, err = newPortProto(80, "cccp")
 	c.Assert(err, Not(IsNil))
-	c.Assert(err.Error(), Equals, "unknown protocol 'cccp'")
+	c.Assert(err.Error(), Equals, "unknown protocol \"cccp\"")
 
 	np, err = newPortProto(88, "")
 	c.Assert(err, IsNil)

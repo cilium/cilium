@@ -87,11 +87,10 @@ func (s *IDAllocTestSuite) TestServices(c *C) {
 	c.Assert(err, Equals, nil)
 	c.Assert(l3n4AddrID.ID, Equals, loadbalancer.ID(ffsIDu16+1))
 
-	// l3n4Addr3 should have the same ID as l3n4Addr2 since we are omitting the
-	// protocol type.
+	// different protocols should change the id
 	l3n4AddrID, err = AcquireID(l3n4Addr3, 0)
 	c.Assert(err, Equals, nil)
-	c.Assert(l3n4AddrID.ID, Equals, loadbalancer.ID(ffsIDu16+1))
+	c.Assert(l3n4AddrID.ID, Equals, loadbalancer.ID(ffsIDu16+2))
 
 	gotL3n4AddrID, err := GetID(FirstFreeServiceID)
 	c.Assert(err, Equals, nil)

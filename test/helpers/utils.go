@@ -38,8 +38,11 @@ import (
 	"golang.org/x/sys/unix"
 )
 
-// ensure that our random numbers are seeded differently on each run
-var randGen = rand.NewSafeRand(time.Now().UnixNano())
+var (
+	// ensure that our random numbers are seeded differently on each run
+	randGen              = rand.NewSafeRand(time.Now().UnixNano())
+	runningCiliumVersion string
+)
 
 // IsRunningOnJenkins detects if the currently running Ginkgo application is
 // most likely running in a Jenkins environment. Returns true if certain
@@ -57,6 +60,35 @@ func IsRunningOnJenkins() bool {
 		}
 	}
 	return result
+}
+
+// SetCiliumVersion sets the currently running cilium version
+// and returns a function that unsets it.
+func SetRunningCiliumVersion(v string) func() {
+	runningCiliumVersion = v
+	return func() {
+		runningCiliumVersion = ""
+	}
+}
+
+// GetRunningCiliumVersion gets the currently running cilium version.
+func GetRunningCiliumVersion() string {
+	return runningCiliumVersion
+}
+
+// HasNewServiceOutput checks to see if the current running cilium
+// version uses the old style service output (e.g. "0.0.0.0:53") vs
+// the new style (e.g. "0.0.0.0:53/TCP").
+func HasNewServiceOutput(ver string) bool {
+	cst, err := versioncheck.Version(ver)
+	// If the version is not parseable it is probably
+	// someone's custom build  or not set.
+	// Either way, it is probably using the new output
+	// format.
+	if err != nil {
+		return true
+	}
+	return versioncheck.MustCompile(">=1.9.0")(cst)
 }
 
 // Sleep sleeps for the specified duration in seconds
@@ -217,6 +249,7 @@ func GetAppPods(apps []string, namespace string, kubectl *Kubectl, appFmt string
 		res, err := kubectl.GetPodNames(namespace, fmt.Sprintf("%s=%s", appFmt, v))
 		Expect(err).Should(BeNil())
 		Expect(res).Should(Not(BeNil()))
+		Expect(len(res)).To(BeNumerically(">", 0))
 		appPods[v] = res[0]
 		log.Infof("GetAppPods: pod=%q assigned to %q", res[0], v)
 	}

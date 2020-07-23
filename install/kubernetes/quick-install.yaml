@@ -127,6 +127,7 @@ data:
   enable-local-redirect-policy: "false"
   kube-proxy-replacement:  "probe"
   kube-proxy-replacement-healthz-bind-address: ""
+  disable-protocol-agnostic-services: "true"
   enable-health-check-nodeport: "true"
   node-port-bind-protection: "true"
   enable-auto-protect-node-port-range: "true"

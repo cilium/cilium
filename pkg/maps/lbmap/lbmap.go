@@ -64,6 +64,7 @@ type UpsertServiceParams struct {
 	ID                        uint16
 	IP                        net.IP
 	Port                      uint16
+	Protocol                  string
 	Backends                  map[string]uint16
 	PrevBackendCount          int
 	IPv6                      bool
@@ -84,20 +85,28 @@ type UpsertServiceParams struct {
 // The given prevBackendCount denotes a previous service backend entries count,
 // so that the function can remove obsolete ones.
 func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
-	var svcKey ServiceKey
+	var svcKeys []ServiceKey
 
 	if p.ID == 0 {
 		return fmt.Errorf("Invalid svc ID 0")
 	}
 
-	if p.IPv6 {
-		svcKey = NewService6Key(p.IP, p.Port, u8proto.ANY, p.Scope, 0)
-	} else {
-		svcKey = NewService4Key(p.IP, p.Port, u8proto.ANY, p.Scope, 0)
+	proto, err := u8proto.ParseProtocol(p.Protocol)
+	if err != nil {
+		return err
 	}
 
-	slot := 1
-	svcVal := svcKey.NewValue().(ServiceValue)
+	if p.IPv6 {
+		svcKeys = append(svcKeys, NewService6Key(p.IP, p.Port, proto, p.Scope, 0))
+		if !option.Config.DisableProtocolAgnosticServices {
+			svcKeys = append(svcKeys, NewService6Key(p.IP, p.Port, u8proto.ANY, p.Scope, 0))
+		}
+	} else {
+		svcKeys = append(svcKeys, NewService4Key(p.IP, p.Port, proto, p.Scope, 0))
+		if !option.Config.DisableProtocolAgnosticServices {
+			svcKeys = append(svcKeys, NewService4Key(p.IP, p.Port, u8proto.ANY, p.Scope, 0))
+		}
+	}
 
 	if p.UseMaglev && len(p.Backends) != 0 {
 		backendNames := make([]string, 0, len(p.Backends))
@@ -123,52 +132,58 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 	for _, id := range p.Backends {
 		backendIDs = append(backendIDs, id)
 	}
-	for _, backendID := range backendIDs {
-		if backendID == 0 {
-			return fmt.Errorf("Invalid backend ID 0")
+
+	for _, svcKey := range svcKeys {
+		slot := 1
+		svcVal := svcKey.NewValue().(ServiceValue)
+
+		for _, backendID := range backendIDs {
+			if backendID == 0 {
+				return fmt.Errorf("Invalid backend ID 0")
+			}
+			svcVal.SetBackendID(loadbalancer.BackendID(backendID))
+			svcVal.SetRevNat(int(p.ID))
+			svcKey.SetBackendSlot(slot)
+
+			if err := updateServiceEndpoint(svcKey, svcVal); err != nil {
+				return fmt.Errorf("Unable to update service entry %+v => %+v: %s",
+					svcKey, svcVal, err)
+			}
+			slot++
 		}
-		svcVal.SetBackendID(loadbalancer.BackendID(backendID))
-		svcVal.SetRevNat(int(p.ID))
-		svcKey.SetBackendSlot(slot)
-		if err := updateServiceEndpoint(svcKey, svcVal); err != nil {
-			return fmt.Errorf("Unable to update service entry %+v => %+v: %s",
-				svcKey, svcVal, err)
+
+		zeroValue := svcKey.NewValue().(ServiceValue)
+		zeroValue.SetRevNat(int(p.ID)) // TODO change to uint16
+		revNATKey := zeroValue.RevNatKey()
+		revNATValue := svcKey.RevNatValue()
+		if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
+			return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 		}
-		slot++
-	}
 
-	zeroValue := svcKey.NewValue().(ServiceValue)
-	zeroValue.SetRevNat(int(p.ID)) // TODO change to uint16
-	revNATKey := zeroValue.RevNatKey()
-	revNATValue := svcKey.RevNatValue()
-	if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
-		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
-	}
+		if err := updateMasterService(svcKey, len(backendIDs), int(p.ID), p.Type, p.Local,
+			p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange); err != nil {
 
-	if err := updateMasterService(svcKey, len(backendIDs), int(p.ID), p.Type, p.Local,
-		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange); err != nil {
+			deleteRevNatLocked(revNATKey)
+			return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
+		}
 
-		deleteRevNatLocked(revNATKey)
-		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
-	}
-
-	for i := slot; i <= p.PrevBackendCount; i++ {
-		svcKey.SetBackendSlot(i)
-		if err := deleteServiceLocked(svcKey); err != nil {
-			log.WithFields(logrus.Fields{
-				logfields.ServiceKey:  svcKey,
-				logfields.BackendSlot: svcKey.GetBackendSlot(),
-			}).WithError(err).Warn("Unable to delete service entry from BPF map")
+		for i := slot; i <= p.PrevBackendCount; i++ {
+			svcKey.SetBackendSlot(i)
+			if err := deleteServiceLocked(svcKey); err != nil {
+				log.WithFields(logrus.Fields{
+					logfields.ServiceKey:  svcKey,
+					logfields.BackendSlot: svcKey.GetBackendSlot(),
+				}).WithError(err).Warn("Unable to delete service entry from BPF map")
+			}
 		}
 	}
-
 	return nil
 }
 
 // DeleteService removes given service from a BPF map.
 func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev bool) error {
 	var (
-		svcKey    ServiceKey
+		svcKeys   []ServiceKey
 		revNATKey RevNatKey
 	)
 
@@ -176,19 +191,31 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, us
 		return fmt.Errorf("Invalid svc ID 0")
 	}
 
+	proto, err := u8proto.ParseProtocol(string(svc.Protocol))
+	if err != nil {
+		return err
+	}
 	ipv6 := svc.IsIPv6()
 	if ipv6 {
-		svcKey = NewService6Key(svc.IP, svc.Port, u8proto.ANY, svc.Scope, 0)
+		svcKeys = append(svcKeys, NewService6Key(svc.IP, svc.Port, proto, svc.Scope, 0))
+		if !option.Config.DisableProtocolAgnosticServices {
+			svcKeys = append(svcKeys, NewService6Key(svc.IP, svc.Port, u8proto.ANY, svc.Scope, 0))
+		}
 		revNATKey = NewRevNat6Key(uint16(svc.ID))
 	} else {
-		svcKey = NewService4Key(svc.IP, svc.Port, u8proto.ANY, svc.Scope, 0)
+		svcKeys = append(svcKeys, NewService6Key(svc.IP, svc.Port, proto, svc.Scope, 0))
+		if !option.Config.DisableProtocolAgnosticServices {
+			svcKeys = append(svcKeys, NewService4Key(svc.IP, svc.Port, u8proto.ANY, svc.Scope, 0))
+		}
 		revNATKey = NewRevNat4Key(uint16(svc.ID))
 	}
 
 	for slot := 0; slot <= backendCount; slot++ {
-		svcKey.SetBackendSlot(slot)
-		if err := svcKey.MapDelete(); err != nil {
-			return fmt.Errorf("Unable to delete service entry %+v: %s", svcKey, err)
+		for _, svcKey := range svcKeys {
+			svcKey.SetBackendSlot(slot)
+			if err := svcKey.MapDelete(); err != nil {
+				return fmt.Errorf("Unable to delete service entry %+v: %s", svcKey, err)
+			}
 		}
 	}
 
@@ -206,7 +233,7 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, us
 }
 
 // AddBackend adds a backend into a BPF map.
-func (*LBBPFMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
+func (*LBBPFMap) AddBackend(id uint16, ip net.IP, protocol loadbalancer.L4Type, port uint16, ipv6 bool) error {
 	var (
 		backend Backend
 		err     error
@@ -216,10 +243,14 @@ func (*LBBPFMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error 
 		return fmt.Errorf("Invalid backend ID 0")
 	}
 
+	p, err := u8proto.ParseProtocol(string(protocol))
+	if err != nil {
+		return err
+	}
 	if ipv6 {
-		backend, err = NewBackend6(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+		backend, err = NewBackend6(loadbalancer.BackendID(id), ip, port, p)
 	} else {
-		backend, err = NewBackend4(loadbalancer.BackendID(id), ip, port, u8proto.ANY)
+		backend, err = NewBackend4(loadbalancer.BackendID(id), ip, port, p)
 	}
 	if err != nil {
 		return fmt.Errorf("Unable to create backend (%d, %s, %d, %t): %s",
@@ -473,7 +504,7 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 	for backendID, backendVal := range backendValueMap {
 		ip := backendVal.GetAddress()
 		port := backendVal.GetPort()
-		proto := loadbalancer.NONE
+		proto := loadbalancer.NewL4TypeFromNumber(backendVal.GetProtocol())
 		lbBackend := loadbalancer.NewBackend(backendID, proto, ip, port)
 		lbBackends = append(lbBackends, lbBackend)
 	}

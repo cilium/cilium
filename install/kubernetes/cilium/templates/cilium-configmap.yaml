@@ -449,6 +449,11 @@ data:
   kube-proxy-replacement-healthz-bind-address: {{ default "" .Values.kubeProxyReplacementHealthzBindAddr | quote}}
 {{- end }}
 {{- end }}
+{{- if hasKey .Values "disableProtocolAgnosticServices" }}
+  disable-protocol-agnostic-services: {{ .Values.disableProtocolAgnosticServices | quote }}
+{{- else if and (.Release.IsInstall) (not .Release.IsUpgrade) }}
+  disable-protocol-agnostic-services: "true"
+{{- end }}
 {{- if hasKey .Values "hostServices" }}
 {{- if .Values.hostServices.enabled }}
   enable-host-reachable-services: {{ .Values.hostServices.enabled | quote }}

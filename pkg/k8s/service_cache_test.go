@@ -95,33 +95,6 @@ func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
 		"1.1.1.1:20/TCP": {},
 		"2.2.2.2:20/UDP": {},
 	})
-
-	scopes := []uint8{loadbalancer.ScopeExternal, loadbalancer.ScopeInternal}
-	for _, scope := range scopes {
-		// Validate all frontends as exact matches
-		// These should match only for external scope
-		exact_match_ok := scope == loadbalancer.ScopeExternal
-		frontend := loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("1.1.1.1"), 10, scope)
-		c.Assert(frontends.LooseMatch(*frontend), check.Equals, exact_match_ok)
-		frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("1.1.1.1"), 20, scope)
-		c.Assert(frontends.LooseMatch(*frontend), check.Equals, exact_match_ok)
-		frontend = loadbalancer.NewL3n4Addr(loadbalancer.UDP, net.ParseIP("2.2.2.2"), 20, scope)
-		c.Assert(frontends.LooseMatch(*frontend), check.Equals, exact_match_ok)
-
-		// Validate protocol mismatch on exact match
-		frontend = loadbalancer.NewL3n4Addr(loadbalancer.TCP, net.ParseIP("2.2.2.2"), 20, scope)
-		c.Assert(frontends.LooseMatch(*frontend), check.Equals, false)
-
-		// Validate protocol wildcard matching
-		// These should match only for external scope
-		wild_match_ok := scope == loadbalancer.ScopeExternal
-		frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("2.2.2.2"), 20, scope)
-		c.Assert(frontends.LooseMatch(*frontend), check.Equals, wild_match_ok)
-		frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("1.1.1.1"), 10, scope)
-		c.Assert(frontends.LooseMatch(*frontend), check.Equals, wild_match_ok)
-		frontend = loadbalancer.NewL3n4Addr(loadbalancer.NONE, net.ParseIP("1.1.1.1"), 20, scope)
-		c.Assert(frontends.LooseMatch(*frontend), check.Equals, wild_match_ok)
-	}
 }
 
 func (s *K8sSuite) TestServiceCacheEndpoints(c *check.C) {

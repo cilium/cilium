@@ -66,6 +66,7 @@ cilium-agent [flags]
       --disable-conntrack                                    Disable connection tracking
       --disable-endpoint-crd                                 Disable use of CiliumEndpoint CRD
       --disable-iptables-feeder-rules strings                Chains to ignore when installing feeder rules.
+      --disable-protocol-agnostic-services                   Disable legacy protocol agnostic service routing
       --dns-max-ips-per-restored-rule int                    Maximum number of IPs to maintain for each restored DNS rule (default 1000)
       --egress-masquerade-interfaces string                  Limit egress masquerading to interface selector
       --enable-auto-protect-node-port-range                  Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port range (net.ipv4.ip_local_port_range) (default true)
