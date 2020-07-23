@@ -528,7 +528,7 @@ support on the ena driver. The latter is needed to configure channel parameters 
 
   IPS=$(kubectl get no -o jsonpath='{$.items[*].status.addresses[?(@.type=="ExternalIP")].address }{"\\n"}' | tr ' ' '\\n')
 
-  for ip in $IPS ; do ssh ec2-user@$ip "sudo amazon-linux-extras install -y kernel-ng && sudo ethtool install -y ethtool && sudo reboot"; done
+  for ip in $IPS ; do ssh ec2-user@$ip "sudo amazon-linux-extras install -y kernel-ng && sudo yum install -y ethtool && sudo reboot"; done
 
 Once the nodes come back up their kernel version should say ``5.4.38-17.76.amzn2.x86_64`` or
 similar through ``uname -r``. In order to run XDP on ena, make sure the driver version is at
