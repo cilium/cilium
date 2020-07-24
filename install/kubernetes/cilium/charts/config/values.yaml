@@ -44,7 +44,7 @@
 
 # enables non-drop mode for installed policies. In audit mode
 # packets affected by policies will not be dropped. Policy related
-# decisions can be checked via the poicy verdict messages.
+# decisions can be checked via the policy verdict messages.
 #policyAuditMode: false
 
 # enables passing identity on local routes by using the mark fields. However,
@@ -54,3 +54,6 @@
 # Operator will exit if CRDs are not available within this duration upon
 # startup.
 #crdWaitTimeout: 5m
+
+# A list of labels to include or exclude from Cilium identity evaluation.
+#labels: "k8s:io.kubernetes.pod.namespace k8s:k8s-app k8s:app k8s:name"
