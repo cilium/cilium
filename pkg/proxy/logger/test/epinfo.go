@@ -46,6 +46,12 @@ func (m *ProxyUpdaterMock) GetIPv4Address() string                      { return
 func (m *ProxyUpdaterMock) GetIPv6Address() string                      { return m.Ipv6 }
 func (m *ProxyUpdaterMock) GetLabels() []string                         { return m.Labels }
 func (m *ProxyUpdaterMock) GetIdentityLocked() identity.NumericIdentity { return m.Identity }
+func (m *ProxyUpdaterMock) GetNamedPortsMap(ingress bool) (policy.NamedPortsMap, error) {
+	return nil, nil
+}
+func (m *ProxyUpdaterMock) GetNamedPortsMapLocked(ingress bool) policy.NamedPortsMap {
+	return nil
+}
 func (m *ProxyUpdaterMock) ProxyID(npMap policy.NamedPortsMap, l4 *policy.L4Filter) (string, error) {
 	return "", nil
 }

@@ -57,10 +57,6 @@ type EndpointPolicy struct {
 	// referring to a shared selectorPolicy!
 	*selectorPolicy
 
-	// NamedPortsMap maps PortNames in L4Filters to port numbers. This mapping
-	// is endpoint specific. Can be nil!
-	NamedPortsMap NamedPortsMap
-
 	// PolicyMapState contains the state of this policy as it relates to the
 	// datapath. In the future, this will be factored out of this object to
 	// decouple the policy as it relates to the datapath vs. its userspace
@@ -80,7 +76,9 @@ type EndpointPolicy struct {
 // PolicyOwner is anything which consumes a EndpointPolicy.
 type PolicyOwner interface {
 	GetID() uint64
-	LookupRedirectPortLocked(npMap NamedPortsMap, l4 *L4Filter) uint16
+	LookupRedirectPortLocked(ingress bool, protocol string, port uint16) uint16
+	GetNamedPortsMap(ingress bool) (NamedPortsMap, error)
+	GetNamedPortsMapLocked(ingress bool) NamedPortsMap
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.
@@ -114,10 +112,9 @@ func (p *selectorPolicy) Detach() {
 //
 // Must be performed while holding the Repository lock.
 // PolicyOwner (aka Endpoint) is also locked during this call.
-func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, npMap NamedPortsMap, isHost bool) *EndpointPolicy {
+func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *EndpointPolicy {
 	calculatedPolicy := &EndpointPolicy{
 		selectorPolicy: p,
-		NamedPortsMap:  npMap,
 		PolicyMapState: make(MapState),
 		PolicyOwner:    policyOwner,
 	}
@@ -165,13 +162,15 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4Policy
 	for _, filter := range l4PolicyMap {
 		lookupDone := false
 		proxyport := uint16(0)
-		keysFromFilter := filter.ToMapState(p.NamedPortsMap, direction)
+		keysFromFilter := filter.ToMapState(p.PolicyOwner, direction)
 		for keyFromFilter, entry := range keysFromFilter {
 			// Fix up the proxy port for entries that need proxy redirection
 			if entry.IsRedirectEntry() {
 				if !lookupDone {
 					// only lookup once for each filter
-					proxyport = p.PolicyOwner.LookupRedirectPortLocked(p.NamedPortsMap, filter)
+					// Use 'destPort' from the key as it is already resolved
+					// from a named port if needed.
+					proxyport = p.PolicyOwner.LookupRedirectPortLocked(filter.Ingress, string(filter.Protocol), keyFromFilter.DestPort)
 					lookupDone = true
 				}
 				entry.ProxyPort = proxyport

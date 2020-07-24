@@ -82,6 +82,17 @@ type IPCache struct {
 
 	listeners []IPIdentityMappingListener
 
+	// needNamedPorts is initially 'false', but will be changd to 'true' when the
+	// clusterwide named port mappings are needed for network policy computation
+	// for the first time. This avoids the overhead of maintaining 'namedPorts' map
+	// when it is known not to be needed.
+	// Protected by 'mutex'.
+	needNamedPorts bool
+
+	// namedPorts is a collection of all named ports in the cluster. This is needed
+	// only if an egress policy refers to a port by name.
+	// This map is returned to users so all updates must be made into a fresh map that
+	// is then swapped in place while 'mutex' is being held.
 	namedPorts policy.NamedPortMultiMap
 }
 
@@ -178,6 +189,9 @@ func (ipc *IPCache) getK8sMetadata(ip string) *K8sMetadata {
 
 // updateNamedPorts accumulates named ports from all K8sMetadata entries to a single map
 func (ipc *IPCache) updateNamedPorts() (namedPortsChanged bool) {
+	if !ipc.needNamedPorts {
+		return false
+	}
 	// Collect new named Ports
 	npm := make(policy.NamedPortMultiMap, len(ipc.namedPorts))
 	for _, km := range ipc.ipToK8sMetadata {
@@ -475,6 +489,10 @@ func (ipc *IPCache) deleteLocked(ip string, source source.Source) (namedPortsCha
 // GetNamedPorts returns a copy of the named ports map. May return nil.
 func (ipc *IPCache) GetNamedPorts() (npm policy.NamedPortMultiMap) {
 	ipc.mutex.Lock()
+	if !ipc.needNamedPorts {
+		ipc.needNamedPorts = true
+		ipc.updateNamedPorts()
+	}
 	// Caller can keep using the map after the lock is released, as the map is never changed
 	// once published.
 	npm = ipc.namedPorts
