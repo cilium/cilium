@@ -6,6 +6,13 @@ metadata:
   name: cilium
   namespace: kube-system
 ---
+# Source: cilium/charts/hubble-relay/templates/serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hubble-relay
+  namespace: kube-system
+---
 # Source: cilium/charts/hubble-ui/templates/serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -716,6 +723,8 @@ spec:
                   values:
                     - cilium
             topologyKey: "kubernetes.io/hostname"
+      serviceAccount: hubble-relay
+      serviceAccountName: hubble-relay
       containers:
         - name: hubble-relay
           image: "docker.io/cilium/hubble-relay:latest"
