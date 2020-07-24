@@ -17,16 +17,16 @@ for release in $(grep "General Announcement" README.rst \
                  | sed 's/.*tree\/\(v'"$MAJ_REGEX"'\).*/\1/'); do
     latest=$(git describe --tags $REMOTE/$release \
              | sed 's/v//' | sed 's/\('"$MIN_REGEX"'\).*/\1/')
-    if grep -q $latest README.rst; then
+    if grep -q -F $latest README.rst; then
         continue
     fi
 
-    current=$(grep $release README.rst \
+    current=$(grep -F $release README.rst \
               | sed 's/.*\('"$MIN_REGEX"'\).*/\1/')
     old_date=$(git log -1 -s --format="%cI" $current | sed "$REGEX_FILTER_DATE")
     new_date=$(git log -1 -s --format="%cI" $latest | sed "$REGEX_FILTER_DATE")
     elease=$(echo $release | sed 's/v//')
-    old_proj=$(grep "$elease" -A 1 $ACTS_YAML | grep projects | sort | uniq \
+    old_proj=$(grep -F "$elease" -A 1 $ACTS_YAML | grep projects | sort | uniq \
                | sed "$PROJECTS_REGEX")
     new_proj=$(git show $REMOTE/$release:$ACTS_YAML | grep project \
                | sed "$PROJECTS_REGEX")
