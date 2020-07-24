@@ -342,6 +342,8 @@ New Metrics
 Removed options
 ~~~~~~~~~~~~~~~
 
+* ``disable-ipv4``, ``keep-bpf-templates``: These options were deprecated in
+  Cilium 1.8 and are now removed.
 * The ``prometheus-serve-addr-deprecated`` option is now removed. Please use
   ``prometheus-serve-addr`` instead.
 
