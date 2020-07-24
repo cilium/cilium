@@ -282,7 +282,7 @@ func (m *DeploymentManager) DeleteAll() {
 	}
 
 	if deleted > 0 {
-		m.kubectl.WaitCleanAllTerminatingPods(2 * time.Minute)
+		m.kubectl.WaitTerminatingPods(2 * time.Minute)
 	}
 	wg.Wait()
 }
@@ -293,7 +293,7 @@ func (m *DeploymentManager) DeleteCilium() {
 	if m.ciliumDeployed {
 		ginkgoext.By("Deleting Cilium")
 		m.kubectl.Delete("cilium.yaml")
-		m.kubectl.WaitCleanAllTerminatingPods(2 * time.Minute)
+		m.kubectl.WaitTerminatingPods(2 * time.Minute)
 	}
 }
 

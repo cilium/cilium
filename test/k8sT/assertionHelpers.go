@@ -72,17 +72,17 @@ func ExpectHubbleRelayReady(vm *helpers.Kubectl, ns string) {
 	ExpectWithOffset(1, err).Should(BeNil(), "hubble-relay was not able to get into ready state")
 }
 
-// ExpectAllPodsTerminated is a wrapper around helpers/WaitCleanAllTerminatingPods.
+// ExpectAllPodsTerminated is a wrapper around helpers/WaitTerminatingPods.
 // It asserts that the error returned by that function is nil.
 func ExpectAllPodsTerminated(vm *helpers.Kubectl) {
-	err := vm.WaitCleanAllTerminatingPods(helpers.HelperTimeout)
+	err := vm.WaitTerminatingPods(helpers.HelperTimeout)
 	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")
 }
 
-// ExpectAllPodsInNsTerminated is a wrapper around helpers/WaitCleanAllTerminatingPods.
+// ExpectAllPodsInNsTerminated is a wrapper around helpers/WaitTerminatingPods.
 // It asserts that the error returned by that function is nil.
 func ExpectAllPodsInNsTerminated(vm *helpers.Kubectl, ns string) {
-	err := vm.WaitCleanAllTerminatingPodsInNs(ns, helpers.HelperTimeout)
+	err := vm.WaitTerminatingPodsInNs(ns, helpers.HelperTimeout)
 	ExpectWithOffset(1, err).To(BeNil(), "terminating containers are not deleted after timeout")
 }
 
