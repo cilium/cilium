@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -902,11 +901,8 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 
 		port := uint16(l4.Port)
 		if port == 0 && l4.PortName != "" {
-			var err error
-			npMap := ep.GetNamedPortsMapLocked(l4.Ingress)
-			port, err = npMap.GetNamedPort(l4.PortName, uint8(l4.U8Proto))
-			if err != nil {
-				log.WithError(err).WithField(logfields.PortName, l4.PortName).Debug("getDirectionNetworkPolicy: Skipping named port")
+			port = ep.GetNamedPortLocked(l4.Ingress, l4.PortName, uint8(l4.U8Proto))
+			if port == 0 {
 				continue
 			}
 		}

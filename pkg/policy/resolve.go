@@ -77,8 +77,8 @@ type EndpointPolicy struct {
 type PolicyOwner interface {
 	GetID() uint64
 	LookupRedirectPortLocked(ingress bool, protocol string, port uint16) uint16
-	GetNamedPortsMap(ingress bool) (NamedPortsMap, error)
-	GetNamedPortsMapLocked(ingress bool) NamedPortsMap
+	GetNamedPort(ingress bool, name string, proto uint8) uint16
+	GetNamedPortLocked(ingress bool, name string, proto uint8) uint16
 }
 
 // newSelectorPolicy returns an empty selectorPolicy stub.

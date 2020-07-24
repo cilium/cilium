@@ -178,16 +178,12 @@ func (d DummyOwner) LookupRedirectPortLocked(bool, string, uint16) uint16 {
 	return 4242
 }
 
-func (d DummyOwner) GetNamedPortsMap(ingress bool) (NamedPortsMap, error) {
-	return NamedPortMap{
-		"port-80": PortProto{Proto: uint8(0), Port: uint16(80)},
-	}, nil
+func (d DummyOwner) GetNamedPort(ingress bool, name string, proto uint8) uint16 {
+	return 80
 }
 
-func (d DummyOwner) GetNamedPortsMapLocked(ingress bool) NamedPortsMap {
-	return NamedPortMap{
-		"port-80": PortProto{Proto: uint8(0), Port: uint16(80)},
-	}
+func (d DummyOwner) GetNamedPortLocked(ingress bool, name string, proto uint8) uint16 {
+	return 80
 }
 
 func (d DummyOwner) GetID() uint64 {
