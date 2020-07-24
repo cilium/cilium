@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,7 +21,6 @@ import (
 	"reflect"
 	"sort"
 	"strconv"
-	"strings"
 	"sync/atomic"
 	"unsafe"
 
@@ -244,135 +243,6 @@ func (l4 *L4Filter) GetPort() uint16 {
 	return uint16(l4.Port)
 }
 
-type PortProto struct {
-	Port  uint16 // non-0
-	Proto uint8  // 0 for any
-}
-
-type NamedPortMap map[string]PortProto
-
-// PortProtoSet is a set of unique PortProto values
-type PortProtoSet map[PortProto]struct{}
-
-func (pps PortProtoSet) Equal(other PortProtoSet) bool {
-	if len(pps) != len(other) {
-		return false
-	}
-
-	for port := range pps {
-		if _, exists := other[port]; !exists {
-			return false
-		}
-	}
-	return true
-}
-
-// NamedPortMultiMap may have multiple entries for a name if multiple PODs
-// define the same name with different values.
-type NamedPortMultiMap map[string]PortProtoSet
-
-func (npm NamedPortMultiMap) Equal(other NamedPortMultiMap) bool {
-	if len(npm) != len(other) {
-		return false
-	}
-	for name, ports := range npm {
-		if otherPorts, exists := other[name]; !exists || !ports.Equal(otherPorts) {
-			return false
-		}
-	}
-	return true
-}
-
-func ValidatePortName(name string) (string, error) {
-	if !iana.IsSvcName(name) { // Port names are formatted as IANA Service Names
-		return "", fmt.Errorf("Invalid port name \"%s\", not using as a named port", name)
-	}
-	return strings.ToLower(name), nil // Normalize for case-insensitive comparison
-}
-
-func ParsePortProto(port int, protocol string) (np PortProto, err error) {
-	var u8p u8proto.U8proto
-	if protocol == "" {
-		u8p = u8proto.TCP // K8s ContainerPort protocol defaults to TCP
-	} else {
-		var err error
-		u8p, err = u8proto.ParseProtocol(protocol)
-		if err != nil {
-			return np, fmt.Errorf("Invalid protocol \"%s\": %s", protocol, err)
-		}
-	}
-	if port < 1 || port > 65535 {
-		return np, fmt.Errorf("Port number %d out of 16-bit range", port)
-	}
-	return PortProto{
-		Proto: uint8(u8p),
-		Port:  uint16(port),
-	}, nil
-}
-
-func (npm NamedPortMap) AddPort(name string, port int, protocol string) error {
-	name, err := ValidatePortName(name)
-	if err != nil {
-		return err
-	}
-	pp, err := ParsePortProto(port, protocol)
-	if err != nil {
-		return err
-	}
-	npm[name] = pp
-	return nil
-}
-
-// NamedPortMap abstracts different maps that implement GetNamedPort method
-type NamedPortsMap interface {
-	GetNamedPort(name string, proto uint8) (port uint16, err error)
-}
-
-func (npm NamedPortMap) GetNamedPort(name string, proto uint8) (port uint16, err error) {
-	if npm == nil {
-		return 0, fmt.Errorf("nil map")
-	}
-	np, ok := npm[name]
-	if !ok {
-		return 0, fmt.Errorf("named port %s not found in %v", name, npm)
-	}
-	if np.Proto != 0 && proto != np.Proto {
-		return 0, fmt.Errorf("incompatible proto")
-	}
-	if np.Port == 0 {
-		return 0, fmt.Errorf("named port has zero value")
-	}
-	return np.Port, nil
-}
-
-func (npm NamedPortMultiMap) GetNamedPort(name string, proto uint8) (port uint16, err error) {
-	if npm == nil {
-		return 0, fmt.Errorf("nil map")
-	}
-	nps, ok := npm[name]
-	if !ok {
-		return 0, fmt.Errorf("named port %s not found in %v", name, npm)
-	}
-	// Find if there is a single port that has no proto conflict and no zero port value
-	port = 0
-	for np := range nps {
-		if np.Proto != 0 && proto != np.Proto {
-			continue // conflicting proto
-		}
-		if np.Port == 0 {
-			continue // zero port
-		}
-		if port != 0 {
-			return 0, fmt.Errorf("duplicate named ports")
-		}
-		port = np.Port
-	}
-	if port == 0 {
-		return 0, fmt.Errorf("incompatible proto or zero value port")
-	}
-	return port, nil
-}
-
 // ToMapState converts filter into a MapState with two possible values:
 // - Entry with ProxyPort = 0: No proxy redirection is needed for this key
 // - Entry with any other port #: Proxy redirection is required for this key,
@@ -400,11 +270,8 @@ func (l4 *L4Filter) ToMapState(policyOwner PolicyOwner, direction trafficdirecti
 
 	// resolve named port
 	if port == 0 && l4.PortName != "" {
-		var err error
-		npMap := policyOwner.GetNamedPortsMapLocked(l4.Ingress)
-		port, err = npMap.GetNamedPort(l4.PortName, proto)
-		if err != nil {
-			logger.Debugf("ToMapState: Skipping named port: %s", err)
+		port = policyOwner.GetNamedPortLocked(l4.Ingress, l4.PortName, proto)
+		if port == 0 {
 			return keysToAdd
 		}
 	}
@@ -952,7 +819,7 @@ func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentit
 	proto := uint8(l4Filter.U8Proto)
 	derivedFrom := l4Filter.DerivedFromRules
 
-	// Must take a copy of 'users' as GetNamedPortsMap() will lock the Endpoint below and
+	// Must take a copy of 'users' as GetNamedPort() will lock the Endpoint below and
 	// the Endpoint lock may not be taken while 'l4.mutex' is held.
 	l4.mutex.RLock()
 	users := make(map[*EndpointPolicy]struct{}, len(l4.users))
@@ -964,21 +831,8 @@ func (l4 *L4Policy) AccumulateMapChanges(adds, deletes []identity.NumericIdentit
 	for epPolicy := range users {
 		// resolve named port
 		if port == 0 && l4Filter.PortName != "" {
-			npMap, err := epPolicy.PolicyOwner.GetNamedPortsMap(direction == trafficdirection.Ingress)
-			if err == nil {
-				port, err = npMap.GetNamedPort(l4Filter.PortName, proto)
-			}
-			if err != nil {
-				if option.Config.Debug {
-					logger := log.WithFields(logrus.Fields{
-						logfields.Port:             port,
-						logfields.PortName:         l4Filter.PortName,
-						logfields.Protocol:         proto,
-						logfields.TrafficDirection: direction,
-						logfields.EndpointID:       epPolicy.PolicyOwner.GetID(),
-					})
-					logger.WithError(err).Debug("AccumulateMapChanges: Skipping named port")
-				}
+			port = epPolicy.PolicyOwner.GetNamedPort(direction == trafficdirection.Ingress, l4Filter.PortName, proto)
+			if port == 0 {
 				continue
 			}
 		}

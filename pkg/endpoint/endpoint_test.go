@@ -506,8 +506,8 @@ func (s *EndpointSuite) TestWaitForPolicyRevision(c *C) {
 func (s *EndpointSuite) TestProxyID(c *C) {
 	e := &Endpoint{ID: 123, policyRevision: 0}
 
-	id, err := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true})
-	c.Assert(err, IsNil)
+	id := e.proxyID(&policy.L4Filter{Port: 8080, Protocol: api.ProtoTCP, Ingress: true})
+	c.Assert(id, Not(Equals), "")
 	endpointID, ingress, protocol, port, err := policy.ParseProxyID(id)
 	c.Assert(endpointID, Equals, uint16(123))
 	c.Assert(ingress, Equals, true)
