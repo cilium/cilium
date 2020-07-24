@@ -1,4 +1,4 @@
-// Copyright 2017-2018 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -15,12 +15,10 @@
 package api
 
 import (
-	"bufio"
 	"fmt"
-	"io"
 	"os"
+	"os/user"
 	"strconv"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -30,34 +28,19 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "api")
 
-// GetGroupIDByName returns the group ID for the given grpName.
-func GetGroupIDByName(grpName string) (int, error) {
-	f, err := os.Open(GroupFilePath)
+// getGroupIDByName returns the group ID for the given grpName.
+func getGroupIDByName(grpName string) (int, error) {
+	group, err := user.LookupGroup(grpName)
 	if err != nil {
 		return -1, err
 	}
-	defer f.Close()
-	br := bufio.NewReader(f)
-	for {
-		s, err := br.ReadString('\n')
-		if err == io.EOF {
-			break
-		}
-		if err != nil {
-			return -1, err
-		}
-		p := strings.Split(s, ":")
-		if len(p) >= 3 && p[0] == grpName {
-			return strconv.Atoi(p[2])
-		}
-	}
-	return -1, fmt.Errorf("group %q not found", grpName)
+	return strconv.Atoi(group.Gid)
 }
 
-// SetDefaultPermissions sets the given socket to with cilium's default
-// group and mode permissions. Group `CiliumGroupName` and mode `0660`
+// SetDefaultPermissions sets the given socket's group to `CiliumGroupName` and
+// mode to `SocketFileMode`.
 func SetDefaultPermissions(socketPath string) error {
-	gid, err := GetGroupIDByName(CiliumGroupName)
+	gid, err := getGroupIDByName(CiliumGroupName)
 	if err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
 			logfields.Path: socketPath,
