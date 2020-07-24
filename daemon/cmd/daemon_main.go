@@ -272,11 +272,6 @@ func init() {
 	flags.Bool(option.DisableConntrack, false, "Disable connection tracking")
 	option.BindEnv(option.DisableConntrack)
 
-	flags.Bool(option.LegacyDisableIPv4Name, false, "Disable IPv4 mode")
-	flags.MarkDeprecated(option.LegacyDisableIPv4Name, "This option has been deprecated and will be removed in v1.9")
-	flags.MarkHidden(option.LegacyDisableIPv4Name)
-	option.BindEnv(option.LegacyDisableIPv4Name)
-
 	flags.Bool(option.EnableEndpointRoutes, defaults.EnableEndpointRoutes, "Use per endpoint routes instead of routing via cilium_host")
 	option.BindEnv(option.EnableEndpointRoutes)
 
@@ -474,10 +469,6 @@ func init() {
 
 	flags.Bool(option.KeepConfig, false, "When restoring state, keeps containers' configuration in place")
 	option.BindEnv(option.KeepConfig)
-
-	flags.Bool(option.KeepBPFTemplates, false, "Do not restore BPF template files from binary")
-	option.BindEnv(option.KeepBPFTemplates)
-	flags.MarkDeprecated(option.KeepBPFTemplates, "This option is no longer supported and will be removed in v1.9")
 
 	flags.String(option.KVStore, "", "Key-value store type")
 	option.BindEnv(option.KVStore)

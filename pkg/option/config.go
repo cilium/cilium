@@ -211,11 +211,6 @@ const (
 	// KeepConfig when restoring state, keeps containers' configuration in place
 	KeepConfig = "keep-config"
 
-	// KeepBPFTemplates do not restore BPF template files from binary
-	// Deprecated: This option is no longer available since cilium-agent does
-	//             not include the BPF templates anymore.
-	KeepBPFTemplates = "keep-bpf-templates"
-
 	// KVStore key-value store type
 	KVStore = "kvstore"
 
@@ -551,10 +546,6 @@ const (
 	// EnableIPv4Name is the name of the option to enable IPv4 support
 	EnableIPv4Name = "enable-ipv4"
 
-	// LegacyDisableIPv4Name is the name of the legacy option to disable
-	// IPv4 support
-	LegacyDisableIPv4Name = "disable-ipv4"
-
 	// EnableIPv6Name is the name of the option to enable IPv6 support
 	EnableIPv6Name = "enable-ipv6"
 
@@ -818,7 +809,6 @@ var HelpFlagSections = []FlagsSection{
 		Name: "BPF flags",
 		Flags: []string{
 			BPFRoot,
-			KeepBPFTemplates,
 			CTMapEntriesGlobalTCPName,
 			CTMapEntriesGlobalAnyName,
 			CTMapEntriesTimeoutSYNName,
@@ -2262,7 +2252,7 @@ func (c *DaemonConfig) Populate() {
 	c.DebugVerbose = viper.GetStringSlice(DebugVerbose)
 	c.DirectRoutingDevice = viper.GetString(DirectRoutingDevice)
 	c.DisableConntrack = viper.GetBool(DisableConntrack)
-	c.EnableIPv4 = getIPv4Enabled()
+	c.EnableIPv4 = viper.GetBool(EnableIPv4Name)
 	c.EnableIPv6 = viper.GetBool(EnableIPv6Name)
 	c.EnableIPv6NDP = viper.GetBool(EnableIPv6NDPName)
 	c.IPv6MCastDevice = viper.GetString(IPv6MCastDevice)
@@ -2879,14 +2869,6 @@ func sanitizeIntParam(paramName string, paramDefault int) int {
 		return paramDefault
 	}
 	return intParam
-}
-
-func getIPv4Enabled() bool {
-	if viper.GetBool(LegacyDisableIPv4Name) {
-		return false
-	}
-
-	return viper.GetBool(EnableIPv4Name)
 }
 
 func getHostDevice() string {
