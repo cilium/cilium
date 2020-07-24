@@ -211,18 +211,18 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				var finalizeFunc revert.FinalizeFunc
 				var revertFunc revert.RevertFunc
 
-				proxyID, err := e.proxyID(l4)
-				if err != nil {
+				proxyID := e.proxyID(l4)
+				if proxyID == "" {
 					// Skip redirects for which a proxyID cannot be created.
 					// This may happen due to the named port mapping not
 					// existing or multiple PODs defining the same port name
 					// with different port values. The redirect will be created
 					// when the mapping is available or when the port name
 					// conflicts have been resolved in POD specs.
-					log.WithError(err).WithField(logfields.EndpointID, e.ID).Warning("Skipping adding redirect")
 					continue
 				}
 
+				var err error
 				redirectPort, err, finalizeFunc, revertFunc = e.proxy.CreateOrUpdateRedirect(l4, proxyID, e, proxyWaitGroup)
 				if err != nil {
 					revertStack.Revert() // Ignore errors while reverting. This is best-effort.
