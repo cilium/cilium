@@ -2069,18 +2069,25 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 		&TimeoutConfig{Timeout: DNSHelperTimeout})
 }
 
-// WaitCleanAllTerminatingPods waits until all nodes that are in `Terminating`
+// WaitTerminatingPods waits until all nodes that are in `Terminating`
 // state are deleted correctly in the platform. In case of excedding the
-// given timeout (in seconds) it returns an error
+// given timeout (in seconds) it returns an error.
 
-func (kub *Kubectl) WaitCleanAllTerminatingPods(timeout time.Duration) error {
-	return kub.WaitCleanAllTerminatingPodsInNs("", timeout)
+func (kub *Kubectl) WaitTerminatingPods(timeout time.Duration) error {
+	return kub.WaitTerminatingPodsInNsWithFilter("", "", timeout)
 }
 
-// WaitCleanAllTerminatingPodsInNs waits until all nodes that are in `Terminating`
+// WaitTerminatingPodsInNs waits until all nodes that are in `Terminating`
 // state are deleted correctly in the platform. In case of excedding the
-// given timeout (in seconds) it returns an error
-func (kub *Kubectl) WaitCleanAllTerminatingPodsInNs(ns string, timeout time.Duration) error {
+// given timeout (in seconds) it returns an error.
+func (kub *Kubectl) WaitTerminatingPodsInNs(ns string, timeout time.Duration) error {
+	return kub.WaitTerminatingPodsInNsWithFilter(ns, "", timeout)
+}
+
+// WaitTerminatingPodsInNs waits until all nodes that are in `Terminating`
+// state are deleted correctly in the platform. In case of excedding the
+// given timeout (in seconds) it returns an error.
+func (kub *Kubectl) WaitTerminatingPodsInNsWithFilter(ns, filter string, timeout time.Duration) error {
 	body := func() bool {
 		where := ns
 		if where == "" {
@@ -2089,8 +2096,8 @@ func (kub *Kubectl) WaitCleanAllTerminatingPodsInNs(ns string, timeout time.Dura
 			where = "-n " + where
 		}
 		res := kub.ExecShort(fmt.Sprintf(
-			"%s get pods %s -o jsonpath='{.items[*].metadata.deletionTimestamp}'",
-			KubectlCmd, where))
+			"%s get pods %s %s -o jsonpath='{.items[*].metadata.deletionTimestamp}'",
+			KubectlCmd, filter, where))
 		if !res.WasSuccessful() {
 			return false
 		}

@@ -119,7 +119,7 @@ var _ = SkipContextIf(func() bool {
 		_ = kubectl.Exec(fmt.Sprintf("./cilium-istioctl manifest generate | %s delete -f -", helpers.KubectlCmd))
 
 		By("Waiting all terminating PODs to disappear")
-		err := kubectl.WaitCleanAllTerminatingPods(teardownTimeout)
+		err := kubectl.WaitTerminatingPods(teardownTimeout)
 		ExpectWithOffset(1, err).To(BeNil(), "terminating Istio PODs are not deleted after timeout")
 
 		By("Deleting the istio-system namespace")
