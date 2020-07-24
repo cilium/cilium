@@ -6,15 +6,16 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // NodeAddressing Addressing information of a node for all address families
-// swagger:model NodeAddressing
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model NodeAddressing
 type NodeAddressing struct {
 
 	// ipv4

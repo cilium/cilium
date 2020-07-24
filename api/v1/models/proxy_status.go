@@ -8,15 +8,16 @@ package models
 import (
 	"strconv"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // ProxyStatus Status of proxy
-// swagger:model ProxyStatus
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model ProxyStatus
 type ProxyStatus struct {
 
 	// IP address that the proxy listens on

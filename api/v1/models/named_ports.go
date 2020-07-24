@@ -8,17 +8,17 @@ package models
 import (
 	"strconv"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // NamedPorts List of named Layer 4 port and protocol pairs which will be used in Network
 // Policy specs.
 //
-// swagger:model NamedPorts
 // +deepequal-gen=true
+//
+// swagger:model NamedPorts
 type NamedPorts []*Port
 
 // Validate validates this named ports

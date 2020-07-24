@@ -8,14 +8,14 @@ package models
 import (
 	"encoding/json"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
 
 // DaemonConfigurationSpec The controllable configuration of the daemon.
+//
 // swagger:model DaemonConfigurationSpec
 type DaemonConfigurationSpec struct {
 
@@ -87,7 +87,7 @@ const (
 
 // prop value enum
 func (m *DaemonConfigurationSpec) validatePolicyEnforcementEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, daemonConfigurationSpecTypePolicyEnforcementPropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, daemonConfigurationSpecTypePolicyEnforcementPropEnum, true); err != nil {
 		return err
 	}
 	return nil

@@ -8,7 +8,7 @@ package daemon
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // PatchConfigHandlerFunc turns a function with the right signature into a patch config handler

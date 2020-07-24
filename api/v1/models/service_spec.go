@@ -9,14 +9,14 @@ import (
 	"encoding/json"
 	"strconv"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
 
 // ServiceSpec Configuration of a service
+//
 // swagger:model ServiceSpec
 type ServiceSpec struct {
 
@@ -136,6 +136,7 @@ func (m *ServiceSpec) UnmarshalBinary(b []byte) error {
 }
 
 // ServiceSpecFlags Optional service configuration flags
+//
 // swagger:model ServiceSpecFlags
 type ServiceSpecFlags struct {
 
@@ -198,7 +199,7 @@ const (
 
 // prop value enum
 func (m *ServiceSpecFlags) validateTrafficPolicyEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, serviceSpecFlagsTypeTrafficPolicyPropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, serviceSpecFlagsTypeTrafficPolicyPropEnum, true); err != nil {
 		return err
 	}
 	return nil
@@ -250,7 +251,7 @@ const (
 
 // prop value enum
 func (m *ServiceSpecFlags) validateTypeEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, serviceSpecFlagsTypeTypePropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, serviceSpecFlagsTypeTypePropEnum, true); err != nil {
 		return err
 	}
 	return nil

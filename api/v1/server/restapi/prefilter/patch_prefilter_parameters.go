@@ -13,7 +13,7 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 
-	models "github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPatchPrefilterParams creates a new PatchPrefilterParams object
@@ -53,7 +53,7 @@ func (o *PatchPrefilterParams) BindRequest(r *http.Request, route *middleware.Ma
 		var body models.PrefilterSpec
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			if err == io.EOF {
-				res = append(res, errors.Required("prefilterSpec", "body"))
+				res = append(res, errors.Required("prefilterSpec", "body", ""))
 			} else {
 				res = append(res, errors.NewParseError("prefilterSpec", "body", "", err))
 			}
@@ -68,7 +68,7 @@ func (o *PatchPrefilterParams) BindRequest(r *http.Request, route *middleware.Ma
 			}
 		}
 	} else {
-		res = append(res, errors.Required("prefilterSpec", "body"))
+		res = append(res, errors.Required("prefilterSpec", "body", ""))
 	}
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)

@@ -8,13 +8,13 @@ package models
 import (
 	"encoding/json"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/validate"
 )
 
 // EndpointPolicyEnabled Whether policy enforcement is enabled (ingress, egress, both or none)
+//
 // swagger:model EndpointPolicyEnabled
 type EndpointPolicyEnabled string
 
@@ -56,7 +56,7 @@ func init() {
 }
 
 func (m EndpointPolicyEnabled) validateEndpointPolicyEnabledEnum(path, location string, value EndpointPolicyEnabled) error {
-	if err := validate.Enum(path, location, value, endpointPolicyEnabledEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, endpointPolicyEnabledEnum, true); err != nil {
 		return err
 	}
 	return nil

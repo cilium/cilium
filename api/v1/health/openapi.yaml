@@ -61,13 +61,24 @@ paths:
           schema:
             "$ref": "#/definitions/HealthStatusResponse"
 definitions:
+  StatusResponse:
+    type: object
+    description: Status of Cilium daemon
+    x-go-type:
+      type: StatusResponse
+      import:
+        package: "github.com/cilium/cilium/api/v1/models"
+        alias: "ciliumModels"
+      hint:
+        kind: object
+        nullable: true
   HealthResponse:
     description: Health and status information of local node
     type: object
     properties:
       cilium:
         description: Status of Cilium daemon
-        "$ref": "../openapi.yaml#/definitions/StatusResponse"
+        "$ref": "#/definitions/StatusResponse"
       uptime:
         description: Uptime of cilium-health instance
         type: string

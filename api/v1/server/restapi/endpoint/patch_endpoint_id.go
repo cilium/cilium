@@ -8,7 +8,7 @@ package endpoint
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // PatchEndpointIDHandlerFunc turns a function with the right signature into a patch endpoint ID handler

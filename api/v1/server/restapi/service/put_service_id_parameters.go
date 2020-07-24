@@ -12,11 +12,10 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 
-	strfmt "github.com/go-openapi/strfmt"
-
-	models "github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPutServiceIDParams creates a new PutServiceIDParams object
@@ -61,7 +60,7 @@ func (o *PutServiceIDParams) BindRequest(r *http.Request, route *middleware.Matc
 		var body models.ServiceSpec
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			if err == io.EOF {
-				res = append(res, errors.Required("config", "body"))
+				res = append(res, errors.Required("config", "body", ""))
 			} else {
 				res = append(res, errors.NewParseError("config", "body", "", err))
 			}
@@ -76,7 +75,7 @@ func (o *PutServiceIDParams) BindRequest(r *http.Request, route *middleware.Matc
 			}
 		}
 	} else {
-		res = append(res, errors.Required("config", "body"))
+		res = append(res, errors.Required("config", "body", ""))
 	}
 	rID, rhkID, _ := route.Params.GetOK("id")
 	if err := o.bindID(rID, rhkID, route.Formats); err != nil {

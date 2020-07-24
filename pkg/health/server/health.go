@@ -71,7 +71,9 @@ func (h *getHealthz) Handle(params GetHealthzParams) middleware.Responder {
 	}
 
 	sr := healthModels.HealthResponse{}
-	sr.Cilium = ciliumStatus
+	if ciliumStatus != nil {
+		sr.Cilium = *ciliumStatus
+	}
 	sr.Uptime = h.Server.DumpUptime()
 	sr.SystemLoad = load
 	return NewGetHealthzOK().WithPayload(&sr)

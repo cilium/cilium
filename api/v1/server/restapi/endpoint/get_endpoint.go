@@ -8,7 +8,7 @@ package endpoint
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // GetEndpointHandlerFunc turns a function with the right signature into a get endpoint handler

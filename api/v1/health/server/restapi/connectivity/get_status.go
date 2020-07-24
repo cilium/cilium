@@ -8,7 +8,7 @@ package connectivity
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // GetStatusHandlerFunc turns a function with the right signature into a get status handler

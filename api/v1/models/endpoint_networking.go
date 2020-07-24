@@ -8,13 +8,13 @@ package models
 import (
 	"strconv"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // EndpointNetworking Unique identifiers for this endpoint from outside cilium
+//
 // swagger:model EndpointNetworking
 type EndpointNetworking struct {
 

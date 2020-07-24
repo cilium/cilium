@@ -8,7 +8,7 @@ package policy
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // GetIdentityIDHandlerFunc turns a function with the right signature into a get identity ID handler

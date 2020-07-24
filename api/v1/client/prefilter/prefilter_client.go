@@ -9,12 +9,11 @@ import (
 	"fmt"
 
 	"github.com/go-openapi/runtime"
-
-	strfmt "github.com/go-openapi/strfmt"
+	"github.com/go-openapi/strfmt"
 )
 
 // New creates a new prefilter API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) *Client {
+func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
@@ -26,8 +25,19 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientService is the interface for Client methods
+type ClientService interface {
+	DeletePrefilter(params *DeletePrefilterParams) (*DeletePrefilterOK, error)
+
+	GetPrefilter(params *GetPrefilterParams) (*GetPrefilterOK, error)
+
+	PatchPrefilter(params *PatchPrefilterParams) (*PatchPrefilterOK, error)
+
+	SetTransport(transport runtime.ClientTransport)
+}
+
 /*
-DeletePrefilter deletes list of c ID rs
+  DeletePrefilter deletes list of c ID rs
 */
 func (a *Client) DeletePrefilter(params *DeletePrefilterParams) (*DeletePrefilterOK, error) {
 	// TODO: Validate the params before sending
@@ -61,7 +71,7 @@ func (a *Client) DeletePrefilter(params *DeletePrefilterParams) (*DeletePrefilte
 }
 
 /*
-GetPrefilter retrieves list of c ID rs
+  GetPrefilter retrieves list of c ID rs
 */
 func (a *Client) GetPrefilter(params *GetPrefilterParams) (*GetPrefilterOK, error) {
 	// TODO: Validate the params before sending
@@ -95,7 +105,7 @@ func (a *Client) GetPrefilter(params *GetPrefilterParams) (*GetPrefilterOK, erro
 }
 
 /*
-PatchPrefilter updates list of c ID rs
+  PatchPrefilter updates list of c ID rs
 */
 func (a *Client) PatchPrefilter(params *PatchPrefilterParams) (*PatchPrefilterOK, error) {
 	// TODO: Validate the params before sending

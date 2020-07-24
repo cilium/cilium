@@ -8,7 +8,7 @@ package policy
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // GetIdentityEndpointsHandlerFunc turns a function with the right signature into a get identity endpoints handler

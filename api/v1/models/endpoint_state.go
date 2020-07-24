@@ -8,13 +8,13 @@ package models
 import (
 	"encoding/json"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/validate"
 )
 
 // EndpointState State of endpoint
+//
 // swagger:model EndpointState
 type EndpointState string
 
@@ -62,7 +62,7 @@ func init() {
 }
 
 func (m EndpointState) validateEndpointStateEnum(path, location string, value EndpointState) error {
-	if err := validate.Enum(path, location, value, endpointStateEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, endpointStateEnum, true); err != nil {
 		return err
 	}
 	return nil

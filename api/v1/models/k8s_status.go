@@ -8,16 +8,17 @@ package models
 import (
 	"encoding/json"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
 
 // K8sStatus Status of Kubernetes integration
-// swagger:model K8sStatus
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model K8sStatus
 type K8sStatus struct {
 
 	// k8s api versions
@@ -74,7 +75,7 @@ const (
 
 // prop value enum
 func (m *K8sStatus) validateStateEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, k8sStatusTypeStatePropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, k8sStatusTypeStatePropEnum, true); err != nil {
 		return err
 	}
 	return nil

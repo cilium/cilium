@@ -6,14 +6,15 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	strfmt "github.com/go-openapi/strfmt"
-
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // EndpointIdentifiers Unique identifiers for this endpoint from outside cilium
-// swagger:model EndpointIdentifiers
+//
 // +deepequal-gen=true
+//
+// swagger:model EndpointIdentifiers
 type EndpointIdentifiers struct {
 
 	// ID assigned by container runtime

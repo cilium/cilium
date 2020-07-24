@@ -8,16 +8,17 @@ package models
 import (
 	"encoding/json"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
 
 // HubbleStatus Status of the Hubble server
-// swagger:model HubbleStatus
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model HubbleStatus
 type HubbleStatus struct {
 
 	// metrics
@@ -121,7 +122,7 @@ const (
 
 // prop value enum
 func (m *HubbleStatus) validateStateEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, hubbleStatusTypeStatePropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, hubbleStatusTypeStatePropEnum, true); err != nil {
 		return err
 	}
 	return nil
@@ -160,6 +161,7 @@ func (m *HubbleStatus) UnmarshalBinary(b []byte) error {
 }
 
 // HubbleStatusMetrics Status of the Hubble metrics server
+//
 // swagger:model HubbleStatusMetrics
 type HubbleStatusMetrics struct {
 
@@ -211,7 +213,7 @@ const (
 
 // prop value enum
 func (m *HubbleStatusMetrics) validateStateEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, hubbleStatusMetricsTypeStatePropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, hubbleStatusMetricsTypeStatePropEnum, true); err != nil {
 		return err
 	}
 	return nil
@@ -250,8 +252,10 @@ func (m *HubbleStatusMetrics) UnmarshalBinary(b []byte) error {
 }
 
 // HubbleStatusObserver Status of the Hubble observer
-// swagger:model HubbleStatusObserver
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model HubbleStatusObserver
 type HubbleStatusObserver struct {
 
 	// Current number of flows this Hubble observer stores
