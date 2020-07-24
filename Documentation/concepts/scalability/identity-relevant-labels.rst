@@ -26,9 +26,9 @@ Label                               Description
 ``k8s:io.kubernetes.pod.namespace`` Include all ``io.kubernetes.pod.namespace`` labels
 ``k8s:app.kubernetes.io``           Include all ``app.kubernetes.io`` labels
 ``k8s:!io.kubernetes``              Ignore all ``io.kubernetes`` labels
-``k8s:kubernetes.io``               Ignore all other ``kubernetes.io`` labels
-``k8s:beta.kubernetes.io``          Ignore all ``beta.kubernetes.io`` labels
-``k8s:k8s.io``                      Ignore all ``k8s.io`` labels
+``k8s:!kubernetes.io``              Ignore all other ``kubernetes.io`` labels
+``k8s:!beta.kubernetes.io``         Ignore all ``beta.kubernetes.io`` labels
+``k8s:!k8s.io``                     Ignore all ``k8s.io`` labels
 ``k8s:!pod-template-generation``    Ignore all ``pod-template-generation`` labels
 ``k8s:!pod-template-hash``          Ignore all ``pod-template-hash`` labels
 ``k8s:!controller-revision-hash``   Ignore all ``controller-revision-hash`` labels
