@@ -25,6 +25,8 @@ spec:
                   values:
                     - cilium
             topologyKey: "kubernetes.io/hostname"
+      serviceAccount: hubble-relay
+      serviceAccountName: hubble-relay
       containers:
         - name: hubble-relay
 {{- if contains "/" .Values.image.repository }}
