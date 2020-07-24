@@ -1,5 +1,5 @@
 .. only:: not (epub or latex or html)
-  
+
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
     https://docs.cilium.io
@@ -192,9 +192,19 @@ If you intent to release a new feature release, see the
    this task.
 
 #. Update the ``stable`` tags for ``cilium``, ``cilium-operator``,
-   ``cilium-docker-plugin`` and ``hubble-relay`` on DockerHub.
+   ``cilium-operator-aws``, ``cilium-operator-azure``,
+   ``cilium-operator-generic``, ``cilium-docker-plugin`` and ``hubble-relay``
+   on DockerHub, for the latest version of Cilium. For example, if the latest
+   version is ``1.8``, then for all patch releases on the ``1.8`` line, this
+   step should be performed. Once ``1.9`` is out for example, then this is no
+   longer required for ``1.8``.
 
-#. Update the external tools and guides to point to the released Cilium version:
+   **Note**, the DockerHub UI will not allow you to modify the ``stable`` tag
+   directly. You will need to delete it, and then create a new, updated one.
+
+#. Update the following external tools and guides to point to the released
+   Cilium version. This step is only required on a new minor release like going
+   from ``1.8`` to ``1.9``.
 
     * `kubeadm <https://kubernetes.io/docs/setup/production-environment/tools/kubeadm/create-cluster-kubeadm/>`_
     * `kops <https://github.com/kubernetes/kops/>`_
