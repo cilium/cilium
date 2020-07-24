@@ -200,12 +200,12 @@ The comment must not contain any other characters.
 After the backports are merged
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-After the backport PR is merged, mark all backported PRs with
-``backport-done/X.Y`` label and clear the ``backport-pending/X.Y`` label(s). If
-the backport pull request description was generated using the scripts above,
-then the full command is listed in the pull request description.
+After the backport PR is merged, if the person who merged the PR didn't take
+care of it already, mark all backported PRs with ``backport-done/X.Y`` label
+and clear the ``backport-pending/X.Y`` label(s). If the backport pull request
+description was generated using the scripts above, then the full command is
+listed in the pull request description.
 
 .. code-block:: bash
 
-   # Set PR 1234's v1.0 backporting labels to done
-   contrib/backporting/set-labels.py 1234 done 1.0.
+   $ for pr in 12589 12568; do contrib/backporting/set-labels.py $pr done 1.8; done
