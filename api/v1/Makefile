@@ -51,4 +51,4 @@ clean:
 
 .PHONY: deps
 deps:
-	@$(PROTOC) --version | grep 3.11.4 || (echo "Error: protoc 3.11.4 is required" && exit 1)
+	@$(PROTOC) --version | grep 3.12.3 || (echo "Error: protoc 3.12.3 is required" && exit 1)
