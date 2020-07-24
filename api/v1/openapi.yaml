@@ -1216,7 +1216,9 @@ definitions:
       - ingress
       - egress
       - both
-
+      - audit-ingress
+      - audit-egress
+      - audit-both
   EndpointPolicy:
     description: Policy information of an endpoint
     type: object
