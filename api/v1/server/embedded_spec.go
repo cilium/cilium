@@ -2078,7 +2078,10 @@ func init() {
         "none",
         "ingress",
         "egress",
-        "both"
+        "both",
+        "audit-ingress",
+        "audit-egress",
+        "audit-both"
       ]
     },
     "EndpointPolicyStatus": {
@@ -5707,7 +5710,10 @@ func init() {
         "none",
         "ingress",
         "egress",
-        "both"
+        "both",
+        "audit-ingress",
+        "audit-egress",
+        "audit-both"
       ]
     },
     "EndpointPolicyStatus": {
