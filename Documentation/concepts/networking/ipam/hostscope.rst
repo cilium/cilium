@@ -60,8 +60,6 @@ the needs of your environment.
 |       |                | return.                                          |
 +-------+----------------+--------------------------------------------------+
 
-The size of the IPv4 cluster prefix can be changed with the
-``--ipv4-cluster-cidr-mask-size`` option. The size of the IPv6 cluster prefix
-is currently fixed sized at ``/48``. The node allocation prefixes can be
-specified manually with the option ``--ipv4-range`` respectively
-``--ipv6-range``.
+The size of the IPv6 cluster prefix is currently fixed sized at ``/48``. The
+node allocation prefixes can be specified manually with the options
+``--ipv4-range`` and ``--ipv6-range``, respectively.

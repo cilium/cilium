@@ -158,9 +158,6 @@ const (
 	// which allows to use reserved label for fixed identities
 	FixedIdentityMapping = "fixed-identity-mapping"
 
-	// IPv4ClusterCIDRMaskSize is the mask size for the cluster wide CIDR
-	IPv4ClusterCIDRMaskSize = "ipv4-cluster-cidr-mask-size"
-
 	// IPv4Range is the per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16
 	IPv4Range = "ipv4-range"
 
@@ -943,7 +940,6 @@ var HelpFlagSections = []FlagsSection{
 			EnableIPv6NDPName,
 			IPAllocationTimeout,
 			IPAM,
-			IPv4ClusterCIDRMaskSize,
 			IPv4NodeAddr,
 			IPv6NodeAddr,
 			IPv4PodSubnets,
