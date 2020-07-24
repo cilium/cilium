@@ -15,16 +15,20 @@
 package loader
 
 import (
+	"bufio"
 	"context"
 	"fmt"
+	"io"
 	"net"
 	"os"
 	"path"
 	"reflect"
+	"strings"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -34,10 +38,12 @@ import (
 	"github.com/cilium/cilium/pkg/elf"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 
+	"github.com/google/renameio"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
@@ -132,6 +138,68 @@ func nullifyStringSubstitutions(strings map[string]string) map[string]string {
 	return nullStrings
 }
 
+// patchHostNetdevHeaderFile creates a header file corresponding to each new
+// device to which bpf_host is attached, including the second host device and
+// native devices. The goal is to simplify inspection of Cilium state and avoid
+// having to read symbols manually from the object files.
+func patchHostNetdevHeaderFile(stateDir, ifName string, mac mac.MAC, ifIndex uint32,
+	secctxFromIpcache uint32, nodePort bool) (string, error) {
+	netdevHeaderFilename := strings.Replace(common.CHeaderFileName, ".h", "_"+ifName+".h", 1)
+	netdevHeaderFile := path.Join(stateDir, netdevHeaderFilename)
+	headerFile := path.Join(stateDir, common.CHeaderFileName)
+
+	fin, err := os.Open(headerFile)
+	if err != nil {
+		return "", err
+	}
+	defer fin.Close()
+	// Write new contents to a temporary file which will be atomically renamed to the
+	// real file at the end of this function. This will make sure we never end up with
+	// corrupted header files on the filesystem.
+	fout, err := renameio.TempFile(stateDir, netdevHeaderFile)
+	if err != nil {
+		return "", err
+	}
+	defer fout.Cleanup()
+
+	scanner := bufio.NewScanner(fin)
+	for scanner.Scan() {
+		line := scanner.Text()
+		if nodePort {
+			if strings.HasPrefix(line, "/* Fake values") {
+				// We're replacing the fake values so no need for warning anymore.
+				continue
+			} else if strings.HasPrefix(line, "DEFINE_U32(NATIVE_DEV_IFINDEX") {
+				line = fmt.Sprintf("DEFINE_U32(NATIVE_DEV_IFINDEX, %#08x);\t/* %d */",
+					ifIndex, ifIndex)
+			}
+		}
+		if strings.HasPrefix(line, "DEFINE_MAC(NODE_MAC") {
+			line = fmt.Sprintf("DEFINE_MAC(NODE_MAC, %s);", common.GoArray2C(mac))
+		} else if strings.HasPrefix(line, "DEFINE_U32(SECCTX_FROM_IPCACHE") {
+			line = fmt.Sprintf("DEFINE_U32(SECCTX_FROM_IPCACHE, %#08x);\t/* %d */",
+				secctxFromIpcache, secctxFromIpcache)
+		}
+		line = fmt.Sprintf("%s\n", line)
+		if _, err := fout.WriteString(line); err != nil {
+			return "", err
+		}
+		if err == io.EOF {
+			break
+		}
+	}
+
+	if scanner.Err() != nil {
+		return "", scanner.Err()
+	}
+
+	if err = fout.CloseAtomicallyReplace(); err != nil {
+		return "", nil
+	}
+
+	return netdevHeaderFile, nil
+}
+
 // Since we attach the host endpoint datapath to two different interfaces, we
 // need two different NODE_MAC values. patchHostNetdevDatapath creates a new
 // object file for the native device, from the object file for the host device
@@ -185,7 +253,17 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 	callsMapHostDevice := bpf.LocalMapName(callsmap.HostMapName, uint16(ep.GetID()))
 	strings[callsMapHostDevice] = bpf.LocalMapName(callsmap.NetdevMapName, uint16(ifIndex))
 
-	return hostObj.Write(dstPath, opts, strings)
+	// Write object and header files specific to ifName.
+	if err = hostObj.Write(dstPath, opts, strings); err != nil {
+		return err
+	}
+	netdevHeaderFile, err := patchHostNetdevHeaderFile(ep.StateDir(), ifName, mac,
+		ifIndex, opts["SECCTX_FROM_IPCACHE"], option.Config.EnableNodePort)
+	if err != nil {
+		log.WithError(err).Warningf("Unable to create header file %s for patched object file",
+			netdevHeaderFile)
+	}
+	return nil
 }
 
 // reloadHostDatapath loads bpf_host programs attached to the host device
