@@ -148,9 +148,9 @@ func (k *K8sWatcher) endpointUpdated(endpoint *types.CiliumEndpoint) {
 			if err != nil {
 				continue
 			}
-			k8sMeta.NamedPorts[port.Name] = policy.NamedPort{
-				Proto: uint8(p),
+			k8sMeta.NamedPorts[port.Name] = policy.PortProto{
 				Port:  uint16(port.Port),
+				Proto: uint8(p),
 			}
 		}
 

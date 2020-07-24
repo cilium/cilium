@@ -1157,6 +1157,17 @@ func (e *Endpoint) SetK8sMetadata(containerPorts []slim_corev1.ContainerPort) er
 	return nil
 }
 
+// GetK8sPorts returns the k8sPorts, which must not be modified by the caller
+func (e *Endpoint) GetK8sPorts() (k8sPorts policy.NamedPortMap, err error) {
+	err = e.rlockAlive()
+	if err != nil {
+		return nil, err
+	}
+	k8sPorts = e.k8sPorts
+	e.mutex.RUnlock()
+	return k8sPorts, nil
+}
+
 // HaveK8sMetadata returns true once hasK8sMetadata was set
 func (e *Endpoint) HaveK8sMetadata() (metadataSet bool) {
 	e.mutex.RLock()

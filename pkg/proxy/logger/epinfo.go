@@ -39,7 +39,8 @@ type EndpointInfoSource interface {
 	// implementation.
 	ConntrackName() string
 	ConntrackNameLocked() string
-	ProxyID(npMap policy.NamedPortsMap, l4 *policy.L4Filter) (string, error)
+	GetNamedPortsMap(ingress bool) (policy.NamedPortsMap, error)
+	GetNamedPortsMapLocked(ingress bool) policy.NamedPortsMap
 	GetProxyInfoByFields() (uint64, string, string, []string, string, uint64, error)
 }
 
