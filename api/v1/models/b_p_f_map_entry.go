@@ -17,7 +17,7 @@ import (
 	"github.com/go-openapi/validate"
 )
 
-// BPFMapEntry BPF map cache entry"
+// BPFMapEntry BPF map cache entry
 //
 // swagger:model BPFMapEntry
 type BPFMapEntry struct {
