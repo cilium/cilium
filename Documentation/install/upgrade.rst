@@ -339,6 +339,12 @@ New Metrics
 
 .. _1.8_upgrade_notes:
 
+Removed options
+~~~~~~~~~~~~~~~
+
+* The ``prometheus-serve-addr-deprecated`` option is now removed. Please use
+  ``prometheus-serve-addr`` instead.
+
 1.8 Upgrade Notes
 -----------------
 
