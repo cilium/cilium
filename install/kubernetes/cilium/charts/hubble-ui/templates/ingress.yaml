@@ -1,6 +1,10 @@
 {{- if .Values.ingress.enabled -}}
 {{- $ingressPath := .Values.ingress.path -}}
+{{- if and (eq .Capabilities.KubeVersion.Major "1") (ge .Capabilities.KubeVersion.Minor "14") }}
+apiVersion: networking.k8s.io/v1beta1
+{{- else }}
 apiVersion: extensions/v1beta1
+{{- end }}
 kind: Ingress
 metadata:
   name: hubble-ui
