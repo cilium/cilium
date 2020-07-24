@@ -127,6 +127,13 @@ __u64 sock_local_cookie(struct bpf_sock_addr *ctx)
 }
 
 static __always_inline __maybe_unused
+__u64 sock_select_slot(struct bpf_sock_addr *ctx)
+{
+	return ctx->protocol == IPPROTO_TCP ?
+	       get_prandom_u32() : sock_local_cookie(ctx);
+}
+
+static __always_inline __maybe_unused
 bool sock_proto_enabled(__u32 proto)
 {
 	switch (proto) {
@@ -323,7 +330,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (backend_id == 0) {
 		backend_from_affinity = false;
 
-		key.backend_slot = (sock_local_cookie(ctx_full) % svc->count) + 1;
+		key.backend_slot = (sock_select_slot(ctx_full) % svc->count) + 1;
 		backend_slot = __lb4_lookup_backend_slot(&key);
 		if (!backend_slot) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND_SLOT);
@@ -745,7 +752,7 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	if (backend_id == 0) {
 		backend_from_affinity = false;
 
-		key.backend_slot = (sock_local_cookie(ctx) % svc->count) + 1;
+		key.backend_slot = (sock_select_slot(ctx) % svc->count) + 1;
 		backend_slot = __lb6_lookup_backend_slot(&key);
 		if (!backend_slot) {
 			update_metrics(0, METRIC_EGRESS, REASON_LB_NO_BACKEND_SLOT);
