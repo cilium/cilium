@@ -9,12 +9,11 @@ import (
 	"fmt"
 
 	"github.com/go-openapi/runtime"
-
-	strfmt "github.com/go-openapi/strfmt"
+	"github.com/go-openapi/strfmt"
 )
 
 // New creates a new ipam API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) *Client {
+func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
@@ -26,8 +25,19 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientService is the interface for Client methods
+type ClientService interface {
+	DeleteIpamIP(params *DeleteIpamIPParams) (*DeleteIpamIPOK, error)
+
+	PostIpam(params *PostIpamParams) (*PostIpamCreated, error)
+
+	PostIpamIP(params *PostIpamIPParams) (*PostIpamIPOK, error)
+
+	SetTransport(transport runtime.ClientTransport)
+}
+
 /*
-DeleteIpamIP releases an allocated IP address
+  DeleteIpamIP releases an allocated IP address
 */
 func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams) (*DeleteIpamIPOK, error) {
 	// TODO: Validate the params before sending
@@ -61,7 +71,7 @@ func (a *Client) DeleteIpamIP(params *DeleteIpamIPParams) (*DeleteIpamIPOK, erro
 }
 
 /*
-PostIpam allocates an IP address
+  PostIpam allocates an IP address
 */
 func (a *Client) PostIpam(params *PostIpamParams) (*PostIpamCreated, error) {
 	// TODO: Validate the params before sending
@@ -95,7 +105,7 @@ func (a *Client) PostIpam(params *PostIpamParams) (*PostIpamCreated, error) {
 }
 
 /*
-PostIpamIP allocates an IP address
+  PostIpamIP allocates an IP address
 */
 func (a *Client) PostIpamIP(params *PostIpamIPParams) (*PostIpamIPOK, error) {
 	// TODO: Validate the params before sending

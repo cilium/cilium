@@ -8,14 +8,14 @@ package models
 import (
 	"encoding/json"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
 
 // BPFMapEntry BPF map cache entry"
+//
 // swagger:model BPFMapEntry
 type BPFMapEntry struct {
 
@@ -73,7 +73,7 @@ const (
 
 // prop value enum
 func (m *BPFMapEntry) validateDesiredActionEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, bPFMapEntryTypeDesiredActionPropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, bPFMapEntryTypeDesiredActionPropEnum, true); err != nil {
 		return err
 	}
 	return nil

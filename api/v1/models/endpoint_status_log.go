@@ -8,13 +8,13 @@ package models
 import (
 	"strconv"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // EndpointStatusLog Status log of endpoint
+//
 // swagger:model EndpointStatusLog
 type EndpointStatusLog []*EndpointStatusChange
 

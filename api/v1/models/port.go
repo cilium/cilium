@@ -8,16 +8,17 @@ package models
 import (
 	"encoding/json"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
 
 // Port Layer 4 port / protocol pair
-// swagger:model Port
+//
 // +deepequal-gen=true
+//
+// swagger:model Port
 type Port struct {
 
 	// Optional layer 4 port name
@@ -71,7 +72,7 @@ const (
 
 // prop value enum
 func (m *Port) validateProtocolEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, portTypeProtocolPropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, portTypeProtocolPropEnum, true); err != nil {
 		return err
 	}
 	return nil

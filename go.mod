@@ -8,7 +8,7 @@ require (
 	github.com/Azure/go-autorest/autorest/azure/auth v0.4.2
 	github.com/Azure/go-autorest/autorest/to v0.3.0
 	github.com/Azure/go-autorest/autorest/validation v0.2.0 // indirect
-	github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496
+	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535
 	github.com/aws/aws-sdk-go-v2 v0.23.0
 	github.com/blang/semver v3.5.0+incompatible
 	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
@@ -26,13 +26,13 @@ require (
 	github.com/docker/libnetwork v0.0.0-20190128195551-d8d4c8cf03d7
 	github.com/envoyproxy/protoc-gen-validate v0.3.0-java
 	github.com/fsnotify/fsnotify v1.4.10-0.20200417215612-7f4cf4dd2b52
-	github.com/go-openapi/errors v0.19.3
+	github.com/go-openapi/errors v0.19.6
 	github.com/go-openapi/loads v0.19.5
-	github.com/go-openapi/runtime v0.19.4
-	github.com/go-openapi/spec v0.19.6
-	github.com/go-openapi/strfmt v0.19.4
-	github.com/go-openapi/swag v0.19.7
-	github.com/go-openapi/validate v0.19.5
+	github.com/go-openapi/runtime v0.19.20
+	github.com/go-openapi/spec v0.19.9
+	github.com/go-openapi/strfmt v0.19.5
+	github.com/go-openapi/swag v0.19.9
+	github.com/go-openapi/validate v0.19.10
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2
 	github.com/google/go-cmp v0.4.0
@@ -69,22 +69,22 @@ require (
 	github.com/spf13/cobra v1.0.0
 	github.com/spf13/pflag v1.0.5
 	github.com/spf13/viper v1.6.1
-	github.com/stretchr/testify v1.4.0
+	github.com/stretchr/testify v1.6.1
 	github.com/vishvananda/netlink v1.1.1-0.20200603190939-5a869a71f0cb
 	github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
 	go.etcd.io/etcd v0.5.0-alpha.5.0.20200716221620-18dfb9cca345
 	go.uber.org/goleak v1.0.0
 	golang.org/x/crypto v0.0.0-20200220183623-bac4c82f6975
-	golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
+	golang.org/x/net v0.0.0-20200602114024-627f9648deb9
 	golang.org/x/sync v0.0.0-20190911185100-cd5d95a43a6e
 	golang.org/x/sys v0.0.0-20200622214017-ed371f2e16b4
 	golang.org/x/time v0.0.0-20191024005414-555d28b269f0
 	golang.org/x/tools v0.0.0-20200602230032-c00d67ef29d0
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
 	google.golang.org/grpc v1.27.0
-	gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
+	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
-	gopkg.in/yaml.v2 v2.2.8
+	gopkg.in/yaml.v2 v2.3.0
 	k8s.io/api v0.19.0-rc.2
 	k8s.io/apiextensions-apiserver v0.19.0-rc.2
 	k8s.io/apimachinery v0.19.0-rc.2

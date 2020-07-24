@@ -8,7 +8,7 @@ package policy
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // GetFqdnNamesHandlerFunc turns a function with the right signature into a get fqdn names handler

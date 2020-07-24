@@ -8,7 +8,7 @@ package policy
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // GetPolicyHandlerFunc turns a function with the right signature into a get policy handler

@@ -9,12 +9,11 @@ import (
 	"fmt"
 
 	"github.com/go-openapi/runtime"
-
-	strfmt "github.com/go-openapi/strfmt"
+	"github.com/go-openapi/strfmt"
 )
 
 // New creates a new policy API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) *Client {
+func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
@@ -26,10 +25,41 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
-/*
-DeleteFqdnCache deletes matching DNS lookups from the policy generation cache
+// ClientService is the interface for Client methods
+type ClientService interface {
+	DeleteFqdnCache(params *DeleteFqdnCacheParams) (*DeleteFqdnCacheOK, error)
 
-Deletes matching DNS lookups from the cache, optionally restricted by
+	DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, error)
+
+	GetFqdnCache(params *GetFqdnCacheParams) (*GetFqdnCacheOK, error)
+
+	GetFqdnCacheID(params *GetFqdnCacheIDParams) (*GetFqdnCacheIDOK, error)
+
+	GetFqdnNames(params *GetFqdnNamesParams) (*GetFqdnNamesOK, error)
+
+	GetIP(params *GetIPParams) (*GetIPOK, error)
+
+	GetIdentity(params *GetIdentityParams) (*GetIdentityOK, error)
+
+	GetIdentityEndpoints(params *GetIdentityEndpointsParams) (*GetIdentityEndpointsOK, error)
+
+	GetIdentityID(params *GetIdentityIDParams) (*GetIdentityIDOK, error)
+
+	GetPolicy(params *GetPolicyParams) (*GetPolicyOK, error)
+
+	GetPolicyResolve(params *GetPolicyResolveParams) (*GetPolicyResolveOK, error)
+
+	GetPolicySelectors(params *GetPolicySelectorsParams) (*GetPolicySelectorsOK, error)
+
+	PutPolicy(params *PutPolicyParams) (*PutPolicyOK, error)
+
+	SetTransport(transport runtime.ClientTransport)
+}
+
+/*
+  DeleteFqdnCache deletes matching DNS lookups from the policy generation cache
+
+  Deletes matching DNS lookups from the cache, optionally restricted by
 DNS name. The removed IP data will no longer be used in generated
 policies.
 
@@ -66,7 +96,7 @@ func (a *Client) DeleteFqdnCache(params *DeleteFqdnCacheParams) (*DeleteFqdnCach
 }
 
 /*
-DeletePolicy deletes a policy sub tree
+  DeletePolicy deletes a policy sub tree
 */
 func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, error) {
 	// TODO: Validate the params before sending
@@ -100,9 +130,9 @@ func (a *Client) DeletePolicy(params *DeletePolicyParams) (*DeletePolicyOK, erro
 }
 
 /*
-GetFqdnCache retrieves the list of DNS lookups intercepted from all endpoints
+  GetFqdnCache retrieves the list of DNS lookups intercepted from all endpoints
 
-Retrieves the list of DNS lookups intercepted from endpoints,
+  Retrieves the list of DNS lookups intercepted from endpoints,
 optionally filtered by endpoint id, DNS name, or CIDR IP range.
 
 */
@@ -138,9 +168,9 @@ func (a *Client) GetFqdnCache(params *GetFqdnCacheParams) (*GetFqdnCacheOK, erro
 }
 
 /*
-GetFqdnCacheID retrieves the list of DNS lookups intercepted from an endpoint
+  GetFqdnCacheID retrieves the list of DNS lookups intercepted from an endpoint
 
-Retrieves the list of DNS lookups intercepted from endpoints,
+  Retrieves the list of DNS lookups intercepted from endpoints,
 optionally filtered by endpoint id, DNS name, or CIDR IP range.
 
 */
@@ -176,9 +206,9 @@ func (a *Client) GetFqdnCacheID(params *GetFqdnCacheIDParams) (*GetFqdnCacheIDOK
 }
 
 /*
-GetFqdnNames lists internal DNS selector representations
+  GetFqdnNames lists internal DNS selector representations
 
-Retrieves the list of DNS-related fields (names to poll, selectors and
+  Retrieves the list of DNS-related fields (names to poll, selectors and
 their corresponding regexes).
 
 */
@@ -214,9 +244,9 @@ func (a *Client) GetFqdnNames(params *GetFqdnNamesParams) (*GetFqdnNamesOK, erro
 }
 
 /*
-GetIP lists information about known IP addresses
+  GetIP lists information about known IP addresses
 
-Retrieves a list of IPs with known associated information such as
+  Retrieves a list of IPs with known associated information such as
 their identities, host addresses, Kubernetes pod names, etc.
 The list can optionally filtered by a CIDR IP range.
 
@@ -253,9 +283,9 @@ func (a *Client) GetIP(params *GetIPParams) (*GetIPOK, error) {
 }
 
 /*
-GetIdentity retrieves a list of identities that have metadata matching the provided parameters
+  GetIdentity retrieves a list of identities that have metadata matching the provided parameters
 
-Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
+  Retrieves a list of identities that have metadata matching the provided parameters, or all identities if no parameters are provided.
 
 */
 func (a *Client) GetIdentity(params *GetIdentityParams) (*GetIdentityOK, error) {
@@ -290,7 +320,7 @@ func (a *Client) GetIdentity(params *GetIdentityParams) (*GetIdentityOK, error) 
 }
 
 /*
-GetIdentityEndpoints retrieves identities which are being used by local endpoints
+  GetIdentityEndpoints retrieves identities which are being used by local endpoints
 */
 func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams) (*GetIdentityEndpointsOK, error) {
 	// TODO: Validate the params before sending
@@ -324,7 +354,7 @@ func (a *Client) GetIdentityEndpoints(params *GetIdentityEndpointsParams) (*GetI
 }
 
 /*
-GetIdentityID retrieves identity
+  GetIdentityID retrieves identity
 */
 func (a *Client) GetIdentityID(params *GetIdentityIDParams) (*GetIdentityIDOK, error) {
 	// TODO: Validate the params before sending
@@ -358,9 +388,9 @@ func (a *Client) GetIdentityID(params *GetIdentityIDParams) (*GetIdentityIDOK, e
 }
 
 /*
-GetPolicy retrieves entire policy tree
+  GetPolicy retrieves entire policy tree
 
-Returns the entire policy tree with all children.
+  Returns the entire policy tree with all children.
 
 */
 func (a *Client) GetPolicy(params *GetPolicyParams) (*GetPolicyOK, error) {
@@ -395,7 +425,7 @@ func (a *Client) GetPolicy(params *GetPolicyParams) (*GetPolicyOK, error) {
 }
 
 /*
-GetPolicyResolve resolves policy for an identity context
+  GetPolicyResolve resolves policy for an identity context
 */
 func (a *Client) GetPolicyResolve(params *GetPolicyResolveParams) (*GetPolicyResolveOK, error) {
 	// TODO: Validate the params before sending
@@ -429,7 +459,7 @@ func (a *Client) GetPolicyResolve(params *GetPolicyResolveParams) (*GetPolicyRes
 }
 
 /*
-GetPolicySelectors sees what selectors match which identities
+  GetPolicySelectors sees what selectors match which identities
 */
 func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams) (*GetPolicySelectorsOK, error) {
 	// TODO: Validate the params before sending
@@ -463,7 +493,7 @@ func (a *Client) GetPolicySelectors(params *GetPolicySelectorsParams) (*GetPolic
 }
 
 /*
-PutPolicy creates or update a policy sub tree
+  PutPolicy creates or update a policy sub tree
 */
 func (a *Client) PutPolicy(params *PutPolicyParams) (*PutPolicyOK, error) {
 	// TODO: Validate the params before sending

@@ -6,16 +6,17 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
 
 // ControllerStatus Status of a controller
-// swagger:model ControllerStatus
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model ControllerStatus
 type ControllerStatus struct {
 
 	// configuration
@@ -122,8 +123,10 @@ func (m *ControllerStatus) UnmarshalBinary(b []byte) error {
 }
 
 // ControllerStatusConfiguration Configuration of controller
-// swagger:model ControllerStatusConfiguration
+//
 // +deepequal-gen=true
+//
+// swagger:model ControllerStatusConfiguration
 type ControllerStatusConfiguration struct {
 
 	// Retry on error
@@ -201,8 +204,10 @@ func (m *ControllerStatusConfiguration) UnmarshalBinary(b []byte) error {
 }
 
 // ControllerStatusStatus Current status of controller
-// swagger:model ControllerStatusStatus
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model ControllerStatusStatus
 type ControllerStatusStatus struct {
 
 	// Number of consecutive errors since last success

@@ -295,7 +295,7 @@ func (s *Server) Shutdown() {
 // newServer instantiates a new instance of the health API server on the
 // defaults unix socket.
 func (s *Server) newServer(spec *loads.Document) *healthApi.Server {
-	api := restapi.NewCiliumHealthAPI(spec)
+	api := restapi.NewCiliumHealthAPIAPI(spec)
 	api.Logger = log.Printf
 
 	// Admin API

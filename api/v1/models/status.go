@@ -8,14 +8,14 @@ package models
 import (
 	"encoding/json"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
 
 // Status Status of an individual component
+//
 // swagger:model Status
 type Status struct {
 
@@ -70,7 +70,7 @@ const (
 
 // prop value enum
 func (m *Status) validateStateEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, statusTypeStatePropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, statusTypeStatePropEnum, true); err != nil {
 		return err
 	}
 	return nil

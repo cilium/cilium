@@ -8,7 +8,7 @@ package ipam
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // PostIpamHandlerFunc turns a function with the right signature into a post ipam handler

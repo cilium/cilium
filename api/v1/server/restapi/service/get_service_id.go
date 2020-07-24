@@ -8,7 +8,7 @@ package service
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // GetServiceIDHandlerFunc turns a function with the right signature into a get service ID handler

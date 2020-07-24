@@ -8,13 +8,13 @@ package models
 import (
 	"strconv"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // SelectorCache cache of which identities match selectors in the policy repository
+//
 // swagger:model SelectorCache
 type SelectorCache []*SelectorIdentityMapping
 

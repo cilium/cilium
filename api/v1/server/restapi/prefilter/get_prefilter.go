@@ -8,7 +8,7 @@ package prefilter
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // GetPrefilterHandlerFunc turns a function with the right signature into a get prefilter handler

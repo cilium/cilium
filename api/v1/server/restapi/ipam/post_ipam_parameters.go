@@ -11,10 +11,9 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
-
-	strfmt "github.com/go-openapi/strfmt"
 )
 
 // NewPostIpamParams creates a new PostIpamParams object
@@ -125,7 +124,7 @@ func (o *PostIpamParams) bindFamily(rawData []string, hasKey bool, formats strfm
 // validateFamily carries on validations for parameter Family
 func (o *PostIpamParams) validateFamily(formats strfmt.Registry) error {
 
-	if err := validate.Enum("family", "query", *o.Family, []interface{}{"ipv4", "ipv6"}); err != nil {
+	if err := validate.EnumCase("family", "query", *o.Family, []interface{}{"ipv4", "ipv6"}, true); err != nil {
 		return err
 	}
 

@@ -9,12 +9,11 @@ import (
 	"fmt"
 
 	"github.com/go-openapi/runtime"
-
-	strfmt "github.com/go-openapi/strfmt"
+	"github.com/go-openapi/strfmt"
 )
 
 // New creates a new endpoint API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) *Client {
+func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
@@ -26,10 +25,37 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
-/*
-DeleteEndpointID deletes endpoint
+// ClientService is the interface for Client methods
+type ClientService interface {
+	DeleteEndpointID(params *DeleteEndpointIDParams) (*DeleteEndpointIDOK, *DeleteEndpointIDErrors, error)
 
-Deletes the endpoint specified by the ID. Deletion is imminent and
+	GetEndpoint(params *GetEndpointParams) (*GetEndpointOK, error)
+
+	GetEndpointID(params *GetEndpointIDParams) (*GetEndpointIDOK, error)
+
+	GetEndpointIDConfig(params *GetEndpointIDConfigParams) (*GetEndpointIDConfigOK, error)
+
+	GetEndpointIDHealthz(params *GetEndpointIDHealthzParams) (*GetEndpointIDHealthzOK, error)
+
+	GetEndpointIDLabels(params *GetEndpointIDLabelsParams) (*GetEndpointIDLabelsOK, error)
+
+	GetEndpointIDLog(params *GetEndpointIDLogParams) (*GetEndpointIDLogOK, error)
+
+	PatchEndpointID(params *PatchEndpointIDParams) (*PatchEndpointIDOK, error)
+
+	PatchEndpointIDConfig(params *PatchEndpointIDConfigParams) (*PatchEndpointIDConfigOK, error)
+
+	PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams) (*PatchEndpointIDLabelsOK, error)
+
+	PutEndpointID(params *PutEndpointIDParams) (*PutEndpointIDCreated, error)
+
+	SetTransport(transport runtime.ClientTransport)
+}
+
+/*
+  DeleteEndpointID deletes endpoint
+
+  Deletes the endpoint specified by the ID. Deletion is imminent and
 atomic, if the deletion request is valid and the endpoint exists,
 deletion will occur even if errors are encountered in the process. If
 errors have been encountered, the code 202 will be returned, otherwise
@@ -73,9 +99,9 @@ func (a *Client) DeleteEndpointID(params *DeleteEndpointIDParams) (*DeleteEndpoi
 }
 
 /*
-GetEndpoint retrieves a list of endpoints that have metadata matching the provided parameters
+  GetEndpoint retrieves a list of endpoints that have metadata matching the provided parameters
 
-Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.
+  Retrieves a list of endpoints that have metadata matching the provided parameters, or all endpoints if no parameters provided.
 
 */
 func (a *Client) GetEndpoint(params *GetEndpointParams) (*GetEndpointOK, error) {
@@ -110,9 +136,9 @@ func (a *Client) GetEndpoint(params *GetEndpointParams) (*GetEndpointOK, error) 
 }
 
 /*
-GetEndpointID gets endpoint by endpoint ID
+  GetEndpointID gets endpoint by endpoint ID
 
-Returns endpoint information
+  Returns endpoint information
 
 */
 func (a *Client) GetEndpointID(params *GetEndpointIDParams) (*GetEndpointIDOK, error) {
@@ -147,9 +173,9 @@ func (a *Client) GetEndpointID(params *GetEndpointIDParams) (*GetEndpointIDOK, e
 }
 
 /*
-GetEndpointIDConfig retrieves endpoint configuration
+  GetEndpointIDConfig retrieves endpoint configuration
 
-Retrieves the configuration of the specified endpoint.
+  Retrieves the configuration of the specified endpoint.
 
 */
 func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams) (*GetEndpointIDConfigOK, error) {
@@ -184,7 +210,7 @@ func (a *Client) GetEndpointIDConfig(params *GetEndpointIDConfigParams) (*GetEnd
 }
 
 /*
-GetEndpointIDHealthz retrieves the status logs associated with this endpoint
+  GetEndpointIDHealthz retrieves the status logs associated with this endpoint
 */
 func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams) (*GetEndpointIDHealthzOK, error) {
 	// TODO: Validate the params before sending
@@ -218,7 +244,7 @@ func (a *Client) GetEndpointIDHealthz(params *GetEndpointIDHealthzParams) (*GetE
 }
 
 /*
-GetEndpointIDLabels retrieves the list of labels associated with an endpoint
+  GetEndpointIDLabels retrieves the list of labels associated with an endpoint
 */
 func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams) (*GetEndpointIDLabelsOK, error) {
 	// TODO: Validate the params before sending
@@ -252,7 +278,7 @@ func (a *Client) GetEndpointIDLabels(params *GetEndpointIDLabelsParams) (*GetEnd
 }
 
 /*
-GetEndpointIDLog retrieves the status logs associated with this endpoint
+  GetEndpointIDLog retrieves the status logs associated with this endpoint
 */
 func (a *Client) GetEndpointIDLog(params *GetEndpointIDLogParams) (*GetEndpointIDLogOK, error) {
 	// TODO: Validate the params before sending
@@ -286,9 +312,9 @@ func (a *Client) GetEndpointIDLog(params *GetEndpointIDLogParams) (*GetEndpointI
 }
 
 /*
-PatchEndpointID modifies existing endpoint
+  PatchEndpointID modifies existing endpoint
 
-Applies the endpoint change request to an existing endpoint
+  Applies the endpoint change request to an existing endpoint
 
 */
 func (a *Client) PatchEndpointID(params *PatchEndpointIDParams) (*PatchEndpointIDOK, error) {
@@ -323,9 +349,9 @@ func (a *Client) PatchEndpointID(params *PatchEndpointIDParams) (*PatchEndpointI
 }
 
 /*
-PatchEndpointIDConfig modifies mutable endpoint configuration
+  PatchEndpointIDConfig modifies mutable endpoint configuration
 
-Update the configuration of an existing endpoint and regenerates &
+  Update the configuration of an existing endpoint and regenerates &
 recompiles the corresponding programs automatically.
 
 */
@@ -361,9 +387,9 @@ func (a *Client) PatchEndpointIDConfig(params *PatchEndpointIDConfigParams) (*Pa
 }
 
 /*
-PatchEndpointIDLabels sets label configuration of endpoint
+  PatchEndpointIDLabels sets label configuration of endpoint
 
-Sets labels associated with an endpoint. These can be user provided or
+  Sets labels associated with an endpoint. These can be user provided or
 derived from the orchestration system.
 
 */
@@ -399,9 +425,9 @@ func (a *Client) PatchEndpointIDLabels(params *PatchEndpointIDLabelsParams) (*Pa
 }
 
 /*
-PutEndpointID creates endpoint
+  PutEndpointID creates endpoint
 
-Creates a new endpoint
+  Creates a new endpoint
 
 */
 func (a *Client) PutEndpointID(params *PutEndpointIDParams) (*PutEndpointIDCreated, error) {

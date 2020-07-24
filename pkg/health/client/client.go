@@ -39,7 +39,7 @@ const (
 
 // Client is a client for cilium health
 type Client struct {
-	clientapi.CiliumHealth
+	clientapi.CiliumHealthAPI
 }
 
 func configureTransport(tr *http.Transport, proto, addr string) *http.Transport {

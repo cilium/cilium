@@ -8,15 +8,16 @@ package models
 import (
 	"strconv"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // ClusterStatus Status of cluster
-// swagger:model ClusterStatus
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model ClusterStatus
 type ClusterStatus struct {
 
 	// Status of local cilium-health daemon
