@@ -138,7 +138,7 @@ GO_BUILD += $(GO_BUILD_FLAGS)
 GO_BUILD_WITH_CGO += $(GO_BUILD_FLAGS)
 
 GO_TEST = $(GO) test $(GO_TEST_FLAGS)
-GO_CLEAN = $(GO) clean $(GO_TEST_FLAGS)
+GO_CLEAN = $(GO) clean $(GO_CLEAN_FLAGS)
 # TODO: remove `GO111MODULE=off` once Go 1.13 is deprecated by Go maintainers
 GO_VET = GO111MODULE=off $(GO) vet
 GO_LIST = GO111MODULE=off $(GO) list
