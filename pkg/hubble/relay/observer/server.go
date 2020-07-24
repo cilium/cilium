@@ -22,9 +22,17 @@ import (
 	relaypb "github.com/cilium/cilium/api/v1/relay"
 	"github.com/cilium/cilium/pkg/hubble/relay/pool"
 
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 )
+
+// numUnavailableNodesReportMax represents the maximum number of unavailable
+// nodes that should be reported on ServerStatus call. The intent is not to be
+// exhaustive when listing them as reporting all unavailable nodes might
+// clutter in certain cases.
+// Reporting up to 10 unavailable nodes is probably reasonable.
+const numUnavailableNodesReportMax = 10
 
 // PeerLister is the interface that wraps the List method.
 type PeerLister interface {
@@ -161,6 +169,8 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 	g, ctx := errgroup.WithContext(ctx)
 
 	peers := s.peers.List()
+	var numConnectedNodes uint32
+	var unavailableNodes []string
 	statuses := make(chan *observerpb.ServerStatusResponse, len(peers))
 	for _, p := range peers {
 		p := p
@@ -169,8 +179,12 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 				"No connection to peer %s, skipping", p.Name,
 			)
 			s.peers.ReportOffline(p.Name)
+			if len(unavailableNodes) < numUnavailableNodesReportMax {
+				unavailableNodes = append(unavailableNodes, p.Name)
+			}
 			continue
 		}
+		numConnectedNodes++
 		g.Go(func() error {
 			client := newObserverClient(p.Conn)
 			status, err := client.ServerStatus(ctx, req)
@@ -192,7 +206,15 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 		g.Wait()
 		close(statuses)
 	}()
-	resp := &observerpb.ServerStatusResponse{}
+	resp := &observerpb.ServerStatusResponse{
+		NumConnectedNodes: &wrappers.UInt32Value{
+			Value: numConnectedNodes,
+		},
+		NumUnavailableNodes: &wrappers.UInt32Value{
+			Value: uint32(len(unavailableNodes)),
+		},
+		UnavailableNodes: unavailableNodes,
+	}
 	for status := range statuses {
 		if status == nil {
 			continue
