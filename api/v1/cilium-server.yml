@@ -3,7 +3,7 @@ layout:
     - name: configure
       source: asset:serverConfigureapi
       target: "{{ joinFilePath .Target .ServerPackage }}"
-      file_name: "configure_{{ (snakize (pascalize .Name)) }}.go"
+      file_name: "configure_{{ .Name }}.go"
       skip_exists: true
     - name: embedded_spec
       source: asset:swaggerJsonEmbed
@@ -21,11 +21,12 @@ layout:
       source: asset:serverDoc
       target: "{{ joinFilePath .Target .ServerPackage }}"
       file_name: "doc.go"
+  models:
+    - name: definition
+      source: asset:model
+      target: "{{ joinFilePath .Target .ModelPackage }}"
+      file_name: "{{ (snakize (pascalize .Name)) }}.go"
   operations:
-    - name: urlbuilder
-      source: asset:serverUrlbuilder
-      target: "{{ if gt (len .Tags) 0 }}{{ joinFilePath .Target .ServerPackage .APIPackage .Package  }}{{ else }}{{ joinFilePath .Target .ServerPackage .Package  }}{{ end }}"
-      file_name: "{{ (snakize (pascalize .Name)) }}_urlbuilder.go"
     - name: parameters
       source: asset:serverParameter
       target: "{{ if gt (len .Tags) 0 }}{{ joinFilePath .Target .ServerPackage .APIPackage .Package  }}{{ else }}{{ joinFilePath .Target .ServerPackage .Package  }}{{ end }}"

@@ -1435,7 +1435,7 @@ func runDaemon() {
 	}
 }
 
-func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
+func (d *Daemon) instantiateAPI() *restapi.CiliumAPIAPI {
 
 	swaggerSpec, err := loads.Analyzed(server.SwaggerJSON, "")
 	if err != nil {
@@ -1443,7 +1443,7 @@ func (d *Daemon) instantiateAPI() *restapi.CiliumAPI {
 	}
 
 	log.Info("Initializing Cilium API")
-	restAPI := restapi.NewCiliumAPI(swaggerSpec)
+	restAPI := restapi.NewCiliumAPIAPI(swaggerSpec)
 
 	restAPI.Logger = log.Infof
 

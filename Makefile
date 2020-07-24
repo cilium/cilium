@@ -32,8 +32,8 @@ TESTPKGS ?= $(TESTPKGS_EVAL)
 GOLANGVERSION := $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
 
-SWAGGER_VERSION := v0.20.1
-SWAGGER := $(CONTAINER_ENGINE) run --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
+SWAGGER_VERSION := v0.25.0
+SWAGGER := $(CONTAINER_ENGINE) run -u $(shell id -u):$(shell id -g) --rm -v $(CURDIR):$(CURDIR) -w $(CURDIR) --entrypoint swagger quay.io/goswagger/swagger:$(SWAGGER_VERSION)
 
 COVERPKG_EVAL := $(shell if [ $$(echo "$(TESTPKGS)" | wc -w) -gt 1 ]; then echo "./..."; else echo "github.com/cilium/cilium/$(TESTPKGS)"; fi)
 COVERPKG ?= $(COVERPKG_EVAL)
@@ -302,16 +302,32 @@ k8s-tests:
 generate-api: api/v1/openapi.yaml
 	@$(ECHO_GEN)api/v1/openapi.yaml
 	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
-		-t api/v1 -f api/v1/openapi.yaml --default-scheme=unix -C api/v1/cilium-server.yml
+		-t api/v1 \
+		-f api/v1/openapi.yaml \
+		--default-scheme=unix \
+		-C api/v1/cilium-server.yml
 	-$(QUIET)$(SWAGGER) generate client -a restapi \
-		-t api/v1 -f api/v1/openapi.yaml
+		-t api/v1 \
+		-f api/v1/openapi.yaml
+	@# sort goimports automatically
+	-$(QUIET) find api/v1/client/ -type f -name "*.go" -print | PATH="$(PWD)/tools:$(PATH)" xargs goimports -w
+	-$(QUIET) find api/v1/models/ -type f -name "*.go" -print | PATH="$(PWD)/tools:$(PATH)" xargs goimports -w
+	-$(QUIET) find api/v1/server/ -type f -name "*.go" -print | PATH="$(PWD)/tools:$(PATH)" xargs goimports -w
 
 generate-health-api: api/v1/health/openapi.yaml
 	@$(ECHO_GEN)api/v1/health/openapi.yaml
 	-$(QUIET)$(SWAGGER) generate server -s server -a restapi \
-		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml --default-scheme=unix -C api/v1/cilium-server.yml
+		-t api/v1 \
+		-t api/v1/health/ \
+		-f api/v1/health/openapi.yaml \
+		--default-scheme=unix \
+		-C api/v1/cilium-server.yml
 	-$(QUIET)$(SWAGGER) generate client -a restapi \
-		-t api/v1 -t api/v1/health/ -f api/v1/health/openapi.yaml
+		-t api/v1 \
+		-t api/v1/health/ \
+		-f api/v1/health/openapi.yaml
+	@# sort goimports automatically
+	-$(QUIET) find api/v1/health/ -type f -name "*.go" -print | PATH="$(PWD)/tools:$(PATH)" xargs goimports -w
 
 generate-k8s-api:
 	$(call generate_k8s_protobuf,$\

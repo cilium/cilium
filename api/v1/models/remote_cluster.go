@@ -6,16 +6,17 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
 
 // RemoteCluster Status of remote cluster
-// swagger:model RemoteCluster
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model RemoteCluster
 type RemoteCluster struct {
 
 	// Time of last failure that occurred while attempting to reach the cluster

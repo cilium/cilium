@@ -20,17 +20,17 @@ import (
 	"sync/atomic"
 	"time"
 
-
   "github.com/go-openapi/swag"
   {{ if .UsePFlags }}flag "github.com/spf13/pflag"
+  {{ end -}}
+  {{ if .UseFlags }}"flag"
+  "strings"
   {{ end -}}
   "golang.org/x/net/netutil"
   "golang.org/x/sys/unix"
 
-  {{ range .DefaultImports }}{{ printf "%q" . }}
-  {{ end }}
-  {{ range $key, $value := .Imports }}{{ $key }} {{ printf "%q" $value }}
-  {{ end }}
+  {{ imports .DefaultImports }}
+  {{ imports .Imports }}
 )
 
 const (
@@ -49,7 +49,7 @@ func init() {
 	}
 }
 
-{{ if .UsePFlags }}
+{{ if not .UseGoStructFlags}}
 var ({{ if .ExcludeSpec }}
   specFile         string
   {{ end }}enabledListeners []string
@@ -77,12 +77,36 @@ var ({{ if .ExcludeSpec }}
   tlsCACertificate  string
 )
 
+{{ if .UseFlags}}
+// StringSliceVar support for flag
+type sliceValue []string
+
+func newSliceValue(vals []string, p *[]string) *sliceValue {
+	*p = vals
+	return (*sliceValue)(p)
+}
+
+func (s *sliceValue) Set(val string) error {
+	*s = sliceValue(strings.Split(val, ","))
+	return nil
+}
+
+func (s *sliceValue) Get() interface{} { return []string(*s) }
+
+func (s *sliceValue) String() string { return strings.Join([]string(*s), ",") }
+// end StringSliceVar support for flag
+{{ end }}
+
 func init() {
   maxHeaderSize = 1000000{{ if .ExcludeSpec }}
   flag.StringVarP(&specFile, "spec", "", "", "the swagger specification to serve")
   {{ end }}
-
+  {{ if .UseFlags }}
+	flag.Var(newSliceValue(defaultSchemes, &enabledListeners), "schema", "the listeners to enable, this can be repeated and defaults to the schemes in the swagger spec")
+	{{ end }}
+	{{ if .UsePFlags }}
 	flag.StringSliceVar(&enabledListeners, "scheme", defaultSchemes, "the listeners to enable, this can be repeated and defaults to the schemes in the swagger spec")
+	{{ end }}
 	flag.DurationVar(&cleanupTimeout, "cleanup-timeout", 10*time.Second, "grace period for which to wait before killing idle connections")
 	flag.DurationVar(&gracefulTimeout, "graceful-timeout", 15*time.Second, "grace period for which to wait before shutting down the server")
 	flag.Var(&maxHeaderSize, "max-header-size", "controls the maximum number of bytes the server will read parsing the request header's keys and values, including the request line. It does not limit the size of the request body")
@@ -140,7 +164,7 @@ func intEnvOverride(orig int, def int, keys ...string) int {
 // NewServer creates a new api {{ humanize .Name }} server but does not configure it
 func NewServer(api *{{ .Package }}.{{ pascalize .Name }}API) *Server {
 	s := new(Server)
-  {{ if .UsePFlags }}
+  {{ if not .UseGoStructFlags }}
 	s.EnabledListeners = enabledListeners
 	s.CleanupTimeout = cleanupTimeout
 	s.GracefulTimeout = gracefulTimeout
@@ -293,8 +317,6 @@ func (s *Server) Serve() (err error) {
 	go handleInterrupt(once, s)
 
 	servers := []*http.Server{}
-	wg.Add(1)
-	go s.handleShutdown(wg, &servers)
 
 	if s.hasScheme(schemeUnix) {
 		domainSocket := new(http.Server)
@@ -452,6 +474,9 @@ func (s *Server) Serve() (err error) {
 		}(tls.NewListener(s.httpsServerL, httpsServer.TLSConfig))
 	}
 
+	wg.Add(1)
+	go s.handleShutdown(wg, &servers)
+
 	wg.Wait()
 	return nil
 }
@@ -546,6 +571,9 @@ func (s *Server) handleShutdown(wg *sync.WaitGroup, serversPtr *[]*http.Server) 
 
 	ctx, cancel := context.WithTimeout(context.TODO(), s.GracefulTimeout)
 	defer cancel()
+
+  // first execute the pre-shutdown hook
+	s.api.PreServerShutdown()
 
 	shutdownChan := make(chan bool)
 	for i := range servers {

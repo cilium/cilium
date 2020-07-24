@@ -1434,7 +1434,7 @@ func init() {
       }
     },
     "ClusterMeshStatus": {
-      "description": "Status of ClusterMesh",
+      "description": "Status of ClusterMesh\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "clusters": {
           "description": "List of remote clusters",
@@ -1492,7 +1492,7 @@ func init() {
       }
     },
     "ClusterStatus": {
-      "description": "Status of cluster",
+      "description": "Status of cluster\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "ciliumHealth": {
           "description": "Status of local cilium-health daemon",
@@ -1519,11 +1519,11 @@ func init() {
       }
     },
     "ControllerStatus": {
-      "description": "Status of a controller",
+      "description": "Status of a controller\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "configuration": {
-          "description": "Configuration of controller",
+          "description": "Configuration of controller\n\n+deepequal-gen=true",
           "type": "object",
           "properties": {
             "error-retry": {
@@ -1547,7 +1547,7 @@ func init() {
           "type": "string"
         },
         "status": {
-          "description": "Current status of controller",
+          "description": "Current status of controller\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "consecutive-failure-count": {
@@ -1933,7 +1933,7 @@ func init() {
       }
     },
     "EndpointHealth": {
-      "description": "Health of the endpoint",
+      "description": "Health of the endpoint\n\n+deepequal-gen=true",
       "type": "object",
       "properties": {
         "bpf": {
@@ -1964,7 +1964,7 @@ func init() {
       ]
     },
     "EndpointIdentifiers": {
-      "description": "Unique identifiers for this endpoint from outside cilium",
+      "description": "Unique identifiers for this endpoint from outside cilium\n\n+deepequal-gen=true",
       "type": "object",
       "properties": {
         "container-id": {
@@ -2178,7 +2178,7 @@ func init() {
       }
     },
     "EndpointStatusChange": {
-      "description": "Indication of a change of status",
+      "description": "Indication of a change of status\n\n+deepequal-gen=true",
       "type": "object",
       "properties": {
         "code": {
@@ -2245,7 +2245,7 @@ func init() {
       }
     },
     "HubbleStatus": {
-      "description": "Status of the Hubble server",
+      "description": "Status of the Hubble server\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "metrics": {
@@ -2269,7 +2269,7 @@ func init() {
           "type": "string"
         },
         "observer": {
-          "description": "Status of the Hubble observer",
+          "description": "Status of the Hubble observer\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "current-flows": {
@@ -2355,7 +2355,7 @@ func init() {
       }
     },
     "IPAMStatus": {
-      "description": "Status of IP address management",
+      "description": "Status of IP address management\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "allocations": {
           "$ref": "#/definitions/AllocationMap"
@@ -2476,7 +2476,7 @@ func init() {
       }
     },
     "K8sStatus": {
-      "description": "Status of Kubernetes integration",
+      "description": "Status of Kubernetes integration\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "k8s-api-versions": {
@@ -2518,7 +2518,7 @@ func init() {
       }
     },
     "KubeProxyReplacement": {
-      "description": "Status of kube-proxy replacement",
+      "description": "Status of kube-proxy replacement\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "devices": {
@@ -2531,9 +2531,11 @@ func init() {
           "type": "string"
         },
         "features": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "externalIPs": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -2542,6 +2544,7 @@ func init() {
               }
             },
             "hostPort": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -2550,6 +2553,7 @@ func init() {
               }
             },
             "hostReachableServices": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -2564,6 +2568,7 @@ func init() {
               }
             },
             "nodePort": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "acceleration": {
@@ -2594,6 +2599,7 @@ func init() {
               }
             },
             "sessionAffinity": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -2688,7 +2694,7 @@ func init() {
       }
     },
     "Masquerading": {
-      "description": "Status of masquerading",
+      "description": "Status of masquerading\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "enabled": {
@@ -2801,14 +2807,14 @@ func init() {
       }
     },
     "NamedPorts": {
-      "description": "List of named Layer 4 port and protocol pairs which will be used in Network\nPolicy specs.\n",
+      "description": "List of named Layer 4 port and protocol pairs which will be used in Network\nPolicy specs.\n\n+deepequal-gen=true",
       "type": "array",
       "items": {
         "$ref": "#/definitions/Port"
       }
     },
     "NodeAddressing": {
-      "description": "Addressing information of a node for all address families",
+      "description": "Addressing information of a node for all address families\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "ipv4": {
@@ -2842,7 +2848,7 @@ func init() {
       }
     },
     "NodeElement": {
-      "description": "Known node in the cluster",
+      "description": "Known node in the cluster\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "health-endpoint-address": {
           "description": "Address used for probing cluster connectivity",
@@ -2911,7 +2917,7 @@ func init() {
       }
     },
     "Port": {
-      "description": "Layer 4 port / protocol pair",
+      "description": "Layer 4 port / protocol pair\n\n+deepequal-gen=true",
       "type": "object",
       "properties": {
         "name": {
@@ -2989,7 +2995,7 @@ func init() {
       }
     },
     "ProxyStatistics": {
-      "description": "Statistics of a set of proxy redirects for an endpoint",
+      "description": "Statistics of a set of proxy redirects for an endpoint\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "allocated-proxy-port": {
@@ -3019,7 +3025,7 @@ func init() {
       }
     },
     "ProxyStatus": {
-      "description": "Status of proxy",
+      "description": "Status of proxy\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "ip": {
@@ -3048,7 +3054,7 @@ func init() {
       }
     },
     "RemoteCluster": {
-      "description": "Status of remote cluster",
+      "description": "Status of remote cluster\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "last-failure": {
           "description": "Time of last failure that occurred while attempting to reach the cluster",
@@ -3086,7 +3092,7 @@ func init() {
       }
     },
     "RequestResponseStatistics": {
-      "description": "Statistics of a proxy redirect",
+      "description": "Statistics of a proxy redirect\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "requests": {
@@ -3243,7 +3249,7 @@ func init() {
       }
     },
     "StatusResponse": {
-      "description": "Health and status information of daemon",
+      "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "cilium": {
@@ -5066,7 +5072,7 @@ func init() {
       }
     },
     "ClusterMeshStatus": {
-      "description": "Status of ClusterMesh",
+      "description": "Status of ClusterMesh\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "clusters": {
           "description": "List of remote clusters",
@@ -5124,7 +5130,7 @@ func init() {
       }
     },
     "ClusterStatus": {
-      "description": "Status of cluster",
+      "description": "Status of cluster\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "ciliumHealth": {
           "description": "Status of local cilium-health daemon",
@@ -5151,11 +5157,11 @@ func init() {
       }
     },
     "ControllerStatus": {
-      "description": "Status of a controller",
+      "description": "Status of a controller\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "configuration": {
-          "description": "Configuration of controller",
+          "description": "Configuration of controller\n\n+deepequal-gen=true",
           "type": "object",
           "properties": {
             "error-retry": {
@@ -5179,7 +5185,7 @@ func init() {
           "type": "string"
         },
         "status": {
-          "description": "Current status of controller",
+          "description": "Current status of controller\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "consecutive-failure-count": {
@@ -5214,6 +5220,58 @@ func init() {
           "description": "UUID of controller",
           "type": "string",
           "format": "uuid"
+        }
+      }
+    },
+    "ControllerStatusConfiguration": {
+      "description": "Configuration of controller\n\n+deepequal-gen=true",
+      "type": "object",
+      "properties": {
+        "error-retry": {
+          "description": "Retry on error",
+          "type": "boolean"
+        },
+        "error-retry-base": {
+          "description": "Base error retry back-off time",
+          "type": "string",
+          "format": "duration"
+        },
+        "interval": {
+          "description": "Regular synchronization interval",
+          "type": "string",
+          "format": "duration"
+        }
+      }
+    },
+    "ControllerStatusStatus": {
+      "description": "Current status of controller\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "consecutive-failure-count": {
+          "description": "Number of consecutive errors since last success",
+          "type": "integer"
+        },
+        "failure-count": {
+          "description": "Total number of failed runs",
+          "type": "integer"
+        },
+        "last-failure-msg": {
+          "description": "Error message of last failed run",
+          "type": "string"
+        },
+        "last-failure-timestamp": {
+          "description": "Timestamp of last error",
+          "type": "string",
+          "format": "date-time"
+        },
+        "last-success-timestamp": {
+          "description": "Timestamp of last success",
+          "type": "string",
+          "format": "date-time"
+        },
+        "success-count": {
+          "description": "Total number of successful runs",
+          "type": "integer"
         }
       }
     },
@@ -5565,7 +5623,7 @@ func init() {
       }
     },
     "EndpointHealth": {
-      "description": "Health of the endpoint",
+      "description": "Health of the endpoint\n\n+deepequal-gen=true",
       "type": "object",
       "properties": {
         "bpf": {
@@ -5596,7 +5654,7 @@ func init() {
       ]
     },
     "EndpointIdentifiers": {
-      "description": "Unique identifiers for this endpoint from outside cilium",
+      "description": "Unique identifiers for this endpoint from outside cilium\n\n+deepequal-gen=true",
       "type": "object",
       "properties": {
         "container-id": {
@@ -5810,7 +5868,7 @@ func init() {
       }
     },
     "EndpointStatusChange": {
-      "description": "Indication of a change of status",
+      "description": "Indication of a change of status\n\n+deepequal-gen=true",
       "type": "object",
       "properties": {
         "code": {
@@ -5877,7 +5935,7 @@ func init() {
       }
     },
     "HubbleStatus": {
-      "description": "Status of the Hubble server",
+      "description": "Status of the Hubble server\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "metrics": {
@@ -5901,7 +5959,7 @@ func init() {
           "type": "string"
         },
         "observer": {
-          "description": "Status of the Hubble observer",
+          "description": "Status of the Hubble observer\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "current-flows": {
@@ -5932,6 +5990,45 @@ func init() {
             "Failure",
             "Disabled"
           ]
+        }
+      }
+    },
+    "HubbleStatusMetrics": {
+      "description": "Status of the Hubble metrics server",
+      "type": "object",
+      "properties": {
+        "state": {
+          "description": "State of the Hubble metrics",
+          "type": "string",
+          "enum": [
+            "Ok",
+            "Warning",
+            "Failure",
+            "Disabled"
+          ]
+        }
+      }
+    },
+    "HubbleStatusObserver": {
+      "description": "Status of the Hubble observer\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "current-flows": {
+          "description": "Current number of flows this Hubble observer stores",
+          "type": "integer"
+        },
+        "max-flows": {
+          "description": "Maximum number of flows this Hubble observer is able to store",
+          "type": "integer"
+        },
+        "seen-flows": {
+          "description": "Total number of flows this Hubble observer has seen",
+          "type": "integer"
+        },
+        "uptime": {
+          "description": "Uptime of this Hubble observer instance",
+          "type": "string",
+          "format": "duration"
         }
       }
     },
@@ -5987,7 +6084,7 @@ func init() {
       }
     },
     "IPAMStatus": {
-      "description": "Status of IP address management",
+      "description": "Status of IP address management\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "allocations": {
           "$ref": "#/definitions/AllocationMap"
@@ -6108,7 +6205,7 @@ func init() {
       }
     },
     "K8sStatus": {
-      "description": "Status of Kubernetes integration",
+      "description": "Status of Kubernetes integration\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "k8s-api-versions": {
@@ -6150,7 +6247,7 @@ func init() {
       }
     },
     "KubeProxyReplacement": {
-      "description": "Status of kube-proxy replacement",
+      "description": "Status of kube-proxy replacement\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "devices": {
@@ -6163,9 +6260,11 @@ func init() {
           "type": "string"
         },
         "features": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "externalIPs": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -6174,6 +6273,7 @@ func init() {
               }
             },
             "hostPort": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -6182,6 +6282,7 @@ func init() {
               }
             },
             "hostReachableServices": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -6196,6 +6297,7 @@ func init() {
               }
             },
             "nodePort": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "acceleration": {
@@ -6226,6 +6328,7 @@ func init() {
               }
             },
             "sessionAffinity": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
@@ -6243,6 +6346,158 @@ func init() {
             "Probe",
             "Partial"
           ]
+        }
+      }
+    },
+    "KubeProxyReplacementFeatures": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "externalIPs": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "hostPort": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
+        "hostReachableServices": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            },
+            "protocols": {
+              "type": "array",
+              "items": {
+                "type": "string"
+              }
+            }
+          }
+        },
+        "nodePort": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "acceleration": {
+              "type": "string",
+              "enum": [
+                "NONE",
+                "NATIVE",
+                "GENERIC"
+              ]
+            },
+            "enabled": {
+              "type": "boolean"
+            },
+            "mode": {
+              "type": "string",
+              "enum": [
+                "SNAT",
+                "DSR",
+                "HYBRID"
+              ]
+            },
+            "portMax": {
+              "type": "integer"
+            },
+            "portMin": {
+              "type": "integer"
+            }
+          }
+        },
+        "sessionAffinity": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesExternalIPs": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesHostPort": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesHostReachableServices": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
+        },
+        "protocols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesNodePort": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "acceleration": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "NATIVE",
+            "GENERIC"
+          ]
+        },
+        "enabled": {
+          "type": "boolean"
+        },
+        "mode": {
+          "type": "string",
+          "enum": [
+            "SNAT",
+            "DSR",
+            "HYBRID"
+          ]
+        },
+        "portMax": {
+          "type": "integer"
+        },
+        "portMin": {
+          "type": "integer"
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesSessionAffinity": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
         }
       }
     },
@@ -6320,7 +6575,7 @@ func init() {
       }
     },
     "Masquerading": {
-      "description": "Status of masquerading",
+      "description": "Status of masquerading\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "enabled": {
@@ -6433,14 +6688,14 @@ func init() {
       }
     },
     "NamedPorts": {
-      "description": "List of named Layer 4 port and protocol pairs which will be used in Network\nPolicy specs.\n",
+      "description": "List of named Layer 4 port and protocol pairs which will be used in Network\nPolicy specs.\n\n+deepequal-gen=true",
       "type": "array",
       "items": {
         "$ref": "#/definitions/Port"
       }
     },
     "NodeAddressing": {
-      "description": "Addressing information of a node for all address families",
+      "description": "Addressing information of a node for all address families\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "ipv4": {
@@ -6474,7 +6729,7 @@ func init() {
       }
     },
     "NodeElement": {
-      "description": "Known node in the cluster",
+      "description": "Known node in the cluster\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "health-endpoint-address": {
           "description": "Address used for probing cluster connectivity",
@@ -6543,7 +6798,7 @@ func init() {
       }
     },
     "Port": {
-      "description": "Layer 4 port / protocol pair",
+      "description": "Layer 4 port / protocol pair\n\n+deepequal-gen=true",
       "type": "object",
       "properties": {
         "name": {
@@ -6621,7 +6876,7 @@ func init() {
       }
     },
     "ProxyStatistics": {
-      "description": "Statistics of a set of proxy redirects for an endpoint",
+      "description": "Statistics of a set of proxy redirects for an endpoint\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "allocated-proxy-port": {
@@ -6651,7 +6906,7 @@ func init() {
       }
     },
     "ProxyStatus": {
-      "description": "Status of proxy",
+      "description": "Status of proxy\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "ip": {
@@ -6680,7 +6935,7 @@ func init() {
       }
     },
     "RemoteCluster": {
-      "description": "Status of remote cluster",
+      "description": "Status of remote cluster\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "last-failure": {
           "description": "Time of last failure that occurred while attempting to reach the cluster",
@@ -6718,7 +6973,7 @@ func init() {
       }
     },
     "RequestResponseStatistics": {
-      "description": "Statistics of a proxy redirect",
+      "description": "Statistics of a proxy redirect\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "requests": {
@@ -6845,6 +7100,44 @@ func init() {
         }
       }
     },
+    "ServiceSpecFlags": {
+      "description": "Optional service configuration flags",
+      "type": "object",
+      "properties": {
+        "healthCheckNodePort": {
+          "description": "Service health check node port",
+          "type": "integer",
+          "format": "uint16"
+        },
+        "name": {
+          "description": "Service name  (e.g. Kubernetes service name)",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "Service namespace  (e.g. Kubernetes namespace)",
+          "type": "string"
+        },
+        "trafficPolicy": {
+          "description": "Service traffic policy",
+          "type": "string",
+          "enum": [
+            "Cluster",
+            "Local"
+          ]
+        },
+        "type": {
+          "description": "Service type",
+          "type": "string",
+          "enum": [
+            "ClusterIP",
+            "NodePort",
+            "ExternalIPs",
+            "HostPort",
+            "LoadBalancer"
+          ]
+        }
+      }
+    },
     "ServiceStatus": {
       "description": "Configuration of a service",
       "type": "object",
@@ -6875,7 +7168,7 @@ func init() {
       }
     },
     "StatusResponse": {
-      "description": "Health and status information of daemon",
+      "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "cilium": {

@@ -8,9 +8,8 @@ package models
 import (
 	"encoding/json"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
@@ -18,6 +17,7 @@ import (
 // FrontendAddress Layer 4 address. The protocol is currently ignored, all services will
 // behave as if protocol any is specified. To restrict to a particular
 // protocol, use policy.
+//
 //
 // swagger:model FrontendAddress
 type FrontendAddress struct {
@@ -81,7 +81,7 @@ const (
 
 // prop value enum
 func (m *FrontendAddress) validateProtocolEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, frontendAddressTypeProtocolPropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, frontendAddressTypeProtocolPropEnum, true); err != nil {
 		return err
 	}
 	return nil
@@ -124,7 +124,7 @@ const (
 
 // prop value enum
 func (m *FrontendAddress) validateScopeEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, frontendAddressTypeScopePropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, frontendAddressTypeScopePropEnum, true); err != nil {
 		return err
 	}
 	return nil

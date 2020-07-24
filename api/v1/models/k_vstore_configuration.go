@@ -6,12 +6,12 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	strfmt "github.com/go-openapi/strfmt"
-
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // KVstoreConfiguration Configuration used for the kvstore
+//
 // swagger:model KVstoreConfiguration
 type KVstoreConfiguration struct {
 

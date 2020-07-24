@@ -6,13 +6,13 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // PrefilterStatus CIDR ranges implemented in the Prefilter
+//
 // swagger:model PrefilterStatus
 type PrefilterStatus struct {
 

@@ -6,13 +6,13 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // EndpointStatus The current state and configuration of the endpoint, its policy & datapath, and subcomponents
+//
 // swagger:model EndpointStatus
 type EndpointStatus struct {
 

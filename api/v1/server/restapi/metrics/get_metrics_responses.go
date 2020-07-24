@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	models "github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // GetMetricsOKCode is the HTTP code returned for type GetMetricsOK

@@ -1138,7 +1138,10 @@ definitions:
       - disconnected
       - invalid
   EndpointHealth:
-    description: Health of the endpoint
+    description: |-
+      Health of the endpoint
+
+      +deepequal-gen=true
     type: object
     properties:
       overallHealth:
@@ -1173,7 +1176,10 @@ definitions:
     items:
       "$ref": "#/definitions/EndpointStatusChange"
   EndpointStatusChange:
-    description: Indication of a change of status
+    description: |-
+      Indication of a change of status
+
+      +deepequal-gen=true
     type: object
     properties:
       timestamp:
@@ -1474,7 +1480,10 @@ definitions:
         description: Index of network device
         type: integer
   EndpointIdentifiers:
-    description: Unique identifiers for this endpoint from outside cilium
+    description: |-
+      Unique identifiers for this endpoint from outside cilium
+
+      +deepequal-gen=true
     type: object
     properties:
       container-id:
@@ -1537,7 +1546,10 @@ definitions:
         description: "Labels derived from orchestration system which have been disabled."
         "$ref": "#/definitions/Labels"
   StatusResponse:
-    description: Health and status information of daemon
+    description: |-
+      Health and status information of daemon
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       cilium:
@@ -1608,7 +1620,10 @@ definitions:
         type: string
         description: Human readable status/error/warning message
   HubbleStatus:
-    description: Status of the Hubble server
+    description: |-
+      Status of the Hubble server
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       state:
@@ -1624,7 +1639,10 @@ definitions:
         description: Human readable status/error/warning message
       observer:
         type: object
-        description: Status of the Hubble observer
+        description: |-
+          Status of the Hubble observer
+
+          +k8s:deepcopy-gen=true
         properties:
           max-flows:
             type: integer
@@ -1652,7 +1670,10 @@ definitions:
               - Failure
               - Disabled
   K8sStatus:
-    description: Status of Kubernetes integration
+    description: |-
+      Status of Kubernetes integration
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       state:
@@ -1671,7 +1692,10 @@ definitions:
         type: string
         description: Human readable status/error/warning message
   KubeProxyReplacement:
-    description: Status of kube-proxy replacement
+    description: |-
+      Status of kube-proxy replacement
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       mode:
@@ -1688,9 +1712,17 @@ definitions:
       directRoutingDevice:
         type: string
       features:
+        description: |-
+
+
+          +k8s:deepcopy-gen=true
         type: object
         properties:
           nodePort:
+            description: |-
+
+
+              +k8s:deepcopy-gen=true
             type: object
             properties:
               enabled:
@@ -1712,16 +1744,28 @@ definitions:
               portMax:
                 type: integer
           hostPort:
+            description: |-
+
+
+              +k8s:deepcopy-gen=true
             type: object
             properties:
               enabled:
                 type: boolean
           externalIPs:
+            description: |-
+
+
+              +k8s:deepcopy-gen=true
             type: object
             properties:
               enabled:
                 type: boolean
           hostReachableServices:
+            description: |-
+
+
+              +k8s:deepcopy-gen=true
             type: object
             properties:
               enabled:
@@ -1731,6 +1775,10 @@ definitions:
                 items:
                   type: string
           sessionAffinity:
+            description: |-
+
+
+              +k8s:deepcopy-gen=true
             type: object
             properties:
               enabled:
@@ -1742,7 +1790,10 @@ definitions:
     additionalProperties:
       type: string
   IPAMStatus:
-    description: Status of IP address management
+    description: |-
+      Status of IP address management
+
+      +k8s:deepcopy-gen=true
     properties:
       allocations:
         "$ref": "#/definitions/AllocationMap"
@@ -1757,7 +1808,10 @@ definitions:
       status:
         type: string
   ClusterStatus:
-    description: Status of cluster
+    description: |-
+      Status of cluster
+
+      +k8s:deepcopy-gen=true
     properties:
       ciliumHealth:
         description: Status of local cilium-health daemon
@@ -1790,7 +1844,10 @@ definitions:
         description: ID that should be used by the client to receive a diff from the previous request
         type: integer
   ClusterMeshStatus:
-    description: Status of ClusterMesh
+    description: |-
+      Status of ClusterMesh
+
+      +k8s:deepcopy-gen=true
     properties:
       clusters:
         description: List of remote clusters
@@ -1801,7 +1858,10 @@ definitions:
         description: Number of global services
         type: integer
   RemoteCluster:
-    description: Status of remote cluster
+    description: |-
+      Status of remote cluster
+
+      +k8s:deepcopy-gen=true
     properties:
       name:
         description: Name of the cluster
@@ -1974,7 +2034,10 @@ definitions:
     additionalProperties:
       type: string
   NodeElement:
-    description: Known node in the cluster
+    description: |-
+      Known node in the cluster
+
+      +k8s:deepcopy-gen=true
     properties:
       name:
         type: string
@@ -1993,7 +2056,10 @@ definitions:
         description: Address used for probing cluster connectivity
         "$ref": "#/definitions/NodeAddressing"
   NodeAddressing:
-    description: Addressing information of a node for all address families
+    description: |-
+      Addressing information of a node for all address families
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       ipv6:
@@ -2037,7 +2103,10 @@ definitions:
       log:
         type: string
   Port:
-    description: Layer 4 port / protocol pair
+    description: |-
+      Layer 4 port / protocol pair
+
+      +deepequal-gen=true
     type: object
     properties:
       protocol:
@@ -2208,7 +2277,10 @@ definitions:
       realized:
         "$ref": "#/definitions/ServiceSpec"
   ProxyStatus:
-    description: Status of proxy
+    description: |-
+      Status of proxy
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       port-range:
@@ -2242,7 +2314,10 @@ definitions:
         description: Host port that this redirect points to
         type: integer
   ProxyStatistics:
-    description: Statistics of a set of proxy redirects for an endpoint
+    description: |-
+      Statistics of a set of proxy redirects for an endpoint
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       protocol:
@@ -2264,7 +2339,10 @@ definitions:
         description: Statistics of this set of proxy redirect
         "$ref": "#/definitions/RequestResponseStatistics"
   RequestResponseStatistics:
-    description: Statistics of a proxy redirect
+    description: |-
+      Statistics of a proxy redirect
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       requests:
@@ -2288,7 +2366,10 @@ definitions:
         description: Number of messages forwarded
         type: integer
   Masquerading:
-    description: Status of masquerading
+    description: |-
+      Status of masquerading
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       enabled:
@@ -2311,7 +2392,10 @@ definitions:
     items:
       "$ref": "#/definitions/ControllerStatus"
   ControllerStatus:
-    description: Status of a controller
+    description: |-
+      Status of a controller
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       name:
@@ -2322,7 +2406,10 @@ definitions:
         type: string
         format: uuid
       configuration:
-        description: Configuration of controller
+        description: |-
+          Configuration of controller
+
+          +deepequal-gen=true
         type: object
         properties:
           interval:
@@ -2337,7 +2424,10 @@ definitions:
             description: Retry on error
             type: boolean
       status:
-        description: Current status of controller
+        description: |-
+          Current status of controller
+
+          +k8s:deepcopy-gen=true
         type: object
         properties:
           success-count:
@@ -2507,9 +2597,11 @@ definitions:
         description: Name assigned to the IP (e.g. Kubernetes pod name)
         type: string
   NamedPorts:
-    description: |
+    description: |-
       List of named Layer 4 port and protocol pairs which will be used in Network
       Policy specs.
+
+      +deepequal-gen=true
     type: array
     items:
       "$ref": "#/definitions/Port"

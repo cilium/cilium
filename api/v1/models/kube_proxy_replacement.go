@@ -8,16 +8,17 @@ package models
 import (
 	"encoding/json"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
 
 // KubeProxyReplacement Status of kube-proxy replacement
-// swagger:model KubeProxyReplacement
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model KubeProxyReplacement
 type KubeProxyReplacement struct {
 
 	// devices
@@ -99,7 +100,7 @@ const (
 
 // prop value enum
 func (m *KubeProxyReplacement) validateModeEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, kubeProxyReplacementTypeModePropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, kubeProxyReplacementTypeModePropEnum, true); err != nil {
 		return err
 	}
 	return nil
@@ -137,9 +138,11 @@ func (m *KubeProxyReplacement) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
-// KubeProxyReplacementFeatures kube proxy replacement features
-// swagger:model KubeProxyReplacementFeatures
+// KubeProxyReplacementFeatures
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model KubeProxyReplacementFeatures
 type KubeProxyReplacementFeatures struct {
 
 	// external i ps
@@ -296,9 +299,11 @@ func (m *KubeProxyReplacementFeatures) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
-// KubeProxyReplacementFeaturesExternalIPs kube proxy replacement features external i ps
-// swagger:model KubeProxyReplacementFeaturesExternalIPs
+// KubeProxyReplacementFeaturesExternalIPs
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model KubeProxyReplacementFeaturesExternalIPs
 type KubeProxyReplacementFeaturesExternalIPs struct {
 
 	// enabled
@@ -328,9 +333,11 @@ func (m *KubeProxyReplacementFeaturesExternalIPs) UnmarshalBinary(b []byte) erro
 	return nil
 }
 
-// KubeProxyReplacementFeaturesHostPort kube proxy replacement features host port
-// swagger:model KubeProxyReplacementFeaturesHostPort
+// KubeProxyReplacementFeaturesHostPort
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model KubeProxyReplacementFeaturesHostPort
 type KubeProxyReplacementFeaturesHostPort struct {
 
 	// enabled
@@ -360,9 +367,11 @@ func (m *KubeProxyReplacementFeaturesHostPort) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
-// KubeProxyReplacementFeaturesHostReachableServices kube proxy replacement features host reachable services
-// swagger:model KubeProxyReplacementFeaturesHostReachableServices
+// KubeProxyReplacementFeaturesHostReachableServices
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model KubeProxyReplacementFeaturesHostReachableServices
 type KubeProxyReplacementFeaturesHostReachableServices struct {
 
 	// enabled
@@ -395,9 +404,11 @@ func (m *KubeProxyReplacementFeaturesHostReachableServices) UnmarshalBinary(b []
 	return nil
 }
 
-// KubeProxyReplacementFeaturesNodePort kube proxy replacement features node port
-// swagger:model KubeProxyReplacementFeaturesNodePort
+// KubeProxyReplacementFeaturesNodePort
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model KubeProxyReplacementFeaturesNodePort
 type KubeProxyReplacementFeaturesNodePort struct {
 
 	// acceleration
@@ -462,7 +473,7 @@ const (
 
 // prop value enum
 func (m *KubeProxyReplacementFeaturesNodePort) validateAccelerationEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum, true); err != nil {
 		return err
 	}
 	return nil
@@ -508,7 +519,7 @@ const (
 
 // prop value enum
 func (m *KubeProxyReplacementFeaturesNodePort) validateModeEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, kubeProxyReplacementFeaturesNodePortTypeModePropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, kubeProxyReplacementFeaturesNodePortTypeModePropEnum, true); err != nil {
 		return err
 	}
 	return nil
@@ -546,7 +557,10 @@ func (m *KubeProxyReplacementFeaturesNodePort) UnmarshalBinary(b []byte) error {
 	return nil
 }
 
-// KubeProxyReplacementFeaturesSessionAffinity kube proxy replacement features session affinity
+// KubeProxyReplacementFeaturesSessionAffinity
+//
+// +k8s:deepcopy-gen=true
+//
 // swagger:model KubeProxyReplacementFeaturesSessionAffinity
 type KubeProxyReplacementFeaturesSessionAffinity struct {
 

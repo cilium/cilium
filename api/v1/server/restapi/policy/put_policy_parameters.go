@@ -51,7 +51,7 @@ func (o *PutPolicyParams) BindRequest(r *http.Request, route *middleware.Matched
 		var body string
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			if err == io.EOF {
-				res = append(res, errors.Required("policy", "body"))
+				res = append(res, errors.Required("policy", "body", ""))
 			} else {
 				res = append(res, errors.NewParseError("policy", "body", "", err))
 			}
@@ -60,7 +60,7 @@ func (o *PutPolicyParams) BindRequest(r *http.Request, route *middleware.Matched
 			o.Policy = body
 		}
 	} else {
-		res = append(res, errors.Required("policy", "body"))
+		res = append(res, errors.Required("policy", "body", ""))
 	}
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)

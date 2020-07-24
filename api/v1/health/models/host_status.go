@@ -8,14 +8,14 @@ package models
 import (
 	"strconv"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // HostStatus Connectivity status to host cilium-health instance via different paths,
 // probing via all known IP addresses
+//
 //
 // swagger:model HostStatus
 type HostStatus struct {

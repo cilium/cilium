@@ -12,10 +12,9 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/strfmt"
 
-	strfmt "github.com/go-openapi/strfmt"
-
-	models "github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPutEndpointIDParams creates a new PutEndpointIDParams object
@@ -72,7 +71,7 @@ func (o *PutEndpointIDParams) BindRequest(r *http.Request, route *middleware.Mat
 		var body models.EndpointChangeRequest
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			if err == io.EOF {
-				res = append(res, errors.Required("endpoint", "body"))
+				res = append(res, errors.Required("endpoint", "body", ""))
 			} else {
 				res = append(res, errors.NewParseError("endpoint", "body", "", err))
 			}
@@ -87,7 +86,7 @@ func (o *PutEndpointIDParams) BindRequest(r *http.Request, route *middleware.Mat
 			}
 		}
 	} else {
-		res = append(res, errors.Required("endpoint", "body"))
+		res = append(res, errors.Required("endpoint", "body", ""))
 	}
 	rID, rhkID, _ := route.Params.GetOK("id")
 	if err := o.bindID(rID, rhkID, route.Formats); err != nil {

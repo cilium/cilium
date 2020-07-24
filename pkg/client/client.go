@@ -36,7 +36,7 @@ import (
 )
 
 type Client struct {
-	clientapi.Cilium
+	clientapi.CiliumAPI
 }
 
 // DefaultSockPath returns default UNIX domain socket path or

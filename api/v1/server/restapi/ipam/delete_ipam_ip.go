@@ -8,7 +8,7 @@ package ipam
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // DeleteIpamIPHandlerFunc turns a function with the right signature into a delete ipam IP handler

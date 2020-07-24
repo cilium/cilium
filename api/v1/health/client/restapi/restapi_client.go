@@ -9,12 +9,11 @@ import (
 	"fmt"
 
 	"github.com/go-openapi/runtime"
-
-	strfmt "github.com/go-openapi/strfmt"
+	"github.com/go-openapi/strfmt"
 )
 
 // New creates a new restapi API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) *Client {
+func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
@@ -26,10 +25,17 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
-/*
-GetHealthz gets health of cilium node
+// ClientService is the interface for Client methods
+type ClientService interface {
+	GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error)
 
-Returns health and status information of the local node including
+	SetTransport(transport runtime.ClientTransport)
+}
+
+/*
+  GetHealthz gets health of cilium node
+
+  Returns health and status information of the local node including
 load and uptime, as well as the status of related components including
 the Cilium daemon.
 

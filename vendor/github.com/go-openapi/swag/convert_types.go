@@ -299,6 +299,73 @@ func Int64ValueMap(src map[string]*int64) map[string]int64 {
 	return dst
 }
 
+// Uint16 returns a pointer to of the uint16 value passed in.
+func Uint16(v uint16) *uint16 {
+	return &v
+}
+
+// Uint16Value returns the value of the uint16 pointer passed in or
+// 0 if the pointer is nil.
+func Uint16Value(v *uint16) uint16 {
+	if v != nil {
+		return *v
+	}
+
+	return 0
+}
+
+// Uint16Slice converts a slice of uint16 values into a slice of
+// uint16 pointers
+func Uint16Slice(src []uint16) []*uint16 {
+	dst := make([]*uint16, len(src))
+	for i := 0; i < len(src); i++ {
+		dst[i] = &(src[i])
+	}
+
+	return dst
+}
+
+// Uint16ValueSlice converts a slice of uint16 pointers into a slice of
+// uint16 values
+func Uint16ValueSlice(src []*uint16) []uint16 {
+	dst := make([]uint16, len(src))
+
+	for i := 0; i < len(src); i++ {
+		if src[i] != nil {
+			dst[i] = *(src[i])
+		}
+	}
+
+	return dst
+}
+
+// Uint16Map converts a string map of uint16 values into a string
+// map of uint16 pointers
+func Uint16Map(src map[string]uint16) map[string]*uint16 {
+	dst := make(map[string]*uint16)
+
+	for k, val := range src {
+		v := val
+		dst[k] = &v
+	}
+
+	return dst
+}
+
+// Uint16ValueMap converts a string map of uint16 pointers into a string
+// map of uint16 values
+func Uint16ValueMap(src map[string]*uint16) map[string]uint16 {
+	dst := make(map[string]uint16)
+
+	for k, val := range src {
+		if val != nil {
+			dst[k] = *val
+		}
+	}
+
+	return dst
+}
+
 // Uint returns a pointer to of the uint value passed in.
 func Uint(v uint) *uint {
 	return &v
@@ -473,6 +540,74 @@ func Uint64ValueMap(src map[string]*uint64) map[string]uint64 {
 			dst[k] = *val
 		}
 	}
+	return dst
+}
+
+// Float32 returns a pointer to of the float32 value passed in.
+func Float32(v float32) *float32 {
+	return &v
+}
+
+// Float32Value returns the value of the float32 pointer passed in or
+// 0 if the pointer is nil.
+func Float32Value(v *float32) float32 {
+	if v != nil {
+		return *v
+	}
+
+	return 0
+}
+
+// Float32Slice converts a slice of float32 values into a slice of
+// float32 pointers
+func Float32Slice(src []float32) []*float32 {
+	dst := make([]*float32, len(src))
+
+	for i := 0; i < len(src); i++ {
+		dst[i] = &(src[i])
+	}
+
+	return dst
+}
+
+// Float32ValueSlice converts a slice of float32 pointers into a slice of
+// float32 values
+func Float32ValueSlice(src []*float32) []float32 {
+	dst := make([]float32, len(src))
+
+	for i := 0; i < len(src); i++ {
+		if src[i] != nil {
+			dst[i] = *(src[i])
+		}
+	}
+
+	return dst
+}
+
+// Float32Map converts a string map of float32 values into a string
+// map of float32 pointers
+func Float32Map(src map[string]float32) map[string]*float32 {
+	dst := make(map[string]*float32)
+
+	for k, val := range src {
+		v := val
+		dst[k] = &v
+	}
+
+	return dst
+}
+
+// Float32ValueMap converts a string map of float32 pointers into a string
+// map of float32 values
+func Float32ValueMap(src map[string]*float32) map[string]float32 {
+	dst := make(map[string]float32)
+
+	for k, val := range src {
+		if val != nil {
+			dst[k] = *val
+		}
+	}
+
 	return dst
 }
 

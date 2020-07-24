@@ -12,10 +12,9 @@ import (
 	"github.com/go-openapi/errors"
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/strfmt"
 
-	strfmt "github.com/go-openapi/strfmt"
-
-	models "github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPatchEndpointIDConfigParams creates a new PatchEndpointIDConfigParams object
@@ -72,7 +71,7 @@ func (o *PatchEndpointIDConfigParams) BindRequest(r *http.Request, route *middle
 		var body models.EndpointConfigurationSpec
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			if err == io.EOF {
-				res = append(res, errors.Required("endpointConfiguration", "body"))
+				res = append(res, errors.Required("endpointConfiguration", "body", ""))
 			} else {
 				res = append(res, errors.NewParseError("endpointConfiguration", "body", "", err))
 			}
@@ -87,7 +86,7 @@ func (o *PatchEndpointIDConfigParams) BindRequest(r *http.Request, route *middle
 			}
 		}
 	} else {
-		res = append(res, errors.Required("endpointConfiguration", "body"))
+		res = append(res, errors.Required("endpointConfiguration", "body", ""))
 	}
 	rID, rhkID, _ := route.Params.GetOK("id")
 	if err := o.bindID(rID, rhkID, route.Formats); err != nil {

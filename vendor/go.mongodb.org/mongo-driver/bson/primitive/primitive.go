@@ -70,7 +70,7 @@ func (rp Regex) String() string {
 
 // Equal compares rp to rp2 and returns true is the are equal.
 func (rp Regex) Equal(rp2 Regex) bool {
-	return rp.Pattern == rp2.Pattern && rp.Options == rp.Options
+	return rp.Pattern == rp2.Pattern && rp.Options == rp2.Options
 }
 
 // IsZero returns if rp is the empty Regex
