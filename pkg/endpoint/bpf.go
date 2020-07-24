@@ -211,11 +211,14 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				var finalizeFunc revert.FinalizeFunc
 				var revertFunc revert.RevertFunc
 
-				proxyID, err := e.ProxyID(e.desiredPolicy.NamedPortsMap, l4)
+				proxyID, err := e.proxyID(l4)
 				if err != nil {
-					// skip redirects for which a proxyID cannot be created.
-					// Right now this happens only due to named port mapping not existing and
-					// we'll be called again when the mapping is available.
+					// Skip redirects for which a proxyID cannot be created.
+					// This may happen due to the named port mapping not
+					// existing or multiple PODs defining the same port name
+					// with different port values. The redirect will be created
+					// when the mapping is available or when the port name
+					// conflicts have been resolved in POD specs.
 					log.WithError(err).WithField(logfields.EndpointID, e.ID).Warning("Skipping adding redirect")
 					continue
 				}
@@ -259,7 +262,7 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 				direction = trafficdirection.Egress
 			}
 
-			keysFromFilter := l4.ToMapState(e.desiredPolicy.NamedPortsMap, direction)
+			keysFromFilter := l4.ToMapState(e, direction)
 
 			for keyFromFilter, entry := range keysFromFilter {
 				if oldEntry, ok := e.desiredPolicy.PolicyMapState[keyFromFilter]; ok {

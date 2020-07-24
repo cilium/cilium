@@ -174,12 +174,20 @@ func GenerateCIDRRules(numRules int) api.Rules {
 
 type DummyOwner struct{}
 
-func (d DummyOwner) LookupRedirectPortLocked(npMap NamedPortsMap, l4 *L4Filter) uint16 {
-	// Return a fake non-0 listening port number for redirect filters.
-	if l4.IsRedirect() {
-		return 4242
+func (d DummyOwner) LookupRedirectPortLocked(bool, string, uint16) uint16 {
+	return 4242
+}
+
+func (d DummyOwner) GetNamedPortsMap(ingress bool) (NamedPortsMap, error) {
+	return NamedPortMap{
+		"port-80": PortProto{Proto: uint8(0), Port: uint16(80)},
+	}, nil
+}
+
+func (d DummyOwner) GetNamedPortsMapLocked(ingress bool) NamedPortsMap {
+	return NamedPortMap{
+		"port-80": PortProto{Proto: uint8(0), Port: uint16(80)},
 	}
-	return 0
 }
 
 func (d DummyOwner) GetID() uint64 {
@@ -220,7 +228,7 @@ func (ds *PolicyTestSuite) BenchmarkRegenerateCIDRPolicyRules(c *C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		ip, _ := testRepo.resolvePolicyLocked(fooIdentity)
-		_ = ip.DistillPolicy(DummyOwner{}, nil, false)
+		_ = ip.DistillPolicy(DummyOwner{}, false)
 		ip.Detach()
 	}
 }
@@ -230,7 +238,7 @@ func (ds *PolicyTestSuite) BenchmarkRegenerateL3IngressPolicyRules(c *C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		ip, _ := testRepo.resolvePolicyLocked(fooIdentity)
-		_ = ip.DistillPolicy(DummyOwner{}, nil, false)
+		_ = ip.DistillPolicy(DummyOwner{}, false)
 		ip.Detach()
 	}
 }
@@ -240,7 +248,7 @@ func (ds *PolicyTestSuite) BenchmarkRegenerateL3EgressPolicyRules(c *C) {
 	c.ResetTimer()
 	for i := 0; i < c.N; i++ {
 		ip, _ := testRepo.resolvePolicyLocked(fooIdentity)
-		_ = ip.DistillPolicy(DummyOwner{}, nil, false)
+		_ = ip.DistillPolicy(DummyOwner{}, false)
 		ip.Detach()
 	}
 }
@@ -282,7 +290,7 @@ func (ds *PolicyTestSuite) TestL7WithIngressWildcard(c *C) {
 	defer repo.Mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	c.Assert(err, IsNil)
-	policy := selPolicy.DistillPolicy(DummyOwner{}, nil, false)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -371,7 +379,7 @@ func (ds *PolicyTestSuite) TestL7WithLocalHostWildcardd(c *C) {
 
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	c.Assert(err, IsNil)
-	policy := selPolicy.DistillPolicy(DummyOwner{}, nil, false)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
 	cachedSelectorHost := testSelectorCache.FindCachedIdentitySelector(api.ReservedEndpointSelectors[labels.IDNameHost])
 	c.Assert(cachedSelectorHost, Not(IsNil))
@@ -459,7 +467,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 	defer repo.Mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	c.Assert(err, IsNil)
-	policy := selPolicy.DistillPolicy(DummyOwner{}, nil, false)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
 	rule1MapStateEntry := NewMapStateEntry(labels.LabelArrayList{ruleLabel}, false)
 	allowEgressMapStateEntry := NewMapStateEntry(labels.LabelArrayList{ruleLabelAllowAnyEgress}, false)
@@ -564,7 +572,7 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	defer repo.Mutex.RUnlock()
 	selPolicy, err := repo.resolvePolicyLocked(fooIdentity)
 	c.Assert(err, IsNil)
-	policy := selPolicy.DistillPolicy(DummyOwner{}, nil, false)
+	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
 	// Add new identity to test accumulation of PolicyMapChanges
 	added1 := cache.IdentityCache{

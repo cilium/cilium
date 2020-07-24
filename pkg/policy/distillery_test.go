@@ -311,7 +311,7 @@ func (d *policyDistillery) WithLogBuffer(w io.Writer) *policyDistillery {
 
 // distillPolicy distills the policy repository into a set of bpf map state
 // entries for an endpoint with the specified labels.
-func (d *policyDistillery) distillPolicy(npMap NamedPortsMap, epLabels labels.LabelArray) (MapState, error) {
+func (d *policyDistillery) distillPolicy(owner PolicyOwner, epLabels labels.LabelArray) (MapState, error) {
 	result := make(MapState)
 
 	endpointSelected, _ := d.Repository.GetRulesMatching(epLabels)
@@ -339,7 +339,7 @@ func (d *policyDistillery) distillPolicy(npMap NamedPortsMap, epLabels labels.La
 	io.WriteString(d.log, "[distill] Producing L4 filter keys\n")
 	for _, l4 := range l4IngressPolicy {
 		io.WriteString(d.log, fmt.Sprintf("[distill] Processing L4Filter (l4: %d/%s), (l3/7: %+v)\n", l4.Port, l4.Protocol, l4.L7RulesPerSelector))
-		for key, entry := range l4.ToMapState(npMap, 0) {
+		for key, entry := range l4.ToMapState(owner, 0) {
 			io.WriteString(d.log, fmt.Sprintf("[distill] L4 ingress allow %+v (parser=%s, redirect=%t)\n", key, l4.L7Parser, entry.IsRedirectEntry()))
 			result[key] = entry
 		}
@@ -375,7 +375,7 @@ func Test_MergeL3(t *testing.T) {
 		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
-			mapstate, err := repo.distillPolicy(nil, labelsFoo)
+			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
@@ -447,7 +447,7 @@ func Test_MergeRules(t *testing.T) {
 		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
-			mapstate, err := repo.distillPolicy(nil, labelsFoo)
+			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
@@ -465,10 +465,6 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 		identity.NumericIdentity(identityFoo): labelsFoo,
 	}
 	selectorCache := testNewSelectorCache(identityCache)
-
-	npMap := NamedPortMap{
-		"port-80": PortProto{Proto: uint8(0), Port: uint16(80)},
-	}
 
 	tests := []struct {
 		test   int
@@ -523,7 +519,7 @@ func Test_MergeRulesWithNamedPorts(t *testing.T) {
 		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
-			mapstate, err := repo.distillPolicy(npMap, labelsFoo)
+			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
@@ -564,7 +560,7 @@ func Test_AllowAll(t *testing.T) {
 		t.Run(fmt.Sprintf("permutation_%d", tt.test), func(t *testing.T) {
 			logBuffer := new(bytes.Buffer)
 			repo = repo.WithLogBuffer(logBuffer)
-			mapstate, err := repo.distillPolicy(nil, labelsFoo)
+			mapstate, err := repo.distillPolicy(DummyOwner{}, labelsFoo)
 			if err != nil {
 				t.Errorf("Policy resolution failure: %s", err)
 			}
