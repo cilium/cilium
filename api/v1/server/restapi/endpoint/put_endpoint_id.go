@@ -8,7 +8,7 @@ package endpoint
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // PutEndpointIDHandlerFunc turns a function with the right signature into a put endpoint ID handler

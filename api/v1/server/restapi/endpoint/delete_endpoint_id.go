@@ -8,7 +8,7 @@ package endpoint
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // DeleteEndpointIDHandlerFunc turns a function with the right signature into a delete endpoint ID handler

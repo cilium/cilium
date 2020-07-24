@@ -8,16 +8,17 @@ package models
 import (
 	"encoding/json"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
 )
 
 // EndpointStatusChange Indication of a change of status
-// swagger:model EndpointStatusChange
+//
 // +deepequal-gen=true
+//
+// swagger:model EndpointStatusChange
 type EndpointStatusChange struct {
 
 	// Code indicate type of status change
@@ -75,7 +76,7 @@ const (
 
 // prop value enum
 func (m *EndpointStatusChange) validateCodeEnum(path, location string, value string) error {
-	if err := validate.Enum(path, location, value, endpointStatusChangeTypeCodePropEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, endpointStatusChangeTypeCodePropEnum, true); err != nil {
 		return err
 	}
 	return nil

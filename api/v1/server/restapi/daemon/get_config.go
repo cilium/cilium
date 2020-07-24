@@ -8,7 +8,7 @@ package daemon
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // GetConfigHandlerFunc turns a function with the right signature into a get config handler

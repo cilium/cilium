@@ -9,12 +9,11 @@ import (
 	"fmt"
 
 	"github.com/go-openapi/runtime"
-
-	strfmt "github.com/go-openapi/strfmt"
+	"github.com/go-openapi/strfmt"
 )
 
 // New creates a new daemon API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) *Client {
+func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
@@ -26,8 +25,27 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientService is the interface for Client methods
+type ClientService interface {
+	GetClusterNodes(params *GetClusterNodesParams) (*GetClusterNodesOK, error)
+
+	GetConfig(params *GetConfigParams) (*GetConfigOK, error)
+
+	GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, error)
+
+	GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error)
+
+	GetMap(params *GetMapParams) (*GetMapOK, error)
+
+	GetMapName(params *GetMapNameParams) (*GetMapNameOK, error)
+
+	PatchConfig(params *PatchConfigParams) (*PatchConfigOK, error)
+
+	SetTransport(transport runtime.ClientTransport)
+}
+
 /*
-GetClusterNodes gets nodes information stored in the cilium agent
+  GetClusterNodes gets nodes information stored in the cilium agent
 */
 func (a *Client) GetClusterNodes(params *GetClusterNodesParams) (*GetClusterNodesOK, error) {
 	// TODO: Validate the params before sending
@@ -61,9 +79,9 @@ func (a *Client) GetClusterNodes(params *GetClusterNodesParams) (*GetClusterNode
 }
 
 /*
-GetConfig gets configuration of cilium daemon
+  GetConfig gets configuration of cilium daemon
 
-Returns the configuration of the Cilium daemon.
+  Returns the configuration of the Cilium daemon.
 
 */
 func (a *Client) GetConfig(params *GetConfigParams) (*GetConfigOK, error) {
@@ -98,7 +116,7 @@ func (a *Client) GetConfig(params *GetConfigParams) (*GetConfigOK, error) {
 }
 
 /*
-GetDebuginfo retrieves information about the agent and evironment for debugging
+  GetDebuginfo retrieves information about the agent and evironment for debugging
 */
 func (a *Client) GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, error) {
 	// TODO: Validate the params before sending
@@ -132,9 +150,9 @@ func (a *Client) GetDebuginfo(params *GetDebuginfoParams) (*GetDebuginfoOK, erro
 }
 
 /*
-GetHealthz gets health of cilium daemon
+  GetHealthz gets health of cilium daemon
 
-Returns health and status information of the Cilium daemon and related
+  Returns health and status information of the Cilium daemon and related
 components such as the local container runtime, connected datastore,
 Kubernetes integration and Hubble.
 
@@ -171,7 +189,7 @@ func (a *Client) GetHealthz(params *GetHealthzParams) (*GetHealthzOK, error) {
 }
 
 /*
-GetMap lists all open maps
+  GetMap lists all open maps
 */
 func (a *Client) GetMap(params *GetMapParams) (*GetMapOK, error) {
 	// TODO: Validate the params before sending
@@ -205,7 +223,7 @@ func (a *Client) GetMap(params *GetMapParams) (*GetMapOK, error) {
 }
 
 /*
-GetMapName retrieves contents of b p f map
+  GetMapName retrieves contents of b p f map
 */
 func (a *Client) GetMapName(params *GetMapNameParams) (*GetMapNameOK, error) {
 	// TODO: Validate the params before sending
@@ -239,9 +257,9 @@ func (a *Client) GetMapName(params *GetMapNameParams) (*GetMapNameOK, error) {
 }
 
 /*
-PatchConfig modifies daemon configuration
+  PatchConfig modifies daemon configuration
 
-Updates the daemon configuration by applying the provided
+  Updates the daemon configuration by applying the provided
 ConfigurationMap and regenerates & recompiles all required datapath
 components.
 

@@ -10,7 +10,7 @@ import (
 
 	"github.com/go-openapi/runtime"
 
-	models "github.com/cilium/cilium/api/v1/health/models"
+	"github.com/cilium/cilium/api/v1/health/models"
 )
 
 // GetStatusOKCode is the HTTP code returned for type GetStatusOK

@@ -13,7 +13,7 @@ import (
 	"github.com/go-openapi/runtime"
 	"github.com/go-openapi/runtime/middleware"
 
-	models "github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPatchConfigParams creates a new PatchConfigParams object
@@ -53,7 +53,7 @@ func (o *PatchConfigParams) BindRequest(r *http.Request, route *middleware.Match
 		var body models.DaemonConfigurationSpec
 		if err := route.Consumer.Consume(r.Body, &body); err != nil {
 			if err == io.EOF {
-				res = append(res, errors.Required("configuration", "body"))
+				res = append(res, errors.Required("configuration", "body", ""))
 			} else {
 				res = append(res, errors.NewParseError("configuration", "body", "", err))
 			}
@@ -68,7 +68,7 @@ func (o *PatchConfigParams) BindRequest(r *http.Request, route *middleware.Match
 			}
 		}
 	} else {
-		res = append(res, errors.Required("configuration", "body"))
+		res = append(res, errors.Required("configuration", "body", ""))
 	}
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)

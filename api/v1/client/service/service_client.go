@@ -9,12 +9,11 @@ import (
 	"fmt"
 
 	"github.com/go-openapi/runtime"
-
-	strfmt "github.com/go-openapi/strfmt"
+	"github.com/go-openapi/strfmt"
 )
 
 // New creates a new service API client.
-func New(transport runtime.ClientTransport, formats strfmt.Registry) *Client {
+func New(transport runtime.ClientTransport, formats strfmt.Registry) ClientService {
 	return &Client{transport: transport, formats: formats}
 }
 
@@ -26,8 +25,21 @@ type Client struct {
 	formats   strfmt.Registry
 }
 
+// ClientService is the interface for Client methods
+type ClientService interface {
+	DeleteServiceID(params *DeleteServiceIDParams) (*DeleteServiceIDOK, error)
+
+	GetService(params *GetServiceParams) (*GetServiceOK, error)
+
+	GetServiceID(params *GetServiceIDParams) (*GetServiceIDOK, error)
+
+	PutServiceID(params *PutServiceIDParams) (*PutServiceIDOK, *PutServiceIDCreated, error)
+
+	SetTransport(transport runtime.ClientTransport)
+}
+
 /*
-DeleteServiceID deletes a service
+  DeleteServiceID deletes a service
 */
 func (a *Client) DeleteServiceID(params *DeleteServiceIDParams) (*DeleteServiceIDOK, error) {
 	// TODO: Validate the params before sending
@@ -61,7 +73,7 @@ func (a *Client) DeleteServiceID(params *DeleteServiceIDParams) (*DeleteServiceI
 }
 
 /*
-GetService retrieves list of all services
+  GetService retrieves list of all services
 */
 func (a *Client) GetService(params *GetServiceParams) (*GetServiceOK, error) {
 	// TODO: Validate the params before sending
@@ -95,7 +107,7 @@ func (a *Client) GetService(params *GetServiceParams) (*GetServiceOK, error) {
 }
 
 /*
-GetServiceID retrieves configuration of a service
+  GetServiceID retrieves configuration of a service
 */
 func (a *Client) GetServiceID(params *GetServiceIDParams) (*GetServiceIDOK, error) {
 	// TODO: Validate the params before sending
@@ -129,7 +141,7 @@ func (a *Client) GetServiceID(params *GetServiceIDParams) (*GetServiceIDOK, erro
 }
 
 /*
-PutServiceID creates or update service
+  PutServiceID creates or update service
 */
 func (a *Client) PutServiceID(params *PutServiceIDParams) (*PutServiceIDOK, *PutServiceIDCreated, error) {
 	// TODO: Validate the params before sending

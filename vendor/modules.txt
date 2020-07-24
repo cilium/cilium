@@ -35,7 +35,7 @@ github.com/PuerkitoBio/urlesc
 github.com/StackExchange/wmi
 # github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 github.com/armon/go-metrics
-# github.com/asaskevich/govalidator v0.0.0-20200108200545-475eaeb16496
+# github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535
 ## explicit
 github.com/asaskevich/govalidator
 # github.com/aws/aws-sdk-go-v2 v0.23.0
@@ -229,17 +229,17 @@ github.com/go-ole/go-ole/oleutil
 # github.com/go-openapi/analysis v0.19.10
 github.com/go-openapi/analysis
 github.com/go-openapi/analysis/internal
-# github.com/go-openapi/errors v0.19.3
+# github.com/go-openapi/errors v0.19.6
 ## explicit
 github.com/go-openapi/errors
 # github.com/go-openapi/jsonpointer v0.19.3
 github.com/go-openapi/jsonpointer
-# github.com/go-openapi/jsonreference v0.19.3
+# github.com/go-openapi/jsonreference v0.19.4
 github.com/go-openapi/jsonreference
 # github.com/go-openapi/loads v0.19.5
 ## explicit
 github.com/go-openapi/loads
-# github.com/go-openapi/runtime v0.19.4
+# github.com/go-openapi/runtime v0.19.20
 ## explicit
 github.com/go-openapi/runtime
 github.com/go-openapi/runtime/client
@@ -249,16 +249,16 @@ github.com/go-openapi/runtime/middleware/denco
 github.com/go-openapi/runtime/middleware/header
 github.com/go-openapi/runtime/middleware/untyped
 github.com/go-openapi/runtime/security
-# github.com/go-openapi/spec v0.19.6
+# github.com/go-openapi/spec v0.19.9
 ## explicit
 github.com/go-openapi/spec
-# github.com/go-openapi/strfmt v0.19.4
+# github.com/go-openapi/strfmt v0.19.5
 ## explicit
 github.com/go-openapi/strfmt
-# github.com/go-openapi/swag v0.19.7
+# github.com/go-openapi/swag v0.19.9
 ## explicit
 github.com/go-openapi/swag
-# github.com/go-openapi/validate v0.19.5
+# github.com/go-openapi/validate v0.19.10
 ## explicit
 github.com/go-openapi/validate
 # github.com/go-stack/stack v1.8.0
@@ -402,7 +402,7 @@ github.com/konsorten/go-windows-terminal-sequences
 # github.com/kr/pretty v0.2.0
 ## explicit
 github.com/kr/pretty
-# github.com/kr/text v0.1.0
+# github.com/kr/text v0.2.0
 github.com/kr/text
 # github.com/lyft/protoc-gen-star v0.4.14
 github.com/lyft/protoc-gen-star
@@ -423,7 +423,7 @@ github.com/matttproud/golang_protobuf_extensions/pbutil
 github.com/miekg/dns
 # github.com/mitchellh/go-homedir v1.1.0
 github.com/mitchellh/go-homedir
-# github.com/mitchellh/mapstructure v1.1.2
+# github.com/mitchellh/mapstructure v1.3.2
 github.com/mitchellh/mapstructure
 # github.com/mitchellh/protoc-gen-go-json v0.0.0-20200113165135-fd297ce346f1
 ## explicit
@@ -435,6 +435,8 @@ github.com/modern-go/concurrent
 github.com/modern-go/reflect2
 # github.com/morikuni/aec v1.0.0
 ## explicit
+# github.com/niemeyer/pretty v0.0.0-20200227124842-a10e7caefd8e
+github.com/niemeyer/pretty
 # github.com/onsi/ginkgo v1.11.0
 ## explicit
 github.com/onsi/ginkgo
@@ -553,7 +555,7 @@ github.com/spf13/pflag
 # github.com/spf13/viper v1.6.1
 ## explicit
 github.com/spf13/viper
-# github.com/stretchr/testify v1.4.0
+# github.com/stretchr/testify v1.6.1
 ## explicit
 github.com/stretchr/testify/assert
 github.com/stretchr/testify/require
@@ -590,7 +592,7 @@ go.etcd.io/etcd/raft/quorum
 go.etcd.io/etcd/raft/raftpb
 go.etcd.io/etcd/raft/tracker
 go.etcd.io/etcd/version
-# go.mongodb.org/mongo-driver v1.3.0
+# go.mongodb.org/mongo-driver v1.3.4
 go.mongodb.org/mongo-driver/bson
 go.mongodb.org/mongo-driver/bson/bsoncodec
 go.mongodb.org/mongo-driver/bson/bsonoptions
@@ -631,7 +633,7 @@ golang.org/x/crypto/ssh/terminal
 # golang.org/x/lint v0.0.0-20191125180803-fdd1cda4f05f
 golang.org/x/lint
 golang.org/x/lint/golint
-# golang.org/x/net v0.0.0-20200324143707-d3edc9973b7e
+# golang.org/x/net v0.0.0-20200602114024-627f9648deb9
 ## explicit
 golang.org/x/net/bpf
 golang.org/x/net/context
@@ -804,7 +806,7 @@ google.golang.org/protobuf/types/known/structpb
 google.golang.org/protobuf/types/known/timestamppb
 google.golang.org/protobuf/types/known/wrapperspb
 google.golang.org/protobuf/types/pluginpb
-# gopkg.in/check.v1 v1.0.0-20190902080502-41f04d3bba15
+# gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 ## explicit
 gopkg.in/check.v1
 # gopkg.in/fsnotify.v1 v1.4.7
@@ -818,9 +820,11 @@ gopkg.in/ini.v1
 gopkg.in/natefinch/lumberjack.v2
 # gopkg.in/tomb.v1 v1.0.0-20141024135613-dd632973f1e7
 gopkg.in/tomb.v1
-# gopkg.in/yaml.v2 v2.2.8
+# gopkg.in/yaml.v2 v2.3.0
 ## explicit
 gopkg.in/yaml.v2
+# gopkg.in/yaml.v3 v3.0.0-20200615113413-eeeca48fe776
+gopkg.in/yaml.v3
 # k8s.io/api v0.19.0-rc.2
 ## explicit
 k8s.io/api/admissionregistration/v1

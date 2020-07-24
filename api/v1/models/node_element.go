@@ -8,15 +8,16 @@ package models
 import (
 	"strconv"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // NodeElement Known node in the cluster
-// swagger:model NodeElement
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model NodeElement
 type NodeElement struct {
 
 	// Address used for probing cluster connectivity

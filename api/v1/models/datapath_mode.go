@@ -8,13 +8,13 @@ package models
 import (
 	"encoding/json"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/validate"
 )
 
 // DatapathMode Datapath mode
+//
 // swagger:model DatapathMode
 type DatapathMode string
 
@@ -41,7 +41,7 @@ func init() {
 }
 
 func (m DatapathMode) validateDatapathModeEnum(path, location string, value DatapathMode) error {
-	if err := validate.Enum(path, location, value, datapathModeEnum); err != nil {
+	if err := validate.EnumCase(path, location, value, datapathModeEnum, true); err != nil {
 		return err
 	}
 	return nil

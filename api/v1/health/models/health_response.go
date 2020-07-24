@@ -6,22 +6,19 @@ package models
 // Editing this file might prove futile when you re-run the swagger generate command
 
 import (
-	strfmt "github.com/go-openapi/strfmt"
-
-	// TODO: Upstream swagger doesn't autogenerate this include, but it
-	//       should for spec cross-references.
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // HealthResponse Health and status information of local node
+//
 // swagger:model HealthResponse
 type HealthResponse struct {
 
 	// Status of Cilium daemon
-	Cilium *ciliumModels.StatusResponse `json:"cilium,omitempty"`
+	Cilium ciliumModels.StatusResponse `json:"cilium,omitempty"`
 
 	// System load on node
 	SystemLoad *LoadResponse `json:"system-load,omitempty"`
@@ -34,10 +31,6 @@ type HealthResponse struct {
 func (m *HealthResponse) Validate(formats strfmt.Registry) error {
 	var res []error
 
-	if err := m.validateCilium(formats); err != nil {
-		res = append(res, err)
-	}
-
 	if err := m.validateSystemLoad(formats); err != nil {
 		res = append(res, err)
 	}
@@ -45,24 +38,6 @@ func (m *HealthResponse) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
-	return nil
-}
-
-func (m *HealthResponse) validateCilium(formats strfmt.Registry) error {
-
-	if swag.IsZero(m.Cilium) { // not required
-		return nil
-	}
-
-	if m.Cilium != nil {
-		if err := m.Cilium.Validate(formats); err != nil {
-			if ve, ok := err.(*errors.Validation); ok {
-				return ve.ValidateName("cilium")
-			}
-			return err
-		}
-	}
-
 	return nil
 }
 

@@ -41,8 +41,8 @@ func init() {
 	}
 }
 
-// NewServer creates a new api cilium server but does not configure it
-func NewServer(api *restapi.CiliumAPI) *Server {
+// NewServer creates a new api cilium API server but does not configure it
+func NewServer(api *restapi.CiliumAPIAPI) *Server {
 	s := new(Server)
 
 	s.shutdown = make(chan struct{})
@@ -65,7 +65,7 @@ func (s *Server) ConfigureFlags() {
 	}
 }
 
-// Server for the cilium API
+// Server for the cilium API API
 type Server struct {
 	EnabledListeners []string
 	CleanupTimeout   time.Duration
@@ -94,7 +94,7 @@ type Server struct {
 	TLSWriteTimeout   time.Duration
 	httpsServerL      net.Listener
 
-	api          *restapi.CiliumAPI
+	api          *restapi.CiliumAPIAPI
 	handler      http.Handler
 	hasListeners bool
 	shutdown     chan struct{}
@@ -124,7 +124,7 @@ func (s *Server) Fatalf(f string, args ...interface{}) {
 }
 
 // SetAPI configures the server with the specified API. Needs to be called before Serve
-func (s *Server) SetAPI(api *restapi.CiliumAPI) {
+func (s *Server) SetAPI(api *restapi.CiliumAPIAPI) {
 	if api == nil {
 		s.api = nil
 		s.handler = nil
@@ -172,8 +172,6 @@ func (s *Server) Serve() (err error) {
 	go handleInterrupt(once, s)
 
 	servers := []*http.Server{}
-	wg.Add(1)
-	go s.handleShutdown(wg, &servers)
 
 	if s.hasScheme(schemeUnix) {
 		domainSocket := new(http.Server)
@@ -193,13 +191,13 @@ func (s *Server) Serve() (err error) {
 		}
 		servers = append(servers, domainSocket)
 		wg.Add(1)
-		s.Logf("Serving cilium at unix://%s", s.SocketPath)
+		s.Logf("Serving cilium API at unix://%s", s.SocketPath)
 		go func(l net.Listener) {
 			defer wg.Done()
 			if err := domainSocket.Serve(l); err != nil && err != http.ErrServerClosed {
 				s.Fatalf("%v", err)
 			}
-			s.Logf("Stopped serving cilium at unix://%s", s.SocketPath)
+			s.Logf("Stopped serving cilium API at unix://%s", s.SocketPath)
 		}(s.domainSocketL)
 	}
 
@@ -223,13 +221,13 @@ func (s *Server) Serve() (err error) {
 
 		servers = append(servers, httpServer)
 		wg.Add(1)
-		s.Logf("Serving cilium at http://%s", s.httpServerL.Addr())
+		s.Logf("Serving cilium API at http://%s", s.httpServerL.Addr())
 		go func(l net.Listener) {
 			defer wg.Done()
 			if err := httpServer.Serve(l); err != nil && err != http.ErrServerClosed {
 				s.Fatalf("%v", err)
 			}
-			s.Logf("Stopped serving cilium at http://%s", l.Addr())
+			s.Logf("Stopped serving cilium API at http://%s", l.Addr())
 		}(s.httpServerL)
 	}
 
@@ -319,15 +317,18 @@ func (s *Server) Serve() (err error) {
 
 		servers = append(servers, httpsServer)
 		wg.Add(1)
-		s.Logf("Serving cilium at https://%s", s.httpsServerL.Addr())
+		s.Logf("Serving cilium API at https://%s", s.httpsServerL.Addr())
 		go func(l net.Listener) {
 			defer wg.Done()
 			if err := httpsServer.Serve(l); err != nil && err != http.ErrServerClosed {
 				s.Fatalf("%v", err)
 			}
-			s.Logf("Stopped serving cilium at https://%s", l.Addr())
+			s.Logf("Stopped serving cilium API at https://%s", l.Addr())
 		}(tls.NewListener(s.httpsServerL, httpsServer.TLSConfig))
 	}
+
+	wg.Add(1)
+	go s.handleShutdown(wg, &servers)
 
 	wg.Wait()
 	return nil
@@ -423,6 +424,9 @@ func (s *Server) handleShutdown(wg *sync.WaitGroup, serversPtr *[]*http.Server) 
 
 	ctx, cancel := context.WithTimeout(context.TODO(), s.GracefulTimeout)
 	defer cancel()
+
+	// first execute the pre-shutdown hook
+	s.api.PreServerShutdown()
 
 	shutdownChan := make(chan bool)
 	for i := range servers {

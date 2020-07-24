@@ -8,15 +8,16 @@ package models
 import (
 	"strconv"
 
-	strfmt "github.com/go-openapi/strfmt"
-
 	"github.com/go-openapi/errors"
+	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 )
 
 // ClusterMeshStatus Status of ClusterMesh
-// swagger:model ClusterMeshStatus
+//
 // +k8s:deepcopy-gen=true
+//
+// swagger:model ClusterMeshStatus
 type ClusterMeshStatus struct {
 
 	// List of remote clusters

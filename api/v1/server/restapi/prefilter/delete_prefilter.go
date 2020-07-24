@@ -8,7 +8,7 @@ package prefilter
 import (
 	"net/http"
 
-	middleware "github.com/go-openapi/runtime/middleware"
+	"github.com/go-openapi/runtime/middleware"
 )
 
 // DeletePrefilterHandlerFunc turns a function with the right signature into a delete prefilter handler
