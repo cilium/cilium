@@ -7,8 +7,8 @@ package connectivity_check
 _networkCheck: {
 	metadata: labels: component: "network-check"
 }
-deployment: "pod-to-a":               _networkCheck
-deployment: "pod-to-a-external-1111": _networkCheck & {
+deployment: "pod-to-a":             _networkCheck
+deployment: "pod-to-external-1111": _networkCheck & {
 	_probeTarget: "1.1.1.1"
 	_probePath:   ""
 }

@@ -164,20 +164,20 @@ apiVersion: apps/v1
 kind: Deployment
 ---
 metadata:
-  name: pod-to-a-external-1111
+  name: pod-to-external-1111
   labels:
-    name: pod-to-a-external-1111
+    name: pod-to-external-1111
     topology: any
     component: network-check
 spec:
   template:
     metadata:
       labels:
-        name: pod-to-a-external-1111
+        name: pod-to-external-1111
     spec:
       hostNetwork: false
       containers:
-      - name: pod-to-a-external-1111-container
+      - name: pod-to-external-1111-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
         imagePullPolicy: IfNotPresent
@@ -198,26 +198,26 @@ spec:
             - 1.1.1.1
   selector:
     matchLabels:
-      name: pod-to-a-external-1111
+      name: pod-to-external-1111
   replicas: 1
 apiVersion: apps/v1
 kind: Deployment
 ---
 metadata:
-  name: pod-to-a-l3-denied-cnp
+  name: pod-to-a-denied-cnp
   labels:
-    name: pod-to-a-l3-denied-cnp
+    name: pod-to-a-denied-cnp
     topology: any
     component: policy-check
 spec:
   template:
     metadata:
       labels:
-        name: pod-to-a-l3-denied-cnp
+        name: pod-to-a-denied-cnp
     spec:
       hostNetwork: false
       containers:
-      - name: pod-to-a-l3-denied-cnp-container
+      - name: pod-to-a-denied-cnp-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
         imagePullPolicy: IfNotPresent
@@ -234,7 +234,7 @@ spec:
             - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a/private'
   selector:
     matchLabels:
-      name: pod-to-a-l3-denied-cnp
+      name: pod-to-a-denied-cnp
   replicas: 1
 apiVersion: apps/v1
 kind: Deployment
@@ -584,15 +584,15 @@ apiVersion: v1
 kind: Service
 ---
 metadata:
-  name: pod-to-a-l3-denied-cnp
+  name: pod-to-a-denied-cnp
   labels:
-    name: pod-to-a-l3-denied-cnp
+    name: pod-to-a-denied-cnp
     topology: any
     component: policy-check
 spec:
   endpointSelector:
     matchLabels:
-      name: pod-to-a-l3-denied-cnp
+      name: pod-to-a-denied-cnp
   egress:
   - toPorts:
     - ports:

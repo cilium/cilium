@@ -9,12 +9,12 @@ _policyResource: {
 
 	metadata: labels: component: "policy-check"
 }
-deployment: "pod-to-a-l3-denied-cnp": _policyResource & {
+deployment: "pod-to-a-denied-cnp": _policyResource & {
 	_probeExpectFail: true
 }
-egressCNP: "pod-to-a-l3-denied-cnp": _policyResource
-deployment: "pod-to-a-allowed-cnp":  _policyResource
-egressCNP: "pod-to-a-allowed-cnp":   _policyResource & {
+egressCNP: "pod-to-a-denied-cnp":   _policyResource
+deployment: "pod-to-a-allowed-cnp": _policyResource
+egressCNP: "pod-to-a-allowed-cnp":  _policyResource & {
 	_rules: [{
 		toEndpoints: [{
 			matchLabels: {
