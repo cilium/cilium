@@ -43,7 +43,9 @@ Configuring Identity-Relevant Labels
 
 To limit the labels used for evaluating Cilium identities, edit the Cilium
 ConfigMap object using ``kubectl edit cm -n kube-system cilium-config``
-and insert a line to define the labels to include or exclude.
+and insert a line to define the labels to include or exclude. Alternatively,
+this attribute can also be set via helm option ``--set config.labels=<values>``.
+
 
 .. code-block:: yaml
 
