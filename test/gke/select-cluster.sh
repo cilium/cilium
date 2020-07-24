@@ -18,7 +18,7 @@ export KUBECONFIG="${script_dir}/gke-kubeconfig"
 while [ $locked -ne 0 ]; do
     rm -f "${KUBECONFIG}"
     echo "selecting random cluster"
-    cluster_uri="$(gcloud container clusters list --project "${project}" --filter="name ~ ^cilium-ci-" --uri | sort -R | head -n 1)"
+    for cluster_uri in $(gcloud container clusters list --project "${project}" --filter="name ~ ^cilium-ci-" --uri | sort -R); do
 
 	echo "checking whether cluster ${cluster_uri} has any node pools"
 	node_pools=$(gcloud container node-pools list --project "${project}" --region "${region}" --cluster "${cluster_uri}" --format="value(name)")
@@ -27,21 +27,25 @@ while [ $locked -ne 0 ]; do
 		continue
 	fi
 
-    echo "getting kubeconfig for ${cluster_uri} (will store in ${KUBECONFIG})"
-    gcloud container clusters get-credentials --project "${project}" --region "${region}" "${cluster_uri}"
+	echo "getting kubeconfig for ${cluster_uri} (will store in ${KUBECONFIG})"
+	gcloud container clusters get-credentials --project "${project}" --region "${region}" "${cluster_uri}"
 
-    echo "acquiring cluster lock"
-    set +e
-    kubectl create namespace cilium-ci-lock
-    kubectl create -f "${script_dir}/lock.yaml"
+	echo "acquiring cluster lock"
+	set +e
+	kubectl create namespace cilium-ci-lock
+	kubectl create -f "${script_dir}/lock.yaml"
 
-    kubectl annotate deployment -n cilium-ci-lock lock lock=1
-    locked=$?
-    echo $locked
-    if [ -n "${BUILD_URL+x}" ] && [ $locked -eq 0 ] ; then
-      kubectl annotate deployment -n cilium-ci-lock lock --overwrite "jenkins-build-url=${BUILD_URL}"
-    fi
-    set -e
+	kubectl annotate deployment -n cilium-ci-lock lock lock=1
+	locked=$?
+	echo $locked
+	if [ -n "${BUILD_URL+x}" ] && [ $locked -eq 0 ] ; then
+	    kubectl annotate deployment -n cilium-ci-lock lock --overwrite "jenkins-build-url=${BUILD_URL}"
+	fi
+	set -e
+	if [ $locked -eq 0 ] ; then
+	   break
+	fi
+    done
 done
 
 echo "lock acquired on cluster ${cluster_uri}"
