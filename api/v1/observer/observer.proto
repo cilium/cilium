@@ -14,6 +14,7 @@
 
 syntax = "proto3";
 
+import "google/protobuf/wrappers.proto";
 import "google/protobuf/timestamp.proto";
 import public "flow/flow.proto";
 import "relay/relay.proto";
@@ -52,6 +53,16 @@ message ServerStatusResponse {
     // In a multi-node context, this field corresponds to the uptime of the
     // longest living instance.
     uint64 uptime_ns = 4;
+
+    // number of nodes for which a connection is established
+    google.protobuf.UInt32Value num_connected_nodes = 5;
+
+    // number of nodes for which a connection cannot be established
+    google.protobuf.UInt32Value num_unavailable_nodes = 6;
+
+    // list of nodes that are unavailable
+    // This list may not be exhaustive.
+    repeated string unavailable_nodes = 7;
 }
 
 message GetFlowsRequest {

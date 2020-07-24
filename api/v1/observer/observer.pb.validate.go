@@ -119,6 +119,26 @@ func (m *ServerStatusResponse) Validate() error {
 
 	// no validation rules for UptimeNs
 
+	if v, ok := interface{}(m.GetNumConnectedNodes()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ServerStatusResponseValidationError{
+				field:  "NumConnectedNodes",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
+	if v, ok := interface{}(m.GetNumUnavailableNodes()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return ServerStatusResponseValidationError{
+				field:  "NumUnavailableNodes",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	return nil
 }
 
