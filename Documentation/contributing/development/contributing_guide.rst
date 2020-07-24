@@ -385,6 +385,12 @@ steps 1 to 2 times per day. Works best if done first thing in the working day.
 
 #. Merge PRs with the ``ready-to-merge`` label set `here <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+sort%3Aupdated-asc+label%3Aready-to-merge+>`_
 
+#. If the PR is a backport PR, update the labels of cherry-picked PRs with the command included at the end of the original post. For example:
+
+   .. code-block:: bash
+   
+       $ for pr in 12589 12568; do contrib/backporting/set-labels.py $pr done 1.8; done
+
 Triage issues for Triage team
 -----------------------------
 
