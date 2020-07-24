@@ -2485,7 +2485,7 @@ definitions:
         items:
           "$ref": "#/definitions/BPFMapEntry"
   BPFMapEntry:
-    description: BPF map cache entry"
+    description: BPF map cache entry
     type: object
     properties:
       key:
