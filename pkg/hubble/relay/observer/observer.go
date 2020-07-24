@@ -28,6 +28,7 @@ import (
 	"github.com/golang/protobuf/ptypes"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
+	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
 )
 
@@ -40,6 +41,17 @@ func newObserverClient(cc pool.ClientConn) observerpb.ObserverClient {
 		return observerpb.NewObserverClient(conn)
 	}
 	return nil
+}
+
+func isAvailable(conn pool.ClientConn) bool {
+	if conn == nil {
+		return false
+	}
+	switch conn.GetState() {
+	case connectivity.Ready, connectivity.Idle:
+		return true
+	}
+	return false
 }
 
 func retrieveFlowsFromPeer(
