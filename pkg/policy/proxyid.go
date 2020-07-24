@@ -37,18 +37,6 @@ func ProxyIDFromKey(endpointID uint16, key Key) string {
 	return ProxyID(endpointID, key.TrafficDirection == trafficdirection.Ingress.Uint8(), u8proto.U8proto(key.Nexthdr).String(), key.DestPort)
 }
 
-// ProxyIDFromFilter returns a unique string to identify a proxy mapping.
-func ProxyIDFromFilter(endpointID uint16, npMap NamedPortsMap, l4 *L4Filter) (id string, err error) {
-	port := uint16(l4.Port)
-	if port == 0 && l4.PortName != "" {
-		port, err = npMap.GetNamedPort(l4.PortName, uint8(l4.U8Proto))
-		if err != nil {
-			return "", err
-		}
-	}
-	return ProxyID(endpointID, l4.Ingress, string(l4.Protocol), port), nil
-}
-
 // ParseProxyID parses a proxy ID returned by ProxyID and returns its components.
 func ParseProxyID(proxyID string) (endpointID uint16, ingress bool, protocol string, port uint16, err error) {
 	comps := strings.Split(proxyID, ":")

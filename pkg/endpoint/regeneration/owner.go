@@ -60,7 +60,6 @@ type EndpointInfoSource interface {
 	HasSidecarProxy() bool
 	ConntrackName() string
 	ConntrackNameLocked() string
-	ProxyID(npMap policy.NamedPortsMap, l4 *policy.L4Filter) (string, error)
 	GetProxyInfoByFields() (uint64, string, string, []string, string, uint64, error)
 }
 
