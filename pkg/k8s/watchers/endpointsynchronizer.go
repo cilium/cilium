@@ -17,6 +17,7 @@ package watchers
 import (
 	"context"
 	"encoding/json"
+	"errors"
 	"fmt"
 	"time"
 
@@ -166,6 +167,12 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 						}
 						localCEP, err = ciliumClient.CiliumEndpoints(namespace).Create(ctx, cep, meta_v1.CreateOptions{})
 						if err != nil {
+							// Suppress logging an error if ep backing the pod was terminated
+							// before CEP could be created and shut down the controller.
+							if errors.Is(err, context.Canceled) {
+								return nil
+							}
+
 							scopedLog.WithError(err).Error("Cannot create CEP")
 							return err
 						}
@@ -257,6 +264,12 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				// Ensure we re-init when we see a generic error. This will recrate the
 				// CEP.
 				case err != nil:
+					// Suppress logging an error if ep backing the pod was terminated
+					// before CEP could be updated and shut down the controller.
+					if errors.Is(err, context.Canceled) {
+						return nil
+					}
+
 					scopedLog.WithError(err).Error("Cannot update CEP")
 					needInit = true
 					return err
