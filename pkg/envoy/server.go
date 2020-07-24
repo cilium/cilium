@@ -28,7 +28,6 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
-	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
@@ -879,7 +878,7 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 	}
 }
 
-func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, npMap policy.NamedPortsMap, policyEnforced bool) []*cilium.PortNetworkPolicy {
+func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4PolicyMap, policyEnforced bool) []*cilium.PortNetworkPolicy {
 	if !policyEnforced {
 		// Return an allow-all policy.
 		return allowAllPortNetworkPolicy
@@ -904,6 +903,7 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, npMap policy.NamedPo
 		port := uint16(l4.Port)
 		if port == 0 && l4.PortName != "" {
 			var err error
+			npMap := ep.GetNamedPortsMapLocked(l4.Ingress)
 			port, err = npMap.GetNamedPort(l4.PortName, uint8(l4.U8Proto))
 			if err != nil {
 				log.WithError(err).WithField(logfields.PortName, l4.PortName).Debug("getDirectionNetworkPolicy: Skipping named port")
@@ -989,18 +989,18 @@ func getDirectionNetworkPolicy(l4Policy policy.L4PolicyMap, npMap policy.NamedPo
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
-func getNetworkPolicy(name string, id identity.NumericIdentity, conntrackName string, policy *policy.L4Policy,
-	npMap policy.NamedPortsMap, ingressPolicyEnforced, egressPolicyEnforced bool) *cilium.NetworkPolicy {
+func getNetworkPolicy(ep logger.EndpointUpdater, name string, policy *policy.L4Policy,
+	ingressPolicyEnforced, egressPolicyEnforced bool) *cilium.NetworkPolicy {
 	p := &cilium.NetworkPolicy{
 		Name:             name,
-		Policy:           uint64(id),
-		ConntrackMapName: conntrackName,
+		Policy:           uint64(ep.GetIdentityLocked()),
+		ConntrackMapName: ep.ConntrackNameLocked(),
 	}
 
 	// If no policy, deny all traffic. Otherwise, convert the policies for ingress and egress.
 	if policy != nil {
-		p.IngressPerPortPolicies = getDirectionNetworkPolicy(policy.Ingress, npMap, ingressPolicyEnforced)
-		p.EgressPerPortPolicies = getDirectionNetworkPolicy(policy.Egress, npMap, egressPolicyEnforced)
+		p.IngressPerPortPolicies = getDirectionNetworkPolicy(ep, policy.Ingress, ingressPolicyEnforced)
+		p.EgressPerPortPolicies = getDirectionNetworkPolicy(ep, policy.Egress, egressPolicyEnforced)
 	}
 
 	return p
@@ -1039,7 +1039,7 @@ func getNodeIDs(ep logger.EndpointUpdater, policy *policy.L4Policy) []string {
 // to L7 proxies.
 // When the proxy acknowledges the network policy update, it will result in
 // a subsequent call to the endpoint's OnProxyPolicyUpdate() function.
-func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy, npMap policy.NamedPortsMap,
+func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *policy.L4Policy,
 	ingressPolicyEnforced, egressPolicyEnforced bool, wg *completion.WaitGroup) (error, func() error) {
 	s.mutex.Lock()
 	defer s.mutex.Unlock()
@@ -1054,8 +1054,7 @@ func (s *XDSServer) UpdateNetworkPolicy(ep logger.EndpointUpdater, policy *polic
 		if ip == "" {
 			continue
 		}
-		networkPolicy := getNetworkPolicy(ip, ep.GetIdentityLocked(), ep.ConntrackNameLocked(), policy, npMap,
-			ingressPolicyEnforced, egressPolicyEnforced)
+		networkPolicy := getNetworkPolicy(ep, ip, policy, ingressPolicyEnforced, egressPolicyEnforced)
 		err := networkPolicy.Validate()
 		if err != nil {
 			return fmt.Errorf("error validating generated NetworkPolicy for %s: %s", ip, err), nil

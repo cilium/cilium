@@ -522,9 +522,9 @@ func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod) (bool, error) {
 			if k8sMeta.NamedPorts == nil {
 				k8sMeta.NamedPorts = make(policy.NamedPortMap)
 			}
-			k8sMeta.NamedPorts[port.Name] = policy.NamedPort{
-				Proto: uint8(p),
+			k8sMeta.NamedPorts[port.Name] = policy.PortProto{
 				Port:  uint16(port.ContainerPort),
+				Proto: uint8(p),
 			}
 		}
 	}

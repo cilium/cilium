@@ -301,7 +301,7 @@ func (s *IPCacheTestSuite) TestIPCacheNamedPorts(c *C) {
 	c.Assert(cachedIdentity.Source, Equals, source.Kubernetes)
 
 	// Named ports have been updated
-	c.Assert(namedPortsChanged, Equals, true)
+	c.Assert(namedPortsChanged, Equals, false) // not before GetNamedPorts() has been called once
 	npm := IPIdentityCache.GetNamedPorts()
 	c.Assert(npm, NotNil)
 	c.Assert(len(npm), Equals, 2)
