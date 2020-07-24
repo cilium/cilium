@@ -33,7 +33,7 @@ Listed below are the actively maintained release branches along with their lates
 minor release, corresponding image pull tags and their release notes:
 
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.8 <https://github.com/cilium/cilium/tree/v1.8>`__ | 2020-07-02 | ``docker.io/cilium/cilium:v1.8.1``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.8.1>`__  | `General Announcement <https://cilium.io/blog/2020/06/22/cilium-18>`__ |
+| `v1.8 <https://github.com/cilium/cilium/tree/v1.8>`__ | 2020-07-23 | ``docker.io/cilium/cilium:v1.8.2``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.8.2>`__  | `General Announcement <https://cilium.io/blog/2020/06/22/cilium-18>`__ |
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
 | `v1.7 <https://github.com/cilium/cilium/tree/v1.7>`__ | 2020-07-02 | ``docker.io/cilium/cilium:v1.7.6``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.7.6>`__  | `General Announcement <https://cilium.io/blog/2020/02/18/cilium-17>`__ |
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
