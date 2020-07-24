@@ -419,10 +419,6 @@ func init() {
 	flags.String(option.IPAM, ipamOption.IPAMHostScopeLegacy, "Backend to use for IPAM")
 	option.BindEnv(option.IPAM)
 
-	flags.Int(option.IPv4ClusterCIDRMaskSize, 8, "Mask size for the cluster wide CIDR")
-	option.BindEnv(option.IPv4ClusterCIDRMaskSize)
-	flags.MarkDeprecated(option.IPv4ClusterCIDRMaskSize, "This option has been deprecated and will be removed in v1.9")
-
 	flags.String(option.IPv4Range, AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
 	option.BindEnv(option.IPv4Range)
 
