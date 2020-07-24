@@ -349,9 +349,6 @@ const (
 	// PrometheusServeAddr IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
 	PrometheusServeAddr = "prometheus-serve-addr"
 
-	// PrometheusServeAddrDeprecated IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
-	PrometheusServeAddrDeprecated = "prometheus-serve-addr-deprecated"
-
 	// CMDRef is the path to cmdref output directory
 	CMDRef = "cmdref"
 
@@ -2364,7 +2361,7 @@ func (c *DaemonConfig) Populate() {
 	c.PProf = viper.GetBool(PProf)
 	c.PreAllocateMaps = viper.GetBool(PreAllocateMapsName)
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
-	c.PrometheusServeAddr = getPrometheusServerAddr()
+	c.PrometheusServeAddr = viper.GetString(PrometheusServeAddr)
 	c.ProxyConnectTimeout = viper.GetInt(ProxyConnectTimeout)
 	c.BlacklistConflictingRoutes = viper.GetBool(BlacklistConflictingRoutes)
 	c.ReadCNIConfiguration = viper.GetString(ReadCNIConfiguration)
@@ -2890,14 +2887,6 @@ func getIPv4Enabled() bool {
 	}
 
 	return viper.GetBool(EnableIPv4Name)
-}
-
-func getPrometheusServerAddr() string {
-	promAddr := viper.GetString(PrometheusServeAddr)
-	if promAddr == "" {
-		return viper.GetString("prometheus-serve-addr-deprecated")
-	}
-	return promAddr
 }
 
 func getHostDevice() string {
