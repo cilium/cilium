@@ -1558,7 +1558,7 @@
     "storage/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.12"
+  revision = "kubernetes-1.16.15"
 
 [[projects]]
   digest = "1:3a3169935f116c03f1b538e5ea55a2978b13511035136b345d427761ec8063ee"
@@ -1574,10 +1574,10 @@
     "pkg/client/clientset/clientset/typed/apiextensions/v1beta1",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.12"
+  revision = "kubernetes-1.16.15"
 
 [[projects]]
-  digest = "1:ad8ce875829241250e2c4d455f9a42b09e0a7d1ed5ef9ebd8a42400f804f6e6b"
+  digest = "1:9bf25e00088f1e1c504c242a1ea3374a75f64484682e1d7214085b3281419211"
   name = "k8s.io/apimachinery"
   packages = [
     "pkg/api/equality",
@@ -1626,7 +1626,7 @@
     "third_party/forked/golang/reflect",
   ]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.12"
+  revision = "kubernetes-1.16.15"
 
 [[projects]]
   digest = "1:421721461ab2987bb721dd8ecb397b7ab1aafb3ed2bbcda185af0db2f8b1099e"
@@ -1741,7 +1741,7 @@
     "util/retry",
   ]
   pruneopts = "NUT"
-  revision = "db9e84cc70f6cc2db0081b4cecc0e4e4f3df4c27"
+  revision = "04c46fc588a85d6d380db9858bc281f29efece46"
   source = "https://github.com/cilium/client-go"
 
 [[projects]]
@@ -1760,14 +1760,14 @@
     "pkg/util",
   ]
   pruneopts = "T"
-  revision = "kubernetes-1.16.12"
+  revision = "kubernetes-1.16.15"
 
 [[projects]]
   digest = "1:5e496d711fa03e4aaf3cab0d7de079634a9465ebf940613b69b34f5cc6513db8"
   name = "k8s.io/cri-api"
   packages = ["pkg/apis/runtime/v1alpha2"]
   pruneopts = "NUT"
-  revision = "kubernetes-1.16.12"
+  revision = "kubernetes-1.16.15"
 
 [[projects]]
   digest = "1:d233b263f74608ab5528c04453935d899a2b9fb0bf02b03d38a4a11f91442a5c"
@@ -1801,7 +1801,7 @@
   revision = "c01ed926f1243ac17a23a66f67da7fbdb2e2e298"
 
 [[projects]]
-  digest = "1:6fc4e20e0e0b1373bcc060bc81d0f9c2a14d117102f3bcc9916e85d7327263c3"
+  digest = "1:367c8292dc26c943c73338b8c3a4ff3a0985e5093439eb8c69f65d5a09966330"
   name = "k8s.io/kubernetes"
   packages = [
     "pkg/apis/core",
@@ -1812,7 +1812,7 @@
     "pkg/registry/core/service/ipallocator",
   ]
   pruneopts = "NUT"
-  revision = "v1.16.11"
+  revision = "v1.16.15"
 
 [[projects]]
   digest = "1:99dbf7ef753ca02399778c93a4ed4b689b28668317134ecd1fabeb07be70f354"

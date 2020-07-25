@@ -17,7 +17,7 @@ CONTAINER_RUNTIME=$5
 CNI_INTEGRATION=$6
 # Pinned to the last version of k8s 1.16 branch so we can do
 # kubectl apply on older k8s test frameworks
-K8S_KUBECTL_APPLY_FORCE="1.16.12"
+K8S_KUBECTL_APPLY_FORCE="1.16.15"
 
 # Kubeadm default parameters
 export KUBEADM_ADDR='192.168.36.11'
