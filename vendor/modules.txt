@@ -603,7 +603,7 @@ gopkg.in/natefinch/lumberjack.v2
 gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.2.8 => gopkg.in/yaml.v2 v2.2.4
 gopkg.in/yaml.v2
-# k8s.io/api v0.17.8 => k8s.io/kubernetes/staging/src/k8s.io/api v0.0.0-20200625165132-036ec086792f
+# k8s.io/api v0.17.8 => k8s.io/kubernetes/staging/src/k8s.io/api v0.0.0-20200715160957-4fb7ed12476d
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1beta1
 k8s.io/api/apps/v1
@@ -644,7 +644,7 @@ k8s.io/api/settings/v1alpha1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.0.0 => k8s.io/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20200625165132-036ec086792f
+# k8s.io/apiextensions-apiserver v0.0.0 => k8s.io/kubernetes/staging/src/k8s.io/apiextensions-apiserver v0.0.0-20200715160957-4fb7ed12476d
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1
@@ -653,7 +653,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
-# k8s.io/apimachinery v0.17.8 => k8s.io/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20200625165132-036ec086792f
+# k8s.io/apimachinery v0.17.8 => k8s.io/kubernetes/staging/src/k8s.io/apimachinery v0.0.0-20200715160957-4fb7ed12476d
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
 k8s.io/apimachinery/pkg/api/meta
@@ -698,7 +698,7 @@ k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/client-go v8.0.0+incompatible => github.com/cilium/client-go v0.0.0-20200706092028-faedcc12abdd
+# k8s.io/client-go v8.0.0+incompatible => github.com/cilium/client-go v0.0.0-20200725133801-5322df33a3f6
 k8s.io/client-go/discovery
 k8s.io/client-go/discovery/fake
 k8s.io/client-go/kubernetes
@@ -810,7 +810,7 @@ k8s.io/client-go/util/homedir
 k8s.io/client-go/util/jsonpath
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/retry
-# k8s.io/code-generator v0.0.0 => k8s.io/kubernetes/staging/src/k8s.io/code-generator v0.0.0-20200625165132-036ec086792f
+# k8s.io/code-generator v0.0.0 => k8s.io/kubernetes/staging/src/k8s.io/code-generator v0.0.0-20200715160957-4fb7ed12476d
 k8s.io/code-generator
 k8s.io/code-generator/cmd/client-gen
 k8s.io/code-generator/cmd/client-gen/args
@@ -864,7 +864,7 @@ k8s.io/kube-openapi/pkg/generators
 k8s.io/kube-openapi/pkg/generators/rules
 k8s.io/kube-openapi/pkg/util/proto
 k8s.io/kube-openapi/pkg/util/sets
-# k8s.io/kubernetes v1.17.8 => k8s.io/kubernetes v1.17.8
+# k8s.io/kubernetes v1.17.9 => k8s.io/kubernetes v1.17.9
 k8s.io/kubernetes/pkg/apis/core
 k8s.io/kubernetes/pkg/apis/scheduling
 k8s.io/kubernetes/pkg/kubelet/types
