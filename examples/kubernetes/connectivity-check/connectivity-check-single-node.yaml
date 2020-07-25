@@ -5,6 +5,7 @@ metadata:
     name: echo-a
     topology: any
     component: network-check
+    quarantine: "false"
 spec:
   template:
     metadata:
@@ -42,6 +43,7 @@ metadata:
     name: echo-b
     topology: any
     component: services-check
+    quarantine: "false"
 spec:
   template:
     metadata:
@@ -80,6 +82,7 @@ metadata:
     name: echo-b-host
     topology: any
     component: services-check
+    quarantine: "false"
 spec:
   template:
     metadata:
@@ -129,6 +132,7 @@ metadata:
     name: pod-to-a
     topology: any
     component: network-check
+    quarantine: "false"
 spec:
   template:
     metadata:
@@ -169,6 +173,7 @@ metadata:
     name: pod-to-external-1111
     topology: any
     component: network-check
+    quarantine: "false"
 spec:
   template:
     metadata:
@@ -209,6 +214,7 @@ metadata:
     name: pod-to-a-denied-cnp
     topology: any
     component: policy-check
+    quarantine: "false"
 spec:
   template:
     metadata:
@@ -245,6 +251,7 @@ metadata:
     name: pod-to-a-allowed-cnp
     topology: any
     component: policy-check
+    quarantine: "false"
 spec:
   template:
     metadata:
@@ -285,6 +292,7 @@ metadata:
     name: pod-to-external-fqdn-allow-google-cnp
     topology: any
     component: policy-check
+    quarantine: "false"
 spec:
   template:
     metadata:
@@ -325,6 +333,7 @@ metadata:
     name: echo-a
     topology: any
     component: network-check
+    quarantine: "false"
 spec:
   ports:
   - port: 80
@@ -340,6 +349,7 @@ metadata:
     name: echo-b
     topology: any
     component: services-check
+    quarantine: "false"
 spec:
   ports:
   - port: 80
@@ -356,6 +366,7 @@ metadata:
     name: echo-b-headless
     topology: any
     component: services-check
+    quarantine: "false"
 spec:
   ports:
   - port: 80
@@ -372,6 +383,7 @@ metadata:
     name: echo-b-host-headless
     topology: any
     component: services-check
+    quarantine: "false"
 spec:
   ports: []
   selector:
@@ -387,6 +399,7 @@ metadata:
     name: pod-to-a-denied-cnp
     topology: any
     component: policy-check
+    quarantine: "false"
 spec:
   endpointSelector:
     matchLabels:
@@ -417,6 +430,7 @@ metadata:
     name: pod-to-a-allowed-cnp
     topology: any
     component: policy-check
+    quarantine: "false"
 spec:
   endpointSelector:
     matchLabels:
@@ -454,6 +468,7 @@ metadata:
     name: pod-to-external-fqdn-allow-google-cnp
     topology: any
     component: policy-check
+    quarantine: "false"
 spec:
   endpointSelector:
     matchLabels:

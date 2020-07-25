@@ -71,9 +71,10 @@ _spec: {
 	metadata: {
 		name: _name
 		labels: {
-			name:      _name
-			topology:  *"any" | string
-			component: *"invalid" | string
+			name:       _name
+			topology:   *"any" | string
+			component:  *"invalid" | string
+			quarantine: *"false" | "true"
 		}
 	}
 	spec: {
@@ -141,9 +142,10 @@ service: [ID=_]: {
 	metadata: {
 		name: ID
 		labels: {
-			name:      _name
-			topology:  *"any" | string
-			component: *"invalid" | string
+			name:       _name
+			topology:   *"any" | string
+			component:  *"invalid" | string
+			quarantine: *"false" | "true"
 		}
 	}
 	spec: {
@@ -160,9 +162,10 @@ _cnp: {
 	metadata: {
 		name: _name
 		labels: {
-			name:      _name
-			topology:  *"any" | string
-			component: *"invalid" | string
+			name:       _name
+			topology:   *"any" | string
+			component:  *"invalid" | string
+			quarantine: *"false" | "true"
 		}
 	}
 	spec: endpointSelector: matchLabels: name: _name
@@ -255,8 +258,12 @@ for x in [deployment] for k, v in x {
 		service: "\(k)-headless": {
 			_selector: k
 			metadata: name: "\(v.metadata.name)-headless"
-			metadata: labels: name:      "\(v.metadata.name)-headless"
-			metadata: labels: component: v.metadata.labels.component
+			metadata: labels: {
+				name:       "\(v.metadata.name)-headless"
+				component:  v.metadata.labels.component
+				topology:   *"any" | string
+				quarantine: *"false" | "true"
+			}
 			spec: selector:  v.spec.template.metadata.labels
 			spec: clusterIP: "None"
 			spec: ports: [

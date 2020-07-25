@@ -15,14 +15,15 @@ objectSets: [
 	ingressCNP,
 ]
 
-globalFlags: "[-t component=<component>] [-t kind=<kind>] [-t name=<name>] [-t topology=<topology>]"
+globalFlags: "[-t component=<component>] [-t kind=<kind>] [-t name=<name>] [-t topology=<topology>] [-t quarantine=true]"
 
 ccCommand: {
 	#flags: {
-		component: "all" | *"default" | "network" | "policy" | "services" | "hostport" | "proxy" @tag(component,short=all|default|network|policy|services|hostport|proxy)
-		name:      *"" | string                                                                  @tag(name)
-		topology:  *"any" | "single-node"                                                        @tag(topology,short=any|single-node)
-		kind:      *"" | "Deployment" | "Service" | "CiliumNetworkPolicy"                        @tag(kind,short=Deployment|Service|CiliumNetworkPolicy)
+		component:  "all" | *"default" | "network" | "policy" | "services" | "hostport" | "proxy" @tag(component,short=all|default|network|policy|services|hostport|proxy)
+		name:       *"" | string                                                                  @tag(name)
+		topology:   *"any" | "single-node"                                                        @tag(topology,short=any|single-node)
+		kind:       *"" | "Deployment" | "Service" | "CiliumNetworkPolicy"                        @tag(kind,short=Deployment|Service|CiliumNetworkPolicy)
+		quarantine: *"false" | "true"                                                             @tag(quarantine,short=false|true)
 	}
 
 	task: filterComponent: {
@@ -38,12 +39,16 @@ ccCommand: {
 		}
 	}
 
+	task: filterQuarantine: {
+		resources: [ for x in task.filterComponent.resources if x.metadata.labels.quarantine == #flags.quarantine {x}]
+	}
+
 	task: filterTopology: {
 		if #flags.topology == "any" {
-			resources: task.filterComponent.resources
+			resources: task.filterQuarantine.resources
 		}
 		if #flags.topology == "single-node" {
-			resources: [ for x in task.filterComponent.resources if x.metadata.labels.topology != "multi-node" {x}]
+			resources: [ for x in task.filterQuarantine.resources if x.metadata.labels.topology != "multi-node" {x}]
 		}
 	}
 
