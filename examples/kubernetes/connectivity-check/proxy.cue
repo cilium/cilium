@@ -61,3 +61,36 @@ deployment: "pod-to-c-intra-node-proxy-to-proxy-policy": _proxyResource
 egressCNP: "pod-to-c-intra-node-proxy-to-proxy-policy":  _proxyResource & _egressEchoCPolicy
 deployment: "pod-to-c-multi-node-proxy-to-proxy-policy": _proxyResource
 egressCNP: "pod-to-c-multi-node-proxy-to-proxy-policy":  _proxyResource & _egressEchoCPolicy
+
+// Pod-to-hostport (egress policy, no ingress policy)
+_hostPortProxyResource: {
+	_enableMultipleContainers: true
+	_probeTarget:              "echo-c-host-headless:40001"
+
+	metadata: labels: {
+		component:  "hostport-check"
+		quarantine: "true"
+	}
+}
+_hostPortProxyPolicy: _egressL7Policy & {
+	_port: "40001"
+	metadata: labels: {
+		component:  "hostport-check"
+		quarantine: "true"
+	}
+}
+// Pod-to-a (egress policy, no ingress policy)
+deployment: "pod-to-a-multi-node-hostport-proxy-egress": _hostPortProxyResource
+egressCNP: "pod-to-a-multi-node-hostport-proxy-egress":  _hostPortProxyPolicy
+deployment: "pod-to-a-intra-node-hostport-proxy-egress": _hostPortProxyResource
+egressCNP: "pod-to-a-intra-node-hostport-proxy-egress":  _hostPortProxyPolicy
+
+// Pod-to-c (no egress policy, ingress policy via echo-servers.cue)
+deployment: "pod-to-c-multi-node-hostport-proxy-ingress": _hostPortProxyResource
+deployment: "pod-to-c-intra-node-hostport-proxy-ingress": _hostPortProxyResource
+
+// Pod-to-c (egress + ingress policy)
+deployment: "pod-to-c-multi-node-hostport-proxy-to-proxy": _hostPortProxyResource
+egressCNP: "pod-to-c-multi-node-hostport-proxy-to-proxy":  _hostPortProxyPolicy
+deployment: "pod-to-c-intra-node-hostport-proxy-to-proxy": _hostPortProxyResource
+egressCNP: "pod-to-c-intra-node-hostport-proxy-to-proxy":  _hostPortProxyPolicy
