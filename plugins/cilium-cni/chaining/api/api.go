@@ -36,6 +36,9 @@ const (
 	// DefaultConfigName is the name used by default in the standard CNI
 	// configuration
 	DefaultConfigName = "cilium"
+
+	// GenericConfigName is the plugin to use if the network name is unknown
+	GenericConfigName = "generic-veth"
 )
 
 // PluginContext is the context given to chaining plugins
@@ -85,10 +88,18 @@ func Register(name string, p ChainingPlugin) error {
 	return nil
 }
 
-// Lookup searches for a chaining plugin with a given name and returns it
+// Lookup searches for a chaining plugin with a given name and returns it.
+// If no plugin with that name exists, returns the generic veth plugin.
 func Lookup(name string) ChainingPlugin {
 	mutex.RLock()
 	defer mutex.RUnlock()
+	if name == DefaultConfigName {
+		return nil
+	}
 
-	return chainingPlugins[name]
+	if plugin, exists := chainingPlugins[name]; exists {
+		return plugin
+	}
+	return chainingPlugins[GenericConfigName]
+
 }

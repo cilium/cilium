@@ -202,5 +202,5 @@ func (f *GenericVethChainer) Delete(ctx context.Context, pluginCtx chainingapi.P
 }
 
 func init() {
-	chainingapi.Register("generic-veth", &GenericVethChainer{})
+	chainingapi.Register(chainingapi.GenericConfigName, &GenericVethChainer{})
 }
