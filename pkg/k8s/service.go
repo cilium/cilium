@@ -32,7 +32,7 @@ import (
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
@@ -145,8 +145,16 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 				proto := loadbalancer.L4Type(port.Protocol)
 				port := uint16(port.NodePort)
 				id := loadbalancer.ID(0) // will be allocated by k8s_watcher
-
+				if !option.Config.EnableIPv4 &&
+					svc.Spec.IPFamily == slim_corev1.IPv4Protocol {
+					scopedLog.Warnf(`service spec, %v, specifies an "IPFamily" of IPv4, but %q is not enabled`, svc.Spec, option.EnableIPv4Name)
+				}
+				if !option.Config.EnableIPv6 &&
+					svc.Spec.IPFamily == slim_corev1.IPv6Protocol {
+					scopedLog.Warnf(`service spec, %v, specifies an "IPFamily" of IPv6, but %q is not enabled`, svc.Spec, option.EnableIPv6Name)
+				}
 				if option.Config.EnableIPv4 &&
+					(svc.Spec.IPFamily == slim_corev1.IPNone || svc.Spec.IPFamily == slim_corev1.IPv4Protocol) &&
 					clusterIP != nil && !strings.Contains(svc.Spec.ClusterIP, ":") {
 
 					for _, ip := range nodeAddressing.IPv4().LoadBalancerNodeAddresses() {
@@ -156,6 +164,7 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 					}
 				}
 				if option.Config.EnableIPv6 &&
+					(svc.Spec.IPFamily == slim_corev1.IPNone || svc.Spec.IPFamily == slim_corev1.IPv6Protocol) &&
 					clusterIP != nil && strings.Contains(svc.Spec.ClusterIP, ":") {
 
 					for _, ip := range nodeAddressing.IPv6().LoadBalancerNodeAddresses() {

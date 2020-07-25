@@ -960,6 +960,10 @@ func (in *ServiceSpec) DeepEqual(other *ServiceSpec) bool {
 		}
 	}
 
+	if in.IPFamily != other.IPFamily {
+		return false
+	}
+
 	return true
 }
 
