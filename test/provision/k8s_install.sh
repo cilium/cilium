@@ -281,7 +281,7 @@ case $K8S_VERSION in
         ;;
     "1.17")
         KUBERNETES_CNI_VERSION="0.7.5"
-        K8S_FULL_VERSION="1.17.8"
+        K8S_FULL_VERSION="1.17.9"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
@@ -295,7 +295,7 @@ case $K8S_VERSION in
         sudo apt-get install -y conntrack
         KUBERNETES_CNI_VERSION="0.8.6"
         KUBERNETES_CNI_OS="-linux"
-        K8S_FULL_VERSION="1.18.5"
+        K8S_FULL_VERSION="1.18.6"
         KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
         KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
         sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
