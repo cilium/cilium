@@ -305,10 +305,12 @@ generate-api: api/v1/openapi.yaml
 		-t api/v1 \
 		-f api/v1/openapi.yaml \
 		--default-scheme=unix \
-		-C api/v1/cilium-server.yml
+		-C api/v1/cilium-server.yml \
+		-r hack/spdx-copyright-header.txt
 	-$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
-		-f api/v1/openapi.yaml
+		-f api/v1/openapi.yaml \
+		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
 	-$(QUIET) find api/v1/client/ -type f -name "*.go" -print | PATH="$(PWD)/tools:$(PATH)" xargs goimports -w
 	-$(QUIET) find api/v1/models/ -type f -name "*.go" -print | PATH="$(PWD)/tools:$(PATH)" xargs goimports -w
@@ -321,11 +323,13 @@ generate-health-api: api/v1/health/openapi.yaml
 		-t api/v1/health/ \
 		-f api/v1/health/openapi.yaml \
 		--default-scheme=unix \
-		-C api/v1/cilium-server.yml
+		-C api/v1/cilium-server.yml \
+		-r hack/spdx-copyright-header.txt
 	-$(QUIET)$(SWAGGER) generate client -a restapi \
 		-t api/v1 \
 		-t api/v1/health/ \
-		-f api/v1/health/openapi.yaml
+		-f api/v1/health/openapi.yaml \
+		-r hack/spdx-copyright-header.txt
 	@# sort goimports automatically
 	-$(QUIET) find api/v1/health/ -type f -name "*.go" -print | PATH="$(PWD)/tools:$(PATH)" xargs goimports -w
 
