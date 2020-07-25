@@ -750,6 +750,7 @@ spec:
     spec:
       securityContext:
         runAsUser: 1001
+      serviceAccount: hubble-ui
       serviceAccountName: hubble-ui
       containers:
         - name: hubble-ui
