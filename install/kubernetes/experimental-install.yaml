@@ -330,6 +330,23 @@ rules:
   - get
   - list
   - watch
+# For cilium-operator running in HA mode.
+#
+# Cilium operator running in HA mode requires the use of ResourceLock for Leader Election
+# between mulitple running instances.
+# The preferred way of doing this is to use LeasesResourceLock as edits to Leases are less
+# common and fewer objects in the cluster watch "all Leases".
+# The support for leases was introduced in coordination.k8s.io/v1 during Kubernetes 1.14 release.
+# In Cilium we currently don't support HA mode for K8s version < 1.14. This condition make sure
+# that we only authorize access to leases resources in supported K8s versions.
+- apiGroups:
+  - coordination.k8s.io
+  resources:
+  - leases
+  verbs:
+  - create
+  - get
+  - update
 ---
 # Source: cilium/charts/agent/templates/clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
@@ -783,7 +800,10 @@ metadata:
   name: cilium-operator
   namespace: kube-system
 spec:
-  replicas: 1
+  # We support HA mode only for Kubernetes version > 1.14
+  # See docs on ServerCapabilities.LeasesResourceLock in file pkg/k8s/version/version.go
+  # for more details.
+  replicas: 2
   selector:
     matchLabels:
       io.cilium/app: operator
