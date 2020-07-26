@@ -2326,26 +2326,31 @@ func (kub *Kubectl) ciliumUninstallHelm(filename string, options map[string]stri
 
 // CiliumInstall installs Cilium with the provided Helm options.
 func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) error {
-	if err := kub.generateCiliumYaml(options, filename); err != nil {
-		return err
-	}
-
 	var (
 		wg                sync.WaitGroup
 		resourcesToDelete = map[string]string{
-			"cilium":          "daemonset",
-			"cilium-operator": "deployment",
+			"configmap":          "cilium-config",
+			"daemonset":          "cilium",
+			"deployment":         "cilium-operator",
+			"clusterrolebinding": "cilium cilium-operator cilium-psp cilium-operator-psp",
+			"clusterrole":        "cilium cilium-operator cilium-psp cilium-operator-psp",
+			"serviceaccount":     "cilium cilium-operator",
+			"podsecuritypolicy":  "cilium-psp cilium-operator-psp",
 		}
 	)
 
 	wg.Add(len(resourcesToDelete))
-	for resource, resourceType := range resourcesToDelete {
+	for resourceType, resource := range resourcesToDelete {
 		go func(resource, resourceType string) {
 			_ = kub.DeleteResource(resourceType, "-n "+CiliumNamespace+" "+resource)
 			wg.Done()
 		}(resource, resourceType)
 	}
 	wg.Wait()
+
+	if err := kub.generateCiliumYaml(options, filename); err != nil {
+		return err
+	}
 
 	res := kub.Apply(ApplyOptions{FilePath: filename, Force: true, Namespace: CiliumNamespace})
 	if !res.WasSuccessful() {
@@ -3865,6 +3870,12 @@ func (kub *Kubectl) HelmAddCiliumRepo() *CmdRes {
 }
 
 // HelmTemplate renders given helm template. TODO: use go helm library for that
+// We use --validate with `helm template` to properly populate the built-in objects like
+// .Capabilities.KubeVersion with the values from associated cluster.
+// This comes with a caveat that the command might fail if helm is not able to validate the
+// chart install on the cluster, like if a previous cilium install is not cleaned up properly
+// from the cluster. For this the caller has to make sure that there are no leftover cilium
+// components in the cluster.
 func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options map[string]string) *CmdRes {
 	optionsString := ""
 
@@ -3872,7 +3883,7 @@ func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options m
 		optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
 	}
 
-	return kub.ExecMiddle("helm template " +
+	return kub.ExecMiddle("helm template --validate " +
 		chartDir + " " +
 		fmt.Sprintf("--namespace=%s %s > %s", namespace, optionsString, filename))
 }
