@@ -369,4 +369,9 @@ const (
 	// EnableIdentityMark enables setting identity in mark field of packet
 	// for local traffic
 	EnableIdentityMark = true
+
+	// K8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
+	// for the support of Leases in Kubernetes when there is an error in discovering
+	// API groups using Discovery API.
+	K8sEnableLeasesFallbackDiscovery = false
 )
