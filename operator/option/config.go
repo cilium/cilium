@@ -90,7 +90,7 @@ const (
 	// IPAMSubnetsIDs are optional subnets IDs used to filter subnets and interfaces listing
 	IPAMSubnetsIDs = "subnet-ids-filter"
 
-	// IAPMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
+	// IPAMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
 	IPAMSubnetsTags = "subnet-tags-filter"
 
 	// IPAMOperatorV4CIDR is the cluster IPv4 podCIDR that should be used to
@@ -142,6 +142,18 @@ const (
 
 	// CRDWaitTimeout it the time after which Cilium CRDs have to be available.
 	CRDWaitTimeout = "crd-wait-timeout"
+
+	// LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to
+	// force acquire leadership
+	LeaderElectionLeaseDuration = "leader-election-lease-duration"
+
+	// LeaderElectionRenewDeadline is the duration that the current acting master in HA deployment
+	// will retry refreshing leadership before giving up the lock.
+	LeaderElectionRenewDeadline = "leader-election-renew-deadline"
+
+	// LeaderElectionRetryPeriod is the duration the LeaderElector clients should wait between
+	// tries of the actions in operator HA deployment.
+	LeaderElectionRetryPeriod = "leader-election-retry-period"
 )
 
 // OperatorConfig is the configuration used by the operator.
@@ -257,8 +269,21 @@ type OperatorConfig struct {
 
 	// CRDWaitTimeout it the time after which Cilium CRDs have to be available.
 	CRDWaitTimeout time.Duration
+
+	// LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to
+	// force acquire leadership in Cilium Operator HA deployment.
+	LeaderElectionLeaseDuration time.Duration
+
+	// LeaderElectionRenewDeadline is the duration that the current acting master in HA deployment
+	// will retry refreshing leadership in before giving up the lock.
+	LeaderElectionRenewDeadline time.Duration
+
+	// LeaderElectionRetryPeriod is the duration that LeaderElector clients should wait between
+	// retries of the actions in operator HA deployment.
+	LeaderElectionRetryPeriod time.Duration
 }
 
+// Populate sets all options with the values from viper.
 func (c *OperatorConfig) Populate() {
 	c.CNPNodeStatusGCInterval = viper.GetDuration(CNPNodeStatusGCInterval)
 	c.CNPStatusUpdateInterval = viper.GetDuration(CNPStatusUpdateInterval)
@@ -280,6 +305,9 @@ func (c *OperatorConfig) Populate() {
 	c.IPAMOperatorV6CIDR = viper.GetStringSlice(IPAMOperatorV6CIDR)
 	c.NodesGCInterval = viper.GetDuration(NodesGCInterval)
 	c.CRDWaitTimeout = viper.GetDuration(CRDWaitTimeout)
+	c.LeaderElectionLeaseDuration = viper.GetDuration(LeaderElectionLeaseDuration)
+	c.LeaderElectionRenewDeadline = viper.GetDuration(LeaderElectionRenewDeadline)
+	c.LeaderElectionRetryPeriod = viper.GetDuration(LeaderElectionRetryPeriod)
 
 	// AWS options
 
