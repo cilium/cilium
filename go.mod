@@ -86,11 +86,11 @@ require (
 	gopkg.in/check.v1 v1.0.0-20180628173108-788fd7840127
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.2.8
-	k8s.io/api v0.18.6
-	k8s.io/apiextensions-apiserver v0.18.6
-	k8s.io/apimachinery v0.18.6
-	k8s.io/client-go v0.18.6
-	k8s.io/code-generator v0.18.6
+	k8s.io/api v0.18.8
+	k8s.io/apiextensions-apiserver v0.18.8
+	k8s.io/apimachinery v0.18.8
+	k8s.io/client-go v0.18.8
+	k8s.io/code-generator v0.18.8
 	k8s.io/klog v1.0.0
 	sigs.k8s.io/yaml v1.2.0
 )
@@ -98,5 +98,5 @@ require (
 replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
-	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20200725133211-0bdb134c37db
+	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20200813235008-6b28ea7c1c4e
 )
