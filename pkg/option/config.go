@@ -724,6 +724,18 @@ const (
 
 	// K8sEnableAPIDiscovery
 	K8sEnableAPIDiscovery = "enable-k8s-api-discovery"
+
+	// LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to
+	// force acquire leadership
+	LeaderElectionLeaseDuration = "leader-election-lease-duration"
+
+	// LeaderElectionRenewDeadline is the duration that the current acting master in HA deployment
+	// will retry refreshing leadership before giving up the lock.
+	LeaderElectionRenewDeadline = "leader-election-renew-deadline"
+
+	// LeaderElectionRetryPeriod is the duration the LeaderElector clients should wait between
+	// tries of the actions in operator HA deployment.
+	LeaderElectionRetryPeriod = "leader-election-retry-period"
 )
 
 // Default string arguments
@@ -1459,6 +1471,18 @@ type DaemonConfig struct {
 	// election purposes in HA mode.
 	// This is only enabled for cilium-operator
 	k8sEnableLeasesFallbackDiscovery bool
+
+	// LeaderElectionLeaseDuration is the duration that non-leader candidates will wait to
+	// force acquire leadership in Cilium Operator HA deployment.
+	LeaderElectionLeaseDuration time.Duration
+
+	// LeaderElectionRenewDeadline is the duration that the current acting master in HA deployment
+	// will retry refreshing leadership in before giving up the lock.
+	LeaderElectionRenewDeadline time.Duration
+
+	// LeaderElectionRetryPeriod is the duration that LeaderElector clients should wait between
+	// retries of the actions in operator HA deployment.
+	LeaderElectionRetryPeriod time.Duration
 }
 
 var (

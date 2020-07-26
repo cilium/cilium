@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
+	"github.com/cilium/cilium/pkg/testutils"
 	"github.com/cilium/cilium/pkg/version"
 
 	gops "github.com/google/gops/agent"
@@ -44,11 +45,15 @@ import (
 	"google.golang.org/grpc"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/client-go/tools/leaderelection"
+	"k8s.io/client-go/tools/leaderelection/resourcelock"
 	"k8s.io/klog"
 )
 
 var (
 	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cilium-operator")
+
+	leaderElectionResourceLockName = "cilium-operator-resource-lock"
 
 	rootCmd = &cobra.Command{
 		Use:   "cilium-operator",
@@ -91,7 +96,18 @@ var (
 	// set, Cilium will only need to process all of them at once instead of
 	// processing each one individually.
 	identityRateLimiter *rate.Limiter
+
+	// Use a Go context so we can tell the leaderelection code when we
+	// want to step down
+	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
 )
+
+func doCleanup() {
+	gops.Close()
+	close(shutdownSignal)
+	leaderElectionCtxCancel()
+	os.Exit(0)
+}
 
 func main() {
 	signals := make(chan os.Signal, 1)
@@ -99,8 +115,7 @@ func main() {
 
 	go func() {
 		<-signals
-		gops.Close()
-		close(shutdownSignal)
+		doCleanup()
 	}()
 
 	// Open socket for using gops to get stacktraces of the agent.
@@ -192,6 +207,18 @@ func init() {
 	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Configures the timeout for api-server heartbeat, set to 0 to disable")
 	option.BindEnv(option.K8sHeartbeatTimeout)
 
+	flags.Duration(option.LeaderElectionLeaseDuration, 15*time.Second,
+		"Duration that non-leader operator candidates will wait before forcing to acquire leadership")
+	option.BindEnv(option.LeaderElectionLeaseDuration)
+
+	flags.Duration(option.LeaderElectionRenewDeadline, 10*time.Second,
+		"Duration that current acting master will retry refreshing leadership in before giving up the lock")
+	option.BindEnv(option.LeaderElectionRenewDeadline)
+
+	flags.Duration(option.LeaderElectionRetryPeriod, 2*time.Second,
+		"Duration that LeaderElector clients should wait between retries of the actions")
+	option.BindEnv(option.LeaderElectionRetryPeriod)
+
 	flags.StringVar(&cmdRefDir, "cmdref", "", "Path to cmdref output directory")
 	flags.MarkHidden("cmdref")
 	viper.BindPFlags(flags)
@@ -220,6 +247,13 @@ func initConfig() {
 	option.Config.AwsReleaseExcessIps = viper.GetBool(option.AwsReleaseExcessIps)
 	option.Config.IdentityGCRateInterval = viper.GetDuration(option.IdentityGCRateInterval)
 	option.Config.IdentityGCRateLimit = viper.GetInt64(option.IdentityGCRateLimit)
+	option.Config.LeaderElectionLeaseDuration = viper.GetDuration(option.LeaderElectionLeaseDuration)
+	option.Config.LeaderElectionRenewDeadline = viper.GetDuration(option.LeaderElectionRenewDeadline)
+	option.Config.LeaderElectionRetryPeriod = viper.GetDuration(option.LeaderElectionRetryPeriod)
+
+	// Enable fallback to direct API probing to check for support of Leases in
+	// case Discovery API fails.
+	option.Config.EnableK8sLeasesFallbackDiscovery()
 
 	viper.SetEnvPrefix("cilium")
 	viper.SetConfigName("cilium-operator")
@@ -239,6 +273,9 @@ func getAPIServerAddr() []string {
 	return []string{fmt.Sprintf("127.0.0.1:%d", apiServerPort), fmt.Sprintf("[::1]:%d", apiServerPort)}
 }
 
+// runOperator implements the logic of leader election for cilium-operator using
+// built-in leader election capbility in kubernetes.
+// See: https://github.com/kubernetes/client-go/blob/master/examples/leader-election/main.go
 func runOperator(cmd *cobra.Command) {
 	logging.SetupLogging([]string{}, map[string]string{}, "cilium-operator", viper.GetBool("debug"))
 
@@ -274,11 +311,81 @@ func runOperator(cmd *cobra.Command) {
 
 	ciliumK8sClient = k8s.CiliumClient()
 	k8sversion.Update(k8s.Client(), option.Config)
-	if !k8sversion.Capabilities().MinimalVersionMet {
+	capabilities := k8sversion.Capabilities()
+
+	if !capabilities.MinimalVersionMet {
 		log.Fatalf("Minimal kubernetes version not met: %s < %s",
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
 	}
 
+	// We only support Operator in HA mode for Kubernetes Versions having support for
+	// LeasesResourceLock.
+	// See docs on capabilities.LeasesResourceLock for more context.
+	if !capabilities.LeasesResourceLock {
+		log.Info("Support for coordination.k8s.io/v1 not present, fallback to non HA mode")
+		onOperatorStartLeading(leaderElectionCtx)
+		return
+	}
+
+	// Get hostname for identity name of the lease lock holder.
+	// We identify the leader of the operator cluster using hostname.
+	operatorID, err := os.Hostname()
+	if err != nil {
+		log.WithError(err).Fatal("Failed to get hostname when generating lease lock identity")
+	}
+	operatorID = testutils.RandomStringWithPrefix(operatorID+"-", 10)
+
+	ns := option.Config.K8sNamespace
+	// If due to any reason the CILIUM_K8S_NAMESPACE is not set we assume the operator
+	// to be in default namespace.
+	if ns == "" {
+		ns = metav1.NamespaceDefault
+	}
+
+	leResourceLock := &resourcelock.LeaseLock{
+		LeaseMeta: metav1.ObjectMeta{
+			Name:      leaderElectionResourceLockName,
+			Namespace: ns,
+		},
+		Client: k8s.Client().CoordinationV1(),
+		LockConfig: resourcelock.ResourceLockConfig{
+			// Identity name of the lock holder
+			Identity: operatorID,
+		},
+	}
+
+	// Start the leader election for running cilium-operators
+	leaderelection.RunOrDie(leaderElectionCtx, leaderelection.LeaderElectionConfig{
+		Name: leaderElectionResourceLockName,
+
+		Lock:            leResourceLock,
+		ReleaseOnCancel: true,
+
+		LeaseDuration: option.Config.LeaderElectionLeaseDuration,
+		RenewDeadline: option.Config.LeaderElectionRenewDeadline,
+		RetryPeriod:   option.Config.LeaderElectionRetryPeriod,
+
+		Callbacks: leaderelection.LeaderCallbacks{
+			OnStartedLeading: onOperatorStartLeading,
+			OnStoppedLeading: func() {
+				log.WithField("operator-id", operatorID).Info("Leader election lost")
+				// Cleanup everything here, and exit.
+				doCleanup()
+			},
+			OnNewLeader: func(identity string) {
+				if identity == operatorID {
+					log.Info("Leading the operator HA deployment")
+				} else {
+					log.WithField("operator-id", operatorID).Infof("Operator with ID %q elected as new leader", identity)
+				}
+			},
+		},
+	})
+}
+
+// onOperatorStartLeading is the function called once the operator starts leading
+// in HA mode.
+func onOperatorStartLeading(ctx context.Context) {
 	// Restart kube-dns as soon as possible since it helps etcd-operator to be
 	// properly setup. If kube-dns is not managed by Cilium it can prevent
 	// etcd from reaching out kube-dns in EKS.
