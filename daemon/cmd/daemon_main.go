@@ -109,6 +109,14 @@ var (
 				genMarkdown(cmd, cmdRefDir)
 				os.Exit(0)
 			}
+
+			// Open socket for using gops to get stacktraces of the agent.
+			if err := gops.Listen(gops.Options{}); err != nil {
+				errorString := fmt.Sprintf("unable to start gops: %s", err)
+				fmt.Println(errorString)
+				os.Exit(-1)
+			}
+
 			bootstrapStats.earlyInit.Start()
 			initEnv(cmd)
 			bootstrapStats.earlyInit.End(true)
@@ -136,12 +144,6 @@ func init() {
 func Execute() {
 	bootstrapStats.overall.Start()
 
-	// Open socket for using gops to get stacktraces of the agent.
-	if err := gops.Listen(gops.Options{}); err != nil {
-		errorString := fmt.Sprintf("unable to start gops: %s", err)
-		fmt.Println(errorString)
-		os.Exit(-1)
-	}
 	interruptCh := cleaner.registerSigHandler()
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
