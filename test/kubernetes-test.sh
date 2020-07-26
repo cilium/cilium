@@ -1,6 +1,8 @@
 #!/bin/bash
 
-helm template install/kubernetes/cilium \
+# We generate the helm chart template validating it against the associated Kubernetes
+# Cluster.
+helm template --validate install/kubernetes/cilium \
   --namespace=kube-system \
   --set global.registry=k8s1:5000/cilium \
   --set global.tag=latest \
