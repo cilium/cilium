@@ -7,7 +7,14 @@ metadata:
   name: cilium-operator
   namespace: {{ .Release.Namespace }}
 spec:
+  # We support HA mode only for Kubernetes version > 1.14
+  # See docs on ServerCapabilities.LeasesResourceLock in file pkg/k8s/version/version.go
+  # for more details.
+{{- if or (ge .Capabilities.KubeVersion.Minor "14") (gt .Capabilities.KubeVersion.Major "1") }}
+  replicas: {{ .Values.numReplicas }}
+{{- else }}
   replicas: 1
+{{- end }}
   selector:
     matchLabels:
       io.cilium/app: operator

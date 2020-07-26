@@ -50,6 +50,10 @@ jobs:
         run: |
           sed -i 's;pullPolicy: Always;pullPolicy: Never;g' install/kubernetes/cilium/values.yaml
 
+      - name: Run a single operator replica since it's a single node cluster
+        run: |
+          sed -i 's;  numReplicas: 2;  numReplicas: 1;g' install/kubernetes/cilium/values.yaml
+
       - name: Create kind cluster
         uses: helm/kind-action@v1.0.0-rc.1
         with:
