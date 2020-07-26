@@ -18,7 +18,6 @@ package version
 
 import (
 	"fmt"
-	"net/http"
 
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	"github.com/cilium/cilium/pkg/lock"
@@ -56,6 +55,14 @@ type ServerCapabilities struct {
 	// FieldTypeInCRDSchema is set to true if Kubernetes supports having
 	// the field Type set in the CRD Schema.
 	FieldTypeInCRDSchema bool
+
+	// LeasesResourceLock is the ability of K8s server to support Lease type
+	// from coordination.k8s.io/v1 API for leader election purposes(currently only in operator).
+	// https://kubernetes.io/docs/reference/generated/kubernetes-api/v1.18/#lease-v1-coordination-k8s-io
+	//
+	// This capability was introduced in K8s version 1.14, prior to which
+	// we don't support HA mode for the cilium-operator.
+	LeasesResourceLock bool
 }
 
 type cachedVersion struct {
@@ -73,12 +80,17 @@ const (
 var (
 	cached = cachedVersion{}
 
-	discoveryAPIGroup = "discovery.k8s.io/v1beta1"
-	endpointSliceKind = "EndpointSlice"
+	discoveryAPIGroup      = "discovery.k8s.io/v1beta1"
+	coordinationV1APIGroup = "coordination.k8s.io/v1"
+	endpointSliceKind      = "EndpointSlice"
+	leaseKind              = "Lease"
 
 	isGEThanPatchConstraint        = versioncheck.MustCompile(">=1.13.0")
 	isGEThanUpdateStatusConstraint = versioncheck.MustCompile(">=1.11.0")
 	isGThanRootTypeConstraint      = versioncheck.MustCompile(">=1.12.0")
+	// Constraint to check support for Lease type from coordination.k8s.io/v1.
+	// Support for Lease resource was introduced in K8s version 1.14.
+	isGEThanLeaseSupportConstraint = versioncheck.MustCompile(">=1.14.0")
 
 	// isGEThanMinimalVersionConstraint is the minimal version required to run
 	// Cilium
@@ -113,16 +125,27 @@ func updateVersion(version go_version.Version) {
 	cached.capabilities.FieldTypeInCRDSchema = isGThanRootTypeConstraint(version)
 }
 
-func updateServerGroupsAndResources(apiGroups []*metav1.APIGroup, apiResourceLists []*metav1.APIResourceList) {
+func updateServerGroupsAndResources(apiResourceLists []*metav1.APIResourceList) {
 	cached.mutex.Lock()
 	defer cached.mutex.Unlock()
 
 	cached.capabilities.EndpointSlice = false
+	cached.capabilities.LeasesResourceLock = false
 	for _, rscList := range apiResourceLists {
 		if rscList.GroupVersion == discoveryAPIGroup {
 			for _, rsc := range rscList.APIResources {
 				if rsc.Kind == endpointSliceKind {
 					cached.capabilities.EndpointSlice = true
+					break
+				}
+			}
+		}
+
+		if rscList.GroupVersion == coordinationV1APIGroup {
+			for _, rsc := range rscList.APIResources {
+				if rsc.Kind == leaseKind {
+					cached.capabilities.LeasesResourceLock = true
+					break
 				}
 			}
 		}
@@ -139,7 +162,15 @@ func Force(version string) error {
 	return nil
 }
 
-func fallbackDiscovery(client kubernetes.Interface) error {
+func endpointSlicesFallbackDiscovery(client kubernetes.Interface) error {
+	// Discovery of API groups requires the API services of the apiserver to be
+	// healthy. Such API services can depend on the readiness of regular pods
+	// which require Cilium to function correctly. By treating failure to
+	// discover API groups as fatal, a critial loop can be entered in which
+	// Cilium cannot start because the API groups can't be discovered.
+	//
+	// Here we acknowledge the lack of discovery ability as non Fatal and fall back to probing
+	// the API directly.
 	_, err := client.DiscoveryV1beta1().EndpointSlices("default").Get("kubernetes", metav1.GetOptions{})
 	if err == nil {
 		cached.mutex.Lock()
@@ -148,59 +179,63 @@ func fallbackDiscovery(client kubernetes.Interface) error {
 		return nil
 	}
 
-	switch t := err.(type) {
-	case *errors.StatusError:
-		if t.ErrStatus.Code == http.StatusNotFound {
-			log.WithError(err).Info("Unable to retrieve EndpointSlices for default/kubernetes. Disabling EndpointSlices")
-			// StatusNotFound is a safe error, EndpointSlices are
-			// disabled and the agent can continue
-			return nil
-		}
+	if errors.IsNotFound(err) {
+		log.WithError(err).Info("Unable to retrieve EndpointSlices for default/kubernetes. Disabling EndpointSlices")
+		// StatusNotFound is a safe error, EndpointSlices are
+		// disabled and the agent can continue.
+		return nil
 	}
 
 	// Unknown error, we can't derive whether to enable or disable
-	// EndpointSlices and need to error out
+	// EndpointSlices and need to error out.
 	return fmt.Errorf("unable to validate EndpointSlices support: %s", err)
 }
 
-// Update retrieves the version of the Kubernetes apiserver and derives the
-// capabilities. This function must be called after connectivity to the
-// apiserver has been established.
-//
-// Discovery of capabilities only works if the discovery API of the apiserver
-// is functional. If it is not available, a warning is logged and the discovery
-// falls back to probing individual API endpoints.
-func Update(client kubernetes.Interface, conf k8sconfig.Configuration) error {
+func leasesFallbackDiscovery(client kubernetes.Interface, conf k8sconfig.Configuration) error {
+	// K8sEnableLeasesFallbackDiscovery is used to fallback leases discovery to directly
+	// probing the API when we cannot discover API groups.
+	// We require to check for Leases capabilities in operator only, which uses Leases
+	// for leader election purposes in HA mode.
+	if !conf.K8sLeasesFallbackDiscoveryEnabled() {
+		log.Debugf("Skipping Leases support fallback discovery")
+		return nil
+	}
+
+	cached.mutex.RLock()
+	// Here we check if we are running a K8s version that has support for Leases.
+	if !isGEThanLeaseSupportConstraint(cached.version) {
+		cached.mutex.RUnlock()
+		return nil
+	}
+	cached.mutex.RUnlock()
+
+	// Similar to endpointSlicesFallbackDiscovery here we fallback to probing the Kubernetes
+	// API directly. `kube-controller-manager` creates a lease in the kube-system namespace
+	// and here we try and see if that Lease exists.
+	_, err := client.CoordinationV1().Leases("kube-system").Get("kube-controller-manager", metav1.GetOptions{})
+	if err == nil {
+		cached.mutex.Lock()
+		cached.capabilities.LeasesResourceLock = true
+		cached.mutex.Unlock()
+		return nil
+	}
+
+	if errors.IsNotFound(err) {
+		log.WithError(err).Info("Unable to retrieve Leases for kube-controller-manager. Disabling LeasesResourceLock")
+		// StatusNotFound is a safe error, Leases are
+		// disabled and the agent can continue
+		return nil
+	}
+
+	// Unknown error, we can't derive whether to enable or disable
+	// LeasesResourceLock and need to error out
+	return fmt.Errorf("unable to validate LeasesResourceLock support: %s", err)
+}
+
+func updateK8sServerVersion(client kubernetes.Interface) error {
 	sv, err := client.Discovery().ServerVersion()
 	if err != nil {
 		return err
-	}
-
-	if conf.K8sAPIDiscoveryEnabled() {
-		// Discovery of API groups requires the API services of the
-		// apiserver to be healthy. Such API services can depend on the
-		// readiness of regular pods which require Cilium to function
-		// correctly. By treating failure to discover API groups as
-		// fatal, a critical loop can be entered in which Cilium cannot
-		// start because the API groups can't be discovered and th API
-		// groups will only become discoverable once Cilium is up.
-		apiGroups, apiResourceLists, err := client.Discovery().ServerGroupsAndResources()
-		if err != nil {
-			// It doesn't make sense to retry the retrieval of this
-			// information at a later point because the capabilities are
-			// primiarly used while the agent is starting up. Instead, fall
-			// back to probing API endpoints directly.
-			log.WithError(err).Warning("Unable to discover API groups and resources")
-			if err := fallbackDiscovery(client); err != nil {
-				return err
-			}
-		} else {
-			updateServerGroupsAndResources(apiGroups, apiResourceLists)
-		}
-	} else {
-		if err := fallbackDiscovery(client); err != nil {
-			return err
-		}
 	}
 
 	// Try GitVersion first. In case of error fallback to MajorMinor
@@ -224,5 +259,53 @@ func Update(client kubernetes.Interface, conf k8sconfig.Configuration) error {
 	if err != nil {
 		return fmt.Errorf("cannot parse k8s server version from %+v: %s", sv, err)
 	}
+
 	return fmt.Errorf("cannot parse k8s server version from %+v", sv)
+}
+
+// Update retrieves the version of the Kubernetes apiserver and derives the
+// capabilities. This function must be called after connectivity to the
+// apiserver has been established.
+//
+// Discovery of capabilities only works if the discovery API of the apiserver
+// is functional. If it is not available, a warning is logged and the discovery
+// falls back to probing individual API endpoints.
+func Update(client kubernetes.Interface, conf k8sconfig.Configuration) error {
+	err := updateK8sServerVersion(client)
+	if err != nil {
+		return err
+	}
+
+	if conf.K8sAPIDiscoveryEnabled() {
+		// Discovery of API groups requires the API services of the
+		// apiserver to be healthy. Such API services can depend on the
+		// readiness of regular pods which require Cilium to function
+		// correctly. By treating failure to discover API groups as
+		// fatal, a critical loop can be entered in which Cilium cannot
+		// start because the API groups can't be discovered and th API
+		// groups will only become discoverable once Cilium is up.
+		_, apiResourceLists, err := client.Discovery().ServerGroupsAndResources()
+		if err != nil {
+			// It doesn't make sense to retry the retrieval of this
+			// information at a later point because the capabilities are
+			// primiarly used while the agent is starting up. Instead, fall
+			// back to probing API endpoints directly.
+			log.WithError(err).Warning("Unable to discover API groups and resources")
+			if err := endpointSlicesFallbackDiscovery(client); err != nil {
+				return err
+			}
+
+			return leasesFallbackDiscovery(client, conf)
+		}
+
+		updateServerGroupsAndResources(apiResourceLists)
+	} else {
+		if err := endpointSlicesFallbackDiscovery(client); err != nil {
+			return err
+		}
+
+		return leasesFallbackDiscovery(client, conf)
+	}
+
+	return nil
 }
