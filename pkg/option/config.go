@@ -289,7 +289,7 @@ const (
 	// EnableBPFClockProbe selects a more efficient source clock (jiffies vs ktime)
 	EnableBPFClockProbe = "enable-bpf-clock-probe"
 
-	// Masquerade packets from endpoints leaving the host with BPF instead of iptables
+	// EnableBPFMasquerade masquerades packets from endpoints leaving the host with BPF instead of iptables
 	EnableBPFMasquerade = "enable-bpf-masquerade"
 
 	// EnableIPMasqAgent enables BPF ip-masq-agent
@@ -364,7 +364,7 @@ const (
 	// ToFQDNsEnablePoller enables proactive polling of DNS names in toFQDNs.matchName rules.
 	ToFQDNsEnablePoller = "tofqdns-enable-poller"
 
-	// ToFQDNsEmitPollerEvents controls if poller lookups are sent as monitor events
+	// ToFQDNsEnablePollerEvents controls if poller lookups are sent as monitor events
 	ToFQDNsEnablePollerEvents = "tofqdns-enable-poller-events"
 
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
@@ -1866,6 +1866,14 @@ type DaemonConfig struct {
 	sizeofSockRevElement int
 
 	k8sEnableAPIDiscovery bool
+
+	// k8sEnableLeasesFallbackDiscovery enables k8s to fallback to API probing to check
+	// for the support of Leases in Kubernetes when there is an error in discovering
+	// API groups using Discovery API.
+	// We require to check for Leases capabilities in operator only, which uses Leases for leader
+	// election purposes in HA mode.
+	// This is only enabled for cilium-operator
+	k8sEnableLeasesFallbackDiscovery bool
 }
 
 var (
@@ -1905,6 +1913,8 @@ var (
 		EnableWellKnownIdentities:    defaults.EnableEndpointRoutes,
 		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
 		k8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
+
+		k8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
 	}
 )
 
@@ -2033,6 +2043,19 @@ func (c *DaemonConfig) CiliumNamespaceName() string {
 // resources is enabled
 func (c *DaemonConfig) K8sAPIDiscoveryEnabled() bool {
 	return c.k8sEnableAPIDiscovery
+}
+
+// K8sLeasesFallbackDiscoveryEnabled returns true if we should fallback to direct API
+// probing when checking for support of Leases in case Discovery API fails to discover
+// required groups.
+func (c *DaemonConfig) K8sLeasesFallbackDiscoveryEnabled() bool {
+	return c.k8sEnableAPIDiscovery
+}
+
+// EnableK8sLeasesFallbackDiscovery enables using direct API probing as a fallback to check
+// for the support of Leases when discovering API groups is not possible.
+func (c *DaemonConfig) EnableK8sLeasesFallbackDiscovery() {
+	c.k8sEnableAPIDiscovery = true
 }
 
 func (c *DaemonConfig) validateIPv6ClusterAllocCIDR() error {
