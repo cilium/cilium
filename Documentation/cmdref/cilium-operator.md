@@ -15,46 +15,49 @@ cilium-operator [flags]
 ### Options
 
 ```
-      --api-server-port uint16                 Port on which the operator should serve API requests (default 9234)
-      --aws-client-burst int                   Burst value allowed for the AWS client used by the AWS ENI IPAM (default 4)
-      --aws-client-qps float                   Queries per second limit for the AWS client used by the AWS ENI IPAM (default 20)
-      --aws-instance-limit-mapping map         Add or overwrite mappings of AWS instance limit in the form of {"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses per Interface","IPv6 Addresses per Interface"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"} (default map[])
-      --aws-release-excess-ips                 Enable releasing excess free IP addresses from AWS ENI.
-      --ccnp-node-status-gc                    Enable CiliumClusterwideNetworkPolicy Status garbage collection for nodes which have been removed from the cluster (default true)
-      --cilium-endpoint-gc                     Enable CiliumEndpoint garbage collector (default true)
-      --cilium-endpoint-gc-interval duration   GC interval for cilium endpoints (default 30m0s)
-      --cluster-id int                         Unique identifier of the cluster
-      --cluster-name string                    Name of the cluster (default "default")
-      --cnp-node-status-gc                     Enable CiliumNetworkPolicy Status garbage collection for nodes which have been removed from the cluster (default true)
-      --cnp-node-status-gc-interval duration   GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status (default 2m0s)
-      --cnp-status-update-interval duration    interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
-  -D, --debug                                  Enable debugging mode
-      --enable-k8s-api-discovery               Enable discovery of Kubernetes API groups and resources with the discovery API
-      --enable-k8s-endpoint-slice              Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
-      --enable-metrics                         Enable Prometheus metrics
-      --eni-parallel-workers int               Maximum number of parallel workers used by ENI allocator (default 50)
-      --eni-tags map                           ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default map[])
-  -h, --help                                   help for cilium-operator
-      --identity-allocation-mode string        Method to use for identity allocation (default "kvstore")
-      --identity-gc-interval duration          GC interval for security identities (default 15m0s)
-      --identity-gc-rate-interval duration     Interval used for rate limiting the GC of security identities (default 1m0s)
-      --identity-gc-rate-limit int             Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 250)
-      --identity-heartbeat-timeout duration    Timeout after which identity expires on lack of heartbeat (default 15m0s)
-      --ipam string                            Backend to use for IPAM
-      --k8s-api-server string                  Kubernetes API server URL
-      --k8s-client-burst int                   Burst value allowed for the K8s client
-      --k8s-client-qps float32                 Queries per second limit for the K8s client
-      --k8s-heartbeat-timeout duration         Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
-      --k8s-kubeconfig-path string             Absolute path of the kubernetes kubeconfig file
-      --k8s-namespace string                   Name of the Kubernetes namespace in which Cilium Operator is deployed in
-      --kvstore string                         Key-value store type
-      --kvstore-opt map                        Key-value store options (default map[])
-      --metrics-address string                 Address to serve Prometheus metrics (default ":6942")
-      --nodes-gc-interval duration             GC interval for nodes store in the kvstore (default 2m0s)
-      --synchronize-k8s-nodes                  Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
-      --synchronize-k8s-services               Synchronize Kubernetes services to kvstore (default true)
-      --unmanaged-pod-watcher-interval int     Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
-      --update-ec2-apdater-limit-via-api       Use the EC2 API to update the instance type to adapter limits
-      --version                                Print version information
+      --api-server-port uint16                    Port on which the operator should serve API requests (default 9234)
+      --aws-client-burst int                      Burst value allowed for the AWS client used by the AWS ENI IPAM (default 4)
+      --aws-client-qps float                      Queries per second limit for the AWS client used by the AWS ENI IPAM (default 20)
+      --aws-instance-limit-mapping map            Add or overwrite mappings of AWS instance limit in the form of {"AWS instance type": "Maximum Network Interfaces","IPv4 Addresses per Interface","IPv6 Addresses per Interface"}. cli example: --aws-instance-limit-mapping=a1.medium=2,4,4 --aws-instance-limit-mapping=a2.somecustomflavor=4,5,6 configmap example: {"a1.medium": "2,4,4", "a2.somecustomflavor": "4,5,6"} (default map[])
+      --aws-release-excess-ips                    Enable releasing excess free IP addresses from AWS ENI.
+      --ccnp-node-status-gc                       Enable CiliumClusterwideNetworkPolicy Status garbage collection for nodes which have been removed from the cluster (default true)
+      --cilium-endpoint-gc                        Enable CiliumEndpoint garbage collector (default true)
+      --cilium-endpoint-gc-interval duration      GC interval for cilium endpoints (default 30m0s)
+      --cluster-id int                            Unique identifier of the cluster
+      --cluster-name string                       Name of the cluster (default "default")
+      --cnp-node-status-gc                        Enable CiliumNetworkPolicy Status garbage collection for nodes which have been removed from the cluster (default true)
+      --cnp-node-status-gc-interval duration      GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status (default 2m0s)
+      --cnp-status-update-interval duration       interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
+  -D, --debug                                     Enable debugging mode
+      --enable-k8s-api-discovery                  Enable discovery of Kubernetes API groups and resources with the discovery API
+      --enable-k8s-endpoint-slice                 Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
+      --enable-metrics                            Enable Prometheus metrics
+      --eni-parallel-workers int                  Maximum number of parallel workers used by ENI allocator (default 50)
+      --eni-tags map                              ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default map[])
+  -h, --help                                      help for cilium-operator
+      --identity-allocation-mode string           Method to use for identity allocation (default "kvstore")
+      --identity-gc-interval duration             GC interval for security identities (default 15m0s)
+      --identity-gc-rate-interval duration        Interval used for rate limiting the GC of security identities (default 1m0s)
+      --identity-gc-rate-limit int                Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 250)
+      --identity-heartbeat-timeout duration       Timeout after which identity expires on lack of heartbeat (default 15m0s)
+      --ipam string                               Backend to use for IPAM
+      --k8s-api-server string                     Kubernetes API server URL
+      --k8s-client-burst int                      Burst value allowed for the K8s client
+      --k8s-client-qps float32                    Queries per second limit for the K8s client
+      --k8s-heartbeat-timeout duration            Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
+      --k8s-kubeconfig-path string                Absolute path of the kubernetes kubeconfig file
+      --k8s-namespace string                      Name of the Kubernetes namespace in which Cilium Operator is deployed in
+      --kvstore string                            Key-value store type
+      --kvstore-opt map                           Key-value store options (default map[])
+      --leader-election-lease-duration duration   Duration that non-leader operator candidates will wait before forcing to acquire leadership (default 15s)
+      --leader-election-renew-deadline duration   Duration that current acting master will retry refreshing leadership in before giving up the lock (default 10s)
+      --leader-election-retry-period duration     Duration that LeaderElector clients should wait between retries of the actions (default 2s)
+      --metrics-address string                    Address to serve Prometheus metrics (default ":6942")
+      --nodes-gc-interval duration                GC interval for nodes store in the kvstore (default 2m0s)
+      --synchronize-k8s-nodes                     Synchronize Kubernetes nodes to kvstore and perform CNP GC (default true)
+      --synchronize-k8s-services                  Synchronize Kubernetes services to kvstore (default true)
+      --unmanaged-pod-watcher-interval int        Interval to check for unmanaged kube-dns pods (0 to disable) (default 15)
+      --update-ec2-apdater-limit-via-api          Use the EC2 API to update the instance type to adapter limits
+      --version                                   Print version information
 ```
 
