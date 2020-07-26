@@ -77,7 +77,7 @@ var _ = Describe("K8sHubbleTest", func() {
 		}
 	}
 
-	removeVisbilityAnnotation := func(ns, podLabels string) {
+	removeVisibilityAnnotation := func(ns, podLabels string) {
 		By("Removing visibility annotation on pod with labels %s", app1Labels)
 		res := kubectl.Exec(fmt.Sprintf("%s annotate pod -n %s -l %s %s-", helpers.KubectlCmd, ns, podLabels, annotation.ProxyVisibility))
 		res.ExpectSuccess("removing proxy visibility annotation failed")
@@ -105,7 +105,7 @@ var _ = Describe("K8sHubbleTest", func() {
 			"hubble observe: filter %q never matched expected string %q", filter, expected)
 	}
 
-	// Skipping on GKE due to hubbler-relay not getting ready
+	// Skipping on GKE due to hubble-relay not getting ready
 	SkipContextIf(helpers.SkipGKEQuarantined, "All Hubble Tests", func() {
 		BeforeAll(func() {
 			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
@@ -198,7 +198,7 @@ var _ = Describe("K8sHubbleTest", func() {
 				res, err = kubectl.ExecInHostNetNS(ctx, k8s1NodeName, helpers.CurlFail(metricsUrl))
 				Expect(err).To(BeNil(), "failed to execute curl on node %q", k8s1NodeName)
 				res.ExpectSuccess("%s/%s cannot curl metrics %q", helpers.CiliumNamespace, ciliumPodK8s1, app1ClusterIP)
-				res.ExpectContains(`hubble_flows_processed_total{subtype="to-endpoint",type="Trace",verdict="FORWARDED"}`)
+				res.ExpectContains(`hubble_flows_processed_total{protocol="TCP",subtype="to-endpoint",type="Trace",verdict="FORWARDED"}`)
 			})
 
 			It("Test L3/L4 Flow with hubble-relay", func() {
@@ -222,7 +222,7 @@ var _ = Describe("K8sHubbleTest", func() {
 
 			It("Test L7 Flow", func() {
 				addVisibilityAnnotation(namespaceForTest, app1Labels, "Ingress", "80", "TCP", "HTTP")
-				defer removeVisbilityAnnotation(namespaceForTest, app1Labels)
+				defer removeVisibilityAnnotation(namespaceForTest, app1Labels)
 
 				ctx, cancel := context.WithTimeout(context.Background(), helpers.MidCommandTimeout)
 				defer cancel()
@@ -243,12 +243,12 @@ var _ = Describe("K8sHubbleTest", func() {
 				res, err = kubectl.ExecInHostNetNS(ctx, k8s1NodeName, helpers.CurlFail(metricsUrl))
 				Expect(err).To(BeNil(), "failed to execute curl on node %q", k8s1NodeName)
 				res.ExpectSuccess("%s/%s cannot curl metrics %q", helpers.CiliumNamespace, ciliumPodK8s1, app1ClusterIP)
-				res.ExpectContains(`hubble_flows_processed_total{subtype="HTTP",type="L7",verdict="FORWARDED"}`)
+				res.ExpectContains(`hubble_flows_processed_total{protocol="HTTP",subtype="HTTP",type="L7",verdict="FORWARDED"}`)
 			})
 
 			It("Test L7 Flow with hubble-relay", func() {
 				addVisibilityAnnotation(namespaceForTest, app1Labels, "Ingress", "80", "TCP", "HTTP")
-				defer removeVisbilityAnnotation(namespaceForTest, app1Labels)
+				defer removeVisibilityAnnotation(namespaceForTest, app1Labels)
 
 				res := kubectl.ExecPodCmd(namespaceForTest, appPods[helpers.App2],
 					helpers.CurlFail(fmt.Sprintf("http://%s/public", app1ClusterIP)))

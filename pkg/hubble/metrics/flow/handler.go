@@ -34,7 +34,7 @@ func (h *flowHandler) Init(registry *prometheus.Registry, options api.Options) e
 	}
 	h.context = c
 
-	labels := []string{"type", "subtype", "verdict"}
+	labels := []string{"protocol", "type", "subtype", "verdict"}
 	labels = append(labels, h.context.GetLabelNames()...)
 
 	h.flows = prometheus.NewCounterVec(prometheus.CounterOpts{
@@ -80,7 +80,8 @@ func (h *flowHandler) ProcessFlow(flow v1.Flow) {
 		subType = monitorAPI.TraceObservationPoints[uint8(flow.GetEventType().SubType)]
 	}
 
-	labels := []string{typeName, subType, flow.GetVerdict().String()}
+	labels := []string{v1.FlowProtocol(flow), typeName, subType, flow.GetVerdict().String()}
 	labels = append(labels, h.context.GetLabelValues(flow)...)
+
 	h.flows.WithLabelValues(labels...).Inc()
 }
