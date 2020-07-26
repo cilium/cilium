@@ -304,5 +304,17 @@ func init() {
 	flags.Duration(operatorOption.CRDWaitTimeout, 5*time.Minute, "Operator will exit if CRDs are not available within this duration upon startup")
 	option.BindEnv(operatorOption.CRDWaitTimeout)
 
+	flags.Duration(operatorOption.LeaderElectionLeaseDuration, 15*time.Second,
+		"Duration that non-leader operator candidates will wait before forcing to acquire leadership")
+	option.BindEnv(operatorOption.LeaderElectionLeaseDuration)
+
+	flags.Duration(operatorOption.LeaderElectionRenewDeadline, 10*time.Second,
+		"Duration that current acting master will retry refreshing leadership in before giving up the lock")
+	option.BindEnv(operatorOption.LeaderElectionRenewDeadline)
+
+	flags.Duration(operatorOption.LeaderElectionRetryPeriod, 2*time.Second,
+		"Duration that LeaderElector clients should wait between retries of the actions")
+	option.BindEnv(operatorOption.LeaderElectionRetryPeriod)
+
 	viper.BindPFlags(flags)
 }
