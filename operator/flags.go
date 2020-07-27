@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"time"
 
-	operatorMetrics "github.com/cilium/cilium/operator/metrics"
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
@@ -257,10 +256,6 @@ func init() {
 
 	flags.Bool(option.Version, false, "Print version information")
 	option.BindEnv(option.Version)
-
-	// Deprecated, remove in 1.9
-	flags.StringVar(&operatorMetrics.Address, "metrics-address", ":6942", "Address to serve Prometheus metrics")
-	flags.MarkDeprecated("metrics-address", fmt.Sprintf("Please use %s instead", operatorOption.OperatorPrometheusServeAddr))
 
 	flags.String(option.CMDRef, "", "Path to cmdref output directory")
 	flags.MarkHidden(option.CMDRef)

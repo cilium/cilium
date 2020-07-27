@@ -352,7 +352,8 @@ Configuration
 
 ``cilium-operator`` can be configured to serve metrics by running with the
 option ``--enable-metrics``.  By default, the operator will expose metrics on
-port 6942, the port can be changed with the option ``--metrics-address``.
+port 6942, the port can be changed with the option
+``--operator-prometheus-serve-addr``.
 
 Exported Metrics
 ^^^^^^^^^^^^^^^^
