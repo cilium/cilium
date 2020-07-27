@@ -368,6 +368,9 @@ Removed cilium-operator options
 * The ``api-server-port`` option is now removed. Please use
   ``operator-api-serve-addr`` instead.
 
+* The ``metrics-address`` option is now removed. Please use
+  ``operator-prometheus-serve-addr`` instead.
+
 .. _1.8_upgrade_notes:
 
 1.8 Upgrade Notes

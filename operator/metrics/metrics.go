@@ -28,8 +28,6 @@ const Namespace = "cilium_operator"
 
 var (
 	Registry *prometheus.Registry
-
-	Address string
 )
 
 func Register() {
@@ -39,13 +37,6 @@ func Register() {
 		// The Handler function provides a default handler to expose metrics
 		// via an HTTP server. "/metrics" is the usual endpoint for that.
 		http.Handle("/metrics", promhttp.HandlerFor(Registry, promhttp.HandlerOpts{}))
-		log.Fatal(http.ListenAndServe(getPrometheusServerAddr(), nil))
+		log.Fatal(http.ListenAndServe(operatorOption.Config.OperatorPrometheusServeAddr, nil))
 	}()
-}
-
-func getPrometheusServerAddr() string {
-	if operatorOption.Config.OperatorPrometheusServeAddr == "" {
-		return Address
-	}
-	return operatorOption.Config.OperatorPrometheusServeAddr
 }
