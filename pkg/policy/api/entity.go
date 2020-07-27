@@ -22,6 +22,8 @@ import (
 // Entity specifies the class of receiver/sender endpoints that do not have
 // individual identities.  Entities are used to describe "outside of cluster",
 // "host", etc.
+//
+// +kubebuilder:validation:Enum=all;world;cluster;host;init;unmanaged;remote-node;health;none
 type Entity string
 
 const (
