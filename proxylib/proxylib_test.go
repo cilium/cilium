@@ -197,7 +197,7 @@ type PanicParser struct {
 	connection *proxylib.Connection
 }
 
-func (p *PanicParserFactory) Create(connection *proxylib.Connection) proxylib.Parser {
+func (p *PanicParserFactory) Create(connection *proxylib.Connection) interface{} {
 	log.Debugf("PanicParserFactory: Create: %v", connection)
 	return &PanicParser{connection: connection}
 }

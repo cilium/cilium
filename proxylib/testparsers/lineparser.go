@@ -40,7 +40,7 @@ type LineParser struct {
 	inserted   bool
 }
 
-func (p *LineParserFactory) Create(connection *Connection) Parser {
+func (p *LineParserFactory) Create(connection *Connection) interface{} {
 	log.Debugf("LineParserFactory: Create: %v", connection)
 	return &LineParser{connection: connection}
 }

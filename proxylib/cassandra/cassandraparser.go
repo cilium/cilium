@@ -170,7 +170,7 @@ type CassandraParser struct {
 	preparedQueryPathByPreparedID map[string]string // stores query string based on prepared-id,
 }
 
-func (pf *CassandraParserFactory) Create(connection *Connection) Parser {
+func (pf *CassandraParserFactory) Create(connection *Connection) interface{} {
 	log.Debugf("CassandraParserFactory: Create: %v", connection)
 
 	p := CassandraParser{connection: connection}

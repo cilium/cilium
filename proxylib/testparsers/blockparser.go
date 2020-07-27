@@ -47,7 +47,7 @@ type BlockParser struct {
 	inserted   int
 }
 
-func (p *BlockParserFactory) Create(connection *Connection) Parser {
+func (p *BlockParserFactory) Create(connection *Connection) interface{} {
 	log.Debugf("BlockParserFactory: Create: %v", connection)
 	return &BlockParser{connection: connection}
 }

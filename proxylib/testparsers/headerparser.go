@@ -113,7 +113,7 @@ type HeaderParser struct {
 	connection *Connection
 }
 
-func (p *HeaderParserFactory) Create(connection *Connection) Parser {
+func (p *HeaderParserFactory) Create(connection *Connection) interface{} {
 	log.Debugf("HeaderParserFactory: Create: %v", connection)
 	return &HeaderParser{connection: connection}
 }
