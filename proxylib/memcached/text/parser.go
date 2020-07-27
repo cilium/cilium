@@ -31,7 +31,7 @@ import (
 type ParserFactory struct{}
 
 // Create creates memcached parser
-func (p *ParserFactory) Create(connection *proxylib.Connection) proxylib.Parser {
+func (p *ParserFactory) Create(connection *proxylib.Connection) interface{} {
 	log.Debugf("ParserFactory: Create: %v", connection)
 	return &Parser{connection: connection, replyQueue: make([]*replyIntent, 0)}
 }

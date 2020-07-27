@@ -141,7 +141,7 @@ type parser struct {
 	inserted   bool
 }
 
-func (f *factory) Create(connection *proxylib.Connection) proxylib.Parser {
+func (f *factory) Create(connection *proxylib.Connection) interface{} {
 	log.Debugf("R2d2ParserFactory: Create: %v", connection)
 
 	return &parser{connection: connection}

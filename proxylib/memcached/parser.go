@@ -153,7 +153,7 @@ func L7RuleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicy
 type ParserFactory struct{}
 
 // Create creates memcached parser
-func (p *ParserFactory) Create(connection *proxylib.Connection) proxylib.Parser {
+func (p *ParserFactory) Create(connection *proxylib.Connection) interface{} {
 	log.Debugf("ParserFactory: Create: %v", connection)
 	return &Parser{
 		connection: connection,
@@ -195,9 +195,9 @@ func (p *Parser) OnData(reply, endStream bool, dataBuffers [][]byte) (proxylib.O
 		}
 
 		if magicByte >= 128 {
-			p.parser = binary.ParserFactoryInstance.Create(p.connection)
+			p.parser = binary.ParserFactoryInstance.Create(p.connection).(proxylib.Parser)
 		} else {
-			p.parser = text.ParserFactoryInstance.Create(p.connection)
+			p.parser = text.ParserFactoryInstance.Create(p.connection).(proxylib.Parser)
 		}
 	}
 	return p.parser.OnData(reply, endStream, dataBuffers)
