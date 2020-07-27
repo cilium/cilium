@@ -342,7 +342,7 @@ func runOperator(cmd *cobra.Command) {
 		}
 	}
 
-	if operatorOption.Config.EnableCEPGC && operatorOption.Config.EndpointGCInterval != 0 {
+	if operatorOption.Config.EndpointGCInterval != 0 {
 		enableCiliumEndpointSyncGC()
 	}
 

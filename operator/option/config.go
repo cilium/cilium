@@ -35,20 +35,6 @@ const (
 	// being sent to the K8s apiserver for a given CNP.
 	CNPStatusUpdateInterval = "cnp-status-update-interval"
 
-	// EnableCEPGC enables CiliumEndpoint garbage collector
-	// Deprecated: use EndpointGCInterval and remove in 1.9
-	EnableCEPGC = "cilium-endpoint-gc"
-
-	// EnableCCNPNodeStatusGC enables CiliumClusterwideNetworkPolicy Status
-	// garbage collection for nodes which have been removed from the cluster
-	// Deprecated: use CNPNodeStatusGCInterval and remove in 1.9
-	EnableCCNPNodeStatusGC = "ccnp-node-status-gc"
-
-	// EnableCNPNodeStatusGC enables CiliumNetworkPolicy Status garbage
-	// collection for nodes which have been removed from the cluster
-	// Deprecated: use CNPNodeStatusGCInterval and remove in 1.9
-	EnableCNPNodeStatusGC = "cnp-node-status-gc"
-
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics = "enable-metrics"
 
@@ -179,22 +165,8 @@ type OperatorConfig struct {
 	// being sent to the K8s apiserver for a given CNP.
 	CNPStatusUpdateInterval time.Duration
 
-	// EnableCEPGC enables CiliumEndpoint garbage collector
-	// Deprecated: use EndpointGCInterval and remove in 1.9
-	EnableCEPGC bool
-
-	// EnableCNPNodeStatusGC enables CiliumNetworkPolicy Status garbage collection
-	// for nodes which have been removed from the cluster
-	// Deprecated: use CNPNodeStatusGCInterval and remove in 1.9
-	EnableCNPNodeStatusGC bool
-
 	// EnableMetrics enables prometheus metrics.
 	EnableMetrics bool
-
-	// EnableCCNPNodeStatusGC enables CiliumClusterwideNetworkPolicy Status
-	// garbage collection for nodes which have been removed from the cluster
-	// Deprecated: use CNPNodeStatusGCInterval and remove in 1.9
-	EnableCCNPNodeStatusGC bool
 
 	// EndpointGCInterval is the interval between attempts of the CEP GC
 	// controller.
@@ -300,9 +272,6 @@ type OperatorConfig struct {
 func (c *OperatorConfig) Populate() {
 	c.CNPNodeStatusGCInterval = viper.GetDuration(CNPNodeStatusGCInterval)
 	c.CNPStatusUpdateInterval = viper.GetDuration(CNPStatusUpdateInterval)
-	c.EnableCEPGC = viper.GetBool(EnableCEPGC)
-	c.EnableCNPNodeStatusGC = viper.GetBool(EnableCNPNodeStatusGC)
-	c.EnableCCNPNodeStatusGC = viper.GetBool(EnableCCNPNodeStatusGC)
 	c.EnableMetrics = viper.GetBool(EnableMetrics)
 	c.EndpointGCInterval = viper.GetDuration(EndpointGCInterval)
 	c.IdentityGCInterval = viper.GetDuration(IdentityGCInterval)
