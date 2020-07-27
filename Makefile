@@ -39,7 +39,6 @@ COVERPKG_EVAL := $(shell if [ $$(echo "$(TESTPKGS)" | wc -w) -gt 1 ]; then echo 
 COVERPKG ?= $(COVERPKG_EVAL)
 GOTEST_BASE := -test.v -timeout 360s
 GOTEST_UNIT_BASE := $(GOTEST_BASE) -check.vv
-GOTEST_PRIV_OPTS := $(GOTEST_UNIT_BASE) -tags=privileged_tests
 GOTEST_COVER_OPTS += -coverprofile=coverage.out -coverpkg $(COVERPKG)
 BENCH_EVAL := "."
 BENCH ?= $(BENCH_EVAL)
@@ -139,12 +138,13 @@ clean-jenkins-precheck:
 
 PRIV_TEST_PKGS_EVAL := $(shell for pkg in $(TESTPKGS); do echo $$pkg; done | xargs grep --include='*.go' -ril '+build [^!]*privileged_tests' | xargs dirname | sort | uniq)
 PRIV_TEST_PKGS ?= $(PRIV_TEST_PKGS_EVAL)
+tests-privileged: GO_TAGS_FLAGS+=privileged_tests
 tests-privileged:
 	# cilium-map-migrate is a dependency of some unit tests.
 	$(QUIET) $(MAKE) $(SUBMAKEOPTS) -C bpf cilium-map-migrate
 	$(MAKE) init-coverage
 	for pkg in $(patsubst %,github.com/cilium/cilium/%,$(PRIV_TEST_PKGS)); do \
-		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_PRIV_OPTS) $(GOTEST_COVER_OPTS) \
+		PATH=$(PATH):$(ROOT_DIR)/bpf $(GO_TEST) $(TEST_LDFLAGS) $$pkg $(GOTEST_UNIT_BASE) $(GOTEST_COVER_OPTS) \
 		|| exit 1; \
 		tail -n +2 coverage.out >> coverage-all-tmp.out; \
 	done
@@ -231,12 +231,12 @@ bench: start-kvstores
 	done
 	$(MAKE) stop-kvstores
 
+bench-privileged: GO_TAGS_FLAGS+=privileged_tests
 bench-privileged:
 	# Process the packages in different subshells. See comment in the
 	# "unit-tests" target above for an explanation.
 	$(QUIET)for pkg in $(patsubst %,github.com/cilium/cilium/%,$(TESTPKGS)); do \
-		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) \
-			-tags=privileged_tests $$pkg \
+		$(GO_TEST) $(TEST_UNITTEST_LDFLAGS) $(GOTEST_BASE) $(BENCHFLAGS) $$pkg \
 		|| exit 1; \
 	done
 
