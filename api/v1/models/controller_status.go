@@ -128,6 +128,7 @@ func (m *ControllerStatus) UnmarshalBinary(b []byte) error {
 // ControllerStatusConfiguration Configuration of controller
 //
 // +deepequal-gen=true
+// +k8s:deepcopy-gen=true
 //
 // swagger:model ControllerStatusConfiguration
 type ControllerStatusConfiguration struct {

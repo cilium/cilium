@@ -29,12 +29,9 @@ import (
 	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node/addressing"
 	"github.com/cilium/cilium/pkg/policy/api"
 
-	"github.com/go-openapi/swag"
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -42,11 +39,6 @@ import (
 const (
 	// subsysK8s is the value for logfields.LogSubsys
 	subsysK8s = "k8s"
-)
-
-var (
-	// log is the k8s package logger object.
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsysK8s)
 )
 
 // +genclient
@@ -386,7 +378,6 @@ type CiliumEndpoint struct {
 // deepcopy for EndpointStatus but not for the various models.* types it
 // includes. We can't generate functions for classes in other packages, nor can
 // we change the models.Endpoint type to use proxy types we define here.
-// +k8s:deepcopy-gen=false
 type EndpointStatus struct {
 	// The cilium-agent-local ID of the endpoint
 	ID int64 `json:"id,omitempty"`
@@ -451,7 +442,6 @@ func (c ControllerList) Sort() {
 }
 
 // ControllerStatus is the status of a failing controller
-// +k8s:deepcopy-gen=false
 type ControllerStatus struct {
 	// Name is the name of the controller
 	Name string `json:"name,omitempty"`
@@ -479,14 +469,12 @@ type ControllerStatusStatus struct {
 
 // EndpointPolicy represents the endpoint's policy by listing all allowed
 // ingress and egress identities in combination with L4 port and protocol
-// +k8s:deepcopy-gen=false
 type EndpointPolicy struct {
 	Ingress *EndpointPolicyDirection `json:"ingress,omitempty"`
 	Egress  *EndpointPolicyDirection `json:"egress,omitempty"`
 }
 
 // EndpointPolicyDirection is the list of allowed identities per direction
-// +k8s:deepcopy-gen=false
 type EndpointPolicyDirection struct {
 	Enforcing bool                `json:"enforcing"`
 	Allowed   AllowedIdentityList `json:"allowed,omitempty"`
@@ -496,7 +484,6 @@ type EndpointPolicyDirection struct {
 
 // AllowedIdentityTuple specifies an allowed peer by identity, destination port
 // and protocol
-// +k8s:deepcopy-gen=false
 type AllowedIdentityTuple struct {
 	Identity       uint64            `json:"identity,omitempty"`
 	IdentityLabels map[string]string `json:"identity-labels,omitempty"`
@@ -623,40 +610,6 @@ type EndpointNetworking struct {
 	// NodeIP is the IP of the node the endpoint is running on. The IP must
 	// be reachable between nodes.
 	NodeIP string `json:"node,omitempty"`
-}
-
-// DeepCopyInto is an inefficient hack to allow reusing models.Endpoint in the
-// CiliumEndpoint CRD.
-func (m *EndpointStatus) DeepCopyInto(out *EndpointStatus) {
-	*out = *m
-	b, err := (*EndpointStatus)(m).MarshalBinary()
-	if err != nil {
-		log.WithError(err).Error("Cannot marshal EndpointStatus during EndpointStatus deepcopy")
-		return
-	}
-	err = (*EndpointStatus)(out).UnmarshalBinary(b)
-	if err != nil {
-		log.WithError(err).Error("Cannot unmarshal EndpointStatus during EndpointStatus deepcopy")
-		return
-	}
-}
-
-// MarshalBinary interface implementation
-func (m *EndpointStatus) MarshalBinary() ([]byte, error) {
-	if m == nil {
-		return nil, nil
-	}
-	return swag.WriteJSON(m)
-}
-
-// UnmarshalBinary interface implementation
-func (m *EndpointStatus) UnmarshalBinary(b []byte) error {
-	var res EndpointStatus
-	if err := swag.ReadJSON(b, &res); err != nil {
-		return err
-	}
-	*m = res
-	return nil
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

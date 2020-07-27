@@ -1226,7 +1226,10 @@ definitions:
       - audit-egress
       - audit-both
   EndpointPolicy:
-    description: Policy information of an endpoint
+    description: |-
+      Policy information of an endpoint
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       policy-revision:
@@ -1258,7 +1261,10 @@ definitions:
       cidr-policy:
         "$ref": "#/definitions/CIDRPolicy"
   PolicyRule:
-    description: A policy rule including the rule labels it derives from
+    description: |-
+      A policy rule including the rule labels it derives from
+
+      +k8s:deepcopy-gen=true
     properties:
       rule:
         description: The policy rule as json
@@ -1271,7 +1277,10 @@ definitions:
           items:
             type: string
   L4Policy:
-    description: L4 endpoint policy
+    description: |-
+      L4 endpoint policy
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       ingress:
@@ -1285,7 +1294,10 @@ definitions:
         items:
           "$ref": "#/definitions/PolicyRule"
   CIDRPolicy:
-    description: CIDR endpoint policy
+    description: |-
+      CIDR endpoint policy
+
+      +k8s:deepcopy-gen=true
     type: object
     properties:
       ingress:
@@ -2410,6 +2422,7 @@ definitions:
           Configuration of controller
 
           +deepequal-gen=true
+          +k8s:deepcopy-gen=true
         type: object
         properties:
           interval:
