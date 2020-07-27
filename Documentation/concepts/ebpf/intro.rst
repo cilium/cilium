@@ -71,7 +71,7 @@ hook see :ref:`bpf_guide`.
   the message to another socket. Cilium uses this to accelerate the datapath redirects
   as described below.
 
-Combining the above hooks with a virtual interfaces (cilium_host, cilium_net),
+Combining the above hooks with virtual interfaces (cilium_host, cilium_net),
 an optional overlay interface (cilium_vxlan), Linux kernel crypto support and
 a userspace proxy (Envoy) Cilium creates the following networking objects.
 
