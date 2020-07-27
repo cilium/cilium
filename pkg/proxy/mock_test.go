@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -45,8 +45,6 @@ func (m *proxyUpdaterMock) GetID() uint64                               { return
 func (m *proxyUpdaterMock) GetIPv4Address() string                      { return m.ipv4 }
 func (m *proxyUpdaterMock) GetIPv6Address() string                      { return m.ipv6 }
 func (m *proxyUpdaterMock) GetLabels() []string                         { return m.labels }
-func (m *proxyUpdaterMock) GetEgressPolicyEnabledLocked() bool          { return true }
-func (m *proxyUpdaterMock) GetIngressPolicyEnabledLocked() bool         { return true }
 func (m *proxyUpdaterMock) GetIdentityLocked() identity.NumericIdentity { return m.identity }
 func (m *proxyUpdaterMock) ProxyID(npMap policy.NamedPortsMap, l4 *policy.L4Filter) (string, error) {
 	return "", nil
