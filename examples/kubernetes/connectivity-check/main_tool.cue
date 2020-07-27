@@ -1,6 +1,7 @@
 package connectivity_check
 
 import (
+	"list"
 	"text/tabwriter"
 	"tool/cli"
 )
@@ -11,6 +12,7 @@ objectSets: [
 	deployment,
 	service,
 	egressCNP,
+	ingressCNP,
 ]
 
 globalFlags: "[-t component=<component>] [-t kind=<kind>] [-t name=<name>] [-t topology=<topology>]"
@@ -27,8 +29,9 @@ ccCommand: {
 		if #flags.component == "all" {
 			resources: objects
 		}
+		defaultExclusions: [ "hostport-check", "proxy-check"]
 		if #flags.component == "default" {
-			resources: [ for x in objects if x.metadata.labels.component != "hostport-check" {x}]
+			resources: [ for x in objects if !list.Contains(defaultExclusions, x.metadata.labels.component) {x}]
 		}
 		if #flags.component != "all" && #flags.component != "default" {
 			resources: [ for x in objects if x.metadata.labels.component == "\(#flags.component)-check" {x}]

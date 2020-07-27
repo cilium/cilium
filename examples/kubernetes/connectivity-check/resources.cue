@@ -35,20 +35,36 @@ _spec: {
 	}
 
 	_allowProbe: [ "curl", "-sS", "--fail", "--connect-timeout", "\(_probeFailureTimeout)", "-o", "/dev/null", "\(_probeTarget)\(_probePath)"]
-	_rejectProbe: [ "ash", "-c", "! curl -s --fail --connect-timeout \(_probeFailureTimeout) -o /dev/null \(_probeTarget)\(_probePath)"]
-	_c1: _container & {
-		name: "\(_name)-container"
-		if _probeExpectFail {
+	_rejectProbe: [ "ash", "-c", "! curl -s --fail --connect-timeout \(_probeFailureTimeout) -o /dev/null \(_probeTarget)/private"]
+	if !_enableMultipleContainers {
+		_c1: _container & {
+			name: "\(_name)-container"
+			if _probeExpectFail {
+				readinessProbe: {
+					timeoutSeconds: _probeFailureTimeout + 2
+					exec: command: _rejectProbe
+				}
+			}
+			if !_probeExpectFail {
+				readinessProbe: exec: command: _allowProbe
+			}
+		}
+		_containers: [_c1]
+	}
+	if _enableMultipleContainers {
+		_c1: _container & {
+			name: "\(_name)-allow-container"
+			readinessProbe: exec: command: _allowProbe
+		}
+		_c2: _container & {
+			name: "\(_name)-reject-container"
 			readinessProbe: {
 				timeoutSeconds: _probeFailureTimeout + 2
 				exec: command: _rejectProbe
 			}
 		}
-		if !_probeExpectFail {
-			readinessProbe: exec: command: _allowProbe
-		}
+		_containers: [_c1] + [_c2]
 	}
-	_containers: [_c1]
 
 	apiVersion: "apps/v1"
 	kind:       "Deployment"
@@ -204,6 +220,13 @@ egressCNP: [ID=_]: _cnp & {
 			},
 		]
 	}
+}
+
+ingressCNP: [ID=_]: _cnp & {
+	_name: ID
+	_rules: [...{}]
+
+	spec: ingress: _rules
 }
 
 // Create services for each deployment that have relevant configuration.

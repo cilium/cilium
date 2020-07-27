@@ -43,4 +43,21 @@ deployment: [ID=_]: {
 	if ID =~ "^.*to-b-multi-node-.*$" {
 		_antiAffinity: "echo-b"
 	}
+	if ID =~ "^.*to-c-intra-node-.*$" {
+		_affinity: "echo-c"
+	}
+	if ID =~ "^.*to-c-multi-node-.*$" {
+		_antiAffinity: "echo-c"
+	}
+}
+
+// Default parameters for policies.
+egressCNP: [ID=_]: {
+	// Topology
+	if ID =~ "^.*intra-node.*$" {
+		metadata: labels: topology: "intra-node"
+	}
+	if ID =~ "^.*multi-node.*$" {
+		metadata: labels: topology: "multi-node"
+	}
 }

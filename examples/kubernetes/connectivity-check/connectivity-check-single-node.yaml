@@ -231,7 +231,7 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a/public'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a/private'
   selector:
     matchLabels:
       name: pod-to-a-l3-denied-cnp
@@ -392,22 +392,22 @@ spec:
     matchLabels:
       name: pod-to-a-l3-denied-cnp
   egress:
-  - toEndpoints:
-    - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
-        k8s:k8s-app: kube-dns
-    toPorts:
+  - toPorts:
     - ports:
       - port: "53"
         protocol: ANY
-  - toEndpoints:
+    toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: openshift-dns
-        k8s:dns.operator.openshift.io/daemonset-dns: default
-    toPorts:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+  - toPorts:
     - ports:
       - port: "5353"
         protocol: UDP
+    toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s:dns.operator.openshift.io/daemonset-dns: default
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 ---
@@ -422,29 +422,29 @@ spec:
     matchLabels:
       name: pod-to-a-allowed-cnp
   egress:
-  - toEndpoints:
-    - matchLabels:
-        name: echo-a
-    toPorts:
+  - toPorts:
     - ports:
       - port: "80"
         protocol: TCP
-  - toEndpoints:
+    toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
-        k8s:k8s-app: kube-dns
-    toPorts:
+        name: echo-a
+  - toPorts:
     - ports:
       - port: "53"
         protocol: ANY
-  - toEndpoints:
+    toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: openshift-dns
-        k8s:dns.operator.openshift.io/daemonset-dns: default
-    toPorts:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+  - toPorts:
     - ports:
       - port: "5353"
         protocol: UDP
+    toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s:dns.operator.openshift.io/daemonset-dns: default
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 ---
@@ -461,28 +461,28 @@ spec:
   egress:
   - toFQDNs:
     - matchPattern: '*.google.com'
-  - toEndpoints:
-    - matchLabels:
-        k8s:io.kubernetes.pod.namespace: kube-system
-        k8s:k8s-app: kube-dns
-    toPorts:
+  - toPorts:
     - ports:
       - port: "53"
         protocol: ANY
       rules:
         dns:
         - matchPattern: '*'
-  - toEndpoints:
+    toEndpoints:
     - matchLabels:
-        k8s:io.kubernetes.pod.namespace: openshift-dns
-        k8s:dns.operator.openshift.io/daemonset-dns: default
-    toPorts:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+  - toPorts:
     - ports:
       - port: "5353"
         protocol: UDP
       rules:
         dns:
         - matchPattern: '*'
+    toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s:dns.operator.openshift.io/daemonset-dns: default
 apiVersion: cilium.io/v2
 kind: CiliumNetworkPolicy
 
