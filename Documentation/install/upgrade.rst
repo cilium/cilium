@@ -359,6 +359,12 @@ Removed cilium-operator options
 * The ``eni-parallel-workers`` option is now removed. Please use
   ``parallel-alloc-workers`` instead.
 
+* The ``aws-client-burst`` option is now removed. Please use
+  ``limit-ipam-api-burst`` instead.
+
+* The ``aws-client-qps`` option is now removed. Please use
+  ``limit-ipam-api-qps`` instead.
+
 .. _1.8_upgrade_notes:
 
 1.8 Upgrade Notes

@@ -81,12 +81,6 @@ const (
 
 	// IPAM options
 
-	// AWSClientBurstDeprecated is the deprecated version of IPAMAPIBurst and will be rewmoved in v1.9
-	AWSClientBurstDeprecated = "aws-client-burst"
-
-	// AWSClientQPSLimitDeprecated is the deprecated version of IPAMAPIQPSLimit and will be removed in v1.9
-	AWSClientQPSLimitDeprecated = "aws-client-qps"
-
 	// IPAMAPIBurst is the burst value allowed when accessing external IPAM APIs
 	IPAMAPIBurst = "limit-ipam-api-burst"
 
@@ -296,20 +290,6 @@ func (c *OperatorConfig) Populate() {
 
 	c.AzureSubscriptionID = viper.GetString(AzureSubscriptionID)
 	c.AzureResourceGroup = viper.GetString(AzureResourceGroup)
-
-	// Deprecated options
-
-	if val := viper.GetInt(AWSClientBurstDeprecated); val != 0 {
-		c.IPAMAPIBurst = val
-	} else {
-		c.IPAMAPIBurst = viper.GetInt(IPAMAPIBurst)
-	}
-
-	if val := viper.GetFloat64(AWSClientQPSLimitDeprecated); val != 0 {
-		c.IPAMAPIQPSLimit = val
-	} else {
-		c.IPAMAPIQPSLimit = viper.GetFloat64(IPAMAPIQPSLimit)
-	}
 
 	// Option maps and slices
 
