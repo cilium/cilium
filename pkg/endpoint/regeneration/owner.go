@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -60,8 +60,6 @@ type EndpointInfoSource interface {
 	HasSidecarProxy() bool
 	ConntrackName() string
 	ConntrackNameLocked() string
-	GetIngressPolicyEnabledLocked() bool
-	GetEgressPolicyEnabledLocked() bool
 	ProxyID(npMap policy.NamedPortsMap, l4 *policy.L4Filter) (string, error)
 	GetProxyInfoByFields() (uint64, string, string, []string, string, uint64, error)
 }

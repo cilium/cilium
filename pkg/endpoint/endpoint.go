@@ -376,18 +376,6 @@ func (e *Endpoint) HasIpvlanDataPath() bool {
 	return false
 }
 
-// GetIngressPolicyEnabledLocked returns whether ingress policy enforcement is
-// enabled for endpoint or not. The endpoint's mutex must be held.
-func (e *Endpoint) GetIngressPolicyEnabledLocked() bool {
-	return e.desiredPolicy.IngressPolicyEnabled
-}
-
-// GetEgressPolicyEnabledLocked returns whether egress policy enforcement is
-// enabled for endpoint or not. The endpoint's mutex must be held.
-func (e *Endpoint) GetEgressPolicyEnabledLocked() bool {
-	return e.desiredPolicy.EgressPolicyEnabled
-}
-
 // waitForProxyCompletions blocks until all proxy changes have been completed.
 // Called with buildMutex held.
 func (e *Endpoint) waitForProxyCompletions(proxyWaitGroup *completion.WaitGroup) error {
