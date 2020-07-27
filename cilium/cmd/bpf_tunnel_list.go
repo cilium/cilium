@@ -25,7 +25,8 @@ import (
 )
 
 const (
-	tunnelTitle = "TUNNEL"
+	tunnelTitle      = "TUNNEL"
+	destinationTitle = "VALUE"
 )
 
 var bpfTunnelListCmd = &cobra.Command{
