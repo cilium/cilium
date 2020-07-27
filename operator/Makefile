@@ -9,14 +9,14 @@ TARGETS := cilium-operator cilium-operator-generic cilium-operator-aws cilium-op
 
 all: $(TARGETS)
 
-cilium-operator: OPERATOR_TAGS=ipam_provider_aws,ipam_provider_azure,ipam_provider_operator
-cilium-operator-generic: OPERATOR_TAGS=ipam_provider_operator
-cilium-operator-aws: OPERATOR_TAGS=ipam_provider_aws
-cilium-operator-azure: OPERATOR_TAGS=ipam_provider_azure
+cilium-operator: GO_TAGS_FLAGS+=ipam_provider_aws,ipam_provider_azure,ipam_provider_operator
+cilium-operator-generic: GO_TAGS_FLAGS+=ipam_provider_operator
+cilium-operator-aws: GO_TAGS_FLAGS+=ipam_provider_aws
+cilium-operator-azure: GO_TAGS_FLAGS+=ipam_provider_azure
 
 $(TARGETS):
 	@$(ECHO_GO)
-	$(QUIET)$(GO_BUILD) -tags $(OPERATOR_TAGS) -o $(@)
+	$(QUIET)$(GO_BUILD) -o $(@)
 
 $(TARGET):
 	@$(ECHO_GO)

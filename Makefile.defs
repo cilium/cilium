@@ -54,6 +54,8 @@ GO_BUILD_FLAGS =
 GO_TEST_FLAGS =
 GO_CLEAN_FLAGS =
 GO_BUILD_LDFLAGS =
+# go build/test -tags values
+GO_TAGS_FLAGS = osusergo
 
 # This is declared here as it is needed to change the covermode depending on if
 # RACE is specified.
@@ -134,11 +136,11 @@ else
 endif
 
 ifneq ($(LOCKDEBUG),)
-    GO_BUILD_FLAGS += -tags lockdebug
-    GO_TEST_FLAGS += -tags lockdebug
+    GO_TAGS_FLAGS += lockdebug
 endif
 
-GO_BUILD_FLAGS += -ldflags '$(GO_BUILD_LDFLAGS) $(EXTRA_GO_BUILD_LDFLAGS)' $(EXTRA_GO_BUILD_FLAGS)
+GO_BUILD_FLAGS += -ldflags '$(GO_BUILD_LDFLAGS) $(EXTRA_GO_BUILD_LDFLAGS)' -tags=$(call join-with-comma,$(GO_TAGS_FLAGS)) $(EXTRA_GO_BUILD_FLAGS)
+GO_TEST_FLAGS += -tags=$(call join-with-comma,$(GO_TAGS_FLAGS))
 
 GO_BUILD += $(GO_BUILD_FLAGS)
 GO_BUILD_WITH_CGO += $(GO_BUILD_FLAGS)
