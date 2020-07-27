@@ -35,6 +35,7 @@ map_sep := ,M
 GO_MAPPINGS := $(patsubst %/,%,$(map_sep)$(subst $(file_sep),$(map_sep),$(RAW_GO_MAPPINGS)))
 
 $(HUBBLE_GO_TARGETS): $(HUBBLE_PROTO_SOURCES) Makefile deps
+	@echo NOTE: The warning about package github.com/golang/protobuf/protoc-gen-go/generator can be ignored; \
 	$(QUIET)set -e; \
 	for proto in $(HUBBLE_PROTO_SOURCES) ; do \
 		$(PROTOC) $(HUBBLE_PROTOC_PLUGINS) -I $(HUBBLE_PROTO_PATH) $(PROTO_DEPS) \
