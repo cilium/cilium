@@ -314,12 +314,6 @@ Flush connection tracking entries:
 
     sudo cilium bpf ct flush
 
-List proxy configuration:
-::
-
-    sudo cilium bpf proxy list
-
-
 Kubernetes examples:
 =====================
 
