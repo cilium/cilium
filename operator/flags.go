@@ -74,16 +74,6 @@ func init() {
 	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
 	option.BindEnv(option.ConfigDir)
 
-	// Deprecated, remove in 1.9
-	flags.Bool(operatorOption.EnableCCNPNodeStatusGC, true, "Enable CiliumClusterwideNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
-	option.BindEnv(operatorOption.EnableCCNPNodeStatusGC)
-	flags.MarkDeprecated(operatorOption.EnableCCNPNodeStatusGC, fmt.Sprintf("Please use %s=0 to disable CCNP Status GC", operatorOption.CNPNodeStatusGCInterval))
-
-	// Deprecated, remove in 1.9
-	flags.Bool(operatorOption.EnableCNPNodeStatusGC, true, "Enable CiliumNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
-	option.BindEnv(operatorOption.EnableCNPNodeStatusGC)
-	flags.MarkDeprecated(operatorOption.EnableCNPNodeStatusGC, fmt.Sprintf("Please use %s=0 to disable CNP Status GC", operatorOption.CNPNodeStatusGCInterval))
-
 	flags.Duration(operatorOption.CNPNodeStatusGCInterval, 2*time.Minute, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
 	option.BindEnv(operatorOption.CNPNodeStatusGCInterval)
 
@@ -100,11 +90,6 @@ func init() {
 	flags.Bool(option.DisableCiliumEndpointCRDName, false, "")
 	flags.MarkHidden(option.DisableCiliumEndpointCRDName)
 	option.BindEnv(option.DisableCiliumEndpointCRDName)
-
-	// Deprecated, remove in 1.9
-	flags.Bool(operatorOption.EnableCEPGC, true, "Enable CiliumEndpoint garbage collector")
-	option.BindEnv(operatorOption.EnableCEPGC)
-	flags.MarkDeprecated(operatorOption.EnableCEPGC, fmt.Sprintf("Please use %s=0 to disable CEP GC", operatorOption.EndpointGCInterval))
 
 	flags.Duration(operatorOption.EndpointGCInterval, operatorOption.EndpointGCIntervalDefault, "GC interval for cilium endpoints")
 	option.BindEnv(operatorOption.EndpointGCInterval)

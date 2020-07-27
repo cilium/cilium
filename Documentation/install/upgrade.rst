@@ -347,6 +347,15 @@ Removed options
 * The ``prometheus-serve-addr-deprecated`` option is now removed. Please use
   ``prometheus-serve-addr`` instead.
 
+Removed cilium-operator options
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+* The options ``cnp-node-status-gc`` and ``ccnp-node-status-gc`` are now
+  removed. Please use ``cnp-node-status-gc-interval=0`` instead.
+
+* The ``cilium-endpoint-gc`` option is now removed. Please use
+  ``cilium-endpoint-gc-interval=0`` instead.
+
 .. _1.8_upgrade_notes:
 
 1.8 Upgrade Notes
