@@ -6,16 +6,17 @@ _spec: {
 	_name:  string
 	_image: string
 	_command: [...string]
+	_traffic: *"any" | "internal" | "external"
 
-	_affinity:        *"" | string
-	_antiAffinity:    *"" | string
-	_serverPort:      *"" | string
+	_affinity:     *"" | string
+	_antiAffinity: *"" | string
+	_serverPort:   *"" | string
 
-	_probeTarget:       string
-	_probePath:         *"/public" | string
-	_probeExpectFail:   *false | true
-	_allowProbe:        [] | [...string]
-	_rejectProbe:       [] | [...string]
+	_probeTarget:     string
+	_probePath:       *"/public" | string
+	_probeExpectFail: *false | true
+	_allowProbe:      [] | [...string]
+	_rejectProbe:     [] | [...string]
 
 	_containers: [...{}]
 	_enableMultipleContainers: *false | true
@@ -58,7 +59,7 @@ _spec: {
 			}
 			if !_probeExpectFail {
 				readinessProbe: exec: command: _allowProbe
-				livenessProbe: exec: command: _allowProbe
+				livenessProbe: exec: command:  _allowProbe
 			}
 		}
 		_containers: [_c1]
@@ -67,7 +68,7 @@ _spec: {
 		_c1: _container & {
 			name: "\(_name)-allow-container"
 			readinessProbe: exec: command: _allowProbe
-			livenessProbe: exec: command: _allowProbe
+			livenessProbe: exec: command:  _allowProbe
 		}
 		_c2: _container & {
 			name: "\(_name)-reject-container"
@@ -93,6 +94,7 @@ _spec: {
 			type:       *"autocheck" | string
 			component:  *"invalid" | string
 			quarantine: *"false" | "true"
+			traffic:    _traffic
 		}
 	}
 	spec: {
@@ -154,6 +156,7 @@ deployment: [ID=_]: _spec & {
 service: [ID=_]: {
 	_name:     ID
 	_selector: ID | string
+	_traffic:  *"any" | "internal" | "external"
 
 	apiVersion: "v1"
 	kind:       "Service"
@@ -165,6 +168,7 @@ service: [ID=_]: {
 			type:       *"autocheck" | string
 			component:  *"invalid" | string
 			quarantine: *"false" | "true"
+			traffic:    _traffic
 		}
 	}
 	spec: {
@@ -174,7 +178,8 @@ service: [ID=_]: {
 }
 
 _cnp: {
-	_name: string
+	_name:    string
+	_traffic: *"any" | "internal" | "external"
 
 	apiVersion: "cilium.io/v2"
 	kind:       "CiliumNetworkPolicy"
@@ -186,6 +191,7 @@ _cnp: {
 			type:       *"autocheck" | string
 			component:  *"invalid" | string
 			quarantine: *"false" | "true"
+			traffic:    _traffic
 		}
 	}
 	spec: endpointSelector: matchLabels: name: _name
@@ -284,6 +290,7 @@ for x in [deployment] for k, v in x {
 				topology:   *"any" | string
 				type:       *"autocheck" | string
 				quarantine: *"false" | "true"
+				traffic:    *"any" | "internal" | "external"
 			}
 			spec: selector:  v.spec.template.metadata.labels
 			spec: clusterIP: "None"
