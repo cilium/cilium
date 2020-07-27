@@ -53,10 +53,6 @@ func init() {
 		"Subnets IDs (separated by commas)")
 	option.BindEnv(operatorOption.IPAMSubnetsIDs)
 
-	flags.Int64(operatorOption.ENIParallelWorkersDeprecated, defaults.ParallelAllocWorkers, "")
-	flags.MarkDeprecated(operatorOption.ENIParallelWorkersDeprecated, fmt.Sprintf("please use --%s", operatorOption.ParallelAllocWorkers))
-	option.BindEnv(operatorOption.ENIParallelWorkersDeprecated)
-
 	flags.Int64(operatorOption.ParallelAllocWorkers, defaults.ParallelAllocWorkers, "Maximum number of parallel IPAM workers")
 	option.BindEnv(operatorOption.ParallelAllocWorkers)
 
