@@ -56,8 +56,6 @@ JOB_BASE_NAME ?= cilium_test
 GO_VERSION := $(shell cat GO_VERSION)
 GOARCH := $(shell $(GO) env GOARCH)
 
-comma:= ,
-
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
 	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
 	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR) \
@@ -87,11 +85,8 @@ endef
 
 define generate_k8s_api_all
 	$(call generate_k8s_api,all,github.com/cilium/cilium/pkg/k8s/client,$(1),$(2))
-	$(call generate_deepequal,"$(subst $(space),$(comma),$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
+	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
 endef
-
-empty:=
-space:= $(empty) $(empty)
 
 define generate_k8s_api_deepcopy_deepequal
 	$(call generate_k8s_api,deepcopy,github.com/cilium/cilium/pkg/k8s/client,$(1),$(2))
@@ -102,12 +97,12 @@ define generate_k8s_api_deepcopy_deepequal
 	@#    "$pkg", with the characters replaced, create a new string with the
 	@#    prefix $(1)
 	@#   Finally replace all spaces with commas from the generated strings.
-	$(call generate_deepequal,"$(subst $(space),$(comma),$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
+	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
 endef
 
 define generate_k8s_api_deepcopy_deepequal_client
 	$(call generate_k8s_api,deepcopy$(comma)client,github.com/cilium/cilium/pkg/k8s/slim/k8s/client,$(1),$(2))
-	$(call generate_deepequal,"$(subst $(space),$(comma),$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
+	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
 endef
 
 define generate_k8s_protobuf
