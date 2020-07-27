@@ -280,7 +280,7 @@ func addKernelVersion(w *tabwriter.Writer, p *models.DebugInfo) {
 func addCiliumStatus(w *tabwriter.Writer, p *models.DebugInfo) {
 	printMD(w, "Cilium status", "")
 	printTicks(w)
-	pkg.FormatStatusResponse(w, p.CiliumStatus, true, true, true, true, true)
+	pkg.FormatStatusResponse(w, p.CiliumStatus, pkg.StatusAllDetails)
 	printTicks(w)
 }
 
