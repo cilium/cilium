@@ -12,6 +12,11 @@ _policyResource: {
 deployment: "pod-to-a-denied-cnp": _policyResource & {
 	_probeExpectFail: true
 }
+
+_trafficCheck: {
+	metadata: labels: traffic: "external"
+}
+
 egressCNP: "pod-to-a-denied-cnp":   _policyResource
 deployment: "pod-to-a-allowed-cnp": _policyResource
 egressCNP: "pod-to-a-allowed-cnp":  _policyResource & {
@@ -30,11 +35,11 @@ egressCNP: "pod-to-a-allowed-cnp":  _policyResource & {
 	}]
 }
 
-deployment: "pod-to-external-fqdn-allow-google-cnp": _policyResource & {
+deployment: "pod-to-external-fqdn-allow-google-cnp": _policyResource & _trafficCheck & {
 	_probeTarget: "www.google.com"
 	_probePath:   ""
 }
-egressCNP: "pod-to-external-fqdn-allow-google-cnp": _policyResource & {
+egressCNP: "pod-to-external-fqdn-allow-google-cnp": _policyResource & _trafficCheck & {
 	// _allowDNS (default true) + 'toFQDNs' rules automatically applies
 	// DNS policy visibility via resources.cue.
 	_rules: [{
