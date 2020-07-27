@@ -84,7 +84,7 @@ var _ = Describe("BenchmarkNetperfPerformance", func() {
 	})
 
 	JustBeforeEach(func() {
-		monitorStop = vm.MonitorStart()
+		_, monitorStop = vm.MonitorStart()
 	})
 
 	JustAfterEach(func() {

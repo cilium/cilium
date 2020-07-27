@@ -366,7 +366,7 @@ var runtimeConntrackTest = func(datapathMode string) func() {
 		})
 
 		JustBeforeEach(func() {
-			monitorStop = vm.MonitorStart()
+			_, monitorStop = vm.MonitorStart()
 		})
 
 		AfterEach(func() {
