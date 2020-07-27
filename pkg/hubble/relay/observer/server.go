@@ -169,12 +169,13 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 	g, ctx := errgroup.WithContext(ctx)
 
 	peers := s.peers.List()
-	var numConnectedNodes uint32
+	var numConnectedNodes, numUnavailableNodes uint32
 	var unavailableNodes []string
 	statuses := make(chan *observerpb.ServerStatusResponse, len(peers))
 	for _, p := range peers {
 		p := p
 		if !isAvailable(p.Conn) {
+			numUnavailableNodes++
 			s.opts.log.WithField("address", p.Address.String()).Infof(
 				"No connection to peer %s, skipping", p.Name,
 			)
@@ -211,7 +212,7 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 			Value: numConnectedNodes,
 		},
 		NumUnavailableNodes: &wrappers.UInt32Value{
-			Value: uint32(len(unavailableNodes)),
+			Value: numUnavailableNodes,
 		},
 		UnavailableNodes: unavailableNodes,
 	}
