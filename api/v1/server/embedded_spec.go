@@ -1417,7 +1417,7 @@ func init() {
       }
     },
     "CIDRPolicy": {
-      "description": "CIDR endpoint policy",
+      "description": "CIDR endpoint policy\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "egress": {
@@ -1526,7 +1526,7 @@ func init() {
       "type": "object",
       "properties": {
         "configuration": {
-          "description": "Configuration of controller\n\n+deepequal-gen=true",
+          "description": "Configuration of controller\n\n+deepequal-gen=true\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "error-retry": {
@@ -2033,7 +2033,7 @@ func init() {
       }
     },
     "EndpointPolicy": {
-      "description": "Policy information of an endpoint",
+      "description": "Policy information of an endpoint\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "allowed-egress-identities": {
@@ -2624,7 +2624,7 @@ func init() {
       }
     },
     "L4Policy": {
-      "description": "L4 endpoint policy",
+      "description": "L4 endpoint policy\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "egress": {
@@ -2889,7 +2889,7 @@ func init() {
       }
     },
     "PolicyRule": {
-      "description": "A policy rule including the rule labels it derives from",
+      "description": "A policy rule including the rule labels it derives from\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "derived-from-rules": {
           "description": "The policy rule labels identifying the policy rules this rule derives from",
@@ -5055,7 +5055,7 @@ func init() {
       }
     },
     "CIDRPolicy": {
-      "description": "CIDR endpoint policy",
+      "description": "CIDR endpoint policy\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "egress": {
@@ -5164,7 +5164,7 @@ func init() {
       "type": "object",
       "properties": {
         "configuration": {
-          "description": "Configuration of controller\n\n+deepequal-gen=true",
+          "description": "Configuration of controller\n\n+deepequal-gen=true\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "error-retry": {
@@ -5227,7 +5227,7 @@ func init() {
       }
     },
     "ControllerStatusConfiguration": {
-      "description": "Configuration of controller\n\n+deepequal-gen=true",
+      "description": "Configuration of controller\n\n+deepequal-gen=true\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "error-retry": {
@@ -5723,7 +5723,7 @@ func init() {
       }
     },
     "EndpointPolicy": {
-      "description": "Policy information of an endpoint",
+      "description": "Policy information of an endpoint\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "allowed-egress-identities": {
@@ -6505,7 +6505,7 @@ func init() {
       }
     },
     "L4Policy": {
-      "description": "L4 endpoint policy",
+      "description": "L4 endpoint policy\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "egress": {
@@ -6770,7 +6770,7 @@ func init() {
       }
     },
     "PolicyRule": {
-      "description": "A policy rule including the rule labels it derives from",
+      "description": "A policy rule including the rule labels it derives from\n\n+k8s:deepcopy-gen=true",
       "properties": {
         "derived-from-rules": {
           "description": "The policy rule labels identifying the policy rules this rule derives from",

@@ -18,6 +18,8 @@ import (
 
 // L4Policy L4 endpoint policy
 //
+// +k8s:deepcopy-gen=true
+//
 // swagger:model L4Policy
 type L4Policy struct {
 
