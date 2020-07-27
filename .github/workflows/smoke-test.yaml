@@ -83,6 +83,8 @@ jobs:
         env:
           LOG_TIME: 30m
         run: |
+          kubectl get pods -o wide
+          kubectl get deploy -o wide
           kubectl describe service echo-a
           kubectl logs service/echo-a --all-containers --since=$LOG_TIME
           kubectl describe service echo-b
