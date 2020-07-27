@@ -33,14 +33,8 @@ func init() {
 
 	flags := rootCmd.Flags()
 
-	flags.Int(operatorOption.AWSClientBurstDeprecated, defaults.IPAMAPIBurst, "")
-	flags.MarkDeprecated(operatorOption.AWSClientBurstDeprecated, fmt.Sprintf("please use --%s", operatorOption.IPAMAPIBurst))
-
 	flags.Int(operatorOption.IPAMAPIBurst, defaults.IPAMAPIBurst, "Upper burst limit when accessing external APIs")
 	option.BindEnv(operatorOption.IPAMAPIBurst)
-
-	flags.Float64(operatorOption.AWSClientQPSLimitDeprecated, defaults.IPAMAPIQPSLimit, "")
-	flags.MarkDeprecated(operatorOption.AWSClientQPSLimitDeprecated, fmt.Sprintf("please use --%s", operatorOption.IPAMAPIQPSLimit))
 
 	flags.Float64(operatorOption.IPAMAPIQPSLimit, defaults.IPAMAPIQPSLimit, "Queries per second limit when accessing external IPAM APIs")
 	option.BindEnv(operatorOption.IPAMAPIQPSLimit)
