@@ -365,6 +365,9 @@ Removed cilium-operator options
 * The ``aws-client-qps`` option is now removed. Please use
   ``limit-ipam-api-qps`` instead.
 
+* The ``api-server-port`` option is now removed. Please use
+  ``operator-api-serve-addr`` instead.
+
 .. _1.8_upgrade_notes:
 
 1.8 Upgrade Notes
