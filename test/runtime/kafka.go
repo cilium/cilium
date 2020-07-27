@@ -29,6 +29,7 @@ var _ = Describe("RuntimeKafka", func() {
 
 	var (
 		vm          *helpers.SSHMeta
+		monitorRes  *helpers.CmdRes
 		monitorStop = func() error { return nil }
 
 		allowedTopic  = "allowedTopic"
@@ -145,7 +146,7 @@ var _ = Describe("RuntimeKafka", func() {
 	})
 
 	JustBeforeEach(func() {
-		monitorStop = vm.MonitorStart()
+		monitorRes, monitorStop = vm.MonitorStart("--type l7")
 	})
 
 	JustAfterEach(func() {
@@ -185,6 +186,8 @@ var _ = Describe("RuntimeKafka", func() {
 		By("Disable topic")
 		res = consumer(disallowTopic, MaxMessages)
 		res.ExpectFail("Kafka consumer can access to disallowTopic")
+
+		monitorRes.ExpectContains("verdict Denied offsetfetch topic disallowTopic => 29")
 	})
 
 	It("Kafka Policy Role Ingress", func() {
@@ -216,5 +219,7 @@ var _ = Describe("RuntimeKafka", func() {
 			"docker exec -i %s %s", client, consumerCmd(disallowTopic, MaxMessages)))
 		err = res.WaitUntilMatch("{disallowTopic=TOPIC_AUTHORIZATION_FAILED}")
 		Expect(err).To(BeNil(), "Traffic in disallowTopic is allowed")
+
+		monitorRes.ExpectContains("verdict Denied metadata topic disallowTopic => 29")
 	})
 })

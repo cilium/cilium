@@ -277,7 +277,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 	})
 
 	JustBeforeEach(func() {
-		monitorStop = vm.MonitorStart()
+		_, monitorStop = vm.MonitorStart()
 	})
 
 	JustAfterEach(func() {
