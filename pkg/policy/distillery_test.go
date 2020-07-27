@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,8 +58,8 @@ func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
 	c.Assert(deleted, Equals, false)
 
 	// Insert identity twice. Should be the same policy.
-	policy1, _ := cache.insert(identity)
-	policy2, _ := cache.insert(identity)
+	policy1 := cache.insert(identity)
+	policy2 := cache.insert(identity)
 	c.Assert(policy1, Equals, policy2)
 
 	// Despite two insert calls, there is no reference tracking; any delete
@@ -75,11 +75,11 @@ func (s *DistilleryTestSuite) TestCacheManagement(c *C) {
 	ep3.SetIdentity(1234, true)
 	identity3 := ep3.GetSecurityIdentity()
 	c.Assert(identity3, Not(Equals), identity)
-	policy1, _ = cache.insert(identity)
-	policy3, _ := cache.insert(identity3)
+	policy1 = cache.insert(identity)
+	policy3 := cache.insert(identity3)
 	c.Assert(policy1, Not(Equals), policy3)
 	_ = cache.delete(identity)
-	policy3, _ = cache.lookupOrCreate(identity3, false)
+	policy3 = cache.lookupOrCreate(identity3, false)
 	c.Assert(policy3, NotNil)
 }
 
@@ -90,8 +90,7 @@ func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 
 	identity1 := ep1.GetSecurityIdentity()
 	c.Assert(ep2.GetSecurityIdentity(), Equals, identity1)
-	policy1, computed := cache.insert(identity1)
-	c.Assert(computed, Equals, false)
+	policy1 := cache.insert(identity1)
 
 	// Calculate the policy and observe that it's cached
 	updated, err := cache.updateSelectorPolicy(identity1)
@@ -100,8 +99,7 @@ func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 	updated, err = cache.updateSelectorPolicy(identity1)
 	c.Assert(err, IsNil)
 	c.Assert(updated, Equals, false)
-	policy2, computed := cache.insert(identity1)
-	c.Assert(computed, Equals, true)
+	policy2 := cache.insert(identity1)
 	idp1 := policy1.(*cachedSelectorPolicy).getPolicy()
 	idp2 := policy2.(*cachedSelectorPolicy).getPolicy()
 	c.Assert(idp1, Equals, idp2)
@@ -121,14 +119,12 @@ func (s *DistilleryTestSuite) TestCachePopulation(c *C) {
 
 	// Insert endpoint with different identity and observe that the cache
 	// is different from ep1, ep2
-	policy1, computed = cache.insert(identity1)
-	c.Assert(computed, Equals, false)
+	policy1 = cache.insert(identity1)
 	idp1 = policy1.(*cachedSelectorPolicy).getPolicy()
 	c.Assert(idp1, NotNil)
 	identity3 := ep3.GetSecurityIdentity()
-	policy3, computed := cache.insert(identity3)
+	policy3 := cache.insert(identity3)
 	c.Assert(policy3, Not(Equals), policy1)
-	c.Assert(computed, Equals, false)
 	updated, err = cache.updateSelectorPolicy(identity3)
 	c.Assert(err, IsNil)
 	c.Assert(updated, Equals, true)
