@@ -339,8 +339,6 @@ New Metrics
   * ``cilium_kvstore_quorum_errors_total`` counts the number of kvstore quorum
     loss errors. The label ``error`` indicates the type of error.
 
-.. _1.8_upgrade_notes:
-
 Removed options
 ~~~~~~~~~~~~~~~
 
@@ -348,6 +346,8 @@ Removed options
   These options were deprecated in Cilium 1.8 and are now removed.
 * The ``prometheus-serve-addr-deprecated`` option is now removed. Please use
   ``prometheus-serve-addr`` instead.
+
+.. _1.8_upgrade_notes:
 
 1.8 Upgrade Notes
 -----------------
