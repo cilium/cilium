@@ -259,10 +259,6 @@ func init() {
 	option.BindEnv(option.Version)
 
 	// Deprecated, remove in 1.9
-	flags.Uint16Var(&apiServerPort, "api-server-port", 9234, "Port on which the operator should serve API requests")
-	flags.MarkDeprecated("api-server-port", fmt.Sprintf("Please use %s instead", operatorOption.OperatorAPIServeAddr))
-
-	// Deprecated, remove in 1.9
 	flags.StringVar(&operatorMetrics.Address, "metrics-address", ":6942", "Address to serve Prometheus metrics")
 	flags.MarkDeprecated("metrics-address", fmt.Sprintf("Please use %s instead", operatorOption.OperatorPrometheusServeAddr))
 
