@@ -25,7 +25,7 @@ cilium status [flags]
   -h, --help               help for status
   -o, --output string      json| jsonpath='{}'
       --timeout duration   Sets the timeout to use when querying for health (default 30s)
-      --verbose            Equivalent to --all-addresses --all-controllers --all-nodes --all-health
+      --verbose            Equivalent to --all-addresses --all-controllers --all-nodes --all-redirects --all-clusters --all-health
 ```
 
 ### Options inherited from parent commands
