@@ -25,7 +25,7 @@ import (
 
 const (
 	MapName    = "cilium_ipmasq_v4"
-	maxEntries = 16384
+	MaxEntries = 16384
 )
 
 // +k8s:deepcopy-gen=true
@@ -53,7 +53,7 @@ var IPMasq4Map = bpf.NewMap(
 	bpf.MapTypeLPMTrie,
 	&Key4{}, int(unsafe.Sizeof(Key4{})),
 	&Value{}, int(unsafe.Sizeof(Value{})),
-	maxEntries,
+	MaxEntries,
 	bpf.BPF_F_NO_PREALLOC, 0,
 	bpf.ConvertKeyValue,
 ).WithCache()
