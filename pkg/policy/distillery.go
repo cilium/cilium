@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -62,9 +62,8 @@ func (cache *PolicyCache) GetSelectorCache() *SelectorCache {
 }
 
 // lookupOrCreate adds the specified Identity to the policy cache, with a reference
-// from the specified Endpoint, then returns the threadsafe copy of the policy
-// and whether policy has been computed for this identity.
-func (cache *PolicyCache) lookupOrCreate(identity *identityPkg.Identity, create bool) (SelectorPolicy, bool) {
+// from the specified Endpoint, then returns the threadsafe copy of the policy.
+func (cache *PolicyCache) lookupOrCreate(identity *identityPkg.Identity, create bool) SelectorPolicy {
 	cache.Lock()
 	defer cache.Unlock()
 	cip, ok := cache.policies[identity.ID]
@@ -72,16 +71,12 @@ func (cache *PolicyCache) lookupOrCreate(identity *identityPkg.Identity, create 
 		cip = newCachedSelectorPolicy(identity, cache.repo.GetSelectorCache())
 		cache.policies[identity.ID] = cip
 	}
-	if cip != nil {
-		return cip, cip.getPolicy().Revision > 0
-	}
-	return nil, false
+	return cip
 }
 
 // insert adds the specified Identity to the policy cache, with a reference
-// from the specified Endpoint, then returns the threadsafe copy of the policy
-// and whether policy has been computed for this identity.
-func (cache *PolicyCache) insert(identity *identityPkg.Identity) (SelectorPolicy, bool) {
+// from the specified Endpoint, then returns the threadsafe copy of the policy.
+func (cache *PolicyCache) insert(identity *identityPkg.Identity) SelectorPolicy {
 	return cache.lookupOrCreate(identity, true)
 }
 
@@ -157,8 +152,7 @@ func (cache *PolicyCache) LocalEndpointIdentityRemoved(identity *identityPkg.Ide
 // Lookup attempts to locate the SelectorPolicy corresponding to the specified
 // identity. If policy is not cached for the identity, it returns nil.
 func (cache *PolicyCache) Lookup(identity *identityPkg.Identity) SelectorPolicy {
-	cip, _ := cache.lookupOrCreate(identity, false)
-	return cip
+	return cache.lookupOrCreate(identity, false)
 }
 
 // UpdatePolicy resolves the policy for the security identity of the specified
