@@ -131,10 +131,6 @@ const (
 	// AWS ENI IPAM.
 	ENITags = "eni-tags"
 
-	// ENIParallelWorkersDeprecated is the deprecated name of the option
-	// ParallelAllocWorkers that can be removed in Cilium 1.9
-	ENIParallelWorkersDeprecated = "eni-parallel-workers"
-
 	// ParallelAllocWorkers specifies the number of parallel workers to be used for IPAM allocation
 	ParallelAllocWorkers = "parallel-alloc-workers"
 
@@ -313,12 +309,6 @@ func (c *OperatorConfig) Populate() {
 		c.IPAMAPIQPSLimit = val
 	} else {
 		c.IPAMAPIQPSLimit = viper.GetFloat64(IPAMAPIQPSLimit)
-	}
-
-	if val := viper.GetInt64(ENIParallelWorkersDeprecated); val != 0 {
-		c.ParallelAllocWorkers = val
-	} else {
-		c.ParallelAllocWorkers = viper.GetInt64(ParallelAllocWorkers)
 	}
 
 	// Option maps and slices

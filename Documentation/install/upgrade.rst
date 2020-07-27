@@ -356,6 +356,9 @@ Removed cilium-operator options
 * The ``cilium-endpoint-gc`` option is now removed. Please use
   ``cilium-endpoint-gc-interval=0`` instead.
 
+* The ``eni-parallel-workers`` option is now removed. Please use
+  ``parallel-alloc-workers`` instead.
+
 .. _1.8_upgrade_notes:
 
 1.8 Upgrade Notes
