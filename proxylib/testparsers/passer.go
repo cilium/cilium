@@ -29,7 +29,7 @@ func init() {
 
 type PasserParser struct{}
 
-func (p *PasserParserFactory) Create(connection *Connection) Parser {
+func (p *PasserParserFactory) Create(connection *Connection) interface{} {
 	// Reject invalid policy name for testing purposes
 	if connection.PolicyName == "invalid-policy" {
 		return nil

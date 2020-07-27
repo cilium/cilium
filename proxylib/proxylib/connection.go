@@ -45,9 +45,9 @@ type InjectBuf *[]byte
 // Connection holds the connection metadata that is used both for
 // policy enforcement and access logging.
 type Connection struct {
-	Instance   *Instance // Holder of POlicy protocol and access logging clients
+	Instance   *Instance // Holder of Policy protocol and access logging clients
 	Id         uint64    // Unique connection ID allocated by the caller
-	Ingress    bool      // 'true' for ingress, 'false' foe egress
+	Ingress    bool      // 'true' for ingress, 'false' for egress
 	SrcId      uint32    // Source security ID, may be mapped from the source IP address
 	DstId      uint32    // Destination security ID, may be mapped from the destination IP address
 	SrcAddr    string    // Source IP address in "a.b.c.d:port" or "[A:...:C]:port" format
@@ -55,8 +55,9 @@ type Connection struct {
 	PolicyName string    // Identifies which policy instance applies to this connection
 	Port       uint32    // (original) destination port number in numeric format
 
-	ParserName string    // Name of the parser
-	Parser     Parser    // Parser instance used on this connection
+	ParserName string      // Name of the parser
+	Parser     interface{} // Parser instance used on this connection
+	Reader     Reader
 	OrigBuf    InjectBuf // Buffer for injected frames in original direction
 	ReplyBuf   InjectBuf // Buffer for injected frames in reply direction
 }
@@ -133,40 +134,81 @@ func (connection *Connection) OnData(reply, endStream bool, data *[][]byte, filt
 		}
 	}()
 
-	input := *data
+	if parser, ok := connection.Parser.(Parser); ok {
+		input := *data
+		// Loop until `filterOps` becomes full, or parser is done with the data.
+		for len(*filterOps) < cap(*filterOps) {
+			op, bytes := parser.OnData(reply, endStream, input)
+			if op == NOP {
+				break // No operations after NOP
+			}
+			if bytes == 0 {
+				return PARSER_ERROR
+			}
+			*filterOps = append(*filterOps, [2]int64{int64(op), int64(bytes)})
 
-	parser := connection.Parser
-	// Loop until `filterOps` becomes full, or parser is done with the data.
-	for len(*filterOps) < cap(*filterOps) {
-		op, bytes := parser.OnData(reply, endStream, input)
-		if op == NOP {
-			break // No operations after NOP
-		}
-		if bytes == 0 {
-			return PARSER_ERROR
-		}
-		*filterOps = append(*filterOps, [2]int64{int64(op), int64(bytes)})
+			if op == MORE {
+				// Need more data before can parse ahead.
+				// Parser will see the unused data again in the next call, which will take place
+				// after there are at least 'bytes' of additional data to parse.
+				break
+			}
 
-		if op == MORE {
-			// Need more data before can parse ahead.
-			// Parser will see the unused data again in the next call, which will take place
-			// after there are at least 'bytes' of additional data to parse.
-			break
-		}
+			if op == PASS || op == DROP {
+				input = advanceInput(input, bytes)
+				// Loop back to parser even if have no more data to allow the parser to
+				// inject frames at the end of the input.
+			}
 
-		if op == PASS || op == DROP {
-			input = advanceInput(input, bytes)
-			// Loop back to parser even if have no more data to allow the parser to
-			// inject frames at the end of the input.
+			// Injection does not advance input data, but instructs the datapath to
+			// send data the parser has placed in the inject buffer. We need to stop processing
+			// if inject buffer becomes full as the parser in this case can't inject any more
+			// data.
+			if op == INJECT && connection.IsInjectBufFull(reply) {
+				// return if inject buffer becomes full
+				break
+			}
 		}
+	} else if parser, ok := connection.Parser.(ReaderParser); ok {
+		connection.Reader = NewReader(*data, endStream)
+		// Loop until `filterOps` becomes full, or parser is done with the data.
+		for len(*filterOps) < cap(*filterOps) {
+			op, bytes := parser.OnData(reply, &connection.Reader)
+			if op == NOP {
+				break // No operations after NOP
+			}
+			if bytes == 0 {
+				return PARSER_ERROR
+			}
+			*filterOps = append(*filterOps, [2]int64{int64(op), int64(bytes)})
 
-		// Injection does not advance input data, but instructs the datapath to
-		// send data the parser has placed in the inject buffer. We need to stop processing
-		// if inject buffer becomes full as the parser in this case can't inject any more
-		// data.
-		if op == INJECT && connection.IsInjectBufFull(reply) {
-			// return if inject buffer becomes full
-			break
+			if op == MORE {
+				// Need more data before can parse ahead.
+				// Parser will see the unused data again in the next call, which will take place
+				// after there are at least 'bytes' of additional data to parse.
+				break
+			}
+
+			// Get the current read count && reset for the next round
+			read := connection.Reader.Reset()
+
+			if op == PASS || op == DROP {
+				// Andvance input if needed
+				if bytes > read {
+					connection.Reader.AdvanceInput(bytes - read)
+				}
+				// Loop back to parser even if have no more data to allow the parser to
+				// inject frames at the end of the input.
+			}
+
+			// Injection does not advance input data, but instructs the datapath to
+			// send data the parser has placed in the inject buffer. We need to stop processing
+			// if inject buffer becomes full as the parser in this case can't inject any more
+			// data.
+			if op == INJECT && connection.IsInjectBufFull(reply) {
+				// return if inject buffer becomes full
+				break
+			}
 		}
 	}
 	return OK
