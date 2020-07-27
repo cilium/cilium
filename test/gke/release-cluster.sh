@@ -5,7 +5,7 @@ script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 project="cilium-ci"
 region="us-west1"
 
-if [ ! -f "${script_dir}/cluster_uri"  ]; then
+if [ ! -f "${script_dir}/cluster-uri"  ]; then
     echo "Cluster uri file not found, exiting"
     exit 1
 fi
