@@ -1,0 +1,88 @@
+name: Smoke Test with IPv6
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - master
+
+env:
+  KIND_VERSION: v0.8.1
+  KIND_CONFIG: .github/kind-config-ipv6.yaml
+  # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
+  CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check-internal.yaml
+  TIMEOUT: 2m
+  LOG_TIME: 30m
+
+jobs:
+  conformance-test-ipv6:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Enable IPv6 in docker
+        run: |
+          # Keep existing cgroup-parent in github action
+          sudo sh -c "echo '{ \"cgroup-parent\": \"/actions_job\", \"ipv6\": true, \"fixed-cidr-v6\": \"2001:db8:1::/64\" }' > /etc/docker/daemon.json"
+          sudo cat /etc/docker/daemon.json
+          sudo ip -6 route add 2001:db8:1::/64 dev docker0
+          sudo sysctl net.ipv6.conf.default.forwarding=1
+          sudo sysctl net.ipv6.conf.all.forwarding=1
+          sudo systemctl restart docker
+
+      - name: Build docker images
+        run: |
+          make docker-image-no-clean
+          make docker-operator-generic-image
+
+      - name: Create kind cluster
+        uses: helm/kind-action@v1.0.0-rc.1
+        with:
+          version: ${{ env.KIND_VERSION }}
+          config: ${{ env.KIND_CONFIG }}
+
+      - name: Load local images into kind cluster
+        run: |
+          kind load docker-image --name chart-testing cilium/cilium:latest
+          kind load docker-image --name chart-testing cilium/operator-generic:latest
+
+      - name: Install cilium chart
+        run: |
+          helm upgrade -i cilium ./install/kubernetes/cilium \
+            --namespace kube-system \
+            --set global.nodeinit.enabled=true \
+            --set global.kubeProxyReplacement=partial \
+            --set global.hostServices.enabled=false \
+            --set global.externalIPs.enabled=true \
+            --set global.nodePort.enabled=true \
+            --set global.hostPort.enabled=true \
+            --set config.bpfMasquerade=false \
+            --set config.ipam=kubernetes \
+            --set global.ipv6.enabled=true \
+            --set global.ipv4.enabled=false \
+            --set global.tunnel=disabled \
+            --set global.autoDirectNodeRoutes=true
+
+          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.TIMEOUT }}
+          # To make sure that cilium CRD is available (default timeout is 5m)
+          kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
+
+      - name: Run conformance test (e.g. connectivity check without external 1.1.1.1 and www.google.com)
+        run: |
+          kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
+          kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
+
+      - name: Dump cilium related logs and events
+        if: ${{ failure() }}
+        run: |
+          kubectl -n kube-system describe daemonsets.apps cilium
+          kubectl -n kube-system logs daemonset/cilium --all-containers --since=${{ env.LOG_TIME }}
+          kubectl -n kube-system logs service/kube-dns --all-containers --since=${{ env.LOG_TIME }}
+
+      - name: Dump connectivity related logs and events
+        if: ${{ failure() }}
+        run: |
+          kubectl get pods -o wide
+          kubectl get deploy -o wide
+          for svc in $(make -C examples/kubernetes/connectivity-check/ list | grep Service | awk '{ print $4 }'); do kubectl describe service $svc; kubectl logs service/$svc --all-containers --since=${{ env.LOG_TIME }}; done

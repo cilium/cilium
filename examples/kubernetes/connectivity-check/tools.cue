@@ -12,17 +12,17 @@ package connectivity_check
 deployment: "query-dns-policy": {
 	_image: "cilium/demo-client"
 	_command: ["/bin/sh", "-c", "while true; do dig +noall +question +answer +timeout=1 +tries=1 www.google.com && sleep 1 ; done"]
-	_allowProbe: [ "true" ]
+	_allowProbe: [ "true"]
 	metadata: labels: {
 		component: "proxy-check"
-		type: "tool"
+		type:      "tool"
 	}
 }
 egressCNP: "query-dns-policy": {
 	metadata: labels: {
 		component: "proxy-check"
-		type: "tool"
+		type:      "tool"
 	}
-	_allowDNS: true
+	_allowDNS:            true
 	_enableDNSVisibility: true
 }
