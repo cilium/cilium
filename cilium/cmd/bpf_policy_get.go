@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -122,6 +122,7 @@ func dumpMap(file string) {
 
 func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 	const (
+		policyTitle           = "POLICY"
 		trafficDirectionTitle = "DIRECTION"
 		labelsIDTitle         = "IDENTITY"
 		labelsDesTitle        = "LABELS (source:key[=value])"
@@ -146,9 +147,11 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 	}
 
 	if printIDs {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t\n", trafficDirectionTitle, labelsIDTitle, portTitle, proxyPortTitle, bytesTitle, packetsTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			policyTitle, trafficDirectionTitle, labelsIDTitle, portTitle, proxyPortTitle, bytesTitle, packetsTitle)
 	} else {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t\n", trafficDirectionTitle, labelsDesTitle, portTitle, proxyPortTitle, bytesTitle, packetsTitle)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%s\t%s\t\n",
+			policyTitle, trafficDirectionTitle, labelsDesTitle, portTitle, proxyPortTitle, bytesTitle, packetsTitle)
 	}
 	for _, stat := range statsMap {
 		id := identity.NumericIdentity(stat.Key.Identity)
@@ -164,20 +167,29 @@ func formatMap(w io.Writer, statsMap []policymap.PolicyEntryDump) {
 		if stat.ProxyPort != 0 {
 			proxyPort = strconv.FormatUint(uint64(byteorder.NetworkToHost(stat.ProxyPort).(uint16)), 10)
 		}
+		var policyStr string
+		if policymap.PolicyEntryFlags(stat.Flags).IsDeny() {
+			policyStr = "Deny"
+		} else {
+			policyStr = "Allow"
+		}
 		if printIDs {
-			fmt.Fprintf(w, "%s\t%d\t%s\t%s\t%d\t%d\t\n", trafficDirectionString, id, port, proxyPort, stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%d\t%d\t\n",
+				policyStr, trafficDirectionString, id, port, proxyPort, stat.Bytes, stat.Packets)
 		} else if lbls := labelsID[id]; lbls != nil && len(lbls.Labels) > 0 {
 			first := true
 			for _, lbl := range lbls.Labels.GetPrintableModel() {
 				if first {
-					fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\t%d\t\n", trafficDirectionString, lbl, port, proxyPort, stat.Bytes, stat.Packets)
+					fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%s\t%d\t%d\t\n",
+						policyStr, trafficDirectionString, lbl, port, proxyPort, stat.Bytes, stat.Packets)
 					first = false
 				} else {
-					fmt.Fprintf(w, "\t%s\t\t\t\t\t\t\n", lbl)
+					fmt.Fprintf(w, "\t\t%s\t\t\t\t\t\t\n", lbl)
 				}
 			}
 		} else {
-			fmt.Fprintf(w, "%s\t%d\t%s\t%s\t%d\t%d\t\n", trafficDirectionString, id, port, proxyPort, stat.Bytes, stat.Packets)
+			fmt.Fprintf(w, "%s\t%s\t%d\t%s\t%s\t%d\t%d\t\n",
+				policyStr, trafficDirectionString, id, port, proxyPort, stat.Bytes, stat.Packets)
 		}
 	}
 }

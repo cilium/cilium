@@ -15,6 +15,7 @@ cilium bpf policy add <endpoint id> <traffic-direction> <identity> [port/proto] 
 ### Options
 
 ```
+      --deny   Sets deny mode
   -h, --help   help for add
 ```
 

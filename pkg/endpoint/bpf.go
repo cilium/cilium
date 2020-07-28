@@ -1102,7 +1102,7 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 		TrafficDirection: keyToAdd.TrafficDirection,
 	}
 
-	err := e.policyMap.AllowKey(policymapKey, entry.ProxyPort)
+	err := e.policyMap.AllowKey(policymapKey, entry.ProxyPort, false)
 	if err != nil {
 		e.getLogger().WithError(err).WithFields(logrus.Fields{
 			logfields.BPFMapKey: policymapKey,

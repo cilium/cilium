@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -208,6 +208,8 @@ type PolicyUpdateArgs struct {
 	// protocols represents the set of protocols associated with the
 	// command, if specified.
 	protocols []uint8
+
+	isDeny bool
 }
 
 // parseTrafficString converts the provided string to its corresponding
@@ -231,12 +233,12 @@ func parseTrafficString(td string) (trafficdirection.TrafficDirection, error) {
 // command, provided as a list containing the endpoint ID, traffic direction,
 // identity and optionally, a list of ports.
 // Returns a parsed representation of the command arguments.
-func parsePolicyUpdateArgs(cmd *cobra.Command, args []string) *PolicyUpdateArgs {
+func parsePolicyUpdateArgs(cmd *cobra.Command, args []string, isDeny bool) *PolicyUpdateArgs {
 	if len(args) < 3 {
 		Usagef(cmd, "<endpoint id>, <traffic-direction>, and <identity> required")
 	}
 
-	pa, err := parsePolicyUpdateArgsHelper(args)
+	pa, err := parsePolicyUpdateArgsHelper(args, isDeny)
 	if err != nil {
 		Fatalf("%s", err)
 	}
@@ -263,7 +265,7 @@ func endpointToPolicyMapPath(endpointID string) (string, error) {
 	return bpf.MapPath(mapName), nil
 }
 
-func parsePolicyUpdateArgsHelper(args []string) (*PolicyUpdateArgs, error) {
+func parsePolicyUpdateArgsHelper(args []string, isDeny bool) (*PolicyUpdateArgs, error) {
 	trafficDirection := args[1]
 	parsedTd, err := parseTrafficString(trafficDirection)
 	if err != nil {
@@ -310,6 +312,7 @@ func parsePolicyUpdateArgsHelper(args []string) (*PolicyUpdateArgs, error) {
 		label:            label,
 		port:             port,
 		protocols:        protos,
+		isDeny:           isDeny,
 	}
 
 	return pa, nil
@@ -332,8 +335,16 @@ func updatePolicyKey(pa *PolicyUpdateArgs, add bool) {
 		u8p := u8proto.U8proto(proto)
 		entry := fmt.Sprintf("%d %d/%s", pa.label, pa.port, u8p.String())
 		if add {
-			var proxyPort uint16
-			if err := policyMap.Allow(pa.label, pa.port, u8p, pa.trafficDirection, proxyPort); err != nil {
+			var (
+				proxyPort uint16
+				err       error
+			)
+			if pa.isDeny {
+				err = policyMap.Deny(pa.label, pa.port, u8p, pa.trafficDirection)
+			} else {
+				err = policyMap.Allow(pa.label, pa.port, u8p, pa.trafficDirection, proxyPort)
+			}
+			if err != nil {
 				Fatalf("Cannot add policy key '%s': %s\n", entry, err)
 			}
 		} else {
