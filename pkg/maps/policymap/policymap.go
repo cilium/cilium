@@ -47,6 +47,37 @@ const (
 	AllPorts = uint16(0)
 )
 
+type policyFlag uint8
+
+const (
+	policyFlagDeny = 1 << iota
+)
+
+// PolicyEntryFlags is a new type used to define the flags used in the policy
+// entry.
+type PolicyEntryFlags uint8
+
+// UInt8 returns the UInt8 representation of the PolicyEntryFlags.
+func (pef PolicyEntryFlags) UInt8() uint8 {
+	return uint8(pef)
+}
+
+func (pef PolicyEntryFlags) is(pf policyFlag) bool {
+	return uint8(pef)&uint8(pf) != 0
+}
+
+func (pef PolicyEntryFlags) IsDeny() bool {
+	return pef.is(policyFlagDeny)
+}
+
+// String returns the string implementation of PolicyEntryFlags.
+func (pef PolicyEntryFlags) String() string {
+	if pef.IsDeny() {
+		return "Deny"
+	}
+	return "Allow"
+}
+
 var (
 	// MaxEntries is the upper limit of entries in the per endpoint policy
 	// table ie the maximum number of peer identities that the endpoint could
@@ -84,11 +115,35 @@ const SizeofPolicyKey = int(unsafe.Sizeof(PolicyKey{}))
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type PolicyEntry struct {
 	ProxyPort uint16 `align:"proxy_port"` // In network byte-order
-	Pad0      uint16 `align:"pad0"`
+	Flags     uint8  `align:"deny"`
+	Pad0      uint8  `align:"pad0"`
 	Pad1      uint16 `align:"pad1"`
 	Pad2      uint16 `align:"pad2"`
 	Packets   uint64 `align:"packets"`
 	Bytes     uint64 `align:"bytes"`
+}
+
+func (pe *PolicyEntry) SetFlags(flags uint8) {
+	pe.Flags = flags
+}
+
+func (pe *PolicyEntry) GetFlags() uint8 {
+	return pe.Flags
+}
+
+type PolicyEntryFlagParam struct {
+	IsDeny bool
+}
+
+// NewPolicyEntryFlag returns a PolicyEntryFlags from the PolicyEntryFlagParam.
+func NewPolicyEntryFlag(p *PolicyEntryFlagParam) PolicyEntryFlags {
+	var flags PolicyEntryFlags
+
+	if p.IsDeny {
+		flags |= policyFlagDeny
+	}
+
+	return flags
 }
 
 // SizeofPolicyEntry is the size of type PolicyEntry.
@@ -140,12 +195,18 @@ type PolicyEntryDump struct {
 // PolicyEntriesDump is a wrapper for a slice of PolicyEntryDump
 type PolicyEntriesDump []PolicyEntryDump
 
-// Less returns true if the element in index `i` has the value of
-// TrafficDirection lower than `j`'s TrafficDirection or if the element in index
-// `i` has the value of TrafficDirection lower and equal than `j`'s
-// TrafficDirection and the identity of element `i` is lower than the Identity
-// of element j.
+// Less is a function used to sort PolicyEntriesDump by Policy Type
+// (Deny / Allow), TrafficDirection (Ingress / Egress) and Identity
+// (ascending order).
 func (p PolicyEntriesDump) Less(i, j int) bool {
+	iDeny := PolicyEntryFlags(p[i].PolicyEntry.GetFlags()).IsDeny()
+	jDeny := PolicyEntryFlags(p[j].PolicyEntry.GetFlags()).IsDeny()
+	switch {
+	case iDeny && !jDeny:
+		return true
+	case !iDeny && jDeny:
+		return false
+	}
 	if p[i].Key.TrafficDirection < p[j].Key.TrafficDirection {
 		return true
 	}
@@ -202,9 +263,10 @@ func newKey(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection tra
 
 // newEntry returns a PolicyEntry representing the specified parameters in
 // network byte-order.
-func newEntry(proxyPort uint16) PolicyEntry {
+func newEntry(proxyPort uint16, flags PolicyEntryFlags) PolicyEntry {
 	return PolicyEntry{
 		ProxyPort: byteorder.HostToNetwork(proxyPort).(uint16),
+		Flags:     flags.UInt8(),
 	}
 }
 
@@ -219,7 +281,24 @@ func (pm *PolicyMap) AllowKey(k PolicyKey, proxyPort uint16) error {
 // protocol `proto`. It is assumed that `dport` and `proxyPort` are in host byte-order.
 func (pm *PolicyMap) Allow(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection trafficdirection.TrafficDirection, proxyPort uint16) error {
 	key := newKey(id, dport, proto, trafficDirection)
-	entry := newEntry(proxyPort)
+	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{})
+	entry := newEntry(proxyPort, pef)
+	return pm.Update(&key, &entry)
+}
+
+// DenyKey pushes an entry into the PolicyMap for the given PolicyKey k.
+// Returns an error if the update of the PolicyMap fails.
+func (pm *PolicyMap) DenyKey(k PolicyKey) error {
+	return pm.Deny(k.Identity, k.DestPort, u8proto.U8proto(k.Nexthdr), trafficdirection.TrafficDirection(k.TrafficDirection))
+}
+
+// Deny pushes an entry into the PolicyMap to deny traffic in the given
+// `trafficDirection` for identity `id` with destination port `dport` over
+// protocol `proto`. It is assumed that `dport` is in host byte-order.
+func (pm *PolicyMap) Deny(id uint32, dport uint16, proto u8proto.U8proto, trafficDirection trafficdirection.TrafficDirection) error {
+	key := newKey(id, dport, proto, trafficDirection)
+	pef := NewPolicyEntryFlag(&PolicyEntryFlagParam{IsDeny: true})
+	entry := newEntry(0, pef)
 	return pm.Update(&key, &entry)
 }
 
