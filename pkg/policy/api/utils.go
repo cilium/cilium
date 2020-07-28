@@ -70,17 +70,6 @@ func (h *HeaderMatch) Equal(o *HeaderMatch) bool {
 	return true
 }
 
-// Exists returns true if the HTTP rule already exists in the list of rules
-func (k *PortRuleKafka) Exists(rules L7Rules) bool {
-	for _, existingRule := range rules.Kafka {
-		if k.Equal(existingRule) {
-			return true
-		}
-	}
-
-	return false
-}
-
 // Exists returns true if the DNS rule already exists in the list of rules
 func (d *PortRuleDNS) Exists(rules L7Rules) bool {
 	for _, existingRule := range rules.DNS {
@@ -90,12 +79,6 @@ func (d *PortRuleDNS) Exists(rules L7Rules) bool {
 	}
 
 	return false
-}
-
-// Equal returns true if both rules are equal
-func (k *PortRuleKafka) Equal(o PortRuleKafka) bool {
-	return k.APIVersion == o.APIVersion && k.APIKey == o.APIKey &&
-		k.Topic == o.Topic && k.ClientID == o.ClientID && k.Role == o.Role
 }
 
 // Exists returns true if the L7 rule already exists in the list of rules

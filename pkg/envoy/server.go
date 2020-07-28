@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
 	cilium "github.com/cilium/proxy/go/cilium/api"
@@ -467,6 +468,25 @@ func getL7Rule(l7 *api.PortRuleL7) *cilium.L7NetworkPolicyRule {
 	return rule
 }
 
+func getKafkaL7Rules(l7Rules []kafka.PortRule) *cilium.KafkaNetworkPolicyRules {
+	allowRules := make([]*cilium.KafkaNetworkPolicyRule, 0, len(l7Rules))
+	for _, kr := range l7Rules {
+		rule := &cilium.KafkaNetworkPolicyRule{
+			ApiVersion: kr.GetAPIVersion(),
+			ApiKeys:    kr.GetAPIKeys(),
+			ClientId:   kr.ClientID,
+			Topic:      kr.Topic,
+		}
+		allowRules = append(allowRules, rule)
+	}
+
+	rules := &cilium.KafkaNetworkPolicyRules{}
+	if len(allowRules) > 0 {
+		rules.KafkaRules = allowRules
+	}
+	return rules
+}
+
 func getSecretString(certManager policy.CertificateManager, hdr *api.HeaderMatch, ns string) (string, error) {
 	value := ""
 	var err error
@@ -812,7 +832,14 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 		}
 
 	case policy.ParserTypeKafka:
-		// TODO: Support Kafka. For now, just ignore any Kafka L7 rule.
+		// Kafka is implemented as an Envoy Go Extension
+		if len(l7Rules.Kafka) > 0 {
+			// L7 rules are not sorted
+			r.L7Proto = l7Parser.String()
+			r.L7 = &cilium.PortNetworkPolicyRule_KafkaRules{
+				KafkaRules: getKafkaL7Rules(l7Rules.Kafka),
+			}
+		}
 
 	case policy.ParserTypeDNS:
 		// TODO: Support DNS. For now, just ignore any DNS L7 rule.

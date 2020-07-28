@@ -24,14 +24,20 @@ import (
 	"github.com/cilium/cilium/pkg/flowdebug"
 
 	"github.com/optiopay/kafka/proto"
+	log "github.com/sirupsen/logrus"
 )
 
 // RequestMessage represents a Kafka request message
 type RequestMessage struct {
-	kind    int16
-	version int16
-	rawMsg  []byte
-	request interface{}
+	kind     int16
+	version  int16
+	clientID string
+	rawMsg   []byte
+	request  interface{}
+	// Maintain a map of all topics in the request.  We should
+	// allow the request only if all topics in the request are
+	// allowed by the rules.
+	topics map[string]struct{}
 }
 
 // CorrelationID represents the correlation id as defined in the Kafka protocol
@@ -73,6 +79,18 @@ func (req *RequestMessage) extractVersion() int16 {
 	return int16(binary.BigEndian.Uint16(req.rawMsg[6:8]))
 }
 
+func (req *RequestMessage) extractClientID() string {
+	if req.version == 0 || len(req.rawMsg) < 14 {
+		return "" // 0 version has no client ID
+	}
+	// ref. https://kafka.apache.org/protocol#protocol_details
+	length := int16(binary.BigEndian.Uint16(req.rawMsg[12:14]))
+	if length <= 0 || len(req.rawMsg) < 14+int(length) {
+		return ""
+	}
+	return string(req.rawMsg[14 : 14+int(length)])
+}
+
 // String returns a human readable representation of the request message
 func (req *RequestMessage) String() string {
 	b, err := json.Marshal(req.request)
@@ -89,22 +107,33 @@ func (req *RequestMessage) GetTopics() []string {
 	if req.request == nil {
 		return nil
 	}
+	topics := make([]string, 0, len(req.topics))
+	for topic := range req.topics {
+		topics = append(topics, topic)
+	}
+	return topics
+}
 
+func (req *RequestMessage) setTopics() {
+	var topics []string
 	switch val := req.request.(type) {
 	case *proto.ProduceReq:
-		return produceTopics(val)
+		topics = produceTopics(val)
 	case *proto.FetchReq:
-		return fetchTopics(val)
+		topics = fetchTopics(val)
 	case *proto.OffsetReq:
-		return offsetTopics(val)
+		topics = offsetTopics(val)
 	case *proto.MetadataReq:
-		return metadataTopics(val)
+		topics = metadataTopics(val)
 	case *proto.OffsetCommitReq:
-		return offsetCommitTopics(val)
+		topics = offsetCommitTopics(val)
 	case *proto.OffsetFetchReq:
-		return offsetFetchTopics(val)
+		topics = offsetFetchTopics(val)
 	}
-	return nil
+	req.topics = make(map[string]struct{}, len(topics))
+	for _, topic := range topics {
+		req.topics[topic] = struct{}{}
+	}
 }
 
 func produceTopics(req *proto.ProduceReq) []string {
@@ -181,6 +210,11 @@ func (req *RequestMessage) CreateResponse(err error) (*ResponseMessage, error) {
 	return nil, nil
 }
 
+// CreateAuthErrorResponse creates Authorization error response message for 'req'
+func (req *RequestMessage) CreateAuthErrorResponse() (*ResponseMessage, error) {
+	return req.CreateResponse(proto.ErrTopicAuthorizationFailed)
+}
+
 // ReadRequest will read a Kafka request from an io.Reader and return the
 // message or an error.
 func ReadRequest(reader io.Reader) (*RequestMessage, error) {
@@ -193,10 +227,10 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 	}
 
 	if len(req.rawMsg) < 12 {
-		return nil,
-			fmt.Errorf("unexpected end of request (length < 12 bytes)")
+		return nil, fmt.Errorf("unexpected end of request (length < 12 bytes)")
 	}
 	req.version = req.extractVersion()
+	req.clientID = req.extractClientID()
 
 	var nilSlice []byte
 	buf := bytes.NewBuffer(append(nilSlice, req.rawMsg...))
@@ -217,13 +251,19 @@ func ReadRequest(reader io.Reader) (*RequestMessage, error) {
 	case proto.OffsetFetchReqKind:
 		req.request, err = proto.ReadOffsetFetchReq(buf)
 	default:
-		log.WithField(fieldRequest, req.String()).Debugf("Unknown Kafka request API key: %d", req.kind)
+		if flowdebug.Enabled() {
+			log.Debugf("Unknown Kafka request API key: %d in %s", req.kind, req.String())
+		}
 	}
 
 	if err != nil {
-		flowdebug.Log(log.WithField(fieldRequest, req.String()).WithError(err),
-			"Ignoring Kafka message due to parse error")
+		if flowdebug.Enabled() {
+			log.WithError(err).Debugf("Ignoring Kafka message %s due to parse error", req.String())
+		}
 		return nil, err
 	}
+
+	req.setTopics()
+
 	return req, nil
 }

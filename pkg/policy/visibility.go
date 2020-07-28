@@ -38,9 +38,7 @@ func validateL7ProtocolWithDirection(dir string, proto L7ParserType) error {
 			return nil
 		}
 	case ParserTypeKafka:
-		if dir == "Ingress" {
-			return nil
-		}
+		return nil
 	default:
 		return fmt.Errorf("unsupported parser type %s", proto)
 

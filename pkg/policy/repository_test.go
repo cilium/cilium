@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/kafka"
 
 	. "gopkg.in/check.v1"
 )
@@ -588,7 +589,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 						{Port: "9092", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
-						Kafka: []api.PortRuleKafka{
+						Kafka: []kafka.PortRule{
 							{APIKey: "produce"},
 						},
 					},
@@ -674,7 +675,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngress(c *C) {
 			L7RulesPerSelector: L7DataMap{
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
-						Kafka: []api.PortRuleKafka{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
+						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
 				},
 			},
@@ -757,7 +758,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 						{Port: "9092", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
-						Kafka: []api.PortRuleKafka{
+						Kafka: []kafka.PortRule{
 							{APIKey: "produce"},
 						},
 					},
@@ -847,7 +848,7 @@ func (ds *PolicyTestSuite) TestWildcardL4RulesIngress(c *C) {
 				cachedSelectorBar1: nil,
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
-						Kafka: []api.PortRuleKafka{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
+						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
 				},
 			},
@@ -1438,7 +1439,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 						{Port: "9092", Protocol: api.ProtoTCP},
 					},
 					Rules: &api.L7Rules{
-						Kafka: []api.PortRuleKafka{
+						Kafka: []kafka.PortRule{
 							{APIKey: "produce"},
 						},
 					},
@@ -1509,7 +1510,7 @@ func (ds *PolicyTestSuite) TestWildcardL3RulesIngressFromEntities(c *C) {
 			L7RulesPerSelector: L7DataMap{
 				cachedSelectorBar2: &PerSelectorPolicy{
 					L7Rules: api.L7Rules{
-						Kafka: []api.PortRuleKafka{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
+						Kafka: []kafka.PortRule{kafkaRule.Ingress[0].ToPorts[0].Rules.Kafka[0]},
 					},
 				},
 			},
