@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -183,6 +183,32 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 		}
 		keys[keyToAdd] = NewMapStateEntry(derivedFrom, false)
 	}
+}
+
+// GetIdentities returns the ingress and egress identities stored in the
+// MapState.
+func (pms MapState) GetIdentities(log *logrus.Logger) (ingIdentities, egIdentities []int64) {
+	for policyMapKey := range pms {
+		if policyMapKey.DestPort != 0 {
+			// If the port is non-zero, then the Key no longer only applies
+			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
+			// contain sets of which identities (i.e., label-based L3 only)
+			// are allowed, so anything which contains L4-related policy should
+			// not be added to these sets.
+			continue
+		}
+		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection) {
+		case trafficdirection.Ingress:
+			ingIdentities = append(ingIdentities, int64(policyMapKey.Identity))
+		case trafficdirection.Egress:
+			egIdentities = append(egIdentities, int64(policyMapKey.Identity))
+		default:
+			td := trafficdirection.TrafficDirection(policyMapKey.TrafficDirection)
+			log.WithField(logfields.TrafficDirection, td).
+				Errorf("Unexpected traffic direction present in policy map state for endpoint")
+		}
+	}
+	return ingIdentities, egIdentities
 }
 
 // MapChanges collects updates to the endpoint policy on the

@@ -30,11 +30,9 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/labels/model"
 	"github.com/cilium/cilium/pkg/labelsfilter"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
 
@@ -343,49 +341,13 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		return nil
 	}
 
-	realizedIngressIdentities := make([]int64, 0)
-	realizedEgressIdentities := make([]int64, 0)
+	realizedLog := log.WithField("map-name", "realized").Logger
+	realizedIngressIdentities, realizedEgressIdentities :=
+		e.realizedPolicy.PolicyMapState.GetIdentities(realizedLog)
 
-	for policyMapKey := range e.realizedPolicy.PolicyMapState {
-		if policyMapKey.DestPort != 0 {
-			// If the port is non-zero, then the Key no longer only applies
-			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
-			// contain sets of which identities (i.e., label-based L3 only)
-			// are allowed, so anything which contains L4-related policy should
-			// not be added to these sets.
-			continue
-		}
-		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection) {
-		case trafficdirection.Ingress:
-			realizedIngressIdentities = append(realizedIngressIdentities, int64(policyMapKey.Identity))
-		case trafficdirection.Egress:
-			realizedEgressIdentities = append(realizedEgressIdentities, int64(policyMapKey.Identity))
-		default:
-			log.WithField(logfields.TrafficDirection, trafficdirection.TrafficDirection(policyMapKey.TrafficDirection)).Error("Unexpected traffic direction present in realized PolicyMap state for endpoint")
-		}
-	}
-
-	desiredIngressIdentities := make([]int64, 0)
-	desiredEgressIdentities := make([]int64, 0)
-
-	for policyMapKey := range e.desiredPolicy.PolicyMapState {
-		if policyMapKey.DestPort != 0 {
-			// If the port is non-zero, then the Key no longer only applies
-			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
-			// contain sets of which identities (i.e., label-based L3 only)
-			// are allowed, so anything which contains L4-related policy should
-			// not be added to these sets.
-			continue
-		}
-		switch trafficdirection.TrafficDirection(policyMapKey.TrafficDirection) {
-		case trafficdirection.Ingress:
-			desiredIngressIdentities = append(desiredIngressIdentities, int64(policyMapKey.Identity))
-		case trafficdirection.Egress:
-			desiredEgressIdentities = append(desiredEgressIdentities, int64(policyMapKey.Identity))
-		default:
-			log.WithField(logfields.TrafficDirection, trafficdirection.TrafficDirection(policyMapKey.TrafficDirection)).Error("Unexpected traffic direction present in desired PolicyMap state for endpoint")
-		}
-	}
+	desiredLog := log.WithField("map-name", "desired").Logger
+	desiredIngressIdentities, desiredEgressIdentities :=
+		e.desiredPolicy.PolicyMapState.GetIdentities(desiredLog)
 
 	policyEnabled := e.policyStatus()
 
