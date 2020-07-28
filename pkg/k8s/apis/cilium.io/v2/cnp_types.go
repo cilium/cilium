@@ -227,6 +227,9 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 		if err := r.Spec.Sanitize(); err != nil {
 			return nil, fmt.Errorf("Invalid CiliumNetworkPolicy spec: %s", err)
 		}
+		if r.Spec.NodeSelector.LabelSelector != nil {
+			return nil, fmt.Errorf("Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
+		}
 		cr := k8sCiliumUtils.ParseToCiliumRule(namespace, name, uid, r.Spec)
 		retRules = append(retRules, cr)
 	}

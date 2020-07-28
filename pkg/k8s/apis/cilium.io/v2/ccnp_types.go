@@ -15,6 +15,10 @@
 package v2
 
 import (
+	"fmt"
+
+	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
+	"github.com/cilium/cilium/pkg/policy/api"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -74,4 +78,37 @@ type CiliumClusterwideNetworkPolicyList struct {
 
 	// Items is a list of CiliumClusterwideNetworkPolicies.
 	Items []CiliumClusterwideNetworkPolicy `json:"items"`
+}
+
+// Parse parses a CiliumClusterwideNetworkPolicy and returns a list of cilium
+// policy rules.
+func (r *CiliumClusterwideNetworkPolicy) Parse() (api.Rules, error) {
+	if r.ObjectMeta.Name == "" {
+		return nil, fmt.Errorf("CiliumClusterwideNetworkPolicy must have name")
+	}
+
+	name := r.ObjectMeta.Name
+	uid := r.ObjectMeta.UID
+
+	retRules := api.Rules{}
+
+	if r.Spec != nil {
+		if err := r.Spec.Sanitize(); err != nil {
+			return nil, fmt.Errorf("Invalid CiliumClusterwideNetworkPolicy spec: %s", err)
+		}
+		cr := k8sCiliumUtils.ParseToCiliumRule("", name, uid, r.Spec)
+		retRules = append(retRules, cr)
+	}
+	if r.Specs != nil {
+		for _, rule := range r.Specs {
+			if err := rule.Sanitize(); err != nil {
+				return nil, fmt.Errorf("Invalid CiliumClusterwideNetworkPolicy specs: %s", err)
+
+			}
+			cr := k8sCiliumUtils.ParseToCiliumRule("", name, uid, rule)
+			retRules = append(retRules, cr)
+		}
+	}
+
+	return retRules, nil
 }
