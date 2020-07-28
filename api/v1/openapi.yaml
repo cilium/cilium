@@ -1711,6 +1711,24 @@ definitions:
             type: string
       directRoutingDevice:
         type: string
+      protocols:
+        type: array
+        items:
+          type: string
+      nodePortMode:
+        type: string
+        enum:
+          - SNAT
+          - DSR
+          - HYBRID
+      nodePortAcceleration:
+        type: string
+        enum:
+          - NONE
+          - NATIVE
+          - GENERIC
+      sessionAffinity:
+        type: boolean
       features:
         description: |-
 
@@ -1719,26 +1737,10 @@ definitions:
         type: object
         properties:
           nodePort:
-            description: |-
-
-
-              +k8s:deepcopy-gen=true
             type: object
             properties:
               enabled:
                 type: boolean
-              mode:
-                type: string
-                enum:
-                - SNAT
-                - DSR
-                - HYBRID
-              acceleration:
-                type: string
-                enum:
-                - NONE
-                - NATIVE
-                - GENERIC
               portMin:
                 type: integer
               portMax:
@@ -1761,7 +1763,7 @@ definitions:
             properties:
               enabled:
                 type: boolean
-          hostReachableServices:
+          clusterIP:
             description: |-
 
 
@@ -1770,11 +1772,7 @@ definitions:
             properties:
               enabled:
                 type: boolean
-              protocols:
-                type: array
-                items:
-                  type: string
-          sessionAffinity:
+          loadBalancer:
             description: |-
 
 

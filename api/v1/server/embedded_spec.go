@@ -2537,6 +2537,15 @@ func init() {
           "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
+            "clusterIP": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "externalIPs": {
               "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
@@ -2555,58 +2564,26 @@ func init() {
                 }
               }
             },
-            "hostReachableServices": {
+            "loadBalancer": {
               "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
                   "type": "boolean"
-                },
-                "protocols": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
                 }
               }
             },
             "nodePort": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
-                "acceleration": {
-                  "type": "string",
-                  "enum": [
-                    "NONE",
-                    "NATIVE",
-                    "GENERIC"
-                  ]
-                },
                 "enabled": {
                   "type": "boolean"
-                },
-                "mode": {
-                  "type": "string",
-                  "enum": [
-                    "SNAT",
-                    "DSR",
-                    "HYBRID"
-                  ]
                 },
                 "portMax": {
                   "type": "integer"
                 },
                 "portMin": {
                   "type": "integer"
-                }
-              }
-            },
-            "sessionAffinity": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
-              "type": "object",
-              "properties": {
-                "enabled": {
-                  "type": "boolean"
                 }
               }
             }
@@ -2620,6 +2597,31 @@ func init() {
             "Probe",
             "Partial"
           ]
+        },
+        "nodePortAcceleration": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "NATIVE",
+            "GENERIC"
+          ]
+        },
+        "nodePortMode": {
+          "type": "string",
+          "enum": [
+            "SNAT",
+            "DSR",
+            "HYBRID"
+          ]
+        },
+        "protocols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sessionAffinity": {
+          "type": "boolean"
         }
       }
     },
@@ -6266,6 +6268,15 @@ func init() {
           "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
+            "clusterIP": {
+              "description": "\n\n+k8s:deepcopy-gen=true",
+              "type": "object",
+              "properties": {
+                "enabled": {
+                  "type": "boolean"
+                }
+              }
+            },
             "externalIPs": {
               "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
@@ -6284,58 +6295,26 @@ func init() {
                 }
               }
             },
-            "hostReachableServices": {
+            "loadBalancer": {
               "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
                 "enabled": {
                   "type": "boolean"
-                },
-                "protocols": {
-                  "type": "array",
-                  "items": {
-                    "type": "string"
-                  }
                 }
               }
             },
             "nodePort": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
               "type": "object",
               "properties": {
-                "acceleration": {
-                  "type": "string",
-                  "enum": [
-                    "NONE",
-                    "NATIVE",
-                    "GENERIC"
-                  ]
-                },
                 "enabled": {
                   "type": "boolean"
-                },
-                "mode": {
-                  "type": "string",
-                  "enum": [
-                    "SNAT",
-                    "DSR",
-                    "HYBRID"
-                  ]
                 },
                 "portMax": {
                   "type": "integer"
                 },
                 "portMin": {
                   "type": "integer"
-                }
-              }
-            },
-            "sessionAffinity": {
-              "description": "\n\n+k8s:deepcopy-gen=true",
-              "type": "object",
-              "properties": {
-                "enabled": {
-                  "type": "boolean"
                 }
               }
             }
@@ -6349,6 +6328,31 @@ func init() {
             "Probe",
             "Partial"
           ]
+        },
+        "nodePortAcceleration": {
+          "type": "string",
+          "enum": [
+            "NONE",
+            "NATIVE",
+            "GENERIC"
+          ]
+        },
+        "nodePortMode": {
+          "type": "string",
+          "enum": [
+            "SNAT",
+            "DSR",
+            "HYBRID"
+          ]
+        },
+        "protocols": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "sessionAffinity": {
+          "type": "boolean"
         }
       }
     },
@@ -6356,6 +6360,15 @@ func init() {
       "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "clusterIP": {
+          "description": "\n\n+k8s:deepcopy-gen=true",
+          "type": "object",
+          "properties": {
+            "enabled": {
+              "type": "boolean"
+            }
+          }
+        },
         "externalIPs": {
           "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
@@ -6374,43 +6387,20 @@ func init() {
             }
           }
         },
-        "hostReachableServices": {
+        "loadBalancer": {
           "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
             "enabled": {
               "type": "boolean"
-            },
-            "protocols": {
-              "type": "array",
-              "items": {
-                "type": "string"
-              }
             }
           }
         },
         "nodePort": {
-          "description": "\n\n+k8s:deepcopy-gen=true",
           "type": "object",
           "properties": {
-            "acceleration": {
-              "type": "string",
-              "enum": [
-                "NONE",
-                "NATIVE",
-                "GENERIC"
-              ]
-            },
             "enabled": {
               "type": "boolean"
-            },
-            "mode": {
-              "type": "string",
-              "enum": [
-                "SNAT",
-                "DSR",
-                "HYBRID"
-              ]
             },
             "portMax": {
               "type": "integer"
@@ -6419,15 +6409,15 @@ func init() {
               "type": "integer"
             }
           }
-        },
-        "sessionAffinity": {
-          "description": "\n\n+k8s:deepcopy-gen=true",
-          "type": "object",
-          "properties": {
-            "enabled": {
-              "type": "boolean"
-            }
-          }
+        }
+      }
+    },
+    "KubeProxyReplacementFeaturesClusterIP": {
+      "description": "\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "enabled": {
+          "type": "boolean"
         }
       }
     },
@@ -6449,58 +6439,26 @@ func init() {
         }
       }
     },
-    "KubeProxyReplacementFeaturesHostReachableServices": {
+    "KubeProxyReplacementFeaturesLoadBalancer": {
       "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
         "enabled": {
           "type": "boolean"
-        },
-        "protocols": {
-          "type": "array",
-          "items": {
-            "type": "string"
-          }
         }
       }
     },
     "KubeProxyReplacementFeaturesNodePort": {
-      "description": "\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
-        "acceleration": {
-          "type": "string",
-          "enum": [
-            "NONE",
-            "NATIVE",
-            "GENERIC"
-          ]
-        },
         "enabled": {
           "type": "boolean"
-        },
-        "mode": {
-          "type": "string",
-          "enum": [
-            "SNAT",
-            "DSR",
-            "HYBRID"
-          ]
         },
         "portMax": {
           "type": "integer"
         },
         "portMin": {
           "type": "integer"
-        }
-      }
-    },
-    "KubeProxyReplacementFeaturesSessionAffinity": {
-      "description": "\n\n+k8s:deepcopy-gen=true",
-      "type": "object",
-      "properties": {
-        "enabled": {
-          "type": "boolean"
         }
       }
     },

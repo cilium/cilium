@@ -153,21 +153,31 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		devices[i] = iface
 	}
 
+	var protocols []string
+	if option.Config.EnableHostReachableServices {
+		if option.Config.EnableHostServicesTCP {
+			protocols = append(protocols, "TCP")
+		} else {
+			protocols = append(protocols, "TCP (limited)")
+		}
+		if option.Config.EnableHostServicesUDP {
+			protocols = append(protocols, "UDP")
+		} else {
+			protocols = append(protocols, "UDP (limited)")
+		}
+	} else {
+		protocols = append(protocols, "TCP (limited)", "UDP (limited)")
+	}
+
 	features := &models.KubeProxyReplacementFeatures{
-		NodePort:              &models.KubeProxyReplacementFeaturesNodePort{},
-		HostPort:              &models.KubeProxyReplacementFeaturesHostPort{},
-		ExternalIPs:           &models.KubeProxyReplacementFeaturesExternalIPs{},
-		HostReachableServices: &models.KubeProxyReplacementFeaturesHostReachableServices{},
-		SessionAffinity:       &models.KubeProxyReplacementFeaturesSessionAffinity{},
+		NodePort:     &models.KubeProxyReplacementFeaturesNodePort{},
+		HostPort:     &models.KubeProxyReplacementFeaturesHostPort{},
+		ExternalIPs:  &models.KubeProxyReplacementFeaturesExternalIPs{},
+		ClusterIP:    &models.KubeProxyReplacementFeaturesClusterIP{},
+		LoadBalancer: &models.KubeProxyReplacementFeaturesLoadBalancer{},
 	}
 	if option.Config.EnableNodePort {
 		features.NodePort.Enabled = true
-		features.NodePort.Mode = strings.ToUpper(option.Config.NodePortMode)
-		if option.Config.NodePortAcceleration == option.NodePortAccelerationGeneric {
-			features.NodePort.Acceleration = models.KubeProxyReplacementFeaturesNodePortAccelerationGENERIC
-		} else {
-			features.NodePort.Acceleration = strings.ToUpper(option.Config.NodePortAcceleration)
-		}
 		features.NodePort.PortMin = int64(option.Config.NodePortMin)
 		features.NodePort.PortMax = int64(option.Config.NodePortMax)
 	}
@@ -177,26 +187,20 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if option.Config.EnableExternalIPs {
 		features.ExternalIPs.Enabled = true
 	}
-	if option.Config.EnableHostServicesTCP {
-		features.HostReachableServices.Enabled = true
-		protocols := []string{}
-		if option.Config.EnableHostServicesTCP {
-			protocols = append(protocols, "TCP")
-		}
-		if option.Config.EnableHostServicesUDP {
-			protocols = append(protocols, "UDP")
-		}
-		features.HostReachableServices.Protocols = protocols
-	}
-	if option.Config.EnableSessionAffinity {
-		features.SessionAffinity.Enabled = true
+	if option.Config.KubeProxyReplacement != models.KubeProxyReplacementModeDisabled {
+		features.ClusterIP.Enabled = true
+		features.LoadBalancer.Enabled = true
 	}
 
 	return &models.KubeProxyReplacement{
-		Mode:                mode,
-		Devices:             devices,
-		DirectRoutingDevice: option.Config.DirectRoutingDevice,
-		Features:            features,
+		Mode:                 mode,
+		Devices:              devices,
+		DirectRoutingDevice:  option.Config.DirectRoutingDevice,
+		Protocols:            protocols,
+		NodePortMode:         strings.ToUpper(option.Config.NodePortMode),
+		NodePortAcceleration: strings.ToUpper(option.Config.NodePortAcceleration),
+		SessionAffinity:      option.Config.EnableSessionAffinity,
+		Features:             features,
 	}
 }
 

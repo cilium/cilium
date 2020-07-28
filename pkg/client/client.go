@@ -240,6 +240,22 @@ func numReadyClusters(clustermesh *models.ClusterMeshStatus) int {
 	return numReady
 }
 
+func getStateStr(status bool) string {
+	if status {
+		return "Enabled"
+	} else {
+		return "Disabled"
+	}
+}
+
+func getNodePortStateStr(np *models.KubeProxyReplacementFeaturesNodePort) string {
+	if np.Enabled {
+		return fmt.Sprintf("\t%s \tRange(%d-%d)\n", getStateStr(np.Enabled), np.PortMin, np.PortMax)
+	} else {
+		return fmt.Sprintf("\t%s\n", getStateStr(np.Enabled))
+	}
+}
+
 // FormatStatusResponse writes a StatusResponse as a string to the writer.
 //
 // The parameters 'allAddresses', 'allControllers', 'allNodes', respectively,
@@ -261,34 +277,7 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 			fmt.Fprintf(w, "Kubernetes APIs:\t[\"%s\"]\n", strings.Join(sr.Kubernetes.K8sAPIVersions, "\", \""))
 		}
 		if sr.KubeProxyReplacement != nil {
-			features := []string{}
-
-			if np := sr.KubeProxyReplacement.Features.NodePort; np.Enabled {
-				mode := np.Mode
-				if mode == models.KubeProxyReplacementFeaturesNodePortModeHYBRID {
-					mode = strings.Title(mode)
-				}
-				features = append(features,
-					fmt.Sprintf("NodePort (%s, %d-%d, XDP: %s)",
-						mode, np.PortMin, np.PortMax, np.Acceleration))
-			}
-
-			if sr.KubeProxyReplacement.Features.HostPort.Enabled {
-				features = append(features, "HostPort")
-			}
-
-			if sr.KubeProxyReplacement.Features.ExternalIPs.Enabled {
-				features = append(features, "ExternalIPs")
-			}
-
-			if hs := sr.KubeProxyReplacement.Features.HostReachableServices; hs.Enabled {
-				features = append(features, fmt.Sprintf("HostReachableServices (%s)",
-					strings.Join(hs.Protocols, ", ")))
-			}
-
-			if sr.KubeProxyReplacement.Features.SessionAffinity.Enabled {
-				features = append(features, "SessionAffinity")
-			}
+			fmt.Fprintf(w, "KubeProxyReplacement: Status: \t%s\n", sr.KubeProxyReplacement.Mode)
 
 			devices := ""
 			for i, dev := range sr.KubeProxyReplacement.Devices {
@@ -299,11 +288,31 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, allAddresses, 
 				if i+1 != len(sr.KubeProxyReplacement.Devices) {
 					devices += ", "
 				}
-
 			}
 
-			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t[%s]\t[%s]\n",
-				sr.KubeProxyReplacement.Mode, devices, strings.Join(features, ", "))
+			fmt.Fprintf(w, "Protocols: \t%s\n", strings.Join(sr.KubeProxyReplacement.Protocols, ","))
+
+			fmt.Fprintf(w, "Devices: \t[%s]\n", devices)
+
+			fmt.Fprintf(w, "Mode: \t%s\n", sr.KubeProxyReplacement.NodePortMode)
+
+			fmt.Fprintf(w, "XDP Acceleration: \t%s\n", sr.KubeProxyReplacement.NodePortAcceleration)
+
+			fmt.Fprintf(w, "Session affinity: \t%s\n", getStateStr(sr.KubeProxyReplacement.SessionAffinity))
+
+			fe := sr.KubeProxyReplacement.Features
+
+			fmt.Fprint(w, "Services: \n")
+
+			fmt.Fprintf(w, "\tClusterIP: \t%s\n", getStateStr(fe.ClusterIP.Enabled))
+
+			fmt.Fprintf(w, "\tLoadBalancer: \t%s\n", getStateStr(fe.LoadBalancer.Enabled))
+
+			fmt.Fprintf(w, "\tHostPort: \t%s\n", getStateStr(fe.HostPort.Enabled))
+
+			fmt.Fprintf(w, "\tExternalIPs: \t%s\n", getStateStr(fe.ExternalIPs.Enabled))
+
+			fmt.Fprintf(w, "\tNodePort: \t%s\n", getNodePortStateStr(fe.NodePort))
 		}
 	}
 	if sr.Cilium != nil {

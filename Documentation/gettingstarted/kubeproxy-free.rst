@@ -142,7 +142,7 @@ the Cilium agent is running in the desired mode:
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-fmh8d -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict	[eth0 (DR), eth1]	[NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    KubeProxyReplacement: Status:    Partial
 
 As a next, optional step, we deploy nginx pods, create a new NodePort service and
 validate that Cilium installed the service correctly.
@@ -475,8 +475,8 @@ is shown:
 
 .. parsed-literal::
 
-    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict      [eth0 (DR)]     [NodePort (SNAT, 30000-32767, XDP: NATIVE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep "XDP Acceleration"
+    XDP Acceleration:                NATIVE
 
 In the example above, the NodePort XDP acceleration is enabled on the ``eth0`` device
 which is also used for direct routing (``DR``).
@@ -768,8 +768,8 @@ info line. If it has been enabled successfully, ``HostPort`` is shown, for examp
 
 .. parsed-literal::
 
-    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict   [eth0 (DR)]   [NodePort (SNAT, 30000-32767, XDP: DISABLED), HostPort, ExternalIPs, HostReachableServices (TCP, UDP), SessionAffinity]
+    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep HostPort
+    HostPort:        Enabled
 
 The following modified example yaml from the setup validation with an additional
 ``hostPort: 8080`` parameter can be used to verify the mapping:
@@ -940,7 +940,7 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict	[eth0 (DR)]	[NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    KubeProxyReplacement: Status:    Strict
 
 Session Affinity
 ****************
