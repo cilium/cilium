@@ -92,8 +92,9 @@ func ruleParser(rule *cilium.PortNetworkPolicyRule) []proxylib.L7NetworkPolicyRu
 		return nil
 	}
 
-	rules := make([]proxylib.L7NetworkPolicyRule, 0, len(l7Rules.GetL7Rules()))
-	for _, l7Rule := range l7Rules.GetL7Rules() {
+	allowRules := l7Rules.GetL7AllowRules()
+	rules := make([]proxylib.L7NetworkPolicyRule, 0, len(allowRules))
+	for _, l7Rule := range allowRules {
 		var rr r2d2Rule
 		for k, v := range l7Rule.Rule {
 			switch k {

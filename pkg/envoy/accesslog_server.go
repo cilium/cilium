@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
+	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
@@ -106,7 +107,7 @@ func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 			log.Warning("Envoy: Discarded truncated access log message")
 			continue
 		}
-		pblog := cilium.LogEntry{} // TODO: Support Kafka.
+		pblog := cilium.LogEntry{}
 		err = proto.Unmarshal(buf[:n], &pblog)
 		if err != nil {
 			log.WithError(err).Warning("Envoy: Discarded invalid access log message")
@@ -124,12 +125,13 @@ func (s *accessLogServer) accessLogger(conn *net.UnixConn) {
 			continue
 		}
 
-		s.logRecord(localEndpoint, &pblog)
+		logRecord(s.endpointInfoRegistry, localEndpoint, &pblog)
 	}
 }
 
-func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog *cilium.LogEntry) {
-	// TODO: Support Kafka.
+func logRecord(endpointInfoRegistry logger.EndpointInfoRegistry, localEndpoint logger.EndpointUpdater, pblog *cilium.LogEntry) {
+	var kafkaRecord *accesslog.LogRecordKafka
+	var kafkaTopics []string
 
 	var l7tags logger.LogTag
 	if http := pblog.GetHttp(); http != nil {
@@ -142,6 +144,20 @@ func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog 
 			MissingHeaders:  GetNetHttpHeaders(http.MissingHeaders),
 			RejectedHeaders: GetNetHttpHeaders(http.RejectedHeaders),
 		})
+	} else if kafka := pblog.GetKafka(); kafka != nil {
+		kafkaRecord = &accesslog.LogRecordKafka{
+			ErrorCode:     int(kafka.ErrorCode),
+			APIVersion:    int16(kafka.ApiVersion),
+			APIKey:        api.KafkaApiKeyToString(int16(kafka.ApiKey)),
+			CorrelationID: kafka.CorrelationId,
+		}
+		if len(kafka.Topics) > 0 {
+			kafkaRecord.Topic.Topic = kafka.Topics[0]
+			if len(kafka.Topics) > 1 {
+				kafkaTopics = kafka.Topics[1:] // Rest of the topics
+			}
+		}
+		l7tags = logger.LogTags.Kafka(kafkaRecord)
 	} else if l7 := pblog.GetGenericL7(); l7 != nil {
 		l7tags = logger.LogTags.L7(&accesslog.LogRecordL7{
 			Proto:  l7.GetProto(),
@@ -158,7 +174,7 @@ func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog 
 		})
 	}
 
-	r := logger.NewLogRecord(s.endpointInfoRegistry, localEndpoint, GetFlowType(pblog), pblog.IsIngress,
+	r := logger.NewLogRecord(endpointInfoRegistry, localEndpoint, GetFlowType(pblog), pblog.IsIngress,
 		logger.LogTags.Timestamp(time.Unix(int64(pblog.Timestamp/1000000000), int64(pblog.Timestamp%1000000000))),
 		logger.LogTags.Verdict(GetVerdict(pblog), pblog.CiliumRuleRef),
 		logger.LogTags.Addressing(logger.AddressingInfo{
@@ -168,6 +184,12 @@ func (s *accessLogServer) logRecord(localEndpoint logger.EndpointUpdater, pblog 
 		}), l7tags)
 
 	r.Log()
+
+	// Each kafka topic needs to be logged separately, log the rest if any
+	for i := range kafkaTopics {
+		kafkaRecord.Topic.Topic = kafkaTopics[i]
+		r.Log()
+	}
 
 	// Update stats for the endpoint.
 	ingress := r.ObservationPoint == accesslog.Ingress

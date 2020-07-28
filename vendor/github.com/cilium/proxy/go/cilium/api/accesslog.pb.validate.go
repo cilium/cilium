@@ -226,6 +226,79 @@ var _ interface {
 	ErrorName() string
 } = HttpLogEntryValidationError{}
 
+// Validate checks the field values on KafkaLogEntry with the rules defined in
+// the proto definition for this message. If any rules are violated, an error
+// is returned.
+func (m *KafkaLogEntry) Validate() error {
+	if m == nil {
+		return nil
+	}
+
+	// no validation rules for CorrelationId
+
+	// no validation rules for ErrorCode
+
+	// no validation rules for ApiVersion
+
+	// no validation rules for ApiKey
+
+	return nil
+}
+
+// KafkaLogEntryValidationError is the validation error returned by
+// KafkaLogEntry.Validate if the designated constraints aren't met.
+type KafkaLogEntryValidationError struct {
+	field  string
+	reason string
+	cause  error
+	key    bool
+}
+
+// Field function returns field value.
+func (e KafkaLogEntryValidationError) Field() string { return e.field }
+
+// Reason function returns reason value.
+func (e KafkaLogEntryValidationError) Reason() string { return e.reason }
+
+// Cause function returns cause value.
+func (e KafkaLogEntryValidationError) Cause() error { return e.cause }
+
+// Key function returns key value.
+func (e KafkaLogEntryValidationError) Key() bool { return e.key }
+
+// ErrorName returns error name.
+func (e KafkaLogEntryValidationError) ErrorName() string { return "KafkaLogEntryValidationError" }
+
+// Error satisfies the builtin error interface
+func (e KafkaLogEntryValidationError) Error() string {
+	cause := ""
+	if e.cause != nil {
+		cause = fmt.Sprintf(" | caused by: %v", e.cause)
+	}
+
+	key := ""
+	if e.key {
+		key = "key for "
+	}
+
+	return fmt.Sprintf(
+		"invalid %sKafkaLogEntry.%s: %s%s",
+		key,
+		e.field,
+		e.reason,
+		cause)
+}
+
+var _ error = KafkaLogEntryValidationError{}
+
+var _ interface {
+	Field() string
+	Reason() string
+	Key() bool
+	Cause() error
+	ErrorName() string
+} = KafkaLogEntryValidationError{}
+
 // Validate checks the field values on L7LogEntry with the rules defined in the
 // proto definition for this message. If any rules are violated, an error is returned.
 func (m *L7LogEntry) Validate() error {
@@ -354,6 +427,18 @@ func (m *LogEntry) Validate() error {
 			if err := v.Validate(); err != nil {
 				return LogEntryValidationError{
 					field:  "Http",
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	case *LogEntry_Kafka:
+
+		if v, ok := interface{}(m.GetKafka()).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return LogEntryValidationError{
+					field:  "Kafka",
 					reason: "embedded message failed validation",
 					cause:  err,
 				}
