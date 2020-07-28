@@ -19,13 +19,10 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
-	"github.com/cilium/cilium/pkg/common"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
 var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-events")
+	MaxEntries int
 )
 
 const (
@@ -64,14 +61,15 @@ func (v *Value) String() string { return fmt.Sprintf("%d", v.progID) }
 func (k Key) NewValue() bpf.MapValue { return &Value{} }
 
 // InitMap creates the events map in the kernel.
-func InitMap() error {
+func InitMap(maxEntries int) error {
+	MaxEntries = maxEntries
 	eventsMap := bpf.NewMap(MapName,
 		bpf.MapTypePerfEventArray,
 		&Key{},
 		int(unsafe.Sizeof(Key{})),
 		&Value{},
 		int(unsafe.Sizeof(Value{})),
-		common.GetNumPossibleCPUs(log),
+		MaxEntries,
 		0,
 		0,
 		bpf.ConvertKeyValue,

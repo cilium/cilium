@@ -23,6 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	datapathIpcache "github.com/cilium/cilium/pkg/datapath/ipcache"
@@ -355,11 +356,13 @@ func (d *Daemon) initMaps() error {
 		log.WithError(err).Fatal("Unable to initialize service maps")
 	}
 
-	if err := eventsmap.InitMap(); err != nil {
+	possibleCPUs := common.GetNumPossibleCPUs(log)
+
+	if err := eventsmap.InitMap(possibleCPUs); err != nil {
 		return err
 	}
 
-	if err := signalmap.InitMap(); err != nil {
+	if err := signalmap.InitMap(possibleCPUs); err != nil {
 		return err
 	}
 
