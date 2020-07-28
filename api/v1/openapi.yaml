@@ -1250,9 +1250,21 @@ definitions:
         type: array
         items:
           type: integer
+      denied-ingress-identities:
+        description: |
+          List of identities not allowed to communicate to this endpoint
+        type: array
+        items:
+          type: integer
       allowed-egress-identities:
         description: |
           List of identities to which this endpoint is allowed to communicate
+        type: array
+        items:
+          type: integer
+      denied-egress-identities:
+        description: |
+          List of identities to which this endpoint is not allowed to communicate
         type: array
         items:
           type: integer

@@ -2104,6 +2104,20 @@ func init() {
         "cidr-policy": {
           "$ref": "#/definitions/CIDRPolicy"
         },
+        "denied-egress-identities": {
+          "description": "List of identities to which this endpoint is not allowed to communicate\n",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "denied-ingress-identities": {
+          "description": "List of identities not allowed to communicate to this endpoint\n",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
         "id": {
           "description": "Own identity of endpoint",
           "type": "integer"
@@ -5859,6 +5873,20 @@ func init() {
         },
         "cidr-policy": {
           "$ref": "#/definitions/CIDRPolicy"
+        },
+        "denied-egress-identities": {
+          "description": "List of identities to which this endpoint is not allowed to communicate\n",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
+        },
+        "denied-ingress-identities": {
+          "description": "List of identities not allowed to communicate to this endpoint\n",
+          "type": "array",
+          "items": {
+            "type": "integer"
+          }
         },
         "id": {
           "description": "Own identity of endpoint",
