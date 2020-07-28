@@ -128,14 +128,14 @@ func (s *R2d2Suite) TestR2d2OnDataAllowDenyCmd(c *C) {
 		  port: 80
 		  rules: <
 		    l7_proto: "r2d2"
-            l7_rules: <
-                l7_rules: <
-			        rule: <
-			            key: "cmd"
-			            value: "READ"
-			        >
-                >
-            >
+		    l7_rules: <
+		      l7_allow_rules: <
+			rule: <
+			  key: "cmd"
+			  value: "READ"
+			>
+		      >
+		    >
 		  >
 		>
 		`})
@@ -158,14 +158,14 @@ func (s *R2d2Suite) TestR2d2OnDataAllowDenyRegex(c *C) {
 		  port: 80
 		  rules: <
 		    l7_proto: "r2d2"
-            l7_rules: <
-                l7_rules: <
-			        rule: <
-			            key: "file"
-			            value: "s.*"
-			        >
-                >
-            >
+		    l7_rules: <
+		      l7_allow_rules: <
+			rule: <
+			  key: "file"
+			  value: "s.*"
+			>
+		      >
+		    >
 		  >
 		>
 		`})

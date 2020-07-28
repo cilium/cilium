@@ -97,7 +97,7 @@ func (s *CassandraSuite) TestCassandraOnDataOptionsReq(c *C) {
 		    remote_policies: 4
 		    l7_proto: "cassandra"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 			rule: <
 			  key: "query_action"
 			  value: "select"
@@ -128,7 +128,7 @@ func (s *CassandraSuite) TestCassandraOnDataPartialReq(c *C) {
 		    remote_policies: 4
 		    l7_proto: "cassandra"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 			rule: <
 			  key: "query_table"
 			  value: ".*"
@@ -156,7 +156,7 @@ func (s *CassandraSuite) TestCassandraOnDataQueryReq(c *C) {
 		    remote_policies: 4
 		    l7_proto: "cassandra"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 			rule: <
 			  key: "query_table"
 			  value: ".*"
@@ -185,7 +185,7 @@ func (s *CassandraSuite) TestCassandraOnDataSplitQueryReq(c *C) {
 		    remote_policies: 4
 		    l7_proto: "cassandra"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 			rule: <
 			  key: "query_table"
 			  value: ".*"
@@ -214,7 +214,7 @@ func (s *CassandraSuite) TestCassandraOnDataMultiReq(c *C) {
 		    remote_policies: 4
 		    l7_proto: "cassandra"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 			rule: <
 			  key: "query_table"
 			  value: ".*"
@@ -247,7 +247,7 @@ func (s *CassandraSuite) TestSimpleCassandraPolicy(c *C) {
 		    remote_policies: 4
 		    l7_proto: "cassandra"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 			rule: <
 			  key: "query_table"
 			  value: "no-match"
@@ -294,7 +294,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPolicy(c *C) {
 		    remote_policies: 4
 		    l7_proto: "cassandra"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 			rule: <
 			  key: "query_table"
 			  value: "db1.*"
@@ -355,7 +355,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPolicyDenied(c *C) {
 		    remote_policies: 4
 		    l7_proto: "cassandra"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 			rule: <
 			  key: "query_table"
 			  value: "db1.*"
@@ -418,7 +418,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPreparedStatement(c *C) {
 		    remote_policies: 4
 		    l7_proto: "cassandra"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 			rule: <
 			  key: "query_table"
 			  value: "db3.*"
@@ -487,7 +487,7 @@ func (s *CassandraSuite) TestCassandraBatchRequestPreparedStatementDenied(c *C) 
 		    remote_policies: 4
 		    l7_proto: "cassandra"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 			rule: <
 			  key: "query_table"
 			  value: "db3.*"
@@ -557,7 +557,7 @@ func (s *CassandraSuite) TestCassandraExecutePreparedStatement(c *C) {
 		    remote_policies: 4
 		    l7_proto: "cassandra"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 			rule: <
 			  key: "query_table"
 			  value: "db3.*"
@@ -681,7 +681,7 @@ func (s *CassandraSuite) TestCassandraAdditionalQueries(c *C) {
 		    remote_policies: 4
 		    l7_proto: "cassandra"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 			rule: <
 			  key: "query_table"
 			  value: "db4.t1"
@@ -751,7 +751,7 @@ func (s *CassandraSuite) TestCassandraUseQuery(c *C) {
 		    remote_policies: 4
 		    l7_proto: "cassandra"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 			rule: <
 			  key: "query_table"
 			  value: "db5.t1"

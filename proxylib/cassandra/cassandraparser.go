@@ -111,8 +111,9 @@ func CassandraRuleParser(rule *cilium.PortNetworkPolicyRule) []L7NetworkPolicyRu
 		return nil
 	}
 
-	rules := make([]L7NetworkPolicyRule, 0, len(l7Rules.GetL7Rules()))
-	for _, l7Rule := range l7Rules.GetL7Rules() {
+	allowRules := l7Rules.GetL7AllowRules()
+	rules := make([]L7NetworkPolicyRule, 0, len(allowRules))
+	for _, l7Rule := range allowRules {
 		var cr CassandraRule
 		for k, v := range l7Rule.Rule {
 			switch k {

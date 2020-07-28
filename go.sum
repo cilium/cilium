@@ -96,8 +96,8 @@ github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyR
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
 github.com/cilium/netlink v0.0.0-20210223023818-d826f2a4c934 h1:vxNOigc4TdYzTKANE9Dp5a4vT7+fBJIbGpewQWez96Q=
 github.com/cilium/netlink v0.0.0-20210223023818-d826f2a4c934/go.mod h1:twkDnbuQxJYemMlGd4JFIcuhgX83tXhKS2B/PRMpOho=
-github.com/cilium/proxy v0.0.0-20200708010855-3ed3778af94e h1:cRnjiUpjANxJLvMJcp8YGUQ28rw/L1ZJ6fK41gGQfco=
-github.com/cilium/proxy v0.0.0-20200708010855-3ed3778af94e/go.mod h1:MsrtgITWuZatZCS715qDH+dp2iaVjOuxnIr8uwja5cM=
+github.com/cilium/proxy v0.0.0-20200728092031-595bb722a4ab h1:338tNA01tXWGLh+oU8VwNDWep/txhOOWoiP6OOopvJE=
+github.com/cilium/proxy v0.0.0-20200728092031-595bb722a4ab/go.mod h1:MsrtgITWuZatZCS715qDH+dp2iaVjOuxnIr8uwja5cM=
 github.com/client9/misspell v0.3.4/go.mod h1:qj6jICC3Q7zFZvVWo7KLAzC3yx5G7kyvSDkc90ppPyw=
 github.com/cncf/udpa/go v0.0.0-20191230090109-edbea6a78f6d h1:F6x9XOn7D+HmM4z8vuG/vvlE53rWPWebGLdIy3Nh+XM=
 github.com/cncf/udpa/go v0.0.0-20191230090109-edbea6a78f6d/go.mod h1:M8M6+tZqaGXZJjfX53e64911xZQV5JYwmTeXPW+k8Sc=
