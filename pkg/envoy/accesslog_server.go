@@ -23,7 +23,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/flowdebug"
-	"github.com/cilium/cilium/pkg/policy/api"
+	kafka_api "github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/proxy/logger"
 
@@ -148,7 +148,7 @@ func logRecord(endpointInfoRegistry logger.EndpointInfoRegistry, localEndpoint l
 		kafkaRecord = &accesslog.LogRecordKafka{
 			ErrorCode:     int(kafka.ErrorCode),
 			APIVersion:    int16(kafka.ApiVersion),
-			APIKey:        api.KafkaApiKeyToString(int16(kafka.ApiKey)),
+			APIKey:        kafka_api.ApiKeyToString(int16(kafka.ApiKey)),
 			CorrelationID: kafka.CorrelationId,
 		}
 		if len(kafka.Topics) > 0 {

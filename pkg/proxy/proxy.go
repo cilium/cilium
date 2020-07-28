@@ -164,16 +164,6 @@ var (
 			name:       "cilium-http-ingress",
 		},
 		{
-			parserType: policy.ParserTypeKafka,
-			ingress:    false,
-			name:       "cilium-kafka-egress",
-		},
-		{
-			parserType: policy.ParserTypeKafka,
-			ingress:    true,
-			name:       "cilium-kafka-ingress",
-		},
-		{
 			parserType: policy.ParserTypeDNS,
 			ingress:    false,
 			name:       "cilium-dns-egress",
@@ -315,7 +305,7 @@ func (p *Proxy) releaseProxyPort(name string) error {
 func getProxyPort(l7Type policy.L7ParserType, ingress bool) *ProxyPort {
 	portType := l7Type
 	switch l7Type {
-	case policy.ParserTypeDNS, policy.ParserTypeKafka, policy.ParserTypeHTTP:
+	case policy.ParserTypeDNS, policy.ParserTypeHTTP:
 	default:
 		// "Unknown" parsers are assumed to be Proxylib (TCP) parsers, which
 		// is registered with an empty string.
@@ -485,9 +475,6 @@ func (p *Proxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, localEn
 		switch l4.GetL7Parser() {
 		case policy.ParserTypeDNS:
 			redir.implementation, err = createDNSRedirect(redir, dnsConfiguration{}, DefaultEndpointInfoRegistry)
-
-		case policy.ParserTypeKafka:
-			redir.implementation, err = createKafkaRedirect(redir, kafkaConfiguration{}, DefaultEndpointInfoRegistry)
 
 		case policy.ParserTypeHTTP:
 			redir.implementation, err = createEnvoyRedirect(redir, p.stateDir, p.XDSServer, p.datapathUpdater.SupportsOriginalSourceAddr(), wg)

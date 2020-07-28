@@ -470,21 +470,6 @@ func (l4 *L4Filter) cacheFQDNSelector(sel api.FQDNSelector, selectorCache *Selec
 	return cs
 }
 
-// GetRelevantRulesForKafka returns the relevant rules based on the remote numeric identity.
-func (l7 L7DataMap) GetRelevantRulesForKafka(nid identity.NumericIdentity) []api.PortRuleKafka {
-	var rules []api.PortRuleKafka
-
-	for cs, r := range l7 {
-		if cs.IsWildcard() || cs.Selects(nid) {
-			if r == nil {
-				r = &PerSelectorPolicy{L7Rules: api.L7Rules{Kafka: []api.PortRuleKafka{}}}
-			}
-			rules = append(rules, r.Kafka...)
-		}
-	}
-	return rules
-}
-
 // add L7 rules for all endpoints in the L7DataMap
 func (l7 L7DataMap) addRulesForEndpoints(rules api.L7Rules, terminatingTLS, originatingTLS *TLSContext) {
 	l7policy := &PerSelectorPolicy{
@@ -692,7 +677,7 @@ func (l4 *L4Filter) IsRedirect() bool {
 
 // IsEnvoyRedirect returns true if the L4 filter contains a port redirected to Envoy
 func (l4 *L4Filter) IsEnvoyRedirect() bool {
-	return l4.IsRedirect() && l4.L7Parser != ParserTypeKafka && l4.L7Parser != ParserTypeDNS
+	return l4.IsRedirect() && l4.L7Parser != ParserTypeDNS
 }
 
 // IsProxylibRedirect returns true if the L4 filter contains a port redirected to Proxylib (via Envoy)

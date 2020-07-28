@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/kafka"
 )
 
 type rule struct {
@@ -76,9 +77,9 @@ func (epd *PerSelectorPolicy) appendL7WildcardRule(ctx *SearchContext) *PerSelec
 			ctx.PolicyTrace("   Merging HTTP wildcard rule, equal rule already exists: %+v\n", rule)
 		}
 	case len(epd.L7Rules.Kafka) > 0:
-		rule := api.PortRuleKafka{}
+		rule := kafka.PortRule{}
 		rule.Sanitize()
-		if !rule.Exists(epd.L7Rules) {
+		if !rule.Exists(epd.L7Rules.Kafka) {
 			ctx.PolicyTrace("   Merging Kafka wildcard rule: %+v\n", rule)
 			epd.L7Rules.Kafka = append(epd.L7Rules.Kafka, rule)
 		} else {
@@ -182,7 +183,7 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 				}
 
 				for _, newRule := range newL7Rules.Kafka {
-					if !newRule.Exists(l7Rules.L7Rules) {
+					if !newRule.Exists(l7Rules.L7Rules.Kafka) {
 						l7Rules.Kafka = append(l7Rules.Kafka, newRule)
 					}
 				}

@@ -21,6 +21,7 @@ import (
 
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/policy/api/kafka"
 
 	. "gopkg.in/check.v1"
 )
@@ -619,8 +620,8 @@ func (s *PolicyAPITestSuite) TestTooManyPortsRule(c *C) {
 // clear indication that something is wrong in the policy.
 func (s *PolicyAPITestSuite) TestL7RuleDirectionalitySupport(c *C) {
 
-	// Kafka egress is not supported.
-	invalidKafkaRule := Rule{
+	// Kafka egress is now supported.
+	egressKafkaRule := Rule{
 		EndpointSelector: WildcardEndpointSelector,
 		Egress: []EgressRule{
 			{
@@ -630,7 +631,7 @@ func (s *PolicyAPITestSuite) TestL7RuleDirectionalitySupport(c *C) {
 						{Port: "81", Protocol: ProtoTCP},
 					},
 					Rules: &L7Rules{
-						Kafka: []PortRuleKafka{{
+						Kafka: []kafka.PortRule{{
 							Role:  "consume",
 							Topic: "deathstar-plans",
 						}},
@@ -640,8 +641,8 @@ func (s *PolicyAPITestSuite) TestL7RuleDirectionalitySupport(c *C) {
 		},
 	}
 
-	err := invalidKafkaRule.Sanitize()
-	c.Assert(err, Not(IsNil))
+	err := egressKafkaRule.Sanitize()
+	c.Assert(err, IsNil)
 
 	// DNS ingress is not supported.
 	invalidDNSRule := Rule{

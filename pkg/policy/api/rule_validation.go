@@ -204,7 +204,7 @@ func (e *EgressRule) sanitize() error {
 	l7Members := countL7Rules(e.ToPorts)
 	l7EgressSupport := map[string]bool{
 		"DNS":   true,
-		"Kafka": false,
+		"Kafka": true,
 		"HTTP":  true,
 	}
 
@@ -280,54 +280,6 @@ func (e *EgressRule) sanitize() error {
 
 	e.SetAggregatedSelectors()
 
-	return nil
-}
-
-// Sanitize sanitizes Kafka rules
-// TODO we need to add support to check
-// wildcard and prefix/suffix later on.
-func (kr *PortRuleKafka) Sanitize() error {
-	if (len(kr.APIKey) > 0) && (len(kr.Role) > 0) {
-		return fmt.Errorf("Cannot set both Role:%q and APIKey :%q together", kr.Role, kr.APIKey)
-	}
-
-	if len(kr.APIKey) > 0 {
-		n, ok := KafkaAPIKeyMap[strings.ToLower(kr.APIKey)]
-		if !ok {
-			return fmt.Errorf("invalid Kafka APIKey :%q", kr.APIKey)
-		}
-		kr.apiKeyInt = append(kr.apiKeyInt, n)
-	}
-
-	if len(kr.Role) > 0 {
-		err := kr.MapRoleToAPIKey()
-		if err != nil {
-			return fmt.Errorf("invalid Kafka APIRole :%q", kr.Role)
-		}
-
-	}
-
-	if len(kr.APIVersion) > 0 {
-		n, err := strconv.ParseInt(kr.APIVersion, 10, 16)
-		if err != nil {
-			return fmt.Errorf("invalid Kafka APIVersion :%q",
-				kr.APIVersion)
-		}
-		n16 := int16(n)
-		kr.apiVersionInt = &n16
-	}
-
-	if len(kr.Topic) > 0 {
-		if len(kr.Topic) > KafkaMaxTopicLen {
-			return fmt.Errorf("kafka topic exceeds maximum len of %d",
-				KafkaMaxTopicLen)
-		}
-		// This check allows suffix and prefix matching
-		// for topic.
-		if KafkaTopicValidChar.MatchString(kr.Topic) == false {
-			return fmt.Errorf("invalid Kafka Topic name \"%s\"", kr.Topic)
-		}
-	}
 	return nil
 }
 

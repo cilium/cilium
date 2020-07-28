@@ -16,11 +16,86 @@ package kafka
 
 import (
 	"github.com/cilium/cilium/pkg/flowdebug"
-	"github.com/cilium/cilium/pkg/policy/api"
+	api "github.com/cilium/cilium/pkg/policy/api/kafka"
 
-	"github.com/optiopay/kafka/proto"
-	"github.com/sirupsen/logrus"
+	log "github.com/sirupsen/logrus"
 )
+
+type Rule struct {
+	// ApiVersion is the allowed version, or < 0 if all versions
+	// are to be allowed
+	APIVersion int16
+
+	// ApiKeys is the set of all numerical apiKeys that are allowed.
+	// If empty, all API keys are allowed.
+	APIKeys map[int16]struct{}
+
+	// ClientID is the client identifier as provided in the request.
+	//
+	// From Kafka protocol documentation:
+	// This is a user supplied identifier for the client application. The
+	// user can use any identifier they like and it will be used when
+	// logging errors, monitoring aggregates, etc. For example, one might
+	// want to monitor not just the requests per second overall, but the
+	// number coming from each client application (each of which could
+	// reside on multiple servers). This id acts as a logical grouping
+	// across all requests from a particular client.
+	//
+	// If empty, all client identifiers are allowed.
+	ClientID string
+
+	// Topic is the topic name contained in the message. If a Kafka request
+	// contains multiple topics, then all topics must be allowed or the
+	// message will be rejected.
+	//
+	// This constraint is ignored if the matched request message type
+	// doesn't contain any topic. Maximum size of Topic can be 249
+	// characters as per recent Kafka spec and allowed characters are
+	// a-z, A-Z, 0-9, -, . and _
+	// Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10
+	// version the length was changed from 255 to 249. For compatibility
+	// reasons we are allowing 255.
+	//
+	// If empty, all topics are allowed.
+	Topic string
+}
+
+// NewRule creates a new rule from already sanitized inputs
+func NewRule(apiVersion int32, apiKeys []int32, clientID, topic string) Rule {
+	r := Rule{
+		APIVersion: int16(apiVersion),
+		ClientID:   clientID,
+		Topic:      topic,
+		APIKeys:    make(map[int16]struct{}, len(apiKeys)),
+	}
+	for _, key := range apiKeys {
+		r.APIKeys[int16(key)] = struct{}{}
+	}
+	return r
+}
+
+// CheckAPIKeyRole checks the apiKey value in the request, and returns true if
+// it is allowed else false
+func (r *Rule) CheckAPIKeyRole(kind int16) bool {
+	// wildcard expression
+	if len(r.APIKeys) == 0 {
+		return true
+	}
+
+	// Check kind
+	_, ok := r.APIKeys[kind]
+	return ok
+}
+
+// CheckAPIVersion returns true if 'apiVersion' is allowed
+func (r *Rule) CheckAPIVersion(apiVersion int16) bool {
+	return r.APIVersion < 0 || apiVersion == r.APIVersion
+}
+
+// CheckClientID returns true if 'clientID' is allowed
+func (r *Rule) CheckClientID(clientID string) bool {
+	return r.ClientID == "" || clientID == r.ClientID
+}
 
 // isTopicAPIKey returns true if kind is apiKey message type which contains a
 // topic in its request.
@@ -51,175 +126,51 @@ func isTopicAPIKey(kind int16) bool {
 	return false
 }
 
-func matchNonTopicRequests(req *RequestMessage, rule api.PortRuleKafka) bool {
-	// matchNonTopicRequests() is called when
-	// the kafka parser was not able to parse beyond the generic header.
-	// This could be due to 2 sceanrios:
-	// 1. It was a non-topic request
-	// 2. The parser could not parse further even if there was a topic present.
-	// For scenario 2, if topic is present, we need to return
-	// false since topic can never be associated with this request kind.
-	if rule.Topic != "" && isTopicAPIKey(req.kind) {
-		return false
-	}
-	// TODO add functionality for parsing clientID GH-3097
-	//if rule.ClientID != "" && rule.ClientID != req.GetClientID() {
-	//	return false
-	//}
-	return true
-}
-
-func matchProduceReq(req *proto.ProduceReq, rule api.PortRuleKafka) bool {
-	if req == nil {
+// Matches returns true if Rule matches the request and and all required topics have matched.
+func (r Rule) Matches(data interface{}) bool {
+	req, ok := data.(*RequestMessage)
+	if !ok {
+		log.Warningf("Matches() called with type other than Kafka RequestMessage: %v", data)
 		return false
 	}
 
-	if rule.ClientID != "" && rule.ClientID != req.ClientID {
+	if flowdebug.Enabled() {
+		log.Debugf("Matching Kafka request %s against rule %v", req.String(), r)
+	}
+
+	if !r.CheckAPIKeyRole(req.kind) {
 		return false
 	}
 
-	return true
-}
-
-func matchFetchReq(req *proto.FetchReq, rule api.PortRuleKafka) bool {
-	if req == nil {
+	if !r.CheckAPIVersion(req.version) {
 		return false
 	}
 
-	if rule.ClientID != "" && rule.ClientID != req.ClientID {
+	if !r.CheckClientID(req.clientID) {
 		return false
 	}
 
-	return true
-}
-
-func matchOffsetReq(req *proto.OffsetReq, rule api.PortRuleKafka) bool {
-	if req == nil {
-		return false
-	}
-
-	if rule.ClientID != "" && rule.ClientID != req.ClientID {
-		return false
-	}
-
-	return true
-}
-
-func matchMetadataReq(req *proto.MetadataReq, rule api.PortRuleKafka) bool {
-	if req == nil {
-		return false
-	}
-
-	if rule.ClientID != "" && rule.ClientID != req.ClientID {
-		return false
-	}
-
-	return true
-}
-
-func matchOffsetCommitReq(req *proto.OffsetCommitReq, rule api.PortRuleKafka) bool {
-	if req == nil {
-		return false
-	}
-
-	if rule.ClientID != "" && rule.ClientID != req.ClientID {
-		return false
-	}
-
-	return true
-}
-
-func matchOffsetFetchReq(req *proto.OffsetFetchReq, rule api.PortRuleKafka) bool {
-	if req == nil {
-		return false
-	}
-
-	if rule.ClientID != "" && rule.ClientID != req.ClientID {
-		return false
-	}
-
-	return true
-}
-
-func (req *RequestMessage) ruleMatches(rule api.PortRuleKafka) bool {
-	if req == nil {
-		return false
-	}
-
-	flowdebug.Log(log.WithFields(logrus.Fields{
-		fieldRequest: req.String(),
-		fieldRule:    rule,
-	}), "Matching Kafka rule")
-
-	if !rule.CheckAPIKeyRole(req.kind) {
-		return false
-	}
-
-	apiVersion, isWildcard := rule.GetAPIVersion()
-	if !isWildcard && apiVersion != req.version {
-		return false
-	}
-
-	// If the rule contains no additional conditionals, it is not required
-	// to match into the request specific fields.
-	if rule.Topic == "" && rule.ClientID == "" {
-		return true
-	}
-
-	switch val := req.request.(type) {
-	case *proto.ProduceReq:
-		return matchProduceReq(val, rule)
-	case *proto.FetchReq:
-		return matchFetchReq(val, rule)
-	case *proto.OffsetReq:
-		return matchOffsetReq(val, rule)
-	case *proto.MetadataReq:
-		return matchMetadataReq(val, rule)
-	case *proto.OffsetCommitReq:
-		return matchOffsetCommitReq(val, rule)
-	case *proto.OffsetFetchReq:
-		return matchOffsetFetchReq(val, rule)
-	case *proto.ConsumerMetadataReq:
-		return true
-	case nil:
-		// This is the case when requests like
-		// heartbeat,findcordinator, et al
-		// are specified. They are not
-		// associated with a topic, but we should
-		// still check for ClientID present in request header.
-		return matchNonTopicRequests(req, rule)
-	default:
-		// If all conditions have been met, allow the request
-		return true
-	}
-}
-
-// MatchesRule validates the Kafka request message against the provided list of
-// rules. The function will return true if the policy allows the message,
-// otherwise false is returned.
-func (req *RequestMessage) MatchesRule(rules []api.PortRuleKafka) bool {
-	topics := req.GetTopics()
-	// Maintain a map of all topics in the request.
-	// We should allow the request only if all topics are
-	// allowed by the list of rules.
-	reqTopicsMap := make(map[string]bool, len(topics))
-	for _, topic := range topics {
-		reqTopicsMap[topic] = true
-	}
-
-	for _, rule := range rules {
-		if rule.Topic == "" || len(topics) == 0 {
-			if req.ruleMatches(rule) {
-				return true
-			}
-		} else if reqTopicsMap[rule.Topic] {
-			if req.ruleMatches(rule) {
-				delete(reqTopicsMap, rule.Topic)
-				if len(reqTopicsMap) == 0 {
-					return true
-				}
+	// Last step, check topic if applicable.
+	// Rule without a topic allows all topics and request types without topics
+	// are allowed regardless the rule's topic.
+	if r.Topic != "" && isTopicAPIKey(req.kind) {
+		// Rule has a topic constraint and the request type carries topics.
+		//
+		// Check it this rule's topic is in the request, but keep matching
+		// other rules (by returning false) even if this rule is satisfied
+		// if there are other topics in the request not matched yet.
+		//
+		// (req.topics is initialized with all the topics in the request
+		// before any rules are matched.)
+		if _, exists := req.topics[r.Topic]; exists {
+			delete(req.topics, r.Topic)
+			if len(req.topics) == 0 {
+				return true // all topics have matched
 			}
 		}
+		return false // more topic matches needed
 	}
-	return false
+
+	// All rule's constraints are satisfied
+	return true
 }

@@ -113,7 +113,7 @@ type PortNetworkPolicyRules struct {
 	Rules []PortNetworkPolicyRule
 }
 
-func newPortNetworkPolicyRules(config []*cilium.PortNetworkPolicyRule) (PortNetworkPolicyRules, bool) {
+func newPortNetworkPolicyRules(config []*cilium.PortNetworkPolicyRule, port uint32) (PortNetworkPolicyRules, bool) {
 	rules := PortNetworkPolicyRules{
 		Rules: make([]PortNetworkPolicyRule, 0, len(config)),
 	}
@@ -158,7 +158,7 @@ type PortNetworkPolicies struct {
 	Rules map[uint32]PortNetworkPolicyRules
 }
 
-func newPortNetworkPolicies(config []*cilium.PortNetworkPolicy) PortNetworkPolicies {
+func newPortNetworkPolicies(config []*cilium.PortNetworkPolicy, dir string) PortNetworkPolicies {
 	policy := PortNetworkPolicies{
 		Rules: make(map[uint32]PortNetworkPolicyRules, len(config)),
 	}
@@ -178,12 +178,12 @@ func newPortNetworkPolicies(config []*cilium.PortNetworkPolicy) PortNetworkPolic
 		}
 
 		// Skip the port if not 'ok'
-		rules, ok := newPortNetworkPolicyRules(rule.GetRules())
+		rules, ok := newPortNetworkPolicyRules(rule.GetRules(), port)
 		if ok {
-			log.Debugf("NPDS::PortNetworkPolicies(): installed TCP policy for port %d", port)
+			log.Debugf("NPDS::PortNetworkPolicies(): installed %s TCP policy for port %d from rule %v in policy %v", dir, port, *rule, config)
 			policy.Rules[port] = rules
 		} else {
-			log.Debugf("NPDS::PortNetworkPolicies(): Skipped port due to unsupported L7: %d", port)
+			log.Debugf("NPDS::PortNetworkPolicies(): Skipped %s port due to unsupported L7: %d", dir, port)
 		}
 	}
 	return policy
@@ -230,8 +230,8 @@ func newPolicyInstance(config *cilium.NetworkPolicy) *PolicyInstance {
 
 	return &PolicyInstance{
 		protobuf: *config,
-		Ingress:  newPortNetworkPolicies(config.GetIngressPerPortPolicies()),
-		Egress:   newPortNetworkPolicies(config.GetEgressPerPortPolicies()),
+		Ingress:  newPortNetworkPolicies(config.GetIngressPerPortPolicies(), "ingress"),
+		Egress:   newPortNetworkPolicies(config.GetEgressPerPortPolicies(), "egress"),
 	}
 }
 
