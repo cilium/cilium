@@ -44,9 +44,14 @@ _spec: {
 					timeoutSeconds: _probeFailureTimeout + 2
 					exec: command: _rejectProbe
 				}
+				livenessProbe: {
+					timeoutSeconds: _probeFailureTimeout + 2
+					exec: command: _rejectProbe
+				}
 			}
 			if !_probeExpectFail {
 				readinessProbe: exec: command: _allowProbe
+				livenessProbe: exec: command: _allowProbe
 			}
 		}
 		_containers: [_c1]
@@ -55,10 +60,15 @@ _spec: {
 		_c1: _container & {
 			name: "\(_name)-allow-container"
 			readinessProbe: exec: command: _allowProbe
+			livenessProbe: exec: command: _allowProbe
 		}
 		_c2: _container & {
 			name: "\(_name)-reject-container"
-			readinessProbe: {
+			livenessProbe: {
+				timeoutSeconds: _probeFailureTimeout + 2
+				exec: command: _rejectProbe
+			}
+			livenessProbe: {
 				timeoutSeconds: _probeFailureTimeout + 2
 				exec: command: _rejectProbe
 			}

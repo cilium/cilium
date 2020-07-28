@@ -30,6 +30,17 @@ spec:
             - -o
             - /dev/null
             - localhost
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost
   selector:
     matchLabels:
       name: echo-a
@@ -59,6 +70,17 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost
+        livenessProbe:
           exec:
             command:
             - curl
@@ -99,6 +121,17 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:41000
+        livenessProbe:
           exec:
             command:
             - curl
@@ -158,6 +191,17 @@ spec:
             - -o
             - /dev/null
             - localhost
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost
   selector:
     matchLabels:
       name: echo-c
@@ -188,6 +232,17 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:41001
+        livenessProbe:
           exec:
             command:
             - curl
@@ -249,6 +304,17 @@ spec:
             - -o
             - /dev/null
             - echo-a/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-a/public
   selector:
     matchLabels:
       name: pod-to-a
@@ -280,6 +346,17 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - 1.1.1.1
+        livenessProbe:
           exec:
             command:
             - curl
@@ -327,6 +404,13 @@ spec:
             - ash
             - -c
             - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a/private'
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - ash
+            - -c
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a/private'
   selector:
     matchLabels:
       name: pod-to-a-denied-cnp
@@ -358,6 +442,17 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-a/public
+        livenessProbe:
           exec:
             command:
             - curl
@@ -409,6 +504,17 @@ spec:
             - -o
             - /dev/null
             - www.google.com
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - www.google.com
   selector:
     matchLabels:
       name: pod-to-external-fqdn-allow-google-cnp
@@ -450,6 +556,17 @@ spec:
             - -o
             - /dev/null
             - echo-a/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-a/public
       - name: pod-to-a-intra-node-proxy-egress-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -458,7 +575,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
-        readinessProbe:
+        livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
@@ -516,6 +633,17 @@ spec:
             - -o
             - /dev/null
             - echo-a/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-a/public
       - name: pod-to-a-multi-node-proxy-egress-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -524,7 +652,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
-        readinessProbe:
+        livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
@@ -582,6 +710,17 @@ spec:
             - -o
             - /dev/null
             - echo-c/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c/public
       - name: pod-to-c-intra-node-proxy-ingress-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -590,7 +729,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
-        readinessProbe:
+        livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
@@ -648,6 +787,17 @@ spec:
             - -o
             - /dev/null
             - echo-c/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c/public
       - name: pod-to-c-multi-node-proxy-ingress-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -656,7 +806,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
-        readinessProbe:
+        livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
@@ -714,6 +864,17 @@ spec:
             - -o
             - /dev/null
             - echo-c/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c/public
       - name: pod-to-c-intra-node-proxy-to-proxy-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -722,7 +883,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
-        readinessProbe:
+        livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
@@ -780,6 +941,17 @@ spec:
             - -o
             - /dev/null
             - echo-c/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c/public
       - name: pod-to-c-multi-node-proxy-to-proxy-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -788,7 +960,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
-        readinessProbe:
+        livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
@@ -836,6 +1008,17 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b/public
+        livenessProbe:
           exec:
             command:
             - curl
@@ -897,6 +1080,17 @@ spec:
             - -o
             - /dev/null
             - echo-b-headless/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-headless/public
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -938,6 +1132,17 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b/public
+        livenessProbe:
           exec:
             command:
             - curl
@@ -1000,6 +1205,17 @@ spec:
             - -o
             - /dev/null
             - echo-b-headless/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-headless/public
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -1052,6 +1268,17 @@ spec:
             - -o
             - /dev/null
             - echo-b-host-headless:40000/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:40000/public
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -1093,6 +1320,17 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:40000/public
+        livenessProbe:
           exec:
             command:
             - curl

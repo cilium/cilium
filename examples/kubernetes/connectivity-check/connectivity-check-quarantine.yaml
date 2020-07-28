@@ -33,6 +33,17 @@ spec:
             - -o
             - /dev/null
             - echo-c-host-headless:40001/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
       - name: pod-to-a-multi-node-hostport-proxy-egress-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -41,7 +52,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
-        readinessProbe:
+        livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
@@ -99,6 +110,17 @@ spec:
             - -o
             - /dev/null
             - echo-c-host-headless:40001/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
       - name: pod-to-a-intra-node-hostport-proxy-egress-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -107,7 +129,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
-        readinessProbe:
+        livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
@@ -165,6 +187,17 @@ spec:
             - -o
             - /dev/null
             - echo-c-host-headless:40001/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
       - name: pod-to-c-multi-node-hostport-proxy-ingress-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -173,7 +206,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
-        readinessProbe:
+        livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
@@ -231,6 +264,17 @@ spec:
             - -o
             - /dev/null
             - echo-c-host-headless:40001/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
       - name: pod-to-c-intra-node-hostport-proxy-ingress-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -239,7 +283,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
-        readinessProbe:
+        livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
@@ -297,6 +341,17 @@ spec:
             - -o
             - /dev/null
             - echo-c-host-headless:40001/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
       - name: pod-to-c-multi-node-hostport-proxy-to-proxy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -305,7 +360,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
-        readinessProbe:
+        livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
@@ -363,6 +418,17 @@ spec:
             - -o
             - /dev/null
             - echo-c-host-headless:40001/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
       - name: pod-to-c-intra-node-hostport-proxy-to-proxy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -371,7 +437,7 @@ spec:
         - /bin/ash
         - -c
         - sleep 1000000000
-        readinessProbe:
+        livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
@@ -584,6 +650,17 @@ spec:
             - -o
             - /dev/null
             - localhost
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost
   selector:
     matchLabels:
       name: echo-a
@@ -630,6 +707,17 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost
+        livenessProbe:
           exec:
             command:
             - curl
@@ -688,6 +776,17 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:41000
+        livenessProbe:
           exec:
             command:
             - curl
