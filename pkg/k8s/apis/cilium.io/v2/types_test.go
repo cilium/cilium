@@ -405,6 +405,89 @@ func (s *CiliumV2Suite) TestParseRules(c *C) {
 	c.Assert(cnpl, checker.DeepEquals, *expectedPolicyRuleListWithLabel)
 }
 
+func (s *CiliumV2Suite) TestParseWithNodeSelector(c *C) {
+	// A rule without any L7 rules so that we can validate both CNP and CCNP.
+	// CCNP doesn't support L7 rules just yet.
+	rule := api.Rule{
+		EndpointSelector: api.NewESFromLabels(),
+		Ingress: []api.IngressRule{
+			{
+				FromEndpoints: []api.EndpointSelector{
+					api.NewESFromLabels(
+						labels.ParseSelectLabel("role=frontend"),
+					),
+					api.NewESFromLabels(
+						labels.ParseSelectLabel("reserved:world"),
+					),
+				},
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
+					},
+				},
+			},
+		},
+		Egress: []api.EgressRule{
+			{
+				ToPorts: []api.PortRule{
+					{
+						Ports: []api.PortProtocol{{Port: "80", Protocol: "TCP"}},
+					},
+				},
+			}, {
+				ToCIDR: []api.CIDR{"10.0.0.1"},
+			}, {
+				ToCIDRSet: []api.CIDRRule{{Cidr: api.CIDR("10.0.0.0/8"), ExceptCIDRs: []api.CIDR{"10.96.0.0/12"}}},
+			},
+		},
+	}
+
+	emptySelector := api.EndpointSelector{LabelSelector: nil}
+	prevEPSelector := rule.EndpointSelector
+
+	// A NodeSelector is an EndpointSelector. We can reuse the previous value
+	// that was set as an EndpointSelector.
+	rule.EndpointSelector = emptySelector
+	rule.NodeSelector = prevEPSelector
+
+	// Expect CNP parse error because it's not allowed to have a NodeSelector.
+	cnpl := CiliumNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "rule",
+			UID:       uuidRule,
+		},
+		Spec: &rule,
+	}
+	_, err := cnpl.Parse()
+	c.Assert(err, ErrorMatches,
+		"Invalid CiliumNetworkPolicy spec: rule cannot have NodeSelector")
+
+	// CCNP parse is allowed to have a NodeSelector.
+	ccnpl := CiliumClusterwideNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "rule",
+			UID:       uuidRule,
+		},
+		CiliumNetworkPolicy: &cnpl,
+	}
+	_, err = ccnpl.Parse()
+	c.Assert(err, IsNil)
+
+	// Now test a CNP and CCNP with an EndpointSelector only.
+	rule.EndpointSelector = prevEPSelector
+	rule.NodeSelector = emptySelector
+
+	// CNP and CCNP parse is allowed to have an EndpointSelector.
+	_, err = cnpl.Parse()
+	c.Assert(err, IsNil)
+
+	// CNP and CCNP parse is allowed to have an EndpointSelector.
+	_, err = ccnpl.Parse()
+	c.Assert(err, IsNil)
+}
+
 func (s *CiliumV2Suite) TestCiliumNodeInstanceID(c *C) {
 	c.Assert((*CiliumNode)(nil).InstanceID(), Equals, "")
 	c.Assert((&CiliumNode{}).InstanceID(), Equals, "")
