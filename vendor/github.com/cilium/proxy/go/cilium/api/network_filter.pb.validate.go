@@ -52,6 +52,8 @@ func (m *NetworkFilter) Validate() error {
 
 	// no validation rules for PolicyName
 
+	// no validation rules for AccessLogPath
+
 	return nil
 }
 

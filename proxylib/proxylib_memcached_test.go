@@ -143,7 +143,7 @@ func TestMemcache(t *testing.T) {
 		    remote_policies: 4
             l7_proto: "memcache"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 %s
 		      >
 		    >
