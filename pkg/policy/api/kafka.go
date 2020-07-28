@@ -227,6 +227,13 @@ var KafkaReverseAPIKeyMap = map[int16]string{
 	33: "alterconfigs",         /* AlterConfigs */
 }
 
+func KafkaApiKeyToString(apiKey int16) string {
+	if key, ok := KafkaReverseAPIKeyMap[apiKey]; ok {
+		return key
+	}
+	return fmt.Sprintf("%d", apiKey)
+}
+
 // KafkaRole is the list of all low-level apiKeys to
 // be expanded as per the value of Role
 type KafkaRole []int16

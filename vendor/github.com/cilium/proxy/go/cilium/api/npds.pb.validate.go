@@ -310,6 +310,8 @@ func (m *PortNetworkPolicyRule) Validate() error {
 		return nil
 	}
 
+	// no validation rules for Name
+
 	_PortNetworkPolicyRule_RemotePolicies_Unique := make(map[uint64]struct{}, len(m.GetRemotePolicies()))
 
 	for idx, item := range m.GetRemotePolicies() {
@@ -809,9 +811,14 @@ func (m *KafkaNetworkPolicyRule) Validate() error {
 		return nil
 	}
 
-	// no validation rules for ApiKey
-
 	// no validation rules for ApiVersion
+
+	if !_KafkaNetworkPolicyRule_ClientId_Pattern.MatchString(m.GetClientId()) {
+		return KafkaNetworkPolicyRuleValidationError{
+			field:  "ClientId",
+			reason: "value does not match regex pattern \"^[a-zA-Z0-9._-]*$\"",
+		}
+	}
 
 	if utf8.RuneCountInString(m.GetTopic()) > 255 {
 		return KafkaNetworkPolicyRuleValidationError{
@@ -823,13 +830,6 @@ func (m *KafkaNetworkPolicyRule) Validate() error {
 	if !_KafkaNetworkPolicyRule_Topic_Pattern.MatchString(m.GetTopic()) {
 		return KafkaNetworkPolicyRuleValidationError{
 			field:  "Topic",
-			reason: "value does not match regex pattern \"^[a-zA-Z0-9._-]*$\"",
-		}
-	}
-
-	if !_KafkaNetworkPolicyRule_ClientId_Pattern.MatchString(m.GetClientId()) {
-		return KafkaNetworkPolicyRuleValidationError{
-			field:  "ClientId",
 			reason: "value does not match regex pattern \"^[a-zA-Z0-9._-]*$\"",
 		}
 	}
@@ -893,9 +893,9 @@ var _ interface {
 	ErrorName() string
 } = KafkaNetworkPolicyRuleValidationError{}
 
-var _KafkaNetworkPolicyRule_Topic_Pattern = regexp.MustCompile("^[a-zA-Z0-9._-]*$")
-
 var _KafkaNetworkPolicyRule_ClientId_Pattern = regexp.MustCompile("^[a-zA-Z0-9._-]*$")
+
+var _KafkaNetworkPolicyRule_Topic_Pattern = regexp.MustCompile("^[a-zA-Z0-9._-]*$")
 
 // Validate checks the field values on L7NetworkPolicyRules with the rules
 // defined in the proto definition for this message. If any rules are
@@ -905,20 +905,28 @@ func (m *L7NetworkPolicyRules) Validate() error {
 		return nil
 	}
 
-	if len(m.GetL7Rules()) < 1 {
-		return L7NetworkPolicyRulesValidationError{
-			field:  "L7Rules",
-			reason: "value must contain at least 1 item(s)",
-		}
-	}
-
-	for idx, item := range m.GetL7Rules() {
+	for idx, item := range m.GetL7AllowRules() {
 		_, _ = idx, item
 
 		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
 			if err := v.Validate(); err != nil {
 				return L7NetworkPolicyRulesValidationError{
-					field:  fmt.Sprintf("L7Rules[%v]", idx),
+					field:  fmt.Sprintf("L7AllowRules[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
+
+	for idx, item := range m.GetL7DenyRules() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return L7NetworkPolicyRulesValidationError{
+					field:  fmt.Sprintf("L7DenyRules[%v]", idx),
 					reason: "embedded message failed validation",
 					cause:  err,
 				}
@@ -994,7 +1002,24 @@ func (m *L7NetworkPolicyRule) Validate() error {
 		return nil
 	}
 
+	// no validation rules for Name
+
 	// no validation rules for Rule
+
+	for idx, item := range m.GetMetadataRule() {
+		_, _ = idx, item
+
+		if v, ok := interface{}(item).(interface{ Validate() error }); ok {
+			if err := v.Validate(); err != nil {
+				return L7NetworkPolicyRuleValidationError{
+					field:  fmt.Sprintf("MetadataRule[%v]", idx),
+					reason: "embedded message failed validation",
+					cause:  err,
+				}
+			}
+		}
+
+	}
 
 	return nil
 }
