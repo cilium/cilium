@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,18 +12,20 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package api
+package kafka
 
 import (
 	"fmt"
+	"math"
 	"regexp"
+	"strconv"
 	"strings"
 )
 
-// PortRuleKafka is a list of Kafka protocol constraints. All fields are
+// PortRule is a list of Kafka protocol constraints. All fields are
 // optional, if all fields are empty or missing, the rule will match all
 // Kafka messages.
-type PortRuleKafka struct {
+type PortRule struct {
 	// Role is a case-insensitive string and describes a group of API keys
 	// necessary to perform certain higher-level Kafka operations such as "produce"
 	// or "consume". A Role automatically expands into all APIKeys required
@@ -92,18 +94,6 @@ type PortRuleKafka struct {
 	//
 	// +optional
 	Topic string `json:"topic,omitempty"`
-
-	// --------------------------------------------------------------------
-	// Private fields. These fields are used internally and are not exposed
-	// via the API.
-
-	// apiKeyInt is the integer representation of expanded Role. It is a
-	// list of all low-level apiKeys to
-	// be expanded as per the value of Role
-	apiKeyInt KafkaRole
-
-	// apiVersionInt is the integer representation of APIVersion
-	apiVersionInt *int16
 }
 
 // List of Kafka apiKeys which have a topic in their
@@ -147,10 +137,10 @@ const (
 	ConsumeRole = "consume"
 )
 
-// KafkaAPIKeyMap is the map of all allowed kafka API keys
+// APIKeyMap is the map of all allowed kafka API keys
 // with the key values.
 // Reference: https://kafka.apache.org/protocol#protocol_api_keys
-var KafkaAPIKeyMap = map[string]int16{
+var APIKeyMap = map[string]int16{
 	"produce":              0,  /* Produce */
 	"fetch":                1,  /* Fetch */
 	"offsets":              2,  /* Offsets */
@@ -187,10 +177,10 @@ var KafkaAPIKeyMap = map[string]int16{
 	"alterconfigs":         33, /* AlterConfigs */
 }
 
-// KafkaReverseApiKeyMap is the map of all allowed kafka API keys
+// ReverseApiKeyMap is the map of all allowed kafka API keys
 // with the key values.
 // Reference: https://kafka.apache.org/protocol#protocol_api_keys
-var KafkaReverseAPIKeyMap = map[int16]string{
+var ReverseAPIKeyMap = map[int16]string{
 	0:  "produce",              /* Produce */
 	1:  "fetch",                /* Fetch */
 	2:  "offsets",              /* Offsets */
@@ -227,58 +217,80 @@ var KafkaReverseAPIKeyMap = map[int16]string{
 	33: "alterconfigs",         /* AlterConfigs */
 }
 
-func KafkaApiKeyToString(apiKey int16) string {
-	if key, ok := KafkaReverseAPIKeyMap[apiKey]; ok {
+func ApiKeyToString(apiKey int16) string {
+	if key, ok := ReverseAPIKeyMap[apiKey]; ok {
 		return key
 	}
 	return fmt.Sprintf("%d", apiKey)
 }
 
-// KafkaRole is the list of all low-level apiKeys to
-// be expanded as per the value of Role
-type KafkaRole []int16
-
-// KafkaMaxTopicLen is the maximum character len of a topic.
+// MaxTopicLen is the maximum character len of a topic.
 // Older Kafka versions had longer topic lengths of 255, in Kafka 0.10 version
 // the length was changed from 255 to 249. For compatibility reasons we are
 // using 255
 const (
-	KafkaMaxTopicLen = 255
+	MaxTopicLen = 255
 )
 
-// KafkaTopicValidChar is a one-time regex generation of all allowed characters
+// TopicValidChar is a one-time regex generation of all allowed characters
 // in kafka topic name.
-var KafkaTopicValidChar = regexp.MustCompile(`^[a-zA-Z0-9\\._\\-]+$`)
+var TopicValidChar = regexp.MustCompile(`^[a-zA-Z0-9\\._\\-]+$`)
 
-// CheckAPIKeyRole checks the apiKey value in the request, and returns true if
-// it is allowed else false
-func (kr *PortRuleKafka) CheckAPIKeyRole(kind int16) bool {
-	// wildcard expression
-	if len(kr.apiKeyInt) == 0 {
-		return true
+// Sanitize sanitizes Kafka rules
+// TODO we need to add support to check
+// wildcard and prefix/suffix later on.
+func (kr *PortRule) Sanitize() error {
+	if (len(kr.APIKey) > 0) && (len(kr.Role) > 0) {
+		return fmt.Errorf("cannot set both Role %q and APIKey %q together", kr.Role, kr.APIKey)
 	}
 
-	// Check kind
-	for _, apiKey := range kr.apiKeyInt {
-		if apiKey == kind {
-			return true
+	if len(kr.APIKey) > 0 {
+		if _, ok := APIKeyMap[strings.ToLower(kr.APIKey)]; !ok {
+			return fmt.Errorf("invalid Kafka APIKey %q", kr.APIKey)
 		}
 	}
-	return false
-}
 
-// GetAPIVersion returns the APIVersion as integer or the bool set to true if
-// any API version is allowed
-func (kr *PortRuleKafka) GetAPIVersion() (int16, bool) {
-	if kr.apiVersionInt == nil {
-		return 0, true
+	if len(kr.Role) > 0 {
+		switch strings.ToLower(kr.Role) {
+		default:
+			return fmt.Errorf("invalid Kafka Role %q", kr.Role)
+		case ProduceRole:
+		case ConsumeRole:
+		}
 	}
 
-	return *kr.apiVersionInt, false
+	if len(kr.APIVersion) > 0 {
+		n, err := strconv.ParseInt(kr.APIVersion, 10, 16)
+		if err != nil || n < 0 || n > math.MaxInt16 {
+			return fmt.Errorf("invalid Kafka APIVersion %q", kr.APIVersion)
+		}
+	}
+
+	if len(kr.Topic) > 0 {
+		if len(kr.Topic) > MaxTopicLen {
+			return fmt.Errorf("kafka topic exceeds maximum len of %d", MaxTopicLen)
+		}
+		if TopicValidChar.MatchString(kr.Topic) == false {
+			return fmt.Errorf("invalid Kafka Topic name %q", kr.Topic)
+		}
+	}
+	return nil
 }
 
-// MapRoleToAPIKey maps the Role to the low level set of APIKeys for that role
-func (kr *PortRuleKafka) MapRoleToAPIKey() error {
+// GetAPIVersion() returns the numeric API version for the PortRule
+func (kr *PortRule) GetAPIVersion() int32 {
+	if kr.APIVersion != "" {
+		n, err := strconv.ParseInt(kr.APIVersion, 10, 16)
+		if err != nil || n < 0 || n > math.MaxInt16 {
+			panic(fmt.Sprintf("Unsanitized Kafka PortRule: %v", kr))
+		}
+		return int32(n)
+	}
+	return -1 // any version is allowed
+}
+
+// GetAPIKeys() returns a slice of numeric apikeys for the PortRule
+func (kr *PortRule) GetAPIKeys() []int32 {
 	// Expand the kr.apiKeyInt array based on the Role.
 	// For produce role, we need to add mandatory apiKeys produce, metadata and
 	// apiversions. While for consume, we need to add mandatory apiKeys like
@@ -287,14 +299,28 @@ func (kr *PortRuleKafka) MapRoleToAPIKey() error {
 	// leavegroup and syncgroup.
 	switch strings.ToLower(kr.Role) {
 	case ProduceRole:
-		kr.apiKeyInt = KafkaRole{ProduceKey, MetadataKey, APIVersionsKey}
-		return nil
+		return []int32{int32(ProduceKey), int32(MetadataKey), int32(APIVersionsKey)}
 	case ConsumeRole:
-		kr.apiKeyInt = KafkaRole{FetchKey, OffsetsKey, MetadataKey,
-			OffsetCommitKey, OffsetFetchKey, FindCoordinatorKey,
-			JoinGroupKey, HeartbeatKey, LeaveGroupKey, SyncgroupKey, APIVersionsKey}
-		return nil
+		return []int32{int32(FetchKey), int32(OffsetsKey), int32(MetadataKey),
+			int32(OffsetCommitKey), int32(OffsetFetchKey), int32(FindCoordinatorKey),
+			int32(JoinGroupKey), int32(HeartbeatKey), int32(LeaveGroupKey), int32(SyncgroupKey), int32(APIVersionsKey)}
 	default:
-		return fmt.Errorf("Invalid Kafka Role %s", kr.Role)
+		if kr.APIKey != "" {
+			if apiKey, ok := APIKeyMap[strings.ToLower(kr.APIKey)]; ok {
+				return []int32{int32(apiKey)}
+			}
+		}
 	}
+	return nil
+}
+
+// Exists returns true if the Kafka rule already exists in the list of rules
+func (k *PortRule) Exists(rules []PortRule) bool {
+	for _, existingRule := range rules {
+		if *k == existingRule {
+			return true
+		}
+	}
+
+	return false
 }

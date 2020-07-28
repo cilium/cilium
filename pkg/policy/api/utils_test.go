@@ -19,6 +19,8 @@ package api
 import (
 	"testing"
 
+	"github.com/cilium/cilium/pkg/policy/api/kafka"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -50,21 +52,21 @@ func (s *PolicyAPITestSuite) TestHTTPEqual(c *C) {
 }
 
 func (s *PolicyAPITestSuite) TestKafkaEqual(c *C) {
-	rule1 := PortRuleKafka{APIVersion: "1", APIKey: "foo", Topic: "topic1"}
-	rule2 := PortRuleKafka{APIVersion: "1", APIKey: "bar", Topic: "topic1"}
-	rule3 := PortRuleKafka{APIVersion: "1", APIKey: "foo", Topic: "topic2"}
+	rule1 := kafka.PortRule{APIVersion: "1", APIKey: "foo", Topic: "topic1"}
+	rule2 := kafka.PortRule{APIVersion: "1", APIKey: "bar", Topic: "topic1"}
+	rule3 := kafka.PortRule{APIVersion: "1", APIKey: "foo", Topic: "topic2"}
 
-	c.Assert(rule1.Equal(rule1), Equals, true)
-	c.Assert(rule1.Equal(rule2), Equals, false)
-	c.Assert(rule1.Equal(rule3), Equals, false)
+	c.Assert(rule1, Equals, rule1)
+	c.Assert(rule1, Not(Equals), rule2)
+	c.Assert(rule1, Not(Equals), rule3)
 
 	rules := L7Rules{
-		Kafka: []PortRuleKafka{rule1, rule2},
+		Kafka: []kafka.PortRule{rule1, rule2},
 	}
 
-	c.Assert(rule1.Exists(rules), Equals, true)
-	c.Assert(rule2.Exists(rules), Equals, true)
-	c.Assert(rule3.Exists(rules), Equals, false)
+	c.Assert(rule1.Exists(rules.Kafka), Equals, true)
+	c.Assert(rule2.Exists(rules.Kafka), Equals, true)
+	c.Assert(rule3.Exists(rules.Kafka), Equals, false)
 }
 
 func (s *PolicyAPITestSuite) TestL7Equal(c *C) {

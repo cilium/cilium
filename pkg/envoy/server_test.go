@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/kafka"
 
 	"github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
@@ -634,6 +635,60 @@ func (s *ServerSuite) TestGetNetworkPolicyL7(c *C) {
 		Name:                   IPv4Addr,
 		Policy:                 uint64(Identity),
 		IngressPerPortPolicies: ExpectedPerPortPoliciesL7,
+	}
+	c.Assert(obtained, checker.Equals, expected)
+}
+
+var L4PolicyKafka = &policy.L4Policy{
+	Ingress: map[string]*policy.L4Filter{
+		"9090/TCP": {
+			Port: 9092, Protocol: api.ProtoTCP,
+			L7Parser: "kafka",
+			L7RulesPerSelector: policy.L7DataMap{
+				cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{
+					Kafka: []kafka.PortRule{{
+						Role:  "consume",
+						Topic: "deathstar-plans",
+					}},
+				}},
+			},
+			Ingress: true,
+		},
+	},
+}
+
+var ExpectedPerPortPoliciesKafka = []*cilium.PortNetworkPolicy{
+	{
+		Port:     9092,
+		Protocol: envoy_config_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{{
+			RemotePolicies: []uint64{1001, 1002},
+			L7Proto:        "kafka",
+			L7: &cilium.PortNetworkPolicyRule_KafkaRules{
+				KafkaRules: &cilium.KafkaNetworkPolicyRules{
+					KafkaRules: []*cilium.KafkaNetworkPolicyRule{{
+						ApiVersion: -1,
+						ApiKeys: []int32{int32(kafka.FetchKey), int32(kafka.OffsetsKey),
+							int32(kafka.MetadataKey), int32(kafka.OffsetCommitKey),
+							int32(kafka.OffsetFetchKey), int32(kafka.FindCoordinatorKey),
+							int32(kafka.JoinGroupKey), int32(kafka.HeartbeatKey),
+							int32(kafka.LeaveGroupKey), int32(kafka.SyncgroupKey),
+							int32(kafka.APIVersionsKey)},
+						ClientId: "",
+						Topic:    "deathstar-plans",
+					}},
+				},
+			}},
+		},
+	},
+}
+
+func (s *ServerSuite) TestGetNetworkPolicyKafka(c *C) {
+	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4PolicyKafka, nil, true, true)
+	expected := &cilium.NetworkPolicy{
+		Name:                   IPv4Addr,
+		Policy:                 uint64(Identity),
+		IngressPerPortPolicies: ExpectedPerPortPoliciesKafka,
 	}
 	c.Assert(obtained, checker.Equals, expected)
 }

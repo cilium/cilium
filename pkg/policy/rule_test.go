@@ -27,6 +27,7 @@ import (
 	identity2 "github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/kafka"
 
 	. "gopkg.in/check.v1"
 )
@@ -467,7 +468,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 							{Port: "80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "foo"},
 							},
 						},
@@ -480,7 +481,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 							{Port: "80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "foo"},
 							},
 						},
@@ -491,7 +492,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	}
 
 	l7rules := api.L7Rules{
-		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+		Kafka: []kafka.PortRule{{Topic: "foo"}},
 	}
 	l7map := L7DataMap{
 		wildcardCachedSelector: &PerSelectorPolicy{
@@ -550,7 +551,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 							{Port: "80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "foo"},
 							},
 						},
@@ -563,7 +564,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 							{Port: "80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "bar"},
 							},
 						},
@@ -574,11 +575,11 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	}
 
 	fooRules := api.L7Rules{
-		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+		Kafka: []kafka.PortRule{{Topic: "foo"}},
 	}
 
 	barRules := api.L7Rules{
-		Kafka: []api.PortRuleKafka{{Topic: "bar"}},
+		Kafka: []kafka.PortRule{{Topic: "bar"}},
 	}
 
 	// The L3-dependent L7 rules are not merged together.
@@ -712,7 +713,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 							{Port: "9092", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "foo"},
 							},
 						},
@@ -725,7 +726,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 							{Port: "9092", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "foo"},
 							},
 						},
@@ -742,12 +743,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{Topic: "foo"}, {}},
+					Kafka: []kafka.PortRule{{Topic: "foo"}, {}},
 				},
 			},
 			cachedFooSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+					Kafka: []kafka.PortRule{{Topic: "foo"}},
 				},
 			},
 		},
@@ -791,7 +792,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 							{Port: "80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "foo"},
 							},
 						},
@@ -803,7 +804,7 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 							{Port: "80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "bar"},
 							},
 						},
@@ -814,10 +815,10 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	}
 
 	fooRules := api.L7Rules{
-		Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+		Kafka: []kafka.PortRule{{Topic: "foo"}},
 	}
 	barRules := api.L7Rules{
-		Kafka: []api.PortRuleKafka{{Topic: "bar"}},
+		Kafka: []kafka.PortRule{{Topic: "bar"}},
 	}
 
 	// The l3-dependent l7 rules are not merged together.

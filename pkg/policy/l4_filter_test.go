@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/policy/api/kafka"
 	"github.com/cilium/cilium/pkg/testutils/allocator"
 	"github.com/cilium/proxy/go/cilium/api"
 
@@ -424,7 +425,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 							{Port: "9092", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "foo"},
 							},
 						},
@@ -437,7 +438,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 							{Port: "9092", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "foo"},
 							},
 						},
@@ -460,7 +461,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndRestrictedL7Kafka(c *C
 		L7RulesPerSelector: L7DataMap{
 			wildcardCachedSelector: &PerSelectorPolicy{
 				L7Rules: api.L7Rules{
-					Kafka: []api.PortRuleKafka{{Topic: "foo"}},
+					Kafka: []kafka.PortRule{{Topic: "foo"}},
 				},
 			},
 		},
@@ -502,7 +503,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 							{Port: "80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "foo"},
 							},
 						},
@@ -559,7 +560,7 @@ func (ds *PolicyTestSuite) TestMergeIdenticalAllowAllL3AndMismatchingParsers(c *
 							{Port: "80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "foo"},
 							},
 						},
@@ -1220,7 +1221,7 @@ func (ds *PolicyTestSuite) TestL3SelectingEndpointAndL3AllowAllMergeConflictingL
 							{Port: "80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "foo"},
 							},
 						},
@@ -1284,7 +1285,7 @@ func (ds *PolicyTestSuite) TestL3SelectingEndpointAndL3AllowAllMergeConflictingL
 							{Port: "80", Protocol: api.ProtoTCP},
 						},
 						Rules: &api.L7Rules{
-							Kafka: []api.PortRuleKafka{
+							Kafka: []kafka.PortRule{
 								{Topic: "foo"},
 							},
 						},
