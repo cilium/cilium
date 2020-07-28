@@ -438,17 +438,6 @@ func (e *Endpoint) policyStatus() models.EndpointPolicyEnabled {
 	return policyEnabled
 }
 
-// ValidPatchTransitionState checks whether the state to which the provided
-// model specifies is one to which an Endpoint can transition as part of a
-// call to PATCH on an Endpoint.
-func ValidPatchTransitionState(state models.EndpointState) bool {
-	switch string(state) {
-	case "", StateWaitingForIdentity, StateReady:
-		return true
-	}
-	return false
-}
-
 // ProcessChangeRequest handles the update logic for performing a PATCH operation
 // on a given Endpoint. Returns the reason which will be used for informational
 // purposes should a caller choose to try to regenerate this endpoint, as well
