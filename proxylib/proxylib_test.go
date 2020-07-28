@@ -324,7 +324,7 @@ func TestUnsupportedL7DropsGeneric(t *testing.T) {
 		    remote_policies: 4
 		    l7_proto: "this-parser-does-not-exist"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 		        rule: <
 		          key: "prefix"
 		          value: "Beginning"
@@ -414,13 +414,13 @@ func TestTwoRulesOnSamePortFirstNoL7Generic(t *testing.T) {
 		    remote_policies: 4
 		    l7_proto: "test.headerparser"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 		        rule: <
 		          key: "prefix"
 		          value: "Beginning"
 		        >
 		      >
-		      l7_rules: <
+		      l7_allow_rules: <
 		        rule: <
 		          key: "suffix"
 		          value: "End"
@@ -470,13 +470,13 @@ func TestTwoRulesOnSamePortMismatchingL7(t *testing.T) {
 		    remote_policies: 4
 		    l7_proto: "test.headerparser"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 		        rule: <
 		          key: "prefix"
 		          value: "Beginning"
 		        >
 		      >
-		      l7_rules: <
+		      l7_allow_rules: <
 		        rule: <
 		          key: "suffix"
 		          value: "End"
@@ -515,13 +515,13 @@ func TestSimplePolicy(t *testing.T) {
 		    remote_policies: 4
 		    l7_proto: "test.headerparser"
 		    l7_rules: <
-		      l7_rules: <
+		      l7_allow_rules: <
 		        rule: <
 		          key: "prefix"
 		          value: "Beginning"
 		        >
 		      >
-		      l7_rules: <
+		      l7_allow_rules: <
 		        rule: <
 		          key: "suffix"
 		          value: "End"
@@ -571,7 +571,7 @@ func TestAllowAllPolicy(t *testing.T) {
 		  rules: <
 		    l7_proto: "test.headerparser"
 		    l7_rules: <
-		      l7_rules: <>
+		      l7_allow_rules: <>
 		    >
 		  >
 		>
@@ -669,7 +669,7 @@ func TestAllowAllPolicyL3Egress(t *testing.T) {
 		    remote_policies: 2
 		    l7_proto: "test.headerparser"
 		    l7_rules: <
-		      l7_rules: <>
+		      l7_allow_rules: <>
 		    >
 		  >
 		>

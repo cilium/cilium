@@ -211,7 +211,7 @@ func (connection *Connection) IsInjectBufFull(reply bool) bool {
 	return len(*buf) == cap(*buf)
 }
 
-func (conn *Connection) Log(entryType cilium.EntryType, l7 *cilium.LogEntry_GenericL7) {
+func (conn *Connection) Log(entryType cilium.EntryType, l7 cilium.IsLogEntry_L7) {
 	pblog := &cilium.LogEntry{
 		Timestamp:             uint64(time.Now().UnixNano()),
 		IsIngress:             conn.Ingress,

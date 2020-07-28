@@ -828,7 +828,7 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7Parse
 			r.L7Proto = l7Parser.String()
 			r.L7 = &cilium.PortNetworkPolicyRule_L7Rules{
 				L7Rules: &cilium.L7NetworkPolicyRules{
-					L7Rules: kvpRules,
+					L7AllowRules: kvpRules,
 				},
 			}
 		}

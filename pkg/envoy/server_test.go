@@ -614,7 +614,7 @@ var ExpectedPerPortPoliciesL7 = []*cilium.PortNetworkPolicy{
 			L7Proto:        "tester",
 			L7: &cilium.PortNetworkPolicyRule_L7Rules{
 				L7Rules: &cilium.L7NetworkPolicyRules{
-					L7Rules: []*cilium.L7NetworkPolicyRule{
+					L7AllowRules: []*cilium.L7NetworkPolicyRule{
 						{Rule: map[string]string{
 							"method": "PUT",
 							"path":   "/"}},
