@@ -1,13 +1,26 @@
 [{
 	"endpointSelector": {"matchLabels":{"id.kafka":""}},
-	"ingress": [
-		{"fromEndpoints": [
-			{"matchLabels": {"id.kafka": ""}
-			}]
-		},
-		{"fromEndpoints": [
+	"ingress": [{
+		"fromEndpoints": [
+			{"matchLabels": {"id.kafka": ""}}
+		]
+	}, {
+		"fromEndpoints": [
 			{"matchLabels":{"reserved:host":""}},
 			{"matchLabels":{"id.client":""}}
+		],
+		"toPorts": [{
+			"ports": [{"port": "9092", "protocol": "tcp"}],
+			"rules": {
+				"kafka": [{}]
+			}
+		}]
+	}]
+}, {
+	"endpointSelector": {"matchLabels":{"id.client":""}},
+	"egress": [{
+		"toEndpoints": [
+			{"matchLabels": {"id.kafka": ""}}
 		],
 		"toPorts": [{
 			"ports": [{"port": "9092", "protocol": "tcp"}],
@@ -20,4 +33,3 @@
 		}]
 	}]
 }]
-
