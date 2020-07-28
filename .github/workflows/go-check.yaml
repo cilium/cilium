@@ -32,6 +32,23 @@ jobs:
         with:
           version: v1.27
 
+  precheck:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Install Go
+        uses: actions/setup-go@v1
+        with:
+          go-version: 1.14.6
+      - name: Checkout code
+        uses: actions/checkout@v2
+        with:
+          # hard-code the path instead of using ${{ github.repository }} to make sure it works for forked repo as well
+          path: src/github.com/cilium/cilium
+      - name: Go code prechecks
+        run: |
+          cd src/github.com/cilium/cilium
+          make precheck
+
   generate-api:
     runs-on: ubuntu-latest
     steps:
