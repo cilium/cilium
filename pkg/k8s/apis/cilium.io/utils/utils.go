@@ -264,7 +264,9 @@ func ParseToCiliumRule(namespace, name string, uid types.UID, r *api.Rule) *api.
 	}
 
 	retRule.Ingress = parseToCiliumIngressRule(namespace, r.EndpointSelector, r.Ingress)
+	retRule.IngressDeny = parseToCiliumIngressRule(namespace, r.EndpointSelector, r.IngressDeny)
 	retRule.Egress = parseToCiliumEgressRule(namespace, r.EndpointSelector, r.Egress)
+	retRule.EgressDeny = parseToCiliumEgressRule(namespace, r.EndpointSelector, r.EgressDeny)
 
 	retRule.Labels = ParseToCiliumLabels(namespace, name, uid, r.Labels)
 

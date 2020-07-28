@@ -605,8 +605,22 @@ func (in *Rule) DeepCopyInto(out *Rule) {
 			(*in)[i].DeepCopyInto(&(*out)[i])
 		}
 	}
+	if in.IngressDeny != nil {
+		in, out := &in.IngressDeny, &out.IngressDeny
+		*out = make([]IngressRule, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
 	if in.Egress != nil {
 		in, out := &in.Egress, &out.Egress
+		*out = make([]EgressRule, len(*in))
+		for i := range *in {
+			(*in)[i].DeepCopyInto(&(*out)[i])
+		}
+	}
+	if in.EgressDeny != nil {
+		in, out := &in.EgressDeny, &out.EgressDeny
 		*out = make([]EgressRule, len(*in))
 		for i := range *in {
 			(*in)[i].DeepCopyInto(&(*out)[i])

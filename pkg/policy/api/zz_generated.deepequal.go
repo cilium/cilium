@@ -855,8 +855,42 @@ func (in *Rule) deepEqual(other *Rule) bool {
 		}
 	}
 
+	if ((in.IngressDeny != nil) && (other.IngressDeny != nil)) || ((in.IngressDeny == nil) != (other.IngressDeny == nil)) {
+		in, other := &in.IngressDeny, &other.IngressDeny
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
 	if ((in.Egress != nil) && (other.Egress != nil)) || ((in.Egress == nil) != (other.Egress == nil)) {
 		in, other := &in.Egress, &other.Egress
+		if other == nil {
+			return false
+		}
+
+		if len(*in) != len(*other) {
+			return false
+		} else {
+			for i, inElement := range *in {
+				if !inElement.DeepEqual(&(*other)[i]) {
+					return false
+				}
+			}
+		}
+	}
+
+	if ((in.EgressDeny != nil) && (other.EgressDeny != nil)) || ((in.EgressDeny == nil) != (other.EgressDeny == nil)) {
+		in, other := &in.EgressDeny, &other.EgressDeny
 		if other == nil {
 			return false
 		}
