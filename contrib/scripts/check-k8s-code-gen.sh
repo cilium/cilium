@@ -3,6 +3,11 @@
 set -e
 set -o pipefail
 
+if [[ ! -d "${GOPATH}" ]]; then
+  echo "Please set a valid GOPATH"
+  exit 1
+fi
+
 # Delete all zz_generated.deepcopy.go files
 find . -not -path "./vendor/*" -not -path "./_build/*" -iname "*zz_generated.deepcopy.go" -exec rm  {} \;
 # Delete all zz_generated.deepequal.go files
