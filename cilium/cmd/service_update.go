@@ -28,7 +28,6 @@ import (
 )
 
 var (
-	deprecatedAddRev   bool // TODO(v1.8+): remove it
 	k8sExternalIPs     bool
 	k8sNodePort        bool
 	k8sHostPort        bool
@@ -58,8 +57,6 @@ func init() {
 	serviceUpdateCmd.Flags().BoolVarP(&k8sHostPort, "k8s-host-port", "", false, "Set service as a k8s HostPort")
 	serviceUpdateCmd.Flags().StringVarP(&k8sTrafficPolicy, "k8s-traffic-policy", "", "Cluster", "Set service with k8s externalTrafficPolicy as {Local,Cluster}")
 	serviceUpdateCmd.Flags().BoolVarP(&k8sClusterInternal, "k8s-cluster-internal", "", false, "Set service as cluster-internal for externalTrafficPolicy=Local")
-	serviceUpdateCmd.Flags().BoolVarP(&deprecatedAddRev, "rev", "", false, "Add reverse translation")
-	serviceUpdateCmd.Flags().MarkDeprecated("rev", "and it is inactive")
 	serviceUpdateCmd.Flags().StringVarP(&frontend, "frontend", "", "", "Frontend address")
 	serviceUpdateCmd.Flags().StringSliceVarP(&backends, "backends", "", []string{}, "Backend address or addresses (<IP:Port>)")
 }
