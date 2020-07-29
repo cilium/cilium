@@ -20,7 +20,7 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	relaypb "github.com/cilium/cilium/api/v1/relay"
-	"github.com/cilium/cilium/pkg/hubble/relay/pool"
+	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
@@ -38,7 +38,7 @@ const numUnavailableNodesReportMax = 10
 type PeerLister interface {
 	// List returns a list of peers with active connections. If a peer cannot
 	// be connected to; its Conn attribute must be nil.
-	List() []pool.Peer
+	List() []poolTypes.Peer
 }
 
 // PeerReporter is the interface that wraps the ReportOffline method.

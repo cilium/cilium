@@ -16,38 +16,12 @@ package pool
 
 import (
 	"context"
-	"io"
 	"time"
 
+	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
+
 	"google.golang.org/grpc"
-	"google.golang.org/grpc/connectivity"
 )
-
-// ClientConn is an interface that defines the functions clients need to
-// perform unary and streaming RPCs. It is implemented by *grpc.ClientConn.
-type ClientConn interface {
-	// GetState returns the connectivity.State of ClientConn.
-	GetState() connectivity.State
-	io.Closer
-
-	// TODO: compose with grpc.ClientConnInterface once
-	// "google.golang.org/grpc" is bumped to v1.27+ and remove the following
-	// two methods (which are part of grpc.ClientConnInterface).
-
-	// Invoke performs a unary RPC and returns after the response is received
-	// into reply.
-	Invoke(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error
-	// NewStream begins a streaming RPC.
-	NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error)
-}
-
-var _ ClientConn = (*grpc.ClientConn)(nil)
-
-// ClientConnBuilder wraps the ClientConn method.
-type ClientConnBuilder interface {
-	// ClientConn creates a new ClientConn using target.
-	ClientConn(target string) (ClientConn, error)
-}
 
 // GRPCClientConnBuilder is a generic ClientConnBuilder implementation.
 type GRPCClientConnBuilder struct {
@@ -60,7 +34,7 @@ type GRPCClientConnBuilder struct {
 }
 
 // ClientConn implements ClientConnBuilder.ClientConn.
-func (b GRPCClientConnBuilder) ClientConn(target string) (ClientConn, error) {
+func (b GRPCClientConnBuilder) ClientConn(target string) (poolTypes.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), b.DialTimeout)
 	defer cancel()
 	return grpc.DialContext(ctx, target, b.Options...)
