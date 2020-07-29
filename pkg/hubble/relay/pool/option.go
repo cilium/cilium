@@ -20,6 +20,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
+	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
@@ -57,7 +58,7 @@ type Option func(o *options) error
 type options struct {
 	peerServiceAddress string
 	peerClientBuilder  peerTypes.ClientBuilder
-	clientConnBuilder  ClientConnBuilder
+	clientConnBuilder  poolTypes.ClientConnBuilder
 	backoff            BackoffDuration
 	connCheckInterval  time.Duration
 	retryTimeout       time.Duration
@@ -83,7 +84,7 @@ func WithPeerClientBuilder(b peerTypes.ClientBuilder) Option {
 
 // WithClientConnBuilder sets the GRPCClientConnBuilder that is used to create
 // new gRPC connections to peers.
-func WithClientConnBuilder(b ClientConnBuilder) Option {
+func WithClientConnBuilder(b poolTypes.ClientConnBuilder) Option {
 	return func(o *options) error {
 		o.clientConnBuilder = b
 		return nil
