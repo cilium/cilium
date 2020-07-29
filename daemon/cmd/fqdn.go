@@ -30,6 +30,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/policy"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn"
 	"github.com/cilium/cilium/pkg/fqdn/dnsproxy"
@@ -136,7 +137,7 @@ func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[pol
 // dnsNameManager and DNSPoller will use the default resolver and, implicitly, the
 // default DNS cache. The proxy binds to all interfaces, and uses the
 // configured DNS proxy port (this may be 0 and so OS-assigned).
-func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCachePath string) (err error) {
+func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) (err error) {
 	cfg := fqdn.Config{
 		MinTTL:               option.Config.ToFQDNsMinTTL,
 		OverLimit:            option.Config.ToFQDNsMaxIPsPerHost,
@@ -263,20 +264,20 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	// restoring after a long delay).
 	globalCache := d.dnsNameManager.GetDNSCache()
 	now := time.Now()
-	for _, restoredEP := range restoredEndpoints.restored {
+	for _, possibleEP := range possibleEndpoints {
 		// Upgrades from old ciliums have this nil
-		if restoredEP.DNSHistory != nil {
-			globalCache.UpdateFromCache(restoredEP.DNSHistory, []string{})
+		if possibleEP.DNSHistory != nil {
+			globalCache.UpdateFromCache(possibleEP.DNSHistory, []string{})
 
 			// GC any connections that have expired, but propagate it to the zombies
 			// list. DNSCache.GC can handle a nil DNSZombies parameter. We use the
 			// actual now time because we are checkpointing at restore time.
-			restoredEP.DNSHistory.GC(now, restoredEP.DNSZombies)
+			possibleEP.DNSHistory.GC(now, possibleEP.DNSZombies)
 		}
 
-		if restoredEP.DNSZombies != nil {
+		if possibleEP.DNSZombies != nil {
 			lookupTime := time.Now()
-			alive, _ := restoredEP.DNSZombies.GC()
+			alive, _ := possibleEP.DNSZombies.GC()
 			for _, zombie := range alive {
 				for _, name := range zombie.Names {
 					globalCache.Update(lookupTime, name, []net.IP{zombie.IP}, int(2*dnsGCJobInterval.Seconds()))
@@ -297,6 +298,9 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	port, listenerName, err := proxy.GetProxyPort(policy.ParserTypeDNS, false)
 	if option.Config.ToFQDNsProxyPort != 0 {
 		port = uint16(option.Config.ToFQDNsProxyPort)
+	} else if port == 0 {
+		// Try locate old DNS proxy port number from the datapath
+		port = iptables.GetProxyPort(listenerName)
 	}
 	if err != nil {
 		return err
@@ -305,10 +309,23 @@ func (d *Daemon) bootstrapFQDN(restoredEndpoints *endpointRestoreState, preCache
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
 		err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
-
+		if err == nil && port == proxy.DefaultDNSProxy.BindPort {
+			log.Infof("Reusing previous DNS proxy port: %d", port)
+		}
 		proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
 	}
 	return err // filled by StartDNSProxy
+}
+
+// updateFQDNrules updates the DNS proxy iptables rules. Must be
+// called after iptables has been initailized, and only after
+// successful bootstrapFQDN().
+func (d *Daemon) updateFQDNrules() error {
+	_, listenerName, err := proxy.GetProxyPort(policy.ParserTypeDNS, false)
+	if err != nil {
+		return err
+	}
+	return d.l7Proxy.AckProxyPort(listenerName)
 }
 
 // updateSelectors propagates the mapping of FQDNSelector to identity, as well

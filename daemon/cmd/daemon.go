@@ -404,6 +404,45 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	treatRemoteNodeAsHost := option.Config.AlwaysAllowLocalhost() && !option.Config.EnableRemoteNodeIdentity
 	policyApi.InitEntities(option.Config.ClusterName, treatRemoteNodeAsHost)
 
+	// Start the proxy before we restore endpoints so that we can inject the
+	// daemon's proxy into each endpoint.
+	bootstrapStats.proxyStart.Start()
+	// FIXME: Make the port range configurable.
+	if option.Config.EnableL7Proxy {
+		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
+			&d, option.Config.AgentLabels, d.datapath, d.endpointManager)
+	} else {
+		log.Info("L7 proxies are disabled")
+	}
+	bootstrapStats.proxyStart.End(true)
+
+	bootstrapStats.cleanup.Start()
+	err = clearCiliumVeths()
+	bootstrapStats.cleanup.EndError(err)
+	if err != nil {
+		log.WithError(err).Warning("Unable to clean stale endpoint interfaces")
+	}
+
+	bootstrapStats.restore.Start()
+	// fetch old endpoints before k8s is configured.
+	restoredEndpoints, err := d.fetchOldEndpoints(option.Config.StateDir)
+	if err != nil {
+		log.WithError(err).Error("Unable to read existing endpoints")
+	}
+	bootstrapStats.restore.End(true)
+
+	bootstrapStats.fqdn.Start()
+	if err := fqdn.ConfigFromResolvConf(); err != nil {
+		bootstrapStats.fqdn.EndError(err)
+		return nil, restoredEndpoints, err
+	}
+	err = d.bootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
+	if err != nil {
+		bootstrapStats.fqdn.EndError(err)
+		return nil, restoredEndpoints, err
+	}
+	bootstrapStats.fqdn.End(true)
+
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 		if err := k8s.RegisterCRDs(); err != nil {
@@ -486,32 +525,14 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 
 	d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem()
 
-	bootstrapStats.cleanup.Start()
-	err = clearCiliumVeths()
-	bootstrapStats.cleanup.EndError(err)
-	if err != nil {
-		log.WithError(err).Warning("Unable to clean stale endpoint interfaces")
-	}
-
 	d.bootstrapIPAM()
-
-	// Start the proxy before we restore endpoints so that we can inject the
-	// daemon's proxy into each endpoint.
-	bootstrapStats.proxyStart.Start()
-	// FIXME: Make the port range configurable.
-	if option.Config.EnableL7Proxy {
-		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-			&d, option.Config.AgentLabels, d.datapath, d.endpointManager)
-	} else {
-		log.Info("L7 proxies are disabled")
-	}
-	bootstrapStats.proxyStart.End(true)
 
 	bootstrapStats.restore.Start()
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
-	restoredEndpoints, err := d.restoreOldEndpoints(option.Config.StateDir, true)
+	// Has to be performed after k8s setup above
+	err = d.restoreOldEndpoints(restoredEndpoints, true)
 	if err != nil {
 		log.WithError(err).Error("Unable to restore existing endpoints")
 	}
@@ -576,6 +597,10 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		log.WithError(err).Error("Error while initializing daemon")
 		return nil, restoredEndpoints, err
 	}
+	err = d.updateFQDNrules()
+	if err != nil {
+		return nil, restoredEndpoints, err
+	}
 
 	// We can only start monitor agent once cilium_event has been set up.
 	if option.Config.RunMonitorAgent {
@@ -618,19 +643,6 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	// we populate the IPCache with the host's IP(s).
 	ipcache.InitIPIdentityWatcher()
 	identitymanager.Subscribe(d.policy)
-
-	bootstrapStats.fqdn.Start()
-	if err := fqdn.ConfigFromResolvConf(); err != nil {
-		bootstrapStats.fqdn.EndError(err)
-		return nil, nil, err
-	}
-
-	err = d.bootstrapFQDN(restoredEndpoints, option.Config.ToFQDNsPreCache)
-	if err != nil {
-		bootstrapStats.fqdn.EndError(err)
-		return nil, restoredEndpoints, err
-	}
-	bootstrapStats.fqdn.End(true)
 
 	return &d, restoredEndpoints, nil
 }

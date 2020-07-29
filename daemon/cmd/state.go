@@ -38,6 +38,7 @@ import (
 )
 
 type endpointRestoreState struct {
+	possible map[uint16]*endpoint.Endpoint
 	restored []*endpoint.Endpoint
 	toClean  []*endpoint.Endpoint
 }
@@ -90,6 +91,39 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 	return true, nil
 }
 
+// fetchOldEndpoints reads the list of existing endpoints previously managed by Cilium when it was
+// last run and associated it with container workloads. This function performs the first step in
+// restoring the endpoint structure.  It needs to be followed by a call to restoreOldEndpoints()
+// once k8s has been initialized and regenerateRestoredEndpoints() once the endpoint builder is
+// ready.
+func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
+	state := &endpointRestoreState{
+		possible: nil,
+		restored: []*endpoint.Endpoint{},
+		toClean:  []*endpoint.Endpoint{},
+	}
+
+	if !option.Config.RestoreState {
+		log.Info("Endpoint restore is disabled, skipping restore step")
+		return state, nil
+	}
+
+	log.Info("Reading old endpoints...")
+
+	dirFiles, err := ioutil.ReadDir(dir)
+	if err != nil {
+		return state, err
+	}
+	eptsID := endpoint.FilterEPDir(dirFiles)
+
+	state.possible = endpoint.ReadEPsFromDirNames(d.ctx, d, dir, eptsID)
+
+	if len(state.possible) == 0 {
+		log.Info("No old endpoints found.")
+	}
+	return state, nil
+}
+
 // restoreOldEndpoints reads the list of existing endpoints previously managed by
 // Cilium when it was last run and associated it with container workloads. This
 // function performs the first step in restoring the endpoint structure,
@@ -99,16 +133,15 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 //
 // If clean is true, endpoints which cannot be associated with a container
 // workloads are deleted.
-func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreState, error) {
+func (d *Daemon) restoreOldEndpoints(state *endpointRestoreState, clean bool) error {
 	failed := 0
-	state := &endpointRestoreState{
-		restored: []*endpoint.Endpoint{},
-		toClean:  []*endpoint.Endpoint{},
-	}
+	defer func() {
+		state.possible = nil
+	}()
 
 	if !option.Config.RestoreState {
 		log.Info("Endpoint restore is disabled, skipping restore step")
-		return state, nil
+		return nil
 	}
 
 	log.Info("Restoring endpoints...")
@@ -125,20 +158,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		}
 	}
 
-	dirFiles, err := ioutil.ReadDir(dir)
-	if err != nil {
-		return state, err
-	}
-	eptsID := endpoint.FilterEPDir(dirFiles)
-
-	possibleEPs := endpoint.ReadEPsFromDirNames(d.ctx, d, dir, eptsID)
-
-	if len(possibleEPs) == 0 {
-		log.Info("No old endpoints found.")
-		return state, nil
-	}
-
-	for _, ep := range possibleEPs {
+	for _, ep := range state.possible {
 		scopedLog := log.WithField(logfields.EndpointID, ep.ID)
 		if k8s.IsEnabled() {
 			scopedLog = scopedLog.WithField("k8sPodName", ep.GetK8sNamespaceAndPodName())
@@ -202,7 +222,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		}
 	}
 
-	return state, nil
+	return nil
 }
 
 func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (restoreComplete chan struct{}) {
