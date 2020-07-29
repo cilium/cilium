@@ -13,23 +13,22 @@ service load-balancing and various network policy combinations. The pod name
 indicates the connectivity variant and the readiness and liveness gate
 indicates success or failure of the test:
 
-.. code:: bash
+.. code:: shell-session
 
-    NAME                                                    READY   STATUS    RESTARTS   AGE
-    echo-a-5995597649-f5d5g                                 1/1     Running   0          4m51s
-    echo-b-54c9bb5f5c-p6lxf                                 1/1     Running   0          4m50s
-    echo-b-host-67446447f7-chvsp                            1/1     Running   0          4m50s
-    host-to-b-multi-node-clusterip-78f9869d75-l8cf8         1/1     Running   0          4m50s
-    host-to-b-multi-node-headless-798949bd5f-vvfff          1/1     Running   0          4m50s
-    pod-to-a-59b5fcb7f6-gq4hd                               1/1     Running   0          4m50s
-    pod-to-a-allowed-cnp-55f885bf8b-5lxzz                   1/1     Running   0          4m50s
-    pod-to-a-external-1111-7ff666fd8-v5kqb                  1/1     Running   0          4m48s
-    pod-to-a-l3-denied-cnp-64c6c75c5d-xmqhw                 1/1     Running   0          4m50s
-    pod-to-b-intra-node-845f955cdc-5nfrt                    1/1     Running   0          4m49s
-    pod-to-b-multi-node-clusterip-666594b445-bsn4j          1/1     Running   0          4m49s
-    pod-to-b-multi-node-headless-746f84dff5-prk4w           1/1     Running   0          4m49s
-    pod-to-b-multi-node-nodeport-7cb9c6cb8b-ksm4h           1/1     Running   0          4m49s
-    pod-to-external-fqdn-allow-google-cnp-b7b6bcdcb-tg9dh   1/1     Running   0          4m48s
+   $ kubectl get pods -n cilium-test
+   NAME                                                    READY   STATUS    RESTARTS   AGE
+   echo-a-6788c799fd-42qxx                                 1/1     Running   0          69s
+   echo-b-59757679d4-pjtdl                                 1/1     Running   0          69s
+   echo-b-host-f86bd784d-wnh4v                             1/1     Running   0          68s
+   host-to-b-multi-node-clusterip-585db65b4d-x74nz         1/1     Running   0          68s
+   host-to-b-multi-node-headless-77c64bc7d8-kgf8p          1/1     Running   0          67s
+   pod-to-a-allowed-cnp-87b5895c8-bfw4x                    1/1     Running   0          68s
+   pod-to-a-b76ddb6b4-2v4kb                                1/1     Running   0          68s
+   pod-to-a-denied-cnp-677d9f567b-kkjp4                    1/1     Running   0          68s
+   pod-to-b-multi-node-clusterip-f7655dbc8-h5bwk           1/1     Running   0          68s
+   pod-to-b-multi-node-headless-5fd98b9648-5bjj8           1/1     Running   0          68s
+   pod-to-external-1111-7489c7c46d-jhtkr                   1/1     Running   0          68s
+   pod-to-external-fqdn-allow-google-cnp-b7b6bcdcb-97p75   1/1     Running   0          68s
 
 .. note::
 
