@@ -72,4 +72,8 @@ type IptablesManager interface {
 	InstallRules(ifName string) error
 	TransientRulesStart(ifName string) error
 	TransientRulesEnd(quiet bool)
+
+	// GetProxyPort fetches the existing proxy port configured for the
+	// specified listener. Used early in bootstrap to reopen proxy ports.
+	GetProxyPort(listener string) uint16
 }
