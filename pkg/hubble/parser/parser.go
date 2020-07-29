@@ -17,12 +17,15 @@ package parser
 import (
 	pb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
 	"github.com/cilium/cilium/pkg/hubble/parser/seven"
 	"github.com/cilium/cilium/pkg/hubble/parser/threefour"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/proxy/accesslog"
+	"github.com/golang/protobuf/ptypes"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/sirupsen/logrus"
@@ -61,52 +64,74 @@ func New(
 	}, nil
 }
 
+func lostEventSourceToProto(source int) pb.LostEventSource {
+	switch source {
+	case observerTypes.LostEventSourcePerfRingBuffer:
+		return pb.LostEventSource_PERF_EVENT_RING_BUFFER
+	case observerTypes.LostEventSourceEventsQueue:
+		return pb.LostEventSource_OBSERVER_EVENTS_QUEUE
+	default:
+		return pb.LostEventSource_UNKNOWN_LOST_EVENT_SOURCE
+	}
+}
+
 // Decode decodes a cilium monitor 'payload' and returns a v1.Event with
 // the Event field populated.
-func (p *Parser) Decode(payload *pb.Payload) (*v1.Event, error) {
-	if payload == nil {
+func (p *Parser) Decode(monitorEvent *observerTypes.MonitorEvent) (*v1.Event, error) {
+	if monitorEvent == nil {
 		return nil, errors.ErrEmptyData
 	}
 
 	// TODO: Pool decoded flows instead of allocating new objects each time.
+	ts, _ := ptypes.TimestampProto(monitorEvent.Timestamp)
 	ev := &v1.Event{
-		Timestamp: payload.Time,
+		Timestamp: ts,
 	}
 
-	switch payload.Type {
-	case pb.EventType_EventSample:
-		if len(payload.Data) == 0 {
-			return nil, errors.ErrEmptyData
+	switch payload := monitorEvent.Payload.(type) {
+	case *observerTypes.PerfEvent:
+		flow := &pb.Flow{}
+		if err := p.l34.Decode(payload.Data, flow); err != nil {
+			return nil, err
 		}
-		eventType := payload.Data[0]
-		switch eventType {
-		case monitorAPI.MessageTypeDrop,
-			monitorAPI.MessageTypeTrace,
-			monitorAPI.MessageTypePolicyVerdict:
-			ev.Event = &pb.Flow{}
-			if err := p.l34.Decode(payload, ev.Event.(*pb.Flow)); err != nil {
-				return nil, err
-			}
-			return ev, nil
+		// FIXME: Time and NodeName are now part of GetFlowsResponse. We
+		// populate these fields for compatibility with old clients.
+		flow.Time = ts
+		flow.NodeName = monitorEvent.NodeName
+		ev.Event = flow
+		return ev, nil
+	case *observerTypes.AgentEvent:
+		switch payload.Type {
 		case monitorAPI.MessageTypeAccessLog:
-			ev.Event = &pb.Flow{}
-			if err := p.l7.Decode(payload, ev.Event.(*pb.Flow)); err != nil {
+			flow := &pb.Flow{}
+			logrecord, ok := payload.Message.(accesslog.LogRecord)
+			if !ok {
+				return nil, errors.ErrInvalidAgentMessageType
+			}
+			if err := p.l7.Decode(&logrecord, flow); err != nil {
 				return nil, err
 			}
+			// FIXME: Time and NodeName are now part of GetFlowsResponse. We
+			// populate these fields for compatibility with old clients.
+			flow.Time = ts
+			flow.NodeName = monitorEvent.NodeName
+			ev.Event = flow
 			return ev, nil
 		default:
-			return nil, errors.NewErrInvalidType(eventType)
+			return nil, errors.ErrUnknownEventType
 		}
-	case pb.EventType_RecordLost:
+	case *observerTypes.LostEvent:
 		ev.Event = &pb.LostEvent{
-			Source:        pb.LostEventSource_PERF_EVENT_RING_BUFFER,
-			NumEventsLost: payload.Lost,
+			Source:        lostEventSourceToProto(payload.Source),
+			NumEventsLost: payload.NumLostEvents,
 			Cpu: &wrappers.Int32Value{
-				Value: payload.CPU,
+				Value: int32(payload.CPU),
 			},
 		}
 		return ev, nil
+	case nil:
+		return ev, errors.ErrEmptyData
 	default:
-		return nil, errors.ErrUnknownPerfEvent
+		return nil, errors.ErrUnknownEventType
 	}
 }

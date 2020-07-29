@@ -25,8 +25,8 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/cilium/cilium/pkg/hubble/listener"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
+	"github.com/cilium/cilium/pkg/hubble/monitor"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
@@ -118,7 +118,7 @@ func (d *Daemon) launchHubble() {
 		return
 	}
 	go d.hubbleObserver.Start()
-	d.monitorAgent.RegisterNewListener(listener.NewHubbleListener(d.hubbleObserver))
+	d.monitorAgent.RegisterNewConsumer(monitor.NewConsumer(d.hubbleObserver))
 
 	// configure a local hubble instance that serves more gRPC services
 	sockPath := "unix://" + option.Config.HubbleSocketPath

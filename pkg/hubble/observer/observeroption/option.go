@@ -20,6 +20,7 @@ import (
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/hubble/filters"
+	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 
 	"github.com/sirupsen/logrus"
@@ -81,15 +82,15 @@ func (f OnServerInitFunc) OnServerInit(srv Server) error {
 
 // OnMonitorEvent is invoked before each monitor event is decoded
 type OnMonitorEvent interface {
-	OnMonitorEvent(context.Context, *pb.Payload) (stop, error)
+	OnMonitorEvent(context.Context, *observerTypes.MonitorEvent) (stop, error)
 }
 
 // OnMonitorEventFunc implements OnMonitorEvent for a single function
-type OnMonitorEventFunc func(context.Context, *pb.Payload) (stop, error)
+type OnMonitorEventFunc func(context.Context, *observerTypes.MonitorEvent) (stop, error)
 
 // OnMonitorEvent is invoked before each monitor event is decoded
-func (f OnMonitorEventFunc) OnMonitorEvent(ctx context.Context, payload *pb.Payload) (stop, error) {
-	return f(ctx, payload)
+func (f OnMonitorEventFunc) OnMonitorEvent(ctx context.Context, event *observerTypes.MonitorEvent) (stop, error) {
+	return f(ctx, event)
 }
 
 // OnDecodedFlow is invoked after a flow has been decoded
@@ -178,7 +179,7 @@ func WithOnMonitorEvent(f OnMonitorEvent) Option {
 }
 
 // WithOnMonitorEventFunc adds a new callback to be invoked before decoding
-func WithOnMonitorEventFunc(f func(context.Context, *pb.Payload) (stop, error)) Option {
+func WithOnMonitorEventFunc(f func(context.Context, *observerTypes.MonitorEvent) (stop, error)) Option {
 	return WithOnMonitorEvent(OnMonitorEventFunc(f))
 }
 
