@@ -26,22 +26,10 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
 	"github.com/golang/protobuf/ptypes"
-	"google.golang.org/grpc"
 	"google.golang.org/grpc/codes"
 	"google.golang.org/grpc/connectivity"
 	"google.golang.org/grpc/status"
 )
-
-// TODO: remove this shim once "google.golang.org/grpc" is bumped to v1.28+
-// which should convert generated code
-// `observerpb.NewObserverClient(cc *grpc.ClientConn)` to
-// `observerpb.NewObserverClient(cc grpc.ClientConnInterface)`.
-func newObserverClient(cc poolTypes.ClientConn) observerpb.ObserverClient {
-	if conn, ok := cc.(*grpc.ClientConn); ok {
-		return observerpb.NewObserverClient(conn)
-	}
-	return nil
-}
 
 func isAvailable(conn poolTypes.ClientConn) bool {
 	if conn == nil {
@@ -56,11 +44,10 @@ func isAvailable(conn poolTypes.ClientConn) bool {
 
 func retrieveFlowsFromPeer(
 	ctx context.Context,
-	conn poolTypes.ClientConn,
+	client observerpb.ObserverClient,
 	req *observerpb.GetFlowsRequest,
 	flows chan<- *observerpb.GetFlowsResponse,
 ) error {
-	client := newObserverClient(conn)
 	c, err := client.GetFlows(ctx, req)
 	if err != nil {
 		return err

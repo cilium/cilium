@@ -18,12 +18,31 @@ import (
 	"fmt"
 	"time"
 
+	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
+	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
+	"google.golang.org/grpc"
 )
+
+type observerClientBuilder interface {
+	observerClient(p *poolTypes.Peer) observerpb.ObserverClient
+}
+
+type defaultObserverClientBuilder struct{}
+
+func (d defaultObserverClientBuilder) observerClient(p *poolTypes.Peer) observerpb.ObserverClient {
+	if p == nil {
+		return nil
+	}
+	if conn, ok := p.Conn.(*grpc.ClientConn); ok {
+		return observerpb.NewObserverClient(conn)
+	}
+	return nil
+}
 
 // DefaultOptions is the reference point for default values.
 var defaultOptions = options{
@@ -31,6 +50,7 @@ var defaultOptions = options{
 	sortBufferDrainTimeout: defaults.SortBufferDrainTimeout,
 	errorAggregationWindow: defaults.ErrorAggregationWindow,
 	log:                    logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
+	ocb:                    defaultObserverClientBuilder{},
 }
 
 // Option customizes the configuration of the Manager.
@@ -42,6 +62,10 @@ type options struct {
 	sortBufferDrainTimeout time.Duration
 	errorAggregationWindow time.Duration
 	log                    logrus.FieldLogger
+
+	// this is not meant to be user configurable as it's only useful to
+	// override when testing
+	ocb observerClientBuilder
 }
 
 // WithSortBufferMaxLen sets the maximum number of flows that can be buffered
@@ -94,6 +118,17 @@ func WithErrorAggregationWindow(d time.Duration) Option {
 func WithLogger(l logrus.FieldLogger) Option {
 	return func(o *options) error {
 		o.log = l
+		return nil
+	}
+}
+
+// withObserverClientBuilder sets the observerClientBuilder that is used to
+// create a new ObserverClient from a poolTypes.ClientConn. This is private as
+// it is only useful to override the default in the context of implemeting unit
+// tests.
+func withObserverClientBuilder(b observerClientBuilder) Option {
+	return func(o *options) error {
+		o.ocb = b
 		return nil
 	}
 }
