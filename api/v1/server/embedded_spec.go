@@ -1379,6 +1379,37 @@ func init() {
         }
       }
     },
+    "BPFMapProperties": {
+      "description": "BPF map properties",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the BPF map",
+          "type": "string"
+        },
+        "size": {
+          "description": "Size of the BPF map",
+          "type": "integer"
+        }
+      }
+    },
+    "BPFMapStatus": {
+      "description": "BPF map status\n\n+k8s:deepcopy-gen=true\n",
+      "type": "object",
+      "properties": {
+        "dynamic-size-ratio": {
+          "description": "Ratio of total system memory to use for dynamic sizing of BPF maps",
+          "type": "number"
+        },
+        "maps": {
+          "description": "BPF maps",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BPFMapProperties"
+          }
+        }
+      }
+    },
     "BackendAddress": {
       "description": "Service backend address",
       "type": "object",
@@ -3255,6 +3286,10 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "bpf-maps": {
+          "description": "Status of BPF maps",
+          "$ref": "#/definitions/BPFMapStatus"
+        },
         "cilium": {
           "description": "Status of Cilium daemon",
           "$ref": "#/definitions/Status"
@@ -5013,6 +5048,37 @@ func init() {
           "type": "array",
           "items": {
             "$ref": "#/definitions/BPFMap"
+          }
+        }
+      }
+    },
+    "BPFMapProperties": {
+      "description": "BPF map properties",
+      "type": "object",
+      "properties": {
+        "name": {
+          "description": "Name of the BPF map",
+          "type": "string"
+        },
+        "size": {
+          "description": "Size of the BPF map",
+          "type": "integer"
+        }
+      }
+    },
+    "BPFMapStatus": {
+      "description": "BPF map status\n\n+k8s:deepcopy-gen=true\n",
+      "type": "object",
+      "properties": {
+        "dynamic-size-ratio": {
+          "description": "Ratio of total system memory to use for dynamic sizing of BPF maps",
+          "type": "number"
+        },
+        "maps": {
+          "description": "BPF maps",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/BPFMapProperties"
           }
         }
       }
@@ -7174,6 +7240,10 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "bpf-maps": {
+          "description": "Status of BPF maps",
+          "$ref": "#/definitions/BPFMapStatus"
+        },
         "cilium": {
           "description": "Status of Cilium daemon",
           "$ref": "#/definitions/Status"

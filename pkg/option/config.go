@@ -1367,6 +1367,10 @@ type DaemonConfig struct {
 	// is enabled. Network byte-order.
 	MonitorAggregationFlags uint16
 
+	// BPFMapsDynamicSizeRatio is ratio of total system memory to use for
+	// dynamic sizing of the CT, NAT, Neighbor and SockRevNAT BPF maps.
+	BPFMapsDynamicSizeRatio float64
+
 	// NATMapEntriesGlobal is the maximum number of NAT mappings allowed
 	// in the BPF NAT table
 	NATMapEntriesGlobal int
@@ -2778,6 +2782,7 @@ func (c *DaemonConfig) calculateBPFMapSizes() error {
 			log.WithError(err).Fatal("Failed to get system memory")
 		}
 		c.calculateDynamicBPFMapSizes(vms.Total, dynamicSizeRatio)
+		c.BPFMapsDynamicSizeRatio = dynamicSizeRatio
 	} else if dynamicSizeRatio < 0.0 {
 		return fmt.Errorf("specified dynamic map size ratio %f must be ≥ 0.0", dynamicSizeRatio)
 	} else if dynamicSizeRatio > 1.0 {
