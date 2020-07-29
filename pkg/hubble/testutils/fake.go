@@ -28,9 +28,10 @@ import (
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"google.golang.org/grpc"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"google.golang.org/grpc"
+	"google.golang.org/grpc/connectivity"
 )
 
 // FakeGetFlowsServer is used for unit tests and implements the
@@ -114,6 +115,47 @@ func (b FakePeerClientBuilder) Client(target string) (peerTypes.Client, error) {
 		return b.OnClient(target)
 	}
 	panic("OnClient not set")
+}
+
+// FakeClientConn is used for unit tests and implements the
+// poolTypes.ClientConn interface.
+type FakeClientConn struct {
+	OnGetState  func() connectivity.State
+	OnClose     func() error
+	OnInvoke    func(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error
+	OnNewStream func(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error)
+}
+
+// GetState implements poolTypes.ClientConn.GetState.
+func (c FakeClientConn) GetState() connectivity.State {
+	if c.OnGetState != nil {
+		return c.OnGetState()
+	}
+	panic("OnGetState not set")
+}
+
+// Close implements poolTypes.ClientConn.Close.
+func (c FakeClientConn) Close() error {
+	if c.OnClose != nil {
+		return c.OnClose()
+	}
+	panic("OnClose not set")
+}
+
+// Invoke implements poolTypes.ClientConn.Invoke.
+func (c FakeClientConn) Invoke(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error {
+	if c.OnInvoke != nil {
+		return c.OnInvoke(ctx, method, args, reply, opts...)
+	}
+	panic("OnInvoke not set")
+}
+
+// NewStream implements poolTypes.ClientConn.NewStream.
+func (c FakeClientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
+	if c.OnNewStream != nil {
+		return c.OnNewStream(ctx, desc, method, opts...)
+	}
+	panic("OnNewStream not set")
 }
 
 // FakeFQDNCache is used for unit tests that needs FQDNCache and/or DNSGetter.

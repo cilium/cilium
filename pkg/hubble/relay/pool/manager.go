@@ -21,24 +21,18 @@ import (
 	"time"
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
-	hubblePeer "github.com/cilium/cilium/pkg/hubble/peer"
+	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
+	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/connectivity"
 )
 
-// Peer is like hubblePeer.Peer but includes a Conn attribute to reach the
-// peer's gRPC API endpoint.
-type Peer struct {
-	hubblePeer.Peer
-	Conn ClientConn
-}
-
 type peer struct {
 	mu lock.Mutex
-	hubblePeer.Peer
-	conn            ClientConn
+	peerTypes.Peer
+	conn            poolTypes.ClientConn
 	connAttempts    int
 	nextConnAttempt time.Time
 }
@@ -141,7 +135,7 @@ connect:
 				}
 			}
 			m.opts.log.WithField("change notification", cn).Debug("Received peer change notification")
-			p := hubblePeer.FromChangeNotification(cn)
+			p := peerTypes.FromChangeNotification(cn)
 			switch cn.GetType() {
 			case peerpb.ChangeNotificationType_PEER_ADDED:
 				m.add(p)
@@ -205,17 +199,17 @@ func (m *PeerManager) Stop() {
 }
 
 // List implements observer.PeerLister.List.
-func (m *PeerManager) List() []Peer {
+func (m *PeerManager) List() []poolTypes.Peer {
 	m.mu.RLock()
 	defer m.mu.RUnlock()
 	if len(m.peers) == 0 {
 		return nil
 	}
-	peers := make([]Peer, 0, len(m.peers))
+	peers := make([]poolTypes.Peer, 0, len(m.peers))
 	for _, v := range m.peers {
 		// note: there shouldn't be null entries in the map
-		peers = append(peers, Peer{
-			Peer: hubblePeer.Peer{
+		peers = append(peers, poolTypes.Peer{
+			Peer: peerTypes.Peer{
 				Name:    v.Name,
 				Address: v.Address,
 			},
@@ -253,7 +247,7 @@ func (m *PeerManager) ReportOffline(name string) {
 	}()
 }
 
-func (m *PeerManager) add(hp *hubblePeer.Peer) {
+func (m *PeerManager) add(hp *peerTypes.Peer) {
 	if hp == nil {
 		return
 	}
@@ -267,7 +261,7 @@ func (m *PeerManager) add(hp *hubblePeer.Peer) {
 	}
 }
 
-func (m *PeerManager) remove(hp *hubblePeer.Peer) {
+func (m *PeerManager) remove(hp *peerTypes.Peer) {
 	if hp == nil {
 		return
 	}
@@ -279,7 +273,7 @@ func (m *PeerManager) remove(hp *hubblePeer.Peer) {
 	m.mu.Unlock()
 }
 
-func (m *PeerManager) update(hp *hubblePeer.Peer) {
+func (m *PeerManager) update(hp *peerTypes.Peer) {
 	if hp == nil {
 		return
 	}

@@ -29,8 +29,8 @@ import (
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
 	"github.com/cilium/cilium/pkg/hubble/defaults"
-	hubblePeer "github.com/cilium/cilium/pkg/hubble/peer"
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
+	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 
 	"github.com/sirupsen/logrus"
@@ -42,13 +42,13 @@ import (
 func TestPeerManager(t *testing.T) {
 	var done chan struct{}
 	type want struct {
-		peers []Peer
+		peers []poolTypes.Peer
 		log   []string
 	}
 	tests := []struct {
 		name      string
 		pcBuilder peerTypes.ClientBuilder
-		ccBuilder ClientConnBuilder
+		ccBuilder poolTypes.ClientConnBuilder
 		want      want
 	}{
 		{
@@ -106,21 +106,21 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (ClientConn, error) {
+				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
 					return nil, io.EOF
 				},
 			},
 			want: want{
-				peers: []Peer{
+				peers: []poolTypes.Peer{
 					{
-						hubblePeer.Peer{
+						Peer: peerTypes.Peer{
 							Name: "unreachable",
 							Address: &net.TCPAddr{
 								IP:   net.ParseIP("192.0.1.1"),
 								Port: defaults.ServerPort,
 							},
 						},
-						nil,
+						Conn: nil,
 					},
 				},
 			},
@@ -157,9 +157,9 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (ClientConn, error) {
+				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
 					var once sync.Once
-					return FakeClientConn{
+					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
 							once.Do(func() { close(done) })
 							return connectivity.Ready
@@ -168,16 +168,16 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			want: want{
-				peers: []Peer{
+				peers: []poolTypes.Peer{
 					{
-						hubblePeer.Peer{
+						Peer: peerTypes.Peer{
 							Name: "reachable",
 							Address: &net.TCPAddr{
 								IP:   net.ParseIP("192.0.1.1"),
 								Port: defaults.ServerPort,
 							},
 						},
-						FakeClientConn{},
+						Conn: testutils.FakeClientConn{},
 					},
 				},
 			},
@@ -221,8 +221,8 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (ClientConn, error) {
-					return FakeClientConn{
+				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
 							return connectivity.Ready
 						},
@@ -265,9 +265,9 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (ClientConn, error) {
+				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
 					var once sync.Once
-					return FakeClientConn{
+					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
 							return connectivity.TransientFailure
 						},
@@ -279,16 +279,16 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			want: want{
-				peers: []Peer{
+				peers: []poolTypes.Peer{
 					{
-						hubblePeer.Peer{
+						Peer: peerTypes.Peer{
 							Name: "unreachable",
 							Address: &net.TCPAddr{
 								IP:   net.ParseIP("192.0.1.1"),
 								Port: defaults.ServerPort,
 							},
 						},
-						FakeClientConn{},
+						Conn: testutils.FakeClientConn{},
 					},
 				},
 			},
@@ -329,9 +329,9 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (ClientConn, error) {
+				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
 					var i int
-					return FakeClientConn{
+					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
 							i++
 							if i == 2 {
@@ -346,16 +346,16 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			want: want{
-				peers: []Peer{
+				peers: []poolTypes.Peer{
 					{
-						hubblePeer.Peer{
+						Peer: peerTypes.Peer{
 							Name: "reachable",
 							Address: &net.TCPAddr{
 								IP:   net.ParseIP("192.0.5.5"),
 								Port: defaults.ServerPort,
 							},
 						},
-						FakeClientConn{},
+						Conn: testutils.FakeClientConn{},
 					},
 				},
 			},
@@ -403,21 +403,21 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (ClientConn, error) {
+				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
 					return nil, nil
 				},
 			},
 			want: want{
-				peers: []Peer{
+				peers: []poolTypes.Peer{
 					{
-						hubblePeer.Peer{
+						Peer: peerTypes.Peer{
 							Name: "two",
 							Address: &net.TCPAddr{
 								IP:   net.ParseIP("192.0.1.2"),
 								Port: defaults.ServerPort,
 							},
 						},
-						nil,
+						Conn: nil,
 					},
 				},
 			},
@@ -462,22 +462,22 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (ClientConn, error) {
+				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
 					close(done)
 					return nil, errors.New("Don't feel like workin' today")
 				},
 			},
 			want: want{
-				peers: []Peer{
+				peers: []poolTypes.Peer{
 					{
-						hubblePeer.Peer{
+						Peer: peerTypes.Peer{
 							Name: "unreachable",
 							Address: &net.TCPAddr{
 								IP:   net.ParseIP("192.0.1.1"),
 								Port: defaults.ServerPort,
 							},
 						},
-						nil,
+						Conn: nil,
 					},
 				},
 				log: []string{
@@ -577,54 +577,19 @@ func TestPeerManager(t *testing.T) {
 	}
 }
 
-type ByName []Peer
+type ByName []poolTypes.Peer
 
 func (n ByName) Len() int           { return len(n) }
 func (n ByName) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
 func (n ByName) Less(i, j int) bool { return n[i].Name < n[j].Name }
 
 type FakeClientConnBuilder struct {
-	OnClientConn func(target string) (ClientConn, error)
+	OnClientConn func(target string) (poolTypes.ClientConn, error)
 }
 
-func (b FakeClientConnBuilder) ClientConn(target string) (ClientConn, error) {
+func (b FakeClientConnBuilder) ClientConn(target string) (poolTypes.ClientConn, error) {
 	if b.OnClientConn != nil {
 		return b.OnClientConn(target)
 	}
 	panic("OnClientConn not set")
-}
-
-type FakeClientConn struct {
-	OnGetState  func() connectivity.State
-	OnClose     func() error
-	OnInvoke    func(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error
-	OnNewStream func(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error)
-}
-
-func (c FakeClientConn) GetState() connectivity.State {
-	if c.OnGetState != nil {
-		return c.OnGetState()
-	}
-	panic("OnGetState not set")
-}
-
-func (c FakeClientConn) Close() error {
-	if c.OnClose != nil {
-		return c.OnClose()
-	}
-	panic("OnClose not set")
-}
-
-func (c FakeClientConn) Invoke(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error {
-	if c.OnInvoke != nil {
-		return c.OnInvoke(ctx, method, args, reply, opts...)
-	}
-	panic("OnInvoke not set")
-}
-
-func (c FakeClientConn) NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error) {
-	if c.OnNewStream != nil {
-		return c.OnNewStream(ctx, desc, method, opts...)
-	}
-	panic("OnNewStream not set")
 }

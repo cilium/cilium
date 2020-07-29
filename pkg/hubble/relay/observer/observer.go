@@ -21,7 +21,7 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	relaypb "github.com/cilium/cilium/api/v1/relay"
-	"github.com/cilium/cilium/pkg/hubble/relay/pool"
+	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/hubble/relay/queue"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
@@ -36,14 +36,14 @@ import (
 // which should convert generated code
 // `observerpb.NewObserverClient(cc *grpc.ClientConn)` to
 // `observerpb.NewObserverClient(cc grpc.ClientConnInterface)`.
-func newObserverClient(cc pool.ClientConn) observerpb.ObserverClient {
+func newObserverClient(cc poolTypes.ClientConn) observerpb.ObserverClient {
 	if conn, ok := cc.(*grpc.ClientConn); ok {
 		return observerpb.NewObserverClient(conn)
 	}
 	return nil
 }
 
-func isAvailable(conn pool.ClientConn) bool {
+func isAvailable(conn poolTypes.ClientConn) bool {
 	if conn == nil {
 		return false
 	}
@@ -56,7 +56,7 @@ func isAvailable(conn pool.ClientConn) bool {
 
 func retrieveFlowsFromPeer(
 	ctx context.Context,
-	conn pool.ClientConn,
+	conn poolTypes.ClientConn,
 	req *observerpb.GetFlowsRequest,
 	flows chan<- *observerpb.GetFlowsResponse,
 ) error {
