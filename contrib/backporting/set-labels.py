@@ -38,7 +38,7 @@ old_label_len = len(pr_labels)
 
 cilium_labels = cilium.get_labels()
 
-print("Setting labels for PR $pr... ", end="")
+print("Setting labels for PR {}... ".format(pr_number), end="")
 if action == "pending":
     pr_labels = [l for l in pr_labels
                  if l.name != "needs-backport/"+version]
