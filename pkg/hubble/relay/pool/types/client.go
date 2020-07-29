@@ -15,7 +15,6 @@
 package types
 
 import (
-	"context"
 	"io"
 
 	peerTypes "github.com/cilium/cilium/pkg/hubble/peer/types"
@@ -37,16 +36,7 @@ type ClientConn interface {
 	// GetState returns the connectivity.State of ClientConn.
 	GetState() connectivity.State
 	io.Closer
-
-	// TODO: compose with grpc.ClientConnInterface once
-	// "google.golang.org/grpc" is bumped to v1.27+ and remove the following
-	// two methods (which are part of grpc.ClientConnInterface).
-
-	// Invoke performs a unary RPC and returns after the response is received
-	// into reply.
-	Invoke(ctx context.Context, method string, args interface{}, reply interface{}, opts ...grpc.CallOption) error
-	// NewStream begins a streaming RPC.
-	NewStream(ctx context.Context, desc *grpc.StreamDesc, method string, opts ...grpc.CallOption) (grpc.ClientStream, error)
+	grpc.ClientConnInterface
 }
 
 var _ ClientConn = (*grpc.ClientConn)(nil)
