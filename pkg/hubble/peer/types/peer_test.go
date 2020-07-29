@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package peer
+package types
 
 import (
 	"net"
