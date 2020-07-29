@@ -189,7 +189,7 @@ We are currently testing following kernel - k8s version pairs in our CI:
 +--------------------+------------------+
 | GKE clusters                          |
 +--------------------+------------------+
-| 1.14.10            | 4.14.138+        |
+| 1.15.12            | 4.19.112+        |
 +--------------------+------------------+
 
 .. _trigger_phrases:
