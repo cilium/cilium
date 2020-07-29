@@ -137,22 +137,4 @@ installed:
   * ``10.2.2.0/24 dev tun-172011760 proto 17 src 172.0.50.227``
   * ``10.2.3.0/24 dev tun-1720186231 proto 17 src 172.0.50.227``
 
-You can test connectivity by deploying the following connectivity checker pods:
-
-.. parsed-literal::
-
-    $ kubectl create -f \ |SCM_WEB|\/examples/kubernetes/connectivity-check/connectivity-check.yaml
-    $ kubectl get pods
-    NAME                                                    READY   STATUS    RESTARTS   AGE
-    echo-a-dd67f6b4b-s62jl                                  1/1     Running   0          2m15s
-    echo-b-55d8dbd74f-t8jwk                                 1/1     Running   0          2m15s
-    host-to-b-multi-node-clusterip-686f99995d-tn6kq         1/1     Running   0          2m15s
-    host-to-b-multi-node-headless-bdbc856d-9zv4x            1/1     Running   0          2m15s
-    pod-to-a-766584ffff-wh2s8                               1/1     Running   0          2m15s
-    pod-to-a-allowed-cnp-5899c44899-f9tdv                   1/1     Running   0          2m15s
-    pod-to-a-external-1111-55c488465-7sd55                  1/1     Running   0          2m14s
-    pod-to-a-l3-denied-cnp-856998c977-j9dhs                 1/1     Running   0          2m15s
-    pod-to-b-intra-node-7b6cbc6c56-hqz7r                    1/1     Running   0          2m15s
-    pod-to-b-multi-node-clusterip-77c8446b6d-qc8ch          1/1     Running   0          2m15s
-    pod-to-b-multi-node-headless-854b65674d-9zlp8           1/1     Running   0          2m15s
-    pod-to-external-fqdn-allow-google-cnp-bb9597947-bc85q   1/1     Running   0          2m14s
+.. include:: k8s-install-connectivity-test.rst
