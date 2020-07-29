@@ -27,6 +27,7 @@ import (
 	oldBPF "github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 	"github.com/cilium/ebpf"
@@ -66,7 +67,12 @@ type Agent struct {
 
 	ctx              context.Context
 	perfReaderCancel context.CancelFunc
-	listeners        map[listener.MonitorListener]struct{}
+
+	// listeners are external cilium monitor clients which receive raw
+	// gob-encoded payloads
+	listeners map[listener.MonitorListener]struct{}
+	// consumers are internal clients which receive decoded messages
+	consumers map[consumer.MonitorConsumer]struct{}
 
 	events        *ebpf.Map
 	monitorEvents *perf.Reader
@@ -90,6 +96,7 @@ func NewAgent(ctx context.Context, nPages int) (a *Agent, err error) {
 	a = &Agent{
 		ctx:              ctx,
 		listeners:        make(map[listener.MonitorListener]struct{}),
+		consumers:        make(map[consumer.MonitorConsumer]struct{}),
 		perfReaderCancel: func() {}, // no-op to avoid doing null checks everywhere
 		events:           eventsMap,
 		MonitorStatus: models.MonitorStatus{
@@ -108,11 +115,12 @@ func (a *Agent) SendEvent(typ int, event interface{}) error {
 		return fmt.Errorf("monitor agent is not set up")
 	}
 
+	a.notifyAgentEvent(typ, event)
+
 	var buf bytes.Buffer
 	if err := buf.WriteByte(byte(typ)); err != nil {
 		return fmt.Errorf("unable to initialize buffer: %w", err)
 	}
-
 	if err := gob.NewEncoder(&buf).Encode(event); err != nil {
 		return fmt.Errorf("unable to gob encode: %w", err)
 	}
@@ -133,7 +141,7 @@ func (a *Agent) Context() context.Context {
 // hasSubscribersLocked returns true if there are listeners subscribed to the
 // agent right now.
 func (a *Agent) hasSubscribersLocked() bool {
-	return len(a.listeners) != 0
+	return len(a.listeners)+len(a.consumers) != 0
 }
 
 // startPerfReaderLocked starts the perf reader. This should only be
@@ -214,6 +222,43 @@ func (a *Agent) RemoveListener(ml listener.MonitorListener) {
 	}
 }
 
+// RegisterNewConsumer adds the new MonitorConsumer to the global list.
+// It also spawns a singleton goroutine to read and distribute the events.
+func (a *Agent) RegisterNewConsumer(newConsumer consumer.MonitorConsumer) {
+	if a == nil {
+		return
+	}
+
+	if isCtxDone(a.ctx) {
+		log.Debug("RegisterNewConsumer called on stopped monitor")
+		return
+	}
+
+	a.Lock()
+	defer a.Unlock()
+
+	if !a.hasSubscribersLocked() {
+		a.startPerfReaderLocked()
+	}
+	a.consumers[newConsumer] = struct{}{}
+}
+
+// RemoveConsumer deletes the MonitorConsumer from the list, closes its queue,
+// and stops perfReader if this is the last subscriber
+func (a *Agent) RemoveConsumer(mc consumer.MonitorConsumer) {
+	if a == nil {
+		return
+	}
+
+	a.Lock()
+	defer a.Unlock()
+
+	delete(a.consumers, mc)
+	if !a.hasSubscribersLocked() {
+		a.perfReaderCancel()
+	}
+}
+
 // handleEvents reads events from the perf buffer and processes them. It
 // will exit when stopCtx is done. Note, however, that it will block in the
 // Poll call but assumes enough events are generated that these blocks are
@@ -258,27 +303,33 @@ func (a *Agent) handleEvents(stopCtx context.Context) {
 			continue
 		}
 
-		a.processPerfRecord(record)
+		a.processPerfRecord(scopedLog, record)
 	}
 }
 
 // processPerfRecord processes a record from the datapath and sends it to any
 // registered subscribers
-func (a *Agent) processPerfRecord(record perf.Record) {
+func (a *Agent) processPerfRecord(scopedLog *logrus.Entry, record perf.Record) {
 	a.Lock()
-	plType := payload.EventSample
+	defer a.Unlock()
+
 	if record.LostSamples > 0 {
-		plType = payload.RecordLost
 		a.MonitorStatus.Lost += int64(record.LostSamples)
+		a.notifyPerfEventLostLocked(record.LostSamples, record.CPU)
+		a.sendToListenersLocked(&payload.Payload{
+			CPU:  record.CPU,
+			Lost: record.LostSamples,
+			Type: payload.RecordLost,
+		})
+
+	} else {
+		a.notifyPerfEventLocked(record.RawSample, record.CPU)
+		a.sendToListenersLocked(&payload.Payload{
+			Data: record.RawSample,
+			CPU:  record.CPU,
+			Type: payload.EventSample,
+		})
 	}
-	pl := payload.Payload{
-		Data: record.RawSample,
-		CPU:  record.CPU,
-		Lost: record.LostSamples,
-		Type: plType,
-	}
-	a.sendToListenersLocked(&pl)
-	a.Unlock()
 }
 
 // State returns the current status of the monitor
@@ -297,6 +348,31 @@ func (a *Agent) State() *models.MonitorStatus {
 	// Shallow-copy the structure, then return the newly allocated copy.
 	status := a.MonitorStatus
 	return &status
+}
+
+// notifyPerfEventLocked notifies all consumers about an agent event.
+func (a *Agent) notifyAgentEvent(typ int, message interface{}) {
+	a.Lock()
+	defer a.Unlock()
+	for mc := range a.consumers {
+		mc.NotifyAgentEvent(typ, message)
+	}
+}
+
+// notifyPerfEventLocked notifies all consumers about a perf event.
+// The caller must hold the monitor lock.
+func (a *Agent) notifyPerfEventLocked(data []byte, cpu int) {
+	for mc := range a.consumers {
+		mc.NotifyPerfEvent(data, cpu)
+	}
+}
+
+// notifyEventToConsumersLocked notifies all consumers about lost events.
+// The caller must hold the monitor lock.
+func (a *Agent) notifyPerfEventLostLocked(numLostEvents uint64, cpu int) {
+	for mc := range a.consumers {
+		mc.NotifyPerfEventLost(numLostEvents, cpu)
+	}
 }
 
 // sendToListeners enqueues the payload to all listeners.
