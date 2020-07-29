@@ -132,6 +132,7 @@ jobs:
              --set global.externalIPs.enabled=true \
              --set global.nodePort.enabled=true \
              --set global.hostPort.enabled=true \
+             --set config.bpfMasquerade=false \
              --set config.ipam=kubernetes \
              --set global.pullPolicy=Never
 
