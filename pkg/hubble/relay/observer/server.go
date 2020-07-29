@@ -108,7 +108,7 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 			// retrieveFlowsFromPeer returns blocks until the peer finishes
 			// the request by closing the connection, an error occurs,
 			// or gctx expires.
-			err := retrieveFlowsFromPeer(gctx, p.Conn, req, flows)
+			err := retrieveFlowsFromPeer(gctx, s.opts.ocb.observerClient(&p), req, flows)
 			if err != nil {
 				s.opts.log.WithFields(logrus.Fields{
 					"error": err,
@@ -187,7 +187,7 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 		}
 		numConnectedNodes++
 		g.Go(func() error {
-			client := newObserverClient(p.Conn)
+			client := s.opts.ocb.observerClient(&p)
 			status, err := client.ServerStatus(ctx, req)
 			if err != nil {
 				s.opts.log.WithFields(logrus.Fields{
