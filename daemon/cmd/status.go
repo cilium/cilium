@@ -29,6 +29,16 @@ import (
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/maps/eppolicymap"
+	"github.com/cilium/cilium/pkg/maps/eventsmap"
+	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
+	ipmasqmap "github.com/cilium/cilium/pkg/maps/ipmasq"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
+	"github.com/cilium/cilium/pkg/maps/lxcmap"
+	"github.com/cilium/cilium/pkg/maps/metricsmap"
+	"github.com/cilium/cilium/pkg/maps/signalmap"
+	"github.com/cilium/cilium/pkg/maps/sockmap"
+	tunnelmap "github.com/cilium/cilium/pkg/maps/tunnel"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
@@ -197,6 +207,106 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 		Devices:             devices,
 		DirectRoutingDevice: option.Config.DirectRoutingDevice,
 		Features:            features,
+	}
+}
+
+func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
+	return &models.BPFMapStatus{
+		DynamicSizeRatio: option.Config.BPFMapsDynamicSizeRatio,
+		Maps: []*models.BPFMapProperties{
+			{
+				Name: "Non-TCP connection tracking",
+				Size: int64(option.Config.CTMapEntriesGlobalAny),
+			},
+			{
+				Name: "TCP connection tracking",
+				Size: int64(option.Config.CTMapEntriesGlobalTCP),
+			},
+			{
+				Name: "Endpoint policy",
+				Size: int64(lxcmap.MaxEntries),
+			},
+			{
+				Name: "Events",
+				Size: int64(eventsmap.MaxEntries),
+			},
+			{
+				Name: "IP cache",
+				Size: int64(ipcachemap.MaxEntries),
+			},
+			{
+				Name: "IP masquerading agent",
+				Size: int64(ipmasqmap.MaxEntries),
+			},
+			{
+				Name: "IPv4 fragmentation",
+				Size: int64(option.Config.FragmentsMapEntries),
+			},
+			{
+				Name: "IPv4 service", // cilium_lb4_services_v2
+				Size: int64(lbmap.MaxEntries),
+			},
+			{
+				Name: "IPv6 service", // cilium_lb6_services_v2
+				Size: int64(lbmap.MaxEntries),
+			},
+			{
+				Name: "IPv4 service backend", // cilium_lb4_backends
+				Size: int64(lbmap.MaxEntries),
+			},
+			{
+				Name: "IPv6 service backend", // cilium_lb6_backends
+				Size: int64(lbmap.MaxEntries),
+			},
+			{
+				Name: "IPv4 service reverse NAT", // cilium_lb4_reverse_nat
+				Size: int64(lbmap.MaxEntries),
+			},
+			{
+				Name: "IPv6 service reverse NAT", // cilium_lb6_reverse_nat
+				Size: int64(lbmap.MaxEntries),
+			},
+			{
+				Name: "Metrics",
+				Size: int64(metricsmap.MaxEntries),
+			},
+			{
+				Name: "NAT",
+				Size: int64(option.Config.NATMapEntriesGlobal),
+			},
+			{
+				Name: "Neighbor table",
+				Size: int64(option.Config.NeighMapEntriesGlobal),
+			},
+			{
+				Name: "Global policy",
+				Size: int64(option.Config.PolicyMapEntries),
+			},
+			{
+				Name: "Per endpoint policy",
+				Size: int64(eppolicymap.MaxEntries),
+			},
+			{
+				Name: "Session affinity",
+				Size: int64(lbmap.MaxEntries),
+			},
+			{
+				Name: "Signal",
+				Size: int64(signalmap.MaxEntries),
+			},
+			{
+				Name: "Sockmap",
+				Size: int64(sockmap.MaxEntries),
+			},
+			{
+				Name: "Sock reverse NAT",
+				Size: int64(option.Config.SockRevNatEntries),
+			},
+			{
+				Name: "Tunnel",
+				Size: int64(tunnelmap.MaxEntries),
+			},
+		},
 	}
 }
 
@@ -720,6 +830,7 @@ func (d *Daemon) startStatusCollector() {
 	}
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
+	d.statusResponse.BpfMaps = d.getBPFMapStatus()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{})
 

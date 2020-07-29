@@ -22,6 +22,9 @@ import (
 // swagger:model StatusResponse
 type StatusResponse struct {
 
+	// Status of BPF maps
+	BpfMaps *BPFMapStatus `json:"bpf-maps,omitempty"`
+
 	// Status of Cilium daemon
 	Cilium *Status `json:"cilium,omitempty"`
 
@@ -74,6 +77,10 @@ type StatusResponse struct {
 // Validate validates this status response
 func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	var res []error
+
+	if err := m.validateBpfMaps(formats); err != nil {
+		res = append(res, err)
+	}
 
 	if err := m.validateCilium(formats); err != nil {
 		res = append(res, err)
@@ -134,6 +141,24 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *StatusResponse) validateBpfMaps(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.BpfMaps) { // not required
+		return nil
+	}
+
+	if m.BpfMaps != nil {
+		if err := m.BpfMaps.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("bpf-maps")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 

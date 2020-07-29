@@ -251,6 +251,8 @@ type StatusDetails struct {
 	AllRedirects bool
 	// AllClusters causes all clusters to be printed by FormatStatusResponse.
 	AllClusters bool
+	// BPFMapDetails causes BPF map details to be printed by FormatStatusResponse.
+	BPFMapDetails bool
 }
 
 var (
@@ -264,6 +266,7 @@ var (
 		AllNodes:       true,
 		AllRedirects:   true,
 		AllClusters:    true,
+		BPFMapDetails:  true,
 	}
 )
 
@@ -506,5 +509,20 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		}
 
 		fmt.Fprintf(w, "Hubble:\t%s\n", strings.Join(fields, "\t"))
+	}
+
+	if sd.BPFMapDetails && sr.BpfMaps != nil {
+		dynamicSizingStatus := "off"
+		ratio := sr.BpfMaps.DynamicSizeRatio
+		if 0.0 < ratio && ratio <= 1.0 {
+			dynamicSizingStatus = fmt.Sprintf("on (ratio: %f)", ratio)
+		}
+		fmt.Fprintf(w, "BPF Maps:\tdynamic sizing: %s\n", dynamicSizingStatus)
+		tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
+		fmt.Fprintf(tab, "  Name\tSize\n")
+		for _, m := range sr.BpfMaps.Maps {
+			fmt.Fprintf(tab, "  %s\t%d\n", m.Name, m.Size)
+		}
+		tab.Flush()
 	}
 }

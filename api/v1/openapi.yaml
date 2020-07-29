@@ -1616,6 +1616,9 @@ definitions:
       cluster-mesh:
         description: Status of ClusterMesh
         "$ref": "#/definitions/ClusterMeshStatus"
+      bpf-maps:
+        description: Status of BPF maps
+        "$ref": "#/definitions/BPFMapStatus"
   Status:
     description: Status of an individual component
     type: object
@@ -2504,6 +2507,31 @@ definitions:
       last-error:
         description: Last error seen while performing desired action
         type: string
+  BPFMapProperties:
+    description: BPF map properties
+    type: object
+    properties:
+      name:
+        description: Name of the BPF map
+        type: string
+      size:
+        description: Size of the BPF map
+        type: integer
+  BPFMapStatus:
+    description: |
+      BPF map status
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      dynamic-size-ratio:
+        description: Ratio of total system memory to use for dynamic sizing of BPF maps
+        type: number
+      maps:
+        description: BPF maps
+        type: array
+        items:
+          "$ref": "#/definitions/BPFMapProperties"
   Metric:
     description: Metric information
     type: object
