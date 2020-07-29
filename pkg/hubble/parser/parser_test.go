@@ -17,13 +17,13 @@
 package parser
 
 import (
-	"bytes"
-	"encoding/gob"
 	"io/ioutil"
 	"testing"
+	"time"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/monitor"
@@ -50,22 +50,22 @@ func Test_InvalidPayloads(t *testing.T) {
 	_, err = p.Decode(nil)
 	assert.Equal(t, err, errors.ErrEmptyData)
 
-	_, err = p.Decode(&flowpb.Payload{
-		Type: flowpb.EventType_EventSample,
-		Data: nil,
+	_, err = p.Decode(&observerTypes.MonitorEvent{
+		Payload: nil,
 	})
 	assert.Equal(t, err, errors.ErrEmptyData)
 
-	_, err = p.Decode(&flowpb.Payload{
-		Type: flowpb.EventType_EventSample,
-		Data: []byte{100},
+	_, err = p.Decode(&observerTypes.MonitorEvent{
+		Payload: &observerTypes.PerfEvent{
+			Data: []byte{100},
+		},
 	})
 	assert.Equal(t, err, errors.NewErrInvalidType(100))
 
-	_, err = p.Decode(&flowpb.Payload{
-		Type: flowpb.EventType_UNKNOWN,
+	_, err = p.Decode(&observerTypes.MonitorEvent{
+		Payload: "not valid",
 	})
-	assert.Equal(t, err, errors.ErrUnknownPerfEvent)
+	assert.Equal(t, err, errors.ErrUnknownEventType)
 }
 
 func Test_ParserDispatch(t *testing.T) {
@@ -79,26 +79,27 @@ func Test_ParserDispatch(t *testing.T) {
 	data, err := testutils.CreateL3L4Payload(tn)
 	assert.NoError(t, err)
 
-	e, err := p.Decode(&flowpb.Payload{
-		Type: flowpb.EventType_EventSample,
-		Data: data,
+	e, err := p.Decode(&observerTypes.MonitorEvent{
+		Payload: &observerTypes.PerfEvent{
+			Data: data,
+		},
 	})
 	assert.NoError(t, err)
 	assert.Equal(t, flowpb.FlowType_L3_L4, e.GetFlow().GetType())
 
 	// Test L7 dispatch
-	buf := &bytes.Buffer{}
-	buf.WriteByte(byte(api.MessageTypeAccessLog))
-	err = gob.NewEncoder(buf).Encode(&accesslog.LogRecord{
-		Timestamp: "2006-01-02T15:04:05.999999999Z",
+	node := "k8s1"
+	e, err = p.Decode(&observerTypes.MonitorEvent{
+		NodeName: node,
+		Payload: &observerTypes.AgentEvent{
+			Type: api.MessageTypeAccessLog,
+			Message: accesslog.LogRecord{
+				Timestamp: "2006-01-02T15:04:05.999999999Z",
+			},
+		},
 	})
 	assert.NoError(t, err)
-
-	e, err = p.Decode(&flowpb.Payload{
-		Type: flowpb.EventType_EventSample,
-		Data: buf.Bytes(),
-	})
-	assert.NoError(t, err)
+	assert.Equal(t, node, e.GetFlow().GetNodeName())
 	assert.Equal(t, flowpb.FlowType_L7, e.GetFlow().GetType())
 }
 
@@ -106,16 +107,21 @@ func Test_EventType_RecordLost(t *testing.T) {
 	p, err := New(log, nil, nil, nil, nil, nil)
 	assert.NoError(t, err)
 
-	ts := ptypes.TimestampNow()
-	ev, err := p.Decode(&flowpb.Payload{
-		Type: flowpb.EventType_RecordLost,
-		CPU:  3,
-		Lost: 1001,
-		Time: ts,
+	ts := time.Now()
+	ev, err := p.Decode(&observerTypes.MonitorEvent{
+		Timestamp: ts,
+		Payload: &observerTypes.LostEvent{
+			Source:        observerTypes.LostEventSourcePerfRingBuffer,
+			NumLostEvents: 1001,
+			CPU:           3,
+		},
 	})
 	assert.NoError(t, err)
+
+	protoTimestamp, err := ptypes.TimestampProto(ts)
+	assert.NoError(t, err)
 	assert.Equal(t, &v1.Event{
-		Timestamp: ts,
+		Timestamp: protoTimestamp,
 		Event: &flowpb.LostEvent{
 			NumEventsLost: 1001,
 			Cpu:           &wrappers.Int32Value{Value: 3},

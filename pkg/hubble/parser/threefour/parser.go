@@ -91,14 +91,14 @@ func New(
 }
 
 // Decode decodes the data from 'payload' into 'decoded'
-func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
-	if payload == nil || len(payload.Data) == 0 {
+func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
+	if data == nil || len(data) == 0 {
 		return errors.ErrEmptyData
 	}
 
 	var packetOffset int
 	var eventType uint8
-	eventType = payload.Data[0]
+	eventType = data[0]
 	var dn *monitor.DropNotify
 	var tn *monitor.TraceNotify
 	var pvn *monitor.PolicyVerdictNotify
@@ -107,13 +107,13 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	case monitorAPI.MessageTypeDrop:
 		packetOffset = monitor.DropNotifyLen
 		dn = &monitor.DropNotify{}
-		if err := binary.Read(bytes.NewReader(payload.Data), byteorder.Native, dn); err != nil {
+		if err := binary.Read(bytes.NewReader(data), byteorder.Native, dn); err != nil {
 			return fmt.Errorf("failed to parse drop: %v", err)
 		}
 		eventSubType = dn.SubType
 	case monitorAPI.MessageTypeTrace:
 		tn = &monitor.TraceNotify{}
-		if err := monitor.DecodeTraceNotify(payload.Data, tn); err != nil {
+		if err := monitor.DecodeTraceNotify(data, tn); err != nil {
 			return fmt.Errorf("failed to parse trace: %v", err)
 		}
 		eventSubType = tn.ObsPoint
@@ -129,7 +129,7 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 		packetOffset = (int)(tn.DataOffset())
 	case monitorAPI.MessageTypePolicyVerdict:
 		pvn = &monitor.PolicyVerdictNotify{}
-		if err := binary.Read(bytes.NewReader(payload.Data), byteorder.Native, pvn); err != nil {
+		if err := binary.Read(bytes.NewReader(data), byteorder.Native, pvn); err != nil {
 			return fmt.Errorf("failed to parse policy verdict: %v", err)
 		}
 		eventSubType = pvn.SubType
@@ -138,14 +138,14 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 		return errors.NewErrInvalidType(eventType)
 	}
 
-	if len(payload.Data) < packetOffset {
-		return fmt.Errorf("not enough bytes to decode %d", payload.Data)
+	if len(data) < packetOffset {
+		return fmt.Errorf("not enough bytes to decode %d", data)
 	}
 
 	p.packet.Lock()
 	defer p.packet.Unlock()
 
-	err := p.packet.decLayer.DecodeLayers(payload.Data[packetOffset:], &p.packet.Layers)
+	err := p.packet.decLayer.DecodeLayers(data[packetOffset:], &p.packet.Layers)
 	if err != nil && !strings.HasPrefix(err.Error(), "No decoder for layer type") {
 		return err
 	}
@@ -171,7 +171,6 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 		}
 	}
 
-	decoded.Time = payload.Time
 	decoded.Verdict = decodeVerdict(dn, tn, pvn)
 	decoded.DropReason = decodeDropReason(dn, pvn)
 	decoded.Ethernet = ether
@@ -180,7 +179,6 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	decoded.Source = srcEndpoint
 	decoded.Destination = dstEndpoint
 	decoded.Type = pb.FlowType_L3_L4
-	decoded.NodeName = payload.HostName
 	decoded.SourceNames = p.resolveNames(dstEndpoint.ID, srcIP)
 	decoded.DestinationNames = p.resolveNames(srcEndpoint.ID, dstIP)
 	decoded.L7 = nil

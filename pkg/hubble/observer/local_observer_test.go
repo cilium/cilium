@@ -22,16 +22,17 @@ import (
 	"fmt"
 	"io/ioutil"
 	"testing"
+	"time"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
+	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -114,13 +115,14 @@ func TestLocalObserverServer_GetFlows(t *testing.T) {
 	for i := 0; i < numFlows; i++ {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
-		pl := &flowpb.Payload{
-			Time:     &timestamp.Timestamp{Seconds: int64(i)},
-			Type:     flowpb.EventType_EventSample,
-			Data:     data,
-			HostName: fmt.Sprintf("node #%03d", i),
+		m <- &observerTypes.MonitorEvent{
+			Timestamp: time.Unix(int64(i), 0),
+			NodeName:  fmt.Sprintf("node #%03d", i),
+			Payload: &observerTypes.PerfEvent{
+				Data: data,
+				CPU:  0,
+			},
 		}
-		m <- pl
 	}
 	close(s.GetEventsChannel())
 	<-s.GetStopped()
@@ -151,16 +153,16 @@ func TestHooks(t *testing.T) {
 
 	seenFlows := int64(0)
 	skipEveryNFlows := int64(2)
-	onMonitorEventFirst := func(ctx context.Context, payload *flowpb.Payload) (bool, error) {
+	onMonitorEventFirst := func(ctx context.Context, event *observerTypes.MonitorEvent) (bool, error) {
 		seenFlows++
 
-		assert.Equal(t, payload.Time.Seconds, seenFlows-1)
+		assert.Equal(t, event.Timestamp.Unix(), seenFlows-1)
 		if seenFlows%skipEveryNFlows == 0 {
 			return true, nil
 		}
 		return false, nil
 	}
-	onMonitorEventSecond := func(ctx context.Context, payload *flowpb.Payload) (bool, error) {
+	onMonitorEventSecond := func(ctx context.Context, event *observerTypes.MonitorEvent) (bool, error) {
 		if seenFlows%skipEveryNFlows == 0 {
 			assert.Fail(t, "server did not break loop after onMonitorEventFirst")
 		}
@@ -190,13 +192,14 @@ func TestHooks(t *testing.T) {
 	for i := 0; i < numFlows; i++ {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
-		pl := &flowpb.Payload{
-			Time:     &timestamp.Timestamp{Seconds: int64(i)},
-			Type:     flowpb.EventType_EventSample,
-			Data:     data,
-			HostName: fmt.Sprintf("node #%03d", i),
+		m <- &observerTypes.MonitorEvent{
+			Timestamp: time.Unix(int64(i), 0),
+			NodeName:  fmt.Sprintf("node #%03d", i),
+			Payload: &observerTypes.PerfEvent{
+				Data: data,
+				CPU:  0,
+			},
 		}
-		m <- pl
 	}
 	close(s.GetEventsChannel())
 	<-s.GetStopped()
@@ -244,13 +247,14 @@ func TestLocalObserverServer_OnFlowDelivery(t *testing.T) {
 	for i := 0; i < numFlows; i++ {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
-		pl := &flowpb.Payload{
-			Time:     &timestamp.Timestamp{Seconds: int64(i)},
-			Type:     flowpb.EventType_EventSample,
-			Data:     data,
-			HostName: fmt.Sprintf("node #%03d", i),
+		m <- &observerTypes.MonitorEvent{
+			Timestamp: time.Unix(int64(i), 0),
+			NodeName:  fmt.Sprintf("node #%03d", i),
+			Payload: &observerTypes.PerfEvent{
+				Data: data,
+				CPU:  0,
+			},
 		}
-		m <- pl
 	}
 	close(s.GetEventsChannel())
 	<-s.GetStopped()
@@ -307,13 +311,14 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	for i := 0; i < numFlows; i++ {
 		tn := monitor.TraceNotifyV0{Type: byte(monitorAPI.MessageTypeTrace)}
 		data := testutils.MustCreateL3L4Payload(tn)
-		pl := &flowpb.Payload{
-			Time:     &timestamp.Timestamp{Seconds: int64(i)},
-			Type:     flowpb.EventType_EventSample,
-			Data:     data,
-			HostName: fmt.Sprintf("node #%03d", i),
+		m <- &observerTypes.MonitorEvent{
+			Timestamp: time.Unix(int64(i), 0),
+			NodeName:  fmt.Sprintf("node #%03d", i),
+			Payload: &observerTypes.PerfEvent{
+				Data: data,
+				CPU:  0,
+			},
 		}
-		m <- pl
 	}
 	close(s.GetEventsChannel())
 	<-s.GetStopped()

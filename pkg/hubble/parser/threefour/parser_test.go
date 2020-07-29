@@ -36,7 +36,6 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/source"
 
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/sirupsen/logrus"
@@ -124,22 +123,11 @@ func TestL34Decode(t *testing.T) {
 		},
 	}
 	identityCache := &testutils.NoopIdentityGetter
-	timestamp := &timestamp.Timestamp{
-		Seconds: 1234,
-		Nanos:   4884,
-	}
-	nodeName := "k8s1"
 	parser, err := New(log, endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
-	p := &flowpb.Payload{
-		Type:     flowpb.EventType_EventSample,
-		Time:     timestamp,
-		Data:     d,
-		HostName: nodeName,
-	}
-	err = parser.Decode(p, f)
+	err = parser.Decode(d, f)
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"host-192.168.33.11"}, f.GetSourceNames())
@@ -162,7 +150,6 @@ func TestL34Decode(t *testing.T) {
 	assert.Equal(t, int32(api.TraceFromHost), f.GetEventType().GetSubType())
 	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
 	assert.Equal(t, &flowpb.TCPFlags{ACK: true}, f.L4.GetTCP().GetFlags())
-	assert.Equal(t, nodeName, f.GetNodeName())
 
 	assert.Equal(t, flowpb.TraceObservationPoint_FROM_HOST, f.GetTraceObservationPoint())
 
@@ -205,13 +192,7 @@ func TestL34Decode(t *testing.T) {
 	parser, err = New(log, endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter)
 	require.NoError(t, err)
 
-	p = &flowpb.Payload{
-		Type:     flowpb.EventType_EventSample,
-		Time:     timestamp,
-		Data:     d2,
-		HostName: nodeName,
-	}
-	err = parser.Decode(p, f)
+	err = parser.Decode(d2, f)
 	require.NoError(t, err)
 
 	// second packet is ICMPv6 and the flags should be totally wiped out
@@ -230,7 +211,6 @@ func TestL34Decode(t *testing.T) {
 	assert.Equal(t, int32(api.TraceFromLxc), f.GetEventType().GetSubType())
 	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
 	assert.Equal(t, (*flowpb.TCPFlags)(nil), f.L4.GetTCP().GetFlags())
-	assert.Equal(t, nodeName, f.GetNodeName())
 
 	assert.Equal(t, flowpb.TraceObservationPoint_FROM_ENDPOINT, f.GetTraceObservationPoint())
 }
@@ -248,26 +228,14 @@ func BenchmarkL34Decode(b *testing.B) {
 	ipGetter := &testutils.NoopIPGetter
 	serviceGetter := &testutils.NoopServiceGetter
 	identityCache := &testutils.NoopIdentityGetter
-	timestamp := &timestamp.Timestamp{
-		Seconds: 1234,
-		Nanos:   4884,
-	}
-	nodeName := "k8s1"
 	parser, err := New(log, endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter)
 	require.NoError(b, err)
 
 	f := &flowpb.Flow{}
-	p := &flowpb.Payload{
-		Type:     flowpb.EventType_EventSample,
-		Time:     timestamp,
-		Data:     d,
-		HostName: nodeName,
-	}
-
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = parser.Decode(p, f)
+		_ = parser.Decode(d, f)
 	}
 }
 
@@ -308,7 +276,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
-	err = parser.Decode(&flowpb.Payload{Data: buf.Bytes()}, f)
+	err = parser.Decode(buf.Bytes(), f)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"src=label"}, f.GetSource().GetLabels())
 	assert.Equal(t, []string{"dst=label"}, f.GetDestination().GetLabels())
@@ -353,7 +321,7 @@ func TestDecodeDropNotify(t *testing.T) {
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
-	err = parser.Decode(&flowpb.Payload{Data: buf.Bytes()}, f)
+	err = parser.Decode(buf.Bytes(), f)
 	require.NoError(t, err)
 	assert.Equal(t, []string{"src=label"}, f.GetSource().GetLabels())
 	assert.Equal(t, []string{"dst=label"}, f.GetDestination().GetLabels())
@@ -388,7 +356,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
-	err = parser.Decode(&flowpb.Payload{Data: data}, f)
+	err = parser.Decode(data, f)
 	require.NoError(t, err)
 
 	assert.Equal(t, int32(api.MessageTypePolicyVerdict), f.GetEventType().GetType())
@@ -410,7 +378,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	require.NoError(t, err)
 
 	f.Reset()
-	err = parser.Decode(&flowpb.Payload{Data: data}, f)
+	err = parser.Decode(data, f)
 	require.NoError(t, err)
 
 	assert.Equal(t, int32(api.MessageTypePolicyVerdict), f.GetEventType().GetType())
@@ -433,7 +401,7 @@ func TestDecodeDropReason(t *testing.T) {
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
-	err = parser.Decode(&flowpb.Payload{Data: data}, f)
+	err = parser.Decode(data, f)
 	require.NoError(t, err)
 
 	assert.Equal(t, uint32(reason), f.GetDropReason())
@@ -457,7 +425,7 @@ func TestDecodeLocalIdentity(t *testing.T) {
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
-	err = parser.Decode(&flowpb.Payload{Data: data}, f)
+	err = parser.Decode(data, f)
 	require.NoError(t, err)
 
 	assert.Equal(t, []string{"cidr:1.2.3.4/12", "some=label"}, f.GetSource().GetLabels())
@@ -492,7 +460,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 			&layers.IPv4{SrcIP: srcIPv4, DstIP: dstIPv4})
 		require.NoError(t, err)
 		f := &flowpb.Flow{}
-		err = parser.Decode(&flowpb.Payload{Data: data}, f)
+		err = parser.Decode(data, f)
 		require.NoError(t, err)
 		return f
 	}
@@ -701,7 +669,7 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	data, err := testutils.CreateL3L4Payload(v0, &eth, &ip, &layers.TCP{})
 	require.NoError(t, err)
 
-	err = parser.Decode(&flowpb.Payload{Data: data}, f)
+	err = parser.Decode(data, f)
 	require.NoError(t, err)
 	assert.Equal(t, f.IP.Source, "2.2.2.2")
 
@@ -714,7 +682,7 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 	}
 	data, err = testutils.CreateL3L4Payload(v1, &eth, &ip, &layers.TCP{})
 	require.NoError(t, err)
-	err = parser.Decode(&flowpb.Payload{Data: data}, f)
+	err = parser.Decode(data, f)
 	require.NoError(t, err)
 	assert.Equal(t, f.IP.Source, "1.1.1.1")
 }
@@ -746,7 +714,7 @@ func TestICMP(t *testing.T) {
 	v4data, err := testutils.CreateL3L4Payload(message, &eth, &ip, &icmpv4)
 	require.NoError(t, err)
 	v4flow := &flowpb.Flow{}
-	err = parser.Decode(&flowpb.Payload{Data: v4data}, v4flow)
+	err = parser.Decode(v4data, v4flow)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(1), v4flow.GetL4().GetICMPv4().Type)
 	assert.Equal(t, uint32(2), v4flow.GetL4().GetICMPv4().Code)
@@ -769,7 +737,7 @@ func TestICMP(t *testing.T) {
 	v6data, err := testutils.CreateL3L4Payload(message, &ethv6, &ipv6, &icmpv6)
 	require.NoError(t, err)
 	v6flow := &flowpb.Flow{}
-	err = parser.Decode(&flowpb.Payload{Data: v6data}, v6flow)
+	err = parser.Decode(v6data, v6flow)
 	require.NoError(t, err)
 	assert.Equal(t, uint32(3), v6flow.GetL4().GetICMPv6().Type)
 	assert.Equal(t, uint32(4), v6flow.GetL4().GetICMPv6().Code)
@@ -814,7 +782,7 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 	data, err := testutils.CreateL3L4Payload(v0, &eth, &ip, &layers.TCP{})
 	require.NoError(t, err)
 
-	err = parser.Decode(&flowpb.Payload{Data: data}, f)
+	err = parser.Decode(data, f)
 	require.NoError(t, err)
 
 	assert.Equal(t, uint32(ep.ID), f.Source.ID)

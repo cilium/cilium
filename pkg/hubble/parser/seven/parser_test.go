@@ -17,8 +17,6 @@
 package seven
 
 import (
-	"bytes"
-	"encoding/gob"
 	"io/ioutil"
 	"net"
 	"net/http"
@@ -30,12 +28,10 @@ import (
 	pb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/ipcache"
-	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -71,15 +67,6 @@ func init() {
 	log.SetOutput(ioutil.Discard)
 }
 
-func encodeL7Record(t require.TestingT, lr *accesslog.LogRecord) []byte {
-	buf := &bytes.Buffer{}
-	buf.WriteByte(byte(api.MessageTypeAccessLog))
-	err := gob.NewEncoder(buf).Encode(lr)
-	require.NoError(t, err)
-
-	return buf.Bytes()
-}
-
 func TestDecodeL7HTTPRecord(t *testing.T) {
 	requestPath, err := url.Parse("http://myhost/some/path")
 	require.NoError(t, err)
@@ -107,8 +94,6 @@ func TestDecodeL7HTTPRecord(t *testing.T) {
 	}
 	lr.SourceEndpoint.Port = 56789
 	lr.DestinationEndpoint.Port = 80
-
-	data := encodeL7Record(t, lr)
 
 	dnsGetter := &testutils.FakeFQDNCache{
 		OnGetNamesOf: func(epID uint32, ip net.IP) (names []string) {
@@ -145,22 +130,11 @@ func TestDecodeL7HTTPRecord(t *testing.T) {
 		},
 	}
 
-	timestamp := &timestamp.Timestamp{
-		Seconds: 1234,
-		Nanos:   4884,
-	}
-	nodeName := "k8s1"
 	parser, err := New(log, dnsGetter, IPGetter, serviceGetter)
 	require.NoError(t, err)
 
 	f := &pb.Flow{}
-	p := &pb.Payload{
-		Type:     pb.EventType_EventSample,
-		Time:     timestamp,
-		Data:     data,
-		HostName: nodeName,
-	}
-	err = parser.Decode(p, f)
+	err = parser.Decode(lr, f)
 	require.NoError(t, err)
 
 	assert.Equal(t, fakeSourceEndpoint.IPv4, f.GetIP().GetDestination())
@@ -182,7 +156,6 @@ func TestDecodeL7HTTPRecord(t *testing.T) {
 	assert.Equal(t, "service-1234", f.GetSourceService().GetName())
 
 	assert.Equal(t, pb.Verdict_FORWARDED, f.GetVerdict())
-	assert.Equal(t, nodeName, f.GetNodeName())
 
 	assert.Equal(t, &pb.HTTP{
 		Code:     404,
@@ -219,27 +192,15 @@ func TestDecodeL7DNSRecord(t *testing.T) {
 	lr.SourceEndpoint.Port = 56789
 	lr.DestinationEndpoint.Port = 53
 
-	data := encodeL7Record(t, lr)
 	dnsGetter := &testutils.NoopDNSGetter
 	ipGetter := &testutils.NoopIPGetter
 	serviceGetter := &testutils.NoopServiceGetter
 
-	timestamp := &timestamp.Timestamp{
-		Seconds: 1234,
-		Nanos:   4884,
-	}
-	nodeName := "k8s1"
 	parser, err := New(log, dnsGetter, ipGetter, serviceGetter)
 	require.NoError(t, err)
 
 	f := &pb.Flow{}
-	p := &pb.Payload{
-		Type:     pb.EventType_EventSample,
-		Time:     timestamp,
-		Data:     data,
-		HostName: nodeName,
-	}
-	err = parser.Decode(p, f)
+	err = parser.Decode(lr, f)
 	require.NoError(t, err)
 
 	ts, _ := ptypes.Timestamp(f.GetTime())
@@ -264,7 +225,6 @@ func TestDecodeL7DNSRecord(t *testing.T) {
 	assert.Equal(t, "", f.GetSourceService().GetName())
 
 	assert.Equal(t, pb.Verdict_FORWARDED, f.GetVerdict())
-	assert.Equal(t, nodeName, f.GetNodeName())
 
 	assert.Equal(t, &pb.DNS{
 		Query:             "deathstar.empire.svc.cluster.local.",
@@ -305,31 +265,18 @@ func BenchmarkL7Decode(b *testing.B) {
 	lr.SourceEndpoint.Port = 56789
 	lr.DestinationEndpoint.Port = 80
 
-	data := encodeL7Record(b, lr)
 	dnsGetter := &testutils.NoopDNSGetter
 	ipGetter := &testutils.NoopIPGetter
 	serviceGetter := &testutils.NoopServiceGetter
 
-	timestamp := &timestamp.Timestamp{
-		Seconds: 1234,
-		Nanos:   4884,
-	}
-	nodeName := "k8s1"
 	parser, err := New(log, dnsGetter, ipGetter, serviceGetter)
 	require.NoError(b, err)
 
 	f := &pb.Flow{}
-	p := &pb.Payload{
-		Type:     pb.EventType_EventSample,
-		Time:     timestamp,
-		Data:     data,
-		HostName: nodeName,
-	}
-
 	b.ReportAllocs()
 	b.ResetTimer()
 	for i := 0; i < b.N; i++ {
-		_ = parser.Decode(p, f)
+		_ = parser.Decode(lr, f)
 	}
 }
 
@@ -354,32 +301,26 @@ func TestDecodeResponseTime(t *testing.T) {
 	parser, err := New(log, nil, nil, nil)
 	require.NoError(t, err)
 
-	requestPayload := &pb.Payload{
-		Type: pb.EventType_EventSample,
-		Data: encodeL7Record(t, &accesslog.LogRecord{
-			Type:      accesslog.TypeRequest,
-			Timestamp: requestTimestamp,
-			HTTP:      httpRecord,
-		}),
+	request := &accesslog.LogRecord{
+		Type:      accesslog.TypeRequest,
+		Timestamp: requestTimestamp,
+		HTTP:      httpRecord,
 	}
 
-	responsePayload := &pb.Payload{
-		Type: pb.EventType_EventSample,
-		Data: encodeL7Record(t, &accesslog.LogRecord{
-			Type:      accesslog.TypeResponse,
-			Timestamp: responseTimestamp,
-			HTTP:      httpRecord,
-		}),
+	response := &accesslog.LogRecord{
+		Type:      accesslog.TypeResponse,
+		Timestamp: responseTimestamp,
+		HTTP:      httpRecord,
 	}
 
 	f := &pb.Flow{}
-	err = parser.Decode(requestPayload, f)
+	err = parser.Decode(request, f)
 	require.NoError(t, err)
 	_, ok := parser.cache.Get(requestID)
 	assert.True(t, ok, "request id should be in the cache")
 
 	f.Reset()
-	err = parser.Decode(responsePayload, f)
+	err = parser.Decode(response, f)
 	require.NoError(t, err)
 	assert.Equal(t, 1*time.Second, time.Duration(f.GetL7().GetLatencyNs()))
 	_, ok = parser.cache.Get(requestID)
@@ -387,7 +328,7 @@ func TestDecodeResponseTime(t *testing.T) {
 
 	// it should handle the case where the request id is not in the cache for response type.
 	f = &pb.Flow{}
-	err = parser.Decode(responsePayload, f)
+	err = parser.Decode(response, f)
 	require.NoError(t, err)
 	assert.Equal(t, uint64(0), f.GetL7().GetLatencyNs())
 	_, ok = parser.cache.Get(requestID)
