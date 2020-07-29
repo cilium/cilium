@@ -348,7 +348,7 @@ func (e *etcdClient) GetLockSessionLeaseID() client.LeaseID {
 // it as an Orphan() the session would be considered expired after the leaseTTL
 // By make it orphan we guarantee the session will be marked to be renewed.
 func (e *etcdClient) checkSession(err error, leaseID client.LeaseID) {
-	if err == v3rpcErrors.ErrLeaseNotFound {
+	if errors.Is(err, v3rpcErrors.ErrLeaseNotFound) {
 		e.closeSession(leaseID)
 	}
 }
@@ -359,7 +359,7 @@ func (e *etcdClient) checkSession(err error, leaseID client.LeaseID) {
 // it as an Orphan() the session would be considered expired after the leaseTTL
 // By make it orphan we guarantee the session will be marked to be renewed.
 func (e *etcdClient) checkLockSession(err error, leaseID client.LeaseID) {
-	if err == v3rpcErrors.ErrLeaseNotFound {
+	if errors.Is(err, v3rpcErrors.ErrLeaseNotFound) {
 		e.closeLockSession(leaseID)
 	}
 }
@@ -977,7 +977,7 @@ reList:
 					// revision that may no longer exist,
 					// recreate the watcher and try to
 					// watch on the next possible revision
-					if err == v3rpcErrors.ErrCompacted {
+					if errors.Is(err, v3rpcErrors.ErrCompacted) {
 						scopedLog.WithError(Hint(err)).Debug("Tried watching on compacted revision")
 					}
 

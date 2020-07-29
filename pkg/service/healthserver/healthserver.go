@@ -189,7 +189,7 @@ func (h *httpHealthHTTPServerFactory) newHTTPHealthServer(port uint16, svc *Serv
 			logfields.ServiceHealthCheckNodePort: port,
 		}).Debug("Starting new service health server")
 
-		if err := srv.ListenAndServe(); err != http.ErrServerClosed {
+		if err := srv.ListenAndServe(); !errors.Is(err, http.ErrServerClosed) {
 			svc := srv.loadService()
 			if errors.Is(err, unix.EADDRINUSE) {
 				log.WithError(err).WithFields(logrus.Fields{

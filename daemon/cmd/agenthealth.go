@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"net"
 	"net/http"
 	"syscall"
@@ -79,7 +80,7 @@ func (d *Daemon) startAgentHealthHTTPService(addr string) {
 
 	go func() {
 		err := srv.Serve(ln)
-		if err == http.ErrServerClosed {
+		if errors.Is(err, http.ErrServerClosed) {
 			log.Info("healthz status API server shutdown")
 		} else if err != nil {
 			log.WithError(err).Fatal("Unable to start healthz status API server")

@@ -16,6 +16,7 @@ package xds
 
 import (
 	"context"
+	"errors"
 	"io"
 	"time"
 
@@ -58,7 +59,7 @@ func (s *MockStream) Send(resp *envoy_service_discovery.DiscoveryResponse) error
 	select {
 	case <-subCtx.Done():
 		cancel()
-		if subCtx.Err() == context.Canceled {
+		if errors.Is(subCtx.Err(), context.Canceled) {
 			return io.EOF
 		}
 		return subCtx.Err()
@@ -74,7 +75,7 @@ func (s *MockStream) Recv() (*envoy_service_discovery.DiscoveryRequest, error) {
 	select {
 	case <-subCtx.Done():
 		cancel()
-		if subCtx.Err() == context.Canceled {
+		if errors.Is(subCtx.Err(), context.Canceled) {
 			return nil, io.EOF
 		}
 		return nil, subCtx.Err()
@@ -91,7 +92,7 @@ func (s *MockStream) SendRequest(req *envoy_service_discovery.DiscoveryRequest) 
 	select {
 	case <-subCtx.Done():
 		cancel()
-		if subCtx.Err() == context.Canceled {
+		if errors.Is(subCtx.Err(), context.Canceled) {
 			return io.EOF
 		}
 		return subCtx.Err()
@@ -108,7 +109,7 @@ func (s *MockStream) RecvResponse() (*envoy_service_discovery.DiscoveryResponse,
 	select {
 	case <-subCtx.Done():
 		cancel()
-		if subCtx.Err() == context.Canceled {
+		if errors.Is(subCtx.Err(), context.Canceled) {
 			return nil, io.EOF
 		}
 		return nil, subCtx.Err()
