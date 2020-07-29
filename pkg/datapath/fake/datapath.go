@@ -92,6 +92,10 @@ func (f *fakeDatapath) TransientRulesEnd(quiet bool) {
 	return
 }
 
+func (m *fakeDatapath) GetProxyPort(name string) uint16 {
+	return 0
+}
+
 func (f *fakeDatapath) Loader() datapath.Loader {
 	return f.loader
 }

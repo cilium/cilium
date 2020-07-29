@@ -234,6 +234,18 @@ func findProxyPort(name string) *ProxyPort {
 	return nil
 }
 
+// AckProxyPort() marks the proxy of the given type as successfully
+// created and creates or updates the datapath rules accordingly.
+func (p *Proxy) AckProxyPort(l7Type policy.L7ParserType, ingress bool) error {
+	proxyPortsMutex.Lock()
+	defer proxyPortsMutex.Unlock()
+	pp := getProxyPort(l7Type, ingress)
+	if pp == nil {
+		return proxyNotFoundError(l7Type, ingress)
+	}
+	return p.ackProxyPort(pp) // creates datapath rules, increases the reference count
+}
+
 // ackProxyPort() marks the proxy as successfully created and creates or updates the datapath rules
 // accordingly. Each call must eventually be paired with a corresponding releaseProxyPort() call
 // to keep the use count up-to-date.
@@ -340,8 +352,8 @@ func GetProxyPort(l7Type policy.L7ParserType, ingress bool) (uint16, string, err
 	return 0, "", proxyNotFoundError(l7Type, ingress)
 }
 
-// SetProxyPort() marks the proxy 'name' as successfully created with proxy port 'port' and creates
-// or updates the datapath rules accordingly.
+// SetProxyPort() marks the proxy 'name' as successfully created with proxy port 'port'.
+// Another call to AckProxyPort(name) is needed to update the datapath rules accordingly.
 // This should only be called for proxies that have a static listener that is already listening on
 // 'port'. May only be called once per proxy.
 func (p *Proxy) SetProxyPort(name string, port uint16) error {
@@ -355,9 +367,9 @@ func (p *Proxy) SetProxyPort(name string, port uint16) error {
 		return fmt.Errorf("Can't set proxy port to %d: proxy %s is already configured on %d", port, name, pp.proxyPort)
 	}
 	pp.proxyPort = port
-	pp.isStatic = true        // prevents release of the proxy port
-	pp.reservePort()          // marks 'port' as reserved, 'pp' as configured
-	return p.ackProxyPort(pp) // creates datapath rules, increases the reference count
+	pp.isStatic = true // prevents release of the proxy port
+	pp.reservePort()   // marks 'port' as reserved, 'pp' as configured
+	return nil
 }
 
 // ReinstallRules is called by daemon reconfiguration to re-install proxy ports rules that

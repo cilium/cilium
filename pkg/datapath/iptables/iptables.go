@@ -19,6 +19,7 @@ import (
 	"bytes"
 	"fmt"
 	"regexp"
+	"strconv"
 	"strings"
 	"time"
 
@@ -699,6 +700,31 @@ func (m *IptablesManager) InstallProxyRules(proxyPort uint16, ingress bool, name
 		return nil
 	}
 	return m.iptProxyRules("-A", proxyPort, ingress, name)
+}
+
+// GetProxyPort finds a proxy port used for redirect 'name' installed earlier with InstallProxyRules.
+// By convention "ingress" or "egress" is part of 'name' so it does not need to be specified explicitly.
+// Returns 0 a TPROXY entry with 'name' can not be found.
+func (m *IptablesManager) GetProxyPort(name string) uint16 {
+	prog := "iptables"
+	if !option.Config.EnableIPv4 {
+		prog = "ip6tables"
+	}
+
+	res, err := runProgCombinedOutput(prog, []string{"-t", "mangle", "-n", "-L", ciliumPreMangleChain}, false)
+	if err != nil {
+		return 0
+	}
+
+	re := regexp.MustCompile(name + ".*TPROXY redirect 0.0.0.0:([1-9][0-9]*) mark")
+	str := re.FindString(string(res))
+	portStr := re.ReplaceAllString(str, "$1")
+	portInt, err := strconv.Atoi(portStr)
+	if err != nil {
+		log.WithError(err).Debugf("Port number cannot be parsed: %s", portStr)
+		return 0
+	}
+	return uint16(portInt)
 }
 
 func (m *IptablesManager) RemoveProxyRules(proxyPort uint16, ingress bool, name string) error {
