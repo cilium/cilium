@@ -393,6 +393,39 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		log.WithError(err).Warning("Unable to clean stale endpoint interfaces")
 	}
 
+	// Start the proxy before we restore endpoints so that we can inject the
+	// daemon's proxy into each endpoint.
+	bootstrapStats.proxyStart.Start()
+	// FIXME: Make the port range configurable.
+	if option.Config.EnableL7Proxy {
+		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
+			option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath, d.endpointManager)
+	} else {
+		log.Info("L7 proxies are disabled")
+	}
+	bootstrapStats.proxyStart.End(true)
+
+	bootstrapStats.restore.Start()
+	// fetch old endpoints before k8s is configured.
+	restoredEndpoints, err := d.fetchOldEndpoints(option.Config.StateDir)
+	if err != nil {
+		log.WithError(err).Error("Unable to read existing endpoints")
+	}
+	bootstrapStats.restore.End(true)
+
+	bootstrapStats.fqdn.Start()
+	if err := fqdn.ConfigFromResolvConf(); err != nil {
+		bootstrapStats.fqdn.EndError(err)
+		return nil, nil, err
+	}
+
+	err = d.bootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
+	if err != nil {
+		bootstrapStats.fqdn.EndError(err)
+		return nil, restoredEndpoints, err
+	}
+	bootstrapStats.fqdn.End(true)
+
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 		if err := k8s.Init(option.Config); err != nil {
@@ -417,23 +450,11 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 
 	d.bootstrapIPAM()
 
-	// Start the proxy before we restore endpoints so that we can inject the
-	// daemon's proxy into each endpoint.
-	bootstrapStats.proxyStart.Start()
-	// FIXME: Make the port range configurable.
-	if option.Config.EnableL7Proxy {
-		d.l7Proxy = proxy.StartProxySupport(10000, 20000, option.Config.RunDir,
-			option.Config.AccessLog, &d, option.Config.AgentLabels, d.datapath, d.endpointManager)
-	} else {
-		log.Info("L7 proxies are disabled")
-	}
-	bootstrapStats.proxyStart.End(true)
-
 	bootstrapStats.restore.Start()
 	// restore endpoints before any IPs are allocated to avoid eventual IP
 	// conflicts later on, otherwise any IP conflict will result in the
 	// endpoint not being able to be restored.
-	restoredEndpoints, err := d.restoreOldEndpoints(option.Config.StateDir, true)
+	err = d.restoreOldEndpoints(restoredEndpoints, true)
 	if err != nil {
 		log.WithError(err).Error("Unable to restore existing endpoints")
 	}
@@ -499,6 +520,12 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 		return nil, restoredEndpoints, err
 	}
 
+	// iptables rules can be updated only after d.init() intializes the iptables above.
+	err = d.updateDNSDatapathRules()
+	if err != nil {
+		return nil, restoredEndpoints, err
+	}
+
 	// We can only start monitor agent once cilium_event has been set up.
 	if option.Config.RunMonitorAgent {
 		monitorAgent, err := monitoragent.NewAgent(context.TODO(), defaults.MonitorBufferPages)
@@ -533,19 +560,6 @@ func NewDaemon(ctx context.Context, dp datapath.Datapath) (*Daemon, *endpointRes
 	// we populate the IPCache with the host's IP(s).
 	ipcache.InitIPIdentityWatcher()
 	identitymanager.Subscribe(d.policy)
-
-	bootstrapStats.fqdn.Start()
-	if err := fqdn.ConfigFromResolvConf(); err != nil {
-		bootstrapStats.fqdn.EndError(err)
-		return nil, nil, err
-	}
-
-	err = d.bootstrapFQDN(restoredEndpoints, option.Config.ToFQDNsPreCache)
-	if err != nil {
-		bootstrapStats.fqdn.EndError(err)
-		return nil, restoredEndpoints, err
-	}
-	bootstrapStats.fqdn.End(true)
 
 	return &d, restoredEndpoints, nil
 }
