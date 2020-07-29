@@ -515,6 +515,11 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 		Sandbox: args.Netns,
 	})
 
+	// Add to the result the Interface as index of Interfaces
+	for i := range res.Interfaces {
+		res.IPs[i].Interface = cniTypesVer.Int(i)
+	}
+
 	// Specify that endpoint must be regenerated synchronously. See GH-4409.
 	ep.SyncBuildEndpoint = true
 	if err = c.EndpointCreate(ep); err != nil {
