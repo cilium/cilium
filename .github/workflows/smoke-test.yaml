@@ -85,14 +85,7 @@ jobs:
         run: |
           kubectl get pods -o wide
           kubectl get deploy -o wide
-          kubectl describe service echo-a
-          kubectl logs service/echo-a --all-containers --since=$LOG_TIME
-          kubectl describe service echo-b
-          kubectl logs service/echo-b --all-containers --since=$LOG_TIME
-          kubectl describe service echo-b-headless
-          kubectl logs service/echo-b-headless --all-containers --since=$LOG_TIME
-          kubectl describe service echo-b-host-headless
-          kubectl logs service/echo-b-host-headless --all-containers --since=$LOG_TIME
+          for svc in $(make -C examples/kubernetes/connectivity-check/ list | grep Service | awk '{ print $4 }'); do kubectl describe service $svc; kubectl logs service/$svc --all-containers --since=$LOG_TIME; done
 
       - name: Dump hubble related logs and events
         if: ${{ failure() &&  matrix.target.name == 'experimental-install' }}
@@ -139,6 +132,7 @@ jobs:
              --set global.externalIPs.enabled=true \
              --set global.nodePort.enabled=true \
              --set global.hostPort.enabled=true \
+             --set config.bpfMasquerade=false \
              --set config.ipam=kubernetes \
              --set global.pullPolicy=Never
 
@@ -165,11 +159,6 @@ jobs:
         env:
           LOG_TIME: 30m
         run: |
-          kubectl describe service echo-a
-          kubectl logs service/echo-a --all-containers --since=$LOG_TIME
-          kubectl describe service echo-b
-          kubectl logs service/echo-b --all-containers --since=$LOG_TIME
-          kubectl describe service echo-b-headless
-          kubectl logs service/echo-b-headless --all-containers --since=$LOG_TIME
-          kubectl describe service echo-b-host-headless
-          kubectl logs service/echo-b-host-headless --all-containers --since=$LOG_TIME
+          kubectl get pods -o wide
+          kubectl get deploy -o wide
+          for svc in $(make -C examples/kubernetes/connectivity-check/ list | grep Service | awk '{ print $4 }'); do kubectl describe service $svc; kubectl logs service/$svc --all-containers --since=$LOG_TIME; done

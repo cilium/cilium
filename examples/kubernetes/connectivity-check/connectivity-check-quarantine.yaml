@@ -1,0 +1,839 @@
+---
+metadata:
+  name: pod-to-a-multi-node-hostport-proxy-egress
+  labels:
+    name: pod-to-a-multi-node-hostport-proxy-egress
+    topology: multi-node
+    component: hostport-check
+    quarantine: "true"
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-a-multi-node-hostport-proxy-egress
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-a-multi-node-hostport-proxy-egress-allow-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
+      - name: pod-to-a-multi-node-hostport-proxy-egress-reject-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - ash
+            - -c
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c-host-headless:40001/private'
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-a
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-a-multi-node-hostport-proxy-egress
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-a-intra-node-hostport-proxy-egress
+  labels:
+    name: pod-to-a-intra-node-hostport-proxy-egress
+    topology: intra-node
+    component: hostport-check
+    quarantine: "true"
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-a-intra-node-hostport-proxy-egress
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-a-intra-node-hostport-proxy-egress-allow-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
+      - name: pod-to-a-intra-node-hostport-proxy-egress-reject-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - ash
+            - -c
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c-host-headless:40001/private'
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-a
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-a-intra-node-hostport-proxy-egress
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-c-multi-node-hostport-proxy-ingress
+  labels:
+    name: pod-to-c-multi-node-hostport-proxy-ingress
+    topology: multi-node
+    component: hostport-check
+    quarantine: "true"
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-c-multi-node-hostport-proxy-ingress
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-c-multi-node-hostport-proxy-ingress-allow-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
+      - name: pod-to-c-multi-node-hostport-proxy-ingress-reject-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - ash
+            - -c
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c-host-headless:40001/private'
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-c
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-c-multi-node-hostport-proxy-ingress
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-c-intra-node-hostport-proxy-ingress
+  labels:
+    name: pod-to-c-intra-node-hostport-proxy-ingress
+    topology: intra-node
+    component: hostport-check
+    quarantine: "true"
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-c-intra-node-hostport-proxy-ingress
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-c-intra-node-hostport-proxy-ingress-allow-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
+      - name: pod-to-c-intra-node-hostport-proxy-ingress-reject-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - ash
+            - -c
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c-host-headless:40001/private'
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-c
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-c-intra-node-hostport-proxy-ingress
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-c-multi-node-hostport-proxy-to-proxy
+  labels:
+    name: pod-to-c-multi-node-hostport-proxy-to-proxy
+    topology: multi-node
+    component: hostport-check
+    quarantine: "true"
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-c-multi-node-hostport-proxy-to-proxy
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-c-multi-node-hostport-proxy-to-proxy-allow-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
+      - name: pod-to-c-multi-node-hostport-proxy-to-proxy-reject-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - ash
+            - -c
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c-host-headless:40001/private'
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-c
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-c-multi-node-hostport-proxy-to-proxy
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-c-intra-node-hostport-proxy-to-proxy
+  labels:
+    name: pod-to-c-intra-node-hostport-proxy-to-proxy
+    topology: intra-node
+    component: hostport-check
+    quarantine: "true"
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-c-intra-node-hostport-proxy-to-proxy
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-c-intra-node-hostport-proxy-to-proxy-allow-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-c-host-headless:40001/public
+      - name: pod-to-c-intra-node-hostport-proxy-to-proxy-reject-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - ash
+            - -c
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c-host-headless:40001/private'
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-c
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-c-intra-node-hostport-proxy-to-proxy
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-a-multi-node-hostport-proxy-egress
+  labels:
+    name: pod-to-a-multi-node-hostport-proxy-egress
+    topology: multi-node
+    component: hostport-check
+    quarantine: "true"
+spec:
+  endpointSelector:
+    matchLabels:
+      name: pod-to-a-multi-node-hostport-proxy-egress
+  egress:
+  - toPorts:
+    - ports:
+      - port: "40001"
+        protocol: TCP
+      rules:
+        http:
+        - path: /public$
+          method: GET
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+    toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+  - toPorts:
+    - ports:
+      - port: "5353"
+        protocol: UDP
+    toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s:dns.operator.openshift.io/daemonset-dns: default
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+---
+metadata:
+  name: pod-to-a-intra-node-hostport-proxy-egress
+  labels:
+    name: pod-to-a-intra-node-hostport-proxy-egress
+    topology: intra-node
+    component: hostport-check
+    quarantine: "true"
+spec:
+  endpointSelector:
+    matchLabels:
+      name: pod-to-a-intra-node-hostport-proxy-egress
+  egress:
+  - toPorts:
+    - ports:
+      - port: "40001"
+        protocol: TCP
+      rules:
+        http:
+        - path: /public$
+          method: GET
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+    toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+  - toPorts:
+    - ports:
+      - port: "5353"
+        protocol: UDP
+    toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s:dns.operator.openshift.io/daemonset-dns: default
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+---
+metadata:
+  name: pod-to-c-multi-node-hostport-proxy-to-proxy
+  labels:
+    name: pod-to-c-multi-node-hostport-proxy-to-proxy
+    topology: multi-node
+    component: hostport-check
+    quarantine: "true"
+spec:
+  endpointSelector:
+    matchLabels:
+      name: pod-to-c-multi-node-hostport-proxy-to-proxy
+  egress:
+  - toPorts:
+    - ports:
+      - port: "40001"
+        protocol: TCP
+      rules:
+        http:
+        - path: /public$
+          method: GET
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+    toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+  - toPorts:
+    - ports:
+      - port: "5353"
+        protocol: UDP
+    toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s:dns.operator.openshift.io/daemonset-dns: default
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+---
+metadata:
+  name: pod-to-c-intra-node-hostport-proxy-to-proxy
+  labels:
+    name: pod-to-c-intra-node-hostport-proxy-to-proxy
+    topology: intra-node
+    component: hostport-check
+    quarantine: "true"
+spec:
+  endpointSelector:
+    matchLabels:
+      name: pod-to-c-intra-node-hostport-proxy-to-proxy
+  egress:
+  - toPorts:
+    - ports:
+      - port: "40001"
+        protocol: TCP
+      rules:
+        http:
+        - path: /public$
+          method: GET
+  - toPorts:
+    - ports:
+      - port: "53"
+        protocol: ANY
+    toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: kube-system
+        k8s:k8s-app: kube-dns
+  - toPorts:
+    - ports:
+      - port: "5353"
+        protocol: UDP
+    toEndpoints:
+    - matchLabels:
+        k8s:io.kubernetes.pod.namespace: openshift-dns
+        k8s:dns.operator.openshift.io/daemonset-dns: default
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
+
+
+---
+metadata:
+  name: echo-a
+  labels:
+    name: echo-a
+    topology: any
+    component: network-check
+    quarantine: "false"
+spec:
+  template:
+    metadata:
+      labels:
+        name: echo-a
+    spec:
+      hostNetwork: false
+      containers:
+      - name: echo-a-container
+        ports:
+        - containerPort: 80
+        image: docker.io/cilium/json-mock:1.2
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost
+  selector:
+    matchLabels:
+      name: echo-a
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: echo-a
+  labels:
+    name: echo-a
+    topology: any
+    component: network-check
+    quarantine: "false"
+spec:
+  ports:
+  - port: 80
+  selector:
+    name: echo-a
+  type: ClusterIP
+apiVersion: v1
+kind: Service
+
+---
+metadata:
+  name: echo-b
+  labels:
+    name: echo-b
+    topology: any
+    component: services-check
+    quarantine: "false"
+spec:
+  template:
+    metadata:
+      labels:
+        name: echo-b
+    spec:
+      hostNetwork: false
+      containers:
+      - name: echo-b-container
+        ports:
+        - containerPort: 80
+          hostPort: 40000
+        image: docker.io/cilium/json-mock:1.2
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost
+  selector:
+    matchLabels:
+      name: echo-b
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: echo-b
+  labels:
+    name: echo-b
+    topology: any
+    component: services-check
+    quarantine: "false"
+spec:
+  ports:
+  - port: 80
+    nodePort: 31313
+  selector:
+    name: echo-b
+  type: NodePort
+apiVersion: v1
+kind: Service
+
+---
+metadata:
+  name: echo-b-host
+  labels:
+    name: echo-b-host
+    topology: any
+    component: services-check
+    quarantine: "false"
+spec:
+  template:
+    metadata:
+      labels:
+        name: echo-b-host
+    spec:
+      hostNetwork: true
+      containers:
+      - name: echo-b-host-container
+        env:
+        - name: PORT
+          value: "41000"
+        ports: []
+        image: docker.io/cilium/json-mock:1.2
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:41000
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:41000
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: echo-b-host
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+
+---
+metadata:
+  name: echo-b-host-headless
+  labels:
+    name: echo-b-host-headless
+    topology: any
+    component: services-check
+    quarantine: "false"
+spec:
+  ports: []
+  selector:
+    name: echo-b-host
+  type: ClusterIP
+  clusterIP: None
+apiVersion: v1
+kind: Service
+
+---
+
+---
+
+---
+
