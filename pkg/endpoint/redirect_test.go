@@ -128,6 +128,9 @@ func (s *DummyOwner) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
 
+func (s *DummyOwner) RemoveRestoredDNSRules(epID uint16) {
+}
+
 // GetNodeSuffix does nothing.
 func (d *DummyOwner) GetNodeSuffix() string {
 	return ""

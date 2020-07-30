@@ -1048,6 +1048,9 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 		e.owner.Datapath().Loader().Unload(e.createEpInfoCache(""))
 	}
 
+	// Remove restored rules of cleaned endpoint
+	e.owner.RemoveRestoredDNSRules(e.ID)
+
 	if e.SecurityIdentity != nil && len(e.realizedRedirects) > 0 {
 		// Passing a new map of nil will purge all redirects
 		finalize, _ := e.removeOldRedirects(nil, proxyWaitGroup)
