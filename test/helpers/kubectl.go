@@ -2301,6 +2301,7 @@ func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) er
 		resourcesToDelete = map[string]string{
 			"configmap":          "cilium-config",
 			"daemonset":          "cilium",
+			"daemonset ":         "cilium-node-init",
 			"deployment":         "cilium-operator",
 			"clusterrolebinding": "cilium cilium-operator",
 			"clusterrole":        "cilium cilium-operator",
