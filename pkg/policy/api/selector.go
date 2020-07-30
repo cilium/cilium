@@ -38,12 +38,12 @@ type EndpointSelector struct {
 	// LabelSelector, which allows more efficient matching in Matches().
 	//
 	// Kept as a pointer to allow EndpointSelector to be used as a map key.
-	requirements *k8sLbls.Requirements
+	requirements *k8sLbls.Requirements `json:"-"`
 
 	// cachedString is the cached representation of the LabelSelector for this
 	// EndpointSelector. It is populated when EndpointSelectors are created
 	// via `NewESFromMatchRequirements`. It is immutable after its creation.
-	cachedLabelSelectorString string
+	cachedLabelSelectorString string `json:"-"`
 }
 
 // LabelSelectorString returns a user-friendly string representation of
