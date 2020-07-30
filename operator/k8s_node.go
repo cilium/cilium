@@ -307,6 +307,11 @@ func updateCNP(ciliumClient v2.CiliumV2Interface, cnp *cilium_v2.CiliumNetworkPo
 		// update the respective clusterwide or namespaced policy.
 		if ns == "" {
 			ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
+				// Need to explicitly copy all the fields even though CNP is
+				// embedded inside CCNP. See comment inside CCNP type
+				// definition. This is required for K8s versions < 1.13.
+				TypeMeta:            cnp.TypeMeta,
+				ObjectMeta:          cnp.ObjectMeta,
 				CiliumNetworkPolicy: cnp,
 				Status:              cnp.Status,
 			}

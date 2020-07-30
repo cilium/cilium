@@ -21,6 +21,7 @@ import (
 
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	labels "k8s.io/apimachinery/pkg/labels"
 	schema "k8s.io/apimachinery/pkg/runtime/schema"
 	types "k8s.io/apimachinery/pkg/types"
 	watch "k8s.io/apimachinery/pkg/watch"
@@ -53,7 +54,18 @@ func (c *FakeCiliumClusterwideNetworkPolicies) List(ctx context.Context, opts v1
 	if obj == nil {
 		return nil, err
 	}
-	return obj.(*v2.CiliumClusterwideNetworkPolicyList), err
+
+	label, _, _ := testing.ExtractFromListOptions(opts)
+	if label == nil {
+		label = labels.Everything()
+	}
+	list := &v2.CiliumClusterwideNetworkPolicyList{ListMeta: obj.(*v2.CiliumClusterwideNetworkPolicyList).ListMeta}
+	for _, item := range obj.(*v2.CiliumClusterwideNetworkPolicyList).Items {
+		if label.Matches(labels.Set(item.Labels)) {
+			list.Items = append(list.Items, item)
+		}
+	}
+	return list, err
 }
 
 // Watch returns a watch.Interface that watches the requested ciliumClusterwideNetworkPolicies.
