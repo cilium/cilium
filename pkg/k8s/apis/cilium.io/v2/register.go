@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"context"
 	goerrors "errors"
 	"fmt"
 	"time"
@@ -25,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	go_version "github.com/blang/semver"
+	"golang.org/x/sync/errgroup"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -126,29 +128,31 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 // CreateCustomResourceDefinitions creates our CRD objects in the kubernetes
 // cluster
 func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) error {
-	if err := createCNPCRD(clientset); err != nil {
-		return err
-	}
+	g, _ := errgroup.WithContext(context.Background())
 
-	if err := createCCNPCRD(clientset); err != nil {
-		return err
-	}
+	g.Go(func() error {
+		return createCNPCRD(clientset)
+	})
 
-	if err := createCEPCRD(clientset); err != nil {
-		return err
-	}
+	g.Go(func() error {
+		return createCCNPCRD(clientset)
+	})
 
-	if err := createNodeCRD(clientset); err != nil {
-		return err
-	}
+	g.Go(func() error {
+		return createCEPCRD(clientset)
+	})
+
+	g.Go(func() error {
+		return createNodeCRD(clientset)
+	})
 
 	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD {
-		if err := createIdentityCRD(clientset); err != nil {
-			return err
-		}
+		g.Go(func() error {
+			return createIdentityCRD(clientset)
+		})
 	}
 
-	return nil
+	return g.Wait()
 }
 
 // createCNPCRD creates and updates the CiliumNetworkPolicies CRD. It should be called
