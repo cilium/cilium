@@ -1261,12 +1261,16 @@ func runDaemon() {
 	// subsystem as well in parallel so caches will start to be synchronized
 	// with k8s.
 	k8sCachesSynced := d.k8sWatcher.InitK8sSubsystem()
+
 	if option.Config.KVStore == "" {
 		log.Info("Skipping kvstore configuration")
 	} else {
+		bootstrapStats.kvstore.Start()
 		d.initKVStore()
+		bootstrapStats.kvstore.End(true)
 	}
 
+	bootstrapStats.k8sInit.Start()
 	// Wait only for certain caches, but not all!
 	// (Check Daemon.initK8sSubsystem() for more info)
 	<-k8sCachesSynced
