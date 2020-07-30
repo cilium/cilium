@@ -16,6 +16,7 @@ package endpointmanager
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"sync"
@@ -506,7 +507,7 @@ func (mgr *EndpointManager) AddHostEndpoint(ctx context.Context, owner regenerat
 	newCtx, cancel := context.WithTimeout(ctx, launchTime)
 	defer cancel()
 	ep.UpdateLabels(newCtx, epLabels, nil, true)
-	if newCtx.Err() == context.DeadlineExceeded {
+	if errors.Is(newCtx.Err(), context.DeadlineExceeded) {
 		log.WithError(newCtx.Err()).Warning("Timed out while updating security identify for host endpoint")
 	}
 

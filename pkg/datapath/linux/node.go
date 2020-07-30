@@ -15,6 +15,7 @@
 package linux
 
 import (
+	"errors"
 	"fmt"
 	"net"
 	"os"
@@ -889,14 +890,14 @@ func (n *linuxNodeHandler) removeEncryptRules() error {
 
 	rule.Mark = linux_defaults.RouteMarkDecrypt
 	if err := route.DeleteRuleIPv6(rule); err != nil {
-		if !os.IsNotExist(err) && err != unix.EAFNOSUPPORT {
+		if !os.IsNotExist(err) && !errors.Is(err, unix.EAFNOSUPPORT) {
 			return fmt.Errorf("Delete previous IPv6 decrypt rule failed: %s", err)
 		}
 	}
 
 	rule.Mark = linux_defaults.RouteMarkEncrypt
 	if err := route.DeleteRuleIPv6(rule); err != nil {
-		if !os.IsNotExist(err) && err != unix.EAFNOSUPPORT {
+		if !os.IsNotExist(err) && !errors.Is(err, unix.EAFNOSUPPORT) {
 			return fmt.Errorf("Delete previous IPv6 encrypt rule failed: %s", err)
 		}
 	}

@@ -15,6 +15,7 @@
 package informer
 
 import (
+	"errors"
 	"fmt"
 	"net/http"
 	"time"
@@ -34,7 +35,7 @@ func init() {
 		utilRuntime.PanicHandlers,
 		func(r interface{}) {
 			// from k8s library
-			if r == http.ErrAbortHandler {
+			if err, ok := r.(error); ok && errors.Is(err, http.ErrAbortHandler) {
 				// honor the http.ErrAbortHandler sentinel panic value:
 				//   ErrAbortHandler is a sentinel panic value to abort a handler.
 				//   While any panic from ServeHTTP aborts the response to the client,

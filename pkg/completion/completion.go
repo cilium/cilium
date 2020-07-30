@@ -16,6 +16,7 @@ package completion
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cilium/cilium/pkg/lock"
 )
@@ -81,7 +82,7 @@ func updateError(old, new error) error {
 	// 1. 'old' is nil, or
 	// 2. 'old' is a timeout, or
 	// 3. 'old' is a cancel and the 'new' error value is not a timeout
-	if old == nil || old == context.DeadlineExceeded || (old == context.Canceled && new != context.DeadlineExceeded) {
+	if old == nil || errors.Is(old, context.DeadlineExceeded) || (errors.Is(old, context.Canceled) && !errors.Is(new, context.DeadlineExceeded)) {
 		return new
 	}
 	return old

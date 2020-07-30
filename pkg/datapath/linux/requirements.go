@@ -118,7 +118,7 @@ func CheckMinRequirements() {
 	}
 
 	_, err = netlink.RuleList(netlink.FAMILY_V4)
-	if err == unix.EAFNOSUPPORT {
+	if errors.Is(err, unix.EAFNOSUPPORT) {
 		log.WithError(err).Error("Policy routing:NOT OK. " +
 			"Please enable kernel configuration item CONFIG_IP_MULTIPLE_TABLES")
 	}

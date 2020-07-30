@@ -16,6 +16,7 @@ package npds
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"time"
@@ -24,7 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/proxylib/proxylib"
 
-	"github.com/cilium/proxy/go/cilium/api"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_service_disacovery "github.com/cilium/proxy/go/envoy/service/discovery/v3"
 	log "github.com/sirupsen/logrus"
@@ -186,7 +187,7 @@ func (c *Client) Run(connected func()) (err error) {
 		// Receive next policy configuration. This will block until the
 		// server has a new version to send, which may take a long time.
 		resp, err := stream.Recv()
-		if err == io.EOF || err == io.ErrUnexpectedEOF {
+		if err == io.EOF || errors.Is(err, io.ErrUnexpectedEOF) {
 			log.Debugf("NPDS: Client %s stream on %s closed.", c.nodeId, c.path)
 			break
 		}
