@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
@@ -193,6 +194,10 @@ type Endpoint struct {
 
 	// status contains the last n state transitions this endpoint went through
 	status *EndpointStatus
+
+	// DNSRules is the collection of current endpoint-specific DNS proxy
+	// rules. These can be restored during Cilium restart.
+	DNSRules restore.DNSRules
 
 	// DNSHistory is the collection of still-valid DNS responses intercepted for
 	// this endpoint.
@@ -424,6 +429,7 @@ func createEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cac
 		proxy:           proxy,
 		ifName:          ifName,
 		OpLabels:        pkgLabels.NewOpLabels(),
+		DNSRules:        nil,
 		DNSHistory:      fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		DNSZombies:      fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes),
 		state:           "",
@@ -1498,6 +1504,11 @@ func (e *Endpoint) OnProxyPolicyUpdate(revision uint64) {
 		e.proxyPolicyRevision = revision
 	}
 	e.unlock()
+}
+
+// OnDNSPolicyUpdateLocked is called when the Endpoint's DNS policy has been updated
+func (e *Endpoint) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {
+	e.DNSRules = rules
 }
 
 // getProxyStatisticsLocked gets the ProxyStatistics for the flows with the

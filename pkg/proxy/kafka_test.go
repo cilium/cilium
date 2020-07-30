@@ -38,6 +38,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/proxy/logger"
+	"github.com/cilium/cilium/pkg/proxy/logger/test"
 	"github.com/cilium/cilium/pkg/revert"
 	"github.com/cilium/cilium/pkg/testutils/allocator"
 
@@ -109,12 +110,12 @@ func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.Cached
 }
 
 var (
-	localEndpointMock logger.EndpointUpdater = &proxyUpdaterMock{
-		id:       1000,
-		ipv4:     "10.0.0.1",
-		ipv6:     "f00d::1",
-		labels:   []string{"id.foo", "id.bar"},
-		identity: identity.NumericIdentity(256),
+	localEndpointMock logger.EndpointUpdater = &test.ProxyUpdaterMock{
+		Id:       1000,
+		Ipv4:     "10.0.0.1",
+		Ipv6:     "f00d::1",
+		Labels:   []string{"id.foo", "id.bar"},
+		Identity: identity.NumericIdentity(256),
 	}
 
 	dummySelectorCacheUser = &DummySelectorCacheUser{}
