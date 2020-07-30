@@ -77,6 +77,7 @@ type bootstrapStatistics struct {
 	proxyStart      spanstat.SpanStat
 	fqdn            spanstat.SpanStat
 	enableConntrack spanstat.SpanStat
+	kvstore         spanstat.SpanStat
 }
 
 func (b *bootstrapStatistics) updateMetrics() {
@@ -109,6 +110,7 @@ func (b *bootstrapStatistics) getMap() map[string]*spanstat.SpanStat {
 		"proxyStart":      &b.proxyStart,
 		"fqdn":            &b.fqdn,
 		"enableConntrack": &b.enableConntrack,
+		"kvstore":         &b.kvstore,
 	}
 }
 
