@@ -175,18 +175,32 @@ func (p *DNSProxy) GetRules(endpointID uint16) restore.DNSRules {
 
 	restored := make(restore.DNSRules)
 	for port, entries := range p.allowed[uint64(endpointID)] {
+		count := 0
 		var ipRules restore.IPRules
 		for cs, regex := range entries {
 			var IPs map[string]struct{}
 			if !cs.IsWildcard() {
 				IPs = make(map[string]struct{})
+			Loop:
 				for _, nid := range cs.GetSelections() {
 					for _, ip := range p.LookupIPsBySecID(nid) {
 						IPs[ip] = struct{}{}
+						count++
+						if count > 1000 {
+							log.WithFields(logrus.Fields{
+								logfields.EndpointID:            endpointID,
+								logfields.Port:                  port,
+								logfields.EndpointLabelSelector: cs,
+							}).Warning("Too many DNS rules or destinations for a port, skipping the rest")
+							break Loop
+						}
 					}
 				}
 			}
 			ipRules = append(ipRules, restore.IPRule{IPs: IPs, Re: restore.RuleRegex{Regexp: regex}})
+			if count > 1000 {
+				break
+			}
 		}
 		restored[port] = ipRules
 	}
