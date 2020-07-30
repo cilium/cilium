@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/lock"
@@ -96,6 +97,10 @@ func (s *proxyTestSuite) SendNotification(typ monitorAPI.AgentNotification, text
 }
 
 func (s *proxyTestSuite) Datapath() datapath.Datapath {
+	return nil
+}
+
+func (s *proxyTestSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
 

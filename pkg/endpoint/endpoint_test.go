@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/eventqueue"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
@@ -115,6 +116,10 @@ func (s *EndpointSuite) SendNotification(typ monitorAPI.AgentNotification, text 
 
 func (s *EndpointSuite) Datapath() datapath.Datapath {
 	return s.datapath
+}
+
+func (s *EndpointSuite) GetDNSRules(epID uint16) restore.DNSRules {
+	return nil
 }
 
 func (s *EndpointSuite) SetUpTest(c *C) {

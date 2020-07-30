@@ -31,6 +31,7 @@ import (
 	fakedatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/endpointmanager"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/identity/identitymanager"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -253,6 +254,10 @@ func (ds *DaemonSuite) SendNotification(typ monitorAPI.AgentNotification, text s
 
 func (ds *DaemonSuite) Datapath() datapath.Datapath {
 	return ds.d.datapath
+}
+
+func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
+	return nil
 }
 
 func (ds *DaemonSuite) GetNodeSuffix() string {
