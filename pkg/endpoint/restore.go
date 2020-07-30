@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
 	"github.com/cilium/cilium/pkg/fqdn"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/labels"
@@ -403,6 +404,7 @@ func (e *Endpoint) toSerializedEndpoint() *serializableEndpoint {
 		NodeMAC:               e.nodeMAC,
 		SecurityIdentity:      e.SecurityIdentity,
 		Options:               e.Options,
+		DNSRules:              e.DNSRules,
 		DNSHistory:            e.DNSHistory,
 		DNSZombies:            e.DNSZombies,
 		K8sPodName:            e.K8sPodName,
@@ -477,6 +479,9 @@ type serializableEndpoint struct {
 	// Options determine the datapath configuration of the endpoint.
 	Options *option.IntOptions
 
+	// DNSRules is the collection of current DNS rules for this endpoint.
+	DNSRules restore.DNSRules
+
 	// DNSHistory is the collection of still-valid DNS responses intercepted for
 	// this endpoint.
 	DNSHistory *fqdn.DNSCache
@@ -536,6 +541,7 @@ func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.IPv4 = r.IPv4
 	ep.nodeMAC = r.NodeMAC
 	ep.SecurityIdentity = r.SecurityIdentity
+	ep.DNSRules = r.DNSRules
 	ep.DNSHistory = r.DNSHistory
 	ep.DNSZombies = r.DNSZombies
 	ep.K8sPodName = r.K8sPodName
