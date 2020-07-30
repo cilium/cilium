@@ -106,8 +106,9 @@ type IngressRule struct {
 	// +optional
 	FromEntities EntitySlice `json:"fromEntities,omitempty"`
 
-	// TODO: Move this to the policy package (https://github.com/cilium/cilium/issues/8353)
-	aggregatedSelectors EndpointSelectorSlice
+	// TODO: Move this to the policy package
+	// (https://github.com/cilium/cilium/issues/8353)
+	aggregatedSelectors EndpointSelectorSlice `json:"-"`
 }
 
 // SetAggregatedSelectors creates a single slice containing all of the following

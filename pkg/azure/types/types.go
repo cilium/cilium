@@ -113,17 +113,17 @@ type AzureInterface struct {
 	// GatewayIP is the interface subnet's default route
 	//
 	// +optional
-	GatewayIP string
+	GatewayIP string `json:"-"`
 
 	// vmssName is the name of the virtual machine scale set. This field is
 	// set by extractIDs()
-	vmssName string
+	vmssName string `json:"-"`
 
 	// vmID is the ID of the virtual machine
-	vmID string
+	vmID string `json:"-"`
 
 	// resourceGroup is the resource group the interface belongs to
-	resourceGroup string
+	resourceGroup string `json:"-"`
 }
 
 // InterfaceID returns the identifier of the interface
