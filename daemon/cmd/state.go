@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
-	"github.com/cilium/cilium/pkg/proxy"
 
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -281,8 +280,6 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 				epRegenerated <- false
 				return
 			}
-			// Remove restored rules after successful initial regeneration
-			proxy.DefaultDNSProxy.RemoveRestoredRules(ep.ID)
 			epRegenerated <- true
 		}(ep, epRegenerated)
 	}

@@ -465,6 +465,9 @@ func (e *Endpoint) updateRealizedState(stats *regenerationStatistics, origDir st
 	// compiled for
 	e.setPolicyRevision(revision)
 
+	// Remove restored rules after successful regeneration
+	e.owner.RemoveRestoredDNSRules(e.ID)
+
 	return nil
 }
 
