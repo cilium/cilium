@@ -73,6 +73,8 @@ Vagrant.configure("2") do |config|
             :inline => "sudo systemctl disable unattended-upgrades.service"
         server.vm.provision :shell,
             :inline => "sudo systemctl stop unattended-upgrades.service"
+        server.vm.provision :shell,
+            :inline => "echo 'export GOPATH=$(go env GOPATH)' >> /home/vagrant/.bashrc"
         server.vm.provision "file", source: "provision/", destination: "/tmp/"
         server.vm.provision "shell" do |sh|
             sh.path = "./provision/runtime_install.sh"
