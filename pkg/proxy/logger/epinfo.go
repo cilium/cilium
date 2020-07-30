@@ -17,6 +17,7 @@ package logger
 import (
 	"net"
 
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
@@ -73,6 +74,10 @@ type EndpointUpdater interface {
 	// UpdateProxyStatistics updates the Endpoint's proxy statistics to account
 	// for a new observed flow with the given characteristics.
 	UpdateProxyStatistics(l4Protocol string, port uint16, ingress, request bool, verdict accesslog.FlowVerdict)
+
+	// OnDNSPolicyUpdateLocked is called when the Endpoint's DNS policy has been updated.
+	// 'rules' is a fresh copy of the DNS rules passed to the callee.
+	OnDNSPolicyUpdateLocked(rules restore.DNSRules)
 }
 
 // EndpointInfoRegistry provides endpoint information lookup by endpoint IP

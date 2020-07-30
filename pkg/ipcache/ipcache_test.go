@@ -18,7 +18,6 @@ package ipcache
 
 import (
 	"net"
-	"reflect"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -113,12 +112,12 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 
 	// Ensure that update of cache with new identity doesn't keep old identity-to-ip
 	// mapping around.
-	_, exists = IPIdentityCache.LookupByIdentity(identity)
-	c.Assert(exists, Equals, false)
+	ips := IPIdentityCache.LookupByIdentity(identity)
+	c.Assert(ips, IsNil)
 
-	cachedIPSet, exists := IPIdentityCache.LookupByIdentity(newIdentity)
-	c.Assert(exists, Equals, true)
-	for cachedIP := range cachedIPSet {
+	cachedIPs := IPIdentityCache.LookupByIdentity(newIdentity)
+	c.Assert(cachedIPs, Not(IsNil))
+	for _, cachedIP := range cachedIPs {
 		c.Assert(cachedIP, Equals, endpointIP)
 	}
 
@@ -143,23 +142,17 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 		c.Assert(cachedIdentity.ID, Equals, identities[index])
 	}
 
-	expectedIPList := map[string]struct{}{
-		"27.2.2.2":  {},
-		"127.0.0.1": {},
-	}
+	expectedIPList := []string{"27.2.2.2", "127.0.0.1"}
 
-	cachedEndpointIPs, _ := IPIdentityCache.LookupByIdentity(29)
-	c.Assert(reflect.DeepEqual(cachedEndpointIPs, expectedIPList), Equals, true)
+	cachedEndpointIPs := IPIdentityCache.LookupByIdentity(29)
+	c.Assert(cachedEndpointIPs, checker.DeepEquals, expectedIPList)
 
 	IPIdentityCache.Delete("27.2.2.2", source.KVStore)
 
-	expectedIPList = map[string]struct{}{
-		"127.0.0.1": {},
-	}
+	expectedIPList = []string{"127.0.0.1"}
 
-	cachedEndpointIPs, exists = IPIdentityCache.LookupByIdentity(29)
-	c.Assert(exists, Equals, true)
-	c.Assert(reflect.DeepEqual(cachedEndpointIPs, expectedIPList), Equals, true)
+	cachedEndpointIPs = IPIdentityCache.LookupByIdentity(29)
+	c.Assert(cachedEndpointIPs, checker.DeepEquals, expectedIPList)
 
 	cachedIdentity, exists = IPIdentityCache.LookupByIP("127.0.0.1")
 	c.Assert(exists, Equals, true)
@@ -171,8 +164,8 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 
 	IPIdentityCache.Delete("127.0.0.1", source.KVStore)
 
-	_, exists = IPIdentityCache.LookupByIdentity(29)
-	c.Assert(exists, Equals, false)
+	ips = IPIdentityCache.LookupByIdentity(29)
+	c.Assert(ips, IsNil)
 
 	_, exists = IPIdentityCache.LookupByPrefix("127.0.0.1/32")
 	c.Assert(exists, Equals, false)
@@ -183,8 +176,8 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 		_, exists = IPIdentityCache.LookupByIP(endpointIPs[index])
 		c.Assert(exists, Equals, false)
 
-		_, exists = IPIdentityCache.LookupByIdentity(identities[index])
-		c.Assert(exists, Equals, false)
+		ips = IPIdentityCache.LookupByIdentity(identities[index])
+		c.Assert(ips, IsNil)
 	}
 
 	c.Assert(len(IPIdentityCache.ipToIdentityCache), Equals, 0)
