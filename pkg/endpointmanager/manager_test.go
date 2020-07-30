@@ -96,6 +96,9 @@ func (s *EndpointManagerSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
 
+func (s *EndpointManagerSuite) RemoveRestoredDNSRules(epID uint16) {
+}
+
 type DummyRuleCacheOwner struct{}
 
 func (d *DummyRuleCacheOwner) ClearPolicyConsumers(id uint16) *sync.WaitGroup {
