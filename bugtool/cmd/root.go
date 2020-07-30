@@ -16,6 +16,7 @@ package cmd
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"io/ioutil"
@@ -336,7 +337,7 @@ func execCommand(prompt string) (string, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), execTimeout)
 	defer cancel()
 	output, err := exec.CommandContext(ctx, "bash", "-c", prompt).CombinedOutput()
-	if ctx.Err() == context.DeadlineExceeded {
+	if errors.Is(ctx.Err(), context.DeadlineExceeded) {
 		return "", fmt.Errorf("exec timeout")
 	}
 	return string(output), err
@@ -369,7 +370,7 @@ func writeCmdToFile(cmdDir, prompt string, k8sPods []string, enableMarkdown bool
 		defer cancel()
 		if _, err := exec.CommandContext(ctx, "kubectl", "exec",
 			args[1], "-n", args[3], "--", "which",
-			args[5]).CombinedOutput(); err != nil || ctx.Err() == context.DeadlineExceeded {
+			args[5]).CombinedOutput(); err != nil || errors.Is(ctx.Err(), context.DeadlineExceeded) {
 			os.Remove(f.Name())
 			return
 		}

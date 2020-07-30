@@ -15,6 +15,7 @@
 package probe
 
 import (
+	"errors"
 	"fmt"
 	"unsafe"
 
@@ -85,7 +86,7 @@ func HaveFullLPM() bool {
 // loaded.
 func HaveIPv6Support() bool {
 	fd, err := unix.Socket(unix.AF_INET6, unix.SOCK_STREAM, 0)
-	if err == unix.EAFNOSUPPORT || err == unix.EPROTONOSUPPORT {
+	if errors.Is(err, unix.EAFNOSUPPORT) || errors.Is(err, unix.EPROTONOSUPPORT) {
 		return false
 	}
 	unix.Close(fd)

@@ -37,7 +37,7 @@ func (e ErrInvalidPrefix) Error() string {
 // IsErrUnsupportedID returns true if the given error is the type of
 // ErrUnsupportedID.
 func IsErrUnsupportedID(err error) bool {
-	return err == ErrUnsupportedID
+	return errors.Is(err, ErrUnsupportedID)
 }
 
 // IsErrInvalidPrefix returns true if the given error is the type of

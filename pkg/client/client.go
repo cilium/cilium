@@ -16,6 +16,7 @@ package client
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"io"
 	"net"
@@ -148,7 +149,7 @@ func Hint(err error) error {
 		return err
 	}
 
-	if err == context.DeadlineExceeded {
+	if errors.Is(err, context.DeadlineExceeded) {
 		return fmt.Errorf("Cilium API client timeout exceeded")
 	}
 

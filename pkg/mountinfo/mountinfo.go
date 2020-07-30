@@ -16,6 +16,7 @@ package mountinfo
 
 import (
 	"bufio"
+	"errors"
 	"fmt"
 	"io"
 	"os"
@@ -144,7 +145,7 @@ func IsMountFS(mntType int64, path string) (bool, bool, error) {
 
 	err := unix.Lstat(path, &st)
 	if err != nil {
-		if err == unix.ENOENT {
+		if errors.Is(err, unix.ENOENT) {
 			// non-existent path can't be a mount point
 			return false, false, nil
 		}

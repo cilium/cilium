@@ -65,9 +65,15 @@ issues:
       text: "SA9003: empty branch"
     - linters: [staticcheck]
       text: "SA2001: empty critical section"
+    - linters: [goerr113]
+      text: "do not define dynamic errors, use wrapped static errors instead" # This rule to avoid opinionated check fmt.Errorf("text")
+    - path: _test\.go                # Skip 1.13 errors check for test files
+      linters:
+        - goerr113
 linters:
   disable-all: true
   enable:
+    - goerr113
     - gofmt
     - govet
     - ineffassign

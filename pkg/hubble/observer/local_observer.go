@@ -389,7 +389,7 @@ func (r *flowsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, e
 			}
 			e, err = r.ringReader.Next()
 			if err != nil {
-				if err == container.ErrInvalidRead {
+				if errors.Is(err, container.ErrInvalidRead) {
 					// this error is sent over the wire and presented to the user
 					return nil, errors.New("requested data has been overwritten and is no longer available")
 				}
@@ -464,7 +464,7 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 	// correct index, then create a new reader that starts from there
 	for i := ring.Len(); i > 0; i, idx = i-1, idx-1 {
 		e, err := reader.Previous()
-		if err == container.ErrInvalidRead {
+		if errors.Is(err, container.ErrInvalidRead) {
 			idx++ // we went backward 1 too far
 			break
 		} else if err != nil {
