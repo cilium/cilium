@@ -50,6 +50,7 @@ func (dr *dnsRedirect) setRules(wg *completion.WaitGroup, newRules policy.L7Data
 	if err := DefaultDNSProxy.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPort, newRules); err != nil {
 		return err
 	}
+	dr.redirect.localEndpoint.OnDNSPolicyUpdateLocked(DefaultDNSProxy.GetRules(uint16(dr.redirect.endpointID)))
 	dr.currentRules = copyRules(dr.redirect.rules)
 
 	return nil
@@ -71,6 +72,7 @@ func (dr *dnsRedirect) UpdateRules(wg *completion.WaitGroup) (revert.RevertFunc,
 func (dr *dnsRedirect) Close(wg *completion.WaitGroup) (revert.FinalizeFunc, revert.RevertFunc) {
 	return func() {
 		DefaultDNSProxy.UpdateAllowed(dr.redirect.endpointID, dr.redirect.dstPort, nil)
+		dr.redirect.localEndpoint.OnDNSPolicyUpdateLocked(nil)
 		dr.currentRules = nil
 	}, nil
 }

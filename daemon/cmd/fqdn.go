@@ -304,7 +304,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 	if err != nil {
 		return err
 	}
-	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, option.Config.ToFQDNsEnableDNSCompression, d.lookupEPByIP, d.LookupSecIDByIP, d.notifyOnDNSMsg)
+	proxy.DefaultDNSProxy, err = dnsproxy.StartDNSProxy("", port, option.Config.ToFQDNsEnableDNSCompression, d.lookupEPByIP, d.LookupSecIDByIP, d.lookupIPsBySecID, d.notifyOnDNSMsg)
 	if err == nil {
 		// Increase the ProxyPort reference count so that it will never get released.
 		err = d.l7Proxy.SetProxyPort(listenerName, proxy.DefaultDNSProxy.BindPort)
@@ -312,6 +312,13 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 			log.Infof("Reusing previous DNS proxy port: %d", port)
 		}
 		proxy.DefaultDNSProxy.SetRejectReply(option.Config.FQDNRejectResponse)
+		// Restore old rules
+		for _, possibleEP := range possibleEndpoints {
+			// Upgrades from old ciliums have this nil
+			if possibleEP.DNSRules != nil {
+				proxy.DefaultDNSProxy.RestoreRules(possibleEP.ID, possibleEP.DNSRules)
+			}
+		}
 	}
 	return err // filled by StartDNSProxy
 }
@@ -404,6 +411,10 @@ func (d *Daemon) lookupEPByIP(endpointIP net.IP) (endpoint *endpoint.Endpoint, e
 	}
 
 	return e, nil
+}
+
+func (d *Daemon) lookupIPsBySecID(nid identity.NumericIdentity) []string {
+	return ipcache.IPIdentityCache.LookupByIdentity(nid)
 }
 
 // NotifyOnDNSMsg handles DNS data in the daemon by emitting monitor

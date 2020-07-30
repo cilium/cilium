@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/lxcmap"
 	"github.com/cilium/cilium/pkg/option"
+	"github.com/cilium/cilium/pkg/proxy"
 
 	"github.com/sirupsen/logrus"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
@@ -95,7 +96,16 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 // last run and associated it with container workloads. This function performs the first step in
 // restoring the endpoint structure.  It needs to be followed by a call to restoreOldEndpoints()
 // once k8s has been initialized and regenerateRestoredEndpoints() once the endpoint builder is
-// ready.
+// ready. In summary:
+//
+// 1. fetchOldEndpoints(): Unmarshal old endpoints
+//    - used to start DNS proxy with restored DNS history and rules
+// 2. restoreOldEndpoints(): validate endpoint data after k8s has been configured
+//    - IP allocation
+//    - some endpoints may be rejected and not regnerated in the 3rd step
+// 3. regenerateRestoredEndpoints(): Regenerate the restored endpoints
+//    - recreate endpoint's policy, as well as bpf programs and maps
+//
 func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 	state := &endpointRestoreState{
 		possible: nil,
@@ -124,9 +134,7 @@ func (d *Daemon) fetchOldEndpoints(dir string) (*endpointRestoreState, error) {
 	return state, nil
 }
 
-// restoreOldEndpoints reads the list of existing endpoints previously managed
-// Cilium when it was last run and associated it with container workloads. This
-// function performs the first step in restoring the endpoint structure,
+// restoreOldEndpoints performs the second step in restoring the endpoint structure,
 // allocating their existing IPs out of the CIDR block and then inserting the
 // endpoints into the endpoints list. It needs to be followed by a call to
 // regenerateRestoredEndpoints() once the endpoint builder is ready.
@@ -272,6 +280,8 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 				epRegenerated <- false
 				return
 			}
+			// Remove restored rules after successful initial regeneration
+			proxy.DefaultDNSProxy.RemoveRestoredRules(ep.ID)
 			epRegenerated <- true
 		}(ep, epRegenerated)
 	}
