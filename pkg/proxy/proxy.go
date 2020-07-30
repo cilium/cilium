@@ -419,6 +419,7 @@ func (p *Proxy) ReinstallRules() {
 // Caller must call exactly one of the returned functions:
 // - finalizeFunc to make the changes stick, or
 // - revertFunc to cancel the changes.
+// Called with 'localEndpoint' locked!
 func (p *Proxy) CreateOrUpdateRedirect(l4 policy.ProxyPolicy, id string, localEndpoint logger.EndpointUpdater,
 	wg *completion.WaitGroup) (proxyPort uint16, err error, finalizeFunc revert.FinalizeFunc, revertFunc revert.RevertFunc) {
 

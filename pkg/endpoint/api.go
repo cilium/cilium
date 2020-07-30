@@ -80,6 +80,7 @@ func NewEndpointFromChangeModel(ctx context.Context, owner regeneration.Owner, p
 		datapathMapID:    int(base.DatapathMapID),
 		ifIndex:          int(base.InterfaceIndex),
 		OpLabels:         labels.NewOpLabels(),
+		DNSRules:         nil,
 		DNSHistory:       fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		DNSZombies:       fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes),
 		state:            "",

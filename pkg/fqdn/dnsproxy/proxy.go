@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/fqdn/matchpattern"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/lock"
@@ -84,6 +85,10 @@ type DNSProxy struct {
 	// design now.
 	LookupSecIDByIP LookupSecIDByIPFunc
 
+	// LookupIPsBySecID is a provided callback that returns the IPs by security ID
+	// from the ipcache.
+	LookupIPsBySecID LookupIPsBySecIDFunc
+
 	// NotifyOnDNSMsg is a provided callback by which the proxy can emit DNS
 	// response data. It is intended to wire into a DNS cache and a
 	// fqdn.NameManager.
@@ -123,6 +128,11 @@ type DNSProxy struct {
 	// Note: Simple DNS names, e.g. bar.foo.com, will treat the "." as a literal.
 	allowed perEPAllow
 
+	// restored is a set of rules restored from a previous instance that can be
+	// used until 'allowed' rules for an endpoint are first initialized after
+	// a restart
+	restored perEPRestored
+
 	// rejectReply is the OPCode send from the DNS-proxy to the endpoint if the
 	// DNS request is invalid
 	rejectReply int
@@ -137,6 +147,74 @@ type portToSelectorAllow map[uint16]cachedSelectorREEntry
 // cachedSelectorREEntry maps port numbers to selectors to rules, mirroring
 // policy.L7DataMap but the DNS rules are compiled into a single regexp
 type cachedSelectorREEntry map[policy.CachedSelector]*regexp.Regexp
+
+// structure for restored rules that can be used while Cilium agent is restoring endpoints
+type perEPRestored map[uint64]restore.DNSRules
+
+// CheckRestored checks endpointID, destPort, destIP, and name against the restored rules,
+// and only returns true if a restored rule matches.
+func (p *DNSProxy) checkRestored(endpointID uint64, destPort uint16, destIP string, name string) bool {
+	ipRules, exists := p.restored[endpointID][destPort]
+	if !exists {
+		return false
+	}
+
+	for i := range ipRules {
+		if _, exists := ipRules[i].IPs[destIP]; (exists || ipRules[i].IPs == nil) && ipRules[i].Re.MatchString(name) {
+			return true
+		}
+	}
+	return false
+}
+
+// GetRules creates a fresh copy of EP's DNS rules to be stored
+// for later restoration.
+func (p *DNSProxy) GetRules(endpointID uint16) restore.DNSRules {
+	p.Lock()
+	defer p.Unlock()
+
+	restored := make(restore.DNSRules)
+	for port, entries := range p.allowed[uint64(endpointID)] {
+		var ipRules restore.IPRules
+		for cs, regex := range entries {
+			var IPs map[string]struct{}
+			if !cs.IsWildcard() {
+				IPs = make(map[string]struct{})
+				for _, nid := range cs.GetSelections() {
+					for _, ip := range p.LookupIPsBySecID(nid) {
+						IPs[ip] = struct{}{}
+					}
+				}
+			}
+			ipRules = append(ipRules, restore.IPRule{IPs: IPs, Re: restore.RuleRegex{Regexp: regex}})
+		}
+		restored[port] = ipRules
+	}
+	return restored
+}
+
+// RestoreRules is used in the beginning of endpoint restoration to
+// install rules saved before the restart to be used before the endpoint
+// is regenerated.
+func (p *DNSProxy) RestoreRules(endpointID uint16, rules restore.DNSRules) {
+	p.Lock()
+	defer p.Unlock()
+	p.restored[uint64(endpointID)] = rules
+
+	log.Debugf("Restored rules for endpoint %d: %v", endpointID, rules)
+}
+
+// 'p' must be locked
+func (p *DNSProxy) removeRestoredRules(endpointID uint64) {
+	delete(p.restored, endpointID)
+}
+
+// RemoveRestoredRules removes all restored rules for 'endpointID'.
+func (p *DNSProxy) RemoveRestoredRules(endpointID uint16) {
+	p.Lock()
+	defer p.Unlock()
+	p.removeRestoredRules(uint64(endpointID))
+}
 
 // setPortRulesForID sets the matching rules for endpointID and destPort for
 // later lookups. It converts newRules into a unified regexp that can be reused
@@ -203,6 +281,10 @@ type LookupEndpointIDByIPFunc func(ip net.IP) (endpoint *endpoint.Endpoint, err 
 // See DNSProxy.LookupSecIDByIP for usage.
 type LookupSecIDByIPFunc func(ip net.IP) (secID ipcache.Identity, exists bool, err error)
 
+// LookupIPsBySecIDFunc Func wraps logic to lookup an IPs by security ID from the
+// ipcache.
+type LookupIPsBySecIDFunc func(nid identity.NumericIdentity) []string
+
 // NotifyOnDNSMsgFunc handles propagating DNS response data
 // See DNSProxy.LookupEndpointIDByIP for usage.
 type NotifyOnDNSMsgFunc func(lookupTime time.Time, ep *endpoint.Endpoint, epIPPort string, serverAddr string, msg *dns.Msg, protocol string, allowed bool, stat ProxyRequestContext) error
@@ -237,7 +319,7 @@ func (proxyStat *ProxyRequestContext) IsTimeout() bool {
 // notifyFunc will be called with DNS response data that is returned to a
 // requesting endpoint. Note that denied requests will not trigger this
 // callback.
-func StartDNSProxy(address string, port uint16, enableDNSCompression bool, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, notifyFunc NotifyOnDNSMsgFunc) (*DNSProxy, error) {
+func StartDNSProxy(address string, port uint16, enableDNSCompression bool, lookupEPFunc LookupEndpointIDByIPFunc, lookupSecIDFunc LookupSecIDByIPFunc, lookupIPsFunc LookupIPsBySecIDFunc, notifyFunc NotifyOnDNSMsgFunc) (*DNSProxy, error) {
 	if port == 0 {
 		log.Debug("DNS Proxy port is configured to 0. A random port will be assigned by the OS.")
 	}
@@ -249,9 +331,11 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, looku
 	p := &DNSProxy{
 		LookupEndpointIDByIP:  lookupEPFunc,
 		LookupSecIDByIP:       lookupSecIDFunc,
+		LookupIPsBySecID:      lookupIPsFunc,
 		NotifyOnDNSMsg:        notifyFunc,
 		lookupTargetDNSServer: lookupTargetDNSServer,
 		allowed:               make(perEPAllow),
+		restored:              make(perEPRestored),
 		rejectReply:           dns.RcodeRefused,
 		EnableDNSCompression:  enableDNSCompression,
 	}
@@ -315,20 +399,25 @@ func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPort uint16, newRules po
 	p.Lock()
 	defer p.Unlock()
 
-	return p.allowed.setPortRulesForID(endpointID, destPort, newRules)
+	err := p.allowed.setPortRulesForID(endpointID, destPort, newRules)
+	if err == nil {
+		// Rules were updated based on policy, remove restored rules
+		p.removeRestoredRules(endpointID)
+	}
+	return err
 }
 
-// CheckAllowed checks endpointID, destPort, destID, and name against the rules
-// added to the proxy, and only returns true if this all match something that
-// was added (via SetAllowed) previously.
-func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID identity.NumericIdentity, name string) (allowed bool, err error) {
+// CheckAllowed checks endpointID, destPort, destID, destIP, and name against the rules
+// added to the proxy or restored during restart, and only returns true if this all match
+// something that was added (via UpdateAllowed or RestoreRules) previously.
+func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID identity.NumericIdentity, destIP net.IP, name string) (allowed bool, err error) {
 	name = strings.ToLower(dns.Fqdn(name))
 	p.Lock()
 	defer p.Unlock()
 
 	epAllow, exists := p.allowed.getPortRulesForID(endpointID, destPort)
 	if !exists {
-		return false, nil
+		return p.checkRestored(endpointID, destPort, destIP.String(), name), nil
 	}
 
 	for selector, re := range epAllow {
@@ -412,7 +501,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 	// Note: The cache doesn't know about the source of the DNS data (yet) and so
 	// it won't enforce any separation between results from different endpoints.
 	// This isn't ideal but we are trusting the DNS responses anyway.
-	allowed, err := p.CheckAllowed(uint64(ep.ID), targetServerPort, serverSecID.ID, qname)
+	allowed, err := p.CheckAllowed(uint64(ep.ID), targetServerPort, serverSecID.ID, targetServerIP, qname)
 	switch {
 	case err != nil:
 		scopedLog.WithError(err).Error("Rejecting DNS query from endpoint due to error")
