@@ -17,6 +17,7 @@
 package test
 
 import (
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
@@ -59,3 +60,4 @@ func (m *ProxyUpdaterMock) OnProxyPolicyUpdate(policyRevision uint64) {}
 func (m *ProxyUpdaterMock) UpdateProxyStatistics(l4Protocol string, port uint16, ingress, request bool,
 	verdict accesslog.FlowVerdict) {
 }
+func (m *ProxyUpdaterMock) OnDNSPolicyUpdateLocked(rules restore.DNSRules) {}
