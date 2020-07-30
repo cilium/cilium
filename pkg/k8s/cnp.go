@@ -592,18 +592,24 @@ func updateStatusesByCapabilities(client clientset.Interface, capabilities k8sve
 				}
 			}
 		}
+
 	default:
 		if cnp == nil {
 			return fmt.Errorf("cannot update status of nil CNP")
 		}
-		// k8s < 1.13 has minimal support for JSON patch where kube-apiserver
-		// can print Error messages and even panic in k8s < 1.10.
+		// K8s < 1.13 has minimal support for JSON patch where kube-apiserver
+		// can print Error messages and even panic in K8s < 1.10.
 		for nodeName, cnpns := range nodeStatuses {
 			cnp.SetPolicyStatus(nodeName, cnpns)
 		}
 
 		if ns == "" {
 			ccnp := &cilium_v2.CiliumClusterwideNetworkPolicy{
+				// Need to explicitly copy all the fields even though CNP is
+				// embedded inside CCNP. See comment inside CCNP type
+				// definition. This is required for K8s versions < 1.13.
+				TypeMeta:            cnp.TypeMeta,
+				ObjectMeta:          cnp.ObjectMeta,
 				CiliumNetworkPolicy: cnp.CiliumNetworkPolicy,
 				Status:              cnp.CiliumNetworkPolicy.Status,
 			}

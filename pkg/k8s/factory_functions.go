@@ -361,6 +361,14 @@ func ConvertToCCNPWithStatus(obj interface{}) interface{} {
 		t := &types.SlimCNP{
 			CiliumNetworkPolicy: concreteObj.CiliumNetworkPolicy,
 		}
+		// Need to explicitly copy all the fields even though CNP is embedded
+		// inside CCNP. See comment inside CCNP type definition. This is
+		// required for Kubernetes versions < 1.13 because this conversion
+		// function is only used with Kubernetes < 1.13 due to missing Patch
+		// capability in those versions. See
+		// operator/ccnp_event.go:enableCCNPWatcher().
+		t.TypeMeta = concreteObj.TypeMeta
+		t.ObjectMeta = concreteObj.ObjectMeta
 		t.Status = concreteObj.Status
 		return t
 
@@ -372,6 +380,14 @@ func ConvertToCCNPWithStatus(obj interface{}) interface{} {
 		t := &types.SlimCNP{
 			CiliumNetworkPolicy: cnp.CiliumNetworkPolicy,
 		}
+		// Need to explicitly copy all the fields even though CNP is embedded
+		// inside CCNP. See comment inside CCNP type definition. This is
+		// required for Kubernetes versions < 1.13 because this conversion
+		// function is only used with Kubernetes < 1.13 due to missing Patch
+		// capability in those versions. See
+		// operator/ccnp_event.go:enableCCNPWatcher().
+		t.TypeMeta = cnp.TypeMeta
+		t.ObjectMeta = cnp.ObjectMeta
 		t.Status = cnp.Status
 		return cache.DeletedFinalStateUnknown{
 			Key: concreteObj.Key,

@@ -21,12 +21,27 @@ import (
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +deepequal-gen:private-method=true
 
 // CiliumClusterwideNetworkPolicy is a Kubernetes third-party resource with an modified version
 // of CiliumNetworkPolicy which is cluster scoped rather than namespace scoped.
-// +deepequal-gen=false
 type CiliumClusterwideNetworkPolicy struct {
-	*CiliumNetworkPolicy
+	// Note: The following two fields are required (regardless of embedding
+	// CiliumNetworkPolicy below which bring these in), because controller-gen
+	// ignores structs when generating CRDs that do not have these fields. The
+	// controller-gen code responsible:
+	// https://github.com/kubernetes-sigs/controller-tools/blob/4a903ddb7005459a7baf4777c67244a74c91083d/pkg/crd/gen.go#L221
+
+	// +k8s:openapi-gen=false
+	// +deepequal-gen=false
+	metav1.TypeMeta `json:",inline"`
+	// +k8s:openapi-gen=false
+	// +deepequal-gen=false
+	metav1.ObjectMeta `json:"metadata"`
+
+	// Embedded fields require json inline tag, source:
+	// https://github.com/kubernetes-sigs/controller-tools/issues/244
+	*CiliumNetworkPolicy `json:",inline"`
 
 	// Status is the status of the Cilium policy rule
 	// +optional
@@ -34,6 +49,12 @@ type CiliumClusterwideNetworkPolicy struct {
 	// that doesn't create a `UpdateStatus` method because the field does not exist in
 	// the structure.
 	Status CiliumNetworkPolicyStatus `json:"status"`
+}
+
+// DeepEqual compares 2 CCNPs while ignoring the LastAppliedConfigAnnotation
+// and ignoring the Status field of the CCNP.
+func (in *CiliumClusterwideNetworkPolicy) DeepEqual(other *CiliumClusterwideNetworkPolicy) bool {
+	return sharedCNPDeepEqual(in.CiliumNetworkPolicy, other.CiliumNetworkPolicy) && in.deepEqual(other)
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object

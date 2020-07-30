@@ -56,9 +56,15 @@ type CiliumNetworkPolicy struct {
 	Status CiliumNetworkPolicyStatus `json:"status"`
 }
 
-// DeepEqual compares 2 CNPs while ignoring the LastAppliedConfigAnnotation and
-// ignoring the Status field of the CNP.
+// DeepEqual compares 2 CNPs.
 func (in *CiliumNetworkPolicy) DeepEqual(other *CiliumNetworkPolicy) bool {
+	return sharedCNPDeepEqual(in, other) && in.deepEqual(other)
+}
+
+// sharedCNPDeepEqual performs an equality check for CNP that ignores the
+// LastAppliedConfigAnnotation and ignores the Status field of the CNP. This
+// function's usage is shared among CNP and CCNP as CCNP embeds a CNP.
+func sharedCNPDeepEqual(in, other *CiliumNetworkPolicy) bool {
 	switch {
 	case (in == nil) != (other == nil):
 		return false
@@ -84,8 +90,7 @@ func (in *CiliumNetworkPolicy) DeepEqual(other *CiliumNetworkPolicy) bool {
 	delete(in.GetAnnotations(), v1.LastAppliedConfigAnnotation)
 	delete(other.GetAnnotations(), v1.LastAppliedConfigAnnotation)
 
-	return comparator.MapStringEquals(in.GetAnnotations(), other.GetAnnotations()) &&
-		in.deepEqual(other)
+	return comparator.MapStringEquals(in.GetAnnotations(), other.GetAnnotations())
 }
 
 // CiliumNetworkPolicyStatus is the status of a Cilium policy rule
