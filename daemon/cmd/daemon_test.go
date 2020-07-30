@@ -277,6 +277,9 @@ func (ds *DaemonSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
 
+func (ds *DaemonSuite) RemoveRestoredDNSRules(epID uint16) {
+}
+
 func (ds *DaemonSuite) GetNodeSuffix() string {
 	return ds.d.GetNodeSuffix()
 }

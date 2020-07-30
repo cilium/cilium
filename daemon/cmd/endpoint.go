@@ -939,5 +939,17 @@ func (d *Daemon) QueueEndpointBuild(ctx context.Context, epID uint64) (func(), e
 }
 
 func (d *Daemon) GetDNSRules(epID uint16) restore.DNSRules {
+	// Many unit tests do not initialize the DNS proxy
+	if proxy.DefaultDNSProxy == nil {
+		return nil
+	}
 	return proxy.DefaultDNSProxy.GetRules(epID)
+}
+
+func (d *Daemon) RemoveRestoredDNSRules(epID uint16) {
+	// Many unit tests do not initialize the DNS proxy
+	if proxy.DefaultDNSProxy == nil {
+		return
+	}
+	proxy.DefaultDNSProxy.RemoveRestoredRules(epID)
 }
