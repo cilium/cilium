@@ -18,6 +18,7 @@ import (
 	"context"
 
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/fqdn/restore"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/lock"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -42,6 +43,9 @@ type Owner interface {
 
 	// Datapath returns a reference to the datapath implementation.
 	Datapath() datapath.Datapath
+
+	// GetDNSRules()
+	GetDNSRules(epID uint16) restore.DNSRules
 }
 
 // EndpointInfoSource returns information about an endpoint being proxied.

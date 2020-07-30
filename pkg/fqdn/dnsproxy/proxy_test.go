@@ -98,6 +98,10 @@ func (s *DNSProxyTestSuite) Datapath() datapath.Datapath {
 	return nil
 }
 
+func (s *DNSProxyTestSuite) GetDNSRules(epID uint16) restore.DNSRules {
+	return nil
+}
+
 var _ = Suite(&DNSProxyTestSuite{})
 
 func setupServer(c *C) (dnsServer *dns.Server) {

@@ -144,6 +144,18 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	}
 	defer f.Cleanup()
 
+	// Update DNSRules if any. This is needed because DNSRules also encode allowed destination IPs
+	// and those can change anytime we have identity updates in the cluster. If there are no
+	// DNSRules (== nil) we don't need to update here, as in that case there are no allowed
+	// destinations either.
+	if e.DNSRules != nil {
+		e.OnDNSPolicyUpdateLocked(e.owner.GetDNSRules(e.ID))
+		e.getLogger().WithFields(logrus.Fields{
+			logfields.Path: headerPath,
+			"DNSRules":     e.DNSRules,
+		}).Debug("writing header file with DNSRules")
+	}
+
 	if err = e.writeInformationalComments(f); err != nil {
 		return err
 	}
