@@ -104,6 +104,9 @@ func (s *proxyTestSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
 
+func (s *proxyTestSuite) RemoveRestoredDNSRules(epID uint16) {
+}
+
 type DummySelectorCacheUser struct{}
 
 func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, selections, added, deleted []identity.NumericIdentity) {

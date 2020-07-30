@@ -44,8 +44,13 @@ type Owner interface {
 	// Datapath returns a reference to the datapath implementation.
 	Datapath() datapath.Datapath
 
-	// GetDNSRules()
+	// GetDNSRules creates a fresh copy of DNS rules that can be used when
+	// endpoint is restored on a restart.
 	GetDNSRules(epID uint16) restore.DNSRules
+
+	// RemoveRestoredDNSRules removes any restored DNS rules for
+	// this endpoint from the DNS proxy.
+	RemoveRestoredDNSRules(epID uint16)
 }
 
 // EndpointInfoSource returns information about an endpoint being proxied.

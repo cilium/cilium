@@ -122,6 +122,9 @@ func (s *EndpointSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
 
+func (s *EndpointSuite) RemoveRestoredDNSRules(epID uint16) {
+}
+
 func (s *EndpointSuite) SetUpTest(c *C) {
 	/* Required to test endpoint CEP policy model */
 	kvstore.SetupDummy("etcd")
