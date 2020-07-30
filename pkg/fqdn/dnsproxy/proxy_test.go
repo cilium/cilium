@@ -102,6 +102,9 @@ func (s *DNSProxyTestSuite) GetDNSRules(epID uint16) restore.DNSRules {
 	return nil
 }
 
+func (s *DNSProxyTestSuite) RemoveRestoredDNSRules(epID uint16) {
+}
+
 var _ = Suite(&DNSProxyTestSuite{})
 
 func setupServer(c *C) (dnsServer *dns.Server) {
