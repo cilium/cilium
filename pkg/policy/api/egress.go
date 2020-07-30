@@ -156,7 +156,7 @@ type EgressRule struct {
 	ToGroups []ToGroups `json:"toGroups,omitempty"`
 
 	// TODO: Move this to the policy package (https://github.com/cilium/cilium/issues/8353)
-	aggregatedSelectors EndpointSelectorSlice
+	aggregatedSelectors EndpointSelectorSlice `json:"-"`
 }
 
 // SetAggregatedSelectors creates a single slice containing all of the following
