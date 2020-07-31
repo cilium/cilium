@@ -10,9 +10,12 @@ _spec: {
 	_affinity:        *"" | string
 	_antiAffinity:    *"" | string
 	_serverPort:      *"" | string
-	_probeTarget:     string
-	_probePath:       *"/public" | string
-	_probeExpectFail: *false | true
+
+	_probeTarget:       string
+	_probePath:         *"/public" | string
+	_probeExpectFail:   *false | true
+	_allowProbe:        [] | [...string]
+	_rejectProbe:       [] | [...string]
 
 	_containers: [...{}]
 	_enableMultipleContainers: *false | true
@@ -34,8 +37,12 @@ _spec: {
 		}]
 	}
 
-	_allowProbe: [ "curl", "-sS", "--fail", "--connect-timeout", "\(_probeFailureTimeout)", "-o", "/dev/null", "\(_probeTarget)\(_probePath)"]
-	_rejectProbe: [ "ash", "-c", "! curl -s --fail --connect-timeout \(_probeFailureTimeout) -o /dev/null \(_probeTarget)/private"]
+	if len(_allowProbe) == 0 {
+		_allowProbe: [ "curl", "-sS", "--fail", "--connect-timeout", "\(_probeFailureTimeout)", "-o", "/dev/null", "\(_probeTarget)\(_probePath)"]
+	}
+	if len(_rejectProbe) == 0 {
+		_rejectProbe: [ "ash", "-c", "! curl -s --fail --connect-timeout \(_probeFailureTimeout) -o /dev/null \(_probeTarget)/private"]
+	}
 	if !_enableMultipleContainers {
 		_c1: _container & {
 			name: "\(_name)-container"
