@@ -102,6 +102,9 @@ func listenConfig(mark int, ipv4, ipv6 bool) *net.ListenConfig {
 				if opErr == nil {
 					opErr = syscall.SetsockoptInt(int(fd), syscall.SOL_SOCKET, syscall.SO_REUSEADDR, 1)
 				}
+				if opErr == nil {
+					opErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
+				}
 			})
 			if err != nil {
 				return err
