@@ -1555,7 +1555,7 @@ func (e *Endpoint) UpdateProxyStatistics(l4Protocol string, port uint16, ingress
 	key := policy.ProxyID(e.ID, ingress, l4Protocol, port)
 	proxyStats, ok := e.proxyStatistics[key]
 	if !ok {
-		e.getLogger().WithField(logfields.L4PolicyID, key).Warn("Proxy stats not found when updating")
+		e.getLogger().WithField(logfields.L4PolicyID, key).Debug("Proxy stats not found when updating")
 		return
 	}
 
