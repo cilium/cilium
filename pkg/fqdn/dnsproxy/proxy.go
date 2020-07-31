@@ -71,12 +71,12 @@ type DNSProxy struct {
 	// BindPort is the port in BindAddr.
 	BindPort uint16
 
-	// LookupEndpointIDByIP is a provided callback that returns the endpoint ID
+	// LookupRegisteredEndpoint is a provided callback that returns the endpoint ID
 	// as a uint16.
 	// Note: this is a little pointless since this proxy is in-process but it is
 	// intended to allow us to switch to an external proxy process by forcing the
 	// design now.
-	LookupEndpointIDByIP LookupEndpointIDByIPFunc
+	LookupRegisteredEndpoint LookupEndpointIDByIPFunc
 
 	// LookupSecIDByIP is a provided callback that returns the IP's security ID
 	// from the ipcache.
@@ -133,6 +133,9 @@ type DNSProxy struct {
 	// a restart
 	restored perEPRestored
 
+	// mapping restored endpoint IP (both IPv4 and IPv6) to *Endpoint
+	restoredEPs restoredEPs
+
 	// rejectReply is the OPCode send from the DNS-proxy to the endpoint if the
 	// DNS request is invalid
 	rejectReply int
@@ -150,6 +153,9 @@ type cachedSelectorREEntry map[policy.CachedSelector]*regexp.Regexp
 
 // structure for restored rules that can be used while Cilium agent is restoring endpoints
 type perEPRestored map[uint64]restore.DNSRules
+
+// map from EP IPs to *Endpoint
+type restoredEPs map[string]*endpoint.Endpoint
 
 // CheckRestored checks endpointID, destPort, destIP, and name against the restored rules,
 // and only returns true if a restored rule matches.
@@ -210,17 +216,32 @@ func (p *DNSProxy) GetRules(endpointID uint16) restore.DNSRules {
 // RestoreRules is used in the beginning of endpoint restoration to
 // install rules saved before the restart to be used before the endpoint
 // is regenerated.
-func (p *DNSProxy) RestoreRules(endpointID uint16, rules restore.DNSRules) {
+// 'ep' passed in is not fully functional yet, but just unmarshaled from JSON!
+func (p *DNSProxy) RestoreRules(ep *endpoint.Endpoint) {
 	p.Lock()
 	defer p.Unlock()
-	p.restored[uint64(endpointID)] = rules
+	if ep.IPv4.IsSet() {
+		p.restoredEPs[ep.IPv4.String()] = ep
+	}
+	if ep.IPv6.IsSet() {
+		p.restoredEPs[ep.IPv6.String()] = ep
+	}
+	p.restored[uint64(ep.ID)] = ep.DNSRules
 
-	log.Debugf("Restored rules for endpoint %d: %v", endpointID, rules)
+	log.Debugf("Restored rules for endpoint %d: %v", ep.ID, ep.DNSRules)
 }
 
 // 'p' must be locked
 func (p *DNSProxy) removeRestoredRules(endpointID uint64) {
-	delete(p.restored, endpointID)
+	if _, exists := p.restored[endpointID]; exists {
+		// Remove IP->ID mappings for the restored EP
+		for ip, ep := range p.restoredEPs {
+			if ep.ID == uint16(endpointID) {
+				delete(p.restoredEPs, ip)
+			}
+		}
+		delete(p.restored, endpointID)
+	}
 }
 
 // RemoveRestoredRules removes all restored rules for 'endpointID'.
@@ -287,7 +308,7 @@ func (allow perEPAllow) getPortRulesForID(endpointID uint64, destPort uint16) (r
 }
 
 // LookupEndpointIDByIPFunc wraps logic to lookup an endpoint with any backend.
-// See DNSProxy.LookupEndpointIDByIP for usage.
+// See DNSProxy.LookupRegisteredEndpoint for usage.
 type LookupEndpointIDByIPFunc func(ip net.IP) (endpoint *endpoint.Endpoint, err error)
 
 // LookupSecIDByIPFunc Func wraps logic to lookup an IP's security ID from the
@@ -343,15 +364,16 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, looku
 	}
 
 	p := &DNSProxy{
-		LookupEndpointIDByIP:  lookupEPFunc,
-		LookupSecIDByIP:       lookupSecIDFunc,
-		LookupIPsBySecID:      lookupIPsFunc,
-		NotifyOnDNSMsg:        notifyFunc,
-		lookupTargetDNSServer: lookupTargetDNSServer,
-		allowed:               make(perEPAllow),
-		restored:              make(perEPRestored),
-		rejectReply:           dns.RcodeRefused,
-		EnableDNSCompression:  enableDNSCompression,
+		LookupRegisteredEndpoint: lookupEPFunc,
+		LookupSecIDByIP:          lookupSecIDFunc,
+		LookupIPsBySecID:         lookupIPsFunc,
+		NotifyOnDNSMsg:           notifyFunc,
+		lookupTargetDNSServer:    lookupTargetDNSServer,
+		allowed:                  make(perEPAllow),
+		restored:                 make(perEPRestored),
+		restoredEPs:              make(restoredEPs),
+		rejectReply:              dns.RcodeRefused,
+		EnableDNSCompression:     enableDNSCompression,
 	}
 
 	// Start the DNS listeners on UDP and TCP
@@ -407,6 +429,19 @@ func StartDNSProxy(address string, port uint16, enableDNSCompression bool, looku
 	return p, nil
 }
 
+// LookupEndpointByIP wraps LookupRegisteredEndpoint by falling back to an restored EP, if available
+func (p *DNSProxy) LookupEndpointByIP(ip net.IP) (endpoint *endpoint.Endpoint, err error) {
+	endpoint, err = p.LookupRegisteredEndpoint(ip)
+	if err != nil {
+		// Check restored endpoints
+		endpoint, found := p.restoredEPs[ip.String()]
+		if found {
+			return endpoint, nil
+		}
+	}
+	return endpoint, err
+}
+
 // UpdateAllowed sets newRules for endpointID and destPort. It compiles the DNS
 // rules into regexes that are then used in CheckAllowed.
 func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPort uint16, newRules policy.L7DataMap) error {
@@ -447,7 +482,7 @@ func (p *DNSProxy) CheckAllowed(endpointID uint64, destPort uint16, destID ident
 // ServeDNS handles individual DNS requests forwarded to the proxy, and meets
 // the dns.Handler interface.
 // It will:
-//  - Look up the endpoint that sent the request by IP, via LookupEndpointIDByIP.
+//  - Look up the endpoint that sent the request by IP, via LookupEndpointByIP.
 //  - Look up the Sec ID of the destination server, via LookupSecIDByIP.
 //  - Check that the endpoint ID, destination Sec ID, destination port and the
 //  qname all match a rule. If not, the request is dropped.
@@ -477,7 +512,7 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		p.sendRefused(scopedLog, w, request)
 		return
 	}
-	ep, err := p.LookupEndpointIDByIP(net.ParseIP(addr))
+	ep, err := p.LookupEndpointByIP(net.ParseIP(addr))
 	if err != nil {
 		scopedLog.WithError(err).Error("cannot extract endpoint ID from DNS request")
 		stat.Err = fmt.Errorf("Cannot extract endpoint ID from DNS request: %s", err)
@@ -499,23 +534,20 @@ func (p *DNSProxy) ServeDNS(w dns.ResponseWriter, request *dns.Msg) {
 		return
 	}
 
-	serverSecID, exists, err := p.LookupSecIDByIP(targetServerIP)
-	if !exists || err != nil {
-		scopedLog.WithError(err).WithField("server", targetServerAddr).Debug("cannot find server ip in ipcache")
-		stat.Err = fmt.Errorf("Cannot find server ip in ipcache: %s", err)
-		stat.ProcessingTime.End(false)
-		p.NotifyOnDNSMsg(time.Now(), ep, epIPPort, targetServerAddr, request, protocol, false, stat)
-		p.sendRefused(scopedLog, w, request)
-		return
+	targetServerID := identity.ReservedIdentityWorld
+	if serverSecID, exists, err := p.LookupSecIDByIP(targetServerIP); !exists || err != nil {
+		scopedLog.WithError(err).WithField("server", targetServerAddr).Debug("cannot find server ip in ipcache, defaulting to WORLD")
+	} else {
+		targetServerID = serverSecID.ID
+		scopedLog.WithField("server", targetServerAddr).Debugf("Found target server to of DNS request secID %+v", serverSecID)
 	}
-	scopedLog.WithField("server", targetServerAddr).Debugf("Found target server to of DNS request secID %+v", serverSecID)
 
 	// The allowed check is first because we don't want to use DNS responses that
 	// endpoints are not allowed to see.
 	// Note: The cache doesn't know about the source of the DNS data (yet) and so
 	// it won't enforce any separation between results from different endpoints.
 	// This isn't ideal but we are trusting the DNS responses anyway.
-	allowed, err := p.CheckAllowed(uint64(ep.ID), targetServerPort, serverSecID.ID, targetServerIP, qname)
+	allowed, err := p.CheckAllowed(uint64(ep.ID), targetServerPort, targetServerID, targetServerIP, qname)
 	switch {
 	case err != nil:
 		scopedLog.WithError(err).Error("Rejecting DNS query from endpoint due to error")
