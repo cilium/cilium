@@ -20,10 +20,12 @@ import (
 	"bytes"
 	"context"
 	"encoding/json"
+	"fmt"
 	"net"
 	"testing"
 	"time"
 
+	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -57,6 +59,7 @@ type DNSProxyTestSuite struct {
 	dnsTCPClient *dns.Client
 	dnsServer    *dns.Server
 	proxy        *DNSProxy
+	restoring    bool
 }
 
 func (s *DNSProxyTestSuite) GetPolicyRepository() *policy.Repository {
@@ -193,6 +196,9 @@ func (s *DNSProxyTestSuite) SetUpSuite(c *C) {
 	proxy, err := StartDNSProxy("", 0, true, // any address, any port, enable compression
 		// LookupEPByIP
 		func(ip net.IP) (*endpoint.Endpoint, error) {
+			if s.restoring {
+				return nil, fmt.Errorf("No EPs available when restoring")
+			}
 			return endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, uint16(epID1), endpoint.StateReady), nil
 		},
 		// LookupSecIDByIP
@@ -693,7 +699,9 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	c.Assert(allowed, Equals, false, Commentf("request was allowed when it should be rejected"))
 
 	// Restore rules
-	s.proxy.RestoreRules(uint16(epID1), restored1)
+	ep1 := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, uint16(epID1), endpoint.StateReady)
+	ep1.DNSRules = restored1
+	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
 	c.Assert(exists, Equals, true)
 
@@ -737,7 +745,9 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
 
 	// Restore rules for epID3
-	s.proxy.RestoreRules(uint16(epID3), restored3)
+	ep3 := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, uint16(epID3), endpoint.StateReady)
+	ep3.DNSRules = restored3
+	s.proxy.RestoreRules(ep3)
 	_, exists = s.proxy.restored[epID3]
 	c.Assert(exists, Equals, true)
 
@@ -823,7 +833,8 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	c.Assert(err, Equals, nil, Commentf("Could not marshal restored rules to json"))
 	c.Assert(string(jsn2), Equals, pretty.String())
 
-	s.proxy.RestoreRules(uint16(epID1), rules)
+	ep1.DNSRules = rules
+	s.proxy.RestoreRules(ep1)
 	_, exists = s.proxy.restored[epID1]
 	c.Assert(exists, Equals, true)
 
@@ -865,4 +876,78 @@ func (s *DNSProxyTestSuite) TestFullPathDependence(c *C) {
 	allowed, err = s.proxy.CheckAllowed(epID1, 54, 2, dstIPrandom, "example.com")
 	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
 	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
+
+	s.proxy.RemoveRestoredRules(uint16(epID1))
+	_, exists = s.proxy.restored[epID1]
+	c.Assert(exists, Equals, false)
+}
+
+func (s *DNSProxyTestSuite) TestRestoredEndpoint(c *C) {
+	// Respond with an actual answer for the query. This also tests that the
+	// connection was forwarded via the correct protocol (tcp/udp) because we
+	// connet with TCP, and the server only listens on TCP.
+
+	name := "cilium.io."
+	l7map := policy.L7DataMap{
+		cachedDstID1Selector: &policy.PerSelectorPolicy{
+			L7Rules: api.L7Rules{
+				DNS: []api.PortRuleDNS{{MatchName: name}},
+			},
+		},
+	}
+	query := name
+
+	err := s.proxy.UpdateAllowed(epID1, dstPort, l7map)
+	c.Assert(err, Equals, nil, Commentf("Could not update with rules"))
+	allowed, err := s.proxy.CheckAllowed(epID1, dstPort, dstID1, nil, query)
+	c.Assert(err, Equals, nil, Commentf("Error when checking allowed"))
+	c.Assert(allowed, Equals, true, Commentf("request was rejected when it should be allowed"))
+
+	// 1st request
+	request := new(dns.Msg)
+	request.SetQuestion(query, dns.TypeA)
+	response, rtt, err := s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed (RTT: %v)", rtt))
+	c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s", response))
+	c.Assert(response.Answer[0].String(), Equals, "cilium.io.\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
+
+	// Get restored rules
+	restored := s.proxy.GetRules(uint16(epID1)).Sort()
+
+	// remove rules
+	err = s.proxy.UpdateAllowed(epID1, dstPort, nil)
+	c.Assert(err, Equals, nil, Commentf("Could not remove rules"))
+
+	// 2nd request, refused due to no rules
+	request = new(dns.Msg)
+	request.SetQuestion(query, dns.TypeA)
+	response, rtt, err = s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed (RTT: %v)", rtt))
+	c.Assert(len(response.Answer), Equals, 0, Commentf("Proxy returned incorrect number of answer RRs %s", response))
+	c.Assert(response.Rcode, Equals, dns.RcodeRefused, Commentf("DNS request from test client was not rejected when it should be blocked"))
+
+	// restore rules, set the mock to restoring state
+	s.restoring = true
+	ep1 := endpoint.NewEndpointWithState(s, &endpoint.FakeEndpointProxy{}, &allocator.FakeIdentityAllocator{}, uint16(epID1), endpoint.StateReady)
+	ep1.IPv4, _ = addressing.NewCiliumIPv4("127.0.0.1")
+	ep1.IPv6, _ = addressing.NewCiliumIPv6("::1")
+	ep1.DNSRules = restored
+	s.proxy.RestoreRules(ep1)
+	_, exists := s.proxy.restored[epID1]
+	c.Assert(exists, Equals, true)
+
+	// 3nd request, answered due to restored Endpoint and rules being found
+	request = new(dns.Msg)
+	request.SetQuestion(query, dns.TypeA)
+	response, rtt, err = s.dnsTCPClient.Exchange(request, s.proxy.TCPServer.Listener.Addr().String())
+	c.Assert(err, IsNil, Commentf("DNS request from test client failed when it should succeed (RTT: %v)", rtt))
+	c.Assert(len(response.Answer), Equals, 1, Commentf("Proxy returned incorrect number of answer RRs %s", response))
+	c.Assert(response.Answer[0].String(), Equals, "cilium.io.\t60\tIN\tA\t1.1.1.1", Commentf("Proxy returned incorrect RRs"))
+
+	// cleanup
+	s.proxy.RemoveRestoredRules(uint16(epID1))
+	_, exists = s.proxy.restored[epID1]
+	c.Assert(exists, Equals, false)
+
+	s.restoring = false
 }
