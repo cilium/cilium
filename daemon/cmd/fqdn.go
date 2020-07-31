@@ -316,7 +316,7 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 		for _, possibleEP := range possibleEndpoints {
 			// Upgrades from old ciliums have this nil
 			if possibleEP.DNSRules != nil {
-				proxy.DefaultDNSProxy.RestoreRules(possibleEP.ID, possibleEP.DNSRules)
+				proxy.DefaultDNSProxy.RestoreRules(possibleEP)
 			}
 		}
 	}
