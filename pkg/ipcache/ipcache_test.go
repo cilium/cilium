@@ -18,6 +18,7 @@ package ipcache
 
 import (
 	"net"
+	"sort"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -142,9 +143,10 @@ func (s *IPCacheTestSuite) TestIPCache(c *C) {
 		c.Assert(cachedIdentity.ID, Equals, identities[index])
 	}
 
-	expectedIPList := []string{"27.2.2.2", "127.0.0.1"}
+	expectedIPList := []string{"127.0.0.1", "27.2.2.2"}
 
 	cachedEndpointIPs := IPIdentityCache.LookupByIdentity(29)
+	sort.Strings(cachedEndpointIPs)
 	c.Assert(cachedEndpointIPs, checker.DeepEquals, expectedIPList)
 
 	IPIdentityCache.Delete("27.2.2.2", source.KVStore)
