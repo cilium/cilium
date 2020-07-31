@@ -97,49 +97,21 @@ var _ = Describe("K8sFQDNTest", func() {
 	})
 
 	It("Restart Cilium validate that FQDN is still working", func() {
-		// Test functionality:
-		// - When Cilium is running) Connectivity from App2 application can
-		// connect to DNS because dns-proxy filter the DNS request. If the
-		// connection is made correctly the IP is whitelisted by the FQDN rule
-		// until the DNS TTL expires.
-		// When Cilium is not running) The DNS-proxy is not working, so the IP
-		// connectivity to an existing IP that was queried before will work,
-		// meanwhile connections using new DNS request will fail.
-		// On restart) Cilium will restore the IPS that were white-listted in
-		// the FQDN and connection will work as normal.
-
-		connectivityTest := func() {
-
-			By("Testing that connection from %q to %q should work",
-				appPods[helpers.App2], worldTarget)
-			res := kubectl.ExecPodCmd(
-				helpers.DefaultNamespace, appPods[helpers.App2],
-				helpers.CurlFail(worldTarget))
-			ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "%q cannot curl to %q",
-				appPods[helpers.App2], worldTarget)
-
-			By("Testing that connection from %q to %q shouldn't work",
-				appPods[helpers.App2], worldInvalidTarget)
-			res = kubectl.ExecPodCmd(
-				helpers.DefaultNamespace, appPods[helpers.App2],
-				helpers.CurlFail(worldInvalidTarget))
-			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
-				"%q can curl to %q when it should fail", appPods[helpers.App2], worldInvalidTarget)
-
-			By("Testing that connection from %q to %q works",
-				appPods[helpers.App2], worldTargetIP)
-			res = kubectl.ExecPodCmd(
-				helpers.DefaultNamespace, appPods[helpers.App2],
-				helpers.CurlFail(worldTargetIP))
-			res.ExpectSuccess("%q cannot curl to %q during restart", helpers.App2, worldTargetIP)
-
-			By("Testing that connection from %q to %q should not work",
-				appPods[helpers.App2], worldInvalidTargetIP)
-			res = kubectl.ExecPodCmd(
-				helpers.DefaultNamespace, appPods[helpers.App2],
-				helpers.CurlFail(worldInvalidTargetIP))
-			res.ExpectFail("%q can  connect when it should not work", helpers.App2)
-		}
+		// Test overview:
+		//
+		// When Cilium is running:
+		// Connectivity from App2 can connect to DNS because dns-proxy handles
+		// the DNS request. If the connection is made correctly, the IP is
+		// allowed by the FQDN rule until the DNS TTL expires.
+		//
+		// When Cilium is not running:
+		// The dns-proxy is not running either, so the IP connectivity to an
+		// existing IP that was queried before will work, meanwhile connections
+		// using a new DNS request will fail.
+		//
+		// On restart:
+		// Cilium will restore the IPs that were allowed in the FQDN and
+		// connectivity resumes.
 
 		fqndProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
 
@@ -148,23 +120,19 @@ var _ = Describe("K8sFQDNTest", func() {
 			helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
 
-		connectivityTest()
-		By("Deleting cilium pods")
+		By("Performing baseline test to validate connectivity")
+		connectivityTest(kubectl, appPods,
+			worldTarget, worldInvalidTarget, worldTargetIP, worldInvalidTargetIP)
 
-		res := kubectl.Exec(fmt.Sprintf("%s -n %s delete pods -l k8s-app=cilium",
-			helpers.KubectlCmd, helpers.CiliumNamespace))
-		res.ExpectSuccess()
+		By("Deleting Cilium pods")
+		kubectl.Exec(
+			fmt.Sprintf("%s -n %s delete pods -l k8s-app=cilium",
+				helpers.KubectlCmd,
+				helpers.CiliumNamespace),
+		).ExpectSuccess()
 
-		By("Testing connectivity when cilium is restoring using IPS without DNS")
-		res = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail(worldTargetIP))
-		res.ExpectSuccess("%q cannot curl to %q during restart", helpers.App2, worldTargetIP)
-
-		res = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail(worldInvalidTargetIP))
-		res.ExpectFail("%q can  connect when it should not work", helpers.App2)
+		By("Testing connectivity when cilium is restoring using IPs without DNS")
+		connectivityTestIPs(kubectl, appPods, worldTargetIP, worldInvalidTargetIP)
 
 		ExpectAllPodsTerminated(kubectl)
 		ExpectCiliumReady(kubectl)
@@ -188,19 +156,12 @@ var _ = Describe("K8sFQDNTest", func() {
 		err = kubectl.CiliumEndpointWaitReady()
 		Expect(err).To(BeNil(), "Endpoints are not ready after Cilium restarts")
 
-		By("Testing connectivity when cilium is *restored* using IPS without DNS")
-		res = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail(worldTargetIP))
-		res.ExpectSuccess("%q cannot curl to %q after restart", helpers.App2, worldTargetIP)
-
-		res = kubectl.ExecPodCmd(
-			helpers.DefaultNamespace, appPods[helpers.App2],
-			helpers.CurlFail(worldInvalidTargetIP))
-		res.ExpectFail("%q can  connect when it should not work", helpers.App2)
+		By("Testing connectivity when cilium is *restored* using IPs without DNS")
+		connectivityTestIPs(kubectl, appPods, worldTargetIP, worldInvalidTargetIP)
 
 		By("Testing connectivity using DNS request when cilium is restored correctly")
-		connectivityTest()
+		connectivityTest(kubectl, appPods,
+			worldTarget, worldInvalidTarget, worldTargetIP, worldInvalidTargetIP)
 	})
 
 	It("Validate that multiple specs are working correctly", func() {
@@ -239,3 +200,46 @@ var _ = Describe("K8sFQDNTest", func() {
 		res.ExpectFail("Can connect to to a valid target when it should NOT work")
 	})
 })
+
+func connectivityTest(kubectl *helpers.Kubectl, appPods map[string]string,
+	dnsTarget, dnsInvalidTarget, ipTarget, ipInvalidTarget string) {
+
+	connectivityTestDNS(kubectl, appPods, dnsTarget, dnsInvalidTarget)
+	connectivityTestIPs(kubectl, appPods, ipTarget, ipInvalidTarget)
+}
+
+func connectivityTestDNS(kubectl *helpers.Kubectl, appPods map[string]string,
+	target, invalidTarget string) {
+	By("Testing that connection from %q to %q should work", appPods[helpers.App2], target)
+	res := kubectl.ExecPodCmd(
+		helpers.DefaultNamespace, appPods[helpers.App2],
+		helpers.CurlFail(target))
+	ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "%q cannot curl to %q",
+		appPods[helpers.App2], target)
+
+	By("Testing that connection from %q to %q shouldn't work",
+		appPods[helpers.App2], invalidTarget)
+	res = kubectl.ExecPodCmd(
+		helpers.DefaultNamespace, appPods[helpers.App2],
+		helpers.CurlFail(invalidTarget))
+	ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
+		"%q can curl to %q when it should fail", appPods[helpers.App2], invalidTarget)
+}
+
+func connectivityTestIPs(kubectl *helpers.Kubectl, appPods map[string]string,
+	target, invalidTarget string) {
+	By("Testing that connection from %q to %q works", appPods[helpers.App2], target)
+	kubectl.ExecPodCmd(
+		helpers.DefaultNamespace,
+		appPods[helpers.App2],
+		helpers.CurlFail(target),
+	).ExpectSuccess("%q cannot curl to %q during restart", helpers.App2, target)
+
+	By("Testing that connection from %q to %q should not work",
+		appPods[helpers.App2], invalidTarget)
+	kubectl.ExecPodCmd(
+		helpers.DefaultNamespace,
+		appPods[helpers.App2],
+		helpers.CurlFail(invalidTarget),
+	).ExpectFail("%q can  connect when it should not work", helpers.App2)
+}
