@@ -18,11 +18,13 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"time"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
 	. "github.com/onsi/gomega"
+	"golang.org/x/sync/errgroup"
 )
 
 var _ = Describe("K8sFQDNTest", func() {
@@ -114,15 +116,16 @@ var _ = Describe("K8sFQDNTest", func() {
 		// connectivity resumes.
 
 		fqndProxyPolicy := helpers.ManifestGet(kubectl.BasePath(), "fqdn-proxy-policy.yaml")
-
 		_, err := kubectl.CiliumPolicyAction(
 			helpers.DefaultNamespace, fqndProxyPolicy,
 			helpers.KubectlApply, helpers.HelperTimeout)
 		Expect(err).To(BeNil(), "Cannot install fqdn proxy policy")
 
 		By("Performing baseline test to validate connectivity")
-		connectivityTest(kubectl, appPods,
-			worldTarget, worldInvalidTarget, worldTargetIP, worldInvalidTargetIP)
+		Expect(
+			connectivityTestAll(kubectl, appPods,
+				worldTarget, worldInvalidTarget, worldTargetIP, worldInvalidTargetIP),
+		).ToNot(HaveOccurred())
 
 		By("Deleting Cilium pods")
 		kubectl.Exec(
@@ -131,18 +134,45 @@ var _ = Describe("K8sFQDNTest", func() {
 				helpers.CiliumNamespace),
 		).ExpectSuccess()
 
-		By("Testing connectivity when cilium is restoring using IPs without DNS")
-		connectivityTestIPs(kubectl, appPods, worldTargetIP, worldInvalidTargetIP)
+		// Wait for Cilium pods and fire into a channel when either (1) Cilium
+		// pods are ready or (2) a timeout occurred. Once WaitforPods exits, we
+		// cancel the context to signal to the WithContext loop below to stop
+		// the connectivity test.
+		ctx, cancel := context.WithCancel(context.Background())
+		ch := make(chan error, 1)
+		go func() {
+			defer GinkgoRecover()
+			ch <- kubectl.WaitforPods(helpers.CiliumNamespace,
+				"-l k8s-app=cilium",
+				helpers.HelperTimeout)
+			cancel()
+			close(ch)
+		}()
 
-		ExpectAllPodsTerminated(kubectl)
-		ExpectCiliumReady(kubectl)
-
-		By("Testing connectivity when cilium is *restored* using IPs without DNS")
-		connectivityTestIPs(kubectl, appPods, worldTargetIP, worldInvalidTargetIP)
-
-		By("Testing connectivity using DNS request when cilium is restored correctly")
-		connectivityTest(kubectl, appPods,
-			worldTarget, worldInvalidTarget, worldTargetIP, worldInvalidTargetIP)
+		// We are testing connectivity in a loop until the context is
+		// cancelled. Note that we return false purposefully because
+		// WithTimeout will stop if the function passed in returns true. Once
+		// the context is cancelled, then we return true to stop the loop. This
+		// is because we want to simulate similar behavior to ginkgo's
+		// Consistently. However, we do return the error regardless because we
+		// want to terminate immediately if we encounter an error, i.e. the
+		// connectivity wasn't consistently successful.
+		By("Testing consistent connectivity during Cilium restart")
+		var errs []error
+		helpers.WithContext(
+			ctx,
+			func(c context.Context) (bool, error) {
+				err := connectivityTestAll(kubectl, appPods,
+					worldTarget, worldInvalidTarget, worldTargetIP, worldInvalidTargetIP)
+				errs = append(errs, err)
+				return false, err
+			},
+			10*time.Millisecond,
+		)
+		for _, e := range errs {
+			Expect(e).ToNot(HaveOccurred(), "Expected connectivity to work consistently")
+		}
+		Expect(<-ch).ToNot(HaveOccurred(), "Timeout waiting for Cilium pods")
 	})
 
 	It("Validate that multiple specs are working correctly", func() {
@@ -182,45 +212,51 @@ var _ = Describe("K8sFQDNTest", func() {
 	})
 })
 
-func connectivityTest(kubectl *helpers.Kubectl, appPods map[string]string,
-	dnsTarget, dnsInvalidTarget, ipTarget, ipInvalidTarget string) {
+func connectivityTestAll(kubectl *helpers.Kubectl, appPods map[string]string,
+	dnsTarget, dnsInvalidTarget, ipTarget, ipInvalidTarget string) error {
+	var eg errgroup.Group
 
-	connectivityTestDNS(kubectl, appPods, dnsTarget, dnsInvalidTarget)
-	connectivityTestIPs(kubectl, appPods, ipTarget, ipInvalidTarget)
+	eg.Go(func() error {
+		defer GinkgoRecover()
+		return connectivityTest(kubectl, appPods, dnsTarget, dnsInvalidTarget)
+	})
+	eg.Go(func() error {
+		defer GinkgoRecover()
+		return connectivityTest(kubectl, appPods, ipTarget, ipInvalidTarget)
+	})
+
+	return eg.Wait()
 }
 
-func connectivityTestDNS(kubectl *helpers.Kubectl, appPods map[string]string,
-	target, invalidTarget string) {
-	By("Testing that connection from %q to %q should work", appPods[helpers.App2], target)
-	res := kubectl.ExecPodCmd(
-		helpers.DefaultNamespace, appPods[helpers.App2],
-		helpers.CurlFail(target))
-	ExpectWithOffset(1, res).To(helpers.CMDSuccess(), "%q cannot curl to %q",
+func connectivityTest(kubectl *helpers.Kubectl, appPods map[string]string,
+	target, invalidTarget string) error {
+	By("Testing connection from %q to %q should work", appPods[helpers.App2], target)
+	if err := run(kubectl, appPods[helpers.App2], helpers.CurlFail(target)); err != nil {
+		return fmt.Errorf("connectivity failed when it should work: %v", err)
+	}
+
+	By("Testing connection from %q to %q should work => done",
 		appPods[helpers.App2], target)
 
-	By("Testing that connection from %q to %q shouldn't work",
+	By("Testing connection from %q to %q shouldn't work",
 		appPods[helpers.App2], invalidTarget)
-	res = kubectl.ExecPodCmd(
-		helpers.DefaultNamespace, appPods[helpers.App2],
-		helpers.CurlFail(invalidTarget))
-	ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
-		"%q can curl to %q when it should fail", appPods[helpers.App2], invalidTarget)
+	if err := run(kubectl, appPods[helpers.App2], helpers.CurlFail(invalidTarget)); err == nil {
+		return fmt.Errorf("connectivity succeeded when it should have failed: %v", err)
+	}
+
+	By("Testing connection from %q to %q shouldn't work => done",
+		appPods[helpers.App2], invalidTarget)
+
+	return nil
 }
 
-func connectivityTestIPs(kubectl *helpers.Kubectl, appPods map[string]string,
-	target, invalidTarget string) {
-	By("Testing that connection from %q to %q works", appPods[helpers.App2], target)
-	kubectl.ExecPodCmd(
-		helpers.DefaultNamespace,
-		appPods[helpers.App2],
-		helpers.CurlFail(target),
-	).ExpectSuccess("%q cannot curl to %q during restart", helpers.App2, target)
+func run(k *helpers.Kubectl, pod, target string) error {
+	curl := helpers.CurlFail(target)
 
-	By("Testing that connection from %q to %q should not work",
-		appPods[helpers.App2], invalidTarget)
-	kubectl.ExecPodCmd(
-		helpers.DefaultNamespace,
-		appPods[helpers.App2],
-		helpers.CurlFail(invalidTarget),
-	).ExpectFail("%q can  connect when it should not work", helpers.App2)
+	r := k.ExecPodCmd(helpers.DefaultNamespace, pod, curl)
+	if !r.WasSuccessful() {
+		return fmt.Errorf("cannot curl from %q to %q: %v", pod, target, r.GetError())
+	}
+
+	return nil
 }
