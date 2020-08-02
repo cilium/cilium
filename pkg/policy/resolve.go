@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -142,7 +142,7 @@ func (p *selectorPolicy) DistillPolicy(policyOwner PolicyOwner, isHost bool) *En
 	// after the computation of PolicyMapState has started.
 	calculatedPolicy.computeDesiredL4PolicyMapEntries()
 	if !isHost {
-		calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress(p.L4Policy)
+		calculatedPolicy.PolicyMapState.DetermineAllowLocalhostIngress()
 	}
 
 	return calculatedPolicy
@@ -155,11 +155,11 @@ func (p *EndpointPolicy) computeDesiredL4PolicyMapEntries() {
 	if p.L4Policy == nil {
 		return
 	}
-	p.computeDirectionL4PolicyMapEntries(p.L4Policy.Ingress, trafficdirection.Ingress)
-	p.computeDirectionL4PolicyMapEntries(p.L4Policy.Egress, trafficdirection.Egress)
+	p.computeDirectionL4PolicyMapEntries(p.PolicyMapState, p.L4Policy.Ingress, trafficdirection.Ingress)
+	p.computeDirectionL4PolicyMapEntries(p.PolicyMapState, p.L4Policy.Egress, trafficdirection.Egress)
 }
 
-func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
+func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(policyMapState MapState, l4PolicyMap L4PolicyMap, direction trafficdirection.TrafficDirection) {
 	for _, filter := range l4PolicyMap {
 		lookupDone := false
 		proxyport := uint16(0)
@@ -183,7 +183,7 @@ func (p *EndpointPolicy) computeDirectionL4PolicyMapEntries(l4PolicyMap L4Policy
 					continue
 				}
 			}
-			p.PolicyMapState[keyFromFilter] = entry
+			policyMapState.DenyPreferredInsert(keyFromFilter, entry)
 		}
 	}
 }
@@ -207,13 +207,22 @@ func (p *EndpointPolicy) AllowsIdentity(identity identity.NumericIdentity) (ingr
 		Identity: uint32(identity),
 	}
 
-	key.TrafficDirection = trafficdirection.Ingress.Uint8()
-	if _, ok := p.PolicyMapState[key]; ok || !p.IngressPolicyEnabled {
+	if !p.IngressPolicyEnabled {
 		ingress = true
+	} else {
+		key.TrafficDirection = trafficdirection.Ingress.Uint8()
+		if v, exists := p.PolicyMapState[key]; exists && !v.IsDeny {
+			ingress = true
+		}
 	}
-	key.TrafficDirection = trafficdirection.Egress.Uint8()
-	if _, ok := p.PolicyMapState[key]; ok || !p.EgressPolicyEnabled {
+
+	if !p.EgressPolicyEnabled {
 		egress = true
+	} else {
+		key.TrafficDirection = trafficdirection.Egress.Uint8()
+		if v, exists := p.PolicyMapState[key]; exists && !v.IsDeny {
+			egress = true
+		}
 	}
 
 	return ingress, egress

@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -58,11 +58,23 @@ type PolicyContext interface {
 	// false if any of the rules has side-effects, requiring all
 	// such rules being evaluated.
 	GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool)
+
+	// IsDeny returns true if the policy computation should be done for the
+	// policy deny case. This function returns different values depending on the
+	// code path as it can be changed during the policy calculation.
+	IsDeny() bool
+
+	// SetDeny sets the Deny field of the PolicyContext and returns the old
+	// value stored.
+	SetDeny(newValue bool) (oldValue bool)
 }
 
 type policyContext struct {
 	repo *Repository
 	ns   string
+	// isDeny this field is set to true if the given policy computation should
+	// be done for the policy deny.
+	isDeny bool
 }
 
 // GetSelectorCache() returns the selector cache used by the Repository
@@ -80,6 +92,21 @@ func (p *policyContext) GetTLSContext(tls *api.TLSContext) (ca, public, private 
 
 func (p *policyContext) GetEnvoyHTTPRules(l7Rules *api.L7Rules) (*cilium.HttpNetworkPolicyRules, bool) {
 	return p.repo.GetEnvoyHTTPRules(l7Rules, p.ns)
+}
+
+// IsDeny returns true if the policy computation should be done for the
+// policy deny case. This function return different values depending on the
+// code path as it can be changed during the policy calculation.
+func (p *policyContext) IsDeny() bool {
+	return p.isDeny
+}
+
+// SetDeny sets the Deny field of the PolicyContext and returns the old
+// value stored.
+func (p *policyContext) SetDeny(deny bool) bool {
+	oldDeny := p.isDeny
+	p.isDeny = deny
+	return oldDeny
 }
 
 // Repository is a list of policy rules which in combination form the security
@@ -165,6 +192,9 @@ type traceState struct {
 	// matchedRules is the number of rules that have allowed traffic
 	matchedRules int
 
+	// matchedDenyRules is the number of rules that have denied traffic
+	matchedDenyRules int
+
 	// constrainedRules counts how many "FromRequires" constraints are
 	// unsatisfied
 	constrainedRules int
@@ -177,10 +207,17 @@ func (state *traceState) trace(rules int, ctx *SearchContext) {
 	ctx.PolicyTrace("%d/%d rules selected\n", state.selectedRules, rules)
 	if state.constrainedRules > 0 {
 		ctx.PolicyTrace("Found unsatisfied FromRequires constraint\n")
-	} else if state.matchedRules > 0 {
-		ctx.PolicyTrace("Found allow rule\n")
 	} else {
-		ctx.PolicyTrace("Found no allow rule\n")
+		if state.matchedRules > 0 {
+			ctx.PolicyTrace("Found allow rule\n")
+		} else {
+			ctx.PolicyTrace("Found no allow rule\n")
+		}
+		if state.matchedDenyRules > 0 {
+			ctx.PolicyTrace("Found deny rule\n")
+		} else {
+			ctx.PolicyTrace("Found no deny rule\n")
+		}
 	}
 }
 
@@ -518,10 +555,11 @@ func (p *Repository) GetRulesMatching(lbls labels.LabelArray) (ingressMatch bool
 // a slice of all rules which match.
 //
 // Must be called with p.Mutex held
-func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (ingressMatch bool, egressMatch bool, matchingRules ruleSlice) {
+func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (
+	ingressMatch, egressMatch bool,
+	matchingRules ruleSlice) {
+
 	matchingRules = []*rule{}
-	ingressMatch = false
-	egressMatch = false
 	for _, r := range p.rules {
 		isNode := securityIdentity.ID == identity.ReservedIdentityHost
 		selectsNode := r.NodeSelector.LabelSelector != nil
@@ -532,11 +570,11 @@ func (p *Repository) getMatchingRules(securityIdentity *identity.Identity) (ingr
 			// Don't need to update whether ingressMatch is true if it already
 			// has been determined to be true - allows us to not have to check
 			// lenth of slice.
-			if !ingressMatch && len(r.Ingress) > 0 {
-				ingressMatch = true
+			if !ingressMatch {
+				ingressMatch = len(r.Ingress) > 0 || len(r.IngressDeny) > 0
 			}
-			if !egressMatch && len(r.Egress) > 0 {
-				egressMatch = true
+			if !egressMatch {
+				egressMatch = len(r.Egress) > 0 || len(r.EgressDeny) > 0
 			}
 			matchingRules = append(matchingRules, r)
 		}
@@ -620,7 +658,9 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 	// to not have to iterate through the entire rule list multiple times and
 	// perform the matching decision again when computing policy for each
 	// protocol layer, which is quite costly in terms of performance.
-	ingressEnabled, egressEnabled, matchingRules := p.computePolicyEnforcementAndRules(securityIdentity)
+	ingressEnabled, egressEnabled,
+		matchingRules :=
+		p.computePolicyEnforcementAndRules(securityIdentity)
 
 	calculatedPolicy := &selectorPolicy{
 		Revision:             p.GetRevision(),
@@ -693,7 +733,10 @@ func (p *Repository) resolvePolicyLocked(securityIdentity *identity.Identity) (*
 // the set of labels of the given security identity.
 //
 // Must be called with repo mutex held for reading.
-func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity.Identity) (ingress bool, egress bool, matchingRules ruleSlice) {
+func (p *Repository) computePolicyEnforcementAndRules(securityIdentity *identity.Identity) (
+	ingress, egress bool,
+	matchingRules ruleSlice,
+) {
 	lbls := securityIdentity.LabelArray
 
 	// Check if policy enforcement should be enabled at the daemon level.

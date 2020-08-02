@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/testutils/allocator"
+
 	. "gopkg.in/check.v1"
 )
 
@@ -466,8 +467,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressWildcard(c *C) {
 	c.Assert(err, IsNil)
 	policy := selPolicy.DistillPolicy(DummyOwner{}, false)
 
-	rule1MapStateEntry := NewMapStateEntry(labels.LabelArrayList{ruleLabel}, false)
-	allowEgressMapStateEntry := NewMapStateEntry(labels.LabelArrayList{ruleLabelAllowAnyEgress}, false)
+	rule1MapStateEntry := NewMapStateEntry(labels.LabelArrayList{ruleLabel}, false, false)
+	allowEgressMapStateEntry := NewMapStateEntry(labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -578,6 +579,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 		identity.NumericIdentity(194): labels.ParseSelectLabelArray("id=resolve_test_1", "num=3"),
 	}
 	testSelectorCache.UpdateIdentities(added1, nil)
+	// Cleanup the identities from the testSelectorCache
+	defer testSelectorCache.UpdateIdentities(nil, added1)
 	c.Assert(policy.policyMapChanges.adds, HasLen, 3)
 	c.Assert(policy.policyMapChanges.deletes, HasLen, 0)
 
@@ -594,8 +597,8 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	cachedSelectorTest := testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	c.Assert(cachedSelectorTest, Not(IsNil))
 
-	rule1MapStateEntry := NewMapStateEntry(labels.LabelArrayList{ruleLabel, ruleLabel}, false)
-	allowEgressMapStateEntry := NewMapStateEntry(labels.LabelArrayList{ruleLabelAllowAnyEgress}, false)
+	rule1MapStateEntry := NewMapStateEntry(labels.LabelArrayList{ruleLabel, ruleLabel}, false, false)
+	allowEgressMapStateEntry := NewMapStateEntry(labels.LabelArrayList{ruleLabelAllowAnyEgress}, false, false)
 
 	expectedEndpointPolicy := EndpointPolicy{
 		selectorPolicy: &selectorPolicy{
@@ -743,6 +746,94 @@ func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
 						Nexthdr:          0,
 						TrafficDirection: trafficdirection.Egress.Uint8(),
 					}: MapStateEntry{},
+				},
+			},
+			args: args{
+				identity: 0,
+			},
+			wantIngress: false,
+			wantEgress:  true,
+		},
+		{
+			name: "policy enabled for ingress with deny policy",
+			fields: fields{
+				selectorPolicy: &selectorPolicy{
+					IngressPolicyEnabled: true,
+					EgressPolicyEnabled:  true,
+				},
+				PolicyMapState: MapState{
+					Key{
+						Identity:         0,
+						DestPort:         0,
+						Nexthdr:          0,
+						TrafficDirection: trafficdirection.Ingress.Uint8(),
+					}: MapStateEntry{IsDeny: true},
+				},
+			},
+			args: args{
+				identity: 0,
+			},
+			wantIngress: false,
+			wantEgress:  false,
+		},
+		{
+			name: "policy disabled for ingress with deny policy",
+			fields: fields{
+				selectorPolicy: &selectorPolicy{
+					IngressPolicyEnabled: false,
+					EgressPolicyEnabled:  true,
+				},
+				PolicyMapState: MapState{
+					Key{
+						Identity:         0,
+						DestPort:         0,
+						Nexthdr:          0,
+						TrafficDirection: trafficdirection.Ingress.Uint8(),
+					}: MapStateEntry{IsDeny: true},
+				},
+			},
+			args: args{
+				identity: 0,
+			},
+			wantIngress: true,
+			wantEgress:  false,
+		},
+		{
+			name: "policy enabled for egress with deny policy",
+			fields: fields{
+				selectorPolicy: &selectorPolicy{
+					IngressPolicyEnabled: true,
+					EgressPolicyEnabled:  true,
+				},
+				PolicyMapState: MapState{
+					Key{
+						Identity:         0,
+						DestPort:         0,
+						Nexthdr:          0,
+						TrafficDirection: trafficdirection.Egress.Uint8(),
+					}: MapStateEntry{IsDeny: true},
+				},
+			},
+			args: args{
+				identity: 0,
+			},
+			wantIngress: false,
+			wantEgress:  false,
+		},
+		{
+			name: "policy disabled for egress with deny policy",
+			fields: fields{
+				selectorPolicy: &selectorPolicy{
+					IngressPolicyEnabled: true,
+					EgressPolicyEnabled:  false,
+				},
+				PolicyMapState: MapState{
+					Key{
+						Identity:         0,
+						DestPort:         0,
+						Nexthdr:          0,
+						TrafficDirection: trafficdirection.Egress.Uint8(),
+					}: MapStateEntry{IsDeny: true},
 				},
 			},
 			args: args{

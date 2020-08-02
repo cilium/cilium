@@ -83,6 +83,12 @@ const (
 	// DeletedPolicyID is the .NumericIdentity, or set or them
 	DeletedPolicyID = "policyID.Deleted"
 
+	// AddedPolicyDenyID is the .NumericIdentity, or set or them
+	AddedPolicyDenyID = "policyID.Deny.Added"
+
+	// DeletedPolicyDenyID is the .NumericIdentity, or set or them
+	DeletedPolicyDenyID = "policyID.Deny.Deleted"
+
 	// L3PolicyID is the identifier of a L3 Policy
 	L3PolicyID = "policyID.L3"
 

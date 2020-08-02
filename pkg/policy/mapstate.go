@@ -36,6 +36,10 @@ var (
 		Identity:         identity.ReservedIdentityRemoteNode.Uint32(),
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
+	// allKey represents a key for unknown traffic, i.e., all traffic.
+	allKey = Key{
+		Identity: identity.IdentityUnknown.Uint32(),
+	}
 )
 
 const (
@@ -85,12 +89,15 @@ type MapStateEntry struct {
 
 	// DerivedFromRules tracks the policy rules this entry derives from
 	DerivedFromRules labels.LabelArrayList
+
+	// IsDeny is true when the policy should be denied.
+	IsDeny bool
 }
 
 // NewMapStateEntry creates a map state entry. If redirect is true, the
 // caller is expected to replace the ProxyPort field before it is added to
 // the actual BPF map.
-func NewMapStateEntry(derivedFrom labels.LabelArrayList, redirect bool) MapStateEntry {
+func NewMapStateEntry(derivedFrom labels.LabelArrayList, redirect, deny bool) MapStateEntry {
 	var proxyPort uint16
 	if redirect {
 		// Any non-zero value will do, as the callers replace this with the
@@ -102,6 +109,7 @@ func NewMapStateEntry(derivedFrom labels.LabelArrayList, redirect bool) MapState
 	return MapStateEntry{
 		ProxyPort:        proxyPort,
 		DerivedFromRules: derivedFrom,
+		IsDeny:           deny,
 	}
 }
 
@@ -110,17 +118,112 @@ func (e *MapStateEntry) IsRedirectEntry() bool {
 	return e.ProxyPort != 0
 }
 
-// Equal returns true of two entries are equal
-func (e *MapStateEntry) Equal(o *MapStateEntry) bool {
+// DatapathEqual returns true of two entries are equal in the datapath's PoV,
+// i.e., both Deny and ProxyPort are the same for both entries.
+func (e *MapStateEntry) DatapathEqual(o *MapStateEntry) bool {
 	if e == nil || o == nil {
 		return e == o
 	}
 
-	return e.ProxyPort == o.ProxyPort && e.DerivedFromRules.Equals(o.DerivedFromRules)
+	return e.IsDeny == o.IsDeny && e.ProxyPort == o.ProxyPort
+}
+
+// DenyPreferredInsert inserts a key and entry into the map by given preference
+// to deny entries, and L3-only deny entries over L3-L4 allows.
+func (keys MapState) DenyPreferredInsert(newKey Key, newEntry MapStateEntry) {
+	allCpy := allKey
+	allCpy.TrafficDirection = newKey.TrafficDirection
+	// If we have a deny "all" we don't accept any kind of map entry
+	if v, ok := keys[allCpy]; ok && v.IsDeny {
+		return
+	}
+
+	if newEntry.IsDeny {
+		// case for an existing allow L4-only and we are inserting deny L3-only
+		switch {
+		case newKey.DestPort == 0 && newKey.Nexthdr == 0 && newKey.Identity != 0:
+			l4OnlyAllows := MapState{}
+			for k, v := range keys {
+				if newKey.TrafficDirection == k.TrafficDirection &&
+					!v.IsDeny &&
+					k.Identity == 0 {
+					// create a deny L3-L4 with the same allowed L4 port and proto
+					newKeyCpy := newKey
+					newKeyCpy.DestPort = k.DestPort
+					newKeyCpy.Nexthdr = k.Nexthdr
+					keys[newKeyCpy] = newEntry
+
+					l4OnlyAllows[k] = v
+				}
+			}
+			// Delete all L3-L4 if we are inserting a deny L3-only and
+			// there aren't allow L4-only for the existing deny L3-L4
+			for k := range keys {
+				if k.TrafficDirection == newKey.TrafficDirection &&
+					k.DestPort != 0 && k.Nexthdr != 0 &&
+					k.Identity == newKey.Identity {
+
+					kCpy := k
+					kCpy.Identity = 0
+					if _, ok := l4OnlyAllows[kCpy]; !ok {
+						delete(keys, k)
+					}
+				}
+			}
+		case allCpy == newKey:
+			// If we adding a deny "all" entry, then we will remove all entries
+			// from the map state for that direction.
+			for k := range keys {
+				if k.TrafficDirection == allCpy.TrafficDirection {
+					delete(keys, k)
+				}
+			}
+		default:
+			// Do not insert 'newKey' if the map state already denies traffic
+			// which is a superset of (or equal to) 'newKey'
+			newKeyCpy := newKey
+			newKeyCpy.DestPort = 0
+			newKeyCpy.Nexthdr = 0
+			v, ok := keys[newKeyCpy]
+			if ok && v.IsDeny {
+				// Found a L3-only Deny so we won't accept any L3-L4 policies
+				return
+			}
+		}
+
+		keys[newKey] = newEntry
+		return
+	} else if newKey.Identity == 0 && newKey.DestPort != 0 {
+		// case for an existing deny L3-only and we are inserting allow L4
+		for k, v := range keys {
+			if newKey.TrafficDirection == k.TrafficDirection {
+				if v.IsDeny && k.Identity != 0 && k.DestPort == 0 && k.Nexthdr == 0 {
+					// create a deny L3-L4 with the same deny L3
+					newKeyCpy := newKey
+					newKeyCpy.Identity = k.Identity
+					keys[newKeyCpy] = v
+				}
+			}
+		}
+		keys[newKey] = newEntry
+		return
+	}
+	// branch for adding a new allow L3-L4
+
+	newKeyCpy := newKey
+	newKeyCpy.DestPort = 0
+	newKeyCpy.Nexthdr = 0
+	v, ok := keys[newKeyCpy]
+	if ok && v.IsDeny {
+		// Found a L3-only Deny so we won't accept any L3-L4 allow policies
+		return
+	}
+
+	keys.RedirectPreferredInsert(newKey, newEntry)
 }
 
 // RedirectPreferredInsert inserts a new entry giving priority to L7-redirects by
-// not overwriting a L7-redirect entry with a non-redirect entry
+// not overwriting a L7-redirect entry with a non-redirect entry.
 func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry) {
 	if !entry.IsRedirectEntry() {
 		if _, ok := keys[key]; ok {
@@ -137,16 +240,21 @@ func (keys MapState) RedirectPreferredInsert(key Key, entry MapStateEntry) {
 // from the localhost. It inserts the Key corresponding to the localhost in
 // the desiredPolicyKeys if the localhost is allowed to communicate with the
 // endpoint.
-func (keys MapState) DetermineAllowLocalhostIngress(l4Policy *L4Policy) {
+func (keys MapState) DetermineAllowLocalhostIngress() {
 	if option.Config.AlwaysAllowLocalhost() {
 		derivedFrom := labels.LabelArrayList{
 			labels.LabelArray{
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved),
 			},
 		}
-		keys[localHostKey] = NewMapStateEntry(derivedFrom, false)
+		es := NewMapStateEntry(derivedFrom, false, false)
+		keys.DenyPreferredInsert(localHostKey, es)
 		if !option.Config.EnableRemoteNodeIdentity {
-			keys[localRemoteNodeKey] = NewMapStateEntry(derivedFrom, false)
+			var isHostDenied bool
+			v, ok := keys[localHostKey]
+			isHostDenied = ok && v.IsDeny
+			es := NewMapStateEntry(derivedFrom, false, isHostDenied)
+			keys.DenyPreferredInsert(localRemoteNodeKey, es)
 		}
 	}
 }
@@ -167,7 +275,7 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved),
 			},
 		}
-		keys[keyToAdd] = NewMapStateEntry(derivedFrom, false)
+		keys[keyToAdd] = NewMapStateEntry(derivedFrom, false, false)
 	}
 	if egress {
 		keyToAdd := Key{
@@ -181,14 +289,66 @@ func (keys MapState) AllowAllIdentities(ingress, egress bool) {
 				labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowAnyEgress, labels.LabelSourceReserved),
 			},
 		}
-		keys[keyToAdd] = NewMapStateEntry(derivedFrom, false)
+		keys[keyToAdd] = NewMapStateEntry(derivedFrom, false, false)
 	}
+}
+
+func (keys MapState) AllowsL4(policyOwner PolicyOwner, l4 *L4Filter) bool {
+	port := uint16(l4.Port)
+	proto := uint8(l4.U8Proto)
+
+	// resolve named port
+	if port == 0 && l4.PortName != "" {
+		port = policyOwner.GetNamedPortLocked(l4.Ingress, l4.PortName, proto)
+		if port == 0 {
+			return false
+		}
+	}
+
+	var dir uint8
+	if l4.Ingress {
+		dir = trafficdirection.Ingress.Uint8()
+	} else {
+		dir = trafficdirection.Egress.Uint8()
+	}
+	anyKey := Key{
+		Identity:         0,
+		DestPort:         0,
+		Nexthdr:          0,
+		TrafficDirection: dir,
+	}
+	// Are we explicitly denying any traffic?
+	v, ok := keys[anyKey]
+	if ok && v.IsDeny {
+		return false
+	}
+
+	// Are we explicitly denying this L4-only traffic?
+	anyKey.DestPort = port
+	anyKey.Nexthdr = proto
+	v, ok = keys[anyKey]
+	if ok && v.IsDeny {
+		return false
+	}
+
+	return true
+}
+
+func (pms MapState) GetIdentities(log *logrus.Logger) (ingIdentities, egIdentities []int64) {
+	return pms.getIdentities(log, false)
+}
+
+func (pms MapState) GetDenyIdentities(log *logrus.Logger) (ingIdentities, egIdentities []int64) {
+	return pms.getIdentities(log, true)
 }
 
 // GetIdentities returns the ingress and egress identities stored in the
 // MapState.
-func (pms MapState) GetIdentities(log *logrus.Logger) (ingIdentities, egIdentities []int64) {
-	for policyMapKey := range pms {
+func (pms MapState) getIdentities(log *logrus.Logger, denied bool) (ingIdentities, egIdentities []int64) {
+	for policyMapKey, policyMapValue := range pms {
+		if denied != policyMapValue.IsDeny {
+			continue
+		}
 		if policyMapKey.DestPort != 0 {
 			// If the port is non-zero, then the Key no longer only applies
 			// at L3. AllowedIngressIdentities and AllowedEgressIdentities
@@ -231,7 +391,7 @@ type MapChanges struct {
 // deleted and then added.
 func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdentity,
 	port uint16, proto uint8, direction trafficdirection.TrafficDirection,
-	redirect bool, derivedFrom labels.LabelArrayList) {
+	redirect, isDeny bool, derivedFrom labels.LabelArrayList) {
 	key := Key{
 		// The actual identity is set in the loops below
 		Identity: 0,
@@ -241,7 +401,7 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 		TrafficDirection: direction.Uint8(),
 	}
 
-	value := NewMapStateEntry(derivedFrom, redirect)
+	value := NewMapStateEntry(derivedFrom, redirect, isDeny)
 
 	if option.Config.Debug {
 		log.WithFields(logrus.Fields{
@@ -262,7 +422,7 @@ func (mc *MapChanges) AccumulateMapChanges(adds, deletes []identity.NumericIdent
 		for _, id := range adds {
 			key.Identity = id.Uint32()
 			// insert but do not allow non-redirect entries to overwrite a redirect entry
-			mc.adds.RedirectPreferredInsert(key, value)
+			mc.adds.DenyPreferredInsert(key, value)
 
 			// Remove a potential previously deleted key
 			if mc.deletes != nil {

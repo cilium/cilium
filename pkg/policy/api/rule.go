@@ -167,9 +167,21 @@ func (r *Rule) WithIngressRules(rules []IngressRule) *Rule {
 	return r
 }
 
+// WithIngressDenyRules configures the Rule with the specified rules.
+func (r *Rule) WithIngressDenyRules(rules []IngressDenyRule) *Rule {
+	r.IngressDeny = rules
+	return r
+}
+
 // WithEgressRules configures the Rule with the specified rules.
 func (r *Rule) WithEgressRules(rules []EgressRule) *Rule {
 	r.Egress = rules
+	return r
+}
+
+// WithEgressDenyRules configures the Rule with the specified rules.
+func (r *Rule) WithEgressDenyRules(rules []EgressDenyRule) *Rule {
+	r.EgressDeny = rules
 	return r
 }
 

@@ -83,6 +83,7 @@ var errors = map[uint8]string{
 	178: "Socket lookup failed",
 	179: "Socket assign failed",
 	180: "Proxy redirection not supported for protocol",
+	181: "Policy denied by denylist",
 }
 
 // DropReason prints the drop reason in a human readable string

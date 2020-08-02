@@ -345,9 +345,15 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 	realizedIngressIdentities, realizedEgressIdentities :=
 		e.realizedPolicy.PolicyMapState.GetIdentities(realizedLog)
 
+	realizedDenyIngressIdentities, realizedDenyEgressIdentities :=
+		e.realizedPolicy.PolicyMapState.GetDenyIdentities(realizedLog)
+
 	desiredLog := log.WithField("map-name", "desired").Logger
 	desiredIngressIdentities, desiredEgressIdentities :=
 		e.desiredPolicy.PolicyMapState.GetIdentities(desiredLog)
+
+	desiredDenyIngressIdentities, desiredDenyEgressIdentities :=
+		e.desiredPolicy.PolicyMapState.GetDenyIdentities(desiredLog)
 
 	policyEnabled := e.policyStatus()
 
@@ -375,6 +381,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		PolicyRevision:           int64(e.policyRevision),
 		AllowedIngressIdentities: realizedIngressIdentities,
 		AllowedEgressIdentities:  realizedEgressIdentities,
+		DeniedIngressIdentities:  realizedDenyIngressIdentities,
+		DeniedEgressIdentities:   realizedDenyEgressIdentities,
 		CidrPolicy:               realizedCIDRPolicy.GetModel(),
 		L4:                       realizedL4Policy.GetModel(),
 		PolicyEnabled:            policyEnabled,
@@ -396,6 +404,8 @@ func (e *Endpoint) GetPolicyModel() *models.EndpointPolicyStatus {
 		PolicyRevision:           int64(e.nextPolicyRevision),
 		AllowedIngressIdentities: desiredIngressIdentities,
 		AllowedEgressIdentities:  desiredEgressIdentities,
+		DeniedIngressIdentities:  desiredDenyIngressIdentities,
+		DeniedEgressIdentities:   desiredDenyEgressIdentities,
 		CidrPolicy:               desiredCIDRPolicy.GetModel(),
 		L4:                       desiredL4Policy.GetModel(),
 		PolicyEnabled:            policyEnabled,
