@@ -92,6 +92,11 @@ Users (Alphabetically)
       U: CNI
       Q: @dale
 
+    * N: SmileDirectClub
+      D: SmileDirectClub is using Cilium in manufacturing clusters (self-hosted on vSphere and AWS EC2)
+      U: CNI
+      Q: @joey, @onur.gokkocabas
+
     * N: Sphere Knowledge
       D: Sphere Knowledge is using Cilium in AWS (self-hosted k8s & EKS)
       U: ENI Networking, Network policies, Service load-balancing, Hubble
