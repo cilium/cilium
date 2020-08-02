@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -111,20 +111,22 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	egressState := traceState{}
 	res := NewL4Policy(0)
 	var err error
-	res.Ingress, err = rule1.resolveIngressPolicy(testPolicyContext, toBar, &ingressState, L4PolicyMap{}, nil)
+	res.Ingress, err =
+		rule1.resolveIngressPolicy(testPolicyContext, toBar, &ingressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Ingress, Not(IsNil))
 
-	res.Egress, err = rule1.resolveEgressPolicy(testPolicyContext, fromBar, &egressState, L4PolicyMap{}, nil)
+	res.Egress, err =
+		rule1.resolveEgressPolicy(testPolicyContext, fromBar, &egressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Egress, Not(IsNil))
 
 	c.Assert(res, checker.Equals, expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
-	c.Assert(ingressState.matchedRules, Equals, 0)
+	c.Assert(ingressState.matchedRules, Equals, 1)
 
 	c.Assert(egressState.selectedRules, Equals, 1)
-	c.Assert(egressState.matchedRules, Equals, 0)
+	c.Assert(egressState.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
@@ -132,9 +134,9 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	ingressState = traceState{}
 	egressState = traceState{}
 
-	res1, err := rule1.resolveIngressPolicy(testPolicyContext, toFoo, &ingressState, L4PolicyMap{}, nil)
+	res1, err := rule1.resolveIngressPolicy(testPolicyContext, toFoo, &ingressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
-	res2, err := rule1.resolveEgressPolicy(testPolicyContext, fromFoo, &ingressState, L4PolicyMap{}, nil)
+	res2, err := rule1.resolveEgressPolicy(testPolicyContext, fromFoo, &ingressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 
 	c.Assert(res1, IsNil)
@@ -225,34 +227,34 @@ func (ds *PolicyTestSuite) TestL4Policy(c *C) {
 	ctx := SearchContext{To: labels.ParseSelectLabelArray("bar"), Trace: TRACE_VERBOSE}
 	ctx.Logging = stdlog.New(buffer, "", 0)
 
-	res.Ingress, err = rule2.resolveIngressPolicy(testPolicyContext, &ctx, &ingressState, L4PolicyMap{}, nil)
+	res.Ingress, err = rule2.resolveIngressPolicy(testPolicyContext, &ctx, &ingressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Ingress, Not(IsNil))
 
 	c.Log(buffer)
 
-	res.Egress, err = rule2.resolveEgressPolicy(testPolicyContext, fromBar, &egressState, L4PolicyMap{}, nil)
+	res.Egress, err = rule2.resolveEgressPolicy(testPolicyContext, fromBar, &egressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res.Egress, Not(IsNil))
 
 	c.Assert(len(res.Ingress), Equals, 1)
 	c.Assert(res, checker.Equals, expected)
 	c.Assert(ingressState.selectedRules, Equals, 1)
-	c.Assert(ingressState.matchedRules, Equals, 0)
+	c.Assert(ingressState.matchedRules, Equals, 1)
 
 	c.Assert(egressState.selectedRules, Equals, 1)
-	c.Assert(egressState.matchedRules, Equals, 0)
+	c.Assert(egressState.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
 	ingressState = traceState{}
 	egressState = traceState{}
 
-	res1, err = rule2.resolveIngressPolicy(testPolicyContext, toFoo, &ingressState, L4PolicyMap{}, nil)
+	res1, err = rule2.resolveIngressPolicy(testPolicyContext, toFoo, &ingressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res1, IsNil)
 
-	res2, err = rule2.resolveEgressPolicy(testPolicyContext, fromFoo, &egressState, L4PolicyMap{}, nil)
+	res2, err = rule2.resolveEgressPolicy(testPolicyContext, fromFoo, &egressState, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res2, IsNil)
 
@@ -302,12 +304,12 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyIngress(c *C) {
 	}}
 
 	state := traceState{}
-	res, err := rule1.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil)
+	res, err := rule1.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 }
@@ -357,7 +359,7 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyEgress(c *C) {
 	}}
 
 	state := traceState{}
-	res, err := rule1.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil)
+	res, err := rule1.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
 
 	c.Log(buffer)
 
@@ -365,7 +367,7 @@ func (ds *PolicyTestSuite) TestMergeL4PolicyEgress(c *C) {
 	c.Assert(res, Not(IsNil))
 	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 }
@@ -441,17 +443,17 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	}}
 
 	state := traceState{}
-	res, err := rule1.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil)
+	res, err := rule1.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = rule1.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil)
+	res, err = rule1.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -510,29 +512,29 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	}}
 
 	state = traceState{}
-	res, err = rule2.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil)
+	res, err = rule2.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = rule2.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil)
+	res, err = rule2.resolveIngressPolicy(testPolicyContext, toFoo, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 
 	// Resolve rule1's policy, then try to add rule2.
-	res, err = rule1.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil)
+	res, err = rule1.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 
 	state = traceState{}
-	_, err = rule2.resolveIngressPolicy(testPolicyContext, toBar, &state, res, nil)
+	_, err = rule2.resolveIngressPolicy(testPolicyContext, toBar, &state, res, nil, nil)
 
 	c.Assert(err, Not(IsNil))
 	res.Detach(testSelectorCache)
@@ -598,12 +600,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyIngress(c *C) {
 	}}
 
 	state = traceState{}
-	res, err = rule3.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil)
+	res, err = rule3.resolveIngressPolicy(testPolicyContext, toBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 }
@@ -678,17 +680,17 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	}}
 
 	state := traceState{}
-	res, err := rule1.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil)
+	res, err := rule1.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = rule1.resolveEgressPolicy(testPolicyContext, fromFoo, &state, L4PolicyMap{}, nil)
+	res, err = rule1.resolveEgressPolicy(testPolicyContext, fromFoo, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
@@ -756,24 +758,24 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	}}
 
 	state = traceState{}
-	res, err = rule2.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil)
+	res, err = rule2.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 
 	state = traceState{}
-	res, err = rule2.resolveEgressPolicy(testPolicyContext, fromFoo, &state, L4PolicyMap{}, nil)
+	res, err = rule2.resolveEgressPolicy(testPolicyContext, fromFoo, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, IsNil)
 	c.Assert(state.selectedRules, Equals, 0)
 	c.Assert(state.matchedRules, Equals, 0)
 
 	// Resolve rule1's policy, then try to add rule2.
-	res, err = rule1.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil)
+	res, err = rule1.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	res.Detach(testSelectorCache)
@@ -837,12 +839,12 @@ func (ds *PolicyTestSuite) TestMergeL7PolicyEgress(c *C) {
 	}}
 
 	state = traceState{}
-	res, err = rule3.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil)
+	res, err = rule3.resolveEgressPolicy(testPolicyContext, fromBar, &state, L4PolicyMap{}, nil, nil)
 	c.Assert(err, IsNil)
 	c.Assert(res, Not(IsNil))
 	c.Assert(res, checker.Equals, expected)
 	c.Assert(state.selectedRules, Equals, 1)
-	c.Assert(state.matchedRules, Equals, 0)
+	c.Assert(state.matchedRules, Equals, 1)
 	res.Detach(testSelectorCache)
 	expected.Detach(testSelectorCache)
 }
@@ -1294,8 +1296,8 @@ func (ds *PolicyTestSuite) TestL4RuleLabels(c *C) {
 
 			rule := &rule{Rule: apiRule}
 
-			rule.resolveIngressPolicy(testPolicyContext, toBar, &traceState{}, finalPolicy.Ingress, nil)
-			rule.resolveEgressPolicy(testPolicyContext, fromBar, &traceState{}, finalPolicy.Egress, nil)
+			rule.resolveIngressPolicy(testPolicyContext, toBar, &traceState{}, finalPolicy.Ingress, nil, nil)
+			rule.resolveEgressPolicy(testPolicyContext, fromBar, &traceState{}, finalPolicy.Egress, nil, nil)
 		}
 
 		c.Assert(len(finalPolicy.Ingress), Equals, len(test.expectedIngressLabels), Commentf(test.description))

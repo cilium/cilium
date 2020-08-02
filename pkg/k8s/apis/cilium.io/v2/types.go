@@ -147,13 +147,15 @@ type EndpointPolicy struct {
 type EndpointPolicyDirection struct {
 	Enforcing bool                `json:"enforcing"`
 	Allowed   AllowedIdentityList `json:"allowed,omitempty"`
-	Removing  AllowedIdentityList `json:"removing,omitempty"`
-	Adding    AllowedIdentityList `json:"adding,omitempty"`
+	Denied    DenyIdentityList    `json:"denied,omitempty"`
+	// Deprecated
+	Removing AllowedIdentityList `json:"removing,omitempty"`
+	// Deprecated
+	Adding AllowedIdentityList `json:"adding,omitempty"`
 }
 
-// AllowedIdentityTuple specifies an allowed peer by identity, destination port
-// and protocol.
-type AllowedIdentityTuple struct {
+// IdentityTuple specifies a peer by identity, destination port and protocol.
+type IdentityTuple struct {
 	Identity       uint64            `json:"identity,omitempty"`
 	IdentityLabels map[string]string `json:"identity-labels,omitempty"`
 	DestPort       uint16            `json:"dest-port,omitempty"`
@@ -162,12 +164,11 @@ type AllowedIdentityTuple struct {
 
 // +k8s:deepcopy-gen=false
 
-// AllowedIdentityList is a list of AllowedIdentityTuple.
-type AllowedIdentityList []AllowedIdentityTuple
+// IdentityList is a list of IdentityTuple.
+type IdentityList []IdentityTuple
 
-// Sort sorts a list AllowedIdentityTuple by numeric identity, port and
-// protocol.
-func (a AllowedIdentityList) Sort() {
+// Sort sorts a list IdentityList by numeric identity, port and protocol.
+func (a IdentityList) Sort() {
 	sort.Slice(a, func(i, j int) bool {
 		if a[i].Identity < a[j].Identity {
 			return true
@@ -180,6 +181,28 @@ func (a AllowedIdentityList) Sort() {
 		}
 		return false
 	})
+}
+
+// +k8s:deepcopy-gen=false
+
+// AllowedIdentityList is a list of IdentityTuples that species peers that are
+// allowed.
+type AllowedIdentityList IdentityList
+
+// Sort sorts a list IdentityList by numeric identity, port and protocol.
+func (a AllowedIdentityList) Sort() {
+	IdentityList(a).Sort()
+}
+
+// +k8s:deepcopy-gen=false
+
+// DenyIdentityList is a list of IdentityTuples that species peers that are
+// denied.
+type DenyIdentityList IdentityList
+
+// Sort sorts a list IdentityList by numeric identity, port and protocol.
+func (d DenyIdentityList) Sort() {
+	IdentityList(d).Sort()
 }
 
 // EndpointIdentity is the identity information of an endpoint.

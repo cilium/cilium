@@ -210,12 +210,20 @@ func (e *Endpoint) addNewRedirectsFromDesiredPolicy(ingress bool, desiredRedirec
 	} else {
 		m = e.desiredPolicy.L4Policy.Egress
 	}
+	mapState := e.desiredPolicy.PolicyMapState
 
 	insertedDesiredMapState := make(map[policy.Key]struct{})
 	updatedDesiredMapState := make(policy.MapState)
 
 	for _, l4 := range m {
+		// Deny policies do not support redirects
 		if l4.IsRedirect() {
+
+			// Check if we are allowing this specific L4 first
+			if !mapState.AllowsL4(e, l4) {
+				continue
+			}
+
 			var redirectPort uint16
 			// Only create a redirect if the proxy is NOT running in a sidecar
 			// container. If running in a sidecar container, just allow traffic
@@ -402,7 +410,7 @@ func (e *Endpoint) addVisibilityRedirects(ingress bool, desiredRedirects map[str
 				labels.NewLabel(policy.LabelKeyPolicyDerivedFrom, policy.LabelVisibilityAnnotation, labels.LabelSourceReserved),
 			},
 		}
-		entry := policy.NewMapStateEntry(derivedFrom, true)
+		entry := policy.NewMapStateEntry(derivedFrom, true, false)
 		entry.ProxyPort = redirectPort
 
 		e.desiredPolicy.PolicyMapState[newKey] = entry
@@ -821,6 +829,7 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (he
 		)
 		if e.desiredPolicy != nil {
 			stats.proxyConfiguration.Start()
+			// Deny policies do not support redirects
 			desiredRedirects, err, finalizeFunc, revertFunc = e.addNewRedirects(datapathRegenCtxt.proxyWaitGroup)
 			stats.proxyConfiguration.End(err == nil)
 			if err != nil {
@@ -1102,7 +1111,12 @@ func (e *Endpoint) addPolicyKey(keyToAdd policy.Key, entry policy.MapStateEntry,
 		TrafficDirection: keyToAdd.TrafficDirection,
 	}
 
-	err := e.policyMap.AllowKey(policymapKey, entry.ProxyPort, false)
+	var err error
+	if entry.IsDeny {
+		err = e.policyMap.DenyKey(policymapKey)
+	} else {
+		err = e.policyMap.AllowKey(policymapKey, entry.ProxyPort)
+	}
 	if err != nil {
 		e.getLogger().WithError(err).WithFields(logrus.Fields{
 			logfields.BPFMapKey: policymapKey,
@@ -1240,7 +1254,7 @@ func (e *Endpoint) addPolicyMapDelta() error {
 	errors := 0
 
 	for keyToAdd, entry := range e.desiredPolicy.PolicyMapState {
-		if oldEntry, ok := e.realizedPolicy.PolicyMapState[keyToAdd]; !ok || !oldEntry.Equal(&entry) {
+		if oldEntry, ok := e.realizedPolicy.PolicyMapState[keyToAdd]; !ok || !oldEntry.DatapathEqual(&entry) {
 			if !e.addPolicyKey(keyToAdd, entry, false) {
 				errors++
 			}

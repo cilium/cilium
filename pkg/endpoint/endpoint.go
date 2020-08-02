@@ -648,8 +648,8 @@ func (e *Endpoint) Allows(id identity.NumericIdentity) bool {
 		TrafficDirection: trafficdirection.Ingress.Uint8(),
 	}
 
-	_, ok := e.desiredPolicy.PolicyMapState[keyToLookup]
-	return ok
+	v, ok := e.desiredPolicy.PolicyMapState[keyToLookup]
+	return ok && !v.IsDeny
 }
 
 // String returns endpoint on a JSON format.

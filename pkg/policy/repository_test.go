@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -1866,6 +1866,7 @@ Resolving ingress policy for [any:bar]
       Found all required labels
 1/1 rules selected
 Found allow rule
+Found no deny rule
 Ingress verdict: allowed
 `
 	ctx := buildSearchCtx("foo", "bar", 0)
@@ -1881,6 +1882,7 @@ Ingress verdict: allowed
 Resolving ingress policy for [any:foo]
 0/1 rules selected
 Found no allow rule
+Found no deny rule
 Ingress verdict: denied
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
@@ -1909,6 +1911,7 @@ Resolving ingress policy for [any:bar]
       Allows port [{80 ANY}]
 2/2 rules selected
 Found allow rule
+Found no deny rule
 Ingress verdict: allowed
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Allowed)
@@ -1927,6 +1930,7 @@ Resolving ingress policy for [any:bar]
       No label match for [any:bar]
 2/2 rules selected
 Found no allow rule
+Found no deny rule
 Ingress verdict: denied
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
@@ -1960,6 +1964,7 @@ Resolving ingress policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
 3/3 rules selected
 Found no allow rule
+Found no deny rule
 Ingress verdict: denied
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)
@@ -1983,6 +1988,7 @@ Resolving ingress policy for [any:bar]
 * Rule {"matchLabels":{"any:bar":""}}: selected
 3/3 rules selected
 Found no allow rule
+Found no deny rule
 Ingress verdict: denied
 `
 	repo.checkTrace(c, ctx, expectedOut, api.Denied)

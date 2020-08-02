@@ -1143,7 +1143,10 @@ func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetwor
 			remoteMap[uint64(id)] = struct{}{}
 		}
 
-		if l7 != nil {
+		if !l7.IsEmpty() {
+			// If it is not empty then we issue the warning.
+			// Deny rules don't support L7 therefore for the deny case
+			// l7.IsEmpty() will always return true.
 			log.Warningf("L3-only rule for selector %v surprisingly has L7 rules (%v)!", sel, *l7)
 		}
 	}
