@@ -83,6 +83,7 @@ _spec: {
 		labels: {
 			name:       _name
 			topology:   *"any" | string
+			type:       *"autocheck" | string
 			component:  *"invalid" | string
 			quarantine: *"false" | "true"
 		}
@@ -154,6 +155,7 @@ service: [ID=_]: {
 		labels: {
 			name:       _name
 			topology:   *"any" | string
+			type:       *"autocheck" | string
 			component:  *"invalid" | string
 			quarantine: *"false" | "true"
 		}
@@ -174,6 +176,7 @@ _cnp: {
 		labels: {
 			name:       _name
 			topology:   *"any" | string
+			type:       *"autocheck" | string
 			component:  *"invalid" | string
 			quarantine: *"false" | "true"
 		}
@@ -272,6 +275,7 @@ for x in [deployment] for k, v in x {
 				name:       "\(v.metadata.name)-headless"
 				component:  v.metadata.labels.component
 				topology:   *"any" | string
+				type:       *"autocheck" | string
 				quarantine: *"false" | "true"
 			}
 			spec: selector:  v.spec.template.metadata.labels
