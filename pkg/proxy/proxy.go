@@ -40,8 +40,6 @@ var (
 
 // field names used while logging
 const (
-	fieldMarker          = "marker"
-	fieldFd              = "fd"
 	fieldProxyRedirectID = "id"
 
 	// portReuseDelay is the delay until a port is being reused
