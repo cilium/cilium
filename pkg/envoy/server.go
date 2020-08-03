@@ -45,6 +45,8 @@ import (
 	envoy_config_listener "github.com/cilium/proxy/go/envoy/config/listener/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_config_http "github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3"
+	envoy_mongo_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mongo_proxy/v3"
+	envoy_mysql_proxy "github.com/cilium/proxy/go/envoy/extensions/filters/network/mysql_proxy/v3"
 	envoy_config_tcp "github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
 
@@ -286,40 +288,75 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 	return chain
 }
 
-func (s *XDSServer) getTcpFilterChainProto(clusterName string, useProxylib bool) *envoy_config_listener.FilterChain {
-	chain := &envoy_config_listener.FilterChain{
-		Filters: []*envoy_config_listener.Filter{{
-			Name: "cilium.network",
-		}, {
-			Name: "envoy.tcp_proxy",
-			ConfigType: &envoy_config_listener.Filter_TypedConfig{
-				TypedConfig: toAny(&envoy_config_tcp.TcpProxy{
-					StatPrefix: "tcp_proxy",
-					ClusterSpecifier: &envoy_config_tcp.TcpProxy_Cluster{
-						Cluster: clusterName,
-					},
-				}),
-			},
-		}},
+// getTcpFilterChainProto creates a TCP filter chain with the Cilium network filter.
+// By default, the returned chain can be used with the Cilium Go extensions L7 parsers
+// in 'proxylib' directory in the Cilium repo.
+// When optional 'filterName' is given, it is configured as the first filter in the chain
+// and 'proxylib' is not configured. In this case the returned filter chain is only used
+// if the applicable network policy specifies 'filterName' as the L7 parser.
+func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string, config *any.Any) *envoy_config_listener.FilterChain {
+	var filters []*envoy_config_listener.Filter
+
+	// 1. Add the filter 'filterName' to the beginning of the TCP chain with optional 'config', if needed.
+	if filterName != "" {
+		filter := &envoy_config_listener.Filter{Name: filterName}
+		if config != nil {
+			filter.ConfigType = &envoy_config_listener.Filter_TypedConfig{
+				TypedConfig: config,
+			}
+		}
+		filters = append(filters, filter)
 	}
 
-	if useProxylib {
-		chain.Filters[0].ConfigType = &envoy_config_listener.Filter_TypedConfig{
-			TypedConfig: toAny(&cilium.NetworkFilter{
-				Proxylib: "libcilium.so",
-				ProxylibParams: map[string]string{
-					"access-log-path": s.accessLogPath,
-					"xds-path":        s.socketPath,
-				},
-			}),
+	// 2. Add Cilium Network filter.
+	var ciliumConfig *cilium.NetworkFilter
+	if filterName == "" {
+		// Use proxylib by default
+		ciliumConfig = &cilium.NetworkFilter{
+			Proxylib: "libcilium.so",
+			ProxylibParams: map[string]string{
+				"access-log-path": s.accessLogPath,
+				"xds-path":        s.socketPath,
+			},
 		}
 	} else {
 		// Envoy metadata logging requires accesslog path
-		chain.Filters[0].ConfigType = &envoy_config_listener.Filter_TypedConfig{
-			TypedConfig: toAny(&cilium.NetworkFilter{
-				AccessLogPath: s.accessLogPath,
-			}),
+		ciliumConfig = &cilium.NetworkFilter{
+			AccessLogPath: s.accessLogPath,
 		}
+	}
+	filters = append(filters, &envoy_config_listener.Filter{
+		Name: "cilium.network",
+		ConfigType: &envoy_config_listener.Filter_TypedConfig{
+			TypedConfig: toAny(ciliumConfig),
+		},
+	})
+
+	// 3. Add the TCP proxy filter.
+	filters = append(filters, &envoy_config_listener.Filter{
+		Name: "envoy.tcp_proxy",
+		ConfigType: &envoy_config_listener.Filter_TypedConfig{
+			TypedConfig: toAny(&envoy_config_tcp.TcpProxy{
+				StatPrefix: "tcp_proxy",
+				ClusterSpecifier: &envoy_config_tcp.TcpProxy_Cluster{
+					Cluster: clusterName,
+				},
+			}),
+		},
+	})
+
+	chain := &envoy_config_listener.FilterChain{
+		Filters: filters,
+		FilterChainMatch: &envoy_config_listener.FilterChainMatch{
+			// must have transport match, otherwise TLS inspector will be automatically inserted
+			TransportProtocol: "raw_buffer",
+		},
+	}
+
+	if filterName != "" {
+		// Add filter chain match for 'filterName' so that connections for which policy says to use this L7
+		// are handled by this filter chain.
+		chain.FilterChainMatch.ApplicationProtocols = []string{filterName}
 	}
 
 	return chain
@@ -411,7 +448,21 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 		}
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(tlsClusterName, true))
 	} else {
-		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName, true))
+		// Default TCP chain, takes care of all parsers in proxylib
+		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName, "", nil))
+
+		// Experimental TCP chain for MySQL 5.x
+		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName,
+			"envoy.filters.network.mysql_proxy", toAny(&envoy_mysql_proxy.MySQLProxy{
+				StatPrefix: "mysql",
+			})))
+
+		// Experimental TCP chain for MongoDB
+		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName,
+			"envoy.mongo_proxy", toAny(&envoy_mongo_proxy.MongoProxy{
+				StatPrefix:          "mongo",
+				EmitDynamicMetadata: true,
+			})))
 	}
 
 	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg,
