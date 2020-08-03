@@ -1465,6 +1465,13 @@ func (kub *Kubectl) Delete(filePath string) *CmdRes {
 		fmt.Sprintf("%s delete -f  %s", KubectlCmd, filePath))
 }
 
+// DeleteLong deletes the Kubernetes manifest at path filepath with longer timeout.
+func (kub *Kubectl) DeleteLong(filePath string) *CmdRes {
+	kub.Logger().Debugf("deleting %s", filePath)
+	return kub.Exec(
+		fmt.Sprintf("%s delete -f  %s", KubectlCmd, filePath))
+}
+
 // PodsHaveCiliumIdentity validates that all pods matching th podSelector have
 // a CiliumEndpoint resource mirroring it and an identity is assigned to it. If
 // any pods do not match this criteria, an error is returned.
