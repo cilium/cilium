@@ -153,7 +153,7 @@ static __always_inline bool nodeport_uses_dsr6(const struct ipv6_ct_tuple *tuple
 }
 
 static __always_inline bool nodeport_nat_ipv6_needed(struct __ctx_buff *ctx,
-						     union v6addr *addr, int dir)
+						     union v6addr *addr)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
@@ -173,10 +173,7 @@ static __always_inline bool nodeport_nat_ipv6_needed(struct __ctx_buff *ctx,
 	}
 #endif /* ENABLE_DSR_HYBRID */
 	/* See nodeport_nat_ipv4_needed(). */
-	if (dir == NAT_DIR_EGRESS)
-		return !ipv6_addrcmp((union v6addr *)&ip6->saddr, addr);
-	else
-		return !ipv6_addrcmp((union v6addr *)&ip6->daddr, addr);
+	return !ipv6_addrcmp((union v6addr *)&ip6->saddr, addr);
 }
 
 static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx,
@@ -190,7 +187,7 @@ static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx,
 
 	ipv6_addr_copy(&target.addr, addr);
 
-	ret = nodeport_nat_ipv6_needed(ctx, addr, NAT_DIR_EGRESS) ?
+	ret = nodeport_nat_ipv6_needed(ctx, addr) ?
 	      snat_v6_process(ctx, NAT_DIR_EGRESS, &target) : CTX_ACT_OK;
 	if (ret == NAT_PUNT_TO_STACK)
 		ret = CTX_ACT_OK;
@@ -802,7 +799,7 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 }
 
 static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
-						     __be32 addr, int dir,
+						     __be32 addr,
 						     bool *from_endpoint __maybe_unused)
 {
 	struct endpoint_info *ep __maybe_unused;
@@ -815,73 +812,69 @@ static __always_inline bool nodeport_nat_ipv4_needed(struct __ctx_buff *ctx,
 	 * overlapping tuples, e.g. applications in hostns reusing
 	 * source IPs we SNAT in node-port.
 	 */
-	if (dir == NAT_DIR_EGRESS) {
-		if (ip4->saddr == addr)
-			return true;
+	if (ip4->saddr == addr)
+		return true;
 
 #ifdef ENABLE_MASQUERADE /* SNAT local pod to world packets */
 # ifdef IS_BPF_OVERLAY
-		/* Do not MASQ when this function is executed from bpf_overlay
-		 * (IS_BPF_OVERLAY denotes this fact). Otherwise, a packet will
-		 * be SNAT'd to cilium_host IP addr.
-		 */
-		return false;
+	/* Do not MASQ when this function is executed from bpf_overlay
+	 * (IS_BPF_OVERLAY denotes this fact). Otherwise, a packet will
+	 * be SNAT'd to cilium_host IP addr.
+	 */
+	return false;
 # endif
 #ifdef IPV4_SNAT_EXCLUSION_DST_CIDR
-		/* Do not MASQ if a dst IP belongs to a pods CIDR
-		 * (native-routing-cidr if specified, otherwise local pod CIDR).
-		 * The check is performed before we determine that a packet is
-		 * sent from a local pod, as this check is cheaper than
-		 * the map lookup done in the latter check.
-		 */
-		if (ipv4_is_in_subnet(ip4->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
-				      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
-			return false;
+	/* Do not MASQ if a dst IP belongs to a pods CIDR
+	 * (native-routing-cidr if specified, otherwise local pod CIDR).
+	 * The check is performed before we determine that a packet is
+	 * sent from a local pod, as this check is cheaper than
+	 * the map lookup done in the latter check.
+	 */
+	if (ipv4_is_in_subnet(ip4->daddr, IPV4_SNAT_EXCLUSION_DST_CIDR,
+			      IPV4_SNAT_EXCLUSION_DST_CIDR_LEN))
+		return false;
 #endif
 
-		/* Check whether packet is from a local endpoint */
-		ep = __lookup_ip4_endpoint(ip4->saddr);
-		if (ep && !(ep->flags & ENDPOINT_F_HOST)) {
-			struct remote_endpoint_info *info;
-			*from_endpoint = true;
+	/* Check whether packet is from a local endpoint */
+	ep = __lookup_ip4_endpoint(ip4->saddr);
+	if (ep && !(ep->flags & ENDPOINT_F_HOST)) {
+		struct remote_endpoint_info *info;
+		*from_endpoint = true;
 
-			info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr,
-					       V4_CACHE_KEY_LEN);
-			if (info != NULL) {
+		info = ipcache_lookup4(&IPCACHE_MAP, ip4->daddr,
+				       V4_CACHE_KEY_LEN);
+		if (info) {
 #ifdef ENABLE_IP_MASQ_AGENT
-				/* Do not SNAT if dst belongs to any
-				 * ip-masq-agent subnet.
-				 */
-				struct lpm_v4_key pfx;
+			/* Do not SNAT if dst belongs to any
+			 * ip-masq-agent subnet.
+			 */
+			struct lpm_v4_key pfx;
 
-				pfx.lpm.prefixlen = 32;
-				memcpy(pfx.lpm.data, &ip4->daddr, sizeof(pfx.addr));
-				if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
-					return false;
+			pfx.lpm.prefixlen = 32;
+			memcpy(pfx.lpm.data, &ip4->daddr, sizeof(pfx.addr));
+			if (map_lookup_elem(&IP_MASQ_AGENT_IPV4, &pfx))
+				return false;
 #endif
 #ifndef ENCAP_IFINDEX
-				/* In the tunnel mode, a packet from a local ep
-				 * to a remote node is not encap'd, and is sent
-				 * via a native dev. Therefore, such packet has
-				 * to be MASQ'd. Otherwise, it might be dropped
-				 * either by underlying network (e.g. AWS drops
-				 * packets by default from unknown subnets) or
-				 * by the remote node if its native dev's
-				 * rp_filter=1.
-				 */
-				if (info->sec_label == REMOTE_NODE_ID)
-					return false;
+			/* In the tunnel mode, a packet from a local ep
+			 * to a remote node is not encap'd, and is sent
+			 * via a native dev. Therefore, such packet has
+			 * to be MASQ'd. Otherwise, it might be dropped
+			 * either by underlying network (e.g. AWS drops
+			 * packets by default from unknown subnets) or
+			 * by the remote node if its native dev's
+			 * rp_filter=1.
+			 */
+			if (info->sec_label == REMOTE_NODE_ID)
+				return false;
 #endif
 
-				return true;
-			}
+			return true;
 		}
+	}
 #endif /*ENABLE_MASQUERADE */
 
-		return false;
-	} else {
-		return ip4->daddr == addr;
-	}
+	return false;
 }
 
 static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx,
@@ -895,8 +888,7 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx,
 	};
 	int ret = CTX_ACT_OK;
 
-	if (nodeport_nat_ipv4_needed(ctx, addr, NAT_DIR_EGRESS,
-				     &from_endpoint))
+	if (nodeport_nat_ipv4_needed(ctx, addr, &from_endpoint))
 		ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target,
 				      from_endpoint);
 	if (ret == NAT_PUNT_TO_STACK)
