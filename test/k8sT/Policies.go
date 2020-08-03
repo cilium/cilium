@@ -62,11 +62,13 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowIngress      string
 		knpAllowEgress       string
 		cnpMatchExpression   string
-		app1Service                             = "app1-service"
-		backgroundCancel     context.CancelFunc = func() {}
-		backgroundError      error
-		apps                 = []string{helpers.App1, helpers.App2, helpers.App3}
-		daemonCfg            map[string]string
+		connectivityCheckYml string
+
+		app1Service                         = "app1-service"
+		backgroundCancel context.CancelFunc = func() {}
+		backgroundError  error
+		apps             = []string{helpers.App1, helpers.App2, helpers.App3}
+		daemonCfg        map[string]string
 	)
 
 	BeforeAll(func() {
@@ -94,6 +96,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-ingress.yaml")
 		knpAllowEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-egress.yaml")
 		cnpMatchExpression = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions.yaml")
+		connectivityCheckYml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-proxy.yaml")
 
 		daemonCfg = map[string]string{
 			"global.tls.secretsBackend": "k8s",
@@ -1469,6 +1472,29 @@ var _ = Describe("K8sPolicyTest", func() {
 					By("Checking policy correctness")
 					validateNodeConnectivity(HostConnectivityAllow, RemoteNodeConnectivityAllow)
 				})
+			})
+		})
+
+		Context("with L7 policy", func() {
+			BeforeAll(func() {
+				if helpers.RunsOnNetNextKernel() {
+					By("Reconfiguring Cilium to enable BPF TProxy")
+					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
+						map[string]string{
+							"config.bpfTProxy": "true",
+						})
+				}
+			})
+
+			AfterEach(func() {
+				kubectl.Delete(connectivityCheckYml)
+			})
+
+			It("using connectivity-check to check datapath", func() {
+				kubectl.ApplyDefault(connectivityCheckYml).ExpectSuccess("cannot install connectivity-check")
+
+				err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
+				Expect(err).Should(BeNil(), "connectivity-check pods are not ready after timeout")
 			})
 		})
 	})
