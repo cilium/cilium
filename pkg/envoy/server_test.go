@@ -692,3 +692,73 @@ func (s *ServerSuite) TestGetNetworkPolicyKafka(c *C) {
 	}
 	c.Assert(obtained, checker.Equals, expected)
 }
+
+var L4PolicyMySQL = &policy.L4Policy{
+	Egress: map[string]*policy.L4Filter{
+		"3306/TCP": {
+			Port: 3306, Protocol: api.ProtoTCP,
+			L7Parser: "envoy.filters.network.mysql_proxy",
+			L7RulesPerSelector: policy.L7DataMap{
+				cachedSelector1: &policy.PerSelectorPolicy{L7Rules: api.L7Rules{
+					L7Proto: "envoy.filters.network.mysql_proxy",
+					L7: []api.PortRuleL7{
+						map[string]string{
+							"action":     "deny",
+							"user.mysql": "select"},
+					},
+				}},
+			},
+			Ingress: false,
+		},
+	},
+}
+
+var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
+	{
+		Port:     3306,
+		Protocol: envoy_config_core.SocketAddress_TCP,
+		Rules: []*cilium.PortNetworkPolicyRule{{
+			RemotePolicies: []uint64{1001, 1002},
+			L7Proto:        "envoy.filters.network.mysql_proxy",
+			L7: &cilium.PortNetworkPolicyRule_L7Rules{
+				L7Rules: &cilium.L7NetworkPolicyRules{
+					L7DenyRules: []*cilium.L7NetworkPolicyRule{{
+						MetadataRule: []*envoy_type_matcher.MetadataMatcher{{
+							Filter: "envoy.filters.network.mysql_proxy",
+							Path: []*envoy_type_matcher.MetadataMatcher_PathSegment{{
+								Segment: &envoy_type_matcher.MetadataMatcher_PathSegment_Key{Key: "user.mysql"},
+							}},
+							Value: &envoy_type_matcher.ValueMatcher{
+								MatchPattern: &envoy_type_matcher.ValueMatcher_ListMatch{
+									ListMatch: &envoy_type_matcher.ListMatcher{
+										MatchPattern: &envoy_type_matcher.ListMatcher_OneOf{
+											OneOf: &envoy_type_matcher.ValueMatcher{
+												MatchPattern: &envoy_type_matcher.ValueMatcher_StringMatch{
+													StringMatch: &envoy_type_matcher.StringMatcher{
+														MatchPattern: &envoy_type_matcher.StringMatcher_Exact{
+															Exact: "select",
+														},
+													},
+												},
+											},
+										},
+									},
+								},
+							},
+						}},
+					}},
+				},
+			}},
+		},
+	},
+}
+
+func (s *ServerSuite) TestGetNetworkPolicyMySQL(c *C) {
+	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4PolicyMySQL, nil, true, true)
+	expected := &cilium.NetworkPolicy{
+		Name:                  IPv4Addr,
+		Policy:                uint64(Identity),
+		EgressPerPortPolicies: ExpectedPerPortPoliciesMySQL,
+	}
+	c.Assert(obtained, checker.Equals, expected)
+}

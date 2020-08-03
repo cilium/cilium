@@ -117,7 +117,10 @@ github.com/cilium/proxy/go/envoy/config/metrics/v3
 github.com/cilium/proxy/go/envoy/config/overload/v3
 github.com/cilium/proxy/go/envoy/config/route/v3
 github.com/cilium/proxy/go/envoy/config/trace/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/common/fault/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/http_connection_manager/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/mongo_proxy/v3
+github.com/cilium/proxy/go/envoy/extensions/filters/network/mysql_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/filters/network/tcp_proxy/v3
 github.com/cilium/proxy/go/envoy/extensions/transport_sockets/tls/v3
 github.com/cilium/proxy/go/envoy/service/discovery/v3
