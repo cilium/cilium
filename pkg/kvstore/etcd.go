@@ -55,6 +55,8 @@ const (
 	isEtcdOperatorOption = "etcd.operator"
 	EtcdOptionConfig     = "etcd.config"
 
+	optionEnabledHeartbeat = "etcd.enableHeartbeat"
+
 	// EtcdRateLimitOption specifies maximum kv operations per second
 	EtcdRateLimitOption = "etcd.qps"
 
@@ -123,6 +125,9 @@ func newEtcdModule() backendModule {
 					return err
 				},
 			},
+			optionEnabledHeartbeat: &backendOption{
+				description: "Enable heartbeat check when determinig health",
+			},
 		},
 	}
 }
@@ -169,6 +174,13 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 	configPathOpt, configSet := e.opts[EtcdOptionConfig]
 
 	rateLimitOpt, rateLimitSet := e.opts[EtcdRateLimitOption]
+
+	if v, ok := e.opts[optionEnabledHeartbeat]; ok {
+		if opts == nil {
+			opts = &ExtraOptions{}
+		}
+		opts.HeartbeatHealthCheck = strings.ToLower(v.value) == "true"
+	}
 
 	rateLimit := defaults.KVstoreQPS
 	if rateLimitSet {
@@ -291,7 +303,8 @@ type etcdClient struct {
 
 	limiter *rate.Limiter
 
-	lastHeartbeat time.Time
+	lastHeartbeat   time.Time
+	enableHeartbeat bool
 }
 
 func (e *etcdClient) getLogger() *logrus.Entry {
@@ -1064,9 +1077,11 @@ func (e *etcdClient) statusChecker() {
 		lastHeartbeat := e.lastHeartbeat
 		e.RWMutex.RUnlock()
 
-		if heartbeatDelta := time.Since(lastHeartbeat); !lastHeartbeat.IsZero() && heartbeatDelta > 2*HeartbeatWriteInterval {
-			recordQuorumError("no event received")
-			quorumError = fmt.Errorf("%s since last heartbeat update has been received", heartbeatDelta)
+		if e.extraOptions.HeartbeatHealthCheck {
+			if heartbeatDelta := time.Since(lastHeartbeat); !lastHeartbeat.IsZero() && heartbeatDelta > 2*HeartbeatWriteInterval {
+				recordQuorumError("no event received")
+				quorumError = fmt.Errorf("%s since last heartbeat update has been received", heartbeatDelta)
+			}
 		}
 
 		quorumString := "true"
