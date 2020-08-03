@@ -64,7 +64,7 @@ var _ = Describe("K8sChaosTest", func() {
 		})
 
 		AfterEach(func() {
-			kubectl.Delete(demoDSPath).ExpectSuccess(
+			kubectl.DeleteLong(demoDSPath).ExpectSuccess(
 				"%s deployment cannot be deleted", demoDSPath)
 			ExpectAllPodsTerminated(kubectl)
 
