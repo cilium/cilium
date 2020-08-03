@@ -21,6 +21,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/tuple"
 	"github.com/cilium/cilium/pkg/types"
 	"github.com/cilium/cilium/pkg/u8proto"
@@ -92,4 +93,121 @@ func (k *CTMapTestSuite) Benchmark_MapUpdate(c *C) {
 	c.Assert(err, IsNil)
 	t := m.Flush()
 	c.Assert(t, Equals, c.N)
+}
+
+// TestCtGcIcmp tests whether ICMP NAT entries are removed upon a removal of
+// their CT entry (GH#12625).
+func (k *CTMapTestSuite) TestCtGcIcmp(c *C) {
+	bpf.CheckOrMountFS("", false)
+	err := bpf.ConfigureResourceLimits()
+	c.Assert(err, IsNil)
+
+	// Init maps
+	natMap := nat.NewMap("cilium_nat_any4_test", true, 1000)
+	_, err = natMap.OpenOrCreate()
+	c.Assert(err, IsNil)
+	defer natMap.Map.Unpin()
+
+	ctMapName := MapNameAny4Global + "_test"
+	setupMapInfo(mapTypeIPv4AnyGlobal, ctMapName,
+		&CtKey4Global{}, int(unsafe.Sizeof(CtKey4Global{})),
+		100, natMap)
+
+	ctMap := newMap(ctMapName, mapTypeIPv4AnyGlobal)
+	_, err = ctMap.OpenOrCreate()
+	c.Assert(err, IsNil)
+	defer ctMap.Map.Unpin()
+
+	// Create the following entries and check that they get GC-ed:
+	//	- CT:	ICMP OUT 192.168.34.11:38193 -> 192.168.34.12:0 <..>
+	//	- NAT:	ICMP IN 192.168.34.12:0 -> 192.168.34.11:38193 XLATE_DST <..>
+	//	 		ICMP OUT 192.168.34.11:38193 -> 192.168.34.12:0 XLATE_SRC <..>
+
+	ctKey := &CtKey4Global{
+		tuple.TupleKey4Global{
+			tuple.TupleKey4{
+				SourceAddr: types.IPv4{192, 168, 34, 12},
+				DestAddr:   types.IPv4{192, 168, 34, 11},
+				SourcePort: 0x3195,
+				DestPort:   0,
+				NextHeader: u8proto.ICMP,
+				Flags:      tuple.TUPLE_F_OUT,
+			},
+		},
+	}
+	ctVal := &CtEntry{
+		TxPackets: 1,
+		TxBytes:   216,
+		Lifetime:  37459,
+	}
+	err = bpf.UpdateElement(ctMap.Map.GetFd(), unsafe.Pointer(ctKey),
+		unsafe.Pointer(ctVal), 0)
+	c.Assert(err, IsNil)
+
+	natKey := &nat.NatKey4{
+		tuple.TupleKey4Global{
+			tuple.TupleKey4{
+				DestAddr:   types.IPv4{192, 168, 34, 12},
+				SourceAddr: types.IPv4{192, 168, 34, 11},
+				DestPort:   0,
+				SourcePort: 0x3195,
+				NextHeader: u8proto.ICMP,
+				Flags:      0,
+			},
+		},
+	}
+	natVal := &nat.NatEntry4{
+		Created:   37400,
+		HostLocal: 1,
+		Addr:      types.IPv4{192, 168, 34, 11},
+		Port:      0x3195,
+	}
+	err = bpf.UpdateElement(natMap.Map.GetFd(), unsafe.Pointer(natKey),
+		unsafe.Pointer(natVal), 0)
+	c.Assert(err, IsNil)
+	natKey = &nat.NatKey4{
+		tuple.TupleKey4Global{
+			tuple.TupleKey4{
+				SourceAddr: types.IPv4{192, 168, 34, 12},
+				DestAddr:   types.IPv4{192, 168, 34, 11},
+				SourcePort: 0,
+				DestPort:   0x3195,
+				NextHeader: u8proto.ICMP,
+				Flags:      1,
+			},
+		},
+	}
+	natVal = &nat.NatEntry4{
+		Created:   37400,
+		HostLocal: 1,
+		Addr:      types.IPv4{192, 168, 34, 11},
+		Port:      0x3195,
+	}
+	err = bpf.UpdateElement(natMap.Map.GetFd(), unsafe.Pointer(natKey),
+		unsafe.Pointer(natVal), 0)
+	c.Assert(err, IsNil)
+
+	buf := make(map[string][]string)
+	err = ctMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 1)
+
+	buf = make(map[string][]string)
+	err = natMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 2)
+
+	// GC and check whether NAT entries have been collected
+	filter := &GCFilter{
+		RemoveExpired: true,
+		Time:          39000,
+	}
+	stats := doGC4(ctMap, filter)
+	c.Assert(stats.aliveEntries, Equals, uint32(0))
+	c.Assert(stats.deleted, Equals, uint32(1))
+
+	buf = make(map[string][]string)
+	err = natMap.Map.Dump(buf)
+	c.Assert(err, IsNil)
+	c.Assert(len(buf), Equals, 0)
 }
