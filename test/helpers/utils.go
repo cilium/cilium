@@ -634,3 +634,8 @@ func GetLatestImageVersion() string {
 func SkipQuarantined() bool {
 	return !config.CiliumTestConfig.RunQuarantined
 }
+
+// SkipGKEQuarantined returns whether test under quarantine on GKE should be skipped
+func SkipGKEQuarantined() bool {
+	return SkipQuarantined() && IsIntegration(CIIntegrationGKE)
+}
