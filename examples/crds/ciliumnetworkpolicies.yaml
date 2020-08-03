@@ -478,9 +478,9 @@ spec:
                   type: object
                 type: array
               egressDeny:
-                description: EgressDeny is a list of EgressRule which are enforced at egress. Any rule inserted here will by denied regardless of the allowed egress rules in the 'egress' field. If omitted or empty, this rule does not apply at egress.
+                description: EgressDeny is a list of EgressDenyRule which are enforced at egress. Any rule inserted here will by denied regardless of the allowed egress rules in the 'egress' field. If omitted or empty, this rule does not apply at egress.
                 items:
-                  description: "EgressRule contains all rule types which can be applied at egress, i.e. network traffic that originates inside the endpoint and exits the endpoint selected by the endpointSelector. \n - All members of this structure are optional. If omitted or empty, the   member will have no effect on the rule. \n - If multiple members of the structure are specified, then all members   must match in order for the rule to take effect. The exception to this   rule is the ToRequires member; the effects of any Requires field in any   rule will apply to all other rules as well. \n - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are   mutually exclusive. Only one of these members may be present within an   individual rule."
+                  description: "EgressDenyRule contains all rule types which can be applied at egress, i.e. network traffic that originates inside the endpoint and exits the endpoint selected by the endpointSelector. \n - All members of this structure are optional. If omitted or empty, the   member will have no effect on the rule. \n - If multiple members of the structure are specified, then all members   must match in order for the rule to take effect. The exception to this   rule is the ToRequires member; the effects of any Requires field in any   rule will apply to all other rules as well. \n - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are   mutually exclusive. Only one of these members may be present within an   individual rule."
                   properties:
                     toCIDR:
                       description: "ToCIDR is a list of IP blocks which the endpoint subject to the rule is allowed to initiate connections. Only connections destined for outside of the cluster and not targeting the host will be subject to CIDR rules.  This will match on the destination IP address of outgoing connections. Adding a prefix into ToCIDR or into ToCIDRSet with no ExcludeCIDRs is equivalent. Overlaps are allowed between ToCIDR and ToCIDRSet. \n Example: Any endpoint with the label \"app=database-proxy\" is allowed to initiate connections to 10.2.3.0/24"
@@ -566,20 +566,6 @@ spec:
                         - none
                         type: string
                       type: array
-                    toFQDNs:
-                      description: "ToFQDN allows whitelisting DNS names in place of IPs. The IPs that result from DNS resolution of `ToFQDN.MatchName`s are added to the same EgressRule object as ToCIDRSet entries, and behave accordingly. Any L4 and L7 rules within this EgressRule will also apply to these IPs. The DNS -> IP mapping is re-resolved periodically from within the cilium-agent, and the IPs in the DNS response are effected in the policy for selected pods as-is (i.e. the list of IPs is not modified in any way). Note: An explicit rule to allow for DNS traffic is needed for the pods, as ToFQDN counts as an egress rule and will enforce egress policy when PolicyEnforcment=default. Note: If the resolved IPs are IPs within the kubernetes cluster, the ToFQDN rule will not apply to that IP. Note: ToFQDN cannot occur in the same policy as other To* rules. \n The current implementation has a number of limitations: - The DNS resolution originates from cilium-agent, and not from the pods. Differences between the responses seen by cilium agent and a particular pod will whitelist the incorrect IP. - DNS TTLs are ignored, and cilium-agent will repoll on a short interval (5 seconds). Each change to the DNS data will trigger a policy regeneration. This may result in delayed updates to the policy for an endpoint when the data changes often or the system is under load."
-                      items:
-                        properties:
-                          matchName:
-                            description: MatchName matches literal DNS names. A trailing "." is automatically added when missing.
-                            pattern: ^([-a-zA-Z0-9_]+[.]?)+$
-                            type: string
-                          matchPattern:
-                            description: "MatchPattern allows using wildcards to match DNS names. All wildcards are case insensitive. The wildcards are: - \"*\" matches 0 or more DNS valid characters, and may occur anywhere in the pattern. As a special case a \"*\" as the leftmost character, without a following \".\" matches all subdomains as well as the name to the right. A trailing \".\" is automatically added when missing. \n Examples: `*.cilium.io` matches subomains of cilium at that level   www.cilium.io and blog.cilium.io match, cilium.io and google.com do not `*cilium.io` matches cilium.io and all subdomains 1 level below   www.cilium.io, blog.cilium.io and cilium.io match, google.com does not sub*.cilium.io matches subdomains of cilium where the subdomain component begins with \"sub\"   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,   blog.cilium.io, cilium.io and google.com do not"
-                            pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
-                            type: string
-                        type: object
-                      type: array
                     toGroups:
                       description: "ToGroups is a directive that allows the integration with multiple outside providers. Currently, only AWS is supported, and the rule can select by multiple sub directives: \n Example: toGroups: - aws:     securityGroupsIds:     - 'sg-XXXXXXXXXXXXX'"
                       items:
@@ -606,37 +592,10 @@ spec:
                         type: object
                       type: array
                     toPorts:
-                      description: "ToPorts is a list of destination ports identified by port number and protocol which the endpoint subject to the rule is allowed to connect to. \n Example: Any endpoint with the label \"role=frontend\" is allowed to initiate connections to destination port 8080/tcp"
+                      description: "ToPorts is a list of destination ports identified by port number and protocol which the endpoint subject to the rule is not allowed to connect to. \n Example: Any endpoint with the label \"role=frontend\" is not allowed to initiate connections to destination port 8080/tcp"
                       items:
-                        description: PortRule is a list of ports/protocol combinations with optional Layer 7 rules which must be met.
+                        description: PortDenyRule is a list of ports/protocol that should be used for deny policies. This structure lacks the L7Rules since it's not supported in deny policies.
                         properties:
-                          originatingTLS:
-                            description: OriginatingTLS is the TLS context for the connections originated by the L7 proxy.  For egress policy this specifies the client-side TLS parameters for the upstream connection originating from the L7 proxy to the remote destination. For ingress policy this specifies the client-side TLS parameters for the connection from the L7 proxy to the local endpoint.
-                            properties:
-                              certificate:
-                                description: Certificate is the file name or k8s secret item name for the certificate chain. If omitted, 'tls.crt' is assumed, if it exists. If given, the item must exist.
-                                type: string
-                              privateKey:
-                                description: PrivateKey is the file name or k8s secret item name for the private key matching the certificate chain. If omitted, 'tls.key' is assumed, if it exists. If given, the item must exist.
-                                type: string
-                              secret:
-                                description: 'Secret is the secret that contains the certificates and private key for the TLS context. By default, Cilium will search in this secret for the following items:  - ''ca.crt''  - Which represents the trusted CA to verify remote source.  - ''tls.crt'' - Which represents the public key certificate.  - ''tls.key'' - Which represents the private key matching the public key                certificate.'
-                                properties:
-                                  name:
-                                    description: Name is the name of the secret.
-                                    type: string
-                                  namespace:
-                                    description: Namespace is the namespace in which the secret exists. Context of use determines the default value if left out (e.g., "default").
-                                    type: string
-                                required:
-                                - name
-                                type: object
-                              trustedCA:
-                                description: TrustedCA is the file name or k8s secret item name for the trusted CA. If omitted, 'ca.crt' is assumed, if it exists. If given, the item must exist.
-                                type: string
-                            required:
-                            - secret
-                            type: object
                           ports:
                             description: Ports is a list of L4 port/protocol
                             items:
@@ -657,146 +616,6 @@ spec:
                               - port
                               type: object
                             type: array
-                          rules:
-                            description: Rules is a list of additional port level rules which must be met in order for the PortRule to allow the traffic. If omitted or empty, no layer 7 rules are enforced.
-                            properties:
-                              dns:
-                                description: DNS-specific rules.
-                                items:
-                                  description: PortRuleDNS is a list of allowed DNS lookups.
-                                  properties:
-                                    matchName:
-                                      description: MatchName matches literal DNS names. A trailing "." is automatically added when missing.
-                                      pattern: ^([-a-zA-Z0-9_]+[.]?)+$
-                                      type: string
-                                    matchPattern:
-                                      description: "MatchPattern allows using wildcards to match DNS names. All wildcards are case insensitive. The wildcards are: - \"*\" matches 0 or more DNS valid characters, and may occur anywhere in the pattern. As a special case a \"*\" as the leftmost character, without a following \".\" matches all subdomains as well as the name to the right. A trailing \".\" is automatically added when missing. \n Examples: `*.cilium.io` matches subomains of cilium at that level   www.cilium.io and blog.cilium.io match, cilium.io and google.com do not `*cilium.io` matches cilium.io and all subdomains 1 level below   www.cilium.io, blog.cilium.io and cilium.io match, google.com does not sub*.cilium.io matches subdomains of cilium where the subdomain component begins with \"sub\"   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,   blog.cilium.io, cilium.io and google.com do not"
-                                      pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
-                                      type: string
-                                  type: object
-                                type: array
-                              http:
-                                description: HTTP specific rules.
-                                items:
-                                  description: "PortRuleHTTP is a list of HTTP protocol constraints. All fields are optional, if all fields are empty or missing, the rule does not have any effect. \n All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional \"path\" part of a URL as defined by RFC 3986."
-                                  properties:
-                                    headerMatches:
-                                      description: HeaderMatches is a list of HTTP headers which must be present and match against the given values. Mismatch field can be used to specify what to do when there is no match.
-                                      items:
-                                        description: HeaderMatch extends the HeaderValue for matching requirement of a named header field against an immediate string, a secret value, or a regex.  If none of the optional fields is present, then the header value is not matched, only presence of the header is enough.
-                                        properties:
-                                          mismatch:
-                                            description: Mismatch identifies what to do in case there is no match. The default is to drop the request. Otherwise the overall rule is still considered as matching, but the mismatches are logged in the access log.
-                                            enum:
-                                            - LOG
-                                            - ADD
-                                            - DELETE
-                                            - REPLACE
-                                            type: string
-                                          name:
-                                            description: Name identifies the header.
-                                            type: string
-                                          secret:
-                                            description: Secret refers to a secret that contains the value to be matched against. The secret must only contain one entry. If the referred secret does not exist, and there is no "Value" specified, the match will fail.
-                                            properties:
-                                              name:
-                                                description: Name is the name of the secret.
-                                                type: string
-                                              namespace:
-                                                description: Namespace is the namespace in which the secret exists. Context of use determines the default value if left out (e.g., "default").
-                                                type: string
-                                            required:
-                                            - name
-                                            type: object
-                                          value:
-                                            description: Value matches the exact value of the header. Can be specified either alone or together with "Secret"; will be used as the header value if the secret can not be found in the latter case.
-                                            type: string
-                                        required:
-                                        - name
-                                        type: object
-                                      type: array
-                                    headers:
-                                      description: Headers is a list of HTTP headers which must be present in the request. If omitted or empty, requests are allowed regardless of headers present.
-                                      items:
-                                        type: string
-                                      type: array
-                                    host:
-                                      description: "Host is an extended POSIX regex matched against the host header of a request, e.g. \"foo.com\" \n If omitted or empty, the value of the host header is ignored."
-                                      format: idn-hostname
-                                      type: string
-                                    method:
-                                      description: "Method is an extended POSIX regex matched against the method of a request, e.g. \"GET\", \"POST\", \"PUT\", \"PATCH\", \"DELETE\", ... \n If omitted or empty, all methods are allowed."
-                                      type: string
-                                    path:
-                                      description: "Path is an extended POSIX regex matched against the path of a request. Currently it can contain characters disallowed from the conventional \"path\" part of a URL as defined by RFC 3986. \n If omitted or empty, all paths are all allowed."
-                                      type: string
-                                  type: object
-                                type: array
-                              kafka:
-                                description: Kafka-specific rules.
-                                items:
-                                  description: PortRule is a list of Kafka protocol constraints. All fields are optional, if all fields are empty or missing, the rule will match all Kafka messages.
-                                  properties:
-                                    apiKey:
-                                      description: "APIKey is a case-insensitive string matched against the key of a request, e.g. \"produce\", \"fetch\", \"createtopic\", \"deletetopic\", et al Reference: https://kafka.apache.org/protocol#protocol_api_keys \n If omitted or empty, and if Role is not specified, then all keys are allowed."
-                                      type: string
-                                    apiVersion:
-                                      description: "APIVersion is the version matched against the api version of the Kafka message. If set, it has to be a string representing a positive integer. \n If omitted or empty, all versions are allowed."
-                                      type: string
-                                    clientID:
-                                      description: "ClientID is the client identifier as provided in the request. \n From Kafka protocol documentation: This is a user supplied identifier for the client application. The user can use any identifier they like and it will be used when logging errors, monitoring aggregates, etc. For example, one might want to monitor not just the requests per second overall, but the number coming from each client application (each of which could reside on multiple servers). This id acts as a logical grouping across all requests from a particular client. \n If omitted or empty, all client identifiers are allowed."
-                                      type: string
-                                    role:
-                                      description: "Role is a case-insensitive string and describes a group of API keys necessary to perform certain higher-level Kafka operations such as \"produce\" or \"consume\". A Role automatically expands into all APIKeys required to perform the specified higher-level operation. \n The following values are supported:  - \"produce\": Allow producing to the topics specified in the rule  - \"consume\": Allow consuming from the topics specified in the rule \n This field is incompatible with the APIKey field, i.e APIKey and Role cannot both be specified in the same rule. \n If omitted or empty, and if APIKey is not specified, then all keys are allowed."
-                                      enum:
-                                      - produce
-                                      - consume
-                                      type: string
-                                    topic:
-                                      description: "Topic is the topic name contained in the message. If a Kafka request contains multiple topics, then all topics must be allowed or the message will be rejected. \n This constraint is ignored if the matched request message type doesn't contain any topic. Maximum size of Topic can be 249 characters as per recent Kafka spec and allowed characters are a-z, A-Z, 0-9, -, . and _. \n Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10 version the length was changed from 255 to 249. For compatibility reasons we are using 255. \n If omitted or empty, all topics are allowed."
-                                      maxLength: 255
-                                      type: string
-                                  type: object
-                                type: array
-                              l7:
-                                description: Key-value pair rules.
-                                items:
-                                  additionalProperties:
-                                    type: string
-                                  description: PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as protocol constraints. All fields are optional, if all fields are empty or missing, the rule does not have any effect.
-                                  type: object
-                                type: array
-                              l7proto:
-                                description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                type: string
-                            type: object
-                          terminatingTLS:
-                            description: TerminatingTLS is the TLS context for the connection terminated by the L7 proxy.  For egress policy this specifies the server-side TLS parameters to be applied on the connections originated from the local endpoint and terminated by the L7 proxy. For ingress policy this specifies the server-side TLS parameters to be applied on the connections originated from a remote source and terminated by the L7 proxy.
-                            properties:
-                              certificate:
-                                description: Certificate is the file name or k8s secret item name for the certificate chain. If omitted, 'tls.crt' is assumed, if it exists. If given, the item must exist.
-                                type: string
-                              privateKey:
-                                description: PrivateKey is the file name or k8s secret item name for the private key matching the certificate chain. If omitted, 'tls.key' is assumed, if it exists. If given, the item must exist.
-                                type: string
-                              secret:
-                                description: 'Secret is the secret that contains the certificates and private key for the TLS context. By default, Cilium will search in this secret for the following items:  - ''ca.crt''  - Which represents the trusted CA to verify remote source.  - ''tls.crt'' - Which represents the public key certificate.  - ''tls.key'' - Which represents the private key matching the public key                certificate.'
-                                properties:
-                                  name:
-                                    description: Name is the name of the secret.
-                                    type: string
-                                  namespace:
-                                    description: Namespace is the namespace in which the secret exists. Context of use determines the default value if left out (e.g., "default").
-                                    type: string
-                                required:
-                                - name
-                                type: object
-                              trustedCA:
-                                description: TrustedCA is the file name or k8s secret item name for the trusted CA. If omitted, 'ca.crt' is assumed, if it exists. If given, the item must exist.
-                                type: string
-                            required:
-                            - secret
-                            type: object
                         type: object
                       type: array
                     toRequires:
@@ -1268,9 +1087,9 @@ spec:
                   type: object
                 type: array
               ingressDeny:
-                description: IngressDeny is a list of IngressRule which are enforced at ingress. Any rule inserted here will by denied regardless of the allowed ingress rules in the 'ingress' field. If omitted or empty, this rule does not apply at ingress.
+                description: IngressDeny is a list of IngressDenyRule which are enforced at ingress. Any rule inserted here will by denied regardless of the allowed ingress rules in the 'ingress' field. If omitted or empty, this rule does not apply at ingress.
                 items:
-                  description: "IngressRule contains all rule types which can be applied at ingress, i.e. network traffic that originates outside of the endpoint and is entering the endpoint selected by the endpointSelector. \n - All members of this structure are optional. If omitted or empty, the   member will have no effect on the rule. \n - If multiple members are set, all of them need to match in order for   the rule to take effect. The exception to this rule is FromRequires field;   the effects of any Requires field in any rule will apply to all other   rules as well. \n - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are mutually   exclusive. Only one of these members may be present within an individual   rule."
+                  description: "IngressDenyRule contains all rule types which can be applied at ingress, i.e. network traffic that originates outside of the endpoint and is entering the endpoint selected by the endpointSelector. \n - All members of this structure are optional. If omitted or empty, the   member will have no effect on the rule. \n - If multiple members are set, all of them need to match in order for   the rule to take effect. The exception to this rule is FromRequires field;   the effects of any Requires field in any rule will apply to all other   rules as well. \n - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are mutually   exclusive. Only one of these members may be present within an individual   rule."
                   properties:
                     fromCIDR:
                       description: "FromCIDR is a list of IP blocks which the endpoint subject to the rule is allowed to receive connections from. Only connections which do *not* originate from the cluster or from the local host are subject to CIDR rules. In order to allow in-cluster connectivity, use the FromEndpoints field.  This will match on the source IP address of incoming connections. Adding  a prefix into FromCIDR or into FromCIDRSet with no ExcludeCIDRs is  equivalent.  Overlaps are allowed between FromCIDR and FromCIDRSet. \n Example: Any endpoint with the label \"app=my-legacy-pet\" is allowed to receive connections from 10.3.9.1"
@@ -1398,37 +1217,10 @@ spec:
                         type: object
                       type: array
                     toPorts:
-                      description: "ToPorts is a list of destination ports identified by port number and protocol which the endpoint subject to the rule is allowed to receive connections on. \n Example: Any endpoint with the label \"app=httpd\" can only accept incoming connections on port 80/tcp."
+                      description: "ToPorts is a list of destination ports identified by port number and protocol which the endpoint subject to the rule is not allowed to receive connections on. \n Example: Any endpoint with the label \"app=httpd\" can not accept incoming connections on port 80/tcp."
                       items:
-                        description: PortRule is a list of ports/protocol combinations with optional Layer 7 rules which must be met.
+                        description: PortDenyRule is a list of ports/protocol that should be used for deny policies. This structure lacks the L7Rules since it's not supported in deny policies.
                         properties:
-                          originatingTLS:
-                            description: OriginatingTLS is the TLS context for the connections originated by the L7 proxy.  For egress policy this specifies the client-side TLS parameters for the upstream connection originating from the L7 proxy to the remote destination. For ingress policy this specifies the client-side TLS parameters for the connection from the L7 proxy to the local endpoint.
-                            properties:
-                              certificate:
-                                description: Certificate is the file name or k8s secret item name for the certificate chain. If omitted, 'tls.crt' is assumed, if it exists. If given, the item must exist.
-                                type: string
-                              privateKey:
-                                description: PrivateKey is the file name or k8s secret item name for the private key matching the certificate chain. If omitted, 'tls.key' is assumed, if it exists. If given, the item must exist.
-                                type: string
-                              secret:
-                                description: 'Secret is the secret that contains the certificates and private key for the TLS context. By default, Cilium will search in this secret for the following items:  - ''ca.crt''  - Which represents the trusted CA to verify remote source.  - ''tls.crt'' - Which represents the public key certificate.  - ''tls.key'' - Which represents the private key matching the public key                certificate.'
-                                properties:
-                                  name:
-                                    description: Name is the name of the secret.
-                                    type: string
-                                  namespace:
-                                    description: Namespace is the namespace in which the secret exists. Context of use determines the default value if left out (e.g., "default").
-                                    type: string
-                                required:
-                                - name
-                                type: object
-                              trustedCA:
-                                description: TrustedCA is the file name or k8s secret item name for the trusted CA. If omitted, 'ca.crt' is assumed, if it exists. If given, the item must exist.
-                                type: string
-                            required:
-                            - secret
-                            type: object
                           ports:
                             description: Ports is a list of L4 port/protocol
                             items:
@@ -1449,146 +1241,6 @@ spec:
                               - port
                               type: object
                             type: array
-                          rules:
-                            description: Rules is a list of additional port level rules which must be met in order for the PortRule to allow the traffic. If omitted or empty, no layer 7 rules are enforced.
-                            properties:
-                              dns:
-                                description: DNS-specific rules.
-                                items:
-                                  description: PortRuleDNS is a list of allowed DNS lookups.
-                                  properties:
-                                    matchName:
-                                      description: MatchName matches literal DNS names. A trailing "." is automatically added when missing.
-                                      pattern: ^([-a-zA-Z0-9_]+[.]?)+$
-                                      type: string
-                                    matchPattern:
-                                      description: "MatchPattern allows using wildcards to match DNS names. All wildcards are case insensitive. The wildcards are: - \"*\" matches 0 or more DNS valid characters, and may occur anywhere in the pattern. As a special case a \"*\" as the leftmost character, without a following \".\" matches all subdomains as well as the name to the right. A trailing \".\" is automatically added when missing. \n Examples: `*.cilium.io` matches subomains of cilium at that level   www.cilium.io and blog.cilium.io match, cilium.io and google.com do not `*cilium.io` matches cilium.io and all subdomains 1 level below   www.cilium.io, blog.cilium.io and cilium.io match, google.com does not sub*.cilium.io matches subdomains of cilium where the subdomain component begins with \"sub\"   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,   blog.cilium.io, cilium.io and google.com do not"
-                                      pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
-                                      type: string
-                                  type: object
-                                type: array
-                              http:
-                                description: HTTP specific rules.
-                                items:
-                                  description: "PortRuleHTTP is a list of HTTP protocol constraints. All fields are optional, if all fields are empty or missing, the rule does not have any effect. \n All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional \"path\" part of a URL as defined by RFC 3986."
-                                  properties:
-                                    headerMatches:
-                                      description: HeaderMatches is a list of HTTP headers which must be present and match against the given values. Mismatch field can be used to specify what to do when there is no match.
-                                      items:
-                                        description: HeaderMatch extends the HeaderValue for matching requirement of a named header field against an immediate string, a secret value, or a regex.  If none of the optional fields is present, then the header value is not matched, only presence of the header is enough.
-                                        properties:
-                                          mismatch:
-                                            description: Mismatch identifies what to do in case there is no match. The default is to drop the request. Otherwise the overall rule is still considered as matching, but the mismatches are logged in the access log.
-                                            enum:
-                                            - LOG
-                                            - ADD
-                                            - DELETE
-                                            - REPLACE
-                                            type: string
-                                          name:
-                                            description: Name identifies the header.
-                                            type: string
-                                          secret:
-                                            description: Secret refers to a secret that contains the value to be matched against. The secret must only contain one entry. If the referred secret does not exist, and there is no "Value" specified, the match will fail.
-                                            properties:
-                                              name:
-                                                description: Name is the name of the secret.
-                                                type: string
-                                              namespace:
-                                                description: Namespace is the namespace in which the secret exists. Context of use determines the default value if left out (e.g., "default").
-                                                type: string
-                                            required:
-                                            - name
-                                            type: object
-                                          value:
-                                            description: Value matches the exact value of the header. Can be specified either alone or together with "Secret"; will be used as the header value if the secret can not be found in the latter case.
-                                            type: string
-                                        required:
-                                        - name
-                                        type: object
-                                      type: array
-                                    headers:
-                                      description: Headers is a list of HTTP headers which must be present in the request. If omitted or empty, requests are allowed regardless of headers present.
-                                      items:
-                                        type: string
-                                      type: array
-                                    host:
-                                      description: "Host is an extended POSIX regex matched against the host header of a request, e.g. \"foo.com\" \n If omitted or empty, the value of the host header is ignored."
-                                      format: idn-hostname
-                                      type: string
-                                    method:
-                                      description: "Method is an extended POSIX regex matched against the method of a request, e.g. \"GET\", \"POST\", \"PUT\", \"PATCH\", \"DELETE\", ... \n If omitted or empty, all methods are allowed."
-                                      type: string
-                                    path:
-                                      description: "Path is an extended POSIX regex matched against the path of a request. Currently it can contain characters disallowed from the conventional \"path\" part of a URL as defined by RFC 3986. \n If omitted or empty, all paths are all allowed."
-                                      type: string
-                                  type: object
-                                type: array
-                              kafka:
-                                description: Kafka-specific rules.
-                                items:
-                                  description: PortRule is a list of Kafka protocol constraints. All fields are optional, if all fields are empty or missing, the rule will match all Kafka messages.
-                                  properties:
-                                    apiKey:
-                                      description: "APIKey is a case-insensitive string matched against the key of a request, e.g. \"produce\", \"fetch\", \"createtopic\", \"deletetopic\", et al Reference: https://kafka.apache.org/protocol#protocol_api_keys \n If omitted or empty, and if Role is not specified, then all keys are allowed."
-                                      type: string
-                                    apiVersion:
-                                      description: "APIVersion is the version matched against the api version of the Kafka message. If set, it has to be a string representing a positive integer. \n If omitted or empty, all versions are allowed."
-                                      type: string
-                                    clientID:
-                                      description: "ClientID is the client identifier as provided in the request. \n From Kafka protocol documentation: This is a user supplied identifier for the client application. The user can use any identifier they like and it will be used when logging errors, monitoring aggregates, etc. For example, one might want to monitor not just the requests per second overall, but the number coming from each client application (each of which could reside on multiple servers). This id acts as a logical grouping across all requests from a particular client. \n If omitted or empty, all client identifiers are allowed."
-                                      type: string
-                                    role:
-                                      description: "Role is a case-insensitive string and describes a group of API keys necessary to perform certain higher-level Kafka operations such as \"produce\" or \"consume\". A Role automatically expands into all APIKeys required to perform the specified higher-level operation. \n The following values are supported:  - \"produce\": Allow producing to the topics specified in the rule  - \"consume\": Allow consuming from the topics specified in the rule \n This field is incompatible with the APIKey field, i.e APIKey and Role cannot both be specified in the same rule. \n If omitted or empty, and if APIKey is not specified, then all keys are allowed."
-                                      enum:
-                                      - produce
-                                      - consume
-                                      type: string
-                                    topic:
-                                      description: "Topic is the topic name contained in the message. If a Kafka request contains multiple topics, then all topics must be allowed or the message will be rejected. \n This constraint is ignored if the matched request message type doesn't contain any topic. Maximum size of Topic can be 249 characters as per recent Kafka spec and allowed characters are a-z, A-Z, 0-9, -, . and _. \n Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10 version the length was changed from 255 to 249. For compatibility reasons we are using 255. \n If omitted or empty, all topics are allowed."
-                                      maxLength: 255
-                                      type: string
-                                  type: object
-                                type: array
-                              l7:
-                                description: Key-value pair rules.
-                                items:
-                                  additionalProperties:
-                                    type: string
-                                  description: PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as protocol constraints. All fields are optional, if all fields are empty or missing, the rule does not have any effect.
-                                  type: object
-                                type: array
-                              l7proto:
-                                description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                type: string
-                            type: object
-                          terminatingTLS:
-                            description: TerminatingTLS is the TLS context for the connection terminated by the L7 proxy.  For egress policy this specifies the server-side TLS parameters to be applied on the connections originated from the local endpoint and terminated by the L7 proxy. For ingress policy this specifies the server-side TLS parameters to be applied on the connections originated from a remote source and terminated by the L7 proxy.
-                            properties:
-                              certificate:
-                                description: Certificate is the file name or k8s secret item name for the certificate chain. If omitted, 'tls.crt' is assumed, if it exists. If given, the item must exist.
-                                type: string
-                              privateKey:
-                                description: PrivateKey is the file name or k8s secret item name for the private key matching the certificate chain. If omitted, 'tls.key' is assumed, if it exists. If given, the item must exist.
-                                type: string
-                              secret:
-                                description: 'Secret is the secret that contains the certificates and private key for the TLS context. By default, Cilium will search in this secret for the following items:  - ''ca.crt''  - Which represents the trusted CA to verify remote source.  - ''tls.crt'' - Which represents the public key certificate.  - ''tls.key'' - Which represents the private key matching the public key                certificate.'
-                                properties:
-                                  name:
-                                    description: Name is the name of the secret.
-                                    type: string
-                                  namespace:
-                                    description: Namespace is the namespace in which the secret exists. Context of use determines the default value if left out (e.g., "default").
-                                    type: string
-                                required:
-                                - name
-                                type: object
-                              trustedCA:
-                                description: TrustedCA is the file name or k8s secret item name for the trusted CA. If omitted, 'ca.crt' is assumed, if it exists. If given, the item must exist.
-                                type: string
-                            required:
-                            - secret
-                            type: object
                         type: object
                       type: array
                   type: object
@@ -2092,9 +1744,9 @@ spec:
                     type: object
                   type: array
                 egressDeny:
-                  description: EgressDeny is a list of EgressRule which are enforced at egress. Any rule inserted here will by denied regardless of the allowed egress rules in the 'egress' field. If omitted or empty, this rule does not apply at egress.
+                  description: EgressDeny is a list of EgressDenyRule which are enforced at egress. Any rule inserted here will by denied regardless of the allowed egress rules in the 'egress' field. If omitted or empty, this rule does not apply at egress.
                   items:
-                    description: "EgressRule contains all rule types which can be applied at egress, i.e. network traffic that originates inside the endpoint and exits the endpoint selected by the endpointSelector. \n - All members of this structure are optional. If omitted or empty, the   member will have no effect on the rule. \n - If multiple members of the structure are specified, then all members   must match in order for the rule to take effect. The exception to this   rule is the ToRequires member; the effects of any Requires field in any   rule will apply to all other rules as well. \n - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are   mutually exclusive. Only one of these members may be present within an   individual rule."
+                    description: "EgressDenyRule contains all rule types which can be applied at egress, i.e. network traffic that originates inside the endpoint and exits the endpoint selected by the endpointSelector. \n - All members of this structure are optional. If omitted or empty, the   member will have no effect on the rule. \n - If multiple members of the structure are specified, then all members   must match in order for the rule to take effect. The exception to this   rule is the ToRequires member; the effects of any Requires field in any   rule will apply to all other rules as well. \n - ToEndpoints, ToCIDR, ToCIDRSet, ToEntities, ToServices and ToGroups are   mutually exclusive. Only one of these members may be present within an   individual rule."
                     properties:
                       toCIDR:
                         description: "ToCIDR is a list of IP blocks which the endpoint subject to the rule is allowed to initiate connections. Only connections destined for outside of the cluster and not targeting the host will be subject to CIDR rules.  This will match on the destination IP address of outgoing connections. Adding a prefix into ToCIDR or into ToCIDRSet with no ExcludeCIDRs is equivalent. Overlaps are allowed between ToCIDR and ToCIDRSet. \n Example: Any endpoint with the label \"app=database-proxy\" is allowed to initiate connections to 10.2.3.0/24"
@@ -2180,20 +1832,6 @@ spec:
                           - none
                           type: string
                         type: array
-                      toFQDNs:
-                        description: "ToFQDN allows whitelisting DNS names in place of IPs. The IPs that result from DNS resolution of `ToFQDN.MatchName`s are added to the same EgressRule object as ToCIDRSet entries, and behave accordingly. Any L4 and L7 rules within this EgressRule will also apply to these IPs. The DNS -> IP mapping is re-resolved periodically from within the cilium-agent, and the IPs in the DNS response are effected in the policy for selected pods as-is (i.e. the list of IPs is not modified in any way). Note: An explicit rule to allow for DNS traffic is needed for the pods, as ToFQDN counts as an egress rule and will enforce egress policy when PolicyEnforcment=default. Note: If the resolved IPs are IPs within the kubernetes cluster, the ToFQDN rule will not apply to that IP. Note: ToFQDN cannot occur in the same policy as other To* rules. \n The current implementation has a number of limitations: - The DNS resolution originates from cilium-agent, and not from the pods. Differences between the responses seen by cilium agent and a particular pod will whitelist the incorrect IP. - DNS TTLs are ignored, and cilium-agent will repoll on a short interval (5 seconds). Each change to the DNS data will trigger a policy regeneration. This may result in delayed updates to the policy for an endpoint when the data changes often or the system is under load."
-                        items:
-                          properties:
-                            matchName:
-                              description: MatchName matches literal DNS names. A trailing "." is automatically added when missing.
-                              pattern: ^([-a-zA-Z0-9_]+[.]?)+$
-                              type: string
-                            matchPattern:
-                              description: "MatchPattern allows using wildcards to match DNS names. All wildcards are case insensitive. The wildcards are: - \"*\" matches 0 or more DNS valid characters, and may occur anywhere in the pattern. As a special case a \"*\" as the leftmost character, without a following \".\" matches all subdomains as well as the name to the right. A trailing \".\" is automatically added when missing. \n Examples: `*.cilium.io` matches subomains of cilium at that level   www.cilium.io and blog.cilium.io match, cilium.io and google.com do not `*cilium.io` matches cilium.io and all subdomains 1 level below   www.cilium.io, blog.cilium.io and cilium.io match, google.com does not sub*.cilium.io matches subdomains of cilium where the subdomain component begins with \"sub\"   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,   blog.cilium.io, cilium.io and google.com do not"
-                              pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
-                              type: string
-                          type: object
-                        type: array
                       toGroups:
                         description: "ToGroups is a directive that allows the integration with multiple outside providers. Currently, only AWS is supported, and the rule can select by multiple sub directives: \n Example: toGroups: - aws:     securityGroupsIds:     - 'sg-XXXXXXXXXXXXX'"
                         items:
@@ -2220,37 +1858,10 @@ spec:
                           type: object
                         type: array
                       toPorts:
-                        description: "ToPorts is a list of destination ports identified by port number and protocol which the endpoint subject to the rule is allowed to connect to. \n Example: Any endpoint with the label \"role=frontend\" is allowed to initiate connections to destination port 8080/tcp"
+                        description: "ToPorts is a list of destination ports identified by port number and protocol which the endpoint subject to the rule is not allowed to connect to. \n Example: Any endpoint with the label \"role=frontend\" is not allowed to initiate connections to destination port 8080/tcp"
                         items:
-                          description: PortRule is a list of ports/protocol combinations with optional Layer 7 rules which must be met.
+                          description: PortDenyRule is a list of ports/protocol that should be used for deny policies. This structure lacks the L7Rules since it's not supported in deny policies.
                           properties:
-                            originatingTLS:
-                              description: OriginatingTLS is the TLS context for the connections originated by the L7 proxy.  For egress policy this specifies the client-side TLS parameters for the upstream connection originating from the L7 proxy to the remote destination. For ingress policy this specifies the client-side TLS parameters for the connection from the L7 proxy to the local endpoint.
-                              properties:
-                                certificate:
-                                  description: Certificate is the file name or k8s secret item name for the certificate chain. If omitted, 'tls.crt' is assumed, if it exists. If given, the item must exist.
-                                  type: string
-                                privateKey:
-                                  description: PrivateKey is the file name or k8s secret item name for the private key matching the certificate chain. If omitted, 'tls.key' is assumed, if it exists. If given, the item must exist.
-                                  type: string
-                                secret:
-                                  description: 'Secret is the secret that contains the certificates and private key for the TLS context. By default, Cilium will search in this secret for the following items:  - ''ca.crt''  - Which represents the trusted CA to verify remote source.  - ''tls.crt'' - Which represents the public key certificate.  - ''tls.key'' - Which represents the private key matching the public key                certificate.'
-                                  properties:
-                                    name:
-                                      description: Name is the name of the secret.
-                                      type: string
-                                    namespace:
-                                      description: Namespace is the namespace in which the secret exists. Context of use determines the default value if left out (e.g., "default").
-                                      type: string
-                                  required:
-                                  - name
-                                  type: object
-                                trustedCA:
-                                  description: TrustedCA is the file name or k8s secret item name for the trusted CA. If omitted, 'ca.crt' is assumed, if it exists. If given, the item must exist.
-                                  type: string
-                              required:
-                              - secret
-                              type: object
                             ports:
                               description: Ports is a list of L4 port/protocol
                               items:
@@ -2271,146 +1882,6 @@ spec:
                                 - port
                                 type: object
                               type: array
-                            rules:
-                              description: Rules is a list of additional port level rules which must be met in order for the PortRule to allow the traffic. If omitted or empty, no layer 7 rules are enforced.
-                              properties:
-                                dns:
-                                  description: DNS-specific rules.
-                                  items:
-                                    description: PortRuleDNS is a list of allowed DNS lookups.
-                                    properties:
-                                      matchName:
-                                        description: MatchName matches literal DNS names. A trailing "." is automatically added when missing.
-                                        pattern: ^([-a-zA-Z0-9_]+[.]?)+$
-                                        type: string
-                                      matchPattern:
-                                        description: "MatchPattern allows using wildcards to match DNS names. All wildcards are case insensitive. The wildcards are: - \"*\" matches 0 or more DNS valid characters, and may occur anywhere in the pattern. As a special case a \"*\" as the leftmost character, without a following \".\" matches all subdomains as well as the name to the right. A trailing \".\" is automatically added when missing. \n Examples: `*.cilium.io` matches subomains of cilium at that level   www.cilium.io and blog.cilium.io match, cilium.io and google.com do not `*cilium.io` matches cilium.io and all subdomains 1 level below   www.cilium.io, blog.cilium.io and cilium.io match, google.com does not sub*.cilium.io matches subdomains of cilium where the subdomain component begins with \"sub\"   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,   blog.cilium.io, cilium.io and google.com do not"
-                                        pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
-                                        type: string
-                                    type: object
-                                  type: array
-                                http:
-                                  description: HTTP specific rules.
-                                  items:
-                                    description: "PortRuleHTTP is a list of HTTP protocol constraints. All fields are optional, if all fields are empty or missing, the rule does not have any effect. \n All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional \"path\" part of a URL as defined by RFC 3986."
-                                    properties:
-                                      headerMatches:
-                                        description: HeaderMatches is a list of HTTP headers which must be present and match against the given values. Mismatch field can be used to specify what to do when there is no match.
-                                        items:
-                                          description: HeaderMatch extends the HeaderValue for matching requirement of a named header field against an immediate string, a secret value, or a regex.  If none of the optional fields is present, then the header value is not matched, only presence of the header is enough.
-                                          properties:
-                                            mismatch:
-                                              description: Mismatch identifies what to do in case there is no match. The default is to drop the request. Otherwise the overall rule is still considered as matching, but the mismatches are logged in the access log.
-                                              enum:
-                                              - LOG
-                                              - ADD
-                                              - DELETE
-                                              - REPLACE
-                                              type: string
-                                            name:
-                                              description: Name identifies the header.
-                                              type: string
-                                            secret:
-                                              description: Secret refers to a secret that contains the value to be matched against. The secret must only contain one entry. If the referred secret does not exist, and there is no "Value" specified, the match will fail.
-                                              properties:
-                                                name:
-                                                  description: Name is the name of the secret.
-                                                  type: string
-                                                namespace:
-                                                  description: Namespace is the namespace in which the secret exists. Context of use determines the default value if left out (e.g., "default").
-                                                  type: string
-                                              required:
-                                              - name
-                                              type: object
-                                            value:
-                                              description: Value matches the exact value of the header. Can be specified either alone or together with "Secret"; will be used as the header value if the secret can not be found in the latter case.
-                                              type: string
-                                          required:
-                                          - name
-                                          type: object
-                                        type: array
-                                      headers:
-                                        description: Headers is a list of HTTP headers which must be present in the request. If omitted or empty, requests are allowed regardless of headers present.
-                                        items:
-                                          type: string
-                                        type: array
-                                      host:
-                                        description: "Host is an extended POSIX regex matched against the host header of a request, e.g. \"foo.com\" \n If omitted or empty, the value of the host header is ignored."
-                                        format: idn-hostname
-                                        type: string
-                                      method:
-                                        description: "Method is an extended POSIX regex matched against the method of a request, e.g. \"GET\", \"POST\", \"PUT\", \"PATCH\", \"DELETE\", ... \n If omitted or empty, all methods are allowed."
-                                        type: string
-                                      path:
-                                        description: "Path is an extended POSIX regex matched against the path of a request. Currently it can contain characters disallowed from the conventional \"path\" part of a URL as defined by RFC 3986. \n If omitted or empty, all paths are all allowed."
-                                        type: string
-                                    type: object
-                                  type: array
-                                kafka:
-                                  description: Kafka-specific rules.
-                                  items:
-                                    description: PortRule is a list of Kafka protocol constraints. All fields are optional, if all fields are empty or missing, the rule will match all Kafka messages.
-                                    properties:
-                                      apiKey:
-                                        description: "APIKey is a case-insensitive string matched against the key of a request, e.g. \"produce\", \"fetch\", \"createtopic\", \"deletetopic\", et al Reference: https://kafka.apache.org/protocol#protocol_api_keys \n If omitted or empty, and if Role is not specified, then all keys are allowed."
-                                        type: string
-                                      apiVersion:
-                                        description: "APIVersion is the version matched against the api version of the Kafka message. If set, it has to be a string representing a positive integer. \n If omitted or empty, all versions are allowed."
-                                        type: string
-                                      clientID:
-                                        description: "ClientID is the client identifier as provided in the request. \n From Kafka protocol documentation: This is a user supplied identifier for the client application. The user can use any identifier they like and it will be used when logging errors, monitoring aggregates, etc. For example, one might want to monitor not just the requests per second overall, but the number coming from each client application (each of which could reside on multiple servers). This id acts as a logical grouping across all requests from a particular client. \n If omitted or empty, all client identifiers are allowed."
-                                        type: string
-                                      role:
-                                        description: "Role is a case-insensitive string and describes a group of API keys necessary to perform certain higher-level Kafka operations such as \"produce\" or \"consume\". A Role automatically expands into all APIKeys required to perform the specified higher-level operation. \n The following values are supported:  - \"produce\": Allow producing to the topics specified in the rule  - \"consume\": Allow consuming from the topics specified in the rule \n This field is incompatible with the APIKey field, i.e APIKey and Role cannot both be specified in the same rule. \n If omitted or empty, and if APIKey is not specified, then all keys are allowed."
-                                        enum:
-                                        - produce
-                                        - consume
-                                        type: string
-                                      topic:
-                                        description: "Topic is the topic name contained in the message. If a Kafka request contains multiple topics, then all topics must be allowed or the message will be rejected. \n This constraint is ignored if the matched request message type doesn't contain any topic. Maximum size of Topic can be 249 characters as per recent Kafka spec and allowed characters are a-z, A-Z, 0-9, -, . and _. \n Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10 version the length was changed from 255 to 249. For compatibility reasons we are using 255. \n If omitted or empty, all topics are allowed."
-                                        maxLength: 255
-                                        type: string
-                                    type: object
-                                  type: array
-                                l7:
-                                  description: Key-value pair rules.
-                                  items:
-                                    additionalProperties:
-                                      type: string
-                                    description: PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as protocol constraints. All fields are optional, if all fields are empty or missing, the rule does not have any effect.
-                                    type: object
-                                  type: array
-                                l7proto:
-                                  description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                  type: string
-                              type: object
-                            terminatingTLS:
-                              description: TerminatingTLS is the TLS context for the connection terminated by the L7 proxy.  For egress policy this specifies the server-side TLS parameters to be applied on the connections originated from the local endpoint and terminated by the L7 proxy. For ingress policy this specifies the server-side TLS parameters to be applied on the connections originated from a remote source and terminated by the L7 proxy.
-                              properties:
-                                certificate:
-                                  description: Certificate is the file name or k8s secret item name for the certificate chain. If omitted, 'tls.crt' is assumed, if it exists. If given, the item must exist.
-                                  type: string
-                                privateKey:
-                                  description: PrivateKey is the file name or k8s secret item name for the private key matching the certificate chain. If omitted, 'tls.key' is assumed, if it exists. If given, the item must exist.
-                                  type: string
-                                secret:
-                                  description: 'Secret is the secret that contains the certificates and private key for the TLS context. By default, Cilium will search in this secret for the following items:  - ''ca.crt''  - Which represents the trusted CA to verify remote source.  - ''tls.crt'' - Which represents the public key certificate.  - ''tls.key'' - Which represents the private key matching the public key                certificate.'
-                                  properties:
-                                    name:
-                                      description: Name is the name of the secret.
-                                      type: string
-                                    namespace:
-                                      description: Namespace is the namespace in which the secret exists. Context of use determines the default value if left out (e.g., "default").
-                                      type: string
-                                  required:
-                                  - name
-                                  type: object
-                                trustedCA:
-                                  description: TrustedCA is the file name or k8s secret item name for the trusted CA. If omitted, 'ca.crt' is assumed, if it exists. If given, the item must exist.
-                                  type: string
-                              required:
-                              - secret
-                              type: object
                           type: object
                         type: array
                       toRequires:
@@ -2882,9 +2353,9 @@ spec:
                     type: object
                   type: array
                 ingressDeny:
-                  description: IngressDeny is a list of IngressRule which are enforced at ingress. Any rule inserted here will by denied regardless of the allowed ingress rules in the 'ingress' field. If omitted or empty, this rule does not apply at ingress.
+                  description: IngressDeny is a list of IngressDenyRule which are enforced at ingress. Any rule inserted here will by denied regardless of the allowed ingress rules in the 'ingress' field. If omitted or empty, this rule does not apply at ingress.
                   items:
-                    description: "IngressRule contains all rule types which can be applied at ingress, i.e. network traffic that originates outside of the endpoint and is entering the endpoint selected by the endpointSelector. \n - All members of this structure are optional. If omitted or empty, the   member will have no effect on the rule. \n - If multiple members are set, all of them need to match in order for   the rule to take effect. The exception to this rule is FromRequires field;   the effects of any Requires field in any rule will apply to all other   rules as well. \n - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are mutually   exclusive. Only one of these members may be present within an individual   rule."
+                    description: "IngressDenyRule contains all rule types which can be applied at ingress, i.e. network traffic that originates outside of the endpoint and is entering the endpoint selected by the endpointSelector. \n - All members of this structure are optional. If omitted or empty, the   member will have no effect on the rule. \n - If multiple members are set, all of them need to match in order for   the rule to take effect. The exception to this rule is FromRequires field;   the effects of any Requires field in any rule will apply to all other   rules as well. \n - FromEndpoints, FromCIDR, FromCIDRSet and FromEntities are mutually   exclusive. Only one of these members may be present within an individual   rule."
                     properties:
                       fromCIDR:
                         description: "FromCIDR is a list of IP blocks which the endpoint subject to the rule is allowed to receive connections from. Only connections which do *not* originate from the cluster or from the local host are subject to CIDR rules. In order to allow in-cluster connectivity, use the FromEndpoints field.  This will match on the source IP address of incoming connections. Adding  a prefix into FromCIDR or into FromCIDRSet with no ExcludeCIDRs is  equivalent.  Overlaps are allowed between FromCIDR and FromCIDRSet. \n Example: Any endpoint with the label \"app=my-legacy-pet\" is allowed to receive connections from 10.3.9.1"
@@ -3012,37 +2483,10 @@ spec:
                           type: object
                         type: array
                       toPorts:
-                        description: "ToPorts is a list of destination ports identified by port number and protocol which the endpoint subject to the rule is allowed to receive connections on. \n Example: Any endpoint with the label \"app=httpd\" can only accept incoming connections on port 80/tcp."
+                        description: "ToPorts is a list of destination ports identified by port number and protocol which the endpoint subject to the rule is not allowed to receive connections on. \n Example: Any endpoint with the label \"app=httpd\" can not accept incoming connections on port 80/tcp."
                         items:
-                          description: PortRule is a list of ports/protocol combinations with optional Layer 7 rules which must be met.
+                          description: PortDenyRule is a list of ports/protocol that should be used for deny policies. This structure lacks the L7Rules since it's not supported in deny policies.
                           properties:
-                            originatingTLS:
-                              description: OriginatingTLS is the TLS context for the connections originated by the L7 proxy.  For egress policy this specifies the client-side TLS parameters for the upstream connection originating from the L7 proxy to the remote destination. For ingress policy this specifies the client-side TLS parameters for the connection from the L7 proxy to the local endpoint.
-                              properties:
-                                certificate:
-                                  description: Certificate is the file name or k8s secret item name for the certificate chain. If omitted, 'tls.crt' is assumed, if it exists. If given, the item must exist.
-                                  type: string
-                                privateKey:
-                                  description: PrivateKey is the file name or k8s secret item name for the private key matching the certificate chain. If omitted, 'tls.key' is assumed, if it exists. If given, the item must exist.
-                                  type: string
-                                secret:
-                                  description: 'Secret is the secret that contains the certificates and private key for the TLS context. By default, Cilium will search in this secret for the following items:  - ''ca.crt''  - Which represents the trusted CA to verify remote source.  - ''tls.crt'' - Which represents the public key certificate.  - ''tls.key'' - Which represents the private key matching the public key                certificate.'
-                                  properties:
-                                    name:
-                                      description: Name is the name of the secret.
-                                      type: string
-                                    namespace:
-                                      description: Namespace is the namespace in which the secret exists. Context of use determines the default value if left out (e.g., "default").
-                                      type: string
-                                  required:
-                                  - name
-                                  type: object
-                                trustedCA:
-                                  description: TrustedCA is the file name or k8s secret item name for the trusted CA. If omitted, 'ca.crt' is assumed, if it exists. If given, the item must exist.
-                                  type: string
-                              required:
-                              - secret
-                              type: object
                             ports:
                               description: Ports is a list of L4 port/protocol
                               items:
@@ -3063,146 +2507,6 @@ spec:
                                 - port
                                 type: object
                               type: array
-                            rules:
-                              description: Rules is a list of additional port level rules which must be met in order for the PortRule to allow the traffic. If omitted or empty, no layer 7 rules are enforced.
-                              properties:
-                                dns:
-                                  description: DNS-specific rules.
-                                  items:
-                                    description: PortRuleDNS is a list of allowed DNS lookups.
-                                    properties:
-                                      matchName:
-                                        description: MatchName matches literal DNS names. A trailing "." is automatically added when missing.
-                                        pattern: ^([-a-zA-Z0-9_]+[.]?)+$
-                                        type: string
-                                      matchPattern:
-                                        description: "MatchPattern allows using wildcards to match DNS names. All wildcards are case insensitive. The wildcards are: - \"*\" matches 0 or more DNS valid characters, and may occur anywhere in the pattern. As a special case a \"*\" as the leftmost character, without a following \".\" matches all subdomains as well as the name to the right. A trailing \".\" is automatically added when missing. \n Examples: `*.cilium.io` matches subomains of cilium at that level   www.cilium.io and blog.cilium.io match, cilium.io and google.com do not `*cilium.io` matches cilium.io and all subdomains 1 level below   www.cilium.io, blog.cilium.io and cilium.io match, google.com does not sub*.cilium.io matches subdomains of cilium where the subdomain component begins with \"sub\"   sub.cilium.io and subdomain.cilium.io match, www.cilium.io,   blog.cilium.io, cilium.io and google.com do not"
-                                        pattern: ^([-a-zA-Z0-9_*]+[.]?)+$
-                                        type: string
-                                    type: object
-                                  type: array
-                                http:
-                                  description: HTTP specific rules.
-                                  items:
-                                    description: "PortRuleHTTP is a list of HTTP protocol constraints. All fields are optional, if all fields are empty or missing, the rule does not have any effect. \n All fields of this type are extended POSIX regex as defined by IEEE Std 1003.1, (i.e this follows the egrep/unix syntax, not the perl syntax) matched against the path of an incoming request. Currently it can contain characters disallowed from the conventional \"path\" part of a URL as defined by RFC 3986."
-                                    properties:
-                                      headerMatches:
-                                        description: HeaderMatches is a list of HTTP headers which must be present and match against the given values. Mismatch field can be used to specify what to do when there is no match.
-                                        items:
-                                          description: HeaderMatch extends the HeaderValue for matching requirement of a named header field against an immediate string, a secret value, or a regex.  If none of the optional fields is present, then the header value is not matched, only presence of the header is enough.
-                                          properties:
-                                            mismatch:
-                                              description: Mismatch identifies what to do in case there is no match. The default is to drop the request. Otherwise the overall rule is still considered as matching, but the mismatches are logged in the access log.
-                                              enum:
-                                              - LOG
-                                              - ADD
-                                              - DELETE
-                                              - REPLACE
-                                              type: string
-                                            name:
-                                              description: Name identifies the header.
-                                              type: string
-                                            secret:
-                                              description: Secret refers to a secret that contains the value to be matched against. The secret must only contain one entry. If the referred secret does not exist, and there is no "Value" specified, the match will fail.
-                                              properties:
-                                                name:
-                                                  description: Name is the name of the secret.
-                                                  type: string
-                                                namespace:
-                                                  description: Namespace is the namespace in which the secret exists. Context of use determines the default value if left out (e.g., "default").
-                                                  type: string
-                                              required:
-                                              - name
-                                              type: object
-                                            value:
-                                              description: Value matches the exact value of the header. Can be specified either alone or together with "Secret"; will be used as the header value if the secret can not be found in the latter case.
-                                              type: string
-                                          required:
-                                          - name
-                                          type: object
-                                        type: array
-                                      headers:
-                                        description: Headers is a list of HTTP headers which must be present in the request. If omitted or empty, requests are allowed regardless of headers present.
-                                        items:
-                                          type: string
-                                        type: array
-                                      host:
-                                        description: "Host is an extended POSIX regex matched against the host header of a request, e.g. \"foo.com\" \n If omitted or empty, the value of the host header is ignored."
-                                        format: idn-hostname
-                                        type: string
-                                      method:
-                                        description: "Method is an extended POSIX regex matched against the method of a request, e.g. \"GET\", \"POST\", \"PUT\", \"PATCH\", \"DELETE\", ... \n If omitted or empty, all methods are allowed."
-                                        type: string
-                                      path:
-                                        description: "Path is an extended POSIX regex matched against the path of a request. Currently it can contain characters disallowed from the conventional \"path\" part of a URL as defined by RFC 3986. \n If omitted or empty, all paths are all allowed."
-                                        type: string
-                                    type: object
-                                  type: array
-                                kafka:
-                                  description: Kafka-specific rules.
-                                  items:
-                                    description: PortRule is a list of Kafka protocol constraints. All fields are optional, if all fields are empty or missing, the rule will match all Kafka messages.
-                                    properties:
-                                      apiKey:
-                                        description: "APIKey is a case-insensitive string matched against the key of a request, e.g. \"produce\", \"fetch\", \"createtopic\", \"deletetopic\", et al Reference: https://kafka.apache.org/protocol#protocol_api_keys \n If omitted or empty, and if Role is not specified, then all keys are allowed."
-                                        type: string
-                                      apiVersion:
-                                        description: "APIVersion is the version matched against the api version of the Kafka message. If set, it has to be a string representing a positive integer. \n If omitted or empty, all versions are allowed."
-                                        type: string
-                                      clientID:
-                                        description: "ClientID is the client identifier as provided in the request. \n From Kafka protocol documentation: This is a user supplied identifier for the client application. The user can use any identifier they like and it will be used when logging errors, monitoring aggregates, etc. For example, one might want to monitor not just the requests per second overall, but the number coming from each client application (each of which could reside on multiple servers). This id acts as a logical grouping across all requests from a particular client. \n If omitted or empty, all client identifiers are allowed."
-                                        type: string
-                                      role:
-                                        description: "Role is a case-insensitive string and describes a group of API keys necessary to perform certain higher-level Kafka operations such as \"produce\" or \"consume\". A Role automatically expands into all APIKeys required to perform the specified higher-level operation. \n The following values are supported:  - \"produce\": Allow producing to the topics specified in the rule  - \"consume\": Allow consuming from the topics specified in the rule \n This field is incompatible with the APIKey field, i.e APIKey and Role cannot both be specified in the same rule. \n If omitted or empty, and if APIKey is not specified, then all keys are allowed."
-                                        enum:
-                                        - produce
-                                        - consume
-                                        type: string
-                                      topic:
-                                        description: "Topic is the topic name contained in the message. If a Kafka request contains multiple topics, then all topics must be allowed or the message will be rejected. \n This constraint is ignored if the matched request message type doesn't contain any topic. Maximum size of Topic can be 249 characters as per recent Kafka spec and allowed characters are a-z, A-Z, 0-9, -, . and _. \n Older Kafka versions had longer topic lengths of 255, but in Kafka 0.10 version the length was changed from 255 to 249. For compatibility reasons we are using 255. \n If omitted or empty, all topics are allowed."
-                                        maxLength: 255
-                                        type: string
-                                    type: object
-                                  type: array
-                                l7:
-                                  description: Key-value pair rules.
-                                  items:
-                                    additionalProperties:
-                                      type: string
-                                    description: PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as protocol constraints. All fields are optional, if all fields are empty or missing, the rule does not have any effect.
-                                    type: object
-                                  type: array
-                                l7proto:
-                                  description: Name of the L7 protocol for which the Key-value pair rules apply.
-                                  type: string
-                              type: object
-                            terminatingTLS:
-                              description: TerminatingTLS is the TLS context for the connection terminated by the L7 proxy.  For egress policy this specifies the server-side TLS parameters to be applied on the connections originated from the local endpoint and terminated by the L7 proxy. For ingress policy this specifies the server-side TLS parameters to be applied on the connections originated from a remote source and terminated by the L7 proxy.
-                              properties:
-                                certificate:
-                                  description: Certificate is the file name or k8s secret item name for the certificate chain. If omitted, 'tls.crt' is assumed, if it exists. If given, the item must exist.
-                                  type: string
-                                privateKey:
-                                  description: PrivateKey is the file name or k8s secret item name for the private key matching the certificate chain. If omitted, 'tls.key' is assumed, if it exists. If given, the item must exist.
-                                  type: string
-                                secret:
-                                  description: 'Secret is the secret that contains the certificates and private key for the TLS context. By default, Cilium will search in this secret for the following items:  - ''ca.crt''  - Which represents the trusted CA to verify remote source.  - ''tls.crt'' - Which represents the public key certificate.  - ''tls.key'' - Which represents the private key matching the public key                certificate.'
-                                  properties:
-                                    name:
-                                      description: Name is the name of the secret.
-                                      type: string
-                                    namespace:
-                                      description: Namespace is the namespace in which the secret exists. Context of use determines the default value if left out (e.g., "default").
-                                      type: string
-                                  required:
-                                  - name
-                                  type: object
-                                trustedCA:
-                                  description: TrustedCA is the file name or k8s secret item name for the trusted CA. If omitted, 'ca.crt' is assumed, if it exists. If given, the item must exist.
-                                  type: string
-                              required:
-                              - secret
-                              type: object
                           type: object
                         type: array
                     type: object

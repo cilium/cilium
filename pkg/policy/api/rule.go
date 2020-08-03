@@ -57,13 +57,13 @@ type Rule struct {
 	// +kubebuilder:validation:Optional
 	Ingress []IngressRule `json:"ingress,omitempty"`
 
-	// IngressDeny is a list of IngressRule which are enforced at ingress.
+	// IngressDeny is a list of IngressDenyRule which are enforced at ingress.
 	// Any rule inserted here will by denied regardless of the allowed ingress
 	// rules in the 'ingress' field.
 	// If omitted or empty, this rule does not apply at ingress.
 	//
 	// +kubebuilder:validation:Optional
-	IngressDeny []IngressRule `json:"ingressDeny,omitempty"`
+	IngressDeny []IngressDenyRule `json:"ingressDeny,omitempty"`
 
 	// Egress is a list of EgressRule which are enforced at egress.
 	// If omitted or empty, this rule does not apply at egress.
@@ -71,13 +71,13 @@ type Rule struct {
 	// +kubebuilder:validation:Optional
 	Egress []EgressRule `json:"egress,omitempty"`
 
-	// EgressDeny is a list of EgressRule which are enforced at egress.
+	// EgressDeny is a list of EgressDenyRule which are enforced at egress.
 	// Any rule inserted here will by denied regardless of the allowed egress
 	// rules in the 'egress' field.
 	// If omitted or empty, this rule does not apply at egress.
 	//
 	// +kubebuilder:validation:Optional
-	EgressDeny []EgressRule `json:"egressDeny,omitempty"`
+	EgressDeny []EgressDenyRule `json:"egressDeny,omitempty"`
 
 	// Labels is a list of optional strings which can be used to
 	// re-identify the rule or to store metadata. It is possible to lookup
@@ -100,9 +100,9 @@ type Rule struct {
 func (r *Rule) MarshalJSON() ([]byte, error) {
 	type common struct {
 		Ingress     []IngressRule     `json:"ingress,omitempty"`
-		IngressDeny []IngressRule     `json:"ingressDeny,omitempty"`
+		IngressDeny []IngressDenyRule `json:"ingressDeny,omitempty"`
 		Egress      []EgressRule      `json:"egress,omitempty"`
-		EgressDeny  []EgressRule      `json:"egressDeny,omitempty"`
+		EgressDeny  []EgressDenyRule  `json:"egressDeny,omitempty"`
 		Labels      labels.LabelArray `json:"labels,omitempty"`
 		Description string            `json:"description,omitempty"`
 	}

@@ -57,11 +57,13 @@ func (s *K8sSuite) TestTranslatorDirect(c *C) {
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Egress: []api.EgressRule{
 			{
-				ToServices: []api.Service{
-					{
-						K8sService: &api.K8sServiceNamespace{
-							ServiceName: serviceInfo.Name,
-							Namespace:   serviceInfo.Namespace,
+				EgressCommonRule: api.EgressCommonRule{
+					ToServices: []api.Service{
+						{
+							K8sService: &api.K8sServiceNamespace{
+								ServiceName: serviceInfo.Name,
+								Namespace:   serviceInfo.Namespace,
+							},
 						},
 					},
 				},
@@ -161,11 +163,13 @@ func (s *K8sSuite) TestTranslatorLabels(c *C) {
 	rule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Egress: []api.EgressRule{{
-			ToServices: []api.Service{
-				{
-					K8sServiceSelector: &api.K8sServiceSelectorNamespace{
-						Selector:  selector,
-						Namespace: "",
+			EgressCommonRule: api.EgressCommonRule{
+				ToServices: []api.Service{
+					{
+						K8sServiceSelector: &api.K8sServiceSelectorNamespace{
+							Selector:  selector,
+							Namespace: "",
+						},
 					},
 				},
 			}},
@@ -298,11 +302,13 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 	rule1 := api.Rule{
 		EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 		Egress: []api.EgressRule{{
-			ToServices: []api.Service{
-				{
-					K8sService: &api.K8sServiceNamespace{
-						ServiceName: serviceInfo.Name,
-						Namespace:   serviceInfo.Namespace,
+			EgressCommonRule: api.EgressCommonRule{
+				ToServices: []api.Service{
+					{
+						K8sService: &api.K8sServiceNamespace{
+							ServiceName: serviceInfo.Name,
+							Namespace:   serviceInfo.Namespace,
+						},
 					},
 				},
 			}},
@@ -334,9 +340,11 @@ func (s *K8sSuite) TestPreprocessRules(c *C) {
 func (s *K8sSuite) TestDontDeleteUserRules(c *C) {
 	userCIDR := api.CIDR("10.1.1.2/32")
 	rule := &api.EgressRule{
-		ToCIDRSet: []api.CIDRRule{
-			{
-				Cidr: userCIDR,
+		EgressCommonRule: api.EgressCommonRule{
+			ToCIDRSet: []api.CIDRRule{
+				{
+					Cidr: userCIDR,
+				},
 			},
 		},
 	}

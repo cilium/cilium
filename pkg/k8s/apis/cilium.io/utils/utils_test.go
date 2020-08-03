@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -226,11 +226,13 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					),
 					Ingress: []api.IngressRule{
 						{
-							FromEndpoints: []api.EndpointSelector{
-								{
-									LabelSelector: &slim_metav1.LabelSelector{
-										MatchLabels: map[string]string{
-											podAnyPrefixLbl: "ns-2",
+							IngressCommonRule: api.IngressCommonRule{
+								FromEndpoints: []api.EndpointSelector{
+									{
+										LabelSelector: &slim_metav1.LabelSelector{
+											MatchLabels: map[string]string{
+												podAnyPrefixLbl: "ns-2",
+											},
 										},
 									},
 								},
@@ -250,14 +252,16 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			).WithIngressRules(
 				[]api.IngressRule{
 					{
-						FromEndpoints: []api.EndpointSelector{
-							api.NewESFromK8sLabelSelector(
-								labels.LabelSourceAnyKeyPrefix,
-								&slim_metav1.LabelSelector{
-									MatchLabels: map[string]string{
-										k8sConst.PodNamespaceLabel: "ns-2",
-									},
-								}),
+						IngressCommonRule: api.IngressCommonRule{
+							FromEndpoints: []api.EndpointSelector{
+								api.NewESFromK8sLabelSelector(
+									labels.LabelSourceAnyKeyPrefix,
+									&slim_metav1.LabelSelector{
+										MatchLabels: map[string]string{
+											k8sConst.PodNamespaceLabel: "ns-2",
+										},
+									}),
+							},
 						},
 					},
 				},
@@ -304,9 +308,11 @@ func Test_ParseToCiliumRule(t *testing.T) {
 					),
 					Ingress: []api.IngressRule{
 						{
-							FromEndpoints: []api.EndpointSelector{
-								{
-									LabelSelector: &slim_metav1.LabelSelector{},
+							IngressCommonRule: api.IngressCommonRule{
+								FromEndpoints: []api.EndpointSelector{
+									{
+										LabelSelector: &slim_metav1.LabelSelector{},
+									},
 								},
 							},
 						},
@@ -323,18 +329,20 @@ func Test_ParseToCiliumRule(t *testing.T) {
 			).WithIngressRules(
 				[]api.IngressRule{
 					{
-						FromEndpoints: []api.EndpointSelector{
-							api.NewESFromK8sLabelSelector(
-								labels.LabelSourceK8sKeyPrefix,
-								&slim_metav1.LabelSelector{
-									MatchExpressions: []slim_metav1.LabelSelectorRequirement{
-										{
-											Key:      k8sConst.PodNamespaceLabel,
-											Operator: slim_metav1.LabelSelectorOpExists,
-											Values:   []string{},
+						IngressCommonRule: api.IngressCommonRule{
+							FromEndpoints: []api.EndpointSelector{
+								api.NewESFromK8sLabelSelector(
+									labels.LabelSourceK8sKeyPrefix,
+									&slim_metav1.LabelSelector{
+										MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+											{
+												Key:      k8sConst.PodNamespaceLabel,
+												Operator: slim_metav1.LabelSelectorOpExists,
+												Values:   []string{},
+											},
 										},
-									},
-								}),
+									}),
+							},
 						},
 					},
 				},

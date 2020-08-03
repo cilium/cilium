@@ -156,6 +156,36 @@ type PortRule struct {
 	Rules *L7Rules `json:"rules,omitempty"`
 }
 
+// GetPortProtocols returns the Ports field of the PortRule.
+func (pd PortRule) GetPortProtocols() []PortProtocol {
+	return pd.Ports
+}
+
+// GetPortRule returns the PortRule.
+func (pd *PortRule) GetPortRule() *PortRule {
+	return pd
+}
+
+// PortDenyRule is a list of ports/protocol that should be used for deny
+// policies. This structure lacks the L7Rules since it's not supported in deny
+// policies.
+type PortDenyRule struct {
+	// Ports is a list of L4 port/protocol
+	//
+	// +kubebuilder:validation:Optional
+	Ports []PortProtocol `json:"ports,omitempty"`
+}
+
+// GetPortProtocols returns the Ports field of the PortDenyRule.
+func (pd PortDenyRule) GetPortProtocols() []PortProtocol {
+	return pd.Ports
+}
+
+// GetPortRule returns nil has it is not a PortRule.
+func (pd *PortDenyRule) GetPortRule() *PortRule {
+	return nil
+}
+
 // L7Rules is a union of port level rule types. Mixing of different port
 // level rule types is disallowed, so exactly one of the following must be set.
 // If none are specified, then no additional port level rules are applied.
@@ -198,4 +228,59 @@ func (rules *L7Rules) Len() int {
 // IsEmpty returns whether the `L7Rules` is nil or contains nil rules.
 func (rules *L7Rules) IsEmpty() bool {
 	return rules == nil || (rules.HTTP == nil && rules.Kafka == nil && rules.DNS == nil && rules.L7 == nil)
+}
+
+// PortRules is a slice of PortRule.
+type PortRules []PortRule
+
+// Iterate iterates over all elements of PortRules.
+func (pr PortRules) Iterate(f func(pr Ports) error) error {
+	for i := range pr {
+		err := f(&pr[i])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Len returns the length of the elements of PortRules.
+func (pr PortRules) Len() int {
+	return len(pr)
+}
+
+// PortDenyRules is a slice of PortDenyRule.
+type PortDenyRules []PortDenyRule
+
+// Iterate iterates over all elements of PortDenyRules.
+func (pr PortDenyRules) Iterate(f func(pr Ports) error) error {
+	for i := range pr {
+		err := f(&pr[i])
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+// Len returns the length of the elements of PortDenyRules.
+func (pr PortDenyRules) Len() int {
+	return len(pr)
+}
+
+// Ports is an interface that should be used by all implementations of the
+// PortProtocols.
+type Ports interface {
+	// GetPortProtocols returns the slice PortProtocol
+	GetPortProtocols() []PortProtocol
+	// GetPortRule returns a PortRule, if the implementation does not support
+	// it, then returns nil.
+	GetPortRule() *PortRule
+}
+
+// PortsIterator is an interface that should be implemented by structures that
+// can iterate over a list of Ports interfaces.
+type PortsIterator interface {
+	Iterate(f func(pr Ports) error) error
+	Len() int
 }
