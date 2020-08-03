@@ -169,17 +169,24 @@ const (
 // matchExpressions are ANDed. An empty label selector matches all objects. A null
 // label selector matches no objects.
 type LabelSelector struct {
-	// matchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
+	// MatchLabels is a map of {key,value} pairs. A single {key,value} in the matchLabels
 	// map is equivalent to an element of matchExpressions, whose key field is "key", the
 	// operator is "In", and the values array contains only "value". The requirements are ANDed.
-	// +optional
-	MatchLabels map[string]string `json:"matchLabels,omitempty" protobuf:"bytes,1,rep,name=matchLabels"`
+	//
+	// +kubebuilder:validation:Optional
+	MatchLabels map[string]MatchLabelsValue `json:"matchLabels,omitempty" protobuf:"bytes,1,rep,name=matchLabels"`
 
 	// MatchExpressions is a list of label selector requirements. The requirements are ANDed.
 	//
 	// +kubebuilder:validation:Optional
 	MatchExpressions []LabelSelectorRequirement `json:"matchExpressions,omitempty" protobuf:"bytes,2,rep,name=matchExpressions"`
 }
+
+// MatchLabelsValue represents the value from the MatchLabels {key,value} pair.
+//
+// +kubebuilder:validation:MaxLength=63
+// +kubebuilder:validation:Pattern=`^(([A-Za-z0-9][-A-Za-z0-9_.]*)?[A-Za-z0-9])?$`
+type MatchLabelsValue = string
 
 // A label selector requirement is a selector that contains values, a key, and an operator that
 // relates the key and values.
