@@ -493,6 +493,7 @@ func (e *etcdClient) renewSession(ctx context.Context) error {
 		e.UnlockIgnoreTime()
 		return fmt.Errorf("unable to renew etcd session: %s", err)
 	}
+	sessionSuccess <- true
 	log.Infof("Got new lease ID %x", newSession.Lease())
 
 	e.session = newSession
@@ -561,6 +562,7 @@ func (e *etcdClient) renewLockSession(ctx context.Context) error {
 		e.UnlockIgnoreTime()
 		return fmt.Errorf("unable to renew etcd lock session: %s", err)
 	}
+	sessionSuccess <- true
 	log.Infof("Got new lock lease ID %x", newSession.Lease())
 
 	e.lockSession = newSession
