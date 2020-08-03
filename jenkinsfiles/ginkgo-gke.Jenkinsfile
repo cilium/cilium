@@ -16,6 +16,10 @@ pipeline {
         GKE_KEY=credentials('gke-key')
         TAG="${GIT_COMMIT}"
         HOME="${WORKSPACE}"
+        RUN_QUARANTINED="""${sh(
+                returnStdout: true,
+                script: 'if [ "${RunQuarantined}" = "" ]; then echo -n "false"; else echo -n "${RunQuarantined}"; fi'
+            )}"""
     }
 
     options {
@@ -158,7 +162,7 @@ pipeline {
             steps {
                 dir("${TESTDIR}"){
                     sh 'env'
-                    sh 'ginkgo --focus="${FOCUS}" -v -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh) -cilium.image=${CILIUM_IMAGE} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.holdEnvironment=false'
+                    sh 'ginkgo --focus="${FOCUS}" -v -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh) -cilium.image=${CILIUM_IMAGE} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.holdEnvironment=false -cilium.runQuarantined=${RUN_QUARANTINED}'
                 }
             }
             post {
