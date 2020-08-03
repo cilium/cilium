@@ -38,7 +38,7 @@ hubble-relay:
   # # TODO: Develop a plan to migrate global.hubble.relay.enabled and other
   # # global values
   #
-  # # Configuration for the Hubble CLI
+  # # Configuration for Hubble Relay
   # image:
   #   # repository of the docker image
   #   name: hubble-relay
@@ -78,7 +78,7 @@ hubble-relay:
 
 # global groups all configuration options that have effect on all sub-charts
 global:
-  # registry is the address of the registry and orgnization for all container images
+  # registry is the address of the registry and organization for all container images
   registry: docker.io/cilium
 
   # tag is the container image tag to use
