@@ -45,6 +45,10 @@ type ExtraOptions struct {
 
 	// NoLockQuorumCheck disables the lock acquisition quorum check
 	NoLockQuorumCheck bool
+
+	// HeartbeatHealthCheck enables use of the heartbeat when determining
+	// health
+	HeartbeatHealthCheck bool
 }
 
 // StatusCheckInterval returns the interval of status checks depending on the
