@@ -31,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
-	"k8s.io/api/core/v1"
 	core_v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
@@ -1000,7 +999,7 @@ func (s *K8sSuite) Test_ConvertToK8sService(c *C) {
 		{
 			name: "normal conversion",
 			args: args{
-				obj: &v1.Service{},
+				obj: &core_v1.Service{},
 			},
 			want: &slim_corev1.Service{},
 		},
@@ -1009,7 +1008,7 @@ func (s *K8sSuite) Test_ConvertToK8sService(c *C) {
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
-					Obj: &v1.Service{},
+					Obj: &core_v1.Service{},
 				},
 			},
 			want: cache.DeletedFinalStateUnknown{
@@ -1176,7 +1175,7 @@ func (s *K8sSuite) Test_ConvertToNode(c *C) {
 		{
 			name: "normal conversion",
 			args: args{
-				obj: &v1.Node{},
+				obj: &core_v1.Node{},
 			},
 			want: &slim_corev1.Node{},
 		},
@@ -1185,7 +1184,7 @@ func (s *K8sSuite) Test_ConvertToNode(c *C) {
 			args: args{
 				obj: cache.DeletedFinalStateUnknown{
 					Key: "foo",
-					Obj: &v1.Node{},
+					Obj: &core_v1.Node{},
 				},
 			},
 			want: cache.DeletedFinalStateUnknown{
