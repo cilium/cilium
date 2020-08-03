@@ -229,7 +229,7 @@ type GCFilter struct {
 	// RemoveExpired enables removal of all entries that have expired
 	RemoveExpired bool
 
-	// Time is the reference timestamp to reomove expired entries. If
+	// Time is the reference timestamp to remove expired entries. If
 	// RemoveExpired is true and lifetime is lesser than Time, the entry is
 	// removed
 	Time uint32
