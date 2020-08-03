@@ -15,7 +15,7 @@ objectSets: [
 	ingressCNP,
 ]
 
-globalFlags: "[-t component=<component>] [-t kind=<kind>] [-t name=<name>] [-t topology=<topology>] [-t quarantine=true]"
+globalFlags: "[-t component=<component>] [-t kind=<kind>] [-t name=<name>] [-t topology=<topology>] [-t quarantine=true] [-t type=<tooltype>]"
 
 ccCommand: {
 	#flags: {
@@ -23,6 +23,7 @@ ccCommand: {
 		name:       *"" | string                                                                  @tag(name)
 		topology:   *"any" | "single-node"                                                        @tag(topology,short=any|single-node)
 		kind:       *"" | "Deployment" | "Service" | "CiliumNetworkPolicy"                        @tag(kind,short=Deployment|Service|CiliumNetworkPolicy)
+		type:       *"autocheck" | "tool"                                                         @tag(type,short=autocheck|tool)
 		quarantine: *"false" | "true"                                                             @tag(quarantine,short=false|true)
 	}
 
@@ -39,8 +40,12 @@ ccCommand: {
 		}
 	}
 
+	task: filterType: {
+		resources: [ for x in task.filterComponent.resources if x.metadata.labels.type == #flags.type {x}]
+	}
+
 	task: filterQuarantine: {
-		resources: [ for x in task.filterComponent.resources if x.metadata.labels.quarantine == #flags.quarantine {x}]
+		resources: [ for x in task.filterType.resources if x.metadata.labels.quarantine == #flags.quarantine {x}]
 	}
 
 	task: filterTopology: {

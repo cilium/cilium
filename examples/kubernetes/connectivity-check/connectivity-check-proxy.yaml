@@ -6,6 +6,7 @@ metadata:
     topology: any
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   template:
     metadata:
@@ -56,6 +57,7 @@ metadata:
     topology: any
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   template:
     metadata:
@@ -117,6 +119,7 @@ metadata:
     topology: intra-node
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   template:
     metadata:
@@ -194,6 +197,7 @@ metadata:
     topology: multi-node
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   template:
     metadata:
@@ -271,6 +275,7 @@ metadata:
     topology: intra-node
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   template:
     metadata:
@@ -348,6 +353,7 @@ metadata:
     topology: multi-node
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   template:
     metadata:
@@ -425,6 +431,7 @@ metadata:
     topology: intra-node
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   template:
     metadata:
@@ -502,6 +509,7 @@ metadata:
     topology: multi-node
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   template:
     metadata:
@@ -579,12 +587,13 @@ metadata:
     topology: any
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   ports:
   - port: 80
+  type: ClusterIP
   selector:
     name: echo-c
-  type: ClusterIP
 apiVersion: v1
 kind: Service
 ---
@@ -595,12 +604,13 @@ metadata:
     topology: any
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   ports:
   - port: 80
+  type: ClusterIP
   selector:
     name: echo-c
-  type: ClusterIP
   clusterIP: None
 apiVersion: v1
 kind: Service
@@ -612,11 +622,12 @@ metadata:
     topology: any
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   ports: []
+  type: ClusterIP
   selector:
     name: echo-c-host
-  type: ClusterIP
   clusterIP: None
 apiVersion: v1
 kind: Service
@@ -628,6 +639,7 @@ metadata:
     topology: intra-node
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   endpointSelector:
     matchLabels:
@@ -670,6 +682,7 @@ metadata:
     topology: multi-node
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   endpointSelector:
     matchLabels:
@@ -712,6 +725,7 @@ metadata:
     topology: intra-node
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   endpointSelector:
     matchLabels:
@@ -754,6 +768,7 @@ metadata:
     topology: multi-node
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   endpointSelector:
     matchLabels:
@@ -796,6 +811,7 @@ metadata:
     topology: any
     component: proxy-check
     quarantine: "false"
+    type: autocheck
 spec:
   endpointSelector:
     matchLabels:
@@ -821,6 +837,7 @@ metadata:
     topology: any
     component: network-check
     quarantine: "false"
+    type: autocheck
 spec:
   template:
     metadata:
@@ -870,12 +887,13 @@ metadata:
     topology: any
     component: network-check
     quarantine: "false"
+    type: autocheck
 spec:
   ports:
   - port: 80
+  type: ClusterIP
   selector:
     name: echo-a
-  type: ClusterIP
 apiVersion: v1
 kind: Service
 
@@ -887,6 +905,7 @@ metadata:
     topology: any
     component: services-check
     quarantine: "false"
+    type: autocheck
 spec:
   template:
     metadata:
@@ -937,13 +956,14 @@ metadata:
     topology: any
     component: services-check
     quarantine: "false"
+    type: autocheck
 spec:
   ports:
   - port: 80
     nodePort: 31313
+  type: NodePort
   selector:
     name: echo-b
-  type: NodePort
 apiVersion: v1
 kind: Service
 
@@ -955,6 +975,7 @@ metadata:
     topology: any
     component: services-check
     quarantine: "false"
+    type: autocheck
 spec:
   template:
     metadata:
@@ -1017,11 +1038,12 @@ metadata:
     topology: any
     component: services-check
     quarantine: "false"
+    type: autocheck
 spec:
   ports: []
+  type: ClusterIP
   selector:
     name: echo-b-host
-  type: ClusterIP
   clusterIP: None
 apiVersion: v1
 kind: Service
