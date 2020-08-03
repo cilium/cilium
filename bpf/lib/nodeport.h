@@ -184,7 +184,7 @@ static __always_inline int nodeport_nat_ipv6_fwd(struct __ctx_buff *ctx,
 {
 	struct ipv6_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = 65535,
+		.max_port = NODEPORT_PORT_MAX_NAT,
 	};
 	int ret;
 
@@ -890,7 +890,7 @@ static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx,
 	bool from_endpoint = false;
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
-		.max_port = 65535,
+		.max_port = NODEPORT_PORT_MAX_NAT,
 		.addr = addr,
 	};
 	int ret = CTX_ACT_OK;
