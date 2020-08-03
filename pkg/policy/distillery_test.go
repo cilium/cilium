@@ -184,34 +184,44 @@ var (
 	ruleL3____Allow = api.NewRule().
 			WithLabels(lblsL3____Allow).
 			WithIngressRules([]api.IngressRule{{
-			FromEndpoints: []api.EndpointSelector{allowFooL3_},
-			ToPorts:       allowAllL4_,
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{allowFooL3_},
+			},
+			ToPorts: allowAllL4_,
 		}})
 	lblsL3L4__Allow = labels.ParseLabelArray("l3l4-allow")
 	ruleL3L4__Allow = api.NewRule().
 			WithLabels(lblsL3L4__Allow).
 			WithIngressRules([]api.IngressRule{{
-			FromEndpoints: []api.EndpointSelector{allowFooL3_},
-			ToPorts:       allowPort80,
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{allowFooL3_},
+			},
+			ToPorts: allowPort80,
 		}})
 	ruleL3npL4__Allow = api.NewRule().
 				WithLabels(lblsL3L4__Allow).
 				WithIngressRules([]api.IngressRule{{
-			FromEndpoints: []api.EndpointSelector{allowFooL3_},
-			ToPorts:       allowNamedPort80,
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{allowFooL3_},
+			},
+			ToPorts: allowNamedPort80,
 		}})
 	lblsL3L4L7Allow = labels.ParseLabelArray("l3l4l7-allow")
 	ruleL3L4L7Allow = api.NewRule().
 			WithLabels(lblsL3L4L7Allow).
 			WithIngressRules([]api.IngressRule{{
-			FromEndpoints: []api.EndpointSelector{allowFooL3_},
-			ToPorts:       combineL4L7(allowPort80, allowHTTPRoot),
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{allowFooL3_},
+			},
+			ToPorts: combineL4L7(allowPort80, allowHTTPRoot),
 		}})
 	ruleL3npL4L7Allow = api.NewRule().
 				WithLabels(lblsL3L4L7Allow).
 				WithIngressRules([]api.IngressRule{{
-			FromEndpoints: []api.EndpointSelector{allowFooL3_},
-			ToPorts:       combineL4L7(allowNamedPort80, allowHTTPRoot),
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{allowFooL3_},
+			},
+			ToPorts: combineL4L7(allowNamedPort80, allowHTTPRoot),
 		}})
 	lbls__L4__Allow = labels.ParseLabelArray("l4-allow")
 	rule__L4__Allow = api.NewRule().
@@ -239,19 +249,25 @@ var (
 	rule__L3AllowFoo = api.NewRule().
 				WithLabels(lbls__L3AllowFoo).
 				WithIngressRules([]api.IngressRule{{
-			FromEndpoints: []api.EndpointSelector{allowFooL3_},
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{allowFooL3_},
+			},
 		}})
 	lbls__L3AllowBar = labels.ParseLabelArray("l3-allow-bar")
 	rule__L3AllowBar = api.NewRule().
 				WithLabels(lbls__L3AllowBar).
 				WithIngressRules([]api.IngressRule{{
-			FromEndpoints: []api.EndpointSelector{allowBarL3_},
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{allowBarL3_},
+			},
 		}})
 	lbls____AllowAll = labels.ParseLabelArray("allow-all")
 	rule____AllowAll = api.NewRule().
 				WithLabels(lbls____AllowAll).
 				WithIngressRules([]api.IngressRule{{
-			FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+			IngressCommonRule: api.IngressCommonRule{
+				FromEndpoints: []api.EndpointSelector{api.WildcardEndpointSelector},
+			},
 		}})
 	lblsAllowLocalHostIngress = labels.LabelArray{
 		labels.NewLabel(LabelKeyPolicyDerivedFrom, LabelAllowLocalHostIngress, labels.LabelSourceReserved),

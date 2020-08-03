@@ -109,95 +109,130 @@ func getEndpointSelector(namespace string, labelSelector *slim_metav1.LabelSelec
 	return es
 }
 
-func parseToCiliumIngressRule(namespace string, es api.EndpointSelector, inRules []api.IngressRule) []api.IngressRule {
+func parseToCiliumIngressCommonRule(namespace string, es api.EndpointSelector, ing api.IngressCommonRule) api.IngressCommonRule {
 	matchesInit := matchesPodInit(es)
+	var retRule api.IngressCommonRule
+
+	if ing.FromEndpoints != nil {
+		retRule.FromEndpoints = make([]api.EndpointSelector, len(ing.FromEndpoints))
+		for j, ep := range ing.FromEndpoints {
+			retRule.FromEndpoints[j] = getEndpointSelector(namespace, ep.LabelSelector, true, matchesInit)
+		}
+	}
+
+	if ing.FromCIDR != nil {
+		retRule.FromCIDR = make([]api.CIDR, len(ing.FromCIDR))
+		copy(retRule.FromCIDR, ing.FromCIDR)
+	}
+
+	if ing.FromCIDRSet != nil {
+		retRule.FromCIDRSet = make([]api.CIDRRule, len(ing.FromCIDRSet))
+		copy(retRule.FromCIDRSet, ing.FromCIDRSet)
+	}
+
+	if ing.FromRequires != nil {
+		retRule.FromRequires = make([]api.EndpointSelector, len(ing.FromRequires))
+		for j, ep := range ing.FromRequires {
+			retRule.FromRequires[j] = getEndpointSelector(namespace, ep.LabelSelector, false, matchesInit)
+		}
+	}
+
+	if ing.FromEntities != nil {
+		retRule.FromEntities = make([]api.Entity, len(ing.FromEntities))
+		copy(retRule.FromEntities, ing.FromEntities)
+	}
+
+	return retRule
+}
+
+func parseToCiliumIngressRule(namespace string, es api.EndpointSelector, inRules []api.IngressRule) []api.IngressRule {
 	var retRules []api.IngressRule
 
 	if inRules != nil {
 		retRules = make([]api.IngressRule, len(inRules))
 		for i, ing := range inRules {
-			if ing.FromEndpoints != nil {
-				retRules[i].FromEndpoints = make([]api.EndpointSelector, len(ing.FromEndpoints))
-				for j, ep := range ing.FromEndpoints {
-					retRules[i].FromEndpoints[j] = getEndpointSelector(namespace, ep.LabelSelector, true, matchesInit)
-				}
-			}
-
 			if ing.ToPorts != nil {
 				retRules[i].ToPorts = make([]api.PortRule, len(ing.ToPorts))
 				copy(retRules[i].ToPorts, ing.ToPorts)
 			}
-			if ing.FromCIDR != nil {
-				retRules[i].FromCIDR = make([]api.CIDR, len(ing.FromCIDR))
-				copy(retRules[i].FromCIDR, ing.FromCIDR)
-			}
-
-			if ing.FromCIDRSet != nil {
-				retRules[i].FromCIDRSet = make([]api.CIDRRule, len(ing.FromCIDRSet))
-				copy(retRules[i].FromCIDRSet, ing.FromCIDRSet)
-			}
-
-			if ing.FromRequires != nil {
-				retRules[i].FromRequires = make([]api.EndpointSelector, len(ing.FromRequires))
-				for j, ep := range ing.FromRequires {
-					retRules[i].FromRequires[j] = getEndpointSelector(namespace, ep.LabelSelector, false, matchesInit)
-				}
-			}
-
-			if ing.FromEntities != nil {
-				retRules[i].FromEntities = make([]api.Entity, len(ing.FromEntities))
-				copy(retRules[i].FromEntities, ing.FromEntities)
-			}
-
+			retRules[i].IngressCommonRule = parseToCiliumIngressCommonRule(namespace, es, ing.IngressCommonRule)
 			retRules[i].SetAggregatedSelectors()
 		}
 	}
 	return retRules
 }
 
-func parseToCiliumEgressRule(namespace string, es api.EndpointSelector, inRules []api.EgressRule) []api.EgressRule {
+func parseToCiliumIngressDenyRule(namespace string, es api.EndpointSelector, inRules []api.IngressDenyRule) []api.IngressDenyRule {
+	var retRules []api.IngressDenyRule
+
+	if inRules != nil {
+		retRules = make([]api.IngressDenyRule, len(inRules))
+		for i, ing := range inRules {
+			if ing.ToPorts != nil {
+				retRules[i].ToPorts = make([]api.PortDenyRule, len(ing.ToPorts))
+				copy(retRules[i].ToPorts, ing.ToPorts)
+			}
+			retRules[i].IngressCommonRule = parseToCiliumIngressCommonRule(namespace, es, ing.IngressCommonRule)
+			retRules[i].SetAggregatedSelectors()
+		}
+	}
+	return retRules
+}
+
+func parseToCiliumEgressCommonRule(namespace string, es api.EndpointSelector, egr api.EgressCommonRule) api.EgressCommonRule {
 	matchesInit := matchesPodInit(es)
+	var retRule api.EgressCommonRule
+	if egr.ToEndpoints != nil {
+		retRule.ToEndpoints = make([]api.EndpointSelector, len(egr.ToEndpoints))
+		for j, ep := range egr.ToEndpoints {
+			retRule.ToEndpoints[j] = getEndpointSelector(namespace, ep.LabelSelector, true, matchesInit)
+		}
+	}
+
+	if egr.ToCIDR != nil {
+		retRule.ToCIDR = make([]api.CIDR, len(egr.ToCIDR))
+		copy(retRule.ToCIDR, egr.ToCIDR)
+	}
+
+	if egr.ToCIDRSet != nil {
+		retRule.ToCIDRSet = make(api.CIDRRuleSlice, len(egr.ToCIDRSet))
+		copy(retRule.ToCIDRSet, egr.ToCIDRSet)
+	}
+
+	if egr.ToRequires != nil {
+		retRule.ToRequires = make([]api.EndpointSelector, len(egr.ToRequires))
+		for j, ep := range egr.ToRequires {
+			retRule.ToRequires[j] = getEndpointSelector(namespace, ep.LabelSelector, false, matchesInit)
+		}
+	}
+
+	if egr.ToServices != nil {
+		retRule.ToServices = make([]api.Service, len(egr.ToServices))
+		copy(retRule.ToServices, egr.ToServices)
+	}
+
+	if egr.ToEntities != nil {
+		retRule.ToEntities = make([]api.Entity, len(egr.ToEntities))
+		copy(retRule.ToEntities, egr.ToEntities)
+	}
+
+	if egr.ToGroups != nil {
+		retRule.ToGroups = make([]api.ToGroups, len(egr.ToGroups))
+		copy(retRule.ToGroups, egr.ToGroups)
+	}
+
+	return retRule
+}
+
+func parseToCiliumEgressRule(namespace string, es api.EndpointSelector, inRules []api.EgressRule) []api.EgressRule {
 	var retRules []api.EgressRule
 
 	if inRules != nil {
 		retRules = make([]api.EgressRule, len(inRules))
 		for i, egr := range inRules {
-			if egr.ToEndpoints != nil {
-				retRules[i].ToEndpoints = make([]api.EndpointSelector, len(egr.ToEndpoints))
-				for j, ep := range egr.ToEndpoints {
-					retRules[i].ToEndpoints[j] = getEndpointSelector(namespace, ep.LabelSelector, true, matchesInit)
-				}
-			}
-
 			if egr.ToPorts != nil {
 				retRules[i].ToPorts = make([]api.PortRule, len(egr.ToPorts))
 				copy(retRules[i].ToPorts, egr.ToPorts)
-			}
-			if egr.ToCIDR != nil {
-				retRules[i].ToCIDR = make([]api.CIDR, len(egr.ToCIDR))
-				copy(retRules[i].ToCIDR, egr.ToCIDR)
-			}
-
-			if egr.ToCIDRSet != nil {
-				retRules[i].ToCIDRSet = make(api.CIDRRuleSlice, len(egr.ToCIDRSet))
-				copy(retRules[i].ToCIDRSet, egr.ToCIDRSet)
-			}
-
-			if egr.ToRequires != nil {
-				retRules[i].ToRequires = make([]api.EndpointSelector, len(egr.ToRequires))
-				for j, ep := range egr.ToRequires {
-					retRules[i].ToRequires[j] = getEndpointSelector(namespace, ep.LabelSelector, false, matchesInit)
-				}
-			}
-
-			if egr.ToServices != nil {
-				retRules[i].ToServices = make([]api.Service, len(egr.ToServices))
-				copy(retRules[i].ToServices, egr.ToServices)
-			}
-
-			if egr.ToEntities != nil {
-				retRules[i].ToEntities = make([]api.Entity, len(egr.ToEntities))
-				copy(retRules[i].ToEntities, egr.ToEntities)
 			}
 
 			if egr.ToFQDNs != nil {
@@ -205,11 +240,25 @@ func parseToCiliumEgressRule(namespace string, es api.EndpointSelector, inRules 
 				copy(retRules[i].ToFQDNs, egr.ToFQDNs)
 			}
 
-			if egr.ToGroups != nil {
-				retRules[i].ToGroups = make([]api.ToGroups, len(egr.ToGroups))
-				copy(retRules[i].ToGroups, egr.ToGroups)
+			retRules[i].EgressCommonRule = parseToCiliumEgressCommonRule(namespace, es, egr.EgressCommonRule)
+			retRules[i].SetAggregatedSelectors()
+		}
+	}
+	return retRules
+}
+
+func parseToCiliumEgressDenyRule(namespace string, es api.EndpointSelector, inRules []api.EgressDenyRule) []api.EgressDenyRule {
+	var retRules []api.EgressDenyRule
+
+	if inRules != nil {
+		retRules = make([]api.EgressDenyRule, len(inRules))
+		for i, egr := range inRules {
+			if egr.ToPorts != nil {
+				retRules[i].ToPorts = make([]api.PortDenyRule, len(egr.ToPorts))
+				copy(retRules[i].ToPorts, egr.ToPorts)
 			}
 
+			retRules[i].EgressCommonRule = parseToCiliumEgressCommonRule(namespace, es, egr.EgressCommonRule)
 			retRules[i].SetAggregatedSelectors()
 		}
 	}
@@ -264,9 +313,9 @@ func ParseToCiliumRule(namespace, name string, uid types.UID, r *api.Rule) *api.
 	}
 
 	retRule.Ingress = parseToCiliumIngressRule(namespace, r.EndpointSelector, r.Ingress)
-	retRule.IngressDeny = parseToCiliumIngressRule(namespace, r.EndpointSelector, r.IngressDeny)
+	retRule.IngressDeny = parseToCiliumIngressDenyRule(namespace, r.EndpointSelector, r.IngressDeny)
 	retRule.Egress = parseToCiliumEgressRule(namespace, r.EndpointSelector, r.Egress)
-	retRule.EgressDeny = parseToCiliumEgressRule(namespace, r.EndpointSelector, r.EgressDeny)
+	retRule.EgressDeny = parseToCiliumEgressDenyRule(namespace, r.EndpointSelector, r.EgressDeny)
 
 	retRule.Labels = ParseToCiliumLabels(namespace, name, uid, r.Labels)
 

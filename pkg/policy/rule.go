@@ -255,7 +255,7 @@ func mergePortProto(ctx *SearchContext, existingFilter, filterToMerge *L4Filter,
 // forwarded to the proxy for endpoints matching those labels, but the proxy
 // will allow all such traffic.
 func mergeIngressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoints api.EndpointSelectorSlice, hostWildcardL7 []string,
-	r api.PortRule, p api.PortProtocol, proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
+	r api.Ports, p api.PortProtocol, proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 	// Create a new L4Filter
 	filterToMerge, err := createL4IngressFilter(policyCtx, endpoints, hostWildcardL7, r, p, proto, ruleLabels)
 	if err != nil {
@@ -333,7 +333,7 @@ func rulePortsCoverSearchContext(ports []api.PortProtocol, ctx *SearchContext) b
 	return false
 }
 
-func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api.EndpointSelectorSlice, toPorts []api.PortRule, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
+func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api.EndpointSelectorSlice, toPorts api.PortsIterator, ruleLabels labels.LabelArray, resMap L4PolicyMap) (int, error) {
 	found := 0
 
 	if ctx.From != nil && len(fromEndpoints) > 0 {
@@ -366,8 +366,8 @@ func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api
 	)
 
 	// L3-only rule (with requirements folded into fromEndpoints).
-	if len(toPorts) == 0 && len(fromEndpoints) > 0 {
-		cnt, err = mergeIngressPortProto(policyCtx, ctx, fromEndpoints, hostWildcardL7, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap)
+	if toPorts.Len() == 0 && len(fromEndpoints) > 0 {
+		cnt, err = mergeIngressPortProto(policyCtx, ctx, fromEndpoints, hostWildcardL7, &api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap)
 		if err != nil {
 			return found, err
 		}
@@ -375,7 +375,7 @@ func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api
 
 	found += cnt
 
-	for _, r := range toPorts {
+	err = toPorts.Iterate(func(r api.Ports) error {
 		// For L4 Policy, an empty slice of EndpointSelector indicates that the
 		// rule allows all at L3 - explicitly specify this by creating a slice
 		// with the WildcardEndpointSelector.
@@ -383,53 +383,57 @@ func mergeIngress(policyCtx PolicyContext, ctx *SearchContext, fromEndpoints api
 			fromEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
 		}
 		if !policyCtx.IsDeny() {
-			ctx.PolicyTrace("      Allows port %v\n", r.Ports)
+			ctx.PolicyTrace("      Allows port %v\n", r.GetPortProtocols())
 		} else {
-			ctx.PolicyTrace("      Denies port %v\n", r.Ports)
+			ctx.PolicyTrace("      Denies port %v\n", r.GetPortProtocols())
 		}
-		if !rulePortsCoverSearchContext(r.Ports, ctx) {
+		if !rulePortsCoverSearchContext(r.GetPortProtocols(), ctx) {
 			ctx.PolicyTrace("        No port match found\n")
-			continue
+			return nil
 		}
-		if r.Rules != nil && r.Rules.L7Proto != "" {
-			ctx.PolicyTrace("        l7proto: \"%s\"\n", r.Rules.L7Proto)
-		}
-		if !r.Rules.IsEmpty() {
-			for _, l7 := range r.Rules.HTTP {
-				ctx.PolicyTrace("          %+v\n", l7)
+		pr := r.GetPortRule()
+		if pr != nil {
+			if pr.Rules != nil && pr.Rules.L7Proto != "" {
+				ctx.PolicyTrace("        l7proto: \"%s\"\n", pr.Rules.L7Proto)
 			}
-			for _, l7 := range r.Rules.Kafka {
-				ctx.PolicyTrace("          %+v\n", l7)
-			}
-			for _, l7 := range r.Rules.L7 {
-				ctx.PolicyTrace("          %+v\n", l7)
+			if !pr.Rules.IsEmpty() {
+				for _, l7 := range pr.Rules.HTTP {
+					ctx.PolicyTrace("          %+v\n", l7)
+				}
+				for _, l7 := range pr.Rules.Kafka {
+					ctx.PolicyTrace("          %+v\n", l7)
+				}
+				for _, l7 := range pr.Rules.L7 {
+					ctx.PolicyTrace("          %+v\n", l7)
+				}
 			}
 		}
 
-		for _, p := range r.Ports {
+		for _, p := range r.GetPortProtocols() {
 			if p.Protocol != api.ProtoAny {
 				cnt, err := mergeIngressPortProto(policyCtx, ctx, fromEndpoints, hostWildcardL7, r, p, p.Protocol, ruleLabels, resMap)
 				if err != nil {
-					return found, err
+					return err
 				}
 				found += cnt
 			} else {
 				cnt, err := mergeIngressPortProto(policyCtx, ctx, fromEndpoints, hostWildcardL7, r, p, api.ProtoTCP, ruleLabels, resMap)
 				if err != nil {
-					return found, err
+					return err
 				}
 				found += cnt
 
 				cnt, err = mergeIngressPortProto(policyCtx, ctx, fromEndpoints, hostWildcardL7, r, p, api.ProtoUDP, ruleLabels, resMap)
 				if err != nil {
-					return found, err
+					return err
 				}
 				found += cnt
 			}
 		}
-	}
+		return nil
+	})
 
-	return found, nil
+	return found, err
 }
 
 func (state *traceState) selectRule(ctx *SearchContext, r *rule) {
@@ -645,7 +649,7 @@ func (r *rule) matches(securityIdentity *identity.Identity) bool {
 
 // ****************** EGRESS POLICY ******************
 
-func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.EndpointSelectorSlice, toPorts []api.PortRule, ruleLabels labels.LabelArray, resMap L4PolicyMap, fqdns api.FQDNSelectorSlice) (int, error) {
+func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.EndpointSelectorSlice, toPorts api.PortsIterator, ruleLabels labels.LabelArray, resMap L4PolicyMap, fqdns api.FQDNSelectorSlice) (int, error) {
 	found := 0
 
 	if ctx.To != nil && len(toEndpoints) > 0 {
@@ -665,8 +669,8 @@ func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.En
 	)
 
 	// L3-only rule (with requirements folded into toEndpoints).
-	if len(toPorts) == 0 && len(toEndpoints) > 0 {
-		cnt, err = mergeEgressPortProto(policyCtx, ctx, toEndpoints, api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap, fqdns)
+	if toPorts.Len() == 0 && len(toEndpoints) > 0 {
+		cnt, err = mergeEgressPortProto(policyCtx, ctx, toEndpoints, &api.PortRule{}, api.PortProtocol{Port: "0", Protocol: api.ProtoAny}, api.ProtoAny, ruleLabels, resMap, fqdns)
 		if err != nil {
 			return found, err
 		}
@@ -674,7 +678,7 @@ func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.En
 
 	found += cnt
 
-	for _, r := range toPorts {
+	err = toPorts.Iterate(func(r api.Ports) error {
 		// For L4 Policy, an empty slice of EndpointSelector indicates that the
 		// rule allows all at L3 - explicitly specify this by creating a slice
 		// with the WildcardEndpointSelector.
@@ -682,49 +686,52 @@ func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.En
 			toEndpoints = api.EndpointSelectorSlice{api.WildcardEndpointSelector}
 		}
 		if !policyCtx.IsDeny() {
-			ctx.PolicyTrace("      Allows port %v\n", r.Ports)
+			ctx.PolicyTrace("      Allows port %v\n", r.GetPortProtocols())
 		} else {
-			ctx.PolicyTrace("      Denies port %v\n", r.Ports)
+			ctx.PolicyTrace("      Denies port %v\n", r.GetPortProtocols())
 		}
-		if r.Rules != nil && r.Rules.L7Proto != "" {
-			ctx.PolicyTrace("        l7proto: \"%s\"\n", r.Rules.L7Proto)
-		}
-		if !r.Rules.IsEmpty() {
-			for _, l7 := range r.Rules.HTTP {
-				ctx.PolicyTrace("          %+v\n", l7)
-			}
-			for _, l7 := range r.Rules.Kafka {
-				ctx.PolicyTrace("          %+v\n", l7)
-			}
-			for _, l7 := range r.Rules.L7 {
-				ctx.PolicyTrace("          %+v\n", l7)
+
+		pr := r.GetPortRule()
+		if pr != nil {
+			if !pr.Rules.IsEmpty() {
+				for _, l7 := range pr.Rules.HTTP {
+					ctx.PolicyTrace("          %+v\n", l7)
+				}
+				for _, l7 := range pr.Rules.Kafka {
+					ctx.PolicyTrace("          %+v\n", l7)
+				}
+				for _, l7 := range pr.Rules.L7 {
+					ctx.PolicyTrace("          %+v\n", l7)
+				}
 			}
 		}
 
-		for _, p := range r.Ports {
+		for _, p := range r.GetPortProtocols() {
 			if p.Protocol != api.ProtoAny {
 				cnt, err := mergeEgressPortProto(policyCtx, ctx, toEndpoints, r, p, p.Protocol, ruleLabels, resMap, fqdns)
 				if err != nil {
-					return found, err
+					return err
 				}
 				found += cnt
 			} else {
 				cnt, err := mergeEgressPortProto(policyCtx, ctx, toEndpoints, r, p, api.ProtoTCP, ruleLabels, resMap, fqdns)
 				if err != nil {
-					return found, err
+					return err
 				}
 				found += cnt
 
 				cnt, err = mergeEgressPortProto(policyCtx, ctx, toEndpoints, r, p, api.ProtoUDP, ruleLabels, resMap, fqdns)
 				if err != nil {
-					return found, err
+					return err
 				}
 				found += cnt
 			}
 		}
-	}
+		return nil
+	},
+	)
 
-	return found, nil
+	return found, err
 }
 
 // mergeEgressPortProto merges all rules which share the same port & protocol that
@@ -732,7 +739,7 @@ func mergeEgress(policyCtx PolicyContext, ctx *SearchContext, toEndpoints api.En
 // port and protocol with the contents of the provided PortRule. If the rule
 // being merged has conflicting L7 rules with those already in the provided
 // L4PolicyMap for the specified port-protocol tuple, it returns an error.
-func mergeEgressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoints api.EndpointSelectorSlice, r api.PortRule, p api.PortProtocol,
+func mergeEgressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoints api.EndpointSelectorSlice, r api.Ports, p api.PortProtocol,
 	proto api.L4Proto, ruleLabels labels.LabelArray, resMap L4PolicyMap, fqdns api.FQDNSelectorSlice) (int, error) {
 	// Create a new L4Filter
 	filterToMerge, err := createL4EgressFilter(policyCtx, endpoints, r, p, proto, ruleLabels, fqdns)

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -54,16 +54,20 @@ func (ds *PolicyTestSuite) TestGetCIDRPrefixes(c *C) {
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
-					FromCIDR: []api.CIDR{
-						"192.0.2.0/24",
+					IngressCommonRule: api.IngressCommonRule{
+						FromCIDR: []api.CIDR{
+							"192.0.2.0/24",
+						},
 					},
 				},
 			},
 			Egress: []api.EgressRule{
 				{
-					ToCIDR: []api.CIDR{
-						"192.0.2.0/24",
-						"192.0.3.0/24",
+					EgressCommonRule: api.EgressCommonRule{
+						ToCIDR: []api.CIDR{
+							"192.0.2.0/24",
+							"192.0.3.0/24",
+						},
 					},
 				},
 			},
@@ -90,20 +94,24 @@ func (ds *PolicyTestSuite) TestGetCIDRPrefixes(c *C) {
 			EndpointSelector: api.NewESFromLabels(labels.ParseSelectLabel("bar")),
 			Ingress: []api.IngressRule{
 				{
-					FromCIDRSet: []api.CIDRRule{
-						{
-							Cidr:        "192.0.2.0/24",
-							ExceptCIDRs: []api.CIDR{"192.0.2.128/25"},
+					IngressCommonRule: api.IngressCommonRule{
+						FromCIDRSet: []api.CIDRRule{
+							{
+								Cidr:        "192.0.2.0/24",
+								ExceptCIDRs: []api.CIDR{"192.0.2.128/25"},
+							},
 						},
 					},
 				},
 			},
 			Egress: []api.EgressRule{
 				{
-					ToCIDRSet: []api.CIDRRule{
-						{
-							Cidr:        "10.0.0.0/8",
-							ExceptCIDRs: []api.CIDR{"10.0.0.0/16"},
+					EgressCommonRule: api.EgressCommonRule{
+						ToCIDRSet: []api.CIDRRule{
+							{
+								Cidr:        "10.0.0.0/8",
+								ExceptCIDRs: []api.CIDR{"10.0.0.0/16"},
+							},
 						},
 					},
 				},

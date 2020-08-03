@@ -232,15 +232,20 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			EndpointSelector: api.NewESFromLabels(lblBar),
 			Ingress: []api.IngressRule{
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblJoe),
-						api.NewESFromLabels(lblPete),
-						api.NewESFromLabels(lblFoo),
+					IngressCommonRule: api.IngressCommonRule{
+						FromEndpoints: []api.EndpointSelector{
+							api.NewESFromLabels(lblJoe),
+							api.NewESFromLabels(lblPete),
+							api.NewESFromLabels(lblFoo),
+						},
 					},
 				},
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblFoo),
+
+					IngressCommonRule: api.IngressCommonRule{
+						FromEndpoints: []api.EndpointSelector{
+							api.NewESFromLabels(lblFoo),
+						},
 					},
 					ToPorts: []api.PortRule{
 						// Allow Port 80 GET /bar
@@ -253,8 +258,11 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			EndpointSelector: api.NewESFromLabels(lblQA),
 			Ingress: []api.IngressRule{
 				{
-					FromRequires: []api.EndpointSelector{
-						api.NewESFromLabels(lblQA),
+					IngressCommonRule: api.IngressCommonRule{
+
+						FromRequires: []api.EndpointSelector{
+							api.NewESFromLabels(lblQA),
+						},
 					},
 				},
 			},
@@ -263,8 +271,10 @@ func (ds *DaemonSuite) TestUpdateConsumerMap(c *C) {
 			EndpointSelector: api.NewESFromLabels(lblProd),
 			Ingress: []api.IngressRule{
 				{
-					FromRequires: []api.EndpointSelector{
-						api.NewESFromLabels(lblProd),
+					IngressCommonRule: api.IngressCommonRule{
+						FromRequires: []api.EndpointSelector{
+							api.NewESFromLabels(lblProd),
+						},
 					},
 				},
 			},
@@ -431,8 +441,11 @@ func (ds *DaemonSuite) TestL4_L7_Shadowing(c *C) {
 					},
 				},
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblFoo),
+					IngressCommonRule: api.IngressCommonRule{
+
+						FromEndpoints: []api.EndpointSelector{
+							api.NewESFromLabels(lblFoo),
+						},
 					},
 					ToPorts: []api.PortRule{
 						// Allow Port 80 GET /bar
@@ -513,8 +526,11 @@ func (ds *DaemonSuite) TestL4_L7_ShadowingShortCircuit(c *C) {
 					},
 				},
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblFoo),
+					IngressCommonRule: api.IngressCommonRule{
+
+						FromEndpoints: []api.EndpointSelector{
+							api.NewESFromLabels(lblFoo),
+						},
 					},
 					ToPorts: []api.PortRule{
 						// Allow Port 80 GET /bar
@@ -586,8 +602,10 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 			EndpointSelector: api.NewESFromLabels(lblBar),
 			Ingress: []api.IngressRule{
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblFoo),
+					IngressCommonRule: api.IngressCommonRule{
+						FromEndpoints: []api.EndpointSelector{
+							api.NewESFromLabels(lblFoo),
+						},
 					},
 					ToPorts: []api.PortRule{
 						// Allow Port 80 GET /bar
@@ -600,8 +618,10 @@ func (ds *DaemonSuite) TestL3_dependent_L7(c *C) {
 			EndpointSelector: api.NewESFromLabels(lblBar),
 			Ingress: []api.IngressRule{
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblJoe),
+					IngressCommonRule: api.IngressCommonRule{
+						FromEndpoints: []api.EndpointSelector{
+							api.NewESFromLabels(lblJoe),
+						},
 					},
 				},
 			},
@@ -666,7 +686,16 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 		{
 			Labels:           lbls,
 			EndpointSelector: api.NewESFromLabels(lblBar),
-			Egress:           []api.EgressRule{{ToCIDR: []api.CIDR{"1.1.1.1/32", "2.2.2.0/24"}}},
+			Egress: []api.EgressRule{
+				{
+					EgressCommonRule: api.EgressCommonRule{
+						ToCIDR: []api.CIDR{
+							"1.1.1.1/32",
+							"2.2.2.0/24",
+						},
+					},
+				},
+			},
 		},
 		{
 			Labels:           lbls,
@@ -679,7 +708,16 @@ func (ds *DaemonSuite) TestReplacePolicy(c *C) {
 	ds.d.policy.Mutex.RLock()
 	c.Assert(len(ds.d.policy.SearchRLocked(lbls)), Equals, 2)
 	ds.d.policy.Mutex.RUnlock()
-	rules[0].Egress = []api.EgressRule{{ToCIDR: []api.CIDR{"1.1.1.1/32", "2.2.2.2/32"}}}
+	rules[0].Egress = []api.EgressRule{
+		{
+			EgressCommonRule: api.EgressCommonRule{
+				ToCIDR: []api.CIDR{
+					"1.1.1.1/32",
+					"2.2.2.2/32",
+				},
+			},
+		},
+	}
 	_, err = ds.d.PolicyAdd(rules, &policy.AddOptions{Replace: true})
 
 	c.Assert(err, IsNil)
@@ -718,15 +756,19 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 			EndpointSelector: api.NewESFromLabels(lblBar),
 			Ingress: []api.IngressRule{
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblJoe),
-						api.NewESFromLabels(lblPete),
-						api.NewESFromLabels(lblFoo),
+					IngressCommonRule: api.IngressCommonRule{
+						FromEndpoints: []api.EndpointSelector{
+							api.NewESFromLabels(lblJoe),
+							api.NewESFromLabels(lblPete),
+							api.NewESFromLabels(lblFoo),
+						},
 					},
 				},
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblFoo),
+					IngressCommonRule: api.IngressCommonRule{
+						FromEndpoints: []api.EndpointSelector{
+							api.NewESFromLabels(lblFoo),
+						},
 					},
 					ToPorts: []api.PortRule{
 						// Allow Port 80 GET /bar
@@ -739,8 +781,10 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 			EndpointSelector: api.NewESFromLabels(lblQA),
 			Ingress: []api.IngressRule{
 				{
-					FromRequires: []api.EndpointSelector{
-						api.NewESFromLabels(lblQA),
+					IngressCommonRule: api.IngressCommonRule{
+						FromRequires: []api.EndpointSelector{
+							api.NewESFromLabels(lblQA),
+						},
 					},
 				},
 			},
@@ -749,8 +793,10 @@ func (ds *DaemonSuite) TestRemovePolicy(c *C) {
 			EndpointSelector: api.NewESFromLabels(lblProd),
 			Ingress: []api.IngressRule{
 				{
-					FromRequires: []api.EndpointSelector{
-						api.NewESFromLabels(lblProd),
+					IngressCommonRule: api.IngressCommonRule{
+						FromRequires: []api.EndpointSelector{
+							api.NewESFromLabels(lblProd),
+						},
 					},
 				},
 			},
@@ -829,15 +875,19 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 			EndpointSelector: api.NewESFromLabels(lblBar),
 			Ingress: []api.IngressRule{
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblJoe),
-						api.NewESFromLabels(lblPete),
-						api.NewESFromLabels(lblFoo),
+					IngressCommonRule: api.IngressCommonRule{
+						FromEndpoints: []api.EndpointSelector{
+							api.NewESFromLabels(lblJoe),
+							api.NewESFromLabels(lblPete),
+							api.NewESFromLabels(lblFoo),
+						},
 					},
 				},
 				{
-					FromEndpoints: []api.EndpointSelector{
-						api.NewESFromLabels(lblFoo),
+					IngressCommonRule: api.IngressCommonRule{
+						FromEndpoints: []api.EndpointSelector{
+							api.NewESFromLabels(lblFoo),
+						},
 					},
 					ToPorts: []api.PortRule{
 						// Allow Port 80 GET /bar
@@ -850,8 +900,10 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 			EndpointSelector: api.NewESFromLabels(lblQA),
 			Ingress: []api.IngressRule{
 				{
-					FromRequires: []api.EndpointSelector{
-						api.NewESFromLabels(lblQA),
+					IngressCommonRule: api.IngressCommonRule{
+						FromRequires: []api.EndpointSelector{
+							api.NewESFromLabels(lblQA),
+						},
 					},
 				},
 			},
@@ -860,8 +912,10 @@ func (ds *DaemonSuite) TestIncrementalPolicy(c *C) {
 			EndpointSelector: api.NewESFromLabels(lblProd),
 			Ingress: []api.IngressRule{
 				{
-					FromRequires: []api.EndpointSelector{
-						api.NewESFromLabels(lblProd),
+					IngressCommonRule: api.IngressCommonRule{
+						FromRequires: []api.EndpointSelector{
+							api.NewESFromLabels(lblProd),
+						},
 					},
 				},
 			},
@@ -1189,12 +1243,14 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 						},
 						Ingress: []api.IngressRule{
 							{
-								FromEndpoints: []api.EndpointSelector{
-									{
-										LabelSelector: &slim_metav1.LabelSelector{
-											MatchLabels: map[string]string{
-												"env": "cluster-1",
-												labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
+								IngressCommonRule: api.IngressCommonRule{
+									FromEndpoints: []api.EndpointSelector{
+										{
+											LabelSelector: &slim_metav1.LabelSelector{
+												MatchLabels: map[string]string{
+													"env": "cluster-1",
+													labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
+												},
 											},
 										},
 									},

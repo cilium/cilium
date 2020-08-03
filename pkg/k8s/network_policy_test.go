@@ -1,4 +1,4 @@
-// Copyright 2016-2019 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -406,11 +406,13 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 		WithEndpointSelector(epSelector).
 		WithIngressRules([]api.IngressRule{
 			{
-				FromCIDRSet: []api.CIDRRule{
-					{
-						Cidr: api.CIDR("10.0.0.0/8"),
-						ExceptCIDRs: []api.CIDR{
-							"10.96.0.0/12",
+				IngressCommonRule: api.IngressCommonRule{
+					FromCIDRSet: []api.CIDRRule{
+						{
+							Cidr: api.CIDR("10.0.0.0/8"),
+							ExceptCIDRs: []api.CIDR{
+								"10.96.0.0/12",
+							},
 						},
 					},
 				},

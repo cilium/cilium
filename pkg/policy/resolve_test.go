@@ -99,7 +99,9 @@ func GenerateL3IngressRules(numRules int) api.Rules {
 	// Change ingRule and rule in the for-loop below to change what type of rules
 	// are added into the policy repository.
 	ingRule := api.IngressRule{
-		FromEndpoints: []api.EndpointSelector{barSelector},
+		IngressCommonRule: api.IngressCommonRule{
+			FromEndpoints: []api.EndpointSelector{barSelector},
+		},
 	}
 
 	var rules api.Rules
@@ -123,7 +125,9 @@ func GenerateL3EgressRules(numRules int) api.Rules {
 	// Change ingRule and rule in the for-loop below to change what type of rules
 	// are added into the policy repository.
 	egRule := api.EgressRule{
-		ToEndpoints: []api.EndpointSelector{barSelector},
+		EgressCommonRule: api.EgressCommonRule{
+			ToEndpoints: []api.EndpointSelector{barSelector},
+		},
 	}
 
 	var rules api.Rules
@@ -147,7 +151,9 @@ func GenerateCIDRRules(numRules int) api.Rules {
 	// Change ingRule and rule in the for-loop below to change what type of rules
 	// are added into the policy repository.
 	egRule := api.EgressRule{
-		ToCIDR: []api.CIDR{api.CIDR("10.2.3.0/24"), api.CIDR("ff02::/64")},
+		EgressCommonRule: api.EgressCommonRule{
+			ToCIDR: []api.CIDR{api.CIDR("10.2.3.0/24"), api.CIDR("ff02::/64")},
+		},
 		/*ToRequires:  []api.EndpointSelector{barSelector},
 		ToPorts: []api.PortRule{
 			{
@@ -540,7 +546,9 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 		Labels:           ruleLabel,
 		Ingress: []api.IngressRule{
 			{
-				FromEntities: []api.Entity{api.EntityWorld},
+				IngressCommonRule: api.IngressCommonRule{
+					FromEntities: []api.Entity{api.EntityWorld},
+				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{
 						{Port: "80", Protocol: api.ProtoTCP},
@@ -549,8 +557,10 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 				}},
 			},
 			{
-				FromEndpoints: []api.EndpointSelector{
-					api.NewESFromLabels(lblTest),
+				IngressCommonRule: api.IngressCommonRule{
+					FromEndpoints: []api.EndpointSelector{
+						api.NewESFromLabels(lblTest),
+					},
 				},
 				ToPorts: []api.PortRule{{
 					Ports: []api.PortProtocol{

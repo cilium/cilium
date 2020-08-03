@@ -552,7 +552,7 @@ func (l4 *L4Filter) getCerts(policyCtx PolicyContext, tls *api.TLSContext, direc
 // filter is derived from. This filter may be associated with a series of L7
 // rules via the `rule` parameter.
 // Not called with an empty peerEndpoints.
-func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
+func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorSlice, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray, ingress bool, fqdns api.FQDNSelectorSlice) (*L4Filter, error) {
 	selectorCache := policyCtx.GetSelectorCache()
 
@@ -585,18 +585,19 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 		l4.cacheFQDNSelectors(fqdns, selectorCache, policyCtx.IsDeny())
 	}
 
-	if rule.Rules != nil {
+	pr := rule.GetPortRule()
+	if pr != nil && pr.Rules != nil {
 		var terminatingTLS *TLSContext
 		var originatingTLS *TLSContext
 
 		// Note: No rules -> no TLS
-		if !rule.Rules.IsEmpty() {
+		if !pr.Rules.IsEmpty() {
 			var err error
-			terminatingTLS, err = l4.getCerts(policyCtx, rule.TerminatingTLS, TerminatingTLS)
+			terminatingTLS, err = l4.getCerts(policyCtx, pr.TerminatingTLS, TerminatingTLS)
 			if err != nil {
 				return nil, err
 			}
-			originatingTLS, err = l4.getCerts(policyCtx, rule.OriginatingTLS, OriginatingTLS)
+			originatingTLS, err = l4.getCerts(policyCtx, pr.OriginatingTLS, OriginatingTLS)
 			if err != nil {
 				return nil, err
 			}
@@ -604,22 +605,22 @@ func createL4Filter(policyCtx PolicyContext, peerEndpoints api.EndpointSelectorS
 
 		if protocol == api.ProtoTCP {
 			switch {
-			case len(rule.Rules.HTTP) > 0:
+			case len(pr.Rules.HTTP) > 0:
 				l4.L7Parser = ParserTypeHTTP
-			case len(rule.Rules.Kafka) > 0:
+			case len(pr.Rules.Kafka) > 0:
 				l4.L7Parser = ParserTypeKafka
-			case rule.Rules.L7Proto != "":
-				l4.L7Parser = (L7ParserType)(rule.Rules.L7Proto)
+			case pr.Rules.L7Proto != "":
+				l4.L7Parser = (L7ParserType)(pr.Rules.L7Proto)
 			}
-			if !rule.Rules.IsEmpty() {
-				l4.L7RulesPerSelector.addRulesForEndpoints(*rule.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny())
+			if !pr.Rules.IsEmpty() {
+				l4.L7RulesPerSelector.addRulesForEndpoints(*pr.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny())
 			}
 		}
 
 		// we need this to redirect DNS UDP (or ANY, which is more useful)
-		if len(rule.Rules.DNS) > 0 {
+		if len(pr.Rules.DNS) > 0 {
 			l4.L7Parser = ParserTypeDNS
-			l4.L7RulesPerSelector.addRulesForEndpoints(*rule.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny())
+			l4.L7RulesPerSelector.addRulesForEndpoints(*pr.Rules, terminatingTLS, originatingTLS, policyCtx.IsDeny())
 		}
 	}
 
@@ -665,7 +666,7 @@ func (l4 *L4Filter) attach(ctx PolicyContext, l4Policy *L4Policy) {
 //
 // hostWildcardL7 determines if L7 traffic from Host should be
 // wildcarded (in the relevant daemon mode).
-func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, hostWildcardL7 []string, rule api.PortRule, port api.PortProtocol,
+func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSelectorSlice, hostWildcardL7 []string, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray) (*L4Filter, error) {
 
 	filter, err := createL4Filter(policyCtx, fromEndpoints, rule, port, protocol, ruleLabels, true, nil)
@@ -673,9 +674,13 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 		return nil, err
 	}
 
+	pr := rule.GetPortRule()
+	if pr == nil {
+		return filter, nil
+	}
 	// If the filter would apply L7 rules for the Host, when we should accept everything from host,
 	// then wildcard Host at L7.
-	if !rule.Rules.IsEmpty() && len(hostWildcardL7) > 0 {
+	if !pr.Rules.IsEmpty() && len(hostWildcardL7) > 0 {
 		for cs := range filter.L7RulesPerSelector {
 			if cs.Selects(identity.ReservedIdentityHost) {
 				for _, name := range hostWildcardL7 {
@@ -693,7 +698,7 @@ func createL4IngressFilter(policyCtx PolicyContext, fromEndpoints api.EndpointSe
 // specified endpoints and port/protocol for egress traffic, with reference
 // to the original rules that the filter is derived from. This filter may be
 // associated with a series of L7 rules via the `rule` parameter.
-func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice, rule api.PortRule, port api.PortProtocol,
+func createL4EgressFilter(policyCtx PolicyContext, toEndpoints api.EndpointSelectorSlice, rule api.Ports, port api.PortProtocol,
 	protocol api.L4Proto, ruleLabels labels.LabelArray, fqdns api.FQDNSelectorSlice) (*L4Filter, error) {
 
 	return createL4Filter(policyCtx, toEndpoints, rule, port, protocol, ruleLabels, false, fqdns)
