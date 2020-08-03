@@ -1,4 +1,4 @@
-# Configuration for the Hubble CLI
+# Configuration for Hubble Relay
 image:
   # repository of the docker image
   repository: hubble-relay
