@@ -36,19 +36,42 @@ import (
 )
 
 // FakeGetFlowsServer is used for unit tests and implements the
-// observerpb.ebserver_GetFlowsServer interface.
+// observerpb.observer_GetFlowsServer interface.
 type FakeGetFlowsServer struct {
 	OnSend func(response *observerpb.GetFlowsResponse) error
 	*FakeGRPCServerStream
 }
 
-// Send implements observerpb.ebserver_GetFlowsServer.Send.
+// Send implements observerpb.observer_GetFlowsServer.Send.
 func (s *FakeGetFlowsServer) Send(response *observerpb.GetFlowsResponse) error {
 	if s.OnSend != nil {
 		// TODO: completely convert this into using flowpb.Flow
 		return s.OnSend(response)
 	}
 	panic("OnSend not set")
+}
+
+// FakeObserverClient is used for unit tests and implements the
+// observerpb.ObserverClient interface.
+type FakeObserverClient struct {
+	OnGetFlows     func(ctx context.Context, in *observerpb.GetFlowsRequest, opts ...grpc.CallOption) (observerpb.Observer_GetFlowsClient, error)
+	OnServerStatus func(ctx context.Context, in *observerpb.ServerStatusRequest, opts ...grpc.CallOption) (*observerpb.ServerStatusResponse, error)
+}
+
+// GetFlows implements observerpb.ObserverClient.GetFlows.
+func (c *FakeObserverClient) GetFlows(ctx context.Context, in *observerpb.GetFlowsRequest, opts ...grpc.CallOption) (observerpb.Observer_GetFlowsClient, error) {
+	if c.OnGetFlows != nil {
+		return c.OnGetFlows(ctx, in, opts...)
+	}
+	panic("OnGetFlows not set")
+}
+
+// ServerStatus implements observerpb.ObserverClient.ServerStatus.
+func (c *FakeObserverClient) ServerStatus(ctx context.Context, in *observerpb.ServerStatusRequest, opts ...grpc.CallOption) (*observerpb.ServerStatusResponse, error) {
+	if c.OnServerStatus != nil {
+		return c.OnServerStatus(ctx, in, opts...)
+	}
+	panic("OnServerStatus not set")
 }
 
 // FakePeerNotifyServer is used for unit tests and implements the
