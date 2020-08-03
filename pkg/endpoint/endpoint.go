@@ -46,7 +46,6 @@ import (
 	ciliumio "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/labels"
-	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/mac"
@@ -154,7 +153,7 @@ type Endpoint struct {
 	// OpLabels is the endpoint's label configuration
 	//
 	// FIXME: Rename this field to Labels
-	OpLabels pkgLabels.OpLabels
+	OpLabels labels.OpLabels
 
 	// identityRevision is incremented each time the identity label
 	// information of the endpoint has changed
@@ -420,7 +419,7 @@ func createEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cac
 		ID:              ID,
 		proxy:           proxy,
 		ifName:          ifName,
-		OpLabels:        pkgLabels.NewOpLabels(),
+		OpLabels:        labels.NewOpLabels(),
 		DNSHistory:      fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
 		DNSZombies:      fqdn.NewDNSZombieMappings(option.Config.ToFQDNsMaxDeferredConnectionDeletes),
 		state:           "",
@@ -498,7 +497,7 @@ func (e *Endpoint) GetID16() uint16 {
 
 // getK8sPodLabels returns all labels that exist in the endpoint and were
 // derived from k8s pod.
-func (e *Endpoint) getK8sPodLabels() pkgLabels.Labels {
+func (e *Endpoint) getK8sPodLabels() labels.Labels {
 	e.unconditionalRLock()
 	defer e.runlock()
 	allLabels := e.OpLabels.AllLabels()
@@ -506,9 +505,9 @@ func (e *Endpoint) getK8sPodLabels() pkgLabels.Labels {
 		return nil
 	}
 
-	allLabelsFromK8s := allLabels.GetFromSource(pkgLabels.LabelSourceK8s)
+	allLabelsFromK8s := allLabels.GetFromSource(labels.LabelSourceK8s)
 
-	k8sEPPodLabels := pkgLabels.Labels{}
+	k8sEPPodLabels := labels.Labels{}
 	for k, v := range allLabelsFromK8s {
 		if !strings.HasPrefix(v.Key, ciliumio.PodNamespaceMetaLabels) &&
 			!strings.HasPrefix(v.Key, ciliumio.PolicyLabelServiceAccount) &&
@@ -954,7 +953,7 @@ func (e *Endpoint) Update(cfg *models.EndpointConfigurationSpec) error {
 
 // HasLabels returns whether endpoint e contains all labels l. Will return 'false'
 // if any label in l is not in the endpoint's labels.
-func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
+func (e *Endpoint) HasLabels(l labels.Labels) bool {
 	e.unconditionalRLock()
 	defer e.runlock()
 
@@ -964,7 +963,7 @@ func (e *Endpoint) HasLabels(l pkgLabels.Labels) bool {
 // hasLabelsRLocked returns whether endpoint e contains all labels l. Will
 // return 'false' if any label in l is not in the endpoint's labels.
 // e.Mutex must be RLocked
-func (e *Endpoint) hasLabelsRLocked(l pkgLabels.Labels) bool {
+func (e *Endpoint) hasLabelsRLocked(l labels.Labels) bool {
 	allEpLabels := e.OpLabels.AllLabels()
 
 	for _, v := range l {
@@ -986,7 +985,7 @@ func (e *Endpoint) hasLabelsRLocked(l pkgLabels.Labels) bool {
 // replaceInformationLabels replaces the information labels of the endpoint.
 // Passing a nil set of labels will not perform any action.
 // Must be called with e.Mutex.Lock().
-func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
+func (e *Endpoint) replaceInformationLabels(l labels.Labels) {
 	if l == nil {
 		return
 	}
@@ -999,7 +998,7 @@ func (e *Endpoint) replaceInformationLabels(l pkgLabels.Labels) {
 // Passing a nil set of labels will not perform any action and will return the
 // current endpoint's identityRevision.
 // Must be called with e.Mutex.Lock().
-func (e *Endpoint) replaceIdentityLabels(l pkgLabels.Labels) int {
+func (e *Endpoint) replaceIdentityLabels(l labels.Labels) int {
 	if l == nil {
 		return e.identityRevision
 	}
@@ -1645,7 +1644,7 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 // Labels can be added or deleted. If a label change is performed, the
 // endpoint will receive a new identity and will be regenerated. Both of these
 // operations will happen in the background.
-func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) error {
+func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels labels.Labels) error {
 	if err := e.lockAlive(); err != nil {
 		return err
 	}
@@ -1664,7 +1663,7 @@ func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) e
 	// started with any label.
 	if len(addLabels) == 0 && len(delLabels) == 0 && e.IsInit() {
 		idLabls := e.OpLabels.IdentityLabels()
-		delete(idLabls, pkgLabels.IDNameInit)
+		delete(idLabls, labels.IDNameInit)
 		rev = e.replaceIdentityLabels(idLabls)
 		changed = true
 	}
@@ -1688,8 +1687,8 @@ func (e *Endpoint) ModifyIdentityLabels(addLabels, delLabels pkgLabels.Labels) e
 // IsInit returns true if the endpoint still hasn't received identity labels,
 // i.e. has the special identity with label reserved:init.
 func (e *Endpoint) IsInit() bool {
-	init, found := e.OpLabels.GetIdentityLabel(pkgLabels.IDNameInit)
-	return found && init.Source == pkgLabels.LabelSourceReserved
+	init, found := e.OpLabels.GetIdentityLabel(labels.IDNameInit)
+	return found && init.Source == labels.LabelSourceReserved
 }
 
 // UpdateLabels is called to update the labels of an endpoint. Calls to this
@@ -1701,7 +1700,7 @@ func (e *Endpoint) IsInit() bool {
 // run first synchronously if 'blocking' is true, and then in the background.
 //
 // Returns 'true' if endpoint regeneration was triggered.
-func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels pkgLabels.Labels, blocking bool) (regenTriggered bool) {
+func (e *Endpoint) UpdateLabels(ctx context.Context, identityLabels, infoLabels labels.Labels, blocking bool) (regenTriggered bool) {
 	log.WithFields(logrus.Fields{
 		logfields.ContainerID:    e.GetShortContainerID(),
 		logfields.EndpointID:     e.StringID(),

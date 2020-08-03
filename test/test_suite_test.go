@@ -26,7 +26,6 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/test/config"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
-	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 	"github.com/cilium/cilium/test/logger"
 	gops "github.com/google/gops/agent"
@@ -69,7 +68,7 @@ func configLogsOutput() {
 	log.Formatter = &logger.Formatter
 	log.Hooks.Add(&logger.LogHook{})
 
-	ginkgoext.GinkgoWriter = NewWriter(log.Out)
+	GinkgoWriter = NewWriter(log.Out)
 }
 
 func ShowCommands() {
@@ -77,7 +76,7 @@ func ShowCommands() {
 		return
 	}
 
-	helpers.SSHMetaLogs = ginkgoext.NewWriter(os.Stdout)
+	helpers.SSHMetaLogs = NewWriter(os.Stdout)
 }
 
 func TestTest(t *testing.T) {
@@ -106,7 +105,7 @@ func TestTest(t *testing.T) {
 	} else {
 		RegisterFailHandler(Fail)
 	}
-	junitReporter := ginkgoext.NewJUnitReporter(fmt.Sprintf(
+	junitReporter := NewJUnitReporter(fmt.Sprintf(
 		"%s.xml", helpers.GetScopeWithVersion()))
 	RunSpecsWithDefaultAndCustomReporters(
 		t, fmt.Sprintf("Suite-%s", helpers.GetScopeWithVersion()),
@@ -156,7 +155,7 @@ func reportCreateVMFailure(vm string, err error) {
 
         =======================================================================
         `, vm, err)
-	ginkgoext.GinkgoPrint(failmsg)
+	GinkgoPrint(failmsg)
 	Fail(failmsg)
 }
 
@@ -326,7 +325,7 @@ var _ = AfterEach(func() {
 	if ginkgo.CurrentGinkgoTestDescription().Failed && helpers.IsRunningOnJenkins() {
 		// ReportDirectory is already created. No check the error
 		path, _ := helpers.CreateReportDirectory()
-		zipFileName := fmt.Sprintf("%s_%s.zip", helpers.MakeUID(), ginkgoext.GetTestName())
+		zipFileName := fmt.Sprintf("%s_%s.zip", helpers.MakeUID(), GetTestName())
 		zipFilePath := filepath.Join(helpers.TestResultsPath, zipFileName)
 
 		_, err := exec.Command(
@@ -336,7 +335,7 @@ var _ = AfterEach(func() {
 			log.WithError(err).Errorf("cannot create zip file '%s'", zipFilePath)
 		}
 
-		ginkgoext.GinkgoPrint("[[ATTACHMENT|%s]]", zipFileName)
+		GinkgoPrint("[[ATTACHMENT|%s]]", zipFileName)
 	}
 
 	if !ginkgo.CurrentGinkgoTestDescription().Failed && helpers.IsRunningOnJenkins() {

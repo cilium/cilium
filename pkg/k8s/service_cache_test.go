@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/testutils"
 
 	"gopkg.in/check.v1"
-	. "gopkg.in/check.v1"
 )
 
 func (s *K8sSuite) TestGetUniqueServiceFrontends(c *check.C) {
@@ -322,13 +321,13 @@ func testServiceCache(c *check.C,
 	c.Assert(testutils.WaitUntil(func() bool {
 		swgSvcs.Wait()
 		return true
-	}, 2*time.Second), IsNil)
+	}, 2*time.Second), check.IsNil)
 
 	swgEps.Stop()
 	c.Assert(testutils.WaitUntil(func() bool {
 		swgEps.Wait()
 		return true
-	}, 2*time.Second), IsNil)
+	}, 2*time.Second), check.IsNil)
 }
 
 func (s *K8sSuite) TestCacheActionString(c *check.C) {
@@ -587,13 +586,13 @@ func (s *K8sSuite) TestServiceMerging(c *check.C) {
 	c.Assert(testutils.WaitUntil(func() bool {
 		swgSvcs.Wait()
 		return true
-	}, 2*time.Second), IsNil)
+	}, 2*time.Second), check.IsNil)
 
 	swgEps.Stop()
 	c.Assert(testutils.WaitUntil(func() bool {
 		swgEps.Wait()
 		return true
-	}, 2*time.Second), IsNil)
+	}, 2*time.Second), check.IsNil)
 }
 
 func (s *K8sSuite) TestNonSharedServie(c *check.C) {
@@ -642,7 +641,7 @@ func (s *K8sSuite) TestNonSharedServie(c *check.C) {
 	c.Assert(testutils.WaitUntil(func() bool {
 		swgSvcs.Wait()
 		return true
-	}, 2*time.Second), IsNil)
+	}, 2*time.Second), check.IsNil)
 }
 
 func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
@@ -879,11 +878,11 @@ func (s *K8sSuite) TestServiceCacheWith2EndpointSlice(c *check.C) {
 	c.Assert(testutils.WaitUntil(func() bool {
 		swgSvcs.Wait()
 		return true
-	}, 2*time.Second), IsNil)
+	}, 2*time.Second), check.IsNil)
 
 	swgEps.Stop()
 	c.Assert(testutils.WaitUntil(func() bool {
 		swgEps.Wait()
 		return true
-	}, 2*time.Second), IsNil)
+	}, 2*time.Second), check.IsNil)
 }
