@@ -17,7 +17,7 @@ and meeting links.
 ====================== ===================================== ============= ================================================================================
 SIG                    Meeting                               Slack         Description
 ====================== ===================================== ============= ================================================================================
-Datapath               Wednesdays, 08:00 PT                  #sig-datapath Owner of all BPF and Linux kernel related datapath code.
+Datapath               Wednesdays, 08:00 PT                  #sig-datapath Owner of all eBPF- and Linux-kernel-related datapath code.
 Documentation          None                                  #sig-docs     All documentation related discussions
 Envoy                  Biweekly on Thursdays, 09:00 PT       #sig-envoy    Envoy, Istio and maintenance of all L7 protocol parsers.
 Policy                 None                                  #sig-policy   All topics related to policy. The SIG is responsible for all security relevant APIs and the enforcement logic.
@@ -47,8 +47,8 @@ Slack channels
 ==================== ============================================================
 Name                 Purpose
 ==================== ============================================================
-#bpf                 BPF specific questions
 #development         Development discussions
+#ebpf                eBPF-specific questions
 #general             General user discussions & questions
 #git                 GitHub notifications
 #kubernetes          Kubernetes specific questions
