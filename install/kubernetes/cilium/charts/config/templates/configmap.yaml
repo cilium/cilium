@@ -389,6 +389,7 @@ data:
   iptables-lock-timeout: {{ .Values.global.iptablesLockTimeout | quote }}
 {{- end }}
   auto-direct-node-routes: {{ .Values.global.autoDirectNodeRoutes | quote }}
+  enable-bandwidth-manager: {{ .Values.global.bandwidthManager | quote }}
 {{- if .Values.global.nativeRoutingCIDR }}
   native-routing-cidr: {{ .Values.global.nativeRoutingCIDR }}
 {{- end }}

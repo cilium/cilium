@@ -251,6 +251,12 @@ ctx_full_len(const struct xdp_md *ctx)
 	return ctx_data_end(ctx) - ctx_data(ctx);
 }
 
+static __always_inline __maybe_unused __u32
+ctx_wire_len(const struct xdp_md *ctx)
+{
+	return ctx_full_len(ctx);
+}
+
 struct bpf_elf_map __section_maps cilium_xdp_scratch = {
 	.type		= BPF_MAP_TYPE_PERCPU_ARRAY,
 	.size_key	= sizeof(int),

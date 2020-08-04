@@ -33,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
@@ -300,6 +301,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
 			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
 		}
+	}
+
+	if option.Config.EnableBandwidthManager {
+		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
+		cDefinesMap["THROTTLE_MAP"] = bwmap.MapName
+		cDefinesMap["THROTTLE_MAP_SIZE"] = fmt.Sprintf("%d", bwmap.MapSize)
 	}
 
 	if option.Config.EnableHostFirewall {

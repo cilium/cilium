@@ -260,6 +260,9 @@ const (
 	// conflicting marks.
 	EnableIdentityMark = "enable-identity-mark"
 
+	// EnableBandwidthManager enables EDT-based pacing
+	EnableBandwidthManager = "enable-bandwidth-manager"
+
 	// LibDir enables the directory path to store runtime build environment
 	LibDir = "lib-dir"
 
@@ -1728,6 +1731,9 @@ type DaemonConfig struct {
 	// features in BPF datapath
 	KubeProxyReplacement string
 
+	// EnableBandwidthManager enables EDT-based pacing
+	EnableBandwidthManager bool
+
 	// EnableExternalIPs enables implementation of k8s services with externalIPs in datapath
 	EnableExternalIPs bool
 
@@ -2314,6 +2320,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = viper.GetString(KubeProxyReplacement)
 	c.EnableSessionAffinity = viper.GetBool(EnableSessionAffinity)
+	c.EnableBandwidthManager = viper.GetBool(EnableBandwidthManager)
 	c.EnableHostFirewall = viper.GetBool(EnableHostFirewall)
 	c.EncryptInterface = viper.GetString(EncryptInterface)
 	c.EncryptNode = viper.GetBool(EncryptNode)

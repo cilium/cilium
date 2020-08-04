@@ -200,6 +200,17 @@ struct endpoint_info {
 	__u32		pad[4];
 };
 
+struct edt_id {
+	__u64		id; /* v1 net_cls tag or v2 cgrp id */
+};
+
+struct edt_info {
+	__u64		bps;
+	__u64		t_last;
+	__u64		t_horizon_drop;
+	__u64		pad[4];
+};
+
 struct remote_endpoint_info {
 	__u32		sec_label;
 	__u32		tunnel_endpoint;

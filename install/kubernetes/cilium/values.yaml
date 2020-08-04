@@ -331,6 +331,10 @@ global:
   # hostFirewall enables the enforcement of host policies in the BPF datapath
   hostFirewall: false
 
+  # bandwidthManager enables BBR and FQ + EDT + BPF based rate-limiting for
+  # Pods that are annotated with kubernetes.io/egress-bandwidth.
+  bandwidthManager: true
+
   # kubeProxyReplacement enables kube-proxy replacement in Cilium BPF datapath
   kubeProxyReplacement: "probe"
 

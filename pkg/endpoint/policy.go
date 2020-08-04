@@ -791,6 +791,20 @@ func (e *Endpoint) UpdateVisibilityPolicy(annoCB AnnotationsResolverCB) {
 	<-ch
 }
 
+// UpdateBandwidthPolicy updates the egress bandwidth of this endpoint to
+// progagate the throttle rate to the BPF data path.
+func (e *Endpoint) UpdateBandwidthPolicy(annoCB AnnotationsResolverCB) {
+	ch, err := e.eventQueue.Enqueue(eventqueue.NewEvent(&EndpointPolicyBandwidthEvent{
+		ep:     e,
+		annoCB: annoCB,
+	}))
+	if err != nil {
+		e.getLogger().WithError(err).Error("Unable to enqueue endpoint policy bandwidth event")
+		return
+	}
+	<-ch
+}
+
 // GetRealizedPolicyRuleLabelsForKey returns the list of policy rule labels
 // which match a given flow key (in host byte-order). The returned
 // LabelArrayList must not be modified. This function is exported to be

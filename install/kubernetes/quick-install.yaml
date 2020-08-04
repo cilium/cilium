@@ -108,6 +108,7 @@ data:
   enable-xt-socket-fallback: "true"
   install-iptables-rules: "true"
   auto-direct-node-routes: "false"
+  enable-bandwidth-manager: "true"
   kube-proxy-replacement:  "probe"
   enable-health-check-nodeport: "true"
   node-port-bind-protection: "true"

@@ -17,6 +17,7 @@
 #include "lib/config.h"
 #include "lib/maps.h"
 #include "lib/arp.h"
+#include "lib/edt.h"
 #include "lib/ipv6.h"
 #include "lib/ipv4.h"
 #include "lib/icmp6.h"
@@ -802,6 +803,7 @@ int handle_xgress(struct __ctx_buff *ctx)
 	int ret;
 
 	bpf_clear_meta(ctx);
+	edt_set_aggregate(ctx, LXC_ID);
 
 	send_trace_notify(ctx, TRACE_FROM_LXC, SECLABEL, 0, 0, 0, 0,
 			  TRACE_PAYLOAD_LEN);

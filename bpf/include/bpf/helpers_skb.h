@@ -44,6 +44,9 @@ static int BPF_FUNC(skb_set_tunnel_key, struct __sk_buff *skb,
 		    const struct bpf_tunnel_key *from, __u32 size,
 		    __u32 flags);
 
+/* Packet classification (egress) */
+static __u64 BPF_FUNC(get_cgroup_classid, struct __sk_buff *skb);
+
 /* Events for user space */
 static int BPF_FUNC_REMAP(skb_event_output, struct __sk_buff *skb, void *map,
 			  __u64 index, const void *data, __u32 size) =
