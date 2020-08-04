@@ -15,8 +15,13 @@
 package endpoint
 
 import (
+	"strconv"
+
+	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maps/bwmap"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 
 	"github.com/sirupsen/logrus"
@@ -178,4 +183,66 @@ func (ev *EndpointPolicyVisibilityEvent) Handle(res chan interface{}) {
 		err: nil,
 	}
 	return
+}
+
+// EndpointPolicyBandwidthEvent contains all fields necessary to update
+// the Pod's bandwidth policy.
+type EndpointPolicyBandwidthEvent struct {
+	ep     *Endpoint
+	annoCB AnnotationsResolverCB
+}
+
+// Handle handles the policy bandwidth update.
+func (ev *EndpointPolicyBandwidthEvent) Handle(res chan interface{}) {
+	var bps uint64
+
+	e := ev.ep
+	if err := e.lockAlive(); err != nil {
+		// If the endpoint is being deleted, we don't need to
+		// update its bandwidth policy.
+		res <- &EndpointRegenerationResult{
+			err: nil,
+		}
+		return
+	}
+	defer func() {
+		e.unlock()
+	}()
+
+	bandwidthEgress, err := ev.annoCB(e.K8sNamespace, e.K8sPodName)
+	if err != nil || !option.Config.EnableBandwidthManager {
+		res <- &EndpointRegenerationResult{
+			err: err,
+		}
+		return
+	}
+	if bandwidthEgress != "" {
+		bps, err = bandwidth.GetBytesPerSec(bandwidthEgress)
+		if err == nil {
+			err = bwmap.Update(e.ID, bps)
+		}
+	} else {
+		err = bwmap.Delete(e.ID)
+	}
+	if err != nil {
+		res <- &EndpointRegenerationResult{
+			err: err,
+		}
+		return
+	}
+
+	bpsOld := "inf"
+	bpsNew := "inf"
+	if e.bps != 0 {
+		bpsOld = strconv.FormatUint(e.bps, 10)
+	}
+	if bps != 0 {
+		bpsNew = strconv.FormatUint(bps, 10)
+	}
+	e.getLogger().Debugf("Updating %s from %s to %s bytes/sec", bandwidth.EgressBandwidth,
+		bpsOld, bpsNew)
+	e.bps = bps
+	res <- &EndpointRegenerationResult{
+		err: nil,
+	}
 }

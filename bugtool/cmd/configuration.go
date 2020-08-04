@@ -54,10 +54,13 @@ func defaultCommands(confDir string, cmdDir string, k8sPods []string) []string {
 		"ip -6 n",
 		"ss -t -p -a -i -s",
 		"ss -u -p -a -i -s",
+		"tc qdisc show",
+		"tc -d -s qdisc show",
 		"uname -a",
 		"top -b -n 1",
 		"uptime",
 		"dmesg --time-format=iso",
+		"sysctl -a",
 		"bpftool map show",
 		"bpftool prog show",
 		// LB and CT map for debugging services; using bpftool for a reliable dump
