@@ -32,6 +32,9 @@ var ErrStreamSendBlocked = errors.New("server stream send was blocked for too lo
 
 // Service implements the peerpb.PeerServer gRPC service.
 type Service struct {
+	// the following struct must be embedded for forward compatibility
+	peerpb.UnimplementedPeerServer
+
 	stop     chan struct{}
 	notifier manager.Notifier
 	opts     serviceoption.Options
