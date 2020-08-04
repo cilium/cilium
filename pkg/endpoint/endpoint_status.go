@@ -29,7 +29,6 @@ import (
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
 func getEndpointStatusControllers(mdlControllers models.ControllerStatuses) (controllers cilium_v2.ControllerList) {
@@ -201,28 +200,6 @@ func populateResponseWithPolicyKey(allocator cache.IdentityAllocator, policy *ci
 	}
 }
 
-// desiredPolicyAllowsIdentity returns whether the specified policy allows
-// ingress and egress traffic for the specified numeric security identity.
-// If the 'secID' is zero, it will check if all traffic is allowed.
-//
-// Returing true for either return value indicates all traffic is allowed.
-func desiredPolicyAllowsIdentity(desired *policy.EndpointPolicy, identity identity.NumericIdentity) (ingress, egress bool) {
-	key := policy.Key{
-		Identity: uint32(identity),
-	}
-
-	key.TrafficDirection = trafficdirection.Ingress.Uint8()
-	if _, ok := desired.PolicyMapState[key]; ok || !desired.IngressPolicyEnabled {
-		ingress = true
-	}
-	key.TrafficDirection = trafficdirection.Egress.Uint8()
-	if _, ok := desired.PolicyMapState[key]; ok || !desired.EgressPolicyEnabled {
-		egress = true
-	}
-
-	return ingress, egress
-}
-
 // getEndpointPolicy returns an API representation of the policy that the
 // received Endpoint intends to apply.
 func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
@@ -237,7 +214,7 @@ func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 		}
 
 		// Handle allow-all cases
-		allowsAllIngress, allowsAllEgress := desiredPolicyAllowsIdentity(e.desiredPolicy, identity.IdentityUnknown)
+		allowsAllIngress, allowsAllEgress := e.desiredPolicy.AllowsIdentity(identity.IdentityUnknown)
 		if allowsAllIngress {
 			policy.Ingress.Allowed = cilium_v2.AllowedIdentityList{{}}
 		}
@@ -248,7 +225,7 @@ func (e *Endpoint) getEndpointPolicy() (policy *cilium_v2.EndpointPolicy) {
 		// If either ingress or egress policy is enabled, go through
 		// the desired policy to populate the values.
 		if !allowsAllIngress || !allowsAllEgress {
-			allowsWorldIngress, allowsWorldEgress := desiredPolicyAllowsIdentity(e.desiredPolicy, identity.ReservedIdentityWorld)
+			allowsWorldIngress, allowsWorldEgress := e.desiredPolicy.AllowsIdentity(identity.ReservedIdentityWorld)
 
 			for policyKey := range e.desiredPolicy.PolicyMapState {
 				// Skip listing identities if enforcement is disabled in direction,

@@ -15,6 +15,7 @@
 package policy
 
 import (
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 )
 
@@ -194,6 +195,28 @@ func (p *EndpointPolicy) ConsumeMapChanges() (adds, deletes MapState) {
 	p.selectorPolicy.SelectorCache.mutex.Lock()
 	defer p.selectorPolicy.SelectorCache.mutex.Unlock()
 	return p.policyMapChanges.consumeMapChanges()
+}
+
+// AllowsIdentity returns whether the specified policy allows
+// ingress and egress traffic for the specified numeric security identity.
+// If the 'secID' is zero, it will check if all traffic is allowed.
+//
+// Returning true for either return value indicates all traffic is allowed.
+func (p *EndpointPolicy) AllowsIdentity(identity identity.NumericIdentity) (ingress, egress bool) {
+	key := Key{
+		Identity: uint32(identity),
+	}
+
+	key.TrafficDirection = trafficdirection.Ingress.Uint8()
+	if _, ok := p.PolicyMapState[key]; ok || !p.IngressPolicyEnabled {
+		ingress = true
+	}
+	key.TrafficDirection = trafficdirection.Egress.Uint8()
+	if _, ok := p.PolicyMapState[key]; ok || !p.EgressPolicyEnabled {
+		egress = true
+	}
+
+	return ingress, egress
 }
 
 // NewEndpointPolicy returns an empty EndpointPolicy stub.

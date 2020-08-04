@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -19,6 +19,7 @@ package policy
 import (
 	"fmt"
 	"sync"
+	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
 	"github.com/cilium/cilium/pkg/identity"
@@ -659,4 +660,111 @@ func (ds *PolicyTestSuite) TestMapStateWithIngress(c *C) {
 	c.Assert(deletes, checker.Equals, MapState{
 		{Identity: 193, DestPort: 80, Nexthdr: 6}: rule1MapStateEntry,
 	})
+}
+
+func TestEndpointPolicy_AllowsIdentity(t *testing.T) {
+	type fields struct {
+		selectorPolicy *selectorPolicy
+		PolicyMapState MapState
+	}
+	type args struct {
+		identity identity.NumericIdentity
+	}
+	tests := []struct {
+		name        string
+		fields      fields
+		args        args
+		wantIngress bool
+		wantEgress  bool
+	}{
+		{
+			name: "policy disabled",
+			fields: fields{
+				selectorPolicy: &selectorPolicy{
+					IngressPolicyEnabled: false,
+					EgressPolicyEnabled:  false,
+				},
+				PolicyMapState: MapState{},
+			},
+			args: args{
+				identity: 0,
+			},
+			wantIngress: true,
+			wantEgress:  true,
+		},
+		{
+			name: "policy enabled",
+			fields: fields{
+				selectorPolicy: &selectorPolicy{
+					IngressPolicyEnabled: true,
+					EgressPolicyEnabled:  true,
+				},
+				PolicyMapState: MapState{},
+			},
+			args: args{
+				identity: 0,
+			},
+			wantIngress: false,
+			wantEgress:  false,
+		},
+		{
+			name: "policy enabled for ingress",
+			fields: fields{
+				selectorPolicy: &selectorPolicy{
+					IngressPolicyEnabled: true,
+					EgressPolicyEnabled:  true,
+				},
+				PolicyMapState: MapState{
+					Key{
+						Identity:         0,
+						DestPort:         0,
+						Nexthdr:          0,
+						TrafficDirection: trafficdirection.Ingress.Uint8(),
+					}: MapStateEntry{},
+				},
+			},
+			args: args{
+				identity: 0,
+			},
+			wantIngress: true,
+			wantEgress:  false,
+		},
+		{
+			name: "policy enabled for egress",
+			fields: fields{
+				selectorPolicy: &selectorPolicy{
+					IngressPolicyEnabled: true,
+					EgressPolicyEnabled:  true,
+				},
+				PolicyMapState: MapState{
+					Key{
+						Identity:         0,
+						DestPort:         0,
+						Nexthdr:          0,
+						TrafficDirection: trafficdirection.Egress.Uint8(),
+					}: MapStateEntry{},
+				},
+			},
+			args: args{
+				identity: 0,
+			},
+			wantIngress: false,
+			wantEgress:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			p := &EndpointPolicy{
+				selectorPolicy: tt.fields.selectorPolicy,
+				PolicyMapState: tt.fields.PolicyMapState,
+			}
+			gotIngress, gotEgress := p.AllowsIdentity(tt.args.identity)
+			if gotIngress != tt.wantIngress {
+				t.Errorf("AllowsIdentity() gotIngress = %v, want %v", gotIngress, tt.wantIngress)
+			}
+			if gotEgress != tt.wantEgress {
+				t.Errorf("AllowsIdentity() gotEgress = %v, want %v", gotEgress, tt.wantEgress)
+			}
+		})
+	}
 }
