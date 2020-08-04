@@ -129,6 +129,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		{"net.core.bpf_jit_enable", "1", false},
 		{"net.ipv4.conf.all.rp_filter", "0", false},
 		{"kernel.unprivileged_bpf_disabled", "1", false},
+		{"kernel.timer_migration", "0", true},
 	}
 
 	// Lock so that endpoints cannot be built while we are compile base programs.
