@@ -33,6 +33,7 @@ var _ = Describe("K8sHealthTest", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
 	})
@@ -51,6 +52,7 @@ var _ = Describe("K8sHealthTest", func() {
 	})
 
 	AfterAll(func() {
+		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 

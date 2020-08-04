@@ -62,6 +62,7 @@ var _ = Describe("K8sKafkaPolicyTest", func() {
 	})
 
 	AfterAll(func() {
+		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 

@@ -73,7 +73,6 @@ var _ = Describe("K8sPolicyTest", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
-		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo-named-port.yaml")
 		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
 		l3NamedPortPolicy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy-named-port.yaml")
@@ -102,6 +101,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			"global.debug.verbose":      "flow",
 			"global.hubble.enabled":     "true",
 		}
+		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, daemonCfg)
 	})
 
@@ -116,6 +116,7 @@ var _ = Describe("K8sPolicyTest", func() {
 	})
 
 	AfterAll(func() {
+		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 

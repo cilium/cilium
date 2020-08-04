@@ -105,6 +105,7 @@ var _ = Describe("K8sServicesTest", func() {
 	})
 
 	AfterAll(func() {
+		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 
