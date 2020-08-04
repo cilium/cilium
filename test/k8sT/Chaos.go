@@ -36,6 +36,7 @@ var _ = Describe("K8sChaosTest", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoDSPath = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
+
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
 	})
@@ -51,6 +52,7 @@ var _ = Describe("K8sChaosTest", func() {
 	})
 
 	AfterAll(func() {
+		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 
@@ -153,9 +155,7 @@ var _ = Describe("K8sChaosTest", func() {
 			By("Checking connectivity after uninstalling Cilium")
 			connectivityTest()
 
-			By("Install cilium pods")
-
-			ciliumFilename := helpers.TimestampFilename("cilium.yaml")
+			By("Reinstall cilium DaemonSet")
 			err = kubectl.CiliumInstall(ciliumFilename, map[string]string{})
 			Expect(err).To(BeNil(), "Cilium cannot be installed")
 

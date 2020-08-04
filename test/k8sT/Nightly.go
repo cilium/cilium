@@ -50,9 +50,11 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		vagrantManifestPath = path.Join(kubectl.BasePath(), manifestPath)
+
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
 	})
+
 	deleteAll := func() {
 		ctx, cancel := context.WithTimeout(context.Background(), endpointsTimeout)
 		defer cancel()
@@ -65,10 +67,13 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 			logger.Errorf("DeleteAll: delete all pods,services failed after %s", helpers.HelperTimeout)
 		}
 	}
+
 	AfterAll(func() {
 		deleteAll()
 		kubectl.DeleteCiliumDS()
 		ExpectAllPodsTerminated(kubectl)
+
+		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 
@@ -327,7 +332,6 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 })
 
 var _ = Describe("NightlyExamples", func() {
-
 	var kubectl *helpers.Kubectl
 	var l3Policy string
 	var ciliumFilename string
@@ -338,7 +342,10 @@ var _ = Describe("NightlyExamples", func() {
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
 		l7Policy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy.yaml")
+
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		DeployCiliumAndDNS(kubectl, ciliumFilename)
+
 	})
 
 	AfterFailed(func() {
@@ -360,6 +367,7 @@ var _ = Describe("NightlyExamples", func() {
 	})
 
 	AfterAll(func() {
+		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 
@@ -447,7 +455,6 @@ var _ = Describe("NightlyExamples", func() {
 			AppManifest = kubectl.GetFilePath(GRPCManifest)
 			PolicyManifest = kubectl.GetFilePath(GRPCPolicy)
 
-			ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 			DeployCiliumAndDNS(kubectl, ciliumFilename)
 		})
 

@@ -24,7 +24,7 @@ import (
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
-	"github.com/cilium/cilium/test/k8sT/manifests/externalIPs"
+	external_ips "github.com/cilium/cilium/test/k8sT/manifests/externalIPs"
 
 	. "github.com/onsi/ginkgo/extensions/table"
 	. "github.com/onsi/gomega"
@@ -102,6 +102,7 @@ var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 			return
 		}
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
 
@@ -189,6 +190,8 @@ var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 		if !helpers.RunsOnNetNextOr419Kernel() {
 			return
 		}
+
+		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		_ = kubectl.NamespaceDelete(namespaceTest)
 		kubectl.CloseSSHClient()
 	})

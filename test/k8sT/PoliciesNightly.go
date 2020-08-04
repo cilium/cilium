@@ -33,6 +33,7 @@ var _ = Describe("NightlyPolicies", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
 	})
@@ -55,6 +56,8 @@ var _ = Describe("NightlyPolicies", func() {
 		kubectl.DeleteCiliumDS()
 		err := kubectl.WaitCleanAllTerminatingPods(timeout)
 		Expect(err).To(BeNil(), "Cannot clean pods during timeout")
+
+		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 

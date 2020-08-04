@@ -72,6 +72,7 @@ var _ = Describe("K8sFQDNTest", func() {
 
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		demoManifest = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
+
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
 
@@ -94,6 +95,8 @@ var _ = Describe("K8sFQDNTest", func() {
 	AfterAll(func() {
 		_ = kubectl.Delete(demoManifest)
 		ExpectAllPodsTerminated(kubectl)
+
+		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 
