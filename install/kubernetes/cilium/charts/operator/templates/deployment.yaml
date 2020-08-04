@@ -35,6 +35,20 @@ spec:
         io.cilium/app: operator
         name: cilium-operator
     spec:
+{{- if or (ge .Capabilities.KubeVersion.Minor "14") (gt .Capabilities.KubeVersion.Major "1") }}
+      # In HA mode, cilium-operator pods must not be scheduled on the same
+      # node as they will clash with each other.
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: io.cilium/app
+                operator: In
+                values:
+                - operator
+            topologyKey: "kubernetes.io/hostname"
+{{- end }}
       containers:
       - args:
         - --debug=$(CILIUM_DEBUG)
