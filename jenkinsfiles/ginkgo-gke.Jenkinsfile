@@ -86,7 +86,7 @@ pipeline {
             parallel {
                 stage('Make Cilium images') {
                     steps {
-                        sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) ${TAG}'
+                        sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) ${TAG} "--no-cache"'
                     }
                     post {
                         unsuccessful {
