@@ -1043,6 +1043,16 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 		}
 	}
 
+	// AWS ENI requires to mark packets ingressing on the primary interface
+	// and route them back the same way even if the pod responding is using
+	// the IP of a different interface. Please see note in Reinitialize()
+	// in pkg/datapath/loader for more details.
+	if option.Config.IPAM == ipamOption.IPAMENI {
+		if err := m.addCiliumENIRules(); err != nil {
+			return fmt.Errorf("cannot install rules for ENI multi-node NodePort: %w", err)
+		}
+	}
+
 	if option.Config.EnableIPSec {
 		if err := m.addCiliumNoTrackXfrmRules(); err != nil {
 			return fmt.Errorf("cannot install xfrm rules: %s", err)
@@ -1146,4 +1156,28 @@ func (m *IptablesManager) addCiliumNoTrackXfrmRules() error {
 		return m.ciliumNoTrackXfrmRules("iptables", "-I")
 	}
 	return nil
+}
+
+func (m *IptablesManager) addCiliumENIRules() error {
+	nfmask := fmt.Sprintf("%#08x", linux_defaults.MarkMultinodeNodeport)
+	ctmask := fmt.Sprintf("%#08x", linux_defaults.MaskMultinodeNodeport)
+	if err := runProg("iptables", append(
+		m.waitArgs,
+		"-t", "mangle",
+		"-A", ciliumPreMangleChain,
+		"-i", "eth0",
+		"-m", "comment", "--comment", "cilium: primary ENI",
+		"-m", "addrtype", "--dst-type", "LOCAL", "--limit-iface-in",
+		"-j", "CONNMARK", "--set-xmark", nfmask+"/"+ctmask),
+		false); err != nil {
+		return err
+	}
+	return runProg("iptables", append(
+		m.waitArgs,
+		"-t", "mangle",
+		"-A", ciliumPreMangleChain,
+		"-i", "lxc+",
+		"-m", "comment", "--comment", "cilium: primary ENI",
+		"-j", "CONNMARK", "--restore-mark", "--nfmask", nfmask, "--ctmask", ctmask),
+		false)
 }
