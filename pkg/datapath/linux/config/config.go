@@ -24,6 +24,7 @@ import (
 	"reflect"
 	"sort"
 
+	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/datapath"
@@ -302,6 +303,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		}
 	}
 
+	if option.Config.EnableBandwidthManager {
+		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
+		cDefinesMap["THROTTLE_MAP"] = bandwidth.MapName
+		cDefinesMap["THROTTLE_MAP_SIZE"] = fmt.Sprintf("%d", bandwidth.MapSize)
+	}
+
 	if option.Config.EnableHostFirewall {
 		cDefinesMap["ENABLE_HOST_FIREWALL"] = "1"
 	}
@@ -458,6 +465,7 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 		}
 
 		fmt.Fprint(fw, defineUint32("HOST_EP_ID", uint32(e.GetID())))
+		fmt.Fprint(fw, defineUint32("HOST_DEV", 2))
 	} else {
 		// We want to ensure that the template BPF program always has "LXC_IP"
 		// defined and present as a symbol in the resulting object file after

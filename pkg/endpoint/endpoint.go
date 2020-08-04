@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
@@ -158,6 +159,9 @@ type Endpoint struct {
 	// identityRevision is incremented each time the identity label
 	// information of the endpoint has changed
 	identityRevision int
+
+	// bps is the egress rate of the endpoint
+	bps uint64
 
 	// mac is the MAC address of the endpoint
 	//
@@ -1629,6 +1633,13 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 						return "", err
 					}
 					return annotations[annotation.ProxyVisibility], nil
+				})
+				e.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
+					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
+					if err != nil {
+						return "", err
+					}
+					return annotations[bandwidth.EgressBandwidth], nil
 				})
 				e.UpdateLabels(ctx, identityLabels, info, true)
 				close(done)

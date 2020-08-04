@@ -156,6 +156,8 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 		return err
 	}
 
+	opts["HOST_DEV"] = 0
+
 	if option.Config.EnableNodePort && nodePortIPv4Addrs != nil && nodePortIPv6Addrs != nil {
 		opts["NATIVE_DEV_IFINDEX"] = ifIndex
 		if option.Config.EnableIPv4 {

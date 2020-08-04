@@ -3590,19 +3590,18 @@ struct __sk_buff {
 	/* ... here. */
 
 	__u32 data_meta;
-
-#if 0
+#if 1
 	/* TODO: compiled out for now since this cases verifier breakage
 	 * on older kernels resulting in invalid bpf_context access. Needs
 	 * follow-up investigation.
 	 */
 	__bpf_md_ptr(struct bpf_flow_keys *, flow_keys);
+#endif
 	__u64 tstamp;
 	__u32 wire_len;
 	__u32 gso_segs;
 	__bpf_md_ptr(struct bpf_sock *, sk);
 	__u32 gso_size;
-#endif
 };
 
 struct bpf_tunnel_key {

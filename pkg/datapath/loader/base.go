@@ -291,7 +291,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	args[initArgNrCPUs] = fmt.Sprintf("%d", common.GetNumPossibleCPUs(log))
 
 	clockSource := []string{"ktime", "jiffies"}
-	log.Infof("Setting up base BPF datapath (BPF %s instruction set, %s clock source)",
+	log.Infof("Setting up BPF datapath (BPF %s instruction set, %s clock source)",
 		args[initBPFCPU], clockSource[option.Config.ClockSource])
 
 	for _, s := range sysSettings {

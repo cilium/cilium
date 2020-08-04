@@ -242,6 +242,7 @@ func elfVariableSubstitutions(ep datapath.Endpoint) map[string]uint32 {
 			}
 		}
 		result["HOST_EP_ID"] = uint32(ep.GetID())
+		result["HOST_DEV"] = 1
 	} else {
 		result["LXC_ID"] = uint32(ep.GetID())
 	}

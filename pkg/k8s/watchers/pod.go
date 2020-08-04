@@ -25,6 +25,7 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -224,7 +225,9 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	// Check annotation updates.
 	oldAnno := oldK8sPod.ObjectMeta.Annotations
 	newAnno := newK8sPod.ObjectMeta.Annotations
-	annotationsChanged := !k8s.AnnotationsEqual([]string{annotation.ProxyVisibility}, oldAnno, newAnno)
+	annoChangedProxy := !k8s.AnnotationsEqual([]string{annotation.ProxyVisibility}, oldAnno, newAnno)
+	annoChangedBandwidth := !k8s.AnnotationsEqual([]string{bandwidth.EgressBandwidth}, oldAnno, newAnno)
+	annotationsChanged := annoChangedProxy || annoChangedBandwidth
 
 	// Check label updates too.
 	oldPodLabels := oldK8sPod.ObjectMeta.Labels
@@ -255,13 +258,24 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	}
 
 	if annotationsChanged {
-		podEP.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
-			p, err := k.GetCachedPod(ns, podName)
-			if err != nil {
-				return "", nil
-			}
-			return p.ObjectMeta.Annotations[annotation.ProxyVisibility], nil
-		})
+		if annoChangedProxy {
+			podEP.UpdateVisibilityPolicy(func(ns, podName string) (proxyVisibility string, err error) {
+				p, err := k.GetCachedPod(ns, podName)
+				if err != nil {
+					return "", nil
+				}
+				return p.ObjectMeta.Annotations[annotation.ProxyVisibility], nil
+			})
+		}
+		if annoChangedBandwidth {
+			podEP.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
+				p, err := k.GetCachedPod(ns, podName)
+				if err != nil {
+					return "", nil
+				}
+				return p.ObjectMeta.Annotations[bandwidth.EgressBandwidth], nil
+			})
+		}
 		realizePodAnnotationUpdate(podEP)
 	}
 	return nil

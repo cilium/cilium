@@ -27,6 +27,7 @@
 
 #include "lib/utils.h"
 #include "lib/common.h"
+#include "lib/edt.h"
 #include "lib/arp.h"
 #include "lib/maps.h"
 #include "lib/ipv6.h"
@@ -923,13 +924,18 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		ret = DROP_UNKNOWN_L3;
 		break;
 	}
-
-
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 #endif /* ENABLE_HOST_FIREWALL */
+
+#if defined(ENABLE_BANDWIDTH_MANAGER)
+	ret = edt_sched_departure(ctx);
+	/* No send_drop_notify_error() here given we're rate-limiting. */
+	if (ret == CTX_ACT_DROP)
+		return ret;
+#endif
 
 #if defined(ENABLE_NODEPORT) && \
 	(!defined(ENABLE_DSR) || \
