@@ -215,6 +215,12 @@ func (fns goSharedFuncs) inType(f pgs.Field, x interface{}) string {
 		default:
 			return pgsgo.TypeName(fmt.Sprintf("%T", x)).Element().String()
 		}
+	case pgs.EnumT:
+		if f.Type().IsRepeated() {
+			return f.Type().Element().Enum().Name().String()
+		} else {
+			return fns.Type(f).String()
+		}
 	default:
 		return fns.Type(f).String()
 	}

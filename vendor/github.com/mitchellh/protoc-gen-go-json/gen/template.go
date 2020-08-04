@@ -6,7 +6,6 @@ import (
 	"text/template"
 
 	"github.com/golang/glog"
-	gogen "github.com/golang/protobuf/protoc-gen-go/generator"
 	"github.com/grpc-ecosystem/grpc-gateway/protoc-gen-grpc-gateway/descriptor"
 )
 
@@ -26,7 +25,7 @@ func applyTemplate(f *descriptor.File, opts Options) (string, error) {
 			glog.V(2).Infof("Skipping %s, mapentry message", msg.GetName())
 			continue
 		}
-		msgName := gogen.CamelCase(*msg.Name)
+		msgName := camelCase(*msg.Name)
 		msg.Name = &msgName
 		if err := messageTemplate.Execute(w, tplMessage{
 			Message: msg,

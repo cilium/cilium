@@ -11,9 +11,5 @@
   name = "golang.org/x/net"
 
 [[constraint]]
-  name = "github.com/gogo/protobuf"
-  version = "1.1.1"
-
-[[constraint]]
   branch = "master"
   name = "github.com/iancoleman/strcase"

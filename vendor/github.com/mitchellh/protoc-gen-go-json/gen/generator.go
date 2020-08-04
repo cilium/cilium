@@ -36,6 +36,11 @@ func New(reg *descriptor.Registry, opts Options) *generator {
 func (g *generator) Generate(targets []*descriptor.File) ([]*plugin.CodeGeneratorResponse_File, error) {
 	var files []*plugin.CodeGeneratorResponse_File
 	for _, file := range targets {
+		if len(file.Messages) == 0 {
+			glog.V(1).Infof("Skipping %s, no messages", file.GetName())
+			continue
+		}
+
 		glog.V(1).Infof("Processing %s", file.GetName())
 		code, err := g.generate(file)
 		if err != nil {

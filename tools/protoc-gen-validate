@@ -2,4 +2,4 @@
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
-GO111MODULE=off go run ${SCRIPTPATH}/../vendor/github.com/envoyproxy/protoc-gen-validate $@
+GO111MODULE=off go run "${SCRIPTPATH}/../vendor/github.com/envoyproxy/protoc-gen-validate" $@
