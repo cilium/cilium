@@ -253,7 +253,7 @@ type etcdClient struct {
 	// is set up in the etcd client. If an error occurred and the initial
 	// session cannot be established, the error is provided via the
 	// channel.
-	firstSession chan error
+	firstSession chan struct{}
 
 	// stopStatusChecker is closed when the status checker can be terminated
 	stopStatusChecker chan struct{}
@@ -268,9 +268,10 @@ type etcdClient struct {
 	// statusCheckErrors receives all errors reported by statusChecker()
 	statusCheckErrors chan error
 
-	// protects sessions from concurrent access
+	// protects all sessions and sessionErr from concurrent access
 	lock.RWMutex
 
+	sessionErr    error
 	session       *concurrency.Session
 	sessionCancel context.CancelFunc
 
@@ -432,8 +433,8 @@ func (e *etcdClient) isConnectedAndHasQuorum(ctx context.Context) error {
 
 	select {
 	// Wait for the the initial connection to be established
-	case err := <-e.firstSession:
-		if err != nil {
+	case <-e.firstSession:
+		if err := e.sessionError(); err != nil {
 			return err
 		}
 	// Client is closing
@@ -685,7 +686,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		configPath:           cfgPath,
 		session:              &s,
 		lockSession:          &ls,
-		firstSession:         errChan,
+		firstSession:         make(chan struct{}),
 		controllers:          controller.NewManager(),
 		latestStatusSnapshot: "Waiting for initial connection to be established",
 		stopStatusChecker:    make(chan struct{}),
@@ -694,25 +695,33 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		statusCheckErrors:    make(chan error, 128),
 	}
 
+	handleSessionError := func(err error) {
+		ec.RWMutex.Lock()
+		ec.sessionErr = err
+		ec.RWMutex.Unlock()
+		errChan <- err
+	}
+
 	// wait for session to be created also in parallel
 	go func() {
 		defer close(errChan)
+		defer close(ec.firstSession)
 
 		select {
 		case err = <-errorChan:
 			if err != nil {
-				errChan <- err
+				handleSessionError(err)
 				return
 			}
 		case <-time.After(initialConnectionTimeout):
-			errChan <- fmt.Errorf("timed out while waiting for etcd session. Ensure that etcd is running on %s", config.Endpoints)
+			handleSessionError(fmt.Errorf("timed out while waiting for etcd session. Ensure that etcd is running on %s", config.Endpoints))
 			return
 		}
 
 		ec.getLogger().Info("Initial etcd session established")
 
 		if err := ec.checkMinVersion(ctx); err != nil {
-			errChan <- fmt.Errorf("unable to validate etcd version: %s", err)
+			handleSessionError(fmt.Errorf("unable to validate etcd version: %s", err))
 		}
 	}()
 
@@ -783,6 +792,13 @@ func getEPVersion(ctx context.Context, c client.Maintenance, etcdEP string, time
 	return v, nil
 }
 
+func (e *etcdClient) sessionError() (err error) {
+	e.RWMutex.RLock()
+	err = e.sessionErr
+	e.RWMutex.RUnlock()
+	return
+}
+
 // checkMinVersion checks the minimal version running on etcd cluster.  This
 // function should be run whenever the etcd client is connected for the first
 // time and whenever the session is renewed.
@@ -817,8 +833,8 @@ func (e *etcdClient) checkMinVersion(ctx context.Context) error {
 
 func (e *etcdClient) waitForInitialSession(ctx context.Context) error {
 	select {
-	case err := <-e.firstSession:
-		if err != nil {
+	case <-e.firstSession:
+		if err := e.sessionError(); err != nil {
 			return err
 		}
 	case <-ctx.Done():
