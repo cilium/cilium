@@ -127,6 +127,14 @@ func RedeployCilium(vm *helpers.Kubectl, ciliumFilename string, options map[stri
 	ExpectCiliumOperatorReady(vm)
 }
 
+// UninstallCiliumFromManifest uninstall a deployed Cilium configuration from the
+// provided manifest file.
+// Treat this as a cleanup function for RedeployCilium/Redeploy/DeployCiliumAndDNS/CiliumInstall.
+func UninstallCiliumFromManifest(vm *helpers.Kubectl, ciliumFilename string) {
+	Expect(vm.DeleteAndWait(ciliumFilename, true).GetError()).
+		To(BeNil(), "Error removing cilium from installed manifest")
+}
+
 // RedeployCiliumWithMerge merges the configuration passed as "from" into
 // "options", allowing the caller to preserve the previous Cilium
 // configuration, along with passing new configuration. This function behaves

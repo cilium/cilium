@@ -29,7 +29,21 @@ var _ = Describe("K8sIdentity", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
+
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
+		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+			"global.endpointGCInterval":       "2s",
+			"global.identityGCInterval":       "2s",
+			"global.identityHeartbeatTimeout": "2s",
+		})
+
+		_, err := kubectl.CiliumNodesWait()
+		ExpectWithOffset(1, err).Should(BeNil(), "Failure while waiting for k8s nodes to be annotated by Cilium")
+
+		By("Making sure all endpoints are in ready state")
+		err = kubectl.CiliumEndpointWaitReady()
+		ExpectWithOffset(1, err).To(BeNil(), "Failure while waiting for all cilium endpoints to reach ready state")
+
 	})
 
 	AfterFailed(func() {
@@ -38,6 +52,7 @@ var _ = Describe("K8sIdentity", func() {
 	})
 
 	AfterAll(func() {
+		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 
@@ -46,25 +61,8 @@ var _ = Describe("K8sIdentity", func() {
 		kubectl.ValidateListOfErrorsInLogs(CurrentGinkgoTestDescription().Duration, blacklist)
 	})
 
-	deployCilium := func(options map[string]string) {
-		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, options)
-
-		_, err := kubectl.CiliumNodesWait()
-		ExpectWithOffset(1, err).Should(BeNil(), "Failure while waiting for k8s nodes to be annotated by Cilium")
-
-		By("Making sure all endpoints are in ready state")
-		err = kubectl.CiliumEndpointWaitReady()
-		ExpectWithOffset(1, err).To(BeNil(), "Failure while waiting for all cilium endpoints to reach ready state")
-	}
-
 	Context("Identity expiration", func() {
 		It("Expiration of CiliumIdentity", func() {
-			deployCilium(map[string]string{
-				"global.endpointGCInterval":       "2s",
-				"global.identityGCInterval":       "2s",
-				"global.identityHeartbeatTimeout": "2s",
-			})
-
 			By("Creating unused CiliumIdentity")
 			dummyIdentity := helpers.ManifestGet(kubectl.BasePath(), "dummy_identity.yaml")
 			kubectl.ApplyDefault(dummyIdentity).ExpectSuccess("Cannot import dummy identity")

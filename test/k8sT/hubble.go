@@ -109,11 +109,11 @@ var _ = Describe("K8sHubbleTest", func() {
 	SkipContextIf(helpers.SkipGKEQuarantined, "All Hubble Tests", func() {
 		BeforeAll(func() {
 			kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-			ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 			k8s1NodeName, _ = kubectl.GetNodeInfo(helpers.K8s1)
 
 			demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
 
+			ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"global.hubble.metrics.enabled": `"{dns:query;ignoreAAAA,drop,tcp,flow,port-distribution,icmp,http}"`,
 				"global.hubble.relay.enabled":   "true",
@@ -145,6 +145,7 @@ var _ = Describe("K8sHubbleTest", func() {
 
 		AfterAll(func() {
 			kubectl.DeleteHubbleRelay(hubbleRelayNamespace)
+			UninstallCiliumFromManifest(kubectl, ciliumFilename)
 			kubectl.CloseSSHClient()
 		})
 
