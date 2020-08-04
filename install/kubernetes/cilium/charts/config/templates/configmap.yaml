@@ -3,6 +3,7 @@
 {{- $defaultBpfMapDynamicSizeRatio := 0.0 -}}
 {{- $defaultBpfMasquerade := "false" -}}
 {{- $defaultBpfClockProbe := "false" -}}
+{{- $defaultBpfTProxy := "false" -}}
 {{- $defaultIPAM := "hostscope" -}}
 {{- $defaultSessionAffinity := "false" -}}
 {{- $defaultOperatorApiServeAddr := "localhost:9234" -}}
@@ -27,6 +28,11 @@
 {{- end }}
 {{- $defaultBpfCtTcpMax = 0 -}}
 {{- $defaultBpfCtAnyMax = 0 -}}
+{{- end -}}
+
+{{- /* Default values when 1.9 was initially deployed */ -}}
+{{- if semverCompare ">=1.9" (default "1.9" .Values.upgradeCompatibility) -}}
+{{- $defaultBpfTProxy = "true" -}}
 {{- end -}}
 
 {{- $ipam := (coalesce .Values.ipam $defaultIPAM) -}}
@@ -189,6 +195,12 @@ data:
   enable-bpf-clock-probe: {{ .Values.bpfClockProbe | quote }}
 {{- else if eq $defaultBpfClockProbe "true" }}
   enable-bpf-clock-probe: {{ $defaultBpfClockProbe | quote }}
+{{- end }}
+
+{{- if hasKey .Values "bpfTProxy" }}
+  enable-bpf-tproxy: {{ .Values.bpfTProxy | quote }}
+{{- else if eq $defaultBpfTProxy "true" }}
+  enable-bpf-tproxy: {{ $defaultBpfTProxy | quote }}
 {{- end }}
 
   # If you want cilium monitor to aggregate tracing for packets, set this level

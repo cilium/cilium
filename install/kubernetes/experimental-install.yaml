@@ -58,6 +58,7 @@ data:
   # address.
   enable-ipv6: "false"
   enable-bpf-clock-probe: "true"
+  enable-bpf-tproxy: "true"
 
   # If you want cilium monitor to aggregate tracing for packets, set this level
   # to "low", "medium", or "maximum". The higher the level, the less packets
