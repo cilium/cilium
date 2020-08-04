@@ -19,6 +19,8 @@ import "google/protobuf/timestamp.proto";
 
 package flow;
 
+option go_package = "github.com/cilium/cilium/api/v1/flow";
+
 message Flow {
     google.protobuf.Timestamp time = 1;
     Verdict verdict = 2;

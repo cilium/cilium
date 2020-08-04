@@ -81,7 +81,6 @@ make build
 
 - **`lang`**: specify the target language to generate. Currently, the only supported options are:
   - `go`
-  - `gogo` for [gogo proto](https://github.com/gogo/protobuf) (experimental)
   - `cc` for c++ (partially implemented)
   - `java`
   - `python`
@@ -103,30 +102,6 @@ protoc \
 ```
 
 All messages generated include the new `Validate() error` method. PGV requires no additional runtime dependencies from the existing generated code.
-
-**Note**: by default **example.pb.validate.go** is nested in a directory structure that matches your `option go_package` name. You can change this using the protoc parameter `paths=source_relative:.`. Then `--validate_out` will output the file where it is expected. See Google's protobuf documenation or [packages and input paths](https://github.com/golang/protobuf#packages-and-input-paths) or [parameters](https://github.com/golang/protobuf#parameters) for more information.
-
-#### Gogo
-
-There is an experimental support for [gogo
-protobuf](https://github.com/gogo/protobuf) plugin for `go`. Use the following
-command to generate `gogo`-compatible validation code:
-
-```sh
-protoc \
-  -I . \
-  -I ${GOPATH}/src \
-  -I ${GOPATH}/src/github.com/envoyproxy/protoc-gen-validate \
-  --gogofast_out=":../generated"\
-  --validate_out="lang=gogo:../generated" \ example.proto
-```
-
-Gogo support has the following limitations:
-- only `gogofast` plugin is supported and tested, meaning that the fields
-  should be properly annotated with `gogoproto` annotations;
-- `gogoproto.nullable` is supported on fields;
-- `gogoproto.stdduration` is supported on fields;
-- `gogoproto.stdtime` is supported on fields;
 
 **Note**: by default **example.pb.validate.go** is nested in a directory structure that matches your `option go_package` name. You can change this using the protoc parameter `paths=source_relative:.`. Then `--validate_out` will output the file where it is expected. See Google's protobuf documenation or [packages and input paths](https://github.com/golang/protobuf#packages-and-input-paths) or [parameters](https://github.com/golang/protobuf#parameters) for more information.
 
@@ -408,6 +383,9 @@ Check the [constraint rule comparison matrix](rule_comparison.md) for language-s
   
   // x must conform to a well known regex for HTTP header values (via RFC 7230) 
   string x = 1 [(validate.rules).string.well_known_regex = HTTP_HEADER_VALUE];
+  
+  // x must conform to a well known regex for headers, disallowing \r\n\0 characters.
+  string x = 1 [(validate.rules).string {well_known_regex: HTTP_HEADER_VALUE, strict: false}];
   ```
 
 ### Bytes

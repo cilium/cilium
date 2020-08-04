@@ -2,4 +2,4 @@
 
 SCRIPTPATH="$( cd "$(dirname "$0")" ; pwd -P )"
 
-GO111MODULE=off go run ${SCRIPTPATH}/../vendor/github.com/mitchellh/protoc-gen-go-json $@
+GO111MODULE=off go run "${SCRIPTPATH}/../vendor/github.com/mitchellh/protoc-gen-go-json" $@

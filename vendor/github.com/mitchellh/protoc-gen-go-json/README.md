@@ -70,6 +70,7 @@ The generator supports options you can specify via the command-line:
   * `enums_as_ints` - Render enums as integers instead of strings.
   * `emit_defaults` - Render fields with zero values.
   * `orig_name` - Use original (.proto file) name for fields.
+  * `allow_unknown` - Allow messages to contain unknown fields when unmarshaling
 
 These can be set as part of the `--go-json_out` value:
 

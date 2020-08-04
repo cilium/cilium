@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package relay;
 
+option go_package = "github.com/cilium/cilium/api/v1/relay";
+
 // NodeStatusEvent is a message sent by hubble-relay to inform clients about
 // the state of a particular node.
 message NodeStatusEvent {

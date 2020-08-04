@@ -16,6 +16,8 @@ syntax = "proto3";
 
 package peer;
 
+option go_package = "github.com/cilium/cilium/api/v1/peer";
+
 // Peer lists  hubble peers and notifies of changes.
 service Peer {
     // Notify sends information about hubble peers in the cluster.
