@@ -42,6 +42,17 @@ struct bpf_elf_map __section_maps POLICY_CALL_MAP = {
 };
 #endif /* SKIP_POLICY_MAP */
 
+#ifdef ENABLE_BANDWIDTH_MANAGER
+struct bpf_elf_map __section_maps THROTTLE_MAP = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct edt_id),
+	.size_value	= sizeof(struct edt_info),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= THROTTLE_MAP_SIZE,
+	.flags		= BPF_F_NO_PREALLOC,
+};
+#endif /* ENABLE_BANDWIDTH_MANAGER */
+
 /* Map to link endpoint id to per endpoint cilium_policy map */
 #ifdef SOCKMAP
 struct bpf_elf_map __section_maps EP_POLICY_MAP = {

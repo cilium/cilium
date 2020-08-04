@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
+	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
@@ -201,6 +202,8 @@ func (d *Daemon) init() error {
 	sockops.SkmsgDisable()
 
 	if !option.Config.DryMode {
+		bandwidth.InitBandwidthManager()
+
 		if err := d.createNodeConfigHeaderfile(); err != nil {
 			return err
 		}
@@ -434,12 +437,17 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		bootstrapStats.k8sInit.End(true)
 	}
 
+	// Perform an early probe on the underlying kernel on whether BandwidthManager
+	// can be supported or not. This needs to be done before detectNativeDevices()
+	// as BandwidthManager needs these to be available for setup.
+	bandwidth.ProbeBandwidthManager()
+
 	// The kube-proxy replacement and host-fw devices detection should happen after
 	// establishing a connection to kube-apiserver, but before starting a k8s watcher.
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	detectDevicesForNodePortAndHostFirewall(isKubeProxyReplacementStrict)
+	detectNativeDevices(isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
 
 	// BPF masquerade depends on BPF NodePort, so the following checks should

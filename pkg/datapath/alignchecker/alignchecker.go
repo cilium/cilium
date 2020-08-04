@@ -19,6 +19,7 @@ import (
 
 	check "github.com/cilium/cilium/pkg/alignchecker"
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
@@ -86,6 +87,8 @@ func CheckStructAlignments(path string) error {
 		"lb_affinity_val":   {reflect.TypeOf(lbmap.AffinityValue{})},
 		"lb4_src_range_key": {reflect.TypeOf(lbmap.SourceRangeKey4{})},
 		"lb6_src_range_key": {reflect.TypeOf(lbmap.SourceRangeKey6{})},
+		"edt_id":            {reflect.TypeOf(bwmap.EdtId{})},
+		"edt_info":          {reflect.TypeOf(bwmap.EdtInfo{})},
 	}
 	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
 		return err

@@ -3590,19 +3590,12 @@ struct __sk_buff {
 	/* ... here. */
 
 	__u32 data_meta;
-
-#if 0
-	/* TODO: compiled out for now since this cases verifier breakage
-	 * on older kernels resulting in invalid bpf_context access. Needs
-	 * follow-up investigation.
-	 */
 	__bpf_md_ptr(struct bpf_flow_keys *, flow_keys);
 	__u64 tstamp;
 	__u32 wire_len;
 	__u32 gso_segs;
 	__bpf_md_ptr(struct bpf_sock *, sk);
 	__u32 gso_size;
-#endif
 };
 
 struct bpf_tunnel_key {
@@ -3927,7 +3920,12 @@ struct bpf_sock_addr {
 	__u32 msg_src_ip6[4];	/* Allows 1,2,4,8-byte read and 4,8-byte write.
 				 * Stored in network byte order.
 				 */
-#if 0 /* TODO, see comment in __sk_buff */
+
+	/* TODO: compiled out for now since this cases verifier breakage
+	 * on older kernels resulting in invalid bpf_context access. Needs
+	 * follow-up investigation.
+	 */
+#if 0
 	__bpf_md_ptr(struct bpf_sock *, sk);
 #endif
 };

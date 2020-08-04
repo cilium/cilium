@@ -9,11 +9,11 @@ bpf_clear_meta(struct __sk_buff *ctx)
 {
 	__u32 zero = 0;
 
-	ctx->cb[0] = zero;
-	ctx->cb[1] = zero;
-	ctx->cb[2] = zero;
-	ctx->cb[3] = zero;
-	ctx->cb[4] = zero;
+	WRITE_ONCE(ctx->cb[0], zero);
+	WRITE_ONCE(ctx->cb[1], zero);
+	WRITE_ONCE(ctx->cb[2], zero);
+	WRITE_ONCE(ctx->cb[3], zero);
+	WRITE_ONCE(ctx->cb[4], zero);
 }
 
 /**
