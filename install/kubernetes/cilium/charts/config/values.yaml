@@ -31,6 +31,10 @@
 # source for the BPF datapath
 #bpfClockProbe: true
 
+# bpfTProxy enables the use of transparent proxying via mechanisms available
+# in Linux 5.7 or later.
+#bpfTProxy: false
+
 # blacklistConflictingRoutes instructs the cilium-agent whether to blacklist
 # IP allocations conflicting with local non-cilium routes.
 #blacklistConflictingRoutes: true
