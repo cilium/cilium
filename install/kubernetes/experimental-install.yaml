@@ -830,6 +830,18 @@ spec:
         io.cilium/app: operator
         name: cilium-operator
     spec:
+      # In HA mode, cilium-operator pods must not be scheduled on the same
+      # node as they will clash with each other.
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: io.cilium/app
+                operator: In
+                values:
+                - operator
+            topologyKey: "kubernetes.io/hostname"
       containers:
       - args:
         - --config-dir=/tmp/cilium/config-map
