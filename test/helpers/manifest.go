@@ -183,12 +183,14 @@ type DeploymentManager struct {
 	kubectl        *Kubectl
 	deployments    map[string]*Deployment
 	ciliumDeployed bool
+	ciliumFilename string
 }
 
 // NewDeploymentManager returns a new deployment manager
 func NewDeploymentManager() *DeploymentManager {
 	return &DeploymentManager{
-		deployments: map[string]*Deployment{},
+		deployments:    map[string]*Deployment{},
+		ciliumFilename: TimestampFilename("cilium.yaml"),
 	}
 }
 
@@ -292,7 +294,7 @@ func (m *DeploymentManager) DeleteAll() {
 func (m *DeploymentManager) DeleteCilium() {
 	if m.ciliumDeployed {
 		ginkgoext.By("Deleting Cilium")
-		m.kubectl.Delete("cilium.yaml")
+		m.kubectl.Delete(m.ciliumFilename)
 		m.kubectl.WaitCleanAllTerminatingPods(2 * time.Minute)
 	}
 }
@@ -305,12 +307,13 @@ func (m *DeploymentManager) WaitUntilReady() {
 	}
 }
 
+// CiliumDeployFunc is the function to use for deploying cilium.
 type CiliumDeployFunc func(kubectl *Kubectl, ciliumFilename string, options map[string]string)
 
-// DeploytCilium deploys Cilium using the provided options and waits for it to
+// DeployCilium deploys Cilium using the provided options and waits for it to
 // become ready
 func (m *DeploymentManager) DeployCilium(options map[string]string, deploy CiliumDeployFunc) {
-	deploy(m.kubectl, TimestampFilename("cilium.yaml"), options)
+	deploy(m.kubectl, m.ciliumFilename, options)
 
 	_, err := m.kubectl.CiliumNodesWait()
 	if err != nil {

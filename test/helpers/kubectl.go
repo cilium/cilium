@@ -1465,6 +1465,20 @@ func (kub *Kubectl) Delete(filePath string) *CmdRes {
 		fmt.Sprintf("%s delete -f  %s", KubectlCmd, filePath))
 }
 
+// DeleteAndWait deletes the Kubernetes manifest at path filePath and wait
+// for the associated resources to be gone.
+// If ignoreNotFound parameter is true we don't error if the resource to be
+// deleted is not found in the cluster.
+func (kub *Kubectl) DeleteAndWait(filePath string, ignoreNotFound bool) *CmdRes {
+	kub.Logger().Debugf("waiting for resources in %q to be deleted", filePath)
+	var ignoreOpt string
+	if ignoreNotFound {
+		ignoreOpt = "--ignore-not-found"
+	}
+	return kub.ExecMiddle(
+		fmt.Sprintf("%s delete -f  %s --wait %s", KubectlCmd, filePath, ignoreOpt))
+}
+
 // DeleteLong deletes the Kubernetes manifest at path filepath with longer timeout.
 func (kub *Kubectl) DeleteLong(filePath string) *CmdRes {
 	kub.Logger().Debugf("deleting %s", filePath)
@@ -2303,27 +2317,25 @@ func (kub *Kubectl) ciliumUninstallHelm(filename string, options map[string]stri
 
 // CiliumInstall installs Cilium with the provided Helm options.
 func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) error {
-	var (
-		wg                sync.WaitGroup
-		resourcesToDelete = map[string]string{
-			"configmap":          "cilium-config",
-			"daemonset":          "cilium",
-			"daemonset ":         "cilium-node-init",
-			"deployment":         "cilium-operator",
-			"clusterrolebinding": "cilium cilium-operator",
-			"clusterrole":        "cilium cilium-operator",
-			"serviceaccount":     "cilium cilium-operator",
+	// First try to remove any existing cilium install. This is done by removing resources
+	// from the file we generate cilium install manifest to.
+	if _, err := os.Stat(filename); err == nil {
+		res := kub.DeleteAndWait(filename, true)
+		if !res.WasSuccessful() {
+			return res.GetErr("Unable to delete existing cilium YAML")
 		}
-	)
-
-	wg.Add(len(resourcesToDelete))
-	for resourceType, resource := range resourcesToDelete {
-		go func(resource, resourceType string) {
-			_ = kub.DeleteResource(resourceType, "-n "+CiliumNamespace+" "+resource)
-			wg.Done()
-		}(resource, resourceType)
+	} else {
+		// If the file with the provided filename does not exist.
+		// Delete the default `cilium.yaml` without timestamp if it exists.
+		// This is a fallback case to remove any existing resources related to
+		// cilium from cluster.
+		if _, err := os.Stat("cilium.yaml"); err == nil {
+			res := kub.DeleteAndWait("cilium.yaml", true)
+			if !res.WasSuccessful() {
+				return res.GetErr("Unable to delete default cilium manifest(cilium.yaml)")
+			}
+		}
 	}
-	wg.Wait()
 
 	if err := kub.generateCiliumYaml(options, filename); err != nil {
 		return err
