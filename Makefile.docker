@@ -7,10 +7,11 @@ docker-cilium-image-for-developers:
 	# DOCKER_BUILDKIT allows for faster build as well as the ability to use
 	# a dedicated dockerignore file per Dockerfile.
 	$(QUIET)DOCKER_BUILDKIT=1 $(CONTAINER_ENGINE) build \
-	     --build-arg LOCKDEBUG=\
-	     --build-arg V=\
-	     --build-arg LIBNETWORK_PLUGIN=\
-	     -t $(DOCKER_DEV_ACCOUNT)/cilium-dev:latest . -f ./cilium-dev.Dockerfile
+		$(DOCKER_FLAGS) \
+		--build-arg LOCKDEBUG=\
+		--build-arg V=\
+		--build-arg LIBNETWORK_PLUGIN=\
+		-t $(DOCKER_DEV_ACCOUNT)/cilium-dev:latest . -f ./cilium-dev.Dockerfile
 
 docker-image: clean docker-image-no-clean docker-plugin-image docker-hubble-relay-image
 	$(MAKE) docker-operator-image
@@ -26,6 +27,7 @@ docker-image-unstripped: clean docker-image-no-clean-unstripped docker-plugin-im
 
 docker-image-no-clean: GIT_VERSION $(BUILD_DIR)/Dockerfile build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build -f $(BUILD_DIR)/Dockerfile \
+		$(DOCKER_FLAGS) \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg V=${V} \
@@ -46,6 +48,7 @@ docker-cilium-manifest:
 
 dev-docker-image: GIT_VERSION $(BUILD_DIR)/Dockerfile build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build -f $(BUILD_DIR)/Dockerfile \
+		$(DOCKER_FLAGS) \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg V=${V} \
@@ -69,6 +72,7 @@ docker-cilium-dev-manifest:
 # to build also 'docker-operator-image', where the stem would be empty otherwise
 docker-opera%-image: GIT_VERSION $(BUILD_DIR)/cilium-opera%.Dockerfile build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build \
+		$(DOCKER_FLAGS) \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
@@ -87,6 +91,7 @@ docker-operator-manifest:
 
 docker-plugin-image: GIT_VERSION $(BUILD_DIR)/cilium-docker-plugin.Dockerfile build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build \
+		$(DOCKER_FLAGS) \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
@@ -105,7 +110,7 @@ docker-plugin-manifest:
 	$(QUIET) contrib/scripts/push_manifest.sh docker-plugin $(DOCKER_IMAGE_TAG)
 
 docker-image-runtime:
-	cd contrib/packaging/docker && $(CONTAINER_ENGINE) build --build-arg ARCH=$(GOARCH) -t cilium/cilium-runtime:$(UTC_DATE) -f Dockerfile.runtime .
+	cd contrib/packaging/docker && $(CONTAINER_ENGINE) build $(DOCKER_FLAGS) --build-arg ARCH=$(GOARCH) -t cilium/cilium-runtime:$(UTC_DATE) -f Dockerfile.runtime .
 	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-runtime:$(UTC_DATE) cilium/cilium-runtime:$(UTC_DATE)-${GOARCH}
 
 docker-cilium-runtime-manifest:
@@ -113,7 +118,7 @@ docker-cilium-runtime-manifest:
 	$(QUIET) contrib/scripts/push_manifest.sh cilium-runtime $(UTC_DATE)
 
 docker-image-builder:
-	$(QUIET)$(CONTAINER_ENGINE) build --build-arg ARCH=$(GOARCH) -t cilium/cilium-builder:$(UTC_DATE) -f Dockerfile.builder .
+	$(QUIET)$(CONTAINER_ENGINE) build $(DOCKER_FLAGS) --build-arg ARCH=$(GOARCH) -t cilium/cilium-builder:$(UTC_DATE) -f Dockerfile.builder .
 	$(QUIET)$(CONTAINER_ENGINE) tag cilium/cilium-builder:$(UTC_DATE) cilium/cilium-builder:$(UTC_DATE)-${GOARCH}
 
 docker-cilium-builder-manifest:
@@ -122,6 +127,7 @@ docker-cilium-builder-manifest:
 
 docker-hubble-relay-image: $(BUILD_DIR)/hubble-relay.Dockerfile build-context-update
 	$(QUIET)$(CONTAINER_ENGINE) build \
+		$(DOCKER_FLAGS) \
 		--build-arg NOSTRIP=${NOSTRIP} \
 		--build-arg LOCKDEBUG=${LOCKDEBUG} \
 		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \

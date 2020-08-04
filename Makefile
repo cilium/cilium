@@ -55,6 +55,8 @@ JOB_BASE_NAME ?= cilium_test
 GO_VERSION := $(shell cat GO_VERSION)
 GOARCH := $(shell $(GO) env GOARCH)
 
+DOCKER_FLAGS ?=
+
 TEST_LDFLAGS=-ldflags "-X github.com/cilium/cilium/pkg/kvstore.consulDummyAddress=https://consul:8443 \
 	-X github.com/cilium/cilium/pkg/kvstore.etcdDummyAddress=http://etcd:4002 \
 	-X github.com/cilium/cilium/pkg/testutils.CiliumRootDir=$(ROOT_DIR) \
