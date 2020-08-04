@@ -73,4 +73,12 @@ export KUBE_MASTER=192.168.36.11
 export KUBE_MASTER_IP=192.168.36.11
 export KUBE_MASTER_URL="https://192.168.36.11:6443"
 
-${HOME}/go/bin/kubetest --provider=local --test --test_args="--ginkgo.focus=NetworkPolicy.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.allow.egress.access.to.server.in.CIDR.block)|(should.allow.ingress.access.from.updated.pod)|(should.not.allow.access.by.TCP.when.a.policy.specifies.only.SCTP)"
+# We currently skip the following tests:
+# should not allow access by TCP when a policy specifies only SCTP
+#  - Cilium does not support SCTP yet
+# should allow egress access to server in CIDR block and
+# should ensure an IP overlapping both IPBlock.CIDR and IPBlock.Except is allowed
+#  - TL;DR Cilium does not allow to specify pod CIDRs as part of the policy
+#    because it conflicts with the pod's security identity.
+#  - More info at https://github.com/cilium/cilium/issues/9209
+${HOME}/go/bin/kubetest --provider=local --test --test_args="--ginkgo.focus=NetworkPolicy.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed)|(should.allow.egress.access.to.server.in.CIDR.block)|(should.not.allow.access.by.TCP.when.a.policy.specifies.only.SCTP)"
