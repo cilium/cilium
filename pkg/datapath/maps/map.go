@@ -165,6 +165,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, "cilium_ipv4_frag_datagrams")
 	}
 
+	if !option.Config.EnableBandwidthManager {
+		maps = append(maps, "cilium_throttle")
+	}
+
 	// Can be removed with Cilium 1.8
 	maps = append(maps, []string{
 		"cilium_policy_reserved_1",

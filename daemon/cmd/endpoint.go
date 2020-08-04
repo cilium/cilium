@@ -26,6 +26,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -430,8 +431,14 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			if err != nil {
 				return "", err
 			}
-
 			return p.Annotations[annotation.ProxyVisibility], nil
+		})
+		ep.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
+			p, err := d.k8sWatcher.GetCachedPod(ns, podName)
+			if err != nil {
+				return "", err
+			}
+			return p.Annotations[bandwidth.EgressBandwidth], nil
 		})
 	}
 

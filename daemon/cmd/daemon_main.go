@@ -520,6 +520,9 @@ func init() {
 	flags.Bool(option.EnableSVCSourceRangeCheck, true, "Enable check of service source ranges (currently, only for LoadBalancer)")
 	option.BindEnv(option.EnableSVCSourceRangeCheck)
 
+	flags.Bool(option.EnableBandwidthManager, false, "Enable BPF bandwidth manager")
+	option.BindEnv(option.EnableBandwidthManager)
+
 	flags.String(option.NodePortMode, option.NodePortModeSNAT, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
 	option.BindEnv(option.NodePortMode)
 
