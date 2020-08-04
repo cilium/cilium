@@ -122,10 +122,6 @@ contain any characters after it.
 
 The Kubernetes tests support the following Kubernetes versions:
 
-* 1.8
-* 1.9
-* 1.10
-* 1.11
 * 1.12
 * 1.13
 * 1.14
@@ -135,7 +131,7 @@ The Kubernetes tests support the following Kubernetes versions:
 * 1.18
 * 1.19
 
-By default, the Vagrant VMs are provisioned with Kubernetes 1.18. To run with any other
+By default, the Vagrant VMs are provisioned with Kubernetes 1.19. To run with any other
 supported version of Kubernetes, run the test suite with the following format:
 
 ::
