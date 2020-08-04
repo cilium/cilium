@@ -4,7 +4,7 @@
 apiVersion: v1
 kind: ServiceAccount
 metadata:
-  name: cilium
+  name: cilium-log-gatherer
 ---
 apiVersion: apps/v1
 kind: DaemonSet
@@ -49,8 +49,8 @@ spec:
       hostNetwork: true
       hostPID: true
       restartPolicy: Always
-      serviceAccount: cilium
-      serviceAccountName: cilium
+      serviceAccount: cilium-log-gatherer
+      serviceAccountName: cilium-log-gatherer
       terminationGracePeriodSeconds: 1
       tolerations:
       - operator: Exists
