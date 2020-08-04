@@ -5,7 +5,6 @@ import (
 	"fmt"
 	"text/template"
 
-	"github.com/envoyproxy/protoc-gen-validate/gogoproto"
 	"github.com/envoyproxy/protoc-gen-validate/validate"
 	"github.com/golang/protobuf/proto"
 	pgs "github.com/lyft/protoc-gen-star"
@@ -15,7 +14,6 @@ type RuleContext struct {
 	Field        pgs.Field
 	Rules        proto.Message
 	MessageRules *validate.MessageRules
-	Gogo         Gogo
 
 	Typ        string
 	WrapperTyp string
@@ -25,19 +23,8 @@ type RuleContext struct {
 	AccessorOverride string
 }
 
-type Gogo struct {
-	Nullable    bool
-	StdDuration bool
-	StdTime     bool
-}
-
 func rulesContext(f pgs.Field) (out RuleContext, err error) {
 	out.Field = f
-
-	out.Gogo.Nullable = true
-	f.Extension(gogoproto.E_Nullable, &out.Gogo.Nullable)
-	f.Extension(gogoproto.E_Stdduration, &out.Gogo.StdDuration)
-	f.Extension(gogoproto.E_Stdtime, &out.Gogo.StdTime)
 
 	var rules validate.FieldRules
 	if _, err = f.Extension(validate.E_Rules, &rules); err != nil {
@@ -67,7 +54,6 @@ func (ctx RuleContext) Key(name, idx string) (out RuleContext, err error) {
 	out.Field = ctx.Field
 	out.AccessorOverride = name
 	out.Index = idx
-	out.Gogo = ctx.Gogo
 
 	out.Typ, out.Rules, out.MessageRules, _ = resolveRules(ctx.Field.Type().Key(), rules.GetKeys())
 
@@ -82,7 +68,6 @@ func (ctx RuleContext) Elem(name, idx string) (out RuleContext, err error) {
 	out.Field = ctx.Field
 	out.AccessorOverride = name
 	out.Index = idx
-	out.Gogo = ctx.Gogo
 
 	var rules *validate.FieldRules
 	switch r := ctx.Rules.(type) {
@@ -120,7 +105,6 @@ func (ctx RuleContext) Unwrap(name string) (out RuleContext, err error) {
 		MessageRules:     ctx.MessageRules,
 		Typ:              ctx.WrapperTyp,
 		AccessorOverride: name,
-		Gogo:             ctx.Gogo,
 	}, nil
 }
 

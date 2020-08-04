@@ -21,6 +21,8 @@ import "relay/relay.proto";
 
 package observer;
 
+option go_package = "github.com/cilium/cilium/api/v1/observer";
+
 // Observer returns a stream of Payload depending on which filter the user
 // want to observer.
 service Observer {
