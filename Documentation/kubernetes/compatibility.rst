@@ -14,7 +14,10 @@ Kubernetes Compatibility
 Cilium is compatible with multiple Kubernetes API Groups. Some are deprecated
 or beta, and may only be available in specific versions of Kubernetes.
 
-All Kubernetes versions listed are compatible with Cilium:
+All Kubernetes versions listed are e2e tested and guaranteed to be compatible
+with this Cilium version. Older Kubernetes versions not listed here do not have
+Cilium support. Newer Kubernetes versions, while not listed, will depend on the
+backward compatibility offered by Kubernetes.
 
 +------------------------------------+---------------------------+----------------------------+
 | k8s Version                        | k8s NetworkPolicy API     | CiliumNetworkPolicy        |

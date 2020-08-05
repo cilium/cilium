@@ -13,8 +13,10 @@ Requirements
 Kubernetes Version
 ==================
 
-The following Kubernetes versions have been tested in the continuous integration
-system for this version of Cilium:
+All Kubernetes versions listed are e2e tested and guaranteed to be compatible
+with this Cilium version. Older Kubernetes versions not listed here do not have
+Cilium support. Newer Kubernetes versions, while not listed, will depend on the
+backward compatibility offered by Kubernetes.
 
 * 1.11
 * 1.12
