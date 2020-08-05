@@ -755,6 +755,11 @@ func (in *ServiceSpec) DeepCopyInto(out *ServiceSpec) {
 		*out = make([]string, len(*in))
 		copy(*out, *in)
 	}
+	if in.LoadBalancerSourceRanges != nil {
+		in, out := &in.LoadBalancerSourceRanges, &out.LoadBalancerSourceRanges
+		*out = make([]string, len(*in))
+		copy(*out, *in)
+	}
 	if in.SessionAffinityConfig != nil {
 		in, out := &in.SessionAffinityConfig, &out.SessionAffinityConfig
 		*out = new(SessionAffinityConfig)
