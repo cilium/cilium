@@ -61,10 +61,10 @@ var (
 		bpf.ConvertKeyValue,
 	)
 	Affinity6Map = bpf.NewMap(
-		Affinity4MapName,
+		Affinity6MapName,
 		bpf.MapTypeLRUHash,
 		&Affinity6Key{},
-		int(unsafe.Sizeof(Affinity4Key{})),
+		int(unsafe.Sizeof(Affinity6Key{})),
 		&AffinityValue{},
 		int(unsafe.Sizeof(AffinityValue{})),
 		MaxEntries,
