@@ -106,6 +106,8 @@ here is an example showing what tests will be ran using Ginkgo's dryRun option:
 The output has been truncated. For more information about this functionality,
 consult the aforementioned Ginkgo documentation.
 
+.. _running_k8s_tests:
+
 Running Kubernetes Tests
 ^^^^^^^^^^^^^^^^^^^^^^^^
 

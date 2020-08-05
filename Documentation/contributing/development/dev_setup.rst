@@ -372,7 +372,26 @@ Let's assume we want to add ``github.com/containernetworking/cni`` version ``v0.
 For a first run, it can take a while as it will download all dependencies to
 your local cache but the remaining runs will be faster.
 
-Updating k8s is a special case, for that one needs to do:
+Updating k8s is a special case which requires updating the client-go library
+first and then the remaining dependencies:
+
+#. Clone ``https://github.com/kubernetes/client-go``
+#. Add the new remote fork: ``git remote add origin-cilium https://github.com/cilium/client-go.git``
+#. Fetch all branches from the remote fork ``git fetch origin-cilium``
+#. Checkout to the release that we are updating ``git fetch origin --tags && git checkout kubernetes-1.19.0``
+#. Create a new branch ``git checkout -b kubernetes-1.19.0-with-hot-fix``
+#. Cherry pick the patches that are not merged upstream from the older branches,
+   there are currently 2 patches not merged upstream:
+   ``git cherry-pick kubernetes-1.18.5-with-hot-fix^ kubernetes-1.18.5-with-hot-fix``
+#. Push the new branch to the remote fork ``git push origin-cilium kubernetes-1.19.0-with-hot-fix``
+#. Save the commit SHA of the ``kubernetes-1.19.0-with-hot-fix`` branch to use
+   it in the next step.
+
+After updating the ``client-go`` fork, update the commit SHA in the ``replace``
+directive of the ``go.mod`` file for the ``client-go`` library in the Cilium
+repository.
+
+At the same time, update the tags of the Kubernetes libraries:
 
 .. code:: bash
 
@@ -384,6 +403,69 @@ Updating k8s is a special case, for that one needs to do:
     $ go mod vendor
     $ make generate-k8s-api
     $ git add go.mod go.sum vendor/
+
+Add/update a new Kubernetes version
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Let's assume we want to add a new Kubernetes version ``v1.19.0``:
+
+#. Follow the above instructions to update the Kubernetes libraries.
+
+#. Follow the next instructions depending on if it is a minor update or a patch
+   update.
+
+Minor version
+^^^^^^^^^^^^^
+
+#. Check if it is possible to remove the last supported Kubernetes version from
+   :ref:`k8scompatibility`, :ref:`k8s_requirements`, :ref:`test_matrix`,
+   :ref:`running_k8s_tests`, and add the new Kubernetes version to that list.
+
+#. If the minimal supported version changed, leave a note in the upgrade guide
+   stating the minimal supported Kubernetes version.
+
+#. If the minimal supported version changed, search over the code, more likely
+   under ``pkg/k8s``, if there is code that can be removed which specifically
+   exists for the compatibility of the previous Kubernetes minimal version
+   supported.
+
+#. If the minimal supported version changed, update the field
+   ``MinimalVersionConstraint`` in ``pkg/k8s/version/version.go``
+
+#. Sync all "``slim``" types by following the instructions in
+   ``pkg/k8s/slim/README.md``.
+
+#. If necessary, update the ``coredns`` files from
+   ``contrib/vagrant/deployments`` with newer versions.
+
+#. Open all files in the ``jenkinsfiles/`` directory, and bump all versions
+   being tested. More important is to make sure the pipeline used on all PRs
+   is running with the new Kubernetes version by default. Make sure the files
+   ``contributing/testing/{ci,e2e.rst}`` are up to date with these changes.
+
+#. Update the Kubernetes version with the newer version in ``test/Vagrantfile``,
+   ``test/test_suite_test.go`` and ``test/vagrant-local-start.sh``.
+
+#. Update the constraint in the function ``getK8sSupportedConstraints``, that
+   exists in the ``test/helpers/utils.go``, with the new Kubernetes version that
+   Cilium supports.
+
+#. Add the new version in ``test/provision/k8s_install.sh``, if it is an RC
+   install it using binaries.
+
+#. Add the new coredns files specific for the Kubernetes version,
+   for ``1.19`` is ``test/provision/manifest/1.19``.
+
+#. Bump the Kubernetes version in ``contrib/vagrant/scripts/helpers.bash``
+
+#. Submit all your changes into a new PR.
+
+Patch version
+^^^^^^^^^^^^^
+
+#. Bump the Kubernetes version in ``contrib/vagrant/scripts/helpers.bash``
+
+#. Submit all your changes into a new PR.
 
 Optional: Docker and IPv6
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
