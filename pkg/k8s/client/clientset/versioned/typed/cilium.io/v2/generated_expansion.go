@@ -25,3 +25,7 @@ type CiliumIdentityExpansion interface{}
 type CiliumNetworkPolicyExpansion interface{}
 
 type CiliumNodeExpansion interface{}
+
+type ClusterwideLocalRedirectPolicyExpansion interface{}
+
+type LocalRedirectPolicyExpansion interface{}

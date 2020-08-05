@@ -105,6 +105,32 @@ const (
 
 	// CIDName is the full name of Cilium Identity
 	CIDName = CIDPluralName + "." + CustomResourceDefinitionGroup
+
+	// Local Redirect Policy (LRP)
+
+	// LRPSingularName is the singular name of Local Redirect Policy
+	LRPSingularName = "localredirectpolicy"
+
+	// LRPPluralName is the plural name of Local Redirect Policy
+	LRPPluralName = "localredirectpolicies"
+
+	// LRPKindDefinition is the kind name for Local Redirect Policy
+	LRPKindDefinition = "LocalRedirectPolicy"
+
+	// LRPName is the full name of Local Redirect Policy
+	LRPName = LRPPluralName + "." + CustomResourceDefinitionGroup
+
+	// CLRPSingularName is the singular name of Cluster wide Local Redirect Policy
+	CLRPSingularName = "clusterwidelocalredirectpolicy"
+
+	// CLRPPluralName is the plural name of Cluster wide Local Redirect Policy
+	CLRPPluralName = "clusterwidelocalredirectpolicies"
+
+	// CLRPKindDefinition is the kind name for Cluster wide Local Redirect Policy
+	CLRPKindDefinition = "Cluster wide LocalRedirectPolicy"
+
+	// CLRPName is the full name of Cluster wide Local Redirect Policy
+	CLRPName = CLRPPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -158,6 +184,7 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumNodeList{},
 		&CiliumIdentity{},
 		&CiliumIdentityList{},
+		&LocalRedirectPolicyList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

@@ -43,3 +43,15 @@ type CiliumNetworkPolicyNamespaceListerExpansion interface{}
 // CiliumNodeListerExpansion allows custom methods to be added to
 // CiliumNodeLister.
 type CiliumNodeListerExpansion interface{}
+
+// ClusterwideLocalRedirectPolicyListerExpansion allows custom methods to be added to
+// ClusterwideLocalRedirectPolicyLister.
+type ClusterwideLocalRedirectPolicyListerExpansion interface{}
+
+// LocalRedirectPolicyListerExpansion allows custom methods to be added to
+// LocalRedirectPolicyLister.
+type LocalRedirectPolicyListerExpansion interface{}
+
+// LocalRedirectPolicyNamespaceListerExpansion allows custom methods to be added to
+// LocalRedirectPolicyNamespaceLister.
+type LocalRedirectPolicyNamespaceListerExpansion interface{}

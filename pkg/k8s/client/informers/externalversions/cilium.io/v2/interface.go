@@ -32,6 +32,10 @@ type Interface interface {
 	CiliumNetworkPolicies() CiliumNetworkPolicyInformer
 	// CiliumNodes returns a CiliumNodeInformer.
 	CiliumNodes() CiliumNodeInformer
+	// ClusterwideLocalRedirectPolicies returns a ClusterwideLocalRedirectPolicyInformer.
+	ClusterwideLocalRedirectPolicies() ClusterwideLocalRedirectPolicyInformer
+	// LocalRedirectPolicies returns a LocalRedirectPolicyInformer.
+	LocalRedirectPolicies() LocalRedirectPolicyInformer
 }
 
 type version struct {
@@ -68,4 +72,14 @@ func (v *version) CiliumNetworkPolicies() CiliumNetworkPolicyInformer {
 // CiliumNodes returns a CiliumNodeInformer.
 func (v *version) CiliumNodes() CiliumNodeInformer {
 	return &ciliumNodeInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// ClusterwideLocalRedirectPolicies returns a ClusterwideLocalRedirectPolicyInformer.
+func (v *version) ClusterwideLocalRedirectPolicies() ClusterwideLocalRedirectPolicyInformer {
+	return &clusterwideLocalRedirectPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
+}
+
+// LocalRedirectPolicies returns a LocalRedirectPolicyInformer.
+func (v *version) LocalRedirectPolicies() LocalRedirectPolicyInformer {
+	return &localRedirectPolicyInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
 }

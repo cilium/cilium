@@ -61,6 +61,10 @@ func (f *sharedInformerFactory) ForResource(resource schema.GroupVersionResource
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumNetworkPolicies().Informer()}, nil
 	case v2.SchemeGroupVersion.WithResource("ciliumnodes"):
 		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().CiliumNodes().Informer()}, nil
+	case v2.SchemeGroupVersion.WithResource("clusterwidelocalredirectpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().ClusterwideLocalRedirectPolicies().Informer()}, nil
+	case v2.SchemeGroupVersion.WithResource("localredirectpolicies"):
+		return &genericInformer{resource: resource.GroupResource(), informer: f.Cilium().V2().LocalRedirectPolicies().Informer()}, nil
 
 	}
 

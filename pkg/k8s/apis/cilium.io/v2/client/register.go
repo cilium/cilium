@@ -44,6 +44,12 @@ const (
 
 	// CCNPCRDName is the full name of the CCNP CRD.
 	CCNPCRDName = k8sconstv2.CCNPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
+
+	// LRPCRDNAME is the full name of the LRP CRD.
+	LRPCRDNAME = k8sconstv2.LRPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
+
+	// CLRPCRDNAME is the full name of the CLRP CRD.
+	CLRPCRDNAME = k8sconstv2.CLRPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 )
 
 var (
@@ -80,6 +86,14 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		})
 	}
 
+	g.Go(func() error {
+		return createLRPCRD(clientset)
+	})
+
+	g.Go(func() error {
+		return createCLRPCRD(clientset)
+	})
+
 	return g.Wait()
 }
 
@@ -100,6 +114,10 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1beta1.CustomResourceDefin
 		crdBytes, err = examplesCrdsCiliumnetworkpoliciesYamlBytes()
 	case CCNPCRDName:
 		crdBytes, err = examplesCrdsCiliumclusterwidenetworkpoliciesYamlBytes()
+	case LRPCRDNAME:
+		crdBytes, err = examplesCrdsLocalredirectpoliciesYamlBytes()
+	case CLRPCRDNAME:
+		crdBytes, err = examplesCrdsClusterwidelocalredirectpoliciesYamlBytes()
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -322,6 +340,62 @@ func createIdentityCRD(clientset apiextensionsclient.Interface) error {
 	}
 
 	return createUpdateCRD(clientset, "v2.CiliumIdentity", res)
+}
+
+func createLRPCRD(clientset apiextensionsclient.Interface) error {
+	lrpCRD := GetPregeneratedCRD(LRPCRDNAME)
+
+	res := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: k8sconstv2.LRPName,
+			Labels: map[string]string{
+				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
+			},
+		},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   k8sconstv2.CustomResourceDefinitionGroup,
+			Version: k8sconstv2.CustomResourceDefinitionVersion,
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural:     lrpCRD.Spec.Names.Plural,
+				Singular:   lrpCRD.Spec.Names.Singular,
+				ShortNames: lrpCRD.Spec.Names.ShortNames,
+				Kind:       lrpCRD.Spec.Names.Kind,
+			},
+			AdditionalPrinterColumns: lrpCRD.Spec.AdditionalPrinterColumns,
+			Subresources:             lrpCRD.Spec.Subresources,
+			Scope:                    lrpCRD.Spec.Scope,
+			Validation:               lrpCRD.Spec.Validation,
+		},
+	}
+	return createUpdateCRD(clientset, LRPCRDNAME, res)
+}
+
+func createCLRPCRD(clientset apiextensionsclient.Interface) error {
+	cLrpCRD := GetPregeneratedCRD(CLRPCRDNAME)
+
+	res := &apiextensionsv1beta1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: k8sconstv2.CLRPName,
+			Labels: map[string]string{
+				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
+			},
+		},
+		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
+			Group:   k8sconstv2.CustomResourceDefinitionGroup,
+			Version: k8sconstv2.CustomResourceDefinitionVersion,
+			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+				Plural:     cLrpCRD.Spec.Names.Plural,
+				Singular:   cLrpCRD.Spec.Names.Singular,
+				ShortNames: cLrpCRD.Spec.Names.ShortNames,
+				Kind:       cLrpCRD.Spec.Names.Kind,
+			},
+			AdditionalPrinterColumns: cLrpCRD.Spec.AdditionalPrinterColumns,
+			Subresources:             cLrpCRD.Spec.Subresources,
+			Scope:                    cLrpCRD.Spec.Scope,
+			Validation:               cLrpCRD.Spec.Validation,
+		},
+	}
+	return createUpdateCRD(clientset, CLRPCRDNAME, res)
 }
 
 // createUpdateCRD ensures the CRD object is installed into the k8s cluster. It

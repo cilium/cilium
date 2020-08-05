@@ -294,6 +294,8 @@ manifests:
 	go run ./... $(CRD_OPTIONS) paths="$(PWD)/pkg/k8s/apis/cilium.io/v2" output:crd:artifacts:config="$(TMPDIR)";
 	mv ${TMPDIR}/cilium.io_ciliumnetworkpolicies.yaml ./examples/crds/ciliumnetworkpolicies.yaml
 	mv ${TMPDIR}/cilium.io_ciliumclusterwidenetworkpolicies.yaml ./examples/crds/ciliumclusterwidenetworkpolicies.yaml
+	mv ${TMPDIR}/cilium.io_localredirectpolicies.yaml ./examples/crds/localredirectpolicies.yaml
+	mv ${TMPDIR}/cilium.io_clusterwidelocalredirectpolicies.yaml ./examples/crds/clusterwidelocalredirectpolicies.yaml
 	rm -rf $(TMPDIR)
 
 build-deb:
