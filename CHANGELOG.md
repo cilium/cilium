@@ -1,5 +1,66 @@
 # Changelog
 
+## v1.7.7
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add an option to cilium-agent for disabling 'HealthCheckNodePort' (Backport PR #12458, Upstream PR #11236, @soumynathan)
+* Add heartbeat to etcd quorum check (Backport PR #12534, Upstream PR #12453, @tgraf)
+* Atomically replace endpoint header files to avoid corrupted or inconsistent state. (Backport PR #12399, Upstream PR #12380, @tklauser)
+* DNS Proxy is started earlier in the Cilium agent bootstrap to make it available to running endpoints sooner. (#12718, @jrajahalme)
+* Improve etcd fail-over scenarios (Backport PR #12534, Upstream PR #12427, @tgraf)
+* k8s: update k8s dependencies to 1.17.9 (#12668, @aanm)
+* operator: rate limit GC of security identities (Backport PR #12450, Upstream PR #12451, @aanm)
+* Parallelise CRD registration to improve bootstrap time (Backport PR #12727, Upstream PR #12719, @tgraf)
+* Fix issue where Cilium could crash on startup with "can't create perf event: no such device". (Backport PR #12459, Upstream PR #12068, @tklauser)
+
+**Bugfixes:**
+* bpf: explicitly set ttl in tunnel key (Backport PR #12613, Upstream PR #12529, @borkmann)
+* bpf: Fix monitor aggregation for 'from-network' (Backport PR #12613, Upstream PR #12559, @joestringer)
+* cilium: chaining mode skb->mark can be mangled by iptables allow opt-out (Backport PR #12458, Upstream PR #12185, @jrfastab)
+* cilium: fix helm usage of enableIdentityMap -> enableIdentityMark (Backport PR #12458, Upstream PR #12194, @jrfastab)
+* datapath/linux: protect against concurrent access in NodeValidateImplementation (Backport PR #12613, Upstream PR #12461, @tklauser)
+* etcd: Fix firstSession error handling (Backport PR #12774, Upstream PR #12773, @tgraf)
+* etcd: Fix session renewal controllers (Backport PR #12613, Upstream PR #12553, @tgraf)
+* etcd: Fix several etcd related issues (Backport PR #12622, Upstream PR #12605, @tgraf)
+* Fix etcd failure behavior when user or client context ends (Backport PR #12613, Upstream PR #12587, @tgraf)
+* Fix manual endpoint regeneration via command line (Backport PR #12613, Upstream PR #12524, @christarazi)
+* Fix string slice type CLI arguments (Backport PR #12613, Upstream PR #12457, @JieJhih)
+* Fix toGroups CRD to address validation errors (Backport PR #12622, Upstream PR #12440, @lbernail)
+* install/kubernetes: re-add removed permissions from clusterrole (#12720, @aanm)
+* pkg/k8s: use copy of objectmeta when fetching from local stores (Backport PR #12613, Upstream PR #12470, @aanm)
+* Protect ENI and Azure IPAM from misbehaving cloud APIs (Backport PR #12337, Upstream PR #11231, @tgraf)
+
+**CI Changes:**
+* .travis:fix up TestShuffle failure on Arm64 (Backport PR #12613, Upstream PR #12515, @Jianlin-lv)
+* Extend FQDN test to validate DNS proxy during restart (#12739, @christarazi)
+* fqdn/dnsproxy/proxy_test: increase again timeout for DNS TCP exchanges (Backport PR #12723, Upstream PR #12606, @qmonnet)
+
+**Misc Changes:**
+* Adds documentation for limiting identity-relevant labels used when evaluating Cilium Identities (Backport PR #12622, Upstream PR #12517, @seanmwinn)
+* backporting: Report progress in set-labels.py (Backport PR #12723, Upstream PR #12640, @pchaigno)
+* Clarify egress policy rule documentation (Backport PR #12613, Upstream PR #12525, @joestringer)
+* contrib: Add ability to pass suffix for branch (Backport PR #12458, Upstream PR #12351, @christarazi)
+* contrib: fix branch check in `start-backport` script (Backport PR #12458, Upstream PR #12361, @Rolinh)
+* contrib: Fix submit-backport PR set-labels detection (Backport PR #12723, Upstream PR #11912, @joestringer)
+* contrib: Print PR number in set-labels.py (Backport PR #12723, Upstream PR #12704, @christarazi)
+* contrib: Tighten search for list of PRs (Backport PR #12723, Upstream PR #12703, @christarazi)
+* dnsproxy: Use restored Endpoints before Endpoints are available (#12731, @jrajahalme)
+* docs(identity): Correct discrepancy between label and descriptions (Backport PR #12723, Upstream PR #12639, @sayboras)
+* docs(troubleshooting): Remove bugtool related step with --serve flag (Backport PR #12613, Upstream PR #12532, @sayboras)
+* docs: add instructions for vX.Y helm charts (Backport PR #12458, Upstream PR #12291, @aanm)
+* fqdn/dnsproxy: set SO_REUSEPORT on listening socket (#12728, @tklauser)
+* ipcache: Fix unit test flake (#12734, @joestringer)
+* Rework netns handling in LinuxRoutingSuite privileged tests (Backport PR #12613, Upstream PR #11620, @christarazi)
+* test: bump k8s libraries to 1.17.8 (#12418, @aanm)
+* Update Go to 1.13.14 (#12586, @tklauser)
+
+**Other Changes:**
+* etcd: Disable heartbeat quorum check by default (#12755, @tgraf)
+* test/bpf: use `nproc --all` instead of `nproc -all` (#12401, @tklauser)
+
 ## v1.7.6
 
 Summary of Changes
