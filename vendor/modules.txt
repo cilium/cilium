@@ -302,6 +302,7 @@ github.com/golang/snappy
 # github.com/google/go-cmp v0.4.0
 ## explicit
 github.com/google/go-cmp/cmp
+github.com/google/go-cmp/cmp/cmpopts
 github.com/google/go-cmp/cmp/internal/diff
 github.com/google/go-cmp/cmp/internal/flags
 github.com/google/go-cmp/cmp/internal/function
