@@ -1567,8 +1567,8 @@ var _ = Describe("RuntimePolicies", func() {
 					"No ingress traffic to endpoint")
 
 				By("Testing cilium monitor output")
-				monitorRes.ExpectContains(
-					fmt.Sprintf("local EP ID %s, remote ID 1, dst port 0, proto 1, ingress true, action audit", endpointID),
+				monitorRes.ExpectMatchesRegexp(
+					fmt.Sprintf("local EP ID %s, remote ID 1, dst port [0-9]*, proto 1, ingress true, action audit", endpointID),
 					"No ingress policy log record",
 				)
 
