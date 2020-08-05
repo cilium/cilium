@@ -37,6 +37,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/service"
 
 	. "gopkg.in/check.v1"
 )
@@ -147,13 +148,7 @@ func (f *fakePolicyRepository) TranslateRules(translator policy.Translator) (*po
 
 type fakeSvcManager struct {
 	OnDeleteService func(frontend loadbalancer.L3n4Addr) (bool, error)
-	OnUpsertService func(frontend loadbalancer.L3n4AddrID,
-		backends []loadbalancer.Backend,
-		svcType loadbalancer.SVCType,
-		svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
-		sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-		svcHealthCheckNodePort uint16,
-		svcName, svcNamespace string) (bool, loadbalancer.ID, error)
+	OnUpsertService func(*service.UpsertServiceParams) (bool, loadbalancer.ID, error)
 }
 
 func (f *fakeSvcManager) DeleteService(frontend loadbalancer.L3n4Addr) (bool, error) {
@@ -163,17 +158,9 @@ func (f *fakeSvcManager) DeleteService(frontend loadbalancer.L3n4Addr) (bool, er
 	panic("OnDeleteService(loadbalancer.L3n4Addr) (bool, error) was called and is not set!")
 }
 
-func (f *fakeSvcManager) UpsertService(frontend loadbalancer.L3n4AddrID,
-	backends []loadbalancer.Backend,
-	svcType loadbalancer.SVCType,
-	svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
-	sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-	svcHealthCheckNodePort uint16,
-	svcName, svcNamespace string) (bool, loadbalancer.ID, error) {
+func (f *fakeSvcManager) UpsertService(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
 	if f.OnUpsertService != nil {
-		return f.OnUpsertService(frontend, backends, svcType, svcTrafficPolicy,
-			sessionAffinity, sessionAffinityTimeoutSec, svcHealthCheckNodePort,
-			svcName, svcNamespace)
+		return f.OnUpsertService(p)
 	}
 	panic("OnUpsertService() was called and is not set!")
 }
@@ -504,36 +491,24 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
 	svcManager := &fakeSvcManager{
-		OnUpsertService: func(
-			fe loadbalancer.L3n4AddrID,
-			bes []loadbalancer.Backend,
-			svcType loadbalancer.SVCType,
-			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
-			sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-			svcHealthCheckNodePort uint16,
-			svcName,
-			namespace string) (
-			b bool,
-			id loadbalancer.ID,
-			e error,
-		) {
-			sort.Slice(bes, func(i, j int) bool {
-				return bytes.Compare(bes[i].IP, bes[j].IP) < 0
+		OnUpsertService: func(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
+			sort.Slice(p.Backends, func(i, j int) bool {
+				return bytes.Compare(p.Backends[i].IP, p.Backends[j].IP) < 0
 			})
 			switch {
 			// 1st update endpoints
 			case svcUpsertManagerCalls < len(upsert1stWanted):
-				upsert1st[fe.Hash()] = loadbalancer.SVC{
-					Frontend: fe,
-					Backends: bes,
-					Type:     svcType,
+				upsert1st[p.Frontend.Hash()] = loadbalancer.SVC{
+					Frontend: p.Frontend,
+					Backends: p.Backends,
+					Type:     p.Type,
 				}
 			// 2nd update endpoints
 			case svcUpsertManagerCalls < len(upsert1stWanted)+len(upsert2ndWanted):
-				upsert2nd[fe.Hash()] = loadbalancer.SVC{
-					Frontend: fe,
-					Backends: bes,
-					Type:     svcType,
+				upsert2nd[p.Frontend.Hash()] = loadbalancer.SVC{
+					Frontend: p.Frontend,
+					Backends: p.Backends,
+					Type:     p.Type,
 				}
 			}
 			svcUpsertManagerCalls++
@@ -671,23 +646,11 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 	svcUpsertManagerCalls := 0
 
 	svcManager := &fakeSvcManager{
-		OnUpsertService: func(
-			fe loadbalancer.L3n4AddrID,
-			bes []loadbalancer.Backend,
-			svcType loadbalancer.SVCType,
-			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
-			sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-			svcHealthCheckNodePort uint16,
-			svcName,
-			namespace string) (
-			b bool,
-			id loadbalancer.ID,
-			e error,
-		) {
+		OnUpsertService: func(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
 			upserts = append(upserts, loadbalancer.SVC{
-				Frontend: fe,
-				Backends: bes,
-				Type:     svcType,
+				Frontend: p.Frontend,
+				Backends: p.Backends,
+				Type:     p.Type,
 			})
 			svcUpsertManagerCalls++
 			return false, 0, nil
@@ -1112,36 +1075,24 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
 	svcManager := &fakeSvcManager{
-		OnUpsertService: func(
-			fe loadbalancer.L3n4AddrID,
-			bes []loadbalancer.Backend,
-			svcType loadbalancer.SVCType,
-			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
-			sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-			svcHealthCheckNodePort uint16,
-			svcName,
-			namespace string) (
-			b bool,
-			id loadbalancer.ID,
-			e error,
-		) {
-			sort.Slice(bes, func(i, j int) bool {
-				return bytes.Compare(bes[i].IP, bes[j].IP) < 0
+		OnUpsertService: func(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
+			sort.Slice(p.Backends, func(i, j int) bool {
+				return bytes.Compare(p.Backends[i].IP, p.Backends[j].IP) < 0
 			})
 			switch {
 			// 1st update endpoints
 			case svcUpsertManagerCalls < len(upsert1stWanted):
-				upsert1st[fe.Hash()] = loadbalancer.SVC{
-					Frontend: fe,
-					Backends: bes,
-					Type:     svcType,
+				upsert1st[p.Frontend.Hash()] = loadbalancer.SVC{
+					Frontend: p.Frontend,
+					Backends: p.Backends,
+					Type:     p.Type,
 				}
 			// 2nd update endpoints
 			case svcUpsertManagerCalls < len(upsert1stWanted)+len(upsert2ndWanted):
-				upsert2nd[fe.Hash()] = loadbalancer.SVC{
-					Frontend: fe,
-					Backends: bes,
-					Type:     svcType,
+				upsert2nd[p.Frontend.Hash()] = loadbalancer.SVC{
+					Frontend: p.Frontend,
+					Backends: p.Backends,
+					Type:     p.Type,
 				}
 			}
 			svcUpsertManagerCalls++
@@ -1416,37 +1367,24 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 	wantSvcDeleteManagerCalls := len(del1stWanted)
 
 	svcManager := &fakeSvcManager{
-		OnUpsertService: func(
-			fe loadbalancer.L3n4AddrID,
-			bes []loadbalancer.Backend,
-			svcType loadbalancer.SVCType,
-			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
-			sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-			svcHealthCheckNodePort uint16,
-			svcName,
-			namespace string) (
-			b bool,
-			id loadbalancer.ID,
-			e error,
-		) {
-
-			sort.Slice(bes, func(i, j int) bool {
-				return bytes.Compare(bes[i].IP, bes[j].IP) < 0
+		OnUpsertService: func(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
+			sort.Slice(p.Backends, func(i, j int) bool {
+				return bytes.Compare(p.Backends[i].IP, p.Backends[j].IP) < 0
 			})
 			switch {
 			// 1st update service-endpoints
 			case svcUpsertManagerCalls < len(upsert1stWanted):
-				upsert1st[fe.Hash()] = loadbalancer.SVC{
-					Frontend: fe,
-					Backends: bes,
-					Type:     svcType,
+				upsert1st[p.Frontend.Hash()] = loadbalancer.SVC{
+					Frontend: p.Frontend,
+					Backends: p.Backends,
+					Type:     p.Type,
 				}
 			// 2nd update services
 			case svcUpsertManagerCalls < len(upsert1stWanted)+len(upsert2ndWanted):
-				upsert2nd[fe.Hash()] = loadbalancer.SVC{
-					Frontend: fe,
-					Backends: bes,
-					Type:     svcType,
+				upsert2nd[p.Frontend.Hash()] = loadbalancer.SVC{
+					Frontend: p.Frontend,
+					Backends: p.Backends,
+					Type:     p.Type,
 				}
 			}
 			svcUpsertManagerCalls++
@@ -1714,37 +1652,24 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 	wantSvcDeleteManagerCalls := len(del1stWanted)
 
 	svcManager := &fakeSvcManager{
-		OnUpsertService: func(
-			fe loadbalancer.L3n4AddrID,
-			bes []loadbalancer.Backend,
-			svcType loadbalancer.SVCType,
-			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
-			sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-			svcHealthCheckNodePort uint16,
-			svcName,
-			namespace string) (
-			b bool,
-			id loadbalancer.ID,
-			e error,
-		) {
-
-			sort.Slice(bes, func(i, j int) bool {
-				return bytes.Compare(bes[i].IP, bes[j].IP) < 0
+		OnUpsertService: func(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
+			sort.Slice(p.Backends, func(i, j int) bool {
+				return bytes.Compare(p.Backends[i].IP, p.Backends[j].IP) < 0
 			})
 			switch {
 			// 1st update service-endpoints
 			case svcUpsertManagerCalls < len(upsert1stWanted):
-				upsert1st[fe.Hash()] = loadbalancer.SVC{
-					Frontend: fe,
-					Backends: bes,
-					Type:     svcType,
+				upsert1st[p.Frontend.Hash()] = loadbalancer.SVC{
+					Frontend: p.Frontend,
+					Backends: p.Backends,
+					Type:     p.Type,
 				}
 			// 2nd update services
 			case svcUpsertManagerCalls < len(upsert1stWanted)+len(upsert2ndWanted):
-				upsert2nd[fe.Hash()] = loadbalancer.SVC{
-					Frontend: fe,
-					Backends: bes,
-					Type:     svcType,
+				upsert2nd[p.Frontend.Hash()] = loadbalancer.SVC{
+					Frontend: p.Frontend,
+					Backends: p.Backends,
+					Type:     p.Type,
 				}
 			}
 			svcUpsertManagerCalls++
@@ -2563,44 +2488,31 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
 	svcManager := &fakeSvcManager{
-		OnUpsertService: func(
-			fe loadbalancer.L3n4AddrID,
-			bes []loadbalancer.Backend,
-			svcType loadbalancer.SVCType,
-			svcTrafficPolicy loadbalancer.SVCTrafficPolicy,
-			sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-			svcHealthCheckNodePort uint16,
-			svcName,
-			namespace string) (
-			b bool,
-			id loadbalancer.ID,
-			e error,
-		) {
-
-			sort.Slice(bes, func(i, j int) bool {
-				return bytes.Compare(bes[i].IP, bes[j].IP) < 0
+		OnUpsertService: func(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
+			sort.Slice(p.Backends, func(i, j int) bool {
+				return bytes.Compare(p.Backends[i].IP, p.Backends[j].IP) < 0
 			})
 			switch {
 			// 1st update endpoints
 			case svcUpsertManagerCalls < len(upsert1stWanted):
-				upsert1st[fe.Hash()] = loadbalancer.SVC{
-					Frontend: fe,
-					Backends: bes,
-					Type:     svcType,
+				upsert1st[p.Frontend.Hash()] = loadbalancer.SVC{
+					Frontend: p.Frontend,
+					Backends: p.Backends,
+					Type:     p.Type,
 				}
 			// 2nd update endpoints
 			case svcUpsertManagerCalls < len(upsert1stWanted)+len(upsert2ndWanted):
-				upsert2nd[fe.Hash()] = loadbalancer.SVC{
-					Frontend: fe,
-					Backends: bes,
-					Type:     svcType,
+				upsert2nd[p.Frontend.Hash()] = loadbalancer.SVC{
+					Frontend: p.Frontend,
+					Backends: p.Backends,
+					Type:     p.Type,
 				}
 			// 3rd update services
 			case svcUpsertManagerCalls < len(upsert1stWanted)+len(upsert2ndWanted)+len(upsert3rdWanted):
-				upsert3rd[fe.Hash()] = loadbalancer.SVC{
-					Frontend: fe,
-					Backends: bes,
-					Type:     svcType,
+				upsert3rd[p.Frontend.Hash()] = loadbalancer.SVC{
+					Frontend: p.Frontend,
+					Backends: p.Backends,
+					Type:     p.Type,
 				}
 			}
 			svcUpsertManagerCalls++
