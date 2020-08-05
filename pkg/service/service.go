@@ -199,38 +199,42 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 	return nil
 }
 
+type UpsertServiceParams struct {
+	Name                      string
+	Namespace                 string
+	Type                      lb.SVCType
+	Frontend                  lb.L3n4AddrID
+	Backends                  []lb.Backend
+	TrafficPolicy             lb.SVCTrafficPolicy
+	SessionAffinity           bool
+	SessionAffinityTimeoutSec uint32
+	HealthCheckNodePort       uint16
+}
+
 // UpsertService inserts or updates the given service.
 //
 // The first return value is true if the service hasn't existed before.
-func (s *Service) UpsertService(
-	frontend lb.L3n4AddrID, backends []lb.Backend, svcType lb.SVCType,
-	svcTrafficPolicy lb.SVCTrafficPolicy,
-	sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-	svcHealthCheckNodePort uint16,
-	svcName, svcNamespace string) (bool, lb.ID, error) {
-
+func (s *Service) UpsertService(params *UpsertServiceParams) (bool, lb.ID, error) {
 	s.Lock()
 	defer s.Unlock()
 
 	scopedLog := log.WithFields(logrus.Fields{
-		logfields.ServiceIP: frontend.L3n4Addr,
-		logfields.Backends:  backends,
+		logfields.ServiceIP: params.Frontend.L3n4Addr,
+		logfields.Backends:  params.Backends,
 
-		logfields.ServiceType:                svcType,
-		logfields.ServiceTrafficPolicy:       svcTrafficPolicy,
-		logfields.ServiceHealthCheckNodePort: svcHealthCheckNodePort,
-		logfields.ServiceName:                svcName,
-		logfields.ServiceNamespace:           svcNamespace,
+		logfields.ServiceType:                params.Type,
+		logfields.ServiceTrafficPolicy:       params.TrafficPolicy,
+		logfields.ServiceHealthCheckNodePort: params.HealthCheckNodePort,
+		logfields.ServiceName:                params.Name,
+		logfields.ServiceNamespace:           params.Namespace,
 
-		logfields.SessionAffinity:        sessionAffinity,
-		logfields.SessionAffinityTimeout: sessionAffinityTimeoutSec,
+		logfields.SessionAffinity:        params.SessionAffinity,
+		logfields.SessionAffinityTimeout: params.SessionAffinityTimeoutSec,
 	})
 	scopedLog.Debug("Upserting service")
 
 	// If needed, create svcInfo and allocate service ID
-	svc, new, prevSessionAffinity, err := s.createSVCInfoIfNotExist(frontend, svcType, svcTrafficPolicy,
-		sessionAffinity, sessionAffinityTimeoutSec,
-		svcHealthCheckNodePort, svcName, svcNamespace)
+	svc, new, prevSessionAffinity, err := s.createSVCInfoIfNotExist(params)
 	if err != nil {
 		return false, lb.ID(0), err
 	}
@@ -238,11 +242,11 @@ func (s *Service) UpsertService(
 	scopedLog = scopedLog.WithField(logfields.ServiceID, svc.frontend.ID)
 	scopedLog.Debug("Acquired service ID")
 
-	onlyLocalBackends, filterBackends := svc.requireNodeLocalBackends(frontend)
+	onlyLocalBackends, filterBackends := svc.requireNodeLocalBackends(params.Frontend)
 	prevBackendCount := len(svc.backends)
 
 	backendsCopy := []lb.Backend{}
-	for _, b := range backends {
+	for _, b := range params.Backends {
 		// Services with trafficPolicy=Local may only use node-local backends
 		// for external scope. We implement this by filtering out all backend
 		// IPs which are not a local endpoint.
@@ -448,60 +452,52 @@ func (s *Service) SyncWithK8sFinished() error {
 	return nil
 }
 
-func (s *Service) createSVCInfoIfNotExist(
-	frontend lb.L3n4AddrID,
-	svcType lb.SVCType,
-	svcTrafficPolicy lb.SVCTrafficPolicy,
-	sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-	svcHealthCheckNodePort uint16,
-	svcName, svcNamespace string,
-) (*svcInfo, bool, bool, error) {
-
+func (s *Service) createSVCInfoIfNotExist(p *UpsertServiceParams) (*svcInfo, bool, bool, error) {
 	prevSessionAffinity := false
-	hash := frontend.Hash()
+	hash := p.Frontend.Hash()
 	svc, found := s.svcByHash[hash]
 	if !found {
 		// Allocate service ID for the new service
-		addrID, err := AcquireID(frontend.L3n4Addr, uint32(frontend.ID))
+		addrID, err := AcquireID(p.Frontend.L3n4Addr, uint32(p.Frontend.ID))
 		if err != nil {
 			return nil, false, false,
 				fmt.Errorf("Unable to allocate service ID %d for %v: %s",
-					frontend.ID, frontend, err)
+					p.Frontend.ID, p.Frontend, err)
 		}
-		frontend.ID = addrID.ID
+		p.Frontend.ID = addrID.ID
 
 		svc = &svcInfo{
 			hash:          hash,
-			frontend:      frontend,
+			frontend:      p.Frontend,
 			backendByHash: map[string]*lb.Backend{},
 
-			svcType:      svcType,
-			svcName:      svcName,
-			svcNamespace: svcNamespace,
+			svcType:      p.Type,
+			svcName:      p.Name,
+			svcNamespace: p.Namespace,
 
-			sessionAffinity:           sessionAffinity,
-			sessionAffinityTimeoutSec: sessionAffinityTimeoutSec,
+			sessionAffinity:           p.SessionAffinity,
+			sessionAffinityTimeoutSec: p.SessionAffinityTimeoutSec,
 
-			svcTrafficPolicy:       svcTrafficPolicy,
-			svcHealthCheckNodePort: svcHealthCheckNodePort,
+			svcTrafficPolicy:       p.TrafficPolicy,
+			svcHealthCheckNodePort: p.HealthCheckNodePort,
 		}
-		s.svcByID[frontend.ID] = svc
+		s.svcByID[p.Frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
 		prevSessionAffinity = svc.sessionAffinity
-		svc.svcType = svcType
-		svc.svcTrafficPolicy = svcTrafficPolicy
-		svc.svcHealthCheckNodePort = svcHealthCheckNodePort
-		svc.sessionAffinity = sessionAffinity
-		svc.sessionAffinityTimeoutSec = sessionAffinityTimeoutSec
+		svc.svcType = p.Type
+		svc.svcTrafficPolicy = p.TrafficPolicy
+		svc.svcHealthCheckNodePort = p.HealthCheckNodePort
+		svc.sessionAffinity = p.SessionAffinity
+		svc.sessionAffinityTimeoutSec = p.SessionAffinityTimeoutSec
 		// Name and namespace are both optional and intended for exposure via
 		// API. They they are not part of any BPF maps and cannot be restored
 		// from datapath.
-		if svcName != "" {
-			svc.svcName = svcName
+		if p.Name != "" {
+			svc.svcName = p.Name
 		}
-		if svcNamespace != "" {
-			svc.svcNamespace = svcNamespace
+		if p.Namespace != "" {
+			svc.svcNamespace = p.Namespace
 		}
 		// We have heard about the service from k8s, so unset the flag so that
 		// SyncWithK8sFinished() won't consider the service obsolete, and thus
