@@ -25,8 +25,10 @@ indicates success or failure of the test:
    pod-to-a-allowed-cnp-87b5895c8-bfw4x                    1/1     Running   0          68s
    pod-to-a-b76ddb6b4-2v4kb                                1/1     Running   0          68s
    pod-to-a-denied-cnp-677d9f567b-kkjp4                    1/1     Running   0          68s
+   pod-to-b-intra-node-nodeport-8484fb6d89-bwj8q           1/1     Running   0          68s
    pod-to-b-multi-node-clusterip-f7655dbc8-h5bwk           1/1     Running   0          68s
    pod-to-b-multi-node-headless-5fd98b9648-5bjj8           1/1     Running   0          68s
+   pod-to-b-multi-node-nodeport-74bd8d7bd5-kmfmm           1/1     Running   0          68s
    pod-to-external-1111-7489c7c46d-jhtkr                   1/1     Running   0          68s
    pod-to-external-fqdn-allow-google-cnp-b7b6bcdcb-97p75   1/1     Running   0          68s
 
