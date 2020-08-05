@@ -40,13 +40,17 @@ For more information, see the official `NetworkPolicy documentation
 
 Known missing features for Kubernetes Network Policy:
 
-+------------------------------+----------------------------------------------+
-| Feature                      | Tracking Issue                               |
-+==============================+==============================================+
-| Use of named ports           | https://github.com/cilium/cilium/issues/2942 |
-+------------------------------+----------------------------------------------+
-| Ingress CIDR-based L4 policy | https://github.com/cilium/cilium/issues/1684 |
-+------------------------------+----------------------------------------------+
++-------------------------------+----------------------------------------------+
+| Feature                       | Tracking Issue                               |
++===============================+==============================================+
+| Use of named ports            | https://github.com/cilium/cilium/issues/2942 |
++-------------------------------+----------------------------------------------+
+| Ingress CIDR-based L4 policy  | https://github.com/cilium/cilium/issues/1684 |
++-------------------------------+----------------------------------------------+
+| ``ipBlock`` set with a pod IP | https://github.com/cilium/cilium/issues/9209 |
++-------------------------------+----------------------------------------------+
+| SCTP                          | https://github.com/cilium/cilium/issues/5719 |
++-------------------------------+----------------------------------------------+
 
 .. _CiliumNetworkPolicy:
 
