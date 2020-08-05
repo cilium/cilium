@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/proxy/logger"
 	"github.com/cilium/cilium/pkg/proxy/logger/test"
 
-	"github.com/cilium/proxy/go/cilium/api"
+	cilium "github.com/cilium/proxy/go/cilium/api"
 	envoy_config_core "github.com/cilium/proxy/go/envoy/config/core/v3"
 	envoy_config_route "github.com/cilium/proxy/go/envoy/config/route/v3"
 	envoy_type_matcher "github.com/cilium/proxy/go/envoy/type/matcher/v3"
@@ -773,11 +773,12 @@ var ExpectedPerPortPoliciesMySQL = []*cilium.PortNetworkPolicy{
 }
 
 func (s *ServerSuite) TestGetNetworkPolicyMySQL(c *C) {
-	obtained := getNetworkPolicy(IPv4Addr, Identity, "", L4PolicyMySQL, nil, true, true)
+	obtained := getNetworkPolicy(ep, IPv4Addr, L4PolicyMySQL, true, true)
 	expected := &cilium.NetworkPolicy{
 		Name:                  IPv4Addr,
 		Policy:                uint64(Identity),
 		EgressPerPortPolicies: ExpectedPerPortPoliciesMySQL,
+		ConntrackMapName:      "global",
 	}
 	c.Assert(obtained, checker.Equals, expected)
 }
