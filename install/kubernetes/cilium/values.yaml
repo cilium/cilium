@@ -17,7 +17,7 @@ operator:
   enabled: true
 
   # Number of replicas to run for cilium-operator deployment.
-  numReplicas: 2
+  numReplicas: 1
 
 # Include the PreFlight DaemonSet
 preflight:
