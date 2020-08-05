@@ -81,6 +81,7 @@ cilium-agent [flags]
       --enable-k8s-endpoint-slice                     Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                     Enable k8s event handover to kvstore for improved scalability
       --enable-l7-proxy                               Enable L7 proxy for L7 policy enforcement (default true)
+      --enable-loadbalancer-source-range-check        Enable check of loadBalancerSourceRanges
       --enable-local-node-route                       Enable installation of the route which points the allocation prefix of the local node (default true)
       --enable-monitor                                Enable the monitor unix domain socket server (default true)
       --enable-node-port                              Enable NodePort type services by Cilium (beta)
