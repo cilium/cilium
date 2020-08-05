@@ -16,11 +16,15 @@
 
 package v2
 
+type CiliumClusterwideLocalRedirectPolicyExpansion interface{}
+
 type CiliumClusterwideNetworkPolicyExpansion interface{}
 
 type CiliumEndpointExpansion interface{}
 
 type CiliumIdentityExpansion interface{}
+
+type CiliumLocalRedirectPolicyExpansion interface{}
 
 type CiliumNetworkPolicyExpansion interface{}
 

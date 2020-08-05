@@ -201,6 +201,10 @@ rules:
   - ciliumnodes
   - ciliumnodes/status
   - ciliumidentities
+  - ciliumlocalredirectpolicies
+  - ciliumlocalredirectpolicies/status
+  - ciliumclusterwidelocalredirectpolicies
+  - ciliumclusterwidelocalredirectpolicies/status
   verbs:
   - '*'
 ---
@@ -254,6 +258,10 @@ rules:
   - ciliumnodes/status
   - ciliumidentities
   - ciliumidentities/status
+  - ciliumlocalredirectpolicies
+  - ciliumlocalredirectpolicies/status
+  - ciliumclusterwidelocalredirectpolicies
+  - ciliumclusterwidelocalredirectpolicies/status
   verbs:
   - '*'
 - apiGroups:

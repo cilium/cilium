@@ -56,6 +56,12 @@ const (
 
 	// CNCRDName is the full name of the CN CRD.
 	CNCRDName = k8sconstv2.CNKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
+
+	// CLRPCRDNAME is the full name of the CLRP CRD.
+	CLRPCRDNAME = k8sconstv2.CLRPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
+
+	// CCLRPCRDNAME is the full name of the CCLRP CRD.
+	CCLRPCRDNAME = k8sconstv2.CCLRPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 )
 
 var (
@@ -92,6 +98,14 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		})
 	}
 
+	g.Go(func() error {
+		return createCLRPCRD(clientset)
+	})
+
+	g.Go(func() error {
+		return createCCLRPCRD(clientset)
+	})
+
 	return g.Wait()
 }
 
@@ -118,6 +132,10 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes, err = examplesCrdsCiliumidentitiesYamlBytes()
 	case CNCRDName:
 		crdBytes, err = examplesCrdsCiliumnodesYamlBytes()
+	case CLRPCRDNAME:
+		crdBytes, err = examplesCrdsCiliumlocalredirectpoliciesYamlBytes()
+	case CCLRPCRDNAME:
+		crdBytes, err = examplesCrdsCiliumclusterwidelocalredirectpoliciesYamlBytes()
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -196,6 +214,28 @@ func createIdentityCRD(clientset apiextensionsclient.Interface) error {
 		clientset,
 		CIDCRDName,
 		constructV1CRD(k8sconstv2.CIDName, ciliumCRD),
+		newDefaultPoller(),
+	)
+}
+
+func createCLRPCRD(clientset apiextensionsclient.Interface) error {
+	cLrpCRD := GetPregeneratedCRD(CLRPCRDNAME)
+
+	return createUpdateCRD(
+		clientset,
+		CLRPCRDNAME,
+		constructV1CRD(k8sconstv2.CLRPName, cLrpCRD),
+		newDefaultPoller(),
+	)
+}
+
+func createCCLRPCRD(clientset apiextensionsclient.Interface) error {
+	cClrpCRD := GetPregeneratedCRD(CCLRPCRDNAME)
+
+	return createUpdateCRD(
+		clientset,
+		CCLRPCRDNAME,
+		constructV1CRD(k8sconstv2.CCLRPName, cClrpCRD),
 		newDefaultPoller(),
 	)
 }
