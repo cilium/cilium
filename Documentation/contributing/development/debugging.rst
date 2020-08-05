@@ -65,7 +65,7 @@ toFQDNs rules and events relating to those rules are also relevant.
     -> endpoint 3459 flow 0xe6866e21 identity 15194->323 state reply ifindex lxc84b58cbdabfe orig-ip 10.60.1.115: 10.63.240.10:53 -> 10.60.0.182:42132 udp
     -> Response dns to 3459 ([k8s:org=alliance k8s:io.kubernetes.pod.namespace=default k8s:io.cilium.k8s.policy.serviceaccount=default k8s:io.cilium.k8s.policy.cluster=default k8s:class=xwing]) from 0 ([k8s:io.cilium.k8s.policy.cluster=default k8s:io.cilium.k8s.policy.serviceaccount=kube-dns k8s:io.kubernetes.pod.namespace=kube-system k8s:k8s-app=kube-dns]), identity 323->15194, verdict Forwarded DNS Query: cilium.io. A TTL: 486 Answer: '104.198.14.52'
     -> endpoint 3459 flow 0xe6866e21 identity 15194->323 state reply ifindex lxc84b58cbdabfe orig-ip 10.60.1.115: 10.63.240.10:53 -> 10.60.0.182:42132 udp
-    Policy verdict log: flow 0x614e9723 local EP ID 3459, remote ID 16777217, proto 6, egress, action allow, match L3-Only, 10.60.0.182:41510 -> 104.198.14.52:80 tcp SYN
+    Policy verdict log: flow 0x614e9723 local EP ID 3459, remote ID 16777217, dst port 80, proto 6, ingress false, action allow, match L3-Only, 10.60.0.182:41510 -> 104.198.14.52:80 tcp SYN
 
     -> stack flow 0x614e9723 identity 323->16777217 state new ifindex 0 orig-ip 0.0.0.0: 10.60.0.182:41510 -> 104.198.14.52:80 tcp SYN
     -> 0: 10.60.0.182:41510 -> 104.198.14.52:80 tcp SYN

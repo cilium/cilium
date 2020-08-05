@@ -100,7 +100,7 @@ output:
 
    # cilium monitor -t policy-verdict
    ...
-   Policy verdict log: flow 0x63113709 local EP ID 232, remote ID 31028, proto 6, ingress, action audit, match none, 10.0.0.112 :54134 -> 10.29.50.40:80 tcp SYN
+   Policy verdict log: flow 0x63113709 local EP ID 232, remote ID 31028, dst port 80, proto 6, ingress true, action audit, match none, 10.0.0.112 :54134 -> 10.29.50.40:80 tcp SYN
 
 In the above example, we can see that endpoint ``232`` has received traffic
 (``ingress true``) which doesn't match the policy (``action audit match
@@ -160,7 +160,7 @@ Executed from the cilium pod:
 .. code-block:: shell-session
 
    # cilium monitor -t policy-verdict
-   Policy verdict log: flow 0xabf3bda6 local EP ID 232, remote ID 31028, proto 6, ingress, action allow, match L3-L4, 10.0.0.112 :59824 -> 10.0.0.147:80 tcp SYN
+   Policy verdict log: flow 0xabf3bda6 local EP ID 232, remote ID 31028, dst port 80, proto 6, ingress true, action allow, match L3-L4, 10.0.0.112 :59824 -> 10.0.0.147:80 tcp SYN
 
 Now the policy verdict states that the traffic would be allowed: ``action
 allow``. Success!
