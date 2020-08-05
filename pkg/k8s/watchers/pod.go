@@ -42,6 +42,7 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
+	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/u8proto"
 
@@ -440,10 +441,16 @@ func (k *K8sWatcher) UpsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 	}
 
 	for _, dpSvc := range svcs {
-		if _, _, err := k.svcManager.UpsertService(dpSvc.Frontend, dpSvc.Backends, dpSvc.Type,
-			dpSvc.TrafficPolicy, false, 0, dpSvc.HealthCheckNodePort,
-			fmt.Sprintf("%s/host-port/%d", pod.ObjectMeta.Name, dpSvc.Frontend.L3n4Addr.Port),
-			pod.ObjectMeta.Namespace); err != nil {
+		p := &service.UpsertServiceParams{
+			Frontend:            dpSvc.Frontend,
+			Backends:            dpSvc.Backends,
+			Type:                dpSvc.Type,
+			TrafficPolicy:       dpSvc.TrafficPolicy,
+			HealthCheckNodePort: dpSvc.HealthCheckNodePort,
+			Name:                fmt.Sprintf("%s/host-port/%d", pod.ObjectMeta.Name, dpSvc.Frontend.L3n4Addr.Port),
+			Namespace:           pod.ObjectMeta.Namespace,
+		}
+		if _, _, err := k.svcManager.UpsertService(p); err != nil {
 			logger.WithError(err).Error("Error while inserting service in LB map")
 			return err
 		}
