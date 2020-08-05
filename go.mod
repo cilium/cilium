@@ -35,7 +35,7 @@ require (
 	github.com/go-openapi/validate v0.19.10
 	github.com/gogo/protobuf v1.3.1
 	github.com/golang/protobuf v1.4.2
-	github.com/google/go-cmp v0.5.0
+	github.com/google/go-cmp v0.5.1
 	github.com/google/gofuzz v1.1.0
 	github.com/google/gopacket v1.1.17
 	github.com/google/gops v0.3.10
