@@ -36,13 +36,13 @@ import (
 )
 
 // FakeGetFlowsServer is used for unit tests and implements the
-// observerpb.observer_GetFlowsServer interface.
+// observerpb.Observer_GetFlowsServer interface.
 type FakeGetFlowsServer struct {
 	OnSend func(response *observerpb.GetFlowsResponse) error
 	*FakeGRPCServerStream
 }
 
-// Send implements observerpb.observer_GetFlowsServer.Send.
+// Send implements observerpb.Observer_GetFlowsServer.Send.
 func (s *FakeGetFlowsServer) Send(response *observerpb.GetFlowsResponse) error {
 	if s.OnSend != nil {
 		// TODO: completely convert this into using flowpb.Flow
@@ -72,6 +72,21 @@ func (c *FakeObserverClient) ServerStatus(ctx context.Context, in *observerpb.Se
 		return c.OnServerStatus(ctx, in, opts...)
 	}
 	panic("OnServerStatus not set")
+}
+
+// FakeGetFlowsClient is used for unit tests and implements the
+// observerpb.Observer_GetFlowsClient interface.
+type FakeGetFlowsClient struct {
+	OnRecv func() (*observerpb.GetFlowsResponse, error)
+	*FakeGRPCClientStream
+}
+
+// Recv implements observerpb.Observer_GetFlowsClient.Recv.
+func (c *FakeGetFlowsClient) Recv() (*observerpb.GetFlowsResponse, error) {
+	if c.OnRecv != nil {
+		return c.OnRecv()
+	}
+	panic("OnRecv not set")
 }
 
 // FakePeerNotifyServer is used for unit tests and implements the
