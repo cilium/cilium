@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/comparator"
 	"github.com/cilium/cilium/pkg/datapath"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
@@ -107,7 +108,8 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 		}
 	}
 
-	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs, loadBalancerIPs, headless,
+	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs,
+		loadBalancerIPs, svc.Spec.LoadBalancerSourceRanges, headless,
 		trafficPolicy, uint16(svc.Spec.HealthCheckNodePort), svc.Labels, svc.Spec.Selector)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
@@ -243,10 +245,13 @@ type Service struct {
 	// K8sExternalIPs stores mapping of the endpoint in a string format to the
 	// externalIP in net.IP format.
 	K8sExternalIPs map[string]net.IP
+
 	// LoadBalancerIPs stores LB IPs assigned to the service (string(IP) => IP).
-	LoadBalancerIPs map[string]net.IP
-	Labels          map[string]string
-	Selector        map[string]string
+	LoadBalancerIPs          map[string]net.IP
+	LoadBalancerSourceRanges []*cidr.CIDR
+
+	Labels   map[string]string
+	Selector map[string]string
 
 	// SessionAffinity denotes whether service has the clientIP session affinity
 	SessionAffinity bool
@@ -366,12 +371,21 @@ func parseIPs(externalIPs []string) map[string]net.IP {
 }
 
 // NewService returns a new Service with the Ports map initialized.
-func NewService(ip net.IP, externalIPs []string, loadBalancerIPs []string,
+func NewService(ip net.IP, externalIPs []string,
+	loadBalancerIPs []string, loadBalancerSourceRanges []string,
 	headless bool, trafficPolicy loadbalancer.SVCTrafficPolicy,
 	healthCheckNodePort uint16, labels, selector map[string]string) *Service {
 
-	var k8sExternalIPs map[string]net.IP
-	var k8sLoadBalancerIPs map[string]net.IP
+	var (
+		k8sExternalIPs     map[string]net.IP
+		k8sLoadBalancerIPs map[string]net.IP
+	)
+	loadBalancerSourceCIDRs := make([]*cidr.CIDR, 0, len(loadBalancerSourceRanges))
+
+	for _, cidrString := range loadBalancerSourceRanges {
+		cidr, _ := cidr.ParseCIDR(cidrString)
+		loadBalancerSourceCIDRs = append(loadBalancerSourceCIDRs, cidr)
+	}
 
 	if option.Config.EnableNodePort {
 		k8sExternalIPs = parseIPs(externalIPs)
@@ -385,10 +399,11 @@ func NewService(ip net.IP, externalIPs []string, loadBalancerIPs []string,
 		TrafficPolicy:       trafficPolicy,
 		HealthCheckNodePort: healthCheckNodePort,
 
-		Ports:           map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:       map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
-		K8sExternalIPs:  k8sExternalIPs,
-		LoadBalancerIPs: k8sLoadBalancerIPs,
+		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
+		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		K8sExternalIPs:           k8sExternalIPs,
+		LoadBalancerIPs:          k8sLoadBalancerIPs,
+		LoadBalancerSourceRanges: loadBalancerSourceCIDRs,
 
 		Labels:   labels,
 		Selector: selector,
