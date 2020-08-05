@@ -51,6 +51,11 @@ pipeline {
                 sh 'ls -A | grep -v src | xargs mv -t ${PROJ_PATH}'
             }
         }
+        stage('Start docker registry for build') {
+            steps{
+                sh 'cd ${TESTDIR}/gke; ./start-registry.sh'
+            }
+        }
         stage('Precheck') {
             options {
                 timeout(time: 20, unit: 'MINUTES')
@@ -86,7 +91,7 @@ pipeline {
             parallel {
                 stage('Make Cilium images') {
                     steps {
-                        sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(./print-node-ip.sh) ${TAG} "--no-cache"'
+                        sh 'cd ${TESTDIR}; ./make-images-push-to-local-registry.sh $(gke/registry-ip.sh) ${TAG} "--no-cache"'
                     }
                     post {
                         unsuccessful {
@@ -140,15 +145,15 @@ pipeline {
                 CNI_INTEGRATION="gke"
                 CILIUM_IMAGE = """${sh(
                         returnStdout: true,
-                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/cilium:${TAG}'
+                        script: 'echo -n $(${TESTDIR}/gke/registry-ip.sh)/cilium/cilium:${TAG}'
                         )}"""
                 CILIUM_OPERATOR_IMAGE= """${sh(
                         returnStdout: true,
-                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/operator-generic:${TAG}'
+                        script: 'echo -n $(${TESTDIR}/gke/registry-ip.sh)/cilium/operator-generic:${TAG}'
                         )}"""
                 HUBBLE_RELAY_IMAGE= """${sh(
                         returnStdout: true,
-                        script: 'echo -n $(${TESTDIR}/print-node-ip.sh)/cilium/hubble-relay:${TAG}'
+                        script: 'echo -n $(${TESTDIR}/gke/registry-ip.sh)/cilium/hubble-relay:${TAG}'
                         )}"""
                 K8S_VERSION= """${sh(
                         returnStdout: true,
@@ -162,7 +167,7 @@ pipeline {
             steps {
                 dir("${TESTDIR}"){
                     sh 'env'
-                    sh 'ginkgo --focus="${FOCUS}" -v -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh) -cilium.image=${CILIUM_IMAGE} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.holdEnvironment=false -cilium.runQuarantined=${RUN_QUARANTINED}'
+                    sh 'ginkgo --focus="${FOCUS}" -v -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.passCLIEnvironment=true -cilium.registry=$(gke/registry-ip.sh) -cilium.image=${CILIUM_IMAGE} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.holdEnvironment=false -cilium.runQuarantined=${RUN_QUARANTINED}'
                 }
             }
             post {
@@ -183,7 +188,7 @@ pipeline {
   }
     post {
         always {
-            sh 'cd ${TESTDIR}; ./clean-local-registry-tag.sh $(./print-node-ip.sh) ${TAG} || true'
+            sh 'cd ${TESTDIR}/gke; ./stop-registry.sh || true'
             sh 'cd ${TESTDIR}/gke; ./release-cluster.sh || true'
             cleanWs()
             sh '/usr/local/bin/cleanup || true'
