@@ -80,5 +80,9 @@ rules:
   - ciliumnodes
   - ciliumnodes/status
   - ciliumidentities
+  - ciliumlocalredirectpolicies
+  - ciliumlocalredirectpolicies/status
+  - ciliumclusterwidelocalredirectpolicies
+  - ciliumclusterwidelocalredirectpolicies/status
   verbs:
   - '*'

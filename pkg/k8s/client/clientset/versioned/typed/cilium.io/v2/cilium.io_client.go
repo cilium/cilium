@@ -24,9 +24,11 @@ import (
 
 type CiliumV2Interface interface {
 	RESTClient() rest.Interface
+	CiliumClusterwideLocalRedirectPoliciesGetter
 	CiliumClusterwideNetworkPoliciesGetter
 	CiliumEndpointsGetter
 	CiliumIdentitiesGetter
+	CiliumLocalRedirectPoliciesGetter
 	CiliumNetworkPoliciesGetter
 	CiliumNodesGetter
 }
@@ -34,6 +36,10 @@ type CiliumV2Interface interface {
 // CiliumV2Client is used to interact with features provided by the cilium.io group.
 type CiliumV2Client struct {
 	restClient rest.Interface
+}
+
+func (c *CiliumV2Client) CiliumClusterwideLocalRedirectPolicies() CiliumClusterwideLocalRedirectPolicyInterface {
+	return newCiliumClusterwideLocalRedirectPolicies(c)
 }
 
 func (c *CiliumV2Client) CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPolicyInterface {
@@ -46,6 +52,10 @@ func (c *CiliumV2Client) CiliumEndpoints(namespace string) CiliumEndpointInterfa
 
 func (c *CiliumV2Client) CiliumIdentities() CiliumIdentityInterface {
 	return newCiliumIdentities(c)
+}
+
+func (c *CiliumV2Client) CiliumLocalRedirectPolicies(namespace string) CiliumLocalRedirectPolicyInterface {
+	return newCiliumLocalRedirectPolicies(c, namespace)
 }
 
 func (c *CiliumV2Client) CiliumNetworkPolicies(namespace string) CiliumNetworkPolicyInterface {
