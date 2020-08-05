@@ -106,12 +106,13 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 	id, svc := ParseService(k8sSvc, fakeDatapath.NewNodeAddressing())
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
-		TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-		FrontendIP:    net.ParseIP("127.0.0.1"),
-		Selector:      map[string]string{"foo": "bar"},
-		Labels:        map[string]string{"foo": "bar"},
-		Ports:         map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:     map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		TrafficPolicy:            loadbalancer.SVCTrafficPolicyCluster,
+		FrontendIP:               net.ParseIP("127.0.0.1"),
+		Selector:                 map[string]string{"foo": "bar"},
+		Labels:                   map[string]string{"foo": "bar"},
+		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
+		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		LoadBalancerSourceRanges: []*net.IPNet{},
 	})
 
 	k8sSvc = &slim_corev1.Service{
@@ -131,11 +132,12 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 	id, svc = ParseService(k8sSvc, fakeDatapath.NewNodeAddressing())
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
-		IsHeadless:    true,
-		TrafficPolicy: loadbalancer.SVCTrafficPolicyCluster,
-		Labels:        map[string]string{"foo": "bar"},
-		Ports:         map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:     map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		IsHeadless:               true,
+		TrafficPolicy:            loadbalancer.SVCTrafficPolicyCluster,
+		Labels:                   map[string]string{"foo": "bar"},
+		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
+		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		LoadBalancerSourceRanges: []*net.IPNet{},
 	})
 
 	k8sSvc = &slim_corev1.Service{
@@ -156,11 +158,12 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 	id, svc = ParseService(k8sSvc, fakeDatapath.NewNodeAddressing())
 	c.Assert(id, checker.DeepEquals, ServiceID{Namespace: "bar", Name: "foo"})
 	c.Assert(svc, checker.DeepEquals, &Service{
-		FrontendIP:    net.ParseIP("127.0.0.1"),
-		TrafficPolicy: loadbalancer.SVCTrafficPolicyLocal,
-		Labels:        map[string]string{"foo": "bar"},
-		Ports:         map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
-		NodePorts:     map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		FrontendIP:               net.ParseIP("127.0.0.1"),
+		TrafficPolicy:            loadbalancer.SVCTrafficPolicyLocal,
+		Labels:                   map[string]string{"foo": "bar"},
+		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
+		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
+		LoadBalancerSourceRanges: []*net.IPNet{},
 	})
 }
 
