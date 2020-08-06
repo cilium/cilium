@@ -28,6 +28,9 @@ EOF
     cat > ca-${name}-csr.json <<EOF
 {
   "CN": "${name}",
+  "hosts": [
+    "${name}"
+  ],
   "key": {
     "algo": "rsa",
     "size": 2048
@@ -68,6 +71,7 @@ generate_server_certs() {
 {
   "CN": "${cli_name}",
   "hosts": [
+    "${cli_name}",
     "${master_hostname}",
     "${master_ip}",
     "${cluster_api_server_ip}",
@@ -117,7 +121,9 @@ generate_kubelet_client_certs() {
     cat > ${filename}-csr.json <<EOF
 {
   "CN": "${cli_name}",
-  "hosts": [],
+  "hosts": [
+     "${cli_name}"
+  ],
   "key": {
     "algo": "rsa",
     "size": 2048
@@ -162,7 +168,9 @@ generate_k8s_component_certs() {
     cat > ${cm_name}-csr.json <<EOF
 {
   "CN": "${k8s_name}",
-  "hosts": [],
+  "hosts": [
+     "${k8s_name}"
+  ],
   "key": {
     "algo": "rsa",
     "size": 2048
@@ -207,7 +215,9 @@ generate_kubectl_admin_certs() {
     cat > ${filename}-csr.json <<EOF
 {
   "CN": "${username}",
-  "hosts": [],
+  "hosts": [
+     "${username}"
+  ],
   "key": {
     "algo": "rsa",
     "size": 2048
@@ -252,7 +262,9 @@ generate_etcd_client_certs() {
     cat > ${filename}-csr.json <<EOF
 {
   "CN": "${client_name}",
-  "hosts": [],
+  "hosts": [
+    "${client_name}"
+  ],
   "key": {
     "algo": "rsa",
     "size": 2048
