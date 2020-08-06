@@ -11,7 +11,6 @@ require (
 	github.com/asaskevich/govalidator v0.0.0-20200428143746-21a406dcc535
 	github.com/aws/aws-sdk-go-v2 v0.23.0
 	github.com/blang/semver v3.5.0+incompatible
-	github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
 	github.com/cilium/arping v1.0.1-0.20190728065459-c5eaf8d7a710
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.0.0-20200702112145-1c8d4c9ef775

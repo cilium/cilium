@@ -15,7 +15,6 @@
 package server
 
 import (
-	"fmt"
 	"strconv"
 
 	healthModels "github.com/cilium/cilium/api/v1/health/models"
@@ -23,20 +22,23 @@ import (
 	ciliumModels "github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/api"
 	"github.com/cilium/cilium/pkg/client"
+	"golang.org/x/sys/unix"
 
-	"github.com/c9s/goprocinfo/linux"
 	"github.com/go-openapi/runtime/middleware"
 )
 
 func dumpLoad() (*healthModels.LoadResponse, error) {
-	load, err := linux.ReadLoadAvg("/proc/loadavg")
+	var info unix.Sysinfo_t
+	err := unix.Sysinfo(&info)
 	if err != nil {
-		return nil, fmt.Errorf("Failure getting /stat: %s", err.Error())
+		return nil, err
 	}
+
+	scale := float64(1 << unix.SI_LOAD_SHIFT)
 	return &healthModels.LoadResponse{
-		Last1min:  strconv.FormatFloat(load.Last1Min, 'f', 2, 64),
-		Last5min:  strconv.FormatFloat(load.Last5Min, 'f', 2, 64),
-		Last15min: strconv.FormatFloat(load.Last15Min, 'f', 2, 64),
+		Last1min:  strconv.FormatFloat(float64(info.Loads[0])/scale, 'f', 2, 64),
+		Last5min:  strconv.FormatFloat(float64(info.Loads[1])/scale, 'f', 2, 64),
+		Last15min: strconv.FormatFloat(float64(info.Loads[2])/scale, 'f', 2, 64),
 	}, nil
 }
 

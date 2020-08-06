@@ -75,9 +75,6 @@ github.com/beorn7/perks/quantile
 # github.com/blang/semver v3.5.0+incompatible
 ## explicit
 github.com/blang/semver
-# github.com/c9s/goprocinfo v0.0.0-20190309065803-0b2ad9ac246b
-## explicit
-github.com/c9s/goprocinfo/linux
 # github.com/census-instrumentation/opencensus-proto v0.2.2-0.20191220023634-be218fb6bd67
 github.com/census-instrumentation/opencensus-proto/gen-go/resource/v1
 github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
