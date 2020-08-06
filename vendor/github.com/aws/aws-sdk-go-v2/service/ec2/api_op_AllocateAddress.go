@@ -21,9 +21,11 @@ type AllocateAddressInput struct {
 	// address from the address pool.
 	CustomerOwnedIpv4Pool *string `type:"string"`
 
-	// Set to vpc to allocate the address for use with instances in a VPC.
+	// Indicates whether the Elastic IP address is for use with instances in a VPC
+	// or instances in EC2-Classic.
 	//
-	// Default: The address is for use with instances in EC2-Classic.
+	// Default: If the Region supports EC2-Classic, the default is standard. Otherwise,
+	// the default is vpc.
 	Domain DomainType `type:"string" enum:"true"`
 
 	// Checks whether you have the required permissions for the action, without
@@ -71,8 +73,8 @@ type AllocateAddressOutput struct {
 	// The ID of the customer-owned address pool.
 	CustomerOwnedIpv4Pool *string `locationName:"customerOwnedIpv4Pool" type:"string"`
 
-	// Indicates whether this Elastic IP address is for use with instances in EC2-Classic
-	// (standard) or instances in a VPC (vpc).
+	// Indicates whether the Elastic IP address is for use with instances in a VPC
+	// (vpc) or instances in EC2-Classic (standard).
 	Domain DomainType `locationName:"domain" type:"string" enum:"true"`
 
 	// The location from which the IP address is advertised.

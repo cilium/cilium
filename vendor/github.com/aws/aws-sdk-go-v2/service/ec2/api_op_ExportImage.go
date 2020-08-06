@@ -15,7 +15,7 @@ type ExportImageInput struct {
 	// Token to enable idempotency for export image requests.
 	ClientToken *string `type:"string" idempotencyToken:"true"`
 
-	// A description of the image being exported. The maximum length is 255 bytes.
+	// A description of the image being exported. The maximum length is 255 characters.
 	Description *string `type:"string"`
 
 	// The disk image format.
@@ -35,15 +35,18 @@ type ExportImageInput struct {
 	ImageId *string `type:"string" required:"true"`
 
 	// The name of the role that grants VM Import/Export permission to export images
-	// to your S3 bucket. If this parameter is not specified, the default role is
-	// named 'vmimport'.
+	// to your Amazon S3 bucket. If this parameter is not specified, the default
+	// role is named 'vmimport'.
 	RoleName *string `type:"string"`
 
-	// Information about the destination S3 bucket. The bucket must exist and grant
-	// WRITE and READ_ACP permissions to the AWS account vm-import-export@amazon.com.
+	// Information about the destination Amazon S3 bucket. The bucket must exist
+	// and grant WRITE and READ_ACP permissions to the AWS account vm-import-export@amazon.com.
 	//
 	// S3ExportLocation is a required field
 	S3ExportLocation *ExportTaskS3LocationRequest `type:"structure" required:"true"`
+
+	// The tags to apply to the image being exported.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -96,10 +99,10 @@ type ExportImageOutput struct {
 	Progress *string `locationName:"progress" type:"string"`
 
 	// The name of the role that grants VM Import/Export permission to export images
-	// to your S3 bucket.
+	// to your Amazon S3 bucket.
 	RoleName *string `locationName:"roleName" type:"string"`
 
-	// Information about the destination S3 bucket.
+	// Information about the destination Amazon S3 bucket.
 	S3ExportLocation *ExportTaskS3Location `locationName:"s3ExportLocation" type:"structure"`
 
 	// The status of the export image task. The possible values are active, completed,
@@ -108,6 +111,9 @@ type ExportImageOutput struct {
 
 	// The status message for the export image task.
 	StatusMessage *string `locationName:"statusMessage" type:"string"`
+
+	// Any tags assigned to the image being exported.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation

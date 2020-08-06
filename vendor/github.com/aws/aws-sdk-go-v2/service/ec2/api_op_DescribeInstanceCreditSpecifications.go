@@ -101,7 +101,7 @@ const opDescribeInstanceCreditSpecifications = "DescribeInstanceCreditSpecificat
 // all, the call fails. If you specify only instance IDs in an unaffected zone,
 // the call works normally.
 //
-// For more information, see Burstable Performance Instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
+// For more information, see Burstable performance instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 //
 //    // Example sending a request using DescribeInstanceCreditSpecificationsRequest.

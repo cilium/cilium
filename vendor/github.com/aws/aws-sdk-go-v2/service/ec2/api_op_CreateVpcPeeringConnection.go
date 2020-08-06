@@ -33,6 +33,9 @@ type CreateVpcPeeringConnectionInput struct {
 	// You must specify this parameter in the request.
 	PeerVpcId *string `locationName:"peerVpcId" type:"string"`
 
+	// The tags to assign to the peering connection.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
+
 	// The ID of the requester VPC. You must specify this parameter in the request.
 	VpcId *string `locationName:"vpcId" type:"string"`
 }

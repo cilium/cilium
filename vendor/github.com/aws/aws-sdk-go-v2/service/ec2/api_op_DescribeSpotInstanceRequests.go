@@ -101,7 +101,7 @@ type DescribeSpotInstanceRequestsInput struct {
 	//    * state - The state of the Spot Instance request (open | active | closed
 	//    | cancelled | failed). Spot request status information can help you track
 	//    your Amazon EC2 Spot Instance requests. For more information, see Spot
-	//    Request Status (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-bid-status.html)
+	//    request status (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-bid-status.html)
 	//    in the Amazon EC2 User Guide for Linux Instances.
 	//
 	//    * status-code - The short code describing the most recent evaluation of

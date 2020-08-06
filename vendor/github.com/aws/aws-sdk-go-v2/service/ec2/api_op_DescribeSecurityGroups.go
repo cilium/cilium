@@ -39,8 +39,8 @@ type DescribeSecurityGroupsInput struct {
 	//    * egress.ip-permission.ipv6-cidr - An IPv6 CIDR block for an outbound
 	//    security group rule.
 	//
-	//    * egress.ip-permission.prefix-list-id - The ID (prefix) of the AWS service
-	//    to which a security group rule allows outbound access.
+	//    * egress.ip-permission.prefix-list-id - The ID of a prefix list to which
+	//    a security group rule allows outbound access.
 	//
 	//    * egress.ip-permission.protocol - The IP protocol for an outbound security
 	//    group rule (tcp | udp | icmp or a protocol number).
@@ -70,8 +70,8 @@ type DescribeSecurityGroupsInput struct {
 	//    * ip-permission.ipv6-cidr - An IPv6 CIDR block for an inbound security
 	//    group rule.
 	//
-	//    * ip-permission.prefix-list-id - The ID (prefix) of the AWS service from
-	//    which a security group rule allows inbound access.
+	//    * ip-permission.prefix-list-id - The ID of a prefix list from which a
+	//    security group rule allows inbound access.
 	//
 	//    * ip-permission.protocol - The IP protocol for an inbound security group
 	//    rule (tcp | udp | icmp or a protocol number).

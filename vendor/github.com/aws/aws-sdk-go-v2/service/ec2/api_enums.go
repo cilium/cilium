@@ -802,6 +802,24 @@ func (enum EbsEncryptionSupport) MarshalValueBuf(b []byte) ([]byte, error) {
 	return append(b, enum...), nil
 }
 
+type EbsNvmeSupport string
+
+// Enum values for EbsNvmeSupport
+const (
+	EbsNvmeSupportUnsupported EbsNvmeSupport = "unsupported"
+	EbsNvmeSupportSupported   EbsNvmeSupport = "supported"
+	EbsNvmeSupportRequired    EbsNvmeSupport = "required"
+)
+
+func (enum EbsNvmeSupport) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum EbsNvmeSupport) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
 type EbsOptimizedSupport string
 
 // Enum values for EbsOptimizedSupport
@@ -1608,6 +1626,15 @@ const (
 	InstanceTypeR5ad12xlarge InstanceType = "r5ad.12xlarge"
 	InstanceTypeR5ad16xlarge InstanceType = "r5ad.16xlarge"
 	InstanceTypeR5ad24xlarge InstanceType = "r5ad.24xlarge"
+	InstanceTypeR6gMetal     InstanceType = "r6g.metal"
+	InstanceTypeR6gMedium    InstanceType = "r6g.medium"
+	InstanceTypeR6gLarge     InstanceType = "r6g.large"
+	InstanceTypeR6gXlarge    InstanceType = "r6g.xlarge"
+	InstanceTypeR6g2xlarge   InstanceType = "r6g.2xlarge"
+	InstanceTypeR6g4xlarge   InstanceType = "r6g.4xlarge"
+	InstanceTypeR6g8xlarge   InstanceType = "r6g.8xlarge"
+	InstanceTypeR6g12xlarge  InstanceType = "r6g.12xlarge"
+	InstanceTypeR6g16xlarge  InstanceType = "r6g.16xlarge"
 	InstanceTypeX116xlarge   InstanceType = "x1.16xlarge"
 	InstanceTypeX132xlarge   InstanceType = "x1.32xlarge"
 	InstanceTypeX1eXlarge    InstanceType = "x1e.xlarge"
@@ -1658,6 +1685,14 @@ const (
 	InstanceTypeC518xlarge   InstanceType = "c5.18xlarge"
 	InstanceTypeC524xlarge   InstanceType = "c5.24xlarge"
 	InstanceTypeC5Metal      InstanceType = "c5.metal"
+	InstanceTypeC5aLarge     InstanceType = "c5a.large"
+	InstanceTypeC5aXlarge    InstanceType = "c5a.xlarge"
+	InstanceTypeC5a2xlarge   InstanceType = "c5a.2xlarge"
+	InstanceTypeC5a4xlarge   InstanceType = "c5a.4xlarge"
+	InstanceTypeC5a8xlarge   InstanceType = "c5a.8xlarge"
+	InstanceTypeC5a12xlarge  InstanceType = "c5a.12xlarge"
+	InstanceTypeC5a16xlarge  InstanceType = "c5a.16xlarge"
+	InstanceTypeC5a24xlarge  InstanceType = "c5a.24xlarge"
 	InstanceTypeC5dLarge     InstanceType = "c5d.large"
 	InstanceTypeC5dXlarge    InstanceType = "c5d.xlarge"
 	InstanceTypeC5d2xlarge   InstanceType = "c5d.2xlarge"
@@ -1673,6 +1708,15 @@ const (
 	InstanceTypeC5n4xlarge   InstanceType = "c5n.4xlarge"
 	InstanceTypeC5n9xlarge   InstanceType = "c5n.9xlarge"
 	InstanceTypeC5n18xlarge  InstanceType = "c5n.18xlarge"
+	InstanceTypeC6gMetal     InstanceType = "c6g.metal"
+	InstanceTypeC6gMedium    InstanceType = "c6g.medium"
+	InstanceTypeC6gLarge     InstanceType = "c6g.large"
+	InstanceTypeC6gXlarge    InstanceType = "c6g.xlarge"
+	InstanceTypeC6g2xlarge   InstanceType = "c6g.2xlarge"
+	InstanceTypeC6g4xlarge   InstanceType = "c6g.4xlarge"
+	InstanceTypeC6g8xlarge   InstanceType = "c6g.8xlarge"
+	InstanceTypeC6g12xlarge  InstanceType = "c6g.12xlarge"
+	InstanceTypeC6g16xlarge  InstanceType = "c6g.16xlarge"
 	InstanceTypeCc14xlarge   InstanceType = "cc1.4xlarge"
 	InstanceTypeCc28xlarge   InstanceType = "cc2.8xlarge"
 	InstanceTypeG22xlarge    InstanceType = "g2.2xlarge"
@@ -1687,6 +1731,7 @@ const (
 	InstanceTypeG4dn8xlarge  InstanceType = "g4dn.8xlarge"
 	InstanceTypeG4dn12xlarge InstanceType = "g4dn.12xlarge"
 	InstanceTypeG4dn16xlarge InstanceType = "g4dn.16xlarge"
+	InstanceTypeG4dnMetal    InstanceType = "g4dn.metal"
 	InstanceTypeCg14xlarge   InstanceType = "cg1.4xlarge"
 	InstanceTypeP2Xlarge     InstanceType = "p2.xlarge"
 	InstanceTypeP28xlarge    InstanceType = "p2.8xlarge"
@@ -2439,6 +2484,33 @@ func (enum PlatformValues) MarshalValueBuf(b []byte) ([]byte, error) {
 	return append(b, enum...), nil
 }
 
+type PrefixListState string
+
+// Enum values for PrefixListState
+const (
+	PrefixListStateCreateInProgress  PrefixListState = "create-in-progress"
+	PrefixListStateCreateComplete    PrefixListState = "create-complete"
+	PrefixListStateCreateFailed      PrefixListState = "create-failed"
+	PrefixListStateModifyInProgress  PrefixListState = "modify-in-progress"
+	PrefixListStateModifyComplete    PrefixListState = "modify-complete"
+	PrefixListStateModifyFailed      PrefixListState = "modify-failed"
+	PrefixListStateRestoreInProgress PrefixListState = "restore-in-progress"
+	PrefixListStateRestoreComplete   PrefixListState = "restore-complete"
+	PrefixListStateRestoreFailed     PrefixListState = "restore-failed"
+	PrefixListStateDeleteInProgress  PrefixListState = "delete-in-progress"
+	PrefixListStateDeleteComplete    PrefixListState = "delete-complete"
+	PrefixListStateDeleteFailed      PrefixListState = "delete-failed"
+)
+
+func (enum PrefixListState) MarshalValue() (string, error) {
+	return string(enum), nil
+}
+
+func (enum PrefixListState) MarshalValueBuf(b []byte) ([]byte, error) {
+	b = b[0:0]
+	return append(b, enum...), nil
+}
+
 type PrincipalType string
 
 // Enum values for PrincipalType
@@ -2629,43 +2701,49 @@ type ResourceType string
 
 // Enum values for ResourceType
 const (
-	ResourceTypeClientVpnEndpoint             ResourceType = "client-vpn-endpoint"
-	ResourceTypeCustomerGateway               ResourceType = "customer-gateway"
-	ResourceTypeDedicatedHost                 ResourceType = "dedicated-host"
-	ResourceTypeDhcpOptions                   ResourceType = "dhcp-options"
-	ResourceTypeElasticIp                     ResourceType = "elastic-ip"
-	ResourceTypeFleet                         ResourceType = "fleet"
-	ResourceTypeFpgaImage                     ResourceType = "fpga-image"
-	ResourceTypeHostReservation               ResourceType = "host-reservation"
-	ResourceTypeImage                         ResourceType = "image"
-	ResourceTypeInstance                      ResourceType = "instance"
-	ResourceTypeInternetGateway               ResourceType = "internet-gateway"
-	ResourceTypeKeyPair                       ResourceType = "key-pair"
-	ResourceTypeLaunchTemplate                ResourceType = "launch-template"
-	ResourceTypeNatgateway                    ResourceType = "natgateway"
-	ResourceTypeNetworkAcl                    ResourceType = "network-acl"
-	ResourceTypeNetworkInterface              ResourceType = "network-interface"
-	ResourceTypePlacementGroup                ResourceType = "placement-group"
-	ResourceTypeReservedInstances             ResourceType = "reserved-instances"
-	ResourceTypeRouteTable                    ResourceType = "route-table"
-	ResourceTypeSecurityGroup                 ResourceType = "security-group"
-	ResourceTypeSnapshot                      ResourceType = "snapshot"
-	ResourceTypeSpotFleetRequest              ResourceType = "spot-fleet-request"
-	ResourceTypeSpotInstancesRequest          ResourceType = "spot-instances-request"
-	ResourceTypeSubnet                        ResourceType = "subnet"
-	ResourceTypeTrafficMirrorFilter           ResourceType = "traffic-mirror-filter"
-	ResourceTypeTrafficMirrorSession          ResourceType = "traffic-mirror-session"
-	ResourceTypeTrafficMirrorTarget           ResourceType = "traffic-mirror-target"
-	ResourceTypeTransitGateway                ResourceType = "transit-gateway"
-	ResourceTypeTransitGatewayAttachment      ResourceType = "transit-gateway-attachment"
-	ResourceTypeTransitGatewayMulticastDomain ResourceType = "transit-gateway-multicast-domain"
-	ResourceTypeTransitGatewayRouteTable      ResourceType = "transit-gateway-route-table"
-	ResourceTypeVolume                        ResourceType = "volume"
-	ResourceTypeVpc                           ResourceType = "vpc"
-	ResourceTypeVpcPeeringConnection          ResourceType = "vpc-peering-connection"
-	ResourceTypeVpnConnection                 ResourceType = "vpn-connection"
-	ResourceTypeVpnGateway                    ResourceType = "vpn-gateway"
-	ResourceTypeVpcFlowLog                    ResourceType = "vpc-flow-log"
+	ResourceTypeClientVpnEndpoint                    ResourceType = "client-vpn-endpoint"
+	ResourceTypeCustomerGateway                      ResourceType = "customer-gateway"
+	ResourceTypeDedicatedHost                        ResourceType = "dedicated-host"
+	ResourceTypeDhcpOptions                          ResourceType = "dhcp-options"
+	ResourceTypeElasticIp                            ResourceType = "elastic-ip"
+	ResourceTypeElasticGpu                           ResourceType = "elastic-gpu"
+	ResourceTypeExportImageTask                      ResourceType = "export-image-task"
+	ResourceTypeExportInstanceTask                   ResourceType = "export-instance-task"
+	ResourceTypeFleet                                ResourceType = "fleet"
+	ResourceTypeFpgaImage                            ResourceType = "fpga-image"
+	ResourceTypeHostReservation                      ResourceType = "host-reservation"
+	ResourceTypeImage                                ResourceType = "image"
+	ResourceTypeImportImageTask                      ResourceType = "import-image-task"
+	ResourceTypeImportSnapshotTask                   ResourceType = "import-snapshot-task"
+	ResourceTypeInstance                             ResourceType = "instance"
+	ResourceTypeInternetGateway                      ResourceType = "internet-gateway"
+	ResourceTypeKeyPair                              ResourceType = "key-pair"
+	ResourceTypeLaunchTemplate                       ResourceType = "launch-template"
+	ResourceTypeLocalGatewayRouteTableVpcAssociation ResourceType = "local-gateway-route-table-vpc-association"
+	ResourceTypeNatgateway                           ResourceType = "natgateway"
+	ResourceTypeNetworkAcl                           ResourceType = "network-acl"
+	ResourceTypeNetworkInterface                     ResourceType = "network-interface"
+	ResourceTypePlacementGroup                       ResourceType = "placement-group"
+	ResourceTypeReservedInstances                    ResourceType = "reserved-instances"
+	ResourceTypeRouteTable                           ResourceType = "route-table"
+	ResourceTypeSecurityGroup                        ResourceType = "security-group"
+	ResourceTypeSnapshot                             ResourceType = "snapshot"
+	ResourceTypeSpotFleetRequest                     ResourceType = "spot-fleet-request"
+	ResourceTypeSpotInstancesRequest                 ResourceType = "spot-instances-request"
+	ResourceTypeSubnet                               ResourceType = "subnet"
+	ResourceTypeTrafficMirrorFilter                  ResourceType = "traffic-mirror-filter"
+	ResourceTypeTrafficMirrorSession                 ResourceType = "traffic-mirror-session"
+	ResourceTypeTrafficMirrorTarget                  ResourceType = "traffic-mirror-target"
+	ResourceTypeTransitGateway                       ResourceType = "transit-gateway"
+	ResourceTypeTransitGatewayAttachment             ResourceType = "transit-gateway-attachment"
+	ResourceTypeTransitGatewayMulticastDomain        ResourceType = "transit-gateway-multicast-domain"
+	ResourceTypeTransitGatewayRouteTable             ResourceType = "transit-gateway-route-table"
+	ResourceTypeVolume                               ResourceType = "volume"
+	ResourceTypeVpc                                  ResourceType = "vpc"
+	ResourceTypeVpcPeeringConnection                 ResourceType = "vpc-peering-connection"
+	ResourceTypeVpnConnection                        ResourceType = "vpn-connection"
+	ResourceTypeVpnGateway                           ResourceType = "vpn-gateway"
+	ResourceTypeVpcFlowLog                           ResourceType = "vpc-flow-log"
 )
 
 func (enum ResourceType) MarshalValue() (string, error) {

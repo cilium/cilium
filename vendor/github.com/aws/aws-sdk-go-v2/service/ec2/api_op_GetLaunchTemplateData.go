@@ -63,6 +63,12 @@ const opGetLaunchTemplateData = "GetLaunchTemplateData"
 // Retrieves the configuration data of the specified instance. You can use this
 // data to create a launch template.
 //
+// This action calls on other describe actions to get instance information.
+// Depending on your instance configuration, you may need to allow the following
+// actions in your IAM policy: DescribeSpotInstanceRequests, DescribeInstanceCreditSpecifications,
+// DescribeVolumes, DescribeInstanceAttribute, and DescribeElasticGpus. Or,
+// you can allow describe* depending on your instance requirements.
+//
 //    // Example sending a request using GetLaunchTemplateDataRequest.
 //    req := client.GetLaunchTemplateDataRequest(params)
 //    resp, err := req.Send(context.TODO())
