@@ -227,6 +227,7 @@ github.com/ghodss/yaml
 # github.com/go-bindata/go-bindata/v3 v3.1.3
 ## explicit
 github.com/go-bindata/go-bindata/v3
+github.com/go-bindata/go-bindata/v3/go-bindata
 # github.com/go-logr/logr v0.2.0
 github.com/go-logr/logr
 # github.com/go-ole/go-ole v1.2.4
