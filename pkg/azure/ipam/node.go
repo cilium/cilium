@@ -159,6 +159,8 @@ func (n *Node) ResyncInterfacesAndIPs(ctx context.Context, scopedLog *logrus.Ent
 	}
 
 	available := ipamTypes.AllocationMap{}
+	n.manager.mutex.RLock()
+	defer n.manager.mutex.RUnlock()
 	n.manager.instances.ForeachAddress(n.node.InstanceID(), func(instanceID, interfaceID, ip, poolID string, addressObj ipamTypes.Address) error {
 		address, ok := addressObj.(types.AzureAddress)
 		if !ok {
