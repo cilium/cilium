@@ -31,7 +31,7 @@ TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell echo $(GOFILES) | \
 TESTPKGS ?= $(TESTPKGS_EVAL)
 GOLANGVERSION := $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
-K8S_CRD_EVAL := $(shell git ls-files $(ROOT_DIR)/examples/crds | grep -v .gitignore | tr "\n" ' ')
+K8S_CRD_EVAL := $(addprefix $(ROOT_DIR)/,$(shell git ls-files $(ROOT_DIR)/examples/crds | grep -v .gitignore | tr "\n" ' '))
 K8S_CRD_FILES ?= $(K8S_CRD_EVAL)
 
 SWAGGER_VERSION := v0.25.0
@@ -393,8 +393,13 @@ generate-k8s-api:
 	pkg:loadbalancer\
 	pkg:tuple")
 
-# Hardcode the modification time as to not change on every invocation.
-K8S_VALIDATION := $(QUIET) go-bindata -pkg client -mode 0640 -modtime 1450269211
+# Explanation for the arguments to `go-bindata`:
+# - prefix:   Strip off the ROOT_DIR from the CRD YAML paths
+# - pkg:      CRD YAMLs live in the client package
+# - mode:     Hardcode the file permissions
+# - modetime: Hardcode the modification time so that the generated files don't
+#             change on every invocation
+GO_BINDATA := $(QUIET) go run ./... -prefix $(ROOT_DIR) -pkg client -mode 0640 -modtime 1450269211
 
 .PHONY: check-bindata
 check-bindata: bindata.go
@@ -403,7 +408,9 @@ check-bindata: bindata.go
 
 go-bindata: $(K8S_CRD_FILES)
 	@$(ECHO_GEN) $@
-	$(K8S_VALIDATION) -o ./pkg/k8s/apis/cilium.io/v2/client/bindata.go $(K8S_CRD_FILES)
+	cd "./vendor/github.com/go-bindata/go-bindata/v3/go-bindata" && \
+		$(GO_BINDATA) -o $(ROOT_DIR)/pkg/k8s/apis/cilium.io/v2/client/bindata.go \
+		$(K8S_CRD_FILES)
 
 vps:
 	VBoxManage list runningvms
