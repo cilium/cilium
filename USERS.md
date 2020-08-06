@@ -66,6 +66,11 @@ Users (Alphabetically)
       U: ENI Networking, Service load-balancing, Encryption
       Q: @lbernail, @roboll
 
+    * N: finleap connect
+      D: finleap connect is using Cilium in their production clusters (self-hosted, bare-metal, private cloud)
+      U: CNI, NetworkPolicies
+      Q: @chue
+
     * N: GitLab
       D: GitLab is using Cilium to implement network policies inside Auto DevOps deployed clusters for customers using k8s
       U: Network policies
