@@ -81,8 +81,6 @@ type DescribeRouteTablesInput struct {
 	//    to find all resources assigned a tag with a specific key, regardless of
 	//    the tag value.
 	//
-	//    * transit-gateway-id - The ID of a transit gateway.
-	//
 	//    * vpc-id - The ID of the VPC for the route table.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 

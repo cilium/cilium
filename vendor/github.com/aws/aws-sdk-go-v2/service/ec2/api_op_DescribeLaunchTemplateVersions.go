@@ -39,12 +39,16 @@ type DescribeLaunchTemplateVersionsInput struct {
 	//    * ram-disk-id - The RAM disk ID.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
-	// The ID of the launch template. You must specify either the launch template
-	// ID or launch template name in the request.
+	// The ID of the launch template. To describe one or more versions of a specified
+	// launch template, you must specify either the launch template ID or the launch
+	// template name in the request. To describe all the latest or default launch
+	// template versions in your account, you must omit this parameter.
 	LaunchTemplateId *string `type:"string"`
 
-	// The name of the launch template. You must specify either the launch template
-	// ID or launch template name in the request.
+	// The name of the launch template. To describe one or more versions of a specified
+	// launch template, you must specify either the launch template ID or the launch
+	// template name in the request. To describe all the latest or default launch
+	// template versions in your account, you must omit this parameter.
 	LaunchTemplateName *string `min:"3" type:"string"`
 
 	// The maximum number of results to return in a single call. To retrieve the
@@ -61,7 +65,18 @@ type DescribeLaunchTemplateVersionsInput struct {
 	// The token to request the next page of results.
 	NextToken *string `type:"string"`
 
-	// One or more versions of the launch template.
+	// One or more versions of the launch template. Valid values depend on whether
+	// you are describing a specified launch template (by ID or name) or all launch
+	// templates in your account.
+	//
+	// To describe one or more versions of a specified launch template, valid values
+	// are $Latest, $Default, and numbers.
+	//
+	// To describe all launch templates in your account that are defined as the
+	// latest version, the valid value is $Latest. To describe all launch templates
+	// in your account that are defined as the default version, the valid value
+	// is $Default. You can specify $Latest and $Default in the same call. You cannot
+	// specify numbers.
 	Versions []string `locationName:"LaunchTemplateVersion" locationNameList:"item" type:"list"`
 }
 
@@ -105,7 +120,9 @@ const opDescribeLaunchTemplateVersions = "DescribeLaunchTemplateVersions"
 // Amazon Elastic Compute Cloud.
 //
 // Describes one or more versions of a specified launch template. You can describe
-// all versions, individual versions, or a range of versions.
+// all versions, individual versions, or a range of versions. You can also describe
+// all the latest versions or all the default versions of all the launch templates
+// in your account.
 //
 //    // Example sending a request using DescribeLaunchTemplateVersionsRequest.
 //    req := client.DescribeLaunchTemplateVersionsRequest(params)

@@ -61,7 +61,7 @@ const opUnmonitorInstances = "UnmonitorInstances"
 // Amazon Elastic Compute Cloud.
 //
 // Disables detailed monitoring for a running instance. For more information,
-// see Monitoring Your Instances and Volumes (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch.html)
+// see Monitoring your instances and volumes (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 //
 //    // Example sending a request using UnmonitorInstancesRequest.

@@ -13,7 +13,7 @@ type CreateInstanceExportTaskInput struct {
 	_ struct{} `type:"structure"`
 
 	// A description for the conversion task or the resource being exported. The
-	// maximum length is 255 bytes.
+	// maximum length is 255 characters.
 	Description *string `locationName:"description" type:"string"`
 
 	// The format and location for an instance export task.
@@ -23,6 +23,9 @@ type CreateInstanceExportTaskInput struct {
 	//
 	// InstanceId is a required field
 	InstanceId *string `locationName:"instanceId" type:"string" required:"true"`
+
+	// The tags to apply to the instance export task during creation.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
 
 	// The target virtualization environment.
 	TargetEnvironment ExportEnvironment `locationName:"targetEnvironment" type:"string" enum:"true"`
@@ -64,7 +67,7 @@ const opCreateInstanceExportTask = "CreateInstanceExportTask"
 // CreateInstanceExportTaskRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Exports a running or stopped instance to an S3 bucket.
+// Exports a running or stopped instance to an Amazon S3 bucket.
 //
 // For information about the supported operating systems, image formats, and
 // known limitations for the types of instances you can export, see Exporting

@@ -72,7 +72,7 @@ const opModifyAvailabilityZoneGroup = "ModifyAvailabilityZoneGroup"
 //
 // Enables or disables an Availability Zone group for your account.
 //
-// Use describe-availability-zones (https://docs.aws.amazon.com/AWSEC2ApiDocReef/build/server-root/AWSEC2/latest/APIReference/API_DescribeAvailabilityZones.html)
+// Use DescribeAvailabilityZones (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_DescribeAvailabilityZones.html)
 // to view the value for GroupName.
 //
 //    // Example sending a request using ModifyAvailabilityZoneGroupRequest.

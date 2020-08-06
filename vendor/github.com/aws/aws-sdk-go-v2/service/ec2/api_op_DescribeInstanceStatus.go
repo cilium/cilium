@@ -118,18 +118,18 @@ const opDescribeInstanceStatus = "DescribeInstanceStatus"
 //
 //    * Status checks - Amazon EC2 performs status checks on running EC2 instances
 //    to identify hardware and software issues. For more information, see Status
-//    Checks for Your Instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-system-instance-status-check.html)
-//    and Troubleshooting Instances with Failed Status Checks (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstances.html)
+//    checks for your instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-system-instance-status-check.html)
+//    and Troubleshooting instances with failed status checks (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/TroubleshootingInstances.html)
 //    in the Amazon Elastic Compute Cloud User Guide.
 //
 //    * Scheduled events - Amazon EC2 can schedule events (such as reboot, stop,
 //    or terminate) for your instances related to hardware issues, software
-//    updates, or system maintenance. For more information, see Scheduled Events
-//    for Your Instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html)
+//    updates, or system maintenance. For more information, see Scheduled events
+//    for your instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/monitoring-instances-status-check_sched.html)
 //    in the Amazon Elastic Compute Cloud User Guide.
 //
 //    * Instance state - You can manage your instances from the moment you launch
-//    them through their termination. For more information, see Instance Lifecycle
+//    them through their termination. For more information, see Instance lifecycle
 //    (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-lifecycle.html)
 //    in the Amazon Elastic Compute Cloud User Guide.
 //

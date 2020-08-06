@@ -41,7 +41,7 @@ const opDescribeExportTasks = "DescribeExportTasks"
 // DescribeExportTasksRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Describes the specified export instance tasks or all your export instance
+// Describes the specified export instance tasks or all of your export instance
 // tasks.
 //
 //    // Example sending a request using DescribeExportTasksRequest.

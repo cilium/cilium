@@ -15,6 +15,8 @@ type CreateNetworkAclEntryInput struct {
 	_ struct{} `type:"structure"`
 
 	// The IPv4 network range to allow or deny, in CIDR notation (for example 172.16.0.0/24).
+	// We modify the specified CIDR block to its canonical form; for example, if
+	// you specify 100.68.0.18/18, we modify it to 100.68.0.0/18.
 	CidrBlock *string `locationName:"cidrBlock" type:"string"`
 
 	// Checks whether you have the required permissions for the action, without

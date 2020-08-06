@@ -67,7 +67,7 @@ const opCreateSpotDatafeedSubscription = "CreateSpotDatafeedSubscription"
 //
 // Creates a data feed for Spot Instances, enabling you to view Spot Instance
 // usage logs. You can create one data feed per AWS account. For more information,
-// see Spot Instance Data Feed (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-data-feeds.html)
+// see Spot Instance data feed (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-data-feeds.html)
 // in the Amazon EC2 User Guide for Linux Instances.
 //
 //    // Example sending a request using CreateSpotDatafeedSubscriptionRequest.

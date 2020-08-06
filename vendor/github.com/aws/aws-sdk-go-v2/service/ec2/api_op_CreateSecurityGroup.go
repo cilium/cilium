@@ -40,6 +40,9 @@ type CreateSecurityGroupInput struct {
 	// GroupName is a required field
 	GroupName *string `type:"string" required:"true"`
 
+	// The tags to assign to the security group.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
+
 	// [EC2-VPC] The ID of the VPC. Required for EC2-VPC.
 	VpcId *string `type:"string"`
 }
@@ -72,6 +75,9 @@ type CreateSecurityGroupOutput struct {
 
 	// The ID of the security group.
 	GroupId *string `locationName:"groupId" type:"string"`
+
+	// The tags assigned to the security group.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation

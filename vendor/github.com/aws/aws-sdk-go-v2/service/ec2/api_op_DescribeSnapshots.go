@@ -24,12 +24,12 @@ type DescribeSnapshotsInput struct {
 	//
 	//    * encrypted - Indicates whether the snapshot is encrypted (true | false)
 	//
-	//    * owner-alias - Value from an Amazon-maintained list (amazon | self |
-	//    all | aws-marketplace | microsoft) of snapshot owners. Not to be confused
-	//    with the user-configured AWS account alias, which is set from the IAM
-	//    console.
+	//    * owner-alias - The owner alias, from an Amazon-maintained list (amazon).
+	//    This is not the user-configured AWS account alias set using the IAM console.
+	//    We recommend that you use the related parameter instead of this filter.
 	//
-	//    * owner-id - The ID of the AWS account that owns the snapshot.
+	//    * owner-id - The AWS account ID of the owner. We recommend that you use
+	//    the related parameter instead of this filter.
 	//
 	//    * progress - The progress of the snapshot, as a percentage (for example,
 	//    80%).
@@ -73,7 +73,8 @@ type DescribeSnapshotsInput struct {
 	// to return.
 	NextToken *string `type:"string"`
 
-	// Describes the snapshots owned by these owners.
+	// Scopes the results to snapshots with the specified owners. You can specify
+	// a combination of AWS account IDs, self, and amazon.
 	OwnerIds []string `locationName:"Owner" locationNameList:"Owner" type:"list"`
 
 	// The IDs of the AWS accounts that can create volumes from the snapshot.
@@ -152,12 +153,12 @@ const opDescribeSnapshots = "DescribeSnapshots"
 // (if you own the snapshots), self for snapshots for which you own or have
 // explicit permissions, or all for public snapshots.
 //
-// If you are describing a long list of snapshots, you can paginate the output
-// to make the list more manageable. The MaxResults parameter sets the maximum
-// number of results returned in a single page. If the list of results exceeds
-// your MaxResults value, then that number of results is returned along with
-// a NextToken value that can be passed to a subsequent DescribeSnapshots request
-// to retrieve the remaining results.
+// If you are describing a long list of snapshots, we recommend that you paginate
+// the output to make the list more manageable. The MaxResults parameter sets
+// the maximum number of results returned in a single page. If the list of results
+// exceeds your MaxResults value, then that number of results is returned along
+// with a NextToken value that can be passed to a subsequent DescribeSnapshots
+// request to retrieve the remaining results.
 //
 // To get the state of fast snapshot restores for a snapshot, use DescribeFastSnapshotRestores.
 //

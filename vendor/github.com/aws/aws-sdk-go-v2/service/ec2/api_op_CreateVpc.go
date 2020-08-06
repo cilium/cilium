@@ -18,6 +18,8 @@ type CreateVpcInput struct {
 	AmazonProvidedIpv6CidrBlock *bool `locationName:"amazonProvidedIpv6CidrBlock" type:"boolean"`
 
 	// The IPv4 network range for the VPC, in CIDR notation. For example, 10.0.0.0/16.
+	// We modify the specified CIDR block to its canonical form; for example, if
+	// you specify 100.68.0.18/18, we modify it to 100.68.0.0/18.
 	//
 	// CidrBlock is a required field
 	CidrBlock *string `type:"string" required:"true"`
@@ -54,6 +56,9 @@ type CreateVpcInput struct {
 
 	// The ID of an IPv6 address pool from which to allocate the IPv6 CIDR block.
 	Ipv6Pool *string `type:"string"`
+
+	// The tags to assign to the VPC.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation

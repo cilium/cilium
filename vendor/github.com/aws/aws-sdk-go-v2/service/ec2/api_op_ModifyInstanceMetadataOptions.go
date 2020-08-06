@@ -98,7 +98,7 @@ const opModifyInstanceMetadataOptions = "ModifyInstanceMetadataOptions"
 // the API responds with a state of “pending”. After the parameter modifications
 // are successfully applied to the instance, the state of the modifications
 // changes from “pending” to “applied” in subsequent describe-instances
-// API calls. For more information, see Instance Metadata and User Data (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html).
+// API calls. For more information, see Instance metadata and user data (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ec2-instance-metadata.html).
 //
 //    // Example sending a request using ModifyInstanceMetadataOptionsRequest.
 //    req := client.ModifyInstanceMetadataOptionsRequest(params)

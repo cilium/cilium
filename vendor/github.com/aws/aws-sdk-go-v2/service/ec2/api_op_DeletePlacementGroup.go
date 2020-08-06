@@ -61,7 +61,7 @@ const opDeletePlacementGroup = "DeletePlacementGroup"
 //
 // Deletes the specified placement group. You must terminate all instances in
 // the placement group before you can delete the placement group. For more information,
-// see Placement Groups (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html)
+// see Placement groups (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 //
 //    // Example sending a request using DeletePlacementGroupRequest.

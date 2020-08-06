@@ -61,7 +61,7 @@ const opMonitorInstances = "MonitorInstances"
 // Amazon Elastic Compute Cloud.
 //
 // Enables detailed monitoring for a running instance. Otherwise, basic monitoring
-// is enabled. For more information, see Monitoring Your Instances and Volumes
+// is enabled. For more information, see Monitoring your instances and volumes
 // (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-cloudwatch.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 //

@@ -101,6 +101,9 @@ type ImportImageInput struct {
 
 	// The name of the role to use when not using the default role, 'vmimport'.
 	RoleName *string `type:"string"`
+
+	// The tags to apply to the image being imported.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -117,7 +120,7 @@ type ImportImageOutput struct {
 	// A description of the import task.
 	Description *string `locationName:"description" type:"string"`
 
-	// Indicates whether the AMI is encypted.
+	// Indicates whether the AMI is encrypted.
 	Encrypted *bool `locationName:"encrypted" type:"boolean"`
 
 	// The target hypervisor of the import task.
@@ -153,6 +156,9 @@ type ImportImageOutput struct {
 
 	// A detailed status message of the import task.
 	StatusMessage *string `locationName:"statusMessage" type:"string"`
+
+	// Any tags assigned to the image being imported.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation

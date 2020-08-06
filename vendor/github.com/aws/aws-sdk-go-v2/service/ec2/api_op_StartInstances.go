@@ -84,7 +84,7 @@ const opStartInstances = "StartInstances"
 // Performing this operation on an instance that uses an instance store as its
 // root device returns an error.
 //
-// For more information, see Stopping Instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html)
+// For more information, see Stopping instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Stop_Start.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 //
 //    // Example sending a request using StartInstancesRequest.
