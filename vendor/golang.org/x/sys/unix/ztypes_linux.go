@@ -67,7 +67,9 @@ type Statx_t struct {
 	Rdev_minor      uint32
 	Dev_major       uint32
 	Dev_minor       uint32
-	_               [14]uint64
+	Mnt_id          uint64
+	_               uint64
+	_               [12]uint64
 }
 
 type Fsid struct {
@@ -670,6 +672,8 @@ type InotifyEvent struct {
 }
 
 const SizeofInotifyEvent = 0x10
+
+const SI_LOAD_SHIFT = 0x10
 
 type Utsname struct {
 	Sysname    [65]byte
