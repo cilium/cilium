@@ -30,6 +30,8 @@ type CreateSubnetInput struct {
 	AvailabilityZoneId *string `type:"string"`
 
 	// The IPv4 network range for the subnet, in CIDR notation. For example, 10.0.0.0/24.
+	// We modify the specified CIDR block to its canonical form; for example, if
+	// you specify 100.68.0.18/18, we modify it to 100.68.0.0/18.
 	//
 	// CidrBlock is a required field
 	CidrBlock *string `type:"string" required:"true"`
@@ -47,6 +49,9 @@ type CreateSubnetInput struct {
 	// The Amazon Resource Name (ARN) of the Outpost. If you specify an Outpost
 	// ARN, you must also specify the Availability Zone of the Outpost subnet.
 	OutpostArn *string `type:"string"`
+
+	// The tags to assign to the subnet.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
 
 	// The ID of the VPC.
 	//
@@ -94,15 +99,12 @@ const opCreateSubnet = "CreateSubnet"
 // CreateSubnetRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Creates a subnet in an existing VPC.
+// Creates a subnet in a specified VPC.
 //
-// When you create each subnet, you provide the VPC ID and IPv4 CIDR block for
-// the subnet. After you create a subnet, you can't change its CIDR block. The
-// size of the subnet's IPv4 CIDR block can be the same as a VPC's IPv4 CIDR
-// block, or a subset of a VPC's IPv4 CIDR block. If you create more than one
-// subnet in a VPC, the subnets' CIDR blocks must not overlap. The smallest
-// IPv4 subnet (and VPC) you can create uses a /28 netmask (16 IPv4 addresses),
-// and the largest uses a /16 netmask (65,536 IPv4 addresses).
+// You must specify an IPv4 CIDR block for the subnet. After you create a subnet,
+// you can't change its CIDR block. The allowed block size is between a /16
+// netmask (65,536 IP addresses) and /28 netmask (16 IP addresses). The CIDR
+// block must not overlap with the CIDR block of an existing subnet in the VPC.
 //
 // If you've associated an IPv6 CIDR block with your VPC, you can create a subnet
 // with an IPv6 CIDR block that uses a /64 prefix length.
@@ -113,9 +115,7 @@ const opCreateSubnet = "CreateSubnet"
 // If you add more than one subnet to a VPC, they're set up in a star topology
 // with a logical router in the middle.
 //
-// If you launch an instance in a VPC using an Amazon EBS-backed AMI, the IP
-// address doesn't change if you stop and restart the instance (unlike a similar
-// instance launched outside a VPC, which gets a new IP address when restarted).
+// When you stop an instance in a subnet, it retains its private IPv4 address.
 // It's therefore possible to have a subnet with no running instances (they're
 // all stopped), but no remaining IP addresses available.
 //

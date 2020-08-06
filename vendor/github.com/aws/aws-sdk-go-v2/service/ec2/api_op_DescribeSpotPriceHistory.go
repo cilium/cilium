@@ -93,7 +93,7 @@ const opDescribeSpotPriceHistory = "DescribeSpotPriceHistory"
 // Amazon Elastic Compute Cloud.
 //
 // Describes the Spot price history. For more information, see Spot Instance
-// Pricing History (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-spot-instances-history.html)
+// pricing history (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/using-spot-instances-history.html)
 // in the Amazon EC2 User Guide for Linux Instances.
 //
 // When you specify a start and end time, this operation returns the prices

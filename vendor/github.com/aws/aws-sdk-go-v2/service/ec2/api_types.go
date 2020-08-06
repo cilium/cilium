@@ -66,6 +66,40 @@ func (s ActiveInstance) String() string {
 	return awsutil.Prettify(s)
 }
 
+// An entry for a prefix list.
+type AddPrefixListEntry struct {
+	_ struct{} `type:"structure"`
+
+	// The CIDR block.
+	//
+	// Cidr is a required field
+	Cidr *string `type:"string" required:"true"`
+
+	// A description for the entry.
+	//
+	// Constraints: Up to 255 characters in length.
+	Description *string `type:"string"`
+}
+
+// String returns the string representation
+func (s AddPrefixListEntry) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *AddPrefixListEntry) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "AddPrefixListEntry"}
+
+	if s.Cidr == nil {
+		invalidParams.Add(aws.NewErrParamRequired("Cidr"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
 // Describes an Elastic IP address.
 type Address struct {
 	_ struct{} `type:"structure"`
@@ -235,7 +269,7 @@ func (s AuthorizationRule) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes an Availability Zone or Local Zone.
+// Describes a Zone.
 type AvailabilityZone struct {
 	_ struct{} `type:"structure"`
 
@@ -244,7 +278,7 @@ type AvailabilityZone struct {
 	// For Local Zones, the name of the associated group, for example us-west-2-lax-1.
 	GroupName *string `locationName:"groupName" type:"string"`
 
-	// Any messages about the Availability Zone or Local Zone.
+	// Any messages about the Zone.
 	Messages []AvailabilityZoneMessage `locationName:"messageSet" locationNameList:"item" type:"list"`
 
 	// The name of the location from which the address is advertised.
@@ -256,17 +290,28 @@ type AvailabilityZone struct {
 	// are opted-in, and not-opted-in.
 	OptInStatus AvailabilityZoneOptInStatus `locationName:"optInStatus" type:"string" enum:"true"`
 
+	// The ID of the zone that handles some of the Local Zone control plane operations,
+	// such as API calls.
+	ParentZoneId *string `locationName:"parentZoneId" type:"string"`
+
+	// The name of the zone that handles some of the Local Zone control plane operations,
+	// such as API calls.
+	ParentZoneName *string `locationName:"parentZoneName" type:"string"`
+
 	// The name of the Region.
 	RegionName *string `locationName:"regionName" type:"string"`
 
-	// The state of the Availability Zone or Local Zone.
+	// The state of the Zone.
 	State AvailabilityZoneState `locationName:"zoneState" type:"string" enum:"true"`
 
-	// The ID of the Availability Zone or Local Zone.
+	// The ID of the Zone.
 	ZoneId *string `locationName:"zoneId" type:"string"`
 
-	// The name of the Availability Zone or Local Zone.
+	// The name of the Zone.
 	ZoneName *string `locationName:"zoneName" type:"string"`
+
+	// The type of zone. The valid values are availability-zone and local-zone.
+	ZoneType *string `locationName:"zoneType" type:"string"`
 }
 
 // String returns the string representation
@@ -274,11 +319,11 @@ func (s AvailabilityZone) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes a message about an Availability Zone or Local Zone.
+// Describes a message about a Zone.
 type AvailabilityZoneMessage struct {
 	_ struct{} `type:"structure"`
 
-	// The message about the Availability Zone or Local Zone.
+	// The message about the Zone.
 	Message *string `locationName:"message" type:"string"`
 }
 
@@ -703,6 +748,8 @@ type CapacityReservationSpecification struct {
 	//
 	//    * none - The instance avoids running in a Capacity Reservation even if
 	//    one is available. The instance runs as an On-Demand Instance.
+	//
+	// When CapacityReservationPreference is not specified, it defaults to open.
 	CapacityReservationPreference CapacityReservationPreference `type:"string" enum:"true"`
 
 	// Information about the target Capacity Reservation.
@@ -974,6 +1021,9 @@ type CoipPool struct {
 	// The ID of the local gateway route table.
 	LocalGatewayRouteTableId *string `locationName:"localGatewayRouteTableId" type:"string"`
 
+	// The ARN of the address pool.
+	PoolArn *string `locationName:"poolArn" min:"1" type:"string"`
+
 	// The address ranges of the address pool.
 	PoolCidrs []string `locationName:"poolCidrSet" locationNameList:"item" type:"list"`
 
@@ -993,7 +1043,8 @@ func (s CoipPool) String() string {
 type ConnectionLogOptions struct {
 	_ struct{} `type:"structure"`
 
-	// The name of the CloudWatch Logs log group.
+	// The name of the CloudWatch Logs log group. Required if connection logging
+	// is enabled.
 	CloudwatchLogGroup *string `type:"string"`
 
 	// The name of the CloudWatch Logs log stream to which the connection data is
@@ -1236,12 +1287,12 @@ func (s CreateVolumePermissionModifications) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes the credit option for CPU usage of a T2 or T3 instance.
+// Describes the credit option for CPU usage of a T2, T3, or T3a instance.
 type CreditSpecification struct {
 	_ struct{} `type:"structure"`
 
-	// The credit option for CPU usage of a T2 or T3 instance. Valid values are
-	// standard and unlimited.
+	// The credit option for CPU usage of a T2, T3, or T3a instance. Valid values
+	// are standard and unlimited.
 	CpuCredits *string `locationName:"cpuCredits" type:"string"`
 }
 
@@ -1250,12 +1301,12 @@ func (s CreditSpecification) String() string {
 	return awsutil.Prettify(s)
 }
 
-// The credit option for CPU usage of a T2 or T3 instance.
+// The credit option for CPU usage of a T2, T3, or T3a instance.
 type CreditSpecificationRequest struct {
 	_ struct{} `type:"structure"`
 
-	// The credit option for CPU usage of a T2 or T3 instance. Valid values are
-	// standard and unlimited.
+	// The credit option for CPU usage of a T2, T3, or T3a instance. Valid values
+	// are standard and unlimited.
 	//
 	// CpuCredits is a required field
 	CpuCredits *string `type:"string" required:"true"`
@@ -1489,10 +1540,11 @@ type DescribeFastSnapshotRestoreSuccessItem struct {
 	// The time at which fast snapshot restores entered the optimizing state.
 	OptimizingTime *time.Time `locationName:"optimizingTime" type:"timestamp"`
 
-	// The alias of the snapshot owner.
+	// The AWS owner alias that enabled fast snapshot restores on the snapshot.
+	// This is intended for future use.
 	OwnerAlias *string `locationName:"ownerAlias" type:"string"`
 
-	// The ID of the AWS account that owns the snapshot.
+	// The ID of the AWS account that enabled fast snapshot restores on the snapshot.
 	OwnerId *string `locationName:"ownerId" type:"string"`
 
 	// The ID of the snapshot.
@@ -1707,10 +1759,11 @@ type DisableFastSnapshotRestoreSuccessItem struct {
 	// The time at which fast snapshot restores entered the optimizing state.
 	OptimizingTime *time.Time `locationName:"optimizingTime" type:"timestamp"`
 
-	// The alias of the snapshot owner.
+	// The AWS owner alias that enabled fast snapshot restores on the snapshot.
+	// This is intended for future use.
 	OwnerAlias *string `locationName:"ownerAlias" type:"string"`
 
-	// The ID of the AWS account that owns the snapshot.
+	// The ID of the AWS account that enabled fast snapshot restores on the snapshot.
 	OwnerId *string `locationName:"ownerId" type:"string"`
 
 	// The ID of the snapshot.
@@ -1930,7 +1983,7 @@ type EbsBlockDevice struct {
 	_ struct{} `type:"structure"`
 
 	// Indicates whether the EBS volume is deleted on instance termination. For
-	// more information, see Preserving Amazon EBS Volumes on Instance Termination
+	// more information, see Preserving Amazon EBS volumes on instance termination
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/terminating-instances.html#preserving-volumes-on-termination)
 	// in the Amazon Elastic Compute Cloud User Guide.
 	DeleteOnTermination *bool `locationName:"deleteOnTermination" type:"boolean"`
@@ -1945,7 +1998,7 @@ type EbsBlockDevice struct {
 	// In no case can you remove encryption from an encrypted volume.
 	//
 	// Encrypted volumes can only be attached to instances that support Amazon EBS
-	// encryption. For more information, see Supported Instance Types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html#EBSEncryption_supported_instances).
+	// encryption. For more information, see Supported instance types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSEncryption.html#EBSEncryption_supported_instances).
 	//
 	// This parameter is not returned by .
 	Encrypted *bool `locationName:"encrypted" type:"boolean"`
@@ -1954,7 +2007,7 @@ type EbsBlockDevice struct {
 	// For io1 volumes, this represents the number of IOPS that are provisioned
 	// for the volume. For gp2 volumes, this represents the baseline performance
 	// of the volume and the rate at which the volume accumulates I/O credits for
-	// bursting. For more information, see Amazon EBS Volume Types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
+	// bursting. For more information, see Amazon EBS volume types (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/EBSVolumeTypes.html)
 	// in the Amazon Elastic Compute Cloud User Guide.
 	//
 	// Constraints: Range is 100-16,000 IOPS for gp2 volumes and 100 to 64,000IOPS
@@ -2019,6 +2072,9 @@ type EbsInfo struct {
 
 	// Indicates whether Amazon EBS encryption is supported.
 	EncryptionSupport EbsEncryptionSupport `locationName:"encryptionSupport" type:"string" enum:"true"`
+
+	// Indicates whether non-volatile memory express (NVMe) is supported.
+	NvmeSupport EbsNvmeSupport `locationName:"nvmeSupport" type:"string" enum:"true"`
 }
 
 // String returns the string representation
@@ -2240,7 +2296,7 @@ type ElasticInferenceAccelerator struct {
 	Count *int64 `min:"1" type:"integer"`
 
 	// The type of elastic inference accelerator. The possible values are eia1.medium,
-	// eia1.large, and eia1.xlarge.
+	// eia1.large, eia1.xlarge, eia2.medium, eia2.large, and eia2.xlarge.
 	//
 	// Type is a required field
 	Type *string `type:"string" required:"true"`
@@ -2363,10 +2419,11 @@ type EnableFastSnapshotRestoreSuccessItem struct {
 	// The time at which fast snapshot restores entered the optimizing state.
 	OptimizingTime *time.Time `locationName:"optimizingTime" type:"timestamp"`
 
-	// The alias of the snapshot owner.
+	// The AWS owner alias that enabled fast snapshot restores on the snapshot.
+	// This is intended for future use.
 	OwnerAlias *string `locationName:"ownerAlias" type:"string"`
 
-	// The ID of the AWS account that owns the snapshot.
+	// The ID of the AWS account that enabled fast snapshot restores on the snapshot.
 	OwnerId *string `locationName:"ownerId" type:"string"`
 
 	// The ID of the snapshot.
@@ -2488,7 +2545,7 @@ type ExportImageTask struct {
 	// The percent complete of the export image task.
 	Progress *string `locationName:"progress" type:"string"`
 
-	// Information about the destination S3 bucket.
+	// Information about the destination Amazon S3 bucket.
 	S3ExportLocation *ExportTaskS3Location `locationName:"s3ExportLocation" type:"structure"`
 
 	// The status of the export image task. The possible values are active, completed,
@@ -2497,6 +2554,9 @@ type ExportImageTask struct {
 
 	// The status message for the export image task.
 	StatusMessage *string `locationName:"statusMessage" type:"string"`
+
+	// Any tags assigned to the image being exported.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -2539,7 +2599,7 @@ func (s ExportTask) String() string {
 type ExportTaskS3Location struct {
 	_ struct{} `type:"structure"`
 
-	// The destination S3 bucket.
+	// The destination Amazon S3 bucket.
 	S3Bucket *string `locationName:"s3Bucket" type:"string"`
 
 	// The prefix (logical hierarchy) in the bucket.
@@ -2555,7 +2615,7 @@ func (s ExportTaskS3Location) String() string {
 type ExportTaskS3LocationRequest struct {
 	_ struct{} `type:"structure"`
 
-	// The destination S3 bucket.
+	// The destination Amazon S3 bucket.
 	//
 	// S3Bucket is a required field
 	S3Bucket *string `type:"string" required:"true"`
@@ -2594,8 +2654,8 @@ type ExportToS3Task struct {
 	// The format for the exported image.
 	DiskImageFormat DiskImageFormat `locationName:"diskImageFormat" type:"string" enum:"true"`
 
-	// The S3 bucket for the destination image. The destination bucket must exist
-	// and grant WRITE and READ_ACP permissions to the AWS account vm-import-export@amazon.com.
+	// The Amazon S3 bucket for the destination image. The destination bucket must
+	// exist and grant WRITE and READ_ACP permissions to the AWS account vm-import-export@amazon.com.
 	S3Bucket *string `locationName:"s3Bucket" type:"string"`
 
 	// The encryption key for your S3 bucket.
@@ -2618,12 +2678,12 @@ type ExportToS3TaskSpecification struct {
 	// The format for the exported image.
 	DiskImageFormat DiskImageFormat `locationName:"diskImageFormat" type:"string" enum:"true"`
 
-	// The S3 bucket for the destination image. The destination bucket must exist
-	// and grant WRITE and READ_ACP permissions to the AWS account vm-import-export@amazon.com.
+	// The Amazon S3 bucket for the destination image. The destination bucket must
+	// exist and grant WRITE and READ_ACP permissions to the AWS account vm-import-export@amazon.com.
 	S3Bucket *string `locationName:"s3Bucket" type:"string"`
 
-	// The image is written to a single object in the S3 bucket at the S3 key s3prefix
-	// + exportTaskId + '.' + diskImageFormat.
+	// The image is written to a single object in the Amazon S3 bucket at the S3
+	// key s3prefix + exportTaskId + '.' + diskImageFormat.
 	S3Prefix *string `locationName:"s3Prefix" type:"string"`
 }
 
@@ -3320,7 +3380,7 @@ func (s GroupIdentifier) String() string {
 
 // Indicates whether your instance is configured for hibernation. This parameter
 // is valid only if the instance meets the hibernation prerequisites (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
-// For more information, see Hibernate Your Instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+// For more information, see Hibernate your instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 type HibernationOptions struct {
 	_ struct{} `type:"structure"`
@@ -3337,7 +3397,7 @@ func (s HibernationOptions) String() string {
 
 // Indicates whether your instance is configured for hibernation. This parameter
 // is valid only if the instance meets the hibernation prerequisites (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html#hibernating-prerequisites).
-// For more information, see Hibernate Your Instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
+// For more information, see Hibernate your instance (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/Hibernate.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 type HibernationOptionsRequest struct {
 	_ struct{} `type:"structure"`
@@ -3837,7 +3897,7 @@ type ImageDiskContainer struct {
 
 	// The format of the disk image being imported.
 	//
-	// Valid values: VHD | VMDK | OVA
+	// Valid values: OVA | VHD | VHDX |VMDK
 	Format *string `type:"string"`
 
 	// The ID of the EBS snapshot to be used for importing the snapshot.
@@ -5201,9 +5261,7 @@ type IpPermission struct {
 	// [VPC only] The IPv6 ranges.
 	Ipv6Ranges []Ipv6Range `locationName:"ipv6Ranges" locationNameList:"item" type:"list"`
 
-	// [VPC only] The prefix list IDs for an AWS service. With outbound rules, this
-	// is the AWS service to access through a VPC endpoint from instances associated
-	// with the security group.
+	// [VPC only] The prefix list IDs.
 	PrefixListIds []PrefixListId `locationName:"prefixListIds" locationNameList:"item" type:"list"`
 
 	// The end of port range for the TCP and UDP protocols, or an ICMP/ICMPv6 code.
@@ -6707,6 +6765,46 @@ func (s LocalGatewayVirtualInterfaceGroup) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Describes a managed prefix list.
+type ManagedPrefixList struct {
+	_ struct{} `type:"structure"`
+
+	// The IP address version.
+	AddressFamily *string `locationName:"addressFamily" type:"string"`
+
+	// The maximum number of entries for the prefix list.
+	MaxEntries *int64 `locationName:"maxEntries" type:"integer"`
+
+	// The ID of the owner of the prefix list.
+	OwnerId *string `locationName:"ownerId" type:"string"`
+
+	// The Amazon Resource Name (ARN) for the prefix list.
+	PrefixListArn *string `locationName:"prefixListArn" min:"1" type:"string"`
+
+	// The ID of the prefix list.
+	PrefixListId *string `locationName:"prefixListId" type:"string"`
+
+	// The name of the prefix list.
+	PrefixListName *string `locationName:"prefixListName" type:"string"`
+
+	// The state of the prefix list.
+	State PrefixListState `locationName:"state" type:"string" enum:"true"`
+
+	// The state message.
+	StateMessage *string `locationName:"stateMessage" type:"string"`
+
+	// The tags for the prefix list.
+	Tags []Tag `locationName:"tagSet" locationNameList:"item" type:"list"`
+
+	// The version of the prefix list.
+	Version *int64 `locationName:"version" type:"long"`
+}
+
+// String returns the string representation
+func (s ManagedPrefixList) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes the memory for the instance type.
 type MemoryInfo struct {
 	_ struct{} `type:"structure"`
@@ -7857,6 +7955,38 @@ func (s PrefixList) String() string {
 	return awsutil.Prettify(s)
 }
 
+// Describes the resource with which a prefix list is associated.
+type PrefixListAssociation struct {
+	_ struct{} `type:"structure"`
+
+	// The ID of the resource.
+	ResourceId *string `locationName:"resourceId" type:"string"`
+
+	// The owner of the resource.
+	ResourceOwner *string `locationName:"resourceOwner" type:"string"`
+}
+
+// String returns the string representation
+func (s PrefixListAssociation) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Describes a prefix list entry.
+type PrefixListEntry struct {
+	_ struct{} `type:"structure"`
+
+	// The CIDR block.
+	Cidr *string `locationName:"cidr" type:"string"`
+
+	// The description.
+	Description *string `locationName:"description" type:"string"`
+}
+
+// String returns the string representation
+func (s PrefixListEntry) String() string {
+	return awsutil.Prettify(s)
+}
+
 // Describes a prefix list ID.
 type PrefixListId struct {
 	_ struct{} `type:"structure"`
@@ -8277,6 +8407,35 @@ func (s RegisterInstanceTagAttributeRequest) String() string {
 	return awsutil.Prettify(s)
 }
 
+// An entry for a prefix list.
+type RemovePrefixListEntry struct {
+	_ struct{} `type:"structure"`
+
+	// The CIDR block.
+	//
+	// Cidr is a required field
+	Cidr *string `type:"string" required:"true"`
+}
+
+// String returns the string representation
+func (s RemovePrefixListEntry) String() string {
+	return awsutil.Prettify(s)
+}
+
+// Validate inspects the fields of the type to determine if they are valid.
+func (s *RemovePrefixListEntry) Validate() error {
+	invalidParams := aws.ErrInvalidParams{Context: "RemovePrefixListEntry"}
+
+	if s.Cidr == nil {
+		invalidParams.Add(aws.NewErrParamRequired("Cidr"))
+	}
+
+	if invalidParams.Len() > 0 {
+		return invalidParams
+	}
+	return nil
+}
+
 // The information to include in the launch template.
 type RequestLaunchTemplateData struct {
 	_ struct{} `type:"structure"`
@@ -8295,8 +8454,8 @@ type RequestLaunchTemplateData struct {
 	// in the Amazon Elastic Compute Cloud User Guide.
 	CpuOptions *LaunchTemplateCpuOptionsRequest `type:"structure"`
 
-	// The credit option for CPU usage of the instance. Valid for T2 or T3 instances
-	// only.
+	// The credit option for CPU usage of the instance. Valid for T2, T3, or T3a
+	// instances only.
 	CreditSpecification *CreditSpecificationRequest `type:"structure"`
 
 	// If you set this parameter to true, you can't terminate the instance using
@@ -9904,9 +10063,10 @@ type Snapshot struct {
 	// key for the parent volume.
 	KmsKeyId *string `locationName:"kmsKeyId" type:"string"`
 
-	// Value from an Amazon-maintained list (amazon | self | all | aws-marketplace
-	// | microsoft) of snapshot owners. Not to be confused with the user-configured
-	// AWS account alias, which is set from the IAM console.
+	// The AWS owner alias, as maintained by Amazon. The possible values are: amazon
+	// | self | all | aws-marketplace | microsoft. This AWS owner alias is not to
+	// be confused with the user-configured AWS account alias, which is set from
+	// the IAM console.
 	OwnerAlias *string `locationName:"ownerAlias" type:"string"`
 
 	// The AWS account ID of the EBS snapshot owner.
@@ -9980,7 +10140,7 @@ type SnapshotDetail struct {
 	// The URL used to access the disk image.
 	Url *string `locationName:"url" type:"string"`
 
-	// The S3 bucket for the disk image.
+	// The Amazon S3 bucket for the disk image.
 	UserBucket *UserBucketDetails `locationName:"userBucket" type:"structure"`
 }
 
@@ -10005,7 +10165,7 @@ type SnapshotDiskContainer struct {
 	// a https URL (https://..) or an Amazon S3 URL (s3://..).
 	Url *string `type:"string"`
 
-	// The S3 bucket for the disk image.
+	// The Amazon S3 bucket for the disk image.
 	UserBucket *UserBucket `type:"structure"`
 }
 
@@ -10091,7 +10251,7 @@ type SnapshotTaskDetail struct {
 	// The URL of the disk image from which the snapshot is created.
 	Url *string `locationName:"url" type:"string"`
 
-	// The S3 bucket for the disk image.
+	// The Amazon S3 bucket for the disk image.
 	UserBucket *UserBucketDetails `locationName:"userBucket" type:"structure"`
 }
 
@@ -10300,7 +10460,7 @@ type SpotFleetRequestConfigData struct {
 
 	// The Amazon Resource Name (ARN) of an AWS Identity and Access Management (IAM)
 	// role that grants the Spot Fleet the permission to request, launch, terminate,
-	// and tag instances on your behalf. For more information, see Spot Fleet Prerequisites
+	// and tag instances on your behalf. For more information, see Spot Fleet prerequisites
 	// (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-requests.html#spot-fleet-prerequisites)
 	// in the Amazon EC2 User Guide for Linux Instances. Spot Fleet can terminate
 	// Spot Instances on your behalf when you cancel its Spot Fleet request using
@@ -10531,7 +10691,7 @@ type SpotInstanceRequest struct {
 	SpotPrice *string `locationName:"spotPrice" type:"string"`
 
 	// The state of the Spot Instance request. Spot status information helps track
-	// your Spot Instance requests. For more information, see Spot Status (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-bid-status.html)
+	// your Spot Instance requests. For more information, see Spot status (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-bid-status.html)
 	// in the Amazon EC2 User Guide for Linux Instances.
 	State SpotInstanceState `locationName:"state" type:"string" enum:"true"`
 
@@ -10581,7 +10741,7 @@ func (s SpotInstanceStateFault) String() string {
 type SpotInstanceStatus struct {
 	_ struct{} `type:"structure"`
 
-	// The status code. For a list of status codes, see Spot Status Codes (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-bid-status.html#spot-instance-bid-status-understand)
+	// The status code. For a list of status codes, see Spot status codes (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-bid-status.html#spot-instance-bid-status-understand)
 	// in the Amazon EC2 User Guide for Linux Instances.
 	Code *string `locationName:"code" type:"string"`
 
@@ -10795,8 +10955,7 @@ type StaleIpPermission struct {
 	// The IP ranges. Not applicable for stale security group rules.
 	IpRanges []string `locationName:"ipRanges" locationNameList:"item" type:"list"`
 
-	// The prefix list IDs for an AWS service. Not applicable for stale security
-	// group rules.
+	// The prefix list IDs. Not applicable for stale security group rules.
 	PrefixListIds []string `locationName:"prefixListIds" locationNameList:"item" type:"list"`
 
 	// The end of the port range for the TCP and UDP protocols, or an ICMP type
@@ -11118,12 +11277,14 @@ type TagSpecification struct {
 
 	// The type of resource to tag. Currently, the resource types that support tagging
 	// on creation are: capacity-reservation | client-vpn-endpoint | dedicated-host
-	// | fleet | fpga-image | instance | ipv4pool-ec2 | ipv6pool-ec2 | key-pair
-	// | launch-template | natgateway | spot-fleet-request | placement-group | snapshot
-	// | traffic-mirror-filter | traffic-mirror-session | traffic-mirror-target
-	// | transit-gateway | transit-gateway-attachment | transit-gateway-route-table
-	// | vpc-endpoint (for interface VPC endpoints)| vpc-endpoint-service (for gateway
-	// VPC endpoints) | volume | vpc-flow-log.
+	// | dhcp-options | export-image-task | export-instance-task | fleet | fpga-image
+	// | host-reservation | import-image-task | import-snapshot-task | instance
+	// | internet-gateway | ipv4pool-ec2 | ipv6pool-ec2 | key-pair | launch-template
+	// | placement-group | prefix-list | natgateway | network-acl | security-group
+	// | spot-fleet-request | spot-instances-request | snapshot | subnet | traffic-mirror-filter
+	// | traffic-mirror-session | traffic-mirror-target | transit-gateway | transit-gateway-attachment
+	// | transit-gateway-route-table | volume |vpc | vpc-endpoint (for interface
+	// and gateway endpoints) | vpc-endpoint-service (for AWS PrivateLink) | vpc-flow-log.
 	//
 	// To tag a resource after it has been created, see CreateTags (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html).
 	ResourceType ResourceType `locationName:"resourceType" type:"string" enum:"true"`
@@ -11995,28 +12156,28 @@ type TransitGatewayRequestOptions struct {
 
 	// A private Autonomous System Number (ASN) for the Amazon side of a BGP session.
 	// The range is 64512 to 65534 for 16-bit ASNs and 4200000000 to 4294967294
-	// for 32-bit ASNs.
+	// for 32-bit ASNs. The default is 64512.
 	AmazonSideAsn *int64 `type:"long"`
 
-	// Enable or disable automatic acceptance of attachment requests. The default
-	// is disable.
+	// Enable or disable automatic acceptance of attachment requests. Disabled by
+	// default.
 	AutoAcceptSharedAttachments AutoAcceptSharedAttachmentsValue `type:"string" enum:"true"`
 
 	// Enable or disable automatic association with the default association route
-	// table. The default is enable.
+	// table. Enabled by default.
 	DefaultRouteTableAssociation DefaultRouteTableAssociationValue `type:"string" enum:"true"`
 
 	// Enable or disable automatic propagation of routes to the default propagation
-	// route table. The default is enable.
+	// route table. Enabled by default.
 	DefaultRouteTablePropagation DefaultRouteTablePropagationValue `type:"string" enum:"true"`
 
-	// Enable or disable DNS support.
+	// Enable or disable DNS support. Enabled by default.
 	DnsSupport DnsSupportValue `type:"string" enum:"true"`
 
 	// Indicates whether multicast is enabled on the transit gateway
 	MulticastSupport MulticastSupportValue `type:"string" enum:"true"`
 
-	// Enable or disable Equal Cost Multipath Protocol support.
+	// Enable or disable Equal Cost Multipath Protocol support. Enabled by default.
 	VpnEcmpSupport VpnEcmpSupportValue `type:"string" enum:"true"`
 }
 
@@ -12327,11 +12488,11 @@ func (s UnsuccessfulItemError) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes the S3 bucket for the disk image.
+// Describes the Amazon S3 bucket for the disk image.
 type UserBucket struct {
 	_ struct{} `type:"structure"`
 
-	// The name of the S3 bucket where the disk image is located.
+	// The name of the Amazon S3 bucket where the disk image is located.
 	S3Bucket *string `type:"string"`
 
 	// The file name of the disk image.
@@ -12343,11 +12504,11 @@ func (s UserBucket) String() string {
 	return awsutil.Prettify(s)
 }
 
-// Describes the S3 bucket for the disk image.
+// Describes the Amazon S3 bucket for the disk image.
 type UserBucketDetails struct {
 	_ struct{} `type:"structure"`
 
-	// The S3 bucket from which the disk image was created.
+	// The Amazon S3 bucket from which the disk image was created.
 	S3Bucket *string `locationName:"s3Bucket" type:"string"`
 
 	// The file name of the disk image.
@@ -12659,7 +12820,7 @@ type VolumeModification struct {
 	// The original IOPS rate of the volume.
 	OriginalIops *int64 `locationName:"originalIops" type:"integer"`
 
-	// The original size of the volume.
+	// The original size of the volume, in GiB.
 	OriginalSize *int64 `locationName:"originalSize" type:"integer"`
 
 	// The original EBS volume type of the volume.

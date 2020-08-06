@@ -22,6 +22,9 @@ type ReplaceRouteInput struct {
 	// you provide must match the CIDR of an existing route in the table.
 	DestinationIpv6CidrBlock *string `locationName:"destinationIpv6CidrBlock" type:"string"`
 
+	// The ID of the prefix list for the route.
+	DestinationPrefixListId *string `type:"string"`
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have
 	// the required permissions, the error response is DryRunOperation. Otherwise,

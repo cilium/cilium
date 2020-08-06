@@ -90,7 +90,7 @@ const opRequestSpotFleet = "RequestSpotFleet"
 // the fleet. You cannot tag other resource types in a Spot Fleet request because
 // only the spot-fleet-request and instance resource types are supported.
 //
-// For more information, see Spot Fleet Requests (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-requests.html)
+// For more information, see Spot Fleet requests (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-fleet-requests.html)
 // in the Amazon EC2 User Guide for Linux Instances.
 //
 //    // Example sending a request using RequestSpotFleetRequest.

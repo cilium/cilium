@@ -80,6 +80,12 @@ type RequestSpotInstancesInput struct {
 	// The default is the On-Demand price.
 	SpotPrice *string `locationName:"spotPrice" type:"string"`
 
+	// The key-value pair for tagging the Spot Instance request on creation. The
+	// value for ResourceType must be spot-instances-request, otherwise the Spot
+	// Instance request fails. To tag the Spot Instance request after it has been
+	// created, see CreateTags (https://docs.aws.amazon.com/AWSEC2/latest/APIReference/API_CreateTags.html).
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
+
 	// The Spot Instance request type.
 	//
 	// Default: one-time
@@ -144,7 +150,7 @@ const opRequestSpotInstances = "RequestSpotInstances"
 //
 // Creates a Spot Instance request.
 //
-// For more information, see Spot Instance Requests (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-requests.html)
+// For more information, see Spot Instance requests (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-requests.html)
 // in the Amazon EC2 User Guide for Linux Instances.
 //
 //    // Example sending a request using RequestSpotInstancesRequest.

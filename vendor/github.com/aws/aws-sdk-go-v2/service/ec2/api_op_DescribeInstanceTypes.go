@@ -56,6 +56,9 @@ type DescribeInstanceTypesInput struct {
 	//    * ebs-info.encryption-support - Indicates whether EBS encryption is supported.
 	//    (supported | unsupported)
 	//
+	//    * ebs-info.nvme-support - Indicates whether non-volatile memory express
+	//    (NVMe) is supported or required. (required | supported | unsupported)
+	//
 	//    * free-tier-eligible - Indicates whether the instance type is eligible
 	//    to use in the free tier. (true | false)
 	//

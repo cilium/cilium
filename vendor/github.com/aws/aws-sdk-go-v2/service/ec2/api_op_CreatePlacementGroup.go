@@ -66,7 +66,7 @@ const opCreatePlacementGroup = "CreatePlacementGroup"
 // instances in one partition do not share the same hardware with instances
 // in another partition.
 //
-// For more information, see Placement Groups (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html)
+// For more information, see Placement groups (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/placement-groups.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 //
 //    // Example sending a request using CreatePlacementGroupRequest.

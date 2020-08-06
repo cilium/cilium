@@ -18,9 +18,34 @@ type DescribeVolumesModificationsInput struct {
 	// it is UnauthorizedOperation.
 	DryRun *bool `type:"boolean"`
 
-	// The filters. Supported filters: volume-id | modification-state | target-size
-	// | target-iops | target-volume-type | original-size | original-iops | original-volume-type
-	// | start-time | originalMultiAttachEnabled | targetMultiAttachEnabled.
+	// The filters.
+	//
+	//    * modification-state - The current modification state (modifying | optimizing
+	//    | completed | failed).
+	//
+	//    * original-iops - The original IOPS rate of the volume.
+	//
+	//    * original-size - The original size of the volume, in GiB.
+	//
+	//    * original-volume-type - The original volume type of the volume (standard
+	//    | io1 | gp2 | sc1 | st1).
+	//
+	//    * originalMultiAttachEnabled - Indicates whether Multi-Attach support
+	//    was enabled (true | false).
+	//
+	//    * start-time - The modification start time.
+	//
+	//    * target-iops - The target IOPS rate of the volume.
+	//
+	//    * target-size - The target size of the volume, in GiB.
+	//
+	//    * target-volume-type - The target volume type of the volume (standard
+	//    | io1 | gp2 | sc1 | st1).
+	//
+	//    * targetMultiAttachEnabled - Indicates whether Multi-Attach support is
+	//    to be enabled (true | false).
+	//
+	//    * volume-id - The ID of the volume.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
 	// The maximum number of results (up to a limit of 500) to be returned in a
@@ -30,7 +55,7 @@ type DescribeVolumesModificationsInput struct {
 	// The nextToken value returned by a previous paginated request.
 	NextToken *string `type:"string"`
 
-	// The IDs of the volumes for which in-progress modifications will be described.
+	// The IDs of the volumes.
 	VolumeIds []string `locationName:"VolumeId" locationNameList:"VolumeId" type:"list"`
 }
 
@@ -59,19 +84,17 @@ const opDescribeVolumesModifications = "DescribeVolumesModifications"
 // DescribeVolumesModificationsRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Reports the current modification status of EBS volumes.
+// Describes the most recent volume modification request for the specified EBS
+// volumes.
 //
-// Current-generation EBS volumes support modification of attributes including
-// type, size, and (for io1 volumes) IOPS provisioning while either attached
-// to or detached from an instance. Following an action from the API or the
-// console to modify a volume, the status of the modification may be modifying,
-// optimizing, completed, or failed. If a volume has never been modified, then
-// certain elements of the returned VolumeModification objects are null.
+// If a volume has never been modified, some information in the output will
+// be null. If a volume has been modified more than once, the output includes
+// only the most recent modification request.
 //
 // You can also use CloudWatch Events to check the status of a modification
 // to an EBS volume. For information about CloudWatch Events, see the Amazon
 // CloudWatch Events User Guide (https://docs.aws.amazon.com/AmazonCloudWatch/latest/events/).
-// For more information, see Monitoring Volume Modifications" (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-expand-volume.html#monitoring_mods)
+// For more information, see Monitoring Volume Modifications (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/ebs-expand-volume.html#monitoring_mods)
 // in the Amazon Elastic Compute Cloud User Guide.
 //
 //    // Example sending a request using DescribeVolumesModificationsRequest.

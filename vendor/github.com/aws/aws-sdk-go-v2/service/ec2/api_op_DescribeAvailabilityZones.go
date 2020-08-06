@@ -31,12 +31,14 @@ type DescribeAvailabilityZonesInput struct {
 	//    Zones, use the name of the group associated with the Local Zone (for example,
 	//    us-west-2-lax-1).
 	//
-	//    * message - The Availability Zone or Local Zone message.
+	//    * message - The Zone message.
 	//
 	//    * opt-in-status - The opt in status (opted-in, and not-opted-in | opt-in-not-required).
 	//
-	//    * region-name - The name of the Region for the Availability Zone or Local
-	//    Zone (for example, us-east-1).
+	//    * The ID of the zone that handles some of the Local Zone control plane
+	//    operations, such as API calls.
+	//
+	//    * region-name - The name of the Region for the Zone (for example, us-east-1).
 	//
 	//    * state - The state of the Availability Zone or Local Zone (available
 	//    | information | impaired | unavailable).
@@ -44,14 +46,18 @@ type DescribeAvailabilityZonesInput struct {
 	//    * zone-id - The ID of the Availability Zone (for example, use1-az1) or
 	//    the Local Zone (for example, use usw2-lax1-az1).
 	//
+	//    * zone-type - The type of zone, for example, local-zone.
+	//
 	//    * zone-name - The name of the Availability Zone (for example, us-east-1a)
 	//    or the Local Zone (for example, use us-west-2-lax-1a).
+	//
+	//    * zone-type - The type of zone, for example, local-zone.
 	Filters []Filter `locationName:"Filter" locationNameList:"Filter" type:"list"`
 
-	// The IDs of the Availability Zones and Local Zones.
+	// The IDs of the Zones.
 	ZoneIds []string `locationName:"ZoneId" locationNameList:"ZoneId" type:"list"`
 
-	// The names of the Availability Zones and Local Zones.
+	// The names of the Zones.
 	ZoneNames []string `locationName:"ZoneName" locationNameList:"ZoneName" type:"list"`
 }
 
@@ -63,7 +69,7 @@ func (s DescribeAvailabilityZonesInput) String() string {
 type DescribeAvailabilityZonesOutput struct {
 	_ struct{} `type:"structure"`
 
-	// Information about the Availability Zones and Local Zones.
+	// Information about the Zones.
 	AvailabilityZones []AvailabilityZone `locationName:"availabilityZoneInfo" locationNameList:"item" type:"list"`
 }
 

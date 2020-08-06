@@ -13,12 +13,17 @@ type CreateRouteInput struct {
 	_ struct{} `type:"structure"`
 
 	// The IPv4 CIDR address block used for the destination match. Routing decisions
-	// are based on the most specific match.
+	// are based on the most specific match. We modify the specified CIDR block
+	// to its canonical form; for example, if you specify 100.68.0.18/18, we modify
+	// it to 100.68.0.0/18.
 	DestinationCidrBlock *string `locationName:"destinationCidrBlock" type:"string"`
 
 	// The IPv6 CIDR block used for the destination match. Routing decisions are
 	// based on the most specific match.
 	DestinationIpv6CidrBlock *string `locationName:"destinationIpv6CidrBlock" type:"string"`
+
+	// The ID of a prefix list used for the destination match.
+	DestinationPrefixListId *string `type:"string"`
 
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have
