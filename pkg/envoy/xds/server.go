@@ -136,7 +136,7 @@ func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, default
 	// increment stream count
 	streamID := atomic.AddUint64(&s.lastStreamID, 1)
 
-	streamLog := log.WithField(logfields.XDSStreamID, streamID)
+	reqStreamLog := log.WithField(logfields.XDSStreamID, streamID)
 
 	reqCh := make(chan *envoy_service_discovery.DiscoveryRequest)
 
@@ -145,7 +145,7 @@ func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, default
 
 	nodeId := ""
 
-	go func() {
+	go func(streamLog *logrus.Entry) {
 		defer close(reqCh)
 		for {
 			req, err := stream.Recv()
@@ -179,9 +179,9 @@ func (s *Server) HandleRequestStream(ctx context.Context, stream Stream, default
 			case reqCh <- req:
 			}
 		}
-	}()
+	}(reqStreamLog)
 
-	return s.processRequestStream(ctx, streamLog, stream, reqCh, defaultTypeURL)
+	return s.processRequestStream(ctx, reqStreamLog, stream, reqCh, defaultTypeURL)
 }
 
 // perTypeStreamState is the state maintained per resource type for each
