@@ -19,6 +19,7 @@ package tools
 import (
 	_ "github.com/cilium/deepequal-gen"
 	_ "github.com/go-bindata/go-bindata/v3"
+	_ "github.com/go-bindata/go-bindata/v3/go-bindata"
 	_ "k8s.io/code-generator"
 	_ "k8s.io/code-generator/cmd/client-gen"
 	_ "sigs.k8s.io/controller-tools/cmd/controller-gen"
