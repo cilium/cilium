@@ -7,7 +7,6 @@
 #include <node_config.h>
 #include <netdev_config.h>
 
-#include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/ipv6.h"

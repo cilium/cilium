@@ -25,7 +25,6 @@
 # undef ENABLE_HOST_FIREWALL
 #endif
 
-#include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/arp.h"
 #include "lib/maps.h"

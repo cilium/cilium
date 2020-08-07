@@ -12,7 +12,6 @@
 #define EVENT_SOURCE LXC_ID
 
 #include "lib/tailcall.h"
-#include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/config.h"
 #include "lib/maps.h"
