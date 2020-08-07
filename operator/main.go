@@ -20,6 +20,7 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
+	"sync/atomic"
 	"syscall"
 	"time"
 
@@ -100,9 +101,14 @@ var (
 	// Use a Go context so we can tell the leaderelection code when we
 	// want to step down
 	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
+
+	// isLeader is an atomic boolean value that is true when the Operator is
+	// elected leader. Otherwise, it is false.
+	isLeader atomic.Value
 )
 
 func doCleanup() {
+	isLeader.Store(false)
 	gops.Close()
 	close(shutdownSignal)
 	leaderElectionCtxCancel()
@@ -290,6 +296,7 @@ func runOperator(cmd *cobra.Command) {
 
 	log.Infof("Cilium Operator %s", version.Version)
 	k8sInitDone := make(chan struct{})
+	isLeader.Store(false)
 	go startServer(shutdownSignal, k8sInitDone, getAPIServerAddr()...)
 
 	if enableMetrics {
@@ -386,6 +393,8 @@ func runOperator(cmd *cobra.Command) {
 // onOperatorStartLeading is the function called once the operator starts leading
 // in HA mode.
 func onOperatorStartLeading(ctx context.Context) {
+	isLeader.Store(true)
+
 	// Restart kube-dns as soon as possible since it helps etcd-operator to be
 	// properly setup. If kube-dns is not managed by Cilium it can prevent
 	// etcd from reaching out kube-dns in EKS.
