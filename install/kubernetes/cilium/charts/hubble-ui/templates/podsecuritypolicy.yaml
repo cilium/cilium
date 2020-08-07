@@ -2,13 +2,8 @@
 apiVersion: policy/v1beta1
 kind: PodSecurityPolicy
 metadata:
-  name: cilium-psp
+  name: hubble-ui-psp
 spec:
-  privileged: true
-  allowPrivilegeEscalation: true
-  allowedCapabilities:
-    - NET_ADMIN
-    - SYS_MODULE
   volumes:
     - 'configMap'
     - 'emptyDir'
@@ -16,22 +11,6 @@ spec:
     - 'secret'
     - 'downwardAPI'
     - 'hostPath'
-  hostNetwork: true
-  hostPorts:
-{{- if .Values.global.operatorPrometheus.enabled }}
-    - min: {{ .Values.global.operatorPrometheus.port }}
-      max: {{ .Values.global.operatorPrometheus.port }}
-{{- end }}
-{{- if .Values.global.prometheus.enabled }}
-    - min: {{ .Values.global.prometheus.port }}
-      max: {{ .Values.global.prometheus.port }}
-{{- end }}
-{{- if .Values.global.hubble.metrics.enabled }}
-    - min: {{ .Values.global.hubble.metrics.port }}
-      max: {{ .Values.global.hubble.metrics.port }}
-{{- end }}
-  hostIPC: false
-  hostPID: false
   runAsUser:
     rule: 'RunAsAny'
   seLinux:
@@ -51,27 +30,24 @@ spec:
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
-  name: cilium-psp
+  name: hubble-ui-psp
 rules:
 - apiGroups: ['policy']
   resources: ['podsecuritypolicies']
   verbs:     ['use']
   resourceNames:
-  - cilium-psp
+  - hubble-ui-psp
 ---
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
-  name: cilium-psp
+  name: hubble-ui-psp
 roleRef:
   kind: ClusterRole
-  name: cilium-psp
+  name: hubble-ui-psp
   apiGroup: rbac.authorization.k8s.io
 subjects:
 - kind: ServiceAccount
-  name: cilium
-  namespace: {{ .Release.Namespace }}
-- kind: ServiceAccount
-  name: cilium-operator
+  name: hubble-ui
   namespace: {{ .Release.Namespace }}
 {{- end }}
