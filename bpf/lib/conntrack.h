@@ -269,6 +269,36 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 	return CT_NEW;
 }
 
+static __always_inline int
+ipv6_extract_tuple(struct __ctx_buff *ctx, struct ipv6_ct_tuple *tuple,
+		   int *l4_off)
+{
+	int ret, l3_off = ETH_HLEN;
+	void *data, *data_end;
+	struct ipv6hdr *ip6;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+		return DROP_INVALID;
+
+	tuple->nexthdr = ip6->nexthdr;
+	ipv6_addr_copy(&tuple->daddr, (union v6addr *)&ip6->daddr);
+	ipv6_addr_copy(&tuple->saddr, (union v6addr *)&ip6->saddr);
+
+	ret = ipv6_hdrlen(ctx, l3_off, &tuple->nexthdr);
+	if (ret < 0)
+		return ret;
+
+	if (unlikely(tuple->nexthdr != IPPROTO_TCP &&
+		     tuple->nexthdr != IPPROTO_UDP))
+		return DROP_CT_UNKNOWN_PROTO;
+
+	if (ret < 0)
+		return ret;
+
+	*l4_off = l3_off + ret;
+	return CTX_ACT_OK;
+}
+
 static __always_inline void ct_flip_tuple_dir6(struct ipv6_ct_tuple *tuple)
 {
 	if (tuple->flags & TUPLE_F_IN)
@@ -277,7 +307,8 @@ static __always_inline void ct_flip_tuple_dir6(struct ipv6_ct_tuple *tuple)
 		tuple->flags |= TUPLE_F_IN;
 }
 
-static __always_inline void ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
+static __always_inline void
+__ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 {
 	union v6addr tmp_addr = {};
 	__be16 tmp;
@@ -289,7 +320,12 @@ static __always_inline void ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
 	tmp = tuple->sport;
 	tuple->sport = tuple->dport;
 	tuple->dport = tmp;
+}
 
+static __always_inline void
+ipv6_ct_tuple_reverse(struct ipv6_ct_tuple *tuple)
+{
+	__ipv6_ct_tuple_reverse(tuple);
 	ct_flip_tuple_dir6(tuple);
 }
 
@@ -425,6 +461,30 @@ out:
 	return ret;
 }
 
+static __always_inline int
+ipv4_extract_tuple(struct __ctx_buff *ctx, struct ipv4_ct_tuple *tuple,
+		   int *l4_off)
+{
+	int l3_off = ETH_HLEN;
+	void *data, *data_end;
+	struct iphdr *ip4;
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	tuple->nexthdr = ip4->protocol;
+
+	if (unlikely(tuple->nexthdr != IPPROTO_TCP &&
+		     tuple->nexthdr != IPPROTO_UDP))
+		return DROP_CT_UNKNOWN_PROTO;
+
+	tuple->daddr = ip4->daddr;
+	tuple->saddr = ip4->saddr;
+
+	*l4_off = l3_off + ipv4_hdrlen(ip4);
+	return CTX_ACT_OK;
+}
+
 static __always_inline void ct_flip_tuple_dir4(struct ipv4_ct_tuple *tuple)
 {
 	if (tuple->flags & TUPLE_F_IN)
@@ -433,7 +493,8 @@ static __always_inline void ct_flip_tuple_dir4(struct ipv4_ct_tuple *tuple)
 		tuple->flags |= TUPLE_F_IN;
 }
 
-static __always_inline void ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
+static __always_inline void
+__ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 {
 	__be32 tmp_addr = tuple->saddr;
 	__be16 tmp;
@@ -444,7 +505,12 @@ static __always_inline void ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 	tmp = tuple->sport;
 	tuple->sport = tuple->dport;
 	tuple->dport = tmp;
+}
 
+static __always_inline void
+ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
+{
+	__ipv4_ct_tuple_reverse(tuple);
 	ct_flip_tuple_dir4(tuple);
 }
 
