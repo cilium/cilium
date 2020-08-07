@@ -57,9 +57,6 @@ type PeerListReporter interface {
 
 // Server implements the observerpb.ObserverServer interface.
 type Server struct {
-	// the following struct must be embedded for forward compatibility
-	observerpb.UnimplementedObserverServer
-
 	opts  options
 	peers PeerListReporter
 }
