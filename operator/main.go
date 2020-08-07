@@ -20,6 +20,7 @@ import (
 	"os"
 	"os/signal"
 	"path/filepath"
+	"sync/atomic"
 	"time"
 
 	operatorMetrics "github.com/cilium/cilium/operator/metrics"
@@ -93,6 +94,10 @@ var (
 	// Use a Go context so we can tell the leaderelection code when we
 	// want to step down
 	leaderElectionCtx, leaderElectionCtxCancel = context.WithCancel(context.Background())
+
+	// isLeader is an atomic boolean value that is true when the Operator is
+	// elected leader. Otherwise, it is false.
+	isLeader atomic.Value
 )
 
 func initEnv() {
@@ -113,6 +118,7 @@ func initEnv() {
 }
 
 func doCleanup() {
+	isLeader.Store(false)
 	gops.Close()
 	close(shutdownSignal)
 	leaderElectionCtxCancel()
@@ -164,6 +170,7 @@ func getAPIServerAddr() []string {
 func runOperator() {
 	log.Infof("Cilium Operator %s", version.Version)
 	k8sInitDone := make(chan struct{})
+	isLeader.Store(false)
 	go startServer(shutdownSignal, k8sInitDone, getAPIServerAddr()...)
 
 	if operatorOption.Config.EnableMetrics {
@@ -257,6 +264,8 @@ func runOperator() {
 // onOperatorStartLeading is the function called once the operator starts leading
 // in HA mode.
 func onOperatorStartLeading(ctx context.Context) {
+	isLeader.Store(true)
+
 	restConfig, err := k8s.CreateConfig()
 	if err != nil {
 		log.WithError(err).Fatal("Unable to get Kubernetes client config")
