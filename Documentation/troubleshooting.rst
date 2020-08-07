@@ -345,11 +345,11 @@ To run the connectivity tests create an isolated test namespace called
 The tests cover various functionality of the system. Below we call out each test
 type. If tests pass, it suggests functionality of the referenced subsystem.
 
-+---------------------------+-----------------------------+-------------------------------+-----------------------------+----------------------------------------+
-| Pod-to-pod (intra-host)   | Pod-to-pod (inter-host)     | Pod-to-service (intra-host)   | Pod-to-service (inter-host) | Pod-to-external resource               |
-+===========================+=============================+===============================+=============================+========================================+
-| BPF routing is functional | Data plane, routing, network| BPF service map lookup        | VXLAN overlay port if used  | Egress, CiliumNetworkPolicy, masquerade|
-+---------------------------+-----------------------------+-------------------------------+-----------------------------+----------------------------------------+
++----------------------------+-----------------------------+-------------------------------+-----------------------------+----------------------------------------+
+| Pod-to-pod (intra-host)    | Pod-to-pod (inter-host)     | Pod-to-service (intra-host)   | Pod-to-service (inter-host) | Pod-to-external resource               |
++============================+=============================+===============================+=============================+========================================+
+| eBPF routing is functional | Data plane, routing, network| eBPF service map lookup       | VXLAN overlay port if used  | Egress, CiliumNetworkPolicy, masquerade|
++----------------------------+-----------------------------+-------------------------------+-----------------------------+----------------------------------------+
 
 The pod name indicates the connectivity
 variant and the readiness and liveness gate indicates success or failure of the

@@ -143,8 +143,8 @@ usage on a 2vCPU machine.
 .. figure:: images/image_4_02.png
 
 For the memory usage, we have not seen a significant memory growth in the
-Cilium agent. On the BPF memory side, we do see it increasing due to the
-initialization of some BPF maps for the new pods.
+Cilium agent. On the eBPF memory side, we do see it increasing due to the
+initialization of some eBPF maps for the new pods.
 
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 5. Provision 998 additional nodes (total 1000 nodes)
@@ -210,7 +210,7 @@ adding new pods also increases Cilium memory consumption.
 
 * As we increased the number of pods from 250 to 50000, we saw a maximum memory
   usage of 573MiB for one of the Cilium agents while the average was 438 MiB.
-* For the BPF memory usage we saw a max usage of 462.7MiB
+* For the eBPF memory usage we saw a max usage of 462.7MiB
 * This means that each **Cilium agent's memory increased by 10.5KiB per new pod
   in the cluster.**
 
@@ -277,7 +277,7 @@ seconds while the average peak was 40% during a period of 90 seconds.
 .. figure:: images/image_8_02.png
 
 As expected, **increasing the number of policies does not have a significant
-impact on the memory usage of Cilium since the BPF policy maps have a constant
+impact on the memory usage of Cilium since the eBPF policy maps have a constant
 size** once a pod is initialized.
 
 .. figure:: images/image_8_03.png
@@ -340,10 +340,10 @@ time is for all the deployed network polices.
   10k pods.
 
 * Besides the CPU usage slightly increasing while pods are being scheduled in
-  the cluster, we did see some interesting data points in the BPF memory usage.
-  As each endpoint can have one or more dedicated BPF maps, the BPF memory usage
+  the cluster, we did see some interesting data points in the eBPF memory usage.
+  As each endpoint can have one or more dedicated eBPF maps, the eBPF memory usage
   is directly proportional to the number of pods running in a node. **If the
-  number of pods per node decreases so does the BPF memory usage.**
+  number of pods per node decreases so does the eBPF memory usage.**
 
 .. figure:: images/image_10_03.png
 
@@ -385,7 +385,7 @@ Final Remarks
 
 These experiments helped us develop a better understanding of Cilium running
 in a large cluster entirely in CRD mode and without depending on etcd. There is
-still some work to be done to optimize the memory footprint of BPF maps even
+still some work to be done to optimize the memory footprint of eBPF maps even
 further, as well as reducing the memory footprint of the Cilium agent. We will
 address those in the next Cilium version.
 

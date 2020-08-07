@@ -25,7 +25,7 @@ datapath instead of the default veth-based one.
     - L7 policy enforcement
     - NAT64
     - IPVLAN with tunneling
-    - BPF-based masquerading
+    - eBPF-based masquerading
 
 .. note::
 

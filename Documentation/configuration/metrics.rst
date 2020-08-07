@@ -203,22 +203,22 @@ Name                                          Labels                            
 ``datapath_conntrack_gc_duration_seconds``    ``status``                                         Duration in seconds of the garbage collector process
 ============================================= ================================================== ========================================================
 
-BPF
-~~~
+eBPF
+~~~~
 
 ========================================== ================================================== ========================================================
 Name                                       Labels                                             Description
 ========================================== ================================================== ========================================================
-``bpf_syscall_duration_seconds``           ``operation``, ``outcome``                         Duration of BPF system call performed
-``bpf_map_ops_total``                      ``mapName``, ``operation``, ``outcome``            Number of BPF map operations performed
-``bpf_maps_virtual_memory_max_bytes``                                                         Max memory used by BPF maps installed in the system
-``bpf_progs_virtual_memory_max_bytes``                                                        Max memory used by BPF programs installed in the system
+``bpf_syscall_duration_seconds``           ``operation``, ``outcome``                         Duration of eBPF system call performed
+``bpf_map_ops_total``                      ``mapName``, ``operation``, ``outcome``            Number of eBPF map operations performed
+``bpf_maps_virtual_memory_max_bytes``                                                         Max memory used by eBPF maps installed in the system
+``bpf_progs_virtual_memory_max_bytes``                                                        Max memory used by eBPF programs installed in the system
 ========================================== ================================================== ========================================================
 
 Both ``bpf_maps_virtual_memory_max_bytes`` and ``bpf_progs_virtual_memory_max_bytes``
-are currently reporting the system-wide memory usage of BPF that is directly
+are currently reporting the system-wide memory usage of eBPF that is directly
 and not directly managed by Cilium. This might change in the future and only
-report the BPF memory usage directly managed by Cilium.
+report the eBPF memory usage directly managed by Cilium.
 
 Drops/Forwards (L3/L4)
 ~~~~~~~~~~~~~~~~~~~~~~

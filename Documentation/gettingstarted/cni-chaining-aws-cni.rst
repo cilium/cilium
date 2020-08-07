@@ -11,7 +11,7 @@ AWS-CNI
 This guide explains how to set up Cilium in combination with aws-cni. In this
 hybrid mode, the aws-cni plugin is responsible for setting up the virtual
 network devices as well as address allocation (IPAM) via ENI. After the initial
-networking is setup, the Cilium CNI plugin is called to attach BPF programs to
+networking is setup, the Cilium CNI plugin is called to attach eBPF programs to
 the network devices set up by aws-cni to enforce network policies, perform
 load-balancing, and encryption.
 

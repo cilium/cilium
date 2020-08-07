@@ -22,7 +22,7 @@
 
      minikube start --network-plugin=cni --memory=4096
 
-4. Mount the BPF filesystem
+4. Mount the eBPF filesystem
 
 ::
 

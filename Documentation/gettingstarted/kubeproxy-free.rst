@@ -102,9 +102,9 @@ configuration.
         --set global.k8sServiceHost=API_SERVER_IP \\
         --set global.k8sServicePort=API_SERVER_PORT
 
-This will install Cilium as a CNI plugin with the BPF kube-proxy replacement to
+This will install Cilium as a CNI plugin with the eBPF kube-proxy replacement to
 implement handling of Kubernetes services of type ClusterIP, NodePort, LoadBalancer
-and services with externalIPs. On top of that the BPF kube-proxy replacement also
+and services with externalIPs. On top of that the eBPF kube-proxy replacement also
 supports hostPort for containers such that using portmap is not necessary anymore.
 
 Finally, as a last step, verify that Cilium has come up correctly on all nodes and
@@ -125,12 +125,12 @@ Without explicitly specifying a ``kubeProxyReplacement`` option, helm uses
 ``kubeProxyReplacement`` with ``probe`` by default which would automatically
 disable a subset of the features to implement the kube-proxy replacement instead
 of bailing out if the kernel support is missing. This makes the assumption that
-Cilium's BPF kube-proxy replacement would co-exist with kube-proxy on the system
+Cilium's eBPF kube-proxy replacement would co-exist with kube-proxy on the system
 to optimize Kubernetes services. Given we've used kubeadm to explicitly deploy
 a kube-proxy-free setup, the ``strict`` mode has been used instead to ensure
 that we do not rely on a (non-existing) fallback.
 
-Cilium's BPF kube-proxy replacement is supported in direct routing as well as in
+Cilium's eBPF kube-proxy replacement is supported in direct routing as well as in
 tunneling mode.
 
 Validate the Setup
@@ -196,7 +196,7 @@ Verify that the NodePort service has been created:
     my-nginx   NodePort   10.104.239.135   <none>        80:31940/TCP   24m
 
 With the help of the ``cilium service list`` command, we can validate that
-Cilium's BPF kube-proxy replacement created the new NodePort services under
+Cilium's eBPF kube-proxy replacement created the new NodePort services under
 port ``31940`` (one for each of devices ``eth0`` and ``eth1``):
 
 .. parsed-literal::
@@ -260,7 +260,7 @@ NodePort port ``31940`` as well as for the ClusterIP:
     <title>Welcome to nginx!</title>
     [....]
 
-As can be seen, the Cilium's BPF kube-proxy replacement is set up correctly.
+As can be seen, the Cilium's eBPF kube-proxy replacement is set up correctly.
 
 Advanced Configuration
 ######################
@@ -271,12 +271,12 @@ that go beyond the above Quick-Start guide and are entirely optional.
 Client Source IP Preservation
 *****************************
 
-Cilium's BPF kube-proxy replacement implements a number of options in order to avoid
+Cilium's eBPF kube-proxy replacement implements a number of options in order to avoid
 performing SNAT on NodePort requests where the client source IP address would otherwise
 be lost on its path to the service endpoint.
 
 - ``externalTrafficPolicy=Local``: The ``Local`` policy is generally supported through
-  the BPF implementation. In-cluster connectivity for services with ``externalTrafficPolicy=Local``
+  the eBPF implementation. In-cluster connectivity for services with ``externalTrafficPolicy=Local``
   is possible and can also be reached from nodes which have no local backends, meaning,
   given SNAT does not need to be performed, all service endpoints are available for
   load balancing from in-cluster side.
@@ -292,7 +292,7 @@ be lost on its path to the service endpoint.
 Direct Server Return (DSR)
 **************************
 
-By default, Cilium's BPF NodePort implementation operates in SNAT mode. That is,
+By default, Cilium's eBPF NodePort implementation operates in SNAT mode. That is,
 when node-external traffic arrives and the node determines that the backend for
 the LoadBalancer, NodePort or services with externalIPs is at a remote node, then the
 node is redirecting the request to the remote backend on its behalf by performing
@@ -302,7 +302,7 @@ reverse SNAT translation there before returning the packet directly to the exter
 client.
 
 This setting can be changed through the ``global.nodePort.mode`` helm option to
-``dsr`` in order to let Cilium's BPF NodePort implementation operate in DSR mode.
+``dsr`` in order to let Cilium's eBPF NodePort implementation operate in DSR mode.
 In this mode, the backends reply directly to the external client without taking
 the extra hop, meaning, backends reply by using the service IP/port as a source.
 DSR currently requires Cilium to be deployed in :ref:`arch_direct_routing`, i.e.
@@ -380,7 +380,7 @@ services with externalIPs for the case where the arriving request needs to be
 pushed back out of the node when the backend is located on a remote node. This
 ability to act as a "one-legged" / hairpin load balancer can be handled by Cilium
 starting from version `1.8 <https://cilium.io/blog/2020/06/22/cilium-18/#kube-proxy-replacement-at-the-xdp-layer>`_ at
-the XDP (eXpress Data Path) layer where BPF is operating directly in the networking
+the XDP (eXpress Data Path) layer where eBPF is operating directly in the networking
 driver instead of a higher layer.
 
 The mode setting ``global.nodePort.acceleration`` allows to enable this acceleration
@@ -662,7 +662,7 @@ Refer to the :ref:`ipam_azure` reference for more information.
 NodePort Devices, Port and Bind settings
 ****************************************
 
-When running Cilium's BPF kube-proxy replacement, by default, a NodePort or
+When running Cilium's eBPF kube-proxy replacement, by default, a NodePort or
 LoadBalancer service or a service with externalIPs will be accessible through
 the IP addresses of native devices which have the default route on the host or
 have Kubernetes InternalIP or ExternalIP assigned. InternalIP is preferred over
@@ -711,7 +711,7 @@ expert users by switching ``global.nodePort.bindProtection`` to ``false``.
 Container hostPort support
 **************************
 
-Although not part of kube-proxy, Cilium's BPF kube-proxy replacement also
+Although not part of kube-proxy, Cilium's eBPF kube-proxy replacement also
 natively supports ``hostPort`` service mapping without having to use the
 Helm CNI chaining option of ``global.cni.chainingMode=portmap``.
 
@@ -797,7 +797,7 @@ The following modified example yaml from the setup validation with an additional
             - containerPort: 80
               hostPort: 8080
 
-After deployment, we can validate that Cilium's BPF kube-proxy replacement
+After deployment, we can validate that Cilium's eBPF kube-proxy replacement
 exposed the container as HostPort under the specified port ``8080``:
 
 .. parsed-literal::
@@ -837,7 +837,7 @@ the ``cilium service list`` dump:
 kube-proxy Hybrid Modes
 ***********************
 
-Cilium's BPF kube-proxy replacement can be configured in several modes, i.e. it can
+Cilium's eBPF kube-proxy replacement can be configured in several modes, i.e. it can
 replace kube-proxy entirely or it can co-exist with kube-proxy on the system if the
 underlying Linux kernel requirements do not support a full kube-proxy replacement.
 
@@ -854,8 +854,8 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
 - ``global.kubeProxyReplacement=probe``: This option is intended for a hybrid setup,
   that is, kube-proxy is running in the Kubernetes cluster where Cilium partially
   replaces and optimizes kube-proxy functionality. Once the Cilium agent is up and
-  running, it probes the underlying kernel for the availability of needed BPF kernel
-  features and, if not present, disables a subset of the functionality in BPF by
+  running, it probes the underlying kernel for the availability of needed eBPF kernel
+  features and, if not present, disables a subset of the functionality in eBPF by
   relying on kube-proxy to complement the remaining Kubernetes service handling. The
   Cilium agent will emit an info message into its log in such case. For example, if
   the kernel does not support :ref:`host-services`, then the ClusterIP translation
@@ -864,10 +864,10 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
 - ``global.kubeProxyReplacement=partial``: Similarly to ``probe``, this option is
   intended for a hybrid setup, that is, kube-proxy is running in the Kubernetes cluster
   where Cilium partially replaces and optimizes kube-proxy functionality. As opposed to
-  ``probe`` which checks the underlying kernel for available BPF features and automatically
-  disables components responsible for the BPF kube-proxy replacement when kernel support
+  ``probe`` which checks the underlying kernel for available eBPF features and automatically
+  disables components responsible for the eBPF kube-proxy replacement when kernel support
   is missing, the ``partial`` option requires the user to manually specify which components
-  for the BPF kube-proxy replacement should be used. When ``global.kubeProxyReplacement``
+  for the eBPF kube-proxy replacement should be used. When ``global.kubeProxyReplacement``
   is set to ``partial`` make sure to also set ``global.enableHealthCheckNodeport`` to
   ``false``, so that the Cilium agent does not start the NodePort health check server.
   Similarly to ``strict`` mode, the Cilium agent will bail out on start-up with an error
@@ -945,7 +945,7 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
 Session Affinity
 ****************
 
-Cilium's BPF kube-proxy replacement supports Kubernetes service session affinity.
+Cilium's eBPF kube-proxy replacement supports Kubernetes service session affinity.
 Each connection from the same pod or host to a service configured with
 ``sessionAffinity: ClientIP`` will always select the same service endpoint.
 The default timeout for the affinity is three hours (updated by each request to
@@ -970,12 +970,12 @@ To disable the feature, set ``config.sessionAffinity=false``.
 Limitations
 ###########
 
-    * Cilium's BPF kube-proxy replacement currently cannot be used with :ref:`encryption`.
-    * Cilium's BPF kube-proxy replacement relies upon the :ref:`host-services` feature
-      which uses BPF cgroup hooks to implement the service translation. The getpeername(2)
-      hook address translation in BPF is only available for v5.8 kernels. It is known to
+    * Cilium's eBPF kube-proxy replacement currently cannot be used with :ref:`encryption`.
+    * Cilium's eBPF kube-proxy replacement relies upon the :ref:`host-services` feature
+      which uses eBPF cgroup hooks to implement the service translation. The getpeername(2)
+      hook address translation in eBPF is only available for v5.8 kernels. It is known to
       currently not work with libceph deployments.
-    * Cilium's BPF kube-proxy acceleration in XDP can only be used in a single device setup
+    * Cilium's eBPF kube-proxy acceleration in XDP can only be used in a single device setup
       as a "one-legged" / hairpin load balancer scenario. In case of a multi-device environment,
       where auto-detection selects more than a single device to expose NodePort, the option
       ``global.devices=eth0`` must be specified in helm in order to work, where ``eth0``
@@ -983,9 +983,9 @@ Limitations
     * Cilium's DSR NodePort mode currently does not operate well in environments with
       TCP Fast Open (TFO) enabled. It is recommended to switch to ``snat`` mode in this
       situation.
-    * Cilium's BPF kube-proxy replacement does not support the SCTP transport protocol.
+    * Cilium's eBPF kube-proxy replacement does not support the SCTP transport protocol.
       Only TCP and UDP is supported as a transport for services at this point.
-    * Cilium's BPF kube-proxy replacement does not allow ``hostPort`` port configurations
+    * Cilium's eBPF kube-proxy replacement does not allow ``hostPort`` port configurations
       for Pods that overlap with the configured NodePort range. In such case, the ``hostPort``
       setting will be ignored and a warning emitted to the Cilium agent log. Similarly,
       explicitly binding the ``hostIP`` to the loopback address in the host namespace is
@@ -994,13 +994,13 @@ Limitations
 Further Readings
 ################
 
-The following presentations describe inner-workings of the kube-proxy replacement in BPF
+The following presentations describe inner-workings of the kube-proxy replacement in eBPF
 in great details:
 
     * "Liberating Kubernetes from kube-proxy and iptables" (KubeCon North America 2019, `slides
       <https://docs.google.com/presentation/d/1cZJ-pcwB9WG88wzhDm2jxQY4Sh8adYg0-N3qWQ8593I/edit>`__,
       `video <https://www.youtube.com/watch?v=bIRwSIwNHC0>`__)
-    * "BPF as a revolutionary technology for the container landscape" (Fosdem 2020, `slides
+    * "eBPF as a revolutionary technology for the container landscape" (Fosdem 2020, `slides
       <https://docs.google.com/presentation/d/1VOUcoIxgM_c6M_zAV1dLlRCjyYCMdR3tJv6CEdfLMh8/edit>`__,
       `video <https://fosdem.org/2020/schedule/event/containers_bpf/>`__)
     * "Kernel improvements for Cilium socket LB" (LSF/MM/BPF 2020, `slides

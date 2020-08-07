@@ -44,8 +44,8 @@ the `Kubernets CNI network-plugins documentation <https://kubernetes.io/docs/con
 
 .. _admin_mount_bpffs:
 
-Mounted BPF filesystem
-======================
+Mounted eBPF filesystem
+=======================
 
 .. Note::
 
@@ -58,16 +58,16 @@ Mounted BPF filesystem
                   # if present should output, e.g. "none on /sys/fs/bpf type bpf"...
 
 This step is **required for production** environments but optional for testing
-and development. It allows the ``cilium-agent`` to pin BPF resources to a
+and development. It allows the ``cilium-agent`` to pin eBPF resources to a
 persistent filesystem and make them persistent across restarts of the agent.
-If the BPF filesystem is not mounted in the host filesystem, Cilium will
+If the eBPF filesystem is not mounted in the host filesystem, Cilium will
 automatically mount the filesystem but it will be unmounted and re-mounted when
-the Cilium pod is restarted. This in turn will cause BPF resources to be
+the Cilium pod is restarted. This in turn will cause eBPF resources to be
 re-created which will cause network connectivity to be disrupted. Mounting the
-BPF filesystem in the host mount namespace will ensure that the agent can be
+eBPF filesystem in the host mount namespace will ensure that the agent can be
 restarted without affecting connectivity of any pods.
 
-In order to mount the BPF filesystem, the following command must be run in the
+In order to mount the eBPF filesystem, the following command must be run in the
 host mount namespace. The command must only be run once during the boot process
 of the machine.
 

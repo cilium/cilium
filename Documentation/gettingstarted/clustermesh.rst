@@ -549,7 +549,7 @@ State Propagation
     endpoints from all clusters. Run ``cilium service list`` in any Cilium pod
     and validate that the backend IPs consist of pod IPs from all clusters
     running relevant backends. You can further validate the correct datapath
-    plumbing by running ``cilium bpf lb list`` to inspect the state of the BPF
+    plumbing by running ``cilium bpf lb list`` to inspect the state of the eBPF
     maps.
 
     If this fails:

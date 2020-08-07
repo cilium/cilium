@@ -542,7 +542,7 @@ Upgrading from >=1.7.0 to 1.8.y
   parameter ``bpf-ct-global-tcp-max``. Since the latter was changed (see
   above), the default NAT table size decreased from ~820K to 512K.
 
-  The NAT table is only used if either BPF NodePort (``enable-node-port``
+  The NAT table is only used if either eBPF NodePort (``enable-node-port``
   parameter) or masquerading (``masquerade`` parameter) are enabled. No action
   is required if neither of the parameters is enabled.
 
@@ -590,7 +590,7 @@ New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
 
   * ``bpf-map-dynamic-size-ratio`` has been added to allow dynamic sizing of the
-    largest BPF maps: ``cilium_ct_{4,6}_global``, ``cilium_ct_{4,6}_any``,
+    largest eBPF maps: ``cilium_ct_{4,6}_global``, ``cilium_ct_{4,6}_any``,
     ``cilium_nodeport_neigh{4,6}``, ``cilium_snat_v{4,6}_external`` and
     ``cilium_lb{4,6}_reverse_sk``.  This option allows to specify a ratio
     (0.0-1.0) of total system memory to use for these maps. On new
@@ -598,7 +598,7 @@ New ConfigMap Options
     the total system memory to be allocated for these maps. On a node with 4 GiB
     of total system memory this ratio corresponds approximately to the defaults
     used by ``kube-proxy``, see :ref:`bpf_map_limitations` for details. A value
-    of 0.0 will disable sizing of the BPF maps based on system memory. Any BPF
+    of 0.0 will disable sizing of the eBPF maps based on system memory. Any eBPF
     map sizes configured manually using the ``bpf-ct-global-tcp-max``,
     ``bpf-ct-global-any-max``, ``bpf-nat-global-max`` or
     ``bpf-neigh-global-max`` options will take precedence over the dynamically
@@ -614,7 +614,7 @@ New ConfigMap Options
 Deprecated options
 ~~~~~~~~~~~~~~~~~~
 
-* ``keep-bpf-templates``: This option no longer has any effect due to the BPF
+* ``keep-bpf-templates``: This option no longer has any effect due to the eBPF
   assets not being compiled into the cilium-agent binary anymore. The option is
   deprecated and will be removed in Cilium 1.9.
 * ``--disable-k8s-services`` option from cilium-agent has been deprecated
@@ -631,15 +631,15 @@ New Metrics
 
 The following metrics have been added:
 
-* ``bpf_maps_virtual_memory_max_bytes``: Max memory used by BPF maps installed
+* ``bpf_maps_virtual_memory_max_bytes``: Max memory used by eBPF maps installed
   in the system
-* ``bpf_progs_virtual_memory_max_bytes``: Max memory used by BPF programs
+* ``bpf_progs_virtual_memory_max_bytes``: Max memory used by eBPF programs
   installed in the system
 
 Both ``bpf_maps_virtual_memory_max_bytes`` and ``bpf_progs_virtual_memory_max_bytes``
-are currently reporting the system-wide memory usage of BPF that is directly
+are currently reporting the system-wide memory usage of eBPF that is directly
 and not directly managed by Cilium. This might change in the future and only
-report the BPF memory usage directly managed by Cilium.
+report the eBPF memory usage directly managed by Cilium.
 
 Renamed Metrics
 ~~~~~~~~~~~~~~~
@@ -925,7 +925,7 @@ New ConfigMap Options
     each endpoint.
 
   * ``kube-proxy-replacement`` has been added to control which features should
-    be enabled for the kube-proxy BPF replacement. The option is set to
+    be enabled for the kube-proxy eBPF replacement. The option is set to
     ``probe`` by default for new deployments when generated via Helm. This
     makes cilium-agent to probe for each feature support in a kernel, and
     to enable only supported features. When the option is not set via Helm,
@@ -1015,7 +1015,7 @@ Changes that may require action
     case any already existing configuration file is untouched.
 
   * The new default value for the option ``monitor-aggregation`` is now
-    ``medium`` instead of ``none``. This will cause the BPF datapath to
+    ``medium`` instead of ``none``. This will cause the eBPF datapath to
     perform more aggressive aggregation on packet forwarding related events to
     reduce CPU consumption while running ``cilium monitor``. The automatic
     change only applies to the default ConfigMap. Existing deployments will
@@ -1219,7 +1219,7 @@ As the `ConfigMap` is successfully upgraded we can start upgrading Cilium
 Restrictions on unique prefix lengths for CIDR policy rules
 -----------------------------------------------------------
 
-The Linux kernel applies limitations on the complexity of BPF code that is
+The Linux kernel applies limitations on the complexity of eBPF code that is
 loaded into the kernel so that the code may be verified as safe to execute on
 packets. Over time, Linux releases become more intelligent about the
 verification of programs which allows more complex programs to be loaded.

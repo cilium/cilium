@@ -191,7 +191,7 @@ Ingress
        192.168.105.44 dev lxc5a4def8d96c5
 
 4. All traffic passing ``lxc5a4def8d96c5`` on the way into the pod is subject
-   to Cilium's BPF program to enforce network policies, provide service reverse
+   to Cilium's eBPF program to enforce network policies, provide service reverse
    load-balancing, and visibility.
 
 Egress
@@ -204,7 +204,7 @@ Egress
    MTU purposes.
 
 2. After passing through the veth pair and before reaching the Linux routing
-   layer, all traffic is subject to Cilium's BPF program to enforce network
+   layer, all traffic is subject to Cilium's eBPF program to enforce network
    policies, implement load-balancing and provide networking features.
 
 3. An IP routing rule ensures that traffic from individual endpoints are using
@@ -289,13 +289,13 @@ Masquerading
    publicly routable.
 
 Load-balancing
-   ClusterIP load-balancing will be performed using BPF for all version of GKE.
+   ClusterIP load-balancing will be performed using eBPF for all version of GKE.
    Starting with >= GKE v1.15 or when running a Linux kernel >= 4.19, all
-   NodePort/ExternalIP/HostPort will be performed using a BPF implementation as
+   NodePort/ExternalIP/HostPort will be performed using a eBPF implementation as
    well.
 
 Policy enforcement & visibility
-   All NetworkPolicy enforcement and visibility is provided using BPF.
+   All NetworkPolicy enforcement and visibility is provided using eBPF.
 
 Configuration
 -------------

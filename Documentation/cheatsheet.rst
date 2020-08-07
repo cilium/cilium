@@ -21,7 +21,7 @@ guide.
       cilium [command]
 
     Available Commands:
-      bpf                      Direct access to local BPF maps
+      bpf                      Direct access to local eBPF maps
       cleanup                  Reset the agent state
       completion               Output shell completion code for bash
       config                   Cilium configuration options
@@ -291,8 +291,8 @@ Add a new loadbalancer
         --backends 127.0.0.2:90,127.0.0.3:90 \
         --id 20
 
-BPF
----
+eBPF
+----
 
 List node tunneling mapping information
 ::

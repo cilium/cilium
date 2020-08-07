@@ -85,14 +85,14 @@ eBPF is a Linux kernel bytecode interpreter originally introduced to filter
 network packets, e.g. tcpdump and socket filters. It has since been extended
 with additional data structures such as hashtable and arrays as well as
 additional actions to support packet mangling, forwarding, encapsulation, etc.
-An in-kernel verifier ensures that BPF programs are safe to run and a JIT
+An in-kernel verifier ensures that eBPF programs are safe to run and a JIT
 compiler converts the bytecode to CPU architecture specific instructions for
-native execution efficiency. BPF programs can be run at various hooking points
+native execution efficiency. eBPF programs can be run at various hooking points
 in the kernel such as for incoming and outgoing packets.
 
-BPF continues to evolve and gain additional capabilities with each new Linux
-release.  Cilium leverages BPF to perform core datapath filtering, mangling,
-monitoring and redirection, and requires BPF capabilities that are in any Linux
+eBPF continues to evolve and gain additional capabilities with each new Linux
+release.  Cilium leverages eBPF to perform core datapath filtering, mangling,
+monitoring and redirection, and requires eBPF capabilities that are in any Linux
 kernel version 4.8.0 or newer. On the basis that 4.8.x is already declared end
 of life and 4.9.x has been nominated as a stable release we recommend to run at
 least kernel 4.9.17 (the latest current stable Linux kernel as of this writing
