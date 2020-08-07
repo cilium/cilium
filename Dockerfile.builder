@@ -1,7 +1,7 @@
 #
 # Cilium build-time base image (image created from this file is used to build Cilium)
 #
-FROM quay.io/cilium/cilium-runtime:2020-07-20-v1.8@sha256:919b0084a343431d695e8f1f6abebb6040f620c28d7a9982bc5b653ccaadf67e
+FROM quay.io/cilium/cilium-runtime:2020-08-07-v1.8@sha256:2d1937ce4a9038b55e2159cbeb9fd826cc37acadb520d3d42ab059eaab1be472
 LABEL maintainer="maintainer@cilium.io"
 ARG ARCH=amd64
 WORKDIR /go/src/github.com/cilium/cilium
@@ -12,7 +12,7 @@ WORKDIR /go/src/github.com/cilium/cilium
 ENV GOROOT /usr/local/go
 ENV GOPATH /go
 ENV PATH "$GOROOT/bin:$GOPATH/bin:$PATH"
-ENV GO_VERSION 1.14.6
+ENV GO_VERSION 1.14.7
 
 #
 # Build dependencies
