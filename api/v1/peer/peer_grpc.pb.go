@@ -65,7 +65,7 @@ func (x *peerNotifyClient) Recv() (*ChangeNotification, error) {
 }
 
 // PeerServer is the server API for Peer service.
-// All implementations must embed UnimplementedPeerServer
+// All implementations should embed UnimplementedPeerServer
 // for forward compatibility
 type PeerServer interface {
 	// Notify sends information about hubble peers in the cluster.
@@ -73,17 +73,15 @@ type PeerServer interface {
 	// already part of the cluster (with the type as PEER_ADDED). It
 	// subsequently notifies of any change.
 	Notify(*NotifyRequest, Peer_NotifyServer) error
-	mustEmbedUnimplementedPeerServer()
 }
 
-// UnimplementedPeerServer must be embedded to have forward compatible implementations.
+// UnimplementedPeerServer should be embedded to have forward compatible implementations.
 type UnimplementedPeerServer struct {
 }
 
 func (*UnimplementedPeerServer) Notify(*NotifyRequest, Peer_NotifyServer) error {
 	return status.Errorf(codes.Unimplemented, "method Notify not implemented")
 }
-func (*UnimplementedPeerServer) mustEmbedUnimplementedPeerServer() {}
 
 func RegisterPeerServer(s *grpc.Server, srv PeerServer) {
 	s.RegisterService(&_Peer_serviceDesc, srv)
