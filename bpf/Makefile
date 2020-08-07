@@ -194,7 +194,7 @@ bpf_lxc.o: bpf_lxc.ll
 
 subdirs: $(SUBDIRS)
 	$(QUIET) $(foreach TARGET,$(SUBDIRS), \
-		$(MAKE) $(SUBMAKEOPTS) -C $(TARGET))
+		$(MAKE) $(SUBMAKEOPTS) -C $(TARGET) &&) true
 
 else
 all: $(TARGET)
@@ -212,6 +212,6 @@ install:
 clean:
 	@$(ECHO_CLEAN)
 	$(QUIET) $(foreach TARGET,$(SUBDIRS), \
-		$(MAKE) $(SUBMAKEOPTS) -C $(TARGET) clean)
+		$(MAKE) $(SUBMAKEOPTS) -C $(TARGET) clean;)
 	$(QUIET)rm -fr *.o *.ll *.i *.s
 	$(QUIET)rm -f $(TARGET)
