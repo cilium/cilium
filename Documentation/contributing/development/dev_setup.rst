@@ -387,7 +387,7 @@ Datapath code
 ^^^^^^^^^^^^^
 
 The tool ``cilium monitor`` can also be used to retrieve debugging information
-from the BPF based datapath. Debugging messages are sent if either the
+from the eBPF based datapath. Debugging messages are sent if either the
 ``cilium-agent`` itself or the respective endpoint is in debug mode. The debug
 mode of the agent can be enabled by starting ``cilium-agent`` with the option
 ``--debug`` enabled or by running ``cilium config debug=true`` for an already
@@ -450,7 +450,7 @@ Passing ``-v -v`` supports deeper detail, for example:
     CPU 00: MARK 0x7dc2b704 FROM 3978 DEBUG: ICMPv6 neighbour soliciation for address b21a8c0:d68a0000
 
 
-One of the most common issues when developing datapath code is that the BPF
+One of the most common issues when developing datapath code is that the eBPF
 code cannot be loaded into the kernel. This frequently manifests as the
 endpoints appearing in the "not-ready" state and never switching out of it:
 
@@ -463,14 +463,14 @@ endpoints appearing in the "not-ready" state and never switching out of it:
     60670      Disabled      267        container:id.client           fd02::c0a8:210b:0:ecfe   10.11.167.158   not-ready
 
 Running ``cilium endpoint get`` for one of the endpoints will provide a
-description of known state about it, which includes BPF verification logs.
+description of known state about it, which includes eBPF verification logs.
 
-The files under ``/var/run/cilium/state`` provide context about how the BPF
+The files under ``/var/run/cilium/state`` provide context about how the eBPF
 datapath is managed and set up. The .h files describe specific configurations
-used for BPF program compilation. The numbered directories describe
-endpoint-specific state, including header configuration files and BPF binaries.
+used for eBPF program compilation. The numbered directories describe
+endpoint-specific state, including header configuration files and eBPF binaries.
 
-Current BPF map state for particular programs is held under ``/sys/fs/bpf/``,
+Current eBPF map state for particular programs is held under ``/sys/fs/bpf/``,
 and the `bpf-map <https://github.com/cilium/bpf-map>`_ utility can be useful
 for debugging what is going on inside them, for example:
 

@@ -98,7 +98,7 @@ The NodeInit DaemonSet is required to prepare the GKE nodes as nodes are added
 to the cluster. The NodeInit DaemonSet will perform the following actions:
 
 * Reconfigure kubelet to run in CNI mode
-* Mount the BPF filesystem
+* Mount the eBPF filesystem
 
 .. include:: k8s-install-restart-pods.rst
 .. include:: k8s-install-gke-validate.rst

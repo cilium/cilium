@@ -61,10 +61,10 @@ Verify that it has come up correctly:
 Limitations
 ###########
 
-    * The kernel BPF cgroup hooks operate at connect(2), sendmsg(2) and
+    * The kernel eBPF cgroup hooks operate at connect(2), sendmsg(2) and
       recvmsg(2) system call layers for connecting the application to one
       of the service backends. In the v5.8 Linux kernel, a getpeername(2)
-      hook for BPF has been added in order to also reverse translate the
+      hook for eBPF has been added in order to also reverse translate the
       connected sock addresses for application's getpeername(2) calls in
       Cilium. For kernels older than v5.8 such reverse translation is not
       taking place for this system call. For the vast majority of applications

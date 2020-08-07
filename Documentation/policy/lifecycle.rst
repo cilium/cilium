@@ -21,7 +21,7 @@ Every endpoint in Cilium is in one of the following states:
 * ``waiting-to-regenerate``: The endpoint received an identity and is
   waiting for its networking configuration to be (re)generated.
 * ``regenerating``: The endpoint's networking configuration is being
-  (re)generated. This includes programming BPF for that endpoint.
+  (re)generated. This includes programming eBPF for that endpoint.
 * ``ready``: The endpoint's networking configuration has been
   successfully (re)generated.
 * ``disconnecting``: The endpoint is being deleted.

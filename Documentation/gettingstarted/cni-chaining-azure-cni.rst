@@ -11,7 +11,7 @@ Azure CNI
 This guide explains how to set up Cilium in combination with Azure CNI. In this
 hybrid mode, the Azure CNI plugin is responsible for setting up the virtual
 network devices as well as address allocation (IPAM). After the initial
-networking is setup, the Cilium CNI plugin is called to attach BPF programs to
+networking is setup, the Cilium CNI plugin is called to attach eBPF programs to
 the network devices set up by Azure CNI to enforce network policies, perform
 load-balancing, and encryption.
 

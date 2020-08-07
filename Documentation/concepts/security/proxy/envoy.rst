@@ -27,7 +27,7 @@ take full advantage of Cilium features including high-performance redirection to
 rich L7-aware policy language
 and access logging, and visibility into encrypted traffic traffic via kTLS (coming soon!).  
 In sum, you as the developer need only worry about the logic of parsing the protocol, 
-and Cilium + Envoy + BPF do the heavy-lifting.  
+and Cilium + Envoy + eBPF do the heavy-lifting.  
 
 This guide uses simple examples based on a hypothetical "r2d2" protocol 
 (see `proxylib/r2d2/r2d2parser.go <https://github.com/cilium/cilium/blob/master/proxylib/r2d2/r2d2parser.go>`_) 

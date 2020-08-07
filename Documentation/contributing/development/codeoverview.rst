@@ -21,7 +21,7 @@ api
   The Cilium & Hubble API definition.
 
 bpf
-  The BPF datapath code
+  The eBPF datapath code
 
 bugtool
   CLI for collecting agent & system information for bug reporting
@@ -68,7 +68,7 @@ api/v1/models/
   Go code generated from openapi.yaml representing all API resources
 
 bpf
-  The BPF datapath code
+  The eBPF datapath code
 
 cilium
   Cilium CLI client
@@ -135,7 +135,7 @@ pkg/allocator
   Security identity allocation
 
 pkg/bpf
-  Abstraction layer to interact with the BPF runtime
+  Abstraction layer to interact with the eBPF runtime
 
 pkg/client
   Go client to access Cilium API
@@ -154,7 +154,7 @@ pkg/default
   All default values
 
 pkg/elf
-  ELF abstraction library for the BPF loader
+  ELF abstraction library for the eBPF loader
 
 pkg/endpoint
   Abstraction of a Cilium endpoint, representing all workloads.
@@ -197,13 +197,13 @@ pkg/loadbalancer
   Control plane for load-balancing functionality
 
 pkg/maps
-  BPF map representations
+  eBPF map representations
 
 pkg/metrics
   Prometheus metrics implementation
 
 pkg/monitor
-  BPF datapath monitoring abstraction
+  eBPF datapath monitoring abstraction
 
 pkg/node
   Representation of a network node
