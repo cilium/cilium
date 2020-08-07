@@ -199,6 +199,9 @@ const (
 	// K8sServiceCacheSize is service cache size for cilium k8s package.
 	K8sServiceCacheSize = "k8s-service-cache-size"
 
+	// K8sSyncTimeout is the timeout to synchronize all resources with k8s.
+	K8sSyncTimeoutName = "k8s-sync-timeout"
+
 	// K8sWatcherQueueSize is the queue size used to serialize each k8s event type
 	K8sWatcherQueueSize = "k8s-watcher-queue-size"
 
@@ -1014,6 +1017,7 @@ type DaemonConfig struct {
 	IPv6ServiceRange              string
 	K8sAPIServer                  string
 	K8sKubeConfigPath             string
+	K8sSyncTimeout                time.Duration
 	K8sWatcherEndpointSelector    string
 	KVStore                       string
 	KVStoreOpt                    map[string]string
@@ -1635,6 +1639,7 @@ func (c *DaemonConfig) Populate() {
 	c.K8sServiceCacheSize = uint(viper.GetInt(K8sServiceCacheSize))
 	c.K8sForceJSONPatch = viper.GetBool(K8sForceJSONPatch)
 	c.K8sEventHandover = viper.GetBool(K8sEventHandover)
+	c.K8sSyncTimeout = viper.GetDuration(K8sSyncTimeoutName)
 	c.K8sWatcherQueueSize = uint(viper.GetInt(K8sWatcherQueueSize))
 	c.K8sWatcherEndpointSelector = viper.GetString(K8sWatcherEndpointSelector)
 	c.KeepTemplates = viper.GetBool(KeepBPFTemplates)
