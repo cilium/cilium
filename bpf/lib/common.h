@@ -11,6 +11,7 @@
 #include <linux/ipv6.h>
 #include <linux/in.h>
 
+#include "endian.h"
 #include "mono.h"
 
 /* FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
