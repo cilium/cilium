@@ -73,17 +73,16 @@ func (c *observerClient) ServerStatus(ctx context.Context, in *ServerStatusReque
 }
 
 // ObserverServer is the server API for Observer service.
-// All implementations must embed UnimplementedObserverServer
+// All implementations should embed UnimplementedObserverServer
 // for forward compatibility
 type ObserverServer interface {
 	// GetFlows returning structured data, meant to eventually obsolete GetLastNFlows.
 	GetFlows(*GetFlowsRequest, Observer_GetFlowsServer) error
 	// ServerStatus returns some details about the running hubble server.
 	ServerStatus(context.Context, *ServerStatusRequest) (*ServerStatusResponse, error)
-	mustEmbedUnimplementedObserverServer()
 }
 
-// UnimplementedObserverServer must be embedded to have forward compatible implementations.
+// UnimplementedObserverServer should be embedded to have forward compatible implementations.
 type UnimplementedObserverServer struct {
 }
 
@@ -93,7 +92,6 @@ func (*UnimplementedObserverServer) GetFlows(*GetFlowsRequest, Observer_GetFlows
 func (*UnimplementedObserverServer) ServerStatus(context.Context, *ServerStatusRequest) (*ServerStatusResponse, error) {
 	return nil, status.Errorf(codes.Unimplemented, "method ServerStatus not implemented")
 }
-func (*UnimplementedObserverServer) mustEmbedUnimplementedObserverServer() {}
 
 func RegisterObserverServer(s *grpc.Server, srv ObserverServer) {
 	s.RegisterService(&_Observer_serviceDesc, srv)
