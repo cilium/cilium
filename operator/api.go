@@ -104,10 +104,17 @@ func healthHandler(w http.ResponseWriter, r *http.Request) {
 // k8s apiserver and returns an error if any of them is unhealthy
 func checkStatus() error {
 	if kvstoreEnabled() {
-		if client := kvstore.Client(); client == nil {
-			return fmt.Errorf("kvstore client not configured")
-		} else if _, err := client.Status(); err != nil {
-			return err
+		// We check if we are the leader here because only the leader has
+		// access to the kvstore client. Otherwise, the kvstore client check
+		// will block. It is safe for a non-leader to skip this check, as the
+		// it is the leader's responsibility to report the status of the
+		// kvstore client.
+		if leader, ok := isLeader.Load().(bool); ok && leader {
+			if client := kvstore.Client(); client == nil {
+				return fmt.Errorf("kvstore client not configured")
+			} else if _, err := client.Status(); err != nil {
+				return err
+			}
 		}
 	}
 
