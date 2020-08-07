@@ -370,7 +370,13 @@ func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loa
 	zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetRevNat(revNATID)
-	zeroValue.SetFlags(loadbalancer.CreateSvcFlag(svcLocal, sessionAffinity, !fe.IsSurrogate(), svcType).UInt8())
+	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
+		SvcType:         svcType,
+		SvcLocal:        svcLocal,
+		SessionAffinity: sessionAffinity,
+		IsRoutable:      !fe.IsSurrogate(),
+	})
+	zeroValue.SetFlags(flag.UInt8())
 	if sessionAffinity {
 		zeroValue.SetSessionAffinityTimeoutSec(sessionAffinityTimeoutSec)
 	}
