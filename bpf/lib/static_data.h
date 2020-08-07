@@ -7,6 +7,8 @@
 #include <bpf/ctx/ctx.h>
 #include <bpf/api.h>
 
+#include "endian.h"
+
 /* fetch_* macros assist in fetching variously sized static data */
 #define fetch_u32(x) __fetch(x)
 #define fetch_u32_i(x, i) __fetch(x ## _ ## i)

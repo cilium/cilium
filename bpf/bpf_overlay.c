@@ -10,7 +10,6 @@
 #define IS_BPF_OVERLAY 1
 
 #include "lib/tailcall.h"
-#include "lib/utils.h"
 #include "lib/common.h"
 #include "lib/maps.h"
 #include "lib/ipv6.h"
