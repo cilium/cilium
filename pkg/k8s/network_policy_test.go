@@ -223,7 +223,7 @@ func (s *K8sSuite) TestParseNetworkPolicyMultipleSelectors(c *C) {
 	// Rule with multiple selectors in egress and ingress
 	ex1 := []byte(`{
 "kind":"NetworkPolicy",
-"apiVersion":"extensions/slim_networkingv1",
+"apiVersion":"extensions/networkingv1",
 "metadata":{
   "name":"ingress-multiple-selectors"
 },
@@ -363,7 +363,7 @@ func (s *K8sSuite) TestParseNetworkPolicyNoSelectors(c *C) {
 	// Ingress with neither pod nor namespace selector set.
 	ex1 := []byte(`{
 "kind": "NetworkPolicy",
-"apiVersion": "extensions/slim_networkingv1",
+"apiVersion": "extensions/networkingv1",
 "metadata": {
   "name": "ingress-cidr-test",
   "namespace": "myns",
@@ -855,7 +855,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// in the same namespace `myns`
 	ex1 = []byte(`{
   "kind": "NetworkPolicy",
-  "apiVersion": "extensions/slim_networkingv1",
+  "apiVersion": "extensions/networkingv1",
   "metadata": {
     "name": "allow-frontend",
     "namespace": "myns"
@@ -990,7 +990,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// Example 2b: Allow from any source in Bob's namespaces.
 	ex2 = []byte(`{
   "kind": "NetworkPolicy",
-  "apiVersion": "extensions/slim_networkingv1",
+  "apiVersion": "extensions/networkingv1",
   "metadata": {
     "name": "allow-tcp-443"
   },
@@ -1196,7 +1196,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 	// policies to see if the rules are additive for the same podSelector.
 	ex4 = []byte(`{
   "kind": "NetworkPolicy",
-  "apiVersion": "extensions/slim_networkingv1",
+  "apiVersion": "extensions/networkingv1",
   "metadata": {
     "name": "allow-tcp-8080"
   },
@@ -1485,7 +1485,7 @@ func (s *K8sSuite) TestNetworkPolicyExamples(c *C) {
 func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {
 	ex1 := []byte(`{
   "kind": "NetworkPolicy",
-  "apiVersion": "extensions/slim_networkingv1",
+  "apiVersion": "extensions/networkingv1",
   "metadata": {
     "name": "ingress-cidr-test",
     "namespace": "myns"
@@ -1534,7 +1534,7 @@ func (s *K8sSuite) TestCIDRPolicyExamples(c *C) {
 
 	ex2 := []byte(`{
   "kind": "NetworkPolicy",
-  "apiVersion": "extensions/slim_networkingv1",
+  "apiVersion": "extensions/networkingv1",
   "metadata": {
     "name": "ingress-cidr-test",
     "namespace": "myns"
