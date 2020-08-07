@@ -26,7 +26,7 @@ $(HUBBLE_GO_TARGETS): $(HUBBLE_PROTO_SOURCES) Makefile deps
 	for proto in $(HUBBLE_PROTO_SOURCES) ; do \
 		$(PROTOC) $(HUBBLE_PROTOC_PLUGINS) -I $(HUBBLE_PROTO_PATH) $(PROTO_DEPS) \
 			--go_out=paths=source_relative:. \
-			--go-grpc_out=paths=source_relative:. \
+			--go-grpc_out=requireUnimplementedServers=false,paths=source_relative:. \
 			--go-json_out=orig_name:. \
 			--validate_out=lang=go,paths=source_relative:. \
 			$${proto}; \
