@@ -485,6 +485,10 @@ func init() {
 		option.KVStoreOpt, "Key-value store options")
 	option.BindEnv(option.KVStoreOpt)
 
+	flags.Duration(option.K8sSyncTimeoutName, defaults.K8sSyncTimeout, "Timeout for synchronizing k8s resources before exiting")
+	flags.MarkHidden(option.K8sSyncTimeoutName)
+	option.BindEnv(option.K8sSyncTimeoutName)
+
 	flags.Uint(option.K8sWatcherQueueSize, 1024, "Queue size used to serialize each k8s event type")
 	option.BindEnv(option.K8sWatcherQueueSize)
 
