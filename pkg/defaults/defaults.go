@@ -234,6 +234,10 @@ const (
 	// invoked only for endpoints which are selected by policy changes.
 	SelectiveRegeneration = true
 
+	// K8sSyncTimeout specifies the standard time to allow for synchronizing
+	// local caches with Kubernetes state before exiting.
+	K8sSyncTimeout = 3 * time.Minute
+
 	// K8sWatcherEndpointSelector specifies the k8s endpoints that Cilium
 	// should watch for.
 	K8sWatcherEndpointSelector = "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager"
