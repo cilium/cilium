@@ -58,7 +58,6 @@ const (
 	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
 	k8sAPIGroupCiliumNodeV2                     = "cilium/v2::CiliumNode"
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
-	cacheSyncTimeout                            = 3 * time.Minute
 	K8sAPIGroupEndpointSliceV1Beta1Discovery    = "discovery/v1beta1::EndpointSlice"
 
 	metricCNP            = "CiliumNetworkPolicy"
@@ -404,7 +403,7 @@ func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
 		select {
 		case <-cachesSynced:
 			log.Info("All pre-existing resources related to policy have been received; continuing")
-		case <-time.After(cacheSyncTimeout):
+		case <-time.After(option.Config.K8sSyncTimeout):
 			log.Fatalf("Timed out waiting for pre-existing resources related to policy to be received; exiting")
 		}
 	}()
