@@ -983,7 +983,9 @@ int to_host(struct __ctx_buff *ctx)
 		__be16 port = magic >> 16;
 
 		ctx_store_meta(ctx, 0, CB_PROXY_MAGIC);
-		ctx_redirect_to_proxy_first(ctx, port);
+		ret = ctx_redirect_to_proxy_first(ctx, port);
+		if (IS_ERR(ret))
+			goto out;
 		/* We already traced this in the previous prog with more
 		 * background context, skip trace here.
 		 */
@@ -1022,14 +1024,14 @@ int to_host(struct __ctx_buff *ctx)
 		ret = DROP_UNKNOWN_L3;
 		break;
 	}
+#else
+	ret = CTX_ACT_OK;
+#endif /* ENABLE_HOST_FIREWALL */
 
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, srcID, ret, CTX_ACT_DROP,
 					      METRIC_INGRESS);
-#else
-	ret = CTX_ACT_OK;
-#endif /* ENABLE_HOST_FIREWALL */
 
 	return ret;
 }
