@@ -68,9 +68,6 @@ type GRPCServer interface {
 // that's meant to be run embedded inside the Cilium process. It ignores all
 // the state change events since the state is available locally.
 type LocalObserverServer struct {
-	// the following struct must be embedded for forward compatibility
-	observerpb.UnimplementedObserverServer
-
 	// ring buffer that contains the references of all flows
 	ring *container.Ring
 
