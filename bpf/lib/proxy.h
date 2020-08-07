@@ -240,17 +240,103 @@ ctx_redirect_to_proxy6(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 }
 #endif /* ENABLE_IPV6 */
 
+#ifdef ENABLE_TPROXY
+#define IP_TUPLE_EXTRACT_FN(NAME, PREFIX)				\
+/**									\
+ * extract_tuple4 / extract_tuple6					\
+ *									\
+ * Extracts the packet 5-tuple into 'tuple'.				\
+ *									\
+ * Note that it doesn't fully initialize 'tuple' as the directionality	\
+ * bit is unused in the proxy paths.					\
+ */									\
+static __always_inline int						\
+NAME(struct __ctx_buff *ctx, struct PREFIX ## _ct_tuple *tuple)		\
+{									\
+	int err, l4_off;						\
+									\
+	err = PREFIX ## _extract_tuple(ctx, tuple, &l4_off);		\
+	if (err != CTX_ACT_OK)						\
+		return err;						\
+									\
+	if (ctx_load_bytes(ctx, l4_off, &tuple->dport, 4) < 0)		\
+		return DROP_CT_INVALID_HDR;				\
+									\
+	__ ## PREFIX ## _ct_tuple_reverse(tuple);			\
+									\
+	return CTX_ACT_OK;						\
+}
+
+#ifdef ENABLE_IPV4
+IP_TUPLE_EXTRACT_FN(extract_tuple4, ipv4)
+#endif /* ENABLE_IPV4 */
+#ifdef ENABLE_IPV6
+IP_TUPLE_EXTRACT_FN(extract_tuple6, ipv6)
+#endif /* ENABLE_IPV6 */
+#endif /* ENABLE_TPROXY */
+
 /**
  * ctx_redirect_to_proxy_first() applies changes to the context to forward
  * the packet towards the proxy. It is designed to run as the first function
  * that accesses the context from the current BPF program.
  */
-static __always_inline void
+static __always_inline int
 ctx_redirect_to_proxy_first(struct __ctx_buff *ctx, __be16 proxy_port)
 {
+	int ret = CTX_ACT_OK;
+#if defined(ENABLE_TPROXY)
+	__u16 proto;
+
+	/**
+	 * For reply traffic to egress proxy for a local endpoint, we skip the
+	 * policy & proxy_port lookup and just hairpin & rely on local stack
+	 * routing via ctx->mark to ensure that the return traffic reaches the
+	 * proxy. This is only relevant for endpoint-routes mode but we don't
+	 * have a macro for this so the logic applies unconditionally here.
+	 * See ct_state.proxy_redirect usage in bpf_lxc.c for more info.
+	 */
+	if (!proxy_port)
+		goto mark;
+
+	if (!validate_ethertype(ctx, &proto))
+		return DROP_UNSUPPORTED_L2;
+
+	ret = DROP_UNKNOWN_L3;
+	switch (proto) {
+#ifdef ENABLE_IPV6
+	case bpf_htons(ETH_P_IPV6): {
+		struct ipv6_ct_tuple tuple;
+
+		ret = extract_tuple6(ctx, &tuple);
+		if (ret < 0)
+			return ret;
+		ret = ctx_redirect_to_proxy_ingress6(ctx, &tuple, proxy_port);
+		break;
+	}
+#endif /* ENABLE_IPV6 */
+#ifdef ENABLE_IPV4
+	case bpf_htons(ETH_P_IP): {
+		struct ipv4_ct_tuple tuple;
+
+		ret = extract_tuple4(ctx, &tuple);
+		if (ret < 0)
+			return ret;
+		ret = ctx_redirect_to_proxy_ingress4(ctx, &tuple, proxy_port);
+		break;
+	}
+#endif /* ENABLE_IPV4 */
+	default:
+		goto out;
+	}
+#endif /* ENABLE_TPROXY */
+
+mark: __maybe_unused
 	cilium_dbg(ctx, DBG_CAPTURE_PROXY_POST, proxy_port, 0);
 	ctx->mark = MARK_MAGIC_TO_PROXY | (proxy_port << 16);
 	ctx_change_type(ctx, PACKET_HOST);
+
+out: __maybe_unused
+	return ret;
 }
 
 /**
