@@ -225,9 +225,9 @@ func TestL3n4AddrID_Equals(t *testing.T) {
 	}
 }
 
-func TestCreateSvcFlag(t *testing.T) {
+func TestNewSvcFlag(t *testing.T) {
 	type args struct {
-		svcTypes    []SVCType
+		svcType     SVCType
 		svcLocal    bool
 		svcRoutable bool
 	}
@@ -238,7 +238,7 @@ func TestCreateSvcFlag(t *testing.T) {
 	}{
 		{
 			args: args{
-				svcTypes:    []SVCType{SVCTypeClusterIP},
+				svcType:     SVCTypeClusterIP,
 				svcLocal:    false,
 				svcRoutable: true,
 			},
@@ -246,7 +246,7 @@ func TestCreateSvcFlag(t *testing.T) {
 		},
 		{
 			args: args{
-				svcTypes:    []SVCType{SVCTypeNodePort},
+				svcType:     SVCTypeNodePort,
 				svcLocal:    false,
 				svcRoutable: true,
 			},
@@ -254,7 +254,7 @@ func TestCreateSvcFlag(t *testing.T) {
 		},
 		{
 			args: args{
-				svcTypes:    []SVCType{SVCTypeExternalIPs},
+				svcType:     SVCTypeExternalIPs,
 				svcLocal:    false,
 				svcRoutable: true,
 			},
@@ -262,7 +262,7 @@ func TestCreateSvcFlag(t *testing.T) {
 		},
 		{
 			args: args{
-				svcTypes:    []SVCType{SVCTypeClusterIP},
+				svcType:     SVCTypeClusterIP,
 				svcLocal:    true,
 				svcRoutable: true,
 			},
@@ -270,7 +270,7 @@ func TestCreateSvcFlag(t *testing.T) {
 		},
 		{
 			args: args{
-				svcTypes:    []SVCType{SVCTypeNodePort},
+				svcType:     SVCTypeNodePort,
 				svcLocal:    true,
 				svcRoutable: true,
 			},
@@ -278,7 +278,7 @@ func TestCreateSvcFlag(t *testing.T) {
 		},
 		{
 			args: args{
-				svcTypes:    []SVCType{SVCTypeExternalIPs},
+				svcType:     SVCTypeExternalIPs,
 				svcLocal:    true,
 				svcRoutable: true,
 			},
@@ -286,7 +286,7 @@ func TestCreateSvcFlag(t *testing.T) {
 		},
 		{
 			args: args{
-				svcTypes:    []SVCType{SVCTypeExternalIPs},
+				svcType:     SVCTypeExternalIPs,
 				svcLocal:    true,
 				svcRoutable: false,
 			},
@@ -295,93 +295,14 @@ func TestCreateSvcFlag(t *testing.T) {
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			if got := CreateSvcFlag(tt.args.svcLocal, false, tt.args.svcRoutable, tt.args.svcTypes...); got != tt.want {
-				t.Errorf("CreateSvcFlag() = %v, want %v", got, tt.want)
+			p := &SvcFlagParam{
+				SvcLocal:        tt.args.svcLocal,
+				SessionAffinity: false,
+				IsRoutable:      tt.args.svcRoutable,
+				SvcType:         tt.args.svcType,
 			}
-		})
-	}
-}
-
-func TestServiceFlags_IsSvcType(t *testing.T) {
-	type args struct {
-		svcType     SVCType
-		svcLocal    bool
-		svcRoutable bool
-	}
-	tests := []struct {
-		name string
-		s    ServiceFlags
-		args args
-		want bool
-	}{
-		{
-			args: args{
-				svcType:     SVCTypeExternalIPs,
-				svcLocal:    false,
-				svcRoutable: true,
-			},
-			s:    serviceFlagExternalIPs | serviceFlagRoutable,
-			want: true,
-		},
-		{
-			args: args{
-				svcType:     SVCTypeNodePort,
-				svcLocal:    false,
-				svcRoutable: true,
-			},
-			s:    serviceFlagExternalIPs | serviceFlagRoutable,
-			want: false,
-		},
-		{
-			args: args{
-				svcType:     SVCTypeExternalIPs,
-				svcLocal:    true,
-				svcRoutable: true,
-			},
-			s:    serviceFlagExternalIPs | serviceFlagLocalScope | serviceFlagRoutable,
-			want: true,
-		},
-		{
-			args: args{
-				svcType:     SVCTypeNodePort,
-				svcLocal:    true,
-				svcRoutable: true,
-			},
-			s:    serviceFlagExternalIPs | serviceFlagLocalScope | serviceFlagRoutable,
-			want: false,
-		},
-		{
-			args: args{
-				svcType:     SVCTypeLoadBalancer,
-				svcLocal:    false,
-				svcRoutable: true,
-			},
-			s:    serviceFlagLoadBalancer | serviceFlagRoutable,
-			want: true,
-		},
-		{
-			args: args{
-				svcType:     SVCTypeLoadBalancer,
-				svcLocal:    false,
-				svcRoutable: false,
-			},
-			s:    serviceFlagLoadBalancer,
-			want: true,
-		},
-		{
-			args: args{
-				svcType:     SVCTypeLoadBalancer,
-				svcLocal:    false,
-				svcRoutable: false,
-			},
-			s:    serviceFlagLoadBalancer | serviceFlagRoutable,
-			want: false,
-		},
-	}
-	for _, tt := range tests {
-		t.Run(tt.name, func(t *testing.T) {
-			if got := tt.s.IsSvcType(tt.args.svcLocal, false, tt.args.svcRoutable, tt.args.svcType); got != tt.want {
-				t.Errorf("IsSvcType() = %v, want %v", got, tt.want)
+			if got := NewSvcFlag(p); got != tt.want {
+				t.Errorf("NewSvcFlag() = %v, want %v", got, tt.want)
 			}
 		})
 	}
