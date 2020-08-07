@@ -80,7 +80,7 @@ jobs:
           path: src/github.com/cilium/cilium
       - name: Install protobuf dependencies
         env:
-          PROTOBUF_VERSION: 3.12.3
+          PROTOBUF_VERSION: 3.12.4
         run: |
           curl -Lo protoc-$PROTOBUF_VERSION-linux-x86_64.zip https://github.com/protocolbuffers/protobuf/releases/download/v$PROTOBUF_VERSION/protoc-$PROTOBUF_VERSION-linux-x86_64.zip
           unzip protoc-$PROTOBUF_VERSION-linux-x86_64.zip
