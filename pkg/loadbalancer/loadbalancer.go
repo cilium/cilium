@@ -22,12 +22,6 @@ import (
 	"strings"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/logging"
-	"github.com/cilium/cilium/pkg/logging/logfields"
-)
-
-var (
-	log = logging.DefaultLogger.WithField(logfields.LogSubsys, "loadbalancer")
 )
 
 // SVCType is a type of a service.
@@ -52,7 +46,7 @@ const (
 )
 
 // ServiceFlags is the datapath representation of the service flags that can be
-// used.
+// used (lb{4,6}_service.flags)
 type ServiceFlags uint8
 
 const (
@@ -64,39 +58,46 @@ const (
 	serviceFlagSessionAffinity = 16
 	serviceFlagLoadBalancer    = 32
 	serviceFlagRoutable        = 64
+	serviceFlagSourceRange     = 128
 )
 
-// CreateSvcFlag returns the ServiceFlags for all given SVCTypes.
-func CreateSvcFlag(svcLocal, sessionAffinity, isRoutable bool, svcTypes ...SVCType) ServiceFlags {
+type SvcFlagParam struct {
+	SvcType          SVCType
+	SvcLocal         bool
+	SessionAffinity  bool
+	IsRoutable       bool
+	CheckSourceRange bool
+}
+
+// NewSvcFlag creates service flag
+func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 	var flags ServiceFlags
-	for _, svcType := range svcTypes {
-		switch svcType {
-		case SVCTypeExternalIPs:
-			flags |= serviceFlagExternalIPs
-		case SVCTypeNodePort:
-			flags |= serviceFlagNodePort
-		case SVCTypeLoadBalancer:
-			flags |= serviceFlagLoadBalancer
-		case SVCTypeHostPort:
-			flags |= serviceFlagHostPort
-		}
+
+	switch p.SvcType {
+	case SVCTypeExternalIPs:
+		flags |= serviceFlagExternalIPs
+	case SVCTypeNodePort:
+		flags |= serviceFlagNodePort
+	case SVCTypeLoadBalancer:
+		flags |= serviceFlagLoadBalancer
+	case SVCTypeHostPort:
+		flags |= serviceFlagHostPort
 	}
-	if svcLocal {
+
+	if p.SvcLocal {
 		flags |= serviceFlagLocalScope
 	}
-	if sessionAffinity {
+	if p.SessionAffinity {
 		flags |= serviceFlagSessionAffinity
 	}
-	if isRoutable {
+	if p.IsRoutable {
 		flags |= serviceFlagRoutable
+	}
+	if p.CheckSourceRange {
+		flags |= serviceFlagSourceRange
 	}
 
 	return flags
-}
-
-// IsSvcType returns true if the serviceFlags is the given SVCType.
-func (s ServiceFlags) IsSvcType(svcLocal, sessionAffinity, isRoutable bool, svcType SVCType) bool {
-	return s != 0 && (s&CreateSvcFlag(svcLocal, sessionAffinity, isRoutable, svcType) == s)
 }
 
 // SVCType returns a service type from the flags
@@ -127,28 +128,23 @@ func (s ServiceFlags) SVCTrafficPolicy() SVCTrafficPolicy {
 
 // String returns the string implementation of ServiceFlags.
 func (s ServiceFlags) String() string {
-	var strTypes []string
-	typeSet := false
-	sType := s & (serviceFlagExternalIPs | serviceFlagHostPort | serviceFlagNodePort | serviceFlagLoadBalancer)
-	for _, svcType := range []SVCType{SVCTypeExternalIPs, SVCTypeHostPort, SVCTypeNodePort, SVCTypeLoadBalancer} {
-		if sType.IsSvcType(false, false, false, svcType) {
-			strTypes = append(strTypes, string(svcType))
-			typeSet = true
-		}
-	}
-	if !typeSet {
-		strTypes = append(strTypes, string(SVCTypeClusterIP))
-	}
+	var str []string
+
+	str = append(str, string(s.SVCType()))
 	if s&serviceFlagLocalScope != 0 {
-		strTypes = append(strTypes, string(SVCTrafficPolicyLocal))
+		str = append(str, string(SVCTrafficPolicyLocal))
 	}
 	if s&serviceFlagSessionAffinity != 0 {
-		strTypes = append(strTypes, "sessionAffinity")
+		str = append(str, "sessionAffinity")
 	}
 	if s&serviceFlagRoutable == 0 {
-		strTypes = append(strTypes, "non-routable")
+		str = append(str, "non-routable")
 	}
-	return strings.Join(strTypes, ", ")
+	if s&serviceFlagSourceRange != 0 {
+		str = append(str, "check source range")
+	}
+
+	return strings.Join(str, ", ")
 }
 
 // UInt8 returns the UInt8 representation of the ServiceFlags.
@@ -317,7 +313,6 @@ func NewL3n4Addr(protocol L4Type, ip net.IP, portNumber uint16, scope uint8) *L3
 	lbport := NewL4Addr(protocol, portNumber)
 
 	addr := L3n4Addr{IP: ip, L4Addr: *lbport, Scope: scope}
-	log.WithField(logfields.IPAddr, addr).Debug("created new L3n4Addr")
 
 	return &addr
 }
@@ -366,7 +361,6 @@ func NewBackend(id BackendID, protocol L4Type, ip net.IP, portNumber uint16) *Ba
 		ID:       BackendID(id),
 		L3n4Addr: L3n4Addr{IP: ip, L4Addr: *lbport},
 	}
-	log.WithField("backend", b).Debug("created new LBBackend")
 
 	return &b
 }
