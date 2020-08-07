@@ -71,5 +71,5 @@ Deploy Cilium release via Helm:
      --set global.tunnel=disabled \\
      --set global.masquerade=false
 
-This will create both the main cilium daemonset, as well as the cilium-node-init daemonset, which handles tasks like mounting the BPF filesystem and updating the
+This will create both the main cilium daemonset, as well as the cilium-node-init daemonset, which handles tasks like mounting the eBPF filesystem and updating the
 existing Azure CNI plugin to run in 'transparent' mode.

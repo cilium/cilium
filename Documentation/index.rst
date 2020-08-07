@@ -29,7 +29,7 @@ The documentation is divided into the following sections:
 * :ref:`admin_guide` : Describes how to troubleshoot Cilium in different
   deployment modes.
 
-* :ref:`bpf_guide` : Provides a technical deep dive of BPF and XDP technology,
+* :ref:`bpf_guide` : Provides a technical deep dive of eBPF and XDP technology,
   primarily focused at developers.
 
 * :ref:`api_ref` : Details the Cilium agent API for interacting with a local

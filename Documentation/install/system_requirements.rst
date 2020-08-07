@@ -25,7 +25,7 @@ When running Cilium as a native process on your host (i.e. **not** running the
 ``cilium/cilium`` container image) these additional requirements must be met:
 
 - `clang+LLVM`_ >= 10.0
-- iproute2_ with BPF templating patches [#iproute2_foot]_
+- iproute2_ with eBPF templating patches [#iproute2_foot]_
 
 .. _`clang+LLVM`: https://llvm.org
 .. _iproute2: https://www.kernel.org/pub/linux/utils/net/iproute2/
@@ -45,7 +45,7 @@ clang+LLVM               >= 10.0                    yes
 iproute2                 >= 5.0.0 [#iproute2_foot]_ yes
 ======================== ========================== ===================
 
-.. [#iproute2_foot] Requires support for BPF templating as documented
+.. [#iproute2_foot] Requires support for eBPF templating as documented
    :ref:`below <iproute2_requirements>`.
 
 Linux Distribution Compatibility Matrix
@@ -94,13 +94,13 @@ RancherOS_                 >= 1.5.5
 Linux Kernel
 ============
 
-Cilium leverages and builds on the kernel BPF functionality as well as various
-subsystems which integrate with BPF. Therefore, host systems are required to
+Cilium leverages and builds on the kernel eBPF functionality as well as various
+subsystems which integrate with eBPF. Therefore, host systems are required to
 run Linux kernel version 4.9.17 or later to run a Cilium agent. More recent
-kernels may provide additional BPF functionality that Cilium will automatically
+kernels may provide additional eBPF functionality that Cilium will automatically
 detect and use on agent start.
 
-In order for the BPF feature to be enabled properly, the following kernel
+In order for the eBPF feature to be enabled properly, the following kernel
 configuration options must be enabled. This is typically the case  with
 distribution kernels. When an option can be built as a module or statically
 linked, either choice is valid.
@@ -197,10 +197,10 @@ clang+LLVM
           If you are using the Cilium container image ``cilium/cilium``,
           clang+LLVM is included in the container image.
 
-LLVM is the compiler suite that Cilium uses to generate BPF bytecode programs
+LLVM is the compiler suite that Cilium uses to generate eBPF bytecode programs
 to be loaded into the Linux kernel. The minimum supported version of LLVM
 available to ``cilium-agent`` should be >=5.0. The version of clang installed
-must be compiled with the BPF backend enabled.
+must be compiled with the eBPF backend enabled.
 
 See https://releases.llvm.org/ for information on how to download and install
 LLVM.
@@ -216,9 +216,9 @@ iproute2
 
 iproute2_ is a low level tool used to configure various networking related
 subsystems of the Linux kernel. Cilium uses iproute2 to configure networking
-and ``tc``, which is part of iproute2, to load BPF programs into the kernel.
+and ``tc``, which is part of iproute2, to load eBPF programs into the kernel.
 
-The version of iproute2 must include the BPF templating patches. See the
+The version of iproute2 must include the eBPF templating patches. See the
 links in the table below for documentation on how to install the correct
 version of iproute2 for your distribution.
 
@@ -311,9 +311,9 @@ Privileges
 The following privileges are required to run Cilium. When running the standard
 Kubernetes `DaemonSet`, the privileges are automatically granted to Cilium.
 
-* Cilium interacts with the Linux kernel to install BPF program which will then
+* Cilium interacts with the Linux kernel to install eBPF program which will then
   perform networking tasks and implement security rules. In order to install
-  BPF programs system-wide, ``CAP_SYS_ADMIN`` privileges are required. These
+  eBPF programs system-wide, ``CAP_SYS_ADMIN`` privileges are required. These
   privileges must be granted to ``cilium-agent``.
 
   The quickest way to meet the requirement is to run ``cilium-agent`` as root

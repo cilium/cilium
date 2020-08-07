@@ -17,25 +17,25 @@ In the `ConfigMap` there are several options that can be configured according
 to your preferences:
 
 * ``debug`` - Sets to run Cilium in full debug mode, which enables verbose
-  logging and configures BPF programs to emit more visibility events into the
+  logging and configures eBPF programs to emit more visibility events into the
   output of ``cilium monitor``.
 
 * ``enable-ipv4`` - Enable IPv4 addressing support
 
 * ``enable-ipv6`` - Enable IPv6 addressing support
 
-* ``clean-cilium-bpf-state`` - Removes all BPF state from the filesystem on
+* ``clean-cilium-bpf-state`` - Removes all eBPF state from the filesystem on
   startup. Endpoints will be restored with the same IP addresses, but ongoing
   connections may be briefly disrupted and loadbalancing decisions will be
-  lost, so active connections via the loadbalancer will break. All BPF state
+  lost, so active connections via the loadbalancer will break. All eBPF state
   will be reconstructed from their original sources (for example, from
   kubernetes or the kvstore). This may be used to mitigate serious issues
-  regarding BPF maps. This option should be turned off again after restarting
+  regarding eBPF maps. This option should be turned off again after restarting
   the daemon.
 
 * ``clean-cilium-state`` - Removes **all** Cilium state, including unrecoverable
   information such as all endpoint state, as well as recoverable state such as
-  BPF state pinned to the filesystem, CNI configuration files, library code,
+  eBPF state pinned to the filesystem, CNI configuration files, library code,
   links, routes, and other information. **This operation is irreversible**.
   Existing endpoints currently managed by Cilium may continue to operate as
   before, but Cilium will no longer manage them and they may stop working
