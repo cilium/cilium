@@ -295,11 +295,13 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	}
 
 	identity.IterateReservedIdentities(func(_ string, _ identity.NumericIdentity) {
+		metrics.Identity.Inc()
 		metrics.IdentityCount.Inc()
 	})
 	if option.Config.EnableWellKnownIdentities {
 		// Must be done before calling policy.NewPolicyRepository() below.
 		num := identity.InitWellKnownIdentities(option.Config)
+		metrics.Identity.Add(float64(num))
 		metrics.IdentityCount.Add(float64(num))
 	}
 

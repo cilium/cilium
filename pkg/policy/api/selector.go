@@ -185,6 +185,7 @@ func labelSelectorToRequirements(labelSelector *slim_metav1.LabelSelector) *k8sL
 	selector, err := slim_metav1.LabelSelectorAsSelector(labelSelector)
 	if err != nil {
 		metrics.PolicyImportErrors.Inc()
+		metrics.PolicyImportErrorsTotal.Inc()
 		log.WithError(err).WithField(logfields.EndpointLabelSelector,
 			logfields.Repr(labelSelector)).Error("unable to construct selector in label selector")
 		return nil
