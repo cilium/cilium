@@ -5,7 +5,6 @@ metadata:
   annotations:
     controller-gen.kubebuilder.io/version: v0.2.4
     helm.sh/hook: crd-install
-  creationTimestamp: null
   name: servicemonitors.monitoring.coreos.com
 spec:
   group: monitoring.coreos.com

@@ -38,7 +38,7 @@ func NewPrometheusMetrics(namespace, subsystem string, registry *prometheus.Regi
 		Subsystem: subsystem,
 		Name:      "api_duration_seconds",
 		Help:      "Duration of interactions with API",
-	}, []string{"operation", "responseCode"})
+	}, []string{"operation", "responseCode", "response_code"}) //TODO(sayboras): Remove deprecated tag responseCode in 1.10
 
 	m.RateLimit = prometheus.NewHistogramVec(prometheus.HistogramOpts{
 		Namespace: namespace,
@@ -56,7 +56,8 @@ func NewPrometheusMetrics(namespace, subsystem string, registry *prometheus.Regi
 // ObserveAPICall must be called on every API call made with the operation
 // performed, the status code received and the duration of the call
 func (p *PrometheusMetrics) ObserveAPICall(operation, status string, duration float64) {
-	p.ApiDuration.WithLabelValues(operation, status).Observe(duration)
+	//TODO(sayboras): Remove deprecated tag responseCode in 1.10
+	p.ApiDuration.WithLabelValues(operation, status, status).Observe(duration)
 }
 
 // ObserveRateLimit must be called in case an API call was subject to rate limiting

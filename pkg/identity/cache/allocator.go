@@ -308,6 +308,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 	defer func() {
 		if err == nil {
 			if allocated || isNewLocally {
+				metrics.Identity.Inc()
 				metrics.IdentityCount.Inc()
 			}
 
@@ -377,6 +378,7 @@ func (m *CachingIdentityAllocator) AllocateIdentity(ctx context.Context, lbls la
 func (m *CachingIdentityAllocator) Release(ctx context.Context, id *identity.Identity) (released bool, err error) {
 	defer func() {
 		if released {
+			metrics.Identity.Dec()
 			metrics.IdentityCount.Dec()
 		}
 	}()

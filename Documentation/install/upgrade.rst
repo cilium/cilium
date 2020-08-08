@@ -336,8 +336,30 @@ The following metrics have been renamed:
 New Metrics
 ~~~~~~~~~~~
 
+  * ``cilium_endpoint_regenerations_total`` counts of all endpoint regenerations that have completed, tagged by outcome.
+  * ``cilium_k8s_client_api_calls_total`` is number of API calls made to kube-apiserver labeled by host, method and return code.
   * ``cilium_kvstore_quorum_errors_total`` counts the number of kvstore quorum
     loss errors. The label ``error`` indicates the type of error.
+
+Deprecated Metrics/Labels
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  * ``cilium_endpoint_regenerations`` is deprecated and will be removed in 1.10. Please use ``cilium_endpoint_regenerations_total`` instead.
+  * ``cilium_k8s_client_api_calls_counter``is deprecated and will be removed in 1.10. Please use ``cilium_k8s_client_api_calls_total`` instead.
+  * ``cilium_identity_count`` is deprecated and will be removed in 1.10. Please use ``cilium_identity`` instead.
+  * ``cilium_policy_count`` is deprecated and will be removed in 1.10. Please use ``cilium_policy`` instead.
+  * ``cilium_policy_import_errors`` is deprecated and will be removed in 1.10. Please use ``cilium_policy_import_errors_total`` instead.
+  * Label ``mapName`` in ``cilium_bpf_map_ops_total`` is deprecated and will be removed in 1.10. Please use label ``map_name`` instead.
+  * Label ``eventType`` in ``cilium_nodes_all_events_received_total`` is deprecated and will be removed in 1.10. Please use
+    label ``event_type`` instead.
+  * Label ``responseCode`` in ``*api_duration_seconds`` is deprecated and will be removed in 1.10. Please use
+    label ``response_code`` instead.
+  * Label ``subnetId`` in ``cilium_operator_ipam_allocation_ops`` is deprecated and will be removed in 1.10. Please use
+    label ``subnet_id`` instead.
+  * Label ``subnetId`` in ``cilium_operator_ipam_release_ops`` is deprecated and will be removed in 1.10. Please use
+    label ``subnet_id`` instead.
+  * Label ``subnetId`` and ``availabilityZone`` in ``cilium_operator_ipam_available_ips_per_subnet`` are deprecated and will be removed in 1.10. Please use
+    label ``subnet_id`` and ``availability_zone`` instead.
 
 Removed options
 ~~~~~~~~~~~~~~~

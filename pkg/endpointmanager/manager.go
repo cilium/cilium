@@ -150,18 +150,29 @@ func (mgr *EndpointManager) InitMetrics() {
 	if option.Config.DryMode {
 		return
 	}
-	metricsOnce.Do(func() { // EndpointCount is a function used to collect this metric. We cannot
-		// increment/decrement a gauge since we invoke Remove gratuitiously and that
+	metricsOnce.Do(func() { // Endpoint is a function used to collect this metric. We cannot
+		// increment/decrement a gauge since we invoke Remove gratuitously and that
 		// would result in negative counts.
 		// It must be thread-safe.
+
+		//TODO(sayboras): Remove deprecated metric in 1.10
 		metrics.EndpointCount = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
 			Namespace: metrics.Namespace,
 			Name:      "endpoint_count",
-			Help:      "Number of endpoints managed by this agent",
+			Help:      "Number of endpoints managed by this agent (deprecated, use endpoint instead)",
 		},
 			func() float64 { return float64(len(mgr.GetEndpoints())) },
 		)
 		metrics.MustRegister(metrics.EndpointCount)
+
+		metrics.Endpoint = prometheus.NewGaugeFunc(prometheus.GaugeOpts{
+			Namespace: metrics.Namespace,
+			Name:      "endpoint",
+			Help:      "Number of endpoints managed by this agent",
+		},
+			func() float64 { return float64(len(mgr.GetEndpoints())) },
+		)
+		metrics.MustRegister(metrics.Endpoint)
 	})
 }
 
