@@ -193,7 +193,7 @@ func updateMetric(getCounter func() (prometheus.Counter, error), newValue float6
 
 	oldValue := metrics.GetCounterValue(counter)
 	if newValue > oldValue {
-		counter.Add((newValue - oldValue))
+		counter.Add(newValue - oldValue)
 	}
 }
 

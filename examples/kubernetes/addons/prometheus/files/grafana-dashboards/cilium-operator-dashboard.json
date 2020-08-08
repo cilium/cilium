@@ -425,7 +425,7 @@
           "expr": "rate(cilium_operator_eni_aws_api_duration_seconds_sum[1m])/rate(cilium_operator_eni_aws_api_duration_seconds_count[1m])",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{operation}} {{responseCode}}",
+          "legendFormat": "{{operation}} {{response_code}}",
           "refId": "A"
         }
       ],

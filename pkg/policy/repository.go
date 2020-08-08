@@ -345,8 +345,8 @@ func (p *Repository) AddListLocked(rules api.Rules) (ruleSlice, uint64) {
 
 	p.rules = append(p.rules, newList...)
 	p.BumpRevision()
+	metrics.Policy.Add(float64(len(newList)))
 	metrics.PolicyCount.Add(float64(len(newList)))
-
 	return newList, p.GetRevision()
 }
 
@@ -448,6 +448,7 @@ func (p *Repository) DeleteByLabelsLocked(lbls labels.LabelArray) (ruleSlice, ui
 	if deleted > 0 {
 		p.BumpRevision()
 		p.rules = new
+		metrics.Policy.Sub(float64(deleted))
 		metrics.PolicyCount.Sub(float64(deleted))
 	}
 

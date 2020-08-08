@@ -161,8 +161,7 @@ jobs:
           kubectl -n kube-system exec $cilium_pod -- sh -c "apt update && apt install curl -y"
           kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9090/metrics > metrics.prom
           go get -u github.com/prometheus/prometheus/cmd/promtool
-          cat metrics.prom
-          cat metrics.prom | egrep -v "${{ env.DEPRECATED_METRICS }}" | $HOME/go/bin/promtool check metrics
+          egrep -v "${{ env.DEPRECATED_METRICS }}" metrics.prom | $HOME/go/bin/promtool check metrics
 
       - name: Dump cilium related logs and events
         if: ${{ failure() }}
