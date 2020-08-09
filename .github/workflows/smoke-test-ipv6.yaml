@@ -21,6 +21,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Precheck generated connectivity manifest files
+        run: |
+          make -C examples/kubernetes/connectivity-check all
+          git diff --exit-code
+
       - name: Enable IPv6 in docker
         run: |
           # Keep existing cgroup-parent in github action
@@ -52,12 +57,7 @@ jobs:
           helm upgrade -i cilium ./install/kubernetes/cilium \
             --namespace kube-system \
             --set global.nodeinit.enabled=true \
-            --set global.kubeProxyReplacement=partial \
-            --set global.hostServices.enabled=false \
-            --set global.externalIPs.enabled=true \
-            --set global.nodePort.enabled=true \
-            --set global.hostPort.enabled=true \
-            --set config.bpfMasquerade=false \
+            --set global.kubeProxyReplacement=strict \
             --set config.ipam=kubernetes \
             --set global.ipv6.enabled=true \
             --set global.ipv4.enabled=false \

@@ -105,6 +105,11 @@ jobs:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Precheck generated connectivity manifest files
+        run: |
+          make -C examples/kubernetes/connectivity-check all
+          git diff --exit-code
+
       - name: Build docker images
         run: |
           make docker-image-no-clean
