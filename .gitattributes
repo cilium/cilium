@@ -1,2 +1,2 @@
 go.sum linguist-generated
-examples/kubernetes/connectivity-check/connectivity-check*.yaml linguist-generated
+examples/kubernetes/connectivity-check/connectivity-*.yaml linguist-generated

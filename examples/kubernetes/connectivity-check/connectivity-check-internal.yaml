@@ -6,7 +6,7 @@ metadata:
     name: echo-a
     topology: any
     component: network-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -57,7 +57,7 @@ metadata:
     name: echo-b
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -109,7 +109,7 @@ metadata:
     name: echo-b-host
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -172,7 +172,7 @@ metadata:
     name: pod-to-a
     topology: any
     component: network-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -226,7 +226,7 @@ metadata:
     name: pod-to-a-denied-cnp
     topology: any
     component: policy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -272,7 +272,7 @@ metadata:
     name: pod-to-a-allowed-cnp
     topology: any
     component: policy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -326,7 +326,7 @@ metadata:
     name: pod-to-b-multi-node-clusterip
     topology: multi-node
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -390,7 +390,7 @@ metadata:
     name: pod-to-b-multi-node-headless
     topology: multi-node
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -454,7 +454,7 @@ metadata:
     name: host-to-b-multi-node-clusterip
     topology: multi-node
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -519,7 +519,7 @@ metadata:
     name: host-to-b-multi-node-headless
     topology: multi-node
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -579,12 +579,140 @@ apiVersion: apps/v1
 kind: Deployment
 ---
 metadata:
+  name: pod-to-b-multi-node-nodeport
+  labels:
+    name: pod-to-b-multi-node-nodeport
+    topology: multi-node
+    component: nodeport-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-multi-node-nodeport
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-b-multi-node-nodeport-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:31313/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:31313/public
+      affinity:
+        podAntiAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-b-multi-node-nodeport
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: pod-to-b-intra-node-nodeport
+  labels:
+    name: pod-to-b-intra-node-nodeport
+    topology: intra-node
+    component: nodeport-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: pod-to-b-intra-node-nodeport
+    spec:
+      hostNetwork: false
+      containers:
+      - name: pod-to-b-intra-node-nodeport-container
+        ports: []
+        image: docker.io/byrnedo/alpine-curl:0.1.8
+        imagePullPolicy: IfNotPresent
+        command:
+        - /bin/ash
+        - -c
+        - sleep 1000000000
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:31313/public
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - echo-b-host-headless:31313/public
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-b
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: pod-to-b-intra-node-nodeport
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
   name: echo-a
   labels:
     name: echo-a
     topology: any
     component: network-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -602,7 +730,7 @@ metadata:
     name: echo-b
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -621,7 +749,7 @@ metadata:
     name: echo-b-headless
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -640,7 +768,7 @@ metadata:
     name: echo-b-host-headless
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -658,7 +786,7 @@ metadata:
     name: pod-to-a-denied-cnp
     topology: any
     component: policy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -691,7 +819,7 @@ metadata:
     name: pod-to-a-allowed-cnp
     topology: any
     component: policy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
