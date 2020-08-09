@@ -6,7 +6,7 @@ metadata:
     name: query-dns-policy
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: tool
 spec:
@@ -47,7 +47,7 @@ metadata:
     name: query-dns-policy
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: tool
 spec:

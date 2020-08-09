@@ -6,7 +6,7 @@ metadata:
     name: echo-a
     topology: any
     component: network-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -57,7 +57,7 @@ metadata:
     name: echo-b
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -109,7 +109,7 @@ metadata:
     name: echo-b-host
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -172,7 +172,7 @@ metadata:
     name: echo-c
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -224,7 +224,7 @@ metadata:
     name: echo-c-host
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -287,7 +287,7 @@ metadata:
     name: pod-to-a
     topology: any
     component: network-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -395,7 +395,7 @@ metadata:
     name: pod-to-a-denied-cnp
     topology: any
     component: policy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -441,7 +441,7 @@ metadata:
     name: pod-to-a-allowed-cnp
     topology: any
     component: policy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -549,7 +549,7 @@ metadata:
     name: pod-to-a-intra-node-proxy-egress-policy
     topology: intra-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -628,7 +628,7 @@ metadata:
     name: pod-to-a-multi-node-proxy-egress-policy
     topology: multi-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -707,7 +707,7 @@ metadata:
     name: pod-to-c-intra-node-proxy-ingress-policy
     topology: intra-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -786,7 +786,7 @@ metadata:
     name: pod-to-c-multi-node-proxy-ingress-policy
     topology: multi-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -865,7 +865,7 @@ metadata:
     name: pod-to-c-intra-node-proxy-to-proxy-policy
     topology: intra-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -944,7 +944,7 @@ metadata:
     name: pod-to-c-multi-node-proxy-to-proxy-policy
     topology: multi-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1023,7 +1023,7 @@ metadata:
     name: pod-to-b-multi-node-clusterip
     topology: multi-node
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1087,7 +1087,7 @@ metadata:
     name: pod-to-b-multi-node-headless
     topology: multi-node
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1151,7 +1151,7 @@ metadata:
     name: host-to-b-multi-node-clusterip
     topology: multi-node
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1216,7 +1216,7 @@ metadata:
     name: host-to-b-multi-node-headless
     topology: multi-node
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1281,7 +1281,7 @@ metadata:
     name: pod-to-b-multi-node-hostport
     topology: multi-node
     component: hostport-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1345,7 +1345,7 @@ metadata:
     name: pod-to-b-intra-node-hostport
     topology: intra-node
     component: hostport-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1409,6 +1409,7 @@ metadata:
     name: pod-to-b-multi-node-nodeport
     topology: multi-node
     component: nodeport-check
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1472,6 +1473,7 @@ metadata:
     name: pod-to-b-intra-node-nodeport
     topology: intra-node
     component: nodeport-check
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1535,7 +1537,7 @@ metadata:
     name: echo-a
     topology: any
     component: network-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1553,7 +1555,7 @@ metadata:
     name: echo-b
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1572,7 +1574,7 @@ metadata:
     name: echo-c
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1590,7 +1592,7 @@ metadata:
     name: echo-b-headless
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1609,7 +1611,7 @@ metadata:
     name: echo-b-host-headless
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1627,7 +1629,7 @@ metadata:
     name: echo-c-headless
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1646,7 +1648,7 @@ metadata:
     name: echo-c-host-headless
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1664,7 +1666,7 @@ metadata:
     name: pod-to-a-denied-cnp
     topology: any
     component: policy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1697,7 +1699,7 @@ metadata:
     name: pod-to-a-allowed-cnp
     topology: any
     component: policy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1778,7 +1780,7 @@ metadata:
     name: pod-to-a-intra-node-proxy-egress-policy
     topology: intra-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1822,7 +1824,7 @@ metadata:
     name: pod-to-a-multi-node-proxy-egress-policy
     topology: multi-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1866,7 +1868,7 @@ metadata:
     name: pod-to-c-intra-node-proxy-to-proxy-policy
     topology: intra-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1910,7 +1912,7 @@ metadata:
     name: pod-to-c-multi-node-proxy-to-proxy-policy
     topology: multi-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1954,7 +1956,7 @@ metadata:
     name: echo-c
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
