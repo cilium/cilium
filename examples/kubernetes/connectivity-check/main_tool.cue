@@ -78,7 +78,7 @@ ccCommand: {
 
 	task: filterTraffic: {
 		if #flags.traffic != "any" {
-			resources: [ for x in task.filterName.resources if x.metadata.labels.traffic == #flags.traffic || x.metadata.labels.traffic == "any" {x}]
+			resources: [ for x in task.filterName.resources if x.metadata.labels.traffic == #flags.traffic {x}]
 		}
 		if #flags.traffic == "any" {
 			resources: task.filterName.resources
