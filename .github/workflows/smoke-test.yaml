@@ -9,6 +9,8 @@ env:
   KIND_VERSION: v0.8.1
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
+  TIMEOUT: 2m
+  LOG_TIME: 30m
 
 jobs:
   preflight-clusterrole:
@@ -60,7 +62,7 @@ jobs:
       - name: Run ${{ matrix.target.name }}
         run: |
           kubectl apply -f ${{ matrix.target.template }}
-          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
+          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.TIMEOUT }}
           # To make sure that cilium CRD is available (default timeout is 5m)
           # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
           kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
@@ -68,36 +70,30 @@ jobs:
       - name: Run conformance test (e.g. connectivity check)
         run: |
           kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
-          kubectl wait --for=condition=Available --all deployment --timeout=5m
+          kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
 
       - name: Dump cilium related logs and events
         if: ${{ failure() }}
-        env:
-          LOG_TIME: 30m
         run: |
           kubectl -n kube-system describe daemonsets.apps cilium
-          kubectl -n kube-system logs daemonset/cilium --all-containers --since=$LOG_TIME
+          kubectl -n kube-system logs daemonset/cilium --all-containers --since=${{ env.LOG_TIME }}
 
       - name: Dump connectivity related logs and events
         if: ${{ failure() }}
-        env:
-          LOG_TIME: 30m
         run: |
           kubectl get pods -o wide
           kubectl get deploy -o wide
-          for svc in $(make -C examples/kubernetes/connectivity-check/ list | grep Service | awk '{ print $4 }'); do kubectl describe service $svc; kubectl logs service/$svc --all-containers --since=$LOG_TIME; done
+          for svc in $(make -C examples/kubernetes/connectivity-check/ list | grep Service | awk '{ print $4 }'); do kubectl describe service $svc; kubectl logs service/$svc --all-containers --since=${{ env.LOG_TIME }}; done
 
       - name: Dump hubble related logs and events
         if: ${{ failure() &&  matrix.target.name == 'experimental-install' }}
-        env:
-          LOG_TIME: 30m
         run: |
           kubectl -n kube-system describe service hubble-metrics
-          kubectl -n kube-system logs service/hubble-metrics --all-containers --since=$LOG_TIME
+          kubectl -n kube-system logs service/hubble-metrics --all-containers --since=${{ env.LOG_TIME }}
           kubectl -n kube-system describe service hubble-relay
-          kubectl -n kube-system logs service/hubble-relay --all-containers --since=$LOG_TIME
+          kubectl -n kube-system logs service/hubble-relay --all-containers --since=${{ env.LOG_TIME }}
           kubectl -n kube-system describe service hubble-ui
-          kubectl -n kube-system logs service/hubble-ui --all-containers --since=$LOG_TIME
+          kubectl -n kube-system logs service/hubble-ui --all-containers --since=${{ env.LOG_TIME }}
 
   conformance-test:
     runs-on: ubuntu-latest
@@ -149,21 +145,17 @@ jobs:
       - name: Run conformance test (e.g. connectivity check)
         run: |
           kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
-          kubectl wait --for=condition=Available --all deployment --timeout=5m
+          kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
 
       - name: Dump cilium related logs and events
         if: ${{ failure() }}
-        env:
-          LOG_TIME: 30m
         run: |
           kubectl -n kube-system describe daemonsets.apps cilium
-          kubectl -n kube-system logs daemonset/cilium --all-containers --since=$LOG_TIME
+          kubectl -n kube-system logs daemonset/cilium --all-containers --since=${{ env.LOG_TIME }}
 
       - name: Dump connectivity related logs and events
         if: ${{ failure() }}
-        env:
-          LOG_TIME: 30m
         run: |
           kubectl get pods -o wide
           kubectl get deploy -o wide
-          for svc in $(make -C examples/kubernetes/connectivity-check/ list | grep Service | awk '{ print $4 }'); do kubectl describe service $svc; kubectl logs service/$svc --all-containers --since=$LOG_TIME; done
+          for svc in $(make -C examples/kubernetes/connectivity-check/ list | grep Service | awk '{ print $4 }'); do kubectl describe service $svc; kubectl logs service/$svc --all-containers --since=${{ env.LOG_TIME }}; done
