@@ -98,14 +98,20 @@ func (w *walker) walkPath(path string, info os.FileInfo, err error) error {
 	return err
 }
 
-func createArchive(dbgDir string) (string, error) {
+func createArchive(dbgDir string, sendArchiveToStdout bool) (string, error) {
 	// Based on http://blog.ralch.com/tutorial/golang-working-with-tar-and-gzip/
-	archivePath := fmt.Sprintf("%s.tar", dbgDir)
-	file, err := os.Create(archivePath)
-	if err != nil {
-		return "", err
+	file := os.Stdout
+	archivePath := "STDOUT"
+
+	if !sendArchiveToStdout {
+		archivePath = fmt.Sprintf("%s.tar", dbgDir)
+		var err error
+		file, err = os.Create(archivePath)
+		if err != nil {
+			return "", err
+		}
+		defer file.Close()
 	}
-	defer file.Close()
 
 	writer := tar.NewWriter(file)
 	defer writer.Close()
@@ -122,9 +128,9 @@ func createArchive(dbgDir string) (string, error) {
 	return archivePath, filepath.Walk(dbgDir, walker.walkPath)
 }
 
-func createGzip(dbgDir string) (string, error) {
+func createGzip(dbgDir string, sendArchiveToStdout bool) (string, error) {
 	// Based on http://blog.ralch.com/tutorial/golang-working-with-tar-and-gzip/
-	source, err := createArchive(dbgDir)
+	source, err := createArchive(dbgDir, false)
 	if err != nil {
 		return "", err
 	}
@@ -134,13 +140,19 @@ func createGzip(dbgDir string) (string, error) {
 		return "", err
 	}
 
-	filename := filepath.Base(source)
-	target := fmt.Sprintf("%s.gz", source)
-	writer, err := os.Create(target)
-	if err != nil {
-		return "", err
+	writer := os.Stdout
+	filename := "STDOUT"
+	target := filename
+
+	if !sendArchiveToStdout {
+		filename = filepath.Base(source)
+		target = fmt.Sprintf("%s.gz", source)
+		writer, err = os.Create(target)
+		if err != nil {
+			return "", err
+		}
+		defer writer.Close()
 	}
-	defer writer.Close()
 
 	archiver := gzip.NewWriter(writer)
 	archiver.Name = filename
