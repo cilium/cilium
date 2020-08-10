@@ -61,6 +61,7 @@ If you are going to register a issue on GitHub, please
 only provide files from the archive you have reviewed
 for sensitive information.
 `
+	defaultDumpPath = "/tmp"
 )
 
 var (
@@ -89,7 +90,7 @@ func init() {
 	BugtoolRootCmd.Flags().StringVarP(&archiveType, "archiveType", "o", "tar", "Archive type: tar | gz")
 	BugtoolRootCmd.Flags().BoolVar(&k8s, "k8s-mode", false, "Require Kubernetes pods to be found or fail")
 	BugtoolRootCmd.Flags().BoolVar(&dryRunMode, "dry-run", false, "Create configuration file of all commands that would have been executed")
-	BugtoolRootCmd.Flags().StringVarP(&dumpPath, "tmp", "t", "/tmp", "Path to store extracted files")
+	BugtoolRootCmd.Flags().StringVarP(&dumpPath, "tmp", "t", defaultDumpPath, "Path to store extracted files. Use '-' to send to stdout.")
 	BugtoolRootCmd.Flags().StringVarP(&host, "host", "H", "", "URI to server-side API")
 	BugtoolRootCmd.Flags().StringVarP(&k8sNamespace, "k8s-namespace", "", "kube-system", "Kubernetes namespace for Cilium pod")
 	BugtoolRootCmd.Flags().StringVarP(&k8sLabel, "k8s-label", "", "k8s-app=cilium", "Kubernetes label for Cilium pod")
@@ -119,7 +120,7 @@ func getVerifyCiliumPods() (k8sPods []string) {
 	if os.Getuid() != 0 && !k8s && len(k8sPods) == 0 {
 		// When the k8s flag is not set and the user is not root,
 		// debuginfo and BPF related commands can fail.
-		fmt.Printf("Warning, some of the BPF commands might fail when run as not root\n")
+		fmt.Fprintf(os.Stderr, "Warning, some of the BPF commands might fail when run as not root\n")
 	}
 
 	return k8sPods
@@ -144,7 +145,7 @@ func removeIfEmpty(dir string) {
 		}
 	}
 
-	fmt.Printf("Deleted empty directory %s\n", dir)
+	fmt.Fprintf(os.Stderr, "Deleted empty directory %s\n", dir)
 }
 
 func isValidArchiveType(archiveType string) bool {
@@ -172,6 +173,11 @@ func runTool() {
 	} else {
 		prefix = fmt.Sprintf("cilium-bugtool-%s-", nowStr)
 	}
+	sendArchiveToStdout := false
+	if dumpPath == "-" {
+		sendArchiveToStdout = true
+		dumpPath = defaultDumpPath
+	}
 	dbgDir, err := ioutil.TempDir(dumpPath, prefix)
 	if err != nil {
 		fmt.Fprintf(os.Stderr, "Failed to create debug directory %s\n", err)
@@ -186,7 +192,7 @@ func runTool() {
 	var commands []string
 	if dryRunMode {
 		dryRun(configPath, k8sPods, confDir, cmdDir)
-		fmt.Printf("Configuration file at %s\n", configPath)
+		fmt.Fprintf(os.Stderr, "Configuration file at %s\n", configPath)
 		return
 	}
 
@@ -217,22 +223,22 @@ func runTool() {
 	if archive {
 		switch archiveType {
 		case "gz":
-			gzipPath, err := createGzip(dbgDir)
+			gzipPath, err := createGzip(dbgDir, sendArchiveToStdout)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to create gzip %s\n", err)
 				os.Exit(1)
 			}
-			fmt.Printf("\nGZIP at %s\n", gzipPath)
+			fmt.Fprintf(os.Stderr, "\nGZIP at %s\n", gzipPath)
 		case "tar":
-			archivePath, err := createArchive(dbgDir)
+			archivePath, err := createArchive(dbgDir, sendArchiveToStdout)
 			if err != nil {
 				fmt.Fprintf(os.Stderr, "Failed to create archive %s\n", err)
 				os.Exit(1)
 			}
-			fmt.Printf("\nARCHIVE at %s\n", archivePath)
+			fmt.Fprintf(os.Stderr, "\nARCHIVE at %s\n", archivePath)
 		}
 	} else {
-		fmt.Printf("\nDIRECTORY at %s\n", dbgDir)
+		fmt.Fprintf(os.Stderr, "\nDIRECTORY at %s\n", dbgDir)
 	}
 }
 
@@ -241,13 +247,13 @@ func runTool() {
 func dryRun(configPath string, k8sPods []string, confDir, cmdDir string) {
 	_, err := setupDefaultConfig(configPath, k8sPods, confDir, cmdDir)
 	if err != nil {
-		fmt.Printf("Error: %s", err)
+		fmt.Fprintf(os.Stderr, "Error: %s", err)
 		os.Exit(1)
 	}
 }
 
 func printDisclaimer() {
-	fmt.Print(disclaimer)
+	fmt.Fprint(os.Stderr, disclaimer)
 }
 
 func cleanup(dbgDir string) {
