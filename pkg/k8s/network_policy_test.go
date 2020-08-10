@@ -107,7 +107,7 @@ func testNewPolicyRepository() *policy.Repository {
 	return repo
 }
 
-func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
 func (s *K8sSuite) TestParseNetworkPolicyIngress(c *C) {

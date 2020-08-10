@@ -106,7 +106,7 @@ type CachedSelectionUser interface {
 	//
 	// The caller is responsible for making sure the same identity is not
 	// present in both 'added' and 'deleted'.
-	IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity)
+	IdentitySelectionUpdated(selector CachedSelector, added, deleted []identity.NumericIdentity)
 }
 
 // identitySelector is the internal interface for all selectors in the
@@ -378,7 +378,7 @@ type fqdnSelector struct {
 func (f *fqdnSelector) notifyUsers(added, deleted []identity.NumericIdentity) {
 	for user := range f.users {
 		// pass 'f' to the user as '*fqdnSelector'
-		user.IdentitySelectionUpdated(f, f.GetSelections(), added, deleted)
+		user.IdentitySelectionUpdated(f, added, deleted)
 	}
 }
 
@@ -437,7 +437,7 @@ type labelIdentitySelector struct {
 func (l *labelIdentitySelector) notifyUsers(added, deleted []identity.NumericIdentity) {
 	for user := range l.users {
 		// pass 'l' to the user as '*labelIdentitySelector'
-		user.IdentitySelectionUpdated(l, l.GetSelections(), added, deleted)
+		user.IdentitySelectionUpdated(l, added, deleted)
 	}
 }
 
