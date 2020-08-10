@@ -20,7 +20,6 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
-	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 )
 
@@ -41,14 +40,12 @@ func (m *proxyUpdaterMock) GetProxyInfoByFields() (uint64, string, string, []str
 func (m *proxyUpdaterMock) UnconditionalRLock() { m.RWMutex.RLock() }
 func (m *proxyUpdaterMock) RUnlock()            { m.RWMutex.RUnlock() }
 
-func (m *proxyUpdaterMock) GetID() uint64                               { return m.id }
-func (m *proxyUpdaterMock) GetIPv4Address() string                      { return m.ipv4 }
-func (m *proxyUpdaterMock) GetIPv6Address() string                      { return m.ipv6 }
-func (m *proxyUpdaterMock) GetLabels() []string                         { return m.labels }
-func (m *proxyUpdaterMock) GetIdentityLocked() identity.NumericIdentity { return m.identity }
-func (m *proxyUpdaterMock) ProxyID(npMap policy.NamedPortsMap, l4 *policy.L4Filter) (string, error) {
-	return "", nil
-}
+func (m *proxyUpdaterMock) GetID() uint64                                 { return m.id }
+func (m *proxyUpdaterMock) GetIPv4Address() string                        { return m.ipv4 }
+func (m *proxyUpdaterMock) GetIPv6Address() string                        { return m.ipv6 }
+func (m *proxyUpdaterMock) GetLabels() []string                           { return m.labels }
+func (m *proxyUpdaterMock) GetIdentityLocked() identity.NumericIdentity   { return m.identity }
+func (m *proxyUpdaterMock) GetNamedPortLocked(bool, string, uint8) uint16 { return 0 }
 func (m *proxyUpdaterMock) GetLabelsSHA() string {
 	return labels.NewLabelsFromModel(m.labels).SHA256Sum()
 }
