@@ -25,6 +25,8 @@ import (
 	"syscall"
 	"unsafe"
 
+	"github.com/cilium/cilium/pkg/option"
+
 	"golang.org/x/net/ipv4"
 	"golang.org/x/net/ipv6"
 	"golang.org/x/sys/unix"
@@ -102,7 +104,7 @@ func listenConfig(mark int, ipv4, ipv6 bool) *net.ListenConfig {
 				if opErr == nil {
 					opErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEADDR, 1)
 				}
-				if opErr == nil {
+				if opErr == nil && !option.Config.EnableBPFTProxy {
 					opErr = unix.SetsockoptInt(int(fd), unix.SOL_SOCKET, unix.SO_REUSEPORT, 1)
 				}
 			})
