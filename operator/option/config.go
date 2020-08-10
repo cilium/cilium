@@ -129,7 +129,7 @@ const (
 	ParallelAllocWorkers = "parallel-alloc-workers"
 
 	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2
-	// API to fill out the instnacetype to adapter limit mapping.
+	// API to fill out the instancetype to adapter limit mapping.
 	UpdateEC2AdapterLimitViaAPI = "update-ec2-apdater-limit-via-api"
 
 	// Azure options
@@ -256,7 +256,8 @@ type OperatorConfig struct {
 	// the number of API calls to AWS EC2 service.
 	AWSReleaseExcessIPs bool
 
-	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
+	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the
+	// instancetype to adapter limit mapping.
 	UpdateEC2AdapterLimitViaAPI bool
 
 	// Azure options
