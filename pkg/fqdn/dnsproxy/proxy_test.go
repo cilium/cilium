@@ -136,7 +136,7 @@ func serveDNS(w dns.ResponseWriter, r *dns.Msg) {
 
 type DummySelectorCacheUser struct{}
 
-func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector policy.CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
 // Setup identities, ports and endpoint IDs we will need
