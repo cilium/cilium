@@ -127,6 +127,7 @@ func (d *Daemon) launchHubble() {
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(d.hubbleObserver),
 		serveroption.WithPeerService(peer.NewService(d.nodeDiscovery.Manager)),
+		serveroption.WithInsecure(),
 	)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize local Hubble server")
@@ -151,6 +152,7 @@ func (d *Daemon) launchHubble() {
 			serveroption.WithTCPListener(address),
 			serveroption.WithHealthService(),
 			serveroption.WithObserverService(d.hubbleObserver),
+			serveroption.WithInsecure(), // TODO: remove and configure transport credentials
 		)
 		if err != nil {
 			logger.WithError(err).Error("Failed to initialize Hubble server")
