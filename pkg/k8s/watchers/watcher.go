@@ -24,6 +24,7 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/endpoint"
@@ -724,12 +725,20 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 		}
 	}
 
+	lbSrcRanges := make([]*cidr.CIDR, 0, len(svc.LoadBalancerSourceRanges))
+	for _, cidr := range svc.LoadBalancerSourceRanges {
+		lbSrcRanges = append(lbSrcRanges, cidr)
+	}
+
 	// apply common service properties
 	for i := range svcs {
 		svcs[i].TrafficPolicy = svc.TrafficPolicy
 		svcs[i].HealthCheckNodePort = svc.HealthCheckNodePort
 		svcs[i].SessionAffinity = svc.SessionAffinity
 		svcs[i].SessionAffinityTimeoutSec = svc.SessionAffinityTimeoutSec
+		if svcs[i].Type == loadbalancer.SVCTypeLoadBalancer {
+			svcs[i].LoadBalancerSourceRanges = lbSrcRanges
+		}
 	}
 
 	return svcs
@@ -795,6 +804,7 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 			SessionAffinity:           dpSvc.SessionAffinity,
 			SessionAffinityTimeoutSec: dpSvc.SessionAffinityTimeoutSec,
 			HealthCheckNodePort:       dpSvc.HealthCheckNodePort,
+			LoadBalancerSourceRanges:  dpSvc.LoadBalancerSourceRanges,
 			Name:                      svcID.Name,
 			Namespace:                 svcID.Namespace,
 		}
