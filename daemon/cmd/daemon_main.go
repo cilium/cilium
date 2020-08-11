@@ -60,6 +60,7 @@ import (
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
@@ -711,7 +712,7 @@ func init() {
 	flags.Int(option.NeighMapEntriesGlobalName, option.NATMapEntriesGlobalDefault, "Maximum number of entries for the global BPF neighbor table")
 	option.BindEnv(option.NeighMapEntriesGlobalName)
 
-	flags.Int(option.PolicyMapEntriesName, defaults.PolicyMapEntries, "Maximum number of entries in endpoint policy map (per endpoint)")
+	flags.Int(option.PolicyMapEntriesName, policymap.MaxEntries, "Maximum number of entries in endpoint policy map (per endpoint)")
 	option.BindEnv(option.PolicyMapEntriesName)
 
 	flags.Int(option.SockRevNatEntriesName, option.SockRevNATMapEntriesDefault, "Maximum number of entries for the SockRevNAT BPF map")
@@ -814,6 +815,9 @@ func init() {
 
 	flags.Int(option.FragmentsMapEntriesName, defaults.FragmentsMapEntries, "Maximum number of entries in fragments tracking map")
 	option.BindEnv(option.FragmentsMapEntriesName)
+
+	flags.Int(option.LBMapEntriesName, lbmap.MaxEntries, "Maximum number of entries in Cilium BPF lbmap")
+	option.BindEnv(option.LBMapEntriesName)
 
 	viper.BindPFlags(flags)
 

@@ -22,7 +22,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
-	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
 )
@@ -50,9 +49,11 @@ const (
 
 var (
 	// MaxEntries is the upper limit of entries in the per endpoint policy
-	// table. It is set by InitMapInfo(), but unit tests use the initial
-	// value below.
-	MaxEntries = defaults.PolicyMapEntries
+	// table ie the maximum number of peer identities that the endpoint could
+	// send/receive traffic to/from.. It is set by InitMapInfo(), but unit
+	// tests use the initial value below.
+	// The default value of this upper limit is 16384.
+	MaxEntries = 16384
 )
 
 type PolicyMap struct {
