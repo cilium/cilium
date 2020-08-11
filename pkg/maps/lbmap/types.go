@@ -80,10 +80,10 @@ type ServiceValue interface {
 	GetRevNat() int
 
 	// Set flags
-	SetFlags(uint8)
+	SetFlags(uint16)
 
 	// Get flags
-	GetFlags() uint8
+	GetFlags() uint16
 
 	// Set timeout for sessionAffinity=clientIP
 	SetSessionAffinityTimeoutSec(t uint32)

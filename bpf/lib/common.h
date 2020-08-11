@@ -555,6 +555,7 @@ enum {
 	SVC_FLAG_LOADBALANCER = (1 << 5),  /* LoadBalancer service */
 	SVC_FLAG_ROUTABLE     = (1 << 6),  /* Not a surrogate/ClusterIP entry */
 	SVC_FLAG_SOURCE_RANGE = (1 << 7),  /* Check LoadBalancer source range */
+	SVC_FLAG_LOCALREDIRECT = (1 << 8),  /* local redirect */
 };
 
 struct ipv6_ct_tuple {
@@ -641,7 +642,8 @@ struct lb6_service {
 	__u16 count;
 	__u16 rev_nat_index;
 	__u8 flags;
-	__u8 pad[3];
+	__u8 flags2;
+	__u8 pad[2];
 };
 
 /* See lb4_backend comments */
@@ -690,7 +692,8 @@ struct lb4_service {
 	__u16 count;
 	__u16 rev_nat_index;	/* Reverse NAT ID in lb4_reverse_nat */
 	__u8 flags;
-	__u8 pad[3];
+	__u8 flags2;
+	__u8  pad[2];
 };
 
 struct lb4_backend {

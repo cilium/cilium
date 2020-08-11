@@ -3755,6 +3755,8 @@ func (kub *Kubectl) CiliumServiceAdd(pod string, id int64, frontend string, back
 		opts = append(opts, "--k8s-node-port")
 	case "externalip":
 		opts = append(opts, "--k8s-external")
+	case "localredirect":
+		opts = append(opts, "--local-redirect")
 	case "clusterip":
 		// this is the default
 	default:

@@ -102,8 +102,13 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 	}
 }
 
+// requireNodeLocalBackends returns if the frontend service traffic policy
+// is lb.SVCTrafficPolicyLocal and whether only local backends need to be filtered for the
+// given frontend.
 func (svc *svcInfo) requireNodeLocalBackends(frontend lb.L3n4AddrID) (bool, bool) {
 	switch svc.svcType {
+	case lb.SVCTypeLocalRedirect:
+		return false, true
 	case lb.SVCTypeNodePort, lb.SVCTypeLoadBalancer, lb.SVCTypeExternalIPs:
 		if svc.svcTrafficPolicy == lb.SVCTrafficPolicyLocal {
 			return true, frontend.Scope == lb.ScopeExternal
@@ -251,15 +256,19 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 	backendsCopy := []lb.Backend{}
 	for _, b := range params.Backends {
-		// Services with trafficPolicy=Local may only use node-local backends
-		// for external scope. We implement this by filtering out all backend
-		// IPs which are not a local endpoint.
+		// Local redirect services or services with trafficPolicy=Local may
+		// only use node-local backends for external scope. We implement this by
+		// filtering out all backend IPs which are not a local endpoint.
 		if filterBackends && len(b.NodeName) > 0 && b.NodeName != nodeTypes.GetName() {
 			continue
 		}
 		backendsCopy = append(backendsCopy, *b.DeepCopy())
 	}
 
+	// TODO (Aditi) When we filter backends for LocalRedirect service, there
+	// might be some backend pods with active connections. We may need to
+	// defer filtering the backends list (thereby defer redirecting traffic)
+	// in such cases. GH #12859
 	// Update backends cache and allocate/release backend IDs
 	newBackends, obsoleteBackendIDs, obsoleteSVCBackendIDs, err :=
 		s.updateBackendsCacheLocked(svc, backendsCopy)
@@ -531,6 +540,15 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		s.svcByID[p.Frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
+		// Local Redirect Policies with service matcher would have same frontend
+		// as the service clusterIP type. In such cases, if a Local redirect service
+		// exists, we shouldn't override it with clusterIP type (e.g., k8s event/sync, etc).
+		if svc.svcType == lb.SVCTypeLocalRedirect && p.Type == lb.SVCTypeClusterIP {
+			err := fmt.Errorf("Local redirect service exists for "+
+				"frontend %v, skip update for svc %s", p.Frontend, p.Name)
+			return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, err
+
+		}
 		prevSessionAffinity = svc.sessionAffinity
 		prevLoadBalancerSourceRanges = svc.loadBalancerSourceRanges
 		svc.svcType = p.Type

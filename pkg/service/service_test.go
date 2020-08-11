@@ -524,3 +524,101 @@ func (m *ManagerTestSuite) TestGetServiceNameByAddr(c *C) {
 	_, _, ok = m.svc.GetServiceNameByAddr(frontend2.L3n4Addr)
 	c.Assert(ok, Equals, false)
 }
+
+func (m *ManagerTestSuite) TestLocalRedirectLocalBackendSelection(c *C) {
+	// Create a node-local backend.
+	localBackend := backends1[0]
+	localBackend.NodeName = nodeTypes.GetName()
+	localBackends := []lb.Backend{localBackend}
+	// Create two remote backends.
+	var remoteBackends []lb.Backend
+	for _, backend := range backends2 {
+		backend.NodeName = "not-" + nodeTypes.GetName()
+		remoteBackends = append(remoteBackends, backend)
+	}
+	var allBackends []lb.Backend
+	allBackends = append(allBackends, localBackend)
+	allBackends = append(allBackends, remoteBackends...)
+
+	// Create a service entry of type Local Redirect.
+	p1 := &lb.SVC{
+		Frontend:      frontend1,
+		Backends:      allBackends,
+		Type:          lb.SVCTypeLocalRedirect,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "svc1",
+		Namespace:     "ns1",
+	}
+	// Insert the service entry of type Local Redirect.
+	created, id, err := m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id, Not(Equals), lb.ID(0))
+
+	svc, ok := m.svc.svcByID[id]
+	c.Assert(ok, Equals, true)
+	c.Assert(svc.svcNamespace, Equals, "ns1")
+	c.Assert(svc.svcName, Equals, "svc1")
+	// Only node-local backends are selected
+	c.Assert(len(svc.backends), Equals, len(localBackends))
+
+	svcFromLbMap, ok := m.lbmap.ServiceByID[uint16(id)]
+	c.Assert(ok, Equals, true)
+	c.Assert(len(svcFromLbMap.Backends), Equals, len(svc.backends))
+}
+
+// Local redirect service should be able to override a ClusterIP service with same
+// frontend, but reverse should produce an error.
+func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
+	// Create a node-local backend.
+	localBackend := backends1[0]
+	localBackend.NodeName = nodeTypes.GetName()
+	localBackends := []lb.Backend{localBackend}
+	// Create two remote backends.
+	var remoteBackends []lb.Backend
+	for _, backend := range backends2 {
+		backend.NodeName = "not-" + nodeTypes.GetName()
+		remoteBackends = append(remoteBackends, backend)
+	}
+	var allBackends []lb.Backend
+	allBackends = append(allBackends, localBackend)
+	allBackends = append(allBackends, remoteBackends...)
+
+	p1 := &lb.SVC{
+		Frontend:      frontend1,
+		Backends:      allBackends,
+		Type:          lb.SVCTypeClusterIP,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "svc1",
+		Namespace:     "ns1",
+	}
+
+	// Insert the service entry of type ClusterIP.
+	created, id, err := m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id, Not(Equals), lb.ID(0))
+
+	svc, ok := m.svc.svcByID[id]
+	c.Assert(len(svc.backends), Equals, len(allBackends))
+	c.Assert(ok, Equals, true)
+
+	// Insert the service entry of type Local Redirect.
+	p1.Type = lb.SVCTypeLocalRedirect
+	created, id, err = m.svc.UpsertService(p1)
+
+	// Local redirect service should override the ClusterIP service with node-local backends.
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, false)
+	c.Assert(id, Not(Equals), lb.ID(0))
+	svc, _ = m.svc.svcByID[id]
+	// Only node-local backends are selected.
+	c.Assert(len(svc.backends), Equals, len(localBackends))
+
+	// Insert the service entry of type ClusterIP.
+	p1.Type = lb.SVCTypeClusterIP
+	created, _, err = m.svc.UpsertService(p1)
+
+	c.Assert(err, NotNil)
+	c.Assert(created, Equals, false)
+}

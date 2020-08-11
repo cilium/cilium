@@ -3264,7 +3264,8 @@ func init() {
                 "NodePort",
                 "ExternalIPs",
                 "HostPort",
-                "LoadBalancer"
+                "LoadBalancer",
+                "LocalRedirect"
               ]
             }
           }
@@ -7230,7 +7231,8 @@ func init() {
                 "NodePort",
                 "ExternalIPs",
                 "HostPort",
-                "LoadBalancer"
+                "LoadBalancer",
+                "LocalRedirect"
               ]
             }
           }
@@ -7278,7 +7280,8 @@ func init() {
             "NodePort",
             "ExternalIPs",
             "HostPort",
-            "LoadBalancer"
+            "LoadBalancer",
+            "LocalRedirect"
           ]
         }
       }

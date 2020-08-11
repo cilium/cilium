@@ -157,7 +157,7 @@ type ServiceSpecFlags struct {
 	TrafficPolicy string `json:"trafficPolicy,omitempty"`
 
 	// Service type
-	// Enum: [ClusterIP NodePort ExternalIPs HostPort LoadBalancer]
+	// Enum: [ClusterIP NodePort ExternalIPs HostPort LoadBalancer LocalRedirect]
 	Type string `json:"type,omitempty"`
 }
 
@@ -226,7 +226,7 @@ var serviceSpecFlagsTypeTypePropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["ClusterIP","NodePort","ExternalIPs","HostPort","LoadBalancer"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["ClusterIP","NodePort","ExternalIPs","HostPort","LoadBalancer","LocalRedirect"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -250,6 +250,9 @@ const (
 
 	// ServiceSpecFlagsTypeLoadBalancer captures enum value "LoadBalancer"
 	ServiceSpecFlagsTypeLoadBalancer string = "LoadBalancer"
+
+	// ServiceSpecFlagsTypeLocalRedirect captures enum value "LocalRedirect"
+	ServiceSpecFlagsTypeLocalRedirect string = "LocalRedirect"
 )
 
 // prop value enum
