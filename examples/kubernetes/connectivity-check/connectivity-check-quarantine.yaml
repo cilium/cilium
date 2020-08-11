@@ -873,8 +873,181 @@ apiVersion: v1
 kind: Service
 
 ---
+metadata:
+  name: echo-c
+  labels:
+    name: echo-c
+    topology: any
+    component: proxy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: echo-c
+    spec:
+      hostNetwork: false
+      containers:
+      - name: echo-c-container
+        ports:
+        - containerPort: 80
+          hostPort: 40001
+        image: docker.io/cilium/json-mock:1.2
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost
+  selector:
+    matchLabels:
+      name: echo-c
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: echo-c
+  labels:
+    name: echo-c
+    topology: any
+    component: proxy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports:
+  - port: 80
+  type: ClusterIP
+  selector:
+    name: echo-c
+apiVersion: v1
+kind: Service
+---
+metadata:
+  name: echo-c
+  labels:
+    name: echo-c
+    topology: any
+    component: proxy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  endpointSelector:
+    matchLabels:
+      name: echo-c
+  ingress:
+  - toPorts:
+    - ports:
+      - port: "80"
+        protocol: TCP
+      rules:
+        http:
+        - path: /public$
+          method: GET
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
 
 ---
+metadata:
+  name: echo-c-host
+  labels:
+    name: echo-c-host
+    topology: any
+    component: proxy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: echo-c-host
+    spec:
+      hostNetwork: true
+      containers:
+      - name: echo-c-host-container
+        env:
+        - name: PORT
+          value: "41001"
+        ports: []
+        image: docker.io/cilium/json-mock:1.2
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:41001
+        livenessProbe:
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:41001
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-c
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: echo-c-host
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
 
 ---
+metadata:
+  name: echo-c-host-headless
+  labels:
+    name: echo-c-host-headless
+    topology: any
+    component: proxy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports: []
+  type: ClusterIP
+  selector:
+    name: echo-c-host
+  clusterIP: None
+apiVersion: v1
+kind: Service
 
