@@ -37,7 +37,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/service"
 
 	. "gopkg.in/check.v1"
 )
@@ -148,7 +147,7 @@ func (f *fakePolicyRepository) TranslateRules(translator policy.Translator) (*po
 
 type fakeSvcManager struct {
 	OnDeleteService func(frontend loadbalancer.L3n4Addr) (bool, error)
-	OnUpsertService func(*service.UpsertServiceParams) (bool, loadbalancer.ID, error)
+	OnUpsertService func(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
 }
 
 func (f *fakeSvcManager) DeleteService(frontend loadbalancer.L3n4Addr) (bool, error) {
@@ -158,7 +157,7 @@ func (f *fakeSvcManager) DeleteService(frontend loadbalancer.L3n4Addr) (bool, er
 	panic("OnDeleteService(loadbalancer.L3n4Addr) (bool, error) was called and is not set!")
 }
 
-func (f *fakeSvcManager) UpsertService(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
+func (f *fakeSvcManager) UpsertService(p *loadbalancer.SVC) (bool, loadbalancer.ID, error) {
 	if f.OnUpsertService != nil {
 		return f.OnUpsertService(p)
 	}
@@ -491,7 +490,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ClusterIP(c *C) {
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
 	svcManager := &fakeSvcManager{
-		OnUpsertService: func(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
+		OnUpsertService: func(p *loadbalancer.SVC) (bool, loadbalancer.ID, error) {
 			sort.Slice(p.Backends, func(i, j int) bool {
 				return bytes.Compare(p.Backends[i].IP, p.Backends[j].IP) < 0
 			})
@@ -646,7 +645,7 @@ func (s *K8sWatcherSuite) TestChangeSVCPort(c *C) {
 	svcUpsertManagerCalls := 0
 
 	svcManager := &fakeSvcManager{
-		OnUpsertService: func(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
+		OnUpsertService: func(p *loadbalancer.SVC) (bool, loadbalancer.ID, error) {
 			upserts = append(upserts, loadbalancer.SVC{
 				Frontend: p.Frontend,
 				Backends: p.Backends,
@@ -1075,7 +1074,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_NodePort(c *C) {
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
 	svcManager := &fakeSvcManager{
-		OnUpsertService: func(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
+		OnUpsertService: func(p *loadbalancer.SVC) (bool, loadbalancer.ID, error) {
 			sort.Slice(p.Backends, func(i, j int) bool {
 				return bytes.Compare(p.Backends[i].IP, p.Backends[j].IP) < 0
 			})
@@ -1367,7 +1366,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_1(c *C) {
 	wantSvcDeleteManagerCalls := len(del1stWanted)
 
 	svcManager := &fakeSvcManager{
-		OnUpsertService: func(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
+		OnUpsertService: func(p *loadbalancer.SVC) (bool, loadbalancer.ID, error) {
 			sort.Slice(p.Backends, func(i, j int) bool {
 				return bytes.Compare(p.Backends[i].IP, p.Backends[j].IP) < 0
 			})
@@ -1652,7 +1651,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_GH9576_2(c *C) {
 	wantSvcDeleteManagerCalls := len(del1stWanted)
 
 	svcManager := &fakeSvcManager{
-		OnUpsertService: func(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
+		OnUpsertService: func(p *loadbalancer.SVC) (bool, loadbalancer.ID, error) {
 			sort.Slice(p.Backends, func(i, j int) bool {
 				return bytes.Compare(p.Backends[i].IP, p.Backends[j].IP) < 0
 			})
@@ -2488,7 +2487,7 @@ func (s *K8sWatcherSuite) Test_addK8sSVCs_ExternalIPs(c *C) {
 	svcUpsertManagerCalls, svcDeleteManagerCalls := 0, 0
 
 	svcManager := &fakeSvcManager{
-		OnUpsertService: func(p *service.UpsertServiceParams) (bool, loadbalancer.ID, error) {
+		OnUpsertService: func(p *loadbalancer.SVC) (bool, loadbalancer.ID, error) {
 			sort.Slice(p.Backends, func(i, j int) bool {
 				return bytes.Compare(p.Backends[i].IP, p.Backends[j].IP) < 0
 			})
