@@ -141,6 +141,13 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 # endif
 #endif
 
+#ifdef ENABLE_SRC_RANGE_CHECK
+# define LB4_SRC_RANGE_MAP	test_cilium_lb4_source_range
+# define LB4_SRC_RANGE_MAP_SIZE	1000
+# define LB6_SRC_RANGE_MAP	test_cilium_lb6_source_range
+# define LB6_SRC_RANGE_MAP_SIZE	1000
+#endif
+
 /* It appears that we can support around the below number of prefixes in an
  * unrolled loop for LPM CIDR handling in older kernels along with the rest of
  * the logic in the datapath, hence the defines below. This number was arrived
