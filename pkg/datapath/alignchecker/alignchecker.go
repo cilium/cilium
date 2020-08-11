@@ -84,6 +84,8 @@ func CheckStructAlignments(path string) error {
 		"lb6_affinity_key":  {reflect.TypeOf(lbmap.Affinity6Key{})},
 		"lb_affinity_match": {reflect.TypeOf(lbmap.AffinityMatchKey{})},
 		"lb_affinity_val":   {reflect.TypeOf(lbmap.AffinityValue{})},
+		"lb4_src_range_key": {reflect.TypeOf(lbmap.SourceRangeKey4{})},
+		"lb6_src_range_key": {reflect.TypeOf(lbmap.SourceRangeKey6{})},
 	}
 	if err := check.CheckStructAlignments(path, toCheck, true); err != nil {
 		return err
