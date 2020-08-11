@@ -201,11 +201,12 @@ func (k *Service6Key) ToNetwork() ServiceKey {
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Service6Value struct {
-	BackendID uint32 `align:"backend_id"`
-	Count     uint16 `align:"count"`
-	RevNat    uint16 `align:"rev_nat_index"`
-	Flags     uint8
-	Pad       pad3uint8 `align:"pad"`
+	BackendID uint32    `align:"backend_id"`
+	Count     uint16    `align:"count"`
+	RevNat    uint16    `align:"rev_nat_index"`
+	Flags     uint8     `align:"flags"`
+	Flags2    uint8     `align:"flags2"`
+	Pad       pad2uint8 `align:"pad"`
 }
 
 func (s *Service6Value) String() string {
@@ -219,8 +220,14 @@ func (s *Service6Value) GetCount() int        { return int(s.Count) }
 func (s *Service6Value) SetRevNat(id int)     { s.RevNat = uint16(id) }
 func (s *Service6Value) GetRevNat() int       { return int(s.RevNat) }
 func (s *Service6Value) RevNatKey() RevNatKey { return &RevNat6Key{s.RevNat} }
-func (s *Service6Value) SetFlags(flags uint8) { s.Flags = flags }
-func (s *Service6Value) GetFlags() uint8      { return s.Flags }
+func (s *Service6Value) SetFlags(flags uint16) {
+	s.Flags = uint8(flags & 0xff)
+	s.Flags2 = uint8(flags >> 8)
+}
+
+func (s *Service6Value) GetFlags() uint16 {
+	return (uint16(s.Flags2) << 8) | uint16(s.Flags)
+}
 
 func (s *Service6Value) SetSessionAffinityTimeoutSec(t uint32) {
 	// See (* Service4Value).SetSessionAffinityTimeoutSec() for comment

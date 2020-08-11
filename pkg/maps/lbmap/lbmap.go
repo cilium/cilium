@@ -470,7 +470,7 @@ func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loa
 		IsRoutable:       !fe.IsSurrogate(),
 		CheckSourceRange: checkSourceRange,
 	})
-	zeroValue.SetFlags(flag.UInt8())
+	zeroValue.SetFlags(flag.UInt16())
 	if sessionAffinity {
 		zeroValue.SetSessionAffinityTimeoutSec(sessionAffinityTimeoutSec)
 	}

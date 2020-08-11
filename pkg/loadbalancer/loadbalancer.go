@@ -29,12 +29,13 @@ import (
 type SVCType string
 
 const (
-	SVCTypeNone         = SVCType("NONE")
-	SVCTypeHostPort     = SVCType("HostPort")
-	SVCTypeClusterIP    = SVCType("ClusterIP")
-	SVCTypeNodePort     = SVCType("NodePort")
-	SVCTypeExternalIPs  = SVCType("ExternalIPs")
-	SVCTypeLoadBalancer = SVCType("LoadBalancer")
+	SVCTypeNone          = SVCType("NONE")
+	SVCTypeHostPort      = SVCType("HostPort")
+	SVCTypeClusterIP     = SVCType("ClusterIP")
+	SVCTypeNodePort      = SVCType("NodePort")
+	SVCTypeExternalIPs   = SVCType("ExternalIPs")
+	SVCTypeLoadBalancer  = SVCType("LoadBalancer")
+	SVCTypeLocalRedirect = SVCType("LocalRedirect")
 )
 
 // SVCTrafficPolicy defines which backends are chosen
@@ -48,18 +49,19 @@ const (
 
 // ServiceFlags is the datapath representation of the service flags that can be
 // used (lb{4,6}_service.flags)
-type ServiceFlags uint8
+type ServiceFlags uint16
 
 const (
 	serviceFlagNone            = 0
-	serviceFlagExternalIPs     = 1
-	serviceFlagNodePort        = 2
-	serviceFlagLocalScope      = 4
-	serviceFlagHostPort        = 8
-	serviceFlagSessionAffinity = 16
-	serviceFlagLoadBalancer    = 32
-	serviceFlagRoutable        = 64
-	serviceFlagSourceRange     = 128
+	serviceFlagExternalIPs     = 1 << 0
+	serviceFlagNodePort        = 1 << 1
+	serviceFlagLocalScope      = 1 << 2
+	serviceFlagHostPort        = 1 << 3
+	serviceFlagSessionAffinity = 1 << 4
+	serviceFlagLoadBalancer    = 1 << 5
+	serviceFlagRoutable        = 1 << 6
+	serviceFlagSourceRange     = 1 << 7
+	serviceFlagLocalRedirect   = 1 << 8
 )
 
 type SvcFlagParam struct {
@@ -83,6 +85,8 @@ func NewSvcFlag(p *SvcFlagParam) ServiceFlags {
 		flags |= serviceFlagLoadBalancer
 	case SVCTypeHostPort:
 		flags |= serviceFlagHostPort
+	case SVCTypeLocalRedirect:
+		flags |= serviceFlagLocalRedirect
 	}
 
 	if p.SvcLocal {
@@ -112,6 +116,8 @@ func (s ServiceFlags) SVCType() SVCType {
 		return SVCTypeLoadBalancer
 	case s&serviceFlagHostPort != 0:
 		return SVCTypeHostPort
+	case s&serviceFlagLocalRedirect != 0:
+		return SVCTypeLocalRedirect
 	default:
 		return SVCTypeClusterIP
 	}
@@ -148,9 +154,9 @@ func (s ServiceFlags) String() string {
 	return strings.Join(str, ", ")
 }
 
-// UInt8 returns the UInt8 representation of the ServiceFlags.
-func (s ServiceFlags) UInt8() uint8 {
-	return uint8(s)
+// UInt8 returns the UInt16 representation of the ServiceFlags.
+func (s ServiceFlags) UInt16() uint16 {
+	return uint16(s)
 }
 
 const (

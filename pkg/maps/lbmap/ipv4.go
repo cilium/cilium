@@ -216,11 +216,12 @@ func (in *pad3uint8) DeepCopyInto(out *pad3uint8) {
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
 type Service4Value struct {
-	BackendID uint32 `align:"backend_id"`
-	Count     uint16 `align:"count"`
-	RevNat    uint16 `align:"rev_nat_index"`
-	Flags     uint8
-	Pad       pad3uint8 `align:"pad"`
+	BackendID uint32    `align:"backend_id"`
+	Count     uint16    `align:"count"`
+	RevNat    uint16    `align:"rev_nat_index"`
+	Flags     uint8     `align:"flags"`
+	Flags2    uint8     `align:"flags2"`
+	Pad       pad2uint8 `align:"pad"`
 }
 
 func (s *Service4Value) String() string {
@@ -234,8 +235,14 @@ func (s *Service4Value) GetCount() int        { return int(s.Count) }
 func (s *Service4Value) SetRevNat(id int)     { s.RevNat = uint16(id) }
 func (s *Service4Value) GetRevNat() int       { return int(s.RevNat) }
 func (s *Service4Value) RevNatKey() RevNatKey { return &RevNat4Key{s.RevNat} }
-func (s *Service4Value) SetFlags(flags uint8) { s.Flags = flags }
-func (s *Service4Value) GetFlags() uint8      { return s.Flags }
+func (s *Service4Value) SetFlags(flags uint16) {
+	s.Flags = uint8(flags & 0xff)
+	s.Flags2 = uint8(flags >> 8)
+}
+
+func (s *Service4Value) GetFlags() uint16 {
+	return (uint16(s.Flags2) << 8) | uint16(s.Flags)
+}
 
 func (s *Service4Value) SetSessionAffinityTimeoutSec(t uint32) {
 	// Go doesn't support union types, so we use BackendID to access the
