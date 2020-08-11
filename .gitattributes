@@ -1,2 +1,3 @@
 go.sum linguist-generated
 examples/kubernetes/connectivity-check/connectivity-check*.yaml linguist-generated
+examples/crds/*.yaml linguist-generated
