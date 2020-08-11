@@ -16,6 +16,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -28,6 +29,8 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
+
+var errNoTransportCredentials = errors.New("no transport credentials configured")
 
 // Server is hubble's gRPC server.
 type Server struct {
@@ -47,15 +50,21 @@ func NewServer(log logrus.FieldLogger, options ...serveroption.Option) (*Server,
 	return &Server{log: log, opts: opts}, nil
 }
 
-func (s *Server) newGRPCServer() *grpc.Server {
+func (s *Server) newGRPCServer() (*grpc.Server, error) {
 	if s.opts.TransportCredentials != nil {
-		return grpc.NewServer(grpc.Creds(s.opts.TransportCredentials))
+		return grpc.NewServer(grpc.Creds(s.opts.TransportCredentials)), nil
 	}
-	return grpc.NewServer()
+	if s.opts.Insecure {
+		return grpc.NewServer(), nil
+	}
+	return nil, errNoTransportCredentials
 }
 
-func (s *Server) initGRPCServer() {
-	srv := s.newGRPCServer()
+func (s *Server) initGRPCServer() error {
+	srv, err := s.newGRPCServer()
+	if err != nil {
+		return err
+	}
 	if s.opts.HealthService != nil {
 		healthpb.RegisterHealthServer(srv, s.opts.HealthService)
 	}
@@ -67,12 +76,15 @@ func (s *Server) initGRPCServer() {
 	}
 	s.srv = srv
 	reflection.Register(s.srv)
+	return nil
 }
 
 // Serve starts the hubble server. It accepts new connections on configured
 // listeners. Stop should be called to stop the server.
 func (s *Server) Serve() error {
-	s.initGRPCServer()
+	if err := s.initGRPCServer(); err != nil {
+		return err
+	}
 	for _, listener := range []net.Listener{s.opts.UnixSocketListener, s.opts.TCPListener} {
 		if listener != nil {
 			go func(listener net.Listener) {

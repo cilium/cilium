@@ -42,6 +42,7 @@ type Options struct {
 	ObserverService      observerpb.ObserverServer
 	PeerService          peerpb.PeerServer
 	TransportCredentials credentials.TransportCredentials
+	Insecure             bool
 }
 
 // Option customizes then configuration of the hubble server.
@@ -111,6 +112,18 @@ func WithObserverService(svc observerpb.ObserverServer) Option {
 func WithPeerService(svc peerpb.PeerServer) Option {
 	return func(o *Options) error {
 		o.PeerService = svc
+		return nil
+	}
+}
+
+// WithInsecure disables transport security. Transport security is required
+// unless WithInsecure is set.
+// Use one of WithTransportCredentials, WithTLSFromCert, WithTLSFromFile,
+// WithMTLSFromCert or WithMTLSFromFile to set transport credentials for
+// transport security.
+func WithInsecure() Option {
+	return func(o *Options) error {
+		o.Insecure = true
 		return nil
 	}
 }
