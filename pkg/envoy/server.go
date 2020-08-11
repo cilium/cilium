@@ -1026,31 +1026,24 @@ func GetEnvoyHTTPRules(certManager policy.CertificateManager, l7Rules *api.L7Rul
 	return nil, true
 }
 
-func getPortNetworkPolicyRule(sel policy.CachedSelector, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy) (*cilium.PortNetworkPolicyRule, bool) {
+func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser policy.L7ParserType, l7Rules *policy.PerSelectorPolicy) (*cilium.PortNetworkPolicyRule, bool) {
+	r := &cilium.PortNetworkPolicyRule{}
+
 	// Optimize the policy if the endpoint selector is a wildcard by
 	// keeping remote policies list empty to match all remote policies.
-	var remotePolicies []uint64
-	if !sel.IsWildcard() {
+	if !wildcard {
 		for _, id := range sel.GetSelections() {
-			remotePolicies = append(remotePolicies, uint64(id))
+			r.RemotePolicies = append(r.RemotePolicies, uint64(id))
 		}
 
 		// No remote policies would match this rule. Discard it.
-		if len(remotePolicies) == 0 {
+		if len(r.RemotePolicies) == 0 {
 			return nil, true
 		}
-
-		sort.Slice(remotePolicies, func(i, j int) bool {
-			return remotePolicies[i] < remotePolicies[j]
-		})
-	}
-
-	r := &cilium.PortNetworkPolicyRule{
-		RemotePolicies: remotePolicies,
 	}
 
 	if l7Rules == nil {
-		// L3/L4 only rule, everything in L7 is allowed
+		// L3/L4 only rule, everything in L7 is allowed && no TLS
 		return r, true
 	}
 
@@ -1205,8 +1198,14 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 				rules = append(rules, rule)
 			}
 		} else {
+			nSelectors := len(l4.L7RulesPerSelector)
 			for sel, l7 := range l4.L7RulesPerSelector {
-				rule, cs := getPortNetworkPolicyRule(sel, l4.L7Parser, l7)
+				// A single selector is effectively a wildcard, as bpf passes through
+				// only allowed l3. If there are multiple selectors for this l4-filter
+				// then the proxy may need to drop some allowed l3 due to l7 rules potentially
+				// being different between the selectors.
+				wildcard := nSelectors == 1 || sel.IsWildcard()
+				rule, cs := getPortNetworkPolicyRule(sel, wildcard, l4.L7Parser, l7)
 				if rule != nil {
 					if !cs {
 						canShortCircuit = false
