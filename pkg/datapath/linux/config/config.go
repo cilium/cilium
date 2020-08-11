@@ -265,6 +265,20 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["ENABLE_HOSTPORT"] = "1"
 		}
 
+		if option.Config.EnableLoadBalancerSourceRangeCheck {
+			cDefinesMap["ENABLE_SRC_RANGE_CHECK"] = "1"
+			if option.Config.EnableIPv4 {
+				cDefinesMap["LB4_SRC_RANGE_MAP"] = lbmap.SourceRange4MapName
+				cDefinesMap["LB4_SRC_RANGE_MAP_SIZE"] =
+					fmt.Sprintf("%d", lbmap.SourceRange4Map.MapInfo.MaxEntries)
+			}
+			if option.Config.EnableIPv6 {
+				cDefinesMap["LB6_SRC_RANGE_MAP"] = lbmap.SourceRange6MapName
+				cDefinesMap["LB6_SRC_RANGE_MAP_SIZE"] =
+					fmt.Sprintf("%d", lbmap.SourceRange6Map.MapInfo.MaxEntries)
+			}
+		}
+
 		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)
 		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)

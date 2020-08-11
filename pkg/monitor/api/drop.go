@@ -78,6 +78,7 @@ var errors = map[uint8]string{
 	174: "Is a ClusterIP",
 	175: "First logical datagram fragment not found",
 	176: "Forbidden ICMPv6 message",
+	177: "Denied by LB src range check",
 }
 
 // DropReason prints the drop reason in a human readable string
