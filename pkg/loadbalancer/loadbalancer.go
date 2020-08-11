@@ -202,7 +202,6 @@ func (b *Backend) String() string {
 	return b.L3n4Addr.String()
 }
 
-// TODO(brb) Merge with pkg/service:UpsertServiceParams
 // SVC is a structure for storing service details.
 type SVC struct {
 	Frontend                  L3n4AddrID       // SVC frontend addr and an allocated ID

@@ -204,23 +204,10 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 	return nil
 }
 
-type UpsertServiceParams struct {
-	Name                      string
-	Namespace                 string
-	Type                      lb.SVCType
-	Frontend                  lb.L3n4AddrID
-	Backends                  []lb.Backend
-	TrafficPolicy             lb.SVCTrafficPolicy
-	SessionAffinity           bool
-	SessionAffinityTimeoutSec uint32
-	HealthCheckNodePort       uint16
-	LoadBalancerSourceRanges  []*cidr.CIDR
-}
-
 // UpsertService inserts or updates the given service.
 //
 // The first return value is true if the service hasn't existed before.
-func (s *Service) UpsertService(params *UpsertServiceParams) (bool, lb.ID, error) {
+func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 	s.Lock()
 	defer s.Unlock()
 
@@ -505,8 +492,8 @@ func (s *Service) SyncWithK8sFinished() error {
 	return nil
 }
 
-func (s *Service) createSVCInfoIfNotExist(p *UpsertServiceParams) (
-	*svcInfo, bool, bool, []*cidr.CIDR, error) {
+func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
+	[]*cidr.CIDR, error) {
 
 	prevSessionAffinity := false
 	prevLoadBalancerSourceRanges := []*cidr.CIDR{}
