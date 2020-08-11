@@ -202,6 +202,9 @@ const (
 	// SessionAffinityTimeout is a timeout for the session affinity
 	SessionAffinityTimeout = "sessionAffinityTimeout"
 
+	// LoadBalancerSourceRanges is the LB SVC source ranges
+	LoadBalancerSourceRanges = "loadBalancerSourceRanges"
+
 	// ClusterName is the name of the cluster
 	ClusterName = "clusterName"
 
