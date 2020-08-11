@@ -20,6 +20,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -50,8 +51,8 @@ func (*LBBPFMap) UpsertService(
 	svcID uint16, svcIP net.IP, svcPort uint16,
 	backendIDs []uint16, prevBackendCount int,
 	ipv6 bool, svcType loadbalancer.SVCType, svcLocal bool,
-	svcScope uint8, sessionAffinity bool,
-	sessionAffinityTimeoutSec uint32) error {
+	svcScope uint8, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
+	checkSourceRange bool) error {
 	var svcKey ServiceKey
 
 	if svcID == 0 {
@@ -89,7 +90,7 @@ func (*LBBPFMap) UpsertService(
 	}
 
 	if err := updateMasterService(svcKey, len(backendIDs), int(svcID), svcType, svcLocal,
-		sessionAffinity, sessionAffinityTimeoutSec); err != nil {
+		sessionAffinity, sessionAffinityTimeoutSec, checkSourceRange); err != nil {
 
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
@@ -228,6 +229,28 @@ func (*LBBPFMap) DumpAffinityMatches() (BackendIDByServiceIDSet, error) {
 	return matches, nil
 }
 
+func (*LBBPFMap) DumpSourceRanges(ipv6 bool) (SourceRangeSetByServiceID, error) {
+	ret := SourceRangeSetByServiceID{}
+	parser := func(key bpf.MapKey, value bpf.MapValue) {
+		k := key.(SourceRangeKey)
+		revNATID := k.GetRevNATID()
+		if _, found := ret[revNATID]; !found {
+			ret[revNATID] = []*cidr.CIDR{}
+		}
+		ret[revNATID] = append(ret[revNATID], k.GetCIDR())
+	}
+
+	m := SourceRange4Map
+	if ipv6 {
+		m = SourceRange6Map
+	}
+	if err := m.DumpWithCallback(parser); err != nil {
+		return nil, err
+	}
+
+	return ret, nil
+}
+
 func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 	if key.GetKey() == 0 {
 		return fmt.Errorf("invalid RevNat ID (0)")
@@ -241,6 +264,38 @@ func updateRevNatLocked(key RevNatKey, value RevNatValue) error {
 
 func deleteRevNatLocked(key RevNatKey) error {
 	return key.Map().Delete(key.ToNetwork())
+}
+
+func (*LBBPFMap) UpdateSourceRanges(revNATID uint16, prevSourceRanges []*cidr.CIDR,
+	sourceRanges []*cidr.CIDR, ipv6 bool) error {
+
+	m := SourceRange4Map
+	if ipv6 {
+		m = SourceRange6Map
+	}
+
+	srcRangeMap := map[string]*cidr.CIDR{}
+	for _, cidr := range sourceRanges {
+		srcRangeMap[cidr.String()] = cidr
+	}
+
+	for _, prevCIDR := range prevSourceRanges {
+		if _, found := srcRangeMap[prevCIDR.String()]; !found {
+			if err := m.Delete(srcRangeKey(prevCIDR, revNATID, ipv6)); err != nil {
+				return err
+			}
+		} else {
+			delete(srcRangeMap, prevCIDR.String())
+		}
+	}
+
+	for _, cidr := range srcRangeMap {
+		if err := m.Update(srcRangeKey(cidr, revNATID, ipv6), &SourceRangeValue{}); err != nil {
+			return err
+		}
+	}
+
+	return nil
 }
 
 // DumpServiceMaps dumps the services from the BPF maps.
@@ -364,17 +419,19 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 }
 
 func updateMasterService(fe ServiceKey, nbackends int, revNATID int, svcType loadbalancer.SVCType,
-	svcLocal bool, sessionAffinity bool, sessionAffinityTimeoutSec uint32) error {
+	svcLocal bool, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
+	checkSourceRange bool) error {
 
 	fe.SetBackendSlot(0)
 	zeroValue := fe.NewValue().(ServiceValue)
 	zeroValue.SetCount(nbackends)
 	zeroValue.SetRevNat(revNATID)
 	flag := loadbalancer.NewSvcFlag(&loadbalancer.SvcFlagParam{
-		SvcType:         svcType,
-		SvcLocal:        svcLocal,
-		SessionAffinity: sessionAffinity,
-		IsRoutable:      !fe.IsSurrogate(),
+		SvcType:          svcType,
+		SvcLocal:         svcLocal,
+		SessionAffinity:  sessionAffinity,
+		IsRoutable:       !fe.IsSurrogate(),
+		CheckSourceRange: checkSourceRange,
 	})
 	zeroValue.SetFlags(flag.UInt8())
 	if sessionAffinity {
