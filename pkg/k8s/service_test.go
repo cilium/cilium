@@ -22,6 +22,7 @@ import (
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/cidr"
 	fakeDatapath "github.com/cilium/cilium/pkg/datapath/fake"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -112,7 +113,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		Labels:                   map[string]string{"foo": "bar"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
-		LoadBalancerSourceRanges: []*net.IPNet{},
+		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 	})
 
 	k8sSvc = &slim_corev1.Service{
@@ -137,7 +138,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		Labels:                   map[string]string{"foo": "bar"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
-		LoadBalancerSourceRanges: []*net.IPNet{},
+		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 	})
 
 	k8sSvc = &slim_corev1.Service{
@@ -163,7 +164,7 @@ func (s *K8sSuite) TestParseService(c *check.C) {
 		Labels:                   map[string]string{"foo": "bar"},
 		Ports:                    map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
 		NodePorts:                map[loadbalancer.FEPortName]map[string]*loadbalancer.L3n4AddrID{},
-		LoadBalancerSourceRanges: []*net.IPNet{},
+		LoadBalancerSourceRanges: map[string]*cidr.CIDR{},
 	})
 }
 

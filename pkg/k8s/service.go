@@ -248,7 +248,7 @@ type Service struct {
 
 	// LoadBalancerIPs stores LB IPs assigned to the service (string(IP) => IP).
 	LoadBalancerIPs          map[string]net.IP
-	LoadBalancerSourceRanges []*cidr.CIDR
+	LoadBalancerSourceRanges map[string]*cidr.CIDR
 
 	Labels   map[string]string
 	Selector map[string]string
@@ -354,6 +354,16 @@ func (s *Service) DeepEquals(o *Service) bool {
 				return false
 			}
 		}
+		if ((s.LoadBalancerSourceRanges == nil) != (o.LoadBalancerSourceRanges == nil)) ||
+			len(s.LoadBalancerSourceRanges) != len(o.LoadBalancerSourceRanges) {
+			return false
+		}
+		for k, v := range s.LoadBalancerSourceRanges {
+			vOther, ok := o.LoadBalancerSourceRanges[k]
+			if !ok || !v.Equal(vOther) {
+				return false
+			}
+		}
 		return true
 	}
 	return false
@@ -380,11 +390,12 @@ func NewService(ip net.IP, externalIPs []string,
 		k8sExternalIPs     map[string]net.IP
 		k8sLoadBalancerIPs map[string]net.IP
 	)
-	loadBalancerSourceCIDRs := make([]*cidr.CIDR, 0, len(loadBalancerSourceRanges))
+
+	loadBalancerSourceCIDRs := make(map[string]*cidr.CIDR, len(loadBalancerSourceRanges))
 
 	for _, cidrString := range loadBalancerSourceRanges {
 		cidr, _ := cidr.ParseCIDR(cidrString)
-		loadBalancerSourceCIDRs = append(loadBalancerSourceCIDRs, cidr)
+		loadBalancerSourceCIDRs[cidr.String()] = cidr
 	}
 
 	if option.Config.EnableNodePort {
