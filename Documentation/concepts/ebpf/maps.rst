@@ -34,7 +34,7 @@ For some BPF maps, the upper capacity limit can be overridden using command
 line options for ``cilium-agent``. A given capacity can be set using
 ``--bpf-ct-global-tcp-max``, ``--bpf-ct-global-any-max``,
 ``--bpf-nat-global-max``, ``--bpf-neigh-global-max``, ``--bpf-policy-map-max``,
-and ``--bpf-fragments-map-max``.
+``--bpf-fragments-map-max`` and ``--bpf-lb-map-max``.
 
 Using the ``--bpf-map-dynamic-size-ratio`` flag, the upper capacity limits of
 several large BPF maps are determined at agent startup based on the given ratio

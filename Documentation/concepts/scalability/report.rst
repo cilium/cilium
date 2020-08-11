@@ -184,7 +184,7 @@ documentation the maximum recommended number of pods per node is 100.
 Having 5 namespaces with 50 deployments means that we have 250 different unique
 security identities. Having a low cardinality in the labels selected by Cilium
 helps scale the cluster. By default, Cilium has a limit of 16k security
-identities, but it can be increase with ``bpf-policy-map-max`` in the Cilium
+identities, but it can be increased with ``bpf-policy-map-max`` in the Cilium
 ``ConfigMap``.
 
 .. figure:: images/image_7_01.png
