@@ -31,8 +31,9 @@ import (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lb")
 
-const (
-	// Maximum number of entries in each hashtable
+var (
+	// MaxEntries contains the maximum number of entries that are allowed in cilium
+	// LB service, backend and affinity maps.
 	MaxEntries = 65536
 )
 
@@ -469,4 +470,12 @@ func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Backen
 
 	svcs[hash] = lbsvc
 	return &lbsvc
+}
+
+// InitMapInfo updates the map info defaults for sock rev nat {4,6} and lb maps.
+func InitMapInfo(maxSockRevNatEntries, lbMapMaxEntries int) {
+	MaxSockRevNat4MapEntries = maxSockRevNatEntries
+	MaxSockRevNat6MapEntries = maxSockRevNatEntries
+
+	MaxEntries = lbMapMaxEntries
 }

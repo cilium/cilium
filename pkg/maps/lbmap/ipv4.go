@@ -390,9 +390,3 @@ func CreateSockRevNat4Map() error {
 	_, err := sockRevNat4Map.Create()
 	return err
 }
-
-// InitMapInfo updates the map info defaults for sock rev nat {4,6} maps.
-func InitMapInfo(maxSockRevNatEntries int) {
-	MaxSockRevNat4MapEntries = maxSockRevNatEntries
-	MaxSockRevNat6MapEntries = maxSockRevNatEntries
-}

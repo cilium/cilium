@@ -268,7 +268,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		option.Config.EnableIPv4, option.Config.EnableIPv6,
 	)
 	policymap.InitMapInfo(option.Config.PolicyMapEntries)
-	lbmap.InitMapInfo(option.Config.SockRevNatEntries)
+	lbmap.InitMapInfo(option.Config.SockRevNatEntries, option.Config.LBMapEntries)
 
 	if option.Config.DryMode == false {
 		if err := bpf.ConfigureResourceLimits(); err != nil {
