@@ -40,7 +40,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -130,7 +129,7 @@ type policyRepository interface {
 
 type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
-	UpsertService(*service.UpsertServiceParams) (bool, loadbalancer.ID, error)
+	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
 }
 
 type K8sWatcher struct {
@@ -796,7 +795,7 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 	}
 
 	for _, dpSvc := range svcs {
-		p := &service.UpsertServiceParams{
+		p := &loadbalancer.SVC{
 			Frontend:                  dpSvc.Frontend,
 			Backends:                  dpSvc.Backends,
 			Type:                      dpSvc.Type,

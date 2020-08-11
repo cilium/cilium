@@ -47,7 +47,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
-	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/source"
 	"github.com/cilium/cilium/pkg/u8proto"
 
@@ -529,7 +528,7 @@ func (k *K8sWatcher) UpsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 	}
 
 	for _, dpSvc := range svcs {
-		p := &service.UpsertServiceParams{
+		p := &loadbalancer.SVC{
 			Frontend:            dpSvc.Frontend,
 			Backends:            dpSvc.Backends,
 			Type:                dpSvc.Type,
