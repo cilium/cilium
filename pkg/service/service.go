@@ -19,6 +19,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/bpf"
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/counter"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -41,15 +42,18 @@ var (
 
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
-	UpsertService(uint16, net.IP, uint16, []uint16, int, bool, lb.SVCType, bool, uint8, bool, uint32) error
+	UpsertService(uint16, net.IP, uint16, []uint16, int, bool, lb.SVCType, bool,
+		uint8, bool, uint32, bool) error
 	DeleteService(lb.L3n4AddrID, int) error
 	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
 	AddAffinityMatch(uint16, uint16) error
 	DeleteAffinityMatch(uint16, uint16) error
+	UpdateSourceRanges(uint16, []*cidr.CIDR, []*cidr.CIDR, bool) error
 	DumpServiceMaps() ([]*lb.SVC, []error)
 	DumpBackendMaps() ([]*lb.Backend, error)
 	DumpAffinityMatches() (lbmap.BackendIDByServiceIDSet, error)
+	DumpSourceRanges(bool) (lbmap.SourceRangeSetByServiceID, error)
 }
 
 // healthServer is used to manage HealtCheckNodePort listeners
@@ -76,6 +80,7 @@ type svcInfo struct {
 	svcHealthCheckNodePort    uint16
 	svcName                   string
 	svcNamespace              string
+	loadBalancerSourceRanges  []*cidr.CIDR
 
 	restoredFromDatapath bool
 }
@@ -209,6 +214,7 @@ type UpsertServiceParams struct {
 	SessionAffinity           bool
 	SessionAffinityTimeoutSec uint32
 	HealthCheckNodePort       uint16
+	LoadBalancerSourceRanges  []*cidr.CIDR
 }
 
 // UpsertService inserts or updates the given service.
@@ -230,11 +236,20 @@ func (s *Service) UpsertService(params *UpsertServiceParams) (bool, lb.ID, error
 
 		logfields.SessionAffinity:        params.SessionAffinity,
 		logfields.SessionAffinityTimeout: params.SessionAffinityTimeoutSec,
+
+		logfields.LoadBalancerSourceRanges: params.LoadBalancerSourceRanges,
 	})
 	scopedLog.Debug("Upserting service")
 
+	if !option.Config.EnableLoadBalancerSourceRangeCheck &&
+		len(params.LoadBalancerSourceRanges) != 0 {
+		scopedLog.Warnf("--%s is disabled, ignoring loadBalancerSourceRanges",
+			option.EnableLoadBalancerSourceRangeCheck)
+	}
+
 	// If needed, create svcInfo and allocate service ID
-	svc, new, prevSessionAffinity, err := s.createSVCInfoIfNotExist(params)
+	svc, new, prevSessionAffinity, prevLoadBalancerSourceRanges, err :=
+		s.createSVCInfoIfNotExist(params)
 	if err != nil {
 		return false, lb.ID(0), err
 	}
@@ -257,15 +272,16 @@ func (s *Service) UpsertService(params *UpsertServiceParams) (bool, lb.ID, error
 	}
 
 	// Update backends cache and allocate/release backend IDs
-	newBackends, obsoleteBackendIDs, obsoleteSVCBackendIDs, err := s.updateBackendsCacheLocked(svc, backendsCopy)
+	newBackends, obsoleteBackendIDs, obsoleteSVCBackendIDs, err :=
+		s.updateBackendsCacheLocked(svc, backendsCopy)
 	if err != nil {
 		return false, lb.ID(0), err
 	}
 
 	// Update lbmaps (BPF service maps)
 	if err = s.upsertServiceIntoLBMaps(svc, onlyLocalBackends, prevBackendCount, newBackends,
-		obsoleteBackendIDs,
-		prevSessionAffinity, obsoleteSVCBackendIDs,
+		obsoleteBackendIDs, prevSessionAffinity,
+		prevLoadBalancerSourceRanges, obsoleteSVCBackendIDs,
 		scopedLog); err != nil {
 
 		return false, lb.ID(0), err
@@ -376,6 +392,13 @@ func (s *Service) RestoreServices() error {
 		}
 	}
 
+	// Remove LB source ranges for no longer existing services
+	if option.Config.EnableLoadBalancerSourceRangeCheck {
+		if err := s.restoreAndDeleteOrphanSourceRanges(); err != nil {
+			return err
+		}
+	}
+
 	// Remove obsolete backends and release their IDs
 	if err := s.deleteOrphanBackends(); err != nil {
 		log.WithError(err).Warn("Failed to remove orphan backends")
@@ -427,6 +450,36 @@ func (s *Service) deleteOrphanAffinityMatchesLocked() error {
 	return nil
 }
 
+func (s *Service) restoreAndDeleteOrphanSourceRanges() error {
+	opts := []bool{}
+	if option.Config.EnableIPv4 {
+		opts = append(opts, false)
+	}
+	if option.Config.EnableIPv6 {
+		opts = append(opts, true)
+	}
+
+	for _, ipv6 := range opts {
+		srcRangesBySvcID, err := s.lbmap.DumpSourceRanges(ipv6)
+		if err != nil {
+			return err
+		}
+		for svcID, srcRanges := range srcRangesBySvcID {
+			svc, found := s.svcByID[lb.ID(svcID)]
+			if !found {
+				// Delete ranges
+				if err := s.lbmap.UpdateSourceRanges(svcID, srcRanges, nil, ipv6); err != nil {
+					return err
+				}
+			} else {
+				svc.loadBalancerSourceRanges = srcRanges
+			}
+		}
+	}
+
+	return nil
+}
+
 // SyncWithK8sFinished removes services which we haven't heard about during
 // a sync period of cilium-agent's k8s service cache.
 //
@@ -452,15 +505,19 @@ func (s *Service) SyncWithK8sFinished() error {
 	return nil
 }
 
-func (s *Service) createSVCInfoIfNotExist(p *UpsertServiceParams) (*svcInfo, bool, bool, error) {
+func (s *Service) createSVCInfoIfNotExist(p *UpsertServiceParams) (
+	*svcInfo, bool, bool, []*cidr.CIDR, error) {
+
 	prevSessionAffinity := false
+	prevLoadBalancerSourceRanges := []*cidr.CIDR{}
+
 	hash := p.Frontend.Hash()
 	svc, found := s.svcByHash[hash]
 	if !found {
 		// Allocate service ID for the new service
 		addrID, err := AcquireID(p.Frontend.L3n4Addr, uint32(p.Frontend.ID))
 		if err != nil {
-			return nil, false, false,
+			return nil, false, false, nil,
 				fmt.Errorf("Unable to allocate service ID %d for %v: %s",
 					p.Frontend.ID, p.Frontend, err)
 		}
@@ -478,18 +535,21 @@ func (s *Service) createSVCInfoIfNotExist(p *UpsertServiceParams) (*svcInfo, boo
 			sessionAffinity:           p.SessionAffinity,
 			sessionAffinityTimeoutSec: p.SessionAffinityTimeoutSec,
 
-			svcTrafficPolicy:       p.TrafficPolicy,
-			svcHealthCheckNodePort: p.HealthCheckNodePort,
+			svcTrafficPolicy:         p.TrafficPolicy,
+			svcHealthCheckNodePort:   p.HealthCheckNodePort,
+			loadBalancerSourceRanges: p.LoadBalancerSourceRanges,
 		}
 		s.svcByID[p.Frontend.ID] = svc
 		s.svcByHash[hash] = svc
 	} else {
 		prevSessionAffinity = svc.sessionAffinity
+		prevLoadBalancerSourceRanges = svc.loadBalancerSourceRanges
 		svc.svcType = p.Type
 		svc.svcTrafficPolicy = p.TrafficPolicy
 		svc.svcHealthCheckNodePort = p.HealthCheckNodePort
 		svc.sessionAffinity = p.SessionAffinity
 		svc.sessionAffinityTimeoutSec = p.SessionAffinityTimeoutSec
+		svc.loadBalancerSourceRanges = p.LoadBalancerSourceRanges
 		// Name and namespace are both optional and intended for exposure via
 		// API. They they are not part of any BPF maps and cannot be restored
 		// from datapath.
@@ -505,7 +565,7 @@ func (s *Service) createSVCInfoIfNotExist(p *UpsertServiceParams) (*svcInfo, boo
 		svc.restoredFromDatapath = false
 	}
 
-	return svc, !found, prevSessionAffinity, nil
+	return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, nil
 }
 
 func (s *Service) deleteBackendsFromAffinityMatchMap(svcID lb.ID, backendIDs []lb.BackendID) {
@@ -542,12 +602,15 @@ func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.Bac
 
 func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	prevBackendCount int, newBackends []lb.Backend, obsoleteBackendIDs []lb.BackendID,
-	prevSessionAffinity bool, obsoleteSVCBackendIDs []lb.BackendID,
-	scopedLog *logrus.Entry) error {
+	prevSessionAffinity bool, prevLoadBalancerSourceRanges []*cidr.CIDR,
+	obsoleteSVCBackendIDs []lb.BackendID, scopedLog *logrus.Entry) error {
 
 	ipv6 := svc.frontend.IsIPv6()
 
-	var toDeleteAffinity, toAddAffinity []lb.BackendID
+	var (
+		toDeleteAffinity, toAddAffinity []lb.BackendID
+		checkLBSrcRange                 bool
+	)
 
 	// Update sessionAffinity
 	if option.Config.EnableSessionAffinity {
@@ -578,6 +641,19 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		// backends have been added.
 	}
 
+	// Update LB source range check cidrs
+	if option.Config.EnableLoadBalancerSourceRangeCheck {
+		checkLBSrcRange = len(svc.loadBalancerSourceRanges) != 0
+		if checkLBSrcRange || len(prevLoadBalancerSourceRanges) != 0 {
+			if err := s.lbmap.UpdateSourceRanges(uint16(svc.frontend.ID),
+				prevLoadBalancerSourceRanges, svc.loadBalancerSourceRanges,
+				ipv6); err != nil {
+
+				return err
+			}
+		}
+	}
+
 	// Add new backends into BPF maps
 	for _, b := range newBackends {
 		scopedLog.WithFields(logrus.Fields{
@@ -603,7 +679,8 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		backendIDs, prevBackendCount,
 		ipv6, svc.svcType, onlyLocalBackends,
 		svc.frontend.L3n4Addr.Scope,
-		svc.sessionAffinity, svc.sessionAffinityTimeoutSec)
+		svc.sessionAffinity, svc.sessionAffinityTimeoutSec,
+		checkLBSrcRange)
 	if err != nil {
 		return err
 	}
@@ -726,6 +803,7 @@ func (s *Service) restoreServicesLocked() error {
 }
 
 func (s *Service) deleteServiceLocked(svc *svcInfo) error {
+	ipv6 := svc.frontend.L3n4Addr.IsIPv6()
 	obsoleteBackendIDs := s.deleteBackendsFromCacheLocked(svc)
 
 	scopedLog := log.WithFields(logrus.Fields{
@@ -748,10 +826,17 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 		s.deleteBackendsFromAffinityMatchMap(svc.frontend.ID, backendIDs)
 	}
 
+	if option.Config.EnableLoadBalancerSourceRangeCheck &&
+		svc.svcType == lb.SVCTypeLoadBalancer {
+		if err := s.lbmap.UpdateSourceRanges(uint16(svc.frontend.ID),
+			svc.loadBalancerSourceRanges, nil, ipv6); err != nil {
+			return err
+		}
+	}
+
 	delete(s.svcByHash, svc.hash)
 	delete(s.svcByID, svc.frontend.ID)
 
-	ipv6 := svc.frontend.L3n4Addr.IsIPv6()
 	for _, id := range obsoleteBackendIDs {
 		scopedLog.WithField(logfields.BackendID, id).
 			Debug("Deleting obsolete backend")
