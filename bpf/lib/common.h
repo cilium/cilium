@@ -362,6 +362,7 @@ enum {
 #define DROP_IS_CLUSTER_IP	-174
 #define DROP_FRAG_NOT_FOUND	-175
 #define DROP_FORBIDDEN_ICMP6	-176
+#define DROP_NOT_IN_SRC_RANGE	-177
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 
@@ -538,6 +539,7 @@ enum {
 	SVC_FLAG_AFFINITY     = (1 << 4),  /* sessionAffinity=clientIP */
 	SVC_FLAG_LOADBALANCER = (1 << 5),  /* LoadBalancer service */
 	SVC_FLAG_ROUTABLE     = (1 << 6),  /* Not a surrogate/ClusterIP entry */
+	SVC_FLAG_SOURCE_RANGE = (1 << 7),  /* Check LoadBalancer source range */
 };
 
 struct ipv6_ct_tuple {
@@ -753,6 +755,23 @@ struct ct_state {
 	__u32 src_sec_id;
 	__u16 ifindex;
 	__u16 backend_id;	/* Backend ID in lb4_backends */
+};
+
+#define SRC_RANGE_STATIC_PREFIX(STRUCT)		\
+	(8 * (sizeof(STRUCT) - sizeof(struct bpf_lpm_trie_key)))
+
+struct lb4_src_range_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u16 rev_nat_id;
+	__u16 pad;
+	__u32 addr;
+};
+
+struct lb6_src_range_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u16 rev_nat_id;
+	__u16 pad;
+	union v6addr addr;
 };
 
 static __always_inline int redirect_peer(int ifindex __maybe_unused,
