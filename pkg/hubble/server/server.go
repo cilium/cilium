@@ -47,8 +47,15 @@ func NewServer(log logrus.FieldLogger, options ...serveroption.Option) (*Server,
 	return &Server{log: log, opts: opts}, nil
 }
 
+func (s *Server) newGRPCServer() *grpc.Server {
+	if s.opts.TransportCredentials != nil {
+		return grpc.NewServer(grpc.Creds(s.opts.TransportCredentials))
+	}
+	return grpc.NewServer()
+}
+
 func (s *Server) initGRPCServer() {
-	srv := grpc.NewServer()
+	srv := s.newGRPCServer()
 	if s.opts.HealthService != nil {
 		healthpb.RegisterHealthServer(srv, s.opts.HealthService)
 	}

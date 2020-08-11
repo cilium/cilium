@@ -16,6 +16,8 @@
 package serveroption
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
 	"net"
 	"os"
@@ -27,17 +29,19 @@ import (
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 
 	"golang.org/x/sys/unix"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
 // Options stores all the configuration values for the hubble server.
 type Options struct {
-	TCPListener        net.Listener
-	UnixSocketListener net.Listener
-	HealthService      healthpb.HealthServer
-	ObserverService    observerpb.ObserverServer
-	PeerService        peerpb.PeerServer
+	TCPListener          net.Listener
+	UnixSocketListener   net.Listener
+	HealthService        healthpb.HealthServer
+	ObserverService      observerpb.ObserverServer
+	PeerService          peerpb.PeerServer
+	TransportCredentials credentials.TransportCredentials
 }
 
 // Option customizes then configuration of the hubble server.
@@ -109,4 +113,30 @@ func WithPeerService(svc peerpb.PeerServer) Option {
 		o.PeerService = svc
 		return nil
 	}
+}
+
+// WithTLS sets the transport credentials for the server based on TLS.
+func WithTLS(c *tls.Config) Option {
+	return func(o *Options) error {
+		o.TransportCredentials = credentials.NewTLS(c)
+		return nil
+	}
+}
+
+// WithTLSFromCert constructs TLS credentials from the input certificate for
+// the server.
+func WithTLSFromCert(cert tls.Certificate) Option {
+	return WithTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+	})
+}
+
+// WithMTLSFromCert constructs mutual TLS (mTLS) credentials from the input
+// certificate and the given client certificates for the server.
+func WithMTLSFromCert(cert tls.Certificate, clientCAs *x509.CertPool) Option {
+	return WithTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientCAs:    clientCAs,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+	})
 }
