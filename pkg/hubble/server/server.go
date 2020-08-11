@@ -30,7 +30,10 @@ import (
 	"google.golang.org/grpc/reflection"
 )
 
-var errNoTransportCredentials = errors.New("no transport credentials configured")
+var (
+	errNoListener             = errors.New("no listener configured")
+	errNoTransportCredentials = errors.New("no transport credentials configured")
+)
 
 // Server is hubble's gRPC server.
 type Server struct {
@@ -79,23 +82,20 @@ func (s *Server) initGRPCServer() error {
 	return nil
 }
 
-// Serve starts the hubble server. It accepts new connections on configured
-// listeners. Stop should be called to stop the server.
+// Serve starts the hubble server and accepts new connections on the configured
+// listener. Stop should be called to stop the server.
 func (s *Server) Serve() error {
 	if err := s.initGRPCServer(); err != nil {
 		return err
 	}
-	for _, listener := range []net.Listener{s.opts.UnixSocketListener, s.opts.TCPListener} {
-		if listener != nil {
-			go func(listener net.Listener) {
-				if err := s.srv.Serve(listener); err != nil {
-					s.log.WithError(err).
-						WithField("address", listener.Addr().String()).
-						Error("failed to start grpc server")
-				}
-			}(listener)
-		}
+	if s.opts.Listener == nil {
+		return errNoListener
 	}
+	go func(listener net.Listener) {
+		if err := s.srv.Serve(s.opts.Listener); err != nil {
+			s.log.WithError(err).WithField("address", listener.Addr().String()).Error("Failed to start gRPC server")
+		}
+	}(s.opts.Listener)
 	return nil
 }
 
