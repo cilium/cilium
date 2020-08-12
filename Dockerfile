@@ -23,7 +23,7 @@ LABEL cilium-sha=${CILIUM_SHA}
 # versions to be built while allowing the new versions to make changes
 # that are not backwards compatible.
 #
-FROM quay.io/cilium/cilium-builder:2020-08-07@sha256:ffbafbfa3e513bf4e0d8253a4141a7b19e38972ed357d3028b05d6ae5493ab82 as builder
+FROM quay.io/cilium/cilium-builder:2020-08-12@sha256:651b0e54b1987a41d75fb32214cd4aafce496d56afd8fcc9dd8f942bcc02feaa as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
@@ -50,7 +50,7 @@ RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGI
 # built while allowing the new versions to make changes that are not
 # backwards compatible.
 #
-FROM quay.io/cilium/cilium-runtime:2020-08-07@sha256:38bd148ef7804e48e1bf87a3fa94894180874ca725dd34b1749ad1b869d7aed3
+FROM quay.io/cilium/cilium-runtime:2020-08-12@sha256:66f64622bf97a48ef249ad72ec7a851481460f9f18b9e9ad74f4553088b497a2
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
