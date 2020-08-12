@@ -75,7 +75,7 @@ func bpftoolMapAttach(progID string, mapID string) error {
 func bpftoolAttach(bpfObject string) error {
 	prog := "bpftool"
 	bpffs := filepath.Join(bpf.GetMapRoot(), bpfObject)
-	cgrp := cgroups.GetCgroupRoot()
+	cgrp := cgroups.GetCgroupRootV2()
 
 	args := []string{"cgroup", "attach", cgrp, "sock_ops", "pinned", bpffs}
 	log.WithFields(logrus.Fields{
@@ -93,7 +93,7 @@ func bpftoolAttach(bpfObject string) error {
 func bpftoolDetach(bpfObject string) error {
 	prog := "bpftool"
 	bpffs := filepath.Join(bpf.GetMapRoot(), bpfObject)
-	cgrp := cgroups.GetCgroupRoot()
+	cgrp := cgroups.GetCgroupRootV2()
 
 	args := []string{"cgroup", "detach", cgrp, "sock_ops", "pinned", bpffs}
 	log.WithFields(logrus.Fields{

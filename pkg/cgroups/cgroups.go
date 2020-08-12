@@ -44,33 +44,57 @@ var (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "cgroups")
 
-// setCgroupRoot will set the path to mount cgroupv2
+// setCgroupRoot will set the path to mount cgroupv{1,2}
 func setCgroupRoot(path string) {
 	cgroupRoot = path
 }
 
-// GetCgroupRoot returns the path for the cgroupv2 mount
+// GetCgroupRoot returns the base path for the cgroupv{1,2} mount. The fs'es
+// are under the subdir v1 or v2 corresponding to their type.
 func GetCgroupRoot() string {
 	return cgroupRoot
 }
 
-// mountCgroup mounts the Cgroup v2 filesystem into the desired cgroupRoot directory.
-func mountCgroup() error {
-	cgroupRootStat, err := os.Stat(cgroupRoot)
+func GetCgroupRootV1() string {
+	return fmt.Sprintf("%sv1", cgroupRoot)
+}
+
+func GetCgroupRootV2() string {
+	return fmt.Sprintf("%sv2", cgroupRoot)
+}
+
+func mountDirSetup(base string) error {
+	cgroupRootStat, err := os.Stat(base)
 	if err != nil {
 		if os.IsNotExist(err) {
-			if err := os.MkdirAll(cgroupRoot, 0755); err != nil {
+			if err := os.MkdirAll(base, 0755); err != nil {
 				return fmt.Errorf("Unable to create cgroup mount directory: %s", err)
 			}
 		} else {
-			return fmt.Errorf("Failed to stat the mount path %s: %s", cgroupRoot, err)
+			return fmt.Errorf("Failed to stat the mount path %s: %s", base, err)
 		}
 	} else if !cgroupRootStat.IsDir() {
-		return fmt.Errorf("%s is a file which is not a directory", cgroupRoot)
+		return fmt.Errorf("%s is a file which is not a directory", base)
 	}
+	return nil
+}
 
-	if err := unix.Mount("none", cgroupRoot, "cgroup2", 0, ""); err != nil {
-		return fmt.Errorf("failed to mount %s: %s", cgroupRoot, err)
+// mountCgroup mounts the Cgroup v{1,2} filesystem into the desired cgroupRoot directory.
+func mountCgroup() error {
+	v1Mount := fmt.Sprintf("%sv1", cgroupRoot)
+	v2Mount := fmt.Sprintf("%sv2", cgroupRoot)
+
+	if err := mountDirSetup(v1Mount); err != nil {
+		return err
+	}
+	if err := mountDirSetup(v2Mount); err != nil {
+		return err
+	}
+	if err := unix.Mount("none", v1Mount, "cgroup", 0, "net_cls,net_prio"); err != nil {
+		return fmt.Errorf("failed to mount %s: %s", v1Mount, err)
+	}
+	if err := unix.Mount("none", v2Mount, "cgroup2", 0, ""); err != nil {
+		return fmt.Errorf("failed to mount %s: %s", v2Mount, err)
 	}
 
 	return nil
@@ -79,30 +103,31 @@ func mountCgroup() error {
 // checkOrMountCustomLocation tries to check or mount the BPF filesystem in the
 // given path.
 func cgrpCheckOrMountLocation(cgroupRoot string) error {
+	v1Mount := fmt.Sprintf("%sv1", cgroupRoot)
+	v2Mount := fmt.Sprintf("%sv2", cgroupRoot)
+
 	setCgroupRoot(cgroupRoot)
-
-	// Check whether the custom location has a mount.
-	mounted, cgroupInstance, err := mountinfo.IsMountFS(mountinfo.FilesystemTypeCgroup2, cgroupRoot)
-	if err != nil {
-		return err
+Retry:
+	v1Mounted, v1CgroupInstance, err1 := mountinfo.IsMountFS(mountinfo.FilesystemTypeCgroup1, v1Mount)
+	v2Mounted, v2CgroupInstance, err2 := mountinfo.IsMountFS(mountinfo.FilesystemTypeCgroup2, v2Mount)
+	if err1 != nil || err2 != nil {
+		return fmt.Errorf("Cannot retrieve IsMountFS info from %s", cgroupRoot)
 	}
-
-	// If the custom location has no mount, let's mount there.
-	if !mounted {
+	if !v1Mounted || !v2Mounted {
 		if err := mountCgroup(); err != nil {
 			return err
 		}
+		goto Retry
 	}
-
-	if !cgroupInstance {
-		return fmt.Errorf("Mount in the custom directory %s has a different filesystem than cgroup2", cgroupRoot)
+	if !v1CgroupInstance || !v2CgroupInstance {
+		return fmt.Errorf("Mount in the custom directory %s has a different filesystem than cgroup{1,2}", cgroupRoot)
 	}
 	return nil
 }
 
-// CheckOrMountCgrpFS this checks if the cilium cgroup2 root mount point is
-// mounted and if not mounts it. If mapRoot is "" it will mount the default
-// location. It is harmless to have multiple cgroupv2 root mounts so unlike
+// CheckOrMountCgrpFS this checks if the cilium cgroup{v1,v2} root mount point
+// is mounted and if not mounts it. If mapRoot is "" it will mount the default
+// location. It is harmless to have multiple cgroup{v1,v2} root mounts so unlike
 // BPFFS case we simply mount at the cilium default regardless if the system
 // has another mount created by systemd or otherwise.
 func CheckOrMountCgrpFS(mapRoot string) {
@@ -111,9 +136,10 @@ func CheckOrMountCgrpFS(mapRoot string) {
 			mapRoot = cgroupRoot
 		}
 		err := cgrpCheckOrMountLocation(mapRoot)
-		// Failed cgroup2 mount is not a fatal error, sockmap will be disabled however
 		if err == nil {
-			log.Infof("Mounted cgroupv2 filesystem at %s", mapRoot)
+			log.Infof("Mounted cgroup{v1,v2} filesystems at %s{v1,v2}/", mapRoot)
+		} else {
+			log.WithError(err).Fatalf("Mounting cgroup{v1,v2} filesystems at %s failed", mapRoot)
 		}
 	})
 }

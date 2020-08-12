@@ -171,7 +171,7 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	args[initArgLib] = option.Config.BpfDir
 	args[initArgRundir] = option.Config.StateDir
-	args[initArgCgroupRoot] = cgroups.GetCgroupRoot()
+	args[initArgCgroupRoot] = cgroups.GetCgroupRootV2()
 	args[initArgBpffsRoot] = bpf.GetMapRoot()
 
 	if option.Config.EnableIPv4 {

@@ -81,8 +81,8 @@ const (
 	// DefaultMapRoot is the default path where BPFFS should be mounted
 	DefaultMapRoot = "/sys/fs/bpf"
 
-	// DefaultCgroupRoot is the default path where cilium cgroup2 should be mounted
-	DefaultCgroupRoot = "/var/run/cilium/cgroupv2"
+	// DefaultCgroupRoot is the default path where cilium cgroup{1,2} should be mounted
+	DefaultCgroupRoot = "/var/run/cilium/cgroup"
 
 	// SockopsEnable controsl whether sockmap should be used
 	SockopsEnable = false

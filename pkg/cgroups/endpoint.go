@@ -40,7 +40,7 @@ var (
 // controller is available for each endpoint.
 func perEndpointIDExists() bool {
 	checkCgroupV2Once.Do(func() {
-		path := fmt.Sprintf("%s/kubepods", GetCgroupRoot())
+		path := fmt.Sprintf("%s/kubepods", GetCgroupRootV2())
 		if _, err := os.Stat(path); err != nil {
 			cgroupV2PerEndpoint = false
 			return

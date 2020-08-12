@@ -209,7 +209,9 @@ func (c ciliumCleanup) whatWillBeRemoved() []string {
 		toBeRemoved = append(toBeRemoved, section)
 	}
 
-	toBeRemoved = append(toBeRemoved, fmt.Sprintf("mounted cgroupv2 at %s",
+	toBeRemoved = append(toBeRemoved, fmt.Sprintf("mounted cgroupv1 at %sv1",
+		defaults.DefaultCgroupRoot))
+	toBeRemoved = append(toBeRemoved, fmt.Sprintf("mounted cgroupv2 at %sv2",
 		defaults.DefaultCgroupRoot))
 	toBeRemoved = append(toBeRemoved, fmt.Sprintf("library code in %s",
 		defaults.LibraryPath))
@@ -329,17 +331,15 @@ func removeCNI() error {
 }
 
 func unmountCgroup() error {
-	cgroupRoot := defaults.DefaultCgroupRoot
-	cgroupRootStat, err := os.Stat(cgroupRoot)
-	if err != nil {
-		return nil
-	} else if !cgroupRootStat.IsDir() {
-		return fmt.Errorf("%s is a file which is not a directory", cgroupRoot)
+	mounts := []string{
+		fmt.Sprintf("%sv1", defaults.DefaultCgroupRoot),
+		fmt.Sprintf("%sv2", defaults.DefaultCgroupRoot),
 	}
-
-	log.Info("Trying to unmount ", cgroupRoot)
-	if err := unix.Unmount(cgroupRoot, unix.MNT_FORCE); err != nil {
-		return fmt.Errorf("Failed to unmount %s: %s", cgroupRoot, err)
+	for _, mount := range mounts {
+		log.Info("Trying to unmount ", mount)
+		if err := unix.Unmount(mount, unix.MNT_FORCE); err != nil {
+			return fmt.Errorf("Failed to unmount %s: %s", mount, err)
+		}
 	}
 	return nil
 }
