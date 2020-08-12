@@ -497,6 +497,9 @@ global:
     # Set this field ":4244" if you are enabling hubble-relay, as it assumes that Hubble is listening
     # on port 4244.
     listenAddress: ""
+    # Set this to true to allow the Hubble server to run insecurely on the
+    # address provided by listenAddress.
+    allowInsecure: false
     # Buffer size of the channel Hubble uses to receive monitor events. If this value is not set,
     # the queue size is set to the default monitor queue size.
     eventQueueSize: ~

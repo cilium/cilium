@@ -572,10 +572,15 @@ data:
   # https://github.com/cilium/hubble/blob/master/Documentation/metrics.md
   hubble-metrics: {{- range .Values.global.hubble.metrics.enabled }}
     {{.}}
-  {{- end }}
+{{- end }}
 {{- end }}
   # An additional address for Hubble server to listen to (e.g. ":4244").
   hubble-listen-address: {{ .Values.global.hubble.listenAddress | quote }}
+{{- if .Values.global.hubble.allowInsecure }}
+  hubble-allow-insecure: "true"
+{{- else }}
+  hubble-allow-insecure: "false"
+{{- end }}
 {{- end }}
 {{- if .Values.disableIptablesFeederRules }}
   # A space separated list of iptables chains to disable when installing feeder rules.
