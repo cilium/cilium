@@ -766,6 +766,18 @@ const (
 	// HubbleListenAddress specifies address for Hubble server to listen to.
 	HubbleListenAddress = "hubble-listen-address"
 
+	// HubbleAllowInsecure allows the Hubble server to run on the given listen
+	// address without TLS enabled.
+	HubbleAllowInsecure = "hubble-allow-insecure"
+
+	// HubbleTLSCertFile specifies the path to the public key file for the
+	// Hubble server. The file must contain PEM encoded data.
+	HubbleTLSCertFile = "hubble-tls-cert-file"
+
+	// HubbleTLSKeyFile specifies the path to the private key file for the
+	// Hubble server. The file must contain PEM encoded data.
+	HubbleTLSKeyFile = "hubble-tls-key-file"
+
 	// HubbleFlowBufferSize specifies the maximum number of flows in Hubble's buffer.
 	HubbleFlowBufferSize = "hubble-flow-buffer-size"
 
@@ -1019,6 +1031,9 @@ var HelpFlagSections = []FlagsSection{
 			EnableHubble,
 			HubbleSocketPath,
 			HubbleListenAddress,
+			HubbleAllowInsecure,
+			HubbleTLSCertFile,
+			HubbleTLSKeyFile,
 			HubbleFlowBufferSize,
 			HubbleEventQueueSize,
 			HubbleMetricsServer,
@@ -1862,6 +1877,18 @@ type DaemonConfig struct {
 	// HubbleListenAddress specifies address for Hubble to listen to.
 	HubbleListenAddress string
 
+	// HubbleAllowInsecure allows the Hubble server to run on the given listen
+	// address without TLS enabled.
+	HubbleAllowInsecure bool
+
+	// HubbleTLSCertFile specifies the path to the public key file for the
+	// Hubble server. The file must contain PEM encoded data.
+	HubbleTLSCertFile string
+
+	// HubbleTLSKeyFile specifies the path to the private key file for the
+	// Hubble server. The file must contain PEM encoded data.
+	HubbleTLSKeyFile string
+
 	// HubbleFlowBufferSize specifies the maximum number of flows in Hubble's buffer.
 	HubbleFlowBufferSize int
 
@@ -2616,6 +2643,9 @@ func (c *DaemonConfig) Populate() {
 	c.EnableHubble = viper.GetBool(EnableHubble)
 	c.HubbleSocketPath = viper.GetString(HubbleSocketPath)
 	c.HubbleListenAddress = viper.GetString(HubbleListenAddress)
+	c.HubbleAllowInsecure = viper.GetBool(HubbleAllowInsecure)
+	c.HubbleTLSCertFile = viper.GetString(HubbleTLSCertFile)
+	c.HubbleTLSKeyFile = viper.GetString(HubbleTLSKeyFile)
 	c.HubbleFlowBufferSize = viper.GetInt(HubbleFlowBufferSize)
 	c.HubbleEventQueueSize = viper.GetInt(HubbleEventQueueSize)
 	if c.HubbleEventQueueSize == 0 {

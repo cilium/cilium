@@ -804,6 +804,15 @@ func init() {
 	flags.String(option.HubbleListenAddress, "", `An additional address for Hubble server to listen to, e.g. ":4244"`)
 	option.BindEnv(option.HubbleListenAddress)
 
+	flags.Bool(option.HubbleAllowInsecure, false, "Allow Hubble server to run on the given listen address without TLS.")
+	option.BindEnv(option.HubbleAllowInsecure)
+
+	flags.String(option.HubbleTLSCertFile, "", "Path to the public key file for the Hubble server. The file must contain PEM encoded data.")
+	option.BindEnv(option.HubbleTLSCertFile)
+
+	flags.String(option.HubbleTLSKeyFile, "", "Path to the private key file for the Hubble server. The file must contain PEM encoded data.")
+	option.BindEnv(option.HubbleTLSKeyFile)
+
 	flags.Int(option.HubbleFlowBufferSize, 4095, "Maximum number of flows in Hubble's buffer. The actual buffer size gets rounded up to the next power of 2, e.g. 4095 => 4096")
 	option.BindEnv(option.HubbleFlowBufferSize)
 
