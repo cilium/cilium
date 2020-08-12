@@ -751,20 +751,16 @@ func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string, expectNod
 	for _, pod := range pods {
 		By("Making ten curl requests from %q to %q", pod, outsideURL)
 
-		hostIP := net.ParseIP(hostIPs[pod])
-		podIP := net.ParseIP(podIPs[pod])
+		hostIP := hostIPs[pod]
+		podIP := podIPs[pod]
 
 		if expectPodIP {
 			// Make pods reachable from the host which doesn't run Cilium
-			_, err := kubectl.ExecInHostNetNSByLabel(context.TODO(),
-				helpers.GetNodeWithoutCilium(),
-				helpers.IPAddRoute(podIP, hostIP, false))
-			ExpectWithOffset(1, err).Should(BeNil(), "Failed to add ip route")
+			kubectl.AddIPRoute(helpers.GetNodeWithoutCilium(), podIP, hostIP, false).
+				ExpectSuccess("Failed to add ip route")
 			defer func() {
-				_, err := kubectl.ExecInHostNetNSByLabel(context.TODO(),
-					helpers.GetNodeWithoutCilium(),
-					helpers.IPDelRoute(podIP, hostIP))
-				ExpectWithOffset(1, err).Should(BeNil(), "Failed to del ip route")
+				kubectl.DelIPRoute(helpers.GetNodeWithoutCilium(), podIP, hostIP).
+					ExpectSuccess("Failed to del ip route")
 			}()
 		}
 
@@ -775,7 +771,8 @@ func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string, expectNod
 
 			if expectNodeIP || expectPodIP {
 				// Parse the IPs to avoid issues with 4-in-6 formats
-				sourceIP := net.ParseIP(strings.TrimSpace(strings.Split(res.Stdout(), "=")[1]))
+				sourceIP := net.ParseIP(strings.TrimSpace(
+					strings.Split(res.Stdout(), "=")[1])).String()
 				if expectNodeIP {
 					Expect(sourceIP).To(Equal(hostIP), "Expected node IP")
 				}
