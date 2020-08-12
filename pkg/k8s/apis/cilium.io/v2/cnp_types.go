@@ -218,6 +218,18 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 	}
 
 	namespace := k8sUtils.ExtractNamespace(&r.ObjectMeta)
+	// Temporary fix for CCNPs. See #12834.
+	// TL;DR. CCNPs are converted into SlimCNPs and end up here so we need to
+	// convert them back to CCNPs to allow proper parsing.
+	if namespace == "" {
+		ccnp := CiliumClusterwideNetworkPolicy{
+			TypeMeta:            r.TypeMeta,
+			ObjectMeta:          r.ObjectMeta,
+			CiliumNetworkPolicy: r,
+			Status:              r.Status,
+		}
+		return ccnp.Parse()
+	}
 	name := r.ObjectMeta.Name
 	uid := r.ObjectMeta.UID
 
