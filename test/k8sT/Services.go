@@ -1472,28 +1472,38 @@ var _ = Describe("K8sServicesTest", func() {
 						testCurlFromOutsideWithLocalPort(svc2URL, 1, false, 64002)
 					})
 
-					SkipContextIf(helpers.DoesNotSupportMetalLB, "Tests with MetalLB, GH#10763", func() {
+					SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "Tests LoadBalancer", func() {
 						var (
-							metalLB string
+							dummylb string
 						)
 
 						BeforeAll(func() {
 							DeployCiliumAndDNS(kubectl, ciliumFilename)
-							// Will allocate LoadBalancer IPs from 192.168.36.{240-250} range
-							metalLB = helpers.ManifestGet(kubectl.BasePath(), "metallb.yaml")
-							res := kubectl.ApplyDefault(metalLB)
-							res.ExpectSuccess("Unable to apply %s", metalLB)
+							dummylb = helpers.ManifestGet(kubectl.BasePath(), "dummylb.yaml")
+							res := kubectl.ApplyDefault(dummylb)
+							res.ExpectSuccess("Unable to apply %s", dummylb)
 						})
 
 						AfterAll(func() {
-							_ = kubectl.Delete(metalLB)
+							_ = kubectl.Delete(dummylb)
 						})
 
 						It("Connectivity to endpoint via LB", func() {
+							// Wait until dummyLB has assigned the LB IP addr
 							lbIP, err := kubectl.GetLoadBalancerIP(
 								helpers.DefaultNamespace, "test-lb", 30*time.Second)
 							Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
-
+							// Add route to the LB IP addr via k8s1 node
+							cmd := helpers.IPAddRoute(net.ParseIP(lbIP), net.ParseIP(k8s1IP), false)
+							res, err := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
+							ExpectWithOffset(1, err).Should(BeNil(), "Cannot exec in outside node %s", outsideNodeName)
+							ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+								"Can not exec %q on outside node %s", cmd, outsideNodeName)
+							defer func() {
+								cmd := helpers.IPDelRoute(net.ParseIP(lbIP), net.ParseIP(k8s1IP))
+								kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
+							}()
+							// Check connectivity from outside
 							testCurlFromOutside("http://"+lbIP, 10, false)
 						})
 					})
