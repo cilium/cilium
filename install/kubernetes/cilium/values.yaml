@@ -292,6 +292,10 @@ global:
     # policyMapMax is the maximum number of entries in endpoint policy map (per endpoint)
     policyMapMax: 16384
 
+    # lbMapMax is the maximum number of entries in cilium lb service, backend and affinity
+    # maps.
+    lbMapMax: 65536
+
     # monitorAggregation is the level of aggregation for datapath trace events
     monitorAggregation: medium
 
