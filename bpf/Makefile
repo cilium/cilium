@@ -196,6 +196,9 @@ subdirs: $(SUBDIRS)
 	$(QUIET) $(foreach TARGET,$(SUBDIRS), \
 		$(MAKE) $(SUBMAKEOPTS) -C $(TARGET) &&) true
 
+tags:
+	$(QUIET) find . -name "*.[chCH]" -print | etags -
+
 else
 all: $(TARGET)
 endif
@@ -215,3 +218,4 @@ clean:
 		$(MAKE) $(SUBMAKEOPTS) -C $(TARGET) clean;)
 	$(QUIET)rm -fr *.o *.ll *.i *.s
 	$(QUIET)rm -f $(TARGET)
+	$(QUIET)rm TAGS
