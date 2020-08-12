@@ -234,10 +234,17 @@ data:
 {{- end }}
 
 {{- if .Values.global.bpf.policyMapMax }}
-  # bpf-policy-map-max specified the maximum number of entries in endpoint
+  # bpf-policy-map-max specifies the maximum number of entries in endpoint
   # policy map (per endpoint)
   bpf-policy-map-max: "{{ .Values.global.bpf.policyMapMax }}"
 {{- end }}
+
+{{- if .Values.global.bpf.lbMapMax }}
+  # bpf-lb-map-max specifies the maximum number of entries in bpf lb service,
+  # backend and affinity maps.
+  bpf-lb-map-max: "{{ .Values.global.bpf.lbMapMax }}"
+{{- end }}
+
 
 {{- if hasKey .Values "bpfMapDynamicSizeRatio" }}
   bpf-map-dynamic-size-ratio: {{ .Values.bpfMapDynamicSizeRatio | quote }}
