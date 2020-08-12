@@ -16,7 +16,6 @@ package helpers
 
 import (
 	"fmt"
-	"net"
 	"strings"
 )
 
@@ -142,25 +141,4 @@ func PythonBind(addr string, port uint16, proto string) string {
 	return fmt.Sprintf(
 		`/usr/bin/python3 -c 'import socket; socket.socket(%s).bind((%q, %d))`,
 		strings.Join(opts, ", "), addr, port)
-}
-
-// IPAddRoute returns a string representing the command to add a route to a
-// given IP address and a gateway via the iproute2 utility suite. The function
-// takes in a flag called replace which will convert the action to replace the
-// route being added if another route exists and matches. This allows for
-// idempotency as the "replace" action will not fail if another matching route
-// exists, whereas "add" will fail.
-func IPAddRoute(ip, gw net.IP, replace bool) string {
-	action := "add"
-	if replace {
-		action = "replace"
-	}
-
-	return fmt.Sprintf("ip route %s %s via %s", action, ip.String(), gw.String())
-}
-
-// IPDelRoute returns a string representing the command to delete a route to a
-// given IP address and a gateway via the iproute2 utility suite.
-func IPDelRoute(ip, gw net.IP) string {
-	return fmt.Sprintf("ip route del %s via %s", ip.String(), gw.String())
 }

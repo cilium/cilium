@@ -17,7 +17,6 @@ package k8sTest
 import (
 	"context"
 	"fmt"
-	"net"
 	"regexp"
 	"time"
 
@@ -1122,10 +1121,10 @@ var _ = Describe("K8sPolicyTest", func() {
 				outsideNodeName, outsideIP string // k8s3 node (doesn't have agent running)
 
 				backendPod   v1.Pod // The pod that k8s3 node is hitting
-				backendPodIP net.IP
+				backendPodIP string
 
 				hostNodeName       string // Node that backendPod ends up on
-				hostIPOfBackendPod net.IP
+				hostIPOfBackendPod string
 
 				policyVerdictAllowRegex, policyVerdictDenyRegex *regexp.Regexp
 			)
@@ -1154,8 +1153,8 @@ var _ = Describe("K8sPolicyTest", func() {
 				Expect(demoPods.Items).To(HaveLen(2))
 
 				backendPod = demoPods.Items[0] // We'll take the first one; doesn't matter
-				backendPodIP = net.ParseIP(backendPod.Status.PodIP)
-				hostIPOfBackendPod = net.ParseIP(backendPod.Status.HostIP)
+				backendPodIP = backendPod.Status.PodIP
+				hostIPOfBackendPod = backendPod.Status.HostIP
 				hostNodeName = backendPod.Spec.NodeName // Save the name of node backend pod is on
 
 				By("Adding a static route to %s on the %s node (outside)",
@@ -1165,24 +1164,20 @@ var _ = Describe("K8sPolicyTest", func() {
 				// K8s Services, for the sake of simplicity. Making the backend
 				// pod IP directly routable on the "outside" node is sufficient
 				// to validate the policy under test.
-				res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
-					helpers.IPAddRoute(backendPodIP, hostIPOfBackendPod, true))
+				res := kubectl.AddIPRoute(outsideNodeName, backendPodIP, hostIPOfBackendPod, true)
 				Expect(res).To(getMatcher(true))
 
 				policyVerdictAllowRegex = regexp.MustCompile(
 					fmt.Sprintf("Policy verdict log: .+action allow.+%s:[0-9]+ -> %s:80 tcp SYN",
-						outsideIP,
-						backendPodIP.String()))
+						outsideIP, backendPodIP))
 				policyVerdictDenyRegex = regexp.MustCompile(
 					fmt.Sprintf("Policy verdict log: .+action deny.+%s:[0-9]+ -> %s:80 tcp SYN",
-						outsideIP,
-						backendPodIP.String()))
+						outsideIP, backendPodIP))
 			})
 
 			AfterAll(func() {
 				// Remove the route on the outside node.
-				kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
-					helpers.IPDelRoute(backendPodIP, hostIPOfBackendPod))
+				kubectl.DelIPRoute(outsideNodeName, backendPodIP, hostIPOfBackendPod)
 
 				// Revert Cilium installation back to before this Context.
 				By("Redeploying Cilium with default configuration")

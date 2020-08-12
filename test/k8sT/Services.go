@@ -784,14 +784,11 @@ var _ = Describe("K8sServicesTest", func() {
 			tftpURL := getTFTPLink(svcExternalIP, data.Spec.Ports[1].Port)
 
 			// Add the route on the outside node to the external IP addr
-			cmd := helpers.IPAddRoute(net.ParseIP(svcExternalIP), net.ParseIP(k8s1IP), false)
-			res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
-			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-				"Can not exec %q on outside node %s", cmd, outsideNodeName)
+			kubectl.AddIPRoute(outsideNodeName, svcExternalIP, k8s1IP, false).
+				ExpectSuccess("Cannot add ip route")
 			defer func() {
-				kubectl.ExecInHostNetNS(context.TODO(),
-					outsideNodeName,
-					helpers.IPDelRoute(net.ParseIP(svcExternalIP), net.ParseIP(k8s1IP)))
+				kubectl.DelIPRoute(outsideNodeName, svcExternalIP, k8s1IP).
+					ExpectSuccess("Cannot del ip route")
 			}()
 
 			// Should work from outside via the external IP
@@ -1475,14 +1472,9 @@ var _ = Describe("K8sServicesTest", func() {
 								helpers.DefaultNamespace, "test-lb", 30*time.Second)
 							Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
 							// Add route to the LB IP addr via k8s1 node
-							cmd := helpers.IPAddRoute(net.ParseIP(lbIP), net.ParseIP(k8s1IP), false)
-							res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
-							ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-								"Can not exec %q on outside node %s", cmd, outsideNodeName)
-							defer func() {
-								cmd := helpers.IPDelRoute(net.ParseIP(lbIP), net.ParseIP(k8s1IP))
-								kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
-							}()
+							kubectl.AddIPRoute(outsideNodeName, lbIP, k8s1IP, false).
+								ExpectSuccess("Cannot add ip route")
+							defer func() { kubectl.DelIPRoute(outsideNodeName, lbIP, k8s1IP) }()
 							// Check connectivity from outside
 							testCurlFromOutside("http://"+lbIP, 10, false)
 						})
