@@ -17,6 +17,8 @@ packages=(
   ca-certificates
 )
 
+export DEBIAN_FRONTEND=noninteractive
+
 apt-get update
 
 # tzdata is one of the dependencies and a timezone must be set
