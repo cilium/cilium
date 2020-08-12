@@ -563,7 +563,7 @@ postcheck: build
 minikube:
 	$(QUIET) contrib/scripts/minikube.sh
 
-update-golang: update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version
+update-golang: update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
 
 update-golang-dockerfiles:
 	$(QUIET) sed -i 's/GO_VERSION .*/GO_VERSION $(GO_VERSION)/g' Dockerfile.builder
@@ -582,6 +582,11 @@ update-test-go-version:
 	$(QUIET) sed -i 's/GO_VERSION=.*/GO_VERSION="$(GO_VERSION)"/g' test/kubernetes-test.sh
 	$(QUIET) sed -i 's/GOLANG_VERSION=.*/GOLANG_VERSION="$(GO_VERSION)"/g' test/packet/scripts/install.sh
 	@echo "Updated go version in test scripts to $(GO_VERSION)"
+
+update-images-go-version:
+	$(QUIET) sed -i 's/^go_version=.*/go_version=$(GO_VERSION)/g' images/scripts/update-golang-image.sh
+	$(QUIET) $(MAKE) -C images update-golang-image
+	@echo "Updated go version in image Dockerfiles to $(GO_VERSION)"
 
 .PHONY: force generate-api generate-health-api install build-context-update dev-docker-image clean-build clean clean-container veryclean
 force :;
