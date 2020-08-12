@@ -561,11 +561,6 @@ func DoesNotExistNodeWithoutCilium() bool {
 	return !ExistNodeWithoutCilium()
 }
 
-// DoesNotSupportMetalLB tells whether our CI can run MetalLB
-func DoesNotSupportMetalLB() bool {
-	return true
-}
-
 func (kub *Kubectl) HasHostReachableServices(pod string, checkTCP, checkUDP bool) bool {
 	status := kub.CiliumExecContext(context.TODO(), pod,
 		"cilium status -o jsonpath='{.kube-proxy-replacement.features.hostReachableServices}'")
