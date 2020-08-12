@@ -194,7 +194,12 @@ __ctx_redirect_to_proxy(struct __ctx_buff *ctx, void *tuple __maybe_unused,
 {
 	int result = CTX_ACT_OK;
 
-	ctx->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
+#ifdef ENABLE_TPROXY
+	if (!from_host)
+		ctx->mark |= MARK_MAGIC_TO_PROXY;
+	else
+#endif
+		ctx->mark = MARK_MAGIC_TO_PROXY | proxy_port << 16;
 
 #ifdef HOST_REDIRECT_TO_INGRESS
 	cilium_dbg(ctx, DBG_CAPTURE_PROXY_PRE, proxy_port, 0);
