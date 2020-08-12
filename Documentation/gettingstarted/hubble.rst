@@ -106,6 +106,7 @@ Relay and Hubble's graphical UI.
                   --set config.ipam=kubernetes \\
                   --set global.hubble.enabled=true \\
                   --set global.hubble.listenAddress=":4244" \\
+                  --set global.hubble.allowInsecure=true \\
                   --set global.hubble.relay.enabled=true \\
                   --set global.hubble.ui.enabled=true
 
