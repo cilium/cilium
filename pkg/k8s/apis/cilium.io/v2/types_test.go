@@ -466,13 +466,26 @@ func (s *CiliumV2Suite) TestParseWithNodeSelector(c *C) {
 	// CCNP parse is allowed to have a NodeSelector.
 	ccnpl := CiliumClusterwideNetworkPolicy{
 		ObjectMeta: metav1.ObjectMeta{
-			Namespace: "default",
+			Namespace: "",
 			Name:      "rule",
 			UID:       uuidRule,
 		},
 		CiliumNetworkPolicy: &cnpl,
 	}
 	_, err = ccnpl.Parse()
+	c.Assert(err, IsNil)
+
+	// CCNPs are received as CNP and initially parsed as CNP. Create a CNP with
+	// an empty namespace to test this case. See #12834 for details.
+	ccnplAsCNP := CiliumNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "",
+			Name:      "rule",
+			UID:       uuidRule,
+		},
+		Spec: &rule,
+	}
+	_, err = ccnplAsCNP.Parse()
 	c.Assert(err, IsNil)
 
 	// Now test a CNP and CCNP with an EndpointSelector only.
@@ -482,9 +495,9 @@ func (s *CiliumV2Suite) TestParseWithNodeSelector(c *C) {
 	// CNP and CCNP parse is allowed to have an EndpointSelector.
 	_, err = cnpl.Parse()
 	c.Assert(err, IsNil)
-
-	// CNP and CCNP parse is allowed to have an EndpointSelector.
 	_, err = ccnpl.Parse()
+	c.Assert(err, IsNil)
+	_, err = ccnplAsCNP.Parse()
 	c.Assert(err, IsNil)
 }
 
