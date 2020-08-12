@@ -754,6 +754,9 @@ func (in *PodStatus) DeepEqual(other *PodStatus) bool {
 		}
 	}
 
+	if in.QOSClass != other.QOSClass {
+		return false
+	}
 	if ((in.ContainerStatuses != nil) && (other.ContainerStatuses != nil)) || ((in.ContainerStatuses == nil) != (other.ContainerStatuses == nil)) {
 		in, other := &in.ContainerStatuses, &other.ContainerStatuses
 		if other == nil {

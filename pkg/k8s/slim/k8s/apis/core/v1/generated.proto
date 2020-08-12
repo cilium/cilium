@@ -460,6 +460,12 @@ message PodStatus {
   // +optional
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startTime = 7;
 
+  // The Quality of Service (QOS) classification assigned to the pod based on resource requirements
+  // See PodQOSClass type for available QOS classes
+  // More info: https://git.k8s.io/community/contributors/design-proposals/node/resource-qos.md
+  // +optional
+  optional string qosClass = 9;
+
   // The list has one entry per container in the manifest. Each entry is currently the output
   // of `docker inspect`.
   // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status
