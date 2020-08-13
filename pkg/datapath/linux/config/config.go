@@ -265,7 +265,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["ENABLE_HOSTPORT"] = "1"
 		}
 
-		if option.Config.EnableLoadBalancerSourceRangeCheck {
+		if option.Config.EnableSVCSourceRangeCheck {
 			cDefinesMap["ENABLE_SRC_RANGE_CHECK"] = "1"
 			if option.Config.EnableIPv4 {
 				cDefinesMap["LB4_SRC_RANGE_MAP"] = lbmap.SourceRange4MapName

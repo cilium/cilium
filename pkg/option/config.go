@@ -240,8 +240,8 @@ const (
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
 
-	// EnableLoadBalancerSourceRangeCheck enables check of loadBalancerSourceRanges
-	EnableLoadBalancerSourceRangeCheck = "enable-loadbalancer-source-range-check"
+	// EnableSVCSourceRangeCheck enables check of service source range checks
+	EnableSVCSourceRangeCheck = "enable-svc-source-range-check"
 
 	// NodePortMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")
@@ -1058,7 +1058,7 @@ var HelpFlagSections = []FlagsSection{
 		Flags: []string{
 			KubeProxyReplacement,
 			EnableNodePort,
-			EnableLoadBalancerSourceRangeCheck,
+			EnableSVCSourceRangeCheck,
 			EnableHostReachableServices,
 			EnableExternalIPs,
 			HostReachableServicesProtos,
@@ -1704,8 +1704,8 @@ type DaemonConfig struct {
 	// EnableNodePort enables k8s NodePort service implementation in BPF
 	EnableNodePort bool
 
-	// EnableLoadBalancerSourceRangeCheck enables check of loadBalancerSourceRanges
-	EnableLoadBalancerSourceRangeCheck bool
+	// EnableSVCSourceRangeCheck enables check of loadBalancerSourceRanges
+	EnableSVCSourceRangeCheck bool
 
 	// EnableHostPort enables k8s Pod's hostPort mapping through BPF
 	EnableHostPort bool
@@ -2295,7 +2295,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableL7Proxy = viper.GetBool(EnableL7Proxy)
 	c.EnableTracing = viper.GetBool(EnableTracing)
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
-	c.EnableLoadBalancerSourceRangeCheck = viper.GetBool(EnableLoadBalancerSourceRangeCheck)
+	c.EnableSVCSourceRangeCheck = viper.GetBool(EnableSVCSourceRangeCheck)
 	c.EnableHostPort = viper.GetBool(EnableHostPort)
 	c.NodePortMode = viper.GetString(NodePortMode)
 	c.NodePortAcceleration = viper.GetString(NodePortAcceleration)

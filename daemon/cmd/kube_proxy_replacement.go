@@ -283,14 +283,14 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 		return
 	}
 
-	if option.Config.EnableLoadBalancerSourceRangeCheck && !probe.HaveFullLPM() {
+	if option.Config.EnableSVCSourceRangeCheck && !probe.HaveFullLPM() {
 		msg := fmt.Sprintf("--%s requires kernel 4.16 or newer.",
-			option.EnableLoadBalancerSourceRangeCheck)
+			option.EnableSVCSourceRangeCheck)
 		if isKubeProxyReplacementStrict {
 			log.Fatal(msg)
 		} else {
 			log.Warnf(msg + " Disabling the check.")
-			option.Config.EnableLoadBalancerSourceRangeCheck = false
+			option.Config.EnableSVCSourceRangeCheck = false
 		}
 	}
 
@@ -365,7 +365,7 @@ func disableNodePort() {
 	option.Config.EnableNodePort = false
 	option.Config.EnableHostPort = false
 	option.Config.EnableExternalIPs = false
-	option.Config.EnableLoadBalancerSourceRangeCheck = false
+	option.Config.EnableSVCSourceRangeCheck = false
 }
 
 func hasHardwareAddress(ifIndex int) bool {
