@@ -1602,8 +1602,8 @@ func (kub *Kubectl) KubernetesDNSCanResolve(namespace, service string) error {
 
 	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
 	cmd := fmt.Sprintf("dig +short %s @%s | grep -v -e '^;'", serviceToResolve, kubeDnsService.Spec.ClusterIP)
-	res, err := kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), cmd)
-	if err != nil {
+	res := kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), cmd)
+	if res.err != nil {
 		return fmt.Errorf("unable to resolve service name %s with DND server %s by running '%s' Cilium pod: %s",
 			serviceToResolve, kubeDnsService.Spec.ClusterIP, cmd, res.OutputPrettyPrint())
 	}
@@ -1970,8 +1970,8 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 		// an IP of the pod itself, not ClusterIPNone, which is what Kubernetes
 		// shows as the IP for the service for headless services.
 		if serviceIP == v1.ClusterIPNone {
-			res, err := kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
-			if err != nil {
+			res := kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
+			if res.err != nil {
 				logger.Debugf("failed to run dig in log-gatherer pod")
 				return false
 			}
@@ -1981,8 +1981,8 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 		}
 		log.Debugf("service is not headless; checking whether IP retrieved from DNS matches the IP for the service stored in Kubernetes")
 
-		res, err := kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
-		if err != nil {
+		res := kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
+		if res.err != nil {
 			logger.Debugf("failed to run dig in log-gatherer pod")
 			return false
 		}
@@ -3108,22 +3108,18 @@ func (kub *Kubectl) GatherCiliumCoreDumps(ctx context.Context, ciliumPod string)
 
 // ExecInFirstPod runs given command in one pod that matches given selector and namespace
 // An error is returned if no pods can be found
-func (kub *Kubectl) ExecInFirstPod(ctx context.Context, namespace, selector, cmd string, options ...ExecOptions) (result *CmdRes, err error) {
+func (kub *Kubectl) ExecInFirstPod(ctx context.Context, namespace, selector, cmd string, options ...ExecOptions) *CmdRes {
 	names, err := kub.GetPodNamesContext(ctx, namespace, selector)
 	if err != nil {
-		return nil, err
+		return &CmdRes{err: err}
 	}
 	if len(names) == 0 {
-		return nil, fmt.Errorf("Cannot find pods matching %s to execute %s", selector, cmd)
+		return &CmdRes{err: fmt.Errorf("Cannot find pods matching %s to execute %s", selector, cmd)}
 	}
 
-	for _, name := range names {
-		command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, name, cmd)
-		result = kub.ExecContext(ctx, command)
-		break
-	}
-
-	return result, nil
+	name := names[0]
+	command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, namespace, name, cmd)
+	return kub.ExecContext(ctx, command)
 }
 
 // ExecInPods runs given command on all pods in given namespace that match selector and returns map pod-name->CmdRes
@@ -3143,7 +3139,7 @@ func (kub *Kubectl) ExecInPods(ctx context.Context, namespace, selector, cmd str
 }
 
 // ExecInHostNetNS runs given command in a pod running in a host network namespace
-func (kub *Kubectl) ExecInHostNetNS(ctx context.Context, node, cmd string) (*CmdRes, error) {
+func (kub *Kubectl) ExecInHostNetNS(ctx context.Context, node, cmd string) *CmdRes {
 	// This is a hack, as we execute the given cmd in the log-gathering pod
 	// which runs in the host netns. Also, the log-gathering pods lack some
 	// packages, e.g. iproute2.
@@ -3161,10 +3157,7 @@ func (kub *Kubectl) ExecInHostNetNSByLabel(ctx context.Context, label, cmd strin
 		return "", fmt.Errorf("Cannot get node by label %s", label)
 	}
 
-	res, err := kub.ExecInHostNetNS(ctx, nodeName, cmd)
-	if err != nil {
-		return "", fmt.Errorf("Failed to exec %s cmd on %s node: %s", cmd, nodeName, err)
-	}
+	res := kub.ExecInHostNetNS(ctx, nodeName, cmd)
 	if !res.WasSuccessful() {
 		return "", fmt.Errorf("Failed to exec %q cmd on %q node: %s", cmd, nodeName, res.GetErr(""))
 	}
