@@ -283,6 +283,17 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 		return
 	}
 
+	if option.Config.EnableLoadBalancerSourceRangeCheck && !probe.HaveFullLPM() {
+		msg := fmt.Sprintf("--%s requires kernel 4.16 or newer.",
+			option.EnableLoadBalancerSourceRangeCheck)
+		if isKubeProxyReplacementStrict {
+			log.Fatal(msg)
+		} else {
+			log.Warnf(msg + " Disabling the check.")
+			option.Config.EnableLoadBalancerSourceRangeCheck = false
+		}
+	}
+
 	// After this point, BPF NodePort should not be disabled
 
 	if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled {
@@ -354,6 +365,7 @@ func disableNodePort() {
 	option.Config.EnableNodePort = false
 	option.Config.EnableHostPort = false
 	option.Config.EnableExternalIPs = false
+	option.Config.EnableLoadBalancerSourceRangeCheck = false
 }
 
 func hasHardwareAddress(ifIndex int) bool {
