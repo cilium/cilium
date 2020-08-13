@@ -1597,6 +1597,9 @@ definitions:
       proxy:
         description: Status of proxy
         "$ref": "#/definitions/ProxyStatus"
+      bandwidth-manager:
+        description: Status of bandwidth manager
+        "$ref": "#/definitions/BandwidthManager"
       masquerading:
         description: Status of masquerading
         "$ref": "#/definitions/Masquerading"
@@ -2380,6 +2383,20 @@ definitions:
       forwarded:
         description: Number of messages forwarded
         type: integer
+  BandwidthManager:
+    description: |-
+      Status of bandwidth manager
+
+      +k8s:deepcopy-gen=true
+    type: object
+    properties:
+      enabled:
+        description: Is bandwidth manager enabled
+        type: boolean
+      devices:
+        type: array
+        items:
+          type: string
   Masquerading:
     description: |-
       Status of masquerading
