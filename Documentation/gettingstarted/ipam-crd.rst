@@ -40,7 +40,7 @@ Enable CRD IPAM mode
 Create a CiliumNode CR
 ======================
 
-#. Import the following custom resource to make t
+#. Import the following custom resource to make IPs available in the Cilium agent.
 
    .. code-block:: yaml
 
