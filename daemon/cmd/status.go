@@ -141,6 +141,24 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 	return s
 }
 
+func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
+	s := &models.BandwidthManager{
+		Enabled: option.Config.EnableBandwidthManager,
+	}
+
+	if !option.Config.EnableBandwidthManager {
+		return s
+	}
+
+	devices := make([]string, len(option.Config.Devices))
+	for i, iface := range option.Config.Devices {
+		devices[i] = iface
+	}
+
+	s.Devices = devices
+	return s
+}
+
 func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if !k8s.IsEnabled() {
 		return &models.KubeProxyReplacement{Mode: models.KubeProxyReplacementModeDisabled}
@@ -830,6 +848,7 @@ func (d *Daemon) startStatusCollector() {
 	}
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
+	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
 	d.statusResponse.BpfMaps = d.getBPFMapStatus()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{})
