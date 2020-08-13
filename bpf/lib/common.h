@@ -350,11 +350,11 @@ enum {
 #define DROP_UNUSED8		-159 /* unused */
 #define DROP_NO_TUNNEL_ENDPOINT -160
 #define DROP_UNUSED9		-161 /* unused */
-#define DROP_UNUSED10		-162 /* unused */
-#define DROP_UNKNOWN_CT			-163
-#define DROP_HOST_UNREACHABLE		-164
+#define DROP_EDT_HORIZON	-162
+#define DROP_UNKNOWN_CT		-163
+#define DROP_HOST_UNREACHABLE	-164
 #define DROP_NO_CONFIG		-165
-#define DROP_UNSUPPORTED_L2		-166
+#define DROP_UNSUPPORTED_L2	-166
 #define DROP_NAT_NO_MAPPING	-167
 #define DROP_NAT_UNSUPP_PROTO	-168
 #define DROP_NO_FIB		-169

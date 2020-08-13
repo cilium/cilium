@@ -937,8 +937,11 @@ out:
 #if defined(ENABLE_BANDWIDTH_MANAGER)
 	ret = edt_sched_departure(ctx);
 	/* No send_drop_notify_error() here given we're rate-limiting. */
-	if (ret == CTX_ACT_DROP)
+	if (ret == CTX_ACT_DROP) {
+		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
+			       -DROP_EDT_HORIZON);
 		return ret;
+	}
 #endif
 
 #if defined(ENABLE_NODEPORT) && \

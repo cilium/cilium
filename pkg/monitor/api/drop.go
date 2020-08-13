@@ -64,6 +64,7 @@ var errors = map[uint8]string{
 	158: "Service backend not found",
 	160: "No tunnel/encapsulation endpoint (datapath BUG!)",
 	161: "Failed to insert into proxymap", // Unused
+	162: "Reached EDT rate-limiting drop horizon",
 	163: "Unknown connection tracking state",
 	164: "Local host is unreachable",
 	165: "No configuration available to perform policy decision", // Unused
