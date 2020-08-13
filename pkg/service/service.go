@@ -228,10 +228,10 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 	})
 	scopedLog.Debug("Upserting service")
 
-	if !option.Config.EnableLoadBalancerSourceRangeCheck &&
+	if !option.Config.EnableSVCSourceRangeCheck &&
 		len(params.LoadBalancerSourceRanges) != 0 {
 		scopedLog.Warnf("--%s is disabled, ignoring loadBalancerSourceRanges",
-			option.EnableLoadBalancerSourceRangeCheck)
+			option.EnableSVCSourceRangeCheck)
 	}
 
 	// If needed, create svcInfo and allocate service ID
@@ -380,7 +380,7 @@ func (s *Service) RestoreServices() error {
 	}
 
 	// Remove LB source ranges for no longer existing services
-	if option.Config.EnableLoadBalancerSourceRangeCheck {
+	if option.Config.EnableSVCSourceRangeCheck {
 		if err := s.restoreAndDeleteOrphanSourceRanges(); err != nil {
 			return err
 		}
@@ -629,7 +629,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	}
 
 	// Update LB source range check cidrs
-	if option.Config.EnableLoadBalancerSourceRangeCheck {
+	if option.Config.EnableSVCSourceRangeCheck {
 		checkLBSrcRange = len(svc.loadBalancerSourceRanges) != 0
 		if checkLBSrcRange || len(prevLoadBalancerSourceRanges) != 0 {
 			if err := s.lbmap.UpdateSourceRanges(uint16(svc.frontend.ID),
@@ -813,7 +813,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 		s.deleteBackendsFromAffinityMatchMap(svc.frontend.ID, backendIDs)
 	}
 
-	if option.Config.EnableLoadBalancerSourceRangeCheck &&
+	if option.Config.EnableSVCSourceRangeCheck &&
 		svc.svcType == lb.SVCTypeLoadBalancer {
 		if err := s.lbmap.UpdateSourceRanges(uint16(svc.frontend.ID),
 			svc.loadBalancerSourceRanges, nil, ipv6); err != nil {
