@@ -63,6 +63,7 @@ Advanced Networking
    encryption
    host-services
    kubeproxy-free
+   bandwidth-manager
    kata
    ipam
 
