@@ -87,6 +87,7 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	AfterAll(func() {
+		cleanupCilium(kubectl)
 		kubectl.CloseSSHClient()
 	})
 
@@ -119,6 +120,20 @@ var _ = Describe("K8sUpdates", func() {
 	})
 })
 
+func cleanupCilium(kubectl *helpers.Kubectl) {
+	_ = kubectl.ExecMiddle("helm delete cilium-preflight --namespace=" + helpers.CiliumNamespace)
+	_ = kubectl.ExecMiddle("helm delete cilium --namespace=" + helpers.CiliumNamespace)
+	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete configmap --namespace=%s cilium-config", helpers.CiliumNamespace))
+	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete serviceaccount --namespace=%s cilium cilium-operator", helpers.CiliumNamespace))
+	_ = kubectl.ExecMiddle("kubectl delete clusterrole cilium cilium-operator")
+	_ = kubectl.ExecMiddle("kubectl delete clusterrolebinding cilium cilium-operator")
+	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete daemonset --namespace=%s cilium", helpers.CiliumNamespace))
+	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete deployment --namespace=%s cilium-operator", helpers.CiliumNamespace))
+	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete daemonset --namespace=%s cilium-node-init", helpers.CiliumNamespace))
+
+	ExpectAllPodsTerminated(kubectl)
+}
+
 // InstallAndValidateCiliumUpgrades installs and tests if the oldVersion can be
 // upgrade to the newVersion and if the newVersion can be downgraded to the
 // oldVersion.  It returns two callbacks, the first one is the assertfunction
@@ -149,16 +164,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 	app1Service := "app1-service"
 
 	cleanupCiliumState := func(helmPath, chartVersion, imageName, imageTag, registry string) {
-		_ = kubectl.ExecMiddle("helm delete cilium-preflight --namespace=" + helpers.CiliumNamespace)
-		_ = kubectl.ExecMiddle("helm delete cilium --namespace=" + helpers.CiliumNamespace)
-		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete configmap --namespace=%s cilium-config", helpers.CiliumNamespace))
-		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete serviceaccount --namespace=%s cilium cilium-operator", helpers.CiliumNamespace))
-		_ = kubectl.ExecMiddle("kubectl delete clusterrole cilium cilium-operator")
-		_ = kubectl.ExecMiddle("kubectl delete clusterrolebinding cilium cilium-operator")
-		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete daemonset --namespace=%s cilium", helpers.CiliumNamespace))
-		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete deployment --namespace=%s cilium-operator", helpers.CiliumNamespace))
-		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete daemonset --namespace=%s cilium-node-init", helpers.CiliumNamespace))
-		ExpectAllPodsTerminated(kubectl)
+		cleanupCilium(kubectl)
+
 		opts := map[string]string{
 			"global.cleanState":    "true",
 			"global.tag":           imageTag,
