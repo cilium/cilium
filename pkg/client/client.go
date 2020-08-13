@@ -400,6 +400,17 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		}
 	}
 
+	if sr.BandwidthManager != nil {
+		var status string
+		if !sr.BandwidthManager.Enabled {
+			status = "Disabled"
+		} else {
+			status = fmt.Sprintf("EDT with BPF\t[%s]",
+				strings.Join(sr.BandwidthManager.Devices, ", "))
+		}
+		fmt.Fprintf(w, "BandwidthManager:\t%s\n", status)
+	}
+
 	if sr.Masquerading != nil {
 		var status string
 		if !sr.Masquerading.Enabled {
