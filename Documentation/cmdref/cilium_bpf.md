@@ -25,6 +25,7 @@ Direct access to local BPF maps
 ### SEE ALSO
 
 * [cilium](../cilium)	 - CLI
+* [cilium bpf bandwidth](../cilium_bpf_bandwidth)	 - BPF datapath bandwidth settings
 * [cilium bpf ct](../cilium_bpf_ct)	 - Connection tracking tables
 * [cilium bpf endpoint](../cilium_bpf_endpoint)	 - Local endpoint map
 * [cilium bpf fs](../cilium_bpf_fs)	 - BPF filesystem mount
