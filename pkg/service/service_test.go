@@ -54,15 +54,15 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 	m.prevOptionSessionAffinity = option.Config.EnableSessionAffinity
 	option.Config.EnableSessionAffinity = true
 
-	m.prevOptionLBSourceRanges = option.Config.EnableLoadBalancerSourceRangeCheck
-	option.Config.EnableLoadBalancerSourceRangeCheck = true
+	m.prevOptionLBSourceRanges = option.Config.EnableSVCSourceRangeCheck
+	option.Config.EnableSVCSourceRangeCheck = true
 }
 
 func (m *ManagerTestSuite) TearDownTest(c *C) {
 	serviceIDAlloc.resetLocalID()
 	backendIDAlloc.resetLocalID()
 	option.Config.EnableSessionAffinity = m.prevOptionSessionAffinity
-	option.Config.EnableLoadBalancerSourceRangeCheck = m.prevOptionLBSourceRanges
+	option.Config.EnableSVCSourceRangeCheck = m.prevOptionLBSourceRanges
 }
 
 var (

@@ -79,12 +79,12 @@ cilium-agent [flags]
       --enable-k8s-endpoint-slice                     Enables k8s EndpointSlice feature in Cilium if the k8s cluster supports it (default true)
       --enable-k8s-event-handover                     Enable k8s event handover to kvstore for improved scalability
       --enable-l7-proxy                               Enable L7 proxy for L7 policy enforcement (default true)
-      --enable-loadbalancer-source-range-check        Enable check of loadBalancerSourceRanges (default true)
       --enable-local-node-route                       Enable installation of the route which points the allocation prefix of the local node (default true)
       --enable-node-port                              Enable NodePort type services by Cilium (beta)
       --enable-policy string                          Enable policy enforcement (default "default")
       --enable-remote-node-identity                   Enable use of remote node identity
       --enable-session-affinity                       Enable support for service session affinity
+      --enable-svc-source-range-check                 Enable check of service source ranges (currently, only for LoadBalancer) (default true)
       --enable-tracing                                Enable tracing while determining policy (debugging)
       --enable-well-known-identities                  Enable well-known identities for known Kubernetes components (default true)
       --enable-xt-socket-fallback                     Enable fallback for missing xt_socket module (default true)
