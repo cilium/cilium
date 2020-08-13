@@ -18,6 +18,7 @@ package main
 
 import (
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -30,4 +31,6 @@ func init() {
 
 	flags.String(operatorOption.AzureResourceGroup, "", "Resource group to use for Azure IPAM")
 	option.BindEnvWithLegacyEnvFallback(operatorOption.AzureResourceGroup, "AZURE_RESOURCE_GROUP")
+
+	viper.BindPFlags(flags)
 }
