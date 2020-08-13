@@ -1,5 +1,7 @@
 # File source
 # https://raw.githubusercontent.com/kubernetes/kubernetes/release-1.12/cluster/addons/dns/coredns/coredns.yaml.base
+# Local changes:
+# 8/13/2020: coredns image updated to 1.2.6 to fix #6307 (jrajahalme)
 ---
 apiVersion: v1
 kind: ServiceAccount
@@ -111,7 +113,7 @@ spec:
         operator: "Exists"
       containers:
       - name: coredns
-        image: k8s.gcr.io/coredns:1.2.2
+        image: k8s.gcr.io/coredns:1.2.6
         imagePullPolicy: IfNotPresent
         resources:
           limits:
