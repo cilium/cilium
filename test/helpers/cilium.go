@@ -158,8 +158,8 @@ func (s *SSHMeta) SetAndWaitForEndpointConfiguration(endpointID, optionName, exp
 // is exceeded, false otherwise.
 func (s *SSHMeta) WaitEndpointsDeleted() bool {
 	logger := s.logger.WithFields(logrus.Fields{"functionName": "WaitEndpointsDeleted"})
-	// cilium-health endpoint is always running.
-	desiredState := "1"
+	// cilium-health endpoint is always running, as is the host endpoint.
+	desiredState := "2"
 	body := func() bool {
 		cmd := `cilium endpoint list -o json | jq '. | length'`
 		res := s.Exec(cmd)
