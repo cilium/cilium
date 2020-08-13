@@ -22,6 +22,9 @@ import (
 // swagger:model StatusResponse
 type StatusResponse struct {
 
+	// Status of bandwidth manager
+	BandwidthManager *BandwidthManager `json:"bandwidth-manager,omitempty"`
+
 	// Status of BPF maps
 	BpfMaps *BPFMapStatus `json:"bpf-maps,omitempty"`
 
@@ -77,6 +80,10 @@ type StatusResponse struct {
 // Validate validates this status response
 func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	var res []error
+
+	if err := m.validateBandwidthManager(formats); err != nil {
+		res = append(res, err)
+	}
 
 	if err := m.validateBpfMaps(formats); err != nil {
 		res = append(res, err)
@@ -141,6 +148,24 @@ func (m *StatusResponse) Validate(formats strfmt.Registry) error {
 	if len(res) > 0 {
 		return errors.CompositeValidationError(res...)
 	}
+	return nil
+}
+
+func (m *StatusResponse) validateBandwidthManager(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.BandwidthManager) { // not required
+		return nil
+	}
+
+	if m.BandwidthManager != nil {
+		if err := m.BandwidthManager.Validate(formats); err != nil {
+			if ve, ok := err.(*errors.Validation); ok {
+				return ve.ValidateName("bandwidth-manager")
+			}
+			return err
+		}
+	}
+
 	return nil
 }
 
