@@ -92,6 +92,7 @@ Lund
 Lx
 Majkowski
 Marek
+Mbit
 Meetup
 Mellanox
 Memcached
@@ -504,6 +505,7 @@ netdevice
 netdevices
 netdevsim
 netfilter
+netperf
 netsec
 netvsc
 newproto
