@@ -1432,6 +1432,22 @@ func init() {
         }
       }
     },
+    "BandwidthManager": {
+      "description": "Status of bandwidth manager\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enabled": {
+          "description": "Is bandwidth manager enabled",
+          "type": "boolean"
+        }
+      }
+    },
     "CIDRList": {
       "description": "List of CIDRs",
       "type": "object",
@@ -3286,6 +3302,10 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "bandwidth-manager": {
+          "description": "Status of bandwidth manager",
+          "$ref": "#/definitions/BandwidthManager"
+        },
         "bpf-maps": {
           "description": "Status of BPF maps",
           "$ref": "#/definitions/BPFMapStatus"
@@ -5102,6 +5122,22 @@ func init() {
           "description": "Layer 4 port number",
           "type": "integer",
           "format": "uint16"
+        }
+      }
+    },
+    "BandwidthManager": {
+      "description": "Status of bandwidth manager\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enabled": {
+          "description": "Is bandwidth manager enabled",
+          "type": "boolean"
         }
       }
     },
@@ -7240,6 +7276,10 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "bandwidth-manager": {
+          "description": "Status of bandwidth manager",
+          "$ref": "#/definitions/BandwidthManager"
+        },
         "bpf-maps": {
           "description": "Status of BPF maps",
           "$ref": "#/definitions/BPFMapStatus"
