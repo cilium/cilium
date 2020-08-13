@@ -206,7 +206,7 @@ func (res *CmdRes) SendToLog(quietMode bool) {
 
 // WasSuccessful returns true if cmd completed successfully.
 func (res *CmdRes) WasSuccessful() bool {
-	return res.success
+	return res.err == nil && res.success
 }
 
 // ExpectFail asserts whether res failed to execute. It accepts an optional
