@@ -196,8 +196,7 @@ var _ = Describe("K8sHubbleTest", func() {
 				// Basic check for L4 Prometheus metrics.
 				_, nodeIP := kubectl.GetNodeInfo(helpers.K8s1)
 				metricsUrl := fmt.Sprintf("%s/metrics", net.JoinHostPort(nodeIP, prometheusPort))
-				res, err = kubectl.ExecInHostNetNS(ctx, k8s1NodeName, helpers.CurlFail(metricsUrl))
-				Expect(err).To(BeNil(), "failed to execute curl on node %q", k8s1NodeName)
+				res = kubectl.ExecInHostNetNS(ctx, k8s1NodeName, helpers.CurlFail(metricsUrl))
 				res.ExpectSuccess("%s/%s cannot curl metrics %q", helpers.CiliumNamespace, ciliumPodK8s1, app1ClusterIP)
 				res.ExpectContains(`hubble_flows_processed_total{protocol="TCP",subtype="to-endpoint",type="Trace",verdict="FORWARDED"}`)
 			})
@@ -241,8 +240,7 @@ var _ = Describe("K8sHubbleTest", func() {
 				// Basic check for L7 Prometheus metrics.
 				_, nodeIP := kubectl.GetNodeInfo(helpers.K8s1)
 				metricsUrl := fmt.Sprintf("%s/metrics", net.JoinHostPort(nodeIP, prometheusPort))
-				res, err = kubectl.ExecInHostNetNS(ctx, k8s1NodeName, helpers.CurlFail(metricsUrl))
-				Expect(err).To(BeNil(), "failed to execute curl on node %q", k8s1NodeName)
+				res = kubectl.ExecInHostNetNS(ctx, k8s1NodeName, helpers.CurlFail(metricsUrl))
 				res.ExpectSuccess("%s/%s cannot curl metrics %q", helpers.CiliumNamespace, ciliumPodK8s1, app1ClusterIP)
 				res.ExpectContains(`hubble_flows_processed_total{protocol="HTTP",subtype="HTTP",type="L7",verdict="FORWARDED"}`)
 			})
