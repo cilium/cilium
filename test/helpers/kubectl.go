@@ -2208,6 +2208,9 @@ func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename strin
 	helmTemplate := kub.GetFilePath(HelmTemplate)
 	res := kub.HelmTemplate(helmTemplate, GetCiliumNamespace(GetCurrentIntegration()), filename, options)
 	if !res.WasSuccessful() {
+		// If the helm template generation is not successful remove the empty
+		// file.
+		_ = os.Remove(filename)
 		return res.GetErr("Unable to generate YAML")
 	}
 
@@ -2303,27 +2306,26 @@ func (kub *Kubectl) DeleteHubbleRelay(ns string) error {
 
 // CiliumInstall installs Cilium with the provided Helm options.
 func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) error {
+	var err error
+	ginkgoext.GinkgoPrint(".......................................")
+	res := kub.ExecContextShort(context.TODO(), fmt.Sprintf("cat %s", filename))
+	ginkgoext.GinkgoPrint(res.GetDebugMessage())
+
+	res = kub.ExecContextShort(context.TODO(), "ls")
+	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 	// First try to remove any existing cilium install. This is done by removing resources
 	// from the file we generate cilium install manifest to.
-	if _, err := os.Stat(filename); err == nil {
+	if _, err = os.Stat(filename); !os.IsNotExist(err) {
+		ginkgoext.GinkgoPrint("Kubectl deleting the required cilium manifest")
 		res := kub.DeleteAndWait(filename, true)
 		if !res.WasSuccessful() {
 			return res.GetErr("Unable to delete existing cilium YAML")
 		}
-	} else {
-		// If the file with the provided filename does not exist.
-		// Delete the default `cilium.yaml` without timestamp if it exists.
-		// This is a fallback case to remove any existing resources related to
-		// cilium from cluster.
-		if _, err := os.Stat("cilium.yaml"); err == nil {
-			res := kub.DeleteAndWait("cilium.yaml", true)
-			if !res.WasSuccessful() {
-				return res.GetErr("Unable to delete default cilium manifest(cilium.yaml)")
-			}
-		}
 	}
 
-	if err := kub.generateCiliumYaml(options, filename); err != nil {
+	ginkgoext.GinkgoPrint(fmt.Sprintf("-------------- IfAnyErr: %s", err.Error()))
+
+	if err = kub.generateCiliumYaml(options, filename); err != nil {
 		ginkgoext.GinkgoPrint("^^^^^^^^^^^^^^^^^^^^^^^^^^")
 		res := kub.ExecContextShort(context.TODO(), fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
 		ginkgoext.GinkgoPrint(res.GetDebugMessage())
@@ -2343,10 +2345,12 @@ func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) er
 		return err
 	}
 
-	res := kub.Apply(ApplyOptions{FilePath: filename, Force: true, Namespace: CiliumNamespace})
+	res = kub.Apply(ApplyOptions{FilePath: filename, Force: true, Namespace: CiliumNamespace})
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to apply YAML")
 	}
+
+	ginkgoext.GinkgoPrint(".......................................")
 
 	return nil
 }
