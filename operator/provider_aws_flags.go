@@ -18,6 +18,7 @@ package main
 
 import (
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -41,4 +42,6 @@ func init() {
 	flags.Var(option.NewNamedMapOptions(operatorOption.ENITags, &operatorOption.Config.ENITags, nil),
 		operatorOption.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
 	option.BindEnv(operatorOption.ENITags)
+
+	viper.BindPFlags(flags)
 }
