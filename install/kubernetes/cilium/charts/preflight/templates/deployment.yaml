@@ -66,8 +66,8 @@ spec:
 {{- end }}
       hostNetwork: true
       restartPolicy: Always
-      serviceAccount: cilium
-      serviceAccountName: cilium
+      serviceAccount: cilium-pre-flight
+      serviceAccountName: cilium-pre-flight
       terminationGracePeriodSeconds: 1
       tolerations:
         - effect: NoSchedule
