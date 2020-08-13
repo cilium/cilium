@@ -1451,6 +1451,8 @@ var _ = Describe("K8sServicesTest", func() {
 					})
 
 					SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "Tests LoadBalancer", func() {
+						const svcName = "test-lb-with-ip"
+
 						var (
 							dummylb string
 							lbSVC   string
@@ -1472,14 +1474,29 @@ var _ = Describe("K8sServicesTest", func() {
 						It("Connectivity to endpoint via LB", func() {
 							// Wait until dummyLB has assigned the LB IP addr
 							lbIP, err := kubectl.GetLoadBalancerIP(
-								helpers.DefaultNamespace, "test-lb-with-ip", 30*time.Second)
+								helpers.DefaultNamespace, svcName, 30*time.Second)
 							Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
 							// Add route to the LB IP addr via k8s1 node
 							kubectl.AddIPRoute(outsideNodeName, lbIP, k8s1IP, false).
 								ExpectSuccess("Cannot add ip route")
 							defer func() { kubectl.DelIPRoute(outsideNodeName, lbIP, k8s1IP) }()
 							// Check connectivity from outside
-							testCurlFromOutside("http://"+lbIP, 10, false)
+							url := "http://" + lbIP
+							testCurlFromOutside(url, 10, false)
+
+							// Patch service to add a LB source range to disallow requests
+							// from the outsideNode
+							kubectl.Patch(helpers.DefaultNamespace, "service", svcName,
+								`{"spec": {"loadBalancerSourceRanges": ["1.1.1.0/24"]}}`)
+							time.Sleep(5 * time.Second)
+							testCurlFailFromOutside(url, 1)
+							// Patch again, but this time add outsideNode IP addr
+							kubectl.Patch(helpers.DefaultNamespace, "service", svcName,
+								fmt.Sprintf(
+									`{"spec": {"loadBalancerSourceRanges": ["1.1.1.0/24", "%s/32"]}}`,
+									outsideIP))
+							time.Sleep(5 * time.Second)
+							testCurlFromOutside(url, 10, false)
 						})
 					})
 				})
