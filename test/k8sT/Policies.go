@@ -1165,11 +1165,9 @@ var _ = Describe("K8sPolicyTest", func() {
 				// K8s Services, for the sake of simplicity. Making the backend
 				// pod IP directly routable on the "outside" node is sufficient
 				// to validate the policy under test.
-				res, err := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
+				res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
 					helpers.IPAddRoute(backendPodIP, hostIPOfBackendPod, true))
 				Expect(res).To(getMatcher(true))
-				Expect(err).ToNot(HaveOccurred(),
-					"Cannot exec in outside node %s", outsideNodeName)
 
 				policyVerdictAllowRegex = regexp.MustCompile(
 					fmt.Sprintf("Policy verdict log: .+action allow.+%s:[0-9]+ -> %s:80 tcp SYN",
@@ -1200,7 +1198,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				var count int
 				ConsistentlyWithOffset(1, func() bool {
-					res, _ := kubectl.ExecInHostNetNS(
+					res := kubectl.ExecInHostNetNS(
 						context.TODO(),
 						outsideNodeName,
 						helpers.CurlFail("http://%s:%d", backendPodIP, 80),
@@ -1332,16 +1330,14 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			validateNodeConnectivity := func(expectHostSuccess, expectRemoteNodeSuccess bool) {
 				By("Checking ingress connectivity from k8s1 node to k8s1 pod (host)")
-				res, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
+				res := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
 					helpers.CurlFail(k8s1PodIP))
-				Expect(err).To(BeNil(), "Cannot run curl in host netns")
 				ExpectWithOffset(1, res).To(getMatcher(expectHostSuccess),
 					"HTTP ingress connectivity to pod %q from local host", k8s1PodIP)
 
 				By("Checking ingress connectivity from k8s1 node to k8s2 pod (remote-node)")
-				res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
+				res = kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
 					helpers.CurlFail(k8s2PodIP))
-				Expect(err).To(BeNil(), "Cannot run curl in host netns")
 				ExpectWithOffset(1, res).To(getMatcher(expectRemoteNodeSuccess),
 					"HTTP ingress connectivity to pod %q from remote node", k8s2PodIP)
 			}

@@ -173,22 +173,18 @@ var _ = Describe("K8sServicesTest", func() {
 	Context("Testing test script", func() {
 		It("Validating test script correctness", func() {
 			By("Validating test script correctness")
-			res, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("echo FOOBAR", 1, 0))
-			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
+			res := kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("echo FOOBAR", 1, 0))
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not 'echo'")
 			res.ExpectContains("FOOBAR", "Test script failed to execute echo: %s", res.Stdout())
 
-			res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("FOOBAR", 3, 0))
-			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
+			res = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("FOOBAR", 3, 0))
 			ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(), "Test script successfully executed FOOBAR")
 			res.ExpectMatchesRegexp("failed: :[0-9]*/1=127:[0-9]*/2=127:[0-9]*/3=127", "Test script failed to execute echo 3 times: %s", res.Stdout())
 
-			res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("FOOBAR", 1, 1))
-			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
+			res = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("FOOBAR", 1, 1))
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not allow failure")
 
-			res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("echo FOOBAR", 3, 0))
-			ExpectWithOffset(1, err).To(BeNil(), "Cannot run script in host netns")
+			res = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName, testCommand("echo FOOBAR", 3, 0))
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Test script could not 'echo' three times")
 			res.ExpectMatchesRegexp("(?s)(FOOBAR.*exit code: 0.*){3}", "Test script failed to execute echo 3 times: %s", res.Stdout())
 		})
@@ -277,14 +273,12 @@ var _ = Describe("K8sServicesTest", func() {
 			httpSVCURL := fmt.Sprintf("http://%s/", clusterIP)
 			tftpSVCURL := fmt.Sprintf("tftp://%s/hello", clusterIP)
 
-			status, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName,
+			status := kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName,
 				helpers.CurlFail(httpSVCURL))
-			Expect(err).To(BeNil(), "Cannot run curl in host netns")
 			status.ExpectSuccess("cannot curl to service IP from host")
 
-			status, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName,
+			status = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName,
 				helpers.CurlFail(tftpSVCURL))
-			Expect(err).To(BeNil(), "Cannot run curl in host netns")
 			status.ExpectSuccess("cannot curl to service IP from host")
 			ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
 			Expect(err).To(BeNil(), "Cannot get cilium pods")
@@ -337,14 +331,12 @@ var _ = Describe("K8sServicesTest", func() {
 			})
 
 			It("Checks service on same node", func() {
-				status, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName,
+				status := kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName,
 					helpers.CurlFail(`"http://[%s]/"`, demoClusterIPv6))
-				Expect(err).To(BeNil(), "Cannot run curl in host netns")
 				status.ExpectSuccess("cannot curl to service IP from host")
 
-				status, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName,
+				status = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName,
 					helpers.CurlFail(`"tftp://[%s]/hello"`, demoClusterIPv6))
-				Expect(err).To(BeNil(), "Cannot run curl in host netns")
 				status.ExpectSuccess("cannot curl to service IP from host")
 			})
 
@@ -431,8 +423,7 @@ var _ = Describe("K8sServicesTest", func() {
 		testCurlFromPodInHostNetNS := func(url string, count, fails int, fromPod string) {
 			By("Making %d curl requests from pod (host netns) %s to %q", count, fromPod, url)
 			cmd := testCommand(helpers.CurlFailNoStats(url), count, fails)
-			res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, cmd)
-			ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
+			res := kubectl.ExecInHostNetNS(context.TODO(), fromPod, cmd)
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 				"Request from %s to service %s failed", fromPod, url)
 		}
@@ -440,8 +431,7 @@ var _ = Describe("K8sServicesTest", func() {
 		testCurlFailFromPodInHostNetNS := func(url string, count int, fromPod string) {
 			By("Making %d curl requests from %s to %q", count, fromPod, url)
 			for i := 1; i <= count; i++ {
-				res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlFail(url))
-				ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
+				res := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlFail(url))
 				ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 					"%s host unexpectedly connected to service %q, it should fail", fromPod, url)
 			}
@@ -449,9 +439,8 @@ var _ = Describe("K8sServicesTest", func() {
 
 		failBind := func(addr string, port int32, proto, fromPod string) {
 			By("Trying to bind NodePort addr %q:%d on %s", addr, port, fromPod)
-			res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod,
+			res := kubectl.ExecInHostNetNS(context.TODO(), fromPod,
 				helpers.PythonBind(addr, uint16(port), proto))
-			ExpectWithOffset(2, err).To(BeNil(), "Cannot run python in host netns")
 			ExpectWithOffset(2, res).ShouldNot(helpers.CMDSuccess(),
 				"%s host unexpectedly was able to bind on %q:%d, it should fail", fromPod, addr, port)
 		}
@@ -459,8 +448,7 @@ var _ = Describe("K8sServicesTest", func() {
 		testCurlFromPodInHostNetNSExpectingHTTPCode := func(url string, count int, expectedCode string, fromPod string) {
 			By("Making %d HTTP requests from %s to %q, expecting HTTP %s", count, fromPod, url, expectedCode)
 			for i := 1; i <= count; i++ {
-				res, err := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlWithHTTPCode(url))
-				ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
+				res := kubectl.ExecInHostNetNS(context.TODO(), fromPod, helpers.CurlWithHTTPCode(url))
 				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 					"%s host can not connect to service %q", fromPod, url)
 				res.ExpectContains(expectedCode, "Request from %s to %q returned HTTP Code %q, expected %q",
@@ -482,8 +470,7 @@ var _ = Describe("K8sServicesTest", func() {
 					if checkSourceIP {
 						cmd += " | grep client_address="
 					}
-					res, err := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
-					ExpectWithOffset(1, err).Should(BeNil(), "Cannot exec in k8s3 host netns")
+					res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
 					ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 						"Can not connect to service %q from outside cluster", url)
 					if checkSourceIP {
@@ -499,8 +486,7 @@ var _ = Describe("K8sServicesTest", func() {
 			func(url string, count int) {
 				By("Making %d HTTP requests from outside cluster to %q", count, url)
 				for i := 1; i <= count; i++ {
-					res, err := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, helpers.CurlFail(url))
-					ExpectWithOffset(1, err).To(BeNil(), "Cannot run curl in host netns")
+					res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, helpers.CurlFail(url))
 					ExpectWithOffset(1, res).ShouldNot(helpers.CMDSuccess(),
 						"%s host unexpectedly connected to service %q, it should fail", outsideNodeName, url)
 				}
@@ -625,14 +611,12 @@ var _ = Describe("K8sServicesTest", func() {
 
 		getIPv4Andv6AddrForIface := func(nodeName, iface string) (string, string) {
 			cmd := fmt.Sprintf("ip -4 -o a s dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)
-			res, err := kubectl.ExecInHostNetNS(context.TODO(), nodeName, cmd)
-			ExpectWithOffset(2, err).To(BeNil(), cmd)
+			res := kubectl.ExecInHostNetNS(context.TODO(), nodeName, cmd)
 			res.ExpectSuccess(cmd)
 			ipv4 := strings.Trim(res.Stdout(), "\n")
 
 			cmd = fmt.Sprintf("ip -6 -o a s dev %s scope global | awk '{print $4}' | cut -d/ -f1", iface)
-			res, err = kubectl.ExecInHostNetNS(context.TODO(), nodeName, cmd)
-			ExpectWithOffset(2, err).To(BeNil(), cmd)
+			res = kubectl.ExecInHostNetNS(context.TODO(), nodeName, cmd)
 			res.ExpectSuccess(cmd)
 			ipv6 := strings.Trim(res.Stdout(), "\n")
 
@@ -801,8 +785,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 			// Add the route on the outside node to the external IP addr
 			cmd := helpers.IPAddRoute(net.ParseIP(svcExternalIP), net.ParseIP(k8s1IP), false)
-			res, err := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
-			ExpectWithOffset(1, err).Should(BeNil(), "Cannot exec in outside node %s", outsideNodeName)
+			res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
 			ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 				"Can not exec %q on outside node %s", cmd, outsideNodeName)
 			defer func() {
@@ -909,8 +892,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 			for i := 1; i <= count; i++ {
 				if fromOutside {
-					res, err = kubectl.ExecInHostNetNS(context.TODO(), from, cmd)
-					ExpectWithOffset(1, err).Should(BeNil(), "Cannot exec in %s host netns", from)
+					res = kubectl.ExecInHostNetNS(context.TODO(), from, cmd)
 				} else {
 					res = kubectl.ExecPodCmd(helpers.DefaultNamespace, from, cmd)
 				}
@@ -955,8 +937,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 			for i := 1; i <= count; i++ {
 				if fromOutside {
-					res, err = kubectl.ExecInHostNetNS(context.TODO(), from, cmd)
-					ExpectWithOffset(1, err).Should(BeNil(), "Cannot exec in %s host netns", from)
+					res = kubectl.ExecInHostNetNS(context.TODO(), from, cmd)
 				} else {
 					res = kubectl.ExecPodCmd(helpers.DefaultNamespace, from, cmd)
 				}
@@ -1495,8 +1476,7 @@ var _ = Describe("K8sServicesTest", func() {
 							Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
 							// Add route to the LB IP addr via k8s1 node
 							cmd := helpers.IPAddRoute(net.ParseIP(lbIP), net.ParseIP(k8s1IP), false)
-							res, err := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
-							ExpectWithOffset(1, err).Should(BeNil(), "Cannot exec in outside node %s", outsideNodeName)
+							res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
 							ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
 								"Can not exec %q on outside node %s", cmd, outsideNodeName)
 							defer func() {
