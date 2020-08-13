@@ -2324,6 +2324,22 @@ func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) er
 	}
 
 	if err := kub.generateCiliumYaml(options, filename); err != nil {
+		ginkgoext.GinkgoPrint("^^^^^^^^^^^^^^^^^^^^^^^^^^")
+		res := kub.ExecContextShort(context.TODO(), fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
+		ginkgoext.GinkgoPrint(res.GetDebugMessage())
+
+		res = kub.ExecContextShort(context.TODO(), fmt.Sprintf("%s get serviceaccounts -o wide --all-namespaces", KubectlCmd))
+		ginkgoext.GinkgoPrint(res.GetDebugMessage())
+
+		res = kub.ExecContextShort(context.TODO(), fmt.Sprintf("%s get ds -o wide --all-namespaces", KubectlCmd))
+		ginkgoext.GinkgoPrint(res.GetDebugMessage())
+
+		res = kub.ExecContextShort(context.TODO(), fmt.Sprintf("%s get clusterrole -o wide --all-namespaces", KubectlCmd))
+		ginkgoext.GinkgoPrint(res.GetDebugMessage())
+
+		res = kub.ExecContextShort(context.TODO(), fmt.Sprintf("%s get clusterrolebinding -o wide --all-namespaces", KubectlCmd))
+		ginkgoext.GinkgoPrint(res.GetDebugMessage())
+		ginkgoext.GinkgoPrint("^^^^^^^^^^^^^^^^^^^^^^^^^^")
 		return err
 	}
 
