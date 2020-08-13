@@ -50,10 +50,11 @@ Create a CiliumNode CR
              name: "k8s1"
            spec:
              ipam:
-               192.168.1.1: {}
-               192.168.1.2: {}
-               192.168.1.3: {}
-               192.168.1.4: {}
+               pool:
+                 192.168.1.1: {}
+                 192.168.1.2: {}
+                 192.168.1.3: {}
+                 192.168.1.4: {}
 
 #. Validate that Cilium has started up correctly
 
@@ -79,10 +80,11 @@ Create a CiliumNode CR
          [...]
        spec:
          ipam:
-           192.168.1.1: {}
-           192.168.1.2: {}
-           192.168.1.3: {}
-           192.168.1.4: {}
+           pool:
+             192.168.1.1: {}
+             192.168.1.2: {}
+             192.168.1.3: {}
+             192.168.1.4: {}
        status:
          ipam:
            used:
@@ -90,3 +92,7 @@ Create a CiliumNode CR
                owner: router
              192.168.1.3:
                owner: health
+
+.. note::
+
+    At the moment only single IP addresses are allowed. CIDR's are not supported.
