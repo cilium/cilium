@@ -2306,31 +2306,22 @@ func (kub *Kubectl) DeleteHubbleRelay(ns string) error {
 
 // CiliumInstall installs Cilium with the provided Helm options.
 func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) error {
+	// If the file does not exist, create it so that the command `kubectl delete -f <filename>`
+	// does not fail because there is no file.
+	_ = kub.ExecContextShort(context.TODO(), fmt.Sprintf("[[ ! -f %s ]] && echo '---' >> %s", filename, filename))
+
 	// First try to remove any existing cilium install. This is done by removing resources
 	// from the file we generate cilium install manifest to.
-	if _, err := os.Stat(filename); err == nil {
-		res := kub.DeleteAndWait(filename, true)
-		if !res.WasSuccessful() {
-			return res.GetErr("Unable to delete existing cilium YAML")
-		}
-	} else {
-		// If the file with the provided filename does not exist.
-		// Delete the default `cilium.yaml` without timestamp if it exists.
-		// This is a fallback case to remove any existing resources related to
-		// cilium from cluster.
-		if _, err := os.Stat("cilium.yaml"); err == nil {
-			res := kub.DeleteAndWait("cilium.yaml", true)
-			if !res.WasSuccessful() {
-				return res.GetErr("Unable to delete default cilium manifest(cilium.yaml)")
-			}
-		}
+	res := kub.DeleteAndWait(filename, true)
+	if !res.WasSuccessful() {
+		return res.GetErr("Unable to delete existing cilium YAML")
 	}
 
 	if err := kub.generateCiliumYaml(options, filename); err != nil {
 		return err
 	}
 
-	res := kub.Apply(ApplyOptions{FilePath: filename, Force: true, Namespace: CiliumNamespace})
+	res = kub.Apply(ApplyOptions{FilePath: filename, Force: true, Namespace: CiliumNamespace})
 	if !res.WasSuccessful() {
 		return res.GetErr("Unable to apply YAML")
 	}
