@@ -1,0 +1,35 @@
+{{- $defaultCniVersion := "0.3.1" -}}
+{{- $defaultCniName := "cilium" -}}
+{{- $defaultCniType := "cilium-cni" -}}
+{{- $defaultCniDebug := false -}}
+{{- $defaultCniFirstInterfaceIndex := 1 -}}
+
+{{- if .Values.global.cni.managedConfigmap }}
+# if we want to customize CNI config we can do this in the following path: .global.cni.* after we define .global.cni.managedConfigmap
+# supported config params as of now:
+# .global.cni.version
+# .global.cni.name
+# .global.cni.type
+# .global.cni.debug
+# .global.cni.eni.first-interface-index
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-cni-configuration
+  namespace: {{ .Release.Namespace }}
+data:
+  cni-config: |
+    {
+      "cniVersion": {{ .Values.global.cni.version | default $defaultCniVersion }},
+      "name": {{ .Values.global.cni.name | default $defaultCniName }},
+      "type": {{ .Values.global.cni.type | default $defaultCniType }},
+      "enable-debug": {{ .Values.global.cni.debug | default $defaultCniDebug }},
+{{- if .Values.global.cni.eni }}
+      "eni": {
+        "first-instance-index": {{ .Values.global.cni.eni.first-interface-index | default $defaultCniFirstInterfaceIndex }}
+      }
+{{- end }}
+    }
+{{- end }}
+
