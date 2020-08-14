@@ -9,12 +9,11 @@ traditional networking and security services as well as Layer 7 to protect and
 secure use of modern application protocols such as HTTP, gRPC and Kafka. Cilium
 is integrated into common orchestration frameworks such as Kubernetes and Mesos.
 
-A new Linux kernel technology called BPF is at the foundation of Cilium. It
-supports dynamic insertion of BPF bytecode into the Linux kernel at various
+A new Linux kernel technology called eBPF_ is at the foundation of Cilium. It
+supports dynamic insertion of eBPF bytecode into the Linux kernel at various
 integration points such as: network IO, application sockets, and tracepoints to
-implement security, networking and visibility logic. BPF is highly efficient
-and flexible. To learn more about BPF, read more in our extensive
-`BPF and XDP Reference Guide`_.
+implement security, networking and visibility logic. eBPF is highly efficient
+and flexible. To learn more about eBPF, visit `eBPF.io`_.
 
 .. image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/cilium-arch.png
     :align: center
@@ -269,6 +268,8 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 .. _Contributing: http://docs.cilium.io/en/stable/contributing/development/
 .. _Prerequisites: http://docs.cilium.io/en/doc-1.0/install/system_requirements
 .. _`BPF and XDP Reference Guide`: http://docs.cilium.io/en/stable/bpf/
+.. _`eBPF`: https://ebpf.io
+.. _`eBPF.io`: https://ebpf.io
 
 .. |logo| image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/logo.svg
     :alt: Cilium Logo
