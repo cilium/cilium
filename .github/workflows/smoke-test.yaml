@@ -135,7 +135,11 @@ jobs:
              --set global.hostPort.enabled=true \
              --set config.bpfMasquerade=false \
              --set config.ipam=kubernetes \
-             --set global.pullPolicy=Never
+             --set global.pullPolicy=Never \
+             --set global.prometheus.enabled=true \
+             --set global.operatorPrometheus.enabled=true \
+             --set global.hubble.enabled=true \
+             --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
           # To make sure that cilium CRD is available (default timeout is 5m)
@@ -146,6 +150,19 @@ jobs:
         run: |
           kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
           kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
+
+      - name: Check prometheus metrics
+        if: ${{ success() }}
+        env:
+          DEPRECATED_METRICS: cilium_bpf_map_ops_total|cilium_endpoint_count|cilium_identity_count|cilium_endpoint_regenerations|cilium_k8s_client_api_calls_counter|cilium_nodes_all_events_received_total|cilium_policy_count|cilium_policy_import_errors
+        run: |
+          cd $HOME
+          cilium_pod=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].metadata.name}' )
+          kubectl -n kube-system exec $cilium_pod -- sh -c "apt update && apt install curl -y"
+          kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9090/metrics > metrics.prom
+          go get -u github.com/prometheus/prometheus/cmd/promtool
+          cat metrics.prom
+          cat metrics.prom | egrep -v "${{ env.DEPRECATED_METRICS }}" | $HOME/go/bin/promtool check metrics
 
       - name: Dump cilium related logs and events
         if: ${{ failure() }}
