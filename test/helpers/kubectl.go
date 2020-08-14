@@ -2306,26 +2306,28 @@ func (kub *Kubectl) DeleteHubbleRelay(ns string) error {
 
 // CiliumInstall installs Cilium with the provided Helm options.
 func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) error {
-	var err error
 	ginkgoext.GinkgoPrint(".......................................")
 	res := kub.ExecContextShort(context.TODO(), fmt.Sprintf("cat %s", filename))
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
 
 	res = kub.ExecContextShort(context.TODO(), "ls")
 	ginkgoext.GinkgoPrint(res.GetDebugMessage())
+
+	// If the file does not exist, create it so `kubectl delete -f <filename>` does not fail because
+	// there is no file
+	_ = kub.ExecContextShort(context.TODO(), fmt.Sprintf("[[ ! -f %s ]] && echo '---' >> %s", filename, filename))
+	res = kub.ExecContextShort(context.TODO(), fmt.Sprintf("cat %s", filename))
+	ginkgoext.GinkgoPrint(res.GetDebugMessage())
+
 	// First try to remove any existing cilium install. This is done by removing resources
 	// from the file we generate cilium install manifest to.
-	if _, err = os.Stat(filename); !os.IsNotExist(err) {
-		ginkgoext.GinkgoPrint("Kubectl deleting the required cilium manifest")
-		res := kub.DeleteAndWait(filename, true)
-		if !res.WasSuccessful() {
-			return res.GetErr("Unable to delete existing cilium YAML")
-		}
+	ginkgoext.GinkgoPrint("Kubectl deleting the required cilium manifest")
+	res = kub.DeleteAndWait(filename, true)
+	if !res.WasSuccessful() {
+		return res.GetErr("Unable to delete existing cilium YAML")
 	}
 
-	ginkgoext.GinkgoPrint(fmt.Sprintf("-------------- IfAnyErr: %s", err.Error()))
-
-	if err = kub.generateCiliumYaml(options, filename); err != nil {
+	if err := kub.generateCiliumYaml(options, filename); err != nil {
 		ginkgoext.GinkgoPrint("^^^^^^^^^^^^^^^^^^^^^^^^^^")
 		res := kub.ExecContextShort(context.TODO(), fmt.Sprintf("%s get pods -o wide --all-namespaces", KubectlCmd))
 		ginkgoext.GinkgoPrint(res.GetDebugMessage())
