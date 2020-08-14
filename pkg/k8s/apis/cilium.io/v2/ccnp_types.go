@@ -39,10 +39,8 @@ type CiliumClusterwideNetworkPolicy struct {
 	// controller-gen code responsible:
 	// https://github.com/kubernetes-sigs/controller-tools/blob/4a903ddb7005459a7baf4777c67244a74c91083d/pkg/crd/gen.go#L221
 
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
