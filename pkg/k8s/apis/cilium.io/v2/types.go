@@ -39,6 +39,7 @@ import (
 // +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv4",description="Endpoint IPv4 address",name="IPv4",type=string
 // +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv6",description="Endpoint IPv6 address",name="IPv6",type=string
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 
 // CiliumEndpoint is the status of a Cilium policy rule.
 type CiliumEndpoint struct {
@@ -195,6 +196,7 @@ type EndpointIdentity struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:singular="ciliumidentity",path="ciliumidentities",scope="Cluster",shortName={ciliumid}
 // +kubebuilder:subresource:status
+// +kubebuilder:storageversion
 
 // CiliumIdentity is a CRD that represents an identity managed by Cilium.
 // It is intended as a backing store for identity allocation, acting as the
@@ -289,6 +291,7 @@ type CiliumEndpointList struct {
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:singular="ciliumnode",path="ciliumnodes",scope="Cluster",shortName={cn,ciliumn}
+// +kubebuilder:storageversion
 
 // CiliumNode represents a node managed by Cilium. It contains a specification
 // to control various node specific configuration aspects and a status section

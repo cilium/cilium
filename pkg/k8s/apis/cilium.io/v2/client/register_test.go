@@ -24,7 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -35,16 +35,23 @@ type CiliumV2RegisterSuite struct{}
 
 var _ = Suite(&CiliumV2RegisterSuite{})
 
-func (s *CiliumV2RegisterSuite) getTestUpToDateDefinition() *apiextensionsv1beta1.CustomResourceDefinition {
-	return &apiextensionsv1beta1.CustomResourceDefinition{
+func (s *CiliumV2RegisterSuite) getTestUpToDateDefinition() *apiextensionsv1.CustomResourceDefinition {
+	return &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Labels: map[string]string{
 				ciliumv2.CustomResourceDefinitionSchemaVersionKey: ciliumv2.CustomResourceDefinitionSchemaVersion,
 			},
 		},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v2",
+					Served:  true,
+					Storage: true,
+					Schema: &apiextensionsv1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{},
+					},
+				},
 			},
 		},
 	}
@@ -53,7 +60,7 @@ func (s *CiliumV2RegisterSuite) getTestUpToDateDefinition() *apiextensionsv1beta
 func (s *CiliumV2RegisterSuite) TestNeedsUpdateNoValidation(c *C) {
 	crd := s.getTestUpToDateDefinition()
 
-	crd.Spec.Validation = nil
+	crd.Spec.Versions[0].Schema = nil
 
 	c.Assert(needsUpdate(crd), Equals, true)
 }
