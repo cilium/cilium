@@ -55,7 +55,7 @@ spec:
                     fi
 
                     echo "Waiting on pods to stop..."
-                    if grep -q 'docker' /etc/crictl.yaml; then
+                    if [ ! -f /etc/crictl.yaml ] || grep -q 'docker' /etc/crictl.yaml; then
                       # Works for COS, ubuntu
                       while docker ps | grep -v "node-init" | grep -q "POD_cilium"; do sleep 1; done
                     else
@@ -199,7 +199,7 @@ spec:
 
 {{- if .Values.restartPods }}
               echo "Restarting kubenet managed pods"
-              if grep -q 'docker' /etc/crictl.yaml; then
+              if [ ! -f /etc/crictl.yaml ] || grep -q 'docker' /etc/crictl.yaml; then
                 # Works for COS, ubuntu
                 # Note the first line is the containerID with a trailing \r
                 for f in `find /var/lib/cni/networks/ -type f ! -name lock ! -name last_reserved_ip.0`; do docker rm -f "$(sed 's/\r//;1q' $f)" || true; done
