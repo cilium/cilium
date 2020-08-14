@@ -7,14 +7,7 @@ metadata:
   name: cilium-operator
   namespace: {{ .Release.Namespace }}
 spec:
-  # We support HA mode only for Kubernetes version > 1.14
-  # See docs on ServerCapabilities.LeasesResourceLock in file pkg/k8s/version/version.go
-  # for more details.
-{{- if or (ge .Capabilities.KubeVersion.Minor "14") (gt .Capabilities.KubeVersion.Major "1") }}
-  replicas: {{ .Values.numReplicas }}
-{{- else }}
   replicas: 1
-{{- end }}
   selector:
     matchLabels:
       io.cilium/app: operator
@@ -31,25 +24,10 @@ spec:
         prometheus.io/port: {{ .Values.global.operatorPrometheus.port | quote }}
         prometheus.io/scrape: "true"
 {{- end }}
-{{- with .Values.podsAnnotations }}{{- toYaml . | nindent 8 }}{{- end }}
       labels:
         io.cilium/app: operator
         name: cilium-operator
     spec:
-{{- if or (ge .Capabilities.KubeVersion.Minor "14") (gt .Capabilities.KubeVersion.Major "1") }}
-      # In HA mode, cilium-operator pods must not be scheduled on the same
-      # node as they will clash with each other.
-      affinity:
-        podAntiAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-              - key: io.cilium/app
-                operator: In
-                values:
-                - operator
-            topologyKey: "kubernetes.io/hostname"
-{{- end }}
       containers:
       - args:
         - --config-dir=/tmp/cilium/config-map
@@ -85,7 +63,6 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-{{- if .Values.global.eni }}
         - name: AWS_ACCESS_KEY_ID
           valueFrom:
             secretKeyRef:
@@ -104,7 +81,6 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-{{- end }}
 {{- if .Values.global.k8sServiceHost }}
         - name: KUBERNETES_SERVICE_HOST
           value: {{ .Values.global.k8sServiceHost | quote }}
@@ -195,7 +171,7 @@ spec:
 {{- if .Values.global.etcd.managed }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
       # the etcd service
-      dnsPolicy: ClusterFirstWithHostNet
+      dnsPolicy: {{ .Values.global.operator.dnsPolicy | default "ClusterFirstWithHostNet" }}
 {{- end }}
       restartPolicy: Always
 {{- if or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (ge .Capabilities.KubeVersion.Minor "17") (gt .Capabilities.KubeVersion.Major "1")}}
