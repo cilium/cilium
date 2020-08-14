@@ -193,6 +193,9 @@ func init() {
 	option.BindEnv(option.AwsInstanceLimitMapping)
 	flags.Bool(option.UpdateEC2AdapterLimitViaAPI, false, "Use the EC2 API to update the instance type to adapter limits")
 
+	flags.String(option.EC2APIEndpoint, "", "AWS API endpoint for the EC2 service")
+	option.BindEnv(option.EC2APIEndpoint)
+
 	flags.Float32(option.K8sClientQPSLimit, defaults.K8sClientQPSLimit, "Queries per second limit for the K8s client")
 	flags.Int(option.K8sClientBurst, defaults.K8sClientBurst, "Burst value allowed for the K8s client")
 
@@ -251,6 +254,7 @@ func initConfig() {
 	option.Config.DisableCiliumEndpointCRD = viper.GetBool(option.DisableCiliumEndpointCRDName)
 	option.Config.K8sNamespace = viper.GetString(option.K8sNamespaceName)
 	option.Config.AwsReleaseExcessIps = viper.GetBool(option.AwsReleaseExcessIps)
+	option.Config.EC2APIEndpoint = viper.GetString(option.EC2APIEndpoint)
 	option.Config.IdentityGCRateInterval = viper.GetDuration(option.IdentityGCRateInterval)
 	option.Config.IdentityGCRateLimit = viper.GetInt64(option.IdentityGCRateLimit)
 	option.Config.LeaderElectionLeaseDuration = viper.GetDuration(option.LeaderElectionLeaseDuration)

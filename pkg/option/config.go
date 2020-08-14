@@ -646,6 +646,10 @@ const (
 	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
 	UpdateEC2AdapterLimitViaAPI = "update-ec2-apdater-limit-via-api"
 
+	// EC2APIEndpoint is the custom API endpoint to use for the EC2 AWS service,
+	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
+	EC2APIEndpoint = "ec2-api-endpoint"
+
 	// K8sClientQPSLimit is the queries per second limit for the K8s client. Defaults to k8s client defaults.
 	K8sClientQPSLimit = "k8s-client-qps"
 
@@ -1438,6 +1442,10 @@ type DaemonConfig struct {
 	// Enabling this option reduces waste of IP addresses but may increase
 	// the number of API calls to AWS EC2 service.
 	AwsReleaseExcessIps bool
+
+	// EC2APIEndpoint is the custom API endpoint to use for the EC2 AWS service,
+	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
+	EC2APIEndpoint string
 
 	// EnableWellKnownIdentities enables the use of well-known identities.
 	// This is requires if identiy resolution is required to bring up the

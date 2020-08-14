@@ -21,6 +21,7 @@ import (
 	"time"
 
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
+	"github.com/cilium/cilium/pkg/aws/endpoints"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/aws/eni/metrics"
 	"github.com/cilium/cilium/pkg/controller"
@@ -28,6 +29,7 @@ import (
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/trigger"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -114,6 +116,7 @@ func startENIAllocator(awsClientQPSLimit float64, awsClientBurst int, eniTags ma
 	}).Info("Connected to EC2 metadata server")
 
 	cfg.Region = instance.Region
+	cfg.EndpointResolver = aws.EndpointResolverFunc(endpoints.Resolver)
 
 	var (
 		ec2Client *ec2shim.Client
