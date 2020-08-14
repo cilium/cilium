@@ -40,10 +40,8 @@ import (
 // CiliumNetworkPolicy is a Kubernetes third-party resource with an extended
 // version of NetworkPolicy.
 type CiliumNetworkPolicy struct {
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
