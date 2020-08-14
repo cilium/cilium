@@ -54,6 +54,9 @@ func TestGetFlows(t *testing.T) {
 		err          error
 		log          []string
 	}
+	fss := &testutils.FakeGRPCServerStream{
+		OnContext: context.TODO,
+	}
 	done := make(chan struct{})
 	tests := []struct {
 		name   string
@@ -125,6 +128,7 @@ func TestGetFlows(t *testing.T) {
 			},
 			req: &observerpb.GetFlowsRequest{Number: 2},
 			stream: &testutils.FakeGetFlowsServer{
+				FakeGRPCServerStream: fss,
 				OnSend: func(resp *observerpb.GetFlowsResponse) error {
 					if resp == nil {
 						return nil
@@ -222,6 +226,7 @@ func TestGetFlows(t *testing.T) {
 			},
 			req: &observerpb.GetFlowsRequest{Number: 2},
 			stream: &testutils.FakeGetFlowsServer{
+				FakeGRPCServerStream: fss,
 				OnSend: func(resp *observerpb.GetFlowsResponse) error {
 					if resp == nil {
 						return nil
