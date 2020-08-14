@@ -119,9 +119,9 @@ Jenkinsfile.nightly @cilium/ci
 /pkg/kafka/ @cilium/proxy
 /pkg/kvstore/ @cilium/kvstore
 /pkg/labels @cilium/policy @cilium/api
-/pkg/launcher @pkg/agent
+/pkg/launcher @cilium/agent
 /pkg/loadbalancer @cilium/loadbalancer
-/pkg/lock @pkg/agent
+/pkg/lock @cilium/agent
 /pkg/logging/ @cilium/cli
 /pkg/mac @cilium/bpf
 /pkg/maps/ @cilium/bpf
