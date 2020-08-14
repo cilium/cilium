@@ -32,6 +32,7 @@ cilium-operator [flags]
       --config-dir string                         Configuration directory that contains a file for each option
       --crd-wait-timeout duration                 Operator will exit if CRDs are not available within this duration upon startup (default 5m0s)
   -D, --debug                                     Enable debugging mode
+      --ec2-api-endpoint string                   AWS API endpoint for the EC2 service
       --enable-ipv4                               Enable IPv4 support (default true)
       --enable-ipv6                               Enable IPv6 support (default true)
       --enable-k8s-api-discovery                  Enable discovery of Kubernetes API groups and resources with the discovery API
