@@ -131,6 +131,8 @@ func RedeployCilium(vm *helpers.Kubectl, ciliumFilename string, options map[stri
 // provided manifest file.
 // Treat this as a cleanup function for RedeployCilium/Redeploy/DeployCiliumAndDNS/CiliumInstall.
 func UninstallCiliumFromManifest(vm *helpers.Kubectl, ciliumFilename string) {
+	By("Removing Cilium installation using generated helm manifest")
+
 	Expect(vm.DeleteAndWait(ciliumFilename, true).GetError()).
 		To(BeNil(), "Error removing cilium from installed manifest")
 }

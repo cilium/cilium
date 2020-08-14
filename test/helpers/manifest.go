@@ -294,7 +294,7 @@ func (m *DeploymentManager) DeleteAll() {
 func (m *DeploymentManager) DeleteCilium() {
 	if m.ciliumDeployed {
 		ginkgoext.By("Deleting Cilium")
-		m.kubectl.Delete(m.ciliumFilename)
+		m.kubectl.DeleteAndWait(m.ciliumFilename, true)
 		m.kubectl.WaitCleanAllTerminatingPods(2 * time.Minute)
 	}
 }

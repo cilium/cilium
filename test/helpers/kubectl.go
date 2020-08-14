@@ -2208,6 +2208,9 @@ func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename strin
 	helmTemplate := kub.GetFilePath(HelmTemplate)
 	res := kub.HelmTemplate(helmTemplate, GetCiliumNamespace(GetCurrentIntegration()), filename, options)
 	if !res.WasSuccessful() {
+		// If the helm template generation is not successful remove the empty
+		// manifest file.
+		_ = os.Remove(filename)
 		return res.GetErr("Unable to generate YAML")
 	}
 
