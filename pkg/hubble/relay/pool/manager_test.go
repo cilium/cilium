@@ -152,7 +152,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					return nil, io.EOF
 				},
 			},
@@ -203,7 +203,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					var once sync.Once
 					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
@@ -267,7 +267,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
 							return connectivity.Ready
@@ -311,7 +311,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					var once sync.Once
 					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
@@ -375,7 +375,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					var i int
 					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
@@ -449,7 +449,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					return nil, nil
 				},
 			},
@@ -508,7 +508,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					close(done)
 					return nil, errors.New("Don't feel like workin' today")
 				},
@@ -630,12 +630,12 @@ func (n ByName) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
 func (n ByName) Less(i, j int) bool { return n[i].Name < n[j].Name }
 
 type FakeClientConnBuilder struct {
-	OnClientConn func(target string) (poolTypes.ClientConn, error)
+	OnClientConn func(target, hostname string) (poolTypes.ClientConn, error)
 }
 
-func (b FakeClientConnBuilder) ClientConn(target string) (poolTypes.ClientConn, error) {
+func (b FakeClientConnBuilder) ClientConn(target, hostname string) (poolTypes.ClientConn, error) {
 	if b.OnClientConn != nil {
-		return b.OnClientConn(target)
+		return b.OnClientConn(target, hostname)
 	}
 	panic("OnClientConn not set")
 }
