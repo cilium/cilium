@@ -43,5 +43,8 @@ func init() {
 		operatorOption.ENITags, "ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag)")
 	option.BindEnv(operatorOption.ENITags)
 
+	flags.String(operatorOption.EC2APIEndpoint, "", "AWS API endpoint for the EC2 service")
+	option.BindEnv(operatorOption.EC2APIEndpoint)
+
 	viper.BindPFlags(flags)
 }
