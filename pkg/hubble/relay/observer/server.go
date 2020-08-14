@@ -78,7 +78,7 @@ func NewServer(peers PeerListReporter, options ...Option) (*Server, error) {
 // GetFlows implements observerpb.ObserverServer.GetFlows by proxying requests to
 // the hubble instance the proxy is connected to.
 func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Observer_GetFlowsServer) error {
-	ctx, cancel := context.WithCancel(context.Background())
+	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
 	peers := s.peers.List()
@@ -164,9 +164,13 @@ sortedFlowsLoop:
 // ServerStatus implements observerpb.ObserverServer.ServerStatus by aggregating
 // the ServerStatus answer of all hubble peers.
 func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusRequest) (*observerpb.ServerStatusResponse, error) {
-	ctx, cancel := context.WithCancel(context.Background())
+	var (
+		cancel context.CancelFunc
+		g      *errgroup.Group
+	)
+	ctx, cancel = context.WithCancel(ctx)
 	defer cancel()
-	g, ctx := errgroup.WithContext(ctx)
+	g, ctx = errgroup.WithContext(ctx)
 
 	peers := s.peers.List()
 	var numConnectedNodes, numUnavailableNodes uint32
