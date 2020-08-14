@@ -20,10 +20,12 @@ import (
 	"net"
 	"os"
 
+	"github.com/cilium/cilium/pkg/aws/endpoints"
+	"github.com/cilium/cilium/pkg/policy/api"
+
 	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
-	"github.com/cilium/cilium/pkg/policy/api"
 )
 
 const (
@@ -60,6 +62,7 @@ func initializeAWSAccount(region string) (*aws.Config, error) {
 	}
 	cfg.Region = region
 	cfg.LogLevel = awsLogLevel
+	cfg.EndpointResolver = aws.EndpointResolverFunc(endpoints.Resolver)
 	return &cfg, nil
 }
 
