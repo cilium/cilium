@@ -15,7 +15,7 @@ integration points such as: network IO, application sockets, and tracepoints to
 implement security, networking and visibility logic. eBPF is highly efficient
 and flexible. To learn more about eBPF, visit `eBPF.io`_.
 
-.. image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/cilium-arch.png
+.. image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/cilium_overview.png
     :align: center
 
 Stable Releases
