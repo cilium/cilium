@@ -15,6 +15,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -31,6 +32,16 @@ import (
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
+)
+
+var (
+	// ErrNoTransportCredentials is returned when no transport credentials is
+	// set for the server unless WithInsecureServer() is provided.
+	ErrNoTransportCredentials = errors.New("no transport credentials configured")
+
+	// ErrNoClientTLSConfig is returned when no client TLS config is set unless
+	// WithInsecureClient() is provided.
+	ErrNoClientTLSConfig = errors.New("no client TLS config is set")
 )
 
 // Server is a proxy that connects to a running instance of hubble gRPC server
@@ -51,6 +62,9 @@ func New(options ...Option) (*Server, error) {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
 		}
 	}
+	if opts.clientTLSConfig == nil && !opts.insecure {
+		return nil, ErrNoClientTLSConfig
+	}
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
 	logging.ConfigureLogLevel(opts.debug)
 
@@ -63,10 +77,8 @@ func New(options ...Option) (*Server, error) {
 		),
 		pool.WithClientConnBuilder(pool.GRPCClientConnBuilder{
 			DialTimeout: opts.dialTimeout,
-			Options: []grpc.DialOption{
-				grpc.WithInsecure(), // FIXME: remove once mTLS is implemented
-				grpc.WithBlock(),
-			},
+			Options:     []grpc.DialOption{grpc.WithBlock()},
+			TLSConfig:   opts.clientTLSConfig,
 		}),
 		pool.WithRetryTimeout(opts.retryTimeout),
 		pool.WithLogger(logger),
@@ -88,6 +100,15 @@ func New(options ...Option) (*Server, error) {
 func (s *Server) Serve() error {
 	s.log.WithField("options", fmt.Sprintf("%+v", s.opts)).Info("Starting server...")
 
+	switch {
+	case s.opts.credentials != nil:
+		s.server = grpc.NewServer(grpc.Creds(s.opts.credentials))
+	case s.opts.insecure:
+		s.server = grpc.NewServer()
+	default:
+		return ErrNoTransportCredentials
+	}
+
 	s.pm.Start()
 	observerSrv, err := observer.NewServer(s.pm, append(s.opts.observerOptions, observer.WithLogger(s.log))...)
 	if err != nil {
@@ -102,7 +123,6 @@ func (s *Server) Serve() error {
 		return fmt.Errorf("failed to listen on tcp socket %s: %v", s.opts.listenAddress, err)
 	}
 
-	s.server = grpc.NewServer()
 	healthpb.RegisterHealthServer(s.server, healthSrv)
 	observerpb.RegisterObserverServer(s.server, observerSrv)
 
