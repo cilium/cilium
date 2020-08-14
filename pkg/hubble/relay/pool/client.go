@@ -16,11 +16,13 @@ package pool
 
 import (
 	"context"
+	"crypto/tls"
 	"time"
 
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 )
 
 // GRPCClientConnBuilder is a generic ClientConnBuilder implementation.
@@ -31,11 +33,27 @@ type GRPCClientConnBuilder struct {
 	// Options is a set of grpc.DialOption to be used when creating a new
 	// connection.
 	Options []grpc.DialOption
+
+	// TLSConfig is used to build transport credentials for the connection.
+	// If not provided, grpc.WithInsecure() is added to Options before creating
+	// a new ClientConn.
+	TLSConfig *tls.Config
 }
 
 // ClientConn implements ClientConnBuilder.ClientConn.
-func (b GRPCClientConnBuilder) ClientConn(target string) (poolTypes.ClientConn, error) {
+func (b GRPCClientConnBuilder) ClientConn(target, hostname string) (poolTypes.ClientConn, error) {
 	ctx, cancel := context.WithTimeout(context.Background(), b.DialTimeout)
 	defer cancel()
-	return grpc.DialContext(ctx, target, b.Options...)
+	opts := make([]grpc.DialOption, len(b.Options))
+	copy(opts, b.Options)
+
+	switch b.TLSConfig {
+	case nil:
+		opts = append(opts, grpc.WithInsecure())
+	default:
+		tlsConfig := b.TLSConfig.Clone()
+		tlsConfig.ServerName = hostname
+		opts = append(opts, grpc.WithTransportCredentials(credentials.NewTLS(tlsConfig)))
+	}
+	return grpc.DialContext(ctx, target, opts...)
 }
