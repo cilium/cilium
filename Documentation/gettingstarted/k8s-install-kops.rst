@@ -11,11 +11,15 @@
 Installation using Kops
 ***********************
 
-As of ``kops`` 1.9 release, Cilium can be plugged into ``kops``-deployed
+As of kops 1.9 release, Cilium can be plugged into kops-deployed
 clusters as the CNI plugin. This guide provides steps to create a Kubernetes
-cluster on AWS using ``kops`` and Cilium as the CNI plugin. Note, the ``kops``
+cluster on AWS using kops and Cilium as the CNI plugin. Note, the kops
 deployment will automate several deployment features in AWS by default,
 including AutoScaling, Volumes, VPCs, etc.
+
+Kops offers several out-of-the-box configurations of Cilium including :ref:`kubeproxy-free`,
+:ref:`ipam_eni`, and dedicated etcd cluster for Cilium. This guide will just go through a basic setup.
+
 
 Prerequisites
 =============
@@ -53,7 +57,7 @@ Setting up IAM Group and User
 =============================
 
 Assuming you have all the prerequisites, run the following commands to create
-the ``kops`` user and group:
+the kops user and group:
 
 .. code:: bash
 
@@ -69,7 +73,7 @@ the ``kops`` user and group:
         aws iam create-access-key --user-name kops
 
 
-``kops`` requires the creation of a dedicated S3 bucket in order to store the
+kops requires the creation of a dedicated S3 bucket in order to store the
 state and representation of the cluster. You will need to change the bucket
 name and provide your unique bucket name (for example a reverse of FQDN added
 with short description of the cluster). Also make sure to use the region where
@@ -82,8 +86,9 @@ you will be deploying the cluster.
 
 The above steps are sufficient for getting a working cluster installed. Please
 consult `kops aws documentation
-<https://github.com/kubernetes/kops/blob/master/docs/getting_started/aws.md>`_ for more
+<https://kops.sigs.k8s.io/getting_started/install/>`_ for more
 detailed setup instructions.
+
 
 Cilium Prerequisites
 ====================
@@ -91,20 +96,8 @@ Cilium Prerequisites
 * Ensure the :ref:`admin_system_reqs` are met, particularly the Linux kernel
   and key-value store versions.
 
-In this guide, we will use etcd version 3.1.11 and the latest CoreOS stable
-image which satisfies the minimum kernel version requirement of Cilium. To get
-the latest CoreOS ``ami`` image, you can change the region value to your choice
-in the command below.
-
-.. code:: bash
-
-        aws ec2 describe-images --region=us-west-2 --owner=595879546273 --filters "Name=virtualization-type,Values=hvm" "Name=name,Values=CoreOS-stable*" --query 'sort_by(Images,&CreationDate)[-1].{id:ImageLocation}'
-
-.. code:: json
-
-        {
-                "id": "595879546273/CoreOS-stable-1745.5.0-hvm"
-        }
+The default AMI satisfies the minimum kernel version required by Cilium, which is
+what we will use in this guide.
 
 
 Creating a Cluster
@@ -113,16 +106,17 @@ Creating a Cluster
 * Note that you will need to specify the ``--master-zones`` and ``--zones`` for
   creating the master and worker nodes. The number of master zones should be
   * odd (1, 3, ...) for HA. For simplicity, you can just use 1 region.
-* The cluster ``NAME`` variable should end with ``k8s.local`` to use the gossip
-  protocol. If creating multiple clusters using the same kops user, then make
-  the cluster name unique by adding a prefix such as ``com-company-emailid-``.
+* To keep things simple when following this guide, we will use a gossip-based cluster.
+  This means you do not have to create a hosted zone upfront.  cluster ``NAME`` variable
+  must end with ``k8s.local`` to use the gossip  protocol. If creating multiple clusters
+  using the same kops user, then make the cluster name unique by adding a prefix such as 
+  ``com-company-emailid-``.
 
 
 .. code:: bash
 
         export NAME=com-company-emailid-cilium.k8s.local
-        export KOPS_FEATURE_FLAGS=SpecOverrideFlag
-        kops create cluster --state=${KOPS_STATE_STORE} --node-count 3 --node-size t2.medium --master-size t2.medium --topology private --master-zones us-west-2a,us-west-2b,us-west-2c --zones us-west-2a,us-west-2b,us-west-2c --image 595879546273/CoreOS-stable-1745.5.0-hvm --networking cilium --override "cluster.spec.etcdClusters[*].version=3.1.11" --kubernetes-version 1.10.3  --cloud-labels "Team=Dev,Owner=Admin" ${NAME}
+        kops create cluster --state=${KOPS_STATE_STORE} --node-count 3 --topology private --master-zones us-west-2a,us-west-2b,us-west-2c --zones us-west-2a,us-west-2b,us-west-2c --networking cilium --cloud-labels "Team=Dev,Owner=Admin" ${NAME} --yes
 
 
 You may be prompted to create a ssh public-private key pair.
@@ -138,33 +132,36 @@ You may be prompted to create a ssh public-private key pair.
 
 .. _appendix_kops:
 
+
 Deleting a Cluster
 ==================
 
-To undo the dependencies and other deployment features in AWS from the ``kops``
-cluster creation, use ``kops`` to destroy a cluster *immediately* with the
+To undo the dependencies and other deployment features in AWS from the kops
+cluster creation, use kops to destroy a cluster *immediately* with the
 parameter ``--yes``:
 
 .. code:: bash
 
         kops delete cluster ${NAME} --yes
 
+
+Further reading on using Cilium with Kops
+=========================================
+* See the `kops networking documentation <https://kops.sigs.k8s.io/networking/cilium/>`_ for more information on the 
+  configuration options kops offers.
+* See the `kops cluster spec documentation <https://pkg.go.dev/k8s.io/kops/pkg/apis/kops?tab=doc#CiliumNetworkingSpec>`_ for a comprehensive list of all the options
+
+
 Appendix: Details of kops flags used in cluster creation
 ========================================================
 
 The following section explains all the flags used in create cluster command.
 
-* ``KOPS_FEATURE_FLAGS=SpecOverrideFlag`` : This flag is used to override the etcd version to be used from 2.X[kops default ] to 3.1.x [requirement of cilium]
 * ``--state=${KOPS_STATE_STORE}`` : KOPS uses an S3 bucket to store the state of your cluster and representation of your cluster
 * ``--node-count 3`` : No. of worker nodes in the kubernetes cluster.
-* ``--node-size t2.medium`` : The size of the AWS EC2 instance for worker nodes
-* ``--master-size t2.medium`` : The size of the AWS EC2 instance of master nodes
 * ``--topology private`` : Cluster will be created with private topology, what that means is all masters/nodes will be launched in a private subnet in the VPC
 * ``--master-zones eu-west-1a,eu-west-1b,eu-west-1c`` : The 3 zones ensure the HA of master nodes, each belonging in a different Availability zones.
 * ``--zones eu-west-1a,eu-west-1b,eu-west-1c`` : Zones where the worker nodes will be deployed
-* ``--image 595879546273/CoreOS-stable-1745.3.1-hvm`` : Image name to be deployed (Cilium requires kernel version 4.8 and above so ensure to use the right OS for workers.)
-* ``--networking cilium`` : Networking CNI plugin to be used - cilium
-* ``--override "cluster.spec.etcdClusters[*].version=3.1.11"`` : Overrides the etcd version to be used.
-* ``--kubernetes-version 1.10.3`` : Kubernetes version that is to be installed. Please note [Kops 1.9 officially supports k8s version 1.9]
-* ``--cloud-labels "Team=Dev,Owner=Admin"`` :  Labels for your cluster
+* ``--networking cilium`` : Networking CNI plugin to be used - cilium. You can also use ``cilium-etcd``, which will use a dedicated etcd cluster as key/value store instead of CRDs.
+* ``--cloud-labels "Team=Dev,Owner=Admin"`` :  Labels for your cluster that will be applied to your instances
 * ``${NAME}`` : Name of the cluster. Make sure the name ends with k8s.local for a gossip based cluster
