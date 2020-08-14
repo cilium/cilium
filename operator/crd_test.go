@@ -21,31 +21,34 @@ import (
 	"testing"
 
 	. "gopkg.in/check.v1"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
 var (
-	crd = &apiextensionsv1beta1.CustomResourceDefinition{
+	crd = &apiextensionsv1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: "foo",
 		},
-		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
-			Group:   "cilium.io",
-			Version: "v2",
-			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: "cilium.io",
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
 				Plural:     "foos",
 				Singular:   "foo",
 				ShortNames: []string{"foo"},
 				Kind:       "Foo",
 			},
-			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
-				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
-			},
-			Scope: apiextensionsv1beta1.ClusterScoped,
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{
-				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{},
+			Scope: apiextensionsv1.ClusterScoped,
+			Versions: []apiextensionsv1.CustomResourceDefinitionVersion{
+				{
+					Name:    "v2",
+					Served:  true,
+					Storage: true,
+					Schema: &apiextensionsv1.CustomResourceValidation{
+						OpenAPIV3Schema: &apiextensionsv1.JSONSchemaProps{},
+					},
+				},
 			},
 		},
 	}
@@ -63,7 +66,7 @@ var _ = Suite(&crdTestSuite{})
 func (s *crdTestSuite) TestGetCRD(c *C) {
 	client := fake.NewSimpleClientset()
 
-	_, err := client.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
+	_, err := client.ApiextensionsV1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
 	c.Assert(err, IsNil)
 
 	// Try to get existing CRD

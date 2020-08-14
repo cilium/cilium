@@ -21,7 +21,7 @@ import (
 
 	operatorOption "github.com/cilium/cilium/operator/option"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -38,15 +38,15 @@ func waitForCRD(ctx context.Context, client clientset.Interface, name string) er
 	w := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.FieldSelector = selector
-			return client.ApiextensionsV1beta1().CustomResourceDefinitions().List(ctx, options)
+			return client.ApiextensionsV1().CustomResourceDefinitions().List(ctx, options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.FieldSelector = selector
-			return client.ApiextensionsV1beta1().CustomResourceDefinitions().Watch(ctx, options)
+			return client.ApiextensionsV1().CustomResourceDefinitions().Watch(ctx, options)
 		},
 	}
 	cond := func(ev watch.Event) (bool, error) {
-		if crd, ok := ev.Object.(*v1beta1.CustomResourceDefinition); ok {
+		if crd, ok := ev.Object.(*v1.CustomResourceDefinition); ok {
 			// NOTE(mrostecki): Why is it done here despite having a field
 			// selector above? Fake client doesn't support field selectors,
 			// so the fake watcher always returns all CRDs created...
@@ -60,11 +60,11 @@ func waitForCRD(ctx context.Context, client clientset.Interface, name string) er
 		}
 		return false, ErrInvalidTypeCRD
 	}
-	ev, err := toolswatch.UntilWithSync(ctx, w, &v1beta1.CustomResourceDefinition{}, nil, cond)
+	ev, err := toolswatch.UntilWithSync(ctx, w, &v1.CustomResourceDefinition{}, nil, cond)
 	if err != nil {
 		return fmt.Errorf("timeout waiting for CRD %s: %w", name, err)
 	}
-	if _, ok := ev.Object.(*v1beta1.CustomResourceDefinition); ok {
+	if _, ok := ev.Object.(*v1.CustomResourceDefinition); ok {
 		log.Infof("CRD %s found", name)
 		return nil
 	}

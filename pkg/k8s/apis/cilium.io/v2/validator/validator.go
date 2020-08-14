@@ -26,7 +26,7 @@ import (
 	"github.com/go-openapi/validate"
 	"github.com/sirupsen/logrus"
 	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
-	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	"k8s.io/apiextensions-apiserver/pkg/apiserver/validation"
 	"k8s.io/apimachinery/pkg/apis/meta/v1/unstructured"
 )
@@ -42,19 +42,19 @@ func NewNPValidator() (*NPValidator, error) {
 	// Marshaller so we need to marshal and unmarshal the CNPCRV to have those
 	// default values, the same way k8s api-server has it.
 	cnpCRVJSONBytes, err := json.Marshal(
-		client.GetPregeneratedCRD(client.CNPCRDName).Spec.Validation,
+		client.GetPregeneratedCRD(client.CNPCRDName).Spec.Versions[0].Schema,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("BUG: unable to marshall CNPCRV: %w", err)
 	}
-	var cnpCRV apiextensionsv1beta1.CustomResourceValidation
+	var cnpCRV apiextensionsv1.CustomResourceValidation
 	err = json.Unmarshal(cnpCRVJSONBytes, &cnpCRV)
 	if err != nil {
 		return nil, fmt.Errorf("BUG: unable to unmarshall CNPCRV: %w", err)
 	}
 
 	var cnpInternal apiextensionsinternal.CustomResourceValidation
-	err = apiextensionsv1beta1.Convert_v1beta1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(
+	err = apiextensionsv1.Convert_v1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(
 		&cnpCRV,
 		&cnpInternal,
 		nil,
@@ -71,19 +71,19 @@ func NewNPValidator() (*NPValidator, error) {
 	// Marshaller so we need to marshal and unmarshal the CCNPCRV to have those
 	// default values, the same way k8s api-server has it.
 	ccnpCRVJSONBytes, err := json.Marshal(
-		client.GetPregeneratedCRD(client.CCNPCRDName).Spec.Validation,
+		client.GetPregeneratedCRD(client.CCNPCRDName).Spec.Versions[0].Schema,
 	)
 	if err != nil {
 		return nil, fmt.Errorf("BUG: unable to marshall CCNPCRV: %w", err)
 	}
-	var ccnpCRV apiextensionsv1beta1.CustomResourceValidation
+	var ccnpCRV apiextensionsv1.CustomResourceValidation
 	err = json.Unmarshal(ccnpCRVJSONBytes, &ccnpCRV)
 	if err != nil {
 		return nil, fmt.Errorf("BUG: unable to unmarshall CCNPCRV: %w", err)
 	}
 
 	var ccnpInternal apiextensionsinternal.CustomResourceValidation
-	err = apiextensionsv1beta1.Convert_v1beta1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(
+	err = apiextensionsv1.Convert_v1_CustomResourceValidation_To_apiextensions_CustomResourceValidation(
 		&ccnpCRV,
 		&ccnpInternal,
 		nil,
