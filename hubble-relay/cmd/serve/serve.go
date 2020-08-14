@@ -96,6 +96,7 @@ func runServe(f flags) error {
 		server.WithRetryTimeout(f.retryTimeout),
 		server.WithSortBufferMaxLen(f.sortBufferMaxLen),
 		server.WithSortBufferDrainTimeout(f.sortBufferDrainTimeout),
+		server.WithInsecure(), //FIXME: add option to set server and client TLS settings
 	}
 	if f.debug {
 		opts = append(opts, server.WithDebug())

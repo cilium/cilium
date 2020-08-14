@@ -15,11 +15,26 @@
 package server
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	"github.com/cilium/cilium/pkg/hubble/relay/observer"
+	"google.golang.org/grpc/credentials"
+)
+
+const (
+	// ClientTLSMinVersion defines the minimum TLS version that is acceptable
+	// when establishing a connection to a peer. It is not used by
+	// WithClientTLS().
+	ClientTLSMinVersion = tls.VersionTLS13
+
+	// TLSMinVersion defines the minimum TLS version that is acceptable for the
+	// server. It is not used by WithTLS().
+	TLSMinVersion = tls.VersionTLS13
 )
 
 // options stores all the configuration values for the hubble-relay server.
@@ -28,6 +43,9 @@ type options struct {
 	dialTimeout     time.Duration
 	retryTimeout    time.Duration
 	listenAddress   string
+	insecure        bool
+	credentials     credentials.TransportCredentials
+	clientTLSConfig *tls.Config
 	debug           bool
 	observerOptions []observer.Option
 }
@@ -124,4 +142,73 @@ func WithErrorAggregationWindow(d time.Duration) Option {
 		o.observerOptions = append(o.observerOptions, observer.WithErrorAggregationWindow(d))
 		return nil
 	}
+}
+
+// WithInsecure disables transport security. Transport security is required
+// for the server and to establish connection to peers unless WithInsecure is
+// set.
+func WithInsecure() Option {
+	return func(o *options) error {
+		o.insecure = true
+		return nil
+	}
+}
+
+// WithTLS sets the transport credentials for the server based on TLS.
+func WithTLS(c *tls.Config) Option {
+	return func(o *options) error {
+		o.credentials = credentials.NewTLS(c)
+		return nil
+	}
+}
+
+// WithTLSFromCert constructs TLS credentials from cert for the server.
+func WithTLSFromCert(cert tls.Certificate) Option {
+	return WithTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+		MinVersion:   TLSMinVersion,
+	})
+}
+
+// WithMTLSFromCert constructs mutual TLS (mTLS) credentials from cert and
+// clientCAs for the server.
+func WithMTLSFromCert(cert tls.Certificate, clientCAs *x509.CertPool) Option {
+	return WithTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+		ClientCAs:    clientCAs,
+		ClientAuth:   tls.RequireAndVerifyClientCert,
+		MinVersion:   TLSMinVersion,
+	})
+}
+
+// WithClientTLS sets the transport credentials for connecting to peers based
+// on the provided TLS configuration.
+func WithClientTLS(c *tls.Config) Option {
+	return func(o *options) error {
+		if c == nil {
+			return errors.New("tls config not provided")
+		}
+		o.clientTLSConfig = c.Clone()
+		return nil
+	}
+}
+
+// WithClientTLSFromCert sets client TLS credentials from the provided root
+// certificate authority to validate connections to peers.
+func WithClientTLSFromCert(ca *x509.CertPool) Option {
+	return WithClientTLS(&tls.Config{
+		RootCAs:    ca,
+		MinVersion: ClientTLSMinVersion,
+	})
+}
+
+// WithClientMTLSFromCert constructs mutual TLS (mTLS) credentials from ca and
+// cert. The certificate is presented to the peer and the provided root
+// certificate authority is used to validate connections to peers.
+func WithClientMTLSFromCert(ca *x509.CertPool, cert tls.Certificate) Option {
+	return WithClientTLS(&tls.Config{
+		Certificates: []tls.Certificate{cert},
+		RootCAs:      ca,
+		MinVersion:   ClientTLSMinVersion,
+	})
 }
