@@ -22,6 +22,7 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	apiMetrics "github.com/cilium/cilium/pkg/api/metrics"
 	ec2shim "github.com/cilium/cilium/pkg/aws/ec2"
+	"github.com/cilium/cilium/pkg/aws/endpoints"
 	"github.com/cilium/cilium/pkg/aws/eni"
 	"github.com/cilium/cilium/pkg/ipam"
 	"github.com/cilium/cilium/pkg/ipam/allocator"
@@ -29,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
+	"github.com/aws/aws-sdk-go-v2/aws"
 	"github.com/aws/aws-sdk-go-v2/aws/ec2metadata"
 	"github.com/aws/aws-sdk-go-v2/aws/external"
 	"github.com/aws/aws-sdk-go-v2/service/ec2"
@@ -82,6 +84,7 @@ func (*AllocatorAWS) Start(getterUpdater ipam.CiliumNodeGetterUpdater) (allocato
 	}).Info("Connected to EC2 metadata server")
 
 	cfg.Region = instance.Region
+	cfg.EndpointResolver = aws.EndpointResolverFunc(endpoints.Resolver)
 
 	if operatorOption.Config.EnableMetrics {
 		aMetrics = apiMetrics.NewPrometheusMetrics(operatorMetrics.Namespace, "ec2", operatorMetrics.Registry)

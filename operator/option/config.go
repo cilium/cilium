@@ -132,6 +132,10 @@ const (
 	// API to fill out the instancetype to adapter limit mapping.
 	UpdateEC2AdapterLimitViaAPI = "update-ec2-apdater-limit-via-api"
 
+	// EC2APIEndpoint is the custom API endpoint to use for the EC2 AWS service,
+	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
+	EC2APIEndpoint = "ec2-api-endpoint"
+
 	// Azure options
 
 	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
@@ -260,6 +264,10 @@ type OperatorConfig struct {
 	// instancetype to adapter limit mapping.
 	UpdateEC2AdapterLimitViaAPI bool
 
+	// EC2APIEndpoint is the custom API endpoint to use for the EC2 AWS service,
+	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
+	EC2APIEndpoint string
+
 	// Azure options
 
 	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
@@ -314,6 +322,7 @@ func (c *OperatorConfig) Populate() {
 
 	c.AWSReleaseExcessIPs = viper.GetBool(AWSReleaseExcessIPs)
 	c.UpdateEC2AdapterLimitViaAPI = viper.GetBool(UpdateEC2AdapterLimitViaAPI)
+	c.EC2APIEndpoint = viper.GetString(EC2APIEndpoint)
 
 	// Azure options
 
