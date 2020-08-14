@@ -71,6 +71,7 @@ Dockerfile* @cilium/build
 /Documentation/envoy/ @cilium/proxy
 /envoy/ @cilium/proxy
 /examples/ @cilium/docs
+/examples/crds/ @cilium/kubernetes
 /examples/kubernetes/ @cilium/kubernetes
 /examples/minikube/ @cilium/kubernetes
 *.Jenkinsfile @cilium/ci
@@ -112,7 +113,7 @@ Jenkinsfile.nightly @cilium/ci
 /pkg/ipcache/ @cilium/ipcache
 /pkg/ipmasq @cilium/agent
 /pkg/k8s/ @cilium/kubernetes
-/pkg/k8s/apis/cilium.io/v2/ @cilium/api
+/pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/kubernetes
 /pkg/k8s/client/clientset/versioned/ @cilium/api
 /pkg/k8s/client/informers/ @cilium/api
 /pkg/kafka/ @cilium/proxy
