@@ -192,7 +192,7 @@ Kubernetes
 ======================================== ================================================== ========================================================
 Name                                     Labels                                             Description
 ======================================== ================================================== ========================================================
-``kubernetes_events_received_total``     ``scope``, ``action``, ``validity``, ``equiality`` Number of Kubernetes events received
+``kubernetes_events_received_total``     ``scope``, ``action``, ``validity``, ``equal``     Number of Kubernetes events received
 ``kubernetes_events_total``              ``scope``, ``action``, ``outcome``                 Number of Kubernetes events processed
 ``k8s_cnp_status_completion_seconds``    ``attempts``, ``outcome``                          Duration in seconds in how long it took to complete a CNP status update
 ======================================== ================================================== ========================================================
