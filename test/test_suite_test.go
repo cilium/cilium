@@ -271,6 +271,10 @@ var _ = BeforeAll(func() {
 		kubectl := helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		kubectl.PrepareCluster()
 
+		// Cleanup all cilium components if there are any leftovers from previous
+		// run, like when running tests locally.
+		kubectl.CleanupCiliumComponents()
+
 		kubectl.ApplyDefault(kubectl.GetFilePath("../examples/kubernetes/addons/prometheus/monitoring-example.yaml"))
 
 		go kubectl.PprofReport()
