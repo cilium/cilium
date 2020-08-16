@@ -143,6 +143,7 @@ Jenkinsfile.nightly @cilium/ci
 /pkg/policy/groups/aws/ @cilium/policy @cilium/aws
 /pkg/proxy/ @cilium/proxy
 /pkg/proxy/accesslog @cilium/api
+/pkg/redirectpolicy @cilium/loadbalancer
 /pkg/serializer @cilium/agent
 /pkg/service @cilium/loadbalancer
 /pkg/sysctl @cilium/bpf

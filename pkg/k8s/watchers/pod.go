@@ -20,7 +20,6 @@ import (
 	"errors"
 	"fmt"
 	"net"
-	"sort"
 	"strings"
 	"sync"
 
@@ -194,7 +193,19 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 		"hostIP":               pod.Status.PodIP,
 	})
 
-	skipped, err := k.updatePodHostData(pod)
+	skipped := false
+	podIPs, err := k8sUtils.ValidIPs(pod.Status)
+
+	if err == nil {
+		skipped, err = k.updatePodHostData(pod, podIPs)
+
+		// There might be duplicate callbacks here since this function is also
+		// called from updateK8sPodV1, the consumer will need to handle the duplicate
+		// events accordingly.
+		// GH issue #13136.
+		k.redirectPolicyManager.OnAddPod(pod)
+	}
+
 	switch {
 	case skipped:
 		logger.WithError(err).Debug("Skipped ipcache map update on pod add")
@@ -233,6 +244,20 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	oldPodLabels := oldK8sPod.ObjectMeta.Labels
 	newPodLabels := newK8sPod.ObjectMeta.Labels
 	labelsChanged := !comparator.MapStringEquals(oldPodLabels, newPodLabels)
+
+	// The relevant updates are : podIPs and label updates.
+	oldPodIPLen := len(oldK8sPod.Status.PodIP)
+	newPodIPLen := len(newK8sPod.Status.PodIP)
+	switch {
+	case oldPodIPLen == 0 && newPodIPLen > 0:
+		// PodIPs assigned update
+		fallthrough
+	case oldPodIPLen > 0 && newPodIPLen > 0 && oldPodIPLen != newPodIPLen:
+		// PodIPs update
+		fallthrough
+	case labelsChanged:
+		k.redirectPolicyManager.OnUpdatePod(newK8sPod)
+	}
 
 	// Nothing changed.
 	if !annotationsChanged && !labelsChanged {
@@ -401,6 +426,8 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 		"podIPs":               pod.Status.PodIPs,
 		"hostIP":               pod.Status.HostIP,
 	})
+
+	k.redirectPolicyManager.OnDeletePod(pod)
 
 	skipped, err := k.deletePodHostData(pod)
 	switch {
@@ -587,17 +614,12 @@ func (k *K8sWatcher) DeleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 	return nil
 }
 
-func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod) (bool, error) {
+func (k *K8sWatcher) updatePodHostData(pod *slim_corev1.Pod, podIPs []string) (bool, error) {
 	if pod.Spec.HostNetwork {
 		return true, fmt.Errorf("pod is using host networking")
 	}
 
-	podIPs, err := validIPs(pod.Status)
-	if err != nil {
-		return true, err
-	}
-
-	err = k.UpsertHostPortMapping(pod, podIPs)
+	err := k.UpsertHostPortMapping(pod, podIPs)
 	if err != nil {
 		return true, fmt.Errorf("cannot upsert hostPort for PodIPs: %s", podIPs)
 	}
@@ -666,7 +688,7 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 		return true, fmt.Errorf("pod is using host networking")
 	}
 
-	podIPs, err := validIPs(pod.Status)
+	podIPs, err := k8sUtils.ValidIPs(pod.Status)
 	if err != nil {
 		return true, err
 	}
@@ -703,30 +725,6 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 	}
 
 	return skipped, nil
-}
-
-func validIPs(podStatus slim_corev1.PodStatus) ([]string, error) {
-	if len(podStatus.PodIPs) == 0 && len(podStatus.PodIP) == 0 {
-		return nil, fmt.Errorf("empty PodIPs")
-	}
-
-	// make it a set first to avoid repeated IP addresses
-	ipsMap := make(map[string]struct{}, 1+len(podStatus.PodIPs))
-	if podStatus.PodIP != "" {
-		ipsMap[podStatus.PodIP] = struct{}{}
-	}
-	for _, podIP := range podStatus.PodIPs {
-		if podIP.IP != "" {
-			ipsMap[podIP.IP] = struct{}{}
-		}
-	}
-
-	ips := make([]string, 0, len(ipsMap))
-	for ipStr := range ipsMap {
-		ips = append(ips, ipStr)
-	}
-	sort.Strings(ips)
-	return ips, nil
 }
 
 // GetCachedPod returns a pod from the local store. Depending if the Cilium
