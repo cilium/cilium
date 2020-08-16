@@ -102,7 +102,7 @@ func (svc *svcInfo) deepCopyToLBSVC() *lb.SVC {
 	}
 }
 
-// requireNodeLocalBackends returns if the frontend service traffic policy
+// requireNodeLocalBackends returns true if the frontend service traffic policy
 // is lb.SVCTrafficPolicyLocal and whether only local backends need to be filtered for the
 // given frontend.
 func (svc *svcInfo) requireNodeLocalBackends(frontend lb.L3n4AddrID) (bool, bool) {

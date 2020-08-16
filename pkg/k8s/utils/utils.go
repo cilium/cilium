@@ -15,9 +15,14 @@
 package utils
 
 import (
+	"fmt"
+	"sort"
+
+	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 	"github.com/cilium/cilium/pkg/option"
+
 	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -102,4 +107,30 @@ func GetServiceListOptionsModifier() (func(options *v1meta.ListOptions), error) 
 	return func(options *v1meta.ListOptions) {
 		options.LabelSelector = labelSelector.String()
 	}, nil
+}
+
+// ValidIPs return a sorted slice of unique IP addresses retrieved from the given PodStatus.
+// Returns an error when no IPs are found.
+func ValidIPs(podStatus slimcorev1.PodStatus) ([]string, error) {
+	if len(podStatus.PodIPs) == 0 && len(podStatus.PodIP) == 0 {
+		return nil, fmt.Errorf("empty PodIPs")
+	}
+
+	// make it a set first to avoid repeated IP addresses
+	ipsMap := make(map[string]struct{}, 1+len(podStatus.PodIPs))
+	if podStatus.PodIP != "" {
+		ipsMap[podStatus.PodIP] = struct{}{}
+	}
+	for _, podIP := range podStatus.PodIPs {
+		if podIP.IP != "" {
+			ipsMap[podIP.IP] = struct{}{}
+		}
+	}
+
+	ips := make([]string, 0, len(ipsMap))
+	for ipStr := range ipsMap {
+		ips = append(ips, ipStr)
+	}
+	sort.Strings(ips)
+	return ips, nil
 }

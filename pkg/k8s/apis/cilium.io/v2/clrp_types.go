@@ -15,7 +15,13 @@
 package v2
 
 import (
+	"fmt"
+	"strconv"
+	"strings"
+
+	"github.com/cilium/cilium/pkg/iana"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
@@ -197,4 +203,42 @@ type CiliumLocalRedirectPolicyList struct {
 
 	// Items is a list of CiliumLocalRedirectPolicy
 	Items []CiliumLocalRedirectPolicy `json:"items"`
+}
+
+// SanitizePortInfo sanitizes all the fields in the PortInfo.
+// It returns port number, name, and protocol derived from the given input  and error (failure cases).
+func (pInfo *PortInfo) SanitizePortInfo(checkNamedPort bool) (uint16, string, lb.L4Type, error) {
+	var (
+		pInt     uint16
+		pName    string
+		protocol lb.L4Type
+	)
+	// Sanitize port
+	if pInfo.Port == "" {
+		return pInt, pName, protocol, fmt.Errorf("port must be specified")
+	} else {
+		p, err := strconv.ParseUint(pInfo.Port, 0, 16)
+		if err != nil {
+			return pInt, pName, protocol, fmt.Errorf("unable to parse port: %v", err)
+		}
+		if p == 0 {
+			return pInt, pName, protocol, fmt.Errorf("port cannot be 0")
+		}
+		pInt = uint16(p)
+	}
+	// Sanitize name
+	if checkNamedPort {
+		if !iana.IsSvcName(pInfo.Name) {
+			return pInt, pName, protocol, fmt.Errorf("valid port name is not present")
+		}
+	}
+	pName = strings.ToLower(pInfo.Name) // Normalize for case insensitive comparison
+
+	// Sanitize protocol
+	var err error
+	protocol, err = lb.NewL4Type(string(pInfo.Protocol))
+	if err != nil {
+		return pInt, pName, protocol, err
+	}
+	return pInt, pName, protocol, nil
 }

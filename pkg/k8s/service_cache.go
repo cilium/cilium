@@ -15,6 +15,8 @@
 package k8s
 
 import (
+	"net"
+
 	"github.com/cilium/cilium/pkg/datapath"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	slim_discovery_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1"
@@ -120,6 +122,36 @@ func (s *ServiceCache) GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr {
 			loadbalancer.ScopeExternal)
 	}
 	return nil
+}
+
+// GetServiceFrontendIP returns the frontend IP (aka clusterIP) for the given service with type.
+func (s *ServiceCache) GetServiceFrontendIP(svcID ServiceID, svcType loadbalancer.SVCType) net.IP {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	svc := s.services[svcID]
+	if svc == nil || svc.Type != svcType {
+		return nil
+	}
+
+	return svc.FrontendIP
+}
+
+// GetServiceAddrWithPortsAndType returns a slice of all the L3n4Addr that are backing the
+// given Service ID with given type.
+// Note: The returned IPs are with External scope.
+func (s *ServiceCache) GetServiceAddrsWithType(svcID ServiceID, svcType loadbalancer.SVCType) map[loadbalancer.FEPortName]*loadbalancer.L3n4Addr {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	svc := s.services[svcID]
+	if svc == nil || svc.Type != svcType {
+		return nil
+	}
+	addrsByPort := make(map[loadbalancer.FEPortName]*loadbalancer.L3n4Addr)
+	for pName, l4Addr := range svc.Ports {
+		addrsByPort[pName] = loadbalancer.NewL3n4Addr(l4Addr.Protocol, svc.FrontendIP,
+			l4Addr.Port, loadbalancer.ScopeExternal)
+	}
+	return addrsByPort
 }
 
 // GetNodeAddressing returns the registered node addresses to this service cache.

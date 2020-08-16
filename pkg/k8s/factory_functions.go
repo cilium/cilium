@@ -655,6 +655,30 @@ func ConvertToCiliumNode(obj interface{}) interface{} {
 	}
 }
 
+// ConvertToCiliumLocalRedirectPolicy converts a *cilium_v2.CiliumLocalRedirectPolicy into a
+// *cilium_v2.CiliumLocalRedirectPolicy or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumLocalRedirectPolicy in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumLocalRedirectPolicy
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCiliumLocalRedirectPolicy(obj interface{}) interface{} {
+	// TODO create a slim type of the CiliumLocalRedirectPolicy
+	switch concreteObj := obj.(type) {
+	case *cilium_v2.CiliumLocalRedirectPolicy:
+		return concreteObj
+	case cache.DeletedFinalStateUnknown:
+		ciliumLocalRedirectPolicy, ok := concreteObj.Obj.(*cilium_v2.CiliumLocalRedirectPolicy)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: ciliumLocalRedirectPolicy,
+		}
+	default:
+		return obj
+	}
+}
+
 // ObjToCiliumNode attempts to cast object to a CiliumNode object and
 // returns a deep copy if the castin succeeds. Otherwise, nil is returned.
 func ObjToCiliumNode(obj interface{}) *cilium_v2.CiliumNode {
@@ -767,5 +791,27 @@ func ObjToCiliumEndpoint(obj interface{}) *types.CiliumEndpoint {
 	}
 	log.WithField(logfields.Object, logfields.Repr(obj)).
 		Warn("Ignoring invalid v2 CiliumEndpoint")
+	return nil
+}
+
+// ObjToCLRP attempts to cast object to a CLRP object and
+// returns a deep copy if the castin succeeds. Otherwise, nil is returned.
+func ObjToCLRP(obj interface{}) *cilium_v2.CiliumLocalRedirectPolicy {
+	cLRP, ok := obj.(*cilium_v2.CiliumLocalRedirectPolicy)
+	if ok {
+		return cLRP
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		cn, ok := deletedObj.Obj.(*cilium_v2.CiliumLocalRedirectPolicy)
+		if ok {
+			return cn
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid v2 Cilium Local Redirect Policy")
 	return nil
 }

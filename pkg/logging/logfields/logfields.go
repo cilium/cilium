@@ -261,6 +261,9 @@ const (
 	// BPFInsnSet denotes the instruction set version
 	BPFInsnSet = "bpfInsnSet"
 
+	// CiliumLocalRedirectPolicyName is the name of a CiliumLocalRedirectPolicy
+	CiliumLocalRedirectName = "ciliumLocalRedirectPolicyName"
+
 	// BPFMapKey is a key from a BPF map
 	BPFMapKey = "bpfMapKey"
 
@@ -369,6 +372,9 @@ const (
 	// K8sSvcName is the name of a K8s service
 	K8sSvcName = "k8sSvcName"
 
+	// K8sSvcID is the K8s service name and namespace
+	K8sSvcID = "k8sSvcID"
+
 	// K8sSvcType is the k8s service type (e.g. NodePort, Loadbalancer etc.)
 	K8sSvcType = "k8sSvcType"
 
@@ -398,6 +404,9 @@ const (
 
 	// K8sNodeIP is the k8s Node IP (either InternalIP or ExternalIP)
 	K8sNodeIP = "k8sNodeIP"
+
+	// K8sUID is the UID of a K8s object
+	K8sUID = "k8sUID"
 
 	// Attempt is the attempt number if an operation is attempted multiple times
 	Attempt = "attempt"
@@ -456,4 +465,16 @@ const (
 	// HelpMessage is the help message corresponding to a log message.
 	// This is to make sure we keep separate contexts for logs and help messages.
 	HelpMessage = "helpMessage"
+
+	// LRPName is the parsed name of the Local Redirect Policy.
+	LRPName = "lrpName"
+
+	// LRPFrontend is the parsed frontend mappings of the Local Redirect Policy.
+	LRPFrontends = "lrpFrontends"
+
+	// LRPLocalEndpointSelector is the local endpoint selector of the Local Redirect Policy.
+	LRPLocalEndpointSelector = "lrpLocalEndpointSelector"
+
+	// LRPBackendPorts are the parsed backend ports of the Local Redirect Policy.
+	LRPBackendPorts = "lrpBackendPorts"
 )

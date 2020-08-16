@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -41,6 +42,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
+	"github.com/cilium/cilium/pkg/redirectpolicy"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -60,6 +62,7 @@ const (
 	k8sAPIGroupCiliumClusterwideNetworkPolicyV2 = "cilium/v2::CiliumClusterwideNetworkPolicy"
 	k8sAPIGroupCiliumNodeV2                     = "cilium/v2::CiliumNode"
 	k8sAPIGroupCiliumEndpointV2                 = "cilium/v2::CiliumEndpoint"
+	k8sAPIGroupCiliumLocalRedirectPolicyV2      = "cilium/v2::CiliumLocalRedirectPolicy"
 	K8sAPIGroupEndpointSliceV1Beta1Discovery    = "discovery/v1beta1::EndpointSlice"
 
 	metricCNP            = "CiliumNetworkPolicy"
@@ -70,12 +73,15 @@ const (
 	metricNS             = "Namespace"
 	metricCiliumNode     = "CiliumNode"
 	metricCiliumEndpoint = "CiliumEndpoint"
+	metricCLRP           = "CiliumLocalRedirectPolicy"
 	metricPod            = "Pod"
 	metricNode           = "Node"
 	metricService        = "Service"
 	metricCreate         = "create"
 	metricDelete         = "delete"
 	metricUpdate         = "update"
+
+	k8sPodResource = "pod"
 )
 
 func init() {
@@ -133,6 +139,16 @@ type svcManager interface {
 	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
 }
 
+type redirectPolicyManager interface {
+	AddRedirectPolicy(config redirectpolicy.LRPConfig, svcCache *k8s.ServiceCache, podStore cache.Store) (bool, error)
+	DeleteRedirectPolicy(config redirectpolicy.LRPConfig) error
+	OnAddService(svcID k8s.ServiceID, svcCache *k8s.ServiceCache, podStore cache.Store)
+	OnDeleteService(svcID k8s.ServiceID)
+	OnUpdatePod(pod *slim_corev1.Pod)
+	OnDeletePod(pod *slim_corev1.Pod)
+	OnAddPod(pod *slim_corev1.Pod)
+}
+
 type K8sWatcher struct {
 	// k8sResourceSyncedMu protects the k8sResourceSynced map.
 	k8sResourceSyncedMu lock.RWMutex
@@ -155,10 +171,11 @@ type K8sWatcher struct {
 
 	endpointManager endpointManager
 
-	nodeDiscoverManager nodeDiscoverManager
-	policyManager       policyManager
-	policyRepository    policyRepository
-	svcManager          svcManager
+	nodeDiscoverManager   nodeDiscoverManager
+	policyManager         policyManager
+	policyRepository      policyRepository
+	svcManager            svcManager
+	redirectPolicyManager redirectPolicyManager
 
 	// controllersStarted is a channel that is closed when all controllers, i.e.,
 	// k8s watchers have started listening for k8s events.
@@ -184,6 +201,7 @@ func NewK8sWatcher(
 	policyRepository policyRepository,
 	svcManager svcManager,
 	datapath datapath.Datapath,
+	redirectPolicyManager redirectPolicyManager,
 ) *K8sWatcher {
 	return &K8sWatcher{
 		k8sResourceSynced:         map[string]<-chan struct{}{},
@@ -197,6 +215,7 @@ func NewK8sWatcher(
 		controllersStarted:        make(chan struct{}),
 		podStoreSet:               make(chan struct{}),
 		datapath:                  datapath,
+		redirectPolicyManager:     redirectPolicyManager,
 	}
 }
 
@@ -470,6 +489,9 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	// cilium endpoints
 	asyncControllers.Add(1)
 	go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
+
+	// cilium local redirect policies
+	go k.ciliumLocalRedirectPolicyInit(ciliumNPClient)
 
 	// kubernetes pods
 	asyncControllers.Add(1)
@@ -849,7 +871,7 @@ func (k *K8sWatcher) GetStore(name string) cache.Store {
 		return k.networkpolicyStore
 	case "namespace":
 		return k.namespaceStore
-	case "pod":
+	case k8sPodResource:
 		// Wait for podStore to get initialized.
 		<-k.podStoreSet
 		// Access to podStore is protected by podStoreMU.

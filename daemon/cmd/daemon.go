@@ -74,6 +74,7 @@ import (
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/status"
@@ -158,6 +159,8 @@ type Daemon struct {
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
 	endpointCreations *endpointCreationManager
+
+	redirectPolicyManager *redirectpolicy.Manager
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -341,6 +344,8 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	d.endpointManager = epMgr
 	d.endpointManager.InitMetrics()
 
+	d.redirectPolicyManager = redirectpolicy.NewRedirectPolicyManager(d.svc)
+
 	d.k8sWatcher = watchers.NewK8sWatcher(
 		d.endpointManager,
 		d.nodeDiscovery.Manager,
@@ -348,6 +353,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		d.policy,
 		d.svc,
 		d.datapath,
+		d.redirectPolicyManager,
 	)
 
 	bootstrapStats.daemonInit.End(true)
