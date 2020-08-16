@@ -3261,7 +3261,7 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 		"kubectl get replicationcontroller --all-namespaces -o json":         "replicationcontroller.txt",
 		"kubectl get deployment --all-namespaces -o json":                    "deployment.txt",
 		"kubectl get crd ciliumnetworkpolicies.cilium.io -o json":            "cilium-network-policies-crd.json",
-		"kubectl get crd ciliumneclusterwidetworkpolicies.cilium.io -o json": "cilium-clusterwide-network-policies-crd.json",
+		"kubectl get crd ciliumclusterwidenetworkpolicies.cilium.io -o json": "cilium-clusterwide-network-policies-crd.json",
 		"kubectl get serviceaccount --all-namespaces -o json":                "serviceaccounts.txt",
 		"kubectl get clusterrole -o json":                                    "clusterroles.txt",
 		"kubectl get clusterrolebinding -o json":                             "clusterrolebindings.txt",
