@@ -23,8 +23,11 @@ import (
 	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
 
-	"k8s.io/api/core/v1"
-	"k8s.io/api/extensions/v1beta1"
+	appsv1 "k8s.io/api/apps/v1"
+	appsv1beta1 "k8s.io/api/apps/v1beta1"
+	appsv1beta2 "k8s.io/api/apps/v1beta2"
+	corev1 "k8s.io/api/core/v1"
+	extensionsv1beta1 "k8s.io/api/extensions/v1beta1"
 	"k8s.io/client-go/kubernetes/scheme"
 )
 
@@ -63,50 +66,45 @@ func GetLabelsFromYaml(file string) ([][]string, error) {
 		if err != nil {
 			return nil, err
 		}
-		switch obj.(type) {
-		case *v1beta1.Deployment:
-			deployment := obj.(*v1beta1.Deployment)
-			var ns string
-			if deployment.Namespace != "" {
-				ns = deployment.Namespace
-			} else {
-				ns = DefaultNamespace
-			}
-			yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(k8sConst.PodNamespaceLabel, ns))
-
-			for k, v := range deployment.Spec.Template.Labels {
-				yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(k, v))
-			}
-		case *v1.ReplicationController:
-			controller := obj.(*v1.ReplicationController)
-			var ns string
-			if controller.Namespace != "" {
-				ns = controller.Namespace
-			} else {
-				ns = DefaultNamespace
-			}
-			yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(k8sConst.PodNamespaceLabel, ns))
-
-			for k, v := range controller.Spec.Template.Labels {
-				yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(k, v))
-			}
-		case *v1beta1.ReplicaSet:
-			rep := obj.(*v1beta1.ReplicaSet)
-			var ns string
-			if rep.Namespace != "" {
-				ns = rep.Namespace
-			} else {
-				ns = DefaultNamespace
-			}
-			yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(k8sConst.PodNamespaceLabel, ns))
-
-			for k, v := range rep.Spec.Template.Labels {
-				yamlLabels = append(yamlLabels, labels.GenerateK8sLabelString(k, v))
-			}
+		switch o := obj.(type) {
+		// TODO: Remove once 1.16 becomes minimum supported version
+		case *extensionsv1beta1.Deployment:
+			yamlLabels = append(yamlLabels, generateLabels(o.Namespace, o.Spec.Template.Labels)...)
+		// TODO: Remove once 1.16 becomes minimum supported version
+		case *appsv1beta1.Deployment:
+			yamlLabels = append(yamlLabels, generateLabels(o.Namespace, o.Spec.Template.Labels)...)
+		// TODO: Remove once 1.16 becomes minimum supported version
+		case *appsv1beta2.Deployment:
+			yamlLabels = append(yamlLabels, generateLabels(o.Namespace, o.Spec.Template.Labels)...)
+		case *appsv1.Deployment:
+			yamlLabels = append(yamlLabels, generateLabels(o.Namespace, o.Spec.Template.Labels)...)
+		case *corev1.ReplicationController:
+			yamlLabels = append(yamlLabels, generateLabels(o.Namespace, o.Spec.Template.Labels)...)
+		// TODO: Remove once 1.16 becomes minimum supported version
+		case *extensionsv1beta1.ReplicaSet:
+			yamlLabels = append(yamlLabels, generateLabels(o.Namespace, o.Spec.Template.Labels)...)
+		// TODO: Remove once 1.16 becomes minimum supported version
+		case *appsv1beta2.ReplicaSet:
+			yamlLabels = append(yamlLabels, generateLabels(o.Namespace, o.Spec.Template.Labels)...)
+		case *appsv1.ReplicaSet:
+			yamlLabels = append(yamlLabels, generateLabels(o.Namespace, o.Spec.Template.Labels)...)
 		default:
 			return nil, fmt.Errorf("unsupported type provided in YAML file: %T", obj)
 		}
 		splitYamlLabels = append(splitYamlLabels, yamlLabels)
 	}
 	return splitYamlLabels, nil
+}
+
+func generateLabels(namespace string, labelsMap map[string]string) []string {
+	var labelsArr []string
+	temp := namespace
+	if temp == "" {
+		temp = DefaultNamespace
+	}
+	labelsArr = append(labelsArr, labels.GenerateK8sLabelString(k8sConst.PodNamespaceLabel, temp))
+	for k, v := range labelsMap {
+		labelsArr = append(labelsArr, labels.GenerateK8sLabelString(k, v))
+	}
+	return labelsArr
 }
