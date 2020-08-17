@@ -27,7 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/policy/groups"
 
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -86,7 +86,7 @@ func enableCCNPWatcher() error {
 			AddFunc: func(obj interface{}) {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
-					groups.AddDerivativeCNPIfNeeded(cnp.CiliumNetworkPolicy)
+					groups.AddDerivativeCCNPIfNeeded(cnp.CiliumNetworkPolicy)
 					if kvstoreEnabled() {
 						ccnpStatusMgr.StartStatusHandler(cnp)
 					}
@@ -99,7 +99,7 @@ func enableCCNPWatcher() error {
 						if k8s.EqualV2CNP(oldCNP, newCNP) {
 							return
 						}
-						groups.UpdateDerivativeCNPIfNeeded(newCNP.CiliumNetworkPolicy, oldCNP.CiliumNetworkPolicy)
+						groups.UpdateDerivativeCCNPIfNeeded(newCNP.CiliumNetworkPolicy, oldCNP.CiliumNetworkPolicy)
 					}
 				}
 			},
