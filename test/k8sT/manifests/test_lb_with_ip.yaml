@@ -1,0 +1,14 @@
+apiVersion: v1
+kind: Service
+metadata:
+  name: test-lb-with-ip
+spec:
+  type: LoadBalancer
+  loadBalancerIP: 192.168.36.240
+  ports:
+  - port: 80
+    targetPort: 80
+    protocol: TCP
+    name: http
+  selector:
+    zgroup: testDS
