@@ -105,7 +105,7 @@ var _ = Describe("K8sUpdates", func() {
 		ExpectAllPodsTerminated(kubectl)
 	})
 
-	It("Tests upgrade and downgrade from a Cilium stable image to master", func() {
+	SkipItIf(helpers.SkipGKEQuarantined, "Tests upgrade and downgrade from a Cilium stable image to master", func() {
 		var assertUpgradeSuccessful func()
 		assertUpgradeSuccessful, cleanupCallback =
 			InstallAndValidateCiliumUpgrades(
