@@ -21,4 +21,11 @@ const (
 
 	// RelayPort is the default port for the hubble-relay server.
 	RelayPort = 4245
+
+	// GRPCServiceName is the name of the Hubble gRPC service.
+	GRPCServiceName = "hubble-grpc"
+
+	// DomainName specifies the domain name to use when constructing the server
+	// name for peer change notifications.
+	DomainName = "cilium.io"
 )
