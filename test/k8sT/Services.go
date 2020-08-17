@@ -1453,23 +1453,26 @@ var _ = Describe("K8sServicesTest", func() {
 					SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "Tests LoadBalancer", func() {
 						var (
 							dummylb string
+							lbSVC   string
 						)
 
 						BeforeAll(func() {
 							DeployCiliumAndDNS(kubectl, ciliumFilename)
 							dummylb = helpers.ManifestGet(kubectl.BasePath(), "dummylb.yaml")
-							res := kubectl.ApplyDefault(dummylb)
-							res.ExpectSuccess("Unable to apply %s", dummylb)
+							kubectl.ApplyDefault(dummylb).ExpectSuccess("Unable to apply %s", dummylb)
+							lbSVC = helpers.ManifestGet(kubectl.BasePath(), "test_lb_with_ip.yaml")
+							kubectl.ApplyDefault(lbSVC).ExpectSuccess("Unable to apply %s", lbSVC)
 						})
 
 						AfterAll(func() {
-							_ = kubectl.Delete(dummylb)
+							kubectl.Delete(dummylb)
+							kubectl.Delete(lbSVC)
 						})
 
 						It("Connectivity to endpoint via LB", func() {
 							// Wait until dummyLB has assigned the LB IP addr
 							lbIP, err := kubectl.GetLoadBalancerIP(
-								helpers.DefaultNamespace, "test-lb", 30*time.Second)
+								helpers.DefaultNamespace, "test-lb-with-ip", 30*time.Second)
 							Expect(err).Should(BeNil(), "Cannot retrieve loadbalancer IP for test-lb")
 							// Add route to the LB IP addr via k8s1 node
 							kubectl.AddIPRoute(outsideNodeName, lbIP, k8s1IP, false).
