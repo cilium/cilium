@@ -15,7 +15,11 @@
 package peer
 
 import (
+	"strings"
+
 	"github.com/cilium/cilium/pkg/datapath"
+	ciliumDefaults "github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/hubble/defaults"
 	"github.com/cilium/cilium/pkg/node/types"
 
 	peerpb "github.com/cilium/cilium/api/v1/peer"
@@ -31,12 +35,14 @@ import (
 type handler struct {
 	stop chan struct{}
 	C    chan *peerpb.ChangeNotification
+	tls  bool
 }
 
-func newHandler() *handler {
+func newHandler(withoutTLSInfo bool) *handler {
 	return &handler{
 		stop: make(chan struct{}),
 		C:    make(chan *peerpb.ChangeNotification),
+		tls:  !withoutTLSInfo,
 	}
 }
 
@@ -46,12 +52,9 @@ var _ datapath.NodeHandler = (*handler)(nil)
 
 // NodeAdd implements datapath.NodeHandler.NodeAdd.
 func (h *handler) NodeAdd(n types.Node) error {
+	cn := newChangeNotification(n, peerpb.ChangeNotificationType_PEER_ADDED, h.tls)
 	select {
-	case h.C <- &peerpb.ChangeNotification{
-		Name:    n.Fullname(),
-		Address: nodeAddress(n),
-		Type:    peerpb.ChangeNotificationType_PEER_ADDED,
-	}:
+	case h.C <- cn:
 	case <-h.stop:
 	}
 	return nil
@@ -66,33 +69,24 @@ func (h *handler) NodeUpdate(o, n types.Node) error {
 			// => no need to send a notification
 			return nil
 		}
+		cn := newChangeNotification(n, peerpb.ChangeNotificationType_PEER_UPDATED, h.tls)
 		select {
-		case h.C <- &peerpb.ChangeNotification{
-			Name:    n.Fullname(),
-			Address: nAddr,
-			Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
-		}:
+		case h.C <- cn:
 		case <-h.stop:
 		}
 		return nil
 	}
 	// the name has changed; from a service consumer perspective, this is the
 	// same as if the peer with the old name was removed and a new one added
+	ocn := newChangeNotification(o, peerpb.ChangeNotificationType_PEER_DELETED, h.tls)
 	select {
-	case h.C <- &peerpb.ChangeNotification{
-		Name:    o.Fullname(),
-		Address: oAddr,
-		Type:    peerpb.ChangeNotificationType_PEER_DELETED,
-	}:
+	case h.C <- ocn:
 	case <-h.stop:
 		return nil
 	}
+	ncn := newChangeNotification(n, peerpb.ChangeNotificationType_PEER_ADDED, h.tls)
 	select {
-	case h.C <- &peerpb.ChangeNotification{
-		Name:    n.Fullname(),
-		Address: nAddr,
-		Type:    peerpb.ChangeNotificationType_PEER_ADDED,
-	}:
+	case h.C <- ncn:
 	case <-h.stop:
 	}
 	return nil
@@ -100,12 +94,9 @@ func (h *handler) NodeUpdate(o, n types.Node) error {
 
 // NodeDelete implements datapath.NodeHandler.NodeDelete.
 func (h *handler) NodeDelete(n types.Node) error {
+	cn := newChangeNotification(n, peerpb.ChangeNotificationType_PEER_DELETED, h.tls)
 	select {
-	case h.C <- &peerpb.ChangeNotification{
-		Name:    n.Fullname(),
-		Address: nodeAddress(n),
-		Type:    peerpb.ChangeNotificationType_PEER_DELETED,
-	}:
+	case h.C <- cn:
 	case <-h.stop:
 	}
 	return nil
@@ -130,6 +121,24 @@ func (h *handler) Close() {
 	close(h.stop)
 }
 
+// newChangeNotification creates a new change notification with the provided
+// information. If withTLS is true, the TLS field is populated with the server
+// name derived from the node and cluster names.
+func newChangeNotification(n types.Node, t peerpb.ChangeNotificationType, withTLS bool) *peerpb.ChangeNotification {
+	var tls *peerpb.TLS
+	if withTLS {
+		tls = &peerpb.TLS{
+			ServerName: tlsServerName(n.Name, n.Cluster),
+		}
+	}
+	return &peerpb.ChangeNotification{
+		Name:    n.Fullname(),
+		Address: nodeAddress(n),
+		Type:    t,
+		Tls:     tls,
+	}
+}
+
 // nodeAddress returns the node's address. If the node has both IPv4 and IPv6
 // addresses, IPv4 takes priority.
 func nodeAddress(n types.Node) string {
@@ -142,4 +151,31 @@ func nodeAddress(n types.Node) string {
 		return ""
 	}
 	return addr.String()
+}
+
+// tlsServerName constructs a server name to be used as the TLS server name.
+// The server name is of the following form:
+//
+//     <nodeName>.<clusterName>.<hubble-grpc-svc-name>.<domain>
+//
+// For example, with nodeName=moseisley and clusterName=tatooine, the following
+// server name is returned:
+//
+//     moseisley.tatooine.hubble-grpc.cilium.io
+//
+// If nodeName is not provided, an empty string is returned. If clusterName is
+// not provided, it defaults to the default cluster name.
+func tlsServerName(nodeName, clusterName string) string {
+	if nodeName == "" {
+		return ""
+	}
+	if clusterName == "" {
+		clusterName = ciliumDefaults.ClusterName
+	}
+	return strings.Join([]string{
+		nodeName,
+		clusterName,
+		defaults.GRPCServiceName,
+		defaults.DomainName,
+	}, ".")
 }

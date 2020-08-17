@@ -30,12 +30,14 @@ import (
 
 func TestNodeAdd(t *testing.T) {
 	tests := []struct {
-		name string
-		arg  types.Node
-		want *peerpb.ChangeNotification
+		name       string
+		withoutTLS bool
+		arg        types.Node
+		want       *peerpb.ChangeNotification
 	}{
 		{
-			name: "node with just a name",
+			name:       "node with just a name",
+			withoutTLS: true,
 			arg: types.Node{
 				Name: "name",
 			},
@@ -45,7 +47,8 @@ func TestNodeAdd(t *testing.T) {
 				Type:    peerpb.ChangeNotificationType_PEER_ADDED,
 			},
 		}, {
-			name: "node with just a name and cluster",
+			name:       "node with just a name and cluster",
+			withoutTLS: true,
 			arg: types.Node{
 				Name:    "name",
 				Cluster: "cluster",
@@ -56,7 +59,8 @@ func TestNodeAdd(t *testing.T) {
 				Type:    peerpb.ChangeNotificationType_PEER_ADDED,
 			},
 		}, {
-			name: "node with name, cluster and one internal IP address",
+			name:       "node with name, cluster and one internal IP address",
+			withoutTLS: true,
 			arg: types.Node{
 				Name:    "name",
 				Cluster: "cluster",
@@ -73,7 +77,8 @@ func TestNodeAdd(t *testing.T) {
 				Type:    peerpb.ChangeNotificationType_PEER_ADDED,
 			},
 		}, {
-			name: "node with name, cluster and one external IP address",
+			name:       "node with name, cluster and one external IP address",
+			withoutTLS: true,
 			arg: types.Node{
 				Name:    "name",
 				Cluster: "cluster",
@@ -89,11 +94,38 @@ func TestNodeAdd(t *testing.T) {
 				Address: "192.0.2.1",
 				Type:    peerpb.ChangeNotificationType_PEER_ADDED,
 			},
+		}, {
+			name: "node with a name and withTLS is set",
+			arg: types.Node{
+				Name: "name",
+			},
+			want: &peerpb.ChangeNotification{
+				Name:    "name",
+				Address: "",
+				Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+				Tls: &peerpb.TLS{
+					ServerName: "name.default.hubble-grpc.cilium.io",
+				},
+			},
+		}, {
+			name: "node with name, cluster and withTLS is set",
+			arg: types.Node{
+				Name:    "name",
+				Cluster: "cluster",
+			},
+			want: &peerpb.ChangeNotification{
+				Name:    "cluster/name",
+				Address: "",
+				Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+				Tls: &peerpb.TLS{
+					ServerName: "name.cluster.hubble-grpc.cilium.io",
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := newHandler()
+			h := newHandler(tt.withoutTLS)
 			defer h.Close()
 
 			var got *peerpb.ChangeNotification
@@ -115,12 +147,14 @@ func TestNodeUpdate(t *testing.T) {
 		old, updated types.Node
 	}
 	tests := []struct {
-		name string
-		args args
-		want []*peerpb.ChangeNotification
+		name       string
+		withoutTLS bool
+		args       args
+		want       []*peerpb.ChangeNotification
 	}{
 		{
-			name: "a node is renamed",
+			name:       "a node is renamed",
+			withoutTLS: true,
 			args: args{
 				types.Node{
 					Name: "old",
@@ -139,7 +173,8 @@ func TestNodeUpdate(t *testing.T) {
 				},
 			},
 		}, {
-			name: "a node within a named cluster is renamed",
+			name:       "a node within a named cluster is renamed",
+			withoutTLS: true,
 			args: args{
 				types.Node{
 					Name:    "old",
@@ -160,7 +195,8 @@ func TestNodeUpdate(t *testing.T) {
 				},
 			},
 		}, {
-			name: "a node with name, cluster and one internal IP address, the latter is updated",
+			name:       "a node with name, cluster and one internal IP address, the latter is updated",
+			withoutTLS: true,
 			args: args{
 				types.Node{
 					Name:    "name",
@@ -189,7 +225,8 @@ func TestNodeUpdate(t *testing.T) {
 				},
 			},
 		}, {
-			name: "node with name, cluster and one external IP address, the latter is updated",
+			name:       "node with name, cluster and one external IP address, the latter is updated",
+			withoutTLS: true,
 			args: args{
 				types.Node{
 					Name:    "name",
@@ -218,7 +255,8 @@ func TestNodeUpdate(t *testing.T) {
 				},
 			},
 		}, {
-			name: "node with name, cluster and one external IP address, no name or address change",
+			name:       "node with name, cluster and one external IP address, no name or address change",
+			withoutTLS: true,
 			args: args{
 				types.Node{
 					Name:    "name",
@@ -240,11 +278,63 @@ func TestNodeUpdate(t *testing.T) {
 					},
 				}},
 			want: nil,
+		}, {
+			name: "a node is renamed and withTLS is set",
+			args: args{
+				types.Node{
+					Name: "old",
+				}, types.Node{
+					Name: "new",
+				}},
+			want: []*peerpb.ChangeNotification{
+				{
+					Name:    "old",
+					Address: "",
+					Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+					Tls: &peerpb.TLS{
+						ServerName: "old.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "new",
+					Address: "",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "new.default.hubble-grpc.cilium.io",
+					},
+				},
+			},
+		}, {
+			name: "a node within a named cluster is renamed and withTLS is set",
+			args: args{
+				types.Node{
+					Name:    "old",
+					Cluster: "cluster",
+				}, types.Node{
+					Name:    "new",
+					Cluster: "cluster",
+				}},
+			want: []*peerpb.ChangeNotification{
+				{
+					Name:    "cluster/old",
+					Address: "",
+					Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+					Tls: &peerpb.TLS{
+						ServerName: "old.cluster.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "cluster/new",
+					Address: "",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "new.cluster.hubble-grpc.cilium.io",
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := newHandler()
+			h := newHandler(tt.withoutTLS)
 			defer h.Close()
 
 			var got []*peerpb.ChangeNotification
@@ -265,12 +355,14 @@ func TestNodeUpdate(t *testing.T) {
 
 func TestNodeDelete(t *testing.T) {
 	tests := []struct {
-		name string
-		arg  types.Node
-		want *peerpb.ChangeNotification
+		name       string
+		withoutTLS bool
+		arg        types.Node
+		want       *peerpb.ChangeNotification
 	}{
 		{
-			name: "node with just a name",
+			name:       "node with just a name",
+			withoutTLS: true,
 			arg: types.Node{
 				Name: "name",
 			},
@@ -280,7 +372,8 @@ func TestNodeDelete(t *testing.T) {
 				Type:    peerpb.ChangeNotificationType_PEER_DELETED,
 			},
 		}, {
-			name: "node with just a name and cluster",
+			name:       "node with just a name and cluster",
+			withoutTLS: true,
 			arg: types.Node{
 				Name:    "name",
 				Cluster: "cluster",
@@ -291,7 +384,8 @@ func TestNodeDelete(t *testing.T) {
 				Type:    peerpb.ChangeNotificationType_PEER_DELETED,
 			},
 		}, {
-			name: "node with name, cluster and one internal IP address",
+			name:       "node with name, cluster and one internal IP address",
+			withoutTLS: true,
 			arg: types.Node{
 				Name:    "name",
 				Cluster: "cluster",
@@ -308,7 +402,8 @@ func TestNodeDelete(t *testing.T) {
 				Type:    peerpb.ChangeNotificationType_PEER_DELETED,
 			},
 		}, {
-			name: "node with name, cluster and one external IP address",
+			name:       "node with name, cluster and one external IP address",
+			withoutTLS: true,
 			arg: types.Node{
 				Name:    "name",
 				Cluster: "cluster",
@@ -324,11 +419,38 @@ func TestNodeDelete(t *testing.T) {
 				Address: "192.0.2.1",
 				Type:    peerpb.ChangeNotificationType_PEER_DELETED,
 			},
+		}, {
+			name: "node with a name and withTLS is set",
+			arg: types.Node{
+				Name: "name",
+			},
+			want: &peerpb.ChangeNotification{
+				Name:    "name",
+				Address: "",
+				Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+				Tls: &peerpb.TLS{
+					ServerName: "name.default.hubble-grpc.cilium.io",
+				},
+			},
+		}, {
+			name: "node with a name and cluster and withTLS is set",
+			arg: types.Node{
+				Name:    "name",
+				Cluster: "cluster",
+			},
+			want: &peerpb.ChangeNotification{
+				Name:    "cluster/name",
+				Address: "",
+				Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+				Tls: &peerpb.TLS{
+					ServerName: "name.cluster.hubble-grpc.cilium.io",
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
-			h := newHandler()
+			h := newHandler(tt.withoutTLS)
 			defer h.Close()
 
 			var got *peerpb.ChangeNotification
