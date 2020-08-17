@@ -250,6 +250,9 @@ const (
 	// CiliumNetworkPolicyName is the name of a CiliumNetworkPolicy
 	CiliumNetworkPolicyName = "ciliumNetworkPolicyName"
 
+	// CiliumClusterwideNetworkPolicyName is the name of the CiliumClusterWideNetworkPolicy
+	CiliumClusterwideNetworkPolicyName = "ciliumClusterwideNetworkPolicyName"
+
 	// BPFMapKey is a key from a BPF map
 	BPFMapKey = "bpfMapKey"
 
