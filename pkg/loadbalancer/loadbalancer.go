@@ -180,7 +180,7 @@ var (
 )
 
 // L4Type name.
-type L4Type string
+type L4Type = string
 
 // FEPortName is the name of the frontend's port.
 type FEPortName string
