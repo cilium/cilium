@@ -50,6 +50,12 @@ func NewServer(log logrus.FieldLogger, options ...serveroption.Option) (*Server,
 			return nil, fmt.Errorf("failed to apply option: %v", err)
 		}
 	}
+	if opts.Listener == nil {
+		return nil, errNoListener
+	}
+	if opts.TransportCredentials == nil && !opts.Insecure {
+		return nil, errNoTransportCredentials
+	}
 	return &Server{log: log, opts: opts}, nil
 }
 
