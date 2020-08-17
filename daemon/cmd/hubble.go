@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/peer"
+	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/identity"
@@ -123,11 +124,16 @@ func (d *Daemon) launchHubble() {
 
 	// configure a local hubble instance that serves more gRPC services
 	sockPath := "unix://" + option.Config.HubbleSocketPath
+	tlsEnabled := option.Config.HubbleTLSCertFile != "" && option.Config.HubbleTLSKeyFile != ""
+	var peerServiceOptions []serviceoption.Option
+	if !tlsEnabled && option.Config.HubbleAllowInsecure {
+		peerServiceOptions = append(peerServiceOptions, serviceoption.WithoutTLSInfo())
+	}
 	localSrv, err := server.NewServer(logger,
 		serveroption.WithUnixSocketListener(sockPath),
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(d.hubbleObserver),
-		serveroption.WithPeerService(peer.NewService(d.nodeDiscovery.Manager)),
+		serveroption.WithPeerService(peer.NewService(d.nodeDiscovery.Manager, peerServiceOptions...)),
 		serveroption.WithInsecure(),
 	)
 	if err != nil {
@@ -153,7 +159,7 @@ func (d *Daemon) launchHubble() {
 			serveroption.WithObserverService(d.hubbleObserver),
 		}
 		switch {
-		case option.Config.HubbleTLSCertFile != "" && option.Config.HubbleTLSKeyFile != "":
+		case tlsEnabled:
 			cert, err := tls.LoadX509KeyPair(option.Config.HubbleTLSCertFile, option.Config.HubbleTLSKeyFile)
 			if err != nil {
 				logger.WithError(err).Error("Failed to load TLS certificate")

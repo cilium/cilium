@@ -64,7 +64,7 @@ func (s *Service) Notify(_ *peerpb.NotifyRequest, stream peerpb.Peer_NotifyServe
 	g, ctx := errgroup.WithContext(ctx)
 
 	// monitor for global stop signal to tear down all routines
-	h := newHandler(true) //FIXME: specify withTLS with an option
+	h := newHandler(s.opts.WithoutTLSInfo)
 	g.Go(func() error {
 		defer h.Close()
 		select {

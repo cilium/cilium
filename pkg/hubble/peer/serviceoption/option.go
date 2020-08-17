@@ -17,6 +17,7 @@ package serviceoption
 // Options stores all the configuration values for the peer service.
 type Options struct {
 	MaxSendBufferSize int
+	WithoutTLSInfo    bool
 }
 
 // Option customizes then configuration of the peer service.
@@ -31,5 +32,14 @@ type Option func(o *Options)
 func WithMaxSendBufferSize(size int) Option {
 	return func(o *Options) {
 		o.MaxSendBufferSize = size
+	}
+}
+
+// WithoutTLSInfo configures the service to send peer change notifications
+// without TLS information. This implies that TLS is disabled for the Hubble
+// gRPC service.
+func WithoutTLSInfo() Option {
+	return func(o *Options) {
+		o.WithoutTLSInfo = true
 	}
 }
