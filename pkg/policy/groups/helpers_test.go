@@ -51,10 +51,10 @@ func getSamplePolicy(name, ns string) *cilium_v2.CiliumNetworkPolicy {
 func (s *GroupsTestSuite) TestCorrectDerivativeName(c *C) {
 	name := "test"
 	cnp := getSamplePolicy(name, "testns")
-	DerivativeCNP, err := createDerivativeCNP(context.TODO(), cnp)
+	derivativeCNP, err := createDerivativeCNP(context.TODO(), cnp, false)
 	c.Assert(err, IsNil)
 	c.Assert(
-		DerivativeCNP.ObjectMeta.Name,
+		derivativeCNP.ObjectMeta.Name,
 		Equals,
 		fmt.Sprintf("%s-togroups-%s", name, cnp.ObjectMeta.UID))
 }
@@ -75,14 +75,13 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreDeletedIfNoToGroups(c *C) {
 		},
 	}
 
-	DerivativeCNP, err := createDerivativeCNP(context.TODO(), cnp)
+	derivativeCNP, err := createDerivativeCNP(context.TODO(), cnp, false)
 	c.Assert(err, IsNil)
-	c.Assert(DerivativeCNP.Specs[0].Egress, checker.DeepEquals, cnp.Spec.Egress)
-	c.Assert(len(DerivativeCNP.Specs), Equals, 1)
+	c.Assert(derivativeCNP.Specs[0].Egress, checker.DeepEquals, cnp.Spec.Egress)
+	c.Assert(len(derivativeCNP.Specs), Equals, 1)
 }
 
 func (s *GroupsTestSuite) TestDerivativePoliciesAreInheritCorrectly(c *C) {
-
 	cb := func(ctx context.Context, group *api.ToGroups) ([]net.IP, error) {
 		return []net.IP{net.ParseIP("192.168.1.1")}, nil
 	}
@@ -113,10 +112,10 @@ func (s *GroupsTestSuite) TestDerivativePoliciesAreInheritCorrectly(c *C) {
 		},
 	}
 
-	DerivativeCNP, err := createDerivativeCNP(context.TODO(), cnp)
+	derivativeCNP, err := createDerivativeCNP(context.TODO(), cnp, false)
 	c.Assert(err, IsNil)
-	c.Assert(DerivativeCNP.Spec, IsNil)
-	c.Assert(len(DerivativeCNP.Specs), Equals, 1)
-	c.Assert(DerivativeCNP.Specs[0].Egress[0].ToPorts, checker.DeepEquals, cnp.Spec.Egress[0].ToPorts)
-	c.Assert(len(DerivativeCNP.Specs[0].Egress[0].ToGroups), Equals, 0)
+	c.Assert(derivativeCNP.Spec, IsNil)
+	c.Assert(len(derivativeCNP.Specs), Equals, 1)
+	c.Assert(derivativeCNP.Specs[0].Egress[0].ToPorts, checker.DeepEquals, cnp.Spec.Egress[0].ToPorts)
+	c.Assert(len(derivativeCNP.Specs[0].Egress[0].ToGroups), Equals, 0)
 }

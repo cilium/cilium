@@ -30,14 +30,18 @@ const (
 // execute the addDerivative function with a max number of concurrent calls,
 // defined on maxConcurrentUpdates.
 func UpdateCNPInformation() {
-
 	cnpToUpdate := groupsCNPCache.GetAllCNP()
 	sem := make(chan bool, maxConcurrentUpdates)
 	for _, cnp := range cnpToUpdate {
 		sem <- true
 		go func(cnp *cilium_v2.CiliumNetworkPolicy) {
 			defer func() { <-sem }()
-			addDerivativeCNP(context.TODO(), cnp)
+			// We use the saame cache for Clusterwide and Namespaced cilium policies
+			if cnp.ObjectMeta.Namespace == "" {
+				addDerivativePolicy(context.TODO(), cnp, true)
+			} else {
+				addDerivativePolicy(context.TODO(), cnp, false)
+			}
 
 		}(cnp)
 	}
