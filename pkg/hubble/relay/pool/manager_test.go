@@ -72,6 +72,52 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 		}, {
+			name: "1 peer without IP address",
+			pcBuilder: testutils.FakePeerClientBuilder{
+				OnClient: func(target string) (peerTypes.Client, error) {
+					return &testutils.FakePeerClient{
+						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+							var once sync.Once
+							i := -1
+							cns := []*peerpb.ChangeNotification{
+								{
+									Name:    "noip",
+									Address: "",
+									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+								},
+							}
+							return &testutils.FakePeerNotifyClient{
+								OnRecv: func() (*peerpb.ChangeNotification, error) {
+									i++
+									switch {
+									case i >= len(cns):
+										once.Do(func() { close(done) })
+										return nil, io.EOF
+									default:
+										return cns[i], nil
+									}
+								},
+							}, nil
+						},
+						OnClose: func() error {
+							return nil
+						},
+					}, nil
+				},
+			},
+			ccBuilder: FakeClientConnBuilder{},
+			want: want{
+				peers: []poolTypes.Peer{
+					{
+						Peer: peerTypes.Peer{
+							Name:    "noip",
+							Address: nil,
+						},
+						Conn: nil,
+					},
+				},
+			},
+		}, {
 			name: "1 unreachable peer",
 			pcBuilder: testutils.FakePeerClientBuilder{
 				OnClient: func(target string) (peerTypes.Client, error) {
