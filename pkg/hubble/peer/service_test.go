@@ -43,12 +43,14 @@ func TestService_Notify(t *testing.T) {
 		del    []types.Node
 	}
 	tests := []struct {
-		name string
-		args args
-		want []*peerpb.ChangeNotification
+		name       string
+		svcOptions []serviceoption.Option
+		args       args
+		want       []*peerpb.ChangeNotification
 	}{
 		{
-			name: "add 4 nodes",
+			name:       "add 4 nodes with TLS info disabled",
+			svcOptions: []serviceoption.Option{serviceoption.WithoutTLSInfo()},
 			args: args{
 				init: []types.Node{
 					{
@@ -108,7 +110,8 @@ func TestService_Notify(t *testing.T) {
 				},
 			},
 		}, {
-			name: "delete 3 nodes",
+			name:       "delete 3 nodes with TLS info disabled",
+			svcOptions: []serviceoption.Option{serviceoption.WithoutTLSInfo()},
 			args: args{
 				init: []types.Node{
 					{
@@ -206,7 +209,8 @@ func TestService_Notify(t *testing.T) {
 				},
 			},
 		}, {
-			name: "update 2 nodes",
+			name:       "update 2 nodes with TLS info disabled",
+			svcOptions: []serviceoption.Option{serviceoption.WithoutTLSInfo()},
 			args: args{
 				init: []types.Node{
 					{
@@ -274,7 +278,8 @@ func TestService_Notify(t *testing.T) {
 				},
 			},
 		}, {
-			name: "rename 2 nodes",
+			name:       "rename 2 nodes with TLS info disabled",
+			svcOptions: []serviceoption.Option{serviceoption.WithoutTLSInfo()},
 			args: args{
 				init: []types.Node{
 					{
@@ -349,6 +354,386 @@ func TestService_Notify(t *testing.T) {
 					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
 				},
 			},
+		}, {
+			name: "add 4 nodes",
+			args: args{
+				init: []types.Node{
+					{
+						Name: "zero",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.1.1")},
+						},
+					},
+				},
+				add: []types.Node{
+					{
+						Name: "one",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+						},
+					}, {
+						Name: "two",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+						},
+					}, {
+						Name:    "one",
+						Cluster: "test",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.5")},
+						},
+					}, {
+						Name:    "two",
+						Cluster: "test",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.6")},
+						},
+					},
+				},
+			},
+			want: []*peerpb.ChangeNotification{
+				{
+					Name:    "zero",
+					Address: "192.0.1.1",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "zero.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "one",
+					Address: "192.0.2.1",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "one.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "two",
+					Address: "2001:db8::68",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "two.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "test/one",
+					Address: "10.0.10.5",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "one.test.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "test/two",
+					Address: "10.0.10.6",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "two.test.hubble-grpc.cilium.io",
+					},
+				},
+			},
+		}, {
+			name: "delete 3 nodes",
+			args: args{
+				init: []types.Node{
+					{
+						Name: "zero",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.1.1")},
+						},
+					}, {
+						Name: "one",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+						},
+					}, {
+						Name: "two",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+						},
+					}, {
+						Name:    "one",
+						Cluster: "test",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.5")},
+						},
+					}, {
+						Name:    "two",
+						Cluster: "test",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.6")},
+						},
+					},
+				},
+				del: []types.Node{
+					{
+						Name: "one",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+						},
+					}, {
+						Name: "two",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+						},
+					}, {
+						Name:    "one",
+						Cluster: "test",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.5")},
+						},
+					}, {
+						Name:    "two",
+						Cluster: "test",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("10.0.10.6")},
+						},
+					},
+				},
+			},
+			want: []*peerpb.ChangeNotification{
+				{
+					Name:    "zero",
+					Address: "192.0.1.1",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "zero.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "one",
+					Address: "192.0.2.1",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "one.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "two",
+					Address: "2001:db8::68",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "two.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "test/one",
+					Address: "10.0.10.5",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "one.test.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "test/two",
+					Address: "10.0.10.6",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "two.test.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "one",
+					Address: "192.0.2.1",
+					Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+					Tls: &peerpb.TLS{
+						ServerName: "one.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "two",
+					Address: "2001:db8::68",
+					Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+					Tls: &peerpb.TLS{
+						ServerName: "two.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "test/one",
+					Address: "10.0.10.5",
+					Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+					Tls: &peerpb.TLS{
+						ServerName: "one.test.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "test/two",
+					Address: "10.0.10.6",
+					Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+					Tls: &peerpb.TLS{
+						ServerName: "two.test.hubble-grpc.cilium.io",
+					},
+				},
+			},
+		}, {
+			name: "update 2 nodes",
+			args: args{
+				init: []types.Node{
+					{
+						Name: "zero",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.1.1")},
+						},
+					}, {
+						Name: "one",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+						},
+					}, {
+						Name: "two",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+						},
+					},
+				},
+				update: []types.Node{
+					{
+						Name: "one",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+						},
+					}, {
+						Name: "one",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.2")},
+						},
+					}, {
+						Name: "two",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+						},
+					}, {
+						Name: "two",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::65")},
+						},
+					},
+				},
+			},
+			want: []*peerpb.ChangeNotification{
+				{
+					Name:    "zero",
+					Address: "192.0.1.1",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "zero.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "one",
+					Address: "192.0.2.1",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "one.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "two",
+					Address: "2001:db8::68",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "two.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "one",
+					Address: "192.0.2.2",
+					Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
+					Tls: &peerpb.TLS{
+						ServerName: "one.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "two",
+					Address: "2001:db8::65",
+					Type:    peerpb.ChangeNotificationType_PEER_UPDATED,
+					Tls: &peerpb.TLS{
+						ServerName: "two.default.hubble-grpc.cilium.io",
+					},
+				},
+			},
+		}, {
+			name: "rename 2 nodes",
+			args: args{
+				init: []types.Node{
+					{
+						Name: "zero",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.1.1")},
+						},
+					}, {
+						Name: "one",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+						},
+					}, {
+						Name: "two",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+						},
+					},
+				},
+				update: []types.Node{
+					{
+						Name: "one",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+						},
+					}, {
+						Name: "1",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("192.0.2.1")},
+						},
+					}, {
+						Name: "two",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+						},
+					}, {
+						Name: "2",
+						IPAddresses: []types.Address{
+							{Type: addressing.NodeInternalIP, IP: net.ParseIP("2001:db8::68")},
+						},
+					},
+				},
+			},
+			want: []*peerpb.ChangeNotification{
+				{
+					Name:    "zero",
+					Address: "192.0.1.1",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "zero.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "one",
+					Address: "192.0.2.1",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "one.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "two",
+					Address: "2001:db8::68",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "two.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "one",
+					Address: "192.0.2.1",
+					Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+					Tls: &peerpb.TLS{
+						ServerName: "one.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "1",
+					Address: "192.0.2.1",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "1.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "two",
+					Address: "2001:db8::68",
+					Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+					Tls: &peerpb.TLS{
+						ServerName: "two.default.hubble-grpc.cilium.io",
+					},
+				}, {
+					Name:    "2",
+					Address: "2001:db8::68",
+					Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+					Tls: &peerpb.TLS{
+						ServerName: "2.default.hubble-grpc.cilium.io",
+					},
+				},
+			},
 		},
 	}
 	for _, tt := range tests {
@@ -368,7 +753,7 @@ func TestService_Notify(t *testing.T) {
 			}
 			notif := newNotifier(cb, tt.args.init)
 			wg.Add(len(tt.args.init))
-			svc := NewService(notif)
+			svc := NewService(notif, tt.svcOptions...)
 			done := make(chan struct{})
 			go func() {
 				err := svc.Notify(&peerpb.NotifyRequest{}, fakeServer)
@@ -454,7 +839,7 @@ func TestService_NotifyWithBlockedSend(t *testing.T) {
 		},
 	}
 	notif := newNotifier(cb, init)
-	svc := NewService(notif, serviceoption.WithMaxSendBufferSize(2))
+	svc := NewService(notif, serviceoption.WithMaxSendBufferSize(2), serviceoption.WithoutTLSInfo())
 	done := make(chan struct{})
 	go func() {
 		err := svc.Notify(&peerpb.NotifyRequest{}, fakeServer)
