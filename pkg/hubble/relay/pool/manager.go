@@ -297,7 +297,7 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	now := time.Now()
-	if p.nextConnAttempt.After(now) && !ignoreBackoff {
+	if p.Address == nil || (p.nextConnAttempt.After(now) && !ignoreBackoff) {
 		return
 	}
 	if p.conn != nil {
