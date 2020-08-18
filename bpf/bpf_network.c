@@ -44,7 +44,7 @@ static inline int handle_ipv6(struct __sk_buff *skb)
 	bool decrypted;
 
 	decrypted = ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
-	if (!revalidate_data_first(skb, &data, &data_end, &ip6))
+	if (!revalidate_data_pull(skb, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	if (!decrypted) {
@@ -82,7 +82,7 @@ static inline int handle_ipv4(struct __sk_buff *skb)
 	bool decrypted;
 
 	decrypted = ((skb->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_DECRYPT);
-	if (!revalidate_data_first(skb, &data, &data_end, &ip4))
+	if (!revalidate_data_pull(skb, &data, &data_end, &ip4))
 		return DROP_INVALID;
 
 	if (!decrypted) {
