@@ -93,8 +93,17 @@ func getEndpointSelector(namespace string, labelSelector *slim_metav1.LabelSelec
 	// Those pods don't have any labels, so they don't have a namespace label either.
 	// Don't add a namespace label to those endpoint selectors, or we wouldn't be
 	// able to match on those pods.
-	if !matchesInit && !es.HasKey(podPrefixLbl) && !es.HasKey(podAnyPrefixLbl) && namespace != "" {
-		es.AddMatch(podPrefixLbl, namespace)
+	if !matchesInit && !es.HasKey(podPrefixLbl) && !es.HasKey(podAnyPrefixLbl) {
+		if namespace == "" {
+			// For a clusterwide policy if a namespace is not specified in the labels we add
+			// a selector to only match endpoints that contains a namespace label.
+			// This is to make sure that we are only allowing traffic for cilium managed k8s endpoints
+			// and even if a wildcard is provided in the selector we don't proceed with a truly
+			// empty(allow all) endpoint selector for the policy.
+			es.AddMatchExpression(podPrefixLbl, slim_metav1.LabelSelectorOpExists, []string{})
+		} else {
+			es.AddMatch(podPrefixLbl, namespace)
+		}
 	}
 
 	return es
