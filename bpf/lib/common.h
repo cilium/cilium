@@ -126,9 +126,9 @@ static inline bool validate_ethertype(struct __sk_buff *skb, __u16 *proto)
 	return true;
 }
 
-static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
-				     void **data_end_, void **l3,
-				     const size_t l3_len, const bool pull)
+static inline bool
+__revalidate_data_pull(struct __sk_buff *skb, void **data_, void **data_end_,
+		       void **l3, const __u32 l3_len, const bool pull)
 {
 	const size_t tot_len = ETH_HLEN + l3_len;
 	void *data_end;
@@ -150,20 +150,29 @@ static inline bool __revalidate_data(struct __sk_buff *skb, void **data_,
 	return true;
 }
 
-/* revalidate_data_first() initializes the provided pointers from the skb and
+/* revalidate_data_pull() initializes the provided pointers from the ctx and
  * ensures that the data is pulled in for access. Should be used the first
  * time that the skb data is accessed, subsequent calls can be made to
  * revalidate_data() which is cheaper.
- * Returns true if 'skb' is long enough for an IP header of the provided type,
- * false otherwise. */
-#define revalidate_data_first(skb, data, data_end, ip)			\
-	__revalidate_data(skb, data, data_end, (void **)ip, sizeof(**ip), true)
+ * Returns true if 'ctx' is long enough for an IP header of the provided type,
+ * false otherwise.
+ */
+#define revalidate_data_pull(skb, data, data_end, ip)			\
+	__revalidate_data_pull(skb, data, data_end, (void **)ip, sizeof(**ip), true)
 
-/* revalidate_data() initializes the provided pointers from the skb.
- * Returns true if 'skb' is long enough for an IP header of the provided type,
- * false otherwise. */
+/* revalidate_data_maybe_pull() does the same as revalidate_data_maybe_pull()
+ * except that the skb data pull is controlled by the "pull" argument.
+ */
+#define revalidate_data_maybe_pull(skb, data, data_end, ip, pull)	\
+	__revalidate_data_pull(skb, data, data_end, (void **)ip, sizeof(**ip), pull)
+
+
+/* revalidate_data() initializes the provided pointers from the ctx.
+ * Returns true if 'ctx' is long enough for an IP header of the provided type,
+ * false otherwise.
+ */
 #define revalidate_data(skb, data, data_end, ip)			\
-	__revalidate_data(skb, data, data_end, (void **)ip, sizeof(**ip), false)
+	__revalidate_data_pull(skb, data, data_end, (void **)ip, sizeof(**ip), false)
 
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))
