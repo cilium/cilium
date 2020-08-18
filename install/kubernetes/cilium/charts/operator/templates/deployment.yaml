@@ -203,6 +203,8 @@ spec:
 {{- end }}
       serviceAccount: cilium-operator
       serviceAccountName: cilium-operator
+      tolerations:
+        - operator: Exists
       volumes:
         # To read the configuration from the config map
       - configMap:
