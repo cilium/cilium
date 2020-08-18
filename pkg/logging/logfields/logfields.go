@@ -16,6 +16,8 @@
 package logfields
 
 const (
+	// Annotations are any annotations for Pods
+	Annotations = "annotations"
 
 	// LogSubsys is the field denoting the subsystem when logging
 	LogSubsys = "subsys"
