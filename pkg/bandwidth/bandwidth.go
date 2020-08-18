@@ -99,7 +99,10 @@ func InitBandwidthManager() {
 		{"net.ipv4.tcp_max_syn_backlog", "4096"},
 	}
 	for _, s := range baseSettings {
-		log.Infof("Setting sysctl %s=%s", s.name, s.val)
+		log.WithFields(logrus.Fields{
+			logfields.SysParamName:  s.name,
+			logfields.SysParamValue: s.val,
+		}).Info("Setting sysctl")
 		if err := sysctl.Write(s.name, s.val); err != nil {
 			log.WithError(err).WithFields(logrus.Fields{
 				logfields.SysParamName:  s.name,
