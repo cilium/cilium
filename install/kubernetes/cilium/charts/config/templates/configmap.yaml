@@ -69,6 +69,10 @@ data:
 {{- end }}
 {{- end }}
 
+{{- if hasKey .Values "disableEnvoyVersionCheck" }}
+  disable-envoy-version-check: {{ .Values.disableEnvoyVersionCheck }}
+{{- end }}
+
   # Identity allocation mode selects how identities are shared between cilium
   # nodes by setting how they are stored. The options are "crd" or "kvstore".
   # - "crd" stores identities in kubernetes as CRDs (custom resource definition).
