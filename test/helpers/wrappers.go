@@ -31,6 +31,10 @@ const (
 	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
 	TCP_STREAM = PerfTest("TCP_STREAM")
 
+	// TCP_MAERTS represents a netperf test for TCP throughput performance (reverse direction of TCP_STREAM).
+	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
+	TCP_MAERTS = PerfTest("TCP_MAERTS")
+
 	// TCP_CRR represents a netperf test that connects and sends single request/response
 	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
 	TCP_CRR = PerfTest("TCP_CRR")
@@ -128,6 +132,12 @@ func CurlWithRetries(endpoint string, retries int, fail bool, optionalValues ...
 // connectivity between endpoints.
 func Netperf(endpoint string, perfTest PerfTest, options string) string {
 	return fmt.Sprintf("netperf -l 3 -t %s -H %s %s", perfTest, endpoint, options)
+}
+
+// SuperNetperf returns the string representing the super_netperf command to use when
+// testing connectivity between endpoints.
+func SuperNetperf(sessions int, endpoint string, perfTest PerfTest, options string) string {
+	return fmt.Sprintf("super_netperf %d -t %s -H %s %s", sessions, perfTest, endpoint, options)
 }
 
 // Netcat returns the string representing the netcat command to the specified
