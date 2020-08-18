@@ -247,6 +247,12 @@ const (
 	// CiliumNetworkPolicyName is the name of a CiliumNetworkPolicy
 	CiliumNetworkPolicyName = "ciliumNetworkPolicyName"
 
+	// BPFClockSource denotes the internal clock source (ktime vs jiffies)
+	BPFClockSource = "bpfClockSource"
+
+	// BPFInsnSet denotes the instruction set version
+	BPFInsnSet = "bpfInsnSet"
+
 	// BPFMapKey is a key from a BPF map
 	BPFMapKey = "bpfMapKey"
 

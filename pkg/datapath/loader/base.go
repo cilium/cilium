@@ -291,11 +291,16 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	args[initArgNrCPUs] = fmt.Sprintf("%d", common.GetNumPossibleCPUs(log))
 
 	clockSource := []string{"ktime", "jiffies"}
-	log.Infof("Setting up BPF datapath (BPF %s instruction set, %s clock source)",
-		args[initBPFCPU], clockSource[option.Config.ClockSource])
+	log.WithFields(logrus.Fields{
+		logfields.BPFInsnSet:     args[initBPFCPU],
+		logfields.BPFClockSource: clockSource[option.Config.ClockSource],
+	}).Info("Setting up BPF datapath")
 
 	for _, s := range sysSettings {
-		log.Infof("Setting sysctl %s=%s", s.name, s.val)
+		log.WithFields(logrus.Fields{
+			logfields.SysParamName:  s.name,
+			logfields.SysParamValue: s.val,
+		}).Info("Setting sysctl")
 		if err := sysctl.Write(s.name, s.val); err != nil {
 			if !s.ignoreErr {
 				return fmt.Errorf("Failed to sysctl -w %s=%s: %s", s.name, s.val, err)
