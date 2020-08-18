@@ -287,6 +287,20 @@ func (n *EndpointSelector) AddMatch(key, value string) {
 	n.cachedLabelSelectorString = n.LabelSelector.String()
 }
 
+// AddMatchExpression adds a match expression to label selector of the endpoint selector.
+func (n *EndpointSelector) AddMatchExpression(key string, op metav1.LabelSelectorOperator, values []string) {
+	n.MatchExpressions = append(n.MatchExpressions, metav1.LabelSelectorRequirement{
+		Key:      key,
+		Operator: op,
+		Values:   values,
+	})
+
+	// Update cache of the EndopintSelector from the embedded label selector.
+	// This is to make sure we have updates caches containing the required selectors.
+	n.requirements = labelSelectorToRequirements(n.LabelSelector)
+	n.cachedLabelSelectorString = n.LabelSelector.String()
+}
+
 // Matches returns true if the endpoint selector Matches the `lblsToMatch`.
 // Returns always true if the endpoint selector contains the reserved label for
 // "all".
