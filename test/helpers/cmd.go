@@ -315,6 +315,29 @@ func (res *CmdRes) IntOutput() (int, error) {
 	return strconv.Atoi(strings.TrimSpace(res.stdout.String()))
 }
 
+// FloatOutput returns the stdout of res as a float
+func (res *CmdRes) FloatOutput() (float64, error) {
+	return strconv.ParseFloat(strings.TrimSpace(res.stdout.String()), 64)
+}
+
+// InRange returns nil if res matches the expected value range or error otherwise
+func (res *CmdRes) InRange(expectedValue, maxDeviation int) error {
+	min := expectedValue - maxDeviation
+	max := expectedValue + maxDeviation
+	raw, err := res.FloatOutput()
+	if err != nil {
+		return err
+	}
+	val := int(raw)
+	if val >= min && val <= max {
+		return nil
+	} else {
+		return fmt.Errorf(
+			"Expected result %d (%s) is not in the range of [%d, %d]",
+			val, strings.TrimSpace(res.stdout.String()), min, max)
+	}
+}
+
 // FindResults filters res's stdout using the provided JSONPath filter. It
 // returns an array of the values that match the filter, and an error if
 // the unmarshalling of the stdout of res fails.
