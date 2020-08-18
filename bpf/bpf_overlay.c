@@ -33,7 +33,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	bool decrypted;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
-	if (!revalidate_data_first(ctx, &data, &data_end, &ip6))
+	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
 	if (!bpf_skip_nodeport(ctx)) {
@@ -156,7 +156,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 	bool decrypted;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
-	if (!revalidate_data_first(ctx, &data, &data_end, &ip4))
+	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
 	if (!bpf_skip_nodeport(ctx)) {
