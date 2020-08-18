@@ -32,6 +32,8 @@ const (
 
 	// EgressBandwidth is the K8s Pod annotation.
 	EgressBandwidth = "kubernetes.io/egress-bandwidth"
+	// IngressBandwidth is the K8s Pod annotation.
+	IngressBandwidth = "kubernetes.io/ingress-bandwidth"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
