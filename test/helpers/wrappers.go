@@ -32,6 +32,10 @@ const (
 	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
 	TCP_STREAM = PerfTest("TCP_STREAM")
 
+	// TCP_MAERTS represents a netperf test for TCP throughput performance (reverse direction of TCP_STREAM).
+	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
+	TCP_MAERTS = PerfTest("TCP_MAERTS")
+
 	// TCP_CRR represents a netperf test that connects and sends single request/response
 	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
 	TCP_CRR = PerfTest("TCP_CRR")

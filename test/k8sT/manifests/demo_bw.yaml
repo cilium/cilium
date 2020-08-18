@@ -1,0 +1,120 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netperf-10
+spec:
+  selector:
+    matchLabels:
+      run: netperf-10
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: netperf-10
+      annotations:
+        kubernetes.io/egress-bandwidth: "10M"
+    spec:
+      containers:
+      - name: netperf-10
+        image: cilium/netperf:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 12865
+      nodeSelector:
+        "cilium.io/ci-node": k8s1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netperf-25
+spec:
+  selector:
+    matchLabels:
+      run: netperf-25
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: netperf-25
+      annotations:
+        kubernetes.io/egress-bandwidth: "25M"
+    spec:
+      containers:
+      - name: netperf-25
+        image: cilium/netperf:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 12865
+      nodeSelector:
+        "cilium.io/ci-node": k8s1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netperf-50
+spec:
+  selector:
+    matchLabels:
+      run: netperf-50
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: netperf-50
+      annotations:
+        kubernetes.io/egress-bandwidth: "50M"
+    spec:
+      containers:
+      - name: netperf-50
+        image: cilium/netperf:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 12865
+      nodeSelector:
+        "cilium.io/ci-node": k8s1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netperf-inf
+spec:
+  selector:
+    matchLabels:
+      run: netperf-inf
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: netperf-inf
+    spec:
+      containers:
+      - name: netperf-inf
+        image: cilium/netperf:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 12865
+      nodeSelector:
+        "cilium.io/ci-node": k8s1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netperf-client
+spec:
+  selector:
+    matchLabels:
+      run: netperf-client
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: netperf-client
+    spec:
+      containers:
+      - name: netperf-client
+        image: cilium/netperf:latest
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 12865
+      nodeSelector:
+        "cilium.io/ci-node": k8s2
