@@ -70,7 +70,7 @@ data:
 {{- end }}
 
 {{- if hasKey .Values "disableEnvoyVersionCheck" }}
-  disable-envoy-version-check: {{ .Values.disableEnvoyVersionCheck }}
+  disable-envoy-version-check: {{ .Values.disableEnvoyVersionCheck | quote }}
 {{- end }}
 
   # Identity allocation mode selects how identities are shared between cilium
