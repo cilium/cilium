@@ -114,8 +114,8 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 }
 
 static __always_inline __maybe_unused bool
-__revalidate_data(struct __ctx_buff *ctx, void **data_, void **data_end_,
-		  void **l3, const __u32 l3_len, const bool pull)
+__revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
+		       void **l3, const __u32 l3_len, const bool pull)
 {
 	const __u32 tot_len = ETH_HLEN + l3_len;
 	void *data_end;
@@ -137,22 +137,29 @@ __revalidate_data(struct __ctx_buff *ctx, void **data_, void **data_end_,
 	return true;
 }
 
-/* revalidate_data_first() initializes the provided pointers from the ctx and
+/* revalidate_data_pull() initializes the provided pointers from the ctx and
  * ensures that the data is pulled in for access. Should be used the first
  * time that the ctx data is accessed, subsequent calls can be made to
  * revalidate_data() which is cheaper.
  * Returns true if 'ctx' is long enough for an IP header of the provided type,
  * false otherwise.
  */
-#define revalidate_data_first(ctx, data, data_end, ip)			\
-	__revalidate_data(ctx, data, data_end, (void **)ip, sizeof(**ip), true)
+#define revalidate_data_pull(ctx, data, data_end, ip)			\
+	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), true)
+
+/* revalidate_data_maybe_pull() does the same as revalidate_data_maybe_pull()
+ * except that the skb data pull is controlled by the "pull" argument.
+ */
+#define revalidate_data_maybe_pull(ctx, data, data_end, ip, pull)	\
+	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), pull)
+
 
 /* revalidate_data() initializes the provided pointers from the ctx.
  * Returns true if 'ctx' is long enough for an IP header of the provided type,
  * false otherwise.
  */
 #define revalidate_data(ctx, data, data_end, ip)			\
-	__revalidate_data(ctx, data, data_end, (void **)ip, sizeof(**ip), false)
+	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), false)
 
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))
