@@ -1,0 +1,34 @@
+# Copyright 2017-2020 Authors of Cilium
+# SPDX-License-Identifier: Apache-2.0
+
+# This Makefile is expected to run inside cilium/hubble-proto image to generate
+# the proto files.
+
+PROTOC ?= protoc
+
+HUBBLE_PROTO_SOURCES := \
+	./flow/flow.proto \
+	./peer/peer.proto \
+	./observer/observer.proto \
+	./relay/relay.proto
+
+HUBBLE_GO_TARGETS := $(HUBBLE_PROTO_SOURCES:.proto=.pb.go) $(HUBBLE_PROTO_SOURCES:.proto=.pb.json.go)
+
+HUBBLE_PROTO_PATH := .
+
+HUBBLE_PROTOC_PLUGINS := --plugin=/proto/protoc-gen-go
+HUBBLE_PROTOC_PLUGINS += --plugin=/proto/protoc-gen-go-grpc
+HUBBLE_PROTOC_PLUGINS += --plugin=/proto/protoc-gen-go-json
+
+.PHONY: all
+all:
+	@echo NOTE: The warning about package github.com/golang/protobuf/protoc-gen-go/generator can be ignored
+	$(QUIET)set -e; \
+	for proto in $(HUBBLE_PROTO_SOURCES) ; do \
+		echo Generating $${proto} && \
+		$(PROTOC) $(HUBBLE_PROTOC_PLUGINS) -I $(HUBBLE_PROTO_PATH) \
+			--go_out=paths=source_relative:. \
+			--go-grpc_out=requireUnimplementedServers=false,paths=source_relative:. \
+			--go-json_out=orig_name:. \
+			$${proto}; \
+	done
