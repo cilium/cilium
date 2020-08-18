@@ -372,7 +372,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	defer d.endpointCreations.EndCreateRequest(ep)
 
 	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
-		pod, cp, identityLabels, info, _, err := d.fetchK8sLabelsAndAnnotations(ep.K8sNamespace, ep.K8sPodName)
+		pod, cp, identityLabels, info, annotations, err := d.fetchK8sLabelsAndAnnotations(ep.K8sNamespace, ep.K8sPodName)
 		if err != nil {
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {
@@ -382,6 +382,20 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			}
 			addLabels.MergeLabels(identityLabels)
 			infoLabels.MergeLabels(info)
+			if _, ok := annotations[bandwidth.IngressBandwidth]; ok {
+				log.WithFields(logrus.Fields{
+					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
+					logfields.Annotations: logfields.Repr(annotations),
+				}).Warningf("Endpoint has %s annotation which is unsupported. This annotation is ignored.",
+					bandwidth.IngressBandwidth)
+			}
+			if _, ok := annotations[bandwidth.EgressBandwidth]; ok && !option.Config.EnableBandwidthManager {
+				log.WithFields(logrus.Fields{
+					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
+					logfields.Annotations: logfields.Repr(annotations),
+				}).Warningf("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
+					bandwidth.EgressBandwidth)
+			}
 		}
 	}
 
