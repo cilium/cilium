@@ -40,7 +40,8 @@ Deploy Cilium release via Helm:
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
       --set global.etcd.enabled=true \\
-      --set global.etcd.managed=true
+      --set global.etcd.managed=true \\
+      --set global.operator.dnsPolicy="Default"
 
 
 Validate the Installation

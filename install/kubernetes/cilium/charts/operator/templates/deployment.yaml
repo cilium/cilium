@@ -195,7 +195,7 @@ spec:
 {{- if .Values.global.etcd.managed }}
       # In managed etcd mode, Cilium must be able to resolve the DNS name of
       # the etcd service
-      dnsPolicy: ClusterFirstWithHostNet
+      dnsPolicy: {{ .Values.global.operator.dnsPolicy | default "ClusterFirstWithHostNet" }}
 {{- end }}
       restartPolicy: Always
 {{- if or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (ge .Capabilities.KubeVersion.Minor "17") (gt .Capabilities.KubeVersion.Major "1")}}
