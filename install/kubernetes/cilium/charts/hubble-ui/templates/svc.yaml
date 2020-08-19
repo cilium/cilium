@@ -10,4 +10,5 @@ spec:
     - name: http
       port: 80
       targetPort: 12000
-  type: ClusterIP
+  type: {{ .Values.service.type }}
+

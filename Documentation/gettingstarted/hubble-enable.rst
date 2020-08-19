@@ -51,6 +51,22 @@ networking infrastructure in a completely transparent manner.
               --set global.hubble.relay.enabled=true \\
               --set global.hubble.ui.enabled=true
 
+        .. note::
+
+           For some environments, if you want to expose Hubble-UI to your protected network - 
+           we may recommend you to use reverse proxy with TLS and OAuth enabled. 
+           Ex: nginx-ingress-controller or aws-alb-ingress-controller
+           
+           For this purpose you may need to set Hubble-UI K8s service type to something other than default ClusterIP.
+           For this you can use param:
+
+           .. parsed-literal::
+
+              --set hubble-ui.service.type=NodePort
+
+           Be aware that Hubble-UI gives access to potentially sensitive information about running services in your cluster
+           so be sure that you use properly configured TLS and Authentification to prevent security incidents.
+
 * Restart the Cilium daemonset to allow Cilium agent to pick up the ConfigMap changes:
 
   .. parsed-literal::

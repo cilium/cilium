@@ -40,3 +40,6 @@ ingress:
   #    hosts:
   #      - chart-example.local
 
+service:
+  type: ClusterIP
+
