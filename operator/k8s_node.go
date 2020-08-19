@@ -57,7 +57,7 @@ func runNodeWatcher(nodeManager *allocator.NodeEventHandler) error {
 
 	k8sNodeStore, nodeController := informer.NewInformer(
 		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(),
-			"ciliumnodes", v1.NamespaceAll, fields.Everything()),
+			cilium_v2.CNPluralName, v1.NamespaceAll, fields.Everything()),
 		&cilium_v2.CiliumNode{},
 		0,
 		cache.ResourceEventHandlerFuncs{

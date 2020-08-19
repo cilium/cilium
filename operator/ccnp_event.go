@@ -77,7 +77,7 @@ func enableCCNPWatcher() error {
 
 	ciliumV2Controller := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(),
-			"ciliumclusterwidenetworkpolicies", v1.NamespaceAll, fields.Everything()),
+			cilium_v2.CCNPPluralName, v1.NamespaceAll, fields.Everything()),
 		&cilium_v2.CiliumClusterwideNetworkPolicy{},
 		0,
 		cache.ResourceEventHandlerFuncs{
