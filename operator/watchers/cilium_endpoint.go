@@ -73,7 +73,7 @@ func CiliumEndpointsInit(ciliumNPClient cilium_cli.CiliumV2Interface) {
 
 		ciliumEndpointInformer := informer.NewInformerWithStore(
 			cache.NewListWatchFromClient(ciliumNPClient.RESTClient(),
-				"ciliumendpoints", v1.NamespaceAll, fields.Everything()),
+				cilium_api_v2.CEPPluralName, v1.NamespaceAll, fields.Everything()),
 			&cilium_api_v2.CiliumEndpoint{},
 			0,
 			cache.ResourceEventHandlerFuncs{},
