@@ -63,6 +63,33 @@ Deploy Cilium release via Helm:
    the security groups for pod ENIs are derived from the primary ENI
    (``eth0``).
 
+.. note::
+
+   For AWS managed cluster (EKS) Cilium in CNI mode uses by default interface (ENI)
+   starting from 1 for pods IP allocation so effectively excluding 1 ENI (index 0), 
+   hence reducing pods IP pool. This should be taken into account creating 
+   clusters / deploying Cilium. Without special K8s/EKS configuration pods may and will 
+   become unschedulable in some cases. 
+
+   If you don't want to change K8s cluster configuration for any reason - there is another way. 
+   You may use params:
+
+   .. parsed-literal::
+
+      --set global.cni.managedConfigmap=true \\
+      --set global.cni.eni.first_interface_index=0 \\
+      --set global.cni.configMap=cilium-cni-configuration
+
+
+   Additional params you may use to configure CNI:
+
+   .. parsed-literal::
+
+      --set global.cni.name=cilium \\
+      --set global.cni.version="0.3.1" \\
+      --set global.cni.type=cilium-cni \\
+      --set global.cni.debug=false
+
 .. include:: aws-create-nodegroup.rst
 .. include:: k8s-install-validate.rst
 .. include:: namespace-kube-system.rst
