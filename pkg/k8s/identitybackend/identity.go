@@ -284,7 +284,7 @@ func (c *crdBackend) ListAndWatch(ctx context.Context, handler allocator.CacheMu
 	c.Store = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	identityInformer := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(c.Client.CiliumV2().RESTClient(),
-			"ciliumidentities", v1.NamespaceAll, fields.Everything()),
+			v2.CIDPluralName, v1.NamespaceAll, fields.Everything()),
 		&v2.CiliumIdentity{},
 		0,
 		cache.ResourceEventHandlerFuncs{
