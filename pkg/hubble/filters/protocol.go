@@ -27,6 +27,10 @@ func filterByProtocol(protocols []string) (FilterFunc, error) {
 	var l4Protocols, l7Protocols []string
 	for _, p := range protocols {
 		proto := strings.ToLower(p)
+		if strings.HasPrefix(proto, "tcp:") {
+			l4Protocols = append(l4Protocols, proto)
+			continue
+		}
 		switch proto {
 		case "icmp", "icmpv4", "icmpv6", "tcp", "udp":
 			l4Protocols = append(l4Protocols, proto)
@@ -40,6 +44,26 @@ func filterByProtocol(protocols []string) (FilterFunc, error) {
 	return func(ev *v1.Event) bool {
 		l4 := ev.GetFlow().GetL4()
 		for _, proto := range l4Protocols {
+			if strings.HasPrefix(proto, "tcp:") {
+				prototcp := l4.GetTCP()
+				if prototcp != nil {
+					flags := prototcp.GetFlags()
+					flagstr := strings.Split(strings.TrimPrefix(proto, "tcp:"), ",")
+					for _, f := range flagstr {
+						if (strings.EqualFold(f, "SYN") && flags.GetSYN()) ||
+							(strings.EqualFold(f, "RST") && flags.GetRST()) ||
+							(strings.EqualFold(f, "FIN") && flags.GetFIN()) ||
+							(strings.EqualFold(f, "URG") && flags.GetURG()) ||
+							(strings.EqualFold(f, "CWR") && flags.GetCWR()) ||
+							(strings.EqualFold(f, "ACK") && flags.GetACK()) ||
+							(strings.EqualFold(f, "PSH") && flags.GetPSH()) ||
+							(strings.EqualFold(f, "NS") && flags.GetNS()) ||
+							(strings.EqualFold(f, "ECE") && flags.GetECE()) {
+							return true
+						}
+					}
+				}
+			}
 			switch proto {
 			case "icmp":
 				if l4.GetICMPv4() != nil || l4.GetICMPv6() != nil {
