@@ -38,7 +38,7 @@ function proxy_init {
   docker run -dt --net=cilium --name mysql-server -l $SERVER_LABEL -e MYSQL_ROOT_PASSWORD=cilium --publish 6603:3306 mysql:$TAG --disable-ssl
   wait_for_docker_ipv6_addr mysql-server
 
-  log "waiting for all 3 endpoints to get an identity"
+  log "waiting for mysql-server endpoint to get an identity"
   while ! cilium endpoint list -o jsonpath='{range [*]}{.status.identity.id}{" "}{.status.identity.labels}{"\n"}' | grep '^[0-9].*mysql-server' ; do
     log "waiting..."
     sleep 1
