@@ -15,6 +15,12 @@ If you are not familiar with it, you had best have a glance at the `User's Guide
 
 .. _`User's Guide`: https://bird.network.cz/?get_doc&f=bird.html&v=20
 
+BIRD provides a way to advertise routes using traditional networking protocols
+to allow Cilium-managed endpoints to be accessible outside the cluster. This
+guide assumes that Cilium is already deployed in the cluster, and that the
+remaining piece is how to ensure that the pod CIDR ranges are externally
+routable.
+
 `BIRD <https://bird.network.cz>`_ maintains two release families at present:
 ``1.x`` and ``2.x``, and the configuration format varies a lot between them.
 Unless you have already deployed the ``1.x``, we suggest using ``2.x``
