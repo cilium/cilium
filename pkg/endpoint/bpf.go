@@ -799,17 +799,6 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (he
 
 		_ = e.updateAndOverrideEndpointOptions(nil)
 
-		// Configure the new network policy with the proxies.
-		// Do this before updating the bpf policy maps, so that the proxy listeners have a chance to be
-		// ready when new traffic is redirected to them.
-		stats.proxyPolicyCalculation.Start()
-		err, networkPolicyRevertFunc := e.updateNetworkPolicy(datapathRegenCtxt.proxyWaitGroup)
-		stats.proxyPolicyCalculation.End(err == nil)
-		if err != nil {
-			return false, err
-		}
-		datapathRegenCtxt.revertStack.Push(networkPolicyRevertFunc)
-
 		// Walk the L4Policy to add new redirects and update the desired policy for existing redirects.
 		// Do this before updating the bpf policy maps, so that the proxies are ready when new traffic
 		// is redirected to them.
@@ -828,6 +817,21 @@ func (e *Endpoint) runPreCompilationSteps(regenContext *regenerationContext) (he
 			datapathRegenCtxt.finalizeList.Append(finalizeFunc)
 			datapathRegenCtxt.revertStack.Push(revertFunc)
 		}
+
+		// Configure the new network policy with the proxies.
+		//
+		// This must be done after adding new redirects above, as waiting for policy update ACKs is
+		// disabled when there are no listeners, which is the case before the first redirect is added.
+		//
+		// Do this before updating the bpf policy maps below, so that the proxy listeners have a chance to be
+		// ready when new traffic is redirected to them.
+		stats.proxyPolicyCalculation.Start()
+		err, networkPolicyRevertFunc := e.updateNetworkPolicy(datapathRegenCtxt.proxyWaitGroup)
+		stats.proxyPolicyCalculation.End(err == nil)
+		if err != nil {
+			return false, err
+		}
+		datapathRegenCtxt.revertStack.Push(networkPolicyRevertFunc)
 
 		// Synchronously try to update PolicyMap for this endpoint. If any
 		// part of updating the PolicyMap fails, bail out and do not generate
