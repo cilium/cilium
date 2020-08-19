@@ -110,7 +110,7 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 
 	ciliumV2Controller := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
-			"ciliumnetworkpolicies", v1.NamespaceAll, fields.Everything()),
+			cilium_v2.CNPPluralName, v1.NamespaceAll, fields.Everything()),
 		&cilium_v2.CiliumNetworkPolicy{},
 		0,
 		cache.ResourceEventHandlerFuncs{

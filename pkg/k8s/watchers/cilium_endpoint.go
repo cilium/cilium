@@ -42,7 +42,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 	for {
 		_, ciliumEndpointInformer := informer.NewInformer(
 			cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
-				"ciliumendpoints", v1.NamespaceAll, fields.Everything()),
+				cilium_v2.CEPPluralName, v1.NamespaceAll, fields.Everything()),
 			&cilium_v2.CiliumEndpoint{},
 			0,
 			cache.ResourceEventHandlerFuncs{
