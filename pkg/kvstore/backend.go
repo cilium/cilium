@@ -129,6 +129,15 @@ func getBackend(name string) backendModule {
 	return nil
 }
 
+// EndpointsStatus represents the status of all kvstore endpoints.
+type EndpointsStatus struct {
+	// Total is the total number of endpoints.
+	Total int
+
+	// Healthy is the number of healthy endpoints.
+	Healthy int
+}
+
 // BackendOperations are the individual kvstore operations that each backend
 // must implement. Direct use of this interface is possible but will bypass the
 // tracing layer.
@@ -144,6 +153,9 @@ type BackendOperations interface {
 	// Status returns the status of the kvstore client including an
 	// eventual error
 	Status() (string, error)
+
+	// EndpointsStatus returns the status of endpoints
+	EndpointsStatus() EndpointsStatus
 
 	// StatusCheckErrors returns a channel which receives status check
 	// errors

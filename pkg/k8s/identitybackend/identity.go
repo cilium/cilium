@@ -465,6 +465,12 @@ func (c *crdBackend) Status() (string, error) {
 	return "OK", nil
 }
 
+// EndpointsStatus returns the status the of the kvstore endpoints. This is not
+// implemented for the CRD backend.
+func (c *crdBackend) EndpointsStatus() kvstore.EndpointsStatus {
+	return kvstore.EndpointsStatus{}
+}
+
 func (c *crdBackend) Encode(v string) string {
 	return v
 }

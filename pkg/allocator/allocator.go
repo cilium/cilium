@@ -258,6 +258,9 @@ type Backend interface {
 
 	// Status returns a human-readable status of the Backend.
 	Status() (string, error)
+
+	// EndpointsStatus returns the status of the kvstore endpoints.
+	EndpointsStatus() kvstore.EndpointsStatus
 }
 
 // NewAllocator creates a new Allocator. Any type can be used as key as long as

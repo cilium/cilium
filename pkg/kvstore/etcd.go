@@ -290,8 +290,8 @@ type etcdClient struct {
 	lockSession       *concurrency.Session
 	lockSessionCancel context.CancelFunc
 
-	// statusLock protects latestStatusSnapshot and latestErrorStatus for
-	// read/write access
+	// statusLock protects latestStatusSnapshot, latestErrorStatus, and
+	// endpointsStatus for read/write access
 	statusLock lock.RWMutex
 
 	// latestStatusSnapshot is a snapshot of the latest etcd cluster status
@@ -299,6 +299,8 @@ type etcdClient struct {
 
 	// latestErrorStatus is the latest error condition of the etcd connection
 	latestErrorStatus error
+
+	endpointsStatus EndpointsStatus
 
 	extraOptions *ExtraOptions
 
@@ -1111,6 +1113,9 @@ func (e *etcdClient) statusChecker() {
 
 		e.statusLock.Lock()
 
+		e.endpointsStatus.Total = len(endpoints)
+		e.endpointsStatus.Healthy = ok
+
 		switch {
 		case consecutiveQuorumErrors > consecutiveQuorumErrorsThreshold:
 			e.latestErrorStatus = fmt.Errorf("quorum check failed %d times in a row: %s",
@@ -1137,6 +1142,14 @@ func (e *etcdClient) statusChecker() {
 		case <-time.After(e.extraOptions.StatusCheckInterval(allConnected)):
 		}
 	}
+}
+
+// EndpointsStatus returns the status of all endpoints
+func (e *etcdClient) EndpointsStatus() EndpointsStatus {
+	e.statusLock.RLock()
+	defer e.statusLock.RUnlock()
+
+	return e.endpointsStatus
 }
 
 func (e *etcdClient) Status() (string, error) {

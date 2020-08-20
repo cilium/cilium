@@ -453,6 +453,12 @@ func (c *consulClient) Status() (string, error) {
 	return "Consul: " + leader, err
 }
 
+// EndpointsStatus returns the status of all endpoints. Not implemented for
+// Consul.
+func (c *consulClient) EndpointsStatus() EndpointsStatus {
+	return EndpointsStatus{}
+}
+
 func (c *consulClient) DeletePrefix(ctx context.Context, path string) (err error) {
 	defer func() { Trace("DeletePrefix", err, logrus.Fields{fieldPrefix: path}) }()
 

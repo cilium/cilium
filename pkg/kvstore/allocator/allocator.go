@@ -612,6 +612,10 @@ func (k *kvstoreBackend) Status() (string, error) {
 	return k.backend.Status()
 }
 
+func (k *kvstoreBackend) EndpointsStatus() kvstore.EndpointsStatus {
+	return k.backend.EndpointsStatus()
+}
+
 func (k *kvstoreBackend) Encode(v string) string {
 	return k.backend.Encode([]byte(v))
 }

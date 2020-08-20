@@ -194,6 +194,10 @@ func (d *dummyBackend) Status() (string, error) {
 	return "", nil
 }
 
+func (d *dummyBackend) EndpointsStatus() kvstore.EndpointsStatus {
+	return kvstore.EndpointsStatus{}
+}
+
 type TestAllocatorKey string
 
 func (t TestAllocatorKey) GetKey() string { return string(t) }
