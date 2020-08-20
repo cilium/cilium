@@ -71,6 +71,14 @@ jobs:
           entrypoint: make
           args: -C images cilium-image PUSH=true
       - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
+        name: Run make cilium-test-image
+        env:
+          DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
+          DOCKER_HUB_USERNAME: ${{ secrets.DOCKER_HUB_USERNAME }}
+        with:
+          entrypoint: make
+          args: -C images cilium-test-image PUSH=true
+      - uses: docker://docker.io/cilium/image-maker:bc81755ec8f6c5afcb10a416cef73f99a35fee2c
         name: Run make operator-image
         env:
           DOCKER_HUB_PASSWORD: ${{ secrets.DOCKER_HUB_PASSWORD }}
