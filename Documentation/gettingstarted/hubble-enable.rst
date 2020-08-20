@@ -74,7 +74,7 @@ networking infrastructure in a completely transparent manner.
 
   .. parsed-literal::
 
-      kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-relay 4245:80
+      kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-relay --address 0.0.0.0 --address :: 4245:80
       hubble observe --server localhost:4245
 
   (**For Linux / MacOS**) For convenience, you may set and export the ``HUBBLE_DEFAULT_SOCKET_PATH``
@@ -92,6 +92,6 @@ networking infrastructure in a completely transparent manner.
 
   .. parsed-literal::
 
-      kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-ui 12000:80
+      kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-ui --address 0.0.0.0 --address :: 12000:80
 
   and then open http://localhost:12000/.
