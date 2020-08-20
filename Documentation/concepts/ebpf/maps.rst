@@ -28,6 +28,8 @@ Proxy Map                node             512k            Max 512k concurrent re
 Tunnel                   node             64k             Max 32k nodes (IPv4+IPv6) or 64k nodes (IPv4 or IPv6) across all clusters
 IPv4 Fragmentation       node             8k              Max 8k fragmented datagrams in flight simultaneously on the node
 Session Affinity         node             64k             Max 64k affinities from different clients
+IP Masq                  node             16k             Max 16k IPv4 cidrs used by BPF-based ip-masq-agent
+Service Source Ranges    node             64k             Max 64k cumulative LB source ranges across all services
 ======================== ================ =============== =====================================================
 
 For some BPF maps, the upper capacity limit can be overridden using command
