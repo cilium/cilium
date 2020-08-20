@@ -64,7 +64,7 @@ func testEqualityEndpoint(got, expected string, c *C) {
 	c.Assert(gotStruct, checker.DeepEquals, expectedStruct)
 }
 
-func (s *MonitorAPISuite) TestRulesRepr(c *C) {
+func (s *MonitorAPISuite) TestPolicyUpdateMessage(c *C) {
 	rules := api.Rules{
 		&api.Rule{
 			Labels: labels.LabelArray{
@@ -82,27 +82,32 @@ func (s *MonitorAPISuite) TestRulesRepr(c *C) {
 	for _, r := range rules {
 		labels = append(labels, r.Labels.GetModel()...)
 	}
-	repr, err := PolicyUpdateRepr(len(rules), labels, 1)
 
+	msg := PolicyUpdateMessage(len(rules), labels, 1)
+	repr, err := msg.ToJSON()
 	c.Assert(err, IsNil)
-	testEqualityRules(repr, `{"labels":["unspec:key1=value1","unspec:key2=value2"],"revision":1,"rule_count":2}`, c)
+	c.Assert(repr.Type, Equals, AgentNotifyPolicyUpdated)
+	testEqualityRules(repr.Text, `{"labels":["unspec:key1=value1","unspec:key2=value2"],"revision":1,"rule_count":2}`, c)
 }
 
-func (s *MonitorAPISuite) TestRulesReprEmpty(c *C) {
-	repr, err := PolicyUpdateRepr(0, []string{}, 1)
-
+func (s *MonitorAPISuite) TestEmptyPolicyUpdateMessage(c *C) {
+	msg := PolicyUpdateMessage(0, []string{}, 1)
+	repr, err := msg.ToJSON()
 	c.Assert(err, IsNil)
-	testEqualityRules(repr, `{"revision":1,"rule_count":0}`, c)
+	c.Assert(repr.Type, Equals, AgentNotifyPolicyUpdated)
+	testEqualityRules(repr.Text, `{"revision":1,"rule_count":0}`, c)
 }
 
-func (s *MonitorAPISuite) TestPolicyDeleteRepr(c *C) {
+func (s *MonitorAPISuite) TestPolicyDeleteMessage(c *C) {
 	lab := labels.LabelArray{
 		labels.NewLabel("key1", "value1", labels.LabelSourceUnspec),
 	}
 
-	repr, err := PolicyDeleteRepr(1, lab.GetModel(), 2)
+	msg := PolicyDeleteMessage(1, lab.GetModel(), 2)
+	repr, err := msg.ToJSON()
 	c.Assert(err, IsNil)
-	testEqualityRules(repr, `{"labels":["unspec:key1=value1"],"revision":2,"rule_count":1}`, c)
+	c.Assert(repr.Type, Equals, AgentNotifyPolicyDeleted)
+	testEqualityRules(repr.Text, `{"labels":["unspec:key1=value1"],"revision":2,"rule_count":1}`, c)
 }
 
 type RegenError struct{}
@@ -131,24 +136,29 @@ func (MockEndpoint) GetK8sNamespace() string {
 	return ""
 }
 
-func (s *MonitorAPISuite) TestEndpointRegenRepr(c *C) {
+func (s *MonitorAPISuite) TestEndpointRegenMessage(c *C) {
 	e := MockEndpoint{}
 	rerr := RegenError{}
 
-	repr, err := EndpointRegenRepr(e, rerr)
+	msg := EndpointRegenMessage(e, rerr)
+	repr, err := msg.ToJSON()
 	c.Assert(err, IsNil)
-	testEqualityEndpoint(repr, `{"id":10,"labels":["unspec:key1=value1","unspec:key2=value2"],"error":"RegenError"}`, c)
+	c.Assert(repr.Type, Equals, AgentNotifyEndpointRegenerateFail)
+	testEqualityEndpoint(repr.Text, `{"id":10,"labels":["unspec:key1=value1","unspec:key2=value2"],"error":"RegenError"}`, c)
 
-	repr, err = EndpointRegenRepr(e, nil)
+	msg = EndpointRegenMessage(e, nil)
+	repr, err = msg.ToJSON()
 	c.Assert(err, IsNil)
-	testEqualityEndpoint(repr, `{"id":10,"labels":["unspec:key1=value1","unspec:key2=value2"]}`, c)
+	c.Assert(repr.Type, Equals, AgentNotifyEndpointRegenerateSuccess)
+	testEqualityEndpoint(repr.Text, `{"id":10,"labels":["unspec:key1=value1","unspec:key2=value2"]}`, c)
 }
 
-func (s *MonitorAPISuite) TestTimeRepr(c *C) {
+func (s *MonitorAPISuite) TestStartMessage(c *C) {
 	t := time.Now()
 
-	repr, err := TimeRepr(t)
-
+	msg := StartMessage(t)
+	repr, err := msg.ToJSON()
 	c.Assert(err, IsNil)
-	c.Assert(repr, Equals, fmt.Sprintf(`{"time":"%s"}`, t.String()))
+	c.Assert(repr.Type, Equals, AgentNotifyStart)
+	c.Assert(repr.Text, Equals, fmt.Sprintf(`{"time":"%s"}`, t.String()))
 }

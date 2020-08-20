@@ -114,7 +114,7 @@ func (d *DummyOwner) GetCIDRPrefixLengths() (s6, s4 []int) {
 }
 
 // SendNotification does nothing.
-func (d *DummyOwner) SendNotification(typ monitorAPI.AgentNotification, text string) error {
+func (d *DummyOwner) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
 	return nil
 }
 
