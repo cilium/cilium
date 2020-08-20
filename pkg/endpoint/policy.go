@@ -689,19 +689,9 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 }
 
 func (e *Endpoint) notifyEndpointRegeneration(err error) {
-	repr, reprerr := monitorAPI.EndpointRegenRepr(e, err)
+	reprerr := e.owner.SendNotification(monitorAPI.EndpointRegenMessage(e, err))
 	if reprerr != nil {
 		e.getLogger().WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
-	}
-
-	if err != nil {
-		if reprerr == nil && !option.Config.DryMode {
-			e.owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateFail, repr)
-		}
-	} else {
-		if reprerr == nil && !option.Config.DryMode {
-			e.owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateSuccess, repr)
-		}
 	}
 }
 

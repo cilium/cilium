@@ -61,7 +61,7 @@ type DaemonSuite struct {
 	OnGetPolicyRepository  func() *policy.Repository
 	OnQueueEndpointBuild   func(ctx context.Context, epID uint64) (func(), error)
 	OnGetCompilationLock   func() *lock.RWMutex
-	OnSendNotification     func(typ monitorAPI.AgentNotification, text string) error
+	OnSendNotification     func(typ monitorAPI.AgentNotifyMessage) error
 	OnGetCIDRPrefixLengths func() ([]int, []int)
 
 	// Metrics
@@ -254,9 +254,9 @@ func (ds *DaemonSuite) GetCompilationLock() *lock.RWMutex {
 	panic("GetCompilationLock should not have been called")
 }
 
-func (ds *DaemonSuite) SendNotification(typ monitorAPI.AgentNotification, text string) error {
+func (ds *DaemonSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
 	if ds.OnSendNotification != nil {
-		return ds.OnSendNotification(typ, text)
+		return ds.OnSendNotification(msg)
 	}
 	panic("SendNotification should not have been called")
 }

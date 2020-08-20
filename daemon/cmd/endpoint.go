@@ -614,11 +614,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 // NotifyMonitorDeleted notifies the monitor that an endpoint has been deleted.
 func (d *Daemon) NotifyMonitorDeleted(ep *endpoint.Endpoint) {
-	repr, err := monitorAPI.EndpointDeleteRepr(ep)
-	// Ignore endpoint deletion if EndpointDeleteRepr != nil
-	if err == nil {
-		d.SendNotification(monitorAPI.AgentNotifyEndpointDeleted, repr)
-	}
+	d.SendNotification(monitorAPI.EndpointDeleteMessage(ep))
 }
 
 // deleteEndpointQuiet sets the endpoint into disconnecting state and removes

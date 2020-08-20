@@ -475,12 +475,8 @@ func (mgr *EndpointManager) AddEndpoint(owner regeneration.Owner, ep *endpoint.E
 	if err != nil {
 		return err
 	}
+	owner.SendNotification(monitorAPI.EndpointCreateMessage(ep))
 
-	repr, err := monitorAPI.EndpointCreateRepr(ep)
-	// Ignore endpoint creation if EndpointCreateRepr != nil
-	if err == nil {
-		owner.SendNotification(monitorAPI.AgentNotifyEndpointCreated, repr)
-	}
 	return nil
 }
 

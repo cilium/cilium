@@ -727,12 +727,11 @@ func numWorkerThreads() int {
 }
 
 // SendNotification sends an agent notification to the monitor
-func (d *Daemon) SendNotification(typ monitorAPI.AgentNotification, text string) error {
+func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) error {
 	if option.Config.DryMode {
 		return nil
 	}
-	event := monitorAPI.AgentNotify{Type: typ, Text: text}
-	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, event)
+	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, notification)
 }
 
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this

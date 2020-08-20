@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/monitor/agent/consumer"
 	"github.com/cilium/cilium/pkg/monitor/agent/listener"
+	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/monitor/payload"
 	"github.com/cilium/ebpf"
 	"github.com/cilium/ebpf/perf"
@@ -116,6 +117,19 @@ func (a *Agent) SendEvent(typ int, event interface{}) error {
 	}
 
 	a.notifyAgentEvent(typ, event)
+
+	// marshal notifications into JSON format for legacy listeners
+	if typ == api.MessageTypeAgent {
+		msg, ok := event.(api.AgentNotifyMessage)
+		if !ok {
+			return errors.New("unexpected event type for MessageTypeAgent")
+		}
+		var err error
+		event, err = msg.ToJSON()
+		if err != nil {
+			return fmt.Errorf("unable to JSON encode agent notification: %w", err)
+		}
+	}
 
 	var buf bytes.Buffer
 	if err := buf.WriteByte(byte(typ)); err != nil {

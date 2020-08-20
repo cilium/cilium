@@ -83,7 +83,7 @@ func (s *EndpointManagerSuite) GetCIDRPrefixLengths() (s6, s4 []int) {
 	return nil, nil
 }
 
-func (s *EndpointManagerSuite) SendNotification(typ monitorAPI.AgentNotification, text string) error {
+func (s *EndpointManagerSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
 	return nil
 }
 

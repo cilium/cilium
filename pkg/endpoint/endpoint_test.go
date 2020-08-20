@@ -68,7 +68,7 @@ type EndpointSuite struct {
 	OnQueueEndpointBuild      func(ctx context.Context, epID uint64) (func(), error)
 	OnRemoveFromEndpointQueue func(epID uint64)
 	OnGetCompilationLock      func() *lock.RWMutex
-	OnSendNotification        func(typ monitorAPI.AgentNotification, text string) error
+	OnSendNotification        func(msg monitorAPI.AgentNotifyMessage) error
 
 	// Metrics
 	collectors []prometheus.Collector
@@ -110,7 +110,7 @@ func (s *EndpointSuite) GetCompilationLock() *lock.RWMutex {
 	return nil
 }
 
-func (s *EndpointSuite) SendNotification(typ monitorAPI.AgentNotification, text string) error {
+func (s *EndpointSuite) SendNotification(msg monitorAPI.AgentNotifyMessage) error {
 	return nil
 }
 

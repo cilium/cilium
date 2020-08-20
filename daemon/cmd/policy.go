@@ -401,11 +401,9 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	for _, r := range sourceRules {
 		labels = append(labels, r.Labels.GetModel()...)
 	}
-	repr, err := monitorAPI.PolicyUpdateRepr(len(sourceRules), labels, newRev)
+	err = d.SendNotification(monitorAPI.PolicyUpdateMessage(len(sourceRules), labels, newRev))
 	if err != nil {
-		logger.WithField(logfields.PolicyRevision, newRev).Warn("Failed to represent policy update as monitor notification")
-	} else {
-		d.SendNotification(monitorAPI.AgentNotifyPolicyUpdated, repr)
+		logger.WithField(logfields.PolicyRevision, newRev).Warn("Failed to send policy update as monitor notification")
 	}
 
 	if option.Config.SelectiveRegeneration {
@@ -632,11 +630,9 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 		d.TriggerPolicyUpdates(true, "policy rules deleted")
 	}
 
-	repr, err := monitorAPI.PolicyDeleteRepr(deleted, labels.GetModel(), rev)
+	err := d.SendNotification(monitorAPI.PolicyDeleteMessage(deleted, labels.GetModel(), rev))
 	if err != nil {
-		log.WithField(logfields.PolicyRevision, rev).Warn("Failed to represent policy update as monitor notification")
-	} else {
-		d.SendNotification(monitorAPI.AgentNotifyPolicyDeleted, repr)
+		log.WithField(logfields.PolicyRevision, rev).Warn("Failed to send policy update as monitor notification")
 	}
 
 	return

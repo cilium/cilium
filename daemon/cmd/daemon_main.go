@@ -1393,11 +1393,9 @@ func runDaemon() {
 	srv.ConfigureAPI()
 	bootstrapStats.initAPI.End(true)
 
-	repr, err := monitorAPI.TimeRepr(time.Now())
+	err = d.SendNotification(monitorAPI.StartMessage(time.Now()))
 	if err != nil {
-		log.WithError(err).Warn("Failed to generate agent start monitor message")
-	} else {
-		d.SendNotification(monitorAPI.AgentNotifyStart, repr)
+		log.WithError(err).Warn("Failed to send agent start monitor message")
 	}
 
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).
