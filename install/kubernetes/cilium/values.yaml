@@ -427,6 +427,7 @@ global:
     # requireIPv4PodCIDR enables waiting for Kubernetes to provide the PodCIDR
     # range via the Kubernetes node resource
     requireIPv4PodCIDR: false
+    requireIPv6PodCIDR: false
 
   # ENI mode configures the options required to run with ENI
   eni: false
