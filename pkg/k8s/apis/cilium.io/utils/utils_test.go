@@ -286,6 +286,78 @@ func Test_ParseToCiliumRule(t *testing.T) {
 				},
 			),
 		},
+		{
+			// For a clusterwide policy the namespace is empty but when a to/fromEndpoint
+			// rule is added that represents a wildcard we add a match expression
+			// to account only for endpoints managed by cilium.
+			name: "wildcard-to-from-endpoints-with-ccnp",
+			args: args{
+				// Empty namespace for Clusterwide policy
+				namespace: "",
+				uid:       uuid,
+				rule: &api.Rule{
+					EndpointSelector: api.NewESFromMatchRequirements(
+						map[string]string{
+							role: "backend",
+						},
+						nil,
+					),
+					Ingress: []api.IngressRule{
+						{
+							FromEndpoints: []api.EndpointSelector{
+								{
+									LabelSelector: &slim_metav1.LabelSelector{},
+								},
+							},
+						},
+					},
+				},
+			},
+			want: api.NewRule().WithEndpointSelector(
+				api.NewESFromMatchRequirements(
+					map[string]string{
+						role: "backend",
+					},
+					nil,
+				),
+			).WithIngressRules(
+				[]api.IngressRule{
+					{
+						FromEndpoints: []api.EndpointSelector{
+							api.NewESFromK8sLabelSelector(
+								labels.LabelSourceK8sKeyPrefix,
+								&slim_metav1.LabelSelector{
+									MatchExpressions: []slim_metav1.LabelSelectorRequirement{
+										{
+											Key:      k8sConst.PodNamespaceLabel,
+											Operator: slim_metav1.LabelSelectorOpExists,
+											Values:   []string{},
+										},
+									},
+								}),
+						},
+					},
+				},
+			).WithLabels(
+				labels.LabelArray{
+					{
+						Key:    "io.cilium.k8s.policy.derived-from",
+						Value:  "CiliumClusterwideNetworkPolicy",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.name",
+						Value:  "wildcard-to-from-endpoints-with-ccnp",
+						Source: labels.LabelSourceK8s,
+					},
+					{
+						Key:    "io.cilium.k8s.policy.uid",
+						Value:  string(uuid),
+						Source: labels.LabelSourceK8s,
+					},
+				},
+			),
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
