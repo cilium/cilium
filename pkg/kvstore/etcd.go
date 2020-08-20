@@ -248,13 +248,6 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 		e.config.Endpoints = []string{endpointsOpt.value}
 	}
 
-	// Shuffle the order of endpoints to avoid all agents connecting to the
-	// same etcd endpoint and to work around etcd client library failover
-	// bugs. (https://github.com/etcd-io/etcd/pull/9860)
-	if e.config.Endpoints != nil {
-		shuffleEndpoints(e.config.Endpoints)
-	}
-
 	for {
 		// connectEtcdClient will close errChan when the connection attempt has
 		// been successful
@@ -681,6 +674,13 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		}
 		cfg.DialOptions = append(cfg.DialOptions, config.DialOptions...)
 		config = cfg
+	}
+
+	// Shuffle the order of endpoints to avoid all agents connecting to the
+	// same etcd endpoint and to work around etcd client library failover
+	// bugs. (https://github.com/etcd-io/etcd/pull/9860)
+	if config.Endpoints != nil {
+		shuffleEndpoints(config.Endpoints)
 	}
 
 	// Set DialTimeout to 0, otherwise the creation of a new client will
