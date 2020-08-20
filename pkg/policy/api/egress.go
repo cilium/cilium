@@ -110,6 +110,8 @@ type EgressRule struct {
 
 	// ToServices is a list of services to which the endpoint subject
 	// to the rule is allowed to initiate connections.
+	// Currently Cilium only supports toServices for K8s services without
+	// selectors.
 	//
 	// Example:
 	// Any endpoint with the label "app=backend-app" is allowed to
