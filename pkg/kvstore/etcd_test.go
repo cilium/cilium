@@ -117,7 +117,8 @@ func (s *EtcdSuite) TestHint(c *C) {
 	c.Assert(Hint(err), ErrorMatches, "ayy lmao")
 
 	err = context.DeadlineExceeded
-	c.Assert(Hint(err), ErrorMatches, "etcd client timeout exceeded")
+	c.Assert(errors.Is(Hint(err), context.DeadlineExceeded), Equals, true)
+	c.Assert(Hint(err), ErrorMatches, "etcd client timeout exceeded.+")
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Millisecond)
 	defer cancel()
@@ -125,7 +126,7 @@ func (s *EtcdSuite) TestHint(c *C) {
 	<-ctx.Done()
 	err = ctx.Err()
 
-	c.Assert(Hint(err), ErrorMatches, "etcd client timeout exceeded")
+	c.Assert(Hint(err), ErrorMatches, "etcd client timeout exceeded.+")
 }
 
 func (s *EtcdSuite) TestETCDVersionCheck(c *C) {

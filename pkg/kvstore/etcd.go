@@ -254,7 +254,7 @@ func init() {
 func Hint(err error) error {
 	switch err {
 	case context.DeadlineExceeded:
-		return fmt.Errorf("etcd client timeout exceeded")
+		return fmt.Errorf("etcd client timeout exceeded: %w", err)
 	default:
 		return err
 	}
