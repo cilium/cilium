@@ -112,7 +112,12 @@ func (d *dummyLock) Comparator() interface{} {
 }
 
 func (d *dummyBackend) Lock(ctx context.Context, key AllocatorKey) (kvstore.KVLocker, error) {
-	return &dummyLock{}, nil
+	select {
+	case <-ctx.Done():
+		return nil, ctx.Err()
+	default:
+		return &dummyLock{}, nil
+	}
 }
 
 func (d *dummyBackend) UpdateKey(ctx context.Context, id idpool.ID, key AllocatorKey, reliablyMissing bool) error {
@@ -191,12 +196,12 @@ func (d *dummyBackend) Status() (string, error) {
 
 type TestAllocatorKey string
 
-func (t TestAllocatorKey) GetKey() string              { return string(t) }
-func (t TestAllocatorKey) GetAsMap() map[string]string { return map[string]string{string(t): string(t)} }
-func (t TestAllocatorKey) String() string              { return string(t) }
-func (t TestAllocatorKey) PutKey(v string) AllocatorKey {
-	return TestAllocatorKey(v)
+func (t TestAllocatorKey) GetKey() string { return string(t) }
+func (t TestAllocatorKey) GetAsMap() map[string]string {
+	return map[string]string{string(t): string(t)}
 }
+func (t TestAllocatorKey) String() string               { return string(t) }
+func (t TestAllocatorKey) PutKey(v string) AllocatorKey { return TestAllocatorKey(v) }
 func (t TestAllocatorKey) PutKeyFromMap(m map[string]string) AllocatorKey {
 	for _, v := range m {
 		return TestAllocatorKey(v)
@@ -352,6 +357,23 @@ func testAllocator(c *C, maxID idpool.ID, allocatorName string, suffix string) {
 
 func (s *AllocatorSuite) TestAllocateCached(c *C) {
 	testAllocator(c, idpool.ID(256), randomTestName(), "a") // enable use of local cache
+}
+
+func (s *AllocatorSuite) TestLockedAllocate(c *C) {
+	backend := newDummyBackend()
+	allocator, err := NewAllocator(TestAllocatorKey(""), backend)
+	c.Assert(err, IsNil)
+	c.Assert(allocator, Not(IsNil))
+
+	// Create a context that will timeout immediately. This tests the locked
+	// variant of the allocator. By making the context timeout immediately, we
+	// are simulating the condition where the connection to the backend has
+	// timed out.
+	ctx, cancel := context.WithTimeout(context.Background(), 0*time.Second)
+	defer cancel()
+
+	_, _, err = allocator.lockedAllocate(ctx, TestAllocatorKey(""))
+	c.Assert(err, Not(IsNil))
 }
 
 // The following tests are currently disabled as they are not 100% reliable in
