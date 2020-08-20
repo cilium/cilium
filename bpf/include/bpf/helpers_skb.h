@@ -14,6 +14,7 @@
 
 /* Packet redirection */
 static int BPF_FUNC(redirect, int ifindex, __u32 flags);
+static int BPF_FUNC(redirect_l3, int ifindex, __u32 flags);
 
 /* Packet manipulation */
 static int BPF_FUNC(skb_load_bytes, struct __sk_buff *skb, __u32 off,

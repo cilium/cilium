@@ -710,11 +710,20 @@ to_host:
 #endif
 
 pass_to_stack:
-#ifdef ENABLE_ROUTING
-	ret = ipv4_l3(ctx, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
-	if (unlikely(ret != CTX_ACT_OK))
-		return ret;
-#endif
+//#ifdef ENABLE_ROUTING
+//	ret = ipv4_l3(ctx, l3_off, NULL, (__u8 *) &router_mac.addr, ip4);
+//	if (unlikely(ret != CTX_ACT_OK))
+//		return ret;
+//#endif
+
+	{
+		__u8 foo[8] = {};
+		eth_store_daddr(ctx, foo, 0);
+		eth_store_saddr(ctx, foo, 0);
+	}
+	return redirect_l3(4, 0);
+
+
 #ifndef ENCAP_IFINDEX
 #ifdef ENABLE_IPSEC
 	if (encrypt_key && tunnel_endpoint) {
