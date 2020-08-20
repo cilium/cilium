@@ -151,11 +151,10 @@ func validateNPResources(
 				cnpName = cnp.GetName()
 			}
 			if err := validator(&cnp); err != nil {
-				log.Errorf("Validating %s '%s': unexpected validation error: %s",
-					shortName, cnpName, err)
+				log.WithField(shortName, cnpName).WithError(err).Error("Unexpected validation error")
 				policyErr = fmt.Errorf("Found invalid %s", shortName)
 			} else {
-				log.Infof("Validating %s '%s': OK!", shortName, cnpName)
+				log.WithField(shortName, cnpName).Info("Validation OK!")
 			}
 		}
 		if cnps.GetContinue() == "" {
