@@ -64,7 +64,7 @@ type healthServer interface {
 
 // monitorNotify is used to send update notifications to the monitor
 type monitorNotify interface {
-	SendNotification(typ monitorAPI.AgentNotification, text string) error
+	SendNotification(msg monitorAPI.AgentNotifyMessage) error
 }
 
 type svcInfo struct {
@@ -928,17 +928,13 @@ func (s *Service) notifyMonitorServiceUpsert(frontend lb.L3n4AddrID, backends []
 		be = append(be, b)
 	}
 
-	repr, err := monitorAPI.ServiceUpsertRepr(id, fe, be, string(svcType), string(svcTrafficPolicy), svcName, svcNamespace)
-	if err == nil {
-		s.monitorNotify.SendNotification(monitorAPI.AgentNotifyServiceUpserted, repr)
-	}
+	msg := monitorAPI.ServiceUpsertMessage(id, fe, be, string(svcType), string(svcTrafficPolicy), svcName, svcNamespace)
+	s.monitorNotify.SendNotification(msg)
 }
 
 func (s *Service) notifyMonitorServiceDelete(id lb.ID) {
 	if s.monitorNotify != nil {
-		if repr, err := monitorAPI.ServiceDeleteRepr(uint32(id)); err == nil {
-			s.monitorNotify.SendNotification(monitorAPI.AgentNotifyServiceDeleted, repr)
-		}
+		s.monitorNotify.SendNotification(monitorAPI.ServiceDeleteMessage(uint32(id)))
 	}
 }
 

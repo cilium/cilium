@@ -42,7 +42,7 @@ type Owner interface {
 	GetCIDRPrefixLengths() (s6, s4 []int)
 
 	// SendNotification is called to emit an agent notification
-	SendNotification(typ monitorAPI.AgentNotification, text string) error
+	SendNotification(msg monitorAPI.AgentNotifyMessage) error
 
 	// Datapath returns a reference to the datapath implementation.
 	Datapath() datapath.Datapath

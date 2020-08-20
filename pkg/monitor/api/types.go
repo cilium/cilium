@@ -170,10 +170,31 @@ func TraceObservationPoint(obsPoint uint8) string {
 	return fmt.Sprintf("%d", obsPoint)
 }
 
-// AgentNotify is a notification from the agent
+// AgentNotify is a notification from the agent. The notification is stored
+// in its JSON-encoded representation
 type AgentNotify struct {
 	Type AgentNotification
 	Text string
+}
+
+// AgentNotify is a notification from the agent. It is similar to AgentNotify,
+// but the notification is an unencoded struct. See the *Message constructors
+// in this package for possible values.
+type AgentNotifyMessage struct {
+	Type         AgentNotification
+	Notification interface{}
+}
+
+// ToJSON encodes a AgentNotifyMessage to its JSON-based AgentNotify representation
+func (m *AgentNotifyMessage) ToJSON() (AgentNotify, error) {
+	repr, err := json.Marshal(m.Notification)
+	if err != nil {
+		return AgentNotify{}, err
+	}
+	return AgentNotify{
+		Type: m.Type,
+		Text: string(repr),
+	}, nil
 }
 
 // AgentNotification specifies the type of agent notification
@@ -240,29 +261,32 @@ type PolicyUpdateNotification struct {
 	RuleCount int      `json:"rule_count"`
 }
 
-// PolicyUpdateRepr returns string representation of monitor notification
-func PolicyUpdateRepr(numRules int, labels []string, revision uint64) (string, error) {
+// PolicyUpdateMessage constructs an agent notification message for policy updates
+func PolicyUpdateMessage(numRules int, labels []string, revision uint64) AgentNotifyMessage {
 	notification := PolicyUpdateNotification{
 		Labels:    labels,
 		Revision:  revision,
 		RuleCount: numRules,
 	}
 
-	repr, err := json.Marshal(notification)
-
-	return string(repr), err
+	return AgentNotifyMessage{
+		Type:         AgentNotifyPolicyUpdated,
+		Notification: notification,
+	}
 }
 
-// PolicyDeleteRepr returns string representation of monitor notification
-func PolicyDeleteRepr(deleted int, labels []string, revision uint64) (string, error) {
+// PolicyDeleteMessage constructs an agent notification message for policy deletion
+func PolicyDeleteMessage(deleted int, labels []string, revision uint64) AgentNotifyMessage {
 	notification := PolicyUpdateNotification{
 		Labels:    labels,
 		Revision:  revision,
 		RuleCount: deleted,
 	}
-	repr, err := json.Marshal(notification)
 
-	return string(repr), err
+	return AgentNotifyMessage{
+		Type:         AgentNotifyPolicyDeleted,
+		Notification: notification,
+	}
 }
 
 // EndpointRegenNotification structures regeneration notification
@@ -272,20 +296,23 @@ type EndpointRegenNotification struct {
 	Error  string   `json:"error,omitempty"`
 }
 
-// EndpointRegenRepr returns string representation of monitor notification
-func EndpointRegenRepr(e notifications.RegenNotificationInfo, err error) (string, error) {
+// EndpointRegenMessage constructs an agent notification message for endpoint regeneration
+func EndpointRegenMessage(e notifications.RegenNotificationInfo, err error) AgentNotifyMessage {
 	notification := EndpointRegenNotification{
 		ID:     e.GetID(),
 		Labels: e.GetOpLabels(),
 	}
 
+	typ := AgentNotifyEndpointRegenerateSuccess
 	if err != nil {
 		notification.Error = err.Error()
+		typ = AgentNotifyEndpointRegenerateFail
 	}
 
-	repr, err := json.Marshal(notification)
-
-	return string(repr), err
+	return AgentNotifyMessage{
+		Type:         typ,
+		Notification: notification,
+	}
 }
 
 // EndpointCreateNotification structures the endpoint create notification
@@ -295,8 +322,8 @@ type EndpointCreateNotification struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// EndpointCreateRepr returns string representation of monitor notification
-func EndpointCreateRepr(e notifications.RegenNotificationInfo) (string, error) {
+// EndpointCreateMessage constructs an agent notification message for endpoint creation
+func EndpointCreateMessage(e notifications.RegenNotificationInfo) AgentNotifyMessage {
 	notification := EndpointCreateNotification{
 		EndpointRegenNotification: EndpointRegenNotification{
 			ID:     e.GetID(),
@@ -306,9 +333,10 @@ func EndpointCreateRepr(e notifications.RegenNotificationInfo) (string, error) {
 		Namespace: e.GetK8sNamespace(),
 	}
 
-	repr, err := json.Marshal(notification)
-
-	return string(repr), err
+	return AgentNotifyMessage{
+		Type:         AgentNotifyEndpointCreated,
+		Notification: notification,
+	}
 }
 
 // EndpointDeleteNotification structures the an endpoint delete notification
@@ -318,8 +346,8 @@ type EndpointDeleteNotification struct {
 	Namespace string `json:"namespace,omitempty"`
 }
 
-// EndpointDeleteRepr returns string representation of monitor notification
-func EndpointDeleteRepr(e notifications.RegenNotificationInfo) (string, error) {
+// EndpointDeleteMessage constructs an agent notification message for endpoint deletion
+func EndpointDeleteMessage(e notifications.RegenNotificationInfo) AgentNotifyMessage {
 	notification := EndpointDeleteNotification{
 		EndpointRegenNotification: EndpointRegenNotification{
 			ID:     e.GetID(),
@@ -329,9 +357,10 @@ func EndpointDeleteRepr(e notifications.RegenNotificationInfo) (string, error) {
 		Namespace: e.GetK8sNamespace(),
 	}
 
-	repr, err := json.Marshal(notification)
-
-	return string(repr), err
+	return AgentNotifyMessage{
+		Type:         AgentNotifyEndpointDeleted,
+		Notification: notification,
+	}
 }
 
 // IPCacheNotification structures ipcache change notifications
@@ -348,9 +377,9 @@ type IPCacheNotification struct {
 	PodName    string `json:"pod-name,omitempty"`
 }
 
-// IPCacheNotificationRepr returns string representation of monitor notification
-func IPCacheNotificationRepr(cidr string, id uint32, oldID *uint32, hostIP net.IP, oldHostIP net.IP,
-	encryptKey uint8, namespace, podName string) (string, error) {
+// IPCacheUpsertedMessage constructs an agent notification message for ipcache upsertions
+func IPCacheUpsertedMessage(cidr string, id uint32, oldID *uint32, hostIP net.IP, oldHostIP net.IP,
+	encryptKey uint8, namespace, podName string) AgentNotifyMessage {
 	notification := IPCacheNotification{
 		CIDR:        cidr,
 		Identity:    id,
@@ -362,9 +391,30 @@ func IPCacheNotificationRepr(cidr string, id uint32, oldID *uint32, hostIP net.I
 		PodName:     podName,
 	}
 
-	repr, err := json.Marshal(notification)
+	return AgentNotifyMessage{
+		Type:         AgentNotifyIPCacheUpserted,
+		Notification: notification,
+	}
+}
 
-	return string(repr), err
+// IPCacheDeletedMessage constructs an agent notification message for ipcache deletions
+func IPCacheDeletedMessage(cidr string, id uint32, oldID *uint32, hostIP net.IP, oldHostIP net.IP,
+	encryptKey uint8, namespace, podName string) AgentNotifyMessage {
+	notification := IPCacheNotification{
+		CIDR:        cidr,
+		Identity:    id,
+		OldIdentity: oldID,
+		HostIP:      hostIP,
+		OldHostIP:   oldHostIP,
+		EncryptKey:  encryptKey,
+		Namespace:   namespace,
+		PodName:     podName,
+	}
+
+	return AgentNotifyMessage{
+		Type:         AgentNotifyIPCacheDeleted,
+		Notification: notification,
+	}
 }
 
 // TimeNotification structures agent start notification
@@ -372,13 +422,16 @@ type TimeNotification struct {
 	Time string `json:"time"`
 }
 
-// TimeRepr returns string representation of monitor notification
-func TimeRepr(t time.Time) (string, error) {
+// AgentStartMessage constructs an agent notification message when the agent starts
+func StartMessage(t time.Time) AgentNotifyMessage {
 	notification := TimeNotification{
 		Time: t.String(),
 	}
-	repr, err := json.Marshal(notification)
-	return string(repr), err
+
+	return AgentNotifyMessage{
+		Type:         AgentNotifyStart,
+		Notification: notification,
+	}
 }
 
 // ServiceUpsertNotificationAddr is part of ServiceUpsertNotification
@@ -401,13 +454,13 @@ type ServiceUpsertNotification struct {
 	Namespace string `json:"namespace,,omitempty"`
 }
 
-// ServiceUpsertRepr returns string representation of monitor notification
-func ServiceUpsertRepr(
+// ServiceUpsertMessage constructs an agent notification message for service upserts
+func ServiceUpsertMessage(
 	id uint32,
 	frontend ServiceUpsertNotificationAddr,
 	backends []ServiceUpsertNotificationAddr,
 	svcType, svcTrafficPolicy, svcName, svcNamespace string,
-) (string, error) {
+) AgentNotifyMessage {
 	notification := ServiceUpsertNotification{
 		ID:            id,
 		Frontend:      frontend,
@@ -417,8 +470,11 @@ func ServiceUpsertRepr(
 		Name:          svcName,
 		Namespace:     svcNamespace,
 	}
-	repr, err := json.Marshal(notification)
-	return string(repr), err
+
+	return AgentNotifyMessage{
+		Type:         AgentNotifyServiceUpserted,
+		Notification: notification,
+	}
 }
 
 // ServiceDeleteNotification structures service delete notifications
@@ -426,15 +482,16 @@ type ServiceDeleteNotification struct {
 	ID uint32 `json:"id"`
 }
 
-// ServiceDeleteRepr returns string representation of monitor notification
-func ServiceDeleteRepr(
-	id uint32,
-) (string, error) {
+// ServiceDeleteMessage constructs an agent notification message for service deletions
+func ServiceDeleteMessage(id uint32) AgentNotifyMessage {
 	notification := ServiceDeleteNotification{
 		ID: id,
 	}
-	repr, err := json.Marshal(notification)
-	return string(repr), err
+
+	return AgentNotifyMessage{
+		Type:         AgentNotifyServiceDeleted,
+		Notification: notification,
+	}
 }
 
 const (
