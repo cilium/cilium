@@ -987,6 +987,27 @@ a fixed cookie value as a trade-off. This makes all applications on the host to
 select the same service endpoint for a given service with session affinity configured.
 To disable the feature, set ``config.sessionAffinity=false``.
 
+LoadBalancer Source Ranges Checks
+*********************************
+
+When a ``LoadBalancer`` service is configured with ``spec.loadBalancerSourceRanges``,
+Cilium's eBPF kube-proxy replacement restricts access from outside (e.g. external
+world traffic) to the service to the white-listed CIDRs specified in the field. If
+the field is empty, no restrictions for the access will be applied.
+
+When accessing the service from inside a cluster, the kube-proxy replacement will
+ignore the field regardless whether it is set. This means that any pod or any host
+process in the cluster will be able to access the ``LoadBalancer`` service internally.
+
+The load balancer source range check feature is enabled by default, and it can be
+disabled by setting ``config.svcSourceRangeCheck=false``. It makes sense to disable
+the check when running on some cloud providers. E.g. `Amazon NLB
+<https://kubernetes.io/docs/concepts/services-networking/service/#aws-nlb-support>`__
+natively implements the check, so the kube-proxy replacement's feature can be disabled.
+Meanwhile `GKE internal TCP/UDP load balancer
+<https://cloud.google.com/kubernetes-engine/docs/how-to/internal-load-balancing#lb_source_ranges>`__
+does not, so the feature must be kept enabled in order to restrict the access.
+
 Limitations
 ###########
 
