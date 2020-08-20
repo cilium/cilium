@@ -63,7 +63,7 @@ Configuration
   ``auto-create-cilium-node-resource: "true"`` in the ConfigMap.
 
 * If IPs are limited, run the Operator with option
-  ``--aws-release-excess-ips=true``. When enabled, operator checks the number
+  ``--azure-release-excess-ips=true``. When enabled, operator checks the number
   of IPs regularly and attempts to release excess free IPs from ENI.
 
 * It is generally a good idea to enable metrics in the Operator as well with
@@ -135,7 +135,7 @@ addresses. The check to recognize a deficit is performed on two occasions:
  * When a ``CiliumNode`` custom resource is updated
  * All nodes are scanned in a regular interval (once per minute)
 
-If ``--aws-release-excess-ips`` is enabled, the check to recognize IP excess
+If ``--azure-release-excess-ips`` is enabled, the check to recognize IP excess
 is performed at the interval based scan.
 
 When determining whether a node has a deficit in IP addresses, the following
