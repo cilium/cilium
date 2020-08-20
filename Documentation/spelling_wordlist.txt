@@ -237,6 +237,7 @@ cassandra
 cassandraparser
 cgroup
 ci
+cidrs
 classful
 classid
 cli
