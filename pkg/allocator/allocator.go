@@ -16,6 +16,7 @@ package allocator
 
 import (
 	"context"
+	stderrors "errors"
 	"fmt"
 	"time"
 
@@ -636,9 +637,21 @@ func (a *Allocator) Allocate(ctx context.Context, key AllocatorKey) (idpool.ID, 
 			logfields.Attempt: attempt,
 		})
 
+		// If the deadline has exceeded and at least one kvstore endpoint is
+		// unhealthy, this is a strong indication that the kvstore client is
+		// unable to failover to a healthy backend. We fatal Cilium in hopes of
+		// finding a new backend.
+		if status := a.backend.EndpointsStatus(); status.Total > status.Healthy && stderrors.Is(err, context.DeadlineExceeded) {
+			scopedLog.WithFields(logrus.Fields{
+				"healthyBackends": status.Healthy,
+				"totalBackends":   status.Total,
+			}).Fatal("Key allocation timed out with unstable kvstore connectivity")
+		}
+
 		select {
 		case <-ctx.Done():
 			scopedLog.WithError(ctx.Err()).Warning("Ongoing key allocation has been cancelled")
+
 			return 0, false, fmt.Errorf("key allocation cancelled: %s", ctx.Err())
 		default:
 			// Do not log a warning if the error is caused by ErrIdentityNonExistent
