@@ -275,11 +275,11 @@ service by port-forwarding it:
 
 .. code:: bash
 
-    $ kubectl -n kube-system port-forward service/hubble-relay 4245:80
+    $ kubectl -n kube-system port-forward service/hubble-relay --address 0.0.0.0 --address :: 4245:80
 
 This will forward the Hubble Relay service port (``80``) to your local machine
-on port ``4245``. The next step consists of downloading the latest binary
-release of Hubble CLI from the
+on port ``4245`` on all of it's IP addresses. The next step consists of
+downloading the latest binary release of Hubble CLI from the
 `GitHub release page <https://github.com/cilium/hubble/releases>`_. Make sure to
 download the tarball for your platform, verify the checksum and extract the
 ``hubble`` binary from the tarball. Optionally, add the binary to your

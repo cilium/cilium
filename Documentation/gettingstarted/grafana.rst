@@ -89,7 +89,7 @@ Expose the port on your local machine
 
 .. code:: bash
 
-    kubectl -n cilium-monitoring port-forward service/grafana 3000:3000
+    kubectl -n cilium-monitoring port-forward service/grafana --address 0.0.0.0 --address :: 3000:3000
 
 Access it via your browser: http://localhost:3000
 
@@ -100,7 +100,7 @@ Expose the port on your local machine
 
 .. code:: bash
 
-    kubectl -n cilium-monitoring port-forward service/prometheus 9090:9090
+    kubectl -n cilium-monitoring port-forward service/prometheus --address 0.0.0.0 --address :: 9090:9090
 
 Access it via your browser: http://localhost:9090
 

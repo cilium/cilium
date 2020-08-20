@@ -161,7 +161,7 @@ be scraped by Prometheus. You can then expose Grafana to access it via your brow
 
 .. code:: bash
 
-    kubectl -n cilium-monitoring port-forward service/grafana 3000:3000
+    kubectl -n cilium-monitoring port-forward service/grafana --address 0.0.0.0 --address :: 3000:3000
 
 Open your browser and access http://localhost:3000/
 

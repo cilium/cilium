@@ -182,7 +182,7 @@ your service dependencies. To access **Hubble UI**, you can use the following
 command to forward the port of the web frontend to your local machine:
 
 .. parsed-literal::
-   kubectl port-forward -n kube-system svc/hubble-ui 12000:80
+   kubectl port-forward -n kube-system svc/hubble-ui --address 0.0.0.0 --address :: 12000:80
 
 Open http://localhost:12000 in your browser. You should
 see a screen with an invitation to select a namespace, use the namespace
@@ -230,7 +230,7 @@ port-forward the Hubble Relay service locally:
 
 .. parsed-literal::
 
-   $ kubectl port-forward -n kube-system svc/hubble-relay 4245:80
+   $ kubectl port-forward -n kube-system svc/hubble-relay --address 0.0.0.0 --address :: 4245:80
 
 .. note::
    This terminal window needs to be remain open to keep port-forwarding in
