@@ -468,6 +468,9 @@ data:
 {{- else if eq $defaultSessionAffinity "true" }}
   enable-session-affinity: {{ $defaultSessionAffinity | quote }}
 {{- end }}
+{{- if hasKey .Values "svcSourceRangeCheck" }}
+  enable-svc-source-range-check: {{ .Values.svcSourceRangeCheck | quote }}
+{{- end }}
 
 {{- if and .Values.global.pprof .Values.global.pprof.enabled }}
   pprof: {{ .Values.global.pprof.enabled | quote }}
