@@ -438,6 +438,9 @@ global:
   # Google Kubernetes Engine
   gke:
     enabled: false
+    # Provide the same functionality as the --disable-default-snat flag
+    # for existing GKE clusters that want to disable masquerade
+    disableDefaultSnat: false
 
   azure:
     enabled: false
