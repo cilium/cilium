@@ -23,18 +23,20 @@ Cilium Metrics
 ==============
 
 Cilium metrics provide insights into the state of Cilium itself, namely
-of the ``cilium-agent`` and ``cilium-operator`` processes. To run Cilium with
-Prometheus metrics enabled, deploy it with the
+of the ``cilium-agent``, ``cilium-envoy``, and ``cilium-operator`` processes.
+To run Cilium with Prometheus metrics enabled, deploy it with the
 ``global.prometheus.enabled=true`` Helm value set.
 
-Cilium metrics are exported under the ``cilium_`` Prometheus namespace.
+Cilium metrics are exported under the ``cilium_`` Prometheus namespace. Envoy
+metrics are exported under the ``envoy_`` Prometheus namespace, of which the
+Cilium-defined metrics are exported under the ``envoy_cilium_`` namespace.
 When running and collecting in Kubernetes they will be tagged with a pod name
 and namespace.
 
 Installation
 ------------
 
-You can enable metrics for ``cilium-agent`` with the Helm value
+You can enable metrics for ``cilium-agent`` (including Envoy) with the Helm value
 ``global.prometheus.enabled=true``. To enable metrics for ``cilium-operator``,
 use ``global.operatorPrometheus.enabled=true``.
 
@@ -45,8 +47,8 @@ use ``global.operatorPrometheus.enabled=true``.
      --set global.prometheus.enabled=true \\
      --set global.operatorPrometheus.enabled=true
 
-The ports can be configured via
-``global.prometheus.port`` or ``global.operatorPrometheus.port`` respectively.
+The ports can be configured via ``global.prometheus.port``,
+``global.proxy.prometheus.port``, or ``global.operatorPrometheus.port`` respectively.
 
 When metrics are enabled, all Cilium components will have the following
 annotations. They can be used to signal Prometheus whether to scrape metrics:
@@ -56,7 +58,18 @@ annotations. They can be used to signal Prometheus whether to scrape metrics:
         prometheus.io/scrape: "true"
         prometheus.io/port: "9090"
 
-Prometheus will pick up the Cilium metrics automatically if the following
+To collect Envoy metrics the Cilium chart will create a Kubernetes headless
+service named ``cilium-agent`` with the ``prometheus.io/scrape:'true'`` annotation set:
+
+.. code-block:: yaml
+
+        prometheus.io/scrape: "true"
+        prometheus.io/port: "9095"
+
+This additional headless service in addition to the other Cilium components is needed
+as each component can only have one Prometheus scrape and port annotation.
+
+Prometheus will pick up the Cilium and Envoy metrics automatically if the following
 option is set in the ``scrape_configs`` section:
 
 .. code-block:: yaml
