@@ -154,6 +154,9 @@ const (
 	// EnvoyLog sets the path to a separate Envoy log file, if any
 	EnvoyLog = "envoy-log"
 
+	// ProxyPrometheusPort specifies the port to serve Cilium host proxy metrics on.
+	ProxyPrometheusPort = "proxy-prometheus-port"
+
 	// FixedIdentityMapping is the key-value for the fixed identity mapping
 	// which allows to use reserved label for fixed identities
 	FixedIdentityMapping = "fixed-identity-mapping"
@@ -913,6 +916,7 @@ var HelpFlagSections = []FlagsSection{
 			HTTPRetryCount,
 			HTTPRetryTimeout,
 			ProxyConnectTimeout,
+			ProxyPrometheusPort,
 			SidecarIstioProxyImage,
 		},
 	},
@@ -1438,6 +1442,9 @@ type DaemonConfig struct {
 	// ProxyConnectTimeout is the time in seconds after which Envoy considers a TCP
 	// connection attempt to have timed out.
 	ProxyConnectTimeout int
+
+	// ProxyPrometheusPort specifies the port to serve Envoy metrics on.
+	ProxyPrometheusPort int
 
 	// BPFCompilationDebug specifies whether to compile BPF programs compilation
 	// debugging enabled.
@@ -2404,6 +2411,7 @@ func (c *DaemonConfig) Populate() {
 	c.PrependIptablesChains = viper.GetBool(PrependIptablesChainsName)
 	c.PrometheusServeAddr = viper.GetString(PrometheusServeAddr)
 	c.ProxyConnectTimeout = viper.GetInt(ProxyConnectTimeout)
+	c.ProxyPrometheusPort = viper.GetInt(ProxyPrometheusPort)
 	c.BlacklistConflictingRoutes = viper.GetBool(BlacklistConflictingRoutes)
 	c.ReadCNIConfiguration = viper.GetString(ReadCNIConfiguration)
 	c.RestoreState = viper.GetBool(Restore)

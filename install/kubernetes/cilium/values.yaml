@@ -543,6 +543,10 @@ global:
     # container image names
     sidecarImageRegex: "cilium/istio_proxy"
 
+    prometheus:
+      # Port to expose Envoy metrics on (e.g. "9095"). Prometheus metrics will be exposed on "/metrics".
+      port: "9095"
+
   endpointHealthChecking:
     enabled: true
 

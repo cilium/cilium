@@ -177,10 +177,14 @@ spec:
         name: cilium-agent
 {{- if or .Values.global.prometheus.enabled .Values.global.hubble.metrics.enabled }}
         ports:
-{{- if .Values.global.prometheus.enabled }}                
+{{- if .Values.global.prometheus.enabled }}
         - containerPort: {{ .Values.global.prometheus.port }}
           hostPort: {{ .Values.global.prometheus.port }}
           name: prometheus
+          protocol: TCP
+        - containerPort: {{ .Values.global.proxy.prometheus.port }}
+          hostPort: {{ .Values.global.proxy.prometheus.port }}
+          name: envoy-metrics
           protocol: TCP
 {{- end }}
 {{- if .Values.global.hubble.metrics.enabled }}
