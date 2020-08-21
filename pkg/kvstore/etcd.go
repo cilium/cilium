@@ -51,9 +51,11 @@ const (
 	// EtcdBackendName is the backend name for etcd
 	EtcdBackendName = "etcd"
 
-	EtcdAddrOption       = "etcd.address"
-	isEtcdOperatorOption = "etcd.operator"
-	EtcdOptionConfig     = "etcd.config"
+	EtcdAddrOption               = "etcd.address"
+	isEtcdOperatorOption         = "etcd.operator"
+	EtcdOptionConfig             = "etcd.config"
+	etcdOptionKeepAliveHeartbeat = "etcd.keepaliveHeartbeat"
+	etcdOptionKeepAliveTimeout   = "etcd.keepaliveTimeout"
 
 	// EtcdRateLimitOption specifies maximum kv operations per second
 	EtcdRateLimitOption = "etcd.qps"
@@ -116,6 +118,20 @@ func newEtcdModule() backendModule {
 			EtcdOptionConfig: &backendOption{
 				description: "Path to etcd configuration file",
 			},
+			etcdOptionKeepAliveTimeout: &backendOption{
+				description: "Timeout after which an unanswered heartbeat triggers the connection to be closed",
+				validate: func(v string) error {
+					_, err := time.ParseDuration(v)
+					return err
+				},
+			},
+			etcdOptionKeepAliveHeartbeat: &backendOption{
+				description: "Heartbeat interval to keep gRPC connection alive",
+				validate: func(v string) error {
+					_, err := time.ParseDuration(v)
+					return err
+				},
+			},
 			EtcdRateLimitOption: &backendOption{
 				description: "Rate limit in kv store operations per second",
 				validate: func(v string) error {
@@ -162,6 +178,12 @@ func shuffleEndpoints(endpoints []string) {
 	})
 }
 
+type clientOptions struct {
+	KeepAliveHeartbeat time.Duration
+	KeepAliveTimeout   time.Duration
+	RateLimit          int
+}
+
 func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (BackendOperations, chan error) {
 	errChan := make(chan error, 10)
 
@@ -170,10 +192,23 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 
 	rateLimitOpt, rateLimitSet := e.opts[EtcdRateLimitOption]
 
-	rateLimit := defaults.KVstoreQPS
+	clientOptions := clientOptions{
+		KeepAliveHeartbeat: 15 * time.Second,
+		KeepAliveTimeout:   25 * time.Second,
+		RateLimit:          defaults.KVstoreQPS,
+	}
+
 	if rateLimitSet {
 		// error is discarded here because this option has validation
-		rateLimit, _ = strconv.Atoi(rateLimitOpt.value)
+		clientOptions.RateLimit, _ = strconv.Atoi(rateLimitOpt.value)
+	}
+
+	if o, ok := e.opts[etcdOptionKeepAliveTimeout]; ok && o.value != "" {
+		clientOptions.KeepAliveTimeout, _ = time.ParseDuration(o.value)
+	}
+
+	if o, ok := e.opts[etcdOptionKeepAliveHeartbeat]; ok && o.value != "" {
+		clientOptions.KeepAliveHeartbeat, _ = time.ParseDuration(o.value)
 	}
 
 	var configPath string
@@ -211,7 +246,7 @@ func (e *etcdModule) newClient(ctx context.Context, opts *ExtraOptions) (Backend
 	for {
 		// connectEtcdClient will close errChan when the connection attempt has
 		// been successful
-		backend, err := connectEtcdClient(ctx, e.config, configPath, errChan, rateLimit, opts)
+		backend, err := connectEtcdClient(ctx, e.config, configPath, errChan, clientOptions, opts)
 		switch {
 		case os.IsNotExist(err):
 			log.WithError(err).Info("Waiting for all etcd configuration files to be available")
@@ -625,7 +660,7 @@ func (e *etcdClient) renewLockSession(ctx context.Context) error {
 	return nil
 }
 
-func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath string, errChan chan error, rateLimit int, opts *ExtraOptions) (BackendOperations, error) {
+func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath string, errChan chan error, clientOptions clientOptions, opts *ExtraOptions) (BackendOperations, error) {
 	if cfgPath != "" {
 		cfg, err := newConfig(cfgPath)
 		if err != nil {
@@ -646,10 +681,10 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	// is made.
 	config.DialTimeout = 0
 	// Ping the server to verify if the server connection is still valid
-	config.DialKeepAliveTime = 15 * time.Second
+	config.DialKeepAliveTime = clientOptions.KeepAliveHeartbeat
 	// Timeout if the server does not reply within 15 seconds and close the
 	// connection. Ideally it should be lower than staleLockTimeout
-	config.DialKeepAliveTimeout = 25 * time.Second
+	config.DialKeepAliveTimeout = clientOptions.KeepAliveTimeout
 	c, err := client.New(*config)
 	if err != nil {
 		return nil, err
@@ -696,7 +731,7 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		latestStatusSnapshot: "Waiting for initial connection to be established",
 		stopStatusChecker:    make(chan struct{}),
 		extraOptions:         opts,
-		limiter:              rate.NewLimiter(rate.Limit(rateLimit), rateLimit),
+		limiter:              rate.NewLimiter(rate.Limit(clientOptions.RateLimit), clientOptions.RateLimit),
 		statusCheckErrors:    make(chan error, 128),
 	}
 
