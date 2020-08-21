@@ -29,6 +29,7 @@ import (
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -43,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/sirupsen/logrus"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
@@ -863,5 +865,20 @@ func (d *Daemon) startStatusCollector() {
 
 	d.statusCollector = status.NewCollector(probes, status.Config{})
 
+	// Set up a signal handler function which prints out logs related to daemon status.
+	cleaner.cleanupFuncs.Add(func() {
+		// If the KVstore state is not OK, print help for user.
+		if d.statusResponse.Kvstore != nil &&
+			d.statusResponse.Kvstore.State != models.StatusStateOk {
+			helpMsg := "cilium-agent depends on the availability of cilium-operator/etcd-cluster. " +
+				"Check if the cilium-operator pod and etcd-cluster are running and do not have any " +
+				"warnings or error messages."
+			log.WithFields(logrus.Fields{
+				"status":              d.statusResponse.Kvstore.Msg,
+				logfields.HelpMessage: helpMsg,
+			}).Error("KVStore state not OK")
+
+		}
+	})
 	return
 }
