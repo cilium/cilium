@@ -193,10 +193,10 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 			if (ret < 0)
 				return ret;
 		}
-#if defined(ENCAP_IFINDEX) || (defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_NEIGH))
-		/* See IPv4 case for NO_REDIRECT/ENABLE_REDIRECT_NEIGH comments */
+#if defined(ENCAP_IFINDEX) || (defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_FAST))
+		/* See IPv4 case for NO_REDIRECT/ENABLE_REDIRECT_FAST comments */
 		skip_redirect = true;
-#endif /* ENCAP_IFINDEX || (NO_REDIRECT && !ENABLE_REDIRECT_NEIGH) */
+#endif /* ENCAP_IFINDEX || (NO_REDIRECT && !ENABLE_REDIRECT_FAST) */
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip6))
 			return DROP_INVALID;
@@ -443,7 +443,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			if (ret < 0)
 				return ret;
 		}
-#if defined(ENCAP_IFINDEX) || (defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_NEIGH))
+#if defined(ENCAP_IFINDEX) || (defined(NO_REDIRECT) && !defined(ENABLE_REDIRECT_FAST))
 		/* Without bpf_redirect_neigh() helper, we cannot redirect a
 		 * packet to a local endpoint in the direct routing mode, as
 		 * the redirect bypasses nf_conntrack table. This makes a
@@ -454,7 +454,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 		 * do not run into this issue.
 		 */
 		skip_redirect = true;
-#endif /* ENCAP_IFINDEX || (NO_REDIRECT && !ENABLE_REDIRECT_NEIGH) */
+#endif /* ENCAP_IFINDEX || (NO_REDIRECT && !ENABLE_REDIRECT_FAST) */
 		/* Verifier workaround: modified ctx access. */
 		if (!revalidate_data(ctx, &data, &data_end, &ip4))
 			return DROP_INVALID;
