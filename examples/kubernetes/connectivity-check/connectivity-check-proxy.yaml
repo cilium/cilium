@@ -18,8 +18,11 @@ spec:
       hostNetwork: false
       containers:
       - name: echo-c-container
+        env:
+        - name: PORT
+          value: "8080"
         ports:
-        - containerPort: 80
+        - containerPort: 8080
           hostPort: 40001
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
@@ -33,7 +36,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
         livenessProbe:
           exec:
             command:
@@ -44,7 +47,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
   selector:
     matchLabels:
       name: echo-c
@@ -150,7 +153,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
         livenessProbe:
           exec:
             command:
@@ -161,7 +164,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
       - name: pod-to-a-intra-node-proxy-egress-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -176,7 +179,7 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a:8080/private'
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -229,7 +232,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
         livenessProbe:
           exec:
             command:
@@ -240,7 +243,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
       - name: pod-to-a-multi-node-proxy-egress-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -255,7 +258,7 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a:8080/private'
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -308,7 +311,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
         livenessProbe:
           exec:
             command:
@@ -319,7 +322,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
       - name: pod-to-c-intra-node-proxy-ingress-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -334,7 +337,7 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c:8080/private'
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -387,7 +390,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
         livenessProbe:
           exec:
             command:
@@ -398,7 +401,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
       - name: pod-to-c-multi-node-proxy-ingress-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -413,7 +416,7 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c:8080/private'
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -466,7 +469,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
         livenessProbe:
           exec:
             command:
@@ -477,7 +480,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
       - name: pod-to-c-intra-node-proxy-to-proxy-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -492,7 +495,7 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c:8080/private'
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -545,7 +548,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
         livenessProbe:
           exec:
             command:
@@ -556,7 +559,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
       - name: pod-to-c-multi-node-proxy-to-proxy-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -571,7 +574,7 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c:8080/private'
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -600,7 +603,8 @@ metadata:
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
   type: ClusterIP
   selector:
     name: echo-c
@@ -618,7 +622,8 @@ metadata:
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
   type: ClusterIP
   selector:
     name: echo-c
@@ -660,7 +665,7 @@ spec:
   egress:
   - toPorts:
     - ports:
-      - port: "80"
+      - port: "8080"
         protocol: TCP
       rules:
         http:
@@ -704,7 +709,7 @@ spec:
   egress:
   - toPorts:
     - ports:
-      - port: "80"
+      - port: "8080"
         protocol: TCP
       rules:
         http:
@@ -748,7 +753,7 @@ spec:
   egress:
   - toPorts:
     - ports:
-      - port: "80"
+      - port: "8080"
         protocol: TCP
       rules:
         http:
@@ -792,7 +797,7 @@ spec:
   egress:
   - toPorts:
     - ports:
-      - port: "80"
+      - port: "8080"
         protocol: TCP
       rules:
         http:
@@ -836,7 +841,7 @@ spec:
   ingress:
   - toPorts:
     - ports:
-      - port: "80"
+      - port: "8080"
         protocol: TCP
       rules:
         http:
@@ -865,8 +870,11 @@ spec:
       hostNetwork: false
       containers:
       - name: echo-a-container
+        env:
+        - name: PORT
+          value: "8080"
         ports:
-        - containerPort: 80
+        - containerPort: 8080
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
@@ -879,7 +887,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
         livenessProbe:
           exec:
             command:
@@ -890,7 +898,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
   selector:
     matchLabels:
       name: echo-a
@@ -909,7 +917,8 @@ metadata:
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
   type: ClusterIP
   selector:
     name: echo-a
@@ -935,8 +944,11 @@ spec:
       hostNetwork: false
       containers:
       - name: echo-b-container
+        env:
+        - name: PORT
+          value: "8080"
         ports:
-        - containerPort: 80
+        - containerPort: 8080
           hostPort: 40000
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
@@ -950,7 +962,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
         livenessProbe:
           exec:
             command:
@@ -961,7 +973,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
   selector:
     matchLabels:
       name: echo-b
@@ -980,7 +992,8 @@ metadata:
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
     nodePort: 31313
   type: NodePort
   selector:
