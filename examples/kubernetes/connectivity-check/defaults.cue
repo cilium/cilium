@@ -10,13 +10,13 @@ deployment: [ID=_]: {
 
 	// readinessProbe target name
 	if ID =~ "^pod-to-a.*$" || ID =~ "^host-to-a.*$" {
-		_probeTarget: *"echo-a" | string
+		_probeTarget: *"echo-a:8080" | string
 	}
 	if ID =~ "^pod-to-b.*$" || ID =~ "^host-to-b.*$" {
-		_probeTarget: *"echo-b" | string
+		_probeTarget: *"echo-b:8080" | string
 	}
 	if ID =~ "^pod-to-c.*$" || ID =~ "^host-to-c.*$" {
-		_probeTarget: *"echo-c" | string
+		_probeTarget: *"echo-c:8080" | string
 	}
 }
 

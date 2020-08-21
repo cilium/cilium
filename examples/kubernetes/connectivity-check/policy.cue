@@ -28,7 +28,7 @@ egressCNP: "pod-to-a-allowed-cnp":  _policyResource & {
 		}]
 		toPorts: [{
 			ports: [{
-				port:     "80"
+				port:     "8080"
 				protocol: "TCP"
 			}]
 		}]

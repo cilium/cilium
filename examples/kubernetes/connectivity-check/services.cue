@@ -2,7 +2,7 @@ package connectivity_check
 
 deployment: [ID=_]: {
 	if ID =~ "^[-_a-zA-Z0-9]*-headless$" {
-		_probeTarget: "echo-b-headless"
+		_probeTarget: "echo-b-headless:8080"
 	}
 }
 
