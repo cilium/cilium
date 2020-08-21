@@ -3398,6 +3398,7 @@ union bpf_attr {
 	FN(get_task_stack),		\
 	FN(skb_cgroup_classid),		\
 	FN(redirect_l3),		\
+	FN(redirect_peer),		\
 	/* */
 
 /* integer value in 'imm' field of BPF_CALL instruction selects which helper

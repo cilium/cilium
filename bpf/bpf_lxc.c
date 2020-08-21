@@ -861,7 +861,7 @@ out:
 #ifdef ENABLE_IPV6
 static __always_inline int
 ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
-	    __u16 *proxy_port)
+	    __u16 *proxy_port, bool from_host)
 {
 	struct ipv6_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -986,7 +986,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
-		return redirect_peer(ifindex, 0);
+		return redirect_ep(ifindex, 0, from_host);
 
 	return CTX_ACT_OK;
 }
@@ -1004,7 +1004,7 @@ int tail_ipv6_policy(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
-	ret = ipv6_policy(ctx, ifindex, src_label, &reason, &proxy_port);
+	ret = ipv6_policy(ctx, ifindex, src_label, &reason, &proxy_port, from_host);
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy(ctx, proxy_port, from_host);
 	if (IS_ERR(ret))
@@ -1065,7 +1065,7 @@ int tail_ipv6_to_endpoint(struct __ctx_buff *ctx)
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = ipv6_policy(ctx, 0, src_identity, &reason, &proxy_port);
+	ret = ipv6_policy(ctx, 0, src_identity, &reason, &proxy_port, true);
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy_hairpin(ctx, proxy_port);
 out:
@@ -1079,7 +1079,7 @@ out:
 #ifdef ENABLE_IPV4
 static __always_inline int
 ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
-	    __u16 *proxy_port)
+	    __u16 *proxy_port, bool from_host)
 {
 	struct ipv4_ct_tuple tuple = {};
 	void *data, *data_end;
@@ -1216,7 +1216,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	ifindex = ctx_load_meta(ctx, CB_IFINDEX);
 	if (ifindex)
-		return redirect_peer(ifindex, 0);
+		return redirect_ep(ifindex, 0, from_host);
 
 	return CTX_ACT_OK;
 }
@@ -1234,7 +1234,7 @@ int tail_ipv4_policy(struct __ctx_buff *ctx)
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 	ctx_store_meta(ctx, CB_FROM_HOST, 0);
 
-	ret = ipv4_policy(ctx, ifindex, src_label, &reason, &proxy_port);
+	ret = ipv4_policy(ctx, ifindex, src_label, &reason, &proxy_port, from_host);
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy(ctx, proxy_port, from_host);
 	if (IS_ERR(ret))
@@ -1294,7 +1294,7 @@ int tail_ipv4_to_endpoint(struct __ctx_buff *ctx)
 #endif
 	ctx_store_meta(ctx, CB_SRC_LABEL, 0);
 
-	ret = ipv4_policy(ctx, 0, src_identity, &reason, &proxy_port);
+	ret = ipv4_policy(ctx, 0, src_identity, &reason, &proxy_port, true);
 	if (ret == POLICY_ACT_PROXY_REDIRECT)
 		ret = ctx_redirect_to_proxy_hairpin(ctx, proxy_port);
 out:

@@ -758,18 +758,11 @@ struct ct_state {
 	__u16 backend_id;	/* Backend ID in lb4_backends */
 };
 
-static __always_inline int redirect_peer(int ifindex __maybe_unused,
-					 __u32 flags __maybe_unused)
+static __always_inline int redirect_ep(int ifindex __maybe_unused,
+				       __u32 flags __maybe_unused,
+				       bool from_host __maybe_unused)
 {
-	/* If our datapath has proper redirect support, we make use
-	 * of it here, otherwise we terminate tc processing by letting
-	 * stack handle forwarding e.g. in ipvlan case.
-	 */
-#ifdef ENABLE_HOST_REDIRECT
-	return redirect(ifindex, flags);
-#else
-	return CTX_ACT_OK;
-#endif /* ENABLE_HOST_REDIRECT */
+	return from_host ? redirect(ifindex, flags) : redirect_peer(ifindex, flags);
 }
 
 struct lpm_v4_key {
