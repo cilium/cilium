@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/envoy/xds"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
@@ -68,10 +69,12 @@ var (
 )
 
 const (
+	adminClusterName      = "envoy-admin"
 	egressClusterName     = "egress-cluster"
 	egressTLSClusterName  = "egress-cluster-tls"
 	ingressClusterName    = "ingress-cluster"
 	ingressTLSClusterName = "ingress-cluster-tls"
+	metricsListenerName   = "envoy-prometheus-metrics-listener"
 	EnvoyTimeout          = 300 * time.Second // must be smaller than endpoint.EndpointGenerationTimeout
 )
 
@@ -360,10 +363,83 @@ func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string
 	return chain
 }
 
-// AddListener adds a listener to a running Envoy proxy.
-func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) {
-	log.Debugf("Envoy: %s AddListener %s (mayUseOriginalSourceAddr: %v)", kind, name, mayUseOriginalSourceAddr)
+// AddMetricsListener adds a prometheus metrics listener to Envoy.
+// We could do this in the bootstrap config, but then a failure to bind to the configured port
+// would fail starting Envoy.
+func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
+	if port == 0 {
+		return // 0 == disabled
+	}
 
+	log.WithField(logfields.Port, port).Debug("Envoy: AddMetricsListener")
+
+	s.addListener(metricsListenerName, port, func() *envoy_config_listener.Listener {
+		hcmConfig := &envoy_config_http.HttpConnectionManager{
+			StatPrefix: metricsListenerName,
+			HttpFilters: []*envoy_config_http.HttpFilter{{
+				Name: "envoy.router",
+			}},
+			StreamIdleTimeout: &duration.Duration{}, // 0 == disabled
+			RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
+				RouteConfig: &envoy_config_route.RouteConfiguration{
+					VirtualHosts: []*envoy_config_route.VirtualHost{{
+						Name:    "prometheus_metrics_route",
+						Domains: []string{"*"},
+						Routes: []*envoy_config_route.Route{{
+							Match: &envoy_config_route.RouteMatch{
+								PathSpecifier: &envoy_config_route.RouteMatch_Prefix{Prefix: "/metrics"},
+							},
+							Action: &envoy_config_route.Route_Route{
+								Route: &envoy_config_route.RouteAction{
+									ClusterSpecifier: &envoy_config_route.RouteAction_Cluster{
+										Cluster: adminClusterName,
+									},
+									PrefixRewrite: "/stats/prometheus",
+								},
+							},
+						}},
+					}},
+				},
+			},
+		}
+
+		listenerConf := &envoy_config_listener.Listener{
+			Name: metricsListenerName,
+			Address: &envoy_config_core.Address{
+				Address: &envoy_config_core.Address_SocketAddress{
+					SocketAddress: &envoy_config_core.SocketAddress{
+						Protocol:      envoy_config_core.SocketAddress_TCP,
+						Address:       "::",
+						Ipv4Compat:    true,
+						PortSpecifier: &envoy_config_core.SocketAddress_PortValue{PortValue: uint32(port)},
+					},
+				},
+			},
+			FilterChains: []*envoy_config_listener.FilterChain{{
+				Filters: []*envoy_config_listener.Filter{{
+					Name: "envoy.http_connection_manager",
+					ConfigType: &envoy_config_listener.Filter_TypedConfig{
+						TypedConfig: toAny(hcmConfig),
+					},
+				}},
+			}},
+		}
+
+		return listenerConf
+	}, wg, func(err error) {
+		if err != nil {
+			log.WithField(logfields.Port, port).WithError(err).Debug("Envoy: Adding metrics listener failed")
+			// Remove the added listener in case of a failure
+			s.RemoveListener(metricsListenerName, nil)
+		} else {
+			log.WithField(logfields.Port, port).Info("Envoy: Listening for prometheus metrics")
+		}
+	})
+}
+
+// addListener either reuses an existing listener with 'name', or creates a new one.
+// 'listenerConf()' is only called if a new listener is being created.
+func (s *XDSServer) addListener(name string, port uint16, listenerConf func() *envoy_config_listener.Listener, wg *completion.WaitGroup, cb func(err error)) {
 	s.mutex.Lock()
 	listener := s.listeners[name]
 	if listener == nil {
@@ -390,6 +466,34 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 	}
 	listener.mutex.Unlock() // Listener locked again in callbacks below
 
+	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf(), []string{"127.0.0.1"}, wg,
+		func(err error) {
+			// listener might have already been removed, so we can't look again
+			// but we still need to complete all the completions in case
+			// someone is still waiting!
+			listener.mutex.Lock()
+			if err == nil {
+				// Allow future users to not need to wait
+				listener.acked = true
+			} else {
+				// Prevent further reuse of a failed listener
+				listener.nacked = true
+			}
+			// Pass the completion result to all the additional waiters.
+			for _, waiter := range listener.waiters {
+				waiter.Complete(err)
+			}
+			listener.waiters = nil
+			listener.mutex.Unlock()
+
+			if cb != nil {
+				cb(err)
+			}
+		})
+	s.mutex.Unlock()
+}
+
+func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool) *envoy_config_listener.Listener {
 	clusterName := egressClusterName
 	socketMark := int64(0xB00)
 	if isIngress {
@@ -462,35 +566,23 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 				EmitDynamicMetadata: true,
 			})))
 	}
+	return listenerConf
+}
 
-	s.listenerMutator.Upsert(ListenerTypeURL, name, listenerConf, []string{"127.0.0.1"}, wg,
-		func(err error) {
-			// listener might have already been removed, so we can't look again
-			// but we still need to complete all the completions in case
-			// someone is still waiting!
-			listener.mutex.Lock()
-			if err == nil {
-				// Allow future users to not need to wait
-				listener.acked = true
-			} else {
-				// Prevent further reuse of a failed listener
-				listener.nacked = true
-			}
-			// Pass the completion result to all the additional waiters.
-			for _, waiter := range listener.waiters {
-				waiter.Complete(err)
-			}
-			listener.waiters = nil
-			listener.mutex.Unlock()
-		})
-	s.mutex.Unlock()
+// AddListener adds a listener to a running Envoy proxy.
+func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint16, isIngress bool, mayUseOriginalSourceAddr bool, wg *completion.WaitGroup) {
+	log.Debugf("Envoy: %s AddListener %s (mayUseOriginalSourceAddr: %v)", kind, name, mayUseOriginalSourceAddr)
+
+	s.addListener(name, port, func() *envoy_config_listener.Listener {
+		return s.getListenerConf(name, kind, port, isIngress, mayUseOriginalSourceAddr)
+	}, wg, nil)
 }
 
 // RemoveListener removes an existing Envoy Listener.
 func (s *XDSServer) RemoveListener(name string, wg *completion.WaitGroup) xds.AckingResourceMutatorRevertFunc {
-	log.Debugf("Envoy: removeListener %s", name)
+	log.Debugf("Envoy: RemoveListener %s", name)
 
-	var listenerRevertFunc func(*completion.Completion)
+	var listenerRevertFunc xds.AckingResourceMutatorRevertFunc
 
 	s.mutex.Lock()
 	listener, ok := s.listeners[name]
@@ -836,6 +928,27 @@ func createBootstrap(filePath string, nodeId, cluster string, xdsSock, egressClu
 						}},
 					},
 					Http2ProtocolOptions: &envoy_config_core.Http2ProtocolOptions{},
+				},
+				{
+					Name:                 adminClusterName,
+					ClusterDiscoveryType: &envoy_config_cluster.Cluster_Type{Type: envoy_config_cluster.Cluster_STATIC},
+					ConnectTimeout:       &duration.Duration{Seconds: connectTimeout, Nanos: 0},
+					LbPolicy:             envoy_config_cluster.Cluster_ROUND_ROBIN,
+					LoadAssignment: &envoy_config_endpoint.ClusterLoadAssignment{
+						ClusterName: adminClusterName,
+						Endpoints: []*envoy_config_endpoint.LocalityLbEndpoints{{
+							LbEndpoints: []*envoy_config_endpoint.LbEndpoint{{
+								HostIdentifier: &envoy_config_endpoint.LbEndpoint_Endpoint{
+									Endpoint: &envoy_config_endpoint.Endpoint{
+										Address: &envoy_config_core.Address{
+											Address: &envoy_config_core.Address_Pipe{
+												Pipe: &envoy_config_core.Pipe{Path: adminPath}},
+										},
+									},
+								},
+							}},
+						}},
+					},
 				},
 			},
 		},
