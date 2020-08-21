@@ -233,6 +233,7 @@ ctx_adjust_room(struct xdp_md *ctx, const __s32 len_diff, const __u32 mode,
 }
 
 #define redirect			redirect__stub
+#define redirect_peer			redirect
 
 static __always_inline __maybe_unused int
 ctx_redirect(const struct xdp_md *ctx, int ifindex, const __u32 flags)

@@ -13,6 +13,7 @@
 
 #include "endian.h"
 #include "mono.h"
+#include "config.h"
 
 /* FIXME: GH-3239 LRU logic is not handling timeouts gracefully enough
  * #ifndef HAVE_LRU_HASH_MAP_TYPE
@@ -800,15 +801,21 @@ struct lb6_src_range_key {
 	union v6addr addr;
 };
 
-static __always_inline int redirect_peer(int ifindex __maybe_unused,
-					 __u32 flags __maybe_unused)
+static __always_inline int redirect_ep(int ifindex __maybe_unused,
+				       bool needs_backlog __maybe_unused)
 {
 	/* If our datapath has proper redirect support, we make use
 	 * of it here, otherwise we terminate tc processing by letting
 	 * stack handle forwarding e.g. in ipvlan case.
+	 *
+	 * Going via CPU backlog queue (aka needs_backlog) is required
+	 * whenever we cannot do a fast ingress -> ingress switch but
+	 * instead need an ingress -> egress netns traversal or vice
+	 * versa.
 	 */
 #ifdef ENABLE_HOST_REDIRECT
-	return redirect(ifindex, flags);
+	return needs_backlog || !is_defined(ENABLE_REDIRECT_FAST) ?
+	       redirect(ifindex, 0) : redirect_peer(ifindex, 0);
 #else
 	return CTX_ACT_OK;
 #endif /* ENABLE_HOST_REDIRECT */
