@@ -34,6 +34,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -186,7 +187,10 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 			break
 		}
 
-		log.WithFields(logFields).Info("Waiting for IPs to become available in CRD-backed allocation pool")
+		log.WithFields(logFields).WithField(
+			logfields.HelpMessage,
+			"Check if cilium-operator pod is running and does not have any warnings or error messages.",
+		).Info("Waiting for IPs to become available in CRD-backed allocation pool")
 		time.Sleep(5 * time.Second)
 	}
 
