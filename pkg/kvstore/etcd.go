@@ -645,6 +645,11 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	// block until DialTimeout is reached or a connection to the server
 	// is made.
 	config.DialTimeout = 0
+	// Ping the server to verify if the server connection is still valid
+	config.DialKeepAliveTime = 15 * time.Second
+	// Timeout if the server does not reply within 15 seconds and close the
+	// connection. Ideally it should be lower than staleLockTimeout
+	config.DialKeepAliveTimeout = 25 * time.Second
 	c, err := client.New(*config)
 	if err != nil {
 		return nil, err
