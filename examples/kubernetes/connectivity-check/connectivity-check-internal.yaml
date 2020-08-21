@@ -18,8 +18,11 @@ spec:
       hostNetwork: false
       containers:
       - name: echo-a-container
+        env:
+        - name: PORT
+          value: "8080"
         ports:
-        - containerPort: 80
+        - containerPort: 8080
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
@@ -32,7 +35,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
         livenessProbe:
           exec:
             command:
@@ -43,7 +46,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
   selector:
     matchLabels:
       name: echo-a
@@ -69,8 +72,11 @@ spec:
       hostNetwork: false
       containers:
       - name: echo-b-container
+        env:
+        - name: PORT
+          value: "8080"
         ports:
-        - containerPort: 80
+        - containerPort: 8080
           hostPort: 40000
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
@@ -84,7 +90,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
         livenessProbe:
           exec:
             command:
@@ -95,7 +101,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
   selector:
     matchLabels:
       name: echo-b
@@ -201,7 +207,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
         livenessProbe:
           exec:
             command:
@@ -212,7 +218,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
   selector:
     matchLabels:
       name: pod-to-a
@@ -251,14 +257,14 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a:8080/private'
         livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a:8080/private'
   selector:
     matchLabels:
       name: pod-to-a-denied-cnp
@@ -301,7 +307,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
         livenessProbe:
           exec:
             command:
@@ -312,7 +318,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
   selector:
     matchLabels:
       name: pod-to-a-allowed-cnp
@@ -355,7 +361,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b/public
+            - echo-b:8080/public
         livenessProbe:
           exec:
             command:
@@ -366,7 +372,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b/public
+            - echo-b:8080/public
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -419,7 +425,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b-headless/public
+            - echo-b-headless:8080/public
         livenessProbe:
           exec:
             command:
@@ -430,7 +436,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b-headless/public
+            - echo-b-headless:8080/public
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -483,7 +489,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b/public
+            - echo-b:8080/public
         livenessProbe:
           exec:
             command:
@@ -494,7 +500,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b/public
+            - echo-b:8080/public
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -548,7 +554,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b-headless/public
+            - echo-b-headless:8080/public
         livenessProbe:
           exec:
             command:
@@ -559,7 +565,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b-headless/public
+            - echo-b-headless:8080/public
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -717,7 +723,8 @@ metadata:
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
   type: ClusterIP
   selector:
     name: echo-a
@@ -735,7 +742,8 @@ metadata:
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
     nodePort: 31313
   type: NodePort
   selector:
@@ -754,7 +762,8 @@ metadata:
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
   type: ClusterIP
   selector:
     name: echo-b
@@ -829,7 +838,7 @@ spec:
   egress:
   - toPorts:
     - ports:
-      - port: "80"
+      - port: "8080"
         protocol: TCP
     toEndpoints:
     - matchLabels:

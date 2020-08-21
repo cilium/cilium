@@ -273,6 +273,7 @@ for x in [deployment] for k, v in x {
 				if p._expose {
 					let Port = p.containerPort // Port is an alias
 					port: *Port | int
+					name: p._portName
 					if v._exposeNodePort {
 						nodePort: v._nodePort
 					}
@@ -300,6 +301,7 @@ for x in [deployment] for k, v in x {
 				if p._expose {
 					let Port = p.containerPort // Port is an alias
 					port: *Port | int
+					name: p._portName
 				},
 			]
 		}
