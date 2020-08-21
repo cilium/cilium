@@ -325,7 +325,7 @@ ct_recreate6:
 		return DROP_MISSED_TAIL_CALL;
 	}
 #endif
-	if (is_defined(ENABLE_REDIRECT_NEIGH)) {
+	if (is_defined(ENABLE_REDIRECT_FAST)) {
 		ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
@@ -701,7 +701,7 @@ ct_recreate4:
 			return ret;
 	}
 #endif
-	if (is_defined(ENABLE_REDIRECT_NEIGH)) {
+	if (is_defined(ENABLE_REDIRECT_FAST)) {
 		ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
