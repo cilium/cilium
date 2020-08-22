@@ -64,7 +64,8 @@ var (
 		// Allow all TCP traffic to any port.
 		{Protocol: envoy_config_core.SocketAddress_TCP},
 		// Allow all UDP traffic to any port.
-		{Protocol: envoy_config_core.SocketAddress_UDP},
+		// UDP rules not sent to Envoy for now.
+		// {Protocol: envoy_config_core.SocketAddress_UDP},
 	}
 )
 
@@ -1187,7 +1188,8 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 		case api.ProtoTCP:
 			protocol = envoy_config_core.SocketAddress_TCP
 		case api.ProtoUDP:
-			protocol = envoy_config_core.SocketAddress_UDP
+			// UDP rules not sent to Envoy for now.
+			continue
 		}
 
 		port := uint16(l4.Port)
