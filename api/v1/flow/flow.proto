@@ -299,6 +299,10 @@ message FlowFilter {
     repeated uint32 source_identity = 19;
     // destination_identity filters by the security identity of the destination endpoint.
     repeated uint32 destination_identity = 20;
+
+    // TCP flags filters flows based on TCP packet flags (e.g. SYN, ACK, PSH, FIN,
+    // RST, CWR, NS, ECE, URG)
+    repeated TCPFlags tcp_flags = 21;
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.
