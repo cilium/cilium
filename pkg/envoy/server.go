@@ -991,7 +991,31 @@ func getPortNetworkPolicyRule(sel policy.CachedSelector, wildcard bool, l7Parser
 	return r, canShortCircuit
 }
 
+// getWildcardNetworkPolicyRule returns the rule for port 0, which
+// will be considered after port-specific rules.
 func getWildcardNetworkPolicyRule(selectors policy.L7DataMap) *cilium.PortNetworkPolicyRule {
+	// selections are pre-sorted, so sorting is only needed if merging selections from multiple selectors
+	if len(selectors) == 1 {
+		for sel := range selectors {
+			if sel.IsWildcard() {
+				return &cilium.PortNetworkPolicyRule{}
+			}
+			selections := sel.GetSelections()
+			if len(selections) == 0 {
+				// No remote policies would match this rule. Discard it.
+				return nil
+			}
+			// convert from []uint32 to []uint64
+			remotePolicies := make([]uint64, len(selections))
+			for i, id := range selections {
+				remotePolicies[i] = uint64(id)
+			}
+			return &cilium.PortNetworkPolicyRule{
+				RemotePolicies: remotePolicies,
+			}
+		}
+	}
+
 	// Use map to remove duplicates
 	remoteMap := make(map[uint64]struct{})
 	wildcardFound := false
@@ -1077,7 +1101,7 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 			// port-specific rules. Otherwise traffic from allowed remotes could be dropped.
 			rule := getWildcardNetworkPolicyRule(l4.L7RulesPerSelector)
 			if rule != nil {
-				if len(rule.RemotePolicies) == 0 && rule.L7 == nil {
+				if len(rule.RemotePolicies) == 0 {
 					// Got an allow-all rule, which can short-circuit all of
 					// the other rules.
 					allowAll = true
