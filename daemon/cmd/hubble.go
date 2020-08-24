@@ -17,7 +17,9 @@ package cmd
 import (
 	"context"
 	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"strings"
 	"time"
@@ -165,7 +167,23 @@ func (d *Daemon) launchHubble() {
 				logger.WithError(err).Error("Failed to load TLS certificate")
 				return
 			}
-			options = append(options, serveroption.WithTLSFromCert(cert))
+			switch {
+			case len(option.Config.HubbleTLSClientCertFiles) > 0:
+				clientCAs := x509.NewCertPool()
+				for _, clientCertPath := range option.Config.HubbleTLSClientCertFiles {
+					clientCertPEM, err := ioutil.ReadFile(clientCertPath)
+					if err != nil {
+						logger.WithError(err).WithField("client-cert-path", clientCertPath).Warning("Failed to load TLS client certificate")
+						continue
+					}
+					if ok := clientCAs.AppendCertsFromPEM(clientCertPEM); !ok {
+						logger.WithField("client-cert-path", clientCertPath).Warning("The TLS client certificate is not PEM encoded")
+					}
+				}
+				options = append(options, serveroption.WithMTLSFromCert(cert, clientCAs))
+			default:
+				options = append(options, serveroption.WithTLSFromCert(cert))
+			}
 		case option.Config.HubbleAllowInsecure:
 			logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
 			options = append(options, serveroption.WithInsecure())

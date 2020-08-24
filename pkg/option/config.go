@@ -778,6 +778,11 @@ const (
 	// Hubble server. The file must contain PEM encoded data.
 	HubbleTLSKeyFile = "hubble-tls-key-file"
 
+	// HubbleTLSClientCertFiles specifies the path to one or more client
+	// certificates to use for TLS with mutual authentication (mTLS). Then
+	// files must contain PEM encoded data.
+	HubbleTLSClientCertFiles = "hubble-tls-client-cert-files"
+
 	// HubbleFlowBufferSize specifies the maximum number of flows in Hubble's buffer.
 	HubbleFlowBufferSize = "hubble-flow-buffer-size"
 
@@ -1034,6 +1039,7 @@ var HelpFlagSections = []FlagsSection{
 			HubbleAllowInsecure,
 			HubbleTLSCertFile,
 			HubbleTLSKeyFile,
+			HubbleTLSClientCertFiles,
 			HubbleFlowBufferSize,
 			HubbleEventQueueSize,
 			HubbleMetricsServer,
@@ -1889,6 +1895,11 @@ type DaemonConfig struct {
 	// Hubble server. The file must contain PEM encoded data.
 	HubbleTLSKeyFile string
 
+	// HubbleTLSClientCertFiles specifies the path to one or more client
+	// certificates to use for TLS with mutual authentication (mTLS). Then
+	// files must contain PEM encoded data.
+	HubbleTLSClientCertFiles []string
+
 	// HubbleFlowBufferSize specifies the maximum number of flows in Hubble's buffer.
 	HubbleFlowBufferSize int
 
@@ -2646,6 +2657,7 @@ func (c *DaemonConfig) Populate() {
 	c.HubbleAllowInsecure = viper.GetBool(HubbleAllowInsecure)
 	c.HubbleTLSCertFile = viper.GetString(HubbleTLSCertFile)
 	c.HubbleTLSKeyFile = viper.GetString(HubbleTLSKeyFile)
+	c.HubbleTLSClientCertFiles = viper.GetStringSlice(HubbleTLSClientCertFiles)
 	c.HubbleFlowBufferSize = viper.GetInt(HubbleFlowBufferSize)
 	c.HubbleEventQueueSize = viper.GetInt(HubbleEventQueueSize)
 	if c.HubbleEventQueueSize == 0 {
