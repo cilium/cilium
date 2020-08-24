@@ -1181,8 +1181,6 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 	}
 
 	PerPortPolicies := make([]*cilium.PortNetworkPolicy, 0, len(l4Policy))
-	// map to locate entries already on the same port
-	pnps := make(map[string]*cilium.PortNetworkPolicy, len(l4Policy))
 	for _, l4 := range l4Policy {
 		var protocol envoy_config_core.SocketAddress_Protocol
 		switch l4.Protocol {
@@ -1257,30 +1255,18 @@ func getDirectionNetworkPolicy(ep logger.EndpointUpdater, l4Policy policy.L4Poli
 			continue
 		}
 
-		// Add rules to a new or existing entry for this port
-		key := fmt.Sprintf("%d/%s", port, l4.Protocol)
-		pnp, exists := pnps[key]
-		if !exists {
-			pnp = &cilium.PortNetworkPolicy{
-				Port:     uint32(port),
-				Protocol: protocol,
-				Rules:    rules,
-			}
-			pnps[key] = pnp
-			PerPortPolicies = append(PerPortPolicies, pnp)
-		} else {
-			pnp.Rules = append(pnp.Rules, rules...)
-		}
-		SortPortNetworkPolicyRules(pnp.Rules)
+		PerPortPolicies = append(PerPortPolicies, &cilium.PortNetworkPolicy{
+			Port:     uint32(port),
+			Protocol: protocol,
+			Rules:    SortPortNetworkPolicyRules(rules),
+		})
 	}
 
 	if len(PerPortPolicies) == 0 {
 		return nil
 	}
 
-	SortPortNetworkPolicies(PerPortPolicies)
-
-	return PerPortPolicies
+	return SortPortNetworkPolicies(PerPortPolicies)
 }
 
 // getNetworkPolicy converts a network policy into a cilium.NetworkPolicy.
