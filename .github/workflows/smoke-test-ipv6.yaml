@@ -11,7 +11,7 @@ env:
   KIND_CONFIG: .github/kind-config-ipv6.yaml
   # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check-internal.yaml
-  TIMEOUT: 2m
+  TIMEOUT: 5m
   LOG_TIME: 30m
 
 jobs:
