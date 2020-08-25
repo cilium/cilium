@@ -41,5 +41,10 @@ spec:
     interval: 10s
     honorLabels: true
     path: /metrics
+    relabelings:
+    - replacement: ${1}
+      sourceLabels:
+      - __meta_kubernetes_pod_node_name
+      targetLabel: node
 {{- end }}
 
