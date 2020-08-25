@@ -43,6 +43,7 @@ position p;
       when != &x->z
       when != e = x
       when != WRITE_ONCE(x->z, ...)
+      when != WRITE_ONCE(x->z[...], ...)
       when != f(..., x, ...)
       // Special case for the addr field since it's an array in several
       // structures.
