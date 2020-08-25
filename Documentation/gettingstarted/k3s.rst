@@ -66,6 +66,7 @@ Install Cilium
 
 .. include:: k8s-install-restart-pods.rst
 .. include:: k8s-install-validate.rst
+.. include:: namespace-kube-system.rst
 .. include:: hubble-install.rst
 .. include:: getting-started-next-steps.rst
 

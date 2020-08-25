@@ -81,6 +81,7 @@ Deploy Cilium release via Helm:
    them.
 
 .. include:: k8s-install-validate.rst
+.. include:: namespace-kube-system.rst
 .. include:: hubble-install.rst
 .. include:: getting-started-next-steps.rst
 
