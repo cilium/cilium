@@ -36,6 +36,7 @@ If you are unsure if a pod is managed by Cilium or not, run ``kubectl get cep``
 in the respective namespace and see if the pod is listed.
 
 .. include:: k8s-install-azure-cni-validate.rst
+.. include:: namespace-cilium.rst
 .. include:: hubble-install.rst
 .. include:: getting-started-next-steps.rst
 

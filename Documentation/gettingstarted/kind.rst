@@ -94,6 +94,7 @@ Install Cilium release via Helm:
       --set global.pullPolicy=IfNotPresent
 
 .. include:: k8s-install-validate.rst
+.. include:: namespace-kube-system.rst
 .. include:: hubble-install.rst
 
 Next steps

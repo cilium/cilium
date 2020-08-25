@@ -14,7 +14,7 @@ Generate the deployment files using Helm and deploy it:
     cd hubble/install/kubernetes
 
     helm template hubble \
-        --namespace kube-system \
+        --namespace $CILIUM_NAMESPACE \
         --set metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}" \
         --set ui.enabled=true \
     > hubble.yaml
