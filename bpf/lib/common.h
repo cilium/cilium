@@ -209,7 +209,7 @@ struct endpoint_info {
 };
 
 struct edt_id {
-	__u64		id; /* v1 net_cls tag or v2 cgrp id */
+	__u64		id;
 };
 
 struct edt_info {
