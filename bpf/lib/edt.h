@@ -4,11 +4,16 @@
 #ifndef __EDT_H_
 #define __EDT_H_
 
+#include <bpf/ctx/ctx.h>
+
 #include "common.h"
 #include "time.h"
 #include "maps.h"
 
-#ifdef ENABLE_BANDWIDTH_MANAGER
+/* From XDP layer, we neither go through an egress hook nor qdisc
+ * from here, hence nothing to be set.
+ */
+#if defined(ENABLE_BANDWIDTH_MANAGER) && __ctx_is == __ctx_skb
 static __always_inline void edt_set_aggregate(struct __ctx_buff *ctx,
 					      __u32 aggregate)
 {
