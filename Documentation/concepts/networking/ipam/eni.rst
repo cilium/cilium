@@ -384,8 +384,9 @@ hardcoded in the Cilium codebase for easy out-of-the box deployment and usage.
 The limits can be modified via the ``--aws-instance-limit-mapping`` CLI flag on
 the cilium-operator. This allows the user to supply a custom limit.
 
-Additionally the limits can be updated via the EC2 API
-by passing the ``--update-ec2-apdater-limit-via-api`` CLI flag. This will require an additional EC2 IAM permission:
+Additionally the limits can be updated via the EC2 API by passing the
+``--update-ec2-adapter-limit-via-api`` CLI flag.
+This will require an additional EC2 IAM permission:
 
  * ``DescribeInstanceTypes``
 
