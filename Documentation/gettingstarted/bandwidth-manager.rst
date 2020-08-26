@@ -64,7 +64,7 @@ Verify that the Cilium Pod has come up correctly:
 
 .. code:: bash
 
-    kubectl -n kube-system get pods -l k8s-app=cilium
+    $ kubectl -n kube-system get pods -l k8s-app=cilium
     NAME                READY     STATUS    RESTARTS   AGE
     cilium-crf7f        1/1       Running   0          10m
 
@@ -73,63 +73,97 @@ the ``cilium status`` CLI command provides visibility through the ``BandwidthMan
 info line. It also dumps a list of devices on which the egress bandwidth limitation
 is enforced:
 
-.. parsed-literal::
+.. code:: bash
 
-    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep BandwidthManager
+    $ CILIUMPOD=$(kubectl -n kube-system get pods -o json | jq -r '[.items[] | select( .metadata.labels."k8s-app" == "cilium" )][0].metadata.name')
+    $ kubectl exec -it -n kube-system $CILIUMPOD -- cilium status | grep BandwidthManager
     BandwidthManager:       EDT with BPF   [eth0]
 
-Assuming we have a multi-node cluster, in the next step, we deploy a netperf Pod on
-the node named foobar. The following example deployment yaml limits the egress
-bandwidth of the netperf Pod on the node's physical device:
+Assuming we have a multi-node cluster, in the next step, we deploy two netperf Pods.
+The following example deployment yaml limits the egress bandwidth of the netperf-server
+Pod on the node's physical device:
 
-.. parsed-literal::
+.. code:: bash
 
+    $ cat <<EOF | kubectl apply -f -
     apiVersion: apps/v1
     kind: Deployment
     metadata:
-      name: netperf
+      name: netperf-server
     spec:
       selector:
         matchLabels:
-          run: netperf
+          run: netperf-server
       replicas: 1
       template:
         metadata:
           labels:
-            run: netperf
+            run: netperf-server
           annotations:
             kubernetes.io/egress-bandwidth: "10M"
         spec:
-          nodeName: foobar
           containers:
           - name: netperf
             image: cilium/netperf
             ports:
             - containerPort: 12865
+    ---
+    apiVersion: apps/v1
+    kind: Deployment
+    metadata:
+      name: netperf-client
+    spec:
+      selector:
+        matchLabels:
+          run: netperf-client
+      replicas: 1
+      template:
+        metadata:
+          labels:
+            run: netperf-client
+        spec:
+          containers:
+          - name: netperf
+            image: cilium/netperf
+          affinity:
+            podAntiAffinity:
+              requiredDuringSchedulingIgnoredDuringExecution:
+              - labelSelector:
+                  matchExpressions:
+                  - key: run
+                    operator: In
+                    values:
+                    - netperf-server
+                topologyKey: kubernetes.io/hostname
+    EOF
 
-Once up and running, ``netperf`` client can be invoked from a different node in the
-cluster using the Pod's IP (in this case ``10.217.0.254``) directly. The test streaming
-direction is from the netperf deployment towards the client, hence ``TCP_MAERTS``:
+Once up and running, the ``netperf`` client can be invoked from the Pod on the
+second node using the destination Pod's IP directly. The test streaming direction
+is from the netperf deployment towards the client, hence ``TCP_MAERTS``:
 
-.. parsed-literal::
+.. code:: bash
 
-  netperf -t TCP_MAERTS -H 10.217.0.254
-  MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.217.0.254 () port 0 AF_INET
-  Recv   Send    Send
-  Socket Socket  Message  Elapsed
-  Size   Size    Size     Time     Throughput
-  bytes  bytes   bytes    secs.    10^6bits/sec
+    $ DSTIP=$(kubectl get pod -o json | jq -r '.items[] | select( .metadata.labels."run" == "netperf-server" ).status.podIP')
+    $ SRCPOD=$(kubectl get pods -o json | jq -r '.items[] | select( .metadata.labels."run" == "netperf-client" ).metadata.name')
+    $ kubectl exec $SRCPOD -- netperf -t TCP_MAERTS -H $DSTIP
+    MIGRATED TCP MAERTS TEST from 0.0.0.0 (0.0.0.0) port 0 AF_INET to 10.217.0.254 () port 0 AF_INET
+    Recv   Send    Send
+    Socket Socket  Message  Elapsed
+    Size   Size    Size     Time     Throughput
+    bytes  bytes   bytes    secs.    10^6bits/sec
 
-   87380  16384  16384    10.00       9.56
+     87380  16384  16384    10.00       9.56
 
 As can be seen, egress traffic of the netperf Pod has been limited to 10Mbit per second.
 
 In order to introspect current endpoint bandwidth settings from BPF side, the following
-command can be run:
+commands can be run:
 
-.. parsed-literal::
+.. code:: bash
 
-    kubectl exec -it -n kube-system cilium-xxxxx -- cilium bpf bandwidth list
+    $ export DSTNODE=$(kubectl get pods -o json | jq -r '.items[] | select( .metadata.labels."run" == "netperf-server" ).spec.nodeName')
+    $ CILIUMPOD=$(kubectl -n kube-system get pods -o json | jq -r '.items[] | select( .metadata.labels."k8s-app" == "cilium" and .spec.nodeName == env.DSTNODE ).metadata.name')
+    $ kubectl exec -it -n kube-system $CILIUMPOD -- cilium bpf bandwidth list
     IDENTITY   EGRESS BANDWIDTH (BitsPerSec)
     491        10M
 
