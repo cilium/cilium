@@ -4,7 +4,7 @@
 {{- $defaultBpfMasquerade := "false" -}}
 {{- $defaultBpfClockProbe := "false" -}}
 {{- $defaultBpfTProxy := "false" -}}
-{{- $defaultIPAM := "hostscope" -}}
+{{- $defaultIPAM := "cluster-pool" -}}
 {{- $defaultSessionAffinity := "false" -}}
 {{- $defaultOperatorApiServeAddr := "localhost:9234" -}}
 {{- $defaultBpfCtTcpMax := 524288 -}}

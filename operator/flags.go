@@ -97,15 +97,13 @@ func init() {
 	var defaultIPAM string
 	switch binaryName {
 	case "cilium-operator":
-		defaultIPAM = ipamOption.IPAMHostScopeLegacy
+		defaultIPAM = ipamOption.IPAMOperator
 	case "cilium-operator-aws":
 		defaultIPAM = ipamOption.IPAMENI
 	case "cilium-operator-azure":
 		defaultIPAM = ipamOption.IPAMAzure
 	case "cilium-operator-generic":
-		// Default to Legacy for upgrade paths; new users should
-		// explicitly override the IPAM flag.
-		defaultIPAM = ipamOption.IPAMHostScopeLegacy
+		defaultIPAM = ipamOption.IPAMOperator
 	}
 
 	flags.String(option.IPAM, defaultIPAM, "Backend to use for IPAM")
@@ -156,8 +154,6 @@ func init() {
 			switch ipamFlagValue {
 			case ipamOption.IPAMENI, ipamOption.IPAMAzure:
 				return unsupporterErr()
-			case ipamOption.IPAMHostScopeLegacy:
-				return fmt.Errorf("%s, as it is deprecated, but it is still supported by legacy cilium-operator binary)", unsupporterErr().Error())
 			}
 		}
 
