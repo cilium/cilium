@@ -126,7 +126,10 @@ type RevNat6Value struct {
 }
 
 func (v *RevNat6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-func (v *RevNat6Value) String() string              { return fmt.Sprintf("%s:%d", v.Address, v.Port) }
+
+func (v *RevNat6Value) String() string {
+	return net.JoinHostPort(v.Address.String(), fmt.Sprintf("%d", v.Port))
+}
 
 // ToNetwork converts RevNat6Value to network byte order.
 func (v *RevNat6Value) ToNetwork() RevNatValue {

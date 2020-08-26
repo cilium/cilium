@@ -303,7 +303,7 @@ func (client *SSHClient) newSession() (*ssh.Session, error) {
 	} else {
 		connection, err = ssh.Dial(
 			"tcp",
-			fmt.Sprintf("%s:%d", client.Host, client.Port),
+			net.JoinHostPort(client.Host, fmt.Sprintf("%d", client.Port)),
 			client.Config)
 
 		if err != nil {
