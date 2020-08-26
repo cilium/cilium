@@ -16,6 +16,7 @@ package proxy
 
 import (
 	"fmt"
+	"net"
 	"sync"
 
 	"github.com/cilium/cilium/pkg/completion"
@@ -46,7 +47,7 @@ func createEnvoyRedirect(r *Redirect, stateDir string, xdsServer *envoy.XDSServe
 	l := r.listener
 	if envoyProxy != nil {
 		redir := &envoyRedirect{
-			listenerName: fmt.Sprintf("%s:%d", l.name, l.proxyPort),
+			listenerName: net.JoinHostPort(l.name, fmt.Sprintf("%d", l.proxyPort)),
 			xdsServer:    xdsServer,
 		}
 		// Only use original source address for egress
