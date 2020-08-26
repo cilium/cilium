@@ -49,6 +49,7 @@ Then, install Cilium release via Helm:
       --set global.externalIPs.enabled=true \\
       --set global.nodePort.enabled=true \\
       --set global.hostPort.enabled=true \\
+      --set config.bpfMasquerade=false \\
       --set global.pullPolicy=IfNotPresent \\
       --set config.ipam=kubernetes
 
