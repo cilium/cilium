@@ -1710,7 +1710,7 @@ func (kub *Kubectl) validateServicePlumbingInCiliumPod(fullName, ciliumPod strin
 				port.Port, fullName, serviceObj.Spec.ClusterIP, ciliumPod)
 		}
 
-		if _, ok := lbMap[fmt.Sprintf("%s:%d", serviceObj.Spec.ClusterIP, port.Port)]; !ok {
+		if _, ok := lbMap[net.JoinHostPort(serviceObj.Spec.ClusterIP, fmt.Sprintf("%d", port.Port))]; !ok {
 			return fmt.Errorf("port %d of service %s (%s) not found in cilium bpf lb list of pod %s",
 				port.Port, fullName, serviceObj.Spec.ClusterIP, ciliumPod)
 		}
@@ -1722,13 +1722,13 @@ func (kub *Kubectl) validateServicePlumbingInCiliumPod(fullName, ciliumPod strin
 				foundBackend, foundBackendLB := false, false
 				for _, realizedService := range realizedServices {
 					frontEnd := realizedService.FrontendAddress
-					lb := lbMap[fmt.Sprintf("%s:%d", frontEnd.IP, frontEnd.Port)]
+					lb := lbMap[net.JoinHostPort(frontEnd.IP, fmt.Sprintf("%d", frontEnd.Port))]
 
 					for _, backAddr := range realizedService.BackendAddresses {
 						if addr.IP == *backAddr.IP && uint16(port.Port) == backAddr.Port {
 							foundBackend = true
 							for _, backend := range lb {
-								if strings.Contains(backend, fmt.Sprintf("%s:%d", *backAddr.IP, port.Port)) {
+								if strings.Contains(backend, net.JoinHostPort(*backAddr.IP, fmt.Sprintf("%d", port.Port))) {
 									foundBackendLB = true
 								}
 							}
@@ -1736,13 +1736,13 @@ func (kub *Kubectl) validateServicePlumbingInCiliumPod(fullName, ciliumPod strin
 					}
 				}
 				if !foundBackend {
-					return fmt.Errorf("unable to find service backend %s:%d in cilium pod %s",
-						addr.IP, port.Port, ciliumPod)
+					return fmt.Errorf("unable to find service backend %s in cilium pod %s",
+						net.JoinHostPort(addr.IP, fmt.Sprintf("%d", port.Port)), ciliumPod)
 				}
 
 				if !foundBackendLB {
-					return fmt.Errorf("unable to find service backend %s:%d in datapath of cilium pod %s",
-						addr.IP, port.Port, ciliumPod)
+					return fmt.Errorf("unable to find service backend %s in datapath of cilium pod %s",
+						net.JoinHostPort(addr.IP, fmt.Sprintf("%d", port.Port)), ciliumPod)
 				}
 			}
 		}

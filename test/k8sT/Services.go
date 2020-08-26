@@ -593,13 +593,13 @@ var _ = Describe("K8sServicesTest", func() {
 			// Field #7 is "RxPackets=<n>"
 			cmdIn := "cilium bpf ct list global | awk '/%s/ { sub(\".*=\",\"\", $7); print $7 }'"
 
-			endpointK8s1 := fmt.Sprintf("%s:%d", dstPodIPK8s1, dstPodPort)
+			endpointK8s1 := net.JoinHostPort(dstPodIPK8s1, fmt.Sprintf("%d", dstPodPort))
 			patternInK8s1 := fmt.Sprintf("UDP IN [^:]+:%d -> %s", srcPort, endpointK8s1)
 			cmdInK8s1 := fmt.Sprintf(cmdIn, patternInK8s1)
 			res := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdInK8s1)
 			countInK8s1, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
 
-			endpointK8s2 := fmt.Sprintf("%s:%d", dstPodIPK8s2, dstPodPort)
+			endpointK8s2 := net.JoinHostPort(dstPodIPK8s2, fmt.Sprintf("%d", dstPodPort))
 			patternInK8s2 := fmt.Sprintf("UDP IN [^:]+:%d -> %s", srcPort, endpointK8s2)
 			cmdInK8s2 := fmt.Sprintf(cmdIn, patternInK8s2)
 			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, cmdInK8s2)
@@ -612,7 +612,7 @@ var _ = Describe("K8sServicesTest", func() {
 				// If kube-proxy is enabled, we see packets in ctmap with the
 				// service's IP address and port, not backend's.
 				dstIPv4 := strings.Replace(dstIP, "::ffff:", "", 1)
-				endpointK8s1 = fmt.Sprintf("%s:%d", dstIPv4, dstPort)
+				endpointK8s1 = net.JoinHostPort(dstIPv4, fmt.Sprintf("%d", dstPort))
 				endpointK8s2 = endpointK8s1
 			}
 			patternOutK8s1 := fmt.Sprintf("UDP OUT [^:]+:%d -> %s", srcPort, endpointK8s1)
@@ -631,7 +631,7 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 
 			// Send datagram
-			By("Sending a fragmented packet from %s to endpoint %s:%d", srcPod, dstIP, dstPort)
+			By("Sending a fragmented packet from %s to endpoint %s", srcPod, net.JoinHostPort(dstIP, fmt.Sprintf("%d", dstPort)))
 			cmd := fmt.Sprintf("bash -c 'dd if=/dev/zero bs=%d count=%d | nc -u -w 1 -p %d %s %d'", blockSize, blockCount, srcPort, dstIP, dstPort)
 			res = kubectl.ExecPodCmd(helpers.DefaultNamespace, srcPod, cmd)
 			res.ExpectSuccess("Cannot send fragmented datagram: %s", res.CombineOutput())
