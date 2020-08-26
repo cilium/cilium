@@ -45,7 +45,7 @@ cilium-operator [flags]
       --identity-gc-rate-interval duration        Interval used for rate limiting the GC of security identities (default 1m0s)
       --identity-gc-rate-limit int                Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 250)
       --identity-heartbeat-timeout duration       Timeout after which identity expires on lack of heartbeat (default 30m0s)
-      --ipam string                               Backend to use for IPAM (default "hostscope-legacy")
+      --ipam string                               Backend to use for IPAM (default "cluster-pool")
       --k8s-api-server string                     Kubernetes API server URL
       --k8s-client-burst int                      Burst value allowed for the K8s client
       --k8s-client-qps float32                    Queries per second limit for the K8s client

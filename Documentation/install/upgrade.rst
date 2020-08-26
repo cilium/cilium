@@ -378,6 +378,9 @@ Removed options
 * The ``prometheus-serve-addr-deprecated`` option is now removed. Please use
   ``prometheus-serve-addr`` instead.
 
+* The ``hostscope-legacy`` option value for ``ipam`` is now removed. The ``ipam``
+  option now defaults to ``cluster-pool``.
+
 Removed cilium-operator options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
@@ -401,6 +404,9 @@ Removed cilium-operator options
 
 * The ``metrics-address`` option is now removed. Please use
   ``operator-prometheus-serve-addr`` instead.
+
+* The ``hostscope-legacy`` option value for ``ipam`` is now removed. The ``ipam``
+  option now defaults to ``cluster-pool``.
 
 .. _1.8_upgrade_notes:
 
