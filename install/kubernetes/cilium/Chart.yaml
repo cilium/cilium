@@ -14,6 +14,9 @@ dependencies:
   - name: config
     version: 1.8.90
     condition: config.enabled
+  - name: hubble-tls
+    version: 1.8.90
+    condition: global.hubble.enabled
   - name: hubble-relay
     version: 1.8.90
     condition: global.hubble.relay.enabled

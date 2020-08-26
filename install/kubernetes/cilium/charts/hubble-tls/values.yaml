@@ -1,0 +1,12 @@
+# base64 encoded PEM values for the hubble CA certificate and private key
+ca:
+  crt:
+  key:
+# base64 encoded PEM values for the hubble server certificate and private key
+server:
+  crt:
+  key:
+# base64 encoded PEM values for hubble relay certificate and private key
+relay:
+  crt:
+  key:
