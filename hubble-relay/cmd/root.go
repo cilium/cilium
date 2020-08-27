@@ -21,6 +21,7 @@ import (
 	v "github.com/cilium/cilium/pkg/version"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 // New creates a new hubble-relay command.
@@ -32,11 +33,19 @@ func New() *cobra.Command {
 		SilenceUsage: true,
 		Version:      v.GetCiliumVersion().Version,
 	}
+	vp := newViper()
 	rootCmd.AddCommand(
 		completion.New(),
-		serve.New(),
+		serve.New(vp),
 		version.New(),
 	)
 	rootCmd.SetVersionTemplate("{{with .Name}}{{printf \"%s \" .}}{{end}}{{printf \"v%s\" .Version}}\n")
 	return rootCmd
+}
+
+func newViper() *viper.Viper {
+	vp := viper.New()
+	vp.SetEnvPrefix("relay")
+	vp.AutomaticEnv()
+	return vp
 }
