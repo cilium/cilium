@@ -20,8 +20,10 @@ import (
 	"fmt"
 
 	operatorOption "github.com/cilium/cilium/operator/option"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 
 	v1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -38,36 +40,82 @@ func waitForCRD(ctx context.Context, client clientset.Interface, name string) er
 	w := &cache.ListWatch{
 		ListFunc: func(options metav1.ListOptions) (runtime.Object, error) {
 			options.FieldSelector = selector
-			return client.ApiextensionsV1().CustomResourceDefinitions().List(ctx, options)
+
+			if k8sversion.Capabilities().APIExtensionsV1CRD {
+				return client.ApiextensionsV1().CustomResourceDefinitions().List(ctx, options)
+			}
+
+			return client.ApiextensionsV1beta1().CustomResourceDefinitions().List(ctx, options)
 		},
 		WatchFunc: func(options metav1.ListOptions) (watch.Interface, error) {
 			options.FieldSelector = selector
-			return client.ApiextensionsV1().CustomResourceDefinitions().Watch(ctx, options)
+
+			if k8sversion.Capabilities().APIExtensionsV1CRD {
+				return client.ApiextensionsV1().CustomResourceDefinitions().Watch(ctx, options)
+			}
+
+			return client.ApiextensionsV1beta1().CustomResourceDefinitions().Watch(ctx, options)
 		},
 	}
+
 	cond := func(ev watch.Event) (bool, error) {
-		if crd, ok := ev.Object.(*v1.CustomResourceDefinition); ok {
+		var (
+			crdName string
+			ok      bool
+		)
+
+		if k8sversion.Capabilities().APIExtensionsV1CRD {
+			var crd *v1.CustomResourceDefinition
+			if crd, ok = ev.Object.(*v1.CustomResourceDefinition); ok {
+				crdName = crd.ObjectMeta.Name
+			}
+		} else {
+			var crd *v1beta1.CustomResourceDefinition
+			if crd, ok = ev.Object.(*v1beta1.CustomResourceDefinition); ok {
+				crdName = crd.ObjectMeta.Name
+			}
+		}
+
+		if ok {
 			// NOTE(mrostecki): Why is it done here despite having a field
 			// selector above? Fake client doesn't support field selectors,
 			// so the fake watcher always returns all CRDs created...
 			// kubernetes/client-go#326
 			// Doing that one comparison doesn't hurt and it makes unit
 			// testing possible.
-			if crd.ObjectMeta.Name == name {
+			if crdName == name {
 				return true, nil
 			}
 			return false, errors.New("CRD not found")
 		}
+
 		return false, ErrInvalidTypeCRD
 	}
-	ev, err := toolswatch.UntilWithSync(ctx, w, &v1.CustomResourceDefinition{}, nil, cond)
+
+	var (
+		ev  *watch.Event
+		err error
+	)
+	if k8sversion.Capabilities().APIExtensionsV1CRD {
+		ev, err = toolswatch.UntilWithSync(ctx, w, &v1.CustomResourceDefinition{}, nil, cond)
+	} else {
+		ev, err = toolswatch.UntilWithSync(ctx, w, &v1beta1.CustomResourceDefinition{}, nil, cond)
+	}
 	if err != nil {
 		return fmt.Errorf("timeout waiting for CRD %s: %w", name, err)
 	}
-	if _, ok := ev.Object.(*v1.CustomResourceDefinition); ok {
+
+	var ok bool
+	if k8sversion.Capabilities().APIExtensionsV1CRD {
+		_, ok = ev.Object.(*v1.CustomResourceDefinition)
+	} else {
+		_, ok = ev.Object.(*v1beta1.CustomResourceDefinition)
+	}
+	if ok {
 		log.Infof("CRD %s found", name)
 		return nil
 	}
+
 	return ErrInvalidTypeCRD
 }
 
