@@ -413,7 +413,8 @@ enum {
  *
  * The 4 bits at 0xF000 provide
  *  - the key index to use for encryption when multiple keys are in-flight.
- *    In the IPsec case this becomes the SPI on the wire.
+ *    In the IPsec case this becomes the SPI on the wire. (0xE000)
+ *  - An additional bit at 0x1000 for SNAT_DONE required for HostPort functionality.
  */
 #define MARK_MAGIC_HOST_MASK		0x0F00
 #define MARK_MAGIC_PROXY_INGRESS	0x0A00
@@ -426,9 +427,8 @@ enum {
 
 #define MARK_MAGIC_KEY_ID		0xE000
 #define MARK_MAGIC_KEY_MASK		0xFF00
-
-/* IPSec cannot be configured with NodePort BPF today, hence non-conflicting
- * overlap with MARK_MAGIC_KEY_ID.
+/*
+ * Ensure this value does not overlap with MARK_MAGIC_KEY_ID to allow IPSec and KubeProxy Replacement
  */
 #define MARK_MAGIC_SNAT_DONE		0x1500
 
