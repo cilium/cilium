@@ -1004,6 +1004,14 @@ Limitations
       setting will be ignored and a warning emitted to the Cilium agent log. Similarly,
       explicitly binding the ``hostIP`` to the loopback address in the host namespace is
       currently not supported and will log a warning to the Cilium agent log.
+    * When Cilium's kube-proxy replacement is used with Kubernetes versions(< 1.19) that have
+      support for ``EndpointSlices``, ``Services`` without selectors and backing ``Endpoints``
+      don't work. The reason is that Cilium only monitors changes made to ``EndpointSlices``
+      objects if support is available and ignores ``Endpoints`` in those cases. Kubernetes 1.19
+      release introduces ``EndpointSliceMirroring`` controller that mirrors custom ``Endpoints``
+      resources to corresponding ``EndpointSlices`` and thus allowing backing ``Endpoints``
+      to work. For a more detailed discussion see
+      `#12438 <https://github.com/cilium/cilium/issues/12438>`__.
 
 Further Readings
 ################
