@@ -56,6 +56,13 @@ type ServerCapabilities struct {
 	// This capability was introduced in K8s version 1.14, prior to which
 	// we don't support HA mode for the cilium-operator.
 	LeasesResourceLock bool
+
+	// APIExtensionsV1CRD is set to true when the K8s server supports
+	// apiextensions/v1 CRDs. TODO: Add link to docs
+	//
+	// This capability was introduced in K8s version 1.16, prior to which
+	// apiextensions/v1beta1 CRDs were used exclusively.
+	APIExtensionsV1CRD bool
 }
 
 type cachedVersion struct {
@@ -82,6 +89,10 @@ var (
 	// Constraint to check support for Lease type from coordination.k8s.io/v1.
 	// Support for Lease resource was introduced in K8s version 1.14.
 	isGEThanLeaseSupportConstraint = versioncheck.MustCompile(">=1.14.0")
+
+	// Constraint to check support for apiextensions/v1 CRD types. Support for
+	// v1 CRDs was introduced in K8s version 1.16.
+	isGEThanAPIExtensionsV1CRD = versioncheck.MustCompile(">=1.16.0")
 
 	// isGEThanMinimalVersionConstraint is the minimal version required to run
 	// Cilium
@@ -112,6 +123,7 @@ func updateVersion(version go_version.Version) {
 
 	cached.capabilities.Patch = option.Config.K8sForceJSONPatch || isGEThanPatchConstraint(version)
 	cached.capabilities.MinimalVersionMet = isGEThanMinimalVersionConstraint(version)
+	cached.capabilities.APIExtensionsV1CRD = isGEThanAPIExtensionsV1CRD(version)
 }
 
 func updateServerGroupsAndResources(apiResourceLists []*metav1.APIResourceList) {
