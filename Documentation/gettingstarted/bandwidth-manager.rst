@@ -24,18 +24,10 @@ based on TBF (Token Bucket Filter) instead of EDT.
 Cilium's bandwidth manager supports the ``kubernetes.io/egress-bandwidth`` Pod
 annotation which is enforced on egress at the native host networking devices.
 The bandwidth enforcement is supported for direct routing as well as tunneling
-mode in Cilium.
+mode in Cilium, and also works in combination with L7 proxies.
 
-The ``kubernetes.io/ingress-bandwidth`` annotation is not supported and also not
-recommended to use. Limiting bandwidth happens natively at the egress point of
-networking devices in order to reduce or pace bandwidth usage on the wire.
-Enforcing at ingress would add yet another layer of buffer queueing right in the
-critical fast-path of a node via ``ifb`` device where ingress traffic first needs
-to be redirected to the ``ifb``'s egress point in order to perform shaping before
-traffic can go up the stack. At this point traffic has already occupied the
-bandwidth usage on the wire, and the node has already spent resources on
-processing the packet. ``kubernetes.io/ingress-bandwidth`` annotation is ignored
-by Cilium's bandwidth manager.
+The ``kubernetes.io/ingress-bandwidth`` annotation is not supported and therefore
+ignored by Cilium's bandwidth manager.
 
 .. note::
 
@@ -139,6 +131,12 @@ identity can then be correlated with the ``cilium endpoint list`` command.
 Limitations
 ###########
 
-    * Bandwidth enforcement currently does not work in combination with L7 Cilium Network Policies.
-      In case they select the Pod at egress, then the bandwidth enforcement will be disabled for
-      those Pods.
+    * The ``kubernetes.io/ingress-bandwidth`` annotation is not supported and also not
+      recommended to use. Limiting bandwidth happens natively at the egress point of
+      networking devices in order to reduce or pace bandwidth usage on the wire.
+      Enforcing at ingress would add yet another layer of buffer queueing right in the
+      critical fast-path of a node via ``ifb`` device where ingress traffic first needs
+      to be redirected to the ``ifb``'s egress point in order to perform shaping before
+      traffic can go up the stack. At this point traffic has already occupied the
+      bandwidth usage on the wire, and the node has already spent resources on processing
+      the packet.
