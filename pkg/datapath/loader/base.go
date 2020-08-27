@@ -114,7 +114,7 @@ func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
 // BPF programs, netfilter rule configuration and reserving routes in IPAM for
 // locally detected prefixes. It may be run upon initial Cilium startup, after
 // restore from a previous Cilium run, or during regular Cilium operation.
-func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy, r datapath.RouteReserver) error {
+func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	var (
 		args []string
 		ret  error
@@ -366,10 +366,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		}
 	} else {
 		log.Warning("Cannot check matching of C and Go common struct alignments due to old LLVM/clang version")
-	}
-
-	if !option.Config.IsFlannelMasterDeviceSet() {
-		r.ReserveLocalRoutes()
 	}
 
 	if err := o.Datapath().Node().NodeConfigurationChanged(*o.LocalConfig()); err != nil {

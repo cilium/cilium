@@ -87,7 +87,7 @@ func (h *patchConfig) Handle(params PatchConfigParams) middleware.Responder {
 	if changes > 0 {
 		// Only recompile if configuration has changed.
 		log.Debug("daemon configuration has changed; recompiling base programs")
-		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy, d.ipam); err != nil {
+		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 			msg := fmt.Errorf("Unable to recompile base programs: %s", err)
 			return api.Error(PatchConfigFailureCode, msg)
 		}
