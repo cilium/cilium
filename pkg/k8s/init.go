@@ -256,7 +256,7 @@ func GetNodeSpec() error {
 	return nil
 }
 
-// RegisterCRDs registers all CRDs
+// RegisterCRDs registers all CRDs with the K8s apiserver.
 func RegisterCRDs() error {
 	if option.Config.SkipCRDCreation {
 		return nil

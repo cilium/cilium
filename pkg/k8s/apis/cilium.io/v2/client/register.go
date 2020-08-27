@@ -21,14 +21,17 @@ import (
 	"time"
 
 	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	v1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -172,22 +175,39 @@ func createIdentityCRD(clientset apiextensionsclient.Interface) error {
 	return createUpdateCRD(clientset, CIDCRDName, constructV1CRD(k8sconstv2.CIDName, ciliumCRD))
 }
 
-// createUpdateCRD ensures the CRD object is installed into the k8s cluster. It
-// will create or update the CRD and it's validation when needed
-func createUpdateCRD(clientset apiextensionsclient.Interface,
+// createUpdateCRD ensures the CRD object is installed into the K8s cluster. It
+// will create or update the CRD and its validation schema as necessary. This
+// function only accepts v1 CRD objects, and defers to its v1beta1 variant if
+// the cluster only supports v1beta1 CRDs. This allows us to convert all our
+// CRDs into v1 form and only perform conversions on-demand, simplifying the
+// code.
+func createUpdateCRD(
+	clientset apiextensionsclient.Interface,
 	crdName string,
-	crd *apiextensionsv1.CustomResourceDefinition) error {
-
+	crd *apiextensionsv1.CustomResourceDefinition,
+) error {
 	scopedLog := log.WithField("name", crdName)
 
-	clusterCRD, err := clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
+	if !k8sversion.Capabilities().APIExtensionsV1CRD {
+		log.Infof("K8s apiserver does not support v1 CRDs, falling back to v1beta1")
+
+		return createUpdateV1beta1CRD(
+			scopedLog,
+			clientset.ApiextensionsV1beta1(),
+			crdName,
+			crd,
+		)
+	}
+
+	v1CRDClient := clientset.ApiextensionsV1()
+	clusterCRD, err := v1CRDClient.CustomResourceDefinitions().Get(
 		context.TODO(),
 		crd.ObjectMeta.Name,
 		metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		scopedLog.Info("Creating CRD (CustomResourceDefinition)...")
 
-		clusterCRD, err = clientset.ApiextensionsV1().CustomResourceDefinitions().Create(
+		clusterCRD, err = v1CRDClient.CustomResourceDefinitions().Create(
 			context.TODO(),
 			crd,
 			metav1.CreateOptions{})
@@ -201,84 +221,10 @@ func createUpdateCRD(clientset apiextensionsclient.Interface,
 		return err
 	}
 
-	scopedLog.Debug("Checking if CRD (CustomResourceDefinition) needs update...")
-
-	if crd.Spec.Versions[0].Schema != nil && needsUpdate(clusterCRD) {
-		scopedLog.Info("Updating CRD (CustomResourceDefinition)...")
-
-		// Update the CRD with the validation schema.
-		err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-			clusterCRD, err = clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
-				context.TODO(),
-				crd.ObjectMeta.Name,
-				metav1.GetOptions{})
-			if err != nil {
-				return false, err
-			}
-
-			// This seems too permissive but we only get here if the version is
-			// different per needsUpdate above. If so, we want to update on any
-			// validation change including adding or removing validation.
-			if needsUpdate(clusterCRD) {
-				scopedLog.Debug("CRD validation is different, updating it...")
-
-				clusterCRD.ObjectMeta.Labels = crd.ObjectMeta.Labels
-				clusterCRD.Spec = crd.Spec
-
-				_, err = clientset.ApiextensionsV1().CustomResourceDefinitions().Update(
-					context.TODO(),
-					clusterCRD,
-					metav1.UpdateOptions{})
-				if err == nil {
-					return true, nil
-				}
-
-				scopedLog.WithError(err).Debug("Unable to update CRD validation")
-				return false, err
-			}
-
-			return true, nil
-		})
-		if err != nil {
-			scopedLog.WithError(err).Error("Unable to update CRD")
-			return err
-		}
+	if err := updateV1CRD(scopedLog, crd, clusterCRD, v1CRDClient); err != nil {
+		return err
 	}
-
-	// wait for the CRD to be established
-	scopedLog.Debug("Waiting for CRD (CustomResourceDefinition) to be available...")
-	err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-		for _, cond := range clusterCRD.Status.Conditions {
-			switch cond.Type {
-			case apiextensionsv1.Established:
-				if cond.Status == apiextensionsv1.ConditionTrue {
-					return true, err
-				}
-			case apiextensionsv1.NamesAccepted:
-				if cond.Status == apiextensionsv1.ConditionFalse {
-					scopedLog.WithError(goerrors.New(cond.Reason)).Error("Name conflict for CRD")
-					return false, err
-				}
-			}
-		}
-		clusterCRD, err = clientset.ApiextensionsV1().CustomResourceDefinitions().Get(
-			context.TODO(),
-			crd.ObjectMeta.Name,
-			metav1.GetOptions{})
-		if err != nil {
-			return false, err
-		}
-		return false, err
-	})
-	if err != nil {
-		deleteErr := clientset.ApiextensionsV1().CustomResourceDefinitions().Delete(
-			context.TODO(),
-			crd.ObjectMeta.Name,
-			metav1.DeleteOptions{})
-		if deleteErr != nil {
-			return fmt.Errorf("unable to delete k8s %s CRD %s. Deleting CRD due: %s",
-				crdName, deleteErr, err)
-		}
+	if err := waitForV1CRD(scopedLog, crdName, clusterCRD, v1CRDClient); err != nil {
 		return err
 	}
 
@@ -312,7 +258,7 @@ func constructV1CRD(
 	}
 }
 
-func needsUpdate(clusterCRD *apiextensionsv1.CustomResourceDefinition) bool {
+func needsUpdateV1(clusterCRD *apiextensionsv1.CustomResourceDefinition) bool {
 	if clusterCRD.Spec.Versions[0].Schema == nil {
 		// no validation detected
 		return true
@@ -330,4 +276,112 @@ func needsUpdate(clusterCRD *apiextensionsv1.CustomResourceDefinition) bool {
 	}
 
 	return false
+}
+
+func updateV1CRD(
+	scopedLog *logrus.Entry,
+	crd, clusterCRD *apiextensionsv1.CustomResourceDefinition,
+	client v1client.CustomResourceDefinitionsGetter,
+) error {
+	scopedLog.Debug("Checking if CRD (CustomResourceDefinition) needs update...")
+
+	if crd.Spec.Versions[0].Schema != nil && needsUpdateV1(clusterCRD) {
+		scopedLog.Info("Updating CRD (CustomResourceDefinition)...")
+
+		// Update the CRD with the validation schema.
+		err := wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+			var err error
+			clusterCRD, err = client.CustomResourceDefinitions().Get(
+				context.TODO(),
+				crd.ObjectMeta.Name,
+				metav1.GetOptions{})
+			if err != nil {
+				return false, err
+			}
+
+			// This seems too permissive but we only get here if the version is
+			// different per needsUpdate above. If so, we want to update on any
+			// validation change including adding or removing validation.
+			if needsUpdateV1(clusterCRD) {
+				scopedLog.Debug("CRD validation is different, updating it...")
+
+				clusterCRD.ObjectMeta.Labels = crd.ObjectMeta.Labels
+				clusterCRD.Spec = crd.Spec
+
+				// Even though v1 CRDs omit this field by default (which also
+				// means it's false) it is still carried over from the previous
+				// CRD. Therefore, we must set this to false explicitly because
+				// the apiserver will carry over the old value (true).
+				clusterCRD.Spec.PreserveUnknownFields = false
+
+				_, err := client.CustomResourceDefinitions().Update(
+					context.TODO(),
+					clusterCRD,
+					metav1.UpdateOptions{})
+				if err == nil {
+					return true, nil
+				}
+
+				scopedLog.WithError(err).Debug("Unable to update CRD validation")
+
+				return false, err
+			}
+
+			return true, nil
+		})
+		if err != nil {
+			scopedLog.WithError(err).Error("Unable to update CRD")
+			return err
+		}
+	}
+
+	return nil
+}
+
+func waitForV1CRD(
+	scopedLog *logrus.Entry,
+	crdName string,
+	crd *apiextensionsv1.CustomResourceDefinition,
+	client v1client.CustomResourceDefinitionsGetter,
+) error {
+	scopedLog.Debug("Waiting for CRD (CustomResourceDefinition) to be available...")
+
+	err := wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+		for _, cond := range crd.Status.Conditions {
+			switch cond.Type {
+			case apiextensionsv1.Established:
+				if cond.Status == apiextensionsv1.ConditionTrue {
+					return true, nil
+				}
+			case apiextensionsv1.NamesAccepted:
+				if cond.Status == apiextensionsv1.ConditionFalse {
+					err := goerrors.New(cond.Reason)
+					scopedLog.WithError(err).Error("Name conflict for CRD")
+					return false, err
+				}
+			}
+		}
+
+		var err error
+		if crd, err = client.CustomResourceDefinitions().Get(
+			context.TODO(),
+			crd.ObjectMeta.Name,
+			metav1.GetOptions{}); err != nil {
+			return false, err
+		}
+		return false, err
+	})
+	if err != nil {
+		if deleteErr := client.CustomResourceDefinitions().Delete(
+			context.TODO(),
+			crd.ObjectMeta.Name,
+			metav1.DeleteOptions{},
+		); deleteErr != nil {
+			return fmt.Errorf("unable to delete k8s %s CRD %s. Deleting CRD due: %s",
+				crdName, deleteErr, err)
+		}
+		return err
+	}
+
+	return nil
 }
