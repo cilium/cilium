@@ -18,7 +18,6 @@ import (
 	"fmt"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	"github.com/cilium/cilium/pkg/hubble/relay/server"
@@ -26,85 +25,89 @@ import (
 
 	"github.com/google/gops/agent"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"golang.org/x/sys/unix"
 )
 
-type flags struct {
-	debug                  bool
-	pprof                  bool
-	gops                   bool
-	dialTimeout            time.Duration
-	listenAddress          string
-	peerService            string
-	retryTimeout           time.Duration
-	sortBufferMaxLen       int
-	sortBufferDrainTimeout time.Duration
-}
+const (
+	keyDebug                  = "debug"
+	keyPprof                  = "pprof"
+	keyGops                   = "gops"
+	keyDialTimeout            = "dial-timeout"
+	keyRetryTimeout           = "retry-timeout"
+	keyListenAddress          = "listen-address"
+	keyPeerService            = "peer-service"
+	keySortBufferMaxLen       = "sort-buffer-len-max"
+	keySortBufferDrainTimeout = "sort-buffer-drain-timeout"
+)
 
 // New creates a new serve command.
-func New() *cobra.Command {
-	var f flags
+func New(vp *viper.Viper) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the gRPC proxy server",
 		Long:  `Run the gRPC proxy server.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runServe(f)
+			return runServe(vp)
 		},
 	}
-	cmd.Flags().BoolVarP(
-		&f.debug, "debug", "D", false, "Run in debug mode",
+	flags := cmd.Flags()
+	flags.BoolP(
+		keyDebug, "D", false, "Run in debug mode",
 	)
-	cmd.Flags().BoolVar(
-		&f.pprof, "pprof", false, "Enable serving the pprof debugging API",
+	flags.Bool(
+		keyPprof, false, "Enable serving the pprof debugging API",
 	)
-	cmd.Flags().BoolVar(
-		&f.gops, "gops", true, "Run gops agent",
+	flags.Bool(
+		keyGops, true, "Run gops agent",
 	)
-	cmd.Flags().DurationVar(
-		&f.dialTimeout, "dial-timeout",
+	flags.Duration(
+		keyDialTimeout,
 		defaults.DialTimeout,
 		"Dial timeout when connecting to hubble peers")
-	cmd.Flags().DurationVar(
-		&f.retryTimeout, "retry-timeout",
+	flags.Duration(
+		keyRetryTimeout,
 		defaults.RetryTimeout,
 		"Time to wait before attempting to reconnect to a hubble peer when the connection is lost")
-	cmd.Flags().StringVar(
-		&f.listenAddress, "listen-address",
+	flags.String(
+		keyListenAddress,
 		defaults.ListenAddress,
 		"Address on which to listen")
-	cmd.Flags().StringVar(
-		&f.peerService, "peer-service",
+	flags.String(
+		keyPeerService,
 		defaults.HubbleTarget,
 		"Address of the server that implements the peer gRPC service")
-	cmd.Flags().IntVar(
-		&f.sortBufferMaxLen, "sort-buffer-len-max",
+	flags.Int(
+		keySortBufferMaxLen,
 		defaults.SortBufferMaxLen,
 		"Max number of flows that can be buffered for sorting before being sent to the client (per request)")
-	cmd.Flags().DurationVar(
-		&f.sortBufferDrainTimeout, "sort-buffer-drain-timeout",
+	flags.Duration(
+		keySortBufferDrainTimeout,
 		defaults.SortBufferDrainTimeout,
 		"When the per-request flows sort buffer is not full, a flow is drained every time this timeout is reached (only affects requests in follow-mode)")
+	vp.BindPFlags(flags)
+
 	return cmd
 }
 
-func runServe(f flags) error {
+func runServe(vp *viper.Viper) error {
 	opts := []server.Option{
-		server.WithDialTimeout(f.dialTimeout),
-		server.WithHubbleTarget(f.peerService),
-		server.WithListenAddress(f.listenAddress),
-		server.WithRetryTimeout(f.retryTimeout),
-		server.WithSortBufferMaxLen(f.sortBufferMaxLen),
-		server.WithSortBufferDrainTimeout(f.sortBufferDrainTimeout),
+		server.WithDialTimeout(vp.GetDuration(keyDialTimeout)),
+		server.WithHubbleTarget(vp.GetString(keyPeerService)),
+		server.WithListenAddress(vp.GetString(keyListenAddress)),
+		server.WithRetryTimeout(vp.GetDuration(keyRetryTimeout)),
+		server.WithSortBufferMaxLen(vp.GetInt(keySortBufferMaxLen)),
+		server.WithSortBufferDrainTimeout(vp.GetDuration(keySortBufferDrainTimeout)),
 		server.WithInsecure(), //FIXME: add option to set server and client TLS settings
 	}
-	if f.debug {
+	if vp.GetBool(keyDebug) {
 		opts = append(opts, server.WithDebug())
 	}
-	if f.pprof {
+	if vp.GetBool(keyPprof) {
 		pprof.Enable()
 	}
-	if f.gops {
+	gopsEnabled := vp.GetBool(keyGops)
+	if gopsEnabled {
 		if err := agent.Listen(agent.Options{}); err != nil {
 			return fmt.Errorf("failed to start gops agent: %v", err)
 		}
@@ -118,7 +121,7 @@ func runServe(f flags) error {
 		signal.Notify(sigs, unix.SIGINT, unix.SIGTERM)
 		<-sigs
 		srv.Stop()
-		if f.gops {
+		if gopsEnabled {
 			agent.Close()
 		}
 	}()
