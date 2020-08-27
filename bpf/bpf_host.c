@@ -783,13 +783,14 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 					   BPF_F_INGRESS);
 		}
 #endif
-
 		int trace = TRACE_FROM_HOST;
 		bool from_proxy;
 
 		from_proxy = inherit_identity_from_host(ctx, &identity);
-		if (from_proxy)
+		if (from_proxy) {
+			edt_set_aggregate_from_proxy(ctx);
 			trace = TRACE_FROM_PROXY;
+		}
 		send_trace_notify(ctx, trace, identity, 0, 0,
 				  ctx->ingress_ifindex, 0, TRACE_PAYLOAD_LEN);
 	} else {
