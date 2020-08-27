@@ -388,9 +388,19 @@ func (c *clusterNodesClient) NodeAdd(newNode nodeTypes.Node) error {
 
 func (c *clusterNodesClient) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
 	c.Lock()
+	defer c.Unlock()
+
+	// If the node is on the added list, just update it
+	for i, added := range c.NodesAdded {
+		if added.Name == newNode.Fullname() {
+			c.NodesAdded[i] = newNode.GetModel()
+			return nil
+		}
+	}
+
+	// otherwise, add the new node and remove the old one
 	c.NodesAdded = append(c.NodesAdded, newNode.GetModel())
 	c.NodesRemoved = append(c.NodesRemoved, oldNode.GetModel())
-	c.Unlock()
 	return nil
 }
 
