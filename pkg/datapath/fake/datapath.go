@@ -128,7 +128,7 @@ func (f *fakeLoader) CallsMapPath(id uint16) string {
 }
 
 // Reinitialize does nothing.
-func (f *fakeLoader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy, r datapath.RouteReserver) error {
+func (f *fakeLoader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, deviceMTU int, iptMgr datapath.IptablesManager, p datapath.Proxy) error {
 	return nil
 }
 

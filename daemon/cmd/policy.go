@@ -283,7 +283,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	if newPrefixLengths && !bpfIPCache.BackedByLPM() {
 		// Only recompile if configuration has changed.
 		logger.Debug("CIDR policy has changed; recompiling base programs")
-		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy, d.ipam); err != nil {
+		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 			_ = d.prefixLengths.Delete(prefixes)
 			metrics.PolicyImportErrors.Inc()
 			metrics.PolicyImportErrorsTotal.Inc()
@@ -601,7 +601,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	if !bpfIPCache.BackedByLPM() && prefixesChanged {
 		// Only recompile if configuration has changed.
 		log.Debug("CIDR policy has changed; recompiling base programs")
-		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy, d.ipam); err != nil {
+		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 			log.WithError(err).Error("Unable to recompile base programs")
 		}
 

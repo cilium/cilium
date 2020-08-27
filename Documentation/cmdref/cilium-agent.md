@@ -22,7 +22,6 @@ cilium-agent [flags]
       --annotate-k8s-node                             Annotate Kubernetes node (default true)
       --auto-create-cilium-node-resource              Automatically create CiliumNode resource for own node on startup (default true)
       --auto-direct-node-routes                       Enable automatic L2 routing between nodes
-      --blacklist-conflicting-routes                  Don't blacklist IP allocations conflicting with local non-cilium routes (default true)
       --bpf-compile-debug                             Enable debugging of the BPF compilation process
       --bpf-ct-global-any-max int                     Maximum number of entries in non-TCP CT table (default 262144)
       --bpf-ct-global-tcp-max int                     Maximum number of entries in TCP CT table (default 524288)

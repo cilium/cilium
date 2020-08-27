@@ -80,24 +80,14 @@ type Allocator interface {
 	RestoreFinished()
 }
 
-// IPNetWithOwner is a structure containing a net.IPNet struct with the owner
-// of that IP Network.
-type IPNetWithOwner struct {
-	ipNet net.IPNet
-	owner string
-}
-
 // IPBlacklist is a structure used to store information related to blacklisted
 // IPs and IPNetworks.
 type IPBlacklist struct {
 	// A hashmap containing IP and the corresponding owners.
 	ips map[string]string
-
-	// A list of IPNetwork with owners, for blacklisting subnets.
-	ipNets []*IPNetWithOwner
 }
 
-// Config is the IPAM configuration used for a particular IPAM type.
+// IPAM is the configuration used for a particular IPAM type.
 type IPAM struct {
 	nodeAddressing datapath.NodeAddressing
 	config         Configuration

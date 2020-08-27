@@ -232,10 +232,6 @@ func (s *OptionSuite) TestEnabledFunctions(c *C) {
 	c.Assert(d.IPv4Enabled(), Equals, false)
 	c.Assert(d.IPv6Enabled(), Equals, true)
 	d = &DaemonConfig{}
-	c.Assert(d.BlacklistConflictingRoutesEnabled(), Equals, false)
-	d = &DaemonConfig{BlacklistConflictingRoutes: true}
-	c.Assert(d.BlacklistConflictingRoutesEnabled(), Equals, true)
-	d = &DaemonConfig{}
 	c.Assert(d.IPAMMode(), Equals, "")
 	d = &DaemonConfig{IPAM: ipamOption.IPAMENI}
 	c.Assert(d.IPAMMode(), Equals, ipamOption.IPAMENI)

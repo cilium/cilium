@@ -64,10 +64,6 @@ type Configuration interface {
 	// enabled
 	HealthCheckingEnabled() bool
 
-	// BlacklistConflictingRoutesEnabled must return true when blacklisting
-	// of conflicting IPs is enabled
-	BlacklistConflictingRoutesEnabled() bool
-
 	// SetIPv4NativeRoutingCIDR is called by the IPAM module to announce
 	// the native IPv4 routing CIDR if it exists
 	SetIPv4NativeRoutingCIDR(cidr *cidr.CIDR)
@@ -146,34 +142,11 @@ func nextIP(ip net.IP) {
 	}
 }
 
-// ReserveLocalRoutes walks through local routes/subnets and reserves them in
-// the allocator pool in case of overlap
-func (ipam *IPAM) ReserveLocalRoutes() {
-	if !ipam.config.BlacklistConflictingRoutesEnabled() {
-		return
-	}
-
-	if ipam.IPv4Allocator != nil {
-		ipam.reserveLocalRoutes()
-	}
-}
-
 // BlacklistIP ensures that a certain IP is never allocated. It is preferred to
 // use BlacklistIP() instead of allocating the IP as the allocation block can
 // change and suddenly cover the IP to be blacklisted.
 func (ipam *IPAM) BlacklistIP(ip net.IP, owner string) {
 	ipam.allocatorMutex.Lock()
 	ipam.blacklist.ips[ip.String()] = owner
-	ipam.allocatorMutex.Unlock()
-}
-
-// BlacklistIPNet ensures that a certain IPNetwork is never allocated, similar
-// to BlacklistIP.
-func (ipam *IPAM) BlacklistIPNet(ipNet net.IPNet, owner string) {
-	ipam.allocatorMutex.Lock()
-	ipam.blacklist.ipNets = append(ipam.blacklist.ipNets, &IPNetWithOwner{
-		ipNet: ipNet,
-		owner: owner,
-	})
 	ipam.allocatorMutex.Unlock()
 }

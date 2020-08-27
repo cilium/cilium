@@ -232,18 +232,12 @@ The AWS ENI datapath is enabled by setting the following option:
 .. code-block: yaml
 
         ipam: eni
-        blacklist-conflicting-routes: "false"
         enable-endpoint-routes: "true"
         auto-create-cilium-node-resource: "true"
         egress-masquerade-interfaces: eth+
 
 * ``ipam: eni`` Enables the ENI specific IPAM backend and indicates to the
   datapath that ENI IPs will be used.
-
-* ``blacklist-conflicting-routes: "false"`` disables blacklisting of local
-  routes. This is required as routes will exist covering ENI IPs pointing to
-  interfaces that are not owned by Cilium. If blacklisting is not disabled, all
-  ENI IPs would be considered used by another networking component.
 
 * ``enable-endpoint-routes: "true"`` enables direct routing to the ENI
   veth pairs without requiring to route via the ``cilium_host`` interface.
@@ -308,8 +302,6 @@ The following configuration options must be set to run the datapath on GKE:
   * ``ipam: kubernetes``: Enable :ref:`k8s_hostscope` IPAM
   * ``tunnel: disabled``: Enable native routing mode
   * ``enable-endpoint-routes: true``: Enable per-endpoint routing on the node
-  * ``blacklist-conflicting-routes: false``: Disable blacklisting of IPs
-    which collide with a local route
   * ``enable-local-node-route: false``: Disable installation of the local node route
 
 * ``native-routing-cidr: x.x.x.x/y``: Set the CIDR in which native routing
