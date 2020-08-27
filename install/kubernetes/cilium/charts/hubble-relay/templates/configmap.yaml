@@ -1,0 +1,25 @@
+---
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-relay-config
+  namespace: {{ .Release.Namespace }}
+data:
+  config.yaml: |
+    peer-service: unix://{{ .Values.global.hubble.socketPath }}
+    listen-address: {{ .Values.listenHost }}:{{ .Values.listenPort }}
+{{- if .Values.global.debug.enabled }}
+    debug: true
+{{- end }}
+{{- if .Values.dialTimeout }}
+    dial-timeout: {{ .Values.dialTimeout }}
+{{- end }}
+{{- if .Values.retryTimeout }}
+    retry-timeout: {{ .Values.retryTimeout }}
+{{- end }}
+{{- if .Values.sortBufferLenMax }}
+    sort-buffer-len-max: {{ .Values.sortBufferLenMax }}
+{{- end }}
+{{- if .Values.sortBufferDrainTimeout }}
+    sort-buffer-drain-timeout: {{ .Values.sortBufferDrainTimeout }}
+{{- end }}
