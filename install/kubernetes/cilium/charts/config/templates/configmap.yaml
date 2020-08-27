@@ -320,20 +320,17 @@ data:
   ipam: "kubernetes"
   tunnel: "disabled"
   enable-endpoint-routes: "true"
-  blacklist-conflicting-routes: "false"
   enable-local-node-route: "false"
 {{- end }}
 
 {{- if .Values.global.eni }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
-  blacklist-conflicting-routes: "false"
 {{- end }}
 
 {{- if .Values.global.azure.enabled }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
-  blacklist-conflicting-routes: "false"
   enable-local-node-route: "false"
 {{- end }}
 
@@ -613,11 +610,6 @@ data:
   disable-cnp-status-updates: {{ (not .Values.enableCnpStatusUpdates) | quote }}
 {{- else if (eq $defaultEnableCnpStatusUpdates "false") }}
   disable-cnp-status-updates: "true"
-{{- end }}
-
-{{- if hasKey .Values "blacklistConflictingRoutes" }}
-  # Configure blacklisting of local routes not owned by Cilium.
-  blacklist-conflicting-routes: {{ .Values.blacklistConflictingRoutes | quote }}
 {{- end }}
 
 {{- if hasKey .Values "crdWaitTimeout" }}

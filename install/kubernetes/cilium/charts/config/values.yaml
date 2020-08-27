@@ -35,10 +35,6 @@
 # in Linux 5.7 or later.
 #bpfTProxy: false
 
-# blacklistConflictingRoutes instructs the cilium-agent whether to blacklist
-# IP allocations conflicting with local non-cilium routes.
-#blacklistConflictingRoutes: true
-
 # sessionAffinity enable support for service sessionAffinity
 #sessionAffinity: true
 
