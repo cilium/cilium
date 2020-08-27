@@ -134,7 +134,7 @@ func ipSecReplaceStateOut(remoteIP, localIP net.IP) (uint8, error) {
 	state.Src = localIP
 	state.Dst = remoteIP
 	state.Mark = &netlink.XfrmMark{
-		Value: ((spiWide << 12) | linux_defaults.RouteMarkEncrypt),
+		Value: ((spiWide << 13) | linux_defaults.RouteMarkEncrypt),
 		Mask:  linux_defaults.IPsecMarkMask,
 	}
 	state.OutputMark = linux_defaults.RouteMarkEncrypt
@@ -189,7 +189,7 @@ func ipSecReplacePolicyOut(src, dst, tmplSrc, tmplDst *net.IPNet, dir IPSecDir) 
 	policy.Dst = &net.IPNet{IP: dst.IP.Mask(dst.Mask), Mask: dst.Mask}
 	policy.Dir = netlink.XFRM_DIR_OUT
 	policy.Mark = &netlink.XfrmMark{
-		Value: ((spiWide << 12) | linux_defaults.RouteMarkEncrypt),
+		Value: ((spiWide << 13) | linux_defaults.RouteMarkEncrypt),
 		Mask:  linux_defaults.IPsecMarkMask,
 	}
 	if tmplSrc != nil && tmplDst != nil {

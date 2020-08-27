@@ -424,7 +424,7 @@ enum {
 #define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
 #define MARK_MAGIC_TO_PROXY		0x0200
 
-#define MARK_MAGIC_KEY_ID		0xF000
+#define MARK_MAGIC_KEY_ID		0xE000
 #define MARK_MAGIC_KEY_MASK		0xFF00
 
 /* IPSec cannot be configured with NodePort BPF today, hence non-conflicting
@@ -459,8 +459,8 @@ enum {
 #define DSR_IPV6_OPT_LEN	0x14	/* to store ipv6 addr + port */
 #define DSR_IPV6_EXT_LEN	0x2	/* = (sizeof(dsr_opt_v6) - 8) / 8 */
 
-/* We cap key index at 4 bits because mark value is used to map ctx to key */
-#define MAX_KEY_INDEX 15
+/* We cap key index at 3 bits because mark value is used to map ctx to key */
+#define MAX_KEY_INDEX 7
 
 /* encrypt_key is the index into the encrypt map */
 struct encrypt_key {
@@ -477,7 +477,7 @@ struct encrypt_config {
  */
 static __always_inline __u32 or_encrypt_key(__u8 key)
 {
-	return (((__u32)key & 0x0F) << 12) | MARK_MAGIC_ENCRYPT;
+	return (((__u32)key & 0x07) << 13) | MARK_MAGIC_ENCRYPT;
 }
 
 /*

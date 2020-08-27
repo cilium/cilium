@@ -92,15 +92,15 @@ func initKubeProxyReplacementOptions() (strict bool) {
 	}
 
 	if option.Config.EnableNodePort {
-		if option.Config.EnableIPSec {
-			msg := "IPSec cannot be used with BPF NodePort."
-			if strict {
-				log.Fatal(msg)
-			} else {
-				disableNodePort()
-				log.Warn(msg + " Disabling BPF NodePort feature.")
-			}
-		}
+		// if option.Config.EnableIPSec {
+		// 	msg := "IPSec cannot be used with BPF NodePort."
+		// 	if strict {
+		// 		log.Fatal(msg)
+		// 	} else {
+		// 		disableNodePort()
+		// 		log.Warn(msg + " Disabling BPF NodePort feature.")
+		// 	}
+		// }
 
 		if option.Config.NodePortMode != option.NodePortModeSNAT &&
 			option.Config.NodePortMode != option.NodePortModeDSR &&
