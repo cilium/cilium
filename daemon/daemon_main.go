@@ -527,6 +527,10 @@ func init() {
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
 	option.BindEnv(option.EnableIdentityMark)
 
+	flags.String(option.AllowHostSrc, "auto", "Accept traffic from remote nodes with source identity \"host\"")
+	flags.MarkHidden(option.AllowHostSrc)
+	option.BindEnv(option.AllowHostSrc)
+
 	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the CIDR for native routing. This value corresponds to the configured cluster-cidr.")
 	option.BindEnv(option.IPv4NativeRoutingCIDR)
 
