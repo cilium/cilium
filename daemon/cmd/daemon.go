@@ -440,15 +440,23 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	detectDevicesForNodePortAndHostFirewall(isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
 
-	// BPF masquerade depends on BPF NodePort, so the following checks should
+	// BPF masquerade depends on BPF NodePort and require host-reachable svc to
+	// be fully enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
 	if option.Config.Masquerade && option.Config.EnableBPFMasquerade &&
-		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "") {
+		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "" ||
+			(option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices())) {
+
 		var msg string
-		if !option.Config.EnableNodePort {
+		switch {
+		case !option.Config.EnableNodePort:
 			msg = fmt.Sprintf("BPF masquerade requires NodePort (--%s=\"true\").",
 				option.EnableNodePort)
-		} else if option.Config.EgressMasqueradeInterfaces != "" {
+		// Remove the check after https://github.com/cilium/cilium/issues/12544 is fixed
+		case option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices():
+			msg = fmt.Sprintf("BPF masquerade requires --%s to be fully enabled (TCP and UDP).",
+				option.EnableHostReachableServices)
+		case option.Config.EgressMasqueradeInterfaces != "":
 			msg = fmt.Sprintf("BPF masquerade does not allow to specify devices via --%s (use --%s instead).",
 				option.EgressMasqueradeInterfaces, option.Devices)
 		}
