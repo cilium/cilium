@@ -267,6 +267,11 @@ const (
 	// conflicting marks.
 	EnableIdentityMark = "enable-identity-mark"
 
+	// AllowHostSrc enables nodes to receive traffic from other nodes with
+	// the source identity "host". Useful for dropless upgrades from v1.6
+	// to later versions.
+	AllowHostSrc = "allow-host-src"
+
 	// LibDir enables the directory path to store runtime build environment
 	LibDir = "lib-dir"
 
@@ -1393,6 +1398,11 @@ type DaemonConfig struct {
 	// conflicting marks.
 	EnableIdentityMark bool
 
+	// AllowHostSrc enables nodes to receive traffic from other nodes with
+	// the source identity "host". Useful for dropless upgrades from v1.6
+	// to later versions.
+	AllowHostSrc bool
+
 	// excludeLocalAddresses excludes certain addresses to be recognized as
 	// a local address
 	excludeLocalAddresses []*net.IPNet
@@ -1997,6 +2007,15 @@ func (c *DaemonConfig) Populate() {
 	}
 
 	c.EnableIdentityMark = viper.GetBool(EnableIdentityMark)
+
+	switch viper.GetString(AllowHostSrc) {
+	case "auto":
+		c.AllowHostSrc = !c.EnableRemoteNodeIdentity
+	case "true":
+		c.AllowHostSrc = true
+	default:
+		c.AllowHostSrc = false
+	}
 
 	// toFQDNs options
 	// When the poller is enabled, the default MinTTL is lowered. This is to
