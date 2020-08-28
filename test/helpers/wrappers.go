@@ -73,6 +73,17 @@ func CurlFail(endpoint string, optionalValues ...interface{}) string {
 		CurlConnectTimeout, CurlMaxTimeout, endpoint, statsInfo)
 }
 
+// CurlFailNoStats does the same as CurlFail() except that it does not print
+// the stats info.
+func CurlFailNoStats(endpoint string, optionalValues ...interface{}) string {
+	if len(optionalValues) > 0 {
+		endpoint = fmt.Sprintf(endpoint, optionalValues...)
+	}
+	return fmt.Sprintf(
+		`curl --path-as-is -s -D /dev/stderr --fail --connect-timeout %[1]d --max-time %[2]d %[3]s`,
+		CurlConnectTimeout, CurlMaxTimeout, endpoint)
+}
+
 // CurlWithHTTPCode retunrs the string representation of the curl command which
 // only outputs the HTTP code returned by its execution against the specified
 // endpoint. It takes a variadic optinalValues argument. This is passed on to
