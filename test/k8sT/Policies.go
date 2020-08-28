@@ -1604,7 +1604,7 @@ EOF`, k, v)
 				}
 			}
 		}
-		It("checks policy example", func() {
+		SkipItIf(helpers.SkipQuarantined, "checks policy example", func() {
 
 			waitforPods()
 
