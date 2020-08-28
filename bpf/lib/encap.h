@@ -129,11 +129,17 @@ __encap_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
 	__u32 node_id;
 	int ret;
 
+/* If the destination allows host src, then there's no value in transmitting
+ * remote_node source so to ease upgrade from v1.6 -> v1.7 where v1.6 does not
+ * understand remote_node identity, we avoid transmitting it as a source.
+ */
+#ifndef ALLOW_HOST_SRC
 	/* When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
 	 * received. */
 	if (seclabel == HOST_ID)
 		seclabel = REMOTE_NODE_ID;
+#endif /* ALLOW_HOST_SRC */
 
 	node_id = bpf_htonl(tunnel_endpoint);
 	key.tunnel_id = seclabel;

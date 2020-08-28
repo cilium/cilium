@@ -73,12 +73,14 @@ static inline int handle_ipv6(struct __sk_buff *skb, __u32 *identity)
 			return DROP_NO_TUNNEL_KEY;
 		*identity = key.tunnel_id;
 
+#ifndef ALLOW_HOST_SRC
 		/* Any node encapsulating will map any HOST_ID source to be
 		 * presented as REMOTE_NODE_ID, therefore any attempt to signal
 		 * HOST_ID as source from a remote node can be droppped. */
 		if (*identity == HOST_ID) {
 			return DROP_INVALID_IDENTITY;
 		}
+#endif /* ALLOW_HOST_SRC */
 	}
 
 	cilium_dbg(skb, DBG_DECAP, key.tunnel_id, key.tunnel_label);
@@ -190,9 +192,11 @@ static inline int handle_ipv4(struct __sk_buff *skb, __u32 *identity)
 			return DROP_NO_TUNNEL_KEY;
 		*identity = key.tunnel_id;
 
+#ifndef ALLOW_HOST_SRC
 		if (*identity == HOST_ID) {
 			return DROP_INVALID_IDENTITY;
 		}
+#endif /* ALLOW_HOST_SRC */
 	}
 
 	l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
