@@ -27,7 +27,7 @@ function addCopyButtonToCodeCells() {
     setTimeout(addCopyButtonToCodeCells, 1000);
     return;
   }
-  var codeCells = document.querySelectorAll("pre");
+  var codeCells = document.querySelectorAll(".rst-content pre");
   codeCells.forEach(function(codeCell, index) {
     var wrapper = document.createElement("div");
     wrapper.className = "code-wrapper";
