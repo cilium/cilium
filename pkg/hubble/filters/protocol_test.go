@@ -77,28 +77,6 @@ func TestFlowProtocolFilter(t *testing.T) {
 			want: true,
 		},
 		{
-			name: "tcp with single flag",
-			args: args{
-				f: []*flowpb.FlowFilter{{Protocol: []string{"tcp:syn"}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{Flags: &flowpb.TCPFlags{SYN: true, ACK: true}}}},
-				}},
-			},
-			want: true,
-		},
-		{
-			name: "tcp with multiple flags",
-			args: args{
-				f: []*flowpb.FlowFilter{{Protocol: []string{"tcp:syn,fin,urg,ece,psh,ack,ns,cwr"}}},
-				ev: &v1.Event{Event: &flowpb.Flow{
-					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
-						Flags: &flowpb.TCPFlags{SYN: true, FIN: true, URG: true, ECE: true,
-							PSH: true, ACK: true, NS: true, CWR: true}}}},
-				}},
-			},
-			want: true,
-		},
-		{
 			name: "multiple protocols",
 			args: args{
 				f: []*flowpb.FlowFilter{{Protocol: []string{"tcp", "kafka"}}},
