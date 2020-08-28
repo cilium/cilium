@@ -4,24 +4,24 @@ apiVersion: v1
 metadata:
   name: redis-master
   labels:
-    k8s-app.guestbook: redis
-    role: master
+    app: redis
+    role: leader
+    tier: backend
 spec:
   replicas: 1
   selector:
-    k8s-app.guestbook: redis
-    role: master
+    app: redis
   template:
     metadata:
       labels:
-        k8s-app.guestbook: redis
-        role: master
-        zgroup: guestbook
+        app: redis
+        role: leader
+        tier: backend
     spec:
       terminationGracePeriodSeconds: 0
       containers:
-      - name: redis-master
-        image: docker.io/library/redis:4.0.11
+      - name: leader
+        image: "docker.io/library/redis:6.0.5"
         imagePullPolicy: IfNotPresent
         ports:
         - name: redis-server
@@ -34,40 +34,41 @@ apiVersion: v1
 metadata:
   name: redis-master
   labels:
-    k8s-app.guestbook: redis
-    role: master
-    zgroup: guestbook
+    app: redis
+    role: leader
+    tier: backend
 spec:
   ports:
   - port: 6379
     targetPort: redis-server
   selector:
-    k8s-app.guestbook: redis
-    role: master
+    app: redis
+    role: leader
+    tier: backend
 ---
 kind: ReplicationController
 apiVersion: v1
 metadata:
-  name: redis-slave
+  name: redis-follower
   labels:
-    k8s-app.guestbook: redis
-    role: slave
+    app: redis
+    role: follower
+    tier: backend
 spec:
   replicas: 1
   selector:
-    k8s-app.guestbook: redis
-    role: slave
+    app: redis
   template:
     metadata:
       labels:
-        k8s-app.guestbook: redis
-        role: slave
-        zgroup: guestbook
+        app: redis
+        role: follower
+        tier: backend
     spec:
       terminationGracePeriodSeconds: 0
       containers:
-      - name: redis-slave
-        image: gcr.io/google_samples/gb-redisslave:v1
+      - name: follower
+        image: gcr.io/google_samples/gb-redis-follower:v2
         imagePullPolicy: IfNotPresent
         ports:
         - name: redis-server
@@ -78,17 +79,19 @@ spec:
 kind: Service
 apiVersion: v1
 metadata:
-  name: redis-slave
+  name: redis-follower
   labels:
-    k8s-app.guestbook: redis
-    role: slave
+    app: redis
+    role: follower
+    tier: backend
 spec:
   ports:
   - port: 6379
     targetPort: redis-server
   selector:
-    k8s-app.guestbook: redis
-    role: slave
+    app: redis
+    role: follower
+    tier: backend
 ---
 apiVersion: apps/v1
 kind: Deployment
@@ -108,7 +111,7 @@ spec:
     spec:
       containers:
       - name: php-redis
-        image: gcr.io/google-samples/gb-frontend:v4
+        image: gcr.io/google-samples/gb-frontend:v6
         resources:
           requests:
             cpu: 100m

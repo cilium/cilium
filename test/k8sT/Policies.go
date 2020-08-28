@@ -16,6 +16,7 @@ package k8sTest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
 	"regexp"
 	"time"
@@ -1476,7 +1477,6 @@ var _ = Describe("K8sPolicyTest", func() {
 	Context("GuestBook Examples", func() {
 		var (
 			deployment                = "guestbook_deployment.yaml"
-			groupLabel                = "zgroup=guestbook"
 			redisPolicy               = "guestbook-policy-redis.json"
 			redisPolicyName           = "guestbook-policy-redis"
 			redisPolicyDeprecated     = "guestbook-policy-redis-deprecated.json"
@@ -1531,20 +1531,17 @@ var _ = Describe("K8sPolicyTest", func() {
 		})
 
 		waitforPods := func() {
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l tier=backend", helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "Backend pods are not ready after timeout")
 
-			err = kubectl.WaitforPods(
-				helpers.DefaultNamespace,
-				fmt.Sprintf("-l %s", groupLabel), helpers.HelperTimeout)
-			ExpectWithOffset(1, err).Should(BeNil(), "Bookinfo pods are not ready after timeout")
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l tier=frontend", helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "Frontend pods are not ready after timeout")
 
-			err := kubectl.WaitForServiceEndpoints(
-				helpers.DefaultNamespace, "", "redis-master", helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "error waiting for redis-master service to be ready")
+			err = kubectl.WaitForServiceEndpoints(helpers.DefaultNamespace, "", "redis-master", helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "error waiting for redis-master service to be ready")
 
-			err = kubectl.WaitForServiceEndpoints(
-				helpers.DefaultNamespace, "", "redis-slave", helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "error waiting for redis-slave service to be ready")
-
+			err = kubectl.WaitForServiceEndpoints(helpers.DefaultNamespace, "", "redis-follower", helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "error waiting for redis-follower service to be ready")
 		}
 
 		policyCheckStatus := func(policyCheck string) {
@@ -1555,27 +1552,18 @@ var _ = Describe("K8sPolicyTest", func() {
 		}
 
 		testConnectivitytoRedis := func() {
-			webPods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "-l k8s-app.guestbook=web")
-			Expect(err).To(BeNil(), "Cannot get web pods")
+			webPods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "-l app=guestbook")
+			ExpectWithOffset(1, err).To(BeNil(), "Error retrieving web pods")
+			ExpectWithOffset(1, webPods).ShouldNot(BeEmpty(), "Cannot retrieve web pods")
 
-			serviceIP, port, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, "redis-master")
-			Expect(err).To(BeNil(), "Cannot get hostPort of redis-master")
-
-			serviceName := "redis-master"
-			err = kubectl.WaitForKubeDNSEntry(serviceName, helpers.DefaultNamespace)
-			Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
-
+			cmd := helpers.CurlFailNoStats(`"127.0.0.1/guestbook.php?cmd=set&key=messages&value=Hello"`)
 			for pod := range webPods {
+				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, cmd)
+				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Cannot curl webhook frontend of pod %q", pod)
 
-				redisMetadata := map[string]int{serviceIP: port, serviceName: port}
-				for k, v := range redisMetadata {
-					command := fmt.Sprintf(`nc %s %d <<EOF
-PING
-EOF`, k, v)
-					res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, command)
-					ExpectWithOffset(1, res).To(helpers.CMDSuccess(),
-						"Web pod %q cannot connect to redis-master on '%s:%d'", pod, k, v)
-				}
+				var response map[string]interface{}
+				err := json.Unmarshal([]byte(res.Stdout()), &response)
+				ExpectWithOffset(1, err).To(BeNil(), fmt.Sprintf("Error parsing JSON response: %s", res.Stdout()))
 			}
 		}
 		It("checks policy example", func() {
