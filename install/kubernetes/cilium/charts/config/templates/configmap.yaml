@@ -574,12 +574,16 @@ data:
     {{.}}
 {{- end }}
 {{- end }}
+{{- if and (.Values.global.hubble.listenAddress) }}
   # An additional address for Hubble server to listen to (e.g. ":4244").
   hubble-listen-address: {{ .Values.global.hubble.listenAddress | quote }}
 {{- if .Values.global.hubble.allowInsecure }}
   hubble-allow-insecure: "true"
 {{- else }}
+  hubble-tls-cert-file: /var/lib/cilium/tls/hubble/server.crt
+  hubble-tls-key-file: /var/lib/cilium/tls/hubble/server.key
   hubble-allow-insecure: "false"
+{{- end}}
 {{- end }}
 {{- end }}
 {{- if .Values.disableIptablesFeederRules }}

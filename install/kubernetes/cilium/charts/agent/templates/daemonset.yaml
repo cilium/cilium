@@ -253,6 +253,11 @@ spec:
           name: kube-config
           readOnly: true
 {{- end}}
+{{- if and (.Values.global.hubble.enabled) (.Values.global.hubble.listenAddress) (not .Values.global.hubble.allowInsecure) }}
+        - mountPath: /var/lib/cilium/tls/hubble
+          name: hubble-server-certs
+          readOnly: true
+{{- end}}
 {{- if .Values.monitor.enabled }}
       - name: cilium-monitor
         command: ["cilium"]
@@ -451,6 +456,16 @@ spec:
         configMap:
           name: {{ .Values.global.cni.configMap }}
 {{- end }}
+{{- if and (.Values.global.hubble.enabled) (.Values.global.hubble.listenAddress) (not .Values.global.hubble.allowInsecure) }}
+      - name: hubble-server-certs
+        secret:
+          secretName: hubble-server-certs
+          items:
+          - key: tls.crt
+            path: server.crt
+          - key: tls.key
+            path: server.key
+{{- end}}
   updateStrategy:
     rollingUpdate:
       maxUnavailable: {{ .Values.maxUnavailable }}
