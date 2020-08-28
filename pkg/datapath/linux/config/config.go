@@ -391,7 +391,7 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_IDENTITY_MARK"] = "1"
 	}
 
-	if !option.Config.EnableRemoteNodeIdentity {
+	if !option.Config.AllowHostSrc {
 		cDefinesMap["ALLOW_HOST_SRC"] = "1"
 	}
 
