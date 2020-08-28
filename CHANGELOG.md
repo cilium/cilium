@@ -1,5 +1,44 @@
 # Changelog
 
+## v1.7.8
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* Cilium operator HA mode (Backport PR #12760, Upstream PR #12409, @fristonio)
+
+**Minor Changes:**
+* daemon: Add hidden --k8s-sync-timeout option (Backport PR #12873, Upstream PR #12822, @joestringer)
+* fix: node-init restartPods should use docker if /etc/crictl.yaml not found (Backport PR #12992, Upstream PR #12894, @UnwashedMeme)
+* k8s: update k8s versions to 1.17.11 (#12877, @aanm)
+* v1.7: Make EC2 AWS API endpoint configurable in operator (#12896, @tklauser)
+
+**Bugfixes:**
+* avoid schedule cilium-operator pods in same node for HA mode (Backport PR #12760, Upstream PR #12771, @aanm)
+* datapath: Fix ICMP ECHO tuple ports (Backport PR #12760, Upstream PR #12729, @brb)
+* datapath: Pull skb data in to-netdev path (Backport PR #12992, Upstream PR #12917, @brb)
+* Fix bug in ENI environments where connections to NodePort would fail due to asymmetric routing (Backport PR #13010, Upstream PR #12770, @qmonnet)
+* Fix bug where cilium-health reports connectivity failures to stale IPs (Backport PR #13002, Upstream PR #12989, @kkourt)
+* Istio integration has been updated to Istio release 1.5.9. (Backport PR #12873, Upstream PR #12861, @jrajahalme)
+* operator: Fix non-leader crashing with kvstore (Backport PR #12838, Upstream PR #12825, @christarazi)
+* pkg/kvstore: add gRPC keep alives for etcd connectivity (Backport PR #12992, Upstream PR #12947, @aanm)
+* Fix packet loss issues when running Cilium v1.6 and v1.7 in the same cluster concurrently with --enable-remote-node-identity=false (#12999, @joestringer)
+
+**CI Changes:**
+* test: Add externalIPs tests to K8sServicesTest and disable K8sKubeProxyFreeMatrix (Backport PR #12800, Upstream PR #11696, @brb)
+
+**Misc Changes:**
+* Add Kubernetes compatibility documentation (Backport PR #12800, Upstream PR #12783, @aanm)
+* doc: update #ebpf Slack channel name (Backport PR #12800, Upstream PR #12766, @qmonnet)
+* docs/metrics: Correct label typos in metrics.rst (Backport PR #12992, Upstream PR #12901, @sayboras)
+* docs: limit copybutton to content area only (Backport PR #13002, Upstream PR #12997, @genbit)
+* Stop waiting for pod when collecting logs (Backport PR #12800, Upstream PR #12547, @Weil0ng)
+* Upgrade Cilium docs theme version (Backport PR #13002, Upstream PR #12996, @Neelajacques)
+* v1.7 doc: hubble namespace fix for GKE (#12966, @kAworu)
+* v1.7: Update Go to 1.13.15 (#12812, @tklauser)
+* vagrant: Don't use the NFS device's IP as node IP (Backport PR #13002, Upstream PR #12215, @pchaigno)
+
 ## v1.7.7
 
 Summary of Changes
