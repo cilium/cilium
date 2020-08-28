@@ -255,7 +255,7 @@ spec:
 {{- end}}
 {{- if and (.Values.global.hubble.enabled) (.Values.global.hubble.listenAddress) (not .Values.global.hubble.allowInsecure) }}
         - mountPath: /var/lib/cilium/tls/hubble
-          name: hubble-server-certs
+          name: hubble-tls
           readOnly: true
 {{- end}}
 {{- if .Values.monitor.enabled }}
@@ -457,14 +457,21 @@ spec:
           name: {{ .Values.global.cni.configMap }}
 {{- end }}
 {{- if and (.Values.global.hubble.enabled) (.Values.global.hubble.listenAddress) (not .Values.global.hubble.allowInsecure) }}
-      - name: hubble-server-certs
-        secret:
-          secretName: hubble-server-certs
-          items:
-          - key: tls.crt
-            path: server.crt
-          - key: tls.key
-            path: server.key
+      - name: hubble-tls
+        projected:
+          sources:
+          - secret:
+              name: hubble-server-certs
+              items:
+                - key: tls.crt
+                  path: server.crt
+                - key: tls.key
+                  path: server.key
+          - configMap:
+              name: hubble-ca-cert
+              items:
+                - key: tls.crt
+                  path: client-ca.crt
 {{- end}}
   updateStrategy:
     rollingUpdate:

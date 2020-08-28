@@ -19,7 +19,8 @@ tls.key: {{ $ca.Key | b64enc }}
 {{- define "ca.gen-cert-only" }}
 {{- $ca := .ca | default (genCA "hubble-ca.cilium.io" 1095) -}}
 {{- $_ := set . "ca" $ca -}}
-tls.crt: {{ $ca.Cert | b64enc }}
+tls.crt: |-
+{{ $ca.Cert | indent 2 -}}
 {{- end }}
 {{- define "server.gen-certs" }}
 {{- $ca := .ca | default (genCA "hubble-ca.cilium.io" 1095) -}}
