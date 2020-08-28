@@ -574,3 +574,9 @@ func checkNodePortAndEphemeralPortRanges() error {
 
 	return nil
 }
+
+func hasFullHostReachableServices() bool {
+	return option.Config.EnableHostReachableServices &&
+		option.Config.EnableHostServicesTCP &&
+		option.Config.EnableHostServicesUDP
+}
