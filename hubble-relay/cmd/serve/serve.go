@@ -15,7 +15,10 @@
 package serve
 
 import (
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
 
@@ -39,6 +42,10 @@ const (
 	keyPeerService            = "peer-service"
 	keySortBufferMaxLen       = "sort-buffer-len-max"
 	keySortBufferDrainTimeout = "sort-buffer-drain-timeout"
+	keyTLSClientCertFile      = "tls-client-cert-file"
+	keyTLSClientKeyFile       = "tls-client-key-file"
+	keyTLSHubbleServerCAFiles = "tls-hubble-server-ca-files"
+	keyTLSClientDisabled      = "disable-client-tls"
 )
 
 // New creates a new serve command.
@@ -85,6 +92,26 @@ func New(vp *viper.Viper) *cobra.Command {
 		keySortBufferDrainTimeout,
 		defaults.SortBufferDrainTimeout,
 		"When the per-request flows sort buffer is not full, a flow is drained every time this timeout is reached (only affects requests in follow-mode)")
+	flags.String(
+		keyTLSClientCertFile,
+		"",
+		"Path to the public key file for the client certificate to connect to Hubble server instances. The file must contain PEM encoded data.",
+	)
+	flags.String(
+		keyTLSClientKeyFile,
+		"",
+		"Path to the private key file for the client certificate to connect to Hubble server instances. The file must contain PEM encoded data.",
+	)
+	flags.StringSlice(
+		keyTLSHubbleServerCAFiles,
+		[]string{},
+		"Paths to one or more public key files of the CA which sign certificates for Hubble server instances.",
+	)
+	flags.Bool(
+		keyTLSClientDisabled,
+		false,
+		"Disable (m)TLS and allow the connection to Hubble server instances to be over plaintext.",
+	)
 	vp.BindPFlags(flags)
 
 	return cmd
@@ -98,9 +125,14 @@ func runServe(vp *viper.Viper) error {
 		server.WithRetryTimeout(vp.GetDuration(keyRetryTimeout)),
 		server.WithSortBufferMaxLen(vp.GetInt(keySortBufferMaxLen)),
 		server.WithSortBufferDrainTimeout(vp.GetDuration(keySortBufferDrainTimeout)),
-		server.WithInsecureClient(), //FIXME: add option to set client TLS settings
 		server.WithInsecureServer(), //FIXME: add option to set server TLS settings
 	}
+	clientTLSOption, err := buildClientTLSOption(vp)
+	if err != nil {
+		return err
+	}
+	opts = append(opts, clientTLSOption)
+
 	if vp.GetBool(keyDebug) {
 		opts = append(opts, server.WithDebug())
 	}
@@ -127,4 +159,52 @@ func runServe(vp *viper.Viper) error {
 		}
 	}()
 	return srv.Serve()
+}
+
+func buildClientTLSOption(vp *viper.Viper) (server.Option, error) {
+	if vp.GetBool(keyTLSClientDisabled) {
+		return server.WithInsecureClient(), nil
+	}
+
+	var tlsHubbleServerCAs *x509.CertPool
+	tlsHubbleServerCAPaths := vp.GetStringSlice(keyTLSHubbleServerCAFiles)
+	switch {
+	case len(tlsHubbleServerCAPaths) > 0:
+		tlsHubbleServerCAs = x509.NewCertPool()
+		for _, path := range tlsHubbleServerCAPaths {
+			certPEM, err := ioutil.ReadFile(path)
+			if err != nil {
+				return nil, fmt.Errorf("cannot load cert '%s': %s", path, err)
+			}
+			if ok := tlsHubbleServerCAs.AppendCertsFromPEM(certPEM); !ok {
+				return nil, fmt.Errorf("cannot process cert '%s': must be a PEM encoded certificate", path)
+			}
+		}
+	default:
+		var err error
+		tlsHubbleServerCAs, err = x509.SystemCertPool()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	tlsClientCertPath := vp.GetString(keyTLSClientCertFile)
+	tlsClientKeyPath := vp.GetString(keyTLSClientKeyFile)
+	switch {
+	case tlsClientCertPath != "" && tlsClientKeyPath != "": // mTLS
+		cert, err := tls.LoadX509KeyPair(tlsClientCertPath, tlsClientKeyPath)
+		if err != nil {
+			return nil, err
+		}
+		return server.WithClientMTLSFromCert(tlsHubbleServerCAs, cert), nil
+	case tlsClientCertPath == "" && tlsClientKeyPath == "": // TLS
+		return server.WithClientTLSFromCert(tlsHubbleServerCAs), nil
+	default: // invalid parameters
+		return nil, fmt.Errorf(
+			"both or none of '%s' and '%s' must be provided; have %s=%s, %s=%s",
+			keyTLSClientCertFile, keyTLSClientKeyFile,
+			keyTLSClientCertFile, tlsClientCertPath,
+			keyTLSClientKeyFile, tlsClientKeyPath,
+		)
+	}
 }
