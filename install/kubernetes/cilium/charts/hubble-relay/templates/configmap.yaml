@@ -23,3 +23,16 @@ data:
 {{- if .Values.sortBufferDrainTimeout }}
     sort-buffer-drain-timeout: {{ .Values.sortBufferDrainTimeout }}
 {{- end }}
+{{- if .Values.global.hubble.tls.enabled }}
+    tls-client-cert-file: /var/lib/hubble-relay/tls/client.crt
+    tls-client-key-file: /var/lib/hubble-relay/tls/client.key
+    tls-hubble-server-ca-files: /var/lib/hubble-relay/tls/hubble-server-ca.crt
+{{- else }}
+    disable-client-tls: true
+{{- end}}
+{{- if .Values.global.hubble.relay.tls.enabled }}
+    tls-server-cert-file: /var/lib/hubble-relay/tls/server.crt
+    tls-server-key-file: /var/lib/hubble-relay/tls/server.key
+{{- else }}
+    disable-server-tls: true
+{{- end}}
