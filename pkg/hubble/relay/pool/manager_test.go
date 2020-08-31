@@ -468,6 +468,79 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 		}, {
+			name: "2 peers added, 1 deleted, TLS enabled",
+			pcBuilder: testutils.FakePeerClientBuilder{
+				OnClient: func(target string) (peerTypes.Client, error) {
+					return &testutils.FakePeerClient{
+						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+							i := -1
+							cns := []*peerpb.ChangeNotification{
+								{
+									Name:    "one",
+									Address: "192.0.1.1",
+									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									Tls: &peerpb.TLS{
+										ServerName: "one.default.hubble-grpc.cilium.io",
+									},
+								}, {
+									Name:    "two",
+									Address: "192.0.1.2",
+									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									Tls: &peerpb.TLS{
+										ServerName: "two.default.hubble-grpc.cilium.io",
+									},
+								}, {
+									Name:    "one",
+									Address: "192.0.1.1",
+									Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+									Tls: &peerpb.TLS{
+										ServerName: "one.default.hubble-grpc.cilium.io",
+									},
+								},
+							}
+							return &testutils.FakePeerNotifyClient{
+								OnRecv: func() (*peerpb.ChangeNotification, error) {
+									i++
+									switch {
+									case i >= len(cns):
+										return nil, io.EOF
+									case i == len(cns)-1:
+										close(done)
+										fallthrough
+									default:
+										return cns[i], nil
+									}
+								},
+							}, nil
+						},
+						OnClose: func() error {
+							return nil
+						},
+					}, nil
+				},
+			},
+			ccBuilder: FakeClientConnBuilder{
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
+					return nil, nil
+				},
+			},
+			want: want{
+				peers: []poolTypes.Peer{
+					{
+						Peer: peerTypes.Peer{
+							Name: "two",
+							Address: &net.TCPAddr{
+								IP:   net.ParseIP("192.0.1.2"),
+								Port: defaults.ServerPort,
+							},
+							TLSEnabled:    true,
+							TLSServerName: "two.default.hubble-grpc.cilium.io",
+						},
+						Conn: nil,
+					},
+				},
+			},
+		}, {
 			name: "PeerClientBuilder errors out",
 			pcBuilder: testutils.FakePeerClientBuilder{
 				OnClient: func(target string) (peerTypes.Client, error) {
