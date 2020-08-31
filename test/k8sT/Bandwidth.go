@@ -56,6 +56,8 @@ var _ = Describe("K8sBandwidthTest", func() {
 
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
+
+		ExpectWithOffset(1, "xxxx").To(Equal("yyyy"))
 	})
 
 	AfterFailed(func() {

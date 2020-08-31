@@ -41,8 +41,8 @@ var _ = SkipContextIf(func() bool {
 		istioVersion = "1.5.9"
 
 		// Modifiers for pre-release testing, normally empty
-		prerelease = "" // "-beta.1"
-		// istioctlParams = ""
+		prerelease     = "" // "-beta.1"
+		istioctlParams = ""
 		// Keeping these here in comments serve multiple purposes:
 		// - remind how to test with prerelease images in future
 		// - cause CI infra to prepull these images so that they do not
@@ -107,10 +107,8 @@ var _ = SkipContextIf(func() bool {
 		res.ExpectSuccess("unable to label namespace %q", helpers.DefaultNamespace)
 
 		By("Deploying Istio")
-		// res = kubectl.Exec("./cilium-istioctl manifest apply -y" + istioctlParams)
-		// res.ExpectSuccess("unable to deploy Istio")
-
-		ExpectWithOffset(1, "IstioDeploy").To(Equal("FailIstioDeploy"))
+		res = kubectl.Exec("./cilium-istioctl manifest apply -y" + istioctlParams)
+		res.ExpectSuccess("unable to deploy Istio")
 	})
 
 	AfterAll(func() {
