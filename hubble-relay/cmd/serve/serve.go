@@ -17,6 +17,7 @@ package serve
 import (
 	"crypto/tls"
 	"crypto/x509"
+	"errors"
 	"fmt"
 	"io/ioutil"
 	"os"
@@ -46,6 +47,9 @@ const (
 	keyTLSClientKeyFile       = "tls-client-key-file"
 	keyTLSHubbleServerCAFiles = "tls-hubble-server-ca-files"
 	keyTLSClientDisabled      = "disable-client-tls"
+	keyTLSServerCertFile      = "tls-server-cert-file"
+	keyTLSServerKeyFile       = "tls-server-key-file"
+	keyTLSServerDisabled      = "disable-server-tls"
 )
 
 // New creates a new serve command.
@@ -107,10 +111,25 @@ func New(vp *viper.Viper) *cobra.Command {
 		[]string{},
 		"Paths to one or more public key files of the CA which sign certificates for Hubble server instances.",
 	)
+	flags.String(
+		keyTLSServerCertFile,
+		"",
+		"Path to the public key file for the Hubble Relay server. The file must contain PEM encoded data.",
+	)
+	flags.String(
+		keyTLSServerKeyFile,
+		"",
+		"Path to the private key file for the Hubble Relay server. The file must contain PEM encoded data.",
+	)
 	flags.Bool(
 		keyTLSClientDisabled,
 		false,
 		"Disable (m)TLS and allow the connection to Hubble server instances to be over plaintext.",
+	)
+	flags.Bool(
+		keyTLSServerDisabled,
+		false,
+		"Disable TLS for the server and allow clients to connect over plaintext.",
 	)
 	vp.BindPFlags(flags)
 
@@ -125,13 +144,18 @@ func runServe(vp *viper.Viper) error {
 		server.WithRetryTimeout(vp.GetDuration(keyRetryTimeout)),
 		server.WithSortBufferMaxLen(vp.GetInt(keySortBufferMaxLen)),
 		server.WithSortBufferDrainTimeout(vp.GetDuration(keySortBufferDrainTimeout)),
-		server.WithInsecureServer(), //FIXME: add option to set server TLS settings
 	}
 	clientTLSOption, err := buildClientTLSOption(vp)
 	if err != nil {
 		return err
 	}
 	opts = append(opts, clientTLSOption)
+
+	serverTLSOption, err := buildServerTLSOption(vp)
+	if err != nil {
+		return err
+	}
+	opts = append(opts, serverTLSOption)
 
 	if vp.GetBool(keyDebug) {
 		opts = append(opts, server.WithDebug())
@@ -207,4 +231,24 @@ func buildClientTLSOption(vp *viper.Viper) (server.Option, error) {
 			keyTLSClientKeyFile, tlsClientKeyPath,
 		)
 	}
+}
+
+func buildServerTLSOption(vp *viper.Viper) (server.Option, error) {
+	if vp.GetBool(keyTLSServerDisabled) {
+		return server.WithInsecureServer(), nil
+	}
+
+	tlsServerCertPath := vp.GetString(keyTLSServerCertFile)
+	if tlsServerCertPath == "" {
+		return nil, errors.New("no TLS certificate provided for the server")
+	}
+	tlsServerKeyPath := vp.GetString(keyTLSServerKeyFile)
+	if tlsServerKeyPath == "" {
+		return nil, errors.New("no TLS key provided for the server")
+	}
+	cert, err := tls.LoadX509KeyPair(tlsServerCertPath, tlsServerKeyPath)
+	if err != nil {
+		return nil, err
+	}
+	return server.WithTLSFromCert(cert), nil
 }
