@@ -253,7 +253,7 @@ spec:
           name: kube-config
           readOnly: true
 {{- end}}
-{{- if and (.Values.global.hubble.enabled) (.Values.global.hubble.listenAddress) (not .Values.global.hubble.allowInsecure) }}
+{{- if and (.Values.global.hubble.enabled) (.Values.global.hubble.listenAddress) (.Values.global.hubble.tls.enabled) }}
         - mountPath: /var/lib/cilium/tls/hubble
           name: hubble-tls
           readOnly: true
@@ -456,7 +456,7 @@ spec:
         configMap:
           name: {{ .Values.global.cni.configMap }}
 {{- end }}
-{{- if and (.Values.global.hubble.enabled) (.Values.global.hubble.listenAddress) (not .Values.global.hubble.allowInsecure) }}
+{{- if and (.Values.global.hubble.enabled) (.Values.global.hubble.listenAddress) (.Values.global.hubble.tls.enabled) }}
       - name: hubble-tls
         projected:
           sources:

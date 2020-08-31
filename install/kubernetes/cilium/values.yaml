@@ -498,14 +498,14 @@ global:
     # on port 4244.
     listenAddress: ""
     tls:
+      # Enable mutual TLS for listenAddress. Setting this value to false is
+      # highly discouraged.
+      enabled: true
       # When set to true, automatically generate a CA and certificates to
-      # enable mTLS between Hubble server and Hubble Relay.
-      # If set to false, the certs for Hubble server and Hubble Relay need to
-      # be provided by setting appropriate values in the hubble-tls chart.
+      # enable mTLS between Hubble server and Hubble Relay. If set to false,
+      # the certs for Hubble server need to be provided by setting appropriate
+      # values in the hubble-tls chart.
       auto: true
-    # Set this to true to allow the Hubble server to run insecurely on the
-    # address provided by listenAddress. In this mode, TLS is not configured.
-    allowInsecure: false
     # Buffer size of the channel Hubble uses to receive monitor events. If this value is not set,
     # the queue size is set to the default monitor queue size.
     eventQueueSize: ~

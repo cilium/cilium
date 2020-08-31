@@ -261,11 +261,8 @@ Hubble Relay is a service which allows to query multiple Hubble instances
 simultaneously and aggregate the results. As Hubble Relay relies on individual
 Hubble instances, Hubble needs to be enabled when deploying Cilium. In
 addition, the Hubble service needs to be exposed on TCP port ``4244``. This can
-be done via the Helm values ``global.hubble.enabled=true``,
-``global.hubble.listenAddress=":4244"`` and
-``global.hubble.allowInsecure=true`` or the
-``--enable-hubble --hubble-listen-address :4244 --hubble-allow-insecure``
-options on cilium-agent.
+be done via the Helm values ``--enable-hubble`` and
+``--hubble-listen-address :4244`` options on cilium-agent.
 
 .. note::
    Enabling Hubble to listen on TCP port 4244 globally has security

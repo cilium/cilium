@@ -47,7 +47,6 @@ networking infrastructure in a completely transparent manner.
               --reuse-values \\
               --set global.hubble.enabled=true \\
               --set global.hubble.listenAddress=":4244" \\
-              --set global.hubble.allowInsecure=true \\
               --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}" \\
               --set global.hubble.relay.enabled=true \\
               --set global.hubble.ui.enabled=true

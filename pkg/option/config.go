@@ -766,9 +766,9 @@ const (
 	// HubbleListenAddress specifies address for Hubble server to listen to.
 	HubbleListenAddress = "hubble-listen-address"
 
-	// HubbleAllowInsecure allows the Hubble server to run on the given listen
-	// address without TLS enabled.
-	HubbleAllowInsecure = "hubble-allow-insecure"
+	// HubbleTLSDisabled allows the Hubble server to run on the given listen
+	// address without TLS.
+	HubbleTLSDisabled = "hubble-disable-tls"
 
 	// HubbleTLSCertFile specifies the path to the public key file for the
 	// Hubble server. The file must contain PEM encoded data.
@@ -1036,7 +1036,7 @@ var HelpFlagSections = []FlagsSection{
 			EnableHubble,
 			HubbleSocketPath,
 			HubbleListenAddress,
-			HubbleAllowInsecure,
+			HubbleTLSDisabled,
 			HubbleTLSCertFile,
 			HubbleTLSKeyFile,
 			HubbleTLSClientCertFiles,
@@ -1883,9 +1883,9 @@ type DaemonConfig struct {
 	// HubbleListenAddress specifies address for Hubble to listen to.
 	HubbleListenAddress string
 
-	// HubbleAllowInsecure allows the Hubble server to run on the given listen
-	// address without TLS enabled.
-	HubbleAllowInsecure bool
+	// HubbleTLSDisabled allows the Hubble server to run on the given listen
+	// address without TLS.
+	HubbleTLSDisabled bool
 
 	// HubbleTLSCertFile specifies the path to the public key file for the
 	// Hubble server. The file must contain PEM encoded data.
@@ -2654,7 +2654,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableHubble = viper.GetBool(EnableHubble)
 	c.HubbleSocketPath = viper.GetString(HubbleSocketPath)
 	c.HubbleListenAddress = viper.GetString(HubbleListenAddress)
-	c.HubbleAllowInsecure = viper.GetBool(HubbleAllowInsecure)
+	c.HubbleTLSDisabled = viper.GetBool(HubbleTLSDisabled)
 	c.HubbleTLSCertFile = viper.GetString(HubbleTLSCertFile)
 	c.HubbleTLSKeyFile = viper.GetString(HubbleTLSKeyFile)
 	c.HubbleTLSClientCertFiles = viper.GetStringSlice(HubbleTLSClientCertFiles)
