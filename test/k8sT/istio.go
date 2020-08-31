@@ -41,8 +41,7 @@ var _ = SkipContextIf(func() bool {
 		istioVersion = "1.5.9"
 
 		// Modifiers for pre-release testing, normally empty
-		prerelease     = "" // "-beta.1"
-		istioctlParams = ""
+		prerelease = "" // "-beta.1"
 		// Keeping these here in comments serve multiple purposes:
 		// - remind how to test with prerelease images in future
 		// - cause CI infra to prepull these images so that they do not
@@ -105,10 +104,6 @@ var _ = SkipContextIf(func() bool {
 		By("Labeling default namespace for sidecar injection")
 		res = kubectl.NamespaceLabel(helpers.DefaultNamespace, "istio-injection=enabled")
 		res.ExpectSuccess("unable to label namespace %q", helpers.DefaultNamespace)
-
-		By("Deploying Istio")
-		res = kubectl.Exec("./cilium-istioctl manifest apply -y" + istioctlParams)
-		res.ExpectSuccess("unable to deploy Istio")
 	})
 
 	AfterAll(func() {
@@ -272,6 +267,9 @@ var _ = SkipContextIf(func() bool {
 			bookinfoV2YAML := helpers.ManifestGet(kubectl.BasePath(), "bookinfo-v2.yaml")
 			l7PolicyPath := helpers.ManifestGet(kubectl.BasePath(), "cnp-specs.yaml")
 
+			By("Deploying Istio")
+			res := kubectl.Exec("./cilium-istioctl manifest apply -y")
+			res.ExpectSuccess("unable to deploy Istio")
 			waitIstioReady()
 
 			// Create the L7 policy before creating the pods, in order to test
