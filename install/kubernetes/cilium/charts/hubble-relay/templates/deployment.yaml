@@ -59,6 +59,11 @@ spec:
           - mountPath: /etc/hubble-relay
             name: config
             readOnly: true
+{{- if or (.Values.global.hubble.tls.enabled) (.Values.global.hubble.relay.tls.enabled) }}
+          - mountPath: /var/lib/hubble-relay/tls
+            name: tls
+            readOnly: true
+{{- end }}
       restartPolicy: Always
       terminationGracePeriodSeconds: 0
       tolerations:
@@ -74,3 +79,31 @@ spec:
           path: {{ dir .Values.global.hubble.socketPath }}
           type: Directory
         name: hubble-sock-dir
+{{- if or (.Values.global.hubble.tls.enabled) (.Values.global.hubble.relay.tls.enabled) }}
+      - projected:
+          sources:
+{{- if .Values.global.hubble.tls.enabled }}
+          - secret:
+              name: hubble-relay-client-certs
+              items:
+                - key: tls.crt
+                  path: client.crt
+                - key: tls.key
+                  path: client.key
+          - configMap:
+              name: hubble-ca-cert
+              items:
+                - key: ca.crt
+                  path: hubble-server-ca.crt
+{{- end }}
+{{- if .Values.global.hubble.relay.tls.enabled }}
+          - secret:
+              name: hubble-relay-server-certs
+              items:
+                - key: tls.crt
+                  path: server.crt
+                - key: tls.key
+                  path: server.key
+{{- end }}
+        name: tls
+{{- end }}
