@@ -210,8 +210,10 @@ func (m *PeerManager) List() []poolTypes.Peer {
 		// note: there shouldn't be null entries in the map
 		peers = append(peers, poolTypes.Peer{
 			Peer: peerTypes.Peer{
-				Name:    v.Name,
-				Address: v.Address,
+				Name:          v.Name,
+				Address:       v.Address,
+				TLSEnabled:    v.TLSEnabled,
+				TLSServerName: v.TLSServerName,
 			},
 			Conn: v.conn,
 		})
