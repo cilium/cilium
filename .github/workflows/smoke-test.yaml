@@ -81,8 +81,8 @@ jobs:
       - name: Dump connectivity related logs and events
         if: ${{ failure() }}
         run: |
-          kubectl get pods -o wide
-          kubectl get deploy -o wide
+          kubectl describe pods
+          kubectl describe deploy
           for svc in $(make -C examples/kubernetes/connectivity-check/ list | grep Service | awk '{ print $4 }'); do kubectl describe service $svc; kubectl logs service/$svc --all-containers --since=${{ env.LOG_TIME }}; done
 
       - name: Dump hubble related logs and events
@@ -172,6 +172,6 @@ jobs:
       - name: Dump connectivity related logs and events
         if: ${{ failure() }}
         run: |
-          kubectl get pods -o wide
-          kubectl get deploy -o wide
+          kubectl describe pods
+          kubectl describe deploy
           for svc in $(make -C examples/kubernetes/connectivity-check/ list | grep Service | awk '{ print $4 }'); do kubectl describe service $svc; kubectl logs service/$svc --all-containers --since=${{ env.LOG_TIME }}; done
