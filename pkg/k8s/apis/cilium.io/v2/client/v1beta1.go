@@ -237,10 +237,13 @@ func waitForV1beta1CRD(
 			crd.ObjectMeta.Name,
 			metav1.DeleteOptions{},
 		); deleteErr != nil {
-			return fmt.Errorf("unable to delete k8s %s CRD %s. Deleting CRD due: %s",
-				crdName, deleteErr, err)
+			scopedLog.WithError(err).WithFields(logrus.Fields{
+				"deleteErr": deleteErr,
+			}).Error("Failed to delete CRD")
+			return fmt.Errorf("unable to delete CRD: %w", deleteErr)
 		}
-		return err
+
+		return fmt.Errorf("error occurred waiting for CRD: %w", err)
 	}
 
 	return nil
