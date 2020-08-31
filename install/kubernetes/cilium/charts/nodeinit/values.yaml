@@ -11,5 +11,9 @@ reconfigureKubelet: false
 # Delete the cbr0 bridge if it exists (GKE)
 removeCbrBridge: false
 
+# Wait for the /var/run/azure-vnet.json file to be created before continuing the script
+# This must be set as true explicitly if Azure AKS with CNI chaining is used.
+expectAzureVnet: false
+
 # Revert nodeinit changes via preStop container lifecycle hook
 revertReconfigureKubelet: false
