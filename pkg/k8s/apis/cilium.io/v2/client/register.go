@@ -137,27 +137,7 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 func createCNPCRD(clientset apiextensionsclient.Interface) error {
 	ciliumCRD := GetPregeneratedCRD(CNPCRDName)
 
-	res := &apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: k8sconstv2.CNPName,
-			Labels: map[string]string{
-				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
-			},
-		},
-		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-			Group: k8sconstv2.CustomResourceDefinitionGroup,
-			Names: apiextensionsv1.CustomResourceDefinitionNames{
-				Kind:       ciliumCRD.Spec.Names.Kind,
-				Plural:     ciliumCRD.Spec.Names.Plural,
-				ShortNames: ciliumCRD.Spec.Names.ShortNames,
-				Singular:   ciliumCRD.Spec.Names.Singular,
-			},
-			Scope:    ciliumCRD.Spec.Scope,
-			Versions: ciliumCRD.Spec.Versions,
-		},
-	}
-
-	return createUpdateCRD(clientset, CNPCRDName, res)
+	return createUpdateCRD(clientset, CNPCRDName, constructV1CRD(k8sconstv2.CNPName, ciliumCRD))
 }
 
 // createCCNPCRD creates and updates the CiliumClusterwideNetworkPolicy CRD. It
@@ -165,27 +145,7 @@ func createCNPCRD(clientset apiextensionsclient.Interface) error {
 func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 	ciliumCRD := GetPregeneratedCRD(CCNPCRDName)
 
-	res := &apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: k8sconstv2.CCNPName,
-			Labels: map[string]string{
-				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
-			},
-		},
-		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-			Group: k8sconstv2.CustomResourceDefinitionGroup,
-			Names: apiextensionsv1.CustomResourceDefinitionNames{
-				Kind:       ciliumCRD.Spec.Names.Kind,
-				Plural:     ciliumCRD.Spec.Names.Plural,
-				ShortNames: ciliumCRD.Spec.Names.ShortNames,
-				Singular:   ciliumCRD.Spec.Names.Singular,
-			},
-			Scope:    ciliumCRD.Spec.Scope,
-			Versions: ciliumCRD.Spec.Versions,
-		},
-	}
-
-	return createUpdateCRD(clientset, CCNPCRDName, res)
+	return createUpdateCRD(clientset, CCNPCRDName, constructV1CRD(k8sconstv2.CCNPName, ciliumCRD))
 }
 
 // createCEPCRD creates and updates the CiliumEndpoint CRD. It should be called
@@ -193,27 +153,7 @@ func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 func createCEPCRD(clientset apiextensionsclient.Interface) error {
 	ciliumCRD := GetPregeneratedCRD(CEPCRDName)
 
-	res := &apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: k8sconstv2.CEPName,
-			Labels: map[string]string{
-				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
-			},
-		},
-		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-			Group: k8sconstv2.CustomResourceDefinitionGroup,
-			Names: apiextensionsv1.CustomResourceDefinitionNames{
-				Plural:     ciliumCRD.Spec.Names.Plural,
-				Singular:   ciliumCRD.Spec.Names.Singular,
-				ShortNames: ciliumCRD.Spec.Names.ShortNames,
-				Kind:       ciliumCRD.Spec.Names.Kind,
-			},
-			Scope:    ciliumCRD.Spec.Scope,
-			Versions: ciliumCRD.Spec.Versions,
-		},
-	}
-
-	return createUpdateCRD(clientset, CEPCRDName, res)
+	return createUpdateCRD(clientset, CEPCRDName, constructV1CRD(k8sconstv2.CEPName, ciliumCRD))
 }
 
 // createNodeCRD creates and updates the CiliumNode CRD. It should be called on
@@ -221,27 +161,7 @@ func createCEPCRD(clientset apiextensionsclient.Interface) error {
 func createNodeCRD(clientset apiextensionsclient.Interface) error {
 	ciliumCRD := GetPregeneratedCRD(CNCRDName)
 
-	res := &apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: k8sconstv2.CNName,
-			Labels: map[string]string{
-				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
-			},
-		},
-		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-			Group: k8sconstv2.CustomResourceDefinitionGroup,
-			Names: apiextensionsv1.CustomResourceDefinitionNames{
-				Plural:     ciliumCRD.Spec.Names.Plural,
-				Singular:   ciliumCRD.Spec.Names.Singular,
-				ShortNames: ciliumCRD.Spec.Names.ShortNames,
-				Kind:       ciliumCRD.Spec.Names.Kind,
-			},
-			Scope:    ciliumCRD.Spec.Scope,
-			Versions: ciliumCRD.Spec.Versions,
-		},
-	}
-
-	return createUpdateCRD(clientset, CNCRDName, res)
+	return createUpdateCRD(clientset, CNCRDName, constructV1CRD(k8sconstv2.CNName, ciliumCRD))
 }
 
 // createIdentityCRD creates and updates the CiliumIdentity CRD. It should be
@@ -249,27 +169,7 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 func createIdentityCRD(clientset apiextensionsclient.Interface) error {
 	ciliumCRD := GetPregeneratedCRD(CIDCRDName)
 
-	res := &apiextensionsv1.CustomResourceDefinition{
-		ObjectMeta: metav1.ObjectMeta{
-			Name: k8sconstv2.CIDName,
-			Labels: map[string]string{
-				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
-			},
-		},
-		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
-			Group: k8sconstv2.CustomResourceDefinitionGroup,
-			Names: apiextensionsv1.CustomResourceDefinitionNames{
-				Plural:     ciliumCRD.Spec.Names.Plural,
-				Singular:   ciliumCRD.Spec.Names.Singular,
-				ShortNames: ciliumCRD.Spec.Names.ShortNames,
-				Kind:       ciliumCRD.Spec.Names.Kind,
-			},
-			Scope:    ciliumCRD.Spec.Scope,
-			Versions: ciliumCRD.Spec.Versions,
-		},
-	}
-
-	return createUpdateCRD(clientset, CIDCRDName, res)
+	return createUpdateCRD(clientset, CIDCRDName, constructV1CRD(k8sconstv2.CIDName, ciliumCRD))
 }
 
 // createUpdateCRD ensures the CRD object is installed into the k8s cluster. It
@@ -383,7 +283,33 @@ func createUpdateCRD(clientset apiextensionsclient.Interface,
 	}
 
 	scopedLog.Info("CRD (CustomResourceDefinition) is installed and up-to-date")
+
 	return nil
+}
+
+func constructV1CRD(
+	name string,
+	template apiextensionsv1.CustomResourceDefinition,
+) *apiextensionsv1.CustomResourceDefinition {
+	return &apiextensionsv1.CustomResourceDefinition{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: name,
+			Labels: map[string]string{
+				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
+			},
+		},
+		Spec: apiextensionsv1.CustomResourceDefinitionSpec{
+			Group: k8sconstv2.CustomResourceDefinitionGroup,
+			Names: apiextensionsv1.CustomResourceDefinitionNames{
+				Kind:       template.Spec.Names.Kind,
+				Plural:     template.Spec.Names.Plural,
+				ShortNames: template.Spec.Names.ShortNames,
+				Singular:   template.Spec.Names.Singular,
+			},
+			Scope:    template.Spec.Scope,
+			Versions: template.Spec.Versions,
+		},
+	}
 }
 
 func needsUpdate(clusterCRD *apiextensionsv1.CustomResourceDefinition) bool {
