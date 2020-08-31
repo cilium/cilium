@@ -8,5 +8,9 @@ server:
   key:
 # base64 encoded PEM values for hubble relay certificate and private key
 relay:
-  crt:
-  key:
+  client:
+    crt:
+    key:
+  server:
+    crt:
+    key:

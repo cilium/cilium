@@ -549,6 +549,9 @@ global:
     # Configures the hubble-relay subchart
     relay:
       enabled: false
+      tls:
+        # Enable TLS on the server address.
+        enabled: false
 
   # CI specific options: DO NOT USE IN PRODUCTION.
   ci:
