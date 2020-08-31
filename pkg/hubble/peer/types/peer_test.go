@@ -149,6 +149,39 @@ func TestFromChangeNotification(t *testing.T) {
 					Net:  "unix",
 				},
 			},
+		}, {
+			name: "with an IPv4 address and port and TLS enabled",
+			arg: &peerpb.ChangeNotification{
+				Name:    "name",
+				Address: "192.0.2.1:4000",
+				Tls:     &peerpb.TLS{},
+			},
+			want: &Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("192.0.2.1"),
+					Port: 4000,
+				},
+				TLSEnabled: true,
+			},
+		}, {
+			name: "with an IPv4 address and port and TLS enabled with server name",
+			arg: &peerpb.ChangeNotification{
+				Name:    "name",
+				Address: "192.0.2.1:4000",
+				Tls: &peerpb.TLS{
+					ServerName: "name.default.hubble-grpc.cilium.io",
+				},
+			},
+			want: &Peer{
+				Name: "name",
+				Address: &net.TCPAddr{
+					IP:   net.ParseIP("192.0.2.1"),
+					Port: 4000,
+				},
+				TLSEnabled:    true,
+				TLSServerName: "name.default.hubble-grpc.cilium.io",
+			},
 		},
 	}
 
