@@ -32,22 +32,23 @@ const (
 	// WithClientTLS().
 	ClientTLSMinVersion = tls.VersionTLS13
 
-	// TLSMinVersion defines the minimum TLS version that is acceptable for the
-	// server. It is not used by WithTLS().
-	TLSMinVersion = tls.VersionTLS13
+	// ServerTLSMinVersion defines the minimum TLS version that is acceptable
+	// for the server. It is not used by WithTLS().
+	ServerTLSMinVersion = tls.VersionTLS13
 )
 
 // options stores all the configuration values for the hubble-relay server.
 type options struct {
-	hubbleTarget    string
-	dialTimeout     time.Duration
-	retryTimeout    time.Duration
-	listenAddress   string
-	insecure        bool
-	credentials     credentials.TransportCredentials
-	clientTLSConfig *tls.Config
-	debug           bool
-	observerOptions []observer.Option
+	hubbleTarget      string
+	dialTimeout       time.Duration
+	retryTimeout      time.Duration
+	listenAddress     string
+	serverCredentials credentials.TransportCredentials
+	insecureServer    bool
+	clientTLSConfig   *tls.Config
+	insecureClient    bool
+	debug             bool
+	observerOptions   []observer.Option
 }
 
 // defaultOptions is the reference point for default values.
@@ -144,12 +145,11 @@ func WithErrorAggregationWindow(d time.Duration) Option {
 	}
 }
 
-// WithInsecure disables transport security. Transport security is required
-// for the server and to establish connection to peers unless WithInsecure is
-// set.
-func WithInsecure() Option {
+// WithInsecureServer disables transport security. Transport security is
+// required for the server unless WithInsecureServer is set (not recommended).
+func WithInsecureServer() Option {
 	return func(o *options) error {
-		o.insecure = true
+		o.insecureServer = true
 		return nil
 	}
 }
@@ -157,7 +157,7 @@ func WithInsecure() Option {
 // WithTLS sets the transport credentials for the server based on TLS.
 func WithTLS(c *tls.Config) Option {
 	return func(o *options) error {
-		o.credentials = credentials.NewTLS(c)
+		o.serverCredentials = credentials.NewTLS(c)
 		return nil
 	}
 }
@@ -166,7 +166,7 @@ func WithTLS(c *tls.Config) Option {
 func WithTLSFromCert(cert tls.Certificate) Option {
 	return WithTLS(&tls.Config{
 		Certificates: []tls.Certificate{cert},
-		MinVersion:   TLSMinVersion,
+		MinVersion:   ServerTLSMinVersion,
 	})
 }
 
@@ -177,7 +177,7 @@ func WithMTLSFromCert(cert tls.Certificate, clientCAs *x509.CertPool) Option {
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    clientCAs,
 		ClientAuth:   tls.RequireAndVerifyClientCert,
-		MinVersion:   TLSMinVersion,
+		MinVersion:   ServerTLSMinVersion,
 	})
 }
 
@@ -211,4 +211,14 @@ func WithClientMTLSFromCert(ca *x509.CertPool, cert tls.Certificate) Option {
 		RootCAs:      ca,
 		MinVersion:   ClientTLSMinVersion,
 	})
+}
+
+// WithInsecureClient disables transport security for connection to Hubble
+// server instances. Transport security is required to WithInsecureClient is
+// set (not recommended).
+func WithInsecureClient() Option {
+	return func(o *options) error {
+		o.insecureClient = true
+		return nil
+	}
 }
