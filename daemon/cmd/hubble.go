@@ -126,9 +126,8 @@ func (d *Daemon) launchHubble() {
 
 	// configure a local hubble instance that serves more gRPC services
 	sockPath := "unix://" + option.Config.HubbleSocketPath
-	tlsEnabled := option.Config.HubbleTLSCertFile != "" && option.Config.HubbleTLSKeyFile != ""
 	var peerServiceOptions []serviceoption.Option
-	if !tlsEnabled && option.Config.HubbleAllowInsecure {
+	if option.Config.HubbleTLSDisabled {
 		peerServiceOptions = append(peerServiceOptions, serviceoption.WithoutTLSInfo())
 	}
 	localSrv, err := server.NewServer(logger,
@@ -161,7 +160,10 @@ func (d *Daemon) launchHubble() {
 			serveroption.WithObserverService(d.hubbleObserver),
 		}
 		switch {
-		case tlsEnabled:
+		case option.Config.HubbleTLSDisabled:
+			logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
+			options = append(options, serveroption.WithInsecure())
+		case option.Config.HubbleTLSCertFile != "" && option.Config.HubbleTLSKeyFile != "":
 			cert, err := tls.LoadX509KeyPair(option.Config.HubbleTLSCertFile, option.Config.HubbleTLSKeyFile)
 			if err != nil {
 				logger.WithError(err).Error("Failed to load TLS certificate")
@@ -184,13 +186,10 @@ func (d *Daemon) launchHubble() {
 			default:
 				options = append(options, serveroption.WithTLSFromCert(cert))
 			}
-		case option.Config.HubbleAllowInsecure:
-			logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
-			options = append(options, serveroption.WithInsecure())
 		default:
 			logger.Errorf(
 				"Path to public/private key files not provided. Please, use options --%s and --%s, or --%s to disable TLS (not recommended).",
-				option.HubbleTLSCertFile, option.HubbleTLSKeyFile, option.HubbleAllowInsecure,
+				option.HubbleTLSCertFile, option.HubbleTLSKeyFile, option.HubbleTLSDisabled,
 			)
 			return
 		}

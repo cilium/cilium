@@ -804,8 +804,8 @@ func init() {
 	flags.String(option.HubbleListenAddress, "", `An additional address for Hubble server to listen to, e.g. ":4244"`)
 	option.BindEnv(option.HubbleListenAddress)
 
-	flags.Bool(option.HubbleAllowInsecure, false, "Allow Hubble server to run on the given listen address without TLS.")
-	option.BindEnv(option.HubbleAllowInsecure)
+	flags.Bool(option.HubbleTLSDisabled, false, "Allow Hubble server to run on the given listen address without TLS.")
+	option.BindEnv(option.HubbleTLSDisabled)
 
 	flags.String(option.HubbleTLSCertFile, "", "Path to the public key file for the Hubble server. The file must contain PEM encoded data.")
 	option.BindEnv(option.HubbleTLSCertFile)

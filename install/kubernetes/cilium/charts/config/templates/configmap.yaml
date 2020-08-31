@@ -577,13 +577,13 @@ data:
 {{- if and (.Values.global.hubble.listenAddress) }}
   # An additional address for Hubble server to listen to (e.g. ":4244").
   hubble-listen-address: {{ .Values.global.hubble.listenAddress | quote }}
-{{- if .Values.global.hubble.allowInsecure }}
-  hubble-allow-insecure: "true"
-{{- else }}
+{{- if .Values.global.hubble.tls.enabled }}
+  hubble-disable-tls: "false"
   hubble-tls-cert-file: /var/lib/cilium/tls/hubble/server.crt
   hubble-tls-key-file: /var/lib/cilium/tls/hubble/server.key
   hubble-tls-client-cert-files: /var/lib/cilium/tls/hubble/client-ca.crt
-  hubble-allow-insecure: "false"
+{{- else }}
+  hubble-disable-tls: "true"
 {{- end}}
 {{- end }}
 {{- end }}

@@ -158,7 +158,7 @@ data:
     http
   # An additional address for Hubble server to listen to (e.g. ":4244").
   hubble-listen-address: ":4244"
-  hubble-allow-insecure: "true"
+  hubble-disable-tls: "true"
   ipam: "cluster-pool"
   cluster-pool-ipv4-cidr: "10.0.0.0/8"
   cluster-pool-ipv4-mask-size: "24"
