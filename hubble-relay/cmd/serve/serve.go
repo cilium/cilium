@@ -98,7 +98,8 @@ func runServe(vp *viper.Viper) error {
 		server.WithRetryTimeout(vp.GetDuration(keyRetryTimeout)),
 		server.WithSortBufferMaxLen(vp.GetInt(keySortBufferMaxLen)),
 		server.WithSortBufferDrainTimeout(vp.GetDuration(keySortBufferDrainTimeout)),
-		server.WithInsecure(), //FIXME: add option to set server and client TLS settings
+		server.WithInsecureClient(), //FIXME: add option to set client TLS settings
+		server.WithInsecureServer(), //FIXME: add option to set server TLS settings
 	}
 	if vp.GetBool(keyDebug) {
 		opts = append(opts, server.WithDebug())

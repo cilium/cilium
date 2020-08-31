@@ -62,8 +62,11 @@ func New(options ...Option) (*Server, error) {
 			return nil, fmt.Errorf("failed to apply option: %v", err)
 		}
 	}
-	if opts.clientTLSConfig == nil && !opts.insecure {
+	if opts.clientTLSConfig == nil && !opts.insecureClient {
 		return nil, ErrNoClientTLSConfig
+	}
+	if opts.serverCredentials == nil && !opts.insecureServer {
+		return nil, ErrNoTransportCredentials
 	}
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
 	logging.ConfigureLogLevel(opts.debug)
@@ -101,10 +104,10 @@ func (s *Server) Serve() error {
 	s.log.WithField("options", fmt.Sprintf("%+v", s.opts)).Info("Starting server...")
 
 	switch {
-	case s.opts.credentials != nil:
-		s.server = grpc.NewServer(grpc.Creds(s.opts.credentials))
-	case s.opts.insecure:
+	case s.opts.insecureServer:
 		s.server = grpc.NewServer()
+	case s.opts.serverCredentials != nil:
+		s.server = grpc.NewServer(grpc.Creds(s.opts.serverCredentials))
 	default:
 		return ErrNoTransportCredentials
 	}
