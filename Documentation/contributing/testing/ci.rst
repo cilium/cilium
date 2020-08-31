@@ -42,6 +42,8 @@ After you don't need to run tests on your branch, please remove the branch from 
    +---------------------------------------+-------------------------------------------+
    | ``test-focus K8s``                    | Runs all kubernetes tests                 |
    +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sBandwidthTest``       | Runs all k8s bandwidth tests              |
+   +---------------------------------------+-------------------------------------------+
    | ``test-focus K8sConformance``         | Runs all k8s conformance tests            |
    +---------------------------------------+-------------------------------------------+
    | ``test-focus K8sChaos``               | Runs all k8s chaos tests                  |
