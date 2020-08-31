@@ -319,8 +319,7 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 	m.opts.log.WithFields(logrus.Fields{
 		"address": p.Address,
 	}).Debugf("Connecting peer %s...", p.Name)
-	//FIXME: provide hostname to ClientConn
-	conn, err := m.opts.clientConnBuilder.ClientConn(p.Address.String(), "")
+	conn, err := m.opts.clientConnBuilder.ClientConn(p.Address.String(), p.TLSServerName)
 	if err != nil {
 		duration := m.opts.backoff.Duration(p.connAttempts)
 		p.nextConnAttempt = now.Add(duration)
