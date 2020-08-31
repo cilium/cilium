@@ -29,9 +29,7 @@ import (
 // This tests the Istio integration, following the configuration
 // instructions specified in the Istio Getting Started Guide in
 // Documentation/gettingstarted/istio.rst.
-var _ = SkipContextIf(func() bool {
-	return helpers.SkipQuarantined() && helpers.GetCurrentK8SEnv() == "1.19"
-}, "K8sIstioTest", func() {
+var _ = Describe("K8sIstioTest", func() {
 
 	var (
 		// istioSystemNamespace is the default namespace into which Istio is
