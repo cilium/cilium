@@ -51,65 +51,41 @@ spec:
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: netperf-50
+  name: netperf-client-pod
 spec:
   selector:
     matchLabels:
-      run: netperf-50
+      run: netperf-client-pod
   replicas: 1
   template:
     metadata:
       labels:
-        run: netperf-50
-      annotations:
-        kubernetes.io/egress-bandwidth: "50M"
+        run: netperf-client-pod
     spec:
       containers:
-      - name: netperf-50
+      - name: netperf-client
         image: cilium/netperf:0.0.2
         imagePullPolicy: IfNotPresent
         ports:
         - containerPort: 12865
       nodeSelector:
-        "cilium.io/ci-node": k8s1
+        "cilium.io/ci-node": k8s2
 ---
 apiVersion: apps/v1
 kind: Deployment
 metadata:
-  name: netperf-inf
+  name: netperf-client-host
 spec:
   selector:
     matchLabels:
-      run: netperf-inf
+      run: netperf-client-host
   replicas: 1
   template:
     metadata:
       labels:
-        run: netperf-inf
+        run: netperf-client-host
     spec:
-      containers:
-      - name: netperf-inf
-        image: cilium/netperf:0.0.2
-        imagePullPolicy: IfNotPresent
-        ports:
-        - containerPort: 12865
-      nodeSelector:
-        "cilium.io/ci-node": k8s1
----
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: netperf-client
-spec:
-  selector:
-    matchLabels:
-      run: netperf-client
-  replicas: 1
-  template:
-    metadata:
-      labels:
-        run: netperf-client
-    spec:
+      hostNetwork: true
       containers:
       - name: netperf-client
         image: cilium/netperf:0.0.2

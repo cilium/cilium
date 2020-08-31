@@ -26,19 +26,17 @@ import (
 
 var _ = Describe("K8sBandwidthTest", func() {
 	const (
-		testDS10   = "run=netperf-10"
-		testDS25   = "run=netperf-25"
-		testDS50   = "run=netperf-50"
-		testDSInf  = "run=netperf-inf"
-		testClient = "run=netperf-client"
+		testDS10       = "run=netperf-10"
+		testDS25       = "run=netperf-25"
+		testClientPod  = "run=netperf-client-pod"
+		testClientHost = "run=netperf-client-host"
 
-		maxRateDeviation = 10
+		maxRateDeviation = 5
 	)
 
 	var (
 		kubectl        *helpers.Kubectl
 		ciliumFilename string
-		k8s2NodeName   string
 
 		backgroundCancel       context.CancelFunc = func() {}
 		backgroundError        error
@@ -52,7 +50,6 @@ var _ = Describe("K8sBandwidthTest", func() {
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
-		k8s2NodeName, _ = kubectl.GetNodeInfo(helpers.K8s2)
 
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumAndDNS(kubectl, ciliumFilename)
@@ -99,9 +96,8 @@ var _ = Describe("K8sBandwidthTest", func() {
 			podLabels := []string{
 				testDS10,
 				testDS25,
-				testDS50,
-				testDSInf,
-				testClient,
+				testClientPod,
+				testClientHost,
 			}
 			for _, label := range podLabels {
 				err := kubectl.WaitforPods(helpers.DefaultNamespace,
@@ -135,23 +131,7 @@ var _ = Describe("K8sBandwidthTest", func() {
 			}
 		}
 
-		testNetperfFromHost := func(nodeName, targetIP string, maxSessions, rate int) {
-			for i := 1; i <= maxSessions; i++ {
-				cmd := helpers.SuperNetperf(i, targetIP, helpers.TCP_MAERTS, "")
-				By("Running %d netperf session from %s host to pod with IP %s (expected rate: %d)",
-					i, nodeName, targetIP, rate)
-				res := kubectl.ExecInHostNetNS(context.TODO(), nodeName, cmd)
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-					"Request from %s host to pod with IP %s failed", nodeName, targetIP)
-				By("Session test completed, netperf result raw: %s", res.SingleOut())
-				if rate > 0 {
-					ExpectWithOffset(1, res.InRange(rate, maxRateDeviation)).To(BeNil(),
-						"Rate mismatch")
-				}
-			}
-		}
-
-		testNetperf := func(podLabels []string, fromHost bool) {
+		testNetperf := func(podLabels []string, fromLabel string) {
 			for _, label := range podLabels {
 				podIPs, err := kubectl.GetPodsIPs(helpers.DefaultNamespace, label)
 				ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve pod IPs for %s", label)
@@ -159,11 +139,7 @@ var _ = Describe("K8sBandwidthTest", func() {
 				rate := 0
 				fmt.Sscanf(label, "run=netperf-%d", &rate)
 				for _, podIP := range podIPs {
-					if fromHost {
-						testNetperfFromHost(k8s2NodeName, podIP, 1, rate)
-					} else {
-						testNetperfFromPods(testClient, podIP, 1, rate)
-					}
+					testNetperfFromPods(fromLabel, podIP, 1, rate)
 				}
 			}
 		}
@@ -172,21 +148,23 @@ var _ = Describe("K8sBandwidthTest", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"global.tunnel": "vxlan",
 			})
-			// TODO: super_netperf from host ns
-			testNetperf(podLabels, false)
+			testNetperf(podLabels, testClientPod)
+			testNetperf(podLabels, testClientHost)
 		})
 		It("Checks Pod to Pod bandwidth, geneve tunneling", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"global.tunnel": "geneve",
 			})
-			testNetperf(podLabels, false)
+			testNetperf(podLabels, testClientPod)
+			testNetperf(podLabels, testClientHost)
 		})
 		It("Checks Pod to Pod bandwidth, direct routing", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				"global.tunnel":               "disabled",
 				"global.autoDirectNodeRoutes": "true",
 			})
-			testNetperf(podLabels, false)
+			testNetperf(podLabels, testClientPod)
+			testNetperf(podLabels, testClientHost)
 		})
 	})
 })
