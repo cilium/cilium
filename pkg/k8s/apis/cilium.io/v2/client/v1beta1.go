@@ -29,7 +29,6 @@ import (
 	v1beta1client "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
-	"k8s.io/apimachinery/pkg/util/wait"
 )
 
 func createUpdateV1beta1CRD(
@@ -37,6 +36,7 @@ func createUpdateV1beta1CRD(
 	client v1beta1client.CustomResourceDefinitionsGetter,
 	crdName string,
 	crd *apiextensionsv1.CustomResourceDefinition,
+	poller poller,
 ) error {
 	v1beta1CRD, err := convertToV1Beta1CRD(crd)
 	if err != nil {
@@ -64,10 +64,10 @@ func createUpdateV1beta1CRD(
 		return err
 	}
 
-	if err := updateV1beta1CRD(scopedLog, v1beta1CRD, clusterCRD, client); err != nil {
+	if err := updateV1beta1CRD(scopedLog, v1beta1CRD, clusterCRD, client, poller); err != nil {
 		return err
 	}
-	if err := waitForV1beta1CRD(scopedLog, crdName, clusterCRD, client); err != nil {
+	if err := waitForV1beta1CRD(scopedLog, crdName, clusterCRD, client, poller); err != nil {
 		return err
 	}
 
@@ -148,6 +148,7 @@ func updateV1beta1CRD(
 	scopedLog *logrus.Entry,
 	crd, clusterCRD *apiextensionsv1beta1.CustomResourceDefinition,
 	client v1beta1client.CustomResourceDefinitionsGetter,
+	poller poller,
 ) error {
 	scopedLog.Debug("Checking if CRD (CustomResourceDefinition) needs update...")
 
@@ -155,7 +156,7 @@ func updateV1beta1CRD(
 		scopedLog.Info("Updating CRD (CustomResourceDefinition)...")
 
 		// Update the CRD with the validation schema.
-		err := wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+		err := poller.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 			var err error
 			if clusterCRD, err = client.CustomResourceDefinitions().Get(
 				context.TODO(),
@@ -203,10 +204,11 @@ func waitForV1beta1CRD(
 	crdName string,
 	crd *apiextensionsv1beta1.CustomResourceDefinition,
 	client v1beta1client.CustomResourceDefinitionsGetter,
+	poller poller,
 ) error {
 	scopedLog.Debug("Waiting for CRD (CustomResourceDefinition) to be available...")
 
-	err := wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
+	err := poller.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
 		for _, cond := range crd.Status.Conditions {
 			switch cond.Type {
 			case apiextensionsv1beta1.Established:
