@@ -21,6 +21,16 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 )
 
+const (
+	// MetadataK8sPod is the name of the IPAM metadata to specify the
+	// Kubernetes pod name of the workload requesting an IP
+	MetadataK8sPod = "k8s-pod"
+
+	// MetadataK8sNamespace is the name of the IPAM metadata to specify the
+	// Kubernetes namespace of the workload requesting an IP
+	MetadataK8sNamespace = "k8s-namespace"
+)
+
 // Limits specifies the IPAM relevant instance limits
 type Limits struct {
 	// Adapters specifies the maximum number of interfaces that can be

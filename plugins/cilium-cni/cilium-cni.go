@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -423,7 +424,10 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
-	ipam, err = c.IPAMAllocate("", podName, true, map[string]string{})
+	ipam, err = c.IPAMAllocate("", podName, true, map[string]string{
+		ipamTypes.MetadataK8sPod:       string(cniArgs.K8S_POD_NAME),
+		ipamTypes.MetadataK8sNamespace: string(cniArgs.K8S_POD_NAMESPACE),
+	})
 	if err != nil {
 		err = fmt.Errorf("unable to allocate IP via local cilium agent: %s", err)
 		return
