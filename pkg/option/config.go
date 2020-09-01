@@ -272,6 +272,11 @@ const (
 	// to later versions.
 	AllowHostSrc = "allow-host-src"
 
+	// TransmitHostSrc causes nodes to transmit traffic from the node
+	// towards peer nodes with the source identity "host".
+	// Useful for dropless upgrades from v1.6 to later versions.
+	TransmitHostSrc = "transmit-host-src"
+
 	// LibDir enables the directory path to store runtime build environment
 	LibDir = "lib-dir"
 
@@ -1403,6 +1408,11 @@ type DaemonConfig struct {
 	// to later versions.
 	AllowHostSrc bool
 
+	// TransmitHostSrc causes nodes to transmit traffic from the nodes
+	// towards peer nodes with the source identity "host".
+	// Useful for dropless upgrades from v1.6 to later versions.
+	TransmitHostSrc bool
+
 	// excludeLocalAddresses excludes certain addresses to be recognized as
 	// a local address
 	excludeLocalAddresses []*net.IPNet
@@ -2014,6 +2024,7 @@ func (c *DaemonConfig) Populate() {
 	default:
 		c.AllowHostSrc = false
 	}
+	c.TransmitHostSrc = viper.GetBool(TransmitHostSrc)
 
 	// toFQDNs options
 	// When the poller is enabled, the default MinTTL is lowered. This is to
