@@ -2009,8 +2009,6 @@ func (c *DaemonConfig) Populate() {
 	c.EnableIdentityMark = viper.GetBool(EnableIdentityMark)
 
 	switch viper.GetString(AllowHostSrc) {
-	case "auto":
-		c.AllowHostSrc = !c.EnableRemoteNodeIdentity
 	case "true":
 		c.AllowHostSrc = true
 	default:
