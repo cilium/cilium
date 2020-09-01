@@ -39,6 +39,8 @@
 #include "bpf/ctx/nobpf.h"
 #include "bpf/api.h"
 
+#include "lib/ids.h"
+
 #ifndef EM_BPF
 # define EM_BPF		247
 #endif
@@ -316,6 +318,7 @@ static int bpf_handle_pending(struct bpf_elf_ctx *ctx,
 {
 	char file[PATH_MAX + 1], dest[PATH_MAX + 1];
 	struct bpf_elf_map pinned;
+	bool maps_same = false;
 	struct stat sb;
 	int fd, ret;
 
@@ -344,12 +347,35 @@ static int bpf_handle_pending(struct bpf_elf_ctx *ctx,
 	pinned.inner_id = map->inner_id;
 	pinned.inner_idx = map->inner_idx;
 	pinned.pinning = map->pinning;
-	if (!memcmp(map, &pinned, sizeof(pinned)))
-		return 0;
+
+	if (!memcmp(map, &pinned, sizeof(pinned))) {
+		/* We may need to keep tail call maps in a temporary
+		 * location as otherwise we'd change the behavior of
+		 * the currently loaded one potentially leading to missed
+		 * tail calls errors or subtle changes in behavior.
+		 */
+		if (pinned.type != BPF_MAP_TYPE_PROG_ARRAY)
+			return 0;
+
+		/* Only the CILIUM_MAP_CALLS map is relevant to this
+		 * as we fully replace this upon obj file load given
+		 * the map is private to a given obj file.
+		 *
+		 * CILIUM_MAP_POLICY however cannot be subject to this
+		 * given the policy map is loaded in base data path and
+		 * successively updated with tail call entries upon new
+		 * endpoint loads.
+		 */
+		if (map->id != CILIUM_MAP_CALLS)
+			return 0;
+
+		maps_same = true;
+	}
 
 	snprintf(dest, sizeof(dest), "%s:%s", file, STATE_PENDING);
-	syslog(LOG_WARNING, "Property mismatch in %s, migrating node to %s!\n",
-	       file, dest);
+	if (!maps_same)
+		syslog(LOG_WARNING, "Property mismatch in %s, migrating node to %s!\n",
+		       file, dest);
 	utimensat(AT_FDCWD, file, NULL, 0);
 	return rename(file, dest);
 }
@@ -381,8 +407,6 @@ static int bpf_handle_finalize(struct bpf_elf_ctx *ctx,
 		return 0;
 	}
 
-	syslog(LOG_WARNING, "Unlinking migrated node %s due to good exit.\n",
-	       file);
 	return unlink(file);
 }
 
