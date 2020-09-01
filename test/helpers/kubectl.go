@@ -110,6 +110,7 @@ var (
 		// Enable embedded Hubble, both on unix socket and TCP port 4244.
 		"global.hubble.enabled":       "true",
 		"global.hubble.listenAddress": ":4244",
+		"global.hubble.tls.enabled":   "false",
 
 		// We need CNP node status to know when a policy is being enforced
 		"config.enableCnpStatusUpdates": "true",
