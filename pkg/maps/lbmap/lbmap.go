@@ -24,6 +24,7 @@ import (
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/u8proto"
 
@@ -50,7 +51,7 @@ type LBBPFMap struct{}
 // so that the function can remove obsolete ones.
 func (*LBBPFMap) UpsertService(
 	svcID uint16, svcIP net.IP, svcPort uint16,
-	backendIDs []uint16, prevBackendCount int,
+	backends map[string]uint16, prevBackendCount int,
 	ipv6 bool, svcType loadbalancer.SVCType, svcLocal bool,
 	svcScope uint8, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 	checkSourceRange bool) error {
@@ -68,6 +69,30 @@ func (*LBBPFMap) UpsertService(
 
 	slot := 1
 	svcVal := svcKey.NewValue().(ServiceValue)
+
+	var backendIDs []uint16
+	// TODO(brb) add param "cHash bool" to control the following
+	if svcType == loadbalancer.SVCTypeNodePort ||
+		svcType == loadbalancer.SVCTypeExternalIPs ||
+		svcType == loadbalancer.SVCTypeLoadBalancer {
+
+		backendNames := make([]string, 0, len(backends))
+		for name := range backends {
+			backendNames = append(backendNames, name)
+		}
+		m := uint64(113) // TODO(brb) configure
+		table := maglev.GetLookupTable(backendNames, m)
+		backendIDs = make([]uint16, m)
+		for i, pos := range table {
+			backendIDs[i] = backends[backendNames[pos]]
+		}
+	} else {
+		backendIDs = make([]uint16, 0, len(backends))
+		for _, id := range backends {
+			backendIDs = append(backendIDs, id)
+		}
+	}
+
 	for _, backendID := range backendIDs {
 		if backendID == 0 {
 			return fmt.Errorf("Invalid backend ID 0")
