@@ -2624,13 +2624,23 @@ func init() {
                 "acceleration": {
                   "type": "string",
                   "enum": [
-                    "NONE",
-                    "NATIVE",
-                    "GENERIC"
+                    "None",
+                    "Native",
+                    "Generic"
+                  ]
+                },
+                "algorithm": {
+                  "type": "string",
+                  "enum": [
+                    "Random",
+                    "Maglev"
                   ]
                 },
                 "enabled": {
                   "type": "boolean"
+                },
+                "lutSize": {
+                  "type": "integer"
                 },
                 "mode": {
                   "type": "string",
@@ -6408,13 +6418,23 @@ func init() {
                 "acceleration": {
                   "type": "string",
                   "enum": [
-                    "NONE",
-                    "NATIVE",
-                    "GENERIC"
+                    "None",
+                    "Native",
+                    "Generic"
+                  ]
+                },
+                "algorithm": {
+                  "type": "string",
+                  "enum": [
+                    "Random",
+                    "Maglev"
                   ]
                 },
                 "enabled": {
                   "type": "boolean"
+                },
+                "lutSize": {
+                  "type": "integer"
                 },
                 "mode": {
                   "type": "string",
@@ -6498,13 +6518,23 @@ func init() {
             "acceleration": {
               "type": "string",
               "enum": [
-                "NONE",
-                "NATIVE",
-                "GENERIC"
+                "None",
+                "Native",
+                "Generic"
+              ]
+            },
+            "algorithm": {
+              "type": "string",
+              "enum": [
+                "Random",
+                "Maglev"
               ]
             },
             "enabled": {
               "type": "boolean"
+            },
+            "lutSize": {
+              "type": "integer"
             },
             "mode": {
               "type": "string",
@@ -6573,13 +6603,23 @@ func init() {
         "acceleration": {
           "type": "string",
           "enum": [
-            "NONE",
-            "NATIVE",
-            "GENERIC"
+            "None",
+            "Native",
+            "Generic"
+          ]
+        },
+        "algorithm": {
+          "type": "string",
+          "enum": [
+            "Random",
+            "Maglev"
           ]
         },
         "enabled": {
           "type": "boolean"
+        },
+        "lutSize": {
+          "type": "integer"
         },
         "mode": {
           "type": "string",
