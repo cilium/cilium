@@ -415,11 +415,18 @@ func (m *KubeProxyReplacementFeaturesHostReachableServices) UnmarshalBinary(b []
 type KubeProxyReplacementFeaturesNodePort struct {
 
 	// acceleration
-	// Enum: [NONE NATIVE GENERIC]
+	// Enum: [None Native Generic]
 	Acceleration string `json:"acceleration,omitempty"`
+
+	// algorithm
+	// Enum: [Random Maglev]
+	Algorithm string `json:"algorithm,omitempty"`
 
 	// enabled
 	Enabled bool `json:"enabled,omitempty"`
+
+	// lut size
+	LutSize int64 `json:"lutSize,omitempty"`
 
 	// mode
 	// Enum: [SNAT DSR HYBRID]
@@ -440,6 +447,10 @@ func (m *KubeProxyReplacementFeaturesNodePort) Validate(formats strfmt.Registry)
 		res = append(res, err)
 	}
 
+	if err := m.validateAlgorithm(formats); err != nil {
+		res = append(res, err)
+	}
+
 	if err := m.validateMode(formats); err != nil {
 		res = append(res, err)
 	}
@@ -454,7 +465,7 @@ var kubeProxyReplacementFeaturesNodePortTypeAccelerationPropEnum []interface{}
 
 func init() {
 	var res []string
-	if err := json.Unmarshal([]byte(`["NONE","NATIVE","GENERIC"]`), &res); err != nil {
+	if err := json.Unmarshal([]byte(`["None","Native","Generic"]`), &res); err != nil {
 		panic(err)
 	}
 	for _, v := range res {
@@ -464,14 +475,14 @@ func init() {
 
 const (
 
-	// KubeProxyReplacementFeaturesNodePortAccelerationNONE captures enum value "NONE"
-	KubeProxyReplacementFeaturesNodePortAccelerationNONE string = "NONE"
+	// KubeProxyReplacementFeaturesNodePortAccelerationNone captures enum value "None"
+	KubeProxyReplacementFeaturesNodePortAccelerationNone string = "None"
 
-	// KubeProxyReplacementFeaturesNodePortAccelerationNATIVE captures enum value "NATIVE"
-	KubeProxyReplacementFeaturesNodePortAccelerationNATIVE string = "NATIVE"
+	// KubeProxyReplacementFeaturesNodePortAccelerationNative captures enum value "Native"
+	KubeProxyReplacementFeaturesNodePortAccelerationNative string = "Native"
 
-	// KubeProxyReplacementFeaturesNodePortAccelerationGENERIC captures enum value "GENERIC"
-	KubeProxyReplacementFeaturesNodePortAccelerationGENERIC string = "GENERIC"
+	// KubeProxyReplacementFeaturesNodePortAccelerationGeneric captures enum value "Generic"
+	KubeProxyReplacementFeaturesNodePortAccelerationGeneric string = "Generic"
 )
 
 // prop value enum
@@ -490,6 +501,49 @@ func (m *KubeProxyReplacementFeaturesNodePort) validateAcceleration(formats strf
 
 	// value enum
 	if err := m.validateAccelerationEnum("features"+"."+"nodePort"+"."+"acceleration", "body", m.Acceleration); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+var kubeProxyReplacementFeaturesNodePortTypeAlgorithmPropEnum []interface{}
+
+func init() {
+	var res []string
+	if err := json.Unmarshal([]byte(`["Random","Maglev"]`), &res); err != nil {
+		panic(err)
+	}
+	for _, v := range res {
+		kubeProxyReplacementFeaturesNodePortTypeAlgorithmPropEnum = append(kubeProxyReplacementFeaturesNodePortTypeAlgorithmPropEnum, v)
+	}
+}
+
+const (
+
+	// KubeProxyReplacementFeaturesNodePortAlgorithmRandom captures enum value "Random"
+	KubeProxyReplacementFeaturesNodePortAlgorithmRandom string = "Random"
+
+	// KubeProxyReplacementFeaturesNodePortAlgorithmMaglev captures enum value "Maglev"
+	KubeProxyReplacementFeaturesNodePortAlgorithmMaglev string = "Maglev"
+)
+
+// prop value enum
+func (m *KubeProxyReplacementFeaturesNodePort) validateAlgorithmEnum(path, location string, value string) error {
+	if err := validate.EnumCase(path, location, value, kubeProxyReplacementFeaturesNodePortTypeAlgorithmPropEnum, true); err != nil {
+		return err
+	}
+	return nil
+}
+
+func (m *KubeProxyReplacementFeaturesNodePort) validateAlgorithm(formats strfmt.Registry) error {
+
+	if swag.IsZero(m.Algorithm) { // not required
+		return nil
+	}
+
+	// value enum
+	if err := m.validateAlgorithmEnum("features"+"."+"nodePort"+"."+"algorithm", "body", m.Algorithm); err != nil {
 		return err
 	}
 

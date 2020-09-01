@@ -292,13 +292,17 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			features := []string{}
 
 			if np := sr.KubeProxyReplacement.Features.NodePort; np.Enabled {
+				algorithm := np.Algorithm
+				if algorithm == models.KubeProxyReplacementFeaturesNodePortAlgorithmMaglev {
+					algorithm = fmt.Sprintf("%s (%d)", np.Algorithm, np.LutSize)
+				}
 				mode := np.Mode
 				if mode == models.KubeProxyReplacementFeaturesNodePortModeHYBRID {
 					mode = strings.Title(mode)
 				}
 				features = append(features,
-					fmt.Sprintf("NodePort (%s, %d-%d, XDP: %s)",
-						mode, np.PortMin, np.PortMax, np.Acceleration))
+					fmt.Sprintf("NodePort (%s, %s, %d-%d, XDP: %s)",
+						mode, algorithm, np.PortMin, np.PortMax, np.Acceleration))
 			}
 
 			if sr.KubeProxyReplacement.Features.HostPort.Enabled {

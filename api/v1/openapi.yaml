@@ -1751,15 +1751,22 @@ definitions:
                 - SNAT
                 - DSR
                 - HYBRID
+              algorithm:
+                type: string
+                enum:
+                - Random
+                - Maglev
               acceleration:
                 type: string
                 enum:
-                - NONE
-                - NATIVE
-                - GENERIC
+                - None
+                - Native
+                - Generic
               portMin:
                 type: integer
               portMax:
+                type: integer
+              lutSize:
                 type: integer
           hostPort:
             description: |-
