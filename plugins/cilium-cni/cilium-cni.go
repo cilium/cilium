@@ -423,7 +423,7 @@ func cmdAdd(args *skel.CmdArgs) (err error) {
 	}
 
 	podName := string(cniArgs.K8S_POD_NAMESPACE) + "/" + string(cniArgs.K8S_POD_NAME)
-	ipam, err = c.IPAMAllocate("", podName, true)
+	ipam, err = c.IPAMAllocate("", podName, true, map[string]string{})
 	if err != nil {
 		err = fmt.Errorf("unable to allocate IP via local cilium agent: %s", err)
 		return

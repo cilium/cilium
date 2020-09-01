@@ -26,7 +26,7 @@ const (
 )
 
 // IPAMAllocate allocates an IP address out of address family specific pool.
-func (c *Client) IPAMAllocate(family, owner string, expiration bool) (*models.IPAMResponse, error) {
+func (c *Client) IPAMAllocate(family, owner string, expiration bool, metadata map[string]string) (*models.IPAMResponse, error) {
 	params := ipam.NewPostIpamParams().WithTimeout(api.ClientTimeout)
 
 	if family != "" {
@@ -38,6 +38,7 @@ func (c *Client) IPAMAllocate(family, owner string, expiration bool) (*models.IP
 	}
 
 	params.SetExpiration(&expiration)
+	params.SetMetadata(metadata)
 
 	resp, err := c.Ipam.PostIpam(params)
 	if err != nil {
@@ -47,8 +48,8 @@ func (c *Client) IPAMAllocate(family, owner string, expiration bool) (*models.IP
 }
 
 // IPAMAllocateIP tries to allocate a particular IP address.
-func (c *Client) IPAMAllocateIP(ip, owner string) error {
-	params := ipam.NewPostIpamIPParams().WithIP(ip).WithOwner(&owner).WithTimeout(api.ClientTimeout)
+func (c *Client) IPAMAllocateIP(ip, owner string, metadata map[string]string) error {
+	params := ipam.NewPostIpamIPParams().WithIP(ip).WithOwner(&owner).WithMetadata(metadata).WithTimeout(api.ClientTimeout)
 	_, err := c.Ipam.PostIpamIP(params)
 	return Hint(err)
 }
