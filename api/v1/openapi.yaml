@@ -405,6 +405,7 @@ paths:
       - "$ref": "#/parameters/ipam-family"
       - "$ref": "#/parameters/ipam-owner"
       - "$ref": "#/parameters/ipam-expiration"
+      - "$ref": "#/parameters/ipam-metadata"
       responses:
         '201':
           description: Success
@@ -423,6 +424,7 @@ paths:
       parameters:
       - "$ref": "#/parameters/ipam-ip"
       - "$ref": "#/parameters/ipam-owner"
+      - "$ref": "#/parameters/ipam-metadata"
       responses:
         '200':
           description: Success
@@ -955,6 +957,11 @@ parameters:
     name: owner
     in: query
     type: string
+  ipam-metadata:
+    name: metadata
+    in: body
+    schema:
+      "$ref": "#/definitions/IPAMMetadata"
   ipam-expiration:
     name: expiration
     in: header
@@ -1416,6 +1423,12 @@ definitions:
         description: |
           The UUID for the expiration timer. Set when expiration has been
           enabled while allocating.
+  IPAMMetadata:
+    description: |
+      Additional IPAM metadata when allocating IPs
+    type: object
+    additionalProperties:
+      type: string
   AddressPair:
     description: Addressing information of an endpoint
     type: object

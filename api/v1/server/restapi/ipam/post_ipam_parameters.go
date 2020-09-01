@@ -17,6 +17,8 @@ import (
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
 	"github.com/go-openapi/validate"
+
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPostIpamParams creates a new PostIpamParams object
@@ -44,6 +46,10 @@ type PostIpamParams struct {
 	*/
 	Family *string
 	/*
+	  In: body
+	*/
+	Metadata models.IPAMMetadata
+	/*
 	  In: query
 	*/
 	Owner *string
@@ -69,6 +75,22 @@ func (o *PostIpamParams) BindRequest(r *http.Request, route *middleware.MatchedR
 		res = append(res, err)
 	}
 
+	if runtime.HasBody(r) {
+		defer r.Body.Close()
+		var body models.IPAMMetadata
+		if err := route.Consumer.Consume(r.Body, &body); err != nil {
+			res = append(res, errors.NewParseError("metadata", "body", "", err))
+		} else {
+			// validate body object
+			if err := body.Validate(route.Formats); err != nil {
+				res = append(res, err)
+			}
+
+			if len(res) == 0 {
+				o.Metadata = body
+			}
+		}
+	}
 	qOwner, qhkOwner, _ := qs.GetOK("owner")
 	if err := o.bindOwner(qOwner, qhkOwner, route.Formats); err != nil {
 		res = append(res, err)

@@ -785,6 +785,9 @@ func init() {
           },
           {
             "$ref": "#/parameters/ipam-expiration"
+          },
+          {
+            "$ref": "#/parameters/ipam-metadata"
           }
         ],
         "responses": {
@@ -816,6 +819,9 @@ func init() {
           },
           {
             "$ref": "#/parameters/ipam-owner"
+          },
+          {
+            "$ref": "#/parameters/ipam-metadata"
           }
         ],
         "responses": {
@@ -2382,6 +2388,13 @@ func init() {
         }
       }
     },
+    "IPAMMetadata": {
+      "description": "Additional IPAM metadata when allocating IPs\n",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
     "IPAMResponse": {
       "description": "IPAM configuration of an endpoint",
       "type": "object",
@@ -3467,6 +3480,13 @@ func init() {
       "in": "path",
       "required": true
     },
+    "ipam-metadata": {
+      "name": "metadata",
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/IPAMMetadata"
+      }
+    },
     "ipam-owner": {
       "type": "string",
       "name": "owner",
@@ -4423,6 +4443,13 @@ func init() {
             "type": "boolean",
             "name": "expiration",
             "in": "header"
+          },
+          {
+            "name": "metadata",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/IPAMMetadata"
+            }
           }
         ],
         "responses": {
@@ -4460,6 +4487,13 @@ func init() {
             "type": "string",
             "name": "owner",
             "in": "query"
+          },
+          {
+            "name": "metadata",
+            "in": "body",
+            "schema": {
+              "$ref": "#/definitions/IPAMMetadata"
+            }
           }
         ],
         "responses": {
@@ -6166,6 +6200,13 @@ func init() {
         }
       }
     },
+    "IPAMMetadata": {
+      "description": "Additional IPAM metadata when allocating IPs\n",
+      "type": "object",
+      "additionalProperties": {
+        "type": "string"
+      }
+    },
     "IPAMResponse": {
       "description": "IPAM configuration of an endpoint",
       "type": "object",
@@ -7440,6 +7481,13 @@ func init() {
       "name": "ip",
       "in": "path",
       "required": true
+    },
+    "ipam-metadata": {
+      "name": "metadata",
+      "in": "body",
+      "schema": {
+        "$ref": "#/definitions/IPAMMetadata"
+      }
     },
     "ipam-owner": {
       "type": "string",

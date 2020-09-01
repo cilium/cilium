@@ -17,6 +17,8 @@ import (
 	"github.com/go-openapi/runtime"
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
+
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPostIpamIPParams creates a new PostIpamIPParams object
@@ -68,6 +70,8 @@ type PostIpamIPParams struct {
 
 	*/
 	IP string
+	/*Metadata*/
+	Metadata models.IPAMMetadata
 	/*Owner*/
 	Owner *string
 
@@ -120,6 +124,17 @@ func (o *PostIpamIPParams) SetIP(ip string) {
 	o.IP = ip
 }
 
+// WithMetadata adds the metadata to the post ipam IP params
+func (o *PostIpamIPParams) WithMetadata(metadata models.IPAMMetadata) *PostIpamIPParams {
+	o.SetMetadata(metadata)
+	return o
+}
+
+// SetMetadata adds the metadata to the post ipam IP params
+func (o *PostIpamIPParams) SetMetadata(metadata models.IPAMMetadata) {
+	o.Metadata = metadata
+}
+
 // WithOwner adds the owner to the post ipam IP params
 func (o *PostIpamIPParams) WithOwner(owner *string) *PostIpamIPParams {
 	o.SetOwner(owner)
@@ -142,6 +157,12 @@ func (o *PostIpamIPParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Re
 	// path param ip
 	if err := r.SetPathParam("ip", o.IP); err != nil {
 		return err
+	}
+
+	if o.Metadata != nil {
+		if err := r.SetBodyParam(o.Metadata); err != nil {
+			return err
+		}
 	}
 
 	if o.Owner != nil {

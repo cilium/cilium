@@ -18,6 +18,8 @@ import (
 	cr "github.com/go-openapi/runtime/client"
 	"github.com/go-openapi/strfmt"
 	"github.com/go-openapi/swag"
+
+	"github.com/cilium/cilium/api/v1/models"
 )
 
 // NewPostIpamParams creates a new PostIpamParams object
@@ -68,6 +70,8 @@ type PostIpamParams struct {
 	Expiration *bool
 	/*Family*/
 	Family *string
+	/*Metadata*/
+	Metadata models.IPAMMetadata
 	/*Owner*/
 	Owner *string
 
@@ -131,6 +135,17 @@ func (o *PostIpamParams) SetFamily(family *string) {
 	o.Family = family
 }
 
+// WithMetadata adds the metadata to the post ipam params
+func (o *PostIpamParams) WithMetadata(metadata models.IPAMMetadata) *PostIpamParams {
+	o.SetMetadata(metadata)
+	return o
+}
+
+// SetMetadata adds the metadata to the post ipam params
+func (o *PostIpamParams) SetMetadata(metadata models.IPAMMetadata) {
+	o.Metadata = metadata
+}
+
 // WithOwner adds the owner to the post ipam params
 func (o *PostIpamParams) WithOwner(owner *string) *PostIpamParams {
 	o.SetOwner(owner)
@@ -173,6 +188,12 @@ func (o *PostIpamParams) WriteToRequest(r runtime.ClientRequest, reg strfmt.Regi
 			}
 		}
 
+	}
+
+	if o.Metadata != nil {
+		if err := r.SetBodyParam(o.Metadata); err != nil {
+			return err
+		}
 	}
 
 	if o.Owner != nil {
