@@ -531,6 +531,10 @@ func init() {
 	flags.MarkHidden(option.AllowHostSrc)
 	option.BindEnv(option.AllowHostSrc)
 
+	flags.Bool(option.TransmitHostSrc, false, "Transmit traffic to remote nodes with source identity \"host\"")
+	flags.MarkHidden(option.TransmitHostSrc)
+	option.BindEnv(option.TransmitHostSrc)
+
 	flags.String(option.IPv4NativeRoutingCIDR, "", "Allows to explicitly specify the CIDR for native routing. This value corresponds to the configured cluster-cidr.")
 	option.BindEnv(option.IPv4NativeRoutingCIDR)
 

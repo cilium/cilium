@@ -133,7 +133,7 @@ __encap_with_nodeid(struct __sk_buff *skb, __u32 tunnel_endpoint,
  * remote_node source so to ease upgrade from v1.6 -> v1.7 where v1.6 does not
  * understand remote_node identity, we avoid transmitting it as a source.
  */
-#ifndef ALLOW_HOST_SRC
+#ifndef XMIT_HOST_SRC
 	/* When encapsulating, a packet originating from the local host is
 	 * being considered as a packet from a remote node as it is being
 	 * received. */
