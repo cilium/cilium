@@ -289,7 +289,19 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
 	}
-
+	const (
+		selectionRandom = iota + 1
+		selectionMaglev
+	)
+	cDefinesMap["LB_SELECTION_RANDOM"] = fmt.Sprintf("%d", selectionRandom)
+	cDefinesMap["LB_SELECTION_MAGLEV"] = fmt.Sprintf("%d", selectionMaglev)
+	if option.Config.NodePortAlg == option.NodePortAlgRandom {
+		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionRandom)
+	} else if option.Config.NodePortAlg == option.NodePortAlgMaglev {
+		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionMaglev)
+	}
+	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash0)
+	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash1)
 	if option.Config.EnableNodePort {
 		directRoutingIface := option.Config.DirectRoutingDevice
 		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
