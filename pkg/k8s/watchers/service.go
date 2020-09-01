@@ -21,17 +21,16 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apimachinery/pkg/fields"
+	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, swgSvcs *lock.StoppableWaitGroup) {
-
+func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, swgSvcs *lock.StoppableWaitGroup, optsModifier func(*v1meta.ListOptions)) {
 	_, svcController := informer.NewInformer(
-		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
-			"services", v1.NamespaceAll, fields.Everything()),
+		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
+			"services", v1.NamespaceAll, optsModifier),
 		&slim_corev1.Service{},
 		0,
 		cache.ResourceEventHandlerFuncs{

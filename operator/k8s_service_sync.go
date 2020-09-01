@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -35,6 +36,7 @@ import (
 
 	"github.com/sirupsen/logrus"
 	v1 "k8s.io/api/core/v1"
+	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
@@ -91,6 +93,11 @@ func k8sServiceHandler() {
 func startSynchronizingServices() {
 	log.Info("Starting to synchronize k8s services to kvstore...")
 
+	serviceOptsModifier, err := utils.GetServiceListOptionsModifier()
+	if err != nil {
+		log.WithError(err).Fatal("Error creating service option modifier")
+	}
+
 	readyChan := make(chan struct{}, 0)
 
 	go func() {
@@ -116,8 +123,8 @@ func startSynchronizingServices() {
 
 	// Watch for v1.Service changes and push changes into ServiceCache
 	_, svcController := informer.NewInformer(
-		cache.NewListWatchFromClient(k8s.WatcherCli().CoreV1().RESTClient(),
-			"services", v1.NamespaceAll, fields.Everything()),
+		cache.NewFilteredListWatchFromClient(k8s.WatcherCli().CoreV1().RESTClient(),
+			"services", v1.NamespaceAll, serviceOptsModifier),
 		&slim_corev1.Service{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -171,7 +178,7 @@ func startSynchronizingServices() {
 		}
 		fallthrough
 	default:
-		endpointController = endpointsInit(k8s.WatcherCli(), swgEps)
+		endpointController = endpointsInit(k8s.WatcherCli(), swgEps, serviceOptsModifier)
 		go endpointController.Run(wait.NeverStop)
 	}
 
@@ -191,13 +198,18 @@ func startSynchronizingServices() {
 	}()
 }
 
-func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup) cache.Controller {
+func endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup, optsModifier func(*v1meta.ListOptions)) cache.Controller {
+	epOptsModifier := func(options *v1meta.ListOptions) {
+		// Don't get any events from kubernetes endpoints.
+		options.FieldSelector = fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager").String()
+		optsModifier(options)
+	}
+
 	// Watch for v1.Endpoints changes and push changes into ServiceCache
 	_, endpointController := informer.NewInformer(
-		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
+		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
 			"endpoints", v1.NamespaceAll,
-			// Don't get any events from kubernetes endpoints.
-			fields.ParseSelectorOrDie("metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager"),
+			epOptsModifier,
 		),
 		&slim_corev1.Endpoints{},
 		0,
