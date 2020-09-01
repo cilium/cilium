@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -354,7 +355,7 @@ func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
 // caches essential for daemon are synchronized.
 func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
 	if err := k.EnableK8sWatcher(option.Config.K8sWatcherQueueSize); err != nil {
-		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
+		log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
 	}
 
 	cachesSynced := make(chan struct{})
@@ -429,9 +430,14 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	swgKNP := lock.NewStoppableWaitGroup()
 	k.networkPoliciesInit(k8s.WatcherCli(), swgKNP)
 
+	serviceOptModifier, err := utils.GetServiceListOptionsModifier()
+	if err != nil {
+		return fmt.Errorf("error creating service list option modifier: %w", err)
+	}
+
 	// kubernetes services
 	swgSvcs := lock.NewStoppableWaitGroup()
-	k.servicesInit(k8s.WatcherCli(), swgSvcs)
+	k.servicesInit(k8s.WatcherCli(), swgSvcs, serviceOptModifier)
 
 	// kubernetes endpoints
 	swgEps := lock.NewStoppableWaitGroup()
@@ -439,14 +445,16 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	// We only enable either "Endpoints" or "EndpointSlice"
 	switch {
 	case k8s.SupportsEndpointSlice():
+		// We don't add the service option modifier here, as endpointslices do not
+		// mirror service proxy name label present in the corresponding service.
 		connected := k.endpointSlicesInit(k8s.WatcherCli(), swgEps)
-		// the cluster has endpoint slices so we should not check for v1.Endpoints
+		// The cluster has endpoint slices so we should not check for v1.Endpoints
 		if connected {
 			break
 		}
 		fallthrough
 	default:
-		k.endpointsInit(k8s.WatcherCli(), swgEps)
+		k.endpointsInit(k8s.WatcherCli(), swgEps, serviceOptModifier)
 	}
 
 	// cilium network policies

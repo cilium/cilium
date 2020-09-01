@@ -22,18 +22,23 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	v1 "k8s.io/api/core/v1"
+	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup) {
+func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.StoppableWaitGroup, optsModifier func(*v1meta.ListOptions)) {
+	epOptsModifier := func(options *v1meta.ListOptions) {
+		options.FieldSelector = fields.ParseSelectorOrDie(option.Config.K8sWatcherEndpointSelector).String()
+		optsModifier(options)
+	}
 
 	_, endpointController := informer.NewInformer(
-		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
+		cache.NewFilteredListWatchFromClient(k8sClient.CoreV1().RESTClient(),
 			"endpoints", v1.NamespaceAll,
-			fields.ParseSelectorOrDie(option.Config.K8sWatcherEndpointSelector),
+			epOptsModifier,
 		),
 		&slim_corev1.Endpoints{},
 		0,

@@ -844,6 +844,9 @@ func init() {
 	flags.Int(option.LBMapEntriesName, lbmap.MaxEntries, "Maximum number of entries in Cilium BPF lbmap")
 	option.BindEnv(option.LBMapEntriesName)
 
+	flags.String(option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
+	option.BindEnv(option.K8sServiceProxyName)
+
 	viper.BindPFlags(flags)
 
 	CustomCommandHelpFormat(RootCmd, option.HelpFlagSections)

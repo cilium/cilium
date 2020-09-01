@@ -15,7 +15,17 @@
 package utils
 
 import (
-	"k8s.io/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
+	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
+	"github.com/cilium/cilium/pkg/option"
+	v1 "k8s.io/api/core/v1"
+	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
+)
+
+const (
+	// ServiceProxyNameLabel is the label for service proxy name in k8s service related
+	// objects.
+	serviceProxyNameLabel = "service.kubernetes.io/service-proxy-name"
 )
 
 type NamespaceNameGetter interface {
@@ -53,4 +63,37 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 	}
 
 	return ns + "/" + obj.GetName()
+}
+
+// GetServiceListOptionsModifier returns the options modifier for service object list.
+// This methods returns a ListOptions modifier which adds a label selector to only
+// select services that are in context of Cilium.
+// We honor service.kubernetes.io/service-proxy-name label in the service object and only
+// handle services that match our service proxy name. If the service proxy name for Cilium
+// is an empty string, we assume that Cilium is the default service handler in which case
+// we select all services that don't have the above mentioned label.
+func GetServiceListOptionsModifier() (func(options *v1meta.ListOptions), error) {
+	var (
+		serviceNameSelector *labels.Requirement
+		err                 error
+	)
+
+	if option.Config.K8sServiceProxyName == "" {
+		serviceNameSelector, err = labels.NewRequirement(
+			serviceProxyNameLabel, selection.DoesNotExist, nil)
+	} else {
+		serviceNameSelector, err = labels.NewRequirement(
+			serviceProxyNameLabel, selection.DoubleEquals, []string{option.Config.K8sServiceProxyName})
+	}
+
+	if err != nil {
+		return nil, err
+	}
+
+	labelSelector := labels.NewSelector()
+	labelSelector = labelSelector.Add(*serviceNameSelector)
+
+	return func(options *v1meta.ListOptions) {
+		options.LabelSelector = labelSelector.String()
+	}, nil
 }
