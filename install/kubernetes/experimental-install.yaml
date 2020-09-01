@@ -164,6 +164,19 @@ data:
   cluster-pool-ipv4-mask-size: "24"
   disable-cnp-status-updates: "true"
 ---
+# Source: cilium/charts/hubble-relay/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-relay-config
+  namespace: kube-system
+data:
+  config.yaml: |
+    peer-service: unix:///var/run/cilium/hubble.sock
+    listen-address: :4245
+    disable-client-tls: true
+    disable-server-tls: true
+---
 # Source: cilium/charts/agent/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -739,8 +752,6 @@ spec:
             - "hubble-relay"
           args:
             - "serve"
-            - "--peer-service=unix:///var/run/cilium/hubble.sock"
-            - "--listen-address=:4245"
           ports:
             - name: grpc
               containerPort: 4245
@@ -754,11 +765,20 @@ spec:
           - mountPath: /var/run/cilium
             name: hubble-sock-dir
             readOnly: true
+          - mountPath: /etc/hubble-relay
+            name: config
+            readOnly: true
       restartPolicy: Always
       terminationGracePeriodSeconds: 0
       tolerations:
       - operator: Exists
       volumes:
+      - configMap:
+          name: hubble-relay-config
+          items:
+          - key: config.yaml
+            path: config.yaml
+        name: config
       - hostPath:
           path: /var/run/cilium
           type: Directory
