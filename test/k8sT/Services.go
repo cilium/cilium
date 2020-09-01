@@ -347,6 +347,66 @@ var _ = Describe("K8sServicesTest", func() {
 				testCurlFromPods(echoPodLabel, url, 10, 0)
 			})
 		})
+
+		It("Checks service.kubernetes.io/service-proxy-name label implementation", func() {
+			serviceProxyLabelName := "service.kubernetes.io/service-proxy-name"
+
+			ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
+			Expect(err).To(BeNil(), "Cannot get cilium pods")
+
+			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, echoServiceName)
+			Expect(err).Should(BeNil(), "Cannot get service %q ClusterIP", echoServiceName)
+			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
+
+			By("Labelling echo service with dummy service-proxy-name")
+			res := kubectl.Exec(fmt.Sprintf("kubectl label services/%s %s=%s", echoServiceName, serviceProxyLabelName, "dummy-lb"))
+			res.ExpectSuccess("cannot label service")
+
+			// Wait for all cilium pods to remove the serivce from its list.
+			By("Validating that Cilium is not handling the service")
+			Eventually(func() int {
+				validPods := 0
+				for _, pod := range ciliumPods {
+					serviceRes := kubectl.CiliumExecMustSucceed(
+						context.TODO(), pod, "cilium service list", "Cannot retrieve services on cilium Pod")
+
+					if !strings.Contains(serviceRes.Stdout(), clusterIP) {
+						validPods++
+					}
+				}
+
+				return validPods
+			}, 30*time.Second, 2*time.Second).
+				Should(Equal(len(ciliumPods)), "All Cilium pods should remove the service from its services list")
+
+			url := fmt.Sprintf("http://%s/", clusterIP)
+
+			By("Checking that service should not be reachable with dummy service-proxy-name")
+			testCurlFromPods(echoPodLabel, url, 5, 5)
+
+			By("Removing echo service service-proxy-name label")
+			res = kubectl.Exec(fmt.Sprintf("kubectl label services/%s %s-", echoServiceName, serviceProxyLabelName))
+			res.ExpectSuccess("cannot remove label from service")
+
+			By("Validating that Cilium is handling the service")
+			Eventually(func() int {
+				validPods := 0
+				for _, pod := range ciliumPods {
+					serviceRes := kubectl.CiliumExecMustSucceed(
+						context.TODO(), pod, "cilium service list", "Cannot retrieve services on cilium Pod")
+
+					if strings.Contains(serviceRes.Stdout(), clusterIP) {
+						validPods++
+					}
+				}
+
+				return validPods
+			}, 30*time.Second, 2*time.Second).
+				Should(Equal(len(ciliumPods)), "All Cilium pods must have the service in its services list")
+
+			By("Checking that service should be reachable with no service-proxy-name")
+			testCurlFromPods(echoPodLabel, url, 5, 0)
+		})
 	})
 
 	Context("Checks service across nodes", func() {
