@@ -262,6 +262,11 @@ const (
 	// NodePortRange defines a custom range where to look up NodePort services
 	NodePortRange = "node-port-range"
 
+	// NodePortAddress defines a custom set of ip address ranges that Cilium should
+	// consider as being local to the node when type nodePort is specified as a port type
+	// within a service
+	NodePortAddresses = "node-port-addresses"
+
 	// EnableAutoProtectNodePortRange enables appending NodePort range to
 	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
 	// range (net.ipv4.ip_local_port_range)
@@ -1100,6 +1105,7 @@ var HelpFlagSections = []FlagsSection{
 			NodePortMode,
 			NodePortBindProtection,
 			NodePortAcceleration,
+			NodePortAddresses,
 		},
 	},
 	{
@@ -1811,6 +1817,10 @@ type DaemonConfig struct {
 
 	// NodePortMax is the maximum port address for the NodePort range
 	NodePortMax int
+
+	// NodePortAddresses is the set of subnets that a user has deemed "local"
+	// to the node and should be used as a pool of IP addresses for node ports
+	NodePortAddresses []net.IPNet
 
 	// EnableSessionAffinity enables a support for service sessionAffinity
 	EnableSessionAffinity bool
@@ -2560,6 +2570,11 @@ func (c *DaemonConfig) Populate() {
 		log.WithError(err).Fatal("Failed to populate NodePortRange")
 	}
 
+	err = c.populateNodePortAddresses()
+	if err != nil {
+		log.WithError(err).Fatal("Failed to populate NodePortAddresses")
+	}
+
 	err = c.populateHostServicesProtos()
 	if err != nil {
 		log.WithError(err).Fatal("Failed to populate HostReachableServicesProtos")
@@ -2744,6 +2759,24 @@ func (c *DaemonConfig) populateNodePortRange() error {
 		return fmt.Errorf("Unable to parse min/max port value for NodePort range: %s", NodePortRange)
 	}
 
+	return nil
+}
+
+func (c *DaemonConfig) populateNodePortAddresses() error {
+	nodePortAddresses := viper.GetStringSlice(NodePortAddresses)
+
+	for _, ip := range nodePortAddresses {
+		_, cidr, err := net.ParseCIDR(ip)
+		if err != nil {
+			return fmt.Errorf("invalid subnet, %q, for %s: %v", ip, NodePortAddresses, nodePortAddresses)
+		}
+		for _, n := range c.NodePortAddresses {
+			if cidr.Contains(n.IP) || n.Contains(cidr.IP) {
+				return fmt.Errorf("subnet, %v, overlaps with other subnet, %v", cidr, n)
+			}
+		}
+		c.NodePortAddresses = append(c.NodePortAddresses, *cidr)
+	}
 	return nil
 }
 

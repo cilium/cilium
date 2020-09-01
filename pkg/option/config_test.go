@@ -722,6 +722,105 @@ func Test_populateNodePortRange(t *testing.T) {
 	}
 }
 
+func Test_populateNodePortAddresses(t *testing.T) {
+
+	tests := []struct {
+		name         string
+		expectedNets []net.IPNet
+		args         []string
+		err          bool
+	}{
+		{
+			name: "one subnet",
+			expectedNets: []net.IPNet{
+				{
+					IP:   net.IPv4(0, 0, 0, 0),
+					Mask: net.IPv4Mask(255, 255, 255, 255),
+				},
+			},
+			args: []string{"0.0.0.0/32"},
+		},
+		{
+			name: "two subnets",
+			expectedNets: []net.IPNet{
+				{
+					IP:   net.IPv4(0, 0, 0, 0),
+					Mask: net.IPv4Mask(255, 255, 255, 255),
+				},
+				{
+					IP:   net.IPv4(127, 0, 0, 0),
+					Mask: net.IPv4Mask(255, 0, 0, 0),
+				},
+			},
+			args: []string{"0.0.0.0/32", "127.0.0.0/8"},
+		},
+		{
+			name: "mixed subnets",
+			expectedNets: []net.IPNet{
+				{
+					IP:   net.IPv4(0, 0, 0, 0),
+					Mask: net.IPv4Mask(255, 255, 255, 255),
+				},
+				{
+					IP:   net.IPv6loopback,
+					Mask: net.IPMask{0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff, 0xff},
+				},
+			},
+			args: []string{"0.0.0.0/32", "::1/128"},
+		},
+		{
+			name: "ipv6 only",
+			expectedNets: []net.IPNet{
+				{
+					IP:   net.IPv6zero,
+					Mask: net.IPMask{0xff, 0xff, 0xff, 0xff, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0, 0},
+				},
+			},
+			args: []string{"::/32"},
+		},
+		{
+			name: "bad subnet only slash",
+			args: []string{"/32"},
+			err:  true,
+		},
+		{
+			name: "bad subnet only slash and colon",
+			args: []string{":/32"},
+			err:  true,
+		},
+		{
+			name: "bad overlapping subnets",
+			args: []string{"127.0.0.1/8", "127.0.0.1/32"},
+			err:  true,
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+
+			d := &DaemonConfig{}
+			viper.Reset()
+			viper.Set(NodePortAddresses, tt.args)
+			err := d.populateNodePortAddresses()
+			if tt.err {
+				if err == nil {
+					t.Fatal("wanted error but got none")
+				}
+				return
+			}
+			eL := len(tt.expectedNets)
+			if eL != len(d.NodePortAddresses) {
+				t.Fatalf("expected %d nets but got %d", eL, len(d.NodePortAddresses))
+			}
+			for i := 0; i < eL; i++ {
+				if !tt.expectedNets[i].IP.Equal(d.NodePortAddresses[i].IP) ||
+					tt.expectedNets[i].Mask.String() != d.NodePortAddresses[i].Mask.String() {
+					t.Fatalf("expected %v subnet, but got %v", tt.expectedNets[i], d.NodePortAddresses[i])
+				}
+			}
+		})
+	}
+}
+
 func (s *OptionSuite) TestGetDefaultMonitorQueueSize(c *C) {
 	c.Assert(getDefaultMonitorQueueSize(4), Equals, 4*defaults.MonitorQueueSizePerCPU)
 	c.Assert(getDefaultMonitorQueueSize(1000), Equals, defaults.MonitorQueueSizePerCPUMaximum)

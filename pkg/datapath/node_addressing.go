@@ -36,12 +36,16 @@ type NodeAddressingFamily interface {
 	// on the node
 	AllocationCIDR() *cidr.CIDR
 
-	// LocalAddresses lists all local addresses
-	LocalAddresses() ([]net.IP, error)
+	// MapLocalAddresses applies a function to each local address.
+	MapLocalAddresses(func(net.IP) error) error
 
 	// LoadBalancerNodeAddresses lists all addresses on which HostPort and
 	// NodePort services should be responded to
 	LoadBalancerNodeAddresses() []net.IP
+
+	// SubnetOverride returns a set of IP blocks that override local ip addresses
+	// if they are present
+	SubnetOverride() []net.IPNet
 }
 
 // NodeAddressing implements addressing of a node

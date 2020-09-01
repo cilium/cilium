@@ -198,91 +198,73 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		return nil
 	}
 
-	specialIdentities := []identity.IPIdentityPair{}
-
-	if option.Config.EnableIPv4 {
-		addrs, err := d.datapath.LocalNodeAddressing().IPv4().LocalAddresses()
-		if err != nil {
-			log.WithError(err).Warning("Unable to list local IPv4 addresses")
-		}
-
-		for _, ip := range addrs {
-			if option.Config.IsExcludedLocalAddress(ip) {
-				continue
-			}
-
-			if len(ip) > 0 {
-				specialIdentities = append(specialIdentities,
-					identity.IPIdentityPair{
-						IP: ip,
-						ID: identity.ReservedIdentityHost,
-					})
-			}
-		}
-
-		specialIdentities = append(specialIdentities,
-			identity.IPIdentityPair{
-				IP:   net.IPv4zero,
-				Mask: net.CIDRMask(0, net.IPv4len*8),
-				ID:   identity.ReservedIdentityWorld,
-			})
-	}
-
-	if option.Config.EnableIPv6 {
-		addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses()
-		if err != nil {
-			log.WithError(err).Warning("Unable to list local IPv4 addresses")
-		}
-
-		addrs = append(addrs, node.GetIPv6Router())
-		for _, ip := range addrs {
-			if option.Config.IsExcludedLocalAddress(ip) {
-				continue
-			}
-
-			if len(ip) > 0 {
-				specialIdentities = append(specialIdentities,
-					identity.IPIdentityPair{
-						IP: ip,
-						ID: identity.ReservedIdentityHost,
-					})
-			}
-		}
-
-		specialIdentities = append(specialIdentities,
-			identity.IPIdentityPair{
-				IP:   net.IPv6zero,
-				Mask: net.CIDRMask(0, net.IPv6len*8),
-				ID:   identity.ReservedIdentityWorld,
-			})
-	}
-
 	existingEndpoints, err := lxcmap.DumpToMap()
 	if err != nil {
 		return err
 	}
 
-	for _, ipIDPair := range specialIdentities {
-		hostKey := node.GetIPsecKeyIdentity()
-		isHost := ipIDPair.ID == identity.ReservedIdentityHost
-		if isHost {
-			added, err := lxcmap.SyncHostEntry(ipIDPair.IP)
-			if err != nil {
-				return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
+	if option.Config.EnableIPv4 {
+		naf := d.datapath.LocalNodeAddressing().IPv4()
+		overrides := naf.SubnetOverride()
+
+		var err error
+		if len(overrides) > 0 {
+			for _, ipNet := range overrides {
+				err = upsertIPIdentity(identity.IPIdentityPair{
+					IP:   ipNet.IP,
+					Mask: ipNet.Mask,
+					ID:   identity.ReservedIdentityHost,
+				}, &existingEndpoints)
+				if err != nil {
+					break
+				}
 			}
-			if added {
-				log.WithField(logfields.IPAddr, ipIDPair.IP).Debugf("Added local ip to endpoint map")
+		} else {
+			err = ipAddrMapFn(naf, &existingEndpoints)
+			if err != nil {
+				err = upsertIPIdentity(identity.IPIdentityPair{
+					IP:   net.IPv4zero,
+					Mask: net.CIDRMask(0, net.IPv4len*8),
+					ID:   identity.ReservedIdentityWorld,
+				}, &existingEndpoints)
 			}
 		}
 
-		delete(existingEndpoints, ipIDPair.IP.String())
+		if err != nil {
+			log.WithError(err).Warning("Unable to upsert local IPv4 addresses")
+		}
+	}
 
-		// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
-		// and we specifically don't want to do so.
-		ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
-			ID:     ipIDPair.ID,
-			Source: source.Local,
-		})
+	if option.Config.EnableIPv6 {
+		naf := d.datapath.LocalNodeAddressing().IPv6()
+		overrides := naf.SubnetOverride()
+
+		var err error
+		if len(overrides) > 0 {
+			for _, ipNet := range overrides {
+				err = upsertIPIdentity(identity.IPIdentityPair{
+					IP:   ipNet.IP,
+					Mask: ipNet.Mask,
+					ID:   identity.ReservedIdentityHost,
+				}, &existingEndpoints)
+				if err != nil {
+					break
+				}
+			}
+		} else {
+			err = ipAddrMapFn(naf, &existingEndpoints)
+			if err != nil {
+				err = upsertIPIdentity(identity.IPIdentityPair{
+					IP:   net.IPv6zero,
+					Mask: net.CIDRMask(0, net.IPv6len*8),
+					ID:   identity.ReservedIdentityWorld,
+				}, &existingEndpoints)
+			}
+		}
+
+		if err != nil {
+			log.WithError(err).Warning("Unable to upsert local IPv6 addresses")
+		}
 	}
 
 	for hostIP, info := range existingEndpoints {
@@ -299,6 +281,43 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 		}
 	}
 
+	return nil
+}
+
+func ipAddrMapFn(naf datapath.NodeAddressingFamily, existingEndpoints *map[string]*lxcmap.EndpointInfo) error {
+	return naf.MapLocalAddresses(func(ip net.IP) error {
+		if len(ip) == 0 || option.Config.IsExcludedLocalAddress(ip) {
+			return nil
+		}
+		ipIDPair := identity.IPIdentityPair{
+			IP: ip,
+			ID: identity.ReservedIdentityHost,
+		}
+		return upsertIPIdentity(ipIDPair, existingEndpoints)
+	})
+}
+
+func upsertIPIdentity(ipIDPair identity.IPIdentityPair, existingEndpoints *map[string]*lxcmap.EndpointInfo) error {
+	hostKey := node.GetIPsecKeyIdentity()
+	isHost := ipIDPair.ID == identity.ReservedIdentityHost
+	if isHost {
+		added, err := lxcmap.SyncHostEntry(ipIDPair.IP)
+		if err != nil {
+			return fmt.Errorf("Unable to add host entry to endpoint map: %s", err)
+		}
+		if added {
+			log.WithField(logfields.IPAddr, ipIDPair.IP).Debugf("Added local ip to endpoint map")
+		}
+	}
+
+	delete(*existingEndpoints, ipIDPair.IP.String())
+
+	// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
+	// and we specifically don't want to do so.
+	ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), nil, hostKey, nil, ipcache.Identity{
+		ID:     ipIDPair.ID,
+		Source: source.Local,
+	})
 	return nil
 }
 

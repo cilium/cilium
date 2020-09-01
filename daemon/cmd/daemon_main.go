@@ -550,6 +550,9 @@ func init() {
 	flags.StringSlice(option.NodePortRange, []string{fmt.Sprintf("%d", option.NodePortMinDefault), fmt.Sprintf("%d", option.NodePortMaxDefault)}, "Set the min/max NodePort port range")
 	option.BindEnv(option.NodePortRange)
 
+	flags.StringSlice(option.NodePortAddresses, nil, "A list of values which specify the addresses to use for NodePorts. Values must be valid IP blocks (e.g. 1.2.3.0/24, ::1/128). The default is to use all local addresses.")
+	option.BindEnv(option.NodePortAddresses)
+
 	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
 	option.BindEnv(option.NodePortBindProtection)
 
@@ -1290,8 +1293,9 @@ func (d *Daemon) initKVStore() {
 
 func runDaemon() {
 	datapathConfig := linuxdatapath.DatapathConfiguration{
-		HostDevice:       option.Config.HostDevice,
-		EncryptInterface: option.Config.EncryptInterface,
+		HostDevice:        option.Config.HostDevice,
+		EncryptInterface:  option.Config.EncryptInterface,
+		NodePortAddresses: option.Config.NodePortAddresses,
 	}
 
 	log.Info("Initializing daemon")

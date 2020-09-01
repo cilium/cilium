@@ -15,6 +15,8 @@
 package linux
 
 import (
+	"net"
+
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/datapath/linux/config"
@@ -29,6 +31,8 @@ type DatapathConfiguration struct {
 	HostDevice string
 	// EncryptInterface is the name of the device to be used for direct ruoting encryption
 	EncryptInterface string
+	// NodePortAddresses is a set of IP blocks that should be considered local to the node
+	NodePortAddresses []net.IPNet
 }
 
 type linuxDatapath struct {
@@ -45,7 +49,7 @@ func NewDatapath(cfg DatapathConfiguration, ruleManager datapath.IptablesManager
 	dp := &linuxDatapath{
 		ConfigWriter:    &config.HeaderfileWriter{},
 		IptablesManager: ruleManager,
-		nodeAddressing:  NewNodeAddressing(),
+		nodeAddressing:  NewNodeAddressing(cfg.NodePortAddresses),
 		config:          cfg,
 		loader:          loader.NewLoader(canDisableDwarfRelocations),
 	}

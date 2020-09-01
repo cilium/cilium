@@ -281,14 +281,10 @@ func (d *Daemon) allocateIPs() error {
 	if option.Config.EnableIPv6 {
 		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
 		log.Infof("  IPv6 router address: %s", node.GetIPv6Router())
-
-		if addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses(); err != nil {
+		log.Info("  Local IPv6 addresses:")
+		err := d.datapath.LocalNodeAddressing().IPv6().MapLocalAddresses(logIPAddress)
+		if err != nil {
 			log.WithError(err).Fatal("Unable to list local IPv6 addresses")
-		} else {
-			log.Info("  Local IPv6 addresses:")
-			for _, ip := range addrs {
-				log.Infof("  - %s", ip)
-			}
 		}
 	}
 
@@ -309,14 +305,11 @@ func (d *Daemon) allocateIPs() error {
 		}
 		node.SetIPv4Loopback(loopbackIPv4)
 		log.Infof("  Loopback IPv4: %s", node.GetIPv4Loopback().String())
+		log.Info("  Local IPv4 addresses:")
 
-		if addrs, err := d.datapath.LocalNodeAddressing().IPv4().LocalAddresses(); err != nil {
+		err := d.datapath.LocalNodeAddressing().IPv4().MapLocalAddresses(logIPAddress)
+		if err != nil {
 			log.WithError(err).Fatal("Unable to list local IPv4 addresses")
-		} else {
-			log.Info("  Local IPv4 addresses:")
-			for _, ip := range addrs {
-				log.Infof("  - %s", ip)
-			}
 		}
 	}
 
@@ -373,4 +366,9 @@ func (d *Daemon) parseHealthEndpointInfo(result *ipam.AllocationResult) error {
 		result.Master,
 		option.Config.Masquerade)
 	return err
+}
+
+func logIPAddress(ip net.IP) error {
+	log.Infof("  - %s", ip)
+	return nil
 }

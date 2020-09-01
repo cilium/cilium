@@ -920,6 +920,29 @@ var _ = Describe("K8sServicesTest", func() {
 			kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
 		}
 
+		testNodePortSpecificLocalIPs := func(ips []string) {
+			var data v1.Service
+
+			err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
+
+			for _, ip := range ips {
+				httpURL := getHTTPLink(ip, data.Spec.Ports[0].NodePort)
+				tftpURL := getTFTPLink(ip, data.Spec.Ports[1].NodePort)
+				testCurlFromPodsFail(testDSClient, httpURL)
+				testCurlFromPodsFail(testDSClient, tftpURL)
+			}
+
+			// Clear CT tables on both Cilium nodes
+			pod, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
+			kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
+
+			pod, err = kubectl.GetCiliumPodOnNode(helpers.K8s2)
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot determine cilium pod name")
+			kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
+		}
+
 		// fromOutside=true tests session affinity implementation from lb.h, while
 		// fromOutside=false tests from  bpf_sock.c.
 		testSessionAffinity := func(fromOutside, vxlan bool) {
@@ -1792,6 +1815,17 @@ var _ = Describe("K8sServicesTest", func() {
 						"global.devices":               fmt.Sprintf(`'{%s}'`, privateIface),
 					})
 					testNodePortExternal(false, false)
+				})
+				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with node port addressing", func() {
+					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+						"global.nodePort.acceleration": "testing-only",
+						"global.nodePort.mode":         "snat",
+						"global.nodePort.addresses":    "::1/128 127.0.0.1/32",
+						"global.tunnel":                "disabled",
+						"global.autoDirectNodeRoutes":  "true",
+						"global.devices":               fmt.Sprintf(`'{%s}'`, privateIface),
+					})
+					testNodePortSpecificLocalIPs([]string{"::1", "127.0.0.1"})
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and Hybrid", func() {

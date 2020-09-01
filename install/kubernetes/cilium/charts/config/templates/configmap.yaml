@@ -471,6 +471,9 @@ data:
 {{- if .Values.global.nodePort.range }}
   node-port-range: {{ .Values.global.nodePort.range | quote }}
 {{- end }}
+{{- if .Values.global.nodePort.addresses }}
+  node-port-addresses: {{ .Values.global.nodePort.addresses | quote }}
+{{- end }}
 {{- if .Values.global.nodePort.directRoutingDevice }}
   direct-routing-device: {{ .Values.global.nodePort.directRoutingDevice | quote }}
 {{- end }}

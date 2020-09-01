@@ -104,8 +104,18 @@ func (a *addressFamily) AllocationCIDR() *cidr.CIDR {
 	return a.allocCIDR
 }
 
-func (a *addressFamily) LocalAddresses() ([]net.IP, error) {
-	return a.localAddresses, nil
+func (a *addressFamily) MapLocalAddresses(f func(net.IP) error) error {
+	for _, addr := range a.localAddresses {
+		err := f(addr)
+		if err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func (a *addressFamily) SubnetOverride() []net.IPNet {
+	return nil
 }
 
 func (a *addressFamily) LoadBalancerNodeAddresses() []net.IP {

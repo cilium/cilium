@@ -17,6 +17,7 @@
 package fake
 
 import (
+	"net"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/datapath"
@@ -46,10 +47,19 @@ func (s *fakeTestSuite) TestNewDatapath(c *check.C) {
 	c.Assert(dp.LocalNodeAddressing().IPv4().Router(), check.Not(check.IsNil))
 	c.Assert(dp.LocalNodeAddressing().IPv4().AllocationCIDR(), check.Not(check.IsNil))
 
-	list, err := dp.LocalNodeAddressing().IPv4().LocalAddresses()
-	c.Assert(len(list), check.Not(check.Equals), 0)
+	var list []net.IP
+	err := dp.LocalNodeAddressing().IPv4().MapLocalAddresses(func(ip net.IP) error {
+		list = append(list, ip)
+		return nil
+	})
 	c.Assert(err, check.IsNil)
-	list, err = dp.LocalNodeAddressing().IPv6().LocalAddresses()
 	c.Assert(len(list), check.Not(check.Equals), 0)
+
+	var list2 []net.IP
+	err = dp.LocalNodeAddressing().IPv6().MapLocalAddresses(func(ip net.IP) error {
+		list2 = append(list2, ip)
+		return nil
+	})
 	c.Assert(err, check.IsNil)
+	c.Assert(len(list2), check.Not(check.Equals), 0)
 }
