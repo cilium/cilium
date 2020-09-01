@@ -48,6 +48,7 @@ cilium-operator-azure [flags]
       --k8s-heartbeat-timeout duration            Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                Absolute path of the kubernetes kubeconfig file
       --k8s-namespace string                      Name of the Kubernetes namespace in which Cilium Operator is deployed in
+      --k8s-service-proxy-name string             Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --kvstore string                            Key-value store type
       --kvstore-opt map                           Key-value store options (default map[])
       --leader-election-lease-duration duration   Duration that non-leader operator candidates will wait before forcing to acquire leadership (default 15s)

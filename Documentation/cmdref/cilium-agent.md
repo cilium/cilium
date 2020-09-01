@@ -137,6 +137,7 @@ cilium-agent [flags]
       --k8s-namespace string                          Name of the Kubernetes namespace in which Cilium is deployed in
       --k8s-require-ipv4-pod-cidr                     Require IPv4 PodCIDR to be specified in node resource
       --k8s-require-ipv6-pod-cidr                     Require IPv6 PodCIDR to be specified in node resource
+      --k8s-service-proxy-name string                 Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --k8s-watcher-endpoint-selector string          K8s endpoint watcher will watch for these k8s endpoints (default "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager")
       --k8s-watcher-queue-size uint                   Queue size used to serialize each k8s event type (default 1024)
       --keep-config                                   When restoring state, keeps containers' configuration in place

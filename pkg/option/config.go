@@ -809,8 +809,12 @@ const (
 	// tracking map.
 	FragmentsMapEntriesName = "bpf-fragments-map-max"
 
-	// K8sEnableAPIDiscovery
+	// K8sEnableAPIDiscovery enables Kubernetes API discovery
 	K8sEnableAPIDiscovery = "enable-k8s-api-discovery"
+
+	// K8sServiceProxyName instructs Cilium to handle service objects only when
+	// service.kubernetes.io/service-proxy-name label equals the provided value.
+	K8sServiceProxyName = "k8s-service-proxy-name"
 )
 
 // HelpFlagSections to format the Cilium Agent help template.
@@ -887,6 +891,7 @@ var HelpFlagSections = []FlagsSection{
 			FlannelMasterDevice,
 			FlannelUninstallOnExit,
 			EnableWellKnownIdentities,
+			K8sServiceProxyName,
 		},
 	},
 	{
@@ -1886,6 +1891,13 @@ type DaemonConfig struct {
 	// election purposes in HA mode.
 	// This is only enabled for cilium-operator
 	k8sEnableLeasesFallbackDiscovery bool
+
+	// K8sServiceProxyName is the value of service.kubernetes.io/service-proxy-name label,
+	// that identifies the service objects Cilium should handle.
+	// If the provided value is an empty string, Cilium will manage service objects when
+	// the label is not present. For more details -
+	// https://github.com/kubernetes/enhancements/blob/master/keps/sig-network/0031-20181017-kube-proxy-services-optional.md
+	K8sServiceProxyName string
 }
 
 var (
@@ -2394,6 +2406,7 @@ func (c *DaemonConfig) Populate() {
 	c.PolicyAuditMode = viper.GetBool(PolicyAuditModeArg)
 	c.EnableIPv4FragmentsTracking = viper.GetBool(EnableIPv4FragmentsTrackingName)
 	c.FragmentsMapEntries = viper.GetInt(FragmentsMapEntriesName)
+	c.K8sServiceProxyName = viper.GetString(K8sServiceProxyName)
 
 	c.populateDevices()
 
