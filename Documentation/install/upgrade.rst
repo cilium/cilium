@@ -427,53 +427,79 @@ New ConfigMap Options
 ~~~~~~~~~~~~~~~~~~~~~
 
   * ``enable-remote-node-identity`` has been added to enable a new identity
-    for remote cluster nodes and to associate all IPs of a node with that new
-    identity. This allows for network policies that distinguish between
-    connections from host networking pods or other processes on the local
-    Kubernetes worker node from those on remote worker nodes.
+    representing the nodes in the cluster other than the local host. This
+    allows for network policies that distinguish between connections from host
+    networking pods or other processes on the local Kubernetes worker node from
+    those on remote worker nodes.
 
     After enabling this option, all communication to and from non-local
-    Kubernetes nodes must be whitelisted with a ``toEntity`` or ``fromEntity``
+    Kubernetes nodes must be allowed with a ``toEntity`` or ``fromEntity``
     rule listing the entity ``remote-node``. The existing entity ``cluster``
-    continues to work and now includes the entity ``remote-node``.  Existing
-    policy rules whitelisting ``host`` will only affect the local node going
-    forward. Existing CIDR-based rules to whitelist node IPs other than the
-    Cilium internal IP (IP assigned to the ``cilium_host`` interface), will no
-    longer take effect.
+    continues to work and now includes the identity ``remote-node``. Going
+    forward, existing policy rules allowing ``host`` will only affect the local
+    node and no longer also allow communication from other nodes. Existing
+    CIDR-based rules to allow node IPs other than the Cilium internal IP (IP
+    assigned to the ``cilium_host`` interface), will no longer take effect.
 
     This is important because Kubernetes Network Policy dictates that network
     connectivity from the local host must always be allowed, even for pods that
-    have a default deny rule for ingress connectivity.   This is so that
-    network liveness and readiness probes from kubelet will not be dropped by
-    network policy.  Prior to 1.7.x, Cilium achieved this by always allowing
-    ingress host network connectivity from any host in the cluster.  With 1.7
-    and ``enable-remote-node-identity=true``, Cilium will only automatically
-    allow connectivity from the local node, thereby providing a better default
-    security posture.
+    have a default deny rule for ingress connectivity.  This ensures that
+    network-based liveness and readiness probes from kubelet will not be
+    dropped by network policy. Prior to 1.7.x, Cilium achieved this by always
+    allowing ingress host network connectivity from any host in the cluster.
 
-    The option is enabled by default for new deployments when generated via
-    Helm, in order to gain the benefits of improved security. The Helm option
-    is ``--set global.remoteNodeIdentity``. This option can be disabled in
-    order to maintain full compatibility with Cilium 1.6.x policy enforcement.
-    **Be aware** that upgrading a cluster to 1.7.x by using helm to generate a
-    new Cilium config that leaves ``enable-remote-node-identity`` set as the
-    default value of ``true`` **can break network connectivity.**
+    As this behavioral change is potentially disruptive, several options have
+    been introduced to allow for seamless upgrades and to allow to opt-out of
+    the new behavior and guarantee compatibility with the previous policy
+    behavior:
 
-    The reason for this is that
-    with Cilium 1.6.x, the source identity of ANY connection from a host-networking pod or from
-    other processes on a Kubernetes worker node would be the  ``host`` identity.   Thus, a
-    Cilium 1.6.x or earlier environment with network policy enforced may be implicitly
-    relying on the ``allow everything from host identity`` behavior to
-    whitelist traffic from host networking to other Cilium-managed pods.
-    With the shift to 1.7.x, if ``enable-remote-node-identity=true``
-    these connections will be denied by policy if they are coming from
-    a host-networking pod or process on another Kubernetes worker node, since the source
-    will be given the ``remote-node`` identity (which is not automatically
-    allowed) rather than the ``host`` identity (which is automatically allowed).
+    ``enable-remote-node-identity=true`` enables the use of the new remote node
+    identity. New deployments provisioned via Helm will automatically enable
+    this new security feature. Existing deployments have to explicitly opt-in
+    by enabling the feature.
 
-    An indicator that this is happening would be drops visible in Hubble or
-    Cilium monitor with a source identity equal to 6 (the numeric value for the
-    new ``remote-node`` identity.   For example:
+    ``transmit-host-src`` and ``allow-host-src`` have been added to control the
+    sending and receiving behavior of the identity used to represent nodes.
+
+    **Instructions for a seamless upgrade:**
+
+    In order to guarantee a seamless upgrade, the following steps must be
+    followed when upgrading from any < 1.7 version to 1.7:
+
+    1. For the initial upgrade, the options ``transmit-host-src: true``,
+       ``allow-host-src: true``, and ``enable-remote-node-identity: false``
+       must be set. This guarantees that:
+       
+       * Existing NetworkPolicy will continue to work.
+       * New 1.7 nodes will continue to transmit using the old host identity to
+         guarantee compatibility with 1.6 nodes during the rolling upgrade
+         process.
+       * New 1.7 nodes will continue allow traffic from the obsolete host
+         identity when received over the network.
+
+    2. A second rolling upgrade must be performed with the option
+       ``transmit-host-src: false``. This will convert all 1.7 nodes to start
+       transmitting with the new remote-node identity.
+
+    3. A third rolling upgrade must be performed with the option
+       ``allow-host-src: false`` set. This will enable the additional security
+       check and start dropping traffic originating from the host identity
+       received over the network. It is important to make this change
+       independent of enabling the transmission to a avoid a mix of nodes with
+       restrictive receive behavior while old nodes are still transmitting with
+       the legacy host identity.
+
+    4. Network policies must be audited to ensure policies no longer allow on the
+       old behavior of the host entity allowing from all nodes in the cluster.
+       After this step has been completed, remote node identity policy can be
+       enabled by setting ``enable-remote-node-identity: true``.
+
+    **Troubleshooting**
+
+    When ``enable-remote-node-identity: true`` is set while network policies
+    still depend on the old host identity behavior, you will likely see drops
+    as the following (notice numeric identity value 6 representing the new
+    remote node identity):
 
     ::
 
@@ -487,11 +513,10 @@ New ConfigMap Options
     because it is from the ``host`` identity.
 
     The other option is to keep ``enable-remote-node-identity=true`` and
-    create policy rules that explicitly whitelist connections between
+    create policy rules that explicitly allow connections between
     the ``remote-host`` identity and pods that should be reachable from host-networking pods
     or other processes that may be running on a remote Kubernetes worker node.   An example of
     such a rule is:
-
 
     ::
 
