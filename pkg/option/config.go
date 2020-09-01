@@ -246,6 +246,9 @@ const (
 	// ("random" or "maglev")
 	NodePortAlg = "node-port-algorithm"
 
+	// MaglevTableSize determines the size of the backend table per service
+	MaglevTableSize = "bpf-lb-maglev-table-size"
+
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic" or "native")
 	NodePortAcceleration = "node-port-acceleration"
@@ -1777,6 +1780,9 @@ type DaemonConfig struct {
 	// ("random" or "maglev")
 	NodePortAlg string
 
+	// Maglev backend table size (M) per service. Must be prime number.
+	MaglevTableSize int
+
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic" or "native")
 	NodePortAcceleration string
@@ -2403,6 +2409,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableHostPort = viper.GetBool(EnableHostPort)
 	c.NodePortMode = viper.GetString(NodePortMode)
 	c.NodePortAlg = viper.GetString(NodePortAlg)
+	c.MaglevTableSize = viper.GetInt(MaglevTableSize)
 	c.NodePortAcceleration = viper.GetString(NodePortAcceleration)
 	c.NodePortBindProtection = viper.GetBool(NodePortBindProtection)
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)

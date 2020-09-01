@@ -272,19 +272,19 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 			},
 			{
 				Name: "IPv4 service backend", // cilium_lb4_backends
-				Size: int64(lbmap.MaxEntries),
+				Size: int64(lbmap.MaxBackends),
 			},
 			{
 				Name: "IPv6 service backend", // cilium_lb6_backends
-				Size: int64(lbmap.MaxEntries),
+				Size: int64(lbmap.MaxBackends),
 			},
 			{
 				Name: "IPv4 service reverse NAT", // cilium_lb4_reverse_nat
-				Size: int64(lbmap.MaxEntries),
+				Size: int64(lbmap.MaxBackends),
 			},
 			{
 				Name: "IPv6 service reverse NAT", // cilium_lb6_reverse_nat
-				Size: int64(lbmap.MaxEntries),
+				Size: int64(lbmap.MaxBackends),
 			},
 			{
 				Name: "Metrics",
@@ -308,7 +308,7 @@ func (d *Daemon) getBPFMapStatus() *models.BPFMapStatus {
 			},
 			{
 				Name: "Session affinity",
-				Size: int64(lbmap.MaxEntries),
+				Size: int64(lbmap.MaxBackends),
 			},
 			{
 				Name: "Signal",

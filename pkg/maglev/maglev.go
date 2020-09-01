@@ -21,6 +21,8 @@ import (
 const (
 	seed0 = 1836082274
 	seed1 = 1684172144
+
+	DefaultTableSize = 16381
 )
 
 func getOffsetAndSkip(backend string, m uint64) (uint64, uint64) {

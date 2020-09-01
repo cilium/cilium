@@ -271,7 +271,6 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		option.Config.EnableIPv4, option.Config.EnableIPv6,
 	)
 	policymap.InitMapInfo(option.Config.PolicyMapEntries)
-	lbmap.InitMapInfo(option.Config.SockRevNatEntries, option.Config.LBMapEntries)
 
 	if option.Config.DryMode == false {
 		if err := bpf.ConfigureResourceLimits(); err != nil {
@@ -368,6 +367,10 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	// the feature does not influence the decision which BPF maps should be
 	// created.
 	isKubeProxyReplacementStrict := initKubeProxyReplacementOptions()
+
+	// LB map init must come right after kube-proxy replacement initialization
+	// given the default LB map size could still change there.
+	lbmap.InitMapInfo(option.Config.SockRevNatEntries, option.Config.LBMapEntries)
 
 	// Open or create BPF maps.
 	bootstrapStats.mapsInit.Start()

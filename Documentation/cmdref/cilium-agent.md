@@ -32,6 +32,7 @@ cilium-agent [flags]
       --bpf-ct-timeout-service-any duration           Timeout for service entries in non-TCP CT table (default 1m0s)
       --bpf-ct-timeout-service-tcp duration           Timeout for established service entries in TCP CT table (default 6h0m0s)
       --bpf-fragments-map-max int                     Maximum number of entries in fragments tracking map (default 8192)
+      --bpf-lb-maglev-table-size uint                 Maglev per service backend table size (parameter M) (default 16381)
       --bpf-lb-map-max int                            Maximum number of entries in Cilium BPF lbmap (default 65536)
       --bpf-map-dynamic-size-ratio float              Ratio (0.0-1.0) of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps. Set to 0.0 to disable dynamic BPF map sizing (default: 0.0)
       --bpf-nat-global-max int                        Maximum number of entries for the global BPF NAT table (default 524288)
@@ -171,6 +172,7 @@ cilium-agent [flags]
       --nat46-range string                            IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
       --native-routing-cidr string                    Allows to explicitly specify the CIDR for native routing. This value corresponds to the configured cluster-cidr.
       --node-port-acceleration string                 BPF NodePort acceleration via XDP ("native", "disabled") (default "disabled")
+      --node-port-algorithm string                    BPF load balancing algorithm ("random", "maglev") (default "random")
       --node-port-bind-protection                     Reject application bind(2) requests to service ports in the NodePort range (default true)
       --node-port-mode string                         BPF NodePort mode ("snat", "dsr", "hybrid") (default "snat")
       --node-port-range strings                       Set the min/max NodePort port range (default [30000,32767])

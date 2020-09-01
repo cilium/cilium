@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/sysctl"
 
+	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 )
 
@@ -120,6 +121,29 @@ func initKubeProxyReplacementOptions() (strict bool) {
 
 		if !option.Config.NodePortBindProtection {
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
+		}
+
+		if option.Config.NodePortAlg == option.NodePortAlgMaglev {
+			// "Let N be the size of a VIP's backend pool." [...] "In practice, we choose M to be
+			// larger than 100 x N to ensure at most a 1% difference in hash space assigned to
+			// backends." (from Maglev paper, page 6)
+			supportedPrimes := []int{251, 509, 1021, 2039, 4093, 8191, 16381, 32749, 65521, 131071}
+			found := false
+			for _, prime := range supportedPrimes {
+				if option.Config.MaglevTableSize == prime {
+					found = true
+					break
+				}
+			}
+			if !found {
+				log.Fatalf("Invalid value for --%s: %d, supported values are: %v",
+					option.MaglevTableSize, option.Config.MaglevTableSize, supportedPrimes)
+			}
+			// Bump the default LB map size if not explicitly set by user to accommodate max
+			// 1k services in the cluster.
+			if !viper.IsSet(option.LBMapEntriesName) {
+				option.Config.LBMapEntries = option.Config.MaglevTableSize * 1000
+			}
 		}
 	}
 

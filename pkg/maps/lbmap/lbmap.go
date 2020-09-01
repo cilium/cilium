@@ -34,9 +34,13 @@ import (
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "map-lb")
 
 var (
-	// MaxEntries contains the maximum number of entries that are allowed in cilium
-	// LB service, backend and affinity maps.
+	// MaxEntries contains the maximum number of entries that are allowed
+	// in Cilium LB service, backend and affinity maps.
 	MaxEntries = 65536
+	// In case of Maglev, MaxEntries will be significantly higher for the
+	// service map than the backend and affinity maps. In that case we have
+	// two knobs to reduce memory overhead.
+	MaxBackends = MaxEntries
 )
 
 // LBBPFMap is an implementation of the LBMap interface.
@@ -79,7 +83,7 @@ func (*LBBPFMap) UpsertService(
 		for name := range backends {
 			backendNames = append(backendNames, name)
 		}
-		m := uint64(113) // TODO(brb) configure
+		m := uint64(option.Config.MaglevTableSize)
 		table := maglev.GetLookupTable(backendNames, m)
 		backendIDs = make([]uint16, m)
 		for i, pos := range table {
@@ -559,4 +563,7 @@ func InitMapInfo(maxSockRevNatEntries, lbMapMaxEntries int) {
 	MaxSockRevNat6MapEntries = maxSockRevNatEntries
 
 	MaxEntries = lbMapMaxEntries
+	if option.Config.NodePortAlg != option.NodePortAlgMaglev {
+		MaxBackends = MaxEntries
+	}
 }
