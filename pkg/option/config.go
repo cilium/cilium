@@ -242,6 +242,10 @@ const (
 	// ("snat", "dsr" or "hybrid")
 	NodePortMode = "node-port-mode"
 
+	// NodePortAlg indicates which algorithm is used for backend selection
+	// ("random" or "maglev")
+	NodePortAlg = "node-port-algorithm"
+
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic" or "native")
 	NodePortAcceleration = "node-port-acceleration"
@@ -1187,6 +1191,12 @@ const (
 	// NodePortModeDSR is for performing DSR for requests to remote nodes
 	NodePortModeDSR = "dsr"
 
+	// NodePortAlgRandom is for randomly selecting a backend
+	NodePortAlgRandom = "random"
+
+	// NodePortAlgMaglev is for using maglev consistent hashing for backend selection
+	NodePortAlgMaglev = "maglev"
+
 	// NodePortModeHybrid is a dual mode of the above, that is, DSR for TCP and SNAT for UDP
 	NodePortModeHybrid = "hybrid"
 
@@ -1762,6 +1772,10 @@ type DaemonConfig struct {
 	// NodePortMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")
 	NodePortMode string
+
+	// NodePortAlg indicates which backend selection algorithm is used
+	// ("random" or "maglev")
+	NodePortAlg string
 
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic" or "native")
@@ -2388,6 +2402,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableSVCSourceRangeCheck = viper.GetBool(EnableSVCSourceRangeCheck)
 	c.EnableHostPort = viper.GetBool(EnableHostPort)
 	c.NodePortMode = viper.GetString(NodePortMode)
+	c.NodePortAlg = viper.GetString(NodePortAlg)
 	c.NodePortAcceleration = viper.GetString(NodePortAcceleration)
 	c.NodePortBindProtection = viper.GetBool(NodePortBindProtection)
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)

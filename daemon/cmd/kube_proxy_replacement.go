@@ -107,6 +107,11 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			log.Fatalf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
 		}
 
+		if option.Config.NodePortAlg != option.NodePortAlgRandom &&
+			option.Config.NodePortAlg != option.NodePortAlgMaglev {
+			log.Fatalf("Invalid value for --%s: %s", option.NodePortAlg, option.Config.NodePortAlg)
+		}
+
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
 			option.Config.NodePortAcceleration != option.NodePortAccelerationGeneric &&
 			option.Config.NodePortAcceleration != option.NodePortAccelerationNative {

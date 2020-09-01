@@ -7,6 +7,7 @@
 #include "csum.h"
 #include "conntrack.h"
 #include "ipv4.h"
+#include "hash.h"
 
 #define CILIUM_LB_MAP_MAX_FE		256
 
@@ -291,17 +292,34 @@ bool lb6_svc_is_routable(const struct lb6_service *svc)
 	return __lb_svc_is_routable(svc->flags);
 }
 
-static __always_inline int lb6_select_backend_slot(__u16 count)
+/* Backend slot 0 is always reserved for the service frontend. */
+#if LB_SELECTION == LB_SELECTION_RANDOM
+static __always_inline __u16
+lb4_select_backend_slot(struct ipv4_ct_tuple *tuple __maybe_unused, __u16 count)
 {
-	/* Backend slot 0 is reserved for the service frontend */
 	return (get_prandom_u32() % count) + 1;
 }
 
-static __always_inline int lb4_select_backend_slot(__u16 count)
+static __always_inline __u16
+lb6_select_backend_slot(struct ipv6_ct_tuple *tuple __maybe_unused, __u16 count)
 {
-	/* Backend slot 0 is reserved for the service frontend */
 	return (get_prandom_u32() % count) + 1;
 }
+#elif LB_SELECTION == LB_SELECTION_MAGLEV
+static __always_inline __u16
+lb4_select_backend_slot(struct ipv4_ct_tuple *tuple, __u16 count)
+{
+	return (hash_from_tuple_v4(tuple) % count) + 1;
+}
+
+static __always_inline __u16
+lb6_select_backend_slot(struct ipv6_ct_tuple *tuple, __u16 count)
+{
+	return (hash_from_tuple_v6(tuple) % count) + 1;
+}
+#else
+# error "Invalid load balancer backend selection algorithm!"
+#endif /* LB_SELECTION */
 
 static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 					   int l4_off, __be16 *port,
@@ -726,7 +744,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		}
 #endif
 		if (backend_id == 0) {
-			slot = lb6_select_backend_slot(svc->count);
+			slot = lb6_select_backend_slot(tuple, svc->count);
 			backend_slot = lb6_lookup_backend_slot(ctx, key, slot);
 			if (!backend_slot)
 				goto drop_no_service;
@@ -769,7 +787,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 								     &client_id);
 #endif
 		if (backend_id == 0) {
-			slot = lb6_select_backend_slot(svc->count);
+			slot = lb6_select_backend_slot(tuple, svc->count);
 			backend_slot = lb6_lookup_backend_slot(ctx, key, slot);
 			if (!backend_slot)
 				goto drop_no_service;
@@ -791,7 +809,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		svc = lb6_lookup_service(key, false);
 		if (!svc)
 			goto drop_no_service;
-		slot = lb6_select_backend_slot(svc->count);
+		slot = lb6_select_backend_slot(tuple, svc->count);
 		backend_slot = lb6_lookup_backend_slot(ctx, key, slot);
 		if (!backend_slot)
 			goto drop_no_service;
@@ -1234,7 +1252,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		if (backend_id == 0) {
 			/* No CT entry has been found, so select a svc endpoint */
-			slot = lb4_select_backend_slot(svc->count);
+			slot = lb4_select_backend_slot(tuple, svc->count);
 			backend_slot = lb4_lookup_backend_slot(ctx, key, slot);
 			if (!backend_slot)
 				goto drop_no_service;
@@ -1288,7 +1306,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 								     &client_id);
 #endif
 		if (backend_id == 0) {
-			slot = lb4_select_backend_slot(svc->count);
+			slot = lb4_select_backend_slot(tuple, svc->count);
 			backend_slot = lb4_lookup_backend_slot(ctx, key, slot);
 			if (!backend_slot)
 				goto drop_no_service;
@@ -1311,7 +1329,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		svc = lb4_lookup_service(key, false);
 		if (!svc)
 			goto drop_no_service;
-		slot = lb4_select_backend_slot(svc->count);
+		slot = lb4_select_backend_slot(tuple, svc->count);
 		backend_slot = lb4_lookup_backend_slot(ctx, key, slot);
 		if (!backend_slot)
 			goto drop_no_service;

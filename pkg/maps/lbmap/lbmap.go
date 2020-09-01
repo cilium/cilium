@@ -71,11 +71,10 @@ func (*LBBPFMap) UpsertService(
 	svcVal := svcKey.NewValue().(ServiceValue)
 
 	var backendIDs []uint16
-	// TODO(brb) add param "cHash bool" to control the following
-	if svcType == loadbalancer.SVCTypeNodePort ||
-		svcType == loadbalancer.SVCTypeExternalIPs ||
-		svcType == loadbalancer.SVCTypeLoadBalancer {
-
+	if option.Config.NodePortAlg == option.NodePortAlgMaglev &&
+		(svcType == loadbalancer.SVCTypeNodePort ||
+			svcType == loadbalancer.SVCTypeExternalIPs ||
+			svcType == loadbalancer.SVCTypeLoadBalancer) {
 		backendNames := make([]string, 0, len(backends))
 		for name := range backends {
 			backendNames = append(backendNames, name)
