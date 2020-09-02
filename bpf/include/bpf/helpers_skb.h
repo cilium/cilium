@@ -49,4 +49,15 @@ static int BPF_FUNC_REMAP(skb_event_output, struct __sk_buff *skb, void *map,
 			  __u64 index, const void *data, __u32 size) =
 			 (void *)BPF_FUNC_perf_event_output;
 
+/* Socket lookup, assign, release */
+static struct bpf_sock *BPF_FUNC(skc_lookup_tcp, struct __sk_buff *skb,
+				 struct bpf_sock_tuple *tuple, __u32 tuple_size,
+				 __u64 netns, __u64 flags);
+static struct bpf_sock *BPF_FUNC(sk_lookup_udp, struct __sk_buff *skb,
+				 struct bpf_sock_tuple *tuple, __u32 tuple_size,
+				 __u64 netns, __u64 flags);
+static int BPF_FUNC(sk_release, struct bpf_sock *sk);
+static int BPF_FUNC(sk_assign, struct __sk_buff *skb, struct bpf_sock *sk,
+		    __u64 flags);
+
 #endif /* __BPF_HELPERS_SKB__ */
