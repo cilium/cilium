@@ -333,72 +333,6 @@ bool lb6_svc_is_routable(const struct lb6_service *svc)
 	return __lb_svc_is_routable(svc->flags);
 }
 
-#ifdef ENABLE_IPV4
-/* Backend slot 0 is always reserved for the service frontend. */
-# if LB_SELECTION == LB_SELECTION_RANDOM
-static __always_inline __u16
-lb4_select_backend_slot(const struct ipv4_ct_tuple *tuple __maybe_unused,
-			const struct lb4_service *svc)
-{
-	return (get_prandom_u32() % svc->count) + 1;
-}
-# elif LB_SELECTION == LB_SELECTION_MAGLEV
-static __always_inline __u16
-lb4_select_backend_slot(const struct ipv4_ct_tuple *tuple,
-			const struct lb4_service *svc)
-{
-	__u32 zero = 0, index = svc->rev_nat_index;
-	__u16 *slot_ids;
-	void *maglev_lut;
-
-	maglev_lut = map_lookup_elem(&LB4_MAGLEV_MAP_OUTER, &index);
-	if (unlikely(!maglev_lut))
-		return 0;
-
-	slot_ids = map_lookup_elem(maglev_lut, &zero);
-	index = hash_from_tuple_v4(tuple) % LB_MAGLEV_LUT_SIZE;
-	if (likely(slot_ids && index < LB_MAGLEV_LUT_SIZE))
-		return READ_ONCE(slot_ids[index]);
-	return 0;
-}
-# else
-#  error "Invalid load balancer backend selection algorithm!"
-# endif /* LB_SELECTION */
-#endif /* ENABLE_IPV4 */
-
-#ifdef ENABLE_IPV6
-/* Backend slot 0 is always reserved for the service frontend. */
-# if LB_SELECTION == LB_SELECTION_RANDOM
-static __always_inline __u16
-lb6_select_backend_slot(const struct ipv6_ct_tuple *tuple __maybe_unused,
-			const struct lb6_service *svc)
-{
-	return (get_prandom_u32() % svc->count) + 1;
-}
-# elif LB_SELECTION == LB_SELECTION_MAGLEV
-static __always_inline __u16
-lb6_select_backend_slot(const struct ipv6_ct_tuple *tuple,
-			const struct lb6_service *svc)
-{
-	__u32 zero = 0, index = svc->rev_nat_index;
-	__u16 *slot_ids;
-	void *maglev_lut;
-
-	maglev_lut = map_lookup_elem(&LB6_MAGLEV_MAP_OUTER, &index);
-	if (unlikely(!maglev_lut))
-		return 0;
-
-	slot_ids = map_lookup_elem(maglev_lut, &zero);
-	index = hash_from_tuple_v6(tuple) % LB_MAGLEV_LUT_SIZE;
-	if (likely(slot_ids && index < LB_MAGLEV_LUT_SIZE))
-		return READ_ONCE(slot_ids[index]);
-	return 0;
-}
-# else
-#  error "Invalid load balancer backend selection algorithm!"
-# endif /* LB_SELECTION */
-#endif /* ENABLE_IPV6 */
-
 static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 					   int l4_off, __be16 *port,
 					   __maybe_unused struct iphdr *ip4)
@@ -661,6 +595,44 @@ struct lb6_service *lb6_lookup_backend_slot(struct __ctx_buff *ctx __maybe_unuse
 	return NULL;
 }
 
+/* Backend slot 0 is always reserved for the service frontend. */
+#if LB_SELECTION == LB_SELECTION_RANDOM
+static __always_inline __u16
+lb6_select_backend_id(struct __ctx_buff *ctx,
+		      struct lb6_key *key,
+		      const struct ipv6_ct_tuple *tuple __maybe_unused,
+		      const struct lb6_service *svc)
+{
+	__u32 slot = (get_prandom_u32() % svc->count) + 1;
+	struct lb6_service *be = lb6_lookup_backend_slot(ctx, key, slot);
+
+	return be ? be->backend_id : 0;
+}
+#elif LB_SELECTION == LB_SELECTION_MAGLEV
+static __always_inline __u16
+lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
+		      struct lb6_key *key __maybe_unused,
+		      const struct ipv6_ct_tuple *tuple,
+		      const struct lb6_service *svc)
+{
+	__u32 zero = 0, index = svc->rev_nat_index;
+	__u16 *backend_ids;
+	void *maglev_lut;
+
+	maglev_lut = map_lookup_elem(&LB6_MAGLEV_MAP_OUTER, &index);
+	if (unlikely(!maglev_lut))
+		return 0;
+
+	backend_ids = map_lookup_elem(maglev_lut, &zero);
+	index = hash_from_tuple_v6(tuple) % LB_MAGLEV_LUT_SIZE;
+	if (likely(backend_ids && index < LB_MAGLEV_LUT_SIZE))
+		return READ_ONCE(backend_ids[index]);
+	return 0;
+}
+#else
+# error "Invalid load balancer backend selection algorithm!"
+#endif /* LB_SELECTION */
+
 static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
 				     union v6addr *new_dst, __u8 nexthdr __maybe_unused,
 				     int l3_off, int l4_off,
@@ -797,8 +769,6 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 	union v6addr *addr;
 	__u8 flags = tuple->flags;
 	struct lb6_backend *backend;
-	struct lb6_service *backend_slot;
-	int slot;
 	__u32 backend_id = 0;
 	int ret;
 #ifdef ENABLE_SESSION_AFFINITY
@@ -822,14 +792,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		}
 #endif
 		if (backend_id == 0) {
-			slot = lb6_select_backend_slot(tuple, svc);
-			backend_slot = lb6_lookup_backend_slot(ctx, key, slot);
-			if (!backend_slot)
-				goto drop_no_service;
-
-			backend_id = backend_slot->backend_id;
-
-			backend = lb6_lookup_backend(ctx, backend_slot->backend_id);
+			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
+			backend = lb6_lookup_backend(ctx, backend_id);
 			if (backend == NULL)
 				goto drop_no_service;
 		}
@@ -864,12 +828,10 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 			backend_id = lb6_affinity_backend_id_by_addr(svc,
 								     &client_id);
 #endif
-		if (backend_id == 0) {
-			slot = lb6_select_backend_slot(tuple, svc);
-			backend_slot = lb6_lookup_backend_slot(ctx, key, slot);
-			if (!backend_slot)
+		if (!backend_id) {
+			backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
+			if (!backend_id)
 				goto drop_no_service;
-			backend_id = backend_slot->backend_id;
 		}
 
 		state->backend_id = backend_id;
@@ -887,14 +849,11 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		svc = lb6_lookup_service(key, false);
 		if (!svc)
 			goto drop_no_service;
-		slot = lb6_select_backend_slot(tuple, svc);
-		backend_slot = lb6_lookup_backend_slot(ctx, key, slot);
-		if (!backend_slot)
-			goto drop_no_service;
-		backend = lb6_lookup_backend(ctx, backend_slot->backend_id);
+		backend_id = lb6_select_backend_id(ctx, key, tuple, svc);
+		backend = lb6_lookup_backend(ctx, backend_id);
 		if (!backend)
 			goto drop_no_service;
-		state->backend_id = backend_slot->backend_id;
+		state->backend_id = backend_id;
 		ct_update6_backend_id(map, tuple, state);
 	}
 
@@ -1153,6 +1112,44 @@ struct lb4_service *lb4_lookup_backend_slot(struct __ctx_buff *ctx __maybe_unuse
 	return NULL;
 }
 
+/* Backend slot 0 is always reserved for the service frontend. */
+#if LB_SELECTION == LB_SELECTION_RANDOM
+static __always_inline __u16
+lb4_select_backend_id(struct __ctx_buff *ctx,
+		      struct lb4_key *key,
+		      const struct ipv4_ct_tuple *tuple __maybe_unused,
+		      const struct lb4_service *svc)
+{
+	__u32 slot = (get_prandom_u32() % svc->count) + 1;
+	struct lb4_service *be = lb4_lookup_backend_slot(ctx, key, slot);
+
+	return be ? be->backend_id : 0;
+}
+#elif LB_SELECTION == LB_SELECTION_MAGLEV
+static __always_inline __u16
+lb4_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
+		      struct lb4_key *key __maybe_unused,
+		      const struct ipv4_ct_tuple *tuple,
+		      const struct lb4_service *svc)
+{
+	__u32 zero = 0, index = svc->rev_nat_index;
+	__u16 *backend_ids;
+	void *maglev_lut;
+
+	maglev_lut = map_lookup_elem(&LB4_MAGLEV_MAP_OUTER, &index);
+	if (unlikely(!maglev_lut))
+		return 0;
+
+	backend_ids = map_lookup_elem(maglev_lut, &zero);
+	index = hash_from_tuple_v4(tuple) % LB_MAGLEV_LUT_SIZE;
+	if (likely(backend_ids && index < LB_MAGLEV_LUT_SIZE))
+		return READ_ONCE(backend_ids[index]);
+	return 0;
+}
+#else
+# error "Invalid load balancer backend selection algorithm!"
+#endif /* LB_SELECTION */
+
 static __always_inline int
 lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_unused,
 	  __be32 *old_saddr __maybe_unused, __u8 nexthdr __maybe_unused, int l3_off,
@@ -1306,8 +1303,6 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 	__be32 new_saddr = 0, new_daddr;
 	__u8 flags = tuple->flags;
 	struct lb4_backend *backend;
-	struct lb4_service *backend_slot;
-	int slot;
 	__u32 backend_id = 0;
 	int ret;
 #ifdef ENABLE_SESSION_AFFINITY
@@ -1330,13 +1325,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		if (backend_id == 0) {
 			/* No CT entry has been found, so select a svc endpoint */
-			slot = lb4_select_backend_slot(tuple, svc);
-			backend_slot = lb4_lookup_backend_slot(ctx, key, slot);
-			if (!backend_slot)
-				goto drop_no_service;
-
-			backend_id = backend_slot->backend_id;
-
+			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
 			backend = lb4_lookup_backend(ctx, backend_id);
 			if (backend == NULL)
 				goto drop_no_service;
@@ -1383,13 +1372,10 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 			backend_id = lb4_affinity_backend_id_by_addr(svc,
 								     &client_id);
 #endif
-		if (backend_id == 0) {
-			slot = lb4_select_backend_slot(tuple, svc);
-			backend_slot = lb4_lookup_backend_slot(ctx, key, slot);
-			if (!backend_slot)
+		if (!backend_id) {
+			backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
+			if (!backend_id)
 				goto drop_no_service;
-
-			backend_id = backend_slot->backend_id;
 		}
 
 		state->backend_id = backend_id;
@@ -1407,14 +1393,11 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		svc = lb4_lookup_service(key, false);
 		if (!svc)
 			goto drop_no_service;
-		slot = lb4_select_backend_slot(tuple, svc);
-		backend_slot = lb4_lookup_backend_slot(ctx, key, slot);
-		if (!backend_slot)
-			goto drop_no_service;
-		backend = lb4_lookup_backend(ctx, backend_slot->backend_id);
+		backend_id = lb4_select_backend_id(ctx, key, tuple, svc);
+		backend = lb4_lookup_backend(ctx, backend_id);
 		if (!backend)
 			goto drop_no_service;
-		state->backend_id = backend_slot->backend_id;
+		state->backend_id = backend_id;
 		ct_update4_backend_id(map, tuple, state);
 	}
 
