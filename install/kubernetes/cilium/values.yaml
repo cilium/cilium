@@ -432,6 +432,13 @@ global:
     # range via the Kubernetes node resource
     requireIPv4PodCIDR: false
 
+    # Service proxy name to use for Cilium components. This name makes sure
+    # that Cilium only manages service objects that contains the matching
+    # service.kubernetes.io/service-proxy-name label value.
+    # Defaults to empty string, in which case Cilium manages all services
+    # without the mentioned label.
+    serviceProxyName: ""
+
   # ENI mode configures the options required to run with ENI
   eni: false
 
