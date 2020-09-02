@@ -416,11 +416,11 @@ IMPORTANT: Changes required before upgrading to 1.8.0
   by Kubernetes does not remove the old probe when replacing with a new one.
   This causes ``kubectl apply`` command to return an error such as:
 
-::
+  ::
 
-  The DaemonSet "cilium" is invalid:
-  * spec.template.spec.containers[0].livenessProbe.httpGet: Forbidden: may not specify more than 1 handler type
-  * spec.template.spec.containers[0].readinessProbe.httpGet: Forbidden: may not specify more than 1 handler type
+    The DaemonSet "cilium" is invalid:
+    * spec.template.spec.containers[0].livenessProbe.httpGet: Forbidden: may not specify more than 1 handler type
+    * spec.template.spec.containers[0].readinessProbe.httpGet: Forbidden: may not specify more than 1 handler type
 
   Existing users must either choose to keep the ``exec`` probe in the
   `DaemonSet` specification to safely upgrade or re-create the Cilium `DaemonSet`
@@ -430,7 +430,8 @@ IMPORTANT: Changes required before upgrading to 1.8.0
   upgrade.
 
   The helm option ``agent.keepDeprecatedProbes=true`` will keep the
-  ``exec`` probe in the new `DaemonSet`:
+  ``exec`` probe in the new `DaemonSet`. Add this option along with any
+  other options you would otherwise specify to Helm:
 
 .. tabs::
   .. group-tab:: kubectl
