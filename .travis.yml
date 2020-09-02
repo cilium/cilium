@@ -1,5 +1,6 @@
 language: go
 
+dist: focal
 sudo: required
 
 go: "1.15"
@@ -8,9 +9,7 @@ go: "1.15"
 jobs:
   include:
     - arch: amd64
-      dist: bionic
     - arch: arm64-graviton2
-      dist: focal
       virt: vm
       group: edge
   allow_failures:
