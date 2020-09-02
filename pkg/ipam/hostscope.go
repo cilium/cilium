@@ -20,6 +20,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/ip"
+	"github.com/cilium/cilium/pkg/ipam/types"
 
 	"github.com/cilium/ipam/service/ipallocator"
 )
@@ -42,7 +43,7 @@ func newHostScopeAllocator(n *net.IPNet) Allocator {
 	return a
 }
 
-func (h *hostScopeAllocator) Allocate(ip net.IP, owner string) (*AllocationResult, error) {
+func (h *hostScopeAllocator) Allocate(ip net.IP, metadata types.Metadata) (*AllocationResult, error) {
 	if err := h.allocator.Allocate(ip); err != nil {
 		return nil, err
 	}
@@ -50,7 +51,7 @@ func (h *hostScopeAllocator) Allocate(ip net.IP, owner string) (*AllocationResul
 	return &AllocationResult{IP: ip}, nil
 }
 
-func (h *hostScopeAllocator) AllocateWithoutSyncUpstream(ip net.IP, owner string) (*AllocationResult, error) {
+func (h *hostScopeAllocator) AllocateWithoutSyncUpstream(ip net.IP, metadata types.Metadata) (*AllocationResult, error) {
 	if err := h.allocator.Allocate(ip); err != nil {
 		return nil, err
 	}
@@ -62,7 +63,7 @@ func (h *hostScopeAllocator) Release(ip net.IP) error {
 	return h.allocator.Release(ip)
 }
 
-func (h *hostScopeAllocator) AllocateNext(owner string) (*AllocationResult, error) {
+func (h *hostScopeAllocator) AllocateNext(metadata types.Metadata) (*AllocationResult, error) {
 	ip, err := h.allocator.AllocateNext()
 	if err != nil {
 		return nil, err
@@ -71,7 +72,7 @@ func (h *hostScopeAllocator) AllocateNext(owner string) (*AllocationResult, erro
 	return &AllocationResult{IP: ip}, nil
 }
 
-func (h *hostScopeAllocator) AllocateNextWithoutSyncUpstream(owner string) (*AllocationResult, error) {
+func (h *hostScopeAllocator) AllocateNextWithoutSyncUpstream(metadata types.Metadata) (*AllocationResult, error) {
 	ip, err := h.allocator.AllocateNext()
 	if err != nil {
 		return nil, err

@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/endpoint"
+	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
 	"github.com/cilium/cilium/pkg/labels"
@@ -302,8 +303,10 @@ func (d *Daemon) regenerateRestoredEndpoints(state *endpointRestoreState) (resto
 func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 	var err error
 
+	metadata := ipamTypes.Metadata{Owner: ep.HumanStringLocked() + " [restored]"}
+
 	if option.Config.EnableIPv6 && ep.IPv6 != nil {
-		err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv6.IP(), ep.HumanStringLocked()+" [restored]")
+		err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv6.IP(), metadata)
 		if err != nil {
 			return fmt.Errorf("unable to reallocate %s IPv6 address: %s", ep.IPv6.IP(), err)
 		}
@@ -316,7 +319,7 @@ func (d *Daemon) allocateIPsLocked(ep *endpoint.Endpoint) error {
 	}
 
 	if option.Config.EnableIPv4 && ep.IPv4 != nil {
-		if err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv4.IP(), ep.HumanStringLocked()+" [restored]"); err != nil {
+		if err = d.ipam.AllocateIPWithoutSyncUpstream(ep.IPv4.IP(), metadata); err != nil {
 			return fmt.Errorf("unable to reallocate %s IPv4 address: %s", ep.IPv4.IP(), err)
 		}
 	}

@@ -18,6 +18,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/lock"
 
 	"github.com/davecgh/go-spew/spew"
@@ -53,22 +54,22 @@ type AllocationResult struct {
 // Allocator is the interface for an IP allocator implementation
 type Allocator interface {
 	// Allocate allocates a specific IP or fails
-	Allocate(ip net.IP, owner string) (*AllocationResult, error)
+	Allocate(ip net.IP, metadata types.Metadata) (*AllocationResult, error)
 
 	// AllocateWithoutSyncUpstream allocates a specific IP without syncing
 	// upstream or fails
-	AllocateWithoutSyncUpstream(ip net.IP, owner string) (*AllocationResult, error)
+	AllocateWithoutSyncUpstream(ip net.IP, metadata types.Metadata) (*AllocationResult, error)
 
 	// Release releases a previously allocated IP or fails
 	Release(ip net.IP) error
 
 	// AllocateNext allocates the next available IP or fails if no more IPs
 	// are available
-	AllocateNext(owner string) (*AllocationResult, error)
+	AllocateNext(metadata types.Metadata) (*AllocationResult, error)
 
 	// AllocateNextWithoutSyncUpstream allocates the next available IP without syncing
 	// upstream or fails if no more IPs are available
-	AllocateNextWithoutSyncUpstream(owner string) (*AllocationResult, error)
+	AllocateNextWithoutSyncUpstream(metadata types.Metadata) (*AllocationResult, error)
 
 	// Dump returns a map of all allocated IPs with the IP represented as
 	// key in the map. Dump must also provide a status one-liner to

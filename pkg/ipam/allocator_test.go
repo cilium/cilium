@@ -22,6 +22,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/addressing"
 	"github.com/cilium/cilium/pkg/datapath/fake"
+	"github.com/cilium/cilium/pkg/ipam/types"
 
 	. "gopkg.in/check.v1"
 )
@@ -68,7 +69,7 @@ func (s *IPAMSuite) TestExpirationTimer(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{})
 
-	err := ipam.AllocateIP(ip, "foo")
+	err := ipam.AllocateIP(ip, types.Metadata{Owner: "foo"})
 	c.Assert(err, IsNil)
 
 	uuid, err := ipam.StartExpirationTimer(ip, timeout)
@@ -79,12 +80,12 @@ func (s *IPAMSuite) TestExpirationTimer(c *C) {
 	c.Assert(err, Not(IsNil))
 	c.Assert(uuid, Equals, "")
 	// must fail, already in use
-	err = ipam.AllocateIP(ip, "foo")
+	err = ipam.AllocateIP(ip, types.Metadata{Owner: "foo"})
 	c.Assert(err, Not(IsNil))
 	// Let expiration timer expire
 	time.Sleep(2 * timeout)
 	// Must succeed, IP must be released again
-	err = ipam.AllocateIP(ip, "foo")
+	err = ipam.AllocateIP(ip, types.Metadata{Owner: "foo"})
 	c.Assert(err, IsNil)
 	// register new expiration timer
 	uuid, err = ipam.StartExpirationTimer(ip, timeout)
@@ -99,14 +100,14 @@ func (s *IPAMSuite) TestExpirationTimer(c *C) {
 	// Let expiration timer expire
 	time.Sleep(2 * timeout)
 	// must fail as IP is properly in use now
-	err = ipam.AllocateIP(ip, "foo")
+	err = ipam.AllocateIP(ip, types.Metadata{Owner: "foo"})
 	c.Assert(err, Not(IsNil))
 	// release IP for real
 	err = ipam.ReleaseIP(ip)
 	c.Assert(err, IsNil)
 
 	// allocate IP again
-	err = ipam.AllocateIP(ip, "foo")
+	err = ipam.AllocateIP(ip, types.Metadata{Owner: "foo"})
 	c.Assert(err, IsNil)
 	// register expiration timer
 	uuid, err = ipam.StartExpirationTimer(ip, timeout)
@@ -116,7 +117,7 @@ func (s *IPAMSuite) TestExpirationTimer(c *C) {
 	err = ipam.ReleaseIP(ip)
 	c.Assert(err, IsNil)
 	// allocate same IP again
-	err = ipam.AllocateIP(ip, "foo")
+	err = ipam.AllocateIP(ip, types.Metadata{Owner: "foo"})
 	c.Assert(err, IsNil)
 	// register expiration timer must succeed even though stop was never called
 	uuid, err = ipam.StartExpirationTimer(ip, timeout)
@@ -134,22 +135,22 @@ func (s *IPAMSuite) TestAllocateNextWithExpiration(c *C) {
 	fakeAddressing := fake.NewNodeAddressing()
 	ipam := NewIPAM(fakeAddressing, &testConfiguration{}, &ownerMock{}, &ownerMock{})
 
-	ipv4, ipv6, err := ipam.AllocateNextWithExpiration("", "foo", timeout)
+	ipv4, ipv6, err := ipam.AllocateNextWithExpiration("", timeout, types.Metadata{Owner: "foo"})
 	c.Assert(err, IsNil)
 
 	// IPv4 address must be in use
-	err = ipam.AllocateIP(ipv4.IP, "foo")
+	err = ipam.AllocateIP(ipv4.IP, types.Metadata{Owner: "foo"})
 	c.Assert(err, Not(IsNil))
 	// IPv6 address must be in use
-	err = ipam.AllocateIP(ipv6.IP, "foo")
+	err = ipam.AllocateIP(ipv6.IP, types.Metadata{Owner: "foo"})
 	c.Assert(err, Not(IsNil))
 	// Let expiration timer expire
 	time.Sleep(2 * timeout)
 	// IPv4 address must be available again
-	err = ipam.AllocateIP(ipv4.IP, "foo")
+	err = ipam.AllocateIP(ipv4.IP, types.Metadata{Owner: "foo"})
 	c.Assert(err, IsNil)
 	// IPv6 address must be available again
-	err = ipam.AllocateIP(ipv6.IP, "foo")
+	err = ipam.AllocateIP(ipv6.IP, types.Metadata{Owner: "foo"})
 	c.Assert(err, IsNil)
 	// Release IPs
 	err = ipam.ReleaseIP(ipv4.IP)
@@ -158,7 +159,7 @@ func (s *IPAMSuite) TestAllocateNextWithExpiration(c *C) {
 	c.Assert(err, IsNil)
 
 	// Allocate IPs again and test stopping the expiration timer
-	ipv4, ipv6, err = ipam.AllocateNextWithExpiration("", "foo", timeout)
+	ipv4, ipv6, err = ipam.AllocateNextWithExpiration("", timeout, types.Metadata{Owner: "foo"})
 	c.Assert(err, IsNil)
 
 	// Stop expiration timer for IPv4 address
@@ -169,10 +170,10 @@ func (s *IPAMSuite) TestAllocateNextWithExpiration(c *C) {
 	time.Sleep(2 * timeout)
 
 	// IPv4 address must be in use
-	err = ipam.AllocateIP(ipv4.IP, "foo")
+	err = ipam.AllocateIP(ipv4.IP, types.Metadata{Owner: "foo"})
 	c.Assert(err, Not(IsNil))
 	// IPv6 address must be available again
-	err = ipam.AllocateIP(ipv6.IP, "foo")
+	err = ipam.AllocateIP(ipv6.IP, types.Metadata{Owner: "foo"})
 	c.Assert(err, IsNil)
 	// Release IPv4 address
 	err = ipam.ReleaseIP(ipv4.IP)

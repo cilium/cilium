@@ -21,6 +21,7 @@ import (
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/ipam/types"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/uuid"
 
@@ -59,33 +60,33 @@ func (ipam *IPAM) lookupIPsByOwner(owner string) (ips []net.IP) {
 }
 
 // AllocateIP allocates a IP address.
-func (ipam *IPAM) AllocateIP(ip net.IP, owner string) (err error) {
+func (ipam *IPAM) AllocateIP(ip net.IP, metadata types.Metadata) (err error) {
 	needSyncUpstream := true
-	return ipam.allocateIP(ip, owner, needSyncUpstream)
+	return ipam.allocateIP(ip, needSyncUpstream, metadata)
 }
 
 // AllocateIPWithoutSyncUpstream allocates a IP address without syncing upstream.
-func (ipam *IPAM) AllocateIPWithoutSyncUpstream(ip net.IP, owner string) (err error) {
+func (ipam *IPAM) AllocateIPWithoutSyncUpstream(ip net.IP, metadata types.Metadata) (err error) {
 	needSyncUpstream := false
-	return ipam.allocateIP(ip, owner, needSyncUpstream)
+	return ipam.allocateIP(ip, needSyncUpstream, metadata)
 }
 
 // AllocateIPString is identical to AllocateIP but takes a string
-func (ipam *IPAM) AllocateIPString(ipAddr, owner string) error {
+func (ipam *IPAM) AllocateIPString(ipAddr string, metadata types.Metadata) error {
 	ip := net.ParseIP(ipAddr)
 	if ip == nil {
 		return fmt.Errorf("Invalid IP address: %s", ipAddr)
 	}
 
-	return ipam.AllocateIP(ip, owner)
+	return ipam.AllocateIP(ip, metadata)
 }
 
-func (ipam *IPAM) allocateIP(ip net.IP, owner string, needSyncUpstream bool) (err error) {
+func (ipam *IPAM) allocateIP(ip net.IP, needSyncUpstream bool, metadata types.Metadata) (err error) {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
 	if ipam.blacklist.Contains(ip) {
-		err = fmt.Errorf("IP %s is blacklisted, owned by %s", ip.String(), owner)
+		err = fmt.Errorf("IP %s is blacklisted, owned by %s", ip.String(), metadata.Owner)
 		return
 	}
 
@@ -97,11 +98,11 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, needSyncUpstream bool) (er
 		}
 
 		if needSyncUpstream {
-			if _, err = ipam.IPv4Allocator.Allocate(ip, owner); err != nil {
+			if _, err = ipam.IPv4Allocator.Allocate(ip, metadata); err != nil {
 				return
 			}
 		} else {
-			if _, err = ipam.IPv4Allocator.AllocateWithoutSyncUpstream(ip, owner); err != nil {
+			if _, err = ipam.IPv4Allocator.AllocateWithoutSyncUpstream(ip, metadata); err != nil {
 				return
 			}
 		}
@@ -113,11 +114,11 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, needSyncUpstream bool) (er
 		}
 
 		if needSyncUpstream {
-			if _, err = ipam.IPv6Allocator.Allocate(ip, owner); err != nil {
+			if _, err = ipam.IPv6Allocator.Allocate(ip, metadata); err != nil {
 				return
 			}
 		} else {
-			if _, err = ipam.IPv6Allocator.AllocateWithoutSyncUpstream(ip, owner); err != nil {
+			if _, err = ipam.IPv6Allocator.AllocateWithoutSyncUpstream(ip, metadata); err != nil {
 				return
 			}
 		}
@@ -125,15 +126,15 @@ func (ipam *IPAM) allocateIP(ip net.IP, owner string, needSyncUpstream bool) (er
 
 	log.WithFields(logrus.Fields{
 		"ip":    ip.String(),
-		"owner": owner,
+		"owner": metadata.Owner,
 	}).Debugf("Allocated specific IP")
 
-	ipam.owner[ip.String()] = owner
+	ipam.owner[ip.String()] = metadata.Owner
 	metrics.IpamEvent.WithLabelValues(metricAllocate, family).Inc()
 	return
 }
 
-func (ipam *IPAM) allocateNextFamily(family Family, owner string, needSyncUpstream bool) (result *AllocationResult, err error) {
+func (ipam *IPAM) allocateNextFamily(family Family, needSyncUpstream bool, metadata types.Metadata) (result *AllocationResult, err error) {
 	var allocator Allocator
 	switch family {
 	case IPv6:
@@ -153,9 +154,9 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, needSyncUpstre
 
 	for {
 		if needSyncUpstream {
-			result, err = allocator.AllocateNext(owner)
+			result, err = allocator.AllocateNext(metadata)
 		} else {
-			result, err = allocator.AllocateNextWithoutSyncUpstream(owner)
+			result, err = allocator.AllocateNextWithoutSyncUpstream(metadata)
 		}
 		if err != nil {
 			return
@@ -164,9 +165,9 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, needSyncUpstre
 		if !ipam.blacklist.Contains(result.IP) {
 			log.WithFields(logrus.Fields{
 				"ip":    result.IP.String(),
-				"owner": owner,
+				"owner": metadata.Owner,
 			}).Debugf("Allocated random IP")
-			ipam.owner[result.IP.String()] = owner
+			ipam.owner[result.IP.String()] = metadata.Owner
 			metrics.IpamEvent.WithLabelValues(metricAllocate, string(family)).Inc()
 			return
 		}
@@ -174,38 +175,38 @@ func (ipam *IPAM) allocateNextFamily(family Family, owner string, needSyncUpstre
 		// The allocated IP is blacklisted, do not use it. The
 		// blacklisted IP is now allocated so it won't be allocated in
 		// the next iteration.
-		ipam.owner[result.IP.String()] = fmt.Sprintf("%s (blacklisted)", owner)
+		ipam.owner[result.IP.String()] = fmt.Sprintf("%s (blacklisted)", metadata.Owner)
 	}
 }
 
 // AllocateNextFamily allocates the next IP of the requested address family
-func (ipam *IPAM) AllocateNextFamily(family Family, owner string) (result *AllocationResult, err error) {
+func (ipam *IPAM) AllocateNextFamily(family Family, metadata types.Metadata) (result *AllocationResult, err error) {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
 	needSyncUpstream := true
 
-	return ipam.allocateNextFamily(family, owner, needSyncUpstream)
+	return ipam.allocateNextFamily(family, needSyncUpstream, metadata)
 }
 
 // AllocateNextFamilyWithoutSyncUpstream allocates the next IP of the requested address family
 // without syncing upstream
-func (ipam *IPAM) AllocateNextFamilyWithoutSyncUpstream(family Family, owner string) (result *AllocationResult, err error) {
+func (ipam *IPAM) AllocateNextFamilyWithoutSyncUpstream(family Family, metadata types.Metadata) (result *AllocationResult, err error) {
 	ipam.allocatorMutex.Lock()
 	defer ipam.allocatorMutex.Unlock()
 
 	needSyncUpstream := false
 
-	return ipam.allocateNextFamily(family, owner, needSyncUpstream)
+	return ipam.allocateNextFamily(family, needSyncUpstream, metadata)
 }
 
 // AllocateNext allocates the next available IPv4 and IPv6 address out of the
 // configured address pool. If family is set to "ipv4" or "ipv6", then
 // allocation is limited to the specified address family. If the pool has been
 // drained of addresses, an error will be returned.
-func (ipam *IPAM) AllocateNext(family, owner string) (ipv4Result, ipv6Result *AllocationResult, err error) {
+func (ipam *IPAM) AllocateNext(family string, metadata types.Metadata) (ipv4Result, ipv6Result *AllocationResult, err error) {
 	if (family == "ipv6" || family == "") && ipam.IPv6Allocator != nil {
-		ipv6Result, err = ipam.AllocateNextFamily(IPv6, owner)
+		ipv6Result, err = ipam.AllocateNextFamily(IPv6, metadata)
 		if err != nil {
 			return
 		}
@@ -213,7 +214,7 @@ func (ipam *IPAM) AllocateNext(family, owner string) (ipv4Result, ipv6Result *Al
 	}
 
 	if (family == "ipv4" || family == "") && ipam.IPv4Allocator != nil {
-		ipv4Result, err = ipam.AllocateNextFamily(IPv4, owner)
+		ipv4Result, err = ipam.AllocateNextFamily(IPv4, metadata)
 		if err != nil {
 			if ipv6Result != nil {
 				ipam.ReleaseIP(ipv6Result.IP)
@@ -228,8 +229,8 @@ func (ipam *IPAM) AllocateNext(family, owner string) (ipv4Result, ipv6Result *Al
 // AllocateNextWithExpiration is identical to AllocateNext but registers an
 // expiration timer as well. This is identical to using AllocateNext() in
 // combination with StartExpirationTimer()
-func (ipam *IPAM) AllocateNextWithExpiration(family, owner string, timeout time.Duration) (ipv4Result, ipv6Result *AllocationResult, err error) {
-	ipv4Result, ipv6Result, err = ipam.AllocateNext(family, owner)
+func (ipam *IPAM) AllocateNextWithExpiration(family string, timeout time.Duration, metadata types.Metadata) (ipv4Result, ipv6Result *AllocationResult, err error) {
+	ipv4Result, ipv6Result, err = ipam.AllocateNext(family, metadata)
 	if err != nil {
 		return nil, nil, err
 	}

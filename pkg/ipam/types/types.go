@@ -31,6 +31,17 @@ const (
 	MetadataK8sNamespace = "k8s-namespace"
 )
 
+// Metadata is the metadata provided when allocating IP addresses
+type Metadata struct {
+	// Owner is the description of the workload or endpoint owning the IP
+	// address
+	Owner string
+
+	// Tags is a list of key=value tags. See Metadata* above for the list
+	// of supported tags.
+	Tags map[string]string
+}
+
 // Limits specifies the IPAM relevant instance limits
 type Limits struct {
 	// Adapters specifies the maximum number of interfaces that can be
