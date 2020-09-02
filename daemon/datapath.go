@@ -301,6 +301,17 @@ func (d *Daemon) initMaps() error {
 		return nil
 	}
 
+	// Rename new policy call map from 1.8 to avoid packet drops during
+	// downgrades.
+	policyMapPath18 := bpf.MapPath("cilium_call_policy")
+	if _, err := os.Stat(policyMapPath18); err == nil {
+		policyMapPath17 := bpf.MapPath(policymap.CallMapName)
+		if err = os.Rename(policyMapPath18, policyMapPath17); err != nil {
+			log.WithError(err).Fatalf("Failed to rename policy call map from %s to %s",
+				policyMapPath18, policyMapPath17)
+		}
+	}
+
 	// Delete old proxymaps if left over from an upgrade.
 	// TODO: Remove this code when Cilium 1.6 is the oldest supported release
 	for _, name := range []string{"cilium_proxy4", "cilium_proxy6"} {
