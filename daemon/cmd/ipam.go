@@ -51,12 +51,14 @@ func NewPostIPAMHandler(d *Daemon) ipamapi.PostIpamHandler {
 // Handle incoming requests address allocation requests for the daemon.
 func (h *postIPAM) Handle(params ipamapi.PostIpamParams) middleware.Responder {
 	family := strings.ToLower(swag.StringValue(params.Family))
-	owner := swag.StringValue(params.Owner)
 	var expirationTimeout time.Duration
 	if swag.BoolValue(params.Expiration) {
 		expirationTimeout = defaults.IPAMExpiration
 	}
-	metadata := ipamTypes.Metadata{Owner: owner}
+	metadata := ipamTypes.Metadata{
+		Owner: swag.StringValue(params.Owner),
+		Tags:  params.Metadata,
+	}
 	ipv4Result, ipv6Result, err := h.daemon.ipam.AllocateNextWithExpiration(family, expirationTimeout, metadata)
 	if err != nil {
 		return api.Error(ipamapi.PostIpamFailureCode, err)
@@ -105,7 +107,10 @@ func NewPostIPAMIPHandler(d *Daemon) ipamapi.PostIpamIPHandler {
 
 // Handle incoming requests address allocation requests for the daemon.
 func (h *postIPAMIP) Handle(params ipamapi.PostIpamIPParams) middleware.Responder {
-	metadata := ipamTypes.Metadata{Owner: swag.StringValue(params.Owner)}
+	metadata := ipamTypes.Metadata{
+		Owner: swag.StringValue(params.Owner),
+		Tags:  params.Metadata,
+	}
 	if err := h.daemon.ipam.AllocateIPString(params.IP, metadata); err != nil {
 		return api.Error(ipamapi.PostIpamIPFailureCode, err)
 	}
