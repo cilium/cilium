@@ -17,16 +17,23 @@
 package client
 
 import (
+	"context"
 	"regexp"
 	"testing"
+	"time"
 
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
 	apiextensionsv1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/fake"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/version"
+	fakediscovery "k8s.io/client-go/discovery/fake"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -72,6 +79,117 @@ func (s *CiliumV2RegisterSuite) getV1beta1TestCRD() *apiextensionsv1beta1.Custom
 				OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{},
 			},
 		},
+	}
+}
+
+func (s *CiliumV2RegisterSuite) TestCreateUpdateCRD(c *C) {
+	v1Support := &version.Info{
+		Major: "1",
+		Minor: "16",
+	}
+	v1beta1Support := &version.Info{
+		Major: "1",
+		Minor: "15",
+	}
+
+	tests := []struct {
+		name    string
+		test    func() error
+		wantErr bool
+	}{
+		{
+			name: "v1 crd installed with v1 apiserver",
+			test: func() error {
+				crd := s.getV1TestCRD()
+				client := fake.NewSimpleClientset()
+				c.Assert(k8sversion.Force(v1Support.Major+"."+v1Support.Minor), IsNil)
+				return createUpdateCRD(client, crd.ObjectMeta.Name, crd, newFakePoller())
+			},
+			wantErr: false,
+		},
+		{
+			name: "v1beta1 crd installed with v1beta1 apiserver",
+			test: func() error {
+				// createUpdateCRD works with v1 CRDs and converts to v1beta1 CRDs if needed.
+				crd := s.getV1TestCRD()
+				client := fake.NewSimpleClientset()
+				c.Assert(k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor), IsNil)
+				return createUpdateCRD(client, crd.ObjectMeta.Name, crd, newFakePoller())
+			},
+			wantErr: false,
+		},
+		{
+			name: "v1beta1 crd installed with v1 apiserver; upgrade path",
+			test: func() error {
+				// This test will install a v1beta1 CRD to simulate the
+				// scenario where a user already has v1beta1 CRDs installed.
+
+				c.Assert(k8sversion.Force(v1Support.Major+"."+v1Support.Minor), IsNil)
+
+				// Ensure same name as to-be installed CRD.
+				crd := s.getV1TestCRD()
+				oldCRD := s.getV1beta1TestCRD()
+				oldCRD.ObjectMeta.Name = crd.ObjectMeta.Name
+
+				var err error
+				client := fake.NewSimpleClientset()
+				client.Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = v1Support
+				_, err = client.ApiextensionsV1beta1().CustomResourceDefinitions().Create(
+					context.TODO(),
+					oldCRD,
+					v1.CreateOptions{},
+				)
+				c.Assert(err, IsNil)
+
+				return createUpdateCRD(client, crd.ObjectMeta.Name, crd, newFakePoller())
+			},
+			wantErr: false,
+		},
+		{
+			name: "v1 crd installed with v1beta1 apiserver; downgrade path",
+			test: func() error {
+				// This test will install a v1 CRD to simulate the scenario
+				// where a user already has v1 CRDs installed. This test covers
+				// that the apiserver will interoperate between the two
+				// versions (v1 & v1beta1).
+
+				c.Assert(k8sversion.Force(v1Support.Major+"."+v1Support.Minor), IsNil)
+
+				// Ensure same name as to-be installed CRD.
+				crdToInstall := s.getV1beta1TestCRD()
+				oldCRD := s.getV1TestCRD()
+				oldCRD.ObjectMeta.Name = crdToInstall.ObjectMeta.Name
+
+				// Pre-install v1 CRD.
+				var err error
+				client := fake.NewSimpleClientset()
+				_, err = client.ApiextensionsV1().CustomResourceDefinitions().Create(
+					context.TODO(),
+					oldCRD,
+					v1.CreateOptions{},
+				)
+				c.Assert(err, IsNil)
+
+				// Revert back to v1beta1 apiserver.
+				client.Discovery().(*fakediscovery.FakeDiscovery).FakedServerVersion = v1beta1Support
+				c.Assert(k8sversion.Force(v1beta1Support.Major+"."+v1beta1Support.Minor), IsNil)
+
+				// Retrieve v1 CRD here as that's what createUpdateCRD will be
+				// expecting, and change the name to match to-be installed CRD.
+				// This tests that createUpdateCRD will fallback on its v1beta1
+				// variant.
+				crd := s.getV1TestCRD()
+				crd.ObjectMeta.Name = crdToInstall.ObjectMeta.Name
+
+				return createUpdateCRD(client, crd.ObjectMeta.Name, crd, newFakePoller())
+			},
+			wantErr: false,
+		},
+	}
+	for _, tt := range tests {
+		c.Log(tt.name)
+		err := tt.test()
+		c.Assert((err != nil), Equals, tt.wantErr)
 	}
 }
 
@@ -178,4 +296,15 @@ func (s *CiliumV2RegisterSuite) TestFQDNNameRegex(c *C) {
 		c.Assert(nameRegex.MatchString(f), Equals, false, Commentf(f))
 		c.Assert(patternRegex.MatchString(f), Equals, true, Commentf(f))
 	}
+}
+
+func newFakePoller() fakePoller { return fakePoller{} }
+
+type fakePoller struct{}
+
+func (m fakePoller) Poll(
+	interval, duration time.Duration,
+	conditionFn func() (bool, error),
+) error {
+	return nil
 }
