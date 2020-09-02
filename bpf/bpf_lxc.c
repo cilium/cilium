@@ -906,7 +906,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
 				  0, ifindex, 0, monitor);
 		if (tuple_out)
-			*tuple_out = tuple;
+			memcpy(tuple_out, &tuple, sizeof(tuple));
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
 
@@ -971,7 +971,7 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		send_trace_notify6(ctx, TRACE_TO_PROXY, src_label, SECLABEL, &orig_sip,
 				  0, ifindex, *reason, monitor);
 		if (tuple_out)
-			*tuple_out = tuple;
+			memcpy(tuple_out, &tuple, sizeof(tuple));
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
 	/* Not redirected to host / proxy. */
