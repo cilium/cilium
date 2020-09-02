@@ -81,6 +81,24 @@ spec:
       - port: "4240"
         protocol: TCP
 
+  # NodePort
+  # These two rules are only needed when kube-proxy is used.
+  # They should be removed when running in kube-proxy-free mode.
+  - fromEndpoints:
+    - matchLabels:
+        name: pod-to-b-intra-node-nodeport
+    toPorts:
+    - ports:
+      - port: "31313"
+        protocol: TCP
+  - fromEndpoints:
+    - matchLabels:
+        name: pod-to-b-multi-node-nodeport
+    toPorts:
+    - ports:
+      - port: "31313"
+        protocol: TCP
+
 
   egress:
   # Only ICMP echo/reply messages should be drop if this is commented.
