@@ -1282,7 +1282,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					"Monitor output does not show traffic as allowed")
 			})
 
-			SkipContextIf(helpers.RunsWithKubeProxy, "With host policy", func() {
+			Context("With host policy", func() {
 				BeforeAll(func() {
 					// Deploy echoserver pods in host namespace.
 					echoPodPath := helpers.ManifestGet(kubectl.BasePath(), "echoserver-cilium-hostnetns.yaml")
