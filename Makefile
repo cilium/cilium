@@ -286,7 +286,7 @@ GIT_VERSION: force
 
 include Makefile.docker
 
-CRD_OPTIONS ?= "crd:trivialVersions=true"
+CRD_OPTIONS ?= "crd:crdVersions=v1beta1"
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
 	$(eval TMPDIR := $(shell mktemp -d))
