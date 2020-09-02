@@ -476,6 +476,12 @@ func (d *Daemon) initMaps() error {
 		}
 	}
 
+	if option.Config.NodePortAlg == option.NodePortAlgMaglev {
+		if err := lbmap.InitMaglevMaps(option.Config.EnableIPv4, option.Config.EnableIPv6); err != nil {
+			return err
+		}
+	}
+
 	return nil
 }
 

@@ -40,7 +40,8 @@ func NewLBMockMap() *LBMockMap {
 
 func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
 	backends map[string]uint16, prevCount int, ipv6 bool, svcType lb.SVCType, svcLocal bool,
-	svcScope uint8, sessionAffinity bool, sessionAffinityTimeoutSec uint32, checkLBSrcRange bool) error {
+	svcScope uint8, sessionAffinity bool, sessionAffinityTimeoutSec uint32, checkLBSrcRange bool,
+	maglev bool) error {
 
 	backendsList := make([]lb.Backend, 0, len(backends))
 	for name, backendID := range backends {
@@ -69,7 +70,7 @@ func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
 	return nil
 }
 
-func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int) error {
+func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev bool) error {
 	svc, found := m.ServiceByID[uint16(addr.ID)]
 	if !found {
 		return fmt.Errorf("Service not found %+v", addr)

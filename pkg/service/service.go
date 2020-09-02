@@ -43,8 +43,8 @@ var (
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
 	UpsertService(uint16, net.IP, uint16, map[string]uint16, int, bool, lb.SVCType,
-		bool, uint8, bool, uint32, bool) error
-	DeleteService(lb.L3n4AddrID, int) error
+		bool, uint8, bool, uint32, bool, bool) error
+	DeleteService(lb.L3n4AddrID, int, bool) error
 	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
 	AddAffinityMatch(uint16, uint16) error
@@ -81,6 +81,7 @@ type svcInfo struct {
 	svcName                   string
 	svcNamespace              string
 	loadBalancerSourceRanges  []*cidr.CIDR
+	maglev                    bool
 
 	restoredFromDatapath bool
 }
@@ -139,6 +140,7 @@ func NewService(monitorNotify monitorNotify) *Service {
 	if option.Config.EnableHealthCheckNodePort {
 		localHealthServer = healthserver.New()
 	}
+
 	return &Service{
 		svcByHash:       map[string]*svcInfo{},
 		svcByID:         map[lb.ID]*svcInfo{},
@@ -146,7 +148,7 @@ func NewService(monitorNotify monitorNotify) *Service {
 		backendByHash:   map[string]*lb.Backend{},
 		monitorNotify:   monitorNotify,
 		healthServer:    localHealthServer,
-		lbmap:           &lbmap.LBBPFMap{},
+		lbmap:           lbmap.New(),
 	}
 }
 
@@ -552,6 +554,11 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		svc.restoredFromDatapath = false
 	}
 
+	svc.maglev = option.Config.NodePortAlg == option.NodePortAlgMaglev &&
+		(p.Type == lb.SVCTypeNodePort ||
+			p.Type == lb.SVCTypeExternalIPs ||
+			p.Type == lb.SVCTypeLoadBalancer)
+
 	return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, nil
 }
 
@@ -667,7 +674,7 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		ipv6, svc.svcType, onlyLocalBackends,
 		svc.frontend.L3n4Addr.Scope,
 		svc.sessionAffinity, svc.sessionAffinityTimeoutSec,
-		checkLBSrcRange)
+		checkLBSrcRange, svc.maglev)
 	if err != nil {
 		return err
 	}
@@ -800,7 +807,7 @@ func (s *Service) deleteServiceLocked(svc *svcInfo) error {
 	})
 	scopedLog.Debug("Deleting service")
 
-	if err := s.lbmap.DeleteService(svc.frontend, len(svc.backends)); err != nil {
+	if err := s.lbmap.DeleteService(svc.frontend, len(svc.backends), svc.maglev); err != nil {
 		return err
 	}
 
