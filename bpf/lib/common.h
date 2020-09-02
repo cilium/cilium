@@ -502,6 +502,7 @@ enum {
 #define	CB_SVC_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_SVC_ADDR_V6_1	CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_IFINDEX	/* Alias, non-overlapping */
+#define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
 #define	CB_SVC_ADDR_V6_2	CB_POLICY	/* Alias, non-overlapping */
 	CB_NAT46_STATE,
