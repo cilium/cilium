@@ -185,8 +185,55 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 # endif /* ENABLE_IPV6 */
 
 # ifdef ENABLE_IPV4
+#  ifndef ENABLE_MASQUERADE
 static __always_inline int
-ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id)
+whitelist_snated_egress_connections(struct __ctx_buff *ctx, __u32 ipcache_srcid)
+{
+	struct ct_state ct_state_new = {}, ct_state = {};
+	struct ipv4_ct_tuple tuple = {};
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__u32 monitor = 0;
+	int ret, l4_off;
+
+	/* If kube-proxy is in use (no BPF-based masquerading), packets from
+	 * pods may be SNATed. The response packet will therefore have a host
+	 * IP as the destination IP.
+	 * To avoid enforcing host policies for response packets to pods, we
+	 * need to create a CT entry for the forward, SNATed packet from the
+	 * pod. Response packets will thus match this CT entry and bypass host
+	 * policies.
+	 * We know the packet is a SNATed packet if the srcid from ipcache is
+	 * HOST_ID, but the actual srcid (derived from the packet mark) isn't.
+	 */
+	if (ipcache_srcid == HOST_ID) {
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		tuple.nexthdr = ip4->protocol;
+		tuple.daddr = ip4->daddr;
+		tuple.saddr = ip4->saddr;
+		l4_off = ETH_HLEN + ipv4_hdrlen(ip4);
+		ret = ct_lookup4(get_ct_map4(&tuple), &tuple, ctx, l4_off,
+				 CT_EGRESS, &ct_state, &monitor);
+		if (ret < 0)
+			return ret;
+		if (ret == CT_NEW) {
+			ret = ct_create4(get_ct_map4(&tuple), &CT_MAP_ANY4,
+					 &tuple, ctx, CT_EGRESS, &ct_state_new,
+					 false);
+			if (IS_ERR(ret))
+				return ret;
+		}
+	}
+
+	return CTX_ACT_OK;
+}
+#   endif
+
+static __always_inline int
+ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
+			__u32 ipcache_srcid __maybe_unused)
 {
 	struct ct_state ct_state_new = {}, ct_state = {};
 	int ret, verdict, l4_off, l3_off = ETH_HLEN;
@@ -198,9 +245,14 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id)
 	void *data, *data_end;
 	struct iphdr *ip4;
 
-	/* Only enforce host policies for packets from host IPs. */
-	if (src_id != HOST_ID)
+	if (src_id != HOST_ID) {
+#  ifndef ENABLE_MASQUERADE
+		return whitelist_snated_egress_connections(ctx, ipcache_srcid);
+#  else
+		/* Only enforce host policies for packets from host IPs. */
 		return CTX_ACT_OK;
+#  endif
+	}
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
