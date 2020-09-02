@@ -299,6 +299,15 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionRandom)
 	} else if option.Config.NodePortAlg == option.NodePortAlgMaglev {
 		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionMaglev)
+		cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", option.Config.MaglevTableSize)
+		if option.Config.EnableIPv6 {
+			cDefinesMap["LB6_MAGLEV_MAP_INNER"] = lbmap.MaglevInner6MapName
+			cDefinesMap["LB6_MAGLEV_MAP_OUTER"] = lbmap.MaglevOuter6MapName
+		}
+		if option.Config.EnableIPv4 {
+			cDefinesMap["LB4_MAGLEV_MAP_INNER"] = lbmap.MaglevInner4MapName
+			cDefinesMap["LB4_MAGLEV_MAP_OUTER"] = lbmap.MaglevOuter4MapName
+		}
 	}
 	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash0)
 	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash1)

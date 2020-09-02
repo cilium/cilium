@@ -6,11 +6,9 @@
 
 #include "common.h"
 #include "ipv6.h"
+#include "ids.h"
 
 #include "bpf/compiler.h"
-
-#define CILIUM_MAP_POLICY	1
-#define CILIUM_MAP_CALLS	2
 
 struct bpf_elf_map __section_maps ENDPOINTS_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
