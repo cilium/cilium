@@ -501,11 +501,18 @@ global:
       # Enable mutual TLS for listenAddress. Setting this value to false is
       # highly discouraged.
       enabled: false
-      # When set to true, automatically generate a CA and certificates to
-      # enable mTLS between Hubble server and Hubble Relay. If set to false,
-      # the certs for Hubble server need to be provided by setting appropriate
-      # values in the hubble-tls chart.
-      auto: true
+      # Configure automatic TLS certificates generation.
+      auto:
+        # When set to true, automatically generate a CA and certificates to
+        # enable mTLS between Hubble server and Hubble Relay. If set to false,
+        # the certs for Hubble server need to be provided by setting
+        # appropriate values in the hubble-tls chart.
+        enabled: true
+        # Sets the method to auto-generate certificates. Currently, only "helm"
+        # is supported. This method uses Helm to generate certificates.
+        method: "helm"
+        # Generated certificates validity duration in days.
+        certValidityDuration: 1095
     # Buffer size of the channel Hubble uses to receive monitor events. If this value is not set,
     # the queue size is set to the default monitor queue size.
     eventQueueSize: ~
