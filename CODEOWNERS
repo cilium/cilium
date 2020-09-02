@@ -80,6 +80,7 @@ Dockerfile* @cilium/build
 /images @cilium/build
 /install/kubernetes/ @cilium/kubernetes @cilium/docs @cilium/helm
 /install/kubernetes/cilium/charts/hubble-relay @cilium/kubernetes @cilium/docs @cilium/helm @cilium/hubble
+/install/kubernetes/cilium/charts/hubble-tls @cilium/kubernetes @cilium/docs @cilium/helm @cilium/hubble
 /install/kubernetes/cilium/charts/hubble-ui @cilium/kubernetes @cilium/docs @cilium/helm @cilium/hubble
 jenkinsfiles @cilium/ci
 Jenkinsfile.nightly @cilium/ci
