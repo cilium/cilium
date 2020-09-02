@@ -42,6 +42,10 @@ var (
 // LBBPFMap is an implementation of the LBMap interface.
 type LBBPFMap struct{}
 
+func New() *LBBPFMap {
+	return &LBBPFMap{}
+}
+
 // UpsertService inserts or updates the given service in a BPF map.
 //
 // The corresponding backend entries (identified with the given backendIDs)
@@ -49,12 +53,12 @@ type LBBPFMap struct{}
 //
 // The given prevBackendCount denotes a previous service backend entries count,
 // so that the function can remove obsolete ones.
-func (*LBBPFMap) UpsertService(
+func (lbmap *LBBPFMap) UpsertService(
 	svcID uint16, svcIP net.IP, svcPort uint16,
 	backends map[string]uint16, prevBackendCount int,
 	ipv6 bool, svcType loadbalancer.SVCType, svcLocal bool,
 	svcScope uint8, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-	checkSourceRange bool) error {
+	checkSourceRange, useMaglev bool) error {
 	var svcKey ServiceKey
 
 	if svcID == 0 {
@@ -70,11 +74,9 @@ func (*LBBPFMap) UpsertService(
 	slot := 1
 	svcVal := svcKey.NewValue().(ServiceValue)
 
-	var backendIDs []uint16
-	if option.Config.NodePortAlg == option.NodePortAlgMaglev &&
-		(svcType == loadbalancer.SVCTypeNodePort ||
-			svcType == loadbalancer.SVCTypeExternalIPs ||
-			svcType == loadbalancer.SVCTypeLoadBalancer) {
+	if useMaglev && len(backends) != 0 {
+		var backendIDs []uint16
+
 		backendNames := make([]string, 0, len(backends))
 		for name := range backends {
 			backendNames = append(backendNames, name)
@@ -85,13 +87,16 @@ func (*LBBPFMap) UpsertService(
 		for i, pos := range table {
 			backendIDs[i] = backends[backendNames[pos]]
 		}
-	} else {
-		backendIDs = make([]uint16, 0, len(backends))
-		for _, id := range backends {
-			backendIDs = append(backendIDs, id)
+
+		if err := updateMaglevTable(ipv6, svcID, backendIDs); err != nil {
+			return err
 		}
 	}
 
+	backendIDs := make([]uint16, 0, len(backends))
+	for _, id := range backends {
+		backendIDs = append(backendIDs, id)
+	}
 	for _, backendID := range backendIDs {
 		if backendID == 0 {
 			return fmt.Errorf("Invalid backend ID 0")
@@ -135,7 +140,7 @@ func (*LBBPFMap) UpsertService(
 }
 
 // DeleteService removes given service from a BPF map.
-func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int) error {
+func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int, useMaglev bool) error {
 	var (
 		svcKey    ServiceKey
 		revNATKey RevNatKey
@@ -145,7 +150,8 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int) er
 		return fmt.Errorf("Invalid svc ID 0")
 	}
 
-	if svc.IsIPv6() {
+	ipv6 := svc.IsIPv6()
+	if ipv6 {
 		svcKey = NewService6Key(svc.IP, svc.Port, u8proto.ANY, svc.Scope, 0)
 		revNATKey = NewRevNat6Key(uint16(svc.ID))
 	} else {
@@ -157,6 +163,12 @@ func (*LBBPFMap) DeleteService(svc loadbalancer.L3n4AddrID, backendCount int) er
 		svcKey.SetBackendSlot(slot)
 		if err := svcKey.MapDelete(); err != nil {
 			return fmt.Errorf("Unable to delete service entry %+v: %s", svcKey, err)
+		}
+	}
+
+	if useMaglev {
+		if err := deleteMaglevTable(ipv6, uint16(svc.ID)); err != nil {
+			return fmt.Errorf("Unable to delete maglev lookup table %d: %s", svc.ID, err)
 		}
 	}
 

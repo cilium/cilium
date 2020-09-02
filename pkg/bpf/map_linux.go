@@ -135,7 +135,8 @@ func NewMap(name string, mapType MapType, mapKey MapKey, keySize int, mapValue M
 	}
 
 	if size := reflect.TypeOf(mapValue).Elem().Size(); size != uintptr(valueSize) {
-		panic(fmt.Sprintf("Invalid %s map value size (%d != %d)", name, size, valueSize))
+		//panic(fmt.Sprintf("Invalid %s map value size (%d != %d)", name, size, valueSize))
+		fmt.Printf("Invalid %s map value size (%d != %d)", name, size, valueSize)
 	}
 
 	m := &Map{
