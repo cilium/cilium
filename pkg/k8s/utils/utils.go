@@ -68,15 +68,21 @@ func GetObjNamespaceName(obj NamespaceNameGetter) string {
 // GetServiceListOptionsModifier returns the options modifier for service object list.
 // This methods returns a ListOptions modifier which adds a label selector to only
 // select services that are in context of Cilium.
+// Like kube-proxy Cilium does not select services containing k8s headless service label.
 // We honor service.kubernetes.io/service-proxy-name label in the service object and only
 // handle services that match our service proxy name. If the service proxy name for Cilium
 // is an empty string, we assume that Cilium is the default service handler in which case
 // we select all services that don't have the above mentioned label.
 func GetServiceListOptionsModifier() (func(options *v1meta.ListOptions), error) {
 	var (
-		serviceNameSelector *labels.Requirement
-		err                 error
+		serviceNameSelector, nonHeadlessServiceSelector *labels.Requirement
+		err                                             error
 	)
+
+	nonHeadlessServiceSelector, err = labels.NewRequirement(v1.IsHeadlessService, selection.DoesNotExist, nil)
+	if err != nil {
+		return nil, err
+	}
 
 	if option.Config.K8sServiceProxyName == "" {
 		serviceNameSelector, err = labels.NewRequirement(
@@ -91,7 +97,7 @@ func GetServiceListOptionsModifier() (func(options *v1meta.ListOptions), error) 
 	}
 
 	labelSelector := labels.NewSelector()
-	labelSelector = labelSelector.Add(*serviceNameSelector)
+	labelSelector = labelSelector.Add(*serviceNameSelector, *nonHeadlessServiceSelector)
 
 	return func(options *v1meta.ListOptions) {
 		options.LabelSelector = labelSelector.String()
