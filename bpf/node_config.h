@@ -94,6 +94,11 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define LB4_AFFINITY_MAP test_cilium_lb4_affinity
 #define LB6_AFFINITY_MAP test_cilium_lb6_affinity
 #define LB_AFFINITY_MATCH_MAP test_cilium_lb_affinity_match
+#define LB_MAGLEV_LUT_SIZE 32749
+#define LB4_MAGLEV_MAP_INNER test_cilium_lb4_maglev_inner
+#define LB4_MAGLEV_MAP_OUTER test_cilium_lb4_maglev_outer
+#define LB6_MAGLEV_MAP_INNER test_cilium_lb6_maglev_inner
+#define LB6_MAGLEV_MAP_OUTER test_cilium_lb6_maglev_outer
 #define THROTTLE_MAP test_cilium_throttle
 #define THROTTLE_MAP_SIZE 65536
 #define ENABLE_ARP_RESPONDER

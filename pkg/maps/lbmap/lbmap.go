@@ -37,10 +37,6 @@ var (
 	// MaxEntries contains the maximum number of entries that are allowed
 	// in Cilium LB service, backend and affinity maps.
 	MaxEntries = 65536
-	// In case of Maglev, MaxEntries will be significantly higher for the
-	// service map than the backend and affinity maps. In that case we have
-	// two knobs to reduce memory overhead.
-	MaxBackends = MaxEntries
 )
 
 // LBBPFMap is an implementation of the LBMap interface.
@@ -563,7 +559,4 @@ func InitMapInfo(maxSockRevNatEntries, lbMapMaxEntries int) {
 	MaxSockRevNat6MapEntries = maxSockRevNatEntries
 
 	MaxEntries = lbMapMaxEntries
-	if option.Config.NodePortAlg != option.NodePortAlgMaglev {
-		MaxBackends = MaxEntries
-	}
 }

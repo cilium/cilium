@@ -32,7 +32,6 @@ import (
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/sysctl"
 
-	"github.com/spf13/viper"
 	"github.com/vishvananda/netlink"
 )
 
@@ -138,11 +137,6 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			if !found {
 				log.Fatalf("Invalid value for --%s: %d, supported values are: %v",
 					option.MaglevTableSize, option.Config.MaglevTableSize, supportedPrimes)
-			}
-			// Bump the default LB map size if not explicitly set by user to accommodate max
-			// 1k services in the cluster.
-			if !viper.IsSet(option.LBMapEntriesName) {
-				option.Config.LBMapEntries = option.Config.MaglevTableSize * 1000
 			}
 		}
 	}

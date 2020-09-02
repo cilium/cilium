@@ -8,8 +8,7 @@
 #include "conntrack.h"
 #include "ipv4.h"
 #include "hash.h"
-
-#define CILIUM_LB_MAP_MAX_FE		256
+#include "ids.h"
 
 #ifdef ENABLE_IPV6
 struct bpf_elf_map __section_maps LB6_REVERSE_NAT_MAP = {
@@ -60,6 +59,27 @@ struct bpf_elf_map __section_maps LB6_SRC_RANGE_MAP = {
 };
 #endif
 
+#if LB_SELECTION == LB_SELECTION_MAGLEV
+struct bpf_elf_map __section_maps LB6_MAGLEV_MAP_INNER = {
+	.type		= BPF_MAP_TYPE_ARRAY,
+	.size_key	= sizeof(__u32),
+	.size_value	= sizeof(__u16) * LB_MAGLEV_LUT_SIZE,
+	.pinning	= PIN_NONE,
+	.max_elem	= 1,
+	.inner_idx	= NO_PREPOPULATE,
+	.id		= CILIUM_MAP_MAGLEV6,
+};
+
+struct bpf_elf_map __section_maps LB6_MAGLEV_MAP_OUTER = {
+	.type		= BPF_MAP_TYPE_HASH_OF_MAPS,
+	.size_key	= sizeof(__u16),
+	.size_value	= sizeof(__u32),
+	.pinning	= PIN_GLOBAL_NS,
+	.inner_id	= CILIUM_MAP_MAGLEV6,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags		= CONDITIONAL_PREALLOC,
+};
+#endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
@@ -111,6 +131,27 @@ struct bpf_elf_map __section_maps LB4_SRC_RANGE_MAP = {
 };
 #endif
 
+#if LB_SELECTION == LB_SELECTION_MAGLEV
+struct bpf_elf_map __section_maps LB4_MAGLEV_MAP_INNER = {
+	.type		= BPF_MAP_TYPE_ARRAY,
+	.size_key	= sizeof(__u32),
+	.size_value	= sizeof(__u16) * LB_MAGLEV_LUT_SIZE,
+	.pinning	= PIN_NONE,
+	.max_elem	= 1,
+	.inner_idx	= NO_PREPOPULATE,
+	.id		= CILIUM_MAP_MAGLEV4,
+};
+
+struct bpf_elf_map __section_maps LB4_MAGLEV_MAP_OUTER = {
+	.type		= BPF_MAP_TYPE_HASH_OF_MAPS,
+	.size_key	= sizeof(__u16),
+	.size_value	= sizeof(__u32),
+	.pinning	= PIN_GLOBAL_NS,
+	.inner_id	= CILIUM_MAP_MAGLEV4,
+	.max_elem	= CILIUM_LB_MAP_MAX_ENTRIES,
+	.flags		= CONDITIONAL_PREALLOC,
+};
+#endif /* LB_SELECTION == LB_SELECTION_MAGLEV */
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_SESSION_AFFINITY
@@ -292,34 +333,71 @@ bool lb6_svc_is_routable(const struct lb6_service *svc)
 	return __lb_svc_is_routable(svc->flags);
 }
 
+#ifdef ENABLE_IPV4
 /* Backend slot 0 is always reserved for the service frontend. */
-#if LB_SELECTION == LB_SELECTION_RANDOM
+# if LB_SELECTION == LB_SELECTION_RANDOM
 static __always_inline __u16
-lb4_select_backend_slot(struct ipv4_ct_tuple *tuple __maybe_unused, __u16 count)
+lb4_select_backend_slot(const struct ipv4_ct_tuple *tuple __maybe_unused,
+			const struct lb4_service *svc)
 {
-	return (get_prandom_u32() % count) + 1;
+	return (get_prandom_u32() % svc->count) + 1;
 }
+# elif LB_SELECTION == LB_SELECTION_MAGLEV
+static __always_inline __u16
+lb4_select_backend_slot(const struct ipv4_ct_tuple *tuple,
+			const struct lb4_service *svc)
+{
+	__u32 zero = 0, index = svc->rev_nat_index;
+	__u16 *slot_ids;
+	void *maglev_lut;
 
-static __always_inline __u16
-lb6_select_backend_slot(struct ipv6_ct_tuple *tuple __maybe_unused, __u16 count)
-{
-	return (get_prandom_u32() % count) + 1;
-}
-#elif LB_SELECTION == LB_SELECTION_MAGLEV
-static __always_inline __u16
-lb4_select_backend_slot(struct ipv4_ct_tuple *tuple, __u16 count)
-{
-	return (hash_from_tuple_v4(tuple) % count) + 1;
-}
+	maglev_lut = map_lookup_elem(&LB4_MAGLEV_MAP_OUTER, &index);
+	if (unlikely(!maglev_lut))
+		return 0;
 
-static __always_inline __u16
-lb6_select_backend_slot(struct ipv6_ct_tuple *tuple, __u16 count)
-{
-	return (hash_from_tuple_v6(tuple) % count) + 1;
+	slot_ids = map_lookup_elem(maglev_lut, &zero);
+	index = hash_from_tuple_v4(tuple) % LB_MAGLEV_LUT_SIZE;
+	if (likely(slot_ids && index < LB_MAGLEV_LUT_SIZE))
+		return READ_ONCE(slot_ids[index]);
+	return 0;
 }
-#else
-# error "Invalid load balancer backend selection algorithm!"
-#endif /* LB_SELECTION */
+# else
+#  error "Invalid load balancer backend selection algorithm!"
+# endif /* LB_SELECTION */
+#endif /* ENABLE_IPV4 */
+
+#ifdef ENABLE_IPV6
+/* Backend slot 0 is always reserved for the service frontend. */
+# if LB_SELECTION == LB_SELECTION_RANDOM
+static __always_inline __u16
+lb6_select_backend_slot(const struct ipv6_ct_tuple *tuple __maybe_unused,
+			const struct lb6_service *svc)
+{
+	return (get_prandom_u32() % svc->count) + 1;
+}
+# elif LB_SELECTION == LB_SELECTION_MAGLEV
+static __always_inline __u16
+lb6_select_backend_slot(const struct ipv6_ct_tuple *tuple,
+			const struct lb6_service *svc)
+{
+	__u32 zero = 0, index = svc->rev_nat_index;
+	__u16 *slot_ids;
+	void *maglev_lut;
+
+	maglev_lut = map_lookup_elem(&LB6_MAGLEV_MAP_OUTER, &index);
+	if (unlikely(!maglev_lut))
+		return 0;
+
+	slot_ids = map_lookup_elem(maglev_lut, &zero);
+	index = hash_from_tuple_v6(tuple) % LB_MAGLEV_LUT_SIZE;
+	if (likely(slot_ids && index < LB_MAGLEV_LUT_SIZE))
+		return READ_ONCE(slot_ids[index]);
+	return 0;
+}
+# else
+#  error "Invalid load balancer backend selection algorithm!"
+# endif /* LB_SELECTION */
+#endif /* ENABLE_IPV6 */
 
 static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 					   int l4_off, __be16 *port,
@@ -744,7 +822,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		}
 #endif
 		if (backend_id == 0) {
-			slot = lb6_select_backend_slot(tuple, svc->count);
+			slot = lb6_select_backend_slot(tuple, svc);
 			backend_slot = lb6_lookup_backend_slot(ctx, key, slot);
 			if (!backend_slot)
 				goto drop_no_service;
@@ -787,7 +865,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 								     &client_id);
 #endif
 		if (backend_id == 0) {
-			slot = lb6_select_backend_slot(tuple, svc->count);
+			slot = lb6_select_backend_slot(tuple, svc);
 			backend_slot = lb6_lookup_backend_slot(ctx, key, slot);
 			if (!backend_slot)
 				goto drop_no_service;
@@ -809,7 +887,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		svc = lb6_lookup_service(key, false);
 		if (!svc)
 			goto drop_no_service;
-		slot = lb6_select_backend_slot(tuple, svc->count);
+		slot = lb6_select_backend_slot(tuple, svc);
 		backend_slot = lb6_lookup_backend_slot(ctx, key, slot);
 		if (!backend_slot)
 			goto drop_no_service;
@@ -1252,7 +1330,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 #endif
 		if (backend_id == 0) {
 			/* No CT entry has been found, so select a svc endpoint */
-			slot = lb4_select_backend_slot(tuple, svc->count);
+			slot = lb4_select_backend_slot(tuple, svc);
 			backend_slot = lb4_lookup_backend_slot(ctx, key, slot);
 			if (!backend_slot)
 				goto drop_no_service;
@@ -1306,7 +1384,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 								     &client_id);
 #endif
 		if (backend_id == 0) {
-			slot = lb4_select_backend_slot(tuple, svc->count);
+			slot = lb4_select_backend_slot(tuple, svc);
 			backend_slot = lb4_lookup_backend_slot(ctx, key, slot);
 			if (!backend_slot)
 				goto drop_no_service;
@@ -1329,7 +1407,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		svc = lb4_lookup_service(key, false);
 		if (!svc)
 			goto drop_no_service;
-		slot = lb4_select_backend_slot(tuple, svc->count);
+		slot = lb4_select_backend_slot(tuple, svc);
 		backend_slot = lb4_lookup_backend_slot(ctx, key, slot);
 		if (!backend_slot)
 			goto drop_no_service;
