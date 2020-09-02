@@ -310,14 +310,15 @@ func (d *Daemon) initMaps() error {
 		return nil
 	}
 
-	// Delete old maps if left over from an upgrade.
-	// TODO: Remove policy map when Cilium 1.8 is the oldest supported release.
-	for _, name := range []string{"cilium_policy"} {
-		path := bpf.MapPath(name)
-		if _, err := os.Stat(path); err == nil {
-			if err = os.RemoveAll(path); err == nil {
-				log.Infof("removed legacy map file %s", path)
-			}
+	// Rename old policy call map to avoid packet drops during upgrade.
+	// TODO: Remove this renaming step once Cilium 1.8 is the oldest supported
+	// release.
+	policyMapPath := bpf.MapPath("cilium_policy")
+	if _, err := os.Stat(policyMapPath); err == nil {
+		newPolicyMapPath := bpf.MapPath(policymap.PolicyCallMapName)
+		if err = os.Rename(policyMapPath, newPolicyMapPath); err != nil {
+			log.WithError(err).Fatalf("Failed to rename policy call map from %s to %s",
+				policyMapPath, newPolicyMapPath)
 		}
 	}
 
