@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Authors of Hubble
+// Copyright 2020 Authors of Hubble
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -69,7 +69,79 @@ func TestFlowTCPFilter(t *testing.T) {
 						Flags: &flowpb.TCPFlags{SYN: true, ACK: true}}}},
 				}},
 			},
+			want: true,
+		},
+		{
+			name: "filterFIN_eventRST",
+			args: args{
+				f: []*flowpb.FlowFilter{{TcpFlags: []*flowpb.TCPFlags{
+					{FIN: true}}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
+						Flags: &flowpb.TCPFlags{RST: true}}}},
+				}},
+			},
 			want: false,
+		},
+		{
+			name: "filterSYN_eventPSH",
+			args: args{
+				f: []*flowpb.FlowFilter{{TcpFlags: []*flowpb.TCPFlags{
+					{SYN: true}}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
+						Flags: &flowpb.TCPFlags{PSH: true}}}},
+				}},
+			},
+			want: false,
+		},
+		{
+			name: "filterURG_eventPSH",
+			args: args{
+				f: []*flowpb.FlowFilter{{TcpFlags: []*flowpb.TCPFlags{
+					{URG: true}}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
+						Flags: &flowpb.TCPFlags{PSH: true}}}},
+				}},
+			},
+			want: false,
+		},
+		{
+			name: "filterRST_eventRST",
+			args: args{
+				f: []*flowpb.FlowFilter{{TcpFlags: []*flowpb.TCPFlags{
+					{RST: true}}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
+						Flags: &flowpb.TCPFlags{RST: true}}}},
+				}},
+			},
+			want: true,
+		},
+		{
+			name: "filterFIN_eventFIN",
+			args: args{
+				f: []*flowpb.FlowFilter{{TcpFlags: []*flowpb.TCPFlags{
+					{FIN: true}}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
+						Flags: &flowpb.TCPFlags{FIN: true}}}},
+				}},
+			},
+			want: true,
+		},
+		{
+			name: "filterPSH_eventPSHACK",
+			args: args{
+				f: []*flowpb.FlowFilter{{TcpFlags: []*flowpb.TCPFlags{
+					{PSH: true}}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					L4: &flowpb.Layer4{Protocol: &flowpb.Layer4_TCP{TCP: &flowpb.TCP{
+						Flags: &flowpb.TCPFlags{PSH: true, ACK: true}}}},
+				}},
+			},
+			want: true,
 		},
 	}
 

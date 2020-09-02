@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Authors of Hubble
+// Copyright 2020 Authors of Hubble
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -20,7 +20,6 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/golang/protobuf/proto"
 )
 
 func filterByTCPFlags(flags []*flowpb.TCPFlags) (FilterFunc, error) {
@@ -29,10 +28,39 @@ func filterByTCPFlags(flags []*flowpb.TCPFlags) (FilterFunc, error) {
 		if l4tcp == nil {
 			return false
 		}
-		for i := 0; i < len(flags); i++ {
-			if proto.Equal(flags[i], l4tcp.GetFlags()) {
-				return true
+		flowFlags := l4tcp.GetFlags()
+		// check if the TCP event has any of the flags mentioned in flowfilter
+		// example: if TCP event has flags SYN and ACK set and if the flowfilter
+		// only has SYN, then this event should be accepted by the filter.
+		for _, f := range flags {
+			if f.FIN && !flowFlags.FIN {
+				continue
 			}
+			if f.SYN && !flowFlags.SYN {
+				continue
+			}
+			if f.RST && !flowFlags.RST {
+				continue
+			}
+			if f.PSH && !flowFlags.PSH {
+				continue
+			}
+			if f.ACK && !flowFlags.ACK {
+				continue
+			}
+			if f.URG && !flowFlags.URG {
+				continue
+			}
+			if f.ECE && !flowFlags.ECE {
+				continue
+			}
+			if f.CWR && !flowFlags.CWR {
+				continue
+			}
+			if f.NS && !flowFlags.NS {
+				continue
+			}
+			return true
 		}
 		return false
 	}, nil
@@ -41,7 +69,7 @@ func filterByTCPFlags(flags []*flowpb.TCPFlags) (FilterFunc, error) {
 // TCPFilter implements filtering based on TCP protocol header
 type TCPFilter struct{}
 
-// OnBuildFilter builds a L4 protocol filter
+// OnBuildFilter builds a TCP protocol based filter
 func (p *TCPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) ([]FilterFunc, error) {
 	var fs []FilterFunc
 
