@@ -22,12 +22,12 @@ import (
 	operatorOption "github.com/cilium/cilium/operator/option"
 	"github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -99,12 +99,10 @@ func identityGCIteration(ctx context.Context) {
 		if !identityHeartbeat.IsAlive(identity.Name) {
 			log.WithFields(logrus.Fields{
 				logfields.Identity: identity,
-				"nodes":            identity.Status.Nodes,
 			}).Debug("Deleting unused identity")
 			if err := deleteIdentity(ctx, identity); err != nil {
 				log.WithError(err).WithFields(logrus.Fields{
 					logfields.Identity: identity,
-					"nodes":            identity.Status.Nodes,
 				}).Error("Deleting unused identity")
 				// If Context was canceled we should break
 				if ctx.Err() != nil {

@@ -94,17 +94,6 @@ func (c *FakeCiliumIdentities) Update(ctx context.Context, ciliumIdentity *v2.Ci
 	return obj.(*v2.CiliumIdentity), err
 }
 
-// UpdateStatus was generated because the type contains a Status member.
-// Add a +genclient:noStatus comment above the type to avoid generating UpdateStatus().
-func (c *FakeCiliumIdentities) UpdateStatus(ctx context.Context, ciliumIdentity *v2.CiliumIdentity, opts v1.UpdateOptions) (*v2.CiliumIdentity, error) {
-	obj, err := c.Fake.
-		Invokes(testing.NewRootUpdateSubresourceAction(ciliumidentitiesResource, "status", ciliumIdentity), &v2.CiliumIdentity{})
-	if obj == nil {
-		return nil, err
-	}
-	return obj.(*v2.CiliumIdentity), err
-}
-
 // Delete takes name of the ciliumIdentity and deletes it. Returns an error if one occurs.
 func (c *FakeCiliumIdentities) Delete(ctx context.Context, name string, opts v1.DeleteOptions) error {
 	_, err := c.Fake.
