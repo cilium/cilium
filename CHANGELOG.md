@@ -1,5 +1,18 @@
 # Changelog
 
+## v1.7.9
+
+Summary of Changes
+------------------
+
+**Bugfixes:**
+* Fix v1.7.7 upgrade, add flags to help hitless upgrade from v1.6.x to v1.7.x (#13038, @joestringer)
+* pkg/kvstore: set endpoint shuffle in etcd client connectivity (Backport PR #13041, Upstream PR #12943, @aanm)
+
+**Misc Changes:**
+* docs: Mention L7 limitation in Calico chaining GSG (Backport PR #13041, Upstream PR #13005, @pchaigno)
+* doc: Document seamless upgrade process for remote-node identity change (#13042, @tgraf)
+
 ## v1.7.8
 
 Summary of Changes
