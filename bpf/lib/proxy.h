@@ -16,7 +16,7 @@ assign_socket_tcp(struct __ctx_buff *ctx,
 		  struct bpf_sock_tuple *tuple, __u32 len, bool established)
 {
 	int result = DROP_PROXY_LOOKUP_FAILED;
-	struct bpf_sock *sk = NULL;
+	struct bpf_sock *sk;
 	__u16 dbg_ctx;
 
 	sk = skc_lookup_tcp(ctx, tuple, len, BPF_F_CURRENT_NETNS, 0);
@@ -47,7 +47,7 @@ assign_socket_udp(struct __ctx_buff *ctx,
 		  bool established __maybe_unused)
 {
 	int result = DROP_PROXY_LOOKUP_FAILED;
-	struct bpf_sock *sk = NULL;
+	struct bpf_sock *sk;
 	__u16 dbg_ctx;
 
 	sk = sk_lookup_udp(ctx, tuple, len, BPF_F_CURRENT_NETNS, 0);
