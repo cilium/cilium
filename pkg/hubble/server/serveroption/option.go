@@ -34,6 +34,10 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
+// MinTLSVersion defines the minimum TLS version that is acceptable to
+// establish a connection with a client.
+const MinTLSVersion = tls.VersionTLS13
+
 // Options stores all the configuration values for the hubble server.
 type Options struct {
 	Listener             net.Listener
@@ -140,6 +144,7 @@ func WithTLS(c *tls.Config) Option {
 func WithTLSFromCert(cert tls.Certificate) Option {
 	return WithTLS(&tls.Config{
 		Certificates: []tls.Certificate{cert},
+		MinVersion:   MinTLSVersion,
 	})
 }
 
@@ -150,5 +155,6 @@ func WithMTLSFromCert(cert tls.Certificate, clientCAs *x509.CertPool) Option {
 		Certificates: []tls.Certificate{cert},
 		ClientCAs:    clientCAs,
 		ClientAuth:   tls.RequireAndVerifyClientCert,
+		MinVersion:   MinTLSVersion,
 	})
 }
