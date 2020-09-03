@@ -891,8 +891,11 @@ spec:
       hostNetwork: false
       containers:
       - name: echo-c-container
+        env:
+        - name: PORT
+          value: "8080"
         ports:
-        - containerPort: 80
+        - containerPort: 8080
           hostPort: 40001
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
@@ -906,7 +909,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
         livenessProbe:
           exec:
             command:
@@ -917,7 +920,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
   selector:
     matchLabels:
       name: echo-c
@@ -936,7 +939,8 @@ metadata:
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
   type: ClusterIP
   selector:
     name: echo-c
@@ -959,7 +963,7 @@ spec:
   ingress:
   - toPorts:
     - ports:
-      - port: "80"
+      - port: "8080"
         protocol: TCP
       rules:
         http:
