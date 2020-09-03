@@ -92,8 +92,8 @@ for a fully functional example including pods deployed to different namespaces.
 Example: Allow egress to kube-dns in kube-system namespace
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-The following example allows all pods in the namespace in which the policy is
-created to communicate with kube-dns on port 53/UDP in the ``kube-system``
+The following example allows all pods in the ``public`` namespace in which the
+policy is created to communicate with kube-dns on port 53/UDP in the ``kube-system``
 namespace.
 
 .. only:: html
@@ -202,3 +202,20 @@ namespace to pods matching the labels ``name=leia`` in any namespace.
 .. only:: epub or latex
 
         .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/clusterscope-policy.yaml
+
+Example: Allow all ingress to kube-dns
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+The following example allows all Cilium managed endpoints in the cluster to communicate
+with kube-dns on port 53/UDP in the ``kube-system`` namespace.
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/wildcard-from-endpoints.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/kubernetes/clusterwide/wildcard-from-endpoints.yaml
