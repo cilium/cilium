@@ -2,6 +2,7 @@ apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
 metadata:
   name: "allow-to-kubedns"
+  namespace: public
 spec:
   endpointSelector:
     {}
