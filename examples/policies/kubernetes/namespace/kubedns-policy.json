@@ -1,8 +1,10 @@
 [
    {
-      "endpointSelector" : {
-         "matchLabels" : {}
-      },
+      "endpointSelector" :  {
+         "matchLabels": {
+            "k8s:io.kubernetes.pod.namespace": "public"
+         }
+     },
       "egress" : [
          {
             "toEndpoints" : [

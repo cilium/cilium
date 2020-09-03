@@ -1,0 +1,17 @@
+apiVersion: "cilium.io/v2"
+kind: CiliumClusterwideNetworkPolicy
+description: "Policy for ingress allow to kube-dns from all Cilium managed endpoints in the cluster"
+metadata:
+  name: "wildcard-from-endpoints"
+spec:
+  endpointSelector:
+    matchLabels:
+      k8s:io.kubernetes.pod.namespace: kube-system
+      k8s-app: kube-dns
+  ingress:
+  - fromEndpoints:
+    - {}
+    toPorts:
+    - ports:
+      - port: "53"
+        protocol: UDP
