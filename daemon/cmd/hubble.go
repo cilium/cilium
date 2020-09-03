@@ -154,45 +154,21 @@ func (d *Daemon) launchHubble() {
 	// configure another hubble instance that serve fewer gRPC services
 	address := option.Config.HubbleListenAddress
 	if address != "" {
+		if option.Config.HubbleTLSDisabled {
+			logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
+		}
 		options := []serveroption.Option{
 			serveroption.WithTCPListener(address),
 			serveroption.WithHealthService(),
 			serveroption.WithObserverService(d.hubbleObserver),
 		}
-		switch {
-		case option.Config.HubbleTLSDisabled:
-			logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
-			options = append(options, serveroption.WithInsecure())
-		case option.Config.HubbleTLSCertFile != "" && option.Config.HubbleTLSKeyFile != "":
-			cert, err := tls.LoadX509KeyPair(option.Config.HubbleTLSCertFile, option.Config.HubbleTLSKeyFile)
-			if err != nil {
-				logger.WithError(err).Error("Failed to load TLS certificate")
-				return
-			}
-			switch {
-			case len(option.Config.HubbleTLSClientCertFiles) > 0:
-				clientCAs := x509.NewCertPool()
-				for _, clientCertPath := range option.Config.HubbleTLSClientCertFiles {
-					clientCertPEM, err := ioutil.ReadFile(clientCertPath)
-					if err != nil {
-						logger.WithError(err).WithField("client-cert-path", clientCertPath).Warning("Failed to load TLS client certificate")
-						continue
-					}
-					if ok := clientCAs.AppendCertsFromPEM(clientCertPEM); !ok {
-						logger.WithField("client-cert-path", clientCertPath).Warning("The TLS client certificate is not PEM encoded")
-					}
-				}
-				options = append(options, serveroption.WithMTLSFromCert(cert, clientCAs))
-			default:
-				options = append(options, serveroption.WithTLSFromCert(cert))
-			}
-		default:
-			logger.Errorf(
-				"Path to public/private key files not provided. Please, use options --%s and --%s, or --%s to disable TLS (not recommended).",
-				option.HubbleTLSCertFile, option.HubbleTLSKeyFile, option.HubbleTLSDisabled,
-			)
+		tlsOption, err := buildHubbleTLSOption()
+		if err != nil {
+			logger.WithError(err).Error("Failed to initialize Hubble server")
 			return
 		}
+		options = append(options, tlsOption)
+
 		srv, err := server.NewServer(logger, options...)
 		if err != nil {
 			logger.WithError(err).Error("Failed to initialize Hubble server")
@@ -207,6 +183,35 @@ func (d *Daemon) launchHubble() {
 			<-d.ctx.Done()
 			srv.Stop()
 		}()
+	}
+}
+
+// buildHubbleTLSOption builds a Hubble server option to set TLS settings.
+func buildHubbleTLSOption() (serveroption.Option, error) {
+	switch {
+	case option.Config.HubbleTLSDisabled:
+		return serveroption.WithInsecure(), nil
+	case option.Config.HubbleTLSCertFile != "" && option.Config.HubbleTLSKeyFile != "":
+		cert, err := tls.LoadX509KeyPair(option.Config.HubbleTLSCertFile, option.Config.HubbleTLSKeyFile)
+		if err != nil {
+			return nil, err
+		}
+		if len(option.Config.HubbleTLSClientCertFiles) == 0 {
+			return serveroption.WithTLSFromCert(cert), nil
+		}
+		clientCAs := x509.NewCertPool()
+		for _, clientCertPath := range option.Config.HubbleTLSClientCertFiles {
+			clientCertPEM, err := ioutil.ReadFile(clientCertPath)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", clientCertPath, err)
+			}
+			if ok := clientCAs.AppendCertsFromPEM(clientCertPEM); !ok {
+				return nil, fmt.Errorf("%s: TLS certificate is not PEM encoded", clientCertPath)
+			}
+		}
+		return serveroption.WithMTLSFromCert(cert, clientCAs), nil
+	default:
+		return nil, fmt.Errorf("path to TLS certficate keypair not provided")
 	}
 }
 
