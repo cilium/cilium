@@ -778,10 +778,10 @@ const (
 	// Hubble server. The file must contain PEM encoded data.
 	HubbleTLSKeyFile = "hubble-tls-key-file"
 
-	// HubbleTLSClientCertFiles specifies the path to one or more client
-	// certificates to use for TLS with mutual authentication (mTLS). Then
-	// files must contain PEM encoded data.
-	HubbleTLSClientCertFiles = "hubble-tls-client-cert-files"
+	// HubbleTLSClientCAFiles specifies the path to one or more client CA
+	// certificates to use for TLS with mutual authentication (mTLS). The files
+	// must contain PEM encoded data.
+	HubbleTLSClientCAFiles = "hubble-tls-client-ca-files"
 
 	// HubbleFlowBufferSize specifies the maximum number of flows in Hubble's buffer.
 	HubbleFlowBufferSize = "hubble-flow-buffer-size"
@@ -1039,7 +1039,7 @@ var HelpFlagSections = []FlagsSection{
 			HubbleTLSDisabled,
 			HubbleTLSCertFile,
 			HubbleTLSKeyFile,
-			HubbleTLSClientCertFiles,
+			HubbleTLSClientCAFiles,
 			HubbleFlowBufferSize,
 			HubbleEventQueueSize,
 			HubbleMetricsServer,
@@ -1895,10 +1895,10 @@ type DaemonConfig struct {
 	// Hubble server. The file must contain PEM encoded data.
 	HubbleTLSKeyFile string
 
-	// HubbleTLSClientCertFiles specifies the path to one or more client
-	// certificates to use for TLS with mutual authentication (mTLS). Then
-	// files must contain PEM encoded data.
-	HubbleTLSClientCertFiles []string
+	// HubbleTLSClientCAFiles specifies the path to one or more client CA
+	// certificates to use for TLS with mutual authentication (mTLS). The files
+	// must contain PEM encoded data.
+	HubbleTLSClientCAFiles []string
 
 	// HubbleFlowBufferSize specifies the maximum number of flows in Hubble's buffer.
 	HubbleFlowBufferSize int
@@ -2657,7 +2657,7 @@ func (c *DaemonConfig) Populate() {
 	c.HubbleTLSDisabled = viper.GetBool(HubbleTLSDisabled)
 	c.HubbleTLSCertFile = viper.GetString(HubbleTLSCertFile)
 	c.HubbleTLSKeyFile = viper.GetString(HubbleTLSKeyFile)
-	c.HubbleTLSClientCertFiles = viper.GetStringSlice(HubbleTLSClientCertFiles)
+	c.HubbleTLSClientCAFiles = viper.GetStringSlice(HubbleTLSClientCAFiles)
 	c.HubbleFlowBufferSize = viper.GetInt(HubbleFlowBufferSize)
 	c.HubbleEventQueueSize = viper.GetInt(HubbleEventQueueSize)
 	if c.HubbleEventQueueSize == 0 {

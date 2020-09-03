@@ -581,7 +581,7 @@ data:
   hubble-disable-tls: "false"
   hubble-tls-cert-file: /var/lib/cilium/tls/hubble/server.crt
   hubble-tls-key-file: /var/lib/cilium/tls/hubble/server.key
-  hubble-tls-client-cert-files: /var/lib/cilium/tls/hubble/client-ca.crt
+  hubble-tls-client-ca-files: /var/lib/cilium/tls/hubble/client-ca.crt
 {{- else }}
   hubble-disable-tls: "true"
 {{- end}}

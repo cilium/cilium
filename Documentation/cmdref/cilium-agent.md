@@ -119,7 +119,7 @@ cilium-agent [flags]
       --hubble-metrics-server string                  Address to serve Hubble metrics on.
       --hubble-socket-path string                     Set hubble's socket path to listen for connections (default "/var/run/cilium/hubble.sock")
       --hubble-tls-cert-file string                   Path to the public key file for the Hubble server. The file must contain PEM encoded data.
-      --hubble-tls-client-cert-files strings          Paths to one or more public key files of client certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data.
+      --hubble-tls-client-ca-files strings            Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
       --hubble-tls-key-file string                    Path to the private key file for the Hubble server. The file must contain PEM encoded data.
       --identity-allocation-mode string               Method to use for identity allocation (default "kvstore")
       --identity-change-grace-period duration         Time to wait before using new identity on endpoint identity change (default 5s)

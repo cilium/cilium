@@ -196,11 +196,11 @@ func buildHubbleTLSOption() (serveroption.Option, error) {
 		if err != nil {
 			return nil, err
 		}
-		if len(option.Config.HubbleTLSClientCertFiles) == 0 {
+		if len(option.Config.HubbleTLSClientCAFiles) == 0 {
 			return serveroption.WithTLSFromCert(cert), nil
 		}
 		clientCAs := x509.NewCertPool()
-		for _, clientCertPath := range option.Config.HubbleTLSClientCertFiles {
+		for _, clientCertPath := range option.Config.HubbleTLSClientCAFiles {
 			clientCertPEM, err := ioutil.ReadFile(clientCertPath)
 			if err != nil {
 				return nil, fmt.Errorf("%s: %w", clientCertPath, err)
