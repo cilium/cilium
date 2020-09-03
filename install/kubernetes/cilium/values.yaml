@@ -499,7 +499,8 @@ global:
     listenAddress: ""
     tls:
       # Enable mutual TLS for listenAddress. Setting this value to false is
-      # highly discouraged.
+      # highly discouraged as the Hubble API provides access to potentially
+      # sensitive network flow metadata and is exposed on the host network.
       enabled: false
       # Configure automatic TLS certificates generation.
       auto:
