@@ -27,10 +27,12 @@ spec:
         - while true; do dig +noall +question +answer +timeout=1 +tries=1 www.google.com
           && sleep 1 ; done
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - "true"
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - "true"

@@ -26,6 +26,7 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -37,6 +38,7 @@ spec:
             - /dev/null
             - localhost:8080
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -81,6 +83,7 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -92,6 +95,7 @@ spec:
             - /dev/null
             - localhost:8080
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -134,6 +138,7 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -145,6 +150,7 @@ spec:
             - /dev/null
             - localhost:41000
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -199,6 +205,7 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -210,6 +217,7 @@ spec:
             - /dev/null
             - localhost:8080
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -252,6 +260,7 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -263,6 +272,7 @@ spec:
             - /dev/null
             - localhost:41001
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -316,6 +326,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -327,6 +338,7 @@ spec:
             - /dev/null
             - echo-a:8080/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -370,6 +382,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -381,6 +394,7 @@ spec:
             - /dev/null
             - 1.1.1.1
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -470,6 +484,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -481,6 +496,7 @@ spec:
             - /dev/null
             - echo-a:8080/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -524,6 +540,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -535,6 +552,7 @@ spec:
             - /dev/null
             - www.google.com
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1052,6 +1070,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1063,6 +1082,7 @@ spec:
             - /dev/null
             - echo-b:8080/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1116,6 +1136,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1127,6 +1148,7 @@ spec:
             - /dev/null
             - echo-b-headless:8080/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1180,6 +1202,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1191,6 +1214,7 @@ spec:
             - /dev/null
             - echo-b:8080/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1245,6 +1269,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1256,6 +1281,7 @@ spec:
             - /dev/null
             - echo-b-headless:8080/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1310,6 +1336,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1321,6 +1348,7 @@ spec:
             - /dev/null
             - echo-b-host-headless:40000/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1374,6 +1402,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1385,6 +1414,7 @@ spec:
             - /dev/null
             - echo-b-host-headless:40000/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1438,6 +1468,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1449,6 +1480,7 @@ spec:
             - /dev/null
             - echo-b-host-headless:31313/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1502,6 +1534,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1513,6 +1546,7 @@ spec:
             - /dev/null
             - echo-b-host-headless:31313/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl

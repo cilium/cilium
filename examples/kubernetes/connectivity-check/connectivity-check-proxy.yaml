@@ -27,6 +27,7 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -38,6 +39,7 @@ spec:
             - /dev/null
             - localhost:8080
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -80,6 +82,7 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -91,6 +94,7 @@ spec:
             - /dev/null
             - localhost:41001
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -878,6 +882,7 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -889,6 +894,7 @@ spec:
             - /dev/null
             - localhost:8080
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -953,6 +959,7 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -964,6 +971,7 @@ spec:
             - /dev/null
             - localhost:8080
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1027,6 +1035,7 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1038,6 +1047,7 @@ spec:
             - /dev/null
             - localhost:41000
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
