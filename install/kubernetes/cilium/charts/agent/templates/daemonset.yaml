@@ -470,7 +470,7 @@ spec:
           - configMap:
               name: hubble-ca-cert
               items:
-                - key: tls.crt
+                - key: ca.crt
                   path: client-ca.crt
 {{- end}}
   updateStrategy:
