@@ -58,8 +58,14 @@ _spec: {
 				}
 			}
 			if !_probeExpectFail {
-				readinessProbe: exec: command: _allowProbe
-				livenessProbe: exec: command:  _allowProbe
+				readinessProbe: {
+					timeoutSeconds: _probeFailureTimeout + 2
+					exec: command: _allowProbe
+				}
+				livenessProbe: {
+					timeoutSeconds: _probeFailureTimeout + 2
+					exec: command: _allowProbe
+				}
 			}
 		}
 		_containers: [_c1]
