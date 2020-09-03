@@ -17,5 +17,6 @@
 #include "errno.h"
 #include "loader.h"
 #include "csum.h"
+#include "access.h"
 
 #endif /* __BPF_API__ */
