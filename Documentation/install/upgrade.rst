@@ -323,6 +323,15 @@ Annotations:
 -----------------
 
 * Cilium has bumped the minimal kubernetes version supported to v1.12.0.
+* Connections between Hubble server and Hubble Relay instances is now secured
+  via mutual TLS (mTLS) by default. Users who have opted to enable Hubble Relay
+  in v1.8 (a beta feature) will experience disruptions of the Hubble Relay
+  service during the upgrade process.
+  Users may opt to disable mTLS by using the following Helm options when
+  upgrading (strongly discouraged):
+
+  - ``global.hubble.tls.enabled=false``
+  - ``global.hubble.tls.auto.enabled=false``
 
 Renamed Metrics
 ~~~~~~~~~~~~~~~
