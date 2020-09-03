@@ -813,8 +813,8 @@ func init() {
 	flags.String(option.HubbleTLSKeyFile, "", "Path to the private key file for the Hubble server. The file must contain PEM encoded data.")
 	option.BindEnv(option.HubbleTLSKeyFile)
 
-	flags.StringSlice(option.HubbleTLSClientCertFiles, []string{}, "Paths to one or more public key files of client certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data.")
-	option.BindEnv(option.HubbleTLSClientCertFiles)
+	flags.StringSlice(option.HubbleTLSClientCAFiles, []string{}, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
+	option.BindEnv(option.HubbleTLSClientCAFiles)
 
 	flags.Int(option.HubbleFlowBufferSize, 4095, "Maximum number of flows in Hubble's buffer. The actual buffer size gets rounded up to the next power of 2, e.g. 4095 => 4096")
 	option.BindEnv(option.HubbleFlowBufferSize)
