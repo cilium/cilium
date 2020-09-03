@@ -625,3 +625,7 @@ data:
 {{- else if ( ne $crdWaitTimeout "5m" ) }}
   crd-wait-timeout: {{ $crdWaitTimeout | quote }}
 {{- end }}
+
+{{- if hasKey .Values "enableK8sEndpointSlice" }}
+  enable-k8s-endpoint-slice: {{ .Values.enableK8sEndpointSlice | quote }}
+{{- end }}
