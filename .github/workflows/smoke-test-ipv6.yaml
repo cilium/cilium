@@ -74,16 +74,15 @@ jobs:
           kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
           kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
 
-      - name: Dump cilium related logs and events
+      - name: Capture cilium-sysdump
         if: ${{ failure() }}
         run: |
-          kubectl -n kube-system describe daemonsets.apps cilium
-          kubectl -n kube-system logs daemonset/cilium --all-containers --since=${{ env.LOG_TIME }}
-          kubectl -n kube-system logs service/kube-dns --all-containers --since=${{ env.LOG_TIME }}
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
 
-      - name: Dump connectivity related logs and events
+      - name: Upload cilium-sysdump
+        uses: actions/upload-artifact@v2
         if: ${{ failure() }}
-        run: |
-          kubectl describe pods
-          kubectl describe deploy
-          for svc in $(make -C examples/kubernetes/connectivity-check/ list | grep Service | awk '{ print $4 }'); do kubectl describe service $svc; kubectl logs service/$svc --all-containers --since=${{ env.LOG_TIME }}; done
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip
