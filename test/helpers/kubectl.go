@@ -661,6 +661,37 @@ func (kub *Kubectl) GetNumCiliumNodes() int {
 	return len(strings.Split(res.SingleOut(), " ")) - sub
 }
 
+// CountMissedTailCalls returns the number of the sum of all drops due to
+// missed tail calls that happened on all Cilium-managed nodes.
+func (kub *Kubectl) CountMissedTailCalls() (int, error) {
+	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	if err != nil {
+		return -1, err
+	}
+
+	totalMissedTailCalls := 0
+	for _, ciliumPod := range ciliumPods {
+		cmd := "cilium metrics list -o json | jq '.[] | select( .name == \"cilium_drop_count_total\" and .labels.reason == \"Missed tail call\" ).value'"
+		res := kub.CiliumExecContext(context.Background(), ciliumPod, cmd)
+		if !res.WasSuccessful() {
+			return -1, fmt.Errorf("Failed to run %s in pod %s: %s", cmd, ciliumPod, res.CombineOutput())
+		}
+		if res.Stdout() == "" {
+			return 0, nil
+		}
+
+		for _, cnt := range res.ByLines() {
+			nbMissedTailCalls, err := strconv.Atoi(cnt)
+			if err != nil {
+				return -1, err
+			}
+			totalMissedTailCalls += nbMissedTailCalls
+		}
+	}
+
+	return totalMissedTailCalls, nil
+}
+
 // CreateSecret is a wrapper around `kubernetes create secret
 // <resourceName>.
 func (kub *Kubectl) CreateSecret(secretType, name, namespace, args string) *CmdRes {
