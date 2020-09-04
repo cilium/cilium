@@ -92,10 +92,13 @@ help:
 list:
 	$(QUIET)$(CUE) cmd ls
 
+fmt:
+	$(QUIET)$(CUE) fmt
+
 $(SERVERS_OUT): $(SRC)
 	@echo > $(SERVERS_OUT)
 	@for name in $(SERVERS_NAME); do \
 		$(CUE) cmd -t component=all -t name=$$name dump >> $@; \
 	done
 
-.PHONY: all clean deploy eval generate_all help inspect list $(ALL_TARGETS)
+.PHONY: all clean deploy eval fmt generate_all help inspect list $(ALL_TARGETS)

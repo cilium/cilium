@@ -61,6 +61,7 @@ jobs:
 
       - name: Precheck generated connectivity manifest files
         run: |
+          make -C examples/kubernetes/connectivity-check fmt
           make -C examples/kubernetes/connectivity-check all
           git diff --exit-code
 
