@@ -1,7 +1,7 @@
 apiVersion: v1
 name: prometheus-crd
-version: 1.8.2
-appVersion: 1.8.2
+version: 1.8.3
+appVersion: 1.8.3
 tillerVersion: ">=2.7.2"
 description: Helm chart to install required Prometheus CRDs
 keywords:

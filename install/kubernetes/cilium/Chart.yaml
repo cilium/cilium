@@ -1,8 +1,8 @@
 apiVersion: v1
 name: cilium
 home: https://cilium.io/
-version: 1.8.2
-appVersion: 1.8.2
+version: 1.8.3
+appVersion: 1.8.3
 tillerVersion: ">=2.7.2-0"
 description: Helm chart for Cilium
 keywords:
