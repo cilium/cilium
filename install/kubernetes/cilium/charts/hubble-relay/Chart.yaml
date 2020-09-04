@@ -1,7 +1,7 @@
 apiVersion: v1
 name: hubble-relay
-version: 1.8.2
-appVersion: 1.8.2
+version: 1.8.3
+appVersion: 1.8.3
 tillerVersion: ">=2.7.2"
 description: Helm chart for running Hubble Relay
 sources:

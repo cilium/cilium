@@ -413,7 +413,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: "docker.io/cilium/cilium:v1.8.2"
+        image: "docker.io/cilium/cilium:v1.8.3"
         imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
@@ -476,7 +476,7 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: "docker.io/cilium/cilium:v1.8.2"
+        image: "docker.io/cilium/cilium:v1.8.3"
         imagePullPolicy: IfNotPresent
         name: clean-cilium-state
         securityContext:
@@ -629,7 +629,7 @@ spec:
               key: AWS_DEFAULT_REGION
               name: cilium-aws
               optional: true
-        image: "docker.io/cilium/operator-generic:v1.8.2"
+        image: "docker.io/cilium/operator-generic:v1.8.3"
         imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:

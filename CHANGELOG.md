@@ -1,5 +1,102 @@
 # Changelog
 
+## v1.8.3
+
+Summary of Changes
+------------------
+
+**Major Changes:**
+* Add a check for loadBalancerSourceRanges to the kube-proxy replacement (Backport PR #12963, Upstream PR #12841, @brb)
+* Cilium operator HA mode (Backport PR #12764, Upstream PR #12409, @fristonio)
+
+**Minor Changes:**
+* Add hidden --k8s-sync-timeout to set the timeout for initial Kubernetes synchronization (Backport PR #12849, Upstream PR #12822, @joestringer)
+* Add Hubble Relay Kubernetes service account (Backport PR #12722, Upstream PR #12650, @m4rx0)
+* Add permissive tolerations to Cilium Operator deployment (Backport PR #12942, Upstream PR #12916, @aanm)
+* connectivity-check: Use unprivileged ports (Backport PR #13004, Upstream PR #12948, @tgraf)
+* Disable BPF-masq in KIND getting started guide (Backport PR #12990, Upstream PR #12973, @brb)
+* hubble/relay: report nodes connectivity status on ServerStatus (Backport PR #12702, Upstream PR #12655, @Rolinh)
+* Improve TCP backend selection for socket LB in case socket cookies are non-global. (Backport PR #12702, Upstream PR #12651, @borkmann)
+* Istio integration has been updated to Istio release 1.5.9. (Backport PR #12889, Upstream PR #12861, @jrajahalme)
+* k8s: update k8s dependencies to 1.18.6 (#12669, @aanm)
+* k8s: update k8s dependencies to 1.18.8 (#12881, @aanm)
+* Make EC2 AWS API endpoint configurable in operator (Backport PR #12912, Upstream PR #12835, @tklauser)
+* Parallelise CRD registration to improve bootstrap time (Backport PR #12745, Upstream PR #12719, @tgraf)
+
+**Bugfixes:**
+* Cilium Operator: bind provider-specific flags for `operator-aws` and `operator-aks` (Backport PR #12889, Upstream PR #12871, @tklauser)
+* Disable BPF masquerade if host reachable services is disabled in tunnel mode (Backport PR #13060, Upstream PR #13006, @brb)
+* endpointsynchronizer: suppress logging context.Canceled errors on CEP creation/update (Backport PR #12761, Upstream PR #12637, @ghouscht)
+* Fix bug in ENI environments where connections to NodePort would fail due to asymmetric routing (Backport PR #13060, Upstream PR #12770, @qmonnet)
+* Fix bug where cilium-health reports connectivity failures to stale IPs (Backport PR #13060, Upstream PR #12989, @kkourt)
+* health: Differentiate between unknown and unreachable state in Cilium status (Backport PR #12702, Upstream PR #12521, @mrostecki)
+* Ignore collisions for named ports that are not actually used in an egress policy (Backport PR #12816, Upstream PR #12567, @jrajahalme)
+* Improve error handling in initialization of etcd connectivity (Backport PR #12803, Upstream PR #12773, @tgraf)
+* Improved reliability of etcd connectivity by adding gRPC keep alives (Backport PR #12963, Upstream PR #12947, @aanm)
+* node-init restartPods should use docker if /etc/crictl.yaml not found (Backport PR #12990, Upstream PR #12894, @UnwashedMeme)
+* nodeinit: Disable default ip-masq-agent jumps (Backport PR #12849, Upstream PR #11782, @dctrwatson)
+* Re-add removed rule 'ciliumidentities/status' for Cilium's and Preflight's Kubernetes ClusterRole (#12721, @aanm)
+* Shuffle etcd endpoints before making initial connectivity to etcd servers (Backport PR #13060, Upstream PR #12943, @aanm)
+* Use the global Azure key in helm (Backport PR #12702, Upstream PR #12683, @gravis)
+
+**CI Changes:**
+* .travis:fix up TestSpanStatRaceCondition failure (Backport PR #12702, Upstream PR #12626, @Jianlin-lv)
+* Host firewall tests (Backport PR #12990, Upstream PR #12621, @pchaigno)
+* Speed up runtime CI cleanup in AfterAll function (Backport PR #12889, Upstream PR #12864, @joestringer)
+* test(conformance): Enable ipv6 smoke test in ipv6 cluster (Backport PR #13004, Upstream PR #12671, @sayboras)
+* test/K8sServices: Fix externalTrafficPolicy=Local with kube-proxy (on GKE) (Backport PR #12745, Upstream PR #12709, @gandro)
+* test: Fix guestbook test (Backport PR #13060, Upstream PR #13003, @pchaigno)
+* test: Replace MetalLB with dummyLB and re-enable LoadBalancer test (Backport PR #12963, Upstream PR #12852, @brb)
+
+**Misc Changes:**
+* Add Kubernetes compatibility documentation (Backport PR #12803, Upstream PR #12783, @aanm)
+* api: add missing audit mode enum values for EndpointPolicyEnabled (Backport PR #12702, Upstream PR #12652, @tklauser)
+* avoid schedule cilium-operator pods in same node for HA mode (Backport PR #12764, Upstream PR #12771, @aanm)
+* backporting: Report progress in set-labels.py (Backport PR #12702, Upstream PR #12640, @pchaigno)
+* bpf,lbmap: Fix affinity v6 map and add runtime check for BPF map representation key/val sizes (Backport PR #12803, Upstream PR #12787, @brb)
+* chore(docker): Bump json-mock version to 1.2 for dual stack (Backport PR #13004, Upstream PR #12580, @sayboras)
+* Cleanup unused methods and fields in pkg/policy (Backport PR #12816, Upstream PR #12688, @aanm)
+* connectivity-check,smoke-test: misc refactoring (Backport PR #13004, Upstream PR #12829, @sayboras)
+* connectivity-check: Add DNS query tool for debugging (Backport PR #13004, Upstream PR #12730, @joestringer)
+* connectivity-check: re-introduce port-to-b NodePort checks (Backport PR #13004, Upstream PR #12788, @qmonnet)
+* contrib: Print PR number in set-labels.py (Backport PR #12722, Upstream PR #12704, @christarazi)
+* contrib: Tighten search for list of PRs (Backport PR #12722, Upstream PR #12703, @christarazi)
+* datapath: Fix ICMP ECHO tuple ports (Backport PR #12761, Upstream PR #12729, @brb)
+* datapath: Misc NAT changes (Backport PR #12803, Upstream PR #12749, @brb)
+* datapath: Pull skb data in to-netdev path (Backport PR #12942, Upstream PR #12917, @brb)
+* doc: cilium namespace fix (Backport PR #13060, Upstream PR #12967, @kAworu)
+* doc: Clarify post-release steps (Backport PR #12702, Upstream PR #12659, @christarazi)
+* doc: update #ebpf Slack channel name (Backport PR #12803, Upstream PR #12766, @qmonnet)
+* docs(identity): Correct discrepancy between label and descriptions (Backport PR #12722, Upstream PR #12639, @sayboras)
+* docs/metrics: Correct label typo family in metrics.rst (Backport PR #12905, Upstream PR #12902, @sayboras)
+* docs/metrics: Correct label typos in metrics.rst (Backport PR #12905, Upstream PR #12901, @sayboras)
+* docs: Add summary of bird integration (Backport PR #12942, Upstream PR #12930, @joestringer)
+* docs: bump kernel and ena driver version, drop custom prebuilt driver in EKS XDP GSG (Backport PR #12990, Upstream PR #12977, @tklauser)
+* docs: fix incomplete statement ipam-crd docs (Backport PR #12889, Upstream PR #12874, @fristonio)
+* docs: limit copybutton to content area only (Backport PR #13060, Upstream PR #12997, @genbit)
+* docs: Mention L7 limitation in Calico chaining GSG (Backport PR #13060, Upstream PR #13005, @pchaigno)
+* docs: update kubeproxy-free gsg to account for #12438 (Backport PR #13060, Upstream PR #12983, @fristonio)
+* Extend connectivity-check for HTTP policy validation via CUE (Backport PR #13004, Upstream PR #12599, @joestringer)
+* Fix docs on ipam-crd (Backport PR #12889, Upstream PR #12860, @mmack)
+* fqdn/dnsproxy: set SO_REUSEPORT on listening socket (Backport PR #12816, Upstream PR #12801, @tklauser)
+* helm,docs: Add section about (LB) source range check (Backport PR #12963, Upstream PR #12940, @brb)
+* helm: run relay in debug mode when debug is globally enabled (Backport PR #12849, Upstream PR #12741, @kAworu)
+* hubble/relay: fix report of unavailable nodes (Backport PR #12702, Upstream PR #12654, @Rolinh)
+* hubble/relay: fix unavailable nodes count on ServerStatus (Backport PR #12702, Upstream PR #12685, @Rolinh)
+* hubble/relay: implement unit tests for Hubble Relay's ObserverServer implementation (Backport PR #12803, Upstream PR #12786, @Rolinh)
+* hubble/relay: split server code into a relay/observer and relay/server (Backport PR #12702, Upstream PR #12632, @Rolinh)
+* nodeinit: only bypass IP-MASQ chain if Cilium manages masquerade (Backport PR #12990, Upstream PR #12952, @dctrwatson)
+* operator: Fix non-leader crashing with kvstore (Backport PR #12846, Upstream PR #12825, @christarazi)
+* README updates (Backport PR #12905, Upstream PR #12885, @tgraf)
+* Relay: handle peer without address (Backport PR #12942, Upstream PR #12907, @kAworu)
+* service, loadbalancer: Misc refactoring (Backport PR #12963, Upstream PR #12809, @brb)
+* Stop waiting for pod when collecting logs (Backport PR #12803, Upstream PR #12547, @Weil0ng)
+* Update kops installation documentation (Backport PR #13060, Upstream PR #12884, @olemarkus)
+* Upgrade Cilium docs theme version (Backport PR #13060, Upstream PR #12996, @Neelajacques)
+* v1.8: Revert "docs: adjust policy verdict log output examples to new format" (#12785, @Rolinh)
+* v1.8: Update Go to 1.14.7 (#12811, @tklauser)
+* vagrant: Don't use the NFS device's IP as node IP (Backport PR #13060, Upstream PR #12215, @pchaigno)
+
 ## v1.8.2
 
 Summary of Changes
