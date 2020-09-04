@@ -495,6 +495,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		validateEndpointsConnection()
 		checkNoInteruptsInSVCFlows()
 
+		nbMissedTailCalls, err := kubectl.CountMissedTailCalls()
+		ExpectWithOffset(1, err).Should(BeNil(), "Failed to retrieve number of missed tail calls")
+		ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0))
+
 		By("Downgrading cilium to %s image", oldHelmChartVersion)
 		// rollback cilium 1 because it's the version that we have started
 		// cilium with in this updates test.
@@ -516,6 +520,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		validateEndpointsConnection()
 		checkNoInteruptsInSVCFlows()
+
+		nbMissedTailCalls, err = kubectl.CountMissedTailCalls()
+		ExpectWithOffset(1, err).Should(BeNil(), "Failed to retrieve number of missed tail calls")
+		ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0))
 	}
 	return testfunc, cleanupCallback
 }
