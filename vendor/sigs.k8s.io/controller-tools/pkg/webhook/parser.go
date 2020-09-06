@@ -19,18 +19,25 @@ limitations under the License.
 //
 // The markers take the form:
 //
-//  +kubebuilder:webhook:failurePolicy=<string>,matchPolicy=<string>,groups=<[]string>,resources=<[]string>,verbs=<[]string>,versions=<[]string>,name=<string>,path=<string>,mutating=<bool>,sideEffects=<string>
+//  +kubebuilder:webhook:webhookVersions=<[]string>,failurePolicy=<string>,matchPolicy=<string>,groups=<[]string>,resources=<[]string>,verbs=<[]string>,versions=<[]string>,name=<string>,path=<string>,mutating=<bool>,sideEffects=<string>,admissionReviewVersions=<[]string>
 package webhook
 
 import (
 	"fmt"
 	"strings"
 
-	admissionreg "k8s.io/api/admissionregistration/v1beta1"
+	admissionregv1 "k8s.io/api/admissionregistration/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	"k8s.io/apimachinery/pkg/runtime/schema"
+	"k8s.io/apimachinery/pkg/util/sets"
 
 	"sigs.k8s.io/controller-tools/pkg/genall"
 	"sigs.k8s.io/controller-tools/pkg/markers"
+)
+
+// The default {Mutating,Validating}WebhookConfiguration version to generate.
+const (
+	defaultWebhookVersion = "v1"
 )
 
 var (
@@ -38,6 +45,11 @@ var (
 	// Call ToWebhook on the value to get a Kubernetes Webhook.
 	ConfigDefinition = markers.Must(markers.MakeDefinition("kubebuilder:webhook", markers.DescribesPackage, Config{}))
 )
+
+// supportedWebhookVersions returns currently supported API version of {Mutating,Validating}WebhookConfiguration.
+func supportedWebhookVersions() []string {
+	return []string{defaultWebhookVersion, "v1beta1"}
+}
 
 // +controllertools:marker:generateHelp:category=Webhook
 
@@ -91,79 +103,91 @@ type Config struct {
 	// batch.tutorial.kubebuilder.io/v1,Kind=CronJob would be
 	// /validate-batch-tutorial-kubebuilder-io-v1-cronjob
 	Path string
+
+	// WebhookVersions specifies the target API versions of the {Mutating,Validating}WebhookConfiguration objects
+	// itself to generate.  Defaults to v1.
+	WebhookVersions []string `marker:"webhookVersions,optional"`
+
+	// AdmissionReviewVersions is an ordered list of preferred `AdmissionReview`
+	// versions the Webhook expects.
+	// For generating v1 {Mutating,Validating}WebhookConfiguration, this is mandatory.
+	// For generating v1beta1 {Mutating,Validating}WebhookConfiguration, this is optional, and default to v1beta1.
+	AdmissionReviewVersions []string `marker:"admissionReviewVersions,optional"`
 }
 
 // verbToAPIVariant converts a marker's verb to the proper value for the API.
 // Unrecognized verbs are passed through.
-func verbToAPIVariant(verbRaw string) admissionreg.OperationType {
+func verbToAPIVariant(verbRaw string) admissionregv1.OperationType {
 	switch strings.ToLower(verbRaw) {
-	case strings.ToLower(string(admissionreg.Create)):
-		return admissionreg.Create
-	case strings.ToLower(string(admissionreg.Update)):
-		return admissionreg.Update
-	case strings.ToLower(string(admissionreg.Delete)):
-		return admissionreg.Delete
-	case strings.ToLower(string(admissionreg.Connect)):
-		return admissionreg.Connect
-	case strings.ToLower(string(admissionreg.OperationAll)):
-		return admissionreg.OperationAll
+	case strings.ToLower(string(admissionregv1.Create)):
+		return admissionregv1.Create
+	case strings.ToLower(string(admissionregv1.Update)):
+		return admissionregv1.Update
+	case strings.ToLower(string(admissionregv1.Delete)):
+		return admissionregv1.Delete
+	case strings.ToLower(string(admissionregv1.Connect)):
+		return admissionregv1.Connect
+	case strings.ToLower(string(admissionregv1.OperationAll)):
+		return admissionregv1.OperationAll
 	default:
-		return admissionreg.OperationType(verbRaw)
+		return admissionregv1.OperationType(verbRaw)
 	}
 }
 
 // ToMutatingWebhook converts this rule to its Kubernetes API form.
-func (c Config) ToMutatingWebhook() (admissionreg.MutatingWebhook, error) {
+func (c Config) ToMutatingWebhook() (admissionregv1.MutatingWebhook, error) {
 	if !c.Mutating {
-		return admissionreg.MutatingWebhook{}, fmt.Errorf("%s is a validating webhook", c.Name)
+		return admissionregv1.MutatingWebhook{}, fmt.Errorf("%s is a validating webhook", c.Name)
 	}
 
 	matchPolicy, err := c.matchPolicy()
 	if err != nil {
-		return admissionreg.MutatingWebhook{}, err
+		return admissionregv1.MutatingWebhook{}, err
 	}
 
-	return admissionreg.MutatingWebhook{
-		Name:          c.Name,
-		Rules:         c.rules(),
-		FailurePolicy: c.failurePolicy(),
-		MatchPolicy:   matchPolicy,
-		ClientConfig:  c.clientConfig(),
-		SideEffects:   c.sideEffects(),
+	return admissionregv1.MutatingWebhook{
+		Name:                    c.Name,
+		Rules:                   c.rules(),
+		FailurePolicy:           c.failurePolicy(),
+		MatchPolicy:             matchPolicy,
+		ClientConfig:            c.clientConfig(),
+		SideEffects:             c.sideEffects(),
+		AdmissionReviewVersions: c.AdmissionReviewVersions,
 	}, nil
 }
 
 // ToValidatingWebhook converts this rule to its Kubernetes API form.
-func (c Config) ToValidatingWebhook() (admissionreg.ValidatingWebhook, error) {
+func (c Config) ToValidatingWebhook() (admissionregv1.ValidatingWebhook, error) {
 	if c.Mutating {
-		return admissionreg.ValidatingWebhook{}, fmt.Errorf("%s is a mutating webhook", c.Name)
+		return admissionregv1.ValidatingWebhook{}, fmt.Errorf("%s is a mutating webhook", c.Name)
 	}
 
 	matchPolicy, err := c.matchPolicy()
 	if err != nil {
-		return admissionreg.ValidatingWebhook{}, err
+		return admissionregv1.ValidatingWebhook{}, err
 	}
 
-	return admissionreg.ValidatingWebhook{
-		Name:          c.Name,
-		Rules:         c.rules(),
-		FailurePolicy: c.failurePolicy(),
-		MatchPolicy:   matchPolicy,
-		ClientConfig:  c.clientConfig(),
-		SideEffects:   c.sideEffects(),
+	return admissionregv1.ValidatingWebhook{
+		Name:                    c.Name,
+		Rules:                   c.rules(),
+		FailurePolicy:           c.failurePolicy(),
+		MatchPolicy:             matchPolicy,
+		ClientConfig:            c.clientConfig(),
+		SideEffects:             c.sideEffects(),
+		AdmissionReviewVersions: c.AdmissionReviewVersions,
 	}, nil
 }
 
 // rules returns the configuration of what operations on what
 // resources/subresources a webhook should care about.
-func (c Config) rules() []admissionreg.RuleWithOperations {
-	whConfig := admissionreg.RuleWithOperations{
-		Rule: admissionreg.Rule{
+func (c Config) rules() []admissionregv1.RuleWithOperations {
+	whConfig := admissionregv1.RuleWithOperations{
+		Rule: admissionregv1.Rule{
 			APIGroups:   c.Groups,
 			APIVersions: c.Versions,
 			Resources:   c.Resources,
 		},
-		Operations: make([]admissionreg.OperationType, len(c.Verbs)),
+		Operations: make([]admissionregv1.OperationType, len(c.Verbs)),
 	}
 
 	for i, verbRaw := range c.Verbs {
@@ -177,32 +201,32 @@ func (c Config) rules() []admissionreg.RuleWithOperations {
 		}
 	}
 
-	return []admissionreg.RuleWithOperations{whConfig}
+	return []admissionregv1.RuleWithOperations{whConfig}
 }
 
 // failurePolicy converts the string value to the proper value for the API.
 // Unrecognized values are passed through.
-func (c Config) failurePolicy() *admissionreg.FailurePolicyType {
-	var failurePolicy admissionreg.FailurePolicyType
+func (c Config) failurePolicy() *admissionregv1.FailurePolicyType {
+	var failurePolicy admissionregv1.FailurePolicyType
 	switch strings.ToLower(c.FailurePolicy) {
-	case strings.ToLower(string(admissionreg.Ignore)):
-		failurePolicy = admissionreg.Ignore
-	case strings.ToLower(string(admissionreg.Fail)):
-		failurePolicy = admissionreg.Fail
+	case strings.ToLower(string(admissionregv1.Ignore)):
+		failurePolicy = admissionregv1.Ignore
+	case strings.ToLower(string(admissionregv1.Fail)):
+		failurePolicy = admissionregv1.Fail
 	default:
-		failurePolicy = admissionreg.FailurePolicyType(c.FailurePolicy)
+		failurePolicy = admissionregv1.FailurePolicyType(c.FailurePolicy)
 	}
 	return &failurePolicy
 }
 
 // matchPolicy converts the string value to the proper value for the API.
-func (c Config) matchPolicy() (*admissionreg.MatchPolicyType, error) {
-	var matchPolicy admissionreg.MatchPolicyType
+func (c Config) matchPolicy() (*admissionregv1.MatchPolicyType, error) {
+	var matchPolicy admissionregv1.MatchPolicyType
 	switch strings.ToLower(c.MatchPolicy) {
-	case strings.ToLower(string(admissionreg.Exact)):
-		matchPolicy = admissionreg.Exact
-	case strings.ToLower(string(admissionreg.Equivalent)):
-		matchPolicy = admissionreg.Equivalent
+	case strings.ToLower(string(admissionregv1.Exact)):
+		matchPolicy = admissionregv1.Exact
+	case strings.ToLower(string(admissionregv1.Equivalent)):
+		matchPolicy = admissionregv1.Equivalent
 	case "":
 		return nil, nil
 	default:
@@ -212,10 +236,10 @@ func (c Config) matchPolicy() (*admissionreg.MatchPolicyType, error) {
 }
 
 // clientConfig returns the client config for a webhook.
-func (c Config) clientConfig() admissionreg.WebhookClientConfig {
+func (c Config) clientConfig() admissionregv1.WebhookClientConfig {
 	path := c.Path
-	return admissionreg.WebhookClientConfig{
-		Service: &admissionreg.ServiceReference{
+	return admissionregv1.WebhookClientConfig{
+		Service: &admissionregv1.ServiceReference{
 			Name:      "webhook-service",
 			Namespace: "system",
 			Path:      &path,
@@ -228,21 +252,36 @@ func (c Config) clientConfig() admissionreg.WebhookClientConfig {
 }
 
 // sideEffects returns the sideEffects config for a webhook.
-func (c Config) sideEffects() *admissionreg.SideEffectClass {
-	var sideEffects admissionreg.SideEffectClass
+func (c Config) sideEffects() *admissionregv1.SideEffectClass {
+	var sideEffects admissionregv1.SideEffectClass
 	switch strings.ToLower(c.SideEffects) {
-	case strings.ToLower(string(admissionreg.SideEffectClassNone)):
-		sideEffects = admissionreg.SideEffectClassNone
-	case strings.ToLower(string(admissionreg.SideEffectClassNoneOnDryRun)):
-		sideEffects = admissionreg.SideEffectClassNoneOnDryRun
-	case strings.ToLower(string(admissionreg.SideEffectClassSome)):
-		sideEffects = admissionreg.SideEffectClassSome
+	case strings.ToLower(string(admissionregv1.SideEffectClassNone)):
+		sideEffects = admissionregv1.SideEffectClassNone
+	case strings.ToLower(string(admissionregv1.SideEffectClassNoneOnDryRun)):
+		sideEffects = admissionregv1.SideEffectClassNoneOnDryRun
+	case strings.ToLower(string(admissionregv1.SideEffectClassSome)):
+		sideEffects = admissionregv1.SideEffectClassSome
 	case "":
 		return nil
 	default:
 		return nil
 	}
 	return &sideEffects
+}
+
+// webhookVersions returns the target API versions of the {Mutating,Validating}WebhookConfiguration objects for a webhook.
+func (c Config) webhookVersions() ([]string, error) {
+	// If WebhookVersions is not specified, we default it to `v1`.
+	if len(c.WebhookVersions) == 0 {
+		return []string{defaultWebhookVersion}, nil
+	}
+	supportedWebhookVersions := sets.NewString(supportedWebhookVersions()...)
+	for _, version := range c.WebhookVersions {
+		if !supportedWebhookVersions.Has(version) {
+			return nil, fmt.Errorf("unsupported webhook version: %s", version)
+		}
+	}
+	return sets.NewString(c.WebhookVersions...).UnsortedList(), nil
 }
 
 // +controllertools:marker:generateHelp
@@ -259,8 +298,9 @@ func (Generator) RegisterMarkers(into *markers.Registry) error {
 }
 
 func (Generator) Generate(ctx *genall.GenerationContext) error {
-	var mutatingCfgs []admissionreg.MutatingWebhook
-	var validatingCfgs []admissionreg.ValidatingWebhook
+	supportedWebhookVersions := supportedWebhookVersions()
+	mutatingCfgs := make(map[string][]admissionregv1.MutatingWebhook, len(supportedWebhookVersions))
+	validatingCfgs := make(map[string][]admissionregv1.ValidatingWebhook, len(supportedWebhookVersions))
 	for _, root := range ctx.Roots {
 		markerSet, err := markers.PackageMarkers(ctx.Collector, root)
 		if err != nil {
@@ -269,47 +309,122 @@ func (Generator) Generate(ctx *genall.GenerationContext) error {
 
 		for _, cfg := range markerSet[ConfigDefinition.Name] {
 			cfg := cfg.(Config)
+			webhookVersions, err := cfg.webhookVersions()
+			if err != nil {
+				return err
+			}
 			if cfg.Mutating {
-				w, _ := cfg.ToMutatingWebhook()
-				mutatingCfgs = append(mutatingCfgs, w)
+				w, err := cfg.ToMutatingWebhook()
+				if err != nil {
+					return err
+				}
+				for _, webhookVersion := range webhookVersions {
+					mutatingCfgs[webhookVersion] = append(mutatingCfgs[webhookVersion], w)
+				}
 			} else {
-				w, _ := cfg.ToValidatingWebhook()
-				validatingCfgs = append(validatingCfgs, w)
+				w, err := cfg.ToValidatingWebhook()
+				if err != nil {
+					return err
+				}
+				for _, webhookVersion := range webhookVersions {
+					validatingCfgs[webhookVersion] = append(validatingCfgs[webhookVersion], w)
+				}
 			}
 		}
 	}
 
-	var objs []interface{}
-	if len(mutatingCfgs) > 0 {
-		objs = append(objs, &admissionreg.MutatingWebhookConfiguration{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "MutatingWebhookConfiguration",
-				APIVersion: admissionreg.SchemeGroupVersion.String(),
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "mutating-webhook-configuration",
-			},
-			Webhooks: mutatingCfgs,
-		})
+	versionedWebhooks := make(map[string][]interface{}, len(supportedWebhookVersions))
+	for _, version := range supportedWebhookVersions {
+		if cfgs, ok := mutatingCfgs[version]; ok {
+			objRaw := &admissionregv1.MutatingWebhookConfiguration{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "MutatingWebhookConfiguration",
+					APIVersion: admissionregv1.SchemeGroupVersion.String(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "mutating-webhook-configuration",
+				},
+				Webhooks: cfgs,
+			}
+			if version == defaultWebhookVersion {
+				for i := range objRaw.Webhooks {
+					// SideEffects is required in admissionregistration/v1, if this is not set or set to `Some` or `Known`,
+					// we return an error
+					if err := checkSideEffectsForV1(objRaw.Webhooks[i].SideEffects); err != nil {
+						return err
+					}
+					// AdmissionReviewVersions is required in admissionregistration/v1, if this is not set,
+					// we return an error
+					if len(objRaw.Webhooks[i].AdmissionReviewVersions) == 0 {
+						return fmt.Errorf("AdmissionReviewVersions is mandatory for v1 {Mutating,Validating}WebhookConfiguration")
+					}
+				}
+				versionedWebhooks[version] = append(versionedWebhooks[version], objRaw)
+			} else {
+				conv, err := MutatingWebhookConfigurationAsVersion(objRaw, schema.GroupVersion{Group: admissionregv1.SchemeGroupVersion.Group, Version: version})
+				if err != nil {
+					return err
+				}
+				versionedWebhooks[version] = append(versionedWebhooks[version], conv)
+			}
+		}
+
+		if cfgs, ok := validatingCfgs[version]; ok {
+			objRaw := &admissionregv1.ValidatingWebhookConfiguration{
+				TypeMeta: metav1.TypeMeta{
+					Kind:       "ValidatingWebhookConfiguration",
+					APIVersion: admissionregv1.SchemeGroupVersion.String(),
+				},
+				ObjectMeta: metav1.ObjectMeta{
+					Name: "validating-webhook-configuration",
+				},
+				Webhooks: cfgs,
+			}
+			if version == defaultWebhookVersion {
+				for i := range objRaw.Webhooks {
+					// SideEffects is required in admissionregistration/v1, if this is not set or set to `Some` or `Known`,
+					// we return an error
+					if err := checkSideEffectsForV1(objRaw.Webhooks[i].SideEffects); err != nil {
+						return err
+					}
+					// AdmissionReviewVersions is required in admissionregistration/v1, if this is not set,
+					// we return an error
+					if len(objRaw.Webhooks[i].AdmissionReviewVersions) == 0 {
+						return fmt.Errorf("AdmissionReviewVersions is mandatory for v1 {Mutating,Validating}WebhookConfiguration")
+					}
+				}
+				versionedWebhooks[version] = append(versionedWebhooks[version], objRaw)
+			} else {
+				conv, err := ValidatingWebhookConfigurationAsVersion(objRaw, schema.GroupVersion{Group: admissionregv1.SchemeGroupVersion.Group, Version: version})
+				if err != nil {
+					return err
+				}
+				versionedWebhooks[version] = append(versionedWebhooks[version], conv)
+			}
+		}
 	}
 
-	if len(validatingCfgs) > 0 {
-		objs = append(objs, &admissionreg.ValidatingWebhookConfiguration{
-			TypeMeta: metav1.TypeMeta{
-				Kind:       "ValidatingWebhookConfiguration",
-				APIVersion: admissionreg.SchemeGroupVersion.String(),
-			},
-			ObjectMeta: metav1.ObjectMeta{
-				Name: "validating-webhook-configuration",
-			},
-			Webhooks: validatingCfgs,
-		})
-
+	for k, v := range versionedWebhooks {
+		var fileName string
+		if k == defaultWebhookVersion {
+			fileName = fmt.Sprintf("manifests.yaml")
+		} else {
+			fileName = fmt.Sprintf("manifests.%s.yaml", k)
+		}
+		if err := ctx.WriteYAML(fileName, v...); err != nil {
+			return err
+		}
 	}
+	return nil
+}
 
-	if len(objs) > 0 {
-		return ctx.WriteYAML("manifests.yaml", objs...)
+func checkSideEffectsForV1(sideEffects *admissionregv1.SideEffectClass) error {
+	if sideEffects == nil {
+		return fmt.Errorf("SideEffects is required for creating v1 {Mutating,Validating}WebhookConfiguration")
 	}
-
+	if *sideEffects == admissionregv1.SideEffectClassUnknown ||
+		*sideEffects == admissionregv1.SideEffectClassSome {
+		return fmt.Errorf("SideEffects should not be set to `Some` or `Unknown` for v1 {Mutating,Validating}WebhookConfiguration")
+	}
 	return nil
 }

@@ -385,6 +385,17 @@ func (UnservedVersion) Help() *markers.DefinitionHelp {
 	}
 }
 
+func (TopLevelDesc) Help() *markers.DefinitionHelp {
+	return &markers.DefinitionHelp{
+		Category: "CRD",
+		DetailedHelp: markers.DetailedHelp{
+			Summary: "specifies that a top-level description field will be added to the validation schema.",
+			Details: "This is useful for CRDs that want a top-level description field to describe the resource.",
+		},
+		FieldHelp: map[string]markers.DetailedHelp{},
+	}
+}
+
 func (XEmbeddedResource) Help() *markers.DefinitionHelp {
 	return &markers.DefinitionHelp{
 		Category: "CRD validation",
