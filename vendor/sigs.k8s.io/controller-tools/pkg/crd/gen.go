@@ -156,6 +156,11 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 		}
 
 		for i, crd := range versionedCRDs {
+			// defaults are not allowed to be specified in v1beta1 CRDs, so strip them
+			// before writing to a file
+			if crdVersions[i] == "v1beta1" {
+				removeDefaultsFromSchemas(crd.(*apiextlegacy.CustomResourceDefinition))
+			}
 			var fileName string
 			if i == 0 {
 				fileName = fmt.Sprintf("%s_%s.yaml", crdRaw.Spec.Group, crdRaw.Spec.Names.Plural)
@@ -169,6 +174,43 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 	}
 
 	return nil
+}
+
+// removeDefaultsFromSchemas will remove all instances of default values being
+// specified across all defined API versions
+func removeDefaultsFromSchemas(crd *apiextlegacy.CustomResourceDefinition) {
+	if crd.Spec.Validation != nil {
+		removeDefaultsFromSchemaProps(crd.Spec.Validation.OpenAPIV3Schema)
+	}
+
+	for _, versionSpec := range crd.Spec.Versions {
+		if versionSpec.Schema != nil {
+			removeDefaultsFromSchemaProps(versionSpec.Schema.OpenAPIV3Schema)
+		}
+	}
+}
+
+// removeDefaultsFromSchemaProps will recurse into JSONSchemaProps to remove
+// all instances of default values being specified
+func removeDefaultsFromSchemaProps(v *apiextlegacy.JSONSchemaProps) {
+	if v == nil {
+		return
+	}
+
+	// nil-out the default field
+	v.Default = nil
+	for name, prop := range v.Properties {
+		removeDefaultsFromSchemaProps(&prop)
+		v.Properties[name] = prop
+	}
+	if v.Items != nil {
+		removeDefaultsFromSchemaProps(v.Items.Schema)
+		for i := range v.Items.JSONSchemas {
+			props := v.Items.JSONSchemas[i]
+			removeDefaultsFromSchemaProps(&props)
+			v.Items.JSONSchemas[i] = props
+		}
+	}
 }
 
 // toTrivialVersions strips out all schemata except for the storage schema,

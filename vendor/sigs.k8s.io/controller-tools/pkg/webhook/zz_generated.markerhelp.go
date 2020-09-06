@@ -72,6 +72,14 @@ func (Config) Help() *markers.DefinitionHelp {
 				Summary: "specifies that path that the API server should connect to this webhook on. Must be prefixed with a '/validate-' or '/mutate-' depending on the type, and followed by $GROUP-$VERSION-$KIND where all values are lower-cased and the periods in the group are substituted for hyphens. For example, a validating webhook path for type batch.tutorial.kubebuilder.io/v1,Kind=CronJob would be /validate-batch-tutorial-kubebuilder-io-v1-cronjob",
 				Details: "",
 			},
+			"WebhookVersions": markers.DetailedHelp{
+				Summary: "specifies the target API versions of the {Mutating,Validating}WebhookConfiguration objects itself to generate.  Defaults to v1.",
+				Details: "",
+			},
+			"AdmissionReviewVersions": markers.DetailedHelp{
+				Summary: "is an ordered list of preferred `AdmissionReview` versions the Webhook expects. For generating v1 {Mutating,Validating}WebhookConfiguration, this is mandatory. For generating v1beta1 {Mutating,Validating}WebhookConfiguration, this is optional, and default to v1beta1.",
+				Details: "",
+			},
 		},
 	}
 }
