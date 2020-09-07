@@ -19,7 +19,7 @@ root_dir="$(git rev-parse --show-toplevel)"
 
 cd "${root_dir}"
 
-go_version=1.15.0
+go_version=1.15.1
 
 image="${1:-docker.io/library/golang:${go_version}}"
 
