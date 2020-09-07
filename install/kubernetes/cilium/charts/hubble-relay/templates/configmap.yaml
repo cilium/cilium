@@ -8,9 +8,6 @@ data:
   config.yaml: |
     peer-service: unix://{{ .Values.global.hubble.socketPath }}
     listen-address: {{ .Values.listenHost }}:{{ .Values.listenPort }}
-{{- if .Values.global.debug.enabled }}
-    debug: true
-{{- end }}
 {{- if .Values.dialTimeout }}
     dial-timeout: {{ .Values.dialTimeout }}
 {{- end }}

@@ -39,6 +39,9 @@ spec:
             - "hubble-relay"
           args:
             - "serve"
+{{- if .Values.global.debug.enabled }}
+            - "--debug"
+{{- end }}
           ports:
             - name: grpc
               containerPort: {{ .Values.listenPort }}
