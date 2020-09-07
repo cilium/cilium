@@ -66,6 +66,11 @@ Users (Alphabetically)
       U: ENI Networking, Service load-balancing, Encryption
       Q: @lbernail, @roboll
 
+    * N: DigitalOcean
+      D: DigitalOcean is using Cilium as the CNI for Digital Ocean's managed Kubernetes Services (DOKS)
+      U: Networking and network policy
+      L: https://github.com/digitalocean/DOKS
+
     * N: finleap connect
       D: finleap connect is using Cilium in their production clusters (self-hosted, bare-metal, private cloud)
       U: CNI, NetworkPolicies
@@ -76,6 +81,11 @@ Users (Alphabetically)
       U: Network policies
       L: https://docs.gitlab.com/ee/user/clusters/applications.html#install-cilium-using-gitlab-ci
       Q: @ap4y @whaber
+
+    * N: Google
+      D: Google is using Cilium in Anthos and Google Kubernetes Engine (GKE) as Dataplane V2
+      U: Networking, network policy, and network visibility
+      L: https://cloud.google.com/blog/products/containers-kubernetes/bringing-ebpf-and-cilium-to-google-kubernetes-engine
      
     * N: Palantir Technologies Inc.
       D: Palantir is using Cilium as their main CNI plugin in AWS (self hosted k8s).
