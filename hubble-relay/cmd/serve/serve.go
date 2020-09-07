@@ -34,7 +34,6 @@ import (
 )
 
 const (
-	keyDebug                  = "debug"
 	keyPprof                  = "pprof"
 	keyGops                   = "gops"
 	keyDialTimeout            = "dial-timeout"
@@ -63,9 +62,6 @@ func New(vp *viper.Viper) *cobra.Command {
 		},
 	}
 	flags := cmd.Flags()
-	flags.BoolP(
-		keyDebug, "D", false, "Run in debug mode",
-	)
 	flags.Bool(
 		keyPprof, false, "Enable serving the pprof debugging API",
 	)
@@ -157,7 +153,7 @@ func runServe(vp *viper.Viper) error {
 	}
 	opts = append(opts, serverTLSOption)
 
-	if vp.GetBool(keyDebug) {
+	if vp.GetBool("debug") {
 		opts = append(opts, server.WithDebug())
 	}
 	if vp.GetBool(keyPprof) {
