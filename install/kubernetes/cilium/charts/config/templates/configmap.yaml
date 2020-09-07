@@ -471,6 +471,9 @@ data:
 {{- if .Values.global.nodePort.mode }}
   node-port-mode: {{ .Values.global.nodePort.mode | quote }}
 {{- end }}
+{{- if .Values.global.nodePort.algorithm }}
+  node-port-algorithm: {{ .Values.global.nodePort.algorithm | quote }}
+{{- end }}
 {{- if .Values.global.nodePort.enableHealthCheck }}
   enable-health-check-nodeport: {{ .Values.global.nodePort.enableHealthCheck | quote}}
 {{- end }}
@@ -479,6 +482,14 @@ data:
 {{- end }}
   node-port-bind-protection: {{ .Values.global.nodePort.bindProtection | quote }}
   enable-auto-protect-node-port-range: {{ .Values.global.nodePort.autoProtectPortRange | quote }}
+{{- end }}
+{{- if .Values.maglev }}
+{{- if .Values.maglev.tableSize }}
+  bpf-lb-maglev-table-size: {{ .Values.maglev.tableSize | quote}}
+{{- end }}
+{{- if .Values.maglev.hashSeed }}
+  bpf-lb-maglev-hash-seed: {{ .Values.maglev.hashSeed | quote}}
+{{- end }}
 {{- end }}
 {{- if hasKey .Values "sessionAffinity" }}
   enable-session-affinity: {{ .Values.sessionAffinity | quote }}

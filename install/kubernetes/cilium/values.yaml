@@ -364,6 +364,10 @@ global:
     # mode is the mode of NodePort feature
     # mode:
 
+    # algorithm is the name of the load-balancing algorithm for backend selection
+    # e.g. random or maglev
+    # algorithm:
+
     # acceleration is the option to accelerate NodePort via XDP
     # acceleration:
 
@@ -387,6 +391,14 @@ global:
   externalIPs:
     # enabled enables ExternalIPs functionality
     enabled: false
+
+  # maglev is the configuration for consistent hashing
+  # maglev:
+    # tableSize is the size (parameter M) for the backend table of one service entry
+    # tableSize:
+
+    # hashSeed is the cluster-wide base64 encoded seed for the hashing
+    # hashSeed:
 
   # flannel is the flannel specific configuration
   flannel:
