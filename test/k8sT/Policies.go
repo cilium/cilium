@@ -804,17 +804,18 @@ var _ = Describe("K8sPolicyTest", func() {
 				switch helpers.GetCurrentK8SEnv() {
 				// In k8s 1.15 no-specs policy is not allowed by kube-apiserver
 				case "1.8", "1.9", "1.10", "1.11", "1.12", "1.13", "1.14":
-					Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
+					Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateNoSpecs)
 					validateL3L4(allowAll)
 				default:
-					Expect(err).Should(Not(BeNil()), "%q Policy cannot be applied", cnpUpdateAllow)
+					Expect(err).Should(Not(BeNil()),
+						"%q Policy applied successfully when it should have failed", cnpUpdateNoSpecs)
 					validateL3L4(denyFromApp3)
 				}
 
 				By("Applying l3-l4 policy with user-specified labels")
 				_, err = kubectl.CiliumPolicyAction(
 					namespaceForTest, cnpUpdateDenyLabelled, helpers.KubectlApply, helpers.HelperTimeout)
-				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDeny)
+				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDenyLabelled)
 
 				validateL3L4(denyFromApp3)
 
