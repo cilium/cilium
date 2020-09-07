@@ -22,6 +22,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	v "github.com/cilium/cilium/pkg/version"
 
+	"github.com/sirupsen/logrus"
 	"github.com/spf13/cobra"
 	"github.com/spf13/viper"
 )
@@ -40,9 +41,17 @@ func New() *cobra.Command {
 	}
 	logger := logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay")
 	vp := newViper()
+	flags := rootCmd.PersistentFlags()
+	flags.BoolP("debug", "D", false, "Enable debug messages")
+	vp.BindPFlags(flags)
+
+	if vp.GetBool("debug") {
+		logging.SetLogLevel(logrus.DebugLevel)
+	}
 	if err := vp.ReadInConfig(); err != nil {
 		logger.WithError(err).Warnf("Failed to read config from file '%s'", configFilePath)
 	}
+
 	rootCmd.AddCommand(
 		completion.New(),
 		serve.New(vp),
