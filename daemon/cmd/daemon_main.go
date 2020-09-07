@@ -1188,6 +1188,11 @@ func initEnv(cmd *cobra.Command) {
 		}
 	}
 
+	if option.Config.EnableBandwidthManager && option.Config.EnableIPSec {
+		log.Warning("The bandwidth manager cannot be used with IPSec. Disabling the bandwidth manager.")
+		option.Config.EnableBandwidthManager = false
+	}
+
 	if len(option.Config.Devices) != 0 && option.Config.EnableIPSec {
 		log.Fatalf("--%s cannot be used with IPSec.", option.Devices)
 	}
