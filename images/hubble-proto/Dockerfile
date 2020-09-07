@@ -1,4 +1,4 @@
-FROM docker.io/library/golang:1.15-alpine3.12 as builder
+FROM docker.io/library/golang:1.15.1-alpine3.12 as builder
 
 RUN apk add --no-cache \
     curl \
