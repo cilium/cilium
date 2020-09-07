@@ -144,8 +144,7 @@ the Cilium agent is running in the desired mode:
     kubectl exec -it -n kube-system cilium-fmh8d -- cilium status | grep KubeProxyReplacement
     KubeProxyReplacement:   Strict	[eth0 (Direct Routing), eth1]
 
-A fully detailed KubeProxyReplacement status dump can be performed by adding ``--verbose``
-to the command:
+Use ``--verbose`` for full details:
 
 .. parsed-literal::
 
@@ -309,6 +308,99 @@ be lost on its path to the service endpoint.
   for external traffic, that is, operating the kube-proxy replacement in :ref:`DSR<DSR Mode>`
   or :ref:`Hybrid<Hybrid Mode>` mode if only TCP-based services are exposed to the outside
   world for the latter.
+
+Maglev Consistent Hashing (Beta)
+********************************
+
+Cilium's eBPF kube-proxy replacement supports consistent hashing by implementing a variant
+of `The Maglev paper <https://storage.googleapis.com/pub-tools-public-publication-data/pdf/44824.pdf>`_
+hashing in its load balancer for backend selection. This improves resiliency in case of
+failures as well as better load balancing properties since nodes added to the cluster will
+make the same, consistent backend selection throughout the cluster for a given 5-tuple without
+having to synchronize state with the other nodes. Similarly, upon backend removal the backend
+lookup tables are reprogrammed with minimal disruption for unrelated backends (at most 1%
+difference in the reassignments) for the given service.
+
+Maglev hashing for services load balancing can be enabled by setting ``global.nodePort.algorithm=maglev``:
+
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set global.kubeProxyReplacement=strict \\
+        --set global.nodePort.algorithm=maglev \\
+        --set global.k8sServiceHost=API_SERVER_IP \\
+        --set global.k8sServicePort=API_SERVER_PORT
+
+Note that Maglev hashing is applied only to external (N-S) traffic. For
+in-cluster service connections (E-W), sockets are assigned to service backends
+directly, e.g. at TCP connect time, without any intermediate hop and thus are
+not subject to Maglev. Maglev hashing is also supported for Cilium's
+:ref:`XDP<XDP Acceleration>` acceleration.
+
+There are two more Maglev-specific configuration settings: ``maglev.tableSize``
+and ``maglev.hashSeed``.
+
+``maglev.tableSize`` specifies the size of the Maglev lookup table for each single service.
+`Maglev <https://storage.googleapis.com/pub-tools-public-publication-data/pdf/44824.pdf>`_
+recommends the table size (``M``) to be significantly larger than the number of maximum expected
+backends (``N``). In practice that means that ``M`` should be larger than ``100 * N`` in
+order to guarantee the property of at most 1% difference in the reassignments on backend
+changes. ``M`` must be a prime number. Cilium uses a default size of ``16381`` for ``M``.
+The following sizes for ``M`` are supported as ``maglev.tableSize`` Helm option:
+
++----------------------------+
+| ``maglev.tableSize`` value |
++============================+
+| 251                        |
++----------------------------+
+| 509                        |
++----------------------------+
+| 1021                       |
++----------------------------+
+| 2039                       |
++----------------------------+
+| 4093                       |
++----------------------------+
+| 8191                       |
++----------------------------+
+| 16381                      |
++----------------------------+
+| 32749                      |
++----------------------------+
+| 65521                      |
++----------------------------+
+| 131071                     |
++----------------------------+
+
+For example, a ``maglev.tableSize`` of ``16381`` is suitable for a maximum of ``~160`` backends
+per service. If a higher number of backends are provisioned under this setting, then the
+difference in reassignments on backend changes will increase.
+
+The ``maglev.hashSeed`` option is recommended to be set in order for Cilium to not rely on the
+fixed built-in seed. The seed is a base64-encoded 16 byte-random number, and can be
+generated once through ``head -c16 /dev/urandom | base64 -w0``, for example. Every Cilium agent
+in the cluster must use the same hash seed in order for Maglev to work.
+
+The below deployment example is generating and passing such seed to Helm as well as setting the
+Maglev table size to ``65521`` in order to allow for ``~650`` maximum number of backends for a
+given service (with the property of at most 1% difference on backend reassignments):
+
+.. parsed-literal::
+
+    SEED=$(head -c16 /dev/urandom | base64 -w0)
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set global.kubeProxyReplacement=strict \\
+        --set global.nodePort.algorithm=maglev \\
+        --set maglev.tableSize=65521 \\
+        --set maglev.hashSeed=$SEED \\
+        --set global.k8sServiceHost=API_SERVER_IP \\
+        --set global.k8sServicePort=API_SERVER_PORT
+
+Note that enabling Maglev will have a higher memory consumption on each Cilium-managed node compared
+to the default of ``global.nodePort.algorithm=random`` given ``random`` does not need the extra lookup
+tables. However, ``random`` won't have consistent backend selection.
 
 .. _DSR mode:
 
