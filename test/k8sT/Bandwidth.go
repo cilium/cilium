@@ -31,7 +31,7 @@ var _ = Describe("K8sBandwidthTest", func() {
 		testClientPod  = "run=netperf-client-pod"
 		testClientHost = "run=netperf-client-host"
 
-		maxRateDeviation = 5
+		maxRateDeviation = 7
 	)
 
 	var (
