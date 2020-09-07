@@ -181,9 +181,7 @@ var _ = skipSuite("K8sKubeProxyFreeMatrix tests", func() {
 		if !helpers.RunsOnNetNextOr419Kernel() {
 			return
 		}
-		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium service list",
-			"cilium endpoint list")
+		kubectl.CiliumReport("cilium service list", "cilium endpoint list")
 	})
 
 	AfterAll(func() {

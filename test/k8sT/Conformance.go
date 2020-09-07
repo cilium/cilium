@@ -61,8 +61,7 @@ var _ = Describe("K8sConformance", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium endpoint list")
+		kubectl.CiliumReport("cilium endpoint list")
 	})
 
 	AfterAll(func() {

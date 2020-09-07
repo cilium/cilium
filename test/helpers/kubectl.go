@@ -1078,8 +1078,8 @@ func (kub *Kubectl) Logs(namespace string, pod string) *CmdRes {
 // MonitorStart runs cilium monitor in the background and returns the command
 // result, CmdRes, along with a cancel function. The cancel function is used to
 // stop the monitor.
-func (kub *Kubectl) MonitorStart(namespace, pod string) (res *CmdRes, cancel func()) {
-	cmd := fmt.Sprintf("%s exec -n %s %s -- cilium monitor -vv", KubectlCmd, namespace, pod)
+func (kub *Kubectl) MonitorStart(pod string) (res *CmdRes, cancel func()) {
+	cmd := fmt.Sprintf("%s exec -n %s %s -- cilium monitor -vv", KubectlCmd, CiliumNamespace, pod)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true}), cancel
@@ -1087,9 +1087,9 @@ func (kub *Kubectl) MonitorStart(namespace, pod string) (res *CmdRes, cancel fun
 
 // MonitorEndpointStart runs cilium monitor only on a specified endpoint. This
 // function is the same as MonitorStart.
-func (kub *Kubectl) MonitorEndpointStart(namespace, pod string, epID int64) (res *CmdRes, cancel func()) {
+func (kub *Kubectl) MonitorEndpointStart(pod string, epID int64) (res *CmdRes, cancel func()) {
 	cmd := fmt.Sprintf("%s exec -n %s %s -- cilium monitor -vv --related-to %d",
-		KubectlCmd, namespace, pod, epID)
+		KubectlCmd, CiliumNamespace, pod, epID)
 	ctx, cancel := context.WithCancel(context.Background())
 
 	return kub.ExecInBackground(ctx, cmd, ExecOptions{SkipLog: true}), cancel
@@ -1099,7 +1099,7 @@ func (kub *Kubectl) MonitorEndpointStart(namespace, pod string, epID int64) (res
 // five seconds.
 func (kub *Kubectl) BackgroundReport(commands ...string) (context.CancelFunc, error) {
 	backgroundCtx, cancel := context.WithCancel(context.Background())
-	pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	pods, err := kub.GetCiliumPods()
 	if err != nil {
 		return cancel, fmt.Errorf("Cannot retrieve cilium pods: %s", err)
 	}
@@ -1166,7 +1166,7 @@ func (kub *Kubectl) PprofReport() {
 				return
 			}
 
-			pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+			pods, err := kub.GetCiliumPods()
 			if err != nil {
 				log.Errorf("cannot get cilium pods")
 			}
@@ -1771,7 +1771,7 @@ func (kub *Kubectl) ValidateServicePlumbing(namespace, service string) error {
 		return fmt.Errorf("unable to unmarshal endpoints %s: %s", fullName, err)
 	}
 
-	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
 		return err
 	}
@@ -2373,8 +2373,8 @@ func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, o
 
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,
 // and an error if the Cilium pods were not able to be retrieved.
-func (kub *Kubectl) GetCiliumPods(namespace string) ([]string, error) {
-	return kub.GetPodNames(namespace, "k8s-app=cilium")
+func (kub *Kubectl) GetCiliumPods() ([]string, error) {
+	return kub.GetPodNames(GetCiliumNamespace(GetCurrentIntegration()), "k8s-app=cilium")
 }
 
 // GetCiliumPodsContext returns a list of all Cilium pods in the specified
@@ -2413,7 +2413,7 @@ func (kub *Kubectl) CiliumEndpointIPv6(pod string, endpoint string) map[string]s
 // are ready. Returns an error if the Cilium pods cannot be retrieved via
 // Kubernetes, or endpoints are not ready after a specified timeout
 func (kub *Kubectl) CiliumEndpointWaitReady() error {
-	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
 		kub.Logger().WithError(err).Error("cannot get Cilium pods")
 		return err
@@ -2660,7 +2660,7 @@ func (kub *Kubectl) CiliumNodesWait() (bool, error) {
 // LoadedPolicyInFirstAgent returns the policy as loaded in the first cilium
 // agent that is found in the cluster
 func (kub *Kubectl) LoadedPolicyInFirstAgent() (string, error) {
-	pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	pods, err := kub.GetCiliumPods()
 	if err != nil {
 		return "", fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
@@ -2731,7 +2731,7 @@ func (kub *Kubectl) CiliumPolicyRevision(pod string) (int, error) {
 type ResourceLifeCycleAction string
 
 func (kub *Kubectl) getPodRevisions() (map[string]int, error) {
-	pods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	pods, err := kub.GetCiliumPods()
 	if err != nil {
 		kub.Logger().WithError(err).Error("cannot retrieve cilium pods")
 		return nil, fmt.Errorf("Cannot get cilium pods: %s", err)
@@ -2917,7 +2917,7 @@ func (kub *Kubectl) CiliumClusterwidePolicyAction(filepath string, action Resour
 
 // CiliumReport report the cilium pod to the log and appends the logs for the
 // given commands.
-func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
+func (kub *Kubectl) CiliumReport(commands ...string) {
 	if config.CiliumTestConfig.SkipLogGathering {
 		ginkgoext.GinkgoPrint("Skipped gathering logs (-cilium.skipLogs=true)\n")
 		return
@@ -2939,12 +2939,12 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 
 	go func() {
 		defer wg.Done()
-		kub.DumpCiliumCommandOutput(ctx, namespace)
+		kub.DumpCiliumCommandOutput(ctx, CiliumNamespace)
 	}()
 
 	kub.CiliumCheckReport(ctx)
 
-	pods, err := kub.GetCiliumPodsContext(ctx, namespace)
+	pods, err := kub.GetCiliumPodsContext(ctx, CiliumNamespace)
 	if err != nil {
 		kub.Logger().WithError(err).Error("cannot retrieve cilium pods on ReportDump")
 	}
@@ -2955,7 +2955,7 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 	ginkgoext.GinkgoPrint("Fetching command output from pods %s", pods)
 	for _, pod := range pods {
 		for _, cmd := range commands {
-			res = kub.ExecPodCmdBackground(ctx, namespace, pod, cmd, ExecOptions{SkipLog: true})
+			res = kub.ExecPodCmdBackground(ctx, CiliumNamespace, pod, cmd, ExecOptions{SkipLog: true})
 			results = append(results, res)
 		}
 	}
@@ -2974,7 +2974,7 @@ func (kub *Kubectl) CiliumReport(namespace string, commands ...string) {
 // - Policy enforcement status by endpoint.
 // - Controller, health, kvstore status.
 func (kub *Kubectl) CiliumCheckReport(ctx context.Context) {
-	pods, _ := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	pods, _ := kub.GetCiliumPods()
 	fmt.Fprintf(CheckLogs, "Cilium pods: %v\n", pods)
 
 	var policiesFilter = `{range .items[*]}{.metadata.namespace}{"::"}{.metadata.name}{" "}{end}`
@@ -3355,12 +3355,12 @@ func (kub *Kubectl) GeneratePodLogGatheringCommands(ctx context.Context, reportC
 
 // GetCiliumPodOnNode returns the name of the Cilium pod that is running on / in
 //the specified node / namespace.
-func (kub *Kubectl) GetCiliumPodOnNode(namespace string, node string) (string, error) {
+func (kub *Kubectl) GetCiliumPodOnNode(node string) (string, error) {
 	filter := fmt.Sprintf(
 		"-o jsonpath='{.items[?(@.spec.nodeName == \"%s\")].metadata.name}'", node)
 
 	res := kub.ExecShort(fmt.Sprintf(
-		"%s -n %s get pods -l k8s-app=cilium %s", KubectlCmd, namespace, filter))
+		"%s -n %s get pods -l k8s-app=cilium %s", KubectlCmd, CiliumNamespace, filter))
 	if !res.WasSuccessful() {
 		return "", fmt.Errorf("Cilium pod not found on node '%s'", node)
 	}
@@ -3379,13 +3379,13 @@ func (kub *Kubectl) GetNodeInfo(label string) (nodeName, nodeIP string) {
 }
 
 // GetCiliumPodOnNodeWithLabel returns the name of the Cilium pod that is running on node with cilium.io/ci-node label
-func (kub *Kubectl) GetCiliumPodOnNodeWithLabel(namespace string, label string) (string, error) {
+func (kub *Kubectl) GetCiliumPodOnNodeWithLabel(label string) (string, error) {
 	node, err := kub.GetNodeNameByLabel(label)
 	if err != nil {
 		return "", fmt.Errorf("Unable to get nodes with label '%s': %s", label, err)
 	}
 
-	return kub.GetCiliumPodOnNode(namespace, node)
+	return kub.GetCiliumPodOnNode(node)
 }
 
 func (kub *Kubectl) validateCilium() error {
@@ -3467,7 +3467,7 @@ func (kub *Kubectl) CiliumPreFlightCheck() error {
 
 func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
 	ginkgoext.By("Performing Cilium status preflight check")
-	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
@@ -3488,7 +3488,7 @@ func (kub *Kubectl) ciliumStatusPreFlightCheck() error {
 func (kub *Kubectl) ciliumControllersPreFlightCheck() error {
 	ginkgoext.By("Performing Cilium controllers preflight check")
 	var controllersFilter = `{range .controllers[*]}{.name}{"="}{.status.consecutive-failure-count}{"\n"}{end}`
-	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
@@ -3521,7 +3521,7 @@ func (kub *Kubectl) ciliumHealthPreFlightCheck() error {
 	var nodesFilter = `{.nodes[*].name}`
 	var statusFilter = `{range .nodes[*]}{.name}{"="}{.host.primary-address.http.status}{"\n"}{end}`
 
-	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
@@ -3605,7 +3605,7 @@ func (kub *Kubectl) fillServiceCache() error {
 		return fmt.Errorf("Unable to unmarshal K8s endpoints: %s", err.Error())
 	}
 
-	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
 		return fmt.Errorf("cannot retrieve cilium pods: %s", err)
 	}
@@ -3875,22 +3875,22 @@ func (kub *Kubectl) HelmTemplate(chartDir, namespace, filename string, options m
 
 // HubbleObserve runs `hubble observe --output=json <args>` on 'ns/pod' and
 // waits for its completion.
-func (kub *Kubectl) HubbleObserve(ns, pod string, args string) *CmdRes {
+func (kub *Kubectl) HubbleObserve(pod string, args string) *CmdRes {
 	ctx, cancel := context.WithTimeout(context.Background(), ShortCommandTimeout)
 	defer cancel()
-	return kub.ExecPodCmdContext(ctx, ns, pod, fmt.Sprintf("hubble observe --output=json %s", args))
+	return kub.ExecPodCmdContext(ctx, CiliumNamespace, pod, fmt.Sprintf("hubble observe --output=json %s", args))
 }
 
 // HubbleObserveFollow runs `hubble observe --follow --output=json <args>` on
 // 'ns/pod' in the background. The process is stopped when ctx is cancelled.
-func (kub *Kubectl) HubbleObserveFollow(ctx context.Context, ns, pod string, args string) *CmdRes {
-	return kub.ExecPodCmdBackground(ctx, ns, pod, fmt.Sprintf("hubble observe --follow --output=json %s", args))
+func (kub *Kubectl) HubbleObserveFollow(ctx context.Context, pod string, args string) *CmdRes {
+	return kub.ExecPodCmdBackground(ctx, CiliumNamespace, pod, fmt.Sprintf("hubble observe --follow --output=json %s", args))
 }
 
 // WaitForIPCacheEntry waits until the given ipAddr appears in "cilium bpf ipcache list"
 // on the given node.
 func (kub *Kubectl) WaitForIPCacheEntry(node, ipAddr string) error {
-	ciliumPod, err := kub.GetCiliumPodOnNode(GetCiliumNamespace(GetCurrentIntegration()), node)
+	ciliumPod, err := kub.GetCiliumPodOnNode(node)
 	if err != nil {
 		return err
 	}

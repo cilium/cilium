@@ -49,9 +49,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium status",
-			"cilium endpoint list")
+		kubectl.CiliumReport("cilium status", "cilium endpoint list")
 	})
 
 	AfterAll(func() {
@@ -191,7 +189,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		validateBPFTunnelMap := func() {
 			By("Checking that BPF tunnels are in place")
-			ciliumPod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
+			ciliumPod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
 			ExpectWithOffset(1, err).Should(BeNil(), "Unable to determine cilium pod on node %s", helpers.K8s1)
 			status := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, "cilium bpf tunnel list | wc -l")
 
@@ -813,11 +811,11 @@ func monitorConnectivityAcrossNodes(kubectl *helpers.Kubectl) (monitorRes *helpe
 		By("Performing multinode connectivity check within a single node")
 	}
 
-	ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
+	ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 
 	By(fmt.Sprintf("Launching cilium monitor on %q", ciliumPodK8s1))
-	monitorRes, monitorCancel = kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1)
+	monitorRes, monitorCancel = kubectl.MonitorStart(ciliumPodK8s1)
 	result, targetIP := testPodConnectivityAndReturnIP(kubectl, requireMultinode, 2)
 	ExpectWithOffset(1, result).Should(BeTrue(), "Connectivity test between nodes failed")
 

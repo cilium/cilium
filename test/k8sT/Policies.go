@@ -113,9 +113,7 @@ var _ = Describe("K8sPolicyTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium service list",
-			"cilium endpoint list")
+		kubectl.CiliumReport("cilium service list", "cilium endpoint list")
 	})
 
 	AfterAll(func() {
@@ -197,7 +195,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			err := kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
 
-			ciliumPod, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
+			ciliumPod, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
 			Expect(err).Should(BeNil(), "cannot get CiliumPod")
 
 			clusterIP, _, err = kubectl.GetServiceHostPort(namespaceForTest, app1Service)
@@ -975,7 +973,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				By("Starting hubble observe and generating traffic which should%s redirect to proxy", not)
 				ctx, cancel := context.WithCancel(context.Background())
 				hubbleRes := kubectl.HubbleObserveFollow(
-					ctx, helpers.CiliumNamespace, ciliumPod,
+					ctx, ciliumPod,
 					// since 0s is important here so no historic events from the
 					// buffer are shown, only follow from the current time
 					"--type l7 --since 0s",
@@ -1007,7 +1005,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				if parser == policy.ParserTypeDNS && redirected {
 					By("Checking that Hubble is correctly annotating the DNS names")
-					res := kubectl.HubbleObserve(helpers.CiliumNamespace, ciliumPod,
+					res := kubectl.HubbleObserve(ciliumPod,
 						fmt.Sprintf("--last 1 --from-pod %s/%s --to-fqdn %q",
 							namespaceForTest, appPods[helpers.App2], "*.cilium.io"))
 					res.ExpectContainsFilterLine("{.destination_names[0]}", "vagrant-cache.ci.cilium.io")
@@ -1132,13 +1130,9 @@ var _ = Describe("K8sPolicyTest", func() {
 				hostIPOfBackendPod string
 
 				policyVerdictAllowRegex, policyVerdictDenyRegex *regexp.Regexp
-
-				ciliumNamespace string
 			)
 
 			BeforeAll(func() {
-				ciliumNamespace = helpers.GetCiliumNamespace(helpers.GetCurrentIntegration())
-
 				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 					map[string]string{
 						"global.tunnel":               "disabled",
@@ -1226,7 +1220,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			It("connectivity is blocked after denying ingress", func() {
 				By("Running cilium monitor in the background")
-				ciliumPod, err := kubectl.GetCiliumPodOnNode(ciliumNamespace, hostNodeName)
+				ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
 				Expect(ciliumPod).ToNot(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1234,7 +1228,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				Expect(ep).ToNot(BeNil())
 				Expect(err).ToNot(HaveOccurred())
 
-				monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumNamespace, ciliumPod, ep.ID)
+				monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumPod, ep.ID)
 
 				By("Importing a default deny policy on ingress")
 				cnpDenyIngress := helpers.ManifestGet(kubectl.BasePath(),
@@ -1258,7 +1252,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
 
 				By("Running cilium monitor in the background")
-				ciliumPod, err := kubectl.GetCiliumPodOnNode(ciliumNamespace, hostNodeName)
+				ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
 				Expect(ciliumPod).ToNot(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1266,7 +1260,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				Expect(ep).ToNot(BeNil())
 				Expect(err).ToNot(HaveOccurred())
 
-				monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumNamespace, ciliumPod, ep.ID)
+				monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumPod, ep.ID)
 
 				By("Importing fromCIDR+toPorts policy on ingress")
 				cnpAllowIngress := helpers.ManifestGet(kubectl.BasePath(),
@@ -1306,14 +1300,14 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				It("Connectivity to hostns is blocked after denying ingress", func() {
 					By("Running cilium monitor in the background")
-					ciliumPod, err := kubectl.GetCiliumPodOnNode(ciliumNamespace, hostNodeName)
+					ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
 					Expect(ciliumPod).ToNot(BeEmpty())
 					Expect(err).ToNot(HaveOccurred())
 
 					hostEpID, err := kubectl.GetCiliumHostEndpointID(ciliumPod)
 					Expect(err).ToNot(HaveOccurred())
 
-					monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumNamespace, ciliumPod, hostEpID)
+					monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumPod, hostEpID)
 
 					By("Importing a default-deny host policy on ingress")
 					ccnpDenyHostIngress := helpers.ManifestGet(kubectl.BasePath(), "ccnp-default-deny-host-ingress.yaml")
@@ -1336,14 +1330,14 @@ var _ = Describe("K8sPolicyTest", func() {
 					importPolicy(kubectl, testNamespace, ccnpDenyHostIngress, "default-deny-host-ingress")
 
 					By("Running cilium monitor in the background")
-					ciliumPod, err := kubectl.GetCiliumPodOnNode(ciliumNamespace, hostNodeName)
+					ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
 					Expect(ciliumPod).ToNot(BeEmpty())
 					Expect(err).ToNot(HaveOccurred())
 
 					hostEpID, err := kubectl.GetCiliumHostEndpointID(ciliumPod)
 					Expect(err).ToNot(HaveOccurred())
 
-					monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumNamespace, ciliumPod, hostEpID)
+					monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumPod, hostEpID)
 
 					By("Importing fromCIDR+toPorts host policy on ingress")
 					ccnpAllowHostIngress := helpers.ManifestGet(kubectl.BasePath(),
@@ -1516,7 +1510,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		BeforeEach(func() {
 			kubectl.ApplyDefault(helpers.ManifestGet(kubectl.BasePath(), deployment))
-			ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
+			ciliumPods, err := kubectl.GetCiliumPods()
 			Expect(err).To(BeNil(), "cannot retrieve Cilium Pods")
 			Expect(ciliumPods).ShouldNot(BeEmpty(), "cannot retrieve Cilium pods")
 		})
