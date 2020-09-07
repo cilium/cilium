@@ -551,7 +551,7 @@ func (kub *Kubectl) PrepareCluster() {
 	ginkgoext.By("Preparing cluster")
 	err := kub.DeleteAllNamespacesExcept([]string{
 		KubeSystemNamespace,
-		GetCiliumNamespace(GetCurrentIntegration()),
+		CiliumNamespace,
 		"default",
 		"kube-node-lease",
 		"kube-public",
@@ -1133,12 +1133,12 @@ func (kub *Kubectl) PprofReport() {
 	log := kub.Logger().WithField("subsys", "pprofReport")
 
 	retrievePProf := func(pod, testPath string) {
-		res := kub.ExecPodCmd(GetCiliumNamespace(GetCurrentIntegration()), pod, "gops pprof-cpu 1")
+		res := kub.ExecPodCmd(CiliumNamespace, pod, "gops pprof-cpu 1")
 		if !res.WasSuccessful() {
 			log.Errorf("cannot execute pprof: %s", res.OutputPrettyPrint())
 			return
 		}
-		files := kub.ExecPodCmd(GetCiliumNamespace(GetCurrentIntegration()), pod, `ls -1 /tmp/`)
+		files := kub.ExecPodCmd(CiliumNamespace, pod, `ls -1 /tmp/`)
 		for _, file := range files.ByLines() {
 			if !strings.Contains(file, "profile") {
 				continue
@@ -1148,10 +1148,10 @@ func (kub *Kubectl) PprofReport() {
 				kub.BasePath(), testPath,
 				fmt.Sprintf("%s-profile-%s.pprof", pod, file))
 			_ = kub.Exec(fmt.Sprintf("%[1]s cp %[2]s/%[3]s:/tmp/%[4]s %[5]s",
-				KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()), pod, file, dest),
+				KubectlCmd, CiliumNamespace, pod, file, dest),
 				ExecOptions{SkipLog: true})
 
-			_ = kub.ExecPodCmd(GetCiliumNamespace(GetCurrentIntegration()), pod, fmt.Sprintf(
+			_ = kub.ExecPodCmd(CiliumNamespace, pod, fmt.Sprintf(
 				"rm %s", filepath.Join("/tmp/", file)))
 		}
 	}
@@ -2230,7 +2230,7 @@ func (kub *Kubectl) generateCiliumYaml(options map[string]string, filename strin
 	// TODO GH-8753: Use helm rendering library instead of shelling out to
 	// helm template
 	helmTemplate := kub.GetFilePath(HelmTemplate)
-	res := kub.HelmTemplate(helmTemplate, GetCiliumNamespace(GetCurrentIntegration()), filename, options)
+	res := kub.HelmTemplate(helmTemplate, CiliumNamespace, filename, options)
 	if !res.WasSuccessful() {
 		// If the helm template generation is not successful remove the empty
 		// manifest file.
@@ -2287,7 +2287,7 @@ func (kub *Kubectl) waitToDelete(name, label string) error {
 		default:
 		}
 
-		pods, err = kub.GetPodNamesContext(ctx, GetCiliumNamespace(GetCurrentIntegration()), label)
+		pods, err = kub.GetPodNamesContext(ctx, CiliumNamespace, label)
 		if err != nil {
 			return err
 		}
@@ -2374,7 +2374,7 @@ func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, o
 // GetCiliumPods returns a list of all Cilium pods in the specified namespace,
 // and an error if the Cilium pods were not able to be retrieved.
 func (kub *Kubectl) GetCiliumPods() ([]string, error) {
-	return kub.GetPodNames(GetCiliumNamespace(GetCurrentIntegration()), "k8s-app=cilium")
+	return kub.GetPodNames(CiliumNamespace, "k8s-app=cilium")
 }
 
 // GetCiliumPodsContext returns a list of all Cilium pods in the specified
@@ -2544,7 +2544,7 @@ func (kub *Kubectl) WaitForCEPIdentity(ns, podName string) error {
 func (kub *Kubectl) CiliumExecContext(ctx context.Context, pod string, cmd string) *CmdRes {
 	limitTimes := 5
 	execute := func() *CmdRes {
-		command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()), pod, cmd)
+		command := fmt.Sprintf("%s exec -n %s %s -- %s", KubectlCmd, CiliumNamespace, pod, cmd)
 		return kub.ExecContext(ctx, command)
 	}
 	var res *CmdRes
@@ -3063,7 +3063,7 @@ func (kub *Kubectl) ValidateListOfErrorsInLogs(duration time.Duration, blacklist
 
 	var logs string
 	cmd := fmt.Sprintf("%s -n %s logs --tail=-1 --timestamps=true -l k8s-app=cilium --since=%vs",
-		KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()), duration.Seconds())
+		KubectlCmd, CiliumNamespace, duration.Seconds())
 	res := kub.ExecContext(ctx, fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
 	if res.WasSuccessful() {
 		logs += res.Stdout()
@@ -3115,7 +3115,7 @@ func (kub *Kubectl) GatherCiliumCoreDumps(ctx context.Context, ciliumPod string)
 		dst := filepath.Join(resultPath, core)
 		src := filepath.Join("/tmp/", core)
 		cmd := fmt.Sprintf("%s -n %s cp %s:%s %s",
-			KubectlCmd, GetCiliumNamespace(GetCurrentIntegration()),
+			KubectlCmd, CiliumNamespace,
 			ciliumPod, src, dst)
 		res := kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
 		if !res.WasSuccessful() {
@@ -3290,11 +3290,11 @@ func (kub *Kubectl) GatherLogs(ctx context.Context) {
 		"kubectl get clusterrole -o json":                                    "clusterroles.txt",
 		"kubectl get clusterrolebinding -o json":                             "clusterrolebindings.txt",
 
-		fmt.Sprintf("kubectl get cm cilium-config -n %s -o json", GetCiliumNamespace(GetCurrentIntegration())):                                                   "cilium-config.json",
-		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps -c clean-cilium-state --tail -1", GetCiliumNamespace(GetCurrentIntegration())):            "cilium-init-container-logs.txt",
-		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps -c clean-cilium-state --previous --tail -1", GetCiliumNamespace(GetCurrentIntegration())): "cilium-init-container-logs-previous.txt",
-		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps --all-containers --tail -1", GetCiliumNamespace(GetCurrentIntegration())):                 "cilium-combined-logs.txt",
-		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps --all-containers --previous --tail -1", GetCiliumNamespace(GetCurrentIntegration())):      "cilium-combined-logs-previous.txt",
+		fmt.Sprintf("kubectl get cm cilium-config -n %s -o json", CiliumNamespace):                                                   "cilium-config.json",
+		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps -c clean-cilium-state --tail -1", CiliumNamespace):            "cilium-init-container-logs.txt",
+		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps -c clean-cilium-state --previous --tail -1", CiliumNamespace): "cilium-init-container-logs-previous.txt",
+		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps --all-containers --tail -1", CiliumNamespace):                 "cilium-combined-logs.txt",
+		fmt.Sprintf("kubectl logs -l k8s-app=cilium -n %s --timestamps --all-containers --previous --tail -1", CiliumNamespace):      "cilium-combined-logs-previous.txt",
 	}
 
 	kub.GeneratePodLogGatheringCommands(ctx, reportCmds)
