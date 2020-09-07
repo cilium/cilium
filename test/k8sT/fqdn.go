@@ -87,9 +87,7 @@ var _ = Describe("K8sFQDNTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium service list",
-			"cilium endpoint list")
+		kubectl.CiliumReport("cilium service list", "cilium endpoint list")
 	})
 
 	AfterAll(func() {
@@ -126,12 +124,12 @@ var _ = Describe("K8sFQDNTest", func() {
 		// On restart) Cilium will restore the IPS that were white-listted in
 		// the FQDN and connection will work as normal.
 
-		ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
+		ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
 		Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
-		monitorRes1, monitorCancel1 := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1)
-		ciliumPodK8s2, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s2)
+		monitorRes1, monitorCancel1 := kubectl.MonitorStart(ciliumPodK8s1)
+		ciliumPodK8s2, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s2)
 		Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
-		monitorRes2, monitorCancel2 := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s2)
+		monitorRes2, monitorCancel2 := kubectl.MonitorStart(ciliumPodK8s2)
 		defer func() {
 			monitorCancel1()
 			monitorCancel2()
@@ -212,8 +210,8 @@ var _ = Describe("K8sFQDNTest", func() {
 		ExpectCiliumReady(kubectl)
 
 		// Restart monitoring after Cilium restart
-		monitorRes1After, monitorCancel1After := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1)
-		monitorRes2After, monitorCancel2After := kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s2)
+		monitorRes1After, monitorCancel1After := kubectl.MonitorStart(ciliumPodK8s1)
+		monitorRes2After, monitorCancel2After := kubectl.MonitorStart(ciliumPodK8s2)
 		defer func() {
 			monitorCancel1After()
 			monitorCancel2After()

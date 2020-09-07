@@ -65,7 +65,7 @@ var _ = Describe("K8sHubbleTest", func() {
 		// For each pod, check that the Cilium proxy-statistics contain the new annotation
 		expectedProxyState := strings.ToLower(visibilityAnnotation)
 		for node, podName := range res.KVOutput() {
-			ciliumPod, err := kubectl.GetCiliumPodOnNode(helpers.CiliumNamespace, node)
+			ciliumPod, err := kubectl.GetCiliumPodOnNode(node)
 			Expect(err).To(BeNil())
 
 			// Extract annotation from endpoint model of pod. It does not have the l4proto, so we insert it manually.
@@ -83,9 +83,9 @@ var _ = Describe("K8sHubbleTest", func() {
 		res.ExpectSuccess("removing proxy visibility annotation failed")
 	}
 
-	hubbleObserveUntilMatch := func(hubbleNamespace, hubblePod, args, filter, expected string, timeout *helpers.TimeoutConfig) {
+	hubbleObserveUntilMatch := func(hubblePod, args, filter, expected string, timeout *helpers.TimeoutConfig) {
 		hubbleObserve := func() bool {
-			res := kubectl.HubbleObserve(hubbleNamespace, hubblePod, args)
+			res := kubectl.HubbleObserve(hubblePod, args)
 			res.ExpectSuccess("hubble observe invocation failed: %q", res.OutputPrettyPrint())
 
 			lines, err := res.FilterLines(filter)
@@ -118,7 +118,7 @@ var _ = Describe("K8sHubbleTest", func() {
 		})
 
 		var err error
-		ciliumPodK8s1, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
+		ciliumPodK8s1, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
 		Expect(err).Should(BeNil(), "unable to find hubble-cli pod on %s", helpers.K8s1)
 
 		ExpectHubbleRelayReady(kubectl, hubbleRelayNamespace)
@@ -129,8 +129,7 @@ var _ = Describe("K8sHubbleTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium endpoint list")
+		kubectl.CiliumReport("cilium endpoint list")
 	})
 
 	JustAfterEach(func() {
@@ -180,7 +179,7 @@ var _ = Describe("K8sHubbleTest", func() {
 		It("Test L3/L4 Flow", func() {
 			ctx, cancel := context.WithTimeout(context.Background(), helpers.MidCommandTimeout)
 			defer cancel()
-			follow := kubectl.HubbleObserveFollow(ctx, helpers.CiliumNamespace, ciliumPodK8s1, fmt.Sprintf(
+			follow := kubectl.HubbleObserveFollow(ctx, ciliumPodK8s1, fmt.Sprintf(
 				"--last 1 --type trace --from-pod %s/%s --to-namespace %s --to-label %s --to-port %d",
 				namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels, app1Port))
 
@@ -207,7 +206,7 @@ var _ = Describe("K8sHubbleTest", func() {
 			// In case a node was temporarily unavailable, hubble-relay will
 			// reconnect once it receives a new request. Therefore we retry
 			// in a 5 second interval.
-			hubbleObserveUntilMatch(helpers.CiliumNamespace, ciliumPodK8s1, fmt.Sprintf(
+			hubbleObserveUntilMatch(ciliumPodK8s1, fmt.Sprintf(
 				"--server %s --last 1 --type trace --from-pod %s/%s --to-namespace %s --to-label %s --to-port %d",
 				hubbleRelayAddress, namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels, app1Port),
 				`{$.Type}`, "L3_L4",
@@ -224,7 +223,7 @@ var _ = Describe("K8sHubbleTest", func() {
 
 			ctx, cancel := context.WithTimeout(context.Background(), helpers.MidCommandTimeout)
 			defer cancel()
-			follow := kubectl.HubbleObserveFollow(ctx, helpers.CiliumNamespace, ciliumPodK8s1, fmt.Sprintf(
+			follow := kubectl.HubbleObserveFollow(ctx, ciliumPodK8s1, fmt.Sprintf(
 				"--last 1 --type l7 --from-pod %s/%s --to-namespace %s --to-label %s --protocol http",
 				namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels))
 
@@ -254,7 +253,7 @@ var _ = Describe("K8sHubbleTest", func() {
 			// In case a node was temporarily unavailable, hubble-relay will
 			// reconnect once it receives a new request. Therefore we retry
 			// in a 5 second interval.
-			hubbleObserveUntilMatch(helpers.CiliumNamespace, ciliumPodK8s1, fmt.Sprintf(
+			hubbleObserveUntilMatch(ciliumPodK8s1, fmt.Sprintf(
 				"--server %s --last 1 --type l7 --from-pod %s/%s --to-namespace %s --to-label %s --protocol http",
 				hubbleRelayAddress, namespaceForTest, appPods[helpers.App2], namespaceForTest, app1Labels),
 				`{$.Type}`, "L7",

@@ -142,7 +142,7 @@ var _ = SkipContextIf(func() bool {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace, "cilium endpoint list")
+		kubectl.CiliumReport("cilium endpoint list")
 	})
 
 	// This is defined as a separate function to be called from the test below

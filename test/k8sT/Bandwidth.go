@@ -56,9 +56,7 @@ var _ = Describe("K8sBandwidthTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium bpf bandwidth list",
-			"cilium endpoint list")
+		kubectl.CiliumReport("cilium bpf bandwidth list", "cilium endpoint list")
 	})
 
 	JustBeforeEach(func() {

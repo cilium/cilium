@@ -78,9 +78,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium service list",
-			"cilium endpoint list")
+		kubectl.CiliumReport("cilium service list", "cilium endpoint list")
 	})
 
 	JustAfterEach(func() {
@@ -134,7 +132,7 @@ var _ = Describe("NightlyEpsMeasurement", func() {
 
 		log.WithFields(logrus.Fields{"pod creation time": waitForPodsTime}).Info("")
 
-		ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
+		ciliumPods, err := kubectl.GetCiliumPods()
 		Expect(err).To(BeNil(), "Cannot retrieve cilium pods")
 
 		runtime := b.Time("Endpoint creation", func() {
@@ -349,9 +347,7 @@ var _ = Describe("NightlyExamples", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium service list",
-			"cilium endpoint list")
+		kubectl.CiliumReport("cilium service list", "cilium endpoint list")
 	})
 
 	JustAfterEach(func() {
@@ -411,7 +407,7 @@ var _ = Describe("NightlyExamples", func() {
 		})
 
 		AfterFailed(func() {
-			kubectl.CiliumReport(helpers.CiliumNamespace, "cilium endpoint list")
+			kubectl.CiliumReport("cilium endpoint list")
 		})
 
 		JustAfterEach(func() {

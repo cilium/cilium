@@ -92,7 +92,7 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace, "cilium endpoint list")
+		kubectl.CiliumReport("cilium endpoint list")
 	})
 
 	JustAfterEach(func() {
@@ -402,7 +402,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		waitForUpdateImage := func(image string) func() bool {
 			return func() bool {
-				pods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
+				pods, err := kubectl.GetCiliumPods()
 				if err != nil {
 					return false
 				}
