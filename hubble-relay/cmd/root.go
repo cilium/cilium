@@ -45,11 +45,21 @@ func New() *cobra.Command {
 	flags.BoolP("debug", "D", false, "Enable debug messages")
 	vp.BindPFlags(flags)
 
+	// We need to check for the debug environment variable or CLI flag before
+	// loading the configuration file since on configuration file read failure
+	// we will emit a debug log entry.
 	if vp.GetBool("debug") {
 		logging.SetLogLevel(logrus.DebugLevel)
 	}
 	if err := vp.ReadInConfig(); err != nil {
-		logger.WithError(err).Warnf("Failed to read config from file '%s'", configFilePath)
+		logger.WithError(err).Debugf("Failed to read config from file '%s'", configFilePath)
+	}
+	// Check for the debug flag again now that the configuration file may has
+	// been loaded, as it might have changed.
+	if vp.GetBool("debug") {
+		logging.SetLogLevel(logrus.DebugLevel)
+	} else {
+		logging.SetLogLevel(logrus.InfoLevel)
 	}
 
 	rootCmd.AddCommand(
