@@ -142,7 +142,30 @@ the Cilium agent is running in the desired mode:
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-fmh8d -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict	[eth0 (DR), eth1]	[NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    KubeProxyReplacement:   Strict	[eth0 (Direct Routing), eth1]
+
+A fully detailed KubeProxyReplacement status dump can be performed by adding ``--verbose``
+to the command:
+
+.. parsed-literal::
+
+    kubectl exec -it -n kube-system cilium-fmh8d -- cilium status --verbose
+    [...]
+    KubeProxyReplacement Details:
+      Status:              Strict
+      Protocols:           TCP, UDP
+      Devices:             eth0 (Direct Routing), eth1
+      Mode:                SNAT
+      Backend Selection:   Random
+      Session Affinity:    Enabled
+      XDP Acceleration:    Disabled
+      Services:
+      - ClusterIP:      Enabled
+      - NodePort:       Enabled (Range: 30000-32767) 
+      - LoadBalancer:   Enabled 
+      - externalIPs:    Enabled 
+      - HostPort:       Enabled
+    [...]
 
 As a next, optional step, we deploy nginx pods, create a new NodePort service and
 validate that Cilium installed the service correctly.
@@ -470,13 +493,13 @@ corresponding network driver name of an interface can be determined as follows:
 +-------------------+------------+-------------+
 
 The current Cilium kube-proxy XDP acceleration mode can also be introspected through
-the ``cilium status`` CLI command. If it has been enabled successfully, ``XDP: NATIVE``
+the ``cilium status`` CLI command. If it has been enabled successfully, ``Native``
 is shown:
 
 .. parsed-literal::
 
-    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict      [eth0 (DR)]     [NodePort (SNAT, 30000-32767, XDP: NATIVE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status --verbose | grep XDP
+      XDP Acceleration:    Native
 
 In the example above, the NodePort XDP acceleration is enabled on the ``eth0`` device
 which is also used for direct routing (``DR``).
@@ -777,12 +800,13 @@ After updating ``/etc/default/kubelet``, kubelet needs to be restarted.
 
 In order to verify whether the HostPort feature has been enabled in Cilium, the
 ``cilium status`` CLI command provides visibility through the ``KubeProxyReplacement``
-info line. If it has been enabled successfully, ``HostPort`` is shown, for example:
+info line. If it has been enabled successfully, ``HostPort`` is shown as ``Enabled``,
+for example:
 
 .. parsed-literal::
 
-    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict   [eth0 (DR)]   [NodePort (SNAT, 30000-32767, XDP: DISABLED), HostPort, ExternalIPs, HostReachableServices (TCP, UDP), SessionAffinity]
+    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status --verbose | grep HostPort
+      - HostPort:       Enabled
 
 The following modified example yaml from the setup validation with an additional
 ``hostPort: 8080`` parameter can be used to verify the mapping:
@@ -953,7 +977,7 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict	[eth0 (DR)]	[NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    KubeProxyReplacement:   Strict	[eth0 (DR)]
 
 Session Affinity
 ****************
