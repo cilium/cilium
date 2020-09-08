@@ -396,7 +396,10 @@ func runOperator(cmd *cobra.Command) {
 				if identity == operatorID {
 					log.Info("Leading the operator HA deployment")
 				} else {
-					log.WithField("operator-id", operatorID).Infof("Operator with ID %q elected as new leader", identity)
+					log.WithFields(logrus.Fields{
+						"newLeader": operatorID,
+						"identity":  identity,
+					})
 				}
 			},
 		},
