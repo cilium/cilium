@@ -37,6 +37,7 @@ import (
 // +kubebuilder:printcolumn:JSONPath=".metadata.creationTimestamp",name="Age",type=date
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
+// +kubebuilder:xpreserveunknownfields
 
 // CiliumNetworkPolicy is a Kubernetes third-party resource with an extended
 // version of NetworkPolicy.
