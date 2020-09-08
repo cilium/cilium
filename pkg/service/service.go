@@ -555,7 +555,7 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 	}
 
 	svc.maglev = option.Config.NodePortAlg == option.NodePortAlgMaglev &&
-		(p.Type == lb.SVCTypeNodePort ||
+		((p.Type == lb.SVCTypeNodePort && !isWildcardAddr(svc.frontend)) ||
 			p.Type == lb.SVCTypeExternalIPs ||
 			p.Type == lb.SVCTypeLoadBalancer)
 
@@ -957,4 +957,13 @@ func (s *Service) GetServiceNameByAddr(addr lb.L3n4Addr) (string, string, bool) 
 	}
 
 	return svc.svcNamespace, svc.svcName, true
+}
+
+// isWildcardAddr returns true if given frontend is used for wildcard svc lookups
+// (by bpf_sock).
+func isWildcardAddr(frontend lb.L3n4AddrID) bool {
+	if frontend.IsIPv6() {
+		return net.IPv6zero.Equal(frontend.IP)
+	}
+	return net.IPv4zero.Equal(frontend.IP)
 }
