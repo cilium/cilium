@@ -163,17 +163,21 @@ func nodeAddress(n types.Node) string {
 //
 //     moseisley.tatooine.hubble-grpc.cilium.io
 //
-// If nodeName is not provided, an empty string is returned. If clusterName is
-// not provided, it defaults to the default cluster name.
+// When nodeName is not provided, an empty string is returned. All Dot (.) in
+// nodeName are replaced by Hyphen (-). When clusterName is not provided, it
+// defaults to the default cluster name.
 func tlsServerName(nodeName, clusterName string) string {
 	if nodeName == "" {
 		return ""
 	}
+	// To ensure that each node's ServerName is at the same DNS domain level,
+	// we have to lookout for Dot (.) as Kubernetes allows them in Node names.
+	nn := strings.ReplaceAll(nodeName, ".", "-")
 	if clusterName == "" {
 		clusterName = ciliumDefaults.ClusterName
 	}
 	return strings.Join([]string{
-		nodeName,
+		nn,
 		clusterName,
 		defaults.GRPCServiceName,
 		defaults.DomainName,
