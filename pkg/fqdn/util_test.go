@@ -17,12 +17,8 @@
 package fqdn
 
 import (
-	"encoding/json"
-	"fmt"
 	"net"
-	"strings"
 
-	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/miekg/dns"
 )
 
@@ -42,54 +38,6 @@ var (
 				net.ParseIP("001:4998:58:1836::10")}},
 	}
 )
-
-func makeRule(key string, dnsNames ...string) *api.Rule {
-	matchNames := []string{}
-	for _, name := range dnsNames {
-		matchNames = append(matchNames,
-			fmt.Sprintf(`{"matchName": "%s"}`, dns.Fqdn(name)))
-	}
-
-	rule := `{`
-	if key != "" {
-		rule += fmt.Sprintf(`"labels": [{ "key": "%s" }],`, key)
-	}
-	rule += fmt.Sprintf(`"endpointSelector": {
-    "matchLabels": {
-      "class": "xwing"
-    }
-  },
-  "egress": [
-    {
-      "toFQDNs": [
-      %s
-      ]
-    }
-  ]
-}`, strings.Join(matchNames, ",\n"))
-	//fmt.Print(rule)
-	return mustParseRule(rule)
-}
-
-func parseRule(rule string) (parsedRule *api.Rule, err error) {
-	if err := json.Unmarshal([]byte(rule), &parsedRule); err != nil {
-		return nil, err
-	}
-
-	if err := parsedRule.Sanitize(); err != nil {
-		return nil, err
-	}
-
-	return parsedRule, nil
-}
-
-func mustParseRule(rule string) (parsedRule *api.Rule) {
-	parsedRule, err := parseRule(rule)
-	if err != nil {
-		panic(fmt.Sprintf("Error parsing FQDN test rules: %s", err))
-	}
-	return parsedRule
-}
 
 // LookupDNSNames is a wrappable dummy used by the tests. It counts the number
 // of times a name is looked up in lookups, and uses ipData as a source for the
