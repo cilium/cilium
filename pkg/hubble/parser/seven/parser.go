@@ -16,8 +16,6 @@ package seven
 
 import (
 	"fmt"
-	"github.com/cilium/cilium/pkg/hubble/parser/errors"
-	"github.com/cilium/cilium/pkg/monitor/api"
 	"net"
 	"net/url"
 	"sort"
@@ -25,8 +23,10 @@ import (
 	"time"
 
 	pb "github.com/cilium/cilium/api/v1/flow"
+	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
+	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 
@@ -467,8 +467,11 @@ func dnsSummary(flowType accesslog.FlowType, dns *accesslog.LogRecordDNS) string
 		}
 
 		sourceType := "Query"
-		if dns.ObservationSource == accesslog.DNSSourceAgentPoller {
+		switch dns.ObservationSource {
+		case accesslog.DNSSourceAgentPoller:
 			sourceType = "Poll"
+		case accesslog.DNSSourceProxy:
+			sourceType = "Proxy"
 		}
 
 		return fmt.Sprintf("DNS Answer %s TTL: %d (%s %s %s)", answer, dns.TTL, sourceType, dns.Query, qTypeStr)
