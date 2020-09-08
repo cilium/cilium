@@ -1,9 +1,0 @@
-vendor/
-bin/
-cover.*
-testdata/fdset.bin
-testdata/generated/
-**/*.pb.go
-**/code_generator_request.pb.bin
-.idea/
-.vscode/

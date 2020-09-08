@@ -25,7 +25,6 @@ require (
 	github.com/docker/docker v0.7.3-0.20190327010347-be7ac8be2ae0
 	github.com/docker/go-connections v0.4.0 // indirect
 	github.com/docker/libnetwork v0.0.0-20190128195551-d8d4c8cf03d7
-	github.com/envoyproxy/protoc-gen-validate v0.4.0
 	github.com/fsnotify/fsnotify v1.4.10-0.20200417215612-7f4cf4dd2b52
 	github.com/go-bindata/go-bindata/v3 v3.1.3
 	github.com/go-openapi/errors v0.19.6
@@ -52,7 +51,6 @@ require (
 	github.com/kr/pretty v0.2.0
 	github.com/mattn/go-shellwords v1.0.5
 	github.com/miekg/dns v1.0.14
-	github.com/mitchellh/protoc-gen-go-json v0.0.0-20200717004536-8fbb6f3d7291
 	github.com/morikuni/aec v1.0.0 // indirect
 	github.com/onsi/ginkgo v1.11.0
 	github.com/onsi/gomega v1.8.1
@@ -84,7 +82,6 @@ require (
 	golang.org/x/tools v0.0.0-20200616195046-dc31b401abb5
 	google.golang.org/genproto v0.0.0-20200526211855-cb27e3aa2013
 	google.golang.org/grpc v1.29.1
-	google.golang.org/grpc/cmd/protoc-gen-go-grpc v0.0.0-20200731180010-8bec2f5d898f
 	google.golang.org/protobuf v1.25.0
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0

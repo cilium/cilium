@@ -13,14 +13,6 @@ import sys
 
 printer = ""
 
-# Well known regex mapping.
-regex_map = {
-    "UNKNOWN": "",
-    "HTTP_HEADER_NAME": r'^:?[0-9a-zA-Z!#$%&\'*+-.^_|~\x60]+$',
-    "HTTP_HEADER_VALUE": r'^[^\u0000-\u0008\u000A-\u001F\u007F]*$',
-    "HEADER_STRING": r'^[^\u0000\u000A\u000D]*$'
-}
-
 def validate(proto_message):
     func = file_template(proto_message)
     global printer
@@ -126,14 +118,6 @@ def in_template(value, name):
     return Template(in_tmpl).render(value = value, name = name)
 
 def string_template(option_value, name):
-    if option_value.string.well_known_regex:
-      known_regex_type = option_value.string.DESCRIPTOR.fields_by_name['well_known_regex'].enum_type
-      regex_value = option_value.string.well_known_regex
-      regex_name = known_regex_type.values_by_number[regex_value].name
-      if regex_name in ["HTTP_HEADER_NAME", "HTTP_HEADER_VALUE"] and not option_value.string.strict:
-        option_value.string.pattern = regex_map["HEADER_STRING"]
-      else:
-        option_value.string.pattern = regex_map[regex_name]
     str_templ = """
     {{ const_template(o, name) -}}
     {{ in_template(o.string, name) -}}
@@ -229,7 +213,7 @@ def string_template(option_value, name):
     try:
         uuid.UUID({{ name }})
     except ValueError:
-        raise ValidationFailed(\"{{ name }} is not a valid UUID\")
+        raise ValidationFailed(\"{{ name }} is not a valid UUID\")     
     {%- endif -%}
     """
     return Template(str_templ).render(o = option_value, name = name, const_template = const_template, in_template = in_template)
@@ -324,7 +308,7 @@ def num_template(option_value, name, num):
         raise ValidationFailed(\"{{ name }} is not greater than {{ num['gt'] }}\")
     {%- elif num.HasField('gte') %}
     if {{ name }} < {{ num['gte'] }}:
-        raise ValidationFailed(\"{{ name }} is not greater than or equal to {{ num['gte'] }}\")
+        raise ValidationFailed(\"{{ name }} is not greater than or equal to {{ num['gte'] }}\")    
     {%- endif -%}
     """
     return Template(num_tmpl).render(o = option_value, name = name, num = num, in_template = in_template, str = str)
@@ -889,7 +873,7 @@ def rule_type(field):
                         str(option_value.double) or str(option_value.uint32) or str(option_value.uint64) or \
                         str(option_value.bool) or str(option_value.string) or str(option_value.bytes):
                     return wrapper_template(option_value, name)
-                elif str(option_value.message) != "":
+                elif str(option_value.message) is not "":
                     return message_template(option_value, field.name)
                 elif str(option_value.any):
                     return any_template(option_value, name)
