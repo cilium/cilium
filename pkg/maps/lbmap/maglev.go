@@ -61,13 +61,14 @@ func InitMaglevMaps(ipv4 bool, ipv6 bool) error {
 }
 
 func newInnerMaglevMap(name string) *bpf.Map {
-	return bpf.NewMap(
+	return bpf.NewMapWithOpts(
 		name,
 		bpf.MapTypeArray,
 		&MaglevInnerKey{}, int(unsafe.Sizeof(MaglevInnerKey{})),
 		&MaglevInnerVal{}, int(unsafe.Sizeof(uint16(0)))*option.Config.MaglevTableSize,
 		1, 0, 0,
 		bpf.ConvertKeyValue,
+		&bpf.NewMapOpts{},
 	)
 }
 
