@@ -249,6 +249,9 @@ const (
 	// MaglevTableSize determines the size of the backend table per service
 	MaglevTableSize = "bpf-lb-maglev-table-size"
 
+	// MaglevHashSeed contains the cluster-wide seed for the hash
+	MaglevHashSeed = "bpf-lb-maglev-hash-seed"
+
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic" or "native")
 	NodePortAcceleration = "node-port-acceleration"
@@ -1783,6 +1786,9 @@ type DaemonConfig struct {
 	// Maglev backend table size (M) per service. Must be prime number.
 	MaglevTableSize int
 
+	// MaglevHashSeed contains the cluster-wide seed for the hash(es).
+	MaglevHashSeed string
+
 	// NodePortAcceleration indicates whether NodePort should be accelerated
 	// via XDP ("none", "generic" or "native")
 	NodePortAcceleration string
@@ -2410,6 +2416,7 @@ func (c *DaemonConfig) Populate() {
 	c.NodePortMode = viper.GetString(NodePortMode)
 	c.NodePortAlg = viper.GetString(NodePortAlg)
 	c.MaglevTableSize = viper.GetInt(MaglevTableSize)
+	c.MaglevHashSeed = viper.GetString(MaglevHashSeed)
 	c.NodePortAcceleration = viper.GetString(NodePortAcceleration)
 	c.NodePortBindProtection = viper.GetBool(NodePortBindProtection)
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)
