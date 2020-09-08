@@ -399,7 +399,7 @@ func runOperator(cmd *cobra.Command) {
 					log.WithFields(logrus.Fields{
 						"newLeader": operatorID,
 						"identity":  identity,
-					})
+					}).Info("Leader re-election complete")
 				}
 			},
 		},
