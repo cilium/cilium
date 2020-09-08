@@ -84,9 +84,6 @@ github.com/census-instrumentation/opencensus-proto/gen-go/resource/v1
 github.com/census-instrumentation/opencensus-proto/gen-go/trace/v1
 # github.com/cespare/xxhash/v2 v2.1.1
 github.com/cespare/xxhash/v2
-# github.com/cilium/arping v1.0.1-0.20201126164629-5142c9527af5
-## explicit
-github.com/cilium/arping
 # github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 ## explicit
 github.com/cilium/deepequal-gen

@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/counter"
 	"github.com/cilium/cilium/pkg/datapath"
+	"github.com/cilium/cilium/pkg/datapath/linux/arp"
 	"github.com/cilium/cilium/pkg/datapath/linux/ipsec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
@@ -33,7 +34,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 
-	"github.com/cilium/arping"
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 	"golang.org/x/sys/unix"
@@ -570,11 +570,22 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 		scopedLog.WithError(err).Error("Failed to retrieve route for remote node IP")
 		return
 	}
+
+	if len(routes) == 0 {
+		scopedLog.Error("Remote node IP is not routable. Connectivity to pods on that node may be unavailable.")
+		return
+	}
+
+	// Use the first available route by default
+	srcIPv4 := make(net.IP, len(newNodeIP))
+	copy(srcIPv4, routes[0].Src)
+
 	for _, route := range routes {
 		if route.Gw != nil {
 			// newNode is in a different L2 subnet, so it must be reachable through
 			// a gateway. Send arping to the gw IP addr instead of newNode IP addr.
 			// NOTE: we currently don't handle multipath, so only one gw can be used.
+			copy(srcIPv4, route.Src)
 			copy(nextHopIPv4, route.Gw)
 			break
 		}
@@ -586,18 +597,6 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 
 	// nextHop hasn't been arpinged before OR the arping failed
 	if n.neighNextHopRefCount.Add(nextHopStr) || !found {
-		iface, err := net.InterfaceByName(ifaceName)
-		if err != nil {
-			scopedLog.WithError(err).Error("Failed to retrieve iface by name")
-			return
-		}
-
-		_, err = arping.FindIPInNetworkFromIface(nextHopIPv4, *iface)
-		if err != nil {
-			scopedLog.WithError(err).Error("IP is not L2 reachable")
-			return
-		}
-
 		linkAttr, err := netlink.LinkByName(ifaceName)
 		if err != nil {
 			scopedLog.WithError(err).Error("Failed to retrieve iface by name (netlink)")
@@ -605,11 +604,12 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 		}
 		link := linkAttr.Attrs().Index
 
-		hwAddr, _, err := arping.PingOverIface(nextHopIPv4, *iface)
+		hwAddr, err := arp.PingOverLink(linkAttr, srcIPv4, nextHopIPv4)
 		if err != nil {
 			scopedLog.WithError(err).Error("arping failed")
 			return
 		}
+
 		scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
 
 		neigh := netlink.Neigh{
