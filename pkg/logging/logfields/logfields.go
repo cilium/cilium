@@ -450,6 +450,9 @@ const (
 	// SysParamValue is the value of the kernel parameter (sysctl)
 	SysParamValue = "sysParamValue"
 
+	// HashSeed is the seed value for the hashing algorithm
+	HashSeed = "hashSeed"
+
 	// HelpMessage is the help message corresponding to a log message.
 	// This is to make sure we keep separate contexts for logs and help messages.
 	HelpMessage = "helpMessage"

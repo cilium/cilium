@@ -15,19 +15,57 @@
 package maglev
 
 import (
+	"encoding/base64"
+
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
+	"github.com/sirupsen/logrus"
 	"github.com/spaolacci/murmur3"
 )
 
 const (
-	seed0 = 1836082274
-	seed1 = 1684172144
+	subsystem = "maglev"
 
 	DefaultTableSize = 16381
+
+	// seed=$(head -c16 /dev/urandom | base64 -w0)
+	DefaultHashSeed = "FYJf2hrSynYxcZrkMWTGYA=="
 )
 
+var (
+	seedMurmur0 uint32
+	seedMurmur1 uint32
+
+	SeedJhash0 uint32
+	SeedJhash1 uint32
+)
+
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
+
+func InitMaglevSeeds() {
+	d, err := base64.StdEncoding.DecodeString(option.Config.MaglevHashSeed)
+	if err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.HashSeed: option.Config.MaglevHashSeed,
+		}).Fatal("Cannot decode base64 Maglev hash seed.")
+	}
+	if len(d) != 16 {
+		log.WithFields(logrus.Fields{
+			logfields.HashSeed: option.Config.MaglevHashSeed,
+		}).Fatal("Decoded Maglev hash seed is not 16 bytes.")
+	}
+
+	seedMurmur0 = uint32(d[0])<<24 | uint32(d[1])<<16 | uint32(d[2])<<8 | uint32(d[3])
+	seedMurmur1 = uint32(d[4])<<24 | uint32(d[5])<<16 | uint32(d[6])<<8 | uint32(d[7])
+
+	SeedJhash0 = uint32(d[8])<<24 | uint32(d[9])<<16 | uint32(d[10])<<8 | uint32(d[11])
+	SeedJhash1 = uint32(d[12])<<24 | uint32(d[13])<<16 | uint32(d[14])<<8 | uint32(d[15])
+}
+
 func getOffsetAndSkip(backend string, m uint64) (uint64, uint64) {
-	offset := murmur3.Sum64WithSeed([]byte(backend), seed0) % m
-	skip := (murmur3.Sum64WithSeed([]byte(backend), seed1) % (m - 1)) + 1
+	offset := murmur3.Sum64WithSeed([]byte(backend), seedMurmur0) % m
+	skip := (murmur3.Sum64WithSeed([]byte(backend), seedMurmur1) % (m - 1)) + 1
 
 	return offset, skip
 }
