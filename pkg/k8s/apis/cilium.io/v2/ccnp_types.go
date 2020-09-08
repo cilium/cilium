@@ -29,6 +29,7 @@ import (
 // +kubebuilder:resource:singular="ciliumclusterwidenetworkpolicy",path="ciliumclusterwidenetworkpolicies",scope="Cluster",shortName={ccnp}
 // +kubebuilder:subresource:status
 // +kubebuilder:storageversion
+// +kubebuilder:xpreserveunknownfields
 
 // CiliumClusterwideNetworkPolicy is a Kubernetes third-party resource with an
 // modified version of CiliumNetworkPolicy which is cluster scoped rather than
