@@ -39,7 +39,7 @@ by Cilium's bandwidth manager.
 
 .. note::
 
-   Bandwidth Manager requires a v5.0.x or more recent Linux kernel.
+   Bandwidth Manager requires a v5.1.x or more recent Linux kernel.
 
 .. include:: k8s-install-download-release.rst
 

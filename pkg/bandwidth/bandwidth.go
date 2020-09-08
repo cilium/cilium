@@ -59,9 +59,10 @@ func ProbeBandwidthManager() {
 
 	kernelGood := false
 	if h := probes.NewProbeManager().GetHelpers("sched_cls"); h != nil {
-		// We at least need 5.0 kernel for native TCP EDT integration.
-		// Below helper is available for 5.0 kernels and onwards.
-		if _, ok := h["bpf_sk_release"]; ok {
+		// We at least need 5.1 kernel for native TCP EDT integration
+		// and writable queue_mapping that we use. Below helper is
+		// available for 5.1 kernels and onwards.
+		if _, ok := h["bpf_skb_ecn_set_ce"]; ok {
 			kernelGood = true
 		}
 	}
