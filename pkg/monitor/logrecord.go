@@ -103,8 +103,11 @@ func (l *LogRecordNotify) DumpInfo() {
 
 		case l.Type == accesslog.TypeResponse:
 			sourceType := "Query"
-			if l.DNS.ObservationSource == accesslog.DNSSourceAgentPoller {
+			switch l.DNS.ObservationSource {
+			case accesslog.DNSSourceAgentPoller:
 				sourceType = "Poll"
+			case accesslog.DNSSourceProxy:
+				sourceType = "Proxy"
 			}
 
 			fmt.Printf(" DNS %s: %s %s", sourceType, l.DNS.Query, qTypeStr)
