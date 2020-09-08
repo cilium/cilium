@@ -839,7 +839,6 @@ var commonMethods = map[string]bool{
 	"ServeHTTP": true,
 	"String":    true,
 	"Write":     true,
-	"Unwrap":    true,
 }
 
 // lintFuncDoc examines doc comments on functions and methods.
