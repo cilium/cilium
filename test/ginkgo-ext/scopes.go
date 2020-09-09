@@ -75,14 +75,14 @@ var (
 	// when to call AfterAll. When using a new ginkgo equivalent to It or
 	// Measure, it may need a matching wrapper similar to wrapItFunc.
 
-	Context                               = wrapContextFunc(ginkgo.Context, false)
-	FContext                              = wrapContextFunc(ginkgo.FContext, true)
-	PContext                              = wrapNilContextFunc(ginkgo.PContext)
-	XContext                              = wrapNilContextFunc(ginkgo.XContext)
-	Describe                              = wrapContextFunc(ginkgo.Describe, false)
-	FDescribe                             = wrapContextFunc(ginkgo.FDescribe, true)
-	PDescribe                             = wrapNilContextFunc(ginkgo.PDescribe)
-	XDescribe                             = wrapNilContextFunc(ginkgo.XDescribe)
+	Context                               = wrapContextFunc(ginkgo.Context, false, false)
+	FContext                              = wrapContextFunc(ginkgo.FContext, true, false)
+	PContext                              = wrapNilContextFunc(ginkgo.PContext, false)
+	XContext                              = wrapNilContextFunc(ginkgo.XContext, false)
+	Describe                              = wrapContextFunc(ginkgo.Describe, false, true)
+	FDescribe                             = wrapContextFunc(ginkgo.FDescribe, true, true)
+	PDescribe                             = wrapNilContextFunc(ginkgo.PDescribe, true)
+	XDescribe                             = wrapNilContextFunc(ginkgo.XDescribe, true)
 	It                                    = wrapItFunc(ginkgo.It, false)
 	FIt                                   = wrapItFunc(ginkgo.FIt, true)
 	PIt                                   = ginkgo.PIt
@@ -461,11 +461,16 @@ func beforeEach(body interface{}, timeout ...float64) bool {
 	return ginkgo.BeforeEach(applyAdvice(body, before, nil), timeout...)
 }
 
-func wrapContextFunc(fn func(string, func()) bool, focused bool) func(string, func()) bool {
+func wrapContextFunc(fn func(string, func()) bool, focused, matchFocused bool) func(string, func()) bool {
 	return func(text string, body func()) bool {
 		if currentScope == nil {
 			return fn(text, body)
 		}
+
+		if matchFocused && !focused && !isTestFocused(text) {
+			return true
+		}
+
 		newScope := &scope{
 			text:    currentScope.text + " " + text,
 			parent:  currentScope,
@@ -481,8 +486,12 @@ func wrapContextFunc(fn func(string, func()) bool, focused bool) func(string, fu
 	}
 }
 
-func wrapNilContextFunc(fn func(string, func()) bool) func(string, func()) bool {
+func wrapNilContextFunc(fn func(string, func()) bool, matchFocused bool) func(string, func()) bool {
 	return func(text string, body func()) bool {
+		if matchFocused && !isTestFocused(text) {
+			return true
+		}
+
 		oldScope := currentScope
 		currentScope = nil
 		res := fn(text, body)
@@ -543,7 +552,7 @@ func wrapMeasureFunc(fn func(text string, body interface{}, samples int) bool, f
 // text name is focussed, returns false if the test is not focused.
 func isTestFocused(text string) bool {
 	if config.GinkgoConfig.FocusString == "" {
-		return false
+		return true
 	}
 
 	focusFilter := regexp.MustCompile(config.GinkgoConfig.FocusString)
