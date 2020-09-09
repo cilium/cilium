@@ -982,7 +982,7 @@ out:
 	(!defined(ENABLE_DSR) || \
 	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) || \
 	 defined(ENABLE_MASQUERADE))
-	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) != MARK_MAGIC_SNAT_DONE) {
 		ret = nodeport_nat_fwd(ctx);
 		if (IS_ERR(ret))
 			return send_drop_notify_error(ctx, 0, ret,

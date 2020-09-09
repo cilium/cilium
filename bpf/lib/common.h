@@ -416,21 +416,20 @@ enum {
  *    In the IPsec case this becomes the SPI on the wire. (0xE000)
  *  - An additional bit at 0x1000 for SNAT_DONE required for HostPort functionality.
  */
-#define MARK_MAGIC_HOST_MASK		0x0F00
-#define MARK_MAGIC_PROXY_INGRESS	0x0A00
-#define MARK_MAGIC_PROXY_EGRESS		0x0B00
-#define MARK_MAGIC_HOST			0x0C00
-#define MARK_MAGIC_DECRYPT		0x0D00
-#define MARK_MAGIC_ENCRYPT		0x0E00
-#define MARK_MAGIC_IDENTITY		0x0F00 /* mark carries identity */
-#define MARK_MAGIC_TO_PROXY		0x0200
-
-#define MARK_MAGIC_KEY_ID		0xE000
-#define MARK_MAGIC_KEY_MASK		0xFF00
+#define MARK_MAGIC_HOST_MASK		0x0F00  // 0b 0000 1111 y
+#define MARK_MAGIC_PROXY_INGRESS	0x0A00  // 0b 0000 1010 n
+#define MARK_MAGIC_PROXY_EGRESS		0x0B00  // 0b 0000 1011 n
+#define MARK_MAGIC_HOST			0x0C00      // 0b 0000 1100 n
+#define MARK_MAGIC_DECRYPT		0x0D00      // 0b 0000 1101 y
+#define MARK_MAGIC_ENCRYPT		0x0E00      // 0b 0000 1110 n
+#define MARK_MAGIC_IDENTITY		0x0F00      // 0b 0000 1111 y /* mark carries identity */
+#define MARK_MAGIC_TO_PROXY		0x0200      // 0b 0000 0010 n
+#define MARK_MAGIC_KEY_ID		0xF000      // 0b 1110 0000 n
+#define MARK_MAGIC_KEY_MASK		0xFF00      // 0b 1111 1111 y
 /*
  * Ensure this value does not overlap with MARK_MAGIC_KEY_ID to allow IPSec and KubeProxy Replacement
  */
-#define MARK_MAGIC_SNAT_DONE		0x1500
+#define MARK_MAGIC_SNAT_DONE		0x0500  // 0b0001010100000000
 
 /* IPv4 option used to carry service addr and port for DSR. Lower 16bits set to
  * zero so that they can be OR'd with service port.

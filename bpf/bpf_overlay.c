@@ -339,7 +339,7 @@ int to_overlay(struct __ctx_buff *ctx)
 #endif
 
 #ifdef ENABLE_NODEPORT
-	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE) {
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_SNAT_DONE) {
 		ret = CTX_ACT_OK;
 		goto out;
 	}
