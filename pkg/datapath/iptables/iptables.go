@@ -1185,6 +1185,10 @@ func (m *IptablesManager) addCiliumNoTrackXfrmRules() error {
 }
 
 func (m *IptablesManager) addCiliumENIRules() error {
+	if !option.Config.EnableIPv4 {
+		return nil
+	}
+
 	nfmask := fmt.Sprintf("%#08x", linux_defaults.MarkMultinodeNodeport)
 	ctmask := fmt.Sprintf("%#08x", linux_defaults.MaskMultinodeNodeport)
 	if err := runProg("iptables", append(
