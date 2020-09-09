@@ -57,4 +57,11 @@ var (
 		NumPods:       1,
 		LabelSelector: "name=stateless-etcd",
 	}
+
+	ConnectivityCheck = helpers.Manifest{
+		Filename:      "policy-stress-test.yaml",
+		NumPods:       14,
+		LabelSelector: "manifest=policy-stress-test",
+		Singleton:     true,
+	}
 )
