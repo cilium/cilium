@@ -586,7 +586,7 @@ github.com/vishvananda/netlink/nl
 # github.com/vishvananda/netns v0.0.0-20191106174202-0a2b9b5464df
 ## explicit
 github.com/vishvananda/netns
-# go.etcd.io/etcd v0.5.0-alpha.5.0.20200819165624-17cef6e3e9d5
+# go.etcd.io/etcd v0.5.0-alpha.5.0.20200824191128-ae9734ed278b
 ## explicit
 go.etcd.io/etcd/auth/authpb
 go.etcd.io/etcd/clientv3
