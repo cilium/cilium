@@ -134,6 +134,10 @@ func addENIRules(sysSettings []setting) ([]setting, error) {
 	// which the CIDR used by the endpoint has been configured.
 	//
 	// We want to reproduce equivalent rules to ensure correct routing.
+	if !option.Config.EnableIPv4 {
+		return sysSettings, nil
+	}
+
 	retSettings := append(sysSettings, setting{"net.ipv4.conf.eth0.rp_filter", "2", false})
 	if err := route.ReplaceRule(route.Rule{
 		Priority: linux_defaults.RulePriorityNodeport,
