@@ -255,8 +255,8 @@ func runOperator() {
 					log.Info("Leading the operator HA deployment")
 				} else {
 					log.WithFields(logrus.Fields{
-						"newLeader": operatorID,
-						"identity":  identity,
+						"newLeader":  identity,
+						"operatorID": operatorID,
 					}).Info("Leader re-election complete")
 				}
 			},
