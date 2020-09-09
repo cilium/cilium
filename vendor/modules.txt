@@ -31,7 +31,7 @@ github.com/Microsoft/go-winio
 github.com/PuerkitoBio/purell
 # github.com/PuerkitoBio/urlesc v0.0.0-20170810143723-de5bf2ad4578
 github.com/PuerkitoBio/urlesc
-# github.com/StackExchange/wmi v0.0.0-20170410192909-ea383cf3ba6e
+# github.com/StackExchange/wmi v0.0.0-20190523213315-cbe66965904d
 github.com/StackExchange/wmi
 # github.com/armon/go-metrics v0.0.0-20180917152333-f0300d1749da
 github.com/armon/go-metrics
@@ -210,7 +210,7 @@ github.com/evanphx/json-patch
 github.com/fsnotify/fsnotify
 # github.com/ghodss/yaml v1.0.0
 github.com/ghodss/yaml
-# github.com/go-ole/go-ole v1.2.1
+# github.com/go-ole/go-ole v1.2.4
 github.com/go-ole/go-ole
 github.com/go-ole/go-ole/oleutil
 # github.com/go-openapi/analysis v0.19.10
@@ -314,7 +314,7 @@ github.com/google/gofuzz
 ## explicit
 github.com/google/gopacket
 github.com/google/gopacket/layers
-# github.com/google/gops v0.3.6
+# github.com/google/gops v0.3.10
 ## explicit
 github.com/google/gops/agent
 github.com/google/gops/internal
@@ -382,8 +382,6 @@ github.com/ishidawataru/sctp
 github.com/jmespath/go-jmespath
 # github.com/json-iterator/go v1.1.8
 github.com/json-iterator/go
-# github.com/kardianos/osext v0.0.0-20170510131534-ae77be60afb1
-github.com/kardianos/osext
 # github.com/kevinburke/ssh_config v0.0.0-20190725054713-01f96b0aa0cd
 ## explicit
 github.com/kevinburke/ssh_config
@@ -512,17 +510,14 @@ github.com/sasha-s/go-deadlock
 # github.com/servak/go-fastping v0.0.0-20160802140958-5718d12e20a0
 ## explicit
 github.com/servak/go-fastping
-# github.com/shirou/gopsutil v0.0.0-20180427012116-c95755e4bcd7
+# github.com/shirou/gopsutil v2.20.4+incompatible
 ## explicit
 github.com/shirou/gopsutil/cpu
-github.com/shirou/gopsutil/host
 github.com/shirou/gopsutil/internal/common
 github.com/shirou/gopsutil/load
 github.com/shirou/gopsutil/mem
 github.com/shirou/gopsutil/net
 github.com/shirou/gopsutil/process
-# github.com/shirou/w32 v0.0.0-20160930032740-bb4de0191aa4
-github.com/shirou/w32
 # github.com/shurcooL/sanitized_anchor_name v1.0.0
 github.com/shurcooL/sanitized_anchor_name
 # github.com/sirupsen/logrus v1.4.2
@@ -655,9 +650,10 @@ golang.org/x/oauth2/internal
 ## explicit
 golang.org/x/sync/errgroup
 golang.org/x/sync/semaphore
-# golang.org/x/sys v0.0.0-20200420163511-1957bb5e6d1f
+# golang.org/x/sys v0.0.0-20200515095857-1151b9dac4a9
 ## explicit
 golang.org/x/sys/cpu
+golang.org/x/sys/internal/unsafeheader
 golang.org/x/sys/unix
 golang.org/x/sys/windows
 # golang.org/x/text v0.3.2

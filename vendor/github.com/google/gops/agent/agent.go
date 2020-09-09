@@ -20,12 +20,13 @@ import (
 	"runtime/pprof"
 	"runtime/trace"
 	"strconv"
+	"strings"
 	"sync"
+	"syscall"
 	"time"
 
 	"github.com/google/gops/internal"
 	"github.com/google/gops/signal"
-	"github.com/kardianos/osext"
 )
 
 const defaultAddr = "127.0.0.1:0"
@@ -116,18 +117,21 @@ func listen() {
 	for {
 		fd, err := listener.Accept()
 		if err != nil {
-			fmt.Fprintf(os.Stderr, "gops: %v", err)
+			// No great way to check for this, see https://golang.org/issues/4373.
+			if !strings.Contains(err.Error(), "use of closed network connection") {
+				fmt.Fprintf(os.Stderr, "gops: %v\n", err)
+			}
 			if netErr, ok := err.(net.Error); ok && !netErr.Temporary() {
 				break
 			}
 			continue
 		}
 		if _, err := fd.Read(buf); err != nil {
-			fmt.Fprintf(os.Stderr, "gops: %v", err)
+			fmt.Fprintf(os.Stderr, "gops: %v\n", err)
 			continue
 		}
 		if err := handle(fd, buf); err != nil {
-			fmt.Fprintf(os.Stderr, "gops: %v", err)
+			fmt.Fprintf(os.Stderr, "gops: %v\n", err)
 			continue
 		}
 		fd.Close()
@@ -136,12 +140,16 @@ func listen() {
 
 func gracefulShutdown() {
 	c := make(chan os.Signal, 1)
-	gosignal.Notify(c, os.Interrupt)
+	gosignal.Notify(c, syscall.SIGINT, syscall.SIGTERM, syscall.SIGQUIT)
 	go func() {
 		// cleanup the socket on shutdown.
-		<-c
+		sig := <-c
 		Close()
-		os.Exit(1)
+		ret := 1
+		if sig == syscall.SIGTERM {
+			ret = 0
+		}
+		os.Exit(ret)
 	}()
 }
 
@@ -220,7 +228,7 @@ func handle(conn io.ReadWriter, msg []byte) error {
 	case signal.Version:
 		fmt.Fprintf(conn, "%v\n", runtime.Version())
 	case signal.HeapProfile:
-		pprof.WriteHeapProfile(conn)
+		return pprof.WriteHeapProfile(conn)
 	case signal.CPUProfile:
 		if err := pprof.StartCPUProfile(conn); err != nil {
 			return err
@@ -233,7 +241,7 @@ func handle(conn io.ReadWriter, msg []byte) error {
 		fmt.Fprintf(conn, "GOMAXPROCS: %v\n", runtime.GOMAXPROCS(0))
 		fmt.Fprintf(conn, "num CPU: %v\n", runtime.NumCPU())
 	case signal.BinaryDump:
-		path, err := osext.Executable()
+		path, err := os.Executable()
 		if err != nil {
 			return err
 		}
@@ -246,7 +254,9 @@ func handle(conn io.ReadWriter, msg []byte) error {
 		_, err = bufio.NewReader(f).WriteTo(conn)
 		return err
 	case signal.Trace:
-		trace.Start(conn)
+		if err := trace.Start(conn); err != nil {
+			return err
+		}
 		time.Sleep(5 * time.Second)
 		trace.Stop()
 	case signal.SetGCPercent:
