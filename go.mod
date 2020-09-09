@@ -89,11 +89,11 @@ require (
 	gopkg.in/check.v1 v1.0.0-20200227125254-8fa46927fb4f
 	gopkg.in/natefinch/lumberjack.v2 v2.0.0
 	gopkg.in/yaml.v2 v2.3.0
-	k8s.io/api v0.19.0
-	k8s.io/apiextensions-apiserver v0.19.0
-	k8s.io/apimachinery v0.19.0
-	k8s.io/client-go v0.19.0
-	k8s.io/code-generator v0.19.0
+	k8s.io/api v0.19.1
+	k8s.io/apiextensions-apiserver v0.19.1
+	k8s.io/apimachinery v0.19.1
+	k8s.io/client-go v0.19.1
+	k8s.io/code-generator v0.19.1
 	k8s.io/klog/v2 v2.2.0
 	// We specify the controller-tools version here to be the version of the
 	// fork below, so that when we generate CRDs, the generated CRD contains
@@ -107,7 +107,7 @@ require (
 replace (
 	github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 	github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
-	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20200831072324-10fc1bc2daaa
+	k8s.io/client-go => github.com/cilium/client-go v0.0.0-20200909181928-942479572cbc
 
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.
