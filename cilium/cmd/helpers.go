@@ -102,7 +102,7 @@ func requireServiceID(cmd *cobra.Command, args []string) {
 func TablePrinter(firstTitle, secondTitle string, data map[string][]string) {
 	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
 
-	fmt.Fprintf(w, "%s\t%s\t\n", firstTitle, secondTitle)
+	fmt.Fprintf(w, "%s\t%s\n", firstTitle, secondTitle)
 
 	for key, value := range data {
 		for k, v := range value {

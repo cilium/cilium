@@ -115,7 +115,7 @@ type Map struct {
 	NonPersistent bool
 
 	// DumpParser is a function for parsing keys and values from BPF maps
-	dumpParser DumpParser
+	DumpParser DumpParser
 
 	cache map[string]*cacheEntry
 
@@ -161,7 +161,7 @@ func NewMapWithOpts(name string, mapType MapType, mapKey MapKey, keySize int,
 			OwnerProgType: ProgTypeUnspec,
 		},
 		name:       path.Base(name),
-		dumpParser: dumpParser,
+		DumpParser: dumpParser,
 	}
 	return m
 }
@@ -194,7 +194,7 @@ func NewPerCPUHashMap(name string, mapKey MapKey, keySize int, mapValue MapValue
 			OwnerProgType: ProgTypeUnspec,
 		},
 		name:       path.Base(name),
-		dumpParser: dumpParser,
+		DumpParser: dumpParser,
 	}
 	return m
 }
@@ -627,7 +627,7 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 			return err
 		}
 
-		mk, mv, err = m.dumpParser(nextKey, value, mk, mv)
+		mk, mv, err = m.DumpParser(nextKey, value, mk, mv)
 		if err != nil {
 			return err
 		}
@@ -755,7 +755,7 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 			continue
 		}
 
-		mk, mv, err = m.dumpParser(currentKey, value, mk, mv)
+		mk, mv, err = m.DumpParser(currentKey, value, mk, mv)
 		if err != nil {
 			stats.Interrupted++
 			return err
@@ -961,7 +961,7 @@ func (m *Map) DeleteAll() error {
 
 		err := DeleteElement(m.fd, unsafe.Pointer(&nextKey[0]))
 
-		mk, _, err2 := m.dumpParser(nextKey, []byte{}, mk, mv)
+		mk, _, err2 := m.DumpParser(nextKey, []byte{}, mk, mv)
 		if err2 == nil {
 			m.deleteCacheEntry(mk, err)
 		} else {
