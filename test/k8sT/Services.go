@@ -354,7 +354,7 @@ var _ = Describe("K8sServicesTest", func() {
 		It("Checks service.kubernetes.io/service-proxy-name label implementation", func() {
 			serviceProxyLabelName := "service.kubernetes.io/service-proxy-name"
 
-			ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
+			ciliumPods, err := kubectl.GetCiliumPods()
 			Expect(err).To(BeNil(), "Cannot get cilium pods")
 
 			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, echoServiceName)

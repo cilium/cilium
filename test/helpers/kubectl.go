@@ -664,7 +664,7 @@ func (kub *Kubectl) GetNumCiliumNodes() int {
 // CountMissedTailCalls returns the number of the sum of all drops due to
 // missed tail calls that happened on all Cilium-managed nodes.
 func (kub *Kubectl) CountMissedTailCalls() (int, error) {
-	ciliumPods, err := kub.GetCiliumPods(GetCiliumNamespace(GetCurrentIntegration()))
+	ciliumPods, err := kub.GetCiliumPods()
 	if err != nil {
 		return -1, err
 	}
