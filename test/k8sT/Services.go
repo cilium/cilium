@@ -1221,6 +1221,51 @@ var _ = Describe("K8sServicesTest", func() {
 			testNodePort(false, false, false, 0)
 		})
 
+		testMaglev := func() {
+			var (
+				data  v1.Service
+				count = 10
+			)
+
+			err := kubectl.Get(helpers.DefaultNamespace, "service echo").Unmarshal(&data)
+			ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service")
+
+			// Flush CT tables so that any entry with src port 6{0,1,2}000
+			// from previous tests with --node-port-algorithm=random
+			// won't interfere the backend selection.
+			for _, label := range []string{helpers.K8s1, helpers.K8s2} {
+				pod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
+				ExpectWithOffset(1, err).Should(BeNil(), "cannot get cilium pod name %s", label)
+				kubectl.CiliumExecMustSucceed(context.TODO(), pod, "cilium bpf ct flush global", "Unable to flush CT maps")
+			}
+
+			for _, port := range []int{60000, 61000, 62000} {
+				dstPod := ""
+
+				// Send requests from the same IP and port to different nodes, and check
+				// that the same backend is selected
+
+				for _, host := range []string{k8s1IP, k8s2IP} {
+					url := getTFTPLink(host, data.Spec.Ports[1].NodePort)
+					cmd := helpers.CurlFail("--local-port %d %s", port, url) + " | grep 'Hostname:' " // pod name is in the hostname
+
+					By("Making %d HTTP requests from %s:%d to %q", count, outsideNodeName, port, url)
+
+					for i := 1; i <= count; i++ {
+						res := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName, cmd)
+						ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
+							"Cannot connect to service %q (%d/%d)", url, i, count)
+						pod := strings.TrimSpace(strings.Split(res.Stdout(), ": ")[1])
+						if dstPod == "" {
+							dstPod = pod
+						} else {
+							ExpectWithOffset(1, dstPod).To(Equal(pod))
+						}
+					}
+				}
+			}
+		}
+
 		SkipItIf(helpers.RunsWithoutKubeProxy, "Tests NodePort (kube-proxy) with externalTrafficPolicy=Local", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 				// When kube-proxy is enabled, the host firewall is not
@@ -1381,9 +1426,9 @@ var _ = Describe("K8sServicesTest", func() {
 				})
 
 				Context("Tests with vxlan", func() {
-					BeforeAll(func() {
-						DeployCiliumAndDNS(kubectl, ciliumFilename)
-					})
+					//BeforeAll(func() {
+					//	DeployCiliumAndDNS(kubectl, ciliumFilename)
+					//})
 
 					It("Tests NodePort", func() {
 						testNodePort(true, false, helpers.ExistNodeWithoutCilium(), 0)
@@ -1453,6 +1498,38 @@ var _ = Describe("K8sServicesTest", func() {
 							applyPolicy(demoPolicyL7)
 							testNodePort(false, false, false, 0)
 						})
+					})
+
+					Context("Tests NodePort with Maglev", func() {
+						var echoYAML string
+
+						BeforeAll(func() {
+							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+								"global.nodePort.algorithm": "maglev",
+								// The echo svc has two backends. the closest supported
+								// prime number which is greater than 100 * |backends_count|
+								// is 251.
+								"config.maglev.tableSize": "251",
+							})
+
+							echoYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
+							kubectl.ApplyDefault(echoYAML).ExpectSuccess("unable to apply %s", echoYAML)
+							err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
+							Expect(err).Should(BeNil())
+						})
+
+						AfterAll(func() {
+							kubectl.Delete(echoYAML)
+						})
+
+						It("Tests NodePort", func() {
+							testNodePort(true, false, helpers.ExistNodeWithoutCilium(), 0)
+						})
+
+						SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
+							"Tests Maglev backend selection", func() {
+								testMaglev()
+							})
 					})
 
 					SkipItIf(func() bool { return helpers.GetCurrentIntegration() != "" },
@@ -1546,6 +1623,40 @@ var _ = Describe("K8sServicesTest", func() {
 							applyPolicy(demoPolicyL7)
 							testNodePort(false, false, false, 0)
 						})
+					})
+
+					Context("Tests NodePort with Maglev", func() {
+						var echoYAML string
+
+						BeforeAll(func() {
+							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+								"global.tunnel":               "disabled",
+								"global.autoDirectNodeRoutes": "true",
+								"global.nodePort.algorithm":   "maglev",
+								// The echo svc has two backends. the closest supported
+								// prime number which is greater than 100 * |backends_count|
+								// is 251.
+								"config.maglev.tableSize": "251",
+							})
+
+							echoYAML = helpers.ManifestGet(kubectl.BasePath(), "echo-svc.yaml")
+							kubectl.ApplyDefault(echoYAML).ExpectSuccess("unable to apply %s", echoYAML)
+							err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echo", helpers.HelperTimeout)
+							Expect(err).Should(BeNil())
+						})
+
+						AfterAll(func() {
+							kubectl.Delete(echoYAML)
+						})
+
+						It("Tests NodePort", func() {
+							testNodePort(true, false, helpers.ExistNodeWithoutCilium(), 0)
+						})
+
+						SkipItIf(helpers.DoesNotExistNodeWithoutCilium,
+							"Tests Maglev backend selection", func() {
+								testMaglev()
+							})
 					})
 
 					SkipItIf(func() bool { return helpers.GetCurrentIntegration() != "" },
