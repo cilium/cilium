@@ -138,7 +138,16 @@ func addENIRules(sysSettings []setting) ([]setting, error) {
 		return sysSettings, nil
 	}
 
-	retSettings := append(sysSettings, setting{"net.ipv4.conf.eth0.rp_filter", "2", false})
+	iface, err := route.NodeDeviceWithDefaultRoute(option.Config.EnableIPv4, option.Config.EnableIPv6)
+	if err != nil {
+		return nil, fmt.Errorf("failed to find interface with default route: %w", err)
+	}
+
+	retSettings := append(sysSettings, setting{
+		fmt.Sprintf("net.ipv4.conf.%s.rp_filter", iface.Attrs().Name),
+		"2",
+		false,
+	})
 	if err := route.ReplaceRule(route.Rule{
 		Priority: linux_defaults.RulePriorityNodeport,
 		Mark:     linux_defaults.MarkMultinodeNodeport,
