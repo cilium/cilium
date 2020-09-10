@@ -60,6 +60,12 @@ var (
 		Use:   "cilium-operator",
 		Short: "Run the cilium-operator",
 		Run: func(cmd *cobra.Command, args []string) {
+			// Open socket for using gops to get stacktraces of the operator.
+			if err := gops.Listen(gops.Options{}); err != nil {
+				fmt.Fprintf(os.Stderr, "unable to start gops: %s", err)
+				os.Exit(-1)
+			}
+
 			runOperator(cmd)
 		},
 	}
@@ -123,12 +129,6 @@ func main() {
 		<-signals
 		doCleanup()
 	}()
-
-	// Open socket for using gops to get stacktraces of the operator.
-	if err := gops.Listen(gops.Options{}); err != nil {
-		fmt.Fprintf(os.Stderr, "unable to start gops: %s", err)
-		os.Exit(-1)
-	}
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
