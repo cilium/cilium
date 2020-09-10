@@ -36,6 +36,7 @@ cilium-operator-azure [flags]
       --enable-ipv6                                Enable IPv6 support (default true)
       --enable-k8s-api-discovery                   Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                  Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
+      --enable-k8s-event-handover                  Enable k8s event handover to kvstore for improved scalability
       --enable-metrics                             Enable Prometheus metrics
   -h, --help                                       help for cilium-operator-azure
       --identity-allocation-mode string            Method to use for identity allocation (default "kvstore")
