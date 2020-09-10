@@ -3,7 +3,7 @@
 
 include ../Makefile.defs
 
-.PHONY: all build_all subdirs check force preprocess assembly install clean $(BUILD_PERMUTATIONS_DEP)
+.PHONY: all build_all subdirs install clean
 
 SUBDIRS = sockops
 
