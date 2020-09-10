@@ -207,9 +207,16 @@ func init() {
 	flags.MarkHidden(option.DisableCiliumEndpointCRDName)
 	option.BindEnv(option.DisableCiliumEndpointCRDName)
 
+	flags.Bool(option.DisableCNPStatusUpdates, false, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc=false" in cilium-operator)`)
+	flags.MarkHidden(option.DisableCNPStatusUpdates)
+	option.BindEnv(option.DisableCNPStatusUpdates)
+
 	flags.BoolVar(&enableCNPNodeStatusGC, "cnp-node-status-gc", true, "Enable CiliumNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
 	flags.BoolVar(&enableCCNPNodeStatusGC, "ccnp-node-status-gc", true, "Enable CiliumClusterwideNetworkPolicy Status garbage collection for nodes which have been removed from the cluster")
 	flags.DurationVar(&ciliumCNPNodeStatusGCInterval, "cnp-node-status-gc-interval", time.Minute*2, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
+
+	flags.Bool(option.K8sEventHandover, defaults.K8sEventHandover, "Enable k8s event handover to kvstore for improved scalability")
+	option.BindEnv(option.K8sEventHandover)
 
 	flags.DurationVar(&cnpStatusUpdateInterval, "cnp-status-update-interval", 1*time.Second, "interval between CNP status updates sent to the k8s-apiserver per-CNP")
 
@@ -252,7 +259,9 @@ func initConfig() {
 	option.Config.ClusterName = viper.GetString(option.ClusterName)
 	option.Config.ClusterID = viper.GetInt(option.ClusterIDName)
 	option.Config.DisableCiliumEndpointCRD = viper.GetBool(option.DisableCiliumEndpointCRDName)
+	option.Config.DisableCNPStatusUpdates = viper.GetBool(option.DisableCNPStatusUpdates)
 	option.Config.K8sNamespace = viper.GetString(option.K8sNamespaceName)
+	option.Config.K8sEventHandover = viper.GetBool(option.K8sEventHandover)
 	option.Config.AwsReleaseExcessIps = viper.GetBool(option.AwsReleaseExcessIps)
 	option.Config.EC2APIEndpoint = viper.GetString(option.EC2APIEndpoint)
 	option.Config.IdentityGCRateInterval = viper.GetDuration(option.IdentityGCRateInterval)

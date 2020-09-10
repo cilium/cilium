@@ -25,6 +25,7 @@ import (
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/groups"
 
 	"k8s.io/api/core/v1"
@@ -47,7 +48,11 @@ func init() {
 }
 
 func enableCNPWatcher() error {
-	log.Info("Starting to garbage collect stale CiliumNetworkPolicy status field entries...")
+	enableCNPStatusUpdates := kvstoreEnabled() && option.Config.K8sEventHandover && !option.Config.DisableCNPStatusUpdates
+	if enableCNPStatusUpdates {
+		log.Info("Starting a CNP Status handover from etcd to k8s...")
+	}
+	log.Info("Starting CNP derivative handler...")
 
 	var (
 		cnpConverterFunc informer.ConvertFunc
@@ -64,7 +69,7 @@ func enableCNPWatcher() error {
 		cnpConverterFunc = k8s.ConvertToCNPWithStatus
 	}
 
-	if kvstoreEnabled() {
+	if enableCNPStatusUpdates {
 		cnpSharedStore, err := store.JoinSharedStore(store.Configuration{
 			Prefix: k8s.CNPStatusesPath,
 			KeyCreator: func() store.Key {
@@ -90,7 +95,7 @@ func enableCNPWatcher() error {
 				metrics.EventTSK8s.SetToCurrentTime()
 				if cnp := k8s.CopyObjToV2CNP(obj); cnp != nil {
 					groups.AddDerivativeCNPIfNeeded(cnp.CiliumNetworkPolicy)
-					if kvstoreEnabled() {
+					if enableCNPStatusUpdates {
 						cnpStatusMgr.StartStatusHandler(cnp)
 					}
 				}
@@ -125,7 +130,7 @@ func enableCNPWatcher() error {
 				// The derivative policy will be deleted by the parent but need
 				// to delete the cnp from the pooling.
 				groups.DeleteDerivativeFromCache(cnp.CiliumNetworkPolicy)
-				if kvstoreEnabled() {
+				if enableCNPStatusUpdates {
 					cnpStatusMgr.StopStatusHandler(cnp)
 				}
 			},
