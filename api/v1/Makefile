@@ -4,5 +4,4 @@ include ../../images/hubble-proto/Makefile.defs
 proto:
 	docker container run --rm \
 		--volume $(CURDIR):/source \
-		cilium/hubble-proto:${version} \
-		make -f docker/Makefile
+		cilium/hubble-proto:${version}

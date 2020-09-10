@@ -30,4 +30,8 @@ COPY --from=builder /proto/protoc-gen-go /proto
 COPY --from=builder /proto/protoc-gen-go-grpc /proto
 COPY --from=builder /proto/protoc-gen-go-json /proto
 
+COPY Makefile.docker /proto/Makefile
+
 WORKDIR /source
+
+CMD ["make", "-f", "/proto/Makefile"]
