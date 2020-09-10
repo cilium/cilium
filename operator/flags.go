@@ -87,6 +87,13 @@ func init() {
 	option.BindEnv(operatorOption.EnableCNPNodeStatusGC)
 	flags.MarkDeprecated(operatorOption.EnableCNPNodeStatusGC, fmt.Sprintf("Please use %s=0 to disable CNP Status GC", operatorOption.CNPNodeStatusGCInterval))
 
+	flags.Bool(option.DisableCNPStatusUpdates, false, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc-interval=0" in cilium-operator)`)
+	flags.MarkHidden(option.DisableCNPStatusUpdates)
+	option.BindEnv(option.DisableCNPStatusUpdates)
+
+	flags.Bool(option.K8sEventHandover, defaults.K8sEventHandover, "Enable k8s event handover to kvstore for improved scalability")
+	option.BindEnv(option.K8sEventHandover)
+
 	flags.Duration(operatorOption.CNPNodeStatusGCInterval, 2*time.Minute, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
 	option.BindEnv(operatorOption.CNPNodeStatusGCInterval)
 
