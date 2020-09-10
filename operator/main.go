@@ -134,10 +134,9 @@ func main() {
 		doCleanup()
 	}()
 
-	// Open socket for using gops to get stacktraces of the agent.
+	// Open socket for using gops to get stacktraces of the operator.
 	if err := gops.Listen(gops.Options{}); err != nil {
-		errorString := fmt.Sprintf("unable to start gops: %s", err)
-		fmt.Println(errorString)
+		fmt.Fprintf(os.Stderr, "unable to start gops: %s", err)
 		os.Exit(-1)
 	}
 
