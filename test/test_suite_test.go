@@ -49,8 +49,7 @@ var (
 func init() {
 	// Open socket for using gops to get stacktraces in case the tests deadlock.
 	if err := gops.Listen(gops.Options{ShutdownCleanup: true}); err != nil {
-		errorString := fmt.Sprintf("unable to start gops: %s", err)
-		fmt.Println(errorString)
+		fmt.Fprintf(os.Stderr, "unable to start gops: %s", err)
 		os.Exit(-1)
 	}
 
