@@ -335,6 +335,34 @@ Cilium will automatically perform load-balancing to pods in both clusters.
      selector:
        name: rebel-base
 
+Load-balancing only to a remote cluster
+#######################################
+
+By default, a Global Service will load-balance across backends in multiple clusters.
+This implicitly configures ``io.cilium/shared-service: "true"``. To prevent service
+backends from being shared to other clusters, and to ensure that the service
+will only load-balance to backends in remote clusters, this option should be
+disabled.
+
+Below example will expose remote endpoint without sharing local endpoints.
+
+.. code-block:: yaml
+
+   apiVersion: v1
+   kind: Service
+   metadata:
+     name: rebel-base
+     annotations:
+       io.cilium/global-service: "true"
+       io.cilium/shared-service: "false"
+   spec:
+     type: ClusterIP
+     ports:
+     - port: 80
+     selector:
+       name: rebel-base
+
+
 Deploying a simple example service
 ==================================
 
