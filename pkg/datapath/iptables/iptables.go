@@ -1191,6 +1191,9 @@ func (m *IptablesManager) addCiliumENIRules() error {
 	nfmask := fmt.Sprintf("%#08x", linux_defaults.MarkMultinodeNodeport)
 	ctmask := fmt.Sprintf("%#08x", linux_defaults.MaskMultinodeNodeport)
 
+	// Note: these rules need the xt_connmark module (iptables usually
+	// loads it when required, unless loading modules after boot has been
+	// disabled).
 	if err := runProg("iptables", append(
 		m.waitArgs,
 		"-t", "mangle",
