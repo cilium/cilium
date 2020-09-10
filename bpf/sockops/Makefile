@@ -3,7 +3,7 @@
 
 include ../../Makefile.defs
 
-.PHONY: all assembly check preprocess clean
+.PHONY: all clean
 
 BPF = bpf_sockops.o bpf_redir.o
 
