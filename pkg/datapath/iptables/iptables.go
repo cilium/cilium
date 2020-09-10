@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/byteorder"
 	"github.com/cilium/cilium/pkg/command/exec"
 	"github.com/cilium/cilium/pkg/datapath/linux/linux_defaults"
+	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/modules"
@@ -1169,13 +1170,19 @@ func (m *IptablesManager) addCiliumENIRules() error {
 		return nil
 	}
 
+	iface, err := route.NodeDeviceWithDefaultRoute()
+	if err != nil {
+		return fmt.Errorf("failed to find interface with default route: %w", err)
+	}
+
 	nfmask := fmt.Sprintf("%#08x", linux_defaults.MarkMultinodeNodeport)
 	ctmask := fmt.Sprintf("%#08x", linux_defaults.MaskMultinodeNodeport)
+
 	if err := runProg("iptables", append(
 		m.waitArgs,
 		"-t", "mangle",
 		"-A", ciliumPreMangleChain,
-		"-i", "eth0",
+		"-i", iface.Attrs().Name,
 		"-m", "comment", "--comment", "cilium: primary ENI",
 		"-m", "addrtype", "--dst-type", "LOCAL", "--limit-iface-in",
 		"-j", "CONNMARK", "--set-xmark", nfmask+"/"+ctmask),
