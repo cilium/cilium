@@ -69,6 +69,13 @@ var (
 				genMarkdown(cmd, cmdRefDir)
 				os.Exit(0)
 			}
+
+			// Open socket for using gops to get stacktraces of the operator.
+			if err := gops.Listen(gops.Options{}); err != nil {
+				fmt.Fprintf(os.Stderr, "unable to start gops: %s", err)
+				os.Exit(-1)
+			}
+
 			initEnv()
 			runOperator()
 		},
@@ -133,12 +140,6 @@ func main() {
 		<-signals
 		doCleanup()
 	}()
-
-	// Open socket for using gops to get stacktraces of the operator.
-	if err := gops.Listen(gops.Options{}); err != nil {
-		fmt.Fprintf(os.Stderr, "unable to start gops: %s", err)
-		os.Exit(-1)
-	}
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
