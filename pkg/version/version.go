@@ -17,6 +17,8 @@ package version
 import (
 	"encoding/base64"
 	"encoding/json"
+	"fmt"
+	"runtime"
 	"strings"
 )
 
@@ -34,8 +36,18 @@ type CiliumVersion struct {
 	AuthorDate string
 }
 
-// Version is set during build
+// ciliumVersion is set to Cilium's version, revision and git author time reference during build.
+var ciliumVersion string
+
+// Version is the complete Cilium version string including Go version.
 var Version string
+
+func init() {
+	// Mimic the output of `go version` and append it to ciliumVersion.
+	// Report GOOS/GOARCH of the actual binary, not the system it was built on, in case it was
+	// cross-compiled. See #13122
+	Version = fmt.Sprintf("%s go version %s %s/%s", ciliumVersion, runtime.Version(), runtime.GOOS, runtime.GOARCH)
+}
 
 // FromString converts a version string into struct
 func FromString(versionString string) CiliumVersion {
