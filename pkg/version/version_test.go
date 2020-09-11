@@ -17,6 +17,7 @@
 package version
 
 import (
+	"runtime"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -96,4 +97,10 @@ func (vs *VersionSuite) TestStructIsSet(c *C) {
 		c.Assert(cver.Arch, Equals, tt.out.Arch)
 		c.Assert(cver.AuthorDate, Equals, tt.out.AuthorDate)
 	}
+}
+
+func (vs *VersionSuite) TestVersionArchMatchesGOARCH(c *C) {
+	// var ciliumVersion is not set in tests, thus Version does not contain the cilium version,
+	// just check that GOOS/GOARCH are reported correctly, see #13122.
+	c.Assert(Version, Matches, ".* "+runtime.GOOS+"/"+runtime.GOARCH)
 }
