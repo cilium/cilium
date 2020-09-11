@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumClusterwideNetworkPolicy
-description: ""
 metadata:
   name: "demo-host-policy"
 spec:
+  description: ""
   nodeSelector:
     matchLabels:
       node-access: ssh

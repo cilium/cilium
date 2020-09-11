@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "enable outposts to consume empire-announce"
 metadata:
   name: "rule2"
 spec:
+  description: "enable outposts to consume empire-announce"
   endpointSelector:
     matchLabels:
       app: kafka

@@ -1,10 +1,10 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "fqdn-proxy-policy.yaml"
 metadata:
   name: "fqdn-proxy-policy.yaml"
 specs:
-- egress:
+- description: "fqdn-proxy-policy.yaml"
+  egress:
   - toPorts:
     - ports:
       - port: '53'
