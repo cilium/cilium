@@ -29,7 +29,6 @@ TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell echo $(GOFILES) | \
 	grep -v '/api/v1\|/vendor\|/contrib\|/$(BUILD_DIR)/' | \
 	grep -v -P 'test(?!/helpers/logutils)'))
 TESTPKGS ?= $(TESTPKGS_EVAL)
-GOLANGVERSION := $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
 K8S_CRD_EVAL := $(addprefix $(ROOT_DIR)/,$(shell git ls-files $(ROOT_DIR)/examples/crds | grep -v .gitignore | tr "\n" ' '))
 K8S_CRD_FILES ?= $(K8S_CRD_EVAL)
