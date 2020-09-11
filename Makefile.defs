@@ -61,8 +61,8 @@ ifneq ($(wildcard $(dir $(lastword $(MAKEFILE_LIST)))/.git),)
 else
 	GIT_VERSION = $(shell cat $(ROOT_DIR)/GIT_VERSION)
 endif
-FULL_BUILD_VERSION = $(VERSION) $(GIT_VERSION) $(shell $(GO) version)
-GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/version.Version=$(FULL_BUILD_VERSION)"
+FULL_BUILD_VERSION = $(VERSION) $(GIT_VERSION)
+GO_BUILD_LDFLAGS += -X "github.com/cilium/cilium/pkg/version.ciliumVersion=$(FULL_BUILD_VERSION)"
 
 ifeq ($(NOSTRIP),)
 	# Note: these options will not remove annotations needed for stack
