@@ -106,7 +106,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 		 * the CT entry for destination endpoints where we can't encode the
 		 * state in the address.
 		 */
-		svc = lb6_lookup_service(&key, true);
+		svc = lb6_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 		if (svc) {
 			ret = lb6_local(get_ct_map6(tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, tuple, svc, &ct_state_new);
@@ -480,7 +480,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 				return ret;
 		}
 
-		svc = lb4_lookup_service(&key, true);
+		svc = lb4_lookup_service(&key, is_defined(ENABLE_NODEPORT));
 		if (svc) {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
