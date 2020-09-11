@@ -1124,11 +1124,10 @@ is labeled correctly in your environment. In the example configuration, you can
 run ``kubectl get nodes -o wide|grep type=ingress-worker`` to verify labels
 match the policy.
 
-You can verify the policy was applied by running ``kubectl exec`` in
-the Cilium agent pod and running ``cilium policy get``. Verify that the host is
-selected by the policy using ``cilium endpoint list`` and look for the endpoint
-with ``reserved:host`` as the label and ensure that policy is enabled in the
-selected direction. Ensure the traffic is arriving on the device visible on the
-``NodePort`` field of the ``cilium status list`` output. Use ``cilium monitor``
-with ``--related-to`` and the endpoint ID of the ``reserved:host`` endpoint to
-view traffic.
+You can verify the policy was applied by running ``kubectl exec -n $CILIUM_NAMESPACE cilium-xxxx -- cilium policy get``
+for the Cilium agent pod. Verify that the host is selected by the policy using
+``cilium endpoint list`` and look for the endpoint with ``reserved:host`` as the
+label and ensure that policy is enabled in the selected direction. Ensure the
+traffic is arriving on the device visible on the ``NodePort`` field of the
+``cilium status list`` output. Use ``cilium monitor`` with ``--related-to`` and
+the endpoint ID of the ``reserved:host`` endpoint to view traffic.
