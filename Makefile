@@ -29,7 +29,6 @@ TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell echo $(GOFILES) | \
 	grep -v '/api/v1\|/vendor\|/contrib\|/$(BUILD_DIR)/' | \
 	grep -v -P 'test(?!/helpers/logutils)'))
 TESTPKGS ?= $(TESTPKGS_EVAL)
-GOLANGVERSION := $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
 
 SWAGGER_VERSION := v0.20.1
