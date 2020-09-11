@@ -169,15 +169,6 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		maps = append(maps, "cilium_throttle")
 	}
 
-	// Can be removed with Cilium 1.8
-	maps = append(maps, []string{
-		"cilium_policy_reserved_1",
-		"cilium_policy_reserved_2",
-		"cilium_policy_reserved_3",
-		"cilium_policy_reserved_4",
-		"cilium_policy_reserved_5",
-	}...)
-
 	for _, m := range maps {
 		p := path.Join(bpf.MapPrefixPath(), m)
 		if _, err := os.Stat(p); !os.IsNotExist(err) {
