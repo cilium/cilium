@@ -27,6 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/ipmasq"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -143,7 +145,10 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb6_backends",
 			"cilium_lb6_reverse_sk",
 			"cilium_snat_v6_external",
-			"cilium_proxy6"}...)
+			"cilium_proxy6",
+			lbmap.Affinity6MapName,
+			lbmap.SourceRange6MapName,
+		}...)
 	}
 
 	if !option.Config.EnableIPv4 {
@@ -158,7 +163,11 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb4_backends",
 			"cilium_lb4_reverse_sk",
 			"cilium_snat_v4_external",
-			"cilium_proxy4"}...)
+			"cilium_proxy4",
+			lbmap.Affinity4MapName,
+			lbmap.SourceRange4MapName,
+			ipmasq.MapName,
+		}...)
 	}
 
 	if !option.Config.EnableIPv4FragmentsTracking {
@@ -173,6 +182,18 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 		"cilium_policy_reserved_4",
 		"cilium_policy_reserved_5",
 	}...)
+
+	if !option.Config.EnableSessionAffinity {
+		maps = append(maps, lbmap.Affinity6MapName, lbmap.Affinity4MapName, lbmap.AffinityMatchMapName)
+	}
+
+	if !option.Config.EnableSVCSourceRangeCheck {
+		maps = append(maps, lbmap.SourceRange6MapName, lbmap.SourceRange4MapName)
+	}
+
+	if !option.Config.EnableIPMasqAgent {
+		maps = append(maps, ipmasq.MapName)
+	}
 
 	for _, m := range maps {
 		p := path.Join(bpf.MapPrefixPath(), m)
