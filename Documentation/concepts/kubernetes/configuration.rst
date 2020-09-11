@@ -258,10 +258,10 @@ will return an error, e.g.:
 	cat <<EOF > ./bad-cnp.yaml
 	apiVersion: "cilium.io/v2"
 	kind: CiliumNetworkPolicy
-	description: "Policy to test multiple rules in a single file"
 	metadata:
 	  name: my-new-cilium-object
 	spec:
+	  description: "Policy to test multiple rules in a single file"
 	  endpointSelector:
 	    matchLabels:
 	      app: details

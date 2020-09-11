@@ -380,8 +380,8 @@ the ``--cluster-name`` agent option or ``cluster-name`` ConfigMap option.
     kind: CiliumNetworkPolicy
     metadata:
       name: "allow-cross-cluster"
-      description: "Allow x-wing in cluster1 to contact rebel-base in cluster2"
     spec:
+      description: "Allow x-wing in cluster1 to contact rebel-base in cluster2"
       endpointSelector:
         matchLabels:
           name: x-wing

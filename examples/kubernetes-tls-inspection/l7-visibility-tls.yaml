@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "L7 policy with TLS"
 metadata:
   name: "l7-visibility-tls"
 spec:
+  description: L7 policy with TLS
   endpointSelector:
     matchLabels:
       org: empire

@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumClusterwideNetworkPolicy
-description: "Lock down nodes on GKE. USE AT YOUR OWN RISK."
 metadata:
   name: "lock-down-gke"
 spec:
+  description: "Lock down nodes on GKE. USE AT YOUR OWN RISK."
   nodeSelector:
     matchLabels:
       type: worker

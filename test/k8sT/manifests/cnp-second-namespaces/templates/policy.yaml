@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "Policy to stress test L7 proxy"
 metadata:
   name: "cnp-second-namespace"
 spec:
+  description: "Policy to stress test L7 proxy"
   endpointSelector:
     matchLabels:
       id: app1

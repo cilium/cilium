@@ -1,9 +1,9 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumNetworkPolicy
-description: "enable empire-hq to produce to empire-announce and deathstar-plans"
 metadata:
   name: "rule1"
 spec:
+  description: "enable empire-hq to produce to empire-announce and deathstar-plans"
   endpointSelector:
     matchLabels:
       app: kafka
