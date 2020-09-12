@@ -32,7 +32,7 @@ import (
 	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	"github.com/sirupsen/logrus"
-	"k8s.io/api/core/v1"
+	v1 "k8s.io/api/core/v1"
 )
 
 func getAnnotationIncludeExternal(svc *slim_corev1.Service) bool {
@@ -71,8 +71,18 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 
 	svcID := ParseServiceID(svc)
 
+	var svcType loadbalancer.SVCType
 	switch svc.Spec.Type {
-	case slim_corev1.ServiceTypeClusterIP, slim_corev1.ServiceTypeNodePort, slim_corev1.ServiceTypeLoadBalancer:
+	case slim_corev1.ServiceTypeClusterIP:
+		svcType = loadbalancer.SVCTypeClusterIP
+		break
+
+	case slim_corev1.ServiceTypeNodePort:
+		svcType = loadbalancer.SVCTypeNodePort
+		break
+
+	case slim_corev1.ServiceTypeLoadBalancer:
+		svcType = loadbalancer.SVCTypeLoadBalancer
 		break
 
 	case slim_corev1.ServiceTypeExternalName:
@@ -108,9 +118,10 @@ func ParseService(svc *slim_corev1.Service, nodeAddressing datapath.NodeAddressi
 		}
 	}
 
-	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs,
-		loadBalancerIPs, svc.Spec.LoadBalancerSourceRanges, headless,
-		trafficPolicy, uint16(svc.Spec.HealthCheckNodePort), svc.Labels, svc.Spec.Selector)
+	svcInfo := NewService(clusterIP, svc.Spec.ExternalIPs, loadBalancerIPs,
+		svc.Spec.LoadBalancerSourceRanges, headless, trafficPolicy,
+		uint16(svc.Spec.HealthCheckNodePort), svc.Labels, svc.Spec.Selector,
+		svc.GetNamespace(), svcType)
 	svcInfo.IncludeExternal = getAnnotationIncludeExternal(svc)
 	svcInfo.Shared = getAnnotationShared(svc)
 
@@ -257,6 +268,9 @@ type Service struct {
 	SessionAffinity bool
 	// SessionAffinityTimeoutSeconds denotes session affinity timeout
 	SessionAffinityTimeoutSec uint32
+
+	// Type is the internal service type
+	Type loadbalancer.SVCType
 }
 
 // String returns the string representation of a service resource
@@ -381,10 +395,10 @@ func parseIPs(externalIPs []string) map[string]net.IP {
 }
 
 // NewService returns a new Service with the Ports map initialized.
-func NewService(ip net.IP, externalIPs []string,
-	loadBalancerIPs []string, loadBalancerSourceRanges []string,
+func NewService(ip net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRanges []string,
 	headless bool, trafficPolicy loadbalancer.SVCTrafficPolicy,
-	healthCheckNodePort uint16, labels, selector map[string]string) *Service {
+	healthCheckNodePort uint16, labels, selector map[string]string,
+	namespace string, svcType loadbalancer.SVCType) *Service {
 
 	var (
 		k8sExternalIPs     map[string]net.IP
@@ -418,6 +432,7 @@ func NewService(ip net.IP, externalIPs []string,
 
 		Labels:   labels,
 		Selector: selector,
+		Type:     svcType,
 	}
 }
 
