@@ -66,6 +66,7 @@ Advanced Networking
    bandwidth-manager
    kata
    ipam
+   local-redirect-policy
 
 Operations
 ----------
