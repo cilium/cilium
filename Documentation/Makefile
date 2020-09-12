@@ -42,7 +42,6 @@ endif
 copy-api:
 	@$(ECHO_GEN)_api
 	$(QUIET)cp -r ../api _api
-	$(QUIET)rm _api/v1/docker/README.md
 
 epub latex html: builder-image copy-api
 	@$(ECHO_GEN)_build/$@
