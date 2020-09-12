@@ -22,7 +22,19 @@
 
      minikube start --network-plugin=cni --memory=4096
 
-4. Mount the BPF filesystem
+::
+
+     # Only available for minikube >= v1.12.1
+     minikube start --network-plugin=cilium --memory=4096
+
+.. note::
+
+   From minikube v1.12.1+, cilium networking plugin can be enabled directly with
+   ``--network-plugin=cilium`` parameter in ``minikube start`` command. With this
+   flag enabled, ``minikube`` will not only mount eBPF file system but also
+   deploy ``quick-install.yaml`` automatically.
+
+4. Mount the eBPF filesystem
 
 ::
 
