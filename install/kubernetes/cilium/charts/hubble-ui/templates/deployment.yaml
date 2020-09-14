@@ -13,29 +13,50 @@ spec:
       labels:
         k8s-app: hubble-ui
     spec:
-      {{- if .Values.securityContext.enabled }}
-      securityContext:
-        runAsUser: 1001
-      {{- end }}
       serviceAccount: hubble-ui
       serviceAccountName: hubble-ui
       containers:
-        - name: hubble-ui
-          image: "{{ .Values.image.repository }}:{{ .Values.image.tag }}"
-          imagePullPolicy: {{ .Values.image.pullPolicy }}
-          env:
-            - name: NODE_ENV
-              value: "production"
-            - name: LOG_LEVEL
-              value: "info"
-            - name: HUBBLE
-              value: "true"
-            - name: HUBBLE_SERVICE
-              value: "hubble-relay"
-            - name: HUBBLE_PORT
-              value: "80"
+        - name: frontend
+          image: "{{ .Values.frontendImage.repository }}:{{ .Values.frontendImage.tag }}"
+          imagePullPolicy: {{ .Values.frontendImage.pullPolicy }}
           ports:
-            - containerPort: 12000
+            - containerPort: 8080
               name: http
           resources:
-            {{- toYaml .Values.resources | trim | nindent 12 }}
+            {{- toYaml .Values.frontendResources | trim | nindent 12 }}
+        - name: backend
+          image: "{{ .Values.backendImage.repository }}:{{ .Values.backendImage.tag }}"
+          imagePullPolicy: {{ .Values.backendImage.pullPolicy }}
+          env:
+            - name: EVENTS_SERVER_PORT
+              value: "8090"
+            - name: FLOWS_API_ADDR
+              value: "hubble-relay:80"
+          ports:
+            - containerPort: 8090
+              name: grpc
+          resources:
+            {{- toYaml .Values.backendResources  | trim | nindent 12 }}
+        - name: proxy
+          image: "{{ .Values.proxyImage.repository }}:{{ .Values.proxyImage.tag }}"
+          imagePullPolicy: {{ .Values.proxyImage.pullPolicy }}
+          ports:
+            - containerPort: 8081
+              name: http
+          resources: {{- toYaml .Values.proxyResources | trim | nindent 12 }}
+          command: ["envoy"]
+          args:
+            [
+              "-c",
+              "/etc/envoy.yaml",
+              "-l",
+              "info"
+            ]
+          volumeMounts:
+            - name: hubble-ui-envoy-yaml
+              mountPath: /etc/envoy.yaml
+              subPath: envoy.yaml
+      volumes:
+        - name: hubble-ui-envoy-yaml
+          configMap:
+            name: hubble-ui-envoy

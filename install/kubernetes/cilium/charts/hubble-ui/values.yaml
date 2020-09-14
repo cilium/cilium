@@ -1,12 +1,20 @@
 # Configuration for hubble ui
-image:
-  # repository of the docker image
+frontendImage:
   repository: quay.io/cilium/hubble-ui
-  # tag is the container image tag to use.
   # Ref: https://github.com/cilium/hubble-ui/releases
   # Ref: https://quay.io/repository/cilium/hubble-ui?tab=tags
-  tag: v0.6.1
-  # pullPolicy is the container image pull policy
+  tag: v0.7.1
+  pullPolicy: IfNotPresent
+backendImage:
+  repository: quay.io/cilium/hubble-ui-backend
+  # tag is the container image tag to use.
+  # Ref: https://github.com/cilium/hubble-ui/releases
+  # Ref: https://quay.io/repository/cilium/hubble-ui-backend?tab=tags
+  tag: v0.7.1
+  pullPolicy: IfNotPresent
+proxyImage:
+  repository: docker.io/envoyproxy/envoy
+  tag: v1.14.1
   pullPolicy: IfNotPresent
 replicas: 1
 # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
@@ -18,11 +26,9 @@ replicas: 1
 #       requests:
 #         cpu: 100m
 #         memory: 64Mi
-resources: {}
-
-securityContext:
-  # Incompatible with image version <= v0.5.0
-  enabled: true
+frontendResources: {}
+backendResources: {}
+proxyResources: {}
 
 serviceAccount:
   annotations: {}
@@ -39,4 +45,3 @@ ingress:
   #  - secretName: chart-example-tls
   #    hosts:
   #      - chart-example.local
-

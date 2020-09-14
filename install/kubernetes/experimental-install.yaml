@@ -177,6 +177,73 @@ data:
     disable-client-tls: true
     disable-server-tls: true
 ---
+# Source: cilium/charts/hubble-ui/templates/configmap.yaml
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-ui-envoy
+  namespace: kube-system
+data:
+  envoy.yaml: |
+    static_resources:
+      listeners:
+        - name: listener_hubble_ui
+          address:
+            socket_address:
+              address: 0.0.0.0
+              port_value: 8081
+          filter_chains:
+            - filters:
+                - name: envoy.filters.network.http_connection_manager
+                  config:
+                    codec_type: auto
+                    stat_prefix: ingress_http
+                    route_config:
+                      name: local_route
+                      virtual_hosts:
+                        - name: local_service
+                          domains: ['*']
+                          routes:
+                            - match:
+                                prefix: '/api/'
+                              route:
+                                cluster: backend
+                                max_grpc_timeout: 0s
+                                prefix_rewrite: '/'
+                            - match:
+                                prefix: '/'
+                              route:
+                                cluster: frontend
+                          cors:
+                            allow_origin_string_match:
+                              - prefix: '*'
+                            allow_methods: GET, PUT, DELETE, POST, OPTIONS
+                            allow_headers: keep-alive,user-agent,cache-control,content-type,content-transfer-encoding,x-accept-content-transfer-encoding,x-accept-response-streaming,x-user-agent,x-grpc-web,grpc-timeout
+                            max_age: '1728000'
+                            expose_headers: grpc-status,grpc-message
+                    http_filters:
+                      - name: envoy.filters.http.grpc_web
+                      - name: envoy.filters.http.cors
+                      - name: envoy.filters.http.router
+      clusters:
+        - name: frontend
+          connect_timeout: 0.25s
+          type: strict_dns
+          lb_policy: round_robin
+          hosts:
+            - socket_address:
+                address: 127.0.0.1
+                port_value: 8080
+        - name: backend
+          connect_timeout: 0.25s
+          type: logical_dns
+          lb_policy: round_robin
+          http2_protocol_options: {}
+          hosts:
+            - socket_address:
+                address: 127.0.0.1
+                port_value: 8090
+---
 # Source: cilium/charts/agent/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -467,7 +534,7 @@ spec:
   ports:
     - name: http
       port: 80
-      targetPort: 12000
+      targetPort: 8081
   type: ClusterIP
 ---
 # Source: cilium/charts/agent/templates/daemonset.yaml
@@ -800,30 +867,54 @@ spec:
       labels:
         k8s-app: hubble-ui
     spec:
-      securityContext:
-        runAsUser: 1001
       serviceAccount: hubble-ui
       serviceAccountName: hubble-ui
       containers:
-        - name: hubble-ui
-          image: "quay.io/cilium/hubble-ui:v0.6.1"
+        - name: frontend
+          image: "quay.io/cilium/hubble-ui:v0.7.1"
           imagePullPolicy: IfNotPresent
-          env:
-            - name: NODE_ENV
-              value: "production"
-            - name: LOG_LEVEL
-              value: "info"
-            - name: HUBBLE
-              value: "true"
-            - name: HUBBLE_SERVICE
-              value: "hubble-relay"
-            - name: HUBBLE_PORT
-              value: "80"
           ports:
-            - containerPort: 12000
+            - containerPort: 8080
               name: http
           resources:
             {}
+        - name: backend
+          image: "quay.io/cilium/hubble-ui-backend:v0.7.1"
+          imagePullPolicy: IfNotPresent
+          env:
+            - name: EVENTS_SERVER_PORT
+              value: "8090"
+            - name: FLOWS_API_ADDR
+              value: "hubble-relay:80"
+          ports:
+            - containerPort: 8090
+              name: grpc
+          resources:
+            {}
+        - name: proxy
+          image: "docker.io/envoyproxy/envoy:v1.14.1"
+          imagePullPolicy: IfNotPresent
+          ports:
+            - containerPort: 8081
+              name: http
+          resources:
+            {}
+          command: ["envoy"]
+          args:
+            [
+              "-c",
+              "/etc/envoy.yaml",
+              "-l",
+              "info"
+            ]
+          volumeMounts:
+            - name: hubble-ui-envoy-yaml
+              mountPath: /etc/envoy.yaml
+              subPath: envoy.yaml
+      volumes:
+        - name: hubble-ui-envoy-yaml
+          configMap:
+            name: hubble-ui-envoy
 ---
 # Source: cilium/charts/operator/templates/deployment.yaml
 apiVersion: apps/v1
