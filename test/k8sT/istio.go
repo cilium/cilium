@@ -29,10 +29,7 @@ import (
 // This tests the Istio integration, following the configuration
 // instructions specified in the Istio Getting Started Guide in
 // Documentation/gettingstarted/istio.rst.
-var _ = SkipContextIf(func() bool {
-	return helpers.SkipQuarantined() && helpers.GetCurrentK8SEnv() == "1.19"
-}, "K8sIstioTest", func() {
-
+var _ = Describe("K8sIstioTest", func() {
 	var (
 		// istioSystemNamespace is the default namespace into which Istio is
 		// installed.
@@ -41,8 +38,8 @@ var _ = SkipContextIf(func() bool {
 		istioVersion = "1.5.9"
 
 		// Modifiers for pre-release testing, normally empty
-		prerelease     = "" // "-beta.1"
-		istioctlParams = ""
+		prerelease = "" // "-beta.1"
+
 		// Keeping these here in comments serve multiple purposes:
 		// - remind how to test with prerelease images in future
 		// - cause CI infra to prepull these images so that they do not
@@ -107,7 +104,8 @@ var _ = SkipContextIf(func() bool {
 		res.ExpectSuccess("unable to label namespace %q", helpers.DefaultNamespace)
 
 		By("Deploying Istio")
-		res = kubectl.Exec("./cilium-istioctl manifest apply -y" + istioctlParams)
+		kubectl.NamespaceCreate(istioSystemNamespace).ExpectSuccess("could not create istio system namespace")
+		res = kubectl.Exec(fmt.Sprintf("./cilium-istioctl manifest generate | %s apply -f -", helpers.KubectlCmd))
 		res.ExpectSuccess("unable to deploy Istio")
 	})
 
