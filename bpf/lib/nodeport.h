@@ -698,6 +698,8 @@ static __always_inline int rev_nodeport_lb6(struct __ctx_buff *ctx, int *ifindex
 			return DROP_INVALID;
 
 		bpf_mark_snat_done(ctx);
+
+		*ifindex = ct_state.ifindex;
 #ifdef ENCAP_IFINDEX
 		{
 			union v6addr *dst = (union v6addr *)&ip6->daddr;
