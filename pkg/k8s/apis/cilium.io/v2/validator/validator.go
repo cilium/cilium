@@ -23,6 +23,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/policy/api"
+
 	"github.com/go-openapi/validate"
 	"github.com/sirupsen/logrus"
 	apiextensionsinternal "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions"
@@ -129,6 +130,14 @@ func (n *NPValidator) ValidateCCNP(ccnp *unstructured.Unstructured) error {
 		return errs.ToAggregate()
 	}
 
+	if err := checkWildCardToFromEndpoint(ccnp); err != nil {
+		return err
+	}
+
+	return nil
+}
+
+func checkWildCardToFromEndpoint(ccnp *unstructured.Unstructured) error {
 	logger := log.WithFields(logrus.Fields{
 		logfields.CiliumClusterwideNetworkPolicyName: ccnp.GetName(),
 	})
