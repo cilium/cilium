@@ -9,5 +9,5 @@ spec:
   ports:
     - name: http
       port: 80
-      targetPort: 12000
+      targetPort: 8081
   type: ClusterIP
