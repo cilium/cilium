@@ -151,13 +151,13 @@ by adding the following to the helm configuration command line:
 
 .. _features_kernel_matrix:
 
-Advanced Features and Required Kernel Version
-=============================================
-Cilium requires Linux kernel 4.9.17 or higher, however development on additional
-kernel features and functionality continues to progress in the Linux community.
-Some Cilium features and functionality are dependent on newer kernel versions.
-These additional Cilium features and functionality are enabled by upgrading to
-a later kernel version as detailed below:
+Required Kernel Versions for Advanced Features
+==============================================
+
+Cilium requires Linux kernel 4.9.17 or higher; however, development on
+additional kernel features continues to progress in the Linux community. Some
+of Cilium's features are dependent on newer kernel versions and are thus
+enabled by upgrading to more recent kernel versions as detailed below.
 
 ======================= ===============================
 Cilium Feature          Minimum Kernel Version
