@@ -11,5 +11,11 @@ spec:
     k8s-app: {{ .Chart.Name }}
   ports:
   - protocol: TCP
+{{- if .Values.servicePort }}
     port: {{ .Values.servicePort }}
+{{- else if .Values.global.hubble.relay.tls.enabled }}
+    port: 443
+{{- else }}
+    port: 80
+{{- end }}
     targetPort: {{ .Values.listenPort }}

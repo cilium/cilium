@@ -49,9 +49,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium status",
-			"cilium endpoint list")
+		kubectl.CiliumReport("cilium status", "cilium endpoint list")
 	})
 
 	AfterAll(func() {
@@ -191,7 +189,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 
 		validateBPFTunnelMap := func() {
 			By("Checking that BPF tunnels are in place")
-			ciliumPod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
+			ciliumPod, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
 			ExpectWithOffset(1, err).Should(BeNil(), "Unable to determine cilium pod on node %s", helpers.K8s1)
 			status := kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, "cilium bpf tunnel list | wc -l")
 
@@ -751,20 +749,16 @@ func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string, expectNod
 	for _, pod := range pods {
 		By("Making ten curl requests from %q to %q", pod, outsideURL)
 
-		hostIP := net.ParseIP(hostIPs[pod])
-		podIP := net.ParseIP(podIPs[pod])
+		hostIP := hostIPs[pod]
+		podIP := podIPs[pod]
 
 		if expectPodIP {
 			// Make pods reachable from the host which doesn't run Cilium
-			_, err := kubectl.ExecInHostNetNSByLabel(context.TODO(),
-				helpers.GetNodeWithoutCilium(),
-				helpers.IPAddRoute(podIP, hostIP, false))
-			ExpectWithOffset(1, err).Should(BeNil(), "Failed to add ip route")
+			kubectl.AddIPRoute(helpers.GetNodeWithoutCilium(), podIP, hostIP, false).
+				ExpectSuccess("Failed to add ip route")
 			defer func() {
-				_, err := kubectl.ExecInHostNetNSByLabel(context.TODO(),
-					helpers.GetNodeWithoutCilium(),
-					helpers.IPDelRoute(podIP, hostIP))
-				ExpectWithOffset(1, err).Should(BeNil(), "Failed to del ip route")
+				kubectl.DelIPRoute(helpers.GetNodeWithoutCilium(), podIP, hostIP).
+					ExpectSuccess("Failed to del ip route")
 			}()
 		}
 
@@ -775,7 +769,8 @@ func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string, expectNod
 
 			if expectNodeIP || expectPodIP {
 				// Parse the IPs to avoid issues with 4-in-6 formats
-				sourceIP := net.ParseIP(strings.TrimSpace(strings.Split(res.Stdout(), "=")[1]))
+				sourceIP := net.ParseIP(strings.TrimSpace(
+					strings.Split(res.Stdout(), "=")[1])).String()
 				if expectNodeIP {
 					Expect(sourceIP).To(Equal(hostIP), "Expected node IP")
 				}
@@ -816,11 +811,11 @@ func monitorConnectivityAcrossNodes(kubectl *helpers.Kubectl) (monitorRes *helpe
 		By("Performing multinode connectivity check within a single node")
 	}
 
-	ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
+	ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot get cilium pod on k8s1")
 
 	By(fmt.Sprintf("Launching cilium monitor on %q", ciliumPodK8s1))
-	monitorRes, monitorCancel = kubectl.MonitorStart(helpers.CiliumNamespace, ciliumPodK8s1)
+	monitorRes, monitorCancel = kubectl.MonitorStart(ciliumPodK8s1)
 	result, targetIP := testPodConnectivityAndReturnIP(kubectl, requireMultinode, 2)
 	ExpectWithOffset(1, result).Should(BeTrue(), "Connectivity test between nodes failed")
 

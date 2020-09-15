@@ -1866,10 +1866,10 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "topk(5, avg(rate(cilium_bpf_map_ops_total{k8s_app=\"cilium\"}[5m])) by (pod, mapName, operation))",
+          "expr": "topk(5, avg(rate(cilium_bpf_map_ops_total{k8s_app=\"cilium\"}[5m])) by (pod, map_name, operation))",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{mapName}} {{operation}}",
+          "legendFormat": "{{map_name}} {{operation}}",
           "refId": "A"
         }
       ],
@@ -1967,10 +1967,10 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "topk(5, max(rate(cilium_bpf_map_ops_total{k8s_app=\"cilium\"}[5m])) by (pod, mapName, operation))",
+          "expr": "topk(5, max(rate(cilium_bpf_map_ops_total{k8s_app=\"cilium\"}[5m])) by (pod, map_name, operation))",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{mapName}} {{operation}}",
+          "legendFormat": "{{map_name}} {{operation}}",
           "refId": "A"
         }
       ],
@@ -2068,10 +2068,10 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(cilium_bpf_map_ops_total{k8s_app=\"cilium\",outcome=\"fail\"}[5m])) by (pod, mapName, operation)",
+          "expr": "sum(rate(cilium_bpf_map_ops_total{k8s_app=\"cilium\",outcome=\"fail\"}[5m])) by (pod, map_name, operation)",
           "format": "time_series",
           "intervalFactor": 1,
-          "legendFormat": "{{mapName}} {{operation}}",
+          "legendFormat": "{{map_name}} {{operation}}",
           "refId": "A"
         }
       ],
@@ -4120,7 +4120,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "avg(rate(cilium_nodes_all_events_received_total{k8s_app=\"cilium\"}[1m])) by (pod, eventType, source) * 60",
+          "expr": "avg(rate(cilium_nodes_all_events_received_total{k8s_app=\"cilium\"}[1m])) by (pod, event_type, source) * 60",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{eventType}} {{source}}",
@@ -5558,28 +5558,28 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "min(cilium_policy_count{k8s_app=\"cilium\"}) by(pod)",
+          "expr": "min(cilium_policy{k8s_app=\"cilium\"}) by(pod)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "min",
           "refId": "A"
         },
         {
-          "expr": "avg(cilium_policy_count{k8s_app=\"cilium\"}) by(pod)",
+          "expr": "avg(cilium_policy{k8s_app=\"cilium\"}) by(pod)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "avg",
           "refId": "B"
         },
         {
-          "expr": "max(cilium_policy_count{k8s_app=\"cilium\"}) by(pod)",
+          "expr": "max(cilium_policy{k8s_app=\"cilium\"}) by(pod)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "max",
           "refId": "C"
         },
         {
-          "expr": "sum(cilium_policy_import_errors{k8s_app=\"cilium\"}) by (pod)",
+          "expr": "sum(cilium_policy_import_errors_total{k8s_app=\"cilium\"}) by (pod)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "policy import errors",
@@ -6143,7 +6143,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(cilium_endpoint_regenerations{k8s_app=\"cilium\"}[30s])) by(outcome)",
+          "expr": "sum(rate(cilium_endpoint_regenerations_total{k8s_app=\"cilium\"}[30s])) by(outcome)",
           "format": "time_series",
           "instant": false,
           "intervalFactor": 1,
@@ -6928,7 +6928,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "sum(rate(cilium_k8s_client_api_calls_counter{k8s_app=\"cilium\"}[1m])) by (pod, method, return_code)",
+          "expr": "sum(rate(cilium_k8s_client_api_calls_total{k8s_app=\"cilium\"}[1m])) by (pod, method, return_code)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{method}} {{return_code}}",

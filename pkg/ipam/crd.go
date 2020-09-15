@@ -33,6 +33,7 @@ import (
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -115,7 +116,7 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 	ciliumNodeStore := cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 	ciliumNodeInformer := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(ciliumClient.CiliumV2().RESTClient(),
-			"ciliumnodes", corev1.NamespaceAll, ciliumNodeSelector),
+			ciliumv2.CNPluralName, corev1.NamespaceAll, ciliumNodeSelector),
 		&ciliumv2.CiliumNode{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -185,7 +186,10 @@ func newNodeStore(nodeName string, conf Configuration, owner Owner, k8sEventReg 
 			break
 		}
 
-		log.WithFields(logFields).Info("Waiting for IPs to become available in CRD-backed allocation pool")
+		log.WithFields(logFields).WithField(
+			logfields.HelpMessage,
+			"Check if cilium-operator pod is running and does not have any warnings or error messages.",
+		).Info("Waiting for IPs to become available in CRD-backed allocation pool")
 		time.Sleep(5 * time.Second)
 	}
 

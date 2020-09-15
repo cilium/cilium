@@ -323,6 +323,15 @@ Annotations:
 -----------------
 
 * Cilium has bumped the minimal kubernetes version supported to v1.12.0.
+* Connections between Hubble server and Hubble Relay instances is now secured
+  via mutual TLS (mTLS) by default. Users who have opted to enable Hubble Relay
+  in v1.8 (a beta feature) will experience disruptions of the Hubble Relay
+  service during the upgrade process.
+  Users may opt to disable mTLS by using the following Helm options when
+  upgrading (strongly discouraged):
+
+  - ``global.hubble.tls.enabled=false``
+  - ``global.hubble.tls.auto.enabled=false``
 
 Renamed Metrics
 ~~~~~~~~~~~~~~~
@@ -336,8 +345,30 @@ The following metrics have been renamed:
 New Metrics
 ~~~~~~~~~~~
 
+  * ``cilium_endpoint_regenerations_total`` counts of all endpoint regenerations that have completed, tagged by outcome.
+  * ``cilium_k8s_client_api_calls_total`` is number of API calls made to kube-apiserver labeled by host, method and return code.
   * ``cilium_kvstore_quorum_errors_total`` counts the number of kvstore quorum
     loss errors. The label ``error`` indicates the type of error.
+
+Deprecated Metrics/Labels
+~~~~~~~~~~~~~~~~~~~~~~~~~
+
+  * ``cilium_endpoint_regenerations`` is deprecated and will be removed in 1.10. Please use ``cilium_endpoint_regenerations_total`` instead.
+  * ``cilium_k8s_client_api_calls_counter``is deprecated and will be removed in 1.10. Please use ``cilium_k8s_client_api_calls_total`` instead.
+  * ``cilium_identity_count`` is deprecated and will be removed in 1.10. Please use ``cilium_identity`` instead.
+  * ``cilium_policy_count`` is deprecated and will be removed in 1.10. Please use ``cilium_policy`` instead.
+  * ``cilium_policy_import_errors`` is deprecated and will be removed in 1.10. Please use ``cilium_policy_import_errors_total`` instead.
+  * Label ``mapName`` in ``cilium_bpf_map_ops_total`` is deprecated and will be removed in 1.10. Please use label ``map_name`` instead.
+  * Label ``eventType`` in ``cilium_nodes_all_events_received_total`` is deprecated and will be removed in 1.10. Please use
+    label ``event_type`` instead.
+  * Label ``responseCode`` in ``*api_duration_seconds`` is deprecated and will be removed in 1.10. Please use
+    label ``response_code`` instead.
+  * Label ``subnetId`` in ``cilium_operator_ipam_allocation_ops`` is deprecated and will be removed in 1.10. Please use
+    label ``subnet_id`` instead.
+  * Label ``subnetId`` in ``cilium_operator_ipam_release_ops`` is deprecated and will be removed in 1.10. Please use
+    label ``subnet_id`` instead.
+  * Label ``subnetId`` and ``availabilityZone`` in ``cilium_operator_ipam_available_ips_per_subnet`` are deprecated and will be removed in 1.10. Please use
+    label ``subnet_id`` and ``availability_zone`` instead.
 
 Removed options
 ~~~~~~~~~~~~~~~
@@ -346,6 +377,9 @@ Removed options
   These options were deprecated in Cilium 1.8 and are now removed.
 * The ``prometheus-serve-addr-deprecated`` option is now removed. Please use
   ``prometheus-serve-addr`` instead.
+
+* The ``hostscope-legacy`` option value for ``ipam`` is now removed. The ``ipam``
+  option now defaults to ``cluster-pool``.
 
 Removed cilium-operator options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
@@ -371,6 +405,9 @@ Removed cilium-operator options
 * The ``metrics-address`` option is now removed. Please use
   ``operator-prometheus-serve-addr`` instead.
 
+* The ``hostscope-legacy`` option value for ``ipam`` is now removed. The ``ipam``
+  option now defaults to ``cluster-pool``.
+
 .. _1.8_upgrade_notes:
 
 1.8 Upgrade Notes
@@ -394,11 +431,11 @@ IMPORTANT: Changes required before upgrading to 1.8.0
   by Kubernetes does not remove the old probe when replacing with a new one.
   This causes ``kubectl apply`` command to return an error such as:
 
-::
+  ::
 
-  The DaemonSet "cilium" is invalid:
-  * spec.template.spec.containers[0].livenessProbe.httpGet: Forbidden: may not specify more than 1 handler type
-  * spec.template.spec.containers[0].readinessProbe.httpGet: Forbidden: may not specify more than 1 handler type
+    The DaemonSet "cilium" is invalid:
+    * spec.template.spec.containers[0].livenessProbe.httpGet: Forbidden: may not specify more than 1 handler type
+    * spec.template.spec.containers[0].readinessProbe.httpGet: Forbidden: may not specify more than 1 handler type
 
   Existing users must either choose to keep the ``exec`` probe in the
   `DaemonSet` specification to safely upgrade or re-create the Cilium `DaemonSet`
@@ -408,7 +445,8 @@ IMPORTANT: Changes required before upgrading to 1.8.0
   upgrade.
 
   The helm option ``agent.keepDeprecatedProbes=true`` will keep the
-  ``exec`` probe in the new `DaemonSet`:
+  ``exec`` probe in the new `DaemonSet`. Add this option along with any
+  other options you would otherwise specify to Helm:
 
 .. tabs::
   .. group-tab:: kubectl

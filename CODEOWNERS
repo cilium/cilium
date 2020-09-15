@@ -71,6 +71,7 @@ Dockerfile* @cilium/build
 /Documentation/envoy/ @cilium/proxy
 /envoy/ @cilium/proxy
 /examples/ @cilium/docs
+/examples/crds/ @cilium/kubernetes
 /examples/kubernetes/ @cilium/kubernetes
 /examples/minikube/ @cilium/kubernetes
 *.Jenkinsfile @cilium/ci
@@ -79,6 +80,7 @@ Dockerfile* @cilium/build
 /images @cilium/build
 /install/kubernetes/ @cilium/kubernetes @cilium/docs @cilium/helm
 /install/kubernetes/cilium/charts/hubble-relay @cilium/kubernetes @cilium/docs @cilium/helm @cilium/hubble
+/install/kubernetes/cilium/charts/hubble-tls @cilium/kubernetes @cilium/docs @cilium/helm @cilium/hubble
 /install/kubernetes/cilium/charts/hubble-ui @cilium/kubernetes @cilium/docs @cilium/helm @cilium/hubble
 jenkinsfiles @cilium/ci
 Jenkinsfile.nightly @cilium/ci
@@ -112,15 +114,15 @@ Jenkinsfile.nightly @cilium/ci
 /pkg/ipcache/ @cilium/ipcache
 /pkg/ipmasq @cilium/agent
 /pkg/k8s/ @cilium/kubernetes
-/pkg/k8s/apis/cilium.io/v2/ @cilium/api
+/pkg/k8s/apis/cilium.io/v2/ @cilium/api @cilium/kubernetes
 /pkg/k8s/client/clientset/versioned/ @cilium/api
 /pkg/k8s/client/informers/ @cilium/api
 /pkg/kafka/ @cilium/proxy
 /pkg/kvstore/ @cilium/kvstore
 /pkg/labels @cilium/policy @cilium/api
-/pkg/launcher @pkg/agent
+/pkg/launcher @cilium/agent
 /pkg/loadbalancer @cilium/loadbalancer
-/pkg/lock @pkg/agent
+/pkg/lock @cilium/agent
 /pkg/logging/ @cilium/cli
 /pkg/mac @cilium/bpf
 /pkg/maps/ @cilium/bpf

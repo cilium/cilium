@@ -62,12 +62,12 @@ type Configuration interface {
 	NodeEncryptionEnabled() bool
 }
 
-// Notifier is the interaface the wraps Subscribe and Unsubscribe. An
+// Notifier is the interface the wraps Subscribe and Unsubscribe. An
 // implementation of this interface notifies subscribers of nodes being added,
 // updated or deleted.
 type Notifier interface {
 	// Subscribe adds the given NodeHandler to the list of subscribers that are
-	// notified of node changes. Upcon call to this method, the NodeHandler is
+	// notified of node changes. Upon call to this method, the NodeHandler is
 	// being notified of all nodes that are already in the cluster by calling
 	// the NodeHandler's NodeAdd callback.
 	Subscribe(datapath.NodeHandler)
@@ -183,7 +183,7 @@ func NewManager(name string, dp datapath.NodeHandler, ipcache IPCache, c Configu
 		Subsystem: "nodes",
 		Name:      name + "_events_received_total",
 		Help:      "Number of node events received",
-	}, []string{"eventType", "source"})
+	}, []string{"eventType", "event_type", "source"}) //TODO(sayboras): Remove deprecated tag eventType in 1.10
 
 	m.metricNumNodes = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metrics.Namespace,
@@ -196,7 +196,7 @@ func NewManager(name string, dp datapath.NodeHandler, ipcache IPCache, c Configu
 		Namespace: metrics.Namespace,
 		Subsystem: "nodes",
 		Name:      name + "_datapath_validations_total",
-		Help:      "Number of validation calls to implement the datapath implemention of a node",
+		Help:      "Number of validation calls to implement the datapath implementation of a node",
 	})
 
 	err := metrics.RegisterList([]prometheus.Collector{m.metricDatapathValidations, m.metricEventsReceived, m.metricNumNodes})
@@ -382,7 +382,8 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentity]
 	if oldNodeExists {
-		m.metricEventsReceived.WithLabelValues("update", string(n.Source)).Inc()
+		//TODO(sayboras): Remove deprecated metric in 1.10
+		m.metricEventsReceived.WithLabelValues("update", "update", string(n.Source)).Inc()
 
 		if !source.AllowOverwrite(entry.node.Source, n.Source) {
 			m.mutex.Unlock()
@@ -400,7 +401,8 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		}
 		entry.mutex.Unlock()
 	} else {
-		m.metricEventsReceived.WithLabelValues("add", string(n.Source)).Inc()
+		//TODO(sayboras): Remove deprecated metric in 1.10
+		m.metricEventsReceived.WithLabelValues("add", "add", string(n.Source)).Inc()
 		m.metricNumNodes.Inc()
 
 		entry = &nodeEntry{node: n}
@@ -418,10 +420,11 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 
 // NodeDeleted is called after a node has been deleted. It removes the node
 // from the manager if the node is still owned by the source of which the event
-// orgins from. If the node was removed, NodeDelete() is invoked of the
+// origins from. If the node was removed, NodeDelete() is invoked of the
 // datapath interface.
 func (m *Manager) NodeDeleted(n nodeTypes.Node) {
-	m.metricEventsReceived.WithLabelValues("delete", string(n.Source)).Inc()
+	//TODO(sayboras): Remove deprecated metric in 1.10
+	m.metricEventsReceived.WithLabelValues("delete", "delete", string(n.Source)).Inc()
 
 	log.Debugf("Received node delete event from %s", n.Source)
 
@@ -511,7 +514,7 @@ func (m *Manager) GetNodes() map[nodeTypes.Identity]nodeTypes.Node {
 	return nodes
 }
 
-// DeleteAllNodes deletes all nodes from the node maanger.
+// DeleteAllNodes deletes all nodes from the node manager.
 func (m *Manager) DeleteAllNodes() {
 	m.mutex.Lock()
 	for _, entry := range m.nodes {

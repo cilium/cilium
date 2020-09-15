@@ -55,11 +55,13 @@ import (
 	"github.com/cilium/cilium/pkg/loadinfo"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap/gc"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/nat"
 	"github.com/cilium/cilium/pkg/maps/neighborsmap"
+	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/metrics"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/node"
@@ -112,8 +114,7 @@ var (
 
 			// Open socket for using gops to get stacktraces of the agent.
 			if err := gops.Listen(gops.Options{}); err != nil {
-				errorString := fmt.Sprintf("unable to start gops: %s", err)
-				fmt.Println(errorString)
+				fmt.Fprintf(os.Stderr, "unable to start gops: %s", err)
 				os.Exit(-1)
 			}
 
@@ -209,7 +210,8 @@ func init() {
 	flags.Bool(option.AnnotateK8sNode, defaults.AnnotateK8sNode, "Annotate Kubernetes node")
 	option.BindEnv(option.AnnotateK8sNode)
 
-	flags.Bool(option.BlacklistConflictingRoutes, defaults.BlacklistConflictingRoutes, "Don't blacklist IP allocations conflicting with local non-cilium routes")
+	flags.Bool(option.BlacklistConflictingRoutes, false, "Don't blacklist IP allocations conflicting with local non-cilium routes")
+	flags.MarkDeprecated(option.BlacklistConflictingRoutes, "This flag is no longer available and will be removed in the v1.10")
 	option.BindEnv(option.BlacklistConflictingRoutes)
 
 	flags.Bool(option.AutoCreateCiliumNodeResource, defaults.AutoCreateCiliumNodeResource, "Automatically create CiliumNode resource for own node on startup")
@@ -345,6 +347,9 @@ func init() {
 	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
 	option.BindEnv(option.EnableAutoDirectRoutingName)
 
+	flags.Bool(option.EnableBPFTProxy, defaults.EnableBPFTProxy, "Enable BPF-based proxy redirection, if support available")
+	option.BindEnv(option.EnableBPFTProxy)
+
 	flags.Bool(option.EnableXTSocketFallbackName, defaults.EnableXTSocketFallback, "Enable fallback for missing xt_socket module")
 	option.BindEnv(option.EnableXTSocketFallbackName)
 
@@ -403,6 +408,9 @@ func init() {
 	flags.Uint(option.ProxyConnectTimeout, 1, "Time after which a TCP connect attempt is considered failed unless completed (in seconds)")
 	option.BindEnv(option.ProxyConnectTimeout)
 
+	flags.Int(option.ProxyPrometheusPort, 0, "Port to serve Envoy metrics on. Default 0 (disabled).")
+	option.BindEnv(option.ProxyPrometheusPort)
+
 	flags.Bool(option.DisableEnvoyVersionCheck, false, "Do not perform Envoy binary version check on startup")
 	flags.MarkHidden(option.DisableEnvoyVersionCheck)
 	// Disable version check if Envoy build is disabled
@@ -418,7 +426,7 @@ func init() {
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")
 	option.BindEnv(option.IdentityAllocationMode)
 
-	flags.String(option.IPAM, ipamOption.IPAMHostScopeLegacy, "Backend to use for IPAM")
+	flags.String(option.IPAM, ipamOption.IPAMOperator, "Backend to use for IPAM")
 	option.BindEnv(option.IPAM)
 
 	flags.String(option.IPv4Range, AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
@@ -516,8 +524,23 @@ func init() {
 	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
 	option.BindEnv(option.EnableNodePort)
 
+	flags.Bool(option.EnableSVCSourceRangeCheck, true, "Enable check of service source ranges (currently, only for LoadBalancer)")
+	option.BindEnv(option.EnableSVCSourceRangeCheck)
+
+	flags.Bool(option.EnableBandwidthManager, false, "Enable BPF bandwidth manager")
+	option.BindEnv(option.EnableBandwidthManager)
+
 	flags.String(option.NodePortMode, option.NodePortModeSNAT, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
 	option.BindEnv(option.NodePortMode)
+
+	flags.String(option.NodePortAlg, option.NodePortAlgRandom, "BPF load balancing algorithm (\"random\", \"maglev\")")
+	option.BindEnv(option.NodePortAlg)
+
+	flags.Uint(option.MaglevTableSize, maglev.DefaultTableSize, "Maglev per service backend table size (parameter M)")
+	option.BindEnv(option.MaglevTableSize)
+
+	flags.String(option.MaglevHashSeed, maglev.DefaultHashSeed, "Maglev cluster-wide hash seed (base64 encoded)")
+	option.BindEnv(option.MaglevHashSeed)
 
 	flags.Bool(option.EnableAutoProtectNodePortRange, true,
 		"Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps "+
@@ -711,7 +734,7 @@ func init() {
 	flags.Int(option.NeighMapEntriesGlobalName, option.NATMapEntriesGlobalDefault, "Maximum number of entries for the global BPF neighbor table")
 	option.BindEnv(option.NeighMapEntriesGlobalName)
 
-	flags.Int(option.PolicyMapEntriesName, defaults.PolicyMapEntries, "Maximum number of entries in endpoint policy map (per endpoint)")
+	flags.Int(option.PolicyMapEntriesName, policymap.MaxEntries, "Maximum number of entries in endpoint policy map (per endpoint)")
 	option.BindEnv(option.PolicyMapEntriesName)
 
 	flags.Int(option.SockRevNatEntriesName, option.SockRevNATMapEntriesDefault, "Maximum number of entries for the SockRevNAT BPF map")
@@ -791,6 +814,18 @@ func init() {
 	flags.String(option.HubbleListenAddress, "", `An additional address for Hubble server to listen to, e.g. ":4244"`)
 	option.BindEnv(option.HubbleListenAddress)
 
+	flags.Bool(option.HubbleTLSDisabled, false, "Allow Hubble server to run on the given listen address without TLS.")
+	option.BindEnv(option.HubbleTLSDisabled)
+
+	flags.String(option.HubbleTLSCertFile, "", "Path to the public key file for the Hubble server. The file must contain PEM encoded data.")
+	option.BindEnv(option.HubbleTLSCertFile)
+
+	flags.String(option.HubbleTLSKeyFile, "", "Path to the private key file for the Hubble server. The file must contain PEM encoded data.")
+	option.BindEnv(option.HubbleTLSKeyFile)
+
+	flags.StringSlice(option.HubbleTLSClientCAFiles, []string{}, "Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.")
+	option.BindEnv(option.HubbleTLSClientCAFiles)
+
 	flags.Int(option.HubbleFlowBufferSize, 4095, "Maximum number of flows in Hubble's buffer. The actual buffer size gets rounded up to the next power of 2, e.g. 4095 => 4096")
 	option.BindEnv(option.HubbleFlowBufferSize)
 
@@ -814,6 +849,12 @@ func init() {
 
 	flags.Int(option.FragmentsMapEntriesName, defaults.FragmentsMapEntries, "Maximum number of entries in fragments tracking map")
 	option.BindEnv(option.FragmentsMapEntriesName)
+
+	flags.Int(option.LBMapEntriesName, lbmap.MaxEntries, "Maximum number of entries in Cilium BPF lbmap")
+	option.BindEnv(option.LBMapEntriesName)
+
+	flags.String(option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
+	option.BindEnv(option.K8sServiceProxyName)
 
 	viper.BindPFlags(flags)
 
@@ -1142,12 +1183,13 @@ func initEnv(cmd *cobra.Command) {
 		if option.Config.EnableIPSec {
 			log.Fatal("IPSec cannot be used with the host firewall.")
 		}
-		if !option.Config.EnableRemoteNodeIdentity {
-			log.Fatalf("%s must be enabled to use the host firewall.", option.EnableRemoteNodeIdentity)
-		}
 		if option.Config.EnableEndpointRoutes {
 			log.Fatalf("%s cannot be used with the host firewall. Packets must be routed through the host device.", option.EnableEndpointRoutes)
 		}
+	}
+
+	if len(option.Config.Devices) != 0 && option.Config.EnableIPSec {
+		log.Fatalf("--%s cannot be used with IPSec.", option.Devices)
 	}
 
 	// If there is one device specified, use it to derive better default
@@ -1188,6 +1230,15 @@ func initEnv(cmd *cobra.Command) {
 			if !supportedMapTypes.HaveLruHashMapType {
 				option.Config.EnableIPv4FragmentsTracking = false
 				log.Info("Disabled support for IPv4 fragments due to missing kernel support for BPF LRU maps")
+			}
+		}
+	}
+
+	if option.Config.EnableBPFTProxy {
+		if h := probes.NewProbeManager().GetHelpers("sched_act"); h != nil {
+			if _, ok := h["bpf_sk_assign"]; !ok {
+				option.Config.EnableBPFTProxy = false
+				log.Info("Disabled support for BPF TProxy due to missing kernel support for socket assign (Linux 5.7 or later)")
 			}
 		}
 	}
@@ -1389,11 +1440,9 @@ func runDaemon() {
 	srv.ConfigureAPI()
 	bootstrapStats.initAPI.End(true)
 
-	repr, err := monitorAPI.TimeRepr(time.Now())
+	err = d.SendNotification(monitorAPI.StartMessage(time.Now()))
 	if err != nil {
-		log.WithError(err).Warn("Failed to generate agent start monitor message")
-	} else {
-		d.SendNotification(monitorAPI.AgentNotifyStart, repr)
+		log.WithError(err).Warn("Failed to send agent start monitor message")
 	}
 
 	log.WithField("bootstrapTime", time.Since(bootstrapTimestamp)).

@@ -25,6 +25,7 @@ import (
 
 	"github.com/cilium/cilium/api/v1/models"
 	health "github.com/cilium/cilium/cilium-health/launch"
+	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/clustermesh"
 	"github.com/cilium/cilium/pkg/controller"
@@ -201,6 +202,8 @@ func (d *Daemon) init() error {
 	sockops.SkmsgDisable()
 
 	if !option.Config.DryMode {
+		bandwidth.InitBandwidthManager()
+
 		if err := d.createNodeConfigHeaderfile(); err != nil {
 			return err
 		}
@@ -216,7 +219,7 @@ func (d *Daemon) init() error {
 			}
 		}
 
-		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy, d.ipam); err != nil {
+		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 			return err
 		}
 	}
@@ -268,7 +271,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		option.Config.EnableIPv4, option.Config.EnableIPv6,
 	)
 	policymap.InitMapInfo(option.Config.PolicyMapEntries)
-	lbmap.InitMapInfo(option.Config.SockRevNatEntries)
+	lbmap.InitMapInfo(option.Config.SockRevNatEntries, option.Config.LBMapEntries)
 
 	if option.Config.DryMode == false {
 		if err := bpf.ConfigureResourceLimits(); err != nil {
@@ -295,11 +298,13 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	}
 
 	identity.IterateReservedIdentities(func(_ string, _ identity.NumericIdentity) {
+		metrics.Identity.Inc()
 		metrics.IdentityCount.Inc()
 	})
 	if option.Config.EnableWellKnownIdentities {
 		// Must be done before calling policy.NewPolicyRepository() below.
 		num := identity.InitWellKnownIdentities(option.Config)
+		metrics.Identity.Add(float64(num))
 		metrics.IdentityCount.Add(float64(num))
 	}
 
@@ -432,23 +437,36 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		bootstrapStats.k8sInit.End(true)
 	}
 
+	// Perform an early probe on the underlying kernel on whether BandwidthManager
+	// can be supported or not. This needs to be done before detectNativeDevices()
+	// as BandwidthManager needs these to be available for setup.
+	bandwidth.ProbeBandwidthManager()
+
 	// The kube-proxy replacement and host-fw devices detection should happen after
 	// establishing a connection to kube-apiserver, but before starting a k8s watcher.
 	// This is because the device detection requires self (Cilium)Node object,
 	// and the k8s service watcher depends on option.Config.EnableNodePort flag
 	// which can be modified after the device detection.
-	detectDevicesForNodePortAndHostFirewall(isKubeProxyReplacementStrict)
+	detectNativeDevices(isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
 
-	// BPF masquerade depends on BPF NodePort, so the following checks should
+	// BPF masquerade depends on BPF NodePort and require host-reachable svc to
+	// be fully enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
 	if option.Config.Masquerade && option.Config.EnableBPFMasquerade &&
-		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "") {
+		(!option.Config.EnableNodePort || option.Config.EgressMasqueradeInterfaces != "" ||
+			(option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices())) {
+
 		var msg string
-		if !option.Config.EnableNodePort {
+		switch {
+		case !option.Config.EnableNodePort:
 			msg = fmt.Sprintf("BPF masquerade requires NodePort (--%s=\"true\").",
 				option.EnableNodePort)
-		} else if option.Config.EgressMasqueradeInterfaces != "" {
+		// Remove the check after https://github.com/cilium/cilium/issues/12544 is fixed
+		case option.Config.Tunnel != option.TunnelDisabled && !hasFullHostReachableServices():
+			msg = fmt.Sprintf("BPF masquerade requires --%s to be fully enabled (TCP and UDP).",
+				option.EnableHostReachableServices)
+		case option.Config.EgressMasqueradeInterfaces != "":
 			msg = fmt.Sprintf("BPF masquerade does not allow to specify devices via --%s (use --%s instead).",
 				option.EgressMasqueradeInterfaces, option.Devices)
 		}
@@ -693,7 +711,7 @@ func (d *Daemon) Close() {
 // endpoints may or may not have successfully regenerated.
 func (d *Daemon) TriggerReloadWithoutCompile(reason string) (*sync.WaitGroup, error) {
 	log.Debugf("BPF reload triggered from %s", reason)
-	if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy, d.ipam); err != nil {
+	if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 		return nil, fmt.Errorf("Unable to recompile base programs from %s: %s", reason, err)
 	}
 
@@ -727,12 +745,11 @@ func numWorkerThreads() int {
 }
 
 // SendNotification sends an agent notification to the monitor
-func (d *Daemon) SendNotification(typ monitorAPI.AgentNotification, text string) error {
+func (d *Daemon) SendNotification(notification monitorAPI.AgentNotifyMessage) error {
 	if option.Config.DryMode {
 		return nil
 	}
-	event := monitorAPI.AgentNotify{Type: typ, Text: text}
-	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, event)
+	return d.monitorAgent.SendEvent(monitorAPI.MessageTypeAgent, notification)
 }
 
 // GetNodeSuffix returns the suffix to be appended to kvstore keys of this

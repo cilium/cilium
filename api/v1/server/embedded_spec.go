@@ -1432,6 +1432,22 @@ func init() {
         }
       }
     },
+    "BandwidthManager": {
+      "description": "Status of bandwidth manager\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enabled": {
+          "description": "Is bandwidth manager enabled",
+          "type": "boolean"
+        }
+      }
+    },
     "CIDRList": {
       "description": "List of CIDRs",
       "type": "object",
@@ -2608,13 +2624,23 @@ func init() {
                 "acceleration": {
                   "type": "string",
                   "enum": [
-                    "NONE",
-                    "NATIVE",
-                    "GENERIC"
+                    "None",
+                    "Native",
+                    "Generic"
+                  ]
+                },
+                "algorithm": {
+                  "type": "string",
+                  "enum": [
+                    "Random",
+                    "Maglev"
                   ]
                 },
                 "enabled": {
                   "type": "boolean"
+                },
+                "lutSize": {
+                  "type": "integer"
                 },
                 "mode": {
                   "type": "string",
@@ -3286,6 +3312,10 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "bandwidth-manager": {
+          "description": "Status of bandwidth manager",
+          "$ref": "#/definitions/BandwidthManager"
+        },
         "bpf-maps": {
           "description": "Status of BPF maps",
           "$ref": "#/definitions/BPFMapStatus"
@@ -5105,6 +5135,22 @@ func init() {
         }
       }
     },
+    "BandwidthManager": {
+      "description": "Status of bandwidth manager\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "devices": {
+          "type": "array",
+          "items": {
+            "type": "string"
+          }
+        },
+        "enabled": {
+          "description": "Is bandwidth manager enabled",
+          "type": "boolean"
+        }
+      }
+    },
     "CIDRList": {
       "description": "List of CIDRs",
       "type": "object",
@@ -6372,13 +6418,23 @@ func init() {
                 "acceleration": {
                   "type": "string",
                   "enum": [
-                    "NONE",
-                    "NATIVE",
-                    "GENERIC"
+                    "None",
+                    "Native",
+                    "Generic"
+                  ]
+                },
+                "algorithm": {
+                  "type": "string",
+                  "enum": [
+                    "Random",
+                    "Maglev"
                   ]
                 },
                 "enabled": {
                   "type": "boolean"
+                },
+                "lutSize": {
+                  "type": "integer"
                 },
                 "mode": {
                   "type": "string",
@@ -6462,13 +6518,23 @@ func init() {
             "acceleration": {
               "type": "string",
               "enum": [
-                "NONE",
-                "NATIVE",
-                "GENERIC"
+                "None",
+                "Native",
+                "Generic"
+              ]
+            },
+            "algorithm": {
+              "type": "string",
+              "enum": [
+                "Random",
+                "Maglev"
               ]
             },
             "enabled": {
               "type": "boolean"
+            },
+            "lutSize": {
+              "type": "integer"
             },
             "mode": {
               "type": "string",
@@ -6537,13 +6603,23 @@ func init() {
         "acceleration": {
           "type": "string",
           "enum": [
-            "NONE",
-            "NATIVE",
-            "GENERIC"
+            "None",
+            "Native",
+            "Generic"
+          ]
+        },
+        "algorithm": {
+          "type": "string",
+          "enum": [
+            "Random",
+            "Maglev"
           ]
         },
         "enabled": {
           "type": "boolean"
+        },
+        "lutSize": {
+          "type": "integer"
         },
         "mode": {
           "type": "string",
@@ -7240,6 +7316,10 @@ func init() {
       "description": "Health and status information of daemon\n\n+k8s:deepcopy-gen=true",
       "type": "object",
       "properties": {
+        "bandwidth-manager": {
+          "description": "Status of bandwidth manager",
+          "$ref": "#/definitions/BandwidthManager"
+        },
         "bpf-maps": {
           "description": "Status of BPF maps",
           "$ref": "#/definitions/BPFMapStatus"

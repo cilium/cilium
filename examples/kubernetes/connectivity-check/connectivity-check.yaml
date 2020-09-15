@@ -6,7 +6,7 @@ metadata:
     name: echo-a
     topology: any
     component: network-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -18,11 +18,15 @@ spec:
       hostNetwork: false
       containers:
       - name: echo-a-container
+        env:
+        - name: PORT
+          value: "8080"
         ports:
-        - containerPort: 80
+        - containerPort: 8080
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -32,8 +36,9 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -43,7 +48,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
   selector:
     matchLabels:
       name: echo-a
@@ -57,7 +62,7 @@ metadata:
     name: echo-b
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -69,12 +74,16 @@ spec:
       hostNetwork: false
       containers:
       - name: echo-b-container
+        env:
+        - name: PORT
+          value: "8080"
         ports:
-        - containerPort: 80
+        - containerPort: 8080
           hostPort: 40000
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -84,8 +93,9 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -95,7 +105,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
   selector:
     matchLabels:
       name: echo-b
@@ -109,7 +119,7 @@ metadata:
     name: echo-b-host
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -128,6 +138,7 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -139,6 +150,7 @@ spec:
             - /dev/null
             - localhost:41000
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -172,7 +184,7 @@ metadata:
     name: pod-to-a
     topology: any
     component: network-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -192,6 +204,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -201,8 +214,9 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -212,7 +226,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
   selector:
     matchLabels:
       name: pod-to-a
@@ -246,6 +260,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -257,6 +272,7 @@ spec:
             - /dev/null
             - 1.1.1.1
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -280,7 +296,7 @@ metadata:
     name: pod-to-a-denied-cnp
     topology: any
     component: policy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -305,14 +321,14 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a:8080/private'
         livenessProbe:
           timeoutSeconds: 7
           exec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a:8080/private'
   selector:
     matchLabels:
       name: pod-to-a-denied-cnp
@@ -326,7 +342,7 @@ metadata:
     name: pod-to-a-allowed-cnp
     topology: any
     component: policy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -346,6 +362,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -355,8 +372,9 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -366,7 +384,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
   selector:
     matchLabels:
       name: pod-to-a-allowed-cnp
@@ -400,6 +418,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -411,6 +430,7 @@ spec:
             - /dev/null
             - www.google.com
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -434,7 +454,7 @@ metadata:
     name: pod-to-b-multi-node-clusterip
     topology: multi-node
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -454,6 +474,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -463,8 +484,9 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b/public
+            - echo-b:8080/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -474,7 +496,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b/public
+            - echo-b:8080/public
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -498,7 +520,7 @@ metadata:
     name: pod-to-b-multi-node-headless
     topology: multi-node
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -518,6 +540,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -527,8 +550,9 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b-headless/public
+            - echo-b-headless:8080/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -538,7 +562,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b-headless/public
+            - echo-b-headless:8080/public
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -562,7 +586,7 @@ metadata:
     name: host-to-b-multi-node-clusterip
     topology: multi-node
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -582,6 +606,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -591,8 +616,9 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b/public
+            - echo-b:8080/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -602,7 +628,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b/public
+            - echo-b:8080/public
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -627,7 +653,7 @@ metadata:
     name: host-to-b-multi-node-headless
     topology: multi-node
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -647,6 +673,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -656,8 +683,9 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b-headless/public
+            - echo-b-headless:8080/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -667,7 +695,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-b-headless/public
+            - echo-b-headless:8080/public
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -692,6 +720,7 @@ metadata:
     name: pod-to-b-multi-node-nodeport
     topology: multi-node
     component: nodeport-check
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -711,6 +740,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -722,6 +752,7 @@ spec:
             - /dev/null
             - echo-b-host-headless:31313/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -755,6 +786,7 @@ metadata:
     name: pod-to-b-intra-node-nodeport
     topology: intra-node
     component: nodeport-check
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -774,6 +806,7 @@ spec:
         - -c
         - sleep 1000000000
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -785,6 +818,7 @@ spec:
             - /dev/null
             - echo-b-host-headless:31313/public
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -818,12 +852,13 @@ metadata:
     name: echo-a
     topology: any
     component: network-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
   type: ClusterIP
   selector:
     name: echo-a
@@ -836,12 +871,13 @@ metadata:
     name: echo-b
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
     nodePort: 31313
   type: NodePort
   selector:
@@ -855,12 +891,13 @@ metadata:
     name: echo-b-headless
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
   type: ClusterIP
   selector:
     name: echo-b
@@ -874,7 +911,7 @@ metadata:
     name: echo-b-host-headless
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -892,7 +929,7 @@ metadata:
     name: pod-to-a-denied-cnp
     topology: any
     component: policy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -925,7 +962,7 @@ metadata:
     name: pod-to-a-allowed-cnp
     topology: any
     component: policy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -935,7 +972,7 @@ spec:
   egress:
   - toPorts:
     - ports:
-      - port: "80"
+      - port: "8080"
         protocol: TCP
     toEndpoints:
     - matchLabels:

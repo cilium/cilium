@@ -46,6 +46,6 @@ cilium-bugtool [OPTIONS] [flags]
       --k8s-namespace string      Kubernetes namespace for Cilium pod (default "kube-system")
       --pprof-port int            Port on which pprof server is exposed (default 6060)
       --pprof-trace-seconds int   Amount of seconds used for pprof CPU traces (default 180)
-  -t, --tmp string                Path to store extracted files (default "/tmp")
+  -t, --tmp string                Path to store extracted files. Use '-' to send to stdout. (default "/tmp")
 ```
 

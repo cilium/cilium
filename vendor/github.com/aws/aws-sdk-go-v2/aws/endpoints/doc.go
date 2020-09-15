@@ -7,30 +7,6 @@
 // endpoint if one is found. The default resolver will search all partitions
 // known by the SDK. e.g AWS Standard (aws), AWS China (aws-cn), and
 // AWS GovCloud (US) (aws-us-gov).
-// .
-//
-// Enumerating Regions and Endpoint Metadata
-//
-// Casting the Resolver returned by DefaultResolver to a EnumPartitions interface
-// will allow you to get access to the list of underlying Partitions with the
-// Partitions method. This is helpful if you want to limit the SDK's endpoint
-// resolving to a single partition, or enumerate regions, services, and endpoints
-// in the partition.
-//
-//     resolver := endpoints.NewDefaultResolver()
-//     partitions := resolver.Partitions()
-//
-//     for _, p := range partitions {
-//         fmt.Println("Regions for", p.ID())
-//         for id, _ := range p.Regions() {
-//             fmt.Println("*", id)
-//         }
-//
-//         fmt.Println("Services for", p.ID())
-//         for id, _ := range p.Services() {
-//             fmt.Println("*", id)
-//         }
-//     }
 //
 // Using Custom Endpoints
 //

@@ -134,7 +134,7 @@ func (v *RevNat4Value) ToNetwork() RevNatValue {
 }
 
 func (v *RevNat4Value) String() string {
-	return fmt.Sprintf("%s:%d", v.Address, v.Port)
+	return net.JoinHostPort(v.Address.String(), fmt.Sprintf("%d", v.Port))
 }
 
 type pad2uint8 [2]uint8
@@ -171,11 +171,11 @@ func NewService4Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, 
 }
 
 func (k *Service4Key) String() string {
+	addr := net.JoinHostPort(k.Address.String(), fmt.Sprintf("%d", k.Port))
 	if k.Scope == loadbalancer.ScopeInternal {
-		return fmt.Sprintf("%s:%d/i", k.Address, k.Port)
-	} else {
-		return fmt.Sprintf("%s:%d", k.Address, k.Port)
+		addr += "/i"
 	}
+	return addr
 }
 
 func (k *Service4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
@@ -389,10 +389,4 @@ func CreateSockRevNat4Map() error {
 	)
 	_, err := sockRevNat4Map.Create()
 	return err
-}
-
-// InitMapInfo updates the map info defaults for sock rev nat {4,6} maps.
-func InitMapInfo(maxSockRevNatEntries int) {
-	MaxSockRevNat4MapEntries = maxSockRevNatEntries
-	MaxSockRevNat6MapEntries = maxSockRevNatEntries
 }

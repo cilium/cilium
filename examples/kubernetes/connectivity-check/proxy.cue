@@ -13,7 +13,7 @@ _proxyResource: {
 _egressL7Policy: {
 	_allowDNS: true
 
-	_port:   *"80" | string
+	_port:   *"8080" | string
 	_target: *"" | string
 	_rules: [{
 		if _target != "" {

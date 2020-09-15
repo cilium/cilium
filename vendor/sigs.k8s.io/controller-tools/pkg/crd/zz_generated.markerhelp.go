@@ -49,7 +49,7 @@ func (Generator) Help() *markers.DefinitionHelp {
 				Details: "0 indicates drop the description for all fields completely. n indicates limit the description to at most n characters and truncate the description to closest sentence boundary if it exceeds n characters.",
 			},
 			"CRDVersions": markers.DetailedHelp{
-				Summary: "specifies the target API versions of the CRD type itself to generate.  Defaults to v1beta1. ",
+				Summary: "specifies the target API versions of the CRD type itself to generate. Defaults to v1. ",
 				Details: "The first version listed will be assumed to be the \"default\" version and will not get a version suffix in the output filename. \n You'll need to use \"v1\" to get support for features like defaulting, along with an API server that supports it (Kubernetes 1.16+).",
 			},
 		},

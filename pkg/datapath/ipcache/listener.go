@@ -47,7 +47,7 @@ type datapath interface {
 
 // monitor is an interface not notify the monitor about changes to the ipcache
 type monitorNotify interface {
-	SendNotification(typ monitorAPI.AgentNotification, text string) error
+	SendNotification(msg monitorAPI.AgentNotifyMessage) error
 }
 
 // BPFListener implements the ipcache.IPIdentityMappingBPFListener
@@ -105,15 +105,15 @@ func (l *BPFListener) notifyMonitor(modType ipcache.CacheModification,
 		oldIdentityPtr = &oldIdentity
 	}
 
-	repr, err := monitorAPI.IPCacheNotificationRepr(cidr.String(), newIdentity, oldIdentityPtr,
-		newHostIP, oldHostIP, encryptKey, k8sNamespace, k8sPodName)
-	if err == nil {
-		switch modType {
-		case ipcache.Upsert:
-			l.monitorNotify.SendNotification(monitorAPI.AgentNotifyIPCacheUpserted, repr)
-		case ipcache.Delete:
-			l.monitorNotify.SendNotification(monitorAPI.AgentNotifyIPCacheDeleted, repr)
-		}
+	switch modType {
+	case ipcache.Upsert:
+		msg := monitorAPI.IPCacheUpsertedMessage(cidr.String(), newIdentity, oldIdentityPtr,
+			newHostIP, oldHostIP, encryptKey, k8sNamespace, k8sPodName)
+		l.monitorNotify.SendNotification(msg)
+	case ipcache.Delete:
+		msg := monitorAPI.IPCacheDeletedMessage(cidr.String(), newIdentity, oldIdentityPtr,
+			newHostIP, oldHostIP, encryptKey, k8sNamespace, k8sPodName)
+		l.monitorNotify.SendNotification(msg)
 	}
 }
 

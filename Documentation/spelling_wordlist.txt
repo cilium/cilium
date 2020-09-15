@@ -90,8 +90,10 @@ Login
 Lookup
 Lund
 Lx
+Maglev
 Majkowski
 Marek
+Mbit
 Meetup
 Mellanox
 Memcached
@@ -237,6 +239,7 @@ cassandra
 cassandraparser
 cgroup
 ci
+cidrs
 classful
 classid
 cli
@@ -464,7 +467,9 @@ loopback
 lspci
 luke
 lwt
+mTLS
 macOS
+maglev
 masq
 masqLinkLocal
 matchLabels
@@ -503,6 +508,7 @@ netdevice
 netdevices
 netdevsim
 netfilter
+netperf
 netsec
 netvsc
 newproto

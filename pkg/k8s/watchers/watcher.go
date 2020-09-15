@@ -24,11 +24,13 @@ import (
 	"sync"
 	"time"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
+	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/lock"
@@ -39,7 +41,6 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/cilium/cilium/pkg/service"
 
 	"github.com/sirupsen/logrus"
 	"k8s.io/apimachinery/pkg/util/runtime"
@@ -129,7 +130,7 @@ type policyRepository interface {
 
 type svcManager interface {
 	DeleteService(frontend loadbalancer.L3n4Addr) (bool, error)
-	UpsertService(*service.UpsertServiceParams) (bool, loadbalancer.ID, error)
+	UpsertService(*loadbalancer.SVC) (bool, loadbalancer.ID, error)
 }
 
 type K8sWatcher struct {
@@ -241,7 +242,8 @@ func (*k8sMetrics) Observe(verb string, u url.URL, latency time.Duration) {
 }
 
 func (*k8sMetrics) Increment(code string, method string, host string) {
-	metrics.KubernetesAPICalls.WithLabelValues(host, method, code).Inc()
+	metrics.KubernetesAPICalls.WithLabelValues(host, method, code).Inc() //TODO(sayboras): Remove deprecated metric in 1.10
+	metrics.KubernetesAPICallsTotal.WithLabelValues(host, method, code).Inc()
 	// The 'code' is set to '<error>' in case an error is returned from k8s
 	// more info:
 	// https://github.com/kubernetes/client-go/blob/v0.18.0-rc.1/rest/request.go#L700-L703
@@ -353,7 +355,7 @@ func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
 // caches essential for daemon are synchronized.
 func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
 	if err := k.EnableK8sWatcher(option.Config.K8sWatcherQueueSize); err != nil {
-		log.WithError(err).Fatal("Unable to establish connection to Kubernetes apiserver")
+		log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
 	}
 
 	cachesSynced := make(chan struct{})
@@ -428,9 +430,14 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	swgKNP := lock.NewStoppableWaitGroup()
 	k.networkPoliciesInit(k8s.WatcherCli(), swgKNP)
 
+	serviceOptModifier, err := utils.GetServiceListOptionsModifier()
+	if err != nil {
+		return fmt.Errorf("error creating service list option modifier: %w", err)
+	}
+
 	// kubernetes services
 	swgSvcs := lock.NewStoppableWaitGroup()
-	k.servicesInit(k8s.WatcherCli(), swgSvcs)
+	k.servicesInit(k8s.WatcherCli(), swgSvcs, serviceOptModifier)
 
 	// kubernetes endpoints
 	swgEps := lock.NewStoppableWaitGroup()
@@ -438,14 +445,16 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	// We only enable either "Endpoints" or "EndpointSlice"
 	switch {
 	case k8s.SupportsEndpointSlice():
+		// We don't add the service option modifier here, as endpointslices do not
+		// mirror service proxy name label present in the corresponding service.
 		connected := k.endpointSlicesInit(k8s.WatcherCli(), swgEps)
-		// the cluster has endpoint slices so we should not check for v1.Endpoints
+		// The cluster has endpoint slices so we should not check for v1.Endpoints
 		if connected {
 			break
 		}
 		fallthrough
 	default:
-		k.endpointsInit(k8s.WatcherCli(), swgEps)
+		k.endpointsInit(k8s.WatcherCli(), swgEps, serviceOptModifier)
 	}
 
 	// cilium network policies
@@ -724,12 +733,20 @@ func datapathSVCs(svc *k8s.Service, endpoints *k8s.Endpoints) (svcs []loadbalanc
 		}
 	}
 
+	lbSrcRanges := make([]*cidr.CIDR, 0, len(svc.LoadBalancerSourceRanges))
+	for _, cidr := range svc.LoadBalancerSourceRanges {
+		lbSrcRanges = append(lbSrcRanges, cidr)
+	}
+
 	// apply common service properties
 	for i := range svcs {
 		svcs[i].TrafficPolicy = svc.TrafficPolicy
 		svcs[i].HealthCheckNodePort = svc.HealthCheckNodePort
 		svcs[i].SessionAffinity = svc.SessionAffinity
 		svcs[i].SessionAffinityTimeoutSec = svc.SessionAffinityTimeoutSec
+		if svcs[i].Type == loadbalancer.SVCTypeLoadBalancer {
+			svcs[i].LoadBalancerSourceRanges = lbSrcRanges
+		}
 	}
 
 	return svcs
@@ -787,7 +804,7 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 	}
 
 	for _, dpSvc := range svcs {
-		p := &service.UpsertServiceParams{
+		p := &loadbalancer.SVC{
 			Frontend:                  dpSvc.Frontend,
 			Backends:                  dpSvc.Backends,
 			Type:                      dpSvc.Type,
@@ -795,6 +812,7 @@ func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, e
 			SessionAffinity:           dpSvc.SessionAffinity,
 			SessionAffinityTimeoutSec: dpSvc.SessionAffinityTimeoutSec,
 			HealthCheckNodePort:       dpSvc.HealthCheckNodePort,
+			LoadBalancerSourceRanges:  dpSvc.LoadBalancerSourceRanges,
 			Name:                      svcID.Name,
 			Namespace:                 svcID.Namespace,
 		}

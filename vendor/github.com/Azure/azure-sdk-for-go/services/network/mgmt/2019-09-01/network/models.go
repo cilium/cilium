@@ -500,6 +500,21 @@ func PossibleAzureFirewallThreatIntelModeValues() []AzureFirewallThreatIntelMode
 	return []AzureFirewallThreatIntelMode{AzureFirewallThreatIntelModeAlert, AzureFirewallThreatIntelModeDeny, AzureFirewallThreatIntelModeOff}
 }
 
+// BastionConnectProtocol enumerates the values for bastion connect protocol.
+type BastionConnectProtocol string
+
+const (
+	// RDP ...
+	RDP BastionConnectProtocol = "RDP"
+	// SSH ...
+	SSH BastionConnectProtocol = "SSH"
+)
+
+// PossibleBastionConnectProtocolValues returns an array of possible values for the BastionConnectProtocol const type.
+func PossibleBastionConnectProtocolValues() []BastionConnectProtocol {
+	return []BastionConnectProtocol{RDP, SSH}
+}
+
 // BgpPeerState enumerates the values for bgp peer state.
 type BgpPeerState string
 
@@ -5579,9 +5594,9 @@ func NewAuthorizationListResultPage(getNextPage func(context.Context, Authorizat
 
 // AuthorizationPropertiesFormat properties of ExpressRouteCircuitAuthorization.
 type AuthorizationPropertiesFormat struct {
-	// AuthorizationKey - READ-ONLY; The authorization key.
+	// AuthorizationKey - The authorization key.
 	AuthorizationKey *string `json:"authorizationKey,omitempty"`
-	// AuthorizationUseStatus - READ-ONLY; The authorization use status. Possible values include: 'Available', 'InUse'
+	// AuthorizationUseStatus - The authorization use status. Possible values include: 'Available', 'InUse'
 	AuthorizationUseStatus AuthorizationUseStatus `json:"authorizationUseStatus,omitempty"`
 	// ProvisioningState - READ-ONLY; The provisioning state of the authorization resource. Possible values include: 'Succeeded', 'Updating', 'Deleting', 'Failed'
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
@@ -7404,6 +7419,35 @@ type AzureFirewallSku struct {
 	Tier AzureFirewallSkuTier `json:"tier,omitempty"`
 }
 
+// AzureFirewallsUpdateTagsFuture an abstraction for monitoring and retrieving the results of a
+// long-running operation.
+type AzureFirewallsUpdateTagsFuture struct {
+	azure.Future
+}
+
+// Result returns the result of the asynchronous operation.
+// If the operation has not completed it will return an error.
+func (future *AzureFirewallsUpdateTagsFuture) Result(client AzureFirewallsClient) (af AzureFirewall, err error) {
+	var done bool
+	done, err = future.DoneWithContext(context.Background(), client)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "network.AzureFirewallsUpdateTagsFuture", "Result", future.Response(), "Polling failure")
+		return
+	}
+	if !done {
+		err = azure.NewAsyncOpIncompleteError("network.AzureFirewallsUpdateTagsFuture")
+		return
+	}
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if af.Response.Response, err = future.GetResult(sender); err == nil && af.Response.Response.StatusCode != http.StatusNoContent {
+		af, err = client.UpdateTagsResponder(af.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.AzureFirewallsUpdateTagsFuture", "Result", af.Response.Response, "Failure responding to request")
+		}
+	}
+	return
+}
+
 // AzureReachabilityReport azure reachability report details.
 type AzureReachabilityReport struct {
 	autorest.Response `json:"-"`
@@ -7559,6 +7603,179 @@ type BackendAddressPoolPropertiesFormat struct {
 	OutboundRules *[]SubResource `json:"outboundRules,omitempty"`
 	// ProvisioningState - READ-ONLY; The provisioning state of the backend address pool resource. Possible values include: 'Succeeded', 'Updating', 'Deleting', 'Failed'
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
+}
+
+// BastionActiveSession the session detail for a target.
+type BastionActiveSession struct {
+	// SessionID - READ-ONLY; A unique id for the session.
+	SessionID *string `json:"sessionId,omitempty"`
+	// StartTime - READ-ONLY; The time when the session started.
+	StartTime interface{} `json:"startTime,omitempty"`
+	// TargetSubscriptionID - READ-ONLY; The subscription id for the target virtual machine.
+	TargetSubscriptionID *string `json:"targetSubscriptionId,omitempty"`
+	// ResourceType - READ-ONLY; The type of the resource.
+	ResourceType *string `json:"resourceType,omitempty"`
+	// TargetHostName - READ-ONLY; The host name of the target.
+	TargetHostName *string `json:"targetHostName,omitempty"`
+	// TargetResourceGroup - READ-ONLY; The resource group of the target.
+	TargetResourceGroup *string `json:"targetResourceGroup,omitempty"`
+	// UserName - READ-ONLY; The user name who is active on this session.
+	UserName *string `json:"userName,omitempty"`
+	// TargetIPAddress - READ-ONLY; The IP Address of the target.
+	TargetIPAddress *string `json:"targetIpAddress,omitempty"`
+	// Protocol - READ-ONLY; The protocol used to connect to the target. Possible values include: 'SSH', 'RDP'
+	Protocol BastionConnectProtocol `json:"protocol,omitempty"`
+	// TargetResourceID - READ-ONLY; The resource id of the target.
+	TargetResourceID *string `json:"targetResourceId,omitempty"`
+	// SessionDurationInMins - READ-ONLY; Duration in mins the session has been active.
+	SessionDurationInMins *float64 `json:"sessionDurationInMins,omitempty"`
+}
+
+// BastionActiveSessionListResult response for GetActiveSessions.
+type BastionActiveSessionListResult struct {
+	autorest.Response `json:"-"`
+	// Value - List of active sessions on the bastion.
+	Value *[]BastionActiveSession `json:"value,omitempty"`
+	// NextLink - Gets or sets the URL to get the next set of results.
+	NextLink *string `json:"nextLink,omitempty"`
+}
+
+// BastionActiveSessionListResultIterator provides access to a complete listing of BastionActiveSession
+// values.
+type BastionActiveSessionListResultIterator struct {
+	i    int
+	page BastionActiveSessionListResultPage
+}
+
+// NextWithContext advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+func (iter *BastionActiveSessionListResultIterator) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/BastionActiveSessionListResultIterator.NextWithContext")
+		defer func() {
+			sc := -1
+			if iter.Response().Response.Response != nil {
+				sc = iter.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	iter.i++
+	if iter.i < len(iter.page.Values()) {
+		return nil
+	}
+	err = iter.page.NextWithContext(ctx)
+	if err != nil {
+		iter.i--
+		return err
+	}
+	iter.i = 0
+	return nil
+}
+
+// Next advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (iter *BastionActiveSessionListResultIterator) Next() error {
+	return iter.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the enumeration should be started or is not yet complete.
+func (iter BastionActiveSessionListResultIterator) NotDone() bool {
+	return iter.page.NotDone() && iter.i < len(iter.page.Values())
+}
+
+// Response returns the raw server response from the last page request.
+func (iter BastionActiveSessionListResultIterator) Response() BastionActiveSessionListResult {
+	return iter.page.Response()
+}
+
+// Value returns the current value or a zero-initialized value if the
+// iterator has advanced beyond the end of the collection.
+func (iter BastionActiveSessionListResultIterator) Value() BastionActiveSession {
+	if !iter.page.NotDone() {
+		return BastionActiveSession{}
+	}
+	return iter.page.Values()[iter.i]
+}
+
+// Creates a new instance of the BastionActiveSessionListResultIterator type.
+func NewBastionActiveSessionListResultIterator(page BastionActiveSessionListResultPage) BastionActiveSessionListResultIterator {
+	return BastionActiveSessionListResultIterator{page: page}
+}
+
+// IsEmpty returns true if the ListResult contains no values.
+func (baslr BastionActiveSessionListResult) IsEmpty() bool {
+	return baslr.Value == nil || len(*baslr.Value) == 0
+}
+
+// bastionActiveSessionListResultPreparer prepares a request to retrieve the next set of results.
+// It returns nil if no more results exist.
+func (baslr BastionActiveSessionListResult) bastionActiveSessionListResultPreparer(ctx context.Context) (*http.Request, error) {
+	if baslr.NextLink == nil || len(to.String(baslr.NextLink)) < 1 {
+		return nil, nil
+	}
+	return autorest.Prepare((&http.Request{}).WithContext(ctx),
+		autorest.AsJSON(),
+		autorest.AsGet(),
+		autorest.WithBaseURL(to.String(baslr.NextLink)))
+}
+
+// BastionActiveSessionListResultPage contains a page of BastionActiveSession values.
+type BastionActiveSessionListResultPage struct {
+	fn    func(context.Context, BastionActiveSessionListResult) (BastionActiveSessionListResult, error)
+	baslr BastionActiveSessionListResult
+}
+
+// NextWithContext advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+func (page *BastionActiveSessionListResultPage) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/BastionActiveSessionListResultPage.NextWithContext")
+		defer func() {
+			sc := -1
+			if page.Response().Response.Response != nil {
+				sc = page.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	next, err := page.fn(ctx, page.baslr)
+	if err != nil {
+		return err
+	}
+	page.baslr = next
+	return nil
+}
+
+// Next advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (page *BastionActiveSessionListResultPage) Next() error {
+	return page.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the page enumeration should be started or is not yet complete.
+func (page BastionActiveSessionListResultPage) NotDone() bool {
+	return !page.baslr.IsEmpty()
+}
+
+// Response returns the raw server response from the last page request.
+func (page BastionActiveSessionListResultPage) Response() BastionActiveSessionListResult {
+	return page.baslr
+}
+
+// Values returns the slice of values for the current page or nil if there are no values.
+func (page BastionActiveSessionListResultPage) Values() []BastionActiveSession {
+	if page.baslr.IsEmpty() {
+		return nil
+	}
+	return *page.baslr.Value
+}
+
+// Creates a new instance of the BastionActiveSessionListResultPage type.
+func NewBastionActiveSessionListResultPage(getNextPage func(context.Context, BastionActiveSessionListResult) (BastionActiveSessionListResult, error)) BastionActiveSessionListResultPage {
+	return BastionActiveSessionListResultPage{fn: getNextPage}
 }
 
 // BastionHost bastion Host resource.
@@ -7983,6 +8200,327 @@ func (future *BastionHostsDeleteFuture) Result(client BastionHostsClient) (ar au
 	}
 	ar.Response = future.Response()
 	return
+}
+
+// BastionSessionDeleteResult response for DisconnectActiveSessions.
+type BastionSessionDeleteResult struct {
+	autorest.Response `json:"-"`
+	// Value - List of sessions with their corresponding state.
+	Value *[]BastionSessionState `json:"value,omitempty"`
+	// NextLink - Gets or sets the URL to get the next set of results.
+	NextLink *string `json:"nextLink,omitempty"`
+}
+
+// BastionSessionDeleteResultIterator provides access to a complete listing of BastionSessionState values.
+type BastionSessionDeleteResultIterator struct {
+	i    int
+	page BastionSessionDeleteResultPage
+}
+
+// NextWithContext advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+func (iter *BastionSessionDeleteResultIterator) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/BastionSessionDeleteResultIterator.NextWithContext")
+		defer func() {
+			sc := -1
+			if iter.Response().Response.Response != nil {
+				sc = iter.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	iter.i++
+	if iter.i < len(iter.page.Values()) {
+		return nil
+	}
+	err = iter.page.NextWithContext(ctx)
+	if err != nil {
+		iter.i--
+		return err
+	}
+	iter.i = 0
+	return nil
+}
+
+// Next advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (iter *BastionSessionDeleteResultIterator) Next() error {
+	return iter.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the enumeration should be started or is not yet complete.
+func (iter BastionSessionDeleteResultIterator) NotDone() bool {
+	return iter.page.NotDone() && iter.i < len(iter.page.Values())
+}
+
+// Response returns the raw server response from the last page request.
+func (iter BastionSessionDeleteResultIterator) Response() BastionSessionDeleteResult {
+	return iter.page.Response()
+}
+
+// Value returns the current value or a zero-initialized value if the
+// iterator has advanced beyond the end of the collection.
+func (iter BastionSessionDeleteResultIterator) Value() BastionSessionState {
+	if !iter.page.NotDone() {
+		return BastionSessionState{}
+	}
+	return iter.page.Values()[iter.i]
+}
+
+// Creates a new instance of the BastionSessionDeleteResultIterator type.
+func NewBastionSessionDeleteResultIterator(page BastionSessionDeleteResultPage) BastionSessionDeleteResultIterator {
+	return BastionSessionDeleteResultIterator{page: page}
+}
+
+// IsEmpty returns true if the ListResult contains no values.
+func (bsdr BastionSessionDeleteResult) IsEmpty() bool {
+	return bsdr.Value == nil || len(*bsdr.Value) == 0
+}
+
+// bastionSessionDeleteResultPreparer prepares a request to retrieve the next set of results.
+// It returns nil if no more results exist.
+func (bsdr BastionSessionDeleteResult) bastionSessionDeleteResultPreparer(ctx context.Context) (*http.Request, error) {
+	if bsdr.NextLink == nil || len(to.String(bsdr.NextLink)) < 1 {
+		return nil, nil
+	}
+	return autorest.Prepare((&http.Request{}).WithContext(ctx),
+		autorest.AsJSON(),
+		autorest.AsGet(),
+		autorest.WithBaseURL(to.String(bsdr.NextLink)))
+}
+
+// BastionSessionDeleteResultPage contains a page of BastionSessionState values.
+type BastionSessionDeleteResultPage struct {
+	fn   func(context.Context, BastionSessionDeleteResult) (BastionSessionDeleteResult, error)
+	bsdr BastionSessionDeleteResult
+}
+
+// NextWithContext advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+func (page *BastionSessionDeleteResultPage) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/BastionSessionDeleteResultPage.NextWithContext")
+		defer func() {
+			sc := -1
+			if page.Response().Response.Response != nil {
+				sc = page.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	next, err := page.fn(ctx, page.bsdr)
+	if err != nil {
+		return err
+	}
+	page.bsdr = next
+	return nil
+}
+
+// Next advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (page *BastionSessionDeleteResultPage) Next() error {
+	return page.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the page enumeration should be started or is not yet complete.
+func (page BastionSessionDeleteResultPage) NotDone() bool {
+	return !page.bsdr.IsEmpty()
+}
+
+// Response returns the raw server response from the last page request.
+func (page BastionSessionDeleteResultPage) Response() BastionSessionDeleteResult {
+	return page.bsdr
+}
+
+// Values returns the slice of values for the current page or nil if there are no values.
+func (page BastionSessionDeleteResultPage) Values() []BastionSessionState {
+	if page.bsdr.IsEmpty() {
+		return nil
+	}
+	return *page.bsdr.Value
+}
+
+// Creates a new instance of the BastionSessionDeleteResultPage type.
+func NewBastionSessionDeleteResultPage(getNextPage func(context.Context, BastionSessionDeleteResult) (BastionSessionDeleteResult, error)) BastionSessionDeleteResultPage {
+	return BastionSessionDeleteResultPage{fn: getNextPage}
+}
+
+// BastionSessionState the session state detail for a target.
+type BastionSessionState struct {
+	// SessionID - READ-ONLY; A unique id for the session.
+	SessionID *string `json:"sessionId,omitempty"`
+	// Message - READ-ONLY; Used for extra information.
+	Message *string `json:"message,omitempty"`
+	// State - READ-ONLY; The state of the session. Disconnected/Failed/NotFound.
+	State *string `json:"state,omitempty"`
+}
+
+// BastionShareableLink bastion Shareable Link.
+type BastionShareableLink struct {
+	// VM - Reference of the virtual machine resource.
+	VM *VM `json:"vm,omitempty"`
+	// Bsl - READ-ONLY; The unique Bastion Shareable Link to the virtual machine.
+	Bsl *string `json:"bsl,omitempty"`
+	// CreatedAt - READ-ONLY; The time when the link was created.
+	CreatedAt *string `json:"createdAt,omitempty"`
+	// Message - READ-ONLY; Optional field indicating the warning or error message related to the vm in case of partial failure
+	Message *string `json:"message,omitempty"`
+}
+
+// BastionShareableLinkListRequest post request for all the Bastion Shareable Link endpoints.
+type BastionShareableLinkListRequest struct {
+	// Vms - List of VM references.
+	Vms *[]BastionShareableLink `json:"vms,omitempty"`
+}
+
+// BastionShareableLinkListResult response for all the Bastion Shareable Link endpoints.
+type BastionShareableLinkListResult struct {
+	autorest.Response `json:"-"`
+	// Value - List of Bastion Shareable Links for the request.
+	Value *[]BastionShareableLink `json:"value,omitempty"`
+	// NextLink - Gets or sets the URL to get the next set of results.
+	NextLink *string `json:"nextLink,omitempty"`
+}
+
+// BastionShareableLinkListResultIterator provides access to a complete listing of BastionShareableLink
+// values.
+type BastionShareableLinkListResultIterator struct {
+	i    int
+	page BastionShareableLinkListResultPage
+}
+
+// NextWithContext advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+func (iter *BastionShareableLinkListResultIterator) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/BastionShareableLinkListResultIterator.NextWithContext")
+		defer func() {
+			sc := -1
+			if iter.Response().Response.Response != nil {
+				sc = iter.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	iter.i++
+	if iter.i < len(iter.page.Values()) {
+		return nil
+	}
+	err = iter.page.NextWithContext(ctx)
+	if err != nil {
+		iter.i--
+		return err
+	}
+	iter.i = 0
+	return nil
+}
+
+// Next advances to the next value.  If there was an error making
+// the request the iterator does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (iter *BastionShareableLinkListResultIterator) Next() error {
+	return iter.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the enumeration should be started or is not yet complete.
+func (iter BastionShareableLinkListResultIterator) NotDone() bool {
+	return iter.page.NotDone() && iter.i < len(iter.page.Values())
+}
+
+// Response returns the raw server response from the last page request.
+func (iter BastionShareableLinkListResultIterator) Response() BastionShareableLinkListResult {
+	return iter.page.Response()
+}
+
+// Value returns the current value or a zero-initialized value if the
+// iterator has advanced beyond the end of the collection.
+func (iter BastionShareableLinkListResultIterator) Value() BastionShareableLink {
+	if !iter.page.NotDone() {
+		return BastionShareableLink{}
+	}
+	return iter.page.Values()[iter.i]
+}
+
+// Creates a new instance of the BastionShareableLinkListResultIterator type.
+func NewBastionShareableLinkListResultIterator(page BastionShareableLinkListResultPage) BastionShareableLinkListResultIterator {
+	return BastionShareableLinkListResultIterator{page: page}
+}
+
+// IsEmpty returns true if the ListResult contains no values.
+func (bsllr BastionShareableLinkListResult) IsEmpty() bool {
+	return bsllr.Value == nil || len(*bsllr.Value) == 0
+}
+
+// bastionShareableLinkListResultPreparer prepares a request to retrieve the next set of results.
+// It returns nil if no more results exist.
+func (bsllr BastionShareableLinkListResult) bastionShareableLinkListResultPreparer(ctx context.Context) (*http.Request, error) {
+	if bsllr.NextLink == nil || len(to.String(bsllr.NextLink)) < 1 {
+		return nil, nil
+	}
+	return autorest.Prepare((&http.Request{}).WithContext(ctx),
+		autorest.AsJSON(),
+		autorest.AsGet(),
+		autorest.WithBaseURL(to.String(bsllr.NextLink)))
+}
+
+// BastionShareableLinkListResultPage contains a page of BastionShareableLink values.
+type BastionShareableLinkListResultPage struct {
+	fn    func(context.Context, BastionShareableLinkListResult) (BastionShareableLinkListResult, error)
+	bsllr BastionShareableLinkListResult
+}
+
+// NextWithContext advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+func (page *BastionShareableLinkListResultPage) NextWithContext(ctx context.Context) (err error) {
+	if tracing.IsEnabled() {
+		ctx = tracing.StartSpan(ctx, fqdn+"/BastionShareableLinkListResultPage.NextWithContext")
+		defer func() {
+			sc := -1
+			if page.Response().Response.Response != nil {
+				sc = page.Response().Response.Response.StatusCode
+			}
+			tracing.EndSpan(ctx, sc, err)
+		}()
+	}
+	next, err := page.fn(ctx, page.bsllr)
+	if err != nil {
+		return err
+	}
+	page.bsllr = next
+	return nil
+}
+
+// Next advances to the next page of values.  If there was an error making
+// the request the page does not advance and the error is returned.
+// Deprecated: Use NextWithContext() instead.
+func (page *BastionShareableLinkListResultPage) Next() error {
+	return page.NextWithContext(context.Background())
+}
+
+// NotDone returns true if the page enumeration should be started or is not yet complete.
+func (page BastionShareableLinkListResultPage) NotDone() bool {
+	return !page.bsllr.IsEmpty()
+}
+
+// Response returns the raw server response from the last page request.
+func (page BastionShareableLinkListResultPage) Response() BastionShareableLinkListResult {
+	return page.bsllr
+}
+
+// Values returns the slice of values for the current page or nil if there are no values.
+func (page BastionShareableLinkListResultPage) Values() []BastionShareableLink {
+	if page.bsllr.IsEmpty() {
+		return nil
+	}
+	return *page.bsllr.Value
+}
+
+// Creates a new instance of the BastionShareableLinkListResultPage type.
+func NewBastionShareableLinkListResultPage(getNextPage func(context.Context, BastionShareableLinkListResult) (BastionShareableLinkListResult, error)) BastionShareableLinkListResultPage {
+	return BastionShareableLinkListResultPage{fn: getNextPage}
 }
 
 // BGPCommunity contains bgp community information offered in Service Community resources.
@@ -9727,6 +10265,29 @@ func (d *Delegation) UnmarshalJSON(body []byte) error {
 	return nil
 }
 
+// DeleteBastionShareableLinkFuture an abstraction for monitoring and retrieving the results of a
+// long-running operation.
+type DeleteBastionShareableLinkFuture struct {
+	azure.Future
+}
+
+// Result returns the result of the asynchronous operation.
+// If the operation has not completed it will return an error.
+func (future *DeleteBastionShareableLinkFuture) Result(client BaseClient) (ar autorest.Response, err error) {
+	var done bool
+	done, err = future.DoneWithContext(context.Background(), client)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "network.DeleteBastionShareableLinkFuture", "Result", future.Response(), "Polling failure")
+		return
+	}
+	if !done {
+		err = azure.NewAsyncOpIncompleteError("network.DeleteBastionShareableLinkFuture")
+		return
+	}
+	ar.Response = future.Response()
+	return
+}
+
 // DeviceProperties list of properties of the device.
 type DeviceProperties struct {
 	// DeviceVendor - Name of the device Vendor.
@@ -10601,7 +11162,7 @@ type ExpressRouteCircuitConnectionPropertiesFormat struct {
 	AddressPrefix *string `json:"addressPrefix,omitempty"`
 	// AuthorizationKey - The authorization key.
 	AuthorizationKey *string `json:"authorizationKey,omitempty"`
-	// CircuitConnectionStatus - READ-ONLY; Express Route Circuit connection state. Possible values include: 'Connected', 'Connecting', 'Disconnected'
+	// CircuitConnectionStatus - Express Route Circuit connection state. Possible values include: 'Connected', 'Connecting', 'Disconnected'
 	CircuitConnectionStatus CircuitConnectionStatus `json:"circuitConnectionStatus,omitempty"`
 	// ProvisioningState - READ-ONLY; The provisioning state of the express route circuit connection resource. Possible values include: 'Succeeded', 'Updating', 'Deleting', 'Failed'
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
@@ -11072,7 +11633,7 @@ type ExpressRouteCircuitPeeringPropertiesFormat struct {
 	PeeringType ExpressRoutePeeringType `json:"peeringType,omitempty"`
 	// State - The peering state. Possible values include: 'ExpressRoutePeeringStateDisabled', 'ExpressRoutePeeringStateEnabled'
 	State ExpressRoutePeeringState `json:"state,omitempty"`
-	// AzureASN - READ-ONLY; The Azure ASN.
+	// AzureASN - The Azure ASN.
 	AzureASN *int32 `json:"azureASN,omitempty"`
 	// PeerASN - The peer ASN.
 	PeerASN *int64 `json:"peerASN,omitempty"`
@@ -11080,9 +11641,9 @@ type ExpressRouteCircuitPeeringPropertiesFormat struct {
 	PrimaryPeerAddressPrefix *string `json:"primaryPeerAddressPrefix,omitempty"`
 	// SecondaryPeerAddressPrefix - The secondary address prefix.
 	SecondaryPeerAddressPrefix *string `json:"secondaryPeerAddressPrefix,omitempty"`
-	// PrimaryAzurePort - READ-ONLY; The primary port.
+	// PrimaryAzurePort - The primary port.
 	PrimaryAzurePort *string `json:"primaryAzurePort,omitempty"`
-	// SecondaryAzurePort - READ-ONLY; The secondary port.
+	// SecondaryAzurePort - The secondary port.
 	SecondaryAzurePort *string `json:"secondaryAzurePort,omitempty"`
 	// SharedKey - The shared key.
 	SharedKey *string `json:"sharedKey,omitempty"`
@@ -11104,7 +11665,7 @@ type ExpressRouteCircuitPeeringPropertiesFormat struct {
 	Ipv6PeeringConfig *Ipv6ExpressRouteCircuitPeeringConfig `json:"ipv6PeeringConfig,omitempty"`
 	// ExpressRouteConnection - The ExpressRoute connection.
 	ExpressRouteConnection *ExpressRouteConnectionID `json:"expressRouteConnection,omitempty"`
-	// Connections - READ-ONLY; The list of circuit connections associated with Azure Private Peering for this circuit.
+	// Connections - The list of circuit connections associated with Azure Private Peering for this circuit.
 	Connections *[]ExpressRouteCircuitConnection `json:"connections,omitempty"`
 	// PeeredConnections - READ-ONLY; The list of peered circuit connections associated with Azure Private Peering for this circuit.
 	PeeredConnections *[]PeerExpressRouteCircuitConnection `json:"peeredConnections,omitempty"`
@@ -11166,15 +11727,15 @@ func (future *ExpressRouteCircuitPeeringsDeleteFuture) Result(client ExpressRout
 type ExpressRouteCircuitPropertiesFormat struct {
 	// AllowClassicOperations - Allow classic operations.
 	AllowClassicOperations *bool `json:"allowClassicOperations,omitempty"`
-	// CircuitProvisioningState - READ-ONLY; The CircuitProvisioningState state of the resource.
+	// CircuitProvisioningState - The CircuitProvisioningState state of the resource.
 	CircuitProvisioningState *string `json:"circuitProvisioningState,omitempty"`
-	// ServiceProviderProvisioningState - READ-ONLY; The ServiceProviderProvisioningState state of the resource. Possible values include: 'NotProvisioned', 'Provisioning', 'Provisioned', 'Deprovisioning'
+	// ServiceProviderProvisioningState - The ServiceProviderProvisioningState state of the resource. Possible values include: 'NotProvisioned', 'Provisioning', 'Provisioned', 'Deprovisioning'
 	ServiceProviderProvisioningState ServiceProviderProvisioningState `json:"serviceProviderProvisioningState,omitempty"`
 	// Authorizations - The list of authorizations.
 	Authorizations *[]ExpressRouteCircuitAuthorization `json:"authorizations,omitempty"`
 	// Peerings - The list of peerings.
 	Peerings *[]ExpressRouteCircuitPeering `json:"peerings,omitempty"`
-	// ServiceKey - READ-ONLY; The ServiceKey.
+	// ServiceKey - The ServiceKey.
 	ServiceKey *string `json:"serviceKey,omitempty"`
 	// ServiceProviderNotes - The ServiceProviderNotes.
 	ServiceProviderNotes *string `json:"serviceProviderNotes,omitempty"`
@@ -11190,7 +11751,7 @@ type ExpressRouteCircuitPropertiesFormat struct {
 	ProvisioningState ProvisioningState `json:"provisioningState,omitempty"`
 	// GatewayManagerEtag - The GatewayManager Etag.
 	GatewayManagerEtag *string `json:"gatewayManagerEtag,omitempty"`
-	// GlobalReachEnabled - READ-ONLY; Flag denoting Global reach status.
+	// GlobalReachEnabled - Flag denoting Global reach status.
 	GlobalReachEnabled *bool `json:"globalReachEnabled,omitempty"`
 }
 
@@ -15072,6 +15633,64 @@ func (future *GeneratevirtualwanvpnserverconfigurationvpnprofileFuture) Result(c
 		vpr, err = client.GeneratevirtualwanvpnserverconfigurationvpnprofileResponder(vpr.Response.Response)
 		if err != nil {
 			err = autorest.NewErrorWithError(err, "network.GeneratevirtualwanvpnserverconfigurationvpnprofileFuture", "Result", vpr.Response.Response, "Failure responding to request")
+		}
+	}
+	return
+}
+
+// GetActiveSessionsAllFuture an abstraction for monitoring and retrieving the results of a long-running
+// operation.
+type GetActiveSessionsAllFuture struct {
+	azure.Future
+}
+
+// Result returns the result of the asynchronous operation.
+// If the operation has not completed it will return an error.
+func (future *GetActiveSessionsAllFuture) Result(client BaseClient) (baslrp BastionActiveSessionListResultPage, err error) {
+	var done bool
+	done, err = future.DoneWithContext(context.Background(), client)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "network.GetActiveSessionsAllFuture", "Result", future.Response(), "Polling failure")
+		return
+	}
+	if !done {
+		err = azure.NewAsyncOpIncompleteError("network.GetActiveSessionsAllFuture")
+		return
+	}
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if baslrp.baslr.Response.Response, err = future.GetResult(sender); err == nil && baslrp.baslr.Response.Response.StatusCode != http.StatusNoContent {
+		baslrp, err = client.GetActiveSessionsResponder(baslrp.baslr.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.GetActiveSessionsAllFuture", "Result", baslrp.baslr.Response.Response, "Failure responding to request")
+		}
+	}
+	return
+}
+
+// GetActiveSessionsFuture an abstraction for monitoring and retrieving the results of a long-running
+// operation.
+type GetActiveSessionsFuture struct {
+	azure.Future
+}
+
+// Result returns the result of the asynchronous operation.
+// If the operation has not completed it will return an error.
+func (future *GetActiveSessionsFuture) Result(client BaseClient) (baslrp BastionActiveSessionListResultPage, err error) {
+	var done bool
+	done, err = future.DoneWithContext(context.Background(), client)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "network.GetActiveSessionsFuture", "Result", future.Response(), "Polling failure")
+		return
+	}
+	if !done {
+		err = azure.NewAsyncOpIncompleteError("network.GetActiveSessionsFuture")
+		return
+	}
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if baslrp.baslr.Response.Response, err = future.GetResult(sender); err == nil && baslrp.baslr.Response.Response.StatusCode != http.StatusNoContent {
+		baslrp, err = client.GetActiveSessionsResponder(baslrp.baslr.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.GetActiveSessionsFuture", "Result", baslrp.baslr.Response.Response, "Failure responding to request")
 		}
 	}
 	return
@@ -23641,6 +24260,64 @@ type PrivateLinkServicePropertiesVisibility struct {
 	Subscriptions *[]string `json:"subscriptions,omitempty"`
 }
 
+// PrivateLinkServicesCheckPrivateLinkServiceVisibilityByResourceGroupFuture an abstraction for monitoring
+// and retrieving the results of a long-running operation.
+type PrivateLinkServicesCheckPrivateLinkServiceVisibilityByResourceGroupFuture struct {
+	azure.Future
+}
+
+// Result returns the result of the asynchronous operation.
+// If the operation has not completed it will return an error.
+func (future *PrivateLinkServicesCheckPrivateLinkServiceVisibilityByResourceGroupFuture) Result(client PrivateLinkServicesClient) (plsv PrivateLinkServiceVisibility, err error) {
+	var done bool
+	done, err = future.DoneWithContext(context.Background(), client)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "network.PrivateLinkServicesCheckPrivateLinkServiceVisibilityByResourceGroupFuture", "Result", future.Response(), "Polling failure")
+		return
+	}
+	if !done {
+		err = azure.NewAsyncOpIncompleteError("network.PrivateLinkServicesCheckPrivateLinkServiceVisibilityByResourceGroupFuture")
+		return
+	}
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if plsv.Response.Response, err = future.GetResult(sender); err == nil && plsv.Response.Response.StatusCode != http.StatusNoContent {
+		plsv, err = client.CheckPrivateLinkServiceVisibilityByResourceGroupResponder(plsv.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.PrivateLinkServicesCheckPrivateLinkServiceVisibilityByResourceGroupFuture", "Result", plsv.Response.Response, "Failure responding to request")
+		}
+	}
+	return
+}
+
+// PrivateLinkServicesCheckPrivateLinkServiceVisibilityFuture an abstraction for monitoring and retrieving
+// the results of a long-running operation.
+type PrivateLinkServicesCheckPrivateLinkServiceVisibilityFuture struct {
+	azure.Future
+}
+
+// Result returns the result of the asynchronous operation.
+// If the operation has not completed it will return an error.
+func (future *PrivateLinkServicesCheckPrivateLinkServiceVisibilityFuture) Result(client PrivateLinkServicesClient) (plsv PrivateLinkServiceVisibility, err error) {
+	var done bool
+	done, err = future.DoneWithContext(context.Background(), client)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "network.PrivateLinkServicesCheckPrivateLinkServiceVisibilityFuture", "Result", future.Response(), "Polling failure")
+		return
+	}
+	if !done {
+		err = azure.NewAsyncOpIncompleteError("network.PrivateLinkServicesCheckPrivateLinkServiceVisibilityFuture")
+		return
+	}
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if plsv.Response.Response, err = future.GetResult(sender); err == nil && plsv.Response.Response.StatusCode != http.StatusNoContent {
+		plsv, err = client.CheckPrivateLinkServiceVisibilityResponder(plsv.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.PrivateLinkServicesCheckPrivateLinkServiceVisibilityFuture", "Result", plsv.Response.Response, "Failure responding to request")
+		}
+	}
+	return
+}
+
 // PrivateLinkServicesCreateOrUpdateFuture an abstraction for monitoring and retrieving the results of a
 // long-running operation.
 type PrivateLinkServicesCreateOrUpdateFuture struct {
@@ -24893,6 +25570,64 @@ type PublicIPPrefixPropertiesFormat struct {
 type PublicIPPrefixSku struct {
 	// Name - Name of a public IP prefix SKU. Possible values include: 'PublicIPPrefixSkuNameStandard'
 	Name PublicIPPrefixSkuName `json:"name,omitempty"`
+}
+
+// PutBastionShareableLinkAllFuture an abstraction for monitoring and retrieving the results of a
+// long-running operation.
+type PutBastionShareableLinkAllFuture struct {
+	azure.Future
+}
+
+// Result returns the result of the asynchronous operation.
+// If the operation has not completed it will return an error.
+func (future *PutBastionShareableLinkAllFuture) Result(client BaseClient) (bsllrp BastionShareableLinkListResultPage, err error) {
+	var done bool
+	done, err = future.DoneWithContext(context.Background(), client)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "network.PutBastionShareableLinkAllFuture", "Result", future.Response(), "Polling failure")
+		return
+	}
+	if !done {
+		err = azure.NewAsyncOpIncompleteError("network.PutBastionShareableLinkAllFuture")
+		return
+	}
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if bsllrp.bsllr.Response.Response, err = future.GetResult(sender); err == nil && bsllrp.bsllr.Response.Response.StatusCode != http.StatusNoContent {
+		bsllrp, err = client.PutBastionShareableLinkResponder(bsllrp.bsllr.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.PutBastionShareableLinkAllFuture", "Result", bsllrp.bsllr.Response.Response, "Failure responding to request")
+		}
+	}
+	return
+}
+
+// PutBastionShareableLinkFuture an abstraction for monitoring and retrieving the results of a long-running
+// operation.
+type PutBastionShareableLinkFuture struct {
+	azure.Future
+}
+
+// Result returns the result of the asynchronous operation.
+// If the operation has not completed it will return an error.
+func (future *PutBastionShareableLinkFuture) Result(client BaseClient) (bsllrp BastionShareableLinkListResultPage, err error) {
+	var done bool
+	done, err = future.DoneWithContext(context.Background(), client)
+	if err != nil {
+		err = autorest.NewErrorWithError(err, "network.PutBastionShareableLinkFuture", "Result", future.Response(), "Polling failure")
+		return
+	}
+	if !done {
+		err = azure.NewAsyncOpIncompleteError("network.PutBastionShareableLinkFuture")
+		return
+	}
+	sender := autorest.DecorateSender(client, autorest.DoRetryForStatusCodes(client.RetryAttempts, client.RetryDuration, autorest.StatusCodesForRetry...))
+	if bsllrp.bsllr.Response.Response, err = future.GetResult(sender); err == nil && bsllrp.bsllr.Response.Response.StatusCode != http.StatusNoContent {
+		bsllrp, err = client.PutBastionShareableLinkResponder(bsllrp.bsllr.Response.Response)
+		if err != nil {
+			err = autorest.NewErrorWithError(err, "network.PutBastionShareableLinkFuture", "Result", bsllrp.bsllr.Response.Response, "Failure responding to request")
+		}
+	}
+	return
 }
 
 // QueryTroubleshootingParameters parameters that define the resource to query the troubleshooting result.
@@ -27851,6 +28586,12 @@ type ServiceTagsListResult struct {
 	Cloud *string `json:"cloud,omitempty"`
 	// Values - READ-ONLY; The list of service tag information resources.
 	Values *[]ServiceTagInformation `json:"values,omitempty"`
+}
+
+// SessionIds list of session ids.
+type SessionIds struct {
+	// SessionIds - List of session ids
+	SessionIds *[]string `json:"sessionIds,omitempty"`
 }
 
 // String ...
@@ -32655,6 +33396,35 @@ type VirtualWanVpnProfileParameters struct {
 	VpnServerConfigurationResourceID *string `json:"vpnServerConfigurationResourceId,omitempty"`
 	// AuthenticationMethod - VPN client authentication method. Possible values include: 'EAPTLS', 'EAPMSCHAPv2'
 	AuthenticationMethod AuthenticationMethod `json:"authenticationMethod,omitempty"`
+}
+
+// VM describes a Virtual Machine.
+type VM struct {
+	// ID - Resource ID.
+	ID *string `json:"id,omitempty"`
+	// Name - READ-ONLY; Resource name.
+	Name *string `json:"name,omitempty"`
+	// Type - READ-ONLY; Resource type.
+	Type *string `json:"type,omitempty"`
+	// Location - Resource location.
+	Location *string `json:"location,omitempty"`
+	// Tags - Resource tags.
+	Tags map[string]*string `json:"tags"`
+}
+
+// MarshalJSON is the custom marshaler for VM.
+func (vVar VM) MarshalJSON() ([]byte, error) {
+	objectMap := make(map[string]interface{})
+	if vVar.ID != nil {
+		objectMap["id"] = vVar.ID
+	}
+	if vVar.Location != nil {
+		objectMap["location"] = vVar.Location
+	}
+	if vVar.Tags != nil {
+		objectMap["tags"] = vVar.Tags
+	}
+	return json.Marshal(objectMap)
 }
 
 // VpnClientConfiguration vpnClientConfiguration for P2S client.

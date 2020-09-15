@@ -48,6 +48,10 @@ message ChangeNotification {
     // ChangeNotificationType indicates the type of change, ie whether the peer
     // was added, deleted or updated.
     ChangeNotificationType type = 3;
+
+    // TLS provides information to connect to the Address with TLS enabled.
+    // If not set, TLS shall be assumed to be disabled.
+    TLS tls = 4;
 }
 
 // ChangeNotificationType defines the peer change notification type.
@@ -56,4 +60,10 @@ enum ChangeNotificationType {
     PEER_ADDED = 1;
     PEER_DELETED = 2;
     PEER_UPDATED = 3;
+}
+
+// TLS provides information to establish a TLS connection to the peer.
+message TLS {
+    // ServerName is used to verify the hostname on the returned certificate.
+    string server_name = 1;
 }

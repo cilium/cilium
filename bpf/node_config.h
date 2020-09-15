@@ -48,6 +48,9 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 
 #define ENABLE_IDENTITY_MARK 1
 
+#define HASH_INIT4_SEED 0xcafe
+#define HASH_INIT6_SEED 0xeb9f
+
 #ifdef ENABLE_IPV4
 #define IPV4_MASK 0xffff
 #define IPV4_GATEWAY 0xfffff50a
@@ -91,6 +94,13 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 #define LB4_AFFINITY_MAP test_cilium_lb4_affinity
 #define LB6_AFFINITY_MAP test_cilium_lb6_affinity
 #define LB_AFFINITY_MATCH_MAP test_cilium_lb_affinity_match
+#define LB_MAGLEV_LUT_SIZE 32749
+#define LB4_MAGLEV_MAP_INNER test_cilium_lb4_maglev_inner
+#define LB4_MAGLEV_MAP_OUTER test_cilium_lb4_maglev_outer
+#define LB6_MAGLEV_MAP_INNER test_cilium_lb6_maglev_inner
+#define LB6_MAGLEV_MAP_OUTER test_cilium_lb6_maglev_outer
+#define THROTTLE_MAP test_cilium_throttle
+#define THROTTLE_MAP_SIZE 65536
 #define ENABLE_ARP_RESPONDER
 #define TUNNEL_ENDPOINT_MAP_SIZE 65536
 #define ENDPOINTS_MAP_SIZE 65536
@@ -139,6 +149,19 @@ DEFINE_IPV6(HOST_IP, 0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1, 0x0, 0x0, 0xa, 0x
 # ifdef ENABLE_IPV6
 #  define IPV6_DIRECT_ROUTING { .addr = { 0x0, 0x0, 0x0, 0x0, 0x0, 0x0 } }
 # endif
+#endif
+
+#ifdef ENABLE_SRC_RANGE_CHECK
+# define LB4_SRC_RANGE_MAP	test_cilium_lb4_source_range
+# define LB4_SRC_RANGE_MAP_SIZE	1000
+# define LB6_SRC_RANGE_MAP	test_cilium_lb6_source_range
+# define LB6_SRC_RANGE_MAP_SIZE	1000
+#endif
+
+#ifndef LB_SELECTION
+# define LB_SELECTION_RANDOM	1
+# define LB_SELECTION_MAGLEV	2
+# define LB_SELECTION		LB_SELECTION_RANDOM
 #endif
 
 /* It appears that we can support around the below number of prefixes in an

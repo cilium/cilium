@@ -22,9 +22,10 @@ import (
 var (
 	// ErrEmptyData gets returns when monitoring payload contained no data
 	ErrEmptyData = errors.New("empty data")
-	// ErrUnknownPerfEvent is returned if the monitor payload has an unknown
-	// perf event record type
-	ErrUnknownPerfEvent = errors.New("unknown perf event record type")
+	// ErrUnknownEventType is returned if the monitor event is an unknown type
+	ErrUnknownEventType = errors.New("unknown event type")
+	// ErrInvalidAgentMessageType is returned if an agent message is of invalid type
+	ErrInvalidAgentMessageType = errors.New("invalid agent message type")
 )
 
 // ErrInvalidType specifies when it was given a packet type that was not

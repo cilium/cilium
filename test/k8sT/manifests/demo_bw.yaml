@@ -1,0 +1,96 @@
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netperf-10
+spec:
+  selector:
+    matchLabels:
+      run: netperf-10
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: netperf-10
+      annotations:
+        kubernetes.io/egress-bandwidth: "10M"
+    spec:
+      containers:
+      - name: netperf-10
+        image: cilium/netperf:0.0.2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 12865
+      nodeSelector:
+        "cilium.io/ci-node": k8s1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netperf-25
+spec:
+  selector:
+    matchLabels:
+      run: netperf-25
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: netperf-25
+      annotations:
+        kubernetes.io/egress-bandwidth: "25M"
+    spec:
+      containers:
+      - name: netperf-25
+        image: cilium/netperf:0.0.2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 12865
+      nodeSelector:
+        "cilium.io/ci-node": k8s1
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netperf-client-pod
+spec:
+  selector:
+    matchLabels:
+      run: netperf-client-pod
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: netperf-client-pod
+    spec:
+      containers:
+      - name: netperf-client
+        image: cilium/netperf:0.0.2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 12865
+      nodeSelector:
+        "cilium.io/ci-node": k8s2
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: netperf-client-host
+spec:
+  selector:
+    matchLabels:
+      run: netperf-client-host
+  replicas: 1
+  template:
+    metadata:
+      labels:
+        run: netperf-client-host
+    spec:
+      hostNetwork: true
+      containers:
+      - name: netperf-client
+        image: cilium/netperf:0.0.2
+        imagePullPolicy: IfNotPresent
+        ports:
+        - containerPort: 12865
+      nodeSelector:
+        "cilium.io/ci-node": k8s2

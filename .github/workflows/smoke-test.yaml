@@ -9,6 +9,8 @@ env:
   KIND_VERSION: v0.8.1
   KIND_CONFIG: .github/kind-config.yaml
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
+  TIMEOUT: 2m
+  LOG_TIME: 30m
 
 jobs:
   preflight-clusterrole:
@@ -51,63 +53,21 @@ jobs:
           make -C install/kubernetes ${{ matrix.target.name }}
           git diff --exit-code
 
-      - name: Create kind cluster
-        uses: helm/kind-action@v1.0.0-rc.1
-        with:
-          version: ${{ env.KIND_VERSION }}
-          config: ${{ env.KIND_CONFIG }}
-
-      - name: Run ${{ matrix.target.name }}
-        run: |
-          kubectl apply -f ${{ matrix.target.template }}
-          kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
-          # To make sure that cilium CRD is available (default timeout is 5m)
-          # https://github.com/cilium/cilium/blob/master/operator/crd.go#L34
-          kubectl wait --for condition=Established crd/ciliumnetworkpolicies.cilium.io --timeout=5m
-
-      - name: Run conformance test (e.g. connectivity check)
-        run: |
-          kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
-          kubectl wait --for=condition=Available --all deployment --timeout=5m
-
-      - name: Dump cilium related logs and events
-        if: ${{ failure() }}
-        env:
-          LOG_TIME: 30m
-        run: |
-          kubectl -n kube-system describe daemonsets.apps cilium
-          kubectl -n kube-system logs daemonset/cilium --all-containers --since=$LOG_TIME
-
-      - name: Dump connectivity related logs and events
-        if: ${{ failure() }}
-        env:
-          LOG_TIME: 30m
-        run: |
-          kubectl get pods -o wide
-          kubectl get deploy -o wide
-          for svc in $(make -C examples/kubernetes/connectivity-check/ list | grep Service | awk '{ print $4 }'); do kubectl describe service $svc; kubectl logs service/$svc --all-containers --since=$LOG_TIME; done
-
-      - name: Dump hubble related logs and events
-        if: ${{ failure() &&  matrix.target.name == 'experimental-install' }}
-        env:
-          LOG_TIME: 30m
-        run: |
-          kubectl -n kube-system describe service hubble-metrics
-          kubectl -n kube-system logs service/hubble-metrics --all-containers --since=$LOG_TIME
-          kubectl -n kube-system describe service hubble-relay
-          kubectl -n kube-system logs service/hubble-relay --all-containers --since=$LOG_TIME
-          kubectl -n kube-system describe service hubble-ui
-          kubectl -n kube-system logs service/hubble-ui --all-containers --since=$LOG_TIME
-
   conformance-test:
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
         uses: actions/checkout@v2
 
+      - name: Precheck generated connectivity manifest files
+        run: |
+          make -C examples/kubernetes/connectivity-check fmt
+          make -C examples/kubernetes/connectivity-check all
+          git diff --exit-code
+
       - name: Build docker images
         run: |
-          make docker-image-no-clean
+          make docker-cilium-image
           make docker-operator-generic-image
 
       - name: Create kind cluster
@@ -134,7 +94,11 @@ jobs:
              --set global.hostPort.enabled=true \
              --set config.bpfMasquerade=false \
              --set config.ipam=kubernetes \
-             --set global.pullPolicy=Never
+             --set global.pullPolicy=Never \
+             --set global.prometheus.enabled=true \
+             --set global.operatorPrometheus.enabled=true \
+             --set global.hubble.enabled=true \
+             --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
           # To make sure that cilium CRD is available (default timeout is 5m)
@@ -144,21 +108,29 @@ jobs:
       - name: Run conformance test (e.g. connectivity check)
         run: |
           kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
-          kubectl wait --for=condition=Available --all deployment --timeout=5m
+          kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
 
-      - name: Dump cilium related logs and events
-        if: ${{ failure() }}
+      - name: Check prometheus metrics
+        if: ${{ success() }}
         env:
-          LOG_TIME: 30m
+          DEPRECATED_METRICS: cilium_bpf_map_ops_total|cilium_endpoint_count|cilium_identity_count|cilium_endpoint_regenerations|cilium_k8s_client_api_calls_counter|cilium_nodes_all_events_received_total|cilium_policy_count|cilium_policy_import_errors
         run: |
-          kubectl -n kube-system describe daemonsets.apps cilium
-          kubectl -n kube-system logs daemonset/cilium --all-containers --since=$LOG_TIME
+          cd $HOME
+          cilium_pod=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].metadata.name}' )
+          kubectl -n kube-system exec $cilium_pod -- sh -c "apt update && apt install curl -y"
+          kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9090/metrics > metrics.prom
+          go get -u github.com/prometheus/prometheus/cmd/promtool
+          egrep -v "${{ env.DEPRECATED_METRICS }}" metrics.prom | $HOME/go/bin/promtool check metrics
 
-      - name: Dump connectivity related logs and events
+      - name: Capture cilium-sysdump
         if: ${{ failure() }}
-        env:
-          LOG_TIME: 30m
         run: |
-          kubectl get pods -o wide
-          kubectl get deploy -o wide
-          for svc in $(make -C examples/kubernetes/connectivity-check/ list | grep Service | awk '{ print $4 }'); do kubectl describe service $svc; kubectl logs service/$svc --all-containers --since=$LOG_TIME; done
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
+
+      - name: Upload cilium-sysdump
+        uses: actions/upload-artifact@v2
+        if: ${{ failure() }}
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip

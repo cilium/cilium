@@ -44,6 +44,15 @@ const (
 
 	// CCNPCRDName is the full name of the CCNP CRD.
 	CCNPCRDName = k8sconstv2.CCNPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
+
+	// CEPCRDName is the full name of the CEP CRD.
+	CEPCRDName = k8sconstv2.CEPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
+
+	// CIDCRDName is the full name of the CID CRD.
+	CIDCRDName = k8sconstv2.CIDKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
+
+	// CNCRDName is the full name of the CN CRD.
+	CNCRDName = k8sconstv2.CNKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 )
 
 var (
@@ -100,6 +109,12 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1beta1.CustomResourceDefin
 		crdBytes, err = examplesCrdsCiliumnetworkpoliciesYamlBytes()
 	case CCNPCRDName:
 		crdBytes, err = examplesCrdsCiliumclusterwidenetworkpoliciesYamlBytes()
+	case CEPCRDName:
+		crdBytes, err = examplesCrdsCiliumendpointsYamlBytes()
+	case CIDCRDName:
+		crdBytes, err = examplesCrdsCiliumidentitiesYamlBytes()
+	case CNCRDName:
+		crdBytes, err = examplesCrdsCiliumnodesYamlBytes()
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
@@ -181,158 +196,112 @@ func createCCNPCRD(clientset apiextensionsclient.Interface) error {
 // createCEPCRD creates and updates the CiliumEndpoint CRD. It should be called
 // on agent startup but is idempotent and safe to call again.
 func createCEPCRD(clientset apiextensionsclient.Interface) error {
-	var (
-		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
-		CustomResourceDefinitionShortNames = []string{"cep", "ciliumep"}
-	)
+	ciliumCRD := GetPregeneratedCRD(CEPCRDName)
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: k8sconstv2.CEPName,
+			Labels: map[string]string{
+				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
+			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   k8sconstv2.CustomResourceDefinitionGroup,
 			Version: k8sconstv2.CustomResourceDefinitionVersion,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     k8sconstv2.CEPPluralName,
-				Singular:   k8sconstv2.CEPSingularName,
-				ShortNames: CustomResourceDefinitionShortNames,
-				Kind:       k8sconstv2.CEPKindDefinition,
+				Plural:     ciliumCRD.Spec.Names.Plural,
+				Singular:   ciliumCRD.Spec.Names.Singular,
+				ShortNames: ciliumCRD.Spec.Names.ShortNames,
+				Kind:       ciliumCRD.Spec.Names.Kind,
 			},
-			AdditionalPrinterColumns: []apiextensionsv1beta1.CustomResourceColumnDefinition{
-				{
-					Name:        "Endpoint ID",
-					Type:        "integer",
-					Description: "Cilium endpoint id",
-					JSONPath:    ".status.id",
-				},
-				{
-					Name:        "Identity ID",
-					Type:        "integer",
-					Description: "Cilium identity id",
-					JSONPath:    ".status.identity.id",
-				},
-				{
-					Name:        "Ingress Enforcement",
-					Type:        "boolean",
-					Description: "Ingress enforcement in the endpoint",
-					JSONPath:    ".status.policy.ingress.enforcing",
-				},
-				{
-					Name:        "Egress Enforcement",
-					Type:        "boolean",
-					Description: "Egress enforcement in the endpoint",
-					JSONPath:    ".status.policy.egress.enforcing",
-				},
-				{
-					Name:        "Visibility Policy",
-					Type:        "string",
-					Description: "Status of visibility policy in the endpoint",
-					JSONPath:    ".status.visibility-policy-status",
-				},
-				{
-					Name:        "Endpoint State",
-					Type:        "string",
-					Description: "Endpoint current state",
-					JSONPath:    ".status.state",
-				},
-				{
-					Name:        "IPv4",
-					Type:        "string",
-					Description: "Endpoint IPv4 address",
-					JSONPath:    ".status.networking.addressing[0].ipv4",
-				},
-				{
-					Name:        "IPv6",
-					Type:        "string",
-					Description: "Endpoint IPv6 address",
-					JSONPath:    ".status.networking.addressing[0].ipv6",
-				},
-			},
-			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
-				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
-			},
-			Scope:      apiextensionsv1beta1.NamespaceScoped,
-			Validation: &cepCRV,
+			AdditionalPrinterColumns: ciliumCRD.Spec.AdditionalPrinterColumns,
+			Subresources:             ciliumCRD.Spec.Subresources,
+			Scope:                    ciliumCRD.Spec.Scope,
+			Validation:               ciliumCRD.Spec.Validation,
 		},
 	}
 
-	return createUpdateCRD(clientset, "v2.CiliumEndpoint", res)
+	return createUpdateCRD(clientset, CEPCRDName, res)
 }
 
 // createNodeCRD creates and updates the CiliumNode CRD. It should be called on
 // agent startup but is idempotent and safe to call again.
 func createNodeCRD(clientset apiextensionsclient.Interface) error {
-	var (
-		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
-		CustomResourceDefinitionShortNames = []string{"cn", "ciliumn"}
-	)
+	ciliumCRD := GetPregeneratedCRD(CNCRDName)
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: k8sconstv2.CNName,
+			Labels: map[string]string{
+				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
+			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   k8sconstv2.CustomResourceDefinitionGroup,
 			Version: k8sconstv2.CustomResourceDefinitionVersion,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     k8sconstv2.CNPluralName,
-				Singular:   k8sconstv2.CNSingularName,
-				ShortNames: CustomResourceDefinitionShortNames,
-				Kind:       k8sconstv2.CNKindDefinition,
+				Plural:     ciliumCRD.Spec.Names.Plural,
+				Singular:   ciliumCRD.Spec.Names.Singular,
+				ShortNames: ciliumCRD.Spec.Names.ShortNames,
+				Kind:       ciliumCRD.Spec.Names.Kind,
 			},
-			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
-				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
-			},
-			Scope:      apiextensionsv1beta1.ClusterScoped,
-			Validation: &apiextensionsv1beta1.CustomResourceValidation{},
+			Subresources: ciliumCRD.Spec.Subresources,
+			Scope:        ciliumCRD.Spec.Scope,
+			Validation:   ciliumCRD.Spec.Validation,
 		},
 	}
 
-	return createUpdateCRD(clientset, "v2.CiliumNode", res)
+	return createUpdateCRD(clientset, CNCRDName, res)
 }
 
 // createIdentityCRD creates and updates the CiliumIdentity CRD. It should be
 // called on agent startup but is idempotent and safe to call again.
 func createIdentityCRD(clientset apiextensionsclient.Interface) error {
-
-	var (
-		// CustomResourceDefinitionShortNames are the abbreviated names to refer to this CRD's instances
-		CustomResourceDefinitionShortNames = []string{"ciliumid"}
-	)
+	ciliumCRD := GetPregeneratedCRD(CIDCRDName)
 
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: k8sconstv2.CIDName,
+			Labels: map[string]string{
+				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
+			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   k8sconstv2.CustomResourceDefinitionGroup,
 			Version: k8sconstv2.CustomResourceDefinitionVersion,
 			Names: apiextensionsv1beta1.CustomResourceDefinitionNames{
-				Plural:     k8sconstv2.CIDPluralName,
-				Singular:   k8sconstv2.CIDSingularName,
-				ShortNames: CustomResourceDefinitionShortNames,
-				Kind:       k8sconstv2.CIDKindDefinition,
+				Plural:     ciliumCRD.Spec.Names.Plural,
+				Singular:   ciliumCRD.Spec.Names.Singular,
+				ShortNames: ciliumCRD.Spec.Names.ShortNames,
+				Kind:       ciliumCRD.Spec.Names.Kind,
 			},
-			Subresources: &apiextensionsv1beta1.CustomResourceSubresources{
-				Status: &apiextensionsv1beta1.CustomResourceSubresourceStatus{},
-			},
-			Scope: apiextensionsv1beta1.ClusterScoped,
+			Subresources: ciliumCRD.Spec.Subresources,
+			Scope:        ciliumCRD.Spec.Scope,
 		},
 	}
 
-	return createUpdateCRD(clientset, "v2.CiliumIdentity", res)
+	return createUpdateCRD(clientset, CIDCRDName, res)
 }
 
 // createUpdateCRD ensures the CRD object is installed into the k8s cluster. It
 // will create or update the CRD and it's validation when needed
-func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, crd *apiextensionsv1beta1.CustomResourceDefinition) error {
-	scopedLog := log.WithField("name", CRDName)
+func createUpdateCRD(clientset apiextensionsclient.Interface,
+	crdName string,
+	crd *apiextensionsv1beta1.CustomResourceDefinition) error {
 
-	clusterCRD, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), crd.ObjectMeta.Name, metav1.GetOptions{})
+	scopedLog := log.WithField("name", crdName)
+
+	clusterCRD, err := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(
+		context.TODO(),
+		crd.ObjectMeta.Name,
+		metav1.GetOptions{})
 	if errors.IsNotFound(err) {
 		scopedLog.Info("Creating CRD (CustomResourceDefinition)...")
-		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(context.TODO(), crd, metav1.CreateOptions{})
+
+		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Create(
+			context.TODO(),
+			crd,
+			metav1.CreateOptions{})
 		// This occurs when multiple agents race to create the CRD. Since another has
 		// created it, it will also update it, hence the non-error return.
 		if errors.IsAlreadyExists(err) {
@@ -344,15 +313,16 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 	}
 
 	scopedLog.Debug("Checking if CRD (CustomResourceDefinition) needs update...")
-	if crd.Spec.Validation != nil &&
-		clusterCRD.Labels[k8sconstv2.CustomResourceDefinitionSchemaVersionKey] != "" &&
-		needsUpdate(clusterCRD) {
+
+	if crd.Spec.Validation != nil && needsUpdate(clusterCRD) {
 		scopedLog.Info("Updating CRD (CustomResourceDefinition)...")
+
 		// Update the CRD with the validation schema.
 		err = wait.Poll(500*time.Millisecond, 60*time.Second, func() (bool, error) {
-			clusterCRD, err = clientset.ApiextensionsV1beta1().
-				CustomResourceDefinitions().Get(context.TODO(), crd.ObjectMeta.Name, metav1.GetOptions{})
-
+			clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(
+				context.TODO(),
+				crd.ObjectMeta.Name,
+				metav1.GetOptions{})
 			if err != nil {
 				return false, err
 			}
@@ -362,12 +332,18 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 			// validation change including adding or removing validation.
 			if needsUpdate(clusterCRD) {
 				scopedLog.Debug("CRD validation is different, updating it...")
+
 				clusterCRD.ObjectMeta.Labels = crd.ObjectMeta.Labels
 				clusterCRD.Spec = crd.Spec
-				_, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Update(context.TODO(), clusterCRD, metav1.UpdateOptions{})
+
+				_, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Update(
+					context.TODO(),
+					clusterCRD,
+					metav1.UpdateOptions{})
 				if err == nil {
 					return true, nil
 				}
+
 				scopedLog.WithError(err).Debug("Unable to update CRD validation")
 				return false, err
 			}
@@ -396,16 +372,23 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 				}
 			}
 		}
-		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(context.TODO(), crd.ObjectMeta.Name, metav1.GetOptions{})
+		clusterCRD, err = clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Get(
+			context.TODO(),
+			crd.ObjectMeta.Name,
+			metav1.GetOptions{})
 		if err != nil {
 			return false, err
 		}
 		return false, err
 	})
 	if err != nil {
-		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(context.TODO(), crd.ObjectMeta.Name, metav1.DeleteOptions{})
+		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(
+			context.TODO(),
+			crd.ObjectMeta.Name,
+			metav1.DeleteOptions{})
 		if deleteErr != nil {
-			return fmt.Errorf("unable to delete k8s %s CRD %s. Deleting CRD due: %s", CRDName, deleteErr, err)
+			return fmt.Errorf("unable to delete k8s %s CRD %s. Deleting CRD due: %s",
+				crdName, deleteErr, err)
 		}
 		return err
 	}
@@ -415,7 +398,6 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 }
 
 func needsUpdate(clusterCRD *apiextensionsv1beta1.CustomResourceDefinition) bool {
-
 	if clusterCRD.Spec.Validation == nil {
 		// no validation detected
 		return true
@@ -425,19 +407,12 @@ func needsUpdate(clusterCRD *apiextensionsv1beta1.CustomResourceDefinition) bool
 		// no schema version detected
 		return true
 	}
+
 	clusterVersion, err := versioncheck.Version(v)
 	if err != nil || clusterVersion.LT(comparableCRDSchemaVersion) {
 		// version in cluster is either unparsable or smaller than current version
 		return true
 	}
+
 	return false
 }
-
-var (
-	// cepCRV is a minimal validation for CEP objects. Since only the agent is
-	// creating them, it is better to be permissive and have some data, if buggy,
-	// than to have no data in k8s.
-	cepCRV = apiextensionsv1beta1.CustomResourceValidation{
-		OpenAPIV3Schema: &apiextensionsv1beta1.JSONSchemaProps{},
-	}
-)

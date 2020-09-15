@@ -9,14 +9,13 @@ traditional networking and security services as well as Layer 7 to protect and
 secure use of modern application protocols such as HTTP, gRPC and Kafka. Cilium
 is integrated into common orchestration frameworks such as Kubernetes and Mesos.
 
-A new Linux kernel technology called eBPF is at the foundation of Cilium. It
+A new Linux kernel technology called eBPF_ is at the foundation of Cilium. It
 supports dynamic insertion of eBPF bytecode into the Linux kernel at various
 integration points such as: network IO, application sockets, and tracepoints to
 implement security, networking and visibility logic. eBPF is highly efficient
-and flexible. To learn more about eBPF, read more in our extensive
-`BPF and XDP Reference Guide`_.
+and flexible. To learn more about eBPF, visit `eBPF.io`_.
 
-.. image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/cilium-arch.png
+.. image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/cilium_overview.png
     :align: center
 
 Stable Releases
@@ -33,9 +32,9 @@ Listed below are the actively maintained release branches along with their lates
 minor release, corresponding image pull tags and their release notes:
 
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.8 <https://github.com/cilium/cilium/tree/v1.8>`__ | 2020-07-23 | ``docker.io/cilium/cilium:v1.8.2``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.8.2>`__  | `General Announcement <https://cilium.io/blog/2020/06/22/cilium-18>`__ |
+| `v1.8 <https://github.com/cilium/cilium/tree/v1.8>`__ | 2020-09-04 | ``docker.io/cilium/cilium:v1.8.3``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.8.3>`__  | `General Announcement <https://cilium.io/blog/2020/06/22/cilium-18>`__ |
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
-| `v1.7 <https://github.com/cilium/cilium/tree/v1.7>`__ | 2020-08-04 | ``docker.io/cilium/cilium:v1.7.7``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.7.7>`__  | `General Announcement <https://cilium.io/blog/2020/02/18/cilium-17>`__ |
+| `v1.7 <https://github.com/cilium/cilium/tree/v1.7>`__ | 2020-09-01 | ``docker.io/cilium/cilium:v1.7.9``   | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.7.9>`__  | `General Announcement <https://cilium.io/blog/2020/02/18/cilium-17>`__ |
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
 | `v1.6 <https://github.com/cilium/cilium/tree/v1.6>`__ | 2020-08-03 | ``docker.io/cilium/cilium:v1.6.11``  | `Release Notes <https://github.com/cilium/cilium/releases/tag/v1.6.11>`__ | `General Announcement <https://cilium.io/blog/2019/08/20/cilium-16>`__ |
 +-------------------------------------------------------+------------+--------------------------------------+---------------------------------------------------------------------------+------------------------------------------------------------------------+
@@ -269,6 +268,8 @@ under the `General Public License, Version 2.0 <bpf/COPYING>`_.
 .. _Contributing: http://docs.cilium.io/en/stable/contributing/development/
 .. _Prerequisites: http://docs.cilium.io/en/doc-1.0/install/system_requirements
 .. _`BPF and XDP Reference Guide`: http://docs.cilium.io/en/stable/bpf/
+.. _`eBPF`: https://ebpf.io
+.. _`eBPF.io`: https://ebpf.io
 
 .. |logo| image:: https://cdn.rawgit.com/cilium/cilium/master/Documentation/images/logo.svg
     :alt: Cilium Logo

@@ -36,7 +36,7 @@ Anyone can build official release images using the make target below.
 
 ::
 
-    DOCKER_IMAGE_TAG=v1.4.0 make docker-image
+    DOCKER_IMAGE_TAG=v1.4.0 make docker-images-all
 
 Official Cilium repositories
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~

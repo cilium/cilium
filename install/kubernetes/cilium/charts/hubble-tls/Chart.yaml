@@ -1,0 +1,8 @@
+apiVersion: v2
+name: hubble-tls
+version: 1.8.90
+appVersion: 1.8.90
+description: Helm chart for TLS certs creation and distribution for Hubble
+keywords:
+sources:
+  - https://github.com/cilium/cilium

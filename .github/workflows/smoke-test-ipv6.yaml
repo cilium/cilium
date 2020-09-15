@@ -11,7 +11,7 @@ env:
   KIND_CONFIG: .github/kind-config-ipv6.yaml
   # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check-internal.yaml
-  TIMEOUT: 2m
+  TIMEOUT: 5m
   LOG_TIME: 30m
 
 jobs:
@@ -20,6 +20,12 @@ jobs:
     steps:
       - name: Checkout
         uses: actions/checkout@v2
+
+      - name: Precheck generated connectivity manifest files
+        run: |
+          make -C examples/kubernetes/connectivity-check fmt
+          make -C examples/kubernetes/connectivity-check all
+          git diff --exit-code
 
       - name: Enable IPv6 in docker
         run: |
@@ -33,7 +39,7 @@ jobs:
 
       - name: Build docker images
         run: |
-          make docker-image-no-clean
+          make docker-cilium-image
           make docker-operator-generic-image
 
       - name: Create kind cluster
@@ -52,12 +58,7 @@ jobs:
           helm upgrade -i cilium ./install/kubernetes/cilium \
             --namespace kube-system \
             --set global.nodeinit.enabled=true \
-            --set global.kubeProxyReplacement=partial \
-            --set global.hostServices.enabled=false \
-            --set global.externalIPs.enabled=true \
-            --set global.nodePort.enabled=true \
-            --set global.hostPort.enabled=true \
-            --set config.bpfMasquerade=false \
+            --set global.kubeProxyReplacement=strict \
             --set config.ipam=kubernetes \
             --set global.ipv6.enabled=true \
             --set global.ipv4.enabled=false \
@@ -73,16 +74,15 @@ jobs:
           kubectl apply -f ${{ env.CONFORMANCE_TEMPLATE }}
           kubectl wait --for=condition=Available --all deployment --timeout=${{ env.TIMEOUT }}
 
-      - name: Dump cilium related logs and events
+      - name: Capture cilium-sysdump
         if: ${{ failure() }}
         run: |
-          kubectl -n kube-system describe daemonsets.apps cilium
-          kubectl -n kube-system logs daemonset/cilium --all-containers --since=${{ env.LOG_TIME }}
-          kubectl -n kube-system logs service/kube-dns --all-containers --since=${{ env.LOG_TIME }}
+          curl -sLO https://github.com/cilium/cilium-sysdump/releases/latest/download/cilium-sysdump.zip
+          python cilium-sysdump.zip --output cilium-sysdump-out
 
-      - name: Dump connectivity related logs and events
+      - name: Upload cilium-sysdump
+        uses: actions/upload-artifact@v2
         if: ${{ failure() }}
-        run: |
-          kubectl get pods -o wide
-          kubectl get deploy -o wide
-          for svc in $(make -C examples/kubernetes/connectivity-check/ list | grep Service | awk '{ print $4 }'); do kubectl describe service $svc; kubectl logs service/$svc --all-containers --since=${{ env.LOG_TIME }}; done
+        with:
+          name: cilium-sysdump-out.zip
+          path: cilium-sysdump-out.zip

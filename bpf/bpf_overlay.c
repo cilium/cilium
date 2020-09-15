@@ -11,6 +11,7 @@
 
 #include "lib/tailcall.h"
 #include "lib/common.h"
+#include "lib/edt.h"
 #include "lib/maps.h"
 #include "lib/ipv6.h"
 #include "lib/eth.h"
@@ -33,7 +34,7 @@ static __always_inline int handle_ipv6(struct __ctx_buff *ctx,
 	bool decrypted;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
-	if (!revalidate_data_first(ctx, &data, &data_end, &ip6))
+	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
 	if (!bpf_skip_nodeport(ctx)) {
@@ -156,7 +157,7 @@ static __always_inline int handle_ipv4(struct __ctx_buff *ctx, __u32 *identity)
 	bool decrypted;
 
 	/* verifier workaround (dereference of modified ctx ptr) */
-	if (!revalidate_data_first(ctx, &data, &data_end, &ip4))
+	if (!revalidate_data_pull(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
 #ifdef ENABLE_NODEPORT
 	if (!bpf_skip_nodeport(ctx)) {
@@ -320,6 +321,23 @@ int to_overlay(struct __ctx_buff *ctx)
 	ret = encap_remap_v6_host_address(ctx, true);
 	if (unlikely(ret < 0))
 		goto out;
+
+#ifdef ENABLE_BANDWIDTH_MANAGER
+	/* In tunneling mode, we should do this as close as possible to the
+	 * phys dev where FQ runs, but the issue is that the aggregate state
+	 * (in queue_mapping) is overridden on tunnel xmit. Hence set the
+	 * timestamp already here. The tunnel dev has noqueue qdisc, so as
+	 * tradeoff it's close enough.
+	 */
+	ret = edt_sched_departure(ctx);
+	/* No send_drop_notify_error() here given we're rate-limiting. */
+	if (ret == CTX_ACT_DROP) {
+		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
+			       -DROP_EDT_HORIZON);
+		return CTX_ACT_DROP;
+	}
+#endif
+
 #ifdef ENABLE_NODEPORT
 	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) == MARK_MAGIC_SNAT_DONE) {
 		ret = CTX_ACT_OK;

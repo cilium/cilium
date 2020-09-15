@@ -63,6 +63,13 @@ func init() {
 	flags.String(option.ConfigDir, "", `Configuration directory that contains a file for each option`)
 	option.BindEnv(option.ConfigDir)
 
+	flags.Bool(option.DisableCNPStatusUpdates, false, `Do not send CNP NodeStatus updates to the Kubernetes api-server (recommended to run with "cnp-node-status-gc-interval=0" in cilium-operator)`)
+	flags.MarkHidden(option.DisableCNPStatusUpdates)
+	option.BindEnv(option.DisableCNPStatusUpdates)
+
+	flags.Bool(option.K8sEventHandover, defaults.K8sEventHandover, "Enable k8s event handover to kvstore for improved scalability")
+	option.BindEnv(option.K8sEventHandover)
+
 	flags.Duration(operatorOption.CNPNodeStatusGCInterval, 2*time.Minute, "GC interval for nodes which have been removed from the cluster in CiliumNetworkPolicy Status")
 	option.BindEnv(operatorOption.CNPNodeStatusGCInterval)
 
@@ -97,15 +104,13 @@ func init() {
 	var defaultIPAM string
 	switch binaryName {
 	case "cilium-operator":
-		defaultIPAM = ipamOption.IPAMHostScopeLegacy
+		defaultIPAM = ipamOption.IPAMOperator
 	case "cilium-operator-aws":
 		defaultIPAM = ipamOption.IPAMENI
 	case "cilium-operator-azure":
 		defaultIPAM = ipamOption.IPAMAzure
 	case "cilium-operator-generic":
-		// Default to Legacy for upgrade paths; new users should
-		// explicitly override the IPAM flag.
-		defaultIPAM = ipamOption.IPAMHostScopeLegacy
+		defaultIPAM = ipamOption.IPAMOperator
 	}
 
 	flags.String(option.IPAM, defaultIPAM, "Backend to use for IPAM")
@@ -156,8 +161,6 @@ func init() {
 			switch ipamFlagValue {
 			case ipamOption.IPAMENI, ipamOption.IPAMAzure:
 				return unsupporterErr()
-			case ipamOption.IPAMHostScopeLegacy:
-				return fmt.Errorf("%s, as it is deprecated, but it is still supported by legacy cilium-operator binary)", unsupporterErr().Error())
 			}
 		}
 
@@ -278,6 +281,9 @@ func init() {
 	flags.Duration(operatorOption.LeaderElectionRetryPeriod, 2*time.Second,
 		"Duration that LeaderElector clients should wait between retries of the actions")
 	option.BindEnv(operatorOption.LeaderElectionRetryPeriod)
+
+	flags.String(option.K8sServiceProxyName, "", "Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)")
+	option.BindEnv(option.K8sServiceProxyName)
 
 	viper.BindPFlags(flags)
 }

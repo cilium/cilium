@@ -25,11 +25,13 @@ var _ = Describe("K8sConformance", func() {
 	var kubectl *helpers.Kubectl
 	var ciliumFilename string
 	var connectivityCheckYaml string
+	var connectivityCheckYamlQuarantine string
 	var connectivityCheckYamlSimple string
 
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 		connectivityCheckYaml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-hostport.yaml")
+		connectivityCheckYamlQuarantine = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-quarantine.yaml")
 		connectivityCheckYamlSimple = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-single-node.yaml")
 
 		deployOpts := map[string]string{
@@ -53,13 +55,13 @@ var _ = Describe("K8sConformance", func() {
 
 	AfterEach(func() {
 		kubectl.Delete(connectivityCheckYaml)
+		kubectl.Delete(connectivityCheckYamlQuarantine)
 		kubectl.Delete(connectivityCheckYamlSimple)
 		ExpectAllPodsInNsTerminated(kubectl, "default")
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium endpoint list")
+		kubectl.CiliumReport("cilium endpoint list")
 	})
 
 	AfterAll(func() {
@@ -93,5 +95,14 @@ var _ = Describe("K8sConformance", func() {
 			ExpectWithOffset(1, err).Should(BeNil(), "connectivity-check pods are not ready after timeout")
 		})
 
+		// FIXME: GH-12700 L7 policy breaks connectivity to hostport services.
+		//        When this is resolved, remove 'quarantine: true' label in examples/kubernetes/connectivity-check/proxy.cue.
+		//        The tests will be merged into the above checks, so this test can be removed.
+		XIt("Check connectivity-check compliance with proxy and portmap chaining", func() {
+			kubectl.ApplyDefault(connectivityCheckYamlQuarantine).ExpectSuccess("cannot install connectivity-check")
+
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "connectivity-check pods are not ready after timeout")
+		})
 	})
 })

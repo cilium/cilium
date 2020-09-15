@@ -87,11 +87,12 @@ var _ = Describe("K8sUpdates", func() {
 	})
 
 	AfterAll(func() {
+		removeCilium(kubectl)
 		kubectl.CloseSSHClient()
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace, "cilium endpoint list")
+		kubectl.CiliumReport("cilium endpoint list")
 	})
 
 	JustAfterEach(func() {
@@ -105,7 +106,7 @@ var _ = Describe("K8sUpdates", func() {
 		ExpectAllPodsTerminated(kubectl)
 	})
 
-	It("Tests upgrade and downgrade from a Cilium stable image to master", func() {
+	SkipItIf(helpers.SkipGKEQuarantined, "Tests upgrade and downgrade from a Cilium stable image to master", func() {
 		var assertUpgradeSuccessful func()
 		assertUpgradeSuccessful, cleanupCallback =
 			InstallAndValidateCiliumUpgrades(
@@ -118,6 +119,20 @@ var _ = Describe("K8sUpdates", func() {
 		assertUpgradeSuccessful()
 	})
 })
+
+func removeCilium(kubectl *helpers.Kubectl) {
+	_ = kubectl.ExecMiddle("helm delete cilium-preflight --namespace=" + helpers.CiliumNamespace)
+	_ = kubectl.ExecMiddle("helm delete cilium --namespace=" + helpers.CiliumNamespace)
+	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete configmap --namespace=%s cilium-config", helpers.CiliumNamespace))
+	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete serviceaccount --namespace=%s cilium cilium-operator", helpers.CiliumNamespace))
+	_ = kubectl.ExecMiddle("kubectl delete clusterrole cilium cilium-operator")
+	_ = kubectl.ExecMiddle("kubectl delete clusterrolebinding cilium cilium-operator")
+	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete daemonset --namespace=%s cilium", helpers.CiliumNamespace))
+	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete deployment --namespace=%s cilium-operator", helpers.CiliumNamespace))
+	_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete daemonset --namespace=%s cilium-node-init", helpers.CiliumNamespace))
+
+	ExpectAllPodsTerminated(kubectl)
+}
 
 // InstallAndValidateCiliumUpgrades installs and tests if the oldVersion can be
 // upgrade to the newVersion and if the newVersion can be downgraded to the
@@ -149,16 +164,8 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 	app1Service := "app1-service"
 
 	cleanupCiliumState := func(helmPath, chartVersion, imageName, imageTag, registry string) {
-		_ = kubectl.ExecMiddle("helm delete cilium-preflight --namespace=" + helpers.CiliumNamespace)
-		_ = kubectl.ExecMiddle("helm delete cilium --namespace=" + helpers.CiliumNamespace)
-		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete configmap --namespace=%s cilium-config", helpers.CiliumNamespace))
-		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete serviceaccount --namespace=%s cilium cilium-operator", helpers.CiliumNamespace))
-		_ = kubectl.ExecMiddle("kubectl delete clusterrole cilium cilium-operator")
-		_ = kubectl.ExecMiddle("kubectl delete clusterrolebinding cilium cilium-operator")
-		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete daemonset --namespace=%s cilium", helpers.CiliumNamespace))
-		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete deployment --namespace=%s cilium-operator", helpers.CiliumNamespace))
-		_ = kubectl.ExecMiddle(fmt.Sprintf("kubectl delete daemonset --namespace=%s cilium-node-init", helpers.CiliumNamespace))
-		ExpectAllPodsTerminated(kubectl)
+		removeCilium(kubectl)
+
 		opts := map[string]string{
 			"global.cleanState":    "true",
 			"global.tag":           imageTag,
@@ -395,7 +402,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		waitForUpdateImage := func(image string) func() bool {
 			return func() bool {
-				pods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
+				pods, err := kubectl.GetCiliumPods()
 				if err != nil {
 					return false
 				}
@@ -510,6 +517,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		validateEndpointsConnection()
 		checkNoInteruptsInSVCFlows()
 
+		nbMissedTailCalls, err := kubectl.CountMissedTailCalls()
+		ExpectWithOffset(1, err).Should(BeNil(), "Failed to retrieve number of missed tail calls")
+		ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0))
+
 		By("Downgrading cilium to %s image", oldHelmChartVersion)
 		// rollback cilium 1 because it's the version that we have started
 		// cilium with in this updates test.
@@ -531,6 +542,10 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		validateEndpointsConnection()
 		checkNoInteruptsInSVCFlows()
+
+		nbMissedTailCalls, err = kubectl.CountMissedTailCalls()
+		ExpectWithOffset(1, err).Should(BeNil(), "Failed to retrieve number of missed tail calls")
+		ExpectWithOffset(1, nbMissedTailCalls).To(BeNumerically("==", 0))
 	}
 	return testfunc, cleanupCallback
 }

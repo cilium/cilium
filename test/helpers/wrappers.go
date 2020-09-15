@@ -16,7 +16,6 @@ package helpers
 
 import (
 	"fmt"
-	"net"
 	"strings"
 )
 
@@ -31,6 +30,10 @@ const (
 	// TCP_STREAM represents a netperf test for TCP throughput performance.
 	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
 	TCP_STREAM = PerfTest("TCP_STREAM")
+
+	// TCP_MAERTS represents a netperf test for TCP throughput performance (reverse direction of TCP_STREAM).
+	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
+	TCP_MAERTS = PerfTest("TCP_MAERTS")
 
 	// TCP_CRR represents a netperf test that connects and sends single request/response
 	// For more information, consult : http://www.cs.kent.edu/~farrell/dist/ref/Netperf.html
@@ -131,6 +134,12 @@ func Netperf(endpoint string, perfTest PerfTest, options string) string {
 	return fmt.Sprintf("netperf -l 3 -t %s -H %s %s", perfTest, endpoint, options)
 }
 
+// SuperNetperf returns the string representing the super_netperf command to use when
+// testing connectivity between endpoints.
+func SuperNetperf(sessions int, endpoint string, perfTest PerfTest, options string) string {
+	return fmt.Sprintf("super_netperf %d -t %s -H %s %s", sessions, perfTest, endpoint, options)
+}
+
 // Netcat returns the string representing the netcat command to the specified
 // endpoint. It takes a variadic optionalValues arguments, This is passed to
 // fmt.Sprintf uses in the netcat message
@@ -162,25 +171,4 @@ func PythonBind(addr string, port uint16, proto string) string {
 	return fmt.Sprintf(
 		`/usr/bin/python3 -c 'import socket; socket.socket(%s).bind((%q, %d))`,
 		strings.Join(opts, ", "), addr, port)
-}
-
-// IPAddRoute returns a string representing the command to add a route to a
-// given IP address and a gateway via the iproute2 utility suite. The function
-// takes in a flag called replace which will convert the action to replace the
-// route being added if another route exists and matches. This allows for
-// idempotency as the "replace" action will not fail if another matching route
-// exists, whereas "add" will fail.
-func IPAddRoute(ip, gw net.IP, replace bool) string {
-	action := "add"
-	if replace {
-		action = "replace"
-	}
-
-	return fmt.Sprintf("ip route %s %s via %s", action, ip.String(), gw.String())
-}
-
-// IPDelRoute returns a string representing the command to delete a route to a
-// given IP address and a gateway via the iproute2 utility suite.
-func IPDelRoute(ip, gw net.IP) string {
-	return fmt.Sprintf("ip route del %s via %s", ip.String(), gw.String())
 }

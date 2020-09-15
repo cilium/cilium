@@ -17,6 +17,7 @@ package probe
 import (
 	"errors"
 	"fmt"
+	"sync"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -33,6 +34,11 @@ type probeValue struct {
 	Value uint32
 }
 
+var (
+	haveFullLPMOnce sync.Once
+	haveFullLPM     bool
+)
+
 func (p *probeKey) String() string             { return fmt.Sprintf("key=%d", p.Key) }
 func (p *probeKey) GetKeyPtr() unsafe.Pointer  { return unsafe.Pointer(p) }
 func (p *probeKey) NewValue() bpf.MapValue     { return &probeValue{} }
@@ -45,40 +51,46 @@ func (p *probeValue) DeepCopyMapValue() bpf.MapValue { return &probeValue{p.Valu
 // HaveFullLPM tests whether kernel supports fully functioning BPF LPM map
 // with proper bpf.GetNextKey() traversal. Needs 4.16 or higher.
 func HaveFullLPM() bool {
-	var oldLim unix.Rlimit
+	haveFullLPMOnce.Do(func() {
 
-	tmpLim := unix.Rlimit{
-		Cur: unix.RLIM_INFINITY,
-		Max: unix.RLIM_INFINITY,
-	}
-	if err := unix.Getrlimit(unix.RLIMIT_MEMLOCK, &oldLim); err != nil {
-		return false
-	}
-	// Otherwise opening the map might fail with EPERM
-	if err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &tmpLim); err != nil {
-		return false
-	}
-	defer unix.Setrlimit(unix.RLIMIT_MEMLOCK, &oldLim)
+		var oldLim unix.Rlimit
 
-	m := bpf.NewMap("cilium_test", bpf.MapTypeLPMTrie,
-		&probeKey{}, int(unsafe.Sizeof(probeKey{})),
-		&probeValue{}, int(unsafe.Sizeof(probeValue{})),
-		1, bpf.BPF_F_NO_PREALLOC, 0, bpf.ConvertKeyValue).WithCache()
-	_, err := m.OpenOrCreateUnpinned()
-	defer m.Close()
-	if err != nil {
-		return false
-	}
-	err = bpf.UpdateElement(m.GetFd(), unsafe.Pointer(&probeKey{}),
-		unsafe.Pointer(&probeValue{}), bpf.BPF_ANY)
-	if err != nil {
-		return false
-	}
-	err = bpf.GetNextKey(m.GetFd(), nil, unsafe.Pointer(&probeKey{}))
-	if err != nil {
-		return false
-	}
-	return true
+		tmpLim := unix.Rlimit{
+			Cur: unix.RLIM_INFINITY,
+			Max: unix.RLIM_INFINITY,
+		}
+		if err := unix.Getrlimit(unix.RLIMIT_MEMLOCK, &oldLim); err != nil {
+			return
+		}
+		// Otherwise opening the map might fail with EPERM
+		if err := unix.Setrlimit(unix.RLIMIT_MEMLOCK, &tmpLim); err != nil {
+			return
+		}
+		defer unix.Setrlimit(unix.RLIMIT_MEMLOCK, &oldLim)
+
+		m := bpf.NewMap("cilium_test", bpf.MapTypeLPMTrie,
+			&probeKey{}, int(unsafe.Sizeof(probeKey{})),
+			&probeValue{}, int(unsafe.Sizeof(probeValue{})),
+			1, bpf.BPF_F_NO_PREALLOC, 0, bpf.ConvertKeyValue).WithCache()
+		_, err := m.OpenOrCreateUnpinned()
+		defer m.Close()
+		if err != nil {
+			return
+		}
+		err = bpf.UpdateElement(m.GetFd(), unsafe.Pointer(&probeKey{}),
+			unsafe.Pointer(&probeValue{}), bpf.BPF_ANY)
+		if err != nil {
+			return
+		}
+		err = bpf.GetNextKey(m.GetFd(), nil, unsafe.Pointer(&probeKey{}))
+		if err != nil {
+			return
+		}
+
+		haveFullLPM = true
+	})
+
+	return haveFullLPM
 }
 
 // HaveIPv6Support tests whether kernel can open an IPv6 socket. This will

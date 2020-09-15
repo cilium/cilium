@@ -6,7 +6,7 @@ metadata:
     name: query-dns-policy
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: tool
 spec:
@@ -27,10 +27,12 @@ spec:
         - while true; do dig +noall +question +answer +timeout=1 +tries=1 www.google.com
           && sleep 1 ; done
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - "true"
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - "true"
@@ -47,7 +49,7 @@ metadata:
     name: query-dns-policy
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: tool
 spec:

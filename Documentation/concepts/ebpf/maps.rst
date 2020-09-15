@@ -28,13 +28,15 @@ Proxy Map                node             512k            Max 512k concurrent re
 Tunnel                   node             64k             Max 32k nodes (IPv4+IPv6) or 64k nodes (IPv4 or IPv6) across all clusters
 IPv4 Fragmentation       node             8k              Max 8k fragmented datagrams in flight simultaneously on the node
 Session Affinity         node             64k             Max 64k affinities from different clients
+IP Masq                  node             16k             Max 16k IPv4 cidrs used by BPF-based ip-masq-agent
+Service Source Ranges    node             64k             Max 64k cumulative LB source ranges across all services
 ======================== ================ =============== =====================================================
 
 For some BPF maps, the upper capacity limit can be overridden using command
 line options for ``cilium-agent``. A given capacity can be set using
 ``--bpf-ct-global-tcp-max``, ``--bpf-ct-global-any-max``,
 ``--bpf-nat-global-max``, ``--bpf-neigh-global-max``, ``--bpf-policy-map-max``,
-and ``--bpf-fragments-map-max``.
+``--bpf-fragments-map-max`` and ``--bpf-lb-map-max``.
 
 Using the ``--bpf-map-dynamic-size-ratio`` flag, the upper capacity limits of
 several large BPF maps are determined at agent startup based on the given ratio

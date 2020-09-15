@@ -79,6 +79,10 @@ int main(void)
 	DECLARE(struct, lb6_affinity_key, iter);
 	DECLARE(struct, lb_affinity_val, iter);
 	DECLARE(struct, lb_affinity_match, iter);
+	DECLARE(struct, lb4_src_range_key, iter);
+	DECLARE(struct, lb6_src_range_key, iter);
+	DECLARE(struct, edt_id, iter);
+	DECLARE(struct, edt_info, iter);
 
 	return 0;
 }

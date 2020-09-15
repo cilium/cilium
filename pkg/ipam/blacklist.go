@@ -24,11 +24,5 @@ func (blacklist *IPBlacklist) Contains(ip net.IP) bool {
 		return true
 	}
 
-	for _, element := range blacklist.ipNets {
-		if element.ipNet.Contains(ip) {
-			return true
-		}
-	}
-
 	return false
 }

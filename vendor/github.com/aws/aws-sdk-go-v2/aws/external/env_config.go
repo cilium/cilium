@@ -18,8 +18,8 @@ const (
 	awsAccessKeyIDEnvVar = "AWS_ACCESS_KEY_ID"
 	awsAccessKeyEnvVar   = "AWS_ACCESS_KEY"
 
-	awsSecreteAccessKeyEnvVar = "AWS_SECRET_ACCESS_KEY"
-	awsSecreteKeyEnvVar       = "AWS_SECRET_KEY"
+	awsSecretAccessKeyEnvVar = "AWS_SECRET_ACCESS_KEY"
+	awsSecretKeyEnvVar       = "AWS_SECRET_KEY"
 
 	awsSessionTokenEnvVar = "AWS_SESSION_TOKEN"
 
@@ -55,8 +55,8 @@ var (
 		awsAccessKeyEnvVar,
 	}
 	credSecretEnvKeys = []string{
-		awsSecreteAccessKeyEnvVar,
-		awsSecreteKeyEnvVar,
+		awsSecretAccessKeyEnvVar,
+		awsSecretKeyEnvVar,
 	}
 	regionEnvKeys = []string{
 		awsRegionEnvVar,

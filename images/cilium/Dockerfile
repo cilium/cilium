@@ -3,8 +3,8 @@
 # Copyright 2020 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=docker.io/cilium/cilium-builder-dev:b030f1ed16c21608d78564124a870a18ca485444
-ARG CILIUM_RUNTIME_IMAGE=docker.io/cilium/cilium-runtime-dev:74992a84a55860ffe1b0c4d6b702c8520db0d4b1
+ARG CILIUM_BUILDER_IMAGE=docker.io/cilium/cilium-builder-dev:618b6b93c98b3075048861a512fa93525ef3f1f1
+ARG CILIUM_RUNTIME_IMAGE=docker.io/cilium/cilium-runtime-dev:329a090f697c3be3725d55925eef944a87df4582
 
 FROM --platform=linux/amd64 ${CILIUM_BUILDER_IMAGE} as builder
 
@@ -12,12 +12,12 @@ ARG NOSTRIP
 ARG LOCKDEBUG
 
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
-  make clean-container build-container install-container \
+  make build-container install-container \
     NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 SKIP_DOCS=true DESTDIR=/out/linux/amd64
 
 RUN --mount=type=bind,readwrite,target=/go/src/github.com/cilium/cilium --mount=target=/root/.cache,type=cache --mount=target=/go/pkg/mod,type=cache \
   env GOARCH=arm64 CC=aarch64-linux-gnu-gcc \
-    make clean-container build-container install-container \
+    make build-container install-container \
       NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 SKIP_DOCS=true DESTDIR=/out/linux/arm64 \
       HOST_CC=aarch64-linux-gnu-gcc HOST_STRIP=aarch64-linux-gnu-strip
 

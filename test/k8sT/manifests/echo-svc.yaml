@@ -6,7 +6,7 @@ spec:
   selector:
     matchLabels:
       name: echo
-  replicas: 1
+  replicas: 2
   template:
     metadata:
       labels:
@@ -39,7 +39,7 @@ kind: Service
 metadata:
   name: echo
 spec:
-  type: ClusterIP
+  type: NodePort
   ports:
   - name: http
     port: 80

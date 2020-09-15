@@ -6,11 +6,9 @@
 
 #include "common.h"
 #include "ipv6.h"
+#include "ids.h"
 
 #include "bpf/compiler.h"
-
-#define CILIUM_MAP_POLICY	1
-#define CILIUM_MAP_CALLS	2
 
 struct bpf_elf_map __section_maps ENDPOINTS_MAP = {
 	.type		= BPF_MAP_TYPE_HASH,
@@ -41,6 +39,17 @@ struct bpf_elf_map __section_maps POLICY_CALL_MAP = {
 	.max_elem	= POLICY_PROG_MAP_SIZE,
 };
 #endif /* SKIP_POLICY_MAP */
+
+#ifdef ENABLE_BANDWIDTH_MANAGER
+struct bpf_elf_map __section_maps THROTTLE_MAP = {
+	.type		= BPF_MAP_TYPE_HASH,
+	.size_key	= sizeof(struct edt_id),
+	.size_value	= sizeof(struct edt_info),
+	.pinning	= PIN_GLOBAL_NS,
+	.max_elem	= THROTTLE_MAP_SIZE,
+	.flags		= BPF_F_NO_PREALLOC,
+};
+#endif /* ENABLE_BANDWIDTH_MANAGER */
 
 /* Map to link endpoint id to per endpoint cilium_policy map */
 #ifdef SOCKMAP

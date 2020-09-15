@@ -16,7 +16,10 @@ package cmd
 
 import (
 	"context"
+	"crypto/tls"
+	"crypto/x509"
 	"fmt"
+	"io/ioutil"
 	"net"
 	"strings"
 	"time"
@@ -25,12 +28,13 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
-	"github.com/cilium/cilium/pkg/hubble/listener"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
+	"github.com/cilium/cilium/pkg/hubble/monitor"
 	"github.com/cilium/cilium/pkg/hubble/observer"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/peer"
+	"github.com/cilium/cilium/pkg/hubble/peer/serviceoption"
 	"github.com/cilium/cilium/pkg/hubble/server"
 	"github.com/cilium/cilium/pkg/hubble/server/serveroption"
 	"github.com/cilium/cilium/pkg/identity"
@@ -118,15 +122,20 @@ func (d *Daemon) launchHubble() {
 		return
 	}
 	go d.hubbleObserver.Start()
-	d.monitorAgent.RegisterNewListener(listener.NewHubbleListener(d.hubbleObserver))
+	d.monitorAgent.RegisterNewConsumer(monitor.NewConsumer(d.hubbleObserver))
 
 	// configure a local hubble instance that serves more gRPC services
 	sockPath := "unix://" + option.Config.HubbleSocketPath
+	var peerServiceOptions []serviceoption.Option
+	if option.Config.HubbleTLSDisabled {
+		peerServiceOptions = append(peerServiceOptions, serviceoption.WithoutTLSInfo())
+	}
 	localSrv, err := server.NewServer(logger,
 		serveroption.WithUnixSocketListener(sockPath),
 		serveroption.WithHealthService(),
 		serveroption.WithObserverService(d.hubbleObserver),
-		serveroption.WithPeerService(peer.NewService(d.nodeDiscovery.Manager)),
+		serveroption.WithPeerService(peer.NewService(d.nodeDiscovery.Manager, peerServiceOptions...)),
+		serveroption.WithInsecure(),
 	)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize local Hubble server")
@@ -145,13 +154,22 @@ func (d *Daemon) launchHubble() {
 	// configure another hubble instance that serve fewer gRPC services
 	address := option.Config.HubbleListenAddress
 	if address != "" {
-		// TODO: remove warning once mutual TLS has been implemented
-		logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
-		srv, err := server.NewServer(logger,
+		if option.Config.HubbleTLSDisabled {
+			logger.WithField("address", address).Warn("Hubble server will be exposing its API insecurely on this address")
+		}
+		options := []serveroption.Option{
 			serveroption.WithTCPListener(address),
 			serveroption.WithHealthService(),
 			serveroption.WithObserverService(d.hubbleObserver),
-		)
+		}
+		tlsOption, err := buildHubbleTLSOption()
+		if err != nil {
+			logger.WithError(err).Error("Failed to initialize Hubble server")
+			return
+		}
+		options = append(options, tlsOption)
+
+		srv, err := server.NewServer(logger, options...)
 		if err != nil {
 			logger.WithError(err).Error("Failed to initialize Hubble server")
 			return
@@ -165,6 +183,35 @@ func (d *Daemon) launchHubble() {
 			<-d.ctx.Done()
 			srv.Stop()
 		}()
+	}
+}
+
+// buildHubbleTLSOption builds a Hubble server option to set TLS settings.
+func buildHubbleTLSOption() (serveroption.Option, error) {
+	switch {
+	case option.Config.HubbleTLSDisabled:
+		return serveroption.WithInsecure(), nil
+	case option.Config.HubbleTLSCertFile != "" && option.Config.HubbleTLSKeyFile != "":
+		cert, err := tls.LoadX509KeyPair(option.Config.HubbleTLSCertFile, option.Config.HubbleTLSKeyFile)
+		if err != nil {
+			return nil, err
+		}
+		if len(option.Config.HubbleTLSClientCAFiles) == 0 {
+			return serveroption.WithTLSFromCert(cert), nil
+		}
+		clientCAs := x509.NewCertPool()
+		for _, clientCertPath := range option.Config.HubbleTLSClientCAFiles {
+			clientCertPEM, err := ioutil.ReadFile(clientCertPath)
+			if err != nil {
+				return nil, fmt.Errorf("%s: %w", clientCertPath, err)
+			}
+			if ok := clientCAs.AppendCertsFromPEM(clientCertPEM); !ok {
+				return nil, fmt.Errorf("%s: TLS certificate is not PEM encoded", clientCertPath)
+			}
+		}
+		return serveroption.WithMTLSFromCert(cert, clientCAs), nil
+	default:
+		return nil, fmt.Errorf("path to TLS certficate keypair not provided")
 	}
 }
 

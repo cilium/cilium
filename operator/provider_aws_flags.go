@@ -18,6 +18,7 @@ package main
 
 import (
 	operatorOption "github.com/cilium/cilium/operator/option"
+	"github.com/spf13/viper"
 
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -44,4 +45,9 @@ func init() {
 
 	flags.Bool(operatorOption.UpdateEC2AdapterLimitViaAPI, false, "Use the EC2 API to update the instance type to adapter limits")
 	option.BindEnv(operatorOption.UpdateEC2AdapterLimitViaAPI)
+
+	flags.String(operatorOption.EC2APIEndpoint, "", "AWS API endpoint for the EC2 service")
+	option.BindEnv(operatorOption.EC2APIEndpoint)
+
+	viper.BindPFlags(flags)
 }

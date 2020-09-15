@@ -81,7 +81,7 @@ type IPAMSpec struct {
 	// the PreAllocate and MaxAboveWatermark logic takes over to continue
 	// allocating IPs.
 	//
-	// +optional
+	// +kubebuilder:validation:Minimum=0
 	MinAllocate int `json:"min-allocate,omitempty"`
 
 	// MaxAllocate is the maximum number of IPs that can be allocated to the
@@ -89,7 +89,7 @@ type IPAMSpec struct {
 	// the considered value for PreAllocate will decrease down to 0 in order to
 	// not attempt to allocate more addresses than defined.
 	//
-	// +optional
+	// +kubebuilder:validation:Minimum=0
 	MaxAllocate int `json:"max-allocate,omitempty"`
 
 	// PreAllocate defines the number of IP addresses that must be
@@ -97,7 +97,7 @@ type IPAMSpec struct {
 	// addresses available immediately without requiring cilium-operator to
 	// get involved.
 	//
-	// +optional
+	// +kubebuilder:validation:Minimum=0
 	PreAllocate int `json:"pre-allocate,omitempty"`
 
 	// MaxAboveWatermark is the maximum number of addresses to allocate
@@ -107,7 +107,7 @@ type IPAMSpec struct {
 	// IPs as possible are allocated. Limiting the amount can help reduce
 	// waste of IPs.
 	//
-	// +optional
+	// +kubebuilder:validation:Minimum=0
 	MaxAboveWatermark int `json:"max-above-watermark,omitempty"`
 }
 

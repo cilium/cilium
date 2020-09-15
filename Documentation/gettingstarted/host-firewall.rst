@@ -26,7 +26,6 @@ Deploy Cilium release via Helm:
 
     helm install cilium |CHART_RELEASE|        \\
       --namespace kube-system                  \\
-      --set global.kubeProxyReplacement=strict \\
       --set global.hostFirewall=true           \\
       --set global.devices=ethX,ethY
 

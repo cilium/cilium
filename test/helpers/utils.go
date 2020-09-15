@@ -540,6 +540,11 @@ func DoesNotHaveHosts(count int) func() bool {
 	}
 }
 
+// RunsWithHostFirewall returns true is Cilium runs with the host firewall enabled.
+func RunsWithHostFirewall() bool {
+	return os.Getenv("HOST_FIREWALL") != "0"
+}
+
 // RunsWithKubeProxy returns true if cilium runs together with k8s' kube-proxy.
 func RunsWithKubeProxy() bool {
 	return os.Getenv("KUBEPROXY") != "0"
@@ -559,11 +564,6 @@ func ExistNodeWithoutCilium() bool {
 // DoesNotExistNodeWithoutCilium is the complement function of ExistNodeWithoutCilium
 func DoesNotExistNodeWithoutCilium() bool {
 	return !ExistNodeWithoutCilium()
-}
-
-// DoesNotSupportMetalLB tells whether our CI can run MetalLB
-func DoesNotSupportMetalLB() bool {
-	return true
 }
 
 func (kub *Kubectl) HasHostReachableServices(pod string, checkTCP, checkUDP bool) bool {

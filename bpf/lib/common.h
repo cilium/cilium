@@ -114,8 +114,8 @@ static __always_inline bool validate_ethertype(struct __ctx_buff *ctx,
 }
 
 static __always_inline __maybe_unused bool
-__revalidate_data(struct __ctx_buff *ctx, void **data_, void **data_end_,
-		  void **l3, const __u32 l3_len, const bool pull)
+__revalidate_data_pull(struct __ctx_buff *ctx, void **data_, void **data_end_,
+		       void **l3, const __u32 l3_len, const bool pull)
 {
 	const __u32 tot_len = ETH_HLEN + l3_len;
 	void *data_end;
@@ -137,22 +137,29 @@ __revalidate_data(struct __ctx_buff *ctx, void **data_, void **data_end_,
 	return true;
 }
 
-/* revalidate_data_first() initializes the provided pointers from the ctx and
+/* revalidate_data_pull() initializes the provided pointers from the ctx and
  * ensures that the data is pulled in for access. Should be used the first
  * time that the ctx data is accessed, subsequent calls can be made to
  * revalidate_data() which is cheaper.
  * Returns true if 'ctx' is long enough for an IP header of the provided type,
  * false otherwise.
  */
-#define revalidate_data_first(ctx, data, data_end, ip)			\
-	__revalidate_data(ctx, data, data_end, (void **)ip, sizeof(**ip), true)
+#define revalidate_data_pull(ctx, data, data_end, ip)			\
+	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), true)
+
+/* revalidate_data_maybe_pull() does the same as revalidate_data_maybe_pull()
+ * except that the skb data pull is controlled by the "pull" argument.
+ */
+#define revalidate_data_maybe_pull(ctx, data, data_end, ip, pull)	\
+	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), pull)
+
 
 /* revalidate_data() initializes the provided pointers from the ctx.
  * Returns true if 'ctx' is long enough for an IP header of the provided type,
  * false otherwise.
  */
 #define revalidate_data(ctx, data, data_end, ip)			\
-	__revalidate_data(ctx, data, data_end, (void **)ip, sizeof(**ip), false)
+	__revalidate_data_pull(ctx, data, data_end, (void **)ip, sizeof(**ip), false)
 
 /* Macros for working with L3 cilium defined IPV6 addresses */
 #define BPF_V6(dst, ...)	BPF_V6_1(dst, fetch_ipv6(__VA_ARGS__))
@@ -199,6 +206,17 @@ struct endpoint_info {
 	mac_t		mac;
 	mac_t		node_mac;
 	__u32		pad[4];
+};
+
+struct edt_id {
+	__u64		id;
+};
+
+struct edt_info {
+	__u64		bps;
+	__u64		t_last;
+	__u64		t_horizon_drop;
+	__u64		pad[4];
 };
 
 struct remote_endpoint_info {
@@ -340,11 +358,11 @@ enum {
 #define DROP_UNUSED8		-159 /* unused */
 #define DROP_NO_TUNNEL_ENDPOINT -160
 #define DROP_UNUSED9		-161 /* unused */
-#define DROP_UNUSED10		-162 /* unused */
-#define DROP_UNKNOWN_CT			-163
-#define DROP_HOST_UNREACHABLE		-164
+#define DROP_EDT_HORIZON	-162
+#define DROP_UNKNOWN_CT		-163
+#define DROP_HOST_UNREACHABLE	-164
 #define DROP_NO_CONFIG		-165
-#define DROP_UNSUPPORTED_L2		-166
+#define DROP_UNSUPPORTED_L2	-166
 #define DROP_NAT_NO_MAPPING	-167
 #define DROP_NAT_UNSUPP_PROTO	-168
 #define DROP_NO_FIB		-169
@@ -355,6 +373,10 @@ enum {
 #define DROP_IS_CLUSTER_IP	-174
 #define DROP_FRAG_NOT_FOUND	-175
 #define DROP_FORBIDDEN_ICMP6	-176
+#define DROP_NOT_IN_SRC_RANGE	-177
+#define DROP_PROXY_LOOKUP_FAILED	-178
+#define DROP_PROXY_SET_FAILED	-179
+#define DROP_PROXY_UNKNOWN_PROTO	-180
 
 #define NAT_PUNT_TO_STACK	DROP_NAT_NOT_NEEDED
 
@@ -480,6 +502,7 @@ enum {
 #define	CB_SVC_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_SVC_ADDR_V6_1	CB_IFINDEX	/* Alias, non-overlapping */
 #define	CB_ENCRYPT_IDENTITY	CB_IFINDEX	/* Alias, non-overlapping */
+#define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
 	CB_POLICY,
 #define	CB_SVC_ADDR_V6_2	CB_POLICY	/* Alias, non-overlapping */
 	CB_NAT46_STATE,
@@ -531,6 +554,7 @@ enum {
 	SVC_FLAG_AFFINITY     = (1 << 4),  /* sessionAffinity=clientIP */
 	SVC_FLAG_LOADBALANCER = (1 << 5),  /* LoadBalancer service */
 	SVC_FLAG_ROUTABLE     = (1 << 6),  /* Not a surrogate/ClusterIP entry */
+	SVC_FLAG_SOURCE_RANGE = (1 << 7),  /* Check LoadBalancer source range */
 };
 
 struct ipv6_ct_tuple {
@@ -746,6 +770,23 @@ struct ct_state {
 	__u32 src_sec_id;
 	__u16 ifindex;
 	__u16 backend_id;	/* Backend ID in lb4_backends */
+};
+
+#define SRC_RANGE_STATIC_PREFIX(STRUCT)		\
+	(8 * (sizeof(STRUCT) - sizeof(struct bpf_lpm_trie_key)))
+
+struct lb4_src_range_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u16 rev_nat_id;
+	__u16 pad;
+	__u32 addr;
+};
+
+struct lb6_src_range_key {
+	struct bpf_lpm_trie_key lpm_key;
+	__u16 rev_nat_id;
+	__u16 pad;
+	union v6addr addr;
 };
 
 static __always_inline int redirect_peer(int ifindex __maybe_unused,

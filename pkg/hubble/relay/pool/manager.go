@@ -210,8 +210,10 @@ func (m *PeerManager) List() []poolTypes.Peer {
 		// note: there shouldn't be null entries in the map
 		peers = append(peers, poolTypes.Peer{
 			Peer: peerTypes.Peer{
-				Name:    v.Name,
-				Address: v.Address,
+				Name:          v.Name,
+				Address:       v.Address,
+				TLSEnabled:    v.TLSEnabled,
+				TLSServerName: v.TLSServerName,
 			},
 			Conn: v.conn,
 		})
@@ -297,7 +299,7 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 	p.mu.Lock()
 	defer p.mu.Unlock()
 	now := time.Now()
-	if p.nextConnAttempt.After(now) && !ignoreBackoff {
+	if p.Address == nil || (p.nextConnAttempt.After(now) && !ignoreBackoff) {
 		return
 	}
 	if p.conn != nil {
@@ -317,7 +319,7 @@ func (m *PeerManager) connect(p *peer, ignoreBackoff bool) {
 	m.opts.log.WithFields(logrus.Fields{
 		"address": p.Address,
 	}).Debugf("Connecting peer %s...", p.Name)
-	conn, err := m.opts.clientConnBuilder.ClientConn(p.Address.String())
+	conn, err := m.opts.clientConnBuilder.ClientConn(p.Address.String(), p.TLSServerName)
 	if err != nil {
 		duration := m.opts.backoff.Duration(p.connAttempts)
 		p.nextConnAttempt = now.Add(duration)

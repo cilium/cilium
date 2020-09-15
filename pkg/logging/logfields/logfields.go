@@ -16,6 +16,8 @@
 package logfields
 
 const (
+	// Annotations are any annotations for Pods
+	Annotations = "annotations"
 
 	// LogSubsys is the field denoting the subsystem when logging
 	LogSubsys = "subsys"
@@ -202,6 +204,9 @@ const (
 	// SessionAffinityTimeout is a timeout for the session affinity
 	SessionAffinityTimeout = "sessionAffinityTimeout"
 
+	// LoadBalancerSourceRanges is the LB SVC source ranges
+	LoadBalancerSourceRanges = "loadBalancerSourceRanges"
+
 	// ClusterName is the name of the cluster
 	ClusterName = "clusterName"
 
@@ -246,6 +251,15 @@ const (
 
 	// CiliumNetworkPolicyName is the name of a CiliumNetworkPolicy
 	CiliumNetworkPolicyName = "ciliumNetworkPolicyName"
+
+	// CiliumClusterwideNetworkPolicyName is the name of the CiliumClusterWideNetworkPolicy
+	CiliumClusterwideNetworkPolicyName = "ciliumClusterwideNetworkPolicyName"
+
+	// BPFClockSource denotes the internal clock source (ktime vs jiffies)
+	BPFClockSource = "bpfClockSource"
+
+	// BPFInsnSet denotes the instruction set version
+	BPFInsnSet = "bpfInsnSet"
 
 	// BPFMapKey is a key from a BPF map
 	BPFMapKey = "bpfMapKey"
@@ -435,4 +449,11 @@ const (
 
 	// SysParamValue is the value of the kernel parameter (sysctl)
 	SysParamValue = "sysParamValue"
+
+	// HashSeed is the seed value for the hashing algorithm
+	HashSeed = "hashSeed"
+
+	// HelpMessage is the help message corresponding to a log message.
+	// This is to make sure we keep separate contexts for logs and help messages.
+	HelpMessage = "helpMessage"
 )

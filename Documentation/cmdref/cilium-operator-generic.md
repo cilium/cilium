@@ -32,6 +32,7 @@ cilium-operator-generic [flags]
       --enable-ipv6                               Enable IPv6 support (default true)
       --enable-k8s-api-discovery                  Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                 Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
+      --enable-k8s-event-handover                 Enable k8s event handover to kvstore for improved scalability
       --enable-metrics                            Enable Prometheus metrics
   -h, --help                                      help for cilium-operator-generic
       --identity-allocation-mode string           Method to use for identity allocation (default "kvstore")
@@ -39,13 +40,14 @@ cilium-operator-generic [flags]
       --identity-gc-rate-interval duration        Interval used for rate limiting the GC of security identities (default 1m0s)
       --identity-gc-rate-limit int                Maximum number of security identities that will be deleted within the identity-gc-rate-interval (default 250)
       --identity-heartbeat-timeout duration       Timeout after which identity expires on lack of heartbeat (default 30m0s)
-      --ipam string                               Backend to use for IPAM (default "hostscope-legacy")
+      --ipam string                               Backend to use for IPAM (default "cluster-pool")
       --k8s-api-server string                     Kubernetes API server URL
       --k8s-client-burst int                      Burst value allowed for the K8s client
       --k8s-client-qps float32                    Queries per second limit for the K8s client
       --k8s-heartbeat-timeout duration            Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                Absolute path of the kubernetes kubeconfig file
       --k8s-namespace string                      Name of the Kubernetes namespace in which Cilium Operator is deployed in
+      --k8s-service-proxy-name string             Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --kvstore string                            Key-value store type
       --kvstore-opt map                           Key-value store options (default map[])
       --leader-election-lease-duration duration   Duration that non-leader operator candidates will wait before forcing to acquire leadership (default 15s)

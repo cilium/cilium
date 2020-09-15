@@ -16,6 +16,7 @@ package RuntimeTest
 
 import (
 	"fmt"
+	"net"
 
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
@@ -161,8 +162,8 @@ var _ = Describe("RuntimeLB", func() {
 			Expect(err).Should(BeNil())
 
 			status := vm.ServiceAdd(svcID, service, []string{
-				fmt.Sprintf("%s:80", httpd1["IPv4"]),
-				fmt.Sprintf("%s:80", httpd2["IPv4"])})
+				net.JoinHostPort(httpd1["IPv4"], "80"),
+				net.JoinHostPort(httpd2["IPv4"], "80")})
 			status.ExpectSuccess("failed to create service %s=>{httpd1,httpd2}", service)
 
 			By("Making HTTP request via the service before restart")
@@ -238,13 +239,13 @@ var _ = Describe("RuntimeLB", func() {
 
 			By("Configuring services")
 
-			service1 := fmt.Sprintf("2.2.2.100:%d", svcPort)
-			service2 := fmt.Sprintf("[f00d::1:1]:%d", svcPort)
-			service3 := fmt.Sprintf("2.2.2.101:%d", svcPort)
+			service1 := net.JoinHostPort("2.2.2.100", fmt.Sprintf("%d", svcPort))
+			service2 := net.JoinHostPort("f00d::1:1", fmt.Sprintf("%d", svcPort))
+			service3 := net.JoinHostPort("2.2.2.101", fmt.Sprintf("%d", svcPort))
 			services := map[string]string{
-				service1: fmt.Sprintf("%s:80", httpd1[helpers.IPv4]),
-				service2: fmt.Sprintf("[%s]:80", httpd2[helpers.IPv6]),
-				service3: fmt.Sprintf("%s:80", httpd2[helpers.IPv4]),
+				service1: net.JoinHostPort(httpd1[helpers.IPv4], "80"),
+				service2: net.JoinHostPort(httpd2[helpers.IPv6], "80"),
+				service3: net.JoinHostPort(httpd2[helpers.IPv4], "80"),
 			}
 			svc := 100
 			for fe, be := range services {

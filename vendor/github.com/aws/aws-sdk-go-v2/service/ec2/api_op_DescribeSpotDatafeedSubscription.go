@@ -44,7 +44,7 @@ const opDescribeSpotDatafeedSubscription = "DescribeSpotDatafeedSubscription"
 // Amazon Elastic Compute Cloud.
 //
 // Describes the data feed for Spot Instances. For more information, see Spot
-// Instance Data Feed (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-data-feeds.html)
+// Instance data feed (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/spot-data-feeds.html)
 // in the Amazon EC2 User Guide for Linux Instances.
 //
 //    // Example sending a request using DescribeSpotDatafeedSubscriptionRequest.

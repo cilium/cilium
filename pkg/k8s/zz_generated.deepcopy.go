@@ -21,6 +21,7 @@ package k8s
 import (
 	net "net"
 
+	cidr "github.com/cilium/cilium/pkg/cidr"
 	loadbalancer "github.com/cilium/cilium/pkg/loadbalancer"
 	store "github.com/cilium/cilium/pkg/service/store"
 )
@@ -159,6 +160,20 @@ func (in *Service) DeepCopyInto(out *Service) {
 				in, out := &val, &outVal
 				*out = make(net.IP, len(*in))
 				copy(*out, *in)
+			}
+			(*out)[key] = outVal
+		}
+	}
+	if in.LoadBalancerSourceRanges != nil {
+		in, out := &in.LoadBalancerSourceRanges, &out.LoadBalancerSourceRanges
+		*out = make(map[string]*cidr.CIDR, len(*in))
+		for key, val := range *in {
+			var outVal *cidr.CIDR
+			if val == nil {
+				(*out)[key] = nil
+			} else {
+				in, out := &val, &outVal
+				*out = (*in).DeepCopy()
 			}
 			(*out)[key] = outVal
 		}

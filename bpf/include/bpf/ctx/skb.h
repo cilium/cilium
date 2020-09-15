@@ -68,6 +68,12 @@ ctx_full_len(const struct __sk_buff *ctx)
 	return ctx->len;
 }
 
+static __always_inline __maybe_unused __u32
+ctx_wire_len(const struct __sk_buff *ctx)
+{
+	return ctx->wire_len;
+}
+
 static __always_inline __maybe_unused void
 ctx_store_meta(struct __sk_buff *ctx, const __u32 off, __u32 data)
 {

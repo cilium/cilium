@@ -83,7 +83,7 @@ const opModifyDefaultCreditSpecification = "ModifyDefaultCreditSpecification"
 // can call GetDefaultCreditSpecification and check DefaultCreditSpecification
 // for updates.
 //
-// For more information, see Burstable Performance Instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
+// For more information, see Burstable performance instances (https://docs.aws.amazon.com/AWSEC2/latest/UserGuide/burstable-performance-instances.html)
 // in the Amazon Elastic Compute Cloud User Guide.
 //
 //    // Example sending a request using ModifyDefaultCreditSpecificationRequest.

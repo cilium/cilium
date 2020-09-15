@@ -30,6 +30,7 @@ HOST_STRIP ?= strip
 # the 'all' target first (which we expect to be overridden by the includer).
 all:
 
+.PHONY: $(BUILD_PERMUTATIONS_DEP)
 $(BUILD_PERMUTATIONS_DEP):
 	@touch $(BUILD_PERMUTATIONS_DEP)
 
@@ -68,3 +69,5 @@ preprocess: $(LIB)
 assembly: $(BPF_C) $(LIB) $(BPF_ASM)
 	$(QUIET) $(foreach SUBDIR,$(SUBDIRS), \
 		$(MAKE) $(SUBMAKEOPTS) -C $(SUBDIR) $@ &&) true
+
+.PHONY: all force checkpatch coccicheck check preprocess assembly

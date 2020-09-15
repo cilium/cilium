@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/datapath/loader"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/maglev"
 	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/probe"
@@ -107,6 +108,11 @@ func initKubeProxyReplacementOptions() (strict bool) {
 			log.Fatalf("Invalid value for --%s: %s", option.NodePortMode, option.Config.NodePortMode)
 		}
 
+		if option.Config.NodePortAlg != option.NodePortAlgRandom &&
+			option.Config.NodePortAlg != option.NodePortAlgMaglev {
+			log.Fatalf("Invalid value for --%s: %s", option.NodePortAlg, option.Config.NodePortAlg)
+		}
+
 		if option.Config.NodePortAcceleration != option.NodePortAccelerationDisabled &&
 			option.Config.NodePortAcceleration != option.NodePortAccelerationGeneric &&
 			option.Config.NodePortAcceleration != option.NodePortAccelerationNative {
@@ -115,6 +121,25 @@ func initKubeProxyReplacementOptions() (strict bool) {
 
 		if !option.Config.NodePortBindProtection {
 			log.Warning("NodePort BPF configured without bind(2) protection against service ports")
+		}
+
+		if option.Config.NodePortAlg == option.NodePortAlgMaglev {
+			// "Let N be the size of a VIP's backend pool." [...] "In practice, we choose M to be
+			// larger than 100 x N to ensure at most a 1% difference in hash space assigned to
+			// backends." (from Maglev paper, page 6)
+			supportedPrimes := []int{251, 509, 1021, 2039, 4093, 8191, 16381, 32749, 65521, 131071}
+			found := false
+			for _, prime := range supportedPrimes {
+				if option.Config.MaglevTableSize == prime {
+					found = true
+					break
+				}
+			}
+			if !found {
+				log.Fatalf("Invalid value for --%s: %d, supported values are: %v",
+					option.MaglevTableSize, option.Config.MaglevTableSize, supportedPrimes)
+			}
+			maglev.InitMaglevSeeds()
 		}
 	}
 
@@ -233,11 +258,10 @@ func initKubeProxyReplacementOptions() (strict bool) {
 	return
 }
 
-// detectDevicesForNodePortAndHostFirewall tries to detect bpf_host devices
-// (if needed).
-func detectDevicesForNodePortAndHostFirewall(strict bool) {
+// detectNativeDevices tries to detect bpf_host devices (if needed).
+func detectNativeDevices(strict bool) {
 	detectNodePortDevs := len(option.Config.Devices) == 0 &&
-		(option.Config.EnableNodePort || option.Config.EnableHostFirewall)
+		(option.Config.EnableNodePort || option.Config.EnableHostFirewall || option.Config.EnableBandwidthManager)
 	detectDirectRoutingDev := option.Config.EnableNodePort &&
 		option.Config.DirectRoutingDevice == ""
 	if detectNodePortDevs || detectDirectRoutingDev {
@@ -281,6 +305,17 @@ func finishKubeProxyReplacementInit(isKubeProxyReplacementStrict bool) {
 		// Make sure that NodePort dependencies are disabled
 		disableNodePort()
 		return
+	}
+
+	if option.Config.EnableSVCSourceRangeCheck && !probe.HaveFullLPM() {
+		msg := fmt.Sprintf("--%s requires kernel 4.16 or newer.",
+			option.EnableSVCSourceRangeCheck)
+		if isKubeProxyReplacementStrict {
+			log.Fatal(msg)
+		} else {
+			log.Warnf(msg + " Disabling the check.")
+			option.Config.EnableSVCSourceRangeCheck = false
+		}
 	}
 
 	// After this point, BPF NodePort should not be disabled
@@ -354,6 +389,7 @@ func disableNodePort() {
 	option.Config.EnableNodePort = false
 	option.Config.EnableHostPort = false
 	option.Config.EnableExternalIPs = false
+	option.Config.EnableSVCSourceRangeCheck = false
 }
 
 func hasHardwareAddress(ifIndex int) bool {
@@ -561,4 +597,10 @@ func checkNodePortAndEphemeralPortRanges() error {
 	}
 
 	return nil
+}
+
+func hasFullHostReachableServices() bool {
+	return option.Config.EnableHostReachableServices &&
+		option.Config.EnableHostServicesTCP &&
+		option.Config.EnableHostServicesUDP
 }

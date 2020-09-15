@@ -29,7 +29,6 @@ TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell echo $(GOFILES) | \
 	grep -v '/api/v1\|/vendor\|/contrib\|/$(BUILD_DIR)/' | \
 	grep -v -P 'test(?!/helpers/logutils)'))
 TESTPKGS ?= $(TESTPKGS_EVAL)
-GOLANGVERSION := $(shell $(GO) version 2>/dev/null | grep -Eo '(go[0-9].[0-9])')
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
 K8S_CRD_EVAL := $(addprefix $(ROOT_DIR)/,$(shell git ls-files $(ROOT_DIR)/examples/crds | grep -v .gitignore | tr "\n" ' '))
 K8S_CRD_FILES ?= $(K8S_CRD_EVAL)
@@ -286,7 +285,7 @@ GIT_VERSION: force
 
 include Makefile.docker
 
-CRD_OPTIONS ?= "crd:trivialVersions=true"
+CRD_OPTIONS ?= "crd:crdVersions=v1beta1"
 # Generate manifests e.g. CRD, RBAC etc.
 manifests:
 	$(eval TMPDIR := $(shell mktemp -d))
@@ -294,6 +293,9 @@ manifests:
 	go run ./... $(CRD_OPTIONS) paths="$(PWD)/pkg/k8s/apis/cilium.io/v2" output:crd:artifacts:config="$(TMPDIR)";
 	mv ${TMPDIR}/cilium.io_ciliumnetworkpolicies.yaml ./examples/crds/ciliumnetworkpolicies.yaml
 	mv ${TMPDIR}/cilium.io_ciliumclusterwidenetworkpolicies.yaml ./examples/crds/ciliumclusterwidenetworkpolicies.yaml
+	mv ${TMPDIR}/cilium.io_ciliumendpoints.yaml ./examples/crds/ciliumendpoints.yaml
+	mv ${TMPDIR}/cilium.io_ciliumidentities.yaml ./examples/crds/ciliumidentities.yaml
+	mv ${TMPDIR}/cilium.io_ciliumnodes.yaml ./examples/crds/ciliumnodes.yaml
 	rm -rf $(TMPDIR)
 
 build-deb:
@@ -563,11 +565,11 @@ postcheck: build
 minikube:
 	$(QUIET) contrib/scripts/minikube.sh
 
-update-golang: update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version
+update-golang: update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
 
 update-golang-dockerfiles:
 	$(QUIET) sed -i 's/GO_VERSION .*/GO_VERSION $(GO_VERSION)/g' Dockerfile.builder
-	$(QUIET) for fl in $(shell find . -path ./vendor -prune -o -name "*Dockerfile*" -print) ; do sed -i 's/golang:.* /golang:$(GO_VERSION) as /g' $$fl ; done
+	$(QUIET) for fl in $(shell find . \( -path ./vendor -prune -o -path ./images -prune \) -o -name "*Dockerfile*" -print) ; do sed -i 's/golang:.* /golang:$(GO_VERSION) as /g' $$fl ; done
 	@echo "Updated go version in Dockerfiles to $(GO_VERSION)"
 
 update-gh-actions-go-version:
@@ -583,5 +585,10 @@ update-test-go-version:
 	$(QUIET) sed -i 's/GOLANG_VERSION=.*/GOLANG_VERSION="$(GO_VERSION)"/g' test/packet/scripts/install.sh
 	@echo "Updated go version in test scripts to $(GO_VERSION)"
 
-.PHONY: force generate-api generate-health-api install build-context-update dev-docker-image clean-build clean clean-container veryclean
+update-images-go-version:
+	$(QUIET) sed -i 's/^go_version=.*/go_version=$(GO_VERSION)/g' images/scripts/update-golang-image.sh
+	$(QUIET) $(MAKE) -C images update-golang-image
+	@echo "Updated go version in image Dockerfiles to $(GO_VERSION)"
+
+.PHONY: force generate-api generate-health-api install build-context-update clean-build clean clean-container veryclean
 force :;

@@ -15,10 +15,13 @@
 package serve
 
 import (
+	"crypto/tls"
+	"crypto/x509"
+	"errors"
 	"fmt"
+	"io/ioutil"
 	"os"
 	"os/signal"
-	"time"
 
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	"github.com/cilium/cilium/pkg/hubble/relay/server"
@@ -26,84 +29,138 @@ import (
 
 	"github.com/google/gops/agent"
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 	"golang.org/x/sys/unix"
 )
 
-type flags struct {
-	debug                  bool
-	pprof                  bool
-	gops                   bool
-	dialTimeout            time.Duration
-	listenAddress          string
-	peerService            string
-	retryTimeout           time.Duration
-	sortBufferMaxLen       int
-	sortBufferDrainTimeout time.Duration
-}
+const (
+	keyPprof                  = "pprof"
+	keyGops                   = "gops"
+	keyDialTimeout            = "dial-timeout"
+	keyRetryTimeout           = "retry-timeout"
+	keyListenAddress          = "listen-address"
+	keyPeerService            = "peer-service"
+	keySortBufferMaxLen       = "sort-buffer-len-max"
+	keySortBufferDrainTimeout = "sort-buffer-drain-timeout"
+	keyTLSClientCertFile      = "tls-client-cert-file"
+	keyTLSClientKeyFile       = "tls-client-key-file"
+	keyTLSHubbleServerCAFiles = "tls-hubble-server-ca-files"
+	keyTLSClientDisabled      = "disable-client-tls"
+	keyTLSServerCertFile      = "tls-server-cert-file"
+	keyTLSServerKeyFile       = "tls-server-key-file"
+	keyTLSServerDisabled      = "disable-server-tls"
+)
 
 // New creates a new serve command.
-func New() *cobra.Command {
-	var f flags
+func New(vp *viper.Viper) *cobra.Command {
 	cmd := &cobra.Command{
 		Use:   "serve",
 		Short: "Run the gRPC proxy server",
 		Long:  `Run the gRPC proxy server.`,
 		RunE: func(_ *cobra.Command, _ []string) error {
-			return runServe(f)
+			return runServe(vp)
 		},
 	}
-	cmd.Flags().BoolVarP(
-		&f.debug, "debug", "D", false, "Run in debug mode",
+	flags := cmd.Flags()
+	flags.Bool(
+		keyPprof, false, "Enable serving the pprof debugging API",
 	)
-	cmd.Flags().BoolVar(
-		&f.pprof, "pprof", false, "Enable serving the pprof debugging API",
+	flags.Bool(
+		keyGops, true, "Run gops agent",
 	)
-	cmd.Flags().BoolVar(
-		&f.gops, "gops", true, "Run gops agent",
-	)
-	cmd.Flags().DurationVar(
-		&f.dialTimeout, "dial-timeout",
+	flags.Duration(
+		keyDialTimeout,
 		defaults.DialTimeout,
 		"Dial timeout when connecting to hubble peers")
-	cmd.Flags().DurationVar(
-		&f.retryTimeout, "retry-timeout",
+	flags.Duration(
+		keyRetryTimeout,
 		defaults.RetryTimeout,
 		"Time to wait before attempting to reconnect to a hubble peer when the connection is lost")
-	cmd.Flags().StringVar(
-		&f.listenAddress, "listen-address",
+	flags.String(
+		keyListenAddress,
 		defaults.ListenAddress,
 		"Address on which to listen")
-	cmd.Flags().StringVar(
-		&f.peerService, "peer-service",
+	flags.String(
+		keyPeerService,
 		defaults.HubbleTarget,
 		"Address of the server that implements the peer gRPC service")
-	cmd.Flags().IntVar(
-		&f.sortBufferMaxLen, "sort-buffer-len-max",
+	flags.Int(
+		keySortBufferMaxLen,
 		defaults.SortBufferMaxLen,
 		"Max number of flows that can be buffered for sorting before being sent to the client (per request)")
-	cmd.Flags().DurationVar(
-		&f.sortBufferDrainTimeout, "sort-buffer-drain-timeout",
+	flags.Duration(
+		keySortBufferDrainTimeout,
 		defaults.SortBufferDrainTimeout,
 		"When the per-request flows sort buffer is not full, a flow is drained every time this timeout is reached (only affects requests in follow-mode)")
+	flags.String(
+		keyTLSClientCertFile,
+		"",
+		"Path to the public key file for the client certificate to connect to Hubble server instances. The file must contain PEM encoded data.",
+	)
+	flags.String(
+		keyTLSClientKeyFile,
+		"",
+		"Path to the private key file for the client certificate to connect to Hubble server instances. The file must contain PEM encoded data.",
+	)
+	flags.StringSlice(
+		keyTLSHubbleServerCAFiles,
+		[]string{},
+		"Paths to one or more public key files of the CA which sign certificates for Hubble server instances.",
+	)
+	flags.String(
+		keyTLSServerCertFile,
+		"",
+		"Path to the public key file for the Hubble Relay server. The file must contain PEM encoded data.",
+	)
+	flags.String(
+		keyTLSServerKeyFile,
+		"",
+		"Path to the private key file for the Hubble Relay server. The file must contain PEM encoded data.",
+	)
+	flags.Bool(
+		keyTLSClientDisabled,
+		false,
+		"Disable (m)TLS and allow the connection to Hubble server instances to be over plaintext.",
+	)
+	flags.Bool(
+		keyTLSServerDisabled,
+		false,
+		"Disable TLS for the server and allow clients to connect over plaintext.",
+	)
+	vp.BindPFlags(flags)
+
 	return cmd
 }
 
-func runServe(f flags) error {
+func runServe(vp *viper.Viper) error {
 	opts := []server.Option{
-		server.WithDialTimeout(f.dialTimeout),
-		server.WithHubbleTarget(f.peerService),
-		server.WithListenAddress(f.listenAddress),
-		server.WithRetryTimeout(f.retryTimeout),
-		server.WithSortBufferMaxLen(f.sortBufferMaxLen),
-		server.WithSortBufferDrainTimeout(f.sortBufferDrainTimeout),
+		server.WithDialTimeout(vp.GetDuration(keyDialTimeout)),
+		server.WithHubbleTarget(vp.GetString(keyPeerService)),
+		server.WithListenAddress(vp.GetString(keyListenAddress)),
+		server.WithRetryTimeout(vp.GetDuration(keyRetryTimeout)),
+		server.WithSortBufferMaxLen(vp.GetInt(keySortBufferMaxLen)),
+		server.WithSortBufferDrainTimeout(vp.GetDuration(keySortBufferDrainTimeout)),
 	}
-	if f.debug {
+	clientTLSOption, err := buildClientTLSOption(vp)
+	if err != nil {
+		return err
+	}
+	opts = append(opts, clientTLSOption)
+
+	serverTLSOption, err := buildServerTLSOption(vp)
+	if err != nil {
+		return err
+	}
+	opts = append(opts, serverTLSOption)
+
+	if vp.GetBool("debug") {
 		opts = append(opts, server.WithDebug())
 	}
-	if f.pprof {
+	if vp.GetBool(keyPprof) {
 		pprof.Enable()
 	}
-	if f.gops {
+	gopsEnabled := vp.GetBool(keyGops)
+	if gopsEnabled {
 		if err := agent.Listen(agent.Options{}); err != nil {
 			return fmt.Errorf("failed to start gops agent: %v", err)
 		}
@@ -117,9 +174,77 @@ func runServe(f flags) error {
 		signal.Notify(sigs, unix.SIGINT, unix.SIGTERM)
 		<-sigs
 		srv.Stop()
-		if f.gops {
+		if gopsEnabled {
 			agent.Close()
 		}
 	}()
 	return srv.Serve()
+}
+
+func buildClientTLSOption(vp *viper.Viper) (server.Option, error) {
+	if vp.GetBool(keyTLSClientDisabled) {
+		return server.WithInsecureClient(), nil
+	}
+
+	var tlsHubbleServerCAs *x509.CertPool
+	tlsHubbleServerCAPaths := vp.GetStringSlice(keyTLSHubbleServerCAFiles)
+	switch {
+	case len(tlsHubbleServerCAPaths) > 0:
+		tlsHubbleServerCAs = x509.NewCertPool()
+		for _, path := range tlsHubbleServerCAPaths {
+			certPEM, err := ioutil.ReadFile(path)
+			if err != nil {
+				return nil, fmt.Errorf("cannot load cert '%s': %s", path, err)
+			}
+			if ok := tlsHubbleServerCAs.AppendCertsFromPEM(certPEM); !ok {
+				return nil, fmt.Errorf("cannot process cert '%s': must be a PEM encoded certificate", path)
+			}
+		}
+	default:
+		var err error
+		tlsHubbleServerCAs, err = x509.SystemCertPool()
+		if err != nil {
+			return nil, err
+		}
+	}
+
+	tlsClientCertPath := vp.GetString(keyTLSClientCertFile)
+	tlsClientKeyPath := vp.GetString(keyTLSClientKeyFile)
+	switch {
+	case tlsClientCertPath != "" && tlsClientKeyPath != "": // mTLS
+		cert, err := tls.LoadX509KeyPair(tlsClientCertPath, tlsClientKeyPath)
+		if err != nil {
+			return nil, err
+		}
+		return server.WithClientMTLSFromCert(tlsHubbleServerCAs, cert), nil
+	case tlsClientCertPath == "" && tlsClientKeyPath == "": // TLS
+		return server.WithClientTLSFromCert(tlsHubbleServerCAs), nil
+	default: // invalid parameters
+		return nil, fmt.Errorf(
+			"both or none of '%s' and '%s' must be provided; have %s=%s, %s=%s",
+			keyTLSClientCertFile, keyTLSClientKeyFile,
+			keyTLSClientCertFile, tlsClientCertPath,
+			keyTLSClientKeyFile, tlsClientKeyPath,
+		)
+	}
+}
+
+func buildServerTLSOption(vp *viper.Viper) (server.Option, error) {
+	if vp.GetBool(keyTLSServerDisabled) {
+		return server.WithInsecureServer(), nil
+	}
+
+	tlsServerCertPath := vp.GetString(keyTLSServerCertFile)
+	if tlsServerCertPath == "" {
+		return nil, errors.New("no TLS certificate provided for the server")
+	}
+	tlsServerKeyPath := vp.GetString(keyTLSServerKeyFile)
+	if tlsServerKeyPath == "" {
+		return nil, errors.New("no TLS key provided for the server")
+	}
+	cert, err := tls.LoadX509KeyPair(tlsServerCertPath, tlsServerKeyPath)
+	if err != nil {
+		return nil, err
+	}
+	return server.WithTLSFromCert(cert), nil
 }

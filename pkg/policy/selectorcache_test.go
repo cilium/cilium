@@ -34,7 +34,7 @@ var _ = Suite(&SelectorCacheTestSuite{})
 
 type DummySelectorCacheUser struct{}
 
-func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+func (d *DummySelectorCacheUser) IdentitySelectionUpdated(selector CachedSelector, added, deleted []identity.NumericIdentity) {
 }
 
 type cachedSelectionUser struct {
@@ -106,10 +106,12 @@ func (csu *cachedSelectionUser) RemoveSelector(sel CachedSelector) {
 	csu.c.Assert(csu.notifications, Equals, notifications)
 }
 
-func (csu *cachedSelectionUser) IdentitySelectionUpdated(selector CachedSelector, selections, added, deleted []identity.NumericIdentity) {
+func (csu *cachedSelectionUser) IdentitySelectionUpdated(selector CachedSelector, added, deleted []identity.NumericIdentity) {
 	csu.notifications++
 	csu.adds += len(added)
 	csu.deletes += len(deleted)
+
+	selections := selector.GetSelections()
 
 	// Validate added & deleted against the selections
 	for _, add := range added {

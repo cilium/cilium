@@ -26,6 +26,7 @@ import (
 	. "github.com/cilium/cilium/api/v1/server/restapi/endpoint"
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/api"
+	"github.com/cilium/cilium/pkg/bandwidth"
 	"github.com/cilium/cilium/pkg/endpoint"
 	endpointid "github.com/cilium/cilium/pkg/endpoint/id"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -371,7 +372,7 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 	defer d.endpointCreations.EndCreateRequest(ep)
 
 	if ep.K8sNamespaceAndPodNameIsSet() && k8s.IsEnabled() {
-		pod, cp, identityLabels, info, _, err := d.fetchK8sLabelsAndAnnotations(ep.K8sNamespace, ep.K8sPodName)
+		pod, cp, identityLabels, info, annotations, err := d.fetchK8sLabelsAndAnnotations(ep.K8sNamespace, ep.K8sPodName)
 		if err != nil {
 			ep.Logger("api").WithError(err).Warning("Unable to fetch kubernetes labels")
 		} else {
@@ -381,6 +382,20 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			}
 			addLabels.MergeLabels(identityLabels)
 			infoLabels.MergeLabels(info)
+			if _, ok := annotations[bandwidth.IngressBandwidth]; ok {
+				log.WithFields(logrus.Fields{
+					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
+					logfields.Annotations: logfields.Repr(annotations),
+				}).Warningf("Endpoint has %s annotation which is unsupported. This annotation is ignored.",
+					bandwidth.IngressBandwidth)
+			}
+			if _, ok := annotations[bandwidth.EgressBandwidth]; ok && !option.Config.EnableBandwidthManager {
+				log.WithFields(logrus.Fields{
+					logfields.K8sPodName:  epTemplate.K8sNamespace + "/" + epTemplate.K8sPodName,
+					logfields.Annotations: logfields.Repr(annotations),
+				}).Warningf("Endpoint has %s annotation, but BPF bandwidth manager is disabled. This annotation is ignored.",
+					bandwidth.EgressBandwidth)
+			}
 		}
 	}
 
@@ -430,8 +445,14 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			if err != nil {
 				return "", err
 			}
-
 			return p.Annotations[annotation.ProxyVisibility], nil
+		})
+		ep.UpdateBandwidthPolicy(func(ns, podName string) (bandwidthEgress string, err error) {
+			p, err := d.k8sWatcher.GetCachedPod(ns, podName)
+			if err != nil {
+				return "", err
+			}
+			return p.Annotations[bandwidth.EgressBandwidth], nil
 		})
 	}
 
@@ -614,11 +635,7 @@ func (d *Daemon) deleteEndpoint(ep *endpoint.Endpoint) int {
 
 // NotifyMonitorDeleted notifies the monitor that an endpoint has been deleted.
 func (d *Daemon) NotifyMonitorDeleted(ep *endpoint.Endpoint) {
-	repr, err := monitorAPI.EndpointDeleteRepr(ep)
-	// Ignore endpoint deletion if EndpointDeleteRepr != nil
-	if err == nil {
-		d.SendNotification(monitorAPI.AgentNotifyEndpointDeleted, repr)
-	}
+	d.SendNotification(monitorAPI.EndpointDeleteMessage(ep))
 }
 
 // deleteEndpointQuiet sets the endpoint into disconnecting state and removes

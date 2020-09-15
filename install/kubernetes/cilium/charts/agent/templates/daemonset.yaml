@@ -177,10 +177,14 @@ spec:
         name: cilium-agent
 {{- if or .Values.global.prometheus.enabled .Values.global.hubble.metrics.enabled }}
         ports:
-{{- if .Values.global.prometheus.enabled }}                
+{{- if .Values.global.prometheus.enabled }}
         - containerPort: {{ .Values.global.prometheus.port }}
           hostPort: {{ .Values.global.prometheus.port }}
           name: prometheus
+          protocol: TCP
+        - containerPort: {{ .Values.global.proxy.prometheus.port }}
+          hostPort: {{ .Values.global.proxy.prometheus.port }}
+          name: envoy-metrics
           protocol: TCP
 {{- end }}
 {{- if .Values.global.hubble.metrics.enabled }}
@@ -247,6 +251,11 @@ spec:
 {{- if .Values.global.kubeConfigPath }}
         - mountPath: {{ .Values.global.kubeConfigPath }}
           name: kube-config
+          readOnly: true
+{{- end}}
+{{- if and (.Values.global.hubble.enabled) (.Values.global.hubble.listenAddress) (.Values.global.hubble.tls.enabled) }}
+        - mountPath: /var/lib/cilium/tls/hubble
+          name: hubble-tls
           readOnly: true
 {{- end}}
 {{- if .Values.monitor.enabled }}
@@ -447,6 +456,23 @@ spec:
         configMap:
           name: {{ .Values.global.cni.configMap }}
 {{- end }}
+{{- if and (.Values.global.hubble.enabled) (.Values.global.hubble.listenAddress) (.Values.global.hubble.tls.enabled) }}
+      - name: hubble-tls
+        projected:
+          sources:
+          - secret:
+              name: hubble-server-certs
+              items:
+                - key: tls.crt
+                  path: server.crt
+                - key: tls.key
+                  path: server.key
+          - configMap:
+              name: hubble-ca-cert
+              items:
+                - key: ca.crt
+                  path: client-ca.crt
+{{- end}}
   updateStrategy:
     rollingUpdate:
       maxUnavailable: {{ .Values.maxUnavailable }}

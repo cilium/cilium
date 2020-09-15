@@ -15,8 +15,6 @@
 package seven
 
 import (
-	"bytes"
-	"encoding/gob"
 	"fmt"
 	"net"
 	"net/url"
@@ -28,7 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/hubble/parser/options"
-	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/proxy/accesslog"
 	"github.com/cilium/cilium/pkg/u8proto"
 
@@ -73,21 +71,9 @@ func New(log logrus.FieldLogger, dnsGetter getters.DNSGetter, ipGetter getters.I
 }
 
 // Decode decodes the data from 'payload' into 'decoded'
-func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
-	if payload == nil || len(payload.Data) == 0 {
+func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
+	if r == nil {
 		return errors.ErrEmptyData
-	}
-
-	eventType := payload.Data[0]
-	if eventType != monitorAPI.MessageTypeAccessLog {
-		return errors.NewErrInvalidType(eventType)
-	}
-
-	buf := bytes.NewBuffer(payload.Data[1:])
-	dec := gob.NewDecoder(buf)
-	r := &accesslog.LogRecord{}
-	if err := dec.Decode(r); err != nil {
-		return fmt.Errorf("unable to decode l7 log record: %s", err)
 	}
 
 	timestamp, pbTimestamp, err := decodeTime(r.Timestamp)
@@ -148,13 +134,12 @@ func (p *Parser) Decode(payload *pb.Payload, decoded *pb.Flow) error {
 	decoded.Source = decodeEndpoint(sourceEndpoint, sourceNamespace, sourcePod)
 	decoded.Destination = decodeEndpoint(destinationEndpoint, destinationNamespace, destinationPod)
 	decoded.Type = pb.FlowType_L7
-	decoded.NodeName = payload.HostName
 	decoded.SourceNames = sourceNames
 	decoded.DestinationNames = destinationNames
 	decoded.L7 = decodeLayer7(r)
 	decoded.L7.LatencyNs = p.computeResponseTime(r, timestamp)
 	decoded.Reply = decodeIsReply(r.Type)
-	decoded.EventType = decodeCiliumEventType(eventType)
+	decoded.EventType = decodeCiliumEventType(api.MessageTypeAccessLog)
 	decoded.SourceService = sourceService
 	decoded.DestinationService = destinationService
 	decoded.TrafficDirection = decodeTrafficDirection(r.ObservationPoint)
@@ -482,8 +467,11 @@ func dnsSummary(flowType accesslog.FlowType, dns *accesslog.LogRecordDNS) string
 		}
 
 		sourceType := "Query"
-		if dns.ObservationSource == accesslog.DNSSourceAgentPoller {
+		switch dns.ObservationSource {
+		case accesslog.DNSSourceAgentPoller:
 			sourceType = "Poll"
+		case accesslog.DNSSourceProxy:
+			sourceType = "Proxy"
 		}
 
 		return fmt.Sprintf("DNS Answer %s TTL: %d (%s %s %s)", answer, dns.TTL, sourceType, dns.Query, qTypeStr)

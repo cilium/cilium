@@ -115,7 +115,7 @@ type Map struct {
 	NonPersistent bool
 
 	// DumpParser is a function for parsing keys and values from BPF maps
-	dumpParser DumpParser
+	DumpParser DumpParser
 
 	cache map[string]*cacheEntry
 
@@ -128,14 +128,23 @@ type Map struct {
 	outstandingErrors int
 }
 
-// NewMap creates a new Map instance - object representing a BPF map
-func NewMap(name string, mapType MapType, mapKey MapKey, keySize int, mapValue MapValue, valueSize, maxEntries int, flags uint32, innerID uint32, dumpParser DumpParser) *Map {
+type NewMapOpts struct {
+	CheckValueSize bool // Enable mapValue and valueSize size check
+}
+
+// NewMapWithOpts creates a new Map instance - object representing a BPF map
+func NewMapWithOpts(name string, mapType MapType, mapKey MapKey, keySize int,
+	mapValue MapValue, valueSize, maxEntries int, flags uint32, innerID uint32,
+	dumpParser DumpParser, opts *NewMapOpts) *Map {
+
 	if size := reflect.TypeOf(mapKey).Elem().Size(); size != uintptr(keySize) {
 		panic(fmt.Sprintf("Invalid %s map key size (%d != %d)", name, size, keySize))
 	}
 
-	if size := reflect.TypeOf(mapValue).Elem().Size(); size != uintptr(valueSize) {
-		panic(fmt.Sprintf("Invalid %s map value size (%d != %d)", name, size, valueSize))
+	if opts.CheckValueSize {
+		if size := reflect.TypeOf(mapValue).Elem().Size(); size != uintptr(valueSize) {
+			panic(fmt.Sprintf("Invalid %s map value size (%d != %d)", name, size, valueSize))
+		}
 	}
 
 	m := &Map{
@@ -152,9 +161,19 @@ func NewMap(name string, mapType MapType, mapKey MapKey, keySize int, mapValue M
 			OwnerProgType: ProgTypeUnspec,
 		},
 		name:       path.Base(name),
-		dumpParser: dumpParser,
+		DumpParser: dumpParser,
 	}
 	return m
+}
+
+// NewMap creates a new Map instance - object representing a BPF map
+func NewMap(name string, mapType MapType, mapKey MapKey, keySize int,
+	mapValue MapValue, valueSize, maxEntries int, flags uint32, innerID uint32,
+	dumpParser DumpParser) *Map {
+
+	return NewMapWithOpts(name, mapType, mapKey, keySize, mapValue, valueSize,
+		maxEntries, flags, innerID, dumpParser,
+		&NewMapOpts{CheckValueSize: true})
 }
 
 // NewPerCPUHashMap creates a new Map type of "per CPU hash" - object representing a BPF map
@@ -175,7 +194,7 @@ func NewPerCPUHashMap(name string, mapKey MapKey, keySize int, mapValue MapValue
 			OwnerProgType: ProgTypeUnspec,
 		},
 		name:       path.Base(name),
-		dumpParser: dumpParser,
+		DumpParser: dumpParser,
 	}
 	return m
 }
@@ -608,7 +627,7 @@ func (m *Map) DumpWithCallback(cb DumpCallback) error {
 			return err
 		}
 
-		mk, mv, err = m.dumpParser(nextKey, value, mk, mv)
+		mk, mv, err = m.DumpParser(nextKey, value, mk, mv)
 		if err != nil {
 			return err
 		}
@@ -736,7 +755,7 @@ func (m *Map) DumpReliablyWithCallback(cb DumpCallback, stats *DumpStats) error 
 			continue
 		}
 
-		mk, mv, err = m.dumpParser(currentKey, value, mk, mv)
+		mk, mv, err = m.DumpParser(currentKey, value, mk, mv)
 		if err != nil {
 			stats.Interrupted++
 			return err
@@ -842,7 +861,8 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 
 	err = UpdateElement(m.fd, key.GetKeyPtr(), value.GetValuePtr(), 0)
 	if option.Config.MetricsConfig.BPFMapOps {
-		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
+		//TODO(sayboras): Remove deprecated label in 1.10
+		metrics.BPFMapOps.WithLabelValues(m.commonName(), m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 	}
 	return err
 }
@@ -890,7 +910,8 @@ func (m *Map) Delete(key MapKey) error {
 
 	_, errno := deleteElement(m.fd, key.GetKeyPtr())
 	if option.Config.MetricsConfig.BPFMapOps {
-		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
+		//TODO(sayboras): Remove deprecated label in 1.10
+		metrics.BPFMapOps.WithLabelValues(m.commonName(), m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
 	}
 	if errno != 0 {
 		err = fmt.Errorf("unable to delete element %s from map %s: %w", key, m.name, errno)
@@ -940,7 +961,7 @@ func (m *Map) DeleteAll() error {
 
 		err := DeleteElement(m.fd, unsafe.Pointer(&nextKey[0]))
 
-		mk, _, err2 := m.dumpParser(nextKey, []byte{}, mk, mv)
+		mk, _, err2 := m.DumpParser(nextKey, []byte{}, mk, mv)
 		if err2 == nil {
 			m.deleteCacheEntry(mk, err)
 		} else {

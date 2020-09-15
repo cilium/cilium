@@ -78,7 +78,7 @@ func (k EndpointKey) ToIP() net.IP {
 // String provides a string representation of the EndpointKey.
 func (k EndpointKey) String() string {
 	if ip := k.ToIP(); ip != nil {
-		return fmt.Sprintf("%s:%d", ip.String(), k.Key)
+		return net.JoinHostPort(ip.String(), fmt.Sprintf("%d", k.Key))
 	}
 	return "nil"
 }

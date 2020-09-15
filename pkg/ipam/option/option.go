@@ -15,10 +15,6 @@
 package option
 
 const (
-	// IPAMHostScopeLegacy is the value to select the legacy hostscope IPAM mode
-	// This option will disappear in Cilium v1.9
-	IPAMHostScopeLegacy = "hostscope-legacy"
-
 	// IPAMKubernetes is the value to select the Kubernetes PodCIDR based
 	// hostscope IPAM mode
 	IPAMKubernetes = "kubernetes"

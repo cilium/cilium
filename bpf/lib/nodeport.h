@@ -9,6 +9,7 @@
 
 #include "tailcall.h"
 #include "nat.h"
+#include "edt.h"
 #include "lb.h"
 #include "common.h"
 #include "overloadable.h"
@@ -544,6 +545,9 @@ static __always_inline int nodeport_lb6(struct __ctx_buff *ctx,
 
 	svc = lb6_lookup_service(&key, false);
 	if (svc) {
+		if (!lb6_src_range_ok(svc, (union v6addr *)&ip6->saddr))
+			return DROP_NOT_IN_SRC_RANGE;
+
 		ret = lb6_local(get_ct_map6(&tuple), ctx, l3_off, l4_off,
 				&csum_off, &key, &tuple, svc, &ct_state_new);
 		if (IS_ERR(ret))
@@ -634,6 +638,7 @@ redo_local:
 	}
 
 	if (!backend_local) {
+		edt_set_aggregate(ctx, 0);
 		if (nodeport_uses_dsr6(&tuple)) {
 			ctx_store_meta(ctx, CB_SVC_PORT, key.dport);
 			ctx_store_meta(ctx, CB_SVC_ADDR_V6_1, key.address.p1);
@@ -774,10 +779,10 @@ int tail_rev_nodeport_lb6(struct __ctx_buff *ctx)
 	 */
 	ctx_skip_host_fw_set(ctx);
 #endif
-
 	ret = rev_nodeport_lb6(ctx, &ifindex);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+	edt_set_aggregate(ctx, 0);
 	return ctx_redirect(ctx, ifindex, 0);
 }
 
@@ -1228,6 +1233,9 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 
 	svc = lb4_lookup_service(&key, false);
 	if (svc) {
+		if (!lb4_src_range_ok(svc, ip4->saddr))
+			return DROP_NOT_IN_SRC_RANGE;
+
 		ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off, &csum_off,
 				&key, &tuple, svc, &ct_state_new, ip4->saddr);
 		if (IS_ERR(ret))
@@ -1326,6 +1334,7 @@ redo_local:
 	}
 
 	if (!backend_local) {
+		edt_set_aggregate(ctx, 0);
 		if (nodeport_uses_dsr4(&tuple)) {
 			ctx_store_meta(ctx, CB_SVC_PORT, key.dport);
 			ctx_store_meta(ctx, CB_SVC_ADDR_V4, key.address);
@@ -1469,10 +1478,10 @@ int tail_rev_nodeport_lb4(struct __ctx_buff *ctx)
 	 */
 	ctx_skip_host_fw_set(ctx);
 #endif
-
 	ret = rev_nodeport_lb4(ctx, &ifindex);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, 0, ret, CTX_ACT_DROP, METRIC_EGRESS);
+	edt_set_aggregate(ctx, 0);
 	return ctx_redirect(ctx, ifindex, 0);
 }
 

@@ -38,7 +38,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 		swgNodes := lock.NewStoppableWaitGroup()
 		_, ciliumNodeInformer := informer.NewInformer(
 			cache.NewListWatchFromClient(ciliumNPClient.CiliumV2().RESTClient(),
-				"ciliumnodes", v1.NamespaceAll, fields.Everything()),
+				cilium_v2.CNPluralName, v1.NamespaceAll, fields.Everything()),
 			&cilium_v2.CiliumNode{},
 			0,
 			cache.ResourceEventHandlerFuncs{

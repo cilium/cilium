@@ -8,5 +8,5 @@ roleRef:
   name: cilium-pre-flight
 subjects:
 - kind: ServiceAccount
-  name: cilium
+  name: cilium-pre-flight
   namespace: {{ .Release.Namespace }}

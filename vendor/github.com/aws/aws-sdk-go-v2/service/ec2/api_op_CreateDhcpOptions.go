@@ -22,6 +22,9 @@ type CreateDhcpOptionsInput struct {
 	// the required permissions, the error response is DryRunOperation. Otherwise,
 	// it is UnauthorizedOperation.
 	DryRun *bool `locationName:"dryRun" type:"boolean"`
+
+	// The tags to assign to the DHCP option.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation
@@ -76,13 +79,13 @@ const opCreateDhcpOptions = "CreateDhcpOptions"
 //    * domain-name - If you're using AmazonProvidedDNS in us-east-1, specify
 //    ec2.internal. If you're using AmazonProvidedDNS in another Region, specify
 //    region.compute.internal (for example, ap-northeast-1.compute.internal).
-//    Otherwise, specify a domain name (for example, MyCompany.com). This value
-//    is used to complete unqualified DNS hostnames. Important: Some Linux operating
-//    systems accept multiple domain names separated by spaces. However, Windows
-//    and other Linux operating systems treat the value as a single domain,
-//    which results in unexpected behavior. If your DHCP options set is associated
-//    with a VPC that has instances with multiple operating systems, specify
-//    only one domain name.
+//    Otherwise, specify a domain name (for example, ExampleCompany.com). This
+//    value is used to complete unqualified DNS hostnames. Important: Some Linux
+//    operating systems accept multiple domain names separated by spaces. However,
+//    Windows and other Linux operating systems treat the value as a single
+//    domain, which results in unexpected behavior. If your DHCP options set
+//    is associated with a VPC that has instances with multiple operating systems,
+//    specify only one domain name.
 //
 //    * ntp-servers - The IP addresses of up to four Network Time Protocol (NTP)
 //    servers.

@@ -26,6 +26,7 @@
 #endif
 
 #include "lib/common.h"
+#include "lib/edt.h"
 #include "lib/arp.h"
 #include "lib/maps.h"
 #include "lib/ipv6.h"
@@ -118,7 +119,7 @@ resolve_srcid_ipv6(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 	union v6addr *src;
 	int ret;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+	if (!revalidate_data_maybe_pull(ctx, &data, &data_end, &ip6, !from_host))
 		return DROP_INVALID;
 
 	if (!from_host) {
@@ -336,7 +337,7 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx)
 	__u32 srcID = 0;
 	__u8 nexthdr;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip6))
+	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
 		return DROP_INVALID;
 
 	nexthdr = ip6->nexthdr;
@@ -362,23 +363,28 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx)
 #ifdef ENABLE_IPV4
 static __always_inline __u32
 resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
-		   const bool from_host)
+		   __u32 *sec_label, const bool from_host)
 {
 	__u32 src_id = WORLD_ID, srcid_from_ipcache = srcid_from_proxy;
 	struct remote_endpoint_info *info = NULL;
 	void *data, *data_end;
 	struct iphdr *ip4;
 
-	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+	/* This is the first time revalidate_data() is going to be called in
+	 * the "to-netdev" path. Make sure that we don't legitimately drop
+	 * the packet if the skb arrived with the header not being not in the
+	 * linear data.
+	 */
+	if (!revalidate_data_maybe_pull(ctx, &data, &data_end, &ip4, !from_host))
 		return DROP_INVALID;
 
 	/* Packets from the proxy will already have a real identity. */
 	if (identity_is_reserved(srcid_from_ipcache)) {
 		info = lookup_ip4_remote_endpoint(ip4->saddr);
 		if (info != NULL) {
-			__u32 sec_label = info->sec_label;
+			*sec_label = info->sec_label;
 
-			if (sec_label) {
+			if (*sec_label) {
 				/* When SNAT is enabled on traffic ingressing
 				 * into Cilium, all traffic from the world will
 				 * have a source IP of the host. It will only
@@ -389,9 +395,9 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 				 * source as HOST_ID.
 				 */
 #ifndef ENABLE_EXTRA_HOST_DEV
-				if (from_host && sec_label != HOST_ID)
+				if (from_host && *sec_label != HOST_ID)
 #endif
-					srcid_from_ipcache = sec_label;
+					srcid_from_ipcache = *sec_label;
 			}
 		}
 		cilium_dbg(ctx, info ? DBG_IP_ID_MAP_SUCCEED4 : DBG_IP_ID_MAP_FAILED4,
@@ -413,7 +419,8 @@ resolve_srcid_ipv4(struct __ctx_buff *ctx, __u32 srcid_from_proxy,
 }
 
 static __always_inline int
-handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
+handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
+	    __u32 ipcache_srcid __maybe_unused, const bool from_host)
 {
 	struct remote_endpoint_info *info = NULL;
 	__u32 __maybe_unused remoteID = 0;
@@ -453,7 +460,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
 		/* We're on the egress path of cilium_host. */
-		ret = ipv4_host_policy_egress(ctx, secctx);
+		ret = ipv4_host_policy_egress(ctx, secctx, ipcache_srcid);
 		if (IS_ERR(ret))
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
@@ -561,14 +568,14 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 }
 
 static __always_inline int
-tail_handle_ipv4(struct __ctx_buff *ctx, const bool from_host)
+tail_handle_ipv4(struct __ctx_buff *ctx, __u32 ipcache_srcid, const bool from_host)
 {
 	__u32 proxy_identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
 	int ret;
 
 	ctx_store_meta(ctx, CB_SRC_IDENTITY, 0);
 
-	ret = handle_ipv4(ctx, proxy_identity, from_host);
+	ret = handle_ipv4(ctx, proxy_identity, ipcache_srcid, from_host);
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, proxy_identity,
 					      ret, CTX_ACT_DROP, METRIC_INGRESS);
@@ -578,13 +585,20 @@ tail_handle_ipv4(struct __ctx_buff *ctx, const bool from_host)
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_HOST)
 int tail_handle_ipv4_from_host(struct __ctx_buff *ctx)
 {
-	return tail_handle_ipv4(ctx, true);
+	__u32 ipcache_srcid = 0;
+
+#if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE)
+	ipcache_srcid = ctx_load_meta(ctx, CB_IPCACHE_SRC_LABEL);
+	ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, 0);
+#endif
+
+	return tail_handle_ipv4(ctx, ipcache_srcid, true);
 }
 
 __section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_FROM_LXC)
 int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 {
-	return tail_handle_ipv4(ctx, false);
+	return tail_handle_ipv4(ctx, 0, false);
 }
 #endif /* ENABLE_IPV4 */
 
@@ -749,6 +763,7 @@ static __always_inline int
 do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 {
 	__u32 __maybe_unused identity = 0;
+	__u32 __maybe_unused ipcache_srcid = 0;
 	int ret;
 
 #ifdef ENABLE_IPSEC
@@ -812,12 +827,21 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 #endif
 #ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP):
-		identity = resolve_srcid_ipv4(ctx, identity, from_host);
+		identity = resolve_srcid_ipv4(ctx, identity, &ipcache_srcid,
+					      from_host);
 		ctx_store_meta(ctx, CB_SRC_IDENTITY, identity);
-		if (from_host)
+		if (from_host) {
+# if defined(ENABLE_HOST_FIREWALL) && !defined(ENABLE_MASQUERADE)
+			/* If we don't rely on BPF-based masquerading, we need
+			 * to pass the srcid from ipcache to host firewall. See
+			 * comment in ipv4_host_policy_egress() for details.
+			 */
+			ctx_store_meta(ctx, CB_IPCACHE_SRC_LABEL, ipcache_srcid);
+# endif
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_HOST);
-		else
+		} else {
 			ep_tail_call(ctx, CILIUM_CALL_IPV4_FROM_LXC);
+		}
 		/* We are not returning an error here to always allow traffic to
 		 * the stack in case maps have become unavailable.
 		 *
@@ -878,6 +902,10 @@ int from_netdev(struct __ctx_buff *ctx)
 __section("from-host")
 int from_host(struct __ctx_buff *ctx)
 {
+	/* Traffic from the host ns going through cilium_host device must
+	 * not be subject to EDT rate-limiting.
+	 */
+	edt_set_aggregate(ctx, 0);
 	return handle_netdev(ctx, true);
 }
 
@@ -908,27 +936,47 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		break;
 # endif
 # ifdef ENABLE_IPV4
-	case bpf_htons(ETH_P_IP):
+	case bpf_htons(ETH_P_IP): {
+		void *data, *data_end;
+		struct iphdr *ip4;
+		__u32 ipcache_srcid = 0;
+
 		/* to-netdev is attached to the egress path of the native
 		 * device.
 		 */
 		if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)
 			src_id = HOST_ID;
-		src_id = resolve_srcid_ipv4(ctx, src_id, true);
-		ret = ipv4_host_policy_egress(ctx, src_id);
+		src_id = resolve_srcid_ipv4(ctx, src_id, &ipcache_srcid, true);
+
+		if (!revalidate_data(ctx, &data, &data_end, &ip4))
+			return DROP_INVALID;
+
+		/* We need to pass the srcid from ipcache to host firewall. See
+		 * comment in ipv4_host_policy_egress() for details.
+		 */
+		ret = ipv4_host_policy_egress(ctx, src_id, ipcache_srcid);
 		break;
+	}
 # endif
 	default:
 		ret = DROP_UNKNOWN_L3;
 		break;
 	}
-
-
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
 					      METRIC_EGRESS);
 #endif /* ENABLE_HOST_FIREWALL */
+
+#if defined(ENABLE_BANDWIDTH_MANAGER)
+	ret = edt_sched_departure(ctx);
+	/* No send_drop_notify_error() here given we're rate-limiting. */
+	if (ret == CTX_ACT_DROP) {
+		update_metrics(ctx_full_len(ctx), METRIC_EGRESS,
+			       -DROP_EDT_HORIZON);
+		return ret;
+	}
+#endif
 
 #if defined(ENABLE_NODEPORT) && \
 	(!defined(ENABLE_DSR) || \
@@ -965,7 +1013,9 @@ int to_host(struct __ctx_buff *ctx)
 		__be16 port = magic >> 16;
 
 		ctx_store_meta(ctx, 0, CB_PROXY_MAGIC);
-		ctx_redirect_to_proxy_first(ctx, port);
+		ret = ctx_redirect_to_proxy_first(ctx, port);
+		if (IS_ERR(ret))
+			goto out;
 		/* We already traced this in the previous prog with more
 		 * background context, skip trace here.
 		 */
@@ -1004,14 +1054,14 @@ int to_host(struct __ctx_buff *ctx)
 		ret = DROP_UNKNOWN_L3;
 		break;
 	}
+#else
+	ret = CTX_ACT_OK;
+#endif /* ENABLE_HOST_FIREWALL */
 
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, srcID, ret, CTX_ACT_DROP,
 					      METRIC_INGRESS);
-#else
-	ret = CTX_ACT_OK;
-#endif /* ENABLE_HOST_FIREWALL */
 
 	return ret;
 }

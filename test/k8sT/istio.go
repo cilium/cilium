@@ -29,14 +29,16 @@ import (
 // This tests the Istio integration, following the configuration
 // instructions specified in the Istio Getting Started Guide in
 // Documentation/gettingstarted/istio.rst.
-var _ = Describe("K8sIstioTest", func() {
+var _ = SkipContextIf(func() bool {
+	return helpers.SkipQuarantined() && helpers.GetCurrentK8SEnv() == "1.19"
+}, "K8sIstioTest", func() {
 
 	var (
 		// istioSystemNamespace is the default namespace into which Istio is
 		// installed.
 		istioSystemNamespace = "istio-system"
 
-		istioVersion = "1.5.7"
+		istioVersion = "1.5.9"
 
 		// Modifiers for pre-release testing, normally empty
 		prerelease     = "" // "-beta.1"
@@ -45,9 +47,9 @@ var _ = Describe("K8sIstioTest", func() {
 		// - remind how to test with prerelease images in future
 		// - cause CI infra to prepull these images so that they do not
 		//   need to be pulled on demand during the test
-		// " --set values.pilot.image=docker.io/cilium/istio_pilot:1.5.7" +
-		// " --set values.global.proxy.image=docker.io/cilium/istio_proxy:1.5.7" +
-		// " --set values.global.proxy_init.image=docker.io/cilium/istio_proxy:1.5.7"
+		// " --set values.pilot.image=docker.io/cilium/istio_pilot:1.5.9" +
+		// " --set values.global.proxy.image=docker.io/cilium/istio_proxy:1.5.9" +
+		// " --set values.global.proxy_init.image=docker.io/cilium/istio_proxy:1.5.9"
 		ciliumOptions = map[string]string{
 			// "global.proxy.sidecarImageRegex": "jrajahalme/istio_proxy",
 		}
@@ -140,7 +142,7 @@ var _ = Describe("K8sIstioTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace, "cilium endpoint list")
+		kubectl.CiliumReport("cilium endpoint list")
 	})
 
 	// This is defined as a separate function to be called from the test below

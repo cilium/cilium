@@ -12,7 +12,7 @@ ifeq ($(PUSH),true)
 OUTPUT := "type=registry,push=true"
 endif
 
-all-images: lint runtime-image builder-image cilium-image operator-image hubble-relay-image
+all-images: lint update-golang-image runtime-image builder-image cilium-image operator-image hubble-relay-image
 
 lint:
 	scripts/lint.sh
@@ -21,6 +21,9 @@ lint:
 	# see https://github.com/docker/buildx/issues/308
 	mkdir -p ../.buildx
 	docker buildx create --platform linux/amd64,linux/arm64 --buildkitd-flags '--debug' > $@
+
+update-golang-image:
+	scripts/update-golang-image.sh
 
 runtime-image: .buildx_builder
 	TEST=true scripts/build-image.sh cilium-runtime-dev images/runtime linux/amd64,linux/arm64 $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
@@ -42,6 +45,9 @@ check-builder-image:
 
 cilium-image: .buildx_builder
 	ROOT_CONTEXT=true scripts/build-image.sh cilium-dev images/cilium linux/amd64,linux/arm64 $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
+
+cilium-test-image: .buildx_builder
+	ROOT_CONTEXT=true scripts/build-image.sh cilium-test-dev images/cilium-test linux/amd64,linux/arm64 $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)
 
 operator-image: .buildx_builder
 	ROOT_CONTEXT=true scripts/build-image.sh operator-dev images/operator linux/amd64,linux/arm64 $(OUTPUT) "$$(cat .buildx_builder)" $(REGISTRIES)

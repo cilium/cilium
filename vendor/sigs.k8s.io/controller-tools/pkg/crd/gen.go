@@ -31,6 +31,9 @@ import (
 	"sigs.k8s.io/controller-tools/pkg/version"
 )
 
+// The default CustomResourceDefinition version to generate.
+const defaultVersion = "v1"
+
 // +controllertools:marker:generateHelp
 
 // Generator generates CustomResourceDefinition objects.
@@ -71,7 +74,7 @@ type Generator struct {
 	MaxDescLen *int `marker:",optional"`
 
 	// CRDVersions specifies the target API versions of the CRD type itself to
-	// generate.  Defaults to v1beta1.
+	// generate. Defaults to v1.
 	//
 	// The first version listed will be assumed to be the "default" version and
 	// will not get a version suffix in the output filename.
@@ -113,7 +116,7 @@ func (g Generator) Generate(ctx *genall.GenerationContext) error {
 	crdVersions := g.CRDVersions
 
 	if len(crdVersions) == 0 {
-		crdVersions = []string{"v1beta1"}
+		crdVersions = []string{defaultVersion}
 	}
 
 	for groupKind := range kubeKinds {

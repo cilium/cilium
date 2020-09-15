@@ -20,6 +20,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/checker"
+	"github.com/cilium/cilium/pkg/cidr"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
@@ -34,6 +35,7 @@ type ManagerTestSuite struct {
 	lbmap                     *lbmap.LBMockMap // for accessing public fields
 	svcHealth                 *healthserver.MockHealthHTTPServerFactory
 	prevOptionSessionAffinity bool
+	prevOptionLBSourceRanges  bool
 }
 
 var _ = Suite(&ManagerTestSuite{})
@@ -51,12 +53,16 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 
 	m.prevOptionSessionAffinity = option.Config.EnableSessionAffinity
 	option.Config.EnableSessionAffinity = true
+
+	m.prevOptionLBSourceRanges = option.Config.EnableSVCSourceRangeCheck
+	option.Config.EnableSVCSourceRangeCheck = true
 }
 
 func (m *ManagerTestSuite) TearDownTest(c *C) {
 	serviceIDAlloc.resetLocalID()
 	backendIDAlloc.resetLocalID()
 	option.Config.EnableSessionAffinity = m.prevOptionSessionAffinity
+	option.Config.EnableSVCSourceRangeCheck = m.prevOptionLBSourceRanges
 }
 
 var (
@@ -74,7 +80,7 @@ var (
 
 func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	// Should create a new service with two backends and session affinity
-	p := &UpsertServiceParams{
+	p := &lb.SVC{
 		Frontend:                  frontend1,
 		Backends:                  backends1,
 		Type:                      lb.SVCTypeNodePort,
@@ -137,15 +143,21 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	}
 
 	// Should add another service
-	p2 := &UpsertServiceParams{
+	c.Assert(err, IsNil)
+	cidr1, err := cidr.ParseCIDR("10.0.0.0/8")
+	c.Assert(err, IsNil)
+	cidr2, err := cidr.ParseCIDR("192.168.1.0/24")
+	c.Assert(err, IsNil)
+	p2 := &lb.SVC{
 		Frontend:                  frontend2,
 		Backends:                  backends1,
-		Type:                      lb.SVCTypeNodePort,
+		Type:                      lb.SVCTypeLoadBalancer,
 		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 300,
 		Name:                      "svc2",
 		Namespace:                 "ns2",
+		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1, cidr2},
 	}
 	created, id2, err := m.svc.UpsertService(p2)
 	c.Assert(err, IsNil)
@@ -156,6 +168,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc2")
 	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns2")
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id2)]), Equals, 2)
+	c.Assert(len(m.lbmap.SourceRanges[uint16(id2)]), Equals, 2)
 
 	// Should remove the service and the backend, but keep another service and
 	// its backends. Also, should remove the affinity match.
@@ -168,6 +181,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 
 	// Should delete both backends of service
 	p2.Backends = nil
+	p2.LoadBalancerSourceRanges = []*cidr.CIDR{cidr2}
 	created, id2, err = m.svc.UpsertService(p2)
 	c.Assert(err, IsNil)
 	c.Assert(created, Equals, false)
@@ -177,6 +191,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 	c.Assert(m.svc.svcByID[id2].svcName, Equals, "svc2")
 	c.Assert(m.svc.svcByID[id2].svcNamespace, Equals, "ns2")
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id2)]), Equals, 0)
+	c.Assert(len(m.lbmap.SourceRanges[uint16(id2)]), Equals, 1)
 
 	// Should delete the remaining service
 	found, err = m.svc.DeleteServiceByID(lb.ServiceID(id2))
@@ -187,7 +202,7 @@ func (m *ManagerTestSuite) TestUpsertAndDeleteService(c *C) {
 }
 
 func (m *ManagerTestSuite) TestRestoreServices(c *C) {
-	p1 := &UpsertServiceParams{
+	p1 := &lb.SVC{
 		Frontend:      frontend1,
 		Backends:      backends1,
 		Type:          lb.SVCTypeNodePort,
@@ -195,13 +210,18 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	}
 	_, id1, err := m.svc.UpsertService(p1)
 	c.Assert(err, IsNil)
-	p2 := &UpsertServiceParams{
+	cidr1, err := cidr.ParseCIDR("10.0.0.0/8")
+	c.Assert(err, IsNil)
+	cidr2, err := cidr.ParseCIDR("192.168.1.0/24")
+	c.Assert(err, IsNil)
+	p2 := &lb.SVC{
 		Frontend:                  frontend2,
 		Backends:                  backends2,
-		Type:                      lb.SVCTypeClusterIP,
+		Type:                      lb.SVCTypeLoadBalancer,
 		TrafficPolicy:             lb.SVCTrafficPolicyCluster,
 		SessionAffinity:           true,
 		SessionAffinityTimeoutSec: 200,
+		LoadBalancerSourceRanges:  []*cidr.CIDR{cidr1, cidr2},
 	}
 	_, id2, err := m.svc.UpsertService(p2)
 	c.Assert(err, IsNil)
@@ -241,6 +261,19 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	c.Assert(m.svc.svcByID[id2].sessionAffinity, Equals, true)
 	c.Assert(m.svc.svcByID[id2].sessionAffinityTimeoutSec, Equals, uint32(200))
 
+	// LoadBalancer source ranges
+	c.Assert(len(m.svc.svcByID[id2].loadBalancerSourceRanges), Equals, 2)
+	for _, cidr := range []*cidr.CIDR{cidr1, cidr2} {
+		found := false
+		for _, c := range m.svc.svcByID[id2].loadBalancerSourceRanges {
+			if c.String() == cidr.String() {
+				found = true
+				break
+			}
+		}
+		c.Assert(found, Equals, true)
+	}
+
 	// Check that the non-existing affinity matches were removed
 	matches, _ := lbmap.DumpAffinityMatches()
 	c.Assert(len(matches), Equals, 1) // only the id2 svc has session affinity
@@ -252,7 +285,7 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 }
 
 func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
-	p1 := &UpsertServiceParams{
+	p1 := &lb.SVC{
 		Frontend:                  frontend1,
 		Backends:                  backends1,
 		Type:                      lb.SVCTypeNodePort,
@@ -262,7 +295,7 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	}
 	_, id1, err := m.svc.UpsertService(p1)
 	c.Assert(err, IsNil)
-	p2 := &UpsertServiceParams{
+	p2 := &lb.SVC{
 		Frontend:      frontend2,
 		Backends:      backends2,
 		Type:          lb.SVCTypeClusterIP,
@@ -330,7 +363,7 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	allBackends := []lb.Backend{localBackend1, localBackend2, remoteBackend1, remoteBackend2, remoteBackend3}
 
 	// Insert svc1 as type LoadBalancer with some local backends
-	p1 := &UpsertServiceParams{
+	p1 := &lb.SVC{
 		Frontend:            loadBalancerIP,
 		Backends:            allBackends,
 		Type:                lb.SVCTypeLoadBalancer,
@@ -346,7 +379,7 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	c.Assert(m.svcHealth.ServiceByPort(32001).LocalEndpoints, Equals, len(localBackends))
 
 	// Insert the the ClusterIP frontend of svc1
-	p2 := &UpsertServiceParams{
+	p2 := &lb.SVC{
 		Frontend:            clusterIP,
 		Backends:            allBackends,
 		Type:                lb.SVCTypeClusterIP,
@@ -430,7 +463,7 @@ func (m *ManagerTestSuite) TestGetServiceNameByAddr(c *C) {
 	name := "svc1"
 	namespace := "ns1"
 	hcport := uint16(3)
-	p := &UpsertServiceParams{
+	p := &lb.SVC{
 		Frontend:            *fe,
 		Backends:            be,
 		Type:                lb.SVCTypeNodePort,

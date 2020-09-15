@@ -29,6 +29,7 @@ import (
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/eppolicymap"
 	"github.com/cilium/cilium/pkg/maps/eventsmap"
 	ipcachemap "github.com/cilium/cilium/pkg/maps/ipcache"
@@ -43,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rand"
 	"github.com/cilium/cilium/pkg/status"
+	"github.com/sirupsen/logrus"
 
 	"github.com/go-openapi/runtime/middleware"
 	"github.com/go-openapi/strfmt"
@@ -141,6 +143,24 @@ func (d *Daemon) getMasqueradingStatus() *models.Masquerading {
 	return s
 }
 
+func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
+	s := &models.BandwidthManager{
+		Enabled: option.Config.EnableBandwidthManager,
+	}
+
+	if !option.Config.EnableBandwidthManager {
+		return s
+	}
+
+	devices := make([]string, len(option.Config.Devices))
+	for i, iface := range option.Config.Devices {
+		devices[i] = iface
+	}
+
+	s.Devices = devices
+	return s
+}
+
 func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if !k8s.IsEnabled() {
 		return &models.KubeProxyReplacement{Mode: models.KubeProxyReplacementModeDisabled}
@@ -173,10 +193,15 @@ func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if option.Config.EnableNodePort {
 		features.NodePort.Enabled = true
 		features.NodePort.Mode = strings.ToUpper(option.Config.NodePortMode)
+		features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmRandom
+		if option.Config.NodePortAlg == option.NodePortAlgMaglev {
+			features.NodePort.Algorithm = models.KubeProxyReplacementFeaturesNodePortAlgorithmMaglev
+			features.NodePort.LutSize = int64(option.Config.MaglevTableSize)
+		}
 		if option.Config.NodePortAcceleration == option.NodePortAccelerationGeneric {
-			features.NodePort.Acceleration = models.KubeProxyReplacementFeaturesNodePortAccelerationGENERIC
+			features.NodePort.Acceleration = models.KubeProxyReplacementFeaturesNodePortAccelerationGeneric
 		} else {
-			features.NodePort.Acceleration = strings.ToUpper(option.Config.NodePortAcceleration)
+			features.NodePort.Acceleration = strings.ToTitle(option.Config.NodePortAcceleration)
 		}
 		features.NodePort.PortMin = int64(option.Config.NodePortMin)
 		features.NodePort.PortMax = int64(option.Config.NodePortMax)
@@ -370,9 +395,19 @@ func (c *clusterNodesClient) NodeAdd(newNode nodeTypes.Node) error {
 
 func (c *clusterNodesClient) NodeUpdate(oldNode, newNode nodeTypes.Node) error {
 	c.Lock()
+	defer c.Unlock()
+
+	// If the node is on the added list, just update it
+	for i, added := range c.NodesAdded {
+		if added.Name == newNode.Fullname() {
+			c.NodesAdded[i] = newNode.GetModel()
+			return nil
+		}
+	}
+
+	// otherwise, add the new node and remove the old one
 	c.NodesAdded = append(c.NodesAdded, newNode.GetModel())
 	c.NodesRemoved = append(c.NodesRemoved, oldNode.GetModel())
-	c.Unlock()
 	return nil
 }
 
@@ -830,9 +865,25 @@ func (d *Daemon) startStatusCollector() {
 	}
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
+	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
 	d.statusResponse.BpfMaps = d.getBPFMapStatus()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{})
 
+	// Set up a signal handler function which prints out logs related to daemon status.
+	cleaner.cleanupFuncs.Add(func() {
+		// If the KVstore state is not OK, print help for user.
+		if d.statusResponse.Kvstore != nil &&
+			d.statusResponse.Kvstore.State != models.StatusStateOk {
+			helpMsg := "cilium-agent depends on the availability of cilium-operator/etcd-cluster. " +
+				"Check if the cilium-operator pod and etcd-cluster are running and do not have any " +
+				"warnings or error messages."
+			log.WithFields(logrus.Fields{
+				"status":              d.statusResponse.Kvstore.Msg,
+				logfields.HelpMessage: helpMsg,
+			}).Error("KVStore state not OK")
+
+		}
+	})
 	return
 }

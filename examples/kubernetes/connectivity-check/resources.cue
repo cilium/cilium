@@ -6,7 +6,7 @@ _spec: {
 	_name:  string
 	_image: string
 	_command: [...string]
-	_traffic: *"any" | "internal" | "external"
+	_traffic: *"internal" | "external" | "any"
 
 	_affinity:     *"" | string
 	_antiAffinity: *"" | string
@@ -58,8 +58,14 @@ _spec: {
 				}
 			}
 			if !_probeExpectFail {
-				readinessProbe: exec: command: _allowProbe
-				livenessProbe: exec: command:  _allowProbe
+				readinessProbe: {
+					timeoutSeconds: _probeFailureTimeout + 2
+					exec: command: _allowProbe
+				}
+				livenessProbe: {
+					timeoutSeconds: _probeFailureTimeout + 2
+					exec: command: _allowProbe
+				}
 			}
 		}
 		_containers: [_c1]
@@ -156,7 +162,7 @@ deployment: [ID=_]: _spec & {
 service: [ID=_]: {
 	_name:     ID
 	_selector: ID | string
-	_traffic:  *"any" | "internal" | "external"
+	_traffic:  *"internal" | "external" | "any"
 
 	apiVersion: "v1"
 	kind:       "Service"
@@ -179,7 +185,7 @@ service: [ID=_]: {
 
 _cnp: {
 	_name:    string
-	_traffic: *"any" | "internal" | "external"
+	_traffic: *"internal" | "external" | "any"
 
 	apiVersion: "cilium.io/v2"
 	kind:       "CiliumNetworkPolicy"
@@ -273,6 +279,7 @@ for x in [deployment] for k, v in x {
 				if p._expose {
 					let Port = p.containerPort // Port is an alias
 					port: *Port | int
+					name: p._portName
 					if v._exposeNodePort {
 						nodePort: v._nodePort
 					}
@@ -290,7 +297,7 @@ for x in [deployment] for k, v in x {
 				topology:   *"any" | string
 				type:       *"autocheck" | string
 				quarantine: *"false" | "true"
-				traffic:    *"any" | "internal" | "external"
+				traffic:    *"internal" | "external" | "any"
 			}
 			spec: selector:  v.spec.template.metadata.labels
 			spec: clusterIP: "None"
@@ -300,6 +307,7 @@ for x in [deployment] for k, v in x {
 				if p._expose {
 					let Port = p.containerPort // Port is an alias
 					port: *Port | int
+					name: p._portName
 				},
 			]
 		}

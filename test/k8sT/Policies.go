@@ -16,8 +16,8 @@ package k8sTest
 
 import (
 	"context"
+	"encoding/json"
 	"fmt"
-	"net"
 	"regexp"
 	"time"
 
@@ -63,11 +63,13 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowIngress      string
 		knpAllowEgress       string
 		cnpMatchExpression   string
-		app1Service                             = "app1-service"
-		backgroundCancel     context.CancelFunc = func() {}
-		backgroundError      error
-		apps                 = []string{helpers.App1, helpers.App2, helpers.App3}
-		daemonCfg            map[string]string
+		connectivityCheckYml string
+
+		app1Service                         = "app1-service"
+		backgroundCancel context.CancelFunc = func() {}
+		backgroundError  error
+		apps             = []string{helpers.App1, helpers.App2, helpers.App3}
+		daemonCfg        map[string]string
 	)
 
 	BeforeAll(func() {
@@ -95,6 +97,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-ingress.yaml")
 		knpAllowEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-egress.yaml")
 		cnpMatchExpression = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions.yaml")
+		connectivityCheckYml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-proxy.yaml")
 
 		daemonCfg = map[string]string{
 			"global.tls.secretsBackend": "k8s",
@@ -110,9 +113,7 @@ var _ = Describe("K8sPolicyTest", func() {
 	})
 
 	AfterFailed(func() {
-		kubectl.CiliumReport(helpers.CiliumNamespace,
-			"cilium service list",
-			"cilium endpoint list")
+		kubectl.CiliumReport("cilium service list", "cilium endpoint list")
 	})
 
 	AfterAll(func() {
@@ -194,7 +195,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			err := kubectl.WaitforPods(namespaceForTest, "-l zgroup=testapp", helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Test pods are not ready after timeout")
 
-			ciliumPod, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.CiliumNamespace, helpers.K8s1)
+			ciliumPod, err = kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
 			Expect(err).Should(BeNil(), "cannot get CiliumPod")
 
 			clusterIP, _, err = kubectl.GetServiceHostPort(namespaceForTest, app1Service)
@@ -972,7 +973,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				By("Starting hubble observe and generating traffic which should%s redirect to proxy", not)
 				ctx, cancel := context.WithCancel(context.Background())
 				hubbleRes := kubectl.HubbleObserveFollow(
-					ctx, helpers.CiliumNamespace, ciliumPod,
+					ctx, ciliumPod,
 					// since 0s is important here so no historic events from the
 					// buffer are shown, only follow from the current time
 					"--type l7 --since 0s",
@@ -1004,7 +1005,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				if parser == policy.ParserTypeDNS && redirected {
 					By("Checking that Hubble is correctly annotating the DNS names")
-					res := kubectl.HubbleObserve(helpers.CiliumNamespace, ciliumPod,
+					res := kubectl.HubbleObserve(ciliumPod,
 						fmt.Sprintf("--last 1 --from-pod %s/%s --to-fqdn %q",
 							namespaceForTest, appPods[helpers.App2], "*.cilium.io"))
 					res.ExpectContainsFilterLine("{.destination_names[0]}", "vagrant-cache.ci.cilium.io")
@@ -1114,19 +1115,19 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		AfterEach(func() {
 			By("Cleaning up after the test")
-			cmd := fmt.Sprintf("%s delete --all cnp,netpol -n %s", helpers.KubectlCmd, testNamespace)
+			cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, testNamespace)
 			_ = kubectl.Exec(cmd)
 		})
 
-		SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "validates ingress CIDR-dependent L4 (FromCIDR + ToPorts)", func() {
+		SkipContextIf(helpers.DoesNotExistNodeWithoutCilium, "validates ingress CIDR-dependent L4", func() {
 			var (
 				outsideNodeName, outsideIP string // k8s3 node (doesn't have agent running)
 
 				backendPod   v1.Pod // The pod that k8s3 node is hitting
-				backendPodIP net.IP
+				backendPodIP string
 
 				hostNodeName       string // Node that backendPod ends up on
-				hostIPOfBackendPod net.IP
+				hostIPOfBackendPod string
 
 				policyVerdictAllowRegex, policyVerdictDenyRegex *regexp.Regexp
 			)
@@ -1141,10 +1142,7 @@ var _ = Describe("K8sPolicyTest", func() {
 						"global.masquerade":    "false",
 						"config.bpfMasquerade": "false",
 
-						// Needed because of
-						// https://github.com/cilium/cilium/issues/12141
-						"global.devices":      "",
-						"global.hostFirewall": "false",
+						"global.hostFirewall": "true",
 					})
 
 				By("Retrieving backend pod and outside node IP addresses")
@@ -1155,8 +1153,8 @@ var _ = Describe("K8sPolicyTest", func() {
 				Expect(demoPods.Items).To(HaveLen(2))
 
 				backendPod = demoPods.Items[0] // We'll take the first one; doesn't matter
-				backendPodIP = net.ParseIP(backendPod.Status.PodIP)
-				hostIPOfBackendPod = net.ParseIP(backendPod.Status.HostIP)
+				backendPodIP = backendPod.Status.PodIP
+				hostIPOfBackendPod = backendPod.Status.HostIP
 				hostNodeName = backendPod.Spec.NodeName // Save the name of node backend pod is on
 
 				By("Adding a static route to %s on the %s node (outside)",
@@ -1166,33 +1164,27 @@ var _ = Describe("K8sPolicyTest", func() {
 				// K8s Services, for the sake of simplicity. Making the backend
 				// pod IP directly routable on the "outside" node is sufficient
 				// to validate the policy under test.
-				res, err := kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
-					helpers.IPAddRoute(backendPodIP, hostIPOfBackendPod, true))
+				res := kubectl.AddIPRoute(outsideNodeName, backendPodIP, hostIPOfBackendPod, true)
 				Expect(res).To(getMatcher(true))
-				Expect(err).ToNot(HaveOccurred(),
-					"Cannot exec in outside node %s", outsideNodeName)
 
 				policyVerdictAllowRegex = regexp.MustCompile(
 					fmt.Sprintf("Policy verdict log: .+action allow.+%s:[0-9]+ -> %s:80 tcp SYN",
-						outsideIP,
-						backendPodIP.String()))
+						outsideIP, backendPodIP))
 				policyVerdictDenyRegex = regexp.MustCompile(
 					fmt.Sprintf("Policy verdict log: .+action deny.+%s:[0-9]+ -> %s:80 tcp SYN",
-						outsideIP,
-						backendPodIP.String()))
+						outsideIP, backendPodIP))
 			})
 
 			AfterAll(func() {
 				// Remove the route on the outside node.
-				kubectl.ExecInHostNetNS(context.TODO(), outsideNodeName,
-					helpers.IPDelRoute(backendPodIP, hostIPOfBackendPod))
+				kubectl.DelIPRoute(outsideNodeName, backendPodIP, hostIPOfBackendPod)
 
 				// Revert Cilium installation back to before this Context.
 				By("Redeploying Cilium with default configuration")
 				RedeployCilium(kubectl, ciliumFilename, daemonCfg)
 			})
 
-			testConnectivity := func(expectSuccess bool) int {
+			testConnectivity := func(dstIP string, expectSuccess bool) int {
 				action := "allowed"
 				if !expectSuccess {
 					action = "denied"
@@ -1201,10 +1193,10 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				var count int
 				ConsistentlyWithOffset(1, func() bool {
-					res, _ := kubectl.ExecInHostNetNS(
+					res := kubectl.ExecInHostNetNS(
 						context.TODO(),
 						outsideNodeName,
-						helpers.CurlFail("http://%s:%d", backendPodIP, 80),
+						helpers.CurlFail("http://%s:%d", dstIP, 80),
 					)
 					// We want to count the number of attempts that achieved
 					// their expected result, so we can assert on how many
@@ -1223,14 +1215,12 @@ var _ = Describe("K8sPolicyTest", func() {
 			It("connectivity works from the outside before any policies", func() {
 				// Ignore the return because we don't care about `cilium
 				// monitor` output in this test.
-				_ = testConnectivity(true)
+				_ = testConnectivity(backendPodIP, true)
 			})
 
 			It("connectivity is blocked after denying ingress", func() {
 				By("Running cilium monitor in the background")
-				ciliumPod, err := kubectl.GetCiliumPodOnNode(
-					helpers.CiliumNamespace,
-					hostNodeName)
+				ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
 				Expect(ciliumPod).ToNot(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1238,17 +1228,14 @@ var _ = Describe("K8sPolicyTest", func() {
 				Expect(ep).ToNot(BeNil())
 				Expect(err).ToNot(HaveOccurred())
 
-				monitor, monitorCancel := kubectl.MonitorEndpointStart(
-					helpers.CiliumNamespace,
-					ciliumPod,
-					ep.ID)
+				monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumPod, ep.ID)
 
 				By("Importing a default deny policy on ingress")
 				cnpDenyIngress := helpers.ManifestGet(kubectl.BasePath(),
 					"cnp-default-deny-ingress.yaml")
 				importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
 
-				count := testConnectivity(false)
+				count := testConnectivity(backendPodIP, false)
 				monitorCancel()
 
 				By("Asserting that the expected policy verdict logs are in the monitor output")
@@ -1265,9 +1252,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				importPolicy(kubectl, testNamespace, cnpDenyIngress, "default-deny-ingress")
 
 				By("Running cilium monitor in the background")
-				ciliumPod, err := kubectl.GetCiliumPodOnNode(
-					helpers.CiliumNamespace,
-					hostNodeName)
+				ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
 				Expect(ciliumPod).ToNot(BeEmpty())
 				Expect(err).ToNot(HaveOccurred())
 
@@ -1275,16 +1260,13 @@ var _ = Describe("K8sPolicyTest", func() {
 				Expect(ep).ToNot(BeNil())
 				Expect(err).ToNot(HaveOccurred())
 
-				monitor, monitorCancel := kubectl.MonitorEndpointStart(
-					helpers.CiliumNamespace,
-					ciliumPod,
-					ep.ID)
+				monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumPod, ep.ID)
 
 				By("Importing fromCIDR+toPorts policy on ingress")
 				cnpAllowIngress := helpers.ManifestGet(kubectl.BasePath(),
 					"cnp-ingress-from-cidr-to-ports.yaml")
 				importPolicy(kubectl, testNamespace, cnpAllowIngress, "ingress-from-cidr-to-ports")
-				count := testConnectivity(true)
+				count := testConnectivity(backendPodIP, true)
 				monitorCancel()
 
 				By("Asserting that the expected policy verdict logs are in the monitor output")
@@ -1292,6 +1274,92 @@ var _ = Describe("K8sPolicyTest", func() {
 					len(policyVerdictAllowRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
 				).To(BeNumerically(">=", count),
 					"Monitor output does not show traffic as allowed")
+			})
+
+			Context("With host policy", func() {
+				BeforeAll(func() {
+					// Deploy echoserver pods in host namespace.
+					echoPodPath := helpers.ManifestGet(kubectl.BasePath(), "echoserver-cilium-hostnetns.yaml")
+					kubectl.ApplyDefault(echoPodPath).ExpectSuccess("Cannot install echoserver application")
+					Expect(kubectl.WaitforPods(helpers.DefaultNamespace, "-l name=echoserver-hostnetns",
+						helpers.HelperTimeout)).Should(BeNil())
+
+					policyVerdictAllowRegex = regexp.MustCompile(
+						fmt.Sprintf("Policy verdict log: .+action allow.+%s:[0-9]+ -> %s:80 tcp SYN",
+							outsideIP, hostIPOfBackendPod))
+					policyVerdictDenyRegex = regexp.MustCompile(
+						fmt.Sprintf("Policy verdict log: .+action deny.+%s:[0-9]+ -> %s:80 tcp SYN",
+							outsideIP, hostIPOfBackendPod))
+				})
+
+				AfterAll(func() {
+					// Remove echoserver pods from host namespace.
+					echoPodPath := helpers.ManifestGet(kubectl.BasePath(), "echoserver-cilium-hostnetns.yaml")
+					kubectl.Delete(echoPodPath).ExpectSuccess("Cannot remove echoserver application")
+				})
+
+				It("Connectivity to hostns is blocked after denying ingress", func() {
+					By("Running cilium monitor in the background")
+					ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
+					Expect(ciliumPod).ToNot(BeEmpty())
+					Expect(err).ToNot(HaveOccurred())
+
+					hostEpID, err := kubectl.GetCiliumHostEndpointID(ciliumPod)
+					Expect(err).ToNot(HaveOccurred())
+
+					monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumPod, hostEpID)
+
+					By("Importing a default-deny host policy on ingress")
+					ccnpDenyHostIngress := helpers.ManifestGet(kubectl.BasePath(), "ccnp-default-deny-host-ingress.yaml")
+					importPolicy(kubectl, testNamespace, ccnpDenyHostIngress, "default-deny-host-ingress")
+
+					testConnectivity(backendPodIP, true)
+					count := testConnectivity(hostIPOfBackendPod, false)
+					monitorCancel()
+
+					By("Asserting that the expected policy verdict logs are in the monitor output")
+					Expect(
+						len(policyVerdictDenyRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
+					).To(BeNumerically(">=", count),
+						"Monitor output does not show traffic as denied: %s", policyVerdictDenyRegex)
+				})
+
+				It("Connectivity is restored after importing ingress policy", func() {
+					By("Importing a default-deny host policy on ingress")
+					ccnpDenyHostIngress := helpers.ManifestGet(kubectl.BasePath(), "ccnp-default-deny-host-ingress.yaml")
+					importPolicy(kubectl, testNamespace, ccnpDenyHostIngress, "default-deny-host-ingress")
+
+					By("Running cilium monitor in the background")
+					ciliumPod, err := kubectl.GetCiliumPodOnNode(hostNodeName)
+					Expect(ciliumPod).ToNot(BeEmpty())
+					Expect(err).ToNot(HaveOccurred())
+
+					hostEpID, err := kubectl.GetCiliumHostEndpointID(ciliumPod)
+					Expect(err).ToNot(HaveOccurred())
+
+					monitor, monitorCancel := kubectl.MonitorEndpointStart(ciliumPod, hostEpID)
+
+					By("Importing fromCIDR+toPorts host policy on ingress")
+					ccnpAllowHostIngress := helpers.ManifestGet(kubectl.BasePath(),
+						"ccnp-host-ingress-from-cidr-to-ports.yaml")
+					importPolicy(kubectl, testNamespace, ccnpAllowHostIngress, "host-ingress-from-cidr-to-ports")
+
+					testConnectivity(backendPodIP, true)
+					count := testConnectivity(hostIPOfBackendPod, true)
+					monitorCancel()
+
+					By("Asserting that the expected policy verdict logs are in the monitor output")
+					Expect(
+						len(policyVerdictAllowRegex.FindAll(monitor.CombineOutput().Bytes(), -1)),
+					).To(BeNumerically(">=", count),
+						"Monitor output does not show traffic as denied: %s", policyVerdictDenyRegex)
+
+					By("Removing the fromCIDR+toPorts ingress host policy")
+					// This is to ensure this policy is always removed before the default-deny one.
+					// Otherwise, connection to the nodes may be disrupted.
+					cmd := fmt.Sprintf("%s -n %s delete ccnp host-ingress-from-cidr-to-ports", helpers.KubectlCmd, testNamespace)
+					kubectl.Exec(cmd).ExpectSuccess("Failed to delete ccnp/host-ingress-from-cidr-to-ports")
+				})
 			})
 		})
 
@@ -1333,16 +1401,14 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			validateNodeConnectivity := func(expectHostSuccess, expectRemoteNodeSuccess bool) {
 				By("Checking ingress connectivity from k8s1 node to k8s1 pod (host)")
-				res, err := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
+				res := kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
 					helpers.CurlFail(k8s1PodIP))
-				Expect(err).To(BeNil(), "Cannot run curl in host netns")
 				ExpectWithOffset(1, res).To(getMatcher(expectHostSuccess),
 					"HTTP ingress connectivity to pod %q from local host", k8s1PodIP)
 
 				By("Checking ingress connectivity from k8s1 node to k8s2 pod (remote-node)")
-				res, err = kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
+				res = kubectl.ExecInHostNetNS(context.TODO(), k8s1Name,
 					helpers.CurlFail(k8s2PodIP))
-				Expect(err).To(BeNil(), "Cannot run curl in host netns")
 				ExpectWithOffset(1, res).To(getMatcher(expectRemoteNodeSuccess),
 					"HTTP ingress connectivity to pod %q from remote node", k8s2PodIP)
 			}
@@ -1353,7 +1419,6 @@ var _ = Describe("K8sPolicyTest", func() {
 					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 						map[string]string{
 							"global.remoteNodeIdentity": "false",
-							"global.hostFirewall":       "false",
 						})
 				})
 
@@ -1404,12 +1469,34 @@ var _ = Describe("K8sPolicyTest", func() {
 				})
 			})
 		})
+
+		Context("with L7 policy", func() {
+			BeforeAll(func() {
+				if helpers.RunsOnNetNextKernel() {
+					By("Reconfiguring Cilium to enable BPF TProxy")
+					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
+						map[string]string{
+							"config.bpfTProxy": "true",
+						})
+				}
+			})
+
+			AfterEach(func() {
+				kubectl.Delete(connectivityCheckYml)
+			})
+
+			It("using connectivity-check to check datapath", func() {
+				kubectl.ApplyDefault(connectivityCheckYml).ExpectSuccess("cannot install connectivity-check")
+
+				err := kubectl.WaitforPods(helpers.DefaultNamespace, "", helpers.HelperTimeout)
+				Expect(err).Should(BeNil(), "connectivity-check pods are not ready after timeout")
+			})
+		})
 	})
 
 	Context("GuestBook Examples", func() {
 		var (
 			deployment                = "guestbook_deployment.yaml"
-			groupLabel                = "zgroup=guestbook"
 			redisPolicy               = "guestbook-policy-redis.json"
 			redisPolicyName           = "guestbook-policy-redis"
 			redisPolicyDeprecated     = "guestbook-policy-redis-deprecated.json"
@@ -1423,7 +1510,7 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		BeforeEach(func() {
 			kubectl.ApplyDefault(helpers.ManifestGet(kubectl.BasePath(), deployment))
-			ciliumPods, err := kubectl.GetCiliumPods(helpers.CiliumNamespace)
+			ciliumPods, err := kubectl.GetCiliumPods()
 			Expect(err).To(BeNil(), "cannot retrieve Cilium Pods")
 			Expect(ciliumPods).ShouldNot(BeEmpty(), "cannot retrieve Cilium pods")
 		})
@@ -1464,20 +1551,17 @@ var _ = Describe("K8sPolicyTest", func() {
 		})
 
 		waitforPods := func() {
+			err := kubectl.WaitforPods(helpers.DefaultNamespace, "-l tier=backend", helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "Backend pods are not ready after timeout")
 
-			err = kubectl.WaitforPods(
-				helpers.DefaultNamespace,
-				fmt.Sprintf("-l %s", groupLabel), helpers.HelperTimeout)
-			ExpectWithOffset(1, err).Should(BeNil(), "Bookinfo pods are not ready after timeout")
+			err = kubectl.WaitforPods(helpers.DefaultNamespace, "-l tier=frontend", helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "Frontend pods are not ready after timeout")
 
-			err := kubectl.WaitForServiceEndpoints(
-				helpers.DefaultNamespace, "", "redis-master", helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "error waiting for redis-master service to be ready")
+			err = kubectl.WaitForServiceEndpoints(helpers.DefaultNamespace, "", "redis-master", helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "error waiting for redis-master service to be ready")
 
-			err = kubectl.WaitForServiceEndpoints(
-				helpers.DefaultNamespace, "", "redis-slave", helpers.HelperTimeout)
-			Expect(err).Should(BeNil(), "error waiting for redis-slave service to be ready")
-
+			err = kubectl.WaitForServiceEndpoints(helpers.DefaultNamespace, "", "redis-follower", helpers.HelperTimeout)
+			ExpectWithOffset(1, err).Should(BeNil(), "error waiting for redis-follower service to be ready")
 		}
 
 		policyCheckStatus := func(policyCheck string) {
@@ -1488,27 +1572,18 @@ var _ = Describe("K8sPolicyTest", func() {
 		}
 
 		testConnectivitytoRedis := func() {
-			webPods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "-l k8s-app.guestbook=web")
-			Expect(err).To(BeNil(), "Cannot get web pods")
+			webPods, err := kubectl.GetPodsNodes(helpers.DefaultNamespace, "-l app=guestbook")
+			ExpectWithOffset(1, err).To(BeNil(), "Error retrieving web pods")
+			ExpectWithOffset(1, webPods).ShouldNot(BeEmpty(), "Cannot retrieve web pods")
 
-			serviceIP, port, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, "redis-master")
-			Expect(err).To(BeNil(), "Cannot get hostPort of redis-master")
-
-			serviceName := "redis-master"
-			err = kubectl.WaitForKubeDNSEntry(serviceName, helpers.DefaultNamespace)
-			Expect(err).To(BeNil(), "DNS entry is not ready after timeout")
-
+			cmd := helpers.CurlFailNoStats(`"127.0.0.1/guestbook.php?cmd=set&key=messages&value=Hello"`)
 			for pod := range webPods {
+				res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, cmd)
+				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(), "Cannot curl webhook frontend of pod %q", pod)
 
-				redisMetadata := map[string]int{serviceIP: port, serviceName: port}
-				for k, v := range redisMetadata {
-					command := fmt.Sprintf(`nc %s %d <<EOF
-PING
-EOF`, k, v)
-					res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, command)
-					ExpectWithOffset(1, res).To(helpers.CMDSuccess(),
-						"Web pod %q cannot connect to redis-master on '%s:%d'", pod, k, v)
-				}
+				var response map[string]interface{}
+				err := json.Unmarshal([]byte(res.Stdout()), &response)
+				ExpectWithOffset(1, err).To(BeNil(), fmt.Sprintf("Error parsing JSON response: %s", res.Stdout()))
 			}
 		}
 		It("checks policy example", func() {

@@ -31,9 +31,9 @@
 # source for the BPF datapath
 #bpfClockProbe: true
 
-# blacklistConflictingRoutes instructs the cilium-agent whether to blacklist
-# IP allocations conflicting with local non-cilium routes.
-#blacklistConflictingRoutes: true
+# bpfTProxy enables the use of transparent proxying via mechanisms available
+# in Linux 5.7 or later.
+#bpfTProxy: false
 
 # sessionAffinity enable support for service sessionAffinity
 #sessionAffinity: true
@@ -57,3 +57,9 @@
 
 # A list of labels to include or exclude from Cilium identity evaluation.
 #labels: "k8s:io.kubernetes.pod.namespace k8s:k8s-app k8s:app k8s:name"
+
+#disableEnvoyVersionCheck: false
+
+# Set the connection-tracking garbage collection interval. If not set, the value will be
+# calculated automatically on startup of cilium-agent. A low value will consume more CPU cycles.
+#conntrackGCInterval: "0s"

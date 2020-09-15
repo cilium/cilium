@@ -90,7 +90,7 @@ func (h *putServiceID) Handle(params PutServiceIDParams) middleware.Responder {
 		svcNamespace = params.Config.Flags.Namespace
 	}
 
-	p := &service.UpsertServiceParams{
+	p := &loadbalancer.SVC{
 		Name:                svcName,
 		Namespace:           svcNamespace,
 		Type:                svcType,

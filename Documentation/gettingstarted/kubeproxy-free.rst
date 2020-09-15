@@ -142,7 +142,29 @@ the Cilium agent is running in the desired mode:
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-fmh8d -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict	[eth0 (DR), eth1]	[NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    KubeProxyReplacement:   Strict	[eth0 (Direct Routing), eth1]
+
+Use ``--verbose`` for full details:
+
+.. parsed-literal::
+
+    kubectl exec -it -n kube-system cilium-fmh8d -- cilium status --verbose
+    [...]
+    KubeProxyReplacement Details:
+      Status:              Strict
+      Protocols:           TCP, UDP
+      Devices:             eth0 (Direct Routing), eth1
+      Mode:                SNAT
+      Backend Selection:   Random
+      Session Affinity:    Enabled
+      XDP Acceleration:    Disabled
+      Services:
+      - ClusterIP:      Enabled
+      - NodePort:       Enabled (Range: 30000-32767) 
+      - LoadBalancer:   Enabled 
+      - externalIPs:    Enabled 
+      - HostPort:       Enabled
+    [...]
 
 As a next, optional step, we deploy nginx pods, create a new NodePort service and
 validate that Cilium installed the service correctly.
@@ -286,6 +308,99 @@ be lost on its path to the service endpoint.
   for external traffic, that is, operating the kube-proxy replacement in :ref:`DSR<DSR Mode>`
   or :ref:`Hybrid<Hybrid Mode>` mode if only TCP-based services are exposed to the outside
   world for the latter.
+
+Maglev Consistent Hashing (Beta)
+********************************
+
+Cilium's eBPF kube-proxy replacement supports consistent hashing by implementing a variant
+of `The Maglev paper <https://storage.googleapis.com/pub-tools-public-publication-data/pdf/44824.pdf>`_
+hashing in its load balancer for backend selection. This improves resiliency in case of
+failures as well as better load balancing properties since nodes added to the cluster will
+make the same, consistent backend selection throughout the cluster for a given 5-tuple without
+having to synchronize state with the other nodes. Similarly, upon backend removal the backend
+lookup tables are reprogrammed with minimal disruption for unrelated backends (at most 1%
+difference in the reassignments) for the given service.
+
+Maglev hashing for services load balancing can be enabled by setting ``global.nodePort.algorithm=maglev``:
+
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set global.kubeProxyReplacement=strict \\
+        --set global.nodePort.algorithm=maglev \\
+        --set global.k8sServiceHost=API_SERVER_IP \\
+        --set global.k8sServicePort=API_SERVER_PORT
+
+Note that Maglev hashing is applied only to external (N-S) traffic. For
+in-cluster service connections (E-W), sockets are assigned to service backends
+directly, e.g. at TCP connect time, without any intermediate hop and thus are
+not subject to Maglev. Maglev hashing is also supported for Cilium's
+:ref:`XDP<XDP Acceleration>` acceleration.
+
+There are two more Maglev-specific configuration settings: ``maglev.tableSize``
+and ``maglev.hashSeed``.
+
+``maglev.tableSize`` specifies the size of the Maglev lookup table for each single service.
+`Maglev <https://storage.googleapis.com/pub-tools-public-publication-data/pdf/44824.pdf>`_
+recommends the table size (``M``) to be significantly larger than the number of maximum expected
+backends (``N``). In practice that means that ``M`` should be larger than ``100 * N`` in
+order to guarantee the property of at most 1% difference in the reassignments on backend
+changes. ``M`` must be a prime number. Cilium uses a default size of ``16381`` for ``M``.
+The following sizes for ``M`` are supported as ``maglev.tableSize`` Helm option:
+
++----------------------------+
+| ``maglev.tableSize`` value |
++============================+
+| 251                        |
++----------------------------+
+| 509                        |
++----------------------------+
+| 1021                       |
++----------------------------+
+| 2039                       |
++----------------------------+
+| 4093                       |
++----------------------------+
+| 8191                       |
++----------------------------+
+| 16381                      |
++----------------------------+
+| 32749                      |
++----------------------------+
+| 65521                      |
++----------------------------+
+| 131071                     |
++----------------------------+
+
+For example, a ``maglev.tableSize`` of ``16381`` is suitable for a maximum of ``~160`` backends
+per service. If a higher number of backends are provisioned under this setting, then the
+difference in reassignments on backend changes will increase.
+
+The ``maglev.hashSeed`` option is recommended to be set in order for Cilium to not rely on the
+fixed built-in seed. The seed is a base64-encoded 16 byte-random number, and can be
+generated once through ``head -c16 /dev/urandom | base64 -w0``, for example. Every Cilium agent
+in the cluster must use the same hash seed in order for Maglev to work.
+
+The below deployment example is generating and passing such seed to Helm as well as setting the
+Maglev table size to ``65521`` in order to allow for ``~650`` maximum number of backends for a
+given service (with the property of at most 1% difference on backend reassignments):
+
+.. parsed-literal::
+
+    SEED=$(head -c16 /dev/urandom | base64 -w0)
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set global.kubeProxyReplacement=strict \\
+        --set global.nodePort.algorithm=maglev \\
+        --set maglev.tableSize=65521 \\
+        --set maglev.hashSeed=$SEED \\
+        --set global.k8sServiceHost=API_SERVER_IP \\
+        --set global.k8sServicePort=API_SERVER_PORT
+
+Note that enabling Maglev will have a higher memory consumption on each Cilium-managed node compared
+to the default of ``global.nodePort.algorithm=random`` given ``random`` does not need the extra lookup
+tables. However, ``random`` won't have consistent backend selection.
 
 .. _DSR mode:
 
@@ -470,13 +585,13 @@ corresponding network driver name of an interface can be determined as follows:
 +-------------------+------------+-------------+
 
 The current Cilium kube-proxy XDP acceleration mode can also be introspected through
-the ``cilium status`` CLI command. If it has been enabled successfully, ``XDP: NATIVE``
+the ``cilium status`` CLI command. If it has been enabled successfully, ``Native``
 is shown:
 
 .. parsed-literal::
 
-    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict      [eth0 (DR)]     [NodePort (SNAT, 30000-32767, XDP: NATIVE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status --verbose | grep XDP
+      XDP Acceleration:    Native
 
 In the example above, the NodePort XDP acceleration is enabled on the ``eth0`` device
 which is also used for direct routing (``DR``).
@@ -530,18 +645,11 @@ support on the ena driver. The latter is needed to configure channel parameters 
 
   for ip in $IPS ; do ssh ec2-user@$ip "sudo amazon-linux-extras install -y kernel-ng && sudo yum install -y ethtool && sudo reboot"; done
 
-Once the nodes come back up their kernel version should say ``5.4.50-25.83.amzn2.x86_64`` or
+Once the nodes come back up their kernel version should say ``5.4.58-27.104.amzn2.x86_64`` or
 similar through ``uname -r``. In order to run XDP on ena, make sure the driver version is at
 least `2.2.8 <https://github.com/amzn/amzn-drivers/commit/ccbb1fe2c2f2ab3fc6d7827b012ba8ec06f32c39>`__.
-The driver version can be inspected through ``ethtool -i eth0``.
-
-.. note::
-
-  If the reported driver version is <2.2.8, a new version of the ena driver needs to be built
-  and installed according to the instructions given `here <https://github.com/amzn/amzn-drivers/blob/master/kernel/linux/rpm/README-rpm.txt>`__.
-  For kernel-ng version ``5.4.50-25.83.amzn2.x86_64`` a prebuild rpm of ena driver version
-  2.2.10g can be downloaded `here <https://gist.github.com/tklauser/268641aea4fced9e8c3b4a2f7536661b#file-kmod-ena-2-2-10-1-amzn2-26-x86_64-rpm>`__
-  for testing purposes.
+The driver version can be inspected through ``ethtool -i eth0``. For the given kernel version
+the driver version should be reported as ``2.2.10g``.
 
 Before Cilium's XDP acceleration can be deployed, there are two settings needed on the
 network adapter side, that is, MTU needs to be lowered in order to be able to operate
@@ -706,6 +814,26 @@ and therefore not affecting any application pod ``bind(2)`` requests anymore. In
 order to opt-out from this behavior in general, this setting can be changed for
 expert users by switching ``global.nodePort.bindProtection`` to ``false``.
 
+.. _Configuring Maps:
+
+Configuring BPF map sizes
+*************************
+
+For high-scale environments, Cilium's BPF maps can be configured to have higher
+limits on the number of entries. Overriding helm options can be used to tweak
+these limits.
+
+To increase the number of entries in Cilium's BPF LB service, backend and
+affinity maps consider overriding ``global.bpf.lbMapMax`` helm option.
+The default value of this LB map size is 65536.
+
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set global.kubeProxyReplacement=strict \\
+        --set global.bpf.lbMapMax=131072
+
 .. _kubeproxyfree_hostport:
 
 Container hostPort support
@@ -764,12 +892,13 @@ After updating ``/etc/default/kubelet``, kubelet needs to be restarted.
 
 In order to verify whether the HostPort feature has been enabled in Cilium, the
 ``cilium status`` CLI command provides visibility through the ``KubeProxyReplacement``
-info line. If it has been enabled successfully, ``HostPort`` is shown, for example:
+info line. If it has been enabled successfully, ``HostPort`` is shown as ``Enabled``,
+for example:
 
 .. parsed-literal::
 
-    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict   [eth0 (DR)]   [NodePort (SNAT, 30000-32767, XDP: DISABLED), HostPort, ExternalIPs, HostReachableServices (TCP, UDP), SessionAffinity]
+    kubectl exec -it -n kube-system cilium-xxxxx -- cilium status --verbose | grep HostPort
+      - HostPort:       Enabled
 
 The following modified example yaml from the setup validation with an additional
 ``hostPort: 8080`` parameter can be used to verify the mapping:
@@ -940,7 +1069,7 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
-    KubeProxyReplacement:   Strict	[eth0 (DR)]	[NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
+    KubeProxyReplacement:   Strict	[eth0 (DR)]
 
 Session Affinity
 ****************
@@ -967,6 +1096,46 @@ a fixed cookie value as a trade-off. This makes all applications on the host to
 select the same service endpoint for a given service with session affinity configured.
 To disable the feature, set ``config.sessionAffinity=false``.
 
+LoadBalancer Source Ranges Checks
+*********************************
+
+When a ``LoadBalancer`` service is configured with ``spec.loadBalancerSourceRanges``,
+Cilium's eBPF kube-proxy replacement restricts access from outside (e.g. external
+world traffic) to the service to the white-listed CIDRs specified in the field. If
+the field is empty, no restrictions for the access will be applied.
+
+When accessing the service from inside a cluster, the kube-proxy replacement will
+ignore the field regardless whether it is set. This means that any pod or any host
+process in the cluster will be able to access the ``LoadBalancer`` service internally.
+
+The load balancer source range check feature is enabled by default, and it can be
+disabled by setting ``config.svcSourceRangeCheck=false``. It makes sense to disable
+the check when running on some cloud providers. E.g. `Amazon NLB
+<https://kubernetes.io/docs/concepts/services-networking/service/#aws-nlb-support>`__
+natively implements the check, so the kube-proxy replacement's feature can be disabled.
+Meanwhile `GKE internal TCP/UDP load balancer
+<https://cloud.google.com/kubernetes-engine/docs/how-to/internal-load-balancing#lb_source_ranges>`__
+does not, so the feature must be kept enabled in order to restrict the access.
+
+Service Proxy Name Configuration
+********************************
+
+Like kube-proxy, Cilium also honors the ``service.kubernetes.io/service-proxy-name`` service annotation
+and only manages services that contain a matching service-proxy-name label. This name can be configured
+by setting ``global.k8s.serviceProxyName`` option and the behavior is identical to that of
+kube-proxy. The service proxy name defaults to an empty string which instructs Cilium to
+only manage services not having ``service.kubernetes.io/service-proxy-name`` label.
+
+For more details on the usage of ``service.kubernetes.io/service-proxy-name`` label and its
+working, take a look at `this KEP
+<https://github.com/kubernetes/enhancements/blob/master/keps/sig-network/0031-20181017-kube-proxy-services-optional.md>`__.
+
+.. note::
+
+    If Cilium with a non-empty service proxy name is meant to manage all services in kube-proxy
+    free mode, make sure that default Kubernetes services like ``kube-dns`` and ``kubernetes``
+    have the required label value.
+
 Limitations
 ###########
 
@@ -990,6 +1159,14 @@ Limitations
       setting will be ignored and a warning emitted to the Cilium agent log. Similarly,
       explicitly binding the ``hostIP`` to the loopback address in the host namespace is
       currently not supported and will log a warning to the Cilium agent log.
+    * When Cilium's kube-proxy replacement is used with Kubernetes versions(< 1.19) that have
+      support for ``EndpointSlices``, ``Services`` without selectors and backing ``Endpoints``
+      don't work. The reason is that Cilium only monitors changes made to ``EndpointSlices``
+      objects if support is available and ignores ``Endpoints`` in those cases. Kubernetes 1.19
+      release introduces ``EndpointSliceMirroring`` controller that mirrors custom ``Endpoints``
+      resources to corresponding ``EndpointSlices`` and thus allowing backing ``Endpoints``
+      to work. For a more detailed discussion see
+      `#12438 <https://github.com/cilium/cilium/issues/12438>`__.
 
 Further Readings
 ################

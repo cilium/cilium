@@ -341,6 +341,8 @@ static int bpf_handle_pending(struct bpf_elf_ctx *ctx,
 	}
 
 	pinned.id = map->id;
+	pinned.inner_id = map->inner_id;
+	pinned.inner_idx = map->inner_idx;
 	pinned.pinning = map->pinning;
 	if (!memcmp(map, &pinned, sizeof(pinned)))
 		return 0;

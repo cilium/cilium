@@ -98,7 +98,7 @@ If you intent to release a new feature release, see the
 
    ::
 
-      DOCKER_IMAGE_TAG=v1.0.3 make docker-image
+      DOCKER_IMAGE_TAG=v1.0.3 make docker-images-all
       docker push cilium/cilium:v1.0.3
 
    .. note:

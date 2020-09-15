@@ -22,6 +22,9 @@ type DeleteRouteInput struct {
 	// for the route exactly.
 	DestinationIpv6CidrBlock *string `locationName:"destinationIpv6CidrBlock" type:"string"`
 
+	// The ID of the prefix list for the route.
+	DestinationPrefixListId *string `type:"string"`
+
 	// Checks whether you have the required permissions for the action, without
 	// actually making the request, and provides an error response. If you have
 	// the required permissions, the error response is DryRunOperation. Otherwise,

@@ -3,7 +3,8 @@
 {{- $defaultBpfMapDynamicSizeRatio := 0.0 -}}
 {{- $defaultBpfMasquerade := "false" -}}
 {{- $defaultBpfClockProbe := "false" -}}
-{{- $defaultIPAM := "hostscope" -}}
+{{- $defaultBpfTProxy := "false" -}}
+{{- $defaultIPAM := "cluster-pool" -}}
 {{- $defaultSessionAffinity := "false" -}}
 {{- $defaultOperatorApiServeAddr := "localhost:9234" -}}
 {{- $defaultBpfCtTcpMax := 524288 -}}
@@ -27,6 +28,11 @@
 {{- end }}
 {{- $defaultBpfCtTcpMax = 0 -}}
 {{- $defaultBpfCtAnyMax = 0 -}}
+{{- end -}}
+
+{{- /* Default values when 1.9 was initially deployed */ -}}
+{{- if semverCompare ">=1.9" (default "1.9" .Values.upgradeCompatibility) -}}
+{{- $defaultBpfTProxy = "true" -}}
 {{- end -}}
 
 {{- $ipam := (coalesce .Values.ipam $defaultIPAM) -}}
@@ -67,6 +73,14 @@ data:
     key-file: '/var/lib/etcd-secrets/etcd-client.key'
     cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
 {{- end }}
+{{- end }}
+
+{{- if hasKey .Values "disableEnvoyVersionCheck" }}
+  disable-envoy-version-check: {{ .Values.disableEnvoyVersionCheck | quote }}
+{{- end }}
+
+{{- if hasKey .Values "conntrackGCInterval" }}
+  conntrack-gc-interval: {{ .Values.conntrackGCInterval | quote }}
 {{- end }}
 
   # Identity allocation mode selects how identities are shared between cilium
@@ -129,6 +143,9 @@ data:
   # NOTE that this will open the port on ALL nodes where Cilium pods are
   # scheduled.
   prometheus-serve-addr: ":{{ .Values.global.prometheus.port }}"
+  # Port to expose Envoy metrics (e.g. "9095"). Envoy metrics listener will be disabled if this
+  # field is not set.
+  proxy-prometheus-port: "{{ .Values.global.proxy.prometheus.port }}"
 {{- end }}
 
 {{- if .Values.global.operatorPrometheus.enabled }}
@@ -184,6 +201,12 @@ data:
   enable-bpf-clock-probe: {{ $defaultBpfClockProbe | quote }}
 {{- end }}
 
+{{- if hasKey .Values "bpfTProxy" }}
+  enable-bpf-tproxy: {{ .Values.bpfTProxy | quote }}
+{{- else if eq $defaultBpfTProxy "true" }}
+  enable-bpf-tproxy: {{ $defaultBpfTProxy | quote }}
+{{- end }}
+
   # If you want cilium monitor to aggregate tracing for packets, set this level
   # to "low", "medium", or "maximum". The higher the level, the less packets
   # that will be seen in monitor output.
@@ -234,10 +257,17 @@ data:
 {{- end }}
 
 {{- if .Values.global.bpf.policyMapMax }}
-  # bpf-policy-map-max specified the maximum number of entries in endpoint
+  # bpf-policy-map-max specifies the maximum number of entries in endpoint
   # policy map (per endpoint)
   bpf-policy-map-max: "{{ .Values.global.bpf.policyMapMax }}"
 {{- end }}
+
+{{- if .Values.global.bpf.lbMapMax }}
+  # bpf-lb-map-max specifies the maximum number of entries in bpf lb service,
+  # backend and affinity maps.
+  bpf-lb-map-max: "{{ .Values.global.bpf.lbMapMax }}"
+{{- end }}
+
 
 {{- if hasKey .Values "bpfMapDynamicSizeRatio" }}
   bpf-map-dynamic-size-ratio: {{ .Values.bpfMapDynamicSizeRatio | quote }}
@@ -290,20 +320,17 @@ data:
   ipam: "kubernetes"
   tunnel: "disabled"
   enable-endpoint-routes: "true"
-  blacklist-conflicting-routes: "false"
   enable-local-node-route: "false"
 {{- end }}
 
 {{- if .Values.global.eni }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
-  blacklist-conflicting-routes: "false"
 {{- end }}
 
 {{- if .Values.global.azure.enabled }}
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
-  blacklist-conflicting-routes: "false"
   enable-local-node-route: "false"
 {{- end }}
 
@@ -389,6 +416,7 @@ data:
   iptables-lock-timeout: {{ .Values.global.iptablesLockTimeout | quote }}
 {{- end }}
   auto-direct-node-routes: {{ .Values.global.autoDirectNodeRoutes | quote }}
+  enable-bandwidth-manager: {{ .Values.global.bandwidthManager | quote }}
 {{- if .Values.global.nativeRoutingCIDR }}
   native-routing-cidr: {{ .Values.global.nativeRoutingCIDR }}
 {{- end }}
@@ -443,6 +471,9 @@ data:
 {{- if .Values.global.nodePort.mode }}
   node-port-mode: {{ .Values.global.nodePort.mode | quote }}
 {{- end }}
+{{- if .Values.global.nodePort.algorithm }}
+  node-port-algorithm: {{ .Values.global.nodePort.algorithm | quote }}
+{{- end }}
 {{- if .Values.global.nodePort.enableHealthCheck }}
   enable-health-check-nodeport: {{ .Values.global.nodePort.enableHealthCheck | quote}}
 {{- end }}
@@ -452,10 +483,21 @@ data:
   node-port-bind-protection: {{ .Values.global.nodePort.bindProtection | quote }}
   enable-auto-protect-node-port-range: {{ .Values.global.nodePort.autoProtectPortRange | quote }}
 {{- end }}
+{{- if .Values.maglev }}
+{{- if .Values.maglev.tableSize }}
+  bpf-lb-maglev-table-size: {{ .Values.maglev.tableSize | quote}}
+{{- end }}
+{{- if .Values.maglev.hashSeed }}
+  bpf-lb-maglev-hash-seed: {{ .Values.maglev.hashSeed | quote}}
+{{- end }}
+{{- end }}
 {{- if hasKey .Values "sessionAffinity" }}
   enable-session-affinity: {{ .Values.sessionAffinity | quote }}
 {{- else if eq $defaultSessionAffinity "true" }}
   enable-session-affinity: {{ $defaultSessionAffinity | quote }}
+{{- end }}
+{{- if hasKey .Values "svcSourceRangeCheck" }}
+  enable-svc-source-range-check: {{ .Values.svcSourceRangeCheck | quote }}
 {{- end }}
 
 {{- if and .Values.global.pprof .Values.global.pprof.enabled }}
@@ -542,10 +584,20 @@ data:
   # https://github.com/cilium/hubble/blob/master/Documentation/metrics.md
   hubble-metrics: {{- range .Values.global.hubble.metrics.enabled }}
     {{.}}
-  {{- end }}
 {{- end }}
+{{- end }}
+{{- if and (.Values.global.hubble.listenAddress) }}
   # An additional address for Hubble server to listen to (e.g. ":4244").
   hubble-listen-address: {{ .Values.global.hubble.listenAddress | quote }}
+{{- if .Values.global.hubble.tls.enabled }}
+  hubble-disable-tls: "false"
+  hubble-tls-cert-file: /var/lib/cilium/tls/hubble/server.crt
+  hubble-tls-key-file: /var/lib/cilium/tls/hubble/server.key
+  hubble-tls-client-ca-files: /var/lib/cilium/tls/hubble/client-ca.crt
+{{- else }}
+  hubble-disable-tls: "true"
+{{- end}}
+{{- end }}
 {{- end }}
 {{- if .Values.disableIptablesFeederRules }}
   # A space separated list of iptables chains to disable when installing feeder rules.
@@ -571,13 +623,17 @@ data:
   disable-cnp-status-updates: "true"
 {{- end }}
 
-{{- if hasKey .Values "blacklistConflictingRoutes" }}
-  # Configure blacklisting of local routes not owned by Cilium.
-  blacklist-conflicting-routes: {{ .Values.blacklistConflictingRoutes | quote }}
-{{- end }}
-
 {{- if hasKey .Values "crdWaitTimeout" }}
   crd-wait-timeout: {{ .Values.crdWaitTimeout | quote }}
 {{- else if ( ne $crdWaitTimeout "5m" ) }}
   crd-wait-timeout: {{ $crdWaitTimeout | quote }}
+{{- end }}
+
+{{- if hasKey .Values "enableK8sEndpointSlice" }}
+  enable-k8s-endpoint-slice: {{ .Values.enableK8sEndpointSlice | quote }}
+{{- end }}
+
+{{- if and .Values.global.k8s .Values.global.k8s.serviceProxyName }}
+  # Configure service proxy name for Cilium.
+  k8s-service-proxy-name: {{ .Values.global.k8s.serviceProxyName | quote }}
 {{- end }}

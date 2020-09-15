@@ -37,6 +37,9 @@ type PurchaseHostReservationInput struct {
 	//
 	// OfferingId is a required field
 	OfferingId *string `type:"string" required:"true"`
+
+	// The tags to apply to the Dedicated Host Reservation during purchase.
+	TagSpecifications []TagSpecification `locationName:"TagSpecification" locationNameList:"item" type:"list"`
 }
 
 // String returns the string representation

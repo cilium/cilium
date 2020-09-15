@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/pkg/cidr"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 )
 
@@ -25,6 +26,7 @@ type LBMockMap struct {
 	BackendByID   map[uint16]*lb.Backend
 	ServiceByID   map[uint16]*lb.SVC
 	AffinityMatch BackendIDByServiceIDSet
+	SourceRanges  SourceRangeSetByServiceID
 }
 
 func NewLBMockMap() *LBMockMap {
@@ -32,20 +34,22 @@ func NewLBMockMap() *LBMockMap {
 		BackendByID:   map[uint16]*lb.Backend{},
 		ServiceByID:   map[uint16]*lb.SVC{},
 		AffinityMatch: BackendIDByServiceIDSet{},
+		SourceRanges:  SourceRangeSetByServiceID{},
 	}
 }
 
 func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
-	backendIDs []uint16, prevCount int, ipv6 bool, svcType lb.SVCType, svcLocal bool,
-	svcScope uint8, sessionAffinity bool, sessionAffinityTimeoutSec uint32) error {
+	backends map[string]uint16, prevCount int, ipv6 bool, svcType lb.SVCType, svcLocal bool,
+	svcScope uint8, sessionAffinity bool, sessionAffinityTimeoutSec uint32, checkLBSrcRange bool,
+	maglev bool) error {
 
-	backends := make([]lb.Backend, len(backendIDs))
-	for i, backendID := range backendIDs {
+	backendsList := make([]lb.Backend, 0, len(backends))
+	for name, backendID := range backends {
 		b, found := m.BackendByID[backendID]
 		if !found {
-			return fmt.Errorf("Backend %d not found", id)
+			return fmt.Errorf("Backend %s (%d) not found", name, id)
 		}
-		backends[i] = *b
+		backendsList = append(backendsList, *b)
 	}
 
 	svc, found := m.ServiceByID[id]
@@ -57,7 +61,7 @@ func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
 			return fmt.Errorf("Invalid backends count: %d vs %d", prevCount, len(svc.Backends))
 		}
 	}
-	svc.Backends = backends
+	svc.Backends = backendsList
 	svc.SessionAffinity = sessionAffinity
 	svc.SessionAffinityTimeoutSec = sessionAffinityTimeoutSec
 
@@ -66,7 +70,7 @@ func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
 	return nil
 }
 
-func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int) error {
+func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev bool) error {
 	svc, found := m.ServiceByID[uint16(addr.ID)]
 	if !found {
 		return fmt.Errorf("Service not found %+v", addr)
@@ -146,4 +150,22 @@ func (m *LBMockMap) DeleteAffinityMatch(revNATID uint16, backendID uint16) error
 
 func (m *LBMockMap) DumpAffinityMatches() (BackendIDByServiceIDSet, error) {
 	return m.AffinityMatch, nil
+}
+
+func (m *LBMockMap) UpdateSourceRanges(revNATID uint16, prevRanges []*cidr.CIDR,
+	ranges []*cidr.CIDR, ipv6 bool) error {
+
+	if len(prevRanges) == 0 {
+		m.SourceRanges[revNATID] = []*cidr.CIDR{}
+	}
+	if len(prevRanges) != len(m.SourceRanges[revNATID]) {
+		return fmt.Errorf("Inconsistent view of source ranges")
+	}
+	m.SourceRanges[revNATID] = ranges
+
+	return nil
+}
+
+func (m *LBMockMap) DumpSourceRanges(ipv6 bool) (SourceRangeSetByServiceID, error) {
+	return m.SourceRanges, nil
 }

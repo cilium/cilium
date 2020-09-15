@@ -84,7 +84,7 @@ Relay and Hubble's graphical UI.
 
        .. parsed-literal::
 
-            kubectl create -f |SCM_WEB|/install/kubernetes/experimental-install.yaml
+            kubectl apply -f |SCM_WEB|/install/kubernetes/experimental-install.yaml
 
     .. group-tab:: Multi-node cluster with ``kind``
 

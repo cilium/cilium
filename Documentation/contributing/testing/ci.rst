@@ -42,6 +42,8 @@ After you don't need to run tests on your branch, please remove the branch from 
    +---------------------------------------+-------------------------------------------+
    | ``test-focus K8s``                    | Runs all kubernetes tests                 |
    +---------------------------------------+-------------------------------------------+
+   | ``test-focus K8sBandwidthTest``       | Runs all k8s bandwidth tests              |
+   +---------------------------------------+-------------------------------------------+
    | ``test-focus K8sConformance``         | Runs all k8s conformance tests            |
    +---------------------------------------+-------------------------------------------+
    | ``test-focus K8sChaos``               | Runs all k8s chaos tests                  |
@@ -225,6 +227,8 @@ illustrating which subset of tests the job runs.
 | `Cilium-Ginkgo-Tests-Focus <https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Validated-Focus/>`_   | test-focus        | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-PR-Ginkgo-Tests-k8s <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-k8s/>`_                      | test-missed-k8s   | No                 |
++----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
+| `Cilium-PR-Ginkgo-Tests-Validated <https://jenkins.cilium.io/job/Cilium-PR-Ginkgo-Tests-Validated/>`_          | restart-ginkgo    | Yes                |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+
 | `Cilium-Nightly-Tests-PR <https://jenkins.cilium.io/job/Cilium-PR-Nightly-Tests-All/>`_                        | test-nightly      | No                 |
 +----------------------------------------------------------------------------------------------------------------+-------------------+--------------------+

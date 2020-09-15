@@ -43,6 +43,7 @@ var _ ClientConn = (*grpc.ClientConn)(nil)
 
 // ClientConnBuilder wraps the ClientConn method.
 type ClientConnBuilder interface {
-	// ClientConn creates a new ClientConn using target.
-	ClientConn(target string) (ClientConn, error)
+	// ClientConn creates a new ClientConn using target as the address and,
+	// optionally, hostname.
+	ClientConn(target, hostname string) (ClientConn, error)
 }

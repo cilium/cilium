@@ -30,10 +30,12 @@ cilium-operator-aws [flags]
       --config-dir string                         Configuration directory that contains a file for each option
       --crd-wait-timeout duration                 Operator will exit if CRDs are not available within this duration upon startup (default 5m0s)
   -D, --debug                                     Enable debugging mode
+      --ec2-api-endpoint string                   AWS API endpoint for the EC2 service
       --enable-ipv4                               Enable IPv4 support (default true)
       --enable-ipv6                               Enable IPv6 support (default true)
       --enable-k8s-api-discovery                  Enable discovery of Kubernetes API groups and resources with the discovery API
       --enable-k8s-endpoint-slice                 Enables k8s EndpointSlice feature into Cilium-Operator if the k8s cluster supports it (default true)
+      --enable-k8s-event-handover                 Enable k8s event handover to kvstore for improved scalability
       --enable-metrics                            Enable Prometheus metrics
       --eni-tags map                              ENI tags in the form of k1=v1 (multiple k/v pairs can be passed by repeating the CLI flag) (default map[])
   -h, --help                                      help for cilium-operator-aws
@@ -49,6 +51,7 @@ cilium-operator-aws [flags]
       --k8s-heartbeat-timeout duration            Configures the timeout for api-server heartbeat, set to 0 to disable (default 30s)
       --k8s-kubeconfig-path string                Absolute path of the kubernetes kubeconfig file
       --k8s-namespace string                      Name of the Kubernetes namespace in which Cilium Operator is deployed in
+      --k8s-service-proxy-name string             Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --kvstore string                            Key-value store type
       --kvstore-opt map                           Key-value store options (default map[])
       --leader-election-lease-duration duration   Duration that non-leader operator candidates will wait before forcing to acquire leadership (default 15s)

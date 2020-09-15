@@ -33,6 +33,8 @@ import (
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/maglev"
+	"github.com/cilium/cilium/pkg/maps/bwmap"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
 	"github.com/cilium/cilium/pkg/maps/encrypt"
@@ -206,6 +208,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["NO_REDIRECT"] = "1"
 	}
 
+	if option.Config.EnableBPFTProxy {
+		cDefinesMap["ENABLE_TPROXY"] = "1"
+	}
+
 	if option.Config.EncryptNode {
 		cDefinesMap["ENCRYPT_NODE"] = "1"
 	}
@@ -265,12 +271,47 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			cDefinesMap["ENABLE_HOSTPORT"] = "1"
 		}
 
+		if option.Config.EnableSVCSourceRangeCheck {
+			cDefinesMap["ENABLE_SRC_RANGE_CHECK"] = "1"
+			if option.Config.EnableIPv4 {
+				cDefinesMap["LB4_SRC_RANGE_MAP"] = lbmap.SourceRange4MapName
+				cDefinesMap["LB4_SRC_RANGE_MAP_SIZE"] =
+					fmt.Sprintf("%d", lbmap.SourceRange4Map.MapInfo.MaxEntries)
+			}
+			if option.Config.EnableIPv6 {
+				cDefinesMap["LB6_SRC_RANGE_MAP"] = lbmap.SourceRange6MapName
+				cDefinesMap["LB6_SRC_RANGE_MAP_SIZE"] =
+					fmt.Sprintf("%d", lbmap.SourceRange6Map.MapInfo.MaxEntries)
+			}
+		}
+
 		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)
 		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
 		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
 		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
 	}
-
+	const (
+		selectionRandom = iota + 1
+		selectionMaglev
+	)
+	cDefinesMap["LB_SELECTION_RANDOM"] = fmt.Sprintf("%d", selectionRandom)
+	cDefinesMap["LB_SELECTION_MAGLEV"] = fmt.Sprintf("%d", selectionMaglev)
+	if option.Config.NodePortAlg == option.NodePortAlgRandom {
+		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionRandom)
+	} else if option.Config.NodePortAlg == option.NodePortAlgMaglev {
+		cDefinesMap["LB_SELECTION"] = fmt.Sprintf("%d", selectionMaglev)
+		cDefinesMap["LB_MAGLEV_LUT_SIZE"] = fmt.Sprintf("%d", option.Config.MaglevTableSize)
+		if option.Config.EnableIPv6 {
+			cDefinesMap["LB6_MAGLEV_MAP_INNER"] = lbmap.MaglevInner6MapName
+			cDefinesMap["LB6_MAGLEV_MAP_OUTER"] = lbmap.MaglevOuter6MapName
+		}
+		if option.Config.EnableIPv4 {
+			cDefinesMap["LB4_MAGLEV_MAP_INNER"] = lbmap.MaglevInner4MapName
+			cDefinesMap["LB4_MAGLEV_MAP_OUTER"] = lbmap.MaglevOuter4MapName
+		}
+	}
+	cDefinesMap["HASH_INIT4_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash0)
+	cDefinesMap["HASH_INIT6_SEED"] = fmt.Sprintf("%d", maglev.SeedJhash1)
 	if option.Config.EnableNodePort {
 		directRoutingIface := option.Config.DirectRoutingDevice
 		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
@@ -300,6 +341,12 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 			extraMacrosMap["IPV6_DIRECT_ROUTING"] = directRoutingIPv6.String()
 			fw.WriteString(FmtDefineAddress("IPV6_DIRECT_ROUTING", directRoutingIPv6))
 		}
+	}
+
+	if option.Config.EnableBandwidthManager {
+		cDefinesMap["ENABLE_BANDWIDTH_MANAGER"] = "1"
+		cDefinesMap["THROTTLE_MAP"] = bwmap.MapName
+		cDefinesMap["THROTTLE_MAP_SIZE"] = fmt.Sprintf("%d", bwmap.MapSize)
 	}
 
 	if option.Config.EnableHostFirewall {

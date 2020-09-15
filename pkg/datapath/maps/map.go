@@ -27,6 +27,8 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/callsmap"
 	"github.com/cilium/cilium/pkg/maps/ctmap"
+	"github.com/cilium/cilium/pkg/maps/ipmasq"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"github.com/cilium/cilium/pkg/maps/policymap"
 	"github.com/cilium/cilium/pkg/option"
 )
@@ -143,7 +145,11 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb6_backends",
 			"cilium_lb6_reverse_sk",
 			"cilium_snat_v6_external",
-			"cilium_proxy6"}...)
+			"cilium_proxy6",
+			lbmap.MaglevOuter6MapName,
+			lbmap.Affinity6MapName,
+			lbmap.SourceRange6MapName,
+		}...)
 	}
 
 	if !option.Config.EnableIPv4 {
@@ -158,21 +164,37 @@ func (ms *MapSweeper) RemoveDisabledMaps() {
 			"cilium_lb4_backends",
 			"cilium_lb4_reverse_sk",
 			"cilium_snat_v4_external",
-			"cilium_proxy4"}...)
+			"cilium_proxy4",
+			lbmap.MaglevOuter4MapName,
+			lbmap.Affinity4MapName,
+			lbmap.SourceRange4MapName,
+			ipmasq.MapName,
+		}...)
 	}
 
 	if !option.Config.EnableIPv4FragmentsTracking {
 		maps = append(maps, "cilium_ipv4_frag_datagrams")
 	}
 
-	// Can be removed with Cilium 1.8
-	maps = append(maps, []string{
-		"cilium_policy_reserved_1",
-		"cilium_policy_reserved_2",
-		"cilium_policy_reserved_3",
-		"cilium_policy_reserved_4",
-		"cilium_policy_reserved_5",
-	}...)
+	if !option.Config.EnableBandwidthManager {
+		maps = append(maps, "cilium_throttle")
+	}
+
+	if option.Config.NodePortAlg != option.NodePortAlgMaglev {
+		maps = append(maps, lbmap.MaglevOuter6MapName, lbmap.MaglevOuter4MapName)
+	}
+
+	if !option.Config.EnableSessionAffinity {
+		maps = append(maps, lbmap.Affinity6MapName, lbmap.Affinity4MapName, lbmap.AffinityMatchMapName)
+	}
+
+	if !option.Config.EnableSVCSourceRangeCheck {
+		maps = append(maps, lbmap.SourceRange6MapName, lbmap.SourceRange4MapName)
+	}
+
+	if !option.Config.EnableIPMasqAgent {
+		maps = append(maps, ipmasq.MapName)
+	}
 
 	for _, m := range maps {
 		p := path.Join(bpf.MapPrefixPath(), m)

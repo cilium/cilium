@@ -271,6 +271,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	newPrefixLengths, err := d.prefixLengths.Add(prefixes)
 	if err != nil {
 		metrics.PolicyImportErrors.Inc()
+		metrics.PolicyImportErrorsTotal.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to reference-count prefix lengths in CIDR policy")
 		resChan <- &PolicyAddResult{
@@ -282,9 +283,10 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	if newPrefixLengths && !bpfIPCache.BackedByLPM() {
 		// Only recompile if configuration has changed.
 		logger.Debug("CIDR policy has changed; recompiling base programs")
-		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy, d.ipam); err != nil {
+		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 			_ = d.prefixLengths.Delete(prefixes)
 			metrics.PolicyImportErrors.Inc()
+			metrics.PolicyImportErrorsTotal.Inc()
 			err2 := fmt.Errorf("Unable to recompile base programs: %s", err)
 			logger.WithError(err2).WithField("prefixes", prefixes).Warn(
 				"Failed to recompile base programs due to prefix length count change")
@@ -299,6 +301,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	if _, err := ipcache.AllocateCIDRs(prefixes); err != nil {
 		_ = d.prefixLengths.Delete(prefixes)
 		metrics.PolicyImportErrors.Inc()
+		metrics.PolicyImportErrorsTotal.Inc()
 		logger.WithError(err).WithField("prefixes", prefixes).Warn(
 			"Failed to allocate identities for CIDRs during policy add")
 		resChan <- &PolicyAddResult{
@@ -401,11 +404,9 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	for _, r := range sourceRules {
 		labels = append(labels, r.Labels.GetModel()...)
 	}
-	repr, err := monitorAPI.PolicyUpdateRepr(len(sourceRules), labels, newRev)
+	err = d.SendNotification(monitorAPI.PolicyUpdateMessage(len(sourceRules), labels, newRev))
 	if err != nil {
-		logger.WithField(logfields.PolicyRevision, newRev).Warn("Failed to represent policy update as monitor notification")
-	} else {
-		d.SendNotification(monitorAPI.AgentNotifyPolicyUpdated, repr)
+		logger.WithField(logfields.PolicyRevision, newRev).Warn("Failed to send policy update as monitor notification")
 	}
 
 	if option.Config.SelectiveRegeneration {
@@ -600,7 +601,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 	if !bpfIPCache.BackedByLPM() && prefixesChanged {
 		// Only recompile if configuration has changed.
 		log.Debug("CIDR policy has changed; recompiling base programs")
-		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy, d.ipam); err != nil {
+		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
 			log.WithError(err).Error("Unable to recompile base programs")
 		}
 
@@ -632,11 +633,9 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 		d.TriggerPolicyUpdates(true, "policy rules deleted")
 	}
 
-	repr, err := monitorAPI.PolicyDeleteRepr(deleted, labels.GetModel(), rev)
+	err := d.SendNotification(monitorAPI.PolicyDeleteMessage(deleted, labels.GetModel(), rev))
 	if err != nil {
-		log.WithField(logfields.PolicyRevision, rev).Warn("Failed to represent policy update as monitor notification")
-	} else {
-		d.SendNotification(monitorAPI.AgentNotifyPolicyDeleted, repr)
+		log.WithField(logfields.PolicyRevision, rev).Warn("Failed to send policy update as monitor notification")
 	}
 
 	return

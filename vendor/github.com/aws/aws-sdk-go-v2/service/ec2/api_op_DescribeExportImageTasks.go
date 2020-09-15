@@ -71,7 +71,7 @@ const opDescribeExportImageTasks = "DescribeExportImageTasks"
 // DescribeExportImageTasksRequest returns a request value for making API operation for
 // Amazon Elastic Compute Cloud.
 //
-// Describes the specified export image tasks or all your export image tasks.
+// Describes the specified export image tasks or all of your export image tasks.
 //
 //    // Example sending a request using DescribeExportImageTasksRequest.
 //    req := client.DescribeExportImageTasksRequest(params)

@@ -129,16 +129,27 @@ const (
 	ParallelAllocWorkers = "parallel-alloc-workers"
 
 	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2
-	// API to fill out the instnacetype to adapter limit mapping.
+	// API to fill out the instancetype to adapter limit mapping.
 	UpdateEC2AdapterLimitViaAPI = "update-ec2-apdater-limit-via-api"
 
+	// EC2APIEndpoint is the custom API endpoint to use for the EC2 AWS service,
+	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
+	EC2APIEndpoint = "ec2-api-endpoint"
+
 	// Azure options
+
+	// AzureCloudName is the name of the cloud being used
+	AzureCloudName = "azure-cloud-name"
 
 	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
 	AzureSubscriptionID = "azure-subscription-id"
 
 	// AzureResourceGroup is the resource group of the nodes used for the cluster
 	AzureResourceGroup = "azure-resource-group"
+
+	// UserAssignedIdentityName is the name of the user assigned identity used
+	// for retrieving Azure API credentials
+	UserAssignedIdentityName = "azure-user-assigned-identity-name"
 
 	// CRDWaitTimeout it the time after which Cilium CRDs have to be available.
 	CRDWaitTimeout = "crd-wait-timeout"
@@ -256,16 +267,28 @@ type OperatorConfig struct {
 	// the number of API calls to AWS EC2 service.
 	AWSReleaseExcessIPs bool
 
-	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the instnacetype to adapter limit mapping
+	// UpdateEC2AdapterLimitViaAPI configures the operator to use the EC2 API to fill out the
+	// instancetype to adapter limit mapping.
 	UpdateEC2AdapterLimitViaAPI bool
 
+	// EC2APIEndpoint is the custom API endpoint to use for the EC2 AWS service,
+	// e.g. "ec2-fips.us-west-1.amazonaws.com" to use a FIPS endpoint in the us-west-1 region.
+	EC2APIEndpoint string
+
 	// Azure options
+
+	// AzureCloudName is the name of the cloud being used
+	AzureCloudName string
 
 	// AzureSubscriptionID is the subscription ID to use when accessing the Azure API
 	AzureSubscriptionID string
 
 	// AzureResourceGroup is the resource group of the nodes used for the cluster
 	AzureResourceGroup string
+
+	// UserAssignedIdentityName is the name of the user assigned identity used
+	// for retrieving Azure API credentials
+	UserAssignedIdentityName string
 
 	// CRDWaitTimeout it the time after which Cilium CRDs have to be available.
 	CRDWaitTimeout time.Duration
@@ -313,11 +336,14 @@ func (c *OperatorConfig) Populate() {
 
 	c.AWSReleaseExcessIPs = viper.GetBool(AWSReleaseExcessIPs)
 	c.UpdateEC2AdapterLimitViaAPI = viper.GetBool(UpdateEC2AdapterLimitViaAPI)
+	c.EC2APIEndpoint = viper.GetString(EC2APIEndpoint)
 
 	// Azure options
 
+	c.AzureCloudName = viper.GetString(AzureCloudName)
 	c.AzureSubscriptionID = viper.GetString(AzureSubscriptionID)
 	c.AzureResourceGroup = viper.GetString(AzureResourceGroup)
+	c.UserAssignedIdentityName = viper.GetString(UserAssignedIdentityName)
 
 	// Option maps and slices
 

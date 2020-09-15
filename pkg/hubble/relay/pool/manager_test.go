@@ -72,6 +72,52 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 		}, {
+			name: "1 peer without IP address",
+			pcBuilder: testutils.FakePeerClientBuilder{
+				OnClient: func(target string) (peerTypes.Client, error) {
+					return &testutils.FakePeerClient{
+						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+							var once sync.Once
+							i := -1
+							cns := []*peerpb.ChangeNotification{
+								{
+									Name:    "noip",
+									Address: "",
+									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+								},
+							}
+							return &testutils.FakePeerNotifyClient{
+								OnRecv: func() (*peerpb.ChangeNotification, error) {
+									i++
+									switch {
+									case i >= len(cns):
+										once.Do(func() { close(done) })
+										return nil, io.EOF
+									default:
+										return cns[i], nil
+									}
+								},
+							}, nil
+						},
+						OnClose: func() error {
+							return nil
+						},
+					}, nil
+				},
+			},
+			ccBuilder: FakeClientConnBuilder{},
+			want: want{
+				peers: []poolTypes.Peer{
+					{
+						Peer: peerTypes.Peer{
+							Name:    "noip",
+							Address: nil,
+						},
+						Conn: nil,
+					},
+				},
+			},
+		}, {
 			name: "1 unreachable peer",
 			pcBuilder: testutils.FakePeerClientBuilder{
 				OnClient: func(target string) (peerTypes.Client, error) {
@@ -106,7 +152,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					return nil, io.EOF
 				},
 			},
@@ -157,7 +203,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					var once sync.Once
 					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
@@ -221,7 +267,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
 							return connectivity.Ready
@@ -265,7 +311,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					var once sync.Once
 					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
@@ -329,7 +375,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					var i int
 					return testutils.FakeClientConn{
 						OnGetState: func() connectivity.State {
@@ -403,7 +449,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					return nil, nil
 				},
 			},
@@ -416,6 +462,79 @@ func TestPeerManager(t *testing.T) {
 								IP:   net.ParseIP("192.0.1.2"),
 								Port: defaults.ServerPort,
 							},
+						},
+						Conn: nil,
+					},
+				},
+			},
+		}, {
+			name: "2 peers added, 1 deleted, TLS enabled",
+			pcBuilder: testutils.FakePeerClientBuilder{
+				OnClient: func(target string) (peerTypes.Client, error) {
+					return &testutils.FakePeerClient{
+						OnNotify: func(_ context.Context, _ *peerpb.NotifyRequest, _ ...grpc.CallOption) (peerpb.Peer_NotifyClient, error) {
+							i := -1
+							cns := []*peerpb.ChangeNotification{
+								{
+									Name:    "one",
+									Address: "192.0.1.1",
+									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									Tls: &peerpb.TLS{
+										ServerName: "one.default.hubble-grpc.cilium.io",
+									},
+								}, {
+									Name:    "two",
+									Address: "192.0.1.2",
+									Type:    peerpb.ChangeNotificationType_PEER_ADDED,
+									Tls: &peerpb.TLS{
+										ServerName: "two.default.hubble-grpc.cilium.io",
+									},
+								}, {
+									Name:    "one",
+									Address: "192.0.1.1",
+									Type:    peerpb.ChangeNotificationType_PEER_DELETED,
+									Tls: &peerpb.TLS{
+										ServerName: "one.default.hubble-grpc.cilium.io",
+									},
+								},
+							}
+							return &testutils.FakePeerNotifyClient{
+								OnRecv: func() (*peerpb.ChangeNotification, error) {
+									i++
+									switch {
+									case i >= len(cns):
+										return nil, io.EOF
+									case i == len(cns)-1:
+										close(done)
+										fallthrough
+									default:
+										return cns[i], nil
+									}
+								},
+							}, nil
+						},
+						OnClose: func() error {
+							return nil
+						},
+					}, nil
+				},
+			},
+			ccBuilder: FakeClientConnBuilder{
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
+					return nil, nil
+				},
+			},
+			want: want{
+				peers: []poolTypes.Peer{
+					{
+						Peer: peerTypes.Peer{
+							Name: "two",
+							Address: &net.TCPAddr{
+								IP:   net.ParseIP("192.0.1.2"),
+								Port: defaults.ServerPort,
+							},
+							TLSEnabled:    true,
+							TLSServerName: "two.default.hubble-grpc.cilium.io",
 						},
 						Conn: nil,
 					},
@@ -462,7 +581,7 @@ func TestPeerManager(t *testing.T) {
 				},
 			},
 			ccBuilder: FakeClientConnBuilder{
-				OnClientConn: func(target string) (poolTypes.ClientConn, error) {
+				OnClientConn: func(target, hostname string) (poolTypes.ClientConn, error) {
 					close(done)
 					return nil, errors.New("Don't feel like workin' today")
 				},
@@ -584,12 +703,12 @@ func (n ByName) Swap(i, j int)      { n[i], n[j] = n[j], n[i] }
 func (n ByName) Less(i, j int) bool { return n[i].Name < n[j].Name }
 
 type FakeClientConnBuilder struct {
-	OnClientConn func(target string) (poolTypes.ClientConn, error)
+	OnClientConn func(target, hostname string) (poolTypes.ClientConn, error)
 }
 
-func (b FakeClientConnBuilder) ClientConn(target string) (poolTypes.ClientConn, error) {
+func (b FakeClientConnBuilder) ClientConn(target, hostname string) (poolTypes.ClientConn, error) {
 	if b.OnClientConn != nil {
-		return b.OnClientConn(target)
+		return b.OnClientConn(target, hostname)
 	}
 	panic("OnClientConn not set")
 }

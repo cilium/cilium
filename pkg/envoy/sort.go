@@ -72,9 +72,11 @@ func (s PortNetworkPolicySlice) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-// SortPortNetworkPolicies sorts the given slice.
-func SortPortNetworkPolicies(policies []*cilium.PortNetworkPolicy) {
+// SortPortNetworkPolicies sorts the given slice in place and returns
+// the sorted slice for convenience.
+func SortPortNetworkPolicies(policies []*cilium.PortNetworkPolicy) []*cilium.PortNetworkPolicy {
 	sort.Sort(PortNetworkPolicySlice(policies))
+	return policies
 }
 
 // PortNetworkPolicyRuleSlice implements sort.Interface to sort a slice of
@@ -149,9 +151,11 @@ func (s PortNetworkPolicyRuleSlice) Swap(i, j int) {
 	s[i], s[j] = s[j], s[i]
 }
 
-// SortPortNetworkPolicyRules sorts the given slice.
-func SortPortNetworkPolicyRules(rules []*cilium.PortNetworkPolicyRule) {
+// SortPortNetworkPolicyRules sorts the given slice in place
+// and returns the sorted slice for convenience.
+func SortPortNetworkPolicyRules(rules []*cilium.PortNetworkPolicyRule) []*cilium.PortNetworkPolicyRule {
 	sort.Sort(PortNetworkPolicyRuleSlice(rules))
+	return rules
 }
 
 // HTTPNetworkPolicyRuleSlice implements sort.Interface to sort a slice of

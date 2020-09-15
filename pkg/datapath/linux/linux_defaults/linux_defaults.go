@@ -34,6 +34,15 @@ const (
 	// RouteMarkMask is the mask required for the route mark value
 	RouteMarkMask = 0xF00
 
+	// MarkMultinodeNodeport is used for AWS ENI to mark traffic from
+	// another node, so that it gets routed back through the relevant
+	// interface.
+	MarkMultinodeNodeport = 0x80
+
+	// MaskMultinodeNodeport is the mask associated with the
+	// RouterMarkNodePort
+	MaskMultinodeNodeport = 0x80
+
 	// IPSecProtocolID IP protocol ID for IPSec defined in RFC4303
 	RouteProtocolIPSec = 50
 
@@ -45,6 +54,13 @@ const (
 	// RulePriorityEgress is the priority of the rule used for egress routing
 	// of endpoints. This priority is after the local table priority.
 	RulePriorityEgress = 110
+
+	// RulePriorityNodeport is the priority of the rule used with AWS ENI to
+	// make sure that lookups for multi-node NodePort traffic are NOT done
+	// from the table for the VPC to which the endpoint's CIDR is
+	// associated, but from the main routing table instead.
+	// This priority is before the egress priority.
+	RulePriorityNodeport = RulePriorityEgress - 1
 
 	// TunnelDeviceName the default name of the tunnel device when using vxlan
 	TunnelDeviceName = "cilium_vxlan"

@@ -22,7 +22,6 @@ cilium-agent [flags]
       --annotate-k8s-node                             Annotate Kubernetes node (default true)
       --auto-create-cilium-node-resource              Automatically create CiliumNode resource for own node on startup (default true)
       --auto-direct-node-routes                       Enable automatic L2 routing between nodes
-      --blacklist-conflicting-routes                  Don't blacklist IP allocations conflicting with local non-cilium routes (default true)
       --bpf-compile-debug                             Enable debugging of the BPF compilation process
       --bpf-ct-global-any-max int                     Maximum number of entries in non-TCP CT table (default 262144)
       --bpf-ct-global-tcp-max int                     Maximum number of entries in TCP CT table (default 524288)
@@ -33,6 +32,9 @@ cilium-agent [flags]
       --bpf-ct-timeout-service-any duration           Timeout for service entries in non-TCP CT table (default 1m0s)
       --bpf-ct-timeout-service-tcp duration           Timeout for established service entries in TCP CT table (default 6h0m0s)
       --bpf-fragments-map-max int                     Maximum number of entries in fragments tracking map (default 8192)
+      --bpf-lb-maglev-hash-seed string                Maglev cluster-wide hash seed (base64 encoded) (default "FYJf2hrSynYxcZrkMWTGYA==")
+      --bpf-lb-maglev-table-size uint                 Maglev per service backend table size (parameter M) (default 16381)
+      --bpf-lb-map-max int                            Maximum number of entries in Cilium BPF lbmap (default 65536)
       --bpf-map-dynamic-size-ratio float              Ratio (0.0-1.0) of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps. Set to 0.0 to disable dynamic BPF map sizing (default: 0.0)
       --bpf-nat-global-max int                        Maximum number of entries for the global BPF NAT table (default 524288)
       --bpf-neigh-global-max int                      Maximum number of entries for the global BPF neighbor table (default 524288)
@@ -58,8 +60,10 @@ cilium-agent [flags]
       --disable-iptables-feeder-rules strings         Chains to ignore when installing feeder rules.
       --egress-masquerade-interfaces string           Limit egress masquerading to interface selector
       --enable-auto-protect-node-port-range           Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port range (net.ipv4.ip_local_port_range) (default true)
+      --enable-bandwidth-manager                      Enable BPF bandwidth manager
       --enable-bpf-clock-probe                        Enable BPF clock source probing for more efficient tick retrieval
       --enable-bpf-masquerade                         Masquerade packets from endpoints leaving the host with BPF instead of iptables
+      --enable-bpf-tproxy                             Enable BPF-based proxy redirection, if support available
       --enable-endpoint-health-checking               Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                        Use per endpoint routes instead of routing via cilium_host
       --enable-external-ips                           Enable k8s service externalIPs feature (requires enabling enable-node-port) (default true)
@@ -86,6 +90,7 @@ cilium-agent [flags]
       --enable-policy string                          Enable policy enforcement (default "default")
       --enable-remote-node-identity                   Enable use of remote node identity
       --enable-session-affinity                       Enable support for service session affinity
+      --enable-svc-source-range-check                 Enable check of service source ranges (currently, only for LoadBalancer) (default true)
       --enable-tracing                                Enable tracing while determining policy (debugging)
       --enable-well-known-identities                  Enable well-known identities for known Kubernetes components (default true)
       --enable-xt-socket-fallback                     Enable fallback for missing xt_socket module (default true)
@@ -107,18 +112,22 @@ cilium-agent [flags]
       --http-request-timeout uint                     Time after which a forwarded HTTP request is considered failed unless completed (in seconds); Use 0 for unlimited (default 3600)
       --http-retry-count uint                         Number of retries performed after a forwarded request attempt fails (default 3)
       --http-retry-timeout uint                       Time after which a forwarded but uncompleted request is retried (connection failures are retried immediately); defaults to 0 (never)
+      --hubble-disable-tls                            Allow Hubble server to run on the given listen address without TLS.
       --hubble-event-queue-size int                   Buffer size of the channel to receive monitor events.
       --hubble-flow-buffer-size int                   Maximum number of flows in Hubble's buffer. The actual buffer size gets rounded up to the next power of 2, e.g. 4095 => 4096 (default 4095)
       --hubble-listen-address string                  An additional address for Hubble server to listen to, e.g. ":4244"
       --hubble-metrics strings                        List of Hubble metrics to enable.
       --hubble-metrics-server string                  Address to serve Hubble metrics on.
       --hubble-socket-path string                     Set hubble's socket path to listen for connections (default "/var/run/cilium/hubble.sock")
+      --hubble-tls-cert-file string                   Path to the public key file for the Hubble server. The file must contain PEM encoded data.
+      --hubble-tls-client-ca-files strings            Paths to one or more public key files of client CA certificates to use for TLS with mutual authentication (mTLS). The files must contain PEM encoded data. When provided, this option effectively enables mTLS.
+      --hubble-tls-key-file string                    Path to the private key file for the Hubble server. The file must contain PEM encoded data.
       --identity-allocation-mode string               Method to use for identity allocation (default "kvstore")
       --identity-change-grace-period duration         Time to wait before using new identity on endpoint identity change (default 5s)
       --install-iptables-rules                        Install base iptables rules for cilium to mainly interact with kube-proxy (and masquerading) (default true)
       --ip-allocation-timeout duration                Time after which an incomplete CIDR allocation is considered failed (default 2m0s)
       --ip-masq-agent-config-path string              ip-masq-agent configuration file path (default "/etc/config/ip-masq-agent")
-      --ipam string                                   Backend to use for IPAM (default "hostscope-legacy")
+      --ipam string                                   Backend to use for IPAM (default "cluster-pool")
       --ipsec-key-file string                         Path to IPSec key file
       --iptables-lock-timeout duration                Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
       --ipv4-node string                              IPv4 address of node (default "auto")
@@ -139,6 +148,7 @@ cilium-agent [flags]
       --k8s-namespace string                          Name of the Kubernetes namespace in which Cilium is deployed in
       --k8s-require-ipv4-pod-cidr                     Require IPv4 PodCIDR to be specified in node resource
       --k8s-require-ipv6-pod-cidr                     Require IPv6 PodCIDR to be specified in node resource
+      --k8s-service-proxy-name string                 Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --k8s-watcher-endpoint-selector string          K8s endpoint watcher will watch for these k8s endpoints (default "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager")
       --k8s-watcher-queue-size uint                   Queue size used to serialize each k8s event type (default 1024)
       --keep-config                                   When restoring state, keeps containers' configuration in place
@@ -163,6 +173,7 @@ cilium-agent [flags]
       --nat46-range string                            IPv6 prefix to map IPv4 addresses to (default "0:0:0:0:0:FFFF::/96")
       --native-routing-cidr string                    Allows to explicitly specify the CIDR for native routing. This value corresponds to the configured cluster-cidr.
       --node-port-acceleration string                 BPF NodePort acceleration via XDP ("native", "disabled") (default "disabled")
+      --node-port-algorithm string                    BPF load balancing algorithm ("random", "maglev") (default "random")
       --node-port-bind-protection                     Reject application bind(2) requests to service ports in the NodePort range (default true)
       --node-port-mode string                         BPF NodePort mode ("snat", "dsr", "hybrid") (default "snat")
       --node-port-range strings                       Set the min/max NodePort port range (default [30000,32767])
@@ -175,6 +186,7 @@ cilium-agent [flags]
       --prepend-iptables-chains                       Prepend custom iptables chains instead of appending (default true)
       --prometheus-serve-addr string                  IP:Port on which to serve prometheus metrics (pass ":Port" to bind on all interfaces, "" is off)
       --proxy-connect-timeout uint                    Time after which a TCP connect attempt is considered failed unless completed (in seconds) (default 1)
+      --proxy-prometheus-port int                     Port to serve Envoy metrics on. Default 0 (disabled).
       --read-cni-conf string                          Read to the CNI configuration at specified path to extract per node configuration
       --restore                                       Restores state, if possible, from previous daemon (default true)
       --sidecar-istio-proxy-image string              Regular expression matching compatible Istio sidecar istio-proxy container image names (default "cilium/istio_proxy")

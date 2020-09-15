@@ -29,32 +29,41 @@ import (
 // +genclient
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +k8s:openapi-gen=false
+// +kubebuilder:resource:singular="ciliumendpoint",path="ciliumendpoints",scope="Namespaced",shortName={cep,ciliumep}
+// +kubebuilder:printcolumn:JSONPath=".status.id",description="Cilium endpoint id",name="Endpoint ID",type=integer
+// +kubebuilder:printcolumn:JSONPath=".status.identity.id",description="Cilium identity id",name="Identity ID",type=integer
+// +kubebuilder:printcolumn:JSONPath=".status.policy.ingress.enforcing",description="Ingress enforcement in the endpoint",name="Ingress Enforcement",type=boolean
+// +kubebuilder:printcolumn:JSONPath=".status.policy.egress.enforcing",description="Egress enforcement in the endpoint",name="Egress Enforcement",type=boolean
+// +kubebuilder:printcolumn:JSONPath=".status.visibility-policy-status",description="Status of visibility policy in the endpoint",name="Visibility Policy",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.state",description="Endpoint current state",name="Endpoint State",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv4",description="Endpoint IPv4 address",name="IPv4",type=string
+// +kubebuilder:printcolumn:JSONPath=".status.networking.addressing[0].ipv6",description="Endpoint IPv6 address",name="IPv6",type=string
+// +kubebuilder:subresource:status
 
 // CiliumEndpoint is the status of a Cilium policy rule.
 type CiliumEndpoint struct {
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
+	// +kubebuilder:validation:Optional
 	Status EndpointStatus `json:"status"`
 }
 
 // EndpointStatus is the status of a Cilium endpoint.
 type EndpointStatus struct {
-	// The cilium-agent-local ID of the endpoint
+	// ID is the cilium-agent-local ID of the endpoint.
 	ID int64 `json:"id,omitempty"`
 
-	// Controllers is the list of failing controllers for this endpoint
+	// Controllers is the list of failing controllers for this endpoint.
 	Controllers ControllerList `json:"controllers,omitempty"`
 
 	// ExternalIdentifiers is a set of identifiers to identify the endpoint
 	// apart from the pod name. This includes container runtime IDs.
 	ExternalIdentifiers *models.EndpointIdentifiers `json:"external-identifiers,omitempty"`
 
-	// Summary overall endpoint & subcomponent health
+	// Health is the overall endpoint & subcomponent health.
 	Health *models.EndpointHealth `json:"health,omitempty"`
 
 	// Identity is the security identity associated with the endpoint
@@ -63,7 +72,7 @@ type EndpointStatus struct {
 	// Log is the list of the last few warning and error log entries
 	Log []*models.EndpointStatusChange `json:"log,omitempty"`
 
-	// Networking properties of the endpoint
+	// Networking is the networking properties of the endpoint.
 	//
 	// +kubebuilder:validation:Optional
 	Networking *EndpointNetworking `json:"networking,omitempty"`
@@ -77,18 +86,9 @@ type EndpointStatus struct {
 
 	VisibilityPolicyStatus *string `json:"visibility-policy-status,omitempty"`
 
-	// State is the state of the endpoint
+	// State is the state of the endpoint.
 	//
-	// States are:
-	// - creating
-	// - waiting-for-identity
-	// - not-ready
-	// - waiting-to-regenerate
-	// - regenerating
-	// - restoring
-	// - ready
-	// - disconnecting
-	// - disconnected
+	// +kubebuilder:validation:Enum=creating;waiting-for-identity;not-ready;waiting-to-regenerate;regenerating;restoring;ready;disconnecting;disconnected;invalid
 	State string `json:"state,omitempty"`
 
 	NamedPorts models.NamedPorts `json:"named-ports,omitempty"`
@@ -193,6 +193,8 @@ type EndpointIdentity struct {
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:singular="ciliumidentity",path="ciliumidentities",scope="Cluster",shortName={ciliumid}
+// +kubebuilder:subresource:status
 
 // CiliumIdentity is a CRD that represents an identity managed by Cilium.
 // It is intended as a backing store for identity allocation, acting as the
@@ -214,28 +216,13 @@ type EndpointIdentity struct {
 // cilium-operator uses the list of nodes in status to reference count
 // users of this identity, and to expire stale usage.
 type CiliumIdentity struct {
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
 	// SecurityLabels is the source-of-truth set of labels for this identity.
 	SecurityLabels map[string]string `json:"security-labels"`
-
-	// Status is deprecated and no longer used, it will be removed in Cilium 1.9
-	// +deepequal-gen=false
-	Status IdentityStatus `json:"status"`
-}
-
-// +deepequal-gen=false
-
-// IdentityStatus is the status of an identity.
-//
-// This structure is deprecated, do not use.
-type IdentityStatus struct {
-	Nodes map[string]metav1.Time `json:"nodes,omitempty"`
 }
 
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
@@ -301,23 +288,22 @@ type CiliumEndpointList struct {
 // +genclient
 // +genclient:nonNamespaced
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +kubebuilder:resource:singular="ciliumnode",path="ciliumnodes",scope="Cluster",shortName={cn,ciliumn}
 
 // CiliumNode represents a node managed by Cilium. It contains a specification
 // to control various node specific configuration aspects and a status section
 // to represent the status of the node.
 type CiliumNode struct {
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.TypeMeta `json:",inline"`
-	// +k8s:openapi-gen=false
 	// +deepequal-gen=false
 	metav1.ObjectMeta `json:"metadata"`
 
-	// Spec defines the desired specification/configuration of the node
+	// Spec defines the desired specification/configuration of the node.
 	Spec NodeSpec `json:"spec"`
 
 	// Status defines the realized specification/configuration and status
-	// of the node
+	// of the node.
 	Status NodeStatus `json:"status"`
 }
 
@@ -338,35 +324,35 @@ type NodeSpec struct {
 	// some other means of identification.
 	InstanceID string `json:"instance-id,omitempty"`
 
-	// Addresses is the list of all node addresses
+	// Addresses is the list of all node addresses.
 	//
 	// +kubebuilder:validation:Optional
 	Addresses []NodeAddress `json:"addresses,omitempty"`
 
-	// HealthAddressing is the addressing information for health
-	// connectivity checking
+	// HealthAddressing is the addressing information for health connectivity
+	// checking.
 	//
 	// +kubebuilder:validation:Optional
 	HealthAddressing HealthAddressingSpec `json:"health,omitempty"`
 
-	// Encryption is the encryption configuration of the node
+	// Encryption is the encryption configuration of the node.
 	//
 	// +kubebuilder:validation:Optional
 	Encryption EncryptionSpec `json:"encryption,omitempty"`
 
-	// ENI is the AWS ENI specific configuration
+	// ENI is the AWS ENI specific configuration.
 	//
 	// +kubebuilder:validation:Optional
 	ENI eniTypes.ENISpec `json:"eni,omitempty"`
 
-	// Azure is the Azure IPAM specific configuration
+	// Azure is the Azure IPAM specific configuration.
 	//
-	// +optional
+	// +kubebuilder:validation:Optional
 	Azure azureTypes.AzureSpec `json:"azure,omitempty"`
 
 	// IPAM is the address management specification. This section can be
 	// populated by a user or it can be automatically populated by an IPAM
-	// operator
+	// operator.
 	//
 	// +kubebuilder:validation:Optional
 	IPAM ipamTypes.IPAMSpec `json:"ipam,omitempty"`
@@ -375,12 +361,12 @@ type NodeSpec struct {
 // HealthAddressingSpec is the addressing information required to do
 // connectivity health checking.
 type HealthAddressingSpec struct {
-	// IPv4 is the IPv4 address of the IPv4 health endpoint
+	// IPv4 is the IPv4 address of the IPv4 health endpoint.
 	//
 	// +kubebuilder:validation:Optional
 	IPv4 string `json:"ipv4,omitempty"`
 
-	// IPv6 is the IPv6 address of the IPv4 health endpoint
+	// IPv6 is the IPv6 address of the IPv4 health endpoint.
 	//
 	// +kubebuilder:validation:Optional
 	IPv6 string `json:"ipv6,omitempty"`
@@ -388,8 +374,8 @@ type HealthAddressingSpec struct {
 
 // EncryptionSpec defines the encryption relevant configuration of a node.
 type EncryptionSpec struct {
-	// Key is the index to the key to use for encryption or 0 if encryption
-	// is disabled
+	// Key is the index to the key to use for encryption or 0 if encryption is
+	// disabled.
 	//
 	// +kubebuilder:validation:Optional
 	Key int `json:"key,omitempty"`
@@ -397,17 +383,17 @@ type EncryptionSpec struct {
 
 // NodeStatus is the status of a node.
 type NodeStatus struct {
-	// ENI is the AWS ENI specific status of the node
+	// ENI is the AWS ENI specific status of the node.
 	//
 	// +kubebuilder:validation:Optional
 	ENI eniTypes.ENIStatus `json:"eni,omitempty"`
 
-	// Azure is the Azure specific status of the node
+	// Azure is the Azure specific status of the node.
 	//
 	// +kubebuilder:validation:Optional
 	Azure azureTypes.AzureStatus `json:"azure,omitempty"`
 
-	// IPAM is the IPAM status of the node
+	// IPAM is the IPAM status of the node.
 	//
 	// +kubebuilder:validation:Optional
 	IPAM ipamTypes.IPAMStatus `json:"ipam,omitempty"`

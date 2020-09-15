@@ -69,6 +69,13 @@ var (
 				genMarkdown(cmd, cmdRefDir)
 				os.Exit(0)
 			}
+
+			// Open socket for using gops to get stacktraces of the operator.
+			if err := gops.Listen(gops.Options{}); err != nil {
+				fmt.Fprintf(os.Stderr, "unable to start gops: %s", err)
+				os.Exit(-1)
+			}
+
 			initEnv()
 			runOperator()
 		},
@@ -133,13 +140,6 @@ func main() {
 		<-signals
 		doCleanup()
 	}()
-
-	// Open socket for using gops to get stacktraces of the agent.
-	if err := gops.Listen(gops.Options{}); err != nil {
-		errorString := fmt.Sprintf("unable to start gops: %s", err)
-		fmt.Println(errorString)
-		os.Exit(-1)
-	}
 
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
@@ -254,7 +254,10 @@ func runOperator() {
 				if identity == operatorID {
 					log.Info("Leading the operator HA deployment")
 				} else {
-					log.WithField("operator-id", operatorID).Infof("Operator with ID %q elected as new leader", identity)
+					log.WithFields(logrus.Fields{
+						"newLeader":  identity,
+						"operatorID": operatorID,
+					}).Info("Leader re-election complete")
 				}
 			},
 		},

@@ -64,6 +64,53 @@ func TestGetFlows(t *testing.T) {
 		want   want
 	}{
 		{
+			name: "Observe 0 flows from 1 peer without address",
+			plr: &testutils.FakePeerListReporter{
+				OnList: func() []poolTypes.Peer {
+					return []poolTypes.Peer{
+						{
+							Peer: peerTypes.Peer{
+								Name:    "noip",
+								Address: nil,
+							},
+							Conn: nil,
+						},
+					}
+				},
+				OnReportOffline: func(name string) {},
+			},
+			ocb: fakeObserverClientBuilder{},
+			req: &observerpb.GetFlowsRequest{Number: 0},
+			stream: &testutils.FakeGetFlowsServer{
+				OnSend: func(resp *observerpb.GetFlowsResponse) error {
+					if resp == nil {
+						return nil
+					}
+					switch resp.GetResponseTypes().(type) {
+					case *observerpb.GetFlowsResponse_Flow:
+						got.numFlows++
+						got.flows[resp.GetNodeName()] = append(got.flows[resp.GetNodeName()], resp.GetFlow())
+					case *observerpb.GetFlowsResponse_NodeStatus:
+						got.statusEvents = append(got.statusEvents, resp.GetNodeStatus())
+					}
+					if got.numFlows == 0 && len(got.statusEvents) == 1 {
+						close(done)
+						return io.EOF
+					}
+					return nil
+				},
+			},
+			want: want{
+				flows: map[string][]*flowpb.Flow{},
+				statusEvents: []*relaypb.NodeStatusEvent{
+					{
+						StateChange: relaypb.NodeState_NODE_UNAVAILABLE,
+						NodeNames:   []string{"noip"},
+					},
+				},
+				err: io.EOF,
+			},
+		}, {
 			name: "Observe 4 flows from 2 online peers",
 			plr: &testutils.FakePeerListReporter{
 				OnList: func() []poolTypes.Peer {
@@ -313,6 +360,37 @@ func TestServerStatus(t *testing.T) {
 		want want
 	}{
 		{
+			name: "1 peer without address",
+			plr: &testutils.FakePeerListReporter{
+				OnList: func() []poolTypes.Peer {
+					return []poolTypes.Peer{
+						{
+							Peer: peerTypes.Peer{
+								Name:    "noip",
+								Address: nil,
+							},
+							Conn: nil,
+						},
+					}
+				},
+				OnReportOffline: func(_ string) {},
+			},
+			ocb: fakeObserverClientBuilder{},
+			want: want{
+				resp: &observerpb.ServerStatusResponse{
+					NumFlows:            0,
+					MaxFlows:            0,
+					SeenFlows:           0,
+					UptimeNs:            0,
+					NumConnectedNodes:   &wrappers.UInt32Value{Value: 0},
+					NumUnavailableNodes: &wrappers.UInt32Value{Value: 1},
+					UnavailableNodes:    []string{"noip"},
+				},
+				log: []string{
+					`level=info msg="No connection to peer noip, skipping" address="<nil>"`,
+				},
+			},
+		}, {
 			name: "2 connected peers",
 			plr: &testutils.FakePeerListReporter{
 				OnList: func() []poolTypes.Peer {

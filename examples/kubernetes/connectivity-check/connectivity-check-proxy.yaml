@@ -6,7 +6,7 @@ metadata:
     name: echo-c
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -18,12 +18,16 @@ spec:
       hostNetwork: false
       containers:
       - name: echo-c-container
+        env:
+        - name: PORT
+          value: "8080"
         ports:
-        - containerPort: 80
+        - containerPort: 8080
           hostPort: 40001
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -33,8 +37,9 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -44,7 +49,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
   selector:
     matchLabels:
       name: echo-c
@@ -58,7 +63,7 @@ metadata:
     name: echo-c-host
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -77,6 +82,7 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -88,6 +94,7 @@ spec:
             - /dev/null
             - localhost:41001
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -121,7 +128,7 @@ metadata:
     name: pod-to-a-intra-node-proxy-egress-policy
     topology: intra-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -150,7 +157,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
         livenessProbe:
           exec:
             command:
@@ -161,7 +168,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
       - name: pod-to-a-intra-node-proxy-egress-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -176,7 +183,7 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a:8080/private'
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -200,7 +207,7 @@ metadata:
     name: pod-to-a-multi-node-proxy-egress-policy
     topology: multi-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -229,7 +236,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
         livenessProbe:
           exec:
             command:
@@ -240,7 +247,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-a/public
+            - echo-a:8080/public
       - name: pod-to-a-multi-node-proxy-egress-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -255,7 +262,7 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-a:8080/private'
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -279,7 +286,7 @@ metadata:
     name: pod-to-c-intra-node-proxy-ingress-policy
     topology: intra-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -308,7 +315,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
         livenessProbe:
           exec:
             command:
@@ -319,7 +326,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
       - name: pod-to-c-intra-node-proxy-ingress-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -334,7 +341,7 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c:8080/private'
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -358,7 +365,7 @@ metadata:
     name: pod-to-c-multi-node-proxy-ingress-policy
     topology: multi-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -387,7 +394,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
         livenessProbe:
           exec:
             command:
@@ -398,7 +405,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
       - name: pod-to-c-multi-node-proxy-ingress-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -413,7 +420,7 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c:8080/private'
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -437,7 +444,7 @@ metadata:
     name: pod-to-c-intra-node-proxy-to-proxy-policy
     topology: intra-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -466,7 +473,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
         livenessProbe:
           exec:
             command:
@@ -477,7 +484,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
       - name: pod-to-c-intra-node-proxy-to-proxy-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -492,7 +499,7 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c:8080/private'
       affinity:
         podAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -516,7 +523,7 @@ metadata:
     name: pod-to-c-multi-node-proxy-to-proxy-policy
     topology: multi-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -545,7 +552,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
         livenessProbe:
           exec:
             command:
@@ -556,7 +563,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - echo-c/public
+            - echo-c:8080/public
       - name: pod-to-c-multi-node-proxy-to-proxy-policy-reject-container
         ports: []
         image: docker.io/byrnedo/alpine-curl:0.1.8
@@ -571,7 +578,7 @@ spec:
             command:
             - ash
             - -c
-            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c/private'
+            - '! curl -s --fail --connect-timeout 5 -o /dev/null echo-c:8080/private'
       affinity:
         podAntiAffinity:
           requiredDuringSchedulingIgnoredDuringExecution:
@@ -595,12 +602,13 @@ metadata:
     name: echo-c
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
   type: ClusterIP
   selector:
     name: echo-c
@@ -613,12 +621,13 @@ metadata:
     name: echo-c-headless
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
   type: ClusterIP
   selector:
     name: echo-c
@@ -632,7 +641,7 @@ metadata:
     name: echo-c-host-headless
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -650,7 +659,7 @@ metadata:
     name: pod-to-a-intra-node-proxy-egress-policy
     topology: intra-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -660,7 +669,7 @@ spec:
   egress:
   - toPorts:
     - ports:
-      - port: "80"
+      - port: "8080"
         protocol: TCP
       rules:
         http:
@@ -694,7 +703,7 @@ metadata:
     name: pod-to-a-multi-node-proxy-egress-policy
     topology: multi-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -704,7 +713,7 @@ spec:
   egress:
   - toPorts:
     - ports:
-      - port: "80"
+      - port: "8080"
         protocol: TCP
       rules:
         http:
@@ -738,7 +747,7 @@ metadata:
     name: pod-to-c-intra-node-proxy-to-proxy-policy
     topology: intra-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -748,7 +757,7 @@ spec:
   egress:
   - toPorts:
     - ports:
-      - port: "80"
+      - port: "8080"
         protocol: TCP
       rules:
         http:
@@ -782,7 +791,7 @@ metadata:
     name: pod-to-c-multi-node-proxy-to-proxy-policy
     topology: multi-node
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -792,7 +801,7 @@ spec:
   egress:
   - toPorts:
     - ports:
-      - port: "80"
+      - port: "8080"
         protocol: TCP
       rules:
         http:
@@ -826,7 +835,7 @@ metadata:
     name: echo-c
     topology: any
     component: proxy-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -836,7 +845,7 @@ spec:
   ingress:
   - toPorts:
     - ports:
-      - port: "80"
+      - port: "8080"
         protocol: TCP
       rules:
         http:
@@ -853,7 +862,7 @@ metadata:
     name: echo-a
     topology: any
     component: network-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -865,11 +874,15 @@ spec:
       hostNetwork: false
       containers:
       - name: echo-a-container
+        env:
+        - name: PORT
+          value: "8080"
         ports:
-        - containerPort: 80
+        - containerPort: 8080
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -879,8 +892,9 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -890,7 +904,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
   selector:
     matchLabels:
       name: echo-a
@@ -904,12 +918,13 @@ metadata:
     name: echo-a
     topology: any
     component: network-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
   type: ClusterIP
   selector:
     name: echo-a
@@ -923,7 +938,7 @@ metadata:
     name: echo-b
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -935,12 +950,16 @@ spec:
       hostNetwork: false
       containers:
       - name: echo-b-container
+        env:
+        - name: PORT
+          value: "8080"
         ports:
-        - containerPort: 80
+        - containerPort: 8080
           hostPort: 40000
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -950,8 +969,9 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -961,7 +981,7 @@ spec:
             - "5"
             - -o
             - /dev/null
-            - localhost
+            - localhost:8080
   selector:
     matchLabels:
       name: echo-b
@@ -975,12 +995,13 @@ metadata:
     name: echo-b
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
   ports:
-  - port: 80
+  - name: http
+    port: 8080
     nodePort: 31313
   type: NodePort
   selector:
@@ -995,7 +1016,7 @@ metadata:
     name: echo-b-host
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1014,6 +1035,7 @@ spec:
         image: docker.io/cilium/json-mock:1.2
         imagePullPolicy: IfNotPresent
         readinessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1025,6 +1047,7 @@ spec:
             - /dev/null
             - localhost:41000
         livenessProbe:
+          timeoutSeconds: 7
           exec:
             command:
             - curl
@@ -1059,7 +1082,7 @@ metadata:
     name: echo-b-host-headless
     topology: any
     component: services-check
-    traffic: any
+    traffic: internal
     quarantine: "false"
     type: autocheck
 spec:
@@ -1072,8 +1095,189 @@ apiVersion: v1
 kind: Service
 
 ---
+metadata:
+  name: echo-c
+  labels:
+    name: echo-c
+    topology: any
+    component: proxy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: echo-c
+    spec:
+      hostNetwork: false
+      containers:
+      - name: echo-c-container
+        env:
+        - name: PORT
+          value: "8080"
+        ports:
+        - containerPort: 8080
+          hostPort: 40001
+        image: docker.io/cilium/json-mock:1.2
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:8080
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:8080
+  selector:
+    matchLabels:
+      name: echo-c
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
+---
+metadata:
+  name: echo-c
+  labels:
+    name: echo-c
+    topology: any
+    component: proxy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports:
+  - name: http
+    port: 8080
+  type: ClusterIP
+  selector:
+    name: echo-c
+apiVersion: v1
+kind: Service
+---
+metadata:
+  name: echo-c
+  labels:
+    name: echo-c
+    topology: any
+    component: proxy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  endpointSelector:
+    matchLabels:
+      name: echo-c
+  ingress:
+  - toPorts:
+    - ports:
+      - port: "8080"
+        protocol: TCP
+      rules:
+        http:
+        - path: /public$
+          method: GET
+apiVersion: cilium.io/v2
+kind: CiliumNetworkPolicy
 
 ---
+metadata:
+  name: echo-c-host
+  labels:
+    name: echo-c-host
+    topology: any
+    component: proxy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  template:
+    metadata:
+      labels:
+        name: echo-c-host
+    spec:
+      hostNetwork: true
+      containers:
+      - name: echo-c-host-container
+        env:
+        - name: PORT
+          value: "41001"
+        ports: []
+        image: docker.io/cilium/json-mock:1.2
+        imagePullPolicy: IfNotPresent
+        readinessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:41001
+        livenessProbe:
+          timeoutSeconds: 7
+          exec:
+            command:
+            - curl
+            - -sS
+            - --fail
+            - --connect-timeout
+            - "5"
+            - -o
+            - /dev/null
+            - localhost:41001
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+              - key: name
+                operator: In
+                values:
+                - echo-c
+            topologyKey: kubernetes.io/hostname
+  selector:
+    matchLabels:
+      name: echo-c-host
+  replicas: 1
+apiVersion: apps/v1
+kind: Deployment
 
 ---
+metadata:
+  name: echo-c-host-headless
+  labels:
+    name: echo-c-host-headless
+    topology: any
+    component: proxy-check
+    traffic: internal
+    quarantine: "false"
+    type: autocheck
+spec:
+  ports: []
+  type: ClusterIP
+  selector:
+    name: echo-c-host
+  clusterIP: None
+apiVersion: v1
+kind: Service
 

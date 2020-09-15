@@ -16,6 +16,7 @@
 package server
 
 import (
+	"errors"
 	"fmt"
 	"net"
 
@@ -27,6 +28,11 @@ import (
 	"google.golang.org/grpc"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
+)
+
+var (
+	errNoListener             = errors.New("no listener configured")
+	errNoTransportCredentials = errors.New("no transport credentials configured")
 )
 
 // Server is hubble's gRPC server.
@@ -44,11 +50,30 @@ func NewServer(log logrus.FieldLogger, options ...serveroption.Option) (*Server,
 			return nil, fmt.Errorf("failed to apply option: %v", err)
 		}
 	}
+	if opts.Listener == nil {
+		return nil, errNoListener
+	}
+	if opts.TransportCredentials == nil && !opts.Insecure {
+		return nil, errNoTransportCredentials
+	}
 	return &Server{log: log, opts: opts}, nil
 }
 
-func (s *Server) initGRPCServer() {
-	srv := grpc.NewServer()
+func (s *Server) newGRPCServer() (*grpc.Server, error) {
+	if s.opts.TransportCredentials != nil {
+		return grpc.NewServer(grpc.Creds(s.opts.TransportCredentials)), nil
+	}
+	if s.opts.Insecure {
+		return grpc.NewServer(), nil
+	}
+	return nil, errNoTransportCredentials
+}
+
+func (s *Server) initGRPCServer() error {
+	srv, err := s.newGRPCServer()
+	if err != nil {
+		return err
+	}
 	if s.opts.HealthService != nil {
 		healthpb.RegisterHealthServer(srv, s.opts.HealthService)
 	}
@@ -60,23 +85,23 @@ func (s *Server) initGRPCServer() {
 	}
 	s.srv = srv
 	reflection.Register(s.srv)
+	return nil
 }
 
-// Serve starts the hubble server. It accepts new connections on configured
-// listeners. Stop should be called to stop the server.
+// Serve starts the hubble server and accepts new connections on the configured
+// listener. Stop should be called to stop the server.
 func (s *Server) Serve() error {
-	s.initGRPCServer()
-	for _, listener := range []net.Listener{s.opts.UnixSocketListener, s.opts.TCPListener} {
-		if listener != nil {
-			go func(listener net.Listener) {
-				if err := s.srv.Serve(listener); err != nil {
-					s.log.WithError(err).
-						WithField("address", listener.Addr().String()).
-						Error("failed to start grpc server")
-				}
-			}(listener)
-		}
+	if err := s.initGRPCServer(); err != nil {
+		return err
 	}
+	if s.opts.Listener == nil {
+		return errNoListener
+	}
+	go func(listener net.Listener) {
+		if err := s.srv.Serve(s.opts.Listener); err != nil {
+			s.log.WithError(err).WithField("address", listener.Addr().String()).Error("Failed to start gRPC server")
+		}
+	}(s.opts.Listener)
 	return nil
 }
 

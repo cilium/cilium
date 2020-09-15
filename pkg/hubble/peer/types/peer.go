@@ -38,6 +38,13 @@ type Peer struct {
 
 	// Address is the address of the peer's gRPC service.
 	Address net.Addr
+
+	// TLSEnabled indicates whether the service offered by the peer has TLS
+	// enabled.
+	TLSEnabled bool
+
+	// TLSServerName is the name the TLS certificate should be matched to.
+	TLSServerName string
 }
 
 // FromChangeNotification creates a new Peer from a ChangeNotification.
@@ -84,9 +91,17 @@ func FromChangeNotification(cn *peerpb.ChangeNotification) *Peer {
 	if err != nil {
 		addr = (net.Addr)(nil)
 	}
+	var tlsEnabled bool
+	var tlsServerName string
+	if tls := cn.GetTls(); tls != nil {
+		tlsEnabled = true
+		tlsServerName = tls.GetServerName()
+	}
 	return &Peer{
-		Name:    cn.GetName(),
-		Address: addr,
+		Name:          cn.GetName(),
+		Address:       addr,
+		TLSEnabled:    tlsEnabled,
+		TLSServerName: tlsServerName,
 	}
 }
 

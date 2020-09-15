@@ -24,5 +24,4 @@ Cilium. Various IPAM modes are supported to meet the needs of different users:
    eni
    gke
    crd
-   hostscope
    deep_dive

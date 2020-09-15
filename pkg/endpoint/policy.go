@@ -689,19 +689,9 @@ func (e *Endpoint) startRegenerationFailureHandler() {
 }
 
 func (e *Endpoint) notifyEndpointRegeneration(err error) {
-	repr, reprerr := monitorAPI.EndpointRegenRepr(e, err)
+	reprerr := e.owner.SendNotification(monitorAPI.EndpointRegenMessage(e, err))
 	if reprerr != nil {
 		e.getLogger().WithError(reprerr).Warn("Notifying monitor about endpoint regeneration failed")
-	}
-
-	if err != nil {
-		if reprerr == nil && !option.Config.DryMode {
-			e.owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateFail, repr)
-		}
-	} else {
-		if reprerr == nil && !option.Config.DryMode {
-			e.owner.SendNotification(monitorAPI.AgentNotifyEndpointRegenerateSuccess, repr)
-		}
 	}
 }
 
@@ -847,6 +837,20 @@ func (e *Endpoint) UpdateVisibilityPolicy(annoCB AnnotationsResolverCB) {
 	}))
 	if err != nil {
 		e.getLogger().WithError(err).Error("Unable to enqueue endpoint policy visibility event")
+		return
+	}
+	<-ch
+}
+
+// UpdateBandwidthPolicy updates the egress bandwidth of this endpoint to
+// progagate the throttle rate to the BPF data path.
+func (e *Endpoint) UpdateBandwidthPolicy(annoCB AnnotationsResolverCB) {
+	ch, err := e.eventQueue.Enqueue(eventqueue.NewEvent(&EndpointPolicyBandwidthEvent{
+		ep:     e,
+		annoCB: annoCB,
+	}))
+	if err != nil {
+		e.getLogger().WithError(err).Error("Unable to enqueue endpoint policy bandwidth event")
 		return
 	}
 	<-ch

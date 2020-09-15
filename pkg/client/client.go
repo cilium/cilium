@@ -254,6 +254,8 @@ type StatusDetails struct {
 	AllClusters bool
 	// BPFMapDetails causes BPF map details to be printed by FormatStatusResponse.
 	BPFMapDetails bool
+	// KubeProxyReplacementDetails causes BPF kube-proxy details to be printed by FormatStatusResponse.
+	KubeProxyReplacementDetails bool
 }
 
 var (
@@ -262,12 +264,13 @@ var (
 	StatusNoDetails = StatusDetails{}
 	// StatusAllDetails causes all status details to be printed by FormatStatusResponse.
 	StatusAllDetails = StatusDetails{
-		AllAddresses:   true,
-		AllControllers: true,
-		AllNodes:       true,
-		AllRedirects:   true,
-		AllClusters:    true,
-		BPFMapDetails:  true,
+		AllAddresses:                true,
+		AllControllers:              true,
+		AllNodes:                    true,
+		AllRedirects:                true,
+		AllClusters:                 true,
+		BPFMapDetails:               true,
+		KubeProxyReplacementDetails: true,
 	}
 )
 
@@ -282,6 +285,8 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "ContainerRuntime:\t%s\t%s\n",
 			sr.ContainerRuntime.State, sr.ContainerRuntime.Msg)
 	}
+
+	kubeProxyDevices := ""
 	if sr.Kubernetes != nil {
 		fmt.Fprintf(w, "Kubernetes:\t%s\t%s\n", sr.Kubernetes.State, sr.Kubernetes.Msg)
 		if sr.Kubernetes.State != models.K8sStatusStateDisabled {
@@ -289,49 +294,23 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			fmt.Fprintf(w, "Kubernetes APIs:\t[\"%s\"]\n", strings.Join(sr.Kubernetes.K8sAPIVersions, "\", \""))
 		}
 		if sr.KubeProxyReplacement != nil {
-			features := []string{}
-
-			if np := sr.KubeProxyReplacement.Features.NodePort; np.Enabled {
-				mode := np.Mode
-				if mode == models.KubeProxyReplacementFeaturesNodePortModeHYBRID {
-					mode = strings.Title(mode)
-				}
-				features = append(features,
-					fmt.Sprintf("NodePort (%s, %d-%d, XDP: %s)",
-						mode, np.PortMin, np.PortMax, np.Acceleration))
-			}
-
-			if sr.KubeProxyReplacement.Features.HostPort.Enabled {
-				features = append(features, "HostPort")
-			}
-
-			if sr.KubeProxyReplacement.Features.ExternalIPs.Enabled {
-				features = append(features, "ExternalIPs")
-			}
-
-			if hs := sr.KubeProxyReplacement.Features.HostReachableServices; hs.Enabled {
-				features = append(features, fmt.Sprintf("HostReachableServices (%s)",
-					strings.Join(hs.Protocols, ", ")))
-			}
-
-			if sr.KubeProxyReplacement.Features.SessionAffinity.Enabled {
-				features = append(features, "SessionAffinity")
-			}
-
 			devices := ""
-			for i, dev := range sr.KubeProxyReplacement.Devices {
-				devices += dev
-				if dev == sr.KubeProxyReplacement.DirectRoutingDevice {
-					devices += " (DR)"
+			if sr.KubeProxyReplacement.Mode != models.KubeProxyReplacementModeDisabled {
+				for i, dev := range sr.KubeProxyReplacement.Devices {
+					kubeProxyDevices += dev
+					if dev == sr.KubeProxyReplacement.DirectRoutingDevice {
+						kubeProxyDevices += " (Direct Routing)"
+					}
+					if i+1 != len(sr.KubeProxyReplacement.Devices) {
+						kubeProxyDevices += ", "
+					}
 				}
-				if i+1 != len(sr.KubeProxyReplacement.Devices) {
-					devices += ", "
+				if len(sr.KubeProxyReplacement.Devices) > 0 {
+					devices = "[" + kubeProxyDevices + "]"
 				}
-
 			}
-
-			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t[%s]\t[%s]\n",
-				sr.KubeProxyReplacement.Mode, devices, strings.Join(features, ", "))
+			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t%s\n",
+				sr.KubeProxyReplacement.Mode, devices)
 		}
 	}
 	if sr.Cilium != nil {
@@ -398,6 +377,17 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 				fmt.Fprintf(w, "   └  %s\n", cluster.Status)
 			}
 		}
+	}
+
+	if sr.BandwidthManager != nil {
+		var status string
+		if !sr.BandwidthManager.Enabled {
+			status = "Disabled"
+		} else {
+			status = fmt.Sprintf("EDT with BPF\t[%s]",
+				strings.Join(sr.BandwidthManager.Devices, ", "))
+		}
+		fmt.Fprintf(w, "BandwidthManager:\t%s\n", status)
 	}
 
 	if sr.Masquerading != nil {
@@ -510,6 +500,75 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		}
 
 		fmt.Fprintf(w, "Hubble:\t%s\n", strings.Join(fields, "\t"))
+	}
+
+	if sd.KubeProxyReplacementDetails && sr.Kubernetes != nil && sr.KubeProxyReplacement != nil {
+		var selection, mode, xdp string
+
+		lb := "Disabled"
+		cIP := "Enabled"
+		nPort := "Disabled"
+		if np := sr.KubeProxyReplacement.Features.NodePort; np.Enabled {
+			selection = np.Algorithm
+			if selection == models.KubeProxyReplacementFeaturesNodePortAlgorithmMaglev {
+				selection = fmt.Sprintf("%s (Table Size: %d)", np.Algorithm, np.LutSize)
+			}
+			selection = strings.Title(strings.ToLower(selection))
+			mode = np.Mode
+			if mode == models.KubeProxyReplacementFeaturesNodePortModeHYBRID {
+				mode = strings.Title(strings.ToLower(mode))
+			}
+			xdp = strings.Title(strings.ToLower(np.Acceleration))
+			nPort = fmt.Sprintf("Enabled (Range: %d-%d)", np.PortMin, np.PortMax)
+			lb = "Enabled"
+		}
+
+		affinity := "Disabled"
+		if sr.KubeProxyReplacement.Features.SessionAffinity.Enabled {
+			affinity = "Enabled"
+		}
+
+		hPort := "Disabled"
+		if sr.KubeProxyReplacement.Features.HostPort.Enabled {
+			hPort = "Enabled"
+		}
+
+		eIP := "Disabled"
+		if sr.KubeProxyReplacement.Features.ExternalIPs.Enabled {
+			eIP = "Enabled"
+		}
+
+		protocols := ""
+		if hs := sr.KubeProxyReplacement.Features.HostReachableServices; hs.Enabled {
+			protocols = strings.Join(hs.Protocols, ", ")
+		}
+
+		fmt.Fprintf(w, "KubeProxyReplacement Details:\n")
+		tab := tabwriter.NewWriter(w, 0, 0, 3, ' ', 0)
+		fmt.Fprintf(tab, "  Status:\t%s\n", sr.KubeProxyReplacement.Mode)
+		if protocols != "" {
+			fmt.Fprintf(tab, "  Protocols:\t%s\n", protocols)
+		}
+		if kubeProxyDevices != "" {
+			fmt.Fprintf(tab, "  Devices:\t%s\n", kubeProxyDevices)
+		}
+		if mode != "" {
+			fmt.Fprintf(tab, "  Mode:\t%s\n", mode)
+		}
+		if selection != "" {
+			fmt.Fprintf(tab, "  Backend Selection:\t%s\n", selection)
+		}
+		fmt.Fprintf(tab, "  Session Affinity:\t%s\n", affinity)
+		if xdp != "" {
+			fmt.Fprintf(tab, "  XDP Acceleration:\t%s\n", xdp)
+		}
+		fmt.Fprintf(tab, "  Services:\n")
+		fmt.Fprintf(tab, "  - ClusterIP:\t%s\n", cIP)
+		fmt.Fprintf(tab, "  - NodePort:\t%s \n", nPort)
+		fmt.Fprintf(tab, "  - LoadBalancer:\t%s \n", lb)
+		fmt.Fprintf(tab, "  - externalIPs:\t%s \n", eIP)
+		fmt.Fprintf(tab, "  - HostPort:\t%s\n", hPort)
+		tab.Flush()
 	}
 
 	if sd.BPFMapDetails && sr.BpfMaps != nil {

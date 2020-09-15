@@ -1,17 +1,19 @@
 language: go
 
-dist: bionic
+dist: focal
 sudo: required
 
-go: "1.14.7"
+go: "1.15.2"
 
-arch:
-  - amd64
-  - arm64
 
 jobs:
+  include:
+    - arch: amd64
+    - arch: arm64-graviton2
+      virt: vm
+      group: edge
   allow_failures:
-  - arch: arm64
+    - arch: arm64-graviton2
 
 if: branch = master OR type = pull_request
 
@@ -21,6 +23,7 @@ addons:
       - kernel-package
       - gnupg
       - libelf-dev
+      - libncurses5
 
 before_install: ./.travis/prepare.sh
 
