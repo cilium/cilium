@@ -101,45 +101,6 @@ message ContainerPort {
   optional string hostIP = 5;
 }
 
-// ContainerState holds a possible state of container.
-// Only one of its members may be specified.
-// If none of them is specified, the default one is ContainerStateWaiting.
-message ContainerState {
-  // Details about a running container
-  // +optional
-  optional ContainerStateRunning running = 2;
-}
-
-// ContainerStateRunning is a running state of a container.
-message ContainerStateRunning {
-  // Time at which the container was last (re-)started
-  // +optional
-  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startedAt = 1;
-}
-
-// ContainerStatus contains details for the current status of this container.
-message ContainerStatus {
-  // This must be a DNS_LABEL. Each container in a pod must have a unique name.
-  // Cannot be updated.
-  optional string name = 1;
-
-  // Details about the container's current condition.
-  // +optional
-  optional ContainerState state = 2;
-
-  // The image the container is running.
-  // More info: https://kubernetes.io/docs/concepts/containers/images
-  // TODO(dchen1107): Which image the container is running with?
-  optional string image = 6;
-
-  // ImageID of the container's image.
-  optional string imageID = 7;
-
-  // Container's ID in the format 'docker://<container_id>'.
-  // +optional
-  optional string containerID = 8;
-}
-
 // EndpointAddress is a tuple that describes single IP address.
 message EndpointAddress {
   // The IP of this endpoint.
@@ -459,12 +420,6 @@ message PodStatus {
   // This is before the Kubelet pulled the container image(s) for the pod.
   // +optional
   optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time startTime = 7;
-
-  // The list has one entry per container in the manifest. Each entry is currently the output
-  // of `docker inspect`.
-  // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status
-  // +optional
-  repeated ContainerStatus containerStatuses = 8;
 }
 
 // Service is a named abstraction of software service (for example, mysql) consisting of local port
