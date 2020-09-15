@@ -36,7 +36,8 @@ pipeline {
         TESTDIR="${WORKSPACE}/${PROJ_PATH}/test"
         VM_MEMORY = "5120"
         K8S_VERSION="1.19"
-        SERVER_BOX = "cilium/ubuntu"
+        KERNEL="419"
+        SERVER_BOX = "cilium/ubuntu-4-19"
         CNI_INTEGRATION=setIfLabel("integration/cni-flannel", "FLANNEL", "")
         RACE="""${sh(
                 returnStdout: true,
@@ -104,7 +105,7 @@ pipeline {
 
         stage('BDD-tests'){
             options {
-                timeout(time: 90, unit: 'MINUTES')
+                timeout(time: 150, unit: 'MINUTES')
             }
 
             steps {
