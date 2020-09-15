@@ -12,8 +12,6 @@ jobs:
     - arch: arm64-graviton2
       virt: vm
       group: edge
-  allow_failures:
-    - arch: arm64-graviton2
 
 if: branch = master OR type = pull_request
 
