@@ -21,11 +21,30 @@ import (
 	"os"
 	"path/filepath"
 	"strings"
+
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+
+	"github.com/sirupsen/logrus"
 )
 
 const (
+	Subsystem = "sysctl"
+
 	prefixDir = "/proc/sys"
 )
+
+var (
+	log = logging.DefaultLogger.WithField(logfields.LogSubsys, Subsystem)
+)
+
+// Setting represents a sysctl setting. Its purpose it to be able to iterate
+// over a slice of settings.
+type Setting struct {
+	Name      string
+	Val       string
+	IgnoreErr bool
+}
 
 func fullPath(name string) string {
 	return filepath.Join(prefixDir, strings.Replace(name, ".", "/", -1))
@@ -70,4 +89,24 @@ func Read(name string) (string, error) {
 	}
 
 	return strings.TrimRight(string(val), "\n"), nil
+}
+
+func ApplySettings(sysSettings []Setting) error {
+	for _, s := range sysSettings {
+		log.WithFields(logrus.Fields{
+			logfields.SysParamName:  s.Name,
+			logfields.SysParamValue: s.Val,
+		}).Info("Setting sysctl")
+		if err := Write(s.Name, s.Val); err != nil {
+			if !s.IgnoreErr {
+				return fmt.Errorf("Failed to sysctl -w %s=%s: %s", s.Name, s.Val, err)
+			}
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.SysParamName:  s.Name,
+				logfields.SysParamValue: s.Val,
+			}).Warning("Failed to sysctl -w")
+		}
+	}
+
+	return nil
 }
