@@ -376,6 +376,9 @@ github.com/inconshreveable/mousetrap
 # github.com/ishidawataru/sctp v0.0.0-20180213033435-07191f837fed
 ## explicit
 github.com/ishidawataru/sctp
+# github.com/jeremywohl/flatten v1.0.1
+## explicit
+github.com/jeremywohl/flatten
 # github.com/jmespath/go-jmespath v0.0.0-20180206201540-c2b33e8439af
 github.com/jmespath/go-jmespath
 # github.com/json-iterator/go v1.1.10
