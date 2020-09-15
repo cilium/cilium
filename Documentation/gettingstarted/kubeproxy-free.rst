@@ -935,6 +935,8 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
     kubectl exec -it -n kube-system cilium-xxxxx -- cilium status | grep KubeProxyReplacement
     KubeProxyReplacement:   Strict	[eth0 (DR)]	[NodePort (SNAT, 30000-32767, XDP: NONE), HostPort, ExternalIPs, HostReachableServices (TCP, UDP)]
 
+.. _session-affinity:
+
 Session Affinity
 ****************
 
