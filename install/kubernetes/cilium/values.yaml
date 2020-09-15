@@ -9,6 +9,10 @@ agent:
   keepDeprecatedLabels: false
   # Keep the deprecated probes when deploying Cilium DaemonSet
   keepDeprecatedProbes: false
+  # The agent can be put into the following three policy enforcement modes
+  # default, always and never.
+  # https://docs.cilium.io/en/latest/policy/intro/#policy-enforcement-modes
+  policyEnforcementMode: "default"
 
 # Include the cilium-config ConfigMap
 config:
