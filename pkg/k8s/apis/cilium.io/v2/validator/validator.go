@@ -108,6 +108,11 @@ func (n *NPValidator) ValidateCNP(cnp *unstructured.Unstructured) error {
 	if errs := validation.ValidateCustomResource(nil, &cnp, n.cnpValidator); len(errs) > 0 {
 		return errs.ToAggregate()
 	}
+
+	if err := detectUnknownFields(cnp); err != nil {
+		return err
+	}
+
 	return nil
 }
 
@@ -128,6 +133,10 @@ var (
 func (n *NPValidator) ValidateCCNP(ccnp *unstructured.Unstructured) error {
 	if errs := validation.ValidateCustomResource(nil, &ccnp, n.ccnpValidator); len(errs) > 0 {
 		return errs.ToAggregate()
+	}
+
+	if err := detectUnknownFields(ccnp); err != nil {
+		return err
 	}
 
 	if err := checkWildCardToFromEndpoint(ccnp); err != nil {
