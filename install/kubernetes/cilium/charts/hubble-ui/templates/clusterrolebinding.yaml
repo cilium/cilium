@@ -5,8 +5,8 @@ metadata:
 roleRef:
   apiGroup: rbac.authorization.k8s.io
   kind: ClusterRole
-  name: hubble-ui 
+  name: hubble-ui
 subjects:
   - kind: ServiceAccount
     namespace: {{ .Release.Namespace }}
-    name: hubble-ui 
+    name: hubble-ui

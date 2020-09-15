@@ -1,7 +1,7 @@
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
 metadata:
-  name: hubble-ui 
+  name: hubble-ui
 rules:
   - apiGroups:
       - networking.k8s.io

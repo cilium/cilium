@@ -115,6 +115,12 @@ data:
   # for cilium-health.
   agent-health-port: "{{ .Values.global.agent.healthPort }}"
 {{- end }}
+{{- if .Values.policyEnforcementMode }}
+  # The agent can be put into the following three policy enforcement modes
+  # default, always and never.
+  # https://docs.cilium.io/en/latest/policy/intro/#policy-enforcement-modes
+  enable-policy: "{{ lower .Values.policyEnforcementMode }}"
+{{- end }}
 
 {{- if .Values.global.prometheus.enabled }}
   # If you want metrics enabled in all of your Cilium agents, set the port for
