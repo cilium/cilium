@@ -97,41 +97,6 @@ type Container struct {
 	VolumeMounts []VolumeMount `json:"volumeMounts,omitempty" patchStrategy:"merge" patchMergeKey:"mountPath" protobuf:"bytes,9,rep,name=volumeMounts"`
 }
 
-// ContainerStateRunning is a running state of a container.
-type ContainerStateRunning struct {
-	// Time at which the container was last (re-)started
-	// +optional
-	StartedAt slim_metav1.Time `json:"startedAt,omitempty" protobuf:"bytes,1,opt,name=startedAt"`
-}
-
-// ContainerState holds a possible state of container.
-// Only one of its members may be specified.
-// If none of them is specified, the default one is ContainerStateWaiting.
-type ContainerState struct {
-	// Details about a running container
-	// +optional
-	Running *ContainerStateRunning `json:"running,omitempty" protobuf:"bytes,2,opt,name=running"`
-}
-
-// ContainerStatus contains details for the current status of this container.
-type ContainerStatus struct {
-	// This must be a DNS_LABEL. Each container in a pod must have a unique name.
-	// Cannot be updated.
-	Name string `json:"name" protobuf:"bytes,1,opt,name=name"`
-	// Details about the container's current condition.
-	// +optional
-	State ContainerState `json:"state,omitempty" protobuf:"bytes,2,opt,name=state"`
-	// The image the container is running.
-	// More info: https://kubernetes.io/docs/concepts/containers/images
-	// TODO(dchen1107): Which image the container is running with?
-	Image string `json:"image" protobuf:"bytes,6,opt,name=image"`
-	// ImageID of the container's image.
-	ImageID string `json:"imageID" protobuf:"bytes,7,opt,name=imageID"`
-	// Container's ID in the format 'docker://<container_id>'.
-	// +optional
-	ContainerID string `json:"containerID,omitempty" protobuf:"bytes,8,opt,name=containerID"`
-}
-
 // The node this Taint is attached to has the "effect" on
 // any pod that does not tolerate the Taint.
 type Taint struct {
@@ -242,12 +207,6 @@ type PodStatus struct {
 	// This is before the Kubelet pulled the container image(s) for the pod.
 	// +optional
 	StartTime *slim_metav1.Time `json:"startTime,omitempty" protobuf:"bytes,7,opt,name=startTime"`
-
-	// The list has one entry per container in the manifest. Each entry is currently the output
-	// of `docker inspect`.
-	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-and-container-status
-	// +optional
-	ContainerStatuses []ContainerStatus `json:"containerStatuses,omitempty" protobuf:"bytes,8,rep,name=containerStatuses"`
 }
 
 // +genclient
