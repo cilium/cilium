@@ -20,6 +20,7 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/node"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -233,4 +234,39 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	c.Assert(err, IsNil)
 	c.Assert(found, Equals, true)
 	c.Assert(m.svcHealth.ServiceByPort(32001), IsNil)
+}
+
+func (m *ManagerTestSuite) TestHealthCheckNodePortDisabled(c *C) {
+	// NewService sets healthServer to nil if EnableHealthCheckNodePort is
+	// false at start time. We emulate this here by temporarily setting it nil.
+	enableHealthCheckNodePort := option.Config.EnableHealthCheckNodePort
+	healthServer := m.svc.healthServer
+	option.Config.EnableHealthCheckNodePort = false
+	m.svc.healthServer = nil
+	defer func() {
+		option.Config.EnableHealthCheckNodePort = enableHealthCheckNodePort
+		m.svc.healthServer = healthServer
+	}()
+
+	name := "svc1"
+	namespace := "ns1"
+	hcport := uint16(32000)
+	_, id1, err := m.svc.UpsertService(frontend1, backends1, lb.SVCTypeNodePort,
+		lb.SVCTrafficPolicyLocal, hcport, name, namespace)
+	c.Assert(err, IsNil)
+
+	// Unset HealthCheckNodePort for that service
+	_, _, err = m.svc.UpsertService(frontend1, backends1, lb.SVCTypeNodePort,
+		lb.SVCTrafficPolicyCluster, 0, name, namespace)
+	c.Assert(err, IsNil)
+
+	// Set HealthCheckNodePort for that service
+	_, _, err = m.svc.UpsertService(frontend1, backends1, lb.SVCTypeNodePort,
+		lb.SVCTrafficPolicyLocal, hcport, name, namespace)
+	c.Assert(err, IsNil)
+
+	// Delete service with active HealthCheckNodePort
+	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
 }
