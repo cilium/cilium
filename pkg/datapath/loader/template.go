@@ -162,7 +162,8 @@ func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
 			name = callsmap.HostMapName
 		}
 		// Custom calls for hosts are not supported yet.
-		if ep.IsHost() && name == callsmap.CustomCallsMapName {
+		if name == callsmap.CustomCallsMapName &&
+			(!option.Config.EnableCustomCalls || ep.IsHost()) {
 			continue
 		}
 		templateStr := bpf.LocalMapName(name, templateLxcID)

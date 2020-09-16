@@ -99,7 +99,7 @@ struct bpf_elf_map __section_maps TUNNEL_MAP = {
 
 #endif
 
-#if defined(CUSTOM_CALLS_MAP)
+#if defined(ENABLE_CUSTOM_CALLS) && defined(CUSTOM_CALLS_MAP)
 /* Private per-EP map for tail calls to user-defined programs.
  * CUSTOM_CALLS_MAP is a per-EP map name, only defined for programs that need
  * to use the map, so we do not want to compile this definition if
