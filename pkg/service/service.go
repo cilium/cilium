@@ -278,17 +278,17 @@ func (s *Service) UpsertService(params *lb.SVC) (bool, lb.ID, error) {
 
 	// Only add a HealthCheckNodePort server if this is a service which may
 	// only contain local backends (i.e. it has externalTrafficPolicy=Local)
-	if onlyLocalBackends && filterBackends {
-		localBackendCount := len(backendsCopy)
-		if option.Config.EnableHealthCheckNodePort {
+	if option.Config.EnableHealthCheckNodePort {
+		if onlyLocalBackends && filterBackends {
+			localBackendCount := len(backendsCopy)
 			s.healthServer.UpsertService(lb.ID(svc.frontend.ID), svc.svcNamespace, svc.svcName,
 				localBackendCount, svc.svcHealthCheckNodePort)
+		} else if svc.svcHealthCheckNodePort == 0 {
+			// Remove the health check server in case this service used to have
+			// externalTrafficPolicy=Local with HealthCheckNodePort in the previous
+			// version, but not anymore.
+			s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
 		}
-	} else if svc.svcHealthCheckNodePort == 0 {
-		// Remove the health check server in case this service used to have
-		// externalTrafficPolicy=Local with HealthCheckNodePort in the previous
-		// version, but not anymore.
-		s.healthServer.DeleteService(lb.ID(svc.frontend.ID))
 	}
 
 	if new {
