@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -502,4 +502,10 @@ func (l *Loader) EndpointHash(cfg datapath.EndpointConfiguration) (string, error
 // CallsMapPath gets the BPF Calls Map for the endpoint with the specified ID.
 func (l *Loader) CallsMapPath(id uint16) string {
 	return bpf.LocalMapPath(callsmap.MapName, id)
+}
+
+// CustomCallsMapPath gets the BPF Custom Calls Map for the endpoint with the
+// specified ID.
+func (l *Loader) CustomCallsMapPath(id uint16) string {
+	return bpf.LocalMapPath(callsmap.CustomCallsMapName, id)
 }

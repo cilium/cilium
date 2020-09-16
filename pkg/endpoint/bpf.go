@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -79,6 +79,12 @@ func (e *Endpoint) policyMapPath() string {
 // callsMapPath returns the path to cilium tail calls map of an endpoint.
 func (e *Endpoint) callsMapPath() string {
 	return e.owner.Datapath().Loader().CallsMapPath(e.ID)
+}
+
+// callsCustomMapPath returns the path to cilium custom tail calls map of an
+// endpoint.
+func (e *Endpoint) customCallsMapPath() string {
+	return e.owner.Datapath().Loader().CustomCallsMapPath(e.ID)
 }
 
 // BPFIpvlanMapPath returns the path to the ipvlan tail call map of an endpoint.
@@ -985,6 +991,9 @@ func (e *Endpoint) deleteMaps() []error {
 		"policy": e.policyMapPath(),
 		"calls":  e.callsMapPath(),
 		"egress": e.BPFIpvlanMapPath(),
+	}
+	if !e.isHost {
+		maps["custom"] = e.customCallsMapPath()
 	}
 	for name, path := range maps {
 		if err := os.RemoveAll(path); err != nil {

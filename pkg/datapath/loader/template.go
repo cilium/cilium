@@ -1,4 +1,4 @@
-// Copyright 2019-2020 Authors of Cilium
+// Copyright 2019-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -46,6 +46,7 @@ var (
 	elfMapPrefixes = []string{
 		policymap.MapName,
 		callsmap.MapName,
+		callsmap.CustomCallsMapName,
 	}
 	elfCtMapPrefixes = []string{
 		ctmap.MapNameTCP4,
@@ -159,6 +160,10 @@ func elfMapSubstitutions(ep datapath.Endpoint) map[string]string {
 	for _, name := range elfMapPrefixes {
 		if ep.IsHost() && name == callsmap.MapName {
 			name = callsmap.HostMapName
+		}
+		// Custom calls for hosts are not supported yet.
+		if ep.IsHost() && name == callsmap.CustomCallsMapName {
+			continue
 		}
 		templateStr := bpf.LocalMapName(name, templateLxcID)
 		desiredStr := bpf.LocalMapName(name, epID)
