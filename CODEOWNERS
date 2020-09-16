@@ -39,6 +39,7 @@
 /bpf/ @cilium/bpf
 Makefile* @cilium/build
 /bpf/Makefile* @cilium/build @cilium/bpf
+/bpf/custom/Makefile* @cilium/build @cilium/bpf
 /bpf/sockops/Makefile* @cilium/build @cilium/bpf
 /bugtool/cmd/ @cilium/cli
 /cilium/ @cilium/cli

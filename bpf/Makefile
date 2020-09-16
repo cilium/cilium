@@ -1,11 +1,11 @@
-# Copyright 2017-2020 Authors of Cilium
+# Copyright 2017-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 include ../Makefile.defs
 
 .PHONY: all bpf_all build_all subdirs install clean
 
-SUBDIRS = sockops
+SUBDIRS = sockops custom
 
 BPF_SIMPLE = bpf_network.o bpf_alignchecker.o
 BPF_SIMPLE_C = $(patsubst %.o,%.c,${BPF_SIMPLE})
