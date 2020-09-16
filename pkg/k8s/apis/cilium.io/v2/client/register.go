@@ -18,7 +18,6 @@ import (
 	"context"
 	goerrors "errors"
 	"fmt"
-	"golang.org/x/sync/errgroup"
 	"time"
 
 	k8sconstv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -28,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
+	"golang.org/x/sync/errgroup"
 	apiextensionsv1beta1 "k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
@@ -279,6 +279,7 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 					Description: "CiliumNode represents the k8s node from the view of Cilium.",
 					Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 						"spec": {
+							Type: "object",
 							Properties: map[string]apiextensionsv1beta1.JSONSchemaProps{
 								"azure": {
 									Type: "object",
