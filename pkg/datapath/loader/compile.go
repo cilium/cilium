@@ -274,7 +274,7 @@ func progCFlags(prog *progInfo, dir *directoryInfo) []string {
 }
 
 // compile and link a program.
-func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool) (err error) {
+func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, extraCFlags []string, debug bool) (err error) {
 	args := make([]string, 0, 16)
 	if prog.OutputType == outputSource {
 		args = append(args, "-E") // Preprocessor
@@ -289,6 +289,7 @@ func compile(ctx context.Context, prog *progInfo, dir *directoryInfo, debug bool
 
 	args = append(args, standardCFlags...)
 	args = append(args, progCFlags(prog, dir)...)
+	args = append(args, extraCFlags...)
 
 	// Compilation is split between two exec calls. First clang generates
 	// LLVM bitcode and then later llc compiles it to byte-code.
@@ -345,7 +346,7 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost, debug boo
 			progs = debugHostProgs
 		}
 		for _, p := range progs {
-			if err := compile(ctx, p, dirs, debug); err != nil {
+			if err := compile(ctx, p, dirs, nil, debug); err != nil {
 				// Only log an error here if the context was not canceled or not
 				// timed out; this log message should only represent failures
 				// with respect to compiling the program.
@@ -363,7 +364,7 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost, debug boo
 	if isHost {
 		prog = hostEpProg
 	}
-	if err := compile(ctx, prog, dirs, debug); err != nil {
+	if err := compile(ctx, prog, dirs, nil, debug); err != nil {
 		// Only log an error here if the context was not canceled or not timed
 		// out; this log message should only represent failures with respect to
 		// compiling the program.
@@ -378,7 +379,7 @@ func compileDatapath(ctx context.Context, dirs *directoryInfo, isHost, debug boo
 }
 
 // Compile compiles a BPF program generating an object file.
-func Compile(ctx context.Context, src string, out string) error {
+func Compile(ctx context.Context, src string, out string, extraCFlags []string) error {
 	debug := option.Config.BPFCompilationDebug
 	prog := progInfo{
 		Source:     src,
@@ -391,7 +392,7 @@ func Compile(ctx context.Context, src string, out string) error {
 		Output:  option.Config.StateDir,
 		State:   option.Config.StateDir,
 	}
-	return compile(ctx, &prog, &dirs, debug)
+	return compile(ctx, &prog, &dirs, extraCFlags, debug)
 }
 
 // compileTemplate compiles a BPF program generating a template object file.
