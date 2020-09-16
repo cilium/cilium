@@ -454,6 +454,46 @@ func (m *ManagerTestSuite) TestHealthCheckNodePort(c *C) {
 	c.Assert(m.svcHealth.ServiceByPort(32001), IsNil)
 }
 
+func (m *ManagerTestSuite) TestHealthCheckNodePortDisabled(c *C) {
+	// NewService sets healthServer to nil if EnableHealthCheckNodePort is
+	// false at start time. We emulate this here by temporarily setting it nil.
+	enableHealthCheckNodePort := option.Config.EnableHealthCheckNodePort
+	healthServer := m.svc.healthServer
+	option.Config.EnableHealthCheckNodePort = false
+	m.svc.healthServer = nil
+	defer func() {
+		option.Config.EnableHealthCheckNodePort = enableHealthCheckNodePort
+		m.svc.healthServer = healthServer
+	}()
+
+	p1 := &lb.SVC{
+		Frontend:            frontend1,
+		Backends:            backends1,
+		Type:                lb.SVCTypeNodePort,
+		TrafficPolicy:       lb.SVCTrafficPolicyLocal,
+		HealthCheckNodePort: 32000,
+	}
+	_, id1, err := m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+
+	// Unset HealthCheckNodePort for that service
+	p1.HealthCheckNodePort = 0
+	p1.TrafficPolicy = lb.SVCTrafficPolicyCluster
+	_, _, err = m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+
+	// Set HealthCheckNodePort for that service
+	p1.HealthCheckNodePort = 32000
+	p1.TrafficPolicy = lb.SVCTrafficPolicyLocal
+	_, _, err = m.svc.UpsertService(p1)
+	c.Assert(err, IsNil)
+
+	// Delete service with active HealthCheckNodePort
+	found, err := m.svc.DeleteServiceByID(lb.ServiceID(id1))
+	c.Assert(err, IsNil)
+	c.Assert(found, Equals, true)
+}
+
 func (m *ManagerTestSuite) TestGetServiceNameByAddr(c *C) {
 	fe := frontend1.DeepCopy()
 	be := make([]lb.Backend, 0, len(backends1))
