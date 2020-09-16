@@ -2,14 +2,14 @@
 #
 # cilium-envoy from github.com/cilium/proxy
 #
-FROM hub.byted.org/oort/cilium/cilium-envoy:0a9743dda269a0b0039c9db3cf7e0a637caad7a9 as cilium-envoy
+FROM quay.io/cilium/cilium-envoy:0a9743dda269a0b0039c9db3cf7e0a637caad7a9@sha256:e3e7bf62b3c164c1904ac4603269efa878aaade1160ca240e0cd977b0168fe3c as cilium-envoy
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 
 #
 # Hubble CLI
 #
-FROM hub.byted.org/oort/cilium/hubble:v0.6.1 as hubble
+FROM quay.io/cilium/hubble:v0.6.1@sha256:5155deebbf12546437978536d72ba2e87f093a542d979b42f4f95070f502cd73 as hubble
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 
@@ -23,7 +23,7 @@ LABEL cilium-sha=${CILIUM_SHA}
 # versions to be built while allowing the new versions to make changes
 # that are not backwards compatible.
 #
-FROM hub.byted.org/oort/cilium/cilium-builder:2020-06-08 as builder
+FROM quay.io/cilium/cilium-builder:2020-06-08@sha256:06868f045a14e38e8ff0e8ac03d66630cfa42eacffd777ae126e5692367fd8a6 as builder
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
@@ -50,7 +50,7 @@ RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGI
 # built while allowing the new versions to make changes that are not
 # backwards compatible.
 #
-FROM hub.byted.org/oort/cilium/cilium-runtime:2020-06-26-v1.8
+FROM quay.io/cilium/cilium-runtime:2020-06-26-v1.8@sha256:996c1580ea515937562c1ea74003354c9abb98733db55081188ea662f256dd6b
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 LABEL maintainer="maintainer@cilium.io"
