@@ -484,6 +484,10 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_IDENTITY_MARK"] = "1"
 	}
 
+	if option.Config.EnableCustomCalls {
+		cDefinesMap["ENABLE_CUSTOM_CALLS"] = "1"
+	}
+
 	// Since golang maps are unordered, we sort the keys in the map
 	// to get a consistent writtern format to the writer. This maintains
 	// the consistency when we try to calculate hash for a datapath after
@@ -672,7 +676,7 @@ func (h *HeaderfileWriter) writeStaticData(fw io.Writer, e datapath.EndpointConf
 		callsMapName = callsmap.HostMapName
 	}
 	fmt.Fprintf(fw, "#define CALLS_MAP %s\n", bpf.LocalMapName(callsMapName, epID))
-	if !e.IsHost() {
+	if option.Config.EnableCustomCalls && !e.IsHost() {
 		fmt.Fprintf(fw, "#define CUSTOM_CALLS_MAP %s\n", bpf.LocalMapName(callsmap.CustomCallsMapName, epID))
 	}
 }

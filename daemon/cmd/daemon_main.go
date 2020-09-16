@@ -931,6 +931,9 @@ func init() {
 	flags.Bool(option.InstallNoConntrackIptRules, defaults.InstallNoConntrackIptRules, "Install Iptables rules to skip netfilter connection tracking on all pod-to-pod traffic. This option is only effective when Cilium is running in direct routing and full KPR mode.")
 	option.BindEnv(option.InstallNoConntrackIptRules)
 
+	flags.Bool(option.EnableCustomCallsName, false, "Enable tail call hooks for custom eBPF programs")
+	option.BindEnv(option.EnableCustomCallsName)
+
 	viper.BindPFlags(flags)
 
 	CustomCommandHelpFormat(RootCmd, option.HelpFlagSections)

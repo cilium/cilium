@@ -1,4 +1,4 @@
-// Copyright 2016-2020 Authors of Cilium
+// Copyright 2016-2021 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -908,6 +908,10 @@ const (
 
 	// EnableBPFBypassFIBLookup instructs Cilium to enable the FIB lookup bypass optimization for nodeport reverse NAT handling.
 	EnableBPFBypassFIBLookup = "bpf-lb-bypass-fib-lookup"
+
+	// EnableCustomCallsName is the name of the option to enable tail calls
+	// for user-defined custom eBPF programs.
+	EnableCustomCallsName = "enable-custom-calls"
 )
 
 // HelpFlagSections to format the Cilium Agent help template.
@@ -939,6 +943,7 @@ var HelpFlagSections = []FlagsSection{
 			EnableIdentityMark,
 			EnableBPFBypassFIBLookup,
 			LBMapEntriesName,
+			EnableCustomCallsName,
 		},
 	},
 	{
@@ -2124,6 +2129,11 @@ type DaemonConfig struct {
 
 	// InstallNoConntrackIptRules instructs Cilium to install Iptables rules to skip netfilter connection tracking on all pod-to-pod traffic.
 	InstallNoConntrackIptRules bool
+
+	// EnableCustomCalls enables tail call hooks for user-defined custom
+	// eBPF programs, typically used to collect custom per-endpoint
+	// metrics.
+	EnableCustomCalls bool
 }
 
 var (
@@ -2672,6 +2682,7 @@ func (c *DaemonConfig) Populate() {
 	c.LoadBalancerRSSv6CIDR = viper.GetString(LoadBalancerRSSv6CIDR)
 	c.EnableBPFBypassFIBLookup = viper.GetBool(EnableBPFBypassFIBLookup)
 	c.InstallNoConntrackIptRules = viper.GetBool(InstallNoConntrackIptRules)
+	c.EnableCustomCalls = viper.GetBool(EnableCustomCallsName)
 
 	err = c.populateMasqueradingSettings()
 	if err != nil {
