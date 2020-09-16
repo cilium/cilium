@@ -48,7 +48,7 @@ type LBBPFMap struct{}
 // so that the function can remove obsolete ones.
 func (*LBBPFMap) UpsertService(
 	svcID uint16, svcIP net.IP, svcPort uint16,
-	backendIDs []uint16, prevBackendCount int,
+	backendIDs []*loadbalancer.BackendMeta, prevBackendCount int,
 	ipv6 bool, svcType loadbalancer.SVCType, svcLocal bool,
 	svcScope uint8, sessionAffinity bool,
 	sessionAffinityTimeoutSec uint32) error {
@@ -67,10 +67,10 @@ func (*LBBPFMap) UpsertService(
 	slot := 1
 	svcVal := svcKey.NewValue().(ServiceValue)
 	for _, backendID := range backendIDs {
-		if backendID == 0 {
+		if backendID.ID == 0 {
 			return fmt.Errorf("Invalid backend ID 0")
 		}
-		svcVal.SetBackendID(loadbalancer.BackendID(backendID))
+		svcVal.SetBackendID(loadbalancer.BackendID(backendID.ID))
 		svcVal.SetRevNat(int(svcID))
 		svcKey.SetSlave(slot) // TODO(brb) Rename to SetSlot
 		if err := updateServiceEndpoint(svcKey, svcVal); err != nil {
@@ -243,17 +243,17 @@ func deleteRevNatLocked(key RevNatKey) error {
 	return key.Map().Delete(key.ToNetwork())
 }
 
-// DumpServiceMaps dumps the services from the BPF maps.
-func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
+func (m *LBBPFMap) dumpServiceMaps() (svcMap, map[loadbalancer.BackendID]BackendValue,
+	map[string]loadbalancer.ServiceFlags, []error) {
+
 	newSVCMap := svcMap{}
 	errors := []error{}
 	flagsCache := map[string]loadbalancer.ServiceFlags{}
-	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
 
-	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
-		backendKey := key.(BackendKey)
-		backendValue := value.DeepCopyMapValue().(BackendValue)
-		backendValueMap[backendKey.GetID()] = backendValue
+	backendValueMap, err := m.dumpBackendMaps()
+	if err != nil {
+		errors = append(errors, err)
+		return nil, nil, nil, errors
 	}
 
 	parseSVCEntries := func(key bpf.MapKey, value bpf.MapValue) {
@@ -289,10 +289,6 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 	if option.Config.EnableIPv4 {
 		// TODO(brb) optimization: instead of dumping the backend map, we can
 		// pass its content to the function.
-		err := Backend4Map.DumpWithCallback(parseBackendEntries)
-		if err != nil {
-			errors = append(errors, err)
-		}
 		err = Service4MapV2.DumpWithCallback(parseSVCEntries)
 		if err != nil {
 			errors = append(errors, err)
@@ -301,34 +297,29 @@ func (*LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
 
 	if option.Config.EnableIPv6 {
 		// TODO(brb) same ^^ optimization applies here as well.
-		err := Backend6Map.DumpWithCallback(parseBackendEntries)
-		if err != nil {
-			errors = append(errors, err)
-		}
 		err = Service6MapV2.DumpWithCallback(parseSVCEntries)
 		if err != nil {
 			errors = append(errors, err)
 		}
 	}
 
-	newSVCList := make([]*loadbalancer.SVC, 0, len(newSVCMap))
-	for hash := range newSVCMap {
-		svc := newSVCMap[hash]
-		addrStr := svc.Frontend.IP.String()
-		portStr := strconv.Itoa(int(svc.Frontend.Port))
-		host := net.JoinHostPort(addrStr, portStr)
-		svc.Type = flagsCache[host].SVCType()
-		svc.TrafficPolicy = flagsCache[host].SVCTrafficPolicy()
-		newSVCList = append(newSVCList, &svc)
+	return newSVCMap, backendValueMap, flagsCache, errors
+}
+
+// DumpServiceMaps dumps the services from the BPF maps.
+func (m *LBBPFMap) DumpServiceMaps() ([]*loadbalancer.SVC, []error) {
+	newSVCMap, _, flagsCache, errors := m.dumpServiceMaps()
+	if len(errors) != 0 {
+		return nil, errors
 	}
+
+	newSVCList := newSVCMap.toSvcList(flagsCache)
 
 	return newSVCList, errors
 }
 
-// DumpBackendMaps dumps the backend entries from the BPF maps.
-func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
+func (*LBBPFMap) dumpBackendMaps() (map[loadbalancer.BackendID]BackendValue, error) {
 	backendValueMap := map[loadbalancer.BackendID]BackendValue{}
-	lbBackends := []*loadbalancer.Backend{}
 
 	parseBackendEntries := func(key bpf.MapKey, value bpf.MapValue) {
 		// No need to deep copy the key because we are using the ID which
@@ -350,6 +341,17 @@ func (*LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
 		if err != nil {
 			return nil, fmt.Errorf("Unable to dump lb6 backends map: %s", err)
 		}
+	}
+	return backendValueMap, nil
+}
+
+// DumpBackendMaps dumps the backend entries from the BPF maps.
+func (m *LBBPFMap) DumpBackendMaps() ([]*loadbalancer.Backend, error) {
+	lbBackends := []*loadbalancer.Backend{}
+
+	backendValueMap, err := m.dumpBackendMaps()
+	if err != nil {
+		return nil, err
 	}
 
 	for backendID, backendVal := range backendValueMap {
@@ -463,4 +465,18 @@ func (svcs svcMap) addFEnBE(fe *loadbalancer.L3n4AddrID, be *loadbalancer.Backen
 
 	svcs[hash] = lbsvc
 	return &lbsvc
+}
+
+func (svcs svcMap) toSvcList(flagsCache map[string]loadbalancer.ServiceFlags) []*loadbalancer.SVC {
+	svcList := make([]*loadbalancer.SVC, 0, len(svcs))
+	for hash := range svcs {
+		svc := svcs[hash]
+		addrStr := svc.Frontend.IP.String()
+		portStr := strconv.Itoa(int(svc.Frontend.Port))
+		host := net.JoinHostPort(addrStr, portStr)
+		svc.Type = flagsCache[host].SVCType()
+		svc.TrafficPolicy = flagsCache[host].SVCTrafficPolicy()
+		svcList = append(svcList, &svc)
+	}
+	return svcList
 }

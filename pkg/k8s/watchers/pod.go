@@ -395,7 +395,7 @@ func (k *K8sWatcher) UpsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 		if _, _, err := k.svcManager.UpsertService(dpSvc.Frontend, dpSvc.Backends, dpSvc.Type,
 			dpSvc.TrafficPolicy, false, 0, dpSvc.HealthCheckNodePort,
 			fmt.Sprintf("%s/host-port/%d", pod.ObjectMeta.Name, dpSvc.Frontend.L3n4Addr.Port),
-			pod.ObjectMeta.Namespace); err != nil {
+			pod.ObjectMeta.Namespace, false); err != nil {
 			logger.WithError(err).Error("Error while inserting service in LB map")
 			return err
 		}

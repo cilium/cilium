@@ -23,6 +23,7 @@ import (
 	"net"
 	"reflect"
 	"sort"
+	"strconv"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
@@ -165,6 +166,8 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 	cDefinesMap["SIGNAL_MAP"] = signalmap.MapName
 	cDefinesMap["POLICY_CALL_MAP"] = policymap.PolicyCallMapName
 	cDefinesMap["EP_POLICY_MAP"] = eppolicymap.MapName
+	cDefinesMap["LB_MAGLEV_RING_MAP"] = lbmap.MaglevRingMapName
+	cDefinesMap["MAGLEV_RING_SIZE"] = strconv.Itoa(lbmap.DefaultMaglevRingSize)
 	cDefinesMap["LB6_REVERSE_NAT_MAP"] = "cilium_lb6_reverse_nat"
 	cDefinesMap["LB6_SERVICES_MAP_V2"] = "cilium_lb6_services_v2"
 	cDefinesMap["LB6_BACKEND_MAP"] = "cilium_lb6_backends"
@@ -358,12 +361,43 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ALLOW_ICMP_FRAG_NEEDED"] = "1"
 	}
 
+	if option.Config.DisableSipVerification {
+		cDefinesMap["DISABLE_SIP_VERIFICATION"] = "1"
+	}
+
 	if option.Config.ClockSource == option.ClockSourceJiffies {
 		cDefinesMap["ENABLE_JIFFIES"] = "1"
 	}
 
 	if option.Config.EnableIdentityMark {
 		cDefinesMap["ENABLE_IDENTITY_MARK"] = "1"
+	}
+
+	if option.Config.EnableNodePort {
+		cDefinesMap["ENABLE_NODEPORT"] = "1"
+		if option.Config.EnableExternalIPs {
+			cDefinesMap["ENABLE_EXTERNAL_IP"] = "1"
+		}
+		cDefinesMap["NODEPORT_PORT_MIN"] = fmt.Sprintf("%d", option.Config.NodePortMin)
+		cDefinesMap["NODEPORT_PORT_MAX"] = fmt.Sprintf("%d", option.Config.NodePortMax)
+		cDefinesMap["NODEPORT_PORT_MIN_NAT"] = fmt.Sprintf("%d", option.Config.NodePortMax+1)
+		cDefinesMap["NODEPORT_PORT_MAX_NAT"] = "65535"
+
+		if option.Config.EnableIPv4 {
+			cDefinesMap["NODEPORT_NEIGH4"] = "cilium_nodeport_neigh4"
+		}
+		if option.Config.EnableIPv6 {
+			cDefinesMap["NODEPORT_NEIGH6"] = "cilium_nodeport_neigh6"
+		}
+
+		if option.Config.NodePortMode == "dsr" {
+			cDefinesMap["ENABLE_DSR"] = "1"
+		}
+
+		if option.Config.NodePortAlgorithm == option.NodePortAlgorithmMaglev {
+			cDefinesMap["ENABLE_MAGLEV"] = "1"
+		}
+
 	}
 
 	// Since golang maps are unordered, we sort the keys in the map

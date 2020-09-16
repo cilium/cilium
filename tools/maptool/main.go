@@ -16,6 +16,7 @@ package main
 
 import (
 	"fmt"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 	"os"
 	"strings"
 
@@ -30,6 +31,7 @@ type mapCreationFunc func(string) error
 var mapBuilders = map[string]mapCreationFunc{
 	"eppolicymap": eppolicymap.CreateWithName,
 	"sockmap":     sockmap.CreateWithName,
+	"lbmap":       lbmap.CreateWithName,
 }
 
 func usage() {

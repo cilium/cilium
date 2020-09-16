@@ -345,6 +345,10 @@ const (
 	// packets are allowed to enable TCP Path MTU.
 	AllowICMPFragNeeded = true
 
+	// DisableSipVerification is the default vaule for option.DisableSipVerification flag.
+	// It is disabled by default.
+	DisableSipVerification = false
+
 	// RestoreV4Addr is used as match for cilium_host v4 address
 	RestoreV4Addr = "cilium.v4.internal.raw "
 

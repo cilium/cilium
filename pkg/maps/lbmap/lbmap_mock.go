@@ -36,12 +36,12 @@ func NewLBMockMap() *LBMockMap {
 }
 
 func (m *LBMockMap) UpsertService(id uint16, ip net.IP, port uint16,
-	backendIDs []uint16, prevCount int, ipv6 bool, svcType lb.SVCType, svcLocal bool,
+	backendIDs []*lb.BackendMeta, prevCount int, ipv6 bool, svcType lb.SVCType, svcLocal bool,
 	svcScope uint8, sessionAffinity bool, sessionAffinityTimeoutSec uint32) error {
 
 	backends := make([]lb.Backend, len(backendIDs))
 	for i, backendID := range backendIDs {
-		b, found := m.BackendByID[backendID]
+		b, found := m.BackendByID[uint16(backendID.ID)]
 		if !found {
 			return fmt.Errorf("Backend %d not found", id)
 		}

@@ -41,7 +41,7 @@ var (
 
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
-	UpsertService(uint16, net.IP, uint16, []uint16, int, bool, lb.SVCType, bool, uint8, bool, uint32) error
+	UpsertService(uint16, net.IP, uint16, []*lb.BackendMeta, int, bool, lb.SVCType, bool, uint8, bool, uint32) error
 	DeleteService(lb.L3n4AddrID, int) error
 	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
@@ -128,7 +128,19 @@ type Service struct {
 }
 
 // NewService creates a new instance of the service handler.
-func NewService(monitorNotify monitorNotify) *Service {
+func NewService(monitorNotify monitorNotify, algo string) *Service {
+	var (
+		err error
+		lbm LBMap = &lbmap.LBBPFMap{}
+	)
+
+	if algo == option.NodePortAlgorithmMaglev {
+		lbm, err = lbmap.NewMaglevMap(lbmap.DefaultMaglevRingSize)
+		if err != nil {
+			log.WithError(err).Warn("Failed to create maglev map")
+		}
+	}
+
 	return &Service{
 		svcByHash:       map[string]*svcInfo{},
 		svcByID:         map[lb.ID]*svcInfo{},
@@ -136,14 +148,14 @@ func NewService(monitorNotify monitorNotify) *Service {
 		backendByHash:   map[string]*lb.Backend{},
 		monitorNotify:   monitorNotify,
 		healthServer:    healthserver.New(),
-		lbmap:           &lbmap.LBBPFMap{},
+		lbmap:           lbm,
 	}
 }
 
 // InitMaps opens or creates BPF maps used by services.
 //
 // If restore is set to false, entries of the maps are removed.
-func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
+func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore, maglev bool) error {
 	s.Lock()
 	defer s.Unlock()
 
@@ -179,6 +191,14 @@ func (s *Service) InitMaps(ipv6, ipv4, sockMaps, restore bool) error {
 			}
 		}
 	}
+	if maglev {
+		if err := lbmap.CreateMaglevRingMap(); err != nil {
+			return err
+		}
+		if !restore {
+			toDelete = append(toDelete, lbmap.MaglevRingMap)
+		}
+	}
 
 	for _, m := range toOpen {
 		if _, err := m.OpenOrCreate(); err != nil {
@@ -202,7 +222,7 @@ func (s *Service) UpsertService(
 	svcTrafficPolicy lb.SVCTrafficPolicy,
 	sessionAffinity bool, sessionAffinityTimeoutSec uint32,
 	svcHealthCheckNodePort uint16,
-	svcName, svcNamespace string) (bool, lb.ID, error) {
+	svcName, svcNamespace string, keepBackend bool) (bool, lb.ID, error) {
 
 	s.Lock()
 	defer s.Unlock()
@@ -257,7 +277,7 @@ func (s *Service) UpsertService(
 	if err = s.upsertServiceIntoLBMaps(svc, onlyLocalBackends, prevBackendCount, newBackends,
 		obsoleteBackendIDs,
 		prevSessionAffinity, obsoleteSVCBackendIDs,
-		scopedLog); err != nil {
+		scopedLog, keepBackend); err != nil {
 
 		return false, lb.ID(0), err
 	}
@@ -540,7 +560,7 @@ func (s *Service) addBackendsToAffinityMatchMap(svcID lb.ID, backendIDs []lb.Bac
 func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	prevBackendCount int, newBackends []lb.Backend, obsoleteBackendIDs []lb.BackendID,
 	prevSessionAffinity bool, obsoleteSVCBackendIDs []lb.BackendID,
-	scopedLog *logrus.Entry) error {
+	scopedLog *logrus.Entry, keepBackend bool) error {
 
 	ipv6 := svc.frontend.IsIPv6()
 
@@ -589,9 +609,9 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 	}
 
 	// Upsert service entries into BPF maps
-	backendIDs := make([]uint16, len(svc.backends))
+	backendIDs := make([]*lb.BackendMeta, len(svc.backends))
 	for i, b := range svc.backends {
-		backendIDs[i] = uint16(b.ID)
+		backendIDs[i] = b.NewMeta()
 	}
 
 	err := s.lbmap.UpsertService(
@@ -607,6 +627,11 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 
 	if option.Config.EnableSessionAffinity {
 		s.addBackendsToAffinityMatchMap(svc.frontend.ID, toAddAffinity)
+	}
+
+	// Keep backends for graceful termination pods
+	if keepBackend {
+		return nil
 	}
 
 	// Remove backends not used by any service from BPF maps

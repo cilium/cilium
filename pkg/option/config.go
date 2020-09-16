@@ -67,6 +67,9 @@ const (
 	// AllowICMPFragNeeded allows ICMP Fragmentation Needed type packets in policy.
 	AllowICMPFragNeeded = "allow-icmp-frag-needed"
 
+	// DisableSipVerification for support xlb.
+	DisableSipVerification = "disable-sip-verification"
+
 	// AllowLocalhost is the policy when to allow local stack to reach local endpoints { auto | always | policy }
 	AllowLocalhost = "allow-localhost"
 
@@ -250,6 +253,10 @@ const (
 
 	// NodePortRange defines a custom range where to look up NodePort services
 	NodePortRange = "node-port-range"
+
+	// NodePortAlgorithm indicates in which algorithm NodePort implementation selects
+	// the backend ("random" or "maglev")
+	NodePortAlgorithm = "node-port-algo"
 
 	// EnableAutoProtectNodePortRange enables appending NodePort range to
 	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
@@ -982,6 +989,7 @@ var HelpFlagSections = []FlagsSection{
 		Flags: []string{
 			AllowLocalhost,
 			AllowICMPFragNeeded,
+			DisableSipVerification,
 			EnablePolicy,
 			ExcludeLocalAddress,
 			ForceLocalPolicyEvalAtSource,
@@ -1154,6 +1162,12 @@ const (
 
 	// NodePortAccelerationNative means we accelerate NodePort via native XDP in the driver (preferred)
 	NodePortAccelerationNative = XDPModeNative
+
+	// NodePortAlgorithmRandom is for performing random backend selection
+	NodePortAlgorithmRandom = "random"
+
+	// NodePortAlgorithmMaglev is for performing hash(maglev) backend selection
+	NodePortAlgorithmMaglev = "maglev"
 
 	// KubeProxyReplacementProbe specifies to auto-enable available features for
 	// kube-proxy replacement
@@ -1700,6 +1714,10 @@ type DaemonConfig struct {
 	// NodePortBindProtection rejects bind requests to NodePort service ports
 	NodePortBindProtection bool
 
+	// NodePortAlgorithm indicates in which algorithm NodePort implementation selects
+	// the backend ("random" or "maglev")
+	NodePortAlgorithm string
+
 	// EnableAutoProtectNodePortRange enables appending NodePort range to
 	// net.ipv4.ip_local_reserved_ports if it overlaps with ephemeral port
 	// range (net.ipv4.ip_local_port_range)
@@ -1778,6 +1796,9 @@ type DaemonConfig struct {
 	// AllowICMPFragNeeded allows ICMP Fragmentation Needed type packets in
 	// the network policy for cilium-agent.
 	AllowICMPFragNeeded bool
+
+	// DisableSipVerification disable IP Spoof Prevention for cilium-agent.
+	DisableSipVerification bool
 
 	// EnableWellKnownIdentities enables the use of well-known identities.
 	// This is requires if identiy resolution is required to bring up the
@@ -1889,6 +1910,7 @@ var (
 		AutoCreateCiliumNodeResource: defaults.AutoCreateCiliumNodeResource,
 		IdentityAllocationMode:       IdentityAllocationModeKVstore,
 		AllowICMPFragNeeded:          defaults.AllowICMPFragNeeded,
+		DisableSipVerification:       defaults.DisableSipVerification,
 		EnableWellKnownIdentities:    defaults.EnableEndpointRoutes,
 		K8sEnableK8sEndpointSlice:    defaults.K8sEnableEndpointSlice,
 		k8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
@@ -2208,6 +2230,7 @@ func (c *DaemonConfig) Populate() {
 	c.AgentHealthPort = viper.GetInt(AgentHealthPort)
 	c.AgentLabels = viper.GetStringSlice(AgentLabels)
 	c.AllowICMPFragNeeded = viper.GetBool(AllowICMPFragNeeded)
+	c.DisableSipVerification = viper.GetBool(DisableSipVerification)
 	c.AllowLocalhost = viper.GetString(AllowLocalhost)
 	c.AnnotateK8sNode = viper.GetBool(AnnotateK8sNode)
 	c.AutoCreateCiliumNodeResource = viper.GetBool(AutoCreateCiliumNodeResource)
@@ -2248,6 +2271,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
 	c.EnableHostPort = viper.GetBool(EnableHostPort)
 	c.NodePortMode = viper.GetString(NodePortMode)
+	c.NodePortAlgorithm = viper.GetString(NodePortAlgorithm)
 	c.NodePortAcceleration = viper.GetString(NodePortAcceleration)
 	c.NodePortBindProtection = viper.GetBool(NodePortBindProtection)
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)

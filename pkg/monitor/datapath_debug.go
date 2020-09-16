@@ -103,6 +103,10 @@ const (
 	DbgIPIDMapSucceed6
 	DbgLbStaleCT
 	DbgInheritIdentity
+	DbgLbLookupMaglev
+	DbgLbLookupMaglevFail
+	DbgLbLookupMaglevSuccess
+	DbgLbLookupMaglevOuterFail
 )
 
 // must be in sync with <bpf/lib/conntrack.h>

@@ -200,6 +200,9 @@ func init() {
 	flags.Bool(option.AllowICMPFragNeeded, defaults.AllowICMPFragNeeded, "Allow ICMP Fragmentation Needed type packets for purposes like TCP Path MTU.")
 	option.BindEnv(option.AllowICMPFragNeeded)
 
+	flags.Bool(option.DisableSipVerification, defaults.DisableSipVerification, "Disable Sip Verification for support xlb.")
+	option.BindEnv(option.DisableSipVerification)
+
 	flags.String(option.AllowLocalhost, option.AllowLocalhostAuto, "Policy when to allow local stack to reach local endpoints { auto | always | policy }")
 	option.BindEnv(option.AllowLocalhost)
 
@@ -515,6 +518,9 @@ func init() {
 
 	flags.String(option.NodePortMode, option.NodePortModeSNAT, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
 	option.BindEnv(option.NodePortMode)
+
+	flags.String(option.NodePortAlgorithm, option.NodePortAlgorithmRandom, "BPF NodePort algorithm (\"random\", \"maglev\")")
+	option.BindEnv(option.NodePortAlgorithm)
 
 	flags.Bool(option.EnableAutoProtectNodePortRange, true,
 		"Append NodePort range to net.ipv4.ip_local_reserved_ports if it overlaps "+
