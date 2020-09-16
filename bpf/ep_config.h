@@ -1,5 +1,5 @@
 /* SPDX-License-Identifier: GPL-2.0 */
-/* Copyright (C) 2016-2020 Authors of Cilium */
+/* Copyright (C) 2016-2021 Authors of Cilium */
 
 /*
  * This is just a dummy header with dummy values to allow for test
@@ -40,6 +40,7 @@ DEFINE_U32(POLICY_VERDICT_LOG_FILTER, 0xffff);
 #define CT_MAP_SIZE_TCP 4096
 #define CT_MAP_SIZE_ANY 4096
 #define CALLS_MAP test_cilium_calls_65535
+#define CUSTOM_CALLS_MAP test_cilium_calls_custom_65535
 #define LOCAL_DELIVERY_METRICS
 #define CONNTRACK
 #define CONNTRACK_ACCOUNTING
