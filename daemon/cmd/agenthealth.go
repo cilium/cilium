@@ -68,7 +68,7 @@ func (d *Daemon) startAgentHealthHTTPService(addr string) {
 		statusCode := http.StatusOK
 		sr := d.getStatus(true)
 		if isUnhealthy(&sr) {
-			statusCode = http.StatusInternalServerError
+			statusCode = http.StatusServiceUnavailable
 		}
 		w.WriteHeader(statusCode)
 	}))
