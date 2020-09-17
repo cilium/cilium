@@ -60,6 +60,7 @@ jobs:
             --set global.nodeinit.enabled=true \
             --set global.kubeProxyReplacement=strict \
             --set config.ipam=kubernetes \
+            --set global.pullPolicy=Never \
             --set global.ipv6.enabled=true \
             --set global.ipv4.enabled=false \
             --set global.tunnel=disabled \
