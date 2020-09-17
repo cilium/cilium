@@ -23,9 +23,11 @@ import (
 	"net"
 	"reflect"
 	"sort"
+	"strconv"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
@@ -192,6 +194,25 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 
 	cDefinesMap["TRACE_PAYLOAD_LEN"] = fmt.Sprintf("%dULL", option.Config.TracePayloadlen)
 	cDefinesMap["MTU"] = fmt.Sprintf("%d", cfg.MtuConfig.GetDeviceMTU())
+
+	ciliumHost, err := netlink.LinkByName("cilium_host")
+	if err != nil {
+		return err
+	}
+	ciliumNet, err := netlink.LinkByName("cilium_net")
+	if err != nil {
+		return err
+	}
+	cDefinesMap["CILIUM_NET_MAC"] = common.GoArray2C(ciliumNet.Attrs().HardwareAddr)
+	cDefinesMap["HOST_IFINDEX"] = strconv.Itoa(ciliumNet.Attrs().Index)
+	cDefinesMap["HOST_IFINDEX_MAC"] = common.GoArray2C(ciliumHost.Attrs().HardwareAddr)
+	cDefinesMap["CILIUM_IFINDEX"] = strconv.Itoa(ciliumHost.Attrs().Index)
+
+	_, ephemeralMin, _, err := node.EphemeralPortRange()
+	if err != nil {
+		return err
+	}
+	cDefinesMap["CILIUM_EPHEMERAL_MIN"] = strconv.Itoa(ephemeralMin)
 
 	if option.Config.EnableIPv4 {
 		cDefinesMap["ENABLE_IPV4"] = "1"

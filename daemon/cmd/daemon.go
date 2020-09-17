@@ -209,9 +209,9 @@ func (d *Daemon) init() error {
 	if !option.Config.DryMode {
 		bandwidth.InitBandwidthManager()
 
-		if err := d.createNodeConfigHeaderfile(); err != nil {
-			return err
-		}
+		// if err := d.createNodeConfigHeaderfile(); err != nil {
+		// 	return err
+		// }
 
 		if option.Config.SockopsEnable {
 			eppolicymap.CreateEPPolicyMap()
@@ -225,6 +225,10 @@ func (d *Daemon) init() error {
 		}
 
 		if err := d.Datapath().Loader().Reinitialize(d.ctx, d, d.mtuConfig.GetDeviceMTU(), d.Datapath(), d.l7Proxy); err != nil {
+			return err
+		}
+
+		if err := d.createNodeConfigHeaderfile(); err != nil {
 			return err
 		}
 	}
