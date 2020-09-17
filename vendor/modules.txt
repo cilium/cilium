@@ -203,7 +203,7 @@ github.com/envoyproxy/protoc-gen-validate/templates/goshared
 github.com/envoyproxy/protoc-gen-validate/templates/java
 github.com/envoyproxy/protoc-gen-validate/templates/shared
 github.com/envoyproxy/protoc-gen-validate/validate
-# github.com/evanphx/json-patch v0.0.0-20200808040245-162e5629780b
+# github.com/evanphx/json-patch v4.9.0+incompatible
 github.com/evanphx/json-patch
 # github.com/fsnotify/fsnotify v1.4.10-0.20200417215612-7f4cf4dd2b52
 ## explicit
@@ -768,7 +768,7 @@ gopkg.in/tomb.v1
 # gopkg.in/yaml.v2 v2.2.8
 ## explicit
 gopkg.in/yaml.v2
-# k8s.io/api v0.18.8
+# k8s.io/api v0.18.9
 ## explicit
 k8s.io/api/admissionregistration/v1
 k8s.io/api/admissionregistration/v1beta1
@@ -810,7 +810,7 @@ k8s.io/api/settings/v1alpha1
 k8s.io/api/storage/v1
 k8s.io/api/storage/v1alpha1
 k8s.io/api/storage/v1beta1
-# k8s.io/apiextensions-apiserver v0.18.8
+# k8s.io/apiextensions-apiserver v0.18.9
 ## explicit
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
 k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1
@@ -823,7 +823,7 @@ k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextension
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1/fake
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1
 k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/typed/apiextensions/v1beta1/fake
-# k8s.io/apimachinery v0.18.8
+# k8s.io/apimachinery v0.18.9
 ## explicit
 k8s.io/apimachinery/pkg/api/equality
 k8s.io/apimachinery/pkg/api/errors
@@ -868,7 +868,7 @@ k8s.io/apimachinery/pkg/version
 k8s.io/apimachinery/pkg/watch
 k8s.io/apimachinery/third_party/forked/golang/json
 k8s.io/apimachinery/third_party/forked/golang/reflect
-# k8s.io/client-go v0.18.8 => github.com/cilium/client-go v0.0.0-20200813235008-6b28ea7c1c4e
+# k8s.io/client-go v0.18.9 => github.com/cilium/client-go v0.0.0-20200917084602-0e854eb0a9f0
 ## explicit
 k8s.io/client-go/discovery
 k8s.io/client-go/discovery/fake
@@ -984,7 +984,7 @@ k8s.io/client-go/util/homedir
 k8s.io/client-go/util/jsonpath
 k8s.io/client-go/util/keyutil
 k8s.io/client-go/util/workqueue
-# k8s.io/code-generator v0.18.8
+# k8s.io/code-generator v0.18.9
 ## explicit
 k8s.io/code-generator
 k8s.io/code-generator/cmd/client-gen
@@ -1053,4 +1053,4 @@ sigs.k8s.io/structured-merge-diff/v3/value
 sigs.k8s.io/yaml
 # github.com/miekg/dns => github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3
 # github.com/optiopay/kafka => github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b
-# k8s.io/client-go => github.com/cilium/client-go v0.0.0-20200813235008-6b28ea7c1c4e
+# k8s.io/client-go => github.com/cilium/client-go v0.0.0-20200917084602-0e854eb0a9f0
