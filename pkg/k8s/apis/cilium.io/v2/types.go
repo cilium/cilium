@@ -292,6 +292,7 @@ type CiliumEndpointList struct {
 // +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
 // +kubebuilder:resource:singular="ciliumnode",path="ciliumnodes",scope="Cluster",shortName={cn,ciliumn}
 // +kubebuilder:storageversion
+// +kubebuilder:subresource:status
 
 // CiliumNode represents a node managed by Cilium. It contains a specification
 // to control various node specific configuration aspects and a status section
