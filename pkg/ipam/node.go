@@ -24,6 +24,7 @@ import (
 	ipamTypes "github.com/cilium/cilium/pkg/ipam/types"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/math"
 	"github.com/cilium/cilium/pkg/trigger"
 
@@ -686,10 +687,8 @@ func (n *Node) MaintainIPPool(ctx context.Context) error {
 }
 
 // syncToAPIServer is called to synchronize the node content with the custom
-// resource in the apiserver
+// resource in the apiserver.
 func (n *Node) syncToAPIServer() (err error) {
-	var updatedNode *v2.CiliumNode
-
 	scopedLog := n.logger()
 	scopedLog.Debug("Refreshing node")
 
@@ -707,26 +706,37 @@ func (n *Node) syncToAPIServer() (err error) {
 	// Two attempts are made in case the local resource is outdated. If the
 	// second attempt fails as well we are likely under heavy contention,
 	// fall back to the controller based background interval to retry.
+	var updatedNode *v2.CiliumNode
 	for retry := 0; retry < 2; retry++ {
 		if node.Status.IPAM.Used == nil {
 			node.Status.IPAM.Used = ipamTypes.AllocationMap{}
 		}
 
+		var updateErr error
 		n.ops.PopulateStatusFields(node)
-		updatedNode, err = n.manager.k8sAPI.UpdateStatus(origNode, node)
+		updatedNode, updateErr = n.manager.k8sAPI.UpdateStatus(origNode, node)
 		if updatedNode != nil && updatedNode.Name != "" {
 			node = updatedNode.DeepCopy()
-			if err == nil {
+			if updateErr == nil {
 				break
 			}
-		} else if err != nil {
+		} else if updateErr != nil {
+			scopedLog.WithError(updateErr).WithFields(logrus.Fields{
+				logfields.Attempt: retry,
+			}).Warning("Failed to update CiliumNode status")
+
 			node, err = n.manager.k8sAPI.Get(node.Name)
 			if err != nil {
 				break
+			} else {
+				// Propagate the error in case we exit the loop without
+				// succeeding in updating the status.
+				err = updateErr
 			}
 			node = node.DeepCopy()
 			origNode = node.DeepCopy()
-		} else {
+		} else /* updateErr == nil */ {
+			err = updateErr
 			break
 		}
 	}
