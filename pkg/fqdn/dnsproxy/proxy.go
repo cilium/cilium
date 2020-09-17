@@ -232,7 +232,7 @@ func (p *DNSProxy) RestoreRules(ep *endpoint.Endpoint) {
 }
 
 // 'p' must be locked
-func (p *DNSProxy) removeRestoredRules(endpointID uint64) {
+func (p *DNSProxy) removeRestoredRulesLocked(endpointID uint64) {
 	if _, exists := p.restored[endpointID]; exists {
 		// Remove IP->ID mappings for the restored EP
 		for ip, ep := range p.restoredEPs {
@@ -248,7 +248,7 @@ func (p *DNSProxy) removeRestoredRules(endpointID uint64) {
 func (p *DNSProxy) RemoveRestoredRules(endpointID uint16) {
 	p.Lock()
 	defer p.Unlock()
-	p.removeRestoredRules(uint64(endpointID))
+	p.removeRestoredRulesLocked(uint64(endpointID))
 }
 
 // setPortRulesForID sets the matching rules for endpointID and destPort for
@@ -451,7 +451,7 @@ func (p *DNSProxy) UpdateAllowed(endpointID uint64, destPort uint16, newRules po
 	err := p.allowed.setPortRulesForID(endpointID, destPort, newRules)
 	if err == nil {
 		// Rules were updated based on policy, remove restored rules
-		p.removeRestoredRules(endpointID)
+		p.removeRestoredRulesLocked(endpointID)
 	}
 	return err
 }
