@@ -1432,7 +1432,7 @@ func runDaemon() {
 
 	metricsErrs := initMetrics()
 
-	d.startAgentHealthHTTPService(fmt.Sprintf("localhost:%d", option.Config.AgentHealthPort))
+	d.startAgentHealthHTTPService()
 
 	bootstrapStats.initAPI.Start()
 	srv := server.NewServer(d.instantiateAPI())
