@@ -63,7 +63,11 @@ spec:
             - --brief
 {{- else }}
           httpGet:
+{{- if .Values.global.ipv4.enabled }}
             host: '127.0.0.1'
+{{- else }}
+            host: '::1'
+{{- end }}
             path: /healthz
             port: {{ .Values.global.agent.healthPort }}
             scheme: HTTP
@@ -88,7 +92,11 @@ spec:
             - --brief
 {{- else }}
           httpGet:
+{{- if .Values.global.ipv4.enabled }}
             host: '127.0.0.1'
+{{- else }}
+            host: '::1'
+{{- end }}
             path: /healthz
             port: {{ .Values.global.agent.healthPort }}
             scheme: HTTP
