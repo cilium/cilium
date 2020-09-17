@@ -718,7 +718,7 @@ pass_to_stack:
 		__u64 zero = 0;
 		eth_store_daddr(ctx, (void *)&zero, 0);
 		eth_store_saddr(ctx, (void *)&zero, 0);
-		return redirect_neigh(2, 0);
+		return redirect_neigh(5, 0);
 	}
 
 #ifndef ENCAP_IFINDEX
