@@ -85,6 +85,7 @@ func TestGetFlows(t *testing.T) {
 			ocb: fakeObserverClientBuilder{},
 			req: &observerpb.GetFlowsRequest{Number: 0},
 			stream: &testutils.FakeGetFlowsServer{
+				FakeGRPCServerStream: fss,
 				OnSend: func(resp *observerpb.GetFlowsResponse) error {
 					if resp == nil {
 						return nil
