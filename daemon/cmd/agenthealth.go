@@ -17,12 +17,15 @@ package cmd
 import (
 	"context"
 	"errors"
+	"fmt"
 	"net"
 	"net/http"
 	"syscall"
 
 	"github.com/cilium/cilium/api/v1/models"
+	"github.com/cilium/cilium/pkg/option"
 
+	"github.com/sirupsen/logrus"
 	"golang.org/x/sys/unix"
 )
 
@@ -46,14 +49,17 @@ func setsockoptReuseAddrAndPort(network, address string, c syscall.RawConn) erro
 	return soerr
 }
 
-// startAgentHealthHTTPService registers a handler function for the /healthz
-// status HTTP endpoint exposed on addr. This endpoint reports the agent health
-// status and is equivalent to what the `cilium status --brief` CLI tool reports.
-func (d *Daemon) startAgentHealthHTTPService(addr string) {
-	lc := net.ListenConfig{Control: setsockoptReuseAddrAndPort}
-	ln, err := lc.Listen(context.Background(), "tcp", addr)
-	if err != nil {
-		log.WithError(err).Fatalf("Unable to listen on %s for healthz status API server", addr)
+// startAgentHealthHTTPService registers a handler function for the /healthz status HTTP endpoint
+// exposed on localhost (127.0.0.1 and/or ::1, depending on IPv4/IPv6 options). This
+// endpoint reports the agent health status and is equivalent to what the `cilium status --brief`
+// CLI tool reports.
+func (d *Daemon) startAgentHealthHTTPService() {
+	var hosts []string
+	if option.Config.EnableIPv4 {
+		hosts = append(hosts, "127.0.0.1")
+	}
+	if option.Config.EnableIPv6 {
+		hosts = append(hosts, "::1")
 	}
 
 	mux := http.NewServeMux()
@@ -73,18 +79,37 @@ func (d *Daemon) startAgentHealthHTTPService(addr string) {
 		}
 		w.WriteHeader(statusCode)
 	}))
-	srv := &http.Server{
-		Addr:    addr,
-		Handler: mux,
+
+	available := len(hosts)
+	for _, host := range hosts {
+		lc := net.ListenConfig{Control: setsockoptReuseAddrAndPort}
+		addr := net.JoinHostPort(host, fmt.Sprintf("%d", option.Config.AgentHealthPort))
+		addrField := logrus.Fields{"address": addr}
+		ln, err := lc.Listen(context.Background(), "tcp", addr)
+		if errors.Is(err, unix.EADDRNOTAVAIL) {
+			log.WithFields(addrField).Info("healthz status API server not available")
+			available--
+			continue
+		} else if err != nil {
+			log.WithFields(addrField).WithError(err).Fatal("Unable to start healthz status API server")
+		}
+
+		go func(addr string, ln net.Listener) {
+			srv := &http.Server{
+				Addr:    addr,
+				Handler: mux,
+			}
+			err := srv.Serve(ln)
+			if errors.Is(err, http.ErrServerClosed) {
+				log.WithFields(addrField).Info("healthz status API server shutdown")
+			} else if err != nil {
+				log.WithFields(addrField).WithError(err).Fatal("Error serving healthz status API server")
+			}
+		}(addr, ln)
+		log.WithFields(addrField).Info("Started healthz status API server")
 	}
 
-	go func() {
-		err := srv.Serve(ln)
-		if errors.Is(err, http.ErrServerClosed) {
-			log.Info("healthz status API server shutdown")
-		} else if err != nil {
-			log.WithError(err).Fatal("Unable to start healthz status API server")
-		}
-	}()
-	log.Infof("Started healthz status API server on address %s", addr)
+	if available <= 0 {
+		log.WithField("hosts", hosts).Fatal("No healthz status API server started")
+	}
 }
