@@ -704,6 +704,68 @@ func (a *Allocator) GetByID(ctx context.Context, id idpool.ID) (AllocatorKey, er
 	return a.backend.GetByID(ctx, id)
 }
 
+// GetIncludeRemoteCaches returns the ID which is allocated to a key. Includes the
+// caches of watched remote kvstores in the query. Returns an ID of NoID if no
+// ID has been allocated in any remote kvstore to this key yet.
+func (a *Allocator) GetIncludeRemoteCaches(ctx context.Context, key AllocatorKey) (idpool.ID, error) {
+	encoded := a.encodeKey(key)
+
+	// check main cache first
+	if id := a.mainCache.get(encoded); id != idpool.NoID {
+		return id, nil
+	}
+
+	// check remote caches
+	a.remoteCachesMutex.RLock()
+	for rc := range a.remoteCaches {
+		if id := rc.cache.get(encoded); id != idpool.NoID {
+			a.remoteCachesMutex.RUnlock()
+			return id, nil
+		}
+	}
+	a.remoteCachesMutex.RUnlock()
+
+	// check main backend
+	if id, err := a.backend.Get(ctx, key); id != idpool.NoID || err != nil {
+		return id, err
+	}
+
+	// we skip checking remote backends explicitly here, to avoid
+	// accidentally overloading them in case of lookups for invalid identities
+
+	return idpool.NoID, nil
+}
+
+// GetByIDIncludeRemoteCaches returns the key associated with an ID. Includes
+// the caches of watched remote kvstores in the query.
+// Returns nil if no key is associated with the ID.
+func (a *Allocator) GetByIDIncludeRemoteCaches(ctx context.Context, id idpool.ID) (AllocatorKey, error) {
+	// check main cache first
+	if key := a.mainCache.getByID(id); key != nil {
+		return key, nil
+	}
+
+	// check remote caches
+	a.remoteCachesMutex.RLock()
+	for rc := range a.remoteCaches {
+		if key := rc.cache.getByID(id); key != nil {
+			a.remoteCachesMutex.RUnlock()
+			return key, nil
+		}
+	}
+	a.remoteCachesMutex.RUnlock()
+
+	// check main backend
+	if key, err := a.backend.GetByID(ctx, id); key != nil || err != nil {
+		return key, err
+	}
+
+	// we skip checking remote backends explicitly here, to avoid
+	// accidentally overloading them in case of lookups for invalid identities
+
+	return nil, nil
+}
+
 // Release releases the use of an ID associated with the provided key. After
 // the last user has released the ID, the key is removed in the KVstore and
 // the returned lastUse value is true.
