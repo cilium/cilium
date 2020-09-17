@@ -260,6 +260,9 @@ func createNodeCRD(clientset apiextensionsclient.Interface) error {
 	res := &apiextensionsv1beta1.CustomResourceDefinition{
 		ObjectMeta: metav1.ObjectMeta{
 			Name: k8sconstv2.CNName,
+			Labels: map[string]string{
+				k8sconstv2.CustomResourceDefinitionSchemaVersionKey: k8sconstv2.CustomResourceDefinitionSchemaVersion,
+			},
 		},
 		Spec: apiextensionsv1beta1.CustomResourceDefinitionSpec{
 			Group:   k8sconstv2.CustomResourceDefinitionGroup,
