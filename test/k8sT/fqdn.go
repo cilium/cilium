@@ -118,10 +118,10 @@ var _ = Describe("K8sFQDNTest", func() {
 		// connect to DNS because dns-proxy filter the DNS request. If the
 		// connection is made correctly the IP is whitelisted by the FQDN rule
 		// until the DNS TTL expires.
-		// When Cilium is not running) The DNS-proxy is not working, so the IP
+		// - When Cilium is not running) The DNS-proxy is not working, so the IP
 		// connectivity to an existing IP that was queried before will work,
 		// meanwhile connections using new DNS request will fail.
-		// On restart) Cilium will restore the IPS that were white-listted in
+		// - On restart) Cilium will restore the IPS that were white-listted in
 		// the FQDN and connection will work as normal.
 
 		ciliumPodK8s1, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s1)
@@ -202,6 +202,10 @@ var _ = Describe("K8sFQDNTest", func() {
 			helpers.DefaultNamespace, appPods[helpers.App2],
 			helpers.CurlFail(worldInvalidTargetIP))
 		res.ExpectFail("%q can connect when it should not work", helpers.App2)
+
+		// Re-run connectivity test while Cilium is still restarting. This should succeed as the same
+		// DNS names were used in a connectivity test before the restart.
+		connectivityTest()
 
 		channelClosed = true
 		close(quit)
