@@ -467,8 +467,12 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	go k.ciliumNodeInit(ciliumNPClient, asyncControllers)
 
 	// cilium endpoints
-	asyncControllers.Add(1)
-	go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
+	// Don't watch for CiliumEndpoints to avoid populating ipcache with dangling
+	// CiliumEndpoints.
+	if !option.Config.DisableCiliumEndpointCRD {
+		asyncControllers.Add(1)
+		go k.ciliumEndpointsInit(ciliumNPClient, asyncControllers)
+	}
 
 	// kubernetes pods
 	asyncControllers.Add(1)
