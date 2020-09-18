@@ -400,7 +400,7 @@ Use the following list of steps to troubleshoot issues with ClusterMesh:
 Generic
 =======
 
- #. Validate that the ``cilium-xxx`` as well as the ``cilium-operator-xxx` pods
+ #. Validate that the ``cilium-xxx`` as well as the ``cilium-operator-xxx`` pods
     are healthy and ready. It is important that the ``cilium-operator`` is
     healthy as well as it is responsible for synchronizing state from the local
     cluster into the kvstore. If this fails, check the logs of these pods to
