@@ -124,12 +124,12 @@ func initEnv() {
 	option.Config.EnableK8sLeasesFallbackDiscovery()
 }
 
-func doCleanup() {
+func doCleanup(exitCode int) {
 	isLeader.Store(false)
 	gops.Close()
 	close(shutdownSignal)
 	leaderElectionCtxCancel()
-	os.Exit(0)
+	os.Exit(exitCode)
 }
 
 func main() {
@@ -138,7 +138,7 @@ func main() {
 
 	go func() {
 		<-signals
-		doCleanup()
+		doCleanup(0)
 	}()
 
 	if err := rootCmd.Execute(); err != nil {
@@ -188,7 +188,16 @@ func runOperator() {
 	}
 	close(k8sInitDone)
 
-	k8sversion.Update(k8s.Client(), option.Config)
+	// We try to update the Kubernetes version and capabilities. If this fails,
+	// we cannot move forward as we can misinterpret the available Capabilities.
+	// For example, in a case where we got an error when checking for Leases support
+	// we should not assume that support is not available and run the operator
+	// in non HA mode. As this can conflict with other operator instances running
+	// in the cluster, that figured the capabilities correctly and is running in HA
+	// mode.
+	if err := k8sversion.Update(k8s.Client(), option.Config); err != nil {
+		log.WithError(err).Fatal("Unable to update Kubernetes capabilities")
+	}
 	capabilities := k8sversion.Capabilities()
 
 	if !capabilities.MinimalVersionMet {
@@ -248,7 +257,7 @@ func runOperator() {
 			OnStoppedLeading: func() {
 				log.WithField("operator-id", operatorID).Info("Leader election lost")
 				// Cleanup everything here, and exit.
-				doCleanup()
+				doCleanup(1)
 			},
 			OnNewLeader: func(identity string) {
 				if identity == operatorID {
