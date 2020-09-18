@@ -18,7 +18,7 @@ import (
 	"fmt"
 	"sort"
 
-	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 	"github.com/cilium/cilium/pkg/option"
@@ -111,7 +111,7 @@ func GetServiceListOptionsModifier() (func(options *v1meta.ListOptions), error) 
 
 // ValidIPs return a sorted slice of unique IP addresses retrieved from the given PodStatus.
 // Returns an error when no IPs are found.
-func ValidIPs(podStatus slimcorev1.PodStatus) ([]string, error) {
+func ValidIPs(podStatus slim_corev1.PodStatus) ([]string, error) {
 	if len(podStatus.PodIPs) == 0 && len(podStatus.PodIP) == 0 {
 		return nil, fmt.Errorf("empty PodIPs")
 	}
@@ -133,4 +133,15 @@ func ValidIPs(podStatus slimcorev1.PodStatus) ([]string, error) {
 	}
 	sort.Strings(ips)
 	return ips, nil
+}
+
+// IsPodRunning returns true if the pod is considered to be in running state.
+// We consider a Running pod a pod that does not report a Failed nor a Succeeded
+// pod Phase.
+func IsPodRunning(status slim_corev1.PodStatus) bool {
+	switch status.Phase {
+	case slim_corev1.PodFailed, slim_corev1.PodSucceeded:
+		return false
+	}
+	return true
 }
