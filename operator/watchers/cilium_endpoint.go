@@ -27,7 +27,6 @@ import (
 	v1 "k8s.io/api/core/v1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
-	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -67,7 +66,7 @@ func identityIndexFunc(obj interface{}) ([]string, error) {
 }
 
 // CiliumEndpointsInit starts a CiliumEndpointWatcher
-func CiliumEndpointsInit(ciliumNPClient cilium_cli.CiliumV2Interface) {
+func CiliumEndpointsInit(ciliumNPClient cilium_cli.CiliumV2Interface, stopCh <-chan struct{}) {
 	once.Do(func() {
 		CiliumEndpointStore = cache.NewIndexer(cache.DeletionHandlingMetaNamespaceKeyFunc, indexers)
 
@@ -80,9 +79,9 @@ func CiliumEndpointsInit(ciliumNPClient cilium_cli.CiliumV2Interface) {
 			convertToCiliumEndpoint,
 			CiliumEndpointStore,
 		)
-		go ciliumEndpointInformer.Run(wait.NeverStop)
+		go ciliumEndpointInformer.Run(stopCh)
 
-		cache.WaitForCacheSync(wait.NeverStop, ciliumEndpointInformer.HasSynced)
+		cache.WaitForCacheSync(stopCh, ciliumEndpointInformer.HasSynced)
 		close(CiliumEndpointsSynced)
 	})
 }
