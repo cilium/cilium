@@ -458,7 +458,12 @@ func onOperatorStartLeading(ctx context.Context) {
 	}
 
 	if operatorOption.Config.EnableCEPGC && operatorOption.Config.EndpointGCInterval != 0 {
-		enableCiliumEndpointSyncGC()
+		enableCiliumEndpointSyncGC(false)
+	} else {
+		// Even if the EndpointGC is disabled we still want it to run at least
+		// once. This is to prevent leftover CEPs from populating ipcache with
+		// stale entries.
+		enableCiliumEndpointSyncGC(true)
 	}
 
 	err = enableCNPWatcher(apiextensionsK8sClient)
