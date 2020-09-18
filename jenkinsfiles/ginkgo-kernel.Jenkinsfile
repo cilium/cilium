@@ -21,6 +21,18 @@ pipeline {
                 returnStdout: true,
                 script: "echo ${ghprbCommentBody} | sed 's;\\\\;;' | xargs echo -n"
             )}"""
+        RACE="""${sh(
+                returnStdout: true,
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n ""; else echo -n "1"; fi'
+            )}"""
+        LOCKDEBUG="""${sh(
+                returnStdout: true,
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n ""; else echo -n "1"; fi'
+            )}"""
+        BASE_IMAGE="""${sh(
+                returnStdout: true,
+                script: 'if [ "${run_with_race_detection}" = "" ]; then echo -n "scratch"; else echo -n "quay.io/cilium/cilium-runtime:2020-09-10@sha256:fa45d7a600a9b4baeee64f9c017898fe0eba5425ffac2ba5b3bafacc319544fa"; fi'
+            )}"""
     }
 
     options {
