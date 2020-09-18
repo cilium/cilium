@@ -47,7 +47,7 @@ var (
 	UnmanagedPodStoreSynced = make(chan struct{})
 )
 
-func PodsInit(k8sClient kubernetes.Interface) {
+func PodsInit(k8sClient kubernetes.Interface, stopCh <-chan struct{}) {
 	var podInformer cache.Controller
 	PodStore, podInformer = informer.NewInformer(
 		cache.NewListWatchFromClient(k8sClient.CoreV1().RESTClient(),
@@ -57,9 +57,9 @@ func PodsInit(k8sClient kubernetes.Interface) {
 		cache.ResourceEventHandlerFuncs{},
 		convertToPod,
 	)
-	go podInformer.Run(wait.NeverStop)
+	go podInformer.Run(stopCh)
 
-	cache.WaitForCacheSync(wait.NeverStop, podInformer.HasSynced)
+	cache.WaitForCacheSync(stopCh, podInformer.HasSynced)
 	close(PodStoreSynced)
 }
 
@@ -75,6 +75,9 @@ func convertToPod(obj interface{}) interface{} {
 				Name:            concreteObj.Name,
 				Namespace:       concreteObj.Namespace,
 				ResourceVersion: concreteObj.ResourceVersion,
+			},
+			Status: slim_corev1.PodStatus{
+				Phase: concreteObj.Status.Phase,
 			},
 		}
 		*concreteObj = slim_corev1.Pod{}
@@ -92,6 +95,9 @@ func convertToPod(obj interface{}) interface{} {
 					Name:            pod.Name,
 					Namespace:       pod.Namespace,
 					ResourceVersion: pod.ResourceVersion,
+				},
+				Status: slim_corev1.PodStatus{
+					Phase: pod.Status.Phase,
 				},
 			},
 		}

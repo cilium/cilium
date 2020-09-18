@@ -15,9 +15,11 @@
 package utils
 
 import (
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/selection"
 	"github.com/cilium/cilium/pkg/option"
+
 	v1 "k8s.io/api/core/v1"
 	v1meta "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
@@ -102,4 +104,15 @@ func GetServiceListOptionsModifier() (func(options *v1meta.ListOptions), error) 
 	return func(options *v1meta.ListOptions) {
 		options.LabelSelector = labelSelector.String()
 	}, nil
+}
+
+// IsPodRunning returns true if the pod is considered to be in running state.
+// We consider a Running pod a pod that does not report a Failed nor a Succeeded
+// pod Phase.
+func IsPodRunning(status slim_corev1.PodStatus) bool {
+	switch status.Phase {
+	case slim_corev1.PodFailed, slim_corev1.PodSucceeded:
+		return false
+	}
+	return true
 }
