@@ -811,6 +811,9 @@ func (d *dummyManager) AllocateID(id uint16) (uint16, error) {
 func (d *dummyManager) RunK8sCiliumEndpointSync(*endpoint.Endpoint, endpoint.EndpointStatusConfiguration) {
 }
 
+func (d *dummyManager) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
+}
+
 func (d *dummyManager) UpdateReferences(map[id.PrefixType]string, *endpoint.Endpoint) {
 }
 

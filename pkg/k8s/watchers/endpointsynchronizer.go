@@ -21,10 +21,13 @@ import (
 	"fmt"
 	"time"
 
+	"github.com/sirupsen/logrus"
+
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned/typed/cilium.io/v2"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	pkgLabels "github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/option"
@@ -40,6 +43,12 @@ const (
 	subsysEndpointSync = "endpointsynchronizer"
 )
 
+// controllerNameOf returns the controller name to synchronize endpoint in to
+// kubernetes.
+func controllerNameOf(epID uint16) string {
+	return fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", epID)
+}
+
 // EndpointSynchronizer currently is an empty type, which wraps around syncing
 // of CiliumEndpoint resources.
 type EndpointSynchronizer struct{}
@@ -52,7 +61,7 @@ type EndpointSynchronizer struct{}
 func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration) {
 	var (
 		endpointID     = e.ID
-		controllerName = fmt.Sprintf("sync-to-k8s-ciliumendpoint (%v)", endpointID)
+		controllerName = controllerNameOf(endpointID)
 		scopedLog      = e.Logger(subsysEndpointSync).WithField("controller", controllerName)
 	)
 
@@ -283,4 +292,55 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 				}
 			},
 		})
+}
+
+// DeleteK8sCiliumEndpointSync replaces the endpoint controller to remove the
+// CEP from Kubernetes once the endpoint is stopped / removed from the
+// Cilium agent.
+func (epSync *EndpointSynchronizer) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
+	controllerName := controllerNameOf(e.ID)
+
+	scopedLog := e.Logger(subsysEndpointSync).WithField("controller", controllerName)
+
+	if !k8s.IsEnabled() {
+		scopedLog.Debug("Not starting controller because k8s is disabled")
+		return
+	}
+
+	ciliumClient := k8s.CiliumClient().CiliumV2()
+
+	// The health endpoint doesn't really exist in k8s and updates to it caused
+	// arbitrary errors. Disable the controller for these endpoints.
+	if isHealthEP := e.HasLabels(pkgLabels.LabelHealth); isHealthEP {
+		scopedLog.Debug("Not starting unnecessary CEP controller for cilium-health endpoint")
+		return
+	}
+
+	// NOTE: The controller functions do NOT hold the endpoint locks
+	e.UpdateController(controllerName,
+		controller.ControllerParams{
+			StopFunc: func(ctx context.Context) error {
+				return deleteCEP(ctx, scopedLog, ciliumClient, e)
+			},
+		},
+	)
+}
+
+func deleteCEP(ctx context.Context, scopedLog *logrus.Entry, ciliumClient v2.CiliumV2Interface, e *endpoint.Endpoint) error {
+	podName := e.GetK8sPodName()
+	if podName == "" {
+		scopedLog.Debug("Skipping CiliumEndpoint deletion because it has no k8s pod name")
+		return nil
+	}
+	namespace := e.GetK8sNamespace()
+	if namespace == "" {
+		scopedLog.Debug("Skipping CiliumEndpoint deletion because it has no k8s namespace")
+		return nil
+	}
+	if err := ciliumClient.CiliumEndpoints(namespace).Delete(ctx, podName, meta_v1.DeleteOptions{}); err != nil {
+		if !k8serrors.IsNotFound(err) {
+			scopedLog.WithError(err).Warning("Unable to delete CEP")
+		}
+	}
+	return nil
 }

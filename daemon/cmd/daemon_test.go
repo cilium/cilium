@@ -117,6 +117,9 @@ type dummyEpSyncher struct{}
 func (epSync *dummyEpSyncher) RunK8sCiliumEndpointSync(e *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration) {
 }
 
+func (epSync *dummyEpSyncher) DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint) {
+}
+
 func (ds *DaemonSuite) SetUpSuite(c *C) {
 	// Register metrics once before running the suite
 	_, ds.collectors = metrics.CreateConfiguration([]string{"cilium_endpoint_state"})

@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
+	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 	meta_v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 )
 
@@ -86,8 +87,8 @@ func enableCiliumEndpointSyncGC() {
 							ctx,
 							cep.Name,
 							meta_v1.DeleteOptions{PropagationPolicy: &PropagationPolicy})
-						if err != nil {
-							scopedLog.WithError(err).Debug("Unable to delete orphaned CEP")
+						if !k8serrors.IsNotFound(err) {
+							scopedLog.WithError(err).Warning("Unable to delete orphaned CEP")
 						}
 						return err
 					}

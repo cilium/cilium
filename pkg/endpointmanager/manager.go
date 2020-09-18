@@ -68,6 +68,7 @@ type EndpointManager struct {
 // resources with Kubernetes.
 type EndpointResourceSynchronizer interface {
 	RunK8sCiliumEndpointSync(ep *endpoint.Endpoint, conf endpoint.EndpointStatusConfiguration)
+	DeleteK8sCiliumEndpointSync(e *endpoint.Endpoint)
 }
 
 // NewEndpointManager creates a new EndpointManager.
