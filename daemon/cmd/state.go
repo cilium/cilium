@@ -159,6 +159,7 @@ func (d *Daemon) restoreOldEndpoints(dir string, clean bool) (*endpointRestoreSt
 		if err != nil {
 			// Disconnected EPs are not failures, clean them silently below
 			if !ep.IsDisconnecting() {
+				d.endpointManager.DeleteK8sCiliumEndpointSync(ep)
 				scopedLog.WithError(err).Warningf("Unable to restore endpoint, ignoring")
 				failed++
 			}
