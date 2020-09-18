@@ -664,6 +664,9 @@ func (in *PodStatus) DeepEqual(other *PodStatus) bool {
 		return false
 	}
 
+	if in.Phase != other.Phase {
+		return false
+	}
 	if in.HostIP != other.HostIP {
 		return false
 	}
