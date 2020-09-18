@@ -111,4 +111,8 @@ replace (
 	// Using private fork of controller-tools. See commit msg for more context
 	// as to why we are using a private fork.
 	sigs.k8s.io/controller-tools => github.com/christarazi/controller-tools v0.3.1-0.20200911184030-7e668c1fb4c2
+
+	// Fork until
+	// https://github.com/kubernetes-sigs/structured-merge-diff/issues/172 is fixed.
+	sigs.k8s.io/structured-merge-diff/v4 => github.com/christarazi/structured-merge-diff/v4 v4.0.2-0.20200917183246-1cc601931628
 )
