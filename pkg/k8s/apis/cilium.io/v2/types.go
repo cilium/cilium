@@ -308,7 +308,9 @@ type CiliumNode struct {
 
 	// Status defines the realized specification/configuration and status
 	// of the node.
-	Status NodeStatus `json:"status"`
+	//
+	// +kubebuilder:validation:Optional
+	Status NodeStatus `json:"status,omitempty"`
 }
 
 // NodeAddress is a node address.
