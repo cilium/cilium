@@ -33,6 +33,8 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
+const preferPublicIP bool = true
+
 var (
 	ipv4Loopback        net.IP
 	ipv4ExternalAddress net.IP
@@ -66,7 +68,7 @@ func makeIPv6HostIP() net.IP {
 // scope will be regarded as the system's node address.
 func InitDefaultPrefix(device string) {
 	if option.Config.EnableIPv4 {
-		ip, err := firstGlobalV4Addr(device, GetInternalIPv4())
+		ip, err := firstGlobalV4Addr(device, GetInternalIPv4(), preferPublicIP)
 		if err != nil {
 			return
 		}
@@ -101,7 +103,7 @@ func InitDefaultPrefix(device string) {
 	if option.Config.EnableIPv6 {
 		if ipv6Address == nil {
 			// Find a IPv6 node address first
-			ipv6Address, _ = firstGlobalV6Addr(device, GetIPv6Router())
+			ipv6Address, _ = firstGlobalV6Addr(device, GetIPv6Router(), preferPublicIP)
 			if ipv6Address == nil {
 				ipv6Address = makeIPv6HostIP()
 			}
@@ -129,7 +131,7 @@ func InitNodePortAddrs(devices []string) error {
 	if option.Config.EnableIPv4 {
 		ipv4NodePortAddrs = make(map[string]net.IP, len(devices))
 		for _, device := range devices {
-			ip, err := firstGlobalV4Addr(device, GetK8sNodeIP())
+			ip, err := firstGlobalV4Addr(device, GetK8sNodeIP(), !preferPublicIP)
 			if err != nil {
 				return fmt.Errorf("Failed to determine IPv4 of %s for NodePort", device)
 			}
@@ -141,7 +143,7 @@ func InitNodePortAddrs(devices []string) error {
 	if option.Config.EnableIPv6 {
 		ipv6NodePortAddrs = make(map[string]net.IP, len(devices))
 		for _, device := range devices {
-			ip, err := firstGlobalV6Addr(device, GetK8sNodeIP())
+			ip, err := firstGlobalV6Addr(device, GetK8sNodeIP(), !preferPublicIP)
 			if err != nil {
 				return fmt.Errorf("Failed to determine IPv6 of %s for NodePort", device)
 			}
