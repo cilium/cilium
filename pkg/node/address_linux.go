@@ -86,7 +86,7 @@ retryScope:
 	}
 
 	if len(ipsPublic) != 0 {
-		if hasPreferred && ip.IsPublicAddr(preferredIP) {
+		if hasPreferred {
 			return preferredIP, nil
 		}
 
