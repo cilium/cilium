@@ -129,10 +129,11 @@ func InitNodePortAddrs(devices []string) error {
 	if option.Config.EnableIPv4 {
 		ipv4NodePortAddrs = make(map[string]net.IP, len(devices))
 		for _, device := range devices {
-			ip, err := firstGlobalV4Addr(device, nil)
+			ip, err := firstGlobalV4Addr(device, GetK8sNodeIP())
 			if err != nil {
 				return fmt.Errorf("Failed to determine IPv4 of %s for NodePort", device)
 			}
+
 			ipv4NodePortAddrs[device] = ip
 		}
 	}
@@ -140,7 +141,7 @@ func InitNodePortAddrs(devices []string) error {
 	if option.Config.EnableIPv6 {
 		ipv6NodePortAddrs = make(map[string]net.IP, len(devices))
 		for _, device := range devices {
-			ip, err := firstGlobalV6Addr(device, nil)
+			ip, err := firstGlobalV6Addr(device, GetK8sNodeIP())
 			if err != nil {
 				return fmt.Errorf("Failed to determine IPv6 of %s for NodePort", device)
 			}
