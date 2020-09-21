@@ -254,6 +254,27 @@ are the following:
   without this flag.
 
 
+Testing with race condition detection enabled
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+If you want to run test suite with race condition detection enabled, enter following trigger phrases. These jobs are not required to merge.
+
++------------------------------------------------------------------------------------+------------------------+
+| Jenkins Job                                                                        | Trigger Phrase         |
++====================================================================================+========================+
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-Ginkgo-Tests-Kernel-Race-Detection | test-race-4.19         |
++------------------------------------------------------------------------------------+------------------------+
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.12-net-next-Race-Detection   | test-race-net-next     |
++------------------------------------------------------------------------------------+------------------------+
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-1.19-kernel-4.9-Race-Detection | test-race-4.9          |
++------------------------------------------------------------------------------------+------------------------+
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-K8s-GKE-Race-Detection             | test-race-gke          |
++------------------------------------------------------------------------------------+------------------------+
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-Kubernetes-Upstream-Race-Detection | test-race-upstream-k8s |
++------------------------------------------------------------------------------------+------------------------+
+| https://jenkins.cilium.io/view/PR/job/Cilium-PR-Runtime-4.9-Race-Detection         | test-race-runtime      |
++------------------------------------------------------------------------------------+------------------------+
+
 
 Using Jenkins for testing
 ~~~~~~~~~~~~~~~~~~~~~~~~~
