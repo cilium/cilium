@@ -211,7 +211,7 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 				}),
 			},
 		}, {
-			Name: "envoy.router",
+			Name: "envoy.filters.http.router",
 		}},
 		StreamIdleTimeout: &duration.Duration{}, // 0 == disabled
 		RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
@@ -539,7 +539,7 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 	if kind == policy.ParserTypeHTTP {
 		// Use tls_inspector only with HTTP, insert as the first filter
 		listenerConf.ListenerFilters = append([]*envoy_config_listener.ListenerFilter{{
-			Name: "envoy.listener.tls_inspector",
+			Name: "envoy.filters.listener.tls_inspector",
 		}}, listenerConf.ListenerFilters...)
 
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getHttpFilterChainProto(clusterName, false))
