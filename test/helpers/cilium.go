@@ -889,7 +889,7 @@ func (s *SSHMeta) ServiceDelAll() *CmdRes {
 // SetUpCilium sets up Cilium as a systemd service with a hardcoded set of options. It
 // returns an error if any of the operations needed to start Cilium fails.
 func (s *SSHMeta) SetUpCilium() error {
-	return s.SetUpCiliumWithOptions("--tofqdns-enable-poller=true")
+	return s.SetUpCiliumWithOptions("")
 }
 
 // SetUpCiliumWithOptions sets up Cilium as a systemd service with a given set of options. It
@@ -923,11 +923,11 @@ INITSYSTEM=SYSTEMD`
 }
 
 func (s *SSHMeta) SetUpCiliumWithHubble() error {
-	return s.SetUpCiliumWithOptions("--enable-hubble --tofqdns-enable-poller=true")
+	return s.SetUpCiliumWithOptions("--enable-hubble")
 }
 
 func (s *SSHMeta) SetUpCiliumWithSockops() error {
-	return s.SetUpCiliumWithOptions("--sockops-enable --tofqdns-enable-poller=true")
+	return s.SetUpCiliumWithOptions("--sockops-enable")
 }
 
 // WaitUntilReady waits until the output of `cilium status` returns with code

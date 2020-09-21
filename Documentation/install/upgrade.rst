@@ -377,9 +377,10 @@ Removed options
   These options were deprecated in Cilium 1.8 and are now removed.
 * The ``prometheus-serve-addr-deprecated`` option is now removed. Please use
   ``prometheus-serve-addr`` instead.
-
 * The ``hostscope-legacy`` option value for ``ipam`` is now removed. The ``ipam``
   option now defaults to ``cluster-pool``.
+* ``--tofqdns-enable-poller``, ``--tofqdns-enable-poller-events``: These option
+  were deprecated in Cilium 1.8 and are now removed
 
 Removed cilium-operator options
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~

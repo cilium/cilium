@@ -753,14 +753,6 @@ func init() {
 	flags.Int(option.ToFQDNsProxyPort, 0, "Global port on which the in-agent DNS proxy should listen. Default 0 is a OS-assigned port.")
 	option.BindEnv(option.ToFQDNsProxyPort)
 
-	flags.Bool(option.ToFQDNsEnablePoller, false, "Enable proactive polling of DNS names in toFQDNs.matchName rules.")
-	option.BindEnv(option.ToFQDNsEnablePoller)
-	flags.MarkDeprecated(option.ToFQDNsEnablePoller, "This option has been deprecated and will be removed in v1.9")
-
-	flags.Bool(option.ToFQDNsEnablePollerEvents, true, "Emit DNS responses seen by the DNS poller as Monitor events, if the poller is enabled.")
-	option.BindEnv(option.ToFQDNsEnablePollerEvents)
-	flags.MarkDeprecated(option.ToFQDNsEnablePollerEvents, "This option has been deprecated and will be removed in v1.9")
-
 	flags.StringVar(&option.Config.FQDNRejectResponse, option.FQDNRejectResponseCode, option.FQDNProxyDenyWithRefused, fmt.Sprintf("DNS response code for rejecting DNS requests, available options are '%v'", option.FQDNRejectOptions))
 	option.BindEnv(option.FQDNRejectResponseCode)
 
