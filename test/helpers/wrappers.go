@@ -142,7 +142,7 @@ func SuperNetperf(sessions int, endpoint string, perfTest PerfTest, options stri
 
 // Netcat returns the string representing the netcat command to the specified
 // endpoint. It takes a variadic optionalValues arguments, This is passed to
-// fmt.Sprintf uses in the netcat message
+// fmt.Sprintf uses in the netcat message.
 func Netcat(endpoint string, optionalValues ...interface{}) string {
 	if len(optionalValues) > 0 {
 		endpoint = fmt.Sprintf(endpoint, optionalValues...)
@@ -171,4 +171,21 @@ func PythonBind(addr string, port uint16, proto string) string {
 	return fmt.Sprintf(
 		`/usr/bin/python3 -c 'import socket; socket.socket(%s).bind((%q, %d))`,
 		strings.Join(opts, ", "), addr, port)
+}
+
+// ReadFile returns the string representing a cat command to read the file at
+// the give path.
+func ReadFile(path string) string {
+	return fmt.Sprintf("cat %q", path)
+}
+
+// OpenSSLShowCerts retrieve the TLS certificate presented at the given
+// host:port when serverName is requested. The openssl cli is available in the
+// Cilium pod.
+func OpenSSLShowCerts(host string, port uint16, serverName string) string {
+	serverNameFlag := ""
+	if serverName != "" {
+		serverNameFlag = fmt.Sprintf("-servername %q", serverName)
+	}
+	return fmt.Sprintf("openssl s_client -connect %s:%d %s -showcerts | openssl x509 -outform PEM", host, port, serverNameFlag)
 }

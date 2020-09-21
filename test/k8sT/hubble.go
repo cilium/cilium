@@ -24,6 +24,7 @@ import (
 
 	"github.com/asaskevich/govalidator"
 	"github.com/cilium/cilium/pkg/annotation"
+	"github.com/cilium/cilium/pkg/hubble/defaults"
 	. "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers"
 
@@ -196,6 +197,21 @@ var _ = Describe("K8sHubbleTest", func() {
 			res = kubectl.ExecInHostNetNS(ctx, k8s1NodeName, helpers.CurlFail(metricsUrl))
 			res.ExpectSuccess("%s/%s cannot curl metrics %q", helpers.CiliumNamespace, ciliumPodK8s1, app1ClusterIP)
 			res.ExpectContains(`hubble_flows_processed_total{protocol="TCP",subtype="to-endpoint",type="Trace",verdict="FORWARDED"}`)
+		})
+
+		It("Test TLS certificate", func() {
+			certpath := "/var/lib/cilium/tls/hubble/server.crt"
+			res := kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPodK8s1, helpers.ReadFile(certpath))
+			res.ExpectSuccess("Cilium pod cannot read the hubble server TLS certificate")
+			expected := string(res.GetStdOut().Bytes())
+
+			serverName := fmt.Sprintf("%s.default.hubble-grpc.cilium.io", helpers.K8s1)
+			cmd := helpers.OpenSSLShowCerts("localhost", defaults.ServerPort, serverName)
+			res = kubectl.ExecPodCmd(helpers.CiliumNamespace, ciliumPodK8s1, cmd)
+			res.ExpectSuccess("Cilium pod cannot initiate TLS handshake to Hubble")
+			cert := string(res.GetStdOut().Bytes())
+
+			Expect(cert).To(Equal(expected))
 		})
 
 		It("Test L3/L4 Flow with hubble-relay", func() {
