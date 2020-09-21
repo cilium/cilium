@@ -558,6 +558,24 @@ var _ = Describe("K8sDatapathConfig", func() {
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
+		It("Check connectivity with transparent encryption and direct routing with bpf_host", func() {
+			SkipIfIntegration(helpers.CIIntegrationFlannel)
+			SkipIfIntegration(helpers.CIIntegrationGKE)
+			SkipItIfNoKubeProxy()
+
+			privateIface, err := kubectl.GetPrivateIface()
+			Expect(err).Should(BeNil(), "Unable to determine private iface")
+
+			deploymentManager.Deploy(helpers.CiliumNamespace, IPSecSecret)
+			deploymentManager.DeployCilium(map[string]string{
+				"global.tunnel":               "disabled",
+				"global.autoDirectNodeRoutes": "true",
+				"global.encryption.enabled":   "true",
+				"global.encryption.interface": privateIface,
+				"global.hostFirewall":         "false",
+			}, DeployCiliumOptionsAndDNS)
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+		})
 	})
 
 	Context("IPv4Only", func() {
