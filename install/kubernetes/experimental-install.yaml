@@ -837,8 +837,6 @@ spec:
             readOnly: true
       restartPolicy: Always
       terminationGracePeriodSeconds: 0
-      tolerations:
-      - operator: Exists
       volumes:
       - configMap:
           name: hubble-relay-config
