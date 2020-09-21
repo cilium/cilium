@@ -211,7 +211,7 @@ func (m *CachingIdentityAllocator) LookupIdentity(ctx context.Context, lbls labe
 		return identity
 	}
 
-	if m.IdentityAllocator == nil {
+	if !identity.RequiresGlobalIdentity(lbls) || m.IdentityAllocator == nil {
 		return nil
 	}
 
@@ -248,6 +248,10 @@ func (m *CachingIdentityAllocator) LookupIdentityByID(ctx context.Context, id id
 
 	if identity := m.localIdentities.lookupByID(id); identity != nil {
 		return identity
+	}
+
+	if id.HasLocalScope() {
+		return nil
 	}
 
 	allocatorKey, err := m.IdentityAllocator.GetByIDIncludeRemoteCaches(ctx, idpool.ID(id))
