@@ -26,6 +26,20 @@ import (
 	. "gopkg.in/check.v1"
 )
 
+var (
+	ciliumIOSel = api.FQDNSelector{
+		MatchName: "cilium.io",
+	}
+
+	githubSel = api.FQDNSelector{
+		MatchName: "github.com",
+	}
+
+	ciliumIOSelMatchPattern = api.FQDNSelector{
+		MatchPattern: "*cilium.io.",
+	}
+)
+
 func (ds *DNSCacheTestSuite) TestKeepUniqueNames(c *C) {
 	testData := []struct {
 		argument []string

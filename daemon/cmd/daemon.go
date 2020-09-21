@@ -111,9 +111,6 @@ type Daemon struct {
 	// apply to locally running endpoints.
 	dnsNameManager *fqdn.NameManager
 
-	// dnsPoller polls DNS names and sends them to dnsNameManager
-	dnsPoller *fqdn.DNSPoller
-
 	// Used to synchronize generation of daemon's BPF programs and endpoint BPF
 	// programs.
 	compilationMutex *lock.RWMutex
@@ -430,11 +427,6 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	bootstrapStats.restore.End(true)
 
 	bootstrapStats.fqdn.Start()
-	if err := fqdn.ConfigFromResolvConf(); err != nil {
-		bootstrapStats.fqdn.EndError(err)
-		return nil, nil, err
-	}
-
 	err = d.bootstrapFQDN(restoredEndpoints.possible, option.Config.ToFQDNsPreCache)
 	if err != nil {
 		bootstrapStats.fqdn.EndError(err)

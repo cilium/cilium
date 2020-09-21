@@ -1599,13 +1599,6 @@ type DaemonConfig struct {
 	// DefaultDNSProxy below.
 	ToFQDNsProxyPort int
 
-	// ToFQDNsEnablePoller enables the DNS poller that polls toFQDNs.matchName
-	ToFQDNsEnablePoller bool
-
-	// ToFQDNsEnablePollerEvents controls sending a monitor event for each DNS
-	// response the DNS poller sees
-	ToFQDNsEnablePollerEvents bool
-
 	// ToFQDNsMaxIPsPerHost defines the maximum number of IPs to maintain
 	// for each FQDN name in an endpoint's FQDN cache
 	ToFQDNsMaxIPsPerHost int
