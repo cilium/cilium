@@ -28,12 +28,6 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-// force a fail if something calls this function
-func lookupFail(c *C, dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
-	c.Error("Lookup function called when it should not")
-	return nil, nil
-}
-
 // TestNameManagerCIDRGeneration tests rule generation output:
 // add a rule, get correct IP4/6 in ToCIDRSet
 // add a rule, lookup twice, get correct IP4/6 in TOCIDRSet after change
@@ -46,10 +40,6 @@ func (ds *FQDNTestSuite) TestNameManagerCIDRGeneration(c *C) {
 		nameManager = NewNameManager(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
-
-			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
-				return lookupFail(c, dnsNames)
-			},
 
 			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
 				for k, v := range selectorIPMapping {
@@ -98,10 +88,6 @@ func (ds *FQDNTestSuite) TestNameManagerMultiIPUpdate(c *C) {
 		nameManager = NewNameManager(Config{
 			MinTTL: 1,
 			Cache:  NewDNSCache(0),
-
-			LookupDNSNames: func(dnsNames []string) (DNSIPs map[string]*DNSIPRecords, errorDNSNames map[string]error) {
-				return lookupFail(c, dnsNames)
-			},
 
 			UpdateSelectors: func(ctx context.Context, selectorIPMapping map[api.FQDNSelector][]net.IP, selectorsWithoutIPs []api.FQDNSelector) (*sync.WaitGroup, error) {
 				for k, v := range selectorIPMapping {

@@ -39,7 +39,6 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/metrics"
-	"github.com/cilium/cilium/pkg/node"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy"
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
@@ -131,28 +130,21 @@ func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[pol
 	return d.endpointManager.UpdatePolicyMaps(ctx)
 }
 
-// bootstrapFQDN initializes the toFQDNs related subsystems: DNSPoller,
-// d.dnsNameManager, and the DNS proxy.
-// dnsNameManager and DNSPoller will use the default resolver and, implicitly, the
+// bootstrapFQDN initializes the toFQDNs related subsystems: dnsNameManager and the DNS proxy.
+// dnsNameManager will use the default resolver and, implicitly, the
 // default DNS cache. The proxy binds to all interfaces, and uses the
 // configured DNS proxy port (this may be 0 and so OS-assigned).
 func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) (err error) {
 	cfg := fqdn.Config{
-		MinTTL:               option.Config.ToFQDNsMinTTL,
-		OverLimit:            option.Config.ToFQDNsMaxIPsPerHost,
-		Cache:                fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
-		LookupDNSNames:       fqdn.DNSLookupDefaultResolver,
-		UpdateSelectors:      d.updateSelectors,
-		PollerResponseNotify: d.pollerResponseNotify,
+		MinTTL:          option.Config.ToFQDNsMinTTL,
+		OverLimit:       option.Config.ToFQDNsMaxIPsPerHost,
+		Cache:           fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
+		UpdateSelectors: d.updateSelectors,
 	}
 
 	rg := fqdn.NewNameManager(cfg)
 	d.policy.GetSelectorCache().SetLocalIdentityNotifier(rg)
 	d.dnsNameManager = rg
-	d.dnsPoller = fqdn.NewDNSPoller(cfg, d.dnsNameManager)
-	if option.Config.ToFQDNsEnablePoller {
-		fqdn.StartDNSPoller(d.dnsPoller)
-	}
 
 	// Controller to cleanup TTL expired entries from the DNS policies.
 	// dns-garbage-collector-job runs the logic to remove stale or undesired
@@ -183,9 +175,6 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 				activeConnectionsTTL = int(2 * dnsGCJobInterval.Seconds())
 				activeConnections    = fqdn.NewDNSCache(activeConnectionsTTL)
 			)
-
-			// Cleanup poller cache. We do not defer any expirations for this cache
-			namesToClean = append(namesToClean, d.dnsPoller.DNSHistory.GC(GCStart, nil)...)
 
 			// Cleanup each endpoint cache, deferring deletions via DNSZombies.
 			endpoints := d.endpointManager.GetEndpoints()
@@ -219,15 +208,15 @@ func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, 
 				return nil
 			}
 
-			// Collect DNS data into the global cache. This aggregates all endpoint,
-			// existing connection and poller data into one place for use elsewhere.
+			// Collect DNS data into the global cache. This aggregates all endpoint
+			// and existing connection data into one place for use elsewhere.
 			// In the case where a lookup occurs in a race with .ReplaceFromCache the
 			// result is consistent:
 			// - If before, the ReplaceFromCache will use the new data when pulling
 			// in from each EP cache.
 			// - If after, the normal update process occurs after .ReplaceFromCache
 			// releases its locks.
-			caches := []*fqdn.DNSCache{d.dnsPoller.DNSHistory, activeConnections}
+			caches := []*fqdn.DNSCache{activeConnections}
 			for _, ep := range endpoints {
 				caches = append(caches, ep.DNSHistory)
 			}
@@ -343,64 +332,6 @@ func (d *Daemon) updateSelectors(ctx context.Context, selectorWithIPsToUpdate ma
 
 	// Update mapping in selector cache with new identities.
 	return d.updateSelectorCacheFQDNs(ctx, selectorsIdentities, selectorsWithoutIPs), nil
-}
-
-// pollerResponseNotify handles update events for updates from the poller. It
-// sends these on as monitor events and accesslog entries.
-// Note: The poller directly updates d.dnsNameManager with new IP data, separate
-// from this callback.
-func (d *Daemon) pollerResponseNotify(lookupTime time.Time, qname string, response *fqdn.DNSIPRecords) {
-	// Do nothing if this option is off
-	if !option.Config.ToFQDNsEnablePollerEvents {
-		return
-	}
-
-	// FIXME: Not always true but we don't have the protocol information here
-	protocol := accesslog.TransportProtocol(u8proto.ProtoIDs["udp"])
-
-	record := logger.LogRecord{
-		LogRecord: accesslog.LogRecord{
-			Type:              accesslog.TypeResponse,
-			ObservationPoint:  accesslog.Ingress,
-			IPVersion:         accesslog.VersionIPv4,
-			TransportProtocol: protocol,
-			Timestamp:         time.Now().UTC().Format(time.RFC3339Nano),
-			NodeAddressInfo:   accesslog.NodeAddressInfo{},
-		},
-	}
-
-	if ip := node.GetExternalIPv4(); ip != nil {
-		record.LogRecord.NodeAddressInfo.IPv4 = ip.String()
-	}
-
-	if ip := node.GetIPv6(); ip != nil {
-		record.LogRecord.NodeAddressInfo.IPv6 = ip.String()
-	}
-
-	// Construct the list of DNS types for question and answer RRs
-	questionTypes := []uint16{dns.TypeA, dns.TypeAAAA}
-	answerTypes := []uint16{}
-	for _, ip := range response.IPs {
-		if ip.To4() == nil {
-			answerTypes = append(answerTypes, dns.TypeAAAA)
-		} else {
-			answerTypes = append(answerTypes, dns.TypeA)
-		}
-	}
-
-	// Update DNS specific data in the LogRecord
-	logger.LogTags.Verdict(accesslog.VerdictForwarded, "DNSPoller")(&record)
-	logger.LogTags.DNS(&accesslog.LogRecordDNS{
-		Query:             qname,
-		IPs:               response.IPs,
-		TTL:               uint32(response.TTL),
-		CNAMEs:            nil,
-		ObservationSource: accesslog.DNSSourceAgentPoller,
-		RCode:             dns.RcodeSuccess,
-		QTypes:            questionTypes,
-		AnswerTypes:       answerTypes,
-	})(&record)
-	record.Log()
 }
 
 // lookupEPByIP returns the endpoint that this IP belongs to
@@ -671,7 +602,6 @@ func (h *deleteFqdnCache) Handle(params DeleteFqdnCacheParams) middleware.Respon
 
 	namesToRegen, err := deleteDNSLookups(
 		h.daemon.dnsNameManager.GetDNSCache(),
-		h.daemon.dnsPoller.DNSHistory,
 		endpoints,
 		time.Now(),
 		matchPatternStr)
@@ -817,7 +747,7 @@ func extractDNSLookups(endpoints []*endpoint.Endpoint, CIDRStr, matchPatternStr 
 	return lookups, nil
 }
 
-func deleteDNSLookups(globalCache *fqdn.DNSCache, pollerCache *fqdn.DNSCache, endpoints []*endpoint.Endpoint, expireLookupsBefore time.Time, matchPatternStr string) (namesToRegen []string, err error) {
+func deleteDNSLookups(globalCache *fqdn.DNSCache, endpoints []*endpoint.Endpoint, expireLookupsBefore time.Time, matchPatternStr string) (namesToRegen []string, err error) {
 	var nameMatcher *regexp.Regexp // nil matches all in our implementation
 	if matchPatternStr != "" {
 		nameMatcher, err = matchpattern.Validate(matchPatternStr)
@@ -827,12 +757,10 @@ func deleteDNSLookups(globalCache *fqdn.DNSCache, pollerCache *fqdn.DNSCache, en
 	}
 
 	// Clear any to-delete entries globally
-	// Clear any to-delete entries from the poller cache.
 	// Clear any to-delete entries in each endpoint, then update globally to
 	// insert any entries that now should be in the global cache (because they
 	// provide an IP at the latest expiration time).
 	namesToRegen = append(namesToRegen, globalCache.ForceExpire(expireLookupsBefore, nameMatcher)...)
-	namesToRegen = append(namesToRegen, pollerCache.ForceExpire(expireLookupsBefore, nameMatcher)...)
 	for _, ep := range endpoints {
 		namesToRegen = append(namesToRegen, ep.DNSHistory.ForceExpire(expireLookupsBefore, nameMatcher)...)
 		globalCache.UpdateFromCache(ep.DNSHistory, nil)
