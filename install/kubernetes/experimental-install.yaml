@@ -752,8 +752,6 @@ spec:
             readOnly: true
       restartPolicy: Always
       terminationGracePeriodSeconds: 0
-      tolerations:
-      - operator: Exists
       volumes:
       - hostPath:
           path: /var/run/cilium

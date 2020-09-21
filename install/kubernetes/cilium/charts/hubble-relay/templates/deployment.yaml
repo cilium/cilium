@@ -75,8 +75,10 @@ spec:
             readOnly: true
       restartPolicy: Always
       terminationGracePeriodSeconds: 0
+{{- if .Values.tolerations }}
       tolerations:
-      - operator: Exists
+{{- toYaml .Values.tolerations | trim | nindent 8 }}
+{{- end }}
       volumes:
       - hostPath:
           path: {{ dir .Values.global.hubble.socketPath }}

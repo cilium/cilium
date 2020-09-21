@@ -13,6 +13,9 @@ resources: {}
 # Number of replicas run for the hubble-relay deployment.
 numReplicas: 1
 
+# Specifies the tolerations of the hubble-relay deployment
+tolerations: {}
+
 # Host to listen to. Specify an empty string to bind to all the interfaces.
 listenHost: ""
 
