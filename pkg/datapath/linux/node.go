@@ -700,7 +700,7 @@ func (n *linuxNodeHandler) nodeUpdate(oldNode, newNode *nodeTypes.Node, firstAdd
 		oldKey = oldNode.EncryptionKey
 	}
 
-	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() {
+	if n.nodeConfig.EnableIPSec && !n.subnetEncryption() && !n.nodeConfig.EncryptNode {
 		n.enableIPsec(newNode)
 		newKey = newNode.EncryptionKey
 	}
