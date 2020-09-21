@@ -247,22 +247,9 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 
 		areEndpointsReady := vm.WaitEndpointsReady()
 		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
-		By("Update resolv.conf on host to update the poller")
-
-		// This should be disabled when DNS proxy is in place.
-		vm.ExecWithSudo(`bash -c "echo -e \"nameserver 127.0.0.1\nnameserver 1.1.1.1\" > /etc/resolv.conf"`)
-
-		// Need to restart cilium to use the latest resolv.conf info.
-		vm.ExecWithSudo("systemctl restart cilium")
-
-		areEndpointsReady = vm.WaitEndpointsReady()
-		Expect(areEndpointsReady).Should(BeTrue(), "Endpoints are not ready after timeout")
-
 	})
 
 	AfterAll(func() {
-		// @TODO remove this one when DNS proxy is in place.
-		vm.ExecWithSudo(`bash -c 'echo -e "nameserver 8.8.8.8\nnameserver 1.1.1.1" > /etc/resolv.conf'`)
 		for name := range ciliumTestImages {
 			vm.ContainerRm(name)
 		}
@@ -335,7 +322,10 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
     "egress": [
       {
         "toPorts": [{
-          "ports":[{"port": "53", "protocol": "ANY"}]
+          "ports":[{"port": "53", "protocol": "ANY"}],
+          "rules": {
+            "dns": [{"matchPattern": "world1.cilium.test"}]
+          }
         }]
       },
       {
