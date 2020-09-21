@@ -468,8 +468,6 @@ func dnsSummary(flowType accesslog.FlowType, dns *accesslog.LogRecordDNS) string
 
 		sourceType := "Query"
 		switch dns.ObservationSource {
-		case accesslog.DNSSourceAgentPoller:
-			sourceType = "Poll"
 		case accesslog.DNSSourceProxy:
 			sourceType = "Proxy"
 		}
