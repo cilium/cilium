@@ -22,6 +22,7 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 )
 
 func Test_filterByReplyField(t *testing.T) {
@@ -64,6 +65,34 @@ func Test_filterByReplyField(t *testing.T) {
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{false}}},
 				ev: &v1.Event{Event: &flowpb.Flow{Reply: false}},
+			},
+			want: true,
+		},
+		{
+			name: "trace-event-from-endpoint",
+			args: args{
+				f: []*flowpb.FlowFilter{{Reply: []bool{false}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					EventType: &flowpb.CiliumEventType{
+						Type:    monitorAPI.MessageTypeTrace,
+						SubType: monitorAPI.TraceFromLxc,
+					},
+					Reply: false,
+				}},
+			},
+			want: false,
+		},
+		{
+			name: "trace-event-to-endpoint",
+			args: args{
+				f: []*flowpb.FlowFilter{{Reply: []bool{false}}},
+				ev: &v1.Event{Event: &flowpb.Flow{
+					EventType: &flowpb.CiliumEventType{
+						Type:    monitorAPI.MessageTypeTrace,
+						SubType: monitorAPI.TraceToLxc,
+					},
+					Reply: false,
+				}},
 			},
 			want: true,
 		},
