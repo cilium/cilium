@@ -1185,10 +1185,6 @@ func initEnv(cmd *cobra.Command) {
 		option.Config.EnableBandwidthManager = false
 	}
 
-	if len(option.Config.Devices) != 0 && option.Config.EnableIPSec {
-		log.Fatalf("--%s cannot be used with IPSec.", option.Devices)
-	}
-
 	// If there is one device specified, use it to derive better default
 	// allocation prefixes
 	node.InitDefaultPrefix(option.Config.DirectRoutingDevice)
