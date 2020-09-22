@@ -101,7 +101,7 @@
 // === L3 DNS ===
 // L3 DNS rules control L3 connections and not the DNS requests themselves.
 // They rely on DNS lookup cache information and it must come from the DNS
-// proxy, via a L7 DNS rule, or from the DNS poller (deprecated in cilium 1.8).
+// proxy, or via a L7 DNS rule.
 //
 //  - toFQDNs:
 //      - matchName: "my-remote-service.com"
