@@ -428,6 +428,10 @@ func decodeICMPv6(icmp *layers.ICMPv6) *pb.Layer4 {
 }
 
 func decodeIsReply(tn *monitor.TraceNotify) bool {
+	// FIXME: Ideally, this function should return a value only if
+	// monitorAPI.TraceObservationPointHasConnState(tn.ObsPoint) is true.
+	// However, pb.Flow currently cannot distinguish between an absent value
+	// and a `false` value.
 	return tn != nil && tn.Reason & ^monitor.TraceReasonEncryptMask == monitor.TraceReasonCtReply
 }
 
@@ -475,14 +479,8 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 		// ongoing connection. Therefore, we want to access the connection
 		// tracking result from the `Reason` field to invert the direction for
 		// reply packets. The datapath currently populates the `Reason` field
-		// with CT information in TRACE_TO_{LXC,PROXY,HOST,STACK} events.
-		switch tn.ObsPoint {
-		case monitorAPI.TraceToLxc,
-			monitorAPI.TraceToProxy,
-			monitorAPI.TraceToHost,
-			monitorAPI.TraceToStack,
-			monitorAPI.TraceToNetwork:
-
+		// with CT information for some observation points
+		if monitorAPI.TraceObservationPointHasConnState(tn.ObsPoint) {
 			// true if the traffic source is the local endpoint, i.e. egress
 			isSourceEP := tn.Source == uint16(srcEP)
 			// true if the packet is a reply, i.e. reverse direction
