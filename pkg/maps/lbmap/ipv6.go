@@ -94,7 +94,7 @@ func NewRevNat6Key(value uint16) *RevNat6Key {
 func (v *RevNat6Key) Map() *bpf.Map             { return RevNat6Map }
 func (v *RevNat6Key) NewValue() bpf.MapValue    { return &RevNat6Value{} }
 func (v *RevNat6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(v) }
-func (v *RevNat6Key) String() string            { return fmt.Sprintf("%d", v.Key) }
+func (v *RevNat6Key) String() string            { return fmt.Sprintf("%d", v.ToHost().(*RevNat6Key).Key) }
 func (v *RevNat6Key) GetKey() uint16            { return v.Key }
 
 // ToNetwork converts RevNat6Key to network byte order.
@@ -102,6 +102,13 @@ func (v *RevNat6Key) ToNetwork() RevNatKey {
 	n := *v
 	n.Key = byteorder.HostToNetwork(n.Key).(uint16)
 	return &n
+}
+
+// ToNetwork converts RevNat6Key to host byte order.
+func (v *RevNat6Key) ToHost() RevNatKey {
+	h := *v
+	h.Key = byteorder.NetworkToHost(h.Key).(uint16)
+	return &h
 }
 
 // +k8s:deepcopy-gen=true
@@ -122,13 +129,23 @@ func NewRevNat6Value(ip net.IP, port uint16) *RevNat6Value {
 }
 
 func (v *RevNat6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
-func (v *RevNat6Value) String() string              { return fmt.Sprintf("%s:%d", v.Address, v.Port) }
+func (v *RevNat6Value) String() string {
+	vHost := v.ToHost().(*RevNat6Value)
+	return net.JoinHostPort(vHost.Address.String(), fmt.Sprintf("%d", vHost.Port))
+}
 
 // ToNetwork converts RevNat6Value to network byte order.
 func (v *RevNat6Value) ToNetwork() RevNatValue {
 	n := *v
 	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
 	return &n
+}
+
+// ToNetwork converts RevNat6Value to Host byte order.
+func (v *RevNat6Value) ToHost() RevNatValue {
+	h := *v
+	h.Port = byteorder.NetworkToHost(h.Port).(uint16)
+	return &h
 }
 
 // Service6Key must match 'struct lb6_key_v2' in "bpf/lib/common.h".
@@ -181,6 +198,13 @@ func (k *Service6Key) ToNetwork() ServiceKey {
 	return &n
 }
 
+// ToHost converts Service6Key to host byte order.
+func (k *Service6Key) ToHost() ServiceKey {
+	h := *k
+	h.Port = byteorder.NetworkToHost(h.Port).(uint16)
+	return &h
+}
+
 // Service6Value must match 'struct lb6_service_v2' in "bpf/lib/common.h".
 // +k8s:deepcopy-gen=true
 // +k8s:deepcopy-gen:interfaces=github.com/cilium/cilium/pkg/bpf.MapValue
@@ -203,7 +227,8 @@ func NewService6Value(count uint16, backendID loadbalancer.BackendID, revNat uin
 }
 
 func (s *Service6Value) String() string {
-	return fmt.Sprintf("%d (%d) [FLAGS: 0x%x]", s.BackendID, s.RevNat, s.Flags)
+	sHost := s.ToHost().(*Service6Value)
+	return fmt.Sprintf("%d (%d) [FLAGS: 0x%x]", sHost.BackendID, sHost.RevNat, sHost.Flags)
 }
 
 func (s *Service6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
@@ -227,6 +252,13 @@ func (s *Service6Value) ToNetwork() ServiceValue {
 	n := *s
 	n.RevNat = byteorder.HostToNetwork(n.RevNat).(uint16)
 	return &n
+}
+
+// ToHost converts Service6Value to host byte order.
+func (s *Service6Value) ToHost() ServiceValue {
+	h := *s
+	h.RevNat = byteorder.NetworkToHost(h.RevNat).(uint16)
+	return &h
 }
 
 // +k8s:deepcopy-gen=true
@@ -272,7 +304,8 @@ func NewBackend6Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend6V
 }
 
 func (v *Backend6Value) String() string {
-	return fmt.Sprintf("%s://[%s]:%d", v.Proto, v.Address, v.Port)
+	vHost := v.ToHost().(*Backend6Value)
+	return fmt.Sprintf("%s://[%s]:%d", vHost.Proto, vHost.Address, vHost.Port)
 }
 
 func (v *Backend6Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
@@ -284,6 +317,13 @@ func (v *Backend6Value) ToNetwork() BackendValue {
 	n := *v
 	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
 	return &n
+}
+
+// ToHost converts Backend6Value to host byte order.
+func (v *Backend6Value) ToHost() BackendValue {
+	h := *v
+	h.Port = byteorder.NetworkToHost(h.Port).(uint16)
+	return &h
 }
 
 type Backend6 struct {
