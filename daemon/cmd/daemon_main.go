@@ -347,6 +347,9 @@ func init() {
 	flags.Bool(option.EnableAutoDirectRoutingName, defaults.EnableAutoDirectRouting, "Enable automatic L2 routing between nodes")
 	option.BindEnv(option.EnableAutoDirectRoutingName)
 
+	flags.Bool(option.EnableDNSVisibility, false, "Enable DNS visibility for endpoints by default, without needing to annotate a pod, in the case of K8s")
+	option.BindEnv(option.EnableDNSVisibility)
+
 	flags.Bool(option.EnableBPFTProxy, defaults.EnableBPFTProxy, "Enable BPF-based proxy redirection, if support available")
 	option.BindEnv(option.EnableBPFTProxy)
 

@@ -608,6 +608,9 @@ const (
 	// EnableAutoDirectRoutingName is the name for the EnableAutoDirectRouting option
 	EnableAutoDirectRoutingName = "auto-direct-node-routes"
 
+	// EnableDNSVisibility is the name for the EnableDNSVisibility option
+	EnableDNSVisibility = "enable-dns-visibility"
+
 	// EnableIPSecName is the name of the option to enable IPSec
 	EnableIPSecName = "enable-ipsec"
 
@@ -1660,6 +1663,11 @@ type DaemonConfig struct {
 	// other nodes when available
 	EnableAutoDirectRouting bool
 
+	// EnableDNSVisibility specifies whether to enable DNS visibility for
+	// endpoints by default, without needing to annotate a pod, in the case of
+	// K8s.
+	EnableDNSVisibility bool
+
 	// EnableLocalNodeRoute controls installation of the route which points
 	// the allocation prefix of the local node.
 	EnableLocalNodeRoute bool
@@ -2401,6 +2409,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableBPFTProxy = viper.GetBool(EnableBPFTProxy)
 	c.EnableXTSocketFallback = viper.GetBool(EnableXTSocketFallbackName)
 	c.EnableAutoDirectRouting = viper.GetBool(EnableAutoDirectRoutingName)
+	c.EnableDNSVisibility = viper.GetBool(EnableDNSVisibility)
 	c.EnableEndpointRoutes = viper.GetBool(EnableEndpointRoutes)
 	c.EnableHealthChecking = viper.GetBool(EnableHealthChecking)
 	c.EnableEndpointHealthChecking = viper.GetBool(EnableEndpointHealthChecking)
