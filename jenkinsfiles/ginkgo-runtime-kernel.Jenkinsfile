@@ -124,7 +124,7 @@ pipeline {
                     timeout(time: 30, unit: 'MINUTES'){
                         dir("${TESTDIR}") {
                             sh 'vagrant destroy runtime --force'
-                            sh 'KERNEL=$(python get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=version | sed "s/^$/${DEFAULT_KERNEL}/") vagrant up runtime --provision'
+                            sh 'KERNEL=$(python get-gh-comment-info.py "${ghprbCommentBody}" --retrieve=kernel_version | sed "s/^$/${DEFAULT_KERNEL}/") vagrant up runtime --provision'
                         }
                     }
                 }
