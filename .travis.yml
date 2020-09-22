@@ -12,6 +12,23 @@ jobs:
     - arch: arm64-graviton2
       virt: vm
       group: edge
+    - arch: amd64
+      name: "amd64-race"
+      env:
+        - RACE=1
+        - BASE_IMAGE=quay.io/cilium/cilium-runtime:2020-09-10@sha256:fa45d7a600a9b4baeee64f9c017898fe0eba5425ffac2ba5b3bafacc319544fa
+        - LOCKDEBUG=1
+    - arch: arm64-graviton2
+      name: "arm64-graviton2-race"
+      env:
+        - RACE=1
+        - BASE_IMAGE=quay.io/cilium/cilium-runtime:2020-09-10@sha256:fa45d7a600a9b4baeee64f9c017898fe0eba5425ffac2ba5b3bafacc319544fa
+        - LOCKDEBUG=1
+      virt: vm
+      group: edge
+  allow_failures:
+    - name: "amd64-race"
+    - name: "arm64-graviton2-race"
 
 if: branch = master OR type = pull_request
 
