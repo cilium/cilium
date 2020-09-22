@@ -170,6 +170,22 @@ func TraceObservationPoint(obsPoint uint8) string {
 	return fmt.Sprintf("%d", obsPoint)
 }
 
+// TraceObservationPointHasConnState returns true if the observation point
+// obsPoint populates the TraceNotify.Reason field with connection tracking
+// information.
+func TraceObservationPointHasConnState(obsPoint uint8) bool {
+	switch obsPoint {
+	case TraceToLxc,
+		TraceToProxy,
+		TraceToHost,
+		TraceToStack,
+		TraceToNetwork:
+		return true
+	default:
+		return false
+	}
+}
+
 // AgentNotify is a notification from the agent
 type AgentNotify struct {
 	Type AgentNotification
