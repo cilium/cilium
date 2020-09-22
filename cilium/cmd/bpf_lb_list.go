@@ -66,7 +66,7 @@ func dumpSVC(serviceList map[string][]string) {
 
 		svcKey := key.(lbmap.ServiceKey)
 		svcVal := value.(lbmap.ServiceValue)
-		svc := svcKey.String()
+		svc := svcKey.ToNetwork().String()
 		revNATID := svcVal.GetRevNat()
 		backendID := svcVal.GetBackendID()
 		flags := loadbalancer.ServiceFlags(svcVal.GetFlags())
