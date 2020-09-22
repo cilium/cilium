@@ -20,7 +20,6 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/policy/api"
-	"github.com/miekg/dns"
 )
 
 // Config is a simple configuration structure to set how pkg/fqdn subcomponents
@@ -29,16 +28,9 @@ type Config struct {
 	// MinTTL is the time used by the poller to cache information.
 	MinTTL int
 
-	// OverLimit is the number of max entries that a host can have in the DNS cache.
-	OverLimit int
-
 	// Cache is where the poller stores DNS data used to generate rules.
 	// When set to nil, it uses fqdn.DefaultDNSCache, a global cache instance.
 	Cache *DNSCache
-
-	// DNSConfig includes the Resolver IPs, port, timeout and retry count. It is
-	// expected to be  generated from /etc/resolv.conf.
-	DNSConfig *dns.ClientConfig
 
 	// UpdateSelectors is a callback to update the mapping of FQDNSelector to
 	// sets of IPs.
