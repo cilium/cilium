@@ -137,7 +137,6 @@ func (d *Daemon) updateSelectorCacheFQDNs(ctx context.Context, selectors map[pol
 func (d *Daemon) bootstrapFQDN(possibleEndpoints map[uint16]*endpoint.Endpoint, preCachePath string) (err error) {
 	cfg := fqdn.Config{
 		MinTTL:          option.Config.ToFQDNsMinTTL,
-		OverLimit:       option.Config.ToFQDNsMaxIPsPerHost,
 		Cache:           fqdn.NewDNSCache(option.Config.ToFQDNsMinTTL),
 		UpdateSelectors: d.updateSelectors,
 	}
