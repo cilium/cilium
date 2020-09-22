@@ -29,6 +29,12 @@ var (
 	annotationRegex       = regexp.MustCompile(fmt.Sprintf(`^((%s)(,(%s))*)$`, singleAnnotationRegex, singleAnnotationRegex))
 )
 
+const (
+	// DefaultDNSVisibility is the default annotation value for a DNS
+	// visibility policy.
+	DefaultDNSVisibility = "<Egress/53/UDP/DNS>"
+)
+
 func validateL7ProtocolWithDirection(dir string, proto L7ParserType) error {
 	switch proto {
 	case ParserTypeHTTP:
