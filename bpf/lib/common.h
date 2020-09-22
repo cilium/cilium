@@ -459,7 +459,7 @@ enum {
 #define DSR_IPV6_EXT_LEN	0x2	/* = (sizeof(dsr_opt_v6) - 8) / 8 */
 
 /* We cap key index at 3 bits because mark value is used to map ctx to key */
-#define MAX_KEY_INDEX 7
+#define MAX_KEY_INDEX 15
 
 /* encrypt_key is the index into the encrypt map */
 struct encrypt_key {
@@ -476,7 +476,7 @@ struct encrypt_config {
  */
 static __always_inline __u32 or_encrypt_key(__u8 key)
 {
-	return (((__u32)key & 0x07) << 13) | MARK_MAGIC_ENCRYPT;
+	return (((__u32)key & 0x0F) << 12) | MARK_MAGIC_ENCRYPT;
 }
 
 /*
