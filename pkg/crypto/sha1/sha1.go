@@ -22,7 +22,7 @@ import (
 	"hash"
 )
 
-// ResumableHash is the intefrace for a hash that can be stored and copied.
+// ResumableHash is the interface for a hash that can be stored and copied.
 //
 // Unlike hash implementations in the standard library, it does not implement
 // the encoding.BinaryMarshaler and encoding.BinaryUnmarshaler interfaces;
