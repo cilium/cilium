@@ -63,3 +63,7 @@
 # Set the connection-tracking garbage collection interval. If not set, the value will be
 # calculated automatically on startup of cilium-agent. A low value will consume more CPU cycles.
 #conntrackGCInterval: "0s"
+
+# Whether to enable DNS visibility by default for all pods, without needing a
+# pod annotation.
+#enableDNSVisibility: false

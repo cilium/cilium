@@ -643,3 +643,7 @@ data:
   # Configure service proxy name for Cilium.
   k8s-service-proxy-name: {{ .Values.global.k8s.serviceProxyName | quote }}
 {{- end }}
+
+{{- if hasKey .Values "enableDNSVisibility" }}
+  enable-dns-visibility: {{ .Values.enableDNSVisibility | quote }}
+{{- end }}
