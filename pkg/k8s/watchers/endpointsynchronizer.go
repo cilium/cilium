@@ -291,6 +291,9 @@ func (epSync *EndpointSynchronizer) RunK8sCiliumEndpointSync(e *endpoint.Endpoin
 					return nil
 				}
 			},
+			StopFunc: func(ctx context.Context) error {
+				return deleteCEP(ctx, scopedLog, ciliumClient, e)
+			},
 		})
 }
 
