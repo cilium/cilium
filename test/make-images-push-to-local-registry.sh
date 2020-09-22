@@ -2,7 +2,15 @@
 
 set -e
 
-cd ..
+script_dir="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
+
+# shellcheck source=gke/locking.sh
+source "${script_dir}/gke/locking.sh"
+
+pushd "${script_dir}/.."
+lock
+trap unlock EXIT
+
 DOCKER_BUILDKIT=1 make docker-images-all DOCKER_IMAGE_TAG="$2" DOCKER_FLAGS="$3"
 
 docker tag "cilium/cilium:$2" "$1/cilium/cilium:$2"
