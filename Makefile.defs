@@ -154,4 +154,6 @@ GO_CLEAN = $(GO) clean $(GO_CLEAN_FLAGS)
 GO_VET = GO111MODULE=off $(GO) vet
 GO_LIST = GO111MODULE=off $(GO) list
 
-BASE_IMAGE?=scratch
+ifeq ($(BASE_IMAGE),)
+    BASE_IMAGE=scratch
+endif
