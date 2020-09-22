@@ -61,6 +61,9 @@ type ServiceKey interface {
 
 	// ToNetwork converts fields to network byte order.
 	ToNetwork() ServiceKey
+
+	// ToHost converts fields to host byte order.
+	ToHost() ServiceKey
 }
 
 // ServiceValue is the interface describing protocol independent value for services map v2.
@@ -99,6 +102,9 @@ type ServiceValue interface {
 
 	// Convert fields to network byte order.
 	ToNetwork() ServiceValue
+
+	// ToHost converts fields to host byte order.
+	ToHost() ServiceValue
 }
 
 // BackendKey is the interface describing protocol independent backend key.
@@ -127,6 +133,9 @@ type BackendValue interface {
 
 	// Convert fields to network byte order.
 	ToNetwork() BackendValue
+
+	// ToHost converts fields to host byte order.
+	ToHost() BackendValue
 }
 
 // Backend is the interface describing protocol independent backend used by services v2.
@@ -152,6 +161,9 @@ type RevNatKey interface {
 
 	// Returns the key value
 	GetKey() uint16
+
+	// ToHost converts fields to host byte order.
+	ToHost() RevNatKey
 }
 
 type RevNatValue interface {
@@ -159,6 +171,9 @@ type RevNatValue interface {
 
 	// ToNetwork converts fields to network byte order.
 	ToNetwork() RevNatValue
+
+	// ToHost converts fields to host byte order.
+	ToHost() RevNatValue
 }
 
 // BackendIDByServiceIDSet is the type of a set for checking whether a backend
