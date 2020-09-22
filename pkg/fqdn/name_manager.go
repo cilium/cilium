@@ -45,10 +45,6 @@ type NameManager struct {
 	// It is read-only once set
 	config Config
 
-	// namesToPoll is the set of names that need to be polled. These do not
-	// include regexes, as those are not polled directly.
-	namesToPoll map[string]struct{}
-
 	// allSelectors contains all FQDNSelectors which are present in all policy. We
 	// use these selectors to map selectors --> IPs.
 	allSelectors map[api.FQDNSelector]*regexp.Regexp
@@ -64,11 +60,6 @@ func (n *NameManager) GetModel() *models.NameManager {
 	n.Mutex.Lock()
 	defer n.Mutex.Unlock()
 
-	namesToPoll := make([]string, 0, len(n.namesToPoll))
-	for name := range n.namesToPoll {
-		namesToPoll = append(namesToPoll, name)
-	}
-
 	allSelectors := make([]*models.SelectorEntry, 0, len(n.allSelectors))
 	for fqdnSel, regex := range n.allSelectors {
 		pair := &models.SelectorEntry{
@@ -79,7 +70,6 @@ func (n *NameManager) GetModel() *models.NameManager {
 	}
 
 	return &models.NameManager{
-		DNSPollNames:        namesToPoll,
 		FQDNPolicySelectors: allSelectors,
 	}
 }
@@ -118,11 +108,6 @@ func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector
 		return nil
 	}
 
-	// Update names to poll for DNS poller since we now care about this selector.
-	if len(selector.MatchName) > 0 {
-		n.namesToPoll[prepareMatchName(selector.MatchName)] = struct{}{}
-	}
-
 	n.allSelectors[selector] = regex
 	_, selectorIPMapping := mapSelectorsToIPs(map[api.FQDNSelector]struct{}{selector: {}}, n.cache)
 
@@ -151,9 +136,6 @@ func (n *NameManager) RegisterForIdentityUpdatesLocked(selector api.FQDNSelector
 // which correspond to said selector are propagated.
 func (n *NameManager) UnregisterForIdentityUpdatesLocked(selector api.FQDNSelector) {
 	delete(n.allSelectors, selector)
-	if len(selector.MatchName) > 0 {
-		delete(n.namesToPoll, prepareMatchName(selector.MatchName))
-	}
 }
 
 // NewNameManager creates an initialized NameManager.
@@ -172,7 +154,6 @@ func NewNameManager(config Config) *NameManager {
 
 	return &NameManager{
 		config:       config,
-		namesToPoll:  make(map[string]struct{}),
 		allSelectors: make(map[api.FQDNSelector]*regexp.Regexp),
 		cache:        config.Cache,
 	}
@@ -182,18 +163,6 @@ func NewNameManager(config Config) *NameManager {
 // GetDNSCache returns the DNSCache used by the NameManager
 func (n *NameManager) GetDNSCache() *DNSCache {
 	return n.cache
-}
-
-// GetDNSNames returns a snapshot of the DNS names managed by this NameManager
-func (n *NameManager) GetDNSNames() (dnsNames []string) {
-	n.Lock()
-	defer n.Unlock()
-
-	for name := range n.namesToPoll {
-		dnsNames = append(dnsNames, name)
-	}
-
-	return dnsNames
 }
 
 // UpdateGenerateDNS inserts the new DNS information into the cache. If the IPs
