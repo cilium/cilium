@@ -462,7 +462,7 @@ func CanRunK8sVersion(ciliumVersion, k8sVersionStr string) (bool, error) {
 // failIfContainsBadLogMsg makes a test case to fail if any message from
 // given log messages contains an entry from the blacklist (map key) AND
 // does not contain ignore messages (map value).
-func failIfContainsBadLogMsg(logs string, blacklist map[string][]string) {
+func failIfContainsBadLogMsg(logs, label string, blacklist map[string][]string) {
 	uniqueFailures := make(map[string]int)
 	for _, msg := range strings.Split(logs, "\n") {
 		for fail, ignoreMessages := range blacklist {
@@ -488,7 +488,7 @@ func failIfContainsBadLogMsg(logs string, blacklist map[string][]string) {
 			fmt.Fprintf(CheckLogs, "⚠️  Found %q in logs %d times\n", f, c)
 		}
 		failureMsgs := strings.Join(failures, "\n")
-		Fail(fmt.Sprintf("Found %d Cilium logs matching list of errors that must be investigated:\n%s", len(uniqueFailures), failureMsgs))
+		Fail(fmt.Sprintf("Found %d %s logs matching list of errors that must be investigated:\n%s", len(uniqueFailures), label, failureMsgs))
 	}
 }
 

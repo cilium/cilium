@@ -202,6 +202,14 @@ const (
 	// the test are saved.
 	CiliumTestLog = "cilium-test.log"
 
+	// HubbleRelayTestLog is the filename where the hubble relay logs that happens during
+	// the test are saved.
+	HubbleRelayTestLog = "hubble-relay-test.log"
+
+	// CiliumOperatorTestLog is the filename where the cilium operator logs that happens during
+	// the test are saved.
+	CiliumOperatorTestLog = "cilium-operator-test.log"
+
 	// FakeIPv4WorldAddress is an IP which is used in some datapath tests
 	// for simulating external IPv4 connectivity.
 	FakeIPv4WorldAddress = "192.168.254.254"
