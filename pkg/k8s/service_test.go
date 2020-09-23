@@ -590,6 +590,88 @@ func TestService_Equals(t *testing.T) {
 			want: false,
 		},
 		{
+			name: "session affinity was added",
+			fields: &Service{
+				FrontendIP: net.ParseIP("1.1.1.1"),
+				IsHeadless: false,
+				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+					loadbalancer.FEPortName("foo"): {
+						Protocol: loadbalancer.NONE,
+						Port:     1,
+					},
+				},
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Selector: map[string]string{
+					"baz": "foz",
+				},
+				SessionAffinity: false,
+			},
+			args: args{
+				o: &Service{
+					FrontendIP: net.ParseIP("1.1.1.1"),
+					IsHeadless: false,
+					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+						loadbalancer.FEPortName("foo"): {
+							Protocol: loadbalancer.NONE,
+							Port:     1,
+						},
+					},
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+					Selector: map[string]string{
+						"baz": "foz",
+					},
+					SessionAffinity: true,
+				},
+			},
+			want: false,
+		},
+		{
+			name: "session affinity timeout changed",
+			fields: &Service{
+				FrontendIP: net.ParseIP("1.1.1.1"),
+				IsHeadless: false,
+				Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+					loadbalancer.FEPortName("foo"): {
+						Protocol: loadbalancer.NONE,
+						Port:     1,
+					},
+				},
+				Labels: map[string]string{
+					"foo": "bar",
+				},
+				Selector: map[string]string{
+					"baz": "foz",
+				},
+				SessionAffinity:           true,
+				SessionAffinityTimeoutSec: 1,
+			},
+			args: args{
+				o: &Service{
+					FrontendIP: net.ParseIP("1.1.1.1"),
+					IsHeadless: false,
+					Ports: map[loadbalancer.FEPortName]*loadbalancer.L4Addr{
+						loadbalancer.FEPortName("foo"): {
+							Protocol: loadbalancer.NONE,
+							Port:     1,
+						},
+					},
+					Labels: map[string]string{
+						"foo": "bar",
+					},
+					Selector: map[string]string{
+						"baz": "foz",
+					},
+					SessionAffinity:           true,
+					SessionAffinityTimeoutSec: 2,
+				},
+			},
+			want: false,
+		},
+		{
 			name: "both nil",
 			args: args{},
 			want: true,
