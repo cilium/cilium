@@ -503,11 +503,7 @@ func createUpdateCRD(clientset apiextensionsclient.Interface, CRDName string, cr
 		return false, err
 	})
 	if err != nil {
-		deleteErr := clientset.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(context.TODO(), crd.ObjectMeta.Name, metav1.DeleteOptions{})
-		if deleteErr != nil {
-			return fmt.Errorf("unable to delete k8s %s CRD %s. Deleting CRD due: %s", CRDName, deleteErr, err)
-		}
-		return err
+		return fmt.Errorf("error occurred waiting for CRD: %w", err)
 	}
 
 	scopedLog.Info("CRD (CustomResourceDefinition) is installed and up-to-date")
