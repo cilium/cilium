@@ -56,8 +56,7 @@ var _ = Describe("K8sIdentity", func() {
 	})
 
 	JustAfterEach(func() {
-		blacklist := helpers.GetBadLogMessages()
-		kubectl.ValidateListOfErrorsInLogs(CurrentGinkgoTestDescription().Duration, blacklist)
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
 	Context("Identity expiration", func() {

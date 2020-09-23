@@ -3091,36 +3091,51 @@ func (kub *Kubectl) ValidateListOfErrorsInLogs(duration time.Duration, blacklist
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
 
-	var logs string
-	cmd := fmt.Sprintf("%s -n %s logs --tail=-1 --timestamps=true -l k8s-app=cilium --since=%vs",
-		KubectlCmd, CiliumNamespace, duration.Seconds())
-	res := kub.ExecContext(ctx, fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
-	if res.WasSuccessful() {
-		logs += res.Stdout()
+	apps := map[string]string{
+		"k8s-app=cilium":         CiliumTestLog,
+		"k8s-app=hubble-relay":   HubbleRelayTestLog,
+		"io.cilium/app=operator": CiliumOperatorTestLog,
 	}
-	res = kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
-	if res.WasSuccessful() {
-		logs += res.Stdout()
+
+	wg := sync.WaitGroup{}
+	wg.Add(len(apps))
+	for app, file := range apps {
+		go func(app, file string) {
+			var logs string
+			cmd := fmt.Sprintf("%s -n %s logs --tail=-1 --timestamps=true -l %s --since=%vs",
+				KubectlCmd, CiliumNamespace, app, duration.Seconds())
+			res := kub.ExecContext(ctx, fmt.Sprintf("%s --previous", cmd), ExecOptions{SkipLog: true})
+			if res.WasSuccessful() {
+				logs += res.Stdout()
+			}
+			res = kub.ExecContext(ctx, cmd, ExecOptions{SkipLog: true})
+			if res.WasSuccessful() {
+				logs += res.Stdout()
+			}
+			defer func() {
+				defer wg.Done()
+				// Keep the cilium logs for the given test in a separate file.
+				testPath, err := CreateReportDirectory()
+				if err != nil {
+					kub.Logger().WithError(err).Error("Cannot create report directory")
+					return
+				}
+				err = ioutil.WriteFile(
+					fmt.Sprintf("%s/%s", testPath, file),
+					[]byte(logs), LogPerm)
+
+				if err != nil {
+					kub.Logger().WithError(err).Errorf("Cannot create %s", CiliumTestLog)
+				}
+			}()
+
+			failIfContainsBadLogMsg(logs, app, blacklist)
+
+			fmt.Fprint(CheckLogs, logutils.LogErrorsSummary(logs))
+		}(app, file)
 	}
-	defer func() {
-		// Keep the cilium logs for the given test in a separate file.
-		testPath, err := CreateReportDirectory()
-		if err != nil {
-			kub.Logger().WithError(err).Error("Cannot create report directory")
-			return
-		}
-		err = ioutil.WriteFile(
-			fmt.Sprintf("%s/%s", testPath, CiliumTestLog),
-			[]byte(logs), LogPerm)
 
-		if err != nil {
-			kub.Logger().WithError(err).Errorf("Cannot create %s", CiliumTestLog)
-		}
-	}()
-
-	failIfContainsBadLogMsg(logs, blacklist)
-
-	fmt.Fprint(CheckLogs, logutils.LogErrorsSummary(logs))
+	wg.Wait()
 }
 
 // GatherCiliumCoreDumps copies core dumps if are present in the /tmp folder

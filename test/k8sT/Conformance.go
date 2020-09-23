@@ -70,8 +70,7 @@ var _ = Describe("K8sConformance", func() {
 	})
 
 	JustAfterEach(func() {
-		blacklist := helpers.GetBadLogMessages()
-		kubectl.ValidateListOfErrorsInLogs(CurrentGinkgoTestDescription().Duration, blacklist)
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 	})
 
 	Context("Portmap Chaining", func() {

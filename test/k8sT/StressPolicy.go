@@ -43,8 +43,7 @@ var _ = Describe("NightlyPolicyStress", func() {
 	})
 
 	JustAfterEach(func() {
-		blacklist := helpers.GetBadLogMessages()
-		kubectl.ValidateListOfErrorsInLogs(CurrentGinkgoTestDescription().Duration, blacklist)
+		kubectl.ValidateNoErrorsInLogs(CurrentGinkgoTestDescription().Duration)
 		backgroundCancel()
 	})
 
