@@ -322,7 +322,7 @@ Annotations:
 1.9 Upgrade Notes
 -----------------
 
-* Cilium has bumped the minimal kubernetes version supported to v1.12.0.
+* Cilium has bumped the minimal Kubernetes version supported to v1.12.0.
 * Connections between Hubble server and Hubble Relay instances is now secured
   via mutual TLS (mTLS) by default. Users who have opted to enable Hubble Relay
   in v1.8 (a beta feature) will experience disruptions of the Hubble Relay
@@ -332,6 +332,9 @@ Annotations:
 
   - ``global.hubble.tls.enabled=false``
   - ``global.hubble.tls.auto.enabled=false``
+* Cilium has upgraded its CRDs to v1, from v1beta1. Users must run the
+  pre-flight checker mentioned above. The pre-flight check will ensure the
+  custom resources installed inside the cluster are well-formed.
 
 Renamed Metrics
 ~~~~~~~~~~~~~~~
@@ -775,7 +778,7 @@ IMPORTANT: Changes required before upgrading to 1.7.x
    ``enable-remote-node-identity`` flag to avoid potential disruption
    to connectivity between host networking pods and Cilium-managed pods.
 
-* Cilium has bumped the minimal kubernetes version supported to v1.11.0.
+* Cilium has bumped the minimal Kubernetes version supported to v1.11.0.
 
 * The ``kubernetes.io/cluster-service`` label has been removed from the Cilium
   `DaemonSet` selector. Existing users must either choose to keep this label in
@@ -1332,10 +1335,10 @@ Upgrade the host Linux version to 4.11 or later. This step is beyond the scope
 of the Cilium guide.
 
 
-Migrating from kvstore-backed identities to kubernetes CRD-backed identities
+Migrating from kvstore-backed identities to Kubernetes CRD-backed identities
 ----------------------------------------------------------------------------
 
-Beginning with cilium 1.6, kubernetes CRD-backed security identities can be
+Beginning with cilium 1.6, Kubernetes CRD-backed security identities can be
 used for smaller clusters. Along with other changes in 1.6 this allows
 kvstore-free operation if desired. It is possible to migrate identities from an
 existing kvstore deployment to CRD-backed identities. This minimizes
@@ -1496,7 +1499,7 @@ the official schema.
         [...]
 
 To fix this policy we need to set the ``.spec.labels`` with the right format and
-commit these changes into kubernetes.
+commit these changes into Kubernetes.
 
 .. code-block:: shell-session
 
@@ -1524,7 +1527,7 @@ commit these changes into kubernetes.
       $ kubectl apply -f ./cnp-bad.yaml
 
 After applying the fixed policy we can delete the pod that was validating the
-policies so that kubernetes creates a new pod immediately to verify if the fixed
+policies so that Kubernetes creates a new pod immediately to verify if the fixed
 policies are now valid.
 
 .. code-block:: shell-session
