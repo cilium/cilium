@@ -112,13 +112,6 @@ func (s *crdTestSuite) TestGetCRD(c *C) {
 	err = waitForCRD(context.TODO(), client, "bar")
 	c.Assert(err, ErrorMatches, ".*timeout waiting for CRD bar.*")
 
-	err = client.ApiextensionsV1().CustomResourceDefinitions().Delete(
-		context.TODO(),
-		v1CRD.GetName(),
-		metav1.DeleteOptions{},
-	)
-	c.Assert(err, IsNil)
-
 	// v1beta1 CRDs
 
 	_, err = client.ApiextensionsV1beta1().CustomResourceDefinitions().Create(
@@ -139,11 +132,4 @@ func (s *crdTestSuite) TestGetCRD(c *C) {
 
 	err = waitForCRD(context.TODO(), client, "bar")
 	c.Assert(err, ErrorMatches, ".*timeout waiting for CRD bar.*")
-
-	err = client.ApiextensionsV1beta1().CustomResourceDefinitions().Delete(
-		context.TODO(),
-		v1beta1CRD.GetName(),
-		metav1.DeleteOptions{},
-	)
-	c.Assert(err, IsNil)
 }

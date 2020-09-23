@@ -441,17 +441,6 @@ func waitForV1CRD(
 		return false, err
 	})
 	if err != nil {
-		if deleteErr := client.CustomResourceDefinitions().Delete(
-			context.TODO(),
-			crd.ObjectMeta.Name,
-			metav1.DeleteOptions{},
-		); deleteErr != nil {
-			scopedLog.WithError(err).WithFields(logrus.Fields{
-				"deleteErr": deleteErr,
-			}).Error("Failed to delete CRD")
-			return fmt.Errorf("unable to delete CRD: %w", deleteErr)
-		}
-
 		return fmt.Errorf("error occurred waiting for CRD: %w", err)
 	}
 
