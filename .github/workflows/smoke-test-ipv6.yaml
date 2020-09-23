@@ -7,7 +7,7 @@ on:
       - master
 
 env:
-  KIND_VERSION: v0.8.1
+  KIND_VERSION: v0.9.0
   KIND_CONFIG: .github/kind-config-ipv6.yaml
   # Skip external traffic (e.g. 1.1.1.1 and www.google.com) due to no support for IPv6 in github action
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check-internal.yaml
@@ -43,7 +43,7 @@ jobs:
           make docker-operator-generic-image
 
       - name: Create kind cluster
-        uses: helm/kind-action@v1.0.0-rc.1
+        uses: helm/kind-action@v1.0.0
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
