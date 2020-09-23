@@ -89,8 +89,8 @@ func enableCiliumEndpointSyncGC() {
 							meta_v1.DeleteOptions{PropagationPolicy: &PropagationPolicy})
 						if !k8serrors.IsNotFound(err) {
 							scopedLog.WithError(err).Warning("Unable to delete orphaned CEP")
+							return err
 						}
-						return err
 					}
 				}
 				return nil
