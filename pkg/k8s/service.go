@@ -293,7 +293,8 @@ func (s *Service) DeepEquals(o *Service) bool {
 		s.HealthCheckNodePort == o.HealthCheckNodePort &&
 		s.FrontendIP.Equal(o.FrontendIP) &&
 		comparator.MapStringEquals(s.Labels, o.Labels) &&
-		comparator.MapStringEquals(s.Selector, o.Selector) {
+		comparator.MapStringEquals(s.Selector, o.Selector) &&
+		s.SessionAffinity == o.SessionAffinity {
 
 		if ((s.Ports == nil) != (o.Ports == nil)) ||
 			len(s.Ports) != len(o.Ports) {
@@ -364,6 +365,11 @@ func (s *Service) DeepEquals(o *Service) bool {
 				return false
 			}
 		}
+
+		if s.SessionAffinity && s.SessionAffinityTimeoutSec != o.SessionAffinityTimeoutSec {
+			return false
+		}
+
 		return true
 	}
 	return false
