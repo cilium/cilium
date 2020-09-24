@@ -199,6 +199,12 @@ func runOperator() {
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
 	}
 
+	// Register the CRDs after validating that we are running on a supported
+	// version of K8s.
+	if err := k8s.RegisterCRDs(); err != nil {
+		log.WithError(err).Fatal("Unable to register CRDs")
+	}
+
 	// We only support Operator in HA mode for Kubernetes Versions having support for
 	// LeasesResourceLock.
 	// See docs on capabilities.LeasesResourceLock for more context.
