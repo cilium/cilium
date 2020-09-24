@@ -123,6 +123,21 @@ func initEnv() {
 	option.Config.EnableK8sLeasesFallbackDiscovery()
 }
 
+func initK8s(k8sInitDone chan struct{}) {
+	k8s.Configure(
+		option.Config.K8sAPIServer,
+		option.Config.K8sKubeConfigPath,
+		float32(option.Config.K8sClientQPSLimit),
+		option.Config.K8sClientBurst,
+	)
+
+	if err := k8s.Init(option.Config); err != nil {
+		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
+	}
+
+	close(k8sInitDone)
+}
+
 func doCleanup(exitCode int) {
 	isLeader.Store(false)
 	gops.Close()
@@ -176,29 +191,9 @@ func runOperator() {
 		operatorMetrics.Register()
 	}
 
-	k8s.Configure(
-		option.Config.K8sAPIServer,
-		option.Config.K8sKubeConfigPath,
-		float32(option.Config.K8sClientQPSLimit),
-		option.Config.K8sClientBurst,
-	)
-	if err := k8s.Init(option.Config); err != nil {
-		log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
-	}
-	close(k8sInitDone)
+	initK8s(k8sInitDone)
 
-	// We try to update the Kubernetes version and capabilities. If this fails,
-	// we cannot move forward as we can misinterpret the available Capabilities.
-	// For example, in a case where we got an error when checking for Leases support
-	// we should not assume that support is not available and run the operator
-	// in non HA mode. As this can conflict with other operator instances running
-	// in the cluster, that figured the capabilities correctly and is running in HA
-	// mode.
-	if err := k8sversion.Update(k8s.Client(), option.Config); err != nil {
-		log.WithError(err).Fatal("Unable to update Kubernetes capabilities")
-	}
 	capabilities := k8sversion.Capabilities()
-
 	if !capabilities.MinimalVersionMet {
 		log.Fatalf("Minimal kubernetes version not met: %s < %s",
 			k8sversion.Version(), k8sversion.MinimalVersionConstraint)
