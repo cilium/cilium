@@ -8,7 +8,7 @@ set -o errexit
 set -o pipefail
 set -o nounset
 
-HELM_VERSION=3.3.0
+HELM_VERSION=3.3.4
 
 TARGETPLATFORM="${1}"
 
