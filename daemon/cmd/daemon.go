@@ -353,6 +353,8 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		d.redirectPolicyManager,
 	)
 
+	d.redirectPolicyManager.RegisterSvcCache(&d.k8sWatcher.K8sSvcCache)
+
 	bootstrapStats.daemonInit.End(true)
 
 	// Cleanup on exit if running in tandem with Flannel.

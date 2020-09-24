@@ -140,9 +140,9 @@ type svcManager interface {
 }
 
 type redirectPolicyManager interface {
-	AddRedirectPolicy(config redirectpolicy.LRPConfig, svcCache *k8s.ServiceCache, podStore cache.Store) (bool, error)
+	AddRedirectPolicy(config redirectpolicy.LRPConfig, podStore cache.Store) (bool, error)
 	DeleteRedirectPolicy(config redirectpolicy.LRPConfig) error
-	OnAddService(svcID k8s.ServiceID, svcCache *k8s.ServiceCache, podStore cache.Store)
+	OnAddService(svcID k8s.ServiceID, podStore cache.Store)
 	OnDeleteService(svcID k8s.ServiceID)
 	OnUpdatePod(pod *slim_corev1.Pod)
 	OnDeletePod(pod *slim_corev1.Pod)

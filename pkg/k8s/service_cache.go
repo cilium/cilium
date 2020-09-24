@@ -198,6 +198,26 @@ func (s *ServiceCache) UpdateService(k8sSvc *slim_corev1.Service, swg *lock.Stop
 	return svcID
 }
 
+func (s *ServiceCache) EnsureService(svcID ServiceID, swg *lock.StoppableWaitGroup) bool {
+	s.mutex.RLock()
+	defer s.mutex.RUnlock()
+	if svc, found := s.services[svcID]; found {
+		if endpoints, serviceReady := s.correlateEndpoints(svcID); serviceReady {
+			swg.Add()
+			s.Events <- ServiceEvent{
+				Action:     UpdateService,
+				ID:         svcID,
+				Service:    svc,
+				OldService: svc,
+				Endpoints:  endpoints,
+				SWG:        swg,
+			}
+			return true
+		}
+	}
+	return false
+}
+
 // DeleteService parses a Kubernetes service and removes it from the
 // ServiceCache
 func (s *ServiceCache) DeleteService(k8sSvc *slim_corev1.Service, swg *lock.StoppableWaitGroup) {
