@@ -211,7 +211,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q did not become ready in time", chartVersion)
 		err = kubectl.WaitForCiliumInitContainerToFinish()
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be clean up environment", chartVersion)
-		cmd := kubectl.ExecMiddle("helm delete cilium --namespace=" + helpers.CiliumNamespace)
+		cmd := kubectl.ExecMiddle("helm delete cilium --debug --namespace=" + helpers.CiliumNamespace)
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Cilium %q was not able to be deleted", chartVersion)
 		ExpectAllPodsTerminated(kubectl)
 	}
