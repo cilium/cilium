@@ -23,6 +23,9 @@ import (
 
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	"github.com/cilium/cilium/pkg/hubble/relay/observer"
+	"github.com/cilium/cilium/pkg/logging"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc/credentials"
 )
 
@@ -43,11 +46,11 @@ type options struct {
 	dialTimeout       time.Duration
 	retryTimeout      time.Duration
 	listenAddress     string
+	log               logrus.FieldLogger
 	serverCredentials credentials.TransportCredentials
 	insecureServer    bool
 	clientTLSConfig   *tls.Config
 	insecureClient    bool
-	debug             bool
 	observerOptions   []observer.Option
 }
 
@@ -57,6 +60,7 @@ var defaultOptions = options{
 	dialTimeout:   defaults.DialTimeout,
 	retryTimeout:  defaults.RetryTimeout,
 	listenAddress: defaults.ListenAddress,
+	log:           logging.DefaultLogger.WithField(logfields.LogSubsys, "hubble-relay"),
 }
 
 // Option customizes the configuration of the hubble-relay server.
@@ -100,14 +104,6 @@ func WithListenAddress(a string) Option {
 	}
 }
 
-// WithDebug enables debug mode.
-func WithDebug() Option {
-	return func(o *options) error {
-		o.debug = true
-		return nil
-	}
-}
-
 // WithSortBufferMaxLen sets the maximum number of flows that can be buffered
 // for sorting before being sent to the client. The provided value must be
 // greater than 0 and is to be understood per client request. Therefore, it is
@@ -141,6 +137,14 @@ func WithSortBufferDrainTimeout(d time.Duration) Option {
 func WithErrorAggregationWindow(d time.Duration) Option {
 	return func(o *options) error {
 		o.observerOptions = append(o.observerOptions, observer.WithErrorAggregationWindow(d))
+		return nil
+	}
+}
+
+// WithLogger set the logger used by hubble-relay.
+func WithLogger(log logrus.FieldLogger) Option {
+	return func(o *options) error {
+		o.log = log
 		return nil
 	}
 }
