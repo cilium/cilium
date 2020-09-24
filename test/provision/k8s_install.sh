@@ -20,9 +20,11 @@ CNI_INTEGRATION=$6
 
 # Kubeadm default parameters
 export KUBEADM_ADDR='192.168.36.11'
-export KUBEADM_POD_NETWORK='10.10.0.0'
-export KUBEADM_POD_CIDR='16'
+export KUBEADM_POD_CIDR='10.10.0.0/16'
+export KUBEADM_V1BETA2_POD_CIDR='10.10.0.0/16,fd02::/112'
 export KUBEADM_SVC_CIDR='10.96.0.0/12'
+export KUBEADM_V1BETA2_SVC_CIDR='10.96.0.0/12,fd03::/112'
+export IPV6_DUAL_STACK_FEATURE_GATE='true'
 export KUBEADM_CRI_SOCKET="/var/run/dockershim.sock"
 export KUBEADM_SLAVE_OPTIONS=""
 export KUBEADM_OPTIONS=""
@@ -37,7 +39,8 @@ if [ ! -f "${COREDNS_DEPLOYMENT}" ]; then
 fi
 
 if [ "${CNI_INTEGRATION}" == "flannel" ]; then
-    export KUBEADM_POD_NETWORK="10.244.0.0"
+    export KUBEADM_POD_CIDR="10.244.0.0/16"
+    export KUBEADM_V1BETA2_POD_CIDR="10.244.0.0/16,fd02::/112"
 fi
 
 source ${PROVISIONSRC}/helpers.bash
@@ -106,7 +109,7 @@ criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
 kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
 token: "{{ .TOKEN }}"
 networking:
-  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+  podSubnet: "{{ .KUBEADM_POD_CIDR }}"
 controlPlaneEndpoint: "k8s1:6443"
 EOF
 )
@@ -126,7 +129,7 @@ bootstrapTokens:
 kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
 networking:
   dnsDomain: cluster.local
-  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+  podSubnet: "{{ .KUBEADM_POD_CIDR }}"
   serviceSubnet: "{{ .KUBEADM_SVC_CIDR }}"
 nodeRegistration:
   criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
@@ -156,7 +159,7 @@ kind: ClusterConfiguration
 kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
 networking:
   dnsDomain: cluster.local
-  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+  podSubnet: "{{ .KUBEADM_POD_CIDR }}"
   serviceSubnet: "{{ .KUBEADM_SVC_CIDR }}"
 controlPlaneEndpoint: "k8s1:6443"
 controllerManager:
@@ -168,6 +171,8 @@ apiServer:
 EOF
 )
 
+# V1BETA2 configuration is enabled with DualStack feature gate by default.
+# IPv6 only clusters can still be opted by setting IPv6 variable to 1.
 KUBEADM_CONFIG_V1BETA2=$(cat <<-EOF
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: InitConfiguration
@@ -188,17 +193,19 @@ nodeRegistration:
 apiVersion: kubeadm.k8s.io/v1beta2
 kind: ClusterConfiguration
 kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
+featureGates:
+  IPv6DualStack: {{ .IPV6_DUAL_STACK_FEATURE_GATE }}
 networking:
   dnsDomain: cluster.local
-  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
-  serviceSubnet: "{{ .KUBEADM_SVC_CIDR }}"
+  podSubnet: "{{ .KUBEADM_V1BETA2_POD_CIDR }}"
+  serviceSubnet: "{{ .KUBEADM_V1BETA2_SVC_CIDR }}"
 controlPlaneEndpoint: "k8s1:6443"
 controllerManager:
   extraArgs:
-    "feature-gates": "{{ .CONTROLLER_FEATURE_GATES }}"
+    "feature-gates": "{{ .CONTROLLER_FEATURE_GATES }},IPv6DualStack={{ .IPV6_DUAL_STACK_FEATURE_GATE }}"
 apiServer:
   extraArgs:
-    "feature-gates": "{{ .API_SERVER_FEATURE_GATES }}"
+    "feature-gates": "{{ .API_SERVER_FEATURE_GATES }},IPv6DualStack={{ .IPV6_DUAL_STACK_FEATURE_GATE }}"
 EOF
 )
 
@@ -360,9 +367,11 @@ esac
 
 if [ "${IPv6}" -eq "1" ]; then
     KUBEADM_ADDR='[fd04::11]'
-    KUBEADM_POD_NETWORK="fd02::"
-    KUBEADM_POD_CIDR="112"
+    KUBEADM_POD_CIDR="fd02::/112"
     KUBEADM_SVC_CIDR="fd03::/112"
+    KUBEADM_V1BETA2_POD_CIDR="fd02::/112"
+    KUBEADM_V1BETA2_SVC_CIDR="fd03::/112"
+    IPV6_DUAL_STACK_FEATURE_GATE='false'
 fi
 
 sudo mkdir -p ${CILIUM_CONFIG_DIR}
