@@ -15,14 +15,11 @@
 package serve
 
 import (
-	"crypto/tls"
-	"crypto/x509"
-	"errors"
 	"fmt"
-	"io/ioutil"
 	"os"
 	"os/signal"
 
+	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	"github.com/cilium/cilium/pkg/hubble/relay/server"
 	"github.com/cilium/cilium/pkg/logging"
@@ -147,17 +144,40 @@ func runServe(vp *viper.Viper) error {
 		server.WithSortBufferDrainTimeout(vp.GetDuration(keySortBufferDrainTimeout)),
 		server.WithLogger(logger),
 	}
-	clientTLSOption, err := buildClientTLSOption(vp)
-	if err != nil {
-		return err
-	}
-	opts = append(opts, clientTLSOption)
 
-	serverTLSOption, err := buildServerTLSOption(vp)
-	if err != nil {
-		return err
+	// Relay to Hubble TLS/mTLS setup.
+	var tlsClientConfig *certloader.WatchedClientConfig
+	if vp.GetBool(keyTLSClientDisabled) {
+		opts = append(opts, server.WithInsecureClient())
+	} else {
+		tlsClientConfig, err := certloader.NewWatchedClientConfig(
+			logger.WithField("config", "tls-to-hubble"),
+			vp.GetStringSlice(keyTLSHubbleServerCAFiles),
+			vp.GetString(keyTLSClientCertFile),
+			vp.GetString(keyTLSClientKeyFile),
+		)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, server.WithClientTLS(tlsClientConfig))
 	}
-	opts = append(opts, serverTLSOption)
+
+	// Clients to Relay TLS setup.
+	var tlsServerConfig *certloader.WatchedServerConfig
+	if vp.GetBool(keyTLSServerDisabled) {
+		opts = append(opts, server.WithInsecureServer())
+	} else {
+		tlsServerConfig, err := certloader.NewWatchedServerConfig(
+			logger.WithField("config", "tls-server"),
+			nil, // no caFiles, mTLS is not supported for Relay clients yet.
+			vp.GetString(keyTLSServerCertFile),
+			vp.GetString(keyTLSServerKeyFile),
+		)
+		if err != nil {
+			return err
+		}
+		opts = append(opts, server.WithServerTLS(tlsServerConfig))
+	}
 
 	if vp.GetBool(keyPprof) {
 		pprof.Enable()
@@ -177,77 +197,15 @@ func runServe(vp *viper.Viper) error {
 		signal.Notify(sigs, unix.SIGINT, unix.SIGTERM)
 		<-sigs
 		srv.Stop()
+		if tlsServerConfig != nil {
+			tlsServerConfig.Stop()
+		}
+		if tlsClientConfig != nil {
+			tlsClientConfig.Stop()
+		}
 		if gopsEnabled {
 			agent.Close()
 		}
 	}()
 	return srv.Serve()
-}
-
-func buildClientTLSOption(vp *viper.Viper) (server.Option, error) {
-	if vp.GetBool(keyTLSClientDisabled) {
-		return server.WithInsecureClient(), nil
-	}
-
-	var tlsHubbleServerCAs *x509.CertPool
-	tlsHubbleServerCAPaths := vp.GetStringSlice(keyTLSHubbleServerCAFiles)
-	switch {
-	case len(tlsHubbleServerCAPaths) > 0:
-		tlsHubbleServerCAs = x509.NewCertPool()
-		for _, path := range tlsHubbleServerCAPaths {
-			certPEM, err := ioutil.ReadFile(path)
-			if err != nil {
-				return nil, fmt.Errorf("cannot load cert '%s': %s", path, err)
-			}
-			if ok := tlsHubbleServerCAs.AppendCertsFromPEM(certPEM); !ok {
-				return nil, fmt.Errorf("cannot process cert '%s': must be a PEM encoded certificate", path)
-			}
-		}
-	default:
-		var err error
-		tlsHubbleServerCAs, err = x509.SystemCertPool()
-		if err != nil {
-			return nil, err
-		}
-	}
-
-	tlsClientCertPath := vp.GetString(keyTLSClientCertFile)
-	tlsClientKeyPath := vp.GetString(keyTLSClientKeyFile)
-	switch {
-	case tlsClientCertPath != "" && tlsClientKeyPath != "": // mTLS
-		cert, err := tls.LoadX509KeyPair(tlsClientCertPath, tlsClientKeyPath)
-		if err != nil {
-			return nil, err
-		}
-		return server.WithClientMTLSFromCert(tlsHubbleServerCAs, cert), nil
-	case tlsClientCertPath == "" && tlsClientKeyPath == "": // TLS
-		return server.WithClientTLSFromCert(tlsHubbleServerCAs), nil
-	default: // invalid parameters
-		return nil, fmt.Errorf(
-			"both or none of '%s' and '%s' must be provided; have %s=%s, %s=%s",
-			keyTLSClientCertFile, keyTLSClientKeyFile,
-			keyTLSClientCertFile, tlsClientCertPath,
-			keyTLSClientKeyFile, tlsClientKeyPath,
-		)
-	}
-}
-
-func buildServerTLSOption(vp *viper.Viper) (server.Option, error) {
-	if vp.GetBool(keyTLSServerDisabled) {
-		return server.WithInsecureServer(), nil
-	}
-
-	tlsServerCertPath := vp.GetString(keyTLSServerCertFile)
-	if tlsServerCertPath == "" {
-		return nil, errors.New("no TLS certificate provided for the server")
-	}
-	tlsServerKeyPath := vp.GetString(keyTLSServerKeyFile)
-	if tlsServerKeyPath == "" {
-		return nil, errors.New("no TLS key provided for the server")
-	}
-	cert, err := tls.LoadX509KeyPair(tlsServerCertPath, tlsServerKeyPath)
-	if err != nil {
-		return nil, err
-	}
-	return server.WithTLSFromCert(cert), nil
 }

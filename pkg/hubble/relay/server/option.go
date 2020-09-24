@@ -16,42 +16,34 @@ package server
 
 import (
 	"crypto/tls"
-	"crypto/x509"
-	"errors"
 	"strings"
 	"time"
 
+	"github.com/cilium/cilium/pkg/crypto/certloader"
 	"github.com/cilium/cilium/pkg/hubble/relay/defaults"
 	"github.com/cilium/cilium/pkg/hubble/relay/observer"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+
 	"github.com/sirupsen/logrus"
-	"google.golang.org/grpc/credentials"
 )
 
-const (
-	// ClientTLSMinVersion defines the minimum TLS version that is acceptable
-	// when establishing a connection to a peer. It is not used by
-	// WithClientTLS().
-	ClientTLSMinVersion = tls.VersionTLS13
-
-	// ServerTLSMinVersion defines the minimum TLS version that is acceptable
-	// for the server. It is not used by WithTLS().
-	ServerTLSMinVersion = tls.VersionTLS13
-)
+// MinTLSVersion defines the minimum TLS version clients are expected to
+// support in order to establish a connection to the hubble-relay server.
+const MinTLSVersion = tls.VersionTLS13
 
 // options stores all the configuration values for the hubble-relay server.
 type options struct {
-	hubbleTarget      string
-	dialTimeout       time.Duration
-	retryTimeout      time.Duration
-	listenAddress     string
-	log               logrus.FieldLogger
-	serverCredentials credentials.TransportCredentials
-	insecureServer    bool
-	clientTLSConfig   *tls.Config
-	insecureClient    bool
-	observerOptions   []observer.Option
+	hubbleTarget    string
+	dialTimeout     time.Duration
+	retryTimeout    time.Duration
+	listenAddress   string
+	log             logrus.FieldLogger
+	serverTLSConfig certloader.ServerConfigBuilder
+	insecureServer  bool
+	clientTLSConfig certloader.ClientConfigBuilder
+	insecureClient  bool
+	observerOptions []observer.Option
 }
 
 // defaultOptions is the reference point for default values.
@@ -149,6 +141,14 @@ func WithLogger(log logrus.FieldLogger) Option {
 	}
 }
 
+// WithServerTLS sets the transport credentials for the server based on TLS.
+func WithServerTLS(cfg certloader.ServerConfigBuilder) Option {
+	return func(o *options) error {
+		o.serverTLSConfig = cfg
+		return nil
+	}
+}
+
 // WithInsecureServer disables transport security. Transport security is
 // required for the server unless WithInsecureServer is set (not recommended).
 func WithInsecureServer() Option {
@@ -158,63 +158,13 @@ func WithInsecureServer() Option {
 	}
 }
 
-// WithTLS sets the transport credentials for the server based on TLS.
-func WithTLS(c *tls.Config) Option {
-	return func(o *options) error {
-		o.serverCredentials = credentials.NewTLS(c)
-		return nil
-	}
-}
-
-// WithTLSFromCert constructs TLS credentials from cert for the server.
-func WithTLSFromCert(cert tls.Certificate) Option {
-	return WithTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		MinVersion:   ServerTLSMinVersion,
-	})
-}
-
-// WithMTLSFromCert constructs mutual TLS (mTLS) credentials from cert and
-// clientCAs for the server.
-func WithMTLSFromCert(cert tls.Certificate, clientCAs *x509.CertPool) Option {
-	return WithTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		ClientCAs:    clientCAs,
-		ClientAuth:   tls.RequireAndVerifyClientCert,
-		MinVersion:   ServerTLSMinVersion,
-	})
-}
-
 // WithClientTLS sets the transport credentials for connecting to peers based
 // on the provided TLS configuration.
-func WithClientTLS(c *tls.Config) Option {
+func WithClientTLS(cfg certloader.ClientConfigBuilder) Option {
 	return func(o *options) error {
-		if c == nil {
-			return errors.New("tls config not provided")
-		}
-		o.clientTLSConfig = c.Clone()
+		o.clientTLSConfig = cfg
 		return nil
 	}
-}
-
-// WithClientTLSFromCert sets client TLS credentials from the provided root
-// certificate authority to validate connections to peers.
-func WithClientTLSFromCert(ca *x509.CertPool) Option {
-	return WithClientTLS(&tls.Config{
-		RootCAs:    ca,
-		MinVersion: ClientTLSMinVersion,
-	})
-}
-
-// WithClientMTLSFromCert constructs mutual TLS (mTLS) credentials from ca and
-// cert. The certificate is presented to the peer and the provided root
-// certificate authority is used to validate connections to peers.
-func WithClientMTLSFromCert(ca *x509.CertPool, cert tls.Certificate) Option {
-	return WithClientTLS(&tls.Config{
-		Certificates: []tls.Certificate{cert},
-		RootCAs:      ca,
-		MinVersion:   ClientTLSMinVersion,
-	})
 }
 
 // WithInsecureClient disables transport security for connection to Hubble

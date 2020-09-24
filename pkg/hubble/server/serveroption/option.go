@@ -34,8 +34,8 @@ import (
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 )
 
-// MinTLSVersion defines the minimum TLS version that is acceptable to
-// establish a connection with a client.
+// MinTLSVersion defines the minimum TLS version clients are expected to
+// support in order to establish a connection to the hubble server.
 const MinTLSVersion = tls.VersionTLS13
 
 // Options stores all the configuration values for the hubble server.

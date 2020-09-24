@@ -15,6 +15,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -26,19 +27,19 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/relay/pool"
 
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	"google.golang.org/grpc/health"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
 
 var (
-	// ErrNoTransportCredentials is returned when no transport credentials is
-	// set for the server unless WithInsecureServer() is provided.
-	ErrNoTransportCredentials = errors.New("no transport credentials configured")
-
 	// ErrNoClientTLSConfig is returned when no client TLS config is set unless
 	// WithInsecureClient() is provided.
 	ErrNoClientTLSConfig = errors.New("no client TLS config is set")
+	// ErrNoServerTLSConfig is returned when no server TLS config is set unless
+	// WithInsecureServer() is provided.
+	ErrNoServerTLSConfig = errors.New("no server TLS config is set")
 )
 
 // Server is a proxy that connects to a running instance of hubble gRPC server
@@ -61,8 +62,8 @@ func New(options ...Option) (*Server, error) {
 	if opts.clientTLSConfig == nil && !opts.insecureClient {
 		return nil, ErrNoClientTLSConfig
 	}
-	if opts.serverCredentials == nil && !opts.insecureServer {
-		return nil, ErrNoTransportCredentials
+	if opts.serverTLSConfig == nil && !opts.insecureServer {
+		return nil, ErrNoServerTLSConfig
 	}
 
 	pm, err := pool.NewPeerManager(
@@ -99,10 +100,14 @@ func (s *Server) Serve() error {
 	switch {
 	case s.opts.insecureServer:
 		s.server = grpc.NewServer()
-	case s.opts.serverCredentials != nil:
-		s.server = grpc.NewServer(grpc.Creds(s.opts.serverCredentials))
+	case s.opts.serverTLSConfig != nil:
+		tlsConfig := s.opts.serverTLSConfig.ServerConfig(&tls.Config{
+			MinVersion: MinTLSVersion,
+		})
+		creds := credentials.NewTLS(tlsConfig)
+		s.server = grpc.NewServer(grpc.Creds(creds))
 	default:
-		return ErrNoTransportCredentials
+		return ErrNoServerTLSConfig
 	}
 
 	s.pm.Start()
