@@ -2182,17 +2182,12 @@ type monitorOwner interface {
 	NotifyMonitorDeleted(e *Endpoint)
 }
 
-// Delete cleans up all resources associated with this endpoint, including the
-// following:
-// * all goroutines managed by this Endpoint (EventQueue, Controllers)
-// * removal from the endpointmanager, resulting in new events not taking effect
-// on this endpoint
-// * cleanup of datapath state (BPF maps, proxy configuration, directories)
-// * releasing IP addresses allocated for the endpoint
-// * releasing of the reference to its allocated security identity
-func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpointManager, conf DeleteConfig) []error {
-	errs := []error{}
-
+// Stop cleans up all goroutines managed by this endpoint (EventQueue,
+// Controllers).
+// This function should be used directly in cleanup functions which aim to stop
+// goroutines managed by this endpoint, but without removing BPF maps and
+// datapath state.
+func (e *Endpoint) Stop() {
 	// Since the endpoint is being deleted, we no longer need to run events
 	// in its event queue. This is a no-op if the queue has already been
 	// closed elsewhere.
@@ -2211,6 +2206,20 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 	// if anything is blocking on it. If a delete request has already been
 	// enqueued for this endpoint, this is a no-op.
 	e.closeBPFProgramChannel()
+}
+
+// Delete cleans up all resources associated with this endpoint, including the
+// following:
+// * all goroutines managed by this Endpoint (EventQueue, Controllers)
+// * removal from the endpointmanager, resulting in new events not taking effect
+// on this endpoint
+// * cleanup of datapath state (BPF maps, proxy configuration, directories)
+// * releasing IP addresses allocated for the endpoint
+// * releasing of the reference to its allocated security identity
+func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpointManager, conf DeleteConfig) []error {
+	errs := []error{}
+
+	e.Stop()
 
 	// Lock out any other writers to the endpoint.  In case multiple delete
 	// requests have been enqueued, have all of them except the first

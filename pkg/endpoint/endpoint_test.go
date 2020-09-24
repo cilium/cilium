@@ -618,7 +618,7 @@ func (n *EndpointDeadlockEvent) Handle(ifc chan interface{}) {
 
 // This unit test is a bit weird - see
 // https://github.com/cilium/cilium/pull/8687 .
-func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
+func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponStop(c *C) {
 	// Need to modify global configuration (hooray!), change back when test is
 	// done.
 	oldQueueSize := option.Config.EndpointQueueSize
@@ -690,21 +690,20 @@ func (s *EndpointSuite) TestEndpointEventQueueDeadlockUponDeletion(c *C) {
 	// we need to assume that at least one event is being processed, and another
 	// one is pushed onto the endpoint's EventQueue.
 	<-ev2EnqueueCh
-	epDelComplete := make(chan struct{})
+	epStopComplete := make(chan struct{})
 
 	// Launch endpoint deletion async so that we do not deadlock (which is what
 	// this unit test is designed to test).
 	go func(ch chan struct{}) {
-		errors := ep.Delete(&monitorOwnerDummy{}, &ipReleaserDummy{}, &dummyManager{}, DeleteConfig{})
-		c.Assert(errors, Not(IsNil))
-		epDelComplete <- struct{}{}
-	}(epDelComplete)
+		ep.Stop()
+		epStopComplete <- struct{}{}
+	}(epStopComplete)
 
 	select {
 	case <-ctx.Done():
 		c.Log("endpoint deletion did not complete in time")
 		c.Fail()
-	case <-epDelComplete:
+	case <-epStopComplete:
 		// Success, do nothing.
 	}
 }
