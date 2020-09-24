@@ -368,7 +368,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 
 	bootstrapStats.daemonInit.End(true)
 
-	// Cleanup on exit if running in tandem with Flannel.
+	// Delete BPF programs on exit if running in tandem with Flannel.
 	if option.Config.FlannelUninstallOnExit {
 		cleaner.cleanupFuncs.Add(func() {
 			for _, ep := range d.endpointManager.GetEndpoints() {
@@ -376,6 +376,12 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 			}
 		})
 	}
+	// Stop all endpoints (its goroutines) on exit.
+	cleaner.cleanupFuncs.Add(func() {
+		for _, ep := range d.endpointManager.GetEndpoints() {
+			ep.Stop()
+		}
+	})
 
 	// Do the partial kube-proxy replacement initialization before creating BPF
 	// maps. Otherwise, some maps might not be created (e.g. session affinity).
