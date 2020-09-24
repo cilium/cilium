@@ -44,6 +44,12 @@ type svcManager interface {
 	UpsertService(*lb.SVC) (bool, lb.ID, error)
 }
 
+type svcCache interface {
+	EnsureService(svcID k8s.ServiceID, swg *lock.StoppableWaitGroup) bool
+	GetServiceAddrsWithType(svcID k8s.ServiceID, svcType lb.SVCType) map[lb.FEPortName]*lb.L3n4Addr
+	GetServiceFrontendIP(svcID k8s.ServiceID, svcType lb.SVCType) net.IP
+}
+
 // podID is pod name and namespace
 type podID = k8s.ServiceID
 
@@ -56,6 +62,8 @@ type podID = k8s.ServiceID
 type Manager struct {
 	// Service handler to manage service entries corresponding to redirect policies
 	svcManager svcManager
+
+	svcCache svcCache
 
 	// Mutex to protect against concurrent access to the maps
 	mutex lock.RWMutex
@@ -84,11 +92,15 @@ func NewRedirectPolicyManager(svc svcManager) *Manager {
 	}
 }
 
+func (rpm *Manager) RegisterSvcCache(cache svcCache) {
+	rpm.svcCache = cache
+}
+
 // Event handlers
 
 // AddRedirectPolicy parses the given local redirect policy config, and updates
 // internal state with the config fields.
-func (rpm *Manager) AddRedirectPolicy(config LRPConfig, svcCache *k8s.ServiceCache, podStore cache.Store) (bool, error) {
+func (rpm *Manager) AddRedirectPolicy(config LRPConfig, podStore cache.Store) (bool, error) {
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 
@@ -132,7 +144,7 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig, svcCache *k8s.ServiceCac
 			logfields.LRPBackendPorts:          config.backendPorts,
 		}).Debug("Add local redirect policy")
 
-		rpm.getAndUpsertPolicySvcConfig(&config, svcCache, podStore)
+		rpm.getAndUpsertPolicySvcConfig(&config, podStore)
 	}
 
 	return true, nil
@@ -178,7 +190,7 @@ func (rpm *Manager) DeleteRedirectPolicy(config LRPConfig) error {
 
 // OnAddService handles Kubernetes service (clusterIP type) add events, and
 // updates the internal state for the policy config associated with the service.
-func (rpm *Manager) OnAddService(svcID k8s.ServiceID, svcCache *k8s.ServiceCache, podStore cache.Store) {
+func (rpm *Manager) OnAddService(svcID k8s.ServiceID, podStore cache.Store) {
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 	if len(rpm.policyConfigs) == 0 {
@@ -192,7 +204,7 @@ func (rpm *Manager) OnAddService(svcID k8s.ServiceID, svcCache *k8s.ServiceCache
 		if !config.checkNamespace(svcID.Namespace) {
 			return
 		}
-		rpm.getAndUpsertPolicySvcConfig(config, svcCache, podStore)
+		rpm.getAndUpsertPolicySvcConfig(config, podStore)
 	}
 }
 
@@ -304,12 +316,12 @@ type podMetadata struct {
 
 // getAndUpsertPolicySvcConfig gets service frontends for the given config service
 // and upserts the service frontends.
-func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig, svcCache *k8s.ServiceCache, podStore cache.Store) {
+func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig, podStore cache.Store) {
 	var svcFrontends []*frontend
 	switch config.frontendType {
 	case svcFrontendAll:
 		// Get all the service frontends.
-		addrsByPort := svcCache.GetServiceAddrsWithType(*config.serviceID,
+		addrsByPort := rpm.svcCache.GetServiceAddrsWithType(*config.serviceID,
 			lb.SVCTypeClusterIP)
 		config.frontendMappings = make([]*feMapping, 0, len(addrsByPort))
 		for p, addr := range addrsByPort {
@@ -326,7 +338,7 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig, svcCache *k8s
 
 	case svcFrontendSinglePort:
 		// Get service frontend with the clusterIP and the policy config (unnamed) port.
-		ip := svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
+		ip := rpm.svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
 		config.frontendMappings[0].feAddr.IP = ip
 		rpm.updateConfigSvcFrontend(config, config.frontendMappings[0].feAddr)
 
@@ -336,7 +348,7 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig, svcCache *k8s
 		for i, mapping := range config.frontendMappings {
 			ports[i] = mapping.fePort
 		}
-		ip := svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
+		ip := rpm.svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
 		for _, feM := range config.frontendMappings {
 			feM.feAddr.IP = ip
 			svcFrontends = append(svcFrontends, feM.feAddr)
@@ -439,6 +451,13 @@ func (rpm *Manager) deletePolicyService(svcID k8s.ServiceID) {
 		config := rpm.policyConfigs[rp]
 		for _, m := range config.frontendMappings {
 			rpm.deletePolicyFrontend(config, m.feAddr)
+			// Retores the svc backends if there's still such a k8s svc.
+			swg := lock.NewStoppableWaitGroup()
+			if restored := rpm.svcCache.EnsureService(svcID, swg); restored {
+				log.WithFields(logrus.Fields{
+					logfields.K8sSvcID: svcID,
+				}).Info("Restored service")
+			}
 			switch config.frontendType {
 			case svcFrontendAll:
 				config.frontendMappings = nil
