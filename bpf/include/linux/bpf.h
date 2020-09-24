@@ -3401,11 +3401,11 @@ union bpf_attr {
 	FN(reserve_hdr_opt),		\
 	FN(inode_storage_get),		\
 	FN(inode_storage_delete),	\
-	FN(d_path),			\
-	FN(skb_cgroup_classid),		\
-	FN(redirect_neigh),		\
-	FN(redirect_peer),		\
-	/* */
+        FN(d_path),                     \
+        FN(copy_from_user),             \
+        FN(skb_cgroup_classid),         \
+        FN(redirect_neigh),             \
+        /* */
 
 /* integer value in 'imm' field of BPF_CALL instruction selects which helper
  * function eBPF program intends to call
