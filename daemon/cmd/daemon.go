@@ -442,9 +442,6 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
-		if err := k8s.RegisterCRDs(); err != nil {
-			log.WithError(err).Fatal("Unable to register CRDs")
-		}
 
 		if option.Config.IPAM == ipamOption.IPAMOperator {
 			// Create the CiliumNode custom resource. This call will block until
