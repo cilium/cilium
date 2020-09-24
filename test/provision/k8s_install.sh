@@ -3,7 +3,7 @@
 set -e
 
 HOST=$(hostname)
-export HELM_VERSION="3.1.1"
+export HELM_VERSION="3.3.4"
 export TOKEN="258062.5d84c017c9b2796c"
 export CILIUM_CONFIG_DIR="/opt/cilium"
 export PROVISIONSRC="/tmp/provision/"
@@ -46,9 +46,11 @@ sudo bash -c "echo MaxSessions 200 >> /etc/ssh/sshd_config"
 sudo systemctl restart ssh
 
 if [[ ! $(helm version | grep ${HELM_VERSION}) ]]; then
-  retry_function "wget -nv https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
-  tar xzvf helm-v${HELM_VERSION}-linux-amd64.tar.gz
+  HELM_TAR=helm-v${HELM_VERSION}-linux-amd64.tar.gz
+  retry_function "wget -nv https://get.helm.sh/$HELM_TAR"
+  tar xzvf $HELM_TAR
   mv linux-amd64/helm /usr/local/bin/
+  rm -rf linux-amd64 $HELM_TAR
 fi
 helm version
 
