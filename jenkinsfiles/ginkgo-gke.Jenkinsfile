@@ -179,7 +179,7 @@ pipeline {
             steps {
                 dir("${TESTDIR}"){
                     sh 'env'
-                    sh 'ginkgo --focus="${FOCUS}" -v -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.passCLIEnvironment=true -cilium.registry=$(gke/registry-ip.sh) -cilium.image=${CILIUM_IMAGE} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.holdEnvironment=false -cilium.runQuarantined=${RUN_QUARANTINED}'
+                    sh 'ginkgo --focus="${FOCUS}" -v -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.passCLIEnvironment=true -cilium.registry=$(gke/registry-ip.sh) -cilium.image=${CILIUM_IMAGE} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.holdEnvironment=false -cilium.runQuarantined=true'
                 }
             }
             post {
