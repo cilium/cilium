@@ -299,11 +299,16 @@ rules:
   resources:
   - customresourcedefinitions
   verbs:
+  # Deprecated for removal in v1.10
   - create
-  - get
   - list
   - watch
   - update
+
+  # This is used when validating policies in preflight. This will need to stay
+  # until we figure out how to avoid "get" inside the preflight, and then
+  # should be removed ideally.
+  - get
 - apiGroups:
   - cilium.io
   resources:
@@ -428,8 +433,10 @@ rules:
   resources:
   - customresourcedefinitions
   verbs:
+  - create
   - get
   - list
+  - update
   - watch
 # For cilium-operator running in HA mode.
 #

@@ -58,8 +58,10 @@ rules:
   resources:
   - customresourcedefinitions
   verbs:
+  - create
   - get
   - list
+  - update
   - watch
 # For cilium-operator running in HA mode.
 #
