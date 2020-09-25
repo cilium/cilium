@@ -11,3 +11,21 @@ tofqdnsPreCache: ""
 # Cilium. This will make sure the user will have the policies deployed in the
 # cluster with the right schema.
 validateCNPs: true
+
+# Node labels for pod assignment
+# ref: https://kubernetes.io/docs/user-guide/node-selection/
+nodeSelector: {}
+
+## Node tolerations for pod assignment on nodes with taints
+## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+##
+tolerations:
+- effect: NoSchedule
+  key: node.kubernetes.io/not-ready
+- effect: NoSchedule
+  key: node-role.kubernetes.io/master
+- effect: NoSchedule
+  key: node.cloudprovider.kubernetes.io/uninitialized
+  value: "true"
+- key: CriticalAddonsOnly
+  operator: "Exists"

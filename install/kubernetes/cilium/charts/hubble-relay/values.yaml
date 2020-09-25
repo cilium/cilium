@@ -44,3 +44,12 @@ servicePort:
 # Specifies annotation for service accounts
 serviceAccount:
   annotations: {}
+
+# Node labels for pod assignment
+# ref: https://kubernetes.io/docs/user-guide/node-selection/
+nodeSelector: {}
+
+## Node tolerations for pod assignment on nodes with taints
+## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+##
+tolerations: []

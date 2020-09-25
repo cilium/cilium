@@ -203,8 +203,14 @@ spec:
 {{- end }}
       serviceAccount: cilium-operator
       serviceAccountName: cilium-operator
+{{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+{{- end }}
+{{- with .Values.tolerations }}
       tolerations:
-        - operator: Exists
+      {{- toYaml . | trim | nindent 6 }}
+{{- end }}
       volumes:
         # To read the configuration from the config map
       - configMap:

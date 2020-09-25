@@ -69,5 +69,11 @@ spec:
       restartPolicy: Always
       serviceAccount: cilium-etcd-operator
       serviceAccountName: cilium-etcd-operator
+{{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+{{- end }}
+{{- with .Values.tolerations }}
       tolerations:
-      - operator: Exists
+      {{- toYaml . | trim | nindent 6 }}
+{{- end }}
