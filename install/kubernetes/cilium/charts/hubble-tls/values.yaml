@@ -1,7 +1,6 @@
-# base64 encoded PEM values for the hubble CA certificate and private key
+# base64 encoded PEM values for the hubble CA certificate
 ca:
   crt:
-  key:
 # base64 encoded PEM values for the hubble server certificate and private key
 server:
   crt:
