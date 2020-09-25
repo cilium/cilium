@@ -559,7 +559,11 @@ enum {
 	SVC_FLAG_LOADBALANCER = (1 << 5),  /* LoadBalancer service */
 	SVC_FLAG_ROUTABLE     = (1 << 6),  /* Not a surrogate/ClusterIP entry */
 	SVC_FLAG_SOURCE_RANGE = (1 << 7),  /* Check LoadBalancer source range */
-	SVC_FLAG_LOCALREDIRECT = (1 << 8),  /* local redirect */
+};
+
+/* Service flags (lb{4,6}_service->flags2) */
+enum {
+	SVC_FLAG_LOCALREDIRECT = (1 << 0),  /* local redirect */
 };
 
 struct ipv6_ct_tuple {

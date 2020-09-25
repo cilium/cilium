@@ -333,6 +333,12 @@ bool lb6_svc_is_routable(const struct lb6_service *svc)
 	return __lb_svc_is_routable(svc->flags);
 }
 
+static __always_inline
+bool lb4_svc_is_localredirect(const struct lb4_service *svc __maybe_unused)
+{
+	return svc->flags2 & SVC_FLAG_LOCALREDIRECT;
+}
+
 static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 					   int l4_off, __be16 *port,
 					   __maybe_unused struct iphdr *ip4)
