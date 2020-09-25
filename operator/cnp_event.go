@@ -21,15 +21,15 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
 	cilium_v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/groups"
 
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	v1 "k8s.io/api/core/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -50,7 +50,7 @@ func init() {
 
 // enableCNPWatcher waits for the CiliumNetowrkPolicy CRD availability and then
 // garbage collects stale CiliumNetowrkPolicy status field entries.
-func enableCNPWatcher(apiextensionsK8sClient apiextensionsclientset.Interface) error {
+func enableCNPWatcher() error {
 	enableCNPStatusUpdates := kvstoreEnabled() && option.Config.K8sEventHandover && !option.Config.DisableCNPStatusUpdates
 	if enableCNPStatusUpdates {
 		log.Info("Starting a CNP Status handover from kvstore to k8s...")
@@ -93,7 +93,7 @@ func enableCNPWatcher(apiextensionsK8sClient apiextensionsclientset.Interface) e
 
 	ciliumV2Controller := informer.NewInformerWithStore(
 		cache.NewListWatchFromClient(k8s.CiliumClient().CiliumV2().RESTClient(),
-			cilium_v2.CNPPluralName, v1.NamespaceAll, fields.Everything()),
+			v2.CNPPluralName, v1.NamespaceAll, fields.Everything()),
 		&cilium_v2.CiliumNetworkPolicy{},
 		0,
 		cache.ResourceEventHandlerFuncs{
@@ -147,10 +147,6 @@ func enableCNPWatcher(apiextensionsK8sClient apiextensionsclientset.Interface) e
 		cnpConverterFunc,
 		cnpStore,
 	)
-
-	if err := WaitForCRD(apiextensionsK8sClient, cilium_v2.CNPName); err != nil {
-		return err
-	}
 	go ciliumV2Controller.Run(wait.NeverStop)
 
 	controller.NewManager().UpdateController("cnp-to-groups",
