@@ -46,7 +46,6 @@ import (
 	"github.com/spf13/viper"
 	"golang.org/x/sys/unix"
 	"google.golang.org/grpc"
-	apiextensionsclient "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/leaderelection"
@@ -278,14 +277,6 @@ func runOperator() {
 func onOperatorStartLeading(ctx context.Context) {
 	isLeader.Store(true)
 
-	restConfig, err := k8s.CreateConfig()
-	if err != nil {
-		log.WithError(err).Fatal("Unable to get Kubernetes client config")
-	}
-	apiextensionsK8sClient, err := apiextensionsclient.NewForConfig(restConfig)
-	if err != nil {
-		log.WithError(err).Fatal("Unable to create apiextensions client")
-	}
 	ciliumK8sClient = k8s.CiliumClient()
 
 	// Restart kube-dns as soon as possible since it helps etcd-operator to be
@@ -299,6 +290,7 @@ func onOperatorStartLeading(ctx context.Context) {
 
 	var (
 		nodeManager *allocator.NodeEventHandler
+		err         error
 	)
 	switch ipamMode := option.Config.IPAM; ipamMode {
 	case ipamOption.IPAMAzure, ipamOption.IPAMENI, ipamOption.IPAMOperator:
@@ -316,10 +308,7 @@ func onOperatorStartLeading(ctx context.Context) {
 			log.WithError(err).Fatalf("Unable to start %s allocator", ipamMode)
 		}
 
-		if err := startSynchronizingCiliumNodes(apiextensionsK8sClient, nm); err != nil {
-			log.WithError(err).Fatal("Unable to start synchronizing Cilium nodes")
-		}
-
+		startSynchronizingCiliumNodes(nm)
 		nodeManager = &nm
 
 		switch ipamMode {
@@ -440,10 +429,7 @@ func onOperatorStartLeading(ctx context.Context) {
 			log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
 		}
 
-		if err := startManagingK8sIdentities(apiextensionsK8sClient); err != nil {
-			log.WithError(err).Fatal(
-				"Unable to start managing Kubernetes identities")
-		}
+		startManagingK8sIdentities()
 
 		if operatorOption.Config.IdentityGCInterval != 0 {
 			go startCRDIdentityGC()
@@ -463,7 +449,7 @@ func onOperatorStartLeading(ctx context.Context) {
 		enableCiliumEndpointSyncGC(true)
 	}
 
-	err = enableCNPWatcher(apiextensionsK8sClient)
+	err = enableCNPWatcher()
 	if err != nil {
 		log.WithError(err).WithField("subsys", "CNPWatcher").Fatal(
 			"Cannot connect to Kubernetes apiserver ")

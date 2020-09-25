@@ -19,11 +19,10 @@ import (
 
 	"github.com/cilium/cilium/pkg/ipam/allocator"
 	"github.com/cilium/cilium/pkg/k8s"
-	"github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
+	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 
-	"k8s.io/api/core/v1"
-	apiextensionsclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -32,9 +31,7 @@ import (
 
 var k8sCiliumNodesCacheSynced = make(chan struct{})
 
-// startSynchronizingCiliumNodes waits for the CiliumNode CRD availability and
-// then synchronizes CiliumNode resources.
-func startSynchronizingCiliumNodes(apiextensionsK8sClient apiextensionsclientset.Interface, nodeManager allocator.NodeEventHandler) error {
+func startSynchronizingCiliumNodes(nodeManager allocator.NodeEventHandler) {
 	log.Info("Starting to synchronize CiliumNode custom resources...")
 
 	// TODO: The operator is currently storing a full copy of the
@@ -74,17 +71,12 @@ func startSynchronizingCiliumNodes(apiextensionsK8sClient apiextensionsclientset
 		k8s.ConvertToCiliumNode,
 	)
 
-	if err := WaitForCRD(apiextensionsK8sClient, v2.CNName); err != nil {
-		return err
-	}
-
 	go func() {
 		cache.WaitForCacheSync(wait.NeverStop, ciliumNodeInformer.HasSynced)
 		close(k8sCiliumNodesCacheSynced)
 	}()
 
 	go ciliumNodeInformer.Run(wait.NeverStop)
-	return nil
 }
 
 func deleteCiliumNode(nodeManager *allocator.NodeEventHandler, name string) {
