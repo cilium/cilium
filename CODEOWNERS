@@ -69,6 +69,10 @@ Dockerfile* @cilium/build
 /Documentation/bpf.rst @cilium/bpf
 /Documentation/contributing/ @cilium/contributing
 /Documentation/envoy/ @cilium/proxy
+/Documentation/gettingstarted/hubble-enable.rst @cilium/hubble
+/Documentation/gettingstarted/hubble-install.rst @cilium/hubble
+/Documentation/gettingstarted/hubble.rst @cilium/hubble
+/Documentation/hubble.rst @cilium/hubble
 /envoy/ @cilium/proxy
 /examples/ @cilium/docs
 /examples/crds/ @cilium/kubernetes
