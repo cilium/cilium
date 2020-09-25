@@ -360,8 +360,10 @@ spec:
       serviceAccount: cilium
       serviceAccountName: cilium
       terminationGracePeriodSeconds: 1
+{{- with .Values.tolerations }}
       tolerations:
-      - operator: Exists
+      {{- toYaml . | trim | nindent 6 }}
+{{- end }}
       volumes:
         # To keep state between restarts / upgrades
       - hostPath:

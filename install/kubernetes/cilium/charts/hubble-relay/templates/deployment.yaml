@@ -75,9 +75,13 @@ spec:
             readOnly: true
       restartPolicy: Always
       terminationGracePeriodSeconds: 0
-{{- if .Values.tolerations }}
+{{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+{{- end }}
+{{- with .Values.tolerations }}
       tolerations:
-{{- toYaml .Values.tolerations | trim | nindent 8 }}
+      {{- toYaml . | trim | nindent 6 }}
 {{- end }}
       volumes:
       - hostPath:
