@@ -2383,6 +2383,12 @@ func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) er
 	return nil
 }
 
+func (kub *Kubectl) ExecLong(cmd string, options ...ExecOptions) *CmdRes {
+	ctx, cancel := context.WithTimeout(context.Background(), 30*time.Minute)
+	defer cancel()
+	return kub.ExecContext(ctx, cmd, options...)
+}
+
 // RunHelm runs the helm command with the given options.
 func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, options map[string]string) (*CmdRes, error) {
 	err := kub.overwriteHelmOptions(options)
@@ -2395,7 +2401,8 @@ func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, o
 		optionsString += fmt.Sprintf(" --set %s=%s ", k, v)
 	}
 
-	return kub.ExecMiddle(fmt.Sprintf("helm %s %s %s "+
+	return kub.ExecLong(fmt.Sprintf("helm %s %s %s "+
+		"--debug "+
 		"--version=%s "+
 		"--namespace=%s "+
 		"%s", action, helmName, repo, version, namespace, optionsString)), nil

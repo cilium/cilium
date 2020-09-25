@@ -205,13 +205,13 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 				helpers.CiliumNamespace,
 				opts,
 			)
-		}, time.Second*30, time.Second*1).Should(helpers.CMDSuccess(), fmt.Sprintf("Cilium clean state %q was not able to be deployed", chartVersion))
+		}, time.Minute*30, time.Second*1).Should(helpers.CMDSuccess(), fmt.Sprintf("Cilium clean state %q was not able to be deployed", chartVersion))
 
 		err = kubectl.WaitForCiliumReadiness()
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q did not become ready in time", chartVersion)
 		err = kubectl.WaitForCiliumInitContainerToFinish()
 		ExpectWithOffset(1, err).To(BeNil(), "Cilium %q was not able to be clean up environment", chartVersion)
-		cmd := kubectl.ExecMiddle("helm delete cilium --debug --namespace=" + helpers.CiliumNamespace)
+		cmd := kubectl.ExecLong("helm delete cilium --debug --namespace=" + helpers.CiliumNamespace)
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Cilium %q was not able to be deleted", chartVersion)
 		ExpectAllPodsTerminated(kubectl)
 	}
@@ -459,7 +459,7 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 
 		// Once they are installed we can remove it
 		By("Removing Cilium pre-flight check DaemonSet")
-		cmd := kubectl.ExecMiddle("helm delete cilium-preflight --namespace=" + helpers.CiliumNamespace)
+		cmd := kubectl.ExecLong("helm delete cilium-preflight --namespace=" + helpers.CiliumNamespace)
 		ExpectWithOffset(1, cmd).To(helpers.CMDSuccess(), "Unable to delete preflight")
 
 		err = kubectl.WaitForCiliumReadiness()
