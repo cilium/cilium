@@ -452,20 +452,28 @@ var _ = Describe("K8sDatapathConfig", func() {
 		})
 	})
 
-	Context("ManagedEtcd", func() {
-		AfterAll(func() {
-			deleteETCDOperator(kubectl)
-		})
-		It("Check connectivity with managed etcd", func() {
+	Context("Etcd", func() {
+		It("Check connectivity", func() {
+			kubectl.Apply(helpers.ApplyOptions{
+				FilePath:  helpers.ManifestGet(kubectl.BasePath(), "etcd-deployment.yaml"),
+				Namespace: helpers.CiliumNamespace,
+			}).ExpectSuccess("Cannot install etcd")
+
+			host, port, err := kubectl.GetServiceHostPort(helpers.CiliumNamespace, "stateless-etcd")
+			Expect(err).Should(BeNil(),
+				"Unable to retrieve ClusterIP and port for stateless-etcd service")
+
 			opts := map[string]string{
-				"global.etcd.enabled": "true",
-				"global.etcd.managed": "true",
+				"global.etcd.enabled":           "true",
+				"global.etcd.endpoints[0]":      fmt.Sprintf("http://%s:%d", host, port),
+				"global.identityAllocationMode": "kvstore",
 			}
 			if helpers.ExistNodeWithoutCilium() {
 				opts["operator.synchronizeK8sNodes"] = "false"
 			}
 			deployCilium(opts)
-			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(),
+				"Connectivity test between nodes failed")
 		})
 	})
 })
