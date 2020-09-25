@@ -26,3 +26,9 @@ initResources:
   requests:
     cpu: "100m"
     memory: "100Mi"
+
+## Node tolerations for pod assignment on nodes with taints
+## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+##
+tolerations:
+- operator: Exists

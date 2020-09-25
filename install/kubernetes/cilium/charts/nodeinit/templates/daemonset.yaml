@@ -14,8 +14,10 @@ spec:
       labels:
         app: cilium-node-init
     spec:
+{{- with .Values.tolerations }}
       tolerations:
-      - operator: Exists
+      {{- toYaml . | trim | nindent 6 }}
+{{- end }}
       hostPID: true
       hostNetwork: true
 {{- if or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (ge .Capabilities.KubeVersion.Minor "17") (gt .Capabilities.KubeVersion.Major "1")}}

@@ -17,3 +17,9 @@ expectAzureVnet: false
 
 # Revert nodeinit changes via preStop container lifecycle hook
 revertReconfigureKubelet: false
+
+## Node tolerations for pod assignment on nodes with taints
+## ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+##
+tolerations:
+- operator: Exists

@@ -13,6 +13,14 @@ spec:
       labels:
         k8s-app: hubble-ui
     spec:
+{{- with .Values.nodeSelector }}
+      nodeSelector:
+        {{- toYaml . | trim | nindent 8 }}
+{{- end }}
+{{- with .Values.tolerations }}
+      tolerations:
+      {{- toYaml . | trim | nindent 6 }}
+{{- end }}
       serviceAccount: hubble-ui
       serviceAccountName: hubble-ui
       containers:
