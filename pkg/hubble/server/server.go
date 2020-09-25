@@ -16,6 +16,7 @@
 package server
 
 import (
+	"crypto/tls"
 	"errors"
 	"fmt"
 	"net"
@@ -26,13 +27,14 @@ import (
 
 	"github.com/sirupsen/logrus"
 	"google.golang.org/grpc"
+	"google.golang.org/grpc/credentials"
 	healthpb "google.golang.org/grpc/health/grpc_health_v1"
 	"google.golang.org/grpc/reflection"
 )
 
 var (
-	errNoListener             = errors.New("no listener configured")
-	errNoTransportCredentials = errors.New("no transport credentials configured")
+	errNoListener        = errors.New("no listener configured")
+	errNoServerTLSConfig = errors.New("no server TLS config is set")
 )
 
 // Server is hubble's gRPC server.
@@ -53,20 +55,25 @@ func NewServer(log logrus.FieldLogger, options ...serveroption.Option) (*Server,
 	if opts.Listener == nil {
 		return nil, errNoListener
 	}
-	if opts.TransportCredentials == nil && !opts.Insecure {
-		return nil, errNoTransportCredentials
+	if opts.ServerTLSConfig == nil && !opts.Insecure {
+		return nil, errNoServerTLSConfig
 	}
 	return &Server{log: log, opts: opts}, nil
 }
 
 func (s *Server) newGRPCServer() (*grpc.Server, error) {
-	if s.opts.TransportCredentials != nil {
-		return grpc.NewServer(grpc.Creds(s.opts.TransportCredentials)), nil
-	}
-	if s.opts.Insecure {
+	switch {
+	case s.opts.Insecure:
 		return grpc.NewServer(), nil
+	case s.opts.ServerTLSConfig != nil:
+		tlsConfig := s.opts.ServerTLSConfig.ServerConfig(&tls.Config{
+			MinVersion: tls.VersionTLS13,
+		})
+		creds := credentials.NewTLS(tlsConfig)
+		return grpc.NewServer(grpc.Creds(creds)), nil
+	default:
+		return nil, errNoServerTLSConfig
 	}
-	return nil, errNoTransportCredentials
 }
 
 func (s *Server) initGRPCServer() error {

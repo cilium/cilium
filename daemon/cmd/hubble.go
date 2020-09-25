@@ -16,10 +16,7 @@ package cmd
 
 import (
 	"context"
-	"crypto/tls"
-	"crypto/x509"
 	"fmt"
-	"io/ioutil"
 	"net"
 	"strings"
 	"time"
@@ -27,6 +24,7 @@ import (
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	"github.com/cilium/cilium/api/v1/models"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+	"github.com/cilium/cilium/pkg/crypto/certloader"
 	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
 	"github.com/cilium/cilium/pkg/hubble/metrics"
 	"github.com/cilium/cilium/pkg/hubble/monitor"
@@ -162,56 +160,59 @@ func (d *Daemon) launchHubble() {
 			serveroption.WithHealthService(),
 			serveroption.WithObserverService(d.hubbleObserver),
 		}
-		tlsOption, err := buildHubbleTLSOption()
-		if err != nil {
-			logger.WithError(err).Error("Failed to initialize Hubble server")
-			return
+
+		// Hubble TLS/mTLS setup.
+		var tlsServerConfig *certloader.WatchedServerConfig
+		if option.Config.HubbleTLSDisabled {
+			options = append(options, serveroption.WithInsecure())
+		} else {
+			tlsServerConfigChan, err := certloader.FutureWatchedServerConfig(
+				logger.WithField("config", "tls-server"),
+				option.Config.HubbleTLSClientCAFiles,
+				option.Config.HubbleTLSCertFile,
+				option.Config.HubbleTLSKeyFile,
+			)
+			if err != nil {
+				logger.WithError(err).Error("Failed to initialize Hubble server TLS configuration")
+				return
+			}
+			for tlsServerConfig == nil {
+				select {
+				case tlsServerConfig = <-tlsServerConfigChan:
+				case <-time.After(30 * time.Second):
+					logger.Info("Waiting for Hubble server TLS certificate and key files to be created")
+				case <-d.ctx.Done():
+					return
+				}
+			}
+			options = append(options, serveroption.WithServerTLS(tlsServerConfig))
 		}
-		options = append(options, tlsOption)
 
 		srv, err := server.NewServer(logger, options...)
 		if err != nil {
 			logger.WithError(err).Error("Failed to initialize Hubble server")
+			if tlsServerConfig != nil {
+				tlsServerConfig.Stop()
+			}
 			return
 		}
+
 		logger.WithField("address", address).Info("Starting Hubble server")
 		if err := srv.Serve(); err != nil {
 			logger.WithError(err).Error("Failed to start Hubble server")
+			if tlsServerConfig != nil {
+				tlsServerConfig.Stop()
+			}
 			return
 		}
+
 		go func() {
 			<-d.ctx.Done()
 			srv.Stop()
+			if tlsServerConfig != nil {
+				tlsServerConfig.Stop()
+			}
 		}()
-	}
-}
-
-// buildHubbleTLSOption builds a Hubble server option to set TLS settings.
-func buildHubbleTLSOption() (serveroption.Option, error) {
-	switch {
-	case option.Config.HubbleTLSDisabled:
-		return serveroption.WithInsecure(), nil
-	case option.Config.HubbleTLSCertFile != "" && option.Config.HubbleTLSKeyFile != "":
-		cert, err := tls.LoadX509KeyPair(option.Config.HubbleTLSCertFile, option.Config.HubbleTLSKeyFile)
-		if err != nil {
-			return nil, err
-		}
-		if len(option.Config.HubbleTLSClientCAFiles) == 0 {
-			return serveroption.WithTLSFromCert(cert), nil
-		}
-		clientCAs := x509.NewCertPool()
-		for _, clientCertPath := range option.Config.HubbleTLSClientCAFiles {
-			clientCertPEM, err := ioutil.ReadFile(clientCertPath)
-			if err != nil {
-				return nil, fmt.Errorf("%s: %w", clientCertPath, err)
-			}
-			if ok := clientCAs.AppendCertsFromPEM(clientCertPEM); !ok {
-				return nil, fmt.Errorf("%s: TLS certificate is not PEM encoded", clientCertPath)
-			}
-		}
-		return serveroption.WithMTLSFromCert(cert, clientCAs), nil
-	default:
-		return nil, fmt.Errorf("path to TLS certficate keypair not provided")
 	}
 }
 
