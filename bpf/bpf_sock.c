@@ -264,9 +264,65 @@ sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
 	return svc;
 }
 
+/* Service translation logic for a local-redirect service can cause
+ * packets to be looped back to a service node-local backend after translation.
+ * This can happen when the node-local backend itself tries to connect to the
+ * service frontend for which it acts as a backend.
+ * There are cases where this can break traffic flow if the backend needs to
+ * forward the redirected traffic to the actual service frontend.
+ * Hence, allow service translation for pod traffic getting redirected to
+ * backend (across network namespaces), but skip service translation for backend
+ * to itself or another service backend within the same namespace.
+ *
+ * For example, in EKS cluster, a local-redirect service exists with the AWS
+ * metadata IP, port as the frontend <169.254.169.254, 80> and kiam proxy as a
+ * backend pod. When traffic destined to the frontend originates from the kiam pod
+ * in namespace ns1 (host ns when the kiam proxy pod is deployed in hostNetwork
+ * mode or regular pod ns) and the pod is selected as a backend, the traffic
+ * would get looped back to the proxy pod.
+ * Identify such cases by doing a socket lookup for the backend <ip, port> in its
+ * namespace, ns1, and skip service translation.
+ */
+#ifdef BPF_HAVE_SOCKET_LOOKUP
+static __always_inline __maybe_unused bool
+sock4_skip_xlate_for_same_netns_backend(struct bpf_sock_addr *ctx,
+					const struct lb4_backend *backend)
+{
+	struct bpf_sock_tuple tuple = {
+		.ipv4.saddr = 0,
+		.ipv4.sport = 0,
+		.ipv4.daddr = backend->address,
+		.ipv4.dport = backend->port,
+	};
+	struct bpf_sock *sk = NULL;
+
+	switch (ctx->protocol) {
+	case IPPROTO_TCP:
+		sk = sk_lookup_tcp(ctx, &tuple, sizeof(tuple.ipv4), BPF_F_CURRENT_NETNS, 0);
+		break;
+	case IPPROTO_UDP:
+		sk = sk_lookup_udp(ctx, &tuple, sizeof(tuple.ipv4), BPF_F_CURRENT_NETNS, 0);
+		break;
+	default:
+		break;
+	}
+
+	/* There exists a socket listening on the <ip, port> of the backend
+	 * in the same namespace where socket connect call originates from.
+	 */
+	if (sk) {
+		sk_release(sk);
+		return true;
+	}
+
+	return false;
+}
+#endif
+
 static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full,
-					     const bool udp_only)
+					     const bool udp_only,
+					     const bool ipv6_context  __maybe_unused)
 {
 	union lb4_affinity_client_id id;
 	const bool in_hostns = ctx_in_hostns(ctx_full, &id.client_cookie);
@@ -345,6 +401,13 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -ENOENT;
 	}
 
+#ifdef BPF_HAVE_SOCKET_LOOKUP
+	if (lb4_svc_is_localredirect(svc) && !ipv6_context &&
+	    sock4_skip_xlate_for_same_netns_backend(ctx_full, backend)) {
+		return 0;
+	}
+#endif
+
 	if (lb4_svc_is_affinity(svc) && !backend_from_affinity)
 		lb4_update_affinity_by_netns(svc, &id, backend_id);
 
@@ -363,7 +426,7 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 __section("connect4")
 int sock4_connect(struct bpf_sock_addr *ctx)
 {
-	__sock4_xlate_fwd(ctx, ctx, false);
+	__sock4_xlate_fwd(ctx, ctx, false, false);
 	return SYS_PROCEED;
 }
 
@@ -451,7 +514,7 @@ static __always_inline int __sock4_xlate_rev(struct bpf_sock_addr *ctx,
 __section("sendmsg4")
 int sock4_sendmsg(struct bpf_sock_addr *ctx)
 {
-	__sock4_xlate_fwd(ctx, ctx, true);
+	__sock4_xlate_fwd(ctx, ctx, true, false);
 	return SYS_PROCEED;
 }
 
@@ -634,7 +697,7 @@ int sock6_xlate_v4_in_v6(struct bpf_sock_addr *ctx __maybe_unused,
 	fake_ctx.user_ip4  = addr6.p4;
 	fake_ctx.user_port = ctx_dst_port(ctx);
 
-	ret = __sock4_xlate_fwd(&fake_ctx, ctx, udp_only);
+	ret = __sock4_xlate_fwd(&fake_ctx, ctx, udp_only, true);
 	if (ret < 0)
 		return ret;
 

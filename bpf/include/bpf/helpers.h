@@ -84,4 +84,12 @@ static int BPF_FUNC(sock_hash_update, struct bpf_sock_ops *skops, void *map,
 static int BPF_FUNC(msg_redirect_hash, struct sk_msg_md *md, void *map,
 		    void *key, __u64 flags);
 
+/* Socket lookup helpers */
+static struct bpf_sock *BPF_FUNC(sk_lookup_tcp, void *ctx,
+				 struct bpf_sock_tuple *tuple, __u32 tuple_size,
+				 __u64 netns, __u64 flags);
+static struct bpf_sock *BPF_FUNC(sk_lookup_udp, void *ctx,
+				 struct bpf_sock_tuple *tuple, __u32 tuple_size,
+				 __u64 netns, __u64 flags);
+
 #endif /* __BPF_HELPERS__ */
