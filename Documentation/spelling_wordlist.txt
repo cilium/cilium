@@ -539,6 +539,7 @@ logout
 lookup
 lookups
 loopback
+lrp
 lspci
 luke
 lwt

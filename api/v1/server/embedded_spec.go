@@ -878,6 +878,25 @@ func init() {
         }
       }
     },
+    "/lrp": {
+      "get": {
+        "tags": [
+          "service"
+        ],
+        "summary": "Retrieve list of all local redirect policies",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/LRPSpec"
+              }
+            }
+          }
+        }
+      }
+    },
     "/map": {
       "get": {
         "tags": [
@@ -2308,6 +2327,22 @@ func init() {
         }
       }
     },
+    "FrontendMapping": {
+      "description": "Mapping of frontend to backend pods of an LRP",
+      "type": "object",
+      "properties": {
+        "backends": {
+          "description": "Pod backends of an LRP",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LRPBackend"
+          }
+        },
+        "frontend-address": {
+          "$ref": "#/definitions/FrontendAddress"
+        }
+      }
+    },
     "HostRouting": {
       "description": "Status of host routing\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -2725,6 +2760,56 @@ func init() {
           "items": {
             "$ref": "#/definitions/PolicyRule"
           }
+        }
+      }
+    },
+    "LRPBackend": {
+      "description": "Pod backend of an LRP",
+      "type": "object",
+      "properties": {
+        "backend-address": {
+          "$ref": "#/definitions/BackendAddress"
+        },
+        "pod-id": {
+          "description": "Namespace and name of the backend pod",
+          "type": "string"
+        }
+      }
+    },
+    "LRPSpec": {
+      "description": "Configuration of an LRP",
+      "type": "object",
+      "properties": {
+        "frontend-mappings": {
+          "description": "mapping of frontends to pod backends",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FrontendMapping"
+          }
+        },
+        "frontend-type": {
+          "description": "LRP frontend type",
+          "type": "string"
+        },
+        "lrp-type": {
+          "description": "LRP config type",
+          "type": "string"
+        },
+        "name": {
+          "description": "LRP service name",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "LRP service namespace",
+          "type": "string"
+        },
+        "service-id": {
+          "description": "matching k8s service namespace and name",
+          "type": "string"
+        },
+        "uid": {
+          "description": "Unique identification",
+          "type": "string"
         }
       }
     },
@@ -4569,6 +4654,25 @@ func init() {
         }
       }
     },
+    "/lrp": {
+      "get": {
+        "tags": [
+          "service"
+        ],
+        "summary": "Retrieve list of all local redirect policies",
+        "responses": {
+          "200": {
+            "description": "Success",
+            "schema": {
+              "type": "array",
+              "items": {
+                "$ref": "#/definitions/LRPSpec"
+              }
+            }
+          }
+        }
+      }
+    },
     "/map": {
       "get": {
         "tags": [
@@ -6096,6 +6200,22 @@ func init() {
         }
       }
     },
+    "FrontendMapping": {
+      "description": "Mapping of frontend to backend pods of an LRP",
+      "type": "object",
+      "properties": {
+        "backends": {
+          "description": "Pod backends of an LRP",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/LRPBackend"
+          }
+        },
+        "frontend-address": {
+          "$ref": "#/definitions/FrontendAddress"
+        }
+      }
+    },
     "HostRouting": {
       "description": "Status of host routing\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -6724,6 +6844,56 @@ func init() {
           "items": {
             "$ref": "#/definitions/PolicyRule"
           }
+        }
+      }
+    },
+    "LRPBackend": {
+      "description": "Pod backend of an LRP",
+      "type": "object",
+      "properties": {
+        "backend-address": {
+          "$ref": "#/definitions/BackendAddress"
+        },
+        "pod-id": {
+          "description": "Namespace and name of the backend pod",
+          "type": "string"
+        }
+      }
+    },
+    "LRPSpec": {
+      "description": "Configuration of an LRP",
+      "type": "object",
+      "properties": {
+        "frontend-mappings": {
+          "description": "mapping of frontends to pod backends",
+          "type": "array",
+          "items": {
+            "$ref": "#/definitions/FrontendMapping"
+          }
+        },
+        "frontend-type": {
+          "description": "LRP frontend type",
+          "type": "string"
+        },
+        "lrp-type": {
+          "description": "LRP config type",
+          "type": "string"
+        },
+        "name": {
+          "description": "LRP service name",
+          "type": "string"
+        },
+        "namespace": {
+          "description": "LRP service namespace",
+          "type": "string"
+        },
+        "service-id": {
+          "description": "matching k8s service namespace and name",
+          "type": "string"
+        },
+        "uid": {
+          "description": "Unique identification",
+          "type": "string"
         }
       }
     },
