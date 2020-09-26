@@ -18,6 +18,7 @@ import (
 	"fmt"
 	"net"
 
+	"github.com/cilium/cilium/api/v1/models"
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/labels"
@@ -90,6 +91,17 @@ type backend struct {
 	podID podID
 }
 
+func (be *backend) GetModel() *models.LRPBackend {
+	ip := be.IP.String()
+	return &models.LRPBackend{
+		PodID: be.podID.String(),
+		BackendAddress: &models.BackendAddress{
+			IP:   &ip,
+			Port: be.Port,
+		},
+	}
+}
+
 type portName = string
 
 // feMapping stores frontend address and a list of associated backend addresses.
@@ -97,6 +109,21 @@ type feMapping struct {
 	feAddr      *frontend
 	podBackends []backend
 	fePort      portName
+}
+
+func (feM *feMapping) GetModel() *models.FrontendMapping {
+	var bes []*models.LRPBackend
+	for _, be := range feM.podBackends {
+		bes = append(bes, be.GetModel())
+	}
+	return &models.FrontendMapping{
+		FrontendAddress: &models.FrontendAddress{
+			IP:       feM.feAddr.IP.String(),
+			Protocol: feM.feAddr.Protocol,
+			Port:     feM.feAddr.Port,
+		},
+		Backends: bes,
+	}
 }
 
 type bePortInfo struct {
@@ -302,4 +329,55 @@ func (config *LRPConfig) checkNamespace(namespace string) bool {
 		return namespace == config.id.Namespace
 	}
 	return true
+}
+
+func (config *LRPConfig) GetModel() *models.LRPSpec {
+	if config == nil {
+		return nil
+	}
+
+	var feType, lrpType string
+	switch config.frontendType {
+	case frontendTypeUnknown:
+		feType = "unknown"
+	case svcFrontendAll:
+		feType = "clusterIP + all svc ports"
+	case svcFrontendNamedPorts:
+		feType = "clusterIP + named ports"
+	case svcFrontendSinglePort:
+		feType = "clusterIP + port"
+	case addrFrontendSinglePort:
+		feType = "IP + port"
+	case addrFrontendNamedPorts:
+		feType = "IP + named ports"
+	}
+
+	switch config.lrpType {
+	case lrpConfigTypeNone:
+		lrpType = "none"
+	case lrpConfigTypeAddr:
+		lrpType = "addr"
+	case lrpConfigTypeSvc:
+		lrpType = "svc"
+	}
+
+	var feMappingModelArray []*models.FrontendMapping
+	for _, feM := range config.frontendMappings {
+		feMappingModelArray = append(feMappingModelArray, feM.GetModel())
+	}
+
+	var svcID string
+	if config.serviceID != nil {
+		svcID = config.serviceID.String()
+	}
+
+	return &models.LRPSpec{
+		UID:              string(config.uid),
+		Name:             config.id.Name,
+		Namespace:        config.id.Namespace,
+		FrontendType:     feType,
+		LrpType:          lrpType,
+		ServiceID:        svcID,
+		FrontendMappings: feMappingModelArray,
+	}
 }

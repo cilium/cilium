@@ -32,6 +32,8 @@ type Client struct {
 type ClientService interface {
 	DeleteServiceID(params *DeleteServiceIDParams) (*DeleteServiceIDOK, error)
 
+	GetLrp(params *GetLrpParams) (*GetLrpOK, error)
+
 	GetService(params *GetServiceParams) (*GetServiceOK, error)
 
 	GetServiceID(params *GetServiceIDParams) (*GetServiceIDOK, error)
@@ -72,6 +74,40 @@ func (a *Client) DeleteServiceID(params *DeleteServiceIDParams) (*DeleteServiceI
 	// unexpected success response
 	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
 	msg := fmt.Sprintf("unexpected success response for DeleteServiceID: API contract not enforced by server. Client expected to get an error, but got: %T", result)
+	panic(msg)
+}
+
+/*
+  GetLrp retrieves list of all local redirect policies
+*/
+func (a *Client) GetLrp(params *GetLrpParams) (*GetLrpOK, error) {
+	// TODO: Validate the params before sending
+	if params == nil {
+		params = NewGetLrpParams()
+	}
+
+	result, err := a.transport.Submit(&runtime.ClientOperation{
+		ID:                 "GetLrp",
+		Method:             "GET",
+		PathPattern:        "/lrp",
+		ProducesMediaTypes: []string{"application/json"},
+		ConsumesMediaTypes: []string{"application/json"},
+		Schemes:            []string{"http"},
+		Params:             params,
+		Reader:             &GetLrpReader{formats: a.formats},
+		Context:            params.Context,
+		Client:             params.HTTPClient,
+	})
+	if err != nil {
+		return nil, err
+	}
+	success, ok := result.(*GetLrpOK)
+	if ok {
+		return success, nil
+	}
+	// unexpected success response
+	// safeguard: normally, absent a default response, unknown success responses return an error above: so this is a codegen issue
+	msg := fmt.Sprintf("unexpected success response for GetLrp: API contract not enforced by server. Client expected to get an error, but got: %T", result)
 	panic(msg)
 }
 
