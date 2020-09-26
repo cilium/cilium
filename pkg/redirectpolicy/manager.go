@@ -790,3 +790,15 @@ func (rpm *Manager) getPodMetadata(pod *slimcorev1.Pod, podIPs []string) (*podMe
 		},
 	}, nil
 }
+
+func (rpm *Manager) GetLRPs() []*LRPConfig {
+	rpm.mutex.Lock()
+	defer rpm.mutex.Unlock()
+
+	lrps := make([]*LRPConfig, 0, len(rpm.policyConfigs))
+	for _, lrp := range rpm.policyConfigs {
+		lrps = append(lrps, lrp)
+	}
+
+	return lrps
+}
