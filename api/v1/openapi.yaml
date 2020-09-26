@@ -556,6 +556,18 @@ paths:
           description: Success
           schema:
             "$ref": "#/definitions/SelectorCache"
+  "/lrp":
+    get:
+      summary: Retrieve list of all local redirect policies
+      tags:
+      - service
+      responses:
+        '200':
+          description: Success
+          schema:
+            type: array
+            items:
+              "$ref": "#/definitions/LRPSpec"
   "/service":
     get:
       summary: Retrieve list of all services
@@ -2256,6 +2268,53 @@ definitions:
       nodeName:
         description: Optional name of the node on which this backend runs
         type: string
+  LRPBackend:
+    description: Pod backend of an LRP
+    type: object
+    properties:
+      pod-id:
+        description: Namespace and name of the backend pod
+        type: string
+      backend-address:
+        "$ref": "#/definitions/BackendAddress"
+  FrontendMapping:
+    description: Mapping of frontend to backend pods of an LRP
+    type: object
+    properties:
+      frontend-address:
+        "$ref": "#/definitions/FrontendAddress"
+      backends:
+        description: Pod backends of an LRP
+        type: array
+        items:
+          "$ref": "#/definitions/LRPBackend"
+  LRPSpec:
+    description: Configuration of an LRP
+    type: object
+    properties:
+      uid:
+        description: Unique identification
+        type: string
+      name:
+        description: LRP service name
+        type: string
+      namespace:
+        description: LRP service namespace
+        type: string
+      frontend-type:
+        description: LRP frontend type
+        type: string
+      lrp-type:
+        description: LRP config type
+        type: string
+      service-id:
+        description: matching k8s service namespace and name
+        type: string
+      frontend-mappings:
+        description: mapping of frontends to pod backends
+        type: array
+        items:
+          "$ref": "#/definitions/FrontendMapping"
   Service:
     description: Collection of endpoints to be served
     type: object
