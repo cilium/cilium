@@ -15,6 +15,7 @@
 package podcidr
 
 import (
+	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -171,6 +172,7 @@ type NodesPodCIDRManager struct {
 }
 
 type CIDRAllocator interface {
+	fmt.Stringer
 	Occupy(cidr *net.IPNet) error
 	AllocateNext() (*net.IPNet, error)
 	Release(cidr *net.IPNet) error
@@ -849,10 +851,35 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 		nCIDRs.v6PodCIDRs = []*net.IPNet{v6CIDR}
 	}
 
+	if nCIDRs == nil {
+		err = fmt.Errorf("Unable to allocate node CIDR for node %s. IPAMInfo: {IPv4: %s, IPv6: %s}. Please check that your configuration is correct",
+			nodeName,
+			getCIDRAllocatorsInfo(n.v4CIDRAllocators, v4AllocatorType),
+			getCIDRAllocatorsInfo(n.v6CIDRAllocators, v6AllocatorType))
+		return nil, false, err
+	}
+
 	n.nodes[nodeName] = nCIDRs
 
 	return nCIDRs, true, nil
 
+}
+
+func getCIDRAllocatorsInfo(cidrAllocators []CIDRAllocator, netTypes string) string {
+	var cidrAllocatorsInfo bytes.Buffer
+	cidrAllocatorsLength := len(cidrAllocators)
+	if cidrAllocatorsLength == 0 {
+		return "[]"
+	}
+
+	for index, cidrAllocator := range cidrAllocators {
+		cidrAllocatorsInfo.WriteString(fmt.Sprintf("%s", cidrAllocator.String()))
+		if index < cidrAllocatorsLength-1 {
+			cidrAllocatorsInfo.WriteString(fmt.Sprintf(", "))
+		}
+	}
+
+	return fmt.Sprintf("[%s]", cidrAllocatorsInfo.String())
 }
 
 // allocateFirstFreeCIDR allocates the first CIDR available from the slice of

@@ -79,6 +79,10 @@ type mockCIDRAllocator struct {
 	OnInRange      func(cidr *net.IPNet) bool
 }
 
+func (d *mockCIDRAllocator) String() string {
+	return "clusterCIDR: 10.0.0.0/24, nodeMask: 24"
+}
+
 func (d *mockCIDRAllocator) Occupy(cidr *net.IPNet) error {
 	if d.OnOccupy != nil {
 		return d.OnOccupy(cidr)
