@@ -269,6 +269,7 @@ func init() {
 
 	flags.Duration(operatorOption.CRDWaitTimeout, 5*time.Minute, "Operator will exit if CRDs are not available within this duration upon startup")
 	option.BindEnv(operatorOption.CRDWaitTimeout)
+	flags.MarkDeprecated(operatorOption.CRDWaitTimeout, "This option is no longer used and has been deprecated to be removed in v1.10")
 
 	flags.Duration(operatorOption.LeaderElectionLeaseDuration, 15*time.Second,
 		"Duration that non-leader operator candidates will wait before forcing to acquire leadership")
