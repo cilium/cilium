@@ -30,7 +30,6 @@ cilium-operator-azure [flags]
       --cnp-status-update-interval duration        Interval between CNP status updates sent to the k8s-apiserver per-CNP (default 1s)
       --config string                              Configuration file (default "$HOME/ciliumd.yaml")
       --config-dir string                          Configuration directory that contains a file for each option
-      --crd-wait-timeout duration                  Operator will exit if CRDs are not available within this duration upon startup (default 5m0s)
   -D, --debug                                      Enable debugging mode
       --enable-ipv4                                Enable IPv4 support (default true)
       --enable-ipv6                                Enable IPv6 support (default true)
