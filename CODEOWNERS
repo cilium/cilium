@@ -71,7 +71,6 @@ Dockerfile* @cilium/build
 /Documentation/envoy/ @cilium/proxy
 /envoy/ @cilium/proxy
 /examples/ @cilium/docs
-/examples/crds/ @cilium/kubernetes
 /examples/kubernetes/ @cilium/kubernetes
 /examples/minikube/ @cilium/kubernetes
 *.Jenkinsfile @cilium/ci
@@ -79,6 +78,7 @@ Dockerfile* @cilium/build
 /hubble-relay.Dockerfile @cilium/hubble
 /images @cilium/build
 /install/kubernetes/ @cilium/kubernetes @cilium/docs @cilium/helm
+/install/kubernetes/cilium/crds @cilium/kubernetes
 /install/kubernetes/cilium/charts/hubble-relay @cilium/kubernetes @cilium/docs @cilium/helm @cilium/hubble
 /install/kubernetes/cilium/charts/hubble-tls @cilium/kubernetes @cilium/docs @cilium/helm @cilium/hubble
 /install/kubernetes/cilium/charts/hubble-ui @cilium/kubernetes @cilium/docs @cilium/helm @cilium/hubble
