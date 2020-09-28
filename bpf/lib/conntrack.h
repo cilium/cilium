@@ -245,6 +245,7 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			if (unlikely(reopen == (TCP_FLAG_SYN|0x1))) {
 				ct_reset_closing(entry);
 				*monitor = ct_update_timeout(entry, is_tcp, dir, seen_flags);
+				return CT_REOPENED;
 			}
 			break;
 		case ACTION_CLOSE:
@@ -399,7 +400,7 @@ static __always_inline int ct_lookup6(const void *map,
 	ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state, is_tcp,
 			  tcp_flags, monitor);
 	if (ret != CT_NEW) {
-		if (likely(ret == CT_ESTABLISHED)) {
+		if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
 				ret = CT_RELATED;
 			else
@@ -581,7 +582,7 @@ static __always_inline int ct_lookup4(const void *map,
 	ret = __ct_lookup(map, ctx, tuple, action, dir, ct_state, is_tcp,
 			  tcp_flags, monitor);
 	if (ret != CT_NEW) {
-		if (likely(ret == CT_ESTABLISHED)) {
+		if (likely(ret == CT_ESTABLISHED || ret == CT_REOPENED)) {
 			if (unlikely(tuple->flags & TUPLE_F_RELATED))
 				ret = CT_RELATED;
 			else
