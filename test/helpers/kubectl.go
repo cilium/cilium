@@ -556,6 +556,7 @@ func (kub *Kubectl) PrepareCluster() {
 		"kube-public",
 		"container-registry",
 		"cilium-ci-lock",
+		"prom",
 	})
 	if err != nil {
 		ginkgoext.Failf("Unable to delete non-essential namespaces: %s", err)
