@@ -1,0 +1,16 @@
+name: Nightly
+on:
+  schedule:
+    - cron: '0 2 * * *' # run at 2 AM UTC
+jobs:
+  test-gke:
+    name: Start Nightly Policy Stress tests
+    runs-on: ubuntu-18.04
+    steps:
+      - name: Request GKE test cluster
+        uses: docker://quay.io/isovalent/gke-test-cluster-requester:fe34abda190c31680968ba62634c788428d91706
+        env:
+          GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
+        with:
+          args: --namespace=test-clusters --image=cilium/cilium-test-dev:latest "/usr/local/bin/cilium-test-gke.sh" "docker.io/cilium/cilium:latest" "docker.io/cilium/operator-generic:latest" "docker.io/cilium/hubble-relay:latest" "NightlyPolicyStress"

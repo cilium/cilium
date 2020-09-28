@@ -24,10 +24,12 @@ kubectl create ns cilium || true
 
 CILIUM_IMAGE="${1}"
 CILIUM_OPERATOR_IMAGE="${2}"
+HUBBLE_RELAY_IMAGE="${3}"
+FOCUS="${4:-K8s*}"
 
-export CILIUM_IMAGE CILIUM_OPERATOR_IMAGE
+export CILIUM_IMAGE CILIUM_OPERATOR_IMAGE HUBBLE_RELAY_IMAGE FOCUS
 
-shift 2
+shift 4
 
 CNI_INTEGRATION=gke
 
@@ -41,9 +43,11 @@ cilium-test \
   -test.v \
   -ginkgo.v \
   -ginkgo.noColor \
-  -ginkgo.focus="K8s*" \
+  -ginkgo.focus="${FOCUS}" \
   -cilium.provision=false \
   -cilium.kubeconfig="${KUBECONFIG}" \
   -cilium.image="${CILIUM_IMAGE}" \
   -cilium.operator-image="${CILIUM_OPERATOR_IMAGE}" \
+  -cilium.hubble-relay-image="${HUBBLE_RELAY_IMAGE}" \
+  -cilium.registry="docker.io" \
   -cilium.passCLIEnvironment=true
