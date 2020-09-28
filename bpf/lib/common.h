@@ -543,6 +543,7 @@ enum {
 	CT_ESTABLISHED,
 	CT_REPLY,
 	CT_RELATED,
+	CT_REOPENED,
 };
 
 /* Service flags (lb{4,6}_service->flags) */

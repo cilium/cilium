@@ -79,6 +79,10 @@ ipv6_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id)
 			return ret;
 		break;
 
+	case CT_REOPENED:
+		send_policy_verdict_notify(ctx, dst_id, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 1,
+					   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
@@ -167,6 +171,10 @@ ipv6_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 		if (IS_ERR(ret))
 			return ret;
 
+	case CT_REOPENED:
+		send_policy_verdict_notify(ctx, *src_id, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 1,
+					   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
@@ -298,6 +306,10 @@ ipv4_host_policy_egress(struct __ctx_buff *ctx, __u32 src_id,
 			return ret;
 		break;
 
+	case CT_REOPENED:
+		send_policy_verdict_notify(ctx, dst_id, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 0,
+					   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
@@ -389,6 +401,10 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 		if (IS_ERR(ret))
 			return ret;
 
+	case CT_REOPENED:
+		send_policy_verdict_notify(ctx, *src_id, tuple.dport,
+					   tuple.nexthdr, POLICY_INGRESS, 0,
+					   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:

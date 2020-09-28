@@ -90,6 +90,7 @@ const (
 	TraceReasonCtEstablished
 	TraceReasonCtReply
 	TraceReasonCtRelated
+	TraceReasonCtReopened
 )
 
 var traceReasons = map[uint8]string{
@@ -97,6 +98,7 @@ var traceReasons = map[uint8]string{
 	TraceReasonCtEstablished: "established",
 	TraceReasonCtReply:       "reply",
 	TraceReasonCtRelated:     "related",
+	TraceReasonCtReopened:    "reopened",
 }
 
 func connState(reason uint8) string {
