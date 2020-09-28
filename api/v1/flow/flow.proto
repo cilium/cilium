@@ -299,6 +299,10 @@ message FlowFilter {
     repeated uint32 source_identity = 19;
     // destination_identity filters by the security identity of the destination endpoint.
     repeated uint32 destination_identity = 20;
+
+    // GET, POST, PUT, etc. methods. This type of field is well suited for an
+    // enum but every single existing place is using a string already.
+    repeated string http_method = 21;
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.
