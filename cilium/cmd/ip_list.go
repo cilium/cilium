@@ -25,7 +25,8 @@ import (
 	"github.com/cilium/cilium/pkg/api"
 	pkg "github.com/cilium/cilium/pkg/client"
 	"github.com/cilium/cilium/pkg/command"
-	"github.com/cilium/cilium/pkg/ipcache/types"
+	"github.com/cilium/cilium/pkg/identity"
+	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
 	"github.com/spf13/viper"
 
 	"github.com/spf13/cobra"
@@ -40,10 +41,13 @@ var ipListCmd = &cobra.Command{
 	},
 }
 
+var numeric bool
+
 func init() {
 	ipCmd.AddCommand(ipListCmd)
 	command.AddJSONOutput(ipListCmd)
 	flags := ipListCmd.Flags()
+	flags.BoolVarP(&numeric, "numeric", "n", false, "Print numeric identities")
 	flags.BoolVarP(&verbose, "verbose", "v", false, "Print all fields of ipcache")
 	viper.BindPFlags(flags)
 }
@@ -73,21 +77,27 @@ func printIPcacheEntries(entries []*models.IPListEntry) {
 			fmt.Fprintf(w, "IP\tIDENTITY\tSOURCE\n")
 		}
 		for _, entry := range entries {
-			printEntry(w, entry, verbose)
+			printEntry(w, entry)
 		}
 
 		w.Flush()
 	}
 }
 
-func printEntry(w *tabwriter.Writer, entry *models.IPListEntry, verbose bool) {
+func printEntry(w *tabwriter.Writer, entry *models.IPListEntry) {
 	var src string
 	if entry.Metadata != nil {
 		src = entry.Metadata.Source
 	}
+
+	ni := identity.NumericIdentity(*entry.Identity)
+	identity := ni.String()
+	if numeric {
+		identity = ni.StringID()
+	}
 	if verbose {
-		fmt.Fprintf(w, "%s\t%d\t%s\t%s\t%d\n", *entry.Cidr, *entry.Identity, src, entry.HostIP, entry.EncryptKey)
+		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\n", *entry.Cidr, identity, src, entry.HostIP, entry.EncryptKey)
 	} else {
-		fmt.Fprintf(w, "%s\t%d\t%s\n", *entry.Cidr, *entry.Identity, src)
+		fmt.Fprintf(w, "%s\t%s\t%s\n", *entry.Cidr, identity, src)
 	}
 }
