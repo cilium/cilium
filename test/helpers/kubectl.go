@@ -4047,7 +4047,10 @@ func validateCiliumSvcLB(cSvc models.Service, lbMap map[string][]string) error {
 	if cSvc.Status.Realized.FrontendAddress.Scope == models.FrontendAddressScopeInternal {
 		scope = "/i"
 	}
-	frontendAddress := cSvc.Status.Realized.FrontendAddress.IP + ":" + strconv.Itoa(int(cSvc.Status.Realized.FrontendAddress.Port)) + scope
+
+	frontendAddress := net.JoinHostPort(
+		cSvc.Status.Realized.FrontendAddress.IP,
+		strconv.Itoa(int(cSvc.Status.Realized.FrontendAddress.Port))) + scope
 	bpfBackends, ok := lbMap[frontendAddress]
 	if !ok {
 		return fmt.Errorf("%s bpf lb map entry not found", frontendAddress)
@@ -4055,7 +4058,7 @@ func validateCiliumSvcLB(cSvc models.Service, lbMap map[string][]string) error {
 
 BACKENDS:
 	for _, addr := range cSvc.Status.Realized.BackendAddresses {
-		backend := *addr.IP + ":" + strconv.Itoa(int(addr.Port))
+		backend := net.JoinHostPort(*addr.IP, strconv.Itoa(int(addr.Port)))
 		for _, bpfAddr := range bpfBackends {
 			if strings.Contains(bpfAddr, backend) {
 				continue BACKENDS
