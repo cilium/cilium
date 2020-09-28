@@ -378,22 +378,6 @@ enum EventType {
     RecordLost = 2;
 }
 
-// Payload is the payload, i.e. the data the monitor returns.
-message Payload {
-    // type is the event type perf returns.
-    EventType type = 1;
-    // CPU is the CPU id for this event.
-    int32 CPU = 2;
-    // lost is the number of events lost for a given CPU.
-    uint64 lost = 3;
-    // data is the sample data returned by perf.
-    bytes data = 4;
-    // time when the event was observed
-    google.protobuf.Timestamp time = 5;
-    // the host name from which the payload was captured.
-    string host_name = 6;
-}
-
 // DNS flow. This is basically directly mapped from Cilium's LogRecordDNS:
 //     https://github.com/cilium/cilium/blob/04f3889d627774f79e56d14ddbc165b3169e2d01/pkg/proxy/accesslog/record.go#L264
 message DNS {

@@ -23,8 +23,8 @@ package observer;
 
 option go_package = "github.com/cilium/cilium/api/v1/observer";
 
-// Observer returns a stream of Payload depending on which filter the user
-// want to observer.
+// Observer returns a stream of Flows depending on which filter the user want
+// to observe.
 service Observer {
     // GetFlows returning structured data, meant to eventually obsolete GetLastNFlows.
     rpc GetFlows(GetFlowsRequest) returns (stream GetFlowsResponse) {}
