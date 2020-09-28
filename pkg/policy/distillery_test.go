@@ -21,6 +21,7 @@ import (
 	"fmt"
 	"io"
 	stdlog "log"
+	"strings"
 	"testing"
 
 	"github.com/cilium/cilium/pkg/checker"
@@ -404,6 +405,217 @@ func Test_MergeL3(t *testing.T) {
 	}
 }
 
+// The following variables names are derived from the following google sheet
+// https://docs.google.com/spreadsheets/d/1WANIoZGB48nryylQjjOw6lKjI80eVgPShrdMTMalLEw/edit?usp=sharing
+
+const (
+	L3L4KeyL3 = iota
+	L3L4KeyL4
+	L3L4KeyL7
+	L3L4KeyDeny
+	L4KeyL3
+	L4KeyL4
+	L4KeyL7
+	L4KeyDeny
+	L3KeyL3
+	L3KeyL4
+	L3KeyL7
+	L3KeyDeny
+	Total
+)
+
+// fieldsSet is the representation of the values set in the cells M8-P8, Q8-T8
+// and U8-X8.
+type fieldsSet struct {
+	L3   *bool
+	L4   *bool
+	L7   *bool
+	Deny *bool
+}
+
+// generatedBPFKey is the representation of the values set in the cells [M:P]6,
+// [Q:T]6 and [U:X]6.
+type generatedBPFKey struct {
+	L3L4Key fieldsSet
+	L4Key   fieldsSet
+	L3Key   fieldsSet
+}
+
+func parseFieldBool(s string) *bool {
+	switch s {
+	case "X":
+		return nil
+	case "0":
+		return func() *bool { a := false; return &a }()
+	case "1":
+		return func() *bool { a := true; return &a }()
+	default:
+		panic("Unknown value")
+	}
+}
+
+func parseTable(test string) generatedBPFKey {
+	// Remove all consecutive white space characters and return the charts that
+	// need want to parse.
+	fields := strings.Fields(test)
+	if len(fields) != Total {
+		panic("Wrong number of expected results")
+	}
+	return generatedBPFKey{
+		L3L4Key: fieldsSet{
+			L3:   parseFieldBool(fields[L3L4KeyL3]),
+			L4:   parseFieldBool(fields[L3L4KeyL4]),
+			L7:   parseFieldBool(fields[L3L4KeyL7]),
+			Deny: parseFieldBool(fields[L3L4KeyDeny]),
+		},
+		L4Key: fieldsSet{
+			L3:   parseFieldBool(fields[L4KeyL3]),
+			L4:   parseFieldBool(fields[L4KeyL4]),
+			L7:   parseFieldBool(fields[L4KeyL7]),
+			Deny: parseFieldBool(fields[L4KeyDeny]),
+		},
+		L3Key: fieldsSet{
+			L3:   parseFieldBool(fields[L3KeyL3]),
+			L4:   parseFieldBool(fields[L3KeyL4]),
+			L7:   parseFieldBool(fields[L3KeyL7]),
+			Deny: parseFieldBool(fields[L3KeyDeny]),
+		},
+	}
+}
+
+// testCaseToMapState generates the expected MapState logic. This function is
+// an implementation of the expected behavior. Any relation between this
+// function and non unit-test code should be seen as coincidental.
+// The algorithm represented in this function should be the source of truth
+// of our expectations when enforcing multiple types of policies.
+func testCaseToMapState(t generatedBPFKey) MapState {
+	m := MapState{}
+
+	if t.L3Key.L3 != nil {
+		if t.L3Key.Deny != nil && *t.L3Key.Deny {
+			// m[mapKeyDeny_Foo__] = mapEntryL7Deny_()
+		} else {
+			// If L7 is not set or if it explicitly set but it's false
+			if t.L3Key.L7 == nil || !*t.L3Key.L7 {
+				m[mapKeyAllowFoo__] = mapEntryL7None_()
+			}
+			// there's no "else" because we don't support L3L7 policies, i.e.,
+			// a L4 port needs to be specified.
+		}
+	}
+	if t.L4Key.L3 != nil {
+		if t.L4Key.Deny != nil && *t.L4Key.Deny {
+			// m[mapKeyDeny____L4] = mapEntryL7Deny_()
+		} else {
+			// If L7 is not set or if it explicitly set but it's false
+			if t.L4Key.L7 == nil || !*t.L4Key.L7 {
+				m[mapKeyAllow___L4] = mapEntryL7None_()
+			} else {
+				// L7 is set and it's true then we should expected a mapEntry
+				// with L7 redirection.
+				m[mapKeyAllow___L4] = mapEntryL7Proxy()
+			}
+		}
+	}
+	if t.L3L4Key.L3 != nil {
+		if t.L3L4Key.Deny != nil && *t.L3L4Key.Deny {
+			// if l3Rule, ok := m[mapKeyDeny_Foo__]; !ok || !l3Rule.IsDeny {
+			// m[mapKeyDeny_FooL4] = mapEntryL7Deny_()
+			// }
+		} else {
+			// If L7 is not set or if it explicitly set but it's false
+			if t.L3L4Key.L7 == nil || !*t.L3L4Key.L7 {
+				// We only insert a map entry if there isn't a L4-only
+				// installed, i.e., if we have a L4-only then we don't need to
+				// install a specific L3-L4 (for that L4-only port).
+				if _, ok := m[mapKeyAllow___L4]; !ok {
+					m[mapKeyAllowFooL4] = mapEntryL7None_()
+				}
+			} else {
+				// L7 is set and it's true then we should expected a mapEntry
+				// with L7 redirection only if we haven't set it already
+				// for an existing L4-only.
+				if _, ok := m[mapKeyAllow___L4]; !ok {
+					m[mapKeyAllowFooL4] = mapEntryL7Proxy()
+				} else {
+					if t.L4Key.L7 == nil || !*t.L4Key.L7 {
+						if t.L3L4Key.L4 != nil && *t.L3L4Key.L4 {
+							// If no L4-only was created so far then we can
+							// create a specific L3-L4 with policy redirection.
+							m[mapKeyAllowFooL4] = mapEntryL7Proxy()
+						}
+					}
+				}
+			}
+		}
+	}
+	return m
+}
+
+func generateMapStates() []MapState {
+	rawTestTable := []string{
+		"X	X	X	X	X	X	X	X	X	X	X	X", // 0
+		"X	X	X	X	X	X	X	X	1	0	0	0",
+		"X	X	X	X	0	1	0	0	X	X	X	X",
+		"X	X	X	X	0	1	0	0	1	0	0	0",
+		"1	1	0	0	X	X	X	X	X	X	X	X",
+		"1	1	0	0	X	X	X	X	1	0	0	0", // 5
+		"1	1	0	0	0	1	0	0	X	X	X	X",
+		"1	1	0	0	0	1	0	0	1	0	0	0",
+		"X	X	X	X	0	1	1	0	X	X	X	X",
+		"X	X	X	X	0	1	1	0	1	0	0	0",
+		"X	X	X	X	0	1	1	0	X	X	X	X", // 10
+		"X	X	X	X	0	1	1	0	1	0	0	0",
+		"1	1	1	0	0	1	1	0	X	X	X	X",
+		"1	1	1	0	0	1	1	0	1	0	0	0",
+		"1	1	1	0	0	1	1	0	X	X	X	X",
+		"1	1	1	0	0	1	1	0	1	0	0	0", // 15
+		"1	1	1	0	X	X	X	X	X	X	X	X",
+		"1	1	1	0	X	X	X	X	1	0	0	0",
+		"1	1	1	0	0	1	0	0	X	X	X	X",
+		"1	1	1	0	0	1	0	0	1	0	0	0",
+		"1	1	1	0	X	X	X	X	X	X	X	X", // 20
+		"1	1	1	0	X	X	X	X	1	0	0	0",
+		"1	1	1	0	0	1	0	0	X	X	X	X",
+		"1	1	1	0	0	1	0	0	1	0	0	0",
+		"1	1	1	0	0	1	1	0	X	X	X	X",
+		"1	1	1	0	0	1	1	0	1	0	0	0", // 25
+		"1	1	1	0	0	1	1	0	X	X	X	X",
+		"1	1	1	0	0	1	1	0	1	0	0	0",
+		"1	1	1	0	0	1	1	0	X	X	X	X",
+		"1	1	1	0	0	1	1	0	1	0	0	0",
+		"1	1	1	0	0	1	1	0	X	X	X	X", // 30
+		"1	1	1	0	0	1	1	0	1	0	0	0",
+	}
+	mapStates := make([]MapState, 0, len(rawTestTable))
+	for _, rawTest := range rawTestTable {
+		testCase := parseTable(rawTest)
+		mapState := testCaseToMapState(testCase)
+		mapStates = append(mapStates, mapState)
+	}
+
+	return mapStates
+}
+
+func generateRule(testCase int) api.Rules {
+	rulesIdx := api.Rules{
+		ruleL3____Allow,
+		rule__L4__Allow,
+		ruleL3L4__Allow,
+		rule__L4L7Allow,
+		ruleL3L4L7Allow,
+	}
+	rules := make(api.Rules, 0, len(rulesIdx))
+	for i := len(rulesIdx) - 1; i >= 0; i-- {
+		if ((testCase >> i) & 0x1) != 0 {
+			rules = append(rules, rulesIdx[i])
+		} else {
+			rules = append(rules, rule____NoAllow)
+		}
+	}
+	return rules
+}
+
 func Test_MergeRules(t *testing.T) {
 	identityCache := cache.IdentityCache{
 		identity.NumericIdentity(identityFoo): labelsFoo,
@@ -452,8 +664,11 @@ func Test_MergeRules(t *testing.T) {
 		{30, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, rule____NoAllow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow)}},                                                     // identical L3L4 entry suppressed
 		{31, api.Rules{ruleL3L4L7Allow, rule__L4L7Allow, ruleL3L4__Allow, rule__L4__Allow, ruleL3____Allow}, MapState{mapKeyAllow___L4: mapEntryL7Proxy(lblsL3L4L7Allow, lbls__L4L7Allow, lblsL3L4__Allow, lbls__L4__Allow), mapKeyAllowFoo__: mapEntryL7None_(lblsL3____Allow)}}, // identical L3L4 entry suppressed
 	}
+
+	expectedMapState := generateMapStates()
 	for _, tt := range tests {
 		repo := newPolicyDistillery(selectorCache)
+		generatedRule := generateRule(tt.test)
 		for _, r := range tt.rules {
 			if r != nil {
 				rule := r.WithEndpointSelector(selectFoo_)
@@ -471,6 +686,23 @@ func Test_MergeRules(t *testing.T) {
 				t.Logf("Rules:\n%s\n\n", tt.rules.String())
 				t.Logf("Policy Trace: \n%s\n", logBuffer.String())
 				t.Errorf("Policy obtained didn't match expected for endpoint %s:\n%s", labelsFoo, err)
+			}
+			// It is extremely difficult to derive the "DerivedFromRules" field.
+			// Since this field is only used for debuggability purposes we can
+			// ignore it and test only for the MapState that we are expecting
+			// to be plumbed into the datapath.
+			for k, v := range tt.result {
+				if v.DerivedFromRules == nil || len(v.DerivedFromRules) == 0 {
+					continue
+				}
+				v.DerivedFromRules = labels.LabelArrayList(nil).Sort()
+				tt.result[k] = v
+			}
+			if equal, err := checker.DeepEqual(expectedMapState[tt.test], tt.result); !equal {
+				t.Errorf("Policy obtained didn't match expected for endpoint:\n%s", err)
+			}
+			if equal, err := checker.DeepEqual(generatedRule, tt.rules); !equal {
+				t.Errorf("Generated rules didn't match manual rules:\n%s", err)
 			}
 		})
 	}
