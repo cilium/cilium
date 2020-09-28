@@ -163,6 +163,10 @@ spec:
                     minimum: 0
                     type: integer
                 type: object
+              nodeidentity:
+                description: NodeIdentity is the Cilium numeric identity allocated for the node, if any.
+                format: int64
+                type: integer
             type: object
           status:
             description: Status defines the realized specification/configuration and status of the node.
