@@ -3,14 +3,14 @@ frontendImage:
   repository: quay.io/cilium/hubble-ui
   # Ref: https://github.com/cilium/hubble-ui/releases
   # Ref: https://quay.io/repository/cilium/hubble-ui?tab=tags
-  tag: v0.7.1
+  tag: v0.7.2
   pullPolicy: IfNotPresent
 backendImage:
   repository: quay.io/cilium/hubble-ui-backend
   # tag is the container image tag to use.
   # Ref: https://github.com/cilium/hubble-ui/releases
   # Ref: https://quay.io/repository/cilium/hubble-ui-backend?tab=tags
-  tag: v0.7.1
+  tag: v0.7.2
   pullPolicy: IfNotPresent
 proxyImage:
   repository: docker.io/envoyproxy/envoy
