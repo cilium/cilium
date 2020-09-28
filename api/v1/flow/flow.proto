@@ -26,7 +26,8 @@ message Flow {
     Verdict verdict = 2;
 
     // only applicable to Verdict = DROPPED.
-    uint32 drop_reason = 3;
+    // deprecated in favor of drop_reason_desc.
+    uint32 drop_reason = 3 [deprecated=true];
 
     // l2
     Ethernet ethernet = 4;
@@ -76,6 +77,9 @@ message Flow {
 
     // Only applicable to cilium trace notifications, blank for other types.
     TraceObservationPoint trace_observation_point = 24;
+
+    // only applicable to Verdict = DROPPED.
+    DropReason drop_reason_desc = 25;
 
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
@@ -212,6 +216,64 @@ enum Verdict {
     FORWARDED = 1;
     DROPPED = 2;
     ERROR = 3;
+}
+
+// Taken from pkg/monitor/api/drop.go. Note that non-drop reasons (i.e. values
+// less than api.DropMin) are not used here.
+enum DropReason {
+    // non-drop reasons
+    DROP_REASON_UNKNOWN = 0;
+    // drop reasons
+    INVALID_SOURCE_MAC = 130;
+    INVALID_DESTINATION_MAC = 131;
+    INVALID_SOURCE_IP = 132;
+    POLICY_DENIED = 133;
+    INVALID_PACKET_DROPPED = 134;
+    CT_TRUNCATED_OR_INVALID_HEADER = 135;
+    CT_MISSING_TCP_ACK_FLAG = 136;
+    CT_UNKNOWN_L4_PROTOCOL = 137;
+    CT_CANNOT_CREATE_ENTRY_FROM_PACKET = 138;
+    UNSUPPORTED_L3_PROTOCOL = 139;
+    MISSED_TAIL_CALL = 140;
+    ERROR_WRITING_TO_PACKET = 141;
+    UNKNOWN_L4_PROTOCOL = 142;
+    UNKNOWN_ICMPV4_CODE = 143;
+    UNKNOWN_ICMPV4_TYPE = 144;
+    UNKNOWN_ICMPV6_CODE = 145;
+    UNKNOWN_ICMPV6_TYPE = 146;
+    ERROR_RETRIEVING_TUNNEL_KEY = 147;
+    ERROR_RETRIEVING_TUNNEL_OPTIONS = 148;
+    INVALID_GENEVE_OPTION = 149;
+    UNKNOWN_L3_TARGET_ADDRESS = 150;
+    STALE_OR_UNROUTABLE_IP = 151;
+    NO_MATCHING_LOCAL_CONTAINER_FOUND = 152;
+    ERROR_WHILE_CORRECTING_L3_CHECKSUM = 153;
+    ERROR_WHILE_CORRECTING_L4_CHECKSUM = 154;
+    CT_MAP_INSERTION_FAILED = 155;
+    INVALID_IPV6_EXTENSION_HEADER = 156;
+    IP_FRAGMENTATION_NOT_SUPPORTED = 157;
+    SERVICE_BACKEND_NOT_FOUND = 158;
+    NO_TUNNEL_OR_ENCAPSULATION_ENDPOINT = 160;
+    FAILED_TO_INSERT_INTO_PROXYMAP = 161;
+    REACHED_EDT_RATE_LIMITING_DROP_HORIZON = 162;
+    UNKNOWN_CONNECTION_TRACKING_STATE = 163;
+    LOCAL_HOST_IS_UNREACHABLE = 164;
+    NO_CONFIGURATION_AVAILABLE_TO_PERFORM_POLICY_DECISION = 165;
+    UNSUPPORTED_L2_PROTOCOL = 166;
+    NO_MAPPING_FOR_NAT_MASQUERADE = 167;
+    UNSUPPORTED_PROTOCOL_FOR_NAT_MASQUERADE = 168;
+    FIB_LOOKUP_FAILED = 169;
+    ENCAPSULATION_TRAFFIC_IS_PROHIBITED = 170;
+    INVALID_IDENTITY = 171;
+    UNKNOWN_SENDER = 172;
+    NAT_NOT_NEEDED = 173;
+    IS_A_CLUSTERIP = 174;
+    FIRST_LOGICAL_DATAGRAM_FRAGMENT_NOT_FOUND = 175;
+    FORBIDDEN_ICMPV6_MESSAGE = 176;
+    DENIED_BY_LB_SRC_RANGE_CHECK = 177;
+    SOCKET_LOOKUP_FAILED = 178;
+    SOCKET_ASSIGN_FAILED = 179;
+    PROXY_REDIRECTION_NOT_SUPPORTED_FOR_PROTOCOL = 180;
 }
 
 enum TrafficDirection {

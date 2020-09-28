@@ -375,6 +375,7 @@ type FakeFlow struct {
 	DestinationService *flowpb.Service
 	TrafficDirection   flowpb.TrafficDirection
 	PolicyMatchType    uint32
+	DropReasonDesc     flowpb.DropReason
 }
 
 // Reset implements flowpb.Message for the FakeFlow.
@@ -479,6 +480,11 @@ func (f *FakeFlow) GetTrafficDirection() flowpb.TrafficDirection {
 // GetPolicyMatchType implements v1.Flow for the FakeFlow.
 func (f *FakeFlow) GetPolicyMatchType() uint32 {
 	return f.PolicyMatchType
+}
+
+// GetDropReasonDesc implements v1.Flow for the FakeFlow.
+func (f *FakeFlow) GetDropReasonDesc() flowpb.DropReason {
+	return f.DropReasonDesc
 }
 
 // GetSummary implements v1.Flow for the FakeFlow.
