@@ -18,7 +18,7 @@ import (
 	"fmt"
 )
 
-// DropMin numbers below this are non-drop reason codes
+// DropMin numbers less than this are non-drop reason codes
 var DropMin uint8 = 130
 
 // DropInvalid is the Invalid packet reason.

@@ -384,6 +384,7 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	assert.Equal(t, int32(api.MessageTypePolicyVerdict), f.GetEventType().GetType())
 	assert.Equal(t, flowpb.TrafficDirection_INGRESS, f.GetTrafficDirection())
 	assert.Equal(t, uint32(151), f.GetDropReason())
+	assert.Equal(t, flowpb.DropReason(151), f.GetDropReasonDesc())
 	assert.Equal(t, flowpb.Verdict_DROPPED, f.GetVerdict())
 	assert.Equal(t, []string{"dst=label"}, f.GetSource().GetLabels())
 }
@@ -405,6 +406,7 @@ func TestDecodeDropReason(t *testing.T) {
 	require.NoError(t, err)
 
 	assert.Equal(t, uint32(reason), f.GetDropReason())
+	assert.Equal(t, flowpb.DropReason(reason), f.GetDropReasonDesc())
 }
 
 func TestDecodeLocalIdentity(t *testing.T) {

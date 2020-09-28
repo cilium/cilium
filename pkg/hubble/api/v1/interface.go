@@ -46,6 +46,7 @@ type Flow interface {
 	GetTrafficDirection() flowpb.TrafficDirection
 	GetPolicyMatchType() uint32
 	GetSummary() string
+	GetDropReasonDesc() flowpb.DropReason
 }
 
 // This ensures that the protobuf definition implements the interface

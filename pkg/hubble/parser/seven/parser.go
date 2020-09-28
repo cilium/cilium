@@ -129,6 +129,7 @@ func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
 	decoded.Time = pbTimestamp
 	decoded.Verdict = decodeVerdict(r.Verdict)
 	decoded.DropReason = 0
+	decoded.DropReasonDesc = pb.DropReason_DROP_REASON_UNKNOWN
 	decoded.IP = ip
 	decoded.L4 = l4
 	decoded.Source = decodeEndpoint(sourceEndpoint, sourceNamespace, sourcePod)

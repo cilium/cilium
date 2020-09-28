@@ -173,6 +173,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 
 	decoded.Verdict = decodeVerdict(dn, tn, pvn)
 	decoded.DropReason = decodeDropReason(dn, pvn)
+	decoded.DropReasonDesc = pb.DropReason(decoded.DropReason)
 	decoded.Ethernet = ether
 	decoded.IP = ip
 	decoded.L4 = l4
