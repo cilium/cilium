@@ -30,7 +30,8 @@ TESTPKGS_EVAL := $(subst github.com/cilium/cilium/,,$(shell echo $(GOFILES) | \
 	grep -v -P 'test(?!/helpers/logutils)'))
 TESTPKGS ?= $(TESTPKGS_EVAL)
 GOLANG_SRCFILES := $(shell for pkg in $(subst github.com/cilium/cilium/,,$(GOFILES)); do find $$pkg -name *.go -print; done | grep -v vendor | sort | uniq)
-K8S_CRD_EVAL := $(addprefix $(ROOT_DIR)/,$(shell git ls-files $(ROOT_DIR)/examples/crds | grep -v .gitignore | tr "\n" ' '))
+CRD_DIR ?= install/kubernetes/cilium/crds
+K8S_CRD_EVAL := $(addprefix $(ROOT_DIR)/,$(shell git ls-files $(ROOT_DIR)/$(CRD_DIR) | grep -v .gitignore | tr "\n" ' '))
 K8S_CRD_FILES ?= $(K8S_CRD_EVAL)
 
 SWAGGER_VERSION := v0.25.0
@@ -291,13 +292,13 @@ manifests:
 	$(eval TMPDIR := $(shell mktemp -d))
 	cd "./vendor/sigs.k8s.io/controller-tools/cmd/controller-gen" && \
 	go run ./... $(CRD_OPTIONS) paths="$(PWD)/pkg/k8s/apis/cilium.io/v2" output:crd:artifacts:config="$(TMPDIR)";
-	mv ${TMPDIR}/cilium.io_ciliumnetworkpolicies.yaml ./examples/crds/ciliumnetworkpolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumclusterwidenetworkpolicies.yaml ./examples/crds/ciliumclusterwidenetworkpolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumendpoints.yaml ./examples/crds/ciliumendpoints.yaml
-	mv ${TMPDIR}/cilium.io_ciliumidentities.yaml ./examples/crds/ciliumidentities.yaml
-	mv ${TMPDIR}/cilium.io_ciliumnodes.yaml ./examples/crds/ciliumnodes.yaml
-	mv ${TMPDIR}/cilium.io_ciliumlocalredirectpolicies.yaml ./examples/crds/ciliumlocalredirectpolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumclusterwidelocalredirectpolicies.yaml ./examples/crds/ciliumclusterwidelocalredirectpolicies.yaml
+	mv ${TMPDIR}/cilium.io_ciliumnetworkpolicies.yaml $(CRD_DIR)/ciliumnetworkpolicies.yaml
+	mv ${TMPDIR}/cilium.io_ciliumclusterwidenetworkpolicies.yaml $(CRD_DIR)/ciliumclusterwidenetworkpolicies.yaml
+	mv ${TMPDIR}/cilium.io_ciliumendpoints.yaml $(CRD_DIR)/ciliumendpoints.yaml
+	mv ${TMPDIR}/cilium.io_ciliumidentities.yaml $(CRD_DIR)/ciliumidentities.yaml
+	mv ${TMPDIR}/cilium.io_ciliumnodes.yaml $(CRD_DIR)/ciliumnodes.yaml
+	mv ${TMPDIR}/cilium.io_ciliumlocalredirectpolicies.yaml $(CRD_DIR)/ciliumlocalredirectpolicies.yaml
+	mv ${TMPDIR}/cilium.io_ciliumclusterwidelocalredirectpolicies.yaml $(CRD_DIR)/ciliumclusterwidelocalredirectpolicies.yaml
 	rm -rf $(TMPDIR)
 
 build-deb:

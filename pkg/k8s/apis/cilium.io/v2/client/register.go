@@ -123,19 +123,19 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 
 	switch crdName {
 	case CNPCRDName:
-		crdBytes, err = examplesCrdsCiliumnetworkpoliciesYamlBytes()
+		crdBytes, err = installKubernetesCiliumCrdsCiliumnetworkpoliciesYamlBytes()
 	case CCNPCRDName:
-		crdBytes, err = examplesCrdsCiliumclusterwidenetworkpoliciesYamlBytes()
+		crdBytes, err = installKubernetesCiliumCrdsCiliumclusterwidenetworkpoliciesYamlBytes()
 	case CEPCRDName:
-		crdBytes, err = examplesCrdsCiliumendpointsYamlBytes()
+		crdBytes, err = installKubernetesCiliumCrdsCiliumendpointsYamlBytes()
 	case CIDCRDName:
-		crdBytes, err = examplesCrdsCiliumidentitiesYamlBytes()
+		crdBytes, err = installKubernetesCiliumCrdsCiliumidentitiesYamlBytes()
 	case CNCRDName:
-		crdBytes, err = examplesCrdsCiliumnodesYamlBytes()
+		crdBytes, err = installKubernetesCiliumCrdsCiliumnodesYamlBytes()
 	case CLRPCRDNAME:
-		crdBytes, err = examplesCrdsCiliumlocalredirectpoliciesYamlBytes()
+		crdBytes, err = installKubernetesCiliumCrdsCiliumlocalredirectpoliciesYamlBytes()
 	case CCLRPCRDNAME:
-		crdBytes, err = examplesCrdsCiliumclusterwidelocalredirectpoliciesYamlBytes()
+		crdBytes, err = installKubernetesCiliumCrdsCiliumclusterwidelocalredirectpoliciesYamlBytes()
 	default:
 		scopedLog.Fatal("Pregenerated CRD does not exist")
 	}
