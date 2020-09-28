@@ -809,6 +809,7 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			goto drop_no_service;
 		goto update_state;
+	case CT_REOPENED:
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:
@@ -1343,6 +1344,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 		if (IS_ERR(ret))
 			goto drop_no_service;
 		goto update_state;
+	case CT_REOPENED:
 	case CT_ESTABLISHED:
 	case CT_RELATED:
 	case CT_REPLY:

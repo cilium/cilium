@@ -601,6 +601,7 @@ redo_local:
 		}
 		break;
 
+	case CT_REOPENED:
 	case CT_ESTABLISHED:
 	case CT_REPLY:
 		if (unlikely(ct_state.rev_nat_index != svc->rev_nat_index))
@@ -1296,6 +1297,7 @@ redo_local:
 		}
 		break;
 
+	case CT_REOPENED:
 	case CT_ESTABLISHED:
 	case CT_REPLY:
 		/* Recreate CT entries, as the existing one is stale and belongs

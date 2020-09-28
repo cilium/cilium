@@ -46,7 +46,7 @@
 static __always_inline bool redirect_to_proxy(int verdict, __u8 dir)
 {
 	return is_defined(ENABLE_HOST_REDIRECT) && verdict > 0 &&
-	       (dir == CT_NEW || dir == CT_ESTABLISHED);
+	       (dir == CT_NEW || dir == CT_ESTABLISHED ||  dir == CT_REOPENED);
 }
 #endif
 
@@ -201,6 +201,10 @@ ct_recreate6:
 		monitor = TRACE_PAYLOAD_LEN;
 		break;
 
+	case CT_REOPENED:
+		send_policy_verdict_notify(ctx, *dstID, tuple->dport,
+					   tuple->nexthdr, POLICY_EGRESS, 1,
+					   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
 		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index))
@@ -580,6 +584,10 @@ ct_recreate4:
 			return ret;
 		break;
 
+	case CT_REOPENED:
+		send_policy_verdict_notify(ctx, *dstID, tuple.dport,
+					   tuple.nexthdr, POLICY_EGRESS, 0,
+					   verdict, policy_match_type, audited);
 	case CT_ESTABLISHED:
 		/* Did we end up at a stale non-service entry? Recreate if so. */
 		if (unlikely(ct_state.rev_nat_index != ct_state_new.rev_nat_index))
@@ -946,10 +954,13 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	if (skip_ingress_proxy)
 		verdict = 0;
 
-	if (ret == CT_NEW) {
+	if (ret == CT_NEW || ret == CT_REOPENED) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 1,
 					   verdict, policy_match_type, audited);
+	}
+
+	if (ret == CT_NEW) {
 #ifdef ENABLE_DSR
 	{
 		bool dsr = false;
@@ -1181,10 +1192,13 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	if (skip_ingress_proxy)
 		verdict = 0;
 
-	if (ret == CT_NEW) {
+	if (ret == CT_NEW || ret == CT_REOPENED) {
 		send_policy_verdict_notify(ctx, src_label, tuple.dport,
 					   tuple.nexthdr, POLICY_INGRESS, 0,
 					   verdict, policy_match_type, audited);
+	}
+
+	if (ret == CT_NEW) {
 #ifdef ENABLE_DSR
 	{
 		bool dsr = false;
