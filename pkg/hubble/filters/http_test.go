@@ -18,6 +18,7 @@ package filters
 
 import (
 	"context"
+	"strings"
 	"testing"
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
@@ -25,7 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
-func TestHttpStatusCodeFilter(t *testing.T) {
+func TestHTTPFilters(t *testing.T) {
 	httpFlow := func(http *flowpb.HTTP) *v1.Event {
 		return &v1.Event{
 			Event: &flowpb.Flow{
@@ -44,12 +45,15 @@ func TestHttpStatusCodeFilter(t *testing.T) {
 		f  []*flowpb.FlowFilter
 		ev []*v1.Event
 	}
+
 	tests := []struct {
-		name    string
-		args    args
-		wantErr bool
-		want    []bool
+		name            string
+		args            args
+		wantErr         bool
+		wantErrContains string
+		want            []bool
 	}{
+		// status code filters
 		{
 			name: "status code full",
 			args: args{
@@ -229,15 +233,99 @@ func TestHttpStatusCodeFilter(t *testing.T) {
 			},
 			wantErr: false,
 		},
+		// method filters
+		{
+			name: "basic http method filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpMethod: []string{"GET"},
+						EventType: []*flowpb.EventTypeFilter{
+							{Type: api.MessageTypeAccessLog},
+							{Type: api.MessageTypeTrace},
+						},
+					},
+					{
+						HttpMethod: []string{"POST"},
+						EventType: []*flowpb.EventTypeFilter{
+							{Type: api.MessageTypeAccessLog},
+							{Type: api.MessageTypeTrace},
+						},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Method: "gEt"}),
+				},
+			},
+			want: []bool{
+				true,
+				false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "http method wrong type",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpMethod: []string{"GET"},
+						EventType: []*flowpb.EventTypeFilter{
+							{Type: api.MessageTypeTrace},
+						},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Method: "gEt"}),
+				},
+			},
+			wantErr:         true,
+			wantErrContains: "http method requires the event type filter",
+		},
+		{
+			name: "http method wrong type",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpMethod: []string{"PUT"},
+						EventType: []*flowpb.EventTypeFilter{
+							{Type: api.MessageTypeAccessLog},
+							{Type: api.MessageTypeTrace},
+						},
+					},
+					{
+						HttpMethod: []string{"POST"},
+						EventType: []*flowpb.EventTypeFilter{
+							{Type: api.MessageTypeAccessLog},
+							{Type: api.MessageTypeTrace},
+						},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Method: "DELETE"}),
+				},
+			},
+			want: []bool{
+				false,
+				false,
+			},
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
 			fl, err := BuildFilterList(context.Background(), tt.args.f, []OnBuildFilter{&HTTPFilter{}})
 			if (err != nil) != tt.wantErr {
-				t.Errorf("\"%s\" error = %v, wantErr %v", tt.name, err, tt.wantErr)
+				t.Errorf(`"%s" error = %v, wantErr %v`, tt.name, err, tt.wantErr)
 				return
 			}
 			if err != nil {
+				if tt.wantErrContains != "" {
+					if !strings.Contains(err.Error(), tt.wantErrContains) {
+						t.Errorf(
+							`"%s" error does not contain "%s"`,
+							err.Error(), tt.wantErrContains,
+						)
+					}
+				}
 				return
 			}
 			for i, ev := range tt.args.ev {
