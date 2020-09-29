@@ -232,6 +232,9 @@ const (
 	// EnableHostPort enables HostPort forwarding implemented by Cilium in BPF
 	EnableHostPort = "enable-host-port"
 
+	// EnableHostLegacyRouting enables the old routing path via stack.
+	EnableHostLegacyRouting = "enable-host-legacy-routing"
+
 	// EnableNodePort enables NodePort services implemented by Cilium in BPF
 	EnableNodePort = "enable-node-port"
 
@@ -1760,6 +1763,9 @@ type DaemonConfig struct {
 	// EnableHostPort enables k8s Pod's hostPort mapping through BPF
 	EnableHostPort bool
 
+	// EnableHostLegacyRouting enables the old routing path via stack.
+	EnableHostLegacyRouting bool
+
 	// NodePortMode indicates in which mode NodePort implementation should run
 	// ("snat", "dsr" or "hybrid")
 	NodePortMode string
@@ -2398,6 +2404,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableNodePort = viper.GetBool(EnableNodePort)
 	c.EnableSVCSourceRangeCheck = viper.GetBool(EnableSVCSourceRangeCheck)
 	c.EnableHostPort = viper.GetBool(EnableHostPort)
+	c.EnableHostLegacyRouting = viper.GetBool(EnableHostLegacyRouting)
 	c.NodePortMode = viper.GetString(NodePortMode)
 	c.NodePortAlg = viper.GetString(NodePortAlg)
 	c.MaglevTableSize = viper.GetInt(MaglevTableSize)

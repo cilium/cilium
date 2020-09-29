@@ -270,7 +270,9 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableHostPort {
 			cDefinesMap["ENABLE_HOSTPORT"] = "1"
 		}
-
+		if !option.Config.EnableHostLegacyRouting {
+			cDefinesMap["ENABLE_REDIRECT_NEIGH"] = "1"
+		}
 		if option.Config.EnableSVCSourceRangeCheck {
 			cDefinesMap["ENABLE_SRC_RANGE_CHECK"] = "1"
 			if option.Config.EnableIPv4 {
@@ -566,6 +568,15 @@ func (h *HeaderfileWriter) writeTemplateConfig(fw *bufio.Writer, e datapath.Endp
 
 	if e.RequireRouting() {
 		fmt.Fprintf(fw, "#define ENABLE_ROUTING 1\n")
+	}
+
+	if !option.Config.EnableHostLegacyRouting && option.Config.DirectRoutingDevice != "" {
+		directRoutingIface := option.Config.DirectRoutingDevice
+		directRoutingIfIndex, err := link.GetIfIndex(directRoutingIface)
+		if err != nil {
+			return err
+		}
+		fmt.Fprintf(fw, "#define DIRECT_ROUTING_DEV_IFINDEX %d\n", directRoutingIfIndex)
 	}
 
 	if e.IsHost() {

@@ -315,13 +315,18 @@ ct_recreate6:
 			return ret;
 	}
 #endif
-
 #ifdef ENABLE_NAT46
 	if (unlikely(ipv6_addr_is_mapped(daddr))) {
 		ep_tail_call(ctx, CILIUM_CALL_NAT64);
 		return DROP_MISSED_TAIL_CALL;
 	}
 #endif
+	if (is_defined(ENABLE_REDIRECT_NEIGH)) {
+		ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
+		if (unlikely(ret != CTX_ACT_OK))
+			return ret;
+		return redirect_neigh(DIRECT_ROUTING_DEV_IFINDEX, 0);
+	}
 	goto pass_to_stack;
 
 #ifdef ENABLE_ROUTING
@@ -685,9 +690,14 @@ ct_recreate4:
 		else
 			return ret;
 	}
-#else
-	goto pass_to_stack;
 #endif
+	if (is_defined(ENABLE_REDIRECT_NEIGH)) {
+		ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
+		if (unlikely(ret != CTX_ACT_OK))
+			return ret;
+		return redirect_neigh(DIRECT_ROUTING_DEV_IFINDEX, 0);
+	}
+	goto pass_to_stack;
 
 #ifdef ENABLE_ROUTING
 to_host:
