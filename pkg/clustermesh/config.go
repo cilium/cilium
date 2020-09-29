@@ -99,10 +99,13 @@ func (cdw *configDirectoryWatcher) watch() error {
 			case event := <-cdw.watcher.Events:
 				name := filepath.Base(event.Name)
 				log.WithField(fieldClusterName, name).Debugf("Received fsnotify event: %+v", event)
-				switch event.Op {
-				case fsnotify.Create, fsnotify.Write, fsnotify.Chmod:
+				switch {
+				case event.Op&fsnotify.Create == fsnotify.Create,
+					event.Op&fsnotify.Write == fsnotify.Write,
+					event.Op&fsnotify.Chmod == fsnotify.Chmod:
 					cdw.lifecycle.add(name, event.Name)
-				case fsnotify.Remove, fsnotify.Rename:
+				case event.Op&fsnotify.Remove == fsnotify.Remove,
+					event.Op&fsnotify.Rename == fsnotify.Rename:
 					cdw.lifecycle.remove(name)
 				}
 
