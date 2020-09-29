@@ -469,7 +469,7 @@ New ConfigMap Options
     1. For the initial upgrade, the options ``transmit-host-src: true``,
        ``allow-host-src: true``, and ``enable-remote-node-identity: false``
        must be set. This guarantees that:
-       
+
        * Existing NetworkPolicy will continue to work.
        * New 1.7 nodes will continue to transmit using the old host identity to
          guarantee compatibility with 1.6 nodes during the rolling upgrade
