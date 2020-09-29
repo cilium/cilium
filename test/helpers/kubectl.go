@@ -136,6 +136,7 @@ var (
 		"global.nodeinit.enabled":     "true",
 		"nodeinit.reconfigureKubelet": "true",
 		"nodeinit.removeCbrBridge":    "true",
+		"nodeinit.restartPods":        "true",
 		"global.cni.binPath":          "/home/kubernetes/bin",
 		"global.nodePort.mode":        "snat",
 		"global.gke.enabled":          "true",
