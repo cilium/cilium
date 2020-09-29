@@ -435,6 +435,9 @@ IMPORTANT: Changes required before upgrading to 1.8.0
   as eBPF-based NodePort, so for ``probe`` the former gets enabled if also NodePort
   could be enabled. For more information, see section :ref:`kubeproxyfree_hostport`.
 
+* The Cilium agent is now enforcing API rate limits for certain API calls. See
+  :ref:``api_rate_limiting`` for more information.
+
 Upgrading from >=1.7.0 to 1.8.y
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
