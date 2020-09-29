@@ -82,6 +82,25 @@ func filterByHTTPStatusCode(statusCodePrefixes []string) (FilterFunc, error) {
 	}, nil
 }
 
+func filterByHTTPMethods(methods []string) (FilterFunc, error) {
+	return func(ev *v1.Event) bool {
+		http := ev.GetFlow().GetL7().GetHttp()
+
+		if http == nil || http.Method == "" {
+			// Not an HTTP or method is missing
+			return false
+		}
+
+		for _, method := range methods {
+			if strings.EqualFold(http.Method, method) {
+				return true
+			}
+		}
+
+		return false
+	}, nil
+}
+
 // HTTPFilter implements filtering based on HTTP metadata
 type HTTPFilter struct{}
 
@@ -100,6 +119,19 @@ func (h *HTTPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) (
 			return nil, fmt.Errorf("invalid http status code filter: %v", err)
 		}
 		fs = append(fs, hsf)
+	}
+
+	if ff.GetHttpMethod() != nil {
+		if !httpMatchCompatibleEventFilter(ff.GetEventType()) {
+			return nil, errors.New("filtering by http method requires " +
+				"the event type filter to only match 'l7' events")
+		}
+
+		methodf, err := filterByHTTPMethods(ff.GetHttpMethod())
+		if err != nil {
+			return nil, fmt.Errorf("invalid http method filter: %v", err)
+		}
+		fs = append(fs, methodf)
 	}
 
 	return fs, nil
