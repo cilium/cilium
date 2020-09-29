@@ -68,6 +68,9 @@ const (
 	// SubsystemTriggers is the subsystem to scope metrics related to the trigger package.
 	SubsystemTriggers = "triggers"
 
+	// SubsystemAPILimiter is the subsystem to scope metrics related to the API limiter package.
+	SubsystemAPILimiter = "api_limiter"
+
 	// Namespace is used to scope metrics from cilium. It is prepended to metric
 	// names and separated with a '_'
 	Namespace = "cilium"
@@ -400,6 +403,34 @@ var (
 
 	// VersionMetric labelled by Cilium version
 	VersionMetric = NoOpGaugeVec
+
+	// APILimiterWaitHistoryDuration is a histogram that measures the
+	// individual wait durations of API limiters
+	APILimiterWaitHistoryDuration = NoOpObserverVec
+
+	// APILimiterWaitDuration is the gauge of the current mean, min, and
+	// max wait duration
+	APILimiterWaitDuration = NoOpGaugeVec
+
+	// APILimiterProcessingDuration is the gauge of the mean and estimated
+	// processing duration
+	APILimiterProcessingDuration = NoOpGaugeVec
+
+	// APILimiterRequestsInFlight is the gauge of the current and max
+	// requests in flight
+	APILimiterRequestsInFlight = NoOpGaugeVec
+
+	// APILimiterRateLimit is the gauge of the current rate limiting
+	// configuration including limit and burst
+	APILimiterRateLimit = NoOpGaugeVec
+
+	// APILimiterAdjustmentFactor is the gauge representing the latest
+	// adjustment factor that was applied
+	APILimiterAdjustmentFactor = NoOpGaugeVec
+
+	// APILimiterProcessedRequests is the counter of the number of
+	// processed (successful and failed) requests
+	APILimiterProcessedRequests = NoOpCounterVec
 )
 
 type Configuration struct {
@@ -456,6 +487,13 @@ type Configuration struct {
 	TriggerPolicyUpdateFolds                bool
 	TriggerPolicyUpdateCallDuration         bool
 	VersionMetric                           bool
+	APILimiterWaitHistoryDuration           bool
+	APILimiterWaitDuration                  bool
+	APILimiterProcessingDuration            bool
+	APILimiterRequestsInFlight              bool
+	APILimiterRateLimit                     bool
+	APILimiterAdjustmentFactor              bool
+	APILimiterProcessedRequests             bool
 }
 
 func DefaultMetrics() map[string]struct{} {
@@ -510,6 +548,12 @@ func DefaultMetrics() map[string]struct{} {
 		Namespace + "_" + SubsystemTriggers + "_policy_update_folds":                 {},
 		Namespace + "_" + SubsystemTriggers + "_policy_update_call_duration_seconds": {},
 		Namespace + "_version":                                                       {},
+		Namespace + "_" + SubsystemAPILimiter + "_wait_duration_seconds":             {},
+		Namespace + "_" + SubsystemAPILimiter + "_processing_duration_seconds":       {},
+		Namespace + "_" + SubsystemAPILimiter + "_requests_in_flight":                {},
+		Namespace + "_" + SubsystemAPILimiter + "_rate_limit":                        {},
+		Namespace + "_" + SubsystemAPILimiter + "_adjustment_factor":                 {},
+		Namespace + "_" + SubsystemAPILimiter + "_processed_requests_total":          {},
 	}
 }
 
@@ -1085,6 +1129,83 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, VersionMetric)
 			c.VersionMetric = true
+
+		case Namespace + "_" + SubsystemAPILimiter + "_wait_history_duration_seconds":
+			APILimiterWaitHistoryDuration = prometheus.NewHistogramVec(prometheus.HistogramOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemAPILimiter,
+				Name:      "wait_history_duration_seconds",
+				Help:      "Histogram over duration of waiting period for API calls subjects to rate limiting",
+			}, []string{"api_call"})
+
+			collectors = append(collectors, APILimiterWaitHistoryDuration)
+			c.APILimiterWaitHistoryDuration = true
+
+		case Namespace + "_" + SubsystemAPILimiter + "_wait_duration_seconds":
+			APILimiterWaitDuration = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemAPILimiter,
+				Name:      "wait_duration_seconds",
+				Help:      "Current wait time for api calls",
+			}, []string{"api_call", "value"})
+
+			collectors = append(collectors, APILimiterWaitDuration)
+			c.APILimiterWaitDuration = true
+
+		case Namespace + "_" + SubsystemAPILimiter + "_processing_duration_seconds":
+			APILimiterProcessingDuration = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemAPILimiter,
+				Name:      "processing_duration_seconds",
+				Help:      "Current processing time of api call",
+			}, []string{"api_call", "value"})
+
+			collectors = append(collectors, APILimiterProcessingDuration)
+			c.APILimiterProcessingDuration = true
+
+		case Namespace + "_" + SubsystemAPILimiter + "_requests_in_flight":
+			APILimiterRequestsInFlight = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemAPILimiter,
+				Name:      "requests_in_flight",
+				Help:      "Current requests in flight",
+			}, []string{"api_call", "value"})
+
+			collectors = append(collectors, APILimiterRequestsInFlight)
+			c.APILimiterRequestsInFlight = true
+
+		case Namespace + "_" + SubsystemAPILimiter + "_rate_limit":
+			APILimiterRateLimit = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemAPILimiter,
+				Name:      "rate_limit",
+				Help:      "Current rate limiting configuration",
+			}, []string{"api_call", "value"})
+
+			collectors = append(collectors, APILimiterRateLimit)
+			c.APILimiterRateLimit = true
+
+		case Namespace + "_" + SubsystemAPILimiter + "_adjustment_factor":
+			APILimiterAdjustmentFactor = prometheus.NewGaugeVec(prometheus.GaugeOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemAPILimiter,
+				Name:      "adjustment_factor",
+				Help:      "Current adjustment factor while auto adjusting",
+			}, []string{"api_call"})
+
+			collectors = append(collectors, APILimiterAdjustmentFactor)
+			c.APILimiterAdjustmentFactor = true
+
+		case Namespace + "_" + SubsystemAPILimiter + "_processed_requests_total":
+			APILimiterProcessedRequests = prometheus.NewCounterVec(prometheus.CounterOpts{
+				Namespace: Namespace,
+				Subsystem: SubsystemAPILimiter,
+				Name:      "processed_requests_total",
+				Help:      "Total number of API requests processed",
+			}, []string{"api_call", LabelOutcome})
+
+			collectors = append(collectors, APILimiterProcessedRequests)
+			c.APILimiterProcessedRequests = true
 		}
 	}
 

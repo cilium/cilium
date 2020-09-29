@@ -815,6 +815,9 @@ const (
 	// K8sServiceProxyName instructs Cilium to handle service objects only when
 	// service.kubernetes.io/service-proxy-name label equals the provided value.
 	K8sServiceProxyName = "k8s-service-proxy-name"
+
+	// APIRateLimitName enables configuration of the API rate limits
+	APIRateLimitName = "api-rate-limit"
 )
 
 // HelpFlagSections to format the Cilium Agent help template.
@@ -1898,6 +1901,9 @@ type DaemonConfig struct {
 	// the label is not present. For more details -
 	// https://github.com/kubernetes/enhancements/blob/master/keps/sig-network/0031-20181017-kube-proxy-services-optional.md
 	K8sServiceProxyName string
+
+	// APIRateLimitName enables configuration of the API rate limits
+	APIRateLimit map[string]string
 }
 
 var (
@@ -1939,6 +1945,7 @@ var (
 		k8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
 
 		k8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
+		APIRateLimit:                     make(map[string]string),
 	}
 )
 
@@ -2503,6 +2510,10 @@ func (c *DaemonConfig) Populate() {
 
 	if m := viper.GetStringMapString(LogOpt); len(m) != 0 {
 		c.LogOpt = m
+	}
+
+	if m := viper.GetStringMapString(APIRateLimitName); len(m) != 0 {
+		c.APIRateLimit = m
 	}
 
 	for _, option := range viper.GetStringSlice(EndpointStatus) {
