@@ -362,6 +362,23 @@ Name                             Labels                           Description
 ``qdn_gc_deletions_total``                                        Number of FQDNs that have been cleaned on FQDN garbage collector job
 ================================ ================================ ========================================================
 
+.. _metrics_api_rate_limiting:
+
+API Rate Limiting
+~~~~~~~~~~~~~~~~~
+
+===================================================== ================================ ========================================================
+Name                                                  Labels                           Description
+===================================================== ================================ ========================================================
+``cilium_api_limiter_adjustment_factor``              ``api_call``                     Most recent adjustment factor for automatic adjustment
+``cilium_api_limiter_processed_requests_total``       ``api_call``, ``outcome``        Total number of API requests processed
+``cilium_api_limiter_processing_duration_seconds``    ``api_call``, ``value``          Mean and estimated processing duration in seconds
+``cilium_api_limiter_rate_limit``                     ``api_call``, ``value``          Current rate limiting configuration (limit and burst)
+``cilium_api_limiter_requests_in_flight``             ``api_call``  ``value``          Current and maximum allowed number of requests in flight
+``cilium_api_limiter_wait_duration_seconds``          ``api_call``, ``value``          Mean, min, and max wait duration
+``cilium_api_limiter_wait_history_duration_seconds``  ``api_call``                     Histogram of wait duration per API call processed
+===================================================== ================================ ========================================================
+
 cilium-operator
 ---------------
 

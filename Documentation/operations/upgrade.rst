@@ -335,6 +335,8 @@ Annotations:
 * Cilium has upgraded its CRDs to v1, from v1beta1. Users must run the
   pre-flight checker mentioned above. The pre-flight check will ensure the
   custom resources installed inside the cluster are well-formed.
+* The Cilium agent is now enforcing API rate limits for certain API calls. See
+  :ref:``api_rate_limiting`` for more information.
 
 Renamed Metrics
 ~~~~~~~~~~~~~~~
