@@ -7,10 +7,13 @@ jobs:
     name: Start Nightly Policy Stress tests
     runs-on: ubuntu-18.04
     steps:
+      - name: Trim git sha
+        id: vars
+        run: echo "::set-output name=sha_short::$(echo ${GITHUB_SHA:0:9})"
       - name: Request GKE test cluster
         uses: docker://quay.io/isovalent/gke-test-cluster-requester:fe34abda190c31680968ba62634c788428d91706
         env:
           GCP_SERVICE_ACCOUNT_KEY: ${{ secrets.GCP_SERVICE_ACCOUNT_KEY }}
           GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}
         with:
-          args: --namespace=test-clusters --image=cilium/cilium-test-dev:latest "/usr/local/bin/cilium-test-gke.sh" "docker.io/cilium/cilium:latest" "docker.io/cilium/operator-generic:latest" "docker.io/cilium/hubble-relay:latest" "NightlyPolicyStress"
+          args: --namespace=test-clusters --image=cilium/cilium-test-dev:${{ steps.vars.outputs.sha_short }} "/usr/local/bin/cilium-test-gke.sh" "docker.io/cilium/cilium:latest" "docker.io/cilium/operator-generic:latest" "docker.io/cilium/hubble-relay:latest" "NightlyPolicyStress"
