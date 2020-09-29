@@ -238,6 +238,30 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		}
 	}
 
+	if !option.Config.EnableHostLegacyRouting {
+		switch {
+		case !option.Config.EnableNodePort:
+			fallthrough
+		case option.Config.Tunnel != option.TunnelDisabled:
+			fallthrough
+		// TODO: add multi-dev support
+		case len(option.Config.Devices) > 1:
+			fallthrough
+		// Non-BPF masquerade requires netfilter and hence CT.
+		case option.Config.Masquerade && !option.Config.EnableBPFMasquerade:
+			option.Config.EnableHostLegacyRouting = true
+		default:
+			found := false
+			if h := probesManager.GetHelpers("sched_cls"); h != nil {
+				_, found = h["bpf_redirect_neigh"]
+			}
+			if !found {
+				log.Warnf("Re-enabling host legacy routing as bypassing needs kernel 5.10.0 or newer.")
+				option.Config.EnableHostLegacyRouting = true
+			}
+		}
+	}
+
 	if option.Config.EnableNodePort {
 		if option.Config.Tunnel != option.TunnelDisabled &&
 			option.Config.NodePortMode != option.NodePortModeSNAT {

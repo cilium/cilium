@@ -16,14 +16,14 @@
 
 #ifdef ENABLE_IPV6
 static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
-				   __u8 *smac, __u8 *dmac, __u8 direction)
+				   const __u8 *smac, const __u8 *dmac,
+				   __u8 direction)
 {
 	int ret;
 
 	ret = ipv6_dec_hoplimit(ctx, l3_off);
 	if (IS_ERR(ret))
 		return ret;
-
 	if (ret > 0) {
 		/* Hoplimit was reached */
 		return icmp6_send_time_exceeded(ctx, l3_off, direction);
@@ -31,8 +31,7 @@ static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 
 	if (smac && eth_store_saddr(ctx, smac, 0) < 0)
 		return DROP_WRITE_ERROR;
-
-	if (eth_store_daddr(ctx, dmac, 0) < 0)
+	if (dmac && eth_store_daddr(ctx, dmac, 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	return CTX_ACT_OK;
@@ -40,7 +39,8 @@ static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
 #endif /* ENABLE_IPV6 */
 
 static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
-				   __u8 *smac, __u8 *dmac, struct iphdr *ip4)
+				   const __u8 *smac, const __u8 *dmac,
+				   struct iphdr *ip4)
 {
 	if (ipv4_dec_ttl(ctx, l3_off, ip4)) {
 		/* FIXME: Send ICMP TTL */
@@ -49,8 +49,7 @@ static __always_inline int ipv4_l3(struct __ctx_buff *ctx, int l3_off,
 
 	if (smac && eth_store_saddr(ctx, smac, 0) < 0)
 		return DROP_WRITE_ERROR;
-
-	if (eth_store_daddr(ctx, dmac, 0) < 0)
+	if (dmac && eth_store_daddr(ctx, dmac, 0) < 0)
 		return DROP_WRITE_ERROR;
 
 	return CTX_ACT_OK;

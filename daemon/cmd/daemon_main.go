@@ -350,6 +350,9 @@ func init() {
 	flags.Bool(option.EnableBPFTProxy, defaults.EnableBPFTProxy, "Enable BPF-based proxy redirection, if support available")
 	option.BindEnv(option.EnableBPFTProxy)
 
+	flags.Bool(option.EnableHostLegacyRouting, defaults.EnableHostLegacyRouting, "Enable the legacy host forwarding model which does not bypass upper stack in host namespace")
+	option.BindEnv(option.EnableHostLegacyRouting)
+
 	flags.Bool(option.EnableXTSocketFallbackName, defaults.EnableXTSocketFallback, "Enable fallback for missing xt_socket module")
 	option.BindEnv(option.EnableXTSocketFallbackName)
 
