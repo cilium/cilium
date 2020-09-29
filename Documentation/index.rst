@@ -53,6 +53,7 @@ The documentation is divided into the following sections:
 
    operations/system_requirements
    operations/upgrade
+   configuration/index
    policy/index
    operations/metrics
    operations/scalability/index
