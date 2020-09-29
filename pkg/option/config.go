@@ -753,6 +753,9 @@ const (
 	// LeaderElectionRetryPeriod is the duration the LeaderElector clients should wait between
 	// tries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod = "leader-election-retry-period"
+
+	// APIRateLimitName enables configuration of the API rate limits
+	APIRateLimitName = "api-rate-limit"
 )
 
 // Default string arguments
@@ -1515,6 +1518,9 @@ type DaemonConfig struct {
 	// LeaderElectionRetryPeriod is the duration that LeaderElector clients should wait between
 	// retries of the actions in operator HA deployment.
 	LeaderElectionRetryPeriod time.Duration
+
+	// APIRateLimitName enables configuration of the API rate limits
+	APIRateLimit map[string]string
 }
 
 var (
@@ -1556,6 +1562,7 @@ var (
 		k8sEnableAPIDiscovery:        defaults.K8sEnableAPIDiscovery,
 
 		k8sEnableLeasesFallbackDiscovery: defaults.K8sEnableLeasesFallbackDiscovery,
+		APIRateLimit:                     make(map[string]string),
 	}
 )
 
@@ -2110,6 +2117,10 @@ func (c *DaemonConfig) Populate() {
 		c.ConntrackGCInterval = time.Duration(val) * time.Second
 	} else {
 		c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
+	}
+
+	if m := viper.GetStringMapString(APIRateLimitName); len(m) != 0 {
+		c.APIRateLimit = m
 	}
 
 	for _, option := range viper.GetStringSlice(EndpointStatus) {

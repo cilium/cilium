@@ -760,6 +760,9 @@ func init() {
 	flags.Duration(option.K8sHeartbeatTimeout, 30*time.Second, "Configures the timeout for api-server heartbeat, set to 0 to disable")
 	option.BindEnv(option.K8sHeartbeatTimeout)
 
+	flags.Var(option.NewNamedMapOptions(option.APIRateLimitName, &option.Config.APIRateLimit, nil), option.APIRateLimitName, "API rate limiting configuration (example: --rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)")
+	option.BindEnv(option.APIRateLimitName)
+
 	viper.BindPFlags(flags)
 }
 
