@@ -37,7 +37,6 @@ import (
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
 	"github.com/golang/protobuf/ptypes"
-	"github.com/golang/protobuf/ptypes/timestamp"
 	"github.com/sirupsen/logrus"
 )
 
@@ -288,14 +287,6 @@ nextFlow:
 	}
 }
 
-func getUntil(req *observerpb.GetFlowsRequest, defaultTime *timestamp.Timestamp) (time.Time, error) {
-	until := req.GetUntil()
-	if until == nil {
-		until = defaultTime
-	}
-	return ptypes.Timestamp(until)
-}
-
 func logFilters(filters []*flowpb.FlowFilter) string {
 	var s []string
 	for _, f := range filters {
@@ -312,7 +303,7 @@ type flowsReader struct {
 	maxFlows             uint64
 	follow, timeRange    bool
 	flowsCount           uint64
-	start, end           time.Time
+	since, until         *time.Time
 }
 
 // newFlowsReader creates a new flowsReader that uses the given RingReader to
@@ -331,19 +322,25 @@ func newFlowsReader(r *container.RingReader, req *observerpb.GetFlowsRequest, lo
 		blacklist:  blacklist,
 		maxFlows:   req.Number,
 		follow:     req.Follow,
-		timeRange:  !req.Follow && req.Number == 0,
+		timeRange:  req.Since != nil || req.Until != nil,
 	}
-	if reader.timeRange { // apply time range filtering
-		var err error
-		reader.start, err = ptypes.Timestamp(req.GetSince())
+
+	if req.Since != nil {
+		since, err := ptypes.Timestamp(req.Since)
 		if err != nil {
 			return nil, err
 		}
-		reader.end, err = getUntil(req, ptypes.TimestampNow())
+		reader.since = &since
+	}
+
+	if req.Until != nil {
+		until, err := ptypes.Timestamp(req.Until)
 		if err != nil {
 			return nil, err
 		}
+		reader.until = &until
 	}
+
 	return reader, nil
 }
 
@@ -375,15 +372,18 @@ func (r *flowsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, e
 		if e == nil {
 			return nil, io.EOF
 		}
+
 		if r.timeRange {
 			ts, err := ptypes.Timestamp(e.GetFlow().GetTime())
 			if err != nil {
 				return nil, err
 			}
-			if ts.After(r.end) {
+
+			if r.until != nil && ts.After(*r.until) {
 				return nil, io.EOF
 			}
-			if ts.Before(r.start) {
+
+			if r.since != nil && ts.Before(*r.since) {
 				continue
 			}
 		}
@@ -415,15 +415,15 @@ func (r *flowsReader) Next(ctx context.Context) (*observerpb.GetFlowsResponse, e
 // newRingReader creates a new RingReader that starts at the correct ring
 // offset to match the flow request.
 func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitelist, blacklist filters.FilterFuncs) (*container.RingReader, error) {
-	if req.Follow && req.Number == 0 { // no need to rewind
+	if req.Follow && req.Number == 0 && req.Since == nil {
+		// no need to rewind
 		return container.NewRingReader(ring, ring.LastWriteParallel()), nil
 	}
 
 	var err error
-	var start time.Time
-	since := req.GetSince()
-	if since != nil {
-		start, err = ptypes.Timestamp(since)
+	var since time.Time
+	if req.Since != nil {
+		since, err = ptypes.Timestamp(req.Since)
 		if err != nil {
 			return nil, err
 		}
@@ -451,12 +451,12 @@ func newRingReader(ring *container.Ring, req *observerpb.GetFlowsRequest, whitel
 			continue
 		}
 		flowsCount++
-		if since != nil {
+		if req.Since != nil {
 			ts, err := ptypes.Timestamp(e.GetFlow().GetTime())
 			if err != nil {
 				return nil, err
 			}
-			if ts.Before(start) {
+			if ts.Before(since) {
 				idx++ // we went backward 1 too far
 				break
 			}
