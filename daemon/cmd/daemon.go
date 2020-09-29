@@ -73,6 +73,7 @@ import (
 	policyApi "github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/probe"
 	"github.com/cilium/cilium/pkg/proxy"
+	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/service"
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/status"
@@ -157,6 +158,8 @@ type Daemon struct {
 	// endpointCreations is a map of all currently ongoing endpoint
 	// creation events
 	endpointCreations *endpointCreationManager
+
+	apiLimiterSet *rate.APILimiterSet
 }
 
 // GetPolicyRepository returns the policy repository of the daemon
@@ -264,6 +267,11 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		}
 	}
 
+	apiLimiterSet, err := rate.NewAPILimiterSet(option.Config.APIRateLimit, apiRateLimitDefaults, &apiRateLimitingMetrics{})
+	if err != nil {
+		log.WithError(err).Fatal("Unable to configure API rate limiting")
+	}
+
 	ctmap.InitMapInfo(option.Config.CTMapEntriesGlobalTCP, option.Config.CTMapEntriesGlobalAny,
 		option.Config.EnableIPv4, option.Config.EnableIPv6,
 	)
@@ -316,6 +324,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		datapath:          dp,
 		nodeDiscovery:     nd,
 		endpointCreations: newEndpointCreationManager(),
+		apiLimiterSet:     apiLimiterSet,
 	}
 
 	d.svc = service.NewService(&d)
