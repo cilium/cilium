@@ -5933,7 +5933,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "avg(histogram_quantile(0.90, rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{k8s_app=\"cilium\", scope!=\"buildDuration\"}[5m]))) by (scope)",
+          "expr": "avg(histogram_quantile(0.90, rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{k8s_app=\"cilium\", scope!=\"total\"}[5m]))) by (scope)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{scope}}",
@@ -6033,7 +6033,7 @@
       "steppedLine": false,
       "targets": [
         {
-          "expr": "avg(histogram_quantile(0.99, rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{k8s_app=\"cilium\", scope!=\"buildDuration\"}[5m]))) by (scope)",
+          "expr": "avg(histogram_quantile(0.99, rate(cilium_endpoint_regeneration_time_stats_seconds_bucket{k8s_app=\"cilium\", scope!=\"total\"}[5m]))) by (scope)",
           "format": "time_series",
           "intervalFactor": 1,
           "legendFormat": "{{scope}}",
