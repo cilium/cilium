@@ -420,6 +420,19 @@ the ``--cluster-name`` agent option or ``cluster-name`` ConfigMap option.
             name: rebel-base
             io.cilium.k8s.policy.cluster: cluster2
 
+Setting up Hubble
+#################
+
+In a ClusterMesh context with Hubble configured in **distributed mode**,
+:ref:`hubble_relay` provides cross-cluster visibility without any particular
+configuration.
+
+When mutual TLS (mTLS) is enabled (default in **distributed mode**), TLS
+certificates for Hubble and Hubble Relay need to be signed by the same
+Certificate Authority (CA) for both clusters. This can be achieved by disabling
+automatic TLS certificate generation and manually providing certificates as
+instructed in :ref:`hubble_configure_tls_certs`.
+
 Troubleshooting
 ###############
 
