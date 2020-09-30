@@ -80,10 +80,11 @@ var _ = Describe("NightlyPolicyStress", func() {
 
 			etcdService := fmt.Sprintf("http://%s:%d", host, port)
 			opts := map[string]string{
-				"global.etcd.enabled":           "true",
-				"global.etcd.endpoints[0]":      etcdService,
-				"global.identityAllocationMode": "kvstore",
-				"global.prometheus.enabled":     "true",
+				"global.etcd.enabled":               "true",
+				"global.etcd.endpoints[0]":          etcdService,
+				"global.identityAllocationMode":     "kvstore",
+				"global.prometheus.enabled":         "true",
+				"global.operatorPrometheus.enabled": "true",
 			}
 			if helpers.ExistNodeWithoutCilium() {
 				opts["config.synchronizeK8sNodes"] = "false"
