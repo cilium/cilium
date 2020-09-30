@@ -222,16 +222,39 @@ before setting up Cilium, in which case one would only need the second command.
 Results
 -------
 
-First, we examine bandwidth. The TCP stream (and TCP maerts) benchmark measures the
-maximum bandwidth that can be achieved by a client sending data to a server (and
-vice-versa). ``raw`` is the performance achieved by running the server and the
-client directly on the host, while ``cilium-v1.8-routing`` and
-``cilium-v1.8-tunnel`` show the pod-to-pod performance under different Cilium
-configurations. In all cases, the client and the server reside on different
-machines.
-
 Bandwidth
 ---------
+
+First, we examine bandwidth.  We start with evaluating the **maximum achievable
+transfer rate**. We do this by running multiple (16, equal to the number of
+available CPU threads on our machines) TCP streams and measure their aggregate
+throughput.  We use two netperf benchmarks: ``stream``, which sends data from
+the client to the server; and ``maerts``, which sends data from the server to
+the client.
+
+
+Results are presented below.  The bar labeled
+``raw`` shows the performance achieved by running the server and the client
+directly on the host. Bars ``cilium-v1.8-tunnel`` and ``cilium-v1.8-routing``
+show the performance of pod-to-pod communication when using Cilium in tunneling
+(VXLAN) and native-routing modes, respectively. Finally, encryption performance
+is shown in ``cilium-v1.8-ipsec-routing``.
+
+Non-encryption configurations perform very close to the limits of the system
+(raw). Tunneling does not perform as well as native routing, though, which we
+attribute to the overhead of UDP encapsulation.
+
+.. figure:: images/tcp_stream-16.png
+  :width: 450
+  :alt: TCP stream (16 streams)
+
+.. figure:: images/tcp_maerts-16.png
+  :width: 450
+  :alt: TCP maerts (16 streams)
+
+Next, we repeat the same experiments using a **single TCP stream** and present
+the results below.
+
 
 .. figure:: images/tcp_stream.png
   :width: 450
@@ -250,26 +273,26 @@ CNI running. This Cilium-free setup, reported above as ``raw-veth-routing``,
 resulted in a similar performance degradation. Since the same path is used in
 routing mode for Cilium, this explains a substantial part of the performance
 hit. Note that these results and bottlenecks apply to a single TCP stream, that
-is, multiple streams converge close to the NICs line rate.
+is, multiple streams converge close to the NICs line rate as we have
+shown previously.
 
 Given the single stream bottlenecks, we have recently been `working
 <https://lore.kernel.org/bpf/cover.1600967205.git.daniel@iogearbox.net/T/>`_ on
 improving the performance of veth through new eBPF features for the latest Linux
 kernels. Early experiments on our development branch ``cilium-v1.9-routing`` show
-that we were able to overcome these issues in direct routing mode. Additionally,
-optimizations are being worked on to improve performance and latency beyond the
+that we were able to overcome these issues in native routing mode. Additionally,
+optimizations are being worked on to improve performance beyond the
 results shown here.
 
 Using a Larger MTU
 ..................
 
-Bandwidth performance can be improved by increasing the MTU (e.g., to use jumbo
-frames) when this option is available. Our scripts (see
-``playbooks/set-dev-mtu.yaml``) offer examples on how to do this.
+Bandwidth performance can be improved by **increasing the MTU** when possible.
 It is worth noting that while increasing the MTU improves the
 performance of bandwidth benchmarks, it may have detrimental effects on other
-workloads. Results for using an MTU 9K for the same experiments are shown
-below.
+workloads. Results for using an MTU of 9000 (see `our scripts
+<https://github.com/cilium/perfeval/blob/master/playbooks/set-dev-mtu.yaml>`_
+for details) for the same experiments are shown below.
 
 .. figure:: images/tcp_stream-mtu9k.png
   :width: 450
@@ -283,32 +306,33 @@ Request/Reply Messages
 ----------------------
 
 Next, we examine the performance of sending small (1 byte) request and reply
-messages between a client and a server. Even though many studies focus on
-bandwidth measurements, modern applications rely heavily on message passing and
-this benchmark captures their behavior more accurately.
+messages between a client and a server using the same configurations as above.
+Even though many studies focus on bandwidth measurements, modern applications
+rely heavily on message passing and this benchmark captures their behavior more
+accurately.
 
-The first image shows how throughput (in transactions per second) and latency
-(in microseconds) vary as we increase the number of messages in flight
-(burst=0, 1, 2, 4...). As we increase the burst size, throughput increases
-until the system is saturated (this happens close to a burst of 128). At this
-point, throughput remains constant, while latency significantly increases. The
-two subsequent images show throughput and latency results for batch sizes 0 and
-128.
+The first image shows how **throughput** (in transactions per second) varies as
+we increase the number of messages in-flight using the ``burst`` parameter of
+netperf (burst=0, 1, 2, 4,...,512).  Note that a logarithmic scale is used for
+the x-axis.  As in-flight packets increase, throughput also increases until the
+system is saturated.
 
-.. figure:: images/tcp_rr.png
-  :width: 700
-  :alt: TCP RR
 
-.. figure:: images/tcp_rr-qd0.png
-  :width: 450
-  :alt: TCP RR / batch=0
+.. figure:: images/tcp_rr-tput.png
+  :width: 800
+  :alt: TCP RR: throughput
 
-.. figure:: images/tcp_rr-qd128.png
-  :width: 450
-  :alt: TCP RR / batch=128
+The second image shows how median latency is affected in the same experiment.
+(Note that in this case, lower is better.)
 
-One thing to note is that routing mode results in significantly lower latency
-for small batch sizes compared to tunneling.
+.. figure:: images/tcp_rr-lat.png
+  :width: 800
+  :alt: TCP RR: latency
+
+In general, Cilium performs close in terms of both latency and throughput to
+raw. (The initial latency spike on tunneling configuration is consistent
+across different measurements, and we are currently investigating its
+causes.)
 
 ------
 Tuning
