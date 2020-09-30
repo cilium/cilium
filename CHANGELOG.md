@@ -1,5 +1,29 @@
 # Changelog
 
+## v1.6.12
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add hidden --k8s-sync-timeout to set the timeout for initial Kubernetes synchronization (Backport PR #12823, Upstream PR #12822, @joestringer)
+* envoy: Require Node only on the first request of a stream (Backport PR #13334, Upstream PR #12522, @jrajahalme)
+* Istio integration has been updated to Istio release 1.5.9. (Backport PR #12888, Upstream PR #12861, @jrajahalme)
+* k8s: update k8s dependencies to 1.16.15 (#12667, @aanm)
+
+**Bugfixes:**
+* Envoy is updated to release 1.14.5 (Backport PR #13334, Upstream PR #13332, @jrajahalme)
+* node-init restartPods should use docker if /etc/crictl.yaml not found (Backport PR #13054, Upstream PR #12894, @UnwashedMeme)
+
+**Misc Changes:**
+* Add Kubernetes compatibility documentation (Backport PR #12799, Upstream PR #12783, @aanm)
+* contrib: Add release helper scripts for preparing micro releases (Backport PR #13250, Upstream PR #13044, @joestringer)
+* doc: update #ebpf Slack channel name (Backport PR #12799, Upstream PR #12766, @qmonnet)
+* docs/metrics: Correct label typos in metrics.rst (Backport PR #13054, Upstream PR #12901, @sayboras)
+* docs: limit copybutton to content area only (Backport PR #13054, Upstream PR #12997, @genbit)
+* Upgrade Cilium docs theme version (Backport PR #13054, Upstream PR #12996, @Neelajacques)
+* 1.6 special ci-fixing backport (#13111, @nebril)
+
 ## v1.6.11
 
 Summary of Changes

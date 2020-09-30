@@ -1,19 +1,19 @@
 dependencies:
   - name: agent
-    version: 1.6.11
+    version: 1.6.12
     condition: agent.enabled
   - name: config
-    version: 1.6.11
+    version: 1.6.12
     condition: config.enabled
   - name: operator
-    version: 1.6.11
+    version: 1.6.12
     condition: operator.enabled
   - name: managed-etcd
-    version: 1.6.11
+    version: 1.6.12
     condition: global.etcd.managed
   - name: preflight
-    version: 1.6.11
+    version: 1.6.12
     condition: preflight.enabled
   - name: nodeinit
-    version: 1.6.11
+    version: 1.6.12
     condition: global.nodeinit.enabled
