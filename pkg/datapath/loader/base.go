@@ -67,6 +67,7 @@ const (
 	initArgNodePortIPv4Addrs
 	initArgNodePortIPv6Addrs
 	initArgNrCPUs
+	initArgEndpointRoutes
 	initArgMax
 )
 
@@ -286,8 +287,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 	}
 
 	switch {
-	case option.Config.EnableEndpointRoutes:
-		args[initArgMode] = "routed"
 	case option.Config.IsFlannelMasterDeviceSet():
 		args[initArgMode] = "flannel"
 	case option.Config.Tunnel != option.TunnelDisabled:
@@ -336,6 +335,12 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 
 	args[initBPFCPU] = GetBPFCPU()
 	args[initArgNrCPUs] = fmt.Sprintf("%d", common.GetNumPossibleCPUs(log))
+
+	if option.Config.EnableEndpointRoutes {
+		args[initArgEndpointRoutes] = "true"
+	} else {
+		args[initArgEndpointRoutes] = "false"
+	}
 
 	clockSource := []string{"ktime", "jiffies"}
 	log.WithFields(logrus.Fields{

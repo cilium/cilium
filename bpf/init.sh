@@ -37,6 +37,7 @@ MCPU=${19}
 NODE_PORT_IPV4_ADDRS=${20}
 NODE_PORT_IPV6_ADDRS=${21}
 NR_CPUS=${22}
+ENDPOINT_ROUTES=${23}
 
 ID_HOST=1
 ID_WORLD=2
@@ -173,33 +174,27 @@ function setup_proxy_rules()
 			if [ -z "$(ip -4 rule list $to_proxy_rulespec)" ]; then
 				ip -4 rule add $to_proxy_rulespec
 			fi
-			case "${MODE}" in
-			"routed")
+			if [ "$ENDPOINT_ROUTES" = "true" ]; then
 				if [ ! -z "$(ip -4 rule list $from_ingress_rulespec)" ]; then
 					ip -4 rule delete $from_ingress_rulespec
 				fi
-				;;
-			*)
+			else
 				if [ -z "$(ip -4 rule list $from_ingress_rulespec)" ]; then
 					ip -4 rule add $from_ingress_rulespec
 				fi
-				;;
-			esac
+			fi
 		fi
 
 		# Traffic to the host proxy is local
 		ip route replace table $TO_PROXY_RT_TABLE local 0.0.0.0/0 dev lo
 		# Traffic from ingress proxy goes to Cilium address space via the cilium host device
-		case "${MODE}" in
-		"routed")
+		if [ "$ENDPOINT_ROUTES" = "true" ]; then
 			ip route delete table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1 2>/dev/null || true
 			ip route delete table $PROXY_RT_TABLE default via $IP4_HOST 2>/dev/null || true
-			;;
-		*)
+		else
 			ip route replace table $PROXY_RT_TABLE $IP4_HOST/32 dev $HOST_DEV1
 			ip route replace table $PROXY_RT_TABLE default via $IP4_HOST
-			;;
-		esac
+		fi
 	else
 		ip -4 rule del $to_proxy_rulespec 2> /dev/null || true
 		ip -4 rule del $from_ingress_rulespec 2> /dev/null || true
@@ -215,18 +210,15 @@ function setup_proxy_rules()
 					if [ -z "$(ip -6 rule list $to_proxy_rulespec)" ]; then
 						ip -6 rule add $to_proxy_rulespec
 					fi
-					case "${MODE}" in
-					"routed")
+					if [ "$ENDPOINT_ROUTES" = "true" ]; then
 						if [ ! -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
 							ip -6 rule delete $from_ingress_rulespec
 						fi
-						;;
-					*)
+					else
 						if [ -z "$(ip -6 rule list $from_ingress_rulespec)" ]; then
 							ip -6 rule add $from_ingress_rulespec
 						fi
-						;;
-					esac
+					fi
 				fi
 
 				IP6_LLADDR=$(ip -6 addr show dev $HOST_DEV2 | grep inet6 | head -1 | awk '{print $2}' | awk -F'/' '{print $1}')
@@ -234,16 +226,13 @@ function setup_proxy_rules()
 					# Traffic to the host proxy is local
 					ip -6 route replace table $TO_PROXY_RT_TABLE local ::/0 dev lo
 					# Traffic from ingress proxy goes to Cilium address space via the cilium host device
-					case "${MODE}" in
-					"routed")
+					if [ "$ENDPOINT_ROUTES" = "true" ]; then
 						ip -6 route delete table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1 2>/dev/null || true
 						ip -6 route delete table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1 2>/dev/null || true
-						;;
-					*)
+					else
 						ip -6 route replace table $PROXY_RT_TABLE ${IP6_LLADDR}/128 dev $HOST_DEV1
 						ip -6 route replace table $PROXY_RT_TABLE default via $IP6_LLADDR dev $HOST_DEV1
-						;;
-					esac
+					fi
 				fi
 			else
 				ip -6 rule del $to_proxy_rulespec 2> /dev/null || true
@@ -542,7 +531,7 @@ else
 	ip link del cilium_geneve 2> /dev/null || true
 fi
 
-if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$MODE" = "routed" ] || [ "$NODE_PORT" = "true" ] ; then
+if [ "$MODE" = "direct" ] || [ "$MODE" = "ipvlan" ] || [ "$NODE_PORT" = "true" ] ; then
 	if [ "$NATIVE_DEVS" == "<nil>" ]; then
 		echo "No device specified for $MODE mode, ignoring..."
 	else
