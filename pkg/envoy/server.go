@@ -271,7 +271,7 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 		Filters: []*envoy_config_listener.Filter{{
 			Name: "cilium.network",
 		}, {
-			Name: "envoy.http_connection_manager",
+			Name: "envoy.filters.network.http_connection_manager",
 			ConfigType: &envoy_config_listener.Filter_TypedConfig{
 				TypedConfig: toAny(hcmConfig),
 			},
@@ -336,7 +336,7 @@ func (s *XDSServer) getTcpFilterChainProto(clusterName string, filterName string
 
 	// 3. Add the TCP proxy filter.
 	filters = append(filters, &envoy_config_listener.Filter{
-		Name: "envoy.tcp_proxy",
+		Name: "envoy.filters.network.tcp_proxy",
 		ConfigType: &envoy_config_listener.Filter_TypedConfig{
 			TypedConfig: toAny(&envoy_config_tcp.TcpProxy{
 				StatPrefix: "tcp_proxy",
@@ -378,7 +378,7 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 		hcmConfig := &envoy_config_http.HttpConnectionManager{
 			StatPrefix: metricsListenerName,
 			HttpFilters: []*envoy_config_http.HttpFilter{{
-				Name: "envoy.router",
+				Name: "envoy.filters.http.router",
 			}},
 			StreamIdleTimeout: &duration.Duration{}, // 0 == disabled
 			RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
@@ -418,7 +418,7 @@ func (s *XDSServer) AddMetricsListener(port uint16, wg *completion.WaitGroup) {
 			},
 			FilterChains: []*envoy_config_listener.FilterChain{{
 				Filters: []*envoy_config_listener.Filter{{
-					Name: "envoy.http_connection_manager",
+					Name: "envoy.filters.network.http_connection_manager",
 					ConfigType: &envoy_config_listener.Filter_TypedConfig{
 						TypedConfig: toAny(hcmConfig),
 					},
@@ -562,7 +562,7 @@ func (s *XDSServer) getListenerConf(name string, kind policy.L7ParserType, port 
 
 		// Experimental TCP chain for MongoDB
 		listenerConf.FilterChains = append(listenerConf.FilterChains, s.getTcpFilterChainProto(clusterName,
-			"envoy.mongo_proxy", toAny(&envoy_mongo_proxy.MongoProxy{
+			"envoy.filters.network.mongo_proxy", toAny(&envoy_mongo_proxy.MongoProxy{
 				StatPrefix:          "mongo",
 				EmitDynamicMetadata: true,
 			})))
