@@ -11,8 +11,8 @@ Concepts
 ########
 
 The concepts chapter provides a deeper overview and deep dives over all aspects
-of Cilium. If you are looking for a high-level introduction of Cilium, see the
-section :ref:`intro`.
+of Cilium and Hubble. If you are looking for a high-level introduction of
+Cilium and Hubble, see the section :ref:`intro`.
 
 Choose one of the following topics to start reading:
 
@@ -25,6 +25,7 @@ Choose one of the following topics to start reading:
    networking/index
    security/index
    ebpf/index
+   observability/index
    kubernetes/index
    clustermesh/index
    scalability/index
