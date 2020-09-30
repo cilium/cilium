@@ -372,6 +372,8 @@ Deprecated Metrics/Labels
     label ``subnet_id`` instead.
   * Label ``subnetId`` and ``availabilityZone`` in ``cilium_operator_ipam_available_ips_per_subnet`` are deprecated and will be removed in 1.10. Please use
     label ``subnet_id`` and ``availability_zone`` instead.
+  * Label ``scope`` in ``cilium_endpoint_regeneration_time_stats_seconds`` had its ``buildDuration`` value renamed to ``total``.
+  * Label ``scope`` in ``cilium_policy_regeneration_time_stats_seconds`` had its ``buildDuration`` value renamed to ``total``.
 
 Removed options
 ~~~~~~~~~~~~~~~
