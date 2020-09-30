@@ -420,6 +420,156 @@ var _ = Describe("K8sServicesTest", func() {
 		})
 	})
 
+	SkipContextIf(func() bool { return !helpers.RunsOnNetNextOr419Kernel() }, "Checks local redirect policy", func() {
+		const (
+			lrpServiceName = "lrp-demo-service"
+			be1Name        = "k8s1-backend"
+			be2Name        = "k8s2-backend"
+			feFilter       = "role=frontend"
+			beFilter       = "role=backend"
+		)
+
+		var (
+			deploymentYAML string
+			lrpSvcYAML     string
+			svcIP          string
+			curlTCP        string
+			curlUDP        string
+		)
+
+		BeforeAll(func() {
+			deploymentYAML = helpers.ManifestGet(kubectl.BasePath(), "lrp-test.yaml")
+			lrpSvcYAML = helpers.ManifestGet(kubectl.BasePath(), "lrp-svc.yaml")
+			res := kubectl.ApplyDefault(deploymentYAML)
+			res.ExpectSuccess("Unable to apply %s", deploymentYAML)
+			for _, pod := range []string{feFilter, beFilter} {
+				err := kubectl.WaitforPods(helpers.DefaultNamespace, fmt.Sprintf("-l %s", pod), helpers.HelperTimeout)
+				Expect(err).Should(BeNil())
+			}
+			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, lrpServiceName)
+			svcIP = clusterIP
+			Expect(err).To(BeNil(), "Cannot get svc IP")
+			httpSVCURL := fmt.Sprintf("http://%s/", svcIP)
+			tftpSVCURL := fmt.Sprintf("tftp://%s/hello", svcIP)
+			curlTCP = helpers.CurlFail(httpSVCURL)
+			curlUDP = helpers.CurlFail(tftpSVCURL)
+		})
+
+		AfterAll(func() {
+			_ = kubectl.Delete(deploymentYAML)
+		})
+
+		It("LRP connectivity", func() {
+			// Basic sanity check
+			ciliumPods, err := kubectl.GetCiliumPods()
+			Expect(err).To(BeNil(), "Cannot get cilium pods")
+			for _, pod := range ciliumPods {
+				service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, fmt.Sprintf("cilium service list | grep %s", svcIP), "Cannot retrieve services on cilium pod")
+				service.ExpectContains("LocalRedirect", "LocalRedirect is not present in the cilium service list")
+			}
+
+			By("Checking traffic goes to local backend")
+			testCases := []struct {
+				selector string
+				cmd      string
+				want     string
+				notWant  string
+			}{
+				{
+					selector: "id=app1",
+					cmd:      curlTCP,
+					// Expects to see local backend name in returned Hostname field
+					want: be1Name,
+					// Expects never to see remote backend name in returned Hostname field
+					notWant: be2Name,
+				},
+				{
+					selector: "id=app2",
+					cmd:      curlTCP,
+					want:     be2Name,
+					notWant:  be1Name,
+				},
+				{
+					selector: "id=app1",
+					cmd:      curlUDP,
+					want:     be1Name,
+					notWant:  be2Name,
+				},
+				{
+					selector: "id=app2",
+					cmd:      curlUDP,
+					want:     be2Name,
+					notWant:  be1Name,
+				},
+			}
+			for _, tc := range testCases {
+				Consistently(func() bool {
+					pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, tc.selector)
+					Expect(err).Should(BeNil(), "cannot retrieve pod names by filter %q", tc.selector)
+					Expect(len(pods)).Should(BeNumerically(">", 0), "no pod exists by filter %q", tc.selector)
+					ret := true
+					for _, pod := range pods {
+						res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, tc.cmd)
+						Expect(err).To(BeNil(), "%s failed in %s pod", tc.cmd, pod)
+						ret = ret && strings.Contains(res.Stdout(), tc.want) && !strings.Contains(res.Stdout(), tc.notWant)
+					}
+					return ret
+				}, 30*time.Second, 1*time.Second).Should(BeTrue(), "assertion fails for test case: %v", tc)
+			}
+		})
+
+		It("LRP restores service when removed", func() {
+			_ = kubectl.Delete(lrpSvcYAML)
+			// Basic sanity check
+			ciliumPods, err := kubectl.GetCiliumPods()
+			Expect(err).To(BeNil(), "Cannot get cilium pods")
+			for _, pod := range ciliumPods {
+				service := kubectl.CiliumExecMustSucceed(context.TODO(), pod, fmt.Sprintf("cilium service list | grep %s", svcIP), "Cannot retrieve services on cilium pod")
+				service.ExpectContains("ClusterIP", "Original service is not present in the cilium service list")
+			}
+
+			By("Checking traffic goes to both backends")
+			testCases := []struct {
+				selector string
+				cmd      string
+				pod      string
+			}{
+				{
+					selector: "id=app1",
+					cmd:      curlTCP,
+				},
+				{
+					selector: "id=app2",
+					cmd:      curlTCP,
+				},
+				{
+					selector: "id=app1",
+					cmd:      curlUDP,
+				},
+				{
+					selector: "id=app2",
+					cmd:      curlUDP,
+				},
+			}
+			for _, tc := range testCases {
+				for _, want := range []string{be1Name, be2Name} {
+					Eventually(func() bool {
+						pods, err := kubectl.GetPodNames(helpers.DefaultNamespace, tc.selector)
+						Expect(err).Should(BeNil(), "cannot retrieve pod names by filter %q", tc.selector)
+						Expect(len(pods)).Should(BeNumerically(">", 0), "no pod exists by filter %q", tc.selector)
+						ret := true
+						for _, pod := range pods {
+							res := kubectl.ExecPodCmd(helpers.DefaultNamespace, pod, tc.cmd)
+							Expect(err).To(BeNil(), "%s failed in %s pod", tc.cmd, pod)
+							ret = ret && strings.Contains(res.Stdout(), want)
+						}
+						return ret
+					}, 30*time.Second, 1*time.Second).Should(BeTrue(), "assertion fails for test case: %v", tc)
+				}
+			}
+		})
+	})
+
 	Context("Checks service across nodes", func() {
 
 		var (
