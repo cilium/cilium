@@ -59,7 +59,7 @@ main() {
     local new_proj="$2"
 
     git fetch $remote
-    git checkout -b pr/prepare-$version $remote/v$branch
+    git checkout -b pr/prepare-$version $remote/$branch
 
     logecho "Updating VERSION, AUTHORS.md, $ACTS_YAML, helm templates"
     echo $ersion > VERSION
@@ -72,7 +72,7 @@ main() {
 
     logecho "Next steps:"
     logecho "* Check all changes and add to a new commit"
-    logecho "* Push the PR to Github for review"
+    logecho "* Push the PR to Github for review ('submit-release.sh')"
     logecho "* Close https://github.com/cilium/cilium/projects/$old_proj"
     logecho "* (After PR merge) Use 'tag-release.sh' to prepare tags/release"
 
