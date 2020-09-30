@@ -97,6 +97,8 @@ requirements have been met:
 
 #. All commits are signed off. See the section :ref:`dev_coo`.
 
+#. Document any user-facing or breaking changes in ``Documentation/install/upgrade.rst``.
+
 #. (optional) Pick the appropriate milestone for which this PR is being
    targeted, e.g. ``1.6``, ``1.7``. This is in particular important in the time
    frame between the feature freeze and final release date.
