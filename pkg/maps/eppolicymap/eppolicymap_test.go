@@ -17,6 +17,7 @@
 package eppolicymap
 
 import (
+	"fmt"
 	"net"
 	"os"
 	"testing"
@@ -69,7 +70,7 @@ func (e *EPPolicyMapTestSuite) TestWriteEndpoint(c *C) {
 
 	keys[0] = lxcmap.NewEndpointKey(net.ParseIP("1.2.3.4"))
 	for i := 0; i < 256; i++ {
-		ip := net.ParseIP("1.2.3." + string(i))
+		ip := net.ParseIP("1.2.3." + fmt.Sprint(i))
 		many[i] = lxcmap.NewEndpointKey(ip)
 	}
 
