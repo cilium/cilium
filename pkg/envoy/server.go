@@ -205,7 +205,7 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 				}),
 			},
 		}, {
-			Name: "envoy.router",
+			Name: "envoy.filters.http.router",
 		}},
 		StreamIdleTimeout: &duration.Duration{}, // 0 == disabled
 		RouteSpecifier: &envoy_config_http.HttpConnectionManager_RouteConfig{
@@ -265,7 +265,7 @@ func (s *XDSServer) getHttpFilterChainProto(clusterName string, tls bool) *envoy
 		Filters: []*envoy_api_v2_listener.Filter{{
 			Name: "cilium.network",
 		}, {
-			Name: "envoy.http_connection_manager",
+			Name: "envoy.filters.network.http_connection_manager",
 			ConfigType: &envoy_api_v2_listener.Filter_TypedConfig{
 				TypedConfig: toAny(hcmConfig),
 			},
@@ -298,7 +298,7 @@ func (s *XDSServer) getTcpFilterChainProto(clusterName string) *envoy_api_v2_lis
 				}),
 			},
 		}, {
-			Name: "envoy.tcp_proxy",
+			Name: "envoy.filters.network.tcp_proxy",
 			ConfigType: &envoy_api_v2_listener.Filter_TypedConfig{
 				TypedConfig: toAny(&envoy_config_tcp.TcpProxy{
 					StatPrefix: "tcp_proxy",
@@ -379,7 +379,7 @@ func (s *XDSServer) AddListener(name string, kind policy.L7ParserType, port uint
 				}),
 			},
 		}, {
-			Name: "envoy.listener.tls_inspector",
+			Name: "envoy.filters.listener.tls_inspector",
 		}},
 	}
 
