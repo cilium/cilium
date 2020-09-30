@@ -1,7 +1,7 @@
 apiVersion: v1
 name: nodeinit
-version: 1.6.11
-appVersion: 1.6.11
+version: 1.6.12
+appVersion: 1.6.12
 tillerVersion: ">=2.7.2"
 description: Helm chart for node initialization
 keywords:
