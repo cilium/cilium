@@ -1,5 +1,42 @@
 # Changelog
 
+## v1.7.10
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* envoy: Require Node only on the first request of a stream (Backport PR #13335, Upstream PR #12522, @jrajahalme)
+* Update Kubernetes libraries to 1.17.12 (#13200, @aanm)
+
+**Bugfixes:**
+* Changed to update proxy policy after listeners are created to avoid a rare flake of dropping proxy traffic before policy is configured. (Backport PR #13209, Upstream PR #12925, @jrajahalme)
+* cilium: encrypt-node creates two IPsec tunnels but only uses one (Backport PR #13292, Upstream PR #13241, @jrfastab)
+* daemon: Fix handling of policy call map on downgrades (#13052, @pchaigno)
+* EKS: improve rules for asymmetric routing (multi-node NodePort) (Backport PR #13292, Upstream PR #13234, @qmonnet)
+* Envoy is updated to release 1.14.5 (Backport PR #13335, Upstream PR #13332, @jrajahalme)
+* Fix bug in operator where the operator instances in HA mode can become inconsistent in terms of running mode(HA/non HA), if kube-apiserver is not accessible when deriving k8s capabilities. (Backport PR #13247, Upstream PR #13219, @fristonio)
+* Fix bug where Hubble and the Cilium CLI would fail to resolve security identities across a cluster mesh. (Backport PR #13209, Upstream PR #13205, @gandro)
+* Fix endpoint selection for a wildcard to/fromEndpoints in CCNP. Cilium will only allow access from Cilium-managed endpoints in such cases instead of allowing traffic from any source. Preflight checks, when following the upgrade guide, have been extended to warn users of the new behavior. (Backport PR #13127, Upstream PR #12890, @fristonio)
+* Fix panic when restoring services with enable-health-check-nodeport: false (Backport PR #13209, Upstream PR #13190, @gandro)
+* Fix the creation of "toGroups" derivative policies for "CiliumClusterwideNetworkPolicies". (Backport PR #13127, Upstream PR #12920, @fristonio)
+* operator: fix invocation with `--help` option (Backport PR #13209, Upstream PR #13141, @tklauser)
+* Reduce operator memory usage when CNP status updates are disabled (Backport PR #13137, Upstream PR #13135, @joestringer)
+
+**CI Changes:**
+* test: Detect missed tail calls on upgrade/downgrade test (Backport PR #13127, Upstream PR #13097, @pchaigno)
+* test: Fix guestbook test (Backport PR #13065, Upstream PR #13003, @pchaigno)
+
+**Misc Changes:**
+* Add logs in a structured way for operator leader re-election in HA mode (Backport PR #13209, Upstream PR #13120, @chowmean)
+* contrib: Add release helper scripts for preparing micro releases (Backport PR #13209, Upstream PR #13044, @joestringer)
+* doc: typo fix in gettingstarted clustermesh (Backport PR #13247, Upstream PR #13221, @kAworu)
+* docs: Fix multiple broken links (Backport PR #13065, Upstream PR #10576, @errordeveloper)
+* fix(12664): initialize gops in RootCmd execution function (Backport PR #13209, Upstream PR #12675, @fristonio)
+* identity: Avoid kvstore lookup for local identities (Backport PR #13321, Upstream PR #13228, @gandro)
+* Prevent Cilium from deleting all custom resources especially CNP & CCNP installed inside the cluster (Backport PR #13292, Upstream PR #13272, @christarazi)
+* Update kops installation documentation (Backport PR #13065, Upstream PR #12884, @olemarkus)
+
 ## v1.7.9
 
 Summary of Changes
