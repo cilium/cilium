@@ -66,7 +66,7 @@ type Manager struct {
 	svcCache svcCache
 
 	// Mutex to protect against concurrent access to the maps
-	mutex lock.RWMutex
+	mutex lock.Mutex
 
 	// Stores mapping of all the current redirect policy frontend to their
 	// respective policies
@@ -132,7 +132,7 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig, podStore cache.Store) (b
 		if len(pods) == 0 {
 			return true, nil
 		}
-		rpm.upsertConfig(&config, pods...)
+		rpm.processConfig(&config, pods...)
 
 	case lrpConfigTypeSvc:
 		log.WithFields(logrus.Fields{
@@ -238,10 +238,10 @@ func (rpm *Manager) OnAddPod(pod *slimcorev1.Pod) {
 	if _, ok := rpm.policyPods[id]; ok {
 		return
 	}
-	rpm.OnUpdatePodLocked(pod)
+	rpm.onUpdatePodLocked(pod)
 }
 
-func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod) {
+func (rpm *Manager) onUpdatePodLocked(pod *slimcorev1.Pod) {
 	if len(rpm.policyConfigs) == 0 {
 		return
 	}
@@ -250,7 +250,14 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod) {
 	if err != nil {
 		return
 	}
-	podData := rpm.getPodMetadata(pod, podIPs)
+	var podData *podMetadata
+	if podData, err = rpm.getPodMetadata(pod, podIPs); err != nil {
+		log.WithError(err).WithFields(logrus.Fields{
+			logfields.K8sPodName:   pod.Name,
+			logfields.K8sNamespace: pod.Namespace,
+		}).Error("failed to get valid pod metadata")
+		return
+	}
 
 	// Check if the pod was previously selected by any of the policies.
 	if policies, ok := rpm.policyPods[podData.id]; ok {
@@ -262,7 +269,7 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod) {
 	// Check if any of the current redirect policies select this pod.
 	for _, config := range rpm.policyConfigs {
 		if config.policyConfigSelectsPod(podData) {
-			rpm.upsertConfig(config, podData)
+			rpm.processConfig(config, podData)
 		}
 	}
 }
@@ -271,7 +278,7 @@ func (rpm *Manager) OnUpdatePod(pod *slimcorev1.Pod) {
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 	// TODO add unit test to validate that we get callbacks only for relevant events
-	rpm.OnUpdatePodLocked(pod)
+	rpm.onUpdatePodLocked(pod)
 }
 
 func (rpm *Manager) OnDeletePod(pod *slimcorev1.Pod) {
@@ -317,7 +324,6 @@ type podMetadata struct {
 // getAndUpsertPolicySvcConfig gets service frontends for the given config service
 // and upserts the service frontends.
 func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig, podStore cache.Store) {
-	var svcFrontends []*frontend
 	switch config.frontendType {
 	case svcFrontendAll:
 		// Get all the service frontends.
@@ -330,9 +336,6 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig, podStore cach
 				fePort: string(p),
 			}
 			config.frontendMappings = append(config.frontendMappings, feM)
-			svcFrontends = append(svcFrontends, addr)
-		}
-		for _, addr := range svcFrontends {
 			rpm.updateConfigSvcFrontend(config, addr)
 		}
 
@@ -351,16 +354,13 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig, podStore cach
 		ip := rpm.svcCache.GetServiceFrontendIP(*config.serviceID, lb.SVCTypeClusterIP)
 		for _, feM := range config.frontendMappings {
 			feM.feAddr.IP = ip
-			svcFrontends = append(svcFrontends, feM.feAddr)
-		}
-		for _, addr := range svcFrontends {
-			rpm.updateConfigSvcFrontend(config, addr)
+			rpm.updateConfigSvcFrontend(config, feM.feAddr)
 		}
 	}
 
 	pods := rpm.getLocalPodsForPolicy(config, podStore)
 	if len(pods) > 0 {
-		rpm.upsertConfig(config, pods...)
+		rpm.processConfig(config, pods...)
 	}
 
 }
@@ -501,7 +501,11 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 
 // Returns a slice of endpoint pods metadata that are selected by the given policy config.
 func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig, podStore cache.Store) []*podMetadata {
-	var retPods []*podMetadata
+	var (
+		retPods []*podMetadata
+		podData *podMetadata
+		e       error
+	)
 
 	for _, podItem := range podStore.List() {
 		pod, ok := podItem.(*slimcorev1.Pod)
@@ -512,11 +516,17 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig, podStore cache.Stor
 		if err != nil {
 			continue
 		}
-		podInfo := rpm.getPodMetadata(pod, podIPs)
-		if !config.policyConfigSelectsPod(podInfo) {
+		if podData, err = rpm.getPodMetadata(pod, podIPs); err != nil {
+			log.WithError(err).WithFields(logrus.Fields{
+				logfields.K8sPodName:   pod.Name,
+				logfields.K8sNamespace: pod.Namespace,
+			}).Error("failed to get valid pod metadata")
 			continue
 		}
-		retPods = append(retPods, podInfo)
+		if !config.policyConfigSelectsPod(podData) {
+			continue
+		}
+		retPods = append(retPods, podData)
 	}
 
 	return retPods
@@ -550,35 +560,35 @@ func (rpm *Manager) isValidConfig(config LRPConfig) error {
 	return nil
 }
 
-func (rpm *Manager) upsertConfig(config *LRPConfig, pods ...*podMetadata) {
+func (rpm *Manager) processConfig(config *LRPConfig, pods ...*podMetadata) {
 	switch config.frontendType {
 	case svcFrontendSinglePort:
 		fallthrough
 	case addrFrontendSinglePort:
-		rpm.upsertConfigWithSinglePort(config, pods...)
+		rpm.processConfigWithSinglePort(config, pods...)
 	case svcFrontendNamedPorts:
 		fallthrough
 	case addrFrontendNamedPorts:
-		rpm.upsertConfigWithNamedPorts(config, pods...)
+		rpm.processConfigWithNamedPorts(config, pods...)
 	case svcFrontendAll:
 		if len(config.frontendMappings) > 1 {
 			// The retrieved service frontend has multiple ports, in which case
 			// Kubernetes mandates that the ports be named.
-			rpm.upsertConfigWithNamedPorts(config, pods...)
+			rpm.processConfigWithNamedPorts(config, pods...)
 		} else {
 			// The retrieved service frontend has only 1 port, in which case
 			// port names are optional.
-			rpm.upsertConfigWithSinglePort(config, pods...)
+			rpm.processConfigWithSinglePort(config, pods...)
 		}
 	}
 }
 
-// upsertConfigWithSinglePort upserts a policy config frontend with the corresponding
+// processConfigWithSinglePort upserts a policy config frontend with the corresponding
 // backends.
 // Frontend <ip, port, protocol> is mapped to backend <ip, port, protocol> entry.
 // If a pod has multiple IPs, then there will be multiple backend entries created
 // for the pod with common <port, protocol>.
-func (rpm *Manager) upsertConfigWithSinglePort(config *LRPConfig, pods ...*podMetadata) {
+func (rpm *Manager) processConfigWithSinglePort(config *LRPConfig, pods ...*podMetadata) {
 	var bes4 []backend
 	var bes6 []backend
 
@@ -621,9 +631,9 @@ func (rpm *Manager) upsertConfigWithSinglePort(config *LRPConfig, pods ...*podMe
 	return
 }
 
-// upsertConfigWithNamedPorts upserts policy config frontends to the corresponding
+// processConfigWithNamedPorts upserts policy config frontends to the corresponding
 // backends matched by port names.
-func (rpm *Manager) upsertConfigWithNamedPorts(config *LRPConfig, pods ...*podMetadata) {
+func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podMetadata) {
 	// Generate backends for the policy config's backend named ports, and then
 	// map the backends to policy frontends based on the named ports.
 	// We currently don't check which backends are updated before upserting a
@@ -689,21 +699,22 @@ func (rpm *Manager) upsertServiceWithBackends(config *LRPConfig, frontendMapping
 
 // TODO This function along with podMetadata can potentially be removed. We
 // can directly reference the relevant pod metedata on-site.
-func (rpm *Manager) getPodMetadata(pod *slimcorev1.Pod, podIPs []string) *podMetadata {
+func (rpm *Manager) getPodMetadata(pod *slimcorev1.Pod, podIPs []string) (*podMetadata, error) {
 	namedPorts := make(serviceStore.PortConfiguration)
 	for _, container := range pod.Spec.Containers {
 		for _, port := range container.Ports {
 			if port.Name == "" {
 				continue
 			}
-			_, err := u8proto.ParseProtocol(string(port.Protocol))
-			if err != nil {
-				return nil
+			if _, err := u8proto.ParseProtocol(string(port.Protocol)); err != nil {
+				return nil, err
 			}
 			if port.ContainerPort < 1 || port.ContainerPort > 65535 {
-				return nil
+				return nil, fmt.Errorf("invalid container port %v",
+					port.ContainerPort)
 			}
-			namedPorts[port.Name] = lb.NewL4Addr(lb.L4Type(port.Protocol), uint16(port.ContainerPort))
+			namedPorts[port.Name] = lb.NewL4Addr(lb.L4Type(port.Protocol),
+				uint16(port.ContainerPort))
 		}
 	}
 	return &podMetadata{
@@ -714,5 +725,5 @@ func (rpm *Manager) getPodMetadata(pod *slimcorev1.Pod, podIPs []string) *podMet
 			Name:      pod.GetName(),
 			Namespace: pod.GetNamespace(),
 		},
-	}
+	}, nil
 }

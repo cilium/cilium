@@ -107,13 +107,13 @@ type policyID = k8s.ServiceID
 func Parse(clrp *v2.CiliumLocalRedirectPolicy, sanitize bool) (*LRPConfig, error) {
 	name := clrp.ObjectMeta.Name
 	if name == "" {
-		return &LRPConfig{}, fmt.Errorf("CiliumLocalRedirectPolicy must have a name")
+		return nil, fmt.Errorf("CiliumLocalRedirectPolicy must have a name")
 	}
 
 	namespace := k8sUtils.ExtractNamespace(&clrp.ObjectMeta)
 	if namespace == "" {
 		// TODO CCLRP: addressed in follow-up PR. Details - GH-12831
-		return &LRPConfig{}, fmt.Errorf("ClusterwideCiliumLocalRedirectPolicy is currently not supported")
+		return nil, fmt.Errorf("ClusterwideCiliumLocalRedirectPolicy is currently not supported")
 	}
 
 	if sanitize {
