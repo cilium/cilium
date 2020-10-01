@@ -15,7 +15,7 @@ DOCKER_BUILD_DIR ?= .
 BUILD_DIR ?= .
 
 SUBDIRS_CILIUM_CONTAINER := proxylib envoy bpf cilium daemon cilium-health bugtool
-SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools hubble-relay
+SUBDIRS := $(SUBDIRS_CILIUM_CONTAINER) operator plugins tools hubble-relay certgen
 
 SUBDIRS_CILIUM_CONTAINER += plugins/cilium-cni
 ifdef LIBNETWORK_PLUGIN
@@ -445,6 +445,7 @@ govet:
 	$(QUIET) $(GO_VET) \
     ./api/... \
     ./bugtool/... \
+    ./certgen/... \
     ./cilium/... \
     ./cilium-health/... \
     ./daemon/... \
