@@ -1,6 +1,7 @@
 The following people, in alphabetical order, have either authored or signed
 off on commits in the Cilium repository:
 
+Adam Wolfe Gordon                       awg@digitalocean.com
 Adrien Trouillaud                       adrienjt@users.noreply.github.com
 Alban Crequy                            alban@kinvolk.io
 Alexander Alemayhu                      alexander@alemayhu.com
@@ -28,6 +29,7 @@ Bob Bouteillier                         bob.bouteillier@datadoghq.com
 Boran Car                               boran.car@gmail.com
 Brian Topping                           brian@coglative.com
 Bruno Miguel Custódio                   brunomcustodio@gmail.com
+Camilo Schoeningh                       camilo.schoeningh@dunnhumby.com
 Charles-Henri Guérin                    charles-henri.guerin@zenika.com
 Chris Tarazi                            chris@isovalent.com
 Christine Chen                          christine.chen@datadoghq.com
@@ -62,6 +64,7 @@ Frank Villaro-Dixon                     frank.villaro@infomaniak.com
 Fred Hsu                                fredlhsu@gmail.com
 Fredrik Lönnegren                       fredrik.lonnegren@gmail.com
 Fulvio Risso                            fulvio.risso@polito.it
+Gaurav Yadav                            gaurav.dev.iiitm@gmail.com
 George Kontridze                        gkontridze@plaid.com
 Gianluca Arbezzano                      gianarb92@gmail.com
 Glib Smaga                              code@gsmaga.com
@@ -142,7 +145,7 @@ Moshe Immerman                          moshe.immerman@vitalitygroup.com
 Nate Sweet                              nathanjsweet@pm.me
 Nathan Bird                             njbird@infiniteenergy.com
 Nathan Taylor                           ntaylor1781@gmail.com
-Neelajacques                            68304471+Neelajacques@users.noreply.github.com
+Neela Jacques                           neela@isovalent.com
 Nirmoy Das                              ndas@suse.de
 Ole Markus With                         o.with@sportradar.com
 Patrice Peterson                        patrice.peterson@mailbox.org
@@ -152,7 +155,7 @@ Paul Chaignon                           paul@cilium.io
 Paweł Prażak                            pawelprazak@users.noreply.github.com
 Peiqi Shi                               uestc.shi@gmail.com
 Peter Slovak                            slovak.peto@gmail.com
-Philippe Lafoucrière                    philippe.lafoucriere@gmail.com
+Philippe Lafoucrière                    philippe.lafoucriere@gmail.com
 Philipp Gniewosz                        philipp.gniewosz@adesso.de
 Pierre-Yves Aillet                      pyaillet@users.noreply.github.com
 Qasim Sarfraz                           qasim.sarfraz@esailors.de

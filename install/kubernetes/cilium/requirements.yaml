@@ -1,28 +1,28 @@
 dependencies:
   - name: agent
-    version: 1.8.3
+    version: 1.8.4
     condition: agent.enabled
   - name: config
-    version: 1.8.3
+    version: 1.8.4
     condition: config.enabled
   - name: hubble-relay
-    version: 1.8.3
+    version: 1.8.4
     condition: global.hubble.relay.enabled
   - name: hubble-ui
-    version: 1.8.3
+    version: 1.8.4
     condition: global.hubble.ui.enabled
   - name: operator
-    version: 1.8.3
+    version: 1.8.4
     condition: operator.enabled
   - name: managed-etcd
-    version: 1.8.3
+    version: 1.8.4
     condition: global.etcd.managed
   - name: preflight
-    version: 1.8.3
+    version: 1.8.4
     condition: preflight.enabled
   - name: nodeinit
-    version: 1.8.3
+    version: 1.8.4
     condition: global.nodeinit.enabled
   - name: prometheus-crd
-    version: 1.8.3
+    version: 1.8.4
     condition: global.prometheus.enabled && global.prometheus.serviceMonitor.enabled

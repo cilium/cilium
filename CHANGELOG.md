@@ -1,5 +1,67 @@
 # Changelog
 
+## v1.8.4
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* DNS Proxy is started earlier in the Cilium agent bootstrap to make it available to running endpoints sooner. (Backport PR #13226, Upstream PR #12964, @jrajahalme)
+* k8s: honor the service.kubernetes.io/service-proxy-name label (Backport PR #13126, Upstream PR #13036, @fristonio)
+* Remove the default toleration on hubble-relay deployment. Set the Helm value `hubble-relay.tolerations[0].operator=Exists` to restore the previous behavior. (Backport PR #13246, Upstream PR #13237, @gandro)
+* update Go to 1.14.8 (#13102, @tklauser)
+* Update Go to 1.14.9 (#13140, @tklauser)
+* Update gops to v0.3.10 (#13128, @tklauser)
+* Update Kubernetes libraries to 1.18.9 (#13201, @aanm)
+
+**Bugfixes:**
+* bpf: Fix host firewall in presence of kube-proxy masquerading (Backport PR #13184, Upstream PR #13049, @pchaigno)
+* Changed to update proxy policy after listeners are created to avoid a rare flake of dropping proxy traffic before policy is configured. (Backport PR #13212, Upstream PR #12925, @jrajahalme)
+* cilium: encrypt-node creates two IPsec tunnels but only uses one (Backport PR #13257, Upstream PR #13241, @jrfastab)
+* daemon: Fix handling of policy call map on upgrades (Backport PR #13100, Upstream PR #13051, @pchaigno)
+* Delete dangling Cilium Endpoints for completed Kubernetes Jobs. (Backport PR #13263, Upstream PR #13220, @aanm)
+* EKS: improve rules for asymmetric routing (multi-node NodePort) (Backport PR #13289, Upstream PR #13234, @qmonnet)
+* Envoy is updated to release 1.14.5 (Backport PR #13336, Upstream PR #13332, @jrajahalme)
+* Fix agent liveness/readiness probes for IPv6-only environment. (Backport PR #13246, Upstream PR #13203, @tklauser)
+* Fix bug in EKS environments where Cilium agents never become ready due to a missing CiliumNode CRD schema property (#13196, @christarazi)
+* Fix bug in operator where the operator instances in HA mode can become inconsistent in terms of running mode(HA/non HA), if kube-apiserver is not accessible when deriving k8s capabilities. (Backport PR #13246, Upstream PR #13219, @fristonio)
+* Fix bug where Hubble and the Cilium CLI would fail to resolve security identities across a cluster mesh. (Backport PR #13212, Upstream PR #13205, @gandro)
+* Fix clustermesh policy with endpoint-routes mode (Backport PR #13184, Upstream PR #12694, @joestringer)
+* Fix endpoint selection for a wildcard to/fromEndpoints in CCNP. Cilium will only allow access from Cilium-managed endpoints in such cases instead of allowing traffic from any source. Preflight checks, when following the upgrade guide, have been extended to warn users of the new behavior. (Backport PR #13126, Upstream PR #12890, @fristonio)
+* Fix handling of changes to session affinity configuration for Kubernetes services. (Backport PR #13286, Upstream PR #13271, @adamwg)
+* Fix issue in NodePort service revnat handling where the interface index was not properly restored from the conntrack state leading to packet redirects to an invalid interface. (Backport PR #13289, Upstream PR #13162, @fristonio)
+* Fix panic when restoring services with enable-health-check-nodeport: false (Backport PR #13212, Upstream PR #13190, @gandro)
+* Fix the creation of "toGroups" derivative policies for "CiliumClusterwideNetworkPolicies". (Backport PR #13126, Upstream PR #12920, @fristonio)
+* Fixes a bug where a Hubble filter on `reply=false` would report flows for which the actual reply state is unknown. (Backport PR #13289, Upstream PR #13248, @gandro)
+* helm/azure: Fix fatal error for CNI Azure installation (Backport PR #13100, Upstream PR #13024, @sayboras)
+* helm: Always respect global.identityAllocationMode (Backport PR #13352, Upstream PR #13337, @joestringer)
+* operator: fix invocation with `--help` option (Backport PR #13212, Upstream PR #13141, @tklauser)
+* pkg/datapath: Remove unused feature maps (Backport PR #13184, Upstream PR #13150, @brb)
+* Reduce operator memory usage when CNP status updates are disabled (Backport PR #13184, Upstream PR #13135, @joestringer)
+* Report correct target system architecture in Cilium version (Backport PR #13184, Upstream PR #13153, @tklauser)
+
+**CI Changes:**
+* test: Detect missed tail calls on upgrade/downgrade test (Backport PR #13126, Upstream PR #13097, @pchaigno)
+
+**Misc Changes:**
+* Add logs in a structured way for operator leader re-election in HA mode (Backport PR #13184, Upstream PR #13120, @chowmean)
+* agent: Add CILIUM_ENABLE_POLICY env into the helm chart. (Backport PR #13212, Upstream PR #13175, @camilo-schoeningh-sociomantic)
+* contrib: Add release helper scripts for preparing micro releases (Backport PR #13212, Upstream PR #13044, @joestringer)
+* doc: typo fix in gettingstarted clustermesh (Backport PR #13246, Upstream PR #13221, @kAworu)
+* docs/minikube: Update the step for minikube 1.12.1+ (Backport PR #13184, Upstream PR #13159, @sayboras)
+* docs: backport documentation additions (Backport PR #13289, Upstream PR #13187, @kkourt)
+* docs: Document restart-ginkgo CI-trigger phrase (Backport PR #13212, Upstream PR #13101, @pchaigno)
+* docs: Fix up upgrade sample indentation (Backport PR #13100, Upstream PR #13058, @joestringer)
+* docs: Removing wrong options from azure IPAM documentation. (Backport PR #13184, Upstream PR #13095, @chowmean)
+* docs: Update kernel requirements for advanced features (Backport PR #13212, Upstream PR #13177, @pchaigno)
+* envoy: Require Node only on the first request of a stream (Backport PR #13336, Upstream PR #12522, @jrajahalme)
+* fix(12664): initialize gops in RootCmd execution function (Backport PR #13212, Upstream PR #12675, @fristonio)
+* identity: Avoid kvstore lookup for local identities (Backport PR #13320, Upstream PR #13228, @gandro)
+* pkg/logging: add a logfield to embed help messages when logging (Backport PR #13126, Upstream PR #12946, @fristonio)
+* Prevent Cilium from deleting all custom resources especially CNP & CCNP installed inside the cluster (Backport PR #13289, Upstream PR #13272, @christarazi)
+* Report HTTP "service unavailable" (503) instead of "internal server error" (500) in unhealthy state, commonly used in Kubernetes liveness and readiness probes. (Backport PR #13212, Upstream PR #13188, @tklauser)
+* Warn when failing to update CiliumNode status (Backport PR #13212, Upstream PR #13197, @christarazi)
+
 ## v1.8.3
 
 Summary of Changes
