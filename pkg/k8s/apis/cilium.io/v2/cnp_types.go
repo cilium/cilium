@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"errors"
 	"fmt"
 	"reflect"
 
@@ -234,6 +235,10 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 
 	retRules := api.Rules{}
 
+	if r.Spec == nil && r.Specs == nil {
+		return nil, ErrEmptyCNP
+	}
+
 	if r.Spec != nil {
 		if err := r.Spec.Sanitize(); err != nil {
 			return nil, fmt.Errorf("Invalid CiliumNetworkPolicy spec: %s", err)
@@ -257,6 +262,10 @@ func (r *CiliumNetworkPolicy) Parse() (api.Rules, error) {
 
 	return retRules, nil
 }
+
+// ErrEmptyCNP is an error representing a CNP that is empty, which means it is
+// missing both a `spec` and `specs` (both are nil).
+var ErrEmptyCNP = errors.New("Invalid CiliumNetworkPolicy spec(s): empty policy")
 
 // GetControllerName returns the unique name for the controller manager.
 func (r *CiliumNetworkPolicy) GetControllerName() string {

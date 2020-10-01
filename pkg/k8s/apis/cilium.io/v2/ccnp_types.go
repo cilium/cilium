@@ -15,6 +15,7 @@
 package v2
 
 import (
+	"errors"
 	"fmt"
 
 	k8sCiliumUtils "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/utils"
@@ -91,6 +92,10 @@ func (r *CiliumClusterwideNetworkPolicy) Parse() (api.Rules, error) {
 
 	retRules := api.Rules{}
 
+	if r.Spec == nil && r.Specs == nil {
+		return nil, ErrEmptyCCNP
+	}
+
 	if r.Spec != nil {
 		if err := r.Spec.Sanitize(); err != nil {
 			return nil, fmt.Errorf("Invalid CiliumClusterwideNetworkPolicy spec: %s", err)
@@ -111,3 +116,7 @@ func (r *CiliumClusterwideNetworkPolicy) Parse() (api.Rules, error) {
 
 	return retRules, nil
 }
+
+// ErrEmptyCCNP is an error representing a CCNP that is empty, which means it is
+// missing both a `spec` and `specs` (both are nil).
+var ErrEmptyCCNP = errors.New("Invalid CiliumClusterwideNetworkPolicy spec(s): empty policy")

@@ -16,6 +16,7 @@ package watchers
 
 import (
 	"context"
+	"errors"
 
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/k8s"
@@ -265,10 +266,22 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interf
 
 	_, err := oldRuleCpy.Parse()
 	if err != nil {
-		log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
-			Warn("Error parsing old CiliumNetworkPolicy rule")
-		return err
+		ns := oldRuleCpy.GetNamespace() // Disambiguates CNP & CCNP
+
+		// We want to ignore parsing errors for empty policies, otherwise the
+		// update to the new policy will be skipped.
+		switch {
+		case ns != "" && !errors.Is(err, cilium_v2.ErrEmptyCNP):
+			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
+				Warn("Error parsing old CiliumNetworkPolicy rule")
+			return err
+		case ns == "" && !errors.Is(err, cilium_v2.ErrEmptyCCNP):
+			log.WithError(err).WithField(logfields.Object, logfields.Repr(oldRuleCpy)).
+				Warn("Error parsing old CiliumClusterwideNetworkPolicy rule")
+			return err
+		}
 	}
+
 	_, err = newRuleCpy.Parse()
 	if err != nil {
 		log.WithError(err).WithField(logfields.Object, logfields.Repr(newRuleCpy)).
