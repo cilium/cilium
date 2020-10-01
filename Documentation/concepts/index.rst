@@ -28,4 +28,3 @@ Choose one of the following topics to start reading:
    observability/index
    kubernetes/index
    clustermesh/index
-   performance/index
