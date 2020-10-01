@@ -3,7 +3,7 @@ image:
   # repository of the docker image
   repository: hubble-relay
   # tag is the container image tag to use
-  tag: v1.8.3
+  tag: v1.8.4
   # pullPolicy is the container image pull policy
   pullPolicy: IfNotPresent
 
