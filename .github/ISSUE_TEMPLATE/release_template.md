@@ -62,7 +62,7 @@ assignees: ''
 ## Post-release
 
 - [ ] Prepare post-release changes to master branch using `contrib/release/bump-readme.sh`
-- [ ] Update the `stable` tags for each Cilium image on Docker Hub (if applicable)
+- [ ] Update the `stable` tags for each Cilium image (`contrib/release/bump-docker-stable.sh`)
 - [ ] Update external tools and guides to point to the new Cilium version:
   - [ ] [kops]
   - [ ] [kubespray]
