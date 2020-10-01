@@ -75,9 +75,8 @@ type Manager struct {
 	// Stores mapping of redirect policy serviceID to the corresponding policyID for
 	// easy lookup in policyConfigs
 	policyServices map[k8s.ServiceID]policyID
-	// Stores mapping of podID to redirect policies that select this pod along
-	// with derived pod backends
-	policyPods map[podID][]podPolicyInfo
+	// Stores mapping of pods to redirect policies that select the pods
+	policyPods map[podID][]policyID
 	// Stores redirect policy configs indexed by policyID
 	policyConfigs map[policyID]*LRPConfig
 }
@@ -87,7 +86,7 @@ func NewRedirectPolicyManager(svc svcManager) *Manager {
 		svcManager:            svc,
 		policyFrontendsByHash: make(map[string]policyID),
 		policyServices:        make(map[k8s.ServiceID]policyID),
-		policyPods:            make(map[podID][]podPolicyInfo),
+		policyPods:            make(map[podID][]policyID),
 		policyConfigs:         make(map[policyID]*LRPConfig),
 	}
 }
@@ -172,10 +171,10 @@ func (rpm *Manager) DeleteRedirectPolicy(config LRPConfig) error {
 	}
 
 	for p, pp := range rpm.policyPods {
-		var newPolicyList []podPolicyInfo
-		for _, info := range pp {
-			if info.policyID != storedConfig.id {
-				newPolicyList = append(newPolicyList, info)
+		var newPolicyList []policyID
+		for _, policy := range pp {
+			if policy != storedConfig.id {
+				newPolicyList = append(newPolicyList, policy)
 			}
 		}
 		if len(newPolicyList) > 0 {
@@ -261,9 +260,9 @@ func (rpm *Manager) onUpdatePodLocked(pod *slimcorev1.Pod) {
 
 	// Check if the pod was previously selected by any of the policies.
 	if policies, ok := rpm.policyPods[podData.id]; ok {
-		for _, podInfo := range policies {
-			config := rpm.policyConfigs[podInfo.policyID]
-			rpm.deletePolicyBackends(config, podInfo.backends...)
+		for _, policy := range policies {
+			config := rpm.policyConfigs[policy]
+			rpm.deletePolicyBackends(config, podData.id)
 		}
 	}
 	// Check if any of the current redirect policies select this pod.
@@ -293,9 +292,9 @@ func (rpm *Manager) OnDeletePod(pod *slimcorev1.Pod) {
 	}
 
 	if policies, ok := rpm.policyPods[id]; ok {
-		for _, podInfo := range policies {
-			config := rpm.policyConfigs[podInfo.policyID]
-			rpm.deletePolicyBackends(config, podInfo.backends...)
+		for _, policy := range policies {
+			config := rpm.policyConfigs[policy]
+			rpm.deletePolicyBackends(config, id)
 		}
 		delete(rpm.policyPods, id)
 	}
@@ -399,23 +398,17 @@ func (rpm *Manager) updateConfigSvcFrontend(config *LRPConfig, frontends ...*fro
 	rpm.policyConfigs[config.id] = config
 }
 
-func (rpm *Manager) filterBackends(fe *feMapping, backends ...backend) []backend {
-	var newBackends []backend
-	for _, currBk := range fe.backends {
-		for _, removeBk := range backends {
-			if removeBk.StringWithProtocol() != currBk.StringWithProtocol() {
-				newBackends = append(newBackends, currBk)
+func (rpm *Manager) deletePolicyBackends(config *LRPConfig, podID podID) {
+	for _, fe := range config.frontendMappings {
+		newBes := make([]backend, 0, len(fe.podBackends))
+		for _, be := range fe.podBackends {
+			// Remove the pod from the frontend's backends slice, keeping the
+			// order same.
+			if be.podID != podID {
+				newBes = append(newBes, be)
 			}
 		}
-	}
-	return newBackends
-}
-
-func (rpm *Manager) deletePolicyBackends(config *LRPConfig, backends ...backend) {
-	// Currently, we expect number of LRP backends to be a single digit number.
-	// If this scales up, we might need to optimize this using sets.
-	for _, fe := range config.frontendMappings {
-		fe.backends = rpm.filterBackends(fe, backends...)
+		fe.podBackends = newBes
 		rpm.notifyPolicyBackendDelete(config, fe)
 	}
 }
@@ -432,7 +425,7 @@ func (rpm *Manager) deletePolicyFrontend(config *LRPConfig, frontend *frontend) 
 
 // Updates service manager with the new set of backends now configured in 'config'.
 func (rpm *Manager) notifyPolicyBackendDelete(config *LRPConfig, frontendMapping *feMapping) {
-	if len(frontendMapping.backends) > 0 {
+	if len(frontendMapping.podBackends) > 0 {
 		rpm.upsertService(config, frontendMapping)
 	} else {
 		// No backends so remove the service entry.
@@ -479,10 +472,10 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 		ID:       lb.ID(0),
 	}
 	var backendAddrs []lb.Backend
-	for _, be := range frontendMapping.backends {
+	for _, be := range frontendMapping.podBackends {
 		backendAddrs = append(backendAddrs, lb.Backend{
 			NodeName: nodeTypes.GetName(),
-			L3n4Addr: be,
+			L3n4Addr: be.L3n4Addr,
 		})
 	}
 	p := &lb.SVC{
@@ -504,7 +497,6 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig, podStore cache.Stor
 	var (
 		retPods []*podMetadata
 		podData *podMetadata
-		e       error
 	)
 
 	for _, podItem := range podStore.List() {
@@ -606,11 +598,13 @@ func (rpm *Manager) processConfigWithSinglePort(config *LRPConfig, pods ...*podM
 				continue
 			}
 			be := backend{
-				IP: net.ParseIP(ip),
-				L4Addr: lb.L4Addr{
-					Protocol: bePort.l4Addr.Protocol,
-					Port:     bePort.l4Addr.Port,
-				},
+				lb.L3n4Addr{
+					IP: net.ParseIP(ip),
+					L4Addr: lb.L4Addr{
+						Protocol: bePort.l4Addr.Protocol,
+						Port:     bePort.l4Addr.Port,
+					},
+				}, pod.id,
 			}
 			if feM.feAddr.IP.To4() != nil {
 				if option.Config.EnableIPv4 {
@@ -623,12 +617,12 @@ func (rpm *Manager) processConfigWithSinglePort(config *LRPConfig, pods ...*podM
 			}
 		}
 		if len(bes4) > 0 {
-			rpm.upsertServiceWithBackends(config, feM, pod.id, bes4)
+			rpm.updateFrontendMapping(config, feM, pod.id, bes4)
 		} else if len(bes6) > 0 {
-			rpm.upsertServiceWithBackends(config, feM, pod.id, bes6)
+			rpm.updateFrontendMapping(config, feM, pod.id, bes6)
 		}
 	}
-	return
+	rpm.upsertService(config, feM)
 }
 
 // processConfigWithNamedPorts upserts policy config frontends to the corresponding
@@ -639,6 +633,7 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 	// We currently don't check which backends are updated before upserting a
 	// a service with the corresponding frontend. This can be optimized if LRPs
 	// are scaled up.
+	upsertFes := make([]*feMapping, 0, len(config.frontendMappings))
 	for _, feM := range config.frontendMappings {
 		namedPort := feM.fePort
 		var (
@@ -660,11 +655,14 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 						continue
 					}
 					be := backend{
-						IP: net.ParseIP(ip),
-						L4Addr: lb.L4Addr{
-							Protocol: bePort.l4Addr.Protocol,
-							Port:     bePort.l4Addr.Port,
+						lb.L3n4Addr{
+							IP: net.ParseIP(ip),
+							L4Addr: lb.L4Addr{
+								Protocol: bePort.l4Addr.Protocol,
+								Port:     bePort.l4Addr.Port,
+							},
 						},
+						pod.id,
 					}
 					if feM.feAddr.IP.To4() != nil {
 						if option.Config.EnableIPv4 {
@@ -678,23 +676,63 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 				}
 			}
 			if len(bes4) > 0 {
-				rpm.upsertServiceWithBackends(config, feM, pod.id, bes4)
+				rpm.updateFrontendMapping(config, feM, pod.id, bes4)
 			} else if len(bes6) > 0 {
-				rpm.upsertServiceWithBackends(config, feM, pod.id, bes6)
+				rpm.updateFrontendMapping(config, feM, pod.id, bes6)
 			}
 		}
+		if len(bes4) > 0 || len(bes6) > 0 {
+			upsertFes = append(upsertFes, feM)
+		}
+	}
+	for i := range upsertFes {
+		rpm.upsertService(config, upsertFes[i])
 	}
 }
 
-// upsertServiceWithBackends updates policy config internal state and upserts
-// service with the given pod backends.
-func (rpm *Manager) upsertServiceWithBackends(config *LRPConfig, frontendMapping *feMapping, podID podID, backends []backend) {
-	frontendMapping.backends = backends
-	rpm.policyPods[podID] = append(rpm.policyPods[podID], podPolicyInfo{
-		policyID: config.id,
-		backends: backends,
-	})
-	rpm.upsertService(config, frontendMapping)
+// updateFrontendMapping updates policy config internal state and updates
+// the policy frontend mapped backends.
+func (rpm *Manager) updateFrontendMapping(config *LRPConfig, frontendMapping *feMapping, podID podID, backends []backend) {
+	newFePods := make([]backend, 0, len(frontendMapping.podBackends)+len(backends))
+	// TODO (aditi) unit test case
+	updatePodBes := true
+	// Update the frontend mapped backends slice, keeping the order same.
+	for _, be := range frontendMapping.podBackends {
+		if be.podID == podID {
+			if updatePodBes {
+				updatePodBes = false
+				// Get the updated backends for the given pod.
+				newFePods = append(newFePods, backends...)
+			}
+		} else {
+			// Collect the unchanged backends for other pods.
+			newFePods = append(newFePods, be)
+		}
+	}
+	if updatePodBes {
+		// New backend pod for the frontend
+		newFePods = append(newFePods, backends...)
+	}
+	frontendMapping.podBackends = newFePods
+
+	if podPolicies, ok := rpm.policyPods[podID]; ok {
+		newPodPolicy := true
+		for _, poID := range podPolicies {
+			// Existing pod policy update
+			if poID == config.id {
+				newPodPolicy = false
+				break
+			}
+		}
+		if newPodPolicy {
+			// Pod selected by a new policy
+			rpm.policyPods[podID] = append(rpm.policyPods[podID], config.id)
+		}
+	} else {
+		// Pod selected by a policy for the first time
+		pp := []policyID{config.id}
+		rpm.policyPods[podID] = pp
+	}
 }
 
 // TODO This function along with podMetadata can potentially be removed. We
