@@ -176,6 +176,7 @@ Cilium Feature                           Minimum Kernel Version
 :ref:`host-services`                     >= 4.19.57, >= 5.1.16,  >= 5.2
 :ref:`kubeproxy-free`                    >= 4.19.57, >= 5.1.16,  >= 5.2
 :ref:`bandwidth-manager`                 >= 5.1
+:ref:`local-redirect-policy`             >= 4.19.57, >= 5.1.16,  >= 5.2
 Full support for :ref:`session-affinity` >= 5.7
 BPF-based proxy redirection              >= 5.7
 ======================================== ===============================
