@@ -517,6 +517,7 @@ ipv4_ct_tuple_reverse(struct ipv4_ct_tuple *tuple)
 
 static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 						    int off,
+						    int ct_dir __maybe_unused,
 						    struct ipv4_ct_tuple *tuple)
 {
 #ifdef ENABLE_IPV4_FRAGMENTS
@@ -530,7 +531,7 @@ static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 		return DROP_INVALID;
 
 	if (unlikely(ipv4_is_fragment(ip4)))
-		return ipv4_handle_fragment(ctx, ip4, off,
+		return ipv4_handle_fragment(ctx, ip4, off, ct_dir,
 					    (struct ipv4_frag_l4ports *)&tuple->dport);
 #endif
 	/* load sport + dport into tuple */
@@ -620,12 +621,12 @@ static __always_inline int ct_lookup4(const void *map,
 				action = ACTION_CREATE;
 		}
 
-		if (ipv4_ct_extract_l4_ports(ctx, off, tuple) < 0)
+		if (ipv4_ct_extract_l4_ports(ctx, off, dir, tuple) < 0)
 			return DROP_CT_INVALID_HDR;
 		break;
 
 	case IPPROTO_UDP:
-		if (ipv4_ct_extract_l4_ports(ctx, off, tuple) < 0)
+		if (ipv4_ct_extract_l4_ports(ctx, off, dir, tuple) < 0)
 			return DROP_CT_INVALID_HDR;
 
 		action = ACTION_CREATE;

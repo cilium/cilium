@@ -340,7 +340,9 @@ bool lb4_svc_is_localredirect(const struct lb4_service *svc __maybe_unused)
 }
 
 static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
-					   int l4_off, __be16 *port,
+					   int l4_off,
+					   int ct_dir __maybe_unused,
+					   __be16 *port,
 					   __maybe_unused struct iphdr *ip4)
 {
 	int ret;
@@ -354,7 +356,7 @@ static __always_inline int extract_l4_port(struct __ctx_buff *ctx, __u8 nexthdr,
 
 			if (unlikely(ipv4_is_fragment(ip4))) {
 				ret = ipv4_handle_fragment(ctx, ip4, l4_off,
-							   &ports);
+							   ct_dir, &ports);
 				if (IS_ERR(ret))
 					return ret;
 				*port = ports.dport;
@@ -512,7 +514,8 @@ static __always_inline int lb6_extract_key(struct __ctx_buff *ctx __maybe_unused
 	ipv6_addr_copy(&key->address, addr);
 	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
 
-	return extract_l4_port(ctx, tuple->nexthdr, l4_off, &key->dport, NULL);
+	return extract_l4_port(ctx, tuple->nexthdr, l4_off, dir, &key->dport,
+			       NULL);
 }
 
 static __always_inline
@@ -1032,7 +1035,7 @@ static __always_inline int lb4_extract_key(struct __ctx_buff *ctx __maybe_unused
 	if (ipv4_has_l4_header(ip4))
 		csum_l4_offset_and_flags(ip4->protocol, csum_off);
 
-	return extract_l4_port(ctx, ip4->protocol, l4_off, &key->dport, ip4);
+	return extract_l4_port(ctx, ip4->protocol, l4_off, dir, &key->dport, ip4);
 }
 
 static __always_inline

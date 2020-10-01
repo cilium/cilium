@@ -33,6 +33,8 @@ var errors = map[uint8]string{
 	6:   "LB, sock cgroup: No backend entry found",
 	7:   "LB, sock cgroup: Reverse entry update failed",
 	8:   "LB, sock cgroup: Reverse entry stale",
+	9:   "Fragmented packet",
+	10:  "Fragmented packet entry update failed",
 	130: "Invalid source mac",      // Unused
 	131: "Invalid destination mac", // Unused
 	132: "Invalid source ip",

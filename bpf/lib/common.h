@@ -328,6 +328,9 @@ enum {
 /* Cilium error codes, must NOT overlap with TC return codes.
  * These also serve as drop reasons for metrics,
  * where reason > 0 corresponds to -(DROP_*)
+ *
+ * These are shared with pkg/monitor/api/drop.go, when modifying any of the
+ * below, that file should also be updated.
  */
 #define DROP_UNUSED1		-130 /* unused */
 #define DROP_UNUSED2		-131 /* unused */
@@ -387,6 +390,9 @@ enum {
 /* Cilium metrics reasons for forwarding packets and other stats.
  * If reason is larger than below then this is a drop reason and
  * value corresponds to -(DROP_*), see above.
+ *
+ * These are shared with pkg/monitor/api/drop.go, when modifying any of the
+ * below, that file should also be updated.
  */
 #define REASON_FORWARDED		0
 #define REASON_PLAINTEXT		3
@@ -395,6 +401,8 @@ enum {
 #define REASON_LB_NO_BACKEND		6
 #define REASON_LB_REVNAT_UPDATE		7
 #define REASON_LB_REVNAT_STALE		8
+#define REASON_FRAG_PACKET		9
+#define REASON_FRAG_PACKET_UPDATE	10
 
 /* Lookup scope for externalTrafficPolicy=Local */
 #define LB_LOOKUP_SCOPE_EXT	0

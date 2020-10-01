@@ -750,7 +750,7 @@ var _ = Describe("K8sServicesTest", func() {
 		}
 
 		// srcPod:     Name of pod sending the datagram
-		// srcPort:    Source UDP port
+		// srcPort:    Source UDP port (should be different for each doFragmentRequest invocation to allow distinct CT table entries)
 		// dstPodIP:   Receiver pod IP (for checking in CT table)
 		// dstPodPort: Receiver pod port (for checking in CT table)
 		// dstIP:      Target endpoint IP for sending the datagram
@@ -815,6 +815,14 @@ var _ = Describe("K8sServicesTest", func() {
 				countOutK8s2, _ = strconv.Atoi(strings.TrimSpace(res.Stdout()))
 			}
 
+			cmdFragmentedPacketsBeforeK8s1 := "cilium bpf metrics list | awk '/Fragmented packet.*INGRESS/ {print $4}'"
+			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdFragmentedPacketsBeforeK8s1)
+			fragmentedPacketsBeforeK8s1, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
+
+			cmdFragmentedPacketsBeforeK8s2 := "cilium bpf metrics list | awk '/Fragmented packet.*INGRESS/ {print $4}'"
+			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, cmdFragmentedPacketsBeforeK8s2)
+			fragmentedPacketsBeforeK8s2, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
+
 			// Send datagram
 			By("Sending a fragmented packet from %s to endpoint %s", srcPod, net.JoinHostPort(dstIP, fmt.Sprintf("%d", dstPort)))
 			cmd := fmt.Sprintf("bash -c 'dd if=/dev/zero bs=%d count=%d | nc -u -w 1 -p %d %s %d'", blockSize, blockCount, srcPort, dstIP, dstPort)
@@ -860,6 +868,19 @@ var _ = Describe("K8sServicesTest", func() {
 				Equal([]int{countOutK8s1, countOutK8s2 + delta}),
 				Equal([]int{countOutK8s1 + delta, countOutK8s2}),
 			), "Failed to account for IPv4 fragments to %s (out)", dstIP)
+
+			cmdFragmentedPacketsAfterK8s1 := "cilium bpf metrics list | awk '/Fragmented packet.*INGRESS/ {print $4}'"
+			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s1, cmdFragmentedPacketsAfterK8s1)
+			fragmentedPacketsAfterK8s1, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
+
+			cmdFragmentedPacketsAfterK8s2 := "cilium bpf metrics list | awk '/Fragmented packet.*INGRESS/ {print $4}'"
+			res = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPodK8s2, cmdFragmentedPacketsAfterK8s2)
+			fragmentedPacketsAfterK8s2, _ := strconv.Atoi(strings.TrimSpace(res.Stdout()))
+
+			ExpectWithOffset(2, []int{fragmentedPacketsAfterK8s1, fragmentedPacketsAfterK8s2}).To(SatisfyAny(
+				Equal([]int{fragmentedPacketsBeforeK8s1, fragmentedPacketsBeforeK8s2 + delta}),
+				Equal([]int{fragmentedPacketsBeforeK8s1 + delta, fragmentedPacketsBeforeK8s2}),
+			), "Failed to account for INGRESS IPv4 fragments in BPF metrics", dstIP)
 		}
 
 		getIPv4AddrForIface := func(nodeName, iface string) string {

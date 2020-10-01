@@ -7,6 +7,7 @@
 #include <linux/ip.h>
 
 #include "dbg.h"
+#include "metrics.h"
 
 struct ipv4_frag_id {
 	__be32	daddr;
@@ -107,7 +108,7 @@ ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 }
 
 static __always_inline int
-ipv4_frag_register_datagram(struct __ctx_buff *ctx, int l4_off,
+ipv4_frag_register_datagram(struct __ctx_buff *ctx, int l4_off, int ct_dir,
 			    const struct ipv4_frag_id *frag_id,
 			    struct ipv4_frag_l4ports *ports)
 {
@@ -117,7 +118,10 @@ ipv4_frag_register_datagram(struct __ctx_buff *ctx, int l4_off,
 	if (ret < 0)
 		return ret;
 
-	map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, frag_id, ports, BPF_ANY);
+	if (map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, frag_id, ports, BPF_ANY))
+		update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(ct_dir),
+			       REASON_FRAG_PACKET_UPDATE);
+
 	/* Do not return an error if map update failed, as nothing prevents us
 	 * to process the current packet normally.
 	 */
@@ -126,7 +130,7 @@ ipv4_frag_register_datagram(struct __ctx_buff *ctx, int l4_off,
 
 static __always_inline int
 ipv4_handle_fragment(struct __ctx_buff *ctx,
-		     const struct iphdr *ip4, int l4_off,
+		     const struct iphdr *ip4, int l4_off, int ct_dir,
 		     struct ipv4_frag_l4ports *ports)
 {
 	struct ipv4_frag_id frag_id = {
@@ -137,6 +141,9 @@ ipv4_handle_fragment(struct __ctx_buff *ctx,
 		.pad = 0,
 	};
 
+	update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(ct_dir),
+		       REASON_FRAG_PACKET);
+
 	if (likely(ipv4_is_not_first_fragment(ip4)))
 		return ipv4_frag_get_l4ports(&frag_id, ports);
 
@@ -144,7 +151,7 @@ ipv4_handle_fragment(struct __ctx_buff *ctx,
 	 * we receive). Fragment has L4 header, we can retrieve L4 ports and
 	 * create an entry in datagrams map.
 	 */
-	return ipv4_frag_register_datagram(ctx, l4_off, &frag_id, ports);
+	return ipv4_frag_register_datagram(ctx, l4_off, ct_dir, &frag_id, ports);
 }
 #endif
 
