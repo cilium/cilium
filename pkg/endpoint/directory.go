@@ -16,10 +16,10 @@ package endpoint
 
 import (
 	"fmt"
+	"io/ioutil"
 	"os"
 	"path/filepath"
 
-	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 
@@ -56,6 +56,32 @@ func (e *Endpoint) NextDirectoryPath() string {
 
 func (e *Endpoint) backupDirectoryPath() string {
 	return e.DirectoryPath() + backupDirectorySuffix
+}
+
+// moveNewFilesTo copies all files, that do not exist in newDir, from oldDir.
+func moveNewFilesTo(oldDir, newDir string) error {
+	oldFiles, err := ioutil.ReadDir(oldDir)
+	if err != nil {
+		return err
+	}
+	newFiles, err := ioutil.ReadDir(newDir)
+	if err != nil {
+		return err
+	}
+
+	for _, oldFile := range oldFiles {
+		exists := false
+		for _, newFile := range newFiles {
+			if oldFile.Name() == newFile.Name() {
+				exists = true
+				break
+			}
+		}
+		if !exists {
+			os.Rename(filepath.Join(oldDir, oldFile.Name()), filepath.Join(newDir, oldFile.Name()))
+		}
+	}
+	return nil
 }
 
 // synchronizeDirectories moves the files related to endpoint BPF program
@@ -117,7 +143,7 @@ func (e *Endpoint) synchronizeDirectories(origDir string, stateDirComplete bool)
 		// bpf objects into the new directory
 		if !stateDirComplete {
 			scopedLog.Debug("some BPF state files were not recreated; moving old BPF objects into new directory")
-			err := common.MoveNewFilesTo(backupDir, origDir)
+			err := moveNewFilesTo(backupDir, origDir)
 			if err != nil {
 				log.WithError(err).Debugf("unable to copy old bpf object "+
 					"files from %s into the new directory %s.", backupDir, origDir)
