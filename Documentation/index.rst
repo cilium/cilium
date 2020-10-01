@@ -51,11 +51,11 @@ The documentation is divided into the following sections:
    :maxdepth: 2
    :caption: Operations
 
-   install/system_requirements
-   install/upgrade
+   operations/system_requirements
+   operations/upgrade
    policy/index
-   configuration/metrics
-   troubleshooting
+   operations/metrics
+   operations/troubleshooting
 
 .. toctree::
    :maxdepth: 2
