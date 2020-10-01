@@ -15,37 +15,11 @@
 package common
 
 const (
-	// Consul dedicated constants
-
-	// OperationalPath is the base path to store the operational details in the kvstore.
-	OperationalPath = "cilium-net/operational"
-
-	// ServicesKeyPath is the base path where services are stored in the kvstore.
-	ServicesKeyPath = OperationalPath + "/ServicesV2/SHA256SUMServices"
-	// ServicePathV1 is the base path for the services stored in the kvstore.
-	ServicePathV1 = OperationalPath + "/Services/"
-
 	// Miscellaneous dedicated constants
 
-	// NodeConfigFile is the name of the C header which contains the node's
-	// network parameters.
-	NodeConfigFile = "node_config.h"
 	// CHeaderFileName is the name of the C header file for BPF programs for a
 	// particular endpoint.
 	CHeaderFileName = "ep_config.h"
-	// OldCHeaderFileName is the previous name of the C header file for BPF
-	// programs for a particular endpoint. It can be removed once Cilium v1.8
-	// is the oldest supported version.
-	OldCHeaderFileName = "lxc_config.h"
-	// NetdevHeaderFileName is the name of the header file used for bpf_host.c and bpf_overlay.c.
-	NetdevHeaderFileName = "netdev_config.h"
-	// PreFilterHeaderFileName is the name of the header file used for bpf_xdp.c.
-	PreFilterHeaderFileName = "filter_config.h"
-	// HostObjFileName is the name of the host object file.
-	HostObjFileName = "bpf_host.o"
-	// CiliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
-	// base64 form.
-	CiliumCHeaderPrefix = "CILIUM_BASE64_"
 
 	// PossibleCPUSysfsPath is used to retrieve the number of CPUs for per-CPU maps.
 	PossibleCPUSysfsPath = "/sys/devices/system/cpu/possible"

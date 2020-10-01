@@ -26,7 +26,6 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/api/v1/models"
-	"github.com/cilium/cilium/pkg/common"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	fakedatapath "github.com/cilium/cilium/pkg/datapath/fake"
@@ -147,7 +146,7 @@ func (ds *DaemonSuite) SetUpTest(c *C) {
 	c.Assert(err, IsNil)
 	ds.d = d
 
-	kvstore.Client().DeletePrefix(context.TODO(), common.OperationalPath)
+	kvstore.Client().DeletePrefix(context.TODO(), kvstore.OperationalPath)
 	kvstore.Client().DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
 
 	ds.OnGetPolicyRepository = d.GetPolicyRepository
@@ -176,7 +175,7 @@ func (ds *DaemonSuite) TearDownTest(c *C) {
 	}
 
 	if ds.kvstoreInit {
-		kvstore.Client().DeletePrefix(context.TODO(), common.OperationalPath)
+		kvstore.Client().DeletePrefix(context.TODO(), kvstore.OperationalPath)
 		kvstore.Client().DeletePrefix(context.TODO(), kvstore.BaseKeyPrefix)
 	}
 

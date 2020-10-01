@@ -75,8 +75,15 @@ const (
 // time. It can only be accessed when GetCompilationLock() is being held.
 var firstInitialization = true
 
+const (
+	// netdevHeaderFileName is the name of the header file used for bpf_host.c and bpf_overlay.c.
+	netdevHeaderFileName = "netdev_config.h"
+	// preFilterHeaderFileName is the name of the header file used for bpf_xdp.c.
+	preFilterHeaderFileName = "filter_config.h"
+)
+
 func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) error {
-	headerPath := filepath.Join(dir, common.NetdevHeaderFileName)
+	headerPath := filepath.Join(dir, netdevHeaderFileName)
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
 
 	f, err := os.Create(headerPath)
@@ -94,7 +101,7 @@ func (l *Loader) writeNetdevHeader(dir string, o datapath.BaseProgramOwner) erro
 
 // Must be called with option.Config.EnablePolicyMU locked.
 func writePreFilterHeader(preFilter *prefilter.PreFilter, dir string) error {
-	headerPath := filepath.Join(dir, common.PreFilterHeaderFileName)
+	headerPath := filepath.Join(dir, preFilterHeaderFileName)
 	log.WithField(logfields.Path, headerPath).Debug("writing configuration")
 	f, err := os.Create(headerPath)
 	if err != nil {
