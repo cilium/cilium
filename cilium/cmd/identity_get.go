@@ -77,7 +77,7 @@ var identityGetCmd = &cobra.Command{
 
 			params := identityApi.NewGetIdentityIDParams().WithID(args[0]).WithTimeout(api.ClientTimeout)
 			if id, err := client.Policy.GetIdentityID(params); err != nil {
-				Fatalf("Cannot get identity for given ID %s: %s\n", id, err)
+				Fatalf("Cannot get identity for given ID %s: %s\n", args[0], err)
 			} else {
 				printIdentities([]*models.Identity{id.Payload})
 			}
