@@ -27,9 +27,10 @@ import (
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/identity"
 	ipcachetypes "github.com/cilium/cilium/pkg/ipcache/types"
-	"github.com/spf13/viper"
+	"github.com/cilium/cilium/pkg/labels"
 
 	"github.com/spf13/cobra"
+	"github.com/spf13/viper"
 )
 
 var ipListCmd = &cobra.Command{
@@ -91,13 +92,37 @@ func printEntry(w *tabwriter.Writer, entry *models.IPListEntry) {
 	}
 
 	ni := identity.NumericIdentity(*entry.Identity)
-	identity := ni.String()
+	identityNumeric := ni.StringID()
+	var identities []string
 	if numeric {
-		identity = ni.StringID()
-	}
-	if verbose {
-		fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\n", *entry.Cidr, identity, src, entry.HostIP, entry.EncryptKey)
+		identities = append(identities, identityNumeric)
 	} else {
-		fmt.Fprintf(w, "%s\t%s\t%s\n", *entry.Cidr, identity, src)
+		identity := ni.String()
+		if identity != identityNumeric {
+			identities = append(identities, identity)
+		} else {
+			params := ipApi.NewGetIdentityIDParams().WithID(identity).WithTimeout(api.ClientTimeout)
+			id, err := client.Policy.GetIdentityID(params)
+			if err != nil {
+				Fatalf("Cannot get identity for given ID %s: %s\n", id, err)
+			}
+			lbls := labels.NewLabelsFromModel(id.Payload.Labels)
+			for _, lbl := range lbls {
+				identities = append(identities, lbl.String())
+			}
+		}
+	}
+	first := true
+	for _, identity := range identities {
+		if first {
+			if verbose {
+				fmt.Fprintf(w, "%s\t%s\t%s\t%s\t%d\n", *entry.Cidr, identity, src, entry.HostIP, entry.EncryptKey)
+			} else {
+				fmt.Fprintf(w, "%s\t%s\t%s\n", *entry.Cidr, identity, src)
+			}
+			first = false
+		} else {
+			fmt.Fprintf(w, "\t%s\t\n", identity)
+		}
 	}
 }
