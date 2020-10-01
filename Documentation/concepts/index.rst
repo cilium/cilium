@@ -27,4 +27,3 @@ Choose one of the following topics to start reading:
    ebpf/index
    kubernetes/index
    clustermesh/index
-   performance/index
