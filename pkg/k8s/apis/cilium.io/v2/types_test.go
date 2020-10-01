@@ -348,6 +348,26 @@ func (s *CiliumV2Suite) TestParseSpec(c *C) {
 	err = json.Unmarshal(ciliumRule, &cnpl)
 	c.Assert(err, IsNil)
 	c.Assert(cnpl, checker.DeepEquals, *expectedPolicyRuleWithLabel)
+
+	empty := &CiliumNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Namespace: "default",
+			Name:      "rule1",
+			UID:       uuidRule,
+		},
+	}
+	_, err = empty.Parse()
+	c.Assert(err, checker.DeepEquals, ErrEmptyCNP)
+
+	emptyCCNP := &CiliumClusterwideNetworkPolicy{
+		ObjectMeta: metav1.ObjectMeta{
+			Name: "rule1",
+			UID:  uuidRule,
+		},
+		CiliumNetworkPolicy: empty,
+	}
+	_, err = emptyCCNP.Parse()
+	c.Assert(err, checker.DeepEquals, ErrEmptyCCNP)
 }
 
 func (s *CiliumV2Suite) TestParseRules(c *C) {

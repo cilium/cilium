@@ -1278,9 +1278,39 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 			},
 			setupWanted: func() wanted {
 				r := policy.NewPolicyRepository(nil, nil)
-				r.AddList(api.Rules{})
+				r.AddList(api.Rules{
+					{
+						EndpointSelector: api.EndpointSelector{
+							LabelSelector: &slim_metav1.LabelSelector{
+								MatchLabels: map[string]string{
+									"env": "cluster-1",
+									labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
+								},
+							},
+						},
+						Ingress: []api.IngressRule{
+							{
+								IngressCommonRule: api.IngressCommonRule{
+									FromEndpoints: []api.EndpointSelector{
+										{
+											LabelSelector: &slim_metav1.LabelSelector{
+												MatchLabels: map[string]string{
+													"env": "cluster-1",
+													labels.LabelSourceK8s + "." + k8sConst.PodNamespaceLabel: "production",
+												},
+											},
+										},
+									},
+								},
+							},
+						},
+						Egress:      nil,
+						Labels:      utils.GetPolicyLabels("production", "db", uuid, utils.ResourceTypeCiliumNetworkPolicy),
+						Description: "",
+					},
+				})
 				return wanted{
-					err:  nil,
+					err:  v2.ErrEmptyCNP,
 					repo: r,
 				}
 			},
@@ -1297,16 +1327,27 @@ func (ds *DaemonSuite) Test_addCiliumNetworkPolicyV2(c *C) {
 		ds.d.policy = args.repo
 
 		rules, policyImportErr := args.cnp.Parse()
-		c.Assert(policyImportErr, IsNil)
+		c.Assert(policyImportErr, checker.DeepEquals, want.err)
+
 		policyImportErr = k8s.PreprocessRules(rules, &ds.d.k8sWatcher.K8sSvcCache)
 		c.Assert(policyImportErr, IsNil)
-		_, policyImportErr = ds.d.PolicyAdd(rules, &policy.AddOptions{
-			ReplaceWithLabels: args.cnp.GetIdentityLabels(),
-			Source:            metrics.LabelEventSourceK8s,
-		})
-		c.Assert(policyImportErr, IsNil)
 
-		c.Assert(args.repo.GetRulesList().Policy, checker.DeepEquals, want.repo.GetRulesList().Policy, Commentf("Test name: %q", tt.name))
+		// Only add policies if we have successfully parsed them. Otherwise, if
+		// parsing fails, `rules` is nil, which would wipe out the repo.
+		if want.err == nil {
+			_, policyImportErr = ds.d.PolicyAdd(rules, &policy.AddOptions{
+				ReplaceWithLabels: args.cnp.GetIdentityLabels(),
+				Source:            metrics.LabelEventSourceK8s,
+			})
+			c.Assert(policyImportErr, IsNil)
+		}
+
+		c.Assert(
+			args.repo.GetRulesList().Policy,
+			checker.DeepEquals,
+			want.repo.GetRulesList().Policy,
+			Commentf("Test name: %q", tt.name),
+		)
 	}
 }
 
