@@ -1,0 +1,22 @@
+language: go
+
+dist: trusty
+
+go:
+  - "1.12.x"
+
+script:
+  # Fast-fail on non-zero exit codes
+  - set -e
+  # Build commands
+  - make
+  # Verify that all files have been gofmt'd with simplification
+  - make format-check
+  # Run unit tests
+  - make test
+
+notifications:
+  email:
+  - dkumar11@illinois.edu
+  slack:
+    secure: VNYGBpmWMR6pfTgz5m5V9EkVReKXvD10p44RqTMeBf5vrkClM0TPaqkxgl7N2mXIWbls1yJFh30eHPodZEdGONmQKguEpz3j+1AO1lJVljjLsCNsBW2wRXn2aMDn2oNfwDBbMzFrdvmCQESLx9bk7y8xkwH2g2J01kxU9JEbkdwZ9cbDy6RDJncgD0oflGbAAH0q60ZCi2mfFE0mhRFMCaoVaSNoJdFDyv7pzTH0H5cB4rNvJjo7Au/dekepHCUuWp2rj/4i7n8Non8L27AgU11cX8Nbn8vyFhjIQvCrGJWv4uA3z86dOe4Mf/raO0M/KBQSe8pPVLeUF8krdOG0zy9EBE+fYrBuMsnIb+QpNobdtw6VMlpVg7V+o0PxsM1mCVaeOEcapKmxWxC0HmruBbjZ+RitMcDeQEF/GIcx7UY03C6Fnz7TO01UwFnmiskO5I1KBtPiUdB96RVe5c9PMU0STkJekIz2g0WauoJpiOlemHMmvZH92e07LQPVjiawKmP/6VoGIxAwFE8jvCQSyi0jaQxqUnnjqhk0zWbFTXz3QzOufBh0YoT5Q9AWKa2iMthrLfY4LIFl7AN7fKJfFiFY083uhnhWDia3BMk6vJ+o2I2fUNOKx0L+Jj8H8vsf4XL7JVtpq536JjQhL429qNvBm8kRaH2XHHFD3bjiO5Q=
