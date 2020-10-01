@@ -81,15 +81,22 @@ type LRPConfig struct {
 
 type frontend = loadbalancer.L3n4Addr
 
-type backend = loadbalancer.L3n4Addr
+// backend encapsulates loadbalancer.L3n4Addr for a pod along with podID (pod
+// name and namespace). There can be multiple backend pods for an LRP frontend,
+// in such cases, the podID will be used to keep track of updates related to
+// a pod.
+type backend struct {
+	loadbalancer.L3n4Addr
+	podID podID
+}
 
 type portName = string
 
 // feMapping stores frontend address and a list of associated backend addresses.
 type feMapping struct {
-	feAddr   *frontend
-	backends []backend
-	fePort   portName
+	feAddr      *frontend
+	podBackends []backend
+	fePort      portName
 }
 
 type bePortInfo struct {
