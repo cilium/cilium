@@ -40,8 +40,6 @@ const (
 	defaultSecurityID = -1
 )
 
-type supportedKinds string
-
 var src, dst, dports []string
 var srcIdentity, dstIdentity int64
 var srcEndpoint, dstEndpoint, srcK8sPod, dstK8sPod, srcK8sYaml, dstK8sYaml string
