@@ -48,7 +48,6 @@ var (
 	cachedSelectorHost, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, hostSelector)
 
 	fooSelector = api.NewESFromLabels(labels.ParseSelectLabel("foo"))
-	barSelector = api.NewESFromLabels(labels.ParseSelectLabel("bar"))
 	bazSelector = api.NewESFromLabels(labels.ParseSelectLabel("baz"))
 
 	cachedFooSelector, _ = testSelectorCache.AddIdentitySelector(dummySelectorCacheUser, fooSelector)
