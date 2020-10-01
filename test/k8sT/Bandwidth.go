@@ -31,7 +31,8 @@ var _ = Describe("K8sBandwidthTest", func() {
 		testClientPod  = "run=netperf-client-pod"
 		testClientHost = "run=netperf-client-host"
 
-		maxRateDeviation = 7
+		maxRateDeviation = 5
+		minBandwidth     = 1
 	)
 
 	var (
@@ -122,7 +123,7 @@ var _ = Describe("K8sBandwidthTest", func() {
 						"Request from %s pod to pod with IP %s failed", pod, targetIP)
 					By("Session test completed, netperf result raw: %s", res.SingleOut())
 					if rate > 0 {
-						ExpectWithOffset(1, res.InRange(rate, maxRateDeviation)).To(BeNil(),
+						ExpectWithOffset(1, res.InRange(minBandwidth, rate+maxRateDeviation)).To(BeNil(),
 							"Rate mismatch")
 					}
 				}

@@ -321,9 +321,7 @@ func (res *CmdRes) FloatOutput() (float64, error) {
 }
 
 // InRange returns nil if res matches the expected value range or error otherwise
-func (res *CmdRes) InRange(expectedValue, maxDeviation int) error {
-	min := expectedValue - maxDeviation
-	max := expectedValue + maxDeviation
+func (res *CmdRes) InRange(min, max int) error {
 	raw, err := res.FloatOutput()
 	if err != nil {
 		return err
