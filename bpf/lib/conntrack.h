@@ -528,14 +528,17 @@ static __always_inline int ipv4_ct_extract_l4_ports(struct __ctx_buff *ctx,
 	 * after data has been invalidated (see handle_ipv4_from_lxc())
 	 */
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
-		return DROP_INVALID;
+		return DROP_CT_INVALID_HDR;
 
 	if (unlikely(ipv4_is_fragment(ip4)))
 		return ipv4_handle_fragment(ctx, ip4, off, ct_dir,
 					    (struct ipv4_frag_l4ports *)&tuple->dport);
 #endif
 	/* load sport + dport into tuple */
-	return ctx_load_bytes(ctx, off, &tuple->dport, 4);
+	if (ctx_load_bytes(ctx, off, &tuple->dport, 4) < 0)
+		return DROP_CT_INVALID_HDR;
+
+	return CTX_ACT_OK;
 }
 
 static __always_inline void ct4_cilium_dbg_tuple(struct __ctx_buff *ctx, __u8 type,
@@ -553,7 +556,7 @@ static __always_inline int ct_lookup4(const void *map,
 				      struct __ctx_buff *ctx, int off, int dir,
 				      struct ct_state *ct_state, __u32 *monitor)
 {
-	int ret = CT_NEW, action = ACTION_UNSPEC;
+	int err, ret = CT_NEW, action = ACTION_UNSPEC;
 	bool is_tcp = tuple->nexthdr == IPPROTO_TCP;
 	union tcp_flags tcp_flags = { .value = 0 };
 
@@ -621,13 +624,15 @@ static __always_inline int ct_lookup4(const void *map,
 				action = ACTION_CREATE;
 		}
 
-		if (ipv4_ct_extract_l4_ports(ctx, off, dir, tuple) < 0)
-			return DROP_CT_INVALID_HDR;
+		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple);
+		if (err < 0)
+			return err;
 		break;
 
 	case IPPROTO_UDP:
-		if (ipv4_ct_extract_l4_ports(ctx, off, dir, tuple) < 0)
-			return DROP_CT_INVALID_HDR;
+		err = ipv4_ct_extract_l4_ports(ctx, off, dir, tuple);
+		if (err < 0)
+			return err;
 
 		action = ACTION_CREATE;
 		break;
