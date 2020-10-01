@@ -55,6 +55,7 @@ The documentation is divided into the following sections:
    operations/upgrade
    policy/index
    operations/metrics
+   operations/scalability/index
    operations/troubleshooting
 
 .. toctree::
