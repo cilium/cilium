@@ -164,10 +164,11 @@ Reference steps for the template
    ``clustermesh-apiserver`` on DockerHub, for the latest version of Cilium.
    For example, if the latest version is ``1.8``, then for all patch releases
    on the ``1.8`` line, this step should be performed. Once ``1.9`` is out for
-   example, then this is no longer required for ``1.8``.
+   example, then this is no longer required for ``1.8`` or earlier releases.
 
-   **Note**, the DockerHub UI will not allow you to modify the ``stable`` tag
-   directly. You will need to delete it, and then create a new, updated one.
+   ::
+
+       contrib/release/bump-docker-stable.sh X.Y.Z
 
 #. Check if all docker images are available before announcing the release:
 
