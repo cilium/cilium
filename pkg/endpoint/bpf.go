@@ -52,6 +52,15 @@ import (
 const (
 	// EndpointGenerationTimeout specifies timeout for proxy completion context
 	EndpointGenerationTimeout = 330 * time.Second
+
+	// OldCHeaderFileName is the previous name of the C header file for BPF
+	// programs for a particular endpoint. It can be removed once Cilium v1.8
+	// is the oldest supported version.
+	oldCHeaderFileName = "lxc_config.h"
+
+	// ciliumCHeaderPrefix is the prefix using when printing/writing an endpoint in a
+	// base64 form.
+	ciliumCHeaderPrefix = "CILIUM_BASE64_"
 )
 
 // policyMapPath returns the path to the policy map of endpoint.
@@ -86,7 +95,7 @@ func (e *Endpoint) writeInformationalComments(w io.Writer) error {
 		var verBase64 string
 		verBase64, err = version.Base64()
 		if err == nil {
-			fmt.Fprintf(fw, " * %s%s:%s\n * \n", common.CiliumCHeaderPrefix,
+			fmt.Fprintf(fw, " * %s%s:%s\n * \n", ciliumCHeaderPrefix,
 				verBase64, epStr64)
 		}
 	}
@@ -177,7 +186,7 @@ func (e *Endpoint) writeHeaderfile(prefix string) error {
 	// nonexistent file, only create the symlink if the header file
 	// creation/replacement file succeeded above.
 	if !e.IsHost() && err == nil {
-		oldHeaderPath := filepath.Join(prefix, common.OldCHeaderFileName)
+		oldHeaderPath := filepath.Join(prefix, oldCHeaderFileName)
 		if _, err := os.Stat(oldHeaderPath); err != nil {
 			// The symlink doesn't already exists.
 			if err := renameio.Symlink(common.CHeaderFileName, oldHeaderPath); err != nil {

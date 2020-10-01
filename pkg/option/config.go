@@ -2073,9 +2073,13 @@ func (c *DaemonConfig) IsPodSubnetsDefined() bool {
 	return len(c.IPv4PodSubnets) > 0 || len(c.IPv6PodSubnets) > 0
 }
 
+// NodeConfigFile is the name of the C header which contains the node's
+// network parameters.
+const nodeConfigFile = "node_config.h"
+
 // GetNodeConfigPath returns the full path of the NodeConfigFile.
 func (c *DaemonConfig) GetNodeConfigPath() string {
-	return filepath.Join(c.GetGlobalsDir(), common.NodeConfigFile)
+	return filepath.Join(c.GetGlobalsDir(), nodeConfigFile)
 }
 
 // GetGlobalsDir returns the path for the globals directory.

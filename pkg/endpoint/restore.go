@@ -44,7 +44,7 @@ import (
 	"github.com/sirupsen/logrus"
 )
 
-// getCiliumVersionString returns the first line containing common.CiliumCHeaderPrefix.
+// getCiliumVersionString returns the first line containing ciliumCHeaderPrefix.
 func getCiliumVersionString(epCHeaderFilePath string) ([]byte, error) {
 	f, err := os.Open(epCHeaderFilePath)
 	if err != nil {
@@ -60,14 +60,17 @@ func getCiliumVersionString(epCHeaderFilePath string) ([]byte, error) {
 		if err != nil {
 			return []byte{}, err
 		}
-		if bytes.Contains(b, []byte(common.CiliumCHeaderPrefix)) {
+		if bytes.Contains(b, []byte(ciliumCHeaderPrefix)) {
 			return b, nil
 		}
 	}
 }
 
+// hostObjFileName is the name of the host object file.
+const hostObjFileName = "bpf_host.o"
+
 func hasHostObjectFile(epDir string) bool {
-	hostObjFilepath := filepath.Join(epDir, common.HostObjFileName)
+	hostObjFilepath := filepath.Join(epDir, hostObjFileName)
 	_, err := os.Stat(hostObjFilepath)
 	return err == nil
 }
@@ -101,7 +104,7 @@ func ReadEPsFromDirNames(ctx context.Context, owner regeneration.Owner, basePath
 		// the new.
 		// We can switch this to use the new header file once v1.8 is the
 		// oldest supported version.
-		cHeaderFile := filepath.Join(epDir, common.OldCHeaderFileName)
+		cHeaderFile := filepath.Join(epDir, oldCHeaderFileName)
 		if isHost {
 			// Host endpoint doesn't have an old header file so that it's not
 			// restored on downgrades.
