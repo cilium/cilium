@@ -23,7 +23,6 @@ import (
 	"sync"
 
 	"github.com/cilium/cilium/pkg/controller"
-	"github.com/cilium/cilium/pkg/datapath/connector"
 	"github.com/cilium/cilium/pkg/endpoint"
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
@@ -34,6 +33,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 
 	"github.com/sirupsen/logrus"
+	"github.com/vishvananda/netlink"
 	k8serrors "k8s.io/apimachinery/pkg/api/errors"
 )
 
@@ -41,6 +41,12 @@ type endpointRestoreState struct {
 	possible map[uint16]*endpoint.Endpoint
 	restored []*endpoint.Endpoint
 	toClean  []*endpoint.Endpoint
+}
+
+// checkLink returns an error if a link with linkName does not exist.
+func checkLink(linkName string) error {
+	_, err := netlink.LinkByName(linkName)
+	return err
 }
 
 // validateEndpoint attempts to determine that the restored endpoint is valid, ie it
@@ -78,7 +84,7 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 		ep.RunMetadataResolver(d.fetchK8sLabelsAndAnnotations)
 	}
 
-	if err := ep.ValidateConnectorPlumbing(connector.CheckLink); err != nil {
+	if err := ep.ValidateConnectorPlumbing(checkLink); err != nil {
 		return false, err
 	}
 
