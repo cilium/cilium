@@ -39,18 +39,25 @@ rules:
   resources:
   - ciliumnetworkpolicies
   - ciliumnetworkpolicies/status
+  - ciliumnetworkpolicies/finalizers
   - ciliumclusterwidenetworkpolicies
   - ciliumclusterwidenetworkpolicies/status
+  - ciliumclusterwidenetworkpolicies/finalizers
   - ciliumendpoints
   - ciliumendpoints/status
+  - ciliumendpoints/finalizers
   - ciliumnodes
   - ciliumnodes/status
+  - ciliumnodes/finalizers
   - ciliumidentities
   - ciliumidentities/status
+  - ciliumidentities/finalizers
   - ciliumlocalredirectpolicies
   - ciliumlocalredirectpolicies/status
+  - ciliumlocalredirectpolicies/finalizers
   - ciliumclusterwidelocalredirectpolicies
   - ciliumclusterwidelocalredirectpolicies/status
+  - ciliumclusterwidelocalredirectpolicies/finalizers
   verbs:
   - '*'
 - apiGroups:
