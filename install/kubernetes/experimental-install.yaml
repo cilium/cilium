@@ -195,6 +195,16 @@ rules:
   - ""
   resources:
   - pods
+  - pods/finalizers
+  verbs:
+  - get
+  - list
+  - watch
+  - update
+  - delete
+- apiGroups:
+  - ""
+  resources:
   - nodes
   verbs:
   - get
@@ -223,15 +233,20 @@ rules:
   resources:
   - ciliumnetworkpolicies
   - ciliumnetworkpolicies/status
+  - ciliumnetworkpolicies/finalizers
   - ciliumclusterwidenetworkpolicies
   - ciliumclusterwidenetworkpolicies/status
+  - ciliumclusterwidenetworkpolicies/finalizers
   - ciliumendpoints
   - ciliumendpoints/status
+  - ciliumendpoints/finalizers
   - ciliumnodes
   - ciliumnodes/status
+  - ciliumnodes/finalizers
   - ciliumidentities
 # deprecated remove in v1.9
   - ciliumidentities/status
+  - ciliumidentities/finalizers
   verbs:
   - '*'
 ---
@@ -321,14 +336,19 @@ rules:
   resources:
   - ciliumnetworkpolicies
   - ciliumnetworkpolicies/status
+  - ciliumnetworkpolicies/finalizers
   - ciliumclusterwidenetworkpolicies
   - ciliumclusterwidenetworkpolicies/status
+  - ciliumclusterwidenetworkpolicies/finalizers
   - ciliumendpoints
   - ciliumendpoints/status
+  - ciliumendpoints/finalizers
   - ciliumnodes
   - ciliumnodes/status
+  - ciliumnodes/finalizers
   - ciliumidentities
   - ciliumidentities/status
+  - ciliumidentities/finalizers
   verbs:
   - '*'
 - apiGroups:
@@ -776,6 +796,7 @@ spec:
     spec:
       securityContext:
         runAsUser: 1001
+      serviceAccount: hubble-ui
       serviceAccountName: hubble-ui
       containers:
         - name: hubble-ui
