@@ -25,7 +25,6 @@ Cheatsheet
 Cheng
 Chewbacca
 Chun
-curl
 Cloudflare
 Clusterwide
 Committer
@@ -172,6 +171,7 @@ VM
 VPC
 Vagrantcloud
 Vagrantfile
+Vagrantfiles
 Verifier
 Veth
 Viljoen
@@ -240,6 +240,7 @@ cardinality
 cass
 cassandra
 cassandraparser
+cd
 cgroup
 ci
 cidrs
@@ -269,6 +270,7 @@ cri
 crt
 crypto
 cryptographic
+curl
 daemonset
 datacenter
 datagrams
@@ -560,8 +562,10 @@ prebuild
 prefilter
 preflight
 preload
+preloading
 prem
 prepend
+prepulls
 priori
 productpage
 programmability

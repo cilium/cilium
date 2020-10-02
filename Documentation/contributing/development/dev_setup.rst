@@ -69,8 +69,7 @@ environment variables and network setup that are managed via
 Using the provided Vagrantfile
 ^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
-To bring up a Vagrant VM  with Cilium
-plus dependencies installed, run:
+To bring up a Vagrant VM with Cilium plus dependencies installed, run:
 
 ::
 
@@ -120,6 +119,22 @@ brought up by vagrant:
 * ``NO_BUILD=1``: Does not run the "build" provision step in the VM. Assumes
   the developer had previously executed ``make build`` before provisioning the
   VM.
+* ``USER_MOUNTS``: Additional mounts for the VM in a comma-separated list of
+  mount specifications. Each mount specification can be simply a directory name
+  relative to the home directory, or include a '=' character separating the
+  destination mount point from the host directory. For example:
+
+  * ``USER_MOUNTS=foo``
+
+    * Mounts host directory ``~/foo`` as ``/home/vagrant/foo``
+
+  * ``USER_MOUNTS=foo,/tmp/bar=/tmp/bar``
+
+    * Mounts host directory ``~/foo`` as ``/home/vagrant/foo`` in the VM, and host
+      directory ``/tmp/bar`` as ``/tmp/bar`` in the VM.
+
+* ``VM_MEMORY``: Memory in megabytes to configure for the VMs (default 4096).
+* ``VM_CPUS``: Number of CPUs to configure for the VMs (default 2).
 
 If you want to start the VM with cilium enabled with ``containerd``, with
 kubernetes installed and plus a worker, run:
@@ -144,6 +159,44 @@ and add ``127.0.0.1 k8s1`` to your hosts file.
 If you have any issue with the provided vagrant box
 ``cilium/ubuntu`` or need a different box format, you may
 build the box yourself using the `packer scripts <https://github.com/cilium/packer-ci-build>`_
+
+Launch CI VMs
+^^^^^^^^^^^^^
+
+The ``test`` directory also contains a ``Vagrantfile`` that can be
+used to bring up the CI VM images that will cache a Vagrant box
+locally (in ``test/.vagrant/`` that prepulls all the docker images
+needed for the CI tests. Unfortunately some of the options are different
+from the main Vagrantfile, for example:
+
+- ``K8S_NODES`` determines the total number of k8s nodes, including the master.
+  - ``NWORKERS`` is not supported.
+- ``USER_MOUNTS`` is not available.
+
+To start a local k8s 1.18 cluster with one CI VM locally, run:
+
+::
+    $ cd test
+    $ K8S_VERSION=1.18 K8S_NODES=1 ./vagrant-local-start.sh
+
+This will first destroy any CI VMs you may have running on the current
+``K8S_VERSION``, and then create a local Vagrant box if not already
+created. This can take some time.
+
+VM preloading can be turned off by exporting ``VM_PRELOAD=false``. You
+can run ``make clean`` in ``tests`` to delete the cached vagrant box.
+
+To start the CI runtime VM locally, run:
+
+::
+    $ cd test
+    $ ./vagrant-local-start-runtime.sh
+
+The runtime VM is connected to the same private VirtualBox network as
+the local CI k8s nodes.
+
+The runtime VM uses the same cached box as the k8s nodes, but does not start
+K8s, but runs Cilium as a systemd service.
 
 Manual Installation
 ^^^^^^^^^^^^^^^^^^^
