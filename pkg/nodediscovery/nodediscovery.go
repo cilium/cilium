@@ -165,8 +165,6 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		})
 	}
 
-	n.Manager.NodeUpdated(n.LocalNode)
-
 	go func() {
 		log.WithFields(
 			logrus.Fields{
@@ -183,13 +181,26 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		close(n.Registered)
 	}()
 
-	go func() {
+	if option.Config.JoinCluster {
+		// Wait for successful node registration before
+		// informing the manager if registering to a k8s
+		// namespace as it can update node information
 		select {
 		case <-n.Registered:
 		case <-time.NewTimer(defaults.NodeInitTimeout).C:
 			log.Fatalf("Unable to initialize local node due to timeout")
 		}
-	}()
+	} else {
+		go func() {
+			select {
+			case <-n.Registered:
+			case <-time.NewTimer(defaults.NodeInitTimeout).C:
+				log.Fatalf("Unable to initialize local node due to timeout")
+			}
+		}()
+	}
+
+	n.Manager.NodeUpdated(n.LocalNode)
 
 	if option.Config.KVStore != "" {
 		go func() {

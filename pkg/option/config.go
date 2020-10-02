@@ -559,6 +559,9 @@ const (
 	// K8sNamespaceName is the name of the K8sNamespace option
 	K8sNamespaceName = "k8s-namespace"
 
+	// JoinClusterName is the name of the JoinCluster Option
+	JoinClusterName = "join-cluster"
+
 	// EnableIPv4Name is the name of the option to enable IPv4 support
 	EnableIPv4Name = "enable-ipv4"
 
@@ -920,6 +923,7 @@ var HelpFlagSections = []FlagsSection{
 			FlannelUninstallOnExit,
 			EnableWellKnownIdentities,
 			K8sServiceProxyName,
+			JoinClusterName,
 		},
 	},
 	{
@@ -1510,6 +1514,10 @@ type DaemonConfig struct {
 	// K8sNamespace is the name of the namespace in which Cilium is
 	// deployed in when running in Kubernetes mode
 	K8sNamespace string
+
+	// JoinCluster is 'true' if the agent should join a Cilium cluster via kvstore
+	// registration
+	JoinCluster bool
 
 	// EnableIPv4 is true when IPv4 is enabled
 	EnableIPv4 bool
@@ -2435,6 +2443,7 @@ func (c *DaemonConfig) Populate() {
 	c.IPv6NodeAddr = viper.GetString(IPv6NodeAddr)
 	c.IPv6Range = viper.GetString(IPv6Range)
 	c.IPv6ServiceRange = viper.GetString(IPv6ServiceRange)
+	c.JoinCluster = viper.GetBool(JoinClusterName)
 	c.K8sAPIServer = viper.GetString(K8sAPIServer)
 	c.K8sClientBurst = viper.GetInt(K8sClientBurst)
 	c.K8sClientQPSLimit = viper.GetFloat64(K8sClientQPSLimit)

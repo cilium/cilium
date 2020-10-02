@@ -334,8 +334,13 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 	nodeIP := n.GetNodeIP(false)
 
 	remoteHostIdentity := identity.ReservedIdentityHost
-	if m.conf.RemoteNodeIdentitiesEnabled() && n.Source != source.Local {
-		remoteHostIdentity = identity.ReservedIdentityRemoteNode
+	if m.conf.RemoteNodeIdentitiesEnabled() {
+		nid := identity.NumericIdentity(n.NodeIdentity)
+		if nid != identity.IdentityUnknown {
+			remoteHostIdentity = nid
+		} else if n.Source != source.Local {
+			remoteHostIdentity = identity.ReservedIdentityRemoteNode
+		}
 	}
 
 	for _, address := range n.IPAddresses {
@@ -344,7 +349,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		// through the tunnel to preserve the source identity as part of the
 		// encapsulation.
 		if address.Type == addressing.NodeCiliumInternalIP || m.conf.NodeEncryptionEnabled() ||
-			option.Config.EnableHostFirewall {
+			option.Config.EnableHostFirewall || option.Config.JoinCluster {
 			tunnelIP = nodeIP
 		}
 
