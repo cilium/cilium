@@ -35,8 +35,8 @@ func init() {
 	flags.String(operatorOption.AzureResourceGroup, "", "Resource group to use for Azure IPAM")
 	option.BindEnvWithLegacyEnvFallback(operatorOption.AzureResourceGroup, "AZURE_RESOURCE_GROUP")
 
-	flags.String(operatorOption.UserAssignedIdentityName, "", "Name of the user assigned identity used to auth with the Azure API")
-	option.BindEnvWithLegacyEnvFallback(operatorOption.UserAssignedIdentityName, "AZURE_USER_ASSIGNED_IDENTITY_NAME")
+	flags.String(operatorOption.UserAssignedIdentityID, "", "ID of the user assigned identity used to auth with the Azure API")
+	option.BindEnvWithLegacyEnvFallback(operatorOption.UserAssignedIdentityID, "AZURE_USER_ASSIGNED_IDENTITY_ID")
 
 	viper.BindPFlags(flags)
 }
