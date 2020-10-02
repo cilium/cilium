@@ -21,6 +21,7 @@ import (
 
 	api "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 )
 
 const (
@@ -106,6 +107,14 @@ const (
 	// ReservedCiliumEtcdOperator is the reserved identity used for the Cilium etcd operator
 	ReservedCiliumEtcdOperator NumericIdentity = 107
 )
+
+// localNodeIdentity is the endpoint identity allocated for the local node
+var localNodeIdentity = struct {
+	lock.Mutex
+	identity NumericIdentity
+}{
+	identity: ReservedIdentityRemoteNode,
+}
 
 type wellKnownIdentities map[NumericIdentity]wellKnownIdentity
 
@@ -363,6 +372,23 @@ func (id NumericIdentity) String() string {
 // Uint32 normalizes the ID for use in BPF program.
 func (id NumericIdentity) Uint32() uint32 {
 	return uint32(id)
+}
+
+// GetLocalNodeID returns the configured local node numeric identity that is
+// set in tunnel headers when encapsulating packets originating from the local
+// node.
+func GetLocalNodeID() NumericIdentity {
+	localNodeIdentity.Lock()
+	defer localNodeIdentity.Unlock()
+	return localNodeIdentity.identity
+}
+
+// SetLocalNodeID sets the local node id.
+// Note that currently changes to the local node id only take effect during agent bootstrap
+func SetLocalNodeID(nodeid uint32) {
+	localNodeIdentity.Lock()
+	defer localNodeIdentity.Unlock()
+	localNodeIdentity.identity = NumericIdentity(nodeid)
 }
 
 func GetReservedID(name string) NumericIdentity {
