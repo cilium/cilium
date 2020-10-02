@@ -420,7 +420,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 [
 	{
 		"labels": [{
-			"key": "FQDN test - interaction with other toCIDRSet rules, no poller"
+			"key": "FQDN test - interaction with other toCIDRSet rules"
 		}],
 		"endpointSelector": {
 			"matchLabels": {
@@ -477,7 +477,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 [
 	{
 		"labels": [{
-			"key": "FQDN test - interaction with other toCIDRSet rules, no poller"
+			"key": "FQDN test - interaction with other toCIDRSet rules"
 		}],
 		"endpointSelector": {
 			"matchLabels": {
@@ -847,7 +847,7 @@ var _ = Describe("RuntimeFQDNPolicies", func() {
 		res.ExpectFail("Can connect to %q when it should not work", DNSSECContainerName)
 	})
 
-	Context("toFQDNs populates toCIDRSet when poller is disabled (data from proxy)", func() {
+	Context("toFQDNs populates toCIDRSet (data from proxy)", func() {
 		var config = `
 PATH=/usr/local/sbin:/usr/local/bin:/usr/bin:/usr/sbin:/sbin:/bin
 CILIUM_OPTS=--kvstore consul --kvstore-opt consul.address=127.0.0.1:8500 --debug --pprof=true --log-system-load
