@@ -370,6 +370,9 @@ global:
   # remoteNodeIdentity enables use of the remote node identity
   remoteNodeIdentity: true
 
+  # enableAPIRateLimit enables the use of API rate limiting
+  enableAPIRateLimit: false
+
   proxy:
     # Regular expression matching compatible Istio sidecar istio-proxy
     # container image names
