@@ -404,6 +404,10 @@ data:
   enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
   install-iptables-rules: {{ .Values.installIptablesRules | quote }}
 
+{{- if hasKey .Values "ipTablesRandomFully" }}
+  iptables-random-fully: {{ .Values.ipTablesRandomFully | quote }}
+{{- end }}
+
 {{- if hasKey .Values "iptablesLockTimeout" }}
   iptables-lock-timeout: {{ .Values.iptablesLockTimeout | quote }}
 {{- end }}
