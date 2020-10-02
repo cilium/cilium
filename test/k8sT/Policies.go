@@ -999,18 +999,15 @@ var _ = Describe("K8sPolicyTest", func() {
 				validateL3L4(denyFromApp3)
 
 				By("Applying no-specs policy")
-				_, err = kubectl.CiliumPolicyAction(
-					namespaceForTest, cnpUpdateNoSpecs, helpers.KubectlApply, helpers.HelperTimeout)
-				switch helpers.GetCurrentK8SEnv() {
-				// In k8s 1.15 no-specs policy is not allowed by kube-apiserver
-				case "1.8", "1.9", "1.10", "1.11", "1.12", "1.13", "1.14":
-					Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateNoSpecs)
-					validateL3L4(allowAll)
-				default:
-					Expect(err).Should(Not(BeNil()),
-						"%q Policy applied successfully when it should have failed", cnpUpdateNoSpecs)
-					validateL3L4(denyFromApp3)
-				}
+				// We are intentionally not using helpers.CiliumPolicyAction
+				// because we don't expect this policy to be applied; it will
+				// be accepted by K8s apiserver, but it will be rejected by
+				// Cilium agent, and therefore no revision bump.
+				Expect(kubectl.Apply(helpers.ApplyOptions{
+					Namespace: namespaceForTest,
+					FilePath:  cnpUpdateNoSpecs,
+				})).Should(helpers.CMDSuccess(), "%q Policy cannot be applied", cnpUpdateNoSpecs)
+				validateL3L4(denyFromApp3)
 
 				By("Applying l3-l4 policy with user-specified labels")
 				_, err = kubectl.CiliumPolicyAction(
