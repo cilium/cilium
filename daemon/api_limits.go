@@ -18,6 +18,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/metrics"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/rate"
 )
 
@@ -109,6 +110,10 @@ var apiRateLimitDefaults = map[string]rate.APILimiterParameters{
 type apiRateLimitingMetrics struct{}
 
 func (a *apiRateLimitingMetrics) ProcessedRequest(name string, v rate.MetricsValues) {
+	if !option.Config.EnableAPIRateLimit {
+		return
+	}
+
 	metrics.APILimiterProcessingDuration.WithLabelValues(name, "mean").Set(v.MeanProcessingDuration)
 	metrics.APILimiterProcessingDuration.WithLabelValues(name, "estimated").Set(v.EstimatedProcessingDuration)
 	metrics.APILimiterWaitDuration.WithLabelValues(name, "mean").Set(v.MeanWaitDuration)

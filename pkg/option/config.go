@@ -756,6 +756,9 @@ const (
 
 	// APIRateLimitName enables configuration of the API rate limits
 	APIRateLimitName = "api-rate-limit"
+
+	// EnableAPIRateLimit enables the use of API rate limiting.
+	EnableAPIRateLimit = "enable-api-rate-limit"
 )
 
 // Default string arguments
@@ -1521,6 +1524,9 @@ type DaemonConfig struct {
 
 	// APIRateLimitName enables configuration of the API rate limits
 	APIRateLimit map[string]string
+
+	// EnableAPIRateLimit enables the use of API rate limiting.
+	EnableAPIRateLimit bool
 }
 
 var (
@@ -2018,6 +2024,7 @@ func (c *DaemonConfig) Populate() {
 	c.CTMapEntriesTimeoutSVCAny = viper.GetDuration(CTMapEntriesTimeoutSVCAnyName)
 	c.CTMapEntriesTimeoutSYN = viper.GetDuration(CTMapEntriesTimeoutSYNName)
 	c.CTMapEntriesTimeoutFIN = viper.GetDuration(CTMapEntriesTimeoutFINName)
+	c.EnableAPIRateLimit = viper.GetBool(EnableAPIRateLimit)
 
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
 		c.ipv4NativeRoutingCIDR = cidr.MustParseCIDR(nativeCIDR)
