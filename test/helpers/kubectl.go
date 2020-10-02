@@ -3089,6 +3089,10 @@ func (kub *Kubectl) ValidateNoErrorsInLogs(duration time.Duration) {
 // ValidateListOfErrorsInLogs is similar to ValidateNoErrorsInLogs, but
 // takes a blacklist of bad log messages instead of using the default list.
 func (kub *Kubectl) ValidateListOfErrorsInLogs(duration time.Duration, blacklist map[string][]string) {
+	if kub == nil {
+		// if `kub` is nil, this is run after the test failed while setting up `kub` and we are unable to gather logs
+		return
+	}
 
 	ctx, cancel := context.WithTimeout(context.Background(), 1*time.Minute)
 	defer cancel()
