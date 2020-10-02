@@ -119,6 +119,10 @@ brought up by vagrant:
 * ``NO_BUILD=1``: Does not run the "build" provision step in the VM. Assumes
   the developer had previously executed ``make build`` before provisioning the
   VM.
+* ``SHARE_PARENT``: Share the parent of your Cilium directory instead. This
+  requires your Cilium directory to be named ``cilium``, but will also make
+  all other files and folders in the parent directory available for the VM.
+  This is useful to share all the cilium repos to the VM, for example.
 * ``USER_MOUNTS``: Additional mounts for the VM in a comma-separated list of
   mount specifications. Each mount specification can be simply a directory name
   relative to the home directory, or include a '=' character separating the

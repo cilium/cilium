@@ -53,6 +53,12 @@ end
 
 ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
 Vagrant.configure("2") do |config|
+    cilium_dir = '../'
+    cilium_path = '/home/vagrant/go/src/github.com/cilium/cilium'
+    if ENV["SHARE_PARENT"] then
+        cilium_dir = '../..'
+        cilium_path = '/home/vagrant/go/src/github.com/cilium'
+    end
 
     config.vm.define "runtime" do |server|
         server.vm.provider "virtualbox" do |vb|
@@ -89,8 +95,7 @@ Vagrant.configure("2") do |config|
 
         # This network is only used by NFS
         server.vm.network "private_network", type: "dhcp"
-        server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium",
-            nfs: $NFS
+        server.vm.synced_folder cilium_dir, cilium_path, nfs: $NFS
 
         # Provision section
         server.vm.provision :shell,
@@ -165,8 +170,7 @@ Vagrant.configure("2") do |config|
 
             # This network is only used by NFS
             server.vm.network "private_network", type: "dhcp"
-            server.vm.synced_folder "../", "/home/vagrant/go/src/github.com/cilium/cilium",
-                nfs: $NFS
+            server.vm.synced_folder cilium_dir, cilium_path, nfs: $NFS
             # Provision section
             server.vm.provision :shell,
                 :inline => "sudo sysctl -w net.ipv6.conf.all.forwarding=1"
