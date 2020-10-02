@@ -122,6 +122,7 @@ cilium-agent [flags]
       --ipam string                                   Backend to use for IPAM (default "hostscope-legacy")
       --ipsec-key-file string                         Path to IPSec key file
       --iptables-lock-timeout duration                Time to pass to each iptables invocation to wait for xtables lock acquisition (default 5s)
+      --iptables-random-fully                         Set iptables flag random-fully on masquerading rules
       --ipv4-node string                              IPv4 address of node (default "auto")
       --ipv4-pod-subnets strings                      List of IPv4 pod subnets to preconfigure for encryption
       --ipv4-range string                             Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16 (default "auto")
