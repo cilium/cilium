@@ -147,9 +147,9 @@ const (
 	// AzureResourceGroup is the resource group of the nodes used for the cluster
 	AzureResourceGroup = "azure-resource-group"
 
-	// UserAssignedIdentityID is the id of the user assigned identity used
+	// AzureUserAssignedIdentityID is the id of the user assigned identity used
 	// for retrieving Azure API credentials
-	UserAssignedIdentityID = "azure-user-assigned-identity-id"
+	AzureUserAssignedIdentityID = "azure-user-assigned-identity-id"
 
 	// CRDWaitTimeout it the time after which Cilium CRDs have to be available.
 	CRDWaitTimeout = "crd-wait-timeout"
@@ -286,9 +286,9 @@ type OperatorConfig struct {
 	// AzureResourceGroup is the resource group of the nodes used for the cluster
 	AzureResourceGroup string
 
-	// UserAssignedIdentityID is the id of the user assigned identity used
+	// AzureUserAssignedIdentityID is the id of the user assigned identity used
 	// for retrieving Azure API credentials
-	UserAssignedIdentityID string
+	AzureUserAssignedIdentityID string
 
 	// CRDWaitTimeout it the time after which Cilium CRDs have to be available.
 	CRDWaitTimeout time.Duration
@@ -343,7 +343,7 @@ func (c *OperatorConfig) Populate() {
 	c.AzureCloudName = viper.GetString(AzureCloudName)
 	c.AzureSubscriptionID = viper.GetString(AzureSubscriptionID)
 	c.AzureResourceGroup = viper.GetString(AzureResourceGroup)
-	c.UserAssignedIdentityID = viper.GetString(UserAssignedIdentityID)
+	c.AzureUserAssignedIdentityID = viper.GetString(AzureUserAssignedIdentityID)
 
 	// Option maps and slices
 
