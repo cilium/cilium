@@ -265,6 +265,7 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	newPodLabels := newK8sPod.ObjectMeta.Labels
 	labelsChanged := !comparator.MapStringEquals(oldPodLabels, newPodLabels)
 
+	lrpNeedsReassign := false
 	// The relevant updates are : podIPs and label updates.
 	oldPodIPLen := len(oldK8sPod.Status.PodIP)
 	newPodIPLen := len(newK8sPod.Status.PodIP)
@@ -276,7 +277,14 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 		// PodIPs update
 		fallthrough
 	case labelsChanged:
-		k.redirectPolicyManager.OnUpdatePod(newK8sPod)
+		lrpNeedsReassign = true
+	}
+
+	oldPodReady := k8sUtils.GetLatestPodReadiness(oldK8sPod.Status)
+	newPodReady := k8sUtils.GetLatestPodReadiness(newK8sPod.Status)
+
+	if lrpNeedsReassign || (oldPodReady != newPodReady) {
+		k.redirectPolicyManager.OnUpdatePod(newK8sPod, lrpNeedsReassign, newPodReady == slim_corev1.ConditionTrue)
 	}
 
 	// Nothing changed.

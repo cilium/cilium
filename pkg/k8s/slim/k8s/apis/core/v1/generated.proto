@@ -335,6 +335,34 @@ message Pod {
   optional PodStatus status = 3;
 }
 
+// PodCondition contains details for the current condition of this pod.
+message PodCondition {
+  // Type is the type of the condition.
+  // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
+  optional string type = 1;
+
+  // Status is the status of the condition.
+  // Can be True, False, Unknown.
+  // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
+  optional string status = 2;
+
+  // Last time we probed the condition.
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time lastProbeTime = 3;
+
+  // Last time the condition transitioned from one status to another.
+  // +optional
+  optional github.com.cilium.cilium.pkg.k8s.slim.k8s.apis.meta.v1.Time lastTransitionTime = 4;
+
+  // Unique, one-word, CamelCase reason for the condition's last transition.
+  // +optional
+  optional string reason = 5;
+
+  // Human-readable message indicating details about last transition.
+  // +optional
+  optional string message = 6;
+}
+
 // IP address information for entries in the (plural) PodIPs field.
 // Each entry includes:
 //    IP: An IP address allocated to the pod. Routable at least within the cluster.
@@ -419,6 +447,13 @@ message PodStatus {
   // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-phase
   // +optional
   optional string phase = 1;
+
+  // Current service state of pod.
+  // More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
+  // +optional
+  // +patchMergeKey=type
+  // +patchStrategy=merge
+  repeated PodCondition conditions = 2;
 
   // IP address of the host to which the pod is assigned. Empty if not yet scheduled.
   // +optional

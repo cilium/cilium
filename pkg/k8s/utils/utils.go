@@ -109,6 +109,16 @@ func GetServiceListOptionsModifier() (func(options *v1meta.ListOptions), error) 
 	}, nil
 }
 
+// GetLatestPodReadiness returns the lastest podReady condition on a given pod.
+func GetLatestPodReadiness(podStatus slim_corev1.PodStatus) slim_corev1.ConditionStatus {
+	for _, cond := range podStatus.Conditions {
+		if cond.Type == slim_corev1.PodReady {
+			return cond.Status
+		}
+	}
+	return slim_corev1.ConditionUnknown
+}
+
 // ValidIPs return a sorted slice of unique IP addresses retrieved from the given PodStatus.
 // Returns an error when no IPs are found.
 func ValidIPs(podStatus slim_corev1.PodStatus) ([]string, error) {

@@ -237,10 +237,10 @@ func (rpm *Manager) OnAddPod(pod *slimcorev1.Pod) {
 	if _, ok := rpm.policyPods[id]; ok {
 		return
 	}
-	rpm.onUpdatePodLocked(pod)
+	rpm.OnUpdatePodLocked(pod, false, true)
 }
 
-func (rpm *Manager) onUpdatePodLocked(pod *slimcorev1.Pod) {
+func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upsertNew bool) {
 	if len(rpm.policyConfigs) == 0 {
 		return
 	}
@@ -258,26 +258,31 @@ func (rpm *Manager) onUpdatePodLocked(pod *slimcorev1.Pod) {
 		return
 	}
 
-	// Check if the pod was previously selected by any of the policies.
-	if policies, ok := rpm.policyPods[podData.id]; ok {
-		for _, policy := range policies {
-			config := rpm.policyConfigs[policy]
-			rpm.deletePolicyBackends(config, podData.id)
+	if removeOld {
+		// Check if the pod was previously selected by any of the policies.
+		if policies, ok := rpm.policyPods[podData.id]; ok {
+			for _, policy := range policies {
+				config := rpm.policyConfigs[policy]
+				rpm.deletePolicyBackends(config, podData.id)
+			}
 		}
 	}
-	// Check if any of the current redirect policies select this pod.
-	for _, config := range rpm.policyConfigs {
-		if config.policyConfigSelectsPod(podData) {
-			rpm.processConfig(config, podData)
+
+	if upsertNew {
+		// Check if any of the current redirect policies select this pod.
+		for _, config := range rpm.policyConfigs {
+			if config.policyConfigSelectsPod(podData) {
+				rpm.processConfig(config, podData)
+			}
 		}
 	}
 }
 
-func (rpm *Manager) OnUpdatePod(pod *slimcorev1.Pod) {
+func (rpm *Manager) OnUpdatePod(pod *slimcorev1.Pod, needsReassign bool, ready bool) {
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 	// TODO add unit test to validate that we get callbacks only for relevant events
-	rpm.onUpdatePodLocked(pod)
+	rpm.OnUpdatePodLocked(pod, needsReassign || !ready, ready)
 }
 
 func (rpm *Manager) OnDeletePod(pod *slimcorev1.Pod) {
@@ -434,6 +439,11 @@ func (rpm *Manager) notifyPolicyBackendDelete(config *LRPConfig, frontendMapping
 			log.WithError(err).Errorf("Local redirect service for policy (%v)"+
 				" with frontend (%v) not deleted", config.id, frontendMapping.feAddr)
 		}
+		if restored := rpm.svcCache.EnsureService(*config.serviceID, lock.NewStoppableWaitGroup()); restored {
+			log.WithFields(logrus.Fields{
+				logfields.K8sSvcID: *config.serviceID,
+			}).Info("Restored service")
+		}
 	}
 }
 
@@ -513,6 +523,9 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig, podStore cache.Stor
 				logfields.K8sPodName:   pod.Name,
 				logfields.K8sNamespace: pod.Namespace,
 			}).Error("failed to get valid pod metadata")
+			continue
+		}
+		if k8sUtils.GetLatestPodReadiness(pod.Status) != slimcorev1.ConditionTrue {
 			continue
 		}
 		if !config.policyConfigSelectsPod(podData) {
