@@ -1,4 +1,4 @@
-// Copyright 2017-2019 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -40,30 +40,34 @@ var _ = Describe("K8sPolicyTest", func() {
 		kubectl *helpers.Kubectl
 
 		// these are set in BeforeAll()
-		ciliumFilename       string
-		demoPath             string
-		l3Policy             string
-		l3NamedPortPolicy    string
-		l7Policy             string
-		l7NamedPortPolicy    string
-		l7PolicyKafka        string
-		l7PolicyTLS          string
-		TLSCaCerts           string
-		TLSArtiiCrt          string
-		TLSArtiiKey          string
-		TLSLyftCrt           string
-		TLSLyftKey           string
-		TLSCa                string
-		serviceAccountPolicy string
-		knpDenyIngress       string
-		knpDenyEgress        string
-		knpDenyIngressEgress string
-		cnpDenyIngress       string
-		cnpDenyEgress        string
-		knpAllowIngress      string
-		knpAllowEgress       string
-		cnpMatchExpression   string
-		connectivityCheckYml string
+		ciliumFilename           string
+		demoPath                 string
+		l3Policy                 string
+		l3PolicyDeny             string
+		l3NamedPortPolicy        string
+		l3NamedPortPolicyDeny    string
+		l7Policy                 string
+		l7NamedPortPolicy        string
+		l7PolicyKafka            string
+		l7PolicyTLS              string
+		TLSCaCerts               string
+		TLSArtiiCrt              string
+		TLSArtiiKey              string
+		TLSLyftCrt               string
+		TLSLyftKey               string
+		TLSCa                    string
+		serviceAccountPolicy     string
+		serviceAccountPolicyDeny string
+		knpDenyIngress           string
+		knpDenyEgress            string
+		knpDenyIngressEgress     string
+		cnpDenyIngress           string
+		cnpDenyEgress            string
+		knpAllowIngress          string
+		knpAllowEgress           string
+		cnpMatchExpression       string
+		cnpMatchExpressionDeny   string
+		connectivityCheckYml     string
 
 		app1Service                         = "app1-service"
 		backgroundCancel context.CancelFunc = func() {}
@@ -77,7 +81,9 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		demoPath = helpers.ManifestGet(kubectl.BasePath(), "demo-named-port.yaml")
 		l3Policy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy.yaml")
+		l3PolicyDeny = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy-deny.yaml")
 		l3NamedPortPolicy = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy-named-port.yaml")
+		l3NamedPortPolicyDeny = helpers.ManifestGet(kubectl.BasePath(), "l3-l4-policy-named-port-deny.yaml")
 		l7Policy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy.yaml")
 		l7NamedPortPolicy = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-named-port.yaml")
 		l7PolicyKafka = helpers.ManifestGet(kubectl.BasePath(), "l7-policy-kafka.yaml")
@@ -89,6 +95,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		TLSLyftKey = helpers.ManifestGet(kubectl.BasePath(), "internal-lyft.key")
 		TLSCa = helpers.ManifestGet(kubectl.BasePath(), "ca.crt")
 		serviceAccountPolicy = helpers.ManifestGet(kubectl.BasePath(), "service-account.yaml")
+		serviceAccountPolicyDeny = helpers.ManifestGet(kubectl.BasePath(), "service-account-deny.yaml")
 		knpDenyIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-deny-ingress.yaml")
 		knpDenyEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-deny-egress.yaml")
 		knpDenyIngressEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-deny-ingress-egress.yaml")
@@ -97,6 +104,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		knpAllowIngress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-ingress.yaml")
 		knpAllowEgress = helpers.ManifestGet(kubectl.BasePath(), "knp-default-allow-egress.yaml")
 		cnpMatchExpression = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions.yaml")
+		cnpMatchExpressionDeny = helpers.ManifestGet(kubectl.BasePath(), "cnp-matchexpressions-deny.yaml")
 		connectivityCheckYml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-proxy.yaml")
 
 		daemonCfg = map[string]string{
@@ -226,7 +234,7 @@ var _ = Describe("K8sPolicyTest", func() {
 		})
 
 		AfterEach(func() {
-			cmd := fmt.Sprintf("%s delete --all cnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
+			cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
 			_ = kubectl.Exec(cmd)
 		})
 
@@ -265,10 +273,41 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
 
+			By("Testing L3/L4 deny rules")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, l3PolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 80/TCP",
+				namespaceForTest, appPods[helpers.App2], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
+
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("%q can curl clusterIP %q", appPods[helpers.App2], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
+
 			_, err = kubectl.CiliumPolicyAction(
 				namespaceForTest, l3Policy,
 				helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot delete L3 Policy")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, l3PolicyDeny,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Cannot delete L3 Policy Deny")
 
 			By("Testing L7 Policy")
 
@@ -280,6 +319,36 @@ var _ = Describe("K8sPolicyTest", func() {
 				namespaceForTest, appPods[helpers.App2],
 				helpers.CurlFail("http://%s/public", clusterIP))
 			res.ExpectSuccess("Cannot connect from %q to 'http://%s/public'",
+				appPods[helpers.App2], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/private", clusterIP)))
+			res.ExpectFail("Unexpected connection from %q to 'http://%s/private'",
+				appPods[helpers.App2], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
+				appPods[helpers.App3], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App3],
+				helpers.CurlFail("http://%s/private", clusterIP))
+			res.ExpectFail("Unexpected connection from %q to 'http://%s/private'",
+				appPods[helpers.App3], clusterIP)
+
+			By("Testing L7 Policy with L3/L4 deny rules")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, l3PolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail("http://%s/public", clusterIP))
+			res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
 				appPods[helpers.App2], clusterIP)
 
 			res = kubectl.ExecPodCmd(
@@ -336,10 +405,41 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
 
+			By("Testing L3/L4 deny rules with named ports")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, l3NamedPortPolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport http-80/TCP",
+				namespaceForTest, appPods[helpers.App2], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
+
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("%q can curl clusterIP %q", appPods[helpers.App2], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
+
 			_, err = kubectl.CiliumPolicyAction(
 				namespaceForTest, l3NamedPortPolicy,
 				helpers.KubectlDelete, helpers.HelperTimeout)
 			Expect(err).Should(BeNil(), "Cannot delete L3 Policy")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, l3NamedPortPolicyDeny,
+				helpers.KubectlDelete, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "Cannot delete L3 Policy Deny")
 
 			By("Testing L7 Policy with named port")
 
@@ -351,6 +451,36 @@ var _ = Describe("K8sPolicyTest", func() {
 				namespaceForTest, appPods[helpers.App2],
 				helpers.CurlFail("http://%s/public", clusterIP))
 			res.ExpectSuccess("Cannot connect from %q to 'http://%s/public'",
+				appPods[helpers.App2], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/private", clusterIP)))
+			res.ExpectFail("Unexpected connection from %q to 'http://%s/private'",
+				appPods[helpers.App2], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
+				appPods[helpers.App3], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App3],
+				helpers.CurlFail("http://%s/private", clusterIP))
+			res.ExpectFail("Unexpected connection from %q to 'http://%s/private'",
+				appPods[helpers.App3], clusterIP)
+
+			By("Testing L7 Policy with L3/L4 deny rules with named ports")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, l3NamedPortPolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail("http://%s/public", clusterIP))
+			res.ExpectFail("Unexpected connection from %q to 'http://%s/public'",
 				appPods[helpers.App2], clusterIP)
 
 			res = kubectl.ExecPodCmd(
@@ -477,6 +607,39 @@ var _ = Describe("K8sPolicyTest", func() {
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
 
+			By("Testing ServiceAccount Based Enforcement with Policy Denies")
+
+			// Load policy denying serviceAccount of app2 to talk
+			// to app1 on port 80 TCP
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, serviceAccountPolicyDeny, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil())
+
+			for _, appName := range []string{helpers.App1, helpers.App2, helpers.App3} {
+				err = kubectl.WaitForCEPIdentity(namespaceForTest, appPods[appName])
+				Expect(err).Should(BeNil())
+			}
+
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s --dport 80/TCP",
+				namespaceForTest, appPods[helpers.App2], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
+
+			trace = kubectl.CiliumExecMustSucceed(context.TODO(), ciliumPod, fmt.Sprintf(
+				"cilium policy trace --src-k8s-pod %s:%s --dst-k8s-pod %s:%s",
+				namespaceForTest, appPods[helpers.App3], namespaceForTest, appPods[helpers.App1]))
+			trace.ExpectContains("Final verdict: DENIED", "Policy trace output mismatch")
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("%q can curl clusterIP %q", appPods[helpers.App2], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
+
 		}, 500)
 
 		It("CNP test MatchExpressions key", func() {
@@ -488,6 +651,22 @@ var _ = Describe("K8sPolicyTest", func() {
 				namespaceForTest, appPods[helpers.App2],
 				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
 			res.ExpectSuccess("%q cannot curl clusterIP %q", appPods[helpers.App2], clusterIP)
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App3],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("%q can curl to %q", appPods[helpers.App3], clusterIP)
+
+			By("Testing CNP test MatchExpressions key with policy Denies")
+
+			_, err = kubectl.CiliumPolicyAction(
+				namespaceForTest, cnpMatchExpressionDeny, helpers.KubectlApply, helpers.HelperTimeout)
+			Expect(err).Should(BeNil(), "cannot install policy %s", cnpMatchExpression)
+
+			res = kubectl.ExecPodCmd(
+				namespaceForTest, appPods[helpers.App2],
+				helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
+			res.ExpectFail("%q can curl clusterIP %q", appPods[helpers.App2], clusterIP)
 
 			res = kubectl.ExecPodCmd(
 				namespaceForTest, appPods[helpers.App3],
@@ -700,14 +879,16 @@ var _ = Describe("K8sPolicyTest", func() {
 			)
 
 			var (
-				cnpToEntitiesAll     string
-				cnpToEntitiesWorld   string
-				cnpToEntitiesCluster string
-				cnpToEntitiesHost    string
+				cnpToEntitiesAll      string
+				ccnpToEntitiesAllDeny string
+				cnpToEntitiesWorld    string
+				cnpToEntitiesCluster  string
+				cnpToEntitiesHost     string
 			)
 
 			BeforeAll(func() {
 				cnpToEntitiesAll = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-all.yaml")
+				ccnpToEntitiesAllDeny = helpers.ManifestGet(kubectl.BasePath(), "ccnp-to-entities-all-deny.yaml")
 				cnpToEntitiesWorld = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-world.yaml")
 				cnpToEntitiesCluster = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-cluster.yaml")
 				cnpToEntitiesHost = helpers.ManifestGet(kubectl.BasePath(), "cnp-to-entities-host.yaml")
@@ -719,6 +900,12 @@ var _ = Describe("K8sPolicyTest", func() {
 
 				By("Verifying policy correctness")
 				validateConnectivity(WorldConnectivityAllow, ClusterConnectivityAllow)
+
+				By("Installing deny toEntities All")
+				importPolicy(kubectl, namespaceForTest, ccnpToEntitiesAllDeny, "to-entities-all-deny")
+
+				By("Verifying policy correctness")
+				validateConnectivity(WorldConnectivityDeny, ClusterConnectivityDeny)
 			})
 
 			It("Validate toEntities World", func() {
@@ -749,31 +936,44 @@ var _ = Describe("K8sPolicyTest", func() {
 
 		Context("Validate CNP update", func() {
 			const (
-				allowAll     = true
-				denyFromApp3 = false
+				allowAll = iota
+				denyFromApp3
+				denyAll
 			)
 
 			var (
 				cnpUpdateAllow        string
 				cnpUpdateDeny         string
+				cnpUpdateDenyAll      string
 				cnpUpdateNoSpecs      string
 				cnpUpdateDenyLabelled string
 			)
 
 			BeforeAll(func() {
 				cnpUpdateAllow = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-allow-all.yaml")
+				cnpUpdateDenyAll = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-deny-all.yaml")
 				cnpUpdateDeny = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-deny-ingress.yaml")
 				cnpUpdateNoSpecs = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-no-specs.yaml")
 				cnpUpdateDenyLabelled = helpers.ManifestGet(kubectl.BasePath(), "cnp-update-deny-ingress-labelled.yaml")
 			})
 
-			validateL3L4 := func(allowApp3 bool) {
+			validateL3L4 := func(allow int) {
+				var allowApp2, allowApp3 bool
+				switch allow {
+				case allowAll:
+					allowApp2 = true
+					allowApp3 = true
+				case denyFromApp3:
+					allowApp2 = true
+				case denyAll:
+				}
+
 				res := kubectl.ExecPodCmd(
 					namespaceForTest, appPods[helpers.App2],
 					helpers.CurlFail(fmt.Sprintf("http://%s/public", clusterIP)))
-				ExpectWithOffset(1, res).Should(helpers.CMDSuccess(),
-					"%q cannot curl clusterIP %q",
-					appPods[helpers.App2], clusterIP)
+				ExpectWithOffset(1, res).To(getMatcher(allowApp2),
+					"%q curl clusterIP %q (expected to allow: %t)",
+					appPods[helpers.App2], clusterIP, allowApp2)
 
 				res = kubectl.ExecPodCmd(
 					namespaceForTest, appPods[helpers.App3],
@@ -825,6 +1025,13 @@ var _ = Describe("K8sPolicyTest", func() {
 				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateAllow)
 
 				validateL3L4(allowAll)
+
+				By("Applying a full deny policy on all endpoints")
+				_, err = kubectl.CiliumPolicyAction(
+					namespaceForTest, cnpUpdateDenyAll, helpers.KubectlApply, helpers.HelperTimeout)
+				Expect(err).Should(BeNil(), "%q Policy cannot be applied", cnpUpdateDenyAll)
+
+				validateL3L4(denyAll)
 			})
 
 			It("Verifies that a CNP with L7 HTTP rules can be replaced with L7 Kafka rules", func() {
@@ -919,7 +1126,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				// Remove the proxy visibility annotation - this is done by specifying the annotation followed by a '-'.
 				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, appPods[helpers.App1], namespaceForTest, annotation.ProxyVisibility))
 				kubectl.Exec(fmt.Sprintf("%s annotate pod %s -n %s %s-", helpers.KubectlCmd, appPods[helpers.App2], namespaceForTest, annotation.ProxyVisibility))
-				cmd := fmt.Sprintf("%s delete --all cnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
+				cmd := fmt.Sprintf("%s delete --all cnp,ccnp,netpol -n %s", helpers.KubectlCmd, namespaceForTest)
 				_ = kubectl.Exec(cmd)
 			})
 
