@@ -368,6 +368,19 @@ func (l Labels) StringMap() map[string]string {
 	return o
 }
 
+// StringMap converts Labels into map[string]string
+func (l Labels) K8sStringMap() map[string]string {
+	o := map[string]string{}
+	for _, v := range l {
+		if v.Source == LabelSourceK8s || v.Source == LabelSourceAny || v.Source == LabelSourceUnspec {
+			o[v.Key] = v.Value
+		} else {
+			o[v.Source+"."+v.Key] = v.Value
+		}
+	}
+	return o
+}
+
 // NewLabelsFromModel creates labels from string array.
 func NewLabelsFromModel(base []string) Labels {
 	lbls := make(Labels, len(base))

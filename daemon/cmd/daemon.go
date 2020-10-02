@@ -50,7 +50,9 @@ import (
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/ipcache"
 	"github.com/cilium/cilium/pkg/k8s"
+	k8sConst "github.com/cilium/cilium/pkg/k8s/apis/cilium.io"
 	"github.com/cilium/cilium/pkg/k8s/watchers"
+	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -476,6 +478,23 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		bootstrapStats.k8sInit.End(true)
 	}
 
+	if option.Config.JoinCluster {
+		if k8s.IsEnabled() {
+			log.Fatalf("Cannot join a Cilium cluster (--%s) when configured as a Kubernetes node", option.JoinClusterName)
+		}
+		if option.Config.KVStore == "" {
+			log.Fatalf("Joining a Cilium cluster (--%s) requires kvstore (--%s) be set", option.JoinClusterName, option.KVStore)
+		}
+		agentLabels := labels.NewLabelsFromModel(option.Config.AgentLabels).K8sStringMap()
+		if option.Config.K8sNamespace != "" {
+			agentLabels[k8sConst.PodNamespaceLabel] = option.Config.K8sNamespace
+		}
+		agentLabels[k8sConst.PodNameLabel] = nodeTypes.GetName()
+		agentLabels[k8sConst.PolicyLabelCluster] = option.Config.ClusterName
+		// Set configured agent labels to local node for node registration
+		node.SetLabels(agentLabels)
+	}
+
 	// Perform an early probe on the underlying kernel on whether BandwidthManager
 	// can be supported or not. This needs to be done before detectNativeDevices()
 	// as BandwidthManager needs these to be available for setup.
@@ -589,6 +608,15 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		bootstrapStats.k8sInit.End(true)
 	} else if !option.Config.AnnotateK8sNode {
 		log.Debug("Annotate k8s node is disabled.")
+	}
+
+	// Must init kvstore before starting node discovery
+	if option.Config.KVStore == "" {
+		log.Info("Skipping kvstore configuration")
+	} else {
+		bootstrapStats.kvstore.Start()
+		d.initKVStore()
+		bootstrapStats.kvstore.End(true)
 	}
 
 	d.nodeDiscovery.StartDiscovery(nodeTypes.GetName())
