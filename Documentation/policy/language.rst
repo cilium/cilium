@@ -1069,6 +1069,113 @@ that do not need it. See the `Kubernetes documentation <https://kubernetes.io/do
 for instructions.
 
 
+.. _deny_policies:
+
+Deny Policies
+=============
+
+.. include:: ../beta.rst
+
+Deny policies, available and enabled by default since Cilium 1.9, allows to
+explicitly restrict certain traffic to and from a Pod.
+
+Deny policies take precedence over allow policies, regardless of whether they
+are a Cilium Network Policy, a Clusterwide Cilium Network Policy or even a
+Kubernetes Network Policy.
+
+Similarly to "allow" policies, Pods will enter default-deny mode as soon a
+single policy selects it.
+
+If multiple allow and deny policies are applied to the same pod, the following
+table represents the expected enforcement for that Pod:
+
++--------------------------------------------------------------------------------------------+
+| **Ingress Policies Deployed to Server Pod (Yes / No)**                                     |
++---------------------+-----------------------+---------+---------+--------+--------+--------+
+|                     | Layer 7 (HTTP)        | Yes     | Yes     | Yes    | Yes    | No     |
+|                     +-----------------------+---------+---------+--------+--------+--------+
+|                     | Layer 4 (80/TCP)      | Yes     | Yes     | Yes    | Yes    | No     |
+| **Allow Policies**  +-----------------------+---------+---------+--------+--------+--------+
+|                     | Layer 4 (81/TCP)      | Yes     | Yes     | Yes    | Yes    | No     |
+|                     +-----------------------+---------+---------+--------+--------+--------+
+|                     | Layer 3 (Pod: Client) | Yes     | Yes     | Yes    | Yes    | No     |
++---------------------+-----------------------+---------+---------+--------+--------+--------+
+|                     | Layer 4 (80/TCP)      | No      | Yes     | No     | Yes    | Yes    |
+| **Deny Policies**   +-----------------------+---------+---------+--------+--------+--------+
+|                     | Layer 3 (Pod: Client) | No      | No      | Yes    | Yes    | No     |
++---------------------+-----------------------+---------+---------+--------+--------+--------+
+| **Traffic connection (Allowed / Denied)**                                                  |
++---------------------+-----------------------+---------+---------+--------+--------+--------+
+|                     | curl server:81        | Allowed | Allowed | Denied | Denied | Denied |
+|                     +-----------------------+---------+---------+--------+--------+--------+
+| **Client → Server** | curl server:80        | Allowed | Denied  | Denied | Denied | Denied |
+|                     +-----------------------+---------+---------+--------+--------+--------+
+|                     | ping server           | Allowed | Allowed | Denied | Denied | Denied |
++---------------------+-----------------------+---------+---------+--------+--------+--------+
+
+If we pick the second column in the above table, the bottom section shows the
+forwarding behaviour for a policy that selects curl or ping traffic between the
+client and server:
+
+* Curl to port 81 is allowed because there is an allow policy on port 81, and
+  no deny policy on that port;
+* Curl to port 80 is denied because there is a deny policy on that port;
+* Ping to the server is allowed because there is a Layer 3 allow policy and no deny.
+
+The following policy will deny ingress from "world" on all namespaces on all
+Pods managed by Cilium. Existing inter-cluster policies will still be allowed
+as this policy is allowing traffic from everywhere except from "world".
+
+.. only:: html
+
+   .. tabs::
+     .. group-tab:: k8s YAML
+
+        .. literalinclude:: ../../examples/policies/l3/entities/from_world_deny.yaml
+
+.. only:: epub or latex
+
+        .. literalinclude:: ../../examples/policies/l3/entities/from_world_deny.yaml
+
+Deny policies do not support: policy enforcement at L7, i.e., specifically
+denying an URL and ``toFQDNs``, i.e., specifically denying traffic to a specific
+domain name.
+
+Limitations and known issues
+----------------------------
+
+The current known limitation is a deny policy with ``toEntities`` "world" for
+which a ``toFQDNs`` can cause traffic to be allowed if such traffic is
+considered external to the cluster.
+
+.. code-block:: yaml
+
+  apiVersion: "cilium.io/v2"
+  kind: CiliumNetworkPolicy
+  metadata:
+    name: "deny-egress-to-world"
+  spec:
+    endpointSelector:
+      matchLabels:
+        k8s-app.guestbook: web
+    egressDeny:
+    - toEntities:
+      - "world"
+    egress:
+      - toEndpoints:
+        - matchLabels:
+            "k8s:io.kubernetes.pod.namespace": kube-system
+            "k8s:k8s-app": kube-dns
+        toPorts:
+          - ports:
+             - port: "53"
+               protocol: ANY
+            rules:
+              dns:
+                - matchPattern: "*"
+      - toFQDNs:
+          - matchName: "www.google.com"
+
 .. _HostPolicies:
 
 Host Policies
