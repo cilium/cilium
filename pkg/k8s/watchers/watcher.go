@@ -144,7 +144,7 @@ type redirectPolicyManager interface {
 	DeleteRedirectPolicy(config redirectpolicy.LRPConfig) error
 	OnAddService(svcID k8s.ServiceID, podStore cache.Store)
 	OnDeleteService(svcID k8s.ServiceID)
-	OnUpdatePod(pod *slim_corev1.Pod)
+	OnUpdatePod(pod *slim_corev1.Pod, needsReassign bool, ready bool)
 	OnDeletePod(pod *slim_corev1.Pod)
 	OnAddPod(pod *slim_corev1.Pod)
 }

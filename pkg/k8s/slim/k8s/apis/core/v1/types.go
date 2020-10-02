@@ -97,6 +97,18 @@ type Container struct {
 	VolumeMounts []VolumeMount `json:"volumeMounts,omitempty" patchStrategy:"merge" patchMergeKey:"mountPath" protobuf:"bytes,9,rep,name=volumeMounts"`
 }
 
+type ConditionStatus string
+
+// These are valid condition statuses. "ConditionTrue" means a resource is in the condition.
+// "ConditionFalse" means a resource is not in the condition. "ConditionUnknown" means kubernetes
+// can't decide if a resource is in the condition or not. In the future, we could add other
+// intermediate conditions, e.g. ConditionDegraded.
+const (
+	ConditionTrue    ConditionStatus = "True"
+	ConditionFalse   ConditionStatus = "False"
+	ConditionUnknown ConditionStatus = "Unknown"
+)
+
 // PodPhase is a label for the condition of a pod at the current time.
 type PodPhase string
 
@@ -119,6 +131,52 @@ const (
 	// to an error in communicating with the host of the pod.
 	PodUnknown PodPhase = "Unknown"
 )
+
+// PodConditionType is a valid value for PodCondition.Type
+type PodConditionType string
+
+// These are valid conditions of pod.
+const (
+	// ContainersReady indicates whether all containers in the pod are ready.
+	ContainersReady PodConditionType = "ContainersReady"
+	// PodInitialized means that all init containers in the pod have started successfully.
+	PodInitialized PodConditionType = "Initialized"
+	// PodReady means the pod is able to service requests and should be added to the
+	// load balancing pools of all matching services.
+	PodReady PodConditionType = "Ready"
+	// PodScheduled represents status of the scheduling process for this pod.
+	PodScheduled PodConditionType = "PodScheduled"
+)
+
+// These are reasons for a pod's transition to a condition.
+const (
+	// PodReasonUnschedulable reason in PodScheduled PodCondition means that the scheduler
+	// can't schedule the pod right now, for example due to insufficient resources in the cluster.
+	PodReasonUnschedulable = "Unschedulable"
+)
+
+// PodCondition contains details for the current condition of this pod.
+type PodCondition struct {
+	// Type is the type of the condition.
+	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
+	Type PodConditionType `json:"type" protobuf:"bytes,1,opt,name=type,casttype=PodConditionType"`
+	// Status is the status of the condition.
+	// Can be True, False, Unknown.
+	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
+	Status ConditionStatus `json:"status" protobuf:"bytes,2,opt,name=status,casttype=ConditionStatus"`
+	// Last time we probed the condition.
+	// +optional
+	LastProbeTime slim_metav1.Time `json:"lastProbeTime,omitempty" protobuf:"bytes,3,opt,name=lastProbeTime"`
+	// Last time the condition transitioned from one status to another.
+	// +optional
+	LastTransitionTime slim_metav1.Time `json:"lastTransitionTime,omitempty" protobuf:"bytes,4,opt,name=lastTransitionTime"`
+	// Unique, one-word, CamelCase reason for the condition's last transition.
+	// +optional
+	Reason string `json:"reason,omitempty" protobuf:"bytes,5,opt,name=reason"`
+	// Human-readable message indicating details about last transition.
+	// +optional
+	Message string `json:"message,omitempty" protobuf:"bytes,6,opt,name=message"`
+}
 
 // The node this Taint is attached to has the "effect" on
 // any pod that does not tolerate the Taint.
@@ -230,6 +288,12 @@ type PodStatus struct {
 	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-phase
 	// +optional
 	Phase PodPhase `json:"phase,omitempty" protobuf:"bytes,1,opt,name=phase,casttype=PodPhase"`
+	// Current service state of pod.
+	// More info: https://kubernetes.io/docs/concepts/workloads/pods/pod-lifecycle#pod-conditions
+	// +optional
+	// +patchMergeKey=type
+	// +patchStrategy=merge
+	Conditions []PodCondition `json:"conditions,omitempty" patchStrategy:"merge" patchMergeKey:"type" protobuf:"bytes,2,rep,name=conditions"`
 	// IP address of the host to which the pod is assigned. Empty if not yet scheduled.
 	// +optional
 	HostIP string `json:"hostIP,omitempty" protobuf:"bytes,5,opt,name=hostIP"`

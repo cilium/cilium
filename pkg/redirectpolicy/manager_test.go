@@ -137,6 +137,24 @@ var (
 	configAddrType LRPConfig
 	configSvcType  LRPConfig
 
+	podReady = slimcorev1.PodCondition{
+		Type:               slimcorev1.PodReady,
+		Status:             slimcorev1.ConditionTrue,
+		LastProbeTime:      slim_metav1.Now(),
+		LastTransitionTime: slim_metav1.Now(),
+		Reason:             "",
+		Message:            "",
+	}
+
+	podNotReady = slimcorev1.PodCondition{
+		Type:               slimcorev1.PodReady,
+		Status:             slimcorev1.ConditionTrue,
+		LastProbeTime:      slim_metav1.Now(),
+		LastTransitionTime: slim_metav1.Now(),
+		Reason:             "",
+		Message:            "",
+	}
+
 	pod1IP1    = slimcorev1.PodIP{IP: "1.2.3.4"}
 	pod1IP2    = slimcorev1.PodIP{IP: "5.6.7.8"}
 	pod1Port1  = int32(8080)
@@ -168,8 +186,9 @@ var (
 			},
 		},
 		Status: slimcorev1.PodStatus{
-			PodIP:  pod1IP1.IP,
-			PodIPs: []slimcorev1.PodIP{pod1IP1, pod1IP2},
+			PodIP:      pod1IP1.IP,
+			PodIPs:     []slimcorev1.PodIP{pod1IP1, pod1IP2},
+			Conditions: []slimcorev1.PodCondition{podReady},
 		},
 	}
 	pod1ID = k8s.ServiceID{
@@ -207,8 +226,9 @@ var (
 			},
 		},
 		Status: slimcorev1.PodStatus{
-			PodIP:  pod2IP1.IP,
-			PodIPs: []slimcorev1.PodIP{pod2IP1, pod2IP2},
+			PodIP:      pod2IP1.IP,
+			PodIPs:     []slimcorev1.PodIP{pod2IP1, pod2IP2},
+			Conditions: []slimcorev1.PodCondition{podReady},
 		},
 	}
 	pod2ID = k8s.ServiceID{
@@ -336,6 +356,29 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigSinglePort(c *C) {
 	}
 
 	m.rpm.OnAddPod(pod3)
+
+	c.Assert(len(m.rpm.policyPods), Equals, 2)
+	c.Assert(len(m.rpm.policyPods[pod3ID]), Equals, 1)
+	c.Assert(m.rpm.policyPods[pod1ID][0], Equals, configAddrType.id)
+	c.Assert(len(configAddrType.frontendMappings[0].podBackends), Equals, 4)
+	for i := range configAddrType.frontendMappings[0].podBackends {
+		c.Assert(configAddrType.frontendMappings[0].podBackends[i], checker.Equals, expectedbes2[i])
+	}
+
+	// When pod becomes un-ready
+	pod3.Status.Conditions = []slimcorev1.PodCondition{podNotReady}
+	m.rpm.OnUpdatePod(pod3, false, false)
+
+	c.Assert(len(m.rpm.policyPods), Equals, 2)
+	c.Assert(len(m.rpm.policyPods[pod3ID]), Equals, 1)
+	c.Assert(len(configAddrType.frontendMappings[0].podBackends), Equals, 2)
+	for i := range configAddrType.frontendMappings[0].podBackends {
+		c.Assert(configAddrType.frontendMappings[0].podBackends[i], checker.Equals, expectedbes[i])
+	}
+
+	// When pod becomes ready
+	pod3.Status.Conditions = []slimcorev1.PodCondition{podReady}
+	m.rpm.OnUpdatePod(pod3, false, true)
 
 	c.Assert(len(m.rpm.policyPods), Equals, 2)
 	c.Assert(len(m.rpm.policyPods[pod3ID]), Equals, 1)
