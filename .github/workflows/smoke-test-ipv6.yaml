@@ -6,6 +6,10 @@ on:
     branches:
       - master
 
+  # Running the test every 10 mins
+  schedule:
+    - cron: '*/10 * * * *'
+
 env:
   KIND_VERSION: v0.9.0
   KIND_CONFIG: .github/kind-config-ipv6.yaml
@@ -35,12 +39,14 @@ jobs:
           sudo ip -6 route add 2001:db8:1::/64 dev docker0
           sudo sysctl net.ipv6.conf.default.forwarding=1
           sudo sysctl net.ipv6.conf.all.forwarding=1
+          sudo docker system prune -f
           sudo systemctl restart docker
+          sudo ip addr show
 
-      - name: Build docker images
-        run: |
-          make docker-cilium-image
-          make docker-operator-generic-image
+      #      - name: Build docker images
+      #        run: |
+      #          make docker-cilium-image
+      #          make docker-operator-generic-image
 
       - name: Create kind cluster
         uses: helm/kind-action@v1.0.0
@@ -48,10 +54,10 @@ jobs:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
 
-      - name: Load local images into kind cluster
-        run: |
-          kind load docker-image --name chart-testing cilium/cilium:latest
-          kind load docker-image --name chart-testing cilium/operator-generic:latest
+      #      - name: Load local images into kind cluster
+      #        run: |
+      #          kind load docker-image --name chart-testing cilium/cilium:latest
+      #          kind load docker-image --name chart-testing cilium/operator-generic:latest
 
       - name: Install cilium chart
         run: |
@@ -61,13 +67,13 @@ jobs:
             --set kubeProxyReplacement=strict \
             --set ipam.mode=kubernetes \
             --set image.tag=latest \
-            --set image.pullPolicy=Never \
             --set operator.image.tag=latest \
-            --set operator.image.pullPolicy=Never \
             --set ipv6.enabled=true \
             --set ipv4.enabled=false \
             --set tunnel=disabled \
-            --set autoDirectNodeRoutes=true
+            --set autoDirectNodeRoutes=true \
+            --set debug.enable=true \
+            --set debug.verbose=true
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.TIMEOUT }}
           # To make sure that cilium CRD is available (default timeout is 5m)
