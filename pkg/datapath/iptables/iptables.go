@@ -946,18 +946,22 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 			// * Non-tunnel mode:
 			//   * May not be targeted to an IP in the cluster range
 			if option.Config.EgressMasqueradeInterfaces != "" {
-				if err := runProg("iptables", append(
+				progArgs := append(
 					m.waitArgs,
 					"-t", "nat",
 					"-A", ciliumPostNatChain,
 					"!", "-d", datapath.RemoteSNATDstAddrExclusionCIDR().String(),
 					"-o", option.Config.EgressMasqueradeInterfaces,
 					"-m", "comment", "--comment", "cilium masquerade non-cluster",
-					"-j", "MASQUERADE"), false); err != nil {
+					"-j", "MASQUERADE")
+				if option.Config.IPTablesRandomFully {
+					progArgs = append(progArgs, "--random-fully")
+				}
+				if err := runProg("iptables", progArgs, false); err != nil {
 					return err
 				}
 			} else {
-				if err := runProg("iptables", append(
+				progArgs := append(
 					m.waitArgs,
 					"-t", "nat",
 					"-A", ciliumPostNatChain,
@@ -965,7 +969,11 @@ func (m *IptablesManager) InstallRules(ifName string) error {
 					"!", "-d", datapath.RemoteSNATDstAddrExclusionCIDR().String(),
 					"!", "-o", "cilium_+",
 					"-m", "comment", "--comment", "cilium masquerade non-cluster",
-					"-j", "MASQUERADE"), false); err != nil {
+					"-j", "MASQUERADE")
+				if option.Config.IPTablesRandomFully {
+					progArgs = append(progArgs, "--random-fully")
+				}
+				if err := runProg("iptables", progArgs, false); err != nil {
 					return err
 				}
 			}
