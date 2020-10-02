@@ -49,6 +49,7 @@ Helm chart for Cilium
 | datapathMode | string | `"veth"` |  |
 | debug.enabled | bool | `false` |  |
 | enableCnpStatusUpdates | bool | `false` |  |
+| enableCriticalPriorityClass | bool | `true` |  |
 | enableXTSocketFallback | bool | `true` |  |
 | encryption.enabled | bool | `false` |  |
 | encryption.interface | string | `"eth0"` |  |
