@@ -69,7 +69,7 @@ spec:
         name: cilium-etcd-operator
       dnsPolicy: ClusterFirst
       hostNetwork: true
-{{- if or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (ge .Capabilities.KubeVersion.Minor "17") (gt .Capabilities.KubeVersion.Major "1")}}
+{{- if and (or (and (eq .Release.Namespace "kube-system") (gt .Capabilities.KubeVersion.Minor "10")) (ge .Capabilities.KubeVersion.Minor "17") (gt .Capabilities.KubeVersion.Major "1")) .Values.enableCriticalPriorityClass }}
       priorityClassName: system-cluster-critical
 {{- end }}
       restartPolicy: Always
