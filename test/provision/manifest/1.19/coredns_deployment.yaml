@@ -77,13 +77,14 @@ data:
         ready
         kubernetes cluster.local in-addr.arpa ip6.arpa {
             pods insecure
-            ttl 0
             fallthrough in-addr.arpa ip6.arpa
-        }
-        forward . /etc/resolv.conf {
-            max_fails 0
+            ttl 30
         }
         prometheus :9153
+        forward . /etc/resolv.conf {
+            max_concurrent 1000
+        }
+        cache 30
         loop
         reload
         loadbalance
