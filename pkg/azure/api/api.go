@@ -62,8 +62,8 @@ type MetricsAPI interface {
 	ObserveRateLimit(operation string, duration time.Duration)
 }
 
-func constructAuthorizer(cloudName, userAssignedIdentityName string) (autorest.Authorizer, error) {
-	if userAssignedIdentityName != "" {
+func constructAuthorizer(cloudName, userAssignedIdentityID string) (autorest.Authorizer, error) {
+	if userAssignedIdentityID != "" {
 		env, err := azure.EnvironmentFromName(cloudName)
 		if err != nil {
 			return nil, err
@@ -75,7 +75,7 @@ func constructAuthorizer(cloudName, userAssignedIdentityName string) (autorest.A
 
 		spToken, err := adal.NewServicePrincipalTokenFromMSIWithUserAssignedID(msiEndpoint,
 			env.ServiceManagementEndpoint,
-			userAssignedIdentityName)
+			userAssignedIdentityID)
 		if err != nil {
 			return nil, err
 		}
@@ -91,7 +91,7 @@ func constructAuthorizer(cloudName, userAssignedIdentityName string) (autorest.A
 }
 
 // NewClient returns a new Azure client
-func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityName string, metrics MetricsAPI, rateLimit float64, burst int) (*Client, error) {
+func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityID string, metrics MetricsAPI, rateLimit float64, burst int) (*Client, error) {
 	c := &Client{
 		resourceGroup:   resourceGroup,
 		interfaces:      network.NewInterfacesClient(subscriptionID),
@@ -102,7 +102,7 @@ func NewClient(cloudName, subscriptionID, resourceGroup, userAssignedIdentityNam
 		limiter:         helpers.NewApiLimiter(metrics, rateLimit, burst),
 	}
 
-	authorizer, err := constructAuthorizer(cloudName, userAssignedIdentityName)
+	authorizer, err := constructAuthorizer(cloudName, userAssignedIdentityID)
 	if err != nil {
 		return nil, err
 	}
