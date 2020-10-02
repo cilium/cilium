@@ -67,76 +67,111 @@ func enableCiliumEndpointSyncGC(once bool) {
 		// state.
 		watchers.PodsInit(k8s.WatcherCli(), stopCh)
 	}
+	<-k8sCiliumNodesCacheSynced
 
 	// this dummy manager is needed only to add this controller to the global list
 	controller.NewManager().UpdateController(controllerName,
 		controller.ControllerParams{
 			RunInterval: gcInterval,
 			DoFunc: func(ctx context.Context) error {
-				// For each CEP we fetched, check if we know about it
-				for _, cepObj := range watchers.CiliumEndpointStore.List() {
-					cep, ok := cepObj.(*cilium_v2.CiliumEndpoint)
-					if !ok {
-						log.WithField(logfields.Object, cepObj).
-							Errorf("Saw %T object while expecting *cilium_v2.CiliumEndpoint", cepObj)
-						continue
-					}
-					cepFullName := cep.Namespace + "/" + cep.Name
-					scopedLog = scopedLog.WithFields(logrus.Fields{
-						logfields.K8sPodName: cepFullName,
-					})
-
-					// If we are running this function "once" it means that we
-					// will delete all CEPs in the cluster regardless of the pod
-					// state therefore we won't even watch for the pod store.
-					if !once {
-						podObj, exists, err := watchers.PodStore.GetByKey(cepFullName)
-						if err != nil {
-							scopedLog.WithError(err).Warn("Unable to get pod from store")
-							continue
-						}
-						if exists {
-							pod := podObj.(*slim_corev1.Pod)
-							if !ok {
-								log.WithField(logfields.Object, podObj).
-									Errorf("Saw %T object while expecting *slim_corev1.Pod", podObj)
-								continue
-							}
-							// In Kubernetes Jobs, Pods can be left in Kubernetes until the Job
-							// is deleted. If the Job is never deleted, Cilium will never receive a Pod
-							// delete event, causing the IP to be left in the ipcache.
-							// For this reason we should delete the ipcache entries whenever the pod
-							// status is either PodFailed or PodSucceeded as it means the IP address
-							// is no longer in use.
-							if k8sUtils.IsPodRunning(pod.Status) {
-								continue
-							}
-						}
-					}
-					// FIXME: this is fragile as we might have received the
-					// CEP notification first but not the pod notification
-					// so we need to have a similar mechanism that we have
-					// for the keep alive of security identities.
-					scopedLog = scopedLog.WithFields(logrus.Fields{
-						logfields.EndpointID: cep.Status.ID,
-					})
-					scopedLog.Debug("Orphaned CiliumEndpoint is being garbage collected")
-					PropagationPolicy := meta_v1.DeletePropagationBackground // because these are const strings but the API wants pointers
-					err := ciliumClient.CiliumEndpoints(cep.Namespace).Delete(
-						ctx,
-						cep.Name,
-						meta_v1.DeleteOptions{PropagationPolicy: &PropagationPolicy})
-					if !k8serrors.IsNotFound(err) {
-						scopedLog.WithError(err).Warning("Unable to delete orphaned CEP")
-						return err
-					}
-				}
-				// We have cleaned up all CEPs from Kubernetes so we can stop
-				// the k8s watchers.
-				if once {
-					close(stopCh)
-				}
-				return nil
+				return doCiliumEndpointSyncGC(ctx, once, stopCh, scopedLog)
 			},
 		})
+}
+
+func doCiliumEndpointSyncGC(ctx context.Context, once bool, stopCh chan struct{}, scopedLog *logrus.Entry) error {
+	ciliumClient := ciliumK8sClient.CiliumV2()
+	// For each CEP we fetched, check if we know about it
+	for _, cepObj := range watchers.CiliumEndpointStore.List() {
+		cep, ok := cepObj.(*cilium_v2.CiliumEndpoint)
+		if !ok {
+			log.WithField(logfields.Object, cepObj).
+				Errorf("Saw %T object while expecting *cilium_v2.CiliumEndpoint", cepObj)
+			continue
+		}
+		cepFullName := cep.Namespace + "/" + cep.Name
+		scopedLog = scopedLog.WithFields(logrus.Fields{
+			logfields.K8sPodName: cepFullName,
+		})
+
+		// If we are running this function "once" it means that we
+		// will delete all CEPs in the cluster regardless of the pod
+		// state therefore we won't even watch for the pod store.
+		if !once {
+			var podObj interface{}
+			var err error
+			exists := false
+			podChecked := false
+			for _, owner := range cep.ObjectMeta.OwnerReferences {
+				switch owner.Kind {
+				case "Pod":
+					podObj, exists, err = watchers.PodStore.GetByKey(cepFullName)
+					if err != nil {
+						scopedLog.WithError(err).Warn("Unable to get pod from store")
+					}
+					podChecked = true
+				case "CiliumNode":
+					podObj, exists, err = ciliumNodeStore.GetByKey(owner.Name)
+					if err != nil {
+						scopedLog.WithError(err).Warn("Unable to get CiliumNode from store")
+					}
+				}
+				// Stop looking when an existing owner has been found
+				if exists {
+					break
+				}
+			}
+			if !exists && !podChecked {
+				// Check for a Pod in case none of the owners existed
+				// This keeps the old behavior even if OwnerReferences are missing
+				podObj, exists, err = watchers.PodStore.GetByKey(cepFullName)
+				if err != nil {
+					scopedLog.WithError(err).Warn("Unable to get pod from store")
+				}
+			}
+			if exists {
+				switch pod := podObj.(type) {
+				case *slim_corev1.Node:
+					continue
+				case *slim_corev1.Pod:
+					// In Kubernetes Jobs, Pods can be left in Kubernetes until the Job
+					// is deleted. If the Job is never deleted, Cilium will never receive a Pod
+					// delete event, causing the IP to be left in the ipcache.
+					// For this reason we should delete the ipcache entries whenever the pod
+					// status is either PodFailed or PodSucceeded as it means the IP address
+					// is no longer in use.
+					if k8sUtils.IsPodRunning(pod.Status) {
+						continue
+					}
+				default:
+					log.WithField(logfields.Object, podObj).
+						Errorf("Saw %T object while expecting *slim_corev1.Pod", podObj)
+					continue
+				}
+			}
+		}
+		// FIXME: this is fragile as we might have received the
+		// CEP notification first but not the pod notification
+		// so we need to have a similar mechanism that we have
+		// for the keep alive of security identities.
+		scopedLog = scopedLog.WithFields(logrus.Fields{
+			logfields.EndpointID: cep.Status.ID,
+		})
+		scopedLog.Debug("Orphaned CiliumEndpoint is being garbage collected")
+		PropagationPolicy := meta_v1.DeletePropagationBackground // because these are const strings but the API wants pointers
+		err := ciliumClient.CiliumEndpoints(cep.Namespace).Delete(
+			ctx,
+			cep.Name,
+			meta_v1.DeleteOptions{PropagationPolicy: &PropagationPolicy})
+		if !k8serrors.IsNotFound(err) {
+			scopedLog.WithError(err).Warning("Unable to delete orphaned CEP")
+			return err
+		}
+	}
+	// We have cleaned up all CEPs from Kubernetes so we can stop
+	// the k8s watchers.
+	if once {
+		close(stopCh)
+	}
+	return nil
 }

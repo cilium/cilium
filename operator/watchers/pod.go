@@ -30,7 +30,7 @@ import (
 var (
 	// PodStore has a minimal copy of all pods running in the cluster.
 	// Warning: The pods stored in the cache are not intended to be used for Update
-	// operations in k8s as some of its fields were are not populated.
+	// operations in k8s as some of its fields are not populated.
 	PodStore cache.Store
 
 	// PodStoreSynced is closed once the PodStore is synced with k8s.
@@ -39,7 +39,7 @@ var (
 	// UnmanagedPodStore has a minimal copy of the unmanaged kube-dns pods running
 	// in the cluster.
 	// Warning: The pods stored in the cache are not intended to be used for Update
-	// operations in k8s as some of its fields were are not populated.
+	// operations in k8s as some of its fields are not populated.
 	UnmanagedPodStore cache.Store
 
 	// UnmanagedPodStoreSynced is closed once the UnmanagedPodStore is synced
