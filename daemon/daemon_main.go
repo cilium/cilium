@@ -763,6 +763,9 @@ func init() {
 	flags.Var(option.NewNamedMapOptions(option.APIRateLimitName, &option.Config.APIRateLimit, nil), option.APIRateLimitName, "API rate limiting configuration (example: --rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)")
 	option.BindEnv(option.APIRateLimitName)
 
+	flags.Bool(option.EnableAPIRateLimit, false, "Enables the use of the API rate limiting configuration")
+	option.BindEnv(option.EnableAPIRateLimit)
+
 	viper.BindPFlags(flags)
 }
 
