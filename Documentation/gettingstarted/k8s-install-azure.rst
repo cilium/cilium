@@ -90,6 +90,7 @@ Deploy Cilium release via Helm:
      --set global.masquerade=false \\
      --set global.nodeinit.enabled=true
 
+.. include:: k8s-install-restart-pods.rst
 .. include:: k8s-install-validate.rst
 .. include:: namespace-kube-system.rst
 .. include:: hubble-enable.rst
