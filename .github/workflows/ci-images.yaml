@@ -1,0 +1,28 @@
+name: Put CI images into an artifact
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - master
+
+jobs:
+  push-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Build docker images
+        run: |
+          make docker-image-no-clean
+          #TODO: push all images to artifacts
+          #make docker-operator-generic-image
+
+      - name: Store Cilium image as artifact
+        run: |
+          docker save cilium/cilium:latest -o cilium.tar
+      - uses: actions/upload-artifact@v2
+        with:
+          name: cilium-${{ github.sha }}
+          path: cilium.tar

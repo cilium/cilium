@@ -1,0 +1,23 @@
+name: Push CI image to remote docker repo
+
+on:
+  pull_request: {}
+  push:
+    branches:
+      - master
+
+jobs:
+  push-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: wait for artifact
+        run: |
+          #TODO: do this for all the images
+          until curl https://api.github.com/repos/cilium/cilium/actions/artifacts | jq -r '.artifacts[] | if .name == "cilium-${{ github.sha }}" then .archive_download_url else "" end' | grep http > url ; do
+            sleep 120
+          done
+      - name: move artifact to docker repo
+        run: |
+          url=$(cat url)
+          echo ${url}
+          curl --fail --header "Content-Type: application/json" --data '{ "Url": "'${url}'","Tag": "${{ github.sha }}" }' https://11lqmeu5t6.execute-api.us-west-2.amazonaws.com/default/move-image-2
