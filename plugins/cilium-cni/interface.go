@@ -26,6 +26,11 @@ import (
 )
 
 func interfaceAdd(ipConfig *current.IPConfig, ipam *models.IPAMAddressResponse, conf models.DaemonConfigurationStatus) error {
+	// If the gateway IP is not available, it is already set up
+	if ipam.Gateway == "" {
+		return nil
+	}
+
 	allCIDRs := make([]*net.IPNet, 0, len(ipam.Cidrs))
 	for _, cidrString := range ipam.Cidrs {
 		_, cidr, err := net.ParseCIDR(cidrString)
