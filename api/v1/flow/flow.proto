@@ -77,6 +77,9 @@ message Flow {
     // Only applicable to cilium trace notifications, blank for other types.
     TraceObservationPoint trace_observation_point = 24;
 
+    // list of matched policies for PolicyVerdict events
+    repeated string policies = 25;
+
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we
     // fully migrate to the new parser.

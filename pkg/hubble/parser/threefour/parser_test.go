@@ -32,9 +32,12 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/networking/v1"
 	"github.com/cilium/cilium/pkg/monitor"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/source"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
@@ -123,7 +126,7 @@ func TestL34Decode(t *testing.T) {
 		},
 	}
 	identityCache := &testutils.NoopIdentityGetter
-	parser, err := New(log, endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter)
+	parser, err := New(log, endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter, nil)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
@@ -189,7 +192,7 @@ func TestL34Decode(t *testing.T) {
 	}
 	ipGetter = &testutils.NoopIPGetter
 	serviceGetter = &testutils.NoopServiceGetter
-	parser, err = New(log, endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter)
+	parser, err = New(log, endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter, nil)
 	require.NoError(t, err)
 
 	err = parser.Decode(d2, f)
@@ -228,7 +231,7 @@ func BenchmarkL34Decode(b *testing.B) {
 	ipGetter := &testutils.NoopIPGetter
 	serviceGetter := &testutils.NoopServiceGetter
 	identityCache := &testutils.NoopIdentityGetter
-	parser, err := New(log, endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter)
+	parser, err := New(log, endpointGetter, identityCache, dnsGetter, ipGetter, serviceGetter, nil)
 	require.NoError(b, err)
 
 	f := &flowpb.Flow{}
@@ -272,7 +275,7 @@ func TestDecodeTraceNotify(t *testing.T) {
 		return nil, fmt.Errorf("identity not found for %d", securityIdentity)
 	}}
 
-	parser, err := New(log, &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter)
+	parser, err := New(log, &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, nil)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
@@ -317,7 +320,7 @@ func TestDecodeDropNotify(t *testing.T) {
 		},
 	}
 
-	parser, err := New(log, &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter)
+	parser, err := New(log, &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, nil)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
@@ -332,19 +335,41 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	identityGetter := &testutils.FakeIdentityGetter{
 		OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
 			if securityIdentity == remoteLabel {
-				return &models.Identity{Labels: []string{"dst=label"}}, nil
+				return &models.Identity{Labels: []string{"dst=label", "k8s:io.kubernetes.pod.namespace=default"}}, nil
 			}
 			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
 		},
 	}
 
-	parser, err := New(log, &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter)
+	np := &slim_networkingv1.NetworkPolicy{
+		ObjectMeta: slim_metav1.ObjectMeta{Name: "test-policy"},
+		Spec: slim_networkingv1.NetworkPolicySpec{
+			Egress: []slim_networkingv1.NetworkPolicyEgressRule{
+				{
+					To: []slim_networkingv1.NetworkPolicyPeer{
+						{PodSelector: &slim_metav1.LabelSelector{}},
+					},
+				},
+			},
+		},
+	}
+
+	storeGetter := &testutils.FakeStoreGetter{
+		OnGetK8sStore: func(name string) cache.Store {
+			return &cache.FakeCustomStore{
+				ListFunc: func() []interface{} {
+					return []interface{}{np}
+				},
+			}
+		},
+	}
+	parser, err := New(log, &testutils.NoopEndpointGetter, identityGetter, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, storeGetter)
 	require.NoError(t, err)
 
 	// PolicyVerdictNotify for forwarded flow
 	var flags uint8
 	flags |= api.PolicyEgress
-	flags |= api.PolicyMatchL3L4 << monitor.PolicyVerdictNotifyFlagMatchTypeBitOffset
+	flags |= api.PolicyMatchL3Only << monitor.PolicyVerdictNotifyFlagMatchTypeBitOffset
 	pvn := monitor.PolicyVerdictNotify{
 		Type:        byte(api.MessageTypePolicyVerdict),
 		SubType:     0,
@@ -361,9 +386,10 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 
 	assert.Equal(t, int32(api.MessageTypePolicyVerdict), f.GetEventType().GetType())
 	assert.Equal(t, flowpb.TrafficDirection_EGRESS, f.GetTrafficDirection())
-	assert.Equal(t, uint32(api.PolicyMatchL3L4), f.GetPolicyMatchType())
+	assert.Equal(t, uint32(api.PolicyMatchL3Only), f.GetPolicyMatchType())
 	assert.Equal(t, flowpb.Verdict_FORWARDED, f.GetVerdict())
-	assert.Equal(t, []string{"dst=label"}, f.GetDestination().GetLabels())
+	assert.Equal(t, []string{"dst=label", "k8s:io.kubernetes.pod.namespace=default"}, f.GetDestination().GetLabels())
+	assert.Equal(t, []string{"test-policy"}, f.GetPolicies())
 
 	// PolicyVerdictNotify for dropped flow
 	flags = api.PolicyIngress
@@ -385,7 +411,8 @@ func TestDecodePolicyVerdictNotify(t *testing.T) {
 	assert.Equal(t, flowpb.TrafficDirection_INGRESS, f.GetTrafficDirection())
 	assert.Equal(t, uint32(151), f.GetDropReason())
 	assert.Equal(t, flowpb.Verdict_DROPPED, f.GetVerdict())
-	assert.Equal(t, []string{"dst=label"}, f.GetSource().GetLabels())
+	assert.Equal(t, []string{"dst=label", "k8s:io.kubernetes.pod.namespace=default"}, f.GetSource().GetLabels())
+	assert.Nil(t, f.GetPolicies())
 }
 
 func TestDecodeDropReason(t *testing.T) {
@@ -397,7 +424,7 @@ func TestDecodeDropReason(t *testing.T) {
 	data, err := testutils.CreateL3L4Payload(dn)
 	require.NoError(t, err)
 
-	parser, err := New(log, nil, nil, nil, nil, nil)
+	parser, err := New(log, nil, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
@@ -421,7 +448,7 @@ func TestDecodeLocalIdentity(t *testing.T) {
 		},
 	}
 
-	parser, err := New(log, nil, identityGetter, nil, nil, nil)
+	parser, err := New(log, nil, identityGetter, nil, nil, nil, nil)
 	require.NoError(t, err)
 
 	f := &flowpb.Flow{}
@@ -448,7 +475,7 @@ func TestDecodeTrafficDirection(t *testing.T) {
 		},
 	}
 
-	parser, err := New(log, endpointGetter, nil, nil, nil, nil)
+	parser, err := New(log, endpointGetter, nil, nil, nil, nil, nil)
 	require.NoError(t, err)
 	parseFlow := func(event interface{}, srcIPv4, dstIPv4 net.IP) *flowpb.Flow {
 		data, err := testutils.CreateL3L4Payload(event,
@@ -650,7 +677,7 @@ func Test_filterCIDRLabels(t *testing.T) {
 
 func TestTraceNotifyOriginalIP(t *testing.T) {
 	f := &flowpb.Flow{}
-	parser, err := New(log, &testutils.NoopEndpointGetter, nil, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter)
+	parser, err := New(log, &testutils.NoopEndpointGetter, nil, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, nil)
 	require.NoError(t, err)
 
 	v0 := monitor.TraceNotifyV0{
@@ -688,7 +715,7 @@ func TestTraceNotifyOriginalIP(t *testing.T) {
 }
 
 func TestICMP(t *testing.T) {
-	parser, err := New(log, &testutils.NoopEndpointGetter, nil, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter)
+	parser, err := New(log, &testutils.NoopEndpointGetter, nil, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, nil)
 	require.NoError(t, err)
 	message := monitor.TraceNotifyV1{
 		TraceNotifyV0: monitor.TraceNotifyV0{
@@ -760,7 +787,7 @@ func TestTraceNotifyLocalEndpoint(t *testing.T) {
 		},
 	}
 
-	parser, err := New(log, endpointGetter, nil, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter)
+	parser, err := New(log, endpointGetter, nil, &testutils.NoopDNSGetter, &testutils.NoopIPGetter, &testutils.NoopServiceGetter, nil)
 	require.NoError(t, err)
 
 	v0 := monitor.TraceNotifyV0{

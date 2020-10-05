@@ -29,6 +29,7 @@ import (
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/ipcache"
+	"k8s.io/client-go/tools/cache"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
 	"google.golang.org/grpc"
@@ -351,6 +352,19 @@ var NoopIdentityGetter = FakeIdentityGetter{
 	OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
 		return &models.Identity{}, nil
 	},
+}
+
+// FakeStoreGetter is used for unit tests that need StoreGetter.
+type FakeStoreGetter struct {
+	OnGetK8sStore func(name string) cache.Store
+}
+
+// GetK8sStore implements StoreGetter.GetK8sStore.
+func (f *FakeStoreGetter) GetK8sStore(name string) cache.Store {
+	if f.OnGetK8sStore != nil {
+		return f.OnGetK8sStore(name)
+	}
+	panic("OnGetK8sStore is not set")
 }
 
 // FakeFlow implements v1.Flow for unit tests. All interface methods

@@ -108,7 +108,7 @@ func (d *Daemon) launchHubble() {
 		}
 	}
 
-	payloadParser, err := parser.New(logger, d, d, d, d, d)
+	payloadParser, err := parser.New(logger, d, d, d, d, d, d)
 	if err != nil {
 		logger.WithError(err).Error("Failed to initialize Hubble")
 		return

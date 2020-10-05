@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/hubble/parser/errors"
 	"github.com/cilium/cilium/pkg/hubble/parser/getters"
 	"github.com/cilium/cilium/pkg/identity"
+	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/networking/v1"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
@@ -45,6 +46,7 @@ type Parser struct {
 	dnsGetter      getters.DNSGetter
 	ipGetter       getters.IPGetter
 	serviceGetter  getters.ServiceGetter
+	storeGetter    getters.StoreGetter
 
 	// TODO: consider using a pool of these
 	packet *packet
@@ -72,6 +74,7 @@ func New(
 	dnsGetter getters.DNSGetter,
 	ipGetter getters.IPGetter,
 	serviceGetter getters.ServiceGetter,
+	storeGetter getters.StoreGetter,
 ) (*Parser, error) {
 	packet := &packet{}
 	packet.decLayer = gopacket.NewDecodingLayerParser(
@@ -86,6 +89,7 @@ func New(
 		identityGetter: identityGetter,
 		ipGetter:       ipGetter,
 		serviceGetter:  serviceGetter,
+		storeGetter:    storeGetter,
 		packet:         packet,
 	}, nil
 }
@@ -189,6 +193,7 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.DestinationService = destinationService
 	decoded.PolicyMatchType = decodePolicyMatchType(pvn)
 	decoded.Summary = summary
+	decoded.Policies = p.resolvePolicies(decoded)
 
 	return nil
 }
@@ -199,6 +204,27 @@ func (p *Parser) resolveNames(epID uint32, ip net.IP) (names []string) {
 	}
 
 	return nil
+}
+
+func (p *Parser) resolvePolicies(fl *pb.Flow) (policies []string) {
+	if fl.Verdict != pb.Verdict_FORWARDED || fl.PolicyMatchType == monitorAPI.PolicyMatchNone {
+		return
+	}
+
+	npStore := p.storeGetter.GetK8sStore("networkpolicy")
+	nps := npStore.List()
+	policies = make([]string, 0)
+	for _, np := range nps {
+		policy, ok := np.(*slim_networkingv1.NetworkPolicy)
+		if !ok {
+			continue
+		}
+
+		if flowMatchesNetworkPolicy(fl, policy) {
+			policies = append(policies, policy.ObjectMeta.Name)
+		}
+	}
+	return
 }
 
 func filterCIDRLabels(log logrus.FieldLogger, labels []string) []string {
