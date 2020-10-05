@@ -450,7 +450,7 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 
 	// kubernetes network policies
 	swgKNP := lock.NewStoppableWaitGroup()
-	k.networkPoliciesInit(k8s.WatcherCli(), swgKNP)
+	k.networkPoliciesInit(k8s.WatcherClient(), swgKNP)
 
 	serviceOptModifier, err := utils.GetServiceListOptionsModifier()
 	if err != nil {
@@ -459,7 +459,7 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 
 	// kubernetes services
 	swgSvcs := lock.NewStoppableWaitGroup()
-	k.servicesInit(k8s.WatcherCli(), swgSvcs, serviceOptModifier)
+	k.servicesInit(k8s.WatcherClient(), swgSvcs, serviceOptModifier)
 
 	// kubernetes endpoints
 	swgEps := lock.NewStoppableWaitGroup()
@@ -469,14 +469,14 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 	case k8s.SupportsEndpointSlice():
 		// We don't add the service option modifier here, as endpointslices do not
 		// mirror service proxy name label present in the corresponding service.
-		connected := k.endpointSlicesInit(k8s.WatcherCli(), swgEps)
+		connected := k.endpointSlicesInit(k8s.WatcherClient(), swgEps)
 		// The cluster has endpoint slices so we should not check for v1.Endpoints
 		if connected {
 			break
 		}
 		fallthrough
 	default:
-		k.endpointsInit(k8s.WatcherCli(), swgEps, serviceOptModifier)
+		k.endpointsInit(k8s.WatcherClient(), swgEps, serviceOptModifier)
 	}
 
 	// cilium network policies
@@ -502,14 +502,14 @@ func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
 
 	// kubernetes pods
 	asyncControllers.Add(1)
-	go k.podsInit(k8s.WatcherCli(), asyncControllers)
+	go k.podsInit(k8s.WatcherClient(), asyncControllers)
 
 	// kubernetes nodes
-	k.nodesInit(k8s.WatcherCli())
+	k.nodesInit(k8s.WatcherClient())
 
 	// kubernetes namespaces
 	asyncControllers.Add(1)
-	go k.namespacesInit(k8s.WatcherCli(), asyncControllers)
+	go k.namespacesInit(k8s.WatcherClient(), asyncControllers)
 
 	asyncControllers.Wait()
 	close(k.controllersStarted)

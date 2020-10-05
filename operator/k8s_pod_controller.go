@@ -41,7 +41,7 @@ var (
 func enableUnmanagedKubeDNSController() {
 	// These functions will block until the resources are synced with k8s.
 	watchers.CiliumEndpointsInit(k8s.CiliumClient().CiliumV2(), wait.NeverStop)
-	watchers.UnmanagedPodsInit(k8s.WatcherCli())
+	watchers.UnmanagedPodsInit(k8s.WatcherClient())
 
 	controller.NewManager().UpdateController("restart-unmanaged-kube-dns",
 		controller.ControllerParams{

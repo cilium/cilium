@@ -123,7 +123,7 @@ func startSynchronizingServices() {
 
 	// Watch for v1.Service changes and push changes into ServiceCache
 	_, svcController := informer.NewInformer(
-		cache.NewFilteredListWatchFromClient(k8s.WatcherCli().CoreV1().RESTClient(),
+		cache.NewFilteredListWatchFromClient(k8s.WatcherClient().CoreV1().RESTClient(),
 			"services", v1.NamespaceAll, serviceOptsModifier),
 		&slim_corev1.Service{},
 		0,
@@ -171,14 +171,14 @@ func startSynchronizingServices() {
 	switch {
 	case k8s.SupportsEndpointSlice():
 		var endpointSliceEnabled bool
-		endpointController, endpointSliceEnabled = endpointSlicesInit(k8s.WatcherCli(), swgEps)
+		endpointController, endpointSliceEnabled = endpointSlicesInit(k8s.WatcherClient(), swgEps)
 		// the cluster has endpoint slices so we should not check for v1.Endpoints
 		if endpointSliceEnabled {
 			break
 		}
 		fallthrough
 	default:
-		endpointController = endpointsInit(k8s.WatcherCli(), swgEps, serviceOptsModifier)
+		endpointController = endpointsInit(k8s.WatcherClient(), swgEps, serviceOptsModifier)
 		go endpointController.Run(wait.NeverStop)
 	}
 

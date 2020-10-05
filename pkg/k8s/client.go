@@ -41,15 +41,116 @@ import (
 )
 
 var (
-	// k8sCli is the default client.
-	k8sCli = &K8sClient{}
+	// k8sCLI is the default client.
+	k8sCLI = &K8sClient{}
 
-	// k8sWatcherCli is the client dedicated k8s structure watchers.
-	k8sWatcherCli = &K8sClient{}
+	// k8sWatcherCLI is the client dedicated k8s structure watchers.
+	k8sWatcherCLI = &K8sClient{}
 
-	// k8sCiliumCli is the default Cilium client.
-	k8sCiliumCli = &K8sCiliumClient{}
+	// k8sCiliumCLI is the default Cilium client.
+	k8sCiliumCLI = &K8sCiliumClient{}
 )
+
+// Client returns the default Kubernetes client.
+func Client() *K8sClient {
+	return k8sCLI
+}
+
+// WatcherClient returns the client dedicated to K8s watchers.
+func WatcherClient() *K8sClient {
+	return k8sWatcherCLI
+}
+
+// CiliumClient returns the default Cilium Kubernetes client.
+func CiliumClient() *K8sCiliumClient {
+	return k8sCiliumCLI
+}
+
+// CreateConfig creates a client configuration based on the configured API
+// server and Kubeconfig path
+func CreateConfig() (*rest.Config, error) {
+	return createConfig(GetAPIServerURL(), GetKubeconfigPath(), GetQPS(), GetBurst())
+}
+
+// CreateConfigFromAgentResponse creates a client configuration from a
+// models.DaemonConfigurationResponse
+func CreateConfigFromAgentResponse(resp *models.DaemonConfiguration) (*rest.Config, error) {
+	return createConfig(resp.Status.K8sEndpoint, resp.Status.K8sConfiguration, GetQPS(), GetBurst())
+}
+
+// createClient creates a new client to access the Kubernetes API
+func createClient(config *rest.Config, cs kubernetes.Interface) error {
+	stop := make(chan struct{})
+	timeout := time.NewTimer(time.Minute)
+	defer timeout.Stop()
+	var err error
+	wait.Until(func() {
+		// FIXME: Use config.String() when we rebase to latest go-client
+		log.WithField("host", config.Host).Info("Establishing connection to apiserver")
+		err = isConnReady(cs)
+		if err == nil {
+			close(stop)
+			return
+		}
+		select {
+		case <-timeout.C:
+			log.WithError(err).WithField(logfields.IPAddr, config.Host).Error("Unable to contact k8s api-server")
+			close(stop)
+		default:
+		}
+	}, 5*time.Second, stop)
+	if err == nil {
+		log.Info("Connected to apiserver")
+	}
+	return err
+}
+
+func createDefaultClient() (rest.Interface, func(), error) {
+	restConfig, err := CreateConfig()
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to create k8s client rest configuration: %s", err)
+	}
+	restConfig.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
+
+	closeAllConns := setDialer(restConfig)
+
+	createdK8sClient, err := kubernetes.NewForConfig(restConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+	err = createClient(restConfig, createdK8sClient)
+	if err != nil {
+		return nil, nil, fmt.Errorf("unable to create k8s client: %s", err)
+	}
+
+	k8sCLI.Interface = createdK8sClient
+
+	createK8sWatcherCli, err := watcher_client.NewForConfig(restConfig)
+	if err != nil {
+		return nil, nil, err
+	}
+
+	k8sWatcherCLI.Interface = createK8sWatcherCli
+
+	return createdK8sClient.RESTClient(), closeAllConns, nil
+}
+
+func createDefaultCiliumClient() (func(), error) {
+	restConfig, err := CreateConfig()
+	if err != nil {
+		return nil, fmt.Errorf("unable to create k8s client rest configuration: %s", err)
+	}
+
+	closeAllConns := setDialer(restConfig)
+	createdCiliumK8sClient, err := clientset.NewForConfig(restConfig)
+	if err != nil {
+		return nil, fmt.Errorf("unable to create k8s client: %s", err)
+	}
+
+	k8sCiliumCLI.Interface = createdCiliumK8sClient
+
+	return closeAllConns, nil
+}
 
 // createConfig creates a rest.Config for connecting to k8s api-server.
 //
@@ -98,18 +199,6 @@ func setConfig(config *rest.Config, userAgent string, qps float32, burst int) {
 	if burst != 0 {
 		config.Burst = burst
 	}
-}
-
-// CreateConfigFromAgentResponse creates a client configuration from a
-// models.DaemonConfigurationResponse
-func CreateConfigFromAgentResponse(resp *models.DaemonConfiguration) (*rest.Config, error) {
-	return createConfig(resp.Status.K8sEndpoint, resp.Status.K8sConfiguration, GetQPS(), GetBurst())
-}
-
-// CreateConfig creates a client configuration based on the configured API
-// server and Kubeconfig path
-func CreateConfig() (*rest.Config, error) {
-	return createConfig(GetAPIServerURL(), GetKubeconfigPath(), GetQPS(), GetBurst())
 }
 
 func setDialer(config *rest.Config) func() {
@@ -170,96 +259,8 @@ func runHeartbeat(heartBeat func(context.Context) error, timeout time.Duration, 
 	}
 }
 
-// CreateClient creates a new client to access the Kubernetes API
-func CreateClient(config *rest.Config, cs kubernetes.Interface) error {
-	stop := make(chan struct{})
-	timeout := time.NewTimer(time.Minute)
-	defer timeout.Stop()
-	var err error
-	wait.Until(func() {
-		// FIXME: Use config.String() when we rebase to latest go-client
-		log.WithField("host", config.Host).Info("Establishing connection to apiserver")
-		err = isConnReady(cs)
-		if err == nil {
-			close(stop)
-			return
-		}
-		select {
-		case <-timeout.C:
-			log.WithError(err).WithField(logfields.IPAddr, config.Host).Error("Unable to contact k8s api-server")
-			close(stop)
-		default:
-		}
-	}, 5*time.Second, stop)
-	if err == nil {
-		log.Info("Connected to apiserver")
-	}
-	return err
-}
-
 // isConnReady returns the err for the kube-system namespace get
 func isConnReady(c kubernetes.Interface) error {
 	_, err := c.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
 	return err
-}
-
-// Client returns the default Kubernetes client.
-func Client() *K8sClient {
-	return k8sCli
-}
-
-func WatcherCli() *K8sClient {
-	return k8sWatcherCli
-}
-
-func createDefaultClient() (rest.Interface, func(), error) {
-	restConfig, err := CreateConfig()
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create k8s client rest configuration: %s", err)
-	}
-	restConfig.ContentConfig.ContentType = `application/vnd.kubernetes.protobuf`
-
-	closeAllConns := setDialer(restConfig)
-
-	createdK8sClient, err := kubernetes.NewForConfig(restConfig)
-	if err != nil {
-		return nil, nil, err
-	}
-	err = CreateClient(restConfig, createdK8sClient)
-	if err != nil {
-		return nil, nil, fmt.Errorf("unable to create k8s client: %s", err)
-	}
-
-	k8sCli.Interface = createdK8sClient
-
-	createK8sWatcherCli, err := watcher_client.NewForConfig(restConfig)
-	if err != nil {
-		return nil, nil, err
-	}
-
-	k8sWatcherCli.Interface = createK8sWatcherCli
-
-	return createdK8sClient.RESTClient(), closeAllConns, nil
-}
-
-// CiliumClient returns the default Cilium Kubernetes client.
-func CiliumClient() *K8sCiliumClient {
-	return k8sCiliumCli
-}
-
-func createDefaultCiliumClient() (func(), error) {
-	restConfig, err := CreateConfig()
-	if err != nil {
-		return nil, fmt.Errorf("unable to create k8s client rest configuration: %s", err)
-	}
-
-	closeAllConns := setDialer(restConfig)
-	createdCiliumK8sClient, err := clientset.NewForConfig(restConfig)
-	if err != nil {
-		return nil, fmt.Errorf("unable to create k8s client: %s", err)
-	}
-
-	k8sCiliumCli.Interface = createdCiliumK8sClient
-
-	return closeAllConns, nil
 }

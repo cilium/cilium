@@ -65,7 +65,7 @@ func enableCiliumEndpointSyncGC(once bool) {
 		// If we are running this function "once" it means that we
 		// will delete all CEPs in the cluster regardless of the pod
 		// state.
-		watchers.PodsInit(k8s.WatcherCli(), stopCh)
+		watchers.PodsInit(k8s.WatcherClient(), stopCh)
 	}
 	<-k8sCiliumNodesCacheSynced
 
