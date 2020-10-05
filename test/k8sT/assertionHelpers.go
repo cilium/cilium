@@ -162,6 +162,8 @@ func RedeployCiliumWithMerge(vm *helpers.Kubectl,
 func DeployCiliumOptionsAndDNS(vm *helpers.Kubectl, ciliumFilename string, options map[string]string) {
 	redeployCilium(vm, ciliumFilename, options)
 
+	vm.RestartUnmanagedPodsInNamespace(helpers.LogGathererNamespace)
+
 	vm.RedeployKubernetesDnsIfNecessary()
 
 	switch helpers.GetCurrentIntegration() {
