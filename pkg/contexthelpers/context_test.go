@@ -58,6 +58,10 @@ func (b *ContextSuite) TestConditionalTimeoutContext(c *check.C) {
 		c.Errorf("context cancelled despite reporting success")
 	case <-time.After(100 * time.Millisecond):
 	}
-
 	cancel()
+
+	_, _, ch = NewConditionalTimeoutContext(context.Background(), 10*time.Millisecond)
+	time.Sleep(30 * time.Millisecond)
+	// validate that sending to success channel does not deadlock after the timeout
+	ch <- false
 }
