@@ -180,7 +180,7 @@ the labels for the PRs that are backported, based on the
 
    .. code-block:: bash
 
-      # contrib/backporting/submit-backport
+      $ GITHUB_TOKEN=xxx contrib/backporting/submit-backport
 
 Via GitHub web interface
 ^^^^^^^^^^^^^^^^^^^^^^^^
@@ -237,7 +237,7 @@ listed in the pull request description.
 
 .. code-block:: bash
 
-   $ for pr in 12589 12568; do contrib/backporting/set-labels.py $pr done 1.8; done
+   $ GITHUB_TOKEN=xxx for pr in 12589 12568; do contrib/backporting/set-labels.py $pr done 1.8; done
 
 Backporting guide for others
 ----------------------------
@@ -264,4 +264,4 @@ When merging a backport PR, set the labels of the backported PRs to
 
 .. code-block:: bash
 
-    $ for pr in 12894 12621 12973 12977 12952; do contrib/backporting/set-labels.py $pr done 1.8; done
+    $ GITHUB_TOKEN=xxx for pr in 12894 12621 12973 12977 12952; do contrib/backporting/set-labels.py $pr done 1.8; done
