@@ -28,6 +28,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	"github.com/sirupsen/logrus"
+	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	v1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/types"
 	"k8s.io/client-go/kubernetes"
@@ -43,6 +44,11 @@ type K8sClient struct {
 // K8sCiliumClient is a wrapper around clientset.Interface.
 type K8sCiliumClient struct {
 	clientset.Interface
+}
+
+// K8sAPIExtensionsClient is a wrapper around clientset.Interface.
+type K8sAPIExtensionsClient struct {
+	apiextclientset.Interface
 }
 
 func updateNodeAnnotation(c kubernetes.Interface, nodeName string, encryptKey uint8, v4CIDR, v6CIDR *cidr.CIDR, v4HealthIP, v6HealthIP, v4CiliumHostIP, v6CiliumHostIP net.IP) error {

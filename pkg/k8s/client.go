@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 
+	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	"k8s.io/apimachinery/pkg/api/errors"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -49,6 +50,9 @@ var (
 
 	// k8sCiliumCLI is the default Cilium client.
 	k8sCiliumCLI = &K8sCiliumClient{}
+
+	// k8sCiliumCLI is the dedicated apiextensions client.
+	k8sAPIExtCLI = &K8sAPIExtensionsClient{}
 )
 
 // Client returns the default Kubernetes client.
@@ -64,6 +68,11 @@ func WatcherClient() *K8sClient {
 // CiliumClient returns the default Cilium Kubernetes client.
 func CiliumClient() *K8sCiliumClient {
 	return k8sCiliumCLI
+}
+
+// CiliumClient returns the default Cilium Kubernetes client.
+func APIExtClient() *K8sAPIExtensionsClient {
+	return k8sAPIExtCLI
 }
 
 // CreateConfig creates a client configuration based on the configured API
@@ -150,6 +159,22 @@ func createDefaultCiliumClient() (func(), error) {
 	k8sCiliumCLI.Interface = createdCiliumK8sClient
 
 	return closeAllConns, nil
+}
+
+func createAPIExtensionsClient() error {
+	restConfig, err := CreateConfig()
+	if err != nil {
+		return fmt.Errorf("unable to create rest configuration: %w", err)
+	}
+
+	c, err := apiextclientset.NewForConfig(restConfig)
+	if err != nil {
+		return fmt.Errorf("unable to create rest configuration for k8s CRD: %w", err)
+	}
+
+	k8sAPIExtCLI.Interface = c
+
+	return err
 }
 
 // createConfig creates a rest.Config for connecting to k8s api-server.
