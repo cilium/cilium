@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	v1 "k8s.io/api/core/v1"
+	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -186,6 +187,26 @@ func ObjToV1Namespace(obj interface{}) *slim_corev1.Namespace {
 	}
 	log.WithField(logfields.Object, logfields.Repr(obj)).
 		Warn("Ignoring invalid k8s v1 Namespace")
+	return nil
+}
+
+func ObjToV1PartialObjectMetadata(obj interface{}) *metav1.PartialObjectMetadata {
+	pom, ok := obj.(*metav1.PartialObjectMetadata)
+	if ok {
+		return pom
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		pom, ok := deletedObj.Obj.(*metav1.PartialObjectMetadata)
+		if ok {
+			return pom
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid k8s v1 PartialObjectMetadata")
 	return nil
 }
 

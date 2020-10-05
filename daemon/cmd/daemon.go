@@ -461,6 +461,12 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
+		// Errors are handled inside WaitForCRDsToRegister. It will fatal on a
+		// context deadline or if the context has been cancelled, the context's
+		// error will be returned. Otherwise, it succeeded.
+		if err := d.k8sWatcher.WaitForCRDsToRegister(d.ctx); err != nil {
+			return nil, restoredEndpoints, err
+		}
 
 		if option.Config.IPAM == ipamOption.IPAMClusterPool {
 			// Create the CiliumNode custom resource. This call will block until
@@ -514,6 +520,14 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	detectNativeDevices(isKubeProxyReplacementStrict)
 	finishKubeProxyReplacementInit(isKubeProxyReplacementStrict)
 
+	// Launch the K8s watchers in parallel as we continue to process other
+	// daemon options.
+	if k8s.IsEnabled() {
+		bootstrapStats.k8sInit.Start()
+		d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem(d.ctx)
+		bootstrapStats.k8sInit.End(true)
+	}
+
 	// BPF masquerade depends on BPF NodePort and require host-reachable svc to
 	// be fully enabled in the tunneling mode, so the following checks should
 	// happen after invoking initKubeProxyReplacementOptions().
@@ -565,8 +579,6 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 			Info("Using auto-derived device for host firewall")
 		option.Config.Devices = []string{device}
 	}
-
-	d.k8sCachesSynced = d.k8sWatcher.InitK8sSubsystem()
 
 	bootstrapStats.cleanup.Start()
 	err = clearCiliumVeths()

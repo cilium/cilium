@@ -16,6 +16,7 @@ package watchers
 
 import (
 	"context"
+	"errors"
 	"fmt"
 	"net"
 	"net/url"
@@ -370,16 +371,39 @@ func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
 	}
 }
 
+// WaitForCRDsToRegister will wait for the Cilium Operator to register the CRDs
+// with the apiserver. This step is required before launching the full K8s
+// watcher, as those resource controllers need the resources to be registered
+// with K8s first.
+func (k *K8sWatcher) WaitForCRDsToRegister(ctx context.Context) error {
+	return k.crdsInit(ctx, k8s.APIExtClient())
+}
+
 // InitK8sSubsystem returns a channel for which it will be closed when all
 // caches essential for daemon are synchronized.
-func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
-	if err := k.EnableK8sWatcher(option.Config.K8sWatcherQueueSize); err != nil {
-		log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
+func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
+	cachesSynced := make(chan struct{})
+	if err := k.EnableK8sWatcher(ctx, option.Config.K8sWatcherQueueSize); err != nil {
+		if !errors.Is(err, context.Canceled) {
+			log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
+		}
+		// If the context was canceled it means the daemon is being stopped
+		// so we can return a non-closed channel.
+		return cachesSynced
 	}
 
-	cachesSynced := make(chan struct{})
-
 	go func() {
+		// Ensure that we have the CRDs installed first before waiting on the
+		// other resources below.
+		k.WaitForCacheSync(
+			cnpCRD,
+			ccnpCRD,
+			cepCRD,
+			cnCRD,
+			cidCRD,
+			clrpCRD,
+		)
+
 		log.Info("Waiting until all pre-existing resources related to policy have been received")
 		// Wait only for certain caches, but not all!
 		// We don't wait for nodes synchronization.
@@ -436,14 +460,12 @@ func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
 // api server defined in the receiver's daemon k8sClient.
 // queueSize specifies the queue length used to serialize k8s events.
-func (k *K8sWatcher) EnableK8sWatcher(queueSize uint) error {
+func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context, queueSize uint) error {
 	if !k8s.IsEnabled() {
 		log.Debug("Not enabling k8s event listener because k8s is not enabled")
 		return nil
 	}
 	log.Info("Enabling k8s event listener")
-
-	k.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
 
 	ciliumNPClient := k8s.CiliumClient()
 	asyncControllers := &sync.WaitGroup{}
