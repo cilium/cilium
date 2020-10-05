@@ -568,7 +568,8 @@ func (m *ManagerTestSuite) TestLocalRedirectLocalBackendSelection(c *C) {
 }
 
 // Local redirect service should be able to override a ClusterIP service with same
-// frontend, but reverse should produce an error.
+// frontend, but reverse should produce an error. Also, it should not override
+// any other type besides itself or clusterIP type.
 func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 	// Create a node-local backend.
 	localBackend := backends1[0]
@@ -619,6 +620,33 @@ func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 	p1.Type = lb.SVCTypeClusterIP
 	created, _, err = m.svc.UpsertService(p1)
 
+	c.Assert(err, NotNil)
+	c.Assert(created, Equals, false)
+
+	p2 := &lb.SVC{
+		Frontend:      frontend2,
+		Backends:      allBackends,
+		Type:          lb.SVCTypeNodePort,
+		TrafficPolicy: lb.SVCTrafficPolicyCluster,
+		Name:          "svc2",
+		Namespace:     "ns1",
+	}
+
+	// Insert the service entry of type NodePort.
+	created, id, err = m.svc.UpsertService(p2)
+	c.Assert(err, IsNil)
+	c.Assert(created, Equals, true)
+	c.Assert(id, Not(Equals), lb.ID(0))
+
+	svc, ok = m.svc.svcByID[id]
+	c.Assert(len(svc.backends), Equals, len(allBackends))
+	c.Assert(ok, Equals, true)
+
+	// Insert the service entry of type Local Redirect.
+	p2.Type = lb.SVCTypeLocalRedirect
+	created, _, err = m.svc.UpsertService(p2)
+
+	// Local redirect service should not override the NodePort service.
 	c.Assert(err, NotNil)
 	c.Assert(created, Equals, false)
 }

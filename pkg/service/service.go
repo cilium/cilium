@@ -544,10 +544,18 @@ func (s *Service) createSVCInfoIfNotExist(p *lb.SVC) (*svcInfo, bool, bool,
 		// as the service clusterIP type. In such cases, if a Local redirect service
 		// exists, we shouldn't override it with clusterIP type (e.g., k8s event/sync, etc).
 		if svc.svcType == lb.SVCTypeLocalRedirect && p.Type == lb.SVCTypeClusterIP {
-			err := fmt.Errorf("Local redirect service exists for "+
-				"frontend %v, skip update for svc %s", p.Frontend, p.Name)
+			err := fmt.Errorf("local-redirect service exists for "+
+				"frontend %v, skip update for svc %v", p.Frontend, p.Name)
 			return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, err
 
+		}
+		// Local-redirect service can only override clusterIP service type or itself.
+		if p.Type == lb.SVCTypeLocalRedirect &&
+			(svc.svcType != lb.SVCTypeClusterIP && svc.svcType != lb.SVCTypeLocalRedirect) {
+			err := fmt.Errorf("skip local-redirect service for "+
+				"frontend %v as it overlaps with svc %v of type %v",
+				p.Frontend, svc.svcName, svc.svcType)
+			return svc, !found, prevSessionAffinity, prevLoadBalancerSourceRanges, err
 		}
 		prevSessionAffinity = svc.sessionAffinity
 		prevLoadBalancerSourceRanges = svc.loadBalancerSourceRanges
