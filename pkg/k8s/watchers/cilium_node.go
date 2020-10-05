@@ -30,7 +30,6 @@ import (
 )
 
 func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncControllers *sync.WaitGroup) {
-
 	// CiliumNode objects are used for node discovery until the key-value
 	// store is connected
 	var once sync.Once

@@ -32,8 +32,11 @@ import (
 	"github.com/cilium/cilium/pkg/version"
 
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
+	apiextclientsetscheme "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	"k8s.io/apimachinery/pkg/api/errors"
+	tablescheme "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
+	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
 	"k8s.io/client-go/kubernetes"
 	"k8s.io/client-go/rest"
@@ -288,4 +291,10 @@ func runHeartbeat(heartBeat func(context.Context) error, timeout time.Duration, 
 func isConnReady(c kubernetes.Interface) error {
 	_, err := c.CoreV1().Namespaces().Get(context.TODO(), "kube-system", metav1.GetOptions{})
 	return err
+}
+
+func init() {
+	// Register the metav1.Table and metav1.PartialObjectMetadata for the
+	// apiextclientset.
+	utilruntime.Must(tablescheme.AddToScheme(apiextclientsetscheme.Scheme))
 }

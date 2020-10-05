@@ -1342,7 +1342,12 @@ func runDaemon() {
 		WithDefaultEndpointManager(),
 		linuxdatapath.NewDatapath(datapathConfig, iptablesManager))
 	if err != nil {
-		log.WithError(err).Fatal("Error while creating daemon")
+		select {
+		case <-server.ServerCtx.Done():
+			log.WithError(err).Debug("Error while creating daemon")
+		default:
+			log.WithError(err).Fatal("Error while creating daemon")
+		}
 		return
 	}
 
@@ -1369,7 +1374,7 @@ func runDaemon() {
 
 	bootstrapStats.k8sInit.Start()
 	// Wait only for certain caches, but not all!
-	// (Check Daemon.initK8sSubsystem() for more info)
+	// (Check Daemon.InitK8sSubsystem() for more info)
 	<-d.k8sCachesSynced
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)
