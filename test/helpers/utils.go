@@ -639,3 +639,18 @@ func SkipQuarantined() bool {
 func SkipGKEQuarantined() bool {
 	return SkipQuarantined() && IsIntegration(CIIntegrationGKE)
 }
+
+// DualStackSupported returns whether the current environment has DualStack IPv6
+// enabled or not for the cluster.
+func DualStackSupported() bool {
+	k8sVersion := GetCurrentK8SEnv()
+	switch k8sVersion {
+	case "1.18", "1.19":
+		// We only have DualStack enabled in Vagrant test env.
+		if GetCurrentIntegration() == "" {
+			return true
+		}
+	}
+
+	return false
+}
