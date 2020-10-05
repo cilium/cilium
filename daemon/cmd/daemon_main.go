@@ -860,6 +860,9 @@ func init() {
 	flags.Var(option.NewNamedMapOptions(option.APIRateLimitName, &option.Config.APIRateLimit, nil), option.APIRateLimitName, "API rate limiting configuration (example: --rate-limit endpoint-create=rate-limit:10/m,rate-burst:2)")
 	option.BindEnv(option.APIRateLimitName)
 
+	flags.Duration(option.CRDWaitTimeout, 5*time.Minute, "Cilium will exit if CRDs are not available within this duration upon startup")
+	option.BindEnv(option.CRDWaitTimeout)
+
 	viper.BindPFlags(flags)
 
 	CustomCommandHelpFormat(RootCmd, option.HelpFlagSections)
