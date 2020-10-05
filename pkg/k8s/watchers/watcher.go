@@ -409,6 +409,9 @@ func (k *K8sWatcher) InitK8sSubsystem() <-chan struct{} {
 			// Pods can contain labels which are essential for endpoints
 			// being restored to have the right identity.
 			K8sAPIGroupPodV1Core,
+			// We need to know about active local redirect policy services
+			// before BPF LB datapath is synced.
+			k8sAPIGroupCiliumLocalRedirectPolicyV2,
 		)
 		// CiliumEndpoint is used to synchronize the ipcache, wait for
 		// it unless it is disabled
