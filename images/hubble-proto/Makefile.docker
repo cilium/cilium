@@ -1,4 +1,4 @@
-# Copyright 2017-2020 Authors of Cilium
+# Copyright 2017-2021 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
 # This Makefile is expected to run inside cilium/hubble-proto image to generate
@@ -29,7 +29,7 @@ all:
 		echo Generating $${proto} && \
 		$(PROTOC) $(HUBBLE_PROTOC_PLUGINS) -I $(HUBBLE_PROTO_PATH) -I $(EXTERNAL_PROTO_SOURCE) \
 			--go_out=paths=source_relative:. \
-			--go-grpc_out=requireUnimplementedServers=false,paths=source_relative:. \
+			--go-grpc_out=require_unimplemented_servers=false,paths=source_relative:. \
 			--go-json_out=orig_name:. \
 			$${proto}; \
 	done
