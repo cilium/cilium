@@ -343,7 +343,7 @@ ipv4_host_policy_ingress(struct __ctx_buff *ctx, __u32 *src_id)
 	tuple.daddr = ip4->daddr;
 	tuple.saddr = ip4->saddr;
 	l4_off = l3_off + ipv4_hdrlen(ip4);
-#  ifndef IPV4_FRAGMENTS
+#  ifndef ENABLE_IPV4_FRAGMENTS
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
 	 */
