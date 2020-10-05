@@ -20,3 +20,4 @@ for details on when etcd is required.
    k8s-install-etcd-operator
    k8s-install-external-etcd
    k8s-install-azure
+   k8s-install-openshift-okd
