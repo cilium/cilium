@@ -151,6 +151,10 @@ const (
 	// for retrieving Azure API credentials
 	AzureUserAssignedIdentityID = "azure-user-assigned-identity-id"
 
+	// AzureUsePrimaryAddress specify wether we should use or ignore the interface's
+	// primary IPConfiguration
+	AzureUsePrimaryAddress = "azure-use-primary-address"
+
 	// CRDWaitTimeout it the time after which Cilium CRDs have to be available.
 	CRDWaitTimeout = "crd-wait-timeout"
 
@@ -290,6 +294,10 @@ type OperatorConfig struct {
 	// for retrieving Azure API credentials
 	AzureUserAssignedIdentityID string
 
+	// AzureUsePrimaryAddress specify wether we should use or ignore the interface's
+	// primary IPConfiguration
+	AzureUsePrimaryAddress bool
+
 	// CRDWaitTimeout it the time after which Cilium CRDs have to be available.
 	CRDWaitTimeout time.Duration
 
@@ -343,6 +351,7 @@ func (c *OperatorConfig) Populate() {
 	c.AzureCloudName = viper.GetString(AzureCloudName)
 	c.AzureSubscriptionID = viper.GetString(AzureSubscriptionID)
 	c.AzureResourceGroup = viper.GetString(AzureResourceGroup)
+	c.AzureUsePrimaryAddress = viper.GetBool(AzureUsePrimaryAddress)
 	c.AzureUserAssignedIdentityID = viper.GetString(AzureUserAssignedIdentityID)
 
 	// Option maps and slices
