@@ -15,7 +15,7 @@ ARG LOCKDEBUG
 ARG RACE
 RUN make NOSTRIP=$NOSTRIP LOCKDEBUG=$LOCKDEBUG RACE=$RACE cilium-operator-generic
 
-FROM docker.io/library/alpine:3.9.3 as certs
+FROM docker.io/library/alpine:3.12.0 as certs
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 RUN apk --update add ca-certificates
