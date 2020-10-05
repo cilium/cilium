@@ -2610,6 +2610,8 @@ func (c *DaemonConfig) Populate() {
 		c.FixedIdentityMapping = m
 	}
 
+	c.ConntrackGCInterval = viper.GetDuration(ConntrackGCInterval)
+
 	if m := viper.GetStringMapString(KVStoreOpt); len(m) != 0 {
 		c.KVStoreOpt = m
 	}
