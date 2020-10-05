@@ -854,6 +854,10 @@ const (
 
 	// APIRateLimitName enables configuration of the API rate limits
 	APIRateLimitName = "api-rate-limit"
+
+	// CRDWaitTimeout is the timeout in which Cilium will exit if CRDs are not
+	// available.
+	CRDWaitTimeout = "crd-wait-timeout"
 )
 
 // HelpFlagSections to format the Cilium Agent help template.
@@ -2004,6 +2008,10 @@ type DaemonConfig struct {
 
 	// APIRateLimitName enables configuration of the API rate limits
 	APIRateLimit map[string]string
+
+	// CRDWaitTimeout is the timeout in which Cilium will exit if CRDs are not
+	// available.
+	CRDWaitTimeout time.Duration
 }
 
 var (
@@ -2537,6 +2545,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableIPv4FragmentsTracking = viper.GetBool(EnableIPv4FragmentsTrackingName)
 	c.FragmentsMapEntries = viper.GetInt(FragmentsMapEntriesName)
 	c.K8sServiceProxyName = viper.GetString(K8sServiceProxyName)
+	c.CRDWaitTimeout = viper.GetDuration(CRDWaitTimeout)
 
 	c.populateDevices()
 
