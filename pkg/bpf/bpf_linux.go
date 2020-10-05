@@ -464,23 +464,31 @@ func objCheck(fd int, path string, mapType MapType, keySize, valueSize, maxEntri
 
 func OpenOrCreateMap(path string, mapType MapType, keySize, valueSize, maxEntries, flags uint32, innerID uint32, pin bool) (int, bool, error) {
 	var fd int
+	var err error
 
 	redo := false
 	isNewMap := false
 
 recreate:
-	if _, err := os.Stat(path); os.IsNotExist(err) || redo {
-		mapDir := filepath.Dir(path)
-		if _, err = os.Stat(mapDir); os.IsNotExist(err) {
-			if err = os.MkdirAll(mapDir, 0755); err != nil {
-				return 0, isNewMap, &os.PathError{
-					Op:   "Unable create map base directory",
-					Path: path,
-					Err:  err,
+	create := true
+	if pin {
+		if _, err := os.Stat(path); os.IsNotExist(err) || redo {
+			mapDir := filepath.Dir(path)
+			if _, err = os.Stat(mapDir); os.IsNotExist(err) {
+				if err = os.MkdirAll(mapDir, 0755); err != nil {
+					return 0, isNewMap, &os.PathError{
+						Op:   "Unable create map base directory",
+						Path: path,
+						Err:  err,
+					}
 				}
 			}
+		} else {
+			create = false
 		}
+	}
 
+	if create {
 		fd, err = CreateMap(
 			mapType,
 			keySize,
@@ -515,7 +523,7 @@ recreate:
 		return fd, isNewMap, nil
 	}
 
-	fd, err := ObjGet(path)
+	fd, err = ObjGet(path)
 	if err == nil {
 		redo = objCheck(
 			fd,

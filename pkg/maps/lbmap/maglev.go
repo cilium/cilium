@@ -39,7 +39,7 @@ var MaglevOuter6Map *bpf.Map
 
 func InitMaglevMaps(ipv4 bool, ipv6 bool) error {
 	dummyInnerMap := newInnerMaglevMap("cilium_lb_maglev_dummy")
-	if _, err := dummyInnerMap.OpenOrCreateUnpinned(); err != nil {
+	if err := dummyInnerMap.CreateUnpinned(); err != nil {
 		return err
 	}
 	defer dummyInnerMap.Close()
@@ -93,7 +93,7 @@ func updateMaglevTable(ipv6 bool, revNATID uint16, backendIDs []uint16) error {
 	}
 
 	innerMap := newInnerMaglevMap(innerMapName)
-	if _, err := innerMap.OpenOrCreateUnpinned(); err != nil {
+	if err := innerMap.CreateUnpinned(); err != nil {
 		return err
 	}
 	defer innerMap.Close()

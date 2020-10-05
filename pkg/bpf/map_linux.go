@@ -467,13 +467,13 @@ func (m *Map) OpenOrCreate() (bool, error) {
 	return m.openOrCreate(true)
 }
 
-// OpenOrCreateUnpinned is similar to OpenOrCreate (see above) but without
-// pinning the map to the file system if it had to be created.
-func (m *Map) OpenOrCreateUnpinned() (bool, error) {
+// CreateUnpinned creates the map without pinning it to the file system.
+func (m *Map) CreateUnpinned() error {
 	m.lock.Lock()
 	defer m.lock.Unlock()
 
-	return m.openOrCreate(false)
+	_, err := m.openOrCreate(false)
+	return err
 }
 
 // Create is similar to OpenOrCreate, but closes the map after creating or

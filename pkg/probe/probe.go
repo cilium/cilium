@@ -72,7 +72,7 @@ func HaveFullLPM() bool {
 			&probeKey{}, int(unsafe.Sizeof(probeKey{})),
 			&probeValue{}, int(unsafe.Sizeof(probeValue{})),
 			1, bpf.BPF_F_NO_PREALLOC, 0, bpf.ConvertKeyValue).WithCache()
-		_, err := m.OpenOrCreateUnpinned()
+		err := m.CreateUnpinned()
 		defer m.Close()
 		if err != nil {
 			return
