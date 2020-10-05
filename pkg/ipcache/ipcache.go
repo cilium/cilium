@@ -55,6 +55,9 @@ type IPKeyPair struct {
 }
 
 // K8sMetadata contains Kubernetes pod information of the IP
+//
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type K8sMetadata struct {
 	// Namespace is the Kubernetes namespace of the pod behind the IP
 	Namespace string
@@ -202,7 +205,7 @@ func (ipc *IPCache) updateNamedPorts() (namedPortsChanged bool) {
 			npm[name][port] = struct{}{}
 		}
 	}
-	namedPortsChanged = !npm.Equal(ipc.namedPorts)
+	namedPortsChanged = !npm.DeepEqual(&ipc.namedPorts)
 	if namedPortsChanged {
 		// swap the new map in
 		if len(npm) == 0 {
@@ -254,7 +257,7 @@ func (ipc *IPCache) Upsert(ip string, hostIP net.IP, hostKey uint8, k8sMeta *K8s
 
 	oldHostIP, oldHostKey := ipc.getHostIPCache(ip)
 	oldK8sMeta := ipc.ipToK8sMetadata[ip]
-	metaEqual := oldK8sMeta.Equal(k8sMeta)
+	metaEqual := oldK8sMeta.DeepEqual(k8sMeta)
 
 	cachedIdentity, found := ipc.ipToIdentityCache[ip]
 	if found {
@@ -577,21 +580,11 @@ func GetIPIdentityMapModel() {
 	// see GH-2555
 }
 
-// Equal returns true if two K8sMetadata pointers contain the same data or are
-// both nil.
-func (m *K8sMetadata) Equal(o *K8sMetadata) bool {
+// DeepEqual returns true if two K8sMetadata pointers contain the same data or
+// are both nil.
+func (m *K8sMetadata) DeepEqual(o *K8sMetadata) bool {
 	if m == o {
-		return true
-	} else if m == nil || o == nil {
-		return false
+		return o == nil
 	}
-	if len(m.NamedPorts) != len(o.NamedPorts) {
-		return false
-	}
-	for k, v := range m.NamedPorts {
-		if v2, ok := o.NamedPorts[k]; !ok || v != v2 {
-			return false
-		}
-	}
-	return m.Namespace == o.Namespace && m.PodName == o.PodName
+	return m.deepEqual(o)
 }

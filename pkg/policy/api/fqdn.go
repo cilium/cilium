@@ -111,6 +111,8 @@ func (s *FQDNSelector) ToRegex() (*regexp.Regexp, error) {
 }
 
 // PortRuleDNS is a list of allowed DNS lookups.
+//
+// +deepequal-gen:private-method=true
 type PortRuleDNS FQDNSelector
 
 // Sanitize checks that the matchName in the portRule can be compiled as a

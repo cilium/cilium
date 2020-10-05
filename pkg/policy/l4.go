@@ -18,7 +18,6 @@ import (
 	"bytes"
 	"encoding/json"
 	"fmt"
-	"reflect"
 	"sort"
 	"strconv"
 	"sync/atomic"
@@ -34,8 +33,8 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
 	"github.com/cilium/cilium/pkg/u8proto"
-	"github.com/cilium/proxy/go/cilium/api"
 
+	"github.com/cilium/proxy/go/cilium/api"
 	"github.com/sirupsen/logrus"
 )
 
@@ -105,15 +104,23 @@ func __canSkip(currentRule *PerSelectorPolicy, wildcardRule *PerSelectorPolicy) 
 }
 
 // TLS context holds the secret values resolved from an 'api.TLSContext'
+//
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type TLSContext struct {
 	TrustedCA        string `json:"trustedCA,omitempty"`
 	CertificateChain string `json:"certificateChain,omitempty"`
 	PrivateKey       string `json:"privateKey,omitempty"`
 }
 
-// Equal returns true if 'a' and 'b' have the same contents.
-func (a *TLSContext) Equal(b *TLSContext) bool {
-	return a == nil && b == nil || a != nil && b != nil && *a == *b
+// DeepEqual function deeply compares the receiver with other. The receiveir
+// must be non-nil.
+func (in *TLSContext) DeepEqual(other *TLSContext) bool {
+	if in == nil {
+		return other == nil
+	}
+
+	return in.deepEqual(other)
 }
 
 // MarshalJSON marsahls a redacted version of the TLSContext. We want
@@ -134,6 +141,8 @@ func (t *TLSContext) MarshalJSON() ([]byte, error) {
 	return json.Marshal(&redacted)
 }
 
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type PerSelectorPolicy struct {
 	// TerminatingTLS is the TLS context for the connection terminated by
 	// the L7 proxy.  For egress policy this specifies the server-side TLS
@@ -153,10 +162,14 @@ type PerSelectorPolicy struct {
 
 	// Pre-computed HTTP rules with resolved k8s secrets
 	// Computed after rule merging is complete!
+	//
+	// +deepequal-gen=false
 	EnvoyHTTPRules *cilium.HttpNetworkPolicyRules `json:"-"`
 
 	// CanShortCircuit is true if all 'EnvoyHTTPRules' may be
 	// short-circuited by other matches.
+	//
+	// +deepequal-gen=false
 	CanShortCircuit bool `json:"-"`
 
 	api.L7Rules
@@ -165,13 +178,17 @@ type PerSelectorPolicy struct {
 	IsDeny bool `json:",omitempty"`
 }
 
-// Equal returns true if 'a' and 'b' represent the same L7 Rules
-func (a *PerSelectorPolicy) Equal(b *PerSelectorPolicy) bool {
-	return a == nil && b == nil || a != nil && b != nil &&
-		a.TerminatingTLS.Equal(b.TerminatingTLS) &&
-		a.OriginatingTLS.Equal(b.OriginatingTLS) &&
-		a.IsDeny == b.IsDeny &&
-		reflect.DeepEqual(a.L7Rules, b.L7Rules)
+// Equal is used in tests for the check.Checker.
+func (in *PerSelectorPolicy) Equal(o *PerSelectorPolicy) bool {
+	return in.DeepEqual(o)
+}
+
+// DeepEqual returns true if both PerSelectorPolicy are the same
+func (in *PerSelectorPolicy) DeepEqual(o *PerSelectorPolicy) bool {
+	if in == nil {
+		return o == nil
+	}
+	return in.deepEqual(o)
 }
 
 // IsRedirect returns true if the L7Rules are a redirect.

@@ -1,4 +1,4 @@
-// Copyright 2018 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -21,6 +21,8 @@ import (
 // PortRuleL7 is a list of key-value pairs interpreted by a L7 protocol as
 // protocol constraints. All fields are optional, if all fields are empty or
 // missing, the rule does not have any effect.
+//
+// +deepequal-gen:private-method=true
 type PortRuleL7 map[string]string
 
 // Sanitize sanitizes key-value pair rules. It makes sure keys are present.

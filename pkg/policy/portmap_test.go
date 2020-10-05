@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -106,9 +106,9 @@ func (ds *PolicyTestSuite) TestPolicyPortProtoSet(c *C) {
 		PortProto{Port: 443, Proto: 6}: struct{}{},
 		PortProto{Port: 53, Proto: 6}:  struct{}{},
 	}
-	c.Assert(a.Equal(a), Equals, true)
-	c.Assert(a.Equal(b), Equals, false)
-	c.Assert(b.Equal(b), Equals, true)
+	c.Assert(a.DeepEqual(&a), Equals, true)
+	c.Assert(a.DeepEqual(&b), Equals, false)
+	c.Assert(b.DeepEqual(&b), Equals, true)
 }
 
 func (ds *PolicyTestSuite) TestPolicyNamedPortMultiMap(c *C) {
@@ -146,9 +146,9 @@ func (ds *PolicyTestSuite) TestPolicyNamedPortMultiMap(c *C) {
 		},
 	}
 
-	c.Assert(a.Equal(a), Equals, true)
-	c.Assert(a.Equal(b), Equals, false)
-	c.Assert(b.Equal(b), Equals, true)
+	c.Assert(a.DeepEqual(&a), Equals, true)
+	c.Assert(a.DeepEqual(&b), Equals, false)
+	c.Assert(b.DeepEqual(&b), Equals, true)
 
 	port, err := a.GetNamedPort("http", 6)
 	c.Assert(err, Equals, ErrDuplicateNamedPorts)

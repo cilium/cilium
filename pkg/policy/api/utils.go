@@ -1,4 +1,4 @@
-// Copyright 2017 Authors of Cilium
+// Copyright 2017-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -22,7 +22,7 @@ import (
 // Exists returns true if the HTTP rule already exists in the list of rules
 func (h *PortRuleHTTP) Exists(rules L7Rules) bool {
 	for _, existingRule := range rules.HTTP {
-		if h.Equal(existingRule) {
+		if h.DeepEqual(&existingRule) {
 			return true
 		}
 	}
@@ -30,50 +30,18 @@ func (h *PortRuleHTTP) Exists(rules L7Rules) bool {
 	return false
 }
 
-// Equal returns true if both HTTP rules are equal
-func (h *PortRuleHTTP) Equal(o PortRuleHTTP) bool {
-	if h.Path != o.Path ||
-		h.Method != o.Method ||
-		h.Host != o.Host ||
-		len(h.Headers) != len(o.Headers) ||
-		len(h.HeaderMatches) != len(o.HeaderMatches) {
-		return false
+// DeepEqual returns true if both Secrets are equal
+func (a *Secret) DeepEqual(b *Secret) bool {
+	if a == nil {
+		return b == nil
 	}
-
-	for i, value := range h.Headers {
-		if o.Headers[i] != value {
-			return false
-		}
-	}
-
-	for i, value := range h.HeaderMatches {
-		if !o.HeaderMatches[i].Equal(value) {
-			return false
-		}
-	}
-	return true
-}
-
-// Equal returns true if both Secrets are equal
-func (a *Secret) Equal(b *Secret) bool {
-	return a == nil && b == nil || a != nil && b != nil && *a == *b
-}
-
-// Equal returns true if both HeaderMatches are equal
-func (h *HeaderMatch) Equal(o *HeaderMatch) bool {
-	if h.Mismatch != o.Mismatch ||
-		h.Name != o.Name ||
-		h.Value != o.Value ||
-		!h.Secret.Equal(o.Secret) {
-		return false
-	}
-	return true
+	return a.deepEqual(b)
 }
 
 // Exists returns true if the DNS rule already exists in the list of rules
 func (d *PortRuleDNS) Exists(rules L7Rules) bool {
 	for _, existingRule := range rules.DNS {
-		if d.Equal(existingRule) {
+		if d.DeepEqual(&existingRule) {
 			return true
 		}
 	}
@@ -84,7 +52,7 @@ func (d *PortRuleDNS) Exists(rules L7Rules) bool {
 // Exists returns true if the L7 rule already exists in the list of rules
 func (h *PortRuleL7) Exists(rules L7Rules) bool {
 	for _, existingRule := range rules.L7 {
-		if h.Equal(existingRule) {
+		if h.DeepEqual(&existingRule) {
 			return true
 		}
 	}
@@ -92,22 +60,20 @@ func (h *PortRuleL7) Exists(rules L7Rules) bool {
 	return false
 }
 
-// Equal returns true if both rules are equal
-func (d *PortRuleDNS) Equal(o PortRuleDNS) bool {
-	return d != nil && d.MatchName == o.MatchName && d.MatchPattern == o.MatchPattern
+// DeepEqual returns true if both rules are equal
+func (d *PortRuleDNS) DeepEqual(o *PortRuleDNS) bool {
+	if d == nil {
+		return o == nil
+	}
+	return d.deepEqual(o)
 }
 
-// Equal returns true if both L7 rules are equal
-func (h *PortRuleL7) Equal(o PortRuleL7) bool {
-	if len(*h) != len(o) {
-		return false
+// DeepEqual returns true if both L7 rules are equal
+func (h *PortRuleL7) DeepEqual(o *PortRuleL7) bool {
+	if h == nil {
+		return o == nil || *o == nil
 	}
-	for k, v := range *h {
-		if v2, ok := o[k]; !ok || v2 != v {
-			return false
-		}
-	}
-	return true
+	return h.deepEqual(o)
 }
 
 // Validate returns an error if the layer 4 protocol is not valid

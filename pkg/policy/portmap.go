@@ -33,6 +33,8 @@ var (
 
 // PortProto is a pair of port number and protocol and is used as the
 // value type in named port maps.
+//
+// +deepequal-gen=true
 type PortProto struct {
 	Port  uint16 // non-0
 	Proto uint8  // 0 for any
@@ -44,14 +46,18 @@ type NamedPortMap map[string]PortProto
 // PortProtoSet is a set of unique PortProto values.
 type PortProtoSet map[PortProto]struct{}
 
-// Equal returns true if the PortProtoSets are equal.
-func (pps PortProtoSet) Equal(other PortProtoSet) bool {
-	if len(pps) != len(other) {
+// DeepEqual returns true if the PortProtoSets are equal.
+func (pps PortProtoSet) DeepEqual(other *PortProtoSet) bool {
+	if pps == nil {
+		return other == nil || *other == nil
+	}
+
+	if len(pps) != len(*other) {
 		return false
 	}
 
 	for port := range pps {
-		if _, exists := other[port]; !exists {
+		if _, exists := (*other)[port]; !exists {
 			return false
 		}
 	}
@@ -60,19 +66,17 @@ func (pps PortProtoSet) Equal(other PortProtoSet) bool {
 
 // NamedPortMultiMap may have multiple entries for a name if multiple PODs
 // define the same name with different values.
+//
+// +deepequal-gen=true
+// +deepequal-gen:private-method=true
 type NamedPortMultiMap map[string]PortProtoSet
 
-// Equal returns true if the NamedPortMultiMaps are equal.
-func (npm NamedPortMultiMap) Equal(other NamedPortMultiMap) bool {
-	if len(npm) != len(other) {
-		return false
+// DeepEqual returns true if the NamedPortMultiMaps are equal.
+func (npm NamedPortMultiMap) DeepEqual(other *NamedPortMultiMap) bool {
+	if npm == nil {
+		return other == nil || *other == nil
 	}
-	for name, ports := range npm {
-		if otherPorts, exists := other[name]; !exists || !ports.Equal(otherPorts) {
-			return false
-		}
-	}
-	return true
+	return npm.deepEqual(other)
 }
 
 // ValidatePortName checks that the port name conforms to the IANA Service Names spec

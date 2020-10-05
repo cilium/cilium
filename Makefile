@@ -392,9 +392,11 @@ generate-k8s-api:
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/api,"v1:models")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium,"$\
 	pkg:bpf\
+	pkg:ipcache\
 	pkg:k8s\
 	pkg:labels\
 	pkg:loadbalancer\
+	pkg:policy\
 	pkg:tuple")
 
 # Explanation for the arguments to `go-bindata`:

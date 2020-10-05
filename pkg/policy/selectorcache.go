@@ -256,12 +256,6 @@ type selectorManager struct {
 	cachedSelections map[identity.NumericIdentity]struct{}
 }
 
-// Equal is used by checker.Equals, and only considers the identity of the selector,
-// ignoring the internal state!
-func (s *selectorManager) Equal(b *selectorManager) bool {
-	return s.key == b.key
-}
-
 //
 // CachedSelector implementation (== Public API)
 //

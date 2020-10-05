@@ -70,6 +70,8 @@ func (p PortProtocol) Covers(other PortProtocol) bool {
 }
 
 // Secret is a reference to a secret, backed by k8s or local file system.
+//
+// +deepequal-gen:private-method=true
 type Secret struct {
 	// Namespace is the namespace in which the secret exists. Context of use
 	// determines the default value if left out (e.g., "default").

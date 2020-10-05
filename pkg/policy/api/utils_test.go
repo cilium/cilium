@@ -1,4 +1,4 @@
-// Copyright 2016-2017 Authors of Cilium
+// Copyright 2016-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -38,9 +38,9 @@ func (s *PolicyAPITestSuite) TestHTTPEqual(c *C) {
 	rule2 := PortRuleHTTP{Path: "/bar$", Method: "GET", Headers: []string{"X-Test: Foo"}}
 	rule3 := PortRuleHTTP{Path: "/foo$", Method: "GET", Headers: []string{"X-Test: Bar"}}
 
-	c.Assert(rule1.Equal(rule1), Equals, true)
-	c.Assert(rule1.Equal(rule2), Equals, false)
-	c.Assert(rule1.Equal(rule3), Equals, false)
+	c.Assert(rule1.DeepEqual(&rule1), Equals, true)
+	c.Assert(rule1.DeepEqual(&rule2), Equals, false)
+	c.Assert(rule1.DeepEqual(&rule3), Equals, false)
 
 	rules := L7Rules{
 		HTTP: []PortRuleHTTP{rule1, rule2},
@@ -74,15 +74,15 @@ func (s *PolicyAPITestSuite) TestL7Equal(c *C) {
 	rule2 := PortRuleL7{"Path": "/bar$", "Method": "GET"}
 	rule3 := PortRuleL7{"Path": "/foo$", "Method": "GET", "extra": ""}
 
-	c.Assert(rule1.Equal(rule1), Equals, true)
-	c.Assert(rule2.Equal(rule2), Equals, true)
-	c.Assert(rule3.Equal(rule3), Equals, true)
-	c.Assert(rule1.Equal(rule2), Equals, false)
-	c.Assert(rule2.Equal(rule1), Equals, false)
-	c.Assert(rule1.Equal(rule3), Equals, false)
-	c.Assert(rule3.Equal(rule1), Equals, false)
-	c.Assert(rule2.Equal(rule3), Equals, false)
-	c.Assert(rule3.Equal(rule2), Equals, false)
+	c.Assert(rule1.DeepEqual(&rule1), Equals, true)
+	c.Assert(rule2.DeepEqual(&rule2), Equals, true)
+	c.Assert(rule3.DeepEqual(&rule3), Equals, true)
+	c.Assert(rule1.DeepEqual(&rule2), Equals, false)
+	c.Assert(rule2.DeepEqual(&rule1), Equals, false)
+	c.Assert(rule1.DeepEqual(&rule3), Equals, false)
+	c.Assert(rule3.DeepEqual(&rule1), Equals, false)
+	c.Assert(rule2.DeepEqual(&rule3), Equals, false)
+	c.Assert(rule3.DeepEqual(&rule2), Equals, false)
 
 	rules := L7Rules{
 		L7Proto: "testing",
