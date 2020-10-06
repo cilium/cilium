@@ -149,6 +149,7 @@ data:
   enable-endpoint-health-checking: "true"
   enable-well-known-identities: "false"
   enable-remote-node-identity: "true"
+  enable-api-rate-limit: "false"
 ---
 # Source: cilium/charts/agent/templates/clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
