@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/uuid"
 
 	"github.com/sirupsen/logrus"
@@ -802,7 +803,7 @@ func (d dummyRequest) Error(err error)             {}
 // restrictions.
 func (s *APILimiterSet) Wait(ctx context.Context, name string) (LimitedRequest, error) {
 	l, ok := s.limiters[name]
-	if !ok {
+	if !option.Config.EnableAPIRateLimit || !ok {
 		return dummyRequest{}, nil
 	}
 

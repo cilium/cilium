@@ -22,6 +22,7 @@ import (
 	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 
 	"golang.org/x/time/rate"
@@ -468,6 +469,9 @@ func (b *ControllerSuite) TestNewAPILimiterSet(c *check.C) {
 }
 
 func (b *ControllerSuite) TestAPILimiterMetrics(c *check.C) {
+	option.Config.EnableAPIRateLimit = true
+	defer func() { option.Config.EnableAPIRateLimit = false }()
+
 	// Validate setting of metrics via interface
 	metrics := newMockMetrics()
 
