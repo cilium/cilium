@@ -16,4 +16,4 @@ rm -rf /tmp/protoc.zip
 
 # correct permissions for others
 chmod +rx /usr/local/bin/protoc
-chmod +rX -R /usr/local/include/google/protobuf
+chmod +rX -R /usr/local/include

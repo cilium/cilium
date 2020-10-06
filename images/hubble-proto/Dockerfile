@@ -40,5 +40,7 @@ COPY --from=builder /proto/protoc-gen-go-json .
 COPY Makefile.docker ./Makefile
 
 WORKDIR /source
+# make /source  world writeable so one can run the container as a regular user
+RUN chmod 777 /source
 
 CMD ["make", "-f", "/proto/Makefile"]

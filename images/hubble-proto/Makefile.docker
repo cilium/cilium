@@ -6,6 +6,7 @@
 
 PROTOC ?= protoc
 
+EXTERNAL_PROTO_SOURCE := /usr/local/include
 HUBBLE_PROTO_SOURCES := \
 	./flow/flow.proto \
 	./peer/peer.proto \
@@ -26,7 +27,7 @@ all:
 	$(QUIET)set -e; \
 	for proto in $(HUBBLE_PROTO_SOURCES) ; do \
 		echo Generating $${proto} && \
-		$(PROTOC) $(HUBBLE_PROTOC_PLUGINS) -I $(HUBBLE_PROTO_PATH) \
+		$(PROTOC) $(HUBBLE_PROTOC_PLUGINS) -I $(HUBBLE_PROTO_PATH) -I $(EXTERNAL_PROTO_SOURCE) \
 			--go_out=paths=source_relative:. \
 			--go-grpc_out=requireUnimplementedServers=false,paths=source_relative:. \
 			--go-json_out=orig_name:. \
