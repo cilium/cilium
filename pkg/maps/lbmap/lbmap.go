@@ -59,6 +59,22 @@ func New(maglev bool, maglevTableSize int) *LBBPFMap {
 	return m
 }
 
+type UpsertServiceParams struct {
+	ID                        uint16
+	IP                        net.IP
+	Port                      uint16
+	Backends                  map[string]uint16
+	PrevBackendCount          int
+	IPv6                      bool
+	Type                      loadbalancer.SVCType
+	Local                     bool
+	Scope                     uint8
+	SessionAffinity           bool
+	SessionAffinityTimeoutSec uint32
+	CheckSourceRange          bool
+	UseMaglev                 bool
+}
+
 // UpsertService inserts or updates the given service in a BPF map.
 //
 // The corresponding backend entries (identified with the given backendIDs)
@@ -66,44 +82,39 @@ func New(maglev bool, maglevTableSize int) *LBBPFMap {
 //
 // The given prevBackendCount denotes a previous service backend entries count,
 // so that the function can remove obsolete ones.
-func (lbmap *LBBPFMap) UpsertService(
-	svcID uint16, svcIP net.IP, svcPort uint16,
-	backends map[string]uint16, prevBackendCount int,
-	ipv6 bool, svcType loadbalancer.SVCType, svcLocal bool,
-	svcScope uint8, sessionAffinity bool, sessionAffinityTimeoutSec uint32,
-	checkSourceRange, useMaglev bool) error {
+func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 	var svcKey ServiceKey
 
-	if svcID == 0 {
+	if p.ID == 0 {
 		return fmt.Errorf("Invalid svc ID 0")
 	}
 
-	if ipv6 {
-		svcKey = NewService6Key(svcIP, svcPort, u8proto.ANY, svcScope, 0)
+	if p.IPv6 {
+		svcKey = NewService6Key(p.IP, p.Port, u8proto.ANY, p.Scope, 0)
 	} else {
-		svcKey = NewService4Key(svcIP, svcPort, u8proto.ANY, svcScope, 0)
+		svcKey = NewService4Key(p.IP, p.Port, u8proto.ANY, p.Scope, 0)
 	}
 
 	slot := 1
 	svcVal := svcKey.NewValue().(ServiceValue)
 
-	if useMaglev && len(backends) != 0 {
-		backendNames := make([]string, 0, len(backends))
-		for name := range backends {
+	if p.UseMaglev && len(p.Backends) != 0 {
+		backendNames := make([]string, 0, len(p.Backends))
+		for name := range p.Backends {
 			backendNames = append(backendNames, name)
 		}
 		table := maglev.GetLookupTable(backendNames, lbmap.maglevTableSize)
 		for i, pos := range table {
-			lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]]
+			lbmap.maglevBackendIDsBuffer[i] = p.Backends[backendNames[pos]]
 		}
 
-		if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {
+		if err := updateMaglevTable(p.IPv6, p.ID, lbmap.maglevBackendIDsBuffer); err != nil {
 			return err
 		}
 	}
 
-	backendIDs := make([]uint16, 0, len(backends))
-	for _, id := range backends {
+	backendIDs := make([]uint16, 0, len(p.Backends))
+	for _, id := range p.Backends {
 		backendIDs = append(backendIDs, id)
 	}
 	for _, backendID := range backendIDs {
@@ -111,7 +122,7 @@ func (lbmap *LBBPFMap) UpsertService(
 			return fmt.Errorf("Invalid backend ID 0")
 		}
 		svcVal.SetBackendID(loadbalancer.BackendID(backendID))
-		svcVal.SetRevNat(int(svcID))
+		svcVal.SetRevNat(int(p.ID))
 		svcKey.SetBackendSlot(slot)
 		if err := updateServiceEndpoint(svcKey, svcVal); err != nil {
 			return fmt.Errorf("Unable to update service entry %+v => %+v: %s",
@@ -121,21 +132,21 @@ func (lbmap *LBBPFMap) UpsertService(
 	}
 
 	zeroValue := svcKey.NewValue().(ServiceValue)
-	zeroValue.SetRevNat(int(svcID)) // TODO change to uint16
+	zeroValue.SetRevNat(int(p.ID)) // TODO change to uint16
 	revNATKey := zeroValue.RevNatKey()
 	revNATValue := svcKey.RevNatValue()
 	if err := updateRevNatLocked(revNATKey, revNATValue); err != nil {
 		return fmt.Errorf("Unable to update reverse NAT %+v => %+v: %s", revNATKey, revNATValue, err)
 	}
 
-	if err := updateMasterService(svcKey, len(backendIDs), int(svcID), svcType, svcLocal,
-		sessionAffinity, sessionAffinityTimeoutSec, checkSourceRange); err != nil {
+	if err := updateMasterService(svcKey, len(backendIDs), int(p.ID), p.Type, p.Local,
+		p.SessionAffinity, p.SessionAffinityTimeoutSec, p.CheckSourceRange); err != nil {
 
 		deleteRevNatLocked(revNATKey)
 		return fmt.Errorf("Unable to update service %+v: %s", svcKey, err)
 	}
 
-	for i := slot; i <= prevBackendCount; i++ {
+	for i := slot; i <= p.PrevBackendCount; i++ {
 		svcKey.SetBackendSlot(i)
 		if err := deleteServiceLocked(svcKey); err != nil {
 			log.WithFields(logrus.Fields{
