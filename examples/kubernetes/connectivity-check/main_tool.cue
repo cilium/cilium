@@ -104,6 +104,17 @@ command: help: ccCommand & {
 			"Available Commands:",
 			"  dump\t\t\t\(command.dump.short)",
 			"  ls  \t\t\t\(command.ls.short)",
+			"",
+			"Available filters:",
+			"  component\t\t{ all | default | network | policy | services | hostport | proxy } (default excludes hostport, proxy)",
+			"  kind\t\t{ Deployment | Service | CiliumNetworkPolicy } (default: all)",
+			"  quarantine\t\t{ true | false } (default: false)",
+			"  topology\t\t{ any | single-node } (default: any)",
+			"  traffic\t\t{ any | internal | external } (default: any)",
+			"  type\t\t{ autocheck | tool } (default: autocheck)",
+			"",
+			"Example command:",
+			"$ cue -t component=all ls",
 		]
 		text: tabwriter.Write(helpText)
 	}
