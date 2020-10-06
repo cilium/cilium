@@ -481,8 +481,8 @@ An example invocation is
 
   CNI_INTEGRATION=eks K8S_VERSION=1.13 ginkgo --focus="K8s" -noColor -- -cilium.provision=false -cilium.kubeconfig=`echo ~/.kube/config` -cilium.image="docker.io/cilium/cilium:latest" -cilium.operator-image="docker.io/cilium/operator-generic:latest" -cilium.passCLIEnvironment=true
 
-GKE (experimental)
-^^^^^^^^^^^^^^^^^^^^^^
+Running in GKE
+^^^^^^^^^^^^^^
 
 1- Setup a cluster as in :ref:`k8s_install_gke` or utilize an existing
 cluster.
