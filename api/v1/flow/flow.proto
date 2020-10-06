@@ -303,6 +303,8 @@ message FlowFilter {
     // GET, POST, PUT, etc. methods. This type of field is well suited for an
     // enum but every single existing place is using a string already.
     repeated string http_method = 21;
+    // http_path is a list of regular expressions to filter on the HTTP path.
+    repeated string http_path = 22;
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.
