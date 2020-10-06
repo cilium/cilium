@@ -40,6 +40,20 @@ API Call                   Limit  Burst Max Parallel  Min Parallel Max Wait Dura
 Configuration
 =============
 
+.. note:: Before version 1.9, API rate limiting is disabled by default.
+
+The feature can be enabled with the ``enable-api-rate-limit`` option:
+
+.. code::
+
+    --enable-api-rate-limit=true
+
+Or with Helm:
+
+.. code::
+
+    --set global.enableAPIRateLimit=true
+
 The ``api-rate-limit`` option can be used to overwrite individual settings of the
 default configuration:
 
