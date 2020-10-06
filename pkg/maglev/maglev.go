@@ -19,7 +19,6 @@ import (
 
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/sirupsen/logrus"
 	"github.com/spaolacci/murmur3"
 )
@@ -43,16 +42,16 @@ var (
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, subsystem)
 
-func InitMaglevSeeds() {
-	d, err := base64.StdEncoding.DecodeString(option.Config.MaglevHashSeed)
+func InitMaglevSeeds(seed string) {
+	d, err := base64.StdEncoding.DecodeString(seed)
 	if err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
-			logfields.HashSeed: option.Config.MaglevHashSeed,
+			logfields.HashSeed: seed,
 		}).Fatal("Cannot decode base64 Maglev hash seed.")
 	}
 	if len(d) != 16 {
 		log.WithFields(logrus.Fields{
-			logfields.HashSeed: option.Config.MaglevHashSeed,
+			logfields.HashSeed: seed,
 		}).Fatal("Decoded Maglev hash seed is not 16 bytes.")
 	}
 
