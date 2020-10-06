@@ -42,8 +42,7 @@ var (
 
 // LBMap is the interface describing methods for manipulating service maps.
 type LBMap interface {
-	UpsertService(uint16, net.IP, uint16, map[string]uint16, int, bool, lb.SVCType,
-		bool, uint8, bool, uint32, bool, bool) error
+	UpsertService(*lbmap.UpsertServiceParams) error
 	DeleteService(lb.L3n4AddrID, int, bool) error
 	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
@@ -688,15 +687,22 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		backends[b.String()] = uint16(b.ID)
 	}
 
-	err := s.lbmap.UpsertService(
-		uint16(svc.frontend.ID), svc.frontend.L3n4Addr.IP,
-		svc.frontend.L3n4Addr.L4Addr.Port,
-		backends, prevBackendCount,
-		ipv6, svc.svcType, onlyLocalBackends,
-		svc.frontend.L3n4Addr.Scope,
-		svc.sessionAffinity, svc.sessionAffinityTimeoutSec,
-		checkLBSrcRange, svc.maglev)
-	if err != nil {
+	p := &lbmap.UpsertServiceParams{
+		ID:                        uint16(svc.frontend.ID),
+		IP:                        svc.frontend.L3n4Addr.IP,
+		Port:                      svc.frontend.L3n4Addr.L4Addr.Port,
+		Backends:                  backends,
+		PrevBackendCount:          prevBackendCount,
+		IPv6:                      ipv6,
+		Type:                      svc.svcType,
+		Local:                     onlyLocalBackends,
+		Scope:                     svc.frontend.L3n4Addr.Scope,
+		SessionAffinity:           svc.sessionAffinity,
+		SessionAffinityTimeoutSec: svc.sessionAffinityTimeoutSec,
+		CheckSourceRange:          checkLBSrcRange,
+		UseMaglev:                 svc.maglev,
+	}
+	if err := s.lbmap.UpsertService(p); err != nil {
 		return err
 	}
 
