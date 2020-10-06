@@ -40,10 +40,23 @@ var (
 )
 
 // LBBPFMap is an implementation of the LBMap interface.
-type LBBPFMap struct{}
+type LBBPFMap struct {
+	// Buffer used to avoid excessive allocations to temporarily store backend
+	// IDs. Concurrent access is protected by the
+	// pkg/service.go:(Service).UpsertService() lock.
+	maglevBackendIDsBuffer []uint16
+	maglevTableSize        uint64
+}
 
-func New() *LBBPFMap {
-	return &LBBPFMap{}
+func New(maglev bool, maglevTableSize int) *LBBPFMap {
+	m := &LBBPFMap{}
+
+	if maglev {
+		m.maglevBackendIDsBuffer = make([]uint16, maglevTableSize)
+		m.maglevTableSize = uint64(maglevTableSize)
+	}
+
+	return m
 }
 
 // UpsertService inserts or updates the given service in a BPF map.
@@ -75,20 +88,16 @@ func (lbmap *LBBPFMap) UpsertService(
 	svcVal := svcKey.NewValue().(ServiceValue)
 
 	if useMaglev && len(backends) != 0 {
-		var backendIDs []uint16
-
 		backendNames := make([]string, 0, len(backends))
 		for name := range backends {
 			backendNames = append(backendNames, name)
 		}
-		m := uint64(option.Config.MaglevTableSize)
-		table := maglev.GetLookupTable(backendNames, m)
-		backendIDs = make([]uint16, m)
+		table := maglev.GetLookupTable(backendNames, lbmap.maglevTableSize)
 		for i, pos := range table {
-			backendIDs[i] = backends[backendNames[pos]]
+			lbmap.maglevBackendIDsBuffer[i] = backends[backendNames[pos]]
 		}
 
-		if err := updateMaglevTable(ipv6, svcID, backendIDs); err != nil {
+		if err := updateMaglevTable(ipv6, svcID, lbmap.maglevBackendIDsBuffer); err != nil {
 			return err
 		}
 	}
