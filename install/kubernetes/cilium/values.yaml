@@ -486,6 +486,9 @@ global:
   # remoteNodeIdentity enables use of the remote node identity
   remoteNodeIdentity: true
 
+  # enableAPIRateLimit enables the use of API rate limiting
+  enableAPIRateLimit: false
+
   # psp creates and binds PodSecurityPolicies for the components that require it
   psp:
     enabled: false

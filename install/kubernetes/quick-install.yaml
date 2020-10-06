@@ -118,6 +118,7 @@ data:
   enable-endpoint-health-checking: "true"
   enable-well-known-identities: "false"
   enable-remote-node-identity: "true"
+  enable-api-rate-limit: "false"
   operator-api-serve-addr: "127.0.0.1:9234"
   ipam: "cluster-pool"
   cluster-pool-ipv4-cidr: "10.0.0.0/8"
