@@ -146,6 +146,9 @@ func NewService(monitorNotify monitorNotify) *Service {
 		localHealthServer = healthserver.New()
 	}
 
+	maglev := option.Config.NodePortAlg == option.NodePortAlgMaglev
+	maglevTableSize := option.Config.MaglevTableSize
+
 	return &Service{
 		svcByHash:       map[string]*svcInfo{},
 		svcByID:         map[lb.ID]*svcInfo{},
@@ -153,7 +156,7 @@ func NewService(monitorNotify monitorNotify) *Service {
 		backendByHash:   map[string]*lb.Backend{},
 		monitorNotify:   monitorNotify,
 		healthServer:    localHealthServer,
-		lbmap:           lbmap.New(),
+		lbmap:           lbmap.New(maglev, maglevTableSize),
 	}
 }
 
