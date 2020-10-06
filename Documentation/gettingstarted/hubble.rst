@@ -217,6 +217,17 @@ event in your current namespace individually.
     If you enable :ref:`proxy_visibility` on your pods, the Hubble UI service
     map will display the HTTP endpoints which are being accessed by the requests.
 
+Inspecting a wide variety of network traffic
+============================================
+
+The "connectivity-check" generates a wide variety of network traffic, including
+packets sent outside the cluster and packets dropped by policy.
+
+.. include:: k8s-install-connectivity-test.rst
+
+To see the traffic in Hubble, open http://localhost:12000/cilium-test in your
+browser.
+
 Inspecting the cluster's network traffic with Hubble Relay
 ==========================================================
 
