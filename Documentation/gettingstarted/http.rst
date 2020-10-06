@@ -232,6 +232,13 @@ and
     $ kubectl exec tiefighter -- curl -s -XPUT deathstar.default.svc.cluster.local/v1/exhaust-port
     Access denied
 
+As this rule builds on the identity-aware rule, traffic from pods without the label
+``org=empire`` will continue to be dropped causing the connection to time out:
+
+.. parsed-literal::
+    $ kubectl exec xwing -- curl -s -XPOST deathstar.default.svc.cluster.local/v1/request-landing
+
+
 As you can see, with Cilium L7 security policies, we are able to permit
 *tiefighter* to access only the required API resources on *deathstar*, thereby
 implementing a "least privilege" security approach for communication between
