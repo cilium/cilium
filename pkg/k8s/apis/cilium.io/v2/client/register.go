@@ -57,8 +57,8 @@ const (
 	// CNCRDName is the full name of the CN CRD.
 	CNCRDName = k8sconstv2.CNKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
-	// CLRPCRDNAME is the full name of the CLRP CRD.
-	CLRPCRDNAME = k8sconstv2.CLRPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
+	// CLRPCRDName is the full name of the CLRP CRD.
+	CLRPCRDName = k8sconstv2.CLRPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
 
 	// CCLRPCRDNAME is the full name of the CCLRP CRD.
 	CCLRPCRDNAME = k8sconstv2.CCLRPKindDefinition + "/" + k8sconstv2.CustomResourceDefinitionVersion
@@ -132,7 +132,7 @@ func GetPregeneratedCRD(crdName string) apiextensionsv1.CustomResourceDefinition
 		crdBytes, err = examplesCrdsCiliumidentitiesYamlBytes()
 	case CNCRDName:
 		crdBytes, err = examplesCrdsCiliumnodesYamlBytes()
-	case CLRPCRDNAME:
+	case CLRPCRDName:
 		crdBytes, err = examplesCrdsCiliumlocalredirectpoliciesYamlBytes()
 	case CCLRPCRDNAME:
 		crdBytes, err = examplesCrdsCiliumclusterwidelocalredirectpoliciesYamlBytes()
@@ -219,11 +219,11 @@ func createIdentityCRD(clientset apiextensionsclient.Interface) error {
 }
 
 func createCLRPCRD(clientset apiextensionsclient.Interface) error {
-	cLrpCRD := GetPregeneratedCRD(CLRPCRDNAME)
+	cLrpCRD := GetPregeneratedCRD(CLRPCRDName)
 
 	return createUpdateCRD(
 		clientset,
-		CLRPCRDNAME,
+		CLRPCRDName,
 		constructV1CRD(k8sconstv2.CLRPName, cLrpCRD),
 		newDefaultPoller(),
 	)
