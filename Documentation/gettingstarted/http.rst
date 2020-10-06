@@ -209,7 +209,7 @@ API call, but disallowing all other calls (including PUT /v1/exhaust-port).
 
 .. literalinclude:: ../../examples/minikube/sw_l3_l4_l7_policy.yaml
 
-Update the existing rule to apply L7-aware policy to protect *app1* using:
+Update the existing rule to apply L7-aware policy to protect *deathstar* using:
 
 .. parsed-literal::
 
