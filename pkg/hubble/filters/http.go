@@ -18,6 +18,7 @@ import (
 	"context"
 	"errors"
 	"fmt"
+	"net/url"
 	"regexp"
 	"strings"
 
@@ -101,6 +102,39 @@ func filterByHTTPMethods(methods []string) (FilterFunc, error) {
 	}, nil
 }
 
+func filterByHTTPPaths(pathRegexpStrs []string) (FilterFunc, error) {
+	pathRegexps := make([]*regexp.Regexp, 0, len(pathRegexpStrs))
+	for _, pathRegexpStr := range pathRegexpStrs {
+		pathRegexp, err := regexp.Compile(pathRegexpStr)
+		if err != nil {
+			return nil, fmt.Errorf("%s: %v", pathRegexpStr, err)
+		}
+		pathRegexps = append(pathRegexps, pathRegexp)
+	}
+
+	return func(ev *v1.Event) bool {
+		http := ev.GetFlow().GetL7().GetHttp()
+
+		if http == nil || http.Url == "" {
+			return false
+		}
+
+		uri, err := url.ParseRequestURI(http.Url)
+		if err != nil {
+			// Silently drop all invalid URIs as there is nothing else we can
+			// do.
+			return false
+		}
+		for _, pathRegexp := range pathRegexps {
+			if pathRegexp.MatchString(uri.Path) {
+				return true
+			}
+		}
+
+		return false
+	}, nil
+}
+
 // HTTPFilter implements filtering based on HTTP metadata
 type HTTPFilter struct{}
 
@@ -132,6 +166,19 @@ func (h *HTTPFilter) OnBuildFilter(ctx context.Context, ff *flowpb.FlowFilter) (
 			return nil, fmt.Errorf("invalid http method filter: %v", err)
 		}
 		fs = append(fs, methodf)
+	}
+
+	if ff.GetHttpPath() != nil {
+		if !httpMatchCompatibleEventFilter(ff.GetEventType()) {
+			return nil, errors.New("filtering by http path requires " +
+				"the event type filter to only match 'l7' events")
+		}
+
+		pathf, err := filterByHTTPPaths(ff.GetHttpPath())
+		if err != nil {
+			return nil, fmt.Errorf("invalid http path filter: %v", err)
+		}
+		fs = append(fs, pathf)
 	}
 
 	return fs, nil

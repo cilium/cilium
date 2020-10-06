@@ -309,6 +309,69 @@ func TestHTTPFilters(t *testing.T) {
 				false,
 			},
 		},
+		// path filters
+		{
+			name: "path full",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpPath:  []string{"/docs/[a-z]+", "/post/\\d+"},
+						EventType: []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Url: "/docs/"}),
+					httpFlow(&flowpb.HTTP{Url: "/docs/tutorial/"}),
+					httpFlow(&flowpb.HTTP{Url: "/post/"}),
+					httpFlow(&flowpb.HTTP{Url: "/post/0"}),
+					httpFlow(&flowpb.HTTP{Url: "/post/slug"}),
+					httpFlow(&flowpb.HTTP{Url: "/post/123?key=value"}),
+					httpFlow(&flowpb.HTTP{Url: "/slug"}),
+				},
+			},
+			want: []bool{
+				false,
+				true,
+				false,
+				true,
+				false,
+				true,
+				false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid uri",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpPath:  []string{"/post/\\d+"},
+						EventType: []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+					},
+				},
+				ev: []*v1.Event{
+					httpFlow(&flowpb.HTTP{Url: "/post/0"}),
+					httpFlow(&flowpb.HTTP{Url: "?/post/0"}),
+				},
+			},
+			want: []bool{
+				true,
+				false,
+			},
+			wantErr: false,
+		},
+		{
+			name: "invalid path filter",
+			args: args{
+				f: []*flowpb.FlowFilter{
+					{
+						HttpPath:  []string{"("},
+						EventType: []*flowpb.EventTypeFilter{{Type: api.MessageTypeAccessLog}},
+					},
+				},
+			},
+			wantErr: true,
+		},
 	}
 	for _, tt := range tests {
 		t.Run(tt.name, func(t *testing.T) {
