@@ -33,7 +33,7 @@ multiple files per the following logic:
   for various connectivity checks at different layers and using different
   features. L7 policy checks are defined in `proxy.cue` and not `policy.cue`.
 * `*_tool.cue`: Various CLI tools for listing and generating the YAML
-  definitons used above. For more information, run `make help` in this
+  definitions used above. For more information, run `make help` in this
   directory.
 
 For more information, see https://github.com/cilium/cilium/pull/12599 .
