@@ -98,21 +98,19 @@ func GetLookupTable(backends []string, m uint64) []int {
 	for j := uint64(0); j < m; j++ {
 		entry[j] = -1
 	}
-	n := uint64(0)
 
-	for {
-		for i := 0; i < len(backends); i++ {
-			c := perm[i][next[i]]
-			for entry[c] >= 0 {
-				next[i] += 1
-				c = perm[i][next[i]]
-			}
-			entry[c] = i
+	l := len(backends)
+
+	for n := uint64(0); n < m; n++ {
+		i := int(n) % l
+		c := perm[i][next[i]]
+		for entry[c] >= 0 {
 			next[i] += 1
-			n += 1
-			if n == m {
-				return entry
-			}
+			c = perm[i][next[i]]
 		}
+		entry[c] = i
+		next[i] += 1
 	}
+
+	return entry
 }
