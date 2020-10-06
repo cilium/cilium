@@ -17,6 +17,7 @@
 package maglev
 
 import (
+	"fmt"
 	"testing"
 
 	. "gopkg.in/check.v1"
@@ -27,6 +28,10 @@ func Test(t *testing.T) { TestingT(t) }
 type MaglevTestSuite struct{}
 
 var _ = Suite(&MaglevTestSuite{})
+
+func (s *MaglevTestSuite) SetUpTest(c *C) {
+	InitMaglevSeeds(DefaultHashSeed)
+}
 
 func (s *MaglevTestSuite) TestBackendRemoval(c *C) {
 	m := uint64(37)
@@ -45,4 +50,21 @@ func (s *MaglevTestSuite) TestBackendRemoval(c *C) {
 			c.Assert(after[pos] == 0 || after[pos] == 1, Equals, true)
 		}
 	}
+}
+
+func (s *MaglevTestSuite) BenchmarkGetMaglevTable(c *C) {
+	backendCount := 1000
+	m := uint64(DefaultTableSize)
+
+	backends := make([]string, 0, backendCount)
+	for i := 0; i < backendCount; i++ {
+		backends = append(backends, fmt.Sprintf("backend-%d", i))
+	}
+
+	c.ResetTimer()
+	for i := 0; i < c.N; i++ {
+		table := GetLookupTable(backends, m)
+		c.Assert(len(table), Equals, int(m))
+	}
+	c.StopTimer()
 }
