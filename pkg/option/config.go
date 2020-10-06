@@ -818,6 +818,9 @@ const (
 
 	// APIRateLimitName enables configuration of the API rate limits
 	APIRateLimitName = "api-rate-limit"
+
+	// EnableAPIRateLimit enables the use of API rate limiting.
+	EnableAPIRateLimit = "enable-api-rate-limit"
 )
 
 // HelpFlagSections to format the Cilium Agent help template.
@@ -1904,6 +1907,9 @@ type DaemonConfig struct {
 
 	// APIRateLimitName enables configuration of the API rate limits
 	APIRateLimit map[string]string
+
+	// EnableAPIRateLimit enables the use of API rate limiting.
+	EnableAPIRateLimit bool
 }
 
 var (
@@ -2414,6 +2420,7 @@ func (c *DaemonConfig) Populate() {
 	c.EnableIPv4FragmentsTracking = viper.GetBool(EnableIPv4FragmentsTrackingName)
 	c.FragmentsMapEntries = viper.GetInt(FragmentsMapEntriesName)
 	c.K8sServiceProxyName = viper.GetString(K8sServiceProxyName)
+	c.EnableAPIRateLimit = viper.GetBool(EnableAPIRateLimit)
 
 	c.populateDevices()
 
