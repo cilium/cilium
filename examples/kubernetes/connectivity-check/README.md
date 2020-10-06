@@ -37,3 +37,31 @@ multiple files per the following logic:
   directory.
 
 For more information, see https://github.com/cilium/cilium/pull/12599 .
+
+## Listing and generating connectivity checks
+
+```
+$ make help
+List connectivity-check resources specified in this directory
+
+Usage:
+  cue [-t component=<component>] [-t kind=<kind>] [-t name=<name>] [-t quarantine=true] [-t topology=<topology>] [-t traffic=any] [-t type=<tooltype>] <command>
+
+Available Commands:
+  dump   Generate connectivity-check YAMLs from the cuelang scripts
+  ls     List connectivity-check resources specified in this directory
+
+Available filters:
+  component   { all | default | network | policy | services | hostport | proxy } (default excludes hostport, proxy)
+  kind        { Deployment | Service | CiliumNetworkPolicy } (default: all)
+  quarantine  { true | false } (default: false)
+  topology    { any | single-node } (default: any)
+  traffic     { any | internal | external } (default: any)
+  type        { autocheck | tool } (default: autocheck)
+
+Example command:
+$ cue -t component=all ls
+
+The cue CLI may be installed via the following command:
+$ go get cuelang.org/go@v0.2.2
+```
