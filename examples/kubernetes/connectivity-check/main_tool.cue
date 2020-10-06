@@ -15,17 +15,17 @@ objectSets: [
 	ingressCNP,
 ]
 
-globalFlags: "[-t component=<component>] [-t kind=<kind>] [-t name=<name>] [-t topology=<topology>] [-t quarantine=true] [-t type=<tooltype>] [-t traffic=any]"
+globalFlags: "[-t component=<component>] [-t kind=<kind>] [-t name=<name>] [-t quarantine=true] [-t topology=<topology>] [-t traffic=any] [-t type=<tooltype>]"
 
 ccCommand: {
 	#flags: {
 		component:  "all" | *"default" | "network" | "policy" | "services" | "hostport" | "proxy" @tag(component,short=all|default|network|policy|services|hostport|proxy)
-		name:       *"" | string                                                                  @tag(name)
-		topology:   *"any" | "single-node"                                                        @tag(topology,short=any|single-node)
 		kind:       *"" | "Deployment" | "Service" | "CiliumNetworkPolicy"                        @tag(kind,short=Deployment|Service|CiliumNetworkPolicy)
-		type:       *"autocheck" | "tool"                                                         @tag(type,short=autocheck|tool)
+		name:       *"" | string                                                                  @tag(name)
 		quarantine: *"false" | "true"                                                             @tag(quarantine,short=false|true)
+		topology:   *"any" | "single-node"                                                        @tag(topology,short=any|single-node)
 		traffic:    *"any" | "internal" | "external"                                              @tag(traffic,short=any|internal|external)
+		type:       *"autocheck" | "tool"                                                         @tag(type,short=autocheck|tool)
 	}
 
 	task: filterComponent: {
