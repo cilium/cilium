@@ -173,11 +173,11 @@ func init() {
 	flags.Bool(option.EnableIPv4Name, defaults.EnableIPv4, "Enable IPv4 support")
 	option.BindEnv(option.EnableIPv4Name)
 
-	flags.String(operatorOption.IPAMOperatorV4CIDR, "",
+	flags.String(operatorOption.ClusterPoolIPv4CIDR, "",
 		fmt.Sprintf("IPv4 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
 			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv4Name, "true"))
-	option.BindEnv(operatorOption.IPAMOperatorV4CIDR)
+	option.BindEnv(operatorOption.ClusterPoolIPv4CIDR)
 
 	flags.Int(operatorOption.NodeCIDRMaskSizeIPv4, 24,
 		fmt.Sprintf("Mask size for each IPv4 podCIDR per node. Requires '%s=%s' and '%s=%s'",
@@ -188,11 +188,11 @@ func init() {
 	flags.Bool(option.EnableIPv6Name, defaults.EnableIPv6, "Enable IPv6 support")
 	option.BindEnv(option.EnableIPv6Name)
 
-	flags.String(operatorOption.IPAMOperatorV6CIDR, "",
+	flags.String(operatorOption.ClusterPoolIPv6CIDR, "",
 		fmt.Sprintf("IPv6 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
 			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv6Name, "true"))
-	option.BindEnv(operatorOption.IPAMOperatorV6CIDR)
+	option.BindEnv(operatorOption.ClusterPoolIPv6CIDR)
 
 	flags.Int(operatorOption.NodeCIDRMaskSizeIPv6, 112,
 		fmt.Sprintf("Mask size for each IPv6 podCIDR per node. Requires '%s=%s' and '%s=%s'",
