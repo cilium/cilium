@@ -96,18 +96,18 @@ Relay and Hubble's graphical UI.
 
                helm install cilium |CHART_RELEASE| \\
                   --namespace kube-system \\
-                  --set global.nodeinit.enabled=true \\
-                  --set global.kubeProxyReplacement=partial \\
-                  --set global.hostServices.enabled=false \\
-                  --set global.externalIPs.enabled=true \\
-                  --set global.nodePort.enabled=true \\
-                  --set global.hostPort.enabled=true \\
-                  --set global.pullPolicy=IfNotPresent \\
-                  --set config.ipam=kubernetes \\
-                  --set global.hubble.enabled=true \\
-                  --set global.hubble.listenAddress=":4244" \\
-                  --set global.hubble.relay.enabled=true \\
-                  --set global.hubble.ui.enabled=true
+                  --set nodeinit.enabled=true \\
+                  --set kubeProxyReplacement=partial \\
+                  --set hostServices.enabled=false \\
+                  --set externalIPs.enabled=true \\
+                  --set nodePort.enabled=true \\
+                  --set hostPort.enabled=true \\
+                  --set pullPolicy=IfNotPresent \\
+                  --set ipam.mode=kubernetes \\
+                  --set hubble.enabled=true \\
+                  --set hubble.listenAddress=":4244" \\
+                  --set hubble-relay.enabled=true \\
+                  --set hubble-ui.enabled=true
 
 .. note::
 

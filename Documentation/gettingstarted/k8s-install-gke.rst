@@ -86,13 +86,13 @@ below. This will ensure all pods are managed by Cilium.
     kubectl create namespace cilium
     helm install cilium |CHART_RELEASE| \\
       --namespace cilium \\
-      --set global.nodeinit.enabled=true \\
+      --set nodeinit.enabled=true \\
       --set nodeinit.reconfigureKubelet=true \\
       --set nodeinit.removeCbrBridge=true \\
-      --set global.cni.binPath=/home/kubernetes/bin \\
-      --set global.gke.enabled=true \\
-      --set config.ipam=kubernetes \\
-      --set global.nativeRoutingCIDR=$NATIVE_CIDR
+      --set cni.binPath=/home/kubernetes/bin \\
+      --set gke.enabled=true \\
+      --set ipam.mode=kubernetes \\
+      --set nativeRoutingCIDR=$NATIVE_CIDR
 
 The NodeInit DaemonSet is required to prepare the GKE nodes as nodes are added
 to the cluster. The NodeInit DaemonSet will perform the following actions:

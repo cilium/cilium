@@ -145,22 +145,22 @@ var _ = Describe("K8sBandwidthTest", func() {
 
 		It("Checks Pod to Pod bandwidth, vxlan tunneling", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"global.tunnel": "vxlan",
+				"tunnel": "vxlan",
 			})
 			testNetperf(podLabels, testClientPod)
 			testNetperf(podLabels, testClientHost)
 		})
 		It("Checks Pod to Pod bandwidth, geneve tunneling", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"global.tunnel": "geneve",
+				"tunnel": "geneve",
 			})
 			testNetperf(podLabels, testClientPod)
 			testNetperf(podLabels, testClientHost)
 		})
 		It("Checks Pod to Pod bandwidth, direct routing", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"global.tunnel":               "disabled",
-				"global.autoDirectNodeRoutes": "true",
+				"tunnel":               "disabled",
+				"autoDirectNodeRoutes": "true",
 			})
 			testNetperf(podLabels, testClientPod)
 			testNetperf(podLabels, testClientHost)

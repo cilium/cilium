@@ -54,7 +54,7 @@ program. This means that a packet sent from a pod to an outside will be masquera
 (to an output device IPv4 address), if the output device runs the program. If not
 specified, the program will be automatically attached to the devices selected by
 :ref:`the BPF NodePort device detection metchanism <Nodeport Devices>`.
-To manually change this, use the ``global.devices`` helm option. Use ``cilium status``
+To manually change this, use the ``devices`` helm option. Use ``cilium status``
 to determine which devices the program is running on:
 
 ::
@@ -75,7 +75,7 @@ By default, any packet from a pod destined to an IP address outside of the
 ``native-routing-cidr`` range is masqueraded. The exclusion CIDR is shown in the above
 output of ``cilium status`` (``10.0.0.0.16``).  To allow more fine-grained control,
 Cilium implements `ip-masq-agent <https://github.com/kubernetes-sigs/ip-masq-agent>`_
-in eBPF which can be enabled with the ``global.ipMasqAgent.enabled=true`` helm option.
+in eBPF which can be enabled with the ``ipMasqAgent.enabled=true`` helm option.
 
 The eBPF-based ip-masq-agent supports the ``nonMasqueradeCIDRs`` and
 ``masqLinkLocal`` options set in a configuration file. A packet sent from a pod to

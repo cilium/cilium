@@ -43,15 +43,15 @@ Then, install Cilium release via Helm:
 
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set global.nodeinit.enabled=true \\
-      --set global.kubeProxyReplacement=partial \\
-      --set global.hostServices.enabled=false \\
-      --set global.externalIPs.enabled=true \\
-      --set global.nodePort.enabled=true \\
-      --set global.hostPort.enabled=true \\
-      --set config.bpfMasquerade=false \\
-      --set global.pullPolicy=IfNotPresent \\
-      --set config.ipam=kubernetes
+      --set nodeinit.enabled=true \\
+      --set kubeProxyReplacement=partial \\
+      --set hostServices.enabled=false \\
+      --set externalIPs.enabled=true \\
+      --set nodePort.enabled=true \\
+      --set hostPort.enabled=true \\
+      --set bpfMasquerade=false \\
+      --set pullPolicy=IfNotPresent \\
+      --set ipam.mode=kubernetes
 
 .. include:: k8s-install-validate.rst
 .. include:: namespace-kube-system.rst
@@ -159,17 +159,17 @@ Make sure context is set to ``kind-cluster2`` cluster.
 
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set global.nodeinit.enabled=true \\
-      --set global.kubeProxyReplacement=partial \\
-      --set global.hostServices.enabled=false \\
-      --set global.externalIPs.enabled=true \\
-      --set global.nodePort.enabled=true \\
-      --set global.hostPort.enabled=true \\
-      --set global.etcd.enabled=true \\
-      --set global.etcd.managed=true \\
-      --set global.identityAllocationMode=kvstore \\
-      --set global.cluster.name=cluster2 \\
-      --set global.cluster.id=2
+      --set nodeinit.enabled=true \\
+      --set kubeProxyReplacement=partial \\
+      --set hostServices.enabled=false \\
+      --set externalIPs.enabled=true \\
+      --set nodePort.enabled=true \\
+      --set hostPort.enabled=true \\
+      --set etcd.enabled=true \\
+      --set etcd.managed=true \\
+      --set identityAllocationMode=kvstore \\
+      --set cluster.name=cluster2 \\
+      --set cluster.id=2
 
 Change the kubectl context to ``kind-cluster1`` cluster:
 
@@ -181,17 +181,17 @@ Change the kubectl context to ``kind-cluster1`` cluster:
 
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set global.nodeinit.enabled=true \\
-      --set global.kubeProxyReplacement=partial \\
-      --set global.hostServices.enabled=false \\
-      --set global.externalIPs.enabled=true \\
-      --set global.nodePort.enabled=true \\
-      --set global.hostPort.enabled=true \\
-      --set global.etcd.enabled=true \\
-      --set global.etcd.managed=true \\
-      --set global.identityAllocationMode=kvstore \\
-      --set global.cluster.name=cluster1 \\
-      --set global.cluster.id=1
+      --set nodeinit.enabled=true \\
+      --set kubeProxyReplacement=partial \\
+      --set hostServices.enabled=false \\
+      --set externalIPs.enabled=true \\
+      --set nodePort.enabled=true \\
+      --set hostPort.enabled=true \\
+      --set etcd.enabled=true \\
+      --set etcd.managed=true \\
+      --set identityAllocationMode=kvstore \\
+      --set cluster.name=cluster1 \\
+      --set cluster.id=1
 
 Setting up Cluster Mesh
 ------------------------

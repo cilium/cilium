@@ -108,9 +108,9 @@ var _ = Describe("K8sPolicyTest", func() {
 		connectivityCheckYml = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-proxy.yaml")
 
 		daemonCfg = map[string]string{
-			"global.tls.secretsBackend": "k8s",
-			"global.debug.verbose":      "flow",
-			"global.hubble.enabled":     "true",
+			"tls.secretsBackend": "k8s",
+			"debug.verbose":      "flow",
+			"hubble.enabled":     "true",
 		}
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, daemonCfg)
@@ -1340,14 +1340,14 @@ var _ = Describe("K8sPolicyTest", func() {
 			BeforeAll(func() {
 				RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 					map[string]string{
-						"global.tunnel":               "disabled",
-						"global.autoDirectNodeRoutes": "true",
+						"tunnel":               "disabled",
+						"autoDirectNodeRoutes": "true",
 
 						// These are required to avoid failing on net-next.
-						"global.masquerade":    "false",
-						"config.bpfMasquerade": "false",
+						"masquerade":     "false",
+						"bpf.masquerade": "false",
 
-						"global.hostFirewall": "true",
+						"hostFirewall": "true",
 					})
 
 				By("Retrieving backend pod and outside node IP addresses")
@@ -1623,7 +1623,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					By("Reconfiguring Cilium to disable remote-node identity")
 					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 						map[string]string{
-							"global.remoteNodeIdentity": "false",
+							"remoteNodeIdentity": "false",
 						})
 				})
 
@@ -1655,7 +1655,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					By("Reconfiguring Cilium to enable remote-node identity")
 					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 						map[string]string{
-							"global.remoteNodeIdentity": "true",
+							"remoteNodeIdentity": "true",
 						})
 				})
 
@@ -1681,7 +1681,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					By("Reconfiguring Cilium to enable BPF TProxy")
 					RedeployCiliumWithMerge(kubectl, ciliumFilename, daemonCfg,
 						map[string]string{
-							"config.bpfTProxy": "true",
+							"bpf.tproxy": "true",
 						})
 				}
 			})

@@ -35,12 +35,14 @@ type CiliumTestConfigType struct {
 	TestScope           string
 	SkipLogGathering    bool
 	CiliumImage         string
+	CiliumTag           string
 	CiliumOperatorImage string
+	CiliumOperatorTag   string
 	HubbleRelayImage    string
+	HubbleRelayTag      string
 	ProvisionK8s        bool
 	Timeout             time.Duration
 	Kubeconfig          string
-	Registry            string
 	Benchmarks          bool
 	// Multinode enables the running of tests that involve more than one
 	// node. If false, some tests will silently skip multinode checks.
@@ -72,17 +74,22 @@ func (c *CiliumTestConfigType) ParseFlags() {
 		"Specifies scope of test to be ran (k8s, Nightly, runtime)")
 	flagset.StringVar(&c.CiliumImage, "cilium.image", "",
 		"Specifies which image of cilium to use during tests")
+	flagset.StringVar(&c.CiliumTag, "cilium.tag", "",
+		"Specifies which tag of cilium to use during tests")
 	flagset.StringVar(&c.CiliumOperatorImage, "cilium.operator-image", "",
 		"Specifies which image of cilium-operator to use during tests")
+	flagset.StringVar(&c.CiliumOperatorTag, "cilium.operator-tag", "",
+		"Specifies which tag of cilium-operator to use during tests")
 	flagset.StringVar(&c.HubbleRelayImage, "cilium.hubble-relay-image", "",
 		"Specifies which image of hubble-relay to use during tests")
+	flagset.StringVar(&c.HubbleRelayTag, "cilium.hubble-relay-tag", "",
+		"Specifies which tag of hubble-relay to use during tests")
 	flagset.BoolVar(&c.ProvisionK8s, "cilium.provision-k8s", true,
 		"Specifies whether Kubernetes should be deployed and installed via kubeadm or not")
 	flagset.DurationVar(&c.Timeout, "cilium.timeout", 24*time.Hour,
 		"Specifies timeout for test run")
 	flagset.StringVar(&c.Kubeconfig, "cilium.kubeconfig", "",
 		"Kubeconfig to be used for k8s tests")
-	flagset.StringVar(&c.Registry, "cilium.registry", "", "docker registry hostname for Cilium image")
 	flagset.BoolVar(&c.Benchmarks, "cilium.benchmarks", false,
 		"Specifies benchmark tests should be run which may increase test time")
 	flagset.BoolVar(&c.Multinode, "cilium.multinode", true,

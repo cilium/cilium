@@ -167,10 +167,11 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		removeCilium(kubectl)
 
 		opts := map[string]string{
-			"global.cleanState":    "true",
-			"global.tag":           imageTag,
-			"agent.sleepAfterInit": "true",
-			"operator.enabled":     "false ",
+			"cleanState":         "true",
+			"image.tag":          imageTag,
+			"sleepAfterInit":     "true",
+			"operator.enabled":   "false ",
+			"hubble.tls.enabled": "false",
 		}
 		// Cilium < v1.8 doesn't support multi-dev, so set only one device.
 		// If not set, then overwriteHelmOptions() will set two devices.
@@ -179,21 +180,18 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 			case "1.5-dev", "1.6-dev", "1.7-dev":
 				opts["global.nodePort.device"] = privateIface
 			default:
-				opts["global.devices"] = privateIface
+				opts["devices"] = privateIface
 			}
 			// Cilium < v1.8 has kube-proxy-replacement=strict mode
 			// broken due to too high complexity (v4, v6, strict, debug).
 			// See also notes in GH-#12018 issue.
 			if helpers.RunsOn419Kernel() {
-				opts["global.debug.enabled"] = "false"
+				opts["debug.enabled"] = "false"
 			}
 		}
-		if registry != "" {
-			opts["global.registry"] = registry
-		}
 		if imageName != "" {
-			opts["agent.image"] = imageName
-			opts["preflight.image"] = imageName // preflight must match the target agent image
+			opts["image.repository"] = imageName
+			opts["preflight.image.repository"] = imageName // preflight must match the target agent image
 		}
 
 		EventuallyWithOffset(1, func() (*helpers.CmdRes, error) {
@@ -256,25 +254,27 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		cleanupCiliumState(filepath.Join(kubectl.BasePath(), helpers.HelmTemplate), newHelmChartVersion, "", newImageVersion, "")
 
 		By("Cleaning Cilium state (%s)", oldImageVersion)
-		cleanupCiliumState("cilium/cilium", oldHelmChartVersion, "cilium", oldImageVersion, "docker.io/cilium")
+		cleanupCiliumState("cilium/cilium", oldHelmChartVersion, "docker.io/cilium/cilium", oldImageVersion, "")
 
 		By("Deploying Cilium %s", oldHelmChartVersion)
 
 		opts := map[string]string{
-			"global.tag":      oldImageVersion,
-			"global.registry": "docker.io/cilium",
-			"agent.image":     "cilium",
-			"operator.image":  "operator",
+			"image.tag":                     oldImageVersion,
+			"operator.image.tag":            oldImageVersion,
+			"hubble.relay.image.tag":        oldImageVersion,
+			"image.repository":              "docker.io/cilium/cilium",
+			"operator.image.repository":     "docker.io/cilium/operator",
+			"hubble.relay.image.repository": "docker.io/cilium/hubble-relay",
 		}
 		if helpers.RunsWithoutKubeProxy() || helpers.RunsOn419Kernel() {
 			switch oldHelmChartVersion {
 			case "1.5-dev", "1.6-dev", "1.7-dev":
 				opts["global.nodePort.device"] = privateIface
 			default:
-				opts["global.devices"] = privateIface
+				opts["devices"] = privateIface
 			}
 			if helpers.RunsOn419Kernel() {
-				opts["global.debug.enabled"] = "false"
+				opts["debug.enabled"] = "false"
 			}
 		}
 
@@ -426,22 +426,22 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		By("Install Cilium pre-flight check DaemonSet")
 
 		opts = map[string]string{
-			"preflight.enabled":       "true ",
-			"agent.enabled":           "false ",
-			"config.enabled":          "false ",
-			"operator.enabled":        "false ",
-			"global.tag":              newImageVersion,
-			"global.nodeinit.enabled": "false",
+			"preflight.enabled":   "true ",
+			"agent.enabled":       "false ",
+			"config.enabled":      "false ",
+			"operator.enabled":    "false ",
+			"preflight.image.tag": newImageVersion,
+			"nodeinit.enabled":    "false",
 		}
 		if helpers.RunsWithoutKubeProxy() || helpers.RunsOn419Kernel() {
 			switch oldHelmChartVersion {
 			case "1.5-dev", "1.6-dev", "1.7-dev":
 				opts["global.nodePort.device"] = privateIface
 			default:
-				opts["global.devices"] = privateIface
+				opts["devices"] = privateIface
 			}
 			if helpers.RunsOn419Kernel() {
-				opts["global.debug.enabled"] = "false"
+				opts["debug.enabled"] = "false"
 			}
 		}
 
@@ -469,7 +469,9 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		// supported at this time.
 		By("Upgrading Cilium to %s", newHelmChartVersion)
 		opts = map[string]string{
-			"global.tag": newImageVersion,
+			"image.tag":              newImageVersion,
+			"operator.image.tag":     newImageVersion,
+			"hubble.relay.image.tag": newImageVersion,
 		}
 		// We have removed the labels since >= 1.7 and we are only testing
 		// starting from 1.6.
@@ -483,11 +485,6 @@ func InstallAndValidateCiliumUpgrades(kubectl *helpers.Kubectl, oldHelmChartVers
 		case "1.6-dev", "1.7-dev":
 			opts["agent.keepDeprecatedProbes"] = "true"
 		}
-
-		upgradeCompatibilityVer := strings.TrimSuffix(oldHelmChartVersion, "-dev")
-		// Ensure compatibility in the ConfigMap. This tests the
-		// upgrade as instructed in the documentation
-		opts["config.upgradeCompatibility"] = upgradeCompatibilityVer
 
 		EventuallyWithOffset(1, func() (*helpers.CmdRes, error) {
 			return kubectl.RunHelm(

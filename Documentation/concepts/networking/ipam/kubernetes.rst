@@ -70,8 +70,8 @@ The following ConfigMap options exist to configure Kubernetes hostscope:
 
 With helm the previous options can be defined as:
 
- * ``ipam: kubernetes``: ``--set config.ipam=kubernetes``.
- * ``k8s-require-ipv4-pod-cidr: true``: ``--set global.k8s.requireIPv4PodCIDR=true``,
-   which only works with ``--set config.ipam=kubernetes``
- * ``k8s-require-ipv6-pod-cidr: true``: ``--set global.k8s.requireIPv6PodCIDR=true``,
-   which only works with ``--set config.ipam=kubernetes``
+ * ``ipam: kubernetes``: ``--set ipam.mode=kubernetes``.
+ * ``k8s-require-ipv4-pod-cidr: true``: ``--set k8s.requireIPv4PodCIDR=true``,
+   which only works with ``--set ipam.mode=kubernetes``
+ * ``k8s-require-ipv6-pod-cidr: true``: ``--set k8s.requireIPv6PodCIDR=true``,
+   which only works with ``--set ipam.mode=kubernetes``

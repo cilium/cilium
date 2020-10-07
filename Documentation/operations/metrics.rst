@@ -25,7 +25,7 @@ Cilium Metrics
 Cilium metrics provide insights into the state of Cilium itself, namely
 of the ``cilium-agent``, ``cilium-envoy``, and ``cilium-operator`` processes.
 To run Cilium with Prometheus metrics enabled, deploy it with the
-``global.prometheus.enabled=true`` Helm value set.
+``prometheus.enabled=true`` Helm value set.
 
 Cilium metrics are exported under the ``cilium_`` Prometheus namespace. Envoy
 metrics are exported under the ``envoy_`` Prometheus namespace, of which the
@@ -37,18 +37,18 @@ Installation
 ------------
 
 You can enable metrics for ``cilium-agent`` (including Envoy) with the Helm value
-``global.prometheus.enabled=true``. To enable metrics for ``cilium-operator``,
-use ``global.operatorPrometheus.enabled=true``.
+``prometheus.enabled=true``. To enable metrics for ``cilium-operator``,
+use ``operator.prometheus.enabled=true``.
 
 .. parsed-literal::
 
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
-     --set global.prometheus.enabled=true \\
-     --set global.operatorPrometheus.enabled=true
+     --set prometheus.enabled=true \\
+     --set operator.prometheus.enabled=true
 
-The ports can be configured via ``global.prometheus.port``,
-``global.proxy.prometheus.port``, or ``global.operatorPrometheus.port`` respectively.
+The ports can be configured via ``prometheus.port``,
+``proxy.prometheus.port``, or ``operator.prometheus.port`` respectively.
 
 When metrics are enabled, all Cilium components will have the following
 annotations. They can be used to signal Prometheus whether to scrape metrics:
@@ -99,8 +99,8 @@ Installation
 ------------
 
 To deploy Cilium with Hubble metrics enabled, you need to enable Hubble with
-``global.hubble.enabled=true`` and provide a set of Hubble metrics you want to
-enable via ``global.hubble.metrics.enabled``.
+``hubble.enabled=true`` and provide a set of Hubble metrics you want to
+enable via ``hubble.metrics.enabled``.
 
 Some of the metrics can also be configured with additional options.
 See the :ref:`Hubble exported metrics<hubble_exported_metrics>`
@@ -110,13 +110,13 @@ section for the full list of available metrics and their options.
 
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
-     --set global.hubble.enabled=true \\
-     --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+     --set hubble.enabled=true \\
+     --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
 
 The port of the Hubble metrics can be configured with the
-``global.hubble.metrics.port`` Helm value.
+``hubble.metrics.port`` Helm value.
 
-When deployed with a non-empty ``global.hubble.metrics.enabled`` Helm value, the
+When deployed with a non-empty ``hubble.metrics.enabled`` Helm value, the
 Cilium chart will create a Kubernetes headless service named ``hubble-metrics``
 with the ``prometheus.io/scrape:'true'`` annotation set:
 

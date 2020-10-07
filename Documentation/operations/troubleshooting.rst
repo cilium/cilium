@@ -147,7 +147,7 @@ Observing Flows with Hubble
 
 Hubble is a built-in observability tool which allows you to inspect recent flow
 events on all endpoints managed by Cilium. It needs to be enabled via the Helm
-value ``global.hubble.enabled=true`` or the ``--enable-hubble`` option on
+value ``hubble.enabled=true`` or the ``--enable-hubble`` option on
 cilium-agent.
 
 Observing flows of a specific pod
@@ -233,7 +233,7 @@ Cilium, you may use the ``hubble status`` command:
 
 ``cilium-agent`` must be running with the ``--enable-hubble`` option in order
 for the Hubble server to be enabled. When deploying Cilium with Helm, make sure
-to set the ``global.hubble.enabled=true`` value.
+to set the ``hubble.enabled=true`` value.
 
 To check if Hubble is enabled in your deployment, you may look for the
 following output in ``cilium status``:
@@ -269,7 +269,7 @@ be done via the Helm values ``--enable-hubble`` and
    implications as the service can be accessed without any restriction.
 
 Hubble Relay can be deployed using Helm by setting
-``global.hubble.relay.enabled=true``. This will deploy Hubble Relay with one
+``hubble-relay.enabled=true``. This will deploy Hubble Relay with one
 replica by default. Once the Hubble Relay pod is running, you may access the
 service by port-forwarding it:
 

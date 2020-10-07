@@ -1,16 +1,16 @@
-{{- if (and (.Values.preflight.enabled) (not (.Values.agent.enabled)) (not (.Values.config.enabled)) (not (.Values.operator.enabled))) }}
-    You have successfully ran the prefight check.
+{{- if (and (.Values.preflight.enabled) (not (.Values.agent)) (not (.Values.operator.enabled))) }}
+    You have successfully ran the preflight check.
     Now make sure to check the number of READY pods is the same as the number of running cilium pods.
     Then make sure the cilium preflight deployment is also marked READY 1/1.
     If you have an issues please refer to the CNP Validation section in the upgrade guide.
-{{- else if (not (.Values.config.enabled))}}
-    You have preserved the configMap and successfully installed {{ title .Chart.Name}}.
-{{- else if (and (.Values.global.hubble.enabled) (.Values.global.hubble.relay.enabled)) }}
-    {{- if (.Values.global.hubble.ui.enabled) }}
+{{- else if (and (.Values.hubble.enabled) (.Values.hubble.relay.enabled)) }}
+    {{- if (.Values.hubble.ui.enabled) }}
         You have successfully installed {{ title .Chart.Name }} with Hubble Relay and Hubble UI.
     {{- else }}
         You have successfully installed {{ title .Chart.Name }} with Hubble Relay.
     {{- end }}
+{{- else if .Values.hubble.enabled }}
+    You have successfully installed {{ title .Chart.Name }} with Hubble.
 {{- else }}
     You have successfully installed {{ title .Chart.Name }}.
 {{- end }}

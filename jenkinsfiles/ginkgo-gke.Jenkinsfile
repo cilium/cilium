@@ -157,15 +157,27 @@ pipeline {
                 CNI_INTEGRATION="gke"
                 CILIUM_IMAGE = """${sh(
                         returnStdout: true,
-                        script: 'echo -n $(${TESTDIR}/gke/registry-ip.sh)/cilium/cilium:${TAG}'
+                        script: 'echo -n $(${TESTDIR}/gke/registry-ip.sh)/cilium/cilium'
+                        )}"""
+                CILIUM_TAG = """${sh(
+                        returnStdout: true,
+                        script: 'echo -n ${TAG}'
                         )}"""
                 CILIUM_OPERATOR_IMAGE= """${sh(
                         returnStdout: true,
-                        script: 'echo -n $(${TESTDIR}/gke/registry-ip.sh)/cilium/operator-generic:${TAG}'
+                        script: 'echo -n $(${TESTDIR}/gke/registry-ip.sh)/cilium/operator'
+                        )}"""
+                CILIUM_OPERATOR_TAG = """${sh(
+                        returnStdout: true,
+                        script: 'echo -n ${TAG}'
                         )}"""
                 HUBBLE_RELAY_IMAGE= """${sh(
                         returnStdout: true,
-                        script: 'echo -n $(${TESTDIR}/gke/registry-ip.sh)/cilium/hubble-relay:${TAG}'
+                        script: 'echo -n $(${TESTDIR}/gke/registry-ip.sh)/cilium/hubble-relay'
+                        )}"""
+                HUBBLE_RELAY_TAG = """${sh(
+                        returnStdout: true,
+                        script: 'echo -n ${TAG}'
                         )}"""
                 K8S_VERSION= """${sh(
                         returnStdout: true,
@@ -179,7 +191,7 @@ pipeline {
             steps {
                 dir("${TESTDIR}"){
                     sh 'env'
-                    sh 'ginkgo --focus="${FOCUS}" -v -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.passCLIEnvironment=true -cilium.registry=$(gke/registry-ip.sh) -cilium.image=${CILIUM_IMAGE} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.holdEnvironment=false -cilium.runQuarantined=${RUN_QUARANTINED}'
+                    sh 'ginkgo --focus="${FOCUS}" -v -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${KUBECONFIG} -cilium.passCLIEnvironment=true -cilium.image=${CILIUM_IMAGE} -cilium.tag=${CILIUM_TAG} -cilium.operator-image=${CILIUM_OPERATOR_IMAGE} -cilium.operator-tag=${CILIUM_OPERATOR_TAG} -cilium.hubble-relay-image=${HUBBLE_RELAY_IMAGE} -cilium.hubble-relay-tag=${HUBBLE_RELAY_TAG} -cilium.holdEnvironment=false -cilium.runQuarantined=${RUN_QUARANTINED}'
                 }
             }
             post {

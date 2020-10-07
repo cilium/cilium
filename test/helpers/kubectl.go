@@ -68,6 +68,9 @@ const (
 	// CIIntegrationGKE contains the constants to be used when running tests on GKE.
 	CIIntegrationGKE = "gke"
 
+	// CIIntegrationKind contains the constant to be used when running tests on kind.
+	CIIntegrationKind = "kind"
+
 	// CIIntegrationMicrok8s contains the constant to be used when running tests on microk8s.
 	CIIntegrationMicrok8s = "microk8s"
 
@@ -86,77 +89,90 @@ var (
 	// below. These overrides represent a desire to set the default for all
 	// tests, instead of test-specific variations.
 	defaultHelmOptions = map[string]string{
-		"global.registry":                     "k8s1:5000/cilium",
-		"agent.image":                         "cilium-dev",
-		"preflight.image":                     "cilium-dev", // Set again in init to match agent.image!
-		"global.tag":                          "latest",
-		"operator.image":                      "operator",
-		"hubble-relay.image.tag":              "latest",
-		"global.debug.enabled":                "true",
-		"global.k8s.requireIPv4PodCIDR":       "true",
-		"global.pprof.enabled":                "true",
-		"global.logSystemLoad":                "true",
-		"global.bpf.preallocateMaps":          "true",
-		"global.etcd.leaseTTL":                "30s",
-		"global.ipv4.enabled":                 "true",
-		"global.ipv6.enabled":                 "true",
-		"global.ci.kubeCacheMutationDetector": "true",
-		"config.bpfMasquerade":                "true",
+		"image.repository":              "k8s1:5000/cilium/cilium-dev",
+		"image.tag":                     "latest",
+		"preflight.image.repository":    "k8s1:5000/cilium/cilium-dev", // Set again in init to match agent.image!
+		"preflight.image.tag":           "latest",
+		"operator.image.repository":     "k8s1:5000/cilium/operator",
+		"operator.image.tag":            "latest",
+		"hubble.relay.image.repository": "k8s1:5000/cilium/hubble-relay",
+		"hubble.relay.image.tag":        "latest",
+		"debug.enabled":                 "true",
+		"k8s.requireIPv4PodCIDR":        "true",
+		"pprof.enabled":                 "true",
+		"logSystemLoad":                 "true",
+		"bpf.preallocateMaps":           "true",
+		"etcd.leaseTTL":                 "30s",
+		"ipv4.enabled":                  "true",
+		"ipv6.enabled":                  "true",
+		// "extraEnv[0].name":              "KUBE_CACHE_MUTATION_DETECTOR",
+		// "extraEnv[0].value":             "true",
+		"bpf.masquerade": "true",
 		// Disable by default, so that 4.9 CI build does not panic due to
 		// missing LRU support. On 4.19 and net-next we enable it with
 		// kubeProxyReplacement=strict.
-		"config.sessionAffinity": "false",
+		"sessionAffinity": "false",
 
 		// Enable embedded Hubble, both on unix socket and TCP port 4244.
-		"global.hubble.enabled":       "true",
-		"global.hubble.listenAddress": ":4244",
+		"hubble.enabled":       "true",
+		"hubble.listenAddress": ":4244",
 
 		// We need CNP node status to know when a policy is being enforced
-		"config.enableCnpStatusUpdates": "true",
-
-		"global.nativeRoutingCIDR": "10.0.0.0/8",
+		"enableCnpStatusUpdates": "true",
+		"nativeRoutingCIDR":      "10.0.0.0/8",
 	}
 
 	flannelHelmOverrides = map[string]string{
-		"global.flannel.enabled": "true",
-		"global.ipv6.enabled":    "false",
-		"global.tunnel":          "disabled",
+		"flannel.enabled": "true",
+		"ipv6.enabled":    "false",
+		"tunnel":          "disabled",
 	}
 
 	eksHelmOverrides = map[string]string{
-		"global.k8s.requireIPv4PodCIDR": "false",
-		"global.cni.chainingMode":       "aws-cni",
-		"global.masquerade":             "false",
-		"global.tunnel":                 "disabled",
-		"global.nodeinit.enabled":       "true",
+		"k8s.requireIPv4PodCIDR": "false",
+		"cni.chainingMode":       "aws-cni",
+		"masquerade":             "false",
+		"tunnel":                 "disabled",
+		"nodeinit.enabled":       "true",
 	}
 
 	gkeHelmOverrides = map[string]string{
-		"global.ipv6.enabled":         "false",
-		"global.nodeinit.enabled":     "true",
+		"ipv6.enabled":                "false",
+		"nodeinit.enabled":            "true",
 		"nodeinit.reconfigureKubelet": "true",
 		"nodeinit.removeCbrBridge":    "true",
 		"nodeinit.restartPods":        "true",
-		"global.cni.binPath":          "/home/kubernetes/bin",
-		"global.nodePort.mode":        "snat",
-		"global.gke.enabled":          "true",
-		"global.nativeRoutingCIDR":    "10.0.0.0/8",
-		"global.hostFirewall":         "false",
-		"config.ipam":                 "kubernetes",
-		"global.devices":              "", // Override "eth0 eth0\neth0"
+		"cni.binPath":                 "/home/kubernetes/bin",
+		"nodePort.mode":               "snat",
+		"gke.enabled":                 "true",
+		"nativeRoutingCIDR":           "10.0.0.0/8",
+		"hostFirewall":                "false",
+		"ipam.mode":                   "kubernetes",
+		"devices":                     "", // Override "eth0 eth0\neth0"
 	}
 
 	microk8sHelmOverrides = map[string]string{
-		"global.ipv6.enabled":   "false",
-		"global.cni.confPath":   "/var/snap/microk8s/current/args/cni-network",
-		"global.cni.binPath":    "/var/snap/microk8s/current/opt/cni/bin",
-		"global.cni.customConf": "true",
-		"global.daemon.runPath": "/var/snap/microk8s/current/var/run/cilium",
+		"ipv6.enabled":   "false",
+		"cni.confPath":   "/var/snap/microk8s/current/args/cni-network",
+		"cni.binPath":    "/var/snap/microk8s/current/opt/cni/bin",
+		"cni.customConf": "true",
+		"daemon.runPath": "/var/snap/microk8s/current/var/run/cilium",
 	}
 	minikubeHelmOverrides = map[string]string{
-		"global.ipv6.enabled":           "false",
-		"global.bpf.preallocateMaps":    "false",
-		"global.k8s.requireIPv4PodCIDR": "false",
+		"ipv6.enabled":           "false",
+		"bpf.preallocateMaps":    "false",
+		"k8s.requireIPv4PodCIDR": "false",
+	}
+	kindHelmOverrides = map[string]string{
+		"ipv6.enabled":         "false",
+		"hostFirewall":         "false",
+		"nodeinit.enabled":     "true",
+		"kubeProxyReplacement": "partial",
+		"hostServices.enabled": "true",
+		"externalIPs.enabled":  "true",
+		"nodePort.enabled":     "true",
+		"hostPort.enabled":     "true",
+		"ipam.mode":            "kubernetes",
 	}
 
 	// helmOverrides allows overriding of cilium-agent options for
@@ -166,6 +182,7 @@ var (
 		CIIntegrationFlannel:  flannelHelmOverrides,
 		CIIntegrationEKS:      eksHelmOverrides,
 		CIIntegrationGKE:      gkeHelmOverrides,
+		CIIntegrationKind:     kindHelmOverrides,
 		CIIntegrationMicrok8s: microk8sHelmOverrides,
 		CIIntegrationMinikube: minikubeHelmOverrides,
 	}
@@ -201,8 +218,8 @@ func HelmOverride(option string) string {
 // NativeRoutingEnabled returns true when native routing is enabled for a
 // particular CNI_INTEGRATION
 func NativeRoutingEnabled() bool {
-	tunnelDisabled := HelmOverride("global.tunnel") == "disabled"
-	gkeEnabled := HelmOverride("global.gke.enabled") == "true"
+	tunnelDisabled := HelmOverride("tunnel") == "disabled"
+	gkeEnabled := HelmOverride("gke.enabled") == "true"
 	return tunnelDisabled || gkeEnabled
 }
 
@@ -211,42 +228,38 @@ func Init() {
 		os.Setenv("CILIUM_IMAGE", config.CiliumTestConfig.CiliumImage)
 	}
 
+	if config.CiliumTestConfig.CiliumTag != "" {
+		os.Setenv("CILIUM_TAG", config.CiliumTestConfig.CiliumTag)
+	}
+
 	if config.CiliumTestConfig.CiliumOperatorImage != "" {
 		os.Setenv("CILIUM_OPERATOR_IMAGE", config.CiliumTestConfig.CiliumOperatorImage)
+	}
+
+	if config.CiliumTestConfig.CiliumOperatorTag != "" {
+		os.Setenv("CILIUM_OPERATOR_TAG", config.CiliumTestConfig.CiliumOperatorTag)
 	}
 
 	if config.CiliumTestConfig.HubbleRelayImage != "" {
 		os.Setenv("HUBBLE_RELAY_IMAGE", config.CiliumTestConfig.HubbleRelayImage)
 	}
 
-	if config.CiliumTestConfig.Registry != "" {
-		os.Setenv("CILIUM_REGISTRY", config.CiliumTestConfig.Registry)
+	if config.CiliumTestConfig.HubbleRelayTag != "" {
+		os.Setenv("HUBBLE_RELAY_TAG", config.CiliumTestConfig.HubbleRelayTag)
 	}
 
 	if config.CiliumTestConfig.ProvisionK8s == false {
 		os.Setenv("SKIP_K8S_PROVISION", "true")
 	}
 
-	// Set defaults to match passed-in fully-qualified image
-	// If these are further set via CLI, they will be overwritten below
-	if v := os.Getenv("CILIUM_IMAGE"); v != "" {
-		registry, image, version, isFullyQualified := SplitContainerURL(v)
-		if isFullyQualified {
-			defaultHelmOptions["global.tag"] = version
-			// This always works because SplitContainerURL would not return
-			// isFullyQualified == true otherwise
-			parts := strings.SplitN(image, "/", 2)
-			defaultHelmOptions["global.registry"] = registry + "/" + parts[0]
-		}
-	}
-
 	// Copy over envronment variables that are passed in.
 	for envVar, helmVar := range map[string]string{
-		"CILIUM_REGISTRY":       "global.registry",
-		"CILIUM_TAG":            "global.tag",
-		"CILIUM_IMAGE":          "agent.image",
-		"CILIUM_OPERATOR_IMAGE": "operator.image",
-		"HUBBLE_RELAY_IMAGE":    "hubble-relay.image.repository",
+		"CILIUM_TAG":            "image.tag",
+		"CILIUM_IMAGE":          "image.repository",
+		"CILIUM_OPERATOR_TAG":   "operator.image.tag",
+		"CILIUM_OPERATOR_IMAGE": "operator.image.repository",
+		"HUBBLE_RELAY_IMAGE":    "hubble.relay.image.repository",
+		"HUBBLE_RELAY_TAG":      "hubble.relay.image.tag",
 	} {
 		if v := os.Getenv(envVar); v != "" {
 			defaultHelmOptions[helmVar] = v
@@ -254,7 +267,8 @@ func Init() {
 	}
 
 	// preflight must match the cilium agent image (that's the point)
-	defaultHelmOptions["preflight.image"] = defaultHelmOptions["agent.image"]
+	defaultHelmOptions["preflight.image.repository"] = defaultHelmOptions["image.repository"]
+	defaultHelmOptions["preflight.image.tag"] = defaultHelmOptions["image.tag"]
 }
 
 // GetCurrentK8SEnv returns the value of K8S_VERSION from the OS environment.
@@ -336,11 +350,6 @@ func CreateKubectl(vmName string, log *logrus.Entry) (k *Kubectl) {
 			Executor: exec,
 		}
 		k.setBasePath()
-	}
-
-	// config flags are already parsed here
-	if config.CiliumTestConfig.Registry != "" {
-		defaultHelmOptions["global.registry"] = config.CiliumTestConfig.Registry + "/cilium"
 	}
 
 	// Make sure the namespace Cilium uses exists.
@@ -2203,9 +2212,9 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 	// Do not schedule cilium-agent on the NO_CILIUM_ON_NODE node
 	if node := GetNodeWithoutCilium(); node != "" {
 		opts := map[string]string{
-			"global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key":       "cilium.io/ci-node",
-			"global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator":  "NotIn",
-			"global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]": node,
+			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key":       "cilium.io/ci-node",
+			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator":  "NotIn",
+			"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]": node,
 		}
 		for key, value := range opts {
 			options = addIfNotOverwritten(options, key, value)
@@ -2219,13 +2228,13 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 		}
 
 		opts := map[string]string{
-			"global.kubeProxyReplacement": "strict",
-			"global.k8sServiceHost":       nodeIP,
-			"global.k8sServicePort":       "6443",
+			"kubeProxyReplacement": "strict",
+			"k8sServiceHost":       nodeIP,
+			"k8sServicePort":       "6443",
 		}
 
 		if RunsOnNetNextOr419Kernel() {
-			opts["config.bpfMasquerade"] = "true"
+			opts["bpf.masquerade"] = "true"
 		}
 
 		for key, value := range opts {
@@ -2234,10 +2243,10 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 	}
 
 	if RunsWithHostFirewall() {
-		addIfNotOverwritten(options, "global.hostFirewall", "true")
+		addIfNotOverwritten(options, "hostFirewall", "true")
 	}
 
-	if !RunsWithKubeProxy() || options["global.hostFirewall"] == "true" {
+	if !RunsWithKubeProxy() || options["hostFirewall"] == "true" {
 		// Set devices
 		privateIface, err := kub.GetPrivateIface()
 		if err != nil {
@@ -2248,7 +2257,7 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 			return err
 		}
 		devices := fmt.Sprintf(`'{%s,%s}'`, privateIface, defaultIface)
-		addIfNotOverwritten(options, "global.devices", devices)
+		addIfNotOverwritten(options, "devices", devices)
 	}
 
 	return nil
@@ -2385,6 +2394,90 @@ func (kub *Kubectl) CiliumInstall(filename string, options map[string]string) er
 	return nil
 }
 
+// convertOptionsToLegacyOptions maps current helm values to old helm Values
+// TODO: When Cilium 1.10 branch is created, remove this function
+func (kub *Kubectl) convertOptionsToLegacyOptions(options map[string]string) map[string]string {
+
+	result := make(map[string]string)
+
+	legacyMappings := map[string]string{
+		"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key":       "global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].key",
+		"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator":  "global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].operator",
+		"affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]": "global.affinity.nodeAffinity.requiredDuringSchedulingIgnoredDuringExecution.nodeSelectorTerms[0].matchExpressions[0].values[0]",
+		"bpf.preallocateMaps":           "global.bpf.preallocateMaps",
+		"bpf.masquerade":                "config.bpfMasquerade",
+		"cleanState":                    "global.cleanState",
+		"cni.binPath":                   "global.cni.binPath",
+		"cni.chainingMode":              "global.cni.chainingMode",
+		"cni.confPath":                  "global.cni.confPath",
+		"cni.customConf":                "global.cni.customConf",
+		"daemon.runPath":                "global.daemon.runPath",
+		"debug.enabled":                 "global.debug.enabled",
+		"devices":                       "global.devices", // Override "eth0 eth0\neth0"
+		"enableCnpStatusUpdates":        "config.enableCnpStatusUpdates",
+		"etcd.leaseTTL":                 "global.etcd.leaseTTL",
+		"externalIPs.enabled":           "global.externalIPs.enabled",
+		"flannel.enabled":               "global.flannel.enabled",
+		"gke.enabled":                   "global.gke.enabled",
+		"hostFirewall":                  "global.hostFirewall",
+		"hostPort.enabled":              "global.hostPort.enabled",
+		"hostServices.enabled":          "global.hostServices.enabled",
+		"hubble.enabled":                "global.hubble.enabled",
+		"hubble.listenAddress":          "global.hubble.listenAddress",
+		"hubble.relay.image.repository": "hubble-relay.image.repository",
+		"hubble.relay.image.tag":        "hubble-relay.image.tag",
+		"image.tag":                     "global.tag",
+		"ipam.mode":                     "config.ipam",
+		"ipv4.enabled":                  "global.ipv4.enabled",
+		"ipv6.enabled":                  "global.ipv6.enabled",
+		"k8s.requireIPv4PodCIDR":        "global.k8s.requireIPv4PodCIDR",
+		"k8sServiceHost":                "global.k8sServiceHost",
+		"k8sServicePort":                "global.k8sServicePort",
+		"kubeProxyReplacement":          "global.kubeProxyReplacement",
+		"logSystemLoad":                 "global.logSystemLoad",
+		"masquerade":                    "global.masquerade",
+		"nativeRoutingCIDR":             "global.nativeRoutingCIDR",
+		"nodeinit.enabled":              "global.nodeinit.enabled",
+		"nodeinit.reconfigureKubelet":   "global.nodeinit.reconfigureKubelet",
+		"nodeinit.removeCbrBridge":      "global.nodeinit.removeCbrBridge",
+		"nodeinit.restartPods":          "globalnodeinit.restartPods",
+		"nodePort.enabled":              "global.nodePort.enabled",
+		"nodePort.mode":                 "global.nodePort.mode",
+		"operator.enabled":              "operator.enabled",
+		"pprof.enabled":                 "global.pprof.enabled",
+		"sessionAffinity":               "config.sessionAffinity",
+		"sleepAfterInit":                "agent.sleepAfterInit",
+		"tunnel":                        "global.tunnel",
+	}
+
+	for newKey, v := range options {
+		if oldKey, ok := legacyMappings[newKey]; ok {
+			result[oldKey] = v
+		} else if !ok {
+			if newKey == "image.repository" {
+				result["agent.image"] = v + ":" + options["image.tag"]
+			} else if newKey == "operator.image.repository" {
+				if options["eni"] == "true" {
+					result["operator.image"] = v + "-aws:" + options["image.tag"]
+				} else if options["azure.enabled"] == "true" {
+					result["operator.image"] = v + "-azure:" + options["image.tag"]
+				} else {
+					result["operator.image"] = v + "-generic:" + options["image.tag"]
+				}
+			} else if newKey == "preflight.image.repository" {
+				result["preflight.image"] = v + ":" + options["image.tag"]
+			} else if strings.HasSuffix(newKey, ".tag") {
+				// Already handled in the if statement above
+				continue
+			} else {
+				log.Warningf("Skipping option %s", newKey)
+			}
+		}
+	}
+	result["ci.kubeCacheMutationDetector"] = "true"
+	return result
+}
+
 // RunHelm runs the helm command with the given options.
 func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, options map[string]string) (*CmdRes, error) {
 	err := kub.overwriteHelmOptions(options)
@@ -2392,6 +2485,11 @@ func (kub *Kubectl) RunHelm(action, repo, helmName, version, namespace string, o
 		return nil, err
 	}
 	optionsString := ""
+
+	//TODO: In 1.10 dev cycle, remove this
+	if version == "1.8-dev" {
+		options = kub.convertOptionsToLegacyOptions(options)
+	}
 
 	for k, v := range options {
 		optionsString += fmt.Sprintf(" --set %s=%s ", k, v)

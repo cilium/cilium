@@ -57,14 +57,15 @@ jobs:
         run: |
           helm upgrade -i cilium ./install/kubernetes/cilium \
             --namespace kube-system \
-            --set global.nodeinit.enabled=true \
-            --set global.kubeProxyReplacement=strict \
-            --set config.ipam=kubernetes \
-            --set global.pullPolicy=Never \
-            --set global.ipv6.enabled=true \
-            --set global.ipv4.enabled=false \
-            --set global.tunnel=disabled \
-            --set global.autoDirectNodeRoutes=true
+            --set nodeinit.enabled=true \
+            --set kubeProxyReplacement=strict \
+            --set ipam.mode=kubernetes \
+            --set image.pullPolicy=Never \
+            --set operator.image.pullPolicy=Never \
+            --set ipv6.enabled=true \
+            --set ipv4.enabled=false \
+            --set tunnel=disabled \
+            --set autoDirectNodeRoutes=true
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=${{ env.TIMEOUT }}
           # To make sure that cilium CRD is available (default timeout is 5m)

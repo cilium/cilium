@@ -62,8 +62,8 @@ Deploy Cilium release via Helm with the following options to enable encryption:
 
     helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set global.encryption.enabled=true \\
-      --set global.encryption.nodeEncryption=false
+      --set encryption.enabled=true \\
+      --set encryption.nodeEncryption=false
 
 These options can be provided along with other options, such as when deploying
 to GKE, with VXLAN tunneling:
@@ -72,13 +72,13 @@ to GKE, with VXLAN tunneling:
 
     helm install cilium |CHART_RELEASE| \\
       --namespace cilium \
-      --set global.nodeinit.enabled=true \
+      --set nodeinit.enabled=true \
       --set nodeinit.reconfigureKubelet=true \
       --set nodeinit.removeCbrBridge=true \
-      --set global.cni.binPath=/home/kubernetes/bin \
-      --set global.tunnel=vxlan \
-      --set global.encryption.enabled=true \
-      --set global.encryption.nodeEncryption=false
+      --set cni.binPath=/home/kubernetes/bin \
+      --set tunnel=vxlan \
+      --set encryption.enabled=true \
+      --set encryption.nodeEncryption=false
 
 At this point the Cilium managed nodes will be using IPsec for all traffic. For further
 information on Cilium's transparent encryption, see :ref:`ebpf_datapath`.
@@ -94,7 +94,7 @@ interface as follows:
 
 .. code:: bash
 
-    --set global.encryption.interface=ethX
+    --set encryption.interface=ethX
 
 Node to node encryption
 -----------------------
@@ -104,8 +104,8 @@ In order to enable node-to-node encryption, add:
 .. code:: bash
 
     [...]
-    --set global.encryption.enabled=true \
-    --set global.encryption.nodeEncryption=true
+    --set encryption.enabled=true \
+    --set encryption.nodeEncryption=true
 
 Validate the Setup
 ==================
@@ -234,4 +234,4 @@ Disabling Encryption
 ====================
 
 To disable the encryption, regenerate the YAML with the option
-``global.encryption.enabled=false``
+``encryption.enabled=false``

@@ -19,13 +19,14 @@ jobs:
       - uses: actions/checkout@v2
       - name: Check pre-flight clusterrole
         run: |
-          cd install/kubernetes/cilium/charts
+          cd install/kubernetes/cilium/templates
           echo "Checking for differences between preflight and agent clusterrole"
           diff \
              -I '^[ ]\{2\}name: cilium.*' \
              -I '^Keep file in synced with.*' \
-             agent/templates/clusterrole.yaml \
-             preflight/templates/clusterrole.yaml
+             -I '{{- if.*' \
+             cilium-agent-clusterrole.yaml \
+             cilium-preflight-clusterrole.yaml
 
   lint:
     runs-on: ubuntu-latest
@@ -86,19 +87,20 @@ jobs:
           helm install cilium ./install/kubernetes/cilium \
              --wait \
              --namespace kube-system \
-             --set global.nodeinit.enabled=true \
-             --set global.kubeProxyReplacement=partial \
-             --set global.hostServices.enabled=false \
-             --set global.externalIPs.enabled=true \
-             --set global.nodePort.enabled=true \
-             --set global.hostPort.enabled=true \
-             --set config.bpfMasquerade=false \
-             --set config.ipam=kubernetes \
-             --set global.pullPolicy=Never \
-             --set global.prometheus.enabled=true \
-             --set global.operatorPrometheus.enabled=true \
-             --set global.hubble.enabled=true \
-             --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+             --set nodeinit.enabled=true \
+             --set kubeProxyReplacement=partial \
+             --set hostServices.enabled=false \
+             --set externalIPs.enabled=true \
+             --set nodePort.enabled=true \
+             --set hostPort.enabled=true \
+             --set bpfMasquerade=false \
+             --set ipam.mode=kubernetes \
+             --set image.pullPolicy=Never \
+             --set operator.image.pullPolicy=Never \
+             --set prometheus.enabled=true \
+             --set operator.prometheus.enabled=true \
+             --set hubble.enabled=true \
+             --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
 
           kubectl wait -n kube-system --for=condition=Ready --all pod --timeout=5m
           # To make sure that cilium CRD is available (default timeout is 5m)
