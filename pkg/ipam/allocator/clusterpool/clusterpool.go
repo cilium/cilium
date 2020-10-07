@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package operator
+package clusterpool
 
 import (
 	"errors"
@@ -34,7 +34,7 @@ import (
 	"github.com/cilium/ipam/cidrset"
 )
 
-var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-operator")
+var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-clusterpool")
 
 type ErrCIDRColision struct {
 	cidr      string
