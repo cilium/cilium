@@ -83,8 +83,7 @@ func retrieveNodeInformation(nodeName string) (*nodeTypes.Node, error) {
 				return nil, nil
 			}
 
-			return nil, fmt.Errorf("unable to retrieve k8s node information: %s", err)
-
+			return nil, fmt.Errorf("unable to retrieve CiliumNode: %s", err)
 		}
 
 		no := nodeTypes.ParseCiliumNode(ciliumNode)
@@ -118,11 +117,11 @@ func retrieveNodeInformation(nodeName string) (*nodeTypes.Node, error) {
 	}
 
 	if requireIPv4CIDR && n.IPv4AllocCIDR == nil {
-		return nil, fmt.Errorf("required IPv4 pod CIDR not present in node resource")
+		return nil, fmt.Errorf("required IPv4 PodCIDR not available")
 	}
 
 	if requireIPv6CIDR && n.IPv6AllocCIDR == nil {
-		return nil, fmt.Errorf("required IPv6 pod CIDR not present in node resource")
+		return nil, fmt.Errorf("required IPv6 PodCIDR not available")
 	}
 
 	return n, nil
