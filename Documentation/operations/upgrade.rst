@@ -40,8 +40,7 @@ file.
       helm template |CHART_RELEASE| \\
         --namespace=kube-system \\
         --set preflight.enabled=true \\
-        --set agent.enabled=false \\
-        --set config.enabled=false \\
+        --set agent=false \\
         --set operator.enabled=false \\
         > cilium-preflight.yaml
       kubectl create -f cilium-preflight.yaml
@@ -53,8 +52,7 @@ file.
       helm install cilium-preflight |CHART_RELEASE| \\
         --namespace=kube-system \\
         --set preflight.enabled=true \\
-        --set agent.enabled=false \\
-        --set config.enabled=false \\
+        --set agent=false \\
         --set operator.enabled=false
 
   .. group-tab:: kubectl (kubeproxy-free)
@@ -64,11 +62,10 @@ file.
       helm template |CHART_RELEASE| \\
         --namespace=kube-system \\
         --set preflight.enabled=true \\
-        --set agent.enabled=false \\
-        --set config.enabled=false \\
+        --set agent=false \\
         --set operator.enabled=false \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT \\
+        --set k8sServiceHost=API_SERVER_IP \\
+        --set k8sServicePort=API_SERVER_PORT \\
         > cilium-preflight.yaml
       kubectl create -f cilium-preflight.yaml
 
@@ -79,11 +76,10 @@ file.
       helm install cilium-preflight |CHART_RELEASE| \\
         --namespace=kube-system \\
         --set preflight.enabled=true \\
-        --set agent.enabled=false \\
-        --set config.enabled=false \\
+        --set agent=false \\
         --set operator.enabled=false \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set k8sServiceHost=API_SERVER_IP \\
+        --set k8sServicePort=API_SERVER_PORT
 
 After running the cilium-pre-flight.yaml, make sure the number of READY pods
 is the same number of Cilium pods running.
@@ -144,15 +140,17 @@ version of Cilium are `here <https://github.com/cilium/cilium#stable-releases>`_
 Upgrading to the latest micro release ensures the most seamless experience if a
 rollback is required following the minor release upgrade.
 
-Step 2: Option A: Regenerate deployment files with upgrade compatibility (Recommended)
+Step 2: Use Helm to Upgrade your Cilium deployment
 --------------------------------------------------------------------------------------
 
-`Helm` can be used to generate the YAML files for deployment. This allows to
-regenerate all files from scratch for the new release. By specifying the option
-``--set config.upgradeCompatibility=1.7``, the generated files are guaranteed
-to not contain an options with side effects as you upgrade from version 1.7.
-You still need to ensure that you are specifying the same options as used for
-the initial deployment:
+`Helm` can be used to either upgrade Cilium directly or to generate a new set of
+YAML files that can be used to upgrade an existing deployment. This allows the
+flexibility to use Helm to manage Cilium directly or to apply the resulting file
+using the ``kubectl`` client to install Cilium in your cluster. By default, Helm
+will generate the new templates using the default values files packaged with
+each new release. You still need to ensure that you are specifying the same
+options as used for the initial deployment, either by specifying them at the
+command line or by committing the values to a YAML file:
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
@@ -164,8 +162,7 @@ the initial deployment:
     .. parsed-literal::
 
       helm template |CHART_RELEASE| \\
-        --set config.upgradeCompatibility=1.7 \\
-        --set agent.keepDeprecatedProbes=true \\
+        --set keepDeprecatedProbes=true \\
         --namespace kube-system \\
         > cilium.yaml
       kubectl apply -f cilium.yaml
@@ -178,56 +175,32 @@ the initial deployment:
 
       helm upgrade cilium |CHART_RELEASE| \\
         --namespace=kube-system \\
-        --set config.upgradeCompatibility=1.7 \\
-        --set agent.keepDeprecatedProbes=true
+        --set keepDeprecatedProbes=true
 
 .. note::
 
    Make sure that you are using the same options as for the initial deployment.
-   Instead of using ``--set``, you can also modify the ``values.yaml`` in
-   ``install/kubernetes/cilium/values.yaml`` and use it to regenerate the YAML
-   for the latest version. Running any of the previous commands will overwrite
-   the existing cluster's `ConfigMap` which might not be ideal if you want to
-   keep your existing `ConfigMap` (see next option).
 
-Step 2: Option B: Preserve ConfigMap
-------------------------------------
+   Instead of using ``--set``, you can also save the values relative to your
+   deployment in a YAML file and use it to regenerate the YAML for the latest
+   Cilium version. Running any of the previous commands will overwrite
+   the existing cluster's `ConfigMap` so it is critical to preserve any existing
+   options, either by setting them at the command line or storing them in a
+   YAML file, similar to:
 
-Alternatively, you can use `Helm` to regenerate all Kubernetes resources except
-for the `ConfigMap`. The configuration of Cilium is stored in a `ConfigMap`
-called ``cilium-config``. The format is compatible between minor releases so
-configuration parameters are automatically preserved across upgrades. However,
-new minor releases may introduce new functionality that require opt-in via the
-`ConfigMap`. Refer to the :ref:`upgrade_version_specifics` for a list of new
-configuration options for each minor version.
+   .. .. parsed-literal::
 
-.. include:: ../gettingstarted/k8s-install-download-release.rst
+    agent: true
+    keepDepreatedProbes: true
 
-.. tabs::
-  .. group-tab:: kubectl
 
-    Generate the required YAML file and deploy it:
+   You can then pass the values file to Helm by running:
 
-    .. parsed-literal::
+   .. parsed-literal::
 
-      helm template |CHART_RELEASE| \\
-        --namespace kube-system \\
-        --set config.enabled=false \\
-        > cilium.yaml
-      kubectl apply -f cilium.yaml
-
-  .. group-tab:: Helm
-
-    Keeping an existing `ConfigMap` with ``helm upgrade`` is currently not
-    supported.
-
-.. note::
-
-   The above variant can not be used in combination with ``--set`` or providing
-   ``values.yaml`` because all options are fed into the DaemonSets and
-   Deployments using the `ConfigMap` which is not generated if
-   ``config.enabled=false`` or ``config.keepCurrent=true`` are set. The above
-   command *only* generates the DaemonSet, Deployment and RBAC definitions.
+     helm upgrade cilium |CHART_RELEASE| \\
+       --namespace=kube-system \\
+       -f my-values.yaml
 
 Step 3: Rolling Back
 --------------------
@@ -330,13 +303,381 @@ Annotations:
   Users may opt to disable mTLS by using the following Helm options when
   upgrading (strongly discouraged):
 
-  - ``global.hubble.tls.enabled=false``
-  - ``global.hubble.tls.auto.enabled=false``
+  - ``hubble.tls.enabled=false``
+  - ``hubble.tls.auto.enabled=false``
 * Cilium has upgraded its CRDs to v1, from v1beta1. Users must run the
   pre-flight checker mentioned above. The pre-flight check will ensure the
   custom resources installed inside the cluster are well-formed.
 * The Cilium agent is now enforcing API rate limits for certain API calls. See
   :ref:``api_rate_limiting`` for more information.
+* Cilium Helm charts have been completely re-factored. Most of the values used
+  to drive Helm charts have been re-scoped from global values to be part of a
+  single `Cilium`_, Helm chart. When upgrading from a previous version of Cilium,
+  the values will need to be provided using the new structure. In most cases the
+  prefixes of ``global.``, ``agent.``, and ``config.`` can be dropped from the
+  previously used value name. As an example, if you previously ran the command
+  ``helm install --set global.ipv4.enabled=true`` you would now run ``helm
+  install --set ipv4.enabled=true``. See the following table which calls out
+  specific values where the prefix cannot be simply dropped, followed by a full
+  table of old and new Helm values.
+
+  The following values have been renamed:
+
++----------------------------------------------+--------------------------------------------+
+| <= v1.8.x Value                              | >= 1.9.x Renamed Value                     |
++==============================================+============================================+
+| agent.enabled                                | agent                                      |
++----------------------------------------------+--------------------------------------------+
+| config.bpfMasquerade                         | bpf.masquerade                             |
++----------------------------------------------+--------------------------------------------+
+| config.bpfClockProbe                         | bpf.clockProbe                             |
++----------------------------------------------+--------------------------------------------+
+| config.bpfTProxy                             | bpf.tproxy                                 |
++----------------------------------------------+--------------------------------------------+
+| config.ipam                                  | ipam.mode                                  |
++----------------------------------------------+--------------------------------------------+
+| global.operatorPrometheus.*                  | operator.prometheus.*                      |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.*                               | hubble.relay.*                             |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.numReplicas                     | hubble.relay.replicas                      |
++----------------------------------------------+--------------------------------------------+
+| hubble-ui.*                                  | hubble.ui.*                                |
++----------------------------------------------+--------------------------------------------+
+| operator.numReplicas                         | operator.replicas                          |
++----------------------------------------------+--------------------------------------------+
+
+  The full list of updated Helm values:
+
++----------------------------------------------+--------------------------------------------+
+| <= v1.8.x Value                              | >= 1.9.x Value                             |
++==============================================+============================================+
+| global.autoDirectNodeRoutes                  | autoDirectNodeRoutes                       |
++----------------------------------------------+--------------------------------------------+
+| global.azure.enabled                         | azure.enabled                              |
++----------------------------------------------+--------------------------------------------+
+| config.bpfClockProbe                         | bpf.clockProbe                             |
++----------------------------------------------+--------------------------------------------+
+| global.bpf.ctAnyMax                          | bpf.ctAnyMax                               |
++----------------------------------------------+--------------------------------------------+
+| global.bpf.ctTcpMax                          | bpf.ctTcpMax                               |
++----------------------------------------------+--------------------------------------------+
+| global.bpf.lbMapMax                          | bpf.lbMapMax                               |
++----------------------------------------------+--------------------------------------------+
+| config.bpf.mapDynamicSizeRatio               | bpf.mapDynamicSizeRatio                    |
++----------------------------------------------+--------------------------------------------+
+| config.bpfMasquerade                         | bpf.masquerade                             |
++----------------------------------------------+--------------------------------------------+
+| global.bpf.monitorAggregation                | bpf.monitorAggregation                     |
++----------------------------------------------+--------------------------------------------+
+| global.bpf.monitorFlags                      | bpf.monitorFlags                           |
++----------------------------------------------+--------------------------------------------+
+| global.bpf.monitorInterval                   | bpf.monitorInterval                        |
++----------------------------------------------+--------------------------------------------+
+| global.bpf.natMax                            | bpf.natMax                                 |
++----------------------------------------------+--------------------------------------------+
+| global.bpf.neighMax                          | bpf.neighMax                               |
++----------------------------------------------+--------------------------------------------+
+| global.bpf.policyMapMax                      | bpf.policyMapMax                           |
++----------------------------------------------+--------------------------------------------+
+| global.bpf.preallocateMaps                   | bpf.preallocateMaps                        |
++----------------------------------------------+--------------------------------------------+
+| global.bpf.waitForMount                      | bpf.waitForMount                           |
++----------------------------------------------+--------------------------------------------+
+| config.bpfMasquerade                         | bpf.masquerade                             |
++----------------------------------------------+--------------------------------------------+
+| global.cleanBpfState                         | cleanBpfState                              |
++----------------------------------------------+--------------------------------------------+
+| global.cleanState                            | cleanState                                 |
++----------------------------------------------+--------------------------------------------+
+| global.cluster.id                            | cluster.id                                 |
++----------------------------------------------+--------------------------------------------+
+| global.cluster.name                          | cluster.name                               |
++----------------------------------------------+--------------------------------------------+
+| global.cni.binPath                           | cni.binPath                                |
++----------------------------------------------+--------------------------------------------+
+| global.cni.chainingMode                      | cni.chainingMode                           |
++----------------------------------------------+--------------------------------------------+
+| global.cni.confPath                          | cni.confPath                               |
++----------------------------------------------+--------------------------------------------+
+| global.cni.customConf                        | cni.customConf                             |
++----------------------------------------------+--------------------------------------------+
+| global.cni.hostConfDirMountPath              | cni.hostConfDirMountPath                   |
++----------------------------------------------+--------------------------------------------+
+| global.cni.install                           | cni.install                                |
++----------------------------------------------+--------------------------------------------+
+| config.crdWaitTimeout                        | crdWaitTimeout                             |
++----------------------------------------------+--------------------------------------------+
+| config.enableCnpStatusUpdates                | enableCnpStatusUpdates                     |
++----------------------------------------------+--------------------------------------------+
+| config.conntrackGCInterval                   | conntrackGCInterval                        |
++----------------------------------------------+--------------------------------------------+
+| global.containerRuntime.integration          | containerRuntime.integration               |
++----------------------------------------------+--------------------------------------------+
+| global.daemon.runPath                        | daemon.runPath                             |
++----------------------------------------------+--------------------------------------------+
+| global.datapathMode                          | datapathMode                               |
++----------------------------------------------+--------------------------------------------+
+| global.debug.enabled                         | debug.enabled                              |
++----------------------------------------------+--------------------------------------------+
+| config.disableEnvoyVersionCheck              | disableEnvoyVersionCheck                   |
++----------------------------------------------+--------------------------------------------+
+| global.egressMasqueradeInterfaces            | egressMasqueradeInterfaces                 |
++----------------------------------------------+--------------------------------------------+
+| config.enableIdentityMark                    | enableIdentityMark                         |
++----------------------------------------------+--------------------------------------------+
+| global.enableXTSocketFallback                | enableXTSocketFallback                     |
++----------------------------------------------+--------------------------------------------+
+| agent.enabled                                | agent                                      |
++----------------------------------------------+--------------------------------------------+
+| global.encryption.enabled                    | encryption.enabled                         |
++----------------------------------------------+--------------------------------------------+
+| global.encryption.interface                  | encryption.interface                       |
++----------------------------------------------+--------------------------------------------+
+| global.encryption.keyFile                    | encryption.keyFile                         |
++----------------------------------------------+--------------------------------------------+
+| global.encryption.mountPath                  | encryption.mountPath                       |
++----------------------------------------------+--------------------------------------------+
+| global.encryption.nodeEncryption             | encryption.nodeEncryption                  |
++----------------------------------------------+--------------------------------------------+
+| global.encryption.secretName                 | encryption.secretName                      |
++----------------------------------------------+--------------------------------------------+
+| global.endpointHealthChecking.enabled        | endpointHealthChecking.enabled             |
++----------------------------------------------+--------------------------------------------+
+| global.endpointRoutes.enabled                | endpointRoutes.enabled                     |
++----------------------------------------------+--------------------------------------------+
+| global.eni                                   | eni                                        |
++----------------------------------------------+--------------------------------------------+
+| global. etcd.clusterDomain                   | etcd.clusterDomain                         |
++----------------------------------------------+--------------------------------------------+
+| global.etcd.clusterSize                      | etcd.clusterSize                           |
++----------------------------------------------+--------------------------------------------+
+| global.etcd.enabled                          | etcd.enabled                               |
++----------------------------------------------+--------------------------------------------+
+| global.etcd.endpoints                        | etcd.endpoints                             |
++----------------------------------------------+--------------------------------------------+
+| global.etcd.k8sService                       | etcd.k8sService                            |
++----------------------------------------------+--------------------------------------------+
+| global.etcd.managed                          | etcd.managed                               |
++----------------------------------------------+--------------------------------------------+
+| global.etcd.ssl                              | etcd.ssl                                   |
++----------------------------------------------+--------------------------------------------+
+| global.externalIPs.enabled                   | externalIPs.enabled                        |
++----------------------------------------------+--------------------------------------------+
+| global.flannel.enabled                       | flannel.enabled                            |
++----------------------------------------------+--------------------------------------------+
+| global.flannel.masterDevice                  | flannel.masterDevice                       |
++----------------------------------------------+--------------------------------------------+
+| global.flannel.uninstallOnExit               | flannel.uninstallOnExit                    |
++----------------------------------------------+--------------------------------------------+
+| global.fragmentTracking                      | fragmentTracking                           |
++----------------------------------------------+--------------------------------------------+
+| global.gke.enabled                           | gke.enabled                                |
++----------------------------------------------+--------------------------------------------+
+| config.healthChecking                        | healthChecking                             |
++----------------------------------------------+--------------------------------------------+
+| global.healthPort                            | healthPort                                 |
++----------------------------------------------+--------------------------------------------+
+| global.hostFirewall                          | hostFirewall                               |
++----------------------------------------------+--------------------------------------------+
+| global.hostPort.enabled                      | hostPort.enabled                           |
++----------------------------------------------+--------------------------------------------+
+| global.hostServices.enabled                  | hostServices.enabled                       |
++----------------------------------------------+--------------------------------------------+
+| global.hostServices.protocols                | hostServices.protocols                     |
++----------------------------------------------+--------------------------------------------+
+| global.hubble.enabled                        | hubble.enabled                             |
++----------------------------------------------+--------------------------------------------+
+| global.hubble.eventQueueSize                 | hubble.eventQueueSize                      |
++----------------------------------------------+--------------------------------------------+
+| global.hubble.flowBufferSize                 | hubble.flowBufferSize                      |
++----------------------------------------------+--------------------------------------------+
+| global.hubble.listenAddress                  | hubble.listenAddress                       |
++----------------------------------------------+--------------------------------------------+
+| global.hubble.metrics.enabled                | hubble.metrics.enabled                     |
++----------------------------------------------+--------------------------------------------+
+| global.hubble.metrics.port                   | hubble.metrics.port                        |
++----------------------------------------------+--------------------------------------------+
+| global.hubble.metrics.serviceMonitor.enabled | hubble.metrics.serviceMonitor.enabled      |
++----------------------------------------------+--------------------------------------------+
+| global.hubble.metricsServer                  | hubble.metricsServer                       |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.dialTimeout                     | hubble.relay.dialTimeout                   |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.enabled                         | hubble.relay.enabled                       |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.image.pullPolicy                | hubble.relay.image.pullPolicy              |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.image.repository                | hubble.relay.image.repository              |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.image.tag                       | hubble.relay.image.tag                     |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.listenHost                      | hubble.relay.listenHost                    |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.listenPort                      | hubble.relay.listenPort                    |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.numReplicas                     | hubble.relay.replicas                      |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.retryTimeout                    | hubble.relay.retryTimeout                  |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.servicePort                     | hubble.relay.servicePort                   |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.sortBufferDrainTimeout          | hubble.relay.sortBufferDrainTimeout        |
++----------------------------------------------+--------------------------------------------+
+| hubble-relay.sortBufferLenMax                | hubble.relay.sortBufferLenMax              |
++----------------------------------------------+--------------------------------------------+
+| global.hubble.socketPath                     | hubble.socketPath                          |
++----------------------------------------------+--------------------------------------------+
+| hubble-ui.enabled                            | hubble.ui.enabled                          |
++----------------------------------------------+--------------------------------------------+
+| hubble-ui.image.pullPolicy                   | hubble.ui.frontend.image.pullPolicy        |
++----------------------------------------------+--------------------------------------------+
+| hubble-ui.image.repository                   | hubble.ui.frontend.image.repository        |
++----------------------------------------------+--------------------------------------------+
+| hubble-ui.image.tag                          | hubble.ui.frontend.image.tag               |
++----------------------------------------------+--------------------------------------------+
+| hubble-ui.ingress.enabled                    | hubble.ui.ingress.enabled                  |
++----------------------------------------------+--------------------------------------------+
+| hubble-ui.ingress.hosts                      | hubble.ui.ingress.hosts                    |
++----------------------------------------------+--------------------------------------------+
+| hubble.-ui.ingress.path                      | hubble.ui.ingress.path                     |
++----------------------------------------------+--------------------------------------------+
+| hubble-ui.ingress.tls                        | hubble.ui.ingress.tls                      |
++----------------------------------------------+--------------------------------------------+
+| global.identityAllocationMode                | identityAllocationMode                     |
++----------------------------------------------+--------------------------------------------+
+| config.identityChangeGracePeriod             | identityChangeGracePeriod                  |
++----------------------------------------------+--------------------------------------------+
+| global.identityGCInterval                    | identityGCInterval                         |
++----------------------------------------------+--------------------------------------------+
+| global.identityHeartbeatTimeout              | identityHeartbeatTimeout                   |
++----------------------------------------------+--------------------------------------------+
+| global.pullPolicy                            | image.pullPolicy                           |
++----------------------------------------------+--------------------------------------------+
+| agent.image                                  | image.repository                           |
++----------------------------------------------+--------------------------------------------+
+| global.tag                                   | image.tag                                  |
++----------------------------------------------+--------------------------------------------+
+| global.installIptablesRules                  | installIptablesRules                       |
++----------------------------------------------+--------------------------------------------+
+| global.ipMasqAgent.enabled                   | ipMasqAgent.enabled                        |
++----------------------------------------------+--------------------------------------------+
+| config.ipam                                  | ipam.mode                                  |
++----------------------------------------------+--------------------------------------------+
+| global.ipam.operator.clusterPoolIPv4MaskSize | ipam.operator.clusterPoolIPv4MaskSize      |
++----------------------------------------------+--------------------------------------------+
+| global.ipam.operator.clusterPoolIPv4PodCIDR  | ipam.operator.clusterPoolIPv4PodCIDR       |
++----------------------------------------------+--------------------------------------------+
+| global.ipam.operator.clusterPoolIPv6MaskSize | ipam.operator.clusterPoolIPv6MaskSize      |
++----------------------------------------------+--------------------------------------------+
+| global.ipam.operator.clusterPoolIPv6PodCIDR  | ipam.operator.clusterPoolIPv6PodCIDR       |
++----------------------------------------------+--------------------------------------------+
+| global.iptablesLockTimeout                   | iptablesLockTimeout                        |
++----------------------------------------------+--------------------------------------------+
+| global.ipv4.enabled                          | ipv4.enabled                               |
++----------------------------------------------+--------------------------------------------+
+| global.ipv6.enabled                          | ipv6.enabled                               |
++----------------------------------------------+--------------------------------------------+
+| global.ipvlan.enabled                        | ipvlan.enabled                             |
++----------------------------------------------+--------------------------------------------+
+| global.ipvlan.masterDevice                   | ipvlan.masterDevice                        |
++----------------------------------------------+--------------------------------------------+
+| global.k8s.requireIPv4PodCIDR                | k8s.requireIPv4PodCIDR                     |
++----------------------------------------------+--------------------------------------------+
+| agent.keepDeprecatedLabels                   | keepDeprecatedLabels                       |
++----------------------------------------------+--------------------------------------------+
+| agent.keepDeprecatedProbes                   | keepDeprecatedProbes                       |
++----------------------------------------------+--------------------------------------------+
+| global.kubeProxyReplacement                  | kubeProxyReplacement                       |
++----------------------------------------------+--------------------------------------------+
+| global.l7Proxy                               | l7Proxy                                    |
++----------------------------------------------+--------------------------------------------+
+| config.labels                                | labels                                     |
++----------------------------------------------+--------------------------------------------+
+| global.logSystemLoad                         | logSystemLoad                              |
++----------------------------------------------+--------------------------------------------+
+| global.maglev.tableSize                      | maglev.tableSize                           |
++----------------------------------------------+--------------------------------------------+
+| global.masquerade                            | masquerade                                 |
++----------------------------------------------+--------------------------------------------+
+| agent.monitor.*                              | monitor.*                                  |
++----------------------------------------------+--------------------------------------------+
+| global.nodePort.acceleration                 | nodePort.acceleration                      |
++----------------------------------------------+--------------------------------------------+
+| global.nodePort.autoProtectPortRange         | nodePort.autoProtectPortRange              |
++----------------------------------------------+--------------------------------------------+
+| global.nodePort.bindProtection               | nodePort.bindProtection                    |
++----------------------------------------------+--------------------------------------------+
+| global.nodePort.enableHealthCheck            | nodePort.enableHealthCheck                 |
++----------------------------------------------+--------------------------------------------+
+| global.nodePort.enabled                      | nodePort.enabled                           |
++----------------------------------------------+--------------------------------------------+
+| global.nodePort.mode                         | nodePort.mode                              |
++----------------------------------------------+--------------------------------------------+
+| global.nodePort.range                        | nodePort.range                             |
++----------------------------------------------+--------------------------------------------+
+| global.nodeinit.bootstrapFile                | nodeinit.bootstrapFile                     |
++----------------------------------------------+--------------------------------------------+
+| global.nodeinit.enabled                      | nodeinit.enabled                           |
++----------------------------------------------+--------------------------------------------+
+| global.pullPolicy                            | nodeinit.image.pullPolicy                  |
++----------------------------------------------+--------------------------------------------+
+| nodeinit.image                               | nodeinit.image.repository                  |
++----------------------------------------------+--------------------------------------------+
+| global.tag                                   | nodeinit.image.tag                         |
++----------------------------------------------+--------------------------------------------+
+| global.endpointGCInterval                    | operator.endpointGCInterval                |
++----------------------------------------------+--------------------------------------------+
+| global.identityGCInterval                    | operator.identityGCInterval                |
++----------------------------------------------+--------------------------------------------+
+| global.identityHeartbeatTimeout              | operator.identityHeartbeatTimeout          |
++----------------------------------------------+--------------------------------------------+
+| global.pullPolicy                            | operator.image.pullPolicy                  |
++----------------------------------------------+--------------------------------------------+
+| operator.image                               | operator.image.repository                  |
++----------------------------------------------+--------------------------------------------+
+| global.tag                                   | operator.image.tag                         |
++----------------------------------------------+--------------------------------------------+
+| global.operatorPrometheus.enabled            | operator.prometheus.enabled                |
++----------------------------------------------+--------------------------------------------+
+| global.operatorPrometheus.port               | operator.prometheus.port                   |
++----------------------------------------------+--------------------------------------------+
+| global.prometheus.serviceMonitor.enabled     | operator.prometheus.serviceMonitor.enabled |
++----------------------------------------------+--------------------------------------------+
+| operator.numReplicas                         | operator.replicas                          |
++----------------------------------------------+--------------------------------------------+
+| config.policyAuditMode                       | policyAuditMode                            |
++----------------------------------------------+--------------------------------------------+
+| agent.policyEnforcementMode                  | policyEnforcementMode                      |
++----------------------------------------------+--------------------------------------------+
+| global.pprof.enabled                         | pprof.enabled                              |
++----------------------------------------------+--------------------------------------------+
+| global.prometheus.enabled                    | prometheus.enabled                         |
++----------------------------------------------+--------------------------------------------+
+| global.prometheus.port                       | prometheus.port                            |
++----------------------------------------------+--------------------------------------------+
+| global.prometheus.serviceMonitor.enabled     | prometheus.serviceMonitor.enabled          |
++----------------------------------------------+--------------------------------------------+
+| global.proxy.sidecarImageRegex               | proxy.sidecarImageRegex                    |
++----------------------------------------------+--------------------------------------------+
+| global.remoteNodeIdentity                    | remoteNodeIdentity                         |
++----------------------------------------------+--------------------------------------------+
+| agent.sleepAfterInit                         | sleepAfterInit                             |
++----------------------------------------------+--------------------------------------------+
+| global.sockops.enabled                       | sockops.enabled                            |
++----------------------------------------------+--------------------------------------------+
+| global.synchronizeK8sNodes                   | synchronizeK8sNodes                        |
++----------------------------------------------+--------------------------------------------+
+| global.tls.enabled                           | tls.enabled                                |
++----------------------------------------------+--------------------------------------------+
+| global.tls.secretsBackend                    | tls.secretsBackend                         |
++----------------------------------------------+--------------------------------------------+
+| global.tunnel                                | tunnel                                     |
++----------------------------------------------+--------------------------------------------+
+| global.wellKnownIdentities.enabled           | wellKnownIdentities.enabled                |
++----------------------------------------------+--------------------------------------------+
+
+.. _Cilium: \ |SCM_WEB|\/install/kubernetes/cilium/values.yaml
 
 Renamed Metrics
 ~~~~~~~~~~~~~~~
@@ -452,7 +793,7 @@ IMPORTANT: Changes required before upgrading to 1.8.0
   downgrade. The removal of this probe should be done after a successful
   upgrade.
 
-  The helm option ``agent.keepDeprecatedProbes=true`` will keep the
+  The Helm option ``agent.keepDeprecatedProbes=true`` will keep the
   ``exec`` probe in the new `DaemonSet`. Add this option along with any
   other options you would otherwise specify to Helm:
 
@@ -750,7 +1091,7 @@ Removed options
 * The ``conntrack-garbage-collector-interval`` option deprecated in Cilium 1.6
   is now removed. Please use ``conntrack-gc-interval`` instead.
 
-Removed helm options
+Removed Helm options
 ~~~~~~~~~~~~~~~~~~~~
 * ``operator.synchronizeK8sNodes``: was removed and replaced with ``config.synchronizeK8sNodes``
 
@@ -792,7 +1133,7 @@ IMPORTANT: Changes required before upgrading to 1.7.x
   downgrade. The removal of this label should be done after a successful
   upgrade.
 
-  The helm option ``agent.keepDeprecatedLabels=true`` will keep the
+  The Helm option ``agent.keepDeprecatedLabels=true`` will keep the
   ``kubernetes.io/cluster-service`` label in the new `DaemonSet`:
 
 .. tabs::
@@ -903,7 +1244,7 @@ New ConfigMap Options
     Helm, in order to gain the benefits of improved security. The Helm option
     is ``--set global.remoteNodeIdentity``. This option can be disabled in
     order to maintain full compatibility with Cilium 1.6.x policy enforcement.
-    **Be aware** that upgrading a cluster to 1.7.x by using helm to generate a
+    **Be aware** that upgrading a cluster to 1.7.x by using Helm to generate a
     new Cilium config that leaves ``enable-remote-node-identity`` set as the
     default value of ``true`` **can break network connectivity.**
 
@@ -965,7 +1306,7 @@ New ConfigMap Options
     available. Cilium now uses CRDs by default which limits the use of
     well-known identities to the managed etcd mode. With the addition of this
     option, well-known identities are disabled by default in all new deployment
-    and only enabled if the Helm option ``etcd.managed=true`` is set. Consider
+    and only enabled if the Helm option ``global.etcd.managed=true`` is set. Consider
     disabling this option if you are not using the etcd operator respectively
     managed etcd mode to reduce the number of policy identities whitelisted for
     each endpoint.
@@ -979,7 +1320,7 @@ New ConfigMap Options
     enable only those features which user has explicitly enabled in their
     ConfigMap. See :ref:`kubeproxy-free` for more option values.
 
-    For users who previously were running with ``nodePort.enabled=true`` it is
+    For users who previously were running with ``global.nodePort.enabled=true`` it is
     recommended to set the option to ``strict`` before upgrading.
 
   * ``enable-auto-protect-node-port-range`` has been added to enable

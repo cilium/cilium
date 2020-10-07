@@ -1,19 +1,19 @@
 ---
-# Source: cilium/charts/agent/templates/serviceaccount.yaml
+# Source: cilium/templates/cilium-agent-serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: cilium
   namespace: kube-system
 ---
-# Source: cilium/charts/operator/templates/serviceaccount.yaml
+# Source: cilium/templates/cilium-operator-serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: cilium-operator
   namespace: kube-system
 ---
-# Source: cilium/charts/config/templates/configmap.yaml
+# Source: cilium/templates/cilium-configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -32,6 +32,7 @@ data:
   #   the kvstore by commenting out the identity-allocation-mode below, or
   #   setting it to "kvstore".
   identity-allocation-mode: crd
+  cilium-endpoint-gc-interval: "5m0s"
 
   # If you want to run cilium in debug mode change this value to true
   debug: "false"
@@ -43,9 +44,11 @@ data:
   # Enable IPv6 addressing. If enabled, all endpoints are allocated an IPv6
   # address.
   enable-ipv6: "false"
+  # Users who wish to specify their own custom CNI configuration file must set
+  # custom-cni-conf to "true", otherwise Cilium may overwrite the configuration.
+  custom-cni-conf: "false"
   enable-bpf-clock-probe: "true"
   enable-bpf-tproxy: "true"
-
   # If you want cilium monitor to aggregate tracing for packets, set this level
   # to "low", "medium", or "maximum". The higher the level, the less packets
   # that will be seen in monitor output.
@@ -62,16 +65,15 @@ data:
   #
   # Only effective when monitor aggregation is set to "medium" or higher.
   monitor-aggregation-flags: all
+  # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
+  # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
+  bpf-map-dynamic-size-ratio: "0.0025"
   # bpf-policy-map-max specifies the maximum number of entries in endpoint
   # policy map (per endpoint)
   bpf-policy-map-max: "16384"
   # bpf-lb-map-max specifies the maximum number of entries in bpf lb service,
   # backend and affinity maps.
   bpf-lb-map-max: "65536"
-  # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
-  # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
-  bpf-map-dynamic-size-ratio: "0.0025"
-
   # Pre-allocation of map entries allows per-packet latency to be reduced, at
   # the expense of up-front memory allocation for the entries in the maps. The
   # default value below will minimize memory usage in the default installation;
@@ -109,8 +111,10 @@ data:
 
   masquerade: "true"
   enable-bpf-masquerade: "true"
+
   enable-xt-socket-fallback: "true"
   install-iptables-rules: "true"
+
   auto-direct-node-routes: "false"
   enable-bandwidth-manager: "true"
   kube-proxy-replacement:  "probe"
@@ -119,15 +123,20 @@ data:
   enable-auto-protect-node-port-range: "true"
   enable-session-affinity: "true"
   enable-endpoint-health-checking: "true"
+  enable-health-checking: "true"
   enable-well-known-identities: "false"
   enable-remote-node-identity: "true"
   operator-api-serve-addr: "127.0.0.1:9234"
+  # Enable Hubble gRPC service.
+  enable-hubble: "true"
+  # UNIX domain socket for Hubble server to listen to.
+  hubble-socket-path:  "/var/run/cilium/hubble.sock"
   ipam: "cluster-pool"
   cluster-pool-ipv4-cidr: "10.0.0.0/8"
   cluster-pool-ipv4-mask-size: "24"
   disable-cnp-status-updates: "true"
 ---
-# Source: cilium/charts/agent/templates/clusterrole.yaml
+# Source: cilium/templates/cilium-agent-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -228,7 +237,7 @@ rules:
   verbs:
   - '*'
 ---
-# Source: cilium/charts/operator/templates/clusterrole.yaml
+# Source: cilium/templates/cilium-operator-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -319,7 +328,7 @@ rules:
   - get
   - update
 ---
-# Source: cilium/charts/agent/templates/clusterrolebinding.yaml
+# Source: cilium/templates/cilium-agent-clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -333,7 +342,7 @@ subjects:
   name: cilium
   namespace: kube-system
 ---
-# Source: cilium/charts/operator/templates/clusterrolebinding.yaml
+# Source: cilium/templates/cilium-operator-clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -347,7 +356,7 @@ subjects:
   name: cilium-operator
   namespace: kube-system
 ---
-# Source: cilium/charts/agent/templates/daemonset.yaml
+# Source: cilium/templates/cilium-agent-daemonset.yaml
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -359,6 +368,10 @@ spec:
   selector:
     matchLabels:
       k8s-app: cilium
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 2
+    type: RollingUpdate
   template:
     metadata:
       annotations:
@@ -453,7 +466,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: "docker.io/cilium/cilium:latest"
+        image: docker.io/cilium/cilium:latest
         imagePullPolicy: Always
         lifecycle:
           postStart:
@@ -516,7 +529,7 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: "docker.io/cilium/cilium:latest"
+        image: docker.io/cilium/cilium:latest
         imagePullPolicy: Always
         name: clean-cilium-state
         securityContext:
@@ -581,12 +594,8 @@ spec:
       - configMap:
           name: cilium-config
         name: cilium-config-path
-  updateStrategy:
-    rollingUpdate:
-      maxUnavailable: 2
-    type: RollingUpdate
 ---
-# Source: cilium/charts/operator/templates/deployment.yaml
+# Source: cilium/templates/cilium-operator-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -651,7 +660,7 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-        image: "docker.io/cilium/operator-generic:latest"
+        image: docker.io/cilium/operator-generic:latest
         imagePullPolicy: Always
         name: cilium-operator
         livenessProbe:

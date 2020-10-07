@@ -1,4 +1,0 @@
-You have successfully completed the preflight check
-
-For any further help, visit https://docs.cilium.io/en/v{{ substr 0 3 .Chart.Version }}/gettinghelp
-

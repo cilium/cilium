@@ -32,9 +32,9 @@ var _ = Describe("K8sIdentity", func() {
 
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-			"global.endpointGCInterval":       "2s",
-			"global.identityGCInterval":       "2s",
-			"global.identityHeartbeatTimeout": "2s",
+			"endpointGCInterval":       "2s",
+			"identityGCInterval":       "2s",
+			"identityHeartbeatTimeout": "2s",
 		})
 
 		_, err := kubectl.CiliumNodesWait()

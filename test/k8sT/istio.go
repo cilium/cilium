@@ -48,10 +48,10 @@ var _ = SkipContextIf(func() bool {
 		// - cause CI infra to prepull these images so that they do not
 		//   need to be pulled on demand during the test
 		// " --set values.pilot.image=docker.io/cilium/istio_pilot:1.5.9" +
-		// " --set values.global.proxy.image=docker.io/cilium/istio_proxy:1.5.9" +
-		// " --set values.global.proxy_init.image=docker.io/cilium/istio_proxy:1.5.9"
+		// " --set values.proxy.image=docker.io/cilium/istio_proxy:1.5.9" +
+		// " --set values.proxy_init.image=docker.io/cilium/istio_proxy:1.5.9"
 		ciliumOptions = map[string]string{
-			// "global.proxy.sidecarImageRegex": "jrajahalme/istio_proxy",
+			// "proxy.sidecarImageRegex": "jrajahalme/istio_proxy",
 		}
 
 		// Map of tested runtimes for cilium-istioctl

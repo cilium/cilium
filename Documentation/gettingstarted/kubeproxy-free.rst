@@ -98,9 +98,9 @@ configuration.
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set global.kubeProxyReplacement=strict \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set kubeProxyReplacement=strict \\
+        --set k8sServiceHost=API_SERVER_IP \\
+        --set k8sServicePort=API_SERVER_PORT
 
 This will install Cilium as a CNI plugin with the eBPF kube-proxy replacement to
 implement handling of Kubernetes services of type ClusterIP, NodePort, LoadBalancer
@@ -160,9 +160,9 @@ Use ``--verbose`` for full details:
       XDP Acceleration:    Disabled
       Services:
       - ClusterIP:      Enabled
-      - NodePort:       Enabled (Range: 30000-32767) 
-      - LoadBalancer:   Enabled 
-      - externalIPs:    Enabled 
+      - NodePort:       Enabled (Range: 30000-32767)
+      - LoadBalancer:   Enabled
+      - externalIPs:    Enabled
       - HostPort:       Enabled
     [...]
 
@@ -224,7 +224,7 @@ port ``31940`` (one for each of devices ``eth0`` and ``eth1``):
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-fmh8d -- cilium service list
-    ID   Frontend                   Service Type   Backend                    
+    ID   Frontend                   Service Type   Backend
     [...]
     4    10.104.239.135:80/TCP      ClusterIP      1 => 10.217.0.107:80/TCP
                                                    2 => 10.217.0.149:80/TCP
@@ -321,16 +321,16 @@ having to synchronize state with the other nodes. Similarly, upon backend remova
 lookup tables are reprogrammed with minimal disruption for unrelated backends (at most 1%
 difference in the reassignments) for the given service.
 
-Maglev hashing for services load balancing can be enabled by setting ``global.nodePort.algorithm=maglev``:
+Maglev hashing for services load balancing can be enabled by setting ``nodePort.algorithm=maglev``:
 
 .. parsed-literal::
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set global.kubeProxyReplacement=strict \\
-        --set global.nodePort.algorithm=maglev \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set kubeProxyReplacement=strict \\
+        --set nodePort.algorithm=maglev \\
+        --set k8sServiceHost=API_SERVER_IP \\
+        --set k8sServicePort=API_SERVER_PORT
 
 Note that Maglev hashing is applied only to external (N-S) traffic. For
 in-cluster service connections (E-W), sockets are assigned to service backends
@@ -391,15 +391,15 @@ given service (with the property of at most 1% difference on backend reassignmen
     SEED=$(head -c16 /dev/urandom | base64 -w0)
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set global.kubeProxyReplacement=strict \\
-        --set global.nodePort.algorithm=maglev \\
+        --set kubeProxyReplacement=strict \\
+        --set nodePort.algorithm=maglev \\
         --set maglev.tableSize=65521 \\
         --set maglev.hashSeed=$SEED \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set k8sServiceHost=API_SERVER_IP \\
+        --set k8sServicePort=API_SERVER_PORT
 
 Note that enabling Maglev will have a higher memory consumption on each Cilium-managed node compared
-to the default of ``global.nodePort.algorithm=random`` given ``random`` does not need the extra lookup
+to the default of ``nodePort.algorithm=random`` given ``random`` does not need the extra lookup
 tables. However, ``random`` won't have consistent backend selection.
 
 .. _DSR mode:
@@ -416,7 +416,7 @@ from the backend need to make the extra hop back that node in order to perform t
 reverse SNAT translation there before returning the packet directly to the external
 client.
 
-This setting can be changed through the ``global.nodePort.mode`` helm option to
+This setting can be changed through the ``nodePort.mode`` helm option to
 ``dsr`` in order to let Cilium's eBPF NodePort implementation operate in DSR mode.
 In this mode, the backends reply directly to the external client without taking
 the extra hop, meaning, backends reply by using the service IP/port as a source.
@@ -449,12 +449,12 @@ enabled would look as follows:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set global.tunnel=disabled \\
-        --set global.autoDirectNodeRoutes=true \\
-        --set global.kubeProxyReplacement=strict \\
-        --set global.nodePort.mode=dsr \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set tunnel=disabled \\
+        --set autoDirectNodeRoutes=true \\
+        --set kubeProxyReplacement=strict \\
+        --set nodePort.mode=dsr \\
+        --set k8sServiceHost=API_SERVER_IP \\
+        --set k8sServicePort=API_SERVER_PORT
 
 .. _Hybrid mode:
 
@@ -467,7 +467,7 @@ manual MTU changes in the network while still benefiting from the latency improv
 through the removed extra hop for replies, in particular, when TCP is the main transport
 for workloads.
 
-The mode setting ``global.nodePort.mode`` allows to control the behavior through the
+The mode setting ``nodePort.mode`` allows to control the behavior through the
 options ``dsr``, ``snat`` and ``hybrid``. By default the ``snat`` mode is used in the
 agent.
 
@@ -478,12 +478,12 @@ mode would look as follows:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set global.tunnel=disabled \\
-        --set global.autoDirectNodeRoutes=true \\
-        --set global.kubeProxyReplacement=strict \\
-        --set global.nodePort.mode=hybrid \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set tunnel=disabled \\
+        --set autoDirectNodeRoutes=true \\
+        --set kubeProxyReplacement=strict \\
+        --set nodePort.mode=hybrid \\
+        --set k8sServiceHost=API_SERVER_IP \\
+        --set k8sServicePort=API_SERVER_PORT
 
 .. _XDP acceleration:
 
@@ -498,7 +498,7 @@ starting from version `1.8 <https://cilium.io/blog/2020/06/22/cilium-18/#kube-pr
 the XDP (eXpress Data Path) layer where eBPF is operating directly in the networking
 driver instead of a higher layer.
 
-The mode setting ``global.nodePort.acceleration`` allows to enable this acceleration
+The mode setting ``nodePort.acceleration`` allows to enable this acceleration
 through the option ``native``. The option ``disabled`` is the default and disables the
 acceleration. The majority of drivers supporting 10G or higher rates also support
 ``native`` XDP on a recent kernel. For cloud based deployments most of these drivers
@@ -511,24 +511,24 @@ For high-scale environments, also consider tweaking the default map sizes to a l
 number of entries e.g. through setting a higher ``config.bpfMapDynamicSizeRatio``.
 See :ref:`bpf_map_limitations` for further details.
 
-The ``global.nodePort.acceleration`` setting is supported for DSR, SNAT and hybrid
+The ``nodePort.acceleration`` setting is supported for DSR, SNAT and hybrid
 modes and can be enabled as follows for ``nodePort.mode=hybrid`` in this example:
 
 .. parsed-literal::
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set global.tunnel=disabled \\
-        --set global.autoDirectNodeRoutes=true \\
-        --set global.kubeProxyReplacement=strict \\
-        --set global.nodePort.acceleration=native \\
-        --set global.nodePort.mode=hybrid \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set tunnel=disabled \\
+        --set autoDirectNodeRoutes=true \\
+        --set kubeProxyReplacement=strict \\
+        --set nodePort.acceleration=native \\
+        --set nodePort.mode=hybrid \\
+        --set k8sServiceHost=API_SERVER_IP \\
+        --set k8sServicePort=API_SERVER_PORT
 
 In case of a multi-device environment, where Cilium's device auto-detection selects
 more than a single device to expose NodePort, for example, the helm option
-``global.devices=eth0`` must be additionally specified for the enablement, where
+``devices=eth0`` must be additionally specified for the enablement, where
 ``eth0`` is the native XDP supported networking device. In that case, the device
 name ``eth0`` must be the same on all Cilium managed nodes. Similarly, the underlying
 driver for ``eth0`` must have native XDP support on all Cilium managed nodes.
@@ -617,11 +617,11 @@ As an instance example, ``m5n.xlarge`` is used in the config ``nodegroup-config.
 
   apiVersion: eksctl.io/v1alpha5
   kind: ClusterConfig
-  
+
   metadata:
     name: test-cluster
     region: us-west-2
-  
+
   nodeGroups:
     - name: ng-1
       instanceType: m5n.xlarge
@@ -693,19 +693,19 @@ In order to deploy Cilium, the Kubernetes API server IP and port is needed:
   export API_SERVER_PORT=443
 
 Finally, the deployment can be upgraded and later rolled-out with the
-``global.nodePort.acceleration=native`` setting to enable XDP in Cilium:
+``nodePort.acceleration=native`` setting to enable XDP in Cilium:
 
 .. parsed-literal::
 
   helm upgrade cilium ./cilium \\
         --namespace kube-system \\
         --reuse-values \\
-        --set global.autoDirectNodeRoutes=true \\
-        --set global.kubeProxyReplacement=strict \\
-        --set global.nodePort.acceleration=native \\
-        --set global.nodePort.mode=snat \\
-        --set global.k8sServiceHost=$API_SERVER_IP \\
-        --set global.k8sServicePort=$API_SERVER_PORT
+        --set autoDirectNodeRoutes=true \\
+        --set kubeProxyReplacement=strict \\
+        --set nodePort.acceleration=native \\
+        --set nodePort.mode=snat \\
+        --set k8sServiceHost=$API_SERVER_IP \\
+        --set k8sServicePort=$API_SERVER_PORT
 
 NodePort XDP on Azure
 =====================
@@ -746,20 +746,20 @@ will automatically configure your virtual network to route pod traffic correctly
 
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
-     --set config.ipam=azure \\
-     --set global.azure.enabled=true \\
-     --set global.azure.resourceGroup=AZURE_NODE_RESOURCE_GROUP \\
-     --set global.azure.subscriptionID=AZURE_SUBSCRIPTION_ID \\
-     --set global.azure.tenantID=AZURE_TENANT_ID \\
-     --set global.azure.clientID=AZURE_CLIENT_ID \\
-     --set global.azure.clientSecret=AZURE_CLIENT_SECRET \\
-     --set global.tunnel=disabled \\
-     --set global.masquerade=false \\
-     --set global.kubeProxyReplacement=strict \\
-     --set global.nodePort.acceleration=native \\
-     --set global.nodePort.mode=hybrid \\
-     --set global.k8sServiceHost=API_SERVER_IP \\
-     --set global.k8sServicePort=API_SERVER_PORT
+     --set ipam.mode=azure \\
+     --set azure.enabled=true \\
+     --set azure.resourceGroup=AZURE_NODE_RESOURCE_GROUP \\
+     --set azure.subscriptionID=AZURE_SUBSCRIPTION_ID \\
+     --set azure.tenantID=AZURE_TENANT_ID \\
+     --set azure.clientID=AZURE_CLIENT_ID \\
+     --set azure.clientSecret=AZURE_CLIENT_SECRET \\
+     --set tunnel=disabled \\
+     --set masquerade=false \\
+     --set kubeProxyReplacement=strict \\
+     --set nodePort.acceleration=native \\
+     --set nodePort.mode=hybrid \\
+     --set k8sServiceHost=API_SERVER_IP \\
+     --set k8sServicePort=API_SERVER_PORT
 
 When running Azure IPAM on a self-managed Kubernetes cluster, each ``v1.Node``
 must have the resource ID of its VM in the ``spec.providerID`` field.
@@ -775,17 +775,17 @@ LoadBalancer service or a service with externalIPs will be accessible through
 the IP addresses of native devices which have the default route on the host or
 have Kubernetes InternalIP or ExternalIP assigned. InternalIP is preferred over
 ExternalIP if both exist. To change the devices, set their names in the
-``global.devices`` helm option, e.g. ``global.devices='{eth0,eth1,eth2}'``. Each
+``devices`` helm option, e.g. ``devices='{eth0,eth1,eth2}'``. Each
 listed device has to be named the same on all Cilium managed nodes.
 
 When multiple devices are used, only one device can be used for direct routing
 between Cilium nodes. By default, if a single device was detected or specified
-via ``global.devices`` then Cilium will use that device for direct routing.
+via ``devices`` then Cilium will use that device for direct routing.
 Otherwise, Cilium will use a device with Kubernetes InternalIP or ExternalIP
 being set. InternalIP is preferred over ExternalIP if both exist. To change
-the direct routing device, set the ``global.nodePort.directRoutingDevice`` helm
-option, e.g. ``global.nodePort.directRoutingDevice=eth1``. If the direct
-routing device does not exist within ``global.devices``, Cilium will add the
+the direct routing device, set the ``nodePort.directRoutingDevice`` helm
+option, e.g. ``nodePort.directRoutingDevice=eth1``. If the direct
+routing device does not exist within ``devices``, Cilium will add the
 device to the latter list. The direct routing device is used for
 :ref:`the NodePort XDP acceleration<XDP Acceleration>` as well (if enabled).
 
@@ -795,8 +795,8 @@ local (except for ``docker*`` prefixed names) or loopback address, e.g.
 ``127.0.0.1:NODE_PORT``.
 
 If ``kube-apiserver`` was configured to use a non-default NodePort port range,
-then the same range must be passed to Cilium via the ``global.nodePort.range``
-option, for example, as ``global.nodePort.range="10000\,32767"`` for a
+then the same range must be passed to Cilium via the ``nodePort.range``
+option, for example, as ``nodePort.range="10000\,32767"`` for a
 range of ``10000-32767``. The default Kubernetes NodePort range is ``30000-32767``.
 
 If the NodePort port range overlaps with the ephemeral port range
@@ -804,7 +804,7 @@ If the NodePort port range overlaps with the ephemeral port range
 the reserved ports (``net.ipv4.ip_local_reserved_ports``). This is needed to
 prevent a NodePort service from hijacking traffic of a host local application
 which source port matches the service port. To disable the modification of
-the reserved ports, set ``global.nodePort.autoProtectPortRanges`` to ``false``.
+the reserved ports, set ``nodePort.autoProtectPortRanges`` to ``false``.
 
 By default, the NodePort implementation prevents application ``bind(2)`` requests
 to NodePort service ports. In such case, the application will typically see a
@@ -812,7 +812,7 @@ to NodePort service ports. In such case, the application will typically see a
 kernels or starting from v5.7 kernels only for the host namespace by default
 and therefore not affecting any application pod ``bind(2)`` requests anymore. In
 order to opt-out from this behavior in general, this setting can be changed for
-expert users by switching ``global.nodePort.bindProtection`` to ``false``.
+expert users by switching ``nodePort.bindProtection`` to ``false``.
 
 .. _Configuring Maps:
 
@@ -824,15 +824,15 @@ limits on the number of entries. Overriding helm options can be used to tweak
 these limits.
 
 To increase the number of entries in Cilium's BPF LB service, backend and
-affinity maps consider overriding ``global.bpf.lbMapMax`` helm option.
+affinity maps consider overriding ``bpf.lbMapMax`` helm option.
 The default value of this LB map size is 65536.
 
 .. parsed-literal::
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set global.kubeProxyReplacement=strict \\
-        --set global.bpf.lbMapMax=131072
+        --set kubeProxyReplacement=strict \\
+        --set bpf.lbMapMax=131072
 
 .. _kubeproxyfree_hostport:
 
@@ -841,11 +841,11 @@ Container hostPort support
 
 Although not part of kube-proxy, Cilium's eBPF kube-proxy replacement also
 natively supports ``hostPort`` service mapping without having to use the
-Helm CNI chaining option of ``global.cni.chainingMode=portmap``.
+Helm CNI chaining option of ``cni.chainingMode=portmap``.
 
-By specifying ``global.kubeProxyReplacement=strict`` or ``global.kubeProxyReplacement=probe``
+By specifying ``kubeProxyReplacement=strict`` or ``kubeProxyReplacement=probe``
 the native hostPort support is automatically enabled and therefore no further
-action is required. Otherwise ``global.hostPort.enabled=true`` can be used to
+action is required. Otherwise ``hostPort.enabled=true`` can be used to
 enable the setting.
 
 If the ``hostPort`` is specified without an additional ``hostIP``, then the
@@ -866,9 +866,9 @@ as in the earlier getting started deployment:
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set global.kubeProxyReplacement=strict \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set kubeProxyReplacement=strict \\
+        --set k8sServiceHost=API_SERVER_IP \\
+        --set k8sServicePort=API_SERVER_PORT
 
 Also, ensure that each node IP is known via ``INTERNAL-IP`` or ``EXTERNAL-IP``,
 for example:
@@ -970,9 +970,9 @@ Cilium's eBPF kube-proxy replacement can be configured in several modes, i.e. it
 replace kube-proxy entirely or it can co-exist with kube-proxy on the system if the
 underlying Linux kernel requirements do not support a full kube-proxy replacement.
 
-This section therefore elaborates on the various ``global.kubeProxyReplacement`` options:
+This section therefore elaborates on the various ``kubeProxyReplacement`` options:
 
-- ``global.kubeProxyReplacement=strict``: This option expects a kube-proxy-free
+- ``kubeProxyReplacement=strict``: This option expects a kube-proxy-free
   Kubernetes setup where Cilium is expected to fully replace all kube-proxy
   functionality. Once the Cilium agent is up and running, it takes care of handling
   Kubernetes services of type ClusterIP, NodePort, LoadBalancer, services with externalIPs
@@ -980,7 +980,7 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
   (see :ref:`kubeproxy-free` note), then the Cilium agent will bail out on start-up
   with an error message.
 
-- ``global.kubeProxyReplacement=probe``: This option is intended for a hybrid setup,
+- ``kubeProxyReplacement=probe``: This option is intended for a hybrid setup,
   that is, kube-proxy is running in the Kubernetes cluster where Cilium partially
   replaces and optimizes kube-proxy functionality. Once the Cilium agent is up and
   running, it probes the underlying kernel for the availability of needed eBPF kernel
@@ -990,35 +990,35 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
   the kernel does not support :ref:`host-services`, then the ClusterIP translation
   for the node's host-namespace is done through kube-proxy's iptables rules.
 
-- ``global.kubeProxyReplacement=partial``: Similarly to ``probe``, this option is
+- ``kubeProxyReplacement=partial``: Similarly to ``probe``, this option is
   intended for a hybrid setup, that is, kube-proxy is running in the Kubernetes cluster
   where Cilium partially replaces and optimizes kube-proxy functionality. As opposed to
   ``probe`` which checks the underlying kernel for available eBPF features and automatically
   disables components responsible for the eBPF kube-proxy replacement when kernel support
   is missing, the ``partial`` option requires the user to manually specify which components
-  for the eBPF kube-proxy replacement should be used. When ``global.kubeProxyReplacement``
-  is set to ``partial`` make sure to also set ``global.enableHealthCheckNodeport`` to
+  for the eBPF kube-proxy replacement should be used. When ``kubeProxyReplacement``
+  is set to ``partial`` make sure to also set ``enableHealthCheckNodeport`` to
   ``false``, so that the Cilium agent does not start the NodePort health check server.
   Similarly to ``strict`` mode, the Cilium agent will bail out on start-up with an error
   message if the underlying kernel requirements are not met. For fine-grained configuration,
-  ``global.hostServices.enabled``, ``global.nodePort.enabled``, ``global.externalIPs.enabled``
-  and ``global.hostPort.enabled`` can be set to ``true``. By default all four options are set
+  ``hostServices.enabled``, ``nodePort.enabled``, ``externalIPs.enabled``
+  and ``hostPort.enabled`` can be set to ``true``. By default all four options are set
   to ``false``. A few example configurations for the ``partial`` option are provided below.
 
-  The following helm setup below would be equivalent to ``global.kubeProxyReplacement=strict``
+  The following helm setup below would be equivalent to ``kubeProxyReplacement=strict``
   in a kube-proxy-free environment:
 
   .. parsed-literal::
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set global.kubeProxyReplacement=partial \\
-        --set global.hostServices.enabled=true \\
-        --set global.nodePort.enabled=true \\
-        --set global.externalIPs.enabled=true \\
-        --set global.hostPort.enabled=true \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set kubeProxyReplacement=partial \\
+        --set hostServices.enabled=true \\
+        --set nodePort.enabled=true \\
+        --set externalIPs.enabled=true \\
+        --set hostPort.enabled=true \\
+        --set k8sServiceHost=API_SERVER_IP \\
+        --set k8sServicePort=API_SERVER_PORT
 
   The following helm setup below would be equivalent to the default Cilium service
   handling in v1.6 or earlier in a kube-proxy environment, that is, serving ClusterIP
@@ -1028,18 +1028,18 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set global.kubeProxyReplacement=partial
+        --set kubeProxyReplacement=partial
 
   The following helm setup below would optimize Cilium's ClusterIP handling for TCP in a
-  kube-proxy environment (``global.hostServices.protocols`` default is ``tcp,udp``):
+  kube-proxy environment (``hostServices.protocols`` default is ``tcp,udp``):
 
   .. parsed-literal::
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set global.kubeProxyReplacement=partial \\
-        --set global.hostServices.enabled=true \\
-        --set global.hostServices.protocols=tcp
+        --set kubeProxyReplacement=partial \\
+        --set hostServices.enabled=true \\
+        --set hostServices.protocols=tcp
 
   The following helm setup below would optimize Cilium's NodePort, LoadBalancer and services
   with externalIPs handling for external traffic ingressing into the Cilium managed node in
@@ -1049,16 +1049,16 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
-        --set global.kubeProxyReplacement=partial \\
-        --set global.nodePort.enabled=true \\
-        --set global.externalIPs.enabled=true
+        --set kubeProxyReplacement=partial \\
+        --set nodePort.enabled=true \\
+        --set externalIPs.enabled=true
 
-- ``global.kubeProxyReplacement=disabled``: This option disables any Kubernetes service
+- ``kubeProxyReplacement=disabled``: This option disables any Kubernetes service
   handling by fully relying on kube-proxy instead, except for ClusterIP services
   accessed from pods if cilium-agent's flag ``--disable-k8s-services`` is set to
   ``false`` (pre-v1.6 behavior).
 
-In Cilium's helm chart, the default mode is ``global.kubeProxyReplacement=probe`` for
+In Cilium's helm chart, the default mode is ``kubeProxyReplacement=probe`` for
 new deployments.
 
 For existing Cilium deployments in version v1.6 or prior, please consult the :ref:`1.7_upgrade_notes`.
@@ -1124,7 +1124,7 @@ Service Proxy Name Configuration
 
 Like kube-proxy, Cilium also honors the ``service.kubernetes.io/service-proxy-name`` service annotation
 and only manages services that contain a matching service-proxy-name label. This name can be configured
-by setting ``global.k8s.serviceProxyName`` option and the behavior is identical to that of
+by setting ``k8s.serviceProxyName`` option and the behavior is identical to that of
 kube-proxy. The service proxy name defaults to an empty string which instructs Cilium to
 only manage services not having ``service.kubernetes.io/service-proxy-name`` label.
 
@@ -1149,7 +1149,7 @@ Limitations
     * Cilium's eBPF kube-proxy acceleration in XDP can only be used in a single device setup
       as a "one-legged" / hairpin load balancer scenario. In case of a multi-device environment,
       where auto-detection selects more than a single device to expose NodePort, the option
-      ``global.devices=eth0`` must be specified in helm in order to work, where ``eth0``
+      ``devices=eth0`` must be specified in helm in order to work, where ``eth0``
       is the native XDP supported networking device.
     * Cilium's DSR NodePort mode currently does not operate well in environments with
       TCP Fast Open (TFO) enabled. It is recommended to switch to ``snat`` mode in this
@@ -1184,4 +1184,3 @@ in great details:
       `video <https://fosdem.org/2020/schedule/event/containers_bpf/>`__)
     * "Kernel improvements for Cilium socket LB" (LSF/MM/BPF 2020, `slides
       <https://docs.google.com/presentation/d/1w2zlpGWV7JUhHYd37El_AUZzyUNSvDfktrF5MJ5G8Bs/edit#slide=id.g746fc02b5b_2_0>`__)
-

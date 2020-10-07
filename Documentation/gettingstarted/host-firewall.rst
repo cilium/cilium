@@ -26,8 +26,8 @@ Deploy Cilium release via Helm:
 
     helm install cilium |CHART_RELEASE|        \\
       --namespace kube-system                  \\
-      --set global.hostFirewall=true           \\
-      --set global.devices=ethX,ethY
+      --set hostFirewall=true                  \\
+      --set devices=ethX,ethY
 
 At this point, the Cilium-managed nodes are ready to enforce network policies.
 

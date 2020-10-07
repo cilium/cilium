@@ -30,7 +30,7 @@ Prerequisites
   being connected together may not conflict with each other.
 
 * Cilium must be configured to use etcd as the kvstore, along with the identity
-  allocation mode (``global.identityAllocationMode``). With the identity
+  allocation mode (``identityAllocationMode``). With the identity
   allocation mode set to ``kvstore``, this allows direct etcd connections,
   identity propagation across the clusters, and enables cross-cluster policy
   functionality. Consul is not currently supported with cluster mesh.
@@ -73,8 +73,8 @@ Repeat this step for each cluster.
 
 .. note::
 
-   This can also be done by passing ``--set global.cluster.id=<id>`` and
-   ``--set global.cluster.name=<name>`` to ``helm install`` when installing or
+   This can also be done by passing ``--set cluster.id=<id>`` and
+   ``--set cluster.name=<name>`` to ``helm install`` when installing or
    updating Cilium.
 
 .. _gs_clustermesh_expose_etcd:

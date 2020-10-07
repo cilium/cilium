@@ -23,7 +23,7 @@ OpenShift Requirements
 
    It's highly recommended to read the docs, unless you have installed
    OpenShift in the past. Here are a few notes that you may find useful.
-   
+
    - with the AWS provider ``openshift-install`` will not work properly
      when MFA credentials are stored in ``~/.aws/credentials``, traditional credentials are required
    - with the Azure provider ``openshift-install`` will prompt for
@@ -55,7 +55,7 @@ Now, create configuration files:
    $ openshift-install create install-config --dir "${CLUSTER_NAME}"
    ? SSH Public Key ~/.ssh/id_rsa.pub
    ? Platform aws
-   INFO Credentials loaded from default AWS environment variables 
+   INFO Credentials loaded from default AWS environment variables
    ? Region eu-west-1
    ? Base Domain openshift-test-1.cilium.rocks
    ? Cluster Name cluster-1
@@ -146,14 +146,14 @@ Next, render Cilium manifest:
 
    helm template |CHART_RELEASE|  \\
       --namespace cilium \\
-      --set config.ipam=cluster-pool \\
-      --set global.cni.binPath=/var/lib/cni/bin \\
-      --set global.cni.confPath=/var/run/multus/cni/net.d \\
-      --set global.ipam.operator.clusterPoolIPv4PodCIDR=10.128.0.0/14 \\
-      --set global.ipam.operator.clusterPoolIPv4MaskSize=23 \\
-      --set global.nativeRoutingCIDR=10.128.0.0/14 \\
-      --set config.bpfMasquerade=false \\
-      --set global.endpointRoutes.enabled=true \\
+      --set ipam.mode=cluster-pool \\
+      --set cni.binPath=/var/lib/cni/bin \\
+      --set cni.confPath=/var/run/multus/cni/net.d \\
+      --set ipam.operator.clusterPoolIPv4PodCIDR=10.128.0.0/14 \\
+      --set ipam.operator.clusterPoolIPv4MaskSize=23 \\
+      --set nativeRoutingCIDR=10.128.0.0/14 \\
+      --set bpf.masquerade=false \\
+      --set endpointRoutes.enabled=true \\
       --output-dir "${OLDPWD}"
    cd "${OLDPWD}"
 
