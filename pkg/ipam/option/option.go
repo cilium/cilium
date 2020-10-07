@@ -34,7 +34,7 @@ const (
 	// option.IPAM
 	IPAMAzure = "azure"
 
-	// IPAMOperator is the value to select the Operator IPAM mode for
+	// IPAMClusterPool is the value to select the cluster pool mode for
 	// option.IPAM
-	IPAMOperator = "cluster-pool"
+	IPAMClusterPool = "cluster-pool"
 )
