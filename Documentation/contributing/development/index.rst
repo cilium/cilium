@@ -23,3 +23,4 @@ understand the workflow of getting these changes reviewed and merged upstream.
    images
    codeoverview
    debugging
+   hubble
