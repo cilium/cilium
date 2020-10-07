@@ -668,16 +668,12 @@ skipRateLimiter:
 	l.currentRequestsInFlight++
 	l.mutex.Unlock()
 
-	log.WithFields(logrus.Fields{
-		logAPICallName:       l.name,
-		logUUID:              uuid,
-		logWaitDurationTotal: waitDuration,
-	}).Debug("API call is ready to be served")
+	scopedLog = scopedLog.WithField(logWaitDurationTotal, waitDuration)
 
 	if l.params.Log {
-		scopedLog.Info("Processing API request with rate limiter")
+		scopedLog.Info("API request released by rate limiter")
 	} else {
-		scopedLog.Debug("Processing API request with rate limiter")
+		scopedLog.Debug("API request released by rate limiter")
 	}
 
 	return &limitedRequest{
