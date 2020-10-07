@@ -46,6 +46,7 @@ const (
 func waitForNodeInformation(ctx context.Context, nodeName string) *nodeTypes.Node {
 	backoff := backoff.Exponential{
 		Min:    time.Duration(200) * time.Millisecond,
+		Max:    2 * time.Minute,
 		Factor: 2.0,
 		Name:   "k8s-node-retrieval",
 	}
