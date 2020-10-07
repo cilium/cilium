@@ -1,6 +1,6 @@
 #!/bin/bash
 
-# Comment for the '--set config.identityChangeGracePeriod="0s"'
+# Comment for the '--set identityChangeGracePeriod="0s"'
 # We need to change the identity as quickly as possible as there
 # is a k8s upstream test that relies on the policy to be enforced
 # once a new label is added to a pod. If we delay the identity change
@@ -10,19 +10,19 @@
 # Cluster.
 helm template --validate install/kubernetes/cilium \
   --namespace=kube-system \
-  --set global.registry=k8s1:5000/cilium \
-  --set global.tag=latest \
-  --set agent.image=cilium-dev \
-  --set operator.image=operator \
-  --set global.debug.enabled=true \
-  --set global.k8s.requireIPv4PodCIDR=true \
-  --set global.pprof.enabled=true \
-  --set global.logSystemLoad=true \
-  --set global.bpf.preallocateMaps=true \
-  --set global.etcd.leaseTTL=30s \
-  --set global.ipv4.enabled=true \
-  --set global.ipv6.enabled=true \
-  --set config.identityChangeGracePeriod="0s" \
+  --set image.tag=latest \
+  --set image.repository=k8s1:5000/cilium/cilium-dev \
+  --set operator.image.repository=k8s1:5000/cilium/operator \
+  --set operator.image.tag=latest \
+  --set debug.enabled=true \
+  --set k8s.requireIPv4PodCIDR=true \
+  --set pprof.enabled=true \
+  --set logSystemLoad=true \
+  --set bpf.preallocateMaps=true \
+  --set etcd.leaseTTL=30s \
+  --set ipv4.enabled=true \
+  --set ipv6.enabled=true \
+  --set identityChangeGracePeriod="0s" \
   > cilium.yaml
 
 kubectl apply -f cilium.yaml

@@ -63,13 +63,13 @@ Deploy Cilium release via Helm:
 
    helm install cilium |CHART_RELEASE| \\
      --namespace cilium \\
-     --set global.cni.chainingMode=generic-veth \\
-     --set global.cni.customConf=true \\
-     --set global.nodeinit.enabled=true \\
+     --set cni.chainingMode=generic-veth \\
+     --set cni.customConf=true \\
+     --set nodeinit.enabled=true \\
      --set nodeinit.expectAzureVnet=true \\
-     --set global.cni.configMap=cni-configuration \\
-     --set global.tunnel=disabled \\
-     --set global.masquerade=false
+     --set cni.configMap=cni-configuration \\
+     --set tunnel=disabled \\
+     --set masquerade=false
 
 This will create both the main cilium daemonset, as well as the cilium-node-init daemonset, which handles tasks like mounting the eBPF filesystem and updating the
 existing Azure CNI plugin to run in 'transparent' mode.

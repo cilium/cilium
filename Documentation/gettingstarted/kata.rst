@@ -65,7 +65,7 @@ Deploy Cilium release via Helm:
 
            helm install cilium |CHART_RELEASE| \\
              --namespace kube-system \\
-             --set global.containerRuntime.integration=crio
+             --set containerRuntime.integration=crio
 
      .. group-tab:: Using CRI-containerd
 
@@ -73,7 +73,7 @@ Deploy Cilium release via Helm:
 
            helm install cilium |CHART_RELEASE| \\
              --namespace kube-system \\
-             --set global.containerRuntime.integration=containerd
+             --set containerRuntime.integration=containerd
 
 .. include:: k8s-install-validate.rst
 

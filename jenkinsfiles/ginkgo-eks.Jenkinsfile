@@ -125,7 +125,7 @@ pipeline {
             }
             steps {
                 dir("${TESTDIR}"){
-                    sh 'CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator-generic:latest ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/eks/eks-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
+                    sh 'CILIUM_IMAGE=$(./print-node-ip.sh)/cilium/cilium:latest CILIUM_OPERATOR_IMAGE=$(./print-node-ip.sh)/cilium/operator-generic:latest ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/K8s/")" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.kubeconfig=${TESTDIR}/eks/eks-kubeconfig -cilium.passCLIEnvironment=true'
                 }
             }
             post {

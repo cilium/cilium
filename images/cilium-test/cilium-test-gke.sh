@@ -49,5 +49,4 @@ cilium-test \
   -cilium.image="${CILIUM_IMAGE}" \
   -cilium.operator-image="${CILIUM_OPERATOR_IMAGE}" \
   -cilium.hubble-relay-image="${HUBBLE_RELAY_IMAGE}" \
-  -cilium.registry="docker.io" \
   -cilium.passCLIEnvironment=true

@@ -50,14 +50,14 @@ The Cilium bandwidth manager is enabled by default for new deployments via Helm:
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system
 
-The option for Helm is controllable through ``global.bandwidthManager`` with a
+The option for Helm is controllable through ``bandwidthManager`` with a
 possible setting of ``true`` (default) and ``false``.
 
 The native host networking devices are auto detected as native devices which have
 the default route on the host or have Kubernetes InternalIP or ExternalIP assigned.
 InternalIP is preferred over ExternalIP if both exist. To change and manually specify
-the devices, set their names in the ``global.devices`` helm option, e.g.
-``global.devices='{eth0,eth1,eth2}'``. Each listed device has to be named the same
+the devices, set their names in the ``devices`` helm option, e.g.
+``devices='{eth0,eth1,eth2}'``. Each listed device has to be named the same
 on all Cilium managed nodes.
 
 Verify that the Cilium Pod has come up correctly:

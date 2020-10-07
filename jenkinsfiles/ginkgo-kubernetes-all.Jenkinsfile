@@ -199,7 +199,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
                     }
                     post {
                         always {
@@ -225,7 +225,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
                     }
                     post {
                         always {
@@ -330,7 +330,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
                     }
                     post {
                         always {
@@ -356,7 +356,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
                     }
                     post {
                         always {
@@ -460,7 +460,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
                     }
                     post {
                         always {
@@ -486,7 +486,7 @@ pipeline {
                         TESTDIR="${GOPATH}/${PROJ_PATH}/test"
                     }
                     steps {
-                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT} -cilium.registry=$(./print-node-ip.sh)'
+                        sh 'cd ${TESTDIR}; ginkgo --focus="K8s" -v --failFast=${FAILFAST} -- -cilium.provision=false -cilium.timeout=${GINKGO_TIMEOUT}'
                     }
                     post {
                         always {

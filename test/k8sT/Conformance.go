@@ -35,12 +35,12 @@ var _ = Describe("K8sConformance", func() {
 		connectivityCheckYamlSimple = kubectl.GetFilePath("../examples/kubernetes/connectivity-check/connectivity-check-single-node.yaml")
 
 		deployOpts := map[string]string{
-			"global.cni.chainingMode": "portmap",
+			"cni.chainingMode": "portmap",
 			// When kube-proxy is enabled, the host firewall is not
 			// compatible with portmap chaining because traffic
 			// from pods to remote nodes goes through the tunnel.
 			// This issue is tracked at #12541.
-			"global.hostFirewall": "false",
+			"hostFirewall": "false",
 		}
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
 		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, deployOpts)

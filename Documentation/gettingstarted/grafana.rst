@@ -53,11 +53,11 @@ are running.
 The metrics for Cilium, Hubble, and Cilium Operator can all be enabled
 independently of each other with the following Helm values:
 
- - ``global.prometheus.enabled=true``: Enables metrics for ``cilium-agent``.
- - ``global.operatorPrometheus.enabled=true``: Enables metrics for ``cilium-operator``.
- - ``global.hubble.metrics.enabled``: Enables the provided list of Hubble metrics.
+ - ``prometheus.enabled=true``: Enables metrics for ``cilium-agent``.
+ - ``operator.prometheus.enabled=true``: Enables metrics for ``cilium-operator``.
+ - ``hubble.metrics.enabled``: Enables the provided list of Hubble metrics.
    For Hubble metrics to work, Hubble itself needs to be enabled with
-   ``global.hubble.enabled=true``. See
+   ``hubble.enabled=true``. See
    :ref:`Hubble exported metrics<hubble_exported_metrics>` for the list of
    available Hubble metrics.
 
@@ -71,10 +71,10 @@ Deploy Cilium via Helm as follows to enable all metrics:
 
    helm install cilium |CHART_RELEASE| \\
       --namespace kube-system \\
-      --set global.prometheus.enabled=true \\
-      --set global.operatorPrometheus.enabled=true \\
-      --set global.hubble.enabled=true \\
-      --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+      --set prometheus.enabled=true \\
+      --set operator.prometheus.enabled=true \\
+      --set hubble.enabled=true \\
+      --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
 
 .. note::
 

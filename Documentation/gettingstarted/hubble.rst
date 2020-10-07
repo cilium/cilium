@@ -96,18 +96,18 @@ Relay and Hubble's graphical UI.
 
                helm install cilium |CHART_RELEASE| \\
                   --namespace kube-system \\
-                  --set global.nodeinit.enabled=true \\
-                  --set global.kubeProxyReplacement=partial \\
-                  --set global.hostServices.enabled=false \\
-                  --set global.externalIPs.enabled=true \\
-                  --set global.nodePort.enabled=true \\
-                  --set global.hostPort.enabled=true \\
-                  --set global.pullPolicy=IfNotPresent \\
-                  --set config.ipam=kubernetes \\
-                  --set global.hubble.enabled=true \\
-                  --set global.hubble.listenAddress=":4244" \\
-                  --set global.hubble.relay.enabled=true \\
-                  --set global.hubble.ui.enabled=true
+                  --set nodeinit.enabled=true \\
+                  --set kubeProxyReplacement=partial \\
+                  --set hostServices.enabled=false \\
+                  --set externalIPs.enabled=true \\
+                  --set nodePort.enabled=true \\
+                  --set hostPort.enabled=true \\
+                  --set image.pullPolicy=IfNotPresent \\
+                  --set ipam.mode=kubernetes \\
+                  --set hubble.enabled=true \\
+                  --set hubble.listenAddress=":4244" \\
+                  --set hubble.relay.enabled=true \\
+                  --set hubble.ui.enabled=true
 
 .. note::
 
@@ -286,7 +286,7 @@ Let's now inspect this traffic using the CLI. The command below filters all
 traffic on the application layer (L7, HTTP) to the ``deathstar`` pod:
 
 .. parsed-literal::
-    $ hubble observe --pod deathstar --protocol http 
+    $ hubble observe --pod deathstar --protocol http
     TIMESTAMP             SOURCE                                  DESTINATION                             TYPE            VERDICT     SUMMARY
     Jun 18 13:52:23.843   default/tiefighter:52568                default/deathstar-5b7489bc84-8wvng:80   http-request    FORWARDED   HTTP/1.1 POST http://deathstar.default.svc.cluster.local/v1/request-landing
     Jun 18 13:52:23.844   default/deathstar-5b7489bc84-8wvng:80   default/tiefighter:52568                http-response   FORWARDED   HTTP/1.1 200 0ms (POST http://deathstar.default.svc.cluster.local/v1/request-landing)

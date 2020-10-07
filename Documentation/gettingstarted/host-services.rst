@@ -30,7 +30,7 @@ Deploy Cilium release via Helm:
 
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
-     --set global.hostServices.enabled=true
+     --set hostServices.enabled=true
 
 If you can't run 4.19.57 but have 4.17.0 available you can restrict protocol
 support to TCP only:
@@ -39,8 +39,8 @@ support to TCP only:
 
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
-     --set global.hostServices.enabled=true \\
-     --set global.hostServices.protocols=tcp
+     --set hostServices.enabled=true \\
+     --set hostServices.protocols=tcp
 
 Host-reachable services act transparent to Cilium's lower layer datapath
 in that upon connect system call (TCP, connected UDP) or sendmsg as well
