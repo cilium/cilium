@@ -114,7 +114,7 @@ Jenkinsfile.nightly @cilium/ci
 /pkg/ipam/ @cilium/ipam
 /pkg/ipam/allocator/aws/ @cilium/ipam @cilium/aws
 /pkg/ipam/allocator/azure/ @cilium/ipam @cilium/azure
-/pkg/ipam/allocator/operator/ @cilium/ipam @cilium/operator
+/pkg/ipam/allocator/clusterpool/ @cilium/ipam @cilium/operator
 /pkg/ipcache/ @cilium/ipcache
 /pkg/ipmasq @cilium/agent
 /pkg/k8s/ @cilium/kubernetes
