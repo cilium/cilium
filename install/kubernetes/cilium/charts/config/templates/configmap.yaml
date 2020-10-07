@@ -516,13 +516,6 @@ data:
 {{- end }}
 {{- if and .Values.global.k8s .Values.global.k8s.requireIPv4PodCIDR }}
   k8s-require-ipv4-pod-cidr: {{ .Values.global.k8s.requireIPv4PodCIDR | quote }}
-{{- else }}
-{{- if eq $ipam "cluster-pool" }}
-  k8s-require-ipv4-pod-cidr: {{ .Values.global.ipv4.enabled | quote}}
-{{- end }}
-{{- end }}
-{{- if eq $ipam "cluster-pool" }}
-  k8s-require-ipv6-pod-cidr: {{ .Values.global.ipv6.enabled | quote}}
 {{- end }}
 {{- if and .Values.global.endpointRoutes .Values.global.endpointRoutes.enabled }}
   enable-endpoint-routes: {{ .Values.global.endpointRoutes.enabled | quote }}
