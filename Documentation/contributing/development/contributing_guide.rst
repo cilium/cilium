@@ -77,6 +77,11 @@ requirements have been met:
        Make sure to include a blank line in between commit title and commit
        description.
 
+   .. note:
+
+       Passing the ``-s`` option to ``git commit`` will add the
+       ``Signed-of-by:`` line to your commit message automatically.
+
 #. If any of the commits fixes a particular commit already in the tree, that
    commit is referenced in the commit message of the bugfix. This ensures that
    whoever performs a backport will pull in all required fixes:
