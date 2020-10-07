@@ -437,6 +437,9 @@ function set_vagrant_env(){
         echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 111 -j ACCEPT"
         echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 2049 -j ACCEPT"
         echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 20048 -j ACCEPT"
+
+        echo "# To use kubectl on the host, you need to add the following route:"
+        echo "# ip route add $MASTER_IPV4 via $MASTER_IPV4_NFS"
     fi
 
     temp=$(printf " %s" "${ipv6_public_workers_addrs[@]}")
