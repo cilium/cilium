@@ -118,8 +118,6 @@ data:
   node-port-bind-protection: "true"
   enable-auto-protect-node-port-range: "true"
   enable-session-affinity: "true"
-  k8s-require-ipv4-pod-cidr: "true"
-  k8s-require-ipv6-pod-cidr: "false"
   enable-endpoint-health-checking: "true"
   enable-well-known-identities: "false"
   enable-remote-node-identity: "true"
