@@ -191,9 +191,10 @@ func Init(conf k8sconfig.Configuration) error {
 	return nil
 }
 
-// GetNodeSpec retrieves this node spec from kubernetes. This node information
-// can either be derived from a CiliumNode or a Kubernetes node.
-func GetNodeSpec() error {
+// WaitForNodeInformation retrieves the node information via the CiliumNode or
+// Kubernetes Node resource. This function will block until the information is
+// received.
+func WaitForNodeInformation() error {
 	// Use of the environment variable overwrites the node-name
 	// automatically derived
 	nodeName := nodeTypes.GetName()

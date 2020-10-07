@@ -458,7 +458,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 			d.nodeDiscovery.UpdateCiliumNodeResource()
 		}
 
-		if err := k8s.GetNodeSpec(); err != nil {
+		if err := k8s.WaitForNodeInformation(); err != nil {
 			log.WithError(err).Fatal("Unable to connect to get node spec from apiserver")
 		}
 
