@@ -298,10 +298,6 @@ func (l *Loader) Reinitialize(ctx context.Context, o datapath.BaseProgramOwner, 
 		}
 	}
 
-	if option.Config.EnableEndpointRoutes == true {
-		args[initArgMode] = "routed"
-	}
-
 	if option.Config.EnableNodePort {
 		args[initArgNodePort] = "true"
 		if option.Config.EnableIPv4 {
