@@ -124,6 +124,11 @@ func (a *apiRateLimitingMetrics) ProcessedRequest(name string, v rate.MetricsVal
 	metrics.APILimiterRateLimit.WithLabelValues(name, "limit").Set(float64(v.Limit))
 	metrics.APILimiterRateLimit.WithLabelValues(name, "burst").Set(float64(v.Burst))
 	metrics.APILimiterAdjustmentFactor.WithLabelValues(name).Set(v.AdjustmentFactor)
-	metrics.APILimiterWaitHistoryDuration.WithLabelValues(name).Observe(v.WaitDuration.Seconds())
-	metrics.APILimiterProcessedRequests.WithLabelValues(name, metrics.Error2Outcome(v.Error)).Inc()
+
+	if v.Outcome == "" {
+		metrics.APILimiterWaitHistoryDuration.WithLabelValues(name).Observe(v.WaitDuration.Seconds())
+		v.Outcome = metrics.Error2Outcome(v.Error)
+	}
+
+	metrics.APILimiterProcessedRequests.WithLabelValues(name, v.Outcome).Inc()
 }
