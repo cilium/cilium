@@ -836,7 +836,7 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 			return nil, false, err
 		}
 		revertStack.Push(revertFunc)
-		log.Debug("v4CIDR", v4CIDR)
+		log.WithField("CIDR", v4CIDR).Debug("v4 allocated CIDR")
 		nCIDRs.v4PodCIDRs = []*net.IPNet{v4CIDR}
 	}
 	if len(n.v6CIDRAllocators) != 0 {
@@ -845,7 +845,7 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 			return nil, false, err
 		}
 		revertStack.Push(revertFunc)
-		log.Debug("v6CIDR", v6CIDR)
+		log.WithField("CIDR", v6CIDR).Debug("v6 allocated CIDR")
 		nCIDRs.v6PodCIDRs = []*net.IPNet{v6CIDR}
 	}
 
