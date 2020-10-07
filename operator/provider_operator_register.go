@@ -18,10 +18,10 @@ package main
 
 import (
 	// These dependencies should be included only when this file is included in the build.
-	allocatorOperator "github.com/cilium/cilium/pkg/ipam/allocator/operator" // Operator allocator.
+	"github.com/cilium/cilium/pkg/ipam/allocator/clusterpool"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 )
 
 func init() {
-	allocatorProviders[ipamOption.IPAMClusterPool] = &allocatorOperator.AllocatorOperator{}
+	allocatorProviders[ipamOption.IPAMClusterPool] = &clusterpool.AllocatorOperator{}
 }

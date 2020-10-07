@@ -14,7 +14,7 @@
 
 // +build !privileged_tests
 
-package operator
+package clusterpool
 
 import (
 	"errors"
