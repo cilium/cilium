@@ -452,7 +452,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 			log.WithError(err).Fatal("Unable to register CRDs")
 		}
 
-		if option.Config.IPAM == ipamOption.IPAMOperator {
+		if option.Config.IPAM == ipamOption.IPAMClusterPool {
 			// Create the CiliumNode custom resource. This call will block until
 			// the custom resource has been created
 			d.nodeDiscovery.UpdateCiliumNodeResource()

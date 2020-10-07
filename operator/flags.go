@@ -160,7 +160,7 @@ func init() {
 				return "cilium-operator-aws"
 			case ipamOption.IPAMAzure:
 				return "cilium-operator-azure"
-			case ipamOption.IPAMKubernetes, ipamOption.IPAMOperator, ipamOption.IPAMCRD:
+			case ipamOption.IPAMKubernetes, ipamOption.IPAMClusterPool, ipamOption.IPAMCRD:
 				return "cilium-operator-generic"
 			default:
 				return ""
@@ -208,13 +208,13 @@ func init() {
 
 	flags.String(operatorOption.IPAMOperatorV4CIDR, "",
 		fmt.Sprintf("IPv4 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMOperator,
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv4Name, "true"))
 	option.BindEnv(operatorOption.IPAMOperatorV4CIDR)
 
 	flags.Int(operatorOption.NodeCIDRMaskSizeIPv4, 24,
 		fmt.Sprintf("Mask size for each IPv4 podCIDR per node. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMOperator,
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv4Name, "true"))
 	option.BindEnv(operatorOption.NodeCIDRMaskSizeIPv4)
 
@@ -223,13 +223,13 @@ func init() {
 
 	flags.String(operatorOption.IPAMOperatorV6CIDR, "",
 		fmt.Sprintf("IPv6 CIDR Range for Pods in cluster. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMOperator,
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv6Name, "true"))
 	option.BindEnv(operatorOption.IPAMOperatorV6CIDR)
 
 	flags.Int(operatorOption.NodeCIDRMaskSizeIPv6, 112,
 		fmt.Sprintf("Mask size for each IPv6 podCIDR per node. Requires '%s=%s' and '%s=%s'",
-			option.IPAM, ipamOption.IPAMOperator,
+			option.IPAM, ipamOption.IPAMClusterPool,
 			option.EnableIPv6Name, "true"))
 	option.BindEnv(operatorOption.NodeCIDRMaskSizeIPv6)
 
