@@ -36,7 +36,6 @@ import (
 	ginkgoext "github.com/cilium/cilium/test/ginkgo-ext"
 	"github.com/cilium/cilium/test/helpers/logutils"
 
-	"github.com/asaskevich/govalidator"
 	"github.com/onsi/gomega"
 	"github.com/sirupsen/logrus"
 	"golang.org/x/sync/errgroup"
@@ -1629,14 +1628,14 @@ func (kub *Kubectl) KubernetesDNSCanResolve(namespace, service string) error {
 	ctx, cancel := context.WithTimeout(context.Background(), MidCommandTimeout)
 	defer cancel()
 
-	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
-	cmd := fmt.Sprintf("dig +short %s @%s | grep -v -e '^;'", serviceToResolve, kubeDnsService.Spec.ClusterIP)
+	cmd := fmt.Sprintf("dig +short %s @%s", serviceToResolve, kubeDnsService.Spec.ClusterIP)
 	res := kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), cmd)
 	if res.err != nil {
-		return fmt.Errorf("unable to resolve service name %s with DND server %s by running '%s' Cilium pod: %s",
+		return fmt.Errorf("unable to resolve service name %s with DNS server %s by running '%s' Cilium pod: %s",
 			serviceToResolve, kubeDnsService.Spec.ClusterIP, cmd, res.OutputPrettyPrint())
 	}
-	if net.ParseIP(res.SingleOut()) == nil {
+	foundIP, ipFromDNS := hasIPAddress(res.ByLines())
+	if !foundIP {
 		return fmt.Errorf("dig did not return an IP: %s", res.SingleOut())
 	}
 
@@ -1649,7 +1648,7 @@ func (kub *Kubectl) KubernetesDNSCanResolve(namespace, service string) error {
 	// IP returned by the dig is the IP of one of the pods.
 	if destinationService.Spec.ClusterIP == v1.ClusterIPNone {
 		cmd := fmt.Sprintf("dig +tcp %s @%s", serviceToResolve, kubeDnsService.Spec.ClusterIP)
-		kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), cmd)
+		res = kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), cmd)
 		if !res.WasSuccessful() {
 			return fmt.Errorf("unable to resolve service name %s by running '%s': %s",
 				serviceToResolve, cmd, res.OutputPrettyPrint())
@@ -1658,7 +1657,7 @@ func (kub *Kubectl) KubernetesDNSCanResolve(namespace, service string) error {
 		return nil
 	}
 
-	if !strings.Contains(res.SingleOut(), destinationService.Spec.ClusterIP) {
+	if !strings.Contains(ipFromDNS, destinationService.Spec.ClusterIP) {
 		return fmt.Errorf("IP returned '%s' does not match the ClusterIP '%s' of the destination service",
 			res.SingleOut(), destinationService.Spec.ClusterIP)
 	}
@@ -1972,8 +1971,7 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 	if !strings.HasSuffix(serviceNameWithNamespace, ServiceSuffix) {
 		serviceNameWithNamespace = fmt.Sprintf("%s.%s", serviceNameWithNamespace, ServiceSuffix)
 	}
-	// https://bugs.launchpad.net/ubuntu/+source/bind9/+bug/854705
-	digCMD := "dig +short %s @%s | grep -v -e '^;'"
+	digCMD := "dig +short %s @%s"
 
 	// If it fails we want to know if it's because of connection cannot be
 	// established or DNS does not exist.
@@ -2002,11 +2000,13 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 			res := kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), fmt.Sprintf(digCMD, serviceNameWithNamespace, dnsClusterIP))
 			if res.err != nil {
 				logger.Debugf("failed to run dig in log-gatherer pod")
+				kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
 				return false
 			}
-			kub.ExecInFirstPod(ctx, LogGathererNamespace, logGathererSelector(false), fmt.Sprintf(digCMDFallback, serviceNameWithNamespace, dnsClusterIP))
 
-			return res.WasSuccessful()
+			// check whether there is a IP line in dig output
+			ipPresent, _ := hasIPAddress(res.ByLines())
+			return ipPresent
 		}
 		log.Debugf("service is not headless; checking whether IP retrieved from DNS matches the IP for the service stored in Kubernetes")
 
@@ -2015,8 +2015,9 @@ func (kub *Kubectl) WaitForKubeDNSEntry(serviceName, serviceNamespace string) er
 			logger.Debugf("failed to run dig in log-gatherer pod")
 			return false
 		}
-		serviceIPFromDNS := res.SingleOut()
-		if !govalidator.IsIP(serviceIPFromDNS) {
+		ipPresent, serviceIPFromDNS := hasIPAddress(res.ByLines())
+
+		if !ipPresent {
 			logger.Debugf("output of dig (%s) did not return an IP", serviceIPFromDNS)
 			return false
 		}
@@ -4191,4 +4192,15 @@ func (kub *Kubectl) DelIPRoute(nodeName, subnet, gw string) *CmdRes {
 	cmd := fmt.Sprintf("ip route del %s via %s", subnet, gw)
 
 	return kub.ExecInHostNetNS(context.TODO(), nodeName, cmd)
+}
+
+// checks dig output for ip address
+func hasIPAddress(output []string) (bool, string) {
+	for _, line := range output {
+		ip := net.ParseIP(line)
+		if ip != nil {
+			return true, line
+		}
+	}
+	return false, ""
 }
