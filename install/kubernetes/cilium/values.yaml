@@ -793,7 +793,11 @@ nodePort:
 
 # The agent can be put into the following three policy enforcement modes
 # default, always and never.
+<<<<<<< HEAD
 # https://docs.cilium.io/en/stable/policy/intro/#policy-enforcement-modes
+=======
+# https://docs.cilium.io/en/latest/policy/intro/#policy-enforcement-modes
+>>>>>>> Helm: full refactor of helm charts, default values implemented, tests updated, kind cni integration
 # policyEnforcementMode: "default"
 
 # pprof is the GO pprof configuration
