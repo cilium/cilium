@@ -646,12 +646,15 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 			// The frontend named port not found in the backend ports map.
 			continue
 		}
+		if bePort.l4Addr.Protocol != feM.feAddr.Protocol {
+			continue
+		}
 		for _, pod := range pods {
 			if _, ok = pod.namedPorts[namedPort]; ok {
 				// Generate pod backends.
 				for _, ip := range pod.ips {
 					beIP := net.ParseIP(ip)
-					if beIP == nil || bePort.l4Addr.Protocol != feM.feAddr.Protocol {
+					if beIP == nil {
 						continue
 					}
 					be := backend{
@@ -694,7 +697,6 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 // the policy frontend mapped backends.
 func (rpm *Manager) updateFrontendMapping(config *LRPConfig, frontendMapping *feMapping, podID podID, backends []backend) {
 	newFePods := make([]backend, 0, len(frontendMapping.podBackends)+len(backends))
-	// TODO (aditi) unit test case
 	updatePodBes := true
 	// Update the frontend mapped backends slice, keeping the order same.
 	for _, be := range frontendMapping.podBackends {
