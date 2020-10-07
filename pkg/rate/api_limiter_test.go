@@ -764,3 +764,45 @@ func (b *ControllerSuite) TestStressRateLimiter(c *check.C) {
 	log.Infof("%+v", a)
 	log.Infof("Total retries: %v", atomic.LoadInt32(&retries))
 }
+
+func (b *ControllerSuite) TestReservationCancel(c *check.C) {
+	a := NewAPILimiter("foo", APILimiterParameters{
+		RateLimit:           50.0,
+		RateBurst:           10,
+		ParallelRequests:    1,
+		MaxParallelRequests: 1,
+		MaxWaitDuration:     500 * time.Millisecond,
+		Log:                 true,
+	}, nil)
+
+	// Process a request but don't complete it, this will occupy the
+	// parallel request slot
+	req, err := a.Wait(context.Background())
+	c.Assert(err, check.IsNil)
+
+	var completed int32
+
+	// All of these requests must fail due to having to wait too long as
+	// the only parallel request slot is occupied. The rate limiter should
+	// not get occupied with these requests though.
+	for i := 0; i < 20; i++ {
+		go func() {
+			_, err := a.Wait(context.Background())
+			c.Assert(err, check.Not(check.IsNil))
+			atomic.AddInt32(&completed, 1)
+		}()
+	}
+
+	c.Assert(testutils.WaitUntil(func() bool {
+		return atomic.LoadInt32(&completed) == 20
+	}, time.Second), check.IsNil)
+
+	req.Done()
+
+	// All of these requests should now succeed
+	for i := 0; i < 10; i++ {
+		req2, err := a.Wait(context.Background())
+		c.Assert(err, check.IsNil)
+		req2.Done()
+	}
+}
