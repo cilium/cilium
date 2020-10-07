@@ -432,7 +432,7 @@ function set_vagrant_env(){
     export 'IPV4_BASE_ADDR_NFS'="$(printf "%d.%d.%d." "${ipv4_array_nfs[0]}" "${ipv4_array_nfs[1]}" "${ipv4_array_nfs[2]}")"
     export 'FIRST_IP_SUFFIX_NFS'="${ipv4_array[3]}"
     if [[ -n "${NFS}" ]]; then
-        echo "# NFS enabled. don't forget to enable this ports on your host"
+        echo "# NFS enabled. don't forget to enable these ports on your host"
         echo "# before starting the VMs in order to have nfs working"
         echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 111 -j ACCEPT"
         echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 2049 -j ACCEPT"
