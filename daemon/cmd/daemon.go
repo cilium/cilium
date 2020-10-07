@@ -456,7 +456,7 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 	if k8s.IsEnabled() {
 		bootstrapStats.k8sInit.Start()
 
-		if option.Config.IPAM == ipamOption.IPAMOperator {
+		if option.Config.IPAM == ipamOption.IPAMClusterPool {
 			// Create the CiliumNode custom resource. This call will block until
 			// the custom resource has been created
 			d.nodeDiscovery.UpdateCiliumNodeResource()

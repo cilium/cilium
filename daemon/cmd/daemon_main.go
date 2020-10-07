@@ -429,7 +429,7 @@ func init() {
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeKVstore, "Method to use for identity allocation")
 	option.BindEnv(option.IdentityAllocationMode)
 
-	flags.String(option.IPAM, ipamOption.IPAMOperator, "Backend to use for IPAM")
+	flags.String(option.IPAM, ipamOption.IPAMClusterPool, "Backend to use for IPAM")
 	option.BindEnv(option.IPAM)
 
 	flags.String(option.IPv4Range, AutoCIDR, "Per-node IPv4 endpoint prefix, e.g. 10.16.0.0/16")
