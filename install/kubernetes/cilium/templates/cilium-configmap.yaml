@@ -325,6 +325,9 @@ data:
   enable-endpoint-routes: "true"
   auto-create-cilium-node-resource: "true"
   enable-local-node-route: "false"
+{{- if .Values.azure.userAssignedIdentityID }}
+  azure-user-assigned-identity-id: {{ .Values.azure.userAssignedIdentityID | quote }}
+{{- end }}
 {{- end }}
 
 {{- if .Values.flannel.enabled }}
