@@ -44,20 +44,27 @@ const (
 	// requirement is implemented
 	waitSemaphoreResolution = 10000000
 
-	logUUID                    = "uuid"
-	logAPICallName             = "name"
-	logProcessingDuration      = "processingDuration"
-	logParallelRequests        = "parallelRequests"
-	logMinWaitDuration         = "minWaitDuration"
-	logMaxWaitDuration         = "maxWaitDuration"
-	logMaxWaitDurationParallel = "maxWaitDurationParallel"
-	logWaitDurationLimit       = "waitDurationLimiter"
-	logWaitDurationTotal       = "waitDurationTotal"
-	logLimit                   = "limit"
-	logBurst                   = "burst"
-	logTotalDuration           = "totalDuration"
-	logError                   = "err"
-	logSkipped                 = "rateLimiterSkipped"
+	logUUID                   = "uuid"
+	logAPICallName            = "name"
+	logProcessingDuration     = "processingDuration"
+	logParallelRequests       = "parallelRequests"
+	logMinWaitDuration        = "minWaitDuration"
+	logMaxWaitDuration        = "maxWaitDuration"
+	logMaxWaitDurationLimiter = "maxWaitDurationLimiter"
+	logWaitDurationLimit      = "waitDurationLimiter"
+	logWaitDurationTotal      = "waitDurationTotal"
+	logLimit                  = "limit"
+	logBurst                  = "burst"
+	logTotalDuration          = "totalDuration"
+	logSkipped                = "rateLimiterSkipped"
+)
+
+type outcome string
+
+const (
+	outcomeParallelMaxWait outcome = "fail-parallel-wait"
+	outcomeLimitMaxWait    outcome = "fail-limit-wait"
+	outcomeReqCancelled            = "request-cancelled"
 )
 
 // APILimiter is an extension to x/time/rate.Limiter specifically for Cilium
@@ -415,7 +422,11 @@ func (l *APILimiter) requestFinished(r *limitedRequest, err error) {
 
 	r.finished = true
 
-	processingDuration := time.Since(r.startTime)
+	var processingDuration time.Duration
+	if !r.startTime.IsZero() {
+		processingDuration = time.Since(r.startTime)
+	}
+
 	totalDuration := time.Since(r.scheduleTime)
 
 	scopedLog := log.WithFields(logrus.Fields{
@@ -427,7 +438,7 @@ func (l *APILimiter) requestFinished(r *limitedRequest, err error) {
 	})
 
 	if err != nil {
-		scopedLog = scopedLog.WithField(logError, err)
+		scopedLog = scopedLog.WithError(err)
 	}
 
 	if l.params.Log {
@@ -442,30 +453,35 @@ func (l *APILimiter) requestFinished(r *limitedRequest, err error) {
 
 	l.mutex.Lock()
 
-	l.requestsProcessed++
-	l.currentRequestsInFlight--
-
-	l.processingDurations = append(l.processingDurations, processingDuration)
-	if exceed := len(l.processingDurations) - l.params.MeanOver; exceed > 0 {
-		l.processingDurations = l.processingDurations[exceed:]
+	if !r.startTime.IsZero() {
+		l.requestsProcessed++
+		l.currentRequestsInFlight--
 	}
-	l.meanProcessingDuration = calcMeanDuration(l.processingDurations)
 
-	l.waitDurations = append(l.waitDurations, r.waitDuration)
-	if exceed := len(l.waitDurations) - l.params.MeanOver; exceed > 0 {
-		l.waitDurations = l.waitDurations[exceed:]
-	}
-	l.meanWaitDuration = calcMeanDuration(l.waitDurations)
+	// Only auto-adjust ratelimiter using metrics from successful API requests
+	if err == nil {
+		l.processingDurations = append(l.processingDurations, processingDuration)
+		if exceed := len(l.processingDurations) - l.params.MeanOver; exceed > 0 {
+			l.processingDurations = l.processingDurations[exceed:]
+		}
+		l.meanProcessingDuration = calcMeanDuration(l.processingDurations)
 
-	if l.params.AutoAdjust && l.params.EstimatedProcessingDuration != 0 {
-		l.adjustmentFactor = l.calculateAdjustmentFactor()
-		l.parallelRequests = l.adjustedParallelRequests()
+		l.waitDurations = append(l.waitDurations, r.waitDuration)
+		if exceed := len(l.waitDurations) - l.params.MeanOver; exceed > 0 {
+			l.waitDurations = l.waitDurations[exceed:]
+		}
+		l.meanWaitDuration = calcMeanDuration(l.waitDurations)
 
-		if l.limiter != nil {
-			l.limiter.SetLimit(l.adjustedLimit())
+		if l.params.AutoAdjust && l.params.EstimatedProcessingDuration != 0 {
+			l.adjustmentFactor = l.calculateAdjustmentFactor()
+			l.parallelRequests = l.adjustedParallelRequests()
 
-			newBurst := l.adjustedBurst()
-			l.limiter.SetBurst(newBurst)
+			if l.limiter != nil {
+				l.limiter.SetLimit(l.adjustedLimit())
+
+				newBurst := l.adjustedBurst()
+				l.limiter.SetBurst(newBurst)
+			}
 		}
 	}
 
@@ -480,6 +496,7 @@ func (l *APILimiter) requestFinished(r *limitedRequest, err error) {
 		CurrentRequestsInFlight:     l.currentRequestsInFlight,
 		AdjustmentFactor:            l.adjustmentFactor,
 		Error:                       err,
+		Outcome:                     string(r.outcome),
 	}
 
 	if l.limiter != nil {
@@ -521,6 +538,7 @@ type limitedRequest struct {
 	waitSemaphoreWeight int64
 	uuid                string
 	finished            bool
+	outcome             outcome
 }
 
 // WaitDuration returns the duration the request had to wait
@@ -542,15 +560,26 @@ func (l *limitedRequest) Error(err error) {
 // configured MaxWaitDuration is exceeded, an error is returned. On success, a
 // LimitedRequest is returned on which Done() must be called when the API call
 // has completed or Error() if an error occurred.
-func (l *APILimiter) Wait(ctx context.Context) (req LimitedRequest, err error) {
+func (l *APILimiter) Wait(ctx context.Context) (LimitedRequest, error) {
+	req, err := l.wait(ctx)
+	if err != nil {
+		l.requestFinished(req, err)
+		return nil, err
+	}
+	return req, nil
+}
+
+func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) {
 	var (
-		limitWaitDuration   time.Duration
-		waitDuration        time.Duration
-		waitSemaphoreWeight int64
-		uuid                = uuid.NewUUID().String()
-		scheduledAt         = time.Now()
-		r                   *rate.Reservation
+		limitWaitDuration time.Duration
+		r                 *rate.Reservation
 	)
+
+	req = &limitedRequest{
+		limiter:      l,
+		scheduleTime: time.Now(),
+		uuid:         uuid.NewUUID().String(),
+	}
 
 	l.mutex.Lock()
 
@@ -558,7 +587,7 @@ func (l *APILimiter) Wait(ctx context.Context) (req LimitedRequest, err error) {
 
 	scopedLog := log.WithFields(logrus.Fields{
 		logAPICallName:      l.name,
-		logUUID:             uuid,
+		logUUID:             req.uuid,
 		logParallelRequests: l.parallelRequests,
 	})
 
@@ -576,7 +605,9 @@ func (l *APILimiter) Wait(ctx context.Context) (req LimitedRequest, err error) {
 			scopedLog.Warning("Not processing API request due to cancelled context")
 		}
 		l.mutex.Unlock()
-		return nil, fmt.Errorf("request cancelled while waiting for rate limiting slot: %w", ctx.Err())
+		req.outcome = outcomeReqCancelled
+		err = fmt.Errorf("request cancelled while waiting for rate limiting slot: %w", ctx.Err())
+		return
 	default:
 	}
 
@@ -585,27 +616,8 @@ func (l *APILimiter) Wait(ctx context.Context) (req LimitedRequest, err error) {
 		scopedLog = scopedLog.WithField(logSkipped, skip)
 	}
 
-	if !skip && l.limiter != nil {
-		r = l.limiter.Reserve()
-		limitWaitDuration = r.Delay()
-
-		defer func() {
-			// In case the request is cancelled, also cancel the
-			// reservation so it does not impact the wait duration.
-			// The wait duration should only increase if requests
-			// are actually processed.
-			if err != nil && r != nil {
-				r.Cancel()
-			}
-		}()
-
-		scopedLog = scopedLog.WithFields(logrus.Fields{
-			logLimit:             fmt.Sprintf("%.2f/s", l.limiter.Limit()),
-			logBurst:             l.limiter.Burst(),
-			logWaitDurationLimit: limitWaitDuration,
-		})
-	}
 	parallelRequests := l.parallelRequests
+	meanProcessingDuration := l.meanProcessingDuration
 	l.mutex.Unlock()
 
 	if l.params.Log {
@@ -618,16 +630,69 @@ func (l *APILimiter) Wait(ctx context.Context) (req LimitedRequest, err error) {
 		goto skipRateLimiter
 	}
 
+	if parallelRequests > 0 {
+		waitCtx := ctx
+		if l.params.MaxWaitDuration > 0 {
+			ctx2, cancel := context.WithTimeout(ctx, l.params.MaxWaitDuration)
+			defer cancel()
+			waitCtx = ctx2
+		}
+		w := int64(waitSemaphoreResolution / parallelRequests)
+		err2 := l.parallelWaitSemaphore.Acquire(waitCtx, w)
+		if err2 != nil {
+			if l.params.Log {
+				scopedLog.WithError(err2).Warning("Not processing API request. Wait duration for maximum parallel requests exceeds maximum")
+			}
+			req.outcome = outcomeParallelMaxWait
+			err = fmt.Errorf("timed out while waiting to be served with %d parallel requests: %w", parallelRequests, err2)
+			return
+		}
+		req.waitSemaphoreWeight = w
+	}
+	req.waitDuration = time.Since(req.scheduleTime)
+
+	l.mutex.Lock()
+	if l.limiter != nil {
+		r = l.limiter.Reserve()
+		limitWaitDuration = r.Delay()
+
+		scopedLog = scopedLog.WithFields(logrus.Fields{
+			logLimit:                  fmt.Sprintf("%.2f/s", l.limiter.Limit()),
+			logBurst:                  l.limiter.Burst(),
+			logWaitDurationLimit:      limitWaitDuration,
+			logMaxWaitDurationLimiter: l.params.MaxWaitDuration - req.waitDuration,
+		})
+	}
+	l.mutex.Unlock()
+
 	if l.params.MinWaitDuration > 0 && limitWaitDuration < l.params.MinWaitDuration {
 		limitWaitDuration = l.params.MinWaitDuration
 	}
 
-	if (l.params.MaxWaitDuration > 0 && limitWaitDuration > l.params.MaxWaitDuration) || limitWaitDuration == rate.InfDuration {
+	if (l.params.MaxWaitDuration > 0 && (limitWaitDuration+req.waitDuration) > l.params.MaxWaitDuration) || limitWaitDuration == rate.InfDuration {
 		if l.params.Log {
 			scopedLog.Warning("Not processing API request. Wait duration exceeds maximum")
 		}
-		return nil, fmt.Errorf("request would have to wait %v to be served (maximum wait duration: %v)",
-			limitWaitDuration, l.params.MaxWaitDuration)
+
+		// The rate limiter should only consider a reservation valid if
+		// the request is actually processed. Cancellation of the
+		// reservation should happen before we sleep below.
+		if r != nil {
+			r.Cancel()
+		}
+
+		// Instead of returning immediately, pace the caller by
+		// sleeping for the mean processing duration. This helps
+		// against callers who disrespect 429 error codes and retry
+		// immediately.
+		if meanProcessingDuration > 0.0 {
+			time.Sleep(time.Duration(meanProcessingDuration * float64(time.Second)))
+		}
+
+		req.outcome = outcomeLimitMaxWait
+		err = fmt.Errorf("request would have to wait %v to be served (maximum wait duration: %v)",
+			limitWaitDuration, l.params.MaxWaitDuration-req.waitDuration)
+		return
 	}
 
 	if limitWaitDuration != 0 {
@@ -637,30 +702,19 @@ func (l *APILimiter) Wait(ctx context.Context) (req LimitedRequest, err error) {
 			if l.params.Log {
 				scopedLog.Warning("Not processing API request due to cancelled context while waiting")
 			}
-			return nil, fmt.Errorf("request cancelled while waiting for rate limiting slot: %w", ctx.Err())
-		}
-	}
-
-	if parallelRequests > 0 {
-		waitCtx := ctx
-		if l.params.MaxWaitDuration > 0 {
-			maxWaitDurationParallel := l.params.MaxWaitDuration - limitWaitDuration
-			scopedLog = scopedLog.WithField(logMaxWaitDurationParallel, maxWaitDurationParallel)
-			ctx2, cancel := context.WithTimeout(ctx, maxWaitDurationParallel)
-			defer cancel()
-			waitCtx = ctx2
-		}
-		waitSemaphoreWeight = int64(waitSemaphoreResolution / parallelRequests)
-		err := l.parallelWaitSemaphore.Acquire(waitCtx, waitSemaphoreWeight)
-		if err != nil {
-			if l.params.Log {
-				scopedLog.Warning("Not processing API request. Wait duration for maximum parallel requests exceeds maximum")
+			// The rate limiter should only consider a reservation
+			// valid if the request is actually processed.
+			if r != nil {
+				r.Cancel()
 			}
-			return nil, fmt.Errorf("timed out while waiting to be served with %d parallel requests: %w", parallelRequests, err)
+
+			req.outcome = outcomeReqCancelled
+			err = fmt.Errorf("request cancelled while waiting for rate limiting slot: %w", ctx.Err())
+			return
 		}
 	}
 
-	waitDuration = time.Since(scheduledAt)
+	req.waitDuration = time.Since(req.scheduleTime)
 
 skipRateLimiter:
 
@@ -668,7 +722,7 @@ skipRateLimiter:
 	l.currentRequestsInFlight++
 	l.mutex.Unlock()
 
-	scopedLog = scopedLog.WithField(logWaitDurationTotal, waitDuration)
+	scopedLog = scopedLog.WithField(logWaitDurationTotal, req.waitDuration)
 
 	if l.params.Log {
 		scopedLog.Info("API request released by rate limiter")
@@ -676,14 +730,9 @@ skipRateLimiter:
 		scopedLog.Debug("API request released by rate limiter")
 	}
 
-	return &limitedRequest{
-		limiter:             l,
-		startTime:           time.Now(),
-		scheduleTime:        scheduledAt,
-		waitDuration:        waitDuration,
-		waitSemaphoreWeight: waitSemaphoreWeight,
-		uuid:                uuid,
-	}, nil
+	req.startTime = time.Now()
+	return req, nil
+
 }
 
 func parseRate(r string) (rate.Limit, error) {
@@ -728,6 +777,7 @@ type MetricsValues struct {
 	WaitDuration                time.Duration
 	MinWaitDuration             time.Duration
 	MaxWaitDuration             time.Duration
+	Outcome                     string
 	MeanProcessingDuration      float64
 	MeanWaitDuration            float64
 	EstimatedProcessingDuration float64
