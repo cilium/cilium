@@ -165,6 +165,12 @@ const (
 	// V6Prefix is a IPv6 subnet/CIDR prefix
 	V6Prefix = "v6Prefix"
 
+	// IPv4CIDRs is a list of IPv4 CIDRs
+	IPv4CIDRs = "ipv4CIDRs"
+
+	// IPv6CIDRs is a list of IPv6 CIDRs
+	IPv6CIDRs = "ipv6CIDRs"
+
 	// CIDR is a IPv4/IPv4 subnet/CIDR
 	CIDR = "cidr"
 
