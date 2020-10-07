@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/trigger"
 
 	"github.com/cilium/ipam/cidrset"
+	"github.com/sirupsen/logrus"
 )
 
 var log = logging.DefaultLogger.WithField(logfields.LogSubsys, "ipam-allocator-clusterpool")
@@ -89,7 +90,10 @@ func (a *AllocatorOperator) Init() error {
 
 // Start kicks of Operator allocation.
 func (a *AllocatorOperator) Start(updater ipam.CiliumNodeGetterUpdater) (allocator.NodeEventHandler, error) {
-	log.Info("Starting Operator IP allocator...")
+	log.WithFields(logrus.Fields{
+		logfields.IPv4CIDRs: operatorOption.Config.ClusterPoolIPv4CIDR,
+		logfields.IPv6CIDRs: operatorOption.Config.ClusterPoolIPv6CIDR,
+	}).Info("Starting ClusterPool IP allocator")
 
 	var (
 		iMetrics trigger.MetricsObserver
