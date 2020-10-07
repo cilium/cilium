@@ -55,6 +55,11 @@ Users (Alphabetically)
       U: L3/L4/L7 policies
       L: https://youtu.be/39FLsSc2P-Y
 
+    * N: Alibaba Cloud
+      D: Alibaba Cloud is using Cilium together with Terway CNI as the high-performance ENI dataplane
+      U: Networking, NetworkPolicy, Services, IPVLAN
+      L: https://www.alibabacloud.com/blog/how-does-alibaba-cloud-build-high-performance-cloud-native-pod-networks-in-production-environments_596590
+
     * N: CENGN - Centre of Excellence in Next Generation Networks
       D: CENGN is using Cilium in multiple clusters including production and development clusters (self-hosted k8s, On-premises)
       U: L3/L4/L7 network policies, Monitoring via Prometheus metrics & Hubble
