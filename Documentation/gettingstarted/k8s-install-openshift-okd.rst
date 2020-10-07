@@ -105,10 +105,10 @@ Resulting configuration will look like this:
    sshKey: |
      ssh-rsa <REDACTED>
 
-You may wish to make a few changes, e.g. adding more nodes. If you do change any of the CIDRs,
-you will need to make sure that ``clusterPoolIPv4PodCIDR`` and ``clusterPoolIPv4MaskSize`` used
-below reflect those changes. Also make sure that the ``clusterPoolIPv4PodCIDR`` does not conflict
-with any other addresses in the same network, e.g. the VPC CIDR.
+You may wish to make a few changes, e.g. increase the number of nodes. If you do change any of the CIDRs,
+you will need to make sure that Helm values used below reflect those changes. Namely - ``clusterNetwork``
+should match ``clusterPoolIPv4PodCIDR`` & ``clusterPoolIPv4MaskSize``. Also make sure that the ``clusterNetwork``
+does not conflict with ``machineNetwork`` (which represents the VPC CIDR in AWS).
 
 Next, generate OpenShift manifests:
 
