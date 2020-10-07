@@ -477,4 +477,7 @@ const (
 
 	// LRPBackendPorts are the parsed backend ports of the Local Redirect Policy.
 	LRPBackendPorts = "lrpBackendPorts"
+
+	// Mode describes an operations mode
+	Mode = "mode"
 )

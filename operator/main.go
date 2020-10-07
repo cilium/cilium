@@ -293,6 +293,9 @@ func onOperatorStartLeading(ctx context.Context) {
 		nodeManager *allocator.NodeEventHandler
 		err         error
 	)
+
+	log.WithField(logfields.Mode, option.Config.IPAM).Info("Initializing IPAM")
+
 	switch ipamMode := option.Config.IPAM; ipamMode {
 	case ipamOption.IPAMAzure, ipamOption.IPAMENI, ipamOption.IPAMClusterPool:
 		alloc, providerBuiltin := allocatorProviders[ipamMode]
