@@ -63,3 +63,34 @@ spec:
           path: /var/log/journal
           type: DirectoryOrCreate
         name: journald
+---
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: cilium-dns-checker
+  labels:
+    k8s-app: cilium-dns-checker
+    kubernetes.io/cluster-service: "true"
+spec:
+  selector:
+    matchLabels:
+      k8s-app: cilium-dns-checker
+      kubernetes.io/cluster-service: "true"
+  template:
+    metadata:
+      labels:
+        k8s-app: cilium-dns-checker
+        kubernetes.io/cluster-service: "true"
+    spec:
+      containers:
+      - args:
+        - "10000"
+        command:
+        - sleep
+        image: docker.io/cilium/log-gatherer:v1.0
+        imagePullPolicy: Always
+        name: log-gatherer
+      restartPolicy: Always
+      serviceAccount: cilium-log-gatherer
+      serviceAccountName: cilium-log-gatherer
+      terminationGracePeriodSeconds: 1
