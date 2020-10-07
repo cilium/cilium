@@ -93,13 +93,13 @@ const (
 	// IPAMSubnetsTags are optional tags used to filter subnets, and interfaces within those subnets
 	IPAMSubnetsTags = "subnet-tags-filter"
 
-	// IPAMOperatorV4CIDR is the cluster IPv4 podCIDR that should be used to
-	// allocate pods in the node.
-	IPAMOperatorV4CIDR = "cluster-pool-ipv4-cidr"
+	// ClusterPoolIPv4CIDR is the cluster's IPv4 CIDR to allocate
+	// individual PodCIDR ranges from when using the ClusterPool ipam mode.
+	ClusterPoolIPv4CIDR = "cluster-pool-ipv4-cidr"
 
-	// IPAMOperatorV6CIDR is the cluster IPv6 podCIDR that should be used to
-	// allocate pods in the node.
-	IPAMOperatorV6CIDR = "cluster-pool-ipv6-cidr"
+	// ClusterPoolIPv6CIDR is the cluster's IPv6 CIDR to allocate
+	// individual PodCIDR ranges from when using the ClusterPool ipam mode.
+	ClusterPoolIPv6CIDR = "cluster-pool-ipv6-cidr"
 
 	// NodeCIDRMaskSizeIPv4 is the IPv4 podCIDR mask size that will be used
 	// per node.
@@ -233,13 +233,13 @@ type OperatorConfig struct {
 
 	// IPAM Operator options
 
-	// IPAMOperatorV4CIDR is the cluster IPv4 podCIDR that should be used to
+	// ClusterPoolIPv4CIDR is the cluster IPv4 podCIDR that should be used to
 	// allocate pods in the node.
-	IPAMOperatorV4CIDR []string
+	ClusterPoolIPv4CIDR []string
 
-	// IPAMOperatorV6CIDR is the cluster IPv6 podCIDR that should be used to
+	// ClusterPoolIPv6CIDR is the cluster IPv6 podCIDR that should be used to
 	// allocate pods in the node.
-	IPAMOperatorV6CIDR []string
+	ClusterPoolIPv6CIDR []string
 
 	// NodeCIDRMaskSizeIPv4 is the IPv4 podCIDR mask size that will be used
 	// per node.
@@ -324,8 +324,8 @@ func (c *OperatorConfig) Populate() {
 	c.UnmanagedPodWatcherInterval = viper.GetInt(UnmanagedPodWatcherInterval)
 	c.NodeCIDRMaskSizeIPv4 = viper.GetInt(NodeCIDRMaskSizeIPv4)
 	c.NodeCIDRMaskSizeIPv6 = viper.GetInt(NodeCIDRMaskSizeIPv6)
-	c.IPAMOperatorV4CIDR = viper.GetStringSlice(IPAMOperatorV4CIDR)
-	c.IPAMOperatorV6CIDR = viper.GetStringSlice(IPAMOperatorV6CIDR)
+	c.ClusterPoolIPv4CIDR = viper.GetStringSlice(ClusterPoolIPv4CIDR)
+	c.ClusterPoolIPv6CIDR = viper.GetStringSlice(ClusterPoolIPv6CIDR)
 	c.NodesGCInterval = viper.GetDuration(NodesGCInterval)
 	c.CRDWaitTimeout = viper.GetDuration(CRDWaitTimeout)
 	c.LeaderElectionLeaseDuration = viper.GetDuration(LeaderElectionLeaseDuration)
