@@ -248,7 +248,7 @@ func WaitForNodeInformation() error {
 		// if node resource could not be received, fail if
 		// PodCIDR requirement has been requested
 		if option.Config.K8sRequireIPv4PodCIDR || option.Config.K8sRequireIPv6PodCIDR {
-			log.Fatal("Unable to derive PodCIDR from Kubernetes node resource, giving up")
+			log.Fatal("Unable to derive PodCIDR via Node or CiliumNode resource, giving up")
 		}
 	}
 
