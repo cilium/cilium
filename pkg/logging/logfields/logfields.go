@@ -445,4 +445,7 @@ const (
 	// HelpMessage is the help message corresponding to a log message.
 	// This is to make sure we keep separate contexts for logs and help messages.
 	HelpMessage = "helpMessage"
+
+	// Mode describes an operations mode
+	Mode = "mode"
 )
