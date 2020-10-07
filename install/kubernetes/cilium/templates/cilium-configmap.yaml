@@ -1,0 +1,626 @@
+{{- if and (.Values.agent) (not .Values.preflight.enabled) }}
+{{- /*  Default values with backwards compatibility */ -}}
+{{- $defaultEnableCnpStatusUpdates := "true" -}}
+{{- $defaultBpfMapDynamicSizeRatio := 0.0 -}}
+{{- $defaultBpfMasquerade := "false" -}}
+{{- $defaultBpfClockProbe := "false" -}}
+{{- $defaultBpfTProxy := "false" -}}
+{{- $defaultIPAM := "cluster-pool" -}}
+{{- $defaultSessionAffinity := "false" -}}
+{{- $defaultOperatorApiServeAddr := "localhost:9234" -}}
+{{- $defaultBpfCtTcpMax := 524288 -}}
+{{- $defaultBpfCtAnyMax := 262144 -}}
+{{- $enableIdentityMark := "true" -}}
+{{- $fragmentTracking := "true" -}}
+{{- $crdWaitTimeout := "5m" -}}
+
+{{- /* Default values when 1.8 was initially deployed */ -}}
+{{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
+{{- $defaultEnableCnpStatusUpdates = "false" -}}
+{{- $defaultBpfMapDynamicSizeRatio = 0.0025 -}}
+{{- $defaultBpfMasquerade = "true" -}}
+{{- $defaultBpfClockProbe = "true" -}}
+{{- $defaultIPAM = "cluster-pool" -}}
+{{- $defaultSessionAffinity = "true" -}}
+{{- if .Values.ipv4.enabled }}
+{{- $defaultOperatorApiServeAddr = "127.0.0.1:9234" -}}
+{{- else -}}
+{{- $defaultOperatorApiServeAddr = "[::1]:9234" -}}
+{{- end }}
+{{- $defaultBpfCtTcpMax = 0 -}}
+{{- $defaultBpfCtAnyMax = 0 -}}
+{{- end -}}
+
+{{- /* Default values when 1.9 was initially deployed */ -}}
+{{- if semverCompare ">=1.9" (default "1.9" .Values.upgradeCompatibility) -}}
+{{- $defaultBpfTProxy = "true" -}}
+{{- end -}}
+
+{{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
+{{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
+{{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}
+
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: cilium-config
+  namespace: {{ .Release.Namespace }}
+data:
+{{- if .Values.etcd.enabled }}
+  # The kvstore configuration is used to enable use of a kvstore for state
+  # storage. This can either be provided with an external kvstore or with the
+  # help of cilium-etcd-operator which operates an etcd cluster automatically.
+  kvstore: etcd
+{{- if .Values.etcd.k8sService }}
+  kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config", "etcd.operator": "true"}'
+{{- else }}
+  kvstore-opt: '{"etcd.config": "/var/lib/etcd-config/etcd.config"}'
+{{- end }}
+
+  # This etcd-config contains the etcd endpoints of your cluster. If you use
+  # TLS please make sure you follow the tutorial in https://cilium.link/etcd-config
+  etcd-config: |-
+    ---
+    endpoints:
+{{- if .Values.etcd.managed }}
+      - https://cilium-etcd-client.{{ .Release.Namespace }}.svc:2379
+{{- else }}
+{{- range .Values.etcd.endpoints }}
+      - {{ . }}
+{{- end }}
+{{- end }}
+{{- if or .Values.etcd.ssl .Values.etcd.managed }}
+    trusted-ca-file: '/var/lib/etcd-secrets/etcd-client-ca.crt'
+    key-file: '/var/lib/etcd-secrets/etcd-client.key'
+    cert-file: '/var/lib/etcd-secrets/etcd-client.crt'
+{{- end }}
+{{- end }}
+
+{{- if hasKey .Values "conntrackGCInterval" }}
+  conntrack-gc-interval: {{ .Values.conntrackGCInterval | quote }}
+{{- end }}
+
+  # Identity allocation mode selects how identities are shared between cilium
+  # nodes by setting how they are stored. The options are "crd" or "kvstore".
+  # - "crd" stores identities in kubernetes as CRDs (custom resource definition).
+  #   These can be queried with:
+  #     kubectl get ciliumid
+  # - "kvstore" stores identities in a kvstore, etcd or consul, that is
+  #   configured below. Cilium versions before 1.6 supported only the kvstore
+  #   backend. Upgrades from these older cilium versions should continue using
+  #   the kvstore by commenting out the identity-allocation-mode below, or
+  #   setting it to "kvstore".
+  identity-allocation-mode: {{ .Values.identityAllocationMode }}
+{{- if hasKey .Values "identityHeartbeatTimeout" }}
+  identity-heartbeat-timeout: "{{ .Values.identityHeartbeatTimeout }}"
+{{- end }}
+{{- if hasKey .Values "identityGCInterval" }}
+  identity-gc-interval: "{{ .Values.identityGCInterval }}"
+{{- end }}
+{{- if hasKey .Values.operator "endpointGCInterval" }}
+  cilium-endpoint-gc-interval: "{{ .Values.operator.endpointGCInterval }}"
+{{- end }}
+
+{{- if hasKey .Values "identityChangeGracePeriod" }}
+  # identity-change-grace-period is the grace period that needs to pass
+  # before an endpoint that has changed its identity will start using
+  # that new identity. During the grace period, the new identity has
+  # already been allocated and other nodes in the cluster have a chance
+  # to whitelist the new upcoming identity of the endpoint.
+  identity-change-grace-period: {{ default "5s" .Values.identityChangeGracePeriod | quote }}
+{{- end }}
+
+{{- if hasKey .Values "labels" }}
+  # To include or exclude matched resources from cilium identity evaluation
+  labels: {{ .Values.labels | quote }}
+{{- end }}
+
+  # If you want to run cilium in debug mode change this value to true
+  debug: {{ .Values.debug.enabled | quote }}
+
+{{- if hasKey .Values.debug "verbose" }}
+  debug-verbose: "{{ .Values.debug.verbose }}"
+{{- end }}
+
+{{- if ne (int .Values.healthPort) 9876 }}
+  # Set the TCP port for the agent health status API. This is not the port used
+  # for cilium-health.
+  agent-health-port: "{{ .Values.healthPort }}"
+{{- end }}
+{{- if hasKey .Values "policyEnforcementMode" }}
+  # The agent can be put into the following three policy enforcement modes
+  # default, always and never.
+  # https://docs.cilium.io/en/latest/policy/intro/#policy-enforcement-modes
+  enable-policy: "{{ lower .Values.policyEnforcementMode }}"
+{{- end }}
+
+{{- if .Values.prometheus.enabled }}
+  # If you want metrics enabled in all of your Cilium agents, set the port for
+  # which the Cilium agents will have their metrics exposed.
+  # This option deprecates the "prometheus-serve-addr" in the
+  # "cilium-metrics-config" ConfigMap
+  # NOTE that this will open the port on ALL nodes where Cilium pods are
+  # scheduled.
+  prometheus-serve-addr: ":{{ .Values.prometheus.port }}"
+  # Port to expose Envoy metrics (e.g. "9095"). Envoy metrics listener will be disabled if this
+  # field is not set.
+  proxy-prometheus-port: "{{ .Values.proxy.prometheus.port }}"
+{{- end }}
+
+{{- if .Values.operator.prometheus.enabled }}
+  # If you want metrics enabled in cilium-operator, set the port for
+  # which the Cilium Operator will have their metrics exposed.
+  # NOTE that this will open the port on the nodes where Cilium operator pod
+  # is scheduled.
+  operator-prometheus-serve-addr: ":{{ .Values.operator.prometheus.port }}"
+  enable-metrics: "true"
+{{- end }}
+
+  # Enable IPv4 addressing. If enabled, all endpoints are allocated an IPv4
+  # address.
+  enable-ipv4: {{ .Values.ipv4.enabled | quote }}
+
+  # Enable IPv6 addressing. If enabled, all endpoints are allocated an IPv6
+  # address.
+  enable-ipv6: {{ .Values.ipv6.enabled | quote }}
+
+{{- if .Values.cleanState }}
+  # If a serious issue occurs during Cilium startup, this
+  # invasive option may be set to true to remove all persistent
+  # state. Endpoints will not be restored using knowledge from a
+  # prior Cilium run, so they may receive new IP addresses upon
+  # restart. This also triggers clean-cilium-bpf-state.
+  clean-cilium-state: "true"
+{{- end }}
+
+{{- if .Values.cleanBpfState }}
+  # If you want to clean cilium BPF state, set this to true;
+  # Removes all BPF maps from the filesystem. Upon restart,
+  # endpoints are restored with the same IP addresses, however
+  # any ongoing connections may be disrupted briefly.
+  # Loadbalancing decisions will be reset, so any ongoing
+  # connections via a service may be loadbalanced to a different
+  # backend after restart.
+  clean-cilium-bpf-state: "true"
+{{- end }}
+
+{{- if hasKey .Values.cni "customConf" }}
+  # Users who wish to specify their own custom CNI configuration file must set
+  # custom-cni-conf to "true", otherwise Cilium may overwrite the configuration.
+  custom-cni-conf: "{{ .Values.cni.customConf }}"
+{{- end }}
+
+{{- if hasKey .Values "bpfClockProbe" }}
+  enable-bpf-clock-probe: {{ .Values.bpfClockProbe | quote }}
+{{- else if eq $defaultBpfClockProbe "true" }}
+  enable-bpf-clock-probe: {{ $defaultBpfClockProbe | quote }}
+{{- end }}
+
+{{- if hasKey .Values.bpf "tproxy" }}
+  enable-bpf-tproxy: {{ .Values.bpf.tproxy | quote }}
+{{- else if eq $defaultBpfTProxy "true" }}
+  enable-bpf-tproxy: {{ $defaultBpfTProxy | quote }}
+{{- end }}
+  # If you want cilium monitor to aggregate tracing for packets, set this level
+  # to "low", "medium", or "maximum". The higher the level, the less packets
+  # that will be seen in monitor output.
+  monitor-aggregation: {{ .Values.bpf.monitorAggregation }}
+
+  # The monitor aggregation interval governs the typical time between monitor
+  # notification events for each allowed connection.
+  #
+  # Only effective when monitor aggregation is set to "medium" or higher.
+  monitor-aggregation-interval: {{ .Values.bpf.monitorInterval }}
+
+  # The monitor aggregation flags determine which TCP flags which, upon the
+  # first observation, cause monitor notifications to be generated.
+  #
+  # Only effective when monitor aggregation is set to "medium" or higher.
+  monitor-aggregation-flags: {{ .Values.bpf.monitorFlags }}
+
+
+
+
+{{- if hasKey .Values.bpf "mapDynamicSizeRatio" }}
+  # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
+  # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
+  bpf-map-dynamic-size-ratio: {{ .Values.bpf.mapDynamicSizeRatio | quote }}
+{{- else if ne $defaultBpfMapDynamicSizeRatio 0.0 }}
+  # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
+  # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
+  bpf-map-dynamic-size-ratio: {{ $defaultBpfMapDynamicSizeRatio | quote }}
+{{- end }}
+
+{{- if or $bpfCtTcpMax $bpfCtAnyMax }}
+  # bpf-ct-global-*-max specifies the maximum number of connections
+  # supported across all endpoints, split by protocol: tcp or other. One pair
+  # of maps uses these values for IPv4 connections, and another pair of maps
+  # use these values for IPv6 connections.
+  #
+  # If these values are modified, then during the next Cilium startup the
+  # tracking of ongoing connections may be disrupted. This may lead to brief
+  # policy drops or a change in loadbalancing decisions for a connection.
+  #
+  # For users upgrading from Cilium 1.2 or earlier, to minimize disruption
+  # during the upgrade process, set bpf-ct-global-tcp-max to 1000000.
+{{- if $bpfCtTcpMax }}
+  bpf-ct-global-tcp-max: {{ $bpfCtTcpMax | quote }}
+{{- end }}
+{{- if $bpfCtAnyMax }}
+  bpf-ct-global-any-max: {{ $bpfCtAnyMax | quote }}
+{{- end }}
+{{- end }}
+{{- if hasKey .Values.bpf "natMax" }}
+  # bpf-nat-global-max specified the maximum number of entries in the
+  # BPF NAT table.
+  bpf-nat-global-max: "{{ .Values.bpf.natMax }}"
+{{- end }}
+{{- if hasKey .Values.bpf "neighMax" }}
+  # bpf-neigh-global-max specified the maximum number of entries in the
+  # BPF neighbor table.
+  bpf-neigh-global-max: "{{ .Values.bpf.neighMax }}"
+{{- end }}
+{{- if hasKey .Values.bpf "policyMapMax" }}
+  # bpf-policy-map-max specifies the maximum number of entries in endpoint
+  # policy map (per endpoint)
+  bpf-policy-map-max: "{{ .Values.bpf.policyMapMax }}"
+{{- end }}
+{{- if hasKey .Values.bpf "lbMapMax" }}
+  # bpf-lb-map-max specifies the maximum number of entries in bpf lb service,
+  # backend and affinity maps.
+  bpf-lb-map-max: "{{ .Values.bpf.lbMapMax }}"
+{{- end }}
+  # Pre-allocation of map entries allows per-packet latency to be reduced, at
+  # the expense of up-front memory allocation for the entries in the maps. The
+  # default value below will minimize memory usage in the default installation;
+  # users who are sensitive to latency may consider setting this to "true".
+  #
+  # This option was introduced in Cilium 1.4. Cilium 1.3 and earlier ignore
+  # this option and behave as though it is set to "true".
+  #
+  # If this value is modified, then during the next Cilium startup the restore
+  # of existing endpoints and tracking of ongoing connections may be disrupted.
+  # This may lead to policy drops or a change in loadbalancing decisions for a
+  # connection for some time. Endpoints may need to be recreated to restore
+  # connectivity.
+  #
+  # If this option is set to "false" during an upgrade from 1.3 or earlier to
+  # 1.4 or later, then it may cause one-time disruptions during the upgrade.
+  preallocate-bpf-maps: "{{ .Values.bpf.preallocateMaps }}"
+
+  # Regular expression matching compatible Istio sidecar istio-proxy
+  # container image names
+  sidecar-istio-proxy-image: "{{ .Values.proxy.sidecarImageRegex }}"
+
+  # Encapsulation mode for communication between nodes
+  # Possible values:
+  #   - disabled
+  #   - vxlan (default)
+  #   - geneve
+  tunnel: {{ .Values.tunnel }}
+
+  # Name of the cluster. Only relevant when building a mesh of clusters.
+  cluster-name: {{ .Values.cluster.name }}
+
+{{- if hasKey .Values.cluster "id" }}
+  # Unique ID of the cluster. Must be unique across all conneted clusters and
+  # in the range of 1 and 255. Only relevant when building a mesh of clusters.
+  cluster-id: "{{ .Values.cluster.id }}"
+{{- end }}
+
+{{- if .Values.gke.enabled }}
+
+  ipam: "kubernetes"
+  tunnel: "disabled"
+  enable-endpoint-routes: "true"
+  enable-local-node-route: "false"
+{{- end }}
+
+{{- if .Values.eni }}
+  enable-endpoint-routes: "true"
+  auto-create-cilium-node-resource: "true"
+{{- end }}
+
+{{- if .Values.azure.enabled }}
+  enable-endpoint-routes: "true"
+  auto-create-cilium-node-resource: "true"
+  enable-local-node-route: "false"
+{{- end }}
+
+{{- if .Values.flannel.enabled }}
+  # Interface to be used when running Cilium on top of a CNI plugin.
+  # For flannel, use "cni0"
+  flannel-master-device: {{ .Values.flannel.masterDevice }}
+
+  # When running Cilium with policy enforcement enabled on top of a CNI plugin
+  # the BPF programs will be installed on the network interface specified in
+  # 'flannel-master-device' and on all network interfaces belonging to
+  # a container. When the Cilium DaemonSet is removed, the BPF programs will
+  # be kept in the interfaces unless this option is set to "true".
+  flannel-uninstall-on-exit: "{{ .Values.flannel.uninstallOnExit}}"
+{{- end }}
+
+{{- if .Values.l7Proxy }}
+  # Enables L7 proxy for L7 policy enforcement and visibility
+  enable-l7-proxy: {{ .Values.l7Proxy | quote }}
+{{- end }}
+
+  # wait-bpf-mount makes init container wait until bpf filesystem is mounted
+  wait-bpf-mount: "{{ .Values.bpf.waitForMount }}"
+
+{{- if ne .Values.cni.chainingMode "none" }}
+  # Enable chaining with another CNI plugin
+  #
+  # Supported modes:
+  #  - none
+  #  - aws-cni
+  #  - flannel
+  #  - portmap (Enables HostPort support for Cilium)
+  cni-chaining-mode: {{ .Values.cni.chainingMode }}
+
+{{- if hasKey .Values "enableIdentityMark" }}
+  enable-identity-mark: {{ .Values.enableIdentityMark | quote }}
+{{- else if (ne $enableIdentityMark "true") }}
+  enable-identity-mark: "false"
+{{- end }}
+{{- if ne .Values.cni.chainingMode "portmap" }}
+  # Disable the PodCIDR route to the cilium_host interface as it is not
+  # required. While chaining, it is the responsibility of the underlying plugin
+  # to enable routing.
+  enable-local-node-route: "false"
+{{- end }}
+{{- end }}
+
+  masquerade: {{ .Values.masquerade | quote }}
+{{- if hasKey .Values.bpf "masquerade" }}
+  enable-bpf-masquerade: {{ .Values.bpf.masquerade | quote }}
+{{- else if eq $defaultBpfMasquerade "true" }}
+  enable-bpf-masquerade: {{ $defaultBpfMasquerade | quote }}
+{{- end }}
+{{- if hasKey .Values "egressMasqueradeInterfaces" }}
+  egress-masquerade-interfaces: {{ .Values.egressMasqueradeInterfaces }}
+{{- end }}
+{{- if and .Values.ipMasqAgent .Values.ipMasqAgent.enabled }}
+  enable-ip-masq-agent: "true"
+{{- end }}
+
+{{- if .Values.encryption.enabled }}
+  enable-ipsec: {{ .Values.encryption.enabled | quote }}
+  ipsec-key-file: {{ .Values.encryption.mountPath }}/{{ .Values.encryption.keyFile }}
+{{- if hasKey .Values.encryption "interface" }}
+  encrypt-interface: {{ .Values.encryption.interface }}
+{{- end }}
+{{- if .Values.encryption.nodeEncryption }}
+  encrypt-node: {{ .Values.encryption.nodeEncryption | quote }}
+{{- end }}
+{{- end }}
+{{- if hasKey .Values "datapathMode" }}
+{{- if eq .Values.datapathMode "ipvlan" }}
+  datapath-mode: ipvlan
+  ipvlan-master-device: {{ .Values.ipvlan.masterDevice }}
+{{- end }}
+{{- end }}
+
+  enable-xt-socket-fallback: {{ .Values.enableXTSocketFallback | quote }}
+  install-iptables-rules: {{ .Values.installIptablesRules | quote }}
+
+{{- if hasKey .Values "iptablesLockTimeout" }}
+  iptables-lock-timeout: {{ .Values.iptablesLockTimeout | quote }}
+{{- end }}
+
+  auto-direct-node-routes: {{ .Values.autoDirectNodeRoutes | quote }}
+  enable-bandwidth-manager: {{ .Values.bandwidthManager | quote }}
+
+{{- if hasKey .Values "nativeRoutingCIDR" }}
+  native-routing-cidr: {{ .Values.nativeRoutingCIDR }}
+{{- end }}
+
+{{- if hasKey .Values "fragmentTracking" }}
+  enable-ipv4-fragment-tracking: {{ .Values.fragmentTracking | quote }}
+{{- else if (ne $fragmentTracking "true") }}
+  enable-ipv4-fragment-tracking: "false"
+{{- end }}
+
+{{- if .Values.hostFirewall }}
+  enable-host-firewall: {{ .Values.hostFirewall | quote }}
+{{- end}}
+
+{{- if hasKey .Values "devices" }}
+  # List of devices used to attach bpf_host.o (implements BPF NodePort,
+  # host-firewall and BPF masquerading)
+  devices: {{ join " " .Values.devices | quote }}
+{{- end }}
+
+{{- if hasKey .Values "kubeProxyReplacement" }}
+  kube-proxy-replacement:  {{ .Values.kubeProxyReplacement | quote }}
+{{- end }}
+{{- if hasKey .Values "hostServices" }}
+{{- if .Values.hostServices.enabled }}
+  enable-host-reachable-services: {{ .Values.hostServices.enabled | quote }}
+{{- end }}
+{{- if ne .Values.hostServices.protocols "tcp,udp" }}
+  host-reachable-services-protos: {{ .Values.hostServices.protocols }}
+{{- end }}
+{{- end }}
+{{- if hasKey .Values "hostPort" }}
+{{- if eq .Values.kubeProxyReplacement "partial" }}
+  enable-host-port: {{ .Values.hostPort.enabled | quote }}
+{{- end }}
+{{- end }}
+{{- if hasKey .Values "externalIPs" }}
+{{- if eq .Values.kubeProxyReplacement "partial" }}
+  enable-external-ips: {{ .Values.externalIPs.enabled | quote }}
+{{- end }}
+{{- end }}
+{{- if hasKey .Values "nodePort" }}
+{{- if eq .Values.kubeProxyReplacement "partial" }}
+  enable-node-port: {{ .Values.nodePort.enabled | quote }}
+{{- end }}
+{{- if hasKey .Values.nodePort "range" }}
+  node-port-range: {{ .Values.nodePort.range | quote }}
+{{- end }}
+{{- if hasKey .Values.nodePort "directRoutingDevice" }}
+  direct-routing-device: {{ .Values.nodePort.directRoutingDevice | quote }}
+{{- end }}
+{{- if hasKey .Values.nodePort "mode" }}
+  node-port-mode: {{ .Values.nodePort.mode | quote }}
+{{- end }}
+{{- if hasKey .Values.nodePort "algorithm" }}
+  node-port-algorithm: {{ .Values.nodePort.algorithm | quote }}
+{{- end }}
+{{- if .Values.nodePort.enableHealthCheck }}
+  enable-health-check-nodeport: {{ .Values.nodePort.enableHealthCheck | quote}}
+{{- end }}
+{{- if hasKey .Values.nodePort "acceleration" }}
+  node-port-acceleration: {{ .Values.nodePort.acceleration | quote }}
+{{- end }}
+  node-port-bind-protection: {{ .Values.nodePort.bindProtection | quote }}
+  enable-auto-protect-node-port-range: {{ .Values.nodePort.autoProtectPortRange | quote }}
+{{- end }}
+{{- if hasKey .Values.maglev "tableSize" }}
+  bpf-lb-maglev-table-size: {{ .Values.maglev.tableSize | quote}}
+{{- end }}
+{{- if hasKey .Values.maglev "hashSeed" }}
+  bpf-lb-maglev-hash-seed: {{ .Values.maglev.hashSeed | quote}}
+{{- end }}
+{{- if .Values.sessionAffinity }}
+  enable-session-affinity: {{ .Values.sessionAffinity | quote }}
+{{- else if eq $defaultSessionAffinity "true" }}
+  enable-session-affinity: {{ $defaultSessionAffinity | quote }}
+{{- end }}
+{{- if .Values.svcSourceRangeCheck }}
+  enable-svc-source-range-check: {{ .Values.svcSourceRangeCheck | quote }}
+{{- end }}
+
+{{- if and .Values.pprof .Values.pprof.enabled }}
+  pprof: {{ .Values.pprof.enabled | quote }}
+{{- end }}
+{{- if .Values.logSystemLoad }}
+  log-system-load: {{ .Values.logSystemLoad | quote }}
+{{- end }}
+{{- if .Values.logOptions }}
+  log-opt: {{ toYaml .Values.logOptions | nindent 4 }}
+{{- end }}
+{{- if and .Values.sockops .Values.sockops.enabled }}
+  sockops-enable: {{ .Values.sockops.enabled | quote }}
+{{- end }}
+{{- if hasKey .Values.k8s "requireIPv4PodCIDR" }}
+  k8s-require-ipv4-pod-cidr: {{ .Values.k8s.requireIPv4PodCIDR | quote }}
+{{- end }}
+{{- if and .Values.endpointRoutes .Values.endpointRoutes.enabled }}
+  enable-endpoint-routes: {{ .Values.endpointRoutes.enabled | quote }}
+{{- end }}
+{{- if .Values.cni.configMap }}
+  read-cni-conf: {{ .Values.cni.confFileMountPath }}/{{ .Values.cni.configMapKey }}
+  write-cni-conf-when-ready: {{ .Values.cni.hostConfDirMountPath }}/05-cilium.conflist
+{{- else if .Values.cni.readCniConf }}
+  read-cni-conf: {{ .Values.cni.readCniConf }}
+{{- end }}
+{{- if .Values.kubeConfigPath }}
+  k8s-kubeconfig-path: {{ .Values.kubeConfigPath | quote }}
+{{- end }}
+{{- if and ( .Values.endpointHealthChecking.enabled ) (or (eq .Values.cni.chainingMode "portmap") (eq .Values.cni.chainingMode "none")) }}
+  enable-endpoint-health-checking: "true"
+{{- else}}
+  # Disable health checking, when chaining mode is not set to portmap or none
+  enable-endpoint-health-checking: "false"
+{{- end }}
+{{- if hasKey .Values "healthChecking" }}
+  enable-health-checking: {{ .Values.healthChecking | quote }}
+{{- end }}
+{{- if or .Values.wellKnownIdentities.enabled .Values.etcd.managed }}
+  enable-well-known-identities: "true"
+{{- else }}
+  enable-well-known-identities: "false"
+{{- end }}
+  enable-remote-node-identity: {{ .Values.remoteNodeIdentity | quote }}
+
+{{- if hasKey .Values "synchronizeK8sNodes" }}
+  synchronize-k8s-nodes: {{ .Values.synchronizeK8sNodes | quote }}
+{{- end }}
+
+{{- if hasKey .Values "policyAuditMode" }}
+  policy-audit-mode: {{ .Values.policyAuditMode | quote }}
+{{- end }}
+
+{{- if ne $defaultOperatorApiServeAddr "localhost:9234" }}
+  operator-api-serve-addr: {{ $defaultOperatorApiServeAddr | quote }}
+{{- end }}
+
+{{- if .Values.hubble.enabled }}
+  # Enable Hubble gRPC service.
+  enable-hubble: {{ .Values.hubble.enabled  | quote }}
+  # UNIX domain socket for Hubble server to listen to.
+  hubble-socket-path:  {{ .Values.hubble.socketPath | quote }}
+{{- if hasKey .Values.hubble "eventQueueSize" }}
+  # Buffer size of the channel for Hubble to receive monitor events. If this field is not set,
+  # the buffer size is set to the default monitor queue size.
+  hubble-event-queue-size: {{ .Values.hubble.eventQueueSize | quote }}
+{{- end }}
+{{- if hasKey .Values.hubble "flowBufferSize" }}
+  # Size of the buffer to store recent flows.
+  hubble-flow-buffer-size: {{ .Values.hubble.flowBufferSize | quote }}
+{{- end }}
+{{- if .Values.hubble.metrics.enabled }}
+  # Address to expose Hubble metrics (e.g. ":7070"). Metrics server will be disabled if this
+  # field is not set.
+  hubble-metrics-server: ":{{ .Values.hubble.metrics.port }}"
+  # A space separated list of metrics to enable. See [0] for available metrics.
+  #
+  # https://github.com/cilium/hubble/blob/master/Documentation/metrics.md
+  hubble-metrics: {{- range .Values.hubble.metrics.enabled }}
+    {{.}}
+{{- end }}
+{{- end }}
+{{- if hasKey .Values.hubble "listenAddress" }}
+  # An additional address for Hubble server to listen to (e.g. ":4244").
+  hubble-listen-address: {{ .Values.hubble.listenAddress | quote }}
+{{- if .Values.hubble.tls.enabled }}
+  hubble-disable-tls: "false"
+  hubble-tls-cert-file: /var/lib/cilium/tls/hubble/server.crt
+  hubble-tls-key-file: /var/lib/cilium/tls/hubble/server.key
+  hubble-tls-client-ca-files: /var/lib/cilium/tls/hubble/client-ca.crt
+{{- else }}
+  hubble-disable-tls: "true"
+{{- end }}
+{{- end }}
+{{- end }}
+{{- if hasKey .Values "disableIptablesFeederRules" }}
+  # A space separated list of iptables chains to disable when installing feeder rules.
+  disable-iptables-feeder-rules: {{ .Values.disableIptablesFeederRules | join " " | quote }}
+{{- end }}
+{{- if ne $ipam "hostscope" }}
+  ipam: {{ $ipam | quote }}
+{{- end }}
+{{- if eq $ipam "cluster-pool" }}
+{{- if .Values.ipv4.enabled }}
+  cluster-pool-ipv4-cidr: {{ .Values.ipam.operator.clusterPoolIPv4PodCIDR | quote }}
+  cluster-pool-ipv4-mask-size: {{ .Values.ipam.operator.clusterPoolIPv4MaskSize | quote  }}
+{{- end }}
+{{- if .Values.ipv6.enabled }}
+  cluster-pool-ipv6-cidr: {{ .Values.ipam.operator.clusterPoolIPv6PodCIDR | quote }}
+  cluster-pool-ipv6-mask-size: {{ .Values.ipam.operator.clusterPoolIPv6MaskSize | quote }}
+{{- end }}
+{{- end }}
+
+{{- if .Values.enableCnpStatusUpdates }}
+  disable-cnp-status-updates: {{ (not .Values.enableCnpStatusUpdates) | quote }}
+{{- else if (eq $defaultEnableCnpStatusUpdates "false") }}
+  disable-cnp-status-updates: "true"
+{{- end }}
+
+{{- if hasKey .Values "crdWaitTimeout" }}
+  crd-wait-timeout: {{ .Values.crdWaitTimeout | quote }}
+{{- else if ( ne $crdWaitTimeout "5m" ) }}
+  crd-wait-timeout: {{ $crdWaitTimeout | quote }}
+{{- end }}
+
+{{- if .Values.enableK8sEndpointSlice }}
+  enable-k8s-endpoint-slice: {{ .Values.enableK8sEndpointSlice | quote }}
+{{- end }}
+
+{{- if hasKey .Values.k8s "serviceProxyName" }}
+  # Configure service proxy name for Cilium.
+  k8s-service-proxy-name: {{ .Values.k8s.serviceProxyName | quote }}
+{{- end }}
+{{- end }}

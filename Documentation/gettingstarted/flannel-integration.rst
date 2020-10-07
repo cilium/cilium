@@ -46,13 +46,13 @@ Deploy Cilium release via Helm:
 
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
-     --set global.flannel.enabled=true
+     --set flannel.enabled=true
 
-Set ``global.flannel.uninstallOnExit=true`` if you want Cilium to uninstall
+Set ``flannel.uninstallOnExit=true`` if you want Cilium to uninstall
 itself when the Cilium pod is stopped.
 
 If the Flannel bridge has a different name than ``cni0``, you must specify
-the name by setting ``global.flannel.masterDevice=...``.
+the name by setting ``flannel.masterDevice=...``.
 
 Cilium might not come up immediately on all nodes, since Flannel only sets up
 the bridge network interface that connects containers with the outside world

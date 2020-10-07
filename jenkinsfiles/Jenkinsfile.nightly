@@ -111,7 +111,7 @@ pipeline {
             steps {
                 dir("${TESTDIR}"){
                     sh './vagrant-ci-start.sh'
-                    sh 'ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/Nightly/")" -v --failFast=${FAILFAST} -- -cilium.timeout=450m -cilium.provision=false -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true -cilium.registry=$(./print-node-ip.sh)'
+                    sh 'ginkgo --focus="$(echo ${ghprbCommentBody} | sed -r "s/([^ ]* |^[^ ]*$)//" | sed "s/^$/Nightly/")" -v --failFast=${FAILFAST} -- -cilium.timeout=450m -cilium.provision=false -cilium.kubeconfig=${TESTDIR}/vagrant-kubeconfig -cilium.passCLIEnvironment=true'
                 }
             }
             post {

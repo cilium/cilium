@@ -1196,10 +1196,10 @@ non-host-networking pods and locations outside of the cluster.
 Installation of Host Policies requires the the addition of the following ``helm``
 flags when installing Cilium:
 
-* ``--set global.devices='{interface}'`` where ``interface`` refers to the
+* ``--set devices='{interface}'`` where ``interface`` refers to the
   network device Cilium is configured on such as ``eth0``. Omitting this option
   leads Cilium to auto-detect what interface the host firewall applies to.
-* ``--set global.hostFirewall=true``
+* ``--set hostFirewall=true``
 
 The following policy will allow ingress traffic for any node with the label
 ``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), 2379 (etcd) and 4240

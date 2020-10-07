@@ -1,33 +1,33 @@
 ---
-# Source: cilium/charts/agent/templates/serviceaccount.yaml
+# Source: cilium/templates/cilium-agent-serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: cilium
   namespace: kube-system
 ---
-# Source: cilium/charts/hubble-relay/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: hubble-relay
-  namespace: kube-system
----
-# Source: cilium/charts/hubble-ui/templates/serviceaccount.yaml
-apiVersion: v1
-kind: ServiceAccount
-metadata:
-  name: hubble-ui
-  namespace: kube-system
----
-# Source: cilium/charts/operator/templates/serviceaccount.yaml
+# Source: cilium/templates/cilium-operator-serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
 metadata:
   name: cilium-operator
   namespace: kube-system
 ---
-# Source: cilium/charts/config/templates/configmap.yaml
+# Source: cilium/templates/hubble-relay-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hubble-relay
+  namespace: kube-system
+---
+# Source: cilium/templates/hubble-ui-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hubble-ui
+  namespace: kube-system
+---
+# Source: cilium/templates/cilium-configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -46,6 +46,7 @@ data:
   #   the kvstore by commenting out the identity-allocation-mode below, or
   #   setting it to "kvstore".
   identity-allocation-mode: crd
+  cilium-endpoint-gc-interval: "5m0s"
 
   # If you want to run cilium in debug mode change this value to true
   debug: "false"
@@ -57,9 +58,11 @@ data:
   # Enable IPv6 addressing. If enabled, all endpoints are allocated an IPv6
   # address.
   enable-ipv6: "false"
+  # Users who wish to specify their own custom CNI configuration file must set
+  # custom-cni-conf to "true", otherwise Cilium may overwrite the configuration.
+  custom-cni-conf: "false"
   enable-bpf-clock-probe: "true"
   enable-bpf-tproxy: "true"
-
   # If you want cilium monitor to aggregate tracing for packets, set this level
   # to "low", "medium", or "maximum". The higher the level, the less packets
   # that will be seen in monitor output.
@@ -76,16 +79,15 @@ data:
   #
   # Only effective when monitor aggregation is set to "medium" or higher.
   monitor-aggregation-flags: all
+  # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
+  # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
+  bpf-map-dynamic-size-ratio: "0.0025"
   # bpf-policy-map-max specifies the maximum number of entries in endpoint
   # policy map (per endpoint)
   bpf-policy-map-max: "16384"
   # bpf-lb-map-max specifies the maximum number of entries in bpf lb service,
   # backend and affinity maps.
   bpf-lb-map-max: "65536"
-  # Specifies the ratio (0.0-1.0) of total system memory to use for dynamic
-  # sizing of the TCP CT, non-TCP CT, NAT and policy BPF maps.
-  bpf-map-dynamic-size-ratio: "0.0025"
-
   # Pre-allocation of map entries allows per-packet latency to be reduced, at
   # the expense of up-front memory allocation for the entries in the maps. The
   # default value below will minimize memory usage in the default installation;
@@ -123,8 +125,10 @@ data:
 
   masquerade: "true"
   enable-bpf-masquerade: "true"
+
   enable-xt-socket-fallback: "true"
   install-iptables-rules: "true"
+
   auto-direct-node-routes: "false"
   enable-bandwidth-manager: "true"
   kube-proxy-replacement:  "probe"
@@ -133,6 +137,7 @@ data:
   enable-auto-protect-node-port-range: "true"
   enable-session-affinity: "true"
   enable-endpoint-health-checking: "true"
+  enable-health-checking: "true"
   enable-well-known-identities: "false"
   enable-remote-node-identity: "true"
   operator-api-serve-addr: "127.0.0.1:9234"
@@ -162,7 +167,7 @@ data:
   cluster-pool-ipv4-mask-size: "24"
   disable-cnp-status-updates: "true"
 ---
-# Source: cilium/charts/hubble-relay/templates/configmap.yaml
+# Source: cilium/templates/hubble-relay-configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -172,10 +177,14 @@ data:
   config.yaml: |
     peer-service: unix:///var/run/cilium/hubble.sock
     listen-address: :4245
+    dial-timeout: 
+    retry-timeout: 
+    sort-buffer-len-max: 
+    sort-buffer-drain-timeout: 
     disable-client-tls: true
     disable-server-tls: true
 ---
-# Source: cilium/charts/hubble-ui/templates/configmap.yaml
+# Source: cilium/templates/hubble-ui-configmap.yaml
 apiVersion: v1
 kind: ConfigMap
 metadata:
@@ -242,7 +251,7 @@ data:
                 address: 127.0.0.1
                 port_value: 8090
 ---
-# Source: cilium/charts/agent/templates/clusterrole.yaml
+# Source: cilium/templates/cilium-agent-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -343,51 +352,7 @@ rules:
   verbs:
   - '*'
 ---
-# Source: cilium/charts/hubble-ui/templates/clusterrole.yaml
-kind: ClusterRole
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: hubble-ui
-rules:
-  - apiGroups:
-      - networking.k8s.io
-    resources:
-      - networkpolicies
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - ""
-    resources:
-      - componentstatuses
-      - endpoints
-      - namespaces
-      - nodes
-      - pods
-      - services
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - apiextensions.k8s.io
-    resources:
-      - customresourcedefinitions
-    verbs:
-      - get
-      - list
-      - watch
-  - apiGroups:
-      - cilium.io
-    resources:
-      - "*"
-    verbs:
-      - get
-      - list
-      - watch
----
-# Source: cilium/charts/operator/templates/clusterrole.yaml
+# Source: cilium/templates/cilium-operator-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
 metadata:
@@ -478,7 +443,71 @@ rules:
   - get
   - update
 ---
-# Source: cilium/charts/agent/templates/clusterrolebinding.yaml
+# Source: cilium/templates/hubble-relay-clusterrole.yaml
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hubble-relay
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - componentstatuses
+      - endpoints
+      - namespaces
+      - nodes
+      - pods
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: cilium/templates/hubble-ui-clusterrole.yaml
+kind: ClusterRole
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hubble-ui
+rules:
+  - apiGroups:
+      - networking.k8s.io
+    resources:
+      - networkpolicies
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - ""
+    resources:
+      - componentstatuses
+      - endpoints
+      - namespaces
+      - nodes
+      - pods
+      - services
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - apiextensions.k8s.io
+    resources:
+      - customresourcedefinitions
+    verbs:
+      - get
+      - list
+      - watch
+  - apiGroups:
+      - cilium.io
+    resources:
+      - "*"
+    verbs:
+      - get
+      - list
+      - watch
+---
+# Source: cilium/templates/cilium-agent-clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -492,21 +521,7 @@ subjects:
   name: cilium
   namespace: kube-system
 ---
-# Source: cilium/charts/hubble-ui/templates/clusterrolebinding.yaml
-kind: ClusterRoleBinding
-apiVersion: rbac.authorization.k8s.io/v1
-metadata:
-  name: hubble-ui
-roleRef:
-  apiGroup: rbac.authorization.k8s.io
-  kind: ClusterRole
-  name: hubble-ui
-subjects:
-  - kind: ServiceAccount
-    namespace: kube-system
-    name: hubble-ui
----
-# Source: cilium/charts/operator/templates/clusterrolebinding.yaml
+# Source: cilium/templates/cilium-operator-clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
 metadata:
@@ -520,7 +535,35 @@ subjects:
   name: cilium-operator
   namespace: kube-system
 ---
-# Source: cilium/charts/agent/templates/svc.yaml
+# Source: cilium/templates/hubble-relay-clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hubble-relay
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hubble-relay
+subjects:
+- kind: ServiceAccount
+  namespace: kube-system
+  name: hubble-relay
+---
+# Source: cilium/templates/hubble-ui-clusterrolebinding.yaml
+kind: ClusterRoleBinding
+apiVersion: rbac.authorization.k8s.io/v1
+metadata:
+  name: hubble-ui
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hubble-ui
+subjects:
+- kind: ServiceAccount
+  namespace: kube-system
+  name: hubble-ui
+---
+# Source: cilium/templates/cilium-agent-service.yaml
 kind: Service
 apiVersion: v1
 metadata:
@@ -542,7 +585,7 @@ spec:
   selector:
     k8s-app: cilium
 ---
-# Source: cilium/charts/hubble-relay/templates/service.yaml
+# Source: cilium/templates/hubble-relay-service.yaml
 kind: Service
 apiVersion: v1
 metadata:
@@ -559,12 +602,14 @@ spec:
     port: 80
     targetPort: 4245
 ---
-# Source: cilium/charts/hubble-ui/templates/svc.yaml
+# Source: cilium/templates/hubble-ui-service.yaml
 kind: Service
 apiVersion: v1
 metadata:
-  namespace: kube-system
   name: hubble-ui
+  labels:
+    k8s-app: hubble-ui
+  namespace: kube-system
 spec:
   selector:
     k8s-app: hubble-ui
@@ -574,7 +619,7 @@ spec:
       targetPort: 8081
   type: ClusterIP
 ---
-# Source: cilium/charts/agent/templates/daemonset.yaml
+# Source: cilium/templates/cilium-agent-daemonset.yaml
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -586,6 +631,10 @@ spec:
   selector:
     matchLabels:
       k8s-app: cilium
+  updateStrategy:
+    rollingUpdate:
+      maxUnavailable: 2
+    type: RollingUpdate
   template:
     metadata:
       annotations:
@@ -680,7 +729,7 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: "docker.io/cilium/cilium:latest"
+        image: docker.io/cilium/cilium:latest
         imagePullPolicy: Always
         lifecycle:
           postStart:
@@ -748,7 +797,7 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: "docker.io/cilium/cilium:latest"
+        image: docker.io/cilium/cilium:latest
         imagePullPolicy: Always
         name: clean-cilium-state
         securityContext:
@@ -813,145 +862,8 @@ spec:
       - configMap:
           name: cilium-config
         name: cilium-config-path
-  updateStrategy:
-    rollingUpdate:
-      maxUnavailable: 2
-    type: RollingUpdate
 ---
-# Source: cilium/charts/hubble-relay/templates/deployment.yaml
-apiVersion: apps/v1
-kind: Deployment
-metadata:
-  name: hubble-relay
-  namespace: kube-system
-  labels:
-    k8s-app: hubble-relay
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      k8s-app: hubble-relay
-  template:
-    metadata:
-      labels:
-        k8s-app: hubble-relay
-    spec:
-      affinity:
-        podAffinity:
-          requiredDuringSchedulingIgnoredDuringExecution:
-          - labelSelector:
-              matchExpressions:
-                - key: "k8s-app"
-                  operator: In
-                  values:
-                    - cilium
-            topologyKey: "kubernetes.io/hostname"
-      serviceAccount: hubble-relay
-      serviceAccountName: hubble-relay
-      containers:
-        - name: hubble-relay
-          image: "docker.io/cilium/hubble-relay:latest"
-          imagePullPolicy: Always
-          command:
-            - "hubble-relay"
-          args:
-            - "serve"
-          ports:
-            - name: grpc
-              containerPort: 4245
-          readinessProbe:
-            tcpSocket:
-              port: grpc
-          livenessProbe:
-            tcpSocket:
-              port: grpc
-          volumeMounts:
-          - mountPath: /var/run/cilium
-            name: hubble-sock-dir
-            readOnly: true
-          - mountPath: /etc/hubble-relay
-            name: config
-            readOnly: true
-      restartPolicy: Always
-      terminationGracePeriodSeconds: 0
-      volumes:
-      - configMap:
-          name: hubble-relay-config
-          items:
-          - key: config.yaml
-            path: config.yaml
-        name: config
-      - hostPath:
-          path: /var/run/cilium
-          type: Directory
-        name: hubble-sock-dir
----
-# Source: cilium/charts/hubble-ui/templates/deployment.yaml
-kind: Deployment
-apiVersion: apps/v1
-metadata:
-  namespace: kube-system
-  name: hubble-ui
-spec:
-  replicas: 1
-  selector:
-    matchLabels:
-      k8s-app: hubble-ui
-  template:
-    metadata:
-      labels:
-        k8s-app: hubble-ui
-    spec:
-      serviceAccount: hubble-ui
-      serviceAccountName: hubble-ui
-      containers:
-        - name: frontend
-          image: "quay.io/cilium/hubble-ui:v0.7.2"
-          imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 8080
-              name: http
-          resources:
-            {}
-        - name: backend
-          image: "quay.io/cilium/hubble-ui-backend:v0.7.2"
-          imagePullPolicy: IfNotPresent
-          env:
-            - name: EVENTS_SERVER_PORT
-              value: "8090"
-            - name: FLOWS_API_ADDR
-              value: "hubble-relay:80"
-          ports:
-            - containerPort: 8090
-              name: grpc
-          resources:
-            {}
-        - name: proxy
-          image: "docker.io/envoyproxy/envoy:v1.14.1"
-          imagePullPolicy: IfNotPresent
-          ports:
-            - containerPort: 8081
-              name: http
-          resources:
-            {}
-          command: ["envoy"]
-          args:
-            [
-              "-c",
-              "/etc/envoy.yaml",
-              "-l",
-              "info"
-            ]
-          volumeMounts:
-            - name: hubble-ui-envoy-yaml
-              mountPath: /etc/envoy.yaml
-              subPath: envoy.yaml
-      volumes:
-        - name: hubble-ui-envoy-yaml
-          configMap:
-            name: hubble-ui-envoy
----
-# Source: cilium/charts/operator/templates/deployment.yaml
+# Source: cilium/templates/cilium-operator-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
 metadata:
@@ -1016,7 +928,7 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-        image: "docker.io/cilium/operator-generic:latest"
+        image: docker.io/cilium/operator-generic:latest
         imagePullPolicy: Always
         name: cilium-operator
         livenessProbe:
@@ -1044,3 +956,145 @@ spec:
       - configMap:
           name: cilium-config
         name: cilium-config-path
+---
+# Source: cilium/templates/hubble-relay-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: hubble-relay
+  labels:
+    k8s-app: hubble-relay
+  namespace: kube-system
+spec:
+
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: hubble-relay
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        k8s-app: hubble-relay
+    spec:
+      affinity:
+        podAffinity:
+          requiredDuringSchedulingIgnoredDuringExecution:
+          - labelSelector:
+              matchExpressions:
+                - key: "k8s-app"
+                  operator: In
+                  values:
+                    - cilium
+            topologyKey: "kubernetes.io/hostname"
+      containers:
+        - name: hubble-relay
+          image: docker.io/cilium/hubble-relay:latest
+          imagePullPolicy: Always
+          command:
+            - hubble-relay
+          args:
+            - serve
+          ports:
+            - name: grpc
+              containerPort: 4245
+          readinessProbe:
+            tcpSocket:
+              port: grpc
+          livenessProbe:
+            tcpSocket:
+              port: grpc
+          volumeMounts:
+          - mountPath: /var/run/cilium
+            name: hubble-sock-dir
+            readOnly: true
+          - mountPath: /etc/hubble-relay
+            name: config
+            readOnly: true
+      restartPolicy: Always
+      serviceAccount: hubble-relay
+      serviceAccountName: hubble-relay
+      terminationGracePeriodSeconds: 0
+      volumes:
+      - configMap:
+          name: hubble-relay-config
+          items:
+          - key: config.yaml
+            path: config.yaml
+        name: config
+      - hostPath:
+          path: /var/run/cilium
+          type: Directory
+        name: hubble-sock-dir
+---
+# Source: cilium/templates/hubble-ui-deployment.yaml
+kind: Deployment
+apiVersion: apps/v1
+metadata:
+  namespace: kube-system
+  labels:
+    k8s-app: hubble-ui
+  name: hubble-ui
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: hubble-ui
+  template:
+    metadata:
+      labels:
+        k8s-app: hubble-ui
+    spec:
+      securityContext:
+        runAsUser: 1001
+      serviceAccount: hubble-ui
+      serviceAccountName: hubble-ui
+      containers:
+        - name: frontend
+          image: "quay.io/cilium/hubble-ui:latest"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8080
+              name: http
+          resources:
+            {}
+        - name: backend
+          image: "quay.io/cilium/hubble-ui-backend:latest"
+          imagePullPolicy: Always
+          env:
+            - name: EVENTS_SERVER_PORT
+              value: "8090"
+            - name: FLOWS_API_ADDR
+              value: "hubble-relay:80"
+          ports:
+            - containerPort: 8090
+              name: grpc
+          resources:
+            {}
+        - name: proxy
+          image: "docker.io/envoyproxy/envoy:v1.14.1"
+          imagePullPolicy: Always
+          ports:
+            - containerPort: 8081
+              name: http
+          resources:
+            {}
+          command: ["envoy"]
+          args:
+            [
+              "-c",
+              "/etc/envoy.yaml",
+              "-l",
+              "info"
+            ]
+          volumeMounts:
+            - name: hubble-ui-envoy-yaml
+              mountPath: /etc/envoy.yaml
+              subPath: envoy.yaml
+      volumes:
+        - name: hubble-ui-envoy-yaml
+          configMap:
+            name: hubble-ui-envoy

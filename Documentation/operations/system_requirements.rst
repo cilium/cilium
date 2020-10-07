@@ -156,7 +156,7 @@ by adding the following to the helm configuration command line:
 
    helm install cilium |CHART_RELEASE| \\
      ...
-     --set global.enableXTSocketFallback=false
+     --set enableXTSocketFallback=false
 
 .. _features_kernel_matrix:
 

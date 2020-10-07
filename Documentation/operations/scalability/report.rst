@@ -22,31 +22,31 @@ Setup
 .. parsed-literal::
  helm template cilium \\
      --namespace kube-system \\
-     --set global.endpointHealthChecking.enabled=false \\
-     --set config.healthChecking=false \\
-     --set config.ipam=kubernetes \\
-     --set global.k8sServiceHost=<KUBE-APISERVER-LB-IP-ADDRESS> \\
-     --set global.k8sServicePort=<KUBE-APISERVER-LB-PORT-NUMBER> \\
-     --set global.prometheus.enabled=true \\
-     --set global.operatorPrometheus.enabled=true \\
+     --set endpointHealthChecking.enabled=false \\
+     --set healthChecking=false \\
+     --set ipam.mode=kubernetes \\
+     --set k8sServiceHost=<KUBE-APISERVER-LB-IP-ADDRESS> \\
+     --set k8sServicePort=<KUBE-APISERVER-LB-PORT-NUMBER> \\
+     --set prometheus.enabled=true \\
+     --set operator.prometheus.enabled=true \\
    > cilium.yaml
 
 
-* ``--set global.endpointHealthChecking.enabled=false`` and
-  ``--set config.healthChecking=false`` disable endpoint health
+* ``--set endpointHealthChecking.enabled=false`` and
+  ``--set healthChecking=false`` disable endpoint health
   checking entirely. However it is recommended that those features be enabled
   initially on a smaller cluster (3-10 nodes) where it can be used to detect
   potential packet loss due to firewall rules or hypervisor settings.
 
-* ``--set config.ipam=kubernetes`` is set to ``"kubernetes"`` since our
+* ``--set ipam.mode=kubernetes`` is set to ``"kubernetes"`` since our
   cloud provider has pod CIDR allocation enabled in ``kube-controller-manager``.
 
-* ``--set global.k8sServiceHost`` and ``--set global.k8sServicePort`` were set
+* ``--set k8sServiceHost`` and ``--set k8sServicePort`` were set
   with the IP address of the loadbalancer that was in front of ``kube-apiserver``.
   This allows Cilium to not depend on kube-proxy to connect to ``kube-apiserver``.
 
-* ``--set global.prometheus.enabled=true`` and
-  ``--set global.operatorPrometheus.enabled=true`` were just set because we
+* ``--set prometheus.enabled=true`` and
+  ``--set operator.prometheus.enabled=true`` were just set because we
   had a Prometheus server probing for metrics in the entire cluster.
 
 Our testing cluster consisted of 3 controller nodes and 1000 worker nodes.
@@ -82,8 +82,8 @@ and have provisioned our machines with the following settings:
     capable of performing all functionalities provided by ``kube-proxy``. We
     created a load balancer in front of ``kube-apiserver`` to allow Cilium to
     access ``kube-apiserver`` without ``kube-proxy``, and configured Cilium with
-    the options ``--set global.k8sServiceHost=<KUBE-APISERVER-LB-IP-ADDRESS>``
-    and ``--set global.k8sServicePort=<KUBE-APISERVER-LB-PORT-NUMBER>``.
+    the options ``--set k8sServiceHost=<KUBE-APISERVER-LB-IP-ADDRESS>``
+    and ``--set k8sServicePort=<KUBE-APISERVER-LB-PORT-NUMBER>``.
 
     Our ``DaemonSet`` ``updateStrategy`` had the ``maxUnavailable`` set to 250
     pods instead of 2, but this value highly depends on your requirements when

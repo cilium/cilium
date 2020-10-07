@@ -1,8 +1,0 @@
-apiVersion: v2
-name: hubble-ui
-version: 1.8.90
-appVersion: 1.8.90
-description: Helm chart for the Hubble UI
-keywords:
-sources:
-  - https://github.com/cilium/hubble-ui

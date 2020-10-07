@@ -1,0 +1,14 @@
+{{- if and (not .Values.preflight.enabled) .Values.agent .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: hubble-ca-cert
+  namespace: {{ .Release.Namespace }}
+data:
+{{- if and (.Values.hubble.tls.auto.enabled) (eq .Values.hubble.tls.auto.method "helm") }}
+{{ include "ca.gen-cert-only" . | indent 2 }}
+{{- else }}
+  ca.crt: |-
+{{ .Values.hubble.tls.ca.cert | b64dec | indent 4 -}}
+{{- end }}
+{{- end }}
