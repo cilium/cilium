@@ -82,7 +82,7 @@ func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.
 		},
 		nil,
 	)
-	k.blockWaitGroupToSyncResources(wait.NeverStop, swgEps, endpointController, K8sAPIGroupEndpointV1Core)
+	k.blockWaitGroupToSyncResources(wait.NeverStop, swgEps, endpointController.HasSynced, K8sAPIGroupEndpointV1Core)
 	go endpointController.Run(wait.NeverStop)
 	k.k8sAPIGroups.addAPI(K8sAPIGroupEndpointV1Core)
 }

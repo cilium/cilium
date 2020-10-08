@@ -174,7 +174,8 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 		cnpConverterFunc,
 		cnpStore,
 	)
-	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, ciliumV2Controller, k8sAPIGroupCiliumNetworkPolicyV2)
+
+	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, ciliumV2Controller.HasSynced, k8sAPIGroupCiliumNetworkPolicyV2)
 	go ciliumV2Controller.Run(wait.NeverStop)
 	k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNetworkPolicyV2)
 }

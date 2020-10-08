@@ -295,7 +295,7 @@ func (k *K8sWatcher) cancelWaitGroupToSyncResources(resourceName string) {
 func (k *K8sWatcher) blockWaitGroupToSyncResources(
 	stop <-chan struct{},
 	swg *lock.StoppableWaitGroup,
-	informer cache.Controller,
+	hasSyncedFunc cache.InformerSynced,
 	resourceName string,
 ) {
 
@@ -306,7 +306,7 @@ func (k *K8sWatcher) blockWaitGroupToSyncResources(
 	go func() {
 		scopedLog := log.WithField("kubernetesResource", resourceName)
 		scopedLog.Debug("waiting for cache to synchronize")
-		if ok := cache.WaitForCacheSync(stop, informer.HasSynced); !ok {
+		if ok := cache.WaitForCacheSync(stop, hasSyncedFunc); !ok {
 			select {
 			case <-stop:
 				// do not fatal if the channel was stopped

@@ -86,7 +86,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 		nil,
 	)
 	ecr := make(chan struct{})
-	k.blockWaitGroupToSyncResources(ecr, swgEps, endpointController, K8sAPIGroupEndpointSliceV1Beta1Discovery)
+	k.blockWaitGroupToSyncResources(ecr, swgEps, endpointController.HasSynced, K8sAPIGroupEndpointSliceV1Beta1Discovery)
 	go endpointController.Run(ecr)
 	k.k8sAPIGroups.addAPI(K8sAPIGroupEndpointSliceV1Beta1Discovery)
 

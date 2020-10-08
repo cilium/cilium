@@ -56,7 +56,7 @@ func (k *K8sWatcher) nodesInit(k8sClient kubernetes.Interface) {
 		nil,
 	)
 
-	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, nodeController, k8sAPIGroupNodeV1Core)
+	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, nodeController.HasSynced, k8sAPIGroupNodeV1Core)
 	go nodeController.Run(wait.NeverStop)
 	k.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
 }

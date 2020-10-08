@@ -67,7 +67,7 @@ func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient *k8s.K8sCiliu
 	k.blockWaitGroupToSyncResources(
 		wait.NeverStop,
 		nil,
-		lrpController,
+		lrpController.HasSynced,
 		k8sAPIGroupCiliumLocalRedirectPolicyV2,
 	)
 

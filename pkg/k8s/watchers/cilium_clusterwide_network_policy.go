@@ -110,7 +110,7 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 	k.blockWaitGroupToSyncResources(
 		wait.NeverStop,
 		nil,
-		ciliumV2ClusterwidePolicyController,
+		ciliumV2ClusterwidePolicyController.HasSynced,
 		k8sAPIGroupCiliumClusterwideNetworkPolicyV2,
 	)
 
