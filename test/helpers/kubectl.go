@@ -2845,41 +2845,47 @@ func (kub *Kubectl) CiliumPolicyAction(namespace, filepath string, action Resour
 	kub.Logger().Infof("Performing %s action on resource '%s'", action, filepath)
 
 	if status := kub.Action(action, filepath, namespace); !status.WasSuccessful() {
-		return "", status.GetErr(fmt.Sprintf("Cannot perform '%s' on resorce '%s'", action, filepath))
+		return "", status.GetErr(fmt.Sprintf("Cannot perform '%s' on resource '%s'", action, filepath))
 	}
 
 	// If policy is uninstalled we can't require a policy being enforced.
 	if action != KubectlDelete {
 		jqFilter := getPolicyEnforcingJqFilter(numNodes)
 		body := func() bool {
-			var data []map[string]string
-			cmd := fmt.Sprintf("%s get cnp --all-namespaces -o json | jq '%s'",
-				KubectlCmd, jqFilter)
-
-			res := kub.ExecShort(cmd)
-			if !res.WasSuccessful() {
-				kub.Logger().WithError(res.GetErr("")).Error("cannot get cnp status")
-				return false
+			cmds := map[string]string{
+				"CNP":  fmt.Sprintf("%s get cnp --all-namespaces -o json | jq '%s'", KubectlCmd, jqFilter),
+				"CCNP": fmt.Sprintf("%s get ccnp -o json | jq '%s'", KubectlCmd, jqFilter),
 			}
 
-			err := res.Unmarshal(&data)
-			if err != nil {
-				kub.Logger().WithError(err).Error("Cannot unmarshal json")
-				return false
-			}
+			for ctx, cmd := range cmds {
+				var data []map[string]string
 
-			for _, item := range data {
-				if item["enforcing"] != "true" || item["status"] != "true" {
-					kub.Logger().Errorf("Policy '%s' is not enforcing yet", item["name"])
+				res := kub.ExecShort(cmd)
+				if !res.WasSuccessful() {
+					kub.Logger().WithError(res.GetErr("")).Errorf("cannot get %s status", ctx)
 					return false
 				}
+
+				err := res.Unmarshal(&data)
+				if err != nil {
+					kub.Logger().WithError(err).Errorf("Cannot unmarshal json for %s status", ctx)
+					return false
+				}
+
+				for _, item := range data {
+					if item["enforcing"] != "true" || item["status"] != "true" {
+						kub.Logger().Errorf("%s policy '%s' is not enforcing yet", ctx, item["name"])
+						return false
+					}
+				}
 			}
+
 			return true
 		}
 
 		err = WithTimeout(
 			body,
-			"Timed out while waiting CNP to be enforced",
+			"Timed out while waiting for policies to be enforced",
 			&TimeoutConfig{Timeout: timeout})
 
 		if err != nil {
