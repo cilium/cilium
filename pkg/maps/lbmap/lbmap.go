@@ -17,6 +17,7 @@ package lbmap
 import (
 	"fmt"
 	"net"
+	"sort"
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -103,6 +104,11 @@ func (lbmap *LBBPFMap) UpsertService(p *UpsertServiceParams) error {
 		for name := range p.Backends {
 			backendNames = append(backendNames, name)
 		}
+		// Maglev algorithm might produce different lookup table for the same
+		// set of backends listed in a different order. To avoid that sort
+		// backends by name, as the names are the same on all nodes (in opposite
+		// to backend IDs which are node-local).
+		sort.Strings(backendNames)
 		table := maglev.GetLookupTable(backendNames, lbmap.maglevTableSize)
 		for i, pos := range table {
 			lbmap.maglevBackendIDsBuffer[i] = p.Backends[backendNames[pos]]
