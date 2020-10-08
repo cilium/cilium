@@ -444,23 +444,23 @@ func (rpm *Manager) deletePolicyService(svcID k8s.ServiceID) {
 		config := rpm.policyConfigs[rp]
 		for _, m := range config.frontendMappings {
 			rpm.deletePolicyFrontend(config, m.feAddr)
-			// Retores the svc backends if there's still such a k8s svc.
-			swg := lock.NewStoppableWaitGroup()
-			if restored := rpm.svcCache.EnsureService(svcID, swg); restored {
-				log.WithFields(logrus.Fields{
-					logfields.K8sSvcID: svcID,
-				}).Info("Restored service")
+		}
+		switch config.frontendType {
+		case svcFrontendAll:
+			config.frontendMappings = nil
+		case svcFrontendSinglePort:
+			fallthrough
+		case svcFrontendNamedPorts:
+			for _, feM := range config.frontendMappings {
+				feM.feAddr.IP = net.IP{}
 			}
-			switch config.frontendType {
-			case svcFrontendAll:
-				config.frontendMappings = nil
-			case svcFrontendSinglePort:
-				fallthrough
-			case svcFrontendNamedPorts:
-				for _, feM := range config.frontendMappings {
-					feM.feAddr.IP = net.IP{}
-				}
-			}
+		}
+		// Retores the svc backends if there's still such a k8s svc.
+		swg := lock.NewStoppableWaitGroup()
+		if restored := rpm.svcCache.EnsureService(svcID, swg); restored {
+			log.WithFields(logrus.Fields{
+				logfields.K8sSvcID: svcID,
+			}).Debug("Restored service")
 		}
 	}
 }
