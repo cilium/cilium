@@ -180,6 +180,7 @@ from the main Vagrantfile, for example:
 To start a local k8s 1.18 cluster with one CI VM locally, run:
 
 ::
+
     $ cd test
     $ K8S_VERSION=1.18 K8S_NODES=1 ./vagrant-local-start.sh
 
@@ -193,6 +194,7 @@ can run ``make clean`` in ``tests`` to delete the cached vagrant box.
 To start the CI runtime VM locally, run:
 
 ::
+
     $ cd test
     $ ./vagrant-local-start-runtime.sh
 
