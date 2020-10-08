@@ -72,6 +72,9 @@ func New(log logrus.FieldLogger, dnsGetter getters.DNSGetter, ipGetter getters.I
 
 // Decode decodes the data from 'payload' into 'decoded'
 func (p *Parser) Decode(r *accesslog.LogRecord, decoded *pb.Flow) error {
+	// Safety: This function and all the helpers it invokes are not allowed to
+	// mutate r in any way. We only have read access to the LogRecord, as it
+	// may be shared with other consumers
 	if r == nil {
 		return errors.ErrEmptyData
 	}
@@ -265,7 +268,10 @@ func decodeLayer4(protocol accesslog.TransportProtocol, source, destination acce
 }
 
 func decodeEndpoint(endpoint accesslog.EndpointInfo, namespace, podName string) *pb.Endpoint {
-	labels := endpoint.Labels
+	// Safety: We only have read access to endpoint, therefore we need to create
+	// a copy of the label list before we can sort it
+	labels := make([]string, len(endpoint.Labels))
+	copy(labels, endpoint.Labels)
 	sort.Strings(labels)
 	return &pb.Endpoint{
 		ID:        uint32(endpoint.ID),
