@@ -19,12 +19,14 @@ package rate
 import (
 	"context"
 	"fmt"
+	"sync/atomic"
 	"time"
 
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/testutils"
 
+	"golang.org/x/sync/semaphore"
 	"golang.org/x/time/rate"
 	"gopkg.in/check.v1"
 )
@@ -719,4 +721,50 @@ func (b *ControllerSuite) TestAdjustedParallelRequests(c *check.C) {
 	c.Assert(a.adjustedParallelRequests(), check.Equals, 1)
 	a.adjustmentFactor = 1.0
 	c.Assert(a.adjustedParallelRequests(), check.Equals, 2)
+}
+
+func (b *ControllerSuite) TestStressRateLimiter(c *check.C) {
+	a := NewAPILimiter("foo", APILimiterParameters{
+		EstimatedProcessingDuration: 5 * time.Millisecond,
+		RateLimit:                   1000.0,
+		ParallelRequests:            50,
+		RateBurst:                   1,
+		MaxWaitDuration:             10 * time.Millisecond,
+		AutoAdjust:                  true,
+	}, nil)
+
+	var (
+		sem                = semaphore.NewWeighted(100)
+		completed, retries int32
+	)
+
+	go func() {
+		for i := 0; i < 1000; i++ {
+			sem.Acquire(context.Background(), 1)
+			go func() {
+				var (
+					err error
+					req LimitedRequest
+				)
+				for req == nil {
+					req, err = a.Wait(context.Background())
+					if err == nil {
+						time.Sleep(5 * time.Millisecond)
+						req.Done()
+						atomic.AddInt32(&completed, 1)
+						sem.Release(1)
+						return
+					}
+					atomic.AddInt32(&retries, 1)
+				}
+			}()
+		}
+	}()
+
+	c.Assert(testutils.WaitUntil(func() bool {
+		return atomic.LoadInt32(&completed) == 1000
+	}, 5*time.Second), check.IsNil)
+
+	log.Infof("%+v", a)
+	log.Infof("Total retries: %v", atomic.LoadInt32(&retries))
 }
