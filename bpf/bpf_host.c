@@ -47,7 +47,6 @@
 #include "lib/eps.h"
 #include "lib/host_firewall.h"
 #include "lib/overloadable.h"
-#include "lib/encrypt.h"
 
 #if defined(ENABLE_IPV4) || defined(ENABLE_IPV6)
 static __always_inline int rewrite_dmac_to_host(struct __ctx_buff *ctx,
@@ -771,16 +770,11 @@ do_netdev(struct __ctx_buff *ctx, __u16 proto, const bool from_host)
 	int ret;
 
 #ifdef ENABLE_IPSEC
-	if (from_host) {
+	if (1) {
 		__u32 magic = ctx->mark & MARK_MAGIC_HOST_MASK;
 
 		if (magic == MARK_MAGIC_ENCRYPT)
 			return do_netdev_encrypt(ctx, proto);
-	} else {
-		int done = do_decrypt(ctx, proto);
-
-		if (!done)
-			return CTX_ACT_OK;
 	}
 #endif
 	bpf_clear_meta(ctx);
