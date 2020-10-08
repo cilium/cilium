@@ -91,7 +91,7 @@ func (k *K8sWatcher) ciliumNodeInit(ciliumNPClient *k8s.K8sCiliumClient, asyncCo
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
-		k.blockWaitGroupToSyncResources(isConnected, swgNodes, ciliumNodeInformer, k8sAPIGroupCiliumNodeV2)
+		k.blockWaitGroupToSyncResources(isConnected, swgNodes, ciliumNodeInformer.HasSynced, k8sAPIGroupCiliumNodeV2)
 
 		once.Do(func() {
 			// Signalize that we have put node controller in the wait group

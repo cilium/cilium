@@ -121,7 +121,7 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 			close(k.podStoreSet)
 		})
 
-		k.blockWaitGroupToSyncResources(isConnected, nil, podController, K8sAPIGroupPodV1Core)
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
 			k.k8sAPIGroups.addAPI(K8sAPIGroupPodV1Core)
@@ -150,7 +150,7 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 		isConnected := make(chan struct{})
 		// once isConnected is closed, it will stop waiting on caches to be
 		// synchronized.
-		k.blockWaitGroupToSyncResources(isConnected, nil, podController, K8sAPIGroupPodV1Core)
+		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
 			k.k8sAPIGroups.addAPI(K8sAPIGroupPodV1Core)
