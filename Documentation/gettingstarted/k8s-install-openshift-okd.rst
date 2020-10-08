@@ -138,13 +138,27 @@ Now, define ``cilium`` namespace:
        openshift.io/cluster-monitoring: "true"
    EOF
 
-.. include:: k8s-install-download-release.rst
+.. note::
+
+   First, make sure you have Helm 3 `installed <https://helm.sh/docs/intro/install/>`_.
+
+Setup Helm repository:
+
+.. code:: bash
+
+   helm repo add cilium --force-update https://helm.cilium.io/
+
 
 Next, render Cilium manifest:
 
+.. note::
+
+   Version ``1.8-dev`` has bug fixes for OpenShift, those fixes will get included in 1.8.5.
+
 .. parsed-literal::
 
-   helm template |CHART_RELEASE|  \\
+   helm template cilium/cilium \\
+      --version 1.8-dev  \\
       --namespace cilium \\
       --set config.ipam=cluster-pool \\
       --set global.cni.binPath=/var/lib/cni/bin \\
@@ -155,7 +169,6 @@ Next, render Cilium manifest:
       --set config.bpfMasquerade=false \\
       --set global.endpointRoutes.enabled=true \\
       --output-dir "${OLDPWD}"
-   cd "${OLDPWD}"
 
 Copy Cilium manifest to ``${CLUSTER_NAME}/manifests``:
 
