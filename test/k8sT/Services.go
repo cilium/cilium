@@ -67,18 +67,6 @@ var _ = Describe("K8sServicesTest", func() {
 		return opts
 	}
 
-	getHTTPLink := func(host string, port int32) string {
-		return fmt.Sprintf("http://%s",
-			net.JoinHostPort(host, fmt.Sprintf("%d", port)))
-	}
-
-	getTFTPLink := func(host string, port int32) string {
-		// TFTP requires a filename. Otherwise the packet will be
-		// silently dropped by the server.
-		return fmt.Sprintf("tftp://%s/hello",
-			net.JoinHostPort(host, fmt.Sprintf("%d", port)))
-	}
-
 	BeforeAll(func() {
 		var err error
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
@@ -130,6 +118,18 @@ var _ = Describe("K8sServicesTest", func() {
 		UninstallCiliumFromManifest(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
+
+	getHTTPLink := func(host string, port int32) string {
+		return fmt.Sprintf("http://%s",
+			net.JoinHostPort(host, fmt.Sprintf("%d", port)))
+	}
+
+	getTFTPLink := func(host string, port int32) string {
+		// TFTP requires a filename. Otherwise the packet will be
+		// silently dropped by the server.
+		return fmt.Sprintf("tftp://%s/hello",
+			net.JoinHostPort(host, fmt.Sprintf("%d", port)))
+	}
 
 	manualIPv6TestingNotRequired := func(f func() bool) func() bool {
 		return func() bool {
@@ -753,18 +753,6 @@ var _ = Describe("K8sServicesTest", func() {
 			}
 			ExpectAllPodsTerminated(kubectl)
 		})
-
-		getHTTPLink := func(host string, port int32) string {
-			return fmt.Sprintf("http://%s",
-				net.JoinHostPort(host, fmt.Sprintf("%d", port)))
-		}
-
-		getTFTPLink := func(host string, port int32) string {
-			// TFTP requires a filename. Otherwise the packet will be
-			// silently dropped by the server.
-			return fmt.Sprintf("tftp://%s/hello",
-				net.JoinHostPort(host, fmt.Sprintf("%d", port)))
-		}
 
 		testCurlFromPodInHostNetNS := func(url string, count, fails int, fromPod string) {
 			By("Making %d curl requests from pod (host netns) %s to %q", count, fromPod, url)

@@ -645,6 +645,7 @@ func SkipGKEQuarantined() bool {
 func DualStackSupported() bool {
 	k8sVersion := GetCurrentK8SEnv()
 	switch k8sVersion {
+	// Add kubernetes versions for which we add dual stack support.
 	case "1.18", "1.19":
 		// We only have DualStack enabled in Vagrant test env.
 		if GetCurrentIntegration() == "" {

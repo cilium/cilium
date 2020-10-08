@@ -92,9 +92,10 @@ ff02::2 ip6-allrouters
 192.168.36.16 k8s6
 EOF
 
-# Configure default IPv6 route, this uses the secondary interface
-# with an IPv6 address.
-sudo ip -6 route add ::/0 dev enp0s8
+# Configure default IPv6 route wihtout this connecitivity from host to
+# services is not possible as there is no default route. enp0s8 is the primary
+# interface for test environment.
+sudo ip -6 route add default dev enp0s8 metric 1024 pref medium
 
 cat <<EOF > /etc/apt/sources.list.d/kubernetes.list
 deb http://apt.kubernetes.io/ kubernetes-xenial main
