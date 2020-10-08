@@ -461,9 +461,11 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	bool hairpin_flow = false; /* endpoint wants to access itself via service IP */
 	__u8 policy_match_type = POLICY_MATCH_NONE;
 	__u8 audited = 0;
+	bool has_l4_header = false;
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+	has_l4_header = ipv4_has_l4_header(ip4);
 
 	tuple.nexthdr = ip4->protocol;
 
@@ -493,7 +495,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 		if (svc) {
 			ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
 					&csum_off, &key, &tuple, svc, &ct_state_new,
-					ip4->saddr);
+					ip4->saddr, has_l4_header);
 			if (IS_ERR(ret))
 				return ret;
 			hairpin_flow |= ct_state_new.loopback;
@@ -610,7 +612,7 @@ ct_recreate4:
 		}
 # ifdef ENABLE_DSR
 		if (ct_state.dsr) {
-			ret = xlate_dsr_v4(ctx, &tuple, l4_off);
+			ret = xlate_dsr_v4(ctx, &tuple, l4_off, has_l4_header);
 			if (ret != 0)
 				return ret;
 		}
@@ -619,7 +621,7 @@ ct_recreate4:
 
 		if (ct_state.rev_nat_index) {
 			ret = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
-					  &ct_state, &tuple, 0);
+					  &ct_state, &tuple, 0, has_l4_header);
 			if (IS_ERR(ret))
 				return ret;
 		}
@@ -1106,6 +1108,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	struct ct_state ct_state_new = {};
 	bool skip_ingress_proxy = false;
 	bool is_untracked_fragment = false;
+	bool has_l4_header = false;
 	__u32 monitor = 0;
 	__be32 orig_sip;
 	__u8 policy_match_type = POLICY_MATCH_NONE;
@@ -1113,6 +1116,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return DROP_INVALID;
+	has_l4_header = ipv4_has_l4_header(ip4);
 
 	policy_clear_mark(ctx);
 	tuple.nexthdr = ip4->protocol;
@@ -1127,7 +1131,8 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 	orig_sip = ip4->saddr;
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
-	csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
+	if (has_l4_header)
+		csum_l4_offset_and_flags(tuple.nexthdr, &csum_off);
 #ifndef ENABLE_IPV4_FRAGMENTS
 	/* Indicate that this is a datagram fragment for which we cannot
 	 * retrieve L4 ports. Do not set flag if we support fragmentation.
@@ -1169,7 +1174,7 @@ ipv4_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 
 		ret2 = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
 				   &ct_state, &tuple,
-				   REV_NAT_F_TUPLE_SADDR);
+				   REV_NAT_F_TUPLE_SADDR, has_l4_header);
 		if (IS_ERR(ret2))
 			return ret2;
 	}
