@@ -16,6 +16,20 @@ log "Installing kubernetes kubectl..."
 
 set -e
 
+# Add aliases and bash completion for kubectl
+cat <<EOF >> /home/vagrant/.bashrc
+# kubectl
+source <(kubectl completion bash)
+alias k='kubectl'
+complete -F __start_kubectl k
+alias ks='kubectl -n kube-system'
+complete -F __start_kubectl ks
+cilium_pod() {
+    kubectl -n kube-system get pods -l k8s-app=cilium \
+            -o jsonpath="{.items[?(@.spec.nodeName == \"\$1\")].metadata.name}"
+}
+EOF
+
 if [ -n "${INSTALL}" ]; then
     download_to "${cache_dir}" "kubectl" \
         "https://dl.k8s.io/release/${k8s_version}/bin/linux/amd64/kubectl"
