@@ -80,21 +80,11 @@ func sharedCNPDeepEqual(in, other *CiliumNetworkPolicy) bool {
 		return false
 	}
 
-	// Ignore v1.LastAppliedConfigAnnotation annotation
-	lastAppliedCfgAnnotation1, ok1 := in.GetAnnotations()[v1.LastAppliedConfigAnnotation]
-	lastAppliedCfgAnnotation2, ok2 := other.GetAnnotations()[v1.LastAppliedConfigAnnotation]
-	defer func() {
-		if ok1 && in.GetAnnotations() != nil {
-			in.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation1
-		}
-		if ok2 && other.GetAnnotations() != nil {
-			other.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation2
-		}
-	}()
-	delete(in.GetAnnotations(), v1.LastAppliedConfigAnnotation)
-	delete(other.GetAnnotations(), v1.LastAppliedConfigAnnotation)
-
-	return comparator.MapStringEquals(in.GetAnnotations(), other.GetAnnotations())
+	return comparator.MapStringEqualsIgnoreKeys(
+		in.GetAnnotations(),
+		other.GetAnnotations(),
+		// Ignore v1.LastAppliedConfigAnnotation annotation
+		[]string{v1.LastAppliedConfigAnnotation})
 }
 
 // +deepequal-gen=true
