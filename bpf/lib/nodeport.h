@@ -1001,7 +1001,7 @@ static __always_inline int handle_dsr_v4(struct __ctx_buff *ctx, bool *dsr)
 
 static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
 					const struct ipv4_ct_tuple *tuple,
-					int l4_off)
+					int l4_off, bool has_l4_header)
 {
 	struct ipv4_ct_tuple nat_tup = *tuple;
 	struct ipv4_nat_entry *entry;
@@ -1013,7 +1013,7 @@ static __always_inline int xlate_dsr_v4(struct __ctx_buff *ctx,
 
 	entry = snat_v4_lookup(&nat_tup);
 	if (entry)
-		ret = snat_v4_rewrite_egress(ctx, &nat_tup, entry, l4_off);
+		ret = snat_v4_rewrite_egress(ctx, &nat_tup, entry, l4_off, has_l4_header);
 	return ret;
 }
 
@@ -1239,8 +1239,9 @@ static __always_inline int nodeport_lb4(struct __ctx_buff *ctx,
 		if (!lb4_src_range_ok(svc, ip4->saddr))
 			return DROP_NOT_IN_SRC_RANGE;
 
-		ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off, &csum_off,
-				&key, &tuple, svc, &ct_state_new, ip4->saddr);
+		ret = lb4_local(get_ct_map4(&tuple), ctx, l3_off, l4_off,
+				&csum_off, &key, &tuple, svc, &ct_state_new,
+				ip4->saddr, ipv4_has_l4_header(ip4));
 		if (IS_ERR(ret))
 			return ret;
 	}
@@ -1391,7 +1392,7 @@ static __always_inline int rev_nodeport_lb4(struct __ctx_buff *ctx, int *ifindex
 	if (ret == CT_REPLY && ct_state.node_port == 1 && ct_state.rev_nat_index != 0) {
 		ret2 = lb4_rev_nat(ctx, l3_off, l4_off, &csum_off,
 				   &ct_state, &tuple,
-				   REV_NAT_F_TUPLE_SADDR);
+				   REV_NAT_F_TUPLE_SADDR, ipv4_has_l4_header(ip4));
 		if (IS_ERR(ret2))
 			return ret2;
 

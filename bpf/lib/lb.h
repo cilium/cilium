@@ -908,14 +908,14 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 					 struct csum_offset *csum_off,
 					 struct ipv4_ct_tuple *tuple, int flags,
 					 const struct lb4_reverse_nat *nat,
-					 const struct ct_state *ct_state)
+					 const struct ct_state *ct_state, bool has_l4_header)
 {
 	__be32 old_sip, new_sip, sum = 0;
 	int ret;
 
 	cilium_dbg_lb(ctx, DBG_LB4_REVERSE_NAT, nat->address, nat->port);
 
-	if (nat->port) {
+	if (nat->port && has_l4_header) {
 		ret = reverse_map_l4_port(ctx, tuple->nexthdr, nat->port, l4_off, csum_off);
 		if (IS_ERR(ret))
 			return ret;
@@ -986,7 +986,7 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
 static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
 				       struct csum_offset *csum_off,
 				       struct ct_state *ct_state,
-				       struct ipv4_ct_tuple *tuple, int flags)
+				       struct ipv4_ct_tuple *tuple, int flags, bool has_l4_header)
 {
 	struct lb4_reverse_nat *nat;
 
@@ -996,7 +996,7 @@ static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l
 		return 0;
 
 	return __lb4_rev_nat(ctx, l3_off, l4_off, csum_off, tuple, flags, nat,
-			     ct_state);
+			     ct_state, has_l4_header);
 }
 
 /** Extract IPv4 LB key from packet
@@ -1021,7 +1021,8 @@ static __always_inline int lb4_extract_key(struct __ctx_buff *ctx __maybe_unused
 {
 	key->proto = ip4->protocol;
 	key->address = (dir == CT_INGRESS) ? ip4->saddr : ip4->daddr;
-	csum_l4_offset_and_flags(ip4->protocol, csum_off);
+	if (ipv4_has_l4_header(ip4))
+		csum_l4_offset_and_flags(ip4->protocol, csum_off);
 
 	return extract_l4_port(ctx, ip4->protocol, l4_off, &key->dport, ip4);
 }
@@ -1155,7 +1156,7 @@ static __always_inline int
 lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_unused,
 	  __be32 *old_saddr __maybe_unused, __u8 nexthdr __maybe_unused, int l3_off,
 	  int l4_off, struct csum_offset *csum_off, struct lb4_key *key,
-	  const struct lb4_backend *backend __maybe_unused)
+	  const struct lb4_backend *backend __maybe_unused, bool has_l4_header)
 {
 	__be32 sum;
 	int ret;
@@ -1186,8 +1187,10 @@ lb4_xlate(struct __ctx_buff *ctx, __be32 *new_daddr, __be32 *new_saddr __maybe_u
 				    BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
+
 	if (backend->port && key->dport != backend->port &&
-	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
+	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP) &&
+	    has_l4_header) {
 		__be16 tmp = backend->port;
 
 		/* Port offsets for UDP and TCP are the same */
@@ -1298,7 +1301,7 @@ static __always_inline int lb4_local(const void *map, struct __ctx_buff *ctx,
 				     struct lb4_key *key,
 				     struct ipv4_ct_tuple *tuple,
 				     const struct lb4_service *svc,
-				     struct ct_state *state, __be32 saddr)
+				     struct ct_state *state, __be32 saddr, bool has_l4_header)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
 	__be32 new_saddr = 0, new_daddr;
@@ -1438,7 +1441,7 @@ update_state:
 
 	return lb4_xlate(ctx, &new_daddr, &new_saddr, &saddr,
 			 tuple->nexthdr, l3_off, l4_off, csum_off, key,
-			 backend);
+			 backend, has_l4_header);
 drop_no_service:
 		tuple->flags = flags;
 		return DROP_NO_SERVICE;
