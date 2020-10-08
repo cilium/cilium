@@ -288,24 +288,28 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interf
 
 	// Do not add rule into policy repository if the spec remains unchanged.
 	if !option.Config.DisableCNPStatusUpdates {
-		if !oldRuleCpy.AnnotationsEquals(newRuleCpy.CiliumNetworkPolicy) {
+		if oldRuleCpy.Spec.DeepEqual(newRuleCpy.CiliumNetworkPolicy.Spec) &&
+			oldRuleCpy.Specs.DeepEqual(&newRuleCpy.CiliumNetworkPolicy.Specs) {
+			if !oldRuleCpy.AnnotationsEquals(newRuleCpy.CiliumNetworkPolicy) {
 
-			// Update annotations within a controller so the status of the update
-			// is trackable from the list of running controllers, and so we do
-			// not block subsequent policy lifecycle operations from Kubernetes
-			// until the update is complete.
-			oldCtrlName := oldRuleCpy.GetControllerName()
-			newCtrlName := newRuleCpy.GetControllerName()
+				// Update annotations within a controller so the status of the update
+				// is trackable from the list of running controllers, and so we do
+				// not block subsequent policy lifecycle operations from Kubernetes
+				// until the update is complete.
+				oldCtrlName := oldRuleCpy.GetControllerName()
+				newCtrlName := newRuleCpy.GetControllerName()
 
-			// In case the controller name changes between copies of rules,
-			// remove old controller so we do not leak goroutines.
-			if oldCtrlName != newCtrlName {
-				err := k8sCM.RemoveController(oldCtrlName)
-				if err != nil {
-					log.Debugf("Unable to remove controller %s: %s", oldCtrlName, err)
+				// In case the controller name changes between copies of rules,
+				// remove old controller so we do not leak goroutines.
+				if oldCtrlName != newCtrlName {
+					err := k8sCM.RemoveController(oldCtrlName)
+					if err != nil {
+						log.Debugf("Unable to remove controller %s: %s", oldCtrlName, err)
+					}
 				}
+				k.updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient, ciliumV2Store, newRuleCpy)
 			}
-			k.updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient, ciliumV2Store, newRuleCpy)
+			return nil
 		}
 	}
 
