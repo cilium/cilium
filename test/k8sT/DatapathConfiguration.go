@@ -254,11 +254,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 		})
 
-		It("Check vxlan connectivity with per endpoint routes", func() {
-			Skip("Encapsulation mode is not supported with per-endpoint routes")
-
+		It("Check vxlan connectivity with per-endpoint routes", func() {
 			deploymentManager.DeployCilium(map[string]string{
-				"global.autoDirectNodeRoutes": "true",
+				"global.tunnel":                 "vxlan",
+				"global.endpointRoutes.enabled": "true",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 
