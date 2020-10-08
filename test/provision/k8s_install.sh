@@ -442,6 +442,10 @@ alias k='kubectl'
 complete -F __start_kubectl k
 alias ks='kubectl -n kube-system'
 complete -F __start_kubectl ks
+alias kslogs='kubectl -n kube-system logs -l k8s-app=cilium --tail=-1'
+alias wk='watch -n2 kubectl get pods -o wide'
+alias wks='watch -n2 kubectl -n kube-system get pods -o wide'
+alias wka='watch -n2 kubectl get all --all-namespaces -o wide'
 cilium_pod() {
     kubectl -n kube-system get pods -l k8s-app=cilium \
             -o jsonpath="{.items[?(@.spec.nodeName == \"\$1\")].metadata.name}"
