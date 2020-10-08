@@ -451,8 +451,8 @@ var _ = Describe("K8sServicesTest", func() {
 			Expect(err).To(BeNil(), "Cannot get svc IP")
 			httpSVCURL := fmt.Sprintf("http://%s/", svcIP)
 			tftpSVCURL := fmt.Sprintf("tftp://%s/hello", svcIP)
-			curlTCP = helpers.CurlFail(httpSVCURL)
-			curlUDP = helpers.CurlFail(tftpSVCURL)
+			curlTCP = helpers.CurlFailNoStats(httpSVCURL)
+			curlUDP = helpers.CurlFailNoStats(tftpSVCURL)
 		})
 
 		AfterAll(func() {
