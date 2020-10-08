@@ -212,6 +212,9 @@ Getting a pull request merged
       #. Single node runtime tests
       #. Multi node Kubernetes tests
 
+      If a CI test fails which seems unrelated to your PR, it may be a flaky
+      test. Follow the process described in :ref:`ci_failure_triage`.
+
 #. As part of the submission, GitHub will have requested a review from the
    respective code owners according to the ``CODEOWNERS`` file in the
    repository.

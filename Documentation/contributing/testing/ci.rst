@@ -319,6 +319,8 @@ example patch that shows how this can be achieved.
 
                             //This test should run in each PR for now.
 
+.. _ci_failure_triage:
+
 CI Failure Triage
 ~~~~~~~~~~~~~~~~~
 
