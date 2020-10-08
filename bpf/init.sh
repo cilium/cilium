@@ -511,8 +511,7 @@ if [ "$MODE" = "vxlan" -o "$MODE" = "geneve" ]; then
 	}
 	ip link set $ENCAP_DEV mtu $MTU || encap_fail
 
-	setup_dev $ENCAP_DEV
-	ip link set $ENCAP_DEV up || encap_fail
+	setup_dev $ENCAP_DEV || encap_fail
 
 	ENCAP_IDX=$(cat /sys/class/net/${ENCAP_DEV}/ifindex)
 	sed -i '/^#.*ENCAP_IFINDEX.*$/d' $RUNDIR/globals/node_config.h
