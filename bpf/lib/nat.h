@@ -322,7 +322,7 @@ static __always_inline int snat_v4_handle_mapping(struct __ctx_buff *ctx,
 static __always_inline int snat_v4_rewrite_egress(struct __ctx_buff *ctx,
 						  struct ipv4_ct_tuple *tuple,
 						  struct ipv4_nat_entry *state,
-						  __u32 off)
+						  __u32 off, bool has_l4_header)
 {
 	struct csum_offset csum = {};
 	__be32 sum_l4 = 0, sum;
@@ -332,32 +332,35 @@ static __always_inline int snat_v4_rewrite_egress(struct __ctx_buff *ctx,
 	    state->to_sport == tuple->sport)
 		return 0;
 	sum = csum_diff(&tuple->saddr, 4, &state->to_saddr, 4, 0);
-	csum_l4_offset_and_flags(tuple->nexthdr, &csum);
-	if (state->to_sport != tuple->sport) {
-		switch (tuple->nexthdr) {
-		case IPPROTO_TCP:
-		case IPPROTO_UDP:
-			ret = l4_modify_port(ctx, off,
-					     offsetof(struct tcphdr, source),
-					     &csum, state->to_sport,
-					     tuple->sport);
-			if (ret < 0)
-				return ret;
-			break;
-		case IPPROTO_ICMP: {
-			__be32 from, to;
+	if (has_l4_header) {
+		csum_l4_offset_and_flags(tuple->nexthdr, &csum);
 
-			if (ctx_store_bytes(ctx, off +
-					    offsetof(struct icmphdr, un.echo.id),
-					    &state->to_sport,
-					    sizeof(state->to_sport), 0) < 0)
-				return DROP_WRITE_ERROR;
-			from = tuple->sport;
-			to = state->to_sport;
-			sum_l4 = csum_diff(&from, 4, &to, 4, 0);
-			csum.offset = offsetof(struct icmphdr, checksum);
-			break;
-		}}
+		if (state->to_sport != tuple->sport) {
+			switch (tuple->nexthdr) {
+			case IPPROTO_TCP:
+			case IPPROTO_UDP:
+				ret = l4_modify_port(ctx, off,
+						     offsetof(struct tcphdr, source),
+						     &csum, state->to_sport,
+						     tuple->sport);
+				if (ret < 0)
+					return ret;
+				break;
+			case IPPROTO_ICMP: {
+				__be32 from, to;
+
+				if (ctx_store_bytes(ctx, off +
+						    offsetof(struct icmphdr, un.echo.id),
+						    &state->to_sport,
+						    sizeof(state->to_sport), 0) < 0)
+					return DROP_WRITE_ERROR;
+				from = tuple->sport;
+				to = state->to_sport;
+				sum_l4 = csum_diff(&from, 4, &to, 4, 0);
+				csum.offset = offsetof(struct icmphdr, checksum);
+				break;
+			}}
+		}
 	}
 	if (ctx_store_bytes(ctx, ETH_HLEN + offsetof(struct iphdr, saddr),
 			    &state->to_saddr, 4, 0) < 0)
@@ -556,7 +559,7 @@ static __always_inline __maybe_unused int snat_v4_process(struct __ctx_buff *ctx
 		return ret;
 
 	return dir == NAT_DIR_EGRESS ?
-	       snat_v4_rewrite_egress(ctx, &tuple, state, off) :
+	       snat_v4_rewrite_egress(ctx, &tuple, state, off, ipv4_has_l4_header(ip4)) :
 	       snat_v4_rewrite_ingress(ctx, &tuple, state, off);
 }
 #else
