@@ -60,6 +60,11 @@ Users (Alphabetically)
       U: Networking, NetworkPolicy, Services, IPVLAN
       L: https://www.alibabacloud.com/blog/how-does-alibaba-cloud-build-high-performance-cloud-native-pod-networks-in-production-environments_596590
 
+    * N: Canonical
+      D: Canonical's Kubernetes distribution microk8s uses Cilium as CNI plugin
+      U: Networking, NetworkPolicy, and Kubernetes services
+      L: https://microk8s.io/
+
     * N: CENGN - Centre of Excellence in Next Generation Networks
       D: CENGN is using Cilium in multiple clusters including production and development clusters (self-hosted k8s, On-premises)
       U: L3/L4/L7 network policies, Monitoring via Prometheus metrics & Hubble
