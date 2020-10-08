@@ -162,21 +162,11 @@ func EqualV2CNP(cnp1, cnp2 *types.SlimCNP) bool {
 		return false
 	}
 
-	// Ignore v1.LastAppliedConfigAnnotation annotation
-	lastAppliedCfgAnnotation1, ok1 := cnp1.GetAnnotations()[v1.LastAppliedConfigAnnotation]
-	lastAppliedCfgAnnotation2, ok2 := cnp2.GetAnnotations()[v1.LastAppliedConfigAnnotation]
-	defer func() {
-		if ok1 && cnp1.GetAnnotations() != nil {
-			cnp1.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation1
-		}
-		if ok2 && cnp2.GetAnnotations() != nil {
-			cnp2.GetAnnotations()[v1.LastAppliedConfigAnnotation] = lastAppliedCfgAnnotation2
-		}
-	}()
-	delete(cnp1.GetAnnotations(), v1.LastAppliedConfigAnnotation)
-	delete(cnp2.GetAnnotations(), v1.LastAppliedConfigAnnotation)
-
-	return comparator.MapStringEquals(cnp1.GetAnnotations(), cnp2.GetAnnotations()) &&
+	return comparator.MapStringEqualsIgnoreKeys(
+		cnp1.GetAnnotations(),
+		cnp2.GetAnnotations(),
+		// Ignore v1.LastAppliedConfigAnnotation annotation
+		[]string{v1.LastAppliedConfigAnnotation}) &&
 		reflect.DeepEqual(cnp1.Spec, cnp2.Spec) &&
 		reflect.DeepEqual(cnp1.Specs, cnp2.Specs)
 }
