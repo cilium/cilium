@@ -902,12 +902,22 @@ handle_netdev(struct __ctx_buff *ctx, const bool from_host)
 	return do_netdev(ctx, proto, from_host);
 }
 
+/*
+ * from-netdev is attached as a tc ingress filter to one or more physical devices
+ * managed by Cilium (e.g., eth0). This program is only attached when:
+ * - the host firewall is enabled, or
+ * - BPF NodePort is enabled
+ */
 __section("from-netdev")
 int from_netdev(struct __ctx_buff *ctx)
 {
 	return handle_netdev(ctx, false);
 }
 
+/*
+ * from-host is attached as a tc egress filter to the node's 'cilium_host'
+ * interface, or to the primary Flannel device if present.
+ */
 __section("from-host")
 int from_host(struct __ctx_buff *ctx)
 {
@@ -918,6 +928,12 @@ int from_host(struct __ctx_buff *ctx)
 	return handle_netdev(ctx, true);
 }
 
+/*
+ * to-netdev is attached as a tc egress filter to one or more physical devices
+ * managed by Cilium (e.g., eth0). This program is only attached when:
+ * - the host firewall is enabled, or
+ * - BPF NodePort is enabled
+ */
 __section("to-netdev")
 int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 {
@@ -1004,6 +1020,10 @@ out:
 	return ret;
 }
 
+/*
+ * to-host is attached as a tc ingress filter to both the 'cilium_host' and
+ * 'cilium_net' devices, or to the primary Flannel device if present.
+ */
 __section("to-host")
 int to_host(struct __ctx_buff *ctx)
 {
