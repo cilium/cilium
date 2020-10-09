@@ -606,11 +606,11 @@ func (rpm *Manager) processConfigWithSinglePort(config *LRPConfig, pods ...*podM
 					},
 				}, pod.id,
 			}
-			if feM.feAddr.IP.To4() != nil {
+			if feM.feAddr.IP.To4() != nil && be.IP.To4() != nil {
 				if option.Config.EnableIPv4 {
 					bes4 = append(bes4, be)
 				}
-			} else {
+			} else if feM.feAddr.IP.To4() == nil && be.IP.To4() == nil {
 				if option.Config.EnableIPv6 {
 					bes6 = append(bes6, be)
 				}
@@ -667,11 +667,11 @@ func (rpm *Manager) processConfigWithNamedPorts(config *LRPConfig, pods ...*podM
 						},
 						pod.id,
 					}
-					if feM.feAddr.IP.To4() != nil {
+					if feM.feAddr.IP.To4() != nil && be.IP.To4() != nil {
 						if option.Config.EnableIPv4 {
 							bes4 = append(bes4, be)
 						}
-					} else {
+					} else if feM.feAddr.IP.To4() == nil && be.IP.To4() == nil {
 						if option.Config.EnableIPv6 {
 							bes6 = append(bes6, be)
 						}
