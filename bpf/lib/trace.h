@@ -141,6 +141,13 @@ static __always_inline bool emit_trace_notify(__u8 obs_point, __u32 monitor)
 		}
 	}
 
+	/*
+	 * Ignore sample when aggregation is enabled and 'monitor' is set to 0.
+	 * Rate limiting (trace message aggregation) relies on connection tracking,
+	 * so if there is no CT information available at the observation point,
+	 * then 'monitor' will be set to 0 to avoid emitting trace notifications
+	 * when aggregation is enabled (the default).
+	 */
 	if (MONITOR_AGGREGATION >= TRACE_AGGREGATE_ACTIVE_CT && !monitor)
 		return false;
 

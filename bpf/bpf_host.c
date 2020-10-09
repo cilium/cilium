@@ -1023,6 +1023,10 @@ out:
 	 (defined(ENABLE_DSR) && defined(ENABLE_DSR_HYBRID)) || \
 	 defined(ENABLE_MASQUERADE))
 	if ((ctx->mark & MARK_MAGIC_SNAT_DONE) != MARK_MAGIC_SNAT_DONE) {
+		/*
+		 * nodeport_nat_fwd tail calls in the majority of cases,
+		 * so control might never return to this program.
+		 */
 		ret = nodeport_nat_fwd(ctx);
 		if (IS_ERR(ret))
 			return send_drop_notify_error(ctx, 0, ret,
@@ -1031,7 +1035,7 @@ out:
 	}
 #endif
 	send_trace_notify(ctx, TRACE_TO_NETWORK, src_id, 0, 0,
-			  0, ret, 0);
+			  0, ret, monitor);
 	return ret;
 }
 
