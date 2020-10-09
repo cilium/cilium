@@ -588,3 +588,22 @@ func (c *CtEntry) String() string {
 		c.SourceSecurityID,
 		c.IfIndex)
 }
+
+func (c *CtEntry) RichString(toRemSecs func(uint32) int64) string {
+
+	return fmt.Sprintf("expires=%d (in %d sec(s) from now) RxPackets=%d RxBytes=%d RxFlagsSeen=%#02x LastRxReport=%d TxPackets=%d TxBytes=%d TxFlagsSeen=%#02x LastTxReport=%d %s RevNAT=%d SourceSecurityID=%d IfIndex=%d \n",
+		c.Lifetime,
+		toRemSecs(c.Lifetime),
+		c.RxPackets,
+		c.RxBytes,
+		c.RxFlagsSeen,
+		c.LastRxReport,
+		c.TxPackets,
+		c.TxBytes,
+		c.TxFlagsSeen,
+		c.LastTxReport,
+		c.flagsString(),
+		byteorder.NetworkToHost(c.RevNAT),
+		c.SourceSecurityID,
+		c.IfIndex)
+}
