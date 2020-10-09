@@ -75,8 +75,15 @@ func New(options ...Option) (*Server, error) {
 		),
 		pool.WithClientConnBuilder(pool.GRPCClientConnBuilder{
 			DialTimeout: opts.dialTimeout,
-			Options:     []grpc.DialOption{grpc.WithBlock()},
-			TLSConfig:   opts.clientTLSConfig,
+			Options: []grpc.DialOption{
+				grpc.WithBlock(),
+				grpc.FailOnNonTempDialError(true),
+				// TODO: uncomment the line below once grpc-go is >= v1.30.0
+				// currently blocked on v1.29.1, see the following PR for details
+				// https://github.com/cilium/cilium/pull/13405
+				// grpc.WithReturnConnectionError(),
+			},
+			TLSConfig: opts.clientTLSConfig,
 		}),
 		pool.WithRetryTimeout(opts.retryTimeout),
 		pool.WithLogger(opts.log),
