@@ -58,6 +58,9 @@ type fakePodStore struct {
 }
 
 func (ps *fakePodStore) List() []interface{} {
+	if ps.OnList != nil {
+		return ps.OnList()
+	}
 	pods := make([]interface{}, 2, 2)
 	pods = append(pods, pod1, pod2)
 	return pods
@@ -102,13 +105,18 @@ var (
 	proto2, _ = lb.NewL4Type(udpStr)
 	fe1       = lb.NewL3n4Addr(
 		proto1,
-		net.IP("1.1.1.1"),
+		net.ParseIP("1.1.1.1"),
 		80,
 		lb.ScopeExternal)
 	fe2 = lb.NewL3n4Addr(
 		proto2,
-		net.IP("2.2.2.2"),
+		net.ParseIP("2.2.2.2"),
 		81,
+		lb.ScopeExternal)
+	fe3v6 = lb.NewL3n4Addr(
+		proto1,
+		net.ParseIP("fd00::2"),
+		80,
 		lb.ScopeExternal)
 	portName1 = "test1"
 	portName2 = "test2"
@@ -218,7 +226,8 @@ func (m *ManagerSuite) SetUpTest(c *C) {
 			Name:      "test-foo",
 			Namespace: "ns1",
 		},
-		lrpType: lrpConfigTypeAddr,
+		lrpType:      lrpConfigTypeAddr,
+		frontendType: addrFrontendSinglePort,
 		frontendMappings: []*feMapping{{
 			feAddr:      fe1,
 			podBackends: nil,
@@ -231,6 +240,7 @@ func (m *ManagerSuite) SetUpTest(c *C) {
 				},
 			},
 		},
+		backendPorts: []bePortInfo{beP1},
 	}
 	configSvcType = LRPConfig{
 		id: k8s.ServiceID{
@@ -284,8 +294,6 @@ func (m *ManagerSuite) TestManager_AddRedirectPolicy_SvcMatcherDuplicateConfig(c
 func (m *ManagerSuite) TestManager_AddrMatcherConfigSinglePort(c *C) {
 	// Add an addressMatcher type LRP with single port. The policy config
 	// frontend should have 2 pod backends with each of the podIPs.
-	configAddrType.frontendType = addrFrontendSinglePort
-	configAddrType.backendPorts = append(configAddrType.backendPorts, beP1)
 	podIPs, _ := utils.ValidIPs(pod1.Status)
 	expectedbes := make([]backend, len(podIPs))
 	for i := range podIPs {
@@ -314,7 +322,7 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigSinglePort(c *C) {
 	c.Assert(m.rpm.policyPods[pod1ID][0], Equals, configAddrType.id)
 
 	// Add a new backend pod, this will add 2 more pod backends with each of the podIPs.
-	pod3 := pod2
+	pod3 := pod2.DeepCopy()
 	pod3.Labels["test"] = "foo"
 	pod3ID := pod2ID
 	podIPs, _ = utils.ValidIPs(pod3.Status)
@@ -374,7 +382,13 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigMultiplePorts(c *C) {
 		beP1.name: &configAddrType.backendPorts[0],
 		beP2.name: &configAddrType.backendPorts[1]}
 	podIPs, _ := utils.ValidIPs(pod1.Status)
-	expectedbes := make([]backend, len(podIPs))
+	expectedbes := make([]backend, 0, len(podIPs))
+	for i := range podIPs {
+		expectedbes = append(expectedbes, backend{
+			L3n4Addr: lb.L3n4Addr{IP: net.ParseIP(podIPs[i]), L4Addr: beP1.l4Addr},
+			podID:    pod1ID,
+		})
+	}
 
 	added, err := m.rpm.AddRedirectPolicy(configAddrType, &fakePodStore{})
 
@@ -427,6 +441,61 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigMultiplePorts(c *C) {
 	c.Assert(len(m.rpm.policyFrontendsByHash), Equals, 0)
 	c.Assert(len(m.rpm.policyPods), Equals, 0)
 	c.Assert(len(m.rpm.policyConfigs), Equals, 0)
+}
+
+// Tests if frontend ipv4 and ipv6 addresses are mapped to the ipv4 and ipv6
+// backends, respectively.
+func (m *ManagerSuite) TestManager_AddrMatcherConfigDualStack(c *C) {
+	// Only ipv4 backend(s) for ipv4 frontend
+	pod3 := pod1.DeepCopy()
+	pod3ID := pod1ID
+	podIPs, _ := utils.ValidIPs(pod3.Status)
+	expectedbes4 := make([]backend, 0, len(podIPs))
+	for i := range podIPs {
+		expectedbes4 = append(expectedbes4, backend{
+			L3n4Addr: lb.L3n4Addr{IP: net.ParseIP(podIPs[i]), L4Addr: beP1.l4Addr},
+			podID:    pod3ID,
+		})
+	}
+	pod3v6 := slimcorev1.PodIP{IP: "fd00::40"}
+	expectedbes6 := []backend{{
+		L3n4Addr: lb.L3n4Addr{IP: net.ParseIP(pod3v6.IP), L4Addr: beP1.l4Addr},
+		podID:    pod3ID,
+	}}
+	pod3.Status.PodIPs = append(pod3.Status.PodIPs, pod3v6)
+	ps := &fakePodStore{OnList: func() []interface{} {
+		return []interface{}{pod3}
+	}}
+
+	added, err := m.rpm.AddRedirectPolicy(configAddrType, ps)
+
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+	c.Assert(len(configAddrType.frontendMappings[0].podBackends), Equals,
+		len(expectedbes4))
+	for i := range configAddrType.frontendMappings[0].podBackends {
+		c.Assert(configAddrType.frontendMappings[0].podBackends[i], checker.Equals,
+			expectedbes4[i])
+	}
+
+	// Only ipv6 backend(s) for ipv6 frontend
+	feM := []*feMapping{{
+		feAddr:      fe3v6,
+		podBackends: nil,
+	}}
+	configAddrType.id.Name = "test-bar"
+	configAddrType.frontendMappings = feM
+
+	added, err = m.rpm.AddRedirectPolicy(configAddrType, ps)
+
+	c.Assert(added, Equals, true)
+	c.Assert(err, IsNil)
+	c.Assert(len(configAddrType.frontendMappings[0].podBackends), Equals,
+		len(expectedbes6))
+	for i := range configAddrType.frontendMappings[0].podBackends {
+		c.Assert(configAddrType.frontendMappings[0].podBackends[i], checker.Equals,
+			expectedbes6[i])
+	}
 }
 
 //TODO Tests for svcMatcher
