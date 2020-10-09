@@ -168,6 +168,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	union v6addr *dst;
+	__u32 __maybe_unused monitor = 0;
 	__u32 __maybe_unused remote_id = WORLD_ID;
 	int ret, l3_off = ETH_HLEN, hdrlen;
 	bool skip_redirect = false;
@@ -210,7 +211,7 @@ handle_ipv6(struct __ctx_buff *ctx, __u32 secctx, const bool from_host)
 
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
-		ret = ipv6_host_policy_egress(ctx, secctx);
+		ret = ipv6_host_policy_egress(ctx, secctx, &monitor);
 		if (IS_ERR(ret))
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
@@ -335,12 +336,12 @@ int tail_handle_ipv6_from_netdev(struct __ctx_buff *ctx)
 
 # ifdef ENABLE_HOST_FIREWALL
 static __always_inline int
-handle_to_netdev_ipv6(struct __ctx_buff *ctx)
+handle_to_netdev_ipv6(struct __ctx_buff *ctx, __u32 *monitor)
 {
 	void *data, *data_end;
 	struct ipv6hdr *ip6;
 	int hdrlen, ret;
-	__u32 srcID = 0;
+	__u32 src_id = 0;
 	__u8 nexthdr;
 
 	if (!revalidate_data_pull(ctx, &data, &data_end, &ip6))
@@ -360,10 +361,10 @@ handle_to_netdev_ipv6(struct __ctx_buff *ctx)
 	}
 
 	/* to-netdev is attached to the egress path of the native device. */
-	srcID = ipcache_lookup_srcid6(ctx);
-	return ipv6_host_policy_egress(ctx, srcID);
+	src_id = ipcache_lookup_srcid6(ctx);
+	return ipv6_host_policy_egress(ctx, src_id, monitor);
 }
-# endif
+#endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV6 */
 
 #ifdef ENABLE_IPV4
@@ -944,6 +945,7 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 {
 	__u32 __maybe_unused src_id = 0;
 	__u16 __maybe_unused proto = 0;
+	__u32 monitor = 0;
 	int ret = CTX_ACT_OK;
 
 #ifdef ENABLE_HOST_FIREWALL
@@ -962,7 +964,7 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV6
 	case bpf_htons(ETH_P_IPV6):
-		ret = handle_to_netdev_ipv6(ctx);
+		ret = handle_to_netdev_ipv6(ctx, &monitor);
 		break;
 # endif
 # ifdef ENABLE_IPV4
@@ -992,6 +994,7 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 		ret = DROP_UNKNOWN_L3;
 		break;
 	}
+
 out:
 	if (IS_ERR(ret))
 		return send_drop_notify_error(ctx, src_id, ret, CTX_ACT_DROP,
