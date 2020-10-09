@@ -431,6 +431,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 {
 	struct remote_endpoint_info *info = NULL;
 	__u32 __maybe_unused remoteID = 0;
+	__u32 __maybe_unused monitor = 0;
 	struct ipv4_ct_tuple tuple = {};
 	bool skip_redirect = false;
 	struct endpoint_info *ep;
@@ -470,7 +471,7 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 #ifdef ENABLE_HOST_FIREWALL
 	if (from_host) {
 		/* We're on the egress path of cilium_host. */
-		ret = ipv4_host_policy_egress(ctx, secctx, ipcache_srcid);
+		ret = ipv4_host_policy_egress(ctx, secctx, ipcache_srcid, &monitor);
 		if (IS_ERR(ret))
 			return ret;
 	} else if (!ctx_skip_host_fw(ctx)) {
@@ -610,6 +611,29 @@ int tail_handle_ipv4_from_netdev(struct __ctx_buff *ctx)
 {
 	return tail_handle_ipv4(ctx, 0, false);
 }
+
+#ifdef ENABLE_HOST_FIREWALL
+static __always_inline int
+handle_to_netdev_ipv4(struct __ctx_buff *ctx, __u32 *monitor)
+{
+	void *data, *data_end;
+	struct iphdr *ip4;
+	__u32 src_id = 0, ipcache_srcid = 0;
+
+	if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)
+		src_id = HOST_ID;
+
+	src_id = resolve_srcid_ipv4(ctx, src_id, &ipcache_srcid, true);
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	/* We need to pass the srcid from ipcache to host firewall. See
+	 * comment in ipv4_host_policy_egress() for details.
+	 */
+	return ipv4_host_policy_egress(ctx, src_id, ipcache_srcid, monitor);
+}
+#endif /* ENABLE_HOST_FIREWALL */
 #endif /* ENABLE_IPV4 */
 
 #ifdef ENABLE_IPSEC
@@ -969,24 +993,7 @@ int to_netdev(struct __ctx_buff *ctx __maybe_unused)
 # endif
 # ifdef ENABLE_IPV4
 	case bpf_htons(ETH_P_IP): {
-		void *data, *data_end;
-		struct iphdr *ip4;
-		__u32 ipcache_srcid = 0;
-
-		/* to-netdev is attached to the egress path of the native
-		 * device.
-		 */
-		if ((ctx->mark & MARK_MAGIC_HOST_MASK) == MARK_MAGIC_HOST)
-			src_id = HOST_ID;
-		src_id = resolve_srcid_ipv4(ctx, src_id, &ipcache_srcid, true);
-
-		if (!revalidate_data(ctx, &data, &data_end, &ip4))
-			return DROP_INVALID;
-
-		/* We need to pass the srcid from ipcache to host firewall. See
-		 * comment in ipv4_host_policy_egress() for details.
-		 */
-		ret = ipv4_host_policy_egress(ctx, src_id, ipcache_srcid);
+		ret = handle_to_netdev_ipv4(ctx, &monitor);
 		break;
 	}
 # endif
