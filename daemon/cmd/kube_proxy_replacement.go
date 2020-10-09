@@ -47,22 +47,23 @@ func initKubeProxyReplacementOptions() (strict bool) {
 	}
 
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
-		log.Infof("Auto-disabling %q, %q, %q, %q, %q features",
+		log.Infof("Auto-disabling %q, %q, %q, %q features",
 			option.EnableNodePort, option.EnableExternalIPs,
-			option.EnableHostReachableServices, option.EnableHostPort,
-			option.EnableSessionAffinity)
+			option.EnableHostReachableServices, option.EnableHostPort)
 
 		disableNodePort()
 		option.Config.EnableHostReachableServices = false
 		option.Config.EnableHostServicesTCP = false
 		option.Config.EnableHostServicesUDP = false
-		option.Config.EnableSessionAffinity = false
-
+		if option.Config.EnableSessionAffinity {
+			// Only create probesManager if SA is enabled when KubeProxyReplacementDisabled to avoid bpftool dependency
+			probesManager := probes.NewProbeManager()
+			disableSessionAffinityIfNeeded(probesManager, false)
+		}
 		return
 	}
 
 	probesManager := probes.NewProbeManager()
-
 	// strict denotes to panic if any to-be enabled feature cannot be enabled
 	strict = option.Config.KubeProxyReplacement != option.KubeProxyReplacementProbe
 
@@ -259,18 +260,9 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		option.Config.EnableHostServicesUDP = false
 	}
 
-	if option.Config.EnableSessionAffinity {
-		if !probesManager.GetMapTypes().HaveLruHashMapType {
-			msg := "SessionAffinity feature requires BPF LRU maps"
-			if strict {
-				log.Fatal(msg)
-			} else {
-				log.Warnf("%s. Disabling the feature.", msg)
-				option.Config.EnableSessionAffinity = false
-			}
+	// Only enforce SessionAffinity for KubeProxyReplacementStrict.
+	disableSessionAffinityIfNeeded(probesManager, option.Config.KubeProxyReplacement == option.KubeProxyReplacementStrict)
 
-		}
-	}
 	if option.Config.EnableSessionAffinity && option.Config.EnableHostReachableServices {
 		found1, found2 := false, false
 		if h := probesManager.GetHelpers("cgroup_sock"); h != nil {
@@ -727,4 +719,18 @@ func hasFullHostReachableServices() bool {
 	return option.Config.EnableHostReachableServices &&
 		option.Config.EnableHostServicesTCP &&
 		option.Config.EnableHostServicesUDP
+}
+
+func disableSessionAffinityIfNeeded(probesManager *probes.ProbeManager, strict bool) {
+	if option.Config.EnableSessionAffinity {
+		if !probesManager.GetMapTypes().HaveLruHashMapType {
+			msg := "SessionAffinity feature requires BPF LRU maps"
+			if strict {
+				log.Fatal(msg)
+			} else {
+				log.Warnf("%s. Disabling the feature.", msg)
+				option.Config.EnableSessionAffinity = false
+			}
+		}
+	}
 }

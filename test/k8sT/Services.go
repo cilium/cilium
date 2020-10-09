@@ -1404,7 +1404,7 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 
 		// fromOutside=true tests session affinity implementation from lb.h, while
 		// fromOutside=false tests from  bpf_sock.c.
-		testSessionAffinity := func(fromOutside, vxlan bool) {
+		testSessionAffinity := func(fromOutside, toNodePort, vxlan bool) {
 			var (
 				data   v1.Service
 				dstPod string
@@ -1428,7 +1428,10 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 				err = kubectl.Get(helpers.DefaultNamespace, fmt.Sprintf("service %s", svcName)).Unmarshal(&data)
 				ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve service %s", svcName)
 
-				httpURL := getHTTPLink(nodeIP, data.Spec.Ports[0].NodePort)
+				httpURL := getHTTPLink(data.Spec.ClusterIP, data.Spec.Ports[0].Port)
+				if toNodePort {
+					httpURL = getHTTPLink(nodeIP, data.Spec.Ports[0].NodePort)
+				}
 				cmd := helpers.CurlFail(httpURL) + " | grep 'Hostname:' " // pod name is in the hostname
 
 				if fromOutside {
@@ -1838,6 +1841,10 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 			}
 		})
 
+		SkipItIf(helpers.DoesNotRunOnNetNextOr419Kernel, "Tests ClusterIP with sessionAffinity from pods", func() {
+			testSessionAffinity(false, false, true)
+		})
+
 		SkipContextIf(manualIPv6TestingNotRequired(helpers.RunsWithKubeProxy), "IPv6 Connectivity", func() {
 			testDSIPv6 := "fd03::310"
 
@@ -2142,11 +2149,11 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					})
 
 					It("Tests NodePort with sessionAffinity", func() {
-						testSessionAffinity(false, true)
+						testSessionAffinity(false, true, true)
 					})
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests NodePort with sessionAffinity from outside", func() {
-						testSessionAffinity(true, true)
+						testSessionAffinity(true, true, true)
 					})
 
 					It("Tests HealthCheckNodePort", func() {
@@ -2273,11 +2280,11 @@ Secondary Interface %s :: IPv4: (%s, %s), IPv6: (%s, %s)`, helpers.DualStackSupp
 					})
 
 					It("Tests NodePort with sessionAffinity", func() {
-						testSessionAffinity(false, false)
+						testSessionAffinity(false, true, false)
 					})
 
 					SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests NodePort with sessionAffinity from outside", func() {
-						testSessionAffinity(true, false)
+						testSessionAffinity(true, true, false)
 					})
 
 					It("Tests HealthCheckNodePort", func() {

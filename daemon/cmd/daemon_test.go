@@ -103,10 +103,11 @@ func TestMain(m *testing.M) {
 	// state left on disk.
 	option.Config.EnableHostIPRestore = false
 
-	// Disable the replacement, as its initialization function execs bpftool
+	// Disable the replacement and session affinity, as its initialization function execs bpftool
 	// which requires root privileges. This would require marking the test suite
 	// as privileged.
 	option.Config.KubeProxyReplacement = option.KubeProxyReplacementDisabled
+	option.Config.EnableSessionAffinity = false
 
 	time.Local = time.UTC
 	os.Exit(m.Run())

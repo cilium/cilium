@@ -591,7 +591,7 @@ func init() {
 	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
 	option.BindEnv(option.NodePortBindProtection)
 
-	flags.Bool(option.EnableSessionAffinity, false, "Enable support for service session affinity")
+	flags.Bool(option.EnableSessionAffinity, true, "Enable support for service session affinity")
 	option.BindEnv(option.EnableSessionAffinity)
 
 	flags.Bool(option.EnableIdentityMark, true, "Enable setting identity mark for local traffic")
