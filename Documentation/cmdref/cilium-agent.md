@@ -65,6 +65,7 @@ cilium-agent [flags]
       --enable-bpf-clock-probe                        Enable BPF clock source probing for more efficient tick retrieval
       --enable-bpf-masquerade                         Masquerade packets from endpoints leaving the host with BPF instead of iptables
       --enable-bpf-tproxy                             Enable BPF-based proxy redirection, if support available
+      --enable-custom-route                           Install custom route rules for pod to reach public internet and outer cluster nodes
       --enable-endpoint-health-checking               Enable connectivity health checking between virtual endpoints (default true)
       --enable-endpoint-routes                        Use per endpoint routes instead of routing via cilium_host
       --enable-external-ips                           Enable k8s service externalIPs feature (requires enabling enable-node-port) (default true)
@@ -107,6 +108,8 @@ cilium-agent [flags]
       --flannel-master-device string                  Installs a BPF program to allow for policy enforcement in the given network interface. Allows to run Cilium on top of other CNI plugins that provide networking, e.g. flannel, where for flannel, this value should be set with 'cni0'. [EXPERIMENTAL]
       --flannel-uninstall-on-exit                     When used along the flannel-master-device flag, it cleans up all BPF programs installed when Cilium agent is terminated.
       --force-local-policy-eval-at-source             Force policy evaluation of all local communication at the source endpoint (default true)
+      --gateway-ipv4-node-label string                Custom ipv4 route gateway (default "io.cilium.customroute.gateway.ipv4")
+      --gateway-ipv6-node-label string                Custom ipv6 route gateway (default "io.cilium.customroute.gateway.ipv6")
   -h, --help                                          help for cilium-agent
       --host-reachable-services-protos strings        Only enable reachability of services for host applications for specific protocols (default [tcp,udp])
       --http-idle-timeout uint                        Time after which a non-gRPC HTTP stream is considered failed unless traffic in the stream has been processed (in seconds); defaults to 0 (unlimited)
@@ -208,6 +211,10 @@ cilium-agent [flags]
       --tofqdns-proxy-response-max-delay duration     The maximum time the DNS proxy holds an allowed DNS response before sending it along. Responses are sent as soon as the datapath is updated with the new IP information. (default 100ms)
       --trace-payloadlen int                          Length of payload to capture when tracing (default 128)
   -t, --tunnel string                                 Tunnel mode {vxlan, geneve, disabled} (default "vxlan" for the "veth" datapath mode)
+      --underlay-cidr-ipv4-node-label string          Custom ipv4 underlay network cidr (default "io.cilium.customroute.underlay.cidr.ipv4")
+      --underlay-cidr-ipv6-node-label string          Custom ipv6 underlay network cidr (default "io.cilium.customroute.underlay.cidr.ipv6")
+      --underlay-cidr-len-ipv4-node-label string      Custom ipv4 underlay network cidr len (default "io.cilium.customroute.underlay.cidr.len.ipv4")
+      --underlay-cidr-len-ipv6-node-label string      Custom ipv6 underlay network cidr len (default "io.cilium.customroute.underlay.cidr.len.ipv6")
       --version                                       Print version information
       --write-cni-conf-when-ready string              Write the CNI configuration as specified via --read-cni-conf to path when agent is ready
 ```
