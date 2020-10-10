@@ -5,7 +5,7 @@ image: cilium
 maxUnavailable: 2
 
 # Additional annotations for the agent pods
-podsAnnotations: {}
+podAnnotations: {}
 
 # Specifies annotation for service accounts
 serviceAccount:
