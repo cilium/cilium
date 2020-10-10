@@ -31,7 +31,7 @@ spec:
         prometheus.io/port: {{ .Values.global.operatorPrometheus.port | quote }}
         prometheus.io/scrape: "true"
 {{- end }}
-{{- with .Values.podsAnnotations }}{{- toYaml . | nindent 8 }}{{- end }}
+{{- with .Values.podAnnotations }}{{- toYaml . | nindent 8 }}{{- end }}
       labels:
         io.cilium/app: operator
         name: cilium-operator
