@@ -580,6 +580,27 @@ const (
 	// MonitorQueueSizeName is the name of the option MonitorQueueSize
 	MonitorQueueSizeName = "monitor-queue-size"
 
+	// EnableCustomRoute enables custom route for pod network and cilium will fetch custom route from node label
+	EnableCustomRouteName = "enable-custom-route"
+
+	// GatewayIPv4NodeLabel is the node label key where cilium get the ipv4 custom routes
+	GatewayIPv4NodeLabelName = "gateway-ipv4-node-label"
+
+	// GatewayIPv6NodeLabel is the node label key where cilium get the ipv6 custom routes
+	GatewayIPv6NodeLabelName = "gateway-ipv6-node-label"
+
+	// UnderlayCidrIPv4NodeLabel is the node label key where cilium get the ipv4 custom routes underlay network cidr
+	UnderlayCidrIPv4NodeLabelName = "underlay-cidr-ipv4-node-label"
+
+	// UnderlayCidrLenIPv4NodeLabel is the node label key where cilium get the ipv4 custom routes underlay network cidr network prefix length
+	UnderlayCidrLenIPv4NodeLabelName = "underlay-cidr-len-ipv4-node-label"
+
+	// UnderlayCidrIPv6NodeLabel is the node label key where cilium get the ipv6 custom routes underlay network cidr
+	UnderlayCidrIPv6NodeLabelName = "underlay-cidr-ipv6-node-label"
+
+	// UnderlayCidrLenIPv6NodeLabel is the node label key where cilium get the ipv6 custom routes underlay network cidr network prefix length
+	UnderlayCidrLenIPv6NodeLabelName = "underlay-cidr-len-ipv6-node-label"
+
 	//FQDNRejectResponseCode is the name for the option for dns-proxy reject response code
 	FQDNRejectResponseCode = "tofqdns-dns-reject-response-code"
 
@@ -1546,6 +1567,27 @@ type DaemonConfig struct {
 	// MonitorQueueSize is the size of the monitor event queue
 	MonitorQueueSize int
 
+	// EnableCustomRoute enables custom route for pod network and cilium will fetch custom route from node label
+	EnableCustomRoute bool
+
+	// GatewayIPv4NodeLabel is the node label key where cilium get the ipv4 custom routes gateway
+	GatewayIPv4NodeLabel string
+
+	// GatewayIPv6NodeLabel is the node label key where cilium get the ipv6 custom routes gateway
+	GatewayIPv6NodeLabel string
+
+	// GatewayIPv4NodeLabel is the node label key where cilium get the ipv4 custom routes underlay network cidr
+	UnderlayCidrIPv4NodeLabel string
+
+	// UnderlayCidrLenIPv4NodeLabel is the node label key where cilium get the ipv4 custom routes underlay network cidr network prefix length
+	UnderlayCidrLenIPv4NodeLabel string
+
+	// GatewayIPv6NodeLabel is the node label key where cilium get the ipv6 custom routes underlay network cidr
+	UnderlayCidrIPv6NodeLabel string
+
+	// UnderlayCidrLenIPv6NodeLabel is the node label key where cilium get the ipv6 custom routes underlay network cidr network prefix length
+	UnderlayCidrLenIPv6NodeLabel string
+
 	// CLI options
 
 	BPFRoot                       string
@@ -2496,6 +2538,13 @@ func (c *DaemonConfig) Populate() {
 	c.MonitorAggregation = viper.GetString(MonitorAggregationName)
 	c.MonitorAggregationInterval = viper.GetDuration(MonitorAggregationInterval)
 	c.MonitorQueueSize = viper.GetInt(MonitorQueueSizeName)
+	c.EnableCustomRoute = viper.GetBool(EnableCustomRouteName)
+	c.GatewayIPv4NodeLabel = viper.GetString(GatewayIPv4NodeLabelName)
+	c.GatewayIPv6NodeLabel = viper.GetString(GatewayIPv6NodeLabelName)
+	c.UnderlayCidrIPv4NodeLabel = viper.GetString(UnderlayCidrIPv4NodeLabelName)
+	c.UnderlayCidrLenIPv4NodeLabel = viper.GetString(UnderlayCidrLenIPv4NodeLabelName)
+	c.UnderlayCidrIPv6NodeLabel = viper.GetString(UnderlayCidrIPv6NodeLabelName)
+	c.UnderlayCidrLenIPv6NodeLabel = viper.GetString(UnderlayCidrLenIPv6NodeLabelName)
 	c.MTU = viper.GetInt(MTUName)
 	c.NAT46Range = viper.GetString(NAT46Range)
 	c.FlannelMasterDevice = viper.GetString(FlannelMasterDevice)

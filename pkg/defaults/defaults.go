@@ -168,6 +168,27 @@ const (
 	// size per CPU
 	MonitorQueueSizePerCPU = 1024
 
+	// EnableCustomRoute enables custom route for pod network and cilium will fetch custom route from node label
+	EnableCustomRoute = false
+
+	// GatewayIPv4NodeLabel is the node label key where cilium get the ipv4 custom routes public gateway
+	GatewayIPv4NodeLabel = "io.cilium.customroute.gateway.ipv4"
+
+	// GatewayIPv6NodeLabel is the node label key where cilium get the ipv6 custom routes public gateway
+	GatewayIPv6NodeLabel = "io.cilium.customroute.gateway.ipv6"
+
+	// UnderlayCidrIPv4NodeLabel is the node label key where cilium get the ipv4 custom routes underlay network cidr
+	UnderlayCidrIPv4NodeLabel = "io.cilium.customroute.underlay.cidr.ipv4"
+
+	// UnderlayCidrLenIPv4NodeLabel is the node label key where cilium get the ipv4 custom routes underlay network cidr network prefix length
+	UnderlayCidrLenIPv4NodeLabel = "io.cilium.customroute.underlay.cidr.len.ipv4"
+
+	// UnderlayCidrIPv6NodeLabel is the node label key where cilium get the ipv6 custom routes underlay network cidr
+	UnderlayCidrIPv6NodeLabel = "io.cilium.customroute.underlay.cidr.ipv6"
+
+	// UnderlayCidrLenIPv6NodeLabel is the node label key where cilium get the ipv6 custom routes underlay network cidr network prefix length
+	UnderlayCidrLenIPv6NodeLabel = "io.cilium.customroute.underlay.cidr.len.ipv6"
+
 	// MonitorQueueSizePerCPUMaximum is the maximum value for the monitor
 	// queue size when derived from the number of CPUs
 	MonitorQueueSizePerCPUMaximum = 16384

@@ -19,6 +19,7 @@ import (
 	"fmt"
 	"net"
 	"os"
+	"strconv"
 	"strings"
 	"time"
 
@@ -53,6 +54,11 @@ import (
 	"github.com/sirupsen/logrus"
 	"github.com/vishvananda/netlink"
 )
+
+type Route struct {
+	cidr    *net.IPNet
+	nexthop net.IP
+}
 
 // LocalConfig returns the local configuration of the daemon's nodediscovery.
 func (d *Daemon) LocalConfig() *datapath.LocalNodeConfiguration {
@@ -190,6 +196,88 @@ func endParallelMapMode() {
 	ipcachemap.IPCache.EndParallelMode()
 }
 
+func (d *Daemon) parseRoute() ([]Route, error) {
+	var routes []Route
+
+	if option.Config.EnableCustomRoute {
+		var ok bool
+		var gatewayIPStr, underlayNetworkCIDRStr, underlayNetworkCIDRLenStr string
+		var underlayNetworkCIDR, defaultRouteCIDR *net.IPNet
+		var underlayNetworkNexthopIP, gatewayIP net.IP
+
+		if option.Config.EnableIPv4 {
+			gatewayIPStr, ok = d.nodeDiscovery.LocalNode.Labels[option.Config.GatewayIPv4NodeLabel]
+			if !ok {
+				return nil, fmt.Errorf("Unable to find node label %s", option.Config.GatewayIPv4NodeLabel)
+			}
+			underlayNetworkCIDRStr, ok = d.nodeDiscovery.LocalNode.Labels[option.Config.UnderlayCidrIPv4NodeLabel]
+			if !ok {
+				return nil, fmt.Errorf("Unable to find node label %s", option.Config.UnderlayCidrIPv4NodeLabel)
+			}
+			underlayNetworkCIDRLenStr, ok = d.nodeDiscovery.LocalNode.Labels[option.Config.UnderlayCidrLenIPv4NodeLabel]
+			if !ok {
+				return nil, fmt.Errorf("Unable to find node label %s", option.Config.UnderlayCidrLenIPv4NodeLabel)
+			}
+		}
+		if option.Config.EnableIPv6 {
+			gatewayIPStr, ok = d.nodeDiscovery.LocalNode.Labels[option.Config.GatewayIPv6NodeLabel]
+			if !ok {
+				return nil, fmt.Errorf("Unable to find node label %s", option.Config.GatewayIPv6NodeLabel)
+			}
+			underlayNetworkCIDRStr, ok = d.nodeDiscovery.LocalNode.Labels[option.Config.UnderlayCidrIPv6NodeLabel]
+			if !ok {
+				return nil, fmt.Errorf("Unable to find node label %s", option.Config.UnderlayCidrIPv6NodeLabel)
+			}
+			underlayNetworkCIDRLenStr, ok = d.nodeDiscovery.LocalNode.Labels[option.Config.UnderlayCidrLenIPv6NodeLabel]
+			if !ok {
+				return nil, fmt.Errorf("Unable to find node label %s", option.Config.UnderlayCidrLenIPv6NodeLabel)
+			}
+		}
+		log.Debugf("gatewayIPStr = %s", gatewayIPStr)
+		log.Debugf("underlayNetworkCIDRStr = %s", underlayNetworkCIDRStr)
+		log.Debugf("underlayNetworkCIDRLenStr = %s", underlayNetworkCIDRLenStr)
+		if cidrIP := net.ParseIP(underlayNetworkCIDRStr); cidrIP != nil {
+			ones, err := strconv.Atoi(underlayNetworkCIDRLenStr)
+			if err != nil {
+				return nil, err
+			}
+			var mask net.IPMask
+			if option.Config.EnableIPv4 {
+				mask = net.CIDRMask(ones, net.IPv4len*8)
+				underlayNetworkNexthopIP = net.IPv4zero
+				_, defaultRouteCIDR, _ = net.ParseCIDR("0.0.0.0/0")
+			} else if option.Config.EnableIPv6 {
+				mask = net.CIDRMask(ones, net.IPv6len*8)
+				underlayNetworkNexthopIP = net.IPv6zero
+				_, defaultRouteCIDR, _ = net.ParseCIDR("::/0")
+			}
+			underlayNetworkCIDR = &net.IPNet{
+				IP:   cidrIP,
+				Mask: mask,
+			}
+		}
+		gatewayIP = net.ParseIP(gatewayIPStr)
+		if gatewayIP == nil {
+			return nil, fmt.Errorf("Unable to parse gateway ip %s", gatewayIPStr)
+		}
+		routes = append(routes,
+			Route{
+				cidr:    underlayNetworkCIDR,
+				nexthop: underlayNetworkNexthopIP,
+			},
+			Route{
+				cidr:    defaultRouteCIDR,
+				nexthop: gatewayIP,
+			},
+		)
+		ipcache.SetUnderlayNetworkCidr(underlayNetworkCIDR)
+		ipcache.SetGatewayIP(gatewayIP)
+		return routes, nil
+	}
+
+	return nil, fmt.Errorf("custom route feature is disabled")
+}
+
 // syncLXCMap adds local host enties to bpf lxcmap, as well as
 // ipcache, if needed, and also notifies the daemon and network policy
 // hosts cache if changes were made.
@@ -219,13 +307,6 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 					})
 			}
 		}
-
-		specialIdentities = append(specialIdentities,
-			identity.IPIdentityPair{
-				IP:   net.IPv4zero,
-				Mask: net.CIDRMask(0, net.IPv4len*8),
-				ID:   identity.ReservedIdentityWorld,
-			})
 	}
 
 	if option.Config.EnableIPv6 {
@@ -261,7 +342,6 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 	if err != nil {
 		return err
 	}
-
 	for _, ipIDPair := range specialIdentities {
 		hostKey := node.GetIPsecKeyIdentity()
 		isHost := ipIDPair.ID == identity.ReservedIdentityHost
@@ -296,6 +376,29 @@ func (d *Daemon) syncEndpointsAndHostIPs() error {
 			}
 
 			ipcache.IPIdentityCache.Delete(hostIP, source.Local)
+		}
+	}
+
+	if option.Config.EnableCustomRoute {
+		if routes, err := d.parseRoute(); err == nil {
+			for _, route := range routes {
+				ipIDPair := identity.IPIdentityPair{
+					IP:     route.cidr.IP,
+					Mask:   route.cidr.Mask,
+					ID:     identity.ReservedIdentityWorld,
+					HostIP: route.nexthop,
+				}
+
+				hostKey := node.GetIPsecKeyIdentity()
+				// Upsert will not propagate (reserved:foo->ID) mappings across the cluster,
+				// and we specifically don't want to do so.
+				ipcache.IPIdentityCache.Upsert(ipIDPair.PrefixString(), ipIDPair.HostIP, hostKey, nil, ipcache.Identity{
+					ID:     ipIDPair.ID,
+					Source: source.Local,
+				})
+			}
+		} else {
+			log.WithError(err).Warn("Unable to parse custom routes")
 		}
 	}
 

@@ -18,6 +18,7 @@ import (
 	"context"
 	"fmt"
 	"net"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
@@ -34,7 +35,18 @@ var (
 	// TODO: plumb an allocator in from callers of these functions vs. having
 	// this as a package-level variable.
 	IdentityAllocator *cache.CachingIdentityAllocator
+
+	gatewayIP           net.IP     // cluster gateway ip, which is the gateway for packets outgoing of the cluster
+	underlayNetworkCIDR *net.IPNet // underlay network cidr, which is the host cidr
 )
+
+func SetGatewayIP(gateway net.IP) {
+	gatewayIP = gateway
+}
+
+func SetUnderlayNetworkCidr(cidr *net.IPNet) {
+	underlayNetworkCIDR = cidr
+}
 
 // AllocateCIDRs attempts to allocate identities for a list of CIDRs. If any
 // allocation fails, all allocations are rolled back and the error is returned.
@@ -94,10 +106,34 @@ func allocateCIDRs(prefixes []*net.IPNet) ([]*identity.Identity, error) {
 
 	// Only upsert into ipcache if identity wasn't allocated before.
 	for prefixString, id := range newlyAllocatedIdentities {
-		IPIdentityCache.Upsert(prefixString, nil, 0, nil, Identity{
-			ID:     id.ID,
-			Source: source.Generated,
-		})
+		var prefixIP net.IP
+		var err error
+		if strings.Contains(prefixString, "/") {
+			prefixIP, _, err = net.ParseCIDR(prefixString)
+			if err != nil {
+				return nil, err
+			}
+		} else {
+			prefixIP = net.ParseIP(prefixString)
+		}
+
+		log.Debugf("prefixIP = %s", prefixIP)
+		//under
+		if underlayNetworkCIDR == nil || underlayNetworkCIDR.Contains(prefixIP) {
+			if underlayNetworkCIDR != nil {
+				log.Debugf("1. underlayNetworkCIDR = %s, gatewayIP = %s", underlayNetworkCIDR.String(), gatewayIP.String())
+			}
+			IPIdentityCache.Upsert(prefixString, nil, 0, nil, Identity{
+				ID:     id.ID,
+				Source: source.Generated,
+			})
+		} else {
+			log.Debugf("2. underlayNetworkCIDR = %s, gatewayIP = %s", underlayNetworkCIDR.String(), gatewayIP.String())
+			IPIdentityCache.Upsert(prefixString, gatewayIP, 0, nil, Identity{
+				ID:     id.ID,
+				Source: source.Generated,
+			})
+		}
 	}
 
 	for _, id := range allocatedIdentities {

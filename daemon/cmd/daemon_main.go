@@ -630,6 +630,27 @@ func init() {
 	flags.Int(option.MonitorQueueSizeName, 0, "Size of the event queue when reading monitor events")
 	option.BindEnv(option.MonitorQueueSizeName)
 
+	flags.Bool(option.EnableCustomRouteName, defaults.EnableCustomRoute, "Install custom route rules for pod to reach public internet and outer cluster nodes")
+	option.BindEnv(option.EnableCustomRouteName)
+
+	flags.String(option.GatewayIPv4NodeLabelName, defaults.GatewayIPv4NodeLabel, "Custom ipv4 route gateway")
+	option.BindEnv(option.GatewayIPv4NodeLabelName)
+
+	flags.String(option.GatewayIPv6NodeLabelName, defaults.GatewayIPv6NodeLabel, "Custom ipv6 route gateway")
+	option.BindEnv(option.GatewayIPv6NodeLabelName)
+
+	flags.String(option.UnderlayCidrIPv4NodeLabelName, defaults.UnderlayCidrIPv4NodeLabel, "Custom ipv4 underlay network cidr")
+	option.BindEnv(option.UnderlayCidrIPv4NodeLabelName)
+
+	flags.String(option.UnderlayCidrLenIPv4NodeLabelName, defaults.UnderlayCidrLenIPv4NodeLabel, "Custom ipv4 underlay network cidr len")
+	option.BindEnv(option.UnderlayCidrLenIPv4NodeLabelName)
+
+	flags.String(option.UnderlayCidrIPv6NodeLabelName, defaults.UnderlayCidrIPv6NodeLabel, "Custom ipv6 underlay network cidr")
+	option.BindEnv(option.UnderlayCidrIPv6NodeLabelName)
+
+	flags.String(option.UnderlayCidrLenIPv6NodeLabelName, defaults.UnderlayCidrLenIPv6NodeLabel, "Custom ipv6 underlay network cidr len")
+	option.BindEnv(option.UnderlayCidrLenIPv6NodeLabelName)
+
 	flags.Int(option.MTUName, 0, "Overwrite auto-detected MTU of underlying network")
 	option.BindEnv(option.MTUName)
 
