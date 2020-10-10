@@ -27,6 +27,7 @@ spec:
         # gets priority scheduling.
         # https://kubernetes.io/docs/tasks/administer-cluster/guaranteed-scheduling-critical-addon-pods/
         scheduler.alpha.kubernetes.io/critical-pod: ""
+{{- with .Values.podsAnnotations }}{{- toYaml . | nindent 8 }}{{- end }}
       labels:
         k8s-app: cilium
 {{- if .Values.keepDeprecatedLabels }}
