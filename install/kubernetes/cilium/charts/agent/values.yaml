@@ -4,6 +4,9 @@ image: cilium
 # update process.
 maxUnavailable: 2
 
+# Additional annotations for the agent pods
+podsAnnotations: {}
+
 # Specifies annotation for service accounts
 serviceAccount:
   annotations: {}

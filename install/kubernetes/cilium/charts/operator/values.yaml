@@ -7,6 +7,8 @@ serviceAccount:
 # Specifies the resources for the operator container
 resources: {}
 
+# Additional annotations for the operator pods
+podsAnnotations: {}
 
 # Number of replicas to run for cilium operator deployment.
 numReplicas: 2
