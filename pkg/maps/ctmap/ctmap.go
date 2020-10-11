@@ -251,7 +251,9 @@ type GCFilter struct {
 // EmitCTEntryCBFunc is the type used for the EmitCTEntryCB callback in GCFilter
 type EmitCTEntryCBFunc func(srcIP, dstIP net.IP, srcPort, dstPort uint16, nextHdr, flags uint8, entry *CtEntry)
 
-func doDumpEntries(m CtMap) (string, error) {
+// DoDumpEntries iterates through Map m and writes the values of the ct entries
+// in m to a string.
+func DoDumpEntries(m CtMap) (string, error) {
 	var buffer bytes.Buffer
 
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
@@ -271,7 +273,7 @@ func doDumpEntries(m CtMap) (string, error) {
 // DumpEntries iterates through Map m and writes the values of the ct entries
 // in m to a string.
 func (m *Map) DumpEntries() (string, error) {
-	return doDumpEntries(m)
+	return DoDumpEntries(m)
 }
 
 // newMap creates a new CT map of the specified type with the specified name.

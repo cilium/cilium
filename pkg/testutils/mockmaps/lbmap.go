@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package lbmap
+package mockmaps
 
 import (
 	"fmt"
@@ -21,25 +21,26 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/maps/lbmap"
 )
 
 type LBMockMap struct {
 	BackendByID   map[uint16]*lb.Backend
 	ServiceByID   map[uint16]*lb.SVC
-	AffinityMatch BackendIDByServiceIDSet
-	SourceRanges  SourceRangeSetByServiceID
+	AffinityMatch lbmap.BackendIDByServiceIDSet
+	SourceRanges  lbmap.SourceRangeSetByServiceID
 }
 
 func NewLBMockMap() *LBMockMap {
 	return &LBMockMap{
 		BackendByID:   map[uint16]*lb.Backend{},
 		ServiceByID:   map[uint16]*lb.SVC{},
-		AffinityMatch: BackendIDByServiceIDSet{},
-		SourceRanges:  SourceRangeSetByServiceID{},
+		AffinityMatch: lbmap.BackendIDByServiceIDSet{},
+		SourceRanges:  lbmap.SourceRangeSetByServiceID{},
 	}
 }
 
-func (m *LBMockMap) UpsertService(p *UpsertServiceParams) error {
+func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
 	backendsList := make([]lb.Backend, 0, len(p.Backends))
 	for name, backendID := range p.Backends {
 		b, found := m.BackendByID[backendID]
@@ -145,7 +146,7 @@ func (m *LBMockMap) DeleteAffinityMatch(revNATID uint16, backendID uint16) error
 	return nil
 }
 
-func (m *LBMockMap) DumpAffinityMatches() (BackendIDByServiceIDSet, error) {
+func (m *LBMockMap) DumpAffinityMatches() (lbmap.BackendIDByServiceIDSet, error) {
 	return m.AffinityMatch, nil
 }
 
@@ -163,6 +164,6 @@ func (m *LBMockMap) UpdateSourceRanges(revNATID uint16, prevRanges []*cidr.CIDR,
 	return nil
 }
 
-func (m *LBMockMap) DumpSourceRanges(ipv6 bool) (SourceRangeSetByServiceID, error) {
+func (m *LBMockMap) DumpSourceRanges(ipv6 bool) (lbmap.SourceRangeSetByServiceID, error) {
 	return m.SourceRanges, nil
 }
