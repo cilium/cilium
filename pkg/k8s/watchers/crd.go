@@ -27,6 +27,7 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -48,19 +49,42 @@ func (k *K8sWatcher) crdsInit(ctx context.Context, client apiextclientset.Interf
 		},
 	)
 
-	_, crdController := informer.NewInformer(
-		newListWatchFromClient(
+	var (
+		listerWatcher = newListWatchFromClient(
 			newCRDGetter(client),
 			fields.Everything(),
-		),
-		&metav1.PartialObjectMetadata{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc:    func(obj interface{}) { addCRD(&crds, obj) },
-			DeleteFunc: func(obj interface{}) { deleteCRD(&crds, obj) },
-		},
-		nil,
+			k8sversion.Capabilities().WatchPartialObjectMetadata,
+		)
+
+		crdController cache.Controller
 	)
+	if k8sversion.Capabilities().WatchPartialObjectMetadata {
+		_, crdController = informer.NewInformer(
+			listerWatcher,
+			&metav1.PartialObjectMetadata{},
+			0,
+			cache.ResourceEventHandlerFuncs{
+				AddFunc:    func(obj interface{}) { addCRD(&crds, obj) },
+				DeleteFunc: func(obj interface{}) { deleteCRD(&crds, obj) },
+			},
+			nil,
+		)
+	} else {
+		// Note that we are watching for v1beta1 version of the CRD because
+		// support for v1 CRDs was introduced in K8s 1.16. Because support for
+		// watching metav1.POM was only introduced in 1.15, we can safely
+		// assume this apiserver only has v1beta1 CRDs.
+		_, crdController = informer.NewInformer(
+			listerWatcher,
+			&v1beta1.CustomResourceDefinition{},
+			0,
+			cache.ResourceEventHandlerFuncs{
+				AddFunc:    func(obj interface{}) { addCRD(&crds, obj) },
+				DeleteFunc: func(obj interface{}) { deleteCRD(&crds, obj) },
+			},
+			nil,
+		)
+	}
 
 	// Create a context so that we can timeout after the configured CRD wait
 	// peroid.
@@ -136,18 +160,34 @@ func (k *K8sWatcher) crdsInit(ctx context.Context, client apiextclientset.Interf
 }
 
 func addCRD(crds *crdState, obj interface{}) {
-	if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
-		crds.Lock()
-		crds.m[crdResourceName(pom.GetName())] = true
-		crds.Unlock()
+	if k8sversion.Capabilities().WatchPartialObjectMetadata {
+		if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
+			crds.Lock()
+			crds.m[crdResourceName(pom.GetName())] = true
+			crds.Unlock()
+		}
+	} else {
+		if crd := k8s.ObjToV1beta1CRD(obj); crd != nil {
+			crds.Lock()
+			crds.m[crdResourceName(crd.GetName())] = true
+			crds.Unlock()
+		}
 	}
 }
 
 func deleteCRD(crds *crdState, obj interface{}) {
-	if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
-		crds.Lock()
-		crds.m[crdResourceName(pom.GetName())] = false
-		crds.Unlock()
+	if k8sversion.Capabilities().WatchPartialObjectMetadata {
+		if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
+			crds.Lock()
+			crds.m[crdResourceName(pom.GetName())] = false
+			crds.Unlock()
+		}
+	} else {
+		if crd := k8s.ObjToV1beta1CRD(obj); crd != nil {
+			crds.Lock()
+			crds.m[crdResourceName(crd.GetName())] = false
+			crds.Unlock()
+		}
 	}
 }
 
@@ -208,9 +248,12 @@ func crdResourceName(crd string) string {
 
 // newListWatchFromClient is a copy of the NewListWatchFromClient from the
 // "k8s.io/client-go/tools/cache" package, with many alterations made to
-// efficiently retrieve Cilium CRDs. This is important because we don't want
-// each agent to fetch the full CRDs across the cluster, because they
-// potentially contain large validation schemas.
+// efficiently retrieve Cilium CRDs. If `specialHeader` is true, then efficient
+// retrieval of CRDs is attempted which is only supported in K8s versions 1.14
+// and below. Otherwise, a regular retrieval of the CRD object is attempted.
+// Efficient retrieval is important because we don't want each agent to fetch
+// the full CRDs across the cluster, because they potentially contain large
+// validation schemas.
 //
 // This function also removes removes unnecessary calls from the upstream
 // version that set the namespace and the resource when performing `Get`.
@@ -223,46 +266,69 @@ func crdResourceName(crd string) string {
 //
 // The namespace problem can be worked around by using NamespaceIfScoped, but
 // it's been omitted entirely here because it's equivalent in functionality.
-func newListWatchFromClient(c cache.Getter, fieldSelector fields.Selector) *cache.ListWatch {
+func newListWatchFromClient(
+	c cache.Getter,
+	fieldSelector fields.Selector,
+	specialHeader bool,
+) *cache.ListWatch {
 	optionsModifier := func(options *metav1.ListOptions) {
 		options.FieldSelector = fieldSelector.String()
 	}
 
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
-		// This lister  will retrieve the CRDs as a metav1.Table object. This
-		// is the same way that `kubectl get crds` returns them. In the
-		// metav1.Table object, it contains cells, which are
-		// metav1.PartialObjectMetadata objects containing the minimal
-		// representation of an objects in K8s (in this case a CRD). Once the
-		// metav1.Table is fetched, it is converted into a
-		// metav1.PartialObjectMetadataList which is what the controller
-		// (informer) expects the object type to be. If we returned the
-		// metav1.Table itself, the controller doesn't know how to handle that
-		// object type because it is not a list type.
-
 		optionsModifier(&options)
 
-		t := &metav1.Table{}
-		err := c.Get().
-			SetHeader("Accept", tableHeader).
+		// This lister will retrieve the CRDs as a metav1.Table object if
+		// `specialHeader` is true, otherwise this is a normal request.
+		getter := c.Get()
+		if specialHeader {
+			// This is the same way that `kubectl get crds` returns them. In
+			// the metav1.Table object, it contains cells, which are
+			// metav1.PartialObjectMetadata objects containing the minimal
+			// representation of an objects in K8s (in this case a CRD).  Once
+			// the metav1.Table is fetched, it is converted into a
+			// metav1.PartialObjectMetadataList which is what the controller
+			// (informer) expects the object type to be. If we returned the
+			// metav1.Table itself, the controller doesn't know how to handle
+			// that object type because it is not a list type.
+			getter = getter.SetHeader("Accept", tableHeader)
+
+			t := &metav1.Table{}
+			if err := getter.
+				VersionedParams(&options, metav1.ParameterCodec).
+				Do(context.TODO()).
+				Into(t); err != nil {
+				return nil, err
+			}
+
+			return tableToPomList(t), nil
+		}
+
+		crds := &v1beta1.CustomResourceDefinitionList{}
+		if err := getter.
 			VersionedParams(&options, metav1.ParameterCodec).
 			Do(context.TODO()).
-			Into(t)
-		if err != nil {
+			Into(crds); err != nil {
 			return nil, err
 		}
-		return tableToPomList(t), nil
+
+		return crds, nil
 	}
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
-		// This watcher will retrieve each CRD that the lister has listed as
-		// individual metav1.PartialObjectMetadata because it is requesting the
-		// apiserver to return objects as such via the "Accept" header.
 
 		optionsModifier(&options)
 
+		getter := c.Get()
+		if specialHeader {
+			// This watcher will retrieve each CRD that the lister has listed
+			// as individual metav1.PartialObjectMetadata because it is
+			// requesting the apiserver to return objects as such via the
+			// "Accept" header.
+			getter = getter.SetHeader("Accept", partialObjHeader)
+		}
+
 		options.Watch = true
-		return c.Get().
-			SetHeader("Accept", partialObjHeader).
+		return getter.
 			VersionedParams(&options, metav1.ParameterCodec).
 			Watch(context.TODO())
 	}

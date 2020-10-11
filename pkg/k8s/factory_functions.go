@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	v1 "k8s.io/api/core/v1"
+	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
@@ -187,6 +188,26 @@ func ObjToV1Namespace(obj interface{}) *slim_corev1.Namespace {
 	}
 	log.WithField(logfields.Object, logfields.Repr(obj)).
 		Warn("Ignoring invalid k8s v1 Namespace")
+	return nil
+}
+
+func ObjToV1beta1CRD(obj interface{}) *v1beta1.CustomResourceDefinition {
+	crd, ok := obj.(*v1beta1.CustomResourceDefinition)
+	if ok {
+		return crd
+	}
+	deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
+	if ok {
+		// Delete was not observed by the watcher but is
+		// removed from kube-apiserver. This is the last
+		// known state and the object no longer exists.
+		crd, ok := deletedObj.Obj.(*v1beta1.CustomResourceDefinition)
+		if ok {
+			return crd
+		}
+	}
+	log.WithField(logfields.Object, logfields.Repr(obj)).
+		Warn("Ignoring invalid k8s v1beta1 CustomResourceDefinition")
 	return nil
 }
 
