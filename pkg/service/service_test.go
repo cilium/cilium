@@ -23,17 +23,17 @@ import (
 	"github.com/cilium/cilium/pkg/cidr"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
-	"github.com/cilium/cilium/pkg/maps/lbmap"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/service/healthserver"
+	"github.com/cilium/cilium/pkg/testutils/mockmaps"
 
 	. "gopkg.in/check.v1"
 )
 
 type ManagerTestSuite struct {
 	svc                       *Service
-	lbmap                     *lbmap.LBMockMap // for accessing public fields
+	lbmap                     *mockmaps.LBMockMap // for accessing public fields
 	svcHealth                 *healthserver.MockHealthHTTPServerFactory
 	prevOptionSessionAffinity bool
 	prevOptionLBSourceRanges  bool
@@ -46,8 +46,8 @@ func (m *ManagerTestSuite) SetUpTest(c *C) {
 	backendIDAlloc.resetLocalID()
 
 	m.svc = NewService(nil)
-	m.svc.lbmap = lbmap.NewLBMockMap()
-	m.lbmap = m.svc.lbmap.(*lbmap.LBMockMap)
+	m.svc.lbmap = mockmaps.NewLBMockMap()
+	m.lbmap = m.svc.lbmap.(*mockmaps.LBMockMap)
 
 	m.svcHealth = healthserver.NewMockHealthHTTPServerFactory()
 	m.svc.healthServer = healthserver.WithHealthHTTPServerFactory(m.svcHealth)
@@ -274,7 +274,7 @@ func (m *ManagerTestSuite) TestRestoreServices(c *C) {
 	c.Assert(err, IsNil)
 
 	// Restart service, but keep the lbmap to restore services from
-	lbmap := m.svc.lbmap.(*lbmap.LBMockMap)
+	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
 	m.svc = NewService(nil)
 	m.svc.lbmap = lbmap
 
@@ -356,7 +356,7 @@ func (m *ManagerTestSuite) TestSyncWithK8sFinished(c *C) {
 	c.Assert(len(m.lbmap.AffinityMatch[uint16(id1)]), Equals, 2)
 
 	// Restart service, but keep the lbmap to restore services from
-	lbmap := m.svc.lbmap.(*lbmap.LBMockMap)
+	lbmap := m.svc.lbmap.(*mockmaps.LBMockMap)
 	m.svc = NewService(nil)
 	m.svc.lbmap = lbmap
 	err = m.svc.RestoreServices()
