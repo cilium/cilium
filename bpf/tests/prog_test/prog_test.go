@@ -440,6 +440,9 @@ func testCt4Rst(spec *ebpf.Collection) error {
 	val := bpfCt[key]
 	expires := (val.Lifetime - uint32(now/1000000000))
 	fmt.Printf("Entry expires in %ds\n", expires)
+	if expires > 10 {
+		return errors.New("Expiration is >10s even if RST flag was set")
+	}
 
 	return nil
 }
