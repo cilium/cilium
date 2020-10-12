@@ -44,7 +44,7 @@ static __always_inline void update_metrics(__u32 bytes, __u8 direction,
 
 /**
  * ct_to_metrics_dir
- * @ct_dir: CT direction. Should be either CT_INGRESS or CT_EGRESS.
+ * @ct_dir: CT direction. Should be either CT_INGRESS, CT_EGRESS or CT_SERVICE.
  *
  * Convert a CT_* direction into the corresponding METRIC one.
  * Returns 0 if an invalid direction is passed.
@@ -56,6 +56,8 @@ static __always_inline int ct_to_metrics_dir(int ct_dir)
 		return METRIC_INGRESS;
 	case CT_EGRESS:
 		return METRIC_EGRESS;
+	case CT_SERVICE:
+		return METRIC_SERVICE;
 	}
 
 	return 0;

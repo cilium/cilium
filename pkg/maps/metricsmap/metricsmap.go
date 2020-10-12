@@ -48,9 +48,11 @@ const (
 	// of 2**16 (2 uint8) to 2**10 (1 uint8 + 2 bits).
 	MaxEntries = 1024
 	// dirIngress and dirEgress values should match with
-	// METRIC_INGRESS and METRIC_EGRESS in bpf/lib/common.h
+	// METRIC_INGRESS, METRIC_EGRESS and METRIC_SERVICE
+	// in bpf/lib/common.h
 	dirIngress = 1
 	dirEgress  = 2
+	dirService = 3
 	dirUnknown = 0
 )
 
@@ -61,6 +63,7 @@ var direction = map[uint8]string{
 	dirUnknown: "UNKNOWN",
 	dirIngress: "INGRESS",
 	dirEgress:  "EGRESS",
+	dirService: "SERVICE",
 }
 
 type pad3uint16 [3]uint16
@@ -124,9 +127,7 @@ func (k *Key) String() string {
 // MetricDirection gets the direction in human readable string format
 func MetricDirection(dir uint8) string {
 	switch dir {
-	case dirIngress:
-		return direction[dir]
-	case dirEgress:
+	case dirIngress, dirEgress, dirService:
 		return direction[dir]
 	}
 	return direction[dirUnknown]

@@ -411,6 +411,7 @@ enum {
 /* Cilium metrics direction for dropping/forwarding packet */
 #define METRIC_INGRESS  1
 #define METRIC_EGRESS   2
+#define METRIC_SERVICE  3
 
 /* Magic ctx->mark identifies packets origination and encryption status.
  *
