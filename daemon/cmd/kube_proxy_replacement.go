@@ -139,7 +139,9 @@ func initKubeProxyReplacementOptions() (strict bool) {
 				log.Fatalf("Invalid value for --%s: %d, supported values are: %v",
 					option.MaglevTableSize, option.Config.MaglevTableSize, supportedPrimes)
 			}
-			maglev.InitMaglevSeeds(option.Config.MaglevHashSeed)
+			if err := maglev.InitMaglevSeeds(option.Config.MaglevHashSeed); err != nil {
+				log.Fatalf("Failed to initialize maglev hash seeds: %s", err)
+			}
 		}
 	}
 
