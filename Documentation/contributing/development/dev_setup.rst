@@ -99,7 +99,6 @@ brought up by vagrant:
   to resume halted VMs.
 * ``NO_PROVISION=1``: Avoid provisioning Cilium inside the VM. Supports quick
   restart without recompiling all of Cilium.
-* ``NFS=1``: Use NFS for vagrant shared directories instead of rsync.
 * ``K8S=1``: Build & install kubernetes on the nodes. ``k8s1`` is the master
   node, which contains both master components: etcd, kube-controller-manager,
   kube-scheduler, kube-apiserver, and node components: kubelet,
@@ -237,12 +236,10 @@ Notes
 
 Your Cilium tree is mapped to the VM so that you do not need to keep manually
 copying files between your host and the VM. Folders are by default synced
-automatically using `VirtualBox Shared Folders <https://www.virtualbox.org/manual/ch04.html#sharedfolders>`_ .
-You can also use NFS to access your Cilium tree from the VM by
-setting the environment variable ``NFS`` (mentioned above) before running the
-startup script (``export NFS=1``). Note that your host firewall must have a variety
-of ports open. The Vagrantfile will inform you of the configuration of these addresses
-and ports to enable NFS.
+automatically using `VirtualBox Shared Folders <https://www.virtualbox.org/manual/ch04.html#sharedfolders>`_
+with NFS. Note that your host firewall must have a variety of ports open. The
+Vagrantfile will inform you of the configuration of these addresses and ports
+to enable NFS.
 
 .. note::
 
@@ -296,9 +293,8 @@ and the following commands assume that you are working within that directory.
 Build Cilium
 ^^^^^^^^^^^^
 
-Assuming you have synced (rsync) the source tree after you have made changes,
-or the tree is automatically in sync via NFS or guest additions folder sharing,
-you can issue a build as follows:
+When you make changes, the tree is automatically kept in sync via NFS.
+You can issue a build as follows:
 
 ::
 
@@ -365,7 +361,7 @@ Making Changes
 Add/update a golang dependency
 ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
 
-Lets assume we want to add ``github.com/containernetworking/cni`` version ``v0.5.2``:
+Let's assume we want to add ``github.com/containernetworking/cni`` version ``v0.5.2``:
 
 .. code:: bash
 
