@@ -39,6 +39,14 @@ static __always_inline bool conn_is_dns(__u16 dport)
 	return dport == bpf_htons(53);
 }
 
+static __always_inline bool ct_entry_seen_both_syns(const struct ct_entry *entry)
+{
+	bool rx_syn = entry->rx_flags_seen & TCP_FLAG_SYN;
+	bool tx_syn = entry->tx_flags_seen & TCP_FLAG_SYN;
+
+	return rx_syn && tx_syn;
+}
+
 union tcp_flags {
 	struct {
 		__u8 upper_bits;
@@ -253,12 +261,23 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 				return CT_REOPENED;
 			}
 			break;
+
 		case ACTION_CLOSE:
-			/* RST or similar, immediately delete ct entry */
-			if (dir == CT_INGRESS)
+			/* If we got an RST and have not seen both SYNs,
+			 * terminate the connection. (For CT_SERVICE, we do not
+			 * see both directions, so flags of established
+			 * connections would not include both SYNs.)
+			 */
+			if (!ct_entry_seen_both_syns(entry) &&
+			    (seen_flags.value & TCP_FLAG_RST) &&
+			    dir != CT_SERVICE) {
 				entry->rx_closing = 1;
-			else
 				entry->tx_closing = 1;
+			} else if (dir == CT_INGRESS) {
+				entry->rx_closing = 1;
+			} else {
+				entry->tx_closing = 1;
+			}
 
 			*monitor = TRACE_PAYLOAD_LEN;
 			if (ct_entry_alive(entry))
