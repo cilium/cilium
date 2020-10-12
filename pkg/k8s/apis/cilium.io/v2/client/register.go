@@ -24,7 +24,6 @@ import (
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging"
 	"github.com/cilium/cilium/pkg/logging/logfields"
-	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/versioncheck"
 
 	"github.com/sirupsen/logrus"
@@ -92,11 +91,9 @@ func CreateCustomResourceDefinitions(clientset apiextensionsclient.Interface) er
 		return createNodeCRD(clientset)
 	})
 
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD {
-		g.Go(func() error {
-			return createIdentityCRD(clientset)
-		})
-	}
+	g.Go(func() error {
+		return createIdentityCRD(clientset)
+	})
 
 	g.Go(func() error {
 		return createCLRPCRD(clientset)
