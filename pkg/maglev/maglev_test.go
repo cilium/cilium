@@ -30,26 +30,32 @@ type MaglevTestSuite struct{}
 var _ = Suite(&MaglevTestSuite{})
 
 func (s *MaglevTestSuite) SetUpTest(c *C) {
-	InitMaglevSeeds(DefaultHashSeed)
+	if err := InitMaglevSeeds(DefaultHashSeed); err != nil {
+		c.Fatal(err)
+	}
 }
 
 func (s *MaglevTestSuite) TestBackendRemoval(c *C) {
-	m := uint64(37)
+	m := uint64(1021) // 3 (backends) * 100 should be less than M
 	backends := []string{"one", "two", "three"}
+	changesInExistingBackends := 0
 
 	before := GetLookupTable(backends, m)
 	// Remove backend "three"
 	after := GetLookupTable(backends[:len(backends)-1], m)
 
 	for pos, backend := range before {
-		if backend == 0 || backend == 1 {
-			// Check that "one" and "two" placements stay the same after the removal
-			c.Assert(after[pos], Equals, before[pos])
+		if (backend == 0 || backend == 1) && after[pos] != before[pos] {
+			changesInExistingBackends++
 		} else {
 			// Check that "three" placement was overridden by "one" or "two"
 			c.Assert(after[pos] == 0 || after[pos] == 1, Equals, true)
 		}
 	}
+
+	// Check that count of changes of existing backends is less than
+	// 1% (should be guaranteed by |backends| * 100 < M)
+	c.Assert(float64(changesInExistingBackends)/float64(m)*float64(100) < 1.0, Equals, true)
 }
 
 func (s *MaglevTestSuite) BenchmarkGetMaglevTable(c *C) {

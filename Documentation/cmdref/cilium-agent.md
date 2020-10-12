@@ -33,7 +33,7 @@ cilium-agent [flags]
       --bpf-ct-timeout-service-any duration           Timeout for service entries in non-TCP CT table (default 1m0s)
       --bpf-ct-timeout-service-tcp duration           Timeout for established service entries in TCP CT table (default 6h0m0s)
       --bpf-fragments-map-max int                     Maximum number of entries in fragments tracking map (default 8192)
-      --bpf-lb-maglev-hash-seed string                Maglev cluster-wide hash seed (base64 encoded) (default "FYJf2hrSynYxcZrkMWTGYA==")
+      --bpf-lb-maglev-hash-seed string                Maglev cluster-wide hash seed (base64 encoded) (default "JLfvgnHc2kaSUFaI")
       --bpf-lb-maglev-table-size uint                 Maglev per service backend table size (parameter M) (default 16381)
       --bpf-lb-map-max int                            Maximum number of entries in Cilium BPF lbmap (default 65536)
       --bpf-map-dynamic-size-ratio float              Ratio (0.0-1.0) of total system memory to use for dynamic sizing of CT, NAT and policy BPF maps. Set to 0.0 to disable dynamic BPF map sizing (default: 0.0)

@@ -379,7 +379,7 @@ difference in reassignments on backend changes will increase.
 
 The ``maglev.hashSeed`` option is recommended to be set in order for Cilium to not rely on the
 fixed built-in seed. The seed is a base64-encoded 16 byte-random number, and can be
-generated once through ``head -c16 /dev/urandom | base64 -w0``, for example. Every Cilium agent
+generated once through ``head -c12 /dev/urandom | base64 -w0``, for example. Every Cilium agent
 in the cluster must use the same hash seed in order for Maglev to work.
 
 The below deployment example is generating and passing such seed to Helm as well as setting the
