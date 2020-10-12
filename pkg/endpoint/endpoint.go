@@ -2378,7 +2378,17 @@ func (e *Endpoint) SetDefaultConfiguration(restore bool) {
 
 func (e *Endpoint) setDefaultPolicyConfig() {
 	e.SetDefaultOpts(option.Config.Opts)
+
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
 	e.desiredPolicy.IngressPolicyEnabled = alwaysEnforce
 	e.desiredPolicy.EgressPolicyEnabled = alwaysEnforce
+
+	if option.Config.EnableDNSVisibility {
+		var err error
+		e.visibilityPolicy, err = policy.NewVisibilityPolicy(policy.DefaultDNSVisibility)
+		if err != nil {
+			e.getLogger().WithError(err).Warn("Failed to add DNS visibility policy, moving on")
+			return
+		}
+	}
 }
