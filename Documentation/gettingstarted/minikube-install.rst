@@ -25,7 +25,7 @@
 ::
 
      # Only available for minikube >= v1.12.1
-     minikube start --network-plugin=cilium --memory=4096
+     minikube start --cni=cilium --memory=4096
 
 .. note::
 
