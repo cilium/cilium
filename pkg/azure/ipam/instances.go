@@ -70,13 +70,6 @@ func (m *InstancesManager) GetPoolQuota() (quota ipamTypes.PoolQuotaMap) {
 	return pool
 }
 
-// GetPoolQuota returns the number of available IPs in all IP pools
-func (m *InstancesManager) FindSubnetForAllocation(preferredPoolIDs []ipamTypes.PoolID) (ipamTypes.PoolID, int) {
-	m.mutex.RLock()
-	defer m.mutex.RUnlock()
-	return m.subnets.FirstSubnetWithAvailableAddresses(preferredPoolIDs)
-}
-
 // Resync fetches the list of EC2 instances and subnets and updates the local
 // cache in the instanceManager. It returns the time when the resync has
 // started or time.Time{} if it did not complete.
