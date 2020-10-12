@@ -21,6 +21,7 @@ enum {
 	ACTION_UNSPEC,
 	ACTION_CREATE,
 	ACTION_CLOSE,
+	ACTION_RESET,
 };
 
 /* conn_is_dns returns true if the connection is DNS, false otherwise.
@@ -249,6 +250,7 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 			}
 			break;
 		case ACTION_CLOSE:
+		case ACTION_RESET:
 			/* RST or similar, immediately delete ct entry */
 			if (dir == CT_INGRESS)
 				entry->rx_closing = 1;
@@ -256,7 +258,7 @@ static __always_inline __u8 __ct_lookup(const void *map, struct __ctx_buff *ctx,
 				entry->tx_closing = 1;
 
 			*monitor = TRACE_PAYLOAD_LEN;
-			if (ct_entry_alive(entry))
+			if (ct_entry_alive(entry) && action != ACTION_RESET)
 				break;
 			__ct_update_timeout(entry, bpf_sec_to_mono(CT_CLOSE_TIMEOUT),
 					    dir, seen_flags, CT_REPORT_FLAGS);
@@ -401,10 +403,13 @@ static __always_inline int ct_lookup6(const void *map,
 			if (ctx_load_bytes(ctx, l4_off + 12, &tcp_flags, 2) < 0)
 				return DROP_CT_INVALID_HDR;
 
-			if (unlikely(tcp_flags.value & (TCP_FLAG_RST|TCP_FLAG_FIN)))
+			if (unlikely(tcp_flags.value & TCP_FLAG_RST)) {
+				action = ACTION_RESET;
+			} else if (unlikely(tcp_flags.value & TCP_FLAG_FIN)) {
 				action = ACTION_CLOSE;
-			else
+			} else {
 				action = ACTION_CREATE;
+			}
 		}
 
 		/* load sport + dport into tuple */
@@ -626,8 +631,11 @@ static __always_inline int ct_lookup4(const void *map,
 			if (ctx_load_bytes(ctx, off + 12, &tcp_flags, 2) < 0)
 				return DROP_CT_INVALID_HDR;
 
-			if (unlikely(tcp_flags.value & (TCP_FLAG_RST|TCP_FLAG_FIN)))
+			if (unlikely(tcp_flags.value & TCP_FLAG_RST)) {
+				action = ACTION_RESET;
+			} else if (unlikely(tcp_flags.value & TCP_FLAG_FIN)) {
 				action = ACTION_CLOSE;
+			}
 		}
 		break;
 
