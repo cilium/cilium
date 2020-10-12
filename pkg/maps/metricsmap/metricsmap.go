@@ -48,19 +48,21 @@ const (
 	// of 2**16 (2 uint8) to 2**10 (1 uint8 + 2 bits).
 	MaxEntries = 1024
 	// dirIngress and dirEgress values should match with
-	// METRIC_INGRESS and METRIC_EGRESS in bpf/lib/common.h
+	// METRIC_INGRESS, METRIC_EGRESS and METRIC_SERVICE
+	// in bpf/lib/common.h
+	dirEgress  = 0
 	dirIngress = 1
-	dirEgress  = 2
-	dirUnknown = 0
+	dirService = 2
 )
 
-// direction is the metrics direction i.e ingress (to an endpoint)
-// or egress (from an endpoint). If it's none of the above, we return
-// UNKNOWN direction.
+// direction is the metrics direction i.e ingress (to an endpoint),
+// egress (from an endpoint) or service (NodePort service being accessed from
+// outside or a ClusterIP service being accessed from inside the cluster).
+// If it's none of the above, we return UNKNOWN direction.
 var direction = map[uint8]string{
-	dirUnknown: "UNKNOWN",
-	dirIngress: "INGRESS",
 	dirEgress:  "EGRESS",
+	dirIngress: "INGRESS",
+	dirService: "SERVICE",
 }
 
 type pad3uint16 [3]uint16
@@ -123,13 +125,10 @@ func (k *Key) String() string {
 
 // MetricDirection gets the direction in human readable string format
 func MetricDirection(dir uint8) string {
-	switch dir {
-	case dirIngress:
-		return direction[dir]
-	case dirEgress:
-		return direction[dir]
+	if desc, ok := direction[dir]; ok {
+		return desc
 	}
-	return direction[dirUnknown]
+	return "UNKNOWN"
 }
 
 // Direction gets the direction in human readable string format
