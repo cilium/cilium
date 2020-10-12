@@ -571,7 +571,7 @@ func (kub *Kubectl) PrepareCluster() {
 
 // labelNodes labels all Kubernetes nodes for use by the CI tests
 func (kub *Kubectl) labelNodes() error {
-	cmd := KubectlCmd + " get nodes -o json | jq -r '[ .items[].metadata.name ]'"
+	cmd := KubectlCmd + " get nodes -o json | jq -r '[ .items[] | select(.metadata.labels[\"node-role.kubernetes.io/controlplane\"] == null).metadata.name ]'"
 	res := kub.ExecShort(cmd)
 	if !res.WasSuccessful() {
 		return fmt.Errorf("unable to retrieve all nodes with '%s': %s", cmd, res.OutputPrettyPrint())
