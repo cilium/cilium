@@ -434,16 +434,14 @@ function set_vagrant_env(){
     split_ipv4 ipv4_array_nfs "${MASTER_IPV4_NFS}"
     export 'IPV4_BASE_ADDR_NFS'="$(printf "%d.%d.%d." "${ipv4_array_nfs[0]}" "${ipv4_array_nfs[1]}" "${ipv4_array_nfs[2]}")"
     export 'FIRST_IP_SUFFIX_NFS'="${ipv4_array[3]}"
-    if [[ -n "${NFS}" ]]; then
-        echo "# NFS enabled. don't forget to enable these ports on your host"
-        echo "# before starting the VMs in order to have nfs working"
-        echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 111 -j ACCEPT"
-        echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 2049 -j ACCEPT"
-        echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 20048 -j ACCEPT"
+    echo "# NFS enabled. don't forget to enable these ports on your host"
+    echo "# before starting the VMs in order to have nfs working"
+    echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 111 -j ACCEPT"
+    echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 2049 -j ACCEPT"
+    echo "# iptables -I INPUT -p tcp -s ${IPV4_BASE_ADDR_NFS}0/24 --dport 20048 -j ACCEPT"
 
-        echo "# To use kubectl on the host, you need to add the following route:"
-        echo "# ip route add $MASTER_IPV4 via $MASTER_IPV4_NFS"
-    fi
+    echo "# To use kubectl on the host, you need to add the following route:"
+    echo "# ip route add $MASTER_IPV4 via $MASTER_IPV4_NFS"
 
     temp=$(printf " %s" "${ipv6_public_workers_addrs[@]}")
     export 'IPV6_PUBLIC_WORKERS_ADDRS'="${temp:1}"
@@ -487,10 +485,6 @@ function vboxnet_add_ipv4(){
 
 # vboxnet_addr_finder checks if any vboxnet interface has the IPv6 public CIDR
 function vboxnet_addr_finder(){
-    if [ -z "${IPV6_EXT}" ] && [ -z "${NFS}" ]; then
-        return
-    fi
-
     all_vbox_interfaces=$(VBoxManage list hostonlyifs | grep -E "^Name|IPV6Address|IPV6NetworkMaskPrefixLength" | awk -F" " '{print $2}')
     # all_vbox_interfaces format example:
     # vboxnet0
