@@ -253,9 +253,16 @@ func (n *NodeManager) Create(resource *v2.CiliumNode) bool {
 
 // Update is called whenever a CiliumNode resource has been updated in the
 // Kubernetes apiserver
-func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
+func (n *NodeManager) Update(resource *v2.CiliumNode) (nodeSynced bool) {
+	nodeSynced = true
 	n.mutex.Lock()
 	node, ok := n.nodes[resource.Name]
+	defer func() {
+		n.mutex.Unlock()
+		if nodeSynced {
+			nodeSynced = node.UpdatedResource(resource)
+		}
+	}()
 	if !ok {
 		node = &Node{
 			name:    resource.Name,
@@ -310,9 +317,8 @@ func (n *NodeManager) Update(resource *v2.CiliumNode) bool {
 
 		log.WithField(fieldName, resource.Name).Info("Discovered new CiliumNode custom resource")
 	}
-	n.mutex.Unlock()
 
-	return node.UpdatedResource(resource)
+	return
 }
 
 // Delete is called after a CiliumNode resource has been deleted via the
