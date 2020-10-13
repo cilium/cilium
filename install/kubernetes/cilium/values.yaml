@@ -173,7 +173,7 @@ azure:
   # userAssignedIdentityID: 00000000-0000-0000-0000-000000000000
 
 # TODO: Add documentation
-bandwidthManager: false
+bandwidthManager: true
 
 # bpf is the BPF datapath specific configuration
 bpf:
