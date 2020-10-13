@@ -904,7 +904,7 @@ spec:
                 operator: In
                 values:
                 - operator
-            topologyKey: "kubernetes.io/hostname"
+            topologyKey: kubernetes.io/hostname
       containers:
       - args:
         - --config-dir=/tmp/cilium/config-map

@@ -1007,6 +1007,21 @@ operator:
       maxUnavailable: 1
     type: RollingUpdate
 
+  ## Affinity
+  ##
+  affinity:
+    podAntiAffinity:
+      requiredDuringSchedulingIgnoredDuringExecution:
+      - labelSelector:
+          matchExpressions:
+          - key: io.cilium/app
+            operator: In
+            values:
+            - operator
+        topologyKey: kubernetes.io/hostname
+
+
+  
   ## Additional cilium-etcd-operator container arguments
   ##
   extraArgs: {}
