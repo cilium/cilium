@@ -664,6 +664,9 @@ const (
 	// LoopbackIPv4 is the address to use for service loopback SNAT
 	LoopbackIPv4 = "ipv4-service-loopback-address"
 
+	// LoopbackIPv6 is the address to use for IPv6 service loopback SNAT
+	LoopbackIPv6 = "ipv6-service-loopback-address"
+
 	// EndpointInterfaceNamePrefix is the prefix name of the interface
 	// names shared by all endpoints
 	EndpointInterfaceNamePrefix = "endpoint-interface-name-prefix"
@@ -1008,6 +1011,7 @@ var HelpFlagSections = []FlagsSection{
 			IPv4Range,
 			IPv6Range,
 			LoopbackIPv4,
+			LoopbackIPv6,
 			IPv4ServiceRange,
 			IPv6ServiceRange,
 			IPv6ClusterAllocCIDRName,
@@ -1744,6 +1748,9 @@ type DaemonConfig struct {
 	// LoopbackIPv4 is the address to use for service loopback SNAT
 	LoopbackIPv4 string
 
+	// LoopbackIPv6 is the address to use for service loopback SNAT for IPv6 services.
+	LoopbackIPv6 string
+
 	// EndpointInterfaceNamePrefix is the prefix name of the interface
 	// names shared by all endpoints
 	EndpointInterfaceNamePrefix string
@@ -2042,6 +2049,7 @@ var (
 		LogOpt:                       make(map[string]string),
 		SelectiveRegeneration:        defaults.SelectiveRegeneration,
 		LoopbackIPv4:                 defaults.LoopbackIPv4,
+		LoopbackIPv6:                 defaults.LoopbackIPv6,
 		EndpointInterfaceNamePrefix:  defaults.EndpointInterfaceNamePrefix,
 		ForceLocalPolicyEvalAtSource: defaults.ForceLocalPolicyEvalAtSource,
 		EnableEndpointRoutes:         defaults.EnableEndpointRoutes,
@@ -2500,6 +2508,7 @@ func (c *DaemonConfig) Populate() {
 	c.LogSystemLoadConfig = viper.GetBool(LogSystemLoadConfigName)
 	c.Logstash = viper.GetBool(Logstash)
 	c.LoopbackIPv4 = viper.GetString(LoopbackIPv4)
+	c.LoopbackIPv6 = viper.GetString(LoopbackIPv6)
 	c.Masquerade = viper.GetBool(Masquerade)
 	c.EnableBPFMasquerade = viper.GetBool(EnableBPFMasquerade)
 	c.EnableBPFClockProbe = viper.GetBool(EnableBPFClockProbe)

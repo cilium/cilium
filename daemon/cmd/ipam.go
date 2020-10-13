@@ -282,6 +282,14 @@ func (d *Daemon) allocateIPs() error {
 		log.Infof("  IPv6 allocation prefix: %s", node.GetIPv6AllocRange())
 		log.Infof("  IPv6 router address: %s", node.GetIPv6Router())
 
+		// Allocate IPv4 service loopback IP
+		loopbackIPv6 := net.ParseIP(option.Config.LoopbackIPv6)
+		if loopbackIPv6 == nil {
+			return fmt.Errorf("Invalid IPv6 loopback address %s", option.Config.LoopbackIPv6)
+		}
+		node.SetIPv6Loopback(loopbackIPv6)
+		log.Infof("  Loopback IPv6: %s", node.GetIPv6Loopback().String())
+
 		if addrs, err := d.datapath.LocalNodeAddressing().IPv6().LocalAddresses(); err != nil {
 			log.WithError(err).Fatal("Unable to list local IPv6 addresses")
 		} else {

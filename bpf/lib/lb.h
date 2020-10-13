@@ -420,7 +420,8 @@ static __always_inline int reverse_map_l4_port(struct __ctx_buff *ctx, __u8 next
 static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 					 struct csum_offset *csum_off,
 					 struct ipv6_ct_tuple *tuple, int flags,
-					 struct lb6_reverse_nat *nat)
+					 const struct lb6_reverse_nat *nat,
+					 const struct ct_state *ct_state)
 {
 	union v6addr old_saddr;
 	union v6addr tmp;
@@ -448,11 +449,30 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
 		new_saddr = tmp.addr;
 	}
 
+	if (ct_state->loopback) {
+		/* The packet was looped back to the sending endpoint on the
+		 * forward service translation.
+		 */
+		union v6addr old_daddr;
+
+		if (ipv6_load_daddr(ctx, ETH_HLEN, &old_daddr) < 0)
+			return DROP_INVALID;
+
+		ret = ipv6_store_daddr(ctx, old_saddr.addr, ETH_HLEN);
+		if (IS_ERR(ret))
+			return DROP_WRITE_ERROR;
+
+		sum = csum_diff(old_daddr.addr, 16, old_saddr.addr, 16, 0);
+
+		/* Update the tuple address which is representing the destination address */
+		ipv6_addr_copy(&tuple->saddr, &old_saddr);
+	}
+
 	ret = ipv6_store_saddr(ctx, new_saddr, ETH_HLEN);
 	if (IS_ERR(ret))
 		return DROP_WRITE_ERROR;
 
-	sum = csum_diff(old_saddr.addr, 16, new_saddr, 16, 0);
+	sum = csum_diff(old_saddr.addr, 16, new_saddr, 16, sum);
 	if (csum_l4_replace(ctx, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 		return DROP_CSUM_L4;
 
@@ -463,23 +483,24 @@ static __always_inline int __lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
  * @arg ctx		packet
  * @arg l4_off		offset to L4
  * @arg csum_off	offset to L4 checksum field
- * @arg csum_flags	checksum flags
  * @arg index		reverse NAT index
+ * @arg ct_state	conntrack state
  * @arg tuple		tuple
- * @arg saddr_tuple	If set, tuple address will be updated with new source address
+ * @arg flags		reverse NAT flags
  */
 static __always_inline int lb6_rev_nat(struct __ctx_buff *ctx, int l4_off,
-				       struct csum_offset *csum_off, __u16 index,
+				       struct csum_offset *csum_off,
+				       struct ct_state *ct_state,
 				       struct ipv6_ct_tuple *tuple, int flags)
 {
 	struct lb6_reverse_nat *nat;
 
-	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT_LOOKUP, index, 0);
-	nat = map_lookup_elem(&LB6_REVERSE_NAT_MAP, &index);
+	cilium_dbg_lb(ctx, DBG_LB6_REVERSE_NAT_LOOKUP, ct_state->rev_nat_index, 0);
+	nat = map_lookup_elem(&LB6_REVERSE_NAT_MAP, &ct_state->rev_nat_index);
 	if (nat == NULL)
 		return 0;
 
-	return __lb6_rev_nat(ctx, l4_off, csum_off, tuple, flags, nat);
+	return __lb6_rev_nat(ctx, l4_off, csum_off, tuple, flags, nat, ct_state);
 }
 
 /** Extract IPv6 LB key from packet
@@ -641,17 +662,34 @@ lb6_select_backend_id(struct __ctx_buff *ctx __maybe_unused,
 #endif /* LB_SELECTION */
 
 static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
-				     union v6addr *new_dst, __u8 nexthdr __maybe_unused,
+				     union v6addr *new_dst, union v6addr *new_saddr __maybe_unused,
+					 union v6addr *old_saddr __maybe_unused,
+					 __u8 nexthdr __maybe_unused,
 				     int l3_off, int l4_off,
 				     struct csum_offset *csum_off,
 				     const struct lb6_key *key,
 				     const struct lb6_backend *backend __maybe_unused)
 {
-	ipv6_store_daddr(ctx, new_dst->addr, l3_off);
+	int ret;
+	__be32 sum;
+
+	ret = ipv6_store_daddr(ctx, new_dst->addr, l3_off);
+	if (IS_ERR(ret))
+		return DROP_WRITE_ERROR;
+
+	sum = csum_diff(key->address.addr, 16, new_dst->addr, 16, 0);
+
+#ifndef DISABLE_LOOPBACK_LB
+	if (new_saddr && (new_saddr->d1 || new_saddr->d2)) {
+		ret = ipv6_store_saddr(ctx, new_saddr->addr, ETH_HLEN);
+		if (ret < 0)
+			return DROP_WRITE_ERROR;
+
+		sum = csum_diff(old_saddr->addr, 16, new_saddr->addr, 16, sum);
+	}
+#endif /* DISABLE_LOOPBACK_LB */
 
 	if (csum_off) {
-		__be32 sum = csum_diff(key->address.addr, 16, new_dst->addr, 16, 0);
-
 		if (csum_l4_replace(ctx, l4_off, csum_off, 0, sum, BPF_F_PSEUDO_HDR) < 0)
 			return DROP_CSUM_L4;
 	}
@@ -659,7 +697,6 @@ static __always_inline int lb6_xlate(struct __ctx_buff *ctx,
 	if (backend->port && key->dport != backend->port &&
 	    (nexthdr == IPPROTO_TCP || nexthdr == IPPROTO_UDP)) {
 		__be16 tmp = backend->port;
-		int ret;
 
 		/* Port offsets for UDP and TCP are the same */
 		ret = l4_modify_port(ctx, l4_off, TCP_DPORT_OFF, csum_off, tmp, key->dport);
@@ -773,7 +810,8 @@ static __always_inline int lb6_local(const void *map, struct __ctx_buff *ctx,
 				     struct ct_state *state)
 {
 	__u32 monitor; /* Deliberately ignored; regular CT will determine monitoring. */
-	union v6addr *addr;
+	union v6addr new_saddr = {};
+	union v6addr new_daddr = {};
 	__u8 flags = tuple->flags;
 	struct lb6_backend *backend;
 	__u32 backend_id = 0;
@@ -870,16 +908,27 @@ update_state:
 	 * service lookup happens and future lookups use EGRESS or INGRESS.
 	 */
 	tuple->flags = flags;
-	ipv6_addr_copy(&tuple->daddr, &backend->address);
-	addr = &tuple->daddr;
 	state->rev_nat_index = svc->rev_nat_index;
+	ipv6_addr_copy(&new_daddr, &backend->address);
+	ipv6_addr_copy(&tuple->daddr, &backend->address);
 
 #ifdef ENABLE_SESSION_AFFINITY
 	if (lb6_svc_is_affinity(svc))
 		lb6_update_affinity_by_addr(svc, &client_id,
 					    state->backend_id);
 #endif
-	return lb6_xlate(ctx, addr, tuple->nexthdr, l3_off, l4_off,
+#ifndef DISABLE_LOOPBACK_LB
+	/* See comment for lb4_local */
+	if (!ipv6_addrcmp(&tuple->saddr, &backend->address)) {
+		union v6addr loopback_addr = IPV6_LOOPBACK;
+
+		ipv6_addr_copy(&new_saddr, &loopback_addr);
+		state->loopback = 1;
+	}
+#endif
+
+	return lb6_xlate(ctx, &new_daddr, &new_saddr, &tuple->saddr,
+			tuple->nexthdr, l3_off, l4_off,
 			 csum_off, key, backend);
 
 drop_no_service:
@@ -986,9 +1035,9 @@ static __always_inline int __lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int
  * @arg l3_off		offset to L3
  * @arg l4_off		offset to L4
  * @arg csum_off	offset to L4 checksum field
- * @arg csum_flags	checksum flags
- * @arg index		reverse NAT index
+ * @arg ct_state	conntrack state
  * @arg tuple		tuple
+ * @arg flags		reverse NAT flags
  */
 static __always_inline int lb4_rev_nat(struct __ctx_buff *ctx, int l3_off, int l4_off,
 				       struct csum_offset *csum_off,

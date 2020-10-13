@@ -232,7 +232,7 @@ ct_recreate6:
 #endif /* ENABLE_NODEPORT */
 		if (ct_state.rev_nat_index) {
 			ret = lb6_rev_nat(ctx, l4_off, &csum_off,
-					  ct_state.rev_nat_index, tuple, 0);
+					  &ct_state, tuple, 0);
 			if (IS_ERR(ret))
 				return ret;
 
@@ -930,11 +930,12 @@ ipv6_policy(struct __ctx_buff *ctx, int ifindex, __u32 src_label, __u8 *reason,
 		return POLICY_ACT_PROXY_REDIRECT;
 	}
 
-	if (unlikely(ct_state.rev_nat_index)) {
+	if (unlikely(ret == CT_REPLY && ct_state.rev_nat_index &&
+		     !ct_state.loopback)) {
 		int ret2;
 
 		ret2 = lb6_rev_nat(ctx, l4_off, &csum_off,
-				   ct_state.rev_nat_index, &tuple, 0);
+				   &ct_state, &tuple, 0);
 		if (IS_ERR(ret2))
 			return ret2;
 	}
