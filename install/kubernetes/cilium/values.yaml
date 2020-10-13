@@ -592,7 +592,7 @@ hubble:
     proxy:
       image:
         repository: docker.io/envoyproxy/envoy
-        tag: v1.14.1
+        tag: v1.14.5
         pullPolicy: Always
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
@@ -861,7 +861,7 @@ etcd:
 
   image:
     repository: docker.io/cilium/cilium-etcd-operator
-    tag: latest
+    tag: v2.0.7
     pullPolicy: Always
 
   ## cilium-etcd-operator priorityClassName
