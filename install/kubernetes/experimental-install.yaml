@@ -1054,7 +1054,7 @@ spec:
       serviceAccountName: hubble-ui
       containers:
         - name: frontend
-          image: "quay.io/cilium/hubble-ui:latest"
+          image: "docker.io/cilium/hubble-ui:latest"
           imagePullPolicy: Always
           ports:
             - containerPort: 8080
@@ -1062,7 +1062,7 @@ spec:
           resources:
             {}
         - name: backend
-          image: "quay.io/cilium/hubble-ui-backend:latest"
+          image: "docker.io/cilium/hubble-ui-backend:latest"
           imagePullPolicy: Always
           env:
             - name: EVENTS_SERVER_PORT
