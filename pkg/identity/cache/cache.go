@@ -51,8 +51,7 @@ func (m *CachingIdentityAllocator) GetIdentityCache() IdentityCache {
 	log.Debug("getting identity cache for identity allocator manager")
 	cache := IdentityCache{}
 
-	if m.IdentityAllocator != nil {
-
+	if m.isGlobalIdentityAllocatorInitialized() {
 		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
 			if val != nil {
 				if gi, ok := val.(GlobalIdentity); ok {
@@ -69,7 +68,7 @@ func (m *CachingIdentityAllocator) GetIdentityCache() IdentityCache {
 		cache[key] = identity.Labels.LabelArray()
 	}
 
-	if m.localIdentities != nil {
+	if m.isLocalIdentityAllocatorInitialized() {
 		for _, identity := range m.localIdentities.GetIdentities() {
 			cache[identity.ID] = identity.Labels.LabelArray()
 		}
@@ -82,22 +81,25 @@ func (m *CachingIdentityAllocator) GetIdentityCache() IdentityCache {
 func (m *CachingIdentityAllocator) GetIdentities() IdentitiesModel {
 	identities := IdentitiesModel{}
 
-	m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
-		if gi, ok := val.(GlobalIdentity); ok {
-			identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), gi.LabelArray)
-			identities = append(identities, identitymodel.CreateModel(identity))
-		}
+	if m.isGlobalIdentityAllocatorInitialized() {
+		m.IdentityAllocator.ForeachCache(func(id idpool.ID, val allocator.AllocatorKey) {
+			if gi, ok := val.(GlobalIdentity); ok {
+				identity := identity.NewIdentityFromLabelArray(identity.NumericIdentity(id), gi.LabelArray)
+				identities = append(identities, identitymodel.CreateModel(identity))
+			}
 
-	})
+		})
+	}
 	// append user reserved identities
 	for _, v := range identity.ReservedIdentityCache {
 		identities = append(identities, identitymodel.CreateModel(v))
 	}
 
-	for _, v := range m.localIdentities.GetIdentities() {
-		identities = append(identities, identitymodel.CreateModel(v))
+	if m.isLocalIdentityAllocatorInitialized() {
+		for _, v := range m.localIdentities.GetIdentities() {
+			identities = append(identities, identitymodel.CreateModel(v))
+		}
 	}
-
 	return identities
 }
 
