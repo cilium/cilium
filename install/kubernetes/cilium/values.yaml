@@ -483,11 +483,8 @@ hubble:
 
     # Configuration for Hubble Relay
     image:
-      # repository of the docker image
       repository: docker.io/cilium/hubble-relay
-      # tag is the container image tag to use
       tag: latest
-      # pullPolicy is the container image pull policy
       pullPolicy: Always
 
     # Specifies the resources for the hubble-relay pods
