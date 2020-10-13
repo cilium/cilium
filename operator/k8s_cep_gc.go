@@ -131,7 +131,7 @@ func doCiliumEndpointSyncGC(ctx context.Context, once bool, stopCh chan struct{}
 			}
 			if exists {
 				switch pod := podObj.(type) {
-				case *slim_corev1.Node:
+				case *cilium_v2.CiliumNode:
 					continue
 				case *slim_corev1.Pod:
 					// In Kubernetes Jobs, Pods can be left in Kubernetes until the Job
@@ -145,7 +145,7 @@ func doCiliumEndpointSyncGC(ctx context.Context, once bool, stopCh chan struct{}
 					}
 				default:
 					log.WithField(logfields.Object, podObj).
-						Errorf("Saw %T object while expecting *slim_corev1.Pod", podObj)
+						Errorf("Saw %T object while expecting *slim_corev1.Pod or *cilium_v2.CiliumNode", podObj)
 					continue
 				}
 			}
