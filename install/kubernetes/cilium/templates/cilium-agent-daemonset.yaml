@@ -494,10 +494,12 @@ spec:
                   path: server.crt
                 - key: tls.key
                   path: server.key
+              optional: true
           - configMap:
               name: hubble-ca-cert
               items:
                 - key: ca.crt
                   path: client-ca.crt
+              optional: true
 {{- end }}
 {{- end }}
