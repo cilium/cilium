@@ -37,10 +37,14 @@ the redirection.
 Deploy Cilium
 ===============
 
+.. note::
+
+   Local Redirect Policy feature requires a v4.19.x or more recent Linux kernel.
+
 .. include:: k8s-install-download-release.rst
 
-The Cilium Local Redirect Policy feature relies on :ref:`Kube-proxy free
-feature <kubeproxy-free>`, follow the guide to create a new deployment.
+The Cilium Local Redirect Policy feature relies on :ref:`kubeproxy-free`,
+follow the guide to create a new deployment.
 
 Verify that Cilium agent pod is running.
 
@@ -111,7 +115,9 @@ exist in the backend pod spec.
 
 The example shows how to redirect from traffic matching, IP address ``169.254.169.254``
 and Layer 4 port ``8080`` with protocol ``TCP``, to a backend pod deployed with
-labels ``app=proxy`` and Layer 4 port ``80`` with protocol ``TCP``.
+labels ``app=proxy`` and Layer 4 port ``80`` with protocol ``TCP``. The
+``localEndpointSelector`` set to ``app=proxy`` in the policy is used to select
+the backend pods where traffic is redirected to.
 
 Create a custom resource of type CiliumLocalRedirectPolicy with ``addressMatcher``
 configuration.
@@ -190,7 +196,8 @@ a subset of ports needs to be redirected, these ports need to be specified in th
 Additionally, when multiple service ports are specified in the spec, they must be
 named. The port names will be used to map frontend ports with backend ports.
 Verify that the ports specified in ``toPorts`` under ``redirectBackend``
-exist in the backend pod spec.
+exist in the backend pod spec. The ``localEndpointSelector`` set to ``app=proxy``
+in the policy is used to select the backend pods where traffic is redirected to.
 
 When a policy of this type is applied, the existing service entry
 created by Cilium's eBPF kube-proxy replacement will be replaced with a new
@@ -198,7 +205,8 @@ service entry of type ``LocalRedirect``. This entry may only have node-local bac
 
 The example shows how to redirect from traffic matching ``my-service``, to a
 backend pod deployed with labels ``app=proxy`` and Layer 4 port ``80``
-with protocol ``TCP``.
+with protocol ``TCP``. The ``localEndpointSelector`` set to ``app=proxy`` in the
+policy is used to select the backend pods where traffic is redirected to.
 
 Deploy the Kubernetes service for which traffic needs to be redirected.
 
@@ -302,4 +310,90 @@ Local Redirect Policy updates are currently not supported. If there are any
 changes to be made, delete the existing policy, and re-create a new one.
 
 
+
+
+kiam redirect on EKS
+--------------------
+`kiam <https://github.com/uswitch/kiam>`_ agent runs on each node in an EKS
+cluster, and intercepts requests going to the AWS metadata server to fetch
+security credentials for pods.
+
+- In order to only redirect traffic from pods to the kiam agent, and pass
+  traffic from the kiam agent to the AWS metadata server without any redirection,
+  we need the socket lookup functionality in the datapath. This functionality
+  requires v5.1.16, v5.2.0 or more recent Linux kernel. Make sure the kernel
+  version installed on EKS cluster nodes satisfies these requirements.
+
+- Deploy `kiam <https://github.com/uswitch/kiam>`_ using helm charts.
+
+  .. code-block:: bash
+
+      $ helm repo add uswitch https://uswitch.github.io/kiam-helm-charts/charts/
+      $ helm repo update
+      $ helm template kiam uswitch/kiam > kiam.yaml
+
+  - If you see an error like "request blocked by whitelist-route-regexp" while
+    running requests to the metadata server, then you may need to whitelist the
+    metadata requests by passing the below argument to the ``kiam-agent Deamonset``.
+
+    .. code-block:: bash
+
+        $ sed -i '/args:/a \ \ \ \ \ \ \ \ \ \ \ \ - --whitelist-route-regexp=meta-data' kiam.yaml
+
+
+  - Make sure the "--iptables" argument is removed from the arguments passed
+    to the ``kiam-agent Daemonset``.
+
+  - Make sure the ``kiam-agent Daemonset`` is run in the ``hostNetwork`` mode.
+
+  - Apply the kiam configuration.
+
+    .. code-block:: bash
+
+        $ kubectl apply -f kiam.yaml
+
+
+- Deploy the Local Redirect Policy to redirect pod traffic to the deployed kiam agent.
+
+  .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-local-redirect/kiam-lrp.yaml
+
+.. note::
+
+    - The ``addressMatcher`` ip address in the Local Redirect Policy is set to
+      the ip address of the AWS metadata server and the ``toPorts`` port
+      to the default HTTP server port. The ``toPorts`` field under
+      ``redirectBackend`` configuration in the policy is set to the port that
+      the kiam agent listens on. The port is passed as "--port" argument in
+      the ``kiam-agent Daemonset``.
+    - The Local Redirect Policy namespace is set to the namespace
+      in which kiam-agent Daemonset is deployed.
+
+- Once all the kiam agent pods are in ``Running`` state, the metadata requests
+  from application pods will get redirected to the node-local kiam agent pods.
+  You can verify this by running a curl command to the AWS metadata server from
+  one of the application pods, and tcpdump command on the same EKS cluster node as the
+  pod. Following is an example output, where ``192.169.98.118`` is the ip
+  address of an application pod, and ``192.168.33.99`` is the ip address of the
+  kiam agent running on the same node as the application pod.
+
+  .. code-block:: bash
+
+      $ kubectl exec app-pod -- curl -s -w "\n" -X GET http://169.254.169.254/latest/meta-data/
+
+  .. code-block:: bash
+
+      $ sudo tcpdump -i any -enn "(port 8181) and (host 192.168.33.99 and 192.168.98.118)"
+      tcpdump: verbose output suppressed, use -v or -vv for full protocol decode
+      listening on any, link-type LINUX_SLL (Linux cooked), capture size 262144 bytes
+      05:16:05.229597  In de:e4:e9:94:b5:9f ethertype IPv4 (0x0800), length 76: 192.168.98.118.47934 > 192.168.33.99.8181: Flags [S], seq 669026791, win 62727, options [mss 8961,sackOK,TS val 2539579886 ecr 0,nop,wscale 7], length 0
+      05:16:05.229657 Out 56:8f:62:18:6f:85 ethertype IPv4 (0x0800), length 76: 192.168.33.99.8181 > 192.168.98.118.47934: Flags [S.], seq 2355192249, ack 669026792, win 62643, options [mss 8961,sackOK,TS val 4263010641 ecr 2539579886,nop,wscale 7], length 0
+
+Miscellaneous
+=============
+When a Local Redirect Policy is applied, cilium BPF datapath translates frontend
+(ip/port/protocol tuple) from the policy to a node-local backend pod selected
+by the policy. However, such translation is skipped for traffic that originates
+from the backend and is destined to the frontend.
 
