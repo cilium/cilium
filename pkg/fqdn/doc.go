@@ -196,61 +196,41 @@
 // ConntrackGCMinInterval, ConntrackGCMaxInterval and ConntrackGCMaxLRUInterval
 // in package defaults).
 //
-// === Flow of DNS data & DNS Polling ===
-// The DNS Poller interacts with the system in a similar way to the proxy but
-// instead of waiting for DNS lookups from pods, it executes its own lookups of
-// any L3 toFQDNs.MatchName entries. All DNS lookups are done once per poll
-// period. Each is updated in the Poller's cache and the whole set triggers a
-// single update in NameManager.
-// Notes:
-// - The Poller does NOT have any zombie connections as it isn't an endpoint
-//   with live connections.
-// - A single policy with a DNS rule would cause all cilium agents to make
-//   poller requests, if enabled, and this tends to create a lot of traffic in
-//   larger clusters.
-// - The poller is disabled by default.
-// - The poller emits cilium-monitor events for each poll.
+// === Flow of DNS data ===
 //
-// +----------------------+   +---------------------+
-// |                      |   |                     |
-// |      DNS Poller      |   |      DNS Proxy      |
-// |                      |   |                     |
-// +----------+-----------+   +----------+----------+
-//            |                          |
-//            v                          v
-// +----------+-----------+   +----------+----------+
-// |                      |   |                     |
-// | Poller Lookup Cache  |   | per-EP Lookup Cache |
-// |                      |   |                     |
-// +-----------+----------+   +----------+----------+
-//             |                         |
-//             |                         v
-//             |              +----------+----------+
-//             |              |                     |
-//             |              | per-EP Zombie Cache |
-//             |              |                     |
-//             |              +----------+----------+
-//             |                         |
-//             v                         v
-// +-----------+-------------------------+----------+
-// |               Global DNS Cache                 |
-// +-----------------------+------------------------+
-//                         |
-//                         v
-// +-----------------------+------------------------+
-// |                 NameManager                    |
-// +-----------------------+------------------------+
-//                         |
-//                         v
-// +-----------------------+------------------------+
-// |            Policy toFQDNs Selectors            |
-// +-----------------------+------------------------+
-//                         |
-//                         v
-// +-----------------------+------------------------+
-// |                                                |
-// |               per-EP Datapath                  |
-// |                                                |
-// +------------------------------------------------+
+// +---------------------+
+// |      DNS Proxy      |
+// +----------+----------+
+//            |
+//            v
+// +----------+----------+
+// | per-EP Lookup Cache |
+// +----------+----------+
+//            |
+//            v
+// +----------+----------+
+// | per-EP Zombie Cache |
+// +----------+----------+
+//            |
+//            v
+// +----------+----------+
+// |  Global DNS Cache   |
+// +----------+----------+
+//            |
+//            v
+// +----------+----------+
+// |     NameManager     |
+// +----------+----------+
+//            |
+//            v
+// +----------+----------+
+// |   Policy toFQDNs    |
+// |      Selectors      |
+// +----------+----------+
+//            |
+//            v
+// +----------+----------+
+// |   per-EP Datapath   |
+// +---------------------+
 //
 package fqdn
