@@ -42,6 +42,10 @@ serviceAccounts:
   ui:
     create: true
     annotations: {}
+  # certgen is used if hubble.tls.auto.method=cronJob
+  certgen:
+    create: true
+    annotations: {}
 
 ## If false, agent will not be installed
 ##
@@ -470,14 +474,41 @@ hubble:
       # false, the certs for Hubble server need to be provided by setting
       # appropriate values below.
       enabled: true
-      # Sets the method to auto-generate certificates. Currently, only "helm"
-      # is supported. This method uses Helm to generate certificates.
+      # Sets the method to auto-generate certificates. Supported values:
+      # - helm:      This method uses Helm to generate all certificates.
+      # - cronJob:   This method uses a Kubernetes CronJob the generate any
+      #              certificates not provided by the user at installation
+      #              time.
       method: helm
       # Generated certificates validity duration in days.
       certValidityDuration: 1095
-    # base64 encoded PEM values for the Hubble CA certificate
+      # If hubble.tls.auto.method=cronJob, these values are used
+      # for the Kubernetes CronJob which will be scheduled regularly to
+      # (re)generate any certificates not provided manually.
+      cronJob:
+        # certgen image used in the job pod spec
+        image:
+          repository: docker.io/cilium/certgen
+          tag: v0.1.0@sha256:904d659b735abcb41412cfac0238471569ff7f923bda68493f29383c85bee2d2
+          pullPolicy: IfNotPresent
+        # schedule of the recurring cron job which regenerates the certificates
+        # (regardless of their expiration date).
+        # If nil, then no recurring job will be created. Instead, only the
+        # one-shot job is deployed to generate the certificates at installation
+        # time.
+        #
+        # Defaults to midnight of the first day of every fourth month. For syntax, see
+        # https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#schedule
+        schedule: "0 0 1 */4 *"
+        # Seconds after which the completed job pod will be deleted
+        ttlSecondsAfterFinished: 1800
+    # base64 encoded PEM values for the Hubble CA certificate and private key.
     ca:
       cert: ""
+      # The CA private key optional. If it is provided, then it will be used by
+      # hubble.tls.auto.method=cronJob to generate all other certificates.
+      # Otherwise, a ephemeral CA is generated if hubble.tls.auto.enabled=true.
+      key: ""
     # base64 encoded PEM values for the Hubble server certificate and private key
     server:
       cert: ""
