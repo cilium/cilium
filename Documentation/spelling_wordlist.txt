@@ -493,6 +493,7 @@ keepDeprecatedProbes
 keyFile
 keyspace
 keyspaces
+kiam
 kops
 kprobe
 kprobes
