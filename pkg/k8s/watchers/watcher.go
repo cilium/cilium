@@ -383,7 +383,7 @@ func (k *K8sWatcher) WaitForCRDsToRegister(ctx context.Context) error {
 // caches essential for daemon are synchronized.
 func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 	cachesSynced := make(chan struct{})
-	if err := k.EnableK8sWatcher(ctx, option.Config.K8sWatcherQueueSize); err != nil {
+	if err := k.EnableK8sWatcher(ctx); err != nil {
 		if !errors.Is(err, context.Canceled) {
 			log.WithError(err).Fatal("Unable to start K8s watchers for Cilium")
 		}
@@ -459,8 +459,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 
 // EnableK8sWatcher watches for policy, services and endpoint changes on the Kubernetes
 // api server defined in the receiver's daemon k8sClient.
-// queueSize specifies the queue length used to serialize k8s events.
-func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context, queueSize uint) error {
+func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context) error {
 	if !k8s.IsEnabled() {
 		log.Debug("Not enabling k8s event listener because k8s is not enabled")
 		return nil

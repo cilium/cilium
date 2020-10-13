@@ -718,6 +718,12 @@ Deprecated Metrics/Labels
   * Label ``scope`` in ``cilium_endpoint_regeneration_time_stats_seconds`` had its ``buildDuration`` value renamed to ``total``.
   * Label ``scope`` in ``cilium_policy_regeneration_time_stats_seconds`` had its ``buildDuration`` value renamed to ``total``.
 
+Deprecated options
+~~~~~~~~~~~~~~~~~~
+
+* ``k8s-watcher-queue-size``: This option does not have any effect since 1.8
+  and is planned to be removed in 1.10.
+
 Removed options
 ~~~~~~~~~~~~~~~
 

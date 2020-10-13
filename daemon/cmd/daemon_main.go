@@ -508,6 +508,7 @@ func init() {
 
 	flags.Uint(option.K8sWatcherQueueSize, 1024, "Queue size used to serialize each k8s event type")
 	option.BindEnv(option.K8sWatcherQueueSize)
+	flags.MarkDeprecated(option.K8sWatcherQueueSize, "Unused flag, will be removed in 1.10")
 
 	flags.String(option.LabelPrefixFile, "", "Valid label prefixes file path")
 	option.BindEnv(option.LabelPrefixFile)

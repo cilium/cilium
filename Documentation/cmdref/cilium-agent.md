@@ -155,7 +155,6 @@ cilium-agent [flags]
       --k8s-require-ipv6-pod-cidr                            Require IPv6 PodCIDR to be specified in node resource
       --k8s-service-proxy-name string                        Value of K8s service-proxy-name label for which Cilium handles the services (empty = all services without service.kubernetes.io/service-proxy-name label)
       --k8s-watcher-endpoint-selector string                 K8s endpoint watcher will watch for these k8s endpoints (default "metadata.name!=kube-scheduler,metadata.name!=kube-controller-manager,metadata.name!=etcd-operator,metadata.name!=gcp-controller-manager")
-      --k8s-watcher-queue-size uint                          Queue size used to serialize each k8s event type (default 1024)
       --keep-config                                          When restoring state, keeps containers' configuration in place
       --kube-proxy-replacement string                        auto-enable available features for kube-proxy replacement ("probe"), or enable only selected features (will panic if any selected feature cannot be enabled) ("partial") or enable all features (will panic if any feature cannot be enabled) ("strict"), or completely disable it (ignores any selected feature) ("disabled") (default "partial")
       --kube-proxy-replacement-healthz-bind-address string   The IP address with port for kube-proxy replacement health check server to serve on (set to '0.0.0.0:10256' for all IPv4 interfaces and '[::]:10256' for all IPv6 interfaces). Set empty to disable.
