@@ -183,6 +183,7 @@ func TestRingReader_NextFollow(t *testing.T) {
 		t,
 		// ignore go routines started by the redirect we do from klog to logrus
 		goleak.IgnoreTopFunction("k8s.io/klog.(*loggingT).flushDaemon"),
+		goleak.IgnoreTopFunction("k8s.io/klog/v2.(*loggingT).flushDaemon"),
 		goleak.IgnoreTopFunction("io.(*pipe).Read"))
 	ring := NewRing(15)
 	for i := 0; i < 15; i++ {
