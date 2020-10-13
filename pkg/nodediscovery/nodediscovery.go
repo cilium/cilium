@@ -202,7 +202,7 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 
 	n.Manager.NodeUpdated(n.LocalNode)
 
-	if option.Config.KVStore != "" {
+	if option.Config.KVStore != "" && !option.Config.JoinCluster {
 		go func() {
 			<-n.Registered
 			controller.NewManager().UpdateController("propagating local node change to kv-store",
