@@ -468,6 +468,9 @@ hubble:
     port: 9091
     # Creates ServiceMonitor resources for Prometheus Operator
     serviceMonitor:
+      # Enable service monitors.
+      # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+      ##
       enabled: false
 
   metricsServer: ""
@@ -859,6 +862,9 @@ prometheus:
   # serviceMonitor enables the required service monitors to be used with
   # Prometheus
   serviceMonitor:
+    # Enable service monitors.
+    # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+    ##
     enabled: false
     # namespace is the Kubernetes namespace where Prometheus expects to find
     # service monitors configured:
@@ -1139,6 +1145,9 @@ operator:
     enabled: false
     port: 6942
     serviceMonitor:
+      # Enable service monitors.
+      # This requires the prometheus CRDs to be available (see https://github.com/prometheus-operator/prometheus-operator/blob/master/example/prometheus-operator-crd/monitoring.coreos.com_servicemonitors.yaml)
+      ##
       enabled: false
 
 
