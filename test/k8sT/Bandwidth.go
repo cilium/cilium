@@ -53,7 +53,9 @@ var _ = Describe("K8sBandwidthTest", func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
 		ciliumFilename = helpers.TimestampFilename("cilium.yaml")
-		DeployCiliumAndDNS(kubectl, ciliumFilename)
+		DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+			"bandwidthManager": "true",
+		})
 	})
 
 	AfterFailed(func() {
@@ -145,20 +147,23 @@ var _ = Describe("K8sBandwidthTest", func() {
 
 		It("Checks Pod to Pod bandwidth, vxlan tunneling", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"tunnel": "vxlan",
+				"bandwidthManager": "true",
+				"tunnel":           "vxlan",
 			})
 			testNetperf(podLabels, testClientPod)
 			testNetperf(podLabels, testClientHost)
 		})
 		It("Checks Pod to Pod bandwidth, geneve tunneling", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-				"tunnel": "geneve",
+				"bandwidthManager": "true",
+				"tunnel":           "geneve",
 			})
 			testNetperf(podLabels, testClientPod)
 			testNetperf(podLabels, testClientHost)
 		})
 		It("Checks Pod to Pod bandwidth, direct routing", func() {
 			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"bandwidthManager":     "true",
 				"tunnel":               "disabled",
 				"autoDirectNodeRoutes": "true",
 			})
