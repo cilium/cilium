@@ -709,7 +709,7 @@ func (e *Endpoint) FormatGlobalEndpointID() string {
 // This synchronizes the key-value store with a mapping of the endpoint's IP
 // with the numerical ID representing its security identity.
 func (e *Endpoint) runIPIdentitySync(endpointIP addressing.CiliumIP) {
-	if option.Config.KVStore == "" || !endpointIP.IsSet() {
+	if option.Config.KVStore == "" || !endpointIP.IsSet() || option.Config.JoinCluster {
 		return
 	}
 
