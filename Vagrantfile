@@ -171,6 +171,8 @@ Vagrant.configure(2) do |config|
         node_ip = "#{$master_ip}"
         cm.vm.network "forwarded_port", guest: 6443, host: 7443, auto_correct: true
         cm.vm.network "forwarded_port", guest: 9081, host: 9081, auto_correct: true
+        # 2345 is the default delv server port
+        cm.vm.network "forwarded_port", guest: 2345, host: 2345, auto_correct: true
         cm.vm.network "private_network", ip: "#{$master_ip}",
             virtualbox__intnet: "cilium-test-#{$build_id}",
             :libvirt__guest_ipv6 => "yes",

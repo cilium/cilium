@@ -4,6 +4,9 @@
 all: precheck build postcheck
 	@echo "Build finished."
 
+debug: export NOSTRIP=1
+debug: all
+
 include Makefile.defs
 
 # This is a no-op unless DOCKER_BUILDKIT is defined

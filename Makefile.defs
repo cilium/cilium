@@ -145,6 +145,10 @@ endif
 GO_BUILD_FLAGS += -ldflags '$(GO_BUILD_LDFLAGS) $(EXTRA_GO_BUILD_LDFLAGS)' -tags=$(call join-with-comma,$(GO_TAGS_FLAGS)) $(EXTRA_GO_BUILD_FLAGS)
 GO_TEST_FLAGS += -tags=$(call join-with-comma,$(GO_TAGS_FLAGS))
 
+ifeq ($(NOSTRIP),1)
+	GO_BUILD_FLAGS += -gcflags="all=-N -l"
+endif
+
 GO_BUILD += $(GO_BUILD_FLAGS)
 GO_BUILD_WITH_CGO += $(GO_BUILD_FLAGS)
 
