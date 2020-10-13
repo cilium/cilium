@@ -47,7 +47,7 @@ spec:
 {{- end }}
 {{- if .Values.imagePullSecrets }}
       imagePullSecrets:
-      {{ toYaml .Values.imagePullSecrets | indent 6 }}
+{{ toYaml .Values.imagePullSecrets | indent 6 }}
 {{- end }}
       containers:
 {{- if .Values.sleepAfterInit }}
