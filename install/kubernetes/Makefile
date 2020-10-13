@@ -22,7 +22,8 @@ EXPERIMENTAL_OPTIONS := \
     --set hubble.tls.enabled=false \
     --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}" \
     --set hubble.relay.enabled=true \
-    --set hubble.ui.enabled=true
+    --set hubble.ui.enabled=true \
+    --set bandwidthManager=true
 
 all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL)
 

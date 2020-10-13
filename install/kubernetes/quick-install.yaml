@@ -116,7 +116,7 @@ data:
   install-iptables-rules: "true"
 
   auto-direct-node-routes: "false"
-  enable-bandwidth-manager: "true"
+  enable-bandwidth-manager: "false"
   kube-proxy-replacement:  "probe"
   enable-health-check-nodeport: "true"
   node-port-bind-protection: "true"
