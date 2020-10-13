@@ -1399,10 +1399,6 @@ type DaemonConfig struct {
 	// status in kube-apiserver.
 	K8sForceJSONPatch bool
 
-	// K8sWatcherQueueSize is the queue size used to serialize each k8s event
-	// type.
-	K8sWatcherQueueSize uint
-
 	// MTU is the maximum transmission unit of the underlying network
 	MTU int
 
@@ -2489,7 +2485,6 @@ func (c *DaemonConfig) Populate() {
 	c.K8sForceJSONPatch = viper.GetBool(K8sForceJSONPatch)
 	c.K8sEventHandover = viper.GetBool(K8sEventHandover)
 	c.K8sSyncTimeout = viper.GetDuration(K8sSyncTimeoutName)
-	c.K8sWatcherQueueSize = uint(viper.GetInt(K8sWatcherQueueSize))
 	c.K8sWatcherEndpointSelector = viper.GetString(K8sWatcherEndpointSelector)
 	c.KeepConfig = viper.GetBool(KeepConfig)
 	c.KVStore = viper.GetString(KVStore)
