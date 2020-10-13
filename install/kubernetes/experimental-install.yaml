@@ -1075,7 +1075,7 @@ spec:
           resources:
             {}
         - name: proxy
-          image: "docker.io/envoyproxy/envoy:v1.14.1"
+          image: "docker.io/envoyproxy/envoy:v1.14.5"
           imagePullPolicy: Always
           ports:
             - containerPort: 8081
