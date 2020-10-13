@@ -43,15 +43,15 @@ by Cilium's bandwidth manager.
 
 .. include:: k8s-install-download-release.rst
 
-As a beta feature, the Cilium bandwidth manager is disabled by default for new deployments via Helm.
-The option is controllable through ``bandwidthManager`` with a
-possible setting of ``true`` and ``false`` (default).
+The Cilium bandwidth manager is enabled by default for new deployments via Helm:
 
 .. parsed-literal::
 
    helm install cilium |CHART_RELEASE| \\
-     --namespace kube-system \\
-     --set bandwidthManager=true
+     --namespace kube-system
+
+The option for Helm is controllable through ``bandwidthManager`` with a
+possible setting of ``true`` (default) and ``false``.
 
 The native host networking devices are auto detected as native devices which have
 the default route on the host or have Kubernetes InternalIP or ExternalIP assigned.
