@@ -1,0 +1,15 @@
+{{/* validate hubble config */}}
+{{- if .Values.hubble.ui.enabled }}
+  {{- if not .Values.hubble.relay.enabled }}
+    {{ fail "Hubble UI requires .Values.hubble.relay.enabled=true" }}
+  {{- end }}
+{{- end }}
+{{- if .Values.hubble.relay.enabled }}
+  {{- if not .Values.hubble.enabled }}
+    {{ fail "Hubble Relay requires .Values.hubble.enabled=true" }}
+  {{- end }}
+  {{/* the port is currently hard-coded and need to be set to this specific value */}}
+  {{- if ne .Values.hubble.listenAddress ":4244" }}
+    {{ fail "Hubble Relay requires .Values.hubble.listenAddress=:4244" }}
+  {{- end }}
+{{- end }}
