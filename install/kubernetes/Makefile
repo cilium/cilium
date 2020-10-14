@@ -3,6 +3,9 @@
 
 include ../../Makefile.defs
 
+# Workaround until we branch for v1.9
+VERSION := 1.8.90
+
 MANAGED_ETCD_VERSION := "v2.0.7"
 
 QUICK_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-install.yaml"
