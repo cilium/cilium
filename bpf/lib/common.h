@@ -505,28 +505,34 @@ static __always_inline __u32 or_encrypt_key(__u8 key)
 #define TC_INDEX_F_SKIP_RECIRCULATION	8
 #define TC_INDEX_F_SKIP_HOST_FIREWALL	16
 
-/* ctx_{load,store}_meta() usage: */
+/*
+ * For use in ctx_{load,store}_meta(), which operates on sk_buff->cb.
+ * The verifier only exposes the first 5 slots in cb[], so this enum
+ * only contains 5 entries. Aliases are added to the slots to re-use
+ * them under different names in different parts of the datapath.
+ * Take care to not clobber slots used by other functions in the same
+ * code path.
+ */
 enum {
 	CB_SRC_LABEL,
-#define	CB_SVC_PORT		CB_SRC_LABEL	/* Alias, non-overlapping */
-#define	CB_PROXY_MAGIC		CB_SRC_LABEL	/* Alias, non-overlapping */
-#define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL	/* Alias, non-overlapping */
+#define	CB_SVC_PORT		CB_SRC_LABEL
+#define	CB_PROXY_MAGIC		CB_SRC_LABEL
+#define	CB_ENCRYPT_MAGIC	CB_SRC_LABEL
 	CB_IFINDEX,
-#define	CB_SVC_ADDR_V4		CB_IFINDEX	/* Alias, non-overlapping */
-#define	CB_SVC_ADDR_V6_1	CB_IFINDEX	/* Alias, non-overlapping */
-#define	CB_ENCRYPT_IDENTITY	CB_IFINDEX	/* Alias, non-overlapping */
-#define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX	/* Alias, non-overlapping */
+#define	CB_SVC_ADDR_V4		CB_IFINDEX
+#define	CB_SVC_ADDR_V6_1	CB_IFINDEX
+#define	CB_ENCRYPT_IDENTITY	CB_IFINDEX
+#define	CB_IPCACHE_SRC_LABEL	CB_IFINDEX
 	CB_POLICY,
-#define	CB_SVC_ADDR_V6_2	CB_POLICY	/* Alias, non-overlapping */
+#define	CB_SVC_ADDR_V6_2	CB_POLICY
 	CB_NAT46_STATE,
-#define CB_NAT			CB_NAT46_STATE	/* Alias, non-overlapping */
-#define	CB_SVC_ADDR_V6_3	CB_NAT46_STATE	/* Alias, non-overlapping */
-#define	CB_FROM_HOST		CB_NAT46_STATE	/* Alias, non-overlapping */
+#define CB_NAT			CB_NAT46_STATE
+#define	CB_SVC_ADDR_V6_3	CB_NAT46_STATE
+#define	CB_FROM_HOST		CB_NAT46_STATE
 	CB_CT_STATE,
-#define	CB_SVC_ADDR_V6_4	CB_CT_STATE	/* Alias, non-overlapping */
-#define	CB_ENCRYPT_DST		CB_CT_STATE	/* Alias, non-overlapping,
-						 * Not used by xfrm.
-						 */
+#define	CB_SVC_ADDR_V6_4	CB_CT_STATE
+#define	CB_ENCRYPT_DST		CB_CT_STATE	/* not used by xfrm */
+#define	CB_CT_MONITOR		CB_CT_STATE
 };
 
 /* State values for NAT46 */
