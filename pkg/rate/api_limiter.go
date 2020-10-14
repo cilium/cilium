@@ -64,7 +64,7 @@ type outcome string
 const (
 	outcomeParallelMaxWait outcome = "fail-parallel-wait"
 	outcomeLimitMaxWait    outcome = "fail-limit-wait"
-	outcomeReqCancelled            = "request-cancelled"
+	outcomeReqCancelled    outcome = "request-cancelled"
 )
 
 // APILimiter is an extension to x/time/rate.Limiter specifically for Cilium
