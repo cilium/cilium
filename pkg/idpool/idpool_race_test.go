@@ -20,11 +20,11 @@ import (
 	. "gopkg.in/check.v1"
 )
 
-// TestAllocateID in this file is too slow to run with race detector set, we
-// need to put it in a separate file so the unit tests don't time out while
-// running with race detector with a lower maxID than it would have been if we
-// ran it without the race detector.
+// TestAllocateID without the race detection enabled is too slow to run with
+// race detector set. Thus, we need to put it in a separate file so the unit
+// tests don't time out while running with race detector by having a lower
+// number of parallel go routines than it would have been if we ran it without
+// the race detector.
 func (s *IDPoolTestSuite) TestAllocateID(c *C) {
-	minID, maxID := 1, 25
-	s.testAllocatedID(c, minID, maxID)
+	s.testAllocatedID(c, 5)
 }

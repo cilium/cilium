@@ -17,6 +17,7 @@
 package idpool
 
 import (
+	"fmt"
 	"sort"
 	"sync"
 	"testing"
@@ -319,13 +320,21 @@ func (s *IDPoolTestSuite) BenchmarkUseAndRelease(c *C) {
 	}
 }
 
-func (s *IDPoolTestSuite) testAllocatedID(c *C, minID, maxID int) {
+func (s *IDPoolTestSuite) testAllocatedID(c *C, nGoRoutines int) {
+	bufferChannelSize := 100
+	minID, maxID := 1, 6000
+	if maxID-minID < nGoRoutines+bufferChannelSize {
+		panic(fmt.Sprintf("Number of go routines and size of the buffered channel (%d) "+
+			"should be lower than the number of IDs to be tested (%d)",
+			nGoRoutines+bufferChannelSize, maxID-minID))
+	}
+
 	p := NewIDPool(ID(minID), ID(maxID))
 
-	allocated := make(chan ID, 100)
+	allocated := make(chan ID, bufferChannelSize)
 	var allocators sync.WaitGroup
 
-	for i := 0; i < 256; i++ {
+	for i := 0; i < nGoRoutines; i++ {
 		allocators.Add(1)
 		go func() {
 			for i := 1; i <= maxID; i++ {
