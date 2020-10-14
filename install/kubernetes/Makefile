@@ -42,7 +42,7 @@ update-versions:
 	$(QUIET)grep -lRZ -e "version:" -e "appVersion:" $(CILIUM_CHARTS)/ | \
 		xargs -0 -l sed -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 $(VERSION)/g'
 	@# Fix up the cilium tag
-	$(QUIET)for chart in $(CILIUM_VALUES); do							\
+	$(QUIET)$(shell											\
 		if echo $(VERSION) | grep -q $(LATEST_VERSION_REGEX); then				\
 			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 latest/' $$chart;				\
 			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 Always/' $$chart;			\
@@ -52,7 +52,8 @@ update-versions:
 		else											\
 			sed -i 's/'$(CILIUM_TAG_REGEX)'/\1 v$(VERSION)/' $$chart;			\
 			sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 IfNotPresent/' $$chart;		\
-		fi; done
+		fi;											\
+	)
 
 lint:
 	$(QUIET)helm lint --with-subcharts --values ./cilium/values.yaml ./cilium
