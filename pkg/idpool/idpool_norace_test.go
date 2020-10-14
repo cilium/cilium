@@ -21,6 +21,5 @@ import (
 )
 
 func (s *IDPoolTestSuite) TestAllocateID(c *C) {
-	minID, maxID := 1, 6000
-	s.testAllocatedID(c, minID, maxID)
+	s.testAllocatedID(c, 256)
 }
