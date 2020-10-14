@@ -39,15 +39,8 @@ var (
 		int(unsafe.Sizeof(AffinityMatchValue{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			aKey, aVal := mapKey.(*AffinityMatchKey), mapValue.(*AffinityMatchValue)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, aKey, aVal); err != nil {
-				return nil, nil, err
-			}
-
-			return aKey.ToNetwork(), aVal, nil
-		}).WithCache()
+		bpf.ConvertKeyValue,
+	).WithCache()
 	Affinity4Map = bpf.NewMap(
 		Affinity4MapName,
 		bpf.MapTypeLRUHash,

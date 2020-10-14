@@ -49,15 +49,8 @@ var (
 		int(unsafe.Sizeof(Service4Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			svcKey, svcVal := mapKey.(*Service4Key), mapValue.(*Service4Value)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, svcKey, svcVal); err != nil {
-				return nil, nil, err
-			}
-
-			return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
-		}).WithCache()
+		bpf.ConvertKeyValue,
+	).WithCache()
 	Backend4Map = bpf.NewMap("cilium_lb4_backends",
 		bpf.MapTypeHash,
 		&Backend4Key{},
@@ -66,15 +59,8 @@ var (
 		int(unsafe.Sizeof(Backend4Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			backendVal := mapValue.(*Backend4Value)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, mapKey, backendVal); err != nil {
-				return nil, nil, err
-			}
-
-			return mapKey, backendVal.ToNetwork(), nil
-		}).WithCache()
+		bpf.ConvertKeyValue,
+	).WithCache()
 	RevNat4Map = bpf.NewMap("cilium_lb4_reverse_nat",
 		bpf.MapTypeHash,
 		&RevNat4Key{},
@@ -83,15 +69,8 @@ var (
 		int(unsafe.Sizeof(RevNat4Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			revKey, revNat := mapKey.(*RevNat4Key), mapValue.(*RevNat4Value)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, revKey, revNat); err != nil {
-				return nil, nil, err
-			}
-
-			return revKey.ToNetwork(), revNat.ToNetwork(), nil
-		}).WithCache()
+		bpf.ConvertKeyValue,
+	).WithCache()
 )
 
 // +k8s:deepcopy-gen=true
@@ -186,8 +165,9 @@ func NewService4Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, 
 }
 
 func (k *Service4Key) String() string {
-	addr := net.JoinHostPort(k.Address.String(), fmt.Sprintf("%d", k.Port))
-	if k.Scope == loadbalancer.ScopeInternal {
+	kHost := k.ToHost().(*Service4Key)
+	addr := net.JoinHostPort(kHost.Address.String(), fmt.Sprintf("%d", kHost.Port))
+	if kHost.Scope == loadbalancer.ScopeInternal {
 		addr += "/i"
 	}
 	return addr
