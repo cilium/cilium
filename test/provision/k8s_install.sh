@@ -3,7 +3,7 @@
 set -e
 
 HOST=$(hostname)
-export HELM_VERSION="3.1.1"
+export HELM_VERSION="3.3.4"
 export TOKEN="258062.5d84c017c9b2796c"
 export CILIUM_CONFIG_DIR="/opt/cilium"
 export PROVISIONSRC="/tmp/provision/"
@@ -20,9 +20,11 @@ CNI_INTEGRATION=$6
 
 # Kubeadm default parameters
 export KUBEADM_ADDR='192.168.36.11'
-export KUBEADM_POD_NETWORK='10.10.0.0'
-export KUBEADM_POD_CIDR='16'
+export KUBEADM_POD_CIDR='10.10.0.0/16'
+export KUBEADM_V1BETA2_POD_CIDR='10.10.0.0/16,fd02::/112'
 export KUBEADM_SVC_CIDR='10.96.0.0/12'
+export KUBEADM_V1BETA2_SVC_CIDR='10.96.0.0/12,fd03::/112'
+export IPV6_DUAL_STACK_FEATURE_GATE='true'
 export KUBEADM_CRI_SOCKET="/var/run/dockershim.sock"
 export KUBEADM_SLAVE_OPTIONS=""
 export KUBEADM_OPTIONS=""
@@ -37,7 +39,8 @@ if [ ! -f "${COREDNS_DEPLOYMENT}" ]; then
 fi
 
 if [ "${CNI_INTEGRATION}" == "flannel" ]; then
-    export KUBEADM_POD_NETWORK="10.244.0.0"
+    export KUBEADM_POD_CIDR="10.244.0.0/16"
+    export KUBEADM_V1BETA2_POD_CIDR="10.244.0.0/16,fd02::/112"
 fi
 
 source ${PROVISIONSRC}/helpers.bash
@@ -46,9 +49,11 @@ sudo bash -c "echo MaxSessions 200 >> /etc/ssh/sshd_config"
 sudo systemctl restart ssh
 
 if [[ ! $(helm version | grep ${HELM_VERSION}) ]]; then
-  retry_function "wget -nv https://get.helm.sh/helm-v${HELM_VERSION}-linux-amd64.tar.gz"
-  tar xzvf helm-v${HELM_VERSION}-linux-amd64.tar.gz
+  HELM_TAR=helm-v${HELM_VERSION}-linux-amd64.tar.gz
+  retry_function "wget -nv https://get.helm.sh/$HELM_TAR"
+  tar xzvf $HELM_TAR
   mv linux-amd64/helm /usr/local/bin/
+  rm -rf linux-amd64 $HELM_TAR
 fi
 helm version
 
@@ -64,7 +69,8 @@ sudo service serial-getty@ttyS0 start
 
 # TODO: Check if the k8s version is the same
 if [[ -f  "/etc/provision_finished" ]]; then
-    sudo dpkg -l | grep kubelet
+    echo "Checking that kubelet exists in path"
+    which kubelet
     echo "provision is finished, recompiling"
     $PROVISIONSRC/compile.sh
     exit 0
@@ -103,7 +109,7 @@ criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
 kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
 token: "{{ .TOKEN }}"
 networking:
-  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+  podSubnet: "{{ .KUBEADM_POD_CIDR }}"
 controlPlaneEndpoint: "k8s1:6443"
 EOF
 )
@@ -123,7 +129,7 @@ bootstrapTokens:
 kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
 networking:
   dnsDomain: cluster.local
-  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+  podSubnet: "{{ .KUBEADM_POD_CIDR }}"
   serviceSubnet: "{{ .KUBEADM_SVC_CIDR }}"
 nodeRegistration:
   criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
@@ -153,7 +159,7 @@ kind: ClusterConfiguration
 kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
 networking:
   dnsDomain: cluster.local
-  podSubnet: "{{ .KUBEADM_POD_NETWORK }}/{{ .KUBEADM_POD_CIDR}}"
+  podSubnet: "{{ .KUBEADM_POD_CIDR }}"
   serviceSubnet: "{{ .KUBEADM_SVC_CIDR }}"
 controlPlaneEndpoint: "k8s1:6443"
 controllerManager:
@@ -162,6 +168,44 @@ controllerManager:
 apiServer:
   extraArgs:
     "feature-gates": "{{ .API_SERVER_FEATURE_GATES }}"
+EOF
+)
+
+# V1BETA2 configuration is enabled with DualStack feature gate by default.
+# IPv6 only clusters can still be opted by setting IPv6 variable to 1.
+KUBEADM_CONFIG_V1BETA2=$(cat <<-EOF
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: InitConfiguration
+localAPIEndpoint:
+  advertiseAddress: "{{ .KUBEADM_ADDR }}"
+  bindPort: 6443
+bootstrapTokens:
+- groups:
+  - system:bootstrappers:kubeadm:default-node-token
+  token: {{ .TOKEN }}
+  ttl: 24h0m0s
+  usages:
+  - signing
+  - authentication
+nodeRegistration:
+  criSocket: "{{ .KUBEADM_CRI_SOCKET }}"
+---
+apiVersion: kubeadm.k8s.io/v1beta2
+kind: ClusterConfiguration
+kubernetesVersion: "v{{ .K8S_FULL_VERSION }}"
+featureGates:
+  IPv6DualStack: {{ .IPV6_DUAL_STACK_FEATURE_GATE }}
+networking:
+  dnsDomain: cluster.local
+  podSubnet: "{{ .KUBEADM_V1BETA2_POD_CIDR }}"
+  serviceSubnet: "{{ .KUBEADM_V1BETA2_SVC_CIDR }}"
+controlPlaneEndpoint: "k8s1:6443"
+controllerManager:
+  extraArgs:
+    "feature-gates": "{{ .CONTROLLER_FEATURE_GATES }},IPv6DualStack={{ .IPV6_DUAL_STACK_FEATURE_GATE }}"
+apiServer:
+  extraArgs:
+    "feature-gates": "{{ .API_SERVER_FEATURE_GATES }},IPv6DualStack={{ .IPV6_DUAL_STACK_FEATURE_GATE }}"
 EOF
 )
 
@@ -254,6 +298,34 @@ case $K8S_VERSION in
         CONTROLLER_FEATURE_GATES="EndpointSlice=true"
         API_SERVER_FEATURE_GATES="EndpointSlice=true"
         ;;
+    "1.18")
+        # kubeadm 1.18 requires conntrack to be installed, we can remove this
+        # once we have upgrade the VM image version.
+        sudo apt-get install -y conntrack
+        KUBERNETES_CNI_VERSION="0.8.7"
+        KUBERNETES_CNI_OS="-linux"
+        K8S_FULL_VERSION="1.18.9"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
+        KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
+        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
+        API_SERVER_FEATURE_GATES="EndpointSlice=true"
+        ;;
+    "1.19")
+        # kubeadm 1.19 requires conntrack to be installed, we can remove this
+        # once we have upgrade the VM image version.
+        sudo apt-get install -y conntrack
+        KUBERNETES_CNI_VERSION="0.8.7"
+        KUBERNETES_CNI_OS="-linux"
+        K8S_FULL_VERSION="1.19.2"
+        KUBEADM_OPTIONS="--ignore-preflight-errors=cri"
+        KUBEADM_SLAVE_OPTIONS="--discovery-token-unsafe-skip-ca-verification --ignore-preflight-errors=cri,SystemVerification"
+        sudo ln -sf $COREDNS_DEPLOYMENT $DNS_DEPLOYMENT
+        KUBEADM_CONFIG="${KUBEADM_CONFIG_V1BETA2}"
+        CONTROLLER_FEATURE_GATES="EndpointSlice=true"
+        API_SERVER_FEATURE_GATES="EndpointSlice=true"
+        ;;
 esac
 
 # TODO(brb) Enable after we switch k8s vsn in the kubeproxy-free job to >= v1.16
@@ -265,7 +337,7 @@ esac
 #Install kubernetes
 set +e
 case $K8S_VERSION in
-    "1.8"|"1.9"|"1.10"|"1.11"|"1.12"|"1.13"|"1.14"|"1.15"|"1.16"|"1.17")
+    "1.8"|"1.9"|"1.10"|"1.11"|"1.12"|"1.13"|"1.14"|"1.15"|"1.16"|"1.17"|"1.18"|"1.19")
         install_k8s_using_packages \
             kubernetes-cni=${KUBERNETES_CNI_VERSION}* \
             kubelet=${K8S_FULL_VERSION}* \
@@ -274,11 +346,11 @@ case $K8S_VERSION in
         if [ $? -ne 0 ]; then
             echo "falling back on binary k8s install"
             set -e
-            install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
+            install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
         fi
         ;;
-#   "1.17")
-#       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}"
+#   "1.19")
+#       install_k8s_using_binary "v${K8S_FULL_VERSION}" "v${KUBERNETES_CNI_VERSION}" "${KUBERNETES_CNI_OS}"
 #       ;;
 esac
 set -e
@@ -295,9 +367,11 @@ esac
 
 if [ "${IPv6}" -eq "1" ]; then
     KUBEADM_ADDR='[fd04::11]'
-    KUBEADM_POD_NETWORK="fd02::"
-    KUBEADM_POD_CIDR="112"
+    KUBEADM_POD_CIDR="fd02::/112"
     KUBEADM_SVC_CIDR="fd03::/112"
+    KUBEADM_V1BETA2_POD_CIDR="fd02::/112"
+    KUBEADM_V1BETA2_SVC_CIDR="fd03::/112"
+    IPV6_DUAL_STACK_FEATURE_GATE='false'
 fi
 
 sudo mkdir -p ${CILIUM_CONFIG_DIR}
@@ -359,9 +433,29 @@ else
     sudo systemctl stop etcd
 fi
 
+# Add aliases and bash completion for kubectl
+cat <<EOF >> /home/vagrant/.bashrc
+
+# kubectl
+source <(kubectl completion bash)
+alias k='kubectl'
+complete -F __start_kubectl k
+alias ks='kubectl -n kube-system'
+complete -F __start_kubectl ks
+alias kslogs='kubectl -n kube-system logs -l k8s-app=cilium --tail=-1'
+alias wk='watch -n2 kubectl get pods -o wide'
+alias wks='watch -n2 kubectl -n kube-system get pods -o wide'
+alias wka='watch -n2 kubectl get all --all-namespaces -o wide'
+cilium_pod() {
+    kubectl -n kube-system get pods -l k8s-app=cilium \
+            -o jsonpath="{.items[?(@.spec.nodeName == \"\$1\")].metadata.name}"
+}
+EOF
+
 # Create world network
 docker network create --subnet=192.168.9.0/24 outside
 docker run --net outside --ip 192.168.9.10 --restart=always -d docker.io/cilium/demo-httpd:latest
 docker run --net outside --ip 192.168.9.11 --restart=always -d docker.io/cilium/demo-httpd:latest
 
 sudo touch /etc/provision_finished
+
