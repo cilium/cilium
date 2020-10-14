@@ -111,15 +111,17 @@ func (b *ControllerSuite) TestAutoAdjust(c *check.C) {
 	c.Assert(err, check.IsNil)
 	c.Assert(req, check.Not(check.IsNil))
 
-	time.Sleep(20 * time.Millisecond)
+	time.Sleep(10 * time.Millisecond)
 	req.Done()
 
-	req, _ = a.Wait(context.Background())
-	time.Sleep(15 * time.Millisecond)
+	req, err = a.Wait(context.Background())
+	c.Assert(err, check.IsNil)
+	time.Sleep(10 * time.Millisecond)
 	req.Done()
 
-	req, _ = a.Wait(context.Background())
-	time.Sleep(18 * time.Millisecond)
+	req, err = a.Wait(context.Background())
+	c.Assert(err, check.IsNil)
+	time.Sleep(10 * time.Millisecond)
 	req.Done()
 
 	c.Assert(a.parallelRequests, check.Not(check.Equals), initialParallelRequests)
