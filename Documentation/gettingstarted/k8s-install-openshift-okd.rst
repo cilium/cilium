@@ -229,8 +229,8 @@ using AWS or GCP. Azure does not need additional configuration.
          aws_region="$(jq -r < "${CLUSTER_NAME}/metadata.json" '.aws.region')"
          cluster_tag="$(jq -r < "${CLUSTER_NAME}/metadata.json" '.aws.identifier[0] | to_entries | "Name=tag:\(.[0].key),Values=\(.[0].value)"')"
 
-         worker_sg="$(aws ec2 describe-security-groups --region "${aws_region}" --filters "${cluster_tag}" "Name=tag:Name,Values=${infraID}-worker-sg" | jq -r .SecurityGroups[0].GroupId)"
-         master_sg="$(aws ec2 describe-security-groups --region "${aws_region}" --filters "${cluster_tag}" "Name=tag:Name,Values=${infraID}-master-sg" | jq -r .SecurityGroups[0].GroupId)"
+         worker_sg="$(aws ec2 describe-security-groups --region "${aws_region}" --filters "${cluster_tag}" "Name=tag:Name,Values=${infraID}-worker-sg" | jq -r '.SecurityGroups[0].GroupId')"
+         master_sg="$(aws ec2 describe-security-groups --region "${aws_region}" --filters "${cluster_tag}" "Name=tag:Name,Values=${infraID}-master-sg" | jq -r '.SecurityGroups[0].GroupId')"
 
          aws ec2 authorize-security-group-ingress --region "${aws_region}" \
             --ip-permissions \
