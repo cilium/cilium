@@ -26,6 +26,11 @@ LLC   ?= llc
 HOST_CC    ?= gcc
 HOST_STRIP ?= strip
 
+ifeq ($(IMAGE_CROSS_TARGET_PLATFORM),linux/arm64)
+  HOST_CC ?= aarch64-linux-gnu-gcc
+  HOST_STRIP ?= aarch64-linux-gnu-strip
+endif
+
 # Define all at the top here so that Makefiles which include this one will hit
 # the 'all' target first (which we expect to be overridden by the includer).
 all:
