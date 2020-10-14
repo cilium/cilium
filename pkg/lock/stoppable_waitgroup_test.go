@@ -167,15 +167,16 @@ func (s *SemaphoredMutexSuite) TestWaitChannel(c *C) {
 func (s *SemaphoredMutexSuite) TestParallelism(c *C) {
 	l := NewStoppableWaitGroup()
 
-	// use math/rand instead of pkg/rand to avoid a test import cycle which
-	// go vet would complain about.
-	randGen := rand.New(rand.NewSource(time.Now().UnixNano()))
+	// Use math/rand instead of pkg/rand to avoid a test import cycle which
+	// go vet would complain about. Use the global default entropy source
+	// rather than creating a new source to avoid concurrency issues.
+	rand.Seed(time.Now().UnixNano())
 	in := make(chan int)
 	stop := make(chan struct{})
 	go func() {
 		for {
 			select {
-			case in <- randGen.Intn(1 - 0):
+			case in <- rand.Intn(1 - 0):
 			case <-stop:
 				close(in)
 				return
@@ -200,7 +201,7 @@ func (s *SemaphoredMutexSuite) TestParallelism(c *C) {
 		}()
 	}
 
-	time.Sleep(time.Duration(randGen.Intn(3-0)) * time.Second)
+	time.Sleep(time.Duration(rand.Intn(3-0)) * time.Second)
 	close(stop)
 	wg.Wait()
 	add := atomic.LoadInt64(&adds)
