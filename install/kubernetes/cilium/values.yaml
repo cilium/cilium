@@ -407,23 +407,22 @@ hostServices:
   # protocols is the list of protocols to support
   protocols: tcp,udp
 
+
+# Configure Hubble.
 hubble:
+  # Enable Hubble (true by default).
   enabled: true
+
   # Buffer size of the channel Hubble uses to receive monitor events. If this value is not set,
   # the queue size is set to the default monitor queue size.
   # eventQueueSize: ""
+
   # Number of recent flows for Hubble to cache. Defaults to 4096.
   # flowBufferSize: ""
-  # An additional address to listen to, for example:
-  #
-  # listenAddress: ":4244"
-  #
-  # Set this field ":4244" if you are enabling hubble-relay, as it assumes that Hubble is listening
-  # on port 4244.
-  # listenAddress: ":4244"
+
   # Hubble metrics configuration.
-  # See https://github.com/cilium/hubble/blob/master/Documentation/metrics.md for more comprehensive
-  # documentation about Hubble's metric collection.
+  # See https://docs.cilium.io/en/stable/configuration/metrics/#hubble-metrics
+  # for more comprehensive documentation about Hubble metrics.
   metrics:
     # List of metrics to collect. If empty or null, metrics are disabled.
     # Example:
@@ -449,39 +448,50 @@ hubble:
       enabled: false
 
   metricsServer: ""
+
+  # Unix domain socket path to listen to when Hubble is enabled.
   socketPath: /var/run/cilium/hubble.sock
-  # Enable mutual TLS for listenAddress. Setting this value to false is
-  # highly discouraged as the Hubble API provides access to potentially
-  # sensitive network flow metadata and is exposed on the host network.
+
+  # An additional address for Hubble to listen to.
+  # Set this field ":4244" if you are enabling Hubble Relay, as it assumes that
+  # Hubble is listening on port 4244.
+  # listenAddress: ":4244"
+
+  # TLS configuration for Hubble
   tls:
+    # Enable mutual TLS for listenAddress. Setting this value to false is
+    # highly discouraged as the Hubble API provides access to potentially
+    # sensitive network flow metadata and is exposed on the host network.
     enabled: true
     # Configure automatic TLS certificates generation.
     auto:
       # When set to true, automatically generate a CA and certificates to
-      # enable mTLS between Hubble server and Hubble Relay. If set to false,
-      # the certs for Hubble server need to be provided by setting
-      # appropriate values in the hubble-tls chart.
+      # enable mTLS between Hubble server and Hubble Relay instances. If set to
+      # false, the certs for Hubble server need to be provided by setting
+      # appropriate values below.
       enabled: true
       # Sets the method to auto-generate certificates. Currently, only "helm"
       # is supported. This method uses Helm to generate certificates.
       method: helm
       # Generated certificates validity duration in days.
       certValidityDuration: 1095
-    # base64 encoded PEM values for the hubble CA certificate
+    # base64 encoded PEM values for the Hubble CA certificate
     ca:
       cert: ""
-    # base64 encoded PEM values for the hubble server certificate and private key
+    # base64 encoded PEM values for the Hubble server certificate and private key
     server:
       cert: ""
       key: ""
+
+  # Configuration for Hubble Relay
   relay:
+    # Enable Hubble Relay (requires hubble.enabled=true)
     enabled: false
 
     serviceAccount:
       create: true
       annotations: {}
 
-    # Configuration for Hubble Relay
     image:
       repository: docker.io/cilium/hubble-relay
       tag: latest
@@ -527,6 +537,24 @@ hubble:
     # Port to listen to.
     listenPort: "4245"
 
+    # TLS configuration for Hubble Relay
+    tls:
+      # base64 encoded PEM values for the hubble-relay client certificate and private key
+      # This keypair is presented to Hubble server instances for mTLS
+      # authentication and is required when hubble.tls.enabled is true.
+      # These values need to be set manually if hubble.tls.auto.enabled is false.
+      client:
+        cert: ""
+        key: ""
+      # base64 encoded PEM values for the hubble-relay server certificate and private key
+      server:
+        # When set to true, enable TLS on for Hubble Relay server
+        # (ie: for clients connecting to the Hubble Relay API).
+        enabled: false
+        # These values need to be set manually if hubble.tls.auto.enabled is false.
+        cert: ""
+        key: ""
+
     # Dial timeout to connect to the local hubble instance to receive peer information (e.g. "30s").
     dialTimeout: ~
 
@@ -546,16 +574,6 @@ hubble:
     # port 80 if not.
     # servicePort: 80
 
-    tls:
-      # base64 encoded PEM values for the hubble-relay client certificate and private key
-      client:
-        cert: ""
-        key: ""
-      # base64 encoded PEM values for the hubble-relay server certificate and private key
-      server:
-        enabled: false
-        cert: ""
-        key: ""
   ui:
     enabled: false
 
