@@ -2220,15 +2220,17 @@ func (kub *Kubectl) overwriteHelmOptions(options map[string]string) error {
 	}
 
 	if !RunsWithKubeProxy() {
-		nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
-		if err != nil {
-			return fmt.Errorf("Cannot retrieve Node IP for k8s1: %s", err)
-		}
-
 		opts := map[string]string{
 			"kubeProxyReplacement": "strict",
-			"k8sServiceHost":       nodeIP,
-			"k8sServicePort":       "6443",
+		}
+
+		if GetCurrentIntegration() != CIIntegrationGKE {
+			nodeIP, err := kub.GetNodeIPByLabel(K8s1, false)
+			if err != nil {
+				return fmt.Errorf("Cannot retrieve Node IP for k8s1: %s", err)
+			}
+			opts["k8sServiceHost"] = nodeIP
+			opts["k8sServicePort"] = "6443"
 		}
 
 		if RunsOnNetNextOr419Kernel() {
