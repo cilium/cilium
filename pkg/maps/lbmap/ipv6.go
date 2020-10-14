@@ -35,15 +35,8 @@ var (
 		int(unsafe.Sizeof(Service6Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			svcKey, svcVal := mapKey.(*Service6Key), mapValue.(*Service6Value)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, svcKey, svcVal); err != nil {
-				return nil, nil, err
-			}
-
-			return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
-		}).WithCache()
+		bpf.ConvertKeyValue,
+	).WithCache()
 	Backend6Map = bpf.NewMap("cilium_lb6_backends",
 		bpf.MapTypeHash,
 		&Backend6Key{},
@@ -52,15 +45,8 @@ var (
 		int(unsafe.Sizeof(Backend6Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			backendVal := mapValue.(*Backend6Value)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, mapKey, backendVal); err != nil {
-				return nil, nil, err
-			}
-
-			return mapKey, backendVal.ToNetwork(), nil
-		}).WithCache()
+		bpf.ConvertKeyValue,
+	).WithCache()
 	// RevNat6Map represents the BPF map for reverse NAT in IPv6 load balancer
 	RevNat6Map = bpf.NewMap("cilium_lb6_reverse_nat",
 		bpf.MapTypeHash,
@@ -70,15 +56,8 @@ var (
 		int(unsafe.Sizeof(RevNat6Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			revKey, revNat := mapKey.(*RevNat6Key), mapValue.(*RevNat6Value)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, revKey, revNat); err != nil {
-				return nil, nil, err
-			}
-
-			return revKey.ToNetwork(), revNat.ToNetwork(), nil
-		}).WithCache()
+		bpf.ConvertKeyValue,
+	).WithCache()
 )
 
 // +k8s:deepcopy-gen=true
@@ -172,7 +151,8 @@ func NewService6Key(ip net.IP, port uint16, proto u8proto.U8proto, slave uint16)
 }
 
 func (k *Service6Key) String() string {
-	return fmt.Sprintf("[%s]:%d", k.Address, k.Port)
+	kHost := k.ToHost().(*Service6Key)
+	return fmt.Sprintf("[%s]:%d", kHost.Address, kHost.Port)
 }
 
 func (k *Service6Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
