@@ -385,8 +385,8 @@ data:
 {{- if .Values.global.iptablesLockTimeout }}
   iptables-lock-timeout: {{ .Values.global.iptablesLockTimeout | quote }}
 {{- end }}
-{{- if .Values.global.ipTablesRandomFully }}
-  iptables-random-fully: {{ .Values.global.ipTablesRandomFully | quote }}
+{{- if .Values.global.iptablesRandomFully }}
+  iptables-random-fully: {{ .Values.global.iptablesRandomFully | quote }}
 {{- end }}
   auto-direct-node-routes: {{ .Values.global.autoDirectNodeRoutes | quote }}
 {{- if .Values.global.nativeRoutingCIDR }}

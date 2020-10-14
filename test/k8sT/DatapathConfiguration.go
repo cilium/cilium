@@ -273,7 +273,7 @@ var _ = Describe("K8sDatapathConfig", func() {
 		It("Check iptables masquerading with random-fully", func() {
 			deploymentManager.DeployCilium(map[string]string{
 				"bpf.masquerade":      "false",
-				"ipTablesRandomFully": "true",
+				"iptablesRandomFully": "true",
 			}, DeployCiliumOptionsAndDNS)
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
 
