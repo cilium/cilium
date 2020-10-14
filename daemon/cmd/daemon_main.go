@@ -1373,9 +1373,11 @@ func runDaemon() {
 	bootstrapStats.enableConntrack.End(true)
 
 	bootstrapStats.k8sInit.Start()
-	// Wait only for certain caches, but not all!
-	// (Check Daemon.InitK8sSubsystem() for more info)
-	<-d.k8sCachesSynced
+	if k8s.IsEnabled() {
+		// Wait only for certain caches, but not all!
+		// (Check Daemon.InitK8sSubsystem() for more info)
+		<-d.k8sCachesSynced
+	}
 	bootstrapStats.k8sInit.End(true)
 	restoreComplete := d.initRestore(restoredEndpoints)
 
