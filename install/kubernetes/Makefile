@@ -30,6 +30,16 @@ EXPERIMENTAL_OPTIONS := \
     --set hubble.ui.enabled=true \
     --set bandwidthManager=true
 
+DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
+	--workdir /src/install/kubernetes \
+	--volume $(CURDIR)/../..:/src \
+	--user "$(shell id -u):$(shell id -g)"
+
+HELM_DOCS_VERSION := "v1.3.0"
+HELM_DOCS_SHA := "12f065115654c9a1d6819b938487d327f1fdb5c32bdc2a5c74afef22ed68f5ca"
+HELM_DOCS_IMAGE := "docker.io/jnorwood/helm-docs:$(HELM_DOCS_VERSION)@sha256:$(HELM_DOCS_SHA)"
+HELM_DOCS := $(DOCKER_RUN) $(HELM_DOCS_IMAGE)
+
 all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL)
 
 $(QUICK_INSTALL) quick-install: $(shell find cilium/ -type f) update-versions
@@ -76,4 +86,7 @@ lint:
 clean:
 	$(RM) $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL)
 
-.PHONY: all clean update-versions lint quick-install experimental-install
+docs:
+	$(QUIET)$(HELM_DOCS)
+
+.PHONY: all clean update-versions lint quick-install experimental-install docs
