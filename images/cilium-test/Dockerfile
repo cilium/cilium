@@ -3,7 +3,7 @@
 # Copyright 2020 Authors of Cilium
 # SPDX-License-Identifier: Apache-2.0
 
-ARG CILIUM_BUILDER_IMAGE=docker.io/cilium/cilium-builder-dev:618b6b93c98b3075048861a512fa93525ef3f1f1
+ARG CILIUM_BUILDER_IMAGE=docker.io/cilium/cilium-builder-dev:73e2f220d7ddf84e8eda58e9908fa24098223241
 ARG UBUNTU_IMAGE=docker.io/library/ubuntu:20.04@sha256:8bce67040cd0ae39e0beb55bcb976a824d9966d2ac8d2e4bf6119b45505cee64
 
 FROM ${UBUNTU_IMAGE} as rootfs
