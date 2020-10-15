@@ -21,6 +21,7 @@ import (
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/identity/cache"
 	"github.com/cilium/cilium/pkg/labels"
+	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/policy/api"
 	"github.com/cilium/cilium/pkg/policy/trafficdirection"
@@ -183,6 +184,9 @@ func (ds *PolicyTestSuite) TestL3WithIngressDenyWildcard(c *C) {
 	// Have to remove circular reference before testing to avoid an infinite loop
 	policy.selectorPolicy.Detach()
 
+	// Assign an empty mutex so that checker.Equal does not complain about the
+	// difference of the internal time.Time from the lock_debug.go.
+	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 }
 
@@ -264,6 +268,9 @@ func (ds *PolicyTestSuite) TestL3WithLocalHostWildcardd(c *C) {
 	// Have to remove circular reference before testing to avoid an infinite loop
 	policy.selectorPolicy.Detach()
 
+	// Assign an empty mutex so that checker.Equal does not complain about the
+	// difference of the internal time.Time from the lock_debug.go.
+	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 }
 
@@ -355,6 +362,9 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDenyWildcard(c *C) {
 	// Have to remove circular reference before testing to avoid an infinite loop
 	policy.selectorPolicy.Detach()
 
+	// Assign an empty mutex so that checker.Equal does not complain about the
+	// difference of the internal time.Time from the lock_debug.go.
+	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
 	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 }
 
@@ -492,6 +502,10 @@ func (ds *PolicyTestSuite) TestMapStateWithIngressDeny(c *C) {
 	cachedSelectorTest = testSelectorCache.FindCachedIdentitySelector(api.NewESFromLabels(lblTest))
 	c.Assert(cachedSelectorTest, IsNil)
 
+	// Assign an empty mutex so that checker.Equal does not complain about the
+	// difference of the internal time.Time from the lock_debug.go.
+	policy.selectorPolicy.L4Policy.mutex = lock.RWMutex{}
+	policy.policyMapChanges.mutex = lock.Mutex{}
 	c.Assert(policy, checker.Equals, &expectedEndpointPolicy)
 
 	allows, deletes := policy.ConsumeMapChanges()
