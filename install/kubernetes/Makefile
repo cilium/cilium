@@ -10,6 +10,7 @@ HUBBLE_PROXY_VERSION := "v1.14.5"
 HUBBLE_UI_VERSION := "v0.7.2"
 MANAGED_ETCD_VERSION := "v2.0.7"
 NODEINIT_VERSION := "af2a99046eca96c0138551393b21a5c044c7fe79"
+CERTGEN_VERSION := "v0.1.0@sha256:904d659b735abcb41412cfac0238471569ff7f923bda68493f29383c85bee2d2"
 
 QUICK_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/quick-install.yaml"
 EXPERIMENTAL_INSTALL := "$(ROOT_DIR)/$(RELATIVE_DIR)/experimental-install.yaml"
@@ -24,7 +25,8 @@ CILIUM_PULLPOLICY_REGEX := '\([pP]ullPolicy:\) .*'
 EXPERIMENTAL_OPTIONS := \
     --set hubble.enabled=true \
     --set hubble.listenAddress=":4244" \
-    --set hubble.tls.enabled=false \
+    --set hubble.tls.auto.enabled=true \
+    --set hubble.tls.auto.method="cronJob" \
     --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}" \
     --set hubble.relay.enabled=true \
     --set hubble.ui.enabled=true \
@@ -77,6 +79,8 @@ update-versions:
 		sed -i '/repository.*envoy.*/{!b;n;s/tag.*/tag: '$(HUBBLE_PROXY_VERSION)'/}' $(CILIUM_VALUES)			\
 		# nodeinit.image.tag												\
 		sed -i '/repository.*cilium\/startup-script.*/{!b;n;s/tag.*/tag: '$(NODEINIT_VERSION)'/}' $(CILIUM_VALUES)	\
+		# hubble.tls.auto.cronJob.image.tag										\
+		sed -i '/repository.*certgen.*/{!b;n;s/tag.*/tag: '$(CERTGEN_VERSION)'/}' $(CILIUM_VALUES);			\
 		sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 '$$pull_policy'/' $$chart;						\
 	)
 
