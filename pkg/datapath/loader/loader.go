@@ -243,9 +243,16 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 			directions = append(directions, dirEgress)
 			objPaths = append(objPaths, netdevObjPath)
 		} else {
-			// Remove any previously attached device from egress path if BPF
-			// NodePort is disabled.
-			l.DeleteDatapath(ctx, device, dirEgress)
+			hasDatapath, err := l.HasDatapath(ctx, device, dirEgress)
+			if err != nil {
+				log.WithField("device", device).Error(err)
+			}
+			if hasDatapath || err != nil {
+				// Remove any previously attached device from egress path if BPF
+				// NodePort and host firewall are disabled.
+				err := l.DeleteDatapath(ctx, device, dirEgress)
+				log.WithField("device", device).Error(err)
+			}
 		}
 	}
 
