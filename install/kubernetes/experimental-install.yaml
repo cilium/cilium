@@ -13,6 +13,13 @@ metadata:
   name: cilium-operator
   namespace: kube-system
 ---
+# Source: cilium/templates/hubble-generate-certs-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: hubble-generate-certs
+  namespace: kube-system
+---
 # Source: cilium/templates/hubble-relay-serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -162,7 +169,10 @@ data:
     http
   # An additional address for Hubble server to listen to (e.g. ":4244").
   hubble-listen-address: ":4244"
-  hubble-disable-tls: "true"
+  hubble-disable-tls: "false"
+  hubble-tls-cert-file: /var/lib/cilium/tls/hubble/server.crt
+  hubble-tls-key-file: /var/lib/cilium/tls/hubble/server.key
+  hubble-tls-client-ca-files: /var/lib/cilium/tls/hubble/client-ca.crt
   ipam: "cluster-pool"
   cluster-pool-ipv4-cidr: "10.0.0.0/8"
   cluster-pool-ipv4-mask-size: "24"
@@ -182,7 +192,9 @@ data:
     retry-timeout: 
     sort-buffer-len-max: 
     sort-buffer-drain-timeout: 
-    disable-client-tls: true
+    tls-client-cert-file: /var/lib/hubble-relay/tls/client.crt
+    tls-client-key-file: /var/lib/hubble-relay/tls/client.key
+    tls-hubble-server-ca-files: /var/lib/hubble-relay/tls/hubble-server-ca.crt
     disable-server-tls: true
 ---
 # Source: cilium/templates/hubble-ui-configmap.yaml
@@ -444,6 +456,38 @@ rules:
   - get
   - update
 ---
+# Source: cilium/templates/hubble-generate-certs-clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: hubble-generate-certs
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+      - configmaps
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - hubble-server-certs
+      - hubble-relay-client-certs
+      - hubble-relay-server-certs
+    verbs:
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - configmaps
+    resourceNames:
+      - hubble-ca-cert
+    verbs:
+      - update
+---
 # Source: cilium/templates/hubble-relay-clusterrole.yaml
 kind: ClusterRole
 apiVersion: rbac.authorization.k8s.io/v1
@@ -534,6 +578,20 @@ roleRef:
 subjects:
 - kind: ServiceAccount
   name: cilium-operator
+  namespace: kube-system
+---
+# Source: cilium/templates/hubble-generate-certs-clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: hubble-generate-certs
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: hubble-generate-certs
+subjects:
+- kind: ServiceAccount
+  name: hubble-generate-certs
   namespace: kube-system
 ---
 # Source: cilium/templates/hubble-relay-clusterrolebinding.yaml
@@ -775,6 +833,9 @@ spec:
           readOnly: true
         - mountPath: /run/xtables.lock
           name: xtables-lock
+        - mountPath: /var/lib/cilium/tls/hubble
+          name: hubble-tls
+          readOnly: true
       hostNetwork: true
       initContainers:
       - command:
@@ -863,6 +924,23 @@ spec:
       - configMap:
           name: cilium-config
         name: cilium-config-path
+      - name: hubble-tls
+        projected:
+          sources:
+          - secret:
+              name: hubble-server-certs
+              items:
+                - key: tls.crt
+                  path: server.crt
+                - key: tls.key
+                  path: server.key
+              optional: true
+          - configMap:
+              name: hubble-ca-cert
+              items:
+                - key: ca.crt
+                  path: client-ca.crt
+              optional: true
 ---
 # Source: cilium/templates/cilium-operator-deployment.yaml
 apiVersion: apps/v1
@@ -1015,6 +1093,9 @@ spec:
           - mountPath: /etc/hubble-relay
             name: config
             readOnly: true
+          - mountPath: /var/lib/hubble-relay/tls
+            name: tls
+            readOnly: true
       restartPolicy: Always
       serviceAccount: hubble-relay
       serviceAccountName: hubble-relay
@@ -1030,6 +1111,21 @@ spec:
           path: /var/run/cilium
           type: Directory
         name: hubble-sock-dir
+      - projected:
+          sources:
+          - secret:
+              name: hubble-relay-client-certs
+              items:
+                - key: tls.crt
+                  path: client.crt
+                - key: tls.key
+                  path: client.key
+          - configMap:
+              name: hubble-ca-cert
+              items:
+                - key: ca.crt
+                  path: hubble-server-ca.crt
+        name: tls
 ---
 # Source: cilium/templates/hubble-ui-deployment.yaml
 kind: Deployment
@@ -1099,3 +1195,91 @@ spec:
         - name: hubble-ui-envoy-yaml
           configMap:
             name: hubble-ui-envoy
+---
+# Source: cilium/templates/hubble-generate-certs-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: hubble-generate-certs
+  namespace: kube-system
+  labels:
+    k8s-app: hubble-generate-certs
+spec:
+  template:
+    metadata:
+      labels:
+        k8s-app: hubble-generate-certs
+    spec:
+      serviceAccount: hubble-generate-certs
+      serviceAccountName: hubble-generate-certs
+      containers:
+        - name: certgen
+          image: docker.io/cilium/certgen:v0.1.0@sha256:904d659b735abcb41412cfac0238471569ff7f923bda68493f29383c85bee2d2
+          imagePullPolicy: IfNotPresent
+          command:
+            - "/usr/bin/cilium-certgen"
+          args:
+            - "--hubble-ca-generate=true"
+            - "--hubble-ca-validity-duration=94608000s"
+            - "--hubble-ca-config-map-name=hubble-ca-cert"
+            - "--hubble-ca-config-map-namespace=kube-system"
+            - "--hubble-server-cert-generate=true"
+            - "--hubble-server-cert-validity-duration=94608000s"
+            - "--hubble-server-cert-secret-name=hubble-server-certs"
+            - "--hubble-server-cert-secret-namespace=kube-system"
+            - "--hubble-relay-client-cert-generate=true"
+            - "--hubble-relay-client-cert-validity-duration=94608000s"
+            - "--hubble-relay-client-cert-secret-name=hubble-relay-client-certs"
+            - "--hubble-relay-client-cert-secret-namespace=kube-system"
+            - "--hubble-relay-server-cert-generate=false"
+          volumeMounts:
+      hostNetwork: true
+      restartPolicy: OnFailure
+      volumes:
+  ttlSecondsAfterFinished: 1800
+---
+# Source: cilium/templates/hubble-generate-certs-cronjob.yaml
+apiVersion: batch/v1beta1
+kind: CronJob
+metadata:
+  name: hubble-generate-certs
+  namespace: kube-system
+  labels:
+    k8s-app: hubble-generate-certs
+spec:
+  schedule: "0 0 1 */4 *"
+  concurrencyPolicy: Forbid
+  jobTemplate:
+    spec:
+      template:
+        metadata:
+          labels:
+            k8s-app: hubble-generate-certs
+        spec:
+          serviceAccount: hubble-generate-certs
+          serviceAccountName: hubble-generate-certs
+          containers:
+            - name: certgen
+              image: docker.io/cilium/certgen:v0.1.0@sha256:904d659b735abcb41412cfac0238471569ff7f923bda68493f29383c85bee2d2
+              imagePullPolicy: IfNotPresent
+              command:
+                - "/usr/bin/cilium-certgen"
+              args:
+                - "--hubble-ca-generate=true"
+                - "--hubble-ca-validity-duration=94608000s"
+                - "--hubble-ca-config-map-name=hubble-ca-cert"
+                - "--hubble-ca-config-map-namespace=kube-system"
+                - "--hubble-server-cert-generate=true"
+                - "--hubble-server-cert-validity-duration=94608000s"
+                - "--hubble-server-cert-secret-name=hubble-server-certs"
+                - "--hubble-server-cert-secret-namespace=kube-system"
+                - "--hubble-relay-client-cert-generate=true"
+                - "--hubble-relay-client-cert-validity-duration=94608000s"
+                - "--hubble-relay-client-cert-secret-name=hubble-relay-client-certs"
+                - "--hubble-relay-client-cert-secret-namespace=kube-system"
+                - "--hubble-relay-server-cert-generate=false"
+              volumeMounts:
+          hostNetwork: true
+          restartPolicy: OnFailure
+          volumes:
+      ttlSecondsAfterFinished: 1800
