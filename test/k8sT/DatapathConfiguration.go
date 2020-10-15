@@ -481,6 +481,10 @@ var _ = Describe("K8sDatapathConfig", func() {
 			deployCilium(opts)
 		})
 
+		AfterEach(func() {
+			_ = kubectl.Action("delete", etcdManifest, helpers.CiliumNamespace)
+		})
+
 		It("Check connectivity", func() {
 			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(),
 				"Connectivity test between nodes failed")
