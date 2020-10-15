@@ -15,7 +15,7 @@ services:
     command: "etcd -name etcd0 -advertise-client-urls http://0.0.0.0:4002 -listen-client-urls http://0.0.0.0:4002 -initial-cluster-token etcd-cluster-1 -initial-cluster-state new"
     privileged: true
   base_image:
-    image: "quay.io/cilium/cilium-builder:2020-09-10@sha256:2567fd2da2b9f160f0788418fc2cdd02a2cbda51538c3cf9c41160fd167a77c7"
+    image: "quay.io/cilium/cilium-builder:2020-10-15@sha256:97f6ab98d78747f2840966d71b7727c080d9f802d19c38104bf7b17b291358d0"
     volumes:
       - "./../:/go/src/github.com/cilium/cilium/"
     privileged: true
