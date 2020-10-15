@@ -488,10 +488,6 @@ hubble:
     # Enable Hubble Relay (requires hubble.enabled=true)
     enabled: false
 
-    serviceAccount:
-      create: true
-      annotations: {}
-
     image:
       repository: docker.io/cilium/hubble-relay
       tag: latest
@@ -621,10 +617,6 @@ hubble:
       #         cpu: 100m
       #         memory: 64Mi
       resources: {}
-
-    serviceAccount:
-      create: true
-      annotations: {}
 
     replicas: 1
 
