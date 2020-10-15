@@ -17,6 +17,7 @@ package loader
 import (
 	"context"
 	"fmt"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -140,4 +141,16 @@ func (l *Loader) DeleteDatapath(ctx context.Context, ifName, direction string) e
 	}
 
 	return nil
+}
+
+// HasDatapath return true if the interface as a tc filter attached on the given direction.
+func (l *Loader) HasDatapath(ctx context.Context, ifName, direction string) (bool, error) {
+	args := []string{"filter", "show", "dev", ifName, direction}
+	cmd := exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
+	output, err := cmd.Output(log, true)
+	if err != nil {
+		return false, fmt.Errorf("Failed to get tc filter: %s", err)
+	}
+
+	return strings.TrimSpace(string(output)) != "", nil
 }
