@@ -38,6 +38,17 @@ jobs:
         run: |
           make -C install/kubernetes lint
 
+  helm-docs:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+
+      - name: Run helm-docs
+        run: |
+          make -C install/kubernetes docs
+          git diff --exit-code
+
   quick-install:
     strategy:
       matrix:
