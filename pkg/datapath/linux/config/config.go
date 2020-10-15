@@ -356,16 +356,20 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		cDefinesMap["ENABLE_HOST_FIREWALL"] = "1"
 	}
 
-	if option.Config.EncryptInterface != "" {
-		link, err := netlink.LinkByName(option.Config.EncryptInterface)
+	if iface := option.Config.EncryptInterface; iface != "" {
+		link, err := netlink.LinkByName(iface)
 		if err == nil {
 			cDefinesMap["ENCRYPT_IFACE"] = fmt.Sprintf("%d", link.Attrs().Index)
 
 			addr, err := netlink.AddrList(link, netlink.FAMILY_V4)
-			if err == nil {
-				a := byteorder.HostSliceToNetwork(addr[0].IPNet.IP, reflect.Uint32).(uint32)
-				cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
+			if err != nil {
+				return err
 			}
+			if len(addr) == 0 {
+				return fmt.Errorf("no IPv4 addresses available in encrypt interface %q", iface)
+			}
+			a := byteorder.HostSliceToNetwork(addr[0].IPNet.IP, reflect.Uint32).(uint32)
+			cDefinesMap["IPV4_ENCRYPT_IFACE"] = fmt.Sprintf("%d", a)
 		}
 	}
 	if option.Config.IsPodSubnetsDefined() {
