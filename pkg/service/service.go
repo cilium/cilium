@@ -46,7 +46,7 @@ var (
 type LBMap interface {
 	UpsertService(*lbmap.UpsertServiceParams) error
 	DeleteService(lb.L3n4AddrID, int, bool) error
-	AddBackend(uint16, net.IP, lb.L4Type, uint16, bool) error
+	AddBackend(uint16, net.IP, uint16, bool) error
 	DeleteBackendByID(uint16, bool) error
 	AddAffinityMatch(uint16, uint16) error
 	DeleteAffinityMatch(uint16, uint16) error
@@ -702,7 +702,6 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		}).Debug("Adding new backend")
 
 		if err := s.lbmap.AddBackend(uint16(b.ID), b.L3n4Addr.IP,
-			b.L3n4Addr.L4Addr.Protocol,
 			b.L3n4Addr.L4Addr.Port, ipv6); err != nil {
 			return err
 		}
@@ -718,7 +717,6 @@ func (s *Service) upsertServiceIntoLBMaps(svc *svcInfo, onlyLocalBackends bool,
 		ID:                        uint16(svc.frontend.ID),
 		IP:                        svc.frontend.L3n4Addr.IP,
 		Port:                      svc.frontend.L3n4Addr.L4Addr.Port,
-		Protocol:                  string(svc.frontend.L3n4Addr.L4Addr.Protocol),
 		Backends:                  backends,
 		PrevBackendCount:          prevBackendCount,
 		IPv6:                      ipv6,

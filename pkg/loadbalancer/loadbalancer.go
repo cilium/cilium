@@ -160,7 +160,6 @@ func (s ServiceFlags) UInt16() uint16 {
 }
 
 const (
-	// NONE type.
 	NONE = L4Type("NONE")
 	// TCP type.
 	TCP = L4Type("TCP")
@@ -266,25 +265,14 @@ func (s *SVC) GetModel() *models.Service {
 	}
 }
 
-func NewL4Type(name string) L4Type {
+func NewL4Type(name string) (L4Type, error) {
 	switch strings.ToLower(name) {
 	case "tcp":
-		return TCP
+		return TCP, nil
 	case "udp":
-		return UDP
+		return UDP, nil
 	default:
-		return NONE
-	}
-}
-
-func NewL4TypeFromNumber(proto uint8) L4Type {
-	switch proto {
-	case 6:
-		return TCP
-	case 17:
-		return UDP
-	default:
-		return NONE
+		return "", fmt.Errorf("unknown L4 protocol")
 	}
 }
 
@@ -319,11 +307,6 @@ func (l *L4Addr) DeepCopy() *L4Addr {
 	}
 }
 
-// String returns a string representation of an L4Addr
-func (l *L4Addr) String() string {
-	return fmt.Sprintf("%d/%s", l.Port, l.Protocol)
-}
-
 // L3n4Addr is used to store, as an unique L3+L4 address in the KVStore. It also
 // includes the lookup scope for frontend addresses which is used in service
 // handling for externalTrafficPolicy=Local, that is, Scope{External,Internal}.
@@ -353,9 +336,16 @@ func NewL3n4AddrFromModel(base *models.FrontendAddress) (*L3n4Addr, error) {
 		return nil, fmt.Errorf("missing IP address")
 	}
 
-	p := NewL4Type(base.Protocol)
+	proto := NONE
+	if base.Protocol != "" {
+		p, err := NewL4Type(base.Protocol)
+		if err != nil {
+			return nil, err
+		}
+		proto = p
+	}
 
-	l4addr := NewL4Addr(p, base.Port)
+	l4addr := NewL4Addr(proto, base.Port)
 	ip := net.ParseIP(base.IP)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", base.IP)
@@ -388,8 +378,8 @@ func NewBackendFromBackendModel(base *models.BackendAddress) (*Backend, error) {
 		return nil, fmt.Errorf("missing IP address")
 	}
 
-	p := NewL4Type(base.Protocol)
-	l4addr := NewL4Addr(p, base.Port)
+	// FIXME: Should this be NONE ?
+	l4addr := NewL4Addr(NONE, base.Port)
 	ip := net.ParseIP(*base.IP)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
@@ -403,8 +393,8 @@ func NewL3n4AddrFromBackendModel(base *models.BackendAddress) (*L3n4Addr, error)
 		return nil, fmt.Errorf("missing IP address")
 	}
 
-	p := NewL4Type(base.Protocol)
-	l4addr := NewL4Addr(p, base.Port)
+	// FIXME: Should this be NONE ?
+	l4addr := NewL4Addr(NONE, base.Port)
 	ip := net.ParseIP(*base.IP)
 	if ip == nil {
 		return nil, fmt.Errorf("invalid IP address \"%s\"", *base.IP)
@@ -422,10 +412,9 @@ func (a *L3n4Addr) GetModel() *models.FrontendAddress {
 		scope = models.FrontendAddressScopeInternal
 	}
 	return &models.FrontendAddress{
-		IP:       a.IP.String(),
-		Port:     a.Port,
-		Scope:    scope,
-		Protocol: a.Protocol,
+		IP:    a.IP.String(),
+		Port:  a.Port,
+		Scope: scope,
 	}
 }
 
@@ -439,13 +428,25 @@ func (b *Backend) GetBackendModel() *models.BackendAddress {
 		IP:       &ip,
 		Port:     b.Port,
 		NodeName: b.NodeName,
-		Protocol: b.Protocol,
 	}
 }
 
-// String returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]" format for IPv4 and
-// "[IPv6]:Port/Protocol[/Scope]" format for IPv6.
+// String returns the L3n4Addr in the "IPv4:Port[/Scope]" format for IPv4 and
+// "[IPv6]:Port[/Scope]" format for IPv6.
 func (a *L3n4Addr) String() string {
+	var scope string
+	if a.Scope == ScopeInternal {
+		scope = "/i"
+	}
+	if a.IsIPv6() {
+		return fmt.Sprintf("[%s]:%d%s", a.IP.String(), a.Port, scope)
+	}
+	return fmt.Sprintf("%s:%d%s", a.IP.String(), a.Port, scope)
+}
+
+// StringWithProtocol returns the L3n4Addr in the "IPv4:Port/Protocol[/Scope]"
+// format for IPv4 and "[IPv6]:Port/Protocol[/Scope]" format for IPv6.
+func (a *L3n4Addr) StringWithProtocol() string {
 	var scope string
 	if a.Scope == ScopeInternal {
 		scope = "/i"
@@ -476,7 +477,14 @@ func (a *L3n4Addr) DeepCopy() *L3n4Addr {
 
 // Hash calculates L3n4Addr's internal SHA256Sum.
 func (a L3n4Addr) Hash() string {
-	str := []byte(fmt.Sprintf("%s", a.String()))
+	// FIXME: Remove Protocol's omission once we care about protocols.
+	protoBak := a.Protocol
+	a.Protocol = ""
+	defer func() {
+		a.Protocol = protoBak
+	}()
+
+	str := []byte(fmt.Sprintf("%+v", a))
 	return fmt.Sprintf("%x", sha512.Sum512_256(str))
 }
 

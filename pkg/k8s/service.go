@@ -442,6 +442,18 @@ func NewService(ip net.IP, externalIPs, loadBalancerIPs, loadBalancerSourceRange
 	}
 }
 
+// UniquePorts returns a map of all unique ports configured in the service
+func (s *Service) UniquePorts() map[uint16]bool {
+	// We are not discriminating the different L4 protocols on the same L4
+	// port so we create the number of unique sets of service IP + service
+	// port.
+	uniqPorts := map[uint16]bool{}
+	for _, p := range s.Ports {
+		uniqPorts[p.Port] = true
+	}
+	return uniqPorts
+}
+
 // NewClusterService returns the serviceStore.ClusterService representing a
 // Kubernetes Service
 func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoints) serviceStore.ClusterService {

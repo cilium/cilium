@@ -224,16 +224,16 @@ port ``31940`` (one for each of devices ``eth0`` and ``eth1``):
 .. parsed-literal::
 
     kubectl exec -it -n kube-system cilium-fmh8d -- cilium service list
-    ID   Frontend                   Service Type   Backend
+    ID   Frontend               Service Type   Backend                    
     [...]
-    4    10.104.239.135:80/TCP      ClusterIP      1 => 10.217.0.107:80/TCP
-                                                   2 => 10.217.0.149:80/TCP
-    5    0.0.0.0:31940/TCP          NodePort       1 => 10.217.0.107:80/TCP
-                                                   2 => 10.217.0.149:80/TCP
-    6    192.168.178.29:31940/TCP   NodePort       1 => 10.217.0.107:80/TCP
-                                                   2 => 10.217.0.149:80/TCP
-    7    172.16.0.29:31940/TCP      NodePort       1 => 10.217.0.107:80/TCP
-                                                   2 => 10.217.0.149:80/TCP
+    4    10.104.239.135:80      ClusterIP      1 => 10.217.0.107:80       
+                                               2 => 10.217.0.149:80       
+    5    0.0.0.0:31940          NodePort       1 => 10.217.0.107:80       
+                                               2 => 10.217.0.149:80       
+    6    192.168.178.29:31940   NodePort       1 => 10.217.0.107:80       
+                                               2 => 10.217.0.149:80       
+    7    172.16.0.29:31940      NodePort       1 => 10.217.0.107:80       
+                                               2 => 10.217.0.149:80       
 
 At the same time we can inspect through ``iptables`` in the host namespace
 that no ``iptables`` rule for the service is present:

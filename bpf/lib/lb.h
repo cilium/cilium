@@ -500,7 +500,8 @@ static __always_inline int lb6_extract_key(struct __ctx_buff *ctx __maybe_unused
 					   int dir)
 {
 	union v6addr *addr;
-	key->proto = tuple->nexthdr;
+	/* FIXME(brb): set after adding support for different L4 protocols in LB */
+	key->proto = 0;
 	addr = (dir == CT_INGRESS) ? &tuple->saddr : &tuple->daddr;
 	ipv6_addr_copy(&key->address, addr);
 	csum_l4_offset_and_flags(tuple->nexthdr, csum_off);
@@ -1019,7 +1020,8 @@ static __always_inline int lb4_extract_key(struct __ctx_buff *ctx __maybe_unused
 					   struct csum_offset *csum_off,
 					   int dir)
 {
-	key->proto = ip4->protocol;
+	/* FIXME: set after adding support for different L4 protocols in LB */
+	key->proto = 0;
 	key->address = (dir == CT_INGRESS) ? ip4->saddr : ip4->daddr;
 	if (ipv4_has_l4_header(ip4))
 		csum_l4_offset_and_flags(ip4->protocol, csum_off);
