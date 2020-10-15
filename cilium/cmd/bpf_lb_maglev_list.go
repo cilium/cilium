@@ -48,36 +48,40 @@ var bpfMaglevListCmd = &cobra.Command{
 	},
 }
 
-func dumpMaglevTables(tables map[string][]string) {
-	lookupTableSize := 0
+var lookupTableSize = 0
 
-	parse := func(key bpf.MapKey, value bpf.MapValue) {
-		v := value.(*lbmap.MaglevOuterVal)
-		k := key.(*lbmap.MaglevOuterKey)
+func parseMaglevEntry(key bpf.MapKey, value bpf.MapValue, tables map[string][]string) {
+	k := key.(*lbmap.MaglevOuterKey)
+	v := value.(*lbmap.MaglevOuterVal)
 
-		// Determine lookup table size by inspecting the first inner map
-		if lookupTableSize == 0 {
-			fd, err := bpf.MapFdFromID(int(v.FD))
-			if err != nil {
-				Fatalf("Unable to get map fd by id %d: %s", v.FD, err)
-			}
-			m, err := bpf.GetMapInfoByFd(uint32(fd))
-			if err != nil {
-				Fatalf("Unable to get map info by fd %d: %s", fd, err)
-			}
-			lookupTableSize = int(m.ValueSize) / 2
-		}
-
-		table := make([]uint16, lookupTableSize)
-		zero := uint32(0)
+	// Determine lookup table size by inspecting the first inner map
+	if lookupTableSize == 0 {
 		fd, err := bpf.MapFdFromID(int(v.FD))
 		if err != nil {
 			Fatalf("Unable to get map fd by id %d: %s", v.FD, err)
 		}
-		if err := bpf.LookupElement(int(fd), unsafe.Pointer(&zero), unsafe.Pointer(&table[0])); err != nil {
-			Fatalf("Unable to lookup element in map by fd %d: %s", fd, err)
+		m, err := bpf.GetMapInfoByFd(uint32(fd))
+		if err != nil {
+			Fatalf("Unable to get map info by fd %d: %s", fd, err)
 		}
-		tables[k.ToNetwork().String()] = []string{fmt.Sprintf("%v", table)}
+		lookupTableSize = int(m.ValueSize) / 2
+	}
+
+	table := make([]uint16, lookupTableSize)
+	zero := uint32(0)
+	fd, err := bpf.MapFdFromID(int(v.FD))
+	if err != nil {
+		Fatalf("Unable to get map fd by id %d: %s", v.FD, err)
+	}
+	if err := bpf.LookupElement(int(fd), unsafe.Pointer(&zero), unsafe.Pointer(&table[0])); err != nil {
+		Fatalf("Unable to lookup element in map by fd %d: %s", fd, err)
+	}
+	tables[k.ToNetwork().String()] = []string{fmt.Sprintf("%v", table)}
+}
+
+func dumpMaglevTables(tables map[string][]string) {
+	parse := func(key bpf.MapKey, value bpf.MapValue) {
+		parseMaglevEntry(key, value, tables)
 	}
 
 	for _, name := range []string{lbmap.MaglevOuter4MapName, lbmap.MaglevOuter6MapName} {
