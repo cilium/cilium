@@ -19,7 +19,6 @@ import (
 	"net"
 
 	"github.com/cilium/cilium/pkg/cidr"
-	"github.com/cilium/cilium/pkg/loadbalancer"
 	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/maps/lbmap"
 )
@@ -52,7 +51,7 @@ func (m *LBMockMap) UpsertService(p *lbmap.UpsertServiceParams) error {
 
 	svc, found := m.ServiceByID[p.ID]
 	if !found {
-		frontend := lb.NewL3n4AddrID(loadbalancer.NewL4Type(p.Protocol), p.IP, p.Port, p.Scope, lb.ID(p.ID))
+		frontend := lb.NewL3n4AddrID(lb.NONE, p.IP, p.Port, p.Scope, lb.ID(p.ID))
 		svc = &lb.SVC{Frontend: *frontend}
 	} else {
 		if p.PrevBackendCount != len(svc.Backends) {
@@ -83,12 +82,12 @@ func (m *LBMockMap) DeleteService(addr lb.L3n4AddrID, backendCount int, maglev b
 	return nil
 }
 
-func (m *LBMockMap) AddBackend(id uint16, ip net.IP, protocol lb.L4Type, port uint16, ipv6 bool) error {
+func (m *LBMockMap) AddBackend(id uint16, ip net.IP, port uint16, ipv6 bool) error {
 	if _, found := m.BackendByID[id]; found {
 		return fmt.Errorf("Backend %d already exists", id)
 	}
 
-	m.BackendByID[id] = lb.NewBackend(lb.BackendID(id), protocol, ip, port)
+	m.BackendByID[id] = lb.NewBackend(lb.BackendID(id), lb.NONE, ip, port)
 
 	return nil
 }

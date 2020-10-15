@@ -799,12 +799,9 @@ func (s *SSHMeta) ServiceIsSynced(id int) (bool, error) {
 		return false, err
 	}
 
-	frontendAddr := serviceAddressKey(
+	frontendAddr := net.JoinHostPort(
 		svc.Status.Realized.FrontendAddress.IP,
-		fmt.Sprintf("%d", svc.Status.Realized.FrontendAddress.Port),
-		svc.Status.Realized.FrontendAddress.Protocol,
-		"",
-	)
+		fmt.Sprintf("%d", svc.Status.Realized.FrontendAddress.Port))
 	lb, ok := bpfLB[frontendAddr]
 	if ok == false {
 		return false, fmt.Errorf(

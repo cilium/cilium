@@ -120,20 +120,20 @@ var _ = Describe("K8sServicesTest", func() {
 		return backends
 	}
 
-	ciliumAddService := func(id int64, protocol string, frontend string, backends []string, svcType, trafficPolicy string) {
+	ciliumAddService := func(id int64, frontend string, backends []string, svcType, trafficPolicy string) {
 		ciliumPods, err := kubectl.GetCiliumPods()
 		ExpectWithOffset(1, err).To(BeNil(), "Cannot get cilium pods")
 		for _, pod := range ciliumPods {
-			err := kubectl.CiliumServiceAdd(pod, id, protocol, frontend, backends, svcType, trafficPolicy)
+			err := kubectl.CiliumServiceAdd(pod, id, frontend, backends, svcType, trafficPolicy)
 			ExpectWithOffset(1, err).To(BeNil(), "Failed to add cilium service")
 		}
 	}
 
-	ciliumAddServiceOnNode := func(node string, id int64, protocol string, frontend string, backends []string, svcType, trafficPolicy string) {
+	ciliumAddServiceOnNode := func(node string, id int64, frontend string, backends []string, svcType, trafficPolicy string) {
 		ciliumPod, err := kubectl.GetCiliumPodOnNode(node)
 		ExpectWithOffset(1, err).To(BeNil(), fmt.Sprintf("Cannot get cilium pod on node %s", node))
 
-		err = kubectl.CiliumServiceAdd(ciliumPod, id, protocol, frontend, backends, svcType, trafficPolicy)
+		err = kubectl.CiliumServiceAdd(ciliumPod, id, frontend, backends, svcType, trafficPolicy)
 		ExpectWithOffset(1, err).To(BeNil(), fmt.Sprintf("Failed to add cilium service on node %s", node))
 	}
 
@@ -324,14 +324,14 @@ var _ = Describe("K8sServicesTest", func() {
 			BeforeAll(func() {
 				// Installs the IPv6 equivalent of app1-service (demo.yaml)
 				httpBackends := ciliumIPv6Backends("-l k8s:id=app1,k8s:io.kubernetes.pod.namespace=default", "80")
-				ciliumAddService(10080, "tcp", net.JoinHostPort(demoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
+				ciliumAddService(10080, net.JoinHostPort(demoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
 				tftpBackends := ciliumIPv6Backends("-l k8s:id=app1,k8s:io.kubernetes.pod.namespace=default", "69")
-				ciliumAddService(10069, "udp", net.JoinHostPort(demoClusterIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
+				ciliumAddService(10069, net.JoinHostPort(demoClusterIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
 				// Installs the IPv6 equivalent of echo (echo-svc.yaml)
 				httpBackends = ciliumIPv6Backends("-l k8s:name=echo,k8s:io.kubernetes.pod.namespace=default", "80")
-				ciliumAddService(20080, "tcp", net.JoinHostPort(echoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
+				ciliumAddService(20080, net.JoinHostPort(echoClusterIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
 				tftpBackends = ciliumIPv6Backends("-l k8s:name=echo,k8s:io.kubernetes.pod.namespace=default", "69")
-				ciliumAddService(20069, "udp", net.JoinHostPort(echoClusterIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
+				ciliumAddService(20069, net.JoinHostPort(echoClusterIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
 			})
 
 			AfterAll(func() {
@@ -347,7 +347,7 @@ var _ = Describe("K8sServicesTest", func() {
 				status.ExpectSuccess("cannot curl to service IP from host")
 
 				status = kubectl.ExecInHostNetNS(context.TODO(), k8s1NodeName,
-					helpers.CurlFail(`"tftp://[%s]/hell"`, demoClusterIPv6))
+					helpers.CurlFail(`"tftp://[%s]/hello"`, demoClusterIPv6))
 				status.ExpectSuccess("cannot curl to service IP from host")
 			})
 
@@ -610,9 +610,9 @@ var _ = Describe("K8sServicesTest", func() {
 			BeforeAll(func() {
 				// Install rules for testds-service (demo_ds.yaml)
 				httpBackends := ciliumIPv6Backends("-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "80")
-				ciliumAddService(31080, "tcp", net.JoinHostPort(testDSIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
+				ciliumAddService(31080, net.JoinHostPort(testDSIPv6, "80"), httpBackends, "ClusterIP", "Cluster")
 				tftpBackends := ciliumIPv6Backends("-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "69")
-				ciliumAddService(31069, "udp", net.JoinHostPort(testDSIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
+				ciliumAddService(31069, net.JoinHostPort(testDSIPv6, "69"), tftpBackends, "ClusterIP", "Cluster")
 			})
 
 			AfterAll(func() {
@@ -1515,21 +1515,21 @@ var _ = Describe("K8sServicesTest", func() {
 
 				// Install rules for testds-service NodePort Service(demo_ds.yaml)
 				httpBackends := ciliumIPv6Backends("-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "80")
-				ciliumAddService(31080, string(data.Spec.Ports[0].Protocol), net.JoinHostPort(testDSIPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)), httpBackends, "NodePort", "Cluster")
-				ciliumAddService(31081, string(data.Spec.Ports[0].Protocol), net.JoinHostPort("::", fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)), httpBackends, "NodePort", "Cluster")
+				ciliumAddService(31080, net.JoinHostPort(testDSIPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)), httpBackends, "NodePort", "Cluster")
+				ciliumAddService(31081, net.JoinHostPort("::", fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)), httpBackends, "NodePort", "Cluster")
 				// Add service corresponding to IPv6 address of the nodes so that they become
 				// reachable from outside the cluster.
-				ciliumAddServiceOnNode(helpers.K8s1, 31082, string(data.Spec.Ports[0].Protocol), net.JoinHostPort(k8s1IPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)),
+				ciliumAddServiceOnNode(helpers.K8s1, 31082, net.JoinHostPort(k8s1IPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)),
 					httpBackends, "NodePort", "Cluster")
-				ciliumAddServiceOnNode(helpers.K8s2, 31082, string(data.Spec.Ports[0].Protocol), net.JoinHostPort(k8s2IPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)),
+				ciliumAddServiceOnNode(helpers.K8s2, 31082, net.JoinHostPort(k8s2IPv6, fmt.Sprintf("%d", data.Spec.Ports[0].NodePort)),
 					httpBackends, "NodePort", "Cluster")
 
 				tftpBackends := ciliumIPv6Backends("-l k8s:zgroup=testDS,k8s:io.kubernetes.pod.namespace=default", "69")
-				ciliumAddService(31069, string(data.Spec.Ports[1].Protocol), net.JoinHostPort(testDSIPv6, fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)), tftpBackends, "NodePort", "Cluster")
-				ciliumAddService(31070, string(data.Spec.Ports[1].Protocol), net.JoinHostPort("::", fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)), tftpBackends, "NodePort", "Cluster")
-				ciliumAddServiceOnNode(helpers.K8s1, 31071, string(data.Spec.Ports[1].Protocol), net.JoinHostPort(k8s1IPv6, fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)),
+				ciliumAddService(31069, net.JoinHostPort(testDSIPv6, fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)), tftpBackends, "NodePort", "Cluster")
+				ciliumAddService(31070, net.JoinHostPort("::", fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)), tftpBackends, "NodePort", "Cluster")
+				ciliumAddServiceOnNode(helpers.K8s1, 31071, net.JoinHostPort(k8s1IPv6, fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)),
 					tftpBackends, "NodePort", "Cluster")
-				ciliumAddServiceOnNode(helpers.K8s2, 31071, string(data.Spec.Ports[1].Protocol), net.JoinHostPort(k8s2IPv6, fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)),
+				ciliumAddServiceOnNode(helpers.K8s2, 31071, net.JoinHostPort(k8s2IPv6, fmt.Sprintf("%d", data.Spec.Ports[1].NodePort)),
 					tftpBackends, "NodePort", "Cluster")
 			})
 
