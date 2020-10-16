@@ -19,6 +19,8 @@ LATEST_VERSION_REGEX := '[0-9]\+\.[0-9]\+\.90'
 DEV_VERSION_REGEX := '[0-9]\+\.[0-9]\+-dev'
 CILIUM_CHART_REGEX := '\([vV]ersion:\) '$(VERSION_REGEX)
 CILIUM_PULLPOLICY_REGEX := '\([pP]ullPolicy:\) .*'
+QUICK_OPTIONS := \
+    --set hubble.tls.enabled=false
 EXPERIMENTAL_OPTIONS := \
     --set hubble.enabled=true \
     --set hubble.listenAddress=":4244" \
@@ -42,7 +44,7 @@ HELM_DOCS := $(DOCKER_RUN) $(HELM_DOCS_IMAGE)
 all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL)
 
 $(QUICK_INSTALL) quick-install: $(shell find cilium/ -type f) update-versions
-	$(QUIET)helm template cilium cilium --namespace=kube-system > $(QUICK_INSTALL)
+	$(QUIET)helm template cilium cilium --namespace=kube-system $(QUICK_OPTIONS) > $(QUICK_INSTALL)
 
 $(EXPERIMENTAL_INSTALL) experimental-install: $(shell find cilium/ -type f) update-versions
 	$(QUIET)helm template cilium cilium --namespace=kube-system $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
