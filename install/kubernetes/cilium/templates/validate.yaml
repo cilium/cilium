@@ -8,8 +8,4 @@
   {{- if not .Values.hubble.enabled }}
     {{ fail "Hubble Relay requires .Values.hubble.enabled=true" }}
   {{- end }}
-  {{/* the port is currently hard-coded and need to be set to this specific value */}}
-  {{- if ne .Values.hubble.listenAddress ":4244" }}
-    {{ fail "Hubble Relay requires .Values.hubble.listenAddress=:4244" }}
-  {{- end }}
 {{- end }}
