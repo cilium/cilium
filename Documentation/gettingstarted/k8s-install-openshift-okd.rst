@@ -161,11 +161,9 @@ Copy Cilium manifest to ``${CLUSTER_NAME}/manifests``:
 
 .. code:: bash
 
-   for component in config agent operator
-      do for resource in cilium/charts/${component}/templates/*
-          do cp "${resource}" "${CLUSTER_NAME}/manifests/cluster-network-04-cilium-${component}-$(basename ${resource})"
-      done
-   done
+    for resource in cilium/templates/*
+        do cp "${resource}" "${CLUSTER_NAME}/manifests/cluster-network-04-cilium-$(basename ${resource})"
+    done
 
 Create the cluster:
 
