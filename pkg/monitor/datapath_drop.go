@@ -18,6 +18,7 @@ import (
 	"encoding/json"
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -34,8 +35,8 @@ type DropNotify struct {
 	Hash     uint32
 	OrigLen  uint32
 	CapLen   uint32
-	SrcLabel uint32
-	DstLabel uint32
+	SrcLabel identity.NumericIdentity
+	DstLabel identity.NumericIdentity
 	DstID    uint32
 	Unused   uint32
 	// data
@@ -43,7 +44,7 @@ type DropNotify struct {
 
 // DumpInfo prints a summary of the drop messages.
 func (n *DropNotify) DumpInfo(data []byte) {
-	fmt.Printf("xx drop (%s) flow %#x to endpoint %d, identity %d->%d: %s\n",
+	fmt.Printf("xx drop (%s) flow %#x to endpoint %d, identity %s->%s: %s\n",
 		api.DropReason(n.SubType), n.Hash, n.DstID, n.SrcLabel, n.DstLabel,
 		GetConnectionSummary(data[DropNotifyLen:]))
 }
@@ -54,7 +55,7 @@ func (n *DropNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 		prefix, n.Hash, n.Source, n.OrigLen, api.DropReason(n.SubType))
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
-		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)
+		fmt.Printf(", identity %s->%s", n.SrcLabel, n.DstLabel)
 	}
 
 	if n.DstID != 0 {
@@ -95,11 +96,11 @@ type DropNotifyVerbose struct {
 	Mark      string `json:"mark,omitempty"`
 	Reason    string `json:"reason,omitempty"`
 
-	Source   uint16 `json:"source"`
-	Bytes    uint32 `json:"bytes"`
-	SrcLabel uint32 `json:"srcLabel"`
-	DstLabel uint32 `json:"dstLabel"`
-	DstID    uint32 `json:"dstID"`
+	Source   uint16                   `json:"source"`
+	Bytes    uint32                   `json:"bytes"`
+	SrcLabel identity.NumericIdentity `json:"srcLabel"`
+	DstLabel identity.NumericIdentity `json:"dstLabel"`
+	DstID    uint32                   `json:"dstID"`
 
 	Summary *DissectSummary `json:"summary,omitempty"`
 }

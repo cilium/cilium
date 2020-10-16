@@ -23,6 +23,7 @@ import (
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/byteorder"
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 	"github.com/cilium/cilium/pkg/types"
 )
@@ -58,8 +59,8 @@ type TraceNotifyV0 struct {
 	OrigLen  uint32
 	CapLen   uint16
 	Version  uint16
-	SrcLabel uint32
-	DstLabel uint32
+	SrcLabel identity.NumericIdentity
+	DstLabel identity.NumericIdentity
 	DstID    uint16
 	Reason   uint8
 	Flags    uint8
@@ -201,11 +202,11 @@ func (n *TraceNotify) DataOffset() uint {
 func (n *TraceNotify) DumpInfo(data []byte) {
 	hdrLen := n.DataOffset()
 	if n.encryptReason() != "" {
-		fmt.Printf("%s %s flow %#x identity %d->%d state %s ifindex %s orig-ip %s: %s\n",
+		fmt.Printf("%s %s flow %#x identity %s->%s state %s ifindex %s orig-ip %s: %s\n",
 			n.traceSummary(), n.encryptReason(), n.Hash, n.SrcLabel, n.DstLabel,
 			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
 	} else {
-		fmt.Printf("%s flow %#x identity %d->%d state %s ifindex %s orig-ip %s: %s\n",
+		fmt.Printf("%s flow %#x identity %s->%s state %s ifindex %s orig-ip %s: %s\n",
 			n.traceSummary(), n.Hash, n.SrcLabel, n.DstLabel,
 			n.traceReason(), ifname(int(n.Ifindex)), n.OriginalIP().String(), GetConnectionSummary(data[hdrLen:]))
 	}
@@ -221,7 +222,7 @@ func (n *TraceNotify) DumpVerbose(dissect bool, data []byte, prefix string) {
 	}
 
 	if n.SrcLabel != 0 || n.DstLabel != 0 {
-		fmt.Printf(", identity %d->%d", n.SrcLabel, n.DstLabel)
+		fmt.Printf(", identity %s->%s", n.SrcLabel, n.DstLabel)
 	}
 
 	fmt.Printf(", orig-ip " + n.OriginalIP().String())
@@ -268,11 +269,11 @@ type TraceNotifyVerbose struct {
 	ObservationPoint string `json:"observationPoint"`
 	TraceSummary     string `json:"traceSummary"`
 
-	Source   uint16 `json:"source"`
-	Bytes    uint32 `json:"bytes"`
-	SrcLabel uint32 `json:"srcLabel"`
-	DstLabel uint32 `json:"dstLabel"`
-	DstID    uint16 `json:"dstID"`
+	Source   uint16                   `json:"source"`
+	Bytes    uint32                   `json:"bytes"`
+	SrcLabel identity.NumericIdentity `json:"srcLabel"`
+	DstLabel identity.NumericIdentity `json:"dstLabel"`
+	DstID    uint16                   `json:"dstID"`
 
 	Summary *DissectSummary `json:"summary,omitempty"`
 }
