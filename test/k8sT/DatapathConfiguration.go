@@ -62,7 +62,6 @@ var _ = Describe("K8sDatapathConfig", func() {
 	})
 
 	AfterAll(func() {
-		DeployCiliumAndDNS(kubectl, ciliumFilename)
 		kubectl.CloseSSHClient()
 	})
 
