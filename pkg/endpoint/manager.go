@@ -60,7 +60,9 @@ func (e *Endpoint) Expose(mgr endpointManager) error {
 	// its ID, and its eventqueue can be safely started. Ensure that it is only
 	// started once it is exposed to the endpointmanager so that it will be
 	// stopped when the endpoint is removed from the endpointmanager.
-	e.eventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", e.ID), option.Config.EndpointQueueSize)
+	if e.eventQueue == nil {
+		e.InitEventQueue()
+	}
 	e.eventQueue.Run()
 
 	mgr.AddIPv6Address(e.IPv6)
@@ -166,4 +168,18 @@ func (e *Endpoint) Unexpose(mgr endpointManager) <-chan struct{} {
 	}(e)
 	e.removeReferences(mgr)
 	return epRemoved
+}
+
+// InitEventQueue initializes the endpoint's event queue. Note that this
+// function does not begin processing events off the queue, as that's left up
+// to the caller to call Expose in order to allow other subsystems to access
+// the endpoint. This function assumes that the endpoint ID has already been
+// allocated!
+//
+// Having this be a separate function allows us to prepare
+// the event queue while the endpoint is being validated (during restoration)
+// so that when its metadata is resolved, events can be enqueued (such as
+// visibility policy and bandwidth policy).
+func (e *Endpoint) InitEventQueue() {
+	e.eventQueue = eventqueue.NewEventQueueBuffered(fmt.Sprintf("endpoint-%d", e.ID), option.Config.EndpointQueueSize)
 }
