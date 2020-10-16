@@ -49,8 +49,8 @@ Download the Cilium performance evaluation scripts:
 
 .. code-block:: shell-session
 
-  $ git clone https://github.com/cilium/perfeval.git
-  $ cd perfeval
+  $ git clone https://github.com/cilium/cilium-perf-networking.git
+  $ cd cilium-perf-networking
 
 Packet Servers
 --------------
@@ -60,8 +60,7 @@ the Packet machines to use a `"Mixed/Hybrid"
 <https://www.packet.com/developers/docs/network/advanced/layer-2/>`_ network
 mode, where the secondary interfaces of the machines share a flat L2 network.
 While this can be done on the Packet web UI, we include appropriate Terraform
-files to automate this process.
-
+(version 0.13) files to automate this process.
 
 .. code-block:: shell-session
 
