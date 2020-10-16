@@ -1,4 +1,4 @@
-{{- if and (not .Values.preflight.enabled) .Values.agent .Values.hubble.enabled .Values.hubble.tls.enabled (hasKey .Values.hubble "listenAddress") }}
+{{- if and (not .Values.preflight.enabled) .Values.agent .Values.hubble.enabled .Values.hubble.tls.enabled }}
 {{- if or (and (.Values.hubble.tls.auto.enabled) (eq .Values.hubble.tls.auto.method "helm")) .Values.hubble.tls.ca.cert }}
 apiVersion: v1
 kind: ConfigMap
