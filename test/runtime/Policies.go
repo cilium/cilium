@@ -1568,7 +1568,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 				By("Testing cilium monitor output")
 				monitorRes.ExpectContains(
-					fmt.Sprintf("local EP ID %s, remote ID 1, proto 1, ingress, action audit", endpointID),
+					fmt.Sprintf("local EP ID %s, remote ID host, proto 1, ingress, action audit", endpointID),
 					"No ingress policy log record",
 				)
 
@@ -1609,7 +1609,7 @@ var _ = Describe("RuntimePolicies", func() {
 
 				By("Testing cilium monitor output")
 				monitorRes.ExpectContains(
-					fmt.Sprintf("ID %s, remote ID 1, proto 1, egress, action audit", endpointID),
+					fmt.Sprintf("ID %s, remote ID host, proto 1, egress, action audit", endpointID),
 					"No egress policy log record",
 				)
 

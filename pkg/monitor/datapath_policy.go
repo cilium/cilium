@@ -17,6 +17,7 @@ package monitor
 import (
 	"fmt"
 
+	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
 )
 
@@ -57,7 +58,7 @@ type PolicyVerdictNotify struct {
 	OrigLen     uint32
 	CapLen      uint16
 	Version     uint16
-	RemoteLabel uint32
+	RemoteLabel identity.NumericIdentity
 	Verdict     int32
 	DstPort     uint16
 	Proto       uint8
@@ -108,7 +109,7 @@ func (n *PolicyVerdictNotify) DumpInfo(data []byte) {
 	if n.IsTrafficIngress() {
 		dir = "ingress"
 	}
-	fmt.Printf("Policy verdict log: flow %#x local EP ID %d, remote ID %d, proto %d, %s, action %s, match %s, %s\n",
+	fmt.Printf("Policy verdict log: flow %#x local EP ID %d, remote ID %s, proto %d, %s, action %s, match %s, %s\n",
 		n.Hash, n.Source, n.RemoteLabel, n.Proto, dir, GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
 		n.GetPolicyMatchType(), GetConnectionSummary(data[PolicyVerdictNotifyLen:]))
 }

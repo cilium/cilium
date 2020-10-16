@@ -463,16 +463,16 @@ func decodeSecurityIdentities(dn *monitor.DropNotify, tn *monitor.TraceNotify, p
 ) {
 	switch {
 	case dn != nil:
-		sourceSecurityIdentiy = dn.SrcLabel
-		destinationSecurityIdentity = dn.DstLabel
+		sourceSecurityIdentiy = uint32(dn.SrcLabel)
+		destinationSecurityIdentity = uint32(dn.DstLabel)
 	case tn != nil:
-		sourceSecurityIdentiy = tn.SrcLabel
-		destinationSecurityIdentity = tn.DstLabel
+		sourceSecurityIdentiy = uint32(tn.SrcLabel)
+		destinationSecurityIdentity = uint32(tn.DstLabel)
 	case pvn != nil:
 		if pvn.IsTrafficIngress() {
-			sourceSecurityIdentiy = pvn.RemoteLabel
+			sourceSecurityIdentiy = uint32(pvn.RemoteLabel)
 		} else {
-			destinationSecurityIdentity = pvn.RemoteLabel
+			destinationSecurityIdentity = uint32(pvn.RemoteLabel)
 		}
 	}
 
