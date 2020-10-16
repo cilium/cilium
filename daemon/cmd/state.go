@@ -81,6 +81,12 @@ func (d *Daemon) validateEndpoint(ep *endpoint.Endpoint) (valid bool, err error)
 			return false, fmt.Errorf("Kubernetes pod %s/%s does not exist", ep.K8sNamespace, ep.K8sPodName)
 		}
 
+		// Initialize the endpoint's event queue because the following call to
+		// execute the metadata resolver will emit events for the endpoint.
+		// After this endpoint is validated, it'll eventually be restored, in
+		// which the endpoint manager will begin processing the events off the
+		// queue.
+		ep.InitEventQueue()
 		ep.RunMetadataResolver(d.fetchK8sLabelsAndAnnotations)
 	}
 
