@@ -4,6 +4,8 @@
     Please use the official rendered version released here:
     https://docs.cilium.io
 
+.. _generic_veth_cni_chaining:
+
 *********************
 Generic Veth Chaining
 *********************

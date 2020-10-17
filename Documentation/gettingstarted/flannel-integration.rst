@@ -10,6 +10,10 @@
 Cilium integration with Flannel (beta)
 **************************************
 
+.. warning::
+
+   Since availability of :ref:`cni_chaining` the recommended way to run Cilium on top of Flannel is :ref:`generic_veth_cni_chaining`.
+
 This guide contains the necessary steps to run Cilium on top of your Flannel
 cluster.
 
