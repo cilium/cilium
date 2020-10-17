@@ -149,3 +149,8 @@ jobs:
         with:
           name: cilium-sysdump-out.zip
           path: cilium-sysdump-out.zip
+
+      - name: Clean up helm
+        if: ${{ always() }}
+        run: |
+          helm delete cilium --namespace kube-system
