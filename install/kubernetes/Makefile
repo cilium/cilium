@@ -46,10 +46,10 @@ HELM_DOCS := $(DOCKER_RUN) $(HELM_DOCS_IMAGE)
 all: update-versions $(QUICK_INSTALL) $(EXPERIMENTAL_INSTALL) docs
 
 $(QUICK_INSTALL) quick-install: $(shell find cilium/ -type f) update-versions
-	$(QUIET)helm template cilium cilium --namespace=kube-system $(QUICK_OPTIONS) > $(QUICK_INSTALL)
+	$(QUIET)helm template cilium cilium --no-hooks --namespace=kube-system $(QUICK_OPTIONS) > $(QUICK_INSTALL)
 
 $(EXPERIMENTAL_INSTALL) experimental-install: $(shell find cilium/ -type f) update-versions
-	$(QUIET)helm template cilium cilium --namespace=kube-system $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
+	$(QUIET)helm template cilium cilium --no-hooks --namespace=kube-system $(EXPERIMENTAL_OPTIONS) > $(EXPERIMENTAL_INSTALL)
 
 update-versions:
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"
