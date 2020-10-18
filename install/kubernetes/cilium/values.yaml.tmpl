@@ -1,3 +1,14 @@
+{{- $ciliumVersion := .version -}}
+{{- $hubbleUIVersion := .hubble_ui_version -}}
+{{- $pullPolicy := "IfNotPresent" -}}
+{{- if .version | strings.HasSuffix ".90" -}}
+  {{- $ciliumVersion = "latest" -}}
+  {{- $hubbleUIVersion = "latest" -}}
+  {{- $pullPolicy = "Always" -}}
+{{- else if .version | strings.HasSuffix "-dev" -}}
+  {{- $ciliumVersion = .version | strings.TrimSuffix "-dev" -}}
+  {{- $pullPolicy = "Always" -}}
+{{- end -}}
 # upgradeCompatibility helps users upgrading to ensure that the configMap for
 # Cilium will not change critical values to ensure continued operation
 # This is flag is not required for new installations.
@@ -59,8 +70,8 @@ name: cilium
 ##
 image:
   repository: docker.io/cilium/cilium
-  tag: latest
-  pullPolicy: Always
+  tag: {{ $ciliumVersion }}
+  pullPolicy: {{ $pullPolicy }}
 
 affinity:
   podAntiAffinity:
@@ -489,7 +500,7 @@ hubble:
         # certgen image used in the job pod spec
         image:
           repository: docker.io/cilium/certgen
-          tag: v0.1.0@sha256:904d659b735abcb41412cfac0238471569ff7f923bda68493f29383c85bee2d2
+          tag: {{ .certgen_version }}
           pullPolicy: IfNotPresent
         # schedule of the recurring cron job which regenerates the certificates
         # (regardless of their expiration date).
@@ -521,8 +532,8 @@ hubble:
 
     image:
       repository: docker.io/cilium/hubble-relay
-      tag: latest
-      pullPolicy: Always
+      tag: {{ $ciliumVersion }}
+      pullPolicy: {{ $pullPolicy }}
 
     # Specifies the resources for the hubble-relay pods
     # resources: {}
@@ -607,8 +618,8 @@ hubble:
     backend:
       image:
         repository: docker.io/cilium/hubble-ui-backend
-        tag: latest
-        pullPolicy: Always
+        tag: {{ $hubbleUIVersion }}
+        pullPolicy: {{ $pullPolicy }}
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
       #       limits:
@@ -622,8 +633,8 @@ hubble:
     frontend:
       image:
         repository: docker.io/cilium/hubble-ui
-        tag: latest
-        pullPolicy: Always
+        tag: {{ $hubbleUIVersion }}
+        pullPolicy: {{ $pullPolicy }}
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
       #       limits:
@@ -637,7 +648,7 @@ hubble:
     proxy:
       image:
         repository: docker.io/envoyproxy/envoy
-        tag: v1.14.5
+        tag: {{ .hubble_ui_proxy_version }}
         pullPolicy: IfNotPresent
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
@@ -908,7 +919,7 @@ etcd:
 
   image:
     repository: docker.io/cilium/cilium-etcd-operator
-    tag: v2.0.7
+    tag: {{ .managed_etcd_version }}
     pullPolicy: IfNotPresent
 
   ## cilium-etcd-operator priorityClassName
@@ -1018,8 +1029,8 @@ operator:
 
   image:
     repository: docker.io/cilium/operator
-    tag: latest
-    pullPolicy: Always
+    tag: {{ $ciliumVersion }}
+    pullPolicy: {{ $pullPolicy }}
 
   ## Number of replicas to run for the cilium-operator deployment
   replicas: 2
@@ -1140,7 +1151,7 @@ nodeinit:
 
   image:
     repository: docker.io/cilium/startup-script
-    tag: af2a99046eca96c0138551393b21a5c044c7fe79
+    tag: {{ .nodeinit_version }}
     pullPolicy: IfNotPresent
 
   ## nodeinit priorityClassName
@@ -1229,8 +1240,8 @@ preflight:
 
   image:
     repository: docker.io/cilium/cilium
-    tag: latest
-    pullPolicy: Always
+    tag: {{ $ciliumVersion }}
+    pullPolicy: {{ $pullPolicy }}
 
   ## preflightt priorityClassName
   ##
