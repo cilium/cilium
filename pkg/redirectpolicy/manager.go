@@ -50,6 +50,10 @@ type svcCache interface {
 	GetServiceFrontendIP(svcID k8s.ServiceID, svcType lb.SVCType) net.IP
 }
 
+type StoreGetter interface {
+	GetStore(name string) cache.Store
+}
+
 // podID is pod name and namespace
 type podID = k8s.ServiceID
 
@@ -64,6 +68,8 @@ type Manager struct {
 	svcManager svcManager
 
 	svcCache svcCache
+
+	storeGetter StoreGetter
 
 	// Mutex to protect against concurrent access to the maps
 	mutex lock.Mutex
@@ -95,11 +101,15 @@ func (rpm *Manager) RegisterSvcCache(cache svcCache) {
 	rpm.svcCache = cache
 }
 
+func (rpm *Manager) RegisterGetStores(sg StoreGetter) {
+	rpm.storeGetter = sg
+}
+
 // Event handlers
 
 // AddRedirectPolicy parses the given local redirect policy config, and updates
 // internal state with the config fields.
-func (rpm *Manager) AddRedirectPolicy(config LRPConfig, podStore cache.Store) (bool, error) {
+func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 
@@ -127,7 +137,7 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig, podStore cache.Store) (b
 			logfields.LRPLocalEndpointSelector: config.backendSelector,
 			logfields.LRPBackendPorts:          config.backendPorts,
 		}).Debug("Add local redirect policy")
-		pods := rpm.getLocalPodsForPolicy(&config, podStore)
+		pods := rpm.getLocalPodsForPolicy(&config)
 		if len(pods) == 0 {
 			return true, nil
 		}
@@ -143,7 +153,7 @@ func (rpm *Manager) AddRedirectPolicy(config LRPConfig, podStore cache.Store) (b
 			logfields.LRPBackendPorts:          config.backendPorts,
 		}).Debug("Add local redirect policy")
 
-		rpm.getAndUpsertPolicySvcConfig(&config, podStore)
+		rpm.getAndUpsertPolicySvcConfig(&config)
 	}
 
 	return true, nil
@@ -189,7 +199,7 @@ func (rpm *Manager) DeleteRedirectPolicy(config LRPConfig) error {
 
 // OnAddService handles Kubernetes service (clusterIP type) add events, and
 // updates the internal state for the policy config associated with the service.
-func (rpm *Manager) OnAddService(svcID k8s.ServiceID, podStore cache.Store) {
+func (rpm *Manager) OnAddService(svcID k8s.ServiceID) {
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 	if len(rpm.policyConfigs) == 0 {
@@ -203,7 +213,7 @@ func (rpm *Manager) OnAddService(svcID k8s.ServiceID, podStore cache.Store) {
 		if !config.checkNamespace(svcID.Namespace) {
 			return
 		}
-		rpm.getAndUpsertPolicySvcConfig(config, podStore)
+		rpm.getAndUpsertPolicySvcConfig(config)
 	}
 }
 
@@ -327,7 +337,7 @@ type podMetadata struct {
 
 // getAndUpsertPolicySvcConfig gets service frontends for the given config service
 // and upserts the service frontends.
-func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig, podStore cache.Store) {
+func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig) {
 	switch config.frontendType {
 	case svcFrontendAll:
 		// Get all the service frontends.
@@ -362,11 +372,10 @@ func (rpm *Manager) getAndUpsertPolicySvcConfig(config *LRPConfig, podStore cach
 		}
 	}
 
-	pods := rpm.getLocalPodsForPolicy(config, podStore)
+	pods := rpm.getLocalPodsForPolicy(config)
 	if len(pods) > 0 {
 		rpm.processConfig(config, pods...)
 	}
-
 }
 
 // storePolicyConfig stores various state for the given policy config.
@@ -503,12 +512,13 @@ func (rpm *Manager) upsertService(config *LRPConfig, frontendMapping *feMapping)
 }
 
 // Returns a slice of endpoint pods metadata that are selected by the given policy config.
-func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig, podStore cache.Store) []*podMetadata {
+func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig) []*podMetadata {
 	var (
 		retPods []*podMetadata
 		podData *podMetadata
 	)
 
+	podStore := rpm.storeGetter.GetStore("pod")
 	for _, podItem := range podStore.List() {
 		pod, ok := podItem.(*slimcorev1.Pod)
 		if !ok || !config.checkNamespace(pod.GetNamespace()) {

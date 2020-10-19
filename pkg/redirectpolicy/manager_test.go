@@ -29,6 +29,7 @@ import (
 	"github.com/cilium/cilium/pkg/policy/api"
 
 	. "gopkg.in/check.v1"
+	"k8s.io/client-go/tools/cache"
 )
 
 // Hook up gocheck into the "go test" runner.
@@ -96,6 +97,14 @@ func (ps *fakePodStore) Replace(i []interface{}, s string) error {
 
 func (ps *fakePodStore) Resync() error {
 	return nil
+}
+
+type fakePodStoreGetter struct {
+	ps *fakePodStore
+}
+
+func (psg *fakePodStoreGetter) GetStore(name string) cache.Store {
+	return psg.ps
 }
 
 var (
@@ -285,7 +294,7 @@ func (m *ManagerSuite) TestManager_AddRedirectPolicy_AddrMatcherDuplicateConfig(
 	dupConfigFe := configFe
 	dupConfigFe.id.Name = "test-foo2"
 
-	added, err := m.rpm.AddRedirectPolicy(dupConfigFe, nil)
+	added, err := m.rpm.AddRedirectPolicy(dupConfigFe)
 
 	c.Assert(added, Equals, false)
 	c.Assert(err, NotNil)
@@ -303,7 +312,7 @@ func (m *ManagerSuite) TestManager_AddRedirectPolicy_SvcMatcherDuplicateConfig(c
 	invalidConfigSvc := configSvc
 	invalidConfigSvc.id.Name = "test-foo3"
 
-	added, err := m.rpm.AddRedirectPolicy(invalidConfigSvc, nil)
+	added, err := m.rpm.AddRedirectPolicy(invalidConfigSvc)
 
 	c.Assert(added, Equals, false)
 	c.Assert(err, NotNil)
@@ -323,7 +332,9 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigSinglePort(c *C) {
 		}
 	}
 
-	added, err := m.rpm.AddRedirectPolicy(configAddrType, &fakePodStore{})
+	m.rpm.RegisterGetStores(&fakePodStoreGetter{ps: &fakePodStore{}})
+
+	added, err := m.rpm.AddRedirectPolicy(configAddrType)
 
 	c.Assert(added, Equals, true)
 	c.Assert(err, IsNil)
@@ -433,7 +444,9 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigMultiplePorts(c *C) {
 		})
 	}
 
-	added, err := m.rpm.AddRedirectPolicy(configAddrType, &fakePodStore{})
+	m.rpm.RegisterGetStores(&fakePodStoreGetter{ps: &fakePodStore{}})
+
+	added, err := m.rpm.AddRedirectPolicy(configAddrType)
 
 	c.Assert(added, Equals, true)
 	c.Assert(err, IsNil)
@@ -506,11 +519,16 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigDualStack(c *C) {
 		podID:    pod3ID,
 	}}
 	pod3.Status.PodIPs = append(pod3.Status.PodIPs, pod3v6)
-	ps := &fakePodStore{OnList: func() []interface{} {
-		return []interface{}{pod3}
-	}}
+	psg := &fakePodStoreGetter{
+		&fakePodStore{
+			OnList: func() []interface{} {
+				return []interface{}{pod3}
+			},
+		},
+	}
+	m.rpm.RegisterGetStores(psg)
 
-	added, err := m.rpm.AddRedirectPolicy(configAddrType, ps)
+	added, err := m.rpm.AddRedirectPolicy(configAddrType)
 
 	c.Assert(added, Equals, true)
 	c.Assert(err, IsNil)
@@ -529,7 +547,7 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigDualStack(c *C) {
 	configAddrType.id.Name = "test-bar"
 	configAddrType.frontendMappings = feM
 
-	added, err = m.rpm.AddRedirectPolicy(configAddrType, ps)
+	added, err = m.rpm.AddRedirectPolicy(configAddrType)
 
 	c.Assert(added, Equals, true)
 	c.Assert(err, IsNil)
