@@ -4,6 +4,7 @@ dir=$( cd "$( dirname "${BASH_SOURCE[0]}" )" && pwd )
 
 restart_env=$(env | grep -f $dir/restart-vars | tr '\n' ' ')
 echo "$restart_env $0 $@" > "$dir/restart.sh"
+chmod a+x "$dir/restart.sh"
 
 # Master's IPv4 address. Workers' IPv4 address will have their IP incremented by
 # 1. The netmask used will be /24
