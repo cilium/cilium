@@ -55,9 +55,9 @@ RUN apt-get update && \
     sha512sum -c cni-plugins-linux-${ARCH}-v0.8.6.tgz.sha512 && \
     tar -xvf cni-plugins-linux-${ARCH}-v0.8.6.tgz ./loopback && \
     strip -s ./loopback
-COPY --from=docker.io/cilium/cilium-llvm:178583d8925906270379830fb44641c38f7cc062 /bin/clang /bin/llc /bin/
-COPY --from=docker.io/cilium/cilium-bpftool:f0bbd0cb389ce92b33ff29f0489c17c8e33f9da7 /bin/bpftool /bin/
-COPY --from=docker.io/cilium/cilium-iproute2:044e7a6a43d5a42a8ce696535b3dbf773f82dbec /bin/tc /bin/ip /bin/ss /bin/
+COPY --from=docker.io/cilium/cilium-llvm:8f18c7d16d85fd7f9c86fba5176a25a85f8f5a1a /usr/local/bin/clang /usr/local/bin/llc /bin/
+COPY --from=docker.io/cilium/cilium-bpftool:906ffee7cd996bf6bde2c074cdd5954703a0fd5f /usr/local/bin/bpftool /bin/
+COPY --from=docker.io/cilium/cilium-iproute2:4de8fae57d731146a4b8a353dc97cdf0f598096c /usr/local/bin/tc /usr/local/bin/ip /usr/local/bin/ss /bin/
 COPY --from=gops /go/bin/gops /bin/
 
 #
