@@ -84,9 +84,7 @@ func (k *K8sWatcher) addK8sServiceV1(svc *slim_corev1.Service, swg *lock.Stoppab
 	if svc.Spec.Type == slim_corev1.ServiceTypeClusterIP {
 		// The local redirect policies currently support services of type
 		// clusterIP only.
-		k.podStoreMU.RLock()
-		k.redirectPolicyManager.OnAddService(svcID, k.podStore)
-		k.podStoreMU.RUnlock()
+		k.redirectPolicyManager.OnAddService(svcID)
 	}
 	return nil
 }
