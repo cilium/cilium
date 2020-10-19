@@ -628,6 +628,145 @@ func TestServerStatus(t *testing.T) {
 	}
 }
 
+func TestFilterNodes(t *testing.T) {
+	type test struct {
+		name    string
+		include [][]string
+		exclude [][]string
+		wantErr bool
+		want    map[string]bool
+	}
+
+	makeFlowFilters := func(nodeNames [][]string) []*flowpb.FlowFilter {
+		ffs := make([]*flowpb.FlowFilter, 0, len(nodeNames))
+		for _, nodeName := range nodeNames {
+			ff := &flowpb.FlowFilter{
+				NodeName: nodeName,
+			}
+			ffs = append(ffs, ff)
+		}
+		return ffs
+	}
+
+	tests := []test{
+		{
+			name: "empty",
+			want: map[string]bool{
+				"runtime1": true,
+			},
+		},
+		{
+			name: "include",
+			include: [][]string{
+				{"runtime1"},
+			},
+			want: map[string]bool{
+				"runtime1": true,
+				"k8s1":     false,
+			},
+		},
+		{
+			name: "two_includes",
+			include: [][]string{
+				{"runtime1"},
+				{"k8s1"},
+			},
+			want: map[string]bool{
+				"runtime1": true,
+				"k8s1":     true,
+				"k8s2":     false,
+			},
+		},
+		{
+			name: "include_pattern",
+			include: [][]string{
+				{"k8s*"},
+			},
+			want: map[string]bool{
+				"runtime1": false,
+				"k8s1":     true,
+				"k8s2":     true,
+			},
+		},
+		{
+			name: "exclude",
+			exclude: [][]string{
+				{"runtime1"},
+			},
+			want: map[string]bool{
+				"runtime1": false,
+				"k8s1":     true,
+			},
+		},
+		{
+			name: "include_and_exclude",
+			include: [][]string{
+				{"*"},
+			},
+			exclude: [][]string{
+				{"*1"},
+			},
+			want: map[string]bool{
+				"runtime1": false,
+				"k8s1":     false,
+				"k8s2":     true,
+			},
+		},
+		{
+			name: "bad_include_pattern",
+			include: [][]string{
+				{"["},
+			},
+			wantErr: true,
+			want: map[string]bool{
+				"runtime1": false,
+			},
+		},
+		{
+			name: "bad_exclude_pattern",
+			exclude: [][]string{
+				{"[a-"},
+			},
+			wantErr: true,
+			want: map[string]bool{
+				"runtime1": false,
+			},
+		},
+	}
+
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			req := &observerpb.GetFlowsRequest{
+				Blacklist: makeFlowFilters(tt.exclude),
+				Whitelist: makeFlowFilters(tt.include),
+			}
+
+			peers := make([]poolTypes.Peer, 0, len(tt.want))
+			want := make([]poolTypes.Peer, 0, len(tt.want))
+			for name := range tt.want {
+				peer := poolTypes.Peer{
+					Peer: peerTypes.Peer{
+						Name: name,
+					},
+				}
+				peers = append(peers, peer)
+				if tt.want[name] {
+					want = append(want, peer)
+				}
+			}
+
+			got, err := filterNodes(req, peers)
+			if tt.wantErr {
+				assert.Error(t, err)
+				assert.Nil(t, got)
+			} else {
+				assert.NoError(t, err)
+				assert.Equal(t, want, got)
+			}
+		})
+	}
+}
+
 type fakeObserverClientBuilder struct {
 	onObserverClient func(*poolTypes.Peer) observerpb.ObserverClient
 }

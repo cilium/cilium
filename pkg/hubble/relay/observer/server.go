@@ -20,6 +20,7 @@ import (
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 	relaypb "github.com/cilium/cilium/api/v1/relay"
+	"github.com/cilium/cilium/pkg/hubble/filters"
 	poolTypes "github.com/cilium/cilium/pkg/hubble/relay/pool/types"
 
 	"github.com/golang/protobuf/ptypes/wrappers"
@@ -81,7 +82,11 @@ func (s *Server) GetFlows(req *observerpb.GetFlowsRequest, stream observerpb.Obs
 	ctx, cancel := context.WithCancel(stream.Context())
 	defer cancel()
 
-	peers := s.peers.List()
+	peers, err := filterNodes(req, s.peers.List())
+	if err != nil {
+		return err
+	}
+
 	qlen := s.opts.sortBufferMaxLen // we don't want to buffer too many flows
 	if nqlen := req.GetNumber() * uint64(len(peers)); nqlen > 0 && nqlen < uint64(qlen) {
 		// don't make the queue bigger than necessary as it would be a problem
@@ -234,4 +239,28 @@ func (s *Server) ServerStatus(ctx context.Context, req *observerpb.ServerStatusR
 		}
 	}
 	return resp, g.Wait()
+}
+
+// filterNodes modifies peers in-place to remove any peers that do not match
+// req's nodes filters and returns the modified peers slice.
+func filterNodes(req *observerpb.GetFlowsRequest, peers []poolTypes.Peer) ([]poolTypes.Peer, error) {
+	nodeNameFilter, err := filters.NewNodeNameFilter(req.Whitelist, req.Blacklist)
+	if err != nil {
+		return nil, err
+	}
+
+	// short path: if there are no node name filters then return peers unchanged
+	if nodeNameFilter == nil {
+		return peers, nil
+	}
+
+	// filter peers in-place to reduce gc pressure
+	n := 0
+	for _, peer := range peers {
+		if nodeNameFilter.Match(peer.Name) {
+			peers[n] = peer
+			n++
+		}
+	}
+	return peers[:n], nil
 }
