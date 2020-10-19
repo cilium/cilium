@@ -42,11 +42,11 @@ const (
 // Node represents a Kubernetes node running Cilium with an associated
 // CiliumNode custom resource
 type Node struct {
-	// mutex protects all members of this structure
-	mutex lock.RWMutex
-
 	// node contains the general purpose fields of a node
 	node *ipam.Node
+
+	// mutex protects members below this field
+	mutex lock.RWMutex
 
 	// enis is the list of ENIs attached to the node indexed by ENI ID.
 	// Protected by Node.mutex.
