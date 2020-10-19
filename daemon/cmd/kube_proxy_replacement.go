@@ -258,7 +258,6 @@ func initKubeProxyReplacementOptions() (strict bool) {
 				_, found = h["bpf_redirect_neigh"]
 			}
 			if !found {
-				log.Warnf("Re-enabling host legacy routing as bypassing needs kernel 5.10.0 or newer.")
 				option.Config.EnableHostLegacyRouting = true
 			}
 		}
