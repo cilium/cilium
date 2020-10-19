@@ -81,8 +81,6 @@ const (
 	metricCreate         = "create"
 	metricDelete         = "delete"
 	metricUpdate         = "update"
-
-	k8sPodResource = "pod"
 )
 
 func init() {
@@ -141,9 +139,9 @@ type svcManager interface {
 }
 
 type redirectPolicyManager interface {
-	AddRedirectPolicy(config redirectpolicy.LRPConfig, podStore cache.Store) (bool, error)
+	AddRedirectPolicy(config redirectpolicy.LRPConfig) (bool, error)
 	DeleteRedirectPolicy(config redirectpolicy.LRPConfig) error
-	OnAddService(svcID k8s.ServiceID, podStore cache.Store)
+	OnAddService(svcID k8s.ServiceID)
 	OnDeleteService(svcID k8s.ServiceID)
 	OnUpdatePod(pod *slim_corev1.Pod, needsReassign bool, ready bool)
 	OnDeletePod(pod *slim_corev1.Pod)
@@ -899,7 +897,7 @@ func (k *K8sWatcher) GetStore(name string) cache.Store {
 		return k.networkpolicyStore
 	case "namespace":
 		return k.namespaceStore
-	case k8sPodResource:
+	case "pod":
 		// Wait for podStore to get initialized.
 		<-k.podStoreSet
 		// Access to podStore is protected by podStoreMU.
