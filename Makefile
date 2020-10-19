@@ -548,8 +548,10 @@ update-authors:
 	@contrib/scripts/extract_authors.sh >> AUTHORS
 	@cat .authors.aux >> AUTHORS
 
-render-docs:
+test-docs:
 	$(MAKE) -C Documentation html
+
+render-docs: test-docs
 	$(MAKE) -C Documentation run-server
 
 render-docs-live-preview:
