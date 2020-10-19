@@ -59,8 +59,8 @@ name: cilium
 ##
 image:
   repository: docker.io/cilium/cilium
-  tag: latest
-  pullPolicy: Always
+  tag: v1.9.0-rc2
+  pullPolicy: IfNotPresent
 
 affinity:
   podAntiAffinity:
@@ -521,8 +521,8 @@ hubble:
 
     image:
       repository: docker.io/cilium/hubble-relay
-      tag: latest
-      pullPolicy: Always
+      tag: v1.9.0-rc2
+      pullPolicy: IfNotPresent
 
     # Specifies the resources for the hubble-relay pods
     # resources: {}
@@ -607,8 +607,8 @@ hubble:
     backend:
       image:
         repository: docker.io/cilium/hubble-ui-backend
-        tag: latest
-        pullPolicy: Always
+        tag: v0.7.2
+        pullPolicy: IfNotPresent
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
       #       limits:
@@ -622,8 +622,8 @@ hubble:
     frontend:
       image:
         repository: docker.io/cilium/hubble-ui
-        tag: latest
-        pullPolicy: Always
+        tag: v0.7.2
+        pullPolicy: IfNotPresent
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
       #       limits:
@@ -638,7 +638,7 @@ hubble:
       image:
         repository: docker.io/envoyproxy/envoy
         tag: v1.14.5
-        pullPolicy: Always
+        pullPolicy: IfNotPresent
       # Resource requests and limits for the 'hubble-ui' container of the 'hubble-ui' deployment, such as
       #     resources:
       #       limits:
@@ -836,7 +836,7 @@ nodePort:
 # policyAuditMode: false
 
 # The agent can be put into the following three policy enforcement modes
-# default, always and never.
+# default, IfNotPresent and never.
 # https://docs.cilium.io/en/stable/policy/intro/#policy-enforcement-modes
 # policyEnforcementMode: "default"
 
@@ -909,7 +909,7 @@ etcd:
   image:
     repository: docker.io/cilium/cilium-etcd-operator
     tag: v2.0.7
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
 
   ## cilium-etcd-operator priorityClassName
   ##
@@ -1018,8 +1018,8 @@ operator:
 
   image:
     repository: docker.io/cilium/operator
-    tag: latest
-    pullPolicy: Always
+    tag: v1.9.0-rc2
+    pullPolicy: IfNotPresent
 
   ## Number of replicas to run for the cilium-operator deployment
   replicas: 2
@@ -1141,7 +1141,7 @@ nodeinit:
   image:
     repository: docker.io/cilium/startup-script
     tag: af2a99046eca96c0138551393b21a5c044c7fe79
-    pullPolicy: Always
+    pullPolicy: IfNotPresent
 
   ## nodeinit priorityClassName
   ##
@@ -1229,8 +1229,8 @@ preflight:
 
   image:
     repository: docker.io/cilium/cilium
-    tag: latest
-    pullPolicy: Always
+    tag: v1.9.0-rc2
+    pullPolicy: IfNotPresent
 
   ## preflightt priorityClassName
   ##

@@ -788,8 +788,8 @@ spec:
               key: custom-cni-conf
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:latest
-        imagePullPolicy: Always
+        image: docker.io/cilium/cilium:v1.9.0-rc2
+        imagePullPolicy: IfNotPresent
         lifecycle:
           postStart:
             exec:
@@ -859,8 +859,8 @@ spec:
               key: wait-bpf-mount
               name: cilium-config
               optional: true
-        image: docker.io/cilium/cilium:latest
-        imagePullPolicy: Always
+        image: docker.io/cilium/cilium:v1.9.0-rc2
+        imagePullPolicy: IfNotPresent
         name: clean-cilium-state
         securityContext:
           capabilities:
@@ -1007,8 +1007,8 @@ spec:
               key: debug
               name: cilium-config
               optional: true
-        image: docker.io/cilium/operator-generic:latest
-        imagePullPolicy: Always
+        image: docker.io/cilium/operator-generic:v1.9.0-rc2
+        imagePullPolicy: IfNotPresent
         name: cilium-operator
         livenessProbe:
           httpGet:
@@ -1071,8 +1071,8 @@ spec:
             topologyKey: "kubernetes.io/hostname"
       containers:
         - name: hubble-relay
-          image: docker.io/cilium/hubble-relay:latest
-          imagePullPolicy: Always
+          image: docker.io/cilium/hubble-relay:v1.9.0-rc2
+          imagePullPolicy: IfNotPresent
           command:
             - hubble-relay
           args:
@@ -1151,16 +1151,16 @@ spec:
       serviceAccountName: hubble-ui
       containers:
         - name: frontend
-          image: "docker.io/cilium/hubble-ui:latest"
-          imagePullPolicy: Always
+          image: "docker.io/cilium/hubble-ui:v0.7.2"
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
               name: http
           resources:
             {}
         - name: backend
-          image: "docker.io/cilium/hubble-ui-backend:latest"
-          imagePullPolicy: Always
+          image: "docker.io/cilium/hubble-ui-backend:v0.7.2"
+          imagePullPolicy: IfNotPresent
           env:
             - name: EVENTS_SERVER_PORT
               value: "8090"
@@ -1173,7 +1173,7 @@ spec:
             {}
         - name: proxy
           image: "docker.io/envoyproxy/envoy:v1.14.5"
-          imagePullPolicy: Always
+          imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8081
               name: http

@@ -1,8 +1,8 @@
 apiVersion: v2
 name: cilium
 home: https://cilium.io/
-version: 1.8.90
-appVersion: 1.8.90
+version: 1.9.0-rc2
+appVersion: 1.9.0-rc2
 description: Helm chart for Cilium
 keywords:
 sources:
