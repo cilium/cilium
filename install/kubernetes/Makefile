@@ -3,9 +3,6 @@
 
 include ../../Makefile.defs
 
-# Workaround until we branch for v1.9
-VERSION := 1.8.90
-
 HUBBLE_PROXY_VERSION := "v1.14.5"
 HUBBLE_UI_VERSION := "v0.7.2"
 MANAGED_ETCD_VERSION := "v2.0.7"
