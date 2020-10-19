@@ -88,7 +88,7 @@ func (k *K8sWatcher) addCiliumLocalRedirectPolicy(clrp *cilium_v2.CiliumLocalRed
 
 	rp, policyAddErr := redirectpolicy.Parse(clrp, true)
 	if policyAddErr == nil {
-		_, policyAddErr = k.redirectPolicyManager.AddRedirectPolicy(*rp, k.podStore)
+		_, policyAddErr = k.redirectPolicyManager.AddRedirectPolicy(*rp)
 	}
 
 	if policyAddErr != nil {
