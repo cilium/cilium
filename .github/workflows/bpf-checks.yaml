@@ -16,8 +16,7 @@ jobs:
         with:
           fetch-depth: 0
       - name: Run checkpatch.pl
-        run:
-          make -C bpf checkpatch
+        uses: docker://cilium/cilium-checkpatch:5b099019bf0db775b33b3f32cd5ecea55dd15f21
   coccicheck:
     name: coccicheck
     runs-on: ubuntu-latest
