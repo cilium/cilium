@@ -33,6 +33,7 @@ vagrant.kubeconfig
 coverage.out
 coverage-all.out
 coverage-all.html
+coverage-all-tmp.out
 
 .DS_Store
 .idea/
