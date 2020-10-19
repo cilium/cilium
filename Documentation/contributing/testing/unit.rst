@@ -61,7 +61,7 @@ run the unit tests and tear down the prerequisites:
 
 ::
 
-    $ make unit-tests TESTPKGS=github.com/cilium/cilium/pkg/kvstore
+    $ make unit-tests TESTPKGS=pkg/kvstore
 
 Some packages have privileged tests. They are not run by default when you run
 the unit tests for the respective package. The privileged test files have an
