@@ -977,7 +977,8 @@ func initEnv(cmd *cobra.Command) {
 
 	// This check is here instead of in DaemonConfig.Populate (invoked at the
 	// start of this function as option.Config.Populate) to avoid an import loop.
-	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !k8s.IsEnabled() {
+	if option.Config.IdentityAllocationMode == option.IdentityAllocationModeCRD && !k8s.IsEnabled() &&
+		option.Config.DatapathMode != datapathOption.DatapathModeLBOnly {
 		log.Fatal("CRD Identity allocation mode requires k8s to be configured.")
 	}
 
@@ -1171,6 +1172,18 @@ func initEnv(cmd *cobra.Command) {
 		if option.Config.InstallIptRules {
 			option.Config.Ipvlan.OperationMode = connector.OperationModeL3S
 		}
+	case datapathOption.DatapathModeLBOnly:
+		log.Info("Running in LB-only mode")
+		option.Config.KubeProxyReplacement = option.KubeProxyReplacementPartial
+		option.Config.EnableHostReachableServices = true
+		option.Config.EnableHostPort = false
+		option.Config.EnableNodePort = true
+		option.Config.EnableExternalIPs = true
+		option.Config.Tunnel = option.TunnelDisabled
+		option.Config.EnableHealthChecking = false
+		option.Config.Masquerade = false
+		option.Config.InstallIptRules = false
+		option.Config.EnableL7Proxy = false
 	default:
 		log.WithField(logfields.DatapathMode, option.Config.DatapathMode).Fatal("Invalid datapath mode")
 	}
