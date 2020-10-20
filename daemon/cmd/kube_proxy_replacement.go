@@ -253,11 +253,13 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		case option.Config.Masquerade && !option.Config.EnableBPFMasquerade:
 			option.Config.EnableHostLegacyRouting = true
 		default:
-			found := false
+			foundNeigh := false
+			foundPeer := false
 			if h := probesManager.GetHelpers("sched_cls"); h != nil {
-				_, found = h["bpf_redirect_neigh"]
+				_, foundNeigh = h["bpf_redirect_neigh"]
+				_, foundPeer = h["bpf_redirect_peer"]
 			}
-			if !found {
+			if !foundNeigh || !foundPeer {
 				option.Config.EnableHostLegacyRouting = true
 			}
 		}
