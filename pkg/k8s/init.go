@@ -26,7 +26,7 @@ import (
 	cilium_v2_client "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2/client"
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	k8sConst "github.com/cilium/cilium/pkg/k8s/constants"
-	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/node"

@@ -19,7 +19,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/k8s"
 	"github.com/cilium/cilium/pkg/k8s/informer"
-	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/discovery/v1beta1"
+	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	"github.com/cilium/cilium/pkg/lock"
 
 	v1 "k8s.io/api/core/v1"

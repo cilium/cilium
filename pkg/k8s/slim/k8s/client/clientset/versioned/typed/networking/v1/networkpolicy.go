@@ -20,7 +20,7 @@ import (
 	"context"
 	"time"
 
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/networking/v1"
+	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
 	scheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	types "k8s.io/apimachinery/pkg/types"
