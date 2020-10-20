@@ -67,6 +67,18 @@ var _ = Describe("K8sServicesTest", func() {
 		ExpectWithOffset(1, err).Should(BeNil(), fmt.Sprintf("Error creating resource %s: %s", path, err))
 	}
 
+	getHTTPLink := func(host string, port int32) string {
+		return fmt.Sprintf("http://%s",
+			net.JoinHostPort(host, fmt.Sprintf("%d", port)))
+	}
+
+	getTFTPLink := func(host string, port int32) string {
+		// TFTP requires a filename. Otherwise the packet will be
+		// silently dropped by the server.
+		return fmt.Sprintf("tftp://%s/hello",
+			net.JoinHostPort(host, fmt.Sprintf("%d", port)))
+	}
+
 	BeforeAll(func() {
 		kubectl = helpers.CreateKubectl(helpers.K8s1VMName(), logger)
 
@@ -433,8 +445,10 @@ var _ = Describe("K8sServicesTest", func() {
 			deploymentYAML string
 			lrpSvcYAML     string
 			svcIP          string
-			curlTCP        string
-			curlUDP        string
+			curl4TCP       string
+			curl4UDP       string
+			curl4in6TCP    string
+			curl4in6UDP    string
 		)
 
 		BeforeAll(func() {
@@ -449,10 +463,16 @@ var _ = Describe("K8sServicesTest", func() {
 			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, lrpServiceName)
 			svcIP = clusterIP
 			Expect(err).To(BeNil(), "Cannot get svc IP")
-			httpSVCURL := fmt.Sprintf("http://%s/", svcIP)
-			tftpSVCURL := fmt.Sprintf("tftp://%s/hello", svcIP)
-			curlTCP = helpers.CurlFailNoStats(httpSVCURL)
-			curlUDP = helpers.CurlFailNoStats(tftpSVCURL)
+
+			http4SVCURL := getHTTPLink(svcIP, 80)
+			tftp4SVCURL := getTFTPLink(svcIP, 69)
+			http4in6SVCURL := getHTTPLink("::ffff:"+svcIP, 80)
+			tftp4in6SVCURL := getTFTPLink("::ffff:"+svcIP, 69)
+
+			curl4TCP = helpers.CurlFailNoStats(http4SVCURL)
+			curl4UDP = helpers.CurlFailNoStats(tftp4SVCURL)
+			curl4in6TCP = helpers.CurlFailNoStats(http4in6SVCURL)
+			curl4in6UDP = helpers.CurlFailNoStats(tftp4in6SVCURL)
 		})
 
 		AfterAll(func() {
@@ -477,7 +497,7 @@ var _ = Describe("K8sServicesTest", func() {
 			}{
 				{
 					selector: "id=app1",
-					cmd:      curlTCP,
+					cmd:      curl4TCP,
 					// Expects to see local backend name in returned Hostname field
 					want: be1Name,
 					// Expects never to see remote backend name in returned Hostname field
@@ -485,19 +505,43 @@ var _ = Describe("K8sServicesTest", func() {
 				},
 				{
 					selector: "id=app2",
-					cmd:      curlTCP,
+					cmd:      curl4TCP,
 					want:     be2Name,
 					notWant:  be1Name,
 				},
 				{
 					selector: "id=app1",
-					cmd:      curlUDP,
+					cmd:      curl4UDP,
 					want:     be1Name,
 					notWant:  be2Name,
 				},
 				{
 					selector: "id=app2",
-					cmd:      curlUDP,
+					cmd:      curl4UDP,
+					want:     be2Name,
+					notWant:  be1Name,
+				},
+				{
+					selector: "id=app1",
+					cmd:      curl4in6TCP,
+					want:     be1Name,
+					notWant:  be2Name,
+				},
+				{
+					selector: "id=app2",
+					cmd:      curl4in6TCP,
+					want:     be2Name,
+					notWant:  be1Name,
+				},
+				{
+					selector: "id=app1",
+					cmd:      curl4in6UDP,
+					want:     be1Name,
+					notWant:  be2Name,
+				},
+				{
+					selector: "id=app2",
+					cmd:      curl4in6UDP,
 					want:     be2Name,
 					notWant:  be1Name,
 				},
@@ -536,19 +580,19 @@ var _ = Describe("K8sServicesTest", func() {
 			}{
 				{
 					selector: "id=app1",
-					cmd:      curlTCP,
+					cmd:      curl4TCP,
 				},
 				{
 					selector: "id=app2",
-					cmd:      curlTCP,
+					cmd:      curl4TCP,
 				},
 				{
 					selector: "id=app1",
-					cmd:      curlUDP,
+					cmd:      curl4UDP,
 				},
 				{
 					selector: "id=app2",
-					cmd:      curlUDP,
+					cmd:      curl4UDP,
 				},
 			}
 			for _, tc := range testCases {
@@ -628,18 +672,6 @@ var _ = Describe("K8sServicesTest", func() {
 				testCurlFromPods(testDSClient, url, 10, 0)
 			})
 		})
-
-		getHTTPLink := func(host string, port int32) string {
-			return fmt.Sprintf("http://%s",
-				net.JoinHostPort(host, fmt.Sprintf("%d", port)))
-		}
-
-		getTFTPLink := func(host string, port int32) string {
-			// TFTP requires a filename. Otherwise the packet will be
-			// silently dropped by the server.
-			return fmt.Sprintf("tftp://%s/hello",
-				net.JoinHostPort(host, fmt.Sprintf("%d", port)))
-		}
 
 		testCurlFromPodInHostNetNS := func(url string, count, fails int, fromPod string) {
 			By("Making %d curl requests from pod (host netns) %s to %q", count, fromPod, url)
