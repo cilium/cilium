@@ -52,14 +52,14 @@ networking infrastructure in a completely transparent manner.
 
 * Restart the Cilium daemonset to allow Cilium agent to pick up the ConfigMap changes:
 
-  .. parsed-literal::
+   .. code:: bash
 
       kubectl rollout restart -n $CILIUM_NAMESPACE ds/cilium
 
 * To pick one Cilium instance and validate that Hubble is properly configured to listen on
   a UNIX domain socket:
 
-  .. parsed-literal::
+   .. code:: bash
 
       kubectl exec -n $CILIUM_NAMESPACE -t ds/cilium -- hubble observe
 
@@ -71,7 +71,7 @@ networking infrastructure in a completely transparent manner.
   Once the ``hubble`` CLI is installed, set up a port forwarding for ``hubble-relay`` service and
   run ``hubble observe`` command:
 
-  .. parsed-literal::
+   .. code:: bash
 
       kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-relay --address 0.0.0.0 --address :: 4245:80
       hubble observe --server localhost:4245
@@ -79,9 +79,9 @@ networking infrastructure in a completely transparent manner.
   (**For Linux / MacOS**) For convenience, you may set and export the ``HUBBLE_DEFAULT_SOCKET_PATH``
   environment variable:
 
-  .. code:: bash
+   .. code:: bash
 
-    $ export HUBBLE_DEFAULT_SOCKET_PATH=localhost:4245
+      export HUBBLE_DEFAULT_SOCKET_PATH=localhost:4245
 
   This will allow you to use ``hubble status`` and ``hubble observe`` commands
   without having to specify the server address via the ``--server`` flag.
@@ -89,7 +89,7 @@ networking infrastructure in a completely transparent manner.
 * **(Distributed mode only)** To validate that Hubble UI is properly configured, set up a port forwarding for
   ``hubble-ui`` service:
 
-  .. parsed-literal::
+  .. code:: bash
 
       kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-ui --address 0.0.0.0 --address :: 12000:80
 

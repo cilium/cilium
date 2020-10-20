@@ -28,5 +28,5 @@
     .. parsed-literal::
 
         curl -LO |SCM_ARCHIVE_LINK|
-        tar xzvf |SCM_ARCHIVE_FILENAME|
+        tar xzf |SCM_ARCHIVE_FILENAME|
         cd |SCM_ARCHIVE_NAME|/install/kubernetes
