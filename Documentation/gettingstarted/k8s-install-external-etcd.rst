@@ -39,7 +39,7 @@ when to use a kvstore:
 
 .. include:: requirements_intro.rst
 
-You will also need an external etcd version 3.1.0 or higher
+You will also need an external etcd version 3.1.0 or higher.
 
 Configure Cilium
 ===========================
@@ -58,7 +58,8 @@ Deploy Cilium release via Helm:
       --namespace kube-system \\
       --set etcd.enabled=true \\
       --set "etcd.endpoints[0]=http://etcd-endpoint1:2379" \\
-      --set "etcd.endpoints[1]=http://etcd-endpoint2:2379"
+      --set "etcd.endpoints[1]=http://etcd-endpoint2:2379" \\
+      --set "etcd.endpoints[2]=http://etcd-endpoint3:2379"
 
 
 Optional: Configure the SSL certificates
@@ -69,7 +70,7 @@ key and certificate of etcd:
 
 .. code:: bash
 
-   kubectl create secret generic -n kube-system cilium-etcd-secrets \
+    kubectl create secret generic -n kube-system cilium-etcd-secrets \
         --from-file=etcd-client-ca.crt=ca.crt \
         --from-file=etcd-client.key=client.key \
         --from-file=etcd-client.crt=client.crt
@@ -84,7 +85,8 @@ of http for the etcd endpoint URLs:
       --set etcd.enabled=true \\
       --set etcd.ssl=true \\
       --set "etcd.endpoints[0]=https://etcd-endpoint1:2379" \\
-      --set "etcd.endpoints[1]=https://etcd-endpoint2:2379"
+      --set "etcd.endpoints[1]=https://etcd-endpoint2:2379" \\
+      --set "etcd.endpoints[2]=https://etcd-endpoint3:2379"
 
 Validate the Installation
 =========================
@@ -95,8 +97,8 @@ Verify that Cilium pods were started on each of your worker nodes
 
     kubectl --namespace kube-system get ds cilium
     NAME            DESIRED   CURRENT   READY     NODE-SELECTOR   AGE
-    cilium          4         4         4         <none>          2m
+    cilium          4         4         4         <none>          3m2s
 
     kubectl -n kube-system get deployments cilium-operator
     NAME              READY   UP-TO-DATE   AVAILABLE   AGE
-    cilium-operator   1/1     1            1           5m25s
+    cilium-operator   2/2     2            2           2m6s
