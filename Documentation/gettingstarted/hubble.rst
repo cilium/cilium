@@ -259,7 +259,7 @@ In order to avoid passing ``--server localhost:4245`` to every command, you may
 export the following environment variable:
 
 .. parsed-literal::
-   $ export HUBBLE_DEFAULT_SOCKET_PATH=localhost:4245
+   $ export HUBBLE_SERVER=localhost:4245
 
 Let's now issue some requests to emulate some traffic again. This first request
 is allowed by the policy.
