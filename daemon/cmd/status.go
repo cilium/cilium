@@ -25,6 +25,7 @@ import (
 	"github.com/cilium/cilium/pkg/backoff"
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	"github.com/cilium/cilium/pkg/kvstore"
@@ -162,10 +163,6 @@ func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 }
 
 func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
-	if !k8s.IsEnabled() {
-		return &models.KubeProxyReplacement{Mode: models.KubeProxyReplacementModeDisabled}
-	}
-
 	var mode string
 	switch option.Config.KubeProxyReplacement {
 	case option.KubeProxyReplacementStrict:
@@ -857,7 +854,7 @@ func (d *Daemon) startStatusCollector() {
 		},
 	}
 
-	if k8s.IsEnabled() {
+	if k8s.IsEnabled() || option.Config.DatapathMode == datapathOption.DatapathModeLB {
 		// kube-proxy replacement configuration does not change after
 		// initKubeProxyReplacementOptions() has been executed, so it's fine to
 		// statically set the field here.

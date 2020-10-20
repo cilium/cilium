@@ -293,25 +293,26 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			sort.Strings(sr.Kubernetes.K8sAPIVersions)
 			fmt.Fprintf(w, "Kubernetes APIs:\t[\"%s\"]\n", strings.Join(sr.Kubernetes.K8sAPIVersions, "\", \""))
 		}
-		if sr.KubeProxyReplacement != nil {
-			devices := ""
-			if sr.KubeProxyReplacement.Mode != models.KubeProxyReplacementModeDisabled {
-				for i, dev := range sr.KubeProxyReplacement.Devices {
-					kubeProxyDevices += dev
-					if dev == sr.KubeProxyReplacement.DirectRoutingDevice {
-						kubeProxyDevices += " (Direct Routing)"
-					}
-					if i+1 != len(sr.KubeProxyReplacement.Devices) {
-						kubeProxyDevices += ", "
-					}
+
+	}
+	if sr.KubeProxyReplacement != nil {
+		devices := ""
+		if sr.KubeProxyReplacement.Mode != models.KubeProxyReplacementModeDisabled {
+			for i, dev := range sr.KubeProxyReplacement.Devices {
+				kubeProxyDevices += dev
+				if dev == sr.KubeProxyReplacement.DirectRoutingDevice {
+					kubeProxyDevices += " (Direct Routing)"
 				}
-				if len(sr.KubeProxyReplacement.Devices) > 0 {
-					devices = "[" + kubeProxyDevices + "]"
+				if i+1 != len(sr.KubeProxyReplacement.Devices) {
+					kubeProxyDevices += ", "
 				}
 			}
-			fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t%s\n",
-				sr.KubeProxyReplacement.Mode, devices)
+			if len(sr.KubeProxyReplacement.Devices) > 0 {
+				devices = "[" + kubeProxyDevices + "]"
+			}
 		}
+		fmt.Fprintf(w, "KubeProxyReplacement:\t%s\t%s\n",
+			sr.KubeProxyReplacement.Mode, devices)
 	}
 	if sr.Cilium != nil {
 		fmt.Fprintf(w, "Cilium:\t%s\t%s\n", sr.Cilium.State, sr.Cilium.Msg)

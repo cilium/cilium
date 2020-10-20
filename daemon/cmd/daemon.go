@@ -651,14 +651,16 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		}
 	}
 
-	// This needs to be done after the node addressing has been configured
-	// as the node address is required as suffix.
-	// well known identities have already been initialized above.
-	// Ignore the channel returned by this function, as we want the global
-	// identity allocator to run asynchronously.
-	d.identityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
+	if option.Config.DatapathMode != datapathOption.DatapathModeLB {
+		// This needs to be done after the node addressing has been configured
+		// as the node address is required as suffix.
+		// well known identities have already been initialized above.
+		// Ignore the channel returned by this function, as we want the global
+		// identity allocator to run asynchronously.
+		d.identityAllocator.InitIdentityAllocator(k8s.CiliumClient(), nil)
 
-	d.bootstrapClusterMesh(nodeMngr)
+		d.bootstrapClusterMesh(nodeMngr)
+	}
 
 	bootstrapStats.bpfBase.Start()
 	err = d.init()
