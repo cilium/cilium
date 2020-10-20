@@ -11,6 +11,8 @@ env:
   CONFORMANCE_TEMPLATE: examples/kubernetes/connectivity-check/connectivity-check.yaml
   TIMEOUT: 2m
   LOG_TIME: 30m
+  GCR_TOKEN: ${{ secrets.GCR_TOKEN }}
+  GCR_USER: ciliumbot
 
 jobs:
   preflight-clusterrole:
@@ -65,7 +67,27 @@ jobs:
           make -C install/kubernetes ${{ matrix.target.name }}
           git diff --exit-code
 
+  publish-images:
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v2
+      - name: Build docker images
+        run: |
+          make docker-cilium-image
+          make docker-operator-generic-image
+      - name: Authenticate in gcr.io
+        run: |
+          echo ${GCR_TOKEN} | docker login ghcr.io -u ${GCR_USER} --password-stdin
+      - name: Push images
+        run: |
+          docker tag cilium/cilium ghcr.io/cilium/cilium:${GITHUB_SHA}
+          docker tag cilium/operator-generic ghcr.io/cilium/operator-generic:${GITHUB_SHA}
+          docker push ghcr.io/cilium/cilium:${GITHUB_SHA}
+          docker push ghcr.io/cilium/operator-generic:${GITHUB_SHA}
+
   conformance-test:
+    needs: publish-images
     runs-on: ubuntu-latest
     steps:
       - name: Checkout
@@ -77,21 +99,11 @@ jobs:
           make -C examples/kubernetes/connectivity-check all
           git diff --exit-code
 
-      - name: Build docker images
-        run: |
-          make docker-cilium-image
-          make docker-operator-generic-image
-
       - name: Create kind cluster
         uses: helm/kind-action@v1.0.0
         with:
           version: ${{ env.KIND_VERSION }}
           config: ${{ env.KIND_CONFIG }}
-
-      - name: Load local images into kind cluster
-        run: |
-          kind load docker-image --name chart-testing cilium/cilium:latest
-          kind load docker-image --name chart-testing cilium/operator-generic:latest
 
       - name: Install cilium chart
         run: |
@@ -106,8 +118,10 @@ jobs:
              --set hostPort.enabled=true \
              --set bpf.masquerade=false \
              --set ipam.mode=kubernetes \
-             --set image.pullPolicy=Never \
-             --set operator.image.pullPolicy=Never \
+             --set image.repository=ghcr.io/cilium/cilium \
+             --set image.tag=${GITHUB_SHA} \
+             --set operator.image.repository=ghcr.io/cilium/operator \
+             --set operator.image.tag=${GITHUB_SHA} \
              --set prometheus.enabled=true \
              --set operator.prometheus.enabled=true \
              --set hubble.enabled=true \
