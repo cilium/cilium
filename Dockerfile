@@ -9,7 +9,7 @@ LABEL cilium-sha=${CILIUM_SHA}
 #
 # Hubble CLI
 #
-FROM quay.io/cilium/hubble:master-186fa10@sha256:ea39cadaeffdeff1eaaef31a80f2f2e4120e006a0411ba3142f903bc6654fe41 as hubble
+FROM quay.io/cilium/hubble:v0.7.0@sha256:6a0df10f9131c6f450b389419e78525701ed77d2ae8220fee901062ef5500ed6 as hubble
 ARG CILIUM_SHA=""
 LABEL cilium-sha=${CILIUM_SHA}
 
