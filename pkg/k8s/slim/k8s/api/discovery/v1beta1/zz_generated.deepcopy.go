@@ -19,7 +19,7 @@
 package v1beta1
 
 import (
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	runtime "k8s.io/apimachinery/pkg/runtime"
 )
 
