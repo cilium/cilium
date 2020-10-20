@@ -17,7 +17,7 @@
 package v1
 
 import (
-	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
+	v1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	"github.com/cilium/cilium/pkg/k8s/slim/k8s/client/clientset/versioned/scheme"
 	rest "k8s.io/client-go/rest"
 )
