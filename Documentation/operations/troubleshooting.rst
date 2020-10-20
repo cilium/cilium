@@ -183,8 +183,8 @@ flow event.
 In the following example the first command extracts the numeric security
 identities for all dropped flows which originated in the ``default/xwing`` pod
 in the last three minutes. The numeric security identity can then be used
-together with the Cilium CLI to obtain more information about why flow was
-dropped:
+together with the Cilium CLI to obtain more information about why a particular
+flow was dropped:
 
 .. code:: bash
 
@@ -211,7 +211,7 @@ dropped:
 
 
 Please refer to the :ref:`policy troubleshooting guide<policy_tracing>` for
-more detail about how to troubleshoot policy related drops.
+more details about how to troubleshoot policy related drops.
 
 .. note::
    **Hubble Relay**  allows you to query multiple Hubble instances
@@ -303,7 +303,7 @@ environment variable:
 
     $ export HUBBLE_DEFAULT_SOCKET_PATH=localhost:4245
 
-This will allow you to use ``hubbble status`` and ``hubble observe`` commands
+This will allow you to use ``hubble status`` and ``hubble observe`` commands
 without having to specify the server address via the ``--server`` flag.
 
 As Hubble Relay shares the same API as individual Hubble instances, you may
