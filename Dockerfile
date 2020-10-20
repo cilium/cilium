@@ -63,6 +63,7 @@ COPY --from=builder /go/src/github.com/cilium/cilium/plugins/cilium-cni/cni-unin
 COPY --from=builder /go/src/github.com/cilium/cilium/contrib/packaging/docker/init-container.sh /init-container.sh
 WORKDIR /home/cilium
 RUN groupadd -f cilium \
+    && /usr/bin/hubble completion bash > /etc/bash_completion.d/hubble \
     && echo ". /etc/profile.d/bash_completion.sh" >> /etc/bash.bashrc
 
 ENV INITSYSTEM="SYSTEMD"
