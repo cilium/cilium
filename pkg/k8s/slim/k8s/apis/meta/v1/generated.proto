@@ -158,6 +158,28 @@ message ObjectMeta {
   map<string, string> annotations = 12;
 }
 
+// PartialObjectMetadata is a generic representation of any object with ObjectMeta. It allows clients
+// to get access to a particular ObjectMeta schema without knowing the details of the version.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+message PartialObjectMetadata {
+  // Standard object's metadata.
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+  // +optional
+  optional ObjectMeta metadata = 1;
+}
+
+// PartialObjectMetadataList contains a list of objects containing only their metadata
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+message PartialObjectMetadataList {
+  // Standard list metadata.
+  // More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+  // +optional
+  optional ListMeta metadata = 1;
+
+  // items contains each of the included items.
+  repeated PartialObjectMetadata items = 2;
+}
+
 // Time is a wrapper around time.Time which supports correct
 // marshaling to YAML and JSON.  Wrappers are provided for many
 // of the factory methods that the time package offers.

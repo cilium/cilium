@@ -218,3 +218,68 @@ const (
 	LabelSelectorOpExists       LabelSelectorOperator = "Exists"
 	LabelSelectorOpDoesNotExist LabelSelectorOperator = "DoesNotExist"
 )
+
+// TODO: Table does not generate to protobuf because of the interface{} - fix protobuf
+//   generation to support a meta type that can accept any valid JSON. This can be introduced
+//   in a v1 because clients a) receive an error if they try to access proto today, and b)
+//   once introduced they would be able to gracefully switch over to using it.
+
+// Table is a tabular representation of a set of API resources. The server transforms the
+// object into a set of preferred columns for quickly reviewing the objects.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+// +protobuf=false
+// +deepequal-gen=false
+type Table struct {
+	TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
+	ListMeta `json:"metadata,omitempty"`
+
+	// columnDefinitions describes each column in the returned items array. The number of cells per row
+	// will always match the number of column definitions.
+	ColumnDefinitions []TableColumnDefinition `json:"columnDefinitions"`
+	// rows is the list of items in the table.
+	Rows []TableRow `json:"rows"`
+}
+
+// TableColumnDefinition contains information about a column returned in the Table.
+// +protobuf=false
+type TableColumnDefinition struct {
+	// name is a human readable name for the column.
+	Name string `json:"name"`
+}
+
+// TableRow is an individual row in a table.
+// +protobuf=false
+// +deepequal-gen=false
+type TableRow struct {
+	// cells will be as wide as the column definitions array and may contain strings, numbers (float64 or
+	// int64), booleans, simple maps, lists, or null. See the type field of the column definition for a
+	// more detailed description.
+	Cells []interface{} `json:"cells"`
+}
+
+// PartialObjectMetadata is a generic representation of any object with ObjectMeta. It allows clients
+// to get access to a particular ObjectMeta schema without knowing the details of the version.
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type PartialObjectMetadata struct {
+	TypeMeta `json:",inline"`
+	// Standard object's metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#metadata
+	// +optional
+	ObjectMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+}
+
+// PartialObjectMetadataList contains a list of objects containing only their metadata
+// +k8s:deepcopy-gen:interfaces=k8s.io/apimachinery/pkg/runtime.Object
+type PartialObjectMetadataList struct {
+	TypeMeta `json:",inline"`
+	// Standard list metadata.
+	// More info: https://git.k8s.io/community/contributors/devel/sig-architecture/api-conventions.md#types-kinds
+	// +optional
+	ListMeta `json:"metadata,omitempty" protobuf:"bytes,1,opt,name=metadata"`
+
+	// items contains each of the included items.
+	Items []PartialObjectMetadata `json:"items" protobuf:"bytes,2,rep,name=items"`
+}
