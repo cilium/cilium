@@ -390,6 +390,10 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 		fmt.Fprintf(w, "BandwidthManager:\t%s\n", status)
 	}
 
+	if sr.HostRouting != nil {
+		fmt.Fprintf(w, "Host Routing:\t%s\n", sr.HostRouting.Mode)
+	}
+
 	if sr.Masquerading != nil {
 		var status string
 		if !sr.Masquerading.Enabled {
