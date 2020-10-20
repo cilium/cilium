@@ -47,14 +47,14 @@ be set to ``false`` and TLS certificates manually provided.
 This can be done by specifying the options below to Helm at install or upgrade time:
 
 .. parsed-literal::
-    --set hubble.tls.auto.enabled=false                  # disable automatic TLS certificate generation
+    --set hubble.tls.auto.enabled=false                          # disable automatic TLS certificate generation
     --set-file hubble.tls.ca.cert=ca.crt.b64                     # certificate of the CA that signs all certificates
     --set-file hubble.tls.server.cert=server.crt.b64             # certificate for Hubble server
-    --set-file hubble.tls.server.key=server.key.b64             # private key for the Hubble server certificate
+    --set-file hubble.tls.server.key=server.key.b64              # private key for the Hubble server certificate
     --set-file hubble.relay.tls.client.cert=relay-client.crt.b64 # client certificate for Hubble Relay to connect to Hubble instances
-    --set-file hubble.relay.tls.client.key=relay-client.key.b64 # private key for Hubble Relay client certificate
+    --set-file hubble.relay.tls.client.key=relay-client.key.b64  # private key for Hubble Relay client certificate
     --set-file hubble.relay.tls.server.cert=relay-server.crt.b64 # server certificate for Hubble Relay
-    --set-file hubble.relay.tls.server.key=relay-server.key.b64 # private key for Hubble Relay server certificate
+    --set-file hubble.relay.tls.server.key=relay-server.key.b64  # private key for Hubble Relay server certificate
 
 Options ``hubble.relay.tls.server.cert`` and ``hubble.relay.tls.server.key``
 only need to be provided when ``hubble.relay.tls.server.enabled`` is set to
