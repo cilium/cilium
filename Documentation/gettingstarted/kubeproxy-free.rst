@@ -327,6 +327,10 @@ advised to first check whether the NodePort request actually arrived on the node
 containing the backend. If this was not the case, then switching back to the default
 SNAT mode would be advised as a workaround.
 
+Also, in some public cloud provider environments, which implement a source /
+destination IP address checking (e.g. AWS), the checking has to be disabled in
+order for the DSR mode to work.
+
 Above helm example configuration in a kube-proxy-free environment with DSR-only mode
 enabled would look as follows:
 
