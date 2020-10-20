@@ -272,7 +272,7 @@ sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
  * actual service frontend. Hence, allow service translation for pod traffic
  * getting redirected to backend (across network namespaces), but skip service
  * translation for backend to itself or another service backend within the same
- * namespace. Currently only v4, but neither v4-in-v6 nor plain v6 supported.
+ * namespace. Currently only v4 and v4-in-v6, but no plain v6 is supported.
  *
  * For example, in EKS cluster, a local-redirect service exists with the AWS
  * metadata IP, port as the frontend <169.254.169.254, 80> and kiam proxy as a
@@ -283,11 +283,11 @@ sock4_wildcard_lookup_full(struct lb4_key *key __maybe_unused,
  * a socket lookup for the backend <ip, port> in its namespace, ns1, and skip
  * service translation.
  */
-#ifdef BPF_HAVE_SOCKET_LOOKUP
-static __always_inline __maybe_unused bool
-sock4_skip_xlate_if_same_netns(struct bpf_sock_addr *ctx,
-			       const struct lb4_backend *backend)
+static __always_inline bool
+sock4_skip_xlate_if_same_netns(struct bpf_sock_addr *ctx __maybe_unused,
+			       const struct lb4_backend *backend __maybe_unused)
 {
+#ifdef BPF_HAVE_SOCKET_LOOKUP
 	struct bpf_sock_tuple tuple = {
 		.ipv4.daddr = backend->address,
 		.ipv4.dport = backend->port,
@@ -303,18 +303,15 @@ sock4_skip_xlate_if_same_netns(struct bpf_sock_addr *ctx,
 		sk = sk_lookup_udp(ctx, &tuple, sizeof(tuple.ipv4),
 				   BPF_F_CURRENT_NETNS, 0);
 		break;
-	default:
-		break;
 	}
 
 	if (sk) {
 		sk_release(sk);
 		return true;
 	}
-
+#endif /* BPF_HAVE_SOCKET_LOOKUP */
 	return false;
 }
-#endif /* BPF_HAVE_SOCKET_LOOKUP */
 
 static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 					     struct bpf_sock_addr *ctx_full,
@@ -397,11 +394,10 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 		return -ENOENT;
 	}
 
-#ifdef BPF_HAVE_SOCKET_LOOKUP
-	if (lb4_svc_is_localredirect(svc) && ctx_full == ctx &&
+	if (lb4_svc_is_localredirect(svc) &&
 	    sock4_skip_xlate_if_same_netns(ctx_full, backend))
-		return 0;
-#endif
+		return -ENXIO;
+
 	if (lb4_svc_is_affinity(svc) && !backend_from_affinity)
 		lb4_update_affinity_by_netns(svc, &id, backend_id);
 
