@@ -261,9 +261,43 @@ Another advantage in DSR mode is that the client's source IP is preserved, so po
 can match on it at the backend node. In the SNAT mode this is not possible.
 Given a specific backend can be used by multiple services, the backends need to be
 made aware of the service IP/port which they need to reply with. Therefore, Cilium
-encodes this information as an IPv4 option or IPv6 extension header at the cost of
-advertising a lower MTU. For TCP services, Cilium only encodes the service IP/port
-for the SYN packet.
+encodes this information in a Cilium-specific IPv4 option or IPv6 Destination Option
+extension header at the cost of advertising a lower MTU. For TCP services, Cilium
+only encodes the service IP/port for the SYN packet, but not subsequent ones. The
+latter also allows to operate Cilium in a hybrid mode as detailed in the next subsection
+where DSR is used for TCP and SNAT for UDP in order to avoid an otherwise needed MTU
+reduction.
+
+Note that usage of DSR mode might not work in some public cloud provider environments
+due to the Cilium-specific IP options that could be dropped by an underlying fabric.
+Therefore, in case of connectivity issues to services where backends are located on
+a remote node from the node that is processing the given NodePort request, it is
+advised to first check whether the NodePort request actually arrived on the node
+containing the backend. If this was not the case, then switching back to the default
+SNAT mode would be advised as a workaround.
+
+Also, in some public cloud provider environments, which implement a source /
+destination IP address checking (e.g. AWS), the checking has to be disabled in
+order for the DSR mode to work.
+
+Above helm example configuration in a kube-proxy-free environment with DSR-only mode
+enabled would look as follows:
+
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set tunnel=disabled \\
+        --set autoDirectNodeRoutes=true \\
+        --set kubeProxyReplacement=strict \\
+        --set nodePort.mode=dsr \\
+        --set k8sServiceHost=API_SERVER_IP \\
+        --set k8sServicePort=API_SERVER_PORT
+
+.. _Hybrid mode:
+
+Hybrid DSR and SNAT Mode
+************************
 
 Above helm example configuration in a kube-proxy-free environment with DSR enabled
 would look as follows:
