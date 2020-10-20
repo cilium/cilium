@@ -31,7 +31,7 @@ Kubernetes versions.
 
 .. code:: bash
 
-        az aks get-versions -l westus -o table
+   az aks get-versions -l westus -o table
 
 Create an AKS Cluster
 =====================
@@ -48,21 +48,7 @@ in the same terminal are sufficient.
 It can take 10+ minutes for the final command to be complete indicating that
 the cluster is ready.
 
-.. note:: **Do NOT specify the '--network-policy' flag** when creating the cluster,
-    as this will cause the Azure CNI plugin to push down unwanted iptables rules:
-
-.. code:: bash
-
-        export RESOURCE_GROUP_NAME=aks-test
-        export CLUSTER_NAME=aks-test
-        export LOCATION=westus
-
-        az group create --name $RESOURCE_GROUP_NAME --location $LOCATION
-        az aks create \
-            --resource-group $RESOURCE_GROUP_NAME \
-            --name $CLUSTER_NAME \
-            --node-count 2 \
-            --network-plugin azure
+.. include:: k8s-install-aks-create-cluster.rst
 
 Configure kubectl to Point to Newly Created Cluster
 ===================================================
@@ -74,11 +60,12 @@ AKS cluster:
 
 To verify, you should see AKS in the name of the nodes when you run:
 
-.. code:: bash
+.. code:: shell-session
 
-    kubectl get nodes
-    NAME                       STATUS   ROLES   AGE     VERSION
-    aks-nodepool1-12032939-0   Ready    agent   8m26s   v1.13.10
+    $ kubectl get nodes
+    NAME                                STATUS   ROLES   AGE   VERSION
+    aks-nodepool1-22314427-vmss000000   Ready    agent   91s   v1.17.11
+    aks-nodepool1-22314427-vmss000001   Ready    agent   91s   v1.17.11
 
 .. include:: k8s-install-azure-cni-steps.rst
 
@@ -86,3 +73,13 @@ To verify, you should see AKS in the name of the nodes when you run:
 .. include:: namespace-cilium.rst
 .. include:: hubble-enable.rst
 
+Delete the AKS Cluster
+======================
+
+Finally, delete the test cluster by running:
+
+.. code:: bash
+
+    az aks delete \
+        --resource-group $RESOURCE_GROUP_NAME \
+        --name $CLUSTER_NAME
