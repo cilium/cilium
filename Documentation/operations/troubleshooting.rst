@@ -214,9 +214,9 @@ Please refer to the :ref:`policy troubleshooting guide<policy_tracing>` for
 more detail about how to troubleshoot policy related drops.
 
 .. note::
-    **Hubble Relay** (beta) allows you to query multiple Hubble instances
-    simultaneously without having to first manually target a specific node.
-    See `Observing flows with Hubble Relay`_ for more information.
+   **Hubble Relay**  allows you to query multiple Hubble instances
+   simultaneously without having to first manually target a specific node.  See
+   `Observing flows with Hubble Relay`_ for more information.
 
 Ensure Hubble is running correctly
 ----------------------------------
@@ -252,10 +252,6 @@ following output in ``cilium status``:
 
 Observing flows with Hubble Relay
 =================================
-
-.. note::
-   **Hubble Relay** is beta software and as such is not yet considered
-   production ready.
 
 Hubble Relay is a service which allows to query multiple Hubble instances
 simultaneously and aggregate the results. As Hubble Relay relies on individual
