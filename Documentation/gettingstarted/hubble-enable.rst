@@ -76,12 +76,12 @@ networking infrastructure in a completely transparent manner.
       kubectl port-forward -n $CILIUM_NAMESPACE svc/hubble-relay --address 0.0.0.0 --address :: 4245:80
       hubble observe --server localhost:4245
 
-  (**For Linux / MacOS**) For convenience, you may set and export the ``HUBBLE_DEFAULT_SOCKET_PATH``
+  (**For Linux / MacOS**) For convenience, you may set and export the ``HUBBLE_SERVER``
   environment variable:
 
    .. code:: bash
 
-      export HUBBLE_DEFAULT_SOCKET_PATH=localhost:4245
+      export HUBBLE_SERVER=localhost:4245
 
   This will allow you to use ``hubble status`` and ``hubble observe`` commands
   without having to specify the server address via the ``--server`` flag.
