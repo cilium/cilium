@@ -2308,6 +2308,20 @@ func init() {
         }
       }
     },
+    "HostRouting": {
+      "description": "Status of host routing\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "description": "Datapath routing mode",
+          "type": "string",
+          "enum": [
+            "BPF",
+            "Legacy"
+          ]
+        }
+      }
+    },
     "HubbleStatus": {
       "description": "Status of the Hubble server\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -3358,6 +3372,10 @@ func init() {
         "controllers": {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
+        },
+        "host-routing": {
+          "description": "Status of host routing",
+          "$ref": "#/definitions/HostRouting"
         },
         "hubble": {
           "description": "Status of Hubble server",
@@ -6078,6 +6096,20 @@ func init() {
         }
       }
     },
+    "HostRouting": {
+      "description": "Status of host routing\n\n+k8s:deepcopy-gen=true",
+      "type": "object",
+      "properties": {
+        "mode": {
+          "description": "Datapath routing mode",
+          "type": "string",
+          "enum": [
+            "BPF",
+            "Legacy"
+          ]
+        }
+      }
+    },
     "HubbleStatus": {
       "description": "Status of the Hubble server\n\n+k8s:deepcopy-gen=true",
       "type": "object",
@@ -7378,6 +7410,10 @@ func init() {
         "controllers": {
           "description": "Status of all endpoint controllers",
           "$ref": "#/definitions/ControllerStatuses"
+        },
+        "host-routing": {
+          "description": "Status of host routing",
+          "$ref": "#/definitions/HostRouting"
         },
         "hubble": {
           "description": "Status of Hubble server",
