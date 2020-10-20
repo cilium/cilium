@@ -432,24 +432,49 @@ The current Cilium kube-proxy replacement mode can also be introspected through 
 Limitations
 ###########
 
-    * NodePort and ExternalIPs services are currently exposed through the native device
-      which has the default route on the host or a user specified device. In tunneling
-      mode, they are additionally exposed through the tunnel interface (``cilium_vxlan``
-      or ``cilium_geneve``). Exposing services through multiple native devices will be
-      supported in upcoming Cilium versions. See `GH issue 9620
-      <https://github.com/cilium/cilium/issues/9620>`__ for additional details.
-    * Cilium's BPF kube-proxy replacement currently cannot be used with :ref:`encryption`.
-    * Cilium's BPF kube-proxy replacement relies upon the :ref:`host-services` feature
-      which uses BPF cgroup hooks to implement the service translation. The getpeername(2)
-      hook is currently missing which will be addressed for newer kernels. It is known
-      to currently not work with libceph deployments.
-    * Cilium in general currently does not support IP de-/fragmentation. This also includes
-      the BPF kube-proxy replacement. Meaning, while the first packet with L4 header will
-      reach the backend, all subsequent packets will not due to service lookup failing.
-      This will be addressed via `GH issue 10076 <https://github.com/cilium/cilium/issues/10076>`__.
-    * Kubernetes Service sessionAffinity is currently not implemented.
-      This will be addressed via `GH issue 9076 <https://github.com/cilium/cilium/issues/9076>`__.
-    * The BPF kube-proxy replacement currently cannot be used in combination with CNI chaining
-      e.g. deployed as ``--set global.cni.chainingMode=portmap``. Future Cilium versions are
-      going to provide native portmap support via BPF and therefore without the need for chaining;
-      tracked via `GH issue 10359 <https://github.com/cilium/cilium/issues/10359>`__.
+    * Cilium's eBPF kube-proxy replacement currently cannot be used with :ref:`encryption`.
+    * Cilium's eBPF kube-proxy replacement relies upon the :ref:`host-services` feature
+      which uses eBPF cgroup hooks to implement the service translation. The getpeername(2)
+      hook address translation in eBPF is only available for v5.8 kernels. It is known to
+      currently not work with libceph deployments.
+    * Cilium's eBPF kube-proxy acceleration in XDP can only be used in a single device setup
+      as a "one-legged" / hairpin load balancer scenario. In case of a multi-device environment,
+      where auto-detection selects more than a single device to expose NodePort, the option
+      ``devices=eth0`` must be specified in helm in order to work, where ``eth0``
+      is the native XDP supported networking device.
+    * Cilium's DSR NodePort mode currently does not operate well in environments with
+      TCP Fast Open (TFO) enabled. It is recommended to switch to ``snat`` mode in this
+      situation.
+    * Cilium's eBPF kube-proxy replacement does not support the SCTP transport protocol.
+      Only TCP and UDP is supported as a transport for services at this point.
+    * Cilium's eBPF kube-proxy replacement does not allow ``hostPort`` port configurations
+      for Pods that overlap with the configured NodePort range. In such case, the ``hostPort``
+      setting will be ignored and a warning emitted to the Cilium agent log. Similarly,
+      explicitly binding the ``hostIP`` to the loopback address in the host namespace is
+      currently not supported and will log a warning to the Cilium agent log.
+    * When Cilium's kube-proxy replacement is used with Kubernetes versions(< 1.19) that have
+      support for ``EndpointSlices``, ``Services`` without selectors and backing ``Endpoints``
+      don't work. The reason is that Cilium only monitors changes made to ``EndpointSlices``
+      objects if support is available and ignores ``Endpoints`` in those cases. Kubernetes 1.19
+      release introduces ``EndpointSliceMirroring`` controller that mirrors custom ``Endpoints``
+      resources to corresponding ``EndpointSlices`` and thus allowing backing ``Endpoints``
+      to work. For a more detailed discussion see
+      `#12438 <https://github.com/cilium/cilium/issues/12438>`__.
+    * As per `k8s Service <https://kubernetes.io/docs/concepts/services-networking/service/#publishing-services-service-types>`__,
+      Cilium's eBPF kube-proxy replacement disallow access of a ClusterIP service
+      from outside a cluster.
+
+Further Readings
+################
+
+The following presentations describe inner-workings of the kube-proxy replacement in eBPF
+in great details:
+
+    * "Liberating Kubernetes from kube-proxy and iptables" (KubeCon North America 2019, `slides
+      <https://docs.google.com/presentation/d/1cZJ-pcwB9WG88wzhDm2jxQY4Sh8adYg0-N3qWQ8593I/edit>`__,
+      `video <https://www.youtube.com/watch?v=bIRwSIwNHC0>`__)
+    * "eBPF as a revolutionary technology for the container landscape" (Fosdem 2020, `slides
+      <https://docs.google.com/presentation/d/1VOUcoIxgM_c6M_zAV1dLlRCjyYCMdR3tJv6CEdfLMh8/edit>`__,
+      `video <https://fosdem.org/2020/schedule/event/containers_bpf/>`__)
+    * "Kernel improvements for Cilium socket LB" (LSF/MM/BPF 2020, `slides
+      <https://docs.google.com/presentation/d/1w2zlpGWV7JUhHYd37El_AUZzyUNSvDfktrF5MJ5G8Bs/edit#slide=id.g746fc02b5b_2_0>`__)
