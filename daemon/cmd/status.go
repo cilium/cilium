@@ -161,6 +161,14 @@ func (d *Daemon) getBandwidthManagerStatus() *models.BandwidthManager {
 	return s
 }
 
+func (d *Daemon) getHostRoutingStatus() *models.HostRouting {
+	s := &models.HostRouting{Mode: models.HostRoutingModeBPF}
+	if option.Config.EnableHostLegacyRouting {
+		s.Mode = models.HostRoutingModeLegacy
+	}
+	return s
+}
+
 func (d *Daemon) getKubeProxyReplacementStatus() *models.KubeProxyReplacement {
 	if !k8s.IsEnabled() {
 		return &models.KubeProxyReplacement{Mode: models.KubeProxyReplacementModeDisabled}
@@ -866,6 +874,7 @@ func (d *Daemon) startStatusCollector() {
 
 	d.statusResponse.Masquerading = d.getMasqueradingStatus()
 	d.statusResponse.BandwidthManager = d.getBandwidthManagerStatus()
+	d.statusResponse.HostRouting = d.getHostRoutingStatus()
 	d.statusResponse.BpfMaps = d.getBPFMapStatus()
 
 	d.statusCollector = status.NewCollector(probes, status.Config{})
