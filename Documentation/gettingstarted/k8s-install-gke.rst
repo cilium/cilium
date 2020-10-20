@@ -17,18 +17,18 @@ GKE Requirements
 
 2. Create a project or use an existing one
 
-::
+.. code:: bash
 
-   export GKE_PROJECT=gke-clusters
-   gcloud projects create $GKE_PROJECT
-   gcloud config set project $GKE_PROJECT
+    export GKE_PROJECT=gke-clusters
+    gcloud projects create $GKE_PROJECT
+    gcloud config set project $GKE_PROJECT
 
 
 3. Enable the GKE API for the project if not already done
 
-::
+.. code:: bash
 
-   gcloud services enable container.googleapis.com
+    gcloud services enable container.googleapis.com
 
 Create a GKE Cluster
 ====================
