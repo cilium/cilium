@@ -58,14 +58,17 @@ else
   else
     # if no version tag is given, use commit hash
     image_tag="$(git rev-parse --short HEAD)"
+    # only append -dev suffix when no version tag is used, since tags
+    # can be set on release branches
+    if [ -z "${WITHOUT_SUFFIX+x}" ] ; then
+      if ! git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/master ; then
+        image_tag="${image_tag}-dev"
+      fi
+    fi
   fi
 fi
 
 if [ -z "${WITHOUT_SUFFIX+x}" ] ; then
-  if ! git merge-base --is-ancestor "$(git rev-parse HEAD)" origin/master ; then
-    image_tag="${image_tag}-dev"
-  fi
-
   if [ "$(git status --porcelain "${image_dir}" | wc -l)" -gt 0 ] ; then
     image_tag="${image_tag}-wip"
   fi
