@@ -146,9 +146,7 @@ Observing Flows with Hubble
 ===========================
 
 Hubble is a built-in observability tool which allows you to inspect recent flow
-events on all endpoints managed by Cilium. It needs to be enabled via the Helm
-value ``hubble.enabled=true`` or the ``--enable-hubble`` option on
-cilium-agent.
+events on all endpoints managed by Cilium.
 
 Observing flows of a specific pod
 ---------------------------------
@@ -229,7 +227,7 @@ Cilium, you may use the ``hubble status`` command:
    Max Flows: 4096
    Current Flows: 2542 (62.06%)
 
-``cilium-agent`` must be running with the ``--enable-hubble`` option in order
+``cilium-agent`` must be running with the ``--enable-hubble`` option (default) in order
 for the Hubble server to be enabled. When deploying Cilium with Helm, make sure
 to set the ``hubble.enabled=true`` value.
 
@@ -252,15 +250,10 @@ Observing flows with Hubble Relay
 =================================
 
 Hubble Relay is a service which allows to query multiple Hubble instances
-simultaneously and aggregate the results. As Hubble Relay relies on individual
-Hubble instances, Hubble needs to be enabled when deploying Cilium. In
-addition, the Hubble service needs to be exposed on TCP port ``4244``. This can
-be done via the Helm values ``--enable-hubble`` and
-``--hubble-listen-address :4244`` options on cilium-agent.
-
-.. note::
-   Enabling Hubble to listen on TCP port 4244 globally has security
-   implications as the service can be accessed without any restriction.
+simultaneously and aggregate the results. The Hubble service needs to be exposed
+on TCP port ``4244`` to allow Hubble Relay to connect to individual instances.
+This can be done via Helm values or option ``--hubble-listen-address :4244`` on
+cilium-agent.
 
 Hubble Relay can be deployed using Helm by setting
 ``hubble.relay.enabled=true``. This will deploy Hubble Relay with one
@@ -294,12 +287,12 @@ This command should return an output similar to the following:
    Max Flows: 16384
    Current Flows: 16384 (100.00%)
 
-For convenience, you may set and export the ``HUBBLE_DEFAULT_SOCKET_PATH``
-environment variable:
+For convenience, you may set and export the ``HUBBLE_SERVER`` environment
+variable:
 
 .. code:: bash
 
-   export HUBBLE_DEFAULT_SOCKET_PATH=localhost:4245
+   export HUBBLE_SERVER=localhost:4245
 
 This will allow you to use ``hubble status`` and ``hubble observe`` commands
 without having to specify the server address via the ``--server`` flag.
