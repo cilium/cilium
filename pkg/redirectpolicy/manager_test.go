@@ -323,7 +323,7 @@ func (m *ManagerSuite) TestManager_AddRedirectPolicy_SvcMatcherDuplicateConfig(c
 func (m *ManagerSuite) TestManager_AddrMatcherConfigSinglePort(c *C) {
 	// Add an addressMatcher type LRP with single port. The policy config
 	// frontend should have 2 pod backends with each of the podIPs.
-	podIPs, _ := utils.ValidIPs(pod1.Status)
+	podIPs := utils.ValidIPs(pod1.Status)
 	expectedbes := make([]backend, len(podIPs))
 	for i := range podIPs {
 		expectedbes[i] = backend{
@@ -356,7 +356,7 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigSinglePort(c *C) {
 	pod3 := pod2.DeepCopy()
 	pod3.Labels["test"] = "foo"
 	pod3ID := pod2ID
-	podIPs, _ = utils.ValidIPs(pod3.Status)
+	podIPs = utils.ValidIPs(pod3.Status)
 	expectedbes2 := make([]backend, 0, len(expectedbes)+len(podIPs))
 	expectedbes2 = append(expectedbes2, expectedbes...)
 	for i := range podIPs {
@@ -435,7 +435,7 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigMultiplePorts(c *C) {
 	configAddrType.backendPortsByPortName = map[string]*bePortInfo{
 		beP1.name: &configAddrType.backendPorts[0],
 		beP2.name: &configAddrType.backendPorts[1]}
-	podIPs, _ := utils.ValidIPs(pod1.Status)
+	podIPs := utils.ValidIPs(pod1.Status)
 	expectedbes := make([]backend, 0, len(podIPs))
 	for i := range podIPs {
 		expectedbes = append(expectedbes, backend{
@@ -505,7 +505,7 @@ func (m *ManagerSuite) TestManager_AddrMatcherConfigDualStack(c *C) {
 	// Only ipv4 backend(s) for ipv4 frontend
 	pod3 := pod1.DeepCopy()
 	pod3ID := pod1ID
-	podIPs, _ := utils.ValidIPs(pod3.Status)
+	podIPs := utils.ValidIPs(pod3.Status)
 	expectedbes4 := make([]backend, 0, len(podIPs))
 	for i := range podIPs {
 		expectedbes4 = append(expectedbes4, backend{

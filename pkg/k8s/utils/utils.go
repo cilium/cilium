@@ -15,7 +15,6 @@
 package utils
 
 import (
-	"fmt"
 	"sort"
 
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/core/v1"
@@ -121,9 +120,9 @@ func GetLatestPodReadiness(podStatus slim_corev1.PodStatus) slim_corev1.Conditio
 
 // ValidIPs return a sorted slice of unique IP addresses retrieved from the given PodStatus.
 // Returns an error when no IPs are found.
-func ValidIPs(podStatus slim_corev1.PodStatus) ([]string, error) {
+func ValidIPs(podStatus slim_corev1.PodStatus) []string {
 	if len(podStatus.PodIPs) == 0 && len(podStatus.PodIP) == 0 {
-		return nil, fmt.Errorf("empty PodIPs")
+		return nil
 	}
 
 	// make it a set first to avoid repeated IP addresses
@@ -142,7 +141,7 @@ func ValidIPs(podStatus slim_corev1.PodStatus) ([]string, error) {
 		ips = append(ips, ipStr)
 	}
 	sort.Strings(ips)
-	return ips, nil
+	return ips
 }
 
 // IsPodRunning returns true if the pod is considered to be in running state.

@@ -204,9 +204,10 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 	}
 
 	skipped := false
-	podIPs, err := k8sUtils.ValidIPs(pod.Status)
+	var err error
+	podIPs := k8sUtils.ValidIPs(pod.Status)
 
-	if err == nil {
+	if len(podIPs) > 0 {
 		skipped, err = k.updatePodHostData(pod, podIPs)
 
 		// There might be duplicate callbacks here since this function is also
@@ -716,9 +717,9 @@ func (k *K8sWatcher) deletePodHostData(pod *slim_corev1.Pod) (bool, error) {
 		return true, fmt.Errorf("pod is using host networking")
 	}
 
-	podIPs, err := k8sUtils.ValidIPs(pod.Status)
-	if err != nil {
-		return true, err
+	podIPs := k8sUtils.ValidIPs(pod.Status)
+	if len(podIPs) == 0 {
+		return true, nil
 	}
 
 	k.DeleteHostPortMapping(pod, podIPs)

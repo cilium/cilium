@@ -255,11 +255,12 @@ func (rpm *Manager) OnUpdatePodLocked(pod *slimcorev1.Pod, removeOld bool, upser
 		return
 	}
 
-	podIPs, err := k8sUtils.ValidIPs(pod.Status)
-	if err != nil {
+	podIPs := k8sUtils.ValidIPs(pod.Status)
+	if len(podIPs) == 0 {
 		return
 	}
 	var podData *podMetadata
+	var err error
 	if podData, err = rpm.getPodMetadata(pod, podIPs); err != nil {
 		log.WithError(err).WithFields(logrus.Fields{
 			logfields.K8sPodName:   pod.Name,
@@ -516,6 +517,7 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig) []*podMetadata {
 	var (
 		retPods []*podMetadata
 		podData *podMetadata
+		err     error
 	)
 
 	podStore := rpm.storeGetter.GetStore("pod")
@@ -524,8 +526,8 @@ func (rpm *Manager) getLocalPodsForPolicy(config *LRPConfig) []*podMetadata {
 		if !ok || !config.checkNamespace(pod.GetNamespace()) {
 			continue
 		}
-		podIPs, err := k8sUtils.ValidIPs(pod.Status)
-		if err != nil {
+		podIPs := k8sUtils.ValidIPs(pod.Status)
+		if len(podIPs) == 0 {
 			continue
 		}
 		if podData, err = rpm.getPodMetadata(pod, podIPs); err != nil {
