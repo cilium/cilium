@@ -9,12 +9,33 @@ Create chart name and version as used by the chart label.
 Return the appropriate apiVersion for ingress.
 */}}
 {{- define "ingress.apiVersion" -}}
-{{- if semverCompare ">=1.4-0, <1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- if semverCompare ">=1.4-0, <1.14-0" .Capabilities.KubeVersion.Version -}}
 {{- print "extensions/v1beta1" -}}
-{{- else if semverCompare "^1.14-0" .Capabilities.KubeVersion.GitVersion -}}
+{{- else if semverCompare ">=1.14-0, <1.19.0" .Capabilities.KubeVersion.Version -}}
+{{- print "networking.k8s.io/v1beta1" -}}
+{{- else if semverCompare "^1.19-0" .Capabilities.KubeVersion.Version -}}
 {{- print "networking.k8s.io/v1" -}}
 {{- end -}}
 {{- end -}}
+
+{{/*
+Return the appropriate backend for Hubble UI ingress.
+*/}}
+{{- define "ingress.paths" -}}
+{{ if semverCompare ">=1.4-0, <1.19-0" .Capabilities.KubeVersion.Version -}}
+backend:
+  serviceName: hubble-ui
+  servicePort: http
+{{- else if semverCompare "^1.19-0" .Capabilities.KubeVersion.Version -}}
+pathType: Prefix
+backend:
+  service:
+    name: hubble-ui
+    port:
+      name: http
+{{- end -}}
+{{- end -}}
+
 
 {{/*
 Generate TLS certificates for Hubble Server and Hubble Relay.
