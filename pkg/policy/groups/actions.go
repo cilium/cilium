@@ -245,7 +245,6 @@ func addDerivativePolicy(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy
 		if derivativeErr == nil {
 			break
 		}
-		metrics.PolicyImportErrors.Inc()
 		metrics.PolicyImportErrorsTotal.Inc()
 		scopedLog.WithError(derivativeErr).Error("Cannot create derivative rule. Installing deny-all rule.")
 		statusErr := updateDerivativeStatus(cnp, derivativePolicy.GetName(), derivativeErr, clusterScoped)
@@ -265,7 +264,6 @@ func addDerivativePolicy(ctx context.Context, cnp *cilium_v2.CiliumNetworkPolicy
 	if err != nil {
 		statusErr := updateDerivativeStatus(cnp, derivativePolicy.GetName(), err, clusterScoped)
 		if statusErr != nil {
-			metrics.PolicyImportErrors.Inc()
 			metrics.PolicyImportErrorsTotal.Inc()
 			scopedLog.WithError(err).Error("Cannot update status for derivative policy")
 		}

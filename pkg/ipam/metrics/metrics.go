@@ -58,21 +58,21 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 		Subsystem: ipamSubsystem,
 		Name:      "allocation_ops",
 		Help:      "Number of IP allocation operations",
-	}, []string{"subnetId", "subnet_id"}) //TODO(sayboras): Remove deprecated tag subnetId in 1.10
+	}, []string{"subnet_id"})
 
 	m.ReleaseIpOps = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "release_ops",
 		Help:      "Number of IP release operations",
-	}, []string{"subnetId", "subnet_id"}) //TODO(sayboras): Remove deprecated tag subnetId in 1.10
+	}, []string{"subnet_id"})
 
 	m.AllocateInterfaceOps = prometheus.NewCounterVec(prometheus.CounterOpts{
 		Namespace: namespace,
 		Subsystem: ipamSubsystem,
 		Name:      "interface_creation_ops",
 		Help:      "Number of interfaces allocated",
-	}, []string{"subnetId", "subnet_id", "status"}) //TODO(sayboras): Remove deprecated tag subnetId in 1.10
+	}, []string{"subnet_id", "status"})
 
 	m.AvailableInterfaces = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: namespace,
@@ -86,9 +86,7 @@ func NewPrometheusMetrics(namespace string, registry *prometheus.Registry) *prom
 		Subsystem: ipamSubsystem,
 		Name:      "available_ips_per_subnet",
 		Help:      "Number of available IPs per subnet ID",
-	},
-		//TODO(sayboras): Remove deprecated tag subnetId, availabilityZone in 1.10
-		[]string{"subnetId", "subnet_id", "availabilityZone", "availability_zone"})
+	}, []string{"subnet_id", "availability_zone"})
 
 	m.Nodes = prometheus.NewGaugeVec(prometheus.GaugeOpts{
 		Namespace: namespace,
@@ -138,18 +136,15 @@ func (p *prometheusMetrics) ResyncTrigger() trigger.MetricsObserver {
 }
 
 func (p *prometheusMetrics) IncAllocationAttempt(status, subnetID string) {
-	// TODO(sayboras): Remove deprecated tag subnetID in 1.10
-	p.AllocateInterfaceOps.WithLabelValues(subnetID, subnetID, status).Inc()
+	p.AllocateInterfaceOps.WithLabelValues(subnetID, status).Inc()
 }
 
 func (p *prometheusMetrics) AddIPAllocation(subnetID string, allocated int64) {
-	// TODO(sayboras): Remove deprecated tag subnetID in 1.10
-	p.AllocateIpOps.WithLabelValues(subnetID, subnetID).Add(float64(allocated))
+	p.AllocateIpOps.WithLabelValues(subnetID).Add(float64(allocated))
 }
 
 func (p *prometheusMetrics) AddIPRelease(subnetID string, released int64) {
-	// TODO(sayboras): Remove deprecated tag subnetID in 1.10
-	p.ReleaseIpOps.WithLabelValues(subnetID, subnetID).Add(float64(released))
+	p.ReleaseIpOps.WithLabelValues(subnetID).Add(float64(released))
 }
 
 func (p *prometheusMetrics) SetAllocatedIPs(typ string, allocated int) {
@@ -161,8 +156,7 @@ func (p *prometheusMetrics) SetAvailableInterfaces(available int) {
 }
 
 func (p *prometheusMetrics) SetAvailableIPsPerSubnet(subnetID string, availabilityZone string, available int) {
-	// TODO(sayboras): Remove deprecated tag subnetID and availabilityZone in 1.10
-	p.AvailableIPsPerSubnet.WithLabelValues(subnetID, subnetID, availabilityZone, availabilityZone).Set(float64(available))
+	p.AvailableIPsPerSubnet.WithLabelValues(subnetID, availabilityZone).Set(float64(available))
 }
 
 func (p *prometheusMetrics) SetNodes(label string, nodes int) {
