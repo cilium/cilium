@@ -83,8 +83,8 @@ the token returned by ``kubeadm init``:
 .. include:: k8s-install-download-release.rst
 
 Next, generate the required YAML files and deploy them. **Important:** Replace
-``API_SERVER_IP`` and ``API_SERVER_PORT`` below with the concrete control-plane
-node IP address and the kube-apiserver port number reported by ``kubeadm init``
+``REPLACE_WITH_API_SERVER_IP`` and ``REPLACE_WITH_API_SERVER_PORT`` below with the concrete
+control-plane node IP address and the kube-apiserver port number reported by ``kubeadm init``
 (usually, it is port ``6443``).
 
 Specifying this is necessary as ``kubeadm init`` is run explicitly without setting
@@ -99,8 +99,8 @@ configuration.
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set global.kubeProxyReplacement=strict \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set global.k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set global.k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 This will install Cilium as a CNI plugin with the BPF kube-proxy replacement to
 implement handling of Kubernetes services of type ClusterIP, NodePort, LoadBalancer
@@ -342,8 +342,8 @@ enabled would look as follows:
         --set global.autoDirectNodeRoutes=true \\
         --set global.kubeProxyReplacement=strict \\
         --set global.nodePort.mode=dsr \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set global.k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set global.k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 .. _Hybrid mode:
 
@@ -371,8 +371,8 @@ mode would look as follows:
         --set global.autoDirectNodeRoutes=true \\
         --set global.kubeProxyReplacement=strict \\
         --set global.nodePort.mode=hybrid \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set global.k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set global.k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 .. _XDP acceleration:
 
@@ -412,8 +412,8 @@ modes and can be enabled as follows for ``nodePort.mode=hybrid`` in this example
         --set global.kubeProxyReplacement=strict \\
         --set global.nodePort.acceleration=native \\
         --set global.nodePort.mode=hybrid \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set global.k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set global.k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 In case of a multi-device environment, where Cilium's device auto-detection selects
 more than a single device to expose NodePort, for example, the helm option
@@ -647,8 +647,8 @@ will automatically configure your virtual network to route pod traffic correctly
      --set global.kubeProxyReplacement=strict \\
      --set global.nodePort.acceleration=native \\
      --set global.nodePort.mode=hybrid \\
-     --set global.k8sServiceHost=API_SERVER_IP \\
-     --set global.k8sServicePort=API_SERVER_PORT
+     --set global.k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+     --set global.k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 When running Azure IPAM on a self-managed Kubernetes cluster, each ``v1.Node``
 must have the resource ID of its VM in the ``spec.providerID`` field.
@@ -736,8 +736,8 @@ as in the earlier getting started deployment:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set global.kubeProxyReplacement=strict \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set global.k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set global.k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 Also, ensure that each node IP is known via ``INTERNAL-IP`` or ``EXTERNAL-IP``,
 for example:
@@ -885,8 +885,8 @@ This section therefore elaborates on the various ``global.kubeProxyReplacement``
         --set global.nodePort.enabled=true \\
         --set global.externalIPs.enabled=true \\
         --set global.hostPort.enabled=true \\
-        --set global.k8sServiceHost=API_SERVER_IP \\
-        --set global.k8sServicePort=API_SERVER_PORT
+        --set global.k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set global.k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
   The following helm setup below would be equivalent to the default Cilium service
   handling in v1.6 or earlier in a kube-proxy environment, that is, serving ClusterIP
