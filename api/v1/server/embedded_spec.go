@@ -2710,7 +2710,7 @@ func init() {
                   "enum": [
                     "SNAT",
                     "DSR",
-                    "HYBRID"
+                    "Hybrid"
                   ]
                 },
                 "portMax": {
@@ -6622,7 +6622,7 @@ func init() {
                   "enum": [
                     "SNAT",
                     "DSR",
-                    "HYBRID"
+                    "Hybrid"
                   ]
                 },
                 "portMax": {
@@ -6722,7 +6722,7 @@ func init() {
               "enum": [
                 "SNAT",
                 "DSR",
-                "HYBRID"
+                "Hybrid"
               ]
             },
             "portMax": {
@@ -6807,7 +6807,7 @@ func init() {
           "enum": [
             "SNAT",
             "DSR",
-            "HYBRID"
+            "Hybrid"
           ]
         },
         "portMax": {
