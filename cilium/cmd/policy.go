@@ -22,7 +22,6 @@ import (
 	"os"
 	"path"
 	"path/filepath"
-	"regexp"
 	"strings"
 
 	"github.com/cilium/cilium/pkg/logging/logfields"
@@ -39,17 +38,12 @@ var policyCmd = &cobra.Command{
 }
 
 var (
-	ignoredMasksSource = []string{".git"}
-	ignoredMasks       []*regexp.Regexp
+	ignoredFileNames = []string{
+		".git",
+	}
 )
 
 func init() {
-	ignoredMasks = make([]*regexp.Regexp, len(ignoredMasksSource))
-
-	for i := range ignoredMasksSource {
-		ignoredMasks[i] = regexp.MustCompile(ignoredMasksSource[i])
-	}
-
 	rootCmd.AddCommand(policyCmd)
 }
 
@@ -109,8 +103,8 @@ func handleUnmarshalError(f string, content []byte, err error) error {
 }
 
 func ignoredFile(name string) bool {
-	for i := range ignoredMasks {
-		if ignoredMasks[i].MatchString(name) {
+	for _, n := range ignoredFileNames {
+		if name == n {
 			logrus.WithField(logfields.Path, name).Debug("Ignoring file")
 			return true
 		}
