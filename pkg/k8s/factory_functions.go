@@ -21,13 +21,12 @@ import (
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	slim_discover_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1"
 	slim_networkingv1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1"
+	slim_apiextensions_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 
 	v1 "k8s.io/api/core/v1"
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
-	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/client-go/tools/cache"
 )
 
@@ -191,8 +190,8 @@ func ObjToV1Namespace(obj interface{}) *slim_corev1.Namespace {
 	return nil
 }
 
-func ObjToV1beta1CRD(obj interface{}) *v1beta1.CustomResourceDefinition {
-	crd, ok := obj.(*v1beta1.CustomResourceDefinition)
+func ObjToV1beta1CRD(obj interface{}) *slim_apiextensions_v1beta1.CustomResourceDefinition {
+	crd, ok := obj.(*slim_apiextensions_v1beta1.CustomResourceDefinition)
 	if ok {
 		return crd
 	}
@@ -201,7 +200,7 @@ func ObjToV1beta1CRD(obj interface{}) *v1beta1.CustomResourceDefinition {
 		// Delete was not observed by the watcher but is
 		// removed from kube-apiserver. This is the last
 		// known state and the object no longer exists.
-		crd, ok := deletedObj.Obj.(*v1beta1.CustomResourceDefinition)
+		crd, ok := deletedObj.Obj.(*slim_apiextensions_v1beta1.CustomResourceDefinition)
 		if ok {
 			return crd
 		}
@@ -211,8 +210,8 @@ func ObjToV1beta1CRD(obj interface{}) *v1beta1.CustomResourceDefinition {
 	return nil
 }
 
-func ObjToV1PartialObjectMetadata(obj interface{}) *metav1.PartialObjectMetadata {
-	pom, ok := obj.(*metav1.PartialObjectMetadata)
+func ObjToV1PartialObjectMetadata(obj interface{}) *slim_metav1.PartialObjectMetadata {
+	pom, ok := obj.(*slim_metav1.PartialObjectMetadata)
 	if ok {
 		return pom
 	}
@@ -221,7 +220,7 @@ func ObjToV1PartialObjectMetadata(obj interface{}) *metav1.PartialObjectMetadata
 		// Delete was not observed by the watcher but is
 		// removed from kube-apiserver. This is the last
 		// known state and the object no longer exists.
-		pom, ok := deletedObj.Obj.(*metav1.PartialObjectMetadata)
+		pom, ok := deletedObj.Obj.(*slim_metav1.PartialObjectMetadata)
 		if ok {
 			return pom
 		}

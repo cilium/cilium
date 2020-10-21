@@ -16,18 +16,21 @@ package watchers
 
 import (
 	"context"
-	"encoding/json"
 	"errors"
+	"fmt"
+	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/k8s"
 	v2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
 	"github.com/cilium/cilium/pkg/k8s/informer"
+	slim_apiextensions_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1beta1"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 
-	"k8s.io/apiextensions-apiserver/pkg/apis/apiextensions/v1beta1"
+	"github.com/sirupsen/logrus"
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -37,7 +40,7 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) crdsInit(ctx context.Context, client apiextclientset.Interface) error {
+func (k *K8sWatcher) crdsInit(ctx context.Context, watcherClient apiextclientset.Interface) error {
 	crds := newCRDState(
 		map[string]bool{
 			cnpCRD:  false,
@@ -51,7 +54,7 @@ func (k *K8sWatcher) crdsInit(ctx context.Context, client apiextclientset.Interf
 
 	var (
 		listerWatcher = newListWatchFromClient(
-			newCRDGetter(client),
+			newCRDGetter(watcherClient),
 			fields.Everything(),
 			k8sversion.Capabilities().WatchPartialObjectMetadata,
 		)
@@ -61,7 +64,7 @@ func (k *K8sWatcher) crdsInit(ctx context.Context, client apiextclientset.Interf
 	if k8sversion.Capabilities().WatchPartialObjectMetadata {
 		_, crdController = informer.NewInformer(
 			listerWatcher,
-			&metav1.PartialObjectMetadata{},
+			&slim_metav1.PartialObjectMetadata{},
 			0,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc:    func(obj interface{}) { addCRD(&crds, obj) },
@@ -76,7 +79,7 @@ func (k *K8sWatcher) crdsInit(ctx context.Context, client apiextclientset.Interf
 		// assume this apiserver only has v1beta1 CRDs.
 		_, crdController = informer.NewInformer(
 			listerWatcher,
-			&v1beta1.CustomResourceDefinition{},
+			&slim_apiextensions_v1beta1.CustomResourceDefinition{},
 			0,
 			cache.ResourceEventHandlerFuncs{
 				AddFunc:    func(obj interface{}) { addCRD(&crds, obj) },
@@ -293,7 +296,7 @@ func newListWatchFromClient(
 			// that object type because it is not a list type.
 			getter = getter.SetHeader("Accept", tableHeader)
 
-			t := &metav1.Table{}
+			t := &slim_metav1.Table{}
 			if err := getter.
 				VersionedParams(&options, metav1.ParameterCodec).
 				Do(context.TODO()).
@@ -304,7 +307,7 @@ func newListWatchFromClient(
 			return tableToPomList(t), nil
 		}
 
-		crds := &v1beta1.CustomResourceDefinitionList{}
+		crds := &slim_apiextensions_v1beta1.CustomResourceDefinitionList{}
 		if err := getter.
 			VersionedParams(&options, metav1.ParameterCodec).
 			Do(context.TODO()).
@@ -345,19 +348,32 @@ func newListWatchFromClient(
 // version promotion), the code still works. Hence, we do not need different
 // versions of this function to handle the different types. See
 // https://github.com/kubernetes/kubernetes/pull/77136.
-func tableToPomList(t *metav1.Table) *metav1.PartialObjectMetadataList {
-	list := &metav1.PartialObjectMetadataList{
+func tableToPomList(t *slim_metav1.Table) *slim_metav1.PartialObjectMetadataList {
+	list := &slim_metav1.PartialObjectMetadataList{
 		TypeMeta: t.TypeMeta,
 		ListMeta: t.ListMeta,
-		Items:    make([]metav1.PartialObjectMetadata, 0, len(t.Rows)),
+		Items:    make([]slim_metav1.PartialObjectMetadata, 0, len(t.Rows)),
+	}
+
+	// find column that contains the name field
+	idx := -1
+	for i, cd := range t.ColumnDefinitions {
+		if strings.ToLower(cd.Name) == "name" {
+			idx = i
+		}
+	}
+	if idx == -1 {
+		log.WithFields(logrus.Fields{
+			"column-definitions": t.ColumnDefinitions,
+		}).Error("Unable to find column definition with 'Name' field skipping")
+		return nil
 	}
 
 	for _, row := range t.Rows {
-		var pom metav1.PartialObjectMetadata
-		if err := json.Unmarshal(row.Object.Raw, &pom); err != nil {
-			log.WithError(err).Errorf("Converting metav1.Table to metav1.PartialObjectMetadata, unexpected type %T found, skipping",
-				row.Object.Object)
-			continue
+		pom := slim_metav1.PartialObjectMetadata{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name: fmt.Sprintf("%s", row.Cells[idx]),
+			},
 		}
 
 		list.Items = append(list.Items, pom)
