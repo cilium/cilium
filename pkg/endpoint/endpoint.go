@@ -1066,7 +1066,12 @@ func (e *Endpoint) leaveLocked(proxyWaitGroup *completion.WaitGroup, conf Delete
 	}
 
 	if !conf.NoIdentityRelease && e.SecurityIdentity != nil {
-		identitymanager.Remove(e.SecurityIdentity)
+		// Restored endpoint may be created with a reserved identity of 5
+		// (init), which is not registered in the identity manager and
+		// therefore doesn't need to be removed.
+		if e.SecurityIdentity.ID != identity.ReservedIdentityInit {
+			identitymanager.Remove(e.SecurityIdentity)
+		}
 
 		releaseCtx, cancel := context.WithTimeout(context.Background(), option.Config.KVstoreConnectivityTimeout)
 		defer cancel()
