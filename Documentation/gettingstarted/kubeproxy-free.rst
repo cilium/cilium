@@ -7,7 +7,7 @@
 .. _kubeproxy-free:
 
 *****************************
-Kubernetes without kube-proxy
+Kubernetes Without kube-proxy
 *****************************
 
 This guide explains how to provision a Kubernetes cluster without ``kube-proxy``,
@@ -33,8 +33,8 @@ For installing ``kubeadm`` and for more provisioning options please refer to
 Quick-Start
 ###########
 
-Initialize the control-plane node via ``kubeadm init``, set a pod network
-CIDR and skip the ``kube-proxy`` add-on:
+Initialize the control-plane node via ``kubeadm init`` and skip the
+installation of the ``kube-proxy`` add-on:
 
 .. tabs::
 
@@ -88,7 +88,7 @@ node IP address and the kube-apiserver port number reported by ``kubeadm init``
 (usually, it is port ``6443``).
 
 Specifying this is necessary as ``kubeadm init`` is run explicitly without setting
-up kube-proxy and as a consequence while it exports ``KUBERNETES_SERVICE_HOST``
+up kube-proxy and as a consequence, although it exports ``KUBERNETES_SERVICE_HOST``
 and ``KUBERNETES_SERVICE_PORT`` with a ClusterIP of the kube-apiserver service
 to the environment, there is no kube-proxy in our setup provisioning that service.
 The Cilium agent therefore needs to be made aware of this information through below
@@ -117,17 +117,16 @@ is ready to operate:
     cilium-fmh8d        1/1       Running   0          10m
     cilium-mkcmb        1/1       Running   0          10m
 
-Note, in above helm configuration the ``kubeProxyReplacement`` has been set to
+Note, in above Helm configuration, the ``kubeProxyReplacement`` has been set to
 ``strict`` mode. This means that the Cilium agent will bail out in case the
 underlying Linux kernel support is missing.
 
-Without explicitly specifying a ``kubeProxyReplacement`` option, helm uses
-``kubeProxyReplacement`` with ``probe`` by default which would automatically
+By default, Helm sets ``kubeProxyReplacement=probe``, which automatically
 disable a subset of the features to implement the kube-proxy replacement instead
 of bailing out if the kernel support is missing. This makes the assumption that
 Cilium's eBPF kube-proxy replacement would co-exist with kube-proxy on the system
 to optimize Kubernetes services. Given we've used kubeadm to explicitly deploy
-a kube-proxy-free setup, the ``strict`` mode has been used instead to ensure
+a kube-proxy-free setup, ``strict`` mode is explicitly set in this guide to ensure
 that we do not rely on a (non-existing) fallback.
 
 Cilium's eBPF kube-proxy replacement is supported in direct routing as well as in
@@ -166,7 +165,7 @@ Use ``--verbose`` for full details:
       - HostPort:       Enabled
     [...]
 
-As a next, optional step, we deploy nginx pods, create a new NodePort service and
+As a optional next step, we deploy nginx pods, create a new NodePort service and
 validate that Cilium installed the service correctly.
 
 The following yaml is used for the backend pods:
@@ -235,7 +234,7 @@ port ``31940`` (one for each of devices ``eth0`` and ``eth1``):
     7    172.16.0.29:31940      NodePort       1 => 10.217.0.107:80       
                                                2 => 10.217.0.149:80       
 
-At the same time we can inspect through ``iptables`` in the host namespace
+At the same time we can verify, using ``iptables`` in the host namespace,
 that no ``iptables`` rule for the service is present:
 
 .. parsed-literal::
@@ -282,7 +281,7 @@ NodePort port ``31940`` as well as for the ClusterIP:
     <title>Welcome to nginx!</title>
     [....]
 
-As can be seen, the Cilium's eBPF kube-proxy replacement is set up correctly.
+As can be seen, Cilium's eBPF kube-proxy replacement is set up correctly.
 
 Advanced Configuration
 ######################
@@ -416,7 +415,7 @@ from the backend need to make the extra hop back that node in order to perform t
 reverse SNAT translation there before returning the packet directly to the external
 client.
 
-This setting can be changed through the ``nodePort.mode`` helm option to
+This setting can be changed through the ``nodePort.mode`` Helm option to
 ``dsr`` in order to let Cilium's eBPF NodePort implementation operate in DSR mode.
 In this mode, the backends reply directly to the external client without taking
 the extra hop, meaning, backends reply by using the service IP/port as a source.
@@ -446,7 +445,7 @@ Also, in some public cloud provider environments, which implement a source /
 destination IP address checking (e.g. AWS), the checking has to be disabled in
 order for the DSR mode to work.
 
-Above helm example configuration in a kube-proxy-free environment with DSR-only mode
+The above Helm example configuration in a kube-proxy-free environment with DSR-only mode
 enabled would look as follows:
 
 .. parsed-literal::
@@ -475,7 +474,7 @@ The mode setting ``nodePort.mode`` allows to control the behavior through the
 options ``dsr``, ``snat`` and ``hybrid``. By default the ``snat`` mode is used in the
 agent.
 
-A helm example configuration in a kube-proxy-free environment with DSR enabled in hybrid
+A Helm example configuration in a kube-proxy-free environment with DSR enabled in hybrid
 mode would look as follows:
 
 .. parsed-literal::
@@ -531,7 +530,7 @@ modes and can be enabled as follows for ``nodePort.mode=hybrid`` in this example
         --set k8sServicePort=API_SERVER_PORT
 
 In case of a multi-device environment, where Cilium's device auto-detection selects
-more than a single device to expose NodePort, for example, the helm option
+more than a single device to expose NodePort, for example, the Helm option
 ``devices=eth0`` must be additionally specified for the enablement, where
 ``eth0`` is the native XDP supported networking device. In that case, the device
 name ``eth0`` must be the same on all Cilium managed nodes. Similarly, the underlying
@@ -795,7 +794,7 @@ LoadBalancer service or a service with externalIPs will be accessible through
 the IP addresses of native devices which have the default route on the host or
 have Kubernetes InternalIP or ExternalIP assigned. InternalIP is preferred over
 ExternalIP if both exist. To change the devices, set their names in the
-``devices`` helm option, e.g. ``devices='{eth0,eth1,eth2}'``. Each
+``devices`` Helm option, e.g. ``devices='{eth0,eth1,eth2}'``. Each
 listed device has to be named the same on all Cilium managed nodes.
 
 When multiple devices are used, only one device can be used for direct routing
@@ -803,7 +802,7 @@ between Cilium nodes. By default, if a single device was detected or specified
 via ``devices`` then Cilium will use that device for direct routing.
 Otherwise, Cilium will use a device with Kubernetes InternalIP or ExternalIP
 being set. InternalIP is preferred over ExternalIP if both exist. To change
-the direct routing device, set the ``nodePort.directRoutingDevice`` helm
+the direct routing device, set the ``nodePort.directRoutingDevice`` Helm
 option, e.g. ``nodePort.directRoutingDevice=eth1``. If the direct
 routing device does not exist within ``devices``, Cilium will add the
 device to the latter list. The direct routing device is used for
@@ -836,15 +835,15 @@ expert users by switching ``nodePort.bindProtection`` to ``false``.
 
 .. _Configuring Maps:
 
-Configuring BPF map sizes
+Configuring BPF Map Sizes
 *************************
 
 For high-scale environments, Cilium's BPF maps can be configured to have higher
-limits on the number of entries. Overriding helm options can be used to tweak
+limits on the number of entries. Overriding Helm options can be used to tweak
 these limits.
 
 To increase the number of entries in Cilium's BPF LB service, backend and
-affinity maps consider overriding ``bpf.lbMapMax`` helm option.
+affinity maps consider overriding ``bpf.lbMapMax`` Helm option.
 The default value of this LB map size is 65536.
 
 .. parsed-literal::
@@ -856,7 +855,7 @@ The default value of this LB map size is 65536.
 
 .. _kubeproxyfree_hostport:
 
-Container hostPort support
+Container HostPort Support
 **************************
 
 Although not part of kube-proxy, Cilium's eBPF kube-proxy replacement also
@@ -1025,7 +1024,7 @@ This section therefore elaborates on the various ``kubeProxyReplacement`` option
   and ``hostPort.enabled`` can be set to ``true``. By default all four options are set
   to ``false``. A few example configurations for the ``partial`` option are provided below.
 
-  The following helm setup below would be equivalent to ``kubeProxyReplacement=strict``
+  The following Helm setup below would be equivalent to ``kubeProxyReplacement=strict``
   in a kube-proxy-free environment:
 
   .. parsed-literal::
@@ -1040,7 +1039,7 @@ This section therefore elaborates on the various ``kubeProxyReplacement`` option
         --set k8sServiceHost=API_SERVER_IP \\
         --set k8sServicePort=API_SERVER_PORT
 
-  The following helm setup below would be equivalent to the default Cilium service
+  The following Helm setup below would be equivalent to the default Cilium service
   handling in v1.6 or earlier in a kube-proxy environment, that is, serving ClusterIP
   for pods:
 
@@ -1050,7 +1049,7 @@ This section therefore elaborates on the various ``kubeProxyReplacement`` option
         --namespace kube-system \\
         --set kubeProxyReplacement=partial
 
-  The following helm setup below would optimize Cilium's ClusterIP handling for TCP in a
+  The following Helm setup below would optimize Cilium's ClusterIP handling for TCP in a
   kube-proxy environment (``hostServices.protocols`` default is ``tcp,udp``):
 
   .. parsed-literal::
@@ -1061,7 +1060,7 @@ This section therefore elaborates on the various ``kubeProxyReplacement`` option
         --set hostServices.enabled=true \\
         --set hostServices.protocols=tcp
 
-  The following helm setup below would optimize Cilium's NodePort, LoadBalancer and services
+  The following Helm setup below would optimize Cilium's NodePort, LoadBalancer and services
   with externalIPs handling for external traffic ingressing into the Cilium managed node in
   a kube-proxy environment:
 
@@ -1078,7 +1077,7 @@ This section therefore elaborates on the various ``kubeProxyReplacement`` option
   accessed from pods if cilium-agent's flag ``--disable-k8s-services`` is set to
   ``false`` (pre-v1.6 behavior).
 
-In Cilium's helm chart, the default mode is ``kubeProxyReplacement=probe`` for
+In Cilium's Helm chart, the default mode is ``kubeProxyReplacement=probe`` for
 new deployments.
 
 For existing Cilium deployments in version v1.6 or prior, please consult the :ref:`1.7_upgrade_notes`.
@@ -1118,7 +1117,7 @@ a fixed cookie value as a trade-off. This makes all applications on the host to
 select the same service endpoint for a given service with session affinity configured.
 To disable the feature, set ``config.sessionAffinity=false``.
 
-kube-proxy replacement health check server
+kube-proxy Replacement Health Check server
 ******************************************
 To enable health check server for the kube-proxy replacement, the
 ``kubeProxyReplacementHealthzBindAddr`` option has to be set (disabled by
@@ -1179,7 +1178,7 @@ Limitations
     * Cilium's eBPF kube-proxy acceleration in XDP can only be used in a single device setup
       as a "one-legged" / hairpin load balancer scenario. In case of a multi-device environment,
       where auto-detection selects more than a single device to expose NodePort, the option
-      ``devices=eth0`` must be specified in helm in order to work, where ``eth0``
+      ``devices=eth0`` must be specified in Helm in order to work, where ``eth0``
       is the native XDP supported networking device.
     * Cilium's DSR NodePort mode currently does not operate well in environments with
       TCP Fast Open (TFO) enabled. It is recommended to switch to ``snat`` mode in this
