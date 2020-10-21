@@ -1556,8 +1556,7 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 				close(done)
 				return nil
 			},
-			RunInterval: 30 * time.Second,
-			Context:     e.aliveCtx,
+			Context: e.aliveCtx,
 		},
 	)
 }
