@@ -757,11 +757,11 @@ will automatically configure your virtual network to route pod traffic correctly
      --namespace kube-system \\
      --set ipam.mode=azure \\
      --set azure.enabled=true \\
-     --set azure.resourceGroup=AZURE_NODE_RESOURCE_GROUP \\
-     --set azure.subscriptionID=AZURE_SUBSCRIPTION_ID \\
-     --set azure.tenantID=AZURE_TENANT_ID \\
-     --set azure.clientID=AZURE_CLIENT_ID \\
-     --set azure.clientSecret=AZURE_CLIENT_SECRET \\
+     --set azure.resourceGroup=$AZURE_NODE_RESOURCE_GROUP \\
+     --set azure.subscriptionID=$AZURE_SUBSCRIPTION_ID \\
+     --set azure.tenantID=$AZURE_TENANT_ID \\
+     --set azure.clientID=$AZURE_CLIENT_ID \\
+     --set azure.clientSecret=$AZURE_CLIENT_SECRET \\
      --set tunnel=disabled \\
      --set masquerade=false \\
      --set devices=eth0 \\
