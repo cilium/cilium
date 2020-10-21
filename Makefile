@@ -353,6 +353,7 @@ generate-k8s-api:
 	$(call generate_k8s_protobuf,$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1$(comma)$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1$(comma)$\
@@ -367,7 +368,8 @@ generate-k8s-api:
 	apiextensions:v1")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\
 	util:intstr\
-	meta:v1")
+	meta:v1\
+	meta:v1beta1")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/k8s/slim/k8s,"$\
 	apis:labels")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg,"$\
