@@ -52,7 +52,6 @@ Helm chart for Cilium
 | enableCriticalPriorityClass | bool | `true` |  |
 | enableXTSocketFallback | bool | `true` |  |
 | encryption.enabled | bool | `false` |  |
-| encryption.interface | string | `"eth0"` |  |
 | encryption.keyFile | string | `"keys"` |  |
 | encryption.mountPath | string | `"/etc/ipsec"` |  |
 | encryption.nodeEncryption | bool | `false` |  |
