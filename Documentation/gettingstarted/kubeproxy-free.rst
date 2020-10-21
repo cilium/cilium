@@ -83,8 +83,8 @@ the token returned by ``kubeadm init``:
 .. include:: k8s-install-download-release.rst
 
 Next, generate the required YAML files and deploy them. **Important:** Replace
-``API_SERVER_IP`` and ``API_SERVER_PORT`` below with the concrete control-plane
-node IP address and the kube-apiserver port number reported by ``kubeadm init``
+``REPLACE_WITH_API_SERVER_IP`` and ``REPLACE_WITH_API_SERVER_PORT`` below with the concrete
+control-plane node IP address and the kube-apiserver port number reported by ``kubeadm init``
 (usually, it is port ``6443``).
 
 Specifying this is necessary as ``kubeadm init`` is run explicitly without setting
@@ -99,8 +99,8 @@ configuration.
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set kubeProxyReplacement=strict \\
-        --set k8sServiceHost=API_SERVER_IP \\
-        --set k8sServicePort=API_SERVER_PORT
+        --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 This will install Cilium as a CNI plugin with the eBPF kube-proxy replacement to
 implement handling of Kubernetes services of type ClusterIP, NodePort, LoadBalancer
@@ -329,8 +329,8 @@ Maglev hashing for services load balancing can be enabled by setting ``nodePort.
         --namespace kube-system \\
         --set kubeProxyReplacement=strict \\
         --set nodePort.algorithm=maglev \\
-        --set k8sServiceHost=API_SERVER_IP \\
-        --set k8sServicePort=API_SERVER_PORT
+        --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 Note that Maglev hashing is applied only to external (N-S) traffic. For
 in-cluster service connections (E-W), sockets are assigned to service backends
@@ -395,8 +395,8 @@ given service (with the property of at most 1% difference on backend reassignmen
         --set nodePort.algorithm=maglev \\
         --set maglev.tableSize=65521 \\
         --set maglev.hashSeed=$SEED \\
-        --set k8sServiceHost=API_SERVER_IP \\
-        --set k8sServicePort=API_SERVER_PORT
+        --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 Note that enabling Maglev will have a higher memory consumption on each Cilium-managed node compared
 to the default of ``nodePort.algorithm=random`` given ``random`` does not need the extra lookup
@@ -457,8 +457,8 @@ enabled would look as follows:
         --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
         --set nodePort.mode=dsr \\
-        --set k8sServiceHost=API_SERVER_IP \\
-        --set k8sServicePort=API_SERVER_PORT
+        --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 .. _Hybrid mode:
 
@@ -486,8 +486,8 @@ mode would look as follows:
         --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
         --set nodePort.mode=hybrid \\
-        --set k8sServiceHost=API_SERVER_IP \\
-        --set k8sServicePort=API_SERVER_PORT
+        --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 .. _XDP acceleration:
 
@@ -527,8 +527,8 @@ modes and can be enabled as follows for ``nodePort.mode=hybrid`` in this example
         --set kubeProxyReplacement=strict \\
         --set nodePort.acceleration=native \\
         --set nodePort.mode=hybrid \\
-        --set k8sServiceHost=API_SERVER_IP \\
-        --set k8sServicePort=API_SERVER_PORT
+        --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 In case of a multi-device environment, where Cilium's device auto-detection selects
 more than a single device to expose NodePort, for example, the helm option
@@ -762,8 +762,8 @@ will automatically configure your virtual network to route pod traffic correctly
      --set kubeProxyReplacement=strict \\
      --set nodePort.acceleration=native \\
      --set nodePort.mode=hybrid \\
-     --set k8sServiceHost=API_SERVER_IP \\
-     --set k8sServicePort=API_SERVER_PORT
+     --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+     --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 When running Azure IPAM on a self-managed Kubernetes cluster, each ``v1.Node``
 must have the resource ID of its VM in the ``spec.providerID`` field.
@@ -880,8 +880,8 @@ as in the earlier getting started deployment:
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set kubeProxyReplacement=strict \\
-        --set k8sServiceHost=API_SERVER_IP \\
-        --set k8sServicePort=API_SERVER_PORT
+        --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 Also, ensure that each node IP is known via ``INTERNAL-IP`` or ``EXTERNAL-IP``,
 for example:
@@ -1030,8 +1030,8 @@ This section therefore elaborates on the various ``kubeProxyReplacement`` option
         --set nodePort.enabled=true \\
         --set externalIPs.enabled=true \\
         --set hostPort.enabled=true \\
-        --set k8sServiceHost=API_SERVER_IP \\
-        --set k8sServicePort=API_SERVER_PORT
+        --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
+        --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
   The following helm setup below would be equivalent to the default Cilium service
   handling in v1.6 or earlier in a kube-proxy environment, that is, serving ClusterIP
