@@ -1,4 +1,5 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019 The Kubernetes Authors.
+// Copyright 2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -12,9 +13,12 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-// +k8s:deepcopy-gen=package,register
-// +deepequal-gen=package
+// +k8s:deepcopy-gen=package
+// +k8s:protobuf-gen=package
+// +k8s:conversion-gen=k8s.io/apiextensions-apiserver/pkg/apis/apiextensions
+// +k8s:defaulter-gen=TypeMeta
+// +k8s:openapi-gen=true
+// +groupName=apiextensions.k8s.io
 
-// Package types contains slimmer versions of k8s types.
-// +groupName=meta
+// Package v1 is the v1 version of the API.
 package v1
