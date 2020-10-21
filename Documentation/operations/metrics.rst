@@ -55,16 +55,16 @@ annotations. They can be used to signal Prometheus whether to scrape metrics:
 
 .. code-block:: yaml
 
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "9090"
+        prometheus.io/scrape: true
+        prometheus.io/port: 9090
 
 To collect Envoy metrics the Cilium chart will create a Kubernetes headless
 service named ``cilium-agent`` with the ``prometheus.io/scrape:'true'`` annotation set:
 
 .. code-block:: yaml
 
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "9095"
+        prometheus.io/scrape: true
+        prometheus.io/port: 9095
 
 This additional headless service in addition to the other Cilium components is needed
 as each component can only have one Prometheus scrape and port annotation.
@@ -110,7 +110,6 @@ section for the full list of available metrics and their options.
 
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
-     --set hubble.enabled=true \\
      --set hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
 
 The port of the Hubble metrics can be configured with the
@@ -122,8 +121,8 @@ with the ``prometheus.io/scrape:'true'`` annotation set:
 
 .. code-block:: yaml
 
-        prometheus.io/scrape: "true"
-        prometheus.io/port: "9091"
+        prometheus.io/scrape: true
+        prometheus.io/port: 9091
 
 Set the following options in the ``scrape_configs`` section of Prometheus to
 have it scrape all Hubble metrics from the endpoints automatically:
