@@ -321,7 +321,7 @@ Connectivity Problems
 Cilium connectivity tests
 ------------------------------------
 
-The Cilium connectivity test_ deploys a series of services, deployments, and
+The Cilium connectivity test deploys a series of services, deployments, and
 CiliumNetworkPolicy which will use various connectivity paths to connect to
 each other. Connectivity paths include with and without service load-balancing
 and various network policy combinations.
@@ -353,8 +353,6 @@ type. If tests pass, it suggests functionality of the referenced subsystem.
 The pod name indicates the connectivity
 variant and the readiness and liveness gate indicates success or failure of the
 test:
-
-.. _test: \ |SCM_WEB|\/examples/kubernetes/connectivity-check/connectivity-check.yaml
 
 .. code:: shell-session
 
