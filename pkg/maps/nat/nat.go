@@ -15,8 +15,8 @@
 package nat
 
 import (
-	"bytes"
 	"fmt"
+	"strings"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -134,19 +134,19 @@ func (m *Map) DumpReliablyWithCallback(cb bpf.DumpCallback, stats *bpf.DumpStats
 // DoDumpEntries iterates through Map m and writes the values of the
 // nat entries in m to a string.
 func DoDumpEntries(m NatMap) (string, error) {
-	var buffer bytes.Buffer
+	var sb strings.Builder
 
 	nsecStart, _ := bpf.GetMtime()
 	cb := func(k bpf.MapKey, v bpf.MapValue) {
 		key := k.(NatKey)
-		if !key.ToHost().Dump(&buffer, false) {
+		if !key.ToHost().Dump(&sb, false) {
 			return
 		}
 		val := v.(NatEntry)
-		buffer.WriteString(val.ToHost().Dump(key, nsecStart))
+		sb.WriteString(val.ToHost().Dump(key, nsecStart))
 	}
 	err := m.DumpWithCallback(cb)
-	return buffer.String(), err
+	return sb.String(), err
 }
 
 // DumpEntries iterates through Map m and writes the values of the

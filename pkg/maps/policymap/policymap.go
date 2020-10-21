@@ -15,9 +15,9 @@
 package policymap
 
 import (
-	"bytes"
 	"fmt"
 	"strconv"
+	"strings"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -343,16 +343,16 @@ func (pm *PolicyMap) String() string {
 }
 
 func (pm *PolicyMap) Dump() (string, error) {
-	var buffer bytes.Buffer
+	var sb strings.Builder
 	entries, err := pm.DumpToSlice()
 	if err != nil {
 		return "", err
 	}
 	for _, entry := range entries {
-		buffer.WriteString(fmt.Sprintf("%20s: %s\n",
+		sb.WriteString(fmt.Sprintf("%20s: %s\n",
 			entry.Key.String(), entry.PolicyEntry.String()))
 	}
-	return buffer.String(), nil
+	return sb.String(), nil
 }
 
 func (pm *PolicyMap) DumpToSlice() (PolicyEntriesDump, error) {
