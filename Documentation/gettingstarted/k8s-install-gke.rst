@@ -91,7 +91,6 @@ below. This will ensure all pods are managed by Cilium.
       --set nodeinit.removeCbrBridge=true \\
       --set cni.binPath=/home/kubernetes/bin \\
       --set gke.enabled=true \\
-      --set ipam.mode=kubernetes \\
       --set nativeRoutingCIDR=$NATIVE_CIDR
 
 The NodeInit DaemonSet is required to prepare the GKE nodes as nodes are added
