@@ -106,7 +106,9 @@ jobs:
              --set hostPort.enabled=true \
              --set bpf.masquerade=false \
              --set ipam.mode=kubernetes \
+             --set image.tag=latest \
              --set image.pullPolicy=Never \
+             --set operator.image.tag=latest \
              --set operator.image.pullPolicy=Never \
              --set prometheus.enabled=true \
              --set operator.prometheus.enabled=true \

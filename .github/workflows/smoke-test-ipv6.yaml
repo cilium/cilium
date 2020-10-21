@@ -60,7 +60,9 @@ jobs:
             --set nodeinit.enabled=true \
             --set kubeProxyReplacement=strict \
             --set ipam.mode=kubernetes \
+            --set image.tag=latest \
             --set image.pullPolicy=Never \
+            --set operator.image.tag=latest \
             --set operator.image.pullPolicy=Never \
             --set ipv6.enabled=true \
             --set ipv4.enabled=false \
