@@ -127,15 +127,13 @@ jobs:
 
       - name: Check prometheus metrics
         if: ${{ success() }}
-        env:
-          DEPRECATED_METRICS: cilium_bpf_map_ops_total|cilium_endpoint_count|cilium_identity_count|cilium_endpoint_regenerations|cilium_k8s_client_api_calls_counter|cilium_nodes_all_events_received_total|cilium_policy_count|cilium_policy_import_errors
         run: |
           cd $HOME
           cilium_pod=$(kubectl -n kube-system get po -o name --field-selector=status.phase==Running -l 'k8s-app=cilium' -o jsonpath='{.items[0].metadata.name}' )
           kubectl -n kube-system exec $cilium_pod -- sh -c "apt update && apt install curl -y"
           kubectl -n kube-system exec $cilium_pod -- curl http://localhost:9090/metrics > metrics.prom
           go get -u github.com/prometheus/prometheus/cmd/promtool
-          egrep -v "${{ env.DEPRECATED_METRICS }}" metrics.prom | $HOME/go/bin/promtool check metrics
+          cat metrics.prom | $HOME/go/bin/promtool check metrics
 
       - name: Capture cilium-sysdump
         if: ${{ failure() }}

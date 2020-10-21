@@ -861,8 +861,7 @@ func (m *Map) Update(key MapKey, value MapValue) error {
 
 	err = UpdateElement(m.fd, key.GetKeyPtr(), value.GetValuePtr(), 0)
 	if option.Config.MetricsConfig.BPFMapOps {
-		//TODO(sayboras): Remove deprecated label in 1.10
-		metrics.BPFMapOps.WithLabelValues(m.commonName(), m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
+		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpUpdate, metrics.Error2Outcome(err)).Inc()
 	}
 	return err
 }
@@ -910,8 +909,7 @@ func (m *Map) Delete(key MapKey) error {
 
 	_, errno := deleteElement(m.fd, key.GetKeyPtr())
 	if option.Config.MetricsConfig.BPFMapOps {
-		//TODO(sayboras): Remove deprecated label in 1.10
-		metrics.BPFMapOps.WithLabelValues(m.commonName(), m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
+		metrics.BPFMapOps.WithLabelValues(m.commonName(), metricOpDelete, metrics.Errno2Outcome(errno)).Inc()
 	}
 	if errno != 0 {
 		err = fmt.Errorf("unable to delete element %s from map %s: %w", key, m.name, errno)

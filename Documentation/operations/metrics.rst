@@ -193,8 +193,6 @@ Endpoint
 Name                                         Labels                                             Description
 ============================================ ================================================== ========================================================
 ``endpoint``                                                                                    Number of endpoints managed by this agent
-``endpoint_count``                                                                              Number of endpoints managed by this agent (deprecated,  use ``endpoint``)
-``endpoint_regenerations``                   ``outcome``                                        Count of all endpoint regenerations that have completed (deprecated,  use ``endpoint_regenerations_total``)
 ``endpoint_regenerations_total``             ``outcome``                                        Count of all endpoint regenerations that have completed
 ``endpoint_regeneration_time_stats_seconds`` ``scope``                                          Endpoint regeneration time stats
 ``endpoint_state``                           ``state``                                          Count of all endpoints
@@ -262,7 +260,6 @@ Name                                       Labels                               
 ``policy_regeneration_total``                                                                 Total number of policies regenerated successfully
 ``policy_regeneration_time_stats_seconds`` ``scope``                                          Policy regeneration time stats labeled by the scope
 ``policy_max_revision``                                                                       Highest policy revision number in the agent
-``policy_import_errors``                                                                      Number of times a policy import has failed (deprecated, use ``policy_import_errors_total``)
 ``policy_import_errors_total``                                                                Number of times a policy import has failed
 ``policy_endpoint_enforcement_status``                                                        Number of endpoints labeled by policy enforcement status
 ========================================== ================================================== ========================================================
@@ -285,7 +282,6 @@ Identity
 Name                                     Labels                                             Description
 ======================================== ================================================== ========================================================
 ``identity``                                                                                Number of identities currently allocated
-``identity_count``                                                                          Number of identities currently allocated (deprecated, use ``identity``)
 ======================================== ================================================== ========================================================
 
 Events external to Cilium
@@ -408,12 +404,12 @@ IPAM
 Name                                     Labels                                                            Description
 ======================================== ================================================================= ========================================================
 ``ipam_ips``                             ``type``                                                          Number of IPs allocated
-``ipam_allocation_ops``                  ``subnetId`` (deprecated), ``subnet_id``                          Number of IP allocation operations. ``subnetId`` is deprecated and will be removed in 1.10. Use ``subnet_id`` instead.
-``ipam_interface_creation_ops``          ``subnetId`` (deprecated), ``subnet_id``, ``status``              Number of interfaces creation operations. ``subnetId`` is deprecated and will be removed in 1.10. Use ``subnet_id`` instead.
+``ipam_allocation_ops``                  ``subnet_id``                                                     Number of IP allocation operations.
+``ipam_interface_creation_ops``          ``subnet_id``, ``status``                                         Number of interfaces creation operations.
 ``ipam_available``                                                                                         Number of interfaces with addresses available
 ``ipam_nodes_at_capacity``                                                                                 Number of nodes unable to allocate more addresses
 ``ipam_resync_total``                                                                                      Number of synchronization operations with external IPAM API
-``ipam_api_duration_seconds``            ``operation``, ``responseCode`` (deprecated), ``response_code``   Duration of interactions with external IPAM API. ``responseCode`` is deprecated and will be removed in 1.10. Use ``response_code`` instead.
+``ipam_api_duration_seconds``            ``operation``, ``response_code``                                  Duration of interactions with external IPAM API.
 ``ipam_api_rate_limit_duration_seconds`` ``operation``                                                     Duration of rate limiting while accessing external IPAM API
 ======================================== ================================================================= ========================================================
 

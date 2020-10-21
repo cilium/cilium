@@ -183,7 +183,7 @@ func NewManager(name string, dp datapath.NodeHandler, ipcache IPCache, c Configu
 		Subsystem: "nodes",
 		Name:      name + "_events_received_total",
 		Help:      "Number of node events received",
-	}, []string{"eventType", "event_type", "source"}) //TODO(sayboras): Remove deprecated tag eventType in 1.10
+	}, []string{"event_type", "source"})
 
 	m.metricNumNodes = prometheus.NewGauge(prometheus.GaugeOpts{
 		Namespace: metrics.Namespace,
@@ -387,8 +387,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 	m.mutex.Lock()
 	entry, oldNodeExists := m.nodes[nodeIdentity]
 	if oldNodeExists {
-		//TODO(sayboras): Remove deprecated metric in 1.10
-		m.metricEventsReceived.WithLabelValues("update", "update", string(n.Source)).Inc()
+		m.metricEventsReceived.WithLabelValues("update", string(n.Source)).Inc()
 
 		if !source.AllowOverwrite(entry.node.Source, n.Source) {
 			m.mutex.Unlock()
@@ -406,8 +405,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 		}
 		entry.mutex.Unlock()
 	} else {
-		//TODO(sayboras): Remove deprecated metric in 1.10
-		m.metricEventsReceived.WithLabelValues("add", "add", string(n.Source)).Inc()
+		m.metricEventsReceived.WithLabelValues("add", string(n.Source)).Inc()
 		m.metricNumNodes.Inc()
 
 		entry = &nodeEntry{node: n}
@@ -428,8 +426,7 @@ func (m *Manager) NodeUpdated(n nodeTypes.Node) {
 // origins from. If the node was removed, NodeDelete() is invoked of the
 // datapath interface.
 func (m *Manager) NodeDeleted(n nodeTypes.Node) {
-	//TODO(sayboras): Remove deprecated metric in 1.10
-	m.metricEventsReceived.WithLabelValues("delete", "delete", string(n.Source)).Inc()
+	m.metricEventsReceived.WithLabelValues("delete", string(n.Source)).Inc()
 
 	log.Debugf("Received node delete event from %s", n.Source)
 

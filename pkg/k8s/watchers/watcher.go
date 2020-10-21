@@ -220,7 +220,6 @@ func (*k8sMetrics) Observe(verb string, u url.URL, latency time.Duration) {
 }
 
 func (*k8sMetrics) Increment(code string, method string, host string) {
-	metrics.KubernetesAPICalls.WithLabelValues(host, method, code).Inc() //TODO(sayboras): Remove deprecated metric in 1.10
 	metrics.KubernetesAPICallsTotal.WithLabelValues(host, method, code).Inc()
 	// The 'code' is set to '<error>' in case an error is returned from k8s
 	// more info:
