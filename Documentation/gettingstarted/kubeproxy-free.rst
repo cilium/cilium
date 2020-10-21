@@ -714,11 +714,17 @@ Finally, the deployment can be upgraded and later rolled-out with the
 NodePort XDP on Azure
 =====================
 
-To enable NodePort XDP on a self-managed Kubernetes running on Azure, the
-virtual machines running Kubernetes must have `Accelerated Networking
+To enable NodePort XDP on Azure AKS or a self-managed Kubernetes running on Azure, the virtual
+machines running Kubernetes must have `Accelerated Networking
 <https://azure.microsoft.com/en-us/updates/accelerated-networking-in-expanded-preview/>`_
 enabled. In addition, the Linux kernel on the nodes must also have support for
-native XDP in the ``hv_netvsc`` driver, which is available in kernel >= 5.6.
+native XDP in the ``hv_netvsc`` driver, which is available in kernel >= 5.6 and was backported to
+the Azure Linux kernel in 5.4.0-1022.
+
+On AKS, make sure to use the AKS Ubuntu 18.04 node image with Kubernetes version v1.18 which will
+provide a Linux kernel with the necessary backports to the ``hv_netvsc`` driver. Please refer to the
+documentation on `how to configure an AKS cluster
+<https://docs.microsoft.com/en-us/azure/aks/cluster-configuration>`_ for more details.
 
 To enable accelerated networking when creating a virtual machine or
 virtual machine scale set, pass the ``--accelerated-networking`` option to the
@@ -759,6 +765,7 @@ will automatically configure your virtual network to route pod traffic correctly
      --set azure.clientSecret=AZURE_CLIENT_SECRET \\
      --set tunnel=disabled \\
      --set masquerade=false \\
+     --set devices=eth0 \\
      --set kubeProxyReplacement=strict \\
      --set nodePort.acceleration=native \\
      --set nodePort.mode=hybrid \\
