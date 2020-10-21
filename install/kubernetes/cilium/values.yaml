@@ -814,9 +814,6 @@ nodePort:
   # range is the port range to use for NodePort
   # range: "30000,32767"
 
-  # device is the name of the device handling NodePort requests
-  # device: eth0
-
   # mode is the mode of NodePort feature
   # mode: snat
 
