@@ -15,11 +15,11 @@
 package command
 
 import (
-	"bytes"
 	"encoding/json"
 	"fmt"
 	"os"
 	"regexp"
+	"strings"
 
 	"github.com/spf13/cobra"
 	"k8s.io/client-go/util/jsonpath"
@@ -86,13 +86,13 @@ func DumpJSONToSlice(data interface{}, jsonPath string) ([]byte, error) {
 		return nil, err
 	}
 
-	buf := new(bytes.Buffer)
-	if err := parser.Execute(buf, data); err != nil {
+	var sb strings.Builder
+	if err := parser.Execute(&sb, data); err != nil {
 		fmt.Fprintf(os.Stderr, "Couldn't parse jsonpath expression: '%s'\n", err)
 		return nil, err
 
 	}
-	return buf.Bytes(), nil
+	return []byte(sb.String()), nil
 }
 
 // dumpJSON dump the data variable to the stdout as json.

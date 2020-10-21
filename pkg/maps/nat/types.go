@@ -15,7 +15,7 @@
 package nat
 
 import (
-	"bytes"
+	"strings"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -32,8 +32,8 @@ type NatKey interface {
 	// ToHost converts fields to host byte order.
 	ToHost() NatKey
 
-	// Dump contents of key to buffer. Returns true if successful.
-	Dump(buffer *bytes.Buffer, reverse bool) bool
+	// Dump contents of key to sb. Returns true if successful.
+	Dump(sb *strings.Builder, reverse bool) bool
 
 	// GetFlags flags containing the direction of the TupleKey.
 	GetFlags() uint8

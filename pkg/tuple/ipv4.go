@@ -15,8 +15,8 @@
 package tuple
 
 import (
-	"bytes"
 	"fmt"
+	"strings"
 	"unsafe"
 
 	"github.com/cilium/cilium/pkg/bpf"
@@ -71,9 +71,9 @@ func (k *TupleKey4) String() string {
 	return fmt.Sprintf("%s:%d, %d, %d, %d", k.DestAddr, k.SourcePort, k.DestPort, k.NextHeader, k.Flags)
 }
 
-// Dump writes the contents of key to buffer and returns true if the value for
-// next header in the key is nonzero.
-func (k TupleKey4) Dump(buffer *bytes.Buffer, reverse bool) bool {
+// Dump writes the contents of key to sb and returns true if the value for next
+// header in the key is nonzero.
+func (k TupleKey4) Dump(sb *strings.Builder, reverse bool) bool {
 	var addrDest string
 
 	if k.NextHeader == 0 {
@@ -88,23 +88,23 @@ func (k TupleKey4) Dump(buffer *bytes.Buffer, reverse bool) bool {
 	}
 
 	if k.Flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
+		sb.WriteString(fmt.Sprintf("%s IN %s %d:%d ",
 			k.NextHeader.String(), addrDest, k.SourcePort,
 			k.DestPort),
 		)
 	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
+		sb.WriteString(fmt.Sprintf("%s OUT %s %d:%d ",
 			k.NextHeader.String(), addrDest, k.DestPort,
 			k.SourcePort),
 		)
 	}
 
 	if k.Flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
+		sb.WriteString("related ")
 	}
 
 	if k.Flags&TUPLE_F_SERVICE != 0 {
-		buffer.WriteString("service ")
+		sb.WriteString("service ")
 	}
 
 	return true
@@ -150,9 +150,9 @@ func (k *TupleKey4Global) ToHost() TupleKey {
 	}
 }
 
-// Dump writes the contents of key to buffer and returns true if the
+// Dump writes the contents of key to sb and returns true if the
 // value for next header in the key is nonzero.
-func (k TupleKey4Global) Dump(buffer *bytes.Buffer, reverse bool) bool {
+func (k TupleKey4Global) Dump(sb *strings.Builder, reverse bool) bool {
 	var addrSource, addrDest string
 
 	if k.NextHeader == 0 {
@@ -169,23 +169,23 @@ func (k TupleKey4Global) Dump(buffer *bytes.Buffer, reverse bool) bool {
 	}
 
 	if k.Flags&TUPLE_F_IN != 0 {
-		buffer.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
+		sb.WriteString(fmt.Sprintf("%s IN %s:%d -> %s:%d ",
 			k.NextHeader.String(), addrSource, k.SourcePort,
 			addrDest, k.DestPort),
 		)
 	} else {
-		buffer.WriteString(fmt.Sprintf("%s OUT %s:%d -> %s:%d ",
+		sb.WriteString(fmt.Sprintf("%s OUT %s:%d -> %s:%d ",
 			k.NextHeader.String(), addrSource, k.SourcePort,
 			addrDest, k.DestPort),
 		)
 	}
 
 	if k.Flags&TUPLE_F_RELATED != 0 {
-		buffer.WriteString("related ")
+		sb.WriteString("related ")
 	}
 
 	if k.Flags&TUPLE_F_SERVICE != 0 {
-		buffer.WriteString("service ")
+		sb.WriteString("service ")
 	}
 
 	return true

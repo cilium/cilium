@@ -15,8 +15,8 @@
 package policy
 
 import (
-	"bytes"
 	"fmt"
+	"strings"
 
 	"github.com/cilium/cilium/pkg/identity"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
@@ -281,7 +281,7 @@ func mergeIngressPortProto(policyCtx PolicyContext, ctx *SearchContext, endpoint
 }
 
 func traceL3(ctx *SearchContext, peerEndpoints api.EndpointSelectorSlice, direction string, isDeny bool) {
-	var result bytes.Buffer
+	var result strings.Builder
 
 	// Requirements will be cloned into every selector, only trace them once.
 	if len(peerEndpoints[0].MatchExpressions) > 0 {

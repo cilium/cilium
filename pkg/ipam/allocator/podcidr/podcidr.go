@@ -15,7 +15,6 @@
 package podcidr
 
 import (
-	"bytes"
 	"context"
 	"fmt"
 	"net"
@@ -892,21 +891,16 @@ func (n *NodesPodCIDRManager) allocateNext(nodeName string) (*nodeCIDRs, bool, e
 }
 
 func getCIDRAllocatorsInfo(cidrAllocators []CIDRAllocator, netTypes string) string {
-	var buf bytes.Buffer
-
-	length := len(cidrAllocators)
-	if length == 0 {
-		return "[]"
-	}
-
-	for index, cidrAllocator := range cidrAllocators {
-		buf.WriteString(fmt.Sprintf("%s", cidrAllocator.String()))
-		if index < length-1 {
-			buf.WriteString(", ")
+	var sb strings.Builder
+	sb.WriteByte('[')
+	for i, cidrAllocator := range cidrAllocators {
+		if i > 0 {
+			sb.WriteString(", ")
 		}
+		sb.WriteString(cidrAllocator.String())
 	}
-
-	return fmt.Sprintf("[%s]", buf.String())
+	sb.WriteByte(']')
+	return sb.String()
 }
 
 // allocateFirstFreeCIDR allocates the first CIDR available from the slice of
