@@ -1642,7 +1642,11 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 	done := make(chan struct{})
 	controllerName := fmt.Sprintf("resolve-labels-%s", e.GetK8sNamespaceAndPodName())
 	go func() {
-		<-done
+		select {
+		case <-done:
+		case <-e.aliveCtx.Done():
+			return
+		}
 		e.controllers.RemoveController(controllerName)
 	}()
 
