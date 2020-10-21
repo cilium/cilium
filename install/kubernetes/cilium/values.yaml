@@ -352,7 +352,7 @@ encryption:
   nodeEncryption: false
 
   # interface is the interface to use for encryption
-  interface: eth0
+  # interface: eth0
 
 # TODO: Add documentation
 endpointHealthChecking:
