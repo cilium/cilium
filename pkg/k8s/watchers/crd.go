@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_apiextensions_v1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1beta1"
 	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
+	slim_metav1beta1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1beta1"
 	k8sversion "github.com/cilium/cilium/pkg/k8s/version"
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
@@ -272,7 +273,7 @@ func crdResourceName(crd string) string {
 func newListWatchFromClient(
 	c cache.Getter,
 	fieldSelector fields.Selector,
-	specialHeader bool,
+	canWatchPOM bool,
 ) *cache.ListWatch {
 	optionsModifier := func(options *metav1.ListOptions) {
 		options.FieldSelector = fieldSelector.String()
@@ -284,18 +285,18 @@ func newListWatchFromClient(
 		// This lister will retrieve the CRDs as a metav1.Table object if
 		// `specialHeader` is true, otherwise this is a normal request.
 		getter := c.Get()
-		if specialHeader {
-			// This is the same way that `kubectl get crds` returns them. In
-			// the metav1.Table object, it contains cells, which are
-			// metav1.PartialObjectMetadata objects containing the minimal
-			// representation of an objects in K8s (in this case a CRD).  Once
-			// the metav1.Table is fetched, it is converted into a
-			// metav1.PartialObjectMetadataList which is what the controller
-			// (informer) expects the object type to be. If we returned the
-			// metav1.Table itself, the controller doesn't know how to handle
-			// that object type because it is not a list type.
-			getter = getter.SetHeader("Accept", tableHeader)
+		// This is the same way that `kubectl get crds` returns them. In
+		// the metav1.Table object, it contains cells, which are
+		// metav1.PartialObjectMetadata objects containing the minimal
+		// representation of an objects in K8s (in this case a CRD).  Once
+		// the metav1.Table is fetched, it is converted into a
+		// metav1.PartialObjectMetadataList which is what the controller
+		// (informer) expects the object type to be. If we returned the
+		// metav1.Table itself, the controller doesn't know how to handle
+		// that object type because it is not a list type.
+		getter = getter.SetHeader("Accept", tableHeader)
 
+		if canWatchPOM {
 			t := &slim_metav1.Table{}
 			if err := getter.
 				VersionedParams(&options, metav1.ParameterCodec).
@@ -307,22 +308,25 @@ func newListWatchFromClient(
 			return tableToPomList(t), nil
 		}
 
-		crds := &slim_apiextensions_v1beta1.CustomResourceDefinitionList{}
+		// If we can't watch on POM then we can translate the received table
+		// into a CRD List since the watcher can only process CRDs, and not POMs.
+
+		t := &slim_metav1beta1.Table{}
 		if err := getter.
 			VersionedParams(&options, metav1.ParameterCodec).
 			Do(context.TODO()).
-			Into(crds); err != nil {
+			Into(t); err != nil {
 			return nil, err
 		}
 
-		return crds, nil
+		return tableToCRDList(t), nil
 	}
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 
 		optionsModifier(&options)
 
 		getter := c.Get()
-		if specialHeader {
+		if canWatchPOM {
 			// This watcher will retrieve each CRD that the lister has listed
 			// as individual metav1.PartialObjectMetadata because it is
 			// requesting the apiserver to return objects as such via the
@@ -336,6 +340,44 @@ func newListWatchFromClient(
 			Watch(context.TODO())
 	}
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
+}
+
+// tableToCRDList converts a metav1.Table's cells into individual
+// metav1.CustomResourceDefinition objects, and returns them all placed in a
+// metav1.CustomResourceDefinitionList. The returned CRDs only contain the Name
+// field set.
+func tableToCRDList(t *slim_metav1beta1.Table) *slim_apiextensions_v1beta1.CustomResourceDefinitionList {
+	list := &slim_apiextensions_v1beta1.CustomResourceDefinitionList{
+		TypeMeta: t.TypeMeta,
+		ListMeta: t.ListMeta,
+		Items:    make([]slim_apiextensions_v1beta1.CustomResourceDefinition, 0, len(t.Rows)),
+	}
+
+	// find column that contains the name field
+	idx := -1
+	for i, cd := range t.ColumnDefinitions {
+		if strings.ToLower(cd.Name) == "name" {
+			idx = i
+		}
+	}
+	if idx == -1 {
+		log.WithFields(logrus.Fields{
+			"column-definitions": t.ColumnDefinitions,
+		}).Error("Unable to find column definition with 'Name' field, skipping")
+		return nil
+	}
+
+	for _, row := range t.Rows {
+		crd := slim_apiextensions_v1beta1.CustomResourceDefinition{
+			ObjectMeta: slim_metav1.ObjectMeta{
+				Name: fmt.Sprintf("%s", row.Cells[idx]),
+			},
+		}
+
+		list.Items = append(list.Items, crd)
+	}
+
+	return list
 }
 
 // tableToPomList converts a metav1.Table's cells into individual
@@ -365,7 +407,7 @@ func tableToPomList(t *slim_metav1.Table) *slim_metav1.PartialObjectMetadataList
 	if idx == -1 {
 		log.WithFields(logrus.Fields{
 			"column-definitions": t.ColumnDefinitions,
-		}).Error("Unable to find column definition with 'Name' field skipping")
+		}).Error("Unable to find column definition with 'Name' field, skipping")
 		return nil
 	}
 
