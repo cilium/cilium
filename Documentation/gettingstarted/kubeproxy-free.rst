@@ -700,7 +700,7 @@ Finally, the deployment can be upgraded and later rolled-out with the
 
 .. parsed-literal::
 
-  helm upgrade cilium ./cilium \\
+  helm upgrade cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --reuse-values \\
         --set autoDirectNodeRoutes=true \\
