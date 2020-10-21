@@ -517,12 +517,8 @@ func FormatStatusResponse(w io.Writer, sr *models.StatusResponse, sd StatusDetai
 			if selection == models.KubeProxyReplacementFeaturesNodePortAlgorithmMaglev {
 				selection = fmt.Sprintf("%s (Table Size: %d)", np.Algorithm, np.LutSize)
 			}
-			selection = strings.Title(strings.ToLower(selection))
+			xdp = np.Acceleration
 			mode = np.Mode
-			if mode == models.KubeProxyReplacementFeaturesNodePortModeHYBRID {
-				mode = strings.Title(strings.ToLower(mode))
-			}
-			xdp = strings.Title(strings.ToLower(np.Acceleration))
 			nPort = fmt.Sprintf("Enabled (Range: %d-%d)", np.PortMin, np.PortMax)
 			lb = "Enabled"
 		}
