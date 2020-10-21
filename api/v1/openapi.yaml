@@ -1777,7 +1777,7 @@ definitions:
                 enum:
                 - SNAT
                 - DSR
-                - HYBRID
+                - Hybrid
               algorithm:
                 type: string
                 enum:
