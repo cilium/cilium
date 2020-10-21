@@ -86,8 +86,8 @@ information on Cilium's transparent encryption, see :ref:`ebpf_datapath`.
 Encryption interface
 --------------------
 
-If direct routing is being used, an additional argument can be used to identify
-the network-facing interface. If no interface is specified, the default route
+An additional argument can be used to identify the network-facing interface.
+If direct routing is used and no interface is specified, the default route
 link is chosen by inspecting the routing tables. This will work in many cases,
 but depending on routing rules, users may need to specify the encryption
 interface as follows:
@@ -170,6 +170,11 @@ Troubleshooting
       [...]
 
  * Check for ``level=warning`` and ``level=error`` messages in the Cilium log files
+
+   * If there is a warning message similar to ``Device eth0 does not exist``,
+     use ``--set encryption.interface=ethX`` to set the encryption
+     interface.
+
  * Run a ``bash`` in a Cilium and validate the following:
 
    * Routing rules matching on fwmark:
