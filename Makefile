@@ -106,8 +106,8 @@ define generate_k8s_api_deepcopy_deepequal
 endef
 
 define generate_k8s_api_deepcopy_deepequal_client
-	$(call generate_k8s_api,deepcopy$(comma)client,github.com/cilium/cilium/pkg/k8s/slim/k8s/client,$(1),$(2))
-	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(2),$(1)/$(subst ",,$(subst :,/,$(pkg)))))")
+	$(call generate_k8s_api,deepcopy$(comma)client,github.com/cilium/cilium/pkg/k8s/slim/k8s/$(1),$(2),$(3))
+	$(call generate_deepequal,"$(call join-with-comma,$(foreach pkg,$(3),$(2)/$(subst ",,$(subst :,/,$(pkg)))))")
 endef
 
 define generate_k8s_protobuf
@@ -355,11 +355,16 @@ generate-k8s-api:
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/util/intstr$(comma)$\
 	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/discovery/v1beta1$(comma)$\
-	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1)
-	$(call generate_k8s_api_deepcopy_deepequal_client,github.com/cilium/cilium/pkg/k8s/slim/k8s/api,"$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/api/networking/v1$(comma)$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1$(comma)$\
+	github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/apiextensions/v1beta1)
+	$(call generate_k8s_api_deepcopy_deepequal_client,client,github.com/cilium/cilium/pkg/k8s/slim/k8s/api,"$\
 	discovery:v1beta1\
 	networking:v1\
 	core:v1")
+	$(call generate_k8s_api_deepcopy_deepequal_client,apiextensions-client,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\
+	apiextensions:v1beta1\
+	apiextensions:v1")
 	$(call generate_k8s_api_deepcopy_deepequal,github.com/cilium/cilium/pkg/k8s/slim/k8s/apis,"$\
 	util:intstr\
 	meta:v1")
