@@ -21,8 +21,6 @@ spec:
       http:
         paths:
           - path: /
-            backend:
-              serviceName: hubble-ui
-              servicePort: http
+{{ include "ingress.paths" $ | indent 12 }}
   {{- end }}
 {{- end }}
