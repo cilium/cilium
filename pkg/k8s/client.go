@@ -26,15 +26,16 @@ import (
 	"github.com/cilium/cilium/api/v1/models"
 	clientset "github.com/cilium/cilium/pkg/k8s/client/clientset/versioned"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
+	slim_apiextclientsetscheme "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-client/clientset/versioned/scheme"
+	watcher_apiextclientset "github.com/cilium/cilium/pkg/k8s/slim/k8s/apiextensions-clientset"
+	slim_metav1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/apis/meta/v1"
 	watcher_client "github.com/cilium/cilium/pkg/k8s/slim/k8s/clientset"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/option"
 	"github.com/cilium/cilium/pkg/version"
 
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
-	apiextclientsetscheme "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset/scheme"
 	"k8s.io/apimachinery/pkg/api/errors"
-	tablescheme "k8s.io/apimachinery/pkg/apis/meta/internalversion"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	utilruntime "k8s.io/apimachinery/pkg/util/runtime"
 	"k8s.io/apimachinery/pkg/util/wait"
@@ -56,6 +57,9 @@ var (
 
 	// k8sCiliumCLI is the dedicated apiextensions client.
 	k8sAPIExtCLI = &K8sAPIExtensionsClient{}
+
+	// k8sAPIExtWatcherCLI is the client dedicated k8s structure watchers.
+	k8sAPIExtWatcherCLI = &K8sAPIExtensionsClient{}
 )
 
 // Client returns the default Kubernetes client.
@@ -73,9 +77,14 @@ func CiliumClient() *K8sCiliumClient {
 	return k8sCiliumCLI
 }
 
-// CiliumClient returns the default Cilium Kubernetes client.
+// APIExtClient returns the default API Extension client.
 func APIExtClient() *K8sAPIExtensionsClient {
 	return k8sAPIExtCLI
+}
+
+// WatcherAPIExtClient returns the client dedicated to API Extensions watchers.
+func WatcherAPIExtClient() *K8sAPIExtensionsClient {
+	return k8sAPIExtWatcherCLI
 }
 
 // CreateConfig creates a client configuration based on the configured API
@@ -177,7 +186,16 @@ func createAPIExtensionsClient() error {
 
 	k8sAPIExtCLI.Interface = c
 
-	return err
+	createK8sWatcherAPIExtCli, err := watcher_apiextclientset.NewForConfig(restConfig)
+	if err != nil {
+		return err
+	}
+
+	k8sAPIExtWatcherCLI.Interface = createK8sWatcherAPIExtCli
+
+	createK8sWatcherAPIExtCli.RESTClient()
+
+	return nil
 }
 
 // createConfig creates a rest.Config for connecting to k8s api-server.
@@ -296,5 +314,5 @@ func isConnReady(c kubernetes.Interface) error {
 func init() {
 	// Register the metav1.Table and metav1.PartialObjectMetadata for the
 	// apiextclientset.
-	utilruntime.Must(tablescheme.AddToScheme(apiextclientsetscheme.Scheme))
+	utilruntime.Must(slim_metav1.AddMetaToScheme(slim_apiextclientsetscheme.Scheme))
 }

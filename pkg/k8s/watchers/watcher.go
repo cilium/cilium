@@ -374,7 +374,7 @@ func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
 // watcher, as those resource controllers need the resources to be registered
 // with K8s first.
 func (k *K8sWatcher) WaitForCRDsToRegister(ctx context.Context) error {
-	return k.crdsInit(ctx, k8s.APIExtClient())
+	return k.crdsInit(ctx, k8s.WatcherAPIExtClient())
 }
 
 // InitK8sSubsystem returns a channel for which it will be closed when all
