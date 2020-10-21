@@ -769,6 +769,15 @@ When running Azure IPAM on a self-managed Kubernetes cluster, each ``v1.Node``
 must have the resource ID of its VM in the ``spec.providerID`` field.
 Refer to the :ref:`ipam_azure` reference for more information.
 
+NodePort XDP on GCP
+===================
+
+NodePort XDP on the Google Cloud Platform is currently not supported. Both
+virtual network interfaces available on Google Compute Engine (the older
+virtIO-based interface and the newer `gVNIC
+<https://cloud.google.com/compute/docs/instances/create-vm-with-gvnic>`_) are
+currently lacking support for native XDP.
+
 .. _NodePort Devices:
 
 NodePort Devices, Port and Bind settings
