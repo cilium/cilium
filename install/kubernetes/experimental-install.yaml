@@ -373,9 +373,6 @@ rules:
   - ciliumlocalredirectpolicies
   - ciliumlocalredirectpolicies/status
   - ciliumlocalredirectpolicies/finalizers
-  - ciliumclusterwidelocalredirectpolicies
-  - ciliumclusterwidelocalredirectpolicies/status
-  - ciliumclusterwidelocalredirectpolicies/finalizers
   verbs:
   - '*'
 ---
@@ -437,9 +434,6 @@ rules:
   - ciliumlocalredirectpolicies
   - ciliumlocalredirectpolicies/status
   - ciliumlocalredirectpolicies/finalizers
-  - ciliumclusterwidelocalredirectpolicies
-  - ciliumclusterwidelocalredirectpolicies/status
-  - ciliumclusterwidelocalredirectpolicies/finalizers
   verbs:
   - '*'
 - apiGroups:

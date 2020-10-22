@@ -24,7 +24,6 @@ import (
 
 type CiliumV2Interface interface {
 	RESTClient() rest.Interface
-	CiliumClusterwideLocalRedirectPoliciesGetter
 	CiliumClusterwideNetworkPoliciesGetter
 	CiliumEndpointsGetter
 	CiliumExternalWorkloadsGetter
@@ -37,10 +36,6 @@ type CiliumV2Interface interface {
 // CiliumV2Client is used to interact with features provided by the cilium.io group.
 type CiliumV2Client struct {
 	restClient rest.Interface
-}
-
-func (c *CiliumV2Client) CiliumClusterwideLocalRedirectPolicies() CiliumClusterwideLocalRedirectPolicyInterface {
-	return newCiliumClusterwideLocalRedirectPolicies(c)
 }
 
 func (c *CiliumV2Client) CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPolicyInterface {
