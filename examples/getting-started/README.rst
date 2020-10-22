@@ -4,6 +4,15 @@ Getting Started with Vagrant
 This is a simple Vagrant environment to experiment with Cilium. To get started,
 simply run ``vagrant up`` and then log into the VM with ``vagrant ssh``.
 
+The version of the Cilium docker image (which defaults to ``1.9``) can be
+controlled with the ``CILIUM_VERSION`` environment variable.
+
+For example, the following command will start Vagrant with Cilium ``1.x``:
+
+::
+
+    $ CILIUM_VERSION=v1.x vagrant up
+
 For further instructions, please see the `Getting started guide`_.
 
 .. _Getting started guide: https://cilium.readthedocs.io/en/latest/gettingstarted/docker
