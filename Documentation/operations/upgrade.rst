@@ -312,14 +312,14 @@ Annotations:
 
   - ``hubble.tls.enabled=false``
   - ``hubble.tls.auto.enabled=false``
-* Cilium has upgraded its CRDs to v1, from v1beta1. Users must run the
-  pre-flight checker mentioned above. The pre-flight check will ensure the
-  custom resources installed inside the cluster are well-formed.
+* Cilium has upgraded its CRDs to v1, from v1beta1. Users must
+  `run the preflight checker <pre_flight>` to ensure that the custom resources
+  installed inside the cluster are well-formed.
 * The Cilium agent is now enforcing API rate limits for certain API calls. See
-  :ref:``api_rate_limiting`` for more information.
+  :ref:`api_rate_limiting` for more information.
 * Cilium Helm charts have been completely re-factored. Most of the values used
   to drive Helm charts have been re-scoped from global values to be part of a
-  single `Cilium`_, Helm chart. When upgrading from a previous version of Cilium,
+  single Cilium Helm chart. When upgrading from a previous version of Cilium,
   the values will need to be provided using the new structure. In most cases the
   prefixes of ``global.``, ``agent.``, and ``config.`` can be dropped from the
   previously used value name. As an example, if you previously ran the command
@@ -688,8 +688,6 @@ Full list of updated Helm values:
 +----------------------------------------------+--------------------------------------------+
 | global.wellKnownIdentities.enabled           | wellKnownIdentities.enabled                |
 +----------------------------------------------+--------------------------------------------+
-
-.. _Cilium: \ |SCM_WEB|\/install/kubernetes/cilium/values.yaml
 
 Renamed Metrics
 ~~~~~~~~~~~~~~~
