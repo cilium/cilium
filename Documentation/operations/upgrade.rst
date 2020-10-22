@@ -24,10 +24,10 @@ Running pre-flight check (Required)
 
 When rolling out an upgrade with Kubernetes, Kubernetes will first terminate the
 pod followed by pulling the new image version and then finally spin up the new
-image. In order to reduce the downtime of the agent, the new image version can
-be pre-pulled. It also verifies that the new image version can be pulled and
-avoids ErrImagePull errors during the rollout. If you are running in :ref:`kubeproxy-free`
-mode you need to also pass on the Kubernetes API Server IP and /
+image. In order to reduce the downtime of the agent and to prevent ErrImagePull
+errors during upgrade, the pre-flight check pre-pulls the new image version.
+If you are running in :ref:`kubeproxy-free`
+mode you must also pass on the Kubernetes API Server IP and /
 or the Kubernetes API Server Port when generating the ``cilium-preflight.yaml``
 file.
 
@@ -80,23 +80,24 @@ file.
         --set k8sServiceHost=API_SERVER_IP \\
         --set k8sServicePort=API_SERVER_PORT
 
-After running the cilium-pre-flight.yaml, make sure the number of READY pods
-is the same number of Cilium pods running.
+After applying the ``cilium-preflight.yaml``, ensure that the number of READY
+pods is the same number of Cilium pods running.
 
 .. code-block:: shell-session
 
-    kubectl get daemonset -n kube-system | grep cilium
+    $ kubectl get daemonset -n kube-system | grep cilium
     NAME                      DESIRED   CURRENT   READY   UP-TO-DATE   AVAILABLE   NODE SELECTOR   AGE
     cilium                    2         2         2       2            2           <none>          1h20m
     cilium-pre-flight-check   2         2         2       2            2           <none>          7m15s
 
-Once the number of READY pods are the same, make sure the Cilium PreFlight
-deployment is also marked as READY 1/1. In case it shows READY 0/1 please see
-:ref:`cnp_validation`.
+Once the number of READY pods are the equal, make sure the Cilium pre-flight
+deployment is also marked as READY 1/1. If it shows READY 0/1, consult the
+:ref:`cnp_validation` section and resolve issues with the deployment before
+continuing with the upgrade.
 
 .. code-block:: shell-session
 
-    kubectl get deployment -n kube-system cilium-pre-flight-check -w
+    $ kubectl get deployment -n kube-system cilium-pre-flight-check -w
     NAME                      READY   UP-TO-DATE   AVAILABLE   AGE
     cilium-pre-flight-check   1/1     1            0           12s
 
@@ -143,13 +144,11 @@ Step 2: Use Helm to Upgrade your Cilium deployment
 --------------------------------------------------------------------------------------
 
 `Helm` can be used to either upgrade Cilium directly or to generate a new set of
-YAML files that can be used to upgrade an existing deployment. This allows the
-flexibility to use Helm to manage Cilium directly or to apply the resulting file
-using the ``kubectl`` client to install Cilium in your cluster. By default, Helm
-will generate the new templates using the default values files packaged with
-each new release. You still need to ensure that you are specifying the same
-options as used for the initial deployment, either by specifying them at the
-command line or by committing the values to a YAML file:
+YAML files that can be used to upgrade an existing deployment via ``kubectl``.
+By default, Helm will generate the new templates using the default values files
+packaged with each new release. You still need to ensure that you are specifying
+the same options as used for the initial deployment, either by specifying them at the
+command line or by committing the values to a YAML file.
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
