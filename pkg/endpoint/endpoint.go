@@ -1531,7 +1531,8 @@ type MetadataResolverCB func(ns, podName string) (identityLabels labels.Labels, 
 // will handle updates (such as pkg/k8s/watchers informers).
 func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 	done := make(chan struct{})
-	controllerName := fmt.Sprintf("resolve-labels-%s", e.GetK8sNamespaceAndPodName())
+	const controllerPrefix = "resolve-labels"
+	controllerName := fmt.Sprintf("%s-%s", controllerPrefix, e.GetK8sNamespaceAndPodName())
 	go func() {
 		select {
 		case <-done:
@@ -1547,7 +1548,7 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 				ns, podName := e.GetK8sNamespace(), e.GetK8sPodName()
 				identityLabels, info, _, err := resolveMetadata(ns, podName)
 				if err != nil {
-					e.Logger(controllerName).WithError(err).Warning("Unable to fetch kubernetes labels")
+					e.Logger(controllerPrefix).WithError(err).Warning("Unable to fetch kubernetes labels")
 					return err
 				}
 				e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
