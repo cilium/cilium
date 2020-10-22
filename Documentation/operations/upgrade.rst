@@ -154,6 +154,13 @@ command line or by committing the values to a YAML file:
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
+To minimize datapath disruption during the upgrade, the
+``upgradeCompatibility`` option should be set to the initial Cilium
+version which was installed in this cluster. Valid options are:
+
+* ``1.7`` if the initial install was Cilium 1.7.x or earlier.
+* ``1.8`` if the initial install was Cilium 1.8.x.
+
 .. tabs::
   .. group-tab:: kubectl
 
@@ -162,7 +169,7 @@ command line or by committing the values to a YAML file:
     .. parsed-literal::
 
       helm template |CHART_RELEASE| \\
-        --set keepDeprecatedProbes=true \\
+        --set upgradeCompatibility=1.X \\
         --namespace kube-system \\
         > cilium.yaml
       kubectl apply -f cilium.yaml
@@ -175,7 +182,7 @@ command line or by committing the values to a YAML file:
 
       helm upgrade cilium |CHART_RELEASE| \\
         --namespace=kube-system \\
-        --set keepDeprecatedProbes=true
+        --set upgradeCompatibility=1.X
 
 .. note::
 
@@ -188,19 +195,18 @@ command line or by committing the values to a YAML file:
    options, either by setting them at the command line or storing them in a
    YAML file, similar to:
 
-   .. .. parsed-literal::
+   .. code-block:: yaml
 
-    agent: true
-    keepDepreatedProbes: true
+      agent: true
+      upgradeCompatibility: 1.7
 
-
-   You can then pass the values file to Helm by running:
+   You can then upgrade using this values file by running:
 
    .. parsed-literal::
 
-     helm upgrade cilium |CHART_RELEASE| \\
-       --namespace=kube-system \\
-       -f my-values.yaml
+      helm upgrade cilium |CHART_RELEASE| \\
+        --namespace=kube-system \\
+        -f my-values.yaml
 
 Step 3: Rolling Back
 --------------------
