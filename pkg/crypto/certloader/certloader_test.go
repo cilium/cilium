@@ -21,6 +21,7 @@ import (
 	"os"
 	"path/filepath"
 	"testing"
+	"time"
 )
 
 /* initial tls files */
@@ -369,6 +370,117 @@ func rotate(t *testing.T, hubble, relay tlsConfigFiles) {
 	if err := ioutil.WriteFile(relay.privkeyFile, rotatedRelayClientPrivkey, 0600); err != nil {
 		t.Fatal("ioutil.WriteFile", err)
 	}
+}
+
+// k8sDataDirName creates a name for data dir in a similar fashion to Kubernetes
+func k8sDataDirName() string {
+	return time.Now().Format("..2006_01_02_15_04_05.000000000")
+}
+
+// k8sDirectories works like directories above, but simulates what Kubernetes
+// would create for the following volume definition:
+//  - name: hubble-tls
+//    projected:
+//      sources:
+//      - secret:
+//          items:
+//          - key: hubble/tls.crt
+//            path: server.crt
+//          - key: hubble/tls.key
+//            path: server.key
+//          name: hubble-server-certs
+//          optional: true
+//      - configMap:
+//          items:
+//          - key: ca.crt
+//            path: client-ca.crt
+//          name: hubble-ca-cert
+//          optional: true
+func k8sDirectories(t *testing.T) (dir string, hubble tlsConfigFiles) {
+	var err error
+	dir, err = ioutil.TempDir("", "")
+	if err != nil {
+		t.Fatal("ioutil.TempDir", err)
+	}
+
+	hubble.caFiles = []string{filepath.Join(dir, "client-ca.crt")}
+	hubbleDir := filepath.Join(dir, "hubble")
+	hubble.certFile = filepath.Join(hubbleDir, "server.crt")
+	hubble.privkeyFile = filepath.Join(hubbleDir, "server.key")
+
+	emptyDataDir := k8sDataDirName()
+	dataDir := filepath.Join(dir, emptyDataDir)
+	if err = os.MkdirAll(dataDir, 0755); err != nil {
+		t.Fatal("os.MkdirAll", err)
+	}
+	if err = os.Symlink(emptyDataDir, filepath.Join(dir, "..data")); err != nil {
+		t.Fatal("os.Symlink", err)
+	}
+
+	return dir, hubble
+}
+
+// k8sUpdate updates the dir with the provided certificates and keyfiles the
+// same way Kubernetes would. Requires dir to be created by k8sDirectories.
+func k8sUpdate(t *testing.T, dir string, hubbleServerCert, hubbleServerKey, hubbleCA []byte) {
+	newDataDir := k8sDataDirName()
+	oldDataDir, err := os.Readlink(filepath.Join(dir, "..data"))
+	if err != nil {
+		t.Fatal("os.Readlink", err)
+	}
+
+	// create new ..data directory structure
+	dataDir := filepath.Join(dir, newDataDir)
+	if err = os.MkdirAll(dataDir, 0755); err != nil {
+		t.Fatal("os.MkdirAll", err)
+	}
+	if err = os.MkdirAll(filepath.Join(dataDir, "hubble"), 0755); err != nil {
+		t.Fatal("os.MkdirAll", err)
+	}
+
+	// write initial TLS certificates into dataDir
+	if err = ioutil.WriteFile(filepath.Join(dataDir, "hubble", "server.crt"), hubbleServerCert, 0644); err != nil {
+		t.Fatal("ioutil.WriteFile", err)
+	}
+	if err = ioutil.WriteFile(filepath.Join(dataDir, "hubble", "server.key"), hubbleServerKey, 0600); err != nil {
+		t.Fatal("ioutil.WriteFile", err)
+	}
+	if err = ioutil.WriteFile(filepath.Join(dataDir, "client-ca.crt"), hubbleCA, 0644); err != nil {
+		t.Fatal("ioutil.WriteFile", err)
+	}
+
+	// create new '..data_tmp' symlink to point to newDataDir
+	if err = os.Symlink(newDataDir, filepath.Join(dir, "..data_tmp")); err != nil {
+		t.Fatal("os.Symlink", err)
+	}
+	// overwrite '..data' with '..data_tmp'
+	if err = os.Rename(filepath.Join(dir, "..data_tmp"), filepath.Join(dir, "..data")); err != nil {
+		t.Fatal("os.Rename", err)
+	}
+	// remove old setup data dir
+	if err = os.RemoveAll(filepath.Join(dir, oldDataDir)); err != nil {
+		t.Fatal("os.RemoveAll", err)
+	}
+}
+
+// k8sSetup works like setup but emulates what Kubernetes would do. Requires
+// dir to be set up by k8sDirectories
+func k8Setup(t *testing.T, dir string) {
+	k8sUpdate(t, dir, initialHubbleServerCertificate, initialHubbleServerPrivkey, initialHubbleServerCA)
+
+	// create intital symlinks
+	if err := os.Symlink("..data/hubble", filepath.Join(dir, "hubble")); err != nil {
+		t.Fatal("os.Symlink", err)
+	}
+	if err := os.Symlink("..data/client-ca.crt", filepath.Join(dir, "client-ca.crt")); err != nil {
+		t.Fatal("os.Symlink", err)
+	}
+}
+
+// k8sRotate works like rotate but emulates what Kubernetes would do. Requires
+// dir to be set up by k8Setup
+func k8sRotate(t *testing.T, dir string) {
+	k8sUpdate(t, dir, rotatedHubbleServerCertificate, rotatedHubbleServerPrivkey, rotatedHubbleServerCA)
 }
 
 // cleanup remove all the TLS files and directories created by setup().
