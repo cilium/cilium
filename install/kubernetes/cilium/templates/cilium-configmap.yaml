@@ -338,7 +338,7 @@ data:
   flannel-uninstall-on-exit: "{{ .Values.flannel.uninstallOnExit}}"
 {{- end }}
 
-{{- if .Values.l7Proxy }}
+{{- if hasKey .Values "l7Proxy" }}
   # Enables L7 proxy for L7 policy enforcement and visibility
   enable-l7-proxy: {{ .Values.l7Proxy | quote }}
 {{- end }}
