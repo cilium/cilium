@@ -18,6 +18,9 @@ package k8s
 import (
 	"os"
 	"strings"
+
+	datapathOption "github.com/cilium/cilium/pkg/datapath/option"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -77,6 +80,10 @@ func Configure(apiServerURL, kubeconfigPath string, qps float32, burst int) {
 
 // IsEnabled checks if Cilium is being used in tandem with Kubernetes.
 func IsEnabled() bool {
+	if option.Config.DatapathMode == datapathOption.DatapathModeLBOnly {
+		return false
+	}
+
 	return config.APIServerURL != "" ||
 		config.KubeconfigPath != "" ||
 		(os.Getenv("KUBERNETES_SERVICE_HOST") != "" &&
