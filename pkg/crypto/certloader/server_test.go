@@ -98,7 +98,7 @@ func TestFutureWatchedServerConfig(t *testing.T) {
 	select {
 	case <-ch:
 		t.Fatal("FutureWatchedServerConfig should not be ready without the TLS files")
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(testReloadDelay):
 	}
 
 	setup(t, hubble, relay)
@@ -106,7 +106,7 @@ func TestFutureWatchedServerConfig(t *testing.T) {
 	// the files exists now, expect the watcher to become ready.
 	select {
 	case s = <-ch:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(testReloadDelay):
 		t.Fatal("FutureWatchedServerConfig should be ready one the TLS files exists")
 	}
 	s.Stop()
@@ -167,7 +167,7 @@ func TestWatchedServerConfigRotation(t *testing.T) {
 	defer s.Stop()
 
 	rotate(t, hubble, relay)
-	<-time.After(100 * time.Millisecond)
+	<-time.After(testReloadDelay)
 
 	generator := s.ServerConfig(&tls.Config{
 		MinVersion: tls.VersionTLS13,
