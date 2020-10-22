@@ -22,6 +22,7 @@ import (
 	"net"
 	"strings"
 	"sync"
+	"time"
 
 	"github.com/cilium/cilium/pkg/annotation"
 	"github.com/cilium/cilium/pkg/bandwidth"
@@ -43,6 +44,7 @@ import (
 	"github.com/cilium/cilium/pkg/labelsfilter"
 	"github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/metrics"
 	"github.com/cilium/cilium/pkg/node"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
@@ -72,6 +74,15 @@ func (k *K8sWatcher) createPodController(getter cache.Getter, fieldSelector fiel
 				var valid bool
 				if pod := k8s.ObjTov1Pod(obj); pod != nil {
 					valid = true
+					podNSName := k8sUtils.GetObjNamespaceName(&pod.ObjectMeta)
+					// If ep is not nil then we have received the CNI event
+					// first and the k8s event afterwards, if this happens it's
+					// likely the Kube API Server is getting behind the event
+					// handling.
+					if ep := k.endpointManager.LookupPodName(podNSName); ep != nil {
+						epCreatedAt := ep.GetCreatedAt()
+						metrics.EventLagK8s.Set(time.Since(epCreatedAt).Seconds())
+					}
 					err := k.addK8sPodV1(pod)
 					k.K8sEventProcessed(metricPod, metricCreate, err == nil)
 				}

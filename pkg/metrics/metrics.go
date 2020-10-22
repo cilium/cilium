@@ -273,6 +273,9 @@ var (
 	// EventTSK8s is the timestamp of k8s events
 	EventTSK8s = NoOpGauge
 
+	// EventLagK8s is the lag calculation for k8s Pod events.
+	EventLagK8s = NoOpGauge
+
 	// EventTSContainerd is the timestamp of docker events
 	EventTSContainerd = NoOpGauge
 
@@ -485,6 +488,7 @@ type Configuration struct {
 	PolicyImplementationDelayEnabled        bool
 	IdentityCountEnabled                    bool
 	EventTSK8sEnabled                       bool
+	EventLagK8sEnabled                      bool
 	EventTSContainerdEnabled                bool
 	EventTSAPIEnabled                       bool
 	ProxyRedirectsEnabled                   bool
@@ -786,6 +790,16 @@ func CreateConfiguration(metricsEnabled []string) (Configuration, []prometheus.C
 
 			collectors = append(collectors, EventTSK8s)
 			c.EventTSK8sEnabled = true
+
+			EventLagK8s = prometheus.NewGauge(prometheus.GaugeOpts{
+				Namespace:   Namespace,
+				Name:        "k8s_event_lag_seconds",
+				Help:        "Lag for Kubernetes events - computed value between receiving a CNI ADD event from kubelet and a Pod event received from kube-api-server",
+				ConstLabels: prometheus.Labels{"source": LabelEventSourceK8s},
+			})
+
+			collectors = append(collectors, EventLagK8s)
+			c.EventLagK8sEnabled = true
 
 			EventTSContainerd = prometheus.NewGauge(prometheus.GaugeOpts{
 				Namespace:   Namespace,
