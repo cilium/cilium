@@ -100,7 +100,7 @@ func dumpSVC(serviceList map[string][]string) {
 	}
 }
 
-// bpfCtListCmd represents the bpf_ct_list command
+// bpfLBListCmd represents the bpf_lb_list command
 var bpfLBListCmd = &cobra.Command{
 	Use:     "list",
 	Aliases: []string{"ls"},
