@@ -12,9 +12,8 @@ Upgrade Guide
 
 .. _upgrade_general:
 
-This upgrade guide is intended for Cilium running on Kubernetes. Helm
-commands in this guide use helm3 syntax. If you have questions, feel
-free to ping us on the `Slack channel`.
+This upgrade guide is intended for Cilium running on Kubernetes. If you have
+questions, feel free to ping us on the `Slack channel`.
 
 .. include:: upgrade-warning.rst
 

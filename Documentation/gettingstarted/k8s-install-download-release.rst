@@ -7,11 +7,7 @@
 .. note::
 
    First, make sure you have Helm 3 `installed <https://helm.sh/docs/intro/install/>`_.
-
-   If you have (or planning to have) Helm 2 charts (and Tiller) in the same cluster,
-   there should be no issue as both version are mutually compatible in  order to support
-   `gradual migration <https://helm.sh/docs/topics/v2_v3_migration/>`_. Cilium chart is
-   targeting Helm 3 (v3.0.3 and above).
+   Helm 2 is `no longer supported <https://helm.sh/blog/helm-v2-deprecation-timeline/>`_.
 
 .. only:: stable
 
