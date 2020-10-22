@@ -24,6 +24,9 @@ import (
 	"time"
 )
 
+// testReloadDelay is the time we expect Watcher to take to reload the files
+const testReloadDelay = watcherEventCoalesceWindow + 100*time.Millisecond
+
 /* initial tls files */
 
 var initialHubbleServerCA = []byte(
