@@ -134,7 +134,7 @@ func nullifyStringSubstitutions(strings map[string]string) map[string]string {
 // Since the two object files should only differ by the values of their
 // NODE_MAC symbols, we can avoid a full compilation.
 func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName string,
-	nodePortIPv4Addrs, nodePortIPv6Addrs map[string]net.IP) error {
+	nodePortIPv4Addrs, nodePortIPv6Addrs, bpfMasqIPv4Addrs map[string]net.IP) error {
 	hostObj, err := elf.Open(objPath)
 	if err != nil {
 		return err
@@ -168,6 +168,12 @@ func patchHostNetdevDatapath(ep datapath.Endpoint, objPath, dstPath, ifName stri
 			opts["IPV6_NODEPORT_2"] = sliceToBe32(nodePortIPv6[4:8])
 			opts["IPV6_NODEPORT_3"] = sliceToBe32(nodePortIPv6[8:12])
 			opts["IPV6_NODEPORT_4"] = sliceToBe32(nodePortIPv6[12:16])
+		}
+	}
+	if option.Config.Masquerade && option.Config.EnableBPFMasquerade && bpfMasqIPv4Addrs != nil {
+		if option.Config.EnableIPv4 {
+			ipv4 := bpfMasqIPv4Addrs[ifName]
+			opts["IPV4_MASQUERADE"] = byteorder.HostSliceToNetwork(ipv4, reflect.Uint32).(uint32)
 		}
 	}
 
@@ -212,7 +218,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 			symbols = append(symbols, symbolToHostEp)
 			directions = append(directions, dirIngress)
 			secondDevObjPath := path.Join(ep.StateDir(), hostEndpointPrefix+"_"+defaults.SecondHostDevice+".o")
-			if err := patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice, nil, nil); err != nil {
+			if err := patchHostNetdevDatapath(ep, objPath, secondDevObjPath, defaults.SecondHostDevice, nil, nil, nil); err != nil {
 				return err
 			}
 			objPaths = append(objPaths, secondDevObjPath)
@@ -221,6 +227,7 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 
 	nodePortIPv4Addrs := node.GetNodePortIPv4AddrsWithDevices()
 	nodePortIPv6Addrs := node.GetNodePortIPv6AddrsWithDevices()
+	bpfMasqIPv4Addrs := node.GetMasqIPv4AddrsWithDevices()
 
 	for _, device := range option.Config.Devices {
 		if _, err := netlink.LinkByName(device); err != nil {
@@ -229,7 +236,8 @@ func (l *Loader) reloadHostDatapath(ctx context.Context, ep datapath.Endpoint, o
 		}
 
 		netdevObjPath := path.Join(ep.StateDir(), hostEndpointNetdevPrefix+device+".o")
-		if err := patchHostNetdevDatapath(ep, objPath, netdevObjPath, device, nodePortIPv4Addrs, nodePortIPv6Addrs); err != nil {
+		if err := patchHostNetdevDatapath(ep, objPath, netdevObjPath, device,
+			nodePortIPv4Addrs, nodePortIPv6Addrs, bpfMasqIPv4Addrs); err != nil {
 			return err
 		}
 		objPaths = append(objPaths, netdevObjPath)
