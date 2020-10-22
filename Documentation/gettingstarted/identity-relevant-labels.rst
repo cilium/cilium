@@ -87,10 +87,23 @@ will be used to evaluate Cilium identities:
 The above configuration would only include the following labels when evaluating
 Cilium identities:
 
-- io.kubernetes.pod.namespace=*
-- k8s-app=*
-- app=*
-- name=*
+- io.kubernetes.pod.namespace*=.*
+- k8s-app*=*
+- app*=*
+- name*=*
+
+Labels with the same prefix as defined in the configuration will also be
+considered. This lists some examples of labels that would also be evaluated for
+Cilium identities:
+
+- k8s-app-team*=*
+- app-production*=*
+- name-defined*=*
+
+When a single "inclusive label" is added to the filter, all labels not defined
+in the default list will be excluded. For example, pods running with the
+security labels ``team=team-1, env=prod`` will have the label ``env=prod``
+ignored as soon Cilium is started with the filter ``k8s:team``.
 
 Excluding Labels
 ----------------

@@ -34,17 +34,12 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 		"id.lizards.k8s":              NewLabel("id.lizards.k8s", "web", LabelSourceK8s),
 		"io.kubernetes.pod.namespace": NewLabel("io.kubernetes.pod.namespace", "default", LabelSourceContainer),
 		"app.kubernetes.io":           NewLabel("app.kubernetes.io", "my-nginx", LabelSourceContainer),
+		"foo2.lizards.k8s":            NewLabel("foo2.lizards.k8s", "web", LabelSourceK8s),
 	}
 
-	dlpcfg := defaultLabelPrefixCfg()
-	d, err := parseLabelPrefix(":!ignor[eE]")
+	err := ParseLabelPrefixCfg([]string{":!ignor[eE]", "id.*", "foo"}, "")
 	c.Assert(err, IsNil)
-	c.Assert(d, Not(IsNil))
-	dlpcfg.LabelPrefixes = append(dlpcfg.LabelPrefixes, d)
-	d, err = parseLabelPrefix("id.*")
-	c.Assert(err, IsNil)
-	c.Assert(d, Not(IsNil))
-	dlpcfg.LabelPrefixes = append(dlpcfg.LabelPrefixes, d)
+	dlpcfg := validLabelPrefixes
 	allNormalLabels := map[string]string{
 		"io.kubernetes.container.hash":                              "cf58006d",
 		"io.kubernetes.container.name":                              "POD",
@@ -72,6 +67,14 @@ func (s *LabelsPrefCfgSuite) TestFilterLabels(c *C) {
 	allLabels["id.lizards.k8s"] = NewLabel("id.lizards.k8s", "web", LabelSourceK8s)
 	filtered, _ = dlpcfg.filterLabels(allLabels)
 	c.Assert(len(filtered), Equals, 4)
+	// Checking that it does not need to an exact match of "foo", but "foo2" also works since it's not a regex
+	allLabels["foo2.lizards.k8s"] = NewLabel("foo2.lizards.k8s", "web", LabelSourceK8s)
+	filtered, _ = dlpcfg.filterLabels(allLabels)
+	c.Assert(len(filtered), Equals, 5)
+	// Checking that "foo" only works if it's the prefix of a label
+	allLabels["lizards.foo.lizards.k8s"] = NewLabel("lizards.foo.lizards.k8s", "web", LabelSourceK8s)
+	filtered, _ = dlpcfg.filterLabels(allLabels)
+	c.Assert(len(filtered), Equals, 5)
 	c.Assert(filtered, checker.DeepEquals, wanted)
 	// Making sure we are deep copying the labels
 	allLabels["id.lizards"] = NewLabel("id.lizards", "web", "I can change this and doesn't affect any one")
