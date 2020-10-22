@@ -108,17 +108,12 @@ ipv4_frag_get_l4ports(const struct ipv4_frag_id *frag_id,
 }
 
 static __always_inline int
-ipv4_frag_register_datagram(struct __ctx_buff *ctx, int l4_off, int ct_dir,
+ipv4_frag_register_datagram(struct __ctx_buff *ctx, int ct_dir,
 			    const struct ipv4_frag_id *frag_id,
 			    struct ipv4_frag_l4ports *ports)
 {
-	int ret;
-
-	ret = ctx_load_bytes(ctx, l4_off, ports, 4);
-	if (ret < 0)
-		return ret;
-
-	if (map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, frag_id, ports, BPF_ANY))
+	if (unlikely(map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, frag_id, ports,
+				     BPF_ANY)))
 		update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(ct_dir),
 			       REASON_FRAG_PACKET_UPDATE);
 
@@ -129,10 +124,12 @@ ipv4_frag_register_datagram(struct __ctx_buff *ctx, int l4_off, int ct_dir,
 }
 
 static __always_inline int
-ipv4_handle_fragment(struct __ctx_buff *ctx,
-		     const struct iphdr *ip4, int l4_off, int ct_dir,
-		     struct ipv4_frag_l4ports *ports)
+ipv4_handle_fragmentation(struct __ctx_buff *ctx,
+			  const struct iphdr *ip4, int l4_off, int ct_dir,
+			  struct ipv4_frag_l4ports *ports)
 {
+	int ret;
+
 	struct ipv4_frag_id frag_id = {
 		.daddr = ip4->daddr,
 		.saddr = ip4->saddr,
@@ -141,17 +138,27 @@ ipv4_handle_fragment(struct __ctx_buff *ctx,
 		.pad = 0,
 	};
 
-	update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(ct_dir),
-		       REASON_FRAG_PACKET);
+	if (unlikely(ipv4_is_fragment(ip4))) {
+		update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(ct_dir),
+			       REASON_FRAG_PACKET);
 
-	if (likely(ipv4_is_not_first_fragment(ip4)))
-		return ipv4_frag_get_l4ports(&frag_id, ports);
+		if (likely(ipv4_is_not_first_fragment(ip4)))
+			return ipv4_frag_get_l4ports(&frag_id, ports);
+	}
 
-	/* First logical fragment for this datagram (not necessarily the first
-	 * we receive). Fragment has L4 header, we can retrieve L4 ports and
-	 * create an entry in datagrams map.
-	 */
-	return ipv4_frag_register_datagram(ctx, l4_off, ct_dir, &frag_id, ports);
+	ret = ctx_load_bytes(ctx, l4_off, ports, 4);
+	if (ret < 0)
+		return ret;
+
+	if (unlikely(ipv4_is_fragment(ip4))) {
+		/* First logical fragment for this datagram (not necessarily the first
+		 * we receive). Fragment has L4 header, we can retrieve L4 ports and
+		 * create an entry in datagrams map.
+		 */
+		return ipv4_frag_register_datagram(ctx, ct_dir, &frag_id, ports);
+	}
+
+	return 0;
 }
 #endif
 
