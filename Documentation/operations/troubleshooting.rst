@@ -31,7 +31,7 @@ Kubernetes
 An initial overview of Cilium can be retrieved by listing all pods to verify
 whether all pods have the status ``Running``:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ kubectl -n kube-system get pods -l k8s-app=cilium
    NAME           READY     STATUS    RESTARTS   AGE
@@ -53,7 +53,7 @@ If a particular Cilium pod is not in running state, the status and health of
 the agent on that node can be retrieved by running ``cilium status`` in the
 context of that pod:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium status
    KVStore:                Ok   etcd: 1/1 connected: http://demo-etcd-lab--a.etcd.tgraf.test1.lab.corp.isovalent.link:2379 - 3.2.5 (Leader)
@@ -78,7 +78,7 @@ of all nodes in the cluster:
 
 ... and run ``cilium status`` on all nodes:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ ./k8s-cilium-exec.sh cilium status
    KVStore:                Ok   Etcd: http://127.0.0.1:2379 - (Leader) 3.1.10
@@ -123,7 +123,7 @@ Generic
 When logged in a host running Cilium, the cilium CLI can be invoked directly,
 e.g.:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ cilium status
    KVStore:                Ok   etcd: 1/1 connected: https://192.168.33.11:2379 - 3.2.7 (Leader)
@@ -158,7 +158,7 @@ The Hubble CLI is part of the Cilium container image and can be accessed via
 to flows which either originated or terminated in the ``default/tiefighter`` pod
 in the last three minutes:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ kubectl exec -n kube-system cilium-77lk6 -- hubble observe --since 3m --pod default/tiefighter
    Jun  2 11:14:46.041   default/tiefighter:38314                  kube-system/coredns-66bff467f8-ktk8c:53   to-endpoint   FORWARDED   UDP
@@ -184,7 +184,7 @@ in the last three minutes. The numeric security identity can then be used
 together with the Cilium CLI to obtain more information about why a particular
 flow was dropped:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ kubectl exec -n kube-system cilium-77lk6 -- \
        hubble observe --since 3m --type drop --from-pod default/xwing -o json | \
@@ -220,7 +220,7 @@ Ensure Hubble is running correctly
 To ensure the Hubble client can connect to the Hubble server running inside
 Cilium, you may use the ``hubble status`` command:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ hubble status
    Healthcheck (via unix:///var/run/cilium/hubble.sock): Ok
@@ -234,7 +234,7 @@ to set the ``hubble.enabled=true`` value.
 To check if Hubble is enabled in your deployment, you may look for the
 following output in ``cilium status``:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ cilium status
    ...
@@ -281,7 +281,7 @@ command:
 
 This command should return an output similar to the following:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    Healthcheck (via localhost:4245): Ok
    Max Flows: 16384
@@ -339,7 +339,7 @@ The pod name indicates the connectivity
 variant and the readiness and liveness gate indicates success or failure of the
 test:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ kubectl get pods -n cilium-test
    NAME                                                    READY   STATUS    RESTARTS   AGE
@@ -361,7 +361,7 @@ test:
 Information about test failures can be determined by describing a failed test
 pod
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ kubectl describe pod pod-to-b-intra-node-hostport
      Warning  Unhealthy  6s (x6 over 56s)   kubelet, agent1    Readiness probe failed: curl: (7) Failed to connect to echo-b-host-headless port 40000: Connection refused
@@ -383,7 +383,7 @@ cluster and through each node using different protocols to determine the health
 status of each path and protocol. At any point in time, cilium-health may be
 queried for the connectivity status of the last probe.
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium-health status
    Probe time:   2018-06-16T09:51:58Z
@@ -422,7 +422,7 @@ the networking level. The tool
 drops happen. Following is an example output (use ``kubectl exec`` as in
 previous examples if running with Kubernetes):
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ kubectl -n kube-system exec -ti cilium-2hq5z -- cilium monitor --type drop
    Listening for events on 2 CPUs with 64x4096 of shared memory
@@ -483,7 +483,7 @@ selecting the respective pods will not be applied. See the section
 You can run the following script to list the pods which are *not* managed by
 Cilium:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ ./contrib/k8s/k8s-unmanaged.sh
    kube-system/cilium-hqpk7
@@ -770,7 +770,7 @@ were started before Cilium was deployed.
 
 **Example:**
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ curl -sLO releases.cilium.io/v1.1.0/tools/k8s-unmanaged.sh
    $ ./k8s-unmanaged.sh
@@ -845,7 +845,7 @@ namespace can be changed via ``k8s-namespace`` and ``k8s-label`` respectively.
 If you want to capture the archive from a Kubernetes pod, then the process is a
 bit different
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    # First we need to get the Cilium pod
    $ kubectl get pods --namespace kube-system
