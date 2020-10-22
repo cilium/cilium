@@ -120,6 +120,10 @@ type Endpoint struct {
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
 
+	// createdAt stores the time the endpoint was created. This value is
+	// recalculated on endpoint restore.
+	createdAt time.Time
+
 	// mutex protects write operations to this endpoint structure except
 	// for the logger field which has its own mutex
 	mutex lock.RWMutex
@@ -410,6 +414,7 @@ func NewEndpointWithState(owner regeneration.Owner, proxy EndpointProxy, allocat
 		owner:           owner,
 		proxy:           proxy,
 		ID:              ID,
+		createdAt:       time.Now(),
 		OpLabels:        pkgLabels.NewOpLabels(),
 		status:          NewEndpointStatus(),
 		DNSHistory:      fqdn.NewDNSCacheWithLimit(option.Config.ToFQDNsMinTTL, option.Config.ToFQDNsMaxIPsPerHost),
@@ -2282,4 +2287,9 @@ func (e *Endpoint) WaitUntilExposed(ctx context.Context) error {
 	case <-e.aliveCtx.Done():
 		return e.aliveCtx.Err()
 	}
+}
+
+// GetCreatedAt returns the endpoint creation time.
+func (e *Endpoint) GetCreatedAt() time.Time {
+	return e.createdAt
 }
