@@ -29,6 +29,10 @@
 #if defined(ENABLE_IPV4) && !defined(IPV4_NODEPORT)
 #define IPV4_NODEPORT 0
 #endif
+#if defined(ENABLE_IPV4) && defined(ENABLE_MASQUERADE) && !defined(IPV4_MASQUERADE)
+#define IPV4_MASQUERADE 0
+#endif
+
 #if defined(ENABLE_IPV6) && !defined(IPV6_NODEPORT_V)
 DEFINE_IPV6(IPV6_NODEPORT,
 	    0xbe, 0xef, 0x0, 0x0, 0x0, 0x0, 0x0, 0x1,
@@ -809,8 +813,11 @@ static __always_inline bool nodeport_uses_dsr4(const struct ipv4_ct_tuple *tuple
 	return nodeport_uses_dsr(tuple->nexthdr);
 }
 
-/* Returns true if the packet must be SNAT-ed */
-static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 addr,
+/* Returns true if the packet must be SNAT-ed. In addition, sets "addr" to
+ * SNAT IP addr, and if a packet is sent from an endpoint, sets "from_endpoint"
+ * to true.
+ */
+static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 *addr,
 					   bool *from_endpoint __maybe_unused)
 {
 	struct endpoint_info *ep __maybe_unused;
@@ -819,12 +826,29 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 addr,
 
 	if (!revalidate_data(ctx, &data, &data_end, &ip4))
 		return false;
+
 	/* Basic minimum is to only NAT when there is a potential of
 	 * overlapping tuples, e.g. applications in hostns reusing
-	 * source IPs we SNAT in node-port.
+	 * source IPs we SNAT in NodePort and BPF-masq.
 	 */
-	if (ip4->saddr == addr)
+#if defined(ENCAP_IFINDEX) && defined(IS_BPF_OVERLAY)
+	if (ip4->saddr == IPV4_GATEWAY) {
+		*addr = IPV4_GATEWAY;
 		return true;
+	}
+#else
+	if (ip4->saddr == IPV4_NODEPORT) {
+		*addr = IPV4_NODEPORT;
+		return true;
+	}
+# ifdef ENABLE_MASQUERADE
+	if (ip4->saddr == IPV4_MASQUERADE) {
+		*addr = IPV4_MASQUERADE;
+		return true;
+	}
+# endif
+#endif /* defined(ENCAP_IFINDEX) && defined(IS_BPF_OVERLAY) */
+
 
 #ifdef ENABLE_MASQUERADE /* SNAT local pod to world packets */
 # ifdef IS_BPF_OVERLAY
@@ -879,6 +903,7 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 addr,
 				return false;
 #endif
 
+			*addr = IPV4_MASQUERADE;
 			return true;
 		}
 	}
@@ -887,18 +912,17 @@ static __always_inline bool snat_v4_needed(struct __ctx_buff *ctx, __be32 addr,
 	return false;
 }
 
-static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx,
-						 const __be32 addr)
+static __always_inline int nodeport_nat_ipv4_fwd(struct __ctx_buff *ctx)
 {
 	bool from_endpoint = false;
 	struct ipv4_nat_target target = {
 		.min_port = NODEPORT_PORT_MIN_NAT,
 		.max_port = NODEPORT_PORT_MAX_NAT,
-		.addr = addr,
+		.addr = 0,
 	};
 	int ret = CTX_ACT_OK;
 
-	if (snat_v4_needed(ctx, addr, &from_endpoint))
+	if (snat_v4_needed(ctx, &target.addr, &from_endpoint))
 		ret = snat_v4_process(ctx, NAT_DIR_EGRESS, &target,
 				      from_endpoint);
 	if (ret == NAT_PUNT_TO_STACK)
@@ -1494,14 +1518,7 @@ declare_tailcall_if(__and(is_defined(ENABLE_IPV4), is_defined(ENABLE_IPV6)),
 		    CILIUM_CALL_IPV4_ENCAP_NODEPORT_NAT)
 int tail_handle_nat_fwd_ipv4(struct __ctx_buff *ctx)
 {
-	__be32 addr = 0;
-#if defined(ENCAP_IFINDEX) && defined(IS_BPF_OVERLAY)
-	addr = IPV4_GATEWAY;
-#else
-	addr = IPV4_NODEPORT;
-#endif
-
-	return nodeport_nat_ipv4_fwd(ctx, addr);
+	return nodeport_nat_ipv4_fwd(ctx);
 }
 #endif /* ENABLE_IPV4 */
 

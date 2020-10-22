@@ -559,6 +559,9 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		if option.Config.DatapathMode == datapathOption.DatapathModeIpvlan {
 			log.Fatalf("BPF masquerade works only in veth mode (--%s=\"%s\"", option.DatapathMode, datapathOption.DatapathModeVeth)
 		}
+		if err := node.InitBPFMasqueradeAddrs(option.Config.Devices); err != nil {
+			log.Fatalf("Failed to determine BPF masquerade IPv4 addrs: %s", err)
+		}
 	} else if option.Config.EnableIPMasqAgent {
 		log.Fatalf("BPF ip-masq-agent requires --%s=\"true\" and --%s=\"true\"", option.Masquerade, option.EnableBPFMasquerade)
 	}
