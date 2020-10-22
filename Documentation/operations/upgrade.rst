@@ -146,9 +146,11 @@ Step 2: Use Helm to Upgrade your Cilium deployment
 `Helm` can be used to either upgrade Cilium directly or to generate a new set of
 YAML files that can be used to upgrade an existing deployment via ``kubectl``.
 By default, Helm will generate the new templates using the default values files
-packaged with each new release. You still need to ensure that you are specifying
-the same options as used for the initial deployment, either by specifying them at the
-command line or by committing the values to a YAML file.
+packaged with each new release. You still need to ensure that you are
+specifying the equivalent options as used for the initial deployment, either by
+specifying a them at the command line or by committing the values to a YAML
+file. The `1.9_helm_options` section describes how to determine the exact
+options that should be set based on the initial options used to install Cilium.
 
 .. include:: ../gettingstarted/k8s-install-download-release.rst
 
@@ -177,7 +179,11 @@ command line or by committing the values to a YAML file.
 
 .. note::
 
-   Make sure that you are using the same options as for the initial deployment.
+   Make sure that you are using the equivalent options as for the initial
+   deployment. Cilium 1.9 renamed many of the Helm options to better support
+   specifying Cilium configuration via a ``values.yaml`` file. Consult the
+   `1.9_helm_options` to determine the 1.9 equivalent options for options you
+   previously specified when initially installing Cilium.
 
    Instead of using ``--set``, you can also save the values relative to your
    deployment in a YAML file and use it to regenerate the YAML for the latest
@@ -318,11 +324,16 @@ Annotations:
   prefixes of ``global.``, ``agent.``, and ``config.`` can be dropped from the
   previously used value name. As an example, if you previously ran the command
   ``helm install --set global.ipv4.enabled=true`` you would now run ``helm
-  install --set ipv4.enabled=true``. See the following table which calls out
-  specific values where the prefix cannot be simply dropped, followed by a full
+  install --set ipv4.enabled=true``. The following section calls out specific
+  values where the prefix cannot be simply dropped followed by a full
   table of old and new Helm values.
 
-  The following values have been renamed:
+.. _1.9_helm_options:
+
+1.9 Helm options
+~~~~~~~~~~~~~~~~
+
+The following values have been renamed:
 
 +----------------------------------------------+--------------------------------------------+
 | <= v1.8.x Value                              | >= 1.9.x Renamed Value                     |
@@ -348,7 +359,7 @@ Annotations:
 | operator.numReplicas                         | operator.replicas                          |
 +----------------------------------------------+--------------------------------------------+
 
-  The full list of updated Helm values:
+Full list of updated Helm values:
 
 +----------------------------------------------+--------------------------------------------+
 | <= v1.8.x Value                              | >= 1.9.x Value                             |
