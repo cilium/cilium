@@ -74,7 +74,7 @@ cilium-agent [flags]
       --enable-host-firewall                                 Enable host network policies (beta)
       --enable-host-legacy-routing                           Enable the legacy host forwarding model which does not bypass upper stack in host namespace
       --enable-host-port                                     Enable k8s hostPort mapping feature (requires enabling enable-node-port) (default true)
-      --enable-host-reachable-services                       Enable reachability of services for host applications (beta)
+      --enable-host-reachable-services                       Enable reachability of services for host applications
       --enable-hubble                                        Enable hubble server
       --enable-identity-mark                                 Enable setting identity mark for local traffic (default true)
       --enable-ip-masq-agent                                 Enable BPF ip-masq-agent
@@ -90,7 +90,7 @@ cilium-agent [flags]
       --enable-local-node-route                              Enable installation of the route which points the allocation prefix of the local node (default true)
       --enable-local-redirect-policy                         Enable Local Redirect Policy
       --enable-monitor                                       Enable the monitor unix domain socket server (default true)
-      --enable-node-port                                     Enable NodePort type services by Cilium (beta)
+      --enable-node-port                                     Enable NodePort type services by Cilium
       --enable-policy string                                 Enable policy enforcement (default "default")
       --enable-remote-node-identity                          Enable use of remote node identity
       --enable-session-affinity                              Enable support for service session affinity
