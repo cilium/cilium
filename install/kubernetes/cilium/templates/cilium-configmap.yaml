@@ -31,11 +31,6 @@
 {{- $defaultBpfCtAnyMax = 0 -}}
 {{- end -}}
 
-{{- /* Default values when 1.9 was initially deployed */ -}}
-{{- if semverCompare ">=1.9" (default "1.9" .Values.upgradeCompatibility) -}}
-{{- $defaultBpfTProxy = "true" -}}
-{{- end -}}
-
 {{- $ipam := (coalesce .Values.ipam.mode $defaultIPAM) -}}
 {{- $bpfCtTcpMax := (coalesce .Values.bpf.ctTcpMax $defaultBpfCtTcpMax) -}}
 {{- $bpfCtAnyMax := (coalesce .Values.bpf.ctAnyMax $defaultBpfCtAnyMax) -}}

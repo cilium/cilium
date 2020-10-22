@@ -1,4 +1,5 @@
 # upgradeCompatibility helps users upgrading to ensure that the configMap for
+#
 # Cilium will not change critical values to ensure continued operation
 # This is flag is not required for new installations.
 # ex: 1.7, 1.8, 1.9
@@ -218,8 +219,9 @@ bpf:
   # TODO: Add documentation
   masquerade: true
 
-  # TODO: Addo documentation
-  tproxy: true
+  # tproxy enables the use of eBPF-based TPROXY to reduce reliance on iptables
+  # rules for implementing Layer 7 policy.
+  # tproxy: true
 
 # cleanBpfState instructs the cilium-agent DaemonSet to clean all BPF
 # datapath state in the initContainer
