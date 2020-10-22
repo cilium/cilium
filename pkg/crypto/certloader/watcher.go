@@ -16,12 +16,15 @@ package certloader
 
 import (
 	"sync"
+	"time"
 
 	"github.com/sirupsen/logrus"
 
 	"github.com/cilium/cilium/pkg/crypto/certloader/fswatcher"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
+
+const watcherEventCoalesceWindow = 100 * time.Millisecond
 
 // Watcher is a set of TLS configuration files including CA files, and a
 // certificate along with its private key. The files are watched for change and
@@ -116,6 +119,11 @@ func (w *Watcher) Watch() <-chan struct{} {
 	// prepare the ready channel to be returned. We will close it exactly once.
 	var once sync.Once
 	ready := make(chan struct{})
+	markReady := func() {
+		once.Do(func() {
+			close(ready)
+		})
+	}
 
 	// build maps for the CA files and keypair files to help detecting what has
 	// changed in order to reload only the appropriate certificates.
@@ -130,6 +138,9 @@ func (w *Watcher) Watch() <-chan struct{} {
 	for _, path := range w.FileReloader.caFiles {
 		caMap[path] = struct{}{}
 	}
+
+	// used to coalesce fswatcher events that arrive within the same time window
+	var keypairReload, caReload <-chan time.Time
 
 	go func() {
 		defer w.fswatcher.Close()
@@ -147,27 +158,41 @@ func (w *Watcher) Watch() <-chan struct{} {
 				_, caUpdated := caMap[path]
 
 				if keypairUpdated {
-					keypair, err := w.ReloadKeypair()
-					if err != nil {
-						log.WithError(err).Warn("Keypair update failed")
-						continue
+					if keypairReload == nil {
+						keypairReload = time.After(watcherEventCoalesceWindow)
 					}
-					id := keypairId(keypair)
-					log.WithField("keypair-sn", id).Info("Keypair updated")
 				} else if caUpdated {
-					if _, err := w.ReloadCA(); err != nil {
-						log.WithError(err).Warn("Certificate authority update failed")
-						continue
+					if caReload == nil {
+						caReload = time.After(watcherEventCoalesceWindow)
 					}
-					log.Info("Certificate authority updated")
 				} else {
-					log.Debug("Unknown file, ignoring.")
+					// fswatcher should never send events for unknown files
+					log.Warn("Unknown file, ignoring.")
 					continue
 				}
+			case <-keypairReload:
+				keypairReload = nil
+
+				keypair, err := w.ReloadKeypair()
+				if err != nil {
+					w.log.WithError(err).Warn("Keypair update failed")
+					continue
+				}
+				id := keypairId(keypair)
+				w.log.WithField("keypair-sn", id).Info("Keypair updated")
 				if w.Ready() {
-					once.Do(func() {
-						close(ready)
-					})
+					markReady()
+				}
+			case <-caReload:
+				caReload = nil
+
+				if _, err := w.ReloadCA(); err != nil {
+					w.log.WithError(err).Warn("Certificate authority update failed")
+					continue
+				}
+				w.log.Info("Certificate authority updated")
+				if w.Ready() {
+					markReady()
 				}
 			case err := <-w.fswatcher.Errors:
 				w.log.WithError(err).Warn("fswatcher error")

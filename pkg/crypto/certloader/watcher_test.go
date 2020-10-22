@@ -79,7 +79,7 @@ func TestRotation(t *testing.T) {
 	defer w.Stop()
 
 	rotate(t, hubble, relay)
-	<-time.After(100 * time.Millisecond)
+	<-time.After(testReloadDelay)
 
 	keypair, caCertPool := w.KeypairAndCACertPool()
 	assert.Equal(t, &expectedKeypair, keypair)
@@ -108,7 +108,7 @@ func TestFutureWatcherImmediately(t *testing.T) {
 	var w *Watcher
 	select {
 	case w = <-ch:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(testReloadDelay):
 		t.Fatal("FutureWatcher should be ready immediately")
 	}
 	defer w.Stop()
@@ -142,7 +142,7 @@ func TestFutureWatcher(t *testing.T) {
 	select {
 	case <-ch:
 		t.Fatal("FutureWatcher should not be ready without the TLS files")
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(testReloadDelay):
 	}
 
 	setup(t, hubble, relay)
@@ -150,7 +150,7 @@ func TestFutureWatcher(t *testing.T) {
 	// the files exists now, expect the watcher to become ready.
 	select {
 	case w = <-ch:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(testReloadDelay):
 		t.Fatal("FutureWatcher should be ready one the TLS files exists")
 	}
 	defer w.Stop()
@@ -172,7 +172,7 @@ func TestKubernetesMount(t *testing.T) {
 	select {
 	case <-ch:
 		t.Fatal("FutureWatcher should not be ready without the TLS files")
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(testReloadDelay):
 	}
 
 	// this will create the file
@@ -182,7 +182,7 @@ func TestKubernetesMount(t *testing.T) {
 	var w *Watcher
 	select {
 	case w = <-ch:
-	case <-time.After(100 * time.Millisecond):
+	case <-time.After(testReloadDelay):
 		t.Fatal("FutureWatcher should be ready one the TLS files exists")
 	}
 	defer w.Stop()
@@ -201,7 +201,7 @@ func TestKubernetesMount(t *testing.T) {
 	assert.Equal(t, expectedInitialCaCertPool, caCertPool)
 
 	k8sRotate(t, dir)
-	<-time.After(100 * time.Millisecond)
+	<-time.After(testReloadDelay)
 
 	expectedRotatedCaCertPool := x509.NewCertPool()
 	if ok := expectedRotatedCaCertPool.AppendCertsFromPEM(rotatedHubbleServerCA); !ok {
