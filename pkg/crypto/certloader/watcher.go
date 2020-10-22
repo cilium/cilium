@@ -15,13 +15,11 @@
 package certloader
 
 import (
-	"fmt"
-	"path/filepath"
 	"sync"
 
-	"github.com/fsnotify/fsnotify"
 	"github.com/sirupsen/logrus"
 
+	"github.com/cilium/cilium/pkg/crypto/certloader/fswatcher"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 )
 
@@ -31,7 +29,7 @@ import (
 type Watcher struct {
 	*FileReloader
 	log       logrus.FieldLogger
-	fswatcher *fsnotify.Watcher
+	fswatcher *fswatcher.Watcher
 	stop      chan struct{}
 }
 
@@ -143,18 +141,11 @@ func (w *Watcher) Watch() <-chan struct{} {
 					logfields.Path: path,
 					"operation":    event.Op,
 				})
-				log.Debug("Received fsnotify event")
+				log.Debug("Received fswatcher event")
+
 				_, keypairUpdated := keypairMap[path]
 				_, caUpdated := caMap[path]
-				createOperation := event.Op&fsnotify.Create == fsnotify.Create
-				if (keypairUpdated || caUpdated) && createOperation {
-					// A file we are interested in has been created. We might
-					// have been watching only over its directory until now,
-					// add it to the watcher since it exists.
-					if err := w.fswatcher.Add(path); err != nil {
-						log.WithError(err).Warnf("Failed to add %s to fsnotify watcher", logfields.Path)
-					}
-				}
+
 				if keypairUpdated {
 					keypair, err := w.ReloadKeypair()
 					if err != nil {
@@ -179,9 +170,9 @@ func (w *Watcher) Watch() <-chan struct{} {
 					})
 				}
 			case err := <-w.fswatcher.Errors:
-				w.log.WithError(err).Warn("fsnotify watcher error")
+				w.log.WithError(err).Warn("fswatcher error")
 			case <-w.stop:
-				w.log.Info("Stopping fsnotify watcher")
+				w.log.Info("Stopping fswatcher")
 				return
 			}
 		}
@@ -195,46 +186,23 @@ func (w *Watcher) Stop() {
 	close(w.stop)
 }
 
-// newFsWatcher returns a fsnotify.Watcher watching over the given files.
-// When a file doesn't exists, we watch over its directory instead to pick up
-// the file creation event.
-func newFsWatcher(caFiles []string, certFile, privkeyFile string) (*fsnotify.Watcher, error) {
-	fswatcher, err := fsnotify.NewWatcher()
-	if err != nil {
-		return nil, err
-	}
+// newFsWatcher returns a fswatcher.Watcher watching over the given files.
+// The fswatcher.Watcher supports watching over files which do not exist yet.
+// A create event will be emitted once the file is added.
+func newFsWatcher(caFiles []string, certFile, privkeyFile string) (*fswatcher.Watcher, error) {
+	trackFiles := []string{}
 
-	add := func(path string) error {
-		if path == "" {
-			return nil
-		}
-		if err := fswatcher.Add(path); err != nil {
-			// the file might not exists yet, try watching its directory
-			// instead.
-			dir := filepath.Dir(path)
-			if err := fswatcher.Add(dir); err != nil {
-				// complain about the directory, as this will be more useful than
-				// the file itself.
-				return fmt.Errorf("failed to add %q to fsnotify watcher: %w", dir, err)
-			}
-		}
-		return nil
+	if certFile != "" {
+		trackFiles = append(trackFiles, certFile)
 	}
-
-	if err := add(certFile); err != nil {
-		fswatcher.Close()
-		return nil, err
-	}
-	if err := add(privkeyFile); err != nil {
-		fswatcher.Close()
-		return nil, err
+	if privkeyFile != "" {
+		trackFiles = append(trackFiles, privkeyFile)
 	}
 	for _, path := range caFiles {
-		if err := add(path); err != nil {
-			fswatcher.Close()
-			return nil, err
+		if path != "" {
+			trackFiles = append(trackFiles, path)
 		}
 	}
 
-	return fswatcher, nil
+	return fswatcher.New(trackFiles)
 }
