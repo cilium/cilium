@@ -14,8 +14,6 @@ This document explains how to configure Cilium's Local Redirect Policy, that
 enables pod traffic destined to an IP address and port/protocol tuple
 or Kubernetes service to be redirected locally to a backend pod within a node.
 The CiliumLocalRedirectPolicy is configured as a ``CustomResourceDefinition``.
-CiliumLocalRedirectPolicy is namespace-aware, while CiliumClusterwideLocalRedirectPolicy
-is a cluster-scoped version that specifies cluster-wide policies.
 
 There are two types of Local Redirect Policies supported. When traffic for a
 Kubernetes service needs to be redirected, use the `ServiceMatcher` type. The

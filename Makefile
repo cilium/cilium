@@ -301,7 +301,6 @@ manifests:
 	mv ${TMPDIR}/cilium.io_ciliumnodes.yaml ./examples/crds/ciliumnodes.yaml
 	mv ${TMPDIR}/cilium.io_ciliumexternalworkloads.yaml ./examples/crds/ciliumexternalworkloads.yaml
 	mv ${TMPDIR}/cilium.io_ciliumlocalredirectpolicies.yaml ./examples/crds/ciliumlocalredirectpolicies.yaml
-	mv ${TMPDIR}/cilium.io_ciliumclusterwidelocalredirectpolicies.yaml ./examples/crds/ciliumclusterwidelocalredirectpolicies.yaml
 	rm -rf $(TMPDIR)
 
 build-deb:

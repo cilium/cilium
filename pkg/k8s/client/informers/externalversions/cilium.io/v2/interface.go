@@ -22,8 +22,6 @@ import (
 
 // Interface provides access to all the informers in this group version.
 type Interface interface {
-	// CiliumClusterwideLocalRedirectPolicies returns a CiliumClusterwideLocalRedirectPolicyInformer.
-	CiliumClusterwideLocalRedirectPolicies() CiliumClusterwideLocalRedirectPolicyInformer
 	// CiliumClusterwideNetworkPolicies returns a CiliumClusterwideNetworkPolicyInformer.
 	CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPolicyInformer
 	// CiliumEndpoints returns a CiliumEndpointInformer.
@@ -49,11 +47,6 @@ type version struct {
 // New returns a new Interface.
 func New(f internalinterfaces.SharedInformerFactory, namespace string, tweakListOptions internalinterfaces.TweakListOptionsFunc) Interface {
 	return &version{factory: f, namespace: namespace, tweakListOptions: tweakListOptions}
-}
-
-// CiliumClusterwideLocalRedirectPolicies returns a CiliumClusterwideLocalRedirectPolicyInformer.
-func (v *version) CiliumClusterwideLocalRedirectPolicies() CiliumClusterwideLocalRedirectPolicyInformer {
-	return &ciliumClusterwideLocalRedirectPolicyInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumClusterwideNetworkPolicies returns a CiliumClusterwideNetworkPolicyInformer.
