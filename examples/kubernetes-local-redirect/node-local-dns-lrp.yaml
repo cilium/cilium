@@ -1,7 +1,7 @@
 apiVersion: "cilium.io/v2"
 kind: CiliumLocalRedirectPolicy
 metadata:
-  name: "nodelocaldns-lrp"
+  name: "nodelocaldns"
   namespace: kube-system
 spec:
   redirectFrontend:

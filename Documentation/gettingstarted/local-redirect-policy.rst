@@ -309,8 +309,86 @@ configuring the CiliumLocalRedirectPolicy.
 Local Redirect Policy updates are currently not supported. If there are any
 changes to be made, delete the existing policy, and re-create a new one.
 
+Use Cases
+=========
+Local Redirect Policy allows Cilium to support the following use cases:
 
+Node-local DNS cache
+--------------------
+`DNS node-cache <https://github.com/kubernetes/dns>`_ listens on a static IP to intercept
+traffic from application pods to the cluster's DNS service VIP by default, which will be
+bypassed when Cilium is handling service resolution at or before the veth interface of the
+application pod. To enable the DNS node-cache in a Cilium cluster, the following example
+steers traffic to a local DNS node-cache which runs as a normal pod.
 
+* Deploy DNS node-cache in pod namespace.
+
+  .. tabs::
+
+    .. group-tab:: Quick Deployment
+
+        Deploy DNS node-cache.
+
+        .. note::
+
+           * The example yaml is populated with default values for ``__PILLAR_LOCAL_DNS__`` and
+             ``__PILLAR_DNS_DOMAIN__``.
+           * If you have a different deployment, please follow the official `NodeLocal DNSCache Configuration
+             <https://kubernetes.io/docs/tasks/administer-cluster/nodelocaldns/#configuration>`_
+             to fill in the required template variables ``__PILLAR__LOCAL__DNS__``, ``__PILLAR__DNS__DOMAIN__``,
+             and ``__PILLAR__DNS__SERVER__`` before applying the yaml.
+
+        .. parsed-literal::
+
+            $ wget \ |SCM_WEB|\/examples/kubernetes-local-redirect/node-local-dns.yaml
+
+            $ kubedns=$(kubectl get svc kube-dns -n kube-system -o jsonpath={.spec.clusterIP}) && sed -i "s/__PILLAR__DNS__SERVER__/$kubedns/g;" node-local-dns.yaml
+
+            $ kubectl apply -f node-local-dns.yaml
+
+    .. group-tab:: Manual Configuration
+
+         * Follow the official `NodeLocal DNSCache Configuration
+           <https://kubernetes.io/docs/tasks/administer-cluster/nodelocaldns/#configuration>`_
+           to fill in the required template variables ``__PILLAR__LOCAL__DNS__``, ``__PILLAR__DNS__DOMAIN__``,
+           and ``__PILLAR__DNS__SERVER__`` before applying the yaml.
+
+         * Make sure to use a Node-local DNS image with a release version >= 1.15.16.
+           This is to ensure that we have a knob to disable dummy network interface creation/deletion in
+           Node-local DNS when we deploy it in non-host namespace.
+
+         * Modify Node-local DNS cache's deployment yaml to pass these additional arguments to node-cache:
+           ``-skipteardown=true``, ``-setupinterface=false``, and ``-setupiptables=false``.
+
+         * Modify Node-local DNS cache's deployment yaml to put it in non-host namespace by setting
+           ``hostNetwork: false`` for the daemonset.
+
+         * In the Corefile, bind to ``0.0.0.0`` instead of the static IP.
+
+         * In the Corefile, let CoreDNS serve health-check on its own IP instead of the static IP by
+           removing the host IP string after health plugin.
+
+         * Modify Node-local DNS cache's deployment yaml to point readiness probe to its own IP by
+           removing the ``host`` field under ``readinessProbe``.
+
+* Deploy local redirect policy (LRP) to steer DNS traffic to the node local dns cache.
+
+  .. parsed-literal::
+
+      $ kubectl apply -f \ |SCM_WEB|\/examples/kubernetes-local-redirect/node-local-dns-lrp.yaml
+
+  .. note::
+
+      * The LRP above uses ``kube-dns`` for the cluster DNS service, however if your cluster DNS service is different,
+        you will need to modify this example LRP to specify it.
+      * The namespace specified in the LRP above is set to the same namespace as the cluster's dns service.
+      * The LRP above uses the same port names ``dns`` and ``dns-tcp`` as the example quick deployment yaml, you will
+        need to modify those to match your deployment if they are different.
+
+After all ``node-local-dns`` pods are in ready status, DNS traffic will now go to the local node-cache first.
+You can verify by checking the DNS cache's metrics ``coredns_dns_request_count_total`` via curling
+``<node-local-dns pod IP>:9253/metrics``, the metric should increment as new DNS requests being issued from
+application pods are now redirected to the ``node-local-dns`` pod.
 
 kiam redirect on EKS
 --------------------
