@@ -94,11 +94,13 @@ it using the ``cilium`` CLI client. Check the status of the agent by running
     Cilium:                 Ok         OK
     NodeMonitor:            Disabled
     Cilium health daemon:   Ok
-    IPAM:                   IPv4: 2/65535 allocated from 10.15.0.0/16,
-    Controller Status:      14/14 healthy
-    Proxy Status:           OK, ip 10.15.225.211, 0 redirects active on ports 10000-20000
+    IPAM:                   IPv4: 3/65535 allocated from 10.15.0.0/16,
+    BandwidthManager:       Disabled
+    Masquerading:           IPTables
+    Controller Status:      21/21 healthy
+    Proxy Status:           OK, ip 10.15.55.93, 1 redirects active on ports 10000-20000
     Hubble:                 Disabled
-    Cluster health:         1/1 reachable   (2020-04-17T10:55:03Z)
+    Cluster health:         1/1 reachable   (2020-10-22T12:09:24Z)
 
 The status indicates that all components are operational with the Kubernetes
 integration currently being disabled.
