@@ -203,7 +203,7 @@ bpf:
   # policyMapMax is the maximum number of entries in endpoint policy map (per endpoint)
   policyMapMax: 16384
 
-  mapDynamicSizeRatio: 0.0025
+  #mapDynamicSizeRatio: 0.0025
 
   # monitorAggregation is the level of aggregation for datapath trace events
   monitorAggregation: medium
@@ -217,7 +217,7 @@ bpf:
   monitorFlags: "all"
 
   # TODO: Add documentation
-  masquerade: true
+  #masquerade: true
 
   # tproxy enables the use of eBPF-based TPROXY to reduce reliance on iptables
   # rules for implementing Layer 7 policy.
@@ -871,7 +871,7 @@ remoteNodeIdentity: true
 
 # Need to document default
 ##################
-sessionAffinity: true
+#sessionAffinity: false
 
 # Do not run Cilium agent when running with clean mode. Useful to completely
 # uninstall Cilium as it will stop Cilium from starting and create artifacts
