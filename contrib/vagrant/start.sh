@@ -606,7 +606,7 @@ elif [ -n "${PROVISION}" ]; then
 else
     vagrant up $PROVISION_ARGS $1
     if [ "$?" -eq "0" -a -n "${K8S}" ]; then
-        host_port=$(vagrant port --guest 6443)
+        host_port=$(vagrant port --guest 6443 k8s1)
         vagrant ssh k8s1 -- cat /home/vagrant/.kube/config | sed "s;server:.*:6443;server: https://k8s1:$host_port;g" > vagrant.kubeconfig
         echo "Add '127.0.0.1 k8s1' to your /etc/hosts to use vagrant.kubeconfig file for kubectl"
     fi
