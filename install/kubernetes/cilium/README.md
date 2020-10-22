@@ -31,7 +31,6 @@ Helm chart for Cilium
 | bpf.monitorInterval | string | `"5s"` |  |
 | bpf.policyMapMax | int | `16384` |  |
 | bpf.preallocateMaps | bool | `false` |  |
-| bpf.tproxy | bool | `true` |  |
 | bpf.waitForMount | bool | `false` |  |
 | cleanBpfState | bool | `false` |  |
 | cleanState | bool | `false` |  |
