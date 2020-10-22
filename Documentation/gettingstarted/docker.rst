@@ -180,7 +180,7 @@ policy by running:
 ::
 
   $ cilium policy import l3_l4_policy.json
-  Revision: 1
+  Revision: 2
 
 
 Step 8: Test L3/L4 Policy
@@ -270,9 +270,9 @@ import this policy to Cilium by running:
 ::
 
   $ cilium policy delete --all
-  Revision: 2
-  $ cilium policy import l7_aware_policy.json
   Revision: 3
+  $ cilium policy import l7_aware_policy.json
+  Revision: 4
 
 ::
 
