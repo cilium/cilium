@@ -122,6 +122,10 @@ type Endpoint struct {
 	// ID of the endpoint, unique in the scope of the node
 	ID uint16
 
+	// createdAt stores the time the endpoint was created. This value is
+	// recalculated on endpoint restore.
+	createdAt time.Time
+
 	// mutex protects write operations to this endpoint structure except
 	// for the logger field which has its own mutex
 	mutex lock.RWMutex
@@ -430,6 +434,7 @@ func createEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cac
 	ep := &Endpoint{
 		owner:           owner,
 		ID:              ID,
+		createdAt:       time.Now(),
 		proxy:           proxy,
 		ifName:          ifName,
 		OpLabels:        labels.NewOpLabels(),
@@ -2399,4 +2404,9 @@ func (e *Endpoint) setDefaultPolicyConfig() {
 	alwaysEnforce := policy.GetPolicyEnabled() == option.AlwaysEnforce
 	e.desiredPolicy.IngressPolicyEnabled = alwaysEnforce
 	e.desiredPolicy.EgressPolicyEnabled = alwaysEnforce
+}
+
+// GetCreatedAt returns the endpoint creation time.
+func (e *Endpoint) GetCreatedAt() time.Time {
+	return e.createdAt
 }
