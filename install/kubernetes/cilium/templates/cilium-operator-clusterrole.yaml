@@ -56,9 +56,6 @@ rules:
   - ciliumlocalredirectpolicies
   - ciliumlocalredirectpolicies/status
   - ciliumlocalredirectpolicies/finalizers
-  - ciliumclusterwidelocalredirectpolicies
-  - ciliumclusterwidelocalredirectpolicies/status
-  - ciliumclusterwidelocalredirectpolicies/finalizers
   verbs:
   - '*'
 - apiGroups:

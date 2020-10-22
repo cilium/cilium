@@ -26,10 +26,6 @@ type FakeCiliumV2 struct {
 	*testing.Fake
 }
 
-func (c *FakeCiliumV2) CiliumClusterwideLocalRedirectPolicies() v2.CiliumClusterwideLocalRedirectPolicyInterface {
-	return &FakeCiliumClusterwideLocalRedirectPolicies{c}
-}
-
 func (c *FakeCiliumV2) CiliumClusterwideNetworkPolicies() v2.CiliumClusterwideNetworkPolicyInterface {
 	return &FakeCiliumClusterwideNetworkPolicies{c}
 }

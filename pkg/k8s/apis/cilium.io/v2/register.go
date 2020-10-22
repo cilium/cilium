@@ -120,20 +120,6 @@ const (
 	// CLRPName is the full name of Local Redirect Policy
 	CLRPName = CLRPPluralName + "." + CustomResourceDefinitionGroup
 
-	// Cilium Cluster-wide Local Redirect Policy (CCLRP)
-
-	// CCLRPSingularName is the singular name of Cluster wide Local Redirect Policy
-	CCLRPSingularName = "ciliumclusterwidelocalredirectpolicy"
-
-	// CCLRPPluralName is the plural name of Cluster wide Local Redirect Policy
-	CCLRPPluralName = "ciliumclusterwidelocalredirectpolicies"
-
-	// CCLRPKindDefinition is the kind name for Cluster wide Local Redirect Policy
-	CCLRPKindDefinition = "CiliumClusterwideLocalRedirectPolicy"
-
-	// CCLRPName is the full name of Cluster wide Local Redirect Policy
-	CCLRPName = CCLRPPluralName + "." + CustomResourceDefinitionGroup
-
 	// Cilium External Workload (CEW)
 
 	// CEWSingularName is the singular name of Cilium External Workload
@@ -204,8 +190,6 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumIdentityList{},
 		&CiliumLocalRedirectPolicy{},
 		&CiliumLocalRedirectPolicyList{},
-		&CiliumClusterwideLocalRedirectPolicy{},
-		&CiliumClusterwideLocalRedirectPolicyList{},
 	)
 
 	metav1.AddToGroupVersion(scheme, SchemeGroupVersion)

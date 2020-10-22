@@ -146,8 +146,7 @@ func Parse(clrp *v2.CiliumLocalRedirectPolicy, sanitize bool) (*LRPConfig, error
 
 	namespace := k8sUtils.ExtractNamespace(&clrp.ObjectMeta)
 	if namespace == "" {
-		// TODO CCLRP: addressed in follow-up PR. Details - GH-12831
-		return nil, fmt.Errorf("ClusterwideCiliumLocalRedirectPolicy is currently not supported")
+		return nil, fmt.Errorf("CiliumLocalRedirectPolicy must have a non-empty namespace")
 	}
 
 	if sanitize {
