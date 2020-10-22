@@ -338,7 +338,7 @@ func init() {
 	flags.String(option.EgressMasqueradeInterfaces, "", "Limit egress masquerading to interface selector")
 	option.BindEnv(option.EgressMasqueradeInterfaces)
 
-	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications (beta)")
+	flags.Bool(option.EnableHostReachableServices, false, "Enable reachability of services for host applications")
 	option.BindEnv(option.EnableHostReachableServices)
 
 	flags.StringSlice(option.HostReachableServicesProtos, []string{option.HostServicesTCP, option.HostServicesUDP}, "Only enable reachability of services for host applications for specific protocols")
@@ -531,7 +531,7 @@ func init() {
 	flags.Bool(option.EnableHostPort, true, fmt.Sprintf("Enable k8s hostPort mapping feature (requires enabling %s)", option.EnableNodePort))
 	option.BindEnv(option.EnableHostPort)
 
-	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium (beta)")
+	flags.Bool(option.EnableNodePort, false, "Enable NodePort type services by Cilium")
 	option.BindEnv(option.EnableNodePort)
 
 	flags.Bool(option.EnableSVCSourceRangeCheck, true, "Enable check of service source ranges (currently, only for LoadBalancer)")
