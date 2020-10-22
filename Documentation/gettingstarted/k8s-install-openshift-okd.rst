@@ -50,7 +50,7 @@ Now, create configuration files:
    The sample output below is showing the AWS provider, but
    it should work the same way with other providers.
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ openshift-install create install-config --dir "${CLUSTER_NAME}"
    ? SSH Public Key ~/.ssh/id_rsa.pub
@@ -172,7 +172,7 @@ Create the cluster:
    The sample output below is showing the AWS provider, but
    it should work the same way with other providers.
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ openshift-install create cluster --dir "${CLUSTER_NAME}"
    WARNING   Discarding the Bootstrap Ignition Config that was provided in the target directory because its dependencies are dirty and it needs to be regenerated

@@ -52,7 +52,7 @@ Mounted eBPF filesystem
         Some distributions mount the bpf filesystem automatically. Check if the
         bpf filesystem is mounted by running the command.
 
-        .. code:: shell-session
+        .. code-block:: shell-session
 
                   mount | grep /sys/fs/bpf
                   # if present should output, e.g. "none on /sys/fs/bpf type bpf"...
