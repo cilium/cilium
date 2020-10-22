@@ -30,6 +30,7 @@ Clusterwide
 Committer
 Committers
 ConnectX
+Corefile
 DDoS
 DMA'ed
 DNS
@@ -416,6 +417,7 @@ hexData
 hoc
 hostConfDirMountPath
 hostFirewall
+hostNetwork
 hostPort
 hostServices
 hostonlyif
@@ -671,6 +673,7 @@ queryable
 queueing
 rbac
 rc
+readinessProbe
 readthedocs
 rebase
 rebased
@@ -718,12 +721,15 @@ serviceMonitor
 servicePort
 sessionAffinity
 setrlimit
+setupinterface
+setupiptables
 sfc
 sg
 sha
 sidecarImageRegex
 sig
 skb
+skipteardown
 sleepAfterInit
 socketPath
 sockmap
