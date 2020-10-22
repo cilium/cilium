@@ -16,8 +16,6 @@
 
 package v2
 
-type CiliumClusterwideLocalRedirectPolicyExpansion interface{}
-
 type CiliumClusterwideNetworkPolicyExpansion interface{}
 
 type CiliumEndpointExpansion interface{}
