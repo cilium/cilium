@@ -773,7 +773,8 @@ kvstore:
   # ssl configures tls for kvstore client connections
   ssl:
 
-l7Proxy: false
+# l7Proxy enables Layer 7 network policy.
+l7Proxy: true
 
 # To include or exclude matched resources from cilium identity evaluation
 # labels: ""

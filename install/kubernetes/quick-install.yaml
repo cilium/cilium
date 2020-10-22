@@ -104,6 +104,8 @@ data:
 
   # Name of the cluster. Only relevant when building a mesh of clusters.
   cluster-name: default
+  # Enables L7 proxy for L7 policy enforcement and visibility
+  enable-l7-proxy: "true"
 
   # wait-bpf-mount makes init container wait until bpf filesystem is mounted
   wait-bpf-mount: "false"
