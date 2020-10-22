@@ -20,7 +20,7 @@ service load-balancing and various network policy combinations. The pod name
 indicates the connectivity variant and the readiness and liveness gate
 indicates success or failure of the test:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ kubectl get pods -n cilium-test
    NAME                                                     READY   STATUS    RESTARTS   AGE

@@ -450,7 +450,7 @@ running agent. Debugging of an individual endpoint can be enabled by running
 ``cilium endpoint config ID debug=true``. Running ``cilium monitor -v`` will
 print the normal form of monitor output along with debug messages:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ cilium endpoint config 731 debug=true
    Endpoint 731 configuration updated successfully
@@ -471,7 +471,7 @@ print the normal form of monitor output along with debug messages:
 
 Passing ``-v -v`` supports deeper detail, for example:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
     $ cilium endpoint config 3978 debug=true
     Endpoint 3978 configuration updated successfully
