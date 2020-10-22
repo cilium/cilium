@@ -1,4 +1,13 @@
 {{- if and (.Values.agent) (not .Values.preflight.enabled) }}
+
+{{- /*  Default values with backwards compatibility */ -}}
+{{- $defaultKeepDeprecatedProbes := "true" -}}
+
+{{- /* Default values when 1.8 was initially deployed */ -}}
+{{- if semverCompare ">=1.8" (default "1.8" .Values.upgradeCompatibility) -}}
+{{- $defaultKeepDeprecatedProbes = "false" -}}
+{{- end -}}
+
 apiVersion: apps/v1
 kind: DaemonSet
 metadata:
@@ -74,7 +83,7 @@ spec:
         command:
         - cilium-agent
         livenessProbe:
-{{- if .Values.keepDeprecatedProbes }}
+{{- if or .Values.keepDeprecatedProbes (eq $defaultKeepDeprecatedProbes "true") }}
           exec:
             command:
             - cilium
@@ -103,7 +112,7 @@ spec:
           successThreshold: 1
           timeoutSeconds: 5
         readinessProbe:
-{{- if .Values.keepDeprecatedProbes }}
+{{- if or .Values.keepDeprecatedProbes (eq $defaultKeepDeprecatedProbes "true") }}
           exec:
             command:
             - cilium
