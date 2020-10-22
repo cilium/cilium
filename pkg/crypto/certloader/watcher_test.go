@@ -159,3 +159,60 @@ func TestFutureWatcher(t *testing.T) {
 	assert.Equal(t, &expectedKeypair, keypair)
 	assert.Equal(t, expectedCaCertPool, caCertPool)
 }
+
+func TestKubernetesMount(t *testing.T) {
+	dir, hubble := k8sDirectories(t)
+	defer cleanup(dir)
+	logger, _ := test.NewNullLogger()
+
+	ch, err := FutureWatcher(logger, hubble.caFiles, hubble.certFile, hubble.privkeyFile)
+	assert.Nil(t, err)
+
+	// the files don't exists, expect the watcher to not be ready yet.
+	select {
+	case <-ch:
+		t.Fatal("FutureWatcher should not be ready without the TLS files")
+	case <-time.After(100 * time.Millisecond):
+	}
+
+	// this will create the file
+	k8Setup(t, dir)
+
+	// the files exists now, expect the watcher to become ready.
+	var w *Watcher
+	select {
+	case w = <-ch:
+	case <-time.After(100 * time.Millisecond):
+		t.Fatal("FutureWatcher should be ready one the TLS files exists")
+	}
+	defer w.Stop()
+
+	expectedInitialCaCertPool := x509.NewCertPool()
+	if ok := expectedInitialCaCertPool.AppendCertsFromPEM(initialHubbleServerCA); !ok {
+		t.Fatal("AppendCertsFromPEM", initialHubbleServerCA)
+	}
+	expectedInitialKeypair, err := tls.X509KeyPair(initialHubbleServerCertificate, initialHubbleServerPrivkey)
+	if err != nil {
+		t.Fatal("tls.X509KeyPair", err)
+	}
+
+	keypair, caCertPool := w.KeypairAndCACertPool()
+	assert.Equal(t, &expectedInitialKeypair, keypair)
+	assert.Equal(t, expectedInitialCaCertPool, caCertPool)
+
+	k8sRotate(t, dir)
+	<-time.After(100 * time.Millisecond)
+
+	expectedRotatedCaCertPool := x509.NewCertPool()
+	if ok := expectedRotatedCaCertPool.AppendCertsFromPEM(rotatedHubbleServerCA); !ok {
+		t.Fatal("AppendCertsFromPEM", rotatedHubbleServerCA)
+	}
+	expectedRotatedKeypair, err := tls.X509KeyPair(rotatedHubbleServerCertificate, rotatedHubbleServerPrivkey)
+	if err != nil {
+		t.Fatal("tls.X509KeyPair", err)
+	}
+
+	keypair, caCertPool = w.KeypairAndCACertPool()
+	assert.Equal(t, &expectedRotatedKeypair, keypair)
+	assert.Equal(t, expectedRotatedCaCertPool, caCertPool)
+}
