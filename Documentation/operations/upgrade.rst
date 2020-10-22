@@ -226,12 +226,11 @@ Cilium to the state it was in prior to the upgrade.
 .. note::
 
     When rolling back after new features of the new minor version have already
-    been consumed, consult an eventual existing downgrade section in the
-    :ref:`version_notes` to check and prepare for incompatible feature use
-    before downgrading/rolling back. This step is only required after new
-    functionality introduced in the new minor version has already been
-    explicitly used by importing policy or by opting into new features via the
-    `ConfigMap`.
+    been consumed, consult the :ref:`version_notes` to check and prepare for
+    incompatible feature use before downgrading/rolling back. This step is only
+    required after new functionality introduced in the new minor version has
+    already been explicitly used by creating new resources or by opting into
+    new features via the `ConfigMap`.
 
 .. _version_notes:
 .. _upgrade_version_specifics:
