@@ -14,8 +14,10 @@ This guide explains how to configure Cilium in Azure Cloud to use :ref:`ipam_azu
 
 .. note::
 
-    This is a beta feature. Please provide feedback and file a GitHub issue if
-    you experience any problems.
+    This is a beta feature. See the :ref:`azure_limitations` and
+    :ref:`azure_troubleshooting` sections if you face any
+    issues. Please provide feedback and file a GitHub issue if you
+    experience any problems.
 
 Create an Azure Kubernetes cluster
 ==================================
@@ -102,3 +104,15 @@ Limitations
 
 * All VMs and VM scale sets used in a cluster must belong to the same resource
   group.
+
+.. _azure_troubleshooting:
+
+Troubleshooting
+===============
+* If ``kubectl exec`` to a pod fails to connect, restarting the ``tunnelfront`` pod may help.
+* Pods may fail to gain a ``.spec.hostNetwork`` status even if restarted and managed by Cilium.
+* If some connectivity tests fail to reach the ready state you may need to restart the unmanaged pods again.
+* Some connectivity tests may fail. This is being tracked in `Cilium GitHub issue #12113
+  <https://github.com/cilium/cilium/issues/12113>`_.
+
+  * ``hubble observe`` may report one or more nodes being unavailable and ``hubble-ui`` may fail to connect to the backends.
