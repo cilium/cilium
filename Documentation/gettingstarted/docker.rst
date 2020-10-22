@@ -55,6 +55,15 @@ it will print:
     ==> default: Creating cilium-docker-plugin
     $
 
+By default the script will deploy Cilium ``1.9`` but it's possible to specify a
+different version with the ``CILIUM_VERSION`` environment variable.
+
+For example, the following command will start Vagrant with Cilium ``1.x``:
+
+::
+
+    $ CILIUM_VERSION=v1.x vagrant up
+
 If the script exits with an error message, do not attempt to proceed with the
 tutorial, as later steps will not work properly.   Instead, contact us on the
 `Cilium Slack channel`_.
