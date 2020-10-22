@@ -1,4 +1,4 @@
-// Copyright 2018-2019 Authors of Cilium
+// Copyright 2018-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -531,6 +531,7 @@ func (ep *Endpoint) MarshalJSON() ([]byte, error) {
 
 func (ep *Endpoint) fromSerializedEndpoint(r *serializableEndpoint) {
 	ep.ID = r.ID
+	ep.createdAt = time.Now()
 	ep.containerName = r.ContainerName
 	ep.containerID = r.ContainerID
 	ep.dockerNetworkID = r.DockerNetworkID
