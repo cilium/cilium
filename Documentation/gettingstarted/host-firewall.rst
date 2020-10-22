@@ -55,7 +55,7 @@ In this guide, we will apply host policies only to nodes with the label
 ``node-access=ssh``. We thus first need to attach that label to a node in the
 cluster.
 
-.. code:: shell-session
+.. code-block:: shell-session
 
     $ export NODE_NAME=k8s1
     $ kubectl label node $NODE_NAME node-access=ssh
@@ -75,7 +75,7 @@ validate the impact of host policies before enforcing them. When Policy Audit
 Mode is enabled, no network policy is enforced so this setting is *not
 recommended for production deployment*.
 
-.. code:: shell-session
+.. code-block:: shell-session
 
     $ CILIUM_NAMESPACE=kube-system
     $ CILIUM_POD_NAME=$(kubectl -n $CILIUM_NAMESPACE get pods -l "k8s-app=cilium" -o jsonpath="{.items[?(@.spec.nodeName=='$NODE_NAME')].metadata.name}")
@@ -101,7 +101,7 @@ the outside of the cluster, except if those pods are host-networking pods.
 
 To apply this policy, run:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
     $ kubectl create -f \ |SCM_WEB|\/examples/policies/host/demo-host-policy.yaml
     ciliumclusterwidenetworkpolicy.cilium.io/demo-host-policy created
@@ -110,7 +110,7 @@ The host is represented as a special endpoint, with label ``reserved:host``, in
 the output of command ``cilium endpoint list``. You can therefore inspect the
 status of the policy using that command.
 
-.. code:: shell-session
+.. code-block:: shell-session
 
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6                 IPv4           STATUS
@@ -133,7 +133,7 @@ disallowed by the policy won't be dropped. They will however be reported by
 adjust the host policy to your environment, to avoid unexpected connection
 breakages.
 
-.. code:: shell-session
+.. code-block:: shell-session
 
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium monitor -t policy-verdict --related-to $HOST_EP_ID
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 6, proto 1, ingress, action allow, match L3-Only, 192.168.33.12 -> 192.168.33.11 EchoRequest
@@ -163,14 +163,14 @@ Once you are confident all required communication to the host from outside the
 cluster are allowed, you can disable policy audit mode to enforce the host
 policy.
 
-.. code:: shell-session
+.. code-block:: shell-session
 
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint config $HOST_EP_ID PolicyAuditMode=Disabled
     Endpoint 3353 configuration updated successfully
 
 Ingress host policies should now appear as enforced:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6                 IPv4           STATUS
@@ -186,7 +186,7 @@ Ingress host policies should now appear as enforced:
 
 Communications not explicitly allowed by the host policy will now be dropped:
 
-.. code:: shell-session
+.. code-block:: shell-session
 
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium monitor -t policy-verdict --related-to $HOST_EP_ID
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 2, proto 6, ingress, action deny, match none, 10.0.2.2:49038 -> 10.0.2.15:21 tcp SYN
@@ -195,7 +195,7 @@ Communications not explicitly allowed by the host policy will now be dropped:
 Clean Up
 ========
 
-.. code:: shell-session
+.. code-block:: shell-session
 
    $ kubectl delete ccnp demo-host-policy
    $ kubectl label node $NODE_NAME node-access-
