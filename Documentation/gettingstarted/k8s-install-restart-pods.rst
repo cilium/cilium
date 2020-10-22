@@ -20,3 +20,10 @@ connectivity provided by Cilium and NetworkPolicy applies to them:
     pod "kube-state-metrics-7d9774bbd5-n6m5k" deleted
     pod "l7-default-backend-6f8697844f-d2rq2" deleted
     pod "metrics-server-v0.3.1-54699c9cc8-7l5w2" deleted
+
+.. note::
+
+    This may error out on macOS due to ``-r`` being unsupported by
+    ``xargs``. In this case you can safely run this command without ``-r``
+    with the symptom that this will hang if there are no pods to
+    restart. You can stop this with ``ctrl-c``.
