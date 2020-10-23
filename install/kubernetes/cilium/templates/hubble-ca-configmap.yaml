@@ -7,7 +7,7 @@ metadata:
   namespace: {{ .Release.Namespace }}
 data:
 {{- if and (.Values.hubble.tls.auto.enabled) (eq .Values.hubble.tls.auto.method "helm") }}
-{{ include "ca.gen-cert-only" . | indent 2 }}
+{{ include "hubble.ca.gen-cert-only" . | indent 2 }}
 {{- else }}
   ca.crt: |-
 {{ .Values.hubble.tls.ca.cert | b64dec | indent 4 -}}
