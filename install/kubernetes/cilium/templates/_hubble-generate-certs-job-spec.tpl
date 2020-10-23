@@ -10,8 +10,8 @@ spec:
       serviceAccountName: hubble-generate-certs
       containers:
         - name: certgen
-          image: {{ .Values.hubble.tls.auto.cronJob.image.repository }}:{{ .Values.hubble.tls.auto.cronJob.image.tag }}
-          imagePullPolicy: {{ .Values.hubble.tls.auto.cronJob.image.pullPolicy }}
+          image: {{ .Values.certgen.image.repository }}:{{ .Values.certgen.image.tag }}
+          imagePullPolicy: {{ .Values.certgen.image.pullPolicy }}
           command:
             - "/usr/bin/cilium-certgen"
           {{/* Because this is executed as a job, we pass the values as command line args instead of via config map,
@@ -73,5 +73,5 @@ spec:
           secret:
             secretName: hubble-ca-secret
       {{- end }}
-  ttlSecondsAfterFinished: {{ .Values.hubble.tls.auto.cronJob.ttlSecondsAfterFinished }}
+  ttlSecondsAfterFinished: {{ .Values.certgen.ttlSecondsAfterFinished }}
 {{- end }}
