@@ -1365,7 +1365,7 @@ func runDaemon() {
 	if option.Config.IsFlannelMasterDeviceSet() && option.Config.FlannelUninstallOnExit {
 		cleanup.DeferTerminationCleanupFunction(cleaner.cleanUPWg, cleaner.cleanUPSig, func() {
 			d.compilationMutex.Lock()
-			d.Datapath().Loader().DeleteDatapath(context.Background(), option.FlannelMasterDevice, "egress")
+			loader.RemoveTCFilters(option.FlannelMasterDevice, netlink.HANDLE_MIN_EGRESS)
 			d.compilationMutex.Unlock()
 		})
 	}
