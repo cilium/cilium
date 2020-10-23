@@ -30,6 +30,10 @@ Helm chart for Cilium
 | bpf.policyMapMax | int | `16384` |  |
 | bpf.preallocateMaps | bool | `false` |  |
 | bpf.waitForMount | bool | `false` |  |
+| certgen.image.pullPolicy | string | `"IfNotPresent"` |  |
+| certgen.image.repository | string | `"docker.io/cilium/certgen"` |  |
+| certgen.image.tag | string | `"v0.1.0@sha256:904d659b735abcb41412cfac0238471569ff7f923bda68493f29383c85bee2d2"` |  |
+| certgen.ttlSecondsAfterFinished | int | `1800` |  |
 | cleanBpfState | bool | `false` |  |
 | cleanState | bool | `false` |  |
 | cluster.name | string | `"default"` |  |
@@ -127,13 +131,9 @@ Helm chart for Cilium
 | hubble.relay.updateStrategy.type | string | `"RollingUpdate"` |  |
 | hubble.socketPath | string | `"/var/run/cilium/hubble.sock"` |  |
 | hubble.tls.auto.certValidityDuration | int | `1095` |  |
-| hubble.tls.auto.cronJob.image.pullPolicy | string | `"IfNotPresent"` |  |
-| hubble.tls.auto.cronJob.image.repository | string | `"docker.io/cilium/certgen"` |  |
-| hubble.tls.auto.cronJob.image.tag | string | `"v0.1.0@sha256:904d659b735abcb41412cfac0238471569ff7f923bda68493f29383c85bee2d2"` |  |
-| hubble.tls.auto.cronJob.schedule | string | `"0 0 1 */4 *"` |  |
-| hubble.tls.auto.cronJob.ttlSecondsAfterFinished | int | `1800` |  |
 | hubble.tls.auto.enabled | bool | `true` |  |
 | hubble.tls.auto.method | string | `"helm"` |  |
+| hubble.tls.auto.schedule | string | `"0 0 1 */4 *"` |  |
 | hubble.tls.ca.cert | string | `""` |  |
 | hubble.tls.ca.key | string | `""` |  |
 | hubble.tls.enabled | bool | `true` |  |
