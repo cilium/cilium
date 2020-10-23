@@ -1696,7 +1696,7 @@ sense of security to the user if a policy is badly formatted and Cilium is not
 enforcing that policy due a bad validation schema. This CNP Validator is
 automatically executed as part of the pre-flight check :ref:`pre_flight`.
 
-Start by deployment the ``cilium-pre-flight-check`` and check if the the
+Start by deployment the ``cilium-pre-flight-check`` and check if the
 ``Deployment`` shows READY 1/1, if it does not check the pod logs.
 
 .. code-block:: shell-session

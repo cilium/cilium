@@ -513,8 +513,8 @@ IPs to be allowed are selected via:
 
 ``toFQDNs.matchPattern``
   Inserts IPs of domains that match the pattern in ``matchPattern``, accounting
-  for wildcards. Patterns are composed of literal characters that that are
-  allowed in domain names: a-z, 0-9, ``.`` and ``-``.
+  for wildcards. Patterns are composed of literal characters that are allowed
+  in domain names: a-z, 0-9, ``.`` and ``-``.
 
   ``*`` is allowed as a wildcard with a number of convenience behaviors:
 
@@ -1193,7 +1193,7 @@ each selected node, they apply only to the host namespace, including
 host-networking pods. They therefore don't apply to communications between
 non-host-networking pods and locations outside of the cluster.
 
-Installation of Host Policies requires the the addition of the following ``helm``
+Installation of Host Policies requires the addition of the following ``helm``
 flags when installing Cilium:
 
 * ``--set devices='{interface}'`` where ``interface`` refers to the
@@ -1205,7 +1205,7 @@ The following policy will allow ingress traffic for any node with the label
 ``type=ingress-worker`` on TCP ports 22, 6443 (kube-apiserver), 2379 (etcd) and 4240
 (health checks), as well as UDP port 8472 (VXLAN).
 
-Replace the ``port:`` value with ports used in your environment. 
+Replace the ``port:`` value with ports used in your environment.
 
 .. only:: html
 

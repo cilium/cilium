@@ -59,11 +59,11 @@ allows the pods reaching out to other pods by a single IP address, a virtual IP
 address, without knowing all the pods that are running that particular service.
 
 Without Cilium, kube-proxy is installed on every node, watches for endpoints
-and services addition and removal on the kube-master which allows it to to
-apply the necessary enforcement on iptables. Thus, the received and sent
-traffic from and to the pods are properly routed to the node and port serving
-for that service. For more information you can check out the kubernetes user
-guide for `Services <https://kubernetes.io/docs/concepts/services-networking/service/>`_.
+and services addition and removal on the kube-master which allows it to apply
+the necessary enforcement on iptables. Thus, the received and sent traffic from
+and to the pods are properly routed to the node and port serving for that
+service. For more information you can check out the kubernetes user guide for
+`Services <https://kubernetes.io/docs/concepts/services-networking/service/>`_.
 
 When implementing ClusterIP, Cilium acts on the same principles as kube-proxy,
 it watches for services addition or removal, but instead of doing the

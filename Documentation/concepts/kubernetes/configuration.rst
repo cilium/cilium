@@ -117,7 +117,7 @@ CNI configuration is automatically being taken care of when deploying Cilium
 via the provided `DaemonSet`. The script ``cni-install.sh`` is automatically run
 via the ``postStart`` mechanism when the ``cilium`` pod is started.
 
-.. note:: In order for the the ``cni-install.sh`` script to work properly, the
+.. note:: In order for the ``cni-install.sh`` script to work properly, the
           ``kubelet`` task must either be running on the host filesystem of the
           worker node, or the ``/etc/cni/net.d`` and ``/opt/cni/bin``
           directories must be mounted into the container where ``kubelet`` is
