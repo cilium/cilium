@@ -145,6 +145,10 @@ Hubble General Processing
 
 Hubble Networking
 -----------------
+.. note::
+
+   The ``port-distribution`` metric is disabled by default.
+   Refer to :ref:`metrics` for more details about the individual metrics.
 
 .. image:: images/grafana_hubble_network.png
 .. image:: images/grafana_hubble_tcp.png

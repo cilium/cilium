@@ -147,7 +147,6 @@ data:
     drop
     tcp
     flow
-    port-distribution
     icmp
     http
   # An additional address for Hubble server to listen to (e.g. ":4244").

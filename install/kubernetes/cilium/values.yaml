@@ -524,13 +524,12 @@ global:
       #   - drop
       #   - tcp
       #   - flow
-      #   - port-distribution
       #   - icmp
       #   - http
       #
       # You can specify the list of metrics from the helm CLI:
       #
-      #   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,port-distribution,icmp,http}"
+      #   --set metrics.enabled="{dns:query;ignoreAAAA,drop,tcp,flow,icmp,http}"
       #
       enabled: ~
       # Specifies the port the metric server listens on (e.g. 9091).
