@@ -339,9 +339,10 @@ persistent filesystem and make them persistent across restarts of the agent.
 If the eBPF filesystem is not mounted in the host filesystem, Cilium will
 automatically mount the filesystem but it will be unmounted and re-mounted when
 the Cilium pod is restarted. This in turn will cause eBPF resources to be
-re-created which will cause network connectivity to be disrupted. Mounting the
-eBPF filesystem in the host mount namespace will ensure that the agent can be
-restarted without affecting connectivity of any pods.
+re-created which will cause network connectivity to be disrupted while Cilium
+is not running. Mounting the eBPF filesystem in the host mount namespace will
+ensure that the agent can be restarted without affecting connectivity of any
+pods.
 
 In order to mount the eBPF filesystem, the following command must be run in the
 host mount namespace. The command must only be run once during the boot process
