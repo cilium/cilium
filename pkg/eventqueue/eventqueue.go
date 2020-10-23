@@ -79,7 +79,6 @@ type EventQueue struct {
 // a time.
 func NewEventQueue() *EventQueue {
 	return NewEventQueueBuffered("", 1)
-
 }
 
 // NewEventQueueBuffered returns an EventQueue with a capacity of,
@@ -97,7 +96,6 @@ func NewEventQueueBuffered(name string, numBufferedEvents int) *EventQueue {
 		drain:        make(chan struct{}),
 		eventsClosed: make(chan struct{}),
 	}
-
 }
 
 // Enqueue pushes the given event onto the EventQueue. If the queue has been
@@ -235,12 +233,15 @@ func (ev *Event) printStats(q *EventQueue) {
 // cancelled; any event which is currently being processed will not be
 // cancelled.
 func (q *EventQueue) Run() {
-
 	if q.notSafeToAccess() {
 		return
 	}
 
-	go q.eventQueueOnce.Do(func() {
+	go q.run()
+}
+
+func (q *EventQueue) run() {
+	q.eventQueueOnce.Do(func() {
 		defer close(q.eventsClosed)
 		for ev := range q.events {
 			select {
@@ -302,8 +303,11 @@ func (q *EventQueue) WaitToBeDrained() {
 	}
 	<-q.close
 
-	// In-flight events may still be running. Wait for them to be completed for
-	// the queue to be fully drained.
+	// If the queue is running, then in-flight events may still be ongoing.
+	// Wait for them to be completed for the queue to be fully drained. If the
+	// queue is not running, we must forcefully run it because nothing else
+	// will so that it can be drained.
+	go q.run()
 	<-q.eventsClosed
 }
 
