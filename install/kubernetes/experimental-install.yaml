@@ -1214,7 +1214,7 @@ spec:
       serviceAccountName: hubble-generate-certs
       containers:
         - name: certgen
-          image: docker.io/cilium/certgen:v0.1.0@sha256:904d659b735abcb41412cfac0238471569ff7f923bda68493f29383c85bee2d2
+          image: docker.io/cilium/certgen:v0.1.2@sha256:c56e1cd89e6f49a9fa442ad129974e2addfc687ef6ac524ee26849162425c489
           imagePullPolicy: IfNotPresent
           command:
             - "/usr/bin/cilium-certgen"
@@ -1260,7 +1260,7 @@ spec:
           serviceAccountName: hubble-generate-certs
           containers:
             - name: certgen
-              image: docker.io/cilium/certgen:v0.1.0@sha256:904d659b735abcb41412cfac0238471569ff7f923bda68493f29383c85bee2d2
+              image: docker.io/cilium/certgen:v0.1.2@sha256:c56e1cd89e6f49a9fa442ad129974e2addfc687ef6ac524ee26849162425c489
               imagePullPolicy: IfNotPresent
               command:
                 - "/usr/bin/cilium-certgen"
