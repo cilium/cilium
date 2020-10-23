@@ -138,7 +138,8 @@ Verify that the custom resource is created.
 
 Verify that Cilium's eBPF kube-proxy replacement created a ``LocalRedirect``
 service entry with the backend IP address of that of the ``lrp-pod`` that was
-selected by the policy.
+selected by the policy. Make sure that ``cilium service list`` is run
+in Cilium pod running on the same node as ``lrp-pod``.
 
 .. code-block:: bash
 
@@ -169,6 +170,7 @@ configuration specified in the ``lrp-addr`` custom resource above.
     Accept-Ranges: bytes
 
 Verify that the traffic was redirected to the ``lrp-pod`` that was deployed.
+``tcpdump`` should be run on the same node that ``lrp-pod`` is running on.
 
 .. parsed-literal::
 
@@ -228,7 +230,7 @@ service entry.
 
 .. code-block:: bash
 
-    $ kubectl exec -it -n kube-system cilium-5ngzd -- cilium service list
+    $ kubectl exec -it -n kube-system ds/cilium -- cilium service list
     ID   Frontend               Service Type   Backend
     [...]
     4    172.20.0.51:80         ClusterIP
@@ -252,7 +254,8 @@ Verify that the custom resource is created.
 
 Verify that entry Cilium's eBPF kube-proxy replacement updated the
 service entry with type ``LocalRedirect`` and the node-local backend
-selected by the policy.
+selected by the policy. Make sure to run ``cilium service list`` in Cilium pod
+running on the same node as ``lrp-pod``.
 
 .. code-block:: bash
 
@@ -278,6 +281,7 @@ Invoke a curl command from the client pod to the Cluster IP address and port of
     Accept-Ranges: bytes
 
 Verify that the traffic was redirected to the ``lrp-pod`` that was deployed.
+``tcpdump`` should be run on the same node that ``lrp-pod`` is running on.
 
 .. code-block:: bash
 
@@ -371,7 +375,7 @@ steers traffic to a local DNS node-cache which runs as a normal pod.
          * Modify Node-local DNS cache's deployment yaml to point readiness probe to its own IP by
            removing the ``host`` field under ``readinessProbe``.
 
-* Deploy local redirect policy (LRP) to steer DNS traffic to the node local dns cache.
+* Deploy Local Redirect Policy (LRP) to steer DNS traffic to the node local dns cache.
 
   .. parsed-literal::
 
@@ -459,6 +463,16 @@ security credentials for pods.
   .. code-block:: bash
 
       $ kubectl exec app-pod -- curl -s -w "\n" -X GET http://169.254.169.254/latest/meta-data/
+      ami-id
+      ami-launch-index
+      ami-manifest-path
+      block-device-mapping/
+      events/
+      hostname
+      iam/
+      identity-credentials/
+      (...)
+
 
   .. code-block:: bash
 
