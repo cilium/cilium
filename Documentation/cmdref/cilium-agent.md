@@ -88,6 +88,7 @@ cilium-agent [flags]
       --enable-k8s-event-handover                            Enable k8s event handover to kvstore for improved scalability
       --enable-l7-proxy                                      Enable L7 proxy for L7 policy enforcement (default true)
       --enable-local-node-route                              Enable installation of the route which points the allocation prefix of the local node (default true)
+      --enable-local-redirect-policy                         Enable Local Redirect Policy
       --enable-monitor                                       Enable the monitor unix domain socket server (default true)
       --enable-node-port                                     Enable NodePort type services by Cilium (beta)
       --enable-policy string                                 Enable policy enforcement (default "default")

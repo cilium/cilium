@@ -397,7 +397,9 @@ func (k *K8sWatcher) EnableK8sWatcher(ctx context.Context) error {
 	}
 
 	// cilium local redirect policies
-	go k.ciliumLocalRedirectPolicyInit(ciliumNPClient)
+	if option.Config.EnableLocalRedirectPolicy {
+		k.ciliumLocalRedirectPolicyInit(ciliumNPClient)
+	}
 
 	// kubernetes pods
 	asyncControllers.Add(1)
