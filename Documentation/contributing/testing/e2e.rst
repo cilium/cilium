@@ -337,7 +337,7 @@ JustAfterEach
 ^^^^^^^^^^^^^
 
 This method will run just after each test and before ``AfterFailed`` and
-``AfterEach``. The main reason of this method is to to perform some assertions
+``AfterEach``. The main reason of this method is to perform some assertions
 for a group of tests.  A good example of using a global ``JustAfterEach``
 function is for deadlock detection, which checks the Cilium logs for deadlocks
 that may have occurred in the duration of the tests.

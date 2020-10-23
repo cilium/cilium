@@ -427,7 +427,7 @@ interfaces. ``--hubble-metrics`` takes a comma-separated list of metrics.
 
 Some metrics can take additional semicolon-separated options per metric, e.g.
 ``--hubble-metrics="dns:query;ignoreAAAA,http:destinationContext=pod-short"``
-will enable the the ``dns`` metric with the ``query`` and ``ignoreAAAA`` options,
+will enable the ``dns`` metric with the ``query`` and ``ignoreAAAA`` options,
 and the ``http`` metric with the ``destinationContext=pod-short`` option.
 
 .. _hubble_context_options:
