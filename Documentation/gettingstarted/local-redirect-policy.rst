@@ -412,28 +412,13 @@ security credentials for pods.
 
       $ helm repo add uswitch https://uswitch.github.io/kiam-helm-charts/charts/
       $ helm repo update
-      $ helm template kiam uswitch/kiam > kiam.yaml
+      $ helm install --set agent.host.iptables=false --set agent.extraArgs.whitelist-route-regexp=meta-data kiam uswitch/kiam
 
-  - If you see an error like "request blocked by whitelist-route-regexp" while
-    running requests to the metadata server, then you may need to whitelist the
-    metadata requests by passing the below argument to the ``kiam-agent Deamonset``.
+  - The above command may provide instructions to prepare kiam in the cluster.
+    Follow the instructions before continuing.
 
-    .. code-block:: bash
-
-        $ sed -i '/args:/a \ \ \ \ \ \ \ \ \ \ \ \ - --whitelist-route-regexp=meta-data' kiam.yaml
-
-
-  - Make sure the "--iptables" argument is removed from the arguments passed
-    to the ``kiam-agent Daemonset``.
-
-  - Make sure the ``kiam-agent Daemonset`` is run in the ``hostNetwork`` mode.
-
-  - Apply the kiam configuration.
-
-    .. code-block:: bash
-
-        $ kubectl apply -f kiam.yaml
-
+  - kiam must run in the ``hostNetwork`` mode and without the "--iptables" argument.
+    The install instructions above ensure this by default.
 
 - Deploy the Local Redirect Policy to redirect pod traffic to the deployed kiam agent.
 
@@ -448,9 +433,9 @@ security credentials for pods.
       to the default HTTP server port. The ``toPorts`` field under
       ``redirectBackend`` configuration in the policy is set to the port that
       the kiam agent listens on. The port is passed as "--port" argument in
-      the ``kiam-agent Daemonset``.
+      the ``kiam-agent DaemonSet``.
     - The Local Redirect Policy namespace is set to the namespace
-      in which kiam-agent Daemonset is deployed.
+      in which kiam-agent DaemonSet is deployed.
 
 - Once all the kiam agent pods are in ``Running`` state, the metadata requests
   from application pods will get redirected to the node-local kiam agent pods.
@@ -472,7 +457,6 @@ security credentials for pods.
       iam/
       identity-credentials/
       (...)
-
 
   .. code-block:: bash
 
