@@ -120,10 +120,6 @@ func (f *fakeLoader) EndpointHash(cfg datapath.EndpointConfiguration) (string, e
 	panic("implement me")
 }
 
-func (f *fakeLoader) DeleteDatapath(ctx context.Context, ifName, direction string) error {
-	panic("implement me")
-}
-
 func (f *fakeLoader) Unload(ep datapath.Endpoint) {
 }
 
