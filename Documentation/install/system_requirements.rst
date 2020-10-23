@@ -87,6 +87,16 @@ Opensuse_                  Tumbleweed, >=Leap 15.0
           Linux distribution that works well, please let us know by opening a
           GitHub issue or by creating a pull request that updates this guide.
 
+.. note:: Systemd 245 and above (``systemctl --version``) overrides ``rp_filter`` setting
+          of Cilium network interfaces. This introduces connectivity issues (see
+          `GH-10645 <https://github.com/cilium/cilium/issues/10645>`_ for details). To
+          avoid that, configure ``rp_filter`` in systemd using the following commands:
+
+          .. code:: bash
+
+              echo 'net.ipv4.conf.lxc*.rp_filter = 0' > /etc/sysctl.d/99-override_cilium_rp_filter.conf
+              systemctl restart systemd-sysctl
+
 .. _admin_kernel_version:
 
 Linux Kernel
