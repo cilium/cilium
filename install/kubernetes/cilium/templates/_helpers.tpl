@@ -49,19 +49,13 @@ ensure the CA certs are generated only once:
 Please, don't try to "simplify" them as without this trick, every generated
 certificate would be signed by a different CA.
 */}}
-{{- define "ca.gen-certs" }}
-{{- $ca := .ca | default (genCA "hubble-ca.cilium.io" (.Values.hubble.tls.auto.certValidityDuration | int)) -}}
-{{- $_ := set . "ca" $ca -}}
-tls.crt: {{ $ca.Cert | b64enc }}
-tls.key: {{ $ca.Key | b64enc }}
-{{- end }}
-{{- define "ca.gen-cert-only" }}
+{{- define "hubble.ca.gen-cert-only" }}
 {{- $ca := .ca | default (genCA "hubble-ca.cilium.io" (.Values.hubble.tls.auto.certValidityDuration | int)) -}}
 {{- $_ := set . "ca" $ca -}}
 ca.crt: |-
 {{ $ca.Cert | indent 2 -}}
 {{- end }}
-{{- define "server.gen-certs" }}
+{{- define "hubble.server.gen-certs" }}
 {{- $ca := .ca | default (genCA "hubble-ca.cilium.io" (.Values.hubble.tls.auto.certValidityDuration | int)) -}}
 {{- $_ := set . "ca" $ca -}}
 {{- $cn := list "*" .Values.cluster.name "hubble-grpc.cilium.io" | join "." }}
@@ -69,7 +63,7 @@ ca.crt: |-
 tls.crt: {{ $cert.Cert | b64enc }}
 tls.key: {{ $cert.Key | b64enc }}
 {{- end }}
-{{- define "relay.gen-certs" }}
+{{- define "hubble.relay.gen-certs" }}
 {{- $ca := .ca | default (genCA "hubble-ca.cilium.io" (.Values.hubble.tls.auto.certValidityDuration | int)) -}}
 {{- $_ := set . "ca" $ca -}}
 {{- $cert := genSignedCert "*.hubble-relay.cilium.io" nil (list "*.hubble-relay.cilium.io") (.Values.hubble.tls.auto.certValidityDuration | int) $ca -}}
