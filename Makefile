@@ -415,11 +415,6 @@ generate-k8s-api:
 #             change on every invocation
 GO_BINDATA := $(QUIET) go run ./... -prefix $(ROOT_DIR) -pkg client -mode 0640 -modtime 1450269211
 
-.PHONY: check-bindata
-check-bindata: bindata.go
-	@echo "  CHECK contrib/scripts/bindata.sh"
-	$(QUIET) ./contrib/scripts/bindata.sh $(GO_BINDATA_SHA1SUM)
-
 go-bindata: $(K8S_CRD_FILES)
 	@$(ECHO_GEN) $@
 	cd "./vendor/github.com/go-bindata/go-bindata/v3/go-bindata" && \
