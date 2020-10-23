@@ -224,7 +224,9 @@ func (k *K8sWatcher) addK8sPodV1(pod *slim_corev1.Pod) error {
 		// called from updateK8sPodV1, the consumer will need to handle the duplicate
 		// events accordingly.
 		// GH issue #13136.
-		k.redirectPolicyManager.OnAddPod(pod)
+		if option.Config.EnableLocalRedirectPolicy {
+			k.redirectPolicyManager.OnAddPod(pod)
+		}
 	}
 
 	switch {
@@ -291,11 +293,13 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 		lrpNeedsReassign = true
 	}
 
-	oldPodReady := k8sUtils.GetLatestPodReadiness(oldK8sPod.Status)
-	newPodReady := k8sUtils.GetLatestPodReadiness(newK8sPod.Status)
+	if option.Config.EnableLocalRedirectPolicy {
+		oldPodReady := k8sUtils.GetLatestPodReadiness(oldK8sPod.Status)
+		newPodReady := k8sUtils.GetLatestPodReadiness(newK8sPod.Status)
 
-	if lrpNeedsReassign || (oldPodReady != newPodReady) {
-		k.redirectPolicyManager.OnUpdatePod(newK8sPod, lrpNeedsReassign, newPodReady == slim_corev1.ConditionTrue)
+		if lrpNeedsReassign || (oldPodReady != newPodReady) {
+			k.redirectPolicyManager.OnUpdatePod(newK8sPod, lrpNeedsReassign, newPodReady == slim_corev1.ConditionTrue)
+		}
 	}
 
 	// Nothing changed.
@@ -466,7 +470,9 @@ func (k *K8sWatcher) deleteK8sPodV1(pod *slim_corev1.Pod) error {
 		"hostIP":               pod.Status.HostIP,
 	})
 
-	k.redirectPolicyManager.OnDeletePod(pod)
+	if option.Config.EnableLocalRedirectPolicy {
+		k.redirectPolicyManager.OnDeletePod(pod)
+	}
 
 	skipped, err := k.deletePodHostData(pod)
 	switch {

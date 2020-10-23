@@ -452,6 +452,9 @@ var _ = Describe("K8sServicesTest", func() {
 		)
 
 		BeforeAll(func() {
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"localRedirectPolicy": "true",
+			})
 			deploymentYAML = helpers.ManifestGet(kubectl.BasePath(), "lrp-test.yaml")
 			lrpSvcYAML = helpers.ManifestGet(kubectl.BasePath(), "lrp-svc.yaml")
 			res := kubectl.ApplyDefault(deploymentYAML)

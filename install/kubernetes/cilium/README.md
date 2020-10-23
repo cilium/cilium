@@ -216,6 +216,7 @@ Helm chart for Cilium
 | kvstore.managed | bool | `false` |  |
 | kvstore.ssl | string | `nil` |  |
 | l7Proxy | bool | `true` |  |
+| localRedirectPolicy | bool | `false` |  |
 | logSystemLoad | bool | `false` |  |
 | maglev | object | `{}` |  |
 | masquerade | bool | `true` |  |

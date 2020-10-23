@@ -780,6 +780,8 @@ kvstore:
 # l7Proxy enables Layer 7 network policy.
 l7Proxy: true
 
+localRedirectPolicy: false
+
 # To include or exclude matched resources from cilium identity evaluation
 # labels: ""
 
