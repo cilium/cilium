@@ -1,5 +1,5 @@
 image: startup-script
-tag: af2a99046eca96c0138551393b21a5c044c7fe79
+tag: 62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8
 
 # Restart existing pods when initializing the node to force all pods being
 # managed by Cilium (GKE, EKS)
