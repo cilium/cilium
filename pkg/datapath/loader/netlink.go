@@ -17,7 +17,6 @@ package loader
 import (
 	"context"
 	"fmt"
-	"strings"
 
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/command/exec"
@@ -131,26 +130,24 @@ func graftDatapath(ctx context.Context, mapPath, objPath, progSec string) error 
 	return nil
 }
 
-// DeleteDatapath filter from the given ifName
-func (l *Loader) DeleteDatapath(ctx context.Context, ifName, direction string) error {
-	args := []string{"filter", "delete", "dev", ifName, direction}
-	cmd := exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
-	_, err := cmd.CombinedOutput(log, true)
+// RemoveTCFilters removes all tc filters from the given interface.
+// Direction is passed as netlink.HANDLE_MIN_{INGRESS,EGRESS} via tcDir.
+func RemoveTCFilters(ifName string, tcDir uint32) error {
+	link, err := netlink.LinkByName(ifName)
 	if err != nil {
-		return fmt.Errorf("Failed to remove tc filter: %s", err)
+		return err
+	}
+
+	filters, err := netlink.FilterList(link, tcDir)
+	if err != nil {
+		return err
+	}
+
+	for _, f := range filters {
+		if err := netlink.FilterDel(f); err != nil {
+			return err
+		}
 	}
 
 	return nil
-}
-
-// HasDatapath return true if the interface as a tc filter attached on the given direction.
-func (l *Loader) HasDatapath(ctx context.Context, ifName, direction string) (bool, error) {
-	args := []string{"filter", "show", "dev", ifName, direction}
-	cmd := exec.CommandContext(ctx, "tc", args...).WithFilters(libbpfFixupMsg)
-	output, err := cmd.Output(log, true)
-	if err != nil {
-		return false, fmt.Errorf("Failed to get tc filter: %s", err)
-	}
-
-	return strings.TrimSpace(string(output)) != "", nil
 }

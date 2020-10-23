@@ -30,7 +30,6 @@ type Loader interface {
 	CompileOrLoad(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) error
 	ReloadDatapath(ctx context.Context, ep Endpoint, stats *metrics.SpanStat) error
 	EndpointHash(cfg EndpointConfiguration) (string, error)
-	DeleteDatapath(ctx context.Context, ifName, direction string) error
 	Unload(ep Endpoint)
 	Reinitialize(ctx context.Context, o BaseProgramOwner, deviceMTU int, iptMgr IptablesManager, p Proxy) error
 }
