@@ -20,7 +20,7 @@ jobs:
         run: |
           go mod tidy
           go mod vendor
-          git diff --exit-code
+          git diff --exit-code || (echo "please run 'go mod tidy && go mod vendor', and submit your changes"; exit 1)
 
   golangci:
     name: lint

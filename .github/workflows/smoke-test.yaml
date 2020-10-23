@@ -47,7 +47,7 @@ jobs:
       - name: Run helm-docs
         run: |
           make -C install/kubernetes docs
-          git diff --exit-code
+          git diff --exit-code || (echo "please run 'make -C install/kubernetes docs' and submit your changes"; exit 1)
 
   quick-install:
     strategy:
@@ -63,7 +63,7 @@ jobs:
       - name: Check ${{ matrix.target.template }}
         run: |
           make -C install/kubernetes ${{ matrix.target.name }}
-          git diff --exit-code
+          git diff --exit-code || (echo "please run 'make -C install/kubernetes ${{ matrix.target.name }}' and submit your changes"; exit 1)
 
   conformance-test:
     runs-on: ubuntu-latest
@@ -75,7 +75,7 @@ jobs:
         run: |
           make -C examples/kubernetes/connectivity-check fmt
           make -C examples/kubernetes/connectivity-check all
-          git diff --exit-code
+          git diff --exit-code || (echo "please run 'make -C examples/kubernetes/connectivity-check all' and submit your changes"; exit 1)
 
       - name: Build docker images
         run: |
