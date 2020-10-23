@@ -460,7 +460,7 @@ security credentials for pods.
   address of an application pod, and ``192.168.33.99`` is the ip address of the
   kiam agent running on the same node as the application pod.
 
-  .. code-block:: bash
+  .. code-block:: shell-session
 
       $ kubectl exec app-pod -- curl -s -w "\n" -X GET http://169.254.169.254/latest/meta-data/
       ami-id
