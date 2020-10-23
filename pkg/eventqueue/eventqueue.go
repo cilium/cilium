@@ -82,13 +82,6 @@ func NewEventQueue() *EventQueue {
 
 }
 
-func (q *EventQueue) getLogger() *logrus.Entry {
-	return log.WithFields(
-		logrus.Fields{
-			"name": q.name,
-		})
-}
-
 // NewEventQueueBuffered returns an EventQueue with a capacity of,
 // numBufferedEvents at a time, and all other needed fields initialized.
 func NewEventQueueBuffered(name string, numBufferedEvents int) *EventQueue {
@@ -105,6 +98,54 @@ func NewEventQueueBuffered(name string, numBufferedEvents int) *EventQueue {
 		eventsClosed: make(chan struct{}),
 	}
 
+}
+
+// Enqueue pushes the given event onto the EventQueue. If the queue has been
+// stopped, the Event will not be enqueued, and its cancel channel will be
+// closed, indicating that the Event was not ran. This function may block if
+// the queue is at its capacity for events. If a single Event has Enqueue
+// called on it multiple times asynchronously, there is no guarantee as to
+// which one will return the channel which passes results back to the caller.
+// It is up to the caller to check whether the returned channel is nil, as
+// waiting to receive on such a channel will block forever. Returns an error
+// if the Event has been previously enqueued, if the Event is nil, or the queue
+// itself is not initialized properly.
+func (q *EventQueue) Enqueue(ev *Event) (<-chan interface{}, error) {
+	if q.notSafeToAccess() || ev == nil {
+		return nil, fmt.Errorf("unable to Enqueue event")
+	}
+
+	// Events can only be enqueued once.
+	if atomic.AddInt32(&ev.enqueued, 1) > 1 {
+		return nil, fmt.Errorf("unable to Enqueue event; event has already had Enqueue called on it")
+	}
+
+	// Multiple Enqueues can occur at the same time. Ensure that events channel
+	// is not closed while we are enqueueing events.
+	q.eventsMu.RLock()
+	defer q.eventsMu.RUnlock()
+
+	select {
+	// The event should be drained from the queue (e.g., it should not be
+	// processed).
+	case <-q.drain:
+		// Closed eventResults channel signifies cancellation.
+		close(ev.cancelled)
+		close(ev.eventResults)
+
+		return ev.eventResults, nil
+	default:
+		// The events channel may be closed even if an event has been pushed
+		// onto the events channel, as events are consumed off of the events
+		// channel asynchronously! If the EventQueue is closed before this
+		// event is processed, then it will be cancelled.
+
+		ev.stats.waitEnqueue.Start()
+		ev.stats.waitConsumeOffQueue.Start()
+		q.events <- ev
+		ev.stats.waitEnqueue.End(true)
+		return ev.eventResults, nil
+	}
 }
 
 // Event is an event that can be enqueued onto an EventQueue.
@@ -171,54 +212,6 @@ func (ev *Event) WasCancelled() bool {
 		return true
 	default:
 		return false
-	}
-}
-
-// Enqueue pushes the given event onto the EventQueue. If the queue has been
-// stopped, the Event will not be enqueued, and its cancel channel will be
-// closed, indicating that the Event was not ran. This function may block if
-// the queue is at its capacity for events. If a single Event has Enqueue
-// called on it multiple times asynchronously, there is no guarantee as to
-// which one will return the channel which passes results back to the caller.
-// It is up to the caller to check whether the returned channel is nil, as
-// waiting to receive on such a channel will block forever. Returns an error
-// if the Event has been previously enqueued, if the Event is nil, or the queue
-// itself is not initialized properly.
-func (q *EventQueue) Enqueue(ev *Event) (<-chan interface{}, error) {
-	if q.notSafeToAccess() || ev == nil {
-		return nil, fmt.Errorf("unable to Enqueue event")
-	}
-
-	// Events can only be enqueued once.
-	if atomic.AddInt32(&ev.enqueued, 1) > 1 {
-		return nil, fmt.Errorf("unable to Enqueue event; event has already had Enqueue called on it")
-	}
-
-	// Multiple Enqueues can occur at the same time. Ensure that events channel
-	// is not closed while we are enqueueing events.
-	q.eventsMu.RLock()
-	defer q.eventsMu.RUnlock()
-
-	select {
-	// The event should be drained from the queue (e.g., it should not be
-	// processed).
-	case <-q.drain:
-		// Closed eventResults channel signifies cancellation.
-		close(ev.cancelled)
-		close(ev.eventResults)
-
-		return ev.eventResults, nil
-	default:
-		// The events channel may be closed even if an event has been pushed
-		// onto the events channel, as events are consumed off of the events
-		// channel asynchronously! If the EventQueue is closed before this
-		// event is processed, then it will be cancelled.
-
-		ev.stats.waitEnqueue.Start()
-		ev.stats.waitConsumeOffQueue.Start()
-		q.events <- ev
-		ev.stats.waitEnqueue.End(true)
-		return ev.eventResults, nil
 	}
 }
 
@@ -312,6 +305,13 @@ func (q *EventQueue) WaitToBeDrained() {
 	// In-flight events may still be running. Wait for them to be completed for
 	// the queue to be fully drained.
 	<-q.eventsClosed
+}
+
+func (q *EventQueue) getLogger() *logrus.Entry {
+	return log.WithFields(
+		logrus.Fields{
+			"name": q.name,
+		})
 }
 
 // EventHandler is an interface for allowing an EventQueue to handle events
