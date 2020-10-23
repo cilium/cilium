@@ -370,7 +370,8 @@ func tableToCRDList(t *slim_metav1beta1.Table) *slim_apiextensions_v1beta1.Custo
 	for _, row := range t.Rows {
 		crd := slim_apiextensions_v1beta1.CustomResourceDefinition{
 			ObjectMeta: slim_metav1.ObjectMeta{
-				Name: fmt.Sprintf("%s", row.Cells[idx]),
+				Name:            fmt.Sprintf("%s", row.Cells[idx]),
+				ResourceVersion: t.ListMeta.GetResourceVersion(),
 			},
 		}
 
@@ -414,7 +415,8 @@ func tableToPomList(t *slim_metav1.Table) *slim_metav1.PartialObjectMetadataList
 	for _, row := range t.Rows {
 		pom := slim_metav1.PartialObjectMetadata{
 			ObjectMeta: slim_metav1.ObjectMeta{
-				Name: fmt.Sprintf("%s", row.Cells[idx]),
+				Name:            fmt.Sprintf("%s", row.Cells[idx]),
+				ResourceVersion: t.ListMeta.GetResourceVersion(),
 			},
 		}
 
