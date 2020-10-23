@@ -17,7 +17,9 @@ package redirectpolicy
 import (
 	"fmt"
 	"net"
+	"sync"
 
+	"github.com/cilium/cilium/pkg/datapath/linux/probes"
 	"github.com/cilium/cilium/pkg/k8s"
 	slimcorev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
 	k8sUtils "github.com/cilium/cilium/pkg/k8s/utils"
@@ -71,6 +73,8 @@ type Manager struct {
 
 	storeGetter StoreGetter
 
+	warnOnce sync.Once
+
 	// Mutex to protect against concurrent access to the maps
 	mutex lock.Mutex
 
@@ -110,6 +114,22 @@ func (rpm *Manager) RegisterGetStores(sg StoreGetter) {
 // AddRedirectPolicy parses the given local redirect policy config, and updates
 // internal state with the config fields.
 func (rpm *Manager) AddRedirectPolicy(config LRPConfig) (bool, error) {
+	rpm.warnOnce.Do(func() {
+		found := false
+		if h := probes.NewProbeManager().GetHelpers("cgroup_sock_addr"); h != nil {
+			if _, ok := h["bpf_sk_lookup_tcp"]; ok {
+				if _, ok = h["bpf_sk_lookup_udp"]; ok {
+					found = true
+				}
+			}
+		}
+		if !found {
+			log.Warn("Without socket lookup kernel functionality, BPF " +
+				"datapath cannot prevent potential loop caused by local-redirect" +
+				"service translation. Needs kernel version >= 5.1")
+		}
+	})
+
 	rpm.mutex.Lock()
 	defer rpm.mutex.Unlock()
 

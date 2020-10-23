@@ -118,6 +118,7 @@ data:
 
   auto-direct-node-routes: "false"
   enable-bandwidth-manager: "false"
+  enable-local-redirect-policy: "false"
   kube-proxy-replacement:  "probe"
   kube-proxy-replacement-healthz-bind-address: ""
   enable-health-check-nodeport: "true"

@@ -540,6 +540,9 @@ func init() {
 	flags.Bool(option.EnableBandwidthManager, false, "Enable BPF bandwidth manager")
 	option.BindEnv(option.EnableBandwidthManager)
 
+	flags.Bool(option.EnableLocalRedirectPolicy, false, "Enable Local Redirect Policy")
+	option.BindEnv(option.EnableLocalRedirectPolicy)
+
 	flags.String(option.NodePortMode, option.NodePortModeSNAT, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
 	option.BindEnv(option.NodePortMode)
 

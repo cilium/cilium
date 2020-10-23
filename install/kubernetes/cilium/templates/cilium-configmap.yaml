@@ -417,6 +417,10 @@ data:
   auto-direct-node-routes: {{ .Values.autoDirectNodeRoutes | quote }}
   enable-bandwidth-manager: {{ .Values.bandwidthManager | quote }}
 
+{{- if hasKey .Values "localRedirectPolicy" }}
+  enable-local-redirect-policy: {{ .Values.localRedirectPolicy | quote }}
+{{- end }}
+
 {{- if hasKey .Values "nativeRoutingCIDR" }}
   native-routing-cidr: {{ .Values.nativeRoutingCIDR }}
 {{- end }}
