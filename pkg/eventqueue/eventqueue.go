@@ -1,4 +1,4 @@
-// Copyright 2019 Authors of Cilium
+// Copyright 2019-2020 Authors of Cilium
 //
 // Licensed under the Apache License, Version 2.0 (the "License");
 // you may not use this file except in compliance with the License.
@@ -43,8 +43,8 @@ var (
 // `EventHandler` interface. This allows for different types of events to be
 // processed by anything which chooses to utilize an `EventQueue`.
 type EventQueue struct {
-
-	// This should always be a buffered channel.
+	// events represents the queue of events. This should always be a buffered
+	// channel.
 	events chan *Event
 
 	// close is closed once the EventQueue has been closed.
@@ -70,6 +70,8 @@ type EventQueue struct {
 
 	eventsMu lock.RWMutex
 
+	// eventsClosed is a channel that's closed when the event loop (Run())
+	// terminates.
 	eventsClosed chan struct{}
 }
 
