@@ -30,7 +30,7 @@ docker push "$1/cilium/operator-azure:$2"
 docker push "$1/cilium/hubble-relay:$2"
 
 # push startup-script image with proper tag to repo
-nodeInitTag="af2a99046eca96c0138551393b21a5c044c7fe79"
+nodeInitTag="62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"
 docker pull "cilium/startup-script:$nodeInitTag"
 docker tag "cilium/startup-script:$nodeInitTag" "$1/cilium/startup-script:$nodeInitTag"
 docker push "$1/cilium/startup-script:$nodeInitTag"
