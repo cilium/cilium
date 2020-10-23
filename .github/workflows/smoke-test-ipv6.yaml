@@ -25,7 +25,7 @@ jobs:
         run: |
           make -C examples/kubernetes/connectivity-check fmt
           make -C examples/kubernetes/connectivity-check all
-          git diff --exit-code
+          git diff --exit-code || (echo "please run 'make -C examples/kubernetes/connectivity-check all' and submit your changes"; exit 1)
 
       - name: Enable IPv6 in docker
         run: |
