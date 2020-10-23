@@ -89,8 +89,8 @@ Cilium-PR-Ginkgo-Tests-k8s
 
 Runs the Kubernetes e2e tests against all Kubernetes versions that are not
 currently not tested as part of each pull-request, but which Cilium still
-supports, as well as the the most-recently-released versions of Kubernetes that
-that might not be declared stable by Kubernetes upstream. Check the contents of
+supports, as well as the most-recently-released versions of Kubernetes that
+might not be declared stable by Kubernetes upstream. Check the contents of
 ``ginkgo-kubernetes-all.Jenkinsfile`` in the branch of Cilium for which you are
 running tests to see which Kubernetes versions will be tested against.
 

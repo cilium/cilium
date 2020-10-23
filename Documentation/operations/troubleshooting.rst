@@ -552,7 +552,7 @@ Operations for which the kvstore is strictly required when running in etcd
 mode:
 
 Scheduling of new workloads:
-  As part of of scheduling workloads/endpoints, agents will perform security
+  As part of scheduling workloads/endpoints, agents will perform security
   identity allocation which requires interaction with the kvstore. If a
   workload can be scheduled due to re-using a known security identity, then
   state propagation of the endpoint details to other nodes will still depend on

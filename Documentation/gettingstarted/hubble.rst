@@ -195,8 +195,8 @@ guide. However you can apply the same techniques to observe application
 connectivity dependencies in your own namespace, and clusters for
 application of any type.
 
-Once the the deployment is ready, issue a request from both spaceships to
-emulate some traffic.
+Once the deployment is ready, issue a request from both spaceships to emulate
+some traffic.
 
 .. parsed-literal::
 
