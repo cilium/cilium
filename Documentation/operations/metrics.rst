@@ -98,7 +98,7 @@ section for the full list of available metrics and their options.
    helm install cilium |CHART_RELEASE| \\
      --namespace kube-system \\
      --set global.hubble.enabled=true \\
-     --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,port-distribution,icmp,http}"
+     --set global.hubble.metrics.enabled="{dns,drop,tcp,flow,icmp,http}"
 
 The port of the Hubble metrics can be configured with the
 ``global.hubble.metrics.port`` Helm value.
