@@ -39,15 +39,8 @@ var (
 		int(unsafe.Sizeof(AffinityMatchValue{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			aKey, aVal := mapKey.(*AffinityMatchKey), mapValue.(*AffinityMatchValue)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, aKey, aVal); err != nil {
-				return nil, nil, err
-			}
-
-			return aKey.ToNetwork(), aVal, nil
-		}).WithCache()
+		bpf.ConvertKeyValue,
+	).WithCache()
 	Affinity4Map = bpf.NewMap(
 		Affinity4MapName,
 		bpf.MapTypeLRUHash,
@@ -103,7 +96,10 @@ func (k *AffinityMatchKey) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k)
 func (v *AffinityMatchValue) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
 
 // String converts the key into a human readable string format
-func (k *AffinityMatchKey) String() string { return fmt.Sprintf("%d %d", k.BackendID, k.RevNATID) }
+func (k *AffinityMatchKey) String() string {
+	kHost := k.ToHost()
+	return fmt.Sprintf("%d %d", kHost.BackendID, kHost.RevNATID)
+}
 
 // String converts the value into a human readable string format
 func (v *AffinityMatchValue) String() string { return "" }
@@ -119,6 +115,13 @@ func (k *AffinityMatchKey) ToNetwork() *AffinityMatchKey {
 	// the SVC BPF maps
 	n.RevNATID = byteorder.HostToNetwork(n.RevNATID).(uint16)
 	return &n
+}
+
+// ToHost returns the key in the host byte order
+func (k *AffinityMatchKey) ToHost() *AffinityMatchKey {
+	h := *k
+	h.RevNATID = byteorder.NetworkToHost(h.RevNATID).(uint16)
+	return &h
 }
 
 // Affinity4Key is the Go representation of lb4_affinity_key

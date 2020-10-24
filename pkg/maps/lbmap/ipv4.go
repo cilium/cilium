@@ -49,15 +49,8 @@ var (
 		int(unsafe.Sizeof(Service4Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			svcKey, svcVal := mapKey.(*Service4Key), mapValue.(*Service4Value)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, svcKey, svcVal); err != nil {
-				return nil, nil, err
-			}
-
-			return svcKey.ToNetwork(), svcVal.ToNetwork(), nil
-		}).WithCache()
+		bpf.ConvertKeyValue,
+	).WithCache()
 	Backend4Map = bpf.NewMap("cilium_lb4_backends",
 		bpf.MapTypeHash,
 		&Backend4Key{},
@@ -66,15 +59,8 @@ var (
 		int(unsafe.Sizeof(Backend4Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			backendVal := mapValue.(*Backend4Value)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, mapKey, backendVal); err != nil {
-				return nil, nil, err
-			}
-
-			return mapKey, backendVal.ToNetwork(), nil
-		}).WithCache()
+		bpf.ConvertKeyValue,
+	).WithCache()
 	RevNat4Map = bpf.NewMap("cilium_lb4_reverse_nat",
 		bpf.MapTypeHash,
 		&RevNat4Key{},
@@ -83,15 +69,8 @@ var (
 		int(unsafe.Sizeof(RevNat4Value{})),
 		MaxEntries,
 		0, 0,
-		func(key []byte, value []byte, mapKey bpf.MapKey, mapValue bpf.MapValue) (bpf.MapKey, bpf.MapValue, error) {
-			revKey, revNat := mapKey.(*RevNat4Key), mapValue.(*RevNat4Value)
-
-			if _, _, err := bpf.ConvertKeyValue(key, value, revKey, revNat); err != nil {
-				return nil, nil, err
-			}
-
-			return revKey.ToNetwork(), revNat.ToNetwork(), nil
-		}).WithCache()
+		bpf.ConvertKeyValue,
+	).WithCache()
 )
 
 // +k8s:deepcopy-gen=true
@@ -107,7 +86,7 @@ func NewRevNat4Key(value uint16) *RevNat4Key {
 func (k *RevNat4Key) Map() *bpf.Map             { return RevNat4Map }
 func (k *RevNat4Key) NewValue() bpf.MapValue    { return &RevNat4Value{} }
 func (k *RevNat4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
-func (k *RevNat4Key) String() string            { return fmt.Sprintf("%d", k.Key) }
+func (k *RevNat4Key) String() string            { return fmt.Sprintf("%d", k.ToHost().(*RevNat4Key).Key) }
 func (k *RevNat4Key) GetKey() uint16            { return k.Key }
 
 // ToNetwork converts RevNat4Key to network byte order.
@@ -115,6 +94,13 @@ func (k *RevNat4Key) ToNetwork() RevNatKey {
 	n := *k
 	n.Key = byteorder.HostToNetwork(n.Key).(uint16)
 	return &n
+}
+
+// ToHost converts RevNat4Key to host byte order.
+func (k *RevNat4Key) ToHost() RevNatKey {
+	h := *k
+	h.Key = byteorder.NetworkToHost(h.Key).(uint16)
+	return &h
 }
 
 // +k8s:deepcopy-gen=true
@@ -133,8 +119,16 @@ func (v *RevNat4Value) ToNetwork() RevNatValue {
 	return &n
 }
 
+// ToHost converts RevNat4Value to host byte order.
+func (k *RevNat4Value) ToHost() RevNatValue {
+	h := *k
+	h.Port = byteorder.NetworkToHost(h.Port).(uint16)
+	return &h
+}
+
 func (v *RevNat4Value) String() string {
-	return fmt.Sprintf("%s:%d", v.Address, v.Port)
+	vHost := v.ToHost().(*RevNat4Value)
+	return net.JoinHostPort(vHost.Address.String(), fmt.Sprintf("%d", vHost.Port))
 }
 
 type pad2uint8 [2]uint8
@@ -171,11 +165,12 @@ func NewService4Key(ip net.IP, port uint16, proto u8proto.U8proto, scope uint8, 
 }
 
 func (k *Service4Key) String() string {
-	if k.Scope == loadbalancer.ScopeInternal {
-		return fmt.Sprintf("%s:%d/i", k.Address, k.Port)
-	} else {
-		return fmt.Sprintf("%s:%d", k.Address, k.Port)
+	kHost := k.ToHost().(*Service4Key)
+	addr := net.JoinHostPort(kHost.Address.String(), fmt.Sprintf("%d", kHost.Port))
+	if kHost.Scope == loadbalancer.ScopeInternal {
+		addr += "/i"
 	}
+	return addr
 }
 
 func (k *Service4Key) GetKeyPtr() unsafe.Pointer { return unsafe.Pointer(k) }
@@ -204,6 +199,13 @@ func (k *Service4Key) ToNetwork() ServiceKey {
 	return &n
 }
 
+// ToHost converts Service4Key to host byte order.
+func (k *Service4Key) ToHost() ServiceKey {
+	h := *k
+	h.Port = byteorder.NetworkToHost(h.Port).(uint16)
+	return &h
+}
+
 type pad3uint8 [3]uint8
 
 // DeepCopyInto is a deepcopy function, copying the receiver, writing into out. in must be non-nil.
@@ -224,7 +226,8 @@ type Service4Value struct {
 }
 
 func (s *Service4Value) String() string {
-	return fmt.Sprintf("%d (%d) [FLAGS: 0x%x]", s.BackendID, s.RevNat, s.Flags)
+	sHost := s.ToHost().(*Service4Value)
+	return fmt.Sprintf("%d (%d) [FLAGS: 0x%x]", sHost.BackendID, sHost.RevNat, sHost.Flags)
 }
 
 func (s *Service4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(s) }
@@ -254,6 +257,13 @@ func (s *Service4Value) ToNetwork() ServiceValue {
 	n := *s
 	n.RevNat = byteorder.HostToNetwork(n.RevNat).(uint16)
 	return &n
+}
+
+// ToHost converts Service4Value to host byte order.
+func (s *Service4Value) ToHost() ServiceValue {
+	h := *s
+	h.RevNat = byteorder.NetworkToHost(h.RevNat).(uint16)
+	return &h
 }
 
 // +k8s:deepcopy-gen=true
@@ -299,7 +309,8 @@ func NewBackend4Value(ip net.IP, port uint16, proto u8proto.U8proto) (*Backend4V
 }
 
 func (v *Backend4Value) String() string {
-	return fmt.Sprintf("%s://%s:%d", v.Proto, v.Address, v.Port)
+	vHost := v.ToHost().(*Backend4Value)
+	return fmt.Sprintf("%s://%s:%d", vHost.Proto, vHost.Address, vHost.Port)
 }
 
 func (v *Backend4Value) GetValuePtr() unsafe.Pointer { return unsafe.Pointer(v) }
@@ -311,6 +322,13 @@ func (v *Backend4Value) ToNetwork() BackendValue {
 	n := *v
 	n.Port = byteorder.HostToNetwork(n.Port).(uint16)
 	return &n
+}
+
+// ToHost converts Backend4Value to host byte order.
+func (v *Backend4Value) ToHost() BackendValue {
+	h := *v
+	h.Port = byteorder.NetworkToHost(h.Port).(uint16)
+	return &h
 }
 
 type Backend4 struct {

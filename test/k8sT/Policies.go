@@ -151,7 +151,7 @@ var _ = Describe("K8sPolicyTest", func() {
 				By("HTTP connectivity to 1.1.1.1")
 				res := kubectl.ExecPodCmd(
 					namespaceForTest, pod,
-					helpers.CurlFail("--retry 5 http://1.1.1.1/"))
+					helpers.CurlWithRetries("http://1.1.1.1/", 5, true))
 
 				ExpectWithOffset(1, res).To(getMatcher(expectWorldSuccess),
 					"HTTP egress connectivity to 1.1.1.1 from pod %q", pod)
@@ -394,25 +394,25 @@ var _ = Describe("K8sPolicyTest", func() {
 
 			res = kubectl.ExecPodCmd(
 				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail("--retry 5 -4 --max-time 15 %s 'https://artii.herokuapp.com/make?text=cilium&font=univers'", "-v --cacert /cacert.pem"))
+				helpers.CurlWithRetries("-4 --max-time 15 %s 'https://artii.herokuapp.com/make?text=cilium&font=univers'", 5, true, "-v --cacert /cacert.pem"))
 			res.ExpectSuccess("Cannot connect from %q to 'https://artii.herokuapp.com/make?text=cilium&font=univers'",
 				appPods[helpers.App2])
 
 			res = kubectl.ExecPodCmd(
 				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail("--retry 5 -4 %s 'https://artii.herokuapp.com:443/fonts_list'", "-v --cacert /cacert.pem"))
+				helpers.CurlWithRetries("-4 %s 'https://artii.herokuapp.com:443/fonts_list'", 5, true, "-v --cacert /cacert.pem"))
 			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://artii.herokuapp.com:443/fonts_list'",
 				appPods[helpers.App2])
 
 			res = kubectl.ExecPodCmd(
 				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail("--retry 5 -4 %s https://www.lyft.com:443/privacy", "-v --cacert /cacert.pem"))
+				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/privacy", 5, true, "-v --cacert /cacert.pem"))
 			res.ExpectSuccess("Cannot connect from %q to 'https://www.lyft.com:443/privacy'",
 				appPods[helpers.App2])
 
 			res = kubectl.ExecPodCmd(
 				namespaceForTest, appPods[helpers.App2],
-				helpers.CurlFail("--retry 5 -4 %s https://www.lyft.com:443/private", "-v --cacert /cacert.pem"))
+				helpers.CurlWithRetries("-4 %s https://www.lyft.com:443/private", 5, true, "-v --cacert /cacert.pem"))
 			res.ExpectFailWithError("403 Forbidden", "Unexpected connection from %q to 'https://www.lyft.com:443/private'",
 				appPods[helpers.App2])
 		}, 500)
@@ -672,7 +672,7 @@ var _ = Describe("K8sPolicyTest", func() {
 			for _, pod := range []string{appPods[helpers.App2], appPods[helpers.App3]} {
 				res := kubectl.ExecPodCmd(
 					namespaceForTest, pod,
-					helpers.CurlFail("--retry 5 http://1.1.1.1/"))
+					helpers.CurlWithRetries("http://1.1.1.1/", 5, true))
 				res.ExpectSuccess("Egress connectivity should be allowed for pod %q", pod)
 
 				res = kubectl.ExecPodCmd(
@@ -943,7 +943,7 @@ var _ = Describe("K8sPolicyTest", func() {
 						"vagrant-cache.ci.cilium.io.",
 					)
 					if retryCurl {
-						curlCmd = helpers.CurlFail("--retry 5 " + resource)
+						curlCmd = helpers.CurlWithRetries(resource, 5, true)
 					} else {
 						curlCmd = helpers.CurlFail(resource)
 					}
@@ -956,7 +956,7 @@ var _ = Describe("K8sPolicyTest", func() {
 					)
 
 					if retryCurl {
-						curlCmd = helpers.CurlFail(fmt.Sprintf("--retry 5 http://%s/public", resource))
+						curlCmd = helpers.CurlWithRetries(fmt.Sprintf("http://%s/public", resource), 5, true)
 					} else {
 						curlCmd = helpers.CurlFail(fmt.Sprintf("http://%s/public", resource))
 					}

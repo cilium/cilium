@@ -27,19 +27,35 @@ Deploy Cilium release via Helm:
     helm install cilium |CHART_RELEASE|        \\
       --namespace kube-system                  \\
       --set global.hostFirewall=true           \\
-      --set global.devices=ethX,ethY
+      --set global.devices='{ethX,ethY}'
+
+The ``global.devices`` flag refers to the network devices Cilium is configured
+on such as ``eth0``. Omitting this option leads Cilium to auto-detect what
+interfaces the host firewall applies to.
 
 At this point, the Cilium-managed nodes are ready to enforce network policies.
+
+.. note::
+
+    The host firewall is not compatible with per-endpoint routing. This option
+    is enabled by default on managed services (AKS, EKS, GKE), so in order to
+    use the host firewall on those environments, per-endpoint routing must be
+    disabled. For example, on GKE, replace ``--set gke.enabled=true`` with
+    ``--set ipam.mode=kubernetes --set endpointRoutes.enabled=false --set
+    tunnel=disabled``.
+
+    See also `GitHub issue #13121
+    <https://github.com/cilium/cilium/issues/13121>`_.
 
 
 Attach a Label to the Node
 ==========================
 
 In this guide, we will apply host policies only to nodes with the label
-``access=ssh``. We thus first need to attach that label to a node in the
+``node-access=ssh``. We thus first need to attach that label to a node in the
 cluster.
 
-.. parsed-literal ::
+.. code:: shell-session
 
     $ export NODE_NAME=k8s1
     $ kubectl label node $NODE_NAME node-access=ssh
@@ -59,11 +75,11 @@ validate the impact of host policies before enforcing them. When Policy Audit
 Mode is enabled, no network policy is enforced so this setting is *not
 recommended for production deployment*.
 
-.. parsed-literal ::
+.. code:: shell-session
 
     $ CILIUM_NAMESPACE=kube-system
-    $ CILIUM_POD_NAME=$(kubectl -n $CILIUM_NAMESPACE get pods -o json | jq -r '.items[] | select( .metadata.labels."k8s-app" == "cilium" and .spec.nodeName == env.NODE_NAME ).metadata.name')
-    $ HOST_EP_ID=$(kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint list -o jsonpath='{[?(@.status.identity.id==1)].id}'
+    $ CILIUM_POD_NAME=$(kubectl -n $CILIUM_NAMESPACE get pods -l "k8s-app=cilium" -o jsonpath="{.items[?(@.spec.nodeName=='$NODE_NAME')].metadata.name}")
+    $ HOST_EP_ID=$(kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint list -o jsonpath='{[?(@.status.identity.id==1)].id}')
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint config $HOST_EP_ID PolicyAuditMode=Enabled
     Endpoint 3353 configuration updated successfully
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint config $HOST_EP_ID | grep PolicyAuditMode
@@ -85,7 +101,7 @@ the outside of the cluster, except if those pods are host-networking pods.
 
 To apply this policy, run:
 
-.. parsed-literal ::
+.. code:: shell-session
 
     $ kubectl create -f \ |SCM_WEB|\/examples/policies/host/demo-host-policy.yaml
     ciliumclusterwidenetworkpolicy.cilium.io/demo-host-policy created
@@ -94,7 +110,7 @@ The host is represented as a special endpoint, with label ``reserved:host``, in
 the output of command ``cilium endpoint list``. You can therefore inspect the
 status of the policy using that command.
 
-.. parsed-literal ::
+.. code:: shell-session
 
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6                 IPv4           STATUS
@@ -117,7 +133,7 @@ disallowed by the policy won't be dropped. They will however be reported by
 adjust the host policy to your environment, to avoid unexpected connection
 breakages.
 
-.. parsed-literal ::
+.. code:: shell-session
 
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium monitor -t policy-verdict --related-to $HOST_EP_ID
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 6, proto 1, ingress, action allow, match L3-Only, 192.168.33.12 -> 192.168.33.11 EchoRequest
@@ -147,14 +163,14 @@ Once you are confident all required communication to the host from outside the
 cluster are allowed, you can disable policy audit mode to enforce the host
 policy.
 
-.. parsed-literal ::
+.. code:: shell-session
 
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint config $HOST_EP_ID PolicyAuditMode=Disabled
     Endpoint 3353 configuration updated successfully
 
 Ingress host policies should now appear as enforced:
 
-.. parsed-literal ::
+.. code:: shell-session
 
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium endpoint list
     ENDPOINT   POLICY (ingress)   POLICY (egress)   IDENTITY   LABELS (source:key[=value])                       IPv6                 IPv4           STATUS
@@ -170,7 +186,7 @@ Ingress host policies should now appear as enforced:
 
 Communications not explicitly allowed by the host policy will now be dropped:
 
-.. parsed-literal ::
+.. code:: shell-session
 
     $ kubectl -n $CILIUM_NAMESPACE exec $CILIUM_POD_NAME -- cilium monitor -t policy-verdict --related-to $HOST_EP_ID
     Policy verdict log: flow 0x0 local EP ID 1687, remote ID 2, proto 6, ingress, action deny, match none, 10.0.2.2:49038 -> 10.0.2.15:21 tcp SYN
@@ -179,6 +195,7 @@ Communications not explicitly allowed by the host policy will now be dropped:
 Clean Up
 ========
 
-.. parsed-literal ::
+.. code:: shell-session
 
    $ kubectl delete ccnp demo-host-policy
+   $ kubectl label node $NODE_NAME node-access-

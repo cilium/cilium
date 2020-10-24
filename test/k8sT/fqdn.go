@@ -260,7 +260,7 @@ var _ = Describe("K8sFQDNTest", func() {
 
 		res = kubectl.ExecPodCmd(
 			helpers.DefaultNamespace, appPods[helpers.App3],
-			helpers.CurlFail("--retry 5 "+world2Target))
+			helpers.CurlWithRetries(world2Target, 5, true))
 		res.ExpectSuccess("Can't connect to to a valid target when it should work")
 
 		res = kubectl.ExecPodCmd(

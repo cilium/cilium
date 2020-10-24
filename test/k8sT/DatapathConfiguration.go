@@ -269,6 +269,18 @@ var _ = Describe("K8sDatapathConfig", func() {
 					Should(BeTrue(), "Connectivity test to http://google.com failed")
 			}
 		})
+
+		It("Check iptables masquerading with random-fully", func() {
+			deploymentManager.DeployCilium(map[string]string{
+				"bpf.masquerade":      "false",
+				"iptablesRandomFully": "true",
+			}, DeployCiliumOptionsAndDNS)
+			Expect(testPodConnectivityAcrossNodes(kubectl)).Should(BeTrue(), "Connectivity test between nodes failed")
+
+			By("Test iptables masquerading")
+			Expect(testPodHTTPToOutside(kubectl, "http://google.com", false, false)).
+				Should(BeTrue(), "Connectivity test to http://google.com failed")
+		})
 	})
 
 	Context("DirectRouting", func() {
@@ -737,7 +749,7 @@ func testPodHTTPToOutside(kubectl *helpers.Kubectl, outsideURL string, expectNod
 	pods, err := kubectl.GetPodNames(namespace, label)
 	ExpectWithOffset(1, err).Should(BeNil(), "Cannot retrieve pod names by label %s", label)
 
-	cmd := helpers.CurlFail(outsideURL)
+	cmd := helpers.CurlWithRetries(outsideURL, 10, true)
 	if expectNodeIP || expectPodIP {
 		cmd += " | grep client_address="
 		hostIPs, err = kubectl.GetPodsHostIPs(namespace, label)
