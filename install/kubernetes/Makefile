@@ -32,7 +32,9 @@ EXPERIMENTAL_OPTIONS := \
     --set hubble.metrics.enabled="{dns,drop,tcp,flow,icmp,http}" \
     --set hubble.relay.enabled=true \
     --set hubble.ui.enabled=true \
-    --set bandwidthManager=true
+    --set bandwidthManager=true \
+    --set externalWorkloads.enabled=true \
+    --set clustermesh.apiserver.tls.auto.method="cronJob"
 
 DOCKER_RUN := $(CONTAINER_ENGINE) container run --rm \
 	--workdir /src/install/kubernetes \
