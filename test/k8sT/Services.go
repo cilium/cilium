@@ -1554,16 +1554,15 @@ var _ = Describe("K8sServicesTest", func() {
 			)
 
 			BeforeAll(func() {
-				DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-					"devices": fmt.Sprintf(`'{%s}'`, helpers.SecondaryIface),
-				})
+				privateIface, err := kubectl.GetPrivateIface()
+				Expect(err).Should(BeNil(), "Cannot determine private iface")
 
-				k8s1IPv6 = getIPv6AddrForIface(k8s1NodeName, helpers.SecondaryIface)
+				k8s1IPv6 = getIPv6AddrForIface(k8s1NodeName, privateIface)
 				Expect(k8s1IPv6).ToNot(BeEmpty(), "Cannot get IPv6 address for K8s1 node")
-				k8s2IPv6 = getIPv6AddrForIface(k8s2NodeName, helpers.SecondaryIface)
+				k8s2IPv6 = getIPv6AddrForIface(k8s2NodeName, privateIface)
 				Expect(k8s2IPv6).ToNot(BeEmpty(), "Cannot get IPv6 address for K8s2 node")
 
-				err := kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
+				err = kubectl.Get(helpers.DefaultNamespace, "service test-nodeport").Unmarshal(&data)
 				Expect(err).Should(BeNil(), "Cannot retrieve service")
 
 				// Install rules for testds-service NodePort Service(demo_ds.yaml)
@@ -1593,9 +1592,6 @@ var _ = Describe("K8sServicesTest", func() {
 				ciliumDelService(31069)
 				ciliumDelService(31070)
 				ciliumDelService(31071)
-
-				// Reinstall cilium without the global devices set to secondary interface.
-				DeployCiliumAndDNS(kubectl, ciliumFilename)
 			})
 
 			It("Test IPv6 connectivity to NodePort service", func() {
