@@ -26,6 +26,7 @@ $CILIUM_OPERATOR_TAG = ENV['CILIUM_OPERATOR_TAG'] || ""
 $HUBBLE_RELAY_IMAGE = ENV['HUBBLE_RELAY_IMAGE'] || ""
 $HUBBLE_RELAY_TAG = ENV['HUBBLE_RELAY_TAG'] || ""
 $PRELOAD_VM = ENV['PRELOAD_VM'] || "false"
+$PROVISION_EXTERNAL_WORKLOAD = ENV['PROVISION_EXTERNAL_WORKLOAD'] || "false"
 $SKIP_K8S_PROVISION = ENV['SKIP_K8S_PROVISION'] || "false"
 $NO_CILIUM_ON_NODE = ENV['NO_CILIUM_ON_NODE'] || ""
 $KUBEPROXY = (ENV['KUBEPROXY'] || "1")
@@ -121,7 +122,8 @@ Vagrant.configure("2") do |config|
             sh.env = {
               "RACE" => "#{$RACE}",
               "LOCKDEBUG" => "#{$LOCKDEBUG}",
-              "BASE_IMAGE" => "#{$BASE_IMAGE}"
+              "BASE_IMAGE" => "#{$BASE_IMAGE}",
+              "PROVISION_EXTERNAL_WORKLOAD" => "#{$PROVISION_EXTERNAL_WORKLOAD}"
             }
         end
     end
