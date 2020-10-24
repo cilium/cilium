@@ -68,6 +68,9 @@ test/cilium-istioctl
 # generated test files
 test/k8sT/manifests/cnp-second-namespaces.yaml
 test/cilium.conf.ginkgo
+test/provision/externalworkload-client-ca.crt
+test/provision/externalworkload-client-tls.crt
+test/provision/externalworkload-client-tls.key
 
 # GKE temporary files
 test/gke/cluster-name
