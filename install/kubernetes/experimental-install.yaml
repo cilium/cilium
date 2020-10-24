@@ -13,6 +13,20 @@ metadata:
   name: cilium-operator
   namespace: kube-system
 ---
+# Source: cilium/templates/clustermesh-apiserver-generate-certs-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: clustermesh-apiserver-generate-certs
+  namespace: kube-system
+---
+# Source: cilium/templates/clustermesh-apiserver-serviceaccount.yaml
+apiVersion: v1
+kind: ServiceAccount
+metadata:
+  name: clustermesh-apiserver
+  namespace: kube-system
+---
 # Source: cilium/templates/hubble-generate-certs-serviceaccount.yaml
 apiVersion: v1
 kind: ServiceAccount
@@ -456,6 +470,43 @@ rules:
   - get
   - update
 ---
+# Source: cilium/templates/clustermesh-apiserver-clusterrole.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: clustermesh-apiserver
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnodes
+  - ciliumnodes/status
+  - ciliumexternalworkloads
+  - ciliumexternalworkloads/status
+  - ciliumidentities
+  - ciliumidentities/status
+  - ciliumendpoints
+  - ciliumendpoints/status
+  verbs:
+  - '*'
+---
 # Source: cilium/templates/hubble-generate-certs-clusterrole.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRole
@@ -580,6 +631,20 @@ subjects:
   name: cilium-operator
   namespace: kube-system
 ---
+# Source: cilium/templates/clustermesh-apiserver-clusterrolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRoleBinding
+metadata:
+  name: clustermesh-apiserver
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: ClusterRole
+  name: clustermesh-apiserver
+subjects:
+- kind: ServiceAccount
+  name: clustermesh-apiserver
+  namespace: kube-system
+---
 # Source: cilium/templates/hubble-generate-certs-clusterrolebinding.yaml
 apiVersion: rbac.authorization.k8s.io/v1
 kind: ClusterRoleBinding
@@ -622,6 +687,54 @@ subjects:
   namespace: kube-system
   name: hubble-ui
 ---
+# Source: cilium/templates/clustermesh-apiserver-generate-certs-role.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: Role
+metadata:
+  name: clustermesh-apiserver-generate-certs
+  namespace: kube-system
+rules:
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    verbs:
+      - create
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - clustermesh-apiserver-ca-cert
+    verbs:
+      - get
+      - update
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - clustermesh-apiserver-server-cert
+      - clustermesh-apiserver-admin-cert
+      - clustermesh-apiserver-client-cert
+    verbs:
+      - update
+---
+# Source: cilium/templates/clustermesh-apiserver-generate-certs-rolebinding.yaml
+apiVersion: rbac.authorization.k8s.io/v1
+kind: RoleBinding
+metadata:
+  name: clustermesh-apiserver-generate-certs
+  namespace: kube-system
+roleRef:
+  apiGroup: rbac.authorization.k8s.io
+  kind: Role
+  name: clustermesh-apiserver-generate-certs
+subjects:
+- kind: ServiceAccount
+  name: clustermesh-apiserver-generate-certs
+  namespace: kube-system
+---
 # Source: cilium/templates/cilium-agent-service.yaml
 kind: Service
 apiVersion: v1
@@ -643,6 +756,22 @@ spec:
     targetPort: hubble-metrics
   selector:
     k8s-app: cilium
+---
+# Source: cilium/templates/clustermesh-apiserver-service.yaml
+apiVersion: v1
+kind: Service
+metadata:
+  name: "clustermesh-apiserver"
+  namespace: kube-system
+  labels:
+    k8s-app: clustermesh-apiserver
+spec:
+  type: NodePort
+  selector:
+    k8s-app: clustermesh-apiserver
+  ports:
+  - port: 2379
+    nodePort: 32379
 ---
 # Source: cilium/templates/hubble-relay-service.yaml
 kind: Service
@@ -1036,6 +1165,153 @@ spec:
           name: cilium-config
         name: cilium-config-path
 ---
+# Source: cilium/templates/clustermesh-apiserver-deployment.yaml
+apiVersion: apps/v1
+kind: Deployment
+metadata:
+  name: clustermesh-apiserver
+  labels:
+    k8s-app: clustermesh-apiserver
+  namespace: kube-system
+spec:
+  replicas: 1
+  selector:
+    matchLabels:
+      k8s-app: clustermesh-apiserver
+  strategy:
+    rollingUpdate:
+      maxUnavailable: 1
+    type: RollingUpdate
+  template:
+    metadata:
+      labels:
+        k8s-app: clustermesh-apiserver
+    spec:
+      restartPolicy: Always
+      serviceAccount: clustermesh-apiserver
+      initContainers:
+      - name: etcd-init
+        image: quay.io/coreos/etcd:v3.4.13
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: ETCDCTL_API
+          value: "3"
+        - name: HOSTNAME_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        command: ["/bin/sh", "-c"]
+        args:
+        - >
+          rm -rf /var/run/etcd/*;
+          export ETCDCTL_API=3;
+          /usr/local/bin/etcd --data-dir=/var/run/etcd --name=clustermesh-apiserver --listen-client-urls=http://127.0.0.1:2379 --advertise-client-urls=http://127.0.0.1:2379 --initial-cluster-token=clustermesh-apiserver --initial-cluster-state=new --auto-compaction-retention=1 &
+          export rootpw=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16`;
+          echo $rootpw | etcdctl --interactive=false user add root;
+          etcdctl user grant-role root root;
+          export vmpw=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16`;
+          echo $vmpw | etcdctl --interactive=false user add externalworkload;
+          etcdctl role add externalworkload;
+          etcdctl role grant-permission externalworkload --from-key read '';
+          etcdctl role grant-permission externalworkload readwrite --prefix cilium/state/noderegister/v1/;
+          etcdctl role grant-permission externalworkload readwrite --prefix cilium/.initlock/;
+          etcdctl user grant-role externalworkload externalworkload;
+          export remotepw=`head /dev/urandom | tr -dc A-Za-z0-9 | head -c 16`;
+          echo $remotepw | etcdctl --interactive=false user add remote;
+          etcdctl role add remote;
+          etcdctl role grant-permission remote --from-key read '';
+          etcdctl user grant-role remote remote;
+          etcdctl auth enable;
+          exit
+        volumeMounts:
+        - mountPath: /var/run/etcd
+          name: etcd-data-dir
+      containers:
+      - name: etcd
+        image: quay.io/coreos/etcd:v3.4.13
+        imagePullPolicy: IfNotPresent
+        env:
+        - name: ETCDCTL_API
+          value: "3"
+        - name: HOSTNAME_IP
+          valueFrom:
+            fieldRef:
+              fieldPath: status.podIP
+        command:
+          - /usr/local/bin/etcd
+        args:
+          - --data-dir=/var/run/etcd
+          - --name=clustermesh-apiserver
+          - --client-cert-auth
+          - --trusted-ca-file=/var/lib/etcd-secrets/ca.crt
+          - --cert-file=/var/lib/etcd-secrets/tls.crt
+          - --key-file=/var/lib/etcd-secrets/tls.key
+          - --listen-client-urls=https://127.0.0.1:2379,https://$(HOSTNAME_IP):2379
+          - --advertise-client-urls=https://$(HOSTNAME_IP):2379
+          - --initial-cluster-token=clustermesh-apiserver
+          - --auto-compaction-retention=1
+        volumeMounts:
+        - mountPath: /var/lib/etcd-secrets
+          name: etcd-server-secrets
+          readOnly: true
+        - mountPath: /var/run/etcd
+          name: etcd-data-dir
+      - name: "apiserver"
+        image: docker.io/cilium/clustermesh-apiserver:latest
+        imagePullPolicy: IfNotPresent
+        command:
+          - /usr/bin/clustermesh-apiserver
+        args:
+          - --cluster-name=$(CLUSTER_NAME)
+          - --kvstore-opt
+          - etcd.config=/var/lib/cilium/etcd-config.yaml
+        env:
+        - name: CLUSTER_NAME
+          valueFrom:
+            configMapKeyRef:
+              key: cluster-name
+              name: cilium-config
+        - name: CLUSTER_ID
+          valueFrom:
+            configMapKeyRef:
+              key: cluster-id
+              name: cilium-config
+              optional: true
+        - name: IDENTITY_ALLOCATION_MODE
+          valueFrom:
+            configMapKeyRef:
+              key: identity-allocation-mode
+              name: cilium-config
+        volumeMounts:
+        - mountPath: /var/lib/cilium/etcd-secrets
+          name: etcd-admin-client
+          readOnly: true
+      volumes:
+      - name: etcd-server-secrets
+        projected:
+          defaultMode: 0420
+          sources:
+          - secret:
+              name: clustermesh-apiserver-ca-cert
+              items:
+              - key: ca.crt
+                path: ca.crt
+          - secret:
+              name: clustermesh-apiserver-server-cert
+      - name: etcd-admin-client
+        projected:
+          defaultMode: 0420
+          sources:
+          - secret:
+              name: clustermesh-apiserver-ca-cert
+              items:
+              - key: ca.crt
+                path: ca.crt
+          - secret:
+              name: clustermesh-apiserver-admin-cert
+      - name: etcd-data-dir
+        emptyDir: {}
+---
 # Source: cilium/templates/hubble-relay-deployment.yaml
 apiVersion: apps/v1
 kind: Deployment
@@ -1195,6 +1471,38 @@ spec:
         - name: hubble-ui-envoy-yaml
           configMap:
             name: hubble-ui-envoy
+---
+# Source: cilium/templates/clustermesh-apiserver-generate-certs-job.yaml
+apiVersion: batch/v1
+kind: Job
+metadata:
+  name: clustermesh-apiserver-generate-certs
+  namespace: kube-system
+  labels:
+    k8s-app: clustermesh-apiserver-generate-certs
+spec:
+  template:
+    metadata:
+      labels:
+        k8s-app: clustermesh-apiserver-generate-certs
+    spec:
+      serviceAccount: clustermesh-apiserver-generate-certs
+      serviceAccountName: clustermesh-apiserver-generate-certs
+      containers:
+        - name: certgen
+          image: docker.io/cilium/certgen:v0.1.2@sha256:c56e1cd89e6f49a9fa442ad129974e2addfc687ef6ac524ee26849162425c489
+          imagePullPolicy: IfNotPresent
+          command:
+            - "/usr/bin/cilium-certgen"
+          args:
+            - "--clustermesh-apiserver-ca-cert-generate"
+            - "--clustermesh-apiserver-server-cert-generate"
+            - "--clustermesh-apiserver-admin-cert-generate"
+            - "--clustermesh-apiserver-client-cert-generate"
+            - "--clustermesh-apiserver-remote-cert-generate"
+      hostNetwork: true
+      restartPolicy: OnFailure
+  ttlSecondsAfterFinished: 1800
 ---
 # Source: cilium/templates/hubble-generate-certs-job.yaml
 apiVersion: batch/v1
