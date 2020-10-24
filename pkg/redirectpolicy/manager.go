@@ -449,10 +449,12 @@ func (rpm *Manager) notifyPolicyBackendDelete(config *LRPConfig, frontendMapping
 			log.WithError(err).Errorf("Local redirect service for policy (%v)"+
 				" with frontend (%v) not deleted", config.id, frontendMapping.feAddr)
 		}
-		if restored := rpm.svcCache.EnsureService(*config.serviceID, lock.NewStoppableWaitGroup()); restored {
-			log.WithFields(logrus.Fields{
-				logfields.K8sSvcID: *config.serviceID,
-			}).Info("Restored service")
+		if config.lrpType == lrpConfigTypeSvc {
+			if restored := rpm.svcCache.EnsureService(*config.serviceID, lock.NewStoppableWaitGroup()); restored {
+				log.WithFields(logrus.Fields{
+					logfields.K8sSvcID: *config.serviceID,
+				}).Info("Restored service")
+			}
 		}
 	}
 }
