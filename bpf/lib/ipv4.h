@@ -114,7 +114,7 @@ ipv4_frag_register_datagram(struct __ctx_buff *ctx, int ct_dir,
 {
 	if (unlikely(map_update_elem(&IPV4_FRAG_DATAGRAMS_MAP, frag_id, ports,
 				     BPF_ANY)))
-		update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(ct_dir),
+		update_metrics(ctx_full_len(ctx), ct_dir,
 			       REASON_FRAG_PACKET_UPDATE);
 
 	/* Do not return an error if map update failed, as nothing prevents us
@@ -139,7 +139,7 @@ ipv4_handle_fragmentation(struct __ctx_buff *ctx,
 	};
 
 	if (unlikely(ipv4_is_fragment(ip4))) {
-		update_metrics(ctx_full_len(ctx), ct_to_metrics_dir(ct_dir),
+		update_metrics(ctx_full_len(ctx), ct_dir,
 			       REASON_FRAG_PACKET);
 
 		if (likely(ipv4_is_not_first_fragment(ip4)))

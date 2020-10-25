@@ -50,20 +50,20 @@ const (
 	// dirIngress and dirEgress values should match with
 	// METRIC_INGRESS, METRIC_EGRESS and METRIC_SERVICE
 	// in bpf/lib/common.h
+	dirEgress  = 0
 	dirIngress = 1
-	dirEgress  = 2
-	dirService = 3
-	dirUnknown = 0
+	dirService = 2
+	dirUnknown = 3
 )
 
 // direction is the metrics direction i.e ingress (to an endpoint)
 // or egress (from an endpoint). If it's none of the above, we return
 // UNKNOWN direction.
 var direction = map[uint8]string{
-	dirUnknown: "UNKNOWN",
-	dirIngress: "INGRESS",
 	dirEgress:  "EGRESS",
+	dirIngress: "INGRESS",
 	dirService: "SERVICE",
+	dirUnknown: "UNKNOWN",
 }
 
 type pad3uint16 [3]uint16
