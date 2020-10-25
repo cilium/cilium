@@ -14,9 +14,9 @@ docker-cilium-image-for-developers:
 		--build-arg LIBNETWORK_PLUGIN=\
 		-t $(DOCKER_DEV_ACCOUNT)/cilium-dev:latest . -f ./cilium-dev.Dockerfile
 
-docker-images-all: docker-cilium-image docker-plugin-image docker-hubble-relay-image docker-operator-images-all
+docker-images-all: docker-cilium-image docker-plugin-image docker-hubble-relay-image docker-clustermesh-apiserver-image docker-operator-images-all
 
-docker-images-all-unstripped: docker-cilium-image-unstripped docker-plugin-image-unstripped docker-hubble-relay-image-unstripped docker-operator-images-all-unstripped
+docker-images-all-unstripped: docker-cilium-image-unstripped docker-plugin-image-unstripped docker-hubble-relay-image-unstripped docker-clustermesh-apiserver-image-unstripped docker-operator-images-all-unstripped
 
 docker-operator-images-all: docker-operator-image docker-operator-aws-image docker-operator-azure-image docker-operator-generic-image
 
@@ -144,5 +144,23 @@ docker-hubble-relay-image: $(BUILD_DIR)/hubble-relay.Dockerfile build-context-up
 docker-hubble-relay-image-unstripped: NOSTRIP=1
 docker-hubble-relay-image-unstripped: UNSTRIPPED=-unstripped
 docker-hubble-relay-image-unstripped: docker-hubble-relay-image
+
+docker-clustermesh-apiserver-image: $(BUILD_DIR)/clustermesh-apiserver.Dockerfile build-context-update
+	$(QUIET)$(CONTAINER_ENGINE) build \
+		$(DOCKER_FLAGS) \
+		--build-arg BASE_IMAGE=${BASE_IMAGE} \
+		--build-arg NOSTRIP=${NOSTRIP} \
+		--build-arg LOCKDEBUG=${LOCKDEBUG} \
+		--build-arg RACE=${RACE}\
+		--build-arg CILIUM_SHA=$(firstword $(GIT_VERSION)) \
+		-f $(BUILD_DIR)/clustermesh-apiserver.Dockerfile \
+		-t cilium/clustermesh-apiserver$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) $(DOCKER_BUILD_DIR)
+	$(QUIET)$(CONTAINER_ENGINE) tag cilium/clustermesh-apiserver$(UNSTRIPPED):$(DOCKER_IMAGE_TAG) cilium/clustermesh-apiserver$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}
+	@echo "Push like this when ready:"
+	@echo "${CONTAINER_ENGINE} push cilium/clustermesh-apiserver$(UNSTRIPPED):$(DOCKER_IMAGE_TAG)-${GOARCH}"
+
+docker-clustermesh-apiserver-image-unstripped: NOSTRIP=1
+docker-clustermesh-apiserver-image-unstripped: UNSTRIPPED=-unstripped
+docker-clustermesh-apiserver-image-unstripped: docker-clustermesh-apiserver-image
 
 .PHONY: docker-image-runtime docker-image-builder docker-cilium-manifest docker-cilium-dev-manifest docker-operator-manifest docker-plugin-manifest docker-cilium-runtime-manifest docker-cilium-builder-manifest
