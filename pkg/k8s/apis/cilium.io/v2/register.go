@@ -31,7 +31,7 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
-	CustomResourceDefinitionSchemaVersion = "1.22.2"
+	CustomResourceDefinitionSchemaVersion = "1.22.3"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version
 	CustomResourceDefinitionSchemaVersionKey = "io.cilium.k8s.crd.schema.version"
@@ -133,6 +133,20 @@ const (
 
 	// CCLRPName is the full name of Cluster wide Local Redirect Policy
 	CCLRPName = CCLRPPluralName + "." + CustomResourceDefinitionGroup
+
+	// Cilium External Workload (CEW)
+
+	// CEWSingularName is the singular name of Cilium External Workload
+	CEWSingularName = "ciliumexternalworkload"
+
+	// CEWPluralName is the plural name of Cilium External Workload
+	CEWPluralName = "ciliumexternalworkloads"
+
+	// CEWKindDefinition is the kind name for Cilium External Workload
+	CEWKindDefinition = "CiliumExternalWorkload"
+
+	// CEWName is the full name of Cilium External Workload
+	CEWName = CEWPluralName + "." + CustomResourceDefinitionGroup
 )
 
 // SchemeGroupVersion is group version used to register these objects
@@ -184,6 +198,8 @@ func addKnownTypes(scheme *runtime.Scheme) error {
 		&CiliumEndpointList{},
 		&CiliumNode{},
 		&CiliumNodeList{},
+		&CiliumExternalWorkload{},
+		&CiliumExternalWorkloadList{},
 		&CiliumIdentity{},
 		&CiliumIdentityList{},
 		&CiliumLocalRedirectPolicy{},

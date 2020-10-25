@@ -696,6 +696,30 @@ func ConvertToCiliumNode(obj interface{}) interface{} {
 	}
 }
 
+// ConvertToCiliumExternalWorkload converts a *cilium_v2.CiliumExternalWorkload into a
+// *cilium_v2.CiliumExternalWorkload or a cache.DeletedFinalStateUnknown into
+// a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumExternalWorkload in its Obj.
+// If the given obj can't be cast into either *cilium_v2.CiliumExternalWorkload
+// nor cache.DeletedFinalStateUnknown, the original obj is returned.
+func ConvertToCiliumExternalWorkload(obj interface{}) interface{} {
+	// TODO create a slim type of the CiliumExternalWorkload
+	switch concreteObj := obj.(type) {
+	case *cilium_v2.CiliumExternalWorkload:
+		return concreteObj
+	case cache.DeletedFinalStateUnknown:
+		ciliumExternalWorkload, ok := concreteObj.Obj.(*cilium_v2.CiliumExternalWorkload)
+		if !ok {
+			return obj
+		}
+		return cache.DeletedFinalStateUnknown{
+			Key: concreteObj.Key,
+			Obj: ciliumExternalWorkload,
+		}
+	default:
+		return obj
+	}
+}
+
 // ConvertToCiliumLocalRedirectPolicy converts a *cilium_v2.CiliumLocalRedirectPolicy into a
 // *cilium_v2.CiliumLocalRedirectPolicy or a cache.DeletedFinalStateUnknown into
 // a cache.DeletedFinalStateUnknown with a *cilium_v2.CiliumLocalRedirectPolicy in its Obj.
