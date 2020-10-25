@@ -299,6 +299,7 @@ manifests:
 	mv ${TMPDIR}/cilium.io_ciliumendpoints.yaml ./examples/crds/ciliumendpoints.yaml
 	mv ${TMPDIR}/cilium.io_ciliumidentities.yaml ./examples/crds/ciliumidentities.yaml
 	mv ${TMPDIR}/cilium.io_ciliumnodes.yaml ./examples/crds/ciliumnodes.yaml
+	mv ${TMPDIR}/cilium.io_ciliumexternalworkloads.yaml ./examples/crds/ciliumexternalworkloads.yaml
 	mv ${TMPDIR}/cilium.io_ciliumlocalredirectpolicies.yaml ./examples/crds/ciliumlocalredirectpolicies.yaml
 	mv ${TMPDIR}/cilium.io_ciliumclusterwidelocalredirectpolicies.yaml ./examples/crds/ciliumclusterwidelocalredirectpolicies.yaml
 	rm -rf $(TMPDIR)
