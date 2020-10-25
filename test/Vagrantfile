@@ -54,7 +54,6 @@ class VagrantPlugins::ProviderVirtualBox::Action::Network
   end
 end
 
-ENV["VAGRANT_DEFAULT_PROVIDER"] = "virtualbox"
 Vagrant.configure("2") do |config|
     cilium_dir = '../'
     cilium_path = '/home/vagrant/go/src/github.com/cilium/cilium'

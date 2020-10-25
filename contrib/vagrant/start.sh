@@ -43,8 +43,6 @@ export 'VM_CPUS'=${VM_CPUS:-2}
 # VM_BASENAME tag is only set if K8S option is active
 export 'VM_BASENAME'="runtime"
 export 'VM_BASENAME'=${K8S+"k8s"}
-# Set VAGRANT_DEFAULT_PROVIDER to virtualbox
-export 'VAGRANT_DEFAULT_PROVIDER'=${VAGRANT_DEFAULT_PROVIDER:-"virtualbox"}
 # Sets the default cilium TUNNEL_MODE to "vxlan"
 export 'TUNNEL_MODE_STRING'=${TUNNEL_MODE_STRING:-"-t vxlan"}
 # Replies Yes to all prompts asked in this script
@@ -578,9 +576,7 @@ function vboxnet_addr_finder(){
     vboxnet_add_ipv4 "${vboxnetname}" "${IPV4_BASE_ADDR_NFS}" "255.255.255.0"
 }
 
-if [[ "${VAGRANT_DEFAULT_PROVIDER}" -eq "virtualbox" ]]; then
-     vboxnet_addr_finder
-fi
+vboxnet_addr_finder
 
 ipv6_public_workers_addrs=()
 
