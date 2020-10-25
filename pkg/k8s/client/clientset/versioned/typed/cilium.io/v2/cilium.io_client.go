@@ -27,6 +27,7 @@ type CiliumV2Interface interface {
 	CiliumClusterwideLocalRedirectPoliciesGetter
 	CiliumClusterwideNetworkPoliciesGetter
 	CiliumEndpointsGetter
+	CiliumExternalWorkloadsGetter
 	CiliumIdentitiesGetter
 	CiliumLocalRedirectPoliciesGetter
 	CiliumNetworkPoliciesGetter
@@ -48,6 +49,10 @@ func (c *CiliumV2Client) CiliumClusterwideNetworkPolicies() CiliumClusterwideNet
 
 func (c *CiliumV2Client) CiliumEndpoints(namespace string) CiliumEndpointInterface {
 	return newCiliumEndpoints(c, namespace)
+}
+
+func (c *CiliumV2Client) CiliumExternalWorkloads() CiliumExternalWorkloadInterface {
+	return newCiliumExternalWorkloads(c)
 }
 
 func (c *CiliumV2Client) CiliumIdentities() CiliumIdentityInterface {

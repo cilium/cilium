@@ -28,6 +28,8 @@ type Interface interface {
 	CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPolicyInformer
 	// CiliumEndpoints returns a CiliumEndpointInformer.
 	CiliumEndpoints() CiliumEndpointInformer
+	// CiliumExternalWorkloads returns a CiliumExternalWorkloadInformer.
+	CiliumExternalWorkloads() CiliumExternalWorkloadInformer
 	// CiliumIdentities returns a CiliumIdentityInformer.
 	CiliumIdentities() CiliumIdentityInformer
 	// CiliumLocalRedirectPolicies returns a CiliumLocalRedirectPolicyInformer.
@@ -62,6 +64,11 @@ func (v *version) CiliumClusterwideNetworkPolicies() CiliumClusterwideNetworkPol
 // CiliumEndpoints returns a CiliumEndpointInformer.
 func (v *version) CiliumEndpoints() CiliumEndpointInformer {
 	return &ciliumEndpointInformer{factory: v.factory, namespace: v.namespace, tweakListOptions: v.tweakListOptions}
+}
+
+// CiliumExternalWorkloads returns a CiliumExternalWorkloadInformer.
+func (v *version) CiliumExternalWorkloads() CiliumExternalWorkloadInformer {
+	return &ciliumExternalWorkloadInformer{factory: v.factory, tweakListOptions: v.tweakListOptions}
 }
 
 // CiliumIdentities returns a CiliumIdentityInformer.
