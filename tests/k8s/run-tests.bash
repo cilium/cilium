@@ -97,7 +97,7 @@ function run_tests(){
 }
 
 # Docker registry not needed after provisioning.
-VAGRANT_DEFAULT_PROVIDER=virtualbox vagrant destroy -f ${builder} || echo "Nothing to destroy"
+vagrant destroy -f ${builder} || echo "Nothing to destroy"
 
 # Run tests in k8s 1.6.6 (which is installed by default in Vagrantfile)
 run_tests "1.6.6-00"

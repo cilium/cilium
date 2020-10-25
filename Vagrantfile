@@ -174,9 +174,7 @@ Vagrant.configure(2) do |config|
         # 2345 is the default delv server port
         cm.vm.network "forwarded_port", guest: 2345, host: 2345, auto_correct: true
         cm.vm.network "private_network", ip: "#{$master_ip}",
-            virtualbox__intnet: "cilium-test-#{$build_id}",
-            :libvirt__guest_ipv6 => "yes",
-            :libvirt__dhcp_enabled => false
+            virtualbox__intnet: "cilium-test-#{$build_id}"
         if ENV['FIRST_IP_SUFFIX_NFS'] then
             $nfs_ipv4_master_addr = $node_nfs_base_ip + "#{ENV['FIRST_IP_SUFFIX_NFS']}"
         end
@@ -227,9 +225,7 @@ Vagrant.configure(2) do |config|
         config.vm.define node_vm_name do |node|
             node_ip = $workers_ipv4_addrs[n]
             node.vm.network "private_network", ip: "#{node_ip}",
-                virtualbox__intnet: "cilium-test-#{$build_id}",
-                :libvirt__guest_ipv6 => 'yes',
-                :libvirt__dhcp_enabled => false
+                virtualbox__intnet: "cilium-test-#{$build_id}"
             nfs_ipv4_addr = $workers_ipv4_addrs_nfs[n]
             ipv6_addr = $workers_ipv6_addrs[n]
             node.vm.network "private_network", ip: "#{nfs_ipv4_addr}", bridge: "enp0s9"

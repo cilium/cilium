@@ -50,7 +50,7 @@ Finally, in order to run Cilium locally on VMs, you need:
 +==================================================================================+=======================+================================================================================+
 | `Vagrant <https://www.vagrantup.com/downloads.html>`_                            | >= 2.0                | `Vagrant Install Instructions <https://www.vagrantup.com/docs/installation/>`_ |
 +----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
-| `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_ (if not using libvirt) | >= 5.2                | N/A (OS-specific)                                                              |
+| `VirtualBox <https://www.virtualbox.org/wiki/Downloads>`_                        | >= 5.2                | N/A (OS-specific)                                                              |
 +----------------------------------------------------------------------------------+-----------------------+--------------------------------------------------------------------------------+
 
 You should start with the `gs_guide`, which walks you through the set-up, such
@@ -110,7 +110,6 @@ brought up by vagrant:
 * ``RUNTIME=x``: Sets up the container runtime to be used inside a kubernetes
   cluster. Valid options are: ``docker``, ``containerd`` and ``crio``. If not
   set, it defaults to ``docker``.
-* ``VAGRANT_DEFAULT_PROVIDER={virtualbox \| libvirt \| ...}``
 * ``VM_SET_PROXY=https://127.0.0.1:80/`` Sets up VM's ``https_proxy``.
 * ``INSTALL=1``: Restarts the installation of Cilium, Kubernetes, etc. Only
   useful when the installation was interrupted.
