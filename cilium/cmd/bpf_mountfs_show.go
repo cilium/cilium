@@ -21,6 +21,7 @@ import (
 
 	"github.com/cilium/cilium/pkg/command"
 	"github.com/cilium/cilium/pkg/mountinfo"
+
 	"github.com/spf13/cobra"
 )
 

@@ -20,6 +20,7 @@ import (
 	"text/tabwriter"
 
 	"github.com/cilium/cilium/pkg/command"
+
 	"github.com/spf13/cobra"
 )
 
