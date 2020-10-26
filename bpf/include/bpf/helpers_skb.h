@@ -14,7 +14,8 @@
 
 /* Packet redirection */
 static int BPF_FUNC(redirect, int ifindex, __u32 flags);
-static int BPF_FUNC(redirect_neigh, int ifindex, __u32 flags);
+static int BPF_FUNC(redirect_neigh, int ifindex, struct bpf_redir_neigh *params,
+		    int plen, __u32 flags);
 static int BPF_FUNC(redirect_peer, int ifindex, __u32 flags);
 
 /* Packet manipulation */
