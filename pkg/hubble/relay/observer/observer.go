@@ -100,8 +100,11 @@ func sortFlows(
 					}
 				}
 				pq.Push(flow)
-			case <-time.After(bufferDrainTimeout): // make sure to drain the queue when no new flow responses are received
-				if f := pq.Pop(); f != nil {
+			case t := <-time.After(bufferDrainTimeout):
+				// Make sure to drain old flows from the queue when no new
+				// flows are received. The bufferDrainTimeout duration is used
+				// as a sorting window.
+				for _, f := range pq.PopOlderThan(t.Add(-bufferDrainTimeout)) {
 					select {
 					case sortedFlows <- f:
 					case <-ctx.Done():
@@ -120,9 +123,7 @@ func sortFlows(
 				return
 			}
 		}
-
 	}()
-
 	return sortedFlows
 }
 
