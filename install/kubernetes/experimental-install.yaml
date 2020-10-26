@@ -494,6 +494,12 @@ rules:
   - list
   - watch
 - apiGroups:
+  - apiextensions.k8s.io
+  resources:
+  - customresourcedefinitions
+  verbs:
+  - list
+- apiGroups:
   - cilium.io
   resources:
   - ciliumnodes
