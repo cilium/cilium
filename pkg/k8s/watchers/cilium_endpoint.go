@@ -93,7 +93,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 			// to sync resources.
 			asyncControllers.Done()
 		})
-		k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumEndpointV2)
+		k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumEndpointV2)
 		go ciliumEndpointInformer.Run(isConnected)
 
 		<-kvstore.Connected()
@@ -101,7 +101,7 @@ func (k *K8sWatcher) ciliumEndpointsInit(ciliumNPClient *k8s.K8sCiliumClient, as
 
 		log.Info("Connected to key-value store, stopping CiliumEndpoint watcher")
 
-		k.k8sAPIGroups.removeAPI(k8sAPIGroupCiliumEndpointV2)
+		k.k8sAPIGroups.RemoveAPI(k8sAPIGroupCiliumEndpointV2)
 		k.cancelWaitGroupToSyncResources(k8sAPIGroupCiliumEndpointV2)
 		// Create a new node controller when we are disconnected with the
 		// kvstore

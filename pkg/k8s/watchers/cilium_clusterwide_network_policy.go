@@ -116,5 +116,5 @@ func (k *K8sWatcher) ciliumClusterwideNetworkPoliciesInit(ciliumNPClient *k8s.K8
 	)
 
 	go ciliumV2ClusterwidePolicyController.Run(wait.NeverStop)
-	k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumClusterwideNetworkPolicyV2)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumClusterwideNetworkPolicyV2)
 }

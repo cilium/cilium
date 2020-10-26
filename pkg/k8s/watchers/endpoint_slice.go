@@ -88,7 +88,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 	ecr := make(chan struct{})
 	k.blockWaitGroupToSyncResources(ecr, swgEps, endpointController.HasSynced, K8sAPIGroupEndpointSliceV1Beta1Discovery)
 	go endpointController.Run(ecr)
-	k.k8sAPIGroups.addAPI(K8sAPIGroupEndpointSliceV1Beta1Discovery)
+	k.k8sAPIGroups.AddAPI(K8sAPIGroupEndpointSliceV1Beta1Discovery)
 
 	if k8s.HasEndpointSlice(hasEndpointSlices, endpointController) {
 		return true
@@ -96,7 +96,7 @@ func (k *K8sWatcher) endpointSlicesInit(k8sClient kubernetes.Interface, swgEps *
 
 	// K8s is not running with endpoint slices enabled, stop the endpoint slice
 	// controller to avoid watching for unnecessary stuff in k8s.
-	k.k8sAPIGroups.removeAPI(K8sAPIGroupEndpointSliceV1Beta1Discovery)
+	k.k8sAPIGroups.RemoveAPI(K8sAPIGroupEndpointSliceV1Beta1Discovery)
 	close(ecr)
 	return false
 }

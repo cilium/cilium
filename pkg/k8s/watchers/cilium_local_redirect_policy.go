@@ -73,7 +73,7 @@ func (k *K8sWatcher) ciliumLocalRedirectPolicyInit(ciliumLRPClient *k8s.K8sCiliu
 	)
 
 	go lrpController.Run(wait.NeverStop)
-	k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumLocalRedirectPolicyV2)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumLocalRedirectPolicyV2)
 }
 
 func (k *K8sWatcher) addCiliumLocalRedirectPolicy(clrp *cilium_v2.CiliumLocalRedirectPolicy) error {
