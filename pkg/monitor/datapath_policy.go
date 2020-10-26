@@ -15,7 +15,9 @@
 package monitor
 
 import (
+	"bufio"
 	"fmt"
+	"os"
 
 	"github.com/cilium/cilium/pkg/identity"
 	"github.com/cilium/cilium/pkg/monitor/api"
@@ -104,12 +106,21 @@ func GetPolicyActionString(verdict int32, audit bool) string {
 }
 
 // DumpInfo prints a summary of the policy notify messages.
-func (n *PolicyVerdictNotify) DumpInfo(data []byte) {
+func (n *PolicyVerdictNotify) DumpInfo(data []byte, numeric DisplayFormat) {
+	buf := bufio.NewWriter(os.Stdout)
 	dir := "egress"
 	if n.IsTrafficIngress() {
 		dir = "ingress"
 	}
-	fmt.Printf("Policy verdict log: flow %#x local EP ID %d, remote ID %s, proto %d, %s, action %s, match %s, %s\n",
-		n.Hash, n.Source, n.RemoteLabel, n.Proto, dir, GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
-		n.GetPolicyMatchType(), GetConnectionSummary(data[PolicyVerdictNotifyLen:]))
+	fmt.Fprintf(buf, "Policy verdict log: flow %#x local EP ID %d", n.Hash, n.Source)
+	if numeric {
+		fmt.Fprintf(buf, ", remote ID %d", n.RemoteLabel)
+	} else {
+		fmt.Fprintf(buf, ", remote ID %s", n.RemoteLabel)
+	}
+	fmt.Fprintf(buf, ", proto %d, %s, action %s, match %s, %s\n", n.Proto, dir,
+		GetPolicyActionString(n.Verdict, n.IsTrafficAudited()),
+		n.GetPolicyMatchType(),
+		GetConnectionSummary(data[PolicyVerdictNotifyLen:]))
+	buf.Flush()
 }

@@ -264,9 +264,9 @@ func TestDecodeTraceNotify(t *testing.T) {
 	buf.Write(buffer.Bytes())
 	require.NoError(t, err)
 	identityGetter := &testutils.FakeIdentityGetter{OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
-		if securityIdentity == tn.SrcLabel {
+		if securityIdentity == uint32(tn.SrcLabel) {
 			return &models.Identity{Labels: []string{"src=label"}}, nil
-		} else if securityIdentity == tn.DstLabel {
+		} else if securityIdentity == uint32(tn.DstLabel) {
 			return &models.Identity{Labels: []string{"dst=label"}}, nil
 		}
 		return nil, fmt.Errorf("identity not found for %d", securityIdentity)
@@ -308,9 +308,9 @@ func TestDecodeDropNotify(t *testing.T) {
 	require.NoError(t, err)
 	identityGetter := &testutils.FakeIdentityGetter{
 		OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
-			if securityIdentity == dn.SrcLabel {
+			if securityIdentity == uint32(dn.SrcLabel) {
 				return &models.Identity{Labels: []string{"src=label"}}, nil
-			} else if securityIdentity == dn.DstLabel {
+			} else if securityIdentity == uint32(dn.DstLabel) {
 				return &models.Identity{Labels: []string{"dst=label"}}, nil
 			}
 			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
@@ -328,10 +328,10 @@ func TestDecodeDropNotify(t *testing.T) {
 }
 
 func TestDecodePolicyVerdictNotify(t *testing.T) {
-	var remoteLabel uint32 = 123
+	var remoteLabel identity.NumericIdentity = 123
 	identityGetter := &testutils.FakeIdentityGetter{
 		OnGetIdentity: func(securityIdentity uint32) (*models.Identity, error) {
-			if securityIdentity == remoteLabel {
+			if securityIdentity == uint32(remoteLabel) {
 				return &models.Identity{Labels: []string{"dst=label"}}, nil
 			}
 			return nil, fmt.Errorf("identity not found for %d", securityIdentity)
@@ -412,8 +412,8 @@ func TestDecodeDropReason(t *testing.T) {
 func TestDecodeLocalIdentity(t *testing.T) {
 	tn := monitor.TraceNotifyV0{
 		Type:     byte(api.MessageTypeTrace),
-		SrcLabel: uint32(123 | identity.LocalIdentityFlag),
-		DstLabel: uint32(456 | identity.LocalIdentityFlag),
+		SrcLabel: 123 | identity.LocalIdentityFlag,
+		DstLabel: 456 | identity.LocalIdentityFlag,
 	}
 	data, err := testutils.CreateL3L4Payload(tn)
 	require.NoError(t, err)

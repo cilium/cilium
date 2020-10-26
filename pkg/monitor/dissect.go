@@ -28,6 +28,13 @@ import (
 	"github.com/google/gopacket/layers"
 )
 
+type DisplayFormat bool
+
+const (
+	DisplayLabel   DisplayFormat = false
+	DisplayNumeric DisplayFormat = true
+)
+
 type parserCache struct {
 	eth     layers.Ethernet
 	ip4     layers.IPv4
