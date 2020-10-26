@@ -1031,7 +1031,8 @@ var _ = Describe("K8sPolicyTest", func() {
 				validateL3L4(denyAll)
 			})
 
-			It("Verifies that a CNP with L7 HTTP rules can be replaced with L7 Kafka rules", func() {
+			// Tests involving the L7 proxy do not work when built with -race, see issue #13757.
+			SkipItIf(helpers.SkipRaceDetectorEnabled, "Verifies that a CNP with L7 HTTP rules can be replaced with L7 Kafka rules", func() {
 				By("Installing L7 Policy")
 
 				// This HTTP policy was already validated in the
@@ -1063,8 +1064,8 @@ var _ = Describe("K8sPolicyTest", func() {
 			})
 		})
 
-		Context("Traffic redirections to proxy", func() {
-
+		// Tests involving the L7 proxy do not work when built with -race, see issue #13757.
+		SkipContextIf(helpers.SkipRaceDetectorEnabled, "Traffic redirections to proxy", func() {
 			var (
 				// track which app1 pod we care about, and its corresponding
 				// cilium pod.
