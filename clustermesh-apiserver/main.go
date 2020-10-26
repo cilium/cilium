@@ -38,6 +38,7 @@ import (
 	k8sconfig "github.com/cilium/cilium/pkg/k8s/config"
 	"github.com/cilium/cilium/pkg/k8s/informer"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/types"
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
@@ -168,6 +169,9 @@ func runApiserver() error {
 	flags := rootCmd.Flags()
 	flags.BoolP(option.DebugArg, "D", false, "Enable debugging mode")
 	option.BindEnv(option.DebugArg)
+
+	flags.Duration(option.CRDWaitTimeout, 5*time.Minute, "Cilium will exit if CRDs are not available within this duration upon startup")
+	option.BindEnv(option.CRDWaitTimeout)
 
 	flags.String(option.IdentityAllocationMode, option.IdentityAllocationModeCRD, "Method to use for identity allocation")
 	option.BindEnv(option.IdentityAllocationMode)
@@ -543,6 +547,7 @@ func runServer(cmd *cobra.Command) {
 		if err := k8s.Init(k8sconfig.NewDefaultConfiguration()); err != nil {
 			log.WithError(err).Fatal("Unable to connect to Kubernetes apiserver")
 		}
+		synced.SyncCRDs(context.TODO(), &synced.Resources{}, &synced.APIGroups{})
 		ciliumK8sClient = k8s.CiliumClient()
 	}
 
