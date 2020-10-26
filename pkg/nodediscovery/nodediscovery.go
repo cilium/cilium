@@ -26,6 +26,7 @@ import (
 	"github.com/cilium/cilium/pkg/controller"
 	"github.com/cilium/cilium/pkg/datapath"
 	"github.com/cilium/cilium/pkg/defaults"
+	"github.com/cilium/cilium/pkg/identity"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
 	"github.com/cilium/cilium/pkg/k8s"
 	ciliumv2 "github.com/cilium/cilium/pkg/k8s/apis/cilium.io/v2"
@@ -124,6 +125,46 @@ func NewNodeDiscovery(manager *nodemanager.Manager, mtuConfig mtu.Configuration,
 	}
 }
 
+// JoinCluster passes the node name to the kvstore and updates the local configuration on response.
+// This allows cluster configuration to override local configuration.
+// Must be called on agent startup after IPAM is configured, but before the configuration is used.
+// nodeName is the name to be used in the local agent.
+func (n *NodeDiscovery) JoinCluster(nodeName string) {
+	var resp *nodeTypes.Node
+	maxRetryCount := 50
+	retryCount := 0
+	for retryCount < maxRetryCount {
+		log.WithFields(
+			logrus.Fields{
+				logfields.Node: nodeName,
+			}).Info("Joining local node to cluster")
+
+		var err error
+		if resp, err = n.Registrar.JoinCluster(nodeName); err != nil || resp == nil {
+			if retryCount >= maxRetryCount {
+				log.Fatalf("Unable to join cluster")
+			}
+			retryCount++
+			log.WithError(err).Error("Unable to initialize local node. Retrying...")
+			time.Sleep(time.Second)
+		} else {
+			break
+		}
+	}
+
+	// Override local config based on the response
+	option.Config.ClusterID = resp.ClusterID
+	option.Config.ClusterName = resp.Cluster
+	node.SetLabels(resp.Labels)
+	if resp.IPv4AllocCIDR != nil {
+		node.SetIPv4AllocRange(resp.IPv4AllocCIDR)
+	}
+	if resp.IPv6AllocCIDR != nil {
+		node.SetIPv6NodeRange(resp.IPv6AllocCIDR.IPNet)
+	}
+	identity.SetLocalNodeID(resp.NodeIdentity)
+}
+
 // start configures the local node and starts node discovery. This is called on
 // agent startup to configure the local node based on the configuration options
 // passed to the agent. nodeName is the name to be used in the local agent.
@@ -136,6 +177,7 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 	n.LocalNode.ClusterID = option.Config.ClusterID
 	n.LocalNode.EncryptionKey = node.GetIPsecKeyIdentity()
 	n.LocalNode.Labels = node.GetLabels()
+	n.LocalNode.NodeIdentity = identity.GetLocalNodeID().Uint32()
 
 	if node.GetExternalIPv4() != nil {
 		n.LocalNode.IPAddresses = append(n.LocalNode.IPAddresses, nodeTypes.Address{
@@ -181,24 +223,13 @@ func (n *NodeDiscovery) StartDiscovery(nodeName string) {
 		close(n.Registered)
 	}()
 
-	if option.Config.JoinCluster {
-		// Wait for successful node registration before
-		// informing the manager if registering to a k8s
-		// namespace as it can update node information
+	go func() {
 		select {
 		case <-n.Registered:
 		case <-time.NewTimer(defaults.NodeInitTimeout).C:
 			log.Fatalf("Unable to initialize local node due to timeout")
 		}
-	} else {
-		go func() {
-			select {
-			case <-n.Registered:
-			case <-time.NewTimer(defaults.NodeInitTimeout).C:
-				log.Fatalf("Unable to initialize local node due to timeout")
-			}
-		}()
-	}
+	}()
 
 	n.Manager.NodeUpdated(n.LocalNode)
 
