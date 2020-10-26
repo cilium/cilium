@@ -226,7 +226,6 @@ func parseTrafficString(td string) (trafficdirection.TrafficDirection, error) {
 	default:
 		return trafficdirection.Invalid, fmt.Errorf("invalid direction %q provided", td)
 	}
-
 }
 
 // parsePolicyUpdateArgs parses the arguments to a bpf policy {add,delete}

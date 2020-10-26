@@ -114,7 +114,6 @@ func validateInput() []outputType {
 }
 
 func validateOutputOpts() []outputType {
-
 	var outputTypes []outputType
 	for _, outputOpt := range outputOpts {
 		switch strings.ToLower(outputOpt) {
@@ -179,7 +178,6 @@ func rootWarningMessage() {
 }
 
 func runDebugInfo(cmd *cobra.Command, args []string) {
-
 	outputTypes := validateInput()
 
 	resp, err := client.Daemon.GetDebuginfo(nil)
@@ -262,7 +260,6 @@ func runDebugInfo(cmd *cobra.Command, args []string) {
 		section(w, p)
 	}
 	writeToOutput(buf, STDOUT, "", "")
-
 }
 
 func addHeader(w *tabwriter.Writer) {
@@ -355,7 +352,6 @@ func writeJSONPathToOutput(buf bytes.Buffer, path string, suffix string, jsonPat
 
 	fmt.Printf("%s output at %s\n", jsonpathOutput, fileName)
 	return
-
 }
 
 func writeToOutput(buf bytes.Buffer, output outputType, path string, suffix string) {
@@ -484,5 +480,4 @@ func writeJSON(data []byte, path string) {
 		os.Exit(1)
 	}
 	f.Write(result)
-
 }

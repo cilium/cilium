@@ -37,5 +37,4 @@ var endpointDisconnectCmd = &cobra.Command{
 
 func init() {
 	endpointCmd.AddCommand(endpointDisconnectCmd)
-
 }
