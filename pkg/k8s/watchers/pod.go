@@ -135,7 +135,7 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
-			k.k8sAPIGroups.addAPI(K8sAPIGroupPodV1Core)
+			k.k8sAPIGroups.AddAPI(K8sAPIGroupPodV1Core)
 		})
 		go podController.Run(isConnected)
 		return isConnected
@@ -164,7 +164,7 @@ func (k *K8sWatcher) podsInit(k8sClient kubernetes.Interface, asyncControllers *
 		k.blockWaitGroupToSyncResources(isConnected, nil, podController.HasSynced, K8sAPIGroupPodV1Core)
 		once.Do(func() {
 			asyncControllers.Done()
-			k.k8sAPIGroups.addAPI(K8sAPIGroupPodV1Core)
+			k.k8sAPIGroups.AddAPI(K8sAPIGroupPodV1Core)
 		})
 		go podController.Run(isConnected)
 

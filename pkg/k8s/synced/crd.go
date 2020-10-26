@@ -12,7 +12,7 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
-package watchers
+package synced
 
 import (
 	"context"
@@ -41,21 +41,40 @@ import (
 	"k8s.io/client-go/tools/cache"
 )
 
-func (k *K8sWatcher) crdsInit(ctx context.Context, watcherClient apiextclientset.Interface) error {
-	crds := newCRDState(
-		map[string]bool{
-			cnpCRD:  false,
-			ccnpCRD: false,
-			cepCRD:  false,
-			cnCRD:   false,
-			cidCRD:  false,
-			clrpCRD: false,
-		},
-	)
+const (
+	k8sAPIGroupCRD = "CustomResourceDefinition"
+)
+
+var (
+	crdResourceNames = []string{
+		crdResourceName(v2.CNPName),
+		crdResourceName(v2.CCNPName),
+		crdResourceName(v2.CEPName),
+		crdResourceName(v2.CNName),
+		crdResourceName(v2.CIDName),
+		crdResourceName(v2.CLRPName),
+	}
+)
+
+func crdResourceName(crd string) string {
+	return "crd:" + crd
+}
+
+// GetCRDResourceNames returns the list of Cilium CRDs we know about.
+func GetCRDResourceNames() []string {
+	return crdResourceNames
+}
+
+// SyncCRDs will sync Cilium CRDs to ensure that they have all been
+// installed inside the K8s cluster. These CRDs are added by the
+// Cilium Operator. This function will block until it finds all the
+// CRDs or if a timeout occurs.
+func SyncCRDs(ctx context.Context, rs *Resources, ag *APIGroups) error {
+	crds := newCRDState()
 
 	var (
 		listerWatcher = newListWatchFromClient(
-			newCRDGetter(watcherClient),
+			newCRDGetter(k8s.WatcherAPIExtClient()),
 			fields.Everything(),
 			k8sversion.Capabilities().WatchPartialObjectMetadata,
 		)
@@ -68,8 +87,8 @@ func (k *K8sWatcher) crdsInit(ctx context.Context, watcherClient apiextclientset
 			&slim_metav1.PartialObjectMetadata{},
 			0,
 			cache.ResourceEventHandlerFuncs{
-				AddFunc:    func(obj interface{}) { addCRD(&crds, obj) },
-				DeleteFunc: func(obj interface{}) { deleteCRD(&crds, obj) },
+				AddFunc:    func(obj interface{}) { crds.add(obj) },
+				DeleteFunc: func(obj interface{}) { crds.remove(obj) },
 			},
 			nil,
 		)
@@ -83,8 +102,8 @@ func (k *K8sWatcher) crdsInit(ctx context.Context, watcherClient apiextclientset
 			&slim_apiextensions_v1beta1.CustomResourceDefinition{},
 			0,
 			cache.ResourceEventHandlerFuncs{
-				AddFunc:    func(obj interface{}) { addCRD(&crds, obj) },
-				DeleteFunc: func(obj interface{}) { deleteCRD(&crds, obj) },
+				AddFunc:    func(obj interface{}) { crds.add(obj) },
+				DeleteFunc: func(obj interface{}) { crds.remove(obj) },
 			},
 			nil,
 		)
@@ -97,7 +116,7 @@ func (k *K8sWatcher) crdsInit(ctx context.Context, watcherClient apiextclientset
 
 	crds.Lock()
 	for crd := range crds.m {
-		k.blockWaitGroupToSyncResources(
+		rs.BlockWaitGroupToSyncResources(
 			ctx.Done(),
 			nil,
 			func() bool {
@@ -130,10 +149,10 @@ func (k *K8sWatcher) crdsInit(ctx context.Context, watcherClient apiextclientset
 	// controller has exited by cancelling the context and we return out.
 
 	go crdController.Run(ctx.Done())
-	k.k8sAPIGroups.addAPI(k8sAPIGroupCRD)
-	// We no longer need this API to show up in `cilum status` as the
+	ag.AddAPI(k8sAPIGroupCRD)
+	// We no longer need this API to show up in `cilium status` as the
 	// controller will exit after this function.
-	defer k.k8sAPIGroups.removeAPI(k8sAPIGroupCRD)
+	defer ag.RemoveAPI(k8sAPIGroupCRD)
 
 	log.Info("Waiting until all Cilium CRDs are available")
 
@@ -163,34 +182,34 @@ func (k *K8sWatcher) crdsInit(ctx context.Context, watcherClient apiextclientset
 	}
 }
 
-func addCRD(crds *crdState, obj interface{}) {
+func (s *crdState) add(obj interface{}) {
 	if k8sversion.Capabilities().WatchPartialObjectMetadata {
 		if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
-			crds.Lock()
-			crds.m[crdResourceName(pom.GetName())] = true
-			crds.Unlock()
+			s.Lock()
+			s.m[crdResourceName(pom.GetName())] = true
+			s.Unlock()
 		}
 	} else {
 		if crd := k8s.ObjToV1beta1CRD(obj); crd != nil {
-			crds.Lock()
-			crds.m[crdResourceName(crd.GetName())] = true
-			crds.Unlock()
+			s.Lock()
+			s.m[crdResourceName(crd.GetName())] = true
+			s.Unlock()
 		}
 	}
 }
 
-func deleteCRD(crds *crdState, obj interface{}) {
+func (s *crdState) remove(obj interface{}) {
 	if k8sversion.Capabilities().WatchPartialObjectMetadata {
 		if pom := k8s.ObjToV1PartialObjectMetadata(obj); pom != nil {
-			crds.Lock()
-			crds.m[crdResourceName(pom.GetName())] = false
-			crds.Unlock()
+			s.Lock()
+			s.m[crdResourceName(pom.GetName())] = false
+			s.Unlock()
 		}
 	} else {
 		if crd := k8s.ObjToV1beta1CRD(obj); crd != nil {
-			crds.Lock()
-			crds.m[crdResourceName(crd.GetName())] = false
-			crds.Unlock()
+			s.Lock()
+			s.m[crdResourceName(crd.GetName())] = false
+			s.Unlock()
 		}
 	}
 }
@@ -231,23 +250,14 @@ type crdState struct {
 	m map[string]bool
 }
 
-func newCRDState(m map[string]bool) crdState {
+func newCRDState() crdState {
+	m := make(map[string]bool, len(crdResourceNames))
+	for _, name := range crdResourceNames {
+		m[name] = false
+	}
 	return crdState{
 		m: m,
 	}
-}
-
-var (
-	cnpCRD  = crdResourceName(v2.CNPName)
-	ccnpCRD = crdResourceName(v2.CCNPName)
-	cepCRD  = crdResourceName(v2.CEPName)
-	cnCRD   = crdResourceName(v2.CNName)
-	cidCRD  = crdResourceName(v2.CIDName)
-	clrpCRD = crdResourceName(v2.CLRPName)
-)
-
-func crdResourceName(crd string) string {
-	return "crd:" + crd
 }
 
 // newListWatchFromClient is a copy of the NewListWatchFromClient from the

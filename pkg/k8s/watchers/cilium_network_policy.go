@@ -177,7 +177,7 @@ func (k *K8sWatcher) ciliumNetworkPoliciesInit(ciliumNPClient *k8s.K8sCiliumClie
 
 	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, ciliumV2Controller.HasSynced, k8sAPIGroupCiliumNetworkPolicyV2)
 	go ciliumV2Controller.Run(wait.NeverStop)
-	k.k8sAPIGroups.addAPI(k8sAPIGroupCiliumNetworkPolicyV2)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupCiliumNetworkPolicyV2)
 }
 
 func (k *K8sWatcher) addCiliumNetworkPolicyV2(ciliumNPClient clientset.Interface, ciliumV2Store cache.Store, cnp *types.SlimCNP) error {
