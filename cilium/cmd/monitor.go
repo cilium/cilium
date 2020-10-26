@@ -180,7 +180,6 @@ func getMonitorParser(conn net.Conn, version listener.Version) (parser eventPars
 }
 
 func endpointsExist(endpoints format.Uint16Flags, existingEndpoints []*models.Endpoint) bool {
-
 	endpointsFound := format.Uint16Flags{}
 	for _, ep := range existingEndpoints {
 		if endpoints.Has(uint16(ep.ID)) {

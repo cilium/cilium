@@ -89,7 +89,6 @@ func configDaemon(cmd *cobra.Command, opts []string) {
 	var cfg models.DaemonConfigurationSpec
 
 	for k := range opts {
-
 		// TODO FIXME - this is a hack, and is not clean
 		optionSplit := strings.SplitN(opts[k], "=", 2)
 		if len(optionSplit) < 2 {
