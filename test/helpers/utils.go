@@ -639,3 +639,10 @@ func SkipQuarantined() bool {
 func SkipGKEQuarantined() bool {
 	return SkipQuarantined() && IsIntegration(CIIntegrationGKE)
 }
+
+// SkipRaceDetectorEnabled returns whether tests failing with race detector
+// enabled should be skipped.
+func SkipRaceDetectorEnabled() bool {
+	race := os.Getenv("RACE")
+	return race == "1" || race == "true"
+}
