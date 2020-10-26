@@ -18,10 +18,13 @@ package queue
 
 import (
 	"testing"
+	"time"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/stretchr/testify/assert"
 )
 
@@ -97,4 +100,89 @@ func TestPriorityQueue_GrowingOverInitialCapacity(t *testing.T) {
 	pq.Push(resp1)
 	pq.Push(resp2)
 	assert.Equal(t, pq.Len(), 2)
+}
+
+func TestPriorityQueue_PopOlderThan(t *testing.T) {
+	tests := []struct {
+		name   string
+		has    []*observerpb.GetFlowsResponse
+		filter time.Time
+		want   []*observerpb.GetFlowsResponse
+	}{
+		{
+			"some older, some newer",
+			[]*observerpb.GetFlowsResponse{
+				{Time: &timestamp.Timestamp{Seconds: 5}},
+				{Time: &timestamp.Timestamp{Seconds: 1}},
+				{Time: &timestamp.Timestamp{Seconds: 4}},
+				{Time: &timestamp.Timestamp{Seconds: 2}},
+				{Time: &timestamp.Timestamp{Seconds: 1, Nanos: 1}},
+				{Time: &timestamp.Timestamp{Seconds: 3}},
+			},
+			time.Unix(3, 1).UTC(),
+			[]*observerpb.GetFlowsResponse{
+				{Time: &timestamp.Timestamp{Seconds: 1}},
+				{Time: &timestamp.Timestamp{Seconds: 1, Nanos: 1}},
+				{Time: &timestamp.Timestamp{Seconds: 2}},
+				{Time: &timestamp.Timestamp{Seconds: 3}},
+			},
+		}, {
+			"all olders",
+			[]*observerpb.GetFlowsResponse{
+				{Time: &timestamp.Timestamp{Seconds: 2}},
+				{Time: &timestamp.Timestamp{Seconds: 5}},
+				{Time: &timestamp.Timestamp{Seconds: 1, Nanos: 1}},
+				{Time: &timestamp.Timestamp{Seconds: 3}},
+				{Time: &timestamp.Timestamp{Seconds: 4}},
+				{Time: &timestamp.Timestamp{Seconds: 1}},
+			},
+			time.Unix(6, 0).UTC(),
+			[]*observerpb.GetFlowsResponse{
+				{Time: &timestamp.Timestamp{Seconds: 1}},
+				{Time: &timestamp.Timestamp{Seconds: 1, Nanos: 1}},
+				{Time: &timestamp.Timestamp{Seconds: 2}},
+				{Time: &timestamp.Timestamp{Seconds: 3}},
+				{Time: &timestamp.Timestamp{Seconds: 4}},
+				{Time: &timestamp.Timestamp{Seconds: 5}},
+			},
+		}, {
+			"all more recent",
+			[]*observerpb.GetFlowsResponse{
+				{Time: &timestamp.Timestamp{Seconds: 1}},
+				{Time: &timestamp.Timestamp{Seconds: 5}},
+				{Time: &timestamp.Timestamp{Seconds: 2}},
+				{Time: &timestamp.Timestamp{Seconds: 4}},
+				{Time: &timestamp.Timestamp{Seconds: 1, Nanos: 1}},
+				{Time: &timestamp.Timestamp{Seconds: 3}},
+			},
+			time.Unix(0, 0).UTC(),
+			[]*observerpb.GetFlowsResponse{},
+		}, {
+			"empty queue",
+			nil,
+			time.Unix(0, 0).UTC(),
+			[]*observerpb.GetFlowsResponse{},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			pq := NewPriorityQueue(len(tt.has))
+			assert.Equal(t, pq.Len(), 0)
+			for _, resp := range tt.has {
+				pq.Push(resp)
+			}
+			assert.Equal(t, pq.Len(), len(tt.has))
+			got := pq.PopOlderThan(tt.filter)
+			if diff := cmp.Diff(
+				tt.want,
+				got,
+				cmpopts.IgnoreUnexported(
+					observerpb.GetFlowsResponse{},
+					timestamp.Timestamp{},
+				),
+			); diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
 }

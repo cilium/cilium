@@ -16,8 +16,11 @@ package queue
 
 import (
 	"container/heap"
+	"time"
 
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+
+	"github.com/golang/protobuf/ptypes/timestamp"
 )
 
 // PriorityQueue is a priority queue of observerpb.GetFlowsResponse. It
@@ -59,6 +62,26 @@ func (pq *PriorityQueue) Pop() *observerpb.GetFlowsResponse {
 	return resp
 }
 
+// PopOlderThan removes and returns objects in the queue that are older than t.
+// Objects in the returned list are sorted chronologically from the oldest to
+// the more recent.
+func (pq *PriorityQueue) PopOlderThan(t time.Time) []*observerpb.GetFlowsResponse {
+	// pre-allocate enough memory for the slice to hold every element in the
+	// queue as flushing the entire queue is a common pattern
+	ret := make([]*observerpb.GetFlowsResponse, 0, pq.Len())
+	for {
+		resp := pq.Pop()
+		if resp == nil {
+			return ret
+		}
+		if t.Before(timestampAsTime(resp.GetTime())) {
+			pq.Push(resp)
+			return ret
+		}
+		ret = append(ret, resp)
+	}
+}
+
 func (h minHeap) Len() int {
 	return len(h)
 }
@@ -92,4 +115,9 @@ func (h *minHeap) Pop() interface{} {
 	old[n-1] = nil // avoid memory leak
 	*h = old[0 : n-1]
 	return resp
+}
+
+// timestampAsTime converts a timestamp to time.Time.
+func timestampAsTime(t *timestamp.Timestamp) time.Time {
+	return time.Unix(int64(t.GetSeconds()), int64(t.GetNanos())).UTC()
 }
