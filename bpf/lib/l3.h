@@ -86,8 +86,8 @@ static __always_inline int ipv6_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 #if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
 	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
-	ctk->mark |= MARK_MAGIC_IDENTITY;
-	set_identity_mark(ctx, seclabel)
+	ctx->mark |= MARK_MAGIC_IDENTITY;
+	set_identity_mark(ctx, seclabel);
 	return redirect_peer(ep->ifindex, 0);
 #else
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
@@ -127,8 +127,8 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 
 #if defined(USE_BPF_PROG_FOR_INGRESS_POLICY) && \
 	!defined(FORCE_LOCAL_POLICY_EVAL_AT_SOURCE)
-	ctk->mark |= MARK_MAGIC_IDENTITY;
-	set_identity_mark(ctx, seclabel)
+	ctx->mark |= MARK_MAGIC_IDENTITY;
+	set_identity_mark(ctx, seclabel);
 	return redirect_peer(ep->ifindex, 0);
 #else
 	ctx_store_meta(ctx, CB_SRC_LABEL, seclabel);
