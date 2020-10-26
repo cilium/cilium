@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
 
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"github.com/google/gopacket"
 	"github.com/google/gopacket/layers"
 	"github.com/sirupsen/logrus"
@@ -183,7 +184,8 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.SourceNames = p.resolveNames(dstEndpoint.ID, srcIP)
 	decoded.DestinationNames = p.resolveNames(srcEndpoint.ID, dstIP)
 	decoded.L7 = nil
-	decoded.Reply = decodeIsReply(tn)
+	decoded.IsReply = decodeIsReply(tn)
+	decoded.Reply = decoded.GetIsReply().GetValue()
 	decoded.TrafficDirection = decodeTrafficDirection(srcEndpoint.ID, dn, tn, pvn)
 	decoded.EventType = decodeCiliumEventType(eventType, eventSubType)
 	decoded.SourceService = sourceService
@@ -428,12 +430,16 @@ func decodeICMPv6(icmp *layers.ICMPv6) *pb.Layer4 {
 	}
 }
 
-func decodeIsReply(tn *monitor.TraceNotify) bool {
-	// FIXME: Ideally, this function should return a value only if
-	// monitorAPI.TraceObservationPointHasConnState(tn.ObsPoint) is true.
-	// However, pb.Flow currently cannot distinguish between an absent value
-	// and a `false` value.
-	return tn != nil && tn.Reason & ^monitor.TraceReasonEncryptMask == monitor.TraceReasonCtReply
+func decodeIsReply(tn *monitor.TraceNotify) *wrappers.BoolValue {
+	// Unfortunately, not all trace points have the connection
+	// tracking state available. For certain trace point
+	// events, we do not know if it actually was a reply or not.
+	if tn != nil && monitorAPI.TraceObservationPointHasConnState(tn.ObsPoint) {
+		return &wrappers.BoolValue{
+			Value: tn.Reason & ^monitor.TraceReasonEncryptMask == monitor.TraceReasonCtReply,
+		}
+	}
+	return nil
 }
 
 func decodeCiliumEventType(eventType, eventSubType uint8) *pb.CiliumEventType {
@@ -485,7 +491,7 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 			// true if the traffic source is the local endpoint, i.e. egress
 			isSourceEP := tn.Source == uint16(srcEP)
 			// true if the packet is a reply, i.e. reverse direction
-			isReply := decodeIsReply(tn)
+			isReply := decodeIsReply(tn).GetValue()
 
 			// isSourceEP != isReply ==
 			//  (isSourceEP && !isReply) || (!isSourceEP && isReply)

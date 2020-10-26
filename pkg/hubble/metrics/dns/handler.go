@@ -126,7 +126,7 @@ func (d *dnsHandler) ProcessFlow(flow v1.Flow) {
 		labels[0] = "Policy denied"
 		d.responses.WithLabelValues(labels...).Inc()
 	} else {
-		if flow.GetReply() {
+		if flow.GetIsReply().GetValue() {
 			labels[0] = rcodeNames[dns.Rcode]
 			d.responses.WithLabelValues(labels...).Inc()
 
