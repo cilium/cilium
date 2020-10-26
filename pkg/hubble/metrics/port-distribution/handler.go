@@ -54,7 +54,8 @@ func (h *portDistributionHandler) Status() string {
 }
 
 func (h *portDistributionHandler) ProcessFlow(flow v1.Flow) {
-	if flow.GetVerdict() != flowpb.Verdict_FORWARDED || flow.GetL4() == nil || flow.GetReply() {
+	skipReply := flow.GetIsReply() == nil || flow.GetIsReply().GetValue()
+	if flow.GetVerdict() != flowpb.Verdict_FORWARDED || flow.GetL4() == nil || skipReply {
 		return
 	}
 
