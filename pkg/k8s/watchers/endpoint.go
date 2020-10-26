@@ -84,7 +84,7 @@ func (k *K8sWatcher) endpointsInit(k8sClient kubernetes.Interface, swgEps *lock.
 	)
 	k.blockWaitGroupToSyncResources(wait.NeverStop, swgEps, endpointController.HasSynced, K8sAPIGroupEndpointV1Core)
 	go endpointController.Run(wait.NeverStop)
-	k.k8sAPIGroups.addAPI(K8sAPIGroupEndpointV1Core)
+	k.k8sAPIGroups.AddAPI(K8sAPIGroupEndpointV1Core)
 }
 
 func (k *K8sWatcher) addK8sEndpointV1(ep *slim_corev1.Endpoints, swg *lock.StoppableWaitGroup) error {

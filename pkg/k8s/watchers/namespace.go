@@ -70,7 +70,7 @@ func (k *K8sWatcher) namespacesInit(k8sClient kubernetes.Interface, asyncControl
 
 	k.namespaceStore = namespaceStore
 	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, namespaceController.HasSynced, k8sAPIGroupNamespaceV1Core)
-	k.k8sAPIGroups.addAPI(k8sAPIGroupNamespaceV1Core)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupNamespaceV1Core)
 	asyncControllers.Done()
 	namespaceController.Run(wait.NeverStop)
 }
