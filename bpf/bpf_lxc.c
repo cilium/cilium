@@ -329,7 +329,7 @@ ct_recreate6:
 		ret = ipv6_l3(ctx, l3_off, NULL, NULL, METRIC_EGRESS);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
-		return redirect_neigh(DIRECT_ROUTING_DEV_IFINDEX, 0);
+		return redirect_neigh(DIRECT_ROUTING_DEV_IFINDEX, NULL, 0, 0);
 	}
 	goto pass_to_stack;
 
@@ -705,7 +705,7 @@ ct_recreate4:
 		ret = ipv4_l3(ctx, l3_off, NULL, NULL, ip4);
 		if (unlikely(ret != CTX_ACT_OK))
 			return ret;
-		return redirect_neigh(DIRECT_ROUTING_DEV_IFINDEX, 0);
+		return redirect_neigh(DIRECT_ROUTING_DEV_IFINDEX, NULL, 0, 0);
 	}
 	goto pass_to_stack;
 
