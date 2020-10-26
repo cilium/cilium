@@ -79,12 +79,14 @@ ${HOME}/go/bin/kubetest --provider=local --test \
 
 # We currently skip the following tests:
 # should not allow access by TCP when a policy specifies only SCTP
+# NetworkPolicy between server and client using SCTP
 #  - Cilium does not support SCTP yet
 # should allow egress access to server in CIDR block and
 # should ensure an IP overlapping both IPBlock.CIDR and IPBlock.Except is allowed
+# should enforce except clause while egress access to server in CIDR block
 #  - TL;DR Cilium does not allow to specify pod CIDRs as part of the policy
 #    because it conflicts with the pod's security identity.
 #  - More info at https://github.com/cilium/cilium/issues/9209
 echo "Running upstream NetworkPolicy tests"
 ${HOME}/go/bin/kubetest --provider=local --test \
-  --test_args="--ginkgo.focus=NetworkPolicy.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed)|(should.allow.egress.access.to.server.in.CIDR.block)|(should.not.allow.access.by.TCP.when.a.policy.specifies.only.SCTP)"
+  --test_args="--ginkgo.focus=Net.*ol.* --e2e-verify-service-account=false --host ${KUBE_MASTER_URL} --ginkgo.skip=(should.not.allow.access.by.TCP.when.a.policy.specifies.only.SCTP)|(should.allow.egress.access.to.server.in.CIDR.block)|(should.enforce.except.clause.while.egress.access.to.server.in.CIDR.block)|(should.ensure.an.IP.overlapping.both.IPBlock.CIDR.and.IPBlock.Except.is.allowed)|(NetworkPolicy.between.server.and.client.using.SCTP)"
