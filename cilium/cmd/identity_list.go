@@ -88,23 +88,22 @@ func printIdentitesEndpoints(identities []*models.IdentityEndpoints) {
 		if err := command.PrintOutput(identities); err != nil {
 			Fatalf("Unable to provide JSON output: %s", err)
 		}
-	} else {
-		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+		return
+	}
 
-		fmt.Fprintf(w, "ID\tLABELS\tREFCOUNT\n")
-		for _, identity := range identities {
-			lbls := labels.NewLabelsFromModel(identity.Identity.Labels)
-			first := true
-			for _, lbl := range lbls.GetPrintableModel() {
-				if first {
-					fmt.Fprintf(w, "%d\t%s\t%d\t\n", identity.Identity.ID, lbl, identity.RefCount)
-					first = false
-				} else {
-					fmt.Fprintf(w, "\t%s\t\n", lbl)
-				}
+	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+	fmt.Fprintf(w, "ID\tLABELS\tREFCOUNT\n")
+	for _, identity := range identities {
+		lbls := labels.NewLabelsFromModel(identity.Identity.Labels)
+		first := true
+		for _, lbl := range lbls.GetPrintableModel() {
+			if first {
+				fmt.Fprintf(w, "%d\t%s\t%d\t\n", identity.Identity.ID, lbl, identity.RefCount)
+				first = false
+			} else {
+				fmt.Fprintf(w, "\t%s\t\n", lbl)
 			}
 		}
-
-		w.Flush()
 	}
+	w.Flush()
 }

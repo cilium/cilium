@@ -64,21 +64,21 @@ var endpointGetCmd = &cobra.Command{
 				os.Exit(1)
 			}
 			return
-		} else {
-			result := bytes.Buffer{}
-			enc := json.NewEncoder(&result)
-			enc.SetEscapeHTML(false)
-			enc.SetIndent("", "  ")
-			if err := enc.Encode(endpointInst); err != nil {
-				Fatalf("Cannot marshal endpoints %s", err.Error())
-			}
-
-			expandedResult, err := expandNestedJSON(result)
-			if err != nil {
-				Fatalf(err.Error())
-			}
-			fmt.Println(string(expandedResult.Bytes()))
 		}
+
+		result := bytes.Buffer{}
+		enc := json.NewEncoder(&result)
+		enc.SetEscapeHTML(false)
+		enc.SetIndent("", "  ")
+		if err := enc.Encode(endpointInst); err != nil {
+			Fatalf("Cannot marshal endpoints %s", err.Error())
+		}
+
+		expandedResult, err := expandNestedJSON(result)
+		if err != nil {
+			Fatalf(err.Error())
+		}
+		fmt.Println(string(expandedResult.Bytes()))
 	},
 }
 

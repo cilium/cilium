@@ -53,9 +53,10 @@ var mapGetCmd = &cobra.Command{
 			if err := command.PrintOutput(m); err != nil {
 				os.Exit(1)
 			}
-		} else {
-			printMapEntries(m)
+			return
 		}
+
+		printMapEntries(m)
 	},
 }
 

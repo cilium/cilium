@@ -69,20 +69,19 @@ func printIPcacheEntries(entries []*models.IPListEntry) {
 		if err := command.PrintOutput(entries); err != nil {
 			Fatalf("Unable to provide JSON output: %s", err)
 		}
-	} else {
-		w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
-
-		if verbose {
-			fmt.Fprintf(w, "IP\tIDENTITY\tSOURCE\tHOST\tENCRYPT_KEY\n")
-		} else {
-			fmt.Fprintf(w, "IP\tIDENTITY\tSOURCE\n")
-		}
-		for _, entry := range entries {
-			printEntry(w, entry)
-		}
-
-		w.Flush()
+		return
 	}
+
+	w := tabwriter.NewWriter(os.Stdout, 5, 0, 3, ' ', 0)
+	if verbose {
+		fmt.Fprintf(w, "IP\tIDENTITY\tSOURCE\tHOST\tENCRYPT_KEY\n")
+	} else {
+		fmt.Fprintf(w, "IP\tIDENTITY\tSOURCE\n")
+	}
+	for _, entry := range entries {
+		printEntry(w, entry)
+	}
+	w.Flush()
 }
 
 func printEntry(w *tabwriter.Writer, entry *models.IPListEntry) {
