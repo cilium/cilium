@@ -479,7 +479,7 @@ data:
   node-port-mode: {{ .Values.nodePort.mode | quote }}
 {{- end }}
 {{- if hasKey .Values.nodePort "algorithm" }}
-  node-port-algorithm: {{ .Values.nodePort.algorithm | quote }}
+  bpf-lb-algorithm: {{ .Values.nodePort.algorithm | quote }}
 {{- end }}
 {{- if .Values.nodePort.enableHealthCheck }}
   enable-health-check-nodeport: {{ .Values.nodePort.enableHealthCheck | quote}}

@@ -544,10 +544,29 @@ func init() {
 	option.BindEnv(option.EnableLocalRedirectPolicy)
 
 	flags.String(option.NodePortMode, option.NodePortModeSNAT, "BPF NodePort mode (\"snat\", \"dsr\", \"hybrid\")")
+	flags.MarkHidden(option.NodePortMode)
 	option.BindEnv(option.NodePortMode)
 
 	flags.String(option.NodePortAlg, option.NodePortAlgRandom, "BPF load balancing algorithm (\"random\", \"maglev\")")
+	flags.MarkHidden(option.NodePortAlg)
 	option.BindEnv(option.NodePortAlg)
+
+	flags.String(option.NodePortAcceleration, option.NodePortAccelerationDisabled, fmt.Sprintf(
+		"BPF NodePort acceleration via XDP (\"%s\", \"%s\")",
+		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
+	flags.MarkHidden(option.NodePortAcceleration)
+	option.BindEnv(option.NodePortAcceleration)
+
+	flags.String(option.LoadBalancerMode, option.NodePortModeSNAT, "BPF load balancing mode (\"snat\", \"dsr\", \"hybrid\")")
+	option.BindEnv(option.LoadBalancerMode)
+
+	flags.String(option.LoadBalancerAlg, option.NodePortAlgRandom, "BPF load balancing algorithm (\"random\", \"maglev\")")
+	option.BindEnv(option.LoadBalancerAlg)
+
+	flags.String(option.LoadBalancerAcceleration, option.NodePortAccelerationDisabled, fmt.Sprintf(
+		"BPF load balancing acceleration via XDP (\"%s\", \"%s\")",
+		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
+	option.BindEnv(option.LoadBalancerAcceleration)
 
 	flags.Uint(option.MaglevTableSize, maglev.DefaultTableSize, "Maglev per service backend table size (parameter M)")
 	option.BindEnv(option.MaglevTableSize)
@@ -565,11 +584,6 @@ func init() {
 
 	flags.Bool(option.NodePortBindProtection, true, "Reject application bind(2) requests to service ports in the NodePort range")
 	option.BindEnv(option.NodePortBindProtection)
-
-	flags.String(option.NodePortAcceleration, option.NodePortAccelerationDisabled, fmt.Sprintf(
-		"BPF NodePort acceleration via XDP (\"%s\", \"%s\")",
-		option.NodePortAccelerationNative, option.NodePortAccelerationDisabled))
-	option.BindEnv(option.NodePortAcceleration)
 
 	flags.Bool(option.EnableSessionAffinity, false, "Enable support for service session affinity")
 	option.BindEnv(option.EnableSessionAffinity)
