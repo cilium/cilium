@@ -42,7 +42,13 @@ Deploy Cilium
 .. include:: k8s-install-download-release.rst
 
 The Cilium Local Redirect Policy feature relies on :ref:`kubeproxy-free`,
-follow the guide to create a new deployment.
+follow the guide to create a new deployment. The beta feature is disabled by default.
+Enable the feature by setting the ``localRedirectPolicy`` value to ``true``.
+
+.. parsed-literal::
+
+   helm install cilium |CHART_RELEASE| \\
+     --set localRedirectPolicy=true
 
 Verify that Cilium agent pod is running.
 
