@@ -267,8 +267,10 @@ Pull requests review process for committers
 #. Once a PR is open, GitHub will automatically pick which `teams <https://github.com/orgs/cilium/teams/team/teams>`_
    should review the PR using the ``CODEOWNERS`` file. Each committer can see
    the PRs they need to review by filtering by reviews requested.
-   A good filter is provided in this `link <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+review-requested%3A%40me+sort%3Aupdated-asc>`_
-   so make sure to bookmark it.
+   A good filter is provided in this `link <https://github.com/cilium/cilium/pulls?q=is%3Apr+is%3Aopen+draft%3Afalse+assignee%3A%40me+sort%3Aupdated-asc>`_
+   so make sure to bookmark it. If a PR review is assigned to one or more
+   committers, they are expected to review that PR. Once they have performed
+   their review, they should remove themselves from the list of assignees.
 
 #. Belonging to a team does not mean that a committer should know every single
    line of code the team is maintaining. For this reason it is recommended
