@@ -43,6 +43,9 @@ serviceAccounts:
   ui:
     create: true
     annotations: {}
+  clustermeshApiserver:
+    create: true
+    annotations: {}
   # certgen is used if hubble.tls.auto.method=cronJob
   certgen:
     create: true
@@ -1339,3 +1342,123 @@ enableCriticalPriorityClass: true
 # disableEnvoyVersionCheck removes the check for Envoy, which can be useful on
 # AArch64 as the images do not currently ship a version of Envoy.
 #disableEnvoyVersionCheck: false
+
+# clustermesh-apiserver is created if externalWorkloads are enabled or if cluster.name != "default".
+clustermesh:
+  apiserver:
+    image:
+      repository: docker.io/cilium/clustermesh-apiserver
+      tag: latest
+      pullPolicy: IfNotPresent
+
+    etcd:
+      image:
+        repository: quay.io/coreos/etcd
+        tag: v3.4.13
+        pullPolicy: IfNotPresent
+
+    service:
+      type: NodePort
+      # optional port to use as the node port
+      nodePort: 32379
+      # optional loadBalancer IP to use with type LoadBalancer
+      # loadBalancerIP:
+
+      # For GKE LoadBalancer, use annotation cloud.google.com/load-balancer-type: "Internal"
+      # For EKS LoadBalancer, use annotation service.beta.kubernetes.io/aws-load-balancer-internal: 0.0.0.0/0
+      annotations: {}
+
+    # Number of replicas run for the clustermesh-apiserver deployment.
+    replicas: 1
+
+    # Node labels for pod assignment
+    # ref: https://kubernetes.io/docs/user-guide/node-selection/
+    nodeSelector: {}
+
+    # Annotations to be added to clustermesh-apiserver pods
+    podAnnotations: {}
+
+    # Resource requests and limits for the clustermesh-apiserver container of the clustermesh-apiserver deployment, such as
+    #     resources:
+    #       limits:
+    #         cpu: 1000m
+    #         memory: 1024M
+    #       requests:
+    #         cpu: 100m
+    #         memory: 64Mi
+    resources: {}
+
+    # Node tolerations for pod assignment on nodes with taints
+    # ref: https://kubernetes.io/docs/concepts/configuration/assign-pod-node/
+    tolerations: []
+
+    updateStrategy:
+      rollingUpdate:
+        maxUnavailable: 1
+      type: RollingUpdate
+
+    # TLS configuration for external workloads
+    # A Kubernetes CronJob is used the generate any
+    # certificates not provided by the user at installation
+    # time.
+    tls:
+      # Configure automatic TLS certificates generation.
+      auto:
+        # When set to true, automatically generate a CA and certificates to
+        # enable mTLS between clustermesh-apiserver and external workload instances.
+        # If set to false, the certs to be provided by setting appropriate values below.
+        enabled: true
+        # Sets the method to auto-generate certificates. Supported values:
+        # - helm:      This method uses Helm to generate all certificates.
+        # - cronJob:   This method uses a Kubernetes CronJob the generate any
+        #              certificates not provided by the user at installation
+        #              time.
+        method: helm
+        # Generated certificates validity duration in days.
+        certValidityDuration: 1095
+        # Schedule for certificates regeneration (regardless of their expiration date).
+        # Only used if method is "cronJob". If nil, then no recurring job will be created.
+        # Instead, only the one-shot job is deployed to generate the certificates at
+        # installation time.
+        #
+        # Due to the out-of-band distribution of client certs to external workloads the
+        # CA is (re)regenerated only if it is not provided as a helm value and the k8s
+        # secret is manually deleted.
+        #
+        # Defaults to none. Commented syntax gives midnight of the first day of every
+        # fourth month. For syntax, see
+        # https://kubernetes.io/docs/tasks/job/automated-tasks-with-cron-jobs/#schedule
+        # schedule: "0 0 1 */4 *"
+      # base64 encoded PEM values for the ExternalWorkload CA certificate and private key.
+      ca:
+        # Optional CA cert. If it is provided, it will be used by the 'cronJob' method to
+        # generate all other certificates. Otherwise, an ephemeral CA is generated.
+        cert: ""
+        # Optional CA private key. If it is provided, it will be used by the 'cronJob' method to
+        # generate all other certificates. Otherwise, an ephemeral CA is generated.
+        key: ""
+      # base64 encoded PEM values for the clustermesh-apiserver server certificate and private key
+      # Used if 'auto' is not enabled.
+      server:
+        cert: ""
+        key: ""
+      # base64 encoded PEM values for the clustermesh-apiserver admin certificate and private key
+      # Used if 'auto' is not enabled.
+      admin:
+        cert: ""
+        key: ""
+      # base64 encoded PEM values for the clustermesh-apiserver client certificate and private key
+      # Used if 'auto' is not enabled.
+      client:
+        cert: ""
+        key: ""
+      # base64 encoded PEM values for the clustermesh-apiserver remote cluster certificate and private key
+      # Used if 'auto' is not enabled.
+      remote:
+        cert: ""
+        key: ""
+
+# External workloads support
+externalWorkloads:
+  # Enable support for external workloads, such as VMs (false by default).
+  enabled: false
