@@ -31,6 +31,7 @@ import (
 	"github.com/cilium/cilium/pkg/ipcache"
 
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/golang/protobuf/ptypes/wrappers"
 	"google.golang.org/grpc"
 	"google.golang.org/grpc/connectivity"
 )
@@ -369,7 +370,7 @@ type FakeFlow struct {
 	SourceNames        []string
 	DestinationNames   []string
 	L7                 *flowpb.Layer7
-	Reply              bool
+	IsReply            *wrappers.BoolValue
 	EventType          *flowpb.CiliumEventType
 	SourceService      *flowpb.Service
 	DestinationService *flowpb.Service
@@ -452,9 +453,9 @@ func (f *FakeFlow) GetL7() *flowpb.Layer7 {
 	return f.L7
 }
 
-// GetReply implements v1.Flow for the FakeFlow.
-func (f *FakeFlow) GetReply() bool {
-	return f.Reply
+// GetIsReply implements v1.Flow for the FakeFlow.
+func (f *FakeFlow) GetIsReply() *wrappers.BoolValue {
+	return f.IsReply
 }
 
 // GetEventType implements v1.Flow for the FakeFlow.
