@@ -9,7 +9,7 @@ Validate Cilium Network Policies deployed in the cluster
 Before upgrading Cilium it is recommended to run this validation checker
 to make sure the policies deployed are valid. The validator will verify if all policies
 deployed in the cluster are valid, in case they are not, an error is printed and the
-has an exit code -1 is returned.
+has an exit code 1 is returned.
 
 ```
 cilium preflight validate-cnp [flags]

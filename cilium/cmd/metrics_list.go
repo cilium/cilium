@@ -58,7 +58,6 @@ var MetricsListCmd = &cobra.Command{
 			fmt.Fprintf(w, "%s\t%s\t%f\n", metric.Name, label, metric.Value)
 		}
 		w.Flush()
-		os.Exit(0)
 	},
 }
 
