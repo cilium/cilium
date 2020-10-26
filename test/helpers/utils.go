@@ -639,3 +639,9 @@ func SkipQuarantined() bool {
 func SkipGKEQuarantined() bool {
 	return SkipQuarantined() && IsIntegration(CIIntegrationGKE)
 }
+
+// SkipRaceDetectorEnabled returns whether test should be skipped in case the
+// test suire was build with the Go race detector enabled.
+func SkipRaceDetectorEnabled() bool {
+	return isRaceDetectorEnabled
+}
