@@ -1,0 +1,37 @@
+{{- if and (or .Values.externalWorkloads.enabled (not (eq .Values.cluster.name "default"))) .Values.serviceAccounts.clustermeshApiserver.create }}
+apiVersion: rbac.authorization.k8s.io/v1
+kind: ClusterRole
+metadata:
+  name: clustermesh-apiserver
+rules:
+- apiGroups:
+  - ""
+  resources:
+  - namespaces
+  - services
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - discovery.k8s.io
+  resources:
+  - endpointslices
+  verbs:
+  - get
+  - list
+  - watch
+- apiGroups:
+  - cilium.io
+  resources:
+  - ciliumnodes
+  - ciliumnodes/status
+  - ciliumexternalworkloads
+  - ciliumexternalworkloads/status
+  - ciliumidentities
+  - ciliumidentities/status
+  - ciliumendpoints
+  - ciliumendpoints/status
+  verbs:
+  - '*'
+{{- end }}
