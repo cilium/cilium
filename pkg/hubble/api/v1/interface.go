@@ -21,6 +21,7 @@ import (
 
 	"github.com/golang/protobuf/proto"
 	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/golang/protobuf/ptypes/wrappers"
 )
 
 // Flow is an interface matching pb.Flow
@@ -39,7 +40,7 @@ type Flow interface {
 	GetSourceNames() []string
 	GetDestinationNames() []string
 	GetL7() *flowpb.Layer7
-	GetReply() bool
+	GetIsReply() *wrappers.BoolValue
 	GetEventType() *flowpb.CiliumEventType
 	GetSourceService() *flowpb.Service
 	GetDestinationService() *flowpb.Service
