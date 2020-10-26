@@ -324,7 +324,7 @@ func (d *Daemon) allocateIPs() error {
 	return d.allocateHealthIPs()
 }
 
-func (d *Daemon) bootstrapIPAM() {
+func (d *Daemon) configureIPAM() {
 	// If the device has been specified, the IPv4AllocPrefix and the
 	// IPv6AllocPrefix were already allocated before the k8s.Init().
 	//
@@ -337,9 +337,6 @@ func (d *Daemon) bootstrapIPAM() {
 	//
 	// Then, we will calculate the IPv4 or IPv6 alloc prefix based on the IPv6
 	// or IPv4 alloc prefix, respectively, retrieved by k8s node annotations.
-	bootstrapStats.ipam.Start()
-	log.Info("Initializing node addressing")
-
 	if option.Config.IPv4Range != AutoCIDR {
 		allocCIDR, err := cidr.ParseCIDR(option.Config.IPv4Range)
 		if err != nil {
@@ -360,7 +357,11 @@ func (d *Daemon) bootstrapIPAM() {
 	if err := node.AutoComplete(); err != nil {
 		log.WithError(err).Fatal("Cannot autocomplete node addresses")
 	}
+}
 
+func (d *Daemon) startIPAM() {
+	bootstrapStats.ipam.Start()
+	log.Info("Initializing node addressing")
 	// Set up ipam conf after init() because we might be running d.conf.KVStoreIPv4Registration
 	d.ipam = ipam.NewIPAM(d.datapath.LocalNodeAddressing(), option.Config, d.nodeDiscovery, d.k8sWatcher)
 	bootstrapStats.ipam.End(true)
