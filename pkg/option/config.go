@@ -249,15 +249,24 @@ const (
 	// ("random" or "maglev")
 	NodePortAlg = "node-port-algorithm"
 
+	// NodePortAcceleration indicates whether NodePort should be accelerated
+	// via XDP ("none", "generic" or "native")
+	NodePortAcceleration = "node-port-acceleration"
+
+	// Alias to NodePortMode
+	LoadBalancerMode = "bpf-lb-mode"
+
+	// Alias to NodePortAlg
+	LoadBalancerAlg = "bpf-lb-algorithm"
+
+	// Alias to NodePortAcceleration
+	LoadBalancerAcceleration = "bpf-lb-acceleration"
+
 	// MaglevTableSize determines the size of the backend table per service
 	MaglevTableSize = "bpf-lb-maglev-table-size"
 
 	// MaglevHashSeed contains the cluster-wide seed for the hash
 	MaglevHashSeed = "bpf-lb-maglev-hash-seed"
-
-	// NodePortAcceleration indicates whether NodePort should be accelerated
-	// via XDP ("none", "generic" or "native")
-	NodePortAcceleration = "node-port-acceleration"
 
 	// NodePortBindProtection rejects bind requests to NodePort service ports
 	NodePortBindProtection = "node-port-bind-protection"
@@ -2448,11 +2457,8 @@ func (c *DaemonConfig) Populate() {
 	c.EnableSVCSourceRangeCheck = viper.GetBool(EnableSVCSourceRangeCheck)
 	c.EnableHostPort = viper.GetBool(EnableHostPort)
 	c.EnableHostLegacyRouting = viper.GetBool(EnableHostLegacyRouting)
-	c.NodePortMode = viper.GetString(NodePortMode)
-	c.NodePortAlg = viper.GetString(NodePortAlg)
 	c.MaglevTableSize = viper.GetInt(MaglevTableSize)
 	c.MaglevHashSeed = viper.GetString(MaglevHashSeed)
-	c.NodePortAcceleration = viper.GetString(NodePortAcceleration)
 	c.NodePortBindProtection = viper.GetBool(NodePortBindProtection)
 	c.EnableAutoProtectNodePortRange = viper.GetBool(EnableAutoProtectNodePortRange)
 	c.KubeProxyReplacement = viper.GetString(KubeProxyReplacement)
@@ -2554,7 +2560,7 @@ func (c *DaemonConfig) Populate() {
 	c.FragmentsMapEntries = viper.GetInt(FragmentsMapEntriesName)
 	c.K8sServiceProxyName = viper.GetString(K8sServiceProxyName)
 	c.CRDWaitTimeout = viper.GetDuration(CRDWaitTimeout)
-
+	c.populateLoadBalancerSettings()
 	c.populateDevices()
 
 	if nativeCIDR := viper.GetString(IPv4NativeRoutingCIDR); nativeCIDR != "" {
@@ -2772,6 +2778,38 @@ func (c *DaemonConfig) populateDevices() {
 	c.Devices = make([]string, 0, len(devSet))
 	for dev := range devSet {
 		c.Devices = append(c.Devices, dev)
+	}
+}
+
+func (c *DaemonConfig) populateLoadBalancerSettings() {
+	c.NodePortAcceleration = viper.GetString(LoadBalancerAcceleration)
+	c.NodePortMode = viper.GetString(LoadBalancerMode)
+	c.NodePortAlg = viper.GetString(LoadBalancerAlg)
+	// If old settings were explicitly set by the user, then have them
+	// override the new ones in order to not break existing setups.
+	if viper.IsSet(NodePortAcceleration) {
+		prior := c.NodePortAcceleration
+		c.NodePortAcceleration = viper.GetString(NodePortAcceleration)
+		if viper.IsSet(LoadBalancerAcceleration) && prior != c.NodePortAcceleration {
+			log.Fatalf("Both --%s and --%s were set. Only use --%s instead.",
+				LoadBalancerAcceleration, NodePortAcceleration, LoadBalancerAcceleration)
+		}
+	}
+	if viper.IsSet(NodePortMode) {
+		prior := c.NodePortMode
+		c.NodePortMode = viper.GetString(NodePortMode)
+		if viper.IsSet(LoadBalancerMode) && prior != c.NodePortMode {
+			log.Fatalf("Both --%s and --%s were set. Only use --%s instead.",
+				LoadBalancerMode, NodePortMode, LoadBalancerMode)
+		}
+	}
+	if viper.IsSet(NodePortAlg) {
+		prior := c.NodePortAlg
+		c.NodePortAlg = viper.GetString(NodePortAlg)
+		if viper.IsSet(LoadBalancerAlg) && prior != c.NodePortAlg {
+			log.Fatalf("Both --%s and --%s were set. Only use --%s instead.",
+				LoadBalancerAlg, NodePortAlg, LoadBalancerAlg)
+		}
 	}
 }
 
