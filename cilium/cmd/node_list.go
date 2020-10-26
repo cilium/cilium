@@ -48,11 +48,12 @@ var nodeListCmd = &cobra.Command{
 			if err := command.PrintOutput(cluster); err != nil {
 				os.Exit(1)
 			}
-		} else {
-			w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
-			formatStatusResponse(w, cluster)
-			w.Flush()
+			return
 		}
+
+		w := tabwriter.NewWriter(os.Stdout, 2, 0, 3, ' ', 0)
+		formatStatusResponse(w, cluster)
+		w.Flush()
 	},
 }
 
