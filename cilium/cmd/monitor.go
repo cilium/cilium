@@ -70,6 +70,7 @@ func init() {
 	monitorCmd.Flags().BoolSliceVarP(&verbosity, "verbose", "v", nil, "Enable verbose output (-v, -vv)")
 	monitorCmd.Flags().Lookup("verbose").NoOptDefVal = "false"
 	monitorCmd.Flags().BoolVarP(&printer.JSONOutput, "json", "j", false, "Enable json output. Shadows -v flag")
+	monitorCmd.Flags().BoolVarP(&printer.Numeric, "numeric", "n", false, "Display all security identities as numeric values")
 	monitorCmd.Flags().StringVar(&socketPath, "monitor-socket", "", "Configure monitor socket path")
 	viper.BindEnv("monitor-socket", "CILIUM_MONITOR_SOCK")
 	viper.BindPFlags(monitorCmd.Flags())

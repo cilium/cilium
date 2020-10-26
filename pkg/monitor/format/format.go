@@ -54,6 +54,7 @@ type MonitorFormatter struct {
 	Hex        bool
 	JSONOutput bool
 	Verbosity  Verbosity
+	Numeric    bool
 }
 
 // NewMonitorFormatter returns a new formatter with default configuration.
@@ -66,6 +67,7 @@ func NewMonitorFormatter(verbosity Verbosity) *MonitorFormatter {
 		Related:    Uint16Flags{},
 		JSONOutput: false,
 		Verbosity:  verbosity,
+		Numeric:    bool(monitor.DisplayLabel),
 	}
 }
 
@@ -97,12 +99,12 @@ func (m *MonitorFormatter) dropEvents(prefix string, data []byte) {
 	if m.match(monitorAPI.MessageTypeDrop, dn.Source, uint16(dn.DstID)) {
 		switch m.Verbosity {
 		case INFO, DEBUG:
-			dn.DumpInfo(data)
+			dn.DumpInfo(data, monitor.DisplayFormat(m.Numeric))
 		case JSON:
 			dn.DumpJSON(data, prefix)
 		default:
 			fmt.Println(msgSeparator)
-			dn.DumpVerbose(!m.Hex, data, prefix)
+			dn.DumpVerbose(!m.Hex, data, prefix, monitor.DisplayFormat(m.Numeric))
 		}
 	}
 }
@@ -117,12 +119,12 @@ func (m *MonitorFormatter) traceEvents(prefix string, data []byte) {
 	if m.match(monitorAPI.MessageTypeTrace, tn.Source, tn.DstID) {
 		switch m.Verbosity {
 		case INFO, DEBUG:
-			tn.DumpInfo(data)
+			tn.DumpInfo(data, monitor.DisplayFormat(m.Numeric))
 		case JSON:
 			tn.DumpJSON(data, prefix)
 		default:
 			fmt.Println(msgSeparator)
-			tn.DumpVerbose(!m.Hex, data, prefix)
+			tn.DumpVerbose(!m.Hex, data, prefix, monitor.DisplayFormat(m.Numeric))
 		}
 	}
 }
@@ -135,7 +137,7 @@ func (m *MonitorFormatter) policyVerdictEvents(prefix string, data []byte) {
 	}
 
 	if m.match(monitorAPI.MessageTypePolicyVerdict, pn.Source, uint16(pn.RemoteLabel)) {
-		pn.DumpInfo(data)
+		pn.DumpInfo(data, monitor.DisplayFormat(m.Numeric))
 	}
 }
 
