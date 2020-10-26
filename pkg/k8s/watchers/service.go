@@ -76,7 +76,7 @@ func (k *K8sWatcher) servicesInit(k8sClient kubernetes.Interface, swgSvcs *lock.
 	)
 	k.blockWaitGroupToSyncResources(wait.NeverStop, swgSvcs, svcController.HasSynced, K8sAPIGroupServiceV1Core)
 	go svcController.Run(wait.NeverStop)
-	k.k8sAPIGroups.addAPI(K8sAPIGroupServiceV1Core)
+	k.k8sAPIGroups.AddAPI(K8sAPIGroupServiceV1Core)
 }
 
 func (k *K8sWatcher) addK8sServiceV1(svc *slim_corev1.Service, swg *lock.StoppableWaitGroup) error {

@@ -58,7 +58,7 @@ func (k *K8sWatcher) nodesInit(k8sClient kubernetes.Interface) {
 
 	k.blockWaitGroupToSyncResources(wait.NeverStop, nil, nodeController.HasSynced, k8sAPIGroupNodeV1Core)
 	go nodeController.Run(wait.NeverStop)
-	k.k8sAPIGroups.addAPI(k8sAPIGroupNodeV1Core)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupNodeV1Core)
 }
 
 func (k *K8sWatcher) updateK8sNodeV1(oldK8sNode, newK8sNode *slim_corev1.Node) error {

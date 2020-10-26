@@ -32,6 +32,7 @@ import (
 	"github.com/cilium/cilium/pkg/k8s"
 	k8smetrics "github.com/cilium/cilium/pkg/k8s/metrics"
 	slim_corev1 "github.com/cilium/cilium/pkg/k8s/slim/k8s/api/core/v1"
+	"github.com/cilium/cilium/pkg/k8s/synced"
 	"github.com/cilium/cilium/pkg/k8s/utils"
 	"github.com/cilium/cilium/pkg/labels"
 	"github.com/cilium/cilium/pkg/loadbalancer"
@@ -52,7 +53,6 @@ import (
 )
 
 const (
-	k8sAPIGroupCRD                              = "CustomResourceDefinition"
 	k8sAPIGroupNodeV1Core                       = "core/v1::Node"
 	k8sAPIGroupNamespaceV1Core                  = "core/v1::Namespace"
 	K8sAPIGroupServiceV1Core                    = "core/v1::Service"
@@ -149,21 +149,16 @@ type redirectPolicyManager interface {
 }
 
 type K8sWatcher struct {
-	// k8sResourceSyncedMu protects the k8sResourceSynced map.
-	k8sResourceSyncedMu lock.RWMutex
-
 	// k8sResourceSynced maps a resource name to a channel. Once the given
 	// resource name is synchronized with k8s, the channel for which that
 	// resource name maps to is closed.
-	k8sResourceSynced map[string]<-chan struct{}
-	// k8sResourceSyncedStopWait contains the result of
-	k8sResourceSyncedStopWait map[string]bool
+	k8sResourceSynced synced.Resources
 
-	// k8sAPIs is a set of k8s API in use. They are setup in EnableK8sWatcher,
+	// k8sAPIGroups is a set of k8s API in use. They are setup in EnableK8sWatcher,
 	// and may be disabled while the agent runs.
 	// This is on this object, instead of a global, because EnableK8sWatcher is
 	// on Daemon.
-	k8sAPIGroups k8sAPIGroupsUsed
+	k8sAPIGroups synced.APIGroups
 
 	// K8sSvcCache is a cache of all Kubernetes services and endpoints
 	K8sSvcCache k8s.ServiceCache
@@ -203,52 +198,17 @@ func NewK8sWatcher(
 	redirectPolicyManager redirectPolicyManager,
 ) *K8sWatcher {
 	return &K8sWatcher{
-		k8sResourceSynced:         map[string]<-chan struct{}{},
-		k8sResourceSyncedStopWait: map[string]bool{},
-		K8sSvcCache:               k8s.NewServiceCache(datapath.LocalNodeAddressing()),
-		endpointManager:           endpointManager,
-		nodeDiscoverManager:       nodeDiscoverManager,
-		policyManager:             policyManager,
-		policyRepository:          policyRepository,
-		svcManager:                svcManager,
-		controllersStarted:        make(chan struct{}),
-		podStoreSet:               make(chan struct{}),
-		datapath:                  datapath,
-		redirectPolicyManager:     redirectPolicyManager,
+		K8sSvcCache:           k8s.NewServiceCache(datapath.LocalNodeAddressing()),
+		endpointManager:       endpointManager,
+		nodeDiscoverManager:   nodeDiscoverManager,
+		policyManager:         policyManager,
+		policyRepository:      policyRepository,
+		svcManager:            svcManager,
+		controllersStarted:    make(chan struct{}),
+		podStoreSet:           make(chan struct{}),
+		datapath:              datapath,
+		redirectPolicyManager: redirectPolicyManager,
 	}
-}
-
-// k8sAPIGroupsUsed is a lockable map to hold which k8s API Groups we have
-// enabled/in-use
-// Note: We can replace it with a Go 1.9 map once we require that version
-type k8sAPIGroupsUsed struct {
-	lock.RWMutex
-	apis map[string]bool
-}
-
-func (m *k8sAPIGroupsUsed) addAPI(api string) {
-	m.Lock()
-	defer m.Unlock()
-	if m.apis == nil {
-		m.apis = make(map[string]bool)
-	}
-	m.apis[api] = true
-}
-
-func (m *k8sAPIGroupsUsed) removeAPI(api string) {
-	m.Lock()
-	defer m.Unlock()
-	delete(m.apis, api)
-}
-
-func (m *k8sAPIGroupsUsed) getGroups() []string {
-	m.RLock()
-	defer m.RUnlock()
-	groups := make([]string, 0, len(m.apis))
-	for k := range m.apis {
-		groups = append(groups, k)
-	}
-	return groups
 }
 
 // k8sMetrics implements the LatencyMetric and ResultMetric interface from
@@ -275,98 +235,25 @@ func (*k8sMetrics) Increment(code string, method string, host string) {
 	k8smetrics.LastInteraction.Reset()
 }
 
-func (k *K8sWatcher) GetAPIGroups() []string {
-	return k.k8sAPIGroups.getGroups()
+func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
+	k.k8sResourceSynced.WaitForCacheSync(resourceNames...)
 }
 
 func (k *K8sWatcher) cancelWaitGroupToSyncResources(resourceName string) {
-	k.k8sResourceSyncedMu.Lock()
-	delete(k.k8sResourceSynced, resourceName)
-	k.k8sResourceSyncedMu.Unlock()
+	k.k8sResourceSynced.CancelWaitGroupToSyncResources(resourceName)
 }
 
-// blockWaitGroupToSyncResources ensures that anything which waits on waitGroup
-// waits until all objects of the specified resource stored in Kubernetes are
-// received by the informer and processed by controller.
-// Fatally exits if syncing these initial objects fails.
-// If the given stop channel is closed, it does not fatal.
-// Once the k8s caches are synced against k8s, k8sCacheSynced is also closed.
 func (k *K8sWatcher) blockWaitGroupToSyncResources(
 	stop <-chan struct{},
 	swg *lock.StoppableWaitGroup,
 	hasSyncedFunc cache.InformerSynced,
 	resourceName string,
 ) {
-
-	ch := make(chan struct{})
-	k.k8sResourceSyncedMu.Lock()
-	k.k8sResourceSynced[resourceName] = ch
-	k.k8sResourceSyncedMu.Unlock()
-	go func() {
-		scopedLog := log.WithField("kubernetesResource", resourceName)
-		scopedLog.Debug("waiting for cache to synchronize")
-		if ok := cache.WaitForCacheSync(stop, hasSyncedFunc); !ok {
-			select {
-			case <-stop:
-				// do not fatal if the channel was stopped
-				scopedLog.Debug("canceled cache synchronization")
-				k.k8sResourceSyncedMu.Lock()
-				// Since the wait for cache sync was canceled we need
-				// to mark that k8sResourceSyncedStopWait was canceled and it
-				// should not stop waiting for this resource to be synchronized.
-				k.k8sResourceSyncedStopWait[resourceName] = false
-				k.k8sResourceSyncedMu.Unlock()
-			default:
-				// Fatally exit it resource fails to sync
-				scopedLog.Fatalf("failed to wait for cache to sync")
-			}
-		} else {
-			scopedLog.Debug("cache synced")
-			k.k8sResourceSyncedMu.Lock()
-			// Since the wait for cache sync was not canceled we need
-			// to mark that k8sResourceSyncedStopWait not canceled and it
-			// should stop waiting for this resource to be synchronized.
-			k.k8sResourceSyncedStopWait[resourceName] = true
-			k.k8sResourceSyncedMu.Unlock()
-		}
-		if swg != nil {
-			swg.Stop()
-			swg.Wait()
-		}
-		close(ch)
-	}()
+	k.k8sResourceSynced.BlockWaitGroupToSyncResources(stop, swg, hasSyncedFunc, resourceName)
 }
 
-// WaitForCacheSync waits for k8s caches to be synchronized for the given
-// resource. Returns once all resourcesNames are synchronized with cilium-agent.
-func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
-	for _, resourceName := range resourceNames {
-		k.k8sResourceSyncedMu.RLock()
-		c, ok := k.k8sResourceSynced[resourceName]
-		k.k8sResourceSyncedMu.RUnlock()
-		if !ok {
-			continue
-		}
-		for {
-			scopedLog := log.WithField("kubernetesResource", resourceName)
-			<-c
-			k.k8sResourceSyncedMu.RLock()
-			stopWait := k.k8sResourceSyncedStopWait[resourceName]
-			k.k8sResourceSyncedMu.RUnlock()
-			if stopWait {
-				scopedLog.Debug("stopped waiting for caches to be synced")
-				break
-			}
-			scopedLog.Debug("original cache sync operation was aborted, waiting for caches to be synced with a new channel...")
-			time.Sleep(100 * time.Millisecond)
-			k.k8sResourceSyncedMu.RLock()
-			c, ok = k.k8sResourceSynced[resourceName]
-			k.k8sResourceSyncedMu.RUnlock()
-			if !ok {
-				break
-			}
-		}
-	}
+func (k *K8sWatcher) GetAPIGroups() []string {
+	return k.k8sAPIGroups.GetGroups()
 }
 
 // WaitForCRDsToRegister will wait for the Cilium Operator to register the CRDs
@@ -374,7 +261,7 @@ func (k *K8sWatcher) WaitForCacheSync(resourceNames ...string) {
 // watcher, as those resource controllers need the resources to be registered
 // with K8s first.
 func (k *K8sWatcher) WaitForCRDsToRegister(ctx context.Context) error {
-	return k.crdsInit(ctx, k8s.WatcherAPIExtClient())
+	return synced.SyncCRDs(ctx, &k.k8sResourceSynced, &k.k8sAPIGroups)
 }
 
 // InitK8sSubsystem returns a channel for which it will be closed when all
@@ -393,14 +280,7 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 	go func() {
 		// Ensure that we have the CRDs installed first before waiting on the
 		// other resources below.
-		k.WaitForCacheSync(
-			cnpCRD,
-			ccnpCRD,
-			cepCRD,
-			cnCRD,
-			cidCRD,
-			clrpCRD,
-		)
+		k.WaitForCacheSync(synced.GetCRDResourceNames()...)
 
 		log.Info("Waiting until all pre-existing resources related to policy have been received")
 		// Wait only for certain caches, but not all!

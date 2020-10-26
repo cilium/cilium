@@ -83,7 +83,7 @@ func (k *K8sWatcher) networkPoliciesInit(k8sClient kubernetes.Interface, swgKNPs
 	k.blockWaitGroupToSyncResources(wait.NeverStop, swgKNPs, policyController.HasSynced, k8sAPIGroupNetworkingV1Core)
 	go policyController.Run(wait.NeverStop)
 
-	k.k8sAPIGroups.addAPI(k8sAPIGroupNetworkingV1Core)
+	k.k8sAPIGroups.AddAPI(k8sAPIGroupNetworkingV1Core)
 }
 
 func (k *K8sWatcher) addK8sNetworkPolicyV1(k8sNP *slim_networkingv1.NetworkPolicy) error {
