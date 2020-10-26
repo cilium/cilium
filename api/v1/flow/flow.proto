@@ -15,6 +15,7 @@
 syntax = "proto3";
 
 import "google/protobuf/timestamp.proto";
+import "google/protobuf/wrappers.proto";
 
 package flow;
 
@@ -52,7 +53,10 @@ message Flow {
     // L7 information. This field is set if and only if FlowType is L7.
     Layer7 l7 = 15;
 
-    bool reply = 16;
+    // Deprecated. This suffers from false negatives due to protobuf not being
+    // able to distinguish between the value being false or it being absent.
+    // Please use is_reply instead.
+    bool reply = 16 [deprecated=true];
 
     // unused 17-18
 
@@ -73,6 +77,11 @@ message Flow {
 
     // Only applicable to cilium trace notifications, blank for other types.
     TraceObservationPoint trace_observation_point = 24;
+
+    // is_reply indicates that this was a packet (L4) or message (L7) in the
+    // reply direction. May be absent (in which case it is unknown whether it
+    // is a reply or not).
+    google.protobuf.BoolValue is_reply = 26;
 
     // This is a temporary workaround to support summary field for pb.Flow without
     // duplicating logic from the old parser. This field will be removed once we

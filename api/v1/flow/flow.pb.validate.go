@@ -159,6 +159,16 @@ func (m *Flow) Validate() error {
 
 	// no validation rules for TraceObservationPoint
 
+	if v, ok := interface{}(m.GetIsReply()).(interface{ Validate() error }); ok {
+		if err := v.Validate(); err != nil {
+			return FlowValidationError{
+				field:  "IsReply",
+				reason: "embedded message failed validation",
+				cause:  err,
+			}
+		}
+	}
+
 	// no validation rules for Summary
 
 	return nil
