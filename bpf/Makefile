@@ -3,7 +3,7 @@
 
 include ../Makefile.defs
 
-.PHONY: all build_all subdirs install clean
+.PHONY: all bpf_all build_all subdirs install clean
 
 SUBDIRS = sockops
 
@@ -15,12 +15,14 @@ TARGET=cilium-map-migrate cilium-probe-kernel-hz
 include ./Makefile.bpf
 
 ifeq ("$(PKG_BUILD)","")
-all: $(BPF) $(TARGET) subdirs
+all: $(TARGET) bpf_all
+
+bpf_all: $(BPF) subdirs
 
 build_all: force
 	@touch $(BUILD_PERMUTATIONS_DEP)
 	@$(ECHO_CHECK)/*.c BUILD_PERMUTATIONS=1
-	$(QUIET) $(MAKE) $(SUBMAKEOPTS) all BUILD_PERMUTATIONS=1
+	$(QUIET) $(MAKE) $(SUBMAKEOPTS) bpf_all BUILD_PERMUTATIONS=1
 
 BUILD_PERMUTATIONS ?= ""
 
