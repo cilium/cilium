@@ -195,11 +195,7 @@ func endpointsExist(endpoints format.Uint16Flags, existingEndpoints []*models.En
 		}
 	}
 
-	if len(endpointsFound) == 0 {
-		return false
-	}
-
-	return true
+	return len(endpointsFound) > 0
 }
 
 func validateEndpointsFilters() {
