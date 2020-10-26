@@ -53,6 +53,7 @@ var (
 		crdResourceName(v2.CNName),
 		crdResourceName(v2.CIDName),
 		crdResourceName(v2.CLRPName),
+		crdResourceName(v2.CEWName),
 	}
 )
 
