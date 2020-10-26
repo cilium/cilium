@@ -70,3 +70,55 @@ tls.key: {{ $cert.Key | b64enc }}
 tls.crt: {{ $cert.Cert | b64enc }}
 tls.key: {{ $cert.Key | b64enc }}
 {{- end }}
+
+{{/* Generate CA "vmca" for clustermesh-apiserver in the global dict. */}}
+{{- define "clustermesh.apiserver.generate.ca" }}
+{{- $ca := .cmca | default (genCA "clustermesh-apiserver-ca.cilium.io" (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int)) -}}
+{{- $_ := set . "cmca" $ca -}}
+{{- end }}
+
+{{/* Generate CA certificate clustermesh-apiserver. */}}
+{{- define "clustermesh.apiserver.ca.gen-cert" }}
+{{- template "clustermesh.apiserver.generate.ca" . -}}
+ca.crt: {{ .cmca.Cert | b64enc }}
+ca.key: {{ .cmca.Key | b64enc }}
+{{- end }}
+
+{{/* Generate server certificate clustermesh-apiserver. */}}
+{{- define "clustermesh.apiserver.server.gen-cert" }}
+{{- template "clustermesh.apiserver.generate.ca" . }}
+{{- $CN := "clustermesh-apiserver.cilium.io" }}
+{{- $IPs := (list "127.0.0.1") }}
+{{- $SANs := (list $CN) }}
+{{- $cert := genSignedCert $CN $IPs $SANs (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int) .cmca -}}
+tls.crt: {{ $cert.Cert | b64enc }}
+tls.key: {{ $cert.Key | b64enc }}
+{{- end }}
+
+{{/* Generate admin certificate clustermesh-apiserver. */}}
+{{- define "clustermesh.apiserver.admin.gen-cert" }}
+{{- template "clustermesh.apiserver.generate.ca" . }}
+{{- $CN := "root" }}
+{{- $SANs := (list "localhost") }}
+{{- $cert := genSignedCert $CN nil $SANs (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int) .cmca -}}
+tls.crt: {{ $cert.Cert | b64enc }}
+tls.key: {{ $cert.Key | b64enc }}
+{{- end }}
+
+{{/* Generate client certificate clustermesh-apiserver. */}}
+{{- define "clustermesh.apiserver.client.gen-cert" }}
+{{- template "clustermesh.apiserver.generate.ca" . }}
+{{- $CN := "externalworkload" }}
+{{- $cert := genSignedCert $CN nil nil (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int) .cmca -}}
+tls.crt: {{ $cert.Cert | b64enc }}
+tls.key: {{ $cert.Key | b64enc }}
+{{- end }}
+
+{{/* Generate remote certificate clustermesh-apiserver. */}}
+{{- define "clustermesh.apiserver.remote.gen-cert" }}
+{{- template "clustermesh.apiserver.generate.ca" . }}
+{{- $CN := "remote" }}
+{{- $cert := genSignedCert $CN nil nil (.Values.clustermesh.apiserver.tls.auto.certValidityDuration | int) .cmca -}}
+tls.crt: {{ $cert.Cert | b64enc }}
+tls.key: {{ $cert.Key | b64enc }}
+{{- end }}
