@@ -579,7 +579,11 @@ minikube:
 licenses-all:
 	@go run ./tools/licensegen > LICENSE.all || ( rm -f LICENSE.all ; false )
 
-update-golang: update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
+update-golang: update-golang-dev-doctor update-golang-dockerfiles update-gh-actions-go-version update-travis-go-version update-test-go-version update-images-go-version
+
+update-golang-dev-doctor:
+	$(QUIET) sed -i 's/^const minGoVersionStr = ".*"/const minGoVersionStr = "$(GO_VERSION)"/' tools/dev-doctor/config.go
+	@echo "Updated go version in tools/dev-doctor to $(GO_VERSION)"
 
 update-golang-dockerfiles:
 	$(QUIET) sed -i 's/GO_VERSION .*/GO_VERSION $(GO_VERSION)/g' Dockerfile.builder
