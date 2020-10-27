@@ -427,7 +427,7 @@ certgen:
   # certgen image used in the job pod spec
   image:
     repository: docker.io/cilium/certgen
-    tag: v0.1.2@sha256:c56e1cd89e6f49a9fa442ad129974e2addfc687ef6ac524ee26849162425c489
+    tag: v0.1.3@sha256:460fdcbabfa08b435dbee455e88add1ec54761ca2693e1d9885408ff55ed7f8e
     pullPolicy: IfNotPresent
   # Seconds after which the completed job pod will be deleted
   ttlSecondsAfterFinished: 1800
