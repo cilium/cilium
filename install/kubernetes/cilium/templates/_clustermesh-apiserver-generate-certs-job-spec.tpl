@@ -15,6 +15,8 @@ spec:
           command:
             - "/usr/bin/cilium-certgen"
           args:
+            - "--cilium-namespace={{ .Release.Namespace }}"
+            - "--clustermesh-apiserver-ca-cert-reuse-secret"
             {{- if .Values.debug.enabled }}
             - "--debug"
             {{- end }}

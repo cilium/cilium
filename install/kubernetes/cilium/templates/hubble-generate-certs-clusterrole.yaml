@@ -29,4 +29,12 @@ rules:
       - hubble-ca-cert
     verbs:
       - update
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - hubble-ca-secret
+    verbs:
+      - get
 {{- end }}
