@@ -48,6 +48,7 @@ var (
 	// k8s.
 	k8sSvcCacheSynced = make(chan struct{})
 	kvs               *store.SharedStore
+	sharedOnly        bool
 )
 
 func k8sServiceHandler() {
@@ -66,7 +67,7 @@ func k8sServiceHandler() {
 			"shared":               event.Service.Shared,
 		}).Debug("Kubernetes service definition changed")
 
-		if !event.Service.Shared {
+		if sharedOnly && !event.Service.Shared {
 			// The annotation may have been added, delete an eventual existing service
 			kvs.DeleteLocalKey(context.TODO(), &svc)
 			return
@@ -91,8 +92,12 @@ func k8sServiceHandler() {
 }
 
 // StartSynchronizingServices starts a controller for synchronizing services from k8s to kvstore
-func StartSynchronizingServices() {
+// 'shared' specifies whether only shared services are synchronized. If 'false' then all services
+// will be synchronized. For clustermesh we only need to synchronize shared services, while for
+// VM support we need to sync all the services.
+func StartSynchronizingServices(shared bool) {
 	log.Info("Starting to synchronize k8s services to kvstore...")
+	sharedOnly = shared
 
 	serviceOptsModifier, err := utils.GetServiceListOptionsModifier()
 	if err != nil {

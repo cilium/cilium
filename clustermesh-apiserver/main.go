@@ -28,6 +28,7 @@ import (
 	"strings"
 	"time"
 
+	operatorWatchers "github.com/cilium/cilium/operator/watchers"
 	"github.com/cilium/cilium/pkg/defaults"
 	"github.com/cilium/cilium/pkg/identity"
 	identityCache "github.com/cilium/cilium/pkg/identity/cache"
@@ -48,7 +49,6 @@ import (
 	nodeStore "github.com/cilium/cilium/pkg/node/store"
 	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 	"github.com/cilium/cilium/pkg/option"
-	serviceStore "github.com/cilium/cilium/pkg/service/store"
 
 	gops "github.com/google/gops/agent"
 	"github.com/sirupsen/logrus"
@@ -81,8 +81,6 @@ var (
 
 	ciliumNodeRegisterStore *store.SharedStore
 	ciliumNodeStore         *store.SharedStore
-	ciliumServiceStore      *store.SharedStore
-	serviceCache            k8s.ServiceCache
 
 	identityStore = cache.NewStore(cache.DeletionHandlingMetaNamespaceKeyFunc)
 )
@@ -139,7 +137,7 @@ func readMockFile(path string) error {
 			if err != nil {
 				log.WithError(err).WithField("line", line).Warning("Unable to unmarshal Service")
 			} else {
-				serviceCache.UpdateService(&service, nil)
+				operatorWatchers.K8sSvcCache.UpdateService(&service, nil)
 			}
 		case strings.Contains(line, "\"Endpoints\""):
 			var endpoints slim_corev1.Endpoints
@@ -147,7 +145,7 @@ func readMockFile(path string) error {
 			if err != nil {
 				log.WithError(err).WithField("line", line).Warning("Unable to unmarshal Endpoints")
 			} else {
-				serviceCache.UpdateEndpoints(&endpoints, nil)
+				operatorWatchers.K8sSvcCache.UpdateEndpoints(&endpoints, nil)
 			}
 		default:
 			log.Warningf("Unknown line in mockfile %s: %s", path, line)
@@ -461,7 +459,7 @@ func deleteEndpoint(obj interface{}) {
 	}
 }
 
-func synchronizeEndpoints() {
+func synchronizeCiliumEndpoints() {
 	_, ciliumNodeInformer := informer.NewInformer(
 		cache.NewListWatchFromClient(ciliumK8sClient.CiliumV2().RESTClient(),
 			"ciliumendpoints", k8sv1.NamespaceAll, fields.Everything()),
@@ -487,60 +485,6 @@ func synchronizeEndpoints() {
 	go ciliumNodeInformer.Run(wait.NeverStop)
 }
 
-func handleServiceEvent(event k8s.ServiceEvent, store *store.SharedStore) {
-	svc := k8s.NewClusterService(event.ID, event.Service, event.Endpoints)
-	svc.Cluster = clusterName
-
-	switch event.Action {
-	case k8s.UpdateService:
-		if event.Service.Shared {
-			store.UpdateLocalKeySync(context.Background(), &svc)
-			break
-		}
-		// The annotation may have been removed, delete an eventual existing service
-		fallthrough
-
-	case k8s.DeleteService:
-		store.DeleteLocalKey(context.Background(), &svc)
-	}
-}
-
-func synchronizeServices() {
-	updateService := func(obj interface{}) {
-		svc := k8s.ObjToV1Services(obj)
-		serviceCache.UpdateService(svc, nil)
-	}
-
-	deleteService := func(obj interface{}) {
-		svc := k8s.ObjToV1Services(obj)
-		serviceCache.DeleteService(svc, nil)
-	}
-
-	_, serviceInformer := informer.NewInformer(
-		cache.NewListWatchFromClient(k8s.Client().CoreV1().RESTClient(),
-			"services", k8sv1.NamespaceAll, fields.Everything()),
-		&k8sv1.Service{},
-		0,
-		cache.ResourceEventHandlerFuncs{
-			AddFunc: updateService,
-			UpdateFunc: func(_, newObj interface{}) {
-				updateService(newObj)
-			},
-			DeleteFunc: func(obj interface{}) {
-				deletedObj, ok := obj.(cache.DeletedFinalStateUnknown)
-				if ok {
-					deleteService(deletedObj.Obj)
-				} else {
-					deleteService(obj)
-				}
-			},
-		},
-		k8s.ConvertToK8sService,
-	)
-
-	go serviceInformer.Run(wait.NeverStop)
-}
-
 func runServer(cmd *cobra.Command) {
 	if mockFile == "" {
 		k8s.Configure("", "", 0.0, 0)
@@ -555,11 +499,12 @@ func runServer(cmd *cobra.Command) {
 
 	go startApi()
 
-	if err := kvstore.Setup(context.Background(), "etcd", option.Config.KVStoreOpt, nil); err != nil {
+	var err error
+	if err = kvstore.Setup(context.Background(), "etcd", option.Config.KVStoreOpt, nil); err != nil {
 		log.WithError(err).Fatal("Unable to connect to etcd")
 	}
 
-	s, err := store.JoinSharedStore(store.Configuration{
+	ciliumNodeRegisterStore, err = store.JoinSharedStore(store.Configuration{
 		Prefix:     nodeStore.NodeRegisterStorePrefix,
 		KeyCreator: nodeStore.RegisterKeyCreator,
 		Observer:   mgr,
@@ -567,38 +512,14 @@ func runServer(cmd *cobra.Command) {
 	if err != nil {
 		log.WithError(err).Fatal("Unable to set up node store in etcd")
 	}
-	ciliumNodeRegisterStore = s
 
-	s, err = store.JoinSharedStore(store.Configuration{
+	ciliumNodeStore, err = store.JoinSharedStore(store.Configuration{
 		Prefix:     nodeStore.NodeStorePrefix,
 		KeyCreator: nodeStore.KeyCreator,
 	})
 	if err != nil {
 		log.WithError(err).Fatal("Unable to set up node store in etcd")
 	}
-	ciliumNodeStore = s
-
-	s, err = store.JoinSharedStore(store.Configuration{
-		Prefix: serviceStore.ServiceStorePrefix,
-		KeyCreator: func() store.Key {
-			return &serviceStore.ClusterService{}
-		},
-	})
-	if err != nil {
-		log.WithError(err).Fatal("Unable to setup service store in etcd")
-	}
-	ciliumServiceStore = s
-
-	serviceCache = k8s.NewServiceCache(nil)
-	go func() {
-		for {
-			event, ok := <-serviceCache.Events
-			if !ok {
-				return
-			}
-			handleServiceEvent(event, ciliumServiceStore)
-		}
-	}()
 
 	if mockFile != "" {
 		if err := readMockFile(mockFile); err != nil {
@@ -607,8 +528,8 @@ func runServer(cmd *cobra.Command) {
 	} else {
 		synchronizeIdentities()
 		synchronizeNodes()
-		synchronizeEndpoints()
-		synchronizeServices()
+		synchronizeCiliumEndpoints()
+		operatorWatchers.StartSynchronizingServices(false)
 	}
 
 	go func() {

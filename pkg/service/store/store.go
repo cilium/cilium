@@ -21,6 +21,9 @@ import (
 	"github.com/cilium/cilium/pkg/kvstore"
 	"github.com/cilium/cilium/pkg/kvstore/store"
 	"github.com/cilium/cilium/pkg/loadbalancer"
+	"github.com/cilium/cilium/pkg/lock"
+	"github.com/cilium/cilium/pkg/logging/logfields"
+	"github.com/cilium/cilium/pkg/option"
 )
 
 var (
@@ -30,6 +33,14 @@ var (
 	// break backwards compatibility
 	ServiceStorePrefix = path.Join(kvstore.BaseKeyPrefix, "state", "services", "v1")
 )
+
+// ServiceMerger is the interface to be implemented by the owner of local
+// services. The functions have to merge service updates and deletions with
+// local services to provide a shared view.
+type ServiceMerger interface {
+	MergeClusterServiceUpdate(service *ClusterService, swg *lock.StoppableWaitGroup)
+	MergeClusterServiceDelete(service *ClusterService, swg *lock.StoppableWaitGroup)
+}
 
 // PortConfiguration is the L4 port configuration of a frontend or backend. The
 // map is indexed by the name of the port and the value constains the L4 port
@@ -132,4 +143,60 @@ func NewClusterService(name, namespace string) ClusterService {
 		Labels:    map[string]string{},
 		Selector:  map[string]string{},
 	}
+}
+
+type clusterServiceObserver struct {
+	// merger is the interface responsible to merge service and
+	// endpoints into an existing cache
+	merger ServiceMerger
+
+	// swg provides a mechanism to know when the services were synchronized
+	// with the datapath.
+	swg *lock.StoppableWaitGroup
+}
+
+// OnUpdate is called when a service in a remote cluster is updated
+func (c *clusterServiceObserver) OnUpdate(key store.Key) {
+	if svc, ok := key.(*ClusterService); ok {
+		scopedLog := log.WithField(logfields.ServiceName, svc.String())
+		scopedLog.Debugf("Update event of cluster service %#v", svc)
+
+		c.merger.MergeClusterServiceUpdate(svc, c.swg)
+	} else {
+		log.Warningf("Received unexpected cluster service update object %+v", key)
+	}
+}
+
+// OnDelete is called when a service in a remote cluster is deleted
+func (c *clusterServiceObserver) OnDelete(key store.NamedKey) {
+	if svc, ok := key.(*ClusterService); ok {
+		scopedLog := log.WithField(logfields.ServiceName, svc.String())
+		scopedLog.Debugf("Delete event of cluster service %#v", svc)
+
+		c.merger.MergeClusterServiceDelete(svc, c.swg)
+	} else {
+		log.Warningf("Received unexpected cluster service delete object %+v", key)
+	}
+}
+
+// JoinClusterServices starts a controller for syncing services from the kvstore
+func JoinClusterServices(merger ServiceMerger) {
+	swg := lock.NewStoppableWaitGroup()
+
+	log.Info("Enumerating cluster services")
+	// JoinSharedStore performs initial sync of services
+	_, err := store.JoinSharedStore(store.Configuration{
+		Prefix: path.Join(ServiceStorePrefix, option.Config.ClusterName),
+		KeyCreator: func() store.Key {
+			return &ClusterService{}
+		},
+		Observer: &clusterServiceObserver{
+			merger: merger,
+			swg:    swg,
+		},
+	})
+	if err != nil {
+		log.WithError(err).Fatal("Enumerating cluster services failed")
+	}
+	swg.Stop()
 }
