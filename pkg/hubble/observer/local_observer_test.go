@@ -27,14 +27,20 @@ import (
 
 	flowpb "github.com/cilium/cilium/api/v1/flow"
 	observerpb "github.com/cilium/cilium/api/v1/observer"
+	v1 "github.com/cilium/cilium/pkg/hubble/api/v1"
+	"github.com/cilium/cilium/pkg/hubble/container"
 	"github.com/cilium/cilium/pkg/hubble/observer/observeroption"
 	observerTypes "github.com/cilium/cilium/pkg/hubble/observer/types"
 	"github.com/cilium/cilium/pkg/hubble/parser"
 	"github.com/cilium/cilium/pkg/hubble/testutils"
 	"github.com/cilium/cilium/pkg/monitor"
 	monitorAPI "github.com/cilium/cilium/pkg/monitor/api"
+	nodeTypes "github.com/cilium/cilium/pkg/node/types"
 
 	"github.com/golang/protobuf/ptypes"
+	"github.com/golang/protobuf/ptypes/timestamp"
+	"github.com/google/go-cmp/cmp"
+	"github.com/google/go-cmp/cmp/cmpopts"
 	"github.com/sirupsen/logrus"
 	"github.com/stretchr/testify/assert"
 	"github.com/stretchr/testify/require"
@@ -412,4 +418,152 @@ func TestLocalObserverServer_OnGetFlows(t *testing.T) {
 	// This should be assert.Equals(t, flowsReceived, numFlows)
 	// A bug in the ring buffer prevents this from succeeding
 	assert.Greater(t, flowsReceived, 0)
+}
+
+func TestLocalObserverServer_DumpAllFlows(t *testing.T) {
+	tests := []struct {
+		name    string
+		ringCap int
+		has     []*v1.Event
+		want    []*observerpb.GetFlowsResponse
+	}{
+		{
+			"buffer empty",
+			7,
+			[]*v1.Event{},
+			[]*observerpb.GetFlowsResponse{},
+		}, {
+			"buffer half-full",
+			7,
+			[]*v1.Event{
+				{
+					Timestamp: &timestamp.Timestamp{Seconds: 5},
+					Event: &flowpb.Flow{
+						Time:     &timestamp.Timestamp{Seconds: 1},
+						NodeName: "node",
+					},
+				}, {
+					Timestamp: &timestamp.Timestamp{Seconds: 6},
+					Event: &flowpb.Flow{
+						Time:     &timestamp.Timestamp{Seconds: 2},
+						NodeName: "node",
+					},
+				}, {
+					Timestamp: &timestamp.Timestamp{Seconds: 7},
+					Event:     &flowpb.LostEvent{},
+				}, {
+					Timestamp: &timestamp.Timestamp{Seconds: 8},
+					Event: &flowpb.Flow{
+						Time:     &timestamp.Timestamp{Seconds: 4},
+						NodeName: "node",
+					},
+				},
+			},
+			[]*observerpb.GetFlowsResponse{
+				{
+					Time:     &timestamp.Timestamp{Seconds: 1},
+					NodeName: "node",
+					ResponseTypes: &observerpb.GetFlowsResponse_Flow{
+						Flow: &flowpb.Flow{
+							Time:     &timestamp.Timestamp{Seconds: 1},
+							NodeName: "node",
+						},
+					},
+				}, {
+					Time:     &timestamp.Timestamp{Seconds: 2},
+					NodeName: "node",
+					ResponseTypes: &observerpb.GetFlowsResponse_Flow{
+						Flow: &flowpb.Flow{
+							Time:     &timestamp.Timestamp{Seconds: 2},
+							NodeName: "node",
+						},
+					},
+				}, {
+					Time:     &timestamp.Timestamp{Seconds: 7},
+					NodeName: nodeTypes.GetName(),
+					ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
+						LostEvents: &flowpb.LostEvent{},
+					},
+				},
+			},
+		}, {
+			"buffer full",
+			3,
+			[]*v1.Event{
+				{
+					Timestamp: &timestamp.Timestamp{Seconds: 5},
+					Event: &flowpb.Flow{
+						Time:     &timestamp.Timestamp{Seconds: 1},
+						NodeName: "node",
+					},
+				}, {
+					Timestamp: &timestamp.Timestamp{Seconds: 6},
+					Event: &flowpb.Flow{
+						Time:     &timestamp.Timestamp{Seconds: 2},
+						NodeName: "node",
+					},
+				}, {
+					Timestamp: &timestamp.Timestamp{Seconds: 7},
+					Event: &flowpb.Flow{
+						Time:     &timestamp.Timestamp{Seconds: 3},
+						NodeName: "node",
+					},
+				},
+			},
+			[]*observerpb.GetFlowsResponse{
+				{
+					Time:     &timestamp.Timestamp{Seconds: 1},
+					NodeName: "node",
+					ResponseTypes: &observerpb.GetFlowsResponse_Flow{
+						Flow: &flowpb.Flow{
+							Time:     &timestamp.Timestamp{Seconds: 1},
+							NodeName: "node",
+						},
+					},
+				}, {
+					Time:     &timestamp.Timestamp{Seconds: 2},
+					NodeName: "node",
+					ResponseTypes: &observerpb.GetFlowsResponse_Flow{
+						Flow: &flowpb.Flow{
+							Time:     &timestamp.Timestamp{Seconds: 2},
+							NodeName: "node",
+						},
+					},
+				},
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			ring := container.NewRing(tt.ringCap)
+			for _, e := range tt.has {
+				ring.Write(e)
+			}
+
+			got := []*observerpb.GetFlowsResponse{}
+			server := &testutils.FakeGetFlowsServer{
+				OnSend: func(resp *observerpb.GetFlowsResponse) error {
+					got = append(got, resp)
+					return nil
+				},
+			}
+
+			err := dumpAllFlows(ring, server)
+			assert.NoError(t, err)
+			// note: the last written element is **always** missing due to ring
+			// buffer's implementation details
+			if diff := cmp.Diff(
+				tt.want,
+				got,
+				cmpopts.IgnoreUnexported(
+					observerpb.GetFlowsResponse{},
+					flowpb.Flow{},
+					flowpb.LostEvent{},
+					timestamp.Timestamp{},
+				),
+			); diff != "" {
+				t.Errorf("mismatch (-want +got):\n%s", diff)
+			}
+		})
+	}
 }

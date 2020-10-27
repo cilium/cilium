@@ -248,6 +248,10 @@ func (s *LocalObserverServer) GetFlows(
 		}).Debug("GetFlows finished")
 	}()
 
+	if req.Dump {
+		return dumpAllFlows(ring, server)
+	}
+
 	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
 	if err != nil {
 		if err == io.EOF {
@@ -285,6 +289,52 @@ nextFlow:
 			return err
 		}
 	}
+}
+
+// dumpAllFlows dumps the content of ring and sends it to server.
+// Events are sent in chronological order. Note that the last event written in
+// the ring buffer will **always** be missing due to the ring buffer's
+// internals.
+func dumpAllFlows(ring *container.Ring, server observerpb.Observer_GetFlowsServer) error {
+	reader := container.NewRingReader(ring, ring.LastWriteParallel())
+	buf := make([]*v1.Event, 0, ring.Cap())
+	for {
+		e, err := reader.Previous()
+		if err != nil {
+			break
+		}
+		buf = append(buf, e)
+	}
+
+	for i := len(buf) - 1; i >= 0; i-- {
+		var resp *observerpb.GetFlowsResponse
+		switch e := buf[i].Event.(type) {
+		case *flowpb.Flow:
+			resp = &observerpb.GetFlowsResponse{
+				Time:     e.GetTime(),
+				NodeName: e.GetNodeName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_Flow{
+					Flow: e,
+				},
+			}
+		case *flowpb.LostEvent:
+			resp = &observerpb.GetFlowsResponse{
+				Time:     buf[i].Timestamp,
+				NodeName: nodeTypes.GetName(),
+				ResponseTypes: &observerpb.GetFlowsResponse_LostEvents{
+					LostEvents: e,
+				},
+			}
+		default:
+			resp = &observerpb.GetFlowsResponse{
+				Time: buf[i].Timestamp,
+			}
+		}
+		if err := server.Send(resp); err != nil {
+			return err
+		}
+	}
+	return nil
 }
 
 func logFilters(filters []*flowpb.FlowFilter) string {
