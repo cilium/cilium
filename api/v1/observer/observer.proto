@@ -71,7 +71,9 @@ message GetFlowsRequest {
     // Number of flows that should be returned. Incompatible with `since/until`.
     uint64 number = 1;
 
-    // Unused 2
+    // Dump all flows. Incompatible with `since/until`, `follow` and any filter.
+    // This is mostly useful for debugging purposes.
+    bool dump = 2;
 
     // follow sets when the server should continue to stream flows after
     // printing the last N flows.
