@@ -698,28 +698,6 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 	var s, ls concurrency.Session
 	errorChan := make(chan error)
 
-	// create session in parallel as this is a blocking operation
-	go func() {
-		session, err := concurrency.NewSession(c, concurrency.WithTTL(int(option.Config.KVstoreLeaseTTL.Seconds())))
-		if err != nil {
-			errorChan <- err
-			close(errorChan)
-			return
-		}
-		lockSession, err := concurrency.NewSession(c, concurrency.WithTTL(int(defaults.LockLeaseTTL.Seconds())))
-		if err != nil {
-			errorChan <- err
-			close(errorChan)
-			return
-		}
-		s = *session
-		ls = *lockSession
-
-		log.Infof("Got lease ID %x", s.Lease())
-		log.Infof("Got lock lease ID %x", ls.Lease())
-		close(errorChan)
-	}()
-
 	ec := &etcdClient{
 		client:               c,
 		config:               config,
@@ -734,6 +712,31 @@ func connectEtcdClient(ctx context.Context, config *client.Config, cfgPath strin
 		limiter:              rate.NewLimiter(rate.Limit(clientOptions.RateLimit), clientOptions.RateLimit),
 		statusCheckErrors:    make(chan error, 128),
 	}
+
+	// create session in parallel as this is a blocking operation
+	go func() {
+		session, err := concurrency.NewSession(c, concurrency.WithTTL(int(option.Config.KVstoreLeaseTTL.Seconds())))
+		if err != nil {
+			errorChan <- err
+			close(errorChan)
+			return
+		}
+		lockSession, err := concurrency.NewSession(c, concurrency.WithTTL(int(defaults.LockLeaseTTL.Seconds())))
+		if err != nil {
+			errorChan <- err
+			close(errorChan)
+			return
+		}
+
+		ec.RWMutex.Lock()
+		s = *session
+		ls = *lockSession
+		ec.RWMutex.Unlock()
+
+		log.Infof("Got lease ID %x", s.Lease())
+		log.Infof("Got lock lease ID %x", ls.Lease())
+		close(errorChan)
+	}()
 
 	handleSessionError := func(err error) {
 		ec.RWMutex.Lock()
