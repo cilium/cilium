@@ -35,6 +35,7 @@ import (
 	"github.com/cilium/cilium/pkg/bpf"
 	"github.com/cilium/cilium/pkg/completion"
 	"github.com/cilium/cilium/pkg/controller"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/datapath/link"
 	linuxrouting "github.com/cilium/cilium/pkg/datapath/linux/routing"
 	"github.com/cilium/cilium/pkg/endpoint/regeneration"
@@ -337,6 +338,8 @@ type Endpoint struct {
 	allocator cache.IdentityAllocator
 
 	isHost bool
+
+	noTrackPort uint16
 }
 
 // SetAllocator sets the identity allocator for this endpoint.
@@ -453,6 +456,7 @@ func createEndpoint(owner regeneration.Owner, proxy EndpointProxy, allocator cac
 		regenFailedChan: make(chan struct{}, 1),
 		allocator:       allocator,
 		logLimiter:      logging.NewLimiter(10*time.Second, 3), // 1 log / 10 secs, burst of 3
+		noTrackPort:     0,
 	}
 
 	ctx, cancel := context.WithCancel(context.Background())
@@ -1670,6 +1674,13 @@ func (e *Endpoint) RunMetadataResolver(resolveMetadata MetadataResolverCB) {
 				}
 				e.SetPod(pod)
 				e.SetK8sMetadata(cp)
+				e.UpdateNoTrackRules(func(_, _ string) (noTrackPort string, err error) {
+					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
+					if err != nil {
+						return "", err
+					}
+					return annotations[annotation.NoTrack], nil
+				})
 				e.UpdateVisibilityPolicy(func(_, _ string) (proxyVisibility string, err error) {
 					_, _, _, _, annotations, err := resolveMetadata(ns, podName)
 					if err != nil {
@@ -2281,6 +2292,24 @@ func (e *Endpoint) Delete(monitor monitorOwner, ipam ipReleaser, manager endpoin
 		// likely manual intervention.
 		if err := linuxrouting.Delete(e.IPv4.IP()); err != nil {
 			errs = append(errs, fmt.Errorf("unable to delete endpoint routing rules: %s", err))
+		}
+	}
+
+	if e.noTrackPort > 0 {
+		e.getLogger().WithFields(logrus.Fields{
+			"ep":     e.GetID(),
+			"ipAddr": e.GetIPv4Address(),
+		}).Debug("Deleting endpoint NOTRACK rules")
+
+		if e.IPv4.IsSet() {
+			if err := iptables.RemoveNoTrackRules(e.IPv4.String(), e.noTrackPort, false); err != nil {
+				errs = append(errs, fmt.Errorf("unable to delete endpoint NOTRACK ipv4 rules: %s", err))
+			}
+		}
+		if e.IPv6.IsSet() {
+			if err := iptables.RemoveNoTrackRules(e.IPv6.String(), e.noTrackPort, true); err != nil {
+				errs = append(errs, fmt.Errorf("unable to delete endpoint NOTRACK ipv6 rules: %s", err))
+			}
 		}
 	}
 

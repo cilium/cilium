@@ -476,6 +476,13 @@ func (d *Daemon) createEndpoint(ctx context.Context, owner regeneration.Owner, e
 			}
 			return p.Annotations[bandwidth.EgressBandwidth], nil
 		})
+		ep.UpdateNoTrackRules(func(ns, podName string) (noTrackPort string, err error) {
+			p, err := d.k8sWatcher.GetCachedPod(ns, podName)
+			if err != nil {
+				return "", err
+			}
+			return p.Annotations[annotation.NoTrack], nil
+		})
 	}
 
 	regenTriggered := ep.UpdateLabels(ctx, addLabels, infoLabels, true)

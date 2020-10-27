@@ -30,6 +30,7 @@ import (
 	"github.com/cilium/cilium/pkg/datapath/linux/route"
 	"github.com/cilium/cilium/pkg/defaults"
 	ipamOption "github.com/cilium/cilium/pkg/ipam/option"
+	lb "github.com/cilium/cilium/pkg/loadbalancer"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/modules"
 	"github.com/cilium/cilium/pkg/node"
@@ -39,6 +40,7 @@ import (
 
 	go_version "github.com/blang/semver"
 	"github.com/mattn/go-shellwords"
+	"github.com/sirupsen/logrus"
 )
 
 const (
@@ -62,6 +64,18 @@ const (
 var (
 	isWaitMinVersion        = versioncheck.MustCompile(">=1.4.20")
 	isWaitSecondsMinVersion = versioncheck.MustCompile(">=1.4.22")
+	noTrackPorts            = func(port uint16) []*lb.L4Addr {
+		return []*lb.L4Addr{
+			{
+				Protocol: lb.TCP,
+				Port:     port,
+			},
+			{
+				Protocol: lb.UDP,
+				Port:     port,
+			},
+		}
+	}
 )
 
 const (
@@ -688,6 +702,88 @@ func (m *IptablesManager) iptProxyRules(cmd string, proxyPort uint16, ingress bo
 			return err
 		}
 		if err := m.iptEgressProxyRule(cmd, "udp", proxyPort, name); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func noTrackRules(prog string, cmd string, IP string, port *lb.L4Addr, ingress bool) error {
+	protocol := strings.ToLower(port.Protocol)
+	p := strconv.FormatUint(uint64(port.Port), 10)
+	if ingress {
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "raw", cmd, "PREROUTING", "-p", protocol, "-d", IP, "--dport", p, "-j", "NOTRACK"}, false); err != nil {
+			return err
+		}
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "filter", cmd, "INPUT", "-p", protocol, "-d", IP, "--dport", p, "-j", "ACCEPT"}, false); err != nil {
+			return err
+		}
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "raw", cmd, "OUTPUT", "-p", protocol, "-d", IP, "--dport", p, "-j", "NOTRACK"}, false); err != nil {
+			return err
+		}
+	} else {
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "raw", cmd, "OUTPUT", "-p", protocol, "-s", IP, "--sport", p, "-j", "NOTRACK"}, false); err != nil {
+			return err
+		}
+		if _, err := runProgCombinedOutput(prog, []string{"-t", "filter", cmd, "OUTPUT", "-p", protocol, "-s", IP, "--sport", p, "-j", "ACCEPT"}, false); err != nil {
+			return err
+		}
+	}
+	return nil
+}
+
+func InstallNoTrackRules(IP string, port uint16, ipv6 bool) error {
+	prog := "iptables"
+	ipField := logfields.IPv4
+	if ipv6 {
+		prog = "ip6tables"
+		ipField = logfields.IPv6
+	}
+	ports := noTrackPorts(port)
+	for _, p := range ports {
+		if err := noTrackRules(prog, "-A", IP, p, true); err != nil {
+			log.WithFields(logrus.Fields{
+				ipField:            IP,
+				logfields.Port:     p.Port,
+				logfields.Protocol: p.Protocol,
+			}).WithError(err).Warn("Unable to install ingress NOTRACK rules")
+			return err
+		}
+		if err := noTrackRules(prog, "-A", IP, p, false); err != nil {
+			log.WithFields(logrus.Fields{
+				ipField:            IP,
+				logfields.Port:     p.Port,
+				logfields.Protocol: p.Protocol,
+			}).WithError(err).Warn("Unable to install egress NOTRACK rules")
+			return err
+		}
+	}
+	return nil
+}
+
+func RemoveNoTrackRules(IP string, port uint16, ipv6 bool) error {
+	prog := "iptables"
+	ipField := logfields.IPv4
+	if ipv6 {
+		prog = "ip6tables"
+		ipField = logfields.IPv6
+	}
+	ports := noTrackPorts(port)
+	for _, p := range ports {
+		if err := noTrackRules(prog, "-D", IP, p, true); err != nil {
+			log.WithFields(logrus.Fields{
+				ipField:            IP,
+				logfields.Port:     p.Port,
+				logfields.Protocol: p.Protocol,
+			}).WithError(err).Warn("Unable to remove ingress NOTRACK rules")
+			return err
+		}
+		if err := noTrackRules(prog, "-D", IP, p, false); err != nil {
+			log.WithFields(logrus.Fields{
+				ipField:            IP,
+				logfields.Port:     p.Port,
+				logfields.Protocol: p.Protocol,
+			}).WithError(err).Warn("Unable to remove egress NOTRACK rules")
 			return err
 		}
 	}

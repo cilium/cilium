@@ -18,6 +18,7 @@ import (
 	"strconv"
 
 	"github.com/cilium/cilium/pkg/bandwidth"
+	"github.com/cilium/cilium/pkg/datapath/iptables"
 	"github.com/cilium/cilium/pkg/eventqueue"
 	"github.com/cilium/cilium/pkg/logging/logfields"
 	"github.com/cilium/cilium/pkg/maps/bwmap"
@@ -117,6 +118,82 @@ func (e *Endpoint) PolicyRevisionBumpEvent(rev uint64) {
 			logfields.EndpointID:     e.ID,
 		}).Errorf("enqueue of EndpointRevisionBumpEvent failed: %s", err)
 	}
+}
+
+/// EndpointNoTrackEvent contains all fields necessary to update the NOTRACK rules.
+type EndpointNoTrackEvent struct {
+	ep     *Endpoint
+	annoCB AnnotationsResolverCB
+}
+
+// Handle handles the NOTRACK rule update.
+func (ev *EndpointNoTrackEvent) Handle(res chan interface{}) {
+	var port uint16
+
+	e := ev.ep
+
+	// If this endpoint is going away, nothing to do.
+	if err := e.lockAlive(); err != nil {
+		res <- &EndpointRegenerationResult{
+			err: nil,
+		}
+		return
+	}
+
+	defer e.unlock()
+
+	portStr, err := ev.annoCB(e.K8sNamespace, e.K8sPodName)
+	if err != nil {
+		res <- &EndpointRegenerationResult{
+			err: err,
+		}
+		return
+	}
+
+	if portStr == "" {
+		port = 0
+	} else {
+		// Validate annotation before we do any actual alteration to the endpoint.
+		p64, err := strconv.ParseUint(portStr, 10, 16)
+		// Port should be within [1-65535].
+		if err != nil || p64 == 0 {
+			res <- &EndpointRegenerationResult{
+				err: err,
+			}
+			return
+		}
+		port = uint16(p64)
+	}
+
+	if port != e.noTrackPort {
+		log.Debug("Updating NOTRACK rules")
+		if e.IPv4.IsSet() {
+			if port > 0 {
+				err = iptables.InstallNoTrackRules(e.IPv4.String(), port, false)
+				log.Warnf("Error installing iptable NOTRACK rules %s", err)
+			}
+			if e.noTrackPort > 0 {
+				err = iptables.RemoveNoTrackRules(e.IPv4.String(), e.noTrackPort, false)
+				log.Warnf("Error removing iptable NOTRACK rules %s", err)
+			}
+		}
+		if e.IPv6.IsSet() {
+			if port > 0 {
+				iptables.InstallNoTrackRules(e.IPv6.String(), port, true)
+				log.Warnf("Error installing iptable NOTRACK rules %s", err)
+			}
+			if e.noTrackPort > 0 {
+				err = iptables.RemoveNoTrackRules(e.IPv6.String(), e.noTrackPort, true)
+				log.Warnf("Error removing iptable NOTRACK rules %s", err)
+			}
+		}
+		e.noTrackPort = port
+	}
+
+	res <- &EndpointRegenerationResult{
+		err: nil,
+	}
+	return
 }
 
 // EndpointPolicyVisibilityEvent contains all fields necessary to update the

@@ -828,6 +828,21 @@ func (e *Endpoint) GetCIDRPrefixLengths() (s6, s4 []int) {
 // annotations.
 type AnnotationsResolverCB func(ns, podName string) (proxyVisibility string, err error)
 
+// UpdateNoTrackRules updates the NOTRACK iptable rules for this endpoint. If anno
+// is empty, then any existing NOTRACK rules will be removed. If anno cannot be parsed,
+// we remove existing NOTRACK rules too if there's any.
+func (e *Endpoint) UpdateNoTrackRules(annoCB AnnotationsResolverCB) {
+	ch, err := e.eventQueue.Enqueue(eventqueue.NewEvent(&EndpointNoTrackEvent{
+		ep:     e,
+		annoCB: annoCB,
+	}))
+	if err != nil {
+		e.getLogger().WithError(err).Error("Unable to enqueue endpoint notrack event")
+		return
+	}
+	<-ch
+}
+
 // UpdateVisibilityPolicy updates the visibility policy of this endpoint to
 // reflect the state stored in the provided proxy visibility annotation. If anno
 // is empty, then the VisibilityPolicy for the Endpoint will be empty, and will
