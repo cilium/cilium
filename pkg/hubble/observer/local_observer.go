@@ -288,7 +288,7 @@ nextFlow:
 }
 
 func logFilters(filters []*flowpb.FlowFilter) string {
-	var s []string
+	s := make([]string, 0, len(filters))
 	for _, f := range filters {
 		s = append(s, f.String())
 	}

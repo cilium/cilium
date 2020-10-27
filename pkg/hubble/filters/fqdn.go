@@ -88,7 +88,7 @@ func filterByFQDNs(fqdnPatterns []string, getFQDNs func(*v1.Event) []string) (Fi
 // The filter function returns true if and only if the DNS query field matches any of
 // the regular expressions.
 func filterByDNSQueries(queryPatterns []string) (FilterFunc, error) {
-	var queries []*regexp.Regexp
+	queries := make([]*regexp.Regexp, 0, len(queryPatterns))
 	for _, pattern := range queryPatterns {
 		query, err := regexp.Compile(pattern)
 		if err != nil {
