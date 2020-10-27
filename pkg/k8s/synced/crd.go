@@ -12,6 +12,8 @@
 // See the License for the specific language governing permissions and
 // limitations under the License.
 
+// Package synced provides tools for tracking if k8s resources have
+// been initially sychronized with the k8s apiserver.
 package synced
 
 import (
