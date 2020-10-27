@@ -79,6 +79,7 @@ import (
 	"github.com/cilium/cilium/pkg/rate"
 	"github.com/cilium/cilium/pkg/redirectpolicy"
 	"github.com/cilium/cilium/pkg/service"
+	serviceStore "github.com/cilium/cilium/pkg/service/store"
 	"github.com/cilium/cilium/pkg/sockops"
 	"github.com/cilium/cilium/pkg/status"
 	"github.com/cilium/cilium/pkg/trigger"
@@ -605,6 +606,9 @@ func NewDaemon(ctx context.Context, epMgr *endpointmanager.EndpointManager, dp d
 		// This can override node addressing config, so do this before starting IPAM
 		log.WithField(logfields.NodeName, nodeTypes.GetName()).Debug("Calling JoinCluster()")
 		d.nodeDiscovery.JoinCluster(nodeTypes.GetName())
+
+		// Start services watcher
+		serviceStore.JoinClusterServices(&d.k8sWatcher.K8sSvcCache)
 	}
 
 	// Start IPAM

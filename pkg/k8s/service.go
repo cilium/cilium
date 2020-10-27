@@ -483,6 +483,105 @@ func NewClusterService(id ServiceID, k8sService *Service, k8sEndpoints *Endpoint
 	return svc
 }
 
+// ParseClusterService parses a ClusterService and returns a Service.
+// ClusterService is a subset of what a Service can express,
+// especially, ClusterService does not have:
+// - other service types than ClusterIP
+// - an explicit traffic policy, SVCTrafficPolicyCluster is assumed
+// - health check node ports
+// - NodePorts
+// - external IPs
+// - LoadBalancerIPs
+// - LoadBalancerSourceRanges
+// - SessionAffinity
+//
+// ParseClusterService() is paired with EqualsClusterService() that
+// has the above wired in.
+func ParseClusterService(svc *serviceStore.ClusterService) *Service {
+	var ip net.IP
+	var ipStr string
+	ports := serviceStore.PortConfiguration{}
+	for ipStr, ports = range svc.Frontends {
+		ip = net.ParseIP(ipStr)
+		break
+	}
+	svcInfo := &Service{
+		FrontendIP:      ip,
+		IsHeadless:      len(svc.Frontends) == 0,
+		IncludeExternal: true,
+		Shared:          true,
+		TrafficPolicy:   loadbalancer.SVCTrafficPolicyCluster,
+		Ports:           map[loadbalancer.FEPortName]*loadbalancer.L4Addr{},
+		Labels:          svc.Labels,
+		Selector:        svc.Selector,
+		Type:            loadbalancer.SVCTypeClusterIP,
+	}
+
+	for name, port := range ports {
+		p := loadbalancer.NewL4Addr(loadbalancer.L4Type(port.Protocol), uint16(port.Port))
+		portName := loadbalancer.FEPortName(name)
+		if _, ok := svcInfo.Ports[portName]; !ok {
+			svcInfo.Ports[portName] = p
+		}
+	}
+
+	return svcInfo
+}
+
+// EqualsClusterService returns true the given ClusterService would parse into Service if
+// ParseClusterService() would be called. This is necessary to avoid memory allocations that
+// would be performed by ParseClusterService() when the service already exists.
+func (s *Service) EqualsClusterService(svc *serviceStore.ClusterService) bool {
+	switch {
+	case (s == nil) != (svc == nil):
+		return false
+	case (s == nil) && (svc == nil):
+		return true
+	}
+
+	var ip net.IP
+	var ipStr string
+	ports := serviceStore.PortConfiguration{}
+	for ipStr, ports = range svc.Frontends {
+		ip = net.ParseIP(ipStr)
+		break
+	}
+
+	// These comparisons must match the ParseClusterService() function above.
+	if s.FrontendIP.Equal(ip) &&
+		s.IsHeadless == (len(svc.Frontends) == 0) &&
+		s.IncludeExternal == true &&
+		s.Shared == true &&
+		s.TrafficPolicy == loadbalancer.SVCTrafficPolicyCluster &&
+		s.HealthCheckNodePort == 0 &&
+		len(s.NodePorts) == 0 &&
+		len(s.K8sExternalIPs) == 0 &&
+		len(s.LoadBalancerIPs) == 0 &&
+		len(s.LoadBalancerSourceRanges) == 0 &&
+		comparator.MapStringEquals(s.Labels, svc.Labels) &&
+		comparator.MapStringEquals(s.Selector, svc.Selector) &&
+		s.SessionAffinity == false &&
+		s.SessionAffinityTimeoutSec == 0 &&
+		s.Type == loadbalancer.SVCTypeClusterIP {
+
+		if ((s.Ports == nil) != (ports == nil)) ||
+			len(s.Ports) != len(ports) {
+			return false
+		}
+		for portName, port := range s.Ports {
+			oPort, ok := ports[string(portName)]
+			if !ok {
+				return false
+			}
+			if port.Protocol != oPort.Protocol || port.Port != oPort.Port {
+				return false
+			}
+		}
+		return true
+	}
+	return false
+}
+
 type ServiceIPGetter interface {
 	GetServiceIP(svcID ServiceID) *loadbalancer.L3n4Addr
 }
