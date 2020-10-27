@@ -539,6 +539,14 @@ rules:
       - hubble-ca-cert
     verbs:
       - update
+  - apiGroups:
+      - ""
+    resources:
+      - secrets
+    resourceNames:
+      - hubble-ca-secret
+    verbs:
+      - get
 ---
 # Source: cilium/templates/hubble-relay-clusterrole.yaml
 kind: ClusterRole
@@ -1492,11 +1500,13 @@ spec:
       serviceAccountName: clustermesh-apiserver-generate-certs
       containers:
         - name: certgen
-          image: docker.io/cilium/certgen:v0.1.2@sha256:c56e1cd89e6f49a9fa442ad129974e2addfc687ef6ac524ee26849162425c489
+          image: docker.io/cilium/certgen:v0.1.3@sha256:460fdcbabfa08b435dbee455e88add1ec54761ca2693e1d9885408ff55ed7f8e
           imagePullPolicy: IfNotPresent
           command:
             - "/usr/bin/cilium-certgen"
           args:
+            - "--cilium-namespace=kube-system"
+            - "--clustermesh-apiserver-ca-cert-reuse-secret"
             - "--clustermesh-apiserver-ca-cert-generate"
             - "--clustermesh-apiserver-server-cert-generate"
             - "--clustermesh-apiserver-admin-cert-generate"
@@ -1524,28 +1534,27 @@ spec:
       serviceAccountName: hubble-generate-certs
       containers:
         - name: certgen
-          image: docker.io/cilium/certgen:v0.1.2@sha256:c56e1cd89e6f49a9fa442ad129974e2addfc687ef6ac524ee26849162425c489
+          image: docker.io/cilium/certgen:v0.1.3@sha256:460fdcbabfa08b435dbee455e88add1ec54761ca2693e1d9885408ff55ed7f8e
           imagePullPolicy: IfNotPresent
           command:
             - "/usr/bin/cilium-certgen"
           args:
+            - "--cilium-namespace=kube-system"
+            - "--hubble-ca-reuse-secret=true"
+            - "--hubble-ca-secret-name=hubble-ca-secret"
             - "--hubble-ca-generate=true"
             - "--hubble-ca-validity-duration=94608000s"
+            - "--hubble-ca-config-map-create=true"
             - "--hubble-ca-config-map-name=hubble-ca-cert"
-            - "--hubble-ca-config-map-namespace=kube-system"
             - "--hubble-server-cert-generate=true"
             - "--hubble-server-cert-validity-duration=94608000s"
             - "--hubble-server-cert-secret-name=hubble-server-certs"
-            - "--hubble-server-cert-secret-namespace=kube-system"
             - "--hubble-relay-client-cert-generate=true"
             - "--hubble-relay-client-cert-validity-duration=94608000s"
             - "--hubble-relay-client-cert-secret-name=hubble-relay-client-certs"
-            - "--hubble-relay-client-cert-secret-namespace=kube-system"
             - "--hubble-relay-server-cert-generate=false"
-          volumeMounts:
       hostNetwork: true
       restartPolicy: OnFailure
-      volumes:
   ttlSecondsAfterFinished: 1800
 ---
 # Source: cilium/templates/hubble-generate-certs-cronjob.yaml
@@ -1570,26 +1579,25 @@ spec:
           serviceAccountName: hubble-generate-certs
           containers:
             - name: certgen
-              image: docker.io/cilium/certgen:v0.1.2@sha256:c56e1cd89e6f49a9fa442ad129974e2addfc687ef6ac524ee26849162425c489
+              image: docker.io/cilium/certgen:v0.1.3@sha256:460fdcbabfa08b435dbee455e88add1ec54761ca2693e1d9885408ff55ed7f8e
               imagePullPolicy: IfNotPresent
               command:
                 - "/usr/bin/cilium-certgen"
               args:
+                - "--cilium-namespace=kube-system"
+                - "--hubble-ca-reuse-secret=true"
+                - "--hubble-ca-secret-name=hubble-ca-secret"
                 - "--hubble-ca-generate=true"
                 - "--hubble-ca-validity-duration=94608000s"
+                - "--hubble-ca-config-map-create=true"
                 - "--hubble-ca-config-map-name=hubble-ca-cert"
-                - "--hubble-ca-config-map-namespace=kube-system"
                 - "--hubble-server-cert-generate=true"
                 - "--hubble-server-cert-validity-duration=94608000s"
                 - "--hubble-server-cert-secret-name=hubble-server-certs"
-                - "--hubble-server-cert-secret-namespace=kube-system"
                 - "--hubble-relay-client-cert-generate=true"
                 - "--hubble-relay-client-cert-validity-duration=94608000s"
                 - "--hubble-relay-client-cert-secret-name=hubble-relay-client-certs"
-                - "--hubble-relay-client-cert-secret-namespace=kube-system"
                 - "--hubble-relay-server-cert-generate=false"
-              volumeMounts:
           hostNetwork: true
           restartPolicy: OnFailure
-          volumes:
       ttlSecondsAfterFinished: 1800
