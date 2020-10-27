@@ -37,7 +37,7 @@ RUN make LOCKDEBUG=$LOCKDEBUG PKG_BUILD=1 V=$V LIBNETWORK_PLUGIN=$LIBNETWORK_PLU
 # built while allowing the new versions to make changes that are not
 # backwards compatible.
 #
-FROM quay.io/cilium/cilium-runtime:2020-08-07-v1.7@sha256:67b768b3e02206251299861dba4eb8da9fbc8e8ec3bc464c7a7a2da0b591f7f8
+FROM quay.io/cilium/cilium-runtime:2020-10-27-v1.7@sha256:8932f67ba9471ffe1d33a8a9ee6bb30f31d984019b39a10e517ed669959e411a
 LABEL maintainer="maintainer@cilium.io"
 COPY --from=builder /tmp/install /
 COPY --from=cilium-envoy / /
