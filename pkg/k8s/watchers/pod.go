@@ -272,7 +272,8 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 	newAnno := newK8sPod.ObjectMeta.Annotations
 	annoChangedProxy := !k8s.AnnotationsEqual([]string{annotation.ProxyVisibility}, oldAnno, newAnno)
 	annoChangedBandwidth := !k8s.AnnotationsEqual([]string{bandwidth.EgressBandwidth}, oldAnno, newAnno)
-	annotationsChanged := annoChangedProxy || annoChangedBandwidth
+	annoChangedNoTrack := !k8s.AnnotationsEqual([]string{annotation.NoTrack}, oldAnno, newAnno)
+	annotationsChanged := annoChangedProxy || annoChangedBandwidth || annoChangedNoTrack
 
 	// Check label updates too.
 	oldPodLabels := oldK8sPod.ObjectMeta.Labels
@@ -343,6 +344,15 @@ func (k *K8sWatcher) updateK8sPodV1(oldK8sPod, newK8sPod *slim_corev1.Pod) error
 					return "", nil
 				}
 				return p.ObjectMeta.Annotations[bandwidth.EgressBandwidth], nil
+			})
+		}
+		if annoChangedNoTrack {
+			podEP.UpdateNoTrackRules(func(ns, podName string) (noTrackPort string, err error) {
+				p, err := k.GetCachedPod(ns, podName)
+				if err != nil {
+					return "", nil
+				}
+				return p.ObjectMeta.Annotations[annotation.NoTrack], nil
 			})
 		}
 		realizePodAnnotationUpdate(podEP)
