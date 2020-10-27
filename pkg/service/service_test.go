@@ -531,12 +531,12 @@ func (m *ManagerTestSuite) TestLocalRedirectLocalBackendSelection(c *C) {
 	localBackend.NodeName = nodeTypes.GetName()
 	localBackends := []lb.Backend{localBackend}
 	// Create two remote backends.
-	var remoteBackends []lb.Backend
+	remoteBackends := make([]lb.Backend, 0, len(backends2))
 	for _, backend := range backends2 {
 		backend.NodeName = "not-" + nodeTypes.GetName()
 		remoteBackends = append(remoteBackends, backend)
 	}
-	var allBackends []lb.Backend
+	allBackends := make([]lb.Backend, 0, 1+len(remoteBackends))
 	allBackends = append(allBackends, localBackend)
 	allBackends = append(allBackends, remoteBackends...)
 
@@ -576,12 +576,12 @@ func (m *ManagerTestSuite) TestLocalRedirectServiceOverride(c *C) {
 	localBackend.NodeName = nodeTypes.GetName()
 	localBackends := []lb.Backend{localBackend}
 	// Create two remote backends.
-	var remoteBackends []lb.Backend
+	remoteBackends := make([]lb.Backend, 0, len(backends2))
 	for _, backend := range backends2 {
 		backend.NodeName = "not-" + nodeTypes.GetName()
 		remoteBackends = append(remoteBackends, backend)
 	}
-	var allBackends []lb.Backend
+	allBackends := make([]lb.Backend, 0, 1+len(remoteBackends))
 	allBackends = append(allBackends, localBackend)
 	allBackends = append(allBackends, remoteBackends...)
 
