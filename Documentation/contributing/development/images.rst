@@ -1,5 +1,5 @@
 .. only:: not (epub or latex or html)
-  
+
     WARNING: You are looking at unreleased Cilium documentation.
     Please use the official rendered version released here:
     https://docs.cilium.io
@@ -150,9 +150,11 @@ update:
 .. image:: ../../images/cilium-quayio-tag-3.png
     :align: center
 
-6. A new pop-up will appear and you can select the branch that contains your
+6. A new pop-up will appear to select your desired branch.
+7. If you're interested in simply bumping the image to have the latest
+   packages, then select the release branch (i.e. v1.7, v1.8). If you already
+   have a branch that contains changes, select the branch that contains the new
    changes.
-7. Select the branch that contains the new changes.
 
 .. image:: ../../images/cilium-quayio-tag-4.png
     :align: center
