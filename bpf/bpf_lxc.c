@@ -673,8 +673,13 @@ ct_recreate4:
 			}
 #endif /* ENABLE_ROUTING */
 			policy_clear_mark(ctx);
-			return ipv4_local_delivery(ctx, l3_off, SECLABEL, ip4,
-						   ep, METRIC_EGRESS, false);
+
+			ctx_store_meta(ctx, CB_SRC_IDENTITY, SECLABEL);
+			ctx_store_meta(ctx, CB_METRIC_DIRECTION, METRIC_EGRESS);
+			ctx_store_meta(ctx, CB_FROM_HOST, false);
+
+			ep_tail_call(ctx, CILIUM_CALL_IPV4_LOCAL_DELIVERY);
+			return DROP_MISSED_TAIL_CALL;
 		}
 	}
 

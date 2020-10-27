@@ -13,6 +13,7 @@
 #include "l4.h"
 #include "icmp6.h"
 #include "csum.h"
+#include "drop.h"
 
 #ifdef ENABLE_IPV6
 static __always_inline int ipv6_l3(struct __ctx_buff *ctx, int l3_off,
@@ -140,6 +141,35 @@ static __always_inline int ipv4_local_delivery(struct __ctx_buff *ctx, int l3_of
 	return DROP_MISSED_TAIL_CALL;
 #endif
 }
+
+__section_tail(CILIUM_MAP_CALLS, CILIUM_CALL_IPV4_LOCAL_DELIVERY)
+int tail_handle_ipv4_local_delivery(struct __ctx_buff *ctx)
+{
+	void *data, *data_end;
+	struct iphdr *ip4;
+	struct endpoint_info *ep;
+	int ret;
+
+	__u32 identity = ctx_load_meta(ctx, CB_SRC_IDENTITY);
+	__u8 metric_dir = ctx_load_meta(ctx, CB_METRIC_DIRECTION);
+	bool from_host = ctx_load_meta(ctx, CB_FROM_HOST);
+
+	if (!revalidate_data(ctx, &data, &data_end, &ip4))
+		return DROP_INVALID;
+
+	ep = lookup_ip4_endpoint(ip4);
+	if (!ep)
+		return DROP_INVALID;
+
+	ret = ipv4_local_delivery(ctx, ETH_HLEN, identity, ip4, ep, metric_dir,
+				  from_host);
+	if (IS_ERR(ret))
+		return send_drop_notify_error(ctx, identity, ret, CTX_ACT_DROP,
+					      metric_dir);
+
+	return ret;
+}
+
 #endif /* SKIP_POLICY_MAP */
 
 static __always_inline __u8 get_encrypt_key(__u32 ctx)

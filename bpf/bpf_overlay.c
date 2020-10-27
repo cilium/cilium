@@ -220,8 +220,12 @@ not_esp:
 		if (ep->flags & ENDPOINT_F_HOST)
 			goto to_host;
 
-		return ipv4_local_delivery(ctx, ETH_HLEN, *identity, ip4, ep,
-					   METRIC_INGRESS, false);
+		ctx_store_meta(ctx, CB_SRC_IDENTITY, *identity);
+		ctx_store_meta(ctx, CB_METRIC_DIRECTION, METRIC_INGRESS);
+		ctx_store_meta(ctx, CB_FROM_HOST, false);
+
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_LOCAL_DELIVERY);
+		return DROP_MISSED_TAIL_CALL;
 	}
 
 to_host:

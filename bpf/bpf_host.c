@@ -507,8 +507,12 @@ handle_ipv4(struct __ctx_buff *ctx, __u32 secctx,
 			return CTX_ACT_OK;
 #endif
 
-		return ipv4_local_delivery(ctx, ETH_HLEN, secctx, ip4, ep,
-					   METRIC_INGRESS, from_host);
+		ctx_store_meta(ctx, CB_SRC_IDENTITY, secctx);
+		ctx_store_meta(ctx, CB_METRIC_DIRECTION, METRIC_EGRESS);
+		ctx_store_meta(ctx, CB_FROM_HOST, from_host);
+
+		ep_tail_call(ctx, CILIUM_CALL_IPV4_LOCAL_DELIVERY);
+		return DROP_MISSED_TAIL_CALL;
 	}
 
 #ifdef ENCAP_IFINDEX
