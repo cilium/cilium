@@ -27,6 +27,7 @@ rules:
     resourceNames:
       - clustermesh-apiserver-server-cert
       - clustermesh-apiserver-admin-cert
+      - clustermesh-apiserver-remote-cert
       - clustermesh-apiserver-client-cert
     verbs:
       - update
