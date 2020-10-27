@@ -69,7 +69,7 @@ pipeline {
             steps {
                 // retrieve k8s and kernel versions from gh comment, then from job parameter, default to 1.18 for k8s, 419 for kernel
                 script {
-                    flags = env.ghprbCommentBody.replace("\\", "")
+                    flags = env.ghprbCommentBody?.replace("\\", "")
                     env.K8S_VERSION = sh script: '''
                         if [ "${ghprbCommentBody}" != "" ]; then
                             python ${TESTDIR}/get-gh-comment-info.py ''' + flags + ''' --retrieve="k8s_version" | \
