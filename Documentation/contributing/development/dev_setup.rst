@@ -9,6 +9,16 @@
 Development Setup
 =================
 
+Verifying Your Development Setup
+~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~
+
+Assuming you have Go installed, you can quickly verify many elements of your
+development setup by running:
+
+::
+
+    $ make dev-doctor
+
 Requirements
 ~~~~~~~~~~~~
 
