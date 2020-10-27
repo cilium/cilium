@@ -112,7 +112,7 @@ type feMapping struct {
 }
 
 func (feM *feMapping) GetModel() *models.FrontendMapping {
-	var bes []*models.LRPBackend
+	bes := make([]*models.LRPBackend, 0, len(feM.podBackends))
 	for _, be := range feM.podBackends {
 		bes = append(bes, be.GetModel())
 	}
@@ -360,7 +360,7 @@ func (config *LRPConfig) GetModel() *models.LRPSpec {
 		lrpType = "svc"
 	}
 
-	var feMappingModelArray []*models.FrontendMapping
+	feMappingModelArray := make([]*models.FrontendMapping, 0, len(config.frontendMappings))
 	for _, feM := range config.frontendMappings {
 		feMappingModelArray = append(feMappingModelArray, feM.GetModel())
 	}
