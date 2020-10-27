@@ -322,7 +322,7 @@ func decodeDNS(flowType accesslog.FlowType, dns *accesslog.LogRecordDNS) *pb.Lay
 
 func decodeHTTP(flowType accesslog.FlowType, http *accesslog.LogRecordHTTP) *pb.Layer7_Http {
 	var headers []*pb.HTTPHeader
-	var keys []string
+	keys := make([]string, 0, len(http.Headers))
 	for key := range http.Headers {
 		keys = append(keys, key)
 	}
