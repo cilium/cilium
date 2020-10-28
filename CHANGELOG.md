@@ -1,5 +1,47 @@
 # Changelog
 
+## v1.7.11
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add metric 'cilium_k8s_event_lag_seconds' for calculated lag of Kubernetes events (Backport PR #13739, Upstream PR #13702, @aanm)
+* Automatic rate limiting of endpoint API calls (Backport PR #13392, Upstream PR #13319, @tgraf)
+
+**Bugfixes:**
+* bpf: only clean up XDP from devices with XDP attached (Backport PR #13595, Upstream PR #13532, @jaffcheng)
+* contexthelpers: Fix deadlock when nobody recvs on success channel (Backport PR #13441, Upstream PR #13408, @brb)
+* endpoint: Avoid benign error messages on restoration (Backport PR #13708, Upstream PR #13667, @pchaigno)
+* Fix bug where Cilium leaks a goroutine when an endpoint is deleted. This leak, if left running in a high pod churn environment, can cause Cilium to exceed its memory usage and get OOM killed. (Backport PR #13690, Upstream PR #13683, @christarazi)
+* identity: Fix nil pointer panic in LookupIdentityByID (Backport PR #13595, Upstream PR #13514, @gandro)
+* lbmap: Correct issue that port info display error (Backport PR #13721, Upstream PR #13244, @Jianlin-lv)
+* metrics: fix negative identity count (Backport PR #13721, Upstream PR #12313, @ArthurChiao)
+* reduce cardinality of prometheus labels (Backport PR #13708, Upstream PR #13699, @aanm)
+* service: Use initNextID in acquireLocalID() (Backport PR #13595, Upstream PR #13576, @hzhou8)
+
+**CI Changes:**
+* bugtool: get bpffs mountpoint from /proc/mounts (Backport PR #13402, Upstream PR #13342, @jibi)
+
+**Misc Changes:**
+* backporting: Update labels by default when submitting backport (Backport PR #13708, Upstream PR #13703, @pchaigno)
+* contrib: Improve start-release.sh script (Backport PR #13402, Upstream PR #13357, @joestringer)
+* docs: Add a note about systemd 245 rp_filter issue (Backport PR #13739, Upstream PR #13717, @brb)
+* docs: Fix TLS visibility GSG (Backport PR #13487, Upstream PR #13452, @jrajahalme)
+* endpoint: Avoid logging about disconnected EPs during restore (Backport PR #13708, Upstream PR #10974, @jrajahalme)
+* Fix race condition in DeepEqual function (Backport PR #13491, Upstream PR #13472, @aanm)
+* Follow-up fixes for the API rate limiter (Backport PR #13477, Upstream PR #13450, @tgraf)
+* fsnotify: correctly check for event operation (Backport PR #13402, Upstream PR #13325, @kAworu)
+* Improve documentation of filtering unnecessary labels (Backport PR #13721, Upstream PR #13696, @aanm)
+* k8s: update k8s libraries to 1.17.13 (#13652, @aanm)
+* test: Debug RuntimeConntrackInVethModeTest flake (Backport PR #13656, Upstream PR #13295, @pchaigno)
+* test: Replace managed etcd test with generic etcd test (Backport PR #13574, Upstream PR #11544, @tgraf)
+* vagrant: Only set K8S_NODE_NAME if K8S=1 (Backport PR #13402, Upstream PR #11086, @jrajahalme)
+
+**Other Changes:**
+* [v1.7] Dockerfile: Bump cilium-runtime image (#13789, @christarazi)
+* [v1.7] document option for enabling API rate limiting (#13422, @qmonnet)
+
 ## v1.7.10
 
 Summary of Changes

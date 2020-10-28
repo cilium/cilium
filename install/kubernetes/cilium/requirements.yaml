@@ -1,19 +1,19 @@
 dependencies:
   - name: agent
-    version: 1.7.10
+    version: 1.7.11
     condition: agent.enabled
   - name: config
-    version: 1.7.10
+    version: 1.7.11
     condition: config.enabled
   - name: operator
-    version: 1.7.10
+    version: 1.7.11
     condition: operator.enabled
   - name: managed-etcd
-    version: 1.7.10
+    version: 1.7.11
     condition: global.etcd.managed
   - name: preflight
-    version: 1.7.10
+    version: 1.7.11
     condition: preflight.enabled
   - name: nodeinit
-    version: 1.7.10
+    version: 1.7.11
     condition: global.nodeinit.enabled

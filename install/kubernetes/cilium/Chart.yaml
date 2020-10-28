@@ -1,7 +1,7 @@
 apiVersion: v1
 name: cilium
-version: 1.7.10
-appVersion: 1.7.10
+version: 1.7.11
+appVersion: 1.7.11
 tillerVersion: ">=2.7.2-0"
 description: Helm chart for Cilium
 keywords:
