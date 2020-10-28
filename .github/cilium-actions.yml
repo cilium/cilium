@@ -1,4 +1,4 @@
-project: "https://github.com/cilium/cilium/projects/129"
+project: "https://github.com/cilium/cilium/projects/133"
 column: "In progress"
 auto-label:
   - "kind/backports"
