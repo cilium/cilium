@@ -51,7 +51,7 @@ var rootCmd = &cobra.Command{
 // Note: os.Exit(1) is not recoverable
 func Fatalf(msg string, args ...interface{}) {
 	fmt.Fprintf(os.Stderr, "Error: %s\n", fmt.Sprintf(msg, args...))
-	os.Exit(-1)
+	os.Exit(1)
 }
 
 // Execute adds all child commands to the root command sets flags appropriately.
@@ -59,7 +59,7 @@ func Fatalf(msg string, args ...interface{}) {
 func Execute() {
 	if err := rootCmd.Execute(); err != nil {
 		fmt.Println(err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 }
 
