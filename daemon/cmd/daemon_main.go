@@ -115,7 +115,7 @@ var (
 			// Open socket for using gops to get stacktraces of the agent.
 			if err := gops.Listen(gops.Options{}); err != nil {
 				fmt.Fprintf(os.Stderr, "unable to start gops: %s", err)
-				os.Exit(-1)
+				os.Exit(1)
 			}
 
 			bootstrapStats.earlyInit.Start()
@@ -148,7 +148,7 @@ func Execute() {
 	interruptCh := cleaner.registerSigHandler()
 	if err := RootCmd.Execute(); err != nil {
 		fmt.Println(err)
-		os.Exit(-1)
+		os.Exit(1)
 	}
 	<-interruptCh
 }
