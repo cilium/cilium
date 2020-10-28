@@ -575,6 +575,85 @@ func TestDecodeTrafficDirection(t *testing.T) {
 	assert.Equal(t, uint32(localEP), f.GetDestination().GetID())
 }
 
+func TestDecodeIsReply(t *testing.T) {
+	localIP := net.ParseIP("1.2.3.4")
+	remoteIP := net.ParseIP("5.6.7.8")
+
+	parser, err := New(log, nil, nil, nil, nil, nil)
+	require.NoError(t, err)
+	parseFlow := func(event interface{}, srcIPv4, dstIPv4 net.IP) *flowpb.Flow {
+		data, err := testutils.CreateL3L4Payload(event,
+			&layers.Ethernet{
+				SrcMAC:       net.HardwareAddr{1, 2, 3, 4, 5, 6},
+				DstMAC:       net.HardwareAddr{7, 8, 9, 0, 1, 2},
+				EthernetType: layers.EthernetTypeIPv4,
+			},
+			&layers.IPv4{SrcIP: srcIPv4, DstIP: dstIPv4})
+		require.NoError(t, err)
+		f := &flowpb.Flow{}
+		err = parser.Decode(data, f)
+		require.NoError(t, err)
+		return f
+	}
+
+	// TRACE_TO_LXC
+	tn := monitor.TraceNotifyV0{
+		Type:     byte(api.MessageTypeTrace),
+		ObsPoint: api.TraceToLxc,
+		Reason:   monitor.TraceReasonCtReply,
+	}
+	f := parseFlow(tn, localIP, remoteIP)
+	assert.NotNil(t, f.GetIsReply())
+	assert.Equal(t, true, f.GetIsReply().GetValue())
+	assert.Equal(t, true, f.GetReply())
+
+	// TRACE_FROM_LXC (connection tracking not supported)
+	tn = monitor.TraceNotifyV0{
+		Type:     byte(api.MessageTypeTrace),
+		ObsPoint: api.TraceFromLxc,
+		Reason:   monitor.TraceReasonCtReply,
+	}
+	f = parseFlow(tn, localIP, remoteIP)
+	assert.Nil(t, f.GetIsReply())
+	assert.Equal(t, false, f.GetReply())
+
+	tn = monitor.TraceNotifyV0{
+		Type:     byte(api.MessageTypeTrace),
+		ObsPoint: api.TraceFromLxc,
+		Reason:   0,
+	}
+	f = parseFlow(tn, localIP, remoteIP)
+	assert.Nil(t, f.GetIsReply())
+	assert.Equal(t, false, f.GetReply())
+
+	// PolicyVerdictNotify forward statically assumes is_reply=false
+	pvn := monitor.PolicyVerdictNotify{
+		Type:    byte(api.MessageTypePolicyVerdict),
+		Verdict: 0,
+	}
+	f = parseFlow(pvn, localIP, remoteIP)
+	assert.NotNil(t, f.GetIsReply())
+	assert.Equal(t, false, f.GetIsReply().GetValue())
+	assert.Equal(t, false, f.GetReply())
+
+	// PolicyVerdictNotify drop statically assumes is_reply=unknown
+	pvn = monitor.PolicyVerdictNotify{
+		Type:    byte(api.MessageTypePolicyVerdict),
+		Verdict: -151, // drop reason: Stale or unroutable IP
+	}
+	f = parseFlow(pvn, localIP, remoteIP)
+	assert.Nil(t, f.GetIsReply())
+	assert.Equal(t, false, f.GetReply())
+
+	// DropNotify statically assumes is_reply=unknown
+	dn := monitor.DropNotify{
+		Type: byte(api.MessageTypeDrop),
+	}
+	f = parseFlow(dn, localIP, remoteIP)
+	assert.Nil(t, f.GetIsReply())
+	assert.Equal(t, false, f.GetReply())
+}
+
 func Test_filterCIDRLabels(t *testing.T) {
 	type args struct {
 		labels []string
