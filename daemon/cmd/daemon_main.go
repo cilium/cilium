@@ -1046,12 +1046,6 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	if option.Config.DevicePreFilter != "undefined" {
-		if option.Config.XDPDevice != "undefined" &&
-			option.Config.XDPDevice != option.Config.DevicePreFilter {
-			log.Fatalf("Cannot set Prefilter device: mismatch between NodePort device %s and Prefilter device %s",
-				option.Config.XDPDevice, option.Config.DevicePreFilter)
-		}
-
 		option.Config.XDPDevice = option.Config.DevicePreFilter
 		if err := loader.SetXDPMode(option.Config.ModePreFilter); err != nil {
 			scopedLog.WithError(err).Fatal("Cannot set prefilter XDP mode")
