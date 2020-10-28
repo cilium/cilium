@@ -1,5 +1,9 @@
 #!/bin/bash
 
+# Ensure sort order doesn't depend on locale
+export LANG=en_US.UTF-8
+export LC_ALL=en_US.UTF-8
+
 function extract_authors() {
 	authors=$(git shortlog --summary | awk '{$1=""; print $0}' | sed -e 's/^ //')
 	IFS=$'\n'
@@ -14,4 +18,4 @@ function extract_authors() {
 	done
 }
 
-extract_authors | uniq | sort
+extract_authors | sort -u
