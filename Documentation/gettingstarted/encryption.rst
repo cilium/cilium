@@ -7,7 +7,7 @@
 .. _encryption:
 
 ************************************
-Transparent Encryption (stable/beta)
+Transparent Encryption
 ************************************
 
 This guide explains how to configure Cilium to use IPsec based transparent
@@ -21,12 +21,6 @@ distributed, but that is not shown here.
 
     ``Secret`` resources need to be deployed in the same namespace as Cilium!
     In our example, we use ``kube-system``.
-
-.. note::
-
-    The encryption feature is stable in combination with the direct-routing and
-    ENI datapath mode. In combination with encapsulation/tunneling, the feature
-    is still in beta phase.
 
 .. note::
 
