@@ -184,8 +184,8 @@ func (p *Parser) Decode(data []byte, decoded *pb.Flow) error {
 	decoded.SourceNames = p.resolveNames(dstEndpoint.ID, srcIP)
 	decoded.DestinationNames = p.resolveNames(srcEndpoint.ID, dstIP)
 	decoded.L7 = nil
-	decoded.IsReply = decodeIsReply(tn)
-	decoded.Reply = decoded.GetIsReply().GetValue()
+	decoded.IsReply = decodeIsReply(tn, pvn)
+	decoded.Reply = decoded.GetIsReply().GetValue() // false if GetIsReply() is nil
 	decoded.TrafficDirection = decodeTrafficDirection(srcEndpoint.ID, dn, tn, pvn)
 	decoded.EventType = decodeCiliumEventType(eventType, eventSubType)
 	decoded.SourceService = sourceService
@@ -430,16 +430,25 @@ func decodeICMPv6(icmp *layers.ICMPv6) *pb.Layer4 {
 	}
 }
 
-func decodeIsReply(tn *monitor.TraceNotify) *wrappers.BoolValue {
-	// Unfortunately, not all trace points have the connection
-	// tracking state available. For certain trace point
-	// events, we do not know if it actually was a reply or not.
-	if tn != nil && monitorAPI.TraceObservationPointHasConnState(tn.ObsPoint) {
+func decodeIsReply(tn *monitor.TraceNotify, pvn *monitor.PolicyVerdictNotify) *wrappers.BoolValue {
+	switch {
+	case tn != nil && monitorAPI.TraceObservationPointHasConnState(tn.ObsPoint):
+		// Unfortunately, not all trace points have the connection
+		// tracking state available. For certain trace point
+		// events, we do not know if it actually was a reply or not.
 		return &wrappers.BoolValue{
 			Value: tn.Reason & ^monitor.TraceReasonEncryptMask == monitor.TraceReasonCtReply,
 		}
+	case pvn != nil && pvn.Verdict >= 0:
+		// Forwarded PolicyVerdictEvents are emitted for the first packet of
+		// connection, therefore we statically assume that they are not reply
+		// packets
+		return &wrappers.BoolValue{Value: false}
+	default:
+		// For other events, such as drops, we simply do not know if they were
+		// replies or not.
+		return nil
 	}
-	return nil
 }
 
 func decodeCiliumEventType(eventType, eventSubType uint8) *pb.CiliumEventType {
@@ -491,7 +500,7 @@ func decodeTrafficDirection(srcEP uint32, dn *monitor.DropNotify, tn *monitor.Tr
 			// true if the traffic source is the local endpoint, i.e. egress
 			isSourceEP := tn.Source == uint16(srcEP)
 			// true if the packet is a reply, i.e. reverse direction
-			isReply := decodeIsReply(tn).GetValue()
+			isReply := tn.Reason & ^monitor.TraceReasonEncryptMask == monitor.TraceReasonCtReply
 
 			// isSourceEP != isReply ==
 			//  (isSourceEP && !isReply) || (!isSourceEP && isReply)
