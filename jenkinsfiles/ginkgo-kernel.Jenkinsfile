@@ -95,7 +95,9 @@ pipeline {
                             sed "s/Runtime.*/NoTests/" | \
                             sed 's/^"//' | sed 's/"$//' | \
                             xargs echo -n
-                         fi''', returnStdout: true
+                        else
+                            echo -n "K8s"
+                        fi''', returnStdout: true
                 }
             }
         }
