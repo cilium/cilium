@@ -54,6 +54,8 @@ func (h *portDistributionHandler) Status() string {
 }
 
 func (h *portDistributionHandler) ProcessFlow(flow v1.Flow) {
+	// if we are not certain if a flow is a reply (i.e. flow.GetIsReply() == nil)
+	// we do not want to consider its destination port for the metric
 	skipReply := flow.GetIsReply() == nil || flow.GetIsReply().GetValue()
 	if flow.GetVerdict() != flowpb.Verdict_FORWARDED || flow.GetL4() == nil || skipReply {
 		return
