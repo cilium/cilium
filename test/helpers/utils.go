@@ -23,7 +23,6 @@ import (
 	"io/ioutil"
 	"os"
 	"path/filepath"
-	"regexp"
 	"strconv"
 	"strings"
 	"time"
@@ -589,43 +588,10 @@ func GetNodeWithoutCilium() string {
 	return os.Getenv("NO_CILIUM_ON_NODE")
 }
 
-// ContainerURLRE matches and splits container image URLs. The protocol and tag
-// are optional.
-// Note: The groups can be simplified but that is less readable.
-// Group #    Contains
-//    1       http protocol
-//    2       registry domain
-//    3       registry path
-//    4       - tag w/ ":"
-//    5       tag
-var containerURLRE = regexp.MustCompile(`(https?://)?([^/]+)/([^:]+)(:(.+))?`)
-
-// SplitContainerURL returns url split into the registry (with protocol), image
-// path and tag.
-// If this split is successful success is true.
-// Note: tag may be empty when not present. success is true in this case.
-func SplitContainerURL(url string) (registry, image, tag string, success bool) {
-	parts := containerURLRE.FindStringSubmatch(url)
-	if parts == nil {
-		return "", "", "", false
-	}
-
-	registryProto := parts[1]
-	registryDomain := parts[2]
-	registry = registryProto + registryDomain
-
-	image = parts[3]
-	tag = parts[5]
-
-	return registry, image, tag, true
-}
-
 // GetLatestImageVersion infers which docker tag should be used
 func GetLatestImageVersion() string {
-	_, _, tag, success := SplitContainerURL(config.CiliumTestConfig.CiliumImage)
-
-	if success && len(tag) > 0 {
-		return tag
+	if len(config.CiliumTestConfig.CiliumTag) > 0 {
+		return config.CiliumTestConfig.CiliumTag
 	}
 	return "latest"
 }
