@@ -106,6 +106,14 @@ In order to enable node-to-node encryption, add:
     [...]
     --set global.encryption.enabled=true \
     --set global.encryption.nodeEncryption=true
+    --set global.tunnel=disabled
+
+.. note::
+
+    Node to node encryption feature is tested and supported with direct routing
+    modes. Using with encapsulation/tunneling is not currently tested or supported.
+
+    Support with tunneling mode is tracked at `#13663 <https://github.com/cilium/cilium/issues/13663>`_.
 
 Validate the Setup
 ==================
