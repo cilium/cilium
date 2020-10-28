@@ -1,5 +1,99 @@
 # Changelog
 
+## v1.8.5
+
+Summary of Changes
+------------------
+
+**Minor Changes:**
+* Add a new daemon CLI argument, "--iptables-random-fully" to specify the
+iptables "--random-fully" argument when invoking the iptables CLI binary
+directly from cilium-agent. (Backport PR #13700, Upstream PR #13383, @kh34)
+* Add metric 'cilium_k8s_event_lag_seconds' for calculated lag of Kubernetes events (Backport PR #13788, Upstream PR #13702, @aanm)
+* Automatic rate limiting of endpoint API calls (Backport PR #13421, Upstream PR #13319, @tgraf)
+* Configurable nodeSelector and tolerations for all charts (Backport PR #13384, Upstream PR #13267, @mvisonneau)
+* Fix missing policy-verdict event when a session is re-opened. (Backport PR #13438, Upstream PR #13340, @lzang)
+* helm: Add extraConfig in configmap template (#13317, @michi-covalent)
+* helm: renamed podsAnnotations variable into podAnnotations (#13458, @mvisonneau)
+* install: Add explicit RBAC permissions for finalizers subresources (Backport PR #13384, Upstream PR #13369, @errordeveloper)
+
+**Bugfixes:**
+* Add log when allocate nodecidr failure (Backport PR #13657, Upstream PR #13299, @konghui)
+* bpf: only clean up XDP from devices with XDP attached (Backport PR #13564, Upstream PR #13532, @jaffcheng)
+* bpf: properly handle IPv4 fragmented packets in host firewall (Backport PR #13438, Upstream PR #13414, @jibi)
+* contexthelpers: Fix deadlock when nobody recvs on success channel (Backport PR #13438, Upstream PR #13408, @brb)
+* datapath: Fix handling of enable-endpoint-routes (#13448, @errordeveloper)
+* datapath: Support enable-endpoint-routes with encapsulation (Backport PR #13384, Upstream PR #13346, @tgraf)
+* Delete Cilium Endpoints for no longer running Pods (#13592, @aanm)
+* endpoint: Avoid benign error messages on restoration (Backport PR #13788, Upstream PR #13667, @pchaigno)
+* Fix 1 potential deadlock in Azure IPAM and 1 other in ENI and Azure IPAM (Backport PR #13564, Upstream PR #13517, @aanm)
+* Fix Azure IPAM regression (Backport PR #13421, Upstream PR #13397, @tgraf)
+* Fix bug where Cilium leaks a goroutine when an endpoint is deleted. This leak, if left running in a high pod churn environment, can cause Cilium to exceed its memory usage and get OOM killed. (Backport PR #13700, Upstream PR #13683, @christarazi)
+* Fix garbage collection of CEPs - delete them in tranches and not every 5 minutes. (Backport PR #13788, Upstream PR #13728, @aanm)
+* Fix issue where Hubble did not properly support `--follow` queries with a `--since` filter (Backport PR #13388, Upstream PR #13324, @gandro)
+* Fix natting of non-first ipv4 fragments. (Backport PR #13564, Upstream PR #13476, @liuyuan10)
+* identity: Fix nil pointer panic in LookupIdentityByID (Backport PR #13594, Upstream PR #13514, @gandro)
+* lbmap: Correct issue that port info display error (Backport PR #13700, Upstream PR #13244, @Jianlin-lv)
+* loader: Check if device has BPF prog before trying to detach it (Backport PR #13628, Upstream PR #13591, @pchaigno)
+* re-introduce conntrack-gc-interval flag that was accidentally removed (Backport PR #13421, Upstream PR #13401, @aanm)
+* reduce cardinality of prometheus labels (Backport PR #13788, Upstream PR #13699, @aanm)
+* service: Use initNextID in acquireLocalID() (Backport PR #13594, Upstream PR #13576, @hzhou8)
+* vendor: update arping lib to fix concurrency issues (Backport PR #13510, Upstream PR #13482, @aanm)
+
+**CI Changes:**
+* bugtool: get bpffs mountpoint from /proc/mounts (Backport PR #13384, Upstream PR #13342, @jibi)
+* ci: refactor curl / wget test helpers with retries (Backport PR #13700, Upstream PR #12408, @JieJhih)
+* test: improve debugging of dns issues, add retries to external conn check (Backport PR #13700, Upstream PR #13694, @nebril)
+
+**Misc Changes:**
+* backporting: Clean tmp files after backport with conflicts (Backport PR #13788, Upstream PR #13707, @pchaigno)
+* backporting: Update labels by default when submitting backport (Backport PR #13788, Upstream PR #13703, @pchaigno)
+* ClusterPool IPAM fixes & cleanups (Backport PR #13459, Upstream PR #13028, @tgraf)
+* contrib: Improve start-release.sh script (Backport PR #13384, Upstream PR #13357, @joestringer)
+* contrib: match commit subject exactly when searching for upstream commit (Backport PR #13635, Upstream PR #13630, @tklauser)
+* doc: fixes markdown in hostnet policy troubleshooting (Backport PR #13384, Upstream PR #13146, @jedsalazar)
+* doc: Kubeadm guide (Backport PR #13564, Upstream PR #13488, @mrostecki)
+* doc: Update OpenShift GSG (Backport PR #13788, Upstream PR #13713, @michi-covalent)
+* docs/performance: update scripts repo and tf version (Backport PR #13628, Upstream PR #13596, @kkourt)
+* docs: Add a note about systemd 245 rp_filter issue (Backport PR #13788, Upstream PR #13717, @brb)
+* docs: add initial performance guide doc (Backport PR #13384, Upstream PR #13297, @borkmann)
+* docs: Clarify bumping the runtime images step (Backport PR #13788, Upstream PR #13781, @christarazi)
+* docs: Clarify session affinity support on <5.7 (Backport PR #13384, Upstream PR #13318, @pchaigno)
+* docs: Correct minikube start command in getting started guide (Backport PR #13510, Upstream PR #13507, @twpayne)
+* docs: Do not over promise in BPF-masq docs (Backport PR #13788, Upstream PR #13733, @brb)
+* docs: Document some caveats of kube-proxy replacement (Backport PR #13657, Upstream PR #13640, @brb)
+* docs: document test-only ci command (Backport PR #13788, Upstream PR #12268, @nebril)
+* docs: Fix broken formating and link (Backport PR #13700, Upstream PR #13661, @pchaigno)
+* docs: fix minor issue in cilium support with external etcd gsg (Backport PR #13700, Upstream PR #13651, @fristonio)
+* docs: Fix minor issues in getting started guide (Backport PR #13438, Upstream PR #13419, @twpayne)
+* docs: Fix shell syntax issue in OpenShift guide (Backport PR #13564, Upstream PR #13560, @errordeveloper)
+* docs: Fix TLS visibility GSG (Backport PR #13486, Upstream PR #13452, @jrajahalme)
+* docs: GKE - fix some indentation, specify bash code segments (Backport PR #13700, Upstream PR #13645, @ti-mo)
+* docs: improve Host Firewall GSG (Backport PR #13700, Upstream PR #13673, @qmonnet)
+* docs: Move scale and perf guides to Operations (Backport PR #13384, Upstream PR #13377, @pchaigno)
+* documentation: performance evaluation improvements (Backport PR #13384, Upstream PR #13355, @kkourt)
+* Fix deadlock on eventqueue when it's being drained when endpoints are being restored (Backport PR #13788, Upstream PR #13716, @christarazi)
+* Fix kubectl command in cassandra NetworkPolicy documentation. (Backport PR #13564, Upstream PR #13545, @velp)
+* Fix race condition in DeepEqual function (Backport PR #13486, Upstream PR #13472, @aanm)
+* Fixes errors "executable file not found" in script examples/kubernetes-cassandra/cass-populate-tables.sh (Backport PR #13564, Upstream PR #13534, @velp)
+* Follow-up fixes for the API rate limiter (Backport PR #13486, Upstream PR #13450, @tgraf)
+* fsnotify: correctly check for event operation (Backport PR #13384, Upstream PR #13325, @kAworu)
+* Hubble Relay: improve error log message on peer connection failure. (Backport PR #13510, Upstream PR #13484, @Rolinh)
+* Improve connectivity-check cue CLI help and documentation (Backport PR #13459, Upstream PR #13432, @joestringer)
+* Improve documentation of filtering unnecessary labels (Backport PR #13788, Upstream PR #13696, @aanm)
+* install/kubernetes: consistent case spelling of iptables related values (Backport PR #13700, Upstream PR #13556, @tklauser)
+* k8s: update k8s libraries to 1.18.10 (#13653, @aanm)
+* pkg/k8s: fix race condition (Backport PR #13486, Upstream PR #13471, @aanm)
+* Remove high cardinality port-distribution metric from default install (Backport PR #13788, Upstream PR #13734, @jedsalazar)
+* test: Debug RuntimeConntrackInVethModeTest flake (Backport PR #13657, Upstream PR #13295, @pchaigno)
+* Use net.JoinHostPort to construct network address strings (Backport PR #13700, Upstream PR #12975, @tklauser)
+* v1.8: Update Go to 1.14.10 (#13579, @tklauser)
+
+**Other Changes:**
+* Backport OpenShift OKD docs for 1.8 (#13443, @errordeveloper)
+* nodeinit: Update image tag (#13727, @errordeveloper)
+* v1.8: Vendor in google/protobuf/wrappers.proto (#13509, @gandro)
+
 ## v1.8.4
 
 Summary of Changes
