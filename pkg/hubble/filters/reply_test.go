@@ -106,6 +106,14 @@ func Test_filterByReplyField(t *testing.T) {
 			want: true,
 		},
 		{
+			name: "drop implies reply=false",
+			args: args{
+				f:  []*flowpb.FlowFilter{{Reply: []bool{false}}},
+				ev: &v1.Event{Event: &flowpb.Flow{Verdict: flowpb.Verdict_DROPPED, IsReply: nil}},
+			},
+			want: true,
+		},
+		{
 			name: "no-match",
 			args: args{
 				f:  []*flowpb.FlowFilter{{Reply: []bool{true}}},
