@@ -479,6 +479,94 @@ var _ = SkipDescribeIf(helpers.RunsOn54Kernel, "K8sServicesTest", func() {
 		})
 	})
 
+	SkipContextIf(func() bool {
+		return helpers.DoesNotRunWithKubeProxyReplacement() || helpers.DoesNotRunOnNetNextKernel()
+	}, "Checks connectivity when skipping socket lb in pod ns", func() {
+		var (
+			demoDSYAML  string
+			demoYAML    string
+			serviceName = testDSServiceIPv4
+		)
+
+		BeforeAll(func() {
+			DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
+				"hostServices.hostNamespaceOnly": "true",
+			})
+			demoDSYAML = helpers.ManifestGet(kubectl.BasePath(), "demo_ds.yaml")
+			res := kubectl.ApplyDefault(demoDSYAML)
+			res.ExpectSuccess("Unable to apply %s", demoDSYAML)
+			demoYAML = helpers.ManifestGet(kubectl.BasePath(), "demo.yaml")
+			res = kubectl.ApplyDefault(demoYAML)
+			res.ExpectSuccess("unable to apply %s", demoYAML)
+			waitPodsDs(kubectl, []string{testDS, testDSClient, testDSK8s2})
+		})
+
+		AfterAll(func() {
+			_ = kubectl.Delete(demoDSYAML)
+			_ = kubectl.Delete(demoYAML)
+			ExpectAllPodsTerminated(kubectl)
+		})
+
+		It("Checks ClusterIP connectivity on the same node", func() {
+			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, serviceName)
+			Expect(err).Should(BeNil(), "Cannot get service %s", serviceName)
+			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
+
+			// Test that socket lb doesn't kick in, aka we see service VIP in monitor trace.
+			// Note that cilium monitor won't capture service VIP if run with Istio.
+			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+			monitorRes, monitorCancel := kubectl.MonitorStart(ciliumPodK8s1)
+			defer func() {
+				monitorCancel()
+				helpers.WriteToReportFile(monitorRes.CombineOutput().Bytes(), "skip-socket-lb-connectivity-same-node.log")
+			}()
+
+			httpSVCURL := fmt.Sprintf("http://%s/", clusterIP)
+			tftpSVCURL := fmt.Sprintf("tftp://%s/hello", clusterIP)
+
+			// Test connectivbity from root ns
+			status := kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
+				helpers.CurlFail(httpSVCURL))
+			status.ExpectSuccess("cannot curl to service IP from host")
+			status = kubectl.ExecInHostNetNS(context.TODO(), ni.k8s1NodeName,
+				helpers.CurlFail(tftpSVCURL))
+			status.ExpectSuccess("cannot curl to service IP from host")
+
+			// Test connectivity from pod ns
+			testCurlFromPods(kubectl, "id=app2", httpSVCURL, 10, 0)
+			testCurlFromPods(kubectl, "id=app2", tftpSVCURL, 10, 0)
+
+			monitorRes.ExpectContains(clusterIP, "Service VIP not seen in monitor trace, indicating socket lb still in effect")
+		})
+
+		It("Checks ClusterIP connectivity across nodes", func() {
+			service := "testds-service"
+
+			clusterIP, _, err := kubectl.GetServiceHostPort(helpers.DefaultNamespace, service)
+			Expect(err).Should(BeNil(), "Cannot get services %s", service)
+			Expect(govalidator.IsIP(clusterIP)).Should(BeTrue(), "ClusterIP is not an IP")
+
+			// Test that socket lb doesn't kick in, aka we see service VIP in monitor output.
+			// Note that cilium monitor won't capture service VIP if run with Istio.
+			ciliumPodK8s1, err := kubectl.GetCiliumPodOnNode(helpers.K8s1)
+			Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s1")
+			monitorRes, monitorCancel := kubectl.MonitorStart(ciliumPodK8s1)
+			defer func() {
+				monitorCancel()
+				helpers.WriteToReportFile(monitorRes.CombineOutput().Bytes(), "skip-socket-lb-connectivity-across-nodes.log")
+			}()
+
+			url := fmt.Sprintf("http://%s/", clusterIP)
+			testCurlFromPods(kubectl, testDSClient, url, 10, 0)
+
+			url = fmt.Sprintf("tftp://%s/hello", clusterIP)
+			testCurlFromPods(kubectl, testDSClient, url, 10, 0)
+
+			monitorRes.ExpectContains(clusterIP, "Service VIP not seen in monitor trace, indicating socket lb still in effect")
+		})
+	})
+
 	Context("Checks service across nodes", func() {
 
 		var (

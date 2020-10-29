@@ -517,6 +517,9 @@ data:
 {{- if ne .Values.hostServices.protocols "tcp,udp" }}
   host-reachable-services-protos: {{ .Values.hostServices.protocols }}
 {{- end }}
+{{- if hasKey .Values.hostServices "hostNamespaceOnly" }}
+  bpf-lb-sock-hostns-only: {{ .Values.hostServices.hostNamespaceOnly | quote }}
+{{- end }}
 {{- end }}
 {{- if hasKey .Values "hostPort" }}
 {{- if eq $kubeProxyReplacement "partial" }}
