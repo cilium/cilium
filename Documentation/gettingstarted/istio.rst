@@ -31,6 +31,15 @@ proxy, but that will only work if mTLS is not used.
    other GSGs. 5 GB and 4 CPUs should be enough for this GSG
    (``--vm=true --memory=5120 --cpus=4``).
 
+.. note::
+
+   If Cilium is deployed in kube-proxy-free mode, you need to set
+   ``--bpf-lb-sock-hostns-only: true`` in the deployment yaml
+   directly or via ``loadBalancer.hostNamespaceOnly`` option with Helm.
+   Without this option, when Cilium does service resolution via
+   socket load balancing, Istio sidecar will be bypassed, resulting
+   in loss of Istio features including encryption and telemetry.
+
 Step 2: Install cilium-istioctl
 ===============================
 

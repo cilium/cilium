@@ -480,6 +480,10 @@ data:
   enable-local-redirect-policy: {{ .Values.localRedirectPolicy | quote }}
 {{- end }}
 
+{{- if hasKey .Values.loadBalancer "hostNamespaceOnly" }}
+  bpf-lb-sock-hostns-only: {{ .Values.loadBalancer.hostNamespaceOnly | quote }}
+{{- end }}
+
 {{- if hasKey .Values "nativeRoutingCIDR" }}
   ipv4-native-routing-cidr: {{ .Values.nativeRoutingCIDR }}
 {{- else if hasKey .Values "ipv4NativeRoutingCIDR" }}
