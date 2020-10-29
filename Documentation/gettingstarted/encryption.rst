@@ -19,6 +19,11 @@ distributed, but that is not shown here.
 
 .. note::
 
+    ``Secret`` resources need to be deployed in the same namespace as Cilium!
+    In our example, we use ``kube-system``.
+
+.. note::
+
     The encryption feature is stable in combination with the direct-routing and
     ENI datapath mode. In combination with encapsulation/tunneling, the feature
     is still in beta phase.
@@ -71,13 +76,13 @@ to GKE, with VXLAN tunneling:
 .. parsed-literal::
 
     helm install cilium |CHART_RELEASE| \\
-      --namespace cilium \
-      --set nodeinit.enabled=true \
-      --set nodeinit.reconfigureKubelet=true \
-      --set nodeinit.removeCbrBridge=true \
-      --set cni.binPath=/home/kubernetes/bin \
-      --set tunnel=vxlan \
-      --set encryption.enabled=true \
+      --namespace cilium \\
+      --set nodeinit.enabled=true \\
+      --set nodeinit.reconfigureKubelet=true \\
+      --set nodeinit.removeCbrBridge=true \\
+      --set cni.binPath=/home/kubernetes/bin \\
+      --set tunnel=vxlan \\
+      --set encryption.enabled=true \\
       --set encryption.nodeEncryption=false
 
 At this point the Cilium managed nodes will be using IPsec for all traffic. For further
@@ -168,6 +173,9 @@ Cilium agent will default to KEYID of zero if its not specified in the secret.
 
 Troubleshooting
 ===============
+
+ * If the ``cilium`` Pods fail to start after enabling encryption, double-check if
+   the IPSec ``Secret`` and Cilium are deployed in the same namespace together.
 
  * Make sure that the Cilium pods have kvstore connectivity:
 
