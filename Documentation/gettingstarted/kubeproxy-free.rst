@@ -493,6 +493,30 @@ mode would look as follows:
         --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
         --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
+Socket LoadBalancer Bypass in Pod Namespace
+*******************************************
+
+Cilium has built-in support for bypassing the socket-level loadbalancer and falling back
+to the tc loadbalancer at the veth interface when a custom redirection/operation relies
+on the original ClusterIP within pod namespace (e.g., Istio side-car).
+
+Setting ``hostServices.hostNamespaceOnly=true`` enables this bypassing mode. When enabled,
+this circumvents socket rewrite in the ``connect()`` and ``sendmsg()`` syscall bpf hook and
+will pass the original packet to next stage of operation (e.g., stack in
+``per-endpoint-routing`` mode) and re-enables service lookup in the tc bpf program.
+
+A Helm example configuration in a kube-proxy-free environment with socket LB bypass
+looks as follows:
+
+.. parsed-literal::
+
+    helm install cilium |CHART_RELEASE| \\
+        --namespace kube-system \\
+        --set tunnel=disabled \\
+        --set autoDirectNodeRoutes=true \\
+        --set kubeProxyReplacement=strict \\
+        --set hostServices.hostNamespaceOnly=true
+
 .. _XDP acceleration:
 
 LoadBalancer & NodePort XDP Acceleration
