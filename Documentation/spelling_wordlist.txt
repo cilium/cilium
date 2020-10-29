@@ -465,6 +465,7 @@ qede
 qemu
 queryable
 queueing
+rc
 rebase
 rebased
 recompiles
