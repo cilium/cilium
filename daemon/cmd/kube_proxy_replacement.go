@@ -532,21 +532,9 @@ func detectNodeDevice(ifidxByAddr map[string]int) (string, error) {
 // Otherwise, if EnableAutoProtectNodePortRange == true, then append the nodeport
 // range to ip_local_reserved_ports.
 func checkNodePortAndEphemeralPortRanges() error {
-	ephemeralPortRangeStr, err := sysctl.Read("net.ipv4.ip_local_port_range")
+	ephemeralPortRangeStr, ephemeralPortMin, ephemeralPortMax, err := node.EphemeralPortRange()
 	if err != nil {
-		return fmt.Errorf("Unable to read net.ipv4.ip_local_port_range")
-	}
-	ephemeralPortRange := strings.Split(ephemeralPortRangeStr, "\t")
-	if len(ephemeralPortRange) != 2 {
-		return fmt.Errorf("Invalid ephemeral port range: %s", ephemeralPortRangeStr)
-	}
-	ephemeralPortMin, err := strconv.Atoi(ephemeralPortRange[0])
-	if err != nil {
-		return fmt.Errorf("Unable to parse min port value %s for ephemeral range", ephemeralPortRange[0])
-	}
-	ephemeralPortMax, err := strconv.Atoi(ephemeralPortRange[1])
-	if err != nil {
-		return fmt.Errorf("Unable to parse max port value %s for ephemeral range", ephemeralPortRange[1])
+		return err
 	}
 
 	if option.Config.NodePortMax < ephemeralPortMin {
