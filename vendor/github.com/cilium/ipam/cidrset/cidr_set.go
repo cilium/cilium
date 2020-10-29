@@ -50,6 +50,10 @@ const (
 	clusterSubnetMaxDiff = 16
 	// halfIPv6Len is the half of the IPv6 length
 	halfIPv6Len = net.IPv6len / 2
+	// the default subnet mask should be lower or equal to the max ipv4 netmask
+	maxSubNetMaskSizeIPv4 = 32
+	// the default subnet mask should be lower or equal to the max ipv6 netmask
+	maxSubNetMaskSizeIPv6 = 128
 )
 
 var (
@@ -61,6 +65,11 @@ var (
 	// big compared to the CIDR mask size.
 	ErrCIDRSetSubNetTooBig = errors.New(
 		"New CIDR set failed; the node CIDR size is too big")
+	// ErrSubNetMaskSizeInvalid occurs when the subnet mask size  is invalid:
+	// bigger than 32 for IPv4 and bigger than 128 for IPv6
+	ErrSubNetMaskSizeInvalid = fmt.Errorf(
+		"SubNetMask is invalid, should be lower or equal to %d for IPv4 and to %d for IPv6",
+		maxSubNetMaskSizeIPv4, maxSubNetMaskSizeIPv6)
 )
 
 // NewCIDRSet creates a new CidrSet.
@@ -70,8 +79,15 @@ func NewCIDRSet(clusterCIDR *net.IPNet, subNetMaskSize int) (*CidrSet, error) {
 
 	isV6 := clusterCIDR.IP.To4() == nil
 	var maxCIDRs int
-	if (isV6) && (subNetMaskSize-clusterMaskSize > clusterSubnetMaxDiff) {
-		return nil, ErrCIDRSetSubNetTooBig
+	if isV6 {
+		if subNetMaskSize > maxSubNetMaskSizeIPv6 {
+			return nil, ErrSubNetMaskSizeInvalid
+		}
+		if subNetMaskSize-clusterMaskSize > clusterSubnetMaxDiff {
+			return nil, ErrCIDRSetSubNetTooBig
+		}
+	} else if subNetMaskSize > maxSubNetMaskSizeIPv4 {
+		return nil, ErrSubNetMaskSizeInvalid
 	}
 	maxCIDRs = 1 << uint32(subNetMaskSize-clusterMaskSize)
 	return &CidrSet{
@@ -188,13 +204,13 @@ func (s *CidrSet) AllocateNext() (*net.IPNet, error) {
 
 // InRange returns true if the given CIDR is inside the range of the allocatable
 // CidrSet.
-func (s *CidrSet) InRange(cidr *net.IPNet) bool{
+func (s *CidrSet) InRange(cidr *net.IPNet) bool {
 	s.Lock()
 	defer s.Unlock()
 	return s.inRange(cidr)
 }
 
-func (s *CidrSet) inRange(cidr *net.IPNet) bool{
+func (s *CidrSet) inRange(cidr *net.IPNet) bool {
 	return s.clusterCIDR.Contains(cidr.IP.Mask(s.clusterCIDR.Mask)) || cidr.Contains(s.clusterCIDR.IP.Mask(cidr.Mask))
 }
 

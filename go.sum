@@ -117,8 +117,8 @@ github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3 h1:wenYMyWJ08dgEUUj0I
 github.com/cilium/dns v1.1.4-0.20190417235132-8e25ec9a0ff3/go.mod h1:cXN7jgo+gsGlNvQ7Vqu2ELdc3f7i7PPgupHqSkLzzBo=
 github.com/cilium/ebpf v0.0.0-20200702112145-1c8d4c9ef775 h1:cHzBGGVew0ezFsq2grfy2RsB8hO/eNyBgOLHBCqfR1U=
 github.com/cilium/ebpf v0.0.0-20200702112145-1c8d4c9ef775/go.mod h1:7cR51M8ViRLIdUjrmSXlK9pkrsDlLHbO8jiB8X8JnOc=
-github.com/cilium/ipam v0.0.0-20200420133938-2f672ef3ad54 h1:YOrdErbkc+X+6wflk5idOHZ1IJtLNr3Vnz8JlznG0VI=
-github.com/cilium/ipam v0.0.0-20200420133938-2f672ef3ad54/go.mod h1:Ascfar4FtgB+K+mwqbZpSb3WVZ5sPFIarg+iAOXNZqI=
+github.com/cilium/ipam v0.0.0-20201020084809-76717fcdb3a2 h1:RHNYGjc9Rkdr75ZgFObAUGkdCK4+pVKwFW95DgStvNQ=
+github.com/cilium/ipam v0.0.0-20201020084809-76717fcdb3a2/go.mod h1:Ascfar4FtgB+K+mwqbZpSb3WVZ5sPFIarg+iAOXNZqI=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b h1:+bsFX/WOMIoaayXVyRem1awcpz3icz/HoL8Dxg/m6a4=
 github.com/cilium/kafka v0.0.0-20180809090225-01ce283b732b/go.mod h1:ktgizta3CPZBKz5uW272SJyjiro0vn4nOVP7Pk4RopA=
 github.com/cilium/proxy v0.0.0-20200728092031-595bb722a4ab h1:338tNA01tXWGLh+oU8VwNDWep/txhOOWoiP6OOopvJE=
