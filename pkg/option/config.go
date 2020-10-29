@@ -459,6 +459,9 @@ const (
 	// EnableHostReachableServices is the name of the EnableHostReachableServices option
 	EnableHostReachableServices = "enable-host-reachable-services"
 
+	// BPFSocketLBHostnsOnly is the name of the BPFSocketLBHostnsOnly option
+	BPFSocketLBHostnsOnly = "bpf-lb-sock-hostns-only"
+
 	// HostReachableServicesProtos is the name of the HostReachableServicesProtos option
 	HostReachableServicesProtos = "host-reachable-services-protos"
 
@@ -1421,6 +1424,7 @@ type DaemonConfig struct {
 	// CLI options
 
 	BPFRoot                       string
+	BPFSocketLBHostnsOnly         bool
 	CGroupRoot                    string
 	BPFCompileDebug               string
 	CompilerFlags                 []string
@@ -2407,6 +2411,7 @@ func (c *DaemonConfig) Populate() {
 	c.DevicePreFilter = viper.GetString(PrefilterDevice)
 	c.DisableCiliumEndpointCRD = viper.GetBool(DisableCiliumEndpointCRDName)
 	c.EgressMasqueradeInterfaces = viper.GetString(EgressMasqueradeInterfaces)
+	c.BPFSocketLBHostnsOnly = viper.GetBool(BPFSocketLBHostnsOnly)
 	c.EnableHostReachableServices = viper.GetBool(EnableHostReachableServices)
 	c.EnableRemoteNodeIdentity = viper.GetBool(EnableRemoteNodeIdentity)
 	c.K8sHeartbeatTimeout = viper.GetDuration(K8sHeartbeatTimeout)
