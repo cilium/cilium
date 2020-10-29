@@ -31,6 +31,9 @@ const (
 
 	// CustomResourceDefinitionSchemaVersion is semver-conformant version of CRD schema
 	// Used to determine if CRD needs to be updated in cluster
+	//
+	// Maintainers: Run ./Documentation/check-crd-compat-table.sh for each release
+	// Developers: Bump patch for each change in the CRD schema.
 	CustomResourceDefinitionSchemaVersion = "1.22.3"
 
 	// CustomResourceDefinitionSchemaVersionKey is key to label which holds the CRD schema version

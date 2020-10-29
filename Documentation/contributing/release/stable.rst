@@ -62,6 +62,11 @@ Reference steps for the template
 #. Update the ``cilium_version`` and ``cilium_tag`` variables in
    ``examples/getting-started/Vagrantfile``
 
+#. Set the right version for the ``CustomResourceDefinitionSchemaVersion`` in
+   the ``pkg/k8s/client`` by following these instructions:
+
+   Run ``./Documentation/check-crd-compat-table.sh vX.Y``
+
 #. Add all modified files using ``git add`` and create a commit with the
    title ``Prepare for release v1.0.3``.
 
