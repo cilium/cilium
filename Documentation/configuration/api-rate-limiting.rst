@@ -72,7 +72,7 @@ API Call                   Config Name
 ``GET /endpoint/{id}/*``   ``endpoint-get``
 ``PATCH /endpoint/{id}*``  ``endponit-patch``
 ``GET /endpoint``          ``endpoint-list``
-========================== ==================== 
+========================== ====================
 
 Configuration Parameters
 ------------------------
@@ -82,17 +82,17 @@ Configuration Key                 Example   Default   Description
 ================================= ========= ========= =====================================================================================
 ``rate-limit``                    ``5/m``   None      Allowed requests per time unit in the format ``<number>/<duration>``.
 ``rate-burst``                    ``4``     None      Burst of API requests allowed by rate limiter.
-``min-wait-duration``             ``10ms``  0         Minimum wait duration each API call has to wait before being processed.
-``max-wait-duration``             ``15s``   0         Maximum duration an API call is allowed to wait before it fails.
-``estimated-processing-duration`` ``100ms`` 0         Estimated processing duration of an average API call. Used for automatic adjustment.
+``min-wait-duration``             ``10ms``  ``0``     Minimum wait duration each API call has to wait before being processed.
+``max-wait-duration``             ``15s``   ``0``     Maximum duration an API call is allowed to wait before it fails.
+``estimated-processing-duration`` ``100ms`` ``0``     Estimated processing duration of an average API call. Used for automatic adjustment.
 ``auto-adjust``                   ``true``  ``false`` Enable automatic adjustment of ``rate-limit``, ``rate-burst`` and ``parallel-requests``.
-``parallel-requests``             ``4``     0         Number of parallel API calls allowed.
-``min-parallel-requests``         ``2``     0         Lower limit of parallel requests when auto-adjusting.
-``max-parallel-requests``         ``6``     0         Upper limit of parallel requests when auto-adjusting.
-``mean-over``                     ``10``    10        Number of API calls to calculate mean processing duration for auto adjustment.
+``parallel-requests``             ``4``     ``0``     Number of parallel API calls allowed.
+``min-parallel-requests``         ``2``     ``0``     Lower limit of parallel requests when auto-adjusting.
+``max-parallel-requests``         ``6``     ``0``     Upper limit of parallel requests when auto-adjusting.
+``mean-over``                     ``10``    ``10``    Number of API calls to calculate mean processing duration for auto adjustment.
 ``log``                           ``true``  ``false`` Log an Info message for each API call processed.
-``delayed-adjustment-factor``     ``0.25``  0.5       Factor for slower adjustment of ``rate-burst`` and ``parallel-requests``.
-``max-adjustment-factor``         ``10.0``  100.0     Maximum factor the auto-adjusted values can deviate from the initial base values configured.
+``delayed-adjustment-factor``     ``0.25``  ``0.5``   Factor for slower adjustment of ``rate-burst`` and ``parallel-requests``.
+``max-adjustment-factor``         ``10.0``  ``100.0`` Maximum factor the auto-adjusted values can deviate from the initial base values configured.
 ================================= ========= ========= =====================================================================================
 
 Valid duration values
