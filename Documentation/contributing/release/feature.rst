@@ -46,6 +46,11 @@ On Freeze date
    ``project:`` to be the generated link created by the previous step. The link
    should be something like: ``https://github.com/cilium/cilium/projects/NNN``
 
+#. Set the right version for the ``CustomResourceDefinitionSchemaVersion`` in
+   the ``pkg/k8s/...`` by following these instructions:
+
+   Run ``./Documentation/check-crd-compat-table.sh vX.Y``
+
 #. Commit changes, open a pull request against the new ``v1.2`` branch, and get
    the pull request merged
 
