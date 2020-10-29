@@ -345,6 +345,9 @@ static __always_inline int __sock4_xlate_fwd(struct bpf_sock_addr *ctx,
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
 
+	if (is_defined(ENABLE_SOCKET_LB_HOST_ONLY) && !in_hostns)
+		return -ENXIO;
+
 	if (!udp_only && !sock_proto_enabled(ctx->protocol))
 		return -ENOTSUP;
 
@@ -942,6 +945,9 @@ static __always_inline int __sock6_xlate_fwd(struct bpf_sock_addr *ctx,
 	struct lb6_service *backend_slot;
 	bool backend_from_affinity = false;
 	__u32 backend_id = 0;
+
+	if (is_defined(ENABLE_SOCKET_LB_HOST_ONLY) && !in_hostns)
+		return -ENXIO;
 
 	if (!udp_only && !sock_proto_enabled(ctx->protocol))
 		return -ENOTSUP;

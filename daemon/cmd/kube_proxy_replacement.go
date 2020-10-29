@@ -382,6 +382,27 @@ func initKubeProxyReplacementOptions() (bool, error) {
 		}
 	}
 
+	if option.Config.BPFSocketLBHostnsOnly {
+		if !option.Config.EnableHostReachableServices {
+			option.Config.BPFSocketLBHostnsOnly = false
+			log.Warnf("%s only takes effect when %s is true", option.BPFSocketLBHostnsOnly, option.EnableHostReachableServices)
+		} else {
+			found := false
+			if helpers := probesManager.GetHelpers("cgroup_sock_addr"); helpers != nil {
+				if _, ok := helpers["bpf_get_netns_cookie"]; ok {
+					found = true
+				}
+			}
+			if !found {
+				option.Config.BPFSocketLBHostnsOnly = false
+				log.Warn("Without network namespace cookie lookup functionality, BPF datapath " +
+					"cannot distinguish root and non-root namespace, skipping socket-level " +
+					"loadbalancing will not work. Istio routing chains will be missed. " +
+					"Needs kernel version >= 5.7")
+			}
+		}
+	}
+
 	return strict, nil
 }
 
