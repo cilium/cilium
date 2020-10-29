@@ -38,6 +38,11 @@ On Freeze date
         pkg/policy/api/ @cilium/api
         pkg/proxy/accesslog @cilium/api
 
+#. Set the right version for the ``CustomResourceDefinitionSchemaVersion`` in
+   the ``pkg/k8s/...`` by following these instructions:
+
+   Run ``./Documentation/check-crd-compat-table.sh vX.Y``
+
 #. Commit changes, open a pull request against the new ``v1.2`` branch, and get
    the pull request merged
 

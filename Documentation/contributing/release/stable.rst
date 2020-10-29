@@ -73,6 +73,14 @@ If you intent to release a new feature release, see the
 
 #. Generate the release notes by running the instructions provided in github.com/cilium/release
 
+#. Set the right version for the ``CustomResourceDefinitionSchemaVersion`` in
+   the ``pkg/k8s/client`` by following these instructions:
+
+   Run ``./Documentation/check-crd-compat-table.sh vX.Y``
+
+#. Add all modified files using ``git add`` and create a commit with the
+   title ``Prepare for release v1.0.3``.
+
 #. Add the generated release notes in the ``CHANGELOG.md`` file
 
 #. Add all modified files using ``git add`` and create a pull request with the

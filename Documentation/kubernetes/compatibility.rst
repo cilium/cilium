@@ -26,4 +26,20 @@ backward compatibility offered by Kubernetes.
 | 1.12, 1.13, 1.14, 1.15, 1.16, 1.17 | * `networking.k8s.io/v1`_ | `CustomResourceDefinition` |
 +------------------------------------+---------------------------+----------------------------+
 
+Cilium CRD schema validation
+============================
+
+Cilium uses a CRD for its Network Policies in Kubernetes. This CRD might have
+changes in its schema validation, which allows it to verify the correctness of
+a Cilium Clusterwide Network Policy (CCNP) or a Cilium Network Policy (CNP).
+
+The CRD itself has an annotation, ``io.cilium.k8s.crd.schema.version``, with the
+schema definition version. By default, Cilium automatically updates the CRD, and
+its validation, with a newer one.
+
+The following table lists all Cilium versions and their expected schema
+validation version:
+
+.. include:: compatibility-table.rst
+
 .. _networking.k8s.io/v1: https://kubernetes.io/docs/api-reference/v1.8/#networkpolicy-v1-networking
