@@ -85,6 +85,30 @@ to GKE, with VXLAN tunneling:
       --set encryption.enabled=true \\
       --set encryption.nodeEncryption=false
 
+On GKE, Cilium can also be deployed with direct routing instead of tunneling.
+This requires us to enable the GKE integration and specify the native routing
+CIDR. As a bonus, node encryption (for transparently encrypting node-to-node
+traffic) can be enabled as well. See :ref:`node_to_node_encryption` below.
+
+.. note::
+
+    This example builds on the steps outlined in :ref:`k8s_install_gke`.
+
+.. parsed-literal::
+
+    export NATIVE_CIDR="$(gcloud container clusters describe $CLUSTER_NAME --zone $CLUSTER_ZONE --format 'value(clusterIpv4Cidr)')"
+    helm install cilium |CHART_RELEASE| \\
+      --namespace cilium \\
+      --set nodeinit.enabled=true \\
+      --set nodeinit.reconfigureKubelet=true \\
+      --set nodeinit.removeCbrBridge=true \\
+      --set cni.binPath=/home/kubernetes/bin \\
+      --set gke.enabled=true \\
+      --set ipam.mode=kubernetes \\
+      --set nativeRoutingCIDR=$NATIVE_CIDR \\
+      --set encryption.enabled=true \\
+      --set encryption.nodeEncryption=true
+
 At this point the Cilium managed nodes will be using IPsec for all traffic. For further
 information on Cilium's transparent encryption, see :ref:`ebpf_datapath`.
 
@@ -100,6 +124,8 @@ interface as follows:
 .. code:: bash
 
     --set encryption.interface=ethX
+
+.. _node_to_node_encryption:
 
 Node to node encryption
 -----------------------
