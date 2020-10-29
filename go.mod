@@ -16,7 +16,7 @@ require (
 	github.com/cilium/arping v1.0.1-0.20201009104213-b546132ab753
 	github.com/cilium/deepequal-gen v0.0.0-20200406125435-ad6a9003139e
 	github.com/cilium/ebpf v0.0.0-20200702112145-1c8d4c9ef775
-	github.com/cilium/ipam v0.0.0-20200420133938-2f672ef3ad54
+	github.com/cilium/ipam v0.0.0-20201020084809-76717fcdb3a2
 	github.com/cilium/proxy v0.0.0-20200728092031-595bb722a4ab
 	github.com/containernetworking/cni v0.7.1
 	github.com/containernetworking/plugins v0.8.2

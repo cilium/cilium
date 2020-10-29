@@ -99,7 +99,7 @@ github.com/cilium/ebpf/internal
 github.com/cilium/ebpf/internal/btf
 github.com/cilium/ebpf/internal/unix
 github.com/cilium/ebpf/perf
-# github.com/cilium/ipam v0.0.0-20200420133938-2f672ef3ad54
+# github.com/cilium/ipam v0.0.0-20201020084809-76717fcdb3a2
 ## explicit
 github.com/cilium/ipam/cidrset
 github.com/cilium/ipam/service/allocator
