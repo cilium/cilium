@@ -50,7 +50,7 @@ installation of the ``kube-proxy`` add-on:
     in kubeadm, therefore the below workaround for manually removing the ``kube-proxy`` DaemonSet and
     cleaning the corresponding iptables rules after kubeadm initialization is still necessary (`kubeadm#1733 <https://github.com/kubernetes/kubeadm/issues/1733>`__).
 
-    Initialize control-plane as first step with a given pod network CIDR:
+    Initialize control-plane as first step:
 
     .. code:: bash
 
@@ -61,6 +61,15 @@ installation of the ``kube-proxy`` add-on:
     .. code:: bash
 
       kubectl -n kube-system delete ds kube-proxy
+      iptables-restore <(iptables-save | grep -v KUBE)
+
+For existing installations with ``kube-proxy`` running as a DaemonSet, remove it
+by using the following commands:
+
+.. code:: bash
+
+      kubectl -n kube-system delete ds kube-proxy
+      # Run on each node:
       iptables-restore <(iptables-save | grep -v KUBE)
 
 Afterwards, join worker nodes by specifying the control-plane node IP address and
