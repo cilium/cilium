@@ -130,17 +130,11 @@ var _ = Describe("K8sFQDNTest", func() {
 		ciliumPodK8s2, err := kubectl.GetCiliumPodOnNodeWithLabel(helpers.K8s2)
 		Expect(err).Should(BeNil(), "Cannot get cilium pod on k8s2")
 		monitorRes2, monitorCancel2 := kubectl.MonitorStart(ciliumPodK8s2)
-		cancelMonitors := func() {
+		defer func() {
 			monitorCancel1()
 			monitorCancel2()
 			helpers.WriteToReportFile(monitorRes1.CombineOutput().Bytes(), "fqdn-restart-cilium-monitor-k8s1.log")
 			helpers.WriteToReportFile(monitorRes2.CombineOutput().Bytes(), "fqdn-restart-cilium-monitor-k8s2.log")
-		}
-		monitorBeforeCancelled := false
-		defer func() {
-			if !monitorBeforeCancelled {
-				cancelMonitors()
-			}
 		}()
 
 		connectivityTest := func() {
@@ -185,13 +179,6 @@ var _ = Describe("K8sFQDNTest", func() {
 
 		connectivityTest()
 		By("restarting cilium pods")
-
-		// Monitoring requires the Cilium agent to be running, so there
-		// is no point in keeping these running. As they are connecting
-		// to the agents using a unix socket, this might even delay
-		// shutdown, although it shouldn't.
-		monitorBeforeCancelled = true
-		cancelMonitors()
 
 		// kill pid 1 in each cilium pod
 		cmd := fmt.Sprintf("%[1]s get pods -l k8s-app=cilium -n %[2]s |  tail -n +2 | cut -d ' ' -f 1 | xargs -I{} %[1]s exec -n %[2]s {} -- kill 1",
