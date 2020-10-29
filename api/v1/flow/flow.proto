@@ -36,7 +36,7 @@ message Flow {
     // l4
     Layer4 l4 = 6;
 
-    // unused 7
+    reserved 7; // removed, do not use
 
     Endpoint source = 8;
     Endpoint destination = 9;
@@ -46,7 +46,7 @@ message Flow {
     // NodeName is the name of the node from which this Flow was captured.
     string node_name = 11;
 
-    // unused 12
+    reserved 12; // removed, do not use
 
     // all names the source IP can have.
     repeated string source_names = 13;
@@ -61,7 +61,7 @@ message Flow {
     // Please use is_reply instead.
     bool reply = 16 [deprecated=true];
 
-    // unused 17-18
+    reserved 17, 18; // removed, do not use
 
     // EventType of the originating Cilium event
     CiliumEventType event_type = 19;
