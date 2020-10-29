@@ -238,12 +238,16 @@ func (h *HeaderfileWriter) WriteNodeConfig(w io.Writer, cfg *datapath.LocalNodeC
 		if option.Config.EnableHostServicesUDP {
 			cDefinesMap["ENABLE_HOST_SERVICES_UDP"] = "1"
 		}
-		if option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP {
+		if option.Config.EnableHostServicesTCP && option.Config.EnableHostServicesUDP && !option.Config.BPFSocketLBHostnsOnly {
 			cDefinesMap["ENABLE_HOST_SERVICES_FULL"] = "1"
 		}
 		if option.Config.EnableHostServicesPeer {
 			cDefinesMap["ENABLE_HOST_SERVICES_PEER"] = "1"
 		}
+		if option.Config.BPFSocketLBHostnsOnly {
+			cDefinesMap["ENABLE_SOCKET_LB_HOST_ONLY"] = "1"
+		}
+
 		if cookie, err := netns.GetNetNSCookie(); err == nil {
 			// When running in nested environments (e.g. Kind), cilium-agent does
 			// not run in the host netns. So, in such cases the cookie comparison
