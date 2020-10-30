@@ -194,6 +194,9 @@ const (
 	// NetNSName is a name of a network namespace
 	NetNSName = "netNSName"
 
+	// HardwareAddr is L2 addr of a network iface
+	HardwareAddr = "hardwareAddr"
+
 	// Hash is a hash of something
 	Hash = "hash"
 
@@ -313,6 +316,9 @@ const (
 
 	// Line is a line number within a file
 	Line = "line"
+
+	// LinkIndex is a network iface index
+	LinkIndex = "linkIndex"
 
 	// Object is used when "%+v" printing Go objects for debug or error handling.
 	// It is often paired with logfields.Repr to render the object.

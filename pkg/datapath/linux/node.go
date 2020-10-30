@@ -544,22 +544,6 @@ func (n *linuxNodeHandler) encryptNode(newNode *nodeTypes.Node) {
 
 }
 
-func neighborLog(spec, iface string, err error, ip *net.IP, hwAddr *net.HardwareAddr, link int) {
-	scopedLog := log.WithFields(logrus.Fields{
-		logfields.Reason: spec,
-		"Interface":      iface,
-		logfields.IPAddr: ip,
-		"HardwareAddr":   hwAddr,
-		"LinkIndex":      link,
-	})
-
-	if err != nil {
-		scopedLog.WithError(err).Error("insertNeighbor failed")
-	} else {
-		scopedLog.Debug("insertNeighbor")
-	}
-}
-
 // Must be called with linuxNodeHandler.mutex held.
 func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName string) {
 	if newNode.IsLocal() {
@@ -567,45 +551,51 @@ func (n *linuxNodeHandler) insertNeighbor(newNode *nodeTypes.Node, ifaceName str
 	}
 
 	ciliumIPv4 := newNode.GetNodeIP(false)
-	var hwAddr net.HardwareAddr
-	link := 0
+	scopedLog := log.WithFields(logrus.Fields{
+		logfields.Interface: ifaceName,
+		logfields.IPAddr:    ciliumIPv4,
+	})
 
 	iface, err := net.InterfaceByName(ifaceName)
 	if err != nil {
-		neighborLog("InterfaceByName", ifaceName, err, &ciliumIPv4, &hwAddr, link)
+		scopedLog.WithError(err).Error("Failed to retrieve iface by name")
 		return
 	}
 
 	_, err = arping.FindIPInNetworkFromIface(ciliumIPv4, *iface)
 	if err != nil {
-		neighborLog("IP not L2 reachable", ifaceName, nil, &ciliumIPv4, &hwAddr, link)
+		scopedLog.WithError(err).Error("IP is not L2 reachable")
 		return
 	}
 
 	linkAttr, err := netlink.LinkByName(ifaceName)
 	if err != nil {
-		neighborLog("LinkByName", ifaceName, err, &ciliumIPv4, &hwAddr, link)
+		scopedLog.WithError(err).Error("Failed to retrieve iface by name (netlink)")
 		return
 	}
-	link = linkAttr.Attrs().Index
+	link := linkAttr.Attrs().Index
 
-	if hwAddr, _, err := arping.PingOverIface(ciliumIPv4, *iface); err == nil {
-		neigh := netlink.Neigh{
-			LinkIndex:    link,
-			IP:           ciliumIPv4,
-			HardwareAddr: hwAddr,
-			State:        netlink.NUD_PERMANENT,
-		}
-		err := netlink.NeighSet(&neigh)
-		neighborLog("NeighSet", ifaceName, err, &ciliumIPv4, &hwAddr, link)
-		if err == nil {
-			n.neighByNode[newNode.Identity()] = &neigh
-			if option.Config.NodePortHairpin {
-				neighborsmap.NeighRetire(ciliumIPv4)
-			}
-		}
-	} else {
-		neighborLog("arping failed", ifaceName, err, &ciliumIPv4, &hwAddr, link)
+	hwAddr, _, err := arping.PingOverIface(ciliumIPv4, *iface)
+	if err != nil {
+		scopedLog.WithError(err).Error("arping failed")
+		return
+	}
+	scopedLog = scopedLog.WithField(logfields.HardwareAddr, hwAddr)
+
+	neigh := netlink.Neigh{
+		LinkIndex:    link,
+		IP:           ciliumIPv4,
+		HardwareAddr: hwAddr,
+		State:        netlink.NUD_PERMANENT,
+	}
+	if err := netlink.NeighSet(&neigh); err != nil {
+		scopedLog.WithError(err).Error("Failed to insert neighbor")
+		return
+	}
+
+	n.neighByNode[newNode.Identity()] = &neigh
+	if option.Config.NodePortHairpin {
+		neighborsmap.NeighRetire(ciliumIPv4)
 	}
 }
 
@@ -618,14 +608,15 @@ func (n *linuxNodeHandler) deleteNeighbor(oldNode *nodeTypes.Node) {
 
 	if err := netlink.NeighDel(neigh); err != nil {
 		log.WithFields(logrus.Fields{
-			logfields.IPAddr: neigh.IP,
-			"HardwareAddr":   neigh.HardwareAddr,
-			"LinkIndex":      neigh.LinkIndex,
+			logfields.IPAddr:       neigh.IP,
+			logfields.HardwareAddr: neigh.HardwareAddr,
+			logfields.LinkIndex:    neigh.LinkIndex,
 		}).WithError(err).Warn("Failed to remove neighbor entry")
-	} else {
-		if option.Config.NodePortHairpin {
-			neighborsmap.NeighRetire(neigh.IP)
-		}
+		return
+	}
+
+	if option.Config.NodePortHairpin {
+		neighborsmap.NeighRetire(neigh.IP)
 	}
 }
 
