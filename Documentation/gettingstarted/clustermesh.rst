@@ -99,6 +99,8 @@ using their internal IPs):
         name: cilium-etcd-external
         annotations:
           cloud.google.com/load-balancer-type: "Internal"
+          # if all the clusters are in the same region you can comment out this annotation
+          networking.gke.io/internal-load-balancer-allow-global-access: "true"
       spec:
         type: LoadBalancer
         ports:
