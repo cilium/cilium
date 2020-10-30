@@ -18,6 +18,6 @@ package observeroption
 // the CLI to pick these up instead of defining own defaults that need to be
 // kept in sync.
 var Default = Options{
-	MaxFlows:      131071, // 2^17-1
+	MaxFlows:      4096,
 	MonitorBuffer: 1024,
 }
