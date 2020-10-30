@@ -140,7 +140,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 					option.MaglevTableSize, option.Config.MaglevTableSize, supportedPrimes)
 			}
 			if err := maglev.InitMaglevSeeds(option.Config.MaglevHashSeed); err != nil {
-				log.Fatalf("Failed to initialize maglev hash seeds: %s", err)
+				log.WithError(err).Fatalf("Failed to initialize maglev hash seeds")
 			}
 		}
 	}
@@ -167,7 +167,7 @@ func initKubeProxyReplacementOptions() (strict bool) {
 				log.Fatal(err)
 			} else {
 				disableNodePort()
-				log.Warn(fmt.Sprintf("%s. Disabling BPF NodePort.", err))
+				log.WithError(err).Warn("Disabling BPF NodePort.")
 			}
 		}
 	}

@@ -406,7 +406,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 	}
 	err = d.SendNotification(monitorAPI.PolicyUpdateMessage(len(sourceRules), labels, newRev))
 	if err != nil {
-		logger.WithField(logfields.PolicyRevision, newRev).Warn("Failed to send policy update as monitor notification")
+		logger.WithError(err).WithField(logfields.PolicyRevision, newRev).Warn("Failed to send policy update as monitor notification")
 	}
 
 	if option.Config.SelectiveRegeneration {
@@ -430,7 +430,7 @@ func (d *Daemon) policyAdd(sourceRules policyAPI.Rules, opts *policy.AddOptions,
 		// order.
 		_, err := d.policy.RuleReactionQueue.Enqueue(ev)
 		if err != nil {
-			log.WithField(logfields.PolicyRevision, newRev).Errorf("enqueue of RuleReactionEvent failed: %s", err)
+			log.WithError(err).WithField(logfields.PolicyRevision, newRev).Error("enqueue of RuleReactionEvent failed")
 		}
 	} else {
 		// Regenerate all endpoints unconditionally.
@@ -627,7 +627,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 		// order.
 		_, err := d.policy.RuleReactionQueue.Enqueue(ev)
 		if err != nil {
-			log.WithField(logfields.PolicyRevision, rev).Errorf("enqueue of RuleReactionEvent failed: %s", err)
+			log.WithError(err).WithField(logfields.PolicyRevision, rev).Error("enqueue of RuleReactionEvent failed")
 		}
 	} else {
 		d.TriggerPolicyUpdates(true, "policy rules deleted")
@@ -635,7 +635,7 @@ func (d *Daemon) policyDelete(labels labels.LabelArray, res chan interface{}) {
 
 	err := d.SendNotification(monitorAPI.PolicyDeleteMessage(deleted, labels.GetModel(), rev))
 	if err != nil {
-		log.WithField(logfields.PolicyRevision, rev).Warn("Failed to send policy update as monitor notification")
+		log.WithError(err).WithField(logfields.PolicyRevision, rev).Warn("Failed to send policy update as monitor notification")
 	}
 
 	return

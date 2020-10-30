@@ -1083,8 +1083,7 @@ func initEnv(cmd *cobra.Command) {
 
 	monitorAggregationLevel, err := option.ParseMonitorAggregationLevel(option.Config.MonitorAggregation)
 	if err != nil {
-		log.WithError(err).Fatalf("Failed to parse %s: %s",
-			option.MonitorAggregationName, err)
+		log.WithError(err).Fatalf("Failed to parse %s", option.MonitorAggregationName)
 	}
 	option.Config.Opts.SetValidated(option.MonitorAggregation, monitorAggregationLevel)
 
@@ -1094,7 +1093,7 @@ func initEnv(cmd *cobra.Command) {
 	}
 
 	if err := identity.AddUserDefinedNumericIdentitySet(option.Config.FixedIdentityMapping); err != nil {
-		log.Fatalf("Invalid fixed identities provided: %s", err)
+		log.WithError(err).Fatal("Invalid fixed identities provided")
 	}
 
 	if !option.Config.EnableIPv4 && !option.Config.EnableIPv6 {

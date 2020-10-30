@@ -508,7 +508,7 @@ func CreateCustomDialer(b ServiceIPGetter, log *logrus.Entry) func(s string, dur
 			}
 			log.Debugf("custom dialer based on k8s service backend is dialing to %q", s)
 		} else {
-			log.Errorf("Unable to parse etcd service URL %s", err)
+			log.WithError(err).Error("Unable to parse etcd service URL")
 		}
 		return net.Dial("tcp", s)
 	}
