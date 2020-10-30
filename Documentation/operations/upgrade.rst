@@ -741,8 +741,9 @@ Deprecated options
 Removed options
 ~~~~~~~~~~~~~~~
 
-* ``disable-ipv4``, ``ipv4-cluster-cidr-mask-size``, ``keep-bpf-templates``:
-  These options were deprecated in Cilium 1.8 and are now removed.
+* ``disable-ipv4``, ``ipv4-cluster-cidr-mask-size``, ``keep-bpf-templates``,
+  ``disable-k8s-services``: These options were deprecated in Cilium 1.8 and
+  are now removed.
 * The ``prometheus-serve-addr-deprecated`` option is now removed. Please use
   ``prometheus-serve-addr`` instead.
 * The ``hostscope-legacy`` option value for ``ipam`` is now removed. The ``ipam``

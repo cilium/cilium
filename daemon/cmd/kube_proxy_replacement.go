@@ -44,15 +44,6 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		log.Fatalf("Invalid value for --%s: %s", option.KubeProxyReplacement, option.Config.KubeProxyReplacement)
 	}
 
-	if option.Config.DisableK8sServices {
-		if option.Config.KubeProxyReplacement != option.KubeProxyReplacementDisabled {
-			log.Warnf("Service handling disabled. Auto-disabling --%s from \"%s\" to \"%s\"",
-				option.KubeProxyReplacement, option.Config.KubeProxyReplacement,
-				option.KubeProxyReplacementDisabled)
-			option.Config.KubeProxyReplacement = option.KubeProxyReplacementDisabled
-		}
-	}
-
 	if option.Config.KubeProxyReplacement == option.KubeProxyReplacementDisabled {
 		log.Infof("Auto-disabling %q, %q, %q, %q, %q features",
 			option.EnableNodePort, option.EnableExternalIPs,
@@ -88,7 +79,6 @@ func initKubeProxyReplacementOptions() (strict bool) {
 		option.Config.EnableHostServicesTCP = true
 		option.Config.EnableHostServicesUDP = true
 		option.Config.EnableSessionAffinity = true
-		option.Config.DisableK8sServices = false
 	}
 
 	if option.Config.EnableNodePort {

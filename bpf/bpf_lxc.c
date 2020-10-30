@@ -85,7 +85,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 
 	l4_off = l3_off + hdrlen;
 
-#if defined(ENABLE_SERVICES) && !defined(ENABLE_HOST_SERVICES_FULL)
+#ifndef ENABLE_HOST_SERVICES_FULL
 	{
 		struct lb6_service *svc;
 		struct lb6_key key = {};
@@ -117,7 +117,7 @@ static __always_inline int ipv6_l3_from_lxc(struct __ctx_buff *ctx,
 	}
 
 skip_service_lookup:
-#endif /* ENABLE_SERVICES && !ENABLE_HOST_SERVICES_FULL */
+#endif /* !ENABLE_HOST_SERVICES_FULL */
 
 	/* The verifier wants to see this assignment here in case the above goto
 	 * skip_service_lookup is hit. However, in the case the packet
@@ -477,7 +477,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 
 	l4_off = l3_off + ipv4_hdrlen(ip4);
 
-#if defined(ENABLE_SERVICES) && !defined(ENABLE_HOST_SERVICES_FULL)
+#ifndef ENABLE_HOST_SERVICES_FULL
 	{
 		struct lb4_service *svc;
 		struct lb4_key key = {};
@@ -503,7 +503,7 @@ static __always_inline int handle_ipv4_from_lxc(struct __ctx_buff *ctx,
 	}
 
 skip_service_lookup:
-#endif /* ENABLE_SERVICES && !ENABLE_HOST_SERVICES_FULL */
+#endif /* !ENABLE_HOST_SERVICES_FULL */
 
 	/* The verifier wants to see this assignment here in case the above goto
 	 * skip_service_lookup is hit. However, in the case the packet
