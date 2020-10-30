@@ -261,11 +261,13 @@ func (k *K8sWatcher) GetAPIGroups() []string {
 // watcher, as those resource controllers need the resources to be registered
 // with K8s first.
 func (k *K8sWatcher) WaitForCRDsToRegister(ctx context.Context) error {
-	return synced.SyncCRDs(ctx, &k.k8sResourceSynced, &k.k8sAPIGroups)
+	return synced.SyncCRDs(ctx, synced.AgentCRDResourceNames, &k.k8sResourceSynced, &k.k8sAPIGroups)
 }
 
 // InitK8sSubsystem returns a channel for which it will be closed when all
 // caches essential for daemon are synchronized.
+// To be called after WaitForCRDsToRegister() so that all needed CRDs have
+// already been registered.
 func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 	cachesSynced := make(chan struct{})
 	if err := k.EnableK8sWatcher(ctx); err != nil {
@@ -278,10 +280,6 @@ func (k *K8sWatcher) InitK8sSubsystem(ctx context.Context) <-chan struct{} {
 	}
 
 	go func() {
-		// Ensure that we have the CRDs installed first before waiting on the
-		// other resources below.
-		k.WaitForCacheSync(synced.GetCRDResourceNames()...)
-
 		log.Info("Waiting until all pre-existing resources related to policy have been received")
 		// Wait only for certain caches, but not all!
 		// We don't wait for nodes synchronization.

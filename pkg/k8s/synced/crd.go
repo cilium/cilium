@@ -48,32 +48,34 @@ const (
 )
 
 var (
-	crdResourceNames = []string{
+	// AgentCRDResourceNames is a list of all CRD resource names
+	// the Cilium agent needs to wait to be registered before
+	// initializing any k8s watchers.
+	AgentCRDResourceNames = []string{
 		crdResourceName(v2.CNPName),
 		crdResourceName(v2.CCNPName),
 		crdResourceName(v2.CEPName),
 		crdResourceName(v2.CNName),
 		crdResourceName(v2.CIDName),
 		crdResourceName(v2.CLRPName),
-		crdResourceName(v2.CEWName),
 	}
+	// AllCRDResourceNames is a list of all CRD resource names
+	// Cilium Operator is registering.
+	AllCRDResourceNames = append([]string{
+		crdResourceName(v2.CEWName),
+	}, AgentCRDResourceNames...)
 )
 
 func crdResourceName(crd string) string {
 	return "crd:" + crd
 }
 
-// GetCRDResourceNames returns the list of Cilium CRDs we know about.
-func GetCRDResourceNames() []string {
-	return crdResourceNames
-}
-
 // SyncCRDs will sync Cilium CRDs to ensure that they have all been
 // installed inside the K8s cluster. These CRDs are added by the
 // Cilium Operator. This function will block until it finds all the
 // CRDs or if a timeout occurs.
-func SyncCRDs(ctx context.Context, rs *Resources, ag *APIGroups) error {
-	crds := newCRDState()
+func SyncCRDs(ctx context.Context, crdNames []string, rs *Resources, ag *APIGroups) error {
+	crds := newCRDState(crdNames)
 
 	var (
 		listerWatcher = newListWatchFromClient(
@@ -253,9 +255,9 @@ type crdState struct {
 	m map[string]bool
 }
 
-func newCRDState() crdState {
-	m := make(map[string]bool, len(crdResourceNames))
-	for _, name := range crdResourceNames {
+func newCRDState(crds []string) crdState {
+	m := make(map[string]bool, len(crds))
+	for _, name := range crds {
 		m[name] = false
 	}
 	return crdState{
