@@ -186,9 +186,12 @@ func startSynchronizingServices() {
 		cache.WaitForCacheSync(wait.NeverStop, svcController.HasSynced)
 		swgSvcs.Stop()
 		swgSvcs.Wait()
-		close(k8sSvcCacheSynced)
 
 		cache.WaitForCacheSync(wait.NeverStop, endpointController.HasSynced)
+
+		// Have to wait for endpoints to sync too otherwise readers may have to
+		// wait too long to acquire a RLock
+		close(k8sSvcCacheSynced)
 	}()
 
 	go func() {
