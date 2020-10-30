@@ -331,10 +331,6 @@ func init() {
 	flags.Bool(option.DisableCiliumEndpointCRDName, false, "Disable use of CiliumEndpoint CRD")
 	option.BindEnv(option.DisableCiliumEndpointCRDName)
 
-	flags.Bool(option.DisableK8sServices, false, "Disable east-west K8s load balancing by cilium")
-	option.BindEnv(option.DisableK8sServices)
-	flags.MarkDeprecated(option.DisableK8sServices, "This option is no longer supported and will be removed in v1.9")
-
 	flags.String(option.EgressMasqueradeInterfaces, "", "Limit egress masquerading to interface selector")
 	option.BindEnv(option.EgressMasqueradeInterfaces)
 

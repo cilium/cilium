@@ -1005,7 +1005,7 @@ etcd:
 
   # If etcd is behind a k8s service set this option to true so that Cilium
   # does the service translation automatically without requiring a DNS to be
-  # running. Requires disable-k8s-services=false
+  # running.
   k8sService: false
 
   # managed turns on managed etcd mode based on the cilium-etcd-operator

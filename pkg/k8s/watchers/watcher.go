@@ -490,12 +490,6 @@ func (k *K8sWatcher) RunK8sServiceHandler() {
 }
 
 func (k *K8sWatcher) delK8sSVCs(svc k8s.ServiceID, svcInfo *k8s.Service, se *k8s.Endpoints) error {
-	// If east-west load balancing is disabled, we should not sync(add or delete)
-	// K8s service to a cilium service.
-	if option.Config.DisableK8sServices {
-		return nil
-	}
-
 	// Headless services do not need any datapath implementation
 	if svcInfo.IsHeadless {
 		return nil
@@ -693,12 +687,6 @@ func hashSVCMap(svcs []loadbalancer.SVC) map[string]loadbalancer.L3n4Addr {
 }
 
 func (k *K8sWatcher) addK8sSVCs(svcID k8s.ServiceID, oldSvc, svc *k8s.Service, endpoints *k8s.Endpoints) error {
-	// If east-west load balancing is disabled, we should not sync(add or delete)
-	// K8s service to a cilium service.
-	if option.Config.DisableK8sServices {
-		return nil
-	}
-
 	// Headless services do not need any datapath implementation
 	if svc.IsHeadless {
 		return nil
