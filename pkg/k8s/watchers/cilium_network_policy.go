@@ -249,7 +249,7 @@ func (k *K8sWatcher) deleteCiliumNetworkPolicyV2(cnp *types.SlimCNP) error {
 	ctrlName := cnp.GetControllerName()
 	err := k8sCM.RemoveControllerAndWait(ctrlName)
 	if err != nil {
-		log.Debugf("Unable to remove controller %s: %s", ctrlName, err)
+		log.WithError(err).Debugf("Unable to remove controller %s", ctrlName)
 	}
 
 	_, err = k.policyManager.PolicyDelete(cnp.GetIdentityLabels())
@@ -318,7 +318,7 @@ func (k *K8sWatcher) updateCiliumNetworkPolicyV2(ciliumNPClient clientset.Interf
 				if oldCtrlName != newCtrlName {
 					err := k8sCM.RemoveController(oldCtrlName)
 					if err != nil {
-						log.Debugf("Unable to remove controller %s: %s", oldCtrlName, err)
+						log.WithError(err).Debugf("Unable to remove controller %s", oldCtrlName)
 					}
 				}
 				k.updateCiliumNetworkPolicyV2AnnotationsOnly(ciliumNPClient, ciliumV2Store, newRuleCpy)

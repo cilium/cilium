@@ -62,7 +62,7 @@ func (cl *Client) connect() *net.UnixConn {
 	log.Debugf("Accesslog: Connecting to Cilium access log socket: %s", cl.path)
 	conn, err := net.DialUnix("unixpacket", nil, &net.UnixAddr{Name: cl.path, Net: "unixpacket"})
 	if err != nil {
-		log.Errorf("Accesslog: DialUnix() failed: %v", err)
+		log.WithError(err).Error("Accesslog: DialUnix() failed")
 		return nil
 	}
 
@@ -78,14 +78,14 @@ func (cl *Client) Log(pblog *cilium.LogEntry) {
 		// Encode
 		logmsg, err := proto.Marshal(pblog)
 		if err != nil {
-			log.Errorf("Accesslog: Protobuf marshaling error: %v", err)
+			log.WithError(err).Error("Accesslog: Protobuf marshaling error")
 			return
 		}
 
 		// Write
 		_, err = conn.Write(logmsg)
 		if err != nil {
-			log.Errorf("Accesslog: Write() failed: %v", err)
+			log.WithError(err).Error("Accesslog: Write() failed")
 			atomic.StoreUint32(&cl.connected, 0) // Mark connection as broken
 		}
 	} else {

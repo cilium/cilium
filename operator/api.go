@@ -72,7 +72,7 @@ func startServer(shutdownSignal <-chan struct{}, allSystemsGo <-chan struct{}, a
 					log.WithError(err).Error("apiserver shutdown")
 				}
 			case err := <-errCh:
-				log.Warnf("Unable to start status api: %s", err)
+				log.WithError(err).Warn("Unable to start status api")
 			}
 		}()
 		log.Infof("Starting apiserver on address %s", addr)
@@ -81,7 +81,7 @@ func startServer(shutdownSignal <-chan struct{}, allSystemsGo <-chan struct{}, a
 	for err := range errs {
 		nServers--
 		if nServers == 0 {
-			log.Fatalf("Unable to start status api: %s", err)
+			log.WithError(err).Fatal("Unable to start status api")
 		}
 	}
 }

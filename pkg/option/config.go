@@ -2326,7 +2326,7 @@ func ReadDirConfig(dirName string) (map[string]interface{}, error) {
 		if f.Mode()&os.ModeSymlink == 0 {
 			absFileName, err := filepath.EvalSymlinks(fName)
 			if err != nil {
-				log.Warnf("Unable to read configuration file %q: %s", absFileName, err)
+				log.WithError(err).Warnf("Unable to read configuration file %q", absFileName)
 				continue
 			}
 			fName = absFileName
@@ -2334,7 +2334,7 @@ func ReadDirConfig(dirName string) (map[string]interface{}, error) {
 
 		f, err = os.Stat(fName)
 		if err != nil {
-			log.Warnf("Unable to read configuration file %q: %s", fName, err)
+			log.WithError(err).Warnf("Unable to read configuration file %q", fName)
 			continue
 		}
 		if f.Mode().IsDir() {
@@ -2343,7 +2343,7 @@ func ReadDirConfig(dirName string) (map[string]interface{}, error) {
 
 		b, err := ioutil.ReadFile(fName)
 		if err != nil {
-			log.Warnf("Unable to read configuration file %q: %s", fName, err)
+			log.WithError(err).Warnf("Unable to read configuration file %q", fName)
 			continue
 		}
 		m[f.Name()] = string(bytes.TrimSpace(b))
@@ -3090,13 +3090,13 @@ func InitConfig(programName, configName string) func() {
 			}
 
 			if m, err := ReadDirConfig(Config.ConfigDir); err != nil {
-				log.Fatalf("Unable to read configuration directory %s: %s", Config.ConfigDir, err)
+				log.WithError(err).Fatalf("Unable to read configuration directory %s", Config.ConfigDir)
 			} else {
 				// replace deprecated fields with new fields
 				ReplaceDeprecatedFields(m)
 				err := MergeConfig(m)
 				if err != nil {
-					log.Fatalf("Unable to merge configuration: %s", err)
+					log.WithError(err).Fatal("Unable to merge configuration")
 				}
 			}
 		}
@@ -3116,7 +3116,7 @@ func InitConfig(programName, configName string) func() {
 			log.WithField(logfields.Path, Config.ConfigFile).
 				Fatal("Error reading config file")
 		} else {
-			log.WithField(logfields.Reason, err).Info("Skipped reading configuration file")
+			log.WithError(err).Info("Skipped reading configuration file")
 		}
 	}
 }
