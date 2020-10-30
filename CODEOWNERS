@@ -57,6 +57,7 @@ Dockerfile* @cilium/build
 /daemon/cmd/health.* @cilium/health
 /daemon/cmd/hubble.go @cilium/hubble
 /daemon/cmd/ipcache.* @cilium/ipcache
+/daemon/cmd/kube_proxy.* @cilium/bpf
 /daemon/cmd/loadbalancer.* @cilium/loadbalancer
 /daemon/cmd/metrics.* @cilium/metrics
 /daemon/cmd/policy.* @cilium/policy
@@ -91,6 +92,7 @@ Jenkinsfile.nightly @cilium/ci
 /pkg/api/ @cilium/api
 /pkg/aws/ @cilium/aws
 /pkg/azure/ @cilium/azure
+/pkg/bandwidth/ @cilium/bpf
 /pkg/bpf/ @cilium/bpf
 /pkg/byteorder/ @cilium/bpf @cilium/api
 /pkg/client @cilium/api
