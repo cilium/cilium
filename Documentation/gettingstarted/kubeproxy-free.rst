@@ -1074,8 +1074,7 @@ This section therefore elaborates on the various ``kubeProxyReplacement`` option
 
 - ``kubeProxyReplacement=disabled``: This option disables any Kubernetes service
   handling by fully relying on kube-proxy instead, except for ClusterIP services
-  accessed from pods if cilium-agent's flag ``--disable-k8s-services`` is set to
-  ``false`` (pre-v1.6 behavior).
+  accessed from pods (pre-v1.6 behavior).
 
 In Cilium's Helm chart, the default mode is ``kubeProxyReplacement=probe`` for
 new deployments.

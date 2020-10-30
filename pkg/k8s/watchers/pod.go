@@ -598,7 +598,7 @@ func (k *K8sWatcher) genServiceMappings(pod *slim_corev1.Pod, podIPs []string, l
 }
 
 func (k *K8sWatcher) UpsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string) error {
-	if option.Config.DisableK8sServices || !option.Config.EnableHostPort {
+	if !option.Config.EnableHostPort {
 		return nil
 	}
 
@@ -634,7 +634,7 @@ func (k *K8sWatcher) UpsertHostPortMapping(pod *slim_corev1.Pod, podIPs []string
 }
 
 func (k *K8sWatcher) DeleteHostPortMapping(pod *slim_corev1.Pod, podIPs []string) error {
-	if option.Config.DisableK8sServices || !option.Config.EnableHostPort {
+	if !option.Config.EnableHostPort {
 		return nil
 	}
 
