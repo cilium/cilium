@@ -248,6 +248,20 @@ func (s *LocalObserverServer) GetFlows(
 		}).Debug("GetFlows finished")
 	}()
 
+	// if the node name does not match the node filter then we will never return
+	// any flows so return immediately to close the stream
+	nodeName := nodeTypes.GetName()
+	nodeNameFilter, err := filters.NewNodeNameFilter(req.Whitelist, req.Blacklist)
+	if err != nil {
+		return err
+	}
+	if !nodeNameFilter.Match(nodeName) {
+		log.WithFields(logrus.Fields{
+			"node_name": nodeName,
+		}).Debug("GetFlows no node name filter match")
+		return nil
+	}
+
 	ringReader, err := newRingReader(ring, req, whitelist, blacklist)
 	if err != nil {
 		if err == io.EOF {
