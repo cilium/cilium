@@ -95,9 +95,17 @@ func NewLocalServer(
 		"eventQueueSize": opts.MonitorBuffer,
 	}).Info("Configuring Hubble server")
 
+	maxFlows := opts.MaxFlows
+	if maxFlows > 1 && (maxFlows&(maxFlows-1) == 0) {
+		// The ring buffer has an actual capacity of 2^n-1. Thus, to avoid
+		// power of 2 specified capacity to be rounded up (eg 1024 -> 2047),
+		// subtract one to the provided capacity as this probably best
+		// reflects the actual caller's intent.
+		maxFlows -= 1
+	}
 	s := &LocalObserverServer{
 		log:           logger,
-		ring:          container.NewRing(opts.MaxFlows),
+		ring:          container.NewRing(maxFlows),
 		events:        make(chan *observerTypes.MonitorEvent, opts.MonitorBuffer),
 		stopped:       make(chan struct{}),
 		eventschan:    make(chan *observerpb.GetFlowsResponse, 100), // option here?

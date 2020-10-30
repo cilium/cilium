@@ -441,7 +441,9 @@ hubble:
   # the queue size is set to the default monitor queue size.
   # eventQueueSize: ""
 
-  # Number of recent flows for Hubble to cache. Defaults to 4096.
+  # Number of recent flows for Hubble to cache. Defaults to 4096. The actual
+  # value, when not a power of 2 already, gets rounded up to the next power of
+  # 2 (eg: 3000 -> 4096).
   # flowBufferSize: ""
 
   # Hubble metrics configuration.
