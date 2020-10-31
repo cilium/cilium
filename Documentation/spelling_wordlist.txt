@@ -250,6 +250,7 @@ bugtool
 bytecode
 cBPF
 callee
+cancelled
 cardinality
 cass
 cassandra
