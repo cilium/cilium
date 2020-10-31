@@ -45,19 +45,47 @@ const (
 	// requirement is implemented
 	waitSemaphoreResolution = 10000000
 
-	logUUID                   = "uuid"
-	logAPICallName            = "name"
-	logProcessingDuration     = "processingDuration"
-	logParallelRequests       = "parallelRequests"
-	logMinWaitDuration        = "minWaitDuration"
-	logMaxWaitDuration        = "maxWaitDuration"
+	// logUUID is the UUID of the request.
+	logUUID = "uuid"
+	// logAPICallName is the name of the underlying API call, such as
+	// "endpoint-create".
+	logAPICallName = "name"
+	// logProcessingDuration is the time taken to perform the actual underlying
+	// API call such as creating an endpoint or deleting an endpoint. This is
+	// the time between when the request has finished waiting (or being
+	// delayed), to when the underlying action has finished.
+	logProcessingDuration = "processingDuration"
+	// logParallelRequests is the number of allowed parallel requests. See
+	// APILimiter.parallelRequests.
+	logParallelRequests = "parallelRequests"
+	// logMinWaitDuration represents APILimiterParameters.MinWaitDuration.
+	logMinWaitDuration = "minWaitDuration"
+	// logMaxWaitDuration represents APILimiterParameters.MaxWaitDuration.
+	logMaxWaitDuration = "maxWaitDuration"
+	// logMaxWaitDurationLimiter is the actual / calculated maximum threshold
+	// for a request to wait. Any request exceeding this threshold will not be
+	// processed.
 	logMaxWaitDurationLimiter = "maxWaitDurationLimiter"
-	logWaitDurationLimit      = "waitDurationLimiter"
-	logWaitDurationTotal      = "waitDurationTotal"
-	logLimit                  = "limit"
-	logBurst                  = "burst"
-	logTotalDuration          = "totalDuration"
-	logSkipped                = "rateLimiterSkipped"
+	// logWaitDurationLimit is the actual / calculated amount of time
+	// determined by the underlying rate-limiting library that this request
+	// must wait before the rate limiter releases it, so that it can take the
+	// underlying action. See golang.org/x/time/rate.(*Reservation).Delay().
+	logWaitDurationLimit = "waitDurationLimiter"
+	// logWaitDurationTotal is the actual total amount of time that this
+	// request spent waiting to be released by the rate limiter.
+	logWaitDurationTotal = "waitDurationTotal"
+	// logLimit is the rate limit. See APILimiterParameters.RateLimit.
+	logLimit = "limit"
+	// logLimit is the burst rate. See APILimiterParameters.RateBurst.
+	logBurst = "burst"
+	// logTotalDuration is the total time between when the request was first
+	// scheduled (entered the rate limiter) to when it completed processing of
+	// the underlying action. This is the absolute total time of the request
+	// from beginning to end.
+	logTotalDuration = "totalDuration"
+	// logSkipped represents whether the rate limiter will skip rate-limiting
+	// this request. See APILimiterParameters.SkipInitial.
+	logSkipped = "rateLimiterSkipped"
 )
 
 type outcome string
@@ -570,6 +598,11 @@ func (l *APILimiter) Wait(ctx context.Context) (LimitedRequest, error) {
 	return req, nil
 }
 
+// wait implements the API rate limiting delaying functionality. Every error
+// message and corresponding log message are documented in
+// Documentation/configuration/api-rate-limiting.rst. If any changes related to
+// errors or log messages are made to this function, please update the
+// aforementioned page as well.
 func (l *APILimiter) wait(ctx context.Context) (req *limitedRequest, err error) {
 	var (
 		limitWaitDuration time.Duration
