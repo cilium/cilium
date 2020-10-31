@@ -376,6 +376,9 @@ message FlowFilter {
     repeated string http_method = 21;
     // http_path is a list of regular expressions to filter on the HTTP path.
     repeated string http_path = 22;
+
+    // tcp_flags filters flows based on TCP header flags
+    repeated TCPFlags tcp_flags = 23;
 }
 
 // EventType are constants are based on the ones from <linux/perf_event.h>.
