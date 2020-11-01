@@ -471,7 +471,7 @@ data:
   log-system-load: {{ .Values.global.logSystemLoad | quote }}
 {{- end }}
 {{- if .Values.global.logOptions }}
-  log-opt: {{ toYaml .Values.global.logOptions | nindent 4 }}
+  log-opt: {{ .Values.global.logOptions | toJson | quote }}
 {{- end }}
 {{- if and .Values.global.sockops .Values.global.sockops.enabled }}
   sockops-enable: {{ .Values.global.sockops.enabled | quote }}
