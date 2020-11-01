@@ -512,7 +512,7 @@ data:
   log-system-load: {{ .Values.logSystemLoad | quote }}
 {{- end }}
 {{- if .Values.logOptions }}
-  log-opt: {{ toYaml .Values.logOptions | nindent 4 }}
+  log-opt: {{ .Values.logOptions | toJson | quote }}
 {{- end }}
 {{- if and .Values.sockops .Values.sockops.enabled }}
   sockops-enable: {{ .Values.sockops.enabled | quote }}
