@@ -109,11 +109,6 @@ Relay and Hubble's graphical UI.
                   --set hubble.relay.enabled=true \\
                   --set hubble.ui.enabled=true
 
-.. note::
-
-    Please note that Hubble Relay and Hubble UI are currently in beta status
-    and are not yet recommended for production use.
-
 Validate the Installation
 =========================
 
