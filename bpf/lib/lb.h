@@ -692,7 +692,7 @@ __lb6_affinity_backend_id(const struct lb6_service *svc, bool netns_cookie,
 		};
 
 		if (READ_ONCE(val->last_used) +
-		    bpf_sec_to_mono(svc->affinity_timeout) < now) {
+		    bpf_sec_to_mono(svc->affinity_timeout) <= now) {
 			map_delete_elem(&LB6_AFFINITY_MAP, &key);
 			return 0;
 		}
@@ -1230,8 +1230,13 @@ __lb4_affinity_backend_id(const struct lb4_service *svc, bool netns_cookie,
 			.backend_id	= val->backend_id,
 		};
 
+		/* We have seconds granularity for timing values here.
+		 * To ensure that session affinity timeout works properly we don't include
+		 * the upper bound from the time range.
+		 * Session is sticky for range [current, last_used + affinity_timeout)
+		 */
 		if (READ_ONCE(val->last_used) +
-		    bpf_sec_to_mono(svc->affinity_timeout) < now) {
+		    bpf_sec_to_mono(svc->affinity_timeout) <= now) {
 			map_delete_elem(&LB4_AFFINITY_MAP, &key);
 			return 0;
 		}
