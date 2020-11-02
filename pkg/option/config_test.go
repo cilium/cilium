@@ -915,6 +915,22 @@ func TestBPFMapSizeCalculation(t *testing.T) {
 				SockRevNatMapSize: LimitTableMax,
 			},
 		},
+		{
+			name:        "dynamic size NAT size above limit with static CT sizes (issue #13843)",
+			totalMemory: 128 * GiB,
+			ratio:       0.0025,
+			want: sizes{
+				CTMapSizeTCP:      524288,
+				CTMapSizeAny:      262144,
+				NATMapSize:        (524288 + 262144) * 2 / 3,
+				NeighMapSize:      524288,
+				SockRevNatMapSize: 607062,
+			},
+			preTestRun: func() {
+				viper.Set(CTMapEntriesGlobalTCPName, 524288)
+				viper.Set(CTMapEntriesGlobalAnyName, 262144)
+			},
+		},
 	}
 
 	for _, tt := range tests {
