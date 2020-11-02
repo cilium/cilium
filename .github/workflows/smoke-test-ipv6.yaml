@@ -39,8 +39,7 @@ jobs:
 
       - name: Build docker images
         run: |
-          make docker-cilium-image
-          make docker-operator-generic-image
+          make -j docker-cilium-image docker-operator-generic-image
 
       - name: Create kind cluster
         uses: helm/kind-action@v1.0.0
