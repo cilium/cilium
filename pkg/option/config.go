@@ -2895,6 +2895,14 @@ func (c *DaemonConfig) calculateDynamicBPFMapSizes(totalMemory uint64, dynamicSi
 			getEntries(NATMapEntriesGlobalDefault, LimitTableAutoNatGlobalMin, LimitTableMax)
 		log.Infof("option %s set by dynamic sizing to %v",
 			NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
+		if c.NATMapEntriesGlobal > c.CTMapEntriesGlobalTCP+c.CTMapEntriesGlobalAny {
+			// CT table size was specified manually, make sure that the NAT table size
+			// does not exceed maximum CT table size. See
+			// (*DaemonConfig).checkMapSizeLimits.
+			c.NATMapEntriesGlobal = (c.CTMapEntriesGlobalTCP + c.CTMapEntriesGlobalAny) * 2 / 3
+			log.Warningf("option %s would exceed maximum determined by CT table sizes, capping to %v",
+				NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
+		}
 	} else {
 		log.Debugf("option %s set by user to %v", NATMapEntriesGlobalName, c.NATMapEntriesGlobal)
 	}
