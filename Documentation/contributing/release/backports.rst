@@ -170,8 +170,8 @@ Creating the Backport Pull Request
 The backport pull-request may be created via CLI tools, or alternatively
 you can use the GitHub web interface to achieve these steps.
 
-Via Command-Line Tools
-^^^^^^^^^^^^^^^^^^^^^^
+Via Command-Line Tools (Recommended)
+^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^^
 
 These steps require all of the tools described in the :ref:`backport_setup`
 section above. It pushes the git tree, creates the pull request and updates
