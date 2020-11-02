@@ -344,6 +344,7 @@ eBPF
 eXpress
 ebpf
 egressMasqueradeInterfaces
+egressing
 elfutils
 ena
 enableCnpStatusUpdates
@@ -513,6 +514,7 @@ kubeproxy
 kubernetes
 kubespray
 kvstore
+latencies
 lbMapMax
 leia
 libbpf
