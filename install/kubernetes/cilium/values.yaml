@@ -1359,7 +1359,7 @@ clustermesh:
   apiserver:
     image:
       repository: docker.io/cilium/clustermesh-apiserver
-      tag: latest
+      tag: v1.9.0-rc2
       pullPolicy: IfNotPresent
 
     etcd:
