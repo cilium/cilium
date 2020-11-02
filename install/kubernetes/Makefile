@@ -9,6 +9,7 @@ VERSION := 1.8.90
 HUBBLE_PROXY_VERSION := "v1.14.5"
 HUBBLE_UI_VERSION := "v0.7.2"
 MANAGED_ETCD_VERSION := "v2.0.7"
+ETCD_VERSION := "v3.4.13"
 NODEINIT_VERSION := "62bfbe88c17778aad7bef9fa57ff9e2d4a9ba0d8"
 CERTGEN_VERSION := "v0.1.2@sha256:c56e1cd89e6f49a9fa442ad129974e2addfc687ef6ac524ee26849162425c489"
 
@@ -80,6 +81,8 @@ update-versions:
 		sed -i '/repository.*hubble-ui.*/{!b;n;s/tag.*/tag: '$$hubble_version'/}' $(CILIUM_VALUES);			\
 		# etcd.image.tag												\
 		sed -i '/repository.*etcd-operator.*/{!b;n;s/tag.*/tag: '$(MANAGED_ETCD_VERSION)'/}' $(CILIUM_VALUES)		\
+		# clustermesh.apiserver.etcd.image.tag										\
+		sed -i '/repository.*etcd$$/{!b;n;s/tag.*/tag: '$(ETCD_VERSION)'/}' $(CILIUM_VALUES)			\
 		# hubble.ui.proxy.image.tag											\
 		sed -i '/repository.*envoy.*/{!b;n;s/tag.*/tag: '$(HUBBLE_PROXY_VERSION)'/}' $(CILIUM_VALUES)			\
 		# nodeinit.image.tag												\
