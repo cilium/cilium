@@ -38,6 +38,14 @@ line options for ``cilium-agent``. A given capacity can be set using
 ``--bpf-nat-global-max``, ``--bpf-neigh-global-max``, ``--bpf-policy-map-max``,
 ``--bpf-fragments-map-max`` and ``--bpf-lb-map-max``.
 
+.. Note::
+
+   In case the ``--bpf-ct-global-tcp-max`` and/or ``--bpf-ct-global-any-max``
+   are specified, the NAT table size (``--bpf-nat-global-max``) must not exceed
+   2/3 of the combined CT table size (TCP + UDP). This will automatically be set
+   if either ``--bpf-nat-global-max`` is not explicitly set or if dynamic BPF
+   map sizing is used (see below).
+
 Using the ``--bpf-map-dynamic-size-ratio`` flag, the upper capacity limits of
 several large BPF maps are determined at agent startup based on the given ratio
 of the total system memory. For example, a given ratio of 0.0025 leads to 0.25%
