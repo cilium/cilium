@@ -4,7 +4,7 @@
 #ifndef __BPF_VERIFIER__
 #define __BPF_VERIFIER__
 
-#include "csum.h"
+#include "compiler.h"
 
 /* relax_verifier is a dummy helper call to introduce a pruning checkpoint
  * to help relax the verifier to avoid reaching complexity limits on older
@@ -13,9 +13,7 @@
 static __always_inline void relax_verifier(void)
 {
 #ifdef NEEDS_RELAX_VERIFIER
-       int foo = 0;
-
-       csum_diff(0, 0, &foo, 1, 0);
+       volatile int __maybe_unused id = get_smp_processor_id();
 #endif
 }
 
