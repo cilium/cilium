@@ -362,6 +362,10 @@ The following values have been renamed:
 +----------------------------------------------+--------------------------------------------+
 | operator.numReplicas                         | operator.replicas                          |
 +----------------------------------------------+--------------------------------------------+
+| global.nodePort.acceleration                 | loadBalancer.acceleration                  |
++----------------------------------------------+--------------------------------------------+
+| global.nodePort.mode                         | loadBalancer.mode                          |
++----------------------------------------------+--------------------------------------------+
 
 Full list of updated Helm values:
 
@@ -618,7 +622,7 @@ Full list of updated Helm values:
 +----------------------------------------------+--------------------------------------------+
 | agent.monitor.*                              | monitor.*                                  |
 +----------------------------------------------+--------------------------------------------+
-| global.nodePort.acceleration                 | nodePort.acceleration                      |
+| global.nodePort.acceleration                 | loadBalancer.acceleration                  |
 +----------------------------------------------+--------------------------------------------+
 | global.nodePort.autoProtectPortRange         | nodePort.autoProtectPortRange              |
 +----------------------------------------------+--------------------------------------------+
@@ -628,7 +632,7 @@ Full list of updated Helm values:
 +----------------------------------------------+--------------------------------------------+
 | global.nodePort.enabled                      | nodePort.enabled                           |
 +----------------------------------------------+--------------------------------------------+
-| global.nodePort.mode                         | nodePort.mode                              |
+| global.nodePort.mode                         | loadBalancer.mode                          |
 +----------------------------------------------+--------------------------------------------+
 | global.nodePort.range                        | nodePort.range                             |
 +----------------------------------------------+--------------------------------------------+

@@ -320,14 +320,14 @@ having to synchronize state with the other nodes. Similarly, upon backend remova
 lookup tables are reprogrammed with minimal disruption for unrelated backends (at most 1%
 difference in the reassignments) for the given service.
 
-Maglev hashing for services load balancing can be enabled by setting ``nodePort.algorithm=maglev``:
+Maglev hashing for services load balancing can be enabled by setting ``loadBalancer.algorithm=maglev``:
 
 .. parsed-literal::
 
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set kubeProxyReplacement=strict \\
-        --set nodePort.algorithm=maglev \\
+        --set loadBalancer.algorithm=maglev \\
         --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
         --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
@@ -391,14 +391,14 @@ given service (with the property of at most 1% difference on backend reassignmen
     helm install cilium |CHART_RELEASE| \\
         --namespace kube-system \\
         --set kubeProxyReplacement=strict \\
-        --set nodePort.algorithm=maglev \\
+        --set loadBalancer.algorithm=maglev \\
         --set maglev.tableSize=65521 \\
         --set maglev.hashSeed=$SEED \\
         --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
         --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
 Note that enabling Maglev will have a higher memory consumption on each Cilium-managed node compared
-to the default of ``nodePort.algorithm=random`` given ``random`` does not need the extra lookup
+to the default of ``loadBalancer.algorithm=random`` given ``random`` does not need the extra lookup
 tables. However, ``random`` won't have consistent backend selection.
 
 .. _DSR mode:
@@ -415,7 +415,7 @@ from the backend need to make the extra hop back that node in order to perform t
 reverse SNAT translation there before returning the packet directly to the external
 client.
 
-This setting can be changed through the ``nodePort.mode`` Helm option to
+This setting can be changed through the ``loadBalancer.mode`` Helm option to
 ``dsr`` in order to let Cilium's eBPF NodePort implementation operate in DSR mode.
 In this mode, the backends reply directly to the external client without taking
 the extra hop, meaning, backends reply by using the service IP/port as a source.
@@ -455,7 +455,7 @@ enabled would look as follows:
         --set tunnel=disabled \\
         --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
-        --set nodePort.mode=dsr \\
+        --set loadBalancer.mode=dsr \\
         --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
         --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
@@ -470,7 +470,7 @@ manual MTU changes in the network while still benefiting from the latency improv
 through the removed extra hop for replies, in particular, when TCP is the main transport
 for workloads.
 
-The mode setting ``nodePort.mode`` allows to control the behavior through the
+The mode setting ``loadBalancer.mode`` allows to control the behavior through the
 options ``dsr``, ``snat`` and ``hybrid``. By default the ``snat`` mode is used in the
 agent.
 
@@ -484,7 +484,7 @@ mode would look as follows:
         --set tunnel=disabled \\
         --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
-        --set nodePort.mode=hybrid \\
+        --set loadBalancer.mode=hybrid \\
         --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
         --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
@@ -501,7 +501,7 @@ starting from version `1.8 <https://cilium.io/blog/2020/06/22/cilium-18/#kube-pr
 the XDP (eXpress Data Path) layer where eBPF is operating directly in the networking
 driver instead of a higher layer.
 
-The mode setting ``nodePort.acceleration`` allows to enable this acceleration
+The mode setting ``loadBalancer.acceleration`` allows to enable this acceleration
 through the option ``native``. The option ``disabled`` is the default and disables the
 acceleration. The majority of drivers supporting 10G or higher rates also support
 ``native`` XDP on a recent kernel. For cloud based deployments most of these drivers
@@ -514,8 +514,8 @@ For high-scale environments, also consider tweaking the default map sizes to a l
 number of entries e.g. through setting a higher ``config.bpfMapDynamicSizeRatio``.
 See :ref:`bpf_map_limitations` for further details.
 
-The ``nodePort.acceleration`` setting is supported for DSR, SNAT and hybrid
-modes and can be enabled as follows for ``nodePort.mode=hybrid`` in this example:
+The ``loadBalancer.acceleration`` setting is supported for DSR, SNAT and hybrid
+modes and can be enabled as follows for ``loadBalancer.mode=hybrid`` in this example:
 
 .. parsed-literal::
 
@@ -524,8 +524,8 @@ modes and can be enabled as follows for ``nodePort.mode=hybrid`` in this example
         --set tunnel=disabled \\
         --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
-        --set nodePort.acceleration=native \\
-        --set nodePort.mode=hybrid \\
+        --set loadBalancer.acceleration=native \\
+        --set loadBalancer.mode=hybrid \\
         --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
         --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 
@@ -696,7 +696,7 @@ In order to deploy Cilium, the Kubernetes API server IP and port is needed:
   export API_SERVER_PORT=443
 
 Finally, the deployment can be upgraded and later rolled-out with the
-``nodePort.acceleration=native`` setting to enable XDP in Cilium:
+``loadBalancer.acceleration=native`` setting to enable XDP in Cilium:
 
 .. parsed-literal::
 
@@ -705,8 +705,8 @@ Finally, the deployment can be upgraded and later rolled-out with the
         --reuse-values \\
         --set autoDirectNodeRoutes=true \\
         --set kubeProxyReplacement=strict \\
-        --set nodePort.acceleration=native \\
-        --set nodePort.mode=snat \\
+        --set loadBalancer.acceleration=native \\
+        --set loadBalancer.mode=snat \\
         --set k8sServiceHost=$API_SERVER_IP \\
         --set k8sServicePort=$API_SERVER_PORT
 
@@ -766,8 +766,8 @@ will automatically configure your virtual network to route pod traffic correctly
      --set masquerade=false \\
      --set devices=eth0 \\
      --set kubeProxyReplacement=strict \\
-     --set nodePort.acceleration=native \\
-     --set nodePort.mode=hybrid \\
+     --set loadBalancer.acceleration=native \\
+     --set loadBalancer.mode=hybrid \\
      --set k8sServiceHost=REPLACE_WITH_API_SERVER_IP \\
      --set k8sServicePort=REPLACE_WITH_API_SERVER_PORT
 

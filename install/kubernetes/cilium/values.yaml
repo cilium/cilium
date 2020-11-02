@@ -814,23 +814,27 @@ masquerade: true
 monitor:
   enabled: false
 
+# loadBalancer is the general configuration for service load balancing
+# loadBalancer:
+  # algorithm is the name of the load balancing algorithm for backend
+  # selection e.g. random or maglev
+  # algorithm: "random"
+
+  # mode is the operation mode of load balancing for remote backends
+  # e.g. snat, dsr, hybrid
+  # mode: snat
+
+  # acceleration is the option to accelerate service handling via XDP
+  # e.g. native, disabled
+  # acceleration: disabled
+
 # nodePort is the configuration for NodePort service handling
 nodePort:
   # enabled enables NodePort functionality
   enabled: false
 
-  # algorithm is the name of the load-balancing algorithm for backend selection
-  # e.g. random or maglev
-  # algorithm: "random"
-
   # range is the port range to use for NodePort
   # range: "30000,32767"
-
-  # mode is the mode of NodePort feature
-  # mode: snat
-
-  # acceleration is the option to accelerate NodePort via XDP
-  # acceleration: disabled
 
   # bindProtection is the option to enable or disable prevention of
   # applications binding to service ports

@@ -475,20 +475,22 @@ data:
 {{- if hasKey .Values.nodePort "directRoutingDevice" }}
   direct-routing-device: {{ .Values.nodePort.directRoutingDevice | quote }}
 {{- end }}
-{{- if hasKey .Values.nodePort "mode" }}
-  node-port-mode: {{ .Values.nodePort.mode | quote }}
-{{- end }}
-{{- if hasKey .Values.nodePort "algorithm" }}
-  bpf-lb-algorithm: {{ .Values.nodePort.algorithm | quote }}
-{{- end }}
 {{- if .Values.nodePort.enableHealthCheck }}
   enable-health-check-nodeport: {{ .Values.nodePort.enableHealthCheck | quote}}
 {{- end }}
-{{- if hasKey .Values.nodePort "acceleration" }}
-  node-port-acceleration: {{ .Values.nodePort.acceleration | quote }}
-{{- end }}
   node-port-bind-protection: {{ .Values.nodePort.bindProtection | quote }}
   enable-auto-protect-node-port-range: {{ .Values.nodePort.autoProtectPortRange | quote }}
+{{- end }}
+{{- if hasKey .Values "loadBalancer" }}
+{{- if hasKey .Values.loadBalancer "mode" }}
+  node-port-mode: {{ .Values.loadBalancer.mode | quote }}
+{{- end }}
+{{- if hasKey .Values.loadBalancer "algorithm" }}
+  bpf-lb-algorithm: {{ .Values.loadBalancer.algorithm | quote }}
+{{- end }}
+{{- if hasKey .Values.loadBalancer "acceleration" }}
+  node-port-acceleration: {{ .Values.loadBalancer.acceleration | quote }}
+{{- end }}
 {{- end }}
 {{- if hasKey .Values.maglev "tableSize" }}
   bpf-lb-maglev-table-size: {{ .Values.maglev.tableSize | quote}}

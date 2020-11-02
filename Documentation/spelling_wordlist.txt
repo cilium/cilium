@@ -532,6 +532,7 @@ listenPort
 liveness
 llc
 llvm
+loadBalancer
 loadbalancer
 loadbalancers
 loadbalancing
