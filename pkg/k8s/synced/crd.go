@@ -19,8 +19,6 @@ package synced
 import (
 	"context"
 	"errors"
-	"fmt"
-	"strings"
 	"time"
 
 	"github.com/cilium/cilium/pkg/k8s"
@@ -33,7 +31,6 @@ import (
 	"github.com/cilium/cilium/pkg/lock"
 	"github.com/cilium/cilium/pkg/option"
 
-	"github.com/sirupsen/logrus"
 	apiextclientset "k8s.io/apiextensions-apiserver/pkg/client/clientset/clientset"
 	metav1 "k8s.io/apimachinery/pkg/apis/meta/v1"
 	"k8s.io/apimachinery/pkg/fields"
@@ -297,22 +294,23 @@ func newListWatchFromClient(
 	listFunc := func(options metav1.ListOptions) (runtime.Object, error) {
 		optionsModifier(&options)
 
-		// This lister will retrieve the CRDs as a metav1.Table object if
-		// `specialHeader` is true, otherwise this is a normal request.
+		// This lister will retrieve the CRDs as a
+		// metav1{,v1beta1}.PartialObjectMetadataList object.
 		getter := c.Get()
-		// This is the same way that `kubectl get crds` returns them. In
-		// the metav1.Table object, it contains cells, which are
-		// metav1.PartialObjectMetadata objects containing the minimal
-		// representation of an objects in K8s (in this case a CRD).  Once
-		// the metav1.Table is fetched, it is converted into a
-		// metav1.PartialObjectMetadataList which is what the controller
-		// (informer) expects the object type to be. If we returned the
-		// metav1.Table itself, the controller doesn't know how to handle
-		// that object type because it is not a list type.
-		getter = getter.SetHeader("Accept", tableHeader)
+		// Setting this special header allows us to retrieve the objects the
+		// same way that `kubectl get crds` does, except that kubectl retrieves
+		// them as a collection inside a metav1{,v1beta1}.Table. Either way, we
+		// request the CRDs in a metav1,{v1beta1}.PartialObjectMetadataList
+		// object which contains individual metav1.PartialObjectMetadata
+		// objects, containing the minimal representation of objects in K8s (in
+		// this case a CRD). This matches with what the controller (informer)
+		// expects as it wants a list type.
+		getter = getter.SetHeader("Accept", pomListHeader)
 
+		// Because we can perform a watch operation on a POMs, we retrieve them
+		// and return them directly.
 		if canWatchPOM {
-			t := &slim_metav1.Table{}
+			t := &slim_metav1.PartialObjectMetadataList{}
 			if err := getter.
 				VersionedParams(&options, metav1.ParameterCodec).
 				Do(context.TODO()).
@@ -320,13 +318,16 @@ func newListWatchFromClient(
 				return nil, err
 			}
 
-			return tableToPomList(t), nil
+			return t, nil
 		}
 
-		// If we can't watch on POM then we can translate the received table
-		// into a CRD List since the watcher can only process CRDs, and not POMs.
-
-		t := &slim_metav1beta1.Table{}
+		// Due to being unable to perform a watch operation on POM, we can
+		// still retrieve the objects as POMs in a POM list, but we also must
+		// convert them into individual CRDs in a CRD list. This is because we
+		// can perform a list operation on POMs, but we cannot perform a watch
+		// on them. Therefore, in this path (see canWatchPOM), the controller
+		// and the watcher are expecting the CRD type, hence the conversion.
+		t := &slim_metav1beta1.PartialObjectMetadataList{}
 		if err := getter.
 			VersionedParams(&options, metav1.ParameterCodec).
 			Do(context.TODO()).
@@ -334,7 +335,7 @@ func newListWatchFromClient(
 			return nil, err
 		}
 
-		return tableToCRDList(t), nil
+		return pomListToCRDList(t), nil
 	}
 	watchFunc := func(options metav1.ListOptions) (watch.Interface, error) {
 
@@ -346,7 +347,7 @@ func newListWatchFromClient(
 			// as individual metav1.PartialObjectMetadata because it is
 			// requesting the apiserver to return objects as such via the
 			// "Accept" header.
-			getter = getter.SetHeader("Accept", partialObjHeader)
+			getter = getter.SetHeader("Accept", pomHeader)
 		}
 
 		options.Watch = true
@@ -357,93 +358,40 @@ func newListWatchFromClient(
 	return &cache.ListWatch{ListFunc: listFunc, WatchFunc: watchFunc}
 }
 
-// tableToCRDList converts a metav1.Table's cells into individual
-// metav1.CustomResourceDefinition objects, and returns them all placed in a
-// metav1.CustomResourceDefinitionList. The returned CRDs only contain the Name
-// field set.
-func tableToCRDList(t *slim_metav1beta1.Table) *slim_apiextensions_v1beta1.CustomResourceDefinitionList {
-	list := &slim_apiextensions_v1beta1.CustomResourceDefinitionList{
-		TypeMeta: t.TypeMeta,
-		ListMeta: t.ListMeta,
-		Items:    make([]slim_apiextensions_v1beta1.CustomResourceDefinition, 0, len(t.Rows)),
-	}
-
-	// find column that contains the name field
-	idx := -1
-	for i, cd := range t.ColumnDefinitions {
-		if strings.ToLower(cd.Name) == "name" {
-			idx = i
-		}
-	}
-	if idx == -1 {
-		log.WithFields(logrus.Fields{
-			"column-definitions": t.ColumnDefinitions,
-		}).Error("Unable to find column definition with 'Name' field, skipping")
+// pomListToCRDList converts a POM list to a CRD list. This function only
+// supports the metav1beta1 and apiextensionsv1beta1 versions, respectively,
+// because this function is only used on K8s versions that do not support
+// watching for a POM object.
+func pomListToCRDList(
+	pomList *slim_metav1beta1.PartialObjectMetadataList,
+) *slim_apiextensions_v1beta1.CustomResourceDefinitionList {
+	if pomList == nil {
 		return nil
 	}
 
-	for _, row := range t.Rows {
-		crd := slim_apiextensions_v1beta1.CustomResourceDefinition{
-			ObjectMeta: slim_metav1.ObjectMeta{
-				Name:            fmt.Sprintf("%s", row.Cells[idx]),
-				ResourceVersion: t.ListMeta.GetResourceVersion(),
+	crdList := &slim_apiextensions_v1beta1.CustomResourceDefinitionList{
+		TypeMeta: pomList.TypeMeta,
+		ListMeta: pomList.ListMeta,
+		Items:    make([]slim_apiextensions_v1beta1.CustomResourceDefinition, 0, len(pomList.Items)),
+	}
+
+	for _, p := range pomList.Items {
+		crdList.Items = append(crdList.Items,
+			slim_apiextensions_v1beta1.CustomResourceDefinition{
+				ObjectMeta: slim_metav1.ObjectMeta{ // ObjectMeta in v1 & v1beta1 are identical
+					Name:            p.GetName(),
+					ResourceVersion: pomList.GetResourceVersion(),
+				},
 			},
-		}
-
-		list.Items = append(list.Items, crd)
+		)
 	}
 
-	return list
-}
-
-// tableToPomList converts a metav1.Table's cells into individual
-// metav1.PartialObjectMetadata objects, and returns them all placed in a
-// metav1.PartialObjectMetadataList.
-//
-// Note that K8s apiserver versions below 1.15 only have metav1beta1 version of
-// Table and PartialObjectMetadata. However, because both types marshall the
-// same to the same object because their fields have not changed (only a type
-// version promotion), the code still works. Hence, we do not need different
-// versions of this function to handle the different types. See
-// https://github.com/kubernetes/kubernetes/pull/77136.
-func tableToPomList(t *slim_metav1.Table) *slim_metav1.PartialObjectMetadataList {
-	list := &slim_metav1.PartialObjectMetadataList{
-		TypeMeta: t.TypeMeta,
-		ListMeta: t.ListMeta,
-		Items:    make([]slim_metav1.PartialObjectMetadata, 0, len(t.Rows)),
-	}
-
-	// find column that contains the name field
-	idx := -1
-	for i, cd := range t.ColumnDefinitions {
-		if strings.ToLower(cd.Name) == "name" {
-			idx = i
-		}
-	}
-	if idx == -1 {
-		log.WithFields(logrus.Fields{
-			"column-definitions": t.ColumnDefinitions,
-		}).Error("Unable to find column definition with 'Name' field, skipping")
-		return nil
-	}
-
-	for _, row := range t.Rows {
-		pom := slim_metav1.PartialObjectMetadata{
-			ObjectMeta: slim_metav1.ObjectMeta{
-				Name:            fmt.Sprintf("%s", row.Cells[idx]),
-				ResourceVersion: t.ListMeta.GetResourceVersion(),
-			},
-		}
-
-		list.Items = append(list.Items, pom)
-	}
-
-	return list
+	return crdList
 }
 
 const (
-	tableHeader      = "application/json;as=Table;v=v1;g=meta.k8s.io,application/json;as=Table;v=v1beta1;g=meta.k8s.io,application/json"
-	partialObjHeader = "application/json;as=PartialObjectMetadata;v=v1;g=meta.k8s.io,application/json;as=PartialObjectMetadata;v=v1beta1;g=meta.k8s.io,application/json"
+	pomListHeader = "application/json;as=PartialObjectMetadataList;v=v1;g=meta.k8s.io,application/json;as=PartialObjectMetadataList;v=v1beta1;g=meta.k8s.io,application/json"
+	pomHeader     = "application/json;as=PartialObjectMetadata;v=v1;g=meta.k8s.io,application/json;as=PartialObjectMetadata;v=v1beta1;g=meta.k8s.io,application/json"
 )
 
 // Get instantiates a GET request from the K8s REST client to retrieve CRDs. We
