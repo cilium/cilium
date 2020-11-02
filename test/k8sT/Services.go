@@ -1813,7 +1813,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 						BeforeAll(func() {
 							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-								"nodePort.algorithm": "maglev",
+								"loadBalancer.algorithm": "maglev",
 								// The echo svc has two backends. the closest supported
 								// prime number which is greater than 100 * |backends_count|
 								// is 251.
@@ -1938,9 +1938,9 @@ var _ = Describe("K8sServicesTest", func() {
 
 						BeforeAll(func() {
 							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-								"tunnel":               "disabled",
-								"autoDirectNodeRoutes": "true",
-								"nodePort.algorithm":   "maglev",
+								"tunnel":                 "disabled",
+								"autoDirectNodeRoutes":   "true",
+								"loadBalancer.algorithm": "maglev",
 								// The echo svc has two backends. the closest supported
 								// prime number which is greater than 100 * |backends_count|
 								// is 251.
@@ -1972,7 +1972,7 @@ var _ = Describe("K8sServicesTest", func() {
 							DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
 								"tunnel":               "disabled",
 								"autoDirectNodeRoutes": "true",
-								"nodePort.mode":        "snat",
+								"loadBalancer.mode":    "snat",
 								"devices":              fmt.Sprintf(`'{%s,%s}'`, privateIface, helpers.SecondaryIface),
 							})
 
@@ -2082,7 +2082,7 @@ var _ = Describe("K8sServicesTest", func() {
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with direct routing and DSR", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"nodePort.mode":        "dsr",
+						"loadBalancer.mode":    "dsr",
 						"tunnel":               "disabled",
 						"autoDirectNodeRoutes": "true",
 					})
@@ -2093,44 +2093,44 @@ var _ = Describe("K8sServicesTest", func() {
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and SNAT", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"nodePort.acceleration": "testing-only",
-						"nodePort.mode":         "snat",
-						"tunnel":                "disabled",
-						"autoDirectNodeRoutes":  "true",
-						"devices":               fmt.Sprintf(`'{%s}'`, privateIface),
+						"loadBalancer.acceleration": "testing-only",
+						"loadBalancer.mode":         "snat",
+						"tunnel":                    "disabled",
+						"autoDirectNodeRoutes":      "true",
+						"devices":                   fmt.Sprintf(`'{%s}'`, privateIface),
 					})
 					testNodePortExternal(false, false)
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and Hybrid", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"nodePort.acceleration": "testing-only",
-						"nodePort.mode":         "hybrid",
-						"tunnel":                "disabled",
-						"autoDirectNodeRoutes":  "true",
-						"devices":               fmt.Sprintf(`'{%s}'`, privateIface),
+						"loadBalancer.acceleration": "testing-only",
+						"loadBalancer.mode":         "hybrid",
+						"tunnel":                    "disabled",
+						"autoDirectNodeRoutes":      "true",
+						"devices":                   fmt.Sprintf(`'{%s}'`, privateIface),
 					})
 					testNodePortExternal(true, false)
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with XDP, direct routing and DSR", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"nodePort.acceleration": "testing-only",
-						"nodePort.mode":         "dsr",
-						"tunnel":                "disabled",
-						"autoDirectNodeRoutes":  "true",
-						"devices":               fmt.Sprintf(`'{%s}'`, privateIface),
+						"loadBalancer.acceleration": "testing-only",
+						"loadBalancer.mode":         "dsr",
+						"tunnel":                    "disabled",
+						"autoDirectNodeRoutes":      "true",
+						"devices":                   fmt.Sprintf(`'{%s}'`, privateIface),
 					})
 					testNodePortExternal(true, true)
 				})
 
 				SkipItIf(helpers.DoesNotExistNodeWithoutCilium, "Tests with TC, direct routing and Hybrid", func() {
 					DeployCiliumOptionsAndDNS(kubectl, ciliumFilename, map[string]string{
-						"nodePort.acceleration": "disabled",
-						"nodePort.mode":         "hybrid",
-						"tunnel":                "disabled",
-						"autoDirectNodeRoutes":  "true",
-						"devices":               fmt.Sprintf(`'{}'`), // Revert back to auto-detection after XDP.
+						"loadBalancer.acceleration": "disabled",
+						"loadBalancer.mode":         "hybrid",
+						"tunnel":                    "disabled",
+						"autoDirectNodeRoutes":      "true",
+						"devices":                   fmt.Sprintf(`'{}'`), // Revert back to auto-detection after XDP.
 					})
 					testNodePortExternal(true, false)
 				})
