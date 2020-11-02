@@ -1266,7 +1266,7 @@ spec:
         - mountPath: /var/run/etcd
           name: etcd-data-dir
       - name: "apiserver"
-        image: docker.io/cilium/clustermesh-apiserver:latest
+        image: docker.io/cilium/clustermesh-apiserver:v1.9.0-rc2
         imagePullPolicy: IfNotPresent
         command:
           - /usr/bin/clustermesh-apiserver

@@ -57,9 +57,8 @@ update-versions:
 	$(ECHO_GEN) " -> Updating version to $(VERSION)"
 	@# Update chart versions to point to the current version.
 	$(QUIET)grep -lRZ -e "version:" -e "appVersion:" $(CILIUM_CHARTS)/ | \
-		xargs -0 -l sed -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 $(VERSION)/g'
-	@# Fix up the container image tags
-	$(QUIET)$(shell														\
+		xargs -0 -l sed -i -e 's/'$(CILIUM_CHART_REGEX)'/\1 $(VERSION)/g';						\
+		# Fix up the container image tags										\
 		cilium_version="v$(VERSION)";											\
 		hubble_version=$(HUBBLE_UI_VERSION);										\
 		pull_policy="IfNotPresent";											\
@@ -84,10 +83,9 @@ update-versions:
 		sed -i '/repository.*envoy.*/{!b;n;s/tag.*/tag: '$(HUBBLE_PROXY_VERSION)'/}' $(CILIUM_VALUES)			\
 		# nodeinit.image.tag												\
 		sed -i '/repository.*cilium\/startup-script.*/{!b;n;s/tag.*/tag: '$(NODEINIT_VERSION)'/}' $(CILIUM_VALUES)	\
-		# certgen.image.tag										\
+		# certgen.image.tag												\
 		sed -i '/repository.*certgen.*/{!b;n;s/tag.*/tag: '$(CERTGEN_VERSION)'/}' $(CILIUM_VALUES);			\
-		sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 '$$pull_policy'/' $$chart;						\
-	)
+		sed -i 's/'$(CILIUM_PULLPOLICY_REGEX)'/\1 '$$pull_policy'/' $(CILIUM_VALUES);
 
 lint:
 	$(QUIET)helm lint --with-subcharts --values ./cilium/values.yaml ./cilium
