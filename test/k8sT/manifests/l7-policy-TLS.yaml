@@ -39,7 +39,6 @@ spec:
             secret:
               namespace: "default"
               name: "user-agent"
-              value: "user-agent"
   - toFQDNs:
     - matchPattern: "www.lyft.com"
     toPorts:
@@ -64,4 +63,3 @@ spec:
             secret:
               namespace: "default"
               name: "user-agent"
-              value: "user-agent"
