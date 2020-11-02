@@ -160,11 +160,11 @@ Reference steps for the template
 
 #. Update the ``stable`` tags for ``cilium``, ``cilium-operator``,
    ``cilium-operator-aws``, ``cilium-operator-azure``,
-   ``cilium-operator-generic``, ``cilium-docker-plugin`` and ``hubble-relay``
-   on DockerHub, for the latest version of Cilium. For example, if the latest
-   version is ``1.8``, then for all patch releases on the ``1.8`` line, this
-   step should be performed. Once ``1.9`` is out for example, then this is no
-   longer required for ``1.8``.
+   ``cilium-operator-generic``, ``cilium-docker-plugin``, ``hubble-relay`` and
+   ``clustermesh-apiserver`` on DockerHub, for the latest version of Cilium.
+   For example, if the latest version is ``1.8``, then for all patch releases
+   on the ``1.8`` line, this step should be performed. Once ``1.9`` is out for
+   example, then this is no longer required for ``1.8``.
 
    **Note**, the DockerHub UI will not allow you to modify the ``stable`` tag
    directly. You will need to delete it, and then create a new, updated one.

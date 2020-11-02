@@ -20,6 +20,8 @@ assignees: ''
     - [operator-aws](https://hub.docker.com/repository/docker/cilium/operator-aws/builds/edit)
     - [operator-azure](https://hub.docker.com/repository/docker/cilium/operator-azure/builds/edit)
     - [hubble-relay](https://hub.docker.com/repository/docker/cilium/hubble-relay/builds/edit)
+  - Cilium v1.9 or later:
+    - [clustermesh-apiserver](https://hub.docker.com/repository/docker/cilium/clustermesh-apiserver/builds/edit)
 - [ ] Check that there are no [release blockers] for the targeted release version
 - [ ] Ensure that outstanding [backport PRs] are merged
 - [ ] Consider building new [cilium-runtime images] and bumping the base image
@@ -42,6 +44,11 @@ assignees: ''
   - [cilium](https://hub.docker.com/repository/docker/cilium/cilium/builds)
   - [operator](https://hub.docker.com/repository/docker/cilium/operator/builds)
   - [docker-plugin](https://hub.docker.com/repository/docker/cilium/docker-plugin/builds)
+  - [operator-generic](https://hub.docker.com/repository/docker/cilium/operator-generic/builds)
+  - [operator-aws](https://hub.docker.com/repository/docker/cilium/operator-aws/builds)
+  - [operator-azure](https://hub.docker.com/repository/docker/cilium/operator-azure/builds)
+  - [hubble-relay](https://hub.docker.com/repository/docker/cilium/hubble-relay/builds)
+  - [clustermesh-apiserver](https://hub.docker.com/repository/docker/cilium/clustermesh-apiserver/builds)
 - [ ] Create helm charts artifacts in [Cilium charts] repository using
       [cilium helm release tool] for both the `vX.Y.Z` release and `vX.Y` branch
       & push to repository
