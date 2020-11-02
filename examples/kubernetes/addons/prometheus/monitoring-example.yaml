@@ -11201,7 +11201,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(hubble_drop_total{reason=\"Policy denied (L3)\"}[1m])) by (pod, reason)",
+              "expr": "sum(rate(hubble_drop_total{reason=\"Policy denied\"}[1m])) by (pod, reason)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{reason}}",
@@ -11287,7 +11287,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "sum(rate(hubble_drop_total{reason=\"Policy denied (L3)\"}[1m])) by (pod, protocol)",
+              "expr": "sum(rate(hubble_drop_total{reason=\"Policy denied\"}[1m])) by (pod, protocol)",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{protocol}}",
@@ -11373,7 +11373,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(10, sum(rate(hubble_drop_total{reason=\"Policy denied (L3)\"}[1m])) by (pod, source))",
+              "expr": "topk(10, sum(rate(hubble_drop_total{reason=\"Policy denied\"}[1m])) by (pod, source))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{source}}",
@@ -11459,7 +11459,7 @@ data:
           "steppedLine": false,
           "targets": [
             {
-              "expr": "topk(10, sum(rate(hubble_drop_total{reason=\"Policy denied (L3)\"}[1m])) by (pod, destination))",
+              "expr": "topk(10, sum(rate(hubble_drop_total{reason=\"Policy denied\"}[1m])) by (pod, destination))",
               "format": "time_series",
               "intervalFactor": 1,
               "legendFormat": "{{destination}}",
