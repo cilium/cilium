@@ -118,16 +118,32 @@ The following multi node networking models are supported:
   - In conjunction with cloud network routers
   - If you are already running routing daemons
 
-Load balancing
+Load Balancing
 --------------
 
-Distributed load balancing for traffic between application containers and to
-external services. The loadbalancing is implemented using eBPF using efficient
-hashtables allowing for almost unlimited scale and supports direct server
-return (DSR) if the loadbalancing operation is not performed on the source
-host.
-*Note: load balancing requires connection tracking to be enabled. This is the
-default.*
+Cilium implements distributed load balancing for traffic between application
+containers and to external services and is able to fully replace components
+such as kube-proxy. The load balancing is implemented in eBPF using efficient
+hashtables allowing for almost unlimited scale.
+
+For north-south type load balancing, Cilium's eBPF implementation is optimized
+for maximum performance, can be attached to XDP (eXpress Data Path), and supports
+direct server return (DSR) as well as Maglev consistent hashing if the load
+balancing operation is not performed on the source host.
+
+For east-west type load balancing, Cilium performs efficient service-to-backend
+translation right in the Linux kernel's socket layer (e.g. at TCP connect time)
+such that per-packet NAT operations overhead can be avoided in lower layers.
+
+Bandwidth Management
+--------------------
+
+Cilium implements bandwidth management through efficient EDT-based (Earliest Departure
+Time) rate-limiting with eBPF for container traffic that is egressing a node. This
+allows to significantly reduce transmission tail latencies for applications and to
+avoid locking under multi-queue NICs compared to traditional approaches such as HTB
+(Hierarchy Token Bucket) or TBF (Token Bucket Filter) as used in the bandwidth CNI
+plugin, for example.
 
 Monitoring and Troubleshooting
 ------------------------------
