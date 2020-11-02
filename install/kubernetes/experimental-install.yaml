@@ -1437,7 +1437,7 @@ spec:
       serviceAccountName: hubble-ui
       containers:
         - name: frontend
-          image: "docker.io/cilium/hubble-ui:v0.7.2"
+          image: "docker.io/cilium/hubble-ui:v0.7.3"
           imagePullPolicy: IfNotPresent
           ports:
             - containerPort: 8080
@@ -1445,7 +1445,7 @@ spec:
           resources:
             {}
         - name: backend
-          image: "docker.io/cilium/hubble-ui-backend:v0.7.2"
+          image: "docker.io/cilium/hubble-ui-backend:v0.7.3"
           imagePullPolicy: IfNotPresent
           env:
             - name: EVENTS_SERVER_PORT
